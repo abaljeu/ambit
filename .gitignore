@@ -1,1 +1,3 @@
 dist/*
+php/config.php
+.specstory/*

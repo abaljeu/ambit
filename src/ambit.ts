@@ -2,7 +2,8 @@ import './events.js';
 import { links } from './view.js';
 import * as lm from './elements.js';
 
-const baseUrl = "https://collaborative-systems.org/ambit/doc/";
+// Use local file storage (server rewrites to loadsave.php)
+const baseUrl = "doc/";
 
 const params = new URLSearchParams(window.location.search);
 const filePath: string = params.get("doc") 
