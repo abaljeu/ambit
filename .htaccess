@@ -1,0 +1,17 @@
+RewriteEngine On
+RewriteBase /ambit/
+
+# Preserve doc folder - redirect doc requests to php/doc
+RewriteRule ^doc/(.*)$ php/doc/$1 [L]
+
+# Serve dist folder directly (for JS/CSS assets referenced by PHP files)
+RewriteRule ^dist/(.*)$ dist/$1 [L]
+
+# Don't rewrite if file/directory exists in root (like src folder, etc.)
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Redirect all other requests to php folder
+RewriteRule ^(.*)$ php/$1 [L]
+

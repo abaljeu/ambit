@@ -5,13 +5,21 @@
       "type": "chrome",
       "request": "launch",
       "name": "Debug Ambit",
-      "url": "http://localhost:80/ambit/ambit.php?doc=notes.amb",
-      "webRoot": "${workspaceFolder}/../",
+      "url": "http://localhost/ambit/ambit.php?doc=blue.amb",
+      "webRoot": "${workspaceFolder}/..",
       "sourceMaps": true,
+      "outFiles": [
+        "${workspaceFolder}/dist/**/*.js"
+      ],
+      "sourceMapPathOverrides": {
+        "/ambit/src/*": "${workspaceFolder}/src/*"
+      },
       "resolveSourceMapLocations": [
         "${workspaceFolder}/**",
         "!**/node_modules/**"
-      ]
+      ],
+      "preLaunchTask": "tsc: watch",
+      "trace": true
     }
   ]
 }

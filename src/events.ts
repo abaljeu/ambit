@@ -24,7 +24,7 @@ elements.saveButton.onclick = async () => {
 }; 
 elements.editor.addEventListener('input', vf.links);
 
-elements.editor.addEventListener("keydown", e => vf.editorKeyDown);
+elements.editor.addEventListener("keydown", vf.editorKeyDown);
 
 elements.editor.addEventListener('click', function(event) {
     event.preventDefault();

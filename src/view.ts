@@ -33,7 +33,7 @@ export function links() {
     // Find all matches and generate links
     while ((match = wikilinkRegex.exec(textareaValue)) !== null) {
         const linkText = match[1]; // Get the text inside [[ ]]
-        linksHTML += `<a href="ambit.html?doc=${encodeURIComponent(linkText) + '.amb'}">${linkText}</a><br>`;
+        linksHTML += `<a href="ambit.php?doc=${encodeURIComponent(linkText) + '.amb'}">${linkText}</a><br>`;
     }
 
     // Inject the generated links into the links div
@@ -48,13 +48,12 @@ export function editorKeyDown(e : KeyboardEvent) {
         e.key === "Alt" ||
         e.key === "Meta"
     ) return;
-
     const mods =
         `${e.ctrlKey ? "C" : ""}` +
         `${e.altKey ? "A" : ""}` +
         `${e.shiftKey ? "S" : ""}` +
         `${e.metaKey ? "M" : ""}`;
-    const combo =  mods + " " + e.key;
+    const combo =  mods + e.key;
 
     // // Skip duplicates
     if (combo !== lastCombo) {
@@ -64,6 +63,13 @@ export function editorKeyDown(e : KeyboardEvent) {
 
     if (e.ctrlKey || e.metaKey || e.altKey || e.key.length > 1)
     {
+        elements.messageArea.textContent = combo;
+        switch (combo) {
+            case "F5": return;
+            case "F6": return;
+            case "Tab": break;
+
+        }
         e.preventDefault(); return;
     }
 }

@@ -1,7 +1,9 @@
 <?php
 require_once('../auth.php');
 
-header("Access-Control-Allow-Origin: http://localho.st:5500");
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+
+header("Access-Control-Allow-Origin: $origin");
 header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type"); 
 
@@ -56,7 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $doc) {
         exit;
     } else {
         http_response_code(404);
-        echo "Not found";
+        echo "<new file>";
         flush();
         exit;
     }
