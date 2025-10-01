@@ -2,11 +2,11 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "type": "pwa-chrome",
+      "type": "chrome",
       "request": "launch",
-      "name": "Debug Ambit in Chrome",
-      "url": "http://localho.st:80/ambit.html?doc=notes.txt",
-      "webRoot": "${workspaceFolder}",
+      "name": "Debug Ambit",
+      "url": "http://localhost:80/ambit/ambit.php?doc=notes.amb",
+      "webRoot": "${workspaceFolder}/../",
       "sourceMaps": true,
       "resolveSourceMapLocations": [
         "${workspaceFolder}/**",

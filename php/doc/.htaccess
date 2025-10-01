@@ -1,8 +1,6 @@
-RewriteEngine On
+# RewriteEngine On
 
-# Prevent the rewrite rule from looping on itself
-RewriteCond %{REQUEST_URI} !/loadsave\.php$
-
-# Rewrite any request to a file in this directory to the loadsave.php script,
-# passing the original filename in the 'doc' parameter.
-RewriteRule ^(.*)$ loadsave.php?doc=$1 [L,QSA]
+# Disabled temporarily for testing
+# RewriteCond %{ENV:REDIRECT_STATUS} ^$
+# RewriteCond %{REQUEST_URI} !^/ambit/doc/loadsave\.php
+# RewriteRule ^(.+)$ loadsave.php?doc=$1 [L,QSA]

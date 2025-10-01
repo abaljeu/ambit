@@ -16,7 +16,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if ($password === AUTH_PASSWORD) {
         $_SESSION['authenticated'] = true;
-        $_SESSION['LAST_ACTIVITY'] = time();
         header('Location: index.php');
         exit;
     } else {

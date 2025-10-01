@@ -2,12 +2,17 @@ import './events.js';
 import { links } from './view.js';
 import * as lm from './elements.js';
 
-// Use local file storage (server rewrites to loadsave.php)
-const baseUrl = "doc/";
+// Use local file storage via loadsave.php
+const baseUrl = "doc/loadsave.php?doc=";
 
 const params = new URLSearchParams(window.location.search);
+console.log("URL search:", window.location.search);
+console.log("Params:", params.toString());
+console.log("doc param:", params.get("doc"));
+
 const filePath: string = params.get("doc") 
     ?? (() => {
+        console.error("doc parameter is null, redirecting to error");
         window.location.href = "/error.html";
         throw new Error("Redirecting");
         })();

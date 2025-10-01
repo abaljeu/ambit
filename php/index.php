@@ -6,7 +6,7 @@ $directory = 'doc/';
 
 // Open the directory
 if ($handle = opendir($directory)) {
-    echo '<h1>Available Documents</h1>';
+    echo '<h1>Available Documents in '.$directory.'</h1>';
     echo '<p><a href="logout.php">Logout</a></p>';
     echo '<ul>';
     // Loop through the files in the directory

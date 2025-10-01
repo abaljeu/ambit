@@ -6,15 +6,9 @@ header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type"); 
 
 error_log("loadsave.php received: " . $_SERVER['REQUEST_URI']);
-error_log("loadsave.php params: " . $_GET['doc'] ?? none);
+
 ob_implicit_flush(1);
 header("Content-Type: text/plain");
-
-
-if ($doc === 'loadsave.php') {
-    http_response_code(400);
-    exit("Refusing to overwrite myself");
-}
 
 // Handle preflight OPTIONS request quickly
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -23,6 +17,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 $doc  = $_GET['doc'] ?? '';
+error_log("loadsave.php params: " . $doc);
+
+if ($doc === 'loadsave.php') {
+    http_response_code(400);
+    exit("Refusing to overwrite myself");
+}
 
 if ($doc === '') {
     http_response_code(400);
@@ -49,9 +49,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $doc) {
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && $doc) {
     $safe = basename($doc);
     $path = __DIR__ . "/" . $safe;
-
-    // DEBUG: Print the path and exit
-    die("Checking for file at: " . $path);
 
     if (file_exists($path)) {
         readfile($path);
