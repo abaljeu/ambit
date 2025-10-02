@@ -7,10 +7,21 @@ Ambit is a wiki-like document editor with wikilink support. It consists of:
 
 ### Shell
 - The default shell is Powershell.
-
+ 
 ## Architecture
 
 ### Frontend Structure
+In general, the debugger is always running with tsc:watch active.
+
+Although the code is not completely this way, we want to aim in this direction:
+
+Typescript code should be modular.  Each file defines a module which alone is the export.
+The code should be based on strongly typed objects.
+Objects have public members that anyone can access, but only objects or their module should modify the object.
+Dependency structure should be like:
+The view depends on the model.  Not the other way.
+Get and Post operations should reference the model only, not the view.
+
 - **src/ambit.ts**: Main application logic, handles document loading/saving via fetch API
 - **src/model.ts**: Data models (`Document`, `Line` classes) and global document cache
 - **src/view.ts**: View layer, including wikilink parsing and keyboard shortcuts

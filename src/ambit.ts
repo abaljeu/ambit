@@ -1,7 +1,7 @@
 import './events.js';
-import { links } from './view.js';
+import * as View from './view.js';
 import * as lm from './elements.js';
-import { documents, findDoc, addOrUpdateDoc } from './model.js';
+import { Model } from './model.js';
 
 // Use local file storage via loadsave.php
 const baseUrl = "loadsave.php?doc=";
@@ -22,18 +22,16 @@ document.title = filePath;
 lm.path.textContent = filePath;
 
 
-// save handler (example: POST to same path)
-lm.saveButton.onclick= () => PostDoc(filePath, lm.editor.value);
 
 
 
 function GetDoc(filePath : string) {
     // First check if document exists in global array
-    const cachedDoc = findDoc(filePath);
+    const cachedDoc = Model.findDoc(filePath);
     if (cachedDoc) {
-        lm.editor.value = cachedDoc.content;
-        lm.messageArea.textContent = "Loaded from cache";
-        links();
+        lm.editor.value = cachedDoc.original_text;
+        View.setMessage("Loaded");
+        View.links();
         return;
     }
     
@@ -43,22 +41,22 @@ function GetDoc(filePath : string) {
         .then(result => result.text())
         .then(text => {
             // Store in global documents array
-            addOrUpdateDoc(filePath, text);
+            Model.addOrUpdateDoc(filePath, text);
             // Fill lm objects
             lm.editor.value = text;
-            links();
+            View.links();
         })
         .catch(err => {
-            lm.messageArea.textContent = "Error loading file";
+            View.setMessage("Error loading file");
             console.error(err);
         });
 }
 
-function PostDoc(filePath :string, content : string) {
+export function PostDoc(filePath :string, content : string) {
     // Update global documents array first
-    addOrUpdateDoc(filePath, content);
+    Model.addOrUpdateDoc(filePath, content);
     
-    // Then save to server
+    // Then View.save to server
     let url = baseUrl + filePath;
     fetch(url, {
         method: "POST",
@@ -67,12 +65,12 @@ function PostDoc(filePath :string, content : string) {
         })
     .then(r => r.ok ? r.text() : Promise.reject("Error " + r.status))
     .then(text => {
-        lm.messageArea.textContent = "Done - " + text;  // should show "Saved Doc"
-        console.log("Documents in array:", documents.length);
+        View.setMessage("Saved - " + text);  
+        console.log("Documents in array:", Model.getDocumentCount());
         })
     .catch(err => {
-        lm.messageArea.textContent = err;
+        View.setMessage(err);
         });    
-}
 
+}
 GetDoc(filePath);

@@ -1,8 +1,8 @@
-import * as elements from './elements.js';
-import * as vf from './view.js';
+import * as lm from './elements.js';
+import * as View from './view.js';
 
-elements.saveButton.onclick = async () => {
-    const text = elements.editor.value;   
+lm.saveButton.onclick = async () => {
+    const text = lm.editor.value;   
     const change = {
          changeId: Date.now().toString(),     
          content: text   
@@ -16,16 +16,17 @@ elements.saveButton.onclick = async () => {
 
     if (response.ok) {
         const result = await response.json();
-        vf.setMessage(`${response.status} ${result.message}`);
+        View.setMessage(`${response.status} ${result.message}`);
     } else {
         const error = await response.json();
         alert(error.message); // Show error message
     }
 }; 
-elements.editor.addEventListener('input', vf.links);
+lm.editor.addEventListener('input', View.links);
 
-elements.editor.addEventListener("keydown", vf.editorKeyDown);
+lm.editor.addEventListener("keydown", View.editorKeyDown);
 
-elements.editor.addEventListener('click', function(event) {
+lm.editor.addEventListener('click', function(event) {
     event.preventDefault();
 });
+lm.saveButton.onclick= View.save;

@@ -1,11 +1,12 @@
-import * as elements from './elements.js';
+import { PostDoc } from './ambit.js';
+import * as lm from './elements.js';
 
 // Function to load file content into the textarea
 async function loadFileContent() {
     const response = await fetch(window.location.href);
     if (response.ok) {
         const text = await response.text();
-        elements.editor.value = text;
+        lm.editor.value = text;
     } else {
         console.error('Failed to load file content:', response.status);
     }
@@ -15,15 +16,15 @@ async function loadFileContent() {
 // loadFileContent();
 
 export function setMessage(message : string) {
-    elements.messageArea.innerHTML = message;
+    lm.messageArea.innerHTML = message;
 }
 
 export function links() {
     // Get the value from the textarea
-    const textareaValue = elements.editor.value;
+    const textareaValue = lm.editor.value;
 
     // Clear previous links
-    elements.linksDiv.innerHTML = '';
+    lm.linksDiv.innerHTML = '';
 
     // Regular expression to find wikilinks
     const wikilinkRegex = /\[\[([a-zA-Z0-9 _\.-]+)\]\]/g;
@@ -37,7 +38,7 @@ export function links() {
     }
 
     // Inject the generated links into the links div
-    elements.linksDiv.innerHTML = linksHTML;
+    lm.linksDiv.innerHTML = linksHTML;
 }
 
 let lastCombo="";
@@ -63,13 +64,19 @@ export function editorKeyDown(e : KeyboardEvent) {
 
     if (e.ctrlKey || e.metaKey || e.altKey || e.key.length > 1)
     {
-        elements.messageArea.textContent = combo;
+        lm.messageArea.textContent = combo;
         switch (combo) {
             case "F5": return;
             case "F6": return;
             case "Tab": return;
-
+            case "C-s": 
+                save();
+                e.preventDefault();;
+                return;
         }
-        e.preventDefault(); return;
+        //e.preventDefault(); return;
     }
+}
+export function save() {
+    PostDoc(lm.path.textContent, lm.editor.value);
 }
