@@ -1,26 +1,3 @@
-// Document class - immutable from outside, only Model can modify
-export class Document {
-    constructor(public readonly path: string, public readonly original_text: string) {
-        this._setLines(original_text);
-    }
-
-    private _lines: Line[] = [];
-    
-    // Public getter - read-only access to lines
-    get lines(): readonly Line[] {
-        return this._lines;
-    }
-    
-    public CurrentText(): string {
-        return this._lines.map(line => line.content).join("\n");
-    }
-    
-    // Private method - only used by Model module
-    _setLines(content: string): void {
-        this._lines = content.split("\n").map(line => new Line(line));
-    }
-}
-
 // Line ID generator - private to module
 let nextLineId = 0;
 
@@ -30,56 +7,79 @@ function generateLineId(): string {
     return id.toString(36).padStart(6, '0');
 }
 
-// Immutable line class
-export class Line {
-    public readonly id: string;
-    constructor(public readonly content: string) 
-    {
-        this.id = generateLineId();
-    }
-}
-
 // Private documents array - only accessible through Model
-const documents: Document[] = [];
+const documents: Model.Doc[] = [];
 
 // Model module - single export that encapsulates all document operations
-export const Model = {
+export namespace Model {
+    // Doc class - immutable from outside, only Model can modify
+    export class Doc {
+        constructor(public readonly path: string, public readonly original_text: string) {
+            this._setLines(original_text);
+        }
+
+        private _lines: Line[] = [];
+        
+        // Public getter - read-only access to lines
+        get lines(): readonly Line[] {
+            return this._lines;
+        }
+        
+        public CurrentText(): string {
+            return this._lines.map(line => line.content).join("\n");
+        }
+        
+        // Private method - only used by Model module
+        _setLines(content: string): void {
+            this._lines = content.split("\n").map(line => new Line(line));
+        }
+    }
+
+    // Immutable line class
+    export class Line {
+        public readonly id: string;
+        constructor(public readonly content: string) 
+        {
+            this.id = generateLineId();
+        }
+    }
+
     // Get all documents (read-only access)
-    getAllDocuments(): readonly Document[] {
+    export function getAllDocuments(): readonly Doc[] {
         return documents;
-    },
+    }
     
     // Find a document by path
-    findDoc(path: string): Document | undefined {
+    export function findDoc(path: string): Doc | undefined {
         return documents.find(doc => doc.path === path);
-    },
+    }
     
     // Add or update a document
-    addOrUpdateDoc(path: string, content: string): Document {
-        const existingDoc = this.findDoc(path);
+    export function addOrUpdateDoc(path: string, content: string): Doc {
+        const existingDoc = findDoc(path);
         if (existingDoc) {
             existingDoc._setLines(content);
             return existingDoc;
         } else {
-            const newDoc = new Document(path, content);
+            const newDoc = new Doc(path, content);
             
             documents.push(newDoc);
             return newDoc;
         }
-    },
+    }
     
     // Remove a document
-    removeDoc(path: string): boolean {
+    export function removeDoc(path: string): boolean {
         const index = documents.findIndex(doc => doc.path === path);
         if (index !== -1) {
             documents.splice(index, 1);
             return true;
         }
         return false;
-    },
+    }
     
     // Get document count (useful for debugging)
-    getDocumentCount(): number {
+    export function getDocumentCount(): number {
         return documents.length;
     }
-};
+}

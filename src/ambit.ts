@@ -27,9 +27,9 @@ lm.path.textContent = filePath;
 
 function GetDoc(filePath : string) {
     // First check if document exists in global array
-    const cachedDoc = Model.findDoc(filePath);
+    const cachedDoc : Model.Doc | undefined = Model.findDoc(filePath);
     if (cachedDoc) {
-        lm.editor.value = cachedDoc.original_text;
+        View.setEditorContent(cachedDoc!);
         View.setMessage("Loaded");
         View.links();
         return;
@@ -41,9 +41,9 @@ function GetDoc(filePath : string) {
         .then(result => result.text())
         .then(text => {
             // Store in global documents array
-            Model.addOrUpdateDoc(filePath, text);
+            const doc = Model.addOrUpdateDoc(filePath, text);
             // Fill lm objects
-            lm.editor.value = text;
+            View.setEditorContent(doc);
             View.links();
         })
         .catch(err => {

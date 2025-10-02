@@ -1,19 +1,6 @@
 import { PostDoc } from './ambit.js';
 import * as lm from './elements.js';
-
-// Function to load file content into the textarea
-async function loadFileContent() {
-    const response = await fetch(window.location.href);
-    if (response.ok) {
-        const text = await response.text();
-        lm.editor.value = text;
-    } else {
-        console.error('Failed to load file content:', response.status);
-    }
-}
-
-// Call the function to load content when the page loads
-// loadFileContent();
+import { Model } from './model.js';
 
 export function setMessage(message : string) {
     lm.messageArea.innerHTML = message;
@@ -79,4 +66,8 @@ export function editorKeyDown(e : KeyboardEvent) {
 }
 export function save() {
     PostDoc(lm.path.textContent, lm.editor.value);
+}
+
+export function setEditorContent(content : Model.Doc) {
+    lm.editor.value = content.CurrentText();
 }
