@@ -21,12 +21,21 @@ export class Document {
     }
 }
 
+// Line ID generator - private to module
+let nextLineId = 0;
+
+function generateLineId(): string {
+    const id = nextLineId++;
+    // Convert to base-36 (0-9, a-z) and pad to 6 characters
+    return id.toString(36).padStart(6, '0');
+}
+
 // Immutable line class
 export class Line {
     public readonly id: string;
     constructor(public readonly content: string) 
     {
-        this.id = Date.now().toString();
+        this.id = generateLineId();
     }
 }
 
