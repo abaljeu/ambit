@@ -1,9 +1,10 @@
 import './events.js';
 import { links } from './view.js';
 import * as lm from './elements.js';
+import { documents, findDoc, addOrUpdateDoc } from './model.js';
 
 // Use local file storage via loadsave.php
-const baseUrl = "doc/loadsave.php?doc=";
+const baseUrl = "loadsave.php?doc=";
 
 const params = new URLSearchParams(window.location.search);
 console.log("URL search:", window.location.search);
@@ -27,16 +28,37 @@ lm.saveButton.onclick= () => PostDoc(filePath, lm.editor.value);
 
 
 function GetDoc(filePath : string) {
-      let url = baseUrl + filePath;
-  return fetch(url)
-    .then(result => result.text())
-    .then(text => lm.editor.value = text)
-    .catch(err => {
-        lm.messageArea.textContent = "Error loading file";
-        console.error(err);
-    });
+    // First check if document exists in global array
+    const cachedDoc = findDoc(filePath);
+    if (cachedDoc) {
+        lm.editor.value = cachedDoc.content;
+        lm.messageArea.textContent = "Loaded from cache";
+        links();
+        return;
+    }
+    
+    // If not in cache, fetch from server
+    let url = baseUrl + filePath;
+    fetch(url)
+        .then(result => result.text())
+        .then(text => {
+            // Store in global documents array
+            addOrUpdateDoc(filePath, text);
+            // Fill lm objects
+            lm.editor.value = text;
+            links();
+        })
+        .catch(err => {
+            lm.messageArea.textContent = "Error loading file";
+            console.error(err);
+        });
 }
+
 function PostDoc(filePath :string, content : string) {
+    // Update global documents array first
+    addOrUpdateDoc(filePath, content);
+    
+    // Then save to server
     let url = baseUrl + filePath;
     fetch(url, {
         method: "POST",
@@ -45,12 +67,12 @@ function PostDoc(filePath :string, content : string) {
         })
     .then(r => r.ok ? r.text() : Promise.reject("Error " + r.status))
     .then(text => {
-    lm.messageArea.textContent = "Done - " + text;  // should show "Saved Doc"
+        lm.messageArea.textContent = "Done - " + text;  // should show "Saved Doc"
+        console.log("Documents in array:", documents.length);
         })
     .catch(err => {
         lm.messageArea.textContent = err;
         });    
 }
 
-GetDoc(filePath)
-.then(links);
+GetDoc(filePath);

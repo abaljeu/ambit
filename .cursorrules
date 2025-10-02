@@ -1,0 +1,79 @@
+# Ambit Project Instructions
+
+## Project Overview
+Ambit is a wiki-like document editor with wikilink support. It consists of:
+- TypeScript frontend (compiled to ES6 modules in `/dist`)
+- PHP backend for document storage and authentication
+
+### Shell
+- The default shell is Powershell.
+
+## Architecture
+
+### Frontend Structure
+- **src/ambit.ts**: Main application logic, handles document loading/saving via fetch API
+- **src/model.ts**: Data models (`Document`, `Line` classes) and global document cache
+- **src/view.ts**: View layer, including wikilink parsing and keyboard shortcuts
+- **src/elements.ts**: DOM element references
+- **src/events.ts**: Event handlers setup
+
+### Backend Structure
+- **php/ambit.php**: Main PHP entry point
+- **php/auth.php**: Authentication logic
+- **php/core.php**: Core PHP utilities
+- **php/loadsave.php**: Document load/save API endpoint
+- **php/config.php**: Configuration (not in git, use config.example.php as template)
+
+## Key Features
+1. **Document Management**: Documents cached in memory, fetched from server on first load
+2. **Wikilinks**: Syntax `[[page name]]` creates links to other documents (*.amb files)
+3. **Auto-save**: Save button POSTs document content to loadsave.php
+4. **Keyboard Shortcuts**: Custom shortcuts handled in view.ts (editorKeyDown)
+
+## Development Guidelines
+
+### TypeScript
+- Target: ES6 modules
+- Use strict mode
+- Compile to `/dist` with source maps
+- Import paths must include `.js` extension (for ES6 modules)
+- Source root is `../src/` relative to dist
+
+### Code Style
+- Use TypeScript types explicitly
+- Export classes and functions that need to be shared
+- Keep global state minimal (currently: `documents` array in model.ts)
+- Use functional programming patterns where appropriate
+
+### File Naming
+- Documents use `.amb` extension
+- TypeScript source in `/src`, compiled output in `/dist`
+- PHP files use lowercase with underscores
+
+### API Endpoints
+- **GET** `loadsave.php?doc={filename}` - Load document
+- **POST** `loadsave.php?doc={filename}` - Save document (body: plain text content)
+
+## Build & Deploy
+- Compile TypeScript: `tsc` (uses tsconfig.json)
+- Deploy script: `deploy-xampp.sh` is not used.  Rather, xampp points at the project.
+- Test with local PHP server (XAMPP).  Web root is amble (..).
+
+- URL format: `ambitl/ambit.php?doc={filename}.amb`
+- Check browser console for debug output
+
+## Important Patterns
+
+## Common Tasks
+- **Add new TypeScript module**: Create in `/src`, add to imports, rebuild with `tsc`
+- **Modify wikilink behavior**: Edit `links()` function in view.ts
+- **Add keyboard shortcut**: Add case to switch statement in `editorKeyDown()` in view.ts
+- **Change document storage**: Modify `php/loadsave.php`
+
+
+## Notes
+- Project uses URL parameter `doc` to specify which document to load
+- Documents are plain text files stored on server
+- Client-side caching reduces server requests
+- Wikilinks auto-generate navigation sidebar
+

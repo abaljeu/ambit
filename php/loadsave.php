@@ -1,5 +1,5 @@
 <?php
-require_once('../auth.php');
+require_once('auth.php');
 
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 
@@ -34,7 +34,7 @@ $body = file_get_contents("php://input");
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $doc) {
     $safe = basename($doc);
-    $path = __DIR__ . "/" . $safe;
+    $path = __DIR__ . "/doc/" . $safe;
 
     //echo "Saved Doc\n";
     if (file_put_contents($path, $body) !== false) {
@@ -50,7 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $doc) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && $doc) {
     $safe = basename($doc);
-    $path = __DIR__ . "/" . $safe;
+    $path = __DIR__ . "/doc/" . $safe;
 
     if (file_exists($path)) {
         readfile($path);

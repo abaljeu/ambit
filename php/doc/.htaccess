@@ -2,5 +2,5 @@
 
 # Disabled temporarily for testing
 # RewriteCond %{ENV:REDIRECT_STATUS} ^$
-# RewriteCond %{REQUEST_URI} !^/ambit/doc/loadsave\.php
+# RewriteCond %{REQUEST_URI} !^/ambit/loadsave\.php
 # RewriteRule ^(.+)$ loadsave.php?doc=$1 [L,QSA]

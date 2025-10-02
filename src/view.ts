@@ -49,10 +49,10 @@ export function editorKeyDown(e : KeyboardEvent) {
         e.key === "Meta"
     ) return;
     const mods =
-        `${e.ctrlKey ? "C" : ""}` +
-        `${e.altKey ? "A" : ""}` +
-        `${e.shiftKey ? "S" : ""}` +
-        `${e.metaKey ? "M" : ""}`;
+        `${e.ctrlKey ? "C-" : ""}` +
+        `${e.altKey ? "A-" : ""}` +
+        `${e.shiftKey ? "S-" : ""}` +
+        `${e.metaKey ? "M-" : ""}`;
     const combo =  mods + e.key;
 
     // // Skip duplicates
@@ -67,7 +67,7 @@ export function editorKeyDown(e : KeyboardEvent) {
         switch (combo) {
             case "F5": return;
             case "F6": return;
-            case "Tab": break;
+            case "Tab": return;
 
         }
         e.preventDefault(); return;
