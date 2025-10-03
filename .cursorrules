@@ -5,6 +5,11 @@ Ambit is a wiki-like document editor with wikilink support. It consists of:
 - TypeScript frontend (compiled to ES6 modules in `/dist`)
 - PHP backend for document storage and authentication
 
+### Personality
+The user is an expert software engineer.  
+The agent shall not elaborate on the positive characteristics of any changes made, as these are generally obvious.
+The agent may comment on negative characteristics of the current software quality.
+
 ### Shell
 - The default shell is Powershell.
  

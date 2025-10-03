@@ -82,4 +82,14 @@ export namespace Model {
     export function getDocumentCount(): number {
         return documents.length;
     }
+    
+    // Update the content of a document by path
+    export function updateDocContent(path: string, content: string): boolean {
+        const doc = findDoc(path);
+        if (doc) {
+            doc._setLines(content);
+            return true;
+        }
+        return false;
+    }
 }
