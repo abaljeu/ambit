@@ -58,7 +58,14 @@ export function editorKeyDown(e : KeyboardEvent) {
         switch (combo) {
             case "F5": return;
             case "F6": return;
-            case "Tab": return;
+            case "Tab":
+                handleTab(e);
+                e.preventDefault();
+                return;
+            case "S-Tab":
+                handleShiftTab(e);
+                e.preventDefault();
+                return;
             case "C-s": 
                 save();
                 e.preventDefault();
@@ -73,6 +80,14 @@ export function editorKeyDown(e : KeyboardEvent) {
                 return;
             case "ArrowDown":
                 handleArrowDown(e);
+                e.preventDefault();
+                return;
+            case "C-ArrowUp":
+                handleSwapUp(e);
+                e.preventDefault();
+                return;
+            case "C-ArrowDown":
+                handleSwapDown(e);
                 e.preventDefault();
                 return;
         }
@@ -140,6 +155,114 @@ function handleArrowDown(e: KeyboardEvent) {
     
     setCursorInParagraph(nextP, 0);
 }
+
+function handleSwapUp(e: KeyboardEvent) {
+    const currentP = getCurrentParagraph();
+    if (!currentP) return;
+    
+    const prevP = currentP.previousElementSibling as HTMLElement;
+    if (!prevP) return; // Already at the top
+    
+    // Swap by inserting current before the previous element
+    currentP.parentNode!.insertBefore(currentP, prevP);
+    
+    // Keep focus on the current paragraph
+    currentP.focus();
+}
+
+function handleSwapDown(e: KeyboardEvent) {
+    const currentP = getCurrentParagraph();
+    if (!currentP) return;
+    
+    const nextP = currentP.nextElementSibling as HTMLElement;
+    if (!nextP) return; // Already at the bottom
+    
+    // Swap by inserting next before the current element
+    currentP.parentNode!.insertBefore(nextP, currentP);
+    
+    // Keep focus on the current paragraph
+    currentP.focus();
+}
+
+// Helper: Get absolute cursor position within a paragraph
+function getAbsoluteCursorPosition(paragraph: HTMLElement): number {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return 0;
+    
+    const range = selection.getRangeAt(0);
+    const currentNode = range.startContainer;
+    const offsetInNode = range.startOffset;
+    
+    // If cursor is in the paragraph's text node, use offset directly
+    if (currentNode === paragraph.firstChild || currentNode === paragraph) {
+        return offsetInNode;
+    }
+    
+    // Walk through all text nodes to find absolute position
+    let position = 0;
+    const walker = document.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT);
+    let node: Node | null;
+    while ((node = walker.nextNode())) {
+        if (node === currentNode) {
+            position += offsetInNode;
+            break;
+        }
+        position += node.textContent?.length || 0;
+    }
+    
+    return position;
+}
+
+function handleTab(e: KeyboardEvent) {
+    const currentP = getCurrentParagraph();
+    if (!currentP) return;
+    
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+    
+    
+    // Get absolute cursor position
+    const cursorPos = getAbsoluteCursorPosition(currentP);
+    
+    // Insert tab into text content
+    const text = currentP.textContent || '';
+    const newText = text.substring(0, cursorPos) + '\t' + text.substring(cursorPos);
+    currentP.textContent = newText;
+    
+    // Normalize to merge fragmented text nodes
+    currentP.normalize();
+    
+    // Restore cursor position after the tab
+    setCursorInParagraph(currentP, cursorPos + 1);
+}
+
+function handleShiftTab(e: KeyboardEvent) {
+    const currentP = getCurrentParagraph();
+    if (!currentP) return;
+    
+    // Normalize to merge fragmented text nodes
+    currentP.normalize();
+    
+    // Get absolute cursor position
+    const cursorPos = getAbsoluteCursorPosition(currentP);
+    
+    // Get text content and find tabs to the left of cursor
+    const text = currentP.textContent || '';
+    const textBeforeCursor = text.substring(0, cursorPos);
+    
+    // Find the last tab character to the left of the cursor
+    const lastTabIndex = textBeforeCursor.lastIndexOf('\t');
+    if (lastTabIndex === -1) return; // No tab to remove
+    
+    // Remove the tab character
+    const newText = text.substring(0, lastTabIndex) + text.substring(lastTabIndex + 1);
+    currentP.textContent = newText;
+    
+    // Restore cursor position (adjusted for removed tab)
+    const newCursorPos = cursorPos > lastTabIndex ? cursorPos - 1 : cursorPos;
+    setCursorInParagraph(currentP, newCursorPos);
+}
+
 export function save() {
     PostDoc(lm.path.textContent, getEditorContent());
 }

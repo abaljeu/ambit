@@ -1,9 +1,9 @@
 # Ambit Project Instructions
 
 ## Project Overview
-Ambit is a wiki-like document editor with wikilink support. 
-Description of what the program does is in [[doc/overview]]
-How the source is structured is at [[architecture]]
+Ambit is a wiki-like document editor with wikilink support.
+Description of what the program does is in [[doc/overview]].
+How the source is structured is at [[architecture]].
 
 ### Personality
 The user is an expert software engineer.  
@@ -14,8 +14,6 @@ The agent may comment on negative characteristics of the current software qualit
 - The default shell is Powershell.
  
 ## Development Guidelines
-
-### Code Style
 - Use TypeScript types explicitly
 - Export classes and functions that need to be shared
 - Keep global state minimal (currently: `documents` array in model.ts)
@@ -32,19 +30,20 @@ The agent may comment on negative characteristics of the current software qualit
 ## Build & Deploy
 - Compile TypeScript: `tsc` (uses tsconfig.json)
 - Deploy script: `deploy-xampp.sh` is not used.  Rather, xampp points at the project.
-- Test with local PHP server (XAMPP).  Web root is amble (..).
+- Test with local PHP server (XAMPP).  Web root is `amble` (`..`).
 
-- URL format: `ambitl/ambit.php?doc={filename}.amb`
+- URL format: `ambit/ambit.php?doc={filename}.amb`
 - Check browser console for debug output
 
-## Important Patterns
-
 ## Common Tasks
-- **Add new TypeScript module**: Create in `/src`, add to imports, rebuild with `tsc`
+- TypeScript compiler runs in watch mode (`tsc --watch`)
+- Changes auto-compile to `/dist` with source maps
+- Import paths use `.js` extension (ES6 module requirement)
+
+- **Add new TypeScript module**: Create in `/src`, add to imports
 - **Modify wikilink behavior**: Edit `links()` function in view.ts
 - **Add keyboard shortcut**: Add case to switch statement in `editorKeyDown()` in view.ts
 - **Change document storage**: Modify `php/loadsave.php`
-
 
 ## Notes
 - Project uses URL parameter `doc` to specify which document to load

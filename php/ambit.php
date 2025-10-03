@@ -15,6 +15,7 @@ $content = ''; // Empty initially, JavaScript will populate via GET request
    <head>
       <title><?= $filePath ?></title>
       <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📝</text></svg>">
+      <link rel="stylesheet" href="css/ambit.css">
    </head>
 <body>
 <h1 id="path" style="display: inline-block; margin-right: 10px;"><?= $filePath ?></h1>

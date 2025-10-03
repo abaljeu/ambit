@@ -8,6 +8,7 @@
 ## Design Principles
 
 TypeScript code is modular. Each file defines a namespace/module as its primary export.
+Functions must take clear roles: Either a function is a query and does not modify persistent data or its parameters; or a function is a command and it modifies what is implied by its name.
 
 Code is based on strongly typed objects with clear ownership:
 - Objects have public members for access
@@ -18,11 +19,6 @@ Code is based on strongly typed objects with clear ownership:
 - View depends on Model (never the reverse)
 - Network operations (Get/Post) reference Model only, not View
 - Events flow: User → View → Model → Network
-
-**Development:**
-- TypeScript compiler runs in watch mode (`tsc --watch`)
-- Changes auto-compile to `/dist` with source maps
-- Import paths use `.js` extension (ES6 module requirement)
 
 ## Frontend Modules
 

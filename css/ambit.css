@@ -1,0 +1,5 @@
+#editor, #editor > div {
+    white-space: pre-wrap;
+    tab-size: 2em;
+}
+
