@@ -24,6 +24,12 @@ The agent may comment on negative characteristics of the current software qualit
 - TypeScript source in `/src`, compiled output in `/dist`
 - PHP files use lowercase with underscores
 
+### Naming
+Types shall be PascalCase nouns.
+Functions shall be camelCase and start with a verb.
+Public Objects and accessors shall be camelCase nouns.
+Constants may be UPPER_CASE if they represent values.  If they are complex objects, use camelCase.
+
 ### API Endpoints
 - **GET** `loadsave.php?doc={filename}` - Load document
 - **POST** `loadsave.php?doc={filename}` - Save document (body: plain text content)
@@ -31,9 +37,9 @@ The agent may comment on negative characteristics of the current software qualit
 ## Build & Deploy
 - Compile TypeScript: `tsc` (uses tsconfig.json)
 - Deploy script: `deploy-xampp.sh` is not used.  Rather, xampp points at the project.
-- Test with local PHP server (XAMPP).  Web root is `amble` (`..`).
+- Test with local PHP server (XAMPP).  Web root is `ambit` (`.`).
 
-- URL format: `ambit/ambit.php?doc={filename}.amb`
+- URL format: `ambit.php?doc={filename}.amb`
 - Check browser console for debug output
 
 ## Common Tasks

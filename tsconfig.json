@@ -6,6 +6,7 @@
         "rootDir": "./src",
         "strict": true,
         "sourceMap": true,
+        "inlineSources": true,
         "sourceRoot": "../src/"
     },
     "include": [

@@ -12,12 +12,10 @@ const documents: Model.Doc[] = [];
 
 // Model module - single export that encapsulates all document operations
 export namespace Model {
-    // Doc class - immutable from outside, only Model can modify
     export class Doc {
         constructor(public readonly path: string, public readonly original_text: string) {
             this._setLines(original_text);
         }
-
         private _lines: Line[] = [];
         
         // Public getter - read-only access to lines
@@ -28,6 +26,34 @@ export namespace Model {
         public CurrentText(): string {
             return this._lines.map(line => line.content).join("\n");
         }
+
+        // Start-of-document implicit line
+        public End(): Line { return endLineSingleton; }
+
+        // Never returns null; returns the implicit start line if not found
+        public getLineById(id: string): Line {
+            const found = this._lines.find(l => l.id === id);
+            return found ?? endLineSingleton
+        }
+        findIndexByLineId(id: string): number {
+			let i = this._lines.findIndex(l => l.id === id);
+			if (i === -1) return this._lines.length;
+			return i;
+		}
+
+		insertBefore(lineId: string, content: string): Line {
+			const idx = this.findIndexByLineId(lineId);
+			const newLine = new Line(content);
+			// 0 <= idx <= this._rows.length
+			this._lines.splice(idx, 0, newLine);
+			return newLine;
+		}
+
+        // Replace a line's content preserving its id; returns the new Line object
+        updateLineContent(lineId: string, content: string): void {
+            const line = this.getLineById(lineId);
+            line.updateContent(content);
+        }
         
         // Private method - only used by Model module
         _setLines(content: string): void {
@@ -35,23 +61,42 @@ export namespace Model {
         }
     }
 
-    // Immutable line class
     export class Line {
         public readonly id: string;
-        constructor(public readonly content: string) 
+        constructor(public content: string, idOverride?: string) 
         {
-            this.id = generateLineId();
+            this.id = idOverride ?? generateLineId();
+        }
+        public updateContent(content: string) {
+            this.content = content;
         }
     }
+    const END_LINE_ID: string = '000000';
+    const endLineSingleton = new Line('', END_LINE_ID);
+      
 
-    // Get all documents (read-only access)
     export function getAllDocuments(): readonly Doc[] {
         return documents;
     }
     
-    // Find a document by path
-    export function findDoc(path: string): Doc | undefined {
-        return documents.find(doc => doc.path === path);
+    export function findDoc(path: string): Doc {
+        return documents.find(doc => doc.path === path) ?? createNoDoc();
+    }
+
+    //  Create a transient NoDoc (not stored)
+    export function createNoDoc(): Doc {
+        return new Doc("", "");
+    }
+
+    // Get a document or a transient NoDoc if not found (never returns null)
+    export function getDoc(path: string): Doc {
+        return findDoc(path) ?? createNoDoc();
+    }
+
+    // Never returns null; returns the implicit start line if doc/line not found
+    export function getLine(path: string, id: string): Line {
+        const doc = getDoc(path);
+        return doc.getLineById(id);
     }
     
     // Add or update a document

@@ -1,6 +1,7 @@
 import { PostDoc } from './ambit.js';
 import * as lm from './elements.js';
-import { Model } from './model.js';
+import { Editor } from './editor.js';
+import { Scene } from './scene.js';
 
 
 const LineElement = 'div'; // <div> is the line element
@@ -10,7 +11,7 @@ export function setMessage(message : string) {
 }
 
 export function links() {
-    // Get the content from the editor div
+    // Get the content from the Editor div
     const textareaValue = getEditorContent();
 
     // Clear previous links
@@ -59,8 +60,8 @@ export function editorKeyDown(e : KeyboardEvent) {
             case "F5": return;
             case "F6": return;
             case "Tab":
-                handleTab(e);
-                e.preventDefault();
+                handleTab();
+                // e.preventDefault();
                 return;
             case "S-Tab":
                 handleShiftTab(e);
@@ -95,20 +96,6 @@ export function editorKeyDown(e : KeyboardEvent) {
     }
 }
 
-// Helper: Get the current Line element containing the cursor
-function getCurrentParagraph(): HTMLElement | null {
-    const selection = window.getSelection();
-    if (!selection || selection.rangeCount === 0) return null;
-    
-    let currentP = selection.anchorNode;
-    while (currentP && currentP.nodeName !== LineElement.toUpperCase()) {
-        currentP = currentP.parentNode;
-    }
-    
-    if (!currentP || currentP.parentNode !== lm.editor) return null;
-    return currentP as HTMLElement;
-}
-
 // Helper: Set cursor position in a paragraph
 function setCursorInParagraph(p: HTMLElement, offset: number) {
     p.focus();
@@ -124,63 +111,65 @@ function setCursorInParagraph(p: HTMLElement, offset: number) {
 }
 
 function handleEnter(e: KeyboardEvent) {
-    const currentP = getCurrentParagraph();
-    if (!currentP) return;
-    
-    const newP = document.createElement(LineElement);
-    newP.contentEditable = 'true';
-    newP.textContent = '';
-    
-    currentP.parentNode!.insertBefore(newP, currentP.nextSibling);
-    setCursorInParagraph(newP, 0);
+    // 1) Ask the Editor for the current row
+    const currentRow = Editor.CurrentRow();
+    const nextRow = currentRow.Next;
+
+    // 2) Ask Scene for the matching Row and update it with current Editor content
+    const scene = Scene.getContent();
+    const sceneRow = scene.findByLineId(currentRow.Id);
+    const currentContent = currentRow.el.textContent ?? "";
+    scene.updateLineContent(currentRow.Id, currentContent);
+
+    // 3) Ask Scene to add a Row below (Scene forwards to Model for a new line)
+    const inserted = scene.insertBefore(nextRow.Id, "");
+
+    // 4) Use the new Scene Row to request the Editor add a row below
+    const newRow = Editor.addBefore(nextRow, inserted.line.id, inserted.line.content);
+    newRow.setCaretInRow(0);
 }
 
 function handleArrowUp(e: KeyboardEvent) {
-    const currentP = getCurrentParagraph();
+    const currentP = Editor.CurrentRow();
     if (!currentP) return;
     
-    const prevP = currentP.previousElementSibling as HTMLElement;
-    if (!prevP) return;
+    const prevP = currentP.Previous;
+    if (!prevP.valid()) return;
     
-    const offset = prevP.textContent?.length || 0;
-    setCursorInParagraph(prevP, offset);
+    prevP.moveCaretToThisRow();
 }
 
 function handleArrowDown(e: KeyboardEvent) {
-    const currentP = getCurrentParagraph();
-    if (!currentP) return;
+    const currentP = Editor.CurrentRow();
+    if (!currentP.valid()) return;
     
-    const nextP = currentP.nextElementSibling as HTMLElement;
-    if (!nextP) return;
+    const nextP = currentP.Next;
+    if (!nextP.valid()) return;
     
-    setCursorInParagraph(nextP, 0);
+    nextP.moveCaretToThisRow();
 }
 
 function handleSwapUp(e: KeyboardEvent) {
-    const currentP = getCurrentParagraph();
+    const currentP = Editor.CurrentRow();
     if (!currentP) return;
     
-    const prevP = currentP.previousElementSibling as HTMLElement;
-    if (!prevP) return; // Already at the top
+    const prevP = currentP.Previous;
+    if (!prevP.valid()) return;
     
-    // Swap by inserting current before the previous element
-    currentP.parentNode!.insertBefore(currentP, prevP);
+    Editor.moveBefore(currentP, prevP);
     
-    // Keep focus on the current paragraph
     currentP.focus();
 }
 
 function handleSwapDown(e: KeyboardEvent) {
-    const currentP = getCurrentParagraph();
-    if (!currentP) return;
+    const currentP = Editor.CurrentRow();
+    if (!currentP.valid()) return;
     
-    const nextP = currentP.nextElementSibling as HTMLElement;
-    if (!nextP) return; // Already at the bottom
+    const nextP = currentP.Next;
+    if (!nextP.valid()) return;
     
-    // Swap by inserting next before the current element
-    currentP.parentNode!.insertBefore(nextP, currentP);
+    Editor.moveBefore(nextP, currentP);
     
-    // Keep focus on the current paragraph
     currentP.focus();
 }
 
@@ -213,41 +202,34 @@ function getAbsoluteCursorPosition(paragraph: HTMLElement): number {
     return position;
 }
 
-function handleTab(e: KeyboardEvent) {
-    const currentP = getCurrentParagraph();
-    if (!currentP) return;
+function handleTab() {
+    // const currentP = Editor.CurrentRow();
+    // if (!currentP.valid()) return;
     
-    const selection = window.getSelection();
-    if (!selection || selection.rangeCount === 0) return;
+    // const selection = window.getSelection();
+    // if (!selection || selection.rangeCount === 0) return;
     
+    // const text = currentP.textContent || '';
+    // const newText = text.substring(0, cursorPos) + '\t' + text.substring(cursorPos);
+    // currentP.textContent = newText;
     
-    // Get absolute cursor position
-    const cursorPos = getAbsoluteCursorPosition(currentP);
+    // // Normalize to merge fragmented text nodes
+    // currentP.normalize();
     
-    // Insert tab into text content
-    const text = currentP.textContent || '';
-    const newText = text.substring(0, cursorPos) + '\t' + text.substring(cursorPos);
-    currentP.textContent = newText;
-    
-    // Normalize to merge fragmented text nodes
-    currentP.normalize();
-    
-    // Restore cursor position after the tab
-    setCursorInParagraph(currentP, cursorPos + 1);
+    // // Restore cursor position after the tab
+    // setCursorInParagraph(currentP, cursorPos + 1);
 }
 
 function handleShiftTab(e: KeyboardEvent) {
-    const currentP = getCurrentParagraph();
+    const currentP = Editor.CurrentRow();
     if (!currentP) return;
     
     // Normalize to merge fragmented text nodes
-    currentP.normalize();
+    currentP.el.normalize();
     
-    // Get absolute cursor position
-    const cursorPos = getAbsoluteCursorPosition(currentP);
-    
+    const cursorPos = currentP.offset();
     // Get text content and find tabs to the left of cursor
-    const text = currentP.textContent || '';
+    const text = currentP.el.textContent || '';
     const textBeforeCursor = text.substring(0, cursorPos);
     
     // Find the last tab character to the left of the cursor
@@ -256,39 +238,28 @@ function handleShiftTab(e: KeyboardEvent) {
     
     // Remove the tab character
     const newText = text.substring(0, lastTabIndex) + text.substring(lastTabIndex + 1);
-    currentP.textContent = newText;
+    currentP.el.textContent = newText;
     
     // Restore cursor position (adjusted for removed tab)
     const newCursorPos = cursorPos > lastTabIndex ? cursorPos - 1 : cursorPos;
-    setCursorInParagraph(currentP, newCursorPos);
+    currentP.setCaretInRow(newCursorPos);
 }
 
 export function save() {
     PostDoc(lm.path.textContent, getEditorContent());
 }
 
-export function setEditorContent(doc: Model.Doc) {
-    // Clear the editor
-    lm.editor.innerHTML = '';
+export function setEditorContent(doc: Scene.Content) {
+    // Clear the Editor
+    Editor.clear();
     
-    // Create a Line element for each line
-    for (const line of doc.lines) {
-        const p = document.createElement(LineElement);
-        p.contentEditable = 'true';
-        p.textContent = line.content;
-        p.dataset.lineId = line.id;
-        lm.editor.appendChild(p);
+    // Create a Line element for each line using Editor.Rows
+    let end = Editor.NoRow;
+    for (const line of doc.rows) {
+        const row = Editor.addBefore(end, line.Id, line.Content);
     }
 }
 
 export function getEditorContent(): string {
-    // Extract text from all Line elements
-    const paragraphs = lm.editor.querySelectorAll(LineElement);
-    const lines: string[] = [];
-    
-    paragraphs.forEach(p => {
-        lines.push(p.textContent || '');
-    });
-    
-    return lines.join('\n');
+    return Editor.getContent();
 }
