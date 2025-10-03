@@ -44,6 +44,7 @@ Constants may be UPPER_CASE if they represent values.  If they are complex objec
 
 ## Common Tasks
 - TypeScript compiler runs in watch mode (`tsc --watch`)
+- Therefore you never need to manually run `tsc`.
 - Changes auto-compile to `/dist` with source maps
 - Import paths use `.js` extension (ES6 module requirement)
 

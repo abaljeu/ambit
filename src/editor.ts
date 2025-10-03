@@ -10,16 +10,22 @@ export function createRowElement(): RowElement {
 }
 
 export class Row {
-		constructor(public readonly el: RowElement) {}
+		constructor(public readonly el: RowElement, public readonly offset: number) {}
+		public get content(): string {
+			return this.el.textContent || '';
+		}
+		public setContent(value: string) {
+			this.el.textContent = value;
+		}
 		public get Previous(): Row {
 			const previousSibling = this.el?.previousElementSibling;
 			if (!previousSibling) return NoRow;
-			return new Row(previousSibling as RowElement);
+			return new Row(previousSibling as RowElement, 0);
 		}
 		public get Next(): Row {
 			const nextSibling = this.el?.nextElementSibling;
 			if (!nextSibling) return NoRow;
-			return new Row(nextSibling as RowElement);
+			return new Row(nextSibling as RowElement, 0);
 		}
 		public valid(): boolean {
 			return this.el !== null;
@@ -38,10 +44,6 @@ export class Row {
 		public moveCaretToX(targetX: number): void {
 			const off = this.offsetAtX(targetX );
 			this.setCaretInRow(off);
-		}
-		public offset(): number {
-			// should be more direct; using range.startOffset
-			return this.offsetAtX(caretX());
 		}
 		public offsetAtX(x: number): number {
 			const tn = this.el.firstChild as Text | null;
@@ -69,7 +71,7 @@ export class Row {
 	}
 
 // Sentinel row used to indicate insertion at the start of the container
-export const NoRow: Row = new Row(document.createElement(RowElementTag) as RowElement);
+export const NoRow: Row = new Row(document.createElement(RowElementTag) as RowElement, 0);
 
 // Create a new row and insert it after the given previous row.
 // If previousRow is NoRow, insert at the front of the container.
@@ -84,7 +86,7 @@ export function addBefore(previousRow: Row, id: string, content: string): Row {
 			} else {
 				lm.editor.insertBefore(el, previousRow.el);
 			}
-		return new Row(el);
+		return new Row(el, 0);
 	}
 
 function getCurrentParagraph(): RowElement | null {
@@ -101,6 +103,33 @@ function getCurrentParagraph(): RowElement | null {
 	return currentP as RowElement;
 }
 
+function getCurrentParagraphWithOffset(): { element: RowElement, offset: number } | null {
+		const selection = window.getSelection();
+		if (!selection || selection.rangeCount === 0) return null;
+		
+		const range = selection.getRangeAt(0);
+		let currentP = selection.anchorNode;
+		while (currentP && currentP.nodeName !== RowElementTag.toUpperCase()){
+			currentP = currentP.parentNode;
+		}
+		
+		if (!currentP || currentP.parentNode !== lm.editor) 
+			return null;
+	
+		// Calculate offset within the paragraph
+		const textNode = currentP.firstChild as Text | null;
+		if (!textNode) return { element: currentP as RowElement, offset: 0 };
+		
+		// Create a range from start of paragraph to cursor position
+		const offsetRange = document.createRange();
+		offsetRange.setStart(textNode, 0);
+		offsetRange.setEnd(range.startContainer, range.startOffset);
+		
+		// Count characters in the range
+		const offset = offsetRange.toString().length;
+		return { element: currentP as RowElement, offset };
+}
+
 function setCaretInParagraph(p: RowElement, offset: number) {
 		p.focus();
 		const selection = window.getSelection();
@@ -115,8 +144,8 @@ function setCaretInParagraph(p: RowElement, offset: number) {
 }
 
 export function CurrentRow(): Row {
-	let p = getCurrentParagraph() ;
-	return p ? new Row(p as RowElement) : NoRow;
+	let p = getCurrentParagraphWithOffset();
+	return p ? new Row(p.element, p.offset) : NoRow;
 }
 
 export function moveBefore(toMove: Row, target: Row): void {

@@ -5,6 +5,7 @@ import * as Scene from './scene.js';
 
 
 const LineElement = 'div'; // <div> is the line element
+const VISIBLE_TAB = '→'; // Visible tab character
 
 export function setMessage(message : string) {
     lm.messageArea.innerHTML = message;
@@ -56,15 +57,18 @@ export function editorKeyDown(e : KeyboardEvent) {
     if (e.ctrlKey || e.metaKey || e.altKey || e.key.length > 1)
     {
         lm.messageArea.textContent = combo;
+        const currentRow = Editor.CurrentRow();
+        if (!currentRow.valid()) return;
+
         switch (combo) {
             case "F5": return;
             case "F6": return;
             case "Tab":
-                handleTab();
-                // e.preventDefault();
+                handleTab(currentRow);
+                 e.preventDefault();
                 return;
             case "S-Tab":
-                handleShiftTab(e);
+                handleShiftTab(currentRow);
                 e.preventDefault();
                 return;
             case "C-s": 
@@ -72,23 +76,27 @@ export function editorKeyDown(e : KeyboardEvent) {
                 e.preventDefault();
                 return;
             case "Enter":
-                handleEnter(e);
+                handleEnter(currentRow);
+                e.preventDefault();
+                return;
+            case "Backspace":
+                handleBackspace(currentRow);
                 e.preventDefault();
                 return;
             case "ArrowUp":
-                handleArrowUp(e);
+                handleArrowUp(currentRow);
                 e.preventDefault();
                 return;
             case "ArrowDown":
-                handleArrowDown(e);
+                handleArrowDown(currentRow);
                 e.preventDefault();
                 return;
             case "C-ArrowUp":
-                handleSwapUp(e);
+                handleSwapUp(currentRow);
                 e.preventDefault();
                 return;
             case "C-ArrowDown":
-                handleSwapDown(e);
+                handleSwapDown(currentRow);
                 e.preventDefault();
                 return;
         }
@@ -110,9 +118,8 @@ function setCursorInParagraph(p: HTMLElement, offset: number) {
     selection.addRange(range);
 }
 
-function handleEnter(e: KeyboardEvent) {
-    // 1) Ask the Editor for the current row
-    const currentRow = Editor.CurrentRow();
+function handleEnter(currentRow: Editor.Row) {
+    // 1) Get the next row
     const nextRow = currentRow.Next;
 
     // 2) Ask Scene for the matching Row and update it with current Editor content
@@ -129,120 +136,73 @@ function handleEnter(e: KeyboardEvent) {
     newRow.setCaretInRow(0);
 }
 
-function handleArrowUp(e: KeyboardEvent) {
-    const currentP = Editor.CurrentRow();
-    if (!currentP) return;
+function handleBackspace(currentRow: Editor.Row) {
+    const prevRow = currentRow.Previous;
+    if (!prevRow.valid()) return;
     
-    const prevP = currentP.Previous;
+    const scene = Scene.getContent();
+    scene.updateLineContent(currentRow.Id, "");
+    Editor.moveBefore(currentRow, prevRow);
+}
+
+function handleArrowUp(currentRow: Editor.Row) {
+    const prevP = currentRow.Previous;
     if (!prevP.valid()) return;
     
     prevP.moveCaretToThisRow();
 }
 
-function handleArrowDown(e: KeyboardEvent) {
-    const currentP = Editor.CurrentRow();
-    if (!currentP.valid()) return;
-    
-    const nextP = currentP.Next;
+function handleArrowDown(currentRow: Editor.Row) {
+    const nextP = currentRow.Next;
     if (!nextP.valid()) return;
     
     nextP.moveCaretToThisRow();
 }
 
-function handleSwapUp(e: KeyboardEvent) {
-    const currentP = Editor.CurrentRow();
-    if (!currentP) return;
-    
-    const prevP = currentP.Previous;
+function handleSwapUp(currentRow: Editor.Row) {
+    const prevP = currentRow.Previous;
     if (!prevP.valid()) return;
     
-    Editor.moveBefore(currentP, prevP);
+    Editor.moveBefore(currentRow, prevP);
     
-    currentP.focus();
+    currentRow.focus();
 }
 
-function handleSwapDown(e: KeyboardEvent) {
-    const currentP = Editor.CurrentRow();
-    if (!currentP.valid()) return;
-    
-    const nextP = currentP.Next;
+function handleSwapDown(currentRow: Editor.Row) {
+    const nextP = currentRow.Next;
     if (!nextP.valid()) return;
     
-    Editor.moveBefore(nextP, currentP);
+    Editor.moveBefore(nextP, currentRow);
     
-    currentP.focus();
+    currentRow.focus();
 }
 
-// Helper: Get absolute cursor position within a paragraph
-function getAbsoluteCursorPosition(paragraph: HTMLElement): number {
-    const selection = window.getSelection();
-    if (!selection || selection.rangeCount === 0) return 0;
-    
-    const range = selection.getRangeAt(0);
-    const currentNode = range.startContainer;
-    const offsetInNode = range.startOffset;
-    
-    // If cursor is in the paragraph's text node, use offset directly
-    if (currentNode === paragraph.firstChild || currentNode === paragraph) {
-        return offsetInNode;
-    }
-    
-    // Walk through all text nodes to find absolute position
-    let position = 0;
-    const walker = document.createTreeWalker(paragraph, NodeFilter.SHOW_TEXT);
-    let node: Node | null;
-    while ((node = walker.nextNode())) {
-        if (node === currentNode) {
-            position += offsetInNode;
-            break;
-        }
-        position += node.textContent?.length || 0;
-    }
-    
-    return position;
+function handleTab(currentRow: Editor.Row) {
+    const offset = currentRow.offset;
+    let c = currentRow.content;
+    currentRow.setContent(c.substring(0, offset) + VISIBLE_TAB + c.substring(offset));
 }
 
-function handleTab() {
-    // const currentP = Editor.CurrentRow();
-    // if (!currentP.valid()) return;
-    
-    // const selection = window.getSelection();
-    // if (!selection || selection.rangeCount === 0) return;
-    
-    // const text = currentP.textContent || '';
-    // const newText = text.substring(0, cursorPos) + '\t' + text.substring(cursorPos);
-    // currentP.textContent = newText;
-    
-    // // Normalize to merge fragmented text nodes
-    // currentP.normalize();
-    
-    // // Restore cursor position after the tab
-    // setCursorInParagraph(currentP, cursorPos + 1);
-}
-
-function handleShiftTab(e: KeyboardEvent) {
-    const currentP = Editor.CurrentRow();
-    if (!currentP) return;
-    
+function handleShiftTab(currentRow: Editor.Row) {
     // Normalize to merge fragmented text nodes
-    currentP.el.normalize();
+    currentRow.el.normalize();
     
-    const cursorPos = currentP.offset();
+    const cursorPos = currentRow.offset;
     // Get text content and find tabs to the left of cursor
-    const text = currentP.el.textContent || '';
+    const text = currentRow.el.textContent || '';
     const textBeforeCursor = text.substring(0, cursorPos);
     
-    // Find the last tab character to the left of the cursor
-    const lastTabIndex = textBeforeCursor.lastIndexOf('\t');
+    // Find the last visible tab character to the left of the cursor
+    const lastTabIndex = textBeforeCursor.lastIndexOf(VISIBLE_TAB);
     if (lastTabIndex === -1) return; // No tab to remove
     
     // Remove the tab character
     const newText = text.substring(0, lastTabIndex) + text.substring(lastTabIndex + 1);
-    currentP.el.textContent = newText;
+    currentRow.el.textContent = newText;
     
     // Restore cursor position (adjusted for removed tab)
     const newCursorPos = cursorPos > lastTabIndex ? cursorPos - 1 : cursorPos;
-    currentP.setCaretInRow(newCursorPos);
+    currentRow.setCaretInRow(newCursorPos);
 }
 
 export function save() {
@@ -256,10 +216,13 @@ export function setEditorContent(doc: Scene.Content) {
     // Create a Line element for each line using Editor.Rows
     let end = Editor.NoRow;
     for (const line of doc.rows) {
-        const row = Editor.addBefore(end, line.Id, line.Content);
+        // Convert regular tabs to visible tabs for display
+        const visibleContent = line.Content.replace(/\t/g, VISIBLE_TAB);
+        const row = Editor.addBefore(end, line.Id, visibleContent);
     }
 }
 
 export function getEditorContent(): string {
-    return Editor.getContent();
+    // Convert visible tabs back to regular tabs for saving
+    return Editor.getContent().replace(new RegExp(VISIBLE_TAB, 'g'), '\t');
 }
