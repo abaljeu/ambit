@@ -1,9 +1,9 @@
 # Ambit Project Instructions
 
 ## Project Overview
-Ambit is a wiki-like document editor with wikilink support. It consists of:
-- TypeScript frontend (compiled to ES6 modules in `/dist`)
-- PHP backend for document storage and authentication
+Ambit is a wiki-like document editor with wikilink support. 
+Description of what the program does is in [[doc/overview]]
+How the source is structured is at [[architecture]]
 
 ### Personality
 The user is an expert software engineer.  
@@ -13,47 +13,7 @@ The agent may comment on negative characteristics of the current software qualit
 ### Shell
 - The default shell is Powershell.
  
-## Architecture
-
-### Frontend Structure
-In general, the debugger is always running with tsc:watch active.
-
-Although the code is not completely this way, we want to aim in this direction:
-
-Typescript code should be modular.  Each file defines a module which alone is the export.
-The code should be based on strongly typed objects.
-Objects have public members that anyone can access, but only objects or their module should modify the object.
-Dependency structure should be like:
-The view depends on the model.  Not the other way.
-Get and Post operations should reference the model only, not the view.
-
-- **src/ambit.ts**: Main application logic, handles document loading/saving via fetch API
-- **src/model.ts**: Data models (`Document`, `Line` classes) and global document cache
-- **src/view.ts**: View layer, including wikilink parsing and keyboard shortcuts
-- **src/elements.ts**: DOM element references
-- **src/events.ts**: Event handlers setup
-
-### Backend Structure
-- **php/ambit.php**: Main PHP entry point
-- **php/auth.php**: Authentication logic
-- **php/core.php**: Core PHP utilities
-- **php/loadsave.php**: Document load/save API endpoint
-- **php/config.php**: Configuration (not in git, use config.example.php as template)
-
-## Key Features
-1. **Document Management**: Documents cached in memory, fetched from server on first load
-2. **Wikilinks**: Syntax `[[page name]]` creates links to other documents (*.amb files)
-3. **Auto-save**: Save button POSTs document content to loadsave.php
-4. **Keyboard Shortcuts**: Custom shortcuts handled in view.ts (editorKeyDown)
-
 ## Development Guidelines
-
-### TypeScript
-- Target: ES6 modules
-- Use strict mode
-- Compile to `/dist` with source maps
-- Import paths must include `.js` extension (for ES6 modules)
-- Source root is `../src/` relative to dist
 
 ### Code Style
 - Use TypeScript types explicitly
@@ -62,7 +22,6 @@ Get and Post operations should reference the model only, not the view.
 - Use functional programming patterns where appropriate
 
 ### File Naming
-- Documents use `.amb` extension
 - TypeScript source in `/src`, compiled output in `/dist`
 - PHP files use lowercase with underscores
 
