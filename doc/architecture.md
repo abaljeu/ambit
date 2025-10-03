@@ -6,25 +6,32 @@
 - **URL format**: `ambit.php?doc=filename.amb`
 
 ## Design Principles
+The principles here are aspirational.  The code presently may not adhere to them, but when writing new code, let's try to improve it towards these.
 
 TypeScript code is modular. Each file defines a namespace/module as its primary export.
 Functions must take clear roles: Either a function is a query and does not modify persistent data or its parameters; or a function is a command and it modifies what is implied by its name.
 
+We aim for null-free coding.  How that is achieved can be a matter of discussion.
+
 Code is based on strongly typed objects with clear ownership:
-- Objects have public members for access
+- Objects may have public members for access
 - Only the owning object or module should modify internal state
 - The Model namespace encapsulates all data operations
 
 **Dependency structure:**
-- View depends on Model (never the reverse)
-- Network operations (Get/Post) reference Model only, not View
-- Events flow: User → View → Model → Network
+- Scene depends on Model (never the reverse)
+- Editor depends on the DOM only; it has no knowledge of Model or Scene
+- View orchestrates and depends on Scene and Editor; Model/Network never depend on View
+- Network operations (Get/Post) reference Model only, not View/Scene/Editor
+- Events flow: User → Editor/View → Scene → Model → Network → View/Editor
 
 ## Frontend Modules
 
 - **src/ambit.ts**: Application entry point, document loading/saving via fetch API
 - **src/model.ts**: `Model` namespace containing `Doc` and `Line` classes, document cache
-- **src/view.ts**: View layer with line-based editor, wikilink parsing, keyboard handlers
+- **src/scene.ts**: `Scene` namespace for multi-doc composition (`Scene.Row`, `Scene.Rows`)
+- **src/editor.ts**: `Editor` namespace for DOM wrappers (`Editor.Row`, `Editor.Rows`) under `id='editor'`
+- **src/view.ts**: View orchestration between `Scene` and `Editor`, wikilink parsing, keyboard handlers
 - **src/elements.ts**: DOM element references (editor, save button, etc.)
 - **src/events.ts**: Event listener setup
 
@@ -36,13 +43,20 @@ Code is based on strongly typed objects with clear ownership:
 - `Model.findDoc()`, `Model.addOrUpdateDoc()`: Document cache operations
 - Private `documents` array accessible only through Model functions
 
+**Scene (`scene.ts`):**
+- `Scene.Row`: A view entry that references a `Model.Doc` and a `Model.Line`
+- `Scene.Rows`: The composed list of items (possibly from many docs), selection, visible range, etc.
+
+**Editor (`editor.ts`):**
+- `Editor.Row`: Wraps a single `contentEditable` line element; portrays one `Scene.Row`
+- `Editor.Rows`: Manages the collection of DOM rows and DOM operations under `id='editor'`
+
 **View (`view.ts`):**
-- Editor uses `<div>` elements (configurable via `LineElement` constant)
-- Each line is a separate `contentEditable` div
+- Orchestrates between `Scene` (what to show) and `Editor` (how it is shown in the DOM)
 - Keyboard shortcuts: Enter (new line), Arrow Up/Down (navigate), Ctrl+S (save)
 - Helper functions: `getCurrentParagraph()`, `setCursorInParagraph()`
-- `getEditorContent()`: Extracts content from div elements
-- `setEditorContent()`: Populates editor from `Model.Doc.lines`
+- `getEditorContent()`: Extracts content from editor DOM
+- `setEditorContent()`: Populates editor DOM from `Scene.Rows`/`Model.Doc.lines`
 
 ## Backend Structure
 - **php/ambit.php**: Main PHP entry point

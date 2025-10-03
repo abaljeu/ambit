@@ -14,6 +14,7 @@ The agent may comment on negative characteristics of the current software qualit
 - The default shell is Powershell.
  
 ## Development Guidelines
+- Avoid lines longer than 100 chars.
 - Use TypeScript types explicitly
 - Export classes and functions that need to be shared
 - Keep global state minimal (currently: `documents` array in model.ts)

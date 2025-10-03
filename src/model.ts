@@ -1,5 +1,5 @@
 // Line ID generator - private to module
-let nextLineId = 0;
+let nextLineId = 10;
 
 function generateLineId(): string {
     const id = nextLineId++;

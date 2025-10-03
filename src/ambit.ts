@@ -2,6 +2,7 @@ import './events.js';
 import * as View from './view.js';
 import * as lm from './elements.js';
 import { Model } from './model.js';
+import { Scene } from './scene.js';
 
 // Use local file storage via loadsave.php
 const baseUrl = "loadsave.php?doc=";
@@ -29,6 +30,7 @@ function GetDoc(filePath : string) {
     // First check if document exists in global array
     const cachedDoc : Model.Doc | undefined = Model.findDoc(filePath);
     if (cachedDoc) {
+		Scene.setFromDoc(cachedDoc);
         View.setEditorContent(cachedDoc!);
         View.setMessage("Loaded");
         View.links();
@@ -43,6 +45,7 @@ function GetDoc(filePath : string) {
             // Store in global documents array
             const doc = Model.addOrUpdateDoc(filePath, text);
             // Fill lm objects
+			Scene.setFromDoc(doc);
             View.setEditorContent(doc);
             View.links();
         })
