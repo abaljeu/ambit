@@ -8,15 +8,14 @@
 ## Design Principles
 The principles here are aspirational.  The code presently may not adhere to them, but when writing new code, let's try to improve it towards these.
 
-TypeScript code is modular. Each file defines a namespace/module as its primary export.
+TypeScript code is modular. Each file defines a module as its primary export.
 Functions must take clear roles: Either a function is a query and does not modify persistent data or its parameters; or a function is a command and it modifies what is implied by its name.
 
 We aim for null-free coding.  How that is achieved can be a matter of discussion.
 
 Code is based on strongly typed objects with clear ownership:
-- Objects may have public members for access
+- Objects may have public members for read-access only.
 - Only the owning object or module should modify internal state
-- The Model namespace encapsulates all data operations
 
 **Dependency structure:**
 - Scene depends on Model (never the reverse)
@@ -28,9 +27,9 @@ Code is based on strongly typed objects with clear ownership:
 ## Frontend Modules
 
 - **src/ambit.ts**: Application entry point, document loading/saving via fetch API
-- **src/model.ts**: `Model` namespace containing `Doc` and `Line` classes, document cache
-- **src/scene.ts**: `Scene` namespace for multi-doc composition (`Scene.Row`, `Scene.Rows`)
-- **src/editor.ts**: `Editor` namespace for DOM wrappers (`Editor.Row`, `Editor.Rows`) under `id='editor'`
+- **src/model.ts**: `Doc` and `Line` classes, document cache
+- **src/scene.ts**: multi-doc composition (`Scene.Row`, `Scene.Rows`)
+- **src/editor.ts**: DOM wrappers (`Editor.Row`, `Editor.Rows`) under `id='editor'`
 - **src/view.ts**: View orchestration between `Scene` and `Editor`, wikilink parsing, keyboard handlers
 - **src/elements.ts**: DOM element references (editor, save button, etc.)
 - **src/events.ts**: Event listener setup

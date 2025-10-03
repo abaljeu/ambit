@@ -1,7 +1,7 @@
 import { PostDoc } from './ambit.js';
 import * as lm from './elements.js';
-import { Editor } from './editor.js';
-import { Scene } from './scene.js';
+import * as Editor from './editor.js';
+import * as Scene from './scene.js';
 
 
 const LineElement = 'div'; // <div> is the line element

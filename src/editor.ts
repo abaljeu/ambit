@@ -1,14 +1,15 @@
 import * as lm from './elements.js';
-export namespace Editor {
-	export const RowElementTag: string = 'div';
-	type RowElement = HTMLDivElement;
-	export function createRowElement(): RowElement {
-		const el = document.createElement(RowElementTag) as RowElement;
-		el.contentEditable = 'true';
-		return el;
-	}
 
-	export class Row {
+export const RowElementTag: string = 'div';
+type RowElement = HTMLDivElement;
+
+export function createRowElement(): RowElement {
+	const el = document.createElement(RowElementTag) as RowElement;
+	el.contentEditable = 'true';
+	return el;
+}
+
+export class Row {
 		constructor(public readonly el: RowElement) {}
 		public get Previous(): Row {
 			const previousSibling = this.el?.previousElementSibling;
@@ -67,12 +68,12 @@ export namespace Editor {
 		}
 	}
 
-	// Sentinel row used to indicate insertion at the start of the container
-	export const NoRow: Row = new Row(document.createElement(RowElementTag) as RowElement);
+// Sentinel row used to indicate insertion at the start of the container
+export const NoRow: Row = new Row(document.createElement(RowElementTag) as RowElement);
 
-	// Create a new row and insert it after the given previous row.
-	// If previousRow is NoRow, insert at the front of the container.
-	export function addBefore(previousRow: Row, id: string, content: string): Row {
+// Create a new row and insert it after the given previous row.
+// If previousRow is NoRow, insert at the front of the container.
+export function addBefore(previousRow: Row, id: string, content: string): Row {
 		if (lm.editor === null) return NoRow;
 		const el = createRowElement();
 		el.dataset.lineId = id;
@@ -83,10 +84,10 @@ export namespace Editor {
 			} else {
 				lm.editor.insertBefore(el, previousRow.el);
 			}
-			return new Row(el);
-		}
-	
-	function getCurrentParagraph(): RowElement | null {
+		return new Row(el);
+	}
+
+function getCurrentParagraph(): RowElement | null {
 		const selection = window.getSelection();
 		if (!selection || selection.rangeCount === 0) return null;
 		
@@ -97,10 +98,10 @@ export namespace Editor {
 		
 		if (!currentP || currentP.parentNode !== lm.editor) 
 			return null;
-		return currentP as RowElement;
-	}
+	return currentP as RowElement;
+}
 
-	function setCaretInParagraph(p: RowElement, offset: number) {
+function setCaretInParagraph(p: RowElement, offset: number) {
 		p.focus();
 		const selection = window.getSelection();
 		if (!selection) return;
@@ -110,15 +111,14 @@ export namespace Editor {
 		range.setStart(textNode, offset);
 		range.collapse(true);
 		selection.removeAllRanges();
-		selection.addRange(range);
-	}
+	selection.addRange(range);
+}
 
-	export function CurrentRow(): Row {
-		let p = getCurrentParagraph() ;
-		return p ? new Row(p as RowElement) : NoRow;
-	}
+export function CurrentRow(): Row {
+	let p = getCurrentParagraph() ;
+	return p ? new Row(p as RowElement) : NoRow;
+}
 
-	// In `Editor` namespace
 export function moveBefore(toMove: Row, target: Row): void {
 	if (toMove.el && target.el)
 		toMove.el.parentNode!.insertBefore(toMove.el, target.el);
@@ -138,9 +138,9 @@ export function caretX(): number {
 	return rect.left;
 }
 
-	export function clear(): void {
-		lm.editor.innerHTML = '';
-	}
+export function clear(): void {
+	lm.editor.innerHTML = '';
+}
 
 	export function getContent(): string {
 		// Extract text from all Line elements
@@ -152,7 +152,4 @@ export function caretX(): number {
 		});
 		
 		return lines.join('\n');
-
-	}
-
 }

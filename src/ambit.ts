@@ -1,8 +1,8 @@
 import './events.js';
 import * as View from './view.js';
 import * as lm from './elements.js';
-import { Model } from './model.js';
-import { Scene } from './scene.js';
+import * as Model from './model.js';
+import * as Scene from './scene.js';
 
 // Use local file storage via loadsave.php
 const baseUrl = "loadsave.php?doc=";
