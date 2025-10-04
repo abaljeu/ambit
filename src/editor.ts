@@ -148,7 +148,7 @@ export function CurrentRow(): Row {
 	return p ? new Row(p.element, p.offset) : NoRow;
 }
 
-export function moveBefore(toMove: Row, target: Row): void {
+export function moveRowAbove(toMove: Row, target: Row): void {
 	if (toMove.el && target.el)
 		toMove.el.parentNode!.insertBefore(toMove.el, target.el);
 	else
@@ -181,4 +181,8 @@ export function clear(): void {
 		});
 		
 		return lines.join('\n');
+}
+
+export function deleteRow(row: Row): void {
+	row.el.remove();
 }

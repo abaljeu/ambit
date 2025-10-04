@@ -44,13 +44,18 @@ export class Content {
 		this.findByLineId(id)
 			.updateLineContent(content);
 	}
-	insertBefore(lineId: string, content: string): Row {
-		const idx = this.findIndexByLineId(lineId);
-		const newLine = this._doc.insertBefore(lineId, content);
-		const newRow = new Row(this._doc, newLine);
+	insertBefore(rowId: string, content: string): Row {
+		const targetRow = this.findByLineId(rowId);
+		const newLine = targetRow.doc.insertBefore(rowId, content);
+		const newRow = new Row(targetRow.doc, newLine);
+		const idx = this.findIndexByLineId(rowId);
 		// 0 <= idx <= this._rows.length
 		this._rows.splice(idx, 0, newRow);
 		return newRow;
+	}
+	public deleteRow(row: Row): void {
+		this._rows.splice(this._rows.indexOf(row), 1);
+		this._doc.deleteLine(row.Id);
 	}
 }
 const theContent = new Content();

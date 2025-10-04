@@ -34,6 +34,9 @@ export class Doc {
             const found = this._lines.find(l => l.id === id);
         return found ?? endLineSingleton
     }
+    public deleteLine(id: string): void {
+        this._lines.splice(this._lines.findIndex(l => l.id === id), 1);
+    }
     findIndexByLineId(id: string): number {
         let i = this._lines.findIndex(l => l.id === id);
         if (i === -1) return this._lines.length;

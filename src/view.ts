@@ -91,6 +91,14 @@ export function editorKeyDown(e : KeyboardEvent) {
                 handleArrowDown(currentRow);
                 e.preventDefault();
                 return;
+            case "ArrowLeft":
+                handleArrowLeft(currentRow);
+                e.preventDefault();
+                return;
+            case "ArrowRight":
+                handleArrowRight(currentRow);
+                e.preventDefault();
+                return;
             case "C-ArrowUp":
                 handleSwapUp(currentRow);
                 e.preventDefault();
@@ -122,27 +130,40 @@ function handleEnter(currentRow: Editor.Row) {
     // 1) Get the next row
     const nextRow = currentRow.Next;
 
-    // 2) Ask Scene for the matching Row and update it with current Editor content
-    const scene = Scene.getContent();
-    const sceneRow = scene.findByLineId(currentRow.Id);
-    const currentContent = currentRow.el.textContent ?? "";
-    scene.updateLineContent(currentRow.Id, currentContent);
+    // split the current row at the cursor position
+    const currentContent = currentRow.content;
+    const currentRowNewContent = currentContent.substring(0, currentRow.offset); 
+    const newRowContent = currentContent.substring(currentRow.offset);
+    currentRow.setContent(currentRowNewContent);
 
-    // 3) Ask Scene to add a Row below (Scene forwards to Model for a new line)
-    const inserted = scene.insertBefore(nextRow.Id, "");
+    // 2) Update scene with the new contents
+    const scene : Scene.Content = Scene.getContent();
+    const sceneRow : Scene.Row = scene.findByLineId(currentRow.Id);
+    scene.updateLineContent(currentRow.Id, currentRowNewContent);
+    const newSceneRow : Scene.Row = scene.insertBefore(sceneRow.Id, newRowContent);
+    
+    // 3) Update editor with the new contents
+    const newEditorRow = Editor.addBefore(nextRow, newSceneRow.Id, newSceneRow.Content);
+    newEditorRow.setCaretInRow(0);
 
-    // 4) Use the new Scene Row to request the Editor add a row below
-    const newRow = Editor.addBefore(nextRow, inserted.line.id, inserted.line.content);
-    newRow.setCaretInRow(0);
 }
 
 function handleBackspace(currentRow: Editor.Row) {
-    const prevRow = currentRow.Previous;
-    if (!prevRow.valid()) return;
-    
-    const scene = Scene.getContent();
-    scene.updateLineContent(currentRow.Id, "");
-    Editor.moveBefore(currentRow, prevRow);
+    if (currentRow.offset === 0) {
+        const prevRow = currentRow.Previous;
+        if (!prevRow.valid()) return;
+        // take the content of this row and add it to the previous row
+        prevRow.setContent(prevRow.content + currentRow.content);
+        // delete this row
+        const scene = Scene.getContent();
+        scene.deleteRow(scene.findByLineId(currentRow.Id));
+        prevRow.setCaretInRow(prevRow.content.length);
+        Editor.deleteRow(currentRow);
+        return;
+    }
+    else { // we're not at the beginning of the row so just delete the character
+        currentRow.setContent(currentRow.content.substring(0, currentRow.offset - 1) + currentRow.content.substring(currentRow.offset));
+    }
 }
 
 function handleArrowUp(currentRow: Editor.Row) {
@@ -159,11 +180,37 @@ function handleArrowDown(currentRow: Editor.Row) {
     nextP.moveCaretToThisRow();
 }
 
+function handleArrowLeft(currentRow: Editor.Row) {
+    if (currentRow.offset > 0) {
+        // Move cursor left within current row
+        currentRow.setCaretInRow(currentRow.offset - 1);
+    } else {
+        // Move to end of previous row
+        const prevRow = currentRow.Previous;
+        if (prevRow.valid()) {
+            prevRow.setCaretInRow(prevRow.content.length);
+        }
+    }
+}
+
+function handleArrowRight(currentRow: Editor.Row) {
+    if (currentRow.offset < currentRow.content.length) {
+        // Move cursor right within current row
+        currentRow.setCaretInRow(currentRow.offset + 1);
+    } else {
+        // Move to beginning of next row
+        const nextRow = currentRow.Next;
+        if (nextRow.valid()) {
+            nextRow.setCaretInRow(0);
+        }
+    }
+}
+
 function handleSwapUp(currentRow: Editor.Row) {
     const prevP = currentRow.Previous;
     if (!prevP.valid()) return;
     
-    Editor.moveBefore(currentRow, prevP);
+    Editor.moveRowAbove(currentRow, prevP);
     
     currentRow.focus();
 }
@@ -172,7 +219,7 @@ function handleSwapDown(currentRow: Editor.Row) {
     const nextP = currentRow.Next;
     if (!nextP.valid()) return;
     
-    Editor.moveBefore(nextP, currentRow);
+    Editor.moveRowAbove(nextP, currentRow);
     
     currentRow.focus();
 }
