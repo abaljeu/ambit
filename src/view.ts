@@ -231,25 +231,25 @@ function handleTab(currentRow: Editor.Row) {
 }
 
 function handleShiftTab(currentRow: Editor.Row) {
-    // Normalize to merge fragmented text nodes
-    currentRow.el.normalize();
+    // // Normalize to merge fragmented text nodes
+    // currentRow.el.normalize();
     
-    const cursorPos = currentRow.offset;
-    // Get text content and find tabs to the left of cursor
-    const text = currentRow.el.textContent || '';
-    const textBeforeCursor = text.substring(0, cursorPos);
+    // const cursorPos = currentRow.offset;
+    // // Get text content and find tabs to the left of cursor
+    // const text = currentRow.el.textContent || '';
+    // const textBeforeCursor = text.substring(0, cursorPos);
     
-    // Find the last visible tab character to the left of the cursor
-    const lastTabIndex = textBeforeCursor.lastIndexOf(VISIBLE_TAB);
-    if (lastTabIndex === -1) return; // No tab to remove
+    // // Find the last visible tab character to the left of the cursor
+    // const lastTabIndex = textBeforeCursor.lastIndexOf(VISIBLE_TAB);
+    // if (lastTabIndex === -1) return; // No tab to remove
     
-    // Remove the tab character
-    const newText = text.substring(0, lastTabIndex) + text.substring(lastTabIndex + 1);
-    currentRow.el.textContent = newText;
+    // // Remove the tab character
+    // const newText = text.substring(0, lastTabIndex) + text.substring(lastTabIndex + 1);
+    // currentRow.el.textContent = newText;
     
-    // Restore cursor position (adjusted for removed tab)
-    const newCursorPos = cursorPos > lastTabIndex ? cursorPos - 1 : cursorPos;
-    currentRow.setCaretInRow(newCursorPos);
+    // // Restore cursor position (adjusted for removed tab)
+    // const newCursorPos = cursorPos > lastTabIndex ? cursorPos - 1 : cursorPos;
+    // currentRow.setCaretInRow(newCursorPos);
 }
 
 export function save() {
