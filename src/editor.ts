@@ -1,7 +1,9 @@
 import * as lm from './elements.js';
+import * as Scene from './scene.js';
 
 export const RowElementTag: string = 'div';
 type RowElement = HTMLDivElement;
+const VISIBLE_TAB = '→'; // Visible tab character
 
 export function createRowElement(): RowElement {
 	const el = document.createElement(RowElementTag) as RowElement;
@@ -30,11 +32,15 @@ export class Row {
 		}
 		public get content(): string {
 			const contentSpan = this.getContentSpan();
-			return contentSpan?.textContent || '';
+			return contentSpan
+				?.textContent.replace(new RegExp(VISIBLE_TAB, 'g'), '\t')
+				|| '';
 		}
 		public setContent(value: string) {
 			const contentSpan = this.getContentSpan();
-			if (contentSpan) contentSpan.textContent = value;
+			if (contentSpan) 
+				contentSpan.textContent = 
+					value.replace(new RegExp('\t', 'g'), VISIBLE_TAB);
 		}
 		public setFoldIndicator(indicator: string) {
 			const foldSpan = this.getFoldIndicatorSpan();
@@ -53,7 +59,7 @@ export class Row {
 		public valid(): boolean {
 			return this.el !== null;
 		}
-		public get Id(): string {
+		public get id(): string {
 			return this.el?.dataset.lineId ?? "000000";
 		}
 		public setCaretInRow(offset: number) {
@@ -80,7 +86,7 @@ export class Row {
 		
 			let lastdist = x;
 			let dist = x;
-			for (let i = 1; i < len; i++) {
+			for (let i = 0; i < len; i++) {
 				const r = document.createRange();
 				r.setStart(tn, i);
 				r.collapse(true);
@@ -101,76 +107,90 @@ export class Row {
 // Sentinel row used to indicate insertion at the start of the container
 export const NoRow: Row = new Row(document.createElement(RowElementTag) as RowElement, 0);
 
+// Paragraphs iterator
+export function* paragraphs(): IterableIterator<RowElement> {
+	const paragraphs = lm.editor.querySelectorAll(RowElementTag);
+	for (const paragraph of paragraphs) {
+		yield paragraph as RowElement;
+	}
+}
+// create an iterator that yields rows from the DOM
+export function* rows(): IterableIterator<Row> {
+	for (const paragraph of paragraphs()) {
+		yield new Row(paragraph, 0);
+	}
+}
+
 // Create a new row and insert it after the given previous row.
 // If previousRow is NoRow, insert at the front of the container.
 export function addBefore(previousRow: Row, id: string, content: string): Row {
-		if (lm.editor === null) return NoRow;
-		const el = createRowElement();
-		el.dataset.lineId = id;
-		const contentSpan = el.querySelector('.content') as HTMLSpanElement;
-		if (contentSpan) contentSpan.textContent = content;
-		if (previousRow === NoRow) {
-				// add to front of editor
-				lm.editor.append(el);
-			} else {
-				lm.editor.insertBefore(el, previousRow.el);
-			}
-		return new Row(el, 0);
-	}
+	if (lm.editor === null) return NoRow;
+	const el = createRowElement();
+	el.dataset.lineId = id;
+	let row = new Row(el, 0);
+	row.setContent(content);
+	if (previousRow === NoRow) {
+			// add to front of editor
+			lm.editor.append(el);
+		} else {
+			lm.editor.insertBefore(el, previousRow.el);
+		}
+	return row;
+}
 
 function getCurrentParagraph(): RowElement | null {
-		const selection = window.getSelection();
-		if (!selection || selection.rangeCount === 0) return null;
-		
-		let node = selection.anchorNode;
-		
-		// Navigate up to find the row div
-		while (node && node !== lm.editor) {
-			if (node.nodeName === RowElementTag.toUpperCase() && 
-				node.parentNode === lm.editor) {
-				return node as RowElement;
-			}
-			node = node.parentNode;
+	const selection = window.getSelection();
+	if (!selection || selection.rangeCount === 0) return null;
+	
+	let node = selection.anchorNode;
+	
+	// Navigate up to find the row div
+	while (node && node !== lm.editor) {
+		if (node.nodeName === RowElementTag.toUpperCase() && 
+			node.parentNode === lm.editor) {
+			return node as RowElement;
 		}
-		
-		return null;
+		node = node.parentNode;
+	}
+	
+	return null;
 }
 
 function getCurrentParagraphWithOffset(): { element: RowElement, offset: number } | null {
-		const selection = window.getSelection();
-		if (!selection || selection.rangeCount === 0) return null;
-		
-		const range = selection.getRangeAt(0);
-		let node = selection.anchorNode;
-		
-		// Navigate up to find the row div
-		let currentP: RowElement | null = null;
-		while (node && node !== lm.editor) {
-			if (node.nodeName === RowElementTag.toUpperCase() && 
-				node.parentNode === lm.editor) {
-				currentP = node as RowElement;
-				break;
-			}
-			node = node.parentNode;
-		}
-		
-		if (!currentP) return null;
+	const selection = window.getSelection();
+	if (!selection || selection.rangeCount === 0) return null;
 	
-		// Calculate offset within content span
-		const contentSpan = currentP.querySelector('.content') as HTMLSpanElement;
-		if (!contentSpan) return { element: currentP, offset: 0 };
-		
-		const textNode = contentSpan.firstChild as Text | null;
-		if (!textNode) return { element: currentP, offset: 0 };
-		
-		// Create a range from start of content span to cursor position
-		const offsetRange = document.createRange();
-		offsetRange.setStart(textNode, 0);
-		offsetRange.setEnd(range.startContainer, range.startOffset);
-		
-		// Count characters in the range
-		const offset = offsetRange.toString().length;
-		return { element: currentP, offset };
+	const range = selection.getRangeAt(0);
+	let node = selection.anchorNode;
+	
+	// Navigate up to find the row div
+	let currentP: RowElement | null = null;
+	while (node && node !== lm.editor) {
+		if (node.nodeName === RowElementTag.toUpperCase() && 
+			node.parentNode === lm.editor) {
+			currentP = node as RowElement;
+			break;
+		}
+		node = node.parentNode;
+	}
+	
+	if (!currentP) return null;
+
+	// Calculate offset within content span
+	const contentSpan = currentP.querySelector('.content') as HTMLSpanElement;
+	if (!contentSpan) return { element: currentP, offset: 0 };
+	
+	const textNode = contentSpan.firstChild as Text | null;
+	if (!textNode) return { element: currentP, offset: 0 };
+	
+	// Create a range from start of content span to cursor position
+	const offsetRange = document.createRange();
+	offsetRange.setStart(textNode, 0);
+	offsetRange.setEnd(range.startContainer, range.startOffset);
+	
+	// Count characters in the range
+	const offset = offsetRange.toString().length;
+	return { element: currentP, offset };
 }
 
 function setCaretInParagraph(contentSpan: HTMLElement, offset: number) {
@@ -182,7 +202,7 @@ function setCaretInParagraph(contentSpan: HTMLElement, offset: number) {
 		const textNode = contentSpan.firstChild || contentSpan;
 		range.setStart(textNode, offset);
 		range.collapse(true);
-		selection.removeAllRanges();
+selection.removeAllRanges();
 	selection.addRange(range);
 }
 
@@ -214,36 +234,49 @@ export function clear(): void {
 	lm.editor.innerHTML = '';
 }
 
-	export function getContent(): string {
-		// Extract text from all content spans
-		const paragraphs = lm.editor.querySelectorAll(RowElementTag);
-		const lines: string[] = [];
-		
-		paragraphs.forEach(p => {
-			const contentSpan = p.querySelector('.content');
-			lines.push(contentSpan?.textContent || '');
-		});
-		
-		return lines.join('\n');
+export function getContentLines(): string[] {
+	const lines: string[] = [];
+	for (const row of rows()) {
+		lines.push(row.content);
+	}
+	return lines;
 }
 
+export function getContent(): string {
+	
+	return getContentLines().join('\n');
+}
+
+// Update rows with Scene.RowData array
+export function updateRows(rowDataArray: Scene.RowData[]): void {
+	let idx = 0;
+	for (const row of rows()) {
+		if (idx < rowDataArray.length && row.id === rowDataArray[idx].id) {
+			row.setContent(rowDataArray[idx].content);
+			idx++;
+		}
+	}
+}
 export function deleteRow(row: Row): void {
 	row.el.remove();
 }
 
 export function addAfter(
 	referenceRow: Row, 
-	rows: Array<{id: string, content: string}>
+	rowDataArray: Scene.RowData[]
 ): Row[] {
 	if (lm.editor === null) return [];
 	const addedRows: Row[] = [];
 	let insertAfter = referenceRow.el;
 	
-	for (const rowData of rows) {
+	for (const rowData of rowDataArray) {
 		const el = createRowElement();
 		el.dataset.lineId = rowData.id;
 		const contentSpan = el.querySelector('.content') as HTMLSpanElement;
-		if (contentSpan) contentSpan.textContent = rowData.content;
+		if (contentSpan) {
+			// Convert tabs to visible tabs for display
+			contentSpan.textContent = rowData.content.replace(/\t/g, VISIBLE_TAB);
+		}
 		
 		if (insertAfter.nextSibling) {
 			lm.editor.insertBefore(el, insertAfter.nextSibling);
@@ -264,5 +297,24 @@ export function deleteAfter(referenceRow: Row, count: number): void {
 		const next = current.Next;
 		current.el.remove();
 		current = next;
+	}
+}
+export function docName(): string {
+	return lm.path.textContent ?? '';
+}
+export function setDocName(name: string): void {
+	lm.path.textContent = name;
+}
+export function setContent(scene: readonly Scene.RowData[]): void {    // Clear the Editor
+	clear();
+
+	// Create a Line element for each visible line
+	let end = NoRow;
+	for (const sceneRow of scene) {
+		if (!sceneRow.visible) continue;
+		
+		// Convert regular tabs to visible tabs for display
+		const visibleContent = sceneRow.content.replace(/\t/g, VISIBLE_TAB);
+		const editorRow = addBefore(end, sceneRow.id, visibleContent);
 	}
 }

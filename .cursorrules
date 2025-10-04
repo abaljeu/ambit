@@ -2,7 +2,7 @@
 
 ## Project Overview
 Ambit is a wiki-like document editor with wikilink support.
-Description of what the program does is in [[doc/overview]].
+Description of what the program does is in [[overview]].
 How the source is structured is at [[architecture]].
 
 ### Personality
@@ -12,23 +12,54 @@ The agent may comment on negative characteristics of the current software qualit
 
 ### Shell
 - The default shell is Powershell.
- 
-## Development Guidelines
-- Avoid lines longer than 100 chars.
-- Use TypeScript types explicitly
-- Export classes and functions that need to be shared
-- Keep global state minimal (currently: `documents` array in model.ts)
-- Use functional programming patterns where appropriate
 
-### File Naming
-- TypeScript source in `/src`, compiled output in `/dist`
-- PHP files use lowercase with underscores
+### Style
+- Avoid lines longer than 100 chars, except markdown
 
-### Naming
-Types shall be PascalCase nouns.
+### Markdown
+Al links to within the project ways using [[]] style.  [[architecture]] works for markdown types.  For other files specify the path as in [[src/scene.ts]]
+
+### Typescript
+#### Naming
+TypeScript source in `/src`, compiled output in `/dist`
+Modules and Types shall be PascalCase nouns.
 Functions shall be camelCase and start with a verb.
 Public Objects and accessors shall be camelCase nouns.
 Constants may be UPPER_CASE if they represent values.  If they are complex objects, use camelCase.
+Mutable class variables should be named with `_camelCase` style.
+Excepting local and member variables, names should be globally unique.
+
+#### Robustness Style
+We want to engage in a type-centric object-based (not object-oriented) style that protects model integrity while making information accessible.
+Use TypeScript types explicitly.
+Avoid null.  Use default values or no-objects (eg. NoRow) instead.
+Each module is exclusively responsible to manage the data it creates.
+Public/exported objects should be readonly or constant.
+All other objects should have public getters but not public setters.
+
+Whoever creates an object owns it, whether it's a module or another object.  
+Ownership is never transferred.  
+Only an owner may modify its object.  Other entities may ask the owner to modify the object.  For example, code in Scene may obtain a Model Line object, but it may never call functions of the Line to modify that, because the Line belongs to its creator, Model.Doc.
+Never define `set` operations.
+
+Every function follows one of these three patterns, never mixing.
+1. Modify a collection type object, including modifying its members,
+    and optionally return the affected members.
+2. Modify an class-type object, and optionally return that object.
+3. Act as a pure function that modifies nothing except to construct and return data. (Constructors fit this category.)
+
+These functions may be public or exported.
+
+### PHP
+PHP files must be minimal.  The backend will be ported to many targets which are not always PHP.
+So for example, Javascript and CSS should not be embedded, and the js references should be implicitly to typescript files.
+
+
+### File Naming
+- PHP files use lowercase with underscores, and go in php/.
+- Rewrite rules mean they can be accessed via /name.php.
+- Typescript goes in /src
+- Markdown goes in /doc
 
 ### API Endpoints
 - **GET** `loadsave.php?doc={filename}` - Load document
@@ -36,20 +67,15 @@ Constants may be UPPER_CASE if they represent values.  If they are complex objec
 
 ## Build & Deploy
 - Compile TypeScript: `tsc` (uses tsconfig.json)
-- Deploy script: `deploy-xampp.sh` is not used.  Rather, xampp points at the project.
-- Test with local PHP server (XAMPP).  Web root is `ambit` (`.`).
+- Changes auto-compile to `/dist` with source maps
+- But TypeScript compiler runs in watch mode (`tsc --watch`)
+- Therefore you never need to manually run `tsc`.
 
+- Test with local PHP server (XAMPP).  Web root is workspace root.
 - URL format: `ambit.php?doc={filename}.amb`
 - Check browser console for debug output
 
 ## Common Tasks
-- TypeScript compiler runs in watch mode (`tsc --watch`)
-- Therefore you never need to manually run `tsc`.
-- Changes auto-compile to `/dist` with source maps
-- Import paths use `.js` extension (ES6 module requirement)
-
-- **Add new TypeScript module**: Create in `/src`, add to imports
-- **Modify wikilink behavior**: Edit `links()` function in view.ts
 - **Add keyboard shortcut**: Add case to switch statement in `editorKeyDown()` in view.ts
 - **Change document storage**: Modify `php/loadsave.php`
 

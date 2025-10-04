@@ -27,8 +27,8 @@ function GetDoc(filePath : string) {
     // First check if document exists in global array
     const cachedDoc : Model.Doc = Model.findDoc(filePath);
     if (cachedDoc.path !== "") {
-		Scene.getContent().loadFromDoc(cachedDoc);
-        View.setEditorContent(Scene.getContent()!);
+		Scene.data.loadFromDoc(cachedDoc);
+        View.setEditorContent(Scene.data!);
         View.setMessage("Loaded");
         View.links();
         return;
@@ -42,8 +42,8 @@ function GetDoc(filePath : string) {
             // Store in global documents array
             const doc = Model.addOrUpdateDoc(filePath, text);
             // Fill lm objects
-			Scene.getContent().loadFromDoc(doc);
-            View.setEditorContent(Scene.getContent());
+			Scene.data.loadFromDoc(doc);
+            View.setEditorContent(Scene.data);
             View.links();
         })
         .catch(err => {

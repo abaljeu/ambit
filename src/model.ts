@@ -130,6 +130,10 @@ export function getDocumentCount(): number {
     return documents.length;
 }
 
+export function updateLineContent(line : Line, content: string): void {
+    line.updateContent(content);
+}
+
 // Update the content of a document by path
 export function updateDocContent(path: string, content: string): boolean {
     const doc = findDoc(path);

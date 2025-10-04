@@ -19,7 +19,7 @@ Code is based on strongly typed objects with clear ownership:
 
 **Dependency structure:**
 - Scene depends on Model (never the reverse)
-- Editor depends on the DOM only; it has no knowledge of Model or Scene
+- Editor depends on the DOM only and has temporary access to Scene.RowData
 - View orchestrates and depends on Scene and Editor; Model/Network never depend on View
 - Network operations (Get/Post) reference Model only, not View/Scene/Editor
 - Events flow: User → Editor/View → Scene → Model → Network → View/Editor
@@ -28,7 +28,7 @@ Code is based on strongly typed objects with clear ownership:
 
 - **src/ambit.ts**: Application entry point, document loading/saving via fetch API
 - **src/model.ts**: `Doc` and `Line` classes, document cache
-- **src/scene.ts**: multi-doc composition (`Scene.Row`, `Scene.Rows`)
+- **src/scene.ts**: multi-doc composition (`Scene.RowData`, `Scene.Data`)
 - **src/editor.ts**: DOM wrappers (`Editor.Row`, `Editor.Rows`) under `id='editor'`
 - **src/view.ts**: View orchestration between `Scene` and `Editor`, wikilink parsing, keyboard handlers
 - **src/elements.ts**: DOM element references (editor, save button, etc.)
@@ -43,11 +43,11 @@ Code is based on strongly typed objects with clear ownership:
 - Private `documents` array accessible only through Model functions
 
 **Scene (`scene.ts`):**
-- `Scene.Row`: A view entry that references a `Model.Doc` and a `Model.Line`
-- `Scene.Rows`: The composed list of items (possibly from many docs), selection, visible range, etc.
+- `Scene.RowData`: A view entry that references a `Model.Doc` and a `Model.Line`
+- `Scene.Data`: The composed list of RowData (possibly from many docs), selection, visible range, etc.
 
 **Editor (`editor.ts`):**
-- `Editor.Row`: Wraps a single `contentEditable` line element; portrays one `Scene.Row`
+- `Editor.Row`: Wraps a single `contentEditable` line element; portrays one `Scene.RowData`
 - `Editor.Rows`: Manages the collection of DOM rows and DOM operations under `id='editor'`
 
 **View (`view.ts`):**
