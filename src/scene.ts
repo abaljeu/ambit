@@ -81,6 +81,16 @@ export class Data {
 		}
 		return rowAndChildren;
 	}
+	public deindentRowAndChildren(row : RowData): RowData[] {
+		if (row.getIndentLevel() === 0) return [];
+		
+		const rowAndChildren = [row, ...this.descendents(row)];
+		for (const row of rowAndChildren) {
+			const newContent = row.content.substring(1);
+			Model.updateLineContent(row.refLine, newContent);
+		}
+		return rowAndChildren;
+	}
 	public descendents(row : RowData): RowData[] {
 		const baseIndent = row.getIndentLevel();
 		const idx = this.findIndexByLineId(row.id);
