@@ -1,7 +1,7 @@
 import * as lm from './elements.js';
 import * as View from './view.js';
 
-lm.editor.addEventListener('input', View.links);
+lm.editor.addEventListener('input', View.editorInput);
 
 lm.editor.addEventListener("keydown", View.editorKeyDown);
 

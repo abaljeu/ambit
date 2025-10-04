@@ -3,8 +3,26 @@
     tab-size: 2em;
 }
 
-#editor > div:focus {
+#editor > div .fold-indicator {
+    display: inline-block;
+    width: 1.2em;
+    text-align: center;
+    user-select: none;
+    font-family: monospace;
+    cursor: pointer;
+    color: #666;
+}
+
+#editor > div .content {
+    white-space: pre-wrap;
+    outline: none;
+}
+
+#editor > div .content:focus {
     outline: none !important;
+}
+
+#editor > div:has(.content:focus) {
     border: 1px dotted #666 !important;
     border-radius: 2px;
 }

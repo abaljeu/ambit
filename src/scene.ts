@@ -1,6 +1,9 @@
 import * as Model from './model.js';
 
 export class Row {
+	public fold: boolean = false;
+	public visible: boolean = true;
+
 	constructor(
 		public readonly doc: Model.Doc,
 		public readonly line: Model.Line	)		{}
@@ -12,6 +15,14 @@ export class Row {
 		}
 	public updateLineContent(content: string) {
 		this.line.updateContent(content);
+	}
+	public getIndentLevel(): number {
+		let count = 0;
+		for (const char of this.line.content) {
+			if (char === '\t') count++;
+			else break;
+		}
+		return count;
 	}
 }
 export class Content {
@@ -56,6 +67,38 @@ export class Content {
 	public deleteRow(row: Row): void {
 		this._rows.splice(this._rows.indexOf(row), 1);
 		this._doc.deleteLine(row.Id);
+	}
+	public toggleFold(rowId: string): Row[] {
+		const row = this.findByLineId(rowId);
+		const idx = this.findIndexByLineId(rowId);
+		
+		// Check if this row has any more-indented children
+		const baseIndent = row.getIndentLevel();
+		const affectedRows: Row[] = [];
+		
+		// Find all rows that should be affected
+		for (let i = idx + 1; i < this._rows.length; i++) {
+			const currentRow = this._rows[i];
+			const currentIndent = currentRow.getIndentLevel();
+			
+			// Stop when we hit a row at same or less indentation
+			if (currentIndent <= baseIndent) break;
+			
+			affectedRows.push(currentRow);
+		}
+		
+		// If no children, do nothing
+		if (affectedRows.length === 0) return [];
+		
+		// Toggle fold state
+		row.fold = !row.fold;
+		
+		// Update visibility of affected rows
+		for (const affectedRow of affectedRows) {
+			affectedRow.visible = !row.fold;
+		}
+		
+		return affectedRows;
 	}
 }
 const theContent = new Content();
