@@ -76,8 +76,8 @@ So for example, Javascript and CSS should not be embedded, and the js references
 - Check browser console for debug output
 
 ## Common Tasks
-- **Add keyboard shortcut**: Add case to switch statement in `editorKeyDown()` in view.ts
-- **Change document storage**: Modify `php/loadsave.php`
+- **Add keyboard shortcut**: Add case to switch statement in `editorKeyDown()` in [[src/controller.ts]]
+- **Change document storage**: Modify [[php/loadsave.php]]
 
 ## Notes
 - Project uses URL parameter `doc` to specify which document to load

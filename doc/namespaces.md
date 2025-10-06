@@ -1,4 +1,4 @@
-# DOM interactions in src/view.ts (grouped by operation)
+# DOM interactions in [[src/controller.ts]] (grouped by operation)
 
 - **Create elements**
   - document.createElement(LineElement): handleEnter, setEditorContent

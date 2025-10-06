@@ -20,9 +20,9 @@ Code is based on strongly typed objects with clear ownership:
 **Dependency structure:**
 - Scene depends on Model (never the reverse)
 - Editor depends on the DOM only and has temporary access to Scene.RowData
-- View orchestrates and depends on Scene and Editor; Model/Network never depend on View
-- Network operations (Get/Post) reference Model only, not View/Scene/Editor
-- Events flow: User → Editor/View → Scene → Model → Network → View/Editor
+- Controller orchestrates and depends on Scene and Editor; Model/Network never depend on Controller
+- Network operations (Get/Post) reference Model only, not Controller/Scene/Editor
+- Events flow: User → Editor/Controller → Scene → Model → Network → Controller/Editor
 
 ## Frontend Modules
 
@@ -30,7 +30,7 @@ Code is based on strongly typed objects with clear ownership:
 - **src/model.ts**: `Doc` and `Line` classes, document cache
 - **src/scene.ts**: multi-doc composition (`Scene.RowData`, `Scene.Data`)
 - **src/editor.ts**: DOM wrappers (`Editor.Row`, `Editor.Rows`) under `id='editor'`
-- **src/view.ts**: View orchestration between `Scene` and `Editor`, wikilink parsing, keyboard handlers
+- **src/controller.ts**: Controller orchestration between `Scene` and `Editor`, wikilink parsing, keyboard handlers
 - **src/elements.ts**: DOM element references (editor, save button, etc.)
 - **src/events.ts**: Event listener setup
 
@@ -42,15 +42,17 @@ Code is based on strongly typed objects with clear ownership:
 - `Model.findDoc()`, `Model.addOrUpdateDoc()`: Document cache operations
 - Private `documents` array accessible only through Model functions
 
-**Scene (`scene.ts`):**
-- `Scene.RowData`: A view entry that references a `Model.Doc` and a `Model.Line`
-- `Scene.Data`: The composed list of RowData (possibly from many docs), selection, visible range, etc.
-
 **Editor (`editor.ts`):**
+- The view class; its state is the DOM.
 - `Editor.Row`: Wraps a single `contentEditable` line element; portrays one `Scene.RowData`
 - `Editor.Rows`: Manages the collection of DOM rows and DOM operations under `id='editor'`
 
-**View (`view.ts`):**
+**Scene (`scene.ts`):**
+- The view model class.
+- `Scene.Data`: Takes select info to/from the Model, and transforms it to what the editor will display.
+- `Scene.RowData`: Represents one row of the editor, interpreting one line of the model `Model.Doc` and a `Model.Line`.
+
+**Controller (`controller.ts`):**
 - Orchestrates between `Scene` (what to show) and `Editor` (how it is shown in the DOM)
 - Keyboard shortcuts: Enter (new line), Arrow Up/Down (navigate), Ctrl+S (save)
 - Helper functions: `getCurrentParagraph()`, `setCursorInParagraph()`
