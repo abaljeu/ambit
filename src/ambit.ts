@@ -1,5 +1,5 @@
 import './events.js';
-import * as View from './view.js';
+import * as View from './controller.js';
 import * as lm from './elements.js';
 import * as Model from './model.js';
 import * as Scene from './scene.js';

@@ -1,5 +1,5 @@
 import * as lm from './elements.js';
-import * as View from './view.js';
+import * as View from './controller.js';
 
 lm.editor.addEventListener('input', View.editorInput);
 
