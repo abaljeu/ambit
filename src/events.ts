@@ -1,11 +1,11 @@
 import * as lm from './elements.js';
-import * as View from './controller.js';
+import * as Controller from './controller.js';
 
-lm.editor.addEventListener('input', View.editorInput);
+lm.editor.addEventListener('input', Controller.editorInput);
 
-lm.editor.addEventListener("keydown", View.editorKeyDown);
+lm.editor.addEventListener("keydown", Controller.editorKeyDown);
 
 lm.editor.addEventListener('click', function(event) {
     event.preventDefault();
 });
-lm.saveButton.onclick= View.save;
+lm.saveButton.onclick= Controller.save;

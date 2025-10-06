@@ -1,5 +1,5 @@
 import './events.js';
-import * as View from './controller.js';
+import * as Controller from './controller.js';
 import * as lm from './elements.js';
 import * as Model from './model.js';
 import * as Scene from './scene.js';
@@ -28,9 +28,9 @@ function GetDoc(filePath : string) {
     const cachedDoc : Model.Doc = Model.findDoc(filePath);
     if (cachedDoc.path !== "") {
 		Scene.data.loadFromDoc(cachedDoc);
-        View.setEditorContent(Scene.data!);
-        View.setMessage("Loaded");
-        View.links();
+        Controller.setEditorContent(Scene.data!);
+        Controller.setMessage("Loaded");
+        Controller.links();
         return;
     }
     
@@ -43,11 +43,11 @@ function GetDoc(filePath : string) {
             const doc = Model.addOrUpdateDoc(filePath, text);
             // Fill lm objects
 			Scene.data.loadFromDoc(doc);
-            View.setEditorContent(Scene.data);
-            View.links();
+            Controller.setEditorContent(Scene.data);
+            Controller.links();
         })
         .catch(err => {
-            View.setMessage("Error loading file");
+            Controller.setMessage("Error loading file");
             console.error(err);
         });
 }
@@ -56,7 +56,7 @@ export function PostDoc(filePath :string, content : string) {
     // Update global documents array first
     Model.addOrUpdateDoc(filePath, content);
     
-    // Then View.save to server
+    // Then Controller.save to server
     let url = baseUrl + filePath;
     fetch(url, {
         method: "POST",
@@ -65,11 +65,11 @@ export function PostDoc(filePath :string, content : string) {
         })
     .then(r => r.ok ? r.text() : Promise.reject("Error " + r.status))
     .then(text => {
-        View.setMessage("Saved - " + text);  
+        Controller.setMessage("Saved - " + text);  
         console.log("Documents in array:", Model.getDocumentCount());
         })
     .catch(err => {
-        View.setMessage(err);
+        Controller.setMessage(err);
         });    
 
 }

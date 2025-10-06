@@ -49,7 +49,7 @@ Similar to tab handling, need conversion functions:
 - `getIndentLevel()` must skip markdown when counting tabs
 - Or ensure markdown never appears before leading tabs
 
-### View Changes Required
+### Controller Changes Required
 
 #### Keyboard Handlers
 - Add cases for `C-b`, `C-i` (and others)
