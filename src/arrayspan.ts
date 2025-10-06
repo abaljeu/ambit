@@ -1,4 +1,7 @@
+// ArraySpan is a view into an array.
 export class ArraySpan<T> implements Iterable<T> {
+  public static readonly NoSpan: ArraySpan<any> = new ArraySpan<any>([], 0, 0);
+
   private readonly _array: ReadonlyArray<T>;
   private readonly _begin: number;
   private readonly _end: number;
@@ -21,15 +24,15 @@ export class ArraySpan<T> implements Iterable<T> {
 
   isEmpty(): boolean { return this.length === 0; }
 
-  getAt(index: number): T {
+  at(index: number): T {
     const absoluteIndex = this._begin + index;
     if (index < 0 || absoluteIndex >= this._end) {
       throw new RangeError("ArraySpan.getAt index out of range");
     }
     return this._array[absoluteIndex] as T;
   }
-
-  tryGetAt(index: number, fallback: T): T {
+  
+  tryAt(index: number, fallback: T): T {
     const absoluteIndex = this._begin + index;
     if (index < 0 || absoluteIndex >= this._end) {
       return fallback;
@@ -94,5 +97,4 @@ export class ArraySpan<T> implements Iterable<T> {
     }
   }
 }
-
 

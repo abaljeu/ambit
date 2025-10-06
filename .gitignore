@@ -1,3 +1,8 @@
 dist/*
 php/config.php
 .specstory/*
+
+# Node.js files
+node_modules/
+package.json
+package-lock.json

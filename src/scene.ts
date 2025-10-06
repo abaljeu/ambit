@@ -1,5 +1,6 @@
 import * as Model from './model.js';
-
+import {  ArraySpan } from './arrayspan.js';
+import * as HtmlUtil from './htmlutil.js';
 export class RowData {
 	public folded: boolean = false;
 	public visible: boolean = true;
@@ -52,6 +53,23 @@ export class Data {
 		let row : RowData = this.findByLineId(id);
 		Model.updateLineContent(row.refLine, content);
 	}
+	splitRow(rowId: string, offset: number): ArraySpan<RowData> {
+		const currentRowIndex = this.findIndexByLineId(rowId);
+		const currentRow = this._rows[currentRowIndex];
+		const nextRow = this.nextRow(currentRow);
+
+		const currentRowNewContent = currentRow.content.substring(0, offset);
+		const newRowContent = currentRow.content.substring(offset);
+
+		const fixedCurrentRowNewContent = HtmlUtil.fixTags(currentRowNewContent);
+		const fixedNewRowContent = HtmlUtil.fixTags(newRowContent);
+
+		
+		// 2) Update scene with the new contents (convert visible tabs to real tabs)
+		this.updateRowData(currentRow.id, fixedCurrentRowNewContent);
+		const newSceneRow : RowData = this.insertBefore(nextRow.id, fixedNewRowContent);
+		return new ArraySpan<RowData>(this._rows, currentRowIndex, currentRowIndex + 2);
+	}
 	insertBefore(rowId: string, content: string): RowData {
 		const targetRow = this.findByLineId(rowId);
 		const newLine = targetRow.refDoc.insertBefore(rowId, content);
@@ -73,37 +91,36 @@ export class Data {
 	public hasChildren(row : RowData): boolean {
 		return this.nextRow(row).getIndentLevel() > row.getIndentLevel();
 	}
-	public indentRowAndChildren(row : RowData): RowData[] {
-		const rowAndChildren = [row, ...this.descendents(row)];
+	public indentRowAndChildren(row : RowData): ArraySpan<RowData> {
+		const rowAndChildren = this.descendents(row).createSubspan(-1); // grow left
 		for (const row of rowAndChildren) {
 			const newContent = '\t' + row.content;
 			Model.updateLineContent(row.refLine, newContent);
 		}
 		return rowAndChildren;
 	}
-	public deindentRowAndChildren(row : RowData): RowData[] {
-		if (row.getIndentLevel() === 0) return [];
+	public deindentRowAndChildren(row : RowData): ArraySpan<RowData> {
+		if (row.getIndentLevel() === 0) return ArraySpan.NoSpan;
 		
-		const rowAndChildren = [row, ...this.descendents(row)];
+		const rowAndChildren = this.descendents(row).createSubspan(-1); // grow left
 		for (const row of rowAndChildren) {
 			const newContent = row.content.substring(1);
 			Model.updateLineContent(row.refLine, newContent);
 		}
 		return rowAndChildren;
 	}
-	public descendents(row : RowData): RowData[] {
+	public descendents(row : RowData): ArraySpan<RowData> {
 		const baseIndent = row.getIndentLevel();
 		const idx = this.findIndexByLineId(row.id);
-		const affectedRows: RowData[] = [];
-		for (let i = idx + 1; i < this._rows.length; i++) {
+		let i = idx + 1; 
+		for (;i < this._rows.length; i++) {
 			const currentRow = this._rows[i];
 			const currentIndent = currentRow.getIndentLevel();
 			if (currentIndent <= baseIndent) break;
-			affectedRows.push(currentRow);
 		}
-		return affectedRows;
+		return new ArraySpan(this._rows, idx + 1, i);
 	}
-	public toggleFold(rowId: string): RowData[] {
+	public toggleFold(rowId: string): ArraySpan<RowData> {
 		const row = this.findByLineId(rowId);
 		const idx = this.findIndexByLineId(rowId);
 		
@@ -111,7 +128,7 @@ export class Data {
 		const affectedRows = this.descendents(row);
 		
 		// If no children, do nothing
-		if (affectedRows.length === 0) return [];
+		if (affectedRows.length === 0) return affectedRows;
 		
 		// Toggle fold state
 		row.folded = !row.folded;

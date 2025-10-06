@@ -3,6 +3,7 @@ import * as Controller from './controller.js';
 import * as lm from './elements.js';
 import * as Model from './model.js';
 import * as Scene from './scene.js';
+import { testFixTags } from './htmlutil.js';
 
 // Use local file storage via loadsave.php
 const baseUrl = "loadsave.php?doc=";
@@ -73,4 +74,7 @@ export function PostDoc(filePath :string, content : string) {
         });    
 
 }
+// Run HTML utility tests
+// testFixTags();
+
 GetDoc(filePath);

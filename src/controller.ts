@@ -2,6 +2,7 @@ import { PostDoc } from './ambit.js';
 import * as lm from './elements.js';
 import * as Editor from './editor.js';
 import * as Scene from './scene.js';
+import { ArraySpan } from './arrayspan.js';
 
 
 
@@ -156,39 +157,33 @@ function setCursorInParagraph(p: HTMLElement, offset: number) {
 }
 
 function handleEnter(currentRow: Editor.Row) {
-	// 1) Get the next row
-	const nextRow = currentRow.Next;
-
+	// Get HTML string offset (includes tag lengths) for proper splitting
+	const htmlOffset = currentRow.getHtmlOffset();
+	
 	// split the current row at the cursor position
-	const currentContent = currentRow.content;
-	const currentRowNewContent = currentContent.substring(0, currentRow.offset); 
-	const newRowContent = currentContent.substring(currentRow.offset);
-	currentRow.setContent(currentRowNewContent);
+	const rows = Scene.data.splitRow(currentRow.id, htmlOffset);
+	Editor.replaceRows(new Editor.RowSpan(currentRow, 1), rows);
 
-	// 2) Update scene with the new contents (convert visible tabs to real tabs)
-	const scene = Scene.data;
-	const sceneRow : Scene.RowData = scene.findByLineId(currentRow.id);
-	scene.updateRowData(currentRow.id, currentRowNewContent);
-	const newSceneRow : Scene.RowData = scene.insertBefore(nextRow.id, newRowContent);
-	
-	// 3) Update editor with the new contents
-	const newEditorRow = Editor.addBefore(nextRow, newSceneRow.id, newSceneRow.content);
-	
+		
 	// 4) Update fold indicators for both rows
-	updateFoldIndicator(currentRow, sceneRow);
-	updateFoldIndicator(newEditorRow, newSceneRow);
+	updateFoldIndicator(currentRow, rows.at(0));
+	updateFoldIndicator(currentRow.Next, rows.at(1));
 	
-	newEditorRow.setCaretInRow(0);
+	currentRow.Next.setCaretInRow(0);
 }
 
 function handleBackspace(currentRow: Editor.Row) {
 	const scene = Scene.data;
 	
-	if (currentRow.offset === 0) {
+	if (currentRow.visibleTextOffset === 0) {
 		const prevRow = currentRow.Previous;
 		if (!prevRow.valid()) return;
 		
-		const prevRowOriginalLength = prevRow.content.length;
+		// Get visible text length of prev row for cursor positioning
+		const temp = document.createElement('div');
+		temp.innerHTML = prevRow.content;
+		const prevRowVisibleLength = temp.textContent?.length ?? 0;
+		
 		// take the content of this row and add it to the previous row
 		const newContent = prevRow.content + currentRow.content;
 		prevRow.setContent(newContent);
@@ -200,13 +195,14 @@ function handleBackspace(currentRow: Editor.Row) {
 		// Update fold indicators
 		updateAllFoldIndicators();
 		
-		prevRow.setCaretInRow(prevRowOriginalLength);
+		prevRow.setCaretInRow(prevRowVisibleLength);
 		Editor.deleteRow(currentRow);
 		return;
 	}
 	else { // we're not at the beginning of the row so just delete the character
-		const newContent = currentRow.content.substring(0, currentRow.offset - 1) + 
-			currentRow.content.substring(currentRow.offset);
+		const htmlOffset = currentRow.getHtmlOffset();
+		const newContent = currentRow.content.substring(0, htmlOffset - 1) + 
+			currentRow.content.substring(htmlOffset);
 		currentRow.setContent(newContent);
 		
 		// Update scene
@@ -215,7 +211,7 @@ function handleBackspace(currentRow: Editor.Row) {
 		// Update fold indicators (indentation may have changed)
 		updateAllFoldIndicators();
 		
-		currentRow.setCaretInRow(currentRow.offset - 1);
+		currentRow.setCaretInRow(currentRow.visibleTextOffset - 1);
 	}
 }
 
@@ -234,22 +230,30 @@ function handleArrowDown(currentRow: Editor.Row) {
 }
 
 function handleArrowLeft(currentRow: Editor.Row) {
-	if (currentRow.offset > 0) {
+	if (currentRow.visibleTextOffset > 0) {
 		// Move cursor left within current row
-		currentRow.setCaretInRow(currentRow.offset - 1);
+		currentRow.setCaretInRow(currentRow.visibleTextOffset - 1);
 	} else {
-		// Move to end of previous row
+		// Move to end of previous row (need visible text length)
 		const prevRow = currentRow.Previous;
 		if (prevRow.valid()) {
-			prevRow.setCaretInRow(prevRow.content.length);
+			const temp = document.createElement('div');
+			temp.innerHTML = prevRow.content;
+			const prevRowVisibleLength = temp.textContent?.length ?? 0;
+			prevRow.setCaretInRow(prevRowVisibleLength);
 		}
 	}
 }
 
 function handleArrowRight(currentRow: Editor.Row) {
-	if (currentRow.offset < currentRow.content.length) {
+	// Get visible text length to check if at end
+	const temp = document.createElement('div');
+	temp.innerHTML = currentRow.content;
+	const visibleLength = temp.textContent?.length ?? 0;
+	
+	if (currentRow.visibleTextOffset < visibleLength) {
 		// Move cursor right within current row
-		currentRow.setCaretInRow(currentRow.offset + 1);
+		currentRow.setCaretInRow(currentRow.visibleTextOffset + 1);
 	} else {
 		// Move to beginning of next row
 		const nextRow = currentRow.Next;
@@ -310,9 +314,11 @@ function handleToggleFold(currentRow: Editor.Row) {
 		// Unfolding - add rows back to DOM
 		const addedEditorRows = Editor.addAfter(currentRow, affectedRows);
 		
-		// Update fold indicators for newly added rows
-		for (let i = 0; i < addedEditorRows.length; i++) {
-			updateFoldIndicator(addedEditorRows[i], affectedRows[i]);
+		// foreach addedEditorRows and affectedRows, update the fold indicator
+		let i = 0;
+		for (const row of addedEditorRows) {
+			updateFoldIndicator(row, affectedRows.at(i));
+			i++;
 		}
 	}
 	
@@ -359,33 +365,54 @@ function rowDataFromEditorRow(editorRow: Editor.Row): Scene.RowData {
 }
 
 function handleTab(currentRow: Editor.Row) {
-	const offset = currentRow.offset;
+	const visibleOffset = currentRow.visibleTextOffset;
 	let c = currentRow.content;
-	if (offsetIsInIndent(offset, c)) {
-		let rows : Scene.RowData[] = Scene.data.indentRowAndChildren(rowDataFromEditorRow(currentRow));
+	
+	// Get visible text for indent checking
+	const temp = document.createElement('div');
+	temp.innerHTML = c;
+	const visibleText = temp.textContent ?? '';
+	
+	if (offsetIsInIndent(visibleOffset, visibleText)) {
+		let rows : ArraySpan<Scene.RowData> = Scene.data.indentRowAndChildren(rowDataFromEditorRow(currentRow));
 		Editor.updateRows(rows);
 	} else {
-        const newContent = c.substring(0, offset) + '\t' + c.substring(offset);
+		// Insert tab at HTML offset
+		const htmlOffset = currentRow.getHtmlOffset();
+        const newContent = c.substring(0, htmlOffset) + '\t' + c.substring(htmlOffset);
         Scene.data.updateRowData(currentRow.id, newContent);
         currentRow.setContent(newContent);
-        currentRow.setCaretInRow(offset + 1);
+        currentRow.setCaretInRow(visibleOffset + 1);
 	}
 }
 
 function handleShiftTab(currentRow: Editor.Row) {
-    const offset = currentRow.offset;
-    if (offsetIsInIndent(offset, currentRow.content)) {
+    const visibleOffset = currentRow.visibleTextOffset;
+    
+    // Get visible text for indent checking
+    const temp = document.createElement('div');
+    temp.innerHTML = currentRow.content;
+    const visibleText = temp.textContent ?? '';
+    
+    if (offsetIsInIndent(visibleOffset, visibleText)) {
         const rows = Scene.data.deindentRowAndChildren(rowDataFromEditorRow(currentRow));
         Editor.updateRows(rows);
     } else {
-        // find tab to the left of the cursor
-        const tabIndex = currentRow.content.substring(0, offset).lastIndexOf('\t');
+        // find tab to the left of the cursor in HTML content
+        const htmlOffset = currentRow.getHtmlOffset();
+        const tabIndex = currentRow.content.substring(0, htmlOffset).lastIndexOf('\t');
         if (tabIndex === -1) return;
+        
         const newContent = currentRow.content.substring(0, tabIndex)
             + currentRow.content.substring(tabIndex + 1);
         Scene.data.updateRowData(currentRow.id, newContent);
         currentRow.setContent(newContent);
-        currentRow.setCaretInRow(tabIndex);
+        
+        // Calculate visible position of the tab for cursor positioning
+        const tempBefore = document.createElement('div');
+        tempBefore.innerHTML = currentRow.content.substring(0, tabIndex);
+        const visibleTabPosition = tempBefore.textContent?.length ?? 0;
+        currentRow.setCaretInRow(visibleTabPosition);
     }
 }
 
@@ -394,7 +421,7 @@ export function save() {
 }
 
 export function setEditorContent(scene: Scene.Data) {
-	Editor.setContent(scene.rows);
+	Editor.setContent(new ArraySpan(scene.rows, 0, scene.rows.length));
 		// Update fold indicator
 		updateAllFoldIndicators();
 }

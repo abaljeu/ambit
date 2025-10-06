@@ -8,6 +8,11 @@
 
 ## Architecture
 
+### Initial implementation
+- Not doing markdown yet, but supporting arbitrary html existing inside each.
+- If the Scene has html tags within a line, those html elements should be built within the RowContent element. (though the base case is just plain text inside.)
+- If reading the row content, we extract the inner html in a way we can later put back into a row to reconstruct it.
+
 ### Bidirectional Conversion
 Similar to tab handling, need conversion functions:
 - `markdownToHtml()` - When loading Scene → Editor
