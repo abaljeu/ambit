@@ -2,8 +2,8 @@ import * as lm from './elements.js';
 import * as Scene from './scene.js';
 import { ArraySpan } from './arrayspan.js';
 
-export const RowElementTag: string = 'div';
-export const RowContentTag: string = 'span';
+const RowElementTag: string = 'div';
+const RowContentTag: string = 'span';
 type RowContentElement = HTMLSpanElement;
 type RowElement = HTMLDivElement;
 const VISIBLE_TAB = '→'; // Visible tab character
@@ -155,7 +155,7 @@ export class RowSpan implements Iterable<Row> {
 export const NoRow: Row = new Row(document.createElement(RowElementTag) as RowElement, 0);
 
 // Paragraphs iterator
-export function* paragraphs(): IterableIterator<RowElement> {
+function* paragraphs(): IterableIterator<RowElement> {
 	const paragraphs = lm.editor.querySelectorAll(RowElementTag);
 	for (const paragraph of paragraphs) {
 		yield paragraph as RowElement;
@@ -167,7 +167,11 @@ export function* rows(): IterableIterator<Row> {
 		yield new Row(paragraph, 0);
 	}
 }
-
+export function at(index: number): Row {
+	// if index is out of range, return NoRow
+	if (index < 0 || index >= lm.editor.childElementCount) return NoRow;
+	return new Row(lm.editor.children[index] as RowElement, 0);
+}
 // Create a new row and insert it after the given previous row.
 // If previousRow is NoRow, insert at the front of the container.
 export function addBefore(targetRow: Row, scene: ArraySpan<Scene.RowData>)
@@ -288,24 +292,6 @@ function getTextOffsetFromNode(container: HTMLElement, targetNode: Node, targetO
 	
 	walk(container);
 	return textOffset;
-}
-
-function getCurrentParagraph(): RowElement | null {
-	const selection = window.getSelection();
-	if (!selection || selection.rangeCount === 0) return null;
-	
-	let node = selection.anchorNode;
-	
-	// Navigate up to find the row div
-	while (node && node !== lm.editor) {
-		if (node.nodeName === RowElementTag.toUpperCase() && 
-			node.parentNode === lm.editor) {
-			return node as RowElement;
-		}
-		node = node.parentNode;
-	}
-	
-	return null;
 }
 
 function getCurrentParagraphWithOffset(): { element: RowElement, offset: number } | null {

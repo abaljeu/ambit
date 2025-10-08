@@ -59,9 +59,8 @@ export class Doc {
     
     // Private method - only used by Model module
     _setLines(content: string): void {
-        this._lines = content.split("\n").map(line => new Line(line));
-    }
-}
+        this._lines = content.split("\n").map(line => new Line(line.replace(/\r/g, '')));
+    }}
 
 export class Line {
     public readonly id: string;

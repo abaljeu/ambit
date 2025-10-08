@@ -59,7 +59,6 @@ function updateAllFoldIndicators() {
 	}
 }
 
-let lastCombo="";
 export function editorKeyDown(e : KeyboardEvent) {
 	if ( // just a mod key was pressed.
 		e.key === "Control" ||
@@ -73,12 +72,6 @@ export function editorKeyDown(e : KeyboardEvent) {
 		`${e.shiftKey ? "S-" : ""}` +
 		`${e.metaKey ? "M-" : ""}`;
 	const combo =  mods + e.key;
-
-	// // Skip duplicates
-	if (combo !== lastCombo) {
-		console.log(combo);
-		lastCombo = combo;
-	}
 
 	if (e.ctrlKey || e.metaKey || e.altKey || e.key.length > 1)
 	{
@@ -140,20 +133,6 @@ export function editorKeyDown(e : KeyboardEvent) {
 		}
 		//e.preventDefault(); return;
 	}
-}
-
-// Helper: Set cursor position in a paragraph
-function setCursorInParagraph(p: HTMLElement, offset: number) {
-	p.focus();
-	const selection = window.getSelection();
-	if (!selection) return;
-	
-	const range = document.createRange();
-	const textNode = p.firstChild || p;
-	range.setStart(textNode, offset);
-	range.collapse(true);
-	selection.removeAllRanges();
-	selection.addRange(range);
 }
 
 function handleEnter(currentRow: Editor.Row) {

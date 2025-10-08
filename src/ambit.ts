@@ -15,8 +15,8 @@ console.log("doc param:", params.get("doc"));
 
 const filePath: string = params.get("doc") 
     ?? (() => {
-        console.error("doc parameter is null, redirecting to error");
-        window.location.href = "/error.html";
+        console.error("doc parameter is null, redirecting to index");
+        window.location.href = "/";
         throw new Error("Redirecting");
         })();
 
@@ -24,32 +24,24 @@ document.title = filePath;
 lm.path.textContent = filePath;
 
 
-function GetDoc(filePath : string) {
-    // First check if document exists in global array
-    const cachedDoc : Model.Doc = Model.findDoc(filePath);
-    if (cachedDoc.path !== "") {
-		Scene.data.loadFromDoc(cachedDoc);
-        Controller.setEditorContent(Scene.data!);
-        Controller.setMessage("Loaded");
-        Controller.links();
-        return;
-    }
-    
+export function LoadFromPath(filePath : string) {
+    GetDoc(filePath).then(text => LoadDoc(text));
+}
+export function LoadDoc(data : string) {
+    const doc = Model.addOrUpdateDoc(filePath, data);
+    Scene.data.loadFromDoc(doc);
+    Controller.setEditorContent(Scene.data!);
+    Controller.setMessage("Loaded");
+    Controller.links();
+}
+export function GetDoc(filePath : string) : Promise<string> {
     // If not in cache, fetch from server
     let url = baseUrl + filePath;
-    fetch(url)
-        .then(result => result.text())
-        .then(text => {
-            // Store in global documents array
-            const doc = Model.addOrUpdateDoc(filePath, text);
-            // Fill lm objects
-			Scene.data.loadFromDoc(doc);
-            Controller.setEditorContent(Scene.data);
-            Controller.links();
-        })
+    return fetch(url).then(result => result.text())
         .catch(err => {
-            Controller.setMessage("Error loading file");
+            Controller.setMessage("Error loading file " + filePath);
             console.error(err);
+            return Promise.reject(err.message);
         });
 }
 
@@ -77,4 +69,7 @@ export function PostDoc(filePath :string, content : string) {
 // Run HTML utility tests
 // testFixTags();
 
-GetDoc(filePath);
+// Only auto-load if we're in the main ambit context (not in tests)
+if (typeof window !== 'undefined' && window.location.pathname.includes('ambit.php')) {
+    LoadFromPath(filePath);
+}

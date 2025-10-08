@@ -45,6 +45,7 @@ Code is based on strongly typed objects with clear ownership:
 **Editor (`editor.ts`):**
 - The view class; its state is the DOM.
 - `Editor.Row`: Wraps a single `contentEditable` line element; portrays one `Scene.RowData`
+- handles row-level html subelements.
 - `Editor.Rows`: Manages the collection of DOM rows and DOM operations under `id='editor'`
 
 **Scene (`scene.ts`):**

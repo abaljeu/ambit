@@ -22,7 +22,9 @@ export class RowData {
 		}
 		return count;
 	}
+	public get valid(): boolean { return this.refLine.valid; }
 }
+
 export class Data {
 	private _rows: RowData[];
 	private _doc : Model.Doc;
@@ -53,19 +55,19 @@ export class Data {
 		let row : RowData = this.findByLineId(id);
 		Model.updateLineContent(row.refLine, content);
 	}
+	public at(index : number): RowData {
+		if (index < 0 || index >= this._rows.length) return this.EndOfScene();
+		return this._rows[index];
+	}
 	splitRow(rowId: string, offset: number): ArraySpan<RowData> {
 		const currentRowIndex = this.findIndexByLineId(rowId);
-		const currentRow = this._rows[currentRowIndex];
-		const nextRow = this.nextRow(currentRow);
+		const currentRow = this.at(currentRowIndex);
+		const nextRow = this.at(currentRowIndex + 1);
 
 		const currentRowNewContent = currentRow.content.substring(0, offset);
 		const newRowContent = currentRow.content.substring(offset);
-
 		const fixedCurrentRowNewContent = HtmlUtil.fixTags(currentRowNewContent);
 		const fixedNewRowContent = HtmlUtil.fixTags(newRowContent);
-
-		
-		// 2) Update scene with the new contents (convert visible tabs to real tabs)
 		this.updateRowData(currentRow.id, fixedCurrentRowNewContent);
 		const newSceneRow : RowData = this.insertBefore(nextRow.id, fixedNewRowContent);
 		return new ArraySpan<RowData>(this._rows, currentRowIndex, currentRowIndex + 2);
