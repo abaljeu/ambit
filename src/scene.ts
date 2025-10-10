@@ -1,6 +1,8 @@
+import { RowId, endRowId } from './rowid.js';
 import * as Model from './model.js';
 import {  ArraySpan } from './arrayspan.js';
 import * as HtmlUtil from './htmlutil.js';
+
 export class RowData {
 	public folded: boolean = false;
 	public visible: boolean = true;
@@ -11,7 +13,7 @@ export class RowData {
 		public readonly refDoc: Model.Doc,
 		public readonly refLine: Model.Line) {}
 		
-	public get id(): string { return this.refLine.id; }
+	public get id(): RowId { return this.refLine.id; }
 	public get content(): string { return this.refLine.content; }
 
 	public getIndentLevel(): number {
@@ -42,16 +44,16 @@ export class Data {
 	}
 	public get rows(): readonly RowData[] { return this._rows; }
 	get length(): number { return this._rows.length; }
-	findByLineId(id: string): RowData {
-			return this._rows.find(r => r.id === id) 
+	findByLineId(id: RowId): RowData {
+			return this._rows.find(r => r.id.equals(id)) 
 			?? this.EndOfScene(); 
 	}
-	findIndexByLineId(id: string): number {
-		let i = this._rows.findIndex(r => r.id === id);
+	findIndexByLineId(id: RowId): number {
+		let i = this._rows.findIndex(r => r.id.equals(id));
 		if (i === -1) return this._rows.length;
 		return i;
 	}
-	updateRowData(id: string, content: string) {
+	updateRowData(id: RowId, content: string) {
 		let row : RowData = this.findByLineId(id);
 		Model.updateLineContent(row.refLine, content);
 	}
@@ -59,7 +61,7 @@ export class Data {
 		if (index < 0 || index >= this._rows.length) return this.EndOfScene();
 		return this._rows[index];
 	}
-	splitRow(rowId: string, offset: number): ArraySpan<RowData> {
+	splitRow(rowId: RowId, offset: number): ArraySpan<RowData> {
 		const currentRowIndex = this.findIndexByLineId(rowId);
 		const currentRow = this.at(currentRowIndex);
 		const nextRow = this.at(currentRowIndex + 1);
@@ -74,7 +76,7 @@ export class Data {
 		const newSceneRow : RowData = this.insertBefore(nextRow.id, fixedNewRowContent);
 		return new ArraySpan<RowData>(this._rows, currentRowIndex, currentRowIndex + 2);
 	}
-	insertBefore(rowId: string, content: string): RowData {
+	insertBefore(rowId: RowId, content: string): RowData {
 		const targetRow = this.findByLineId(rowId);
 		const newLine = targetRow.refDoc.insertBefore(rowId, content);
 		const newRow = new RowData(targetRow.refDoc, newLine);
@@ -83,7 +85,7 @@ export class Data {
 		this._rows.splice(idx, 0, newRow);
 		return newRow;
 	}
-	public  joinRows(prevRowId: string, nextRowId: string): RowData {
+	public  joinRows(prevRowId: RowId, nextRowId: RowId): RowData {
 		const prevRow = this.findByLineId(prevRowId);
 		const nextRow = this.findByLineId(nextRowId);
 		const nextContent = nextRow.content.substring(nextRow.getIndentLevel()); // remove tabs
@@ -133,7 +135,7 @@ export class Data {
 		}
 		return new ArraySpan(this._rows, idx + 1, i);
 	}
-	public toggleFold(rowId: string): ArraySpan<RowData> {
+	public toggleFold(rowId: RowId): ArraySpan<RowData> {
 		const row = this.findByLineId(rowId);
 		const idx = this.findIndexByLineId(rowId);
 		

@@ -1,8 +1,10 @@
 import './events.js';
+import { RowId, endRowId } from './rowid.js';
 import * as Controller from './controller.js';
 import * as lm from './elements.js';
 import * as Model from './model.js';
 import * as Scene from './scene.js';
+import * as Test from './test.js';
 import { testFixTags } from './htmlutil.js';
 
 // Use local file storage via loadsave.php
@@ -72,4 +74,5 @@ export function PostDoc(filePath :string, content : string) {
 // Only auto-load if we're in the main ambit context (not in tests)
 if (typeof window !== 'undefined' && window.location.pathname.includes('ambit.php')) {
     LoadFromPath(filePath);
+    Object.assign(window as any, { Model, Scene, Controller, RowId, endRowId, Test });
 }

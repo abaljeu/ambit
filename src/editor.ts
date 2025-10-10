@@ -1,5 +1,6 @@
 import * as lm from './elements.js';
 import * as Scene from './scene.js';
+import { endRowId, RowId } from './rowid.js';
 import { ArraySpan } from './arrayspan.js';
 
 const RowElementTag: string = 'div';
@@ -85,8 +86,13 @@ export class Row {
 		public valid(): boolean {
 			return this.el !== null;
 		}
-		public get id(): string {
-			return this.el?.dataset.lineId ?? "000000";
+		public get id(): RowId {
+			return RowId.fromString(this.idString);
+		}
+		
+		// Helper method to get the string representation for DOM operations
+		public get idString(): string {
+			return this.el?.dataset.lineId ?? endRowId.getString();
 		}
 		public setCaretInRow(offset: number) {
 			const contentSpan = this.getContentSpan();
@@ -200,7 +206,7 @@ export function addBefore(targetRow: Row, scene: ArraySpan<Scene.RowData>)
 		// Convert regular tabs to visible tabs for display
 		const visibleContent = sceneRow.content.replace(/\t/g, VISIBLE_TAB);
 		const el = createRowElement();
-		el.dataset.lineId = sceneRow.id;
+		el.dataset.lineId = sceneRow.id.getString();
 		let row = new Row(el, 0);
 		if (firstRow === NoRow) firstRow = row;
 
@@ -424,7 +430,7 @@ export function replaceRows(oldRows: RowSpan, newRows: ArraySpan<Scene.RowData>)
 export function updateRows(rowDataArray: ArraySpan<Scene.RowData>): void {
 	let idx = 0;
 	for (const row of rows()) {
-		if (idx < rowDataArray.length && row.id === rowDataArray.at(idx).id) {
+		if (idx < rowDataArray.length && row.id.equals(rowDataArray.at(idx).id)) {
 			row.setContent(rowDataArray.at(idx).content);
 			idx++;
 		}
@@ -444,7 +450,7 @@ export function addAfter(
 	let first = NoRow;
 	for (const rowData of rowDataArray) {
 		const el = createRowElement();
-		el.dataset.lineId = rowData.id;
+		el.dataset.lineId = rowData.id.getString();
 		new Row(el, 0).setContent(rowData.content);
 		
 		if (beforeRow.nextSibling) {

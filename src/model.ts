@@ -1,11 +1,4 @@
-// Line ID generator - private to module
-let nextLineId = 10;
-
-function generateLineId(): string {
-    const id = nextLineId++;
-    // Convert to base-36 (0-9, a-z) and pad to 6 characters
-    return id.toString(36).padStart(6, '0');
-}
+import {RowId, endRowId} from './rowid.js';
 
 // Private documents array - only accessible through Model
 const documents: Doc[] = [];
@@ -30,20 +23,20 @@ export class Doc {
     public End(): Line { return endLineSingleton; }
 
     // Never returns null; returns the implicit start line if not found
-    public getLineById(id: string): Line {
-            const found = this._lines.find(l => l.id === id);
+    public getLineById(id: RowId): Line {
+            const found = this._lines.find(l => l.id.equals(id));
         return found ?? endLineSingleton
     }
-    public deleteLine(id: string): void {
-        this._lines.splice(this._lines.findIndex(l => l.id === id), 1);
+    public deleteLine(id: RowId): void {
+        this._lines.splice(this._lines.findIndex(l => l.id.equals(id)), 1);
     }
-    findIndexByLineId(id: string): number {
-        let i = this._lines.findIndex(l => l.id === id);
+    findIndexByLineId(id: RowId): number {
+        let i = this._lines.findIndex(l => l.id.equals(id));
         if (i === -1) return this._lines.length;
         return i;
     }
 
-    insertBefore(lineId: string, content: string): Line {
+    insertBefore(lineId: RowId, content: string): Line {
         const idx = this.findIndexByLineId(lineId);
         const newLine = new Line(content);
         // 0 <= idx <= this._rows.length
@@ -52,7 +45,7 @@ export class Doc {
     }
 
     // Replace a line's content preserving its id; returns the new Line object
-    updateLineContent(lineId: string, content: string): void {
+    updateLineContent(lineId: RowId, content: string): void {
         const line = this.getLineById(lineId);
         line.updateContent(content);
     }
@@ -63,19 +56,18 @@ export class Doc {
     }}
 
 export class Line {
-    public readonly id: string;
-    constructor(public content: string, idOverride?: string) 
+    public readonly id: RowId;
+    constructor(public content: string, idOverride?: RowId) 
     {
-        this.id = idOverride ?? generateLineId();
+        this.id = idOverride ?? RowId.generate();
     }
     public updateContent(content: string) {
         this.content = content;
     }
-    public get valid(): boolean { return this.id !== END_LINE_ID; }
+    public get valid(): boolean { return !this.id.equals(endRowId); }
 }
 
-const END_LINE_ID: string = '000000';
-const endLineSingleton = new Line('', END_LINE_ID);
+const endLineSingleton = new Line('', endRowId);
 
 export function getAllDocuments(): readonly Doc[] {
     return documents;
@@ -96,7 +88,7 @@ export function getDoc(path: string): Doc {
 }
 
 // Never returns null; returns the implicit start line if doc/line not found
-export function getLine(path: string, id: string): Line {
+export function getLine(path: string, id: RowId): Line {
     const doc = getDoc(path);
     return doc.getLineById(id);
 }

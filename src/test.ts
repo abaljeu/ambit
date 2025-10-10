@@ -1,5 +1,6 @@
 // tests need to be reviewed.
 // fold is broken
+import { RowId } from './rowid.js';
 import * as Model from './model.js';
 import * as Scene from './scene.js';
 import * as Editor from './editor.js';
@@ -65,7 +66,7 @@ function loadTestDoc(): void {
 function getEditorState(): { 
     rowCount: number, 
     content: string, 
-    currentRowId: string,
+    currentRowId: RowId,
     sceneRowCount: number 
 } {
     const rows = Array.from(Editor.rows());
