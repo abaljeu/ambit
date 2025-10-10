@@ -71,6 +71,7 @@ export class Line {
     public updateContent(content: string) {
         this.content = content;
     }
+    public get valid(): boolean { return this.id !== END_LINE_ID; }
 }
 
 const END_LINE_ID: string = '000000';

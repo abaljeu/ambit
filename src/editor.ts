@@ -46,7 +46,14 @@ export class Row {
 		// Use getHtmlOffsetFromNode to compute HTML string offset
 		return getHtmlOffsetFromNode(contentSpan, range.startContainer, range.startOffset);
 	}
-	
+	public get visibleText() : string {
+		const contentSpan = this.getContentSpan();
+		if (!contentSpan) return '';
+		return contentSpan.textContent ?? '';
+	}
+	public get visibleTextLength() : number {
+		return this.visibleText.length;
+	}
 	public get content(): string {
 		const contentSpan = this.getContentSpan();
 		if (!contentSpan) return '';
@@ -145,6 +152,13 @@ export class RowSpan implements Iterable<Row> {
 	public endRow(): Row { // [row, row+count)
 		let row = this.row;
 		for (let i = 0; i < this.count; i++) {
+			row = row.Next;
+		}
+		return row;
+	}
+	public last() : Row {
+		let row = this.row;
+		for (let i = 0; i < this.count - 1; i++) {
 			row = row.Next;
 		}
 		return row;
@@ -394,8 +408,8 @@ export function getContent(): string {
 	return getContentLines().join('\n');
 }
 
-export function replaceRows(oldRows: RowSpan, newRows: ArraySpan<Scene.RowData>): void {
-	if (oldRows.count === 0 && newRows.length === 0) return;
+export function replaceRows(oldRows: RowSpan, newRows: ArraySpan<Scene.RowData>): RowSpan {
+	if (oldRows.count === 0 && newRows.length === 0) return new RowSpan(NoRow, 0);
 	
 	const beforeStartRow = oldRows.row.Previous;
 	const endRow = oldRows.endRow();
@@ -403,7 +417,7 @@ export function replaceRows(oldRows: RowSpan, newRows: ArraySpan<Scene.RowData>)
 	for (const row of oldRows) {
 		row.el.remove();
 	}
-	addBefore(endRow, newRows);
+	return addBefore(endRow, newRows);
 }
 
 // Update rows with Scene.RowData array

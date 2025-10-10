@@ -67,7 +67,9 @@ export class Data {
 		const currentRowNewContent = currentRow.content.substring(0, offset);
 		const newRowContent = currentRow.content.substring(offset);
 		const fixedCurrentRowNewContent = HtmlUtil.fixTags(currentRowNewContent);
-		const fixedNewRowContent = HtmlUtil.fixTags(newRowContent);
+		const fixedNewRowContent = 
+			`\t`.repeat(currentRow.getIndentLevel())
+			 + HtmlUtil.fixTags(newRowContent);
 		this.updateRowData(currentRow.id, fixedCurrentRowNewContent);
 		const newSceneRow : RowData = this.insertBefore(nextRow.id, fixedNewRowContent);
 		return new ArraySpan<RowData>(this._rows, currentRowIndex, currentRowIndex + 2);
@@ -80,6 +82,15 @@ export class Data {
 		// 0 <= idx <= this._rows.length
 		this._rows.splice(idx, 0, newRow);
 		return newRow;
+	}
+	public  joinRows(prevRowId: string, nextRowId: string): RowData {
+		const prevRow = this.findByLineId(prevRowId);
+		const nextRow = this.findByLineId(nextRowId);
+		const nextContent = nextRow.content.substring(nextRow.getIndentLevel()); // remove tabs
+		const newContent = prevRow.content + nextContent;
+		this.updateRowData(prevRowId, newContent);
+		this.deleteRow(nextRow);
+		return prevRow;
 	}
 	public deleteRow(row: RowData): void {
 		this._rows.splice(this._rows.indexOf(row), 1);

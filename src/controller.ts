@@ -54,9 +54,37 @@ function syncAllRowsToScene() {
 function updateAllFoldIndicators() {
 	const scene = Scene.data;
 	for (const row of Editor.rows()) {
-		const sceneRow = scene.findByLineId(row.id);
-		updateFoldIndicator(row, sceneRow);
+		updateFoldIndicator(row);
 	}
+}
+
+class KeyBinding {
+	constructor(
+		readonly combo: string,
+		readonly handler: (row: Editor.Row) => boolean | void
+	) {}
+}
+
+const keyBindings: KeyBinding[] = [
+	new KeyBinding("F5", () => false),
+	new KeyBinding("F6", () => false),
+	new KeyBinding("Tab", handleTab),
+	new KeyBinding("S-Tab", handleShiftTab),
+	new KeyBinding("C-s", () => { save(); return true; }),
+	new KeyBinding("Enter", handleEnter),
+	new KeyBinding("Backspace", (row) => handleBackspace(row)),
+	new KeyBinding("Delete", (row) => handleDelete(row)),
+	new KeyBinding("ArrowUp", handleArrowUp),
+	new KeyBinding("ArrowDown", handleArrowDown),
+	new KeyBinding("ArrowLeft", handleArrowLeft),
+	new KeyBinding("ArrowRight", handleArrowRight),
+	new KeyBinding("C-ArrowUp", handleSwapUp),
+	new KeyBinding("C-ArrowDown", handleSwapDown),
+	new KeyBinding("C-.", handleToggleFold),
+];
+
+function findKeyBinding(combo: string): KeyBinding {
+	return keyBindings.find(kb => kb.combo === combo) ?? new KeyBinding("", () => false);
 }
 
 export function editorKeyDown(e : KeyboardEvent) {
@@ -79,136 +107,86 @@ export function editorKeyDown(e : KeyboardEvent) {
 		const currentRow = Editor.CurrentRow();
 		if (!currentRow.valid()) return;
 
-		switch (combo) {
-			case "F5": return;
-			case "F6": return;
-			case "Tab":
-				handleTab(currentRow);
-				 e.preventDefault();
-				return;
-			case "S-Tab":
-				handleShiftTab(currentRow);
+		const binding = findKeyBinding(combo);
+		if (binding) {
+			const result = binding.handler(currentRow);
+			if (result === true) {
 				e.preventDefault();
-				return;
-			case "C-s": 
-				save();
-				e.preventDefault();
-				return;
-			case "Enter":
-				handleEnter(currentRow);
-				e.preventDefault();
-				return;
-			case "Backspace":
-				handleBackspace(currentRow);
-				e.preventDefault();
-				return;
-			case "ArrowUp":
-				handleArrowUp(currentRow);
-				e.preventDefault();
-				return;
-			case "ArrowDown":
-				handleArrowDown(currentRow);
-				e.preventDefault();
-				return;
-			case "ArrowLeft":
-				handleArrowLeft(currentRow);
-				e.preventDefault();
-				return;
-			case "ArrowRight":
-				handleArrowRight(currentRow);
-				e.preventDefault();
-				return;
-			case "C-ArrowUp":
-				handleSwapUp(currentRow);
-				e.preventDefault();
-				return;
-			case "C-ArrowDown":
-				handleSwapDown(currentRow);
-				e.preventDefault();
-				return;
-			case "C-.":
-				handleToggleFold(currentRow);
-				e.preventDefault();
-				return;
+			}
 		}
-		//e.preventDefault(); return;
 	}
 }
 
-function handleEnter(currentRow: Editor.Row) {
+function handleEnter(currentRow: Editor.Row) : boolean {
 	// Get HTML string offset (includes tag lengths) for proper splitting
 	const htmlOffset = currentRow.getHtmlOffset();
 	
 	// split the current row at the cursor position
 	const rows = Scene.data.splitRow(currentRow.id, htmlOffset);
-	Editor.replaceRows(new Editor.RowSpan(currentRow, 1), rows);
+	const newRows : Editor.RowSpan = Editor.replaceRows(new Editor.RowSpan(currentRow, 1), rows);
 
-		
-	// 4) Update fold indicators for both rows
-	updateFoldIndicator(currentRow, rows.at(0));
-	updateFoldIndicator(currentRow.Next, rows.at(1));
-	
-	currentRow.Next.setCaretInRow(0);
+	updateAllFoldIndicators();
+	newRows.last().setCaretInRow(0);
+	return true;
 }
 
-function handleBackspace(currentRow: Editor.Row) {
+function joinRows(prevRow: Editor.Row, nextRow: Editor.Row) {
 	const scene = Scene.data;
+	console.log('Scene object:', scene);
+	console.log('joinRows method:', typeof scene.joinRows);
+	if (typeof scene.joinRows !== 'function') {
+		console.error('scene.joinRows is not a function. Scene object:', scene);
+		return;
+	}
+	const newRowData = scene.joinRows(prevRow.id, nextRow.id);
+	
+	prevRow.setContent(newRowData.content);
+	Editor.deleteRow(nextRow);
+	
+	updateAllFoldIndicators();
+}
+
+function handleBackspace(currentRow: Editor.Row) : boolean {
 	
 	if (currentRow.visibleTextOffset === 0) {
 		const prevRow = currentRow.Previous;
-		if (!prevRow.valid()) return;
-		
-		// Get visible text length of prev row for cursor positioning
-		const temp = document.createElement('div');
-		temp.innerHTML = prevRow.content;
-		const prevRowVisibleLength = temp.textContent?.length ?? 0;
-		
-		// take the content of this row and add it to the previous row
-		const newContent = prevRow.content + currentRow.content;
-		prevRow.setContent(newContent);
-		
-		// Update scene
-		scene.updateRowData(prevRow.id, newContent);
-		scene.deleteRow(scene.findByLineId(currentRow.id));
-		
-		// Update fold indicators
-		updateAllFoldIndicators();
-		
-		prevRow.setCaretInRow(prevRowVisibleLength);
-		Editor.deleteRow(currentRow);
-		return;
+		const prevPosition = prevRow.visibleTextLength;
+		if (!prevRow.valid()) return true;
+		joinRows(prevRow, currentRow);
+		prevRow.setCaretInRow(prevPosition);
+		return true;
 	}
 	else { // we're not at the beginning of the row so just delete the character
-		const htmlOffset = currentRow.getHtmlOffset();
-		const newContent = currentRow.content.substring(0, htmlOffset - 1) + 
-			currentRow.content.substring(htmlOffset);
-		currentRow.setContent(newContent);
-		
-		// Update scene
-		scene.updateRowData(currentRow.id, newContent);
-		
-		// Update fold indicators (indentation may have changed)
-		updateAllFoldIndicators();
-		
-		currentRow.setCaretInRow(currentRow.visibleTextOffset - 1);
+		return false;
 	}
 }
-
-function handleArrowUp(currentRow: Editor.Row) {
+function handleDelete(currentRow: Editor.Row) : boolean {
+	if (currentRow.visibleTextOffset === currentRow.visibleTextLength) {
+		const nextRow = currentRow.Next;
+		if (!nextRow.valid()) return true;
+		joinRows(currentRow, nextRow);
+		// currentRow.setCaretInRow(0); position was okay already.
+		return true;
+	}
+	else { return false; }
+}
+function handleArrowUp(currentRow: Editor.Row) : boolean {
 	const prevP = currentRow.Previous;
-	if (!prevP.valid()) return;
+	if (!prevP.valid()) return true;
 	
 	prevP.moveCaretToThisRow();
+	return true;
 }
 
-function handleArrowDown(currentRow: Editor.Row) {
+function handleArrowDown(currentRow: Editor.Row) : boolean {
 	const nextP = currentRow.Next;
-	if (!nextP.valid()) return;
+	if (!nextP.valid()) return true;
 	
 	nextP.moveCaretToThisRow();
+	return true;
 }
 
-function handleArrowLeft(currentRow: Editor.Row) {
+function handleArrowLeft(currentRow: Editor.Row) : boolean {
 	if (currentRow.visibleTextOffset > 0) {
 		// Move cursor left within current row
 		currentRow.setCaretInRow(currentRow.visibleTextOffset - 1);
@@ -222,9 +200,10 @@ function handleArrowLeft(currentRow: Editor.Row) {
 			prevRow.setCaretInRow(prevRowVisibleLength);
 		}
 	}
+	return true;
 }
 
-function handleArrowRight(currentRow: Editor.Row) {
+function handleArrowRight(currentRow: Editor.Row) : boolean {
 	// Get visible text length to check if at end
 	const temp = document.createElement('div');
 	temp.innerHTML = currentRow.content;
@@ -240,11 +219,12 @@ function handleArrowRight(currentRow: Editor.Row) {
 			nextRow.setCaretInRow(0);
 		}
 	}
+	return true;
 }
 
-function handleSwapUp(currentRow: Editor.Row) {
+function handleSwapUp(currentRow: Editor.Row) : boolean {
 	const prevP = currentRow.Previous;
-	if (!prevP.valid()) return;
+	if (!prevP.valid()) return false;
 	
 	Editor.moveRowAbove(currentRow, prevP);
 	
@@ -255,11 +235,12 @@ function handleSwapUp(currentRow: Editor.Row) {
 	updateAllFoldIndicators();
 	
 	currentRow.focus();
+	return true;
 }
 
-function handleSwapDown(currentRow: Editor.Row) {
+function handleSwapDown(currentRow: Editor.Row) : boolean {
 	const nextP = currentRow.Next;
-	if (!nextP.valid()) return;
+	if (!nextP.valid()) return false;
 	
 	Editor.moveRowAbove(nextP, currentRow);
 	
@@ -270,9 +251,10 @@ function handleSwapDown(currentRow: Editor.Row) {
 	updateAllFoldIndicators();
 	
 	currentRow.focus();
+	return true;
 }
 
-function handleToggleFold(currentRow: Editor.Row) {
+function handleToggleFold(currentRow: Editor.Row) : boolean {
 	const scene = Scene.data;
 	const sceneRow = scene.findByLineId(currentRow.id);
 	
@@ -280,33 +262,33 @@ function handleToggleFold(currentRow: Editor.Row) {
 	const affectedRows = scene.toggleFold(currentRow.id);
 	
 	// If no children to fold, do nothing
-	if (affectedRows.length === 0) return;
+	if (affectedRows.length === 0) return true;
 	
 	// Update fold indicator for current row
-	updateFoldIndicator(currentRow, sceneRow);
+	updateFoldIndicator(currentRow);
 	
 	// Apply visibility changes
 	if (sceneRow.folded) {
-		// Folding - remove rows from DOM
 		Editor.deleteAfter(currentRow, affectedRows.length);
 	} else {
-		// Unfolding - add rows back to DOM
 		const addedEditorRows = Editor.addAfter(currentRow, affectedRows);
 		
 		// foreach addedEditorRows and affectedRows, update the fold indicator
 		let i = 0;
 		for (const row of addedEditorRows) {
-			updateFoldIndicator(row, affectedRows.at(i));
+			updateFoldIndicator(row);
 			i++;
 		}
 	}
 	
 	// Restore focus
 	currentRow.focus();
+	return true;
 }
 
-function updateFoldIndicator(editorRow: Editor.Row, sceneRow: Scene.RowData) {
+function updateFoldIndicator(editorRow: Editor.Row) {
 	const scene = Scene.data;
+	const sceneRow = scene.findByLineId(editorRow.id);
 	const idx = scene.findIndexByLineId(sceneRow.id);
 	const baseIndent = sceneRow.getIndentLevel();
 	
@@ -343,7 +325,7 @@ function rowDataFromEditorRow(editorRow: Editor.Row): Scene.RowData {
 	return Scene.data.findByLineId(editorRow.id);
 }
 
-function handleTab(currentRow: Editor.Row) {
+function handleTab(currentRow: Editor.Row) : boolean {
 	const visibleOffset = currentRow.visibleTextOffset;
 	let c = currentRow.content;
 	
@@ -363,9 +345,10 @@ function handleTab(currentRow: Editor.Row) {
         currentRow.setContent(newContent);
         currentRow.setCaretInRow(visibleOffset + 1);
 	}
+	return true;
 }
 
-function handleShiftTab(currentRow: Editor.Row) {
+function handleShiftTab(currentRow: Editor.Row) : boolean {
     const visibleOffset = currentRow.visibleTextOffset;
     
     // Get visible text for indent checking
@@ -380,7 +363,7 @@ function handleShiftTab(currentRow: Editor.Row) {
         // find tab to the left of the cursor in HTML content
         const htmlOffset = currentRow.getHtmlOffset();
         const tabIndex = currentRow.content.substring(0, htmlOffset).lastIndexOf('\t');
-        if (tabIndex === -1) return;
+        if (tabIndex === -1) return false;
         
         const newContent = currentRow.content.substring(0, tabIndex)
             + currentRow.content.substring(tabIndex + 1);
@@ -393,6 +376,7 @@ function handleShiftTab(currentRow: Editor.Row) {
         const visibleTabPosition = tempBefore.textContent?.length ?? 0;
         currentRow.setCaretInRow(visibleTabPosition);
     }
+	return true;
 }
 
 export function save() {
