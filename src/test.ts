@@ -90,21 +90,21 @@ function testLoadModel(): void {
     const state = getEditorState();
     
     // Assert
-    if (state.rowCount !== 3) {
-        throw new Error(`Expected 3 rows, got ${state.rowCount}`);
+    if (state.rowCount !== 4) {
+        throw new Error(`Expected 4 rows, got ${state.rowCount}`);
     }
     
-    if (state.sceneRowCount !== 3) {
-        throw new Error(`Expected 3 scene rows, got ${state.sceneRowCount}`);
+    if (state.sceneRowCount !== 4) {
+        throw new Error(`Expected 4 scene rows, got ${state.sceneRowCount}`);
     }
     
-    if (state.content !== TEST_DOC_CONTENT.replace(/\r/g, '')) {
+    if (state.content !== "blue.amb\n" + TEST_DOC_CONTENT.replace(/\r/g, '')) {
         throw new Error(`Expected content "${TEST_DOC_CONTENT}", got "${state.content}"`);
     }
     
     // Verify each row has proper content
     const rows = Array.from(Editor.rows());
-    const expectedLines = TEST_DOC_CONTENT.replace(/\r/g, '').split('\n');
+    const expectedLines = ["blue.amb", ... TEST_DOC_CONTENT.replace(/\r/g, '').split('\n')];
     
     for (let i = 0; i < rows.length; i++) {
         if (rows[i].content !== expectedLines[i]) {
@@ -368,7 +368,7 @@ async function runAllTests(): Promise<void> {
 //     // Initialize test data first
     await initializeTestData();
     
-//      testRunner.runTest(testLoadModel) &&
+      testRunner.runTest(testLoadModel) ;//&&
 //      testRunner.runTest(testHandleEnter) &&
 //      testRunner.runTest(testHandleBackspace) &&
 //      testRunner.runTest(testHandleArrowUp) &&
@@ -381,7 +381,7 @@ async function runAllTests(): Promise<void> {
 //      testRunner.runTest(testHandleShiftTab) &&
 //      testRunner.runTest(testHandleToggleFold);
     
-//     console.log(`\nTest Summary: ${testRunner.getSummary()}`);
+     console.log(`\nTest Summary: ${testRunner.getSummary()}`);
     
 //     const failedTests = testRunner.getResults().filter(r => !r.passed);
 //     if (failedTests.length > 0) {
@@ -393,4 +393,4 @@ async function runAllTests(): Promise<void> {
 }
 export { runAllTests, testRunner }
 // copy this into debug console to run the tests
-// const { runAllTests } = await import('/dist/test.js'); runAllTests();
+// const { runAllTests } = await import('/dist/test.js'); await runAllTests();
