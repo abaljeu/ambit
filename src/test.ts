@@ -1,6 +1,5 @@
 // // tests need to be reviewed.
 // // fold is broken
-import { RowId } from './rowid.js';
 import { model } from './model.js';
 import { Scene } from './scene.js';
 import * as Editor from './editor.js';
@@ -59,90 +58,103 @@ async function initializeTestData(): Promise<void> {
 
 // Helper function to load test document using cached content
 function loadTestDoc(): void {
-    ambit.loadDoc(TEST_DOC_CONTENT);
+    Controller.loadDoc(TEST_DOC_CONTENT, TEST_DOC_PATH);
+}
+function hasEquals(obj: any): obj is { equals(other: any): boolean } {
+    return obj && typeof obj.equals === 'function';
 }
 
-// Helper function to get current editor state
-function getEditorState(): { 
-    rowCount: number, 
-    content: string, 
-    currentRowId: RowId,
-    sceneRowCount: number 
-} {
-    const rows = Array.from(Editor.rows());
-    const content = Editor.getContent();
-    const currentRow = Editor.CurrentRow();
-    
-    return {
-        rowCount: rows.length,
-        content,
-        currentRowId: currentRow.id,
-        sceneRowCount: model.scene.rows.length
-    };
+function assert(condition: boolean, message: string = "Assert"): void {
+    if (!condition) {
+        throw new Error(message);
+    }
 }
-
-// Test 1: Load test file and assert model/scene/editor state
-function testLoadModel(): void {
-    // Arrange
-    loadTestDoc();
-    
-    // Act
-    const state = getEditorState();
-    
-    // Assert
-    if (state.rowCount !== 4) {
-        throw new Error(`Expected 4 rows, got ${state.rowCount}`);
-    }
-    
-    if (state.sceneRowCount !== 4) {
-        throw new Error(`Expected 4 scene rows, got ${state.sceneRowCount}`);
-    }
-    
-    if (state.content !== "blue.amb\n" + TEST_DOC_CONTENT.replace(/\r/g, '')) {
-        throw new Error(`Expected content "${TEST_DOC_CONTENT}", got "${state.content}"`);
-    }
-    
-    // Verify each row has proper content
-    const rows = Array.from(Editor.rows());
-    const expectedLines = ["blue.amb", ... TEST_DOC_CONTENT.replace(/\r/g, '').split('\n')];
-    
-    for (let i = 0; i < rows.length; i++) {
-        if (rows[i].content !== expectedLines[i]) {
-            throw new Error(`Row ${i} content mismatch. Expected "${expectedLines[i]}", got "${rows[i].content}"`);
+function assertEquals(expected: any, actual: any, message: string = "Assert"): void {
+    if (hasEquals(expected)) {
+        if (!expected.equals(actual)) {
+            throw new Error(`${message}: Expected "${expected.toString()}", got "${actual.toString()}"`);
+        }
+    } else {
+        if (expected !== actual) {
+            throw new Error(`${message}: Expected "${expected.toString()}", got "${actual.toString()}"`);
         }
     }
 }
 
-// // Test 2: handleEnter function
-// function testHandleEnter(): void {
-//     // Arrange
-//     loadTestDoc();
-//     const currentRow = Editor.at(0);
-//     if (!currentRow.valid) {
-//         throw new Error("No valid current row found");
-//     }
+function assertNotEquals(expected: any, actual: any, message: string = "Assert"): void {
+    if (hasEquals(expected)) {
+        if (expected.equals(actual)) {
+            throw new Error(`${message}: Expected not equal to "${expected}", got "${actual}"`);
+        }
+    } else {
+        if (expected === actual) {
+            throw new Error(`${message}: Expected not equal to "${expected}", got "${actual}"`);
+        }
+    }
+}// Load test file and assert model/scene/editor state
+
+// // Test definitions array
+const tests = [
+    function testLoadModel() {
+        loadTestDoc();
+        
+        const rows = Array.from(Editor.rows());
+        assertEquals(4, rows.length);
+        assertEquals(4, model.scene.rows.length);
+        let expectedContent = "test.amb\n" + TEST_DOC_CONTENT.replace(/\r/g, '');
+
+        const expectedLines = expectedContent.split('\n');
+        for (let i = 0; i < rows.length; i++) {
+            assertEquals(expectedLines[i], rows[i].content);
+        }
+        assertEquals(expectedContent, Editor.getContent());
+    },
     
-//     // Position cursor in middle of first line
-//     currentRow.setCaretInRow(3); // "Line 1" -> position after "Lin"
+    function testHandleArrowUp() {
+        // Arrange
+        loadTestDoc();
+        const rows = Array.from(Editor.rows());
+        const secondRow = rows[2];
+        secondRow.setCaretInRow(3); // Position in middle of "Line 2"
+        
+        // Act
+        Controller.editorKeyDown(new KeyboardEvent('keydown', { key: 'ArrowUp' }));
+        
+        // Assert
+        assertEquals(Editor.CurrentRow().id, rows[1].id, "CurrentRow");
+    },
     
-//     // Act
-//     Controller.editorKeyDown(new KeyboardEvent('keydown', { key: 'Enter' }));
+    function testHandleArrowDown() {
+        // Arrange
+        loadTestDoc();
+        const rows = Array.from(Editor.rows());
+        const firstRow = rows[0];
+        firstRow.setCaretInRow(2); // Position in middle of "Line 1"
+        
+        // Act
+        Controller.editorKeyDown(new KeyboardEvent('keydown', { key: 'ArrowDown' }));
+        
+        // Assert
+        const currentRow = Editor.CurrentRow();
+        assertEquals(currentRow.id, rows[1].id, "CurrentRow");
+    },
     
-//     // Assert
-//     const state = getEditorState();
-//     if (state.rowCount !== 4) {
-//         throw new Error(`Expected 4 rows after Enter, got ${state.rowCount}`);
-//     }
+// Test 2: handleEnter function
+function testHandleEnter(): void {
+    // Arrange
+    loadTestDoc();
+    const currentRow = Editor.at(1);
+    assert(currentRow.valid());
     
-//     const rows = Array.from(Editor.rows());
-//     if (rows[0].content !== "Lin") {
-//         throw new Error(`Expected first row to be "Lin", got "${rows[0].content}"`);
-//     }
+    // Position cursor in middle of first line
+    currentRow.setCaretInRow(3); // "Line 1" -> position after "Lin"   
+    Controller.editorKeyDown(new KeyboardEvent('keydown', { key: 'Enter' }));
     
-//     if (rows[1].content !== "e 1") {
-//         throw new Error(`Expected second row to be "e 1", got "${rows[1].content}"`);
-//     }
-// }
+    const rows = Array.from(Editor.rows());
+    assertEquals(4, rows.length);
+    assertEquals("Lin", rows[1].content);
+    assertEquals("e 1", rows[2].content);
+}
 
 // // Test 3: handleBackspace function
 // function testHandleBackspace(): void {
@@ -166,78 +178,42 @@ function testLoadModel(): void {
 //         throw new Error(`Expected merged content "Line 1Line 2", got "${updatedRows[0].content}"`);
 //     }
 // }
+];
 
-// // Test 4: handleArrowUp function
-// function testHandleArrowUp(): void {
-//     // Arrange
-//     loadTestDoc();
-//     const rows = Array.from(Editor.rows());
-//     const secondRow = rows[1];
-//     secondRow.setCaretInRow(2); // Position in middle of "Line 2"
-    
-//     // Act
-//     Controller.editorKeyDown(new KeyboardEvent('keydown', { key: 'ArrowUp' }));
-    
-//     // Assert
-//     const currentRow = Editor.CurrentRow();
-//     if (currentRow.id !== rows[0].id) {
-//         throw new Error(`Expected to move to first row, but current row is ${currentRow.id}`);
-//     }
-// }
 
-// // Test 5: handleArrowDown function
-// function testHandleArrowDown(): void {
-//     // Arrange
-//     loadTestDoc();
-//     const rows = Array.from(Editor.rows());
-//     const firstRow = rows[0];
-//     firstRow.setCaretInRow(2); // Position in middle of "Line 1"
+function testHandleArrowLeft(): void {
+    // Arrange
+    loadTestDoc();
+    const rows = Array.from(Editor.rows());
+    const secondRow = rows[1];
+    secondRow.setCaretInRow(2); // Position in middle of "Line 2"
     
-//     // Act
-//     Controller.editorKeyDown(new KeyboardEvent('keydown', { key: 'ArrowDown' }));
+    // Act
+    Controller.editorKeyDown(new KeyboardEvent('keydown', { key: 'ArrowLeft' }));
     
-//     // Assert
-//     const currentRow = Editor.CurrentRow();
-//     if (currentRow.id !== rows[1].id) {
-//         throw new Error(`Expected to move to second row, but current row is ${currentRow.id}`);
-//     }
-// }
+    // Assert
+    const currentRow = Editor.CurrentRow();
+    if (currentRow.visibleTextOffset !== 1) {
+        throw new Error(`Expected cursor at position 1, got ${currentRow.visibleTextOffset}`);
+    }
+}
 
-// // Test 6: handleArrowLeft function
-// function testHandleArrowLeft(): void {
-//     // Arrange
-//     loadTestDoc();
-//     const rows = Array.from(Editor.rows());
-//     const secondRow = rows[1];
-//     secondRow.setCaretInRow(2); // Position in middle of "Line 2"
+function testHandleArrowRight(): void {
+    // Arrange
+    loadTestDoc();
+    const rows = Array.from(Editor.rows());
+    const firstRow = rows[0];
+    firstRow.setCaretInRow(2); // Position in middle of "Line 1"
     
-//     // Act
-//     Controller.editorKeyDown(new KeyboardEvent('keydown', { key: 'ArrowLeft' }));
+    // Act
+    Controller.editorKeyDown(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
     
-//     // Assert
-//     const currentRow = Editor.CurrentRow();
-//     if (currentRow.visibleTextOffset !== 1) {
-//         throw new Error(`Expected cursor at position 1, got ${currentRow.visibleTextOffset}`);
-//     }
-// }
-
-// // Test 7: handleArrowRight function
-// function testHandleArrowRight(): void {
-//     // Arrange
-//     loadTestDoc();
-//     const rows = Array.from(Editor.rows());
-//     const firstRow = rows[0];
-//     firstRow.setCaretInRow(2); // Position in middle of "Line 1"
-    
-//     // Act
-//     Controller.editorKeyDown(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
-    
-//     // Assert
-//     const currentRow = Editor.CurrentRow();
-//     if (currentRow.visibleTextOffset !== 3) {
-//         throw new Error(`Expected cursor at position 3, got ${currentRow.visibleTextOffset}`);
-//     }
-// }
+    // Assert
+    const currentRow = Editor.CurrentRow();
+    if (currentRow.visibleTextOffset !== 3) {
+        throw new Error(`Expected cursor at position 3, got ${currentRow.visibleTextOffset}`);
+    }
+}
 
 // // Test 8: handleSwapUp function
 // function testHandleSwapUp(): void {
@@ -368,18 +344,7 @@ async function runAllTests(): Promise<void> {
 //     // Initialize test data first
     await initializeTestData();
     
-      testRunner.runTest(testLoadModel) ;//&&
-//      testRunner.runTest(testHandleEnter) &&
-//      testRunner.runTest(testHandleBackspace) &&
-//      testRunner.runTest(testHandleArrowUp) &&
-//      testRunner.runTest(testHandleArrowDown) &&
-//      testRunner.runTest(testHandleArrowLeft) &&
-//      testRunner.runTest(testHandleArrowRight) &&
-//      testRunner.runTest(testHandleSwapUp) &&
-//      testRunner.runTest(testHandleSwapDown) &&
-//      testRunner.runTest(testHandleTab) &&
-//      testRunner.runTest(testHandleShiftTab) &&
-//      testRunner.runTest(testHandleToggleFold);
+    tests.forEach(test => testRunner.runTest(test));
     
      console.log(`\nTest Summary: ${testRunner.getSummary()}`);
     

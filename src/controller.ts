@@ -4,6 +4,7 @@ import * as Editor from './editor.js';
 import { Scene, SceneRow } from './scene.js';
 import { ArraySpan } from './arrayspan.js';
 import { model } from './model.js';
+import { Doc } from './doc.js';
 
 
  export function setMessage(message : string) {
@@ -51,82 +52,80 @@ import { model } from './model.js';
 // 	}
 // }
 
-// function updateAllFoldIndicators() {
-// 	const scene = Scene.data;
-// 	for (const row of Editor.rows()) {
-// 		updateFoldIndicator(row);
-// 	}
-// }
+function updateAllFoldIndicators() {
+	const scene = model.scene;
+	for (const row of Editor.rows()) {
+		updateFoldIndicator(row);
+	}
+}
 
-// class KeyBinding {
-// 	constructor(
-// 		readonly combo: string,
-// 		readonly handler: (row: Editor.Row) => boolean | void
-// 	) {}
-// }
+class KeyBinding {
+	constructor(
+		readonly combo: string,
+		readonly handler: (row: Editor.Row) => boolean | void
+	) {}
+}
 
-// const keyBindings: KeyBinding[] = [
-// 	new KeyBinding("F5", () => false),
-// 	new KeyBinding("F6", () => false),
-// 	new KeyBinding("Tab", handleTab),
-// 	new KeyBinding("S-Tab", handleShiftTab),
-// 	new KeyBinding("C-s", () => { save(); return true; }),
-// 	new KeyBinding("Enter", handleEnter),
-// 	new KeyBinding("Backspace", (row) => handleBackspace(row)),
-// 	new KeyBinding("Delete", (row) => handleDelete(row)),
-// 	new KeyBinding("ArrowUp", handleArrowUp),
-// 	new KeyBinding("ArrowDown", handleArrowDown),
-// 	new KeyBinding("ArrowLeft", handleArrowLeft),
-// 	new KeyBinding("ArrowRight", handleArrowRight),
-// 	new KeyBinding("C-ArrowUp", handleSwapUp),
-// 	new KeyBinding("C-ArrowDown", handleSwapDown),
-// 	new KeyBinding("C-.", handleToggleFold),
-// ];
+const keyBindings: KeyBinding[] = [
+	// new KeyBinding("F5", () => false),
+	// new KeyBinding("F6", () => false),
+	// new KeyBinding("Tab", handleTab),
+	// new KeyBinding("S-Tab", handleShiftTab),
+	// new KeyBinding("C-s", () => { save(); return true; }),
+	new KeyBinding("Enter", handleEnter),
+	// new KeyBinding("Backspace", (row) => handleBackspace(row)),
+	// new KeyBinding("Delete", (row) => handleDelete(row)),
+	new KeyBinding("ArrowUp", handleArrowUp),
+	new KeyBinding("ArrowDown", handleArrowDown),
+	new KeyBinding("ArrowLeft", handleArrowLeft),
+	new KeyBinding("ArrowRight", handleArrowRight),
+	// new KeyBinding("C-ArrowUp", handleSwapUp),
+	// new KeyBinding("C-ArrowDown", handleSwapDown),
+	// new KeyBinding("C-.", handleToggleFold),
+];
 
-// function findKeyBinding(combo: string): KeyBinding {
-// 	return keyBindings.find(kb => kb.combo === combo) ?? new KeyBinding("", () => false);
-// }
+function findKeyBinding(combo: string): KeyBinding {
+	return keyBindings.find(kb => kb.combo === combo) ?? new KeyBinding("", () => false);
+}
 
  export function editorKeyDown(e : KeyboardEvent) {
-// 	if ( // just a mod key was pressed.
-// 		e.key === "Control" ||
-// 		e.key === "Shift" ||
-// 		e.key === "Alt" ||
-// 		e.key === "Meta"
-// 	) return;
-// 	const mods =
-// 		`${e.ctrlKey ? "C-" : ""}` +
-// 		`${e.altKey ? "A-" : ""}` +
-// 		`${e.shiftKey ? "S-" : ""}` +
-// 		`${e.metaKey ? "M-" : ""}`;
-// 	const combo =  mods + e.key;
+	if ( // just a mod key was pressed.
+		e.key === "Control" ||
+		e.key === "Shift" ||
+		e.key === "Alt" ||
+		e.key === "Meta"
+	) return;
+	const mods =
+		`${e.ctrlKey ? "C-" : ""}` +
+		`${e.altKey ? "A-" : ""}` +
+		`${e.shiftKey ? "S-" : ""}` +
+		`${e.metaKey ? "M-" : ""}`;
+	const combo =  mods + e.key;
 
-// 	if (e.ctrlKey || e.metaKey || e.altKey || e.key.length > 1)
-// 	{
-// 		lm.messageArea.textContent = combo;
-// 		const currentRow = Editor.CurrentRow();
-// 		if (!currentRow.valid()) return;
+	if (e.ctrlKey || e.metaKey || e.altKey || e.key.length > 1)
+	{
+		lm.messageArea.textContent = combo;
+		const currentRow = Editor.CurrentRow();
+		if (!currentRow.valid()) return;
 
-// 		const binding = findKeyBinding(combo);
-// 		if (binding) {
-// 			const result = binding.handler(currentRow);
-// 			if (result === true) {
-// 				e.preventDefault();
-// 			}
-// 		}
-// 	}
+		const binding = findKeyBinding(combo);
+		if (binding) {
+			const result = binding.handler(currentRow);
+			if (result === true) {
+				e.preventDefault();
+			}
+		}
+	}
  }
 
  function handleEnter(currentRow: Editor.Row) : boolean {
-// 	// Get HTML string offset (includes tag lengths) for proper splitting
-// 	const htmlOffset = currentRow.getHtmlOffset();
+	// Get HTML string offset (includes tag lengths) for proper splitting
+	const htmlOffset = currentRow.getHtmlOffset();
 	
-// 	// split the current row at the cursor position
-// 	const rows = Scene.data.splitRow(currentRow.id, htmlOffset);
-// 	const newRows : Editor.RowSpan = Editor.replaceRows(new Editor.RowSpan(currentRow, 1), rows);
-
-// 	updateAllFoldIndicators();
-// 	newRows.last().setCaretInRow(0);
+	// split the current row at the cursor position
+    const sceneRow = model.scene.findRow(currentRow.id);
+    sceneRow.site.docLine.split(htmlOffset);
+    // docLine notifies siteRow parents of change.
  	return true;
  }
 
@@ -170,57 +169,57 @@ import { model } from './model.js';
 // 	}
 // 	else { return false; }
 // }
-// function handleArrowUp(currentRow: Editor.Row) : boolean {
-// 	const prevP = currentRow.Previous;
-// 	if (!prevP.valid()) return true;
+function handleArrowUp(currentRow: Editor.Row) : boolean {
+	const prevP = currentRow.Previous;
+	if (!prevP.valid()) return true;
 	
-// 	prevP.moveCaretToThisRow();
-// 	return true;
-// }
+	prevP.moveCaretToThisRow();
+	return true;
+}
 
-// function handleArrowDown(currentRow: Editor.Row) : boolean {
-// 	const nextP = currentRow.Next;
-// 	if (!nextP.valid()) return true;
+ function handleArrowDown(currentRow: Editor.Row) : boolean {
+	const nextP = currentRow.Next;
+	if (!nextP.valid()) return true;
 	
-// 	nextP.moveCaretToThisRow();
-// 	return true;
-// }
+	nextP.moveCaretToThisRow();
+	return true;
+ }
 
-// function handleArrowLeft(currentRow: Editor.Row) : boolean {
-// 	if (currentRow.visibleTextOffset > 0) {
-// 		// Move cursor left within current row
-// 		currentRow.setCaretInRow(currentRow.visibleTextOffset - 1);
-// 	} else {
-// 		// Move to end of previous row (need visible text length)
-// 		const prevRow = currentRow.Previous;
-// 		if (prevRow.valid()) {
-// 			const temp = document.createElement('div');
-// 			temp.innerHTML = prevRow.content;
-// 			const prevRowVisibleLength = temp.textContent?.length ?? 0;
-// 			prevRow.setCaretInRow(prevRowVisibleLength);
-// 		}
-// 	}
-// 	return true;
-// }
+function handleArrowLeft(currentRow: Editor.Row) : boolean {
+	if (currentRow.visibleTextOffset > 0) {
+		// Move cursor left within current row
+		currentRow.setCaretInRow(currentRow.visibleTextOffset - 1);
+	} else {
+		// Move to end of previous row (need visible text length)
+		const prevRow = currentRow.Previous;
+		if (prevRow.valid()) {
+			const temp = document.createElement('div');
+			temp.innerHTML = prevRow.content;
+			const prevRowVisibleLength = temp.textContent?.length ?? 0;
+			prevRow.setCaretInRow(prevRowVisibleLength);
+		}
+	}
+	return true;
+}
 
-// function handleArrowRight(currentRow: Editor.Row) : boolean {
-// 	// Get visible text length to check if at end
-// 	const temp = document.createElement('div');
-// 	temp.innerHTML = currentRow.content;
-// 	const visibleLength = temp.textContent?.length ?? 0;
+function handleArrowRight(currentRow: Editor.Row) : boolean {
+	// Get visible text length to check if at end
+	const temp = document.createElement('div');
+	temp.innerHTML = currentRow.content;
+	const visibleLength = temp.textContent?.length ?? 0;
 	
-// 	if (currentRow.visibleTextOffset < visibleLength) {
-// 		// Move cursor right within current row
-// 		currentRow.setCaretInRow(currentRow.visibleTextOffset + 1);
-// 	} else {
-// 		// Move to beginning of next row
-// 		const nextRow = currentRow.Next;
-// 		if (nextRow.valid()) {
-// 			nextRow.setCaretInRow(0);
-// 		}
-// 	}
-// 	return true;
-// }
+	if (currentRow.visibleTextOffset < visibleLength) {
+		// Move cursor right within current row
+		currentRow.setCaretInRow(currentRow.visibleTextOffset + 1);
+	} else {
+		// Move to beginning of next row
+		const nextRow = currentRow.Next;
+		if (nextRow.valid()) {
+			nextRow.setCaretInRow(0);
+		}
+	}
+	return true;
+}
 
 // function handleSwapUp(currentRow: Editor.Row) : boolean {
 // 	const prevP = currentRow.Previous;
@@ -286,40 +285,27 @@ import { model } from './model.js';
 // 	return true;
 // }
 
-// function updateFoldIndicator(editorRow: Editor.Row) {
-// 	const scene = Scene.data;
-// 	const sceneRow = scene.findByLineId(editorRow.id);
-// 	const idx = scene.findIndexByLineId(sceneRow.id);
-// 	const baseIndent = sceneRow.getIndentLevel();
+function updateFoldIndicator(editorRow: Editor.Row) {
+	const scene = model.scene;
+	const sceneRow = scene.findRow(editorRow.id);
 	
-// 	// Check if this row has any more-indented children
-// 	let hasChildren = false;
-// 	for (let i = idx + 1; i < scene.rows.length; i++) {
-// 		const nextRow = scene.rows[i];
-// 		const nextIndent = nextRow.getIndentLevel();
-		
-// 		if (nextIndent <= baseIndent) break;
-// 		hasChildren = true;
-// 		break;
-// 	}
-	
-// 	if (!hasChildren) {
-// 		editorRow.setFoldIndicator(' ');
-// 	} else if (sceneRow.folded) {
-// 		editorRow.setFoldIndicator('+');
-// 	} else {
-// 		editorRow.setFoldIndicator('-');
-// 	}
-// }
-// function offsetIsInIndent(offset: number, rowText: string): boolean {
-// 	const len = rowText.length;
-// 	if (offset > len) return false;
+	if (!sceneRow.site.hasChildren) {
+		editorRow.setFoldIndicator(' ');
+	} else if (sceneRow.site.folded) {
+		editorRow.setFoldIndicator('+');
+	} else {
+		editorRow.setFoldIndicator('-');
+	}
+}
+function offsetIsInIndent(offset: number, rowText: string): boolean {
+	const len = rowText.length;
+	if (offset > len) return false;
 
-// 	for (let i = 0; i < offset; i++) {
-// 		if (rowText[i] != '\t') return false;
-// 	}
-// 	return true;
-// }
+	for (let i = 0; i < offset; i++) {
+		if (rowText[i] != '\t') return false;
+	}
+	return true;
+}
 
 // function rowDataFromEditorRow(editorRow: Editor.Row): Scene.RowData {
 // 	return Scene.data.findByLineId(editorRow.id);
@@ -378,6 +364,15 @@ import { model } from './model.js';
 //     }
  	return true;
  }
+
+ export function loadDoc(data : string, filePath : string) : Doc {
+    let doc = model.addOrUpdateDoc(data, filePath);
+    model.scene.loadFromSite(model.site.getRoot());
+    setEditorContent();
+    setMessage("Loaded");
+    links();
+    return doc;
+}
 
  export function save() {
 // 	postDoc(Editor.docName(), Editor.getContent());

@@ -1,11 +1,11 @@
 import './events.js';
-import { RowId, endRowId } from './rowid.js';
+// import { RowId, endRowId } from './rowid.js';
 import * as Controller from './controller.js';
 import * as lm from './elements.js';
 import { model } from './model.js';
 import * as Test from './test.js';
 import { testFixTags } from './htmlutil.js';
-
+import { Doc } from './doc.js';
 // Use local file storage via loadsave.php
 const baseUrl = "loadsave.php?doc=";
 
@@ -26,14 +26,7 @@ lm.path.textContent = filePath;
 
 
 export function loadFromPath(filePath : string) {
-    fetchDoc(filePath).then(text => loadDoc(text));
-}
-export function loadDoc(data : string) {
-    model.addOrUpdateDoc(data, filePath);
-    model.scene.loadFromSite(model.site.getRoot());
-    Controller.setEditorContent();
-    Controller.setMessage("Loaded");
-    Controller.links();
+    fetchDoc(filePath).then(text => Controller.loadDoc(text, filePath));
 }
 export function fetchDoc(filePath : string) : Promise<string> {
     // If not in cache, fetch from server

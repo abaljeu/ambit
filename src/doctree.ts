@@ -1,6 +1,7 @@
 import { Doc, DocLine, DocLineId } from './doc.js';
 
 export class DocTree {
+    public static end = new DocTree(DocLine.end);
     public readonly line: DocLine;
     
     private constructor(root: DocLine) {

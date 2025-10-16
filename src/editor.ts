@@ -1,8 +1,7 @@
 import * as lm from './elements.js';
-import { Scene, SceneRow } from './scene.js';
-import { endRowId, RowId } from './rowid.js';
+import { Scene, SceneRow, SceneRowId } from './scene.js';
 import { ArraySpan } from './arrayspan.js';
-import { siteRowPool } from './site.js';
+import { Id, Pool } from './pool.js';
 
 const RowElementTag: string = 'div';
 const RowContentTag: string = 'span';
@@ -10,6 +9,24 @@ type RowContentElement = HTMLSpanElement;
 type RowElement = HTMLDivElement;
 const VISIBLE_TAB = '→'; // Visible tab character
 
+// export class RowId extends Id<'Row'> {
+//     public constructor(value: string) {
+//         if (!/^R[0-9A-Z]{6}$/.test(value)) {
+//             throw new Error('Invalid RowId');
+//         }
+//         super(value);
+//     }
+// }
+// class EditorRowPool extends Pool<Row, RowId> {
+//     protected override fromString(value: string): RowId {
+//         return new RowId(value);
+//     }
+//     public get end(): Row {
+//         return NoRow;
+//     }
+//     public readonly tag: string = 'R';
+// }
+// const editorRowPool = new EditorRowPool();
 export function createRowElement(): RowElement {
 	const el = document.createElement(RowElementTag) as RowElement;
 	
@@ -87,13 +104,13 @@ export class Row {
 		public valid(): boolean {
 			return this.el !== null;
 		}
-		public get id(): RowId {
-			return RowId.fromString(this.idString);
+		public get id(): string {
+			return this.idString;
 		}
 		
 		// Helper method to get the string representation for DOM operations
 		public get idString(): string {
-			return this.el?.dataset.lineId ?? endRowId.getString();
+			return this.el?.dataset.lineId ?? NoRow.idString;
 		}
 		public setCaretInRow(offset: number) {
 			const contentSpan = this.getContentSpan();
@@ -148,11 +165,10 @@ export class Row {
 export class RowSpan implements Iterable<Row> {
 	constructor(public readonly row: Row, public readonly count: number) {}
 	
-	// fix this
 	*[Symbol.iterator](): Iterator<Row> {
 		let row = this.row;
 		for (let i = 0; i < this.count; i++) {
-			yield this.row;
+			yield row;
 			row = row.Next;
 		}
 	}
@@ -202,12 +218,10 @@ export function addBefore(targetRow: Row, scene: ArraySpan<SceneRow>)
 	
 	let firstRow = NoRow;
 	for (const sceneRow of scene) {
-		if (!sceneRow.visible) continue;
-		
 		// Convert regular tabs to visible tabs for display
 		const visibleContent = sceneRow.content.replace(/\t/g, VISIBLE_TAB);
 		const el = createRowElement();
-		el.dataset.lineId = sceneRow.site.id.serialize();
+		el.dataset.lineId = sceneRow.id.value
 		let row = new Row(el, 0);
 		if (firstRow === NoRow) firstRow = row;
 
@@ -421,9 +435,14 @@ export function replaceRows(oldRows: RowSpan, newRows: ArraySpan<SceneRow>): Row
 	const beforeStartRow = oldRows.row.Previous;
 	const endRow = oldRows.endRow();
 	
-	for (const row of oldRows) {
+	// Collect all rows first before removing (to avoid breaking the DOM chain)
+	const rowsToRemove: Row[] = Array.from(oldRows);
+	
+	// Now remove them
+	for (const row of rowsToRemove) {
 		row.el.remove();
 	}
+	
 	return addBefore(endRow, newRows);
 }
 
@@ -453,7 +472,7 @@ export function addAfter(
 	let first = NoRow;
 	for (const rowData of rowDataArray) {
 		const el = createRowElement();
-		el.dataset.lineId = rowData.site.id.serialize();
+		el.dataset.lineId = rowData.site.id.value;
 		new Row(el, 0).setContent(rowData.content);
 		
 		if (beforeRow.nextSibling) {
