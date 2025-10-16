@@ -1,1 +1,1 @@
-import * as Scene from './scene.js';
+import * as Scene from './_scene.js';

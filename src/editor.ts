@@ -1,7 +1,8 @@
 import * as lm from './elements.js';
-import * as Scene from './scene.js';
+import { Scene, SceneRow } from './scene.js';
 import { endRowId, RowId } from './rowid.js';
 import { ArraySpan } from './arrayspan.js';
+import { siteRowPool } from './site.js';
 
 const RowElementTag: string = 'div';
 const RowContentTag: string = 'span';
@@ -194,7 +195,7 @@ export function at(index: number): Row {
 }
 // Create a new row and insert it after the given previous row.
 // If previousRow is NoRow, insert at the front of the container.
-export function addBefore(targetRow: Row, scene: ArraySpan<Scene.RowData>)
+export function addBefore(targetRow: Row, scene: ArraySpan<SceneRow>)
 	: RowSpan {
 	if (lm.editor === null) 
 		return new RowSpan(NoRow, 0);
@@ -206,7 +207,7 @@ export function addBefore(targetRow: Row, scene: ArraySpan<Scene.RowData>)
 		// Convert regular tabs to visible tabs for display
 		const visibleContent = sceneRow.content.replace(/\t/g, VISIBLE_TAB);
 		const el = createRowElement();
-		el.dataset.lineId = sceneRow.id.getString();
+		el.dataset.lineId = sceneRow.site.id.serialize();
 		let row = new Row(el, 0);
 		if (firstRow === NoRow) firstRow = row;
 
@@ -414,7 +415,7 @@ export function getContent(): string {
 	return getContentLines().join('\n');
 }
 
-export function replaceRows(oldRows: RowSpan, newRows: ArraySpan<Scene.RowData>): RowSpan {
+export function replaceRows(oldRows: RowSpan, newRows: ArraySpan<SceneRow>): RowSpan {
 	if (oldRows.count === 0 && newRows.length === 0) return new RowSpan(NoRow, 0);
 	
 	const beforeStartRow = oldRows.row.Previous;
@@ -427,22 +428,24 @@ export function replaceRows(oldRows: RowSpan, newRows: ArraySpan<Scene.RowData>)
 }
 
 // Update rows with Scene.RowData array
-export function updateRows(rowDataArray: ArraySpan<Scene.RowData>): void {
+export function updateRows(rowDataArray: ArraySpan<SceneRow>): void {
 	let idx = 0;
 	for (const row of rows()) {
-		if (idx < rowDataArray.length && row.id.equals(rowDataArray.at(idx).id)) {
-			row.setContent(rowDataArray.at(idx).content);
-			idx++;
-		}
+		const rowData = rowDataArray.at(idx);
+		if (!rowData) break;
+		
+		row.setContent(rowData.content);
+		idx++;
 	}
 }
+
 export function deleteRow(row: Row): void {
 	row.el.remove();
 }
 
 export function addAfter(
 	referenceRow: Row, 
-	rowDataArray: ArraySpan<Scene.RowData>
+	rowDataArray: ArraySpan<SceneRow>
 ): RowSpan {
 	if (lm.editor === null) return new RowSpan(NoRow, 0);
 	let count = 0;
@@ -450,7 +453,7 @@ export function addAfter(
 	let first = NoRow;
 	for (const rowData of rowDataArray) {
 		const el = createRowElement();
-		el.dataset.lineId = rowData.id.getString();
+		el.dataset.lineId = rowData.site.id.serialize();
 		new Row(el, 0).setContent(rowData.content);
 		
 		if (beforeRow.nextSibling) {
@@ -480,7 +483,7 @@ export function docName(): string {
 export function setDocName(name: string): void {
 	lm.path.textContent = name;
 }
-export function setContent(scene: ArraySpan<Scene.RowData>): RowSpan {    // Clear the Editor
+export function setContent(scene: ArraySpan<SceneRow>): RowSpan {    // Clear the Editor
 	clear();
 
 	// Create a Line element for each visible line
