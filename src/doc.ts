@@ -14,10 +14,10 @@ export class DocLineId extends Id<'DocLine'> {
 }
 export class DocLine extends Poolable<'DocLine'> {
     private _content: string;
-
+    private static end = new DocLine('', DocLineId.deserialize('D000000'));
     // DocTree structure
     private readonly _children: DocLine[] = [];
-    private _parent: DocLine  = docLinePool.end;
+    private _parent: DocLine  = DocLine.end;
     private _length: number = 1;
     private _indent: number = 0;
     

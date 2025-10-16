@@ -25,17 +25,17 @@ document.title = filePath;
 lm.path.textContent = filePath;
 
 
-export function LoadFromPath(filePath : string) {
-    GetDoc(filePath).then(text => LoadDoc(text));
+export function loadFromPath(filePath : string) {
+    fetchDoc(filePath).then(text => loadDoc(text));
 }
-export function LoadDoc(data : string) {
+export function loadDoc(data : string) {
     model.addOrUpdateDoc(data, filePath);
     model.scene.loadFromSite(model.site.getRoot());
     Controller.setEditorContent();
     Controller.setMessage("Loaded");
     Controller.links();
 }
-export function GetDoc(filePath : string) : Promise<string> {
+export function fetchDoc(filePath : string) : Promise<string> {
     // If not in cache, fetch from server
     let url = baseUrl + filePath;
     return fetch(url).then(result => result.text())
@@ -46,7 +46,7 @@ export function GetDoc(filePath : string) : Promise<string> {
         });
 }
 
-export function PostDoc(filePath :string, content : string) {
+export function postDoc(filePath :string, content : string) {
     // Update global documents array first
     model.addOrUpdateDoc(filePath, content);
     
@@ -72,6 +72,6 @@ export function PostDoc(filePath :string, content : string) {
 
 // Only auto-load if we're in the main ambit context (not in tests)
 if (typeof window !== 'undefined' && window.location.pathname.includes('ambit.php')) {
-    LoadFromPath(filePath);
+    loadFromPath(filePath);
     Object.assign(window as any, { model, Controller });
 }

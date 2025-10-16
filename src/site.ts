@@ -17,9 +17,11 @@ export class SiteRowId extends Id<'SiteRow'> {
 export class SiteRow extends Poolable<'SiteRow'> {
     private _folded : boolean = false;
 
+    private static end = new SiteRow(DocTree.create(Doc.end), SiteRowId.deserialize('S000000'));
+
     // tree structure
     public readonly children: SiteRow[] = [];
-    public parent: SiteRow = siteRowPool.end;
+    public parent: SiteRow = SiteRow.end;
     public length: number = 1;
     // reference to the DocTree
     public readonly doctree: DocTree;

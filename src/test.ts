@@ -14,35 +14,35 @@ interface TestResult {
 }
 
 class TestRunner {
-//     private results: TestResult[] = [];
+    private results: TestResult[] = [];
     
-//     runTest(testFn: () => void ): boolean {
-//         try {
-//             console.log(`Running test: ${testFn.name}`);
-//             testFn();
-//             this.results.push({ name: testFn.name, passed: true });
-//             console.log(`✓ ${testFn.name} passed`);
-// 			return true;
-//         } catch (error) {
-//             this.results.push({ 
-//                 name: testFn.name, 
-//                 passed: false, 
-//                 error: error instanceof Error ? error.message : String(error) 
-//             });
-//             console.log(`✗ ${testFn.name} failed: ${error}`);
-// 			return false;
-//         }
-//     }
+    runTest(testFn: () => void ): boolean {
+        try {
+            console.log(`Running test: ${testFn.name}`);
+            testFn();
+            this.results.push({ name: testFn.name, passed: true });
+            console.log(`✓ ${testFn.name} passed`);
+			return true;
+        } catch (error) {
+            this.results.push({ 
+                name: testFn.name, 
+                passed: false, 
+                error: error instanceof Error ? error.message : String(error) 
+            });
+            console.log(`✗ ${testFn.name} failed: ${error}`);
+			return false;
+        }
+    }
     
-//     getResults(): TestResult[] {
-//         return this.results;
-//     }
+    getResults(): TestResult[] {
+        return this.results;
+    }
     
-//     getSummary(): string {
-//         const passed = this.results.filter(r => r.passed).length;
-//         const total = this.results.length;
-//         return `${passed}/${total} tests passed`;
-//     }
+    getSummary(): string {
+        const passed = this.results.filter(r => r.passed).length;
+        const total = this.results.length;
+        return `${passed}/${total} tests passed`;
+    }
 }
 
 // // Global test runner instance
@@ -54,64 +54,64 @@ let TEST_DOC_CONTENT = "";
 
 // // Cache the test data from a single call to GetDoc
 async function initializeTestData(): Promise<void> {
-    TEST_DOC_CONTENT = await ambit.GetDoc(TEST_DOC_PATH);
+    TEST_DOC_CONTENT = await ambit.fetchDoc(TEST_DOC_PATH);
 }
 
-// // Helper function to load test document using cached content
-// function loadTestDoc(): void {
-//     ambit.LoadDoc(TEST_DOC_CONTENT);
-// }
+// Helper function to load test document using cached content
+function loadTestDoc(): void {
+    ambit.loadDoc(TEST_DOC_CONTENT);
+}
 
-// // Helper function to get current editor state
-// function getEditorState(): { 
-//     rowCount: number, 
-//     content: string, 
-//     currentRowId: RowId,
-//     sceneRowCount: number 
-// } {
-//     const rows = Array.from(Editor.rows());
-//     const content = Editor.getContent();
-//     const currentRow = Editor.CurrentRow();
+// Helper function to get current editor state
+function getEditorState(): { 
+    rowCount: number, 
+    content: string, 
+    currentRowId: RowId,
+    sceneRowCount: number 
+} {
+    const rows = Array.from(Editor.rows());
+    const content = Editor.getContent();
+    const currentRow = Editor.CurrentRow();
     
-//     return {
-//         rowCount: rows.length,
-//         content,
-//         currentRowId: currentRow.id,
-//         sceneRowCount: Scene.data.length
-//     };
-// }
+    return {
+        rowCount: rows.length,
+        content,
+        currentRowId: currentRow.id,
+        sceneRowCount: model.scene.rows.length
+    };
+}
 
-// // Test 1: Load test file and assert model/scene/editor state
-// function testLoadModel(): void {
-//     // Arrange
-//     loadTestDoc();
+// Test 1: Load test file and assert model/scene/editor state
+function testLoadModel(): void {
+    // Arrange
+    loadTestDoc();
     
-//     // Act
-//     const state = getEditorState();
+    // Act
+    const state = getEditorState();
     
-//     // Assert
-//     if (state.rowCount !== 3) {
-//         throw new Error(`Expected 3 rows, got ${state.rowCount}`);
-//     }
+    // Assert
+    if (state.rowCount !== 3) {
+        throw new Error(`Expected 3 rows, got ${state.rowCount}`);
+    }
     
-//     if (state.sceneRowCount !== 3) {
-//         throw new Error(`Expected 3 scene rows, got ${state.sceneRowCount}`);
-//     }
+    if (state.sceneRowCount !== 3) {
+        throw new Error(`Expected 3 scene rows, got ${state.sceneRowCount}`);
+    }
     
-//     if (state.content !== TEST_DOC_CONTENT.replace(/\r/g, '')) {
-//         throw new Error(`Expected content "${TEST_DOC_CONTENT}", got "${state.content}"`);
-//     }
+    if (state.content !== TEST_DOC_CONTENT.replace(/\r/g, '')) {
+        throw new Error(`Expected content "${TEST_DOC_CONTENT}", got "${state.content}"`);
+    }
     
-//     // Verify each row has proper content
-//     const rows = Array.from(Editor.rows());
-//     const expectedLines = TEST_DOC_CONTENT.replace(/\r/g, '').split('\n');
+    // Verify each row has proper content
+    const rows = Array.from(Editor.rows());
+    const expectedLines = TEST_DOC_CONTENT.replace(/\r/g, '').split('\n');
     
-//     for (let i = 0; i < rows.length; i++) {
-//         if (rows[i].content !== expectedLines[i]) {
-//             throw new Error(`Row ${i} content mismatch. Expected "${expectedLines[i]}", got "${rows[i].content}"`);
-//         }
-//     }
-// }
+    for (let i = 0; i < rows.length; i++) {
+        if (rows[i].content !== expectedLines[i]) {
+            throw new Error(`Row ${i} content mismatch. Expected "${expectedLines[i]}", got "${rows[i].content}"`);
+        }
+    }
+}
 
 // // Test 2: handleEnter function
 // function testHandleEnter(): void {

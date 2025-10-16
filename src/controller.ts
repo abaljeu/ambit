@@ -1,4 +1,4 @@
-import { PostDoc } from './ambit.js';
+import { postDoc } from './ambit.js';
 import * as lm from './elements.js';
 import * as Editor from './editor.js';
 import { Scene, SceneRow } from './scene.js';
@@ -380,7 +380,7 @@ import { model } from './model.js';
  }
 
  export function save() {
-// 	PostDoc(Editor.docName(), Editor.getContent());
+// 	postDoc(Editor.docName(), Editor.getContent());
  }
 
  export function setEditorContent() {
