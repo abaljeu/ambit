@@ -219,21 +219,55 @@ export function addBefore(targetRow: Row, scene: ArraySpan<SceneRow>)
 	let firstRow = NoRow;
 	for (const sceneRow of scene) {
 		// Convert regular tabs to visible tabs for display
-		const visibleContent = sceneRow.content.replace(/\t/g, VISIBLE_TAB);
-		const el = createRowElement();
-		el.dataset.lineId = sceneRow.id.value
-		let row = new Row(el, 0);
+		const row = createRowElementFromSceneRow(sceneRow);
 		if (firstRow === NoRow) firstRow = row;
 
-		row.setContent(visibleContent);
 		if (targetRow === NoRow) {
-			lm.editor.append(el); // add to front of editor
+			lm.editor.appendChild(row.el); // add to front of editor
 		} else {
-			lm.editor.insertBefore(el, targetRow.el);
+			lm.editor.insertBefore(row.el, targetRow.el);
 		}
 	}
 	return new RowSpan(firstRow, scene.length);
 }
+export function createRowElementFromSceneRow(sceneRow: SceneRow): Row {
+	const el = createRowElement();
+	let row = new Row(el, 0);
+
+	el.dataset.lineId = sceneRow.id.value;
+	const indent = sceneRow.indent;
+	const indenttext = VISIBLE_TAB.repeat(indent < 0 ? 0 : indent);
+	if (indent < 0) {
+		el.classList.add('header');
+	}
+	el.contentEditable = 'true';
+	row.setContent(indenttext + sceneRow.content.replace(/\t/g, VISIBLE_TAB));
+	return row;
+}
+export function addAfter(
+	referenceRow: Row, 
+	rowDataArray: ArraySpan<SceneRow>
+): RowSpan {
+	if (lm.editor === null) return new RowSpan(NoRow, 0);
+	let count = 0;
+	let beforeRow = referenceRow.el;
+	let first = NoRow;
+	for (const rowData of rowDataArray) {
+		const row = createRowElementFromSceneRow(rowData);
+		
+		if (beforeRow.nextSibling) {
+			lm.editor.insertBefore(row.el, beforeRow.nextSibling);
+		} else {
+			lm.editor.appendChild(row.el);
+		}
+		if (first === NoRow) first = row;
+		beforeRow = row.el;
+		count++;
+	}
+	
+	return new RowSpan(first, count);
+}
+
 // Helper: Walk DOM tree and find node+offset for a given text offset
 function getNodeAndOffsetFromTextOffset(
 	container: HTMLElement, 
@@ -462,31 +496,6 @@ export function deleteRow(row: Row): void {
 	row.el.remove();
 }
 
-export function addAfter(
-	referenceRow: Row, 
-	rowDataArray: ArraySpan<SceneRow>
-): RowSpan {
-	if (lm.editor === null) return new RowSpan(NoRow, 0);
-	let count = 0;
-	let beforeRow = referenceRow.el;
-	let first = NoRow;
-	for (const rowData of rowDataArray) {
-		const el = createRowElement();
-		el.dataset.lineId = rowData.site.id.value;
-		new Row(el, 0).setContent(rowData.content);
-		
-		if (beforeRow.nextSibling) {
-			lm.editor.insertBefore(el, beforeRow.nextSibling);
-		} else {
-			lm.editor.appendChild(el);
-		}
-		if (first === NoRow) first = new Row(el, 0);
-		beforeRow = el;
-		count++;
-	}
-	
-	return new RowSpan(first, count);
-}
 
 export function deleteAfter(referenceRow: Row, count: number): void {
 	let current = referenceRow.Next;

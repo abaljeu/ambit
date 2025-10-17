@@ -1,4 +1,5 @@
 import { Doc, DocLine, noDoc, Subscriber } from './doc.js';
+import * as Change from './change.js';
 import { Id, Pool } from './pool.js';
 
 // SiteRow ID - uses 'Sxxxxxx' format  
@@ -13,36 +14,15 @@ export class SiteRowId extends Id<'SiteRow'> {
 
 export abstract class SiteRowSubscriber {
     abstract siteRowUpdated(siteRow: SiteRow): void;
+    abstract siteRowsInserted(siteRow: SiteRow, offset: number, newRows: SiteRow[]): void;
 }
 
 export class SiteRow extends Subscriber {
-    private _deferNotifications = false;
-    
-    public get hasChildren(): boolean { return this.children.length > 0; }
-    
-    public docLineUpdated(docLine: DocLine): void {
-        // Verify this is the DocLine we're tracking
-        if (docLine !== this.docLine) return;
-        
-        // Synchronize children: rebuild to match DocLine's children
-        this._synchronizeChildren();
-        
-        // Update length propagates up the tree
-        this._updateLength();
-        
-        // Notify subscribers of the change (only once, not during sync)
-        this._notifySubscribers();
-    }
-    
     public readonly id: SiteRowId;
-    public static end = new SiteRow(DocLine.end, new SiteRowId('S000000'));
-
-    // content
     private _folded : boolean = false;
-
-    // reference to the DocLine
     public readonly docLine: DocLine;
-
+    
+    public static end = new SiteRow(DocLine.end, new SiteRowId('S000000'));
     // tree structure
     public readonly children: SiteRow[] = [];
     public parent: SiteRow = SiteRow.end;
@@ -54,14 +34,43 @@ export class SiteRow extends Subscriber {
         this.docLine = DocLine;
         this.docLine.subscribe(this);
     }
+    public get hasChildren(): boolean { return this.children.length > 0; }
+    
+    public docLineInserted(change: Change.Insert): void {
+        if (change.owner !== this.docLine.id) return;
+
+        const owner = this.docLine;
+        const newRows: SiteRow[] = [];
+        for (let i = change.offset; i < change.offset + change.lines.length; i++) {
+            const line = owner.children[i];
+            let newRow = siteRowPool.create((id) => new SiteRow(line, id));
+            newRow.parent = this;
+            newRows.push(newRow);
+        }
+        this.children.splice(change.offset, 0, ...newRows);
+        this.length += newRows.length;
+        this._subscribers.forEach(subscriber => subscriber.siteRowsInserted(this, change.offset, newRows));
+    }
+    public docLineSplitted(docLine: DocLine): void {
+        // Verify this is the DocLine we're tracking
+        if (docLine !== this.docLine) return;
+        
+        // Synchronize children: rebuild to match DocLine's children
+        this._synchronizeChildren();
+        
+        // Update length propagates up the tree
+        this._updateLength();
+        
+        this._subscribers.forEach(subscriber => subscriber.siteRowUpdated(this));
+    }
+    
+
+    public get valid(): boolean { return this !== SiteRow.end; }
     public get folded(): boolean { return this._folded; }
     public addChild(child: SiteRow): void {
         child.parent = this;
         this.children.push(child);
         this._updateLength();
-        if (!this._deferNotifications) {
-            this._notifySubscribers();
-        }
     }
     
     public removeChild(child: SiteRow): boolean {
@@ -71,22 +80,15 @@ export class SiteRow extends Subscriber {
         child.parent = SiteRow.end;
         this.children.splice(index, 1);
         this._updateLength();
-        if (!this._deferNotifications) {
-            this._notifySubscribers();
-        }
         return true;
     }
     
     private _updateLength(): void {
         this.length = 1 + this.children.reduce((sum, child) => sum + child.length, 0);
-        if (this.parent !== SiteRow.end && !this.parent._deferNotifications) {
-            this.parent._updateLength();
-        }
     }
     
     private _synchronizeChildren(): void {
         // Defer notifications during synchronization
-        this._deferNotifications = true;
         
         this.children.length = 0;
 
@@ -101,10 +103,9 @@ export class SiteRow extends Subscriber {
         }
         
         this._updateLength();
-        this._deferNotifications = false;
         
         // Only ONE notification after all children are synchronized
-        this._notifySubscribers();
+        this._subscribers.forEach(subscriber => subscriber.siteRowUpdated(this));
     }
     
     public _subscribers: SiteRowSubscriber[] = [];
@@ -117,19 +118,10 @@ export class SiteRow extends Subscriber {
         this._subscribers = this._subscribers.filter(s => s !== subscriber);
     }
     
-    private _notifySubscribers(): void {
-        if (!this._deferNotifications) {
-            this._subscribers.forEach(subscriber => subscriber.siteRowUpdated(this));
-        }
-    }
     
     public static _buildTreeRecursive(docLine: DocLine): SiteRow {
         // Create SiteRow with reference to this DocLine
         const siteRow = siteRowPool.create((id) => new SiteRow(docLine, id));
-        
-        // Defer notifications during tree construction
-        siteRow._deferNotifications = true;
-        
         // Recursively create children
         for (const child of docLine.children) {
             const childSiteRow = this._buildTreeRecursive(child);
@@ -138,9 +130,7 @@ export class SiteRow extends Subscriber {
         }
         
         siteRow._updateLength();
-        siteRow._deferNotifications = false;
         
-        // Don't notify during construction - parent will handle notifications
         return siteRow;
     }
     
@@ -172,21 +162,20 @@ export class SiteRowPool extends Pool<SiteRow, SiteRowId> {
 const siteRowPool = new SiteRowPool();
 export class Site {
     private _doc: Doc = noDoc; // The root doc
-    private siteRows: SiteRow[] = [];
     private _root: SiteRow = SiteRow.end;
     
     public setDoc(doc: Doc): void {
         this._doc = doc;
-        this.siteRows = new Array(doc.lines.length);
         this.buildTree(doc.getRoot());
     }
     
     private buildTree(line: DocLine ): void {
-        this.siteRows = [];
         // Create SiteRow for each DocLine, matching the tree structure
         this._root = SiteRow._buildTreeRecursive(line);
     }
-    
+    public findRowByDocLine(docLine: DocLine): SiteRow {
+        return siteRowPool.search((row: SiteRow) => row.docLine === docLine);
+    }
     public getRoot(): SiteRow {
         return this._root;
     }

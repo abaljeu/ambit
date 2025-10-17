@@ -2,7 +2,7 @@ import { Site, SiteRow, SiteRowId, SiteRowSubscriber } from './site.js';
 import { Id, Pool } from './pool.js';
 import * as Editor from './editor.js';
 import { ArraySpan } from './arrayspan.js';
-
+import * as Change from './change.js';
 /*    => filter, flatten
     Scene
         SceneRow
@@ -18,56 +18,54 @@ export class SceneRowId extends Id<'SceneRow'> {
         super(value);
     }
 }
-export abstract class SceneRowSubscriber {
-    abstract sceneRowUpdated(sceneRow: SceneRow): void;
-}
 export class SceneRow extends SiteRowSubscriber {
     public readonly id: SceneRowId;
-    public length: number = 1;
-    public _deferNotifications = false;
+    public  get indent(): number { return this.siteRow.docLine.indent; }
+    public subTreeLength: number = 1;
     // public static end = new SceneRow(NoScene,  SiteRow.end, new SceneRowId('R000000'));
     
     
-    constructor(public  context: Scene, public readonly site: SiteRow, id: SceneRowId) {
+    constructor(public  scene: Scene, public readonly siteRow: SiteRow, id: SceneRowId) {
         super();
         this.id = id;
-        this.site.subscribe(this);
+        this.siteRow.subscribe(this);
     }
     
+    public indexInScene(): number {
+        return this.scene.rows.indexOf(this);
+    }
+    public siteRowsInserted(siteRow: SiteRow, offset: number, newSiteRows: SiteRow[]): void {
+        // When our SiteRow changes, we need to rebuild this section of the scene
+        if (siteRow !== this.siteRow) return;
+        if (siteRow.folded) return;
+
+        const newSceneRows: SceneRow[] = 
+            newSiteRows.map(row => this.scene.createSceneRow(row));
+        const start = this.indexInScene() + offset;
+        this.scene.replaceRows(start, length, newSceneRows);
+        this.subTreeLength += newSceneRows.length;
+    }
     public siteRowUpdated(siteRow: SiteRow): void {
         // When our SiteRow changes, we need to rebuild this section of the scene
-        if (siteRow !== this.site) return;
-        if (this._deferNotifications) return;
+        if (siteRow !== this.siteRow) return;
         
-        const oldLength = this.length;
+        const oldLength = this.subTreeLength;
         const newRows: SceneRow[] = [];
         
         // Flatten only the CHILDREN, not the node itself
         // This node stays in place, we just update its descendants
         for (const child of siteRow.children) {
-            this.context._flattenRecursive(child, newRows);
+            this.scene._flattenRecursive(child, newRows);
         }
         
         // Update this row's length
-        this.length = 1 + newRows.reduce((sum, row) => sum + row.length, 0);
+        this.subTreeLength = 1 + newRows.reduce((sum, row) => sum + row.subTreeLength, 0);
         
         // Replace the OLD children (oldLength - 1 because oldLength includes this row)
         // with the NEW children (newRows)
-        this.context.replaceRows(this, oldLength, [this, ...newRows]);
+        this.scene.replaceRows(this, oldLength, [this, ...newRows]);
     }
-    private _subscribers: SceneRowSubscriber[] = [];
-    public subscribe(subscriber: SceneRowSubscriber): void {
-        this._subscribers.push(subscriber);
-    }
-    public unsubscribe(subscriber: SceneRowSubscriber): void {
-        this._subscribers = this._subscribers.filter(s => s !== subscriber);
-    }
-    private _notifySubscribers(): void {
-        if (!this._deferNotifications) {
-            this._subscribers.forEach(subscriber => subscriber.sceneRowUpdated(this));
-        }
-    }
-    public get content(): string { return this.site.docLine.content; }
+    public get content(): string { return this.siteRow.docLine.content; }
 }
 
 export class SceneRowPool extends Pool<SceneRow, SceneRowId> {
@@ -90,23 +88,15 @@ export class Scene {
     
     constructor() {}
     
-    public replaceRows(sceneRow: SceneRow, oldLength: number, newRows: SceneRow[]): void {
+    public replaceRows(start: number, length: number, newRows: SceneRow[]): void {
         // Prevent overlapping updates
         if (this._updating) return;
         this._updating = true;
         
         try {
-            const index = this._rows.indexOf(sceneRow);
-            if (index === -1) return; // Not found in the array
-            
-            // Defer notifications on all rows that will be replaced
-            for (let i = index; i < index + oldLength && i < this._rows.length; i++) {
-                this._rows[i]._deferNotifications = true;
-            }
-            
             // Construct RowSpan for the old rows
-            const startRow = Editor.at(index);
-            const oldRowSpan = new Editor.RowSpan(startRow, oldLength);
+            const startRow = Editor.at(start);
+            const oldRowSpan = new Editor.RowSpan(startRow, length);
             
             // Construct ArraySpan for the new SceneRows
             const newRowSpan = new ArraySpan<SceneRow>(newRows, 0, newRows.length);
@@ -115,7 +105,7 @@ export class Scene {
             Editor.replaceRows(oldRowSpan, newRowSpan);
             
             // Replace oldLength rows starting at index with newRows
-            this._rows.splice(index, oldLength, ...newRows);
+            this._rows.splice(start, length, ...newRows);
         } finally {
             this._updating = false;
         }
@@ -137,27 +127,26 @@ export class Scene {
         // A SceneRow is visible if its parent is visible and not folded
         if (!siteRow.folded) {
             // Add the current node
-            let row = this.sceneRowPool.search((row: SceneRow) => row.site === siteRow);
+            let row = this.sceneRowPool.search((row: SceneRow) => row.siteRow === siteRow);
             if (row === this.sceneRowPool.end) {
-                row = this.sceneRowPool.create(id => new SceneRow(this, siteRow, id));
+                row = this.createSceneRow(siteRow);
             } else {
                 // Reuse existing row - don't re-subscribe
-                row._deferNotifications = true;
             }
-            row.length = 1;
+            row.subTreeLength = 1;
             result.push(row);
             
             // Recursively add all children
             for (const child of siteRow.children) {
                 this._flattenRecursive(child, result);
-                row.length += child.length;
+                row.subTreeLength += child.length;
             }
             
-            row._deferNotifications = false;
         }
     }
 
-
-    
+    public createSceneRow(siteRow: SiteRow): SceneRow {
+        return this.sceneRowPool.create(id => new SceneRow(this, siteRow, id));
+    }
     public get rows(): readonly SceneRow[] { return this._rows; }
 }

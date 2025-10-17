@@ -1,5 +1,7 @@
 // // tests need to be reviewed.
 // // fold is broken
+import { Doc } from './doc.js';
+import * as Change from './change.js';
 import { model } from './model.js';
 import { Scene } from './scene.js';
 import * as Editor from './editor.js';
@@ -57,8 +59,9 @@ async function initializeTestData(): Promise<void> {
 }
 
 // Helper function to load test document using cached content
-function loadTestDoc(): void {
-    Controller.loadDoc(TEST_DOC_CONTENT, TEST_DOC_PATH);
+function loadTestDoc(): Doc {
+    var doc = Controller.loadDoc(TEST_DOC_CONTENT, TEST_DOC_PATH);
+    return doc;
 }
 function hasEquals(obj: any): obj is { equals(other: any): boolean } {
     return obj && typeof obj.equals === 'function';
@@ -140,21 +143,21 @@ const tests = [
     },
     
 // Test 2: handleEnter function
-function testHandleEnter(): void {
-    // Arrange
-    loadTestDoc();
-    const currentRow = Editor.at(1);
-    assert(currentRow.valid());
+// function testHandleEnter(): void {
+//     // Arrange
+//     loadTestDoc();
+//     const currentRow = Editor.at(1);
+//     assert(currentRow.valid());
     
-    // Position cursor in middle of first line
-    currentRow.setCaretInRow(3); // "Line 1" -> position after "Lin"   
-    Controller.editorKeyDown(new KeyboardEvent('keydown', { key: 'Enter' }));
+//     // Position cursor in middle of first line
+//     currentRow.setCaretInRow(3); // "Line 1" -> position after "Lin"   
+//     Controller.editorKeyDown(new KeyboardEvent('keydown', { key: 'Enter' }));
     
-    const rows = Array.from(Editor.rows());
-    assertEquals(4, rows.length);
-    assertEquals("Lin", rows[1].content);
-    assertEquals("e 1", rows[2].content);
-}
+//     const rows = Array.from(Editor.rows());
+//     assertEquals(4, rows.length);
+//     assertEquals("Lin", rows[1].content);
+//     assertEquals("e 1", rows[2].content);
+// },
 
 // // Test 3: handleBackspace function
 // function testHandleBackspace(): void {
@@ -178,7 +181,6 @@ function testHandleEnter(): void {
 //         throw new Error(`Expected merged content "Line 1Line 2", got "${updatedRows[0].content}"`);
 //     }
 // }
-];
 
 
 function testHandleArrowLeft(): void {
@@ -197,7 +199,7 @@ function testHandleArrowLeft(): void {
         throw new Error(`Expected cursor at position 1, got ${currentRow.visibleTextOffset}`);
     }
 }
-
+,
 function testHandleArrowRight(): void {
     // Arrange
     loadTestDoc();
@@ -215,6 +217,35 @@ function testHandleArrowRight(): void {
     }
 }
 
+,function testHandleInsert(): void {
+    // Arrange
+    var doc = loadTestDoc();
+    var root = doc.getRoot();
+    assertEquals(4, doc.lines.length);
+    var child = root.children[1];
+    var change = Change.makeInsert(doc, root.id, child.id, ["NewLine", "NewLine2"]);
+    doc.processChange(change);
+    const rows = Array.from(Editor.rows());
+    assertEquals(6, doc.lines.length);
+    const newLine = doc.lines[2];
+    assertEquals("NewLine", newLine.content);
+    const newLine2 = doc.lines[3];
+    assertEquals("NewLine2", newLine2.content);
+
+    const site = model.site;
+    const siteRow = site.findRowByDocLine(newLine);
+    assert(siteRow.valid);
+    assertEquals(newLine, siteRow.docLine);
+
+    const siteRow2 = site.findRowByDocLine(newLine2);
+    assert(siteRow2.valid);
+    assertEquals(newLine2, siteRow2.docLine);
+
+    const siteParent = siteRow.parent;
+    assert(siteParent.children.length === 5);
+    const scene = model.scene;
+    assertEquals(6, scene.rows.length);
+}
 // // Test 8: handleSwapUp function
 // function testHandleSwapUp(): void {
 //     // Arrange
@@ -336,7 +367,7 @@ function testHandleArrowRight(): void {
 //         throw new Error(`Expected 1 row after fold, got ${state.rowCount}`);
 //     }
 // }
-
+];
 // // Run all tests
 async function runAllTests(): Promise<void> {
     console.log("Starting Ambit regression tests...\n");

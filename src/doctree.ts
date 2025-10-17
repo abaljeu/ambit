@@ -18,7 +18,7 @@ export class DocTree {
     }
     
     public getTotalNodes(): number {
-        return this.line.length;
+        return this.line.subTreeLength;
     }
     
     public findNode(lineId: DocLineId): DocLine {

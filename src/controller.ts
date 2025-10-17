@@ -124,7 +124,7 @@ function findKeyBinding(combo: string): KeyBinding {
 	
 	// split the current row at the cursor position
     const sceneRow = model.scene.findRow(currentRow.id);
-    sceneRow.site.docLine.split(htmlOffset);
+    sceneRow.siteRow.docLine.split(htmlOffset);
     // docLine notifies siteRow parents of change.
  	return true;
  }
@@ -289,9 +289,9 @@ function updateFoldIndicator(editorRow: Editor.Row) {
 	const scene = model.scene;
 	const sceneRow = scene.findRow(editorRow.id);
 	
-	if (!sceneRow.site.hasChildren) {
+	if (!sceneRow.siteRow.hasChildren) {
 		editorRow.setFoldIndicator(' ');
-	} else if (sceneRow.site.folded) {
+	} else if (sceneRow.siteRow.folded) {
 		editorRow.setFoldIndicator('+');
 	} else {
 		editorRow.setFoldIndicator('-');

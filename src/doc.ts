@@ -1,4 +1,5 @@
 import { Id, Pool, Poolable } from './pool.js';
+import * as Change from './change.js';
 
 // DocLine object
 // DocLine ID - uses 'Dxxxxxx' format
@@ -12,39 +13,45 @@ export class DocLineId extends Id<'DocLine'> {
 }
 
 export class DocLine {
-    public readonly id: DocLineId;
     public static end = new DocLine('', new DocLineId('D000000'));
+
+    public readonly id: DocLineId;
     private _content: string;
+    private _indent: number = 0;
+
     // DocTree structure
     private readonly _children: DocLine[] = [];
     private _parent: DocLine  = DocLine.end;
-    private _length: number = 1;
-    private _indent: number = 0;
-    public _deferNotifications = false;
-    
-    public get indent(): number { return this._indent; }
-    public get length(): number { return this._length; }
-    public get parent(): DocLine { return this._parent; }
-    public get children(): DocLine[] { return this._children; }
+    private _subTreeLength: number = 1;
 
-    public get content(): string { return this._content; }
+    // update infrastructure
+
     public constructor(content: string, id: DocLineId) {
         this.id = id;
         const { stripped, indent } = this._stripIndent(content);
         this._content = stripped;
         this._indent = indent;
     }
+
+    public get indent(): number { return this._indent; }
+    public setIndent(indent: number): void {
+        this._indent = indent;
+    }
+    public get subTreeLength(): number { return this._subTreeLength; }
+    public get parent(): DocLine { return this._parent; }
+    public get children(): DocLine[] { return this._children; }
+
+    public get content(): string { return this._content; }
     public static makeRoot(id: DocLineId, name: string): DocLine {
         const root = new DocLine('', id);
         root._indent = -1;
         root._content = name;
         return root;
     }
-    public setContent(content: string): DocLine {
+    private setContent(content: string): DocLine {
         const { stripped, indent } = this._stripIndent(content);
         this._content = stripped;
         this._indent = indent;
-        this._notifySubscribers();
         return this;
     }
     private _stripIndent(content: string): { stripped: string; indent: number } {
@@ -54,40 +61,36 @@ export class DocLine {
         return { stripped, indent };
     }
     
-    public addChild(child: DocLine): void {
+    private addChild(child: DocLine): void {
         child._parent = this;
         this._children.push(child);
         this._updateLength();
-        if (!this._deferNotifications) {
-            this._notifySubscribers();
-        }
     }
-    public addChildAfter(newChild: DocLine, after: DocLine): void {
+    private addChildAfter(newChild: DocLine, after: DocLine): void {
         const index = this.children.indexOf(after);
         if (index === -1) return;
         newChild._parent = this;
         this._children.splice(index + 1, 0, newChild);
         this._updateLength();
-        if (!this._deferNotifications) {
-            this._notifySubscribers();
-        }
     }
-    
-    public removeChild(child: DocLine): boolean {
+    public indexOf(line: DocLine): number {
+        return this.children.indexOf(line);
+    }
+    public indexOrLast(line: DocLine): number {
+        return this.indexOf(line) !== -1 ? this.indexOf(line) : this.children.length;
+    }
+    private removeChild(child: DocLine): boolean {
         const index = this.children.indexOf(child);
         if (index === -1) return false;
         
         child._parent = DocLine.end;
         this._children.splice(index, 1);
         this._updateLength();
-        if (!this._deferNotifications) {
-            this._notifySubscribers();
-        }
         return true;
     }
     
     private _updateLength(): void {
-        this._length = 1 + this._children.reduce((sum, child) => sum + child._length, 0);
+        this._subTreeLength = 1 + this._children.reduce((sum, child) => sum + child._subTreeLength, 0);
         this.parent !== DocLine.end && this.parent._updateLength();
     }
     
@@ -104,29 +107,23 @@ export class DocLine {
         return this.parent.children;
     }
     public isDocReference(): boolean { return false; }
+
     public split(offset: number): void {
         // split the text at the offset, creating a new DocLine after this.
         // Defer ALL notifications during split to batch the operation
         const parent = this.parent;
-        this._deferNotifications = true;
-        parent._deferNotifications = true;
         
         const newContent = this.content.substring(offset);
         const newDocLine = docLinePool.create((id) => new DocLine(newContent, id));
-        newDocLine._deferNotifications = true;
         
         this.setContent(this.content.substring(0, offset));
         parent.addChildAfter(newDocLine, this);
         
-        // Re-enable notifications
-        this._deferNotifications = false;
-        newDocLine._deferNotifications = false;
-        parent._deferNotifications = false;
-        
+       
         // Notify parent's subscribers ONCE - covers all changes
-        parent._subscribers.forEach(subscriber => subscriber.docLineUpdated(parent));
+        parent._subscribers.forEach(subscriber => subscriber.docLineSplitted(parent));
     }
-    
+
     public _subscribers: Subscriber[] = [];
     
     public subscribe(subscriber: Subscriber): void {
@@ -136,15 +133,28 @@ export class DocLine {
     public unsubscribe(subscriber: Subscriber): void {
         this._subscribers = this._subscribers.filter(s => s !== subscriber);
     }
-    
-    private _notifySubscribers(): void {
-        if (!this._deferNotifications) {
-            this._subscribers.forEach(subscriber => subscriber.docLineUpdated(this));
+    public _buildSubTree(startIndex: number,  lines: DocLine[]): number {
+        const line = lines[startIndex];
+        line.children.length = 0;
+        let nextIndex = startIndex + 1;
+        
+        while (nextIndex < lines.length) {
+            const nextLine = lines[nextIndex];
+            
+            if (nextLine.indent > line.indent) {
+                line.addChild(nextLine);
+                nextIndex = this._buildSubTree(nextIndex, lines);
+            } else {
+                break;
+            }
         }
+        return nextIndex;
     }
+
 }
 export abstract class Subscriber { 
-    abstract docLineUpdated(docLine: DocLine): void;
+    abstract docLineSplitted(docLine: DocLine): void;
+    abstract docLineInserted(change: Change.Insert): void;
 }
 export class DocLinePool extends Pool<DocLine, DocLineId> {
     protected override fromString(value: string): DocLineId {
@@ -192,6 +202,9 @@ export class Doc {
     public static get  end(): DocLine {
         return DocLine.end;
     }
+    public findLine(id: DocLineId): DocLine {
+        return docLinePool.find(id);
+    }
     public buildTree(): void {
         if (this._lines.length === 0) {
             this._root = DocLine.end;
@@ -200,43 +213,66 @@ export class Doc {
         
         // First line (name) is always the root
         this._root = this._lines[0];
-        this._root._deferNotifications = true;
-        const stack: DocLine[] = [this._root];
+
+        this._root._buildSubTree(0, this._lines);
         
-        // All other lines are children of the root, regardless of their indent
-        for (let i = 1; i < this._lines.length; i++) {
-            const line = this._lines[i];
-            line._deferNotifications = true;
-            const indent = line.indent;
-            
-            // Find the appropriate parent based on indentation
-            while (stack.length > indent + 1) {
-                stack.pop();
-            }
-            
-            const parent = stack[indent];
-            if (parent) {
-                parent.addChild(line);
-            }
-            
-            // Add to stack for potential children
-            if (stack.length <= indent) {
-                stack.push(line);
-            } else {
-                stack[indent + 1] = line;
-            }
-        }
-        
-        // Re-enable notifications after tree is built
-        for (const line of this._lines) {
-            line._deferNotifications = false;
-        }
     }
+
     private _setLines(content: string, name: string): void {
         const lines = content.replace(/\r/g, '').split("\n");
         this._lines = [this._root,
             ...lines.map(line => docLinePool.create((id) => new DocLine(line, id)))
         ];
     }
+
+    // Handler functions for each change type
+    private _handleInsert(change: Change.Insert) : void{
+        const newLines = change.lines.map(line => 
+            docLinePool.create((id) => new DocLine(line, id)));
+        const owner = this.findLine(change.owner);
+        newLines.forEach(line => line.setIndent(owner.indent + 1));
+        
+        this._lines.splice(this._lines.indexOf(owner) + 1 + change.offset, 0, ...newLines);
+        this._root._buildSubTree(this._lines.indexOf(owner), this._lines);
+        owner._subscribers.forEach(subscriber => subscriber.docLineInserted(change));
+    }
+
+    private _handleReinsert(change: Change.Reinsert) {
+        console.log(`Reinserting ${change.lineIds.length} lines at offset ${change.offset}`);
+    }
+
+    private _handleDelete(change: Change.Delete) {
+        console.log(`Deleting ${change.lines.length} lines at offset ${change.offset}`);
+    }
+
+    private _handleText(change: Change.Text) {
+        console.log(`Changing text: ${change.oldText} -> ${change.newText}`);
+    }
+
+    private _handleMove(change: Change.Move) {
+        console.log(`Moving ${change.lines.length} lines from ${change.oldowner} to ${change.newowner}`);
+    }
+
+    public processChange(change: Change.Change) {
+        switch (change.type) {
+            case Change.Type.Insert:
+                this._handleInsert(change);
+                break;
+            case Change.Type.Reinsert:
+                this._handleReinsert(change);
+                break;
+            case Change.Type.Delete:
+                this._handleDelete(change);
+                break;
+            case Change.Type.Text:
+                this._handleText(change);
+                break;
+            case Change.Type.Move:
+                this._handleMove(change);
+                break;
+        }
+    }    
+
+
 }
 export const noDoc = Doc.create('', '');
