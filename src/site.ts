@@ -15,6 +15,7 @@ export class SiteRowId extends Id<'SiteRow'> {
 export abstract class SiteRowSubscriber {
     abstract siteRowUpdated(siteRow: SiteRow): void;
     abstract siteRowsInserted(siteRow: SiteRow, offset: number, newRows: SiteRow[]): void;
+    abstract siteRowsDeleting(siteRow: SiteRow, offset: number, count: number): void;
 }
 
 export class SiteRow extends Subscriber {
@@ -26,7 +27,7 @@ export class SiteRow extends Subscriber {
     // tree structure
     public readonly children: SiteRow[] = [];
     public parent: SiteRow = SiteRow.end;
-    public length: number = 1;
+    public subTreeLength: number = 1;
     
     public constructor(DocLine: DocLine, id: SiteRowId) {
         super();
@@ -36,20 +37,37 @@ export class SiteRow extends Subscriber {
     }
     public get hasChildren(): boolean { return this.children.length > 0; }
     
-    public docLineInserted(change: Change.Insert): void {
-        if (change.owner !== this.docLine.id) return;
+    // these lines could pre-exist or be trees
+    public docLinesInserted(owner : DocLine, offset: number, lines: DocLine[]): void {
+        if (owner !== this.docLine) return;
 
-        const owner = this.docLine;
         const newRows: SiteRow[] = [];
-        for (let i = change.offset; i < change.offset + change.lines.length; i++) {
-            const line = owner.children[i];
-            let newRow = siteRowPool.create((id) => new SiteRow(line, id));
-            newRow.parent = this;
-            newRows.push(newRow);
+        for (let i = offset; i < offset + lines.length; i++) {
+            const docLine = owner.children[i];
+            let found = siteRowPool.search((row: SiteRow) => row.docLine === docLine);
+            if (found !== siteRowPool.end) {
+                newRows.push(found);
+            } else {
+                let newRow = SiteRow._buildTreeRecursive(docLine);
+                newRow.parent = this;
+                newRows.push(newRow);
+            }
         }
-        this.children.splice(change.offset, 0, ...newRows);
-        this.length += newRows.length;
-        this._subscribers.forEach(subscriber => subscriber.siteRowsInserted(this, change.offset, newRows));
+        this.children.splice(offset, 0, ...newRows);
+        this.subTreeLength += newRows.reduce((sum, row) => sum + row.subTreeLength, 0);
+        this._subscribers.forEach(subscriber => subscriber.siteRowsInserted(this, offset, newRows));
+    }
+    public docLinesDeleting(owner : DocLine, offset: number, count: number): void {
+        if (owner !== this.docLine) return;
+        
+        // Calculate the total subtree length of children being deleted
+        const deletedSubtreeLength = this.children
+            .slice(offset, offset + count)
+            .reduce((sum, child) => sum + child.subTreeLength, 0);
+            
+        this.children.splice(offset, count);
+        this.subTreeLength -= deletedSubtreeLength;
+        this._subscribers.forEach(subscriber => subscriber.siteRowsDeleting(this, offset, count));
     }
     public docLineSplitted(docLine: DocLine): void {
         // Verify this is the DocLine we're tracking
@@ -84,7 +102,7 @@ export class SiteRow extends Subscriber {
     }
     
     private _updateLength(): void {
-        this.length = 1 + this.children.reduce((sum, child) => sum + child.length, 0);
+        this.subTreeLength = 1 + this.children.reduce((sum, child) => sum + child.subTreeLength, 0);
     }
     
     private _synchronizeChildren(): void {

@@ -39,6 +39,9 @@ export class DocLine {
     }
     public get subTreeLength(): number { return this._subTreeLength; }
     public get parent(): DocLine { return this._parent; }
+    public setParent(parent: DocLine): void {
+        this._parent = parent;
+    }
     public get children(): DocLine[] { return this._children; }
 
     public get content(): string { return this._content; }
@@ -154,7 +157,8 @@ export class DocLine {
 }
 export abstract class Subscriber { 
     abstract docLineSplitted(docLine: DocLine): void;
-    abstract docLineInserted(change: Change.Insert): void;
+    abstract docLinesInserted(owner: DocLine, offset: number, lines: DocLine[]): void;
+    abstract docLinesDeleting(owner: DocLine, offset: number, count: number): void;
 }
 export class DocLinePool extends Pool<DocLine, DocLineId> {
     protected override fromString(value: string): DocLineId {
@@ -234,7 +238,7 @@ export class Doc {
         
         this._lines.splice(this._lines.indexOf(owner) + 1 + change.offset, 0, ...newLines);
         this._root._buildSubTree(this._lines.indexOf(owner), this._lines);
-        owner._subscribers.forEach(subscriber => subscriber.docLineInserted(change));
+        owner._subscribers.forEach(subscriber => subscriber.docLinesInserted(owner, change.offset, newLines));
     }
 
     private _handleReinsert(change: Change.Reinsert) {
@@ -250,7 +254,53 @@ export class Doc {
     }
 
     private _handleMove(change: Change.Move) {
-        console.log(`Moving ${change.lines.length} lines from ${change.oldowner} to ${change.newowner}`);
+        const oldowner = this.findLine(change.oldowner);
+        const newowner = this.findLine(change.newowner);
+
+        oldowner._subscribers.forEach(subscriber => 
+            subscriber.docLinesDeleting(oldowner, change.oldoffset, change.lines.length));
+
+        const firstChild = oldowner.children[change.oldoffset];
+        const movinglines = change.lines.map(lineid => this.findLine(lineid));
+        const movingLength = movinglines.reduce((sum, line:DocLine) => sum + line.subTreeLength, 0);
+
+        // Remove from _lines array
+        this._lines.splice(this._lines.indexOf(firstChild), movingLength);
+
+        // Remove from old owner's children
+        const lines = oldowner.children.splice(change.oldoffset, change.lines.length);
+        // lines should equal movinglines.  in future may generalize to any assorted lines moving.
+
+        // Adjust newoffset for same-parent downward moves (after removal indices shift left)
+        let adjustedNewOffset = change.newoffset;
+        if (oldowner === newowner && change.oldoffset < change.newoffset) {
+            adjustedNewOffset = change.newoffset - change.lines.length;
+        }
+
+        // Compute target offset in _lines array BEFORE modifying newowner.children
+        let targetOffset: number;
+        if (newowner.children.length === 0 || adjustedNewOffset === 0) {
+            // No existing children, or inserting at beginning
+            targetOffset = this._lines.indexOf(newowner) + 1;
+        } else if (adjustedNewOffset >= newowner.children.length) {
+            // Inserting at the end
+            const lastChild = newowner.children[newowner.children.length - 1];
+            targetOffset = this._lines.indexOf(lastChild) + lastChild.subTreeLength;
+        } else {
+            // Inserting in the middle - insert before the child currently at newoffset
+            const insertBeforeChild = newowner.children[adjustedNewOffset];
+            targetOffset = this._lines.indexOf(insertBeforeChild);
+        }
+        
+        // Insert the moved lines back into _lines array at the correct position
+        this._lines.splice(targetOffset, 0, ...movinglines);
+
+        // Add to new owner's children and update their parent
+        newowner.children.splice(adjustedNewOffset, 0, ...lines);
+        lines.forEach(line => line.setParent(newowner));
+
+        newowner._subscribers.forEach(subscriber => 
+            subscriber.docLinesInserted(newowner, adjustedNewOffset, lines));
     }
 
     public processChange(change: Change.Change) {

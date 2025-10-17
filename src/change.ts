@@ -91,6 +91,7 @@ export function makeMove(doc:Doc, lineId: DocLineId, count : number
     const oldowner = line.parent;
     const oldoffset = oldowner.indexOf(line);
     const targetBefore : DocLine = doc.findLine(targetBeforeId);
+    // Insert BEFORE targetBefore; if it's not a direct child, append at end
     const newoffset = targetParent.indexOrLast(targetBefore);
     if (oldoffset + count > oldowner.children.length) {
         throw new RangeError(`Move change out of range`);

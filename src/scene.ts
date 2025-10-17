@@ -42,7 +42,7 @@ export class SceneRow extends SiteRowSubscriber {
         const newSceneRows: SceneRow[] = 
             newSiteRows.map(row => this.scene.createSceneRow(row));
         const start = this.indexInScene() + offset;
-        this.scene.replaceRows(start, length, newSceneRows);
+        this.scene.replaceRowsAndUpdateEditor(start, length, newSceneRows);
         this.subTreeLength += newSceneRows.length;
     }
     public siteRowUpdated(siteRow: SiteRow): void {
@@ -63,7 +63,25 @@ export class SceneRow extends SiteRowSubscriber {
         
         // Replace the OLD children (oldLength - 1 because oldLength includes this row)
         // with the NEW children (newRows)
-        this.scene.replaceRows(this, oldLength, [this, ...newRows]);
+        this.scene.replaceRowsAndUpdateEditor(this.indexInScene(), oldLength, [this, ...newRows]);
+    }
+    public siteRowsDeleting(siteRow: SiteRow, offset: number, count: number): void {
+        if (siteRow !== this.siteRow) return;
+        if (siteRow.folded) return;
+
+        let deletedSubtreeLength = 0;
+        for (let i = offset; i < offset + count; i++) {
+            const child = siteRow.children[i];
+            const row = this.scene.sceneRowPool.search((row: SceneRow) => row.siteRow === child);
+            const index = row.indexInScene();
+            if (index === -1) {
+                // nothing
+            } else {
+                deletedSubtreeLength += row.subTreeLength;
+                this.scene.replaceRowsAndUpdateEditor(index, row.subTreeLength, []);
+            }
+        }
+        this.subTreeLength -= deletedSubtreeLength;
     }
     public get content(): string { return this.siteRow.docLine.content; }
 }
@@ -88,7 +106,7 @@ export class Scene {
     
     constructor() {}
     
-    public replaceRows(start: number, length: number, newRows: SceneRow[]): void {
+    public replaceRowsAndUpdateEditor(start: number, length: number, newRows: SceneRow[]): void {
         // Prevent overlapping updates
         if (this._updating) return;
         this._updating = true;
@@ -139,7 +157,7 @@ export class Scene {
             // Recursively add all children
             for (const child of siteRow.children) {
                 this._flattenRecursive(child, result);
-                row.subTreeLength += child.length;
+                row.subTreeLength += child.subTreeLength;
             }
             
         }

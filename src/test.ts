@@ -246,6 +246,24 @@ function testHandleArrowRight(): void {
     const scene = model.scene;
     assertEquals(6, scene.rows.length);
 }
+
+, function testMoveRow(): void {
+    // Arrange
+    const data = "a\nb\n\tc\n\td\n\t\te\n";
+    const doc = Controller.loadDoc(data, "test.amb");
+    
+    // Act - move line 'a' (index 0) to after 'c' (index 2)
+    const aLine = doc.lines[1];
+    const bLine = doc.lines[2];
+    const dLine = doc.lines[4];
+    const moveChange = Change.makeMove(doc, aLine.id, 1, dLine.parent.id, dLine.id);
+    doc.processChange(moveChange);
+    
+    // Assert
+    assertEquals(bLine, doc.lines[1]);
+    assertEquals(aLine, doc.lines[3]);
+
+}
 // // Test 8: handleSwapUp function
 // function testHandleSwapUp(): void {
 //     // Arrange
