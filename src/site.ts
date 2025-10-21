@@ -13,7 +13,6 @@ export class SiteRowId extends Id<'SiteRow'> {
 }
 
 export abstract class SiteRowSubscriber {
-    abstract siteRowUpdated(siteRow: SiteRow): void;
     abstract siteRowsInserted(siteRow: SiteRow, offset: number, newRows: SiteRow[]): void;
     abstract siteRowsDeleting(siteRow: SiteRow, offset: number, count: number): void;
 }
@@ -65,21 +64,17 @@ export class SiteRow extends Subscriber {
             .slice(offset, offset + count)
             .reduce((sum, child) => sum + child.subTreeLength, 0);
             
+        this._subscribers.forEach(subscriber => subscriber.siteRowsDeleting(this, offset, count));
         this.children.splice(offset, count);
         this.subTreeLength -= deletedSubtreeLength;
-        this._subscribers.forEach(subscriber => subscriber.siteRowsDeleting(this, offset, count));
     }
     public docLineSplitted(docLine: DocLine): void {
         // Verify this is the DocLine we're tracking
         if (docLine !== this.docLine) return;
         
-        // Synchronize children: rebuild to match DocLine's children
-        this._synchronizeChildren();
-        
+       
         // Update length propagates up the tree
         this._updateLength();
-        
-        this._subscribers.forEach(subscriber => subscriber.siteRowUpdated(this));
     }
     
 
@@ -103,27 +98,6 @@ export class SiteRow extends Subscriber {
     
     private _updateLength(): void {
         this.subTreeLength = 1 + this.children.reduce((sum, child) => sum + child.subTreeLength, 0);
-    }
-    
-    private _synchronizeChildren(): void {
-        // Defer notifications during synchronization
-        
-        this.children.length = 0;
-
-        for (const line of this.docLine.children) {
-            let found : SiteRow = siteRowPool.search((row: SiteRow) => row.docLine === line);
-            if (found === SiteRow.end) {
-                found = siteRowPool.create((id) => new SiteRow(line, id));
-            }
-            // Set parent and add directly without triggering notifications
-            found.parent = this;
-            this.children.push(found);
-        }
-        
-        this._updateLength();
-        
-        // Only ONE notification after all children are synchronized
-        this._subscribers.forEach(subscriber => subscriber.siteRowUpdated(this));
     }
     
     public _subscribers: SiteRowSubscriber[] = [];

@@ -4,7 +4,8 @@ import * as Editor from './editor.js';
 import { Scene, SceneRow } from './scene.js';
 import { ArraySpan } from './arrayspan.js';
 import { model } from './model.js';
-import { Doc } from './doc.js';
+import { Doc, DocLine } from './doc.js';
+import { Site, SiteRow } from './site.js';
 
 
  export function setMessage(message : string) {

@@ -67,4 +67,6 @@ export function postDoc(filePath :string, content : string) {
 if (typeof window !== 'undefined' && window.location.pathname.includes('ambit.php')) {
     loadFromPath(filePath);
     Object.assign(window as any, { model, Controller });
+    
+    await Test.runAllTests();
 }

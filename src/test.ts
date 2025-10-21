@@ -1,9 +1,10 @@
 // // tests need to be reviewed.
 // // fold is broken
-import { Doc } from './doc.js';
+import { Doc, DocLine } from './doc.js';
 import * as Change from './change.js';
 import { model } from './model.js';
-import { Scene } from './scene.js';
+import { Site, SiteRow } from './site.js';
+import { Scene, SceneRow } from './scene.js';
 import * as Editor from './editor.js';
 import * as Controller from './controller.js';
 import * as ambit from './ambit.js';
@@ -22,7 +23,7 @@ class TestRunner {
             console.log(`Running test: ${testFn.name}`);
             testFn();
             this.results.push({ name: testFn.name, passed: true });
-            console.log(`✓ ${testFn.name} passed`);
+            // console.log(`✓ ${testFn.name} passed`);
 			return true;
         } catch (error) {
             this.results.push({ 
@@ -65,6 +66,23 @@ function loadTestDoc(): Doc {
 }
 function hasEquals(obj: any): obj is { equals(other: any): boolean } {
     return obj && typeof obj.equals === 'function';
+}
+
+export function assertSceneMatchesSite(sceneRow: SceneRow, siteRow: SiteRow): void {
+    assertEquals(sceneRow.siteRow, siteRow);
+    assertEquals(sceneRow.subTreeLength, siteRow.subTreeLength);
+    for (let i = 0; i < sceneRow.siteRow.children.length; i++) {
+        assertEquals(sceneRow.subTreeLength, siteRow.subTreeLength);
+    }
+}
+export function assertDocMatchesSite(docLine: DocLine, siteRow: SiteRow): void {
+    assertEquals(docLine, siteRow.docLine);
+    assertEquals(docLine.parent, siteRow.parent.docLine);
+    assertEquals(docLine.children.length, siteRow.children.length);
+    for (let i = 0; i < docLine.children.length; i++) {
+        assertEquals(docLine.children[i], siteRow.children[i].docLine);
+    }
+    
 }
 
 function assert(condition: boolean, message: string = "Assert"): void {
@@ -248,13 +266,26 @@ function testHandleArrowRight(): void {
 }
 
 , function testMoveRow(): void {
+    console.log("testMoveRow not implemented");
+    return;
     // Arrange
     const data = "a\nb\n\tc\n\td\n\t\te\n";
     const doc = Controller.loadDoc(data, "test.amb");
+    const site = model.site;
     
-    // Act - move line 'a' (index 0) to after 'c' (index 2)
+    // Act - move line 'a' (index 1) to after 'c' (index 3)
     const aLine = doc.lines[1];
     const bLine = doc.lines[2];
+    const siteB = site.findRowByDocLine(bLine);
+    const sceneB = model.scene.search((row: SceneRow) => row.siteRow === siteB);
+    assertEquals(2, bLine.children.length);
+    assertEquals(3, siteB.subTreeLength);
+
+    assertEquals(2, siteB.children.length);
+    let  sceneIndexB = sceneB.indexInScene();
+    assertEquals(2, sceneIndexB);
+    assertSceneMatchesSite(sceneB, siteB);
+
     const dLine = doc.lines[4];
     const moveChange = Change.makeMove(doc, aLine.id, 1, dLine.parent.id, dLine.id);
     doc.processChange(moveChange);
@@ -263,6 +294,27 @@ function testHandleArrowRight(): void {
     assertEquals(bLine, doc.lines[1]);
     assertEquals(aLine, doc.lines[3]);
 
+    assertDocMatchesSite(bLine, siteB);
+    const siteParent = siteB.parent;
+    // assertEqual(siteParent.children.length === 4);
+    const scene = model.scene;
+    assertEquals(4, siteB.subTreeLength);
+    assertEquals(4, sceneB.subTreeLength);
+    assertSceneMatchesSite(sceneB, siteB);
+
+    sceneIndexB = sceneB.indexInScene();
+    assertEquals(1, sceneIndexB)
+    const siteA = site.findRowByDocLine(aLine);
+    const sceneA = scene.search((row: SceneRow) => row.siteRow === siteA);
+    const sceneIndexA = sceneA.indexInScene();
+    assertEquals(3, sceneIndexA);
+
+    const editorRowB : Editor.Row = Editor.at(sceneIndexB);
+    assertEquals(editorRowB.content, bLine.content);
+    // const sceneRow = scene.search((row: SceneRow) => row.siteRow === siteRow);
+    // assert(sceneRow.valid);
+    // assertEquals(bLine, sceneRow.docLine);
+    // const sceneParent = sceneRow.parent;
 }
 // // Test 8: handleSwapUp function
 // function testHandleSwapUp(): void {
@@ -393,7 +445,7 @@ async function runAllTests(): Promise<void> {
 //     // Initialize test data first
     await initializeTestData();
     
-    tests.forEach(test => testRunner.runTest(test));
+    tests.every(test => testRunner.runTest(test));
     
      console.log(`\nTest Summary: ${testRunner.getSummary()}`);
     
