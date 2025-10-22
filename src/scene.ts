@@ -20,11 +20,13 @@ export class SceneRowId extends Id<'SceneRow'> {
 }
 export class SceneRow extends SiteRowSubscriber {
     public readonly id: SceneRowId;
-    public  get indent(): number { return this.siteRow.docLine.indent; }
-    public subTreeLength: number = 1;
+    public  get indent(): number { return this.siteRow.indent; }
+    public treeLength: number = 1;
     // public static end = new SceneRow(NoScene,  SiteRow.end, new SceneRowId('R000000'));
     
-    
+    public print() : void {
+        console.log(`${this.id.toString()} (${this.indent}) ${this.siteRow.docLine.content}`);
+    }
     constructor(public  scene: Scene, public readonly siteRow: SiteRow, id: SceneRowId) {
         super();
         this.id = id;
@@ -54,7 +56,7 @@ export class SceneRow extends SiteRowSubscriber {
         let sceneCurrent = this.scene.at(currentIndex);
         // Loop count times to calculate total delete length
         for (let i = 0; i <offset; i++) {
-            currentIndex += sceneCurrent.subTreeLength;
+            currentIndex += sceneCurrent.treeLength;
             sceneCurrent = this.scene.at(currentIndex);
         }
         const newSceneRows: SceneRow[] = 
@@ -83,8 +85,8 @@ export class SceneRow extends SiteRowSubscriber {
         
         // Loop count times to calculate total delete length
         for (let i = 0; i < count; i++) {
-            deleteLength += sceneCurrent.subTreeLength;
-            currentIndex += sceneCurrent.subTreeLength;
+            deleteLength += sceneCurrent.treeLength;
+            currentIndex += sceneCurrent.treeLength;
             sceneCurrent = this.scene.at(currentIndex);
         }
         
@@ -110,37 +112,27 @@ export class Scene {
     public readonly sceneRowPool = new SceneRowPool(this);
     private _rows: SceneRow[] = [];
     public readonly end = new SceneRow(this,  SiteRow.end, new SceneRowId('R000000'));
-    private _updating = false;
+
     
     constructor() {}
     
     public deleteRows(start: number, length: number): void {
-        // Prevent overlapping updates
-        if (this._updating) return;
-        this._updating = true;
+        // Construct RowSpan for the old rows
+        const startRow = Editor.at(start);
+        const oldRowSpan = new Editor.RowSpan(startRow, length);
         
-        try {
-            // Construct RowSpan for the old rows
-            const startRow = Editor.at(start);
-            const oldRowSpan = new Editor.RowSpan(startRow, length);
-            
-            // Remove from Editor (replace with empty)
-            const emptyRowSpan = new ArraySpan<SceneRow>([], 0, 0);
-            Editor.replaceRows(oldRowSpan, emptyRowSpan);
-            
-            // Remove rows from array
-            this._rows.splice(start, length);
-            
-            // Update parent lengths (decrease by length)
-            let parent = this.at(start);
-            while (parent !== this.end) {
-                parent.subTreeLength -= length;
-                parent = parent.findParent();
-            }
-
-        } finally {
-            this._updating = false;
+        // Remove from Editor (replace with empty)
+        const emptyRowSpan = new ArraySpan<SceneRow>([], 0, 0);
+        Editor.replaceRows(oldRowSpan, emptyRowSpan);
+        
+        let self = this.at(start);
+        let parent = self.findParent();
+        while (parent !== this.end) {
+            parent.treeLength -= length;
+            parent = parent.findParent();
         }
+        this._rows.splice(start, length);
+
     }
 
     public addRows(start: number, newSiteRows: SiteRow[]): void {
@@ -156,9 +148,10 @@ export class Scene {
         Editor.replaceRows(insertionRowSpan, new ArraySpan<SceneRow>(newSceneRows, 0, newSceneRows.length));
         
         // Update parent lengths (increase by newRows.length)
-        let parent = this.at(start);
+        let newRow = this.at(start);
+        let parent = newRow.findParent();
         while (parent !== this.end) {
-            parent.subTreeLength += newSceneRows.length;
+            parent.treeLength += newSceneRows.length;
             parent = parent.findParent();
         }
     }
@@ -194,18 +187,24 @@ export class Scene {
             } else {
                 // Reuse existing row - don't re-subscribe
             }
-            row.subTreeLength = 1;
+            row.treeLength = 1;
             result.push(row);
             
             // Recursively add all children
             for (const child of siteRow.children) {
                 this._flattenRecursive(child, result);
-                row.subTreeLength += child.subTreeLength;
+                row.treeLength += child.treeLength;
             }
             
         }
     }
 
+    public print(): void {
+        console.log("Scene");
+        for (const row of this._rows) {
+            row.print();
+        }
+    }
     public findOrCreateSceneRow(siteRow: SiteRow): SceneRow {
         const row = this.sceneRowPool.search((row: SceneRow) => row.siteRow === siteRow);
         if (row !== this.sceneRowPool.end) return row;

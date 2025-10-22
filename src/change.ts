@@ -14,7 +14,7 @@ export class Insert {
         public readonly offset: number, 
         public readonly lines: string[]) { }
 }
-export function makeInsert(doc:Doc, ownerId: DocLineId, beforeId: DocLineId, 
+export function makeInsertBefore(doc:Doc, ownerId: DocLineId, beforeId: DocLineId, 
         lines: string[]): Insert {
     const owner = doc.findLine(ownerId);
     const before = doc.findLine(beforeId);
@@ -82,7 +82,7 @@ export class Move {
         public readonly newoffset: number, 
         public readonly lines: DocLineId[]) { }
 }
-export function makeMove(doc:Doc, lineId: DocLineId, count : number
+export function makeMoveBefore(doc:Doc, lineId: DocLineId, count : number
         , targetOwnerId : DocLineId
         , targetBeforeId : DocLineId) : Move {
 

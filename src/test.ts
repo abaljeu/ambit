@@ -70,9 +70,9 @@ function hasEquals(obj: any): obj is { equals(other: any): boolean } {
 
 export function assertSceneMatchesSite(sceneRow: SceneRow, siteRow: SiteRow): void {
     assertEquals(sceneRow.siteRow, siteRow);
-    assertEquals(sceneRow.subTreeLength, siteRow.subTreeLength);
+    assertEquals(sceneRow.treeLength, siteRow.treeLength);
     for (let i = 0; i < sceneRow.siteRow.children.length; i++) {
-        assertEquals(sceneRow.subTreeLength, siteRow.subTreeLength);
+        assertEquals(sceneRow.treeLength, siteRow.treeLength);
     }
 }
 export function assertDocMatchesSite(docLine: DocLine, siteRow: SiteRow): void {
@@ -238,16 +238,16 @@ function testHandleArrowRight(): void {
 ,function testHandleInsert(): void {
     // Arrange
     var doc = loadTestDoc();
-    var root = doc.getRoot();
-    assertEquals(4, doc.lines.length);
-    var child = root.children[1];
-    var change = Change.makeInsert(doc, root.id, child.id, ["NewLine", "NewLine2"]);
+    var root = doc.root
+    assertEquals(4, doc.length);
+    var line2 = root.children[1];
+    var change = Change.makeInsertBefore(doc, root.id, line2.id, ["NewLine", "NewLine2"]);
     doc.processChange(change);
     const rows = Array.from(Editor.rows());
-    assertEquals(6, doc.lines.length);
-    const newLine = doc.lines[2];
+    assertEquals(6, doc.length);
+    const newLine = doc.root.children[1];
     assertEquals("NewLine", newLine.content);
-    const newLine2 = doc.lines[3];
+    const newLine2 = doc.root.children[2];
     assertEquals("NewLine2", newLine2.content);
 
     const site = model.site;
@@ -266,46 +266,48 @@ function testHandleArrowRight(): void {
 }
 
 , function testMoveRow(): void {
-    console.log("testMoveRow not implemented");
-    return;
     // Arrange
     const data = "a\nb\n\tc\n\td\n\t\te\n";
     const doc = Controller.loadDoc(data, "test.amb");
     const site = model.site;
     
-    // Act - move line 'a' (index 1) to after 'c' (index 3)
-    const aLine = doc.lines[1];
-    const bLine = doc.lines[2];
+    const aLine = doc.root.children[0];
+    assertEquals(0, aLine.indent);
+    const bLine = doc.root.children[1];
     const siteB = site.findRowByDocLine(bLine);
     const sceneB = model.scene.search((row: SceneRow) => row.siteRow === siteB);
     assertEquals(2, bLine.children.length);
-    assertEquals(3, siteB.subTreeLength);
+    assertEquals(4, siteB.treeLength);
 
     assertEquals(2, siteB.children.length);
     let  sceneIndexB = sceneB.indexInScene();
     assertEquals(2, sceneIndexB);
     assertSceneMatchesSite(sceneB, siteB);
 
-    const dLine = doc.lines[4];
-    const moveChange = Change.makeMove(doc, aLine.id, 1, dLine.parent.id, dLine.id);
+    // Act - move line 'a' (index 1) to after 'c' (index 3)
+    const dLine = bLine.children[1];
+    const moveChange = Change.makeMoveBefore(doc, aLine.id, 1, dLine.parent.id, dLine.id);
     doc.processChange(moveChange);
     
     // Assert
-    assertEquals(bLine, doc.lines[1]);
-    assertEquals(aLine, doc.lines[3]);
+    assertEquals(bLine, doc.root.children[0]);
+    assertEquals(aLine, bLine.children[1]);
+    assertEquals(dLine, bLine.children[2]);
 
     assertDocMatchesSite(bLine, siteB);
     const siteParent = siteB.parent;
+    const siteA = site.findRowByDocLine(aLine);
+    const sceneA = model.scene.search((row: SceneRow) => row.siteRow === siteA);
+    assertEquals(1, sceneA.indent);
+
     // assertEqual(siteParent.children.length === 4);
     const scene = model.scene;
-    assertEquals(4, siteB.subTreeLength);
-    assertEquals(4, sceneB.subTreeLength);
+    assertEquals(5, siteB.treeLength);
+    assertEquals(5, sceneB.treeLength);
     assertSceneMatchesSite(sceneB, siteB);
 
     sceneIndexB = sceneB.indexInScene();
     assertEquals(1, sceneIndexB)
-    const siteA = site.findRowByDocLine(aLine);
-    const sceneA = scene.search((row: SceneRow) => row.siteRow === siteA);
     const sceneIndexA = sceneA.indexInScene();
     assertEquals(3, sceneIndexA);
 
