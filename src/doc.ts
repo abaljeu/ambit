@@ -174,9 +174,9 @@ export class Doc {
         this.constructRoot(name);
     }
     private constructRoot(name: string): void {
-        this._root = this.createLine(name);
+        this._root = Doc.createLine(name);
     }
-    public createLine(content: string): DocLine {
+    public static createLine(content: string): DocLine {
         return docLinePool.create((id) => new DocLine(content, id));
     }
     public updateContent(content: string): Doc {
@@ -185,7 +185,7 @@ export class Doc {
         const lines = content.replace(/\r/g, '').split("\n");
 
         const strippedContent = lines.map(line => new StrippedContent(line));
-        const index  = this._buildSubTree(this._root, -1, strippedContent, 0, 0);
+        const index  = Doc._buildSubTree(this._root, -1, strippedContent, 0, 0);
         return this;
     }
 
@@ -199,7 +199,7 @@ export class Doc {
         return docLinePool.find(id);
     }
     
-    public _buildSubTree(parent: DocLine, depth: number, 
+    public static _buildSubTree(parent: DocLine, depth: number, 
             content: StrippedContent[], contentOffset: number,
             parentOffset: number) : number  {
 
@@ -208,9 +208,9 @@ export class Doc {
             let itemContent = content[contentOffset];
             if (itemContent.indent <= depth)
                 break;
-            let child = this.createLine(itemContent.text);
+            let child = Doc.createLine(itemContent.text);
             newLines.push(child);
-            contentOffset = this._buildSubTree(child, itemContent.indent, content, contentOffset+1, 0);
+            contentOffset = Doc._buildSubTree(child, itemContent.indent, content, contentOffset+1, 0);
         }
         parent.insertChildAt(parentOffset, newLines);
         return contentOffset;
@@ -218,36 +218,36 @@ export class Doc {
 
 
     // Handler functions for each change type
-    private _handleInsert(change: Change.Insert) : void{
+    private static _handleInsert(change: Change.Insert) : void{
         const strip = change.lines.map(line => new StrippedContent(line));
 
-        const newLines = change.lines.map(line => this.createLine(line));
-        const owner = this.findLine(change.owner);
-        this._buildSubTree(owner, owner.indent, strip, 0, change.offset);
+        const newLines = change.lines.map(line => Doc.createLine(line));
+        const owner = change.owner;
+        Doc._buildSubTree(owner, owner.indent, strip, 0, change.offset);
         owner._subscribers.forEach(subscriber => subscriber.docLinesInserted(owner, change.offset, newLines));
     }
 
-    private _handleReinsert(change: Change.Reinsert) {
+    private static _handleReinsert(change: Change.Reinsert) {
         console.log(`Reinserting ${change.lineIds.length} lines at offset ${change.offset}`);
     }
 
-    private _handleDelete(change: Change.Delete) {
+    private static _handleDelete(change: Change.Delete) {
         console.log(`Deleting ${change.lines.length} lines at offset ${change.offset}`);
     }
 
-    private _handleText(change: Change.Text) {
+    private static _handleText(change: Change.Text) {
         console.log(`Changing text: ${change.oldText} -> ${change.newText}`);
     }
 
-    private _handleMove(change: Change.Move) {
-        const oldowner = this.findLine(change.oldowner);
-        const newowner = this.findLine(change.newowner);
+    private static _handleMove(change: Change.Move) {
+        const oldowner = change.oldowner;
+        const newowner = change.newowner;
 
         oldowner._subscribers.forEach(subscriber => 
             subscriber.docLinesDeleting(oldowner, change.oldoffset, change.lines.length));
 
         const firstChild = oldowner.children[change.oldoffset];
-        const movinglines = change.lines.map(lineid => this.findLine(lineid));
+        const movinglines = change.lines;
         const movingLength = movinglines.reduce((sum, line:DocLine) => sum + line.subTreeLength, 0);
 
         // Remove from old owner's children
@@ -278,22 +278,24 @@ export class Doc {
             subscriber.docLinesInserted(newowner, adjustedNewOffset, lines));
     }
 
-    public processChange(change: Change.Change) {
+    public static processChange(change: Change.Change) {
         switch (change.type) {
+            case Change.Type.NoOp:
+                break;
             case Change.Type.Insert:
-                this._handleInsert(change);
+                Doc._handleInsert(change);
                 break;
             case Change.Type.Reinsert:
-                this._handleReinsert(change);
+                Doc._handleReinsert(change);
                 break;
             case Change.Type.Delete:
-                this._handleDelete(change);
+                Doc._handleDelete(change);
                 break;
             case Change.Type.Text:
-                this._handleText(change);
+                Doc._handleText(change);
                 break;
             case Change.Type.Move:
-                this._handleMove(change);
+                Doc._handleMove(change);
                 break;
         }
     }    

@@ -1,5 +1,5 @@
 import * as lm from './elements.js';
-import { Scene, SceneRow, SceneRowId } from './scene.js';
+import { Scene, SceneRow } from './scene.js';
 import { ArraySpan } from './arrayspan.js';
 import { Id, Pool } from './pool.js';
 
@@ -105,7 +105,7 @@ export class Row {
 			return this.el !== null;
 		}
 		public get id(): string {
-			return this.idString;
+			return  this.idString;
 		}
 		
 		// Helper method to get the string representation for DOM operations
@@ -154,12 +154,20 @@ export class Row {
 		}
 		return len;
 	}
-		public focus(): void {
-			const contentSpan = this.getContentSpan();
-			if (contentSpan) contentSpan.focus();
-		}
-	}
+	// public focus(): void {
+	// 	const contentSpan = this.getContentSpan();
+	// 	if (contentSpan)
+	// 		contentSpan.focus();
+	// }
+}
 
+	export function findRow(id: string): Row {
+		for (const row of rows()) {
+			if (row.idString == id) 
+				return row;
+		}
+		return NoRow;
+	}
 // RowSpan is not an ArraySpan because the rows are virtual.
 // it's implemented by taking a row and finding the next row.
 export class RowSpan implements Iterable<Row> {

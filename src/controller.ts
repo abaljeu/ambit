@@ -6,6 +6,7 @@ import { ArraySpan } from './arrayspan.js';
 import { model } from './model.js';
 import { Doc, DocLine } from './doc.js';
 import { Site, SiteRow } from './site.js';
+import * as Change from './change.js';
 
 
  export function setMessage(message : string) {
@@ -45,14 +46,6 @@ import { Site, SiteRow } from './site.js';
 // 	links();
  }
 
-// function syncAllRowsToScene() {
-// 	const scene = Scene;
-// 	for (const row of Editor.rows()) {
-// 		const sceneRow = scene.findByLineId(row.id);
-// 		scene.updateRowData(row.id, row.content);
-// 	}
-// }
-
 function updateAllFoldIndicators() {
 	const scene = model.scene;
 	for (const row of Editor.rows()) {
@@ -80,8 +73,8 @@ const keyBindings: KeyBinding[] = [
 	new KeyBinding("ArrowDown", handleArrowDown),
 	new KeyBinding("ArrowLeft", handleArrowLeft),
 	new KeyBinding("ArrowRight", handleArrowRight),
-	// new KeyBinding("C-ArrowUp", handleSwapUp),
-	// new KeyBinding("C-ArrowDown", handleSwapDown),
+	new KeyBinding("C-ArrowUp", handleSwapUp),
+	new KeyBinding("C-ArrowDown", handleSwapDown),
 	// new KeyBinding("C-.", handleToggleFold),
 ];
 
@@ -221,39 +214,59 @@ function handleArrowRight(currentRow: Editor.Row) : boolean {
 	}
 	return true;
 }
+// moves up to the previous visible row.  doesn't pay attention to structure otherwise.
+function handleSwapUp(currentRow: Editor.Row): boolean {
+    const prevRow = currentRow.Previous;
+    if (!prevRow.valid()) return false;
+    
+    const cur = model.scene.findRow(currentRow.idString);
+    const prev = model.scene.findRow(prevRow.idString);
+    
+    const docCur = cur.siteRow.docLine;
+    const docPrev = prev.siteRow.docLine;
+    
+    return performRowSwap(docCur, docPrev.parent, docPrev, currentRow.idString);
+}
 
-// function handleSwapUp(currentRow: Editor.Row) : boolean {
-// 	const prevP = currentRow.Previous;
-// 	if (!prevP.valid()) return false;
-	
-// 	Editor.moveRowAbove(currentRow, prevP);
-	
-// 	// Sync editor to scene
-// 	syncAllRowsToScene();
-	
-// 	// Update fold indicators (indentation context may have changed)
-// 	updateAllFoldIndicators();
-	
-// 	currentRow.focus();
-// 	return true;
-// }
+function handleSwapDown(currentRow: Editor.Row): boolean {
+    const cur = model.scene.findRow(currentRow.idString);
+    
+    // Skip over all descendants to find the next row that's not a child
+    const descendantCount = cur.treeLength;
+    let nextRow = currentRow;
+    for (let i = 0; i < descendantCount; i++) {
+        nextRow = nextRow.Next;
+        if (!nextRow.valid()) return false;
+    }
+    
+    const next = model.scene.findRow(nextRow.idString);
+    
+    const docCur = cur.siteRow.docLine;
+    const docNext = next.siteRow.docLine;
+    
+    // Find the position after the next row (and its descendants)
+    const targetParent = docNext.parent;
+    const nextIndex = targetParent.children.indexOf(docNext);
+    const insertBefore = nextIndex + 1 < targetParent.children.length 
+        ? targetParent.children[nextIndex + 1] 
+        : targetParent.children[targetParent.children.length];
+    
+    return performRowSwap(docCur, targetParent, insertBefore, currentRow.idString);
+}
 
-// function handleSwapDown(currentRow: Editor.Row) : boolean {
-// 	const nextP = currentRow.Next;
-// 	if (!nextP.valid()) return false;
-	
-// 	Editor.moveRowAbove(nextP, currentRow);
-	
-// 	// Sync editor to scene
-// 	syncAllRowsToScene();
-	
-// 	// Update fold indicators (indentation context may have changed)
-// 	updateAllFoldIndicators();
-	
-// 	currentRow.focus();
-// 	return true;
-// }
-
+function performRowSwap(
+    lineToMove: DocLine, 
+    targetParent: DocLine, 
+    insertBefore: DocLine, 
+    currentRowId: string
+): boolean {
+    const change = Change.makeMoveBefore(lineToMove, 1, targetParent, insertBefore);
+    Doc.processChange(change);
+    
+    updateAllFoldIndicators();
+    Editor.findRow(currentRowId).setCaretInRow(0);
+    return true;
+}
 // function handleToggleFold(currentRow: Editor.Row) : boolean {
 // 	const scene = Scene.data;
 // 	const sceneRow = scene.findByLineId(currentRow.id);

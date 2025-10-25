@@ -6,22 +6,23 @@ export enum Type {
     Delete = 'delete',
     Text = 'text',
     Move = 'move',
+    NoOp = 'noop',
+}
+export class NoOp {
+    readonly type = Type.NoOp;
 }
 export class Insert {
     readonly type = Type.Insert;
 
-    constructor(public readonly owner: DocLineId, 
+    constructor(public readonly owner: DocLine, 
         public readonly offset: number, 
         public readonly lines: string[]) { }
 }
-export function makeInsertBefore(doc:Doc, ownerId: DocLineId, beforeId: DocLineId, 
+export function makeInsertBefore(owner: DocLine, before: DocLine, 
         lines: string[]): Insert {
-    const owner = doc.findLine(ownerId);
-    const before = doc.findLine(beforeId);
-    
     const offset = owner.indexOrLast(before);
     
-    return new Insert(ownerId, offset, lines);
+    return new Insert(owner, offset, lines);
 }
 
 export class Reinsert {
@@ -76,29 +77,46 @@ export function makeText(doc:Doc, id: DocLineId, newText: string[]): Text {
 }
 export class Move {
     readonly type = Type.Move;
-    constructor(public readonly oldowner: DocLineId, 
-        public readonly newowner: DocLineId, 
+    constructor(public readonly oldowner: DocLine, 
+        public readonly newowner: DocLine, 
         public readonly oldoffset: number, 
         public readonly newoffset: number, 
-        public readonly lines: DocLineId[]) { }
+        public readonly lines: DocLine[]) { }
 }
-export function makeMoveBefore(doc:Doc, lineId: DocLineId, count : number
-        , targetOwnerId : DocLineId
-        , targetBeforeId : DocLineId) : Move {
+export function makeMoveBefore(line: DocLine, count : number
+        , targetOwner : DocLine
+        , targetBefore : DocLine) : Move | NoOp { // ie. Change
 
-    const line = doc.findLine(lineId);
-    const targetParent = doc.findLine(targetOwnerId);
+    // const line = doc.findLine(lineId);
+    // const targetParent = targetOwner.parent;
     const oldowner = line.parent;
     const oldoffset = oldowner.indexOf(line);
-    const targetBefore : DocLine = doc.findLine(targetBeforeId);
     // Insert BEFORE targetBefore; if it's not a direct child, append at end
-    const newoffset = targetParent.indexOrLast(targetBefore);
+    const newoffset = targetOwner.indexOrLast(targetBefore);
     if (oldoffset + count > oldowner.children.length) {
         throw new RangeError(`Move change out of range`);
     }
-    const lines = oldowner.children.slice(oldoffset, oldoffset + count)
-    const lineIds = lines.map(line => line.id);
-    return new Move(oldowner.id, targetParent.id, oldoffset, newoffset, lineIds);
+    const lines = oldowner.children.slice(oldoffset, oldoffset + count);
+    
+    // Check if moving would create a loop (moving a line into its own subtree)
+    for (const lineToMove of lines) {
+        if (isAncestorOf(lineToMove, targetOwner)) {
+            return new NoOp();
+        }
+    }
+    
+    return new Move(oldowner, targetOwner, oldoffset, newoffset, lines);
 }
 
-export type Change = Insert | Reinsert | Delete | Text | Move ;
+function isAncestorOf(potentialAncestor: DocLine, descendant: DocLine): boolean {
+    let current = descendant;
+    while (current !== DocLine.end) {
+        if (current === potentialAncestor) {
+            return true;
+        }
+        current = current.parent;
+    }
+    return false;
+}
+
+export type Change = Insert | Reinsert | Delete | Text | Move | NoOp;

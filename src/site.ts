@@ -148,11 +148,11 @@ export class SiteRowPool extends Pool<SiteRow, SiteRowId> {
 }
 const siteRowPool = new SiteRowPool();
 export class Site {
-    private _doc: Doc = noDoc; // The root doc
+    // private _doc: Doc = noDoc; // The root doc
     private _root: SiteRow = SiteRow.end;
     
     public setDoc(doc: Doc): void {
-        this._doc = doc;
+        // this._doc = doc;
         this.buildTree(doc.root);
     }
     
@@ -167,7 +167,7 @@ export class Site {
         return this._root;
     }
     
-    public get doc(): Doc { return this._doc; }
+    // public get doc(): Doc { return this._doc; }
     
     constructor() {}
 }

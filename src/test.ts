@@ -241,8 +241,8 @@ function testHandleArrowRight(): void {
     var root = doc.root
     assertEquals(4, doc.length);
     var line2 = root.children[1];
-    var change = Change.makeInsertBefore(doc, root.id, line2.id, ["NewLine", "NewLine2"]);
-    doc.processChange(change);
+    var change = Change.makeInsertBefore(root, line2, ["NewLine", "NewLine2"]);
+    Doc.processChange(change);
     const rows = Array.from(Editor.rows());
     assertEquals(6, doc.length);
     const newLine = doc.root.children[1];
@@ -286,8 +286,8 @@ function testHandleArrowRight(): void {
 
     // Act - move line 'a' (index 1) to after 'c' (index 3)
     const dLine = bLine.children[1];
-    const moveChange = Change.makeMoveBefore(doc, aLine.id, 1, dLine.parent.id, dLine.id);
-    doc.processChange(moveChange);
+    const moveChange = Change.makeMoveBefore(aLine, 1, dLine.parent, dLine);
+    Doc.processChange(moveChange);
     
     // Assert
     assertEquals(bLine, doc.root.children[0]);
