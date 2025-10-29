@@ -84,6 +84,10 @@ export class DocLine {
         this.parent.insertChildrenAt(index+1, [newLine]);
         return this;
     }
+    public nextSibling(): DocLine {
+        const index = this.parent.indexOrLast(this);
+        return this.parent.at(index+1);
+    }
 
     private insertChildrenAt(index : number, children: DocLine[]): DocLine {
         children.forEach(child => child._parent = this);

@@ -45,7 +45,10 @@ export function createRowElement(): RowElement {
 }
 
 export class Row {
-		constructor(public readonly el: RowElement, public readonly visibleTextOffset: number) {}
+		public equals(other: Row): boolean {
+			return this.el === other.el;
+		}
+		constructor(public readonly el: RowElement) {}
 		private getContentSpan(): RowContentElement {
 			return this.el.querySelector('.content') as RowContentElement;
 		}
@@ -88,50 +91,54 @@ export class Row {
 		}
 	}
 	public get indent(): number {
-		const content = this.content;
 		// count the number of tabs at the beginning of the content
-		const tabs = content.match(/^\t/g);
-		if (tabs) return tabs.length;
+		const innerHTML = this.getContentSpan().innerHTML;
+		const tabs = innerHTML.match(new RegExp('^' + VISIBLE_TAB + '+'));
+		if (tabs) return tabs[0].length;
 		return 0;
 	}
-		public setFoldIndicator(indicator: string) {
-			const foldSpan = this.getFoldIndicatorSpan();
-			if (foldSpan) foldSpan.textContent = indicator;
-		}
-		public get Previous(): Row {
-			const previousSibling = this.el?.previousElementSibling;
-			if (!previousSibling) return endRow;
-			return new Row(previousSibling as RowElement, 0);
-		}
-		public get Next(): Row {
-			const nextSibling = this.el?.nextElementSibling;
-			if (!nextSibling) return endRow;
-			return new Row(nextSibling as RowElement, 0);
-		}
-		public valid(): boolean {
-			return this.el !== null;
-		}
-		public get id(): string {
-			return  this.idString;
-		}
-		
-		// Helper method to get the string representation for DOM operations
-		public get idString(): string {
-			return this.el?.dataset.lineId ?? 'R000000';
-		}
-		public setCaretInRow(offset: number) {
-			const contentSpan = this.getContentSpan();
-			if (contentSpan) setCaretInParagraph(contentSpan, offset);
-		}
-		public moveCaretToThisRow(): void {
-			const targetX = caretX();
-			const off = this.offsetAtX(targetX );
-			this.setCaretInRow(off);
-		}
-		public moveCaretToX(targetX: number): void {
-			const off = this.offsetAtX(targetX );
-			this.setCaretInRow(off);
-		}
+	public setFoldIndicator(indicator: string) {
+		const foldSpan = this.getFoldIndicatorSpan();
+		if (foldSpan) foldSpan.textContent = indicator;
+	}
+	public get Previous(): Row {
+		const previousSibling = this.el?.previousElementSibling;
+		if (!previousSibling) return endRow;
+		return new Row(previousSibling as RowElement);
+	}
+	public get Next(): Row {
+		const nextSibling = this.el?.nextElementSibling;
+		if (!nextSibling) return endRow;
+		return new Row(nextSibling as RowElement);
+	}
+	public valid(): boolean {
+		return this.el !== null;
+	}
+	public get id(): string {
+		return  this.idString;
+	}
+	
+	// Helper method to get the string representation for DOM operations
+	public get idString(): string {
+		return this.el?.dataset.lineId ?? 'R000000';
+	}
+	public setCaretInRow(offset: number) {
+		const contentSpan = this.getContentSpan();
+		if (contentSpan) setCaretInParagraph(contentSpan, offset);
+	}
+	public moveCaretToThisRow(): void {
+		const targetX = caretX();
+		const off = this.offsetAtX(targetX );
+		this.setCaretInRow(off);
+	}
+	public moveCaretToX(targetX: number): void {
+		const off = this.offsetAtX(targetX );
+		this.setCaretInRow(off);
+	}
+	public get caretOffset() {
+		const x = caretX();
+		return this.offsetAtX(x);
+	}
 	public offsetAtX(x: number): number {
 		const contentSpan = this.getContentSpan();
 		if (!contentSpan) return 0;
@@ -199,7 +206,7 @@ export class RowSpan implements Iterable<Row> {
 }
 
 // Sentinel row used to indicate insertion at the start of the container
-export const endRow: Row = new Row(document.createElement(RowElementTag) as RowElement, 0);
+export const endRow: Row = new Row(document.createElement(RowElementTag) as RowElement);
 
 // Paragraphs iterator
 function* paragraphs(): IterableIterator<RowElement> {
@@ -211,13 +218,13 @@ function* paragraphs(): IterableIterator<RowElement> {
 // create an iterator that yields rows from the DOM
 export function* rows(): IterableIterator<Row> {
 	for (const paragraph of paragraphs()) {
-		yield new Row(paragraph, 0);
+		yield new Row(paragraph);
 	}
 }
 export function at(index: number): Row {
 	// if index is out of range, return endRow
 	if (index < 0 || index >= lm.editor.childElementCount) return endRow;
-	return new Row(lm.editor.children[index] as RowElement, 0);
+	return new Row(lm.editor.children[index] as RowElement);
 }
 // Create a new row and insert it after the given previous row.
 // If previousRow is endRow, insert at the front of the container.
@@ -242,7 +249,7 @@ export function addBefore(targetRow: Row, scene: ArraySpan<SceneRow>)
 }
 export function createRowElementFromSceneRow(sceneRow: SceneRow): Row {
 	const el = createRowElement();
-	let row = new Row(el, 0);
+	let row = new Row(el);
 
 	el.dataset.lineId = sceneRow.id.value;
 	const indent = sceneRow.indent;
@@ -434,12 +441,12 @@ function setCaretInParagraph(contentSpan: HTMLElement, offset: number) {
 
 export function currentRow(): Row {
 	let p = getCurrentParagraphWithOffset();
-	return p ? new Row(p.element, p.offset) : endRow;
+	return p ? new Row(p.element) : endRow;
 }
 export function currentRowWithOffset(): { element: Row, offset: number } {
 	let p = getCurrentParagraphWithOffset();
 	if (!p) return { element: endRow, offset: 0 };
-	return { element: new Row(p.element, p.offset), offset: p.offset };
+	return { element: new Row(p.element), offset: p.offset };
 }
 
 export function moveRowAbove(toMove: Row, target: Row): void {

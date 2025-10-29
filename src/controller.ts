@@ -64,7 +64,7 @@ const keyBindings: KeyBinding[] = [
 	// new KeyBinding("F5", () => false),
 	// new KeyBinding("F6", () => false),
 	new KeyBinding("Tab", handleTab),
-	// new KeyBinding("S-Tab", handleShiftTab),
+	new KeyBinding("S-Tab", handleShiftTab),
 	// new KeyBinding("C-s", () => { save(); return true; }),
 	new KeyBinding("Enter", handleEnter),
 	// new KeyBinding("Backspace", (row) => handleBackspace(row)),
@@ -141,7 +141,7 @@ function findKeyBinding(combo: string): KeyBinding {
 
 // function handleBackspace(currentRow: Editor.Row) : boolean {
 	
-// 	if (currentRow.visibleTextOffset === 0) {
+// 	if (currentRow.indent === 0) {
 // 		const prevRow = currentRow.Previous;
 // 		const prevPosition = prevRow.visibleTextLength;
 // 		if (!prevRow.valid()) return true;
@@ -154,7 +154,7 @@ function findKeyBinding(combo: string): KeyBinding {
 // 	}
 // }
 // function handleDelete(currentRow: Editor.Row) : boolean {
-// 	if (currentRow.visibleTextOffset === currentRow.visibleTextLength) {
+// 	if (currentRow.indent === currentRow.visibleTextLength) {
 // 		const nextRow = currentRow.Next;
 // 		if (!nextRow.valid()) return true;
 // 		joinRows(currentRow, nextRow);
@@ -180,17 +180,14 @@ function handleArrowUp(currentRow: Editor.Row) : boolean {
  }
 
 function handleArrowLeft(currentRow: Editor.Row) : boolean {
-	if (currentRow.visibleTextOffset > 0) {
+	if (currentRow.caretOffset > 0) {
 		// Move cursor left within current row
-		currentRow.setCaretInRow(currentRow.visibleTextOffset - 1);
+		currentRow.setCaretInRow(currentRow.caretOffset - 1);
 	} else {
 		// Move to end of previous row (need visible text length)
 		const prevRow = currentRow.Previous;
 		if (prevRow.valid()) {
-			const temp = document.createElement('div');
-			temp.innerHTML = prevRow.content;
-			const prevRowVisibleLength = temp.textContent?.length ?? 0;
-			prevRow.setCaretInRow(prevRowVisibleLength);
+			prevRow.setCaretInRow(prevRow.visibleTextLength);
 		}
 	}
 	return true;
@@ -202,9 +199,9 @@ function handleArrowRight(currentRow: Editor.Row) : boolean {
 	temp.innerHTML = currentRow.content;
 	const visibleLength = temp.textContent?.length ?? 0;
 	
-	if (currentRow.visibleTextOffset < visibleLength) {
+	if (currentRow.caretOffset < visibleLength) {
 		// Move cursor right within current row
-		currentRow.setCaretInRow(currentRow.visibleTextOffset + 1);
+		currentRow.setCaretInRow(currentRow.caretOffset + 1);
 	} else {
 		// Move to beginning of next row
 		const nextRow = currentRow.Next;
@@ -329,7 +326,7 @@ function offsetIsInIndent(offset: number, rowText: string): boolean {
 // }
 
 function handleTab(currentRow: Editor.Row) : boolean {
-	const visibleOffset = currentRow.visibleTextOffset;
+	const visibleOffset = currentRow.caretOffset;
 	let c = currentRow.content;
 	
 	// Get visible text for indent checking
@@ -343,6 +340,8 @@ function handleTab(currentRow: Editor.Row) : boolean {
 		const sprev = scur.previous;
 		if (sprev === SiteRow.end) return false;
 		moveBelow(scur.docLine, sprev.docLine);
+		const replacementRow = Editor.findRow(currentRow.id)
+		replacementRow.setCaretInRow(visibleOffset+ 1);
 		return true;
 		// let rows : ArraySpan<SceneRow> = scene.indentRowAndChildren(rowDataFromEditorRow(currentRow));
 		// Editor.updateRows(rows);
@@ -359,52 +358,59 @@ function handleTab(currentRow: Editor.Row) : boolean {
 	}
 	return true;
 }
-
+function docLineFromRow(row: Editor.Row): DocLine {
+	const cur = model.scene.findRow(row.idString);
+	return cur.siteRow.docLine;
+}
  function handleShiftTab(currentRow: Editor.Row) : boolean {
-//     const visibleOffset = currentRow.visibleTextOffset;
     
-//     // Get visible text for indent checking
-//     const temp = document.createElement('div');
-//     temp.innerHTML = currentRow.content;
-//     const visibleText = temp.textContent ?? '';
-    
-//     if (offsetIsInIndent(visibleOffset, visibleText)) {
-//         const rows = Scene.data.deindentRowAndChildren(rowDataFromEditorRow(currentRow));
-//         Editor.updateRows(rows);
-//     } else {
-//         // find tab to the left of the cursor in HTML content
-//         const htmlOffset = currentRow.getHtmlOffset();
-//         const tabIndex = currentRow.content.substring(0, htmlOffset).lastIndexOf('\t');
-//         if (tabIndex === -1) return false;
-        
-//         const newContent = currentRow.content.substring(0, tabIndex)
-//             + currentRow.content.substring(tabIndex + 1);
-//         Scene.data.updateRowData(currentRow.id, newContent);
-//         currentRow.setContent(newContent);
-        
-//         // Calculate visible position of the tab for cursor positioning
-//         const tempBefore = document.createElement('div');
-//         tempBefore.innerHTML = currentRow.content.substring(0, tabIndex);
-//         const visibleTabPosition = tempBefore.textContent?.length ?? 0;
-//         currentRow.setCaretInRow(visibleTabPosition);
-//     }
- 	return true;
- }
+    // Get visible text for indent checking
+	if (currentRow.indent >= currentRow.caretOffset) {
+		// Move after parent
+		// Move before parent's sibling if any.
+		const docLine = docLineFromRow(currentRow);
+		const parent = docLine.parent;
+		const nextSibling = parent.nextSibling();
+		if (nextSibling !== DocLine.end) {
+			moveBefore(docLine, nextSibling);
+		} else {
+			// else move to end of grandparent.
+			const grandparent = parent.parent;
+			if (grandparent !== DocLine.end) {
+				moveBelow(docLine, grandparent);
+			} else {
+				return true;
+			}
+		}
+	} else {
+		// find tab to the left of the cursor in HTML content
+		const visibleOffset = currentRow.caretOffset;
+		const htmlOffset = currentRow.getHtmlOffset();
+		const tabIndex = currentRow.content.substring(0, htmlOffset).lastIndexOf('\t');
+		if (tabIndex === -1) return false;
 
- export function loadDoc(data : string, filePath : string) : Doc {
-    let doc = model.addOrUpdateDoc(data, filePath);
-    model.scene.loadFromSite(model.site.getRoot());
-    setEditorContent();
-    setMessage("Loaded");
-    links();
-    return doc;
+		const docLine = docLineFromRow(currentRow);
+		const change = Change.makeTextChange(docLine, htmlOffset, 0, '\t');
+		Doc.processChange(change);
+		currentRow.setCaretInRow(visibleOffset + 1);
+	}
+	return true;
 }
 
- export function save() {
-// 	postDoc(Editor.docName(), Editor.getContent());
- }
+export function loadDoc(data: string, filePath: string): Doc {
+	let doc = model.addOrUpdateDoc(data, filePath);
+	model.scene.loadFromSite(model.site.getRoot());
+	setEditorContent();
+	setMessage("Loaded");
+	links();
+	return doc;
+}
 
- export function setEditorContent() {
+export function save() {
+	// 	postDoc(Editor.docName(), Editor.getContent());
+}
+
+export function setEditorContent() {
  	Editor.setContent(new ArraySpan(model.scene.rows, 0, model.scene.rows.length));
 // 		// Update fold indicator
 // 		updateAllFoldIndicators();

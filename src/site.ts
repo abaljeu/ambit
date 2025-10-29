@@ -67,7 +67,7 @@ export class SiteRow extends DocLineView {
     
     public get previous(): SiteRow {
         const index = this.parent.children.indexOf(this);
-        if (index === 0) { // can expand in future
+        if (index <= 0) { // can expand in future
              return SiteRow.end;
         }
         return this.parent.children[index - 1];

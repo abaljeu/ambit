@@ -8,44 +8,12 @@ import { Scene, SceneRow } from './scene.js';
 import * as Editor from './editor.js';
 import * as Controller from './controller.js';
 import * as ambit from './ambit.js';
-// Test infrastructure
-interface TestResult {
-    name: string;
-    passed: boolean;
-    error?: string;
-}
-
-class TestRunner {
-    private results: TestResult[] = [];
-    
-    runTest(testFn: () => void ): boolean {
-        try {
-            console.log(`Running test: ${testFn.name}`);
-            testFn();
-            this.results.push({ name: testFn.name, passed: true });
-            // console.log(`✓ ${testFn.name} passed`);
-			return true;
-        } catch (error) {
-            this.results.push({ 
-                name: testFn.name, 
-                passed: false, 
-                error: error instanceof Error ? error.message : String(error) 
-            });
-            console.log(`✗ ${testFn.name} failed: ${error}`);
-			return false;
-        }
-    }
-    
-    getResults(): TestResult[] {
-        return this.results;
-    }
-    
-    getSummary(): string {
-        const passed = this.results.filter(r => r.passed).length;
-        const total = this.results.length;
-        return `${passed}/${total} tests passed`;
-    }
-}
+import {
+    TestRunner,
+    assert,
+    assertEquals,
+    assertNotEquals
+} from './test-infra.js';
 
 // // Global test runner instance
 const testRunner = new TestRunner();
@@ -91,40 +59,6 @@ export function assertDocMatchesSite(docLine: DocLine, siteRow: SiteRow): void {
     
 }
 
-function assert(condition: boolean, message: string = "Assert"): void {
-    if (!condition) {
-        throw new Error(message);
-    }
-}
-type Equatable<T> = { equals(other: T): boolean };
-
-function hasEquals<T>(obj: unknown): obj is Equatable<T> {
-    return !!obj && typeof (obj as any).equals === 'function';
-}
-
-function assertEquals<T>(expected: T, actual: T, message: string = "Assert"): void {
-    if (hasEquals<T>(expected)) {
-        if (!(expected as unknown as Equatable<T>).equals(actual)) {
-            throw new Error(`${message}: Expected "${expected.toString()}", got "${(actual as any).toString()}"`);
-        }
-    } else {
-        if (expected !== actual) {
-            throw new Error(`${message}: Expected "${expected?.toString?.()}", got "${(actual as any)?.toString?.()}"`);
-        }
-    }
-}
-
-function assertNotEquals<T>(expected: T, actual: T, message: string = "Assert"): void {
-    if (hasEquals<T>(expected)) {
-        if ((expected as unknown as Equatable<T>).equals(actual)) {
-            throw new Error(`${message}: Expected not equal to "${expected}", got "${actual}"`);
-        }
-    } else {
-        if (expected === actual) {
-            throw new Error(`${message}: Expected not equal to "${expected}", got "${actual}"`);
-        }
-    }
-}
 // Load test file and assert model/scene/editor state
 
 // // Test definitions array
@@ -220,14 +154,16 @@ function testHandleArrowLeft(): void {
     const rows = Array.from(Editor.rows());
     const secondRow = rows[1];
     secondRow.setCaretInRow(2); // Position in middle of "Line 2"
-    
+    assertEquals(2, secondRow.caretOffset);
+    assertEquals(secondRow, Editor.currentRow());
     // Act
     Controller.editorHandleKey(new KeyboardEvent('keydown', { key: 'ArrowLeft' }));
     
     // Assert
     const currentRow = Editor.currentRow();
-    if (currentRow.visibleTextOffset !== 1) {
-        throw new Error(`Expected cursor at position 1, got ${currentRow.visibleTextOffset}`);
+    assertEquals(currentRow, secondRow);
+    if (currentRow.caretOffset !== 1) {
+        throw new Error(`Expected cursor at position 1, got ${currentRow.caretOffset}`);
     }
 }
 ,
@@ -243,8 +179,8 @@ function testHandleArrowRight(): void {
     
     // Assert
     const currentRow = Editor.currentRow();
-    if (currentRow.visibleTextOffset !== 3) {
-        throw new Error(`Expected cursor at position 3, got ${currentRow.visibleTextOffset}`);
+    if (currentRow.caretOffset !== 3) {
+        throw new Error(`Expected cursor at position 3, got ${currentRow.caretOffset}`);
     }
 }
 
@@ -451,33 +387,77 @@ function testHandleArrowRight(): void {
 
 }
 
-// // Test 11: handleShiftTab function
-// function testHandleShiftTab(): void {
-//     // Arrange
-//     loadTestDoc();
-//     const rows = Array.from(Editor.rows());
-//     const firstRow = rows[0];
-//     firstRow.setCaretInRow(0);
+// Test 11: handleShiftTab function
+,function testHandleShiftTab(): void {
+    loadTestDoc();
+    const rows = Array.from(Editor.rows());
+
+    // Indent Row 1 refuses.
+    const firstRow = rows[0];
+    firstRow.setCaretInRow(0);
+    const firstIndent = firstRow.indent;
+    Controller.editorHandleKey(new KeyboardEvent('keydown', { key: 'Tab' }));
+    assertEquals(firstIndent, firstRow.indent);
+
+    // Indent Row 2 refuses; it's already indented.
+    const secondRow = rows[1];
+    const secondIndent = secondRow.indent;
+    assertEquals(secondIndent, 0);
+    secondRow.setCaretInRow(0);
+    Controller.editorHandleKey(new KeyboardEvent('keydown', { key: 'Tab' }));
+    assertEquals(secondIndent , secondRow.indent);
+
+    // 3 succeeds.
+    const thirdRow = rows[2];
+    const thirdIndent = thirdRow.indent;
+    assertEquals(thirdIndent, 0);
+    thirdRow.setCaretInRow(0);
+    Controller.editorHandleKey(new KeyboardEvent('keydown', { key: 'Tab' }));
+    assertEquals(thirdIndent+1 , Editor.currentRow().indent);
+
+
+    // Then position cursor in indent area
+    const updatedRows = Array.from(Editor.rows());
+    updatedRows[2].setCaretInRow(0);
     
-//     // First add a tab
-//     Controller.editorKeyDown(new KeyboardEvent('keydown', { key: 'Tab' }));
+    // // Act
+    // Controller.editorHandleKey(new KeyboardEvent('keydown', { 
+    //     key: 'Tab', 
+    //     shiftKey: true 
+    // }));
+    // const finalRows = Array.from(Editor.rows());
+    // assertEquals(finalRows[1].content, "Line 1");
+    // assertEquals(finalRows[2].content, "\tLine 2");
+
+    // 4 succeeds.
+    const fourthRow = rows[3];
+    const fourthIndent = fourthRow.indent;
+    assertEquals(fourthIndent, 0);
+    fourthRow.setCaretInRow(0);
+    Controller.editorHandleKey(new KeyboardEvent('keydown', { key: 'Tab' }));
+    assertEquals(fourthIndent+1 , Editor.currentRow().indent);
+
+    const newFourthRow = Editor.findRow(fourthRow.id);
+    assertEquals(newFourthRow.content, "\tLine 3");
+    // Then position cursor in indent area
+
+    // tab again
+    Controller.editorHandleKey(new KeyboardEvent('keydown', { key: 'Tab' }));
+    const newNewFourthRow = Editor.findRow(newFourthRow.id);
+    assertEquals(newNewFourthRow.content, "\t\tLine 3");
     
-//     // Then position cursor in indent area
-//     const updatedRows = Array.from(Editor.rows());
-//     updatedRows[0].setCaretInRow(0);
-    
-//     // Act
-//     Controller.editorKeyDown(new KeyboardEvent('keydown', { 
-//         key: 'Tab', 
-//         shiftKey: true 
-//     }));
-    
-//     // Assert
-//     const finalRows = Array.from(Editor.rows());
-//     if (finalRows[0].content !== "Line 1") {
-//         throw new Error(`Expected tab to be removed, but content is still "${finalRows[0].content}"`);
-//     }
-// }
+
+    // unindent
+    const newThirdRow = Editor.findRow(thirdRow.id);
+    newThirdRow.setCaretInRow(0);
+    Controller.editorHandleKey(new KeyboardEvent('keydown', { 
+        key: 'Tab', 
+        shiftKey: true 
+    }));
+    const newRows = Array.from(Editor.rows());
+    assertEquals(newRows[2].content, "Line 2");
+    assertEquals(newRows[3].content, "\tLine 3");
+}
 
 // // Test 12: handleToggleFold function
 // function testHandleToggleFold(): void {
