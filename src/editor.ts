@@ -22,7 +22,7 @@ const VISIBLE_TAB = '→'; // Visible tab character
 //         return new RowId(value);
 //     }
 //     public get end(): Row {
-//         return NoRow;
+//         return endRow;
 //     }
 //     public readonly tag: string = 'R';
 // }
@@ -87,18 +87,25 @@ export class Row {
 				value.replace(new RegExp('\t', 'g'), VISIBLE_TAB);
 		}
 	}
+	public get indent(): number {
+		const content = this.content;
+		// count the number of tabs at the beginning of the content
+		const tabs = content.match(/^\t/g);
+		if (tabs) return tabs.length;
+		return 0;
+	}
 		public setFoldIndicator(indicator: string) {
 			const foldSpan = this.getFoldIndicatorSpan();
 			if (foldSpan) foldSpan.textContent = indicator;
 		}
 		public get Previous(): Row {
 			const previousSibling = this.el?.previousElementSibling;
-			if (!previousSibling) return NoRow;
+			if (!previousSibling) return endRow;
 			return new Row(previousSibling as RowElement, 0);
 		}
 		public get Next(): Row {
 			const nextSibling = this.el?.nextElementSibling;
-			if (!nextSibling) return NoRow;
+			if (!nextSibling) return endRow;
 			return new Row(nextSibling as RowElement, 0);
 		}
 		public valid(): boolean {
@@ -110,7 +117,7 @@ export class Row {
 		
 		// Helper method to get the string representation for DOM operations
 		public get idString(): string {
-			return this.el?.dataset.lineId ?? NoRow.idString;
+			return this.el?.dataset.lineId ?? 'R000000';
 		}
 		public setCaretInRow(offset: number) {
 			const contentSpan = this.getContentSpan();
@@ -154,11 +161,6 @@ export class Row {
 		}
 		return len;
 	}
-	// public focus(): void {
-	// 	const contentSpan = this.getContentSpan();
-	// 	if (contentSpan)
-	// 		contentSpan.focus();
-	// }
 }
 
 	export function findRow(id: string): Row {
@@ -166,7 +168,7 @@ export class Row {
 			if (row.idString == id) 
 				return row;
 		}
-		return NoRow;
+		return endRow;
 	}
 // RowSpan is not an ArraySpan because the rows are virtual.
 // it's implemented by taking a row and finding the next row.
@@ -197,7 +199,7 @@ export class RowSpan implements Iterable<Row> {
 }
 
 // Sentinel row used to indicate insertion at the start of the container
-export const NoRow: Row = new Row(document.createElement(RowElementTag) as RowElement, 0);
+export const endRow: Row = new Row(document.createElement(RowElementTag) as RowElement, 0);
 
 // Paragraphs iterator
 function* paragraphs(): IterableIterator<RowElement> {
@@ -213,24 +215,24 @@ export function* rows(): IterableIterator<Row> {
 	}
 }
 export function at(index: number): Row {
-	// if index is out of range, return NoRow
-	if (index < 0 || index >= lm.editor.childElementCount) return NoRow;
+	// if index is out of range, return endRow
+	if (index < 0 || index >= lm.editor.childElementCount) return endRow;
 	return new Row(lm.editor.children[index] as RowElement, 0);
 }
 // Create a new row and insert it after the given previous row.
-// If previousRow is NoRow, insert at the front of the container.
+// If previousRow is endRow, insert at the front of the container.
 export function addBefore(targetRow: Row, scene: ArraySpan<SceneRow>)
 	: RowSpan {
 	if (lm.editor === null) 
-		return new RowSpan(NoRow, 0);
+		return new RowSpan(endRow, 0);
 	
-	let firstRow = NoRow;
+	let firstRow = endRow;
 	for (const sceneRow of scene) {
 		// Convert regular tabs to visible tabs for display
 		const row = createRowElementFromSceneRow(sceneRow);
-		if (firstRow === NoRow) firstRow = row;
+		if (firstRow === endRow) firstRow = row;
 
-		if (targetRow === NoRow) {
+		if (targetRow === endRow) {
 			lm.editor.appendChild(row.el); // add to front of editor
 		} else {
 			lm.editor.insertBefore(row.el, targetRow.el);
@@ -256,10 +258,10 @@ export function addAfter(
 	referenceRow: Row, 
 	rowDataArray: ArraySpan<SceneRow>
 ): RowSpan {
-	if (lm.editor === null) return new RowSpan(NoRow, 0);
+	if (lm.editor === null) return new RowSpan(endRow, 0);
 	let count = 0;
 	let beforeRow = referenceRow.el;
-	let first = NoRow;
+	let first = endRow;
 	for (const rowData of rowDataArray) {
 		const row = createRowElementFromSceneRow(rowData);
 		
@@ -268,7 +270,7 @@ export function addAfter(
 		} else {
 			lm.editor.appendChild(row.el);
 		}
-		if (first === NoRow) first = row;
+		if (first === endRow) first = row;
 		beforeRow = row.el;
 		count++;
 	}
@@ -430,9 +432,14 @@ function setCaretInParagraph(contentSpan: HTMLElement, offset: number) {
 	selection.addRange(range);
 }
 
-export function CurrentRow(): Row {
+export function currentRow(): Row {
 	let p = getCurrentParagraphWithOffset();
-	return p ? new Row(p.element, p.offset) : NoRow;
+	return p ? new Row(p.element, p.offset) : endRow;
+}
+export function currentRowWithOffset(): { element: Row, offset: number } {
+	let p = getCurrentParagraphWithOffset();
+	if (!p) return { element: endRow, offset: 0 };
+	return { element: new Row(p.element, p.offset), offset: p.offset };
 }
 
 export function moveRowAbove(toMove: Row, target: Row): void {
@@ -472,10 +479,9 @@ export function getContent(): string {
 }
 
 export function replaceRows(oldRows: RowSpan, newRows: ArraySpan<SceneRow>): RowSpan {
-	if (oldRows.count === 0 && newRows.length === 0) return new RowSpan(NoRow, 0);
+	if (oldRows.count === 0 && newRows.length === 0) return new RowSpan(endRow, 0);
 	
 	const beforeStartRow = oldRows.row.Previous;
-	const endRow = oldRows.endRow();
 	
 	// Collect all rows first before removing (to avoid breaking the DOM chain)
 	const rowsToRemove: Row[] = Array.from(oldRows);
@@ -485,7 +491,7 @@ export function replaceRows(oldRows: RowSpan, newRows: ArraySpan<SceneRow>): Row
 		row.el.remove();
 	}
 	
-	return addBefore(endRow, newRows);
+	return addAfter(beforeStartRow, newRows);
 }
 
 // Update rows with Scene.RowData array
@@ -523,6 +529,7 @@ export function setContent(scene: ArraySpan<SceneRow>): RowSpan {    // Clear th
 	clear();
 
 	// Create a Line element for each visible line
-	let end = NoRow;
+	let end = endRow;
 	return addBefore(end, scene);
 }
+

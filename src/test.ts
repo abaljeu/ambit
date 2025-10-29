@@ -64,10 +64,16 @@ function loadTestDoc(): Doc {
     var doc = Controller.loadDoc(TEST_DOC_CONTENT, TEST_DOC_PATH);
     return doc;
 }
-function hasEquals(obj: any): obj is { equals(other: any): boolean } {
-    return obj && typeof obj.equals === 'function';
-}
 
+function sendKey(key :string, modifiers: string[] = []): void {
+    const e = new KeyboardEvent('keydown', 
+        { key: key, 
+            ctrlKey: modifiers.includes('C'), 
+            shiftKey: modifiers.includes('S'), 
+            altKey: modifiers.includes('A'), 
+            metaKey: modifiers.includes('M') });
+    Controller.editorHandleKey(e);
+}
 export function assertSceneMatchesSite(sceneRow: SceneRow, siteRow: SiteRow): void {
     assertEquals(sceneRow.siteRow, siteRow);
     assertEquals(sceneRow.treeLength, siteRow.treeLength);
@@ -90,21 +96,27 @@ function assert(condition: boolean, message: string = "Assert"): void {
         throw new Error(message);
     }
 }
-function assertEquals(expected: any, actual: any, message: string = "Assert"): void {
-    if (hasEquals(expected)) {
-        if (!expected.equals(actual)) {
-            throw new Error(`${message}: Expected "${expected.toString()}", got "${actual.toString()}"`);
+type Equatable<T> = { equals(other: T): boolean };
+
+function hasEquals<T>(obj: unknown): obj is Equatable<T> {
+    return !!obj && typeof (obj as any).equals === 'function';
+}
+
+function assertEquals<T>(expected: T, actual: T, message: string = "Assert"): void {
+    if (hasEquals<T>(expected)) {
+        if (!(expected as unknown as Equatable<T>).equals(actual)) {
+            throw new Error(`${message}: Expected "${expected.toString()}", got "${(actual as any).toString()}"`);
         }
     } else {
         if (expected !== actual) {
-            throw new Error(`${message}: Expected "${expected.toString()}", got "${actual.toString()}"`);
+            throw new Error(`${message}: Expected "${expected?.toString?.()}", got "${(actual as any)?.toString?.()}"`);
         }
     }
 }
 
-function assertNotEquals(expected: any, actual: any, message: string = "Assert"): void {
-    if (hasEquals(expected)) {
-        if (expected.equals(actual)) {
+function assertNotEquals<T>(expected: T, actual: T, message: string = "Assert"): void {
+    if (hasEquals<T>(expected)) {
+        if ((expected as unknown as Equatable<T>).equals(actual)) {
             throw new Error(`${message}: Expected not equal to "${expected}", got "${actual}"`);
         }
     } else {
@@ -112,7 +124,8 @@ function assertNotEquals(expected: any, actual: any, message: string = "Assert")
             throw new Error(`${message}: Expected not equal to "${expected}", got "${actual}"`);
         }
     }
-}// Load test file and assert model/scene/editor state
+}
+// Load test file and assert model/scene/editor state
 
 // // Test definitions array
 const tests = [
@@ -139,10 +152,10 @@ const tests = [
         secondRow.setCaretInRow(3); // Position in middle of "Line 2"
         
         // Act
-        Controller.editorKeyDown(new KeyboardEvent('keydown', { key: 'ArrowUp' }));
+        Controller.editorHandleKey(new KeyboardEvent('keydown', { key: 'ArrowUp' }));
         
         // Assert
-        assertEquals(Editor.CurrentRow().id, rows[1].id, "CurrentRow");
+        assertEquals(Editor.currentRow().id, rows[1].id, "CurrentRow");
     },
     
     function testHandleArrowDown() {
@@ -153,10 +166,10 @@ const tests = [
         firstRow.setCaretInRow(2); // Position in middle of "Line 1"
         
         // Act
-        Controller.editorKeyDown(new KeyboardEvent('keydown', { key: 'ArrowDown' }));
+        Controller.editorHandleKey(new KeyboardEvent('keydown', { key: 'ArrowDown' }));
         
         // Assert
-        const currentRow = Editor.CurrentRow();
+        const currentRow = Editor.currentRow();
         assertEquals(currentRow.id, rows[1].id, "CurrentRow");
     },
     
@@ -209,10 +222,10 @@ function testHandleArrowLeft(): void {
     secondRow.setCaretInRow(2); // Position in middle of "Line 2"
     
     // Act
-    Controller.editorKeyDown(new KeyboardEvent('keydown', { key: 'ArrowLeft' }));
+    Controller.editorHandleKey(new KeyboardEvent('keydown', { key: 'ArrowLeft' }));
     
     // Assert
-    const currentRow = Editor.CurrentRow();
+    const currentRow = Editor.currentRow();
     if (currentRow.visibleTextOffset !== 1) {
         throw new Error(`Expected cursor at position 1, got ${currentRow.visibleTextOffset}`);
     }
@@ -226,45 +239,74 @@ function testHandleArrowRight(): void {
     firstRow.setCaretInRow(2); // Position in middle of "Line 1"
     
     // Act
-    Controller.editorKeyDown(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
+    Controller.editorHandleKey(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
     
     // Assert
-    const currentRow = Editor.CurrentRow();
+    const currentRow = Editor.currentRow();
     if (currentRow.visibleTextOffset !== 3) {
         throw new Error(`Expected cursor at position 3, got ${currentRow.visibleTextOffset}`);
     }
 }
 
-,function testHandleInsert(): void {
+,function testHandleInsertBelow(): void {
     // Arrange
     var doc = loadTestDoc();
     var root = doc.root
     assertEquals(4, doc.length);
     var line2 = root.children[1];
-    var change = Change.makeInsertBefore(root, line2, ["NewLine", "NewLine2"]);
+    var change = Change.makeInsertBelow(line2, [Doc.createLine("NewLine"), Doc.createLine("NewLine2")]);
     Doc.processChange(change);
     const rows = Array.from(Editor.rows());
     assertEquals(6, doc.length);
-    const newLine = doc.root.children[1];
+    const newLine = line2.children[0];
     assertEquals("NewLine", newLine.content);
-    const newLine2 = doc.root.children[2];
+    const newLine2 = line2.children[1];
     assertEquals("NewLine2", newLine2.content);
 
     const site = model.site;
-    const siteRow = site.findRowByDocLine(newLine);
-    assert(siteRow.valid);
-    assertEquals(newLine, siteRow.docLine);
+    const newRow = site.testFindRowByDocLine(newLine);
+    assert(newRow.valid);
+    assertEquals(newLine, newRow.docLine);
 
-    const siteRow2 = site.findRowByDocLine(newLine2);
+    const siteRow2 = site.testFindRowByDocLine(newLine2);
     assert(siteRow2.valid);
     assertEquals(newLine2, siteRow2.docLine);
 
-    const siteParent = siteRow.parent;
-    assert(siteParent.children.length === 5);
+    const line2Row = newRow.parent;
+    assertEquals(2, line2Row.children.length);
     const scene = model.scene;
     assertEquals(6, scene.rows.length);
 }
 
+,function testHandleInsertBefore(): void {
+    // Arrange
+    var doc = loadTestDoc();
+    var root = doc.root
+    assertEquals(4, doc.length);
+    var line2 = root.children[1];
+    var change = Change.makeInsertBefore(line2, [Doc.createLine("NewLine"), Doc.createLine("NewLine2")]);
+    Doc.processChange(change);
+    const rows = Array.from(Editor.rows());
+    assertEquals(6, doc.length);
+    const newLine = root.children[1];
+    assertEquals("NewLine", newLine.content);
+    const newLine2 = root.children[2];
+    assertEquals("NewLine2", newLine2.content);
+
+    const site = model.site;
+    const newRow = site.testFindRowByDocLine(newLine);
+    assert(newRow.valid);
+    assertEquals(newLine, newRow.docLine);
+
+    const newRow2 = site.testFindRowByDocLine(newLine2);
+    assert(newRow2.valid);
+    assertEquals(newLine2, newRow2.docLine);
+
+    assertEquals(site.getRoot(), newRow.parent);
+    assertEquals(5, root.children.length);
+    const scene = model.scene;
+    assertEquals(6, scene.rows.length);
+}
 , function testMoveRow(): void {
     // Arrange
     const data = "a\nb\n\tc\n\td\n\t\te\n";
@@ -274,7 +316,7 @@ function testHandleArrowRight(): void {
     const aLine = doc.root.children[0];
     assertEquals(0, aLine.indent);
     const bLine = doc.root.children[1];
-    const siteB = site.findRowByDocLine(bLine);
+    const siteB = site.testFindRowByDocLine(bLine);
     const sceneB = model.scene.search((row: SceneRow) => row.siteRow === siteB);
     assertEquals(2, bLine.children.length);
     assertEquals(4, siteB.treeLength);
@@ -283,11 +325,10 @@ function testHandleArrowRight(): void {
     let  sceneIndexB = sceneB.indexInScene();
     assertEquals(2, sceneIndexB);
     assertSceneMatchesSite(sceneB, siteB);
+    const dLine = bLine.children[1];
 
     // Act - move line 'a' (index 1) to after 'c' (index 3)
-    const dLine = bLine.children[1];
-    const moveChange = Change.makeMoveBefore(aLine, 1, dLine.parent, dLine);
-    Doc.processChange(moveChange);
+    Controller.moveBefore(aLine, dLine);
     
     // Assert
     assertEquals(bLine, doc.root.children[0]);
@@ -296,7 +337,8 @@ function testHandleArrowRight(): void {
 
     assertDocMatchesSite(bLine, siteB);
     const siteParent = siteB.parent;
-    const siteA = site.findRowByDocLine(aLine);
+    const siteA = siteB.children[1];
+    // assertEquals(siteA, siteB.children[1])
     const sceneA = model.scene.search((row: SceneRow) => row.siteRow === siteA);
     assertEquals(1, sceneA.indent);
 
@@ -318,73 +360,96 @@ function testHandleArrowRight(): void {
     // assertEquals(bLine, sceneRow.docLine);
     // const sceneParent = sceneRow.parent;
 }
-// // Test 8: handleSwapUp function
-// function testHandleSwapUp(): void {
-//     // Arrange
-//     loadTestDoc();
-//     const rows = Array.from(Editor.rows());
-//     const secondRow = rows[1];
-//     secondRow.setCaretInRow(0);
+// Test 8: handleSwapUp function
+,function testHandleSwapUp(): void {
+    // Arrange
+    loadTestDoc();
+    const rows = Array.from(Editor.rows());
+    const secondRow = rows[2];
+    secondRow.setCaretInRow(0);
     
-//     // Act
-//     Controller.editorKeyDown(new KeyboardEvent('keydown', { 
-//         key: 'ArrowUp', 
-//         ctrlKey: true 
-//     }));
+    // Act
+    sendKey('ArrowUp', ['C']);
     
-//     // Assert
-//     const updatedRows = Array.from(Editor.rows());
-//     if (updatedRows[0].content !== "Line 2") {
-//         throw new Error(`Expected first row to be "Line 2" after swap, got "${updatedRows[0].content}"`);
-//     }
-    
-//     if (updatedRows[1].content !== "Line 1") {
-//         throw new Error(`Expected second row to be "Line 1" after swap, got "${updatedRows[1].content}"`);
-//     }
-// }
+    // Assert
+    const updatedRows = Array.from(Editor.rows());
+    assertEquals(updatedRows[1].content, "Line 2");
+    assertEquals(updatedRows[2].content, "Line 1");
+}
 
-// // Test 9: handleSwapDown function
-// function testHandleSwapDown(): void {
-//     // Arrange
-//     loadTestDoc();
-//     const rows = Array.from(Editor.rows());
-//     const firstRow = rows[0];
-//     firstRow.setCaretInRow(0);
+// Test 9: handleSwapDown function
+,function testHandleSwapDown(): void {
+    // Arrange
+    loadTestDoc();
+    const rows = Array.from(Editor.rows());
+    const firstRow = rows[1];
+    firstRow.setCaretInRow(0);
     
-//     // Act
-//     Controller.editorKeyDown(new KeyboardEvent('keydown', { 
-//         key: 'ArrowDown', 
-//         ctrlKey: true 
-//     }));
+    // Act
+    sendKey('ArrowDown', ['C']);
     
-//     // Assert
-//     const updatedRows = Array.from(Editor.rows());
-//     if (updatedRows[0].content !== "Line 2") {
-//         throw new Error(`Expected first row to be "Line 2" after swap, got "${updatedRows[0].content}"`);
-//     }
-    
-//     if (updatedRows[1].content !== "Line 1") {
-//         throw new Error(`Expected second row to be "Line 1" after swap, got "${updatedRows[1].content}"`);
-//     }
-// }
+    // Assert
+    const updatedRows = Array.from(Editor.rows());
+    assertEquals(updatedRows[1].content, "Line 2");
+    assertEquals(updatedRows[2].content, "Line 1");
 
-// // Test 10: handleTab function
-// function testHandleTab(): void {
-//     // Arrange
-//     loadTestDoc();
-//     const rows = Array.from(Editor.rows());
-//     const firstRow = rows[0];
-//     firstRow.setCaretInRow(0); // Position at start of line
+// swap down at end
+    const lastRow = rows[rows.length - 1];
+    const lastSceneRow = model.scene.findRow(lastRow.idString);
+    const lastLine = lastSceneRow.siteRow.docLine;
+    lastRow.setCaretInRow(0);
+    assertEquals(lastRow.indent, 0);
+    sendKey('ArrowDown', ['C']);
+    assertEquals(lastRow.content, "Line 3");
+    assertEquals(lastRow.indent, 0);
+}
+
+// Test 10: handleTab function
+, function testHandleTabIndent(): void {
+    // Arrange
+    loadTestDoc();
+    const rows = Array.from(Editor.rows());
+    const firstRow = rows[1];
+    const secondRow = rows[2];
+    assertEquals(firstRow.indent, 0);
+    assertEquals(secondRow.indent, 0);
     
-//     // Act
-//     Controller.editorKeyDown(new KeyboardEvent('keydown', { key: 'Tab' }));
+    // Act
+    secondRow.setCaretInRow(0); // Position at start of line
+    Controller.editorHandleKey(new KeyboardEvent('keydown', { key: 'Tab' }));
     
-//     // Assert
-//     const updatedRows = Array.from(Editor.rows());
-//     if (!updatedRows[0].content.startsWith('\t')) {
-//         throw new Error(`Expected first row to start with tab, got "${updatedRows[0].content}"`);
-//     }
-// }
+    // Assert
+    const sceneRow1 = model.scene.findRow(firstRow.idString);
+    const sceneRow2 = model.scene.findRow(secondRow.idString);
+    const siteRow1 = sceneRow1.siteRow;
+    const siteRow2 = sceneRow2.siteRow;
+    const docLine1 = siteRow1.docLine;
+    const docLine2 = siteRow2.docLine;
+    const content = secondRow.content;
+    assertEquals(docLine1, docLine2.parent);
+    assertEquals(siteRow1, siteRow2.parent);
+    const updatedRows = Array.from(Editor.rows());
+    assertEquals(updatedRows[2].indent, 1);
+    assertEquals(updatedRows[1].indent, 0);
+}
+, function testHandleTabMidLine(): void {
+    // Arrange
+    loadTestDoc();
+    const rows = Array.from(Editor.rows());
+    const row2 = rows[2];
+    row2.setCaretInRow(4); // Position in middle of line
+    assertEquals(row2.indent, 0);
+    const content = row2.content;
+    assertEquals(content, "Line 2");
+    // Act
+    Controller.editorHandleKey(new KeyboardEvent('keydown', { key: 'Tab' }));
+    
+    // Assert
+    const updatedRows = Array.from(Editor.rows());
+    assertEquals(updatedRows[2].indent, 0);
+    assertEquals(updatedRows[2].content, "Line\t 2");
+
+}
 
 // // Test 11: handleShiftTab function
 // function testHandleShiftTab(): void {

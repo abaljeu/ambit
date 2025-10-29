@@ -42,58 +42,31 @@ export class SceneRow extends SiteRowSubscriber {
     public findParent(): SceneRow {
         return this.scene.sceneRowPool.search((row: SceneRow) => row.siteRow === this.siteRow.parent);
     }
-    public siteRowsInserted(siteParent: SiteRow, offset: number, newSiteRows: SiteRow[]): void {
-        // When our SiteRow changes, we need to rebuild this section of the scene
-        if (siteParent !== this.siteRow) return;
-        if (siteParent.folded) return;
-
-        const sceneParent = this.scene.search((row: SceneRow) => row.siteRow === siteParent);
+    public siteRowsInsertedBefore(newSiteRows: SiteRow[]): void {
+        const sceneParent = this.scene.search(row => row.siteRow === this.siteRow.parent)
         if (sceneParent === this.scene.end) return;
         
-        const startIndex = sceneParent.indexInScene();
-        let offsetIndex = 0;
-        let currentIndex = startIndex+1;
-        let sceneCurrent = this.scene.at(currentIndex);
-        // Loop count times to calculate total delete length
-        for (let i = 0; i <offset; i++) {
-            currentIndex += sceneCurrent.treeLength;
-            sceneCurrent = this.scene.at(currentIndex);
-        }
-        const newSceneRows: SceneRow[] = 
-            newSiteRows.map(row => this.scene.findOrCreateSceneRow(row));
-        this.scene.addRows(currentIndex, newSiteRows);
-                        // Update this row's length
+        const selfIndex = this.indexInScene();
+        this.scene.addRows(selfIndex, newSiteRows);
 
     }
-    public siteRowsDeleting(siteParent: SiteRow, offset: number, count: number): void {
-        if (siteParent !== this.siteRow) return;
-        if (siteParent.folded) return;
-
-        // Find the scene parent that corresponds to this siteRow
-        const sceneParent = this.scene.search((row: SceneRow) => row.siteRow === siteParent);
-        if (sceneParent === this.scene.end) return;
+    public siteRowsInsertedBelow(newSiteRows: SiteRow[]): void {
+        if (this.siteRow.folded) return;
+        if (this  === this.scene.end) return;
         
-        // Find the scene row that corresponds to siteRow.children[offset]
-        const siteOffset = siteParent.children[offset];
-        const sceneStart = this.scene.search((row: SceneRow) => row.siteRow === siteOffset);
-        if (sceneStart === this.scene.end) return;
-        
-        const startIndex = sceneStart.indexInScene();
-        let deleteLength = 0;
-        let sceneCurrent = sceneStart;
-        let currentIndex = startIndex;
-        
-        // Loop count times to calculate total delete length
-        for (let i = 0; i < count; i++) {
-            deleteLength += sceneCurrent.treeLength;
-            currentIndex += sceneCurrent.treeLength;
-            sceneCurrent = this.scene.at(currentIndex);
-        }
-        
-        // Remove the elements from the scene
-        this.scene.deleteRows(startIndex, deleteLength);
+        const selfIndex = this.indexInScene();
+        this.scene.addRows(selfIndex+this.treeLength, newSiteRows);
+    }
+    public siteRowRemoving(): void {
+        this.scene.deleteRows(this.indexInScene(), this.treeLength);
     }
     public get content(): string { return this.siteRow.docLine.content; }
+    public siteRowTextChanged(siteRow: SiteRow): void {
+        if (siteRow !== this.siteRow) return;
+         const r : Editor.Row = Editor.findRow(this.id.value);
+         if (r !== Editor.endRow) 
+            r.setContent(this.content);
+    }
 }
 
 export class SceneRowPool extends Pool<SceneRow, SceneRowId> {
@@ -165,7 +138,6 @@ export class Scene {
     public loadFromSite(site: SiteRow): void {
         this._rows = this._flattenTree(site);
     }
-    
     public findRow(id : string): SceneRow {
         return this.sceneRowPool.find(this.sceneRowPool.makeIdFromString(id));
     }
@@ -175,7 +147,7 @@ export class Scene {
         return result;
     }
     public search(predicate: (row: SceneRow) => boolean): SceneRow {
-        return this.sceneRowPool.search((row: SceneRow) => predicate(row));
+        return this.rows.find((row: SceneRow) => predicate(row)) ?? this.end;
     }
     public _flattenRecursive(siteRow: SiteRow, result: SceneRow[]): void {
         // A SceneRow is visible if its parent is visible and not folded

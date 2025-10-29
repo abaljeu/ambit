@@ -63,7 +63,7 @@ class KeyBinding {
 const keyBindings: KeyBinding[] = [
 	// new KeyBinding("F5", () => false),
 	// new KeyBinding("F6", () => false),
-	// new KeyBinding("Tab", handleTab),
+	new KeyBinding("Tab", handleTab),
 	// new KeyBinding("S-Tab", handleShiftTab),
 	// new KeyBinding("C-s", () => { save(); return true; }),
 	new KeyBinding("Enter", handleEnter),
@@ -82,7 +82,7 @@ function findKeyBinding(combo: string): KeyBinding {
 	return keyBindings.find(kb => kb.combo === combo) ?? new KeyBinding("", () => false);
 }
 
- export function editorKeyDown(e : KeyboardEvent) {
+ export function editorHandleKey(e : KeyboardEvent) {
 	if ( // just a mod key was pressed.
 		e.key === "Control" ||
 		e.key === "Shift" ||
@@ -99,7 +99,7 @@ function findKeyBinding(combo: string): KeyBinding {
 	if (e.ctrlKey || e.metaKey || e.altKey || e.key.length > 1)
 	{
 		lm.messageArea.textContent = combo;
-		const currentRow = Editor.CurrentRow();
+		const currentRow = Editor.currentRow();
 		if (!currentRow.valid()) return;
 
 		const binding = findKeyBinding(combo);
@@ -214,18 +214,32 @@ function handleArrowRight(currentRow: Editor.Row) : boolean {
 	}
 	return true;
 }
+
+export function moveBefore(line: DocLine, targetBefore: DocLine): void {
+	if (line == DocLine.end || targetBefore == DocLine.end) return;
+	
+	const change = new Change.MoveBefore(line, targetBefore);
+    Doc.processChange(change);
+}
+export function moveBelow(line: DocLine, targetBelow: DocLine): void {
+	if (line == DocLine.end || targetBelow == DocLine.end) return;
+	
+	const change = new Change.MoveBelow(line, targetBelow);
+    Doc.processChange(change);
+}
 // moves up to the previous visible row.  doesn't pay attention to structure otherwise.
 function handleSwapUp(currentRow: Editor.Row): boolean {
     const prevRow = currentRow.Previous;
-    if (!prevRow.valid()) return false;
+    if (!prevRow.valid()) 
+		return false;
     
     const cur = model.scene.findRow(currentRow.idString);
-    const prev = model.scene.findRow(prevRow.idString);
+	const prev = model.scene.findRow(prevRow.idString);
     
     const docCur = cur.siteRow.docLine;
     const docPrev = prev.siteRow.docLine;
     
-    return performRowSwap(docCur, docPrev.parent, docPrev, currentRow.idString);
+    return performRowSwap(docCur, docPrev, currentRow.idString);
 }
 
 function handleSwapDown(currentRow: Editor.Row): boolean {
@@ -243,27 +257,16 @@ function handleSwapDown(currentRow: Editor.Row): boolean {
     
     const docCur = cur.siteRow.docLine;
     const docNext = next.siteRow.docLine;
-    
-    // Find the position after the next row (and its descendants)
-    const targetParent = docNext.parent;
-    const nextIndex = targetParent.children.indexOf(docNext);
-    const insertBefore = nextIndex + 1 < targetParent.children.length 
-        ? targetParent.children[nextIndex + 1] 
-        : targetParent.children[targetParent.children.length];
-    
-    return performRowSwap(docCur, targetParent, insertBefore, currentRow.idString);
+   
+    return performRowSwap(docNext, docCur, currentRow.idString);
 }
 
 function performRowSwap(
     lineToMove: DocLine, 
-    targetParent: DocLine, 
-    insertBefore: DocLine, 
+    lineBefore: DocLine, 
     currentRowId: string
 ): boolean {
-    const change = Change.makeMoveBefore(lineToMove, 1, targetParent, insertBefore);
-    Doc.processChange(change);
-    
-    updateAllFoldIndicators();
+    moveBefore(lineToMove, lineBefore);
     Editor.findRow(currentRowId).setCaretInRow(0);
     return true;
 }
@@ -325,28 +328,37 @@ function offsetIsInIndent(offset: number, rowText: string): boolean {
 // 	return Scene.data.findByLineId(editorRow.id);
 // }
 
-// function handleTab(currentRow: Editor.Row) : boolean {
-// 	const visibleOffset = currentRow.visibleTextOffset;
-// 	let c = currentRow.content;
+function handleTab(currentRow: Editor.Row) : boolean {
+	const visibleOffset = currentRow.visibleTextOffset;
+	let c = currentRow.content;
 	
-// 	// Get visible text for indent checking
-// 	const temp = document.createElement('div');
-// 	temp.innerHTML = c;
-// 	const visibleText = temp.textContent ?? '';
+	// Get visible text for indent checking
+	const temp = document.createElement('div');
+	temp.innerHTML = c;
+	const visibleText = temp.textContent ?? '';
 	
-// 	if (offsetIsInIndent(visibleOffset, visibleText)) {
-// 		let rows : ArraySpan<SceneRow> = scene.indentRowAndChildren(rowDataFromEditorRow(currentRow));
-// 		Editor.updateRows(rows);
-// 	} else {
-// 		// Insert tab at HTML offset
-// 		const htmlOffset = currentRow.getHtmlOffset();
-//         const newContent = c.substring(0, htmlOffset) + '\t' + c.substring(htmlOffset);
-//         Scene.data.updateRowData(currentRow.id, newContent);
-//         currentRow.setContent(newContent);
-//         currentRow.setCaretInRow(visibleOffset + 1);
-// 	}
-// 	return true;
-// }
+	const cur = model.scene.findRow(currentRow.idString);
+	const scur = cur.siteRow;
+	if (offsetIsInIndent(visibleOffset, visibleText)) {
+		const sprev = scur.previous;
+		if (sprev === SiteRow.end) return false;
+		moveBelow(scur.docLine, sprev.docLine);
+		return true;
+		// let rows : ArraySpan<SceneRow> = scene.indentRowAndChildren(rowDataFromEditorRow(currentRow));
+		// Editor.updateRows(rows);
+	} else {
+		// Insert tab at HTML offset
+		const htmlOffset = currentRow.getHtmlOffset();
+		const oldContent = currentRow.content;
+		const change = Change.makeTextChange(scur.docLine, htmlOffset, 0, // split at htmlOffset
+			 '\t');
+		Doc.processChange(change);
+		updateAllFoldIndicators();
+		const p = Editor.currentRowWithOffset();
+		p.element.setCaretInRow(p.offset + 1);
+	}
+	return true;
+}
 
  function handleShiftTab(currentRow: Editor.Row) : boolean {
 //     const visibleOffset = currentRow.visibleTextOffset;

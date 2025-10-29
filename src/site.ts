@@ -1,4 +1,4 @@
-import { Doc, DocLine, noDoc, Subscriber } from './doc.js';
+import { Doc, DocLine, noDoc, DocLineView } from './doc.js';
 import * as Change from './change.js';
 import { Id, Pool } from './pool.js';
 
@@ -13,16 +13,30 @@ export class SiteRowId extends Id<'SiteRow'> {
 }
 
 export abstract class SiteRowSubscriber {
-    abstract siteRowsInserted(siteRow: SiteRow, offset: number, newRows: SiteRow[]): void;
-    abstract siteRowsDeleting(siteRow: SiteRow, offset: number, count: number): void;
+    abstract siteRowsInsertedBefore(siteRows: SiteRow[]): void;
+    abstract siteRowsInsertedBelow(siteRows: SiteRow[]): void;
+    abstract siteRowRemoving(): void;
+    abstract siteRowTextChanged(siteRow: SiteRow): void;
 }
 
-export class SiteRow extends Subscriber {
+// a doc reference is like [[Path/To/DocName]] or [[DocName#Heading]]
+// but this is simply text in a DocLine.
+// DocLineView is a view of a single line of a document.
+// a DocRef is the element that describes the target of the reference.
+// if we reference a name, it will be that file's name.
+// if we reference a heading, it will be the heading's text.
+export enum SiteRowType {
+    DocRef = 'docref',
+    DocLineView = 'doclineview',
+}
+
+export class SiteRow extends DocLineView {
     public readonly id: SiteRowId;
     private _folded : boolean = false;
-    public readonly docLine: DocLine;
+    private readonly _docLine: DocLine;
+    public get docLine(): DocLine { return this._docLine; }
     
-    public static end = new SiteRow(DocLine.end, new SiteRowId('S000000'));
+    public static end = new SiteRow(DocLine.end, new SiteRowId('S000000'), SiteRowType.DocRef);
     // tree structure
     public readonly children: SiteRow[] = [];
     public parent: SiteRow = SiteRow.end;
@@ -37,46 +51,81 @@ export class SiteRow extends Subscriber {
             child.print();
         }
     }
-    public constructor(DocLine: DocLine, id: SiteRowId) {
+    public constructor(DocLine: DocLine, id: SiteRowId, 
+            public readonly type: SiteRowType = SiteRowType.DocLineView) {
         super();
         this.id = id;
-        this.docLine = DocLine;
-        this.docLine.subscribe(this);
+        this._docLine = DocLine;
+        this.docLine.addView(this);
     }
     public get hasChildren(): boolean { return this.children.length > 0; }
-    
-    // these lines could pre-exist or be trees
-    public docLinesInserted(owner : DocLine, offset: number, lines: DocLine[]): void {
-        if (owner !== this.docLine) return;
 
-        const newRows: SiteRow[] = [];
-        for (let i = offset; i < offset + lines.length; i++) {
-            const docLine = owner.children[i];
-            let found = siteRowPool.search((row: SiteRow) => row.docLine === docLine);
-            if (found !== siteRowPool.end) {
-                found.parent = this;
-                newRows.push(found);
-            } else {
-                let newRow = SiteRow._buildTreeRecursive(docLine);
-                newRow.parent = this;
-                newRows.push(newRow);
-            }
-        }
-        this.children.splice(offset, 0, ...newRows);
-        this._subscribers.forEach(subscriber => subscriber.siteRowsInserted(this, offset, newRows));
+    public docviewRoot() : DocLineView {
+        if (this.type === SiteRowType.DocRef) return this;
+        return this.parent.docviewRoot();
     }
-    public docLinesDeleting(owner : DocLine, offset: number, count: number): void {
-        if (owner !== this.docLine) return;
-        
-        this._subscribers.forEach(subscriber => subscriber.siteRowsDeleting(this, offset, count));
-        this.children.splice(offset, count);
+    
+    public get previous(): SiteRow {
+        const index = this.parent.children.indexOf(this);
+        if (index === 0) { // can expand in future
+             return SiteRow.end;
+        }
+        return this.parent.children[index - 1];
+    }
+    public docLineTextChanged(line: DocLine): void {
+        if (line !== this.docLine) return;
+        this._subscribers.forEach(subscriber => subscriber.siteRowTextChanged(this));
+    }
+    public indexOrLast(row : SiteRow): number {
+        return this.children.indexOf(row) !== -1 ? this.children.indexOf(row) : this.children.length;
+    }
+    public addBefore(lines : DocLine[]): SiteRow[] {
+        const index = this.parent.indexOrLast(this);
+        const newRows = lines.map(line => siteRowPool.create((id) => new SiteRow(line, id)));
+        this.parent.children.splice(index, 0, ...newRows);
+        newRows.forEach(row => row.parent = this.parent);
+        return newRows;
+    }
+    // these lines could pre-exist or be trees
+    public docLinesInsertedBefore(lines: DocLine[]): void {
+        const newRows = this.addBefore(lines);
+        this._subscribers.forEach(subscriber => subscriber.siteRowsInsertedBefore( newRows));
+    }
+    public docLinesInsertedBelow(lines: DocLine[]): void {
+        const newRows = lines.map(line => siteRowPool.create((id) => new SiteRow(line, id)));
+        this.addChildren(newRows);
+        this._subscribers.forEach(subscriber => subscriber.siteRowsInsertedBelow( newRows));
+    }
+    public docLineMovingBefore(moving: DocLineView): void {
+        // moving is a SiteRow.  need its SceneRow
+        moving.docLineRemoving(); 
+        (moving as SiteRow).insertBefore(this);
+    }
+    public insertBefore(afterRow: SiteRow): void {
+        const index = afterRow.parent.indexOrLast(afterRow);
+        afterRow.parent.children.splice(index, 0, this);
+        this.parent = afterRow.parent;
+        afterRow._subscribers.forEach(subscriber => subscriber.siteRowsInsertedBefore([this]));
+    }
+    public insertBelow(parentRow: SiteRow): void {
+        parentRow.children.push(this);
+        this.parent = parentRow;
+        parentRow._subscribers.forEach(subscriber => subscriber.siteRowsInsertedBelow([this]));
+    }
+    public docLineMovingBelow(moving: DocLineView): void {
+        // moving is a SiteRow.  need its SceneRow
+        moving.docLineRemoving(); 
+        (moving as SiteRow).insertBelow(this);
+    }
+    public docLineRemoving(): void {
+        this._subscribers.forEach(subscriber => subscriber.siteRowRemoving());
+        this.parent.removeChild(this);
     }
     public docLineSplitted(docLine: DocLine): void {
         // Verify this is the DocLine we're tracking
         if (docLine !== this.docLine) return;
        
         // Update length propagates up the tree
-        this._updateLength();
     }
     
 
@@ -85,7 +134,11 @@ export class SiteRow extends Subscriber {
     public addChild(child: SiteRow): void {
         child.parent = this;
         this.children.push(child);
-        this._updateLength();
+    }
+    public addChildren(children: SiteRow[]): SiteRow[] {
+        this.children.push(...children);
+        children.forEach(row => row.parent = this);
+        return children;
     }
     
     public removeChild(child: SiteRow): boolean {
@@ -94,13 +147,9 @@ export class SiteRow extends Subscriber {
         
         child.parent = SiteRow.end;
         this.children.splice(index, 1);
-        this._updateLength();
         return true;
     }
     
-    private _updateLength(): void {
-        // this.subTreeLength = 1 + this.children.reduce((sum, child) => sum + child.subTreeLength, 0);
-    }
     public _subscribers: SiteRowSubscriber[] = [];
     
     public subscribe(subscriber: SiteRowSubscriber): void {
@@ -118,9 +167,6 @@ export class SiteRow extends Subscriber {
             childSiteRow.parent = siteRow;
             siteRow.children.push(childSiteRow);
         }
-        
-        siteRow._updateLength();
-        
         return siteRow;
     }
 
@@ -160,7 +206,7 @@ export class Site {
         // Create SiteRow for each DocLine, matching the tree structure
         this._root = SiteRow._buildTreeRecursive(line);
     }
-    public findRowByDocLine(docLine: DocLine): SiteRow {
+    public testFindRowByDocLine(docLine: DocLine): SiteRow {
         return siteRowPool.search((row: SiteRow) => row.docLine === docLine);
     }
     public getRoot(): SiteRow {

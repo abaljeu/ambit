@@ -1,6 +1,6 @@
 import { Id, Pool, Poolable } from './pool.js';
 import * as Change from './change.js';
-
+import * as OrgViews from './orgviews.js';
 // DocLine object
 // DocLine ID - uses 'Dxxxxxx' format
 export class DocLineId extends Id<'DocLine'> {
@@ -29,22 +29,34 @@ export class DocLine {
         this.id = id;
         this._content = content;
     }
-
-    public get indent(): number { return this.parent !== DocLine.end ? this.parent.indent + 1 : -1; }
-    public get subTreeLength(): number { return this._subTreeLength; }
-    public get parent(): DocLine { return this._parent; }
-    public setParent(parent: DocLine): void {
-        this._parent = parent;
-    }
-    public get children(): DocLine[] { return this._children; }
-
-    public get content(): string { return this._content; }
     public static makeRoot(id: DocLineId, name: string): DocLine {
         const root = new DocLine('', id);
         root._content = name;
         return root;
     }
-    private setContent(content: string): DocLine {
+
+    public get indent(): number { return this.parent !== DocLine.end ? this.parent.indent + 1 : -1; }
+    public get subTreeLength(): number { return this._subTreeLength; }
+    public get parent(): DocLine 
+    { 
+        if (this == DocLine.end)
+            return DocLine.end;
+        return this._parent; 
+    }
+    public setParent(parent: DocLine): void {
+        if (this == DocLine.end)
+            return;
+        this._parent = parent;
+    }
+    public get children(): DocLine[] { return this._children; }
+    public at(index : number) : DocLine { 
+        if (index < 0 || index >= this.children.length)
+            return DocLine.end;
+        return this._children[index];
+    }
+
+    public get content(): string { return this._content; }
+    public setContent(content: string): DocLine {
         this._content = content;
         return this;
     }
@@ -55,7 +67,25 @@ export class DocLine {
         this._updateLength();
         return child;
     }
-    public insertChildAt(index : number, children: DocLine[]): DocLine {
+    public addChildren(children: DocLine[]): DocLine {
+        children.forEach(child => child._parent = this);
+        this._children.push(...children);
+        this._updateLength();
+        return this;
+    }
+    public addBefore(lines : DocLine[]) : DocLine {
+        const index = this.parent.indexOrLast(this);
+        this.parent.insertChildrenAt(index, lines);
+        return this;
+    }
+    
+    public addAfter(newLine : DocLine) : DocLine {
+        const index = this.parent.indexOrLast(this);
+        this.parent.insertChildrenAt(index+1, [newLine]);
+        return this;
+    }
+
+    private insertChildrenAt(index : number, children: DocLine[]): DocLine {
         children.forEach(child => child._parent = this);
         this._children.splice(index, 0, ...children);
         this._updateLength();
@@ -64,11 +94,8 @@ export class DocLine {
     private addChildAfter(newChild: DocLine, after: DocLine): void {
         const index = this.children.indexOf(after);
     }
-    public indexOf(line: DocLine): number {
-        return this.children.indexOf(line);
-    }
     public indexOrLast(line: DocLine): number {
-        return this.indexOf(line) !== -1 ? this.indexOf(line) : this.children.length;
+        return this._children.indexOf(line) !== -1 ? this._children.indexOf(line) : this.children.length;
     }
     private removeChild(child: DocLine): boolean {
         const index = this.children.indexOf(child);
@@ -79,12 +106,30 @@ export class DocLine {
         this._updateLength();
         return true;
     }
+    public removeParent() : boolean {
+        const index = this.parent.children.indexOf(this);
+        if (index === -1) return false;
+        
+        this.parent._children.splice(index, 1);
+        this.parent._updateLength();
+        this._parent = DocLine.end;
+        return true;
+    }
     
     private _updateLength(): void {
         this._subTreeLength = 1 + this._children.reduce((sum, child) => sum + child._subTreeLength, 0);
         this.parent !== DocLine.end && this.parent._updateLength();
     }
-    
+    public isAncestorOf(descendant: DocLine): boolean {
+        let current = descendant;
+        while (current !== DocLine.end) {
+            if (current === this) {
+                return true;
+            }
+            current = current.parent;
+        }
+        return false;
+    }
     public getDepth(): number {
         return this.parent !== DocLine.end ? this.parent.getDepth() + 1 : 0;
     }
@@ -108,28 +153,37 @@ export class DocLine {
         const newDocLine = docLinePool.create((id) => new DocLine(newContent, id));
         
         this.setContent(this.content.substring(0, offset));
-        parent.addChildAfter(newDocLine, this);
+        this.addAfter(newDocLine)
         
        
         // Notify parent's subscribers ONCE - covers all changes
-        parent._subscribers.forEach(subscriber => subscriber.docLineSplitted(parent));
+        parent.views.forEach(view => view.docLineSplitted(parent));
     }
 
-    public _subscribers: Subscriber[] = [];
+    private _views: DocLineView[] = [];
     
-    public subscribe(subscriber: Subscriber): void {
-        this._subscribers.push(subscriber);
+    public addView(view: DocLineView): void {
+        this._views.push(view);
     }
     
-    public unsubscribe(subscriber: Subscriber): void {
-        this._subscribers = this._subscribers.filter(s => s !== subscriber);
+    public removeView(view: DocLineView): void {
+        this._views = this.views.filter(s => s !== view);
     }
-
+    public get views(): readonly DocLineView[] {
+        return this._views;
+    }
 }
-export abstract class Subscriber { 
+export abstract class DocLineView { 
+    abstract get docLine(): DocLine;
     abstract docLineSplitted(docLine: DocLine): void;
-    abstract docLinesInserted(owner: DocLine, offset: number, lines: DocLine[]): void;
-    abstract docLinesDeleting(owner: DocLine, offset: number, count: number): void;
+    abstract docLinesInsertedBefore(lines: DocLine[]): void;
+    abstract docLinesInsertedBelow(lines: DocLine[]): void;
+    abstract docviewRoot(): DocLineView;
+    abstract docLineMovingBefore(moving: DocLineView): void;
+    abstract docLineMovingBelow(moving: DocLineView): void;
+
+    abstract docLineRemoving(): void;
+    abstract docLineTextChanged(line: DocLine): void;
 }
 export class DocLinePool extends Pool<DocLine, DocLineId> {
     protected override fromString(value: string): DocLineId {
@@ -185,7 +239,8 @@ export class Doc {
         const lines = content.replace(/\r/g, '').split("\n");
 
         const strippedContent = lines.map(line => new StrippedContent(line));
-        const index  = Doc._buildSubTree(this._root, -1, strippedContent, 0, 0);
+        const {newChildren }  = Doc._buildSubTree(-1, strippedContent, 0);
+        this._root.addChildren(newChildren);
         return this;
     }
 
@@ -199,9 +254,8 @@ export class Doc {
         return docLinePool.find(id);
     }
     
-    public static _buildSubTree(parent: DocLine, depth: number, 
-            content: StrippedContent[], contentOffset: number,
-            parentOffset: number) : number  {
+    private static _buildSubTree(depth: number, content: StrippedContent[], contentOffset: number) 
+        : {newChildren: DocLine[], newOffset: number}  {
 
         let newLines : DocLine[] = [];
         while (contentOffset < content.length) {
@@ -210,92 +264,126 @@ export class Doc {
                 break;
             let child = Doc.createLine(itemContent.text);
             newLines.push(child);
-            contentOffset = Doc._buildSubTree(child, itemContent.indent, content, contentOffset+1, 0);
+            const {newChildren,newOffset} = Doc._buildSubTree(itemContent.indent, content, contentOffset+1);
+            contentOffset = newOffset;
+            child.addChildren(newChildren);
         }
-        parent.insertChildAt(parentOffset, newLines);
-        return contentOffset;
+        return {newChildren: newLines, newOffset: contentOffset};
     }
 
 
     // Handler functions for each change type
-    private static _handleInsert(change: Change.Insert) : void{
-        const strip = change.lines.map(line => new StrippedContent(line));
-
-        const newLines = change.lines.map(line => Doc.createLine(line));
-        const owner = change.owner;
-        Doc._buildSubTree(owner, owner.indent, strip, 0, change.offset);
-        owner._subscribers.forEach(subscriber => subscriber.docLinesInserted(owner, change.offset, newLines));
+    private static _handleInsertBefore(change: Change.InsertBefore) : void{
+        change.before.addBefore(change.lines);
+        change.before.views.forEach(view => 
+            view.docLinesInsertedBefore(change.lines));
     }
+    private static _handleInsertBelow(change: Change.InsertBelow) : void{
+        for (const line of change.lines) {
+            if (line.isAncestorOf(change.above)) {
+                return;
+            }
+        }
+
+        change.above.addChildren(change.lines);
+        change.above.views.forEach(view => 
+            view.docLinesInsertedBelow(change.lines));
+    }
+    // private static _handleInsert(change: Change.InsertText) : void{
+    //     const strip = change.lines.map(line => new StrippedContent(line));
+
+    //     const owner = change.owner;
+    //     const {newChildren, newOffset} = Doc._buildSubTree(owner.indent, strip, 0);
+    //     owner.insertChildAt(change.offset, newChildren);
+    //     owner._subscribers.forEach(view => view.docLinesInserted(owner, change.offset, newChildren));
+    // }
 
     private static _handleReinsert(change: Change.Reinsert) {
         console.log(`Reinserting ${change.lineIds.length} lines at offset ${change.offset}`);
     }
 
-    private static _handleDelete(change: Change.Delete) {
-        console.log(`Deleting ${change.lines.length} lines at offset ${change.offset}`);
-    }
-
-    private static _handleText(change: Change.Text) {
-        console.log(`Changing text: ${change.oldText} -> ${change.newText}`);
-    }
-
-    private static _handleMove(change: Change.Move) {
-        const oldowner = change.oldowner;
-        const newowner = change.newowner;
-
-        oldowner._subscribers.forEach(subscriber => 
-            subscriber.docLinesDeleting(oldowner, change.oldoffset, change.lines.length));
-
-        const firstChild = oldowner.children[change.oldoffset];
-        const movinglines = change.lines;
-        const movingLength = movinglines.reduce((sum, line:DocLine) => sum + line.subTreeLength, 0);
-
-        // Remove from old owner's children
-        const lines = oldowner.children.splice(change.oldoffset, change.lines.length);
-        // lines should equal movinglines.  in future may generalize to any assorted lines moving.
-
-        // Adjust newoffset for same-parent downward moves (after removal indices shift left)
-        let adjustedNewOffset = change.newoffset;
-        if (oldowner === newowner && change.oldoffset < change.newoffset) {
-            adjustedNewOffset = change.newoffset - change.lines.length;
+    private static _handleRemove(change: Change.Remove) {
+        change.lines.forEach(line => line.views.forEach(view => 
+            view.docLineRemoving()));
+            change.lines.forEach(line => line.removeParent());
         }
 
-        if (newowner.children.length === 0 || adjustedNewOffset === 0) {
-            // No existing children, or inserting at beginning
-        } else if (adjustedNewOffset >= newowner.children.length) {
-            // Inserting at the end
-            const lastChild = newowner.children[newowner.children.length - 1];
-        } else {
-            // Inserting in the middle - insert before the child currently at newoffset
-            const insertBeforeChild = newowner.children[adjustedNewOffset];
-        }
-
-        // Add to new owner's children and update their parent
-        newowner.children.splice(adjustedNewOffset, 0, ...lines);
-        lines.forEach(line => line.setParent(newowner));
-
-        newowner._subscribers.forEach(subscriber => 
-            subscriber.docLinesInserted(newowner, adjustedNewOffset, lines));
+    private static _handleTextChange(change: Change.TextChange) {
+        change.line.setContent(change.newText);
+        change.line.views.forEach(view => 
+            view.docLineTextChanged(change.line));
+        
+    }
+    private static _handleMoveBelow(change: Change.MoveBelow) : void{
+        const orgViews = OrgViews.orgByViews(change.line.views, change.targetBelow.views);
+        orgViews.forEach(view => this._moveBelow(change.line, change.targetBelow, view.a, view.b));
+    }
+    private static _handleMoveBefore(change: Change.MoveBefore) : void{
+        const orgViews = OrgViews.orgByViews(change.line.views, change.targetBefore.views);
+        orgViews.forEach(view => this._moveBefore(change.line, change.targetBefore, view.a, view.b));
     }
 
+    private static _moveBefore(line: DocLine, targetBefore: DocLine,
+            view: DocLineView|null, viewBefore: DocLineView|null) : void{
+        if (view && !viewBefore) {
+            view.docLineRemoving()
+            line.removeParent();
+            targetBefore.addBefore([line]);
+        } else if (viewBefore && !view) {
+            line.removeParent();
+            targetBefore.addBefore([line]);
+            viewBefore.docLinesInsertedBefore([line])
+        } else if (view && viewBefore) {
+            viewBefore.docLineMovingBefore(view);
+            line.removeParent();
+            targetBefore.addBefore([line]);
+        }
+
+    }
+
+    private static _moveBelow(line: DocLine, targetBelow: DocLine,
+            view: DocLineView|null, viewBelow: DocLineView|null) : void{
+        if (line.isAncestorOf(targetBelow)) {
+            return;
+        }
+        if (view && !viewBelow) {
+            view.docLineRemoving()
+            line.removeParent();
+            targetBelow.addChildren([line]);
+        } else if (viewBelow && !view) {
+            line.removeParent();
+            targetBelow.addChildren([line]);
+            viewBelow.docLinesInsertedBelow([line])
+        } else if (view && viewBelow) {
+            viewBelow.docLineMovingBelow(view);
+            line.removeParent();
+            targetBelow.addChildren([line]);
+        }
+}
     public static processChange(change: Change.Change) {
         switch (change.type) {
             case Change.Type.NoOp:
                 break;
-            case Change.Type.Insert:
-                Doc._handleInsert(change);
+            case Change.Type.InsertBefore:
+                Doc._handleInsertBefore(change);
+                break;
+            case Change.Type.InsertBelow:
+                Doc._handleInsertBelow(change);
                 break;
             case Change.Type.Reinsert:
                 Doc._handleReinsert(change);
                 break;
-            case Change.Type.Delete:
-                Doc._handleDelete(change);
+            case Change.Type.Remove:
+                Doc._handleRemove(change);
                 break;
-            case Change.Type.Text:
-                Doc._handleText(change);
+            case Change.Type.TextChange:
+                Doc._handleTextChange(change);
                 break;
-            case Change.Type.Move:
-                Doc._handleMove(change);
+            case Change.Type.MoveBefore:
+                Doc._handleMoveBefore(change);
+                break;
+            case Change.Type.MoveBelow:
+                Doc._handleMoveBelow(change);
                 break;
         }
     }    

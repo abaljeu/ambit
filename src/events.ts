@@ -3,7 +3,7 @@ import * as Controller from './controller.js';
 
 lm.editor.addEventListener('input', Controller.editorInput);
 
-lm.editor.addEventListener("keydown", Controller.editorKeyDown);
+lm.editor.addEventListener("keydown", Controller.editorHandleKey);
 
 lm.editor.addEventListener('click', function(event) {
     event.preventDefault();

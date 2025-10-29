@@ -1,30 +1,47 @@
 import { ArraySpan } from './arrayspan.js';
 import { Doc, DocLine, DocLineId } from './doc.js';
 export enum Type {
-    Insert = 'insert',
+    InsertBefore = 'insertBefore',
+    InsertBelow = 'insertBelow',
     Reinsert = 'reinsert',
-    Delete = 'delete',
-    Text = 'text',
-    Move = 'move',
+    Remove = 'delete',
+    TextChange = 'text',
+    MoveBefore = 'moveBefore',
+    MoveBelow = 'moveBelow',
     NoOp = 'noop',
 }
 export class NoOp {
     readonly type = Type.NoOp;
 }
-export class Insert {
-    readonly type = Type.Insert;
+// export class InsertText {
+//     readonly type = Type.NoOp; // Type.InsertText;
 
-    constructor(public readonly owner: DocLine, 
-        public readonly offset: number, 
-        public readonly lines: string[]) { }
+//     constructor(public readonly owner: DocLine, 
+//         public readonly offset: number, 
+//         public readonly lines: string[]) { }
+// }
+export class InsertBefore {
+    readonly type = Type.InsertBefore;
+    constructor(public readonly lines: DocLine[], public readonly before: DocLine) { }
 }
-export function makeInsertBefore(owner: DocLine, before: DocLine, 
-        lines: string[]): Insert {
-    const offset = owner.indexOrLast(before);
-    
-    return new Insert(owner, offset, lines);
+export function makeInsertBefore(before: DocLine, lines: DocLine[]): InsertBefore {
+    return new InsertBefore(lines, before);
 }
-
+export class MoveBefore {
+    readonly type = Type.MoveBefore;
+    constructor(public readonly line: DocLine, public readonly targetBefore: DocLine) { }
+}
+export class MoveBelow {
+    readonly type = Type.MoveBelow;
+    constructor(public readonly line: DocLine, public readonly targetBelow: DocLine) { }
+}
+export class InsertBelow {
+    readonly type = Type.InsertBelow;
+    constructor(public readonly lines: DocLine[], public readonly above: DocLine) { }
+}
+export function makeInsertBelow(above: DocLine, lines: DocLine[]): InsertBelow {
+    return new InsertBelow(lines, above);
+}
 export class Reinsert {
     readonly type = Type.Reinsert;
 
@@ -41,71 +58,24 @@ export function makeReinsert(doc:Doc, ownerId: DocLineId, beforeId: DocLineId,
     return new Reinsert(ownerId, offset, lineIds);
 }
 
-export class Delete {
-    readonly type = Type.Delete;
-    constructor(public readonly owner: DocLineId, 
-        public readonly offset: number, 
-        public readonly lines: DocLineId[]) { }
+export class Remove {
+    readonly type = Type.Remove;
+    constructor(public readonly lines: DocLine[]) { }
 }
-export function makeDelete(doc:Doc, id: DocLineId, count: number): Delete {
-    const line = doc.findLine(id);
-    const owner = line.parent;
-    const offset = owner.indexOf(line);
-
-    const lines = owner.children.slice(offset, offset + count);
-    const lineIds = lines.map(line => line.id);
-    return new Delete(owner.id, offset, lineIds);
+export function makeRemove(lines: DocLine[]): Remove {
+    return new Remove(lines);
 }
-export class Text {
-    readonly type = Type.Text;
+export class TextChange {
+    readonly type = Type.TextChange;
     
-    constructor(public readonly owner: DocLineId, 
-        public readonly offset: number, 
-        public readonly oldText: string[],
-        public readonly newText: string[]) { }
+    constructor(public readonly line: DocLine, 
+        public readonly newText: string) { }
 }
-export function makeText(doc:Doc, id: DocLineId, newText: string[]): Text {
-    const line = doc.findLine(id);
-    const owner = line.parent;
-    const offset = owner.indexOf(line);
-    if (offset + newText.length > owner.children.length) {
-        throw new RangeError(`Text change out of range`);
-    }
-    const lines = owner.children.slice(offset, offset + newText.length);
-    const oldText:string[] = lines.map(line => line.content);
-    return new Text(owner.id, offset, oldText, newText);
-}
-export class Move {
-    readonly type = Type.Move;
-    constructor(public readonly oldowner: DocLine, 
-        public readonly newowner: DocLine, 
-        public readonly oldoffset: number, 
-        public readonly newoffset: number, 
-        public readonly lines: DocLine[]) { }
-}
-export function makeMoveBefore(line: DocLine, count : number
-        , targetOwner : DocLine
-        , targetBefore : DocLine) : Move | NoOp { // ie. Change
-
-    // const line = doc.findLine(lineId);
-    // const targetParent = targetOwner.parent;
-    const oldowner = line.parent;
-    const oldoffset = oldowner.indexOf(line);
-    // Insert BEFORE targetBefore; if it's not a direct child, append at end
-    const newoffset = targetOwner.indexOrLast(targetBefore);
-    if (oldoffset + count > oldowner.children.length) {
-        throw new RangeError(`Move change out of range`);
-    }
-    const lines = oldowner.children.slice(oldoffset, oldoffset + count);
-    
-    // Check if moving would create a loop (moving a line into its own subtree)
-    for (const lineToMove of lines) {
-        if (isAncestorOf(lineToMove, targetOwner)) {
-            return new NoOp();
-        }
-    }
-    
-    return new Move(oldowner, targetOwner, oldoffset, newoffset, lines);
+export function makeTextChange(line: DocLine, position: number,  length: number, newText: string): TextChange {
+    const before = line.content.substring(0, position);
+    const after = line.content.substring(position + length);
+    const resultText = before + newText + after;
+    return new TextChange(line, resultText);
 }
 
 function isAncestorOf(potentialAncestor: DocLine, descendant: DocLine): boolean {
@@ -119,4 +89,5 @@ function isAncestorOf(potentialAncestor: DocLine, descendant: DocLine): boolean 
     return false;
 }
 
-export type Change = Insert | Reinsert | Delete | Text | Move | NoOp;
+export type Change = InsertBefore | InsertBelow | Reinsert | Remove | TextChange 
+    | MoveBelow | MoveBefore | NoOp;
