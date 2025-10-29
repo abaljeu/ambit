@@ -17,6 +17,8 @@ export abstract class SiteRowSubscriber {
     abstract siteRowsInsertedBelow(siteRows: SiteRow[]): void;
     abstract siteRowRemoving(): void;
     abstract siteRowTextChanged(siteRow: SiteRow): void;
+    abstract siteRowFolded(): void;
+    abstract siteRowUnfolded(): void;
 }
 
 // a doc reference is like [[Path/To/DocName]] or [[DocName#Heading]]
@@ -39,7 +41,11 @@ export class SiteRow extends DocLineView {
     public static end = new SiteRow(DocLine.end, new SiteRowId('S000000'), SiteRowType.DocRef);
     // tree structure
     public readonly children: SiteRow[] = [];
-    public parent: SiteRow = SiteRow.end;
+    private _parent: SiteRow = SiteRow.end; // SiteRow.end.parent gets null
+    public setParent(parent: SiteRow): void {
+        this._parent = parent;
+    }
+    public get parent(): SiteRow { return this._parent ?? SiteRow.end; }
     public get indent(): number { return this.parent !== SiteRow.end ? this.parent.indent + 1 : -1; }
     public get treeLength(): number {
         return 1 + this.children.reduce((sum, child) => sum + child.treeLength, 0);
@@ -57,6 +63,7 @@ export class SiteRow extends DocLineView {
         this.id = id;
         this._docLine = DocLine;
         this.docLine.addView(this);
+        this.setParent(SiteRow.end);
     }
     public get hasChildren(): boolean { return this.children.length > 0; }
 
@@ -64,7 +71,14 @@ export class SiteRow extends DocLineView {
         if (this.type === SiteRowType.DocRef) return this;
         return this.parent.docviewRoot();
     }
-    
+    public toggleFold(): void {
+        this._folded = !this._folded;
+        if (this._folded) {
+        this._subscribers.forEach(subscriber => subscriber.siteRowFolded());
+        } else {
+            this._subscribers.forEach(subscriber => subscriber.siteRowUnfolded());
+        }
+    }
     public get previous(): SiteRow {
         const index = this.parent.children.indexOf(this);
         if (index <= 0) { // can expand in future
@@ -83,7 +97,7 @@ export class SiteRow extends DocLineView {
         const index = this.parent.indexOrLast(this);
         const newRows = lines.map(line => siteRowPool.create((id) => new SiteRow(line, id)));
         this.parent.children.splice(index, 0, ...newRows);
-        newRows.forEach(row => row.parent = this.parent);
+        newRows.forEach(row => row.setParent(this.parent));
         return newRows;
     }
     // these lines could pre-exist or be trees
@@ -104,12 +118,12 @@ export class SiteRow extends DocLineView {
     public insertBefore(afterRow: SiteRow): void {
         const index = afterRow.parent.indexOrLast(afterRow);
         afterRow.parent.children.splice(index, 0, this);
-        this.parent = afterRow.parent;
+        this.setParent(afterRow.parent);
         afterRow._subscribers.forEach(subscriber => subscriber.siteRowsInsertedBefore([this]));
     }
     public insertBelow(parentRow: SiteRow): void {
         parentRow.children.push(this);
-        this.parent = parentRow;
+        this.setParent(parentRow);
         parentRow._subscribers.forEach(subscriber => subscriber.siteRowsInsertedBelow([this]));
     }
     public docLineMovingBelow(moving: DocLineView): void {
@@ -132,12 +146,12 @@ export class SiteRow extends DocLineView {
     public get valid(): boolean { return this !== SiteRow.end; }
     public get folded(): boolean { return this._folded; }
     public addChild(child: SiteRow): void {
-        child.parent = this;
+        child.setParent(this);
         this.children.push(child);
     }
     public addChildren(children: SiteRow[]): SiteRow[] {
         this.children.push(...children);
-        children.forEach(row => row.parent = this);
+        children.forEach(row => row.setParent(this));
         return children;
     }
     
@@ -145,7 +159,7 @@ export class SiteRow extends DocLineView {
         const index = this.children.indexOf(child);
         if (index === -1) return false;
         
-        child.parent = SiteRow.end;
+        child.setParent(SiteRow.end);
         this.children.splice(index, 1);
         return true;
     }
@@ -164,7 +178,7 @@ export class SiteRow extends DocLineView {
         // Recursively create children
         for (const child of docLine.children) {
             const childSiteRow = this._buildTreeRecursive(child);
-            childSiteRow.parent = siteRow;
+            childSiteRow.setParent(siteRow);
             siteRow.children.push(childSiteRow);
         }
         return siteRow;

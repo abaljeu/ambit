@@ -39,11 +39,17 @@ export class SceneRow extends SiteRowSubscriber {
         return index;
     }
 
+    public siteRowFolded(): void {
+        this.deleteChildren();
+    }
+    public siteRowUnfolded(): void {
+        this.scene.addRows(this.indexInScene()+1, this.siteRow.children);
+    }
     public findParent(): SceneRow {
-        return this.scene.sceneRowPool.search((row: SceneRow) => row.siteRow === this.siteRow.parent);
+        return this.scene.sceneRowPool.search((row: SceneRow) => row.siteRow === this.siteRow._parent);
     }
     public siteRowsInsertedBefore(newSiteRows: SiteRow[]): void {
-        const sceneParent = this.scene.search(row => row.siteRow === this.siteRow.parent)
+        const sceneParent = this.scene.search(row => row.siteRow === this.siteRow._parent)
         if (sceneParent === this.scene.end) return;
         
         const selfIndex = this.indexInScene();
@@ -58,14 +64,21 @@ export class SceneRow extends SiteRowSubscriber {
         this.scene.addRows(selfIndex+this.treeLength, newSiteRows);
     }
     public siteRowRemoving(): void {
+        this.deleteSelfAndChildren();
+    }
+    private deleteSelfAndChildren(): void {
         this.scene.deleteRows(this.indexInScene(), this.treeLength);
     }
+    private deleteChildren(): void {
+        this.scene.deleteRows(this.indexInScene()+1, this.treeLength-1);
+    }
+
     public get content(): string { return this.siteRow.docLine.content; }
     public siteRowTextChanged(siteRow: SiteRow): void {
         if (siteRow !== this.siteRow) return;
          const r : Editor.Row = Editor.findRow(this.id.value);
          if (r !== Editor.endRow) 
-            r.setContent(this.content);
+            r.setContent(this.content, this.indent);
     }
 }
 

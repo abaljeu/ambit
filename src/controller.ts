@@ -67,7 +67,7 @@ const keyBindings: KeyBinding[] = [
 	new KeyBinding("S-Tab", handleShiftTab),
 	// new KeyBinding("C-s", () => { save(); return true; }),
 	new KeyBinding("Enter", handleEnter),
-	// new KeyBinding("Backspace", (row) => handleBackspace(row)),
+	new KeyBinding("Backspace", (row) => handleBackspace(row)),
 	// new KeyBinding("Delete", (row) => handleDelete(row)),
 	new KeyBinding("ArrowUp", handleArrowUp),
 	new KeyBinding("ArrowDown", handleArrowDown),
@@ -75,7 +75,7 @@ const keyBindings: KeyBinding[] = [
 	new KeyBinding("ArrowRight", handleArrowRight),
 	new KeyBinding("C-ArrowUp", handleSwapUp),
 	new KeyBinding("C-ArrowDown", handleSwapDown),
-	// new KeyBinding("C-.", handleToggleFold),
+	new KeyBinding("C-.", handleToggleFold),
 ];
 
 function findKeyBinding(combo: string): KeyBinding {
@@ -110,49 +110,60 @@ function findKeyBinding(combo: string): KeyBinding {
 			}
 		}
 	}
+	updateAllFoldIndicators();
  }
 
  function handleEnter(currentRow: Editor.Row) : boolean {
 	// Get HTML string offset (includes tag lengths) for proper splitting
 	const htmlOffset = currentRow.getHtmlOffset();
 	
-	// split the current row at the cursor position
-    const sceneRow = model.scene.findRow(currentRow.id);
-    sceneRow.siteRow.docLine.split(htmlOffset);
-    // docLine notifies siteRow parents of change.
+	const docLine = docLineFromRow(currentRow);
+	const beforeText = currentRow.bareContent.substring(0, htmlOffset-currentRow.indent);
+	const newDocLine = Doc.createLine(beforeText);
+	const insertBefore = Change.makeInsertBefore(docLine, [newDocLine]);
+	Doc.processChange(insertBefore);
+	const textChange = Change.makeTextChange(docLine, 0, htmlOffset-currentRow.indent, '');
+	Doc.processChange(textChange);
  	return true;
  }
 
-// function joinRows(prevRow: Editor.Row, nextRow: Editor.Row) {
-// 	const scene = Scene.data;
-// 	console.log('Scene object:', scene);
-// 	console.log('joinRows method:', typeof scene.joinRows);
-// 	if (typeof scene.joinRows !== 'function') {
-// 		console.error('scene.joinRows is not a function. Scene object:', scene);
-// 		return;
-// 	}
-// 	const newRowData = scene.joinRows(prevRow.id, nextRow.id);
-	
-// 	prevRow.setContent(newRowData.content);
-// 	Editor.deleteRow(nextRow);
-	
-// 	updateAllFoldIndicators();
-// }
+function joinRows(prevRow: Editor.Row, nextRow: Editor.Row) {
+	const prevDocLine = docLineFromRow(prevRow);
+	const nextDocLine = docLineFromRow(nextRow);
 
-// function handleBackspace(currentRow: Editor.Row) : boolean {
+	if (prevDocLine.children.length > 0) {
+		return;
+	}
+	// 1) Move nextDocLine to immediately after prevDocLine
+	const after = prevDocLine.nextSibling();
+	if (after == nextDocLine) {}
+	else { // normally next will be after an ancestor, but if not, doesn't matter.
+		Doc.processChange(new Change.MoveBefore(nextDocLine, prevDocLine.parent));
+	}
+
+	// 2) Set nextDocLine text to concatenation of both lines' text
+	const concatenated = prevDocLine.content + nextDocLine.content;
+	Doc.processChange(new Change.TextChange(nextDocLine, concatenated));
+
+	// 3) Remove prevDocLine
+	Doc.processChange(new Change.Remove([prevDocLine]));
+	updateAllFoldIndicators();
+}
+
+function handleBackspace(currentRow: Editor.Row) : boolean {
 	
-// 	if (currentRow.indent === 0) {
-// 		const prevRow = currentRow.Previous;
-// 		const prevPosition = prevRow.visibleTextLength;
-// 		if (!prevRow.valid()) return true;
-// 		joinRows(prevRow, currentRow);
-// 		prevRow.setCaretInRow(prevPosition);
-// 		return true;
-// 	}
-// 	else { // we're not at the beginning of the row so just delete the character
-// 		return false;
-// 	}
-// }
+	if (currentRow.indent === 0) {
+		const prevRow = currentRow.Previous;
+		const prevPosition = prevRow.visibleTextLength;
+		if (!prevRow.valid()) return true;
+		joinRows(prevRow, currentRow);
+		prevRow.setCaretInRow(prevPosition);
+		return true;
+	}
+	else { // we're not at the beginning of the row so just delete the character
+		return false;
+	}
+}
 // function handleDelete(currentRow: Editor.Row) : boolean {
 // 	if (currentRow.indent === currentRow.visibleTextLength) {
 // 		const nextRow = currentRow.Next;
@@ -267,37 +278,12 @@ function performRowSwap(
     Editor.findRow(currentRowId).setCaretInRow(0);
     return true;
 }
-// function handleToggleFold(currentRow: Editor.Row) : boolean {
-// 	const scene = Scene.data;
-// 	const sceneRow = scene.findByLineId(currentRow.id);
-	
-// 	// Ask scene to calculate which rows should be toggled
-// 	const affectedRows = scene.toggleFold(currentRow.id);
-	
-// 	// If no children to fold, do nothing
-// 	if (affectedRows.length === 0) return true;
-	
-// 	// Update fold indicator for current row
-// 	updateFoldIndicator(currentRow);
-	
-// 	// Apply visibility changes
-// 	if (sceneRow.folded) {
-// 		Editor.deleteAfter(currentRow, affectedRows.length);
-// 	} else {
-// 		const addedEditorRows = Editor.addAfter(currentRow, affectedRows);
-		
-// 		// foreach addedEditorRows and affectedRows, update the fold indicator
-// 		let i = 0;
-// 		for (const row of addedEditorRows) {
-// 			updateFoldIndicator(row);
-// 			i++;
-// 		}
-// 	}
-	
-// 	// Restore focus
-// 	currentRow.focus();
-// 	return true;
-// }
+function handleToggleFold(currentRow: Editor.Row) : boolean {
+	const sceneRow = model.scene.findRow(currentRow.idString);
+	const siteRow = sceneRow.siteRow;
+	siteRow.toggleFold();
+	return true;
+}
 
 function updateFoldIndicator(editorRow: Editor.Row) {
 	const scene = model.scene;

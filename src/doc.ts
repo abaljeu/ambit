@@ -235,6 +235,9 @@ export class Doc {
         this._root = Doc.createLine(name);
     }
     public static createLine(content: string): DocLine {
+        if (content.length > 0 && content.charAt(0) === '\t') {
+            throw new Error('Content cannot start with a tab');
+        }
         return docLinePool.create((id) => new DocLine(content, id));
     }
     public updateContent(content: string): Doc {
@@ -293,14 +296,6 @@ export class Doc {
         change.above.views.forEach(view => 
             view.docLinesInsertedBelow(change.lines));
     }
-    // private static _handleInsert(change: Change.InsertText) : void{
-    //     const strip = change.lines.map(line => new StrippedContent(line));
-
-    //     const owner = change.owner;
-    //     const {newChildren, newOffset} = Doc._buildSubTree(owner.indent, strip, 0);
-    //     owner.insertChildAt(change.offset, newChildren);
-    //     owner._subscribers.forEach(view => view.docLinesInserted(owner, change.offset, newChildren));
-    // }
 
     private static _handleReinsert(change: Change.Reinsert) {
         console.log(`Reinserting ${change.lineIds.length} lines at offset ${change.offset}`);

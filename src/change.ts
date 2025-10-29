@@ -13,13 +13,6 @@ export enum Type {
 export class NoOp {
     readonly type = Type.NoOp;
 }
-// export class InsertText {
-//     readonly type = Type.NoOp; // Type.InsertText;
-
-//     constructor(public readonly owner: DocLine, 
-//         public readonly offset: number, 
-//         public readonly lines: string[]) { }
-// }
 export class InsertBefore {
     readonly type = Type.InsertBefore;
     constructor(public readonly lines: DocLine[], public readonly before: DocLine) { }

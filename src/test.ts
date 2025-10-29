@@ -62,9 +62,9 @@ export function assertDocMatchesSite(docLine: DocLine, siteRow: SiteRow): void {
 // Load test file and assert model/scene/editor state
 
 // // Test definitions array
-const tests = [
-    function testLoadModel() {
-        loadTestDoc();
+const tests: (() => void)[] = [
+    function testLoadModel() : void {
+        const doc =loadTestDoc();
         
         const rows = Array.from(Editor.rows());
         assertEquals(4, rows.length);
@@ -76,9 +76,10 @@ const tests = [
             assertEquals(expectedLines[i], rows[i].content);
         }
         assertEquals(expectedContent, Editor.getContent());
-    },
     
-    function testHandleArrowUp() {
+    }
+    
+    , function testHandleArrowUp() : void {
         // Arrange
         loadTestDoc();
         const rows = Array.from(Editor.rows());
@@ -86,13 +87,13 @@ const tests = [
         secondRow.setCaretInRow(3); // Position in middle of "Line 2"
         
         // Act
-        Controller.editorHandleKey(new KeyboardEvent('keydown', { key: 'ArrowUp' }));
+        sendKey('ArrowUp', []);
         
         // Assert
         assertEquals(Editor.currentRow().id, rows[1].id, "CurrentRow");
-    },
+    }
     
-    function testHandleArrowDown() {
+    ,function testHandleArrowDown() : void {
         // Arrange
         loadTestDoc();
         const rows = Array.from(Editor.rows());
@@ -100,55 +101,67 @@ const tests = [
         firstRow.setCaretInRow(2); // Position in middle of "Line 1"
         
         // Act
-        Controller.editorHandleKey(new KeyboardEvent('keydown', { key: 'ArrowDown' }));
+        sendKey('ArrowDown', []);
         
         // Assert
         const currentRow = Editor.currentRow();
         assertEquals(currentRow.id, rows[1].id, "CurrentRow");
-    },
+    }
     
 // Test 2: handleEnter function
-// function testHandleEnter(): void {
-//     // Arrange
-//     loadTestDoc();
-//     const currentRow = Editor.at(1);
-//     assert(currentRow.valid());
+,function testHandleEnter(): void {
+    // Arrange
+    Controller.loadDoc("Line 1\n\tLine 2\nLine 3", TEST_DOC_PATH);
+    const currentRow = Editor.at(1);
+    assert(currentRow.valid());
+    let rows = Array.from(Editor.rows());
+    assertEquals("\tLine 2", rows[2].content);
     
-//     // Position cursor in middle of first line
-//     currentRow.setCaretInRow(3); // "Line 1" -> position after "Lin"   
-//     Controller.editorKeyDown(new KeyboardEvent('keydown', { key: 'Enter' }));
+    // Position cursor in middle of first line
+    currentRow.setCaretInRow(3); // "Line 1" -> position after "Lin"   
+    sendKey('Enter', []);
     
-//     const rows = Array.from(Editor.rows());
-//     assertEquals(4, rows.length);
-//     assertEquals("Lin", rows[1].content);
-//     assertEquals("e 1", rows[2].content);
-// },
+    rows = Array.from(Editor.rows());
+    assertEquals(5, rows.length);
+    assertEquals("Lin", rows[1].content);
+    assertEquals("e 1", rows[2].content);
+    assertEquals("\tLine 2", rows[3].content);
 
-// // Test 3: handleBackspace function
-// function testHandleBackspace(): void {
-//     // Arrange
-//     loadTestDoc();
-//     const rows = Array.from(Editor.rows());
-//     const secondRow = rows[1];
-//     secondRow.setCaretInRow(0); // Position at start of second row
+    rows[3].setCaretInRow(0);
+    sendKey('Enter', []);
+    rows = Array.from(Editor.rows());
+    assertEquals(6, rows.length);
+    assertEquals("\t", rows[3].content);
+    assertEquals("\tLine 2", rows[4].content);
+
+    rows[4].setCaretInRow(4);
+    sendKey('Enter', []);
+    rows = Array.from(Editor.rows());
+    assertEquals(7, rows.length);
+    assertEquals("\tLin", rows[4].content);
+    assertEquals("\te 2", rows[5].content);
+}
+
+// Test 3: handleBackspace function
+, function testHandleBackspace(): void {
+    // Arrange
+    loadTestDoc();
+    const rows = Array.from(Editor.rows());
+    const secondRow = rows[2];
+    secondRow.setCaretInRow(0); // Position at start of second row
     
-//     // Act
-//     Controller.editorKeyDown(new KeyboardEvent('keydown', { key: 'Backspace' }));
+    // Act
+    sendKey('Backspace', []);
     
-//     // Assert
-//     const state = getEditorState();
-//     if (state.rowCount !== 2) {
-//         throw new Error(`Expected 2 rows after Backspace, got ${state.rowCount}`);
-//     }
-    
-//     const updatedRows = Array.from(Editor.rows());
-//     if (updatedRows[0].content !== "Line 1Line 2") {
-//         throw new Error(`Expected merged content "Line 1Line 2", got "${updatedRows[0].content}"`);
-//     }
-// }
+    // Assert
+    const updatedRows = Array.from(Editor.rows());
+    assertEquals(3, updatedRows.length);
+    assertEquals("Line 1Line 2", updatedRows[1].content);
+    assertEquals("\tLine 3", updatedRows[2].content);
+}
 
 
-function testHandleArrowLeft(): void {
+, function testHandleArrowLeft(): void {
     // Arrange
     loadTestDoc();
     const rows = Array.from(Editor.rows());
@@ -194,9 +207,9 @@ function testHandleArrowRight(): void {
     Doc.processChange(change);
     const rows = Array.from(Editor.rows());
     assertEquals(6, doc.length);
-    const newLine = line2.children[0];
+    const newLine = line2.children[1];
     assertEquals("NewLine", newLine.content);
-    const newLine2 = line2.children[1];
+    const newLine2 = line2.children[2];
     assertEquals("NewLine2", newLine2.content);
 
     const site = model.site;
@@ -209,7 +222,7 @@ function testHandleArrowRight(): void {
     assertEquals(newLine2, siteRow2.docLine);
 
     const line2Row = newRow.parent;
-    assertEquals(2, line2Row.children.length);
+    assertEquals(3, line2Row.children.length);
     const scene = model.scene;
     assertEquals(6, scene.rows.length);
 }
@@ -239,7 +252,7 @@ function testHandleArrowRight(): void {
     assertEquals(newLine2, newRow2.docLine);
 
     assertEquals(site.getRoot(), newRow.parent);
-    assertEquals(5, root.children.length);
+    assertEquals(4, root.children.length);
     const scene = model.scene;
     assertEquals(6, scene.rows.length);
 }
@@ -310,14 +323,14 @@ function testHandleArrowRight(): void {
     // Assert
     const updatedRows = Array.from(Editor.rows());
     assertEquals(updatedRows[1].content, "Line 2");
-    assertEquals(updatedRows[2].content, "Line 1");
+    assertEquals(updatedRows[3].content, "Line 1");
 }
 
 // Test 9: handleSwapDown function
 ,function testHandleSwapDown(): void {
     // Arrange
     loadTestDoc();
-    const rows = Array.from(Editor.rows());
+    let rows = Array.from(Editor.rows());
     const firstRow = rows[1];
     firstRow.setCaretInRow(0);
     
@@ -327,16 +340,19 @@ function testHandleArrowRight(): void {
     // Assert
     const updatedRows = Array.from(Editor.rows());
     assertEquals(updatedRows[1].content, "Line 2");
-    assertEquals(updatedRows[2].content, "Line 1");
+    assertEquals(updatedRows[3].content, "Line 1");
 
 // swap down at end
+    rows = Array.from(Editor.rows());
     const lastRow = rows[rows.length - 1];
     const lastSceneRow = model.scene.findRow(lastRow.idString);
     const lastLine = lastSceneRow.siteRow.docLine;
     lastRow.setCaretInRow(0);
     assertEquals(lastRow.indent, 0);
     sendKey('ArrowDown', ['C']);
-    assertEquals(lastRow.content, "Line 3");
+    assertEquals(lastRow.content, "Line 1");
+    rows = Array.from(Editor.rows());
+    assertEquals(rows[2].content, "\tLine 3");
     assertEquals(lastRow.indent, 0);
 }
 
@@ -352,7 +368,7 @@ function testHandleArrowRight(): void {
     
     // Act
     secondRow.setCaretInRow(0); // Position at start of line
-    Controller.editorHandleKey(new KeyboardEvent('keydown', { key: 'Tab' }));
+    sendKey('Tab', []);
     
     // Assert
     const sceneRow1 = model.scene.findRow(firstRow.idString);
@@ -378,7 +394,7 @@ function testHandleArrowRight(): void {
     const content = row2.content;
     assertEquals(content, "Line 2");
     // Act
-    Controller.editorHandleKey(new KeyboardEvent('keydown', { key: 'Tab' }));
+    sendKey('Tab', []);
     
     // Assert
     const updatedRows = Array.from(Editor.rows());
@@ -396,7 +412,7 @@ function testHandleArrowRight(): void {
     const firstRow = rows[0];
     firstRow.setCaretInRow(0);
     const firstIndent = firstRow.indent;
-    Controller.editorHandleKey(new KeyboardEvent('keydown', { key: 'Tab' }));
+    sendKey('Tab', []);
     assertEquals(firstIndent, firstRow.indent);
 
     // Indent Row 2 refuses; it's already indented.
@@ -404,7 +420,7 @@ function testHandleArrowRight(): void {
     const secondIndent = secondRow.indent;
     assertEquals(secondIndent, 0);
     secondRow.setCaretInRow(0);
-    Controller.editorHandleKey(new KeyboardEvent('keydown', { key: 'Tab' }));
+    sendKey('Tab', []);
     assertEquals(secondIndent , secondRow.indent);
 
     // 3 succeeds.
@@ -412,12 +428,12 @@ function testHandleArrowRight(): void {
     const thirdIndent = thirdRow.indent;
     assertEquals(thirdIndent, 0);
     thirdRow.setCaretInRow(0);
-    Controller.editorHandleKey(new KeyboardEvent('keydown', { key: 'Tab' }));
+    sendKey('Tab', []);
     assertEquals(thirdIndent+1 , Editor.currentRow().indent);
 
 
     // Then position cursor in indent area
-    const updatedRows = Array.from(Editor.rows());
+    let updatedRows = Array.from(Editor.rows());
     updatedRows[2].setCaretInRow(0);
     
     // // Act
@@ -430,60 +446,48 @@ function testHandleArrowRight(): void {
     // assertEquals(finalRows[2].content, "\tLine 2");
 
     // 4 succeeds.
-    const fourthRow = rows[3];
+    const fourthRow = updatedRows[3];
     const fourthIndent = fourthRow.indent;
-    assertEquals(fourthIndent, 0);
+    assertEquals(fourthIndent, 2);
+
     fourthRow.setCaretInRow(0);
-    Controller.editorHandleKey(new KeyboardEvent('keydown', { key: 'Tab' }));
-    assertEquals(fourthIndent+1 , Editor.currentRow().indent);
-
-    const newFourthRow = Editor.findRow(fourthRow.id);
-    assertEquals(newFourthRow.content, "\tLine 3");
-    // Then position cursor in indent area
-
-    // tab again
-    Controller.editorHandleKey(new KeyboardEvent('keydown', { key: 'Tab' }));
-    const newNewFourthRow = Editor.findRow(newFourthRow.id);
-    assertEquals(newNewFourthRow.content, "\t\tLine 3");
+    sendKey('Tab', []);
+    updatedRows = Array.from(Editor.rows());
+    const newFourthRow = updatedRows[3];
+    assertEquals(fourthIndent , newFourthRow.indent);
+    assertEquals(newFourthRow.content, "\t\tLine 3");
     
+    // tab again does nothing.
+    sendKey('Tab', []);
+    assertEquals(newFourthRow, Editor.findRow(newFourthRow.id));
 
     // unindent
     const newThirdRow = Editor.findRow(thirdRow.id);
     newThirdRow.setCaretInRow(0);
-    Controller.editorHandleKey(new KeyboardEvent('keydown', { 
-        key: 'Tab', 
-        shiftKey: true 
-    }));
+    sendKey('Tab', ['S']);
     const newRows = Array.from(Editor.rows());
     assertEquals(newRows[2].content, "Line 2");
     assertEquals(newRows[3].content, "\tLine 3");
 }
 
-// // Test 12: handleToggleFold function
-// function testHandleToggleFold(): void {
-//     // Arrange - create content with indented lines
-//     const foldedContent = "Parent\n\tChild 1\n\tChild 2";
-//     const doc = Model.addOrUpdateDoc("fold_test.amb", foldedContent);
-//     Scene.data.loadFromDoc(doc);
-//     Controller.setEditorContent(Scene.data);
+// Test 12: handleToggleFold function
+, function testHandleToggleFold(): void {
+    // Arrange - create content with indented lines
+    const foldedContent = "Parent\n\tChild 1\n\tChild 2";
+    const doc = Controller.loadDoc(foldedContent, "fold_test.amb");
     
-//     const rows = Array.from(Editor.rows());
-//     const parentRow = rows[0];
-//     parentRow.setCaretInRow(0);
+    const rows = Array.from(Editor.rows());
+    const parentRow = rows[1];
+    parentRow.setCaretInRow(0);
     
-//     // Act
-//     Controller.editorKeyDown(new KeyboardEvent('keydown', { 
-//         key: '.', 
-//         ctrlKey: true 
-//     }));
+    // Act
+    sendKey('.', ['C']);
     
-//     // Assert
-//     const state = getEditorState();
-//     // After folding, only the parent row should be visible
-//     if (state.rowCount !== 1) {
-//         throw new Error(`Expected 1 row after fold, got ${state.rowCount}`);
-//     }
-// }
+    // Assert
+    const updatedRows = Array.from(Editor.rows());
+    assertEquals(updatedRows.length, 2);
+    assertEquals(updatedRows[1].content, "Parent");
+}
 ];
 // // Run all tests
 async function runAllTests(): Promise<void> {
@@ -492,7 +496,7 @@ async function runAllTests(): Promise<void> {
 //     // Initialize test data first
     await initializeTestData();
     
-    tests.every(test => testRunner.runTest(test));
+    tests.forEach(test => testRunner.runTest(test));
     
      console.log(`\nTest Summary: ${testRunner.getSummary()}`);
     

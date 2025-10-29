@@ -30,18 +30,27 @@ const VISIBLE_TAB = '→'; // Visible tab character
 export function createRowElement(): RowElement {
 	const el = document.createElement(RowElementTag) as RowElement;
 	
-	const foldIndicator = document.createElement(RowContentTag);
-	foldIndicator.className = 'fold-indicator';
-	foldIndicator.textContent = ' ';
+	const elFold = document.createElement('span');
+	elFold.className = 'fold-indicator';
+	elFold.textContent = ' ';
 	
-	const content = document.createElement(RowContentTag);
-	content.className = 'content';
-	content.contentEditable = 'true';
+	const elContent = document.createElement(RowContentTag);
+	elContent.className = 'content';
+	elContent.contentEditable = 'true';
 	
-	el.appendChild(foldIndicator);
-	el.appendChild(content);
+	el.appendChild(elFold);
+	el.appendChild(elContent);
 	
 	return el;
+}
+export function createRowElementFromSceneRow(sceneRow: SceneRow): Row {
+	const el = createRowElement();
+	const row = new Row(el);
+
+	el.dataset.lineId = sceneRow.id.value;
+	const indent = sceneRow.indent;
+	row.setContent(sceneRow.content, indent);
+	return row;
 }
 
 export class Row {
@@ -82,17 +91,25 @@ export class Row {
 		// Extract innerHTML to preserve HTML tags, then convert visible tabs
 		return contentSpan.innerHTML.replace(new RegExp(VISIBLE_TAB, 'g'), '\t');
 	}
-	public setContent(value: string) {
+	public get bareContent(): string {
+		const contentSpan = this.getContentSpan();
+		if (!contentSpan) return '';
+		// Extract innerHTML to preserve HTML tags, then convert visible tabs
+		return contentSpan.innerHTML.replace(new RegExp(VISIBLE_TAB, 'g'), '\t')
+			.substring(this.indent);
+	}
+	public setContent(value: string, sceneIndent: number) {
 		const contentSpan = this.getContentSpan();
 		if (contentSpan) {
 			// Use innerHTML to allow HTML tags, and convert tabs to visible tabs
 			contentSpan.innerHTML = 
-				value.replace(new RegExp('\t', 'g'), VISIBLE_TAB);
+			VISIBLE_TAB.repeat(sceneIndent<0 ? 0 : sceneIndent) + value;
 		}
 	}
 	public get indent(): number {
 		// count the number of tabs at the beginning of the content
-		const innerHTML = this.getContentSpan().innerHTML;
+		const contentSpan = this.getContentSpan();
+		const innerHTML = contentSpan?.innerHTML ?? '';
 		const tabs = innerHTML.match(new RegExp('^' + VISIBLE_TAB + '+'));
 		if (tabs) return tabs[0].length;
 		return 0;
@@ -161,12 +178,10 @@ export class Row {
 			r.setStart(position.node, position.offset);
 			r.collapse(true);
 			const rect = r.getBoundingClientRect();
-			dist = Math.abs(rect.left - x);
-			if (dist > lastdist) 
-				return i - 1 >= 0 ? i - 1 : 0;
-			lastdist = dist;
+			dist = rect.left - x;
+			if (dist >= -0.000001) return i;
 		}
-		return len;
+		return len - 1;
 	}
 }
 
@@ -247,20 +262,7 @@ export function addBefore(targetRow: Row, scene: ArraySpan<SceneRow>)
 	}
 	return new RowSpan(firstRow, scene.length);
 }
-export function createRowElementFromSceneRow(sceneRow: SceneRow): Row {
-	const el = createRowElement();
-	let row = new Row(el);
 
-	el.dataset.lineId = sceneRow.id.value;
-	const indent = sceneRow.indent;
-	const indenttext = VISIBLE_TAB.repeat(indent < 0 ? 0 : indent);
-	if (indent < 0) {
-		el.classList.add('header');
-	}
-	el.contentEditable = 'true';
-	row.setContent(indenttext + sceneRow.content.replace(/\t/g, VISIBLE_TAB));
-	return row;
-}
 export function addAfter(
 	referenceRow: Row, 
 	rowDataArray: ArraySpan<SceneRow>
@@ -508,7 +510,7 @@ export function updateRows(rowDataArray: ArraySpan<SceneRow>): void {
 		const rowData = rowDataArray.at(idx);
 		if (!rowData) break;
 		
-		row.setContent(rowData.content);
+		row.setContent(rowData.content, rowData.indent);
 		idx++;
 	}
 }
