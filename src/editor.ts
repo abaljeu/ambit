@@ -9,6 +9,8 @@ type RowContentElement = HTMLSpanElement;
 type RowElement = HTMLDivElement;
 const VISIBLE_TAB = '→'; // Visible tab character
 
+type RowElementPair = { el: RowElement; newEl: RowElement; };
+
 // export class RowId extends Id<'Row'> {
 //     public constructor(value: string) {
 //         if (!/^R[0-9A-Z]{6}$/.test(value)) {
@@ -27,27 +29,41 @@ const VISIBLE_TAB = '→'; // Visible tab character
 //     public readonly tag: string = 'R';
 // }
 // const editorRowPool = new EditorRowPool();
-export function createRowElement(): RowElement {
+export function createRowElement(): RowElementPair {
+	// Create editor element (2-span: fold-indicator + content with inline tabs)
 	const el = document.createElement(RowElementTag) as RowElement;
-	
 	const elFold = document.createElement('span');
 	elFold.className = 'fold-indicator';
 	elFold.textContent = ' ';
-	
 	const elContent = document.createElement(RowContentTag);
 	elContent.className = 'content';
 	elContent.contentEditable = 'true';
-	
 	el.appendChild(elFold);
 	el.appendChild(elContent);
 	
-	return el;
+	// Create newEditor element (3-span: fold-indicator + indentation + rowContent)
+	const newEl = document.createElement(RowElementTag) as RowElement;
+	const newElFold = document.createElement('span');
+	newElFold.className = 'fold-indicator';
+	newElFold.textContent = ' ';
+	const newElIndent = document.createElement(RowContentTag);
+	newElIndent.className = 'indentation';
+	newElIndent.contentEditable = 'false';
+	const newElContent = document.createElement(RowContentTag);
+	newElContent.className = 'rowContent';
+	newElContent.contentEditable = 'true';
+	newEl.appendChild(newElFold);
+	newEl.appendChild(newElIndent);
+	newEl.appendChild(newElContent);
+	
+	return { el, newEl };
 }
 export function createRowElementFromSceneRow(sceneRow: SceneRow): Row {
-	const el = createRowElement();
-	const row = new Row(el);
+	const pair = createRowElement();
+	const row = new Row(pair.el, pair.newEl);
 
-	el.dataset.lineId = sceneRow.id.value;
+	pair.el.dataset.lineId = sceneRow.id.value;
+	pair.newEl.dataset.lineId = sceneRow.id.value;
 	const indent = sceneRow.indent;
 	row.setContent(sceneRow.content, indent);
 	return row;
@@ -57,7 +73,10 @@ export class Row {
 		public equals(other: Row): boolean {
 			return this.el === other.el;
 		}
-		constructor(public readonly el: RowElement) {}
+		constructor(
+			public readonly el: RowElement,
+			public readonly newEl: RowElement
+		) {}
 		private getContentSpanWithTabs(): RowContentElement {
 			return this.el.querySelector('.content') as RowContentElement;
 		}
@@ -99,11 +118,20 @@ export class Row {
 			.substring(this.indent);
 	}
 	public setContent(value: string, sceneIndent: number) {
+		const indent = sceneIndent < 0 ? 0 : sceneIndent;
+		
+		// Set content in editor (inline tabs + content)
 		const contentSpan = this.getContentSpanWithTabs();
 		if (contentSpan) {
-			// Use innerHTML to allow HTML tags, and convert tabs to visible tabs
-			contentSpan.innerHTML = 
-			VISIBLE_TAB.repeat(sceneIndent<0 ? 0 : sceneIndent) + value;
+			contentSpan.innerHTML = VISIBLE_TAB.repeat(indent) + value;
+		}
+		
+		// Set content in newEditor (separate indentation + rowContent)
+		const indentSpan = this.newEl.querySelector('.indentation') as HTMLSpanElement;
+		const rowContentSpan = this.newEl.querySelector('.rowContent') as HTMLSpanElement;
+		if (indentSpan && rowContentSpan) {
+			indentSpan.innerHTML = VISIBLE_TAB.repeat(indent);
+			rowContentSpan.innerHTML = value;
 		}
 	}
 	public get indent(): number {
@@ -115,18 +143,25 @@ export class Row {
 		return 0;
 	}
 	public setFoldIndicator(indicator: string) {
+		// Set in editor
 		const foldSpan = this.getFoldIndicatorSpan();
 		if (foldSpan) foldSpan.textContent = indicator;
+		
+		// Set in newEditor
+		const newFoldSpan = this.newEl.querySelector('.fold-indicator') as HTMLSpanElement;
+		if (newFoldSpan) newFoldSpan.textContent = indicator;
 	}
 	public get Previous(): Row {
 		const previousSibling = this.el?.previousElementSibling;
-		if (!previousSibling) return endRow;
-		return new Row(previousSibling as RowElement);
+		const newPreviousSibling = this.newEl?.previousElementSibling;
+		if (!previousSibling || !newPreviousSibling) return endRow;
+		return new Row(previousSibling as RowElement, newPreviousSibling as RowElement);
 	}
 	public get Next(): Row {
 		const nextSibling = this.el?.nextElementSibling;
-		if (!nextSibling) return endRow;
-		return new Row(nextSibling as RowElement);
+		const newNextSibling = this.newEl?.nextElementSibling;
+		if (!nextSibling || !newNextSibling) return endRow;
+		return new Row(nextSibling as RowElement, newNextSibling as RowElement);
 	}
 	public valid(): boolean {
 		return this.el !== null;
@@ -156,6 +191,15 @@ export class Row {
 		const x = caretX();
 		return this.offsetAtXWithTabs(x);
 	}
+	public get caretOffset(): number {
+		const x = caretX();
+		return this.offsetAtX(x);
+	}
+	public offsetAtX(x: number): number {
+		const owt = this.offsetAtXWithTabs(x);
+		const  o = owt - this.indent;
+		return o < 0 ? 0 : o;
+	}
 	public offsetAtXWithTabs(x: number): number {
 		const contentSpan = this.getContentSpanWithTabs();
 		if (!contentSpan) return 0;
@@ -181,7 +225,7 @@ export class Row {
 			dist = rect.left - x;
 			if (dist >= -0.000001) return i;
 		}
-		return len - 1;
+		return len;
 	}
 }
 
@@ -221,25 +265,40 @@ export class RowSpan implements Iterable<Row> {
 }
 
 // Sentinel row used to indicate insertion at the start of the container
-export const endRow: Row = new Row(document.createElement(RowElementTag) as RowElement);
+export const endRow: Row = new Row(
+	document.createElement(RowElementTag) as RowElement,
+	document.createElement(RowElementTag) as RowElement
+);
 
-// Paragraphs iterator
-function* paragraphs(): IterableIterator<RowElement> {
-	const paragraphs = lm.editor.querySelectorAll(RowElementTag);
-	for (const paragraph of paragraphs) {
-		yield paragraph as RowElement;
+// Iterator that yields parallel element pairs from both editors
+function* paragraphPairs(): IterableIterator<RowElementPair> {
+	const editorParagraphs = lm.editor.querySelectorAll(RowElementTag);
+	const newEditorParagraphs = lm.newEditor.querySelectorAll(RowElementTag);
+	const count = Math.min(editorParagraphs.length, newEditorParagraphs.length);
+	
+	for (let i = 0; i < count; i++) {
+		yield {
+			el: editorParagraphs[i] as RowElement,
+			newEl: newEditorParagraphs[i] as RowElement
+		};
 	}
 }
+
 // create an iterator that yields rows from the DOM
 export function* rows(): IterableIterator<Row> {
-	for (const paragraph of paragraphs()) {
-		yield new Row(paragraph);
+	for (const pair of paragraphPairs()) {
+		yield new Row(pair.el, pair.newEl);
 	}
 }
+
 export function at(index: number): Row {
 	// if index is out of range, return endRow
 	if (index < 0 || index >= lm.editor.childElementCount) return endRow;
-	return new Row(lm.editor.children[index] as RowElement);
+	if (index >= lm.newEditor.childElementCount) return endRow;
+	return new Row(
+		lm.editor.children[index] as RowElement,
+		lm.newEditor.children[index] as RowElement
+	);
 }
 // Create a new row and insert it after the given previous row.
 // If previousRow is endRow, insert at the front of the container.
@@ -250,14 +309,21 @@ export function addBefore(targetRow: Row, scene: ArraySpan<SceneRow>)
 	
 	let firstRow = endRow;
 	for (const sceneRow of scene) {
-		// Convert regular tabs to visible tabs for display
 		const row = createRowElementFromSceneRow(sceneRow);
 		if (firstRow === endRow) firstRow = row;
 
+		// Insert into editor
 		if (targetRow === endRow) {
-			lm.editor.appendChild(row.el); // add to front of editor
+			lm.editor.appendChild(row.el);
 		} else {
 			lm.editor.insertBefore(row.el, targetRow.el);
+		}
+		
+		// Insert into newEditor
+		if (targetRow === endRow) {
+			lm.newEditor.appendChild(row.newEl);
+		} else {
+			lm.newEditor.insertBefore(row.newEl, targetRow.newEl);
 		}
 	}
 	return new RowSpan(firstRow, scene.length);
@@ -270,17 +336,29 @@ export function addAfter(
 	if (lm.editor === null) return new RowSpan(endRow, 0);
 	let count = 0;
 	let beforeRow = referenceRow.el;
+	let newBeforeRow = referenceRow.newEl;
 	let first = endRow;
+	
 	for (const rowData of rowDataArray) {
 		const row = createRowElementFromSceneRow(rowData);
 		
+		// Insert into editor
 		if (beforeRow.nextSibling) {
 			lm.editor.insertBefore(row.el, beforeRow.nextSibling);
 		} else {
 			lm.editor.appendChild(row.el);
 		}
+		
+		// Insert into newEditor
+		if (newBeforeRow.nextSibling) {
+			lm.newEditor.insertBefore(row.newEl, newBeforeRow.nextSibling);
+		} else {
+			lm.newEditor.appendChild(row.newEl);
+		}
+		
 		if (first === endRow) first = row;
 		beforeRow = row.el;
+		newBeforeRow = row.newEl;
 		count++;
 	}
 	
@@ -443,19 +521,37 @@ function setCaretInParagraph(contentSpan: HTMLElement, offset: number) {
 
 export function currentRow(): Row {
 	let p = getCurrentParagraphWithOffset();
-	return p ? new Row(p.element) : endRow;
+	if (!p) return endRow;
+	
+	// Find corresponding newEditor element at same index
+	const index = Array.from(lm.editor.children).indexOf(p.element);
+	const newEl = (index >= 0 && index < lm.newEditor.children.length) 
+		? lm.newEditor.children[index] as RowElement
+		: endRow.newEl;
+	
+	return new Row(p.element, newEl);
 }
 export function currentRowWithOffset(): { element: Row, offset: number } {
 	let p = getCurrentParagraphWithOffset();
 	if (!p) return { element: endRow, offset: 0 };
-	return { element: new Row(p.element), offset: p.offset };
+	
+	// Find corresponding newEditor element at same index
+	const index = Array.from(lm.editor.children).indexOf(p.element);
+	const newEl = (index >= 0 && index < lm.newEditor.children.length) 
+		? lm.newEditor.children[index] as RowElement
+		: endRow.newEl;
+	
+	return { element: new Row(p.element, newEl), offset: p.offset };
 }
 
 export function moveRowAbove(toMove: Row, target: Row): void {
-	if (toMove.el && target.el)
+	if (toMove.el && target.el) {
+		// Move in editor
 		toMove.el.parentNode!.insertBefore(toMove.el, target.el);
-	else
-	{	if (toMove.el)
+		// Move in newEditor
+		toMove.newEl.parentNode!.insertBefore(toMove.newEl, target.newEl);
+	} else {
+		if (toMove.el)
 			console.error("moveBefore: target is null");
 		else if (target.el)
 			console.error("moveBefore: toMove is null");
@@ -472,6 +568,7 @@ export function caretX(): number {
 
 export function clear(): void {
 	lm.editor.innerHTML = '';
+	lm.newEditor.innerHTML = '';
 }
 
 export function getContentLines(): string[] {
@@ -498,6 +595,7 @@ export function replaceRows(oldRows: RowSpan, newRows: ArraySpan<SceneRow>): Row
 	// Now remove them
 	for (const row of rowsToRemove) {
 		row.el.remove();
+		row.newEl.remove();
 	}
 	
 	return addAfter(beforeStartRow, newRows);
@@ -517,6 +615,7 @@ export function updateRows(rowDataArray: ArraySpan<SceneRow>): void {
 
 export function deleteRow(row: Row): void {
 	row.el.remove();
+	row.newEl.remove();
 }
 
 
@@ -525,6 +624,7 @@ export function deleteAfter(referenceRow: Row, count: number): void {
 	for (let i = 0; i < count && current.valid(); i++) {
 		const next = current.Next;
 		current.el.remove();
+		current.newEl.remove();
 		current = next;
 	}
 }

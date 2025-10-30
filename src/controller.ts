@@ -61,14 +61,12 @@ class KeyBinding {
 }
 
 const keyBindings: KeyBinding[] = [
-	// new KeyBinding("F5", () => false),
-	// new KeyBinding("F6", () => false),
 	new KeyBinding("Tab", handleTab),
 	new KeyBinding("S-Tab", handleShiftTab),
-	// new KeyBinding("C-s", () => { save(); return true; }),
+	new KeyBinding("C-s", () => { save(); return true; }),
 	new KeyBinding("Enter", handleEnter),
 	new KeyBinding("Backspace", (row) => handleBackspace(row)),
-	// new KeyBinding("Delete", (row) => handleDelete(row)),
+	new KeyBinding("Delete", (row) => handleDelete(row)),
 	new KeyBinding("ArrowUp", handleArrowUp),
 	new KeyBinding("ArrowDown", handleArrowDown),
 	new KeyBinding("ArrowLeft", handleArrowLeft),
@@ -79,7 +77,12 @@ const keyBindings: KeyBinding[] = [
 ];
 
 function findKeyBinding(combo: string): KeyBinding {
-	return keyBindings.find(kb => kb.combo === combo) ?? new KeyBinding("", () => false);
+	let binding = keyBindings.find(kb => kb.combo === combo);
+	if (binding) return binding;
+	if (combo.length == 1) {
+		return new KeyBinding(combo, (row) => handleInsertChar(row, combo));
+	}
+	return new KeyBinding("", () => false);
 }
 
  export function editorHandleKey(e : KeyboardEvent) {
@@ -95,22 +98,18 @@ function findKeyBinding(combo: string): KeyBinding {
 		`${e.shiftKey ? "S-" : ""}` +
 		`${e.metaKey ? "M-" : ""}`;
 	const combo =  mods + e.key;
+	lm.messageArea.textContent = combo;
 
-	if (e.ctrlKey || e.metaKey || e.altKey || e.key.length > 1)
-	{
-		lm.messageArea.textContent = combo;
-		const currentRow = Editor.currentRow();
-		if (!currentRow.valid()) return;
-
-		const binding = findKeyBinding(combo);
-		if (binding) {
-			const result = binding.handler(currentRow);
-			if (result === true) {
-				e.preventDefault();
-			}
+	const currentRow = Editor.currentRow();
+	if (!currentRow.valid()) return;
+	const binding = findKeyBinding(combo);
+	if (binding) {
+		const result = binding.handler(currentRow);
+		if (result === true) {
+			e.preventDefault();
 		}
-	}
-	updateAllFoldIndicators();
+	} 
+		updateAllFoldIndicators();
  }
 
  function handleEnter(currentRow: Editor.Row) : boolean {
@@ -152,28 +151,42 @@ function joinRows(prevRow: Editor.Row, nextRow: Editor.Row) {
 
 function handleBackspace(currentRow: Editor.Row) : boolean {
 	
-	if (currentRow.indent === 0) {
+	if (currentRow.caretOffset === 0) {
 		const prevRow = currentRow.Previous;
 		const prevPosition = prevRow.visibleTextLengthWithTabs;
 		if (!prevRow.valid()) return true;
 		joinRows(prevRow, currentRow);
-		prevRow.setCaretInRowWithTabs(prevPosition);
+		Editor.findRow(currentRow.id).setCaretInRowWithTabs(prevPosition);
 		return true;
 	}
 	else { // we're not at the beginning of the row so just delete the character
-		return false;
+		const htmlOffset = currentRow.getHtmlOffsetWithTabs();
+		deleteChar(currentRow, htmlOffset-1);
+		return true;
 	}
 }
-// function handleDelete(currentRow: Editor.Row) : boolean {
-// 	if (currentRow.indent === currentRow.visibleTextLength) {
-// 		const nextRow = currentRow.Next;
-// 		if (!nextRow.valid()) return true;
-// 		joinRows(currentRow, nextRow);
-// 		// currentRow.setCaretInRow(0); position was okay already.
-// 		return true;
-// 	}
-// 	else { return false; }
-// }
+function deleteChar(currentRow: Editor.Row, offset: number) {
+	const cur = model.scene.findRow(currentRow.idString);
+	const scur = cur.siteRow;
+	const change = Change.makeTextChange(scur.docLine,offset, 1, '');
+	Doc.processChange(change);
+	currentRow.setCaretInRowWithTabs(offset);
+
+}
+function handleDelete(currentRow: Editor.Row) : boolean {
+	if (currentRow.caretOffsetWithTabs >= currentRow.visibleTextLengthWithTabs) {
+		const nextRow = currentRow.Next;
+		if (!nextRow.valid()) return true;
+		joinRows(currentRow, nextRow);
+		// currentRow.setCaretInRow(0); position was okay already.
+		return true;
+	}
+	else {
+		const htmlOffset = currentRow.getHtmlOffsetWithTabs();
+		deleteChar(currentRow, htmlOffset);
+	 return true; 
+	}
+}
 function handleArrowUp(currentRow: Editor.Row) : boolean {
 	const prevP = currentRow.Previous;
 	if (!prevP.valid()) return true;
@@ -309,37 +322,38 @@ function offsetIsInIndent(offset: number, rowText: string): boolean {
 // 	return Scene.data.findByLineId(editorRow.id);
 // }
 
-function handleTab(currentRow: Editor.Row) : boolean {
-	const visibleOffset = currentRow.caretOffsetWithTabs;
-	let c = currentRow.contentWithTabs;
-	
-	// Get visible text for indent checking
-	const temp = document.createElement('div');
-	temp.innerHTML = c;
-	const visibleText = temp.textContent ?? '';
-	
+function insertChar(currentRow : Editor.Row, ch : string) {
 	const cur = model.scene.findRow(currentRow.idString);
 	const scur = cur.siteRow;
-	if (offsetIsInIndent(visibleOffset, visibleText)) {
-		const sprev = scur.previous;
+	const htmlOffset = currentRow.getHtmlOffsetWithTabs();
+	const change = Change.makeTextChange(scur.docLine,htmlOffset, 0,ch);
+	Doc.processChange(change);
+	currentRow.setCaretInRowWithTabs(htmlOffset+ 1);
+}
+
+function handleInsertChar(currentRow : Editor.Row, ch : string) {
+	if (currentRow.caretOffsetWithTabs <= currentRow.indent) {
+		return true; // can't edit in tabs
+	}
+	insertChar(currentRow, ch);
+	return true;
+}
+
+function handleTab(currentRow: Editor.Row) : boolean {
+	const visibleOffset = currentRow.caretOffsetWithTabs;
+	
+	if (visibleOffset <= currentRow.indent) {
+		const cur = model.scene.findRow(currentRow.idString);
+		const scur = cur.siteRow;
+			const sprev = scur.previous;
 		if (sprev === SiteRow.end) return false;
 		moveBelow(scur.docLine, sprev.docLine);
 		const replacementRow = Editor.findRow(currentRow.id)
 		replacementRow.setCaretInRowWithTabs(visibleOffset+ 1);
 		return true;
-		// let rows : ArraySpan<SceneRow> = scene.indentRowAndChildren(rowDataFromEditorRow(currentRow));
-		// Editor.updateRows(rows);
-	} else {
-		// Insert tab at HTML offset
-		const htmlOffset = currentRow.getHtmlOffsetWithTabs();
-		const oldContent = currentRow.contentWithTabs;
-		const change = Change.makeTextChange(scur.docLine, htmlOffset, 0, // split at htmlOffset
-			 '\t');
-		Doc.processChange(change);
-		updateAllFoldIndicators();
-		const p = Editor.currentRowWithOffset();
-		p.element.setCaretInRowWithTabs(p.offset + 1);
 	}
+
+	insertChar(currentRow, '\t');
 	return true;
 }
 function docLineFromRow(row: Editor.Row): DocLine {
@@ -347,9 +361,10 @@ function docLineFromRow(row: Editor.Row): DocLine {
 	return cur.siteRow.docLine;
 }
  function handleShiftTab(currentRow: Editor.Row) : boolean {
-    
+    const offset = currentRow.caretOffsetWithTabs;
     // Get visible text for indent checking
-	if (currentRow.indent >= currentRow.caretOffsetWithTabs) {
+	if (currentRow.indent >= offset) {
+		if (currentRow.indent <= 0) return true;
 		// Move after parent
 		// Move before parent's sibling if any.
 		const docLine = docLineFromRow(currentRow);
@@ -365,6 +380,7 @@ function docLineFromRow(row: Editor.Row): DocLine {
 			} else {
 				return true;
 			}
+			Editor.findRow(currentRow.id).setCaretInRowWithTabs(offset-1);
 		}
 	} else {
 		// find tab to the left of the cursor in HTML content

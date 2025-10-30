@@ -46,10 +46,10 @@ export class SceneRow extends SiteRowSubscriber {
         this.scene.addRows(this.indexInScene()+1, this.siteRow.children);
     }
     public findParent(): SceneRow {
-        return this.scene.sceneRowPool.search((row: SceneRow) => row.siteRow === this.siteRow._parent);
+        return this.scene.sceneRowPool.search((row: SceneRow) => row.siteRow === this.siteRow.parent);
     }
     public siteRowsInsertedBefore(newSiteRows: SiteRow[]): void {
-        const sceneParent = this.scene.search(row => row.siteRow === this.siteRow._parent)
+        const sceneParent = this.scene.search(row => row.siteRow === this.siteRow.parent)
         if (sceneParent === this.scene.end) return;
         
         const selfIndex = this.indexInScene();
