@@ -1,159 +1,199 @@
-import { RowId, endRowId } from './rowid.js';
-import * as Model from './model.js';
-import {  ArraySpan } from './arrayspan.js';
-import * as HtmlUtil from './htmlutil.js';
+import { Site, SiteRow, SiteRowId, SiteRowSubscriber } from './site.js';
+import { Id, Pool } from './pool.js';
+import * as Editor from './editor.js';
+import { ArraySpan } from './arrayspan.js';
+import * as Change from './change.js';
+/*    => filter, flatten
+    Scene
+        SceneRow
+        reference SiteNode
+        compute visible
+*/
 
-export class RowData {
-	public folded: boolean = false;
-	public visible: boolean = true;
+export class SceneRowId extends Id<'SceneRow'> {
+    public constructor(value: string) {
+        if (!/^R[0-9A-Z]{6}$/.test(value)) {
+            throw new Error('Invalid SceneRowId');
+        }
+        super(value);
+    }
+}
+export class SceneRow extends SiteRowSubscriber {
+    public readonly id: SceneRowId;
+    public  get indent(): number { return this.siteRow.indent; }
+    public treeLength: number = 1;
+    // public static end = new SceneRow(NoScene,  SiteRow.end, new SceneRowId('R000000'));
+    
+    public print() : void {
+        console.log(`${this.id.toString()} (${this.indent}) ${this.siteRow.docLine.content}`);
+    }
+    constructor(public  scene: Scene, public readonly siteRow: SiteRow, id: SceneRowId) {
+        super();
+        this.id = id;
+        this.siteRow.subscribe(this);
+    }
+    
+    public indexInScene(): number {
+        const index = this.scene.rows.indexOf(this);
+        if (index === -1) return this.scene.rows.length;
+        return index;
+    }
 
-	// doc and line belong to Model.  Only Model may modify them.
-	// Do not call members that modify them.
-	constructor(
-		public readonly refDoc: Model.Doc,
-		public readonly refLine: Model.Line) {}
-		
-	public get id(): RowId { return this.refLine.id; }
-	public get content(): string { return this.refLine.content; }
+    public siteRowFolded(): void {
+        this.deleteChildren();
+    }
+    public siteRowUnfolded(): void {
+        this.scene.addRows(this.indexInScene()+1, this.siteRow.children);
+    }
+    public findParent(): SceneRow {
+        return this.scene.sceneRowPool.search((row: SceneRow) => row.siteRow === this.siteRow._parent);
+    }
+    public siteRowsInsertedBefore(newSiteRows: SiteRow[]): void {
+        const sceneParent = this.scene.search(row => row.siteRow === this.siteRow._parent)
+        if (sceneParent === this.scene.end) return;
+        
+        const selfIndex = this.indexInScene();
+        this.scene.addRows(selfIndex, newSiteRows);
 
-	public getIndentLevel(): number {
-		let count = 0;
-		for (const char of this.refLine.content) {
-			if (char === '\t') count++;
-			else break;
-		}
-		return count;
-	}
-	public get valid(): boolean { return this.refLine.valid; }
+    }
+    public siteRowsInsertedBelow(newSiteRows: SiteRow[]): void {
+        if (this.siteRow.folded) return;
+        if (this  === this.scene.end) return;
+        
+        const selfIndex = this.indexInScene();
+        this.scene.addRows(selfIndex+this.treeLength, newSiteRows);
+    }
+    public siteRowRemoving(): void {
+        this.deleteSelfAndChildren();
+    }
+    private deleteSelfAndChildren(): void {
+        this.scene.deleteRows(this.indexInScene(), this.treeLength);
+    }
+    private deleteChildren(): void {
+        this.scene.deleteRows(this.indexInScene()+1, this.treeLength-1);
+    }
+
+    public get content(): string { return this.siteRow.docLine.content; }
+    public siteRowTextChanged(siteRow: SiteRow): void {
+        if (siteRow !== this.siteRow) return;
+         const r : Editor.Row = Editor.findRow(this.id.value);
+         if (r !== Editor.endRow) 
+            r.setContent(this.content, this.indent);
+    }
 }
 
-export class Data {
-	private _rows: RowData[];
-	private _doc : Model.Doc;
+export class SceneRowPool extends Pool<SceneRow, SceneRowId> {
+    protected override fromString(value: string): SceneRowId {
+        return new SceneRowId(value);
+    }
+    public get end(): SceneRow {
+        return this.context.end;
+    }
+    public readonly tag: string = 'R';
 
-	public EndOfScene() : RowData { 
-		return new RowData(this._doc, this._doc.End());
-	}
-	constructor() {
-		this._rows = [];
-		this._doc = Model.createNoDoc();
-	}
-	public loadFromDoc(doc: Model.Doc): void {
-		this._doc = doc;
-		this._rows = doc.lines.map(l => new RowData(doc, l));
-	}
-	public get rows(): readonly RowData[] { return this._rows; }
-	get length(): number { return this._rows.length; }
-	findByLineId(id: RowId): RowData {
-			return this._rows.find(r => r.id.equals(id)) 
-			?? this.EndOfScene(); 
-	}
-	findIndexByLineId(id: RowId): number {
-		let i = this._rows.findIndex(r => r.id.equals(id));
-		if (i === -1) return this._rows.length;
-		return i;
-	}
-	updateRowData(id: RowId, content: string) {
-		let row : RowData = this.findByLineId(id);
-		Model.updateLineContent(row.refLine, content);
-	}
-	public at(index : number): RowData {
-		if (index < 0 || index >= this._rows.length) return this.EndOfScene();
-		return this._rows[index];
-	}
-	splitRow(rowId: RowId, offset: number): ArraySpan<RowData> {
-		const currentRowIndex = this.findIndexByLineId(rowId);
-		const currentRow = this.at(currentRowIndex);
-		const nextRow = this.at(currentRowIndex + 1);
-
-		const currentRowNewContent = currentRow.content.substring(0, offset);
-		const newRowContent = currentRow.content.substring(offset);
-		const fixedCurrentRowNewContent = HtmlUtil.fixTags(currentRowNewContent);
-		const fixedNewRowContent = 
-			`\t`.repeat(currentRow.getIndentLevel())
-			 + HtmlUtil.fixTags(newRowContent);
-		this.updateRowData(currentRow.id, fixedCurrentRowNewContent);
-		const newSceneRow : RowData = this.insertBefore(nextRow.id, fixedNewRowContent);
-		return new ArraySpan<RowData>(this._rows, currentRowIndex, currentRowIndex + 2);
-	}
-	insertBefore(rowId: RowId, content: string): RowData {
-		const targetRow = this.findByLineId(rowId);
-		const newLine = targetRow.refDoc.insertBefore(rowId, content);
-		const newRow = new RowData(targetRow.refDoc, newLine);
-		const idx = this.findIndexByLineId(rowId);
-		// 0 <= idx <= this._rows.length
-		this._rows.splice(idx, 0, newRow);
-		return newRow;
-	}
-	public  joinRows(prevRowId: RowId, nextRowId: RowId): RowData {
-		const prevRow = this.findByLineId(prevRowId);
-		const nextRow = this.findByLineId(nextRowId);
-		const nextContent = nextRow.content.substring(nextRow.getIndentLevel()); // remove tabs
-		const newContent = prevRow.content + nextContent;
-		this.updateRowData(prevRowId, newContent);
-		this.deleteRow(nextRow);
-		return prevRow;
-	}
-	public deleteRow(row: RowData): void {
-		this._rows.splice(this._rows.indexOf(row), 1);
-		this._doc.deleteLine(row.id);
-	}
-	public nextRow(row : RowData): RowData {
-		const idx = this.findIndexByLineId(row.id);
-		if (idx === this._rows.length) return this.EndOfScene();
-		return this._rows[idx + 1];
-	}
-	public hasChildren(row : RowData): boolean {
-		return this.nextRow(row).getIndentLevel() > row.getIndentLevel();
-	}
-	public indentRowAndChildren(row : RowData): ArraySpan<RowData> {
-		const rowAndChildren = this.descendents(row).createSubspan(-1); // grow left
-		for (const row of rowAndChildren) {
-			const newContent = '\t' + row.content;
-			Model.updateLineContent(row.refLine, newContent);
-		}
-		return rowAndChildren;
-	}
-	public deindentRowAndChildren(row : RowData): ArraySpan<RowData> {
-		if (row.getIndentLevel() === 0) return ArraySpan.NoSpan;
-		
-		const rowAndChildren = this.descendents(row).createSubspan(-1); // grow left
-		for (const row of rowAndChildren) {
-			const newContent = row.content.substring(1);
-			Model.updateLineContent(row.refLine, newContent);
-		}
-		return rowAndChildren;
-	}
-	public descendents(row : RowData): ArraySpan<RowData> {
-		const baseIndent = row.getIndentLevel();
-		const idx = this.findIndexByLineId(row.id);
-		let i = idx + 1; 
-		for (;i < this._rows.length; i++) {
-			const currentRow = this._rows[i];
-			const currentIndent = currentRow.getIndentLevel();
-			if (currentIndent <= baseIndent) break;
-		}
-		return new ArraySpan(this._rows, idx + 1, i);
-	}
-	public toggleFold(rowId: RowId): ArraySpan<RowData> {
-		const row = this.findByLineId(rowId);
-		const idx = this.findIndexByLineId(rowId);
-		
-		// Check if this row has any more-indented children
-		const affectedRows = this.descendents(row);
-		
-		// If no children, do nothing
-		if (affectedRows.length === 0) return affectedRows;
-		
-		// Toggle fold state
-		row.folded = !row.folded;
-		
-		// Update visibility of affected rows
-		for (const affectedRow of affectedRows) {
-			affectedRow.visible = !row.folded;
-		}
-		
-		return affectedRows;
-	}
+    public constructor(public context: Scene) { super(); }
 }
-export const data = new Data();
+
+export class Scene {
+    public readonly sceneRowPool = new SceneRowPool(this);
+    private _rows: SceneRow[] = [];
+    public readonly end = new SceneRow(this,  SiteRow.end, new SceneRowId('R000000'));
+
+    
+    constructor() {}
+    
+    public deleteRows(start: number, length: number): void {
+        // Construct RowSpan for the old rows
+        const startRow = Editor.at(start);
+        const oldRowSpan = new Editor.RowSpan(startRow, length);
+        
+        // Remove from Editor (replace with empty)
+        const emptyRowSpan = new ArraySpan<SceneRow>([], 0, 0);
+        Editor.replaceRows(oldRowSpan, emptyRowSpan);
+        
+        let self = this.at(start);
+        let parent = self.findParent();
+        while (parent !== this.end) {
+            parent.treeLength -= length;
+            parent = parent.findParent();
+        }
+        this._rows.splice(start, length);
+
+    }
+
+    public addRows(start: number, newSiteRows: SiteRow[]): void {
+        let newSceneRows: SceneRow[] = [];           
+        for (const child of newSiteRows) {
+            this._flattenRecursive(child, newSceneRows);
+        }
+        
+        this._rows.splice(start, 0, ...newSceneRows);
+        
+        const startRow = Editor.at(start);
+        const insertionRowSpan = new Editor.RowSpan(startRow, 0);
+        Editor.replaceRows(insertionRowSpan, new ArraySpan<SceneRow>(newSceneRows, 0, newSceneRows.length));
+        
+        // Update parent lengths (increase by newRows.length)
+        let newRow = this.at(start);
+        let parent = newRow.findParent();
+        while (parent !== this.end) {
+            parent.treeLength += newSceneRows.length;
+            parent = parent.findParent();
+        }
+    }
+    
+    public at(index : number) : SceneRow {
+        if (index < 0 || index >= this._rows.length)
+            return this.end;
+        return this._rows[index];
+    }
+    
+    public loadFromSite(site: SiteRow): void {
+        this._rows = this._flattenTree(site);
+    }
+    public findRow(id : string): SceneRow {
+        return this.sceneRowPool.find(this.sceneRowPool.makeIdFromString(id));
+    }
+    private _flattenTree(siteRow: SiteRow): SceneRow[] {
+        const result: SceneRow[] = [];
+        this._flattenRecursive(siteRow, result);
+        return result;
+    }
+    public search(predicate: (row: SceneRow) => boolean): SceneRow {
+        return this.rows.find((row: SceneRow) => predicate(row)) ?? this.end;
+    }
+    public _flattenRecursive(siteRow: SiteRow, result: SceneRow[]): void {
+        // A SceneRow is visible if its parent is visible and not folded
+        if (!siteRow.folded) {
+            // Add the current node
+            let row = this.sceneRowPool.search((row: SceneRow) => row.siteRow === siteRow);
+            if (row === this.sceneRowPool.end) {
+                row = this.findOrCreateSceneRow(siteRow);
+            } else {
+                // Reuse existing row - don't re-subscribe
+            }
+            row.treeLength = 1;
+            result.push(row);
+            
+            // Recursively add all children
+            for (const child of siteRow.children) {
+                this._flattenRecursive(child, result);
+                row.treeLength += child.treeLength;
+            }
+            
+        }
+    }
+
+    public print(): void {
+        console.log("Scene");
+        for (const row of this._rows) {
+            row.print();
+        }
+    }
+    public findOrCreateSceneRow(siteRow: SiteRow): SceneRow {
+        const row = this.sceneRowPool.search((row: SceneRow) => row.siteRow === siteRow);
+        if (row !== this.sceneRowPool.end) return row;
+        return this.sceneRowPool.create(id => new SceneRow(this, siteRow, id));
+    }
+    public get rows(): readonly SceneRow[] { return this._rows; }
+}

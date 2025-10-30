@@ -53,16 +53,36 @@ Overall this document proposes that our program takes text input files and runs 
 
 ## Client
 
+- WebClient
+    - posts Model.version, Model.transactions
+        - receives success, newVersion
+            - updates model to transaction = [], version = newVersion
+        - receive conflict
+            - return 'conflicted'
+    - merge()
+        - until success or user cancels
+            - get updates since Model.version. 
+            - receive repo version, transactions
+                - if no conflict, 
+                    - apply transactions to model
+                - if conflict
+                    - compute transaction to merge with model.version
+                    - apply to model
+                    - call post
+                    - if 'conflicted'
+                        - undo and discard model merge.
+                        - undo merge
+        - return success or cancel
 - Model
     - - not stored
     - Represents a repo.
     - Computed by loading Doc objects and applying 0 or more Transactions.
     - Version - a transaction id
-    - Collection of SmartDoc at a particular version
+    - Collection of DocTree at a particular version
     - Collection of Transactions
     - redoQueue Collection of tranactions
     - applyChange(Transaction) : success | fail
-        - asks SmartDocs to apply Changes.
+        - asks DocTrees to apply Changes.
         - if any reject, undo other changes
         - if all succeed, record transaction
     - undo
@@ -86,14 +106,14 @@ Overall this document proposes that our program takes text input files and runs 
     - simple Text
     - Doc?
     - Line Id?
-- SmartDoc
+- DocTree
     - has a Doc
     - has a collection of Interpreters
     - findInterpreterFor(LIne) : Interpreter
     - isHeading(Line)
-- DocReferenceLine
+- SmartRef
     - is line that references another doc.
-- Interpreter (multiple types)
+- DocPart (multiple types)
     - Examines a portion of a document.  Validates content and changes.
     - Data Type
     - Doc
@@ -101,26 +121,6 @@ Overall this document proposes that our program takes text input files and runs 
     - Status: Good / Bad / Warning
     - AllowChange(change)
     - UpdateForChange(change)
-- WebClient
-    - posts Model.version, Model.transactions
-        - receives success, newVersion
-            - updates model to transaction = [], version = newVersion
-        - receive conflict
-            - return 'conflicted'
-    - merge()
-        - until success or user cancels
-            - get updates since Model.version. 
-            - receive repo version, transactions
-                - if no conflict, 
-                    - apply transactions to model
-                - if conflict
-                    - compute transaction to merge with model.version
-                    - apply to model
-                    - call post
-                    - if 'conflicted'
-                        - undo and discard model merge.
-                        - undo merge
-        - return success or cancel
 - Scene
     - - not stored
     - Represents display of a portion of a document, but including references to other documents

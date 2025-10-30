@@ -1,7 +1,7 @@
 import * as lm from './elements.js';
-import * as Scene from './scene.js';
-import { endRowId, RowId } from './rowid.js';
+import { Scene, SceneRow } from './scene.js';
 import { ArraySpan } from './arrayspan.js';
+import { Id, Pool } from './pool.js';
 
 const RowElementTag: string = 'div';
 const RowContentTag: string = 'span';
@@ -9,25 +9,55 @@ type RowContentElement = HTMLSpanElement;
 type RowElement = HTMLDivElement;
 const VISIBLE_TAB = '→'; // Visible tab character
 
+// export class RowId extends Id<'Row'> {
+//     public constructor(value: string) {
+//         if (!/^R[0-9A-Z]{6}$/.test(value)) {
+//             throw new Error('Invalid RowId');
+//         }
+//         super(value);
+//     }
+// }
+// class EditorRowPool extends Pool<Row, RowId> {
+//     protected override fromString(value: string): RowId {
+//         return new RowId(value);
+//     }
+//     public get end(): Row {
+//         return endRow;
+//     }
+//     public readonly tag: string = 'R';
+// }
+// const editorRowPool = new EditorRowPool();
 export function createRowElement(): RowElement {
 	const el = document.createElement(RowElementTag) as RowElement;
 	
-	const foldIndicator = document.createElement(RowContentTag);
-	foldIndicator.className = 'fold-indicator';
-	foldIndicator.textContent = ' ';
+	const elFold = document.createElement('span');
+	elFold.className = 'fold-indicator';
+	elFold.textContent = ' ';
 	
-	const content = document.createElement(RowContentTag);
-	content.className = 'content';
-	content.contentEditable = 'true';
+	const elContent = document.createElement(RowContentTag);
+	elContent.className = 'content';
+	elContent.contentEditable = 'true';
 	
-	el.appendChild(foldIndicator);
-	el.appendChild(content);
+	el.appendChild(elFold);
+	el.appendChild(elContent);
 	
 	return el;
 }
+export function createRowElementFromSceneRow(sceneRow: SceneRow): Row {
+	const el = createRowElement();
+	const row = new Row(el);
+
+	el.dataset.lineId = sceneRow.id.value;
+	const indent = sceneRow.indent;
+	row.setContent(sceneRow.content, indent);
+	return row;
+}
 
 export class Row {
-		constructor(public readonly el: RowElement, public readonly visibleTextOffset: number) {}
+		public equals(other: Row): boolean {
+			return this.el === other.el;
+		}
+		constructor(public readonly el: RowElement) {}
 		private getContentSpan(): RowContentElement {
 			return this.el.querySelector('.content') as RowContentElement;
 		}
@@ -61,52 +91,71 @@ export class Row {
 		// Extract innerHTML to preserve HTML tags, then convert visible tabs
 		return contentSpan.innerHTML.replace(new RegExp(VISIBLE_TAB, 'g'), '\t');
 	}
-	public setContent(value: string) {
+	public get bareContent(): string {
+		const contentSpan = this.getContentSpan();
+		if (!contentSpan) return '';
+		// Extract innerHTML to preserve HTML tags, then convert visible tabs
+		return contentSpan.innerHTML.replace(new RegExp(VISIBLE_TAB, 'g'), '\t')
+			.substring(this.indent);
+	}
+	public setContent(value: string, sceneIndent: number) {
 		const contentSpan = this.getContentSpan();
 		if (contentSpan) {
 			// Use innerHTML to allow HTML tags, and convert tabs to visible tabs
 			contentSpan.innerHTML = 
-				value.replace(new RegExp('\t', 'g'), VISIBLE_TAB);
+			VISIBLE_TAB.repeat(sceneIndent<0 ? 0 : sceneIndent) + value;
 		}
 	}
-		public setFoldIndicator(indicator: string) {
-			const foldSpan = this.getFoldIndicatorSpan();
-			if (foldSpan) foldSpan.textContent = indicator;
-		}
-		public get Previous(): Row {
-			const previousSibling = this.el?.previousElementSibling;
-			if (!previousSibling) return NoRow;
-			return new Row(previousSibling as RowElement, 0);
-		}
-		public get Next(): Row {
-			const nextSibling = this.el?.nextElementSibling;
-			if (!nextSibling) return NoRow;
-			return new Row(nextSibling as RowElement, 0);
-		}
-		public valid(): boolean {
-			return this.el !== null;
-		}
-		public get id(): RowId {
-			return RowId.fromString(this.idString);
-		}
-		
-		// Helper method to get the string representation for DOM operations
-		public get idString(): string {
-			return this.el?.dataset.lineId ?? endRowId.getString();
-		}
-		public setCaretInRow(offset: number) {
-			const contentSpan = this.getContentSpan();
-			if (contentSpan) setCaretInParagraph(contentSpan, offset);
-		}
-		public moveCaretToThisRow(): void {
-			const targetX = caretX();
-			const off = this.offsetAtX(targetX );
-			this.setCaretInRow(off);
-		}
-		public moveCaretToX(targetX: number): void {
-			const off = this.offsetAtX(targetX );
-			this.setCaretInRow(off);
-		}
+	public get indent(): number {
+		// count the number of tabs at the beginning of the content
+		const contentSpan = this.getContentSpan();
+		const innerHTML = contentSpan?.innerHTML ?? '';
+		const tabs = innerHTML.match(new RegExp('^' + VISIBLE_TAB + '+'));
+		if (tabs) return tabs[0].length;
+		return 0;
+	}
+	public setFoldIndicator(indicator: string) {
+		const foldSpan = this.getFoldIndicatorSpan();
+		if (foldSpan) foldSpan.textContent = indicator;
+	}
+	public get Previous(): Row {
+		const previousSibling = this.el?.previousElementSibling;
+		if (!previousSibling) return endRow;
+		return new Row(previousSibling as RowElement);
+	}
+	public get Next(): Row {
+		const nextSibling = this.el?.nextElementSibling;
+		if (!nextSibling) return endRow;
+		return new Row(nextSibling as RowElement);
+	}
+	public valid(): boolean {
+		return this.el !== null;
+	}
+	public get id(): string {
+		return  this.idString;
+	}
+	
+	// Helper method to get the string representation for DOM operations
+	public get idString(): string {
+		return this.el?.dataset.lineId ?? 'R000000';
+	}
+	public setCaretInRow(offset: number) {
+		const contentSpan = this.getContentSpan();
+		if (contentSpan) setCaretInParagraph(contentSpan, offset);
+	}
+	public moveCaretToThisRow(): void {
+		const targetX = caretX();
+		const off = this.offsetAtX(targetX );
+		this.setCaretInRow(off);
+	}
+	public moveCaretToX(targetX: number): void {
+		const off = this.offsetAtX(targetX );
+		this.setCaretInRow(off);
+	}
+	public get caretOffset() {
+		const x = caretX();
+		return this.offsetAtX(x);
+	}
 	public offsetAtX(x: number): number {
 		const contentSpan = this.getContentSpan();
 		if (!contentSpan) return 0;
@@ -129,29 +178,29 @@ export class Row {
 			r.setStart(position.node, position.offset);
 			r.collapse(true);
 			const rect = r.getBoundingClientRect();
-			dist = Math.abs(rect.left - x);
-			if (dist > lastdist) 
-				return i - 1 >= 0 ? i - 1 : 0;
-			lastdist = dist;
+			dist = rect.left - x;
+			if (dist >= -0.000001) return i;
 		}
-		return len;
+		return len - 1;
 	}
-		public focus(): void {
-			const contentSpan = this.getContentSpan();
-			if (contentSpan) contentSpan.focus();
-		}
-	}
+}
 
+	export function findRow(id: string): Row {
+		for (const row of rows()) {
+			if (row.idString == id) 
+				return row;
+		}
+		return endRow;
+	}
 // RowSpan is not an ArraySpan because the rows are virtual.
 // it's implemented by taking a row and finding the next row.
 export class RowSpan implements Iterable<Row> {
 	constructor(public readonly row: Row, public readonly count: number) {}
 	
-	// fix this
 	*[Symbol.iterator](): Iterator<Row> {
 		let row = this.row;
 		for (let i = 0; i < this.count; i++) {
-			yield this.row;
+			yield row;
 			row = row.Next;
 		}
 	}
@@ -172,7 +221,7 @@ export class RowSpan implements Iterable<Row> {
 }
 
 // Sentinel row used to indicate insertion at the start of the container
-export const NoRow: Row = new Row(document.createElement(RowElementTag) as RowElement, 0);
+export const endRow: Row = new Row(document.createElement(RowElementTag) as RowElement);
 
 // Paragraphs iterator
 function* paragraphs(): IterableIterator<RowElement> {
@@ -184,41 +233,60 @@ function* paragraphs(): IterableIterator<RowElement> {
 // create an iterator that yields rows from the DOM
 export function* rows(): IterableIterator<Row> {
 	for (const paragraph of paragraphs()) {
-		yield new Row(paragraph, 0);
+		yield new Row(paragraph);
 	}
 }
 export function at(index: number): Row {
-	// if index is out of range, return NoRow
-	if (index < 0 || index >= lm.editor.childElementCount) return NoRow;
-	return new Row(lm.editor.children[index] as RowElement, 0);
+	// if index is out of range, return endRow
+	if (index < 0 || index >= lm.editor.childElementCount) return endRow;
+	return new Row(lm.editor.children[index] as RowElement);
 }
 // Create a new row and insert it after the given previous row.
-// If previousRow is NoRow, insert at the front of the container.
-export function addBefore(targetRow: Row, scene: ArraySpan<Scene.RowData>)
+// If previousRow is endRow, insert at the front of the container.
+export function addBefore(targetRow: Row, scene: ArraySpan<SceneRow>)
 	: RowSpan {
 	if (lm.editor === null) 
-		return new RowSpan(NoRow, 0);
+		return new RowSpan(endRow, 0);
 	
-	let firstRow = NoRow;
+	let firstRow = endRow;
 	for (const sceneRow of scene) {
-		if (!sceneRow.visible) continue;
-		
 		// Convert regular tabs to visible tabs for display
-		const visibleContent = sceneRow.content.replace(/\t/g, VISIBLE_TAB);
-		const el = createRowElement();
-		el.dataset.lineId = sceneRow.id.getString();
-		let row = new Row(el, 0);
-		if (firstRow === NoRow) firstRow = row;
+		const row = createRowElementFromSceneRow(sceneRow);
+		if (firstRow === endRow) firstRow = row;
 
-		row.setContent(visibleContent);
-		if (targetRow === NoRow) {
-			lm.editor.append(el); // add to front of editor
+		if (targetRow === endRow) {
+			lm.editor.appendChild(row.el); // add to front of editor
 		} else {
-			lm.editor.insertBefore(el, targetRow.el);
+			lm.editor.insertBefore(row.el, targetRow.el);
 		}
 	}
 	return new RowSpan(firstRow, scene.length);
 }
+
+export function addAfter(
+	referenceRow: Row, 
+	rowDataArray: ArraySpan<SceneRow>
+): RowSpan {
+	if (lm.editor === null) return new RowSpan(endRow, 0);
+	let count = 0;
+	let beforeRow = referenceRow.el;
+	let first = endRow;
+	for (const rowData of rowDataArray) {
+		const row = createRowElementFromSceneRow(rowData);
+		
+		if (beforeRow.nextSibling) {
+			lm.editor.insertBefore(row.el, beforeRow.nextSibling);
+		} else {
+			lm.editor.appendChild(row.el);
+		}
+		if (first === endRow) first = row;
+		beforeRow = row.el;
+		count++;
+	}
+	
+	return new RowSpan(first, count);
+}
+
 // Helper: Walk DOM tree and find node+offset for a given text offset
 function getNodeAndOffsetFromTextOffset(
 	container: HTMLElement, 
@@ -373,9 +441,14 @@ function setCaretInParagraph(contentSpan: HTMLElement, offset: number) {
 	selection.addRange(range);
 }
 
-export function CurrentRow(): Row {
+export function currentRow(): Row {
 	let p = getCurrentParagraphWithOffset();
-	return p ? new Row(p.element, p.offset) : NoRow;
+	return p ? new Row(p.element) : endRow;
+}
+export function currentRowWithOffset(): { element: Row, offset: number } {
+	let p = getCurrentParagraphWithOffset();
+	if (!p) return { element: endRow, offset: 0 };
+	return { element: new Row(p.element), offset: p.offset };
 }
 
 export function moveRowAbove(toMove: Row, target: Row): void {
@@ -414,57 +487,38 @@ export function getContent(): string {
 	return getContentLines().join('\n');
 }
 
-export function replaceRows(oldRows: RowSpan, newRows: ArraySpan<Scene.RowData>): RowSpan {
-	if (oldRows.count === 0 && newRows.length === 0) return new RowSpan(NoRow, 0);
+export function replaceRows(oldRows: RowSpan, newRows: ArraySpan<SceneRow>): RowSpan {
+	if (oldRows.count === 0 && newRows.length === 0) return new RowSpan(endRow, 0);
 	
 	const beforeStartRow = oldRows.row.Previous;
-	const endRow = oldRows.endRow();
 	
-	for (const row of oldRows) {
+	// Collect all rows first before removing (to avoid breaking the DOM chain)
+	const rowsToRemove: Row[] = Array.from(oldRows);
+	
+	// Now remove them
+	for (const row of rowsToRemove) {
 		row.el.remove();
 	}
-	return addBefore(endRow, newRows);
+	
+	return addAfter(beforeStartRow, newRows);
 }
 
 // Update rows with Scene.RowData array
-export function updateRows(rowDataArray: ArraySpan<Scene.RowData>): void {
+export function updateRows(rowDataArray: ArraySpan<SceneRow>): void {
 	let idx = 0;
 	for (const row of rows()) {
-		if (idx < rowDataArray.length && row.id.equals(rowDataArray.at(idx).id)) {
-			row.setContent(rowDataArray.at(idx).content);
-			idx++;
-		}
+		const rowData = rowDataArray.at(idx);
+		if (!rowData) break;
+		
+		row.setContent(rowData.content, rowData.indent);
+		idx++;
 	}
 }
+
 export function deleteRow(row: Row): void {
 	row.el.remove();
 }
 
-export function addAfter(
-	referenceRow: Row, 
-	rowDataArray: ArraySpan<Scene.RowData>
-): RowSpan {
-	if (lm.editor === null) return new RowSpan(NoRow, 0);
-	let count = 0;
-	let beforeRow = referenceRow.el;
-	let first = NoRow;
-	for (const rowData of rowDataArray) {
-		const el = createRowElement();
-		el.dataset.lineId = rowData.id.getString();
-		new Row(el, 0).setContent(rowData.content);
-		
-		if (beforeRow.nextSibling) {
-			lm.editor.insertBefore(el, beforeRow.nextSibling);
-		} else {
-			lm.editor.appendChild(el);
-		}
-		if (first === NoRow) first = new Row(el, 0);
-		beforeRow = el;
-		count++;
-	}
-	
-	return new RowSpan(first, count);
-}
 
 export function deleteAfter(referenceRow: Row, count: number): void {
 	let current = referenceRow.Next;
@@ -480,10 +534,11 @@ export function docName(): string {
 export function setDocName(name: string): void {
 	lm.path.textContent = name;
 }
-export function setContent(scene: ArraySpan<Scene.RowData>): RowSpan {    // Clear the Editor
+export function setContent(scene: ArraySpan<SceneRow>): RowSpan {    // Clear the Editor
 	clear();
 
 	// Create a Line element for each visible line
-	let end = NoRow;
+	let end = endRow;
 	return addBefore(end, scene);
 }
+
