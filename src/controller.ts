@@ -115,7 +115,7 @@ function findKeyBinding(combo: string): KeyBinding {
 
  function handleEnter(currentRow: Editor.Row) : boolean {
 	// Get HTML string offset (includes tag lengths) for proper splitting
-	const htmlOffset = currentRow.getHtmlOffset();
+	const htmlOffset = currentRow.getHtmlOffsetWithTabs();
 	
 	const docLine = docLineFromRow(currentRow);
 	const beforeText = currentRow.bareContent.substring(0, htmlOffset-currentRow.indent);
@@ -154,10 +154,10 @@ function handleBackspace(currentRow: Editor.Row) : boolean {
 	
 	if (currentRow.indent === 0) {
 		const prevRow = currentRow.Previous;
-		const prevPosition = prevRow.visibleTextLength;
+		const prevPosition = prevRow.visibleTextLengthWithTabs;
 		if (!prevRow.valid()) return true;
 		joinRows(prevRow, currentRow);
-		prevRow.setCaretInRow(prevPosition);
+		prevRow.setCaretInRowWithTabs(prevPosition);
 		return true;
 	}
 	else { // we're not at the beginning of the row so just delete the character
@@ -178,7 +178,7 @@ function handleArrowUp(currentRow: Editor.Row) : boolean {
 	const prevP = currentRow.Previous;
 	if (!prevP.valid()) return true;
 	
-	prevP.moveCaretToThisRow();
+	prevP.moveCaretToThisRowWithTabs();
 	return true;
 }
 
@@ -186,19 +186,19 @@ function handleArrowUp(currentRow: Editor.Row) : boolean {
 	const nextP = currentRow.Next;
 	if (!nextP.valid()) return true;
 	
-	nextP.moveCaretToThisRow();
+	nextP.moveCaretToThisRowWithTabs();
 	return true;
  }
 
 function handleArrowLeft(currentRow: Editor.Row) : boolean {
-	if (currentRow.caretOffset > 0) {
+	if (currentRow.caretOffsetWithTabs > 0) {
 		// Move cursor left within current row
-		currentRow.setCaretInRow(currentRow.caretOffset - 1);
+		currentRow.setCaretInRowWithTabs(currentRow.caretOffsetWithTabs - 1);
 	} else {
 		// Move to end of previous row (need visible text length)
 		const prevRow = currentRow.Previous;
 		if (prevRow.valid()) {
-			prevRow.setCaretInRow(prevRow.visibleTextLength);
+			prevRow.setCaretInRowWithTabs(prevRow.visibleTextLengthWithTabs);
 		}
 	}
 	return true;
@@ -206,18 +206,16 @@ function handleArrowLeft(currentRow: Editor.Row) : boolean {
 
 function handleArrowRight(currentRow: Editor.Row) : boolean {
 	// Get visible text length to check if at end
-	const temp = document.createElement('div');
-	temp.innerHTML = currentRow.content;
-	const visibleLength = temp.textContent?.length ?? 0;
+	const visibleLengthWithTabs = currentRow.visibleTextLengthWithTabs;
 	
-	if (currentRow.caretOffset < visibleLength) {
+	if (currentRow.caretOffsetWithTabs < visibleLengthWithTabs) {
 		// Move cursor right within current row
-		currentRow.setCaretInRow(currentRow.caretOffset + 1);
+		currentRow.setCaretInRowWithTabs(currentRow.caretOffsetWithTabs + 1);
 	} else {
 		// Move to beginning of next row
 		const nextRow = currentRow.Next;
 		if (nextRow.valid()) {
-			nextRow.setCaretInRow(0);
+			nextRow.setCaretInRowWithTabs(0);
 		}
 	}
 	return true;
@@ -275,7 +273,7 @@ function performRowSwap(
     currentRowId: string
 ): boolean {
     moveBefore(lineToMove, lineBefore);
-    Editor.findRow(currentRowId).setCaretInRow(0);
+    Editor.findRow(currentRowId).setCaretInRowWithTabs(0);
     return true;
 }
 function handleToggleFold(currentRow: Editor.Row) : boolean {
@@ -312,8 +310,8 @@ function offsetIsInIndent(offset: number, rowText: string): boolean {
 // }
 
 function handleTab(currentRow: Editor.Row) : boolean {
-	const visibleOffset = currentRow.caretOffset;
-	let c = currentRow.content;
+	const visibleOffset = currentRow.caretOffsetWithTabs;
+	let c = currentRow.contentWithTabs;
 	
 	// Get visible text for indent checking
 	const temp = document.createElement('div');
@@ -327,20 +325,20 @@ function handleTab(currentRow: Editor.Row) : boolean {
 		if (sprev === SiteRow.end) return false;
 		moveBelow(scur.docLine, sprev.docLine);
 		const replacementRow = Editor.findRow(currentRow.id)
-		replacementRow.setCaretInRow(visibleOffset+ 1);
+		replacementRow.setCaretInRowWithTabs(visibleOffset+ 1);
 		return true;
 		// let rows : ArraySpan<SceneRow> = scene.indentRowAndChildren(rowDataFromEditorRow(currentRow));
 		// Editor.updateRows(rows);
 	} else {
 		// Insert tab at HTML offset
-		const htmlOffset = currentRow.getHtmlOffset();
-		const oldContent = currentRow.content;
+		const htmlOffset = currentRow.getHtmlOffsetWithTabs();
+		const oldContent = currentRow.contentWithTabs;
 		const change = Change.makeTextChange(scur.docLine, htmlOffset, 0, // split at htmlOffset
 			 '\t');
 		Doc.processChange(change);
 		updateAllFoldIndicators();
 		const p = Editor.currentRowWithOffset();
-		p.element.setCaretInRow(p.offset + 1);
+		p.element.setCaretInRowWithTabs(p.offset + 1);
 	}
 	return true;
 }
@@ -351,7 +349,7 @@ function docLineFromRow(row: Editor.Row): DocLine {
  function handleShiftTab(currentRow: Editor.Row) : boolean {
     
     // Get visible text for indent checking
-	if (currentRow.indent >= currentRow.caretOffset) {
+	if (currentRow.indent >= currentRow.caretOffsetWithTabs) {
 		// Move after parent
 		// Move before parent's sibling if any.
 		const docLine = docLineFromRow(currentRow);
@@ -370,15 +368,15 @@ function docLineFromRow(row: Editor.Row): DocLine {
 		}
 	} else {
 		// find tab to the left of the cursor in HTML content
-		const visibleOffset = currentRow.caretOffset;
-		const htmlOffset = currentRow.getHtmlOffset();
-		const tabIndex = currentRow.content.substring(0, htmlOffset).lastIndexOf('\t');
+		const visibleOffset = currentRow.caretOffsetWithTabs;
+		const htmlOffset = currentRow.getHtmlOffsetWithTabs();
+		const tabIndex = currentRow.contentWithTabs.substring(0, htmlOffset).lastIndexOf('\t');
 		if (tabIndex === -1) return false;
 
 		const docLine = docLineFromRow(currentRow);
 		const change = Change.makeTextChange(docLine, htmlOffset, 0, '\t');
 		Doc.processChange(change);
-		currentRow.setCaretInRow(visibleOffset + 1);
+		currentRow.setCaretInRowWithTabs(visibleOffset + 1);
 	}
 	return true;
 }

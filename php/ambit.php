@@ -22,6 +22,7 @@ $content = ''; // Empty initially, JavaScript will populate via GET request
 <button id="save">Save</button>  
 <div id="editor" style="height: 80%; width:100%; border: 1px solid #ccc; padding: 0 0 0 5px; overflow-y: auto;"></div>
 <div id="links"></div>
+<div id="newEditor" style="height: 80%; width:100%; border: 1px solid #ccc; padding: 0 0 0 5px; overflow-y: auto;"></div>
 <div>Message: <span id="messageElement"><?= "Ready" ?></span> </div>
 <script type="module" src="dist/ambit.js">
 </script>

@@ -58,14 +58,14 @@ export class Row {
 			return this.el === other.el;
 		}
 		constructor(public readonly el: RowElement) {}
-		private getContentSpan(): RowContentElement {
+		private getContentSpanWithTabs(): RowContentElement {
 			return this.el.querySelector('.content') as RowContentElement;
 		}
 		private getFoldIndicatorSpan(): RowContentElement {
 			return this.el.querySelector('.fold-indicator') as RowContentElement;
 		}
-	public getHtmlOffset(): number {
-		const contentSpan = this.getContentSpan();
+	public getHtmlOffsetWithTabs(): number {
+		const contentSpan = this.getContentSpanWithTabs();
 		if (!contentSpan) return 0;
 		
 		// Find the current cursor position in the DOM
@@ -77,29 +77,29 @@ export class Row {
 		// Use getHtmlOffsetFromNode to compute HTML string offset
 		return getHtmlOffsetFromNode(contentSpan, range.startContainer, range.startOffset);
 	}
-	public get visibleText() : string {
-		const contentSpan = this.getContentSpan();
+	public get visibleTextWithTabs() : string {
+		const contentSpan = this.getContentSpanWithTabs();
 		if (!contentSpan) return '';
 		return contentSpan.textContent ?? '';
 	}
-	public get visibleTextLength() : number {
-		return this.visibleText.length;
+	public get visibleTextLengthWithTabs() : number {
+		return this.visibleTextWithTabs.length;
 	}
-	public get content(): string {
-		const contentSpan = this.getContentSpan();
+	public get contentWithTabs(): string {
+		const contentSpan = this.getContentSpanWithTabs();
 		if (!contentSpan) return '';
 		// Extract innerHTML to preserve HTML tags, then convert visible tabs
 		return contentSpan.innerHTML.replace(new RegExp(VISIBLE_TAB, 'g'), '\t');
 	}
 	public get bareContent(): string {
-		const contentSpan = this.getContentSpan();
+		const contentSpan = this.getContentSpanWithTabs();
 		if (!contentSpan) return '';
 		// Extract innerHTML to preserve HTML tags, then convert visible tabs
 		return contentSpan.innerHTML.replace(new RegExp(VISIBLE_TAB, 'g'), '\t')
 			.substring(this.indent);
 	}
 	public setContent(value: string, sceneIndent: number) {
-		const contentSpan = this.getContentSpan();
+		const contentSpan = this.getContentSpanWithTabs();
 		if (contentSpan) {
 			// Use innerHTML to allow HTML tags, and convert tabs to visible tabs
 			contentSpan.innerHTML = 
@@ -108,7 +108,7 @@ export class Row {
 	}
 	public get indent(): number {
 		// count the number of tabs at the beginning of the content
-		const contentSpan = this.getContentSpan();
+		const contentSpan = this.getContentSpanWithTabs();
 		const innerHTML = contentSpan?.innerHTML ?? '';
 		const tabs = innerHTML.match(new RegExp('^' + VISIBLE_TAB + '+'));
 		if (tabs) return tabs[0].length;
@@ -139,25 +139,25 @@ export class Row {
 	public get idString(): string {
 		return this.el?.dataset.lineId ?? 'R000000';
 	}
-	public setCaretInRow(offset: number) {
-		const contentSpan = this.getContentSpan();
+	public setCaretInRowWithTabs(offset: number) {
+		const contentSpan = this.getContentSpanWithTabs();
 		if (contentSpan) setCaretInParagraph(contentSpan, offset);
 	}
-	public moveCaretToThisRow(): void {
+	public moveCaretToThisRowWithTabs(): void {
 		const targetX = caretX();
-		const off = this.offsetAtX(targetX );
-		this.setCaretInRow(off);
+		const off = this.offsetAtXWithTabs(targetX );
+		this.setCaretInRowWithTabs(off);
 	}
-	public moveCaretToX(targetX: number): void {
-		const off = this.offsetAtX(targetX );
-		this.setCaretInRow(off);
+	public moveCaretToXWithTabs(targetX: number): void {
+		const off = this.offsetAtXWithTabs(targetX );
+		this.setCaretInRowWithTabs(off);
 	}
-	public get caretOffset() {
+	public get caretOffsetWithTabs() {
 		const x = caretX();
-		return this.offsetAtX(x);
+		return this.offsetAtXWithTabs(x);
 	}
-	public offsetAtX(x: number): number {
-		const contentSpan = this.getContentSpan();
+	public offsetAtXWithTabs(x: number): number {
+		const contentSpan = this.getContentSpanWithTabs();
 		if (!contentSpan) return 0;
 		
 		// Get total text length (works with HTML too)
@@ -477,7 +477,7 @@ export function clear(): void {
 export function getContentLines(): string[] {
 	const lines: string[] = [];
 	for (const row of rows()) {
-		lines.push(row.content);
+		lines.push(row.contentWithTabs);
 	}
 	return lines;
 }

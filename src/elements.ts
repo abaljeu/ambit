@@ -1,4 +1,5 @@
 export const editor = document.getElementById('editor') as HTMLDivElement;
+export const newEditor = document.getElementById('newEditor') as HTMLDivElement;
 export const saveButton = document.getElementById("save") as HTMLButtonElement;
 export const messageArea = document.getElementById("messageElement") as HTMLElement;
 export const linksDiv = document.getElementById('links') as HTMLElement;

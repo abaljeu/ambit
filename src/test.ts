@@ -73,7 +73,7 @@ const tests: (() => void)[] = [
 
         const expectedLines = expectedContent.split('\n');
         for (let i = 0; i < rows.length; i++) {
-            assertEquals(expectedLines[i], rows[i].content);
+            assertEquals(expectedLines[i], rows[i].contentWithTabs);
         }
         assertEquals(expectedContent, Editor.getContent());
     
@@ -84,7 +84,7 @@ const tests: (() => void)[] = [
         loadTestDoc();
         const rows = Array.from(Editor.rows());
         const secondRow = rows[2];
-        secondRow.setCaretInRow(3); // Position in middle of "Line 2"
+        secondRow.setCaretInRowWithTabs(3); // Position in middle of "Line 2"
         
         // Act
         sendKey('ArrowUp', []);
@@ -98,7 +98,7 @@ const tests: (() => void)[] = [
         loadTestDoc();
         const rows = Array.from(Editor.rows());
         const firstRow = rows[0];
-        firstRow.setCaretInRow(2); // Position in middle of "Line 1"
+        firstRow.setCaretInRowWithTabs(2); // Position in middle of "Line 1"
         
         // Act
         sendKey('ArrowDown', []);
@@ -115,31 +115,31 @@ const tests: (() => void)[] = [
     const currentRow = Editor.at(1);
     assert(currentRow.valid());
     let rows = Array.from(Editor.rows());
-    assertEquals("\tLine 2", rows[2].content);
+    assertEquals("\tLine 2", rows[2].contentWithTabs);
     
     // Position cursor in middle of first line
-    currentRow.setCaretInRow(3); // "Line 1" -> position after "Lin"   
+    currentRow.setCaretInRowWithTabs(3); // "Line 1" -> position after "Lin"   
     sendKey('Enter', []);
     
     rows = Array.from(Editor.rows());
     assertEquals(5, rows.length);
-    assertEquals("Lin", rows[1].content);
-    assertEquals("e 1", rows[2].content);
-    assertEquals("\tLine 2", rows[3].content);
+    assertEquals("Lin", rows[1].contentWithTabs);
+    assertEquals("e 1", rows[2].contentWithTabs);
+    assertEquals("\tLine 2", rows[3].contentWithTabs);
 
-    rows[3].setCaretInRow(0);
+    rows[3].setCaretInRowWithTabs(0);
     sendKey('Enter', []);
     rows = Array.from(Editor.rows());
     assertEquals(6, rows.length);
-    assertEquals("\t", rows[3].content);
-    assertEquals("\tLine 2", rows[4].content);
+    assertEquals("\t", rows[3].contentWithTabs);
+    assertEquals("\tLine 2", rows[4].contentWithTabs);
 
-    rows[4].setCaretInRow(4);
+    rows[4].setCaretInRowWithTabs(4);
     sendKey('Enter', []);
     rows = Array.from(Editor.rows());
     assertEquals(7, rows.length);
-    assertEquals("\tLin", rows[4].content);
-    assertEquals("\te 2", rows[5].content);
+    assertEquals("\tLin", rows[4].contentWithTabs);
+    assertEquals("\te 2", rows[5].contentWithTabs);
 }
 
 // Test 3: handleBackspace function
@@ -148,7 +148,7 @@ const tests: (() => void)[] = [
     loadTestDoc();
     const rows = Array.from(Editor.rows());
     const secondRow = rows[2];
-    secondRow.setCaretInRow(0); // Position at start of second row
+    secondRow.setCaretInRowWithTabs(0); // Position at start of second row
     
     // Act
     sendKey('Backspace', []);
@@ -156,8 +156,8 @@ const tests: (() => void)[] = [
     // Assert
     const updatedRows = Array.from(Editor.rows());
     assertEquals(3, updatedRows.length);
-    assertEquals("Line 1Line 2", updatedRows[1].content);
-    assertEquals("\tLine 3", updatedRows[2].content);
+    assertEquals("Line 1Line 2", updatedRows[1].contentWithTabs);
+    assertEquals("\tLine 3", updatedRows[2].contentWithTabs);
 }
 
 
@@ -166,8 +166,8 @@ const tests: (() => void)[] = [
     loadTestDoc();
     const rows = Array.from(Editor.rows());
     const secondRow = rows[1];
-    secondRow.setCaretInRow(2); // Position in middle of "Line 2"
-    assertEquals(2, secondRow.caretOffset);
+    secondRow.setCaretInRowWithTabs(2); // Position in middle of "Line 2"
+    assertEquals(2, secondRow.caretOffsetWithTabs);
     assertEquals(secondRow, Editor.currentRow());
     // Act
     Controller.editorHandleKey(new KeyboardEvent('keydown', { key: 'ArrowLeft' }));
@@ -175,8 +175,8 @@ const tests: (() => void)[] = [
     // Assert
     const currentRow = Editor.currentRow();
     assertEquals(currentRow, secondRow);
-    if (currentRow.caretOffset !== 1) {
-        throw new Error(`Expected cursor at position 1, got ${currentRow.caretOffset}`);
+    if (currentRow.caretOffsetWithTabs !== 1) {
+        throw new Error(`Expected cursor at position 1, got ${currentRow.caretOffsetWithTabs}`);
     }
 }
 ,
@@ -185,15 +185,15 @@ function testHandleArrowRight(): void {
     loadTestDoc();
     const rows = Array.from(Editor.rows());
     const firstRow = rows[0];
-    firstRow.setCaretInRow(2); // Position in middle of "Line 1"
+    firstRow.setCaretInRowWithTabs(2); // Position in middle of "Line 1"
     
     // Act
     Controller.editorHandleKey(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
     
     // Assert
     const currentRow = Editor.currentRow();
-    if (currentRow.caretOffset !== 3) {
-        throw new Error(`Expected cursor at position 3, got ${currentRow.caretOffset}`);
+    if (currentRow.caretOffsetWithTabs !== 3) {
+        throw new Error(`Expected cursor at position 3, got ${currentRow.caretOffsetWithTabs}`);
     }
 }
 
@@ -303,7 +303,7 @@ function testHandleArrowRight(): void {
     assertEquals(3, sceneIndexA);
 
     const editorRowB : Editor.Row = Editor.at(sceneIndexB);
-    assertEquals(editorRowB.content, bLine.content);
+    assertEquals(editorRowB.contentWithTabs, bLine.content);
     // const sceneRow = scene.search((row: SceneRow) => row.siteRow === siteRow);
     // assert(sceneRow.valid);
     // assertEquals(bLine, sceneRow.docLine);
@@ -315,15 +315,15 @@ function testHandleArrowRight(): void {
     loadTestDoc();
     const rows = Array.from(Editor.rows());
     const secondRow = rows[2];
-    secondRow.setCaretInRow(0);
+    secondRow.setCaretInRowWithTabs(0);
     
     // Act
     sendKey('ArrowUp', ['C']);
     
     // Assert
     const updatedRows = Array.from(Editor.rows());
-    assertEquals(updatedRows[1].content, "Line 2");
-    assertEquals(updatedRows[3].content, "Line 1");
+    assertEquals(updatedRows[1].contentWithTabs, "Line 2");
+    assertEquals(updatedRows[3].contentWithTabs, "Line 1");
 }
 
 // Test 9: handleSwapDown function
@@ -332,27 +332,27 @@ function testHandleArrowRight(): void {
     loadTestDoc();
     let rows = Array.from(Editor.rows());
     const firstRow = rows[1];
-    firstRow.setCaretInRow(0);
+    firstRow.setCaretInRowWithTabs(0);
     
     // Act
     sendKey('ArrowDown', ['C']);
     
     // Assert
     const updatedRows = Array.from(Editor.rows());
-    assertEquals(updatedRows[1].content, "Line 2");
-    assertEquals(updatedRows[3].content, "Line 1");
+    assertEquals(updatedRows[1].contentWithTabs, "Line 2");
+    assertEquals(updatedRows[3].contentWithTabs, "Line 1");
 
 // swap down at end
     rows = Array.from(Editor.rows());
     const lastRow = rows[rows.length - 1];
     const lastSceneRow = model.scene.findRow(lastRow.idString);
     const lastLine = lastSceneRow.siteRow.docLine;
-    lastRow.setCaretInRow(0);
+    lastRow.setCaretInRowWithTabs(0);
     assertEquals(lastRow.indent, 0);
     sendKey('ArrowDown', ['C']);
-    assertEquals(lastRow.content, "Line 1");
+    assertEquals(lastRow.contentWithTabs, "Line 1");
     rows = Array.from(Editor.rows());
-    assertEquals(rows[2].content, "\tLine 3");
+    assertEquals(rows[2].contentWithTabs, "\tLine 3");
     assertEquals(lastRow.indent, 0);
 }
 
@@ -367,7 +367,7 @@ function testHandleArrowRight(): void {
     assertEquals(secondRow.indent, 0);
     
     // Act
-    secondRow.setCaretInRow(0); // Position at start of line
+    secondRow.setCaretInRowWithTabs(0); // Position at start of line
     sendKey('Tab', []);
     
     // Assert
@@ -377,7 +377,7 @@ function testHandleArrowRight(): void {
     const siteRow2 = sceneRow2.siteRow;
     const docLine1 = siteRow1.docLine;
     const docLine2 = siteRow2.docLine;
-    const content = secondRow.content;
+    const content = secondRow.contentWithTabs;
     assertEquals(docLine1, docLine2.parent);
     assertEquals(siteRow1, siteRow2.parent);
     const updatedRows = Array.from(Editor.rows());
@@ -389,9 +389,9 @@ function testHandleArrowRight(): void {
     loadTestDoc();
     const rows = Array.from(Editor.rows());
     const row2 = rows[2];
-    row2.setCaretInRow(4); // Position in middle of line
+    row2.setCaretInRowWithTabs(4); // Position in middle of line
     assertEquals(row2.indent, 0);
-    const content = row2.content;
+    const content = row2.contentWithTabs;
     assertEquals(content, "Line 2");
     // Act
     sendKey('Tab', []);
@@ -399,7 +399,7 @@ function testHandleArrowRight(): void {
     // Assert
     const updatedRows = Array.from(Editor.rows());
     assertEquals(updatedRows[2].indent, 0);
-    assertEquals(updatedRows[2].content, "Line\t 2");
+    assertEquals(updatedRows[2].contentWithTabs, "Line\t 2");
 
 }
 
@@ -410,7 +410,7 @@ function testHandleArrowRight(): void {
 
     // Indent Row 1 refuses.
     const firstRow = rows[0];
-    firstRow.setCaretInRow(0);
+    firstRow.setCaretInRowWithTabs(0);
     const firstIndent = firstRow.indent;
     sendKey('Tab', []);
     assertEquals(firstIndent, firstRow.indent);
@@ -419,7 +419,7 @@ function testHandleArrowRight(): void {
     const secondRow = rows[1];
     const secondIndent = secondRow.indent;
     assertEquals(secondIndent, 0);
-    secondRow.setCaretInRow(0);
+    secondRow.setCaretInRowWithTabs(0);
     sendKey('Tab', []);
     assertEquals(secondIndent , secondRow.indent);
 
@@ -427,14 +427,14 @@ function testHandleArrowRight(): void {
     const thirdRow = rows[2];
     const thirdIndent = thirdRow.indent;
     assertEquals(thirdIndent, 0);
-    thirdRow.setCaretInRow(0);
+    thirdRow.setCaretInRowWithTabs(0);
     sendKey('Tab', []);
     assertEquals(thirdIndent+1 , Editor.currentRow().indent);
 
 
     // Then position cursor in indent area
     let updatedRows = Array.from(Editor.rows());
-    updatedRows[2].setCaretInRow(0);
+    updatedRows[2].setCaretInRowWithTabs(0);
     
     // // Act
     // Controller.editorHandleKey(new KeyboardEvent('keydown', { 
@@ -450,12 +450,12 @@ function testHandleArrowRight(): void {
     const fourthIndent = fourthRow.indent;
     assertEquals(fourthIndent, 2);
 
-    fourthRow.setCaretInRow(0);
+    fourthRow.setCaretInRowWithTabs(0);
     sendKey('Tab', []);
     updatedRows = Array.from(Editor.rows());
     const newFourthRow = updatedRows[3];
     assertEquals(fourthIndent , newFourthRow.indent);
-    assertEquals(newFourthRow.content, "\t\tLine 3");
+    assertEquals(newFourthRow.contentWithTabs, "\t\tLine 3");
     
     // tab again does nothing.
     sendKey('Tab', []);
@@ -463,11 +463,11 @@ function testHandleArrowRight(): void {
 
     // unindent
     const newThirdRow = Editor.findRow(thirdRow.id);
-    newThirdRow.setCaretInRow(0);
+    newThirdRow.setCaretInRowWithTabs(0);
     sendKey('Tab', ['S']);
     const newRows = Array.from(Editor.rows());
-    assertEquals(newRows[2].content, "Line 2");
-    assertEquals(newRows[3].content, "\tLine 3");
+    assertEquals(newRows[2].contentWithTabs, "Line 2");
+    assertEquals(newRows[3].contentWithTabs, "\tLine 3");
 }
 
 // Test 12: handleToggleFold function
@@ -478,7 +478,7 @@ function testHandleArrowRight(): void {
     
     const rows = Array.from(Editor.rows());
     const parentRow = rows[1];
-    parentRow.setCaretInRow(0);
+    parentRow.setCaretInRowWithTabs(0);
     
     // Act
     sendKey('.', ['C']);
@@ -486,7 +486,7 @@ function testHandleArrowRight(): void {
     // Assert
     const updatedRows = Array.from(Editor.rows());
     assertEquals(updatedRows.length, 2);
-    assertEquals(updatedRows[1].content, "Parent");
+    assertEquals(updatedRows[1].contentWithTabs, "Parent");
 }
 ];
 // // Run all tests
