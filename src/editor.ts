@@ -130,7 +130,14 @@ export class Row {
 		const indentSpan = this.newEl.querySelector('.indentation') as HTMLSpanElement;
 		const rowContentSpan = this.newEl.querySelector('.rowContent') as HTMLSpanElement;
 		if (indentSpan && rowContentSpan) {
-			indentSpan.innerHTML = VISIBLE_TAB.repeat(indent);
+			// Clear and rebuild indentation units
+			indentSpan.innerHTML = '';
+			for (let i = 0; i < indent; i++) {
+				const unit = document.createElement('span');
+				unit.className = 'indent-unit';
+				unit.textContent = '\u00A0'; // Non-breaking space to ensure element renders
+				indentSpan.appendChild(unit);
+			}
 			rowContentSpan.innerHTML = value;
 		}
 	}
