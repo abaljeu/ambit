@@ -11,6 +11,12 @@ const VISIBLE_TAB = '→'; // Visible tab character
 
 type RowElementPair = { el: RowElement; newEl: RowElement; };
 const NOROWID = 'R000000';
+export function focusIsInNewEditor(): boolean {
+	return lm.newEditor.contains(document.activeElement);
+}
+export function focusIsInEditor(): boolean {
+	return lm.editor.contains(document.activeElement);
+}
 export function createRowElement(): RowElementPair {
 	// Create editor element (2-span: fold-indicator + content with inline tabs)
 	const el = document.createElement(RowElementTag) as RowElement;
@@ -65,12 +71,15 @@ export class Row {
 	private getNewContentSpan(): RowContentElement {
 		return this.newEl.querySelector('.rowContent') as RowContentElement;
 	}
+	private getContentSpanForFocus(): RowContentElement {
+		return focusIsInEditor() ? this.getContentSpan() : this.getNewContentSpan();
+	}
 	private getFoldIndicatorSpan(): RowContentElement {
 		return this.el.querySelector('.fold-indicator') as RowContentElement;
 	}
 
 	public getHtmlOffset(): number {
-		const contentSpan = this.getContentSpan();
+		const contentSpan = this.getContentSpanForFocus();
 		if (!contentSpan) return 0;
 		
 		const selection = window.getSelection();
@@ -83,32 +92,33 @@ export class Row {
 	}
 	
 	public get visibleText() : string {
-		const contentSpan = this.getContentSpan();
+		const contentSpan = this.getNewContentSpan();
 		if (!contentSpan) return '';
-		return contentSpan.textContent?.substring(this.indent) ?? '';
+		return contentSpan.textContent ?? '';
 	}
 	public get visibleTextLength() : number {
 		return this.visibleText.length;
 	}
 	public get htmlContent(): string {
-		const contentSpan = this.getContentSpan();
+		const contentSpan = this.getNewContentSpan();
 		if (!contentSpan) return '';
 		// Extract innerHTML to preserve HTML tags, then convert visible tabs
-		return contentSpan.innerHTML.substring(this.indent).replace(new RegExp(VISIBLE_TAB, 'g'), '\t');
+		return contentSpan.innerHTML.replace(new RegExp(VISIBLE_TAB, 'g'), '\t');
 	}
 	public setContent(value: string, sceneIndent: number) {
 		const indent = sceneIndent < 0 ? 0 : sceneIndent;
 		
 		// Set content in editor (inline tabs + content)
 		const contentSpan = this.getContentSpan();
+		const newContentSpan = this.getNewContentSpan();
+
 		if (contentSpan) {
 			contentSpan.innerHTML = VISIBLE_TAB.repeat(indent) + value;
 		}
 		
 		// Set content in newEditor (separate indentation + rowContent)
 		const indentSpan = this.newEl.querySelector('.indentation') as HTMLSpanElement;
-		const rowContentSpan = this.newEl.querySelector('.rowContent') as HTMLSpanElement;
-		if (indentSpan && rowContentSpan) {
+		if (indentSpan && newContentSpan) {
 			// Clear and rebuild indentation units
 			indentSpan.innerHTML = '';
 			for (let i = 0; i < indent; i++) {
@@ -117,7 +127,7 @@ export class Row {
 				unit.textContent = '\u00A0'; // Non-breaking space to ensure element renders
 				indentSpan.appendChild(unit);
 			}
-			rowContentSpan.innerHTML = value;
+			newContentSpan.innerHTML = value;
 		}
 	}
 	public get indent(): number {
@@ -156,7 +166,7 @@ export class Row {
 		return this.el?.dataset.lineId ?? NOROWID;
 	}
 	public setCaretInRow(offset: number) {
-		const contentSpan = this.getContentSpan();
+		const contentSpan = this.getContentSpanForFocus();
 		if (contentSpan) setCaretInParagraph(contentSpan, offset + this.indent);
 	}
 	public moveCaretToThisRow(): void {
@@ -174,38 +184,7 @@ export class Row {
 		return o < 0 ? 0 : o;
 	}
 	private offsetAtXWithTabs(x: number): number {
-		const contentSpan = this.getContentSpan();
-		if (!contentSpan) return 0;
-		
-		// Get total text length (works with HTML too)
-		const text = contentSpan.textContent ?? '';
-		const len = text.length;
-		if (len === 0) return 0;
-	
-		let lastdist = x;
-		let dist = x;
-		
-		// Check each text position
-		for (let i = 0; i < len; i++) {
-			// Convert text offset to DOM position
-			const position = getNodeAndOffsetFromTextOffset(contentSpan, i);
-			if (!position) continue;
-			
-			const r = document.createRange();
-			r.setStart(position.node, position.offset);
-			r.collapse(true);
-			const rect = r.getBoundingClientRect();
-			dist = rect.left - x;
-			if (dist >= -0.01)
-				return i;
-			else
-				continue;
-			lastdist = dist;
-		}
-		return len;
-	}
-	private newOffsetAtX(x: number): number {
-		const contentSpan = this.getNewContentSpan();
+		const contentSpan = this.getContentSpanForFocus();
 		if (!contentSpan) return 0;
 		
 		// Get total text length (works with HTML too)
@@ -375,7 +354,7 @@ export function addAfter(
 
 // Helper: Walk DOM tree and find node+offset for a given text offset
 function getNodeAndOffsetFromTextOffset(
-	container: HTMLElement, 
+	container: RowContentElement, 
 	textOffset: number
 ): { node: Node, offset: number } | null {
 	let currentOffset = 0;
@@ -400,7 +379,7 @@ function getNodeAndOffsetFromTextOffset(
 }
 
 // Helper: Get text offset from a DOM position
-function getHtmlOffsetFromNode(container: HTMLElement, targetNode: Node, targetOffset: number): number {
+function getHtmlOffsetFromNode(container: RowContentElement, targetNode: Node, targetOffset: number): number {
 	let textOffset = 0;
 	
 	function walk(node: Node): boolean {
@@ -444,7 +423,7 @@ function isSelfClosingTag(tagName: string): boolean {
 	const selfClosing = ['br', 'hr', 'img', 'input', 'meta', 'link', 'area', 'base', 'col', 'embed', 'param', 'source', 'track', 'wbr'];
 	return selfClosing.includes(tagName.toLowerCase());
 }
-function getTextOffsetFromNode(container: HTMLElement, targetNode: Node, targetOffset: number): number {
+function getTextOffsetFromNode(container: RowContentElement, targetNode: Node, targetOffset: number): number {
 	let textOffset = 0;
 	let found = false;
 	
@@ -477,12 +456,12 @@ function getCurrentParagraphWithOffset(): { element: RowElement, offset: number 
 
 	// Navigate up to find the row div in either editor container
 	let currentP: RowElement | null = null;
-	let containerRoot: HTMLElement | null = null;
+	let containerRoot: RowElement | null = null;
 	while (node && node !== lm.editor && node !== lm.newEditor) {
 		if (node.nodeName === RowElementTag.toUpperCase() &&
 			(node.parentNode === lm.editor || node.parentNode === lm.newEditor)) {
 			currentP = node as RowElement;
-			containerRoot = node.parentNode as HTMLElement;
+			containerRoot = node.parentNode as RowElement;
 			break;
 		}
 		node = node.parentNode;
@@ -506,7 +485,7 @@ function getCurrentParagraphWithOffset(): { element: RowElement, offset: number 
 	return { element: currentP, offset };
 }
 
-function setCaretInParagraph(contentSpan: HTMLElement, offset: number) {
+function setCaretInParagraph(contentSpan: RowContentElement, offset: number) {
 	if (offset < 0) offset = 0;
 	contentSpan.focus();
 	const selection = window.getSelection();
@@ -535,7 +514,7 @@ export function currentRow(): Row {
 	let p = getCurrentParagraphWithOffset();
 	if (!p) return endRow;
     
-    const parent = p.element.parentNode as HTMLElement | null;
+    const parent = p.element.parentNode as RowElement | null;
     if (parent === lm.editor) {
         // p.element is from editor; map to corresponding newEditor element by index
         const index = Array.from(lm.editor.children).indexOf(p.element);
