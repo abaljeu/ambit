@@ -345,7 +345,7 @@ function testHandleArrowRight(): void {
 // swap down at end
     rows = Array.from(Editor.rows());
     const lastRow = rows[rows.length - 1];
-    const lastSceneRow = model.scene.findRow(lastRow.idString);
+    const lastSceneRow = model.scene.findRow(lastRow.id);
     const lastLine = lastSceneRow.siteRow.docLine;
     lastRow.setCaretInRowWithTabs(0);
     assertEquals(lastRow.indent, 0);
@@ -371,8 +371,8 @@ function testHandleArrowRight(): void {
     sendKey('Tab', []);
     
     // Assert
-    const sceneRow1 = model.scene.findRow(firstRow.idString);
-    const sceneRow2 = model.scene.findRow(secondRow.idString);
+    const sceneRow1 = model.scene.findRow(firstRow.id);
+    const sceneRow2 = model.scene.findRow(secondRow.id);
     const siteRow1 = sceneRow1.siteRow;
     const siteRow2 = sceneRow2.siteRow;
     const docLine1 = siteRow1.docLine;

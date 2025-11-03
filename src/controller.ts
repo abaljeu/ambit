@@ -114,14 +114,18 @@ function findKeyBinding(combo: string): KeyBinding {
 
  function handleEnter(currentRow: Editor.Row) : boolean {
 	// Get HTML string offset (includes tag lengths) for proper splitting
-	const htmlOffset = currentRow.getHtmlOffsetWithTabs();
+	const htmlOffset = currentRow.getHtmlOffset();
+	// const _htmlOffset = currentRow.getHtmlOffset();
+	// if (_htmlOffset !== htmlOffset) {
+	// 	return true;
+
 	
 	const docLine = docLineFromRow(currentRow);
-	const beforeText = currentRow.bareContent.substring(0, htmlOffset-currentRow.indent);
+	const beforeText = currentRow.htmlContent.substring(0, htmlOffset);
 	const newDocLine = Doc.createLine(beforeText);
 	const insertBefore = Change.makeInsertBefore(docLine, [newDocLine]);
 	Doc.processChange(insertBefore);
-	const textChange = Change.makeTextChange(docLine, 0, htmlOffset-currentRow.indent, '');
+	const textChange = Change.makeTextChange(docLine, 0, htmlOffset, '');
 	Doc.processChange(textChange);
  	return true;
  }
@@ -153,28 +157,28 @@ function handleBackspace(currentRow: Editor.Row) : boolean {
 	
 	if (currentRow.caretOffset === 0) {
 		const prevRow = currentRow.Previous;
-		const prevPosition = prevRow.visibleTextLengthWithTabs;
+		const prevPosition = prevRow.visibleTextLength;
 		if (!prevRow.valid()) return true;
 		joinRows(prevRow, currentRow);
-		Editor.findRow(currentRow.id).setCaretInRowWithTabs(prevPosition);
+		Editor.findRow(currentRow.id).setCaretInRow(prevPosition);
 		return true;
 	}
 	else { // we're not at the beginning of the row so just delete the character
-		const htmlOffset = currentRow.getHtmlOffsetWithTabs();
+		const htmlOffset = currentRow.getHtmlOffset();
 		deleteChar(currentRow, htmlOffset-1);
 		return true;
 	}
 }
 function deleteChar(currentRow: Editor.Row, offset: number) {
-	const cur = model.scene.findRow(currentRow.idString);
+	const cur = model.scene.findRow(currentRow.id);
 	const scur = cur.siteRow;
 	const change = Change.makeTextChange(scur.docLine,offset, 1, '');
 	Doc.processChange(change);
-	currentRow.setCaretInRowWithTabs(offset);
+	currentRow.setCaretInRow(offset);
 
 }
 function handleDelete(currentRow: Editor.Row) : boolean {
-	if (currentRow.caretOffsetWithTabs >= currentRow.visibleTextLengthWithTabs) {
+	if (currentRow.caretOffset >= currentRow.visibleTextLength) {
 		const nextRow = currentRow.Next;
 		if (!nextRow.valid()) return true;
 		joinRows(currentRow, nextRow);
@@ -182,7 +186,7 @@ function handleDelete(currentRow: Editor.Row) : boolean {
 		return true;
 	}
 	else {
-		const htmlOffset = currentRow.getHtmlOffsetWithTabs();
+		const htmlOffset = currentRow.getHtmlOffset();
 		deleteChar(currentRow, htmlOffset);
 	 return true; 
 	}
@@ -252,17 +256,17 @@ function handleSwapUp(currentRow: Editor.Row): boolean {
     if (!prevRow.valid()) 
 		return false;
     
-    const cur = model.scene.findRow(currentRow.idString);
-	const prev = model.scene.findRow(prevRow.idString);
+    const cur = model.scene.findRow(currentRow.id);
+	const prev = model.scene.findRow(prevRow.id);
     
     const docCur = cur.siteRow.docLine;
     const docPrev = prev.siteRow.docLine;
     
-    return performRowSwap(docCur, docPrev, currentRow.idString);
+    return performRowSwap(docCur, docPrev, currentRow.id);
 }
 
 function handleSwapDown(currentRow: Editor.Row): boolean {
-    const cur = model.scene.findRow(currentRow.idString);
+    const cur = model.scene.findRow(currentRow.id);
     
     // Skip over all descendants to find the next row that's not a child
     const descendantCount = cur.treeLength;
@@ -272,12 +276,12 @@ function handleSwapDown(currentRow: Editor.Row): boolean {
         if (!nextRow.valid()) return false;
     }
     
-    const next = model.scene.findRow(nextRow.idString);
+    const next = model.scene.findRow(nextRow.id);
     
     const docCur = cur.siteRow.docLine;
     const docNext = next.siteRow.docLine;
    
-    return performRowSwap(docNext, docCur, currentRow.idString);
+    return performRowSwap(docNext, docCur, currentRow.id);
 }
 
 function performRowSwap(
@@ -290,7 +294,7 @@ function performRowSwap(
     return true;
 }
 function handleToggleFold(currentRow: Editor.Row) : boolean {
-	const sceneRow = model.scene.findRow(currentRow.idString);
+	const sceneRow = model.scene.findRow(currentRow.id);
 	const siteRow = sceneRow.siteRow;
 	siteRow.toggleFold();
 	return true;
@@ -323,7 +327,7 @@ function offsetIsInIndent(offset: number, rowText: string): boolean {
 // }
 
 function insertChar(currentRow : Editor.Row, ch : string) {
-	const cur = model.scene.findRow(currentRow.idString);
+	const cur = model.scene.findRow(currentRow.id);
 	const scur = cur.siteRow;
 	const htmlOffset = currentRow.getHtmlOffsetWithTabs();
 	const change = Change.makeTextChange(scur.docLine,htmlOffset, 0,ch);
@@ -343,7 +347,7 @@ function handleTab(currentRow: Editor.Row) : boolean {
 	const visibleOffset = currentRow.caretOffsetWithTabs;
 	
 	if (visibleOffset <= currentRow.indent) {
-		const cur = model.scene.findRow(currentRow.idString);
+		const cur = model.scene.findRow(currentRow.id);
 		const scur = cur.siteRow;
 			const sprev = scur.previous;
 		if (sprev === SiteRow.end) return false;
@@ -357,7 +361,7 @@ function handleTab(currentRow: Editor.Row) : boolean {
 	return true;
 }
 function docLineFromRow(row: Editor.Row): DocLine {
-	const cur = model.scene.findRow(row.idString);
+	const cur = model.scene.findRow(row.id);
 	return cur.siteRow.docLine;
 }
  function handleShiftTab(currentRow: Editor.Row) : boolean {

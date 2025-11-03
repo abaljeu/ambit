@@ -11,24 +11,6 @@ const VISIBLE_TAB = '→'; // Visible tab character
 
 type RowElementPair = { el: RowElement; newEl: RowElement; };
 
-// export class RowId extends Id<'Row'> {
-//     public constructor(value: string) {
-//         if (!/^R[0-9A-Z]{6}$/.test(value)) {
-//             throw new Error('Invalid RowId');
-//         }
-//         super(value);
-//     }
-// }
-// class EditorRowPool extends Pool<Row, RowId> {
-//     protected override fromString(value: string): RowId {
-//         return new RowId(value);
-//     }
-//     public get end(): Row {
-//         return endRow;
-//     }
-//     public readonly tag: string = 'R';
-// }
-// const editorRowPool = new EditorRowPool();
 export function createRowElement(): RowElementPair {
 	// Create editor element (2-span: fold-indicator + content with inline tabs)
 	const el = document.createElement(RowElementTag) as RowElement;
@@ -70,58 +52,75 @@ export function createRowElementFromSceneRow(sceneRow: SceneRow): Row {
 }
 
 export class Row {
-		public equals(other: Row): boolean {
-			return this.el === other.el;
-		}
-		constructor(
-			public readonly el: RowElement,
-			public readonly newEl: RowElement
-		) {}
-		private getContentSpanWithTabs(): RowContentElement {
-			return this.el.querySelector('.content') as RowContentElement;
-		}
-		private getFoldIndicatorSpan(): RowContentElement {
-			return this.el.querySelector('.fold-indicator') as RowContentElement;
-		}
+	public equals(other: Row): boolean {
+		return this.el === other.el;
+	}
+	constructor(
+		public readonly el: RowElement,
+		public readonly newEl: RowElement
+	) {}
+	private getContentSpan(): RowContentElement {
+		return this.el.querySelector('.content') as RowContentElement;
+	}
+	private getFoldIndicatorSpan(): RowContentElement {
+		return this.el.querySelector('.fold-indicator') as RowContentElement;
+	}
 	public getHtmlOffsetWithTabs(): number {
-		const contentSpan = this.getContentSpanWithTabs();
+		const contentSpan = this.getContentSpan();
 		if (!contentSpan) return 0;
-		
-		// Find the current cursor position in the DOM
+
 		const selection = window.getSelection();
 		if (!selection || selection.rangeCount === 0) return 0;
 		
 		const range = selection.getRangeAt(0);
 		
-		// Use getHtmlOffsetFromNode to compute HTML string offset
 		return getHtmlOffsetFromNode(contentSpan, range.startContainer, range.startOffset);
 	}
+	public getHtmlOffset(): number {
+		const contentSpan = this.getContentSpan();
+		if (!contentSpan) return 0;
+		
+		const selection = window.getSelection();
+		if (!selection || selection.rangeCount === 0) return 0;
+		
+		const range = selection.getRangeAt(0);
+		
+		const off= getHtmlOffsetFromNode(contentSpan, range.startContainer, range.startOffset);
+		return off < this.indent ? 0 : off - this.indent;
+	}
 	public get visibleTextWithTabs() : string {
-		const contentSpan = this.getContentSpanWithTabs();
+		const contentSpan = this.getContentSpan();
 		if (!contentSpan) return '';
 		return contentSpan.textContent ?? '';
+	}
+	public get visibleText() : string {
+		const contentSpan = this.getContentSpan();
+		if (!contentSpan) return '';
+		return contentSpan.textContent?.substring(this.indent) ?? '';
 	}
 	public get visibleTextLengthWithTabs() : number {
 		return this.visibleTextWithTabs.length;
 	}
+	public get visibleTextLength() : number {
+		return this.visibleText.length;
+	}
 	public get contentWithTabs(): string {
-		const contentSpan = this.getContentSpanWithTabs();
+		const contentSpan = this.getContentSpan();
 		if (!contentSpan) return '';
 		// Extract innerHTML to preserve HTML tags, then convert visible tabs
 		return contentSpan.innerHTML.replace(new RegExp(VISIBLE_TAB, 'g'), '\t');
 	}
-	public get bareContent(): string {
-		const contentSpan = this.getContentSpanWithTabs();
+	public get htmlContent(): string {
+		const contentSpan = this.getContentSpan();
 		if (!contentSpan) return '';
 		// Extract innerHTML to preserve HTML tags, then convert visible tabs
-		return contentSpan.innerHTML.replace(new RegExp(VISIBLE_TAB, 'g'), '\t')
-			.substring(this.indent);
+		return contentSpan.innerHTML.substring(this.indent).replace(new RegExp(VISIBLE_TAB, 'g'), '\t');
 	}
 	public setContent(value: string, sceneIndent: number) {
 		const indent = sceneIndent < 0 ? 0 : sceneIndent;
 		
 		// Set content in editor (inline tabs + content)
-		const contentSpan = this.getContentSpanWithTabs();
+		const contentSpan = this.getContentSpan();
 		if (contentSpan) {
 			contentSpan.innerHTML = VISIBLE_TAB.repeat(indent) + value;
 		}
@@ -143,7 +142,7 @@ export class Row {
 	}
 	public get indent(): number {
 		// count the number of tabs at the beginning of the content
-		const contentSpan = this.getContentSpanWithTabs();
+		const contentSpan = this.getContentSpan();
 		const innerHTML = contentSpan?.innerHTML ?? '';
 		const tabs = innerHTML.match(new RegExp('^' + VISIBLE_TAB + '+'));
 		if (tabs) return tabs[0].length;
@@ -174,23 +173,18 @@ export class Row {
 		return this.el !== null;
 	}
 	public get id(): string {
-		return  this.idString;
-	}
-	
-	// Helper method to get the string representation for DOM operations
-	public get idString(): string {
 		return this.el?.dataset.lineId ?? 'R000000';
 	}
 	public setCaretInRowWithTabs(offset: number) {
-		const contentSpan = this.getContentSpanWithTabs();
+		const contentSpan = this.getContentSpan();
 		if (contentSpan) setCaretInParagraph(contentSpan, offset);
+	}
+	public setCaretInRow(offset: number) {
+		const contentSpan = this.getContentSpan();
+		if (contentSpan) setCaretInParagraph(contentSpan, offset + this.indent);
 	}
 	public moveCaretToThisRowWithTabs(): void {
 		const targetX = caretX();
-		const off = this.offsetAtXWithTabs(targetX );
-		this.setCaretInRowWithTabs(off);
-	}
-	public moveCaretToXWithTabs(targetX: number): void {
 		const off = this.offsetAtXWithTabs(targetX );
 		this.setCaretInRowWithTabs(off);
 	}
@@ -202,13 +196,13 @@ export class Row {
 		const x = caretX();
 		return this.offsetAtX(x);
 	}
-	public offsetAtX(x: number): number {
+	private offsetAtX(x: number): number {
 		const owt = this.offsetAtXWithTabs(x);
 		const  o = owt - this.indent;
 		return o < 0 ? 0 : o;
 	}
-	public offsetAtXWithTabs(x: number): number {
-		const contentSpan = this.getContentSpanWithTabs();
+	private offsetAtXWithTabs(x: number): number {
+		const contentSpan = this.getContentSpan();
 		if (!contentSpan) return 0;
 		
 		// Get total text length (works with HTML too)
@@ -238,7 +232,7 @@ export class Row {
 
 	export function findRow(id: string): Row {
 		for (const row of rows()) {
-			if (row.idString == id) 
+			if (row.id == id) 
 				return row;
 		}
 		return endRow;
