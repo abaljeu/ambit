@@ -290,7 +290,7 @@ function performRowSwap(
     currentRowId: string
 ): boolean {
     moveBefore(lineToMove, lineBefore);
-    Editor.findRow(currentRowId).setCaretInRowWithTabs(0);
+    Editor.findRow(currentRowId).setCaretInRow(0);
     return true;
 }
 function handleToggleFold(currentRow: Editor.Row) : boolean {
@@ -329,31 +329,31 @@ function offsetIsInIndent(offset: number, rowText: string): boolean {
 function insertChar(currentRow : Editor.Row, ch : string) {
 	const cur = model.scene.findRow(currentRow.id);
 	const scur = cur.siteRow;
-	const htmlOffset = currentRow.getHtmlOffsetWithTabs();
+	const htmlOffset = currentRow.getHtmlOffset();
 	const change = Change.makeTextChange(scur.docLine,htmlOffset, 0,ch);
 	Doc.processChange(change);
-	currentRow.setCaretInRowWithTabs(htmlOffset+ 1);
+	currentRow.setCaretInRow(htmlOffset+ 1);
 }
 
 function handleInsertChar(currentRow : Editor.Row, ch : string) {
-	if (currentRow.caretOffsetWithTabs <= currentRow.indent) {
-		return true; // can't edit in tabs
+	if (currentRow.caretOffset < 0) {
+		return true;
 	}
 	insertChar(currentRow, ch);
 	return true;
 }
 
 function handleTab(currentRow: Editor.Row) : boolean {
-	const visibleOffset = currentRow.caretOffsetWithTabs;
+	const visibleOffset = currentRow.caretOffset;
 	
-	if (visibleOffset <= currentRow.indent) {
+	if (visibleOffset == 0) {
 		const cur = model.scene.findRow(currentRow.id);
 		const scur = cur.siteRow;
 			const sprev = scur.previous;
 		if (sprev === SiteRow.end) return false;
 		moveBelow(scur.docLine, sprev.docLine);
 		const replacementRow = Editor.findRow(currentRow.id)
-		replacementRow.setCaretInRowWithTabs(visibleOffset+ 1);
+		replacementRow.setCaretInRow(visibleOffset+ 1);
 		return true;
 	}
 
@@ -365,10 +365,10 @@ function docLineFromRow(row: Editor.Row): DocLine {
 	return cur.siteRow.docLine;
 }
  function handleShiftTab(currentRow: Editor.Row) : boolean {
-    const offset = currentRow.caretOffsetWithTabs;
+    const offset = currentRow.caretOffset;
     // Get visible text for indent checking
-	if (currentRow.indent >= offset) {
-		if (currentRow.indent <= 0) return true;
+	if (0 == offset) {
+		if (currentRow.indent == 0) return true;
 		// Move after parent
 		// Move before parent's sibling if any.
 		const docLine = docLineFromRow(currentRow);
@@ -384,19 +384,19 @@ function docLineFromRow(row: Editor.Row): DocLine {
 			} else {
 				return true;
 			}
-			Editor.findRow(currentRow.id).setCaretInRowWithTabs(offset-1);
+			Editor.findRow(currentRow.id).setCaretInRow(offset-1);
 		}
 	} else {
 		// find tab to the left of the cursor in HTML content
-		const visibleOffset = currentRow.caretOffsetWithTabs;
-		const htmlOffset = currentRow.getHtmlOffsetWithTabs();
-		const tabIndex = currentRow.contentWithTabs.substring(0, htmlOffset).lastIndexOf('\t');
+		const visibleOffset = currentRow.caretOffset;
+		const htmlOffset = currentRow.getHtmlOffset();
+		const tabIndex = currentRow.htmlContent.substring(0, htmlOffset).lastIndexOf('\t');
 		if (tabIndex === -1) return false;
 
 		const docLine = docLineFromRow(currentRow);
 		const change = Change.makeTextChange(docLine, htmlOffset, 0, '\t');
 		Doc.processChange(change);
-		currentRow.setCaretInRowWithTabs(visibleOffset + 1);
+		currentRow.setCaretInRow(visibleOffset + 1);
 	}
 	return true;
 }
