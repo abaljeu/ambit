@@ -79,9 +79,7 @@ const tests: (() => void)[] = [
             const lineWithoutTabs = line.replace(/^\t+/, '');
             assertEquals(lineWithoutTabs, rows[i].htmlContent);
             assertEquals(leadingTabs, rows[i].indent);
-        }
-        assertEquals(expectedContent, Editor.getContent());
-    
+        }    
     }
     
     , function testHandleArrowUp() : void {
