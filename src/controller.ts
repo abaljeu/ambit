@@ -90,8 +90,8 @@ function findKeyBinding(combo: string): KeyBinding {
 		e.key === "Control" ||
 		e.key === "Shift" ||
 		e.key === "Alt" ||
-		e.key === "Meta"
-	) return;
+		e.key === "Meta") 
+		return;
 	const mods =
 		`${e.ctrlKey ? "C-" : ""}` +
 		`${e.altKey ? "A-" : ""}` +
@@ -101,7 +101,8 @@ function findKeyBinding(combo: string): KeyBinding {
 	lm.messageArea.textContent = combo;
 
 	const currentRow = Editor.currentRow();
-	if (!currentRow.valid()) return;
+	if (!currentRow.valid()) 
+		return;
 	const binding = findKeyBinding(combo);
 	if (binding) {
 		const result = binding.handler(currentRow);

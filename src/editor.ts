@@ -10,7 +10,7 @@ type RowElement = HTMLDivElement;
 const VISIBLE_TAB = '→'; // Visible tab character
 
 type RowElementPair = { el: RowElement; newEl: RowElement; };
-
+const NOROWID = 'R000000';
 export function createRowElement(): RowElementPair {
 	// Create editor element (2-span: fold-indicator + content with inline tabs)
 	const el = document.createElement(RowElementTag) as RowElement;
@@ -150,10 +150,10 @@ export class Row {
 		return new Row(nextSibling as RowElement, newNextSibling as RowElement);
 	}
 	public valid(): boolean {
-		return this.el !== null;
+		return this.el !== null  && this.id !== NOROWID;
 	}
 	public get id(): string {
-		return this.el?.dataset.lineId ?? 'R000000';
+		return this.el?.dataset.lineId ?? NOROWID;
 	}
 	public setCaretInRow(offset: number) {
 		const contentSpan = this.getContentSpan();
@@ -474,31 +474,35 @@ function getCurrentParagraphWithOffset(): { element: RowElement, offset: number 
 	
 	const range = selection.getRangeAt(0);
 	let node = selection.anchorNode;
-	
-	// Navigate up to find the row div
+
+	// Navigate up to find the row div in either editor container
 	let currentP: RowElement | null = null;
-	while (node && node !== lm.editor) {
-		if (node.nodeName === RowElementTag.toUpperCase() && 
-			node.parentNode === lm.editor) {
+	let containerRoot: HTMLElement | null = null;
+	while (node && node !== lm.editor && node !== lm.newEditor) {
+		if (node.nodeName === RowElementTag.toUpperCase() &&
+			(node.parentNode === lm.editor || node.parentNode === lm.newEditor)) {
 			currentP = node as RowElement;
+			containerRoot = node.parentNode as HTMLElement;
 			break;
 		}
 		node = node.parentNode;
 	}
-	
+
 	if (!currentP) return null;
 
-	// Calculate offset within content span
-	const contentSpan = currentP.querySelector('.content') as HTMLSpanElement;
+	// Calculate offset within content span; class differs by container
+	const inNewEditor = containerRoot === lm.newEditor;
+	const contentClass = inNewEditor ? '.rowContent' : '.content';
+	const contentSpan = currentP.querySelector(contentClass) as HTMLSpanElement;
 	if (!contentSpan) return { element: currentP, offset: 0 };
-	
+
 	// Use helper to calculate text offset from DOM position
 	const offset = getTextOffsetFromNode(
-		contentSpan, 
-		range.startContainer, 
+		contentSpan,
+		range.startContainer,
 		range.startOffset
 	);
-	
+
 	return { element: currentP, offset };
 }
 
@@ -530,26 +534,26 @@ function setCaretInParagraph(contentSpan: HTMLElement, offset: number) {
 export function currentRow(): Row {
 	let p = getCurrentParagraphWithOffset();
 	if (!p) return endRow;
-	
-	// Find corresponding newEditor element at same index
-	const index = Array.from(lm.editor.children).indexOf(p.element);
-	const newEl = (index >= 0 && index < lm.newEditor.children.length) 
-		? lm.newEditor.children[index] as RowElement
-		: endRow.newEl;
-	
-	return new Row(p.element, newEl);
-}
-export function currentRowWithOffset(): { element: Row, offset: number } {
-	let p = getCurrentParagraphWithOffset();
-	if (!p) return { element: endRow, offset: 0 };
-	
-	// Find corresponding newEditor element at same index
-	const index = Array.from(lm.editor.children).indexOf(p.element);
-	const newEl = (index >= 0 && index < lm.newEditor.children.length) 
-		? lm.newEditor.children[index] as RowElement
-		: endRow.newEl;
-	
-	return { element: new Row(p.element, newEl), offset: p.offset };
+    
+    const parent = p.element.parentNode as HTMLElement | null;
+    if (parent === lm.editor) {
+        // p.element is from editor; map to corresponding newEditor element by index
+        const index = Array.from(lm.editor.children).indexOf(p.element);
+        const newEl = (index >= 0 && index < lm.newEditor.children.length)
+            ? lm.newEditor.children[index] as RowElement
+            : endRow.newEl;
+        return new Row(p.element as RowElement, newEl);
+    }
+    if (parent === lm.newEditor) {
+        // p.element is from newEditor; map to corresponding editor element by index
+        const index = Array.from(lm.newEditor.children).indexOf(p.element);
+        const el = (index >= 0 && index < lm.editor.children.length)
+            ? lm.editor.children[index] as RowElement
+            : endRow.el;
+        return new Row(el, p.element as RowElement);
+    }
+    
+    return endRow;
 }
 
 export function moveRowAbove(toMove: Row, target: Row): void {
