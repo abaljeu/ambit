@@ -164,7 +164,7 @@ function joinRows(prevRow: Editor.Row, nextRow: Editor.Row) {
 function handleBackspace(currentRow: Editor.Row) : boolean {
 	
 	if (currentRow.caretOffset === 0) {
-		const prevRow = currentRow.Previous;
+		const prevRow = currentRow.previous;
 		const prevPosition = prevRow.visibleTextLength;
 		if (!prevRow.valid()) return true;
 		joinRows(prevRow, currentRow);
@@ -232,7 +232,7 @@ function deleteVisibleCharAt(currentRow: Editor.Row, htmlOffset: number) {
 }
 function handleDelete(currentRow: Editor.Row) : boolean {
 	if (currentRow.caretOffset >= currentRow.visibleTextLength) {
-		const nextRow = currentRow.Next;
+		const nextRow = currentRow.next;
 		if (!nextRow.valid()) return true;
 		joinRows(currentRow, nextRow);
 		// currentRow.setCaretInRow(0); position was okay already.
@@ -245,7 +245,7 @@ function handleDelete(currentRow: Editor.Row) : boolean {
 	}
 }
 function handleArrowUp(currentRow: Editor.Row) : boolean {
-	const prevP = currentRow.Previous;
+	const prevP = currentRow.previous;
 	if (!prevP.valid()) return true;
 	
 	prevP.moveCaretToThisRow();
@@ -253,7 +253,7 @@ function handleArrowUp(currentRow: Editor.Row) : boolean {
 }
 
  function handleArrowDown(currentRow: Editor.Row) : boolean {
-	const nextP = currentRow.Next;
+	const nextP = currentRow.next;
 	if (!nextP.valid()) return true;
 	
 	nextP.moveCaretToThisRow();
@@ -266,7 +266,7 @@ function handleArrowLeft(currentRow: Editor.Row) : boolean {
 		currentRow.setCaretInRow(currentRow.caretOffset - 1);
 	} else {
 		// Move to end of previous row (need visible text length)
-		const prevRow = currentRow.Previous;
+		const prevRow = currentRow.previous;
 		if (prevRow.valid()) {
 			prevRow.setCaretInRow(prevRow.visibleTextLength);
 		}
@@ -283,7 +283,7 @@ function handleArrowRight(currentRow: Editor.Row) : boolean {
 		currentRow.setCaretInRow(currentRow.caretOffset + 1);
 	} else {
 		// Move to beginning of next row
-		const nextRow = currentRow.Next;
+		const nextRow = currentRow.next;
 		if (nextRow.valid()) {
 			nextRow.setCaretInRow(0);
 		}
@@ -305,7 +305,7 @@ export function moveBelow(line: DocLine, targetBelow: DocLine): void {
 }
 // moves up to the previous visible row.  doesn't pay attention to structure otherwise.
 function handleSwapUp(currentRow: Editor.Row): boolean {
-    const prevRow = currentRow.Previous;
+    const prevRow = currentRow.previous;
     if (!prevRow.valid()) 
 		return false;
     
@@ -325,7 +325,7 @@ function handleSwapDown(currentRow: Editor.Row): boolean {
     const descendantCount = cur.treeLength;
     let nextRow = currentRow;
     for (let i = 0; i < descendantCount; i++) {
-        nextRow = nextRow.Next;
+        nextRow = nextRow.next;
         if (!nextRow.valid()) return false;
     }
     
@@ -376,37 +376,11 @@ function handleAddMarkup(currentRow: Editor.Row, tagName: string): boolean {
 	}
 	
 	const updatedRow = Editor.findRow(currentRow.id);
-	setSelectionInRow(updatedRow, start, end);
+	updatedRow.setSelectionInRow(start, end);
 	
 	return true;
 }
 
-function setSelectionInRow(row: Editor.Row, visibleStart: number, visibleEnd: number): void {
-	// Determine which editor is focused
-	const inNewEditor = Editor.focusIsInNewEditor();
-	const contentSpan = inNewEditor 
-		? row.newEl.querySelector('.rowContent') as HTMLSpanElement
-		: row.el.querySelector('.content') as HTMLSpanElement;
-	
-	if (!contentSpan) return;
-	
-	contentSpan.focus();
-	const selection = window.getSelection();
-	if (!selection) return;
-	
-	// Convert to node positions (add indent only for old editor)
-	const indent = inNewEditor ? 0 : row.indent;
-	const startPos = HtmlUtil.getNodeAndOffsetFromTextOffset(contentSpan, visibleStart + indent);
-	const endPos = HtmlUtil.getNodeAndOffsetFromTextOffset(contentSpan, visibleEnd + indent);
-	
-	if (!startPos || !endPos) return;
-	
-	const range = document.createRange();
-	range.setStart(startPos.node, startPos.offset);
-	range.setEnd(endPos.node, endPos.offset);
-	selection.removeAllRanges();
-	selection.addRange(range);
-}
 
 
 function updateFoldIndicator(editorRow: Editor.Row) {

@@ -3,7 +3,7 @@ import { Scene, SceneRow } from './scene.js';
 import { ArraySpan } from './arrayspan.js';
 import { Id, Pool } from './pool.js';
 import { visibleOffsetToHtmlOffset } from './htmlutil.js';
-
+import * as HtmlUtil from './htmlutil.js';
 const RowElementTag: string = 'div';
 const RowContentTag: string = 'span';
 type RowContentElement = HTMLSpanElement;
@@ -12,13 +12,13 @@ const VISIBLE_TAB = '→'; // Visible tab character
 
 type RowElementPair = { el: RowElement; newEl: RowElement; };
 const NOROWID = 'R000000';
-export function focusIsInNewEditor(): boolean {
+function focusIsInNewEditor(): boolean {
 	return lm.newEditor.contains(document.activeElement);
 }
-export function focusIsInEditor(): boolean {
+function focusIsInEditor(): boolean {
 	return lm.editor.contains(document.activeElement);
 }
-export function createRowElement(): RowElementPair {
+function createRowElement(): RowElementPair {
 	// Create editor element (2-span: fold-indicator + content with inline tabs)
 	const el = document.createElement(RowElementTag) as RowElement;
 	const elFold = document.createElement('span');
@@ -58,6 +58,7 @@ export function createRowElementFromSceneRow(sceneRow: SceneRow): Row {
 	return row;
 }
 
+
 export class Row {
 	public equals(other: Row): boolean {
 		return this.el === other.el;
@@ -75,8 +76,8 @@ export class Row {
 	private getContentSpanForFocus(): RowContentElement {
 		return focusIsInEditor() ? this.getContentSpan() : this.getNewContentSpan();
 	}
-	private getFoldIndicatorSpan(): RowContentElement {
-		return this.el.querySelector('.fold-indicator') as RowContentElement;
+	private getFoldIndicatorSpan(): HTMLSpanElement {
+		return this.el.querySelector('.fold-indicator') as HTMLSpanElement;
 	}
 
 	public getHtmlOffset(): number {
@@ -143,13 +144,13 @@ export class Row {
 		const newFoldSpan = this.newEl.querySelector('.fold-indicator') as HTMLSpanElement;
 		if (newFoldSpan) newFoldSpan.textContent = indicator;
 	}
-	public get Previous(): Row {
+	public get previous(): Row {
 		const previousSibling = this.el?.previousElementSibling;
 		const newPreviousSibling = this.newEl?.previousElementSibling;
 		if (!previousSibling || !newPreviousSibling) return endRow;
 		return new Row(previousSibling as RowElement, newPreviousSibling as RowElement);
 	}
-	public get Next(): Row {
+	public get next(): Row {
 		const nextSibling = this.el?.nextElementSibling;
 		const newNextSibling = this.newEl?.nextElementSibling;
 		if (!nextSibling || !newNextSibling) return endRow;
@@ -160,19 +161,6 @@ export class Row {
 	}
 	public get id(): string {
 		return this.el?.dataset.lineId ?? NOROWID;
-	}
-	public setCaretInRow(visibleOffset: number) {
-		const contentSpan = this.getContentSpanForFocus();
-		if (!contentSpan) {
-			 console.error("setCaretInRow: contentSpan is null");
-			 return;
-		}
-		if (contentSpan.parentElement?.parentElement === lm.editor)
-			 setCaretInParagraph(contentSpan, visibleOffset + this.indent);
-		else if (contentSpan.parentElement?.parentElement === lm.newEditor)
-			 setCaretInParagraph(contentSpan, visibleOffset);
-		else
-			 console.error("setCaretInRow: contentSpan is not in editor or newEditor");
 	}
 	public moveCaretToThisRow(): void {
 		const targetX = caretX();
@@ -196,6 +184,72 @@ export class Row {
 		}
 		return offset;
 	}
+	private setCaretInParagraph(contentSpan: RowContentElement, offset: number) {
+		if (offset < 0) offset = 0;
+		contentSpan.focus();
+		const selection = window.getSelection();
+		if (!selection) return;
+		
+		// Use helper to convert text offset to DOM position
+		const position = getNodeAndOffsetFromTextOffset(contentSpan, offset);
+		if (!position) {
+			// Fallback: place at end of content
+			const range = document.createRange();
+			range.selectNodeContents(contentSpan);
+			range.collapse(false);
+			selection.removeAllRanges();
+			selection.addRange(range);
+			return;
+		}
+		
+		const range = document.createRange();
+		range.setStart(position.node, position.offset);
+		range.collapse(true);
+		selection.removeAllRanges();
+		selection.addRange(range);
+	}
+	
+	
+	public setCaretInRow(visibleOffset: number) {
+		const contentSpan = this.getContentSpanForFocus();
+		if (!contentSpan) {
+			 console.error("setCaretInRow: contentSpan is null");
+			 return;
+		}
+		if (contentSpan.parentElement?.parentElement === lm.editor)
+			 this.setCaretInParagraph(contentSpan, visibleOffset + this.indent);
+		else if (contentSpan.parentElement?.parentElement === lm.newEditor)
+			 this.setCaretInParagraph(contentSpan, visibleOffset);
+		else
+			 console.error("setCaretInRow: contentSpan is not in editor or newEditor");
+	}
+	public setSelectionInRow(visibleStart: number, visibleEnd: number): void {
+		// Determine which editor is focused
+		const inNewEditor = focusIsInNewEditor();
+		const contentSpan = inNewEditor 
+			? this.newEl.querySelector('.rowContent') as HTMLSpanElement
+			: this.el.querySelector('.content') as HTMLSpanElement;
+		
+		if (!contentSpan) return;
+		
+		contentSpan.focus();
+		const selection = window.getSelection();
+		if (!selection) return;
+		
+		// Convert to node positions (add indent only for old editor)
+		const indent = inNewEditor ? 0 : this.indent;
+		const startPos = HtmlUtil.getNodeAndOffsetFromTextOffset(contentSpan, visibleStart + indent);
+		const endPos = HtmlUtil.getNodeAndOffsetFromTextOffset(contentSpan, visibleEnd + indent);
+		
+		if (!startPos || !endPos) return;
+		
+		const range = document.createRange();
+		range.setStart(startPos.node, startPos.offset);
+		range.setEnd(endPos.node, endPos.offset);
+		selection.removeAllRanges();
+		selection.addRange(range);
+	}
+	
 	public getSelectionRange(): { start: number, end: number } {
 		const contentSpan = this.getContentSpanForFocus();
 		if (!contentSpan) 
@@ -290,20 +344,20 @@ export class RowSpan implements Iterable<Row> {
 		let row = this.row;
 		for (let i = 0; i < this.count; i++) {
 			yield row;
-			row = row.Next;
+			row = row.next;
 		}
 	}
 	public endRow(): Row { // [row, row+count)
 		let row = this.row;
 		for (let i = 0; i < this.count; i++) {
-			row = row.Next;
+			row = row.next;
 		}
 		return row;
 	}
 	public last() : Row {
 		let row = this.row;
 		for (let i = 0; i < this.count - 1; i++) {
-			row = row.Next;
+			row = row.next;
 		}
 		return row;
 	}
@@ -499,30 +553,6 @@ function getCurrentParagraphWithOffset(): { element: RowElement, offset: number 
 	return { element: currentP, offset };
 }
 
-function setCaretInParagraph(contentSpan: RowContentElement, offset: number) {
-	if (offset < 0) offset = 0;
-	contentSpan.focus();
-	const selection = window.getSelection();
-	if (!selection) return;
-	
-	// Use helper to convert text offset to DOM position
-	const position = getNodeAndOffsetFromTextOffset(contentSpan, offset);
-	if (!position) {
-		// Fallback: place at end of content
-		const range = document.createRange();
-		range.selectNodeContents(contentSpan);
-		range.collapse(false);
-		selection.removeAllRanges();
-		selection.addRange(range);
-		return;
-	}
-	
-	const range = document.createRange();
-	range.setStart(position.node, position.offset);
-	range.collapse(true);
-	selection.removeAllRanges();
-	selection.addRange(range);
-}
 
 export function currentRow(): Row {
 	let p = getCurrentParagraphWithOffset();
@@ -561,7 +591,7 @@ export function caretX(): number {
 export function replaceRows(oldRows: RowSpan, newRows: ArraySpan<SceneRow>): RowSpan {
 	if (oldRows.count === 0 && newRows.length === 0) return new RowSpan(endRow, 0);
 	
-	const beforeStartRow = oldRows.row.Previous;
+	const beforeStartRow = oldRows.row.previous;
 	
 	// Collect all rows first before removing (to avoid breaking the DOM chain)
 	const rowsToRemove: Row[] = Array.from(oldRows);
@@ -573,32 +603,6 @@ export function replaceRows(oldRows: RowSpan, newRows: ArraySpan<SceneRow>): Row
 	}
 	
 	return addAfter(beforeStartRow, newRows);
-}
-
-// Update rows with Scene.RowData array
-export function updateRows(rowDataArray: ArraySpan<SceneRow>): void {
-	let idx = 0;
-	for (const row of rows()) {
-		const rowData = rowDataArray.at(idx);
-		if (!rowData) break;
-		
-		row.setContent(rowData.content, rowData.indent);
-		idx++;
-	}
-}
-
-
-export function deleteAfter(referenceRow: Row, count: number): void {
-	let current = referenceRow.Next;
-	for (let i = 0; i < count && current.valid(); i++) {
-		const next = current.Next;
-		current.el.remove();
-		current.newEl.remove();
-		current = next;
-	}
-}
-export function docName(): string {
-	return lm.path.textContent ?? '';
 }
 
 export function setEditorContent(scene: ArraySpan<SceneRow>): RowSpan {    // Clear the Editor
