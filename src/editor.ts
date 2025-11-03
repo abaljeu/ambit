@@ -2,6 +2,7 @@ import * as lm from './elements.js';
 import { Scene, SceneRow } from './scene.js';
 import { ArraySpan } from './arrayspan.js';
 import { Id, Pool } from './pool.js';
+import { visibleOffsetToHtmlOffset } from './htmlutil.js';
 
 const RowElementTag: string = 'div';
 const RowContentTag: string = 'span';
@@ -79,20 +80,11 @@ export class Row {
 	}
 
 	public getHtmlOffset(): number {
-		const contentSpan = this.getContentSpanForFocus();
-		if (!contentSpan) return 0;
+		// Get visible offset from DOM
+		const visibleOffset = this.caretOffset;
 		
-		const selection = window.getSelection();
-		if (!selection || selection.rangeCount === 0) return 0;
-		
-		const range = selection.getRangeAt(0);
-		
-		const off = getHtmlOffsetFromNode(contentSpan, range.startContainer, range.startOffset);
-		// Only subtract indent for old editor (where tabs are inline)
-		if (contentSpan.parentElement?.parentElement === lm.editor) {
-			return off < this.indent ? 0 : off - this.indent;
-		}
-		return off;
+		// Convert visible offset to HTML offset using stored HTML content
+		return visibleOffsetToHtmlOffset(this.htmlContent, visibleOffset);
 	}
 	
 	public get visibleText() : string {
@@ -169,16 +161,16 @@ export class Row {
 	public get id(): string {
 		return this.el?.dataset.lineId ?? NOROWID;
 	}
-	public setCaretInRow(offset: number) {
+	public setCaretInRow(visibleOffset: number) {
 		const contentSpan = this.getContentSpanForFocus();
 		if (!contentSpan) {
 			 console.error("setCaretInRow: contentSpan is null");
 			 return;
 		}
 		if (contentSpan.parentElement?.parentElement === lm.editor)
-			 setCaretInParagraph(contentSpan, offset + this.indent);
+			 setCaretInParagraph(contentSpan, visibleOffset + this.indent);
 		else if (contentSpan.parentElement?.parentElement === lm.newEditor)
-			 setCaretInParagraph(contentSpan, offset);
+			 setCaretInParagraph(contentSpan, visibleOffset);
 		else
 			 console.error("setCaretInRow: contentSpan is not in editor or newEditor");
 	}
@@ -412,51 +404,7 @@ function getNodeAndOffsetFromTextOffset(
 	return walk(container);
 }
 
-// Helper: Get text offset from a DOM position
-function getHtmlOffsetFromNode(container: RowContentElement, targetNode: Node, targetOffset: number): number {
-	let textOffset = 0;
-	
-	function walk(node: Node): boolean {
-		if (node === targetNode) {
-			textOffset += targetOffset;
-			return true;
-		}
-		
-		if (node.nodeType === Node.TEXT_NODE) {
-			textOffset += node.textContent?.length ?? 0;
-		} else if (node.nodeType === Node.ELEMENT_NODE) {
-			const element = node as Element;
-			const tagName = element.tagName.toLowerCase();
-			
-			// Add opening tag: <tagname>
-			textOffset += tagName.length + 2;
-			
-			// Check if element has children (not self-closing)
-			const hasChildren = element.childNodes.length > 0;
-			
-			// Walk children
-			for (const child of element.childNodes) {
-				if (walk(child)) return true;
-			}
-			
-			// Add closing tag if not self-closing: </tagname>
-			// Self-closing tags like <br>, <img> don't have closing tags
-			if (hasChildren || !isSelfClosingTag(tagName)) {
-				textOffset += tagName.length + 3;
-			}
-		}
-		return false;
-	}
-	
-	walk(container);
-	return textOffset - container.tagName.length-2;
-}
-
-// Helper: Check if a tag is self-closing
-function isSelfClosingTag(tagName: string): boolean {
-	const selfClosing = ['br', 'hr', 'img', 'input', 'meta', 'link', 'area', 'base', 'col', 'embed', 'param', 'source', 'track', 'wbr'];
-	return selfClosing.includes(tagName.toLowerCase());
-}
+// Helper: Get text offset from a DOM position (visible text, ignoring tags)
 function getTextOffsetFromNode(container: RowContentElement, targetNode: Node, targetOffset: number): number {
 	let textOffset = 0;
 	let found = false;

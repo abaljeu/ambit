@@ -7,6 +7,8 @@ import { model } from './model.js';
 import { Doc, DocLine } from './doc.js';
 import { Site, SiteRow } from './site.js';
 import * as Change from './change.js';
+import { escapeHtml, findPreviousVisibleChar, findNextVisibleChar,
+	htmlOffsetToVisibleOffset } from './htmlutil.js';
 
 
  export function setMessage(message : string) {
@@ -61,6 +63,8 @@ class KeyBinding {
 }
 
 const keyBindings: KeyBinding[] = [
+	new KeyBinding("F5", () => false),
+	new KeyBinding("C-F5", () => false),
 	new KeyBinding("Tab", handleTab),
 	new KeyBinding("S-Tab", handleShiftTab),
 	new KeyBinding("C-s", () => { save(); return true; }),
@@ -81,6 +85,9 @@ function findKeyBinding(combo: string): KeyBinding {
 	if (binding) return binding;
 	if (combo.length == 1) {
 		return new KeyBinding(combo, (row) => handleInsertChar(row, combo));
+	} else if (combo.length == 3 && combo[0] == 'S') {
+		// shifted character.
+		return new KeyBinding(combo, (row) => handleInsertChar(row, combo[2]));
 	}
 	return new KeyBinding("", () => true);
 }
@@ -164,19 +171,64 @@ function handleBackspace(currentRow: Editor.Row) : boolean {
 		Editor.findRow(currentRow.id).setCaretInRow(prevPosition);
 		return true;
 	}
-	else { // we're not at the beginning of the row so just delete the character
+	else { // we're not at the beginning of the row so delete visible char before
 		const htmlOffset = currentRow.getHtmlOffset();
-		deleteChar(currentRow, htmlOffset-1);
+		deleteVisibleCharBefore(currentRow, htmlOffset);
 		return true;
 	}
 }
-function deleteChar(currentRow: Editor.Row, offset: number) {
+function deleteVisibleCharBefore(currentRow: Editor.Row, htmlOffset: number) {
 	const cur = model.scene.findRow(currentRow.id);
 	const scur = cur.siteRow;
-	const change = Change.makeTextChange(scur.docLine,offset, 1, '');
-	Doc.processChange(change);
-	currentRow.setCaretInRow(offset);
+	const htmlContent = currentRow.htmlContent;
+	
+	// Find the previous visible character, skipping HTML tags
+	const visibleChar = findPreviousVisibleChar(htmlContent, htmlOffset);
+	
+	if (visibleChar) {
+		const change = Change.makeTextChange(
+			scur.docLine, 
+			visibleChar.start, 
+			visibleChar.length, 
+			''
+		);
+		Doc.processChange(change);
+		
+		// Get updated row and convert HTML offset to visible offset
+		const updatedRow = Editor.findRow(currentRow.id);
+		const newVisibleOffset = htmlOffsetToVisibleOffset(
+			updatedRow.htmlContent, 
+			visibleChar.start
+		);
+		updatedRow.setCaretInRow(newVisibleOffset);
+	}
+}
 
+function deleteVisibleCharAt(currentRow: Editor.Row, htmlOffset: number) {
+	const cur = model.scene.findRow(currentRow.id);
+	const scur = cur.siteRow;
+	const htmlContent = currentRow.htmlContent;
+	
+	// Find the next visible character, skipping HTML tags
+	const visibleChar = findNextVisibleChar(htmlContent, htmlOffset);
+	
+	if (visibleChar) {
+		const change = Change.makeTextChange(
+			scur.docLine, 
+			visibleChar.start, 
+			visibleChar.length, 
+			''
+		);
+		Doc.processChange(change);
+		
+		// Get updated row and convert HTML offset to visible offset
+		const updatedRow = Editor.findRow(currentRow.id);
+		const newVisibleOffset = htmlOffsetToVisibleOffset(
+			updatedRow.htmlContent, 
+			htmlOffset
+		);
+		updatedRow.setCaretInRow(newVisibleOffset);
+	}
 }
 function handleDelete(currentRow: Editor.Row) : boolean {
 	if (currentRow.caretOffset >= currentRow.visibleTextLength) {
@@ -188,8 +240,8 @@ function handleDelete(currentRow: Editor.Row) : boolean {
 	}
 	else {
 		const htmlOffset = currentRow.getHtmlOffset();
-		deleteChar(currentRow, htmlOffset);
-	 return true; 
+		deleteVisibleCharAt(currentRow, htmlOffset);
+		return true; 
 	}
 }
 function handleArrowUp(currentRow: Editor.Row) : boolean {
@@ -332,7 +384,8 @@ function insertChar(currentRow : Editor.Row, ch : string) {
 	const scur = cur.siteRow;
 	const htmlOffset = currentRow.getHtmlOffset();
 	const textOffset = currentRow.caretOffset;
-	const change = Change.makeTextChange(scur.docLine, htmlOffset, 0, ch);
+	const escapedCh = escapeHtml(ch);
+	const change = Change.makeTextChange(scur.docLine, htmlOffset, 0, escapedCh);
 	Doc.processChange(change);
 	currentRow.setCaretInRow(textOffset + 1);
 }
