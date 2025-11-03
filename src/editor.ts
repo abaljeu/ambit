@@ -196,6 +196,38 @@ export class Row {
 		}
 		return offset;
 	}
+	public getSelectionRange(): { start: number, end: number } {
+		const contentSpan = this.getContentSpanForFocus();
+		if (!contentSpan) 
+			return {start: 0, end: 0};
+		
+		const selection = window.getSelection();
+		if (!selection || selection.rangeCount === 0) 
+			return {start: 0, end: 0};
+		
+		const range = selection.getRangeAt(0);
+		const startOffset = getTextOffsetFromNode(
+			contentSpan, 
+			range.startContainer, 
+			range.startOffset
+		);
+		const endOffset = getTextOffsetFromNode(
+			contentSpan, 
+			range.endContainer, 
+			range.endOffset
+		);
+		
+		// Subtract indent for old editor
+		if (contentSpan.parentElement?.parentElement === lm.editor) {
+			const indent = this.indent;
+			return {
+				start: Math.max(0, startOffset - indent),
+				end: Math.max(0, endOffset - indent)
+			};
+		}
+		
+		return { start: startOffset, end: endOffset };
+	}
 	private offsetAtX(x: number): number {
 		const contentSpan = this.getContentSpanForFocus();
 		if (!contentSpan) return 0;

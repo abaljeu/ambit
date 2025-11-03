@@ -7,8 +7,7 @@ import { model } from './model.js';
 import { Doc, DocLine } from './doc.js';
 import { Site, SiteRow } from './site.js';
 import * as Change from './change.js';
-import { escapeHtml, findPreviousVisibleChar, findNextVisibleChar,
-	htmlOffsetToVisibleOffset } from './htmlutil.js';
+import * as HtmlUtil from './htmlutil.js';
 
 
  export function setMessage(message : string) {
@@ -68,6 +67,7 @@ const keyBindings: KeyBinding[] = [
 	new KeyBinding("Tab", handleTab),
 	new KeyBinding("S-Tab", handleShiftTab),
 	new KeyBinding("C-s", () => { save(); return true; }),
+	new KeyBinding("C-b", (row) => handleAddMarkup(row, "b")),
 	new KeyBinding("Enter", handleEnter),
 	new KeyBinding("Backspace", (row) => handleBackspace(row)),
 	new KeyBinding("Delete", (row) => handleDelete(row)),
@@ -183,7 +183,7 @@ function deleteVisibleCharBefore(currentRow: Editor.Row, htmlOffset: number) {
 	const htmlContent = currentRow.htmlContent;
 	
 	// Find the previous visible character, skipping HTML tags
-	const visibleChar = findPreviousVisibleChar(htmlContent, htmlOffset);
+	const visibleChar = HtmlUtil.findPreviousVisibleChar(htmlContent, htmlOffset);
 	
 	if (visibleChar) {
 		const change = Change.makeTextChange(
@@ -196,7 +196,7 @@ function deleteVisibleCharBefore(currentRow: Editor.Row, htmlOffset: number) {
 		
 		// Get updated row and convert HTML offset to visible offset
 		const updatedRow = Editor.findRow(currentRow.id);
-		const newVisibleOffset = htmlOffsetToVisibleOffset(
+		const newVisibleOffset = HtmlUtil.htmlOffsetToVisibleOffset(
 			updatedRow.htmlContent, 
 			visibleChar.start
 		);
@@ -210,7 +210,7 @@ function deleteVisibleCharAt(currentRow: Editor.Row, htmlOffset: number) {
 	const htmlContent = currentRow.htmlContent;
 	
 	// Find the next visible character, skipping HTML tags
-	const visibleChar = findNextVisibleChar(htmlContent, htmlOffset);
+	const visibleChar = HtmlUtil.findNextVisibleChar(htmlContent, htmlOffset);
 	
 	if (visibleChar) {
 		const change = Change.makeTextChange(
@@ -223,7 +223,7 @@ function deleteVisibleCharAt(currentRow: Editor.Row, htmlOffset: number) {
 		
 		// Get updated row and convert HTML offset to visible offset
 		const updatedRow = Editor.findRow(currentRow.id);
-		const newVisibleOffset = htmlOffsetToVisibleOffset(
+		const newVisibleOffset = HtmlUtil.htmlOffsetToVisibleOffset(
 			updatedRow.htmlContent, 
 			htmlOffset
 		);
@@ -353,6 +353,62 @@ function handleToggleFold(currentRow: Editor.Row) : boolean {
 	return true;
 }
 
+function handleAddMarkup(currentRow: Editor.Row, tagName: string): boolean {
+	const selectionRange = currentRow.getSelectionRange();
+	if (!selectionRange) return false;
+	
+	const { start, end } = selectionRange;
+	if (start === end) return false;
+	
+	const htmlContent = currentRow.htmlContent;
+	const htmlStart = HtmlUtil.visibleOffsetToHtmlOffset(htmlContent, start);
+	const htmlEnd = HtmlUtil.visibleOffsetToHtmlOffset(htmlContent, end);
+	
+	const operations = HtmlUtil.computeTagToggleOperations(htmlContent, htmlStart, htmlEnd, tagName);
+	if (operations.length === 0) return false;
+	
+	const cur = model.scene.findRow(currentRow.id);
+	const docLine = cur.siteRow.docLine;
+	
+	for (const op of operations) {
+		const change = Change.makeTextChange(docLine, op.offset, op.deleteLength, op.insertText);
+		Doc.processChange(change);
+	}
+	
+	const updatedRow = Editor.findRow(currentRow.id);
+	setSelectionInRow(updatedRow, start, end);
+	
+	return true;
+}
+
+function setSelectionInRow(row: Editor.Row, visibleStart: number, visibleEnd: number): void {
+	// Determine which editor is focused
+	const inNewEditor = Editor.focusIsInNewEditor();
+	const contentSpan = inNewEditor 
+		? row.newEl.querySelector('.rowContent') as HTMLSpanElement
+		: row.el.querySelector('.content') as HTMLSpanElement;
+	
+	if (!contentSpan) return;
+	
+	contentSpan.focus();
+	const selection = window.getSelection();
+	if (!selection) return;
+	
+	// Convert to node positions (add indent only for old editor)
+	const indent = inNewEditor ? 0 : row.indent;
+	const startPos = HtmlUtil.getNodeAndOffsetFromTextOffset(contentSpan, visibleStart + indent);
+	const endPos = HtmlUtil.getNodeAndOffsetFromTextOffset(contentSpan, visibleEnd + indent);
+	
+	if (!startPos || !endPos) return;
+	
+	const range = document.createRange();
+	range.setStart(startPos.node, startPos.offset);
+	range.setEnd(endPos.node, endPos.offset);
+	selection.removeAllRanges();
+	selection.addRange(range);
+}
+
+
 function updateFoldIndicator(editorRow: Editor.Row) {
 	const scene = model.scene;
 	const sceneRow = scene.findRow(editorRow.id);
@@ -384,7 +440,7 @@ function insertChar(currentRow : Editor.Row, ch : string) {
 	const scur = cur.siteRow;
 	const htmlOffset = currentRow.getHtmlOffset();
 	const textOffset = currentRow.caretOffset;
-	const escapedCh = escapeHtml(ch);
+	const escapedCh = HtmlUtil.escapeHtml(ch);
 	const change = Change.makeTextChange(scur.docLine, htmlOffset, 0, escapedCh);
 	Doc.processChange(change);
 	currentRow.setCaretInRow(textOffset + 1);

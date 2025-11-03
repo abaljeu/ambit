@@ -221,6 +221,153 @@ export function findNextVisibleChar(text: string, offset: number):
 	return null;
 }
 
+export interface TagSurroundInfo {
+	hasTag: boolean;
+	openTagStart?: number;
+	openTagEnd?: number;
+	closeTagStart?: number;
+	closeTagEnd?: number;
+}
+
+export interface TagOperation {
+	offset: number;
+	deleteLength: number;
+	insertText: string;
+}
+
+export function computeTagToggleOperations(
+	htmlContent: string,
+	htmlStartOffset: number,
+	htmlEndOffset: number,
+	tagName: string
+): TagOperation[] {
+	const tagInfo = checkTagSurrounding(
+		htmlContent, 
+		htmlStartOffset, 
+		htmlEndOffset, 
+		tagName
+	);
+	
+	if (tagInfo.hasTag && tagInfo.openTagStart !== undefined && 
+		tagInfo.closeTagStart !== undefined) {
+		// Remove tags - return operations in reverse order (close first, then open)
+		return [
+			{ 
+				offset: tagInfo.closeTagStart, 
+				deleteLength: tagInfo.closeTagEnd! - tagInfo.closeTagStart, 
+				insertText: '' 
+			},
+			{ 
+				offset: tagInfo.openTagStart, 
+				deleteLength: tagInfo.openTagEnd! - tagInfo.openTagStart, 
+				insertText: '' 
+			}
+		];
+	} else if (tagInfo.openTagStart === undefined && tagInfo.closeTagStart === undefined) {
+		// Add tags - return operations in reverse order (close first, then open)
+		return [
+			{ offset: htmlEndOffset, deleteLength: 0, insertText: `</${tagName}>` },
+			{ offset: htmlStartOffset, deleteLength: 0, insertText: `<${tagName}>` }
+		];
+	}
+	
+	// Invalid selection (crosses tag boundaries or has partial tags)
+	return [];
+}
+
+export function checkTagSurrounding(
+	text: string, 
+	startOffset: number, 
+	endOffset: number, 
+	tagName: string
+): TagSurroundInfo {
+	const openTag = `<${tagName}>`;
+	const closeTag = `</${tagName}>`;
+	
+	// Validate that selection boundaries are not inside HTML tags
+	if (isInsideHtmlTag(text, startOffset) || isInsideHtmlTag(text, endOffset)) {
+		return { hasTag: false };
+	}
+	
+	// Check if opening tag is immediately before or at start
+	let hasOpenTag = false;
+	let openTagStart = -1;
+	let openTagEnd = -1;
+	
+	if (startOffset >= openTag.length) {
+		const beforeStart = text.substring(startOffset - openTag.length, startOffset);
+		if (beforeStart === openTag) {
+			hasOpenTag = true;
+			openTagStart = startOffset - openTag.length;
+			openTagEnd = startOffset;
+		}
+	}
+	
+	// Check at start position if not found before
+	if (!hasOpenTag && text.substring(startOffset, startOffset + openTag.length) === openTag) {
+		hasOpenTag = true;
+		openTagStart = startOffset;
+		openTagEnd = startOffset + openTag.length;
+	}
+	
+	// Check if closing tag is immediately after or at end
+	let hasCloseTag = false;
+	let closeTagStart = -1;
+	let closeTagEnd = -1;
+	
+	if (endOffset + closeTag.length <= text.length) {
+		const afterEnd = text.substring(endOffset, endOffset + closeTag.length);
+		if (afterEnd === closeTag) {
+			hasCloseTag = true;
+			closeTagStart = endOffset;
+			closeTagEnd = endOffset + closeTag.length;
+		}
+	}
+	
+	// Check before end position if not found after
+	if (!hasCloseTag && endOffset >= closeTag.length) {
+		const beforeEnd = text.substring(endOffset - closeTag.length, endOffset);
+		if (beforeEnd === closeTag) {
+			hasCloseTag = true;
+			closeTagStart = endOffset - closeTag.length;
+			closeTagEnd = endOffset;
+		}
+	}
+	
+	return {
+		hasTag: hasOpenTag && hasCloseTag,
+		openTagStart: hasOpenTag ? openTagStart : undefined,
+		openTagEnd: hasOpenTag ? openTagEnd : undefined,
+		closeTagStart: hasCloseTag ? closeTagStart : undefined,
+		closeTagEnd: hasCloseTag ? closeTagEnd : undefined
+	};
+}
+
+export function getNodeAndOffsetFromTextOffset(
+	container: HTMLElement, 
+	textOffset: number
+): { node: Node, offset: number } | null {
+	let currentOffset = 0;
+	
+	function walk(node: Node): { node: Node, offset: number } | null {
+		if (node.nodeType === Node.TEXT_NODE) {
+			const textLength = node.textContent?.length ?? 0;
+			if (currentOffset + textLength >= textOffset) {
+				return { node, offset: textOffset - currentOffset };
+			}
+			currentOffset += textLength;
+		} else if (node.nodeType === Node.ELEMENT_NODE) {
+			for (const child of node.childNodes) {
+				const result = walk(child);
+				if (result) return result;
+			}
+		}
+		return null;
+	}
+	
+	return walk(container);
+}
+
 const valid = "<div><p>Hello <strong>world</strong></p><span>test</span></div>";
 const missingFront = "</p><span>test</span></div>";
 const missingFrontFixed = "<div><p></p><span>test</span></div>";
