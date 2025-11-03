@@ -82,7 +82,7 @@ function findKeyBinding(combo: string): KeyBinding {
 	if (combo.length == 1) {
 		return new KeyBinding(combo, (row) => handleInsertChar(row, combo));
 	}
-	return new KeyBinding("", () => false);
+	return new KeyBinding("", () => true);
 }
 
  export function editorHandleKey(e : KeyboardEvent) {
@@ -331,9 +331,10 @@ function insertChar(currentRow : Editor.Row, ch : string) {
 	const cur = model.scene.findRow(currentRow.id);
 	const scur = cur.siteRow;
 	const htmlOffset = currentRow.getHtmlOffset();
-	const change = Change.makeTextChange(scur.docLine,htmlOffset, 0,ch);
+	const textOffset = currentRow.caretOffset;
+	const change = Change.makeTextChange(scur.docLine, htmlOffset, 0, ch);
 	Doc.processChange(change);
-	currentRow.setCaretInRow(htmlOffset+ 1);
+	currentRow.setCaretInRow(textOffset + 1);
 }
 
 function handleInsertChar(currentRow : Editor.Row, ch : string) {

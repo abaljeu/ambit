@@ -1,13 +1,19 @@
-#editor, #editor > div,
-#newEditor, #newEditor > div {
+#editor, #newEditor {
     white-space: pre-wrap;
-    tab-size: 2em;
+    tab-size: 1em;
+}
+
+#editor > div,
+#newEditor > div {
+    display: flex;
+    white-space: pre-wrap;
+    tab-size: 1em;
 }
 
 #editor > div .fold-indicator,
 #newEditor > div .fold-indicator {
     display: inline-block;
-    width: 1.2em;
+    width: 1.4em;
     text-align: center;
     user-select: none;
     font-family: monospace;
@@ -19,9 +25,13 @@
 
 #editor > div .content,
 #newEditor > div .rowContent {
+    flex: 1;
+    border-left: 1px solid #ccc;
+    border-right: 1px solid #ccc;
     white-space: pre-wrap;
     outline: none;
     padding-left: 0.2em;
+    min-width: 0;
 }
 
 #editor > div .content:focus,
@@ -29,12 +39,17 @@
     outline: none !important;
 }
 
+#editor > div,
+#newEditor > div{
+    border: 1px dotted #eee !important;
+    border-radius: 2px;
+}
 #editor > div:has(.content:focus),
 #newEditor > div:has(.rowContent:focus) {
     border: 1px dotted #666 !important;
     border-radius: 2px;
 }
-
+;
 #editor > div.header {
     font-size: 1.5em;
     font-weight: bold;
@@ -49,10 +64,10 @@
     line-height: inherit;
 }
 
-/* Each indent unit is 2em wide with left and right borders */
+/* Each indent unit is 1em wide with left and right borders */
 #newEditor > div .indentation .indent-unit {
     display: inline-block;
-    width: 2em;
+    width: 1em;
     min-height: 1em;
     border-left: 1px solid #ccc;
     border-right: 1px solid #ccc;

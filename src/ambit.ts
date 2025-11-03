@@ -25,13 +25,13 @@ document.title = filePath;
 lm.path.textContent = filePath;
 
 
-export function loadFromPath(filePath : string) {
-    fetchDoc(filePath).then(text => Controller.loadDoc(text, filePath));
+export async function  loadFromPath(filePath : string) {
+    await fetchDoc(filePath).then(text => Controller.loadDoc(text, filePath));
 }
-export function fetchDoc(filePath : string) : Promise<string> {
+export async function fetchDoc(filePath : string) : Promise<string> {
     // If not in cache, fetch from server
     let url = baseUrl + filePath;
-    return fetch(url).then(result => result.text())
+    return await fetch(url).then(result => result.text())
         .catch(err => {
             Controller.setMessage("Error loading file " + filePath);
             console.error(err);
@@ -65,8 +65,8 @@ export function postDoc(filePath :string, content : string) {
 
 // Only auto-load if we're in the main ambit context (not in tests)
 if (typeof window !== 'undefined' && window.location.pathname.includes('ambit.php')) {
-    loadFromPath(filePath);
     Object.assign(window as any, { model, Controller });
     
     await Test.runAllTests();
+    await loadFromPath(filePath);
 }
