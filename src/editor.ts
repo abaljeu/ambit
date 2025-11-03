@@ -87,8 +87,12 @@ export class Row {
 		
 		const range = selection.getRangeAt(0);
 		
-		const off= getHtmlOffsetFromNode(contentSpan, range.startContainer, range.startOffset);
-		return off < this.indent ? 0 : off - this.indent;
+		const off = getHtmlOffsetFromNode(contentSpan, range.startContainer, range.startOffset);
+		// Only subtract indent for old editor (where tabs are inline)
+		if (contentSpan.parentElement?.parentElement === lm.editor) {
+			return off < this.indent ? 0 : off - this.indent;
+		}
+		return off;
 	}
 	
 	public get visibleText() : string {
@@ -167,7 +171,16 @@ export class Row {
 	}
 	public setCaretInRow(offset: number) {
 		const contentSpan = this.getContentSpanForFocus();
-		if (contentSpan) setCaretInParagraph(contentSpan, offset + this.indent);
+		if (!contentSpan) {
+			 console.error("setCaretInRow: contentSpan is null");
+			 return;
+		}
+		if (contentSpan.parentElement?.parentElement === lm.editor)
+			 setCaretInParagraph(contentSpan, offset + this.indent);
+		else if (contentSpan.parentElement?.parentElement === lm.newEditor)
+			 setCaretInParagraph(contentSpan, offset);
+		else
+			 console.error("setCaretInRow: contentSpan is not in editor or newEditor");
 	}
 	public moveCaretToThisRow(): void {
 		const targetX = caretX();
@@ -175,15 +188,36 @@ export class Row {
 		this.setCaretInRow(off);
 	}
 	public get caretOffset(): number {
-		const x = caretX();
-		return this.offsetAtX(x);
+		const contentSpan = this.getContentSpanForFocus();
+		if (!contentSpan) return 0;
+		
+		const selection = window.getSelection();
+		if (!selection || selection.rangeCount === 0) return 0;
+		
+		const range = selection.getRangeAt(0);
+		const offset = getTextOffsetFromNode(contentSpan, range.startContainer, range.startOffset);
+		
+		// Only subtract indent for old editor (where tabs are inline)
+		if (contentSpan.parentElement?.parentElement === lm.editor) {
+			const adjusted = offset - this.indent;
+			return adjusted < 0 ? 0 : adjusted;
+		}
+		return offset;
 	}
 	private offsetAtX(x: number): number {
-		const owt = this.offsetAtXWithTabs(x);
-		const  o = owt - this.indent;
-		return o < 0 ? 0 : o;
+		const contentSpan = this.getContentSpanForFocus();
+		if (!contentSpan) return 0;
+		
+		// Only subtract indent for old editor (where tabs are inline)
+		if (contentSpan.parentElement?.parentElement === lm.editor) {
+			const owt = this._offsetAtX(x);
+			const o = owt - this.indent;
+			return o < 0 ? 0 : o;
+		} else {
+			return this._offsetAtX(x);
+		}
 	}
-	private offsetAtXWithTabs(x: number): number {
+	private _offsetAtX(x: number): number {
 		const contentSpan = this.getContentSpanForFocus();
 		if (!contentSpan) return 0;
 		
@@ -191,12 +225,12 @@ export class Row {
 		const text = contentSpan.textContent ?? '';
 		const len = text.length;
 		if (len === 0) return 0;
-	
-		let lastdist = x;
-		let dist = x;
 		
-		// Check each text position
-		for (let i = 0; i < len; i++) {
+		let closestIndex = 0;
+		let closestDistance = Infinity;
+		
+		// Check each text position to find closest to target X
+		for (let i = 0; i <= len; i++) {
 			// Convert text offset to DOM position
 			const position = getNodeAndOffsetFromTextOffset(contentSpan, i);
 			if (!position) continue;
@@ -205,14 +239,14 @@ export class Row {
 			r.setStart(position.node, position.offset);
 			r.collapse(true);
 			const rect = r.getBoundingClientRect();
-			dist = rect.left - x;
-			if (dist >= -0.01)
-				return i;
-			else
-				continue;
-			lastdist = dist;
+			const distance = Math.abs(rect.left - x);
+			
+			if (distance < closestDistance) {
+				closestDistance = distance;
+				closestIndex = i;
+			}
 		}
-		return len;
+		return closestIndex;
 	}
 }
 
