@@ -549,19 +549,6 @@ export function currentRow(): Row {
     return endRow;
 }
 
-export function moveRowAbove(toMove: Row, target: Row): void {
-	if (toMove.el && target.el) {
-		// Move in editor
-		toMove.el.parentNode!.insertBefore(toMove.el, target.el);
-		// Move in newEditor
-		toMove.newEl.parentNode!.insertBefore(toMove.newEl, target.newEl);
-	} else {
-		if (toMove.el)
-			console.error("moveBefore: target is null");
-		else if (target.el)
-			console.error("moveBefore: toMove is null");
-	}
-}
 export function caretX(): number {
 	const sel = window.getSelection();
 	if (!sel || sel.rangeCount === 0) return 0;
@@ -570,12 +557,6 @@ export function caretX(): number {
 	const rect = r.getBoundingClientRect();
 	return rect.left;
 }
-
-export function clear(): void {
-	lm.editor.innerHTML = '';
-	lm.newEditor.innerHTML = '';
-}
-
 
 export function replaceRows(oldRows: RowSpan, newRows: ArraySpan<SceneRow>): RowSpan {
 	if (oldRows.count === 0 && newRows.length === 0) return new RowSpan(endRow, 0);
@@ -606,11 +587,6 @@ export function updateRows(rowDataArray: ArraySpan<SceneRow>): void {
 	}
 }
 
-export function deleteRow(row: Row): void {
-	row.el.remove();
-	row.newEl.remove();
-}
-
 
 export function deleteAfter(referenceRow: Row, count: number): void {
 	let current = referenceRow.Next;
@@ -624,11 +600,10 @@ export function deleteAfter(referenceRow: Row, count: number): void {
 export function docName(): string {
 	return lm.path.textContent ?? '';
 }
-export function setDocName(name: string): void {
-	lm.path.textContent = name;
-}
-export function setContent(scene: ArraySpan<SceneRow>): RowSpan {    // Clear the Editor
-	clear();
+
+export function setEditorContent(scene: ArraySpan<SceneRow>): RowSpan {    // Clear the Editor
+	lm.editor.innerHTML = '';
+	lm.newEditor.innerHTML = '';
 
 	// Create a Line element for each visible line
 	let end = endRow;

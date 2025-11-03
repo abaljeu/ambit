@@ -34,7 +34,14 @@ export class DocLine {
         root._content = name;
         return root;
     }
-
+    public docContent(): string {
+        const indentText = '\t'.repeat(this.indent);
+        let content = indentText + this._content + '\n';
+        for (const child of this._children) {
+            content += indentText + child.docContent();
+        }
+        return content;
+    }
     public get indent(): number { return this.parent !== DocLine.end ? this.parent.indent + 1 : -1; }
     public get subTreeLength(): number { return this._subTreeLength; }
     public get parent(): DocLine 
@@ -244,11 +251,22 @@ export class Doc {
         this.constructRoot(this.name);
         
         const lines = content.replace(/\r/g, '').split("\n");
+        if (lines.length > 0 && lines[lines.length - 1] === '') {
+            lines.pop();
+        }
 
         const strippedContent = lines.map(line => new StrippedContent(line));
+        
         const {newChildren }  = Doc._buildSubTree(-1, strippedContent, 0);
         this._root.addChildren(newChildren);
         return this;
+    }
+    public docContent(): string {
+        let content = '';
+        for (const line of this._root.children) {
+            content += line.docContent();
+        }
+        return content;
     }
 
     public get root(): DocLine {

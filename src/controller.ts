@@ -522,16 +522,9 @@ export function loadDoc(data: string, filePath: string): Doc {
 }
 
 export function save() {
-	// 	postDoc(Editor.docName(), Editor.getContent());
+	model.save();
 }
 
 export function setEditorContent() {
- 	Editor.setContent(new ArraySpan(model.scene.rows, 0, model.scene.rows.length));
-// 		// Update fold indicator
-// 		updateAllFoldIndicators();
+ 	Editor.setEditorContent(new ArraySpan(model.scene.rows, 0, model.scene.rows.length));
  }
-
-// export function getEditorContent(): string {
-// 	// Convert visible tabs back to regular tabs for saving
-// 	return Editor.getContent()
-// }

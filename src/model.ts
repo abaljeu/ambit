@@ -1,6 +1,7 @@
 import { Doc, DocLine, DocLineId } from './doc.js';
 import { Scene } from './scene.js';
 import { Site, SiteRow } from './site.js';
+import { postDoc } from './ambit.js';
 
 export class Transaction {
 }
@@ -22,6 +23,12 @@ class Model {
         this.site.setDoc(doc);
         this.scene.loadFromSite(this.site.getRoot());
         return doc;
+    }
+    public save(): void {
+        for (const doc of this.docArray) {
+            if (doc.name.endsWith('.amb'))
+                postDoc(doc.name, doc.docContent());
+        }
     }
 }
 
