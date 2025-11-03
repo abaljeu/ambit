@@ -85,27 +85,32 @@ const tests: (() => void)[] = [
         const rows = Array.from(Editor.rows());
         const secondRow = rows[2];
         secondRow.setCaretInRowWithTabs(3); // Position in middle of "Line 2"
+        assertEquals(3, secondRow.caretOffset); // depends on char widths
         
         // Act
         sendKey('ArrowUp', []);
         
         // Assert
-        assertEquals(Editor.currentRow().id, rows[1].id, "CurrentRow");
+        const currentRow = Editor.currentRow();
+
+        assertEquals(currentRow.id, rows[1].id, "CurrentRow");
+        assertEquals(3, currentRow.caretOffset); // depends on char widths
     }
     
     ,function testHandleArrowDown() : void {
         // Arrange
         loadTestDoc();
         const rows = Array.from(Editor.rows());
-        const firstRow = rows[0];
-        firstRow.setCaretInRowWithTabs(2); // Position in middle of "Line 1"
-        
+        const firstRow = rows[1];
+        firstRow.setCaretInRowWithTabs(4); // Position in middle of "Line 1"
+        assertEquals(4, firstRow.caretOffset); // depends on char widths
         // Act
         sendKey('ArrowDown', []);
         
         // Assert
         const currentRow = Editor.currentRow();
-        assertEquals(currentRow.id, rows[1].id, "CurrentRow");
+        assertEquals(currentRow.id, rows[2].id, "CurrentRow");
+        assertEquals(4, currentRow.caretOffset); // depends on char widths
     }
     
 // Test 2: handleEnter function

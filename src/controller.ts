@@ -195,7 +195,7 @@ function handleArrowUp(currentRow: Editor.Row) : boolean {
 	const prevP = currentRow.Previous;
 	if (!prevP.valid()) return true;
 	
-	prevP.moveCaretToThisRowWithTabs();
+	prevP.moveCaretToThisRow();
 	return true;
 }
 
@@ -203,19 +203,19 @@ function handleArrowUp(currentRow: Editor.Row) : boolean {
 	const nextP = currentRow.Next;
 	if (!nextP.valid()) return true;
 	
-	nextP.moveCaretToThisRowWithTabs();
+	nextP.moveCaretToThisRow();
 	return true;
  }
 
 function handleArrowLeft(currentRow: Editor.Row) : boolean {
-	if (currentRow.caretOffsetWithTabs > 0) {
+	if (currentRow.caretOffset > 0) {
 		// Move cursor left within current row
-		currentRow.setCaretInRowWithTabs(currentRow.caretOffsetWithTabs - 1);
+		currentRow.setCaretInRow(currentRow.caretOffset - 1);
 	} else {
 		// Move to end of previous row (need visible text length)
 		const prevRow = currentRow.Previous;
 		if (prevRow.valid()) {
-			prevRow.setCaretInRowWithTabs(prevRow.visibleTextLengthWithTabs);
+			prevRow.setCaretInRow(prevRow.visibleTextLength);
 		}
 	}
 	return true;
@@ -223,16 +223,16 @@ function handleArrowLeft(currentRow: Editor.Row) : boolean {
 
 function handleArrowRight(currentRow: Editor.Row) : boolean {
 	// Get visible text length to check if at end
-	const visibleLengthWithTabs = currentRow.visibleTextLengthWithTabs;
+	const visibleLength = currentRow.visibleTextLength;
 	
-	if (currentRow.caretOffsetWithTabs < visibleLengthWithTabs) {
+	if (currentRow.caretOffset < visibleLength) {
 		// Move cursor right within current row
-		currentRow.setCaretInRowWithTabs(currentRow.caretOffsetWithTabs + 1);
+		currentRow.setCaretInRow(currentRow.caretOffset + 1);
 	} else {
 		// Move to beginning of next row
 		const nextRow = currentRow.Next;
 		if (nextRow.valid()) {
-			nextRow.setCaretInRowWithTabs(0);
+			nextRow.setCaretInRow(0);
 		}
 	}
 	return true;

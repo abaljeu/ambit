@@ -188,6 +188,11 @@ export class Row {
 		const off = this.offsetAtXWithTabs(targetX );
 		this.setCaretInRowWithTabs(off);
 	}
+	public moveCaretToThisRow(): void {
+		const targetX = caretX();
+		const off = this.offsetAtX(targetX );
+		this.setCaretInRow(off);
+	}
 	public get caretOffsetWithTabs() {
 		const x = caretX();
 		return this.offsetAtXWithTabs(x);
@@ -224,7 +229,11 @@ export class Row {
 			r.collapse(true);
 			const rect = r.getBoundingClientRect();
 			dist = rect.left - x;
-			if (dist >= -0.000001) return i;
+			if (dist >= -0.01)
+				return i;
+			else
+				continue;
+			lastdist = dist;
 		}
 		return len;
 	}
