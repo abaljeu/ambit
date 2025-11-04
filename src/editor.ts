@@ -133,8 +133,15 @@ export class Row {
 		if (!selection || selection.rangeCount === 0) return 0;
 		
 		const range = selection.getRangeAt(0);
+		// Use focus position (where cursor is) instead of start
+		// This handles selections correctly
+		const focusNode = selection.focusNode;
+		const focusOffset = selection.focusOffset;
+		if (focusNode) {
+			return getTextOffsetFromNode(contentSpan, focusNode, focusOffset);
+		}
+		// Fallback to start if focusNode is not available
 		const offset = getTextOffsetFromNode(contentSpan, range.startContainer, range.startOffset);
-		
 		return offset;
 	}
 	private setCaretInParagraph(contentSpan: RowContentElement, offset: number) {
@@ -187,10 +194,42 @@ export class Row {
 		if (!startPos || !endPos) return;
 		
 		const range = document.createRange();
-		range.setStart(startPos.node, startPos.offset);
-		range.setEnd(endPos.node, endPos.offset);
+		// Ensure start <= end for the range
+		if (visibleStart <= visibleEnd) {
+			range.setStart(startPos.node, startPos.offset);
+			range.setEnd(endPos.node, endPos.offset);
+		} else {
+			range.setStart(endPos.node, endPos.offset);
+			range.setEnd(startPos.node, startPos.offset);
+		}
 		selection.removeAllRanges();
 		selection.addRange(range);
+	}
+	
+	public extendSelectionInRow(visibleOffset: number): void {
+		const contentSpan = this.getContentSpan();
+		if (!contentSpan) return;
+		
+		const selection = window.getSelection();
+		if (!selection || selection.rangeCount === 0) {
+			// No selection, start one from current position
+			const currentOffset = this.caretOffset;
+			this.setSelectionInRow(currentOffset, visibleOffset);
+			return;
+		}
+		
+		// Get the target node and offset
+		const targetPos = HtmlUtil.getNodeAndOffsetFromTextOffset(contentSpan, visibleOffset);
+		if (!targetPos) return;
+		
+		// Use extend to extend the selection from the anchor to the target
+		try {
+			selection.extend(targetPos.node, targetPos.offset);
+		} catch (e) {
+			// If extend fails (e.g., target is in different container), fall back to setSelectionInRow
+			const anchor = this.getAnchorOffset();
+			this.setSelectionInRow(anchor, visibleOffset);
+		}
 	}
 	
 	public getSelectionRange(): { start: number, end: number } {
@@ -215,6 +254,27 @@ export class Row {
 		);
 		
 		return { start: startOffset, end: endOffset };
+	}
+	
+	public getAnchorOffset(): number {
+		const contentSpan = this.getContentSpan();
+		if (!contentSpan) return 0;
+		
+		const selection = window.getSelection();
+		if (!selection || selection.rangeCount === 0) {
+			// No selection, anchor is same as caret
+			return this.caretOffset;
+		}
+		
+		const anchorNode = selection.anchorNode;
+		const anchorOffset = selection.anchorOffset;
+		if (anchorNode) {
+			return getTextOffsetFromNode(contentSpan, anchorNode, anchorOffset);
+		}
+		
+		// Fallback: use start of range
+		const range = selection.getRangeAt(0);
+		return getTextOffsetFromNode(contentSpan, range.startContainer, range.startOffset);
 	}
 	private offsetAtX(x: number): number {
 		return this._offsetAtX(x);

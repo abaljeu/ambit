@@ -64,6 +64,16 @@ const keyBindings: KeyBinding[] = [
 	new KeyBinding("ArrowDown", handleArrowDown),
 	new KeyBinding("ArrowLeft", handleArrowLeft),
 	new KeyBinding("ArrowRight", handleArrowRight),
+	new KeyBinding("S-ArrowLeft", handleShiftArrowLeft),
+	new KeyBinding("S-ArrowRight", handleShiftArrowRight),
+	new KeyBinding("Home", handleHome),
+	new KeyBinding("End", handleEnd),
+	new KeyBinding("S-Home", handleShiftHome),
+	new KeyBinding("S-End", handleShiftEnd),
+	new KeyBinding("C-ArrowLeft", handleWordLeft),
+	new KeyBinding("C-ArrowRight", handleWordRight),
+	new KeyBinding("C-S-ArrowLeft", handleShiftWordLeft),
+	new KeyBinding("C-S-ArrowRight", handleShiftWordRight),
 	new KeyBinding("C-ArrowUp", handleSwapUp),
 	new KeyBinding("C-ArrowDown", handleSwapDown),
 	new KeyBinding("C-.", handleToggleFold),
@@ -274,6 +284,201 @@ function handleArrowRight(currentRow: Editor.Row) : boolean {
 		// Move to beginning of next row
 		const nextRow = currentRow.next;
 		if (nextRow.valid()) {
+			nextRow.setCaretInRow(0);
+		}
+	}
+	return true;
+}
+
+function handleHome(currentRow: Editor.Row) : boolean {
+	currentRow.setCaretInRow(0);
+	return true;
+}
+
+function handleEnd(currentRow: Editor.Row) : boolean {
+	currentRow.setCaretInRow(currentRow.visibleTextLength);
+	return true;
+}
+
+function extendSelectionInRow(
+	currentRow: Editor.Row, 
+	newOffset: number
+): void {
+	// Clamp newOffset to valid range
+	const clampedNewOffset = Math.max(0, 
+		Math.min(newOffset, currentRow.visibleTextLength));
+	
+	// Use extendSelectionInRow which uses the browser's extend() method
+	// This properly handles anchor/focus when extending in either direction
+	currentRow.extendSelectionInRow(clampedNewOffset);
+}
+
+function handleShiftArrowLeft(currentRow: Editor.Row) : boolean {
+	const offset = currentRow.caretOffset;
+	if (offset > 0) {
+		extendSelectionInRow(currentRow, offset - 1);
+	}
+	return true;
+}
+
+function handleShiftArrowRight(currentRow: Editor.Row) : boolean {
+	const offset = currentRow.caretOffset;
+	const maxOffset = currentRow.visibleTextLength;
+	if (offset < maxOffset) {
+		extendSelectionInRow(currentRow, offset + 1);
+	}
+	return true;
+}
+
+function handleShiftHome(currentRow: Editor.Row) : boolean {
+	extendSelectionInRow(currentRow, 0);
+	return true;
+}
+
+function handleShiftEnd(currentRow: Editor.Row) : boolean {
+	extendSelectionInRow(currentRow, currentRow.visibleTextLength);
+	return true;
+}
+
+function handleShiftWordLeft(currentRow: Editor.Row) : boolean {
+	const text = currentRow.visibleText;
+	const offset = currentRow.caretOffset;
+	
+	const newOffset = findWordLeft(text, offset);
+	if (newOffset >= 0) {
+		extendSelectionInRow(currentRow, newOffset);
+	} else {
+		// At start, extend to 0
+		extendSelectionInRow(currentRow, 0);
+	}
+	return true;
+}
+
+function handleShiftWordRight(currentRow: Editor.Row) : boolean {
+	const text = currentRow.visibleText;
+	const offset = currentRow.caretOffset;
+	
+	const newOffset = findWordRight(text, offset);
+	if (newOffset >= 0) {
+		extendSelectionInRow(currentRow, newOffset);
+	} else {
+		// At end, extend to end
+		extendSelectionInRow(currentRow, currentRow.visibleTextLength);
+	}
+	return true;
+}
+
+function findWordLeft(text: string, offset: number): number {
+	// If at start, can't go left
+	if (offset <= 0) return -1;
+	
+	// Check if we're in a word (alphanumeric or underscore)
+	const isWordChar = (pos: number) => {
+		if (pos < 0 || pos >= text.length) return false;
+		const ch = text[pos];
+		return /[a-zA-Z0-9_]/.test(ch);
+	};
+	
+	// If we're in a word, move to start of current word
+	if (isWordChar(offset - 1)) {
+		let pos = offset - 1;
+		while (pos > 0 && isWordChar(pos - 1)) {
+			pos--;
+		}
+		return pos;
+	}
+	
+	// We're not in a word, skip non-word characters
+	let pos = offset - 1;
+	while (pos > 0 && !isWordChar(pos - 1)) {
+		pos--;
+	}
+	
+	// Now find start of word
+	if (pos > 0 && isWordChar(pos - 1)) {
+		while (pos > 0 && isWordChar(pos - 1)) {
+			pos--;
+		}
+		return pos;
+	}
+	
+	return 0;
+}
+
+function findWordRight(text: string, offset: number): number {
+	// If at end, can't go right
+	if (offset >= text.length) return -1;
+	
+	// Check if we're in a word (alphanumeric or underscore)
+	const isWordChar = (pos: number) => {
+		if (pos < 0 || pos >= text.length) return false;
+		const ch = text[pos];
+		return /[a-zA-Z0-9_]/.test(ch);
+	};
+	
+	// If we're in a word, move to end of current word
+	if (isWordChar(offset)) {
+		let pos = offset;
+		while (pos < text.length && isWordChar(pos)) {
+			pos++;
+		}
+		// Now skip to start of next word
+		while (pos < text.length && !isWordChar(pos)) {
+			pos++;
+		}
+		return pos;
+	}
+	
+	// We're not in a word, skip to start of next word
+	let pos = offset;
+	while (pos < text.length && !isWordChar(pos)) {
+		pos++;
+	}
+	return pos;
+}
+
+function handleWordLeft(currentRow: Editor.Row) : boolean {
+	const text = currentRow.visibleText;
+	const offset = currentRow.caretOffset;
+	
+	const newOffset = findWordLeft(text, offset);
+	if (newOffset >= 0) {
+		currentRow.setCaretInRow(newOffset);
+		return true;
+	}
+	
+	// At start of row, move to end of previous row
+	const prevRow = currentRow.previous;
+	if (prevRow.valid()) {
+		const prevText = prevRow.visibleText;
+		const prevOffset = findWordLeft(prevText, prevText.length);
+		if (prevOffset >= 0) {
+			prevRow.setCaretInRow(prevOffset);
+		} else {
+			prevRow.setCaretInRow(prevText.length);
+		}
+	}
+	return true;
+}
+
+function handleWordRight(currentRow: Editor.Row) : boolean {
+	const text = currentRow.visibleText;
+	const offset = currentRow.caretOffset;
+	
+	const newOffset = findWordRight(text, offset);
+	if (newOffset >= 0) {
+		currentRow.setCaretInRow(newOffset);
+		return true;
+	}
+	
+	// At end of row, move to start of next row
+	const nextRow = currentRow.next;
+	if (nextRow.valid()) {
+		const nextText = nextRow.visibleText;
+		const nextOffset = findWordRight(nextText, 0);
+		if (nextOffset >= 0) {
+			nextRow.setCaretInRow(nextOffset);
+		} else {
 			nextRow.setCaretInRow(0);
 		}
 	}
