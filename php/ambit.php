@@ -21,10 +21,7 @@ $content = ''; // Empty initially, JavaScript will populate via GET request
 <h1 id="path" style="display: inline-block; margin-right: 10px;"><?= $filePath ?></h1>
 <button id="save">Save</button>
 
-<div id="editors-container" style="display:flex; width:100%; height:80vh; gap:10px;">
-   <div id="editor" style="flex:1; height:100%; border: 1px solid #ccc; padding: 0 0 0 5px; overflow-y: auto;"></div>
-   <div id="newEditor" style="flex:1; height:100%; border: 1px solid #ccc; padding: 0 0 0 5px; overflow-y: auto;"></div>
-</div>
+<div id="newEditor" style="width:100%; height:80vh; border: 1px solid #ccc; padding: 0 0 0 5px; overflow-y: auto;"></div>
 
 <div id="links"></div>
 <div>Message: <span id="messageElement"><?= "Ready" ?></span> </div>

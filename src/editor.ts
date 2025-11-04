@@ -8,28 +8,10 @@ const RowElementTag: string = 'div';
 const RowContentTag: string = 'span';
 type RowContentElement = HTMLSpanElement;
 type RowElement = HTMLDivElement;
-const VISIBLE_TAB = '→'; // Visible tab character
+const VISIBLE_TAB = '→'; // Visible tab character, used for internal tabs.
 
-type RowElementPair = { el: RowElement; newEl: RowElement; };
 const NOROWID = 'R000000';
-function focusIsInNewEditor(): boolean {
-	return lm.newEditor.contains(document.activeElement);
-}
-function focusIsInEditor(): boolean {
-	return lm.editor.contains(document.activeElement);
-}
-function createRowElement(): RowElementPair {
-	// Create editor element (2-span: fold-indicator + content with inline tabs)
-	const el = document.createElement(RowElementTag) as RowElement;
-	const elFold = document.createElement('span');
-	elFold.className = 'fold-indicator';
-	elFold.textContent = ' ';
-	const elContent = document.createElement(RowContentTag);
-	elContent.className = 'content';
-	elContent.contentEditable = 'true';
-	el.appendChild(elFold);
-	el.appendChild(elContent);
-	
+function createRowElement(): RowElement {
 	// Create newEditor element (3-span: fold-indicator + indentation + rowContent)
 	const newEl = document.createElement(RowElementTag) as RowElement;
 	const newElFold = document.createElement('span');
@@ -45,14 +27,13 @@ function createRowElement(): RowElementPair {
 	newEl.appendChild(newElIndent);
 	newEl.appendChild(newElContent);
 	
-	return { el, newEl };
+	return newEl;
 }
 export function createRowElementFromSceneRow(sceneRow: SceneRow): Row {
-	const pair = createRowElement();
-	const row = new Row(pair.el, pair.newEl);
+	const newEl = createRowElement();
+	const row = new Row(newEl);
 
-	pair.el.dataset.lineId = sceneRow.id.value;
-	pair.newEl.dataset.lineId = sceneRow.id.value;
+	newEl.dataset.lineId = sceneRow.id.value;
 	const indent = sceneRow.indent;
 	row.setContent(sceneRow.content, indent);
 	return row;
@@ -61,23 +42,16 @@ export function createRowElementFromSceneRow(sceneRow: SceneRow): Row {
 
 export class Row {
 	public equals(other: Row): boolean {
-		return this.el === other.el;
+		return this.newEl === other.newEl;
 	}
 	constructor(
-		public readonly el: RowElement,
 		public readonly newEl: RowElement
 	) {}
 	private getContentSpan(): RowContentElement {
-		return this.el.querySelector('.content') as RowContentElement;
-	}
-	private getNewContentSpan(): RowContentElement {
 		return this.newEl.querySelector('.rowContent') as RowContentElement;
 	}
-	private getContentSpanForFocus(): RowContentElement {
-		return focusIsInEditor() ? this.getContentSpan() : this.getNewContentSpan();
-	}
 	private getFoldIndicatorSpan(): HTMLSpanElement {
-		return this.el.querySelector('.fold-indicator') as HTMLSpanElement;
+		return this.newEl.querySelector('.fold-indicator') as HTMLSpanElement;
 	}
 
 	public getHtmlOffset(): number {
@@ -89,7 +63,7 @@ export class Row {
 	}
 	
 	public get visibleText() : string {
-		const contentSpan = this.getNewContentSpan();
+		const contentSpan = this.getContentSpan();
 		if (!contentSpan) return '';
 		return contentSpan.textContent ?? '';
 	}
@@ -97,7 +71,7 @@ export class Row {
 		return this.visibleText.length;
 	}
 	public get htmlContent(): string {
-		const contentSpan = this.getNewContentSpan();
+		const contentSpan = this.getContentSpan();
 		if (!contentSpan) return '';
 		// Extract innerHTML to preserve HTML tags, then convert visible tabs
 		return contentSpan.innerHTML.replace(new RegExp(VISIBLE_TAB, 'g'), '\t');
@@ -105,15 +79,8 @@ export class Row {
 	public setContent(value: string, sceneIndent: number) {
 		const indent = sceneIndent < 0 ? 0 : sceneIndent;
 		
-		// Set content in editor (inline tabs + content)
-		const contentSpan = this.getContentSpan();
-		const newContentSpan = this.getNewContentSpan();
-
-		if (contentSpan) {
-			contentSpan.innerHTML = VISIBLE_TAB.repeat(indent) + value;
-		}
-		
 		// Set content in newEditor (separate indentation + rowContent)
+		const newContentSpan = this.getContentSpan();
 		const indentSpan = this.newEl.querySelector('.indentation') as HTMLSpanElement;
 		if (indentSpan && newContentSpan) {
 			// Clear and rebuild indentation units
@@ -128,39 +95,30 @@ export class Row {
 		}
 	}
 	public get indent(): number {
-		// count the number of tabs at the beginning of the content
-		const contentSpan = this.getContentSpan();
-		const innerHTML = contentSpan?.innerHTML ?? '';
-		const tabs = innerHTML.match(new RegExp('^' + VISIBLE_TAB + '+'));
-		if (tabs) return tabs[0].length;
-		return 0;
+		// count the number of indent-units in the indentation span
+		const indentSpan = this.newEl.querySelector('.indentation') as HTMLSpanElement;
+		if (!indentSpan) return 0;
+		return indentSpan.querySelectorAll('.indent-unit').length;
 	}
 	public setFoldIndicator(indicator: string) {
-		// Set in editor
 		const foldSpan = this.getFoldIndicatorSpan();
 		if (foldSpan) foldSpan.textContent = indicator;
-		
-		// Set in newEditor
-		const newFoldSpan = this.newEl.querySelector('.fold-indicator') as HTMLSpanElement;
-		if (newFoldSpan) newFoldSpan.textContent = indicator;
 	}
 	public get previous(): Row {
-		const previousSibling = this.el?.previousElementSibling;
-		const newPreviousSibling = this.newEl?.previousElementSibling;
-		if (!previousSibling || !newPreviousSibling) return endRow;
-		return new Row(previousSibling as RowElement, newPreviousSibling as RowElement);
+		const previousSibling = this.newEl?.previousElementSibling;
+		if (!previousSibling) return endRow;
+		return new Row(previousSibling as RowElement);
 	}
 	public get next(): Row {
-		const nextSibling = this.el?.nextElementSibling;
-		const newNextSibling = this.newEl?.nextElementSibling;
-		if (!nextSibling || !newNextSibling) return endRow;
-		return new Row(nextSibling as RowElement, newNextSibling as RowElement);
+		const nextSibling = this.newEl?.nextElementSibling;
+		if (!nextSibling ) return endRow;
+		return new Row(nextSibling as RowElement);
 	}
 	public valid(): boolean {
-		return this.el !== null  && this.id !== NOROWID;
+		return this.newEl !== null  && this.id !== NOROWID;
 	}
 	public get id(): string {
-		return this.el?.dataset.lineId ?? NOROWID;
+		return this.newEl?.dataset.lineId ?? NOROWID;
 	}
 	public moveCaretToThisRow(): void {
 		const targetX = caretX();
@@ -168,7 +126,7 @@ export class Row {
 		this.setCaretInRow(off);
 	}
 	public get caretOffset(): number {
-		const contentSpan = this.getContentSpanForFocus();
+		const contentSpan = this.getContentSpan();
 		if (!contentSpan) return 0;
 		
 		const selection = window.getSelection();
@@ -177,11 +135,6 @@ export class Row {
 		const range = selection.getRangeAt(0);
 		const offset = getTextOffsetFromNode(contentSpan, range.startContainer, range.startOffset);
 		
-		// Only subtract indent for old editor (where tabs are inline)
-		if (contentSpan.parentElement?.parentElement === lm.editor) {
-			const adjusted = offset - this.indent;
-			return adjusted < 0 ? 0 : adjusted;
-		}
 		return offset;
 	}
 	private setCaretInParagraph(contentSpan: RowContentElement, offset: number) {
@@ -211,24 +164,15 @@ export class Row {
 	
 	
 	public setCaretInRow(visibleOffset: number) {
-		const contentSpan = this.getContentSpanForFocus();
+		const contentSpan = this.getContentSpan();
 		if (!contentSpan) {
 			 console.error("setCaretInRow: contentSpan is null");
 			 return;
 		}
-		if (contentSpan.parentElement?.parentElement === lm.editor)
-			 this.setCaretInParagraph(contentSpan, visibleOffset + this.indent);
-		else if (contentSpan.parentElement?.parentElement === lm.newEditor)
-			 this.setCaretInParagraph(contentSpan, visibleOffset);
-		else
-			 console.error("setCaretInRow: contentSpan is not in editor or newEditor");
+		this.setCaretInParagraph(contentSpan, visibleOffset);
 	}
 	public setSelectionInRow(visibleStart: number, visibleEnd: number): void {
-		// Determine which editor is focused
-		const inNewEditor = focusIsInNewEditor();
-		const contentSpan = inNewEditor 
-			? this.newEl.querySelector('.rowContent') as HTMLSpanElement
-			: this.el.querySelector('.content') as HTMLSpanElement;
+		const contentSpan = this.getContentSpan();
 		
 		if (!contentSpan) return;
 		
@@ -236,10 +180,9 @@ export class Row {
 		const selection = window.getSelection();
 		if (!selection) return;
 		
-		// Convert to node positions (add indent only for old editor)
-		const indent = inNewEditor ? 0 : this.indent;
-		const startPos = HtmlUtil.getNodeAndOffsetFromTextOffset(contentSpan, visibleStart + indent);
-		const endPos = HtmlUtil.getNodeAndOffsetFromTextOffset(contentSpan, visibleEnd + indent);
+		// Convert to node positions
+		const startPos = HtmlUtil.getNodeAndOffsetFromTextOffset(contentSpan, visibleStart);
+		const endPos = HtmlUtil.getNodeAndOffsetFromTextOffset(contentSpan, visibleEnd);
 		
 		if (!startPos || !endPos) return;
 		
@@ -251,7 +194,7 @@ export class Row {
 	}
 	
 	public getSelectionRange(): { start: number, end: number } {
-		const contentSpan = this.getContentSpanForFocus();
+		const contentSpan = this.getContentSpan();
 		if (!contentSpan) 
 			return {start: 0, end: 0};
 		
@@ -271,32 +214,13 @@ export class Row {
 			range.endOffset
 		);
 		
-		// Subtract indent for old editor
-		if (contentSpan.parentElement?.parentElement === lm.editor) {
-			const indent = this.indent;
-			return {
-				start: Math.max(0, startOffset - indent),
-				end: Math.max(0, endOffset - indent)
-			};
-		}
-		
 		return { start: startOffset, end: endOffset };
 	}
 	private offsetAtX(x: number): number {
-		const contentSpan = this.getContentSpanForFocus();
-		if (!contentSpan) return 0;
-		
-		// Only subtract indent for old editor (where tabs are inline)
-		if (contentSpan.parentElement?.parentElement === lm.editor) {
-			const owt = this._offsetAtX(x);
-			const o = owt - this.indent;
-			return o < 0 ? 0 : o;
-		} else {
-			return this._offsetAtX(x);
-		}
+		return this._offsetAtX(x);
 	}
 	private _offsetAtX(x: number): number {
-		const contentSpan = this.getContentSpanForFocus();
+		const contentSpan = this.getContentSpan();
 		if (!contentSpan) return 0;
 		
 		// Get total text length (works with HTML too)
@@ -364,46 +288,37 @@ export class RowSpan implements Iterable<Row> {
 }
 
 // Sentinel row used to indicate insertion at the start of the container
-export const endRow: Row = new Row(
-	document.createElement(RowElementTag) as RowElement,
-	document.createElement(RowElementTag) as RowElement
-);
+const endRowElement = document.createElement(RowElementTag) as RowElement;
+export const endRow: Row = new Row(endRowElement);
 
-// Iterator that yields parallel element pairs from both editors
-function* paragraphPairs(): IterableIterator<RowElementPair> {
-	const editorParagraphs = lm.editor.querySelectorAll(RowElementTag);
-	const newEditorParagraphs = lm.newEditor.querySelectorAll(RowElementTag);
-	const count = Math.min(editorParagraphs.length, newEditorParagraphs.length);
+// Iterator that yields row elements from the editor
+function* rowElements(): IterableIterator<RowElement> {
+	const rowElems = lm.newEditor.querySelectorAll(RowElementTag);
 	
-	for (let i = 0; i < count; i++) {
-		yield {
-			el: editorParagraphs[i] as RowElement,
-			newEl: newEditorParagraphs[i] as RowElement
-		};
+	for (let i = 0; i < rowElems.length; i++) {
+		const element = rowElems[i] as RowElement;
+		yield element;
 	}
 }
 
 // create an iterator that yields rows from the DOM
 export function* rows(): IterableIterator<Row> {
-	for (const pair of paragraphPairs()) {
-		yield new Row(pair.el, pair.newEl);
+	for (const pair of rowElements()) {
+		yield new Row(pair);
 	}
 }
 
 export function at(index: number): Row {
 	// if index is out of range, return endRow
-	if (index < 0 || index >= lm.editor.childElementCount) return endRow;
-	if (index >= lm.newEditor.childElementCount) return endRow;
-	return new Row(
-		lm.editor.children[index] as RowElement,
-		lm.newEditor.children[index] as RowElement
-	);
+	if (index < 0 || index >= lm.newEditor.childElementCount) return endRow;
+	const element = lm.newEditor.children[index] as RowElement;
+	return new Row(element);
 }
 // Create a new row and insert it after the given previous row.
 // If previousRow is endRow, insert at the front of the container.
 export function addBefore(targetRow: Row, scene: ArraySpan<SceneRow>)
 	: RowSpan {
-	if (lm.editor === null) 
+	if (lm.newEditor === null) 
 		return new RowSpan(endRow, 0);
 	
 	let firstRow = endRow;
@@ -411,13 +326,6 @@ export function addBefore(targetRow: Row, scene: ArraySpan<SceneRow>)
 		const row = createRowElementFromSceneRow(sceneRow);
 		if (firstRow === endRow) firstRow = row;
 
-		// Insert into editor
-		if (targetRow === endRow) {
-			lm.editor.appendChild(row.el);
-		} else {
-			lm.editor.insertBefore(row.el, targetRow.el);
-		}
-		
 		// Insert into newEditor
 		if (targetRow === endRow) {
 			lm.newEditor.appendChild(row.newEl);
@@ -432,21 +340,13 @@ export function addAfter(
 	referenceRow: Row, 
 	rowDataArray: ArraySpan<SceneRow>
 ): RowSpan {
-	if (lm.editor === null) return new RowSpan(endRow, 0);
+	if (lm.newEditor === null) return new RowSpan(endRow, 0);
 	let count = 0;
-	let beforeRow = referenceRow.el;
 	let newBeforeRow = referenceRow.newEl;
 	let first = endRow;
 	
 	for (const rowData of rowDataArray) {
 		const row = createRowElementFromSceneRow(rowData);
-		
-		// Insert into editor
-		if (beforeRow.nextSibling) {
-			lm.editor.insertBefore(row.el, beforeRow.nextSibling);
-		} else {
-			lm.editor.appendChild(row.el);
-		}
 		
 		// Insert into newEditor
 		if (newBeforeRow.nextSibling) {
@@ -456,7 +356,6 @@ export function addAfter(
 		}
 		
 		if (first === endRow) first = row;
-		beforeRow = row.el;
 		newBeforeRow = row.newEl;
 		count++;
 	}
@@ -522,14 +421,12 @@ function getCurrentParagraphWithOffset(): { element: RowElement, offset: number 
 	const range = selection.getRangeAt(0);
 	let node = selection.anchorNode;
 
-	// Navigate up to find the row div in either editor container
+	// Navigate up to find the row div in newEditor container
 	let currentP: RowElement | null = null;
-	let containerRoot: RowElement | null = null;
-	while (node && node !== lm.editor && node !== lm.newEditor) {
+	while (node && node !== lm.newEditor) {
 		if (node.nodeName === RowElementTag.toUpperCase() &&
-			(node.parentNode === lm.editor || node.parentNode === lm.newEditor)) {
+			node.parentNode === lm.newEditor) {
 			currentP = node as RowElement;
-			containerRoot = node.parentNode as RowElement;
 			break;
 		}
 		node = node.parentNode;
@@ -537,10 +434,8 @@ function getCurrentParagraphWithOffset(): { element: RowElement, offset: number 
 
 	if (!currentP) return null;
 
-	// Calculate offset within content span; class differs by container
-	const inNewEditor = containerRoot === lm.newEditor;
-	const contentClass = inNewEditor ? '.rowContent' : '.content';
-	const contentSpan = currentP.querySelector(contentClass) as HTMLSpanElement;
+	// Calculate offset within content span
+	const contentSpan = currentP.querySelector('.rowContent') as HTMLSpanElement;
 	if (!contentSpan) return { element: currentP, offset: 0 };
 
 	// Use helper to calculate text offset from DOM position
@@ -558,25 +453,13 @@ export function currentRow(): Row {
 	let p = getCurrentParagraphWithOffset();
 	if (!p) return endRow;
     
-    const parent = p.element.parentNode as RowElement | null;
-    if (parent === lm.editor) {
-        // p.element is from editor; map to corresponding newEditor element by index
-        const index = Array.from(lm.editor.children).indexOf(p.element);
-        const newEl = (index >= 0 && index < lm.newEditor.children.length)
-            ? lm.newEditor.children[index] as RowElement
-            : endRow.newEl;
-        return new Row(p.element as RowElement, newEl);
-    }
-    if (parent === lm.newEditor) {
-        // p.element is from newEditor; map to corresponding editor element by index
-        const index = Array.from(lm.newEditor.children).indexOf(p.element);
-        const el = (index >= 0 && index < lm.editor.children.length)
-            ? lm.editor.children[index] as RowElement
-            : endRow.el;
-        return new Row(el, p.element as RowElement);
-    }
-    
-    return endRow;
+	const parent = p.element.parentNode as RowElement | null;
+	if (parent === lm.newEditor) {
+		// p.element is from newEditor
+		return new Row(p.element);
+	}
+	
+	return endRow;
 }
 
 export function caretX(): number {
@@ -598,15 +481,14 @@ export function replaceRows(oldRows: RowSpan, newRows: ArraySpan<SceneRow>): Row
 	
 	// Now remove them
 	for (const row of rowsToRemove) {
-		row.el.remove();
 		row.newEl.remove();
 	}
 	
 	return addAfter(beforeStartRow, newRows);
 }
 
-export function setEditorContent(scene: ArraySpan<SceneRow>): RowSpan {    // Clear the Editor
-	lm.editor.innerHTML = '';
+export function setEditorContent(scene: ArraySpan<SceneRow>): RowSpan {
+	// Clear the Editor
 	lm.newEditor.innerHTML = '';
 
 	// Create a Line element for each visible line

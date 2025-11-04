@@ -36,17 +36,6 @@ import * as HtmlUtil from './htmlutil.js';
 // 	lm.linksDiv.innerHTML = linksHTML;
  }
 
- export function editorInput() {
-// 	// Sync all editor content back to scene
-// 	syncAllRowsToScene();
-	
-// 	// Update all fold indicators
-// 	updateAllFoldIndicators();
-	
-// 	// Update wikilinks
-// 	links();
- }
-
 function updateAllFoldIndicators() {
 	const scene = model.scene;
 	for (const row of Editor.rows()) {
@@ -395,19 +384,6 @@ function updateFoldIndicator(editorRow: Editor.Row) {
 		editorRow.setFoldIndicator('-');
 	}
 }
-function offsetIsInIndent(offset: number, rowText: string): boolean {
-	const len = rowText.length;
-	if (offset > len) return false;
-
-	for (let i = 0; i < offset; i++) {
-		if (rowText[i] != '\t') return false;
-	}
-	return true;
-}
-
-// function rowDataFromEditorRow(editorRow: Editor.Row): Scene.RowData {
-// 	return Scene.data.findByLineId(editorRow.id);
-// }
 
 function insertChar(currentRow : Editor.Row, ch : string) {
 	const cur = model.scene.findRow(currentRow.id);
