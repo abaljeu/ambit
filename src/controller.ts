@@ -161,6 +161,13 @@ function joinRows(prevRow: Editor.Row, nextRow: Editor.Row) {
 }
 
 function handleBackspace(currentRow: Editor.Row) : boolean {
+	// Check if there's a selection
+	const selectionRange = currentRow.getSelectionRange();
+	if (selectionRange.start !== selectionRange.end) {
+		// Delete the selection
+		deleteSelection(currentRow, selectionRange.start, selectionRange.end);
+		return true;
+	}
 	
 	if (currentRow.caretOffset === 0) {
 		const prevRow = currentRow.previous;
@@ -176,6 +183,33 @@ function handleBackspace(currentRow: Editor.Row) : boolean {
 		return true;
 	}
 }
+function deleteSelection(currentRow: Editor.Row, visibleStart: number, visibleEnd: number) {
+	const cur = model.scene.findRow(currentRow.id);
+	const scur = cur.siteRow;
+	const htmlContent = currentRow.htmlContent;
+	
+	// Ensure start < end
+	const start = Math.min(visibleStart, visibleEnd);
+	const end = Math.max(visibleStart, visibleEnd);
+	
+	// Convert visible offsets to HTML offsets
+	const htmlStart = HtmlUtil.visibleOffsetToHtmlOffset(htmlContent, start);
+	const htmlEnd = HtmlUtil.visibleOffsetToHtmlOffset(htmlContent, end);
+	
+	// Delete the selected text
+	const change = Change.makeTextChange(
+		scur.docLine,
+		htmlStart,
+		htmlEnd - htmlStart,
+		''
+	);
+	Doc.processChange(change);
+	
+	// Place cursor at the start of where the selection was
+	const updatedRow = Editor.findRow(currentRow.id);
+	updatedRow.setCaretInRow(start);
+}
+
 function deleteVisibleCharBefore(currentRow: Editor.Row, htmlOffset: number) {
 	const cur = model.scene.findRow(currentRow.id);
 	const scur = cur.siteRow;
@@ -230,6 +264,14 @@ function deleteVisibleCharAt(currentRow: Editor.Row, htmlOffset: number) {
 	}
 }
 function handleDelete(currentRow: Editor.Row) : boolean {
+	// Check if there's a selection
+	const selectionRange = currentRow.getSelectionRange();
+	if (selectionRange.start !== selectionRange.end) {
+		// Delete the selection
+		deleteSelection(currentRow, selectionRange.start, selectionRange.end);
+		return true;
+	}
+	
 	if (currentRow.caretOffset >= currentRow.visibleTextLength) {
 		const nextRow = currentRow.next;
 		if (!nextRow.valid()) return true;
