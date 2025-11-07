@@ -18,14 +18,41 @@ export class SceneRowId extends Id<'SceneRow'> {
         super(value);
     }
 }
+export class SceneCell {
+    public readonly width: number;
+    public constructor(public readonly type: string, public readonly text: string ) {
+        // tabs have no text, but take one column width
+        // interpret 0 as full width
+        this.width = text.length? 1: 0;
+    }
+}
+export class SceneRowCells {
+    private _cells: SceneCell[] = [];
+    public get cells(): readonly SceneCell[] { return this._cells; }
+    public constructor(public readonly source: string, public readonly indent: number) {
+        for (let i = 0; i < this.indent; i++) {
+            this._cells.push(new SceneCell('indent', '\t'));
+        }
+        for (const text of this.source.split('\t')) {
+            this._cells.push(new SceneCell('text', text));
+        }
+    }
+    public get count(): number { return this._cells.length; }
+    public cell(index: number): SceneCell { return this._cells[index]; }
+    public get text(): string { return this._cells.map(cell => cell.text).join('\t'); }
+
+}
 export class SceneRow extends SiteRowSubscriber {
     public readonly id: SceneRowId;
     public  get indent(): number { return this.siteRow.indent; }
     public treeLength: number = 1;
     // public static end = new SceneRow(NoScene,  SiteRow.end, new SceneRowId('R000000'));
-    
-    public print() : void {
-        console.log(`${this.id.toString()} (${this.indent}) ${this.siteRow.docLine.content}`);
+    private _cells: SceneRowCells | undefined;
+    public get cells(): SceneRowCells {
+        if (this._cells === undefined) {
+            this._cells = new SceneRowCells(this.content, this.indent);
+        }
+        return this._cells;
     }
     constructor(public  scene: Scene, public readonly siteRow: SiteRow, id: SceneRowId) {
         super();
@@ -75,10 +102,12 @@ export class SceneRow extends SiteRowSubscriber {
 
     public get content(): string { return this.siteRow.docLine.content; }
     public siteRowTextChanged(siteRow: SiteRow): void {
-        if (siteRow !== this.siteRow) return;
+        if (siteRow !== this.siteRow)
+            return;
+        this._cells = undefined;
          const r : Editor.Row = Editor.findRow(this.id.value);
          if (r !== Editor.endRow) 
-            r.setContent(this.content, this.indent);
+            r.setContent(this.cells);
     }
 }
 
@@ -170,6 +199,7 @@ export class Scene {
             if (row === this.sceneRowPool.end) {
                 row = this.findOrCreateSceneRow(siteRow);
             } else {
+                row.siteRowTextChanged(siteRow);
                 // Reuse existing row - don't re-subscribe
             }
             row.treeLength = 1;
@@ -184,12 +214,6 @@ export class Scene {
         }
     }
 
-    public print(): void {
-        console.log("Scene");
-        for (const row of this._rows) {
-            row.print();
-        }
-    }
     public findOrCreateSceneRow(siteRow: SiteRow): SceneRow {
         const row = this.sceneRowPool.search((row: SceneRow) => row.siteRow === siteRow);
         if (row !== this.sceneRowPool.end) return row;

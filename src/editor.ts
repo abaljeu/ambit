@@ -1,12 +1,15 @@
 import * as lm from './elements.js';
-import { Scene, SceneRow } from './scene.js';
+import { Scene, SceneRow, SceneRowCells } from './scene.js';
 import { ArraySpan } from './arrayspan.js';
 import { Id, Pool } from './pool.js';
 import { visibleOffsetToHtmlOffset } from './htmlutil.js';
 import * as HtmlUtil from './htmlutil.js';
 const RowElementTag: string = 'div';
 const RowContentTag: string = 'span';
-type RowContentElement = HTMLSpanElement;
+const RowContentClass: string = 'rowContent';
+const RowIndentClass: string = 'indentation';
+const TextCellClass: string = 'editableCell';
+type CellElement = HTMLSpanElement;
 type RowElement = HTMLDivElement;
 const VISIBLE_TAB = '→'; // Visible tab character, used for internal tabs.
 
@@ -17,14 +20,14 @@ function createRowElement(): RowElement {
 	const newElFold = document.createElement('span');
 	newElFold.className = 'fold-indicator';
 	newElFold.textContent = ' ';
-	const newElIndent = document.createElement(RowContentTag);
-	newElIndent.className = 'indentation';
-	newElIndent.contentEditable = 'false';
+	// const newElIndent = document.createElement(RowContentTag);
+	// newElIndent.className = 'indentation';
+	// newElIndent.contentEditable = 'false';
 	const newElContent = document.createElement(RowContentTag);
 	newElContent.className = 'rowContent';
-	newElContent.contentEditable = 'true';
+	// newElContent.contentEditable = 'true';
 	newEl.appendChild(newElFold);
-	newEl.appendChild(newElIndent);
+	// newEl.appendChild(newElIndent);
 	newEl.appendChild(newElContent);
 	
 	return newEl;
@@ -34,133 +37,74 @@ export function createRowElementFromSceneRow(sceneRow: SceneRow): Row {
 	const row = new Row(newEl);
 
 	newEl.dataset.lineId = sceneRow.id.value;
-	const indent = sceneRow.indent;
-	row.setContent(sceneRow.content, indent);
+	row.setContent(sceneRow.cells);
 	return row;
 }
 
+export class Cell {
+	constructor(public readonly newEl: CellElement) {
 
-export class Row {
-	public equals(other: Row): boolean {
-		return this.newEl === other.newEl;
 	}
-	constructor(
-		public readonly newEl: RowElement
-	) {}
-	private getContentSpan(): RowContentElement {
-		return this.newEl.querySelector('.rowContent') as RowContentElement;
+	public get isIndent(): boolean {
+		return this.newEl.classList.contains(RowIndentClass);
 	}
-	private getFoldIndicatorSpan(): HTMLSpanElement {
-		return this.newEl.querySelector('.fold-indicator') as HTMLSpanElement;
+	public get isText(): boolean {
+		return this.newEl.classList.contains(TextCellClass);
 	}
-
-	public getHtmlOffset(): number {
-		// Get visible offset from DOM
-		const visibleOffset = this.caretOffset;
-		
-		// Convert visible offset to HTML offset using stored HTML content
-		return visibleOffsetToHtmlOffset(this.htmlContent, visibleOffset);
-	}
-	
 	public get visibleText() : string {
-		const contentSpan = this.getContentSpan();
-		if (!contentSpan) return '';
-		return contentSpan.textContent ?? '';
+		if (this.isIndent) {
+			// Indent cells display VISIBLE_TAB
+			return '	';
+		}
+		// Text cells return their actual text content
+		return this.newEl.textContent ?? '';
 	}
 	public get visibleTextLength() : number {
 		return this.visibleText.length;
 	}
 	public get htmlContent(): string {
-		const contentSpan = this.getContentSpan();
-		if (!contentSpan) return '';
-		// Extract innerHTML to preserve HTML tags, then convert visible tabs
-		return contentSpan.innerHTML.replace(new RegExp(VISIBLE_TAB, 'g'), '\t');
-	}
-	public setContent(value: string, sceneIndent: number) {
-		const indent = sceneIndent < 0 ? 0 : sceneIndent;
-		
-		// Set content in newEditor (separate indentation + rowContent)
-		const newContentSpan = this.getContentSpan();
-		const indentSpan = this.newEl.querySelector('.indentation') as HTMLSpanElement;
-		if (indentSpan && newContentSpan) {
-			// Clear and rebuild indentation units
-			indentSpan.innerHTML = '';
-			for (let i = 0; i < indent; i++) {
-				const unit = document.createElement('span');
-				unit.className = 'indent-unit';
-				unit.textContent = '\u00A0'; // Non-breaking space to ensure element renders
-				indentSpan.appendChild(unit);
-			}
-			newContentSpan.innerHTML = value;
+		if (this.isIndent) {
+			// Indent cells have VISIBLE_TAB as their content
+			return '	';
 		}
+		// Text cells return their innerHTML to preserve HTML structure
+		return this.newEl.innerHTML;
 	}
-	public get indent(): number {
-		// count the number of indent-units in the indentation span
-		const indentSpan = this.newEl.querySelector('.indentation') as HTMLSpanElement;
-		if (!indentSpan) return 0;
-		return indentSpan.querySelectorAll('.indent-unit').length;
+
+	public getHtmlOffset(visibleOffset: number): number {
+		// Convert visible offset to HTML offset using stored HTML content
+		return visibleOffsetToHtmlOffset(this.htmlContent, visibleOffset);
 	}
-	public setFoldIndicator(indicator: string) {
-		const foldSpan = this.getFoldIndicatorSpan();
-		if (foldSpan) foldSpan.textContent = indicator;
-	}
-	public get previous(): Row {
-		const previousSibling = this.newEl?.previousElementSibling;
-		if (!previousSibling) return endRow;
-		return new Row(previousSibling as RowElement);
-	}
-	public get next(): Row {
-		const nextSibling = this.newEl?.nextElementSibling;
-		if (!nextSibling ) return endRow;
-		return new Row(nextSibling as RowElement);
-	}
-	public valid(): boolean {
-		return this.newEl !== null  && this.id !== NOROWID;
-	}
-	public get id(): string {
-		return this.newEl?.dataset.lineId ?? NOROWID;
-	}
-	public moveCaretToThisRow(): void {
-		const targetX = caretX();
-		const off = this.offsetAtX(targetX );
-		this.setCaretInRow(off);
-	}
-	public get caretOffset(): number {
-		const contentSpan = this.getContentSpan();
-		if (!contentSpan) return 0;
+
+	public caretOffset(): number {
+		if (!this.isText) return 0;
 		
 		const selection = window.getSelection();
 		if (!selection || selection.rangeCount === 0) return 0;
 		
 		const range = selection.getRangeAt(0);
-		// Use focus position (where cursor is) instead of start
-		// This handles selections correctly
 		const focusNode = selection.focusNode;
 		const focusOffset = selection.focusOffset;
-		if (focusNode) {
-			return getTextOffsetFromNode(contentSpan, focusNode, focusOffset);
+		if (focusNode && this.containsNode(focusNode)) {
+			return getTextOffsetFromNode(this.newEl, focusNode, focusOffset);
 		}
-		// Fallback to start if focusNode is not available
-		const offset = getTextOffsetFromNode(contentSpan, range.startContainer, range.startOffset);
-		return offset;
+		// Fallback to start if focusNode is not available or not in this cell
+		if (this.containsNode(range.startContainer)) {
+			return getTextOffsetFromNode(this.newEl, range.startContainer, range.startOffset);
+		}
+		return 0;
 	}
-	private setCaretInParagraph(contentSpan: RowContentElement, offset: number) {
+
+	public setCaret(offset: number): void {
+		if (!this.isText) return;
 		if (offset < 0) offset = 0;
-		contentSpan.focus();
+		
+		this.newEl.focus();
 		const selection = window.getSelection();
 		if (!selection) return;
 		
-		// Use helper to convert text offset to DOM position
-		const position = getNodeAndOffsetFromTextOffset(contentSpan, offset);
-		if (!position) {
-			// Fallback: place at end of content
-			const range = document.createRange();
-			range.selectNodeContents(contentSpan);
-			range.collapse(false);
-			selection.removeAllRanges();
-			selection.addRange(range);
-			return;
-		}
+		const position = getNodeAndOffsetFromTextOffset(this.newEl, offset)
+				?? {node: this.newEl, offset: this.visibleTextLength};
 		
 		const range = document.createRange();
 		range.setStart(position.node, position.offset);
@@ -168,34 +112,46 @@ export class Row {
 		selection.removeAllRanges();
 		selection.addRange(range);
 	}
-	
-	
-	public setCaretInRow(visibleOffset: number) {
-		const contentSpan = this.getContentSpan();
-		if (!contentSpan) {
-			 console.error("setCaretInRow: contentSpan is null");
-			 return;
+
+	public getSelectionRange(): { start: number, end: number } {
+		if (!this.isText) return {start: 0, end: 0};
+		
+		const selection = window.getSelection();
+		if (!selection || selection.rangeCount === 0) 
+			return {start: 0, end: 0};
+		
+		const range = selection.getRangeAt(0);
+		// Check if selection is in this cell
+		if (!this.containsNode(range.startContainer) && !this.containsNode(range.endContainer)) {
+			return {start: 0, end: 0};
 		}
-		this.setCaretInParagraph(contentSpan, visibleOffset);
+		
+		const startOffset = this.containsNode(range.startContainer) 
+			? getTextOffsetFromNode(this.newEl, range.startContainer, range.startOffset)
+			: 0;
+		const endOffset = this.containsNode(range.endContainer)
+			? getTextOffsetFromNode(this.newEl, range.endContainer, range.endOffset)
+			: this.visibleTextLength;
+		
+		return { start: startOffset, end: endOffset };
 	}
-	public setSelectionInRow(visibleStart: number, visibleEnd: number): void {
-		const contentSpan = this.getContentSpan();
+
+	public setSelection(start: number, end: number): void {
+		if (!this.isText) return;
 		
-		if (!contentSpan) return;
-		
-		contentSpan.focus();
+		this.newEl.focus();
 		const selection = window.getSelection();
 		if (!selection) return;
 		
 		// Convert to node positions
-		const startPos = HtmlUtil.getNodeAndOffsetFromTextOffset(contentSpan, visibleStart);
-		const endPos = HtmlUtil.getNodeAndOffsetFromTextOffset(contentSpan, visibleEnd);
+		const startPos = getNodeAndOffsetFromTextOffset(this.newEl, start);
+		const endPos = getNodeAndOffsetFromTextOffset(this.newEl, end);
 		
 		if (!startPos || !endPos) return;
 		
 		const range = document.createRange();
 		// Ensure start <= end for the range
-		if (visibleStart <= visibleEnd) {
+		if (start <= end) {
 			range.setStart(startPos.node, startPos.offset);
 			range.setEnd(endPos.node, endPos.offset);
 		} else {
@@ -205,82 +161,46 @@ export class Row {
 		selection.removeAllRanges();
 		selection.addRange(range);
 	}
-	
-	public extendSelectionInRow(visibleOffset: number): void {
-		const contentSpan = this.getContentSpan();
-		if (!contentSpan) return;
-		
-		const selection = window.getSelection();
-		if (!selection || selection.rangeCount === 0) {
-			// No selection, start one from current position
-			const currentOffset = this.caretOffset;
-			this.setSelectionInRow(currentOffset, visibleOffset);
-			return;
-		}
-		
-		// Get the target node and offset
-		const targetPos = HtmlUtil.getNodeAndOffsetFromTextOffset(contentSpan, visibleOffset);
-		if (!targetPos) return;
-		
-		// Use extend to extend the selection from the anchor to the target
-		try {
-			selection.extend(targetPos.node, targetPos.offset);
-		} catch (e) {
-			// If extend fails (e.g., target is in different container), fall back to setSelectionInRow
-			const anchor = this.getAnchorOffset();
-			this.setSelectionInRow(anchor, visibleOffset);
-		}
-	}
-	
-	public getSelectionRange(): { start: number, end: number } {
-		const contentSpan = this.getContentSpan();
-		if (!contentSpan) 
-			return {start: 0, end: 0};
-		
-		const selection = window.getSelection();
-		if (!selection || selection.rangeCount === 0) 
-			return {start: 0, end: 0};
-		
-		const range = selection.getRangeAt(0);
-		const startOffset = getTextOffsetFromNode(
-			contentSpan, 
-			range.startContainer, 
-			range.startOffset
-		);
-		const endOffset = getTextOffsetFromNode(
-			contentSpan, 
-			range.endContainer, 
-			range.endOffset
-		);
-		
-		return { start: startOffset, end: endOffset };
-	}
-	
+
 	public getAnchorOffset(): number {
-		const contentSpan = this.getContentSpan();
-		if (!contentSpan) return 0;
+		if (!this.isText) return 0;
 		
 		const selection = window.getSelection();
 		if (!selection || selection.rangeCount === 0) {
 			// No selection, anchor is same as caret
-			return this.caretOffset;
+			return this.caretOffset();
 		}
 		
 		const anchorNode = selection.anchorNode;
 		const anchorOffset = selection.anchorOffset;
-		if (anchorNode) {
-			return getTextOffsetFromNode(contentSpan, anchorNode, anchorOffset);
+		if (anchorNode && this.containsNode(anchorNode)) {
+			return getTextOffsetFromNode(this.newEl, anchorNode, anchorOffset);
 		}
 		
 		// Fallback: use start of range
 		const range = selection.getRangeAt(0);
-		return getTextOffsetFromNode(contentSpan, range.startContainer, range.startOffset);
+		if (this.containsNode(range.startContainer)) {
+			return getTextOffsetFromNode(this.newEl, range.startContainer, range.startOffset);
+		}
+		return 0;
 	}
-	private offsetAtX(x: number): number {
-		return this._offsetAtX(x);
+
+	public extendSelectionInCell(cellLocalOffset: number): void {
+		if (!this.isText) return;
+		
+		// Clamp offset to valid range within this cell
+		const clampedOffset = Math.max(0, 
+			Math.min(cellLocalOffset, this.visibleTextLength));
+		
+		// Get anchor offset within this cell
+		const anchorOffset = this.getAnchorOffset();
+		
+		// Set selection from anchor to new offset within this cell
+		this.setSelection(anchorOffset, clampedOffset);
 	}
-	private _offsetAtX(x: number): number {
-		const contentSpan = this.getContentSpan();
+
+	public offsetAtX(x: number): number {
+		const contentSpan = this.newEl;
 		if (!contentSpan) return 0;
 		
 		// Get total text length (works with HTML too)
@@ -309,6 +229,331 @@ export class Row {
 			}
 		}
 		return closestIndex;
+	}
+
+	private containsNode(node: Node): boolean {
+		return this.newEl.contains(node);
+	}
+	public get active(): boolean {
+		return this.containsNode(document.activeElement as Node);
+	}
+
+	public focus(): void {
+		if (this.isText) {
+			this.newEl.focus();
+		}
+	}
+
+	public moveCaretToThisCell(x: number): void {
+		if (!this.isText) return;
+		// Find offset at X coordinate within this cell
+		const offset = this.offsetAtX(x);
+		// Set caret at that offset
+		this.setCaret(offset);
+	}
+
+}
+
+export class Row {
+	private _cachedCells: readonly Cell[] = [];
+	public equals(other: Row): boolean {
+		return this.newEl === other.newEl;
+	}
+	public get cells(): readonly Cell[] {
+		if (this._cachedCells.length === 0) {
+			this._cachedCells = this.getContentSpans().map(span => new Cell(span));
+		}
+		return this._cachedCells;
+	}
+	public get contentCells(): readonly Cell[] {
+		return this.cells.filter(cell => cell.isText);
+	}
+	public get activeCell(): Cell | null {
+		// Returns the active cell using Cell.active() check
+		return this.cells.find(cell => cell.active) ?? null;
+	}
+	public getActiveCellIndex(): number {
+		const contentCells = this.contentCells;
+		const activeCell = this.activeCell;
+		if (!activeCell) return -1;
+		const index = contentCells.indexOf(activeCell);
+		return index;
+	}
+	public getActiveCellHtmlOffset(): number {
+		const currentCellIndex = this.getActiveCellIndex();
+		if (currentCellIndex === -1) return -1;
+		// Get the html offset of the current cell
+		// Sum the html length of the previous cells, plus 1 for the \t
+		const contentCells = this.contentCells;
+		let htmlOffset = 0;
+		for (let i = 0; i < currentCellIndex; i++) {
+			htmlOffset += contentCells[i].htmlContent.length;
+			htmlOffset += 1;
+		}
+		return htmlOffset;
+	}
+	constructor(
+		public readonly newEl: RowElement
+	) {}
+	private getContentSpans(): readonly CellElement[] {
+		const contentElement = this.newEl.querySelector(`.${RowContentClass}`) as HTMLElement;
+		if (!contentElement) return [];
+		// Get all children that are either indent or text cells, in document order
+		return Array.from(contentElement.children).filter(child => 
+			child.classList.contains(RowIndentClass) || 
+			child.classList.contains(TextCellClass)
+		) as CellElement[];
+	}
+	private getFoldIndicatorSpan(): HTMLSpanElement {
+		return this.newEl.querySelector('.fold-indicator') as HTMLSpanElement;
+	}
+
+	public getHtmlOffset(): number {
+		// Get visible offset from DOM (includes cell context)
+		const caret = this.caretOffset;
+		if (!caret) return 0;
+		
+		// Calculate row-level HTML offset by:
+		// 1. Getting HTML offset within the active cell
+		// 2. Adding HTML content lengths of text cells before the active cell
+		// 3. Adding \t lengths between text cells (since htmlContent joins with \t)
+		const textCells = this.contentCells;
+		let rowLevelHtmlOffset = 0;
+		
+		for (let i = 0; i < textCells.length; i++) {
+			const cell = textCells[i];
+			if (cell.newEl === caret.cell.newEl) {
+				// Found the active cell, add its cell-local HTML offset
+				rowLevelHtmlOffset += caret.cell.getHtmlOffset(caret.offset);
+				break;
+			}
+			// Add the full HTML content length of text cells before the active cell
+			rowLevelHtmlOffset += cell.htmlContent.length;
+			// Add \t length if there are more cells after this one
+			if (i < textCells.length - 1) {
+				rowLevelHtmlOffset += 1; // \t character length
+			}
+		}
+		
+		return rowLevelHtmlOffset;
+	}
+	
+	public get visibleText() : string {
+		const cells = this.cells;
+		if (cells.length === 0) return '';
+		return cells.map(cell => cell.visibleText).join('');
+	}
+	public get visibleTextLength() : number {
+		return this.visibleText.length;
+	}
+	public get htmlContent(): string {
+		// Only include text cells (editable cells), not indent cells
+		// Join multiple text cells with \t to represent internal tabs
+		const textCells = this.contentCells;
+		if (textCells.length === 0) return '';
+		return textCells.map(cell => cell.htmlContent).join('\t');
+	}
+	public setContent(cells: SceneRowCells) {
+		let rowContent = this.newEl.querySelector(`.${RowContentClass}`) as HTMLElement;
+		if (!rowContent) {
+			// If rowContent doesn't exist, create it
+			rowContent = document.createElement(RowContentTag);
+			rowContent.className = RowContentClass;
+			this.newEl.appendChild(rowContent);
+		}
+		// Clear only rowContent's innerHTML, preserving fold-indicator
+		rowContent.innerHTML = '';
+		
+		for (const cell of cells.cells) {
+			if (cell.type === 'indent') {
+				const indentSpan = document.createElement('span');
+				indentSpan.className = RowIndentClass;
+				indentSpan.textContent = VISIBLE_TAB;
+				rowContent.appendChild(indentSpan);
+			}
+			else if (cell.type === 'text') {
+				const textSpan = document.createElement('span');
+				textSpan.className = TextCellClass;
+				textSpan.contentEditable = 'true';
+				// width of cell is source cell width in ems; if 0, it's proportional to available space.
+				if (cell.width === 0) {
+					textSpan.style.flex = '1';
+				} else {
+					textSpan.style.width = `${cell.width}em`;
+				}
+				
+				textSpan.textContent = cell.text;
+				rowContent.appendChild(textSpan);
+			}
+		}
+		this._cachedCells = [];
+	}
+	public get indent(): number {
+		// count the number of indent-units in the indentation span
+		return this.cells.filter((c: Cell) => c.isIndent).length;
+	}
+	public setFoldIndicator(indicator: string) {
+		const foldSpan = this.getFoldIndicatorSpan();
+		if (foldSpan) foldSpan.textContent = indicator;
+	}
+	public get previous(): Row {
+		const previousSibling = this.newEl?.previousElementSibling;
+		if (!previousSibling) return endRow;
+		return new Row(previousSibling as RowElement);
+	}
+	public get next(): Row {
+		const nextSibling = this.newEl?.nextElementSibling;
+		if (!nextSibling ) return endRow;
+		return new Row(nextSibling as RowElement);
+	}
+	public valid(): boolean {
+		return this.newEl !== null  && this.id !== NOROWID;
+	}
+	public get id(): string {
+		return this.newEl?.dataset.lineId ?? NOROWID;
+	}
+	public moveCaretToThisRow(): void {
+		const targetX = caretX();
+		// Find which cell contains the X coordinate
+		const result = this.offsetAtX(targetX);
+		if (result) {
+			// Delegate to that cell's moveCaretToThisCell() method
+			result.cell.moveCaretToThisCell(targetX);
+		}
+	}
+	public getContentSpan(): CellElement { // deprecated
+		return this.getContentSpans()[0];
+	}
+	public get caretOffset(): { cell: Cell, offset: number }  {
+		// Find active cell using Cell.active() getter
+		const activeCell = this.cells.find(cell => cell.active);
+		if (!activeCell) {
+			const firstCell = this.cells[0];
+			if (!firstCell) {
+				// No cells at all - return a sentinel
+				return { cell: new Cell(document.createElement('span')), offset: 0 };
+			}
+			return { cell: firstCell, offset: 0 };
+		}
+		
+		// Delegate to that cell's caretOffset() method (returns cell-local offset)
+		const offset = activeCell.caretOffset();
+		return { cell: activeCell, offset };
+	}
+	private setCaretInParagraph(contentSpan: CellElement, offset: number) {
+		if (offset < 0) offset = 0;
+		contentSpan.focus();
+		const selection = window.getSelection();
+		if (!selection) return;
+		
+		// Use helper to convert text offset to DOM position
+		const position = getNodeAndOffsetFromTextOffset(contentSpan, offset);
+		if (!position) {
+			// Fallback: place at end of content
+			const range = document.createRange();
+			range.selectNodeContents(contentSpan);
+			range.collapse(false);
+			selection.removeAllRanges();
+			selection.addRange(range);
+			return;
+		}
+		
+		const range = document.createRange();
+		range.setStart(position.node, position.offset);
+		range.collapse(true);
+		selection.removeAllRanges();
+		selection.addRange(range);
+	}
+	
+	
+	public setCaretInRow(visibleOffset: number) {
+		// Find cell context first: determine which cell should contain the cursor based on row-level offset
+		let cumulativeLength = 0;
+		const contentCells = this.contentCells;
+		for (const cell of contentCells) {
+			const cellLength = cell.visibleTextLength;
+			if (visibleOffset <= cumulativeLength + cellLength) {
+				// Calculate cell-local offset by subtracting preceding cells' cumulative text lengths
+				const cellLocalOffset = visibleOffset - cumulativeLength;
+				// Delegate to that cell's setCaret() method
+				cell.setCaret(cellLocalOffset);
+				return;
+			}
+			cumulativeLength += cellLength;
+		}
+		// Handle edge case: offset beyond row length - place at end of last cell
+		if (contentCells.length > 0) {
+			const lastCell = contentCells[contentCells.length - 1];
+			lastCell.setCaret(lastCell.visibleTextLength);
+		}
+	}
+	public setSelectionInRow(visibleStart: number, visibleEnd: number): void {
+		// Find cell context first: determine which cell contains the selection based on row-level offsets
+		// Controller ensures start and end are in the same cell
+		let cumulativeLength = 0;
+		for (const cell of this.cells) {
+			const cellLength = cell.visibleTextLength;
+			// Check if both start and end are within this cell
+			if (visibleStart <= cumulativeLength + cellLength && visibleEnd <= cumulativeLength + cellLength) {
+				// Calculate cell-local offsets by subtracting preceding cells' cumulative text lengths
+				const cellLocalStart = visibleStart - cumulativeLength;
+				const cellLocalEnd = visibleEnd - cumulativeLength;
+				// Delegate to that cell's setSelection() method
+				cell.setSelection(cellLocalStart, cellLocalEnd);
+				return;
+			}
+			cumulativeLength += cellLength;
+		}
+	}
+	
+	public extendSelectionInRow(visibleOffset: number): void {
+		// Get current caret position (includes cell context)
+		const caret = this.caretOffset;
+		if (!caret) {
+			// No active cell, start selection from beginning
+			this.setSelectionInRow(0, visibleOffset);
+			return;
+		}
+		
+		// Use the caret's cell and offset as anchor
+		// Calculate row-level offset from cell context
+		let cumulativeLength = 0;
+		for (const cell of this.cells) {
+			if (cell === caret.cell) {
+				const anchorOffset = cumulativeLength + caret.offset;
+				this.setSelectionInRow(anchorOffset, visibleOffset);
+				return;
+			}
+			cumulativeLength += cell.visibleTextLength;
+		}
+	}
+	
+	public getSelectionRange(): { start: number, end: number } {
+		// Find active cell using Cell.active() getter
+		const activeCell = this.cells.find(cell => cell.active);
+		if (!activeCell) {
+			// Return {start: 0, end: 0} if no cell is active
+			return {start: 0, end: 0};
+		}
+		
+		// Delegate to that cell's getSelectionRange() method (returns cell-local offsets)
+		// Note: Returned offsets are cell-local, cell context is implicit (the active cell)
+		return activeCell.getSelectionRange();
+	}
+	
+	public offsetAtX(x: number): { cell: Cell, offset: number } | null {
+		// Find which cell contains the X coordinate using getBoundingClientRect() on each cell
+		for (const cell of this.contentCells) {
+			const rect = cell.newEl.getBoundingClientRect();
+			// Check if X is within cell bounds
+			if (x >= rect.left && x <= rect.right) {
+				// Delegate to that cell's offsetAtX() method to get cell-local offset
+				const offset = cell.offsetAtX(x);
+				return { cell, offset };
+			}
+		}
+		// Return null if X is not in any cell
+		return null;
 	}
 }
 
@@ -425,7 +670,7 @@ export function addAfter(
 
 // Helper: Walk DOM tree and find node+offset for a given text offset
 function getNodeAndOffsetFromTextOffset(
-	container: RowContentElement, 
+	container: CellElement, 
 	textOffset: number
 ): { node: Node, offset: number } | null {
 	let currentOffset = 0;
@@ -450,7 +695,7 @@ function getNodeAndOffsetFromTextOffset(
 }
 
 // Helper: Get text offset from a DOM position (visible text, ignoring tags)
-function getTextOffsetFromNode(container: RowContentElement, targetNode: Node, targetOffset: number): number {
+function getTextOffsetFromNode(container: CellElement, targetNode: Node, targetOffset: number): number {
 	let textOffset = 0;
 	let found = false;
 	

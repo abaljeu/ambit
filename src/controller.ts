@@ -9,12 +9,11 @@ import { Site, SiteRow } from './site.js';
 import * as Change from './change.js';
 import * as HtmlUtil from './htmlutil.js';
 
-
- export function setMessage(message : string) {
+export function setMessage(message : string) {
 // 	lm.messageArea.innerHTML = message;
- }
+}
 
- export function links() {
+export function links() {
 // 	// Get the content from the Editor div
 // 	const textareaValue = getEditorContent();
 
@@ -34,7 +33,7 @@ import * as HtmlUtil from './htmlutil.js';
 
 // 	// Inject the generated links into the links div
 // 	lm.linksDiv.innerHTML = linksHTML;
- }
+}
 
 function updateAllFoldIndicators() {
 	const scene = model.scene;
@@ -42,7 +41,6 @@ function updateAllFoldIndicators() {
 		updateFoldIndicator(row);
 	}
 }
-
 class KeyBinding {
 	constructor(
 		readonly combo: string,
@@ -119,6 +117,8 @@ function findKeyBinding(combo: string): KeyBinding {
 		updateAllFoldIndicators();
  }
 
+
+ 
  function handleEnter(currentRow: Editor.Row) : boolean {
 	// Get HTML string offset (includes tag lengths) for proper splitting
 	const htmlOffset = currentRow.getHtmlOffset();
@@ -161,29 +161,59 @@ function joinRows(prevRow: Editor.Row, nextRow: Editor.Row) {
 }
 
 function handleBackspace(currentRow: Editor.Row) : boolean {
-	// Check if there's a selection
-	const selectionRange = currentRow.getSelectionRange();
-	if (selectionRange.start !== selectionRange.end) {
-		// Delete the selection
-		deleteSelection(currentRow, selectionRange.start, selectionRange.end);
+	// Check if there's a selection using active cell's selection range
+	const activeCell = currentRow.activeCell;
+	if (!activeCell)
 		return true;
+	const selectionRange = activeCell.getSelectionRange();
+	if (selectionRange.start !== selectionRange.end) {
+		const start = cellLocalToRowLevelOffset(currentRow, activeCell, selectionRange.start);
+		const end = cellLocalToRowLevelOffset(currentRow, activeCell, selectionRange.end);
+
+		deleteRowRange(currentRow, start, end);
+		return true;
+	}
+	const caret = activeCell.caretOffset();
+	if (caret > 0) { // delete selected text.
+		const start = cellLocalToRowLevelOffset(currentRow, activeCell, caret)-1;
+		const end = start + 1;
+
+		deleteRowRange(currentRow, start, end);
+		return true;
+	}
+	 if (activeCell == currentRow.contentCells[0]) { // join row to previous
+			const prevRow = currentRow.previous;
+			const prevPosition = prevRow.visibleTextLength;
+			if (!prevRow.valid()) return true;
+			joinRows(prevRow, currentRow);
+			Editor.findRow(currentRow.id).setCaretInRow(prevPosition);
+			return true;
+	}
+	 // join cell to previous  
+	const cellOffset = cellLocalToRowLevelOffset(currentRow, activeCell, 0);
+	deleteRowRange(currentRow, cellOffset-1, cellOffset);
+	return true;
+}
+function cellLocalToRowLevelOffset(row: Editor.Row, cell: Editor.Cell, cellLocalOffset: number): number {
+	// Convert cell-local offset to row-level offset by accumulating visible text lengths
+	// of all cells before the given cell
+	const cells = row.contentCells;
+	let rowLevelOffset = 0;
+	
+	for (const c of cells) {
+		if (c.newEl === cell.newEl) {
+			// Found the target cell, add the cell-local offset
+			rowLevelOffset += cellLocalOffset;
+			break;
+		}
+		// Add the full visible text length of cells before the target cell
+		rowLevelOffset += c.visibleTextLength;
 	}
 	
-	if (currentRow.caretOffset === 0) {
-		const prevRow = currentRow.previous;
-		const prevPosition = prevRow.visibleTextLength;
-		if (!prevRow.valid()) return true;
-		joinRows(prevRow, currentRow);
-		Editor.findRow(currentRow.id).setCaretInRow(prevPosition);
-		return true;
-	}
-	else { // we're not at the beginning of the row so delete visible char before
-		const htmlOffset = currentRow.getHtmlOffset();
-		deleteVisibleCharBefore(currentRow, htmlOffset);
-		return true;
-	}
+	return rowLevelOffset;
 }
-function deleteSelection(currentRow: Editor.Row, visibleStart: number, visibleEnd: number) {
+
+function deleteRowRange(currentRow: Editor.Row, visibleStart: number, visibleEnd: number) {
 	const cur = model.scene.findRow(currentRow.id);
 	const scur = cur.siteRow;
 	const htmlContent = currentRow.htmlContent;
@@ -264,15 +294,23 @@ function deleteVisibleCharAt(currentRow: Editor.Row, htmlOffset: number) {
 	}
 }
 function handleDelete(currentRow: Editor.Row) : boolean {
-	// Check if there's a selection
-	const selectionRange = currentRow.getSelectionRange();
-	if (selectionRange.start !== selectionRange.end) {
-		// Delete the selection
-		deleteSelection(currentRow, selectionRange.start, selectionRange.end);
-		return true;
+	// Check if there's a selection using active cell's selection range
+	const activeCell = currentRow.activeCell;
+	if (activeCell) {
+		const selectionRange = activeCell.getSelectionRange();
+		if (selectionRange.start !== selectionRange.end) {
+			// Convert cell-local offsets to row-level offsets
+			const rowLevelStart = cellLocalToRowLevelOffset(currentRow, activeCell, selectionRange.start);
+			const rowLevelEnd = cellLocalToRowLevelOffset(currentRow, activeCell, selectionRange.end);
+			// Delete the selection
+			deleteRowRange(currentRow, rowLevelStart, rowLevelEnd);
+			return true;
+		}
 	}
 	
-	if (currentRow.caretOffset >= currentRow.visibleTextLength) {
+	const caret = currentRow.caretOffset;
+	const offset = caret?.offset ?? 0;
+	if (offset >= currentRow.visibleTextLength) {
 		const nextRow = currentRow.next;
 		if (!nextRow.valid()) return true;
 		joinRows(currentRow, nextRow);
@@ -285,6 +323,50 @@ function handleDelete(currentRow: Editor.Row) : boolean {
 		return true; 
 	}
 }
+function findPreviousEditableCell(row: Editor.Row, fromCell: Editor.Cell): Editor.Cell | null {
+	const contentCells = row.contentCells;
+	const fromIndex = contentCells.findIndex(cell => cell.newEl === fromCell.newEl);
+	if (fromIndex < 0) return null;
+	
+	// Look backwards in current row
+	for (let i = fromIndex - 1; i >= 0; i--) {
+		return contentCells[i];
+	}
+	
+	// Not found in current row, look in previous row
+	const prevRow = row.previous;
+	if (prevRow.valid()) {
+		const prevContentCells = prevRow.contentCells;
+		if (prevContentCells.length > 0) {
+			return prevContentCells[prevContentCells.length - 1];
+		}
+	}
+	
+	return null;
+}
+
+function findNextEditableCell(row: Editor.Row, fromCell: Editor.Cell): Editor.Cell | null {
+	const contentCells = row.contentCells;
+	const fromIndex = contentCells.findIndex(cell => cell.newEl === fromCell.newEl);
+	if (fromIndex < 0) return null;
+	
+	// Look forwards in current row
+	for (let i = fromIndex + 1; i < contentCells.length; i++) {
+		return contentCells[i];
+	}
+	
+	// Not found in current row, look in next row
+	const nextRow = row.next;
+	if (nextRow.valid()) {
+		const nextContentCells = nextRow.contentCells;
+		if (nextContentCells.length > 0) {
+			return nextContentCells[0];
+		}
+	}
+	
+	return null;
+}
+
 function handleArrowUp(currentRow: Editor.Row) : boolean {
 	const prevP = currentRow.previous;
 	if (!prevP.valid()) return true;
@@ -299,35 +381,46 @@ function handleArrowUp(currentRow: Editor.Row) : boolean {
 	
 	nextP.moveCaretToThisRow();
 	return true;
- }
+}
 
 function handleArrowLeft(currentRow: Editor.Row) : boolean {
-	if (currentRow.caretOffset > 0) {
-		// Move cursor left within current row
-		currentRow.setCaretInRow(currentRow.caretOffset - 1);
-	} else {
-		// Move to end of previous row (need visible text length)
-		const prevRow = currentRow.previous;
-		if (prevRow.valid()) {
-			prevRow.setCaretInRow(prevRow.visibleTextLength);
+	const activeCell = currentRow.activeCell;
+	if (!activeCell) return true;
+	
+	const caret = currentRow.caretOffset;
+	const offset = caret?.offset ?? 0;
+	
+	if (offset === 0) {
+		// Cursor at left end of cell, find previous editable cell
+		const prevCell = findPreviousEditableCell(currentRow, activeCell);
+		if (prevCell) {
+			// Move to end of previous cell
+			prevCell.setCaret(prevCell.visibleTextLength);
 		}
+	} else {
+		// Move cursor left within current cell
+		activeCell.setCaret(offset - 1);
 	}
 	return true;
 }
 
 function handleArrowRight(currentRow: Editor.Row) : boolean {
-	// Get visible text length to check if at end
-	const visibleLength = currentRow.visibleTextLength;
+	const activeCell = currentRow.activeCell;
+	if (!activeCell) return true;
 	
-	if (currentRow.caretOffset < visibleLength) {
-		// Move cursor right within current row
-		currentRow.setCaretInRow(currentRow.caretOffset + 1);
-	} else {
-		// Move to beginning of next row
-		const nextRow = currentRow.next;
-		if (nextRow.valid()) {
-			nextRow.setCaretInRow(0);
+	const caret = currentRow.caretOffset;
+	const offset = caret?.offset ?? 0;
+	
+	if (offset === activeCell.visibleTextLength) {
+		// Cursor at right end of cell, find next editable cell
+		const nextCell = findNextEditableCell(currentRow, activeCell);
+		if (nextCell) {
+			// Move to start (offset 0) of next cell
+			nextCell.setCaret(0);
 		}
+	} else {
+		// Move cursor right within current cell
+		activeCell.setCaret(offset + 1);
 	}
 	return true;
 }
@@ -342,70 +435,93 @@ function handleEnd(currentRow: Editor.Row) : boolean {
 	return true;
 }
 
-function extendSelectionInRow(
-	currentRow: Editor.Row, 
-	newOffset: number
+function extendSelectionInCell(
+	cell: Editor.Cell,
+	cellLocalOffset: number
 ): void {
-	// Clamp newOffset to valid range
-	const clampedNewOffset = Math.max(0, 
-		Math.min(newOffset, currentRow.visibleTextLength));
-	
-	// Use extendSelectionInRow which uses the browser's extend() method
-	// This properly handles anchor/focus when extending in either direction
-	currentRow.extendSelectionInRow(clampedNewOffset);
+	// Delegate to cell's extendSelectionInCell method
+	cell.extendSelectionInCell(cellLocalOffset);
 }
 
 function handleShiftArrowLeft(currentRow: Editor.Row) : boolean {
-	const offset = currentRow.caretOffset;
+	const activeCell = currentRow.activeCell;
+	if (!activeCell) return true;
+	
+	const caret = currentRow.caretOffset;
+	const offset = caret?.offset ?? 0;
 	if (offset > 0) {
-		extendSelectionInRow(currentRow, offset - 1);
+		extendSelectionInCell(activeCell, offset - 1);
 	}
 	return true;
 }
 
 function handleShiftArrowRight(currentRow: Editor.Row) : boolean {
-	const offset = currentRow.caretOffset;
-	const maxOffset = currentRow.visibleTextLength;
+	const activeCell = currentRow.activeCell;
+	if (!activeCell) return true;
+	
+	const caret = currentRow.caretOffset;
+	const offset = caret?.offset ?? 0;
+	const maxOffset = activeCell.visibleTextLength;
 	if (offset < maxOffset) {
-		extendSelectionInRow(currentRow, offset + 1);
+		extendSelectionInCell(activeCell, offset + 1);
 	}
 	return true;
 }
 
 function handleShiftHome(currentRow: Editor.Row) : boolean {
-	extendSelectionInRow(currentRow, 0);
+	const activeCell = currentRow.activeCell;
+	if (!activeCell) return true;
+	
+	extendSelectionInCell(activeCell, 0);
 	return true;
 }
 
 function handleShiftEnd(currentRow: Editor.Row) : boolean {
-	extendSelectionInRow(currentRow, currentRow.visibleTextLength);
+	const activeCell = currentRow.activeCell;
+	if (!activeCell) return true;
+	
+	extendSelectionInCell(activeCell, activeCell.visibleTextLength);
 	return true;
 }
 
 function handleShiftWordLeft(currentRow: Editor.Row) : boolean {
-	const text = currentRow.visibleText;
-	const offset = currentRow.caretOffset;
+	const activeCell = currentRow.activeCell;
+	if (!activeCell) return true;
 	
-	const newOffset = findWordLeft(text, offset);
-	if (newOffset >= 0) {
-		extendSelectionInRow(currentRow, newOffset);
+	const caret = currentRow.caretOffset;
+	if (!caret) return true;
+	
+	// Work at cell level: use cell's visible text and cell-local offset
+	const cellText = activeCell.visibleText;
+	const cellLocalOffset = caret.offset;
+	const newCellLocalOffset = findWordLeft(cellText, cellLocalOffset);
+	
+	if (newCellLocalOffset >= 0) {
+		extendSelectionInCell(activeCell, newCellLocalOffset);
 	} else {
-		// At start, extend to 0
-		extendSelectionInRow(currentRow, 0);
+		// At start, extend to start of cell
+		extendSelectionInCell(activeCell, 0);
 	}
 	return true;
 }
 
 function handleShiftWordRight(currentRow: Editor.Row) : boolean {
-	const text = currentRow.visibleText;
-	const offset = currentRow.caretOffset;
+	const activeCell = currentRow.activeCell;
+	if (!activeCell) return true;
 	
-	const newOffset = findWordRight(text, offset);
-	if (newOffset >= 0) {
-		extendSelectionInRow(currentRow, newOffset);
+	const caret = currentRow.caretOffset;
+	if (!caret) return true;
+	
+	// Work at cell level: use cell's visible text and cell-local offset
+	const cellText = activeCell.visibleText;
+	const cellLocalOffset = caret.offset;
+	const newCellLocalOffset = findWordRight(cellText, cellLocalOffset);
+	
+	if (newCellLocalOffset >= 0) {
+		extendSelectionInCell(activeCell, newCellLocalOffset);
 	} else {
-		// At end, extend to end
-		extendSelectionInRow(currentRow, currentRow.visibleTextLength);
+		// At end, extend to end of cell
+		extendSelectionInCell(activeCell, activeCell.visibleTextLength);
 	}
 	return true;
 }
@@ -481,7 +597,8 @@ function findWordRight(text: string, offset: number): number {
 
 function handleWordLeft(currentRow: Editor.Row) : boolean {
 	const text = currentRow.visibleText;
-	const offset = currentRow.caretOffset;
+	const caret = currentRow.caretOffset;
+	const offset = caret?.offset ?? 0;
 	
 	const newOffset = findWordLeft(text, offset);
 	if (newOffset >= 0) {
@@ -505,7 +622,8 @@ function handleWordLeft(currentRow: Editor.Row) : boolean {
 
 function handleWordRight(currentRow: Editor.Row) : boolean {
 	const text = currentRow.visibleText;
-	const offset = currentRow.caretOffset;
+	const caret = currentRow.caretOffset;
+	const offset = caret?.offset ?? 0;
 	
 	const newOffset = findWordRight(text, offset);
 	if (newOffset >= 0) {
@@ -590,15 +708,20 @@ function handleToggleFold(currentRow: Editor.Row) : boolean {
 }
 
 function handleAddMarkup(currentRow: Editor.Row, tagName: string): boolean {
-	const selectionRange = currentRow.getSelectionRange();
-	if (!selectionRange) return false;
+	// Get selection range from active cell (cell-local offsets)
+	const activeCell = currentRow.activeCell;
+	if (!activeCell) return false;
 	
-	const { start, end } = selectionRange;
-	if (start === end) return false;
+	const selectionRange = activeCell.getSelectionRange();
+	if (selectionRange.start === selectionRange.end) return false;
+	
+	// Convert cell-local offsets to row-level offsets
+	const rowLevelStart = cellLocalToRowLevelOffset(currentRow, activeCell, selectionRange.start);
+	const rowLevelEnd = cellLocalToRowLevelOffset(currentRow, activeCell, selectionRange.end);
 	
 	const htmlContent = currentRow.htmlContent;
-	const htmlStart = HtmlUtil.visibleOffsetToHtmlOffset(htmlContent, start);
-	const htmlEnd = HtmlUtil.visibleOffsetToHtmlOffset(htmlContent, end);
+	const htmlStart = HtmlUtil.visibleOffsetToHtmlOffset(htmlContent, rowLevelStart);
+	const htmlEnd = HtmlUtil.visibleOffsetToHtmlOffset(htmlContent, rowLevelEnd);
 	
 	const operations = HtmlUtil.computeTagToggleOperations(htmlContent, htmlStart, htmlEnd, tagName);
 	if (operations.length === 0) return false;
@@ -612,12 +735,10 @@ function handleAddMarkup(currentRow: Editor.Row, tagName: string): boolean {
 	}
 	
 	const updatedRow = Editor.findRow(currentRow.id);
-	updatedRow.setSelectionInRow(start, end);
+	updatedRow.setSelectionInRow(rowLevelStart, rowLevelEnd);
 	
 	return true;
 }
-
-
 
 function updateFoldIndicator(editorRow: Editor.Row) {
 	const scene = model.scene;
@@ -633,35 +754,69 @@ function updateFoldIndicator(editorRow: Editor.Row) {
 }
 
 function insertChar(currentRow : Editor.Row, ch : string) {
+	const caret = currentRow.caretOffset;
+	if (!caret) return;
+	
+	// Convert cell-local offset to row-level offset
+	const rowLevelOffset = cellLocalToRowLevelOffset(currentRow, caret.cell, caret.offset);
+	insertCharAtPosition(currentRow, rowLevelOffset, ch);
+}
+
+function insertCharAtPosition(currentRow : Editor.Row, visibleOffset : number, ch : string) {
 	const cur = model.scene.findRow(currentRow.id);
 	const scur = cur.siteRow;
-	const htmlOffset = currentRow.getHtmlOffset();
-	const textOffset = currentRow.caretOffset;
+	const htmlContent = currentRow.htmlContent;
+	const htmlOffset = HtmlUtil.visibleOffsetToHtmlOffset(htmlContent, visibleOffset);
 	const escapedCh = HtmlUtil.escapeHtml(ch);
 	const change = Change.makeTextChange(scur.docLine, htmlOffset, 0, escapedCh);
 	Doc.processChange(change);
-	currentRow.setCaretInRow(textOffset + 1);
+	const updatedRow = Editor.findRow(currentRow.id);
+	updatedRow.setCaretInRow(visibleOffset + 1);
 }
 
 function handleInsertChar(currentRow : Editor.Row, ch : string) {
-	if (currentRow.caretOffset < 0) {
+	const caret = currentRow.caretOffset;
+	if (!caret || caret.offset < 0) {
 		return true;
 	}
+	
+	// Check if there's a selection using active cell's selection range
+	const activeCell = currentRow.activeCell;
+	if (activeCell) {
+		const selectionRange = activeCell.getSelectionRange();
+		if (selectionRange.start !== selectionRange.end) {
+			// Convert cell-local offsets to row-level offsets
+			const rowLevelStart = cellLocalToRowLevelOffset(currentRow, activeCell, selectionRange.start);
+			const rowLevelEnd = cellLocalToRowLevelOffset(currentRow, activeCell, selectionRange.end);
+			// Delete the selection first, then insert
+			const start = Math.min(rowLevelStart, rowLevelEnd);
+			deleteRowRange(currentRow, rowLevelStart, rowLevelEnd);
+			// After deletion, get the updated row and insert at the start position
+			const updatedRow = Editor.findRow(currentRow.id);
+			insertCharAtPosition(updatedRow, start, ch);
+			return true;
+		}
+	}
+	
 	insertChar(currentRow, ch);
 	return true;
 }
 
 function handleTab(currentRow: Editor.Row) : boolean {
-	const visibleOffset = currentRow.caretOffset;
+	const caret = currentRow.caretOffset;
+	if (!caret) return true;
 	
-	if (visibleOffset == 0) {
+	// Convert cell-local offset to row-level offset
+	const rowLevelOffset = cellLocalToRowLevelOffset(currentRow, caret.cell, caret.offset);
+	
+	if (rowLevelOffset == 0) {
 		const cur = model.scene.findRow(currentRow.id);
 		const scur = cur.siteRow;
 			const sprev = scur.previous;
 		if (sprev === SiteRow.end) return false;
 		moveBelow(scur.docLine, sprev.docLine);
 		const replacementRow = Editor.findRow(currentRow.id)
-		replacementRow.setCaretInRow(visibleOffset+ 1);
+		replacementRow.setCaretInRow(rowLevelOffset + 1);
 		return true;
 	}
 
@@ -673,9 +828,14 @@ function docLineFromRow(row: Editor.Row): DocLine {
 	return cur.siteRow.docLine;
 }
  function handleShiftTab(currentRow: Editor.Row) : boolean {
-    const offset = currentRow.caretOffset;
+    const caret = currentRow.caretOffset;
+    if (!caret) return true;
+    
+    // Convert cell-local offset to row-level offset
+    const rowLevelOffset = cellLocalToRowLevelOffset(currentRow, caret.cell, caret.offset);
+    
     // Get visible text for indent checking
-	if (0 == offset) {
+	if (0 == rowLevelOffset) {
 		if (currentRow.indent == 0) return true;
 		// Move after parent
 		// Move before parent's sibling if any.
@@ -692,19 +852,17 @@ function docLineFromRow(row: Editor.Row): DocLine {
 			} else {
 				return true;
 			}
-			Editor.findRow(currentRow.id).setCaretInRow(offset-1);
+			Editor.findRow(currentRow.id).setCaretInRow(rowLevelOffset - 1);
 		}
 	} else {
-		// find tab to the left of the cursor in HTML content
-		const visibleOffset = currentRow.caretOffset;
-		const htmlOffset = currentRow.getHtmlOffset();
-		const tabIndex = currentRow.htmlContent.substring(0, htmlOffset).lastIndexOf('\t');
-		if (tabIndex === -1) return false;
+		const htmlOffset = currentRow.getActiveCellHtmlOffset();
+		if (htmlOffset === -1)
+			return false;
 
 		const docLine = docLineFromRow(currentRow);
-		const change = Change.makeTextChange(docLine, htmlOffset, 0, '\t');
+		const change = Change.makeTextChange(docLine, htmlOffset-1, 1, '');
 		Doc.processChange(change);
-		currentRow.setCaretInRow(visibleOffset + 1);
+		currentRow.setCaretInRow(rowLevelOffset + 1);
 	}
 	return true;
 }
@@ -724,4 +882,5 @@ export function save() {
 
 export function setEditorContent() {
  	Editor.setEditorContent(new ArraySpan(model.scene.rows, 0, model.scene.rows.length));
- }
+}
+
