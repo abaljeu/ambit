@@ -509,6 +509,36 @@ function testHandleArrowRight(): void {
     assertEquals(updatedRows.length, 2);
     assertEquals(updatedRows[1].htmlContent, "Parent"); // No indent
 }
+, function testInitCellBlockToRow(): void {
+    // Arrange
+    loadTestDoc();
+    const rows = Array.from(Editor.rows());
+    const firstRow : Editor.Row =  rows[1];
+    firstRow.setCaretInRow(0);
+    Controller.initCellBlockToRow(firstRow);
+
+    const cellBlock = Controller.getCellBlock();
+    assert(cellBlock !== null);
+    const activeCell : Editor.Cell | null = firstRow.activeCell;
+    assert(activeCell !== null);
+    const sceneRow = model.scene.findRow(firstRow.id);
+    const sceneCell = sceneRow.cells.cells.find(cell => cell.column === 0);
+    assert(sceneCell != null);
+    assertEquals(sceneCell!.column, 0);
+    // Find the cell index in the cells array
+    const cellIndex = sceneRow.cells.cells.indexOf(sceneCell!);
+    assert(cellIndex !== -1);
+    // Check if this cell is selected using SceneRow's method
+    assert(sceneRow.isCellSelected(cellIndex));
+    // Check that the corresponding Editor.Cell has the selected CSS class
+    const editorCells = firstRow.cells;
+    const editorCell = editorCells[cellIndex];
+    assert(editorCell !== undefined);
+    assert(editorCell.hasCellBlockSelected());
+    assert(editorCell.hasCellBlockActive());
+
+    // firstRow is the active cell
+}
 ];
 // // Run all tests
 async function runAllTests(): Promise<void> {

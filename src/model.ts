@@ -10,7 +10,7 @@ class Model {
     public  docArray: Doc[] = [];
     public  history : Transaction[] = [];
     public site: Site = new Site();
-    public scene: Scene = new Scene();
+    public scene: Scene = new Scene(this.site);
     constructor() {
     }
     public addOrUpdateDoc(text: string, path:string): Doc {
@@ -21,7 +21,6 @@ class Model {
         }
         doc.updateContent(text);
         this.site.setDoc(doc);
-        this.scene.setSite(this.site);
         this.scene.loadFromSite(this.site.getRoot());
         return doc;
     }

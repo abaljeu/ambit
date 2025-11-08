@@ -85,19 +85,5 @@ export class CellBlock {
         return siteRow === this.activeSiteRow && cellIndex === this.activeCellIndex;
     }
 
-    // Get maximum column count across all rows in this block
-    // Used when endColumnIndex is -1 (infinity)
-    public getMaxColumnCount(sceneRows: readonly SceneRow[]): number {
-        let maxColumns = 0;
-        for (const sceneRow of sceneRows) {
-            if (this.includesSiteRow(sceneRow.siteRow)) {
-                const cellCount = sceneRow.cells.count;
-                if (cellCount > maxColumns) {
-                    maxColumns = cellCount;
-                }
-            }
-        }
-        return maxColumns;
-    }
 }
 

@@ -23,6 +23,7 @@
 
 #newEditor > div .rowContent {
     flex: 1;
+    display: flex;
     border-left: 1px solid #ccc;
     border-right: 1px solid #ccc;
     white-space: pre-wrap;
@@ -83,4 +84,22 @@
     padding-left: 0.2em;
     padding-right: 0.2em;
     box-sizing: border-box;
+}
+
+.cellBlock-selected {
+    background-color: #f0f0f0;
+}
+
+.cellBlock-active {
+    background-color: #e0e0e0;
+}
+
+.cell-flex {
+    flex: 1;
+    min-width: 0;
+}
+
+.cell-fixed {
+    min-width: 1em;
+    max-width: fit-content;
 }

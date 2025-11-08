@@ -1,11 +1,32 @@
 # Architecture
 
-Reworking [[old-architecture]].  In concept our scheme will be a series of transformations
+- **Frontend**: TypeScript compiled to ES6 modules
+- **Backend**: PHP for authentication and file storage
+- **Storage**: Plain text `.amb` files in `php/doc/`
+- **URL format**: `ambit.php?doc=filename.amb`
+
+## Design Principles
+The principles here are aspirational.  The code presently may not adhere to them, but when writing new code, let's try to improve it towards these.
+
+TypeScript code is modular. Each file defines a module as its primary export.
+Functions must take clear roles: Either a function is a query and does not modify persistent data or its parameters; or a function is a command and it modifies what is implied by its name.
+
+We aim for null-free coding.  How that is achieved can be a matter of discussion.
+
+Code is based on strongly typed objects with clear ownership:
+- Objects may have public members for read-access only.
+- Only the owning object or module should modify internal state
+
+## Dependency structure:
+- Scene depends on Model (never the reverse)
+- Editor depends on the DOM only, but also has temporary access to Scene.RowData
+- Controller orchestrates and depends on Scene and Editor; Nothing depends on controller, except events.
+- Network operations (Get/Post) reference Model only, not Controller/Scene/Editor
+- Events flow: User → Editor/Controller → Scene → Model → Network → Controller/Editor
+- CellBlock selection state is stored in Site (Model layer); Scene queries Site for current CellBlock; Scene passes selection state to Editor (via CellSelectionState array); Editor applies CSS classes based on state passed from Scene; Scene.updatedSelection() triggers Editor styling updates
 
 
 ## Model Concept
-
-The concept is not literally
 
 The server is a repository of text documents, 
 Model
@@ -31,11 +52,17 @@ Model
             parent
             reference DocNode
             folded = false
+        CellBlock (selection state)
+            parentSiteRow
+            child index range (vertical)
+            cell index range (horizontal, -1 = all columns)
+            active cell (SiteRow + cell index)
     => filter, flatten
     Scene
         SceneRow
         reference SiteNode
         compute visible
+        queries Site for CellBlock state
     => transform
     Editor
         DOM editor element
@@ -43,6 +70,7 @@ Model
         EditorRow
             DOM Row Element
                 siteid
+        applies CellBlock CSS classes based on selection state passed from Scene
 
 ## History
 

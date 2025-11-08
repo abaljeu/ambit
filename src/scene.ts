@@ -1,4 +1,4 @@
-import { Site, SiteRow, SiteRowId, SiteRowSubscriber } from './site.js';
+import { Site, SiteRow, SiteRowSubscriber } from './site.js';
 import { Id, Pool } from './pool.js';
 import * as Editor from './editor.js';
 import { ArraySpan } from './arrayspan.js';
@@ -20,23 +20,26 @@ export class SceneRowId extends Id<'SceneRow'> {
     }
 }
 export class SceneCell {
-    public readonly width: number;
-    public constructor(public readonly type: string, public readonly text: string ) {
-        // tabs have no text, but take one column width
-        // interpret 0 as full width
-        this.width = text.length? 1: 0;
-    }
+    public constructor(public readonly type: string, public readonly text: string,
+        public readonly column:number, public readonly width: number 
+     ) {    }
+     public get nextColumn(): number { return this.width == -1 ? -1 : this.column + this.width; }
 }
 export class SceneRowCells {
     private _cells: SceneCell[] = [];
     public get cells(): readonly SceneCell[] { return this._cells; }
     public constructor(public readonly source: string, public readonly indent: number) {
         for (let i = 0; i < this.indent; i++) {
-            this._cells.push(new SceneCell('indent', '\t'));
+            this._cells.push(new SceneCell('indent', '\t', i, 1));
         }
-        for (const text of this.source.split('\t')) {
-            this._cells.push(new SceneCell('text', text));
+        let index = 0;
+        const _cellText = this.source.split('\t');
+        for (let i = 0; i < _cellText.length-1; i++) {
+            const text = _cellText[i];
+            this._cells.push(new SceneCell('text', text, index, text.length? 1: 1));
+            index += 1;
         }
+        this._cells.push(new SceneCell('text', _cellText[_cellText.length-1], index, -1));
     }
     public get count(): number { return this._cells.length; }
     public cell(index: number): SceneCell { return this._cells[index]; }
@@ -88,13 +91,24 @@ export class SceneRow extends SiteRowSubscriber {
         return cellBlock.isActiveCell(this.siteRow, cellIndex);
     }
     
-    // Get the cell selection state for this row
+    public getMaxColumnCount(sceneRows: readonly SceneRow[]): number {
+        let maxColumns = 0;
+        for (const sceneRow of sceneRows) {
+            if (this.scene.getCellBlock()?.includesSiteRow(sceneRow.siteRow)) {
+                const cellCount = sceneRow.cells.count;
+                if (cellCount > maxColumns) {
+                    maxColumns = cellCount;
+                }
+            }
+        }
+        return maxColumns;
+    }
+
     public getCellSelectionStates(): readonly CellSelectionState[] {
         const cellBlock = this.scene.getCellBlock();
         const cellCount = this.cells.count;
         const states: CellSelectionState[] = [];
         
-        // If no block, all cells are unselected
         if (!cellBlock) {
             for (let i = 0; i < cellCount; i++) {
                 states.push({ cellIndex: i, selected: false, active: false });
@@ -102,22 +116,18 @@ export class SceneRow extends SiteRowSubscriber {
             return states;
         }
         
-        // Determine max column count if endColumnIndex is -1
         let maxColumns = cellCount;
         if (cellBlock.endColumnIndex === -1) {
             const selectedRows = this.scene.getSelectedSceneRows();
-            maxColumns = cellBlock.getMaxColumnCount(selectedRows);
+            maxColumns = this.getMaxColumnCount(selectedRows);
         }
         
-        // Check each cell
         for (let i = 0; i < cellCount; i++) {
             const selected = cellBlock.includesCell(this.siteRow, i);
             const active = cellBlock.isActiveCell(this.siteRow, i);
             states.push({ cellIndex: i, selected, active });
         }
         
-        // If endColumnIndex is -1 and this row has fewer columns than max,
-        // we still only return states for actual cells
         return states;
     }
     
@@ -197,17 +207,8 @@ export class Scene {
     public readonly sceneRowPool = new SceneRowPool(this);
     private _rows: SceneRow[] = [];
     public readonly end = new SceneRow(this,  SiteRow.end, new SceneRowId('R000000'));
-    private _site: Site | null = null;
-
-    public setSite(site: Site): void {
-        this._site = site;
-    }
-
-    public get site(): Site | null {
-        return this._site;
-    }
     
-    constructor() {}
+    constructor(private readonly site: Site) {}
     
     public deleteRows(start: number, length: number): void {
         // Construct RowSpan for the old rows
@@ -299,13 +300,10 @@ export class Scene {
     }
     public get rows(): readonly SceneRow[] { return this._rows; }
     
-    // Get CellBlock from Site (Scene queries Site for current state)
     public getCellBlock(): CellBlock | null {
-        if (!this._site) return null;
-        return this._site.cellBlock;
+        return this.site.cellBlock;
     }
     
-    // Find all SceneRows that are part of the current CellBlock
     public getSelectedSceneRows(): readonly SceneRow[] {
         const cellBlock = this.getCellBlock();
         if (!cellBlock) return [];
@@ -315,11 +313,11 @@ export class Scene {
     
     // Called by controller after updating site selection
     public updatedSelection(): void {
-        // Update Editor styling for all rows
         for (const row of this._rows) {
             const editorRow = Editor.findRow(row.id.value);
             if (editorRow !== Editor.endRow) {
-                editorRow.updateCellBlockStyling();
+                const selectionStates = row.getCellSelectionStates();
+                editorRow.updateCellBlockStyling(selectionStates);
             }
         }
     }

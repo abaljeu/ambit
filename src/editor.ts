@@ -1,10 +1,9 @@
 import * as lm from './elements.js';
-import { Scene, SceneRow, SceneRowCells } from './scene.js';
+import { SceneRow, SceneRowCells, CellSelectionState } from './scene.js';
 import { ArraySpan } from './arrayspan.js';
 import { Id, Pool } from './pool.js';
 import { visibleOffsetToHtmlOffset } from './htmlutil.js';
 import * as HtmlUtil from './htmlutil.js';
-import { model } from './model.js';
 const RowElementTag: string = 'div';
 const RowContentTag: string = 'span';
 const RowContentClass: string = 'rowContent';
@@ -12,6 +11,8 @@ const RowIndentClass: string = 'indentation';
 const TextCellClass: string = 'editableCell';
 const CellBlockSelectedClass: string = 'cellBlock-selected';
 const CellBlockActiveClass: string = 'cellBlock-active';
+const CellFlexClass: string = 'cell-flex';
+const CellFixedClass: string = 'cell-fixed';
 type CellElement = HTMLSpanElement;
 type RowElement = HTMLDivElement;
 const VISIBLE_TAB = '→'; // Visible tab character, used for internal tabs.
@@ -42,6 +43,10 @@ export function createRowElementFromSceneRow(sceneRow: SceneRow): Row {
 	newEl.dataset.lineId = sceneRow.id.value;
 	row.setContent(sceneRow.cells);
 	return row;
+}
+
+export function removeCarets(): void {
+	window.getSelection()?.removeAllRanges();
 }
 
 export class Cell {
@@ -99,21 +104,7 @@ export class Cell {
 	}
 
 	public setCaret(offset: number): void {
-		if (!this.isText) return;
-		if (offset < 0) offset = 0;
-		
-		this.newEl.focus();
-		const selection = window.getSelection();
-		if (!selection) return;
-		
-		const position = getNodeAndOffsetFromTextOffset(this.newEl, offset)
-				?? {node: this.newEl, offset: this.visibleTextLength};
-		
-		const range = document.createRange();
-		range.setStart(position.node, position.offset);
-		range.collapse(true);
-		selection.removeAllRanges();
-		selection.addRange(range);
+		this.setSelection(offset, offset);
 	}
 
 	public getSelectionRange(): { start: number, end: number } {
@@ -241,11 +232,6 @@ export class Cell {
 		return this.containsNode(document.activeElement as Node);
 	}
 
-	public focus(): void {
-		if (this.isText) {
-			this.newEl.focus();
-		}
-	}
 
 	public moveCaretToThisCell(x: number): void {
 		if (!this.isText) return;
@@ -255,54 +241,30 @@ export class Cell {
 		this.setCaret(offset);
 	}
 
-	// Check if this cell is part of the current CellBlock
-	public isInCellBlock(): boolean {
-		const row = this.getRow();
-		if (!row || row === endRow) return false;
-		const sceneRow = model.scene.findRow(row.id);
-		if (sceneRow === model.scene.end) return false;
-		const cellIndex = row.getCellIndex(this);
-		return sceneRow.isCellSelected(cellIndex);
-	}
-
-	// Check if this cell is the active cell
-	public isActiveCell(): boolean {
-		const row = this.getRow();
-		if (!row || row === endRow) return false;
-		const sceneRow = model.scene.findRow(row.id);
-		if (sceneRow === model.scene.end) return false;
-		const cellIndex = row.getCellIndex(this);
-		return sceneRow.isCellActive(cellIndex);
-	}
-
 	// Update CSS classes based on CellBlock state
-	public updateCellBlockStyling(): void {
-		const selected = this.isInCellBlock();
-		const active = this.isActiveCell();
-		
-		if (selected) {
+	// selectionState: { selected: boolean, active: boolean } for this cell
+	public updateCellBlockStyling(selectionState: { selected: boolean, active: boolean }): void {
+		if (selectionState.selected) {
 			this.newEl.classList.add(CellBlockSelectedClass);
 		} else {
 			this.newEl.classList.remove(CellBlockSelectedClass);
 		}
 		
-		if (active) {
+		if (selectionState.active) {
 			this.newEl.classList.add(CellBlockActiveClass);
 		} else {
 			this.newEl.classList.remove(CellBlockActiveClass);
 		}
 	}
 
-	private getRow(): Row | null {
-		let element: HTMLElement | null = this.newEl.parentElement;
-		while (element) {
-			if (element.classList.contains(RowElementTag) || 
-			    element.tagName.toLowerCase() === RowElementTag) {
-				return new Row(element as RowElement);
-			}
-			element = element.parentElement;
-		}
-		return null;
+	// Check if this cell has the CellBlock selected CSS class
+	public hasCellBlockSelected(): boolean {
+		return this.newEl.classList.contains(CellBlockSelectedClass);
+	}
+
+	// Check if this cell has the CellBlock active CSS class
+	public hasCellBlockActive(): boolean {
+		return this.newEl.classList.contains(CellBlockActiveClass);
 	}
 
 }
@@ -435,10 +397,13 @@ export class Row {
 				const textSpan = document.createElement('span');
 				textSpan.className = TextCellClass;
 				textSpan.contentEditable = 'true';
-				// width of cell is source cell width in ems; if 0, it's proportional to available space.
-				if (cell.width === 0) {
-					textSpan.style.flex = '1';
+				// width of cell is source cell width in ems
+				// if -1, fills container after all other cells are set (flex: 1)
+				// if > 0, min 1em, max to fit content
+				if (cell.width === -1 || cell.width === 0) {
+					textSpan.classList.add(CellFlexClass);
 				} else {
+					textSpan.classList.add(CellFixedClass);
 					textSpan.style.width = `${cell.width}em`;
 				}
 				
@@ -481,9 +446,6 @@ export class Row {
 			result.cell.moveCaretToThisCell(targetX);
 		}
 	}
-	public getContentSpan(): CellElement { // deprecated
-		return this.getContentSpans()[0];
-	}
 	public get caretOffset(): { cell: Cell, offset: number }  {
 		// Find active cell using Cell.active() getter
 		const activeCell = this.cells.find(cell => cell.active);
@@ -500,31 +462,6 @@ export class Row {
 		const offset = activeCell.caretOffset();
 		return { cell: activeCell, offset };
 	}
-	private setCaretInParagraph(contentSpan: CellElement, offset: number) {
-		if (offset < 0) offset = 0;
-		contentSpan.focus();
-		const selection = window.getSelection();
-		if (!selection) return;
-		
-		// Use helper to convert text offset to DOM position
-		const position = getNodeAndOffsetFromTextOffset(contentSpan, offset);
-		if (!position) {
-			// Fallback: place at end of content
-			const range = document.createRange();
-			range.selectNodeContents(contentSpan);
-			range.collapse(false);
-			selection.removeAllRanges();
-			selection.addRange(range);
-			return;
-		}
-		
-		const range = document.createRange();
-		range.setStart(position.node, position.offset);
-		range.collapse(true);
-		selection.removeAllRanges();
-		selection.addRange(range);
-	}
-	
 	
 	public setCaretInRow(visibleOffset: number) {
 		// Find cell context first: determine which cell should contain the cursor based on row-level offset
@@ -616,10 +553,17 @@ export class Row {
 		return null;
 	}
 
-	// Update CSS classes for all cells in this row based on Scene CellBlock state
-	public updateCellBlockStyling(): void {
-		for (const cell of this.cells) {
-			cell.updateCellBlockStyling();
+	// Update CSS classes for all cells in this row based on selection states
+	// selectionStates: array of { cellIndex, selected, active } for each cell
+	public updateCellBlockStyling(selectionStates: readonly CellSelectionState[]): void {
+		for (const state of selectionStates) {
+			const cell = this.cells[state.cellIndex];
+			if (cell) {
+				cell.updateCellBlockStyling({ 
+					selected: state.selected, 
+					active: state.active 
+				});
+			}
 		}
 	}
 }

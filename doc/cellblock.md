@@ -60,7 +60,7 @@ A CellBlock is defined by two axes:
 
 ## Proposed Types and Properties
 
-### CellBlock Type (new file: `src/columnblock.ts`)
+### CellBlock Type (new file: `src/cellblock.ts`)
 
 ```typescript
 export class CellBlock {

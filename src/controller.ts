@@ -853,7 +853,7 @@ function docLineFromRow(row: Editor.Row): DocLine {
 			} else {
 				return true;
 			}
-			Editor.findRow(currentRow.id).setCaretInRow(rowLevelOffset - 1);
+			Editor.findRow(currentRow.id).setCaretInRow(0);
 		}
 	} else {
 		const htmlOffset = currentRow.getActiveCellHtmlOffset();
@@ -886,10 +886,27 @@ export function setEditorContent() {
 }
 
 // Methods to manage CellBlock selection
-export function initCellBlockToRow(initialRow: SiteRow): void {
-	// TODO: Implement CellBlock initialization from a row
-	// This will create a CellBlock starting from the given SiteRow
-	// Modifier functions to be defined later.
+export function initCellBlockToRow(initialRow: Editor.Row): void {
+	const rowId = initialRow.id;
+	const sceneRow = model.scene.findRow(rowId);
+	const siteRow = sceneRow.siteRow;
+	const parentSiteRow = siteRow.parent;
+	const childIndex = parentSiteRow.children.indexOf(siteRow);
+	if (siteRow === SiteRow.end) return;
+	
+	if (childIndex === -1) return;
+	const cellBlock = new CellBlock(
+		parentSiteRow,
+		childIndex,
+		childIndex,
+		0,
+		-1, // -1 means all columns
+		siteRow,
+		0 // active cell is first cell
+	);
+	
+	model.site.setCellBlock(cellBlock);
+	model.scene.updatedSelection();
 }
 
 export function getCellBlock(): CellBlock | null {
