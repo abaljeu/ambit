@@ -826,36 +826,111 @@ export function moveBelow(line: DocLine, targetBelow: DocLine): void {
 }
 // moves up to the previous visible row.  doesn't pay attention to structure otherwise.
 function handleSwapUp(currentRow: Editor.Row): boolean {
-    const prevRow = currentRow.previous;
-    if (!prevRow.valid()) 
-		return false;
-    
-    const cur = model.scene.findRow(currentRow.id);
-	const prev = model.scene.findRow(prevRow.id);
-    
-    const docCur = cur.siteRow.docLine;
-    const docPrev = prev.siteRow.docLine;
-    
-    return performRowSwap(docCur, docPrev, currentRow.id);
+	const cellBlock = model.site.cellBlock;
+	if (cellBlock !== CellBlock.empty) {
+		const parentSiteRow = cellBlock.parentSiteRow;
+		const startChildIndex = cellBlock.startChildIndex;
+		
+		// Find previous sibling before block's start row
+		if (startChildIndex === 0) {
+			// No previous sibling, do nothing
+			return false;
+		}
+		
+		const prevSibling = parentSiteRow.children[startChildIndex - 1];
+		const endRow = parentSiteRow.children[cellBlock.endChildIndex];
+		
+		// Find what comes after the end row to move before it
+		const endRowNextSibling = endRow.docLine.nextSibling();
+		if (endRowNextSibling === DocLine.end) {
+			// End row is last, move previous row to be last child of parent
+			moveBelow(prevSibling.docLine, parentSiteRow.docLine);
+		} else {
+			// Move previous row after block's end row (before the next sibling)
+			moveBefore(prevSibling.docLine, endRowNextSibling);
+		}
+		
+		// Update block definition - after moving prevSibling, indices shift:
+		// startChildIndex becomes startChildIndex - 1 (since we removed one before)
+		// endChildIndex stays the same (the moved row is now after it)
+		const newCellBlock = new CellBlock(
+			parentSiteRow,
+			startChildIndex - 1,
+			cellBlock.endChildIndex-1,
+			cellBlock.startColumnIndex,
+			cellBlock.endColumnIndex,
+			cellBlock.activeSiteRow,
+			cellBlock.activeCellIndex
+		);
+		model.site.setCellBlock(newCellBlock);
+		model.scene.updatedSelection();
+		return true;
+	} else {
+		const prevRow = currentRow.previous;
+		if (!prevRow.valid()) 
+			return false;
+		
+		const cur = model.scene.findRow(currentRow.id);
+		const prev = model.scene.findRow(prevRow.id);
+		
+		const docCur = cur.siteRow.docLine;
+		const docPrev = prev.siteRow.docLine;
+		
+		return performRowSwap(docCur, docPrev, currentRow.id);
+	}
 }
 
 function handleSwapDown(currentRow: Editor.Row): boolean {
-    const cur = model.scene.findRow(currentRow.id);
-    
-    // Skip over all descendants to find the next row that's not a child
-    const descendantCount = cur.treeLength;
-    let nextRow = currentRow;
-    for (let i = 0; i < descendantCount; i++) {
-        nextRow = nextRow.next;
-        if (!nextRow.valid()) return false;
-    }
-    
-    const next = model.scene.findRow(nextRow.id);
-    
-    const docCur = cur.siteRow.docLine;
-    const docNext = next.siteRow.docLine;
-   
-    return performRowSwap(docNext, docCur, currentRow.id);
+	const cellBlock = model.site.cellBlock;
+	if (cellBlock !== CellBlock.empty) {
+		const parentSiteRow = cellBlock.parentSiteRow;
+		const endChildIndex = cellBlock.endChildIndex;
+		
+		// Find next sibling after block's end row
+		if (endChildIndex >= parentSiteRow.children.length - 1) {
+			// No next sibling, do nothing
+			return false;
+		}
+		
+		const nextSibling = parentSiteRow.children[endChildIndex + 1];
+		const startRow = parentSiteRow.children[cellBlock.startChildIndex];
+		
+		// Move next row before block's start row
+		moveBefore(nextSibling.docLine, startRow.docLine);
+		
+		// Update block definition - after moving nextSibling, indices shift:
+		// startChildIndex stays the same (the moved row is now before it)
+		// endChildIndex becomes endChildIndex + 1 (since we added one before)
+		const newCellBlock = new CellBlock(
+			parentSiteRow,
+			cellBlock.startChildIndex+1,
+			endChildIndex + 1,
+			cellBlock.startColumnIndex,
+			cellBlock.endColumnIndex,
+			cellBlock.activeSiteRow,
+			cellBlock.activeCellIndex
+		);
+		model.site.setCellBlock(newCellBlock);
+		model.scene.updatedSelection();
+		return true;
+	} else {
+		const cur = model.scene.findRow(currentRow.id);
+		
+		// Skip over all descendants to find the next row that's not a child
+		const descendantCount = cur.treeLength;
+		let nextRow = currentRow;
+		for (let i = 0; i < descendantCount; i++) {
+			nextRow = nextRow.next;
+			if (!nextRow.valid()) return false;
+		}
+		
+		const next = model.scene.findRow(nextRow.id);
+		
+		const docCur = cur.siteRow.docLine;
+		const docNext = next.siteRow.docLine;
+		
+		return performRowSwap(docNext, docCur, currentRow.id);
+	}
 }
 
 function performRowSwap(
