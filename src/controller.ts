@@ -102,6 +102,8 @@ function getCurrentRow(): Editor.Row {
 		const editorRow = Editor.findRow(sceneRow.id.value);
 		if (editorRow !== Editor.endRow) {
 			return editorRow;
+		} else {
+			return Editor.currentRow();
 		}
 	}
 	
@@ -388,23 +390,128 @@ function findNextEditableCell(row: Editor.Row, fromCell: Editor.Cell): Editor.Ce
 }
 
 function handleArrowUp(currentRow: Editor.Row) : boolean {
-	clearCellBlock();
-	const prevP = currentRow.previous;
-	if (!prevP.valid())
-		 return true;
+	const cellBlock = model.site.cellBlock;
 	
-	prevP.moveCaretToThisRow();
-	return true;
+	// If cellBlock is empty, initialize it to current row
+	if (cellBlock === CellBlock.empty) {
+		const prevP = currentRow.previous;
+		if (!prevP.valid())
+			return true;
+		
+		prevP.moveCaretToThisRow();
+		return true;
+	} else {
+		const activeSiteRow = cellBlock.activeSiteRow;
+		const parentSiteRow = cellBlock.parentSiteRow;
+		const activeChildIndex = parentSiteRow.children.indexOf(activeSiteRow);
+		
+		if (activeChildIndex === -1)
+			return true;
+		
+		const isActiveAtStart = activeChildIndex === cellBlock.startChildIndex;
+		const startChildIndex = cellBlock.startChildIndex;
+		const isStartAtFirst = startChildIndex <= 0;
+		
+		let newStartIndex = cellBlock.startChildIndex;
+		let newEndIndex = cellBlock.endChildIndex;
+		let newActiveSiteRow = activeSiteRow;
+		let newActiveCellIndex = cellBlock.activeCellIndex;
+		
+		if (!isActiveAtStart) {
+			// Set active cell to start row
+			const startRow = parentSiteRow.children[startChildIndex];
+			newActiveSiteRow = startRow;
+			newActiveCellIndex = startChildIndex;
+		} else if (!isStartAtFirst) {
+			// Shift the selection (start and end) up one
+			newStartIndex = cellBlock.startChildIndex - 1;
+			newEndIndex = cellBlock.endChildIndex - 1;
+			const newStartRow = parentSiteRow.children[newStartIndex];
+			newActiveSiteRow = newStartRow;
+			newActiveCellIndex = newStartIndex;
+		} else {
+			// Do nothing
+			return true;
+		}
+		
+		const newCellBlock = new CellBlock(
+			parentSiteRow,
+			newStartIndex,
+			newEndIndex,
+			cellBlock.startColumnIndex,
+			cellBlock.endColumnIndex,
+			newActiveSiteRow,
+			newActiveCellIndex
+		);
+		
+		model.site.setCellBlock(newCellBlock);
+		model.scene.updatedSelection();
+		return true;
+	}
 }
 
  function handleArrowDown(currentRow: Editor.Row) : boolean {
-	clearCellBlock();
-	const nextP = currentRow.next;
-	if (!nextP.valid())
-		return true;
+	const cellBlock = model.site.cellBlock;
 	
-	nextP.moveCaretToThisRow();
-	return true;
+	// If cellBlock is empty, initialize it to current row
+	if (cellBlock === CellBlock.empty) {
+		const nextP = currentRow.next;
+		if (!nextP.valid())
+			return true;
+		
+		nextP.moveCaretToThisRow();
+		return true;
+	} else {
+		const activeSiteRow = cellBlock.activeSiteRow;
+		const parentSiteRow = cellBlock.parentSiteRow;
+		const activeChildIndex = parentSiteRow.children.indexOf(activeSiteRow);
+		
+		if (activeChildIndex === -1)
+			return true;
+		
+		const isActiveAtStart = activeChildIndex === cellBlock.startChildIndex;
+		const isActiveAtEnd = activeChildIndex === cellBlock.endChildIndex;
+		const endChildIndex = cellBlock.endChildIndex;
+		const isEndAtLast = endChildIndex >= parentSiteRow.children.length - 1;
+		
+		let newStartIndex = cellBlock.startChildIndex;
+		let newEndIndex = cellBlock.endChildIndex;
+		let newActiveSiteRow = activeSiteRow;
+		let newActiveCellIndex = cellBlock.activeCellIndex;
+		
+		if (!isActiveAtEnd) {
+			// Set active cell to end row
+			const endRow = parentSiteRow.children[endChildIndex];
+			newActiveSiteRow = endRow;
+			newActiveCellIndex = endChildIndex;
+		} else if (!isEndAtLast) {
+			// Shift the selection (start and end) down one
+			newStartIndex = cellBlock.startChildIndex + 1;
+			newEndIndex = cellBlock.endChildIndex + 1;
+			const newEndRow = parentSiteRow.children[newEndIndex];
+			newActiveSiteRow = newEndRow;
+			newActiveCellIndex = newEndIndex;
+		} else {
+			// Do nothing
+			return true;
+		}
+		
+		const newCellBlock = new CellBlock(
+			parentSiteRow,
+			newStartIndex,
+			newEndIndex,
+			cellBlock.startColumnIndex,
+			cellBlock.endColumnIndex,
+			newActiveSiteRow,
+			newActiveCellIndex
+		);
+		
+		model.site.setCellBlock(newCellBlock);
+		model.scene.updatedSelection();
+		return true;
+	}
+
+
 }
 
 function handleShiftArrowUp(currentRow: Editor.Row): boolean {
@@ -1044,7 +1151,81 @@ function handleInsertChar(currentRow : Editor.Row, ch : string) {
 	return true;
 }
 
+function docLineFromRow(row: Editor.Row): DocLine {
+	const cur = model.scene.findRow(row.id);
+	return cur.siteRow.docLine;
+}
+function moveAfterParent(docLine : DocLine) {
+	// Move after parent
+	// Move before parent's sibling if any.
+	const parent = docLine.parent;
+	const nextSibling = parent.nextSibling();
+	if (nextSibling !== DocLine.end) {
+		moveBefore(docLine, nextSibling);
+	} else {
+		// else move to end of grandparent.
+		const grandparent = parent.parent;
+		if (grandparent !== DocLine.end) {
+			moveBelow(docLine, grandparent);
+		} else {
+			return true;
+		}
+	}
+
+}
+
 function handleTab(currentRow: Editor.Row) : boolean {
+	const cellBlock = model.site.cellBlock;
+	if (cellBlock !== CellBlock.empty) {
+		const parentSiteRow = cellBlock.parentSiteRow;
+		const startChildIndex = cellBlock.startChildIndex;
+		const endChildIndex = cellBlock.endChildIndex;
+		
+		// Look for a row previous to start
+		if (startChildIndex === 0) {
+			// No previous row, return
+			return false;
+		}
+		
+		const previousRow = parentSiteRow.children[startChildIndex - 1];
+		
+		// Get all top-level rows of block selection
+		const topLevelRows: SiteRow[] = [];
+		for (let i = startChildIndex; i <= endChildIndex; i++) {
+			topLevelRows.push(parentSiteRow.children[i]);
+		}
+		
+		// Move all rows below that previous row
+		for (const siteRow of topLevelRows) {
+			moveBelow(siteRow.docLine, previousRow.docLine);
+		}
+		
+		// After moves, all rows are now children of the previous row
+		// Find the actual indices in the previous row's children
+		if (topLevelRows.length > 0) {
+			const firstRow = topLevelRows[0];
+			const lastRow = topLevelRows[topLevelRows.length - 1];
+			const newStartIndex = previousRow.children.indexOf(firstRow);
+			const newEndIndex = previousRow.children.indexOf(lastRow);
+			
+			if (newStartIndex !== -1 && newEndIndex !== -1) {
+				// Update cellBlock with new parent and indices
+				const newCellBlock = new CellBlock(
+					previousRow,
+					newStartIndex,
+					newEndIndex,
+					cellBlock.startColumnIndex,
+					cellBlock.endColumnIndex,
+					cellBlock.activeSiteRow,
+					cellBlock.activeCellIndex
+				);
+				model.site.setCellBlock(newCellBlock);
+				model.scene.updatedSelection();
+				return true;
+			}
+		}
+		return true;
+	}
 	const caret = currentRow.caretOffset;
 	if (!caret) return true;
 	
@@ -1055,7 +1236,8 @@ function handleTab(currentRow: Editor.Row) : boolean {
 		const cur = model.scene.findRow(currentRow.id);
 		const scur = cur.siteRow;
 			const sprev = scur.previous;
-		if (sprev === SiteRow.end) return false;
+		if (sprev === SiteRow.end)
+			return true;
 		moveBelow(scur.docLine, sprev.docLine);
 		const replacementRow = Editor.findRow(currentRow.id)
 		replacementRow.setCaretInRow(rowLevelOffset + 1);
@@ -1065,37 +1247,66 @@ function handleTab(currentRow: Editor.Row) : boolean {
 	insertChar(currentRow, '\t');
 	return true;
 }
-function docLineFromRow(row: Editor.Row): DocLine {
-	const cur = model.scene.findRow(row.id);
-	return cur.siteRow.docLine;
-}
- function handleShiftTab(currentRow: Editor.Row) : boolean {
-    const caret = currentRow.caretOffset;
+function handleShiftTab(currentRow: Editor.Row) : boolean {
+	const cellBlock = model.site.cellBlock;
+	if (cellBlock !== CellBlock.empty)  {
+		const parentSiteRow = cellBlock.parentSiteRow;
+		const startChildIndex = cellBlock.startChildIndex;
+		const endChildIndex = cellBlock.endChildIndex;
+		
+		// Get all top-level rows of block selection
+		const topLevelRows: SiteRow[] = [];
+		for (let i = startChildIndex; i <= endChildIndex; i++) {
+			topLevelRows.push(parentSiteRow.children[i]);
+		}
+		
+		// Move each row after its parent (iterate in reverse to maintain order)
+		for (const siteRow of [...topLevelRows].reverse()) {
+			moveAfterParent(siteRow.docLine);
+		}
+		
+		// After moves, all rows will have the same new parent (grandparent)
+		// Find the new parent and indices
+		if (topLevelRows.length > 0) {
+			const firstRow = topLevelRows[0];
+			const newParent = firstRow.parent;
+			if (newParent !== SiteRow.end) {
+				// Find the new indices in the new parent's children
+				const newStartIndex = newParent.children.indexOf(firstRow);
+				const newEndIndex = newParent.children.
+					indexOf(topLevelRows[topLevelRows.length - 1]);
+				
+				if (newStartIndex !== -1 && newEndIndex !== -1) {
+					// Update block selection with new parent and indices
+					const newCellBlock = new CellBlock(
+						newParent,
+						newStartIndex,
+						newEndIndex,
+						cellBlock.startColumnIndex,
+						cellBlock.endColumnIndex,
+						cellBlock.activeSiteRow,
+						cellBlock.activeCellIndex
+					);
+					model.site.setCellBlock(newCellBlock);
+					model.scene.updatedSelection();
+				}
+			}
+		}
+		return true;
+	} 
+	const caret = currentRow.caretOffset;
     if (!caret) return true;
     
     // Convert cell-local offset to row-level offset
     const rowLevelOffset = cellLocalToRowLevelOffset(currentRow, caret.cell, caret.offset);
-    
+
     // Get visible text for indent checking
 	if (0 == rowLevelOffset) {
-		if (currentRow.indent == 0) return true;
-		// Move after parent
-		// Move before parent's sibling if any.
-		const docLine = docLineFromRow(currentRow);
-		const parent = docLine.parent;
-		const nextSibling = parent.nextSibling();
-		if (nextSibling !== DocLine.end) {
-			moveBefore(docLine, nextSibling);
-		} else {
-			// else move to end of grandparent.
-			const grandparent = parent.parent;
-			if (grandparent !== DocLine.end) {
-				moveBelow(docLine, grandparent);
-			} else {
+			if (currentRow.indent == 0)
 				return true;
-			}
+			const docLine = docLineFromRow(currentRow);
+			moveAfterParent(docLine);
 			Editor.findRow(currentRow.id).setCaretInRow(0);
-		}
 	} else {
 		const htmlOffset = currentRow.getActiveCellHtmlOffset();
 		if (htmlOffset === -1)

@@ -47,6 +47,7 @@ export function createRowElementFromSceneRow(sceneRow: SceneRow): Row {
 
 export function removeCarets(): void {
 	window.getSelection()?.removeAllRanges();
+	lm.newEditor.focus();
 }
 
 export class Cell {
@@ -284,7 +285,12 @@ export class Row {
 		return this.cells.filter(cell => cell.isText);
 	}
 	public get activeCell(): Cell | null {
-		// Returns the active cell using Cell.active() check
+		// First check for CellBlock active cell (when in cell block mode)
+		const cellBlockActive = this.cells.find(cell => cell.hasCellBlockActive());
+		if (cellBlockActive) 
+			return cellBlockActive;
+		
+		// Otherwise, check DOM focus (normal text editing mode)
 		return this.cells.find(cell => cell.active) ?? null;
 	}
 	public getActiveCellIndex(): number {
