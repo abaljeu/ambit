@@ -501,6 +501,7 @@ function handleShiftArrowDown(currentRow: Editor.Row): boolean {
 	let newEndIndex = cellBlock.endChildIndex;
 	let newActiveSiteRow = activeSiteRow;
 	let newParentSiteRow = parentSiteRow;
+	let newActiveCellIndex = cellBlock.activeCellIndex;
 	
 	// Try to move to next sibling
 	if (activeChildIndex < parentSiteRow.children.length - 1) {
@@ -508,12 +509,15 @@ function handleShiftArrowDown(currentRow: Editor.Row): boolean {
 		if (isActiveAtBottom) {
 			newEndIndex = activeChildIndex + 1;
 			newActiveSiteRow = nextSibling;
+			newActiveCellIndex = activeChildIndex + 1;
 		} else if (isActiveAtTop) {
-			newEndIndex = activeChildIndex + 1;
+			newStartIndex = activeChildIndex + 1;
 			newActiveSiteRow = nextSibling;
+			newActiveCellIndex = activeChildIndex + 1;
 		} else {
 			newStartIndex = activeChildIndex + 1;
 			newActiveSiteRow = nextSibling;
+			newActiveCellIndex = activeChildIndex + 1;
 		}
 	} else {
 		// No next sibling, select parent instead
@@ -536,7 +540,7 @@ function handleShiftArrowDown(currentRow: Editor.Row): boolean {
 		cellBlock.startColumnIndex,
 		cellBlock.endColumnIndex,
 		newActiveSiteRow,
-		cellBlock.activeCellIndex
+		newActiveCellIndex
 	);
 	
 	model.site.setCellBlock(newCellBlock);

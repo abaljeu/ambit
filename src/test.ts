@@ -674,8 +674,22 @@ function testHandleArrowRight(): void {
     assertEquals(2, cellBlock.endChildIndex);
     assertEquals(0, cellBlock.activeCellIndex);
     
+
+    sendKey('ArrowDown', ['S']);
+    cellBlock = Controller.getCellBlock();
+    assertEquals(1, cellBlock.startChildIndex);
+    assertEquals(2, cellBlock.endChildIndex);
+    assertEquals(1, cellBlock.activeCellIndex);
+    
+
+    sendKey('ArrowDown', ['S']);
+    cellBlock = Controller.getCellBlock();
+    assertEquals(2, cellBlock.startChildIndex);
+    assertEquals(2, cellBlock.endChildIndex);
+    assertEquals(2, cellBlock.activeCellIndex);
+    
 }
-];
+]
 // // Run all tests
 async function runAllTests(): Promise<void> {
     console.log("Starting Ambit regression tests...\n");
