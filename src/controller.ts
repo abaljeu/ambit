@@ -50,6 +50,7 @@ class KeyBinding {
 }
 
 const keyBindings: KeyBinding[] = [
+	new KeyBinding("F12", () => false),
 	new KeyBinding("F5", () => false),
 	new KeyBinding("C-F5", () => false),
 	new KeyBinding("Tab", handleTab),
@@ -65,6 +66,8 @@ const keyBindings: KeyBinding[] = [
 	new KeyBinding("ArrowRight", handleArrowRight),
 	new KeyBinding("S-ArrowLeft", handleShiftArrowLeft),
 	new KeyBinding("S-ArrowRight", handleShiftArrowRight),
+	new KeyBinding("S-ArrowUp", handleShiftArrowUp),
+	new KeyBinding("S-ArrowDown", handleShiftArrowDown),
 	new KeyBinding("Home", handleHome),
 	new KeyBinding("End", handleEnd),
 	new KeyBinding("S-Home", handleShiftHome),
@@ -90,6 +93,22 @@ function findKeyBinding(combo: string): KeyBinding {
 	return new KeyBinding("", () => true);
 }
 
+function getCurrentRow(): Editor.Row {
+	// If there's an active CellBlock, use its activeSiteRow to determine current row
+	const cellBlock = model.site.cellBlock;
+	if (cellBlock !== CellBlock.empty) {
+		const activeSiteRow = cellBlock.activeSiteRow;
+		const sceneRow = model.scene.findOrCreateSceneRow(activeSiteRow);
+		const editorRow = Editor.findRow(sceneRow.id.value);
+		if (editorRow !== Editor.endRow) {
+			return editorRow;
+		}
+	}
+	
+	// Otherwise, use browser selection to determine current row
+	return Editor.currentRow();
+}
+
  export function editorHandleKey(e : KeyboardEvent) {
 	if ( // just a mod key was pressed.
 		e.key === "Control" ||
@@ -105,7 +124,7 @@ function findKeyBinding(combo: string): KeyBinding {
 	const combo =  mods + e.key;
 	lm.messageArea.textContent = combo;
 
-	const currentRow = Editor.currentRow();
+	const currentRow = getCurrentRow();
 	if (!currentRow.valid()) 
 		return;
 	const binding = findKeyBinding(combo);
@@ -369,22 +388,164 @@ function findNextEditableCell(row: Editor.Row, fromCell: Editor.Cell): Editor.Ce
 }
 
 function handleArrowUp(currentRow: Editor.Row) : boolean {
+	clearCellBlock();
 	const prevP = currentRow.previous;
-	if (!prevP.valid()) return true;
+	if (!prevP.valid())
+		 return true;
 	
 	prevP.moveCaretToThisRow();
 	return true;
 }
 
  function handleArrowDown(currentRow: Editor.Row) : boolean {
+	clearCellBlock();
 	const nextP = currentRow.next;
-	if (!nextP.valid()) return true;
+	if (!nextP.valid())
+		return true;
 	
 	nextP.moveCaretToThisRow();
 	return true;
 }
 
+function handleShiftArrowUp(currentRow: Editor.Row): boolean {
+	const cellBlock = model.site.cellBlock;
+	
+	// If cellBlock is empty, initialize it to current row
+	if (cellBlock === CellBlock.empty) {
+		initCellBlockToRow(currentRow);
+		return true;
+	}
+	
+	const activeSiteRow = cellBlock.activeSiteRow;
+	const parentSiteRow = cellBlock.parentSiteRow;
+	const activeChildIndex = parentSiteRow.children.indexOf(activeSiteRow);
+	
+	if (activeChildIndex === -1)
+		return true;
+	
+	const isActiveAtTop = activeChildIndex === cellBlock.startChildIndex;
+	const isActiveAtBottom = activeChildIndex === cellBlock.endChildIndex;
+	
+	let newStartIndex = cellBlock.startChildIndex;
+	let newEndIndex = cellBlock.endChildIndex;
+	let newActiveSiteRow = activeSiteRow;
+	let newParentSiteRow = parentSiteRow;
+	
+	let newActiveCellIndex = cellBlock.activeCellIndex;
+	
+	// Try to move to previous sibling
+	if (activeChildIndex > 0) {
+		const prevSibling = parentSiteRow.children[activeChildIndex - 1];
+		if (isActiveAtTop) {
+			newStartIndex = activeChildIndex - 1;
+			newActiveSiteRow = prevSibling;
+			newActiveCellIndex = activeChildIndex - 1;
+		} else if (isActiveAtBottom) {
+			newEndIndex = activeChildIndex - 1;
+			newActiveSiteRow = prevSibling;
+			newActiveCellIndex = activeChildIndex - 1;
+		} else {
+			newStartIndex = activeChildIndex - 1;
+			newActiveSiteRow = prevSibling;
+			newActiveCellIndex = activeChildIndex - 1;
+		}
+	} else {
+		// No previous sibling, select parent instead
+		const grandparent = parentSiteRow.parent;
+		if (grandparent === SiteRow.end) return true;
+		
+		const parentIndex = grandparent.children.indexOf(parentSiteRow);
+		if (parentIndex === -1) return true;
+		
+		newParentSiteRow = grandparent;
+		newStartIndex = parentIndex;
+		newEndIndex = parentIndex;
+		newActiveSiteRow = parentSiteRow;
+		newActiveCellIndex = parentIndex;
+	}
+	
+	const newCellBlock = new CellBlock(
+		newParentSiteRow,
+		newStartIndex,
+		newEndIndex,
+		cellBlock.startColumnIndex,
+		cellBlock.endColumnIndex,
+		newActiveSiteRow,
+		newActiveCellIndex
+	);
+	
+	model.site.setCellBlock(newCellBlock);
+	model.scene.updatedSelection();
+	return true;
+}
+
+function handleShiftArrowDown(currentRow: Editor.Row): boolean {
+	const cellBlock = model.site.cellBlock;
+	
+	// If cellBlock is empty, initialize it to current row
+	if (cellBlock.parentSiteRow === SiteRow.end) {
+		initCellBlockToRow(currentRow);
+		return true;
+	}
+	
+	const activeSiteRow = cellBlock.activeSiteRow;
+	const parentSiteRow = cellBlock.parentSiteRow;
+	const activeChildIndex = parentSiteRow.children.indexOf(activeSiteRow);
+	
+	if (activeChildIndex === -1) return true;
+	
+	const isActiveAtTop = activeChildIndex === cellBlock.startChildIndex;
+	const isActiveAtBottom = activeChildIndex === cellBlock.endChildIndex;
+	
+	let newStartIndex = cellBlock.startChildIndex;
+	let newEndIndex = cellBlock.endChildIndex;
+	let newActiveSiteRow = activeSiteRow;
+	let newParentSiteRow = parentSiteRow;
+	
+	// Try to move to next sibling
+	if (activeChildIndex < parentSiteRow.children.length - 1) {
+		const nextSibling = parentSiteRow.children[activeChildIndex + 1];
+		if (isActiveAtBottom) {
+			newEndIndex = activeChildIndex + 1;
+			newActiveSiteRow = nextSibling;
+		} else if (isActiveAtTop) {
+			newEndIndex = activeChildIndex + 1;
+			newActiveSiteRow = nextSibling;
+		} else {
+			newStartIndex = activeChildIndex + 1;
+			newActiveSiteRow = nextSibling;
+		}
+	} else {
+		// No next sibling, select parent instead
+		const grandparent = parentSiteRow.parent;
+		if (grandparent === SiteRow.end) return true;
+		
+		const parentIndex = grandparent.children.indexOf(parentSiteRow);
+		if (parentIndex === -1) return true;
+		
+		newParentSiteRow = grandparent;
+		newStartIndex = parentIndex;
+		newEndIndex = parentIndex;
+		newActiveSiteRow = parentSiteRow;
+	}
+	
+	const newCellBlock = new CellBlock(
+		newParentSiteRow,
+		newStartIndex,
+		newEndIndex,
+		cellBlock.startColumnIndex,
+		cellBlock.endColumnIndex,
+		newActiveSiteRow,
+		cellBlock.activeCellIndex
+	);
+	
+	model.site.setCellBlock(newCellBlock);
+	model.scene.updatedSelection();
+	return true;
+}
+
 function handleArrowLeft(currentRow: Editor.Row) : boolean {
+	clearCellBlock();
 	const activeCell = currentRow.activeCell;
 	if (!activeCell) return true;
 	
@@ -406,6 +567,7 @@ function handleArrowLeft(currentRow: Editor.Row) : boolean {
 }
 
 function handleArrowRight(currentRow: Editor.Row) : boolean {
+	clearCellBlock();
 	const activeCell = currentRow.activeCell;
 	if (!activeCell) return true;
 	
@@ -909,12 +1071,25 @@ export function initCellBlockToRow(initialRow: Editor.Row): void {
 	model.scene.updatedSelection();
 }
 
-export function getCellBlock(): CellBlock | null {
+export function getCellBlock(): CellBlock {
 	return model.site.cellBlock;
 }
 
 export function clearCellBlock(): void {
-	model.site.clearCellBlock();
-	model.scene.updatedSelection();
+	// find active row and set caret to it.
+	if (model.site.cellBlock !== CellBlock.empty) {
+		const activeRow = model.site.cellBlock.activeSiteRow;
+
+		model.site.clearCellBlock();
+		model.scene.updatedSelection();
+
+		if (activeRow !== SiteRow.end) {
+			const sceneRow = model.scene.findSceneRow(activeRow);
+			const editorRow = Editor.findRow(sceneRow.id.value);
+			if (editorRow !== Editor.endRow) {
+				editorRow.setCaretInRow(0);
+			}
+		}
+	}
 }
 

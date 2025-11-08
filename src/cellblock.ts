@@ -2,6 +2,23 @@ import { SiteRow } from './site.js';
 import { SceneRow } from './scene.js';
 
 export class CellBlock {
+    private static _empty: CellBlock | null = null;
+    
+    public static get empty(): CellBlock {
+        if (CellBlock._empty === null) {
+            CellBlock._empty = new CellBlock(
+                SiteRow.end,
+                0,
+                -1,
+                0,
+                -1,
+                SiteRow.end,
+                0
+            );
+        }
+        return CellBlock._empty;
+    }
+    
     public readonly parentSiteRow: SiteRow;
     public readonly startChildIndex: number;
     public readonly endChildIndex: number;
@@ -38,30 +55,44 @@ export class CellBlock {
 
     // Check if a SiteRow is part of this block (including descendants)
     public includesSiteRow(siteRow: SiteRow): boolean {
-        // Check if siteRow is a descendant of one of the selected children
-        const parent = siteRow.parent;
-        if (parent !== this.parentSiteRow) {
+        // Empty state: parentSiteRow is SiteRow.end
+        if (this.parentSiteRow === SiteRow.end) {
             return false;
         }
-
-        const childIndex = this.parentSiteRow.children.indexOf(siteRow);
-        if (childIndex === -1) {
-            return false;
+        
+        // Walk up the parent chain to find a direct child of parentSiteRow
+        let current = siteRow;
+        while (current !== SiteRow.end) {
+            const parent = current.parent;
+            
+            // Check if we found a direct child of parentSiteRow
+            if (parent === this.parentSiteRow) {
+                const childIndex = this.parentSiteRow.children.indexOf(current);
+                if (childIndex === -1) {
+                    return false;
+                }
+                
+                // Check if childIndex is in the range
+                if (childIndex >= this.startChildIndex && childIndex <= this.endChildIndex) {
+                    return true;
+                }
+                return false;
+            }
+            
+            // Move up to the parent
+            current = parent;
         }
-
-        // Check if childIndex is in the range
-        if (childIndex < this.startChildIndex || childIndex > this.endChildIndex) {
-            return false;
-        }
-
-        // This row is a direct child in the range, or we need to check if it's a descendant
-        // Since blocks implicitly include all descendants, any row that is a descendant
-        // of a selected child is included
-        return true;
+        
+        return false;
     }
 
     // Check if a specific cell (row + cell index) is in this block
     public includesCell(siteRow: SiteRow, cellIndex: number): boolean {
+        // Empty state: parentSiteRow is SiteRow.end
+        if (this.parentSiteRow === SiteRow.end) {
+            return false;
+        }
+        
         // First check if the row is included
         if (!this.includesSiteRow(siteRow)) {
             return false;
@@ -82,7 +113,26 @@ export class CellBlock {
 
     // Check if a cell is the active cell
     public isActiveCell(siteRow: SiteRow, cellIndex: number): boolean {
-        return siteRow === this.activeSiteRow && cellIndex === this.activeCellIndex;
+        // Empty state: parentSiteRow is SiteRow.end
+        if (this.parentSiteRow === SiteRow.end) {
+            return false;
+        }
+        
+        // If this is the active row, check if cellIndex matches activeCellIndex
+        // activeCellIndex can represent either the cell index or child index
+        // If it matches the child index, we use cell 0 as the active cell
+        if (siteRow === this.activeSiteRow) {
+            // Check if activeCellIndex matches the child index
+            const childIndex = this.parentSiteRow.children.indexOf(siteRow);
+            if (childIndex === this.activeCellIndex) {
+                // activeCellIndex represents child index, so use cell 0
+                return cellIndex === 0;
+            }
+            // Otherwise, activeCellIndex represents cell index
+            return cellIndex === this.activeCellIndex;
+        }
+        
+        return false;
     }
 
 }

@@ -73,28 +73,25 @@ export class SceneRow extends SiteRowSubscriber {
     // Check if this SceneRow is part of the current CellBlock
     public isInCellBlock(): boolean {
         const cellBlock = this.scene.getCellBlock();
-        if (!cellBlock) return false;
         return cellBlock.includesSiteRow(this.siteRow);
     }
     
     // Check if a specific cell index in this row is selected
     public isCellSelected(cellIndex: number): boolean {
         const cellBlock = this.scene.getCellBlock();
-        if (!cellBlock) return false;
         return cellBlock.includesCell(this.siteRow, cellIndex);
     }
     
     // Check if a specific cell index is the active cell
     public isCellActive(cellIndex: number): boolean {
         const cellBlock = this.scene.getCellBlock();
-        if (!cellBlock) return false;
         return cellBlock.isActiveCell(this.siteRow, cellIndex);
     }
     
     public getMaxColumnCount(sceneRows: readonly SceneRow[]): number {
         let maxColumns = 0;
         for (const sceneRow of sceneRows) {
-            if (this.scene.getCellBlock()?.includesSiteRow(sceneRow.siteRow)) {
+            if (this.scene.getCellBlock().includesSiteRow(sceneRow.siteRow)) {
                 const cellCount = sceneRow.cells.count;
                 if (cellCount > maxColumns) {
                     maxColumns = cellCount;
@@ -108,13 +105,6 @@ export class SceneRow extends SiteRowSubscriber {
         const cellBlock = this.scene.getCellBlock();
         const cellCount = this.cells.count;
         const states: CellSelectionState[] = [];
-        
-        if (!cellBlock) {
-            for (let i = 0; i < cellCount; i++) {
-                states.push({ cellIndex: i, selected: false, active: false });
-            }
-            return states;
-        }
         
         let maxColumns = cellCount;
         if (cellBlock.endColumnIndex === -1) {
@@ -292,6 +282,10 @@ export class Scene {
             
         }
     }
+    public findSceneRow(siteRow: SiteRow): SceneRow {
+        const row = this.sceneRowPool.search((row: SceneRow) => row.siteRow === siteRow);
+        return row;
+    }
 
     public findOrCreateSceneRow(siteRow: SiteRow): SceneRow {
         const row = this.sceneRowPool.search((row: SceneRow) => row.siteRow === siteRow);
@@ -300,14 +294,12 @@ export class Scene {
     }
     public get rows(): readonly SceneRow[] { return this._rows; }
     
-    public getCellBlock(): CellBlock | null {
+    public getCellBlock(): CellBlock {
         return this.site.cellBlock;
     }
     
     public getSelectedSceneRows(): readonly SceneRow[] {
         const cellBlock = this.getCellBlock();
-        if (!cellBlock) return [];
-        
         return this._rows.filter(row => cellBlock.includesSiteRow(row.siteRow));
     }
     
@@ -319,6 +311,9 @@ export class Scene {
                 const selectionStates = row.getCellSelectionStates();
                 editorRow.updateCellBlockStyling(selectionStates);
             }
+        }
+        if (this.getCellBlock() !== CellBlock.empty) {
+            Editor.removeCarets();
         }
     }
 }

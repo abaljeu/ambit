@@ -1,5 +1,13 @@
 # Ambit Project Instructions
 
+
+#### Layout
+Return statements are their own line.  Inside a oneline block they can remain on the block line, but in a multiline block, a return should be the first text of that line.
+
+    if (x == null) return true; // WRONG
+    if (x == null)
+        returt true; // RIGHT
+
 ## Project Overview
 Ambit is a wiki-like document editor with wikilink support.
 Description of what the program does is in [[overview]].
@@ -28,9 +36,6 @@ Public Objects and accessors shall be camelCase nouns.
 Constants may be UPPER_CASE if they represent values.  If they are complex objects, use camelCase.
 Mutable class variables should be named with `_camelCase` style.
 Excepting local and member variables, names should be globally unique.
-
-#### Layout
-Return statements are their own line.  Inside a oneline block they can remain on the block line, but in a multiline block, a return should be the first text of that line.
 
 #### Robustness Style
 We want to engage in a type-centric object-based (not object-oriented) style that protects model integrity while making information accessible.
