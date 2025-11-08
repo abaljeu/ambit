@@ -1,3 +1,25 @@
 {
-    "workbench.editor.enablePreview": false
+	// Editor padding to help with suggestion popup positioning
+	"editor.padding.top": 0,
+	"editor.padding.bottom": 0,
+	
+	// Suggestion popup positioning and behavior
+	"editor.suggest.preview": true,
+	"editor.suggest.shareSuggestSelections": false,
+	
+	// Show suggestions above cursor if there's not enough space below
+	"editor.suggestLocation": "below",
+	
+	// Delay before showing suggestions (gives more time for positioning)
+	"editor.quickSuggestions": {
+		"other": true,
+		"comments": false,
+		"strings": false
+	},
+	"editor.suggestOnTriggerCharacters": true,
+	"editor.acceptSuggestionOnCommitCharacter": true,
+	
+	// Make suggestion widget more compact
+	"editor.suggest.insertMode": "replace",
+	"editor.suggest.filterGraceful": true
 }

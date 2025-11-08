@@ -104,10 +104,19 @@ export class SceneRow extends SiteRowSubscriber {
     public siteRowTextChanged(siteRow: SiteRow): void {
         if (siteRow !== this.siteRow)
             return;
+
+        const r : Editor.Row = Editor.findRow(this.id.value);
+
+        const oldCells = this.cells;
         this._cells = undefined;
-         const r : Editor.Row = Editor.findRow(this.id.value);
+        const newCells = this.cells;
+
+        // todo: transfer cell selection to new cells.
+        // for  range (a,b) and old length L, new length N
+        // new range (c,d) will have L-b - N-d and b-a = d-c.
+        // (then if c<0 then c=0.)
          if (r !== Editor.endRow) 
-            r.setContent(this.cells);
+            r.setContent(newCells);
     }
 }
 
