@@ -4,11 +4,14 @@ import { ArraySpan } from './arrayspan.js';
 import { Id, Pool } from './pool.js';
 import { visibleOffsetToHtmlOffset } from './htmlutil.js';
 import * as HtmlUtil from './htmlutil.js';
+import { model } from './model.js';
 const RowElementTag: string = 'div';
 const RowContentTag: string = 'span';
 const RowContentClass: string = 'rowContent';
 const RowIndentClass: string = 'indentation';
 const TextCellClass: string = 'editableCell';
+const CellBlockSelectedClass: string = 'cellBlock-selected';
+const CellBlockActiveClass: string = 'cellBlock-active';
 type CellElement = HTMLSpanElement;
 type RowElement = HTMLDivElement;
 const VISIBLE_TAB = '→'; // Visible tab character, used for internal tabs.
@@ -252,6 +255,56 @@ export class Cell {
 		this.setCaret(offset);
 	}
 
+	// Check if this cell is part of the current CellBlock
+	public isInCellBlock(): boolean {
+		const row = this.getRow();
+		if (!row || row === endRow) return false;
+		const sceneRow = model.scene.findRow(row.id);
+		if (sceneRow === model.scene.end) return false;
+		const cellIndex = row.getCellIndex(this);
+		return sceneRow.isCellSelected(cellIndex);
+	}
+
+	// Check if this cell is the active cell
+	public isActiveCell(): boolean {
+		const row = this.getRow();
+		if (!row || row === endRow) return false;
+		const sceneRow = model.scene.findRow(row.id);
+		if (sceneRow === model.scene.end) return false;
+		const cellIndex = row.getCellIndex(this);
+		return sceneRow.isCellActive(cellIndex);
+	}
+
+	// Update CSS classes based on CellBlock state
+	public updateCellBlockStyling(): void {
+		const selected = this.isInCellBlock();
+		const active = this.isActiveCell();
+		
+		if (selected) {
+			this.newEl.classList.add(CellBlockSelectedClass);
+		} else {
+			this.newEl.classList.remove(CellBlockSelectedClass);
+		}
+		
+		if (active) {
+			this.newEl.classList.add(CellBlockActiveClass);
+		} else {
+			this.newEl.classList.remove(CellBlockActiveClass);
+		}
+	}
+
+	private getRow(): Row | null {
+		let element: HTMLElement | null = this.newEl.parentElement;
+		while (element) {
+			if (element.classList.contains(RowElementTag) || 
+			    element.tagName.toLowerCase() === RowElementTag) {
+				return new Row(element as RowElement);
+			}
+			element = element.parentElement;
+		}
+		return null;
+	}
+
 }
 
 export class Row {
@@ -277,6 +330,13 @@ export class Row {
 		const activeCell = this.activeCell;
 		if (!activeCell) return -1;
 		const index = contentCells.indexOf(activeCell);
+		return index;
+	}
+	
+	// Get cell index for a given Cell element
+	public getCellIndex(cell: Cell): number {
+		const allCells = this.cells;
+		const index = allCells.indexOf(cell);
 		return index;
 	}
 	public getActiveCellHtmlOffset(): number {
@@ -554,6 +614,13 @@ export class Row {
 		}
 		// Return null if X is not in any cell
 		return null;
+	}
+
+	// Update CSS classes for all cells in this row based on Scene CellBlock state
+	public updateCellBlockStyling(): void {
+		for (const cell of this.cells) {
+			cell.updateCellBlockStyling();
+		}
 	}
 }
 

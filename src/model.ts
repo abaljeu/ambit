@@ -21,6 +21,7 @@ class Model {
         }
         doc.updateContent(text);
         this.site.setDoc(doc);
+        this.scene.setSite(this.site);
         this.scene.loadFromSite(this.site.getRoot());
         return doc;
     }

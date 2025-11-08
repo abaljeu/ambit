@@ -1,6 +1,7 @@
 import { Doc, DocLine, noDoc, DocLineView } from './doc.js';
 import * as Change from './change.js';
 import { Id, Pool } from './pool.js';
+import { CellBlock } from './cellblock.js';
 
 // SiteRow ID - uses 'Sxxxxxx' format  
 export class SiteRowId extends Id<'SiteRow'> {
@@ -207,9 +208,11 @@ export class SiteRowPool extends Pool<SiteRow, SiteRowId> {
     public readonly tag: string = 'S';
 }
 const siteRowPool = new SiteRowPool();
+
 export class Site {
     // private _doc: Doc = noDoc; // The root doc
     private _root: SiteRow = SiteRow.end;
+    private _cellBlock: CellBlock | null = null;
     
     public setDoc(doc: Doc): void {
         // this._doc = doc;
@@ -228,6 +231,18 @@ export class Site {
     }
     
     // public get doc(): Doc { return this._doc; }
+    
+    public get cellBlock(): CellBlock | null {
+        return this._cellBlock;
+    }
+    
+    public setCellBlock(block: CellBlock | null): void {
+        this._cellBlock = block;
+    }
+    
+    public clearCellBlock(): void {
+        this._cellBlock = null;
+    }
     
     constructor() {}
 }

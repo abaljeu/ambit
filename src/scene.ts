@@ -3,6 +3,7 @@ import { Id, Pool } from './pool.js';
 import * as Editor from './editor.js';
 import { ArraySpan } from './arrayspan.js';
 import * as Change from './change.js';
+import { CellBlock } from './cellblock.js';
 /*    => filter, flatten
     Scene
         SceneRow
@@ -42,6 +43,12 @@ export class SceneRowCells {
     public get text(): string { return this._cells.map(cell => cell.text).join('\t'); }
 
 }
+export type CellSelectionState = {
+    cellIndex: number;
+    selected: boolean;
+    active: boolean;
+};
+
 export class SceneRow extends SiteRowSubscriber {
     public readonly id: SceneRowId;
     public  get indent(): number { return this.siteRow.indent; }
@@ -58,6 +65,60 @@ export class SceneRow extends SiteRowSubscriber {
         super();
         this.id = id;
         this.siteRow.subscribe(this);
+    }
+    
+    // Check if this SceneRow is part of the current CellBlock
+    public isInCellBlock(): boolean {
+        const cellBlock = this.scene.getCellBlock();
+        if (!cellBlock) return false;
+        return cellBlock.includesSiteRow(this.siteRow);
+    }
+    
+    // Check if a specific cell index in this row is selected
+    public isCellSelected(cellIndex: number): boolean {
+        const cellBlock = this.scene.getCellBlock();
+        if (!cellBlock) return false;
+        return cellBlock.includesCell(this.siteRow, cellIndex);
+    }
+    
+    // Check if a specific cell index is the active cell
+    public isCellActive(cellIndex: number): boolean {
+        const cellBlock = this.scene.getCellBlock();
+        if (!cellBlock) return false;
+        return cellBlock.isActiveCell(this.siteRow, cellIndex);
+    }
+    
+    // Get the cell selection state for this row
+    public getCellSelectionStates(): readonly CellSelectionState[] {
+        const cellBlock = this.scene.getCellBlock();
+        const cellCount = this.cells.count;
+        const states: CellSelectionState[] = [];
+        
+        // If no block, all cells are unselected
+        if (!cellBlock) {
+            for (let i = 0; i < cellCount; i++) {
+                states.push({ cellIndex: i, selected: false, active: false });
+            }
+            return states;
+        }
+        
+        // Determine max column count if endColumnIndex is -1
+        let maxColumns = cellCount;
+        if (cellBlock.endColumnIndex === -1) {
+            const selectedRows = this.scene.getSelectedSceneRows();
+            maxColumns = cellBlock.getMaxColumnCount(selectedRows);
+        }
+        
+        // Check each cell
+        for (let i = 0; i < cellCount; i++) {
+            const selected = cellBlock.includesCell(this.siteRow, i);
+            const active = cellBlock.isActiveCell(this.siteRow, i);
+            states.push({ cellIndex: i, selected, active });
+        }
+        
+        // If endColumnIndex is -1 and this row has fewer columns than max,
+        // we still only return states for actual cells
+        return states;
     }
     
     public indexInScene(): number {
@@ -136,7 +197,15 @@ export class Scene {
     public readonly sceneRowPool = new SceneRowPool(this);
     private _rows: SceneRow[] = [];
     public readonly end = new SceneRow(this,  SiteRow.end, new SceneRowId('R000000'));
+    private _site: Site | null = null;
 
+    public setSite(site: Site): void {
+        this._site = site;
+    }
+
+    public get site(): Site | null {
+        return this._site;
+    }
     
     constructor() {}
     
@@ -229,4 +298,29 @@ export class Scene {
         return this.sceneRowPool.create(id => new SceneRow(this, siteRow, id));
     }
     public get rows(): readonly SceneRow[] { return this._rows; }
+    
+    // Get CellBlock from Site (Scene queries Site for current state)
+    public getCellBlock(): CellBlock | null {
+        if (!this._site) return null;
+        return this._site.cellBlock;
+    }
+    
+    // Find all SceneRows that are part of the current CellBlock
+    public getSelectedSceneRows(): readonly SceneRow[] {
+        const cellBlock = this.getCellBlock();
+        if (!cellBlock) return [];
+        
+        return this._rows.filter(row => cellBlock.includesSiteRow(row.siteRow));
+    }
+    
+    // Called by controller after updating site selection
+    public updatedSelection(): void {
+        // Update Editor styling for all rows
+        for (const row of this._rows) {
+            const editorRow = Editor.findRow(row.id.value);
+            if (editorRow !== Editor.endRow) {
+                editorRow.updateCellBlockStyling();
+            }
+        }
+    }
 }

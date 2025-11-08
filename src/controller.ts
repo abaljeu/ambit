@@ -8,6 +8,7 @@ import { Doc, DocLine } from './doc.js';
 import { Site, SiteRow } from './site.js';
 import * as Change from './change.js';
 import * as HtmlUtil from './htmlutil.js';
+import { CellBlock } from './cellblock.js';
 
 export function setMessage(message : string) {
 // 	lm.messageArea.innerHTML = message;
@@ -882,5 +883,21 @@ export function save() {
 
 export function setEditorContent() {
  	Editor.setEditorContent(new ArraySpan(model.scene.rows, 0, model.scene.rows.length));
+}
+
+// Methods to manage CellBlock selection
+export function initCellBlockToRow(initialRow: SiteRow): void {
+	// TODO: Implement CellBlock initialization from a row
+	// This will create a CellBlock starting from the given SiteRow
+	// Modifier functions to be defined later.
+}
+
+export function getCellBlock(): CellBlock | null {
+	return model.site.cellBlock;
+}
+
+export function clearCellBlock(): void {
+	model.site.clearCellBlock();
+	model.scene.updatedSelection();
 }
 
