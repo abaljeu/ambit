@@ -14,7 +14,7 @@ if (false)if (!isset($_SESSION['authenticated']) || $_SESSION['authenticated'] !
     }
     
     // For regular page requests, redirect to login
-    header('Location: /ambit/login.php');
+    header('Location: ' . BASE_PATH . 'login.php');
     exit;
 }
 

@@ -1,5 +1,5 @@
 # Ambit Project Instructions
-
+If a question is asked, the question must be answered, and no changes are to be made.
 
 #### Layout
 Return statements are their own line.  Inside a oneline block they can remain on the block line, but in a multiline block, a return should be the first text of that line.
