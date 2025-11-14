@@ -9,6 +9,28 @@
     tab-size: 1em;
 }
 
+/*    <div id="newEditor" ></div>
+   <div id="details">
+style to go side by side.
+   */
+#parentContainer { /* Replace with the actual selector for the parent div */
+  display: flex;
+  /* Optional:
+  justify-content: space-around; /* Distributes space between items */
+  align-items: flex-start; /* Aligns items to the start of the cross axis */
+  gap: 20px; /* Adds space between the flex items */
+  */
+}
+#newEditor, #details {
+    display: inline-block;
+    
+    width:50%; 
+    height:80vh; 
+    border: 1px 
+    solid #ccc; 
+    padding: 0 0 0 5px; 
+    overflow-y: auto;
+}
 #newEditor > div .fold-indicator {
     display: inline-block;
     width: 1.4em;

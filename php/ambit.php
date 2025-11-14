@@ -20,9 +20,18 @@ $content = ''; // Empty initially, JavaScript will populate via GET request
 <body>
 <h1 id="path" style="display: inline-block; margin-right: 10px;"><?= $filePath ?></h1>
 <button id="save">Save</button>
+<div id="parentContainer">
+   <div id="newEditor" ></div>
+   <div id="details">
 
-<div id="newEditor" style="width:100%; height:80vh; border: 1px solid #ccc; padding: 0 0 0 5px; overflow-y: auto;"></div>
-
+   <!-- show the active cell: tag, sourceText, classes list, -->
+         <input type="text" id="cellTag" name="cellTag" placeholder="Tag" />
+         <input type="text" id="cellClasses" name="cellClasses" placeholder="Classes" />
+         <br/>
+         <textarea id="cellSourceText" name="cellSourceText" placeholder="Source Text" rows="4" cols="50"></textarea>
+         <br/>
+   </div>
+</div>
 <div id="links"></div>
 <div>Message: <span id="messageElement"><?= "Ready" ?></span> </div>
 <script type="module" src="dist/ambit.js">
