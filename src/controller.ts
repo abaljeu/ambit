@@ -187,12 +187,13 @@ function handleBackspace(currentRow: Editor.Row) : boolean {
 	const activeCell = currentRow.activeCell;
 	if (!activeCell)
 		return true;
-	const selectionRange = activeCell.getSelectionRange();
+	const selectionRange = activeCell.getHtmlSelectionRange();
 	if (selectionRange.start !== selectionRange.end) {
-		const start = cellLocalToRowLevelOffset(currentRow, activeCell, selectionRange.start);
-		const end = cellLocalToRowLevelOffset(currentRow, activeCell, selectionRange.end);
+		const cellStart = currentRow.getCellLineOffset(activeCell);
+		const start = selectionRange.start + cellStart;
+		const end = selectionRange.end + cellStart;
 
-		deleteRowRange(currentRow, start, end);
+		deleteRowRange(currentRow, cellStart, end);
 		return true;
 	}
 	const caret = activeCell.caretOffset();
@@ -231,7 +232,6 @@ function cellLocalToRowLevelOffset(row: Editor.Row, cell: Editor.Cell, cellLocal
 		// Add the full visible text length of cells before the target cell
 		rowLevelOffset += c.visibleTextLength;
 	}
-	
 	return rowLevelOffset;
 }
 
@@ -319,7 +319,7 @@ function handleDelete(currentRow: Editor.Row) : boolean {
 	// Check if there's a selection using active cell's selection range
 	const activeCell = currentRow.activeCell;
 	if (activeCell) {
-		const selectionRange = activeCell.getSelectionRange();
+		const selectionRange = activeCell.getHtmlSelectionRange();
 		if (selectionRange.start !== selectionRange.end) {
 			// Convert cell-local offsets to row-level offsets
 			const rowLevelStart = cellLocalToRowLevelOffset(currentRow, activeCell, selectionRange.start);
@@ -1061,7 +1061,7 @@ function handleAddMarkup(currentRow: Editor.Row, tagName: string): boolean {
 	const activeCell = currentRow.activeCell;
 	if (!activeCell) return false;
 	
-	const selectionRange = activeCell.getSelectionRange();
+	const selectionRange = activeCell.getHtmlSelectionRange();
 	if (selectionRange.start === selectionRange.end) return false;
 	
 	// Convert cell-local offsets to row-level offsets
@@ -1132,7 +1132,7 @@ function handleInsertChar(currentRow : Editor.Row, ch : string) {
 	// Check if there's a selection using active cell's selection range
 	const activeCell = currentRow.activeCell;
 	if (activeCell) {
-		const selectionRange = activeCell.getSelectionRange();
+		const selectionRange = activeCell.getHtmlSelectionRange();
 		if (selectionRange.start !== selectionRange.end) {
 			// Convert cell-local offsets to row-level offsets
 			const rowLevelStart = cellLocalToRowLevelOffset(currentRow, activeCell, selectionRange.start);
@@ -1308,7 +1308,7 @@ function handleShiftTab(currentRow: Editor.Row) : boolean {
 			moveAfterParent(docLine);
 			Editor.findRow(currentRow.id).setCaretInRow(0);
 	} else {
-		const htmlOffset = currentRow.getActiveCellHtmlOffset();
+		const htmlOffset = currentRow.getCellLineOffset(caret.cell);
 		if (htmlOffset === -1)
 			return false;
 
