@@ -1,7 +1,7 @@
-import './events.js';
 // import { RowId, endRowId } from './rowid.js';
 import * as Controller from './controller.js';
 import * as lm from './elements.js';
+import * as WebEvents from './web/events.js';
 import { model } from './model.js';
 import * as Test from './test.js';
 import { testFixTags } from './htmlutil.js';
@@ -66,6 +66,12 @@ export function postDoc(filePath :string, content : string) {
 // Only auto-load if we're in the main ambit context (not in tests)
 if (typeof window !== 'undefined' && window.location.pathname.includes('ambit.php')) {
     Object.assign(window as any, { model, Controller });
+    
+    // Install event handlers - ambit.ts is the main program that wires everything together
+    WebEvents.installEditorEvents({
+        onKeyDown: Controller.editorHandleKey,
+        onSave: Controller.save,
+    });
     
     await Test.runAllTests();
     await loadFromPath(filePath);

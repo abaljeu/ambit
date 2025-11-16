@@ -240,11 +240,7 @@ export class Cell {
 			}
 		}
 
-		return {
-			kind,
-			text,
-			width,
-		};
+		return new PureCell(kind, text, width);
 	}
 }
 

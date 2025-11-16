@@ -347,11 +347,7 @@ export class Row {
 	public toPureRow(): PureRow {
 		const cells = this.cells.map(cell => cell.toPureCell());
 
-		return {
-			id: this.id,
-			indent: this.indent,
-			cells,
-		};
+		return new PureRow(this.id, this.indent, cells);
 	}
 }
 

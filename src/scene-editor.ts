@@ -12,53 +12,25 @@ export function sceneCellToPureCell(sceneCell: SceneCell): PureCell {
 		? PureCellKind.Indent
 		: PureCellKind.Text;
 
-	return {
-		kind,
-		text: sceneCell.text,
-		width: sceneCell.width,
-	};
+	return new PureCell(kind, sceneCell.text, sceneCell.width);
 }
 
 export function sceneRowToPureRow(sceneRow: SceneRow): PureRow {
 	const cells = sceneRow.cells.cells.map(sceneCellToPureCell);
 
-	return {
-		id: sceneRow.id.value,
-		indent: sceneRow.indent,
-		cells,
-	};
-}
-
-function pureCellEquals(a: PureCell, b: PureCell): boolean {
-	return a.kind === b.kind &&
-		a.text === b.text &&
-		a.width === b.width;
-}
-
-function pureRowEquals(a: PureRow, b: PureRow): boolean {
-	if (a.id !== b.id || a.indent !== b.indent || a.cells.length !== b.cells.length) {
-		return false;
-	}
-	
-	for (let i = 0; i < a.cells.length; i++) {
-		if (!pureCellEquals(a.cells[i], b.cells[i])) {
-			return false;
-		}
-	}
-	
-	return true;
+	return new PureRow(sceneRow.id.value, sceneRow.indent, cells);
 }
 
 export function sceneCellMatchesEditorCell(sceneCell: SceneCell, editorCell: Cell): boolean {
 	const scenePure = sceneCellToPureCell(sceneCell);
 	const editorPure = editorCell.toPureCell();
-	return pureCellEquals(scenePure, editorPure);
+	return scenePure.equals(editorPure);
 }
 
 export function sceneRowMatchesEditorRow(sceneRow: SceneRow, editorRow: RowEditor.Row): boolean {
 	const scenePure = sceneRowToPureRow(sceneRow);
 	const editorPure = editorRow.toPureRow();
-	return pureRowEquals(scenePure, editorPure);
+	return scenePure.equals(editorPure);
 }
 
 // Thin Scene→Editor adapter. Converts SceneRow to PureRow before calling web layer.

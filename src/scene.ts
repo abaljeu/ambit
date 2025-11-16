@@ -5,7 +5,7 @@ import * as SceneEditor from './scene-editor.js';
 import { ArraySpan } from './arrayspan.js';
 import * as Change from './change.js';
 import { CellBlock } from './cellblock.js';
-import { PureRow, PureCellSelection, PureCellKind } from './web/editorData.js';
+import { PureRow, PureCellSelection, PureCell, PureCellKind } from './web/editorData.js';
 /*    => filter, flatten
     Scene
         SceneRow
@@ -180,16 +180,14 @@ export class SceneRow extends SiteRowSubscriber {
         // (then if c<0 then c=0.)
          if (r !== Editor.endRow) {
             // Convert SceneRow to PureRow
-            const cells = newCells.cells.map(cell => ({
-                kind: cell.type === PureCellKind.Indent ? PureCellKind.Indent : PureCellKind.Text,
-                text: cell.text,
-                width: cell.width,
-            }));
-            const pureRow: PureRow = {
-                id: this.id.value,
-                indent: this.indent,
-                cells,
-            };
+            const cells = newCells.cells.map(cell => 
+                new PureCell(
+                    cell.type === PureCellKind.Indent ? PureCellKind.Indent : PureCellKind.Text,
+                    cell.text,
+                    cell.width
+                )
+            );
+            const pureRow = new PureRow(this.id.value, this.indent, cells);
             r.setContent(pureRow);
          }
     }
@@ -323,13 +321,15 @@ export class Scene {
             const editorRow = Editor.findRow(row.id.value);
             if (editorRow !== Editor.endRow) {
                 const selectionStates = row.getCellSelectionStates();
-                // Convert CellSelectionState[] to PureCellSelectionState[]
-                const pureStates: readonly PureCellSelection[] = selectionStates.map(state => ({
-                    rowid: row.id.value,
-                    cellIndex: state.cellIndex,
-                    selected: state.selected,
-                    active: state.active,
-                }));
+                // Convert CellSelectionState[] to PureCellSelection[]
+                const pureStates: readonly PureCellSelection[] = selectionStates.map(state => 
+                    new PureCellSelection(
+                        row.id.value,
+                        state.cellIndex,
+                        state.selected,
+                        state.active
+                    )
+                );
                 editorRow.updateCellBlockStyling(pureStates);
             }
         }
