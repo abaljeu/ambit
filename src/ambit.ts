@@ -1,7 +1,8 @@
 // import { RowId, endRowId } from './rowid.js';
 import * as Controller from './controller.js';
-import * as lm from './elements.js';
+import * as lm from './web/elements.js';
 import * as WebEvents from './web/events.js';
+import * as WebUI from './web/ui.js';
 import { model } from './model.js';
 import * as Test from './test.js';
 import { testFixTags } from './htmlutil.js';
@@ -21,8 +22,7 @@ const filePath: string = params.get("doc")
         throw new Error("Redirecting");
         })();
 
-document.title = filePath;
-lm.path.textContent = filePath;
+WebUI.setPath(filePath);
 
 
 export async function  loadFromPath(filePath : string) {
@@ -60,14 +60,11 @@ export function postDoc(filePath :string, content : string) {
         });    
 
 }
-// Run HTML utility tests
-// testFixTags();
 
-// Only auto-load if we're in the main ambit context (not in tests)
 if (typeof window !== 'undefined' && window.location.pathname.includes('ambit.php')) {
+    // add globals for debugging.
     Object.assign(window as any, { model, Controller });
     
-    // Install event handlers - ambit.ts is the main program that wires everything together
     WebEvents.installEditorEvents({
         onKeyDown: Controller.editorHandleKey,
         onSave: Controller.save,

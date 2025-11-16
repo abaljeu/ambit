@@ -1,4 +1,4 @@
-import * as lm from '../elements.js';
+import * as lm from './elements.js';
 
 export function installEditorEvents(handlers: {
 	onKeyDown: (event: KeyboardEvent) => void;

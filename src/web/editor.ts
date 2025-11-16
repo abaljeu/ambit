@@ -1,4 +1,4 @@
-import * as lm from '../elements.js';
+import * as lm from './elements.js';
 import { visibleOffsetToHtmlOffset } from '../htmlutil.js';
 import { SceneRowCells, CellSelectionState } from '../scene.js';
 import { PureCellKind } from './editorData.js';

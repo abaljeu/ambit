@@ -1,4 +1,4 @@
-import * as lm from '../elements.js';
+import * as lm from './elements.js';
 import { ArraySpan } from '../arrayspan.js';
 import {
 	RowElementTag,

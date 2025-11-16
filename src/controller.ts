@@ -1,5 +1,5 @@
 import { postDoc } from './ambit.js';
-import * as lm from './elements.js';
+import * as lm from './web/elements.js';
 import * as Editor from './editor.js';
 import * as SceneEditor from './scene-editor.js';
 import { Scene, SceneRow } from './scene.js';
@@ -11,8 +11,10 @@ import * as Change from './change.js';
 import * as HtmlUtil from './htmlutil.js';
 import { CellBlock } from './cellblock.js';
 
-export function setMessage(message : string) {
-// 	lm.messageArea.innerHTML = message;
+import * as WebUI from './web/ui.js';
+
+export function setMessage(message: string): void {
+	WebUI.setMessage(message);
 }
 
 export function links() {
@@ -125,7 +127,7 @@ function getCurrentRow(): Editor.Row {
 		`${e.shiftKey ? "S-" : ""}` +
 		`${e.metaKey ? "M-" : ""}`;
 	const combo =  mods + e.key;
-	lm.messageArea.textContent = combo;
+	WebUI.setMessage(combo);
 
 	const currentRow = getCurrentRow();
 	if (!currentRow.valid()) 
