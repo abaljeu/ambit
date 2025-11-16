@@ -1,6 +1,7 @@
 import * as lm from '../elements.js';
 import { visibleOffsetToHtmlOffset } from '../htmlutil.js';
 import { SceneRowCells, CellSelectionState } from '../scene.js';
+import { PureCellKind } from './editorData.js';
 const RowElementTag: string = 'div';
 const RowContentTag: string = 'span';
 const RowContentClass: string = 'rowContent';
@@ -383,13 +384,13 @@ export class Row {
 		rowContent.innerHTML = '';
 		
 		for (const cell of cells.cells) {
-			if (cell.type === 'indent') {
+			if (cell.type === PureCellKind.Indent) {
 				const indentSpan = document.createElement('span');
 				indentSpan.className = RowIndentClass;
 				indentSpan.textContent = VISIBLE_TAB;
 				rowContent.appendChild(indentSpan);
 			}
-			else if (cell.type === 'text') {
+			else if (cell.type === PureCellKind.Text) {
 				const textSpan = document.createElement('span');
 				textSpan.className = TextCellClass;
 				textSpan.contentEditable = 'true';

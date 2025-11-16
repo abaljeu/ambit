@@ -1,9 +1,11 @@
 import { Site, SiteRow, SiteRowSubscriber } from './site.js';
 import { Id, Pool } from './pool.js';
 import * as Editor from './editor.js';
+import * as SceneEditor from './scene-editor.js';
 import { ArraySpan } from './arrayspan.js';
 import * as Change from './change.js';
 import { CellBlock } from './cellblock.js';
+import { PureRow, PureCellSelection, PureCellKind } from './web/editorData.js';
 /*    => filter, flatten
     Scene
         SceneRow
@@ -176,8 +178,20 @@ export class SceneRow extends SiteRowSubscriber {
         // for  range (a,b) and old length L, new length N
         // new range (c,d) will have L-b - N-d and b-a = d-c.
         // (then if c<0 then c=0.)
-         if (r !== Editor.endRow) 
-            r.setContent(newCells);
+         if (r !== Editor.endRow) {
+            // Convert SceneRow to PureRow
+            const cells = newCells.cells.map(cell => ({
+                kind: cell.type === PureCellKind.Indent ? PureCellKind.Indent : PureCellKind.Text,
+                text: cell.text,
+                width: cell.width,
+            }));
+            const pureRow: PureRow = {
+                id: this.id.value,
+                indent: this.indent,
+                cells,
+            };
+            r.setContent(pureRow);
+         }
     }
 }
 
@@ -207,7 +221,7 @@ export class Scene {
         
         // Remove from Editor (replace with empty)
         const emptyRowSpan = new ArraySpan<SceneRow>([], 0, 0);
-        Editor.replaceRows(oldRowSpan, emptyRowSpan);
+        SceneEditor.replaceRows(oldRowSpan, emptyRowSpan);
         
         let self = this.at(start);
         let parent = self.findParent();
@@ -229,7 +243,7 @@ export class Scene {
         
         const startRow = Editor.at(start);
         const insertionRowSpan = new Editor.RowSpan(startRow, 0);
-        Editor.replaceRows(insertionRowSpan, new ArraySpan<SceneRow>(newSceneRows, 0, newSceneRows.length));
+        SceneEditor.replaceRows(insertionRowSpan, new ArraySpan<SceneRow>(newSceneRows, 0, newSceneRows.length));
         
         // Update parent lengths (increase by newRows.length)
         let newRow = this.at(start);
@@ -309,7 +323,14 @@ export class Scene {
             const editorRow = Editor.findRow(row.id.value);
             if (editorRow !== Editor.endRow) {
                 const selectionStates = row.getCellSelectionStates();
-                editorRow.updateCellBlockStyling(selectionStates);
+                // Convert CellSelectionState[] to PureCellSelectionState[]
+                const pureStates: readonly PureCellSelection[] = selectionStates.map(state => ({
+                    rowid: row.id.value,
+                    cellIndex: state.cellIndex,
+                    selected: state.selected,
+                    active: state.active,
+                }));
+                editorRow.updateCellBlockStyling(pureStates);
             }
         }
         if (this.getCellBlock() !== CellBlock.empty) {

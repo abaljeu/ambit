@@ -1,23 +1,16 @@
 import { visibleOffsetToHtmlOffset } from '../htmlutil.js';
-import {
-	CellElement,
-	RowIndentClass,
-	TextCellClass,
-	CellBlockSelectedClass,
-	CellBlockActiveClass,
-	getNodeAndOffsetFromTextOffset,
-	getTextOffsetFromNode,
-} from './editor-dom.js';
+import * as Dom from './editor-dom.js';
+import { PureCell, PureCellKind } from './editorData.js';
 
 export class Cell {
-	constructor(public readonly newEl: CellElement) {
+	constructor(public readonly newEl: Dom.CellElement) {
 
 	}
 	public get isIndent(): boolean {
-		return this.newEl.classList.contains(RowIndentClass);
+		return this.newEl.classList.contains(Dom.RowIndentClass);
 	}
 	public get isText(): boolean {
-		return this.newEl.classList.contains(TextCellClass);
+		return this.newEl.classList.contains(Dom.TextCellClass);
 	}
 	public get visibleText() : string {
 		if (this.isIndent) {
@@ -54,11 +47,11 @@ export class Cell {
 		const focusNode = selection.focusNode;
 		const focusOffset = selection.focusOffset;
 		if (focusNode && this.containsNode(focusNode)) {
-			return getTextOffsetFromNode(this.newEl, focusNode, focusOffset);
+			return Dom.getTextOffsetFromNode(this.newEl, focusNode, focusOffset);
 		}
 		// Fallback to start if focusNode is not available or not in this cell
 		if (this.containsNode(range.startContainer)) {
-			return getTextOffsetFromNode(this.newEl, range.startContainer, range.startOffset);
+			return Dom.getTextOffsetFromNode(this.newEl, range.startContainer, range.startOffset);
 		}
 		return 0;
 	}
@@ -81,10 +74,10 @@ export class Cell {
 		}
 		
 		const startOffset = this.containsNode(range.startContainer) 
-			? getTextOffsetFromNode(this.newEl, range.startContainer, range.startOffset)
+			? Dom.getTextOffsetFromNode(this.newEl, range.startContainer, range.startOffset)
 			: 0;
 		const endOffset = this.containsNode(range.endContainer)
-			? getTextOffsetFromNode(this.newEl, range.endContainer, range.endOffset)
+			? Dom.getTextOffsetFromNode(this.newEl, range.endContainer, range.endOffset)
 			: this.visibleTextLength;
 		
 		return { start: startOffset, end: endOffset };
@@ -98,8 +91,8 @@ export class Cell {
 		if (!selection) return;
 		
 		// Convert to node positions
-		const startPos = getNodeAndOffsetFromTextOffset(this.newEl, start);
-		const endPos = getNodeAndOffsetFromTextOffset(this.newEl, end);
+		const startPos = Dom.getNodeAndOffsetFromTextOffset(this.newEl, start);
+		const endPos = Dom.getNodeAndOffsetFromTextOffset(this.newEl, end);
 		
 		if (!startPos || !endPos) return;
 		
@@ -128,13 +121,13 @@ export class Cell {
 		const anchorNode = selection.anchorNode;
 		const anchorOffset = selection.anchorOffset;
 		if (anchorNode && this.containsNode(anchorNode)) {
-			return getTextOffsetFromNode(this.newEl, anchorNode, anchorOffset);
+			return Dom.getTextOffsetFromNode(this.newEl, anchorNode, anchorOffset);
 		}
 		
 		// Fallback: use start of range
 		const range = selection.getRangeAt(0);
 		if (this.containsNode(range.startContainer)) {
-			return getTextOffsetFromNode(this.newEl, range.startContainer, range.startOffset);
+			return Dom.getTextOffsetFromNode(this.newEl, range.startContainer, range.startOffset);
 		}
 		return 0;
 	}
@@ -168,7 +161,7 @@ export class Cell {
 		// Check each text position to find closest to target X
 		for (let i = 0; i <= len; i++) {
 			// Convert text offset to DOM position
-			const position = getNodeAndOffsetFromTextOffset(contentSpan, i);
+			const position = Dom.getNodeAndOffsetFromTextOffset(contentSpan, i);
 			if (!position) continue;
 			
 			const r = document.createRange();
@@ -205,26 +198,53 @@ export class Cell {
 	// selectionState: { selected: boolean, active: boolean } for this cell
 	public updateCellBlockStyling(selectionState: { selected: boolean, active: boolean }): void {
 		if (selectionState.selected) {
-			this.newEl.classList.add(CellBlockSelectedClass);
+			this.newEl.classList.add(Dom.CellBlockSelectedClass);
 		} else {
-			this.newEl.classList.remove(CellBlockSelectedClass);
+			this.newEl.classList.remove(Dom.CellBlockSelectedClass);
 		}
 		
 		if (selectionState.active) {
-			this.newEl.classList.add(CellBlockActiveClass);
+			this.newEl.classList.add(Dom.CellBlockActiveClass);
 		} else {
-			this.newEl.classList.remove(CellBlockActiveClass);
+			this.newEl.classList.remove(Dom.CellBlockActiveClass);
 		}
 	}
 
 	// Check if this cell has the CellBlock selected CSS class
 	public hasCellBlockSelected(): boolean {
-		return this.newEl.classList.contains(CellBlockSelectedClass);
+		return this.newEl.classList.contains(Dom.CellBlockSelectedClass);
 	}
 
 	// Check if this cell has the CellBlock active CSS class
 	public hasCellBlockActive(): boolean {
-		return this.newEl.classList.contains(CellBlockActiveClass);
+		return this.newEl.classList.contains(Dom.CellBlockActiveClass);
+	}
+
+	public toPureCell(): PureCell {
+		const kind = this.isIndent ? PureCellKind.Indent : PureCellKind.Text;
+		const text = this.visibleText;
+		
+		let width: number;
+		if (this.isIndent) {
+			width = 1;
+		} else if (this.newEl.classList.contains(Dom.CellFlexClass)) {
+			width = -1;
+		} else {
+			// Parse width from style.width (format: "Nem")
+			const widthStyle = this.newEl.style.width;
+			if (widthStyle && widthStyle.endsWith('em')) {
+				const widthValue = parseFloat(widthStyle.slice(0, -2));
+				width = isNaN(widthValue) ? 1 : widthValue;
+			} else {
+				width = 1;
+			}
+		}
+
+		return {
+			kind,
+			text,
+			width,
+		};
 	}
 }
 

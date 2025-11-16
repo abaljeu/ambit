@@ -1,6 +1,7 @@
 import { postDoc } from './ambit.js';
 import * as lm from './elements.js';
 import * as Editor from './editor.js';
+import * as SceneEditor from './scene-editor.js';
 import { Scene, SceneRow } from './scene.js';
 import { ArraySpan } from './arrayspan.js';
 import { model } from './model.js';
@@ -1334,7 +1335,7 @@ export function save() {
 }
 
 export function setEditorContent() {
- 	Editor.setEditorContent(new ArraySpan(model.scene.rows, 0, model.scene.rows.length));
+ 	SceneEditor.setEditorContent(new ArraySpan(model.scene.rows, 0, model.scene.rows.length));
 }
 
 // Methods to manage CellBlock selection

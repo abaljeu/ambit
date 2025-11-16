@@ -1,6 +1,5 @@
 import * as lm from '../elements.js';
 import { ArraySpan } from '../arrayspan.js';
-import { SceneRow, SceneRowCells, CellSelectionState } from '../scene.js';
 import {
 	RowElementTag,
 	RowContentTag,
@@ -16,6 +15,7 @@ import {
 	getTextOffsetFromNode,
 } from './editor-dom.js';
 import { Cell } from './cell.js';
+import { PureCellKind, PureRow, PureCellSelection } from './editorData.js';
 
 function createRowElement(): RowElement {
 	// Create newEditor element (3-span: fold-indicator + indentation + rowContent)
@@ -152,7 +152,7 @@ export class Row {
 		if (textCells.length === 0) return '';
 		return textCells.map(cell => cell.htmlContent).join('\t');
 	}
-	public setContent(cells: SceneRowCells) {
+	public setContent(pureRow: PureRow): void {
 		let rowContent = this.newEl.querySelector(`.${RowContentClass}`) as HTMLElement;
 		if (!rowContent) {
 			// If rowContent doesn't exist, create it
@@ -163,14 +163,14 @@ export class Row {
 		// Clear only rowContent's innerHTML, preserving fold-indicator
 		rowContent.innerHTML = '';
 		
-		for (const cell of cells.cells) {
-			if (cell.type === 'indent') {
+		for (const cell of pureRow.cells) {
+			if (cell.kind === PureCellKind.Indent) {
 				const indentSpan = document.createElement('span');
 				indentSpan.className = RowIndentClass;
 				indentSpan.textContent = VISIBLE_TAB;
 				rowContent.appendChild(indentSpan);
 			}
-			else if (cell.type === 'text') {
+			else if (cell.kind === PureCellKind.Text) {
 				const textSpan = document.createElement('span');
 				textSpan.className = TextCellClass;
 				textSpan.contentEditable = 'true';
@@ -332,7 +332,7 @@ export class Row {
 
 	// Update CSS classes for all cells in this row based on selection states
 	// selectionStates: array of { cellIndex, selected, active } for each cell
-	public updateCellBlockStyling(selectionStates: readonly CellSelectionState[]): void {
+	public updateCellBlockStyling(selectionStates: readonly PureCellSelection[]): void {
 		for (const state of selectionStates) {
 			const cell = this.cells[state.cellIndex];
 			if (cell) {
@@ -343,14 +343,24 @@ export class Row {
 			}
 		}
 	}
+
+	public toPureRow(): PureRow {
+		const cells = this.cells.map(cell => cell.toPureCell());
+
+		return {
+			id: this.id,
+			indent: this.indent,
+			cells,
+		};
+	}
 }
 
-export function createRowElementFromSceneRow(sceneRow: SceneRow): Row {
+export function createRowElementFromPureRow(pureRow: PureRow): Row {
 	const newEl = createRowElement();
 	const row = new Row(newEl);
 
-	newEl.dataset.lineId = sceneRow.id.value;
-	row.setContent(sceneRow.cells);
+	newEl.dataset.lineId = pureRow.id;
+	row.setContent(pureRow);
 	return row;
 }
 
@@ -420,14 +430,14 @@ export function at(index: number): Row {
 
 // Create a new row and insert it after the given previous row.
 // If previousRow is endRow, insert at the front of the container.
-export function addBefore(targetRow: Row, scene: ArraySpan<SceneRow>)
+export function addBefore(targetRow: Row, pureRows: ArraySpan<PureRow>)
 	: RowSpan {
 	if (lm.newEditor === null) 
 		return new RowSpan(endRow, 0);
 	
 	let firstRow = endRow;
-	for (const sceneRow of scene) {
-		const row = createRowElementFromSceneRow(sceneRow);
+	for (const pureRow of pureRows) {
+		const row = createRowElementFromPureRow(pureRow);
 		if (firstRow === endRow) firstRow = row;
 
 		// Insert into newEditor
@@ -437,20 +447,20 @@ export function addBefore(targetRow: Row, scene: ArraySpan<SceneRow>)
 			lm.newEditor.insertBefore(row.newEl, targetRow.newEl);
 		}
 	}
-	return new RowSpan(firstRow, scene.length);
+	return new RowSpan(firstRow, pureRows.length);
 }
 
 export function addAfter(
 	referenceRow: Row, 
-	rowDataArray: ArraySpan<SceneRow>
+	pureRows: ArraySpan<PureRow>
 ): RowSpan {
 	if (lm.newEditor === null) return new RowSpan(endRow, 0);
 	let count = 0;
 	let newBeforeRow = referenceRow.newEl;
 	let first = endRow;
 	
-	for (const rowData of rowDataArray) {
-		const row = createRowElementFromSceneRow(rowData);
+	for (const pureRow of pureRows) {
+		const row = createRowElementFromPureRow(pureRow);
 		
 		// Insert into newEditor
 		if (newBeforeRow.nextSibling) {
@@ -523,7 +533,7 @@ export function caretX(): number {
 	return rect.left;
 }
 
-export function replaceRows(oldRows: RowSpan, newRows: ArraySpan<SceneRow>): RowSpan {
+export function replaceRows(oldRows: RowSpan, newRows: ArraySpan<PureRow>): RowSpan {
 	if (oldRows.count === 0 && newRows.length === 0) return new RowSpan(endRow, 0);
 	
 	const beforeStartRow = oldRows.row.previous;
@@ -539,13 +549,13 @@ export function replaceRows(oldRows: RowSpan, newRows: ArraySpan<SceneRow>): Row
 	return addAfter(beforeStartRow, newRows);
 }
 
-export function setEditorContent(scene: ArraySpan<SceneRow>): RowSpan {
+export function setEditorContent(pureRows: ArraySpan<PureRow>): RowSpan {
 	// Clear the Editor
 	lm.newEditor.innerHTML = '';
 
 	// Create a Line element for each visible line
 	const end = endRow;
-	return addBefore(end, scene);
+	return addBefore(end, pureRows);
 }
 
 
