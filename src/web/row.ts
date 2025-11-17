@@ -3,7 +3,7 @@ import { ArraySpan } from '../arrayspan.js';
 import * as Dom from './editor-dom.js';
 import { Cell } from './cell.js';
 import { PureCellKind, PureRow, PureCellSelection, PureSelection, PureTextSelection } from './pureData.js';
-import { SceneRowId } from '../scene.js';
+import { SiteRowId } from '../site.js';
 function createRowElement(): Dom.RowElement {
 	// Create newEditor element (3-span: fold-indicator + indentation + rowContent)
 	const newEl = document.createElement(Dom.RowElementTag) as Dom.RowElement;
@@ -227,7 +227,7 @@ export class Row {
 		return { cell: activeCell, offset };
 	}
 	
-	public setCaretInRow(visibleOffset: number) {
+	private setCaretInRow(visibleOffset: number) {
 		// Find cell context first: determine which cell should contain the cursor based on row-level offset
 		let cumulativeLength = 0;
 		const contentCells = this.contentCells;
@@ -302,7 +302,7 @@ export class Row {
 		return activeCell.getHtmlSelectionRange();
 	}
 	
-	public offsetAtX(x: number): { cell: Cell, offset: number } | null {
+	public offsetAtX(x: number): { cell: Cell, offset: number } {
 		// Find which cell contains the X coordinate using getBoundingClientRect() on each cell
 		for (const cell of this.contentCells) {
 			const rect = cell.newEl.getBoundingClientRect();
@@ -314,7 +314,8 @@ export class Row {
 			}
 		}
 		// Return null if X is not in any cell
-		return null;
+		const last = this.cells[this.cells.length - 1];
+		return { cell: last, offset: last.htmlContent.length};
 	}
 
 	// Update CSS classes for all cells in this row based on selection states
@@ -346,7 +347,7 @@ export class Row {
 	public toPureRow(): PureRow {
 		const cells = this.cells.map(cell => cell.toPureCell());
 
-		return new PureRow(new SceneRowId(this.id), this.indent, cells);
+		return new PureRow(new SiteRowId(this.id), this.indent, cells);
 	}
 }
 
@@ -508,8 +509,18 @@ function getCurrentParagraphWithOffset(): { element: Dom.RowElement, offset: num
 
 export function currentRow(): Row {
 	const p = getCurrentParagraphWithOffset();
-	if (!p) return endRow;
-    
+	if (!p){
+		for (const row of rows()) {
+			if (row.valid()) {
+				for (const cell of row.cells) {
+					if (cell.active) {
+						return row;
+					}
+				}
+			}
+		}
+		 return endRow;
+	}
 	const parent = p.element.parentNode as Dom.RowElement | null;
 	if (parent === lm.newEditor) {
 		// p.element is from newEditor

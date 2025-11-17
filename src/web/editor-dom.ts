@@ -8,7 +8,7 @@ export const CellBlockActiveClass: string = 'cellBlock-active';
 export const CellFlexClass: string = 'cell-flex';
 export const CellFixedClass: string = 'cell-fixed';
 export const VISIBLE_TAB = '→'; // Visible tab character, used for internal tabs.
-export const NOROWID = 'R000000';
+export const NOROWID = 'S000000';
 
 export type CellElement = HTMLSpanElement;
 export type RowElement = HTMLDivElement;

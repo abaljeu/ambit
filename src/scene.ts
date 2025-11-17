@@ -1,10 +1,10 @@
-import { Site, SiteRow, SiteRowSubscriber } from './site.js';
+import { Site, SiteRow, SiteRowId, SiteRowSubscriber } from './site.js';
 import { Id, Pool } from './pool.js';
 import * as Editor from './editor.js';
 import * as SceneEditor from './scene-editor.js';
 import { ArraySpan } from './arrayspan.js';
 import * as Change from './change.js';
-import { CellBlock } from './cellblock.js';
+import { CellBlock, CellSelection, TextRange } from './cellblock.js';
 import { PureRow, PureCellSelection, PureCell, PureCellKind, PureTextSelection, PureSelection } from './web/pureData.js';
 /*    => filter, flatten
     Scene
@@ -13,14 +13,14 @@ import { PureRow, PureCellSelection, PureCell, PureCellKind, PureTextSelection, 
         compute visible
 */
 
-export class SceneRowId extends Id<'SceneRow'> {
-    public constructor(value: string) {
-        if (!/^R[0-9A-Z]{6}$/.test(value)) {
-            throw new Error('Invalid SceneRowId');
-        }
-        super(value);
-    }
-}
+// export class SiteRowId extends Id<'SceneRow'> {
+//     public constructor(value: string) {
+//         if (!/^R[0-9A-Z]{6}$/.test(value)) {
+//             throw new Error('Invalid SiteRowId');
+//         }
+//         super(value);
+//     }
+// }
 export class SceneCell {
     public constructor(public readonly type: string, public readonly text: string,
         public readonly column:number, public readonly width: number 
@@ -55,10 +55,10 @@ export type CellSelectionState = {
 };
 
 export class SceneRow extends SiteRowSubscriber {
-    public readonly id: SceneRowId;
+    public readonly id: SiteRowId;
     public  get indent(): number { return this.siteRow.indent; }
     public treeLength: number = 1;
-    // public static end = new SceneRow(NoScene,  SiteRow.end, new SceneRowId('R000000'));
+    // public static end = new SceneRow(NoScene,  SiteRow.end, new SiteRowId('S000000'));
     private _cells: SceneRowCells | undefined;
     public get cells(): SceneRowCells {
         if (this._cells === undefined) {
@@ -66,61 +66,40 @@ export class SceneRow extends SiteRowSubscriber {
         }
         return this._cells;
     }
-    constructor(public  scene: Scene, public readonly siteRow: SiteRow, id: SceneRowId) {
+    constructor(public  scene: Scene, public readonly siteRow: SiteRow, id: SiteRowId) {
         super();
         this.id = id;
         this.siteRow.subscribe(this);
     }
-    
-    // Check if this SceneRow is part of the current CellBlock
-    public isInCellBlock(): boolean {
-        const cellBlock = this.scene.getCellBlock();
-        return cellBlock.includesSiteRow(this.siteRow);
-    }
-    
+        
     // Check if a specific cell index in this row is selected
     public isCellSelected(cellIndex: number): boolean {
-        const cellBlock = this.scene.getCellBlock();
-        return cellBlock.includesCell(this.siteRow, cellIndex);
-    }
-    
-    // Check if a specific cell index is the active cell
-    public isCellActive(cellIndex: number): boolean {
-        const cellBlock = this.scene.getCellBlock();
-        return cellBlock.isActiveCell(this.siteRow, cellIndex);
-    }
-    
-    public getMaxColumnCount(sceneRows: readonly SceneRow[]): number {
-        let maxColumns = 0;
-        for (const sceneRow of sceneRows) {
-            if (this.scene.getCellBlock().includesSiteRow(sceneRow.siteRow)) {
-                const cellCount = sceneRow.cells.count;
-                if (cellCount > maxColumns) {
-                    maxColumns = cellCount;
-                }
-            }
+        const cellSelection = this.scene.getCellSelection();
+        if (cellSelection instanceof CellBlock) {
+            return cellSelection.includesCell(this.siteRow, cellIndex);
         }
-        return maxColumns;
+        return false;
     }
-
+    
+    
     public getCellSelectionStates(): readonly PureSelection[] {
-        const cellBlock = this.scene.getCellBlock();
-        const cellCount = this.cells.count;
-        const states: PureSelection[] = [];
-        
-        let maxColumns = cellCount;
-        if (cellBlock.endColumnIndex === -1) {
-            const selectedRows = this.scene.getSelectedSceneRows();
-            maxColumns = this.getMaxColumnCount(selectedRows);
-        }
-        
-        for (let i = 0; i < cellCount; i++) {
-            const selected = cellBlock.includesCell(this.siteRow, i);
-            const active = cellBlock.isActiveCell(this.siteRow, i);
-            states.push(new PureCellSelection(this.id, i, selected, active));
-        }
-        
-        return states;
+        const selected = this.scene.getCellSelection();
+        if (selected instanceof CellBlock) {
+            const cellCount = this.cells.count;
+            const states: PureSelection[] = [];
+            
+            for (let i = 0; i < cellCount; i++) {
+                const _selected = selected.includesCell(this.siteRow, i);
+                const active = selected.isActiveCell(this.siteRow, i);
+                states.push(new PureCellSelection(this.id, i, _selected, active));
+            }
+            return states;
+        } else if (selected instanceof TextRange) {
+            const states: PureSelection[] = [];
+            states.push(new PureTextSelection(this.id, selected.cellIndex, selected.focus, selected.anchor));
+            return states;
+        } else
+            return [];
     }
     
     public indexInScene(): number {
@@ -193,14 +172,14 @@ export class SceneRow extends SiteRowSubscriber {
     }
 }
 
-export class SceneRowPool extends Pool<SceneRow, SceneRowId> {
-    protected override fromString(value: string): SceneRowId {
-        return new SceneRowId(value);
+export class SceneRowPool extends Pool<SceneRow, SiteRowId> {
+    protected override fromString(value: string): SiteRowId {
+        return new SiteRowId(value);
     }
     public get end(): SceneRow {
         return this.context.end;
     }
-    public readonly tag: string = 'R';
+    public readonly tag: string = 'S';
 
     public constructor(public context: Scene) { super(); }
 }
@@ -208,7 +187,7 @@ export class SceneRowPool extends Pool<SceneRow, SceneRowId> {
 export class Scene {
     public readonly sceneRowPool = new SceneRowPool(this);
     private _rows: SceneRow[] = [];
-    public readonly end = new SceneRow(this,  SiteRow.end, new SceneRowId('R000000'));
+    public readonly end = new SceneRow(this,  SiteRow.end, SiteRow.end.id);
     
     constructor(private readonly site: Site) {}
     
@@ -306,26 +285,39 @@ export class Scene {
     }
     public get rows(): readonly SceneRow[] { return this._rows; }
     
-    public getCellBlock(): CellBlock {
-        return this.site.cellBlock;
+    public getCellSelection(): CellSelection {
+        return this.site.cellSelection;
     }
     
     public getSelectedSceneRows(): readonly SceneRow[] {
-        const cellBlock = this.getCellBlock();
-        return this._rows.filter(row => cellBlock.includesSiteRow(row.siteRow));
+        const cellSelection = this.getCellSelection();
+        if (cellSelection instanceof CellBlock) {
+            return this._rows.filter(row => cellSelection.includesSiteRow(row.siteRow));
+        }
+        return this._rows;
     }
     
     // Called by controller after updating site selection
     public updatedSelection(): void {
-        for (const row of this._rows) {
-            const editorRow = Editor.findRow(row.id.toString());
+        const selected = this.getCellSelection();
+        if (selected instanceof CellBlock) {
+            for (const row of this._rows) {
+                const editorRow = Editor.findRow(row.id.value);
+                if (editorRow !== Editor.endRow) {
+                    const pureStates = row.getCellSelectionStates();
+                    editorRow.updateCellBlockStyling(pureStates);
+                }
+            }
+            Editor.removeCarets();
+
+        } else if (selected instanceof TextRange) {
+            const editorRow = Editor.findRow(selected.row.id.value);
             if (editorRow !== Editor.endRow) {
-                const pureStates = row.getCellSelectionStates();
+                const sceneRow = this.findSceneRow(selected.row);
+                const pureStates = sceneRow.getCellSelectionStates();
                 editorRow.updateCellBlockStyling(pureStates);
             }
         }
-        if (this.getCellBlock() !== CellBlock.empty) {
-            Editor.removeCarets();
-        }
     }
+    
 }

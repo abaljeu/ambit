@@ -15,7 +15,7 @@ type CellElement = HTMLSpanElement;
 type RowElement = HTMLDivElement;
 const VISIBLE_TAB = '→'; // Visible tab character, used for internal tabs.
 
-const NOROWID = 'R000000';
+const NOROWID = 'S000000';
 function createRowElement(): RowElement {
 	// Create newEditor element (3-span: fold-indicator + indentation + rowContent)
 	const newEl = document.createElement(RowElementTag) as RowElement;

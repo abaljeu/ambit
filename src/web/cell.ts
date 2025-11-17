@@ -182,7 +182,8 @@ export class Cell {
 		return this.newEl.contains(node);
 	}
 	public get active(): boolean {
-		return this.containsNode(document.activeElement as Node);
+		return this.newEl.classList.contains(Dom.CellBlockActiveClass);
+		
 	}
 
 

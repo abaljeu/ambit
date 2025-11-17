@@ -8,7 +8,7 @@ import { Scene, SceneRow } from './scene.js';
 import * as Editor from './editor.js';
 import * as Controller from './controller.js';
 import * as ambit from './ambit.js';
-import { CellBlock } from './cellblock.js';
+import { CellSelection, CellBlock, TextRange } from './cellblock.js';
 import {
     TestRunner,
     assert,
@@ -91,7 +91,7 @@ const tests: (() => void)[] = [
         loadTestDoc();
         const rows = Array.from(Editor.rows());
         const secondRow = rows[2];
-        secondRow.setCaretInRow(3); // Position in middle of "Line 2"
+        Controller.setCaretInRow(secondRow, secondRow.indent, 3); // Position in middle of "Line 2"
         const caret1 = secondRow.caretOffset;
         if (!caret1) throw new Error("Expected caret");
         assertEquals(3, caret1.offset); // depends on char widths
@@ -113,7 +113,7 @@ const tests: (() => void)[] = [
         loadTestDoc();
         const rows = Array.from(Editor.rows());
         const firstRow = rows[1];
-        firstRow.setCaretInRow(4); // Position in middle of "Line 1"
+        Controller.setCaretInRow(firstRow, firstRow.indent, 4); // Position in middle of "Line 1"
         const caret1 = firstRow.caretOffset;
         if (!caret1) throw new Error("Expected caret");
         assertEquals(4, caret1.offset); // depends on char widths
@@ -139,7 +139,7 @@ const tests: (() => void)[] = [
     assertEquals(1, rows[2].indent);
     
     // Position cursor in middle of first line
-    currentRow.setCaretInRow(3); // "Line 1" -> position after "Lin"   
+    Controller.setCaretInRow(currentRow, currentRow.indent, 3); // "Line 1" -> position after "Lin"   
     sendKey('Enter', []);
     
     rows = Array.from(Editor.rows());
@@ -148,14 +148,14 @@ const tests: (() => void)[] = [
     assertEquals("e 1", rows[2].htmlContent);
     assertEquals("Line 2", rows[3].htmlContent);
 
-    rows[3].setCaretInRow(0);
+    Controller.setCaretInRow(rows[3], rows[3].indent, 0);
     sendKey('Enter', []);
     rows = Array.from(Editor.rows());
     assertEquals(6, rows.length);
     assertEquals("", rows[3].htmlContent);
     assertEquals("Line 2", rows[4].htmlContent);
 
-    rows[4].setCaretInRow(3);
+    Controller.setCaretInRow(rows[4], rows[4].indent, 3);
     sendKey('Enter', []);
     rows = Array.from(Editor.rows());
     assertEquals(7, rows.length);
@@ -169,7 +169,7 @@ const tests: (() => void)[] = [
     loadTestDoc();
     const rows = Array.from(Editor.rows());
     const secondRow = rows[2];
-    secondRow.setCaretInRow(0); // Position at start of second row
+    Controller.setCaretInRow(secondRow, secondRow.indent, 0); // Position at start of second row
     
     // Act
     sendKey('Backspace', []);
@@ -186,10 +186,11 @@ const tests: (() => void)[] = [
     // Arrange
     loadTestDoc();
     const rows = Array.from(Editor.rows());
-    const secondRow = rows[1];
-    secondRow.setCaretInRow(2); // Position in middle of "Line 2"
+    const secondRow = rows[2];
+    Controller.setCaretInRow(secondRow, secondRow.indent, 2); // Position in middle of "Line 2"
     assertEquals(2, secondRow.caretOffset.offset);
     assertEquals(secondRow, Editor.currentRow());
+    assertEquals(2, secondRow.caretOffset.offset);
     // Act
     Controller.editorHandleKey(new KeyboardEvent('keydown', { key: 'ArrowLeft' }));
     
@@ -203,14 +204,17 @@ function testHandleArrowRight(): void {
     // Arrange
     loadTestDoc();
     const rows = Array.from(Editor.rows());
-    const firstRow = rows[0];
-    firstRow.setCaretInRow(2); // Position in middle of "Line 1"
+    const firstRow = rows[1];
+    Controller.setCaretInRow(firstRow, firstRow.indent, 2); // Position in middle of "Line 1"
+    let currentRow = Editor.currentRow();
+    assert(currentRow.valid());
+    assertEquals(2, currentRow.caretOffset.offset);
     
     // Act
     Controller.editorHandleKey(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
     
     // Assert
-    const currentRow = Editor.currentRow();
+    currentRow = Editor.currentRow();
     assertEquals(3, currentRow.caretOffset.offset);
 }
 
@@ -344,7 +348,7 @@ function testHandleArrowRight(): void {
     loadTestDoc();
     const rows = Array.from(Editor.rows());
     const secondRow = rows[2];
-    secondRow.setCaretInRow(0);
+    Controller.setCaretInRow(secondRow, secondRow.indent, 0);
     
     // Act
     sendKey('ArrowUp', ['C']);
@@ -361,7 +365,7 @@ function testHandleArrowRight(): void {
     loadTestDoc();
     let rows = Array.from(Editor.rows());
     const firstRow = rows[1];
-    firstRow.setCaretInRow(0);
+    Controller.setCaretInRow(firstRow, firstRow.indent, 0);
     
     // Act
     sendKey('ArrowDown', ['C']);
@@ -376,7 +380,7 @@ function testHandleArrowRight(): void {
     const lastRow = rows[rows.length - 1];
     const lastSceneRow = model.scene.findRow(lastRow.id);
     const lastLine = lastSceneRow.siteRow.docLine;
-    lastRow.setCaretInRow(0);
+    Controller.setCaretInRow(lastRow, lastRow.indent, 0);
     assertEquals(lastRow.indent, 0);
     sendKey('ArrowDown', ['C']);
     assertEquals(lastRow.htmlContent, "Line 1");
@@ -396,7 +400,7 @@ function testHandleArrowRight(): void {
     assertEquals(secondRow.indent, 0);
     
     // Act
-    secondRow.setCaretInRow(0); // Position at start of line
+    Controller.setCaretInRow(secondRow, secondRow.indent, 0); // Position at start of line
     sendKey('Tab', []);
     
     // Assert
@@ -418,7 +422,7 @@ function testHandleArrowRight(): void {
     loadTestDoc();
     const rows = Array.from(Editor.rows());
     const row2 = rows[2];
-    row2.setCaretInRow(4); // Position in middle of line
+    Controller.setCaretInRow(row2, row2.indent, 4); // Position in middle of line
     assertEquals(row2.indent, 0);
     const content = row2.htmlContent;
     assertEquals(content, "Line 2");
@@ -440,7 +444,7 @@ function testHandleArrowRight(): void {
 
     // Indent Row 1 refuses.
     const firstRow = rows[0];
-    firstRow.setCaretInRow(0);
+    Controller.setCaretInRow(firstRow, firstRow.indent, 0);
     const firstIndent = firstRow.indent;
     sendKey('Tab', []);
     assertEquals(firstIndent, firstRow.indent);
@@ -449,7 +453,7 @@ function testHandleArrowRight(): void {
     const secondRow = rows[1];
     const secondIndent = secondRow.indent;
     assertEquals(secondIndent, 0);
-    secondRow.setCaretInRow(0);
+    Controller.setCaretInRow(secondRow, secondRow.indent, 0);
     sendKey('Tab', []);
     assertEquals(secondIndent , secondRow.indent);
 
@@ -457,21 +461,21 @@ function testHandleArrowRight(): void {
     const thirdRow = rows[2];
     const thirdIndent = thirdRow.indent;
     assertEquals(thirdIndent, 0);
-    thirdRow.setCaretInRow(0);
+    Controller.setCaretInRow(thirdRow, thirdRow.indent, 0);
     sendKey('Tab', []);
     assertEquals(thirdIndent+1 , Editor.currentRow().indent);
 
 
     // Then position cursor in indent area
     let updatedRows = Array.from(Editor.rows());
-    updatedRows[2].setCaretInRow(0);
+    Controller.setCaretInRow(updatedRows[2], updatedRows[2].indent, 0);
     
     // 4 succeeds.
     const fourthRow = updatedRows[3];
     const fourthIndent = fourthRow.indent;
     assertEquals(fourthIndent, 2);
 
-    fourthRow.setCaretInRow(0);
+    Controller.setCaretInRow(fourthRow, fourthRow.indent, 0);
     sendKey('Tab', []);
     updatedRows = Array.from(Editor.rows());
     const newFourthRow = updatedRows[3];
@@ -485,7 +489,7 @@ function testHandleArrowRight(): void {
 
     // unindent
     const newThirdRow = Editor.findRow(thirdRow.id);
-    newThirdRow.setCaretInRow(0);
+    Controller.setCaretInRow(newThirdRow, newThirdRow.indent, 0);
     sendKey('Tab', ['S']);
     const newRows = Array.from(Editor.rows());
     assertEquals(newRows[2].htmlContent, "Line 2"); // No indent after unindent
@@ -503,7 +507,7 @@ function testHandleArrowRight(): void {
     
     const rows = Array.from(Editor.rows());
     const parentRow = rows[1];
-    parentRow.setCaretInRow(0);
+    Controller.setCaretInRow(parentRow, parentRow.indent, 0);
     
     // Act
     sendKey('.', ['C']);
@@ -513,16 +517,16 @@ function testHandleArrowRight(): void {
     assertEquals(updatedRows.length, 2);
     assertEquals(updatedRows[1].htmlContent, "Parent"); // No indent
 }
-, function testInitCellBlockToRow(): void {
+, function testInitCellSelectionToRow(): void {
     // Arrange
     loadTestDoc();
     const rows = Array.from(Editor.rows());
     const firstRow : Editor.Row =  rows[1];
-    firstRow.setCaretInRow(0);
-    Controller.initCellBlockToRow(firstRow);
-
-    const cellBlock = Controller.getCellBlock();
-    assert(cellBlock !== CellBlock.empty);
+    Controller.setCaretInRow(firstRow, firstRow.indent, 0);
+    Controller.initCellSelectionToRow(firstRow);
+6
+    const cellSelection = Controller.getCellSelection();
+    assert(cellSelection instanceof CellBlock);
     const activeCell : Editor.Cell | null = firstRow.activeCell;
     assert(activeCell !== null);
     const sceneRow = model.scene.findRow(firstRow.id);
@@ -558,22 +562,30 @@ function testHandleArrowRight(): void {
     const data = "a\nb\n\tc\nd\n\te\n\t\tf\ng\n";
     const doc = Controller.loadDoc(data, "test.amb");
 
-    const rows = Array.from(Editor.rows());
+    const rows : Editor.Row[] = Array.from(Editor.rows());
     const firstRow = rows[1];
-    firstRow.setCaretInRow(0);
-    Controller.initCellBlockToRow(firstRow);
+    Controller.setCaretInRow(firstRow, firstRow.indent, 0);
+    Controller.initCellSelectionToRow(firstRow);
     
     // Act & Assert: Shift-ArrowDown from row 1 (a)
-    let cellBlock = Controller.getCellBlock();
-    assert(cellBlock !== CellBlock.empty);
+    let cellSelection = Controller.getCellSelection();
+    assert(cellSelection instanceof CellBlock);
+    let cellBlock : CellBlock = cellSelection as CellBlock;
+    assertEquals(rows[0].id, cellBlock.parentSiteRow.id.toString());
+    assertEquals(0, cellBlock.startChildIndex);
+    assertEquals(0, cellBlock.endChildIndex);
+
+
     sendKey('ArrowDown', ['S']);
     // selection should be rows 2 and 3.  active should be 2.
-    cellBlock = Controller.getCellBlock();
+    cellSelection = Controller.getCellSelection();
+    assert(cellSelection instanceof CellBlock);
+    cellBlock = cellSelection as CellBlock;
     assertEquals(0, cellBlock.startChildIndex);
     assertEquals(1, cellBlock.endChildIndex);
     assertEquals(sceneRowFromRow(rows[2]).siteRow, cellBlock.activeSiteRow);
 
-    // assertEquals(cellBlock.activeSiteRow, sceneRowFromRow(rows[1]).siteRow);
+    // assertEquals(cellSelection.activeSiteRow, sceneRowFromRow(rows[1]).siteRow);
     assertEquals(cellBlock.activeSiteRow, sceneRowFromRow(rows[2]).siteRow);
     const row2Cells = rows[2].cells;
     const row3Cells = rows[3].cells;
@@ -581,17 +593,19 @@ function testHandleArrowRight(): void {
     assert(row3Cells[0].hasCellBlockSelected());
     assert(row2Cells[0].hasCellBlockActive());
 
+    assertEquals(rows[2], Editor.currentRow());
+
     // Act & Assert: ArrowRight clears selection
     sendKey('ArrowRight', []);
     // selection should be empty.  cursor should be active in row 2
-    cellBlock = Controller.getCellBlock();
-    assertEquals(cellBlock, CellBlock.empty);
+    cellSelection = Controller.getCellSelection();
+    assert(cellSelection instanceof TextRange);
     assertEquals(rows[2], Editor.currentRow());
     // Act & Assert: Shift-ArrowDown from row 2 (b)
     sendKey('ArrowDown', ['S']);
     // selection should be rows 2 and 3.  active should be 2
-    cellBlock = Controller.getCellBlock();
-    assert(cellBlock !== CellBlock.empty);
+    cellSelection = Controller.getCellSelection();
+    assert(cellSelection instanceof CellBlock);
     assert(row2Cells[0].hasCellBlockSelected());
     assert(row3Cells[0].hasCellBlockSelected());
     assert(row2Cells[0].hasCellBlockActive());
@@ -599,8 +613,8 @@ function testHandleArrowRight(): void {
     // Act & Assert: Shift-ArrowDown extends to row 4 (d)
     sendKey('ArrowDown', ['S']);
     // selection should be rows 2-6.  active should be 4.
-    cellBlock = Controller.getCellBlock();
-    assert(cellBlock !== CellBlock.empty);
+    cellSelection = Controller.getCellSelection();
+    assert(cellSelection instanceof CellBlock);
     assert(row2Cells[0].hasCellBlockSelected());
     assert(row3Cells[0].hasCellBlockSelected());
     const row4Cells = rows[4].cells;
@@ -614,8 +628,8 @@ function testHandleArrowRight(): void {
     // Act & Assert: Shift-ArrowUp shrinks back
     sendKey('ArrowUp', ['S']);
     // selection should be back to only 2-3, with 2 active.
-    cellBlock = Controller.getCellBlock();
-    assert(cellBlock !== CellBlock.empty);
+    cellSelection = Controller.getCellSelection();
+    assert(cellSelection instanceof CellBlock);
     assert(row2Cells[0].hasCellBlockSelected());
     assert(row3Cells[0].hasCellBlockSelected());
     assert(row2Cells[0].hasCellBlockActive());
@@ -623,17 +637,18 @@ function testHandleArrowRight(): void {
     // Act & Assert: Shift-ArrowUp extends to row 1 (a)
     sendKey('ArrowUp', ['S']);
     // selections should be rows 1-3, with 1 active.
-    cellBlock = Controller.getCellBlock();
-    assert(cellBlock !== CellBlock.empty);
+    cellSelection = Controller.getCellSelection();
+    assert(cellSelection instanceof CellBlock);
     const row1Cells = rows[1].cells;
     assert(row1Cells[0].hasCellBlockSelected());
     assert(row2Cells[0].hasCellBlockSelected());
     assert(row3Cells[0].hasCellBlockSelected());
     assert(row1Cells[0].hasCellBlockActive());
 
-    Controller.initCellBlockToRow(rows[4]);
-    cellBlock = Controller.getCellBlock();
-    assert(cellBlock !== CellBlock.empty);
+    Controller.initCellSelectionToRow(rows[4]);
+    cellSelection = Controller.getCellSelection();
+    cellBlock = cellSelection as CellBlock;
+    assert(cellBlock !== null);
     assertEquals(2, cellBlock.startChildIndex);
     assertEquals(2, cellBlock.endChildIndex);
     assert(row4Cells[0].hasCellBlockSelected());
@@ -642,48 +657,57 @@ function testHandleArrowRight(): void {
     assert(row4Cells[0].hasCellBlockActive());
 
     sendKey('ArrowDown', ['S']);
-    cellBlock = Controller.getCellBlock();
-    assert(cellBlock !== CellBlock.empty);
+    cellSelection = Controller.getCellSelection();
+    cellBlock = cellSelection as CellBlock;
+    assert(cellBlock !== null);
     assertEquals(2, cellBlock.startChildIndex);
     assertEquals(3, cellBlock.endChildIndex);
     sendKey('ArrowDown', ['S']);
-    cellBlock = Controller.getCellBlock();
-    assert(cellBlock !== CellBlock.empty);
+    cellSelection = Controller.getCellSelection();
+    cellBlock = cellSelection as CellBlock;
+    assert(cellBlock !== null);
     assertEquals(2, cellBlock.startChildIndex);
     assertEquals(3, cellBlock.endChildIndex);
 
     sendKey('ArrowUp', ['S']);
-    cellBlock = Controller.getCellBlock();
-    assert(cellBlock !== CellBlock.empty);
+    cellSelection = Controller.getCellSelection();
+    cellBlock = cellSelection as CellBlock;
+    assert(cellBlock !== null);
     assertEquals(2, cellBlock.startChildIndex);
     assertEquals(2, cellBlock.endChildIndex);
     assertEquals(2, cellBlock.activeCellIndex);
 
 
     sendKey('ArrowUp', ['S']);
-    cellBlock = Controller.getCellBlock();
-    assert(cellBlock !== CellBlock.empty);
+    cellSelection = Controller.getCellSelection();
+    cellBlock = cellSelection as CellBlock;
+    assert(cellBlock !== null);
     assertEquals(1, cellBlock.startChildIndex);
     assertEquals(2, cellBlock.endChildIndex);
     assertEquals(1, cellBlock.activeCellIndex);
 
     sendKey('ArrowUp', ['S']);
-    cellBlock = Controller.getCellBlock();
-    assert(cellBlock !== CellBlock.empty);
+    cellSelection = Controller.getCellSelection();
+    cellBlock = cellSelection as CellBlock;
+    assert(cellBlock !== null);
     assertEquals(0, cellBlock.startChildIndex);
     assertEquals(2, cellBlock.endChildIndex);
     assertEquals(0, cellBlock.activeCellIndex);
     
 
     sendKey('ArrowDown', ['S']);
-    cellBlock = Controller.getCellBlock();
+    cellSelection = Controller.getCellSelection();
+    cellBlock = cellSelection as CellBlock;
+    assert(cellBlock !== null);
     assertEquals(1, cellBlock.startChildIndex);
     assertEquals(2, cellBlock.endChildIndex);
     assertEquals(1, cellBlock.activeCellIndex);
     
 
     sendKey('ArrowDown', ['S']);
-    cellBlock = Controller.getCellBlock();
+    cellSelection = Controller.getCellSelection();
+    cellBlock = cellSelection as CellBlock;
+    assert(cellBlock !== null);
     assertEquals(2, cellBlock.startChildIndex);
     assertEquals(2, cellBlock.endChildIndex);
     assertEquals(2, cellBlock.activeCellIndex);
