@@ -6,7 +6,8 @@ import { Doc, DocLine } from './doc.js';
 import { Site, SiteRow } from './site.js';
 import * as Change from './change.js';
 import * as HtmlUtil from './htmlutil.js';
-import { CellSelection, CellBlock, TextRange } from './cellblock.js';
+import { CellSelection, CellBlock, CellTextSelection } from './cellblock.js';
+import { PureTextSelection } from './web/pureData.js';
 
 import * as WebUI from './web/ui.js';
 
@@ -95,8 +96,21 @@ function findKeyBinding(combo: string): KeyBinding {
 
 function getCurrentRow(): Editor.Row {
 	// If there's an active CellSelection, use its activeSiteRow to determine current row
+	const selection = Editor.currentSelection();
 	const cellSelection = model.site.cellSelection;
-	if (cellSelection instanceof CellBlock) {
+
+
+	if (selection && selection instanceof PureTextSelection) {
+		const sceneRow = model.scene.findRow(selection.rowid.toString());
+		model.site.setSelection(
+			new CellTextSelection(
+				sceneRow.siteRow, 
+				selection.cellIndex, 
+				selection.focus, 
+				selection.anchor));
+		return Editor.findRow(selection.rowid.value);
+	} 
+	else if (cellSelection instanceof CellBlock) {
 		const activeSiteRow = cellSelection.activeSiteRow;
 		const sceneRow = model.scene.findOrCreateSceneRow(activeSiteRow);
 		const editorRow = Editor.findRow(sceneRow.id.value);
@@ -106,7 +120,7 @@ function getCurrentRow(): Editor.Row {
 			return Editor.currentRow();
 		}
 	}
-	else if (cellSelection instanceof TextRange) {
+	else if (cellSelection instanceof CellTextSelection) {
 		const sceneRow = model.scene.findOrCreateSceneRow(cellSelection.row);
 		const editorRow = Editor.findRow(sceneRow.id.value);
 		if (editorRow !== Editor.endRow) {
@@ -249,7 +263,7 @@ function getActiveCellIndex(row: Editor.Row): number {
 	const cellSelection = model.site.cellSelection;
 	if (cellSelection instanceof CellBlock) {
 		return cellSelection.activeCellIndex;
-	} else if (cellSelection instanceof TextRange) {
+	} else if (cellSelection instanceof CellTextSelection) {
 		return cellSelection.cellIndex;
 	}
 	return 0;
@@ -417,7 +431,7 @@ function handleArrowUp() : boolean {
 	const cellSelection = model.site.cellSelection;
 	
 	// If cellSelection is empty, initialize it to current row
-	if (cellSelection instanceof TextRange) {
+	if (cellSelection instanceof CellTextSelection) {
 		const prevP = cellSelection.row.previous;
 		if (!prevP.valid)
 			return true;
@@ -485,7 +499,7 @@ function handleArrowUp() : boolean {
 	const cellSelection = model.site.cellSelection;
 	
 	// If cellSelection is empty, initialize it to current row
-	if (cellSelection instanceof TextRange) {
+	if (cellSelection instanceof CellTextSelection) {
 		const currentRow = Editor.currentRow();
 		const nextP = currentRow.next;
 		if (!nextP.valid())
@@ -555,7 +569,7 @@ function handleShiftArrowUp(): boolean {
 	const cellSelection = model.site.cellSelection;
 	
 	// If cellSelection is empty, initialize it to current row
-	if (cellSelection instanceof TextRange) {
+	if (cellSelection instanceof CellTextSelection) {
 		const currentRow = Editor.currentRow();
 		initCellSelectionToRow(currentRow);
 		return true;
@@ -628,7 +642,7 @@ function handleShiftArrowDown(): boolean {
 	const cellSelection = model.site.cellSelection;
 	
 	// If cellSelection is empty, initialize it to current row
-	if (cellSelection instanceof TextRange) {
+	if (cellSelection instanceof CellTextSelection) {
 		const currentRow = Editor.currentRow();
 		initCellSelectionToRow(currentRow);
 		return true;
@@ -1131,7 +1145,7 @@ function currentSiteRow(): SiteRow {
 	const cellSelection = model.site.cellSelection;
 	if (cellSelection instanceof CellBlock) {
 		return cellSelection.activeSiteRow;
-	} else if (cellSelection instanceof TextRange) {
+	} else if (cellSelection instanceof CellTextSelection) {
 		return cellSelection.row;
 	}
 	return SiteRow.end;
@@ -1142,7 +1156,7 @@ function handleAddMarkup(tagName: string): boolean {
 	const cellSelection = model.site.cellSelection;
 	if (cellSelection instanceof CellBlock) {
 		return true;
-	} else if (cellSelection instanceof TextRange) {
+	} else if (cellSelection instanceof CellTextSelection) {
 		const htmlStart = cellSelection.focus;
 		const htmlEnd = cellSelection.anchor;
 
@@ -1459,6 +1473,6 @@ export function setCaretInRow(row: Editor.Row,
 	offset: number): void {
 	const sceneRow = model.scene.findRow(row.id);
 	const siteRow = sceneRow.siteRow;
-	model.site.setSelection(new TextRange(siteRow, siteRow.indent, offset, offset));
+	model.site.setSelection(new CellTextSelection(siteRow, siteRow.indent, offset, offset));
 	model.scene.updatedSelection();
 }

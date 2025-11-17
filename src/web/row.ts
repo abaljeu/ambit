@@ -529,7 +529,71 @@ export function currentRow(): Row {
 	
 	return endRow;
 }
-
+export function findCellContainingNode(subNode: Node) : Cell | null{
+		let node = subNode;
+		// Navigate up to find the cell element that contains the cursor
+		let cellElement: Dom.CellElement | null = null;
+		while (node && node !== lm.newEditor) {
+			if (node.nodeType === Node.ELEMENT_NODE) {
+				const el = node as HTMLElement;
+				if (el.classList.contains(Dom.TextCellClass)) {
+					cellElement = el as Dom.CellElement;
+					break;
+				}
+			}
+			if (!node.parentNode) {
+				return null;
+			}
+			node = node.parentNode as Node;
+		}
+		if (!cellElement) {
+			return null;
+		}
+		const targetCell = new Cell(cellElement);
+		return targetCell;
+	}
+export function currentSelection() : PureSelection | null{
+	const selection = window.getSelection();
+	if (!selection || selection.rangeCount === 0) {
+		return null;
+	}
+	
+	const range = selection.getRangeAt(0);
+	let focusNode = selection.focusNode;
+	if (!focusNode) {
+		return null;
+	}
+	const cell = findCellContainingNode(focusNode!);
+	if (!cell) {
+		return null;
+	}
+	
+	// Navigate up from cell to find the row div in newEditor container
+	let rowElement: Dom.RowElement | null = null;
+	let node: Node = cell.newEl;
+	while (true) {
+		if (node.parentNode === lm.newEditor) {
+			rowElement = node as Dom.RowElement;
+			break;
+		}
+		if (!node.parentNode) {
+			return null;
+		}
+		node = node.parentNode as Node;
+	}
+	
+	const row = new Row(rowElement);
+	
+	const focus = cell.caretOffset();
+	const anchor = cell.getAnchorOffset();
+	
+	return new PureTextSelection(
+		new SiteRowId(row.id),
+		row.getCellIndex(cell),
+		focus,
+		anchor
+	);
+}
 export function caretX(): number {
 	const sel = window.getSelection();
 	if (!sel || sel.rangeCount === 0) return 0;

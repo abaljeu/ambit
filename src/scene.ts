@@ -4,7 +4,7 @@ import * as Editor from './editor.js';
 import * as SceneEditor from './scene-editor.js';
 import { ArraySpan } from './arrayspan.js';
 import * as Change from './change.js';
-import { CellBlock, CellSelection, TextRange } from './cellblock.js';
+import { CellBlock, CellSelection, CellTextSelection } from './cellblock.js';
 import { PureRow, PureCellSelection, PureCell, PureCellKind, PureTextSelection, PureSelection } from './web/pureData.js';
 /*    => filter, flatten
     Scene
@@ -94,7 +94,7 @@ export class SceneRow extends SiteRowSubscriber {
                 states.push(new PureCellSelection(this.id, i, _selected, active));
             }
             return states;
-        } else if (selected instanceof TextRange) {
+        } else if (selected instanceof CellTextSelection) {
             const states: PureSelection[] = [];
             states.push(new PureTextSelection(this.id, selected.cellIndex, selected.focus, selected.anchor));
             return states;
@@ -310,7 +310,7 @@ export class Scene {
             }
             Editor.removeCarets();
 
-        } else if (selected instanceof TextRange) {
+        } else if (selected instanceof CellTextSelection) {
             const editorRow = Editor.findRow(selected.row.id.value);
             if (editorRow !== Editor.endRow) {
                 const sceneRow = this.findSceneRow(selected.row);

@@ -124,12 +124,12 @@ export class Cell {
 			return Dom.getTextOffsetFromNode(this.newEl, anchorNode, anchorOffset);
 		}
 		
-		// Fallback: use start of range
-		const range = selection.getRangeAt(0);
-		if (this.containsNode(range.startContainer)) {
-			return Dom.getTextOffsetFromNode(this.newEl, range.startContainer, range.startOffset);
+		// Fallback: check if selection is backwards using Selection.direction
+		// If selection is backwards, return 0; otherwise return innerHTML length
+		if (selection.direction === "backward") {
+			return 0;
 		}
-		return 0;
+		return this.htmlContent.length;
 	}
 
 	public extendSelectionInCell(cellLocalOffset: number): void {

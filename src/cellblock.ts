@@ -136,7 +136,7 @@ export class CellBlock {
     }
 
 }
-export class TextRange {
+export class CellTextSelection {
     public constructor(public readonly row: SiteRow, public readonly cellIndex: number, 
         public readonly focus: number, public readonly anchor: number) {
             if (cellIndex < 0) {
@@ -145,4 +145,4 @@ export class TextRange {
         }
 }
 
-export type CellSelection = CellBlock | TextRange;
+export type CellSelection = CellBlock | CellTextSelection;

@@ -8,7 +8,7 @@ import { Scene, SceneRow } from './scene.js';
 import * as Editor from './editor.js';
 import * as Controller from './controller.js';
 import * as ambit from './ambit.js';
-import { CellSelection, CellBlock, TextRange } from './cellblock.js';
+import { CellSelection, CellBlock, CellTextSelection } from './cellblock.js';
 import {
     TestRunner,
     assert,
@@ -599,7 +599,7 @@ function testHandleArrowRight(): void {
     sendKey('ArrowRight', []);
     // selection should be empty.  cursor should be active in row 2
     cellSelection = Controller.getCellSelection();
-    assert(cellSelection instanceof TextRange);
+    assert(cellSelection instanceof CellTextSelection);
     assertEquals(rows[2], Editor.currentRow());
     // Act & Assert: Shift-ArrowDown from row 2 (b)
     sendKey('ArrowDown', ['S']);
