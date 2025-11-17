@@ -10,14 +10,16 @@
  [x]  b. Add `toPureRow` / `toPureCell` helpers
 
 3. **Move scene‑specific logic into `scene-editor.ts`.**
- [ ]  a. Replace direct `SceneRow` / `SceneRowCells` imports from `src/web` with
+ [x]  a. Replace direct `SceneRow` / `SceneRowCells` imports from `src/web` with
      `PureRow` conversions in `scene-editor.ts`.
- [ ]  d. Update a small path (e.g. `setEditorContent`) to accept `PureRow[]` and
+ [x]  d. Update a small path (e.g. `setEditorContent`) to accept `PureRow[]` and
      render them.
 
 4. **Eliminate non‑web DOM usage.**
-   - Find DOM calls outside `src/web` and replace them with calls into web
+ [x] a. Move events.ts into web, but invert the dependencies.  ambit.ts is the main program that installs the scripted content.
+ [x] b. Find DOM calls outside `src/web` and replace them with calls into web
      APIs that work with `Row` / `Cell` or pure offsets.
+ [x] c. Move elements.ts to web.
 
 5. **Tighten API and naming over time.**
    - Once the flow is stable, we can further separate “readback for tests”

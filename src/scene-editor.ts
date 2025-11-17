@@ -2,7 +2,7 @@ import { SceneCell, SceneRow } from './scene.js';
 import { ArraySpan } from './arrayspan.js';
 import * as RowEditor from './web/row.js';
 import { Cell } from './web/cell.js';
-import { PureCell, PureRow, PureCellKind } from './web/editorData.js';
+import { PureCell, PureRow, PureCellKind } from './web/pureData.js';
 
 export type EditorRow = RowEditor.Row;
 export type EditorRowSpan = RowEditor.RowSpan;
@@ -18,7 +18,7 @@ export function sceneCellToPureCell(sceneCell: SceneCell): PureCell {
 export function sceneRowToPureRow(sceneRow: SceneRow): PureRow {
 	const cells = sceneRow.cells.cells.map(sceneCellToPureCell);
 
-	return new PureRow(sceneRow.id.value, sceneRow.indent, cells);
+	return new PureRow(sceneRow.id, sceneRow.indent, cells);
 }
 
 export function sceneCellMatchesEditorCell(sceneCell: SceneCell, editorCell: Cell): boolean {
@@ -34,39 +34,6 @@ export function sceneRowMatchesEditorRow(sceneRow: SceneRow, editorRow: RowEdito
 }
 
 // Thin Scene→Editor adapter. Converts SceneRow to PureRow before calling web layer.
-
-export function createRowElementFromSceneRow(sceneRow: SceneRow)
-	: RowEditor.Row {
-	const pureRow = sceneRowToPureRow(sceneRow);
-	return RowEditor.createRowElementFromPureRow(pureRow);
-}
-
-// Create a new row and insert it after the given previous row.
-// If previousRow is endRow, insert at the front of the container.
-export function addBefore(
-	targetRow: RowEditor.Row,
-	scene: ArraySpan<SceneRow>
-): RowEditor.RowSpan {
-	const pureRows = new ArraySpan(
-		Array.from(scene).map(sceneRowToPureRow),
-		0,
-		scene.length
-	);
-	return RowEditor.addBefore(targetRow, pureRows);
-}
-
-export function addAfter(
-	referenceRow: RowEditor.Row,
-	rowDataArray: ArraySpan<SceneRow>
-): RowEditor.RowSpan {
-	const pureRows = new ArraySpan(
-		Array.from(rowDataArray).map(sceneRowToPureRow),
-		0,
-		rowDataArray.length
-	);
-	return RowEditor.addAfter(referenceRow, pureRows);
-}
-
 export function replaceRows(
 	oldRows: RowEditor.RowSpan,
 	newRows: ArraySpan<SceneRow>

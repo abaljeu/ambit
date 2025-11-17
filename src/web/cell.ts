@@ -1,6 +1,6 @@
 import { visibleOffsetToHtmlOffset } from '../htmlutil.js';
 import * as Dom from './editor-dom.js';
-import { PureCell, PureCellKind } from './editorData.js';
+import { PureCell, PureCellKind } from './pureData.js';
 
 export class Cell {
 	constructor(public readonly newEl: Dom.CellElement) {

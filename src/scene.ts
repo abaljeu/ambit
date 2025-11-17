@@ -5,7 +5,7 @@ import * as SceneEditor from './scene-editor.js';
 import { ArraySpan } from './arrayspan.js';
 import * as Change from './change.js';
 import { CellBlock } from './cellblock.js';
-import { PureRow, PureCellSelection, PureCell, PureCellKind } from './web/editorData.js';
+import { PureRow, PureCellSelection, PureCell, PureCellKind } from './web/pureData.js';
 /*    => filter, flatten
     Scene
         SceneRow
@@ -187,7 +187,7 @@ export class SceneRow extends SiteRowSubscriber {
                     cell.width
                 )
             );
-            const pureRow = new PureRow(this.id.value, this.indent, cells);
+            const pureRow = new PureRow(this.id, this.indent, cells);
             r.setContent(pureRow);
          }
     }
@@ -318,13 +318,13 @@ export class Scene {
     // Called by controller after updating site selection
     public updatedSelection(): void {
         for (const row of this._rows) {
-            const editorRow = Editor.findRow(row.id.value);
+            const editorRow = Editor.findRow(row.id.toString());
             if (editorRow !== Editor.endRow) {
                 const selectionStates = row.getCellSelectionStates();
                 // Convert CellSelectionState[] to PureCellSelection[]
                 const pureStates: readonly PureCellSelection[] = selectionStates.map(state => 
                     new PureCellSelection(
-                        row.id.value,
+                        row.id,
                         state.cellIndex,
                         state.selected,
                         state.active

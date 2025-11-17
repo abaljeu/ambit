@@ -1,3 +1,5 @@
+import { SceneRowId } from "../scene";
+
 export enum PureCellKind {
     Indent = 'indent',
     Text = 'text',
@@ -20,7 +22,7 @@ export class PureCell {
 
 export class PureRow {
 	public constructor(
-		public readonly id: string,
+		public readonly id: SceneRowId,
 		public readonly indent: number,
 		public readonly cells: readonly PureCell[]
 	) {}
@@ -43,7 +45,7 @@ export class PureRow {
 
 export class PureCellSelection {
 	public constructor(
-		public readonly rowid: string,
+		public readonly rowid: SceneRowId,
 		public readonly cellIndex: number,
 		public readonly selected: boolean,
 		public readonly active: boolean
@@ -59,8 +61,8 @@ export class PureCellSelection {
 
 export class PureCellBlock {
 	public constructor(
-		public readonly activeRowid: string,
-		public readonly selectedRowid: string,
+		public readonly activeRowid: SceneRowId,
+		public readonly selectedRowid: SceneRowId,
 		public readonly selectedCellindex: number,
 		public readonly activeCellindex: number
 	) {}

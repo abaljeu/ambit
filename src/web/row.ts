@@ -1,30 +1,17 @@
 import * as lm from './elements.js';
 import { ArraySpan } from '../arrayspan.js';
-import {
-	RowElementTag,
-	RowContentTag,
-	RowContentClass,
-	RowIndentClass,
-	TextCellClass,
-	CellFlexClass,
-	CellFixedClass,
-	VISIBLE_TAB,
-	NOROWID,
-	RowElement,
-	CellElement,
-	getTextOffsetFromNode,
-} from './editor-dom.js';
+import * as Dom from './editor-dom.js';
 import { Cell } from './cell.js';
-import { PureCellKind, PureRow, PureCellSelection } from './editorData.js';
-
-function createRowElement(): RowElement {
+import { PureCellKind, PureRow, PureCellSelection } from './pureData.js';
+import { SceneRowId } from '../scene.js';
+function createRowElement(): Dom.RowElement {
 	// Create newEditor element (3-span: fold-indicator + indentation + rowContent)
-	const newEl = document.createElement(RowElementTag) as RowElement;
+	const newEl = document.createElement(Dom.RowElementTag) as Dom.RowElement;
 	const newElFold = document.createElement('span');
 	newElFold.className = 'fold-indicator';
 	newElFold.textContent = ' ';
-	const newElContent = document.createElement(RowContentTag);
-	newElContent.className = RowContentClass;
+	const newElContent = document.createElement(Dom.RowContentTag);
+	newElContent.className = Dom.RowContentClass;
 	const newElContentPool = lm.newEditor.dataset.newElContentPool;
 	
 	if (!newElContentPool) {
@@ -91,16 +78,16 @@ export class Row {
 		return htmlOffset;
 	}
 	constructor(
-		public readonly newEl: RowElement
+		public readonly newEl: Dom.RowElement
 	) {}
-	private getContentSpans(): readonly CellElement[] {
-		const contentElement = this.newEl.querySelector(`.${RowContentClass}`) as HTMLElement;
+	private getContentSpans(): readonly Dom.CellElement[] {
+		const contentElement = this.newEl.querySelector(`.${Dom.RowContentClass}`) as HTMLElement;
 		if (!contentElement) return [];
 		// Get all children that are either indent or text cells, in document order
 		return Array.from(contentElement.children).filter(child => 
-			child.classList.contains(RowIndentClass) || 
-			child.classList.contains(TextCellClass)
-		) as CellElement[];
+			child.classList.contains(Dom.RowIndentClass) || 
+			child.classList.contains(Dom.TextCellClass)
+		) as Dom.CellElement[];
 	}
 	private getFoldIndicatorSpan(): HTMLSpanElement {
 		return this.newEl.querySelector('.fold-indicator') as HTMLSpanElement;
@@ -153,11 +140,11 @@ export class Row {
 		return textCells.map(cell => cell.htmlContent).join('\t');
 	}
 	public setContent(pureRow: PureRow): void {
-		let rowContent = this.newEl.querySelector(`.${RowContentClass}`) as HTMLElement;
+		let rowContent = this.newEl.querySelector(`.${Dom.RowContentClass}`) as HTMLElement;
 		if (!rowContent) {
 			// If rowContent doesn't exist, create it
-			rowContent = document.createElement(RowContentTag);
-			rowContent.className = RowContentClass;
+			rowContent = document.createElement(Dom.RowContentTag);
+			rowContent.className = Dom.RowContentClass;
 			this.newEl.appendChild(rowContent);
 		}
 		// Clear only rowContent's innerHTML, preserving fold-indicator
@@ -166,21 +153,21 @@ export class Row {
 		for (const cell of pureRow.cells) {
 			if (cell.kind === PureCellKind.Indent) {
 				const indentSpan = document.createElement('span');
-				indentSpan.className = RowIndentClass;
-				indentSpan.textContent = VISIBLE_TAB;
+				indentSpan.className = Dom.RowIndentClass;
+				indentSpan.textContent = Dom.VISIBLE_TAB;
 				rowContent.appendChild(indentSpan);
 			}
 			else if (cell.kind === PureCellKind.Text) {
 				const textSpan = document.createElement('span');
-				textSpan.className = TextCellClass;
+				textSpan.className = Dom.TextCellClass;
 				textSpan.contentEditable = 'true';
 				// width of cell is source cell width in ems
 				// if -1, fills container after all other cells are set (flex: 1)
 				// if > 0, min 1em, max to fit content
 				if (cell.width === -1 || cell.width === 0) {
-					textSpan.classList.add(CellFlexClass);
+					textSpan.classList.add(Dom.CellFlexClass);
 				} else {
-					textSpan.classList.add(CellFixedClass);
+					textSpan.classList.add(Dom.CellFixedClass);
 					textSpan.style.width = `${cell.width}em`;
 				}
 				
@@ -201,18 +188,18 @@ export class Row {
 	public get previous(): Row {
 		const previousSibling = this.newEl?.previousElementSibling;
 		if (!previousSibling) return endRow;
-		return new Row(previousSibling as RowElement);
+		return new Row(previousSibling as Dom.RowElement);
 	}
 	public get next(): Row {
 		const nextSibling = this.newEl?.nextElementSibling;
 		if (!nextSibling ) return endRow;
-		return new Row(nextSibling as RowElement);
+		return new Row(nextSibling as Dom.RowElement);
 	}
 	public valid(): boolean {
-		return this.newEl !== null  && this.id !== NOROWID;
+		return this.newEl !== null  && this.id !== Dom.NOROWID;
 	}
 	public get id(): string {
-		return this.newEl?.dataset.lineId ?? NOROWID;
+		return this.newEl?.dataset.lineId ?? Dom.NOROWID;
 	}
 	public moveCaretToThisRow(): void {
 		const targetX = caretX();
@@ -347,7 +334,7 @@ export class Row {
 	public toPureRow(): PureRow {
 		const cells = this.cells.map(cell => cell.toPureCell());
 
-		return new PureRow(this.id, this.indent, cells);
+		return new PureRow(new SceneRowId(this.id), this.indent, cells);
 	}
 }
 
@@ -355,7 +342,7 @@ export function createRowElementFromPureRow(pureRow: PureRow): Row {
 	const newEl = createRowElement();
 	const row = new Row(newEl);
 
-	newEl.dataset.lineId = pureRow.id;
+	newEl.dataset.lineId = pureRow.id.value;
 	row.setContent(pureRow);
 	return row;
 }
@@ -397,15 +384,15 @@ export class RowSpan implements Iterable<Row> {
 }
 
 // Sentinel row used to indicate insertion at the start of the container
-const endRowElement = document.createElement(RowElementTag) as RowElement;
+const endRowElement = document.createElement(Dom.RowElementTag) as Dom.RowElement;
 export const endRow: Row = new Row(endRowElement);
 
 // Iterator that yields row elements from the editor
-function* rowElements(): IterableIterator<RowElement> {
-	const rowElems = lm.newEditor.querySelectorAll(RowElementTag);
+function* rowElements(): IterableIterator<Dom.RowElement> {
+	const rowElems = lm.newEditor.querySelectorAll(Dom.RowElementTag);
 	
 	for (let i = 0; i < rowElems.length; i++) {
-		const element = rowElems[i] as RowElement;
+		const element = rowElems[i] as Dom.RowElement;
 		yield element;
 	}
 }
@@ -420,7 +407,7 @@ export function* rows(): IterableIterator<Row> {
 export function at(index: number): Row {
 	// if index is out of range, return endRow
 	if (index < 0 || index >= lm.newEditor.childElementCount) return endRow;
-	const element = lm.newEditor.children[index] as RowElement;
+	const element = lm.newEditor.children[index] as Dom.RowElement;
 	return new Row(element);
 }
 
@@ -473,7 +460,7 @@ export function addAfter(
 	return new RowSpan(first, count);
 }
 
-function getCurrentParagraphWithOffset(): { element: RowElement, offset: number } | null {
+function getCurrentParagraphWithOffset(): { element: Dom.RowElement, offset: number } | null {
 	const selection = window.getSelection();
 	if (!selection || selection.rangeCount === 0) return null;
 	
@@ -481,11 +468,11 @@ function getCurrentParagraphWithOffset(): { element: RowElement, offset: number 
 	let node = selection.anchorNode;
 
 	// Navigate up to find the row div in newEditor container
-	let currentP: RowElement | null = null;
+	let currentP: Dom.RowElement | null = null;
 	while (node && node !== lm.newEditor) {
-		if (node.nodeName === RowElementTag.toUpperCase() &&
+		if (node.nodeName === Dom.RowElementTag.toUpperCase() &&
 			node.parentNode === lm.newEditor) {
-			currentP = node as RowElement;
+			currentP = node as Dom.RowElement;
 			break;
 		}
 		node = node.parentNode;
@@ -494,11 +481,11 @@ function getCurrentParagraphWithOffset(): { element: RowElement, offset: number 
 	if (!currentP) return null;
 
 	// Calculate offset within content span
-	const contentSpan = currentP.querySelector(`.${RowContentClass}`) as HTMLSpanElement;
+	const contentSpan = currentP.querySelector(`.${Dom.RowContentClass}`) as HTMLSpanElement;
 	if (!contentSpan) return { element: currentP, offset: 0 };
 
 	// Use helper to calculate text offset from DOM position
-	const offset = getTextOffsetFromNode(
+	const offset = Dom.getTextOffsetFromNode(
 		contentSpan,
 		range.startContainer,
 		range.startOffset
@@ -511,7 +498,7 @@ export function currentRow(): Row {
 	const p = getCurrentParagraphWithOffset();
 	if (!p) return endRow;
     
-	const parent = p.element.parentNode as RowElement | null;
+	const parent = p.element.parentNode as Dom.RowElement | null;
 	if (parent === lm.newEditor) {
 		// p.element is from newEditor
 		return new Row(p.element);

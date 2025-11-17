@@ -1,8 +1,5 @@
-import { postDoc } from './ambit.js';
-import * as lm from './web/elements.js';
 import * as Editor from './editor.js';
 import * as SceneEditor from './scene-editor.js';
-import { Scene, SceneRow } from './scene.js';
 import { ArraySpan } from './arrayspan.js';
 import { model } from './model.js';
 import { Doc, DocLine } from './doc.js';
@@ -145,13 +142,13 @@ function getCurrentRow(): Editor.Row {
 
  
  function handleEnter(currentRow: Editor.Row) : boolean {
-	// Get HTML string offset (includes tag lengths) for proper splitting
+	const pure = currentRow.toPureRow();
+
 	const htmlOffset = currentRow.getHtmlOffset();
 	// const _htmlOffset = currentRow.getHtmlOffset();
 	// if (_htmlOffset !== htmlOffset) {
 	// 	return true;
 
-	
 	const docLine = docLineFromRow(currentRow);
 	const beforeText = currentRow.htmlContent.substring(0, htmlOffset);
 	const newDocLine = Doc.createLine(beforeText);
@@ -1326,8 +1323,9 @@ function handleShiftTab(currentRow: Editor.Row) : boolean {
 export function loadDoc(data: string, filePath: string): Doc {
 	let doc = model.addOrUpdateDoc(data, filePath);
 	model.scene.loadFromSite(model.site.getRoot());
-	setEditorContent();
-	setMessage("Loaded");
+	SceneEditor.setEditorContent(new ArraySpan(
+		model.scene.rows, 0, model.scene.rows.length));
+
 	links();
 	return doc;
 }
@@ -1336,9 +1334,6 @@ export function save() {
 	model.save();
 }
 
-export function setEditorContent() {
- 	SceneEditor.setEditorContent(new ArraySpan(model.scene.rows, 0, model.scene.rows.length));
-}
 
 // Methods to manage CellBlock selection
 export function initCellBlockToRow(initialRow: Editor.Row): void {
