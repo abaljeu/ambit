@@ -5,7 +5,7 @@ import * as SceneEditor from './scene-editor.js';
 import { ArraySpan } from './arrayspan.js';
 import * as Change from './change.js';
 import { CellBlock } from './cellblock.js';
-import { PureRow, PureCellSelection, PureCell, PureCellKind } from './web/pureData.js';
+import { PureRow, PureCellSelection, PureCell, PureCellKind, PureTextSelection, PureSelection } from './web/pureData.js';
 /*    => filter, flatten
     Scene
         SceneRow
@@ -103,10 +103,10 @@ export class SceneRow extends SiteRowSubscriber {
         return maxColumns;
     }
 
-    public getCellSelectionStates(): readonly CellSelectionState[] {
+    public getCellSelectionStates(): readonly PureSelection[] {
         const cellBlock = this.scene.getCellBlock();
         const cellCount = this.cells.count;
-        const states: CellSelectionState[] = [];
+        const states: PureSelection[] = [];
         
         let maxColumns = cellCount;
         if (cellBlock.endColumnIndex === -1) {
@@ -117,7 +117,7 @@ export class SceneRow extends SiteRowSubscriber {
         for (let i = 0; i < cellCount; i++) {
             const selected = cellBlock.includesCell(this.siteRow, i);
             const active = cellBlock.isActiveCell(this.siteRow, i);
-            states.push({ cellIndex: i, selected, active });
+            states.push(new PureCellSelection(this.id, i, selected, active));
         }
         
         return states;
@@ -320,16 +320,7 @@ export class Scene {
         for (const row of this._rows) {
             const editorRow = Editor.findRow(row.id.toString());
             if (editorRow !== Editor.endRow) {
-                const selectionStates = row.getCellSelectionStates();
-                // Convert CellSelectionState[] to PureCellSelection[]
-                const pureStates: readonly PureCellSelection[] = selectionStates.map(state => 
-                    new PureCellSelection(
-                        row.id,
-                        state.cellIndex,
-                        state.selected,
-                        state.active
-                    )
-                );
+                const pureStates = row.getCellSelectionStates();
                 editorRow.updateCellBlockStyling(pureStates);
             }
         }

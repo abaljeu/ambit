@@ -98,13 +98,13 @@ export class Cell {
 		
 		const range = document.createRange();
 		// Ensure start <= end for the range
-		if (start <= end) {
+		// if (start <= end) {
 			range.setStart(startPos.node, startPos.offset);
 			range.setEnd(endPos.node, endPos.offset);
-		} else {
-			range.setStart(endPos.node, endPos.offset);
-			range.setEnd(startPos.node, startPos.offset);
-		}
+		// } else {
+		// 	range.setStart(endPos.node, endPos.offset);
+		// 	range.setEnd(startPos.node, startPos.offset);
+		// }
 		selection.removeAllRanges();
 		selection.addRange(range);
 	}

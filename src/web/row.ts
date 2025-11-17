@@ -2,7 +2,7 @@ import * as lm from './elements.js';
 import { ArraySpan } from '../arrayspan.js';
 import * as Dom from './editor-dom.js';
 import { Cell } from './cell.js';
-import { PureCellKind, PureRow, PureCellSelection } from './pureData.js';
+import { PureCellKind, PureRow, PureCellSelection, PureSelection, PureTextSelection } from './pureData.js';
 import { SceneRowId } from '../scene.js';
 function createRowElement(): Dom.RowElement {
 	// Create newEditor element (3-span: fold-indicator + indentation + rowContent)
@@ -171,7 +171,7 @@ export class Row {
 					textSpan.style.width = `${cell.width}em`;
 				}
 				
-				textSpan.textContent = cell.text;
+				textSpan.innerHTML = cell.text;
 				rowContent.appendChild(textSpan);
 			}
 		}
@@ -319,14 +319,26 @@ export class Row {
 
 	// Update CSS classes for all cells in this row based on selection states
 	// selectionStates: array of { cellIndex, selected, active } for each cell
-	public updateCellBlockStyling(selectionStates: readonly PureCellSelection[]): void {
+	public updateCellBlockStyling(selectionStates: readonly PureSelection[]): void {
 		for (const state of selectionStates) {
-			const cell = this.cells[state.cellIndex];
-			if (cell) {
-				cell.updateCellBlockStyling({ 
-					selected: state.selected, 
-					active: state.active 
-				});
+			if (state instanceof PureCellSelection) {
+				const cell = this.cells[state.cellIndex];
+				if (cell) {
+					cell.updateCellBlockStyling({ 
+						selected: state.selected, 
+						active: state.active 
+					});
+				}
+			}
+			else if (state instanceof PureTextSelection) { // state never happens
+				const cell = this.cells[state.cellIndex];
+				if (cell) {
+					cell.updateCellBlockStyling({ 
+						selected: true, 
+						active: true 
+					});
+					cell.setSelection(state.focus, state.anchor);
+				}
 			}
 		}
 	}

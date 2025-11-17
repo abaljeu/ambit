@@ -21,10 +21,6 @@
      APIs that work with `Row` / `Cell` or pure offsets.
  [x] c. Move elements.ts to web.
 
-5. **Tighten API and naming over time.**
-   - Once the flow is stable, we can further separate “readback for tests”
-     from “runtime rendering” if needed, but the primary invariants are:
-     - DOM is only in `src/web`.
-     - Shared state across layers is expressed in pure types.
-
+5. **Convert selection handling**
+We have cellblock.ts, which is good for its context
 

@@ -48,7 +48,7 @@ export class PureCellSelection {
 		public readonly rowid: SceneRowId,
 		public readonly cellIndex: number,
 		public readonly selected: boolean,
-		public readonly active: boolean
+		public readonly active: boolean,
 	) {}
 
 	public equals(other: PureCellSelection): boolean {
@@ -58,21 +58,20 @@ export class PureCellSelection {
 			this.active === other.active;
 	}
 }
-
-export class PureCellBlock {
+export class PureTextSelection {
 	public constructor(
-		public readonly activeRowid: SceneRowId,
-		public readonly selectedRowid: SceneRowId,
-		public readonly selectedCellindex: number,
-		public readonly activeCellindex: number
+		public readonly rowid: SceneRowId,
+		public readonly cellIndex: number,
+		public readonly focus: number,
+		public readonly anchor: number
 	) {}
 
-	public equals(other: PureCellBlock): boolean {
-		return this.activeRowid === other.activeRowid &&
-			this.selectedRowid === other.selectedRowid &&
-			this.selectedCellindex === other.selectedCellindex &&
-			this.activeCellindex === other.activeCellindex;
+	public equals(other: PureTextSelection): boolean {
+		return this.rowid === other.rowid &&
+			this.cellIndex === other.cellIndex &&
+			this.focus === other.focus &&
+			this.anchor === other.anchor;
 	}
 }
 
-export type PureSelection = PureCellSelection | PureCellBlock;
+export type PureSelection = PureCellSelection | PureTextSelection;
