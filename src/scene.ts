@@ -6,6 +6,7 @@ import { ArraySpan } from './arrayspan.js';
 import * as Change from './change.js';
 import { CellBlock, CellSelection, CellTextSelection } from './cellblock.js';
 import { PureRow, PureCellSelection, PureCell, PureCellKind, PureTextSelection, PureSelection } from './web/pureData.js';
+import { model } from './model.js';
 /*    => filter, flatten
     Scene
         SceneRow
@@ -71,7 +72,7 @@ export class SceneRow extends SiteRowSubscriber {
         this.id = id;
         this.siteRow.subscribe(this);
     }
-        
+    public get valid(): boolean { return this.siteRow !== SiteRow.end; }
     // Check if a specific cell index in this row is selected
     public isCellSelected(cellIndex: number): boolean {
         const cellSelection = this.scene.getCellSelection();
@@ -83,23 +84,24 @@ export class SceneRow extends SiteRowSubscriber {
     
     
     public getCellSelectionStates(): readonly PureSelection[] {
-        const selected = this.scene.getCellSelection();
-        if (selected instanceof CellBlock) {
+        const sceneSelection : CellSelection = this.scene.getCellSelection();
+        const states: PureSelection[] = [];
             const cellCount = this.cells.count;
-            const states: PureSelection[] = [];
             
             for (let i = 0; i < cellCount; i++) {
-                const _selected = selected.includesCell(this.siteRow, i);
-                const active = selected.isActiveCell(this.siteRow, i);
-                states.push(new PureCellSelection(this.id, i, _selected, active));
-            }
+                if (sceneSelection instanceof CellBlock) {
+                    const _selected = sceneSelection.includesCell(this.siteRow, i);
+                    const active = sceneSelection.isActiveCell(this.siteRow, i);
+                    states.push(new PureCellSelection(this.id, i, _selected, active));
+                } else if (sceneSelection instanceof CellTextSelection) {
+                    const thisOne : boolean = (sceneSelection.row === this.siteRow)
+                        && (sceneSelection.cellIndex === i);
+                        if (thisOne) {
+                            states.push(new PureTextSelection(this.id, sceneSelection.cellIndex, sceneSelection.focus, sceneSelection.anchor));
+                        } else states.push(new PureCellSelection(this.id, i, false, false));
+                    }
+                }
             return states;
-        } else if (selected instanceof CellTextSelection) {
-            const states: PureSelection[] = [];
-            states.push(new PureTextSelection(this.id, selected.cellIndex, selected.focus, selected.anchor));
-            return states;
-        } else
-            return [];
     }
     
     public indexInScene(): number {
@@ -107,7 +109,12 @@ export class SceneRow extends SiteRowSubscriber {
         if (index === -1) return this.scene.rows.length;
         return index;
     }
-
+    public get previous(): SceneRow {
+        return this.scene.at(this.indexInScene()-1);
+    }
+    public get next(): SceneRow {
+        return this.scene.at(this.indexInScene()+1);
+    }
     public siteRowFolded(): void {
         this.deleteChildren();
     }
@@ -236,7 +243,6 @@ export class Scene {
             return this.end;
         return this._rows[index];
     }
-    
     public loadFromSite(site: SiteRow): void {
         this._rows = this._flattenTree(site);
     }
@@ -299,24 +305,19 @@ export class Scene {
     
     // Called by controller after updating site selection
     public updatedSelection(): void {
-        const selected = this.getCellSelection();
-        if (selected instanceof CellBlock) {
-            for (const row of this._rows) {
-                const editorRow = Editor.findRow(row.id.value);
-                if (editorRow !== Editor.endRow) {
-                    const pureStates = row.getCellSelectionStates();
-                    editorRow.updateCellBlockStyling(pureStates);
+        let cursor = false;
+        for (const row of this._rows) {
+            const editorRow = Editor.findRow(row.id.value);
+            if (editorRow !== Editor.endRow) {
+                const pureStates = row.getCellSelectionStates();
+                editorRow.updateCellBlockStyling(pureStates);
+                if (pureStates.some(state => state instanceof PureTextSelection)) {
+                    cursor = true;
                 }
             }
+        }
+        if (!cursor) {
             Editor.removeCarets();
-
-        } else if (selected instanceof CellTextSelection) {
-            const editorRow = Editor.findRow(selected.row.id.value);
-            if (editorRow !== Editor.endRow) {
-                const sceneRow = this.findSceneRow(selected.row);
-                const pureStates = sceneRow.getCellSelectionStates();
-                editorRow.updateCellBlockStyling(pureStates);
-            }
         }
     }
     

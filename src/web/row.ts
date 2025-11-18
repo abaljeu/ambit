@@ -552,7 +552,7 @@ export function findCellContainingNode(subNode: Node) : Cell | null{
 		const targetCell = new Cell(cellElement);
 		return targetCell;
 	}
-export function currentSelection() : PureSelection | null{
+export function currentSelection() : PureTextSelection | null{
 	const selection = window.getSelection();
 	if (!selection || selection.rangeCount === 0) {
 		return null;

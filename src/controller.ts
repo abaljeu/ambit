@@ -10,6 +10,7 @@ import { CellSelection, CellBlock, CellTextSelection } from './cellblock.js';
 import { PureTextSelection } from './web/pureData.js';
 
 import * as WebUI from './web/ui.js';
+import { SceneRow } from './scene.js';
 
 export function setMessage(message: string): void {
 	WebUI.setMessage(message);
@@ -432,11 +433,11 @@ function handleArrowUp() : boolean {
 	
 	// If cellSelection is empty, initialize it to current row
 	if (cellSelection instanceof CellTextSelection) {
-		const prevP = cellSelection.row.previous;
+		const sceneRow = model.scene.findRow(cellSelection.row.id.toString());
+		const prevP = sceneRow.previous;
 		if (!prevP.valid)
 			return true;
 		
-		const currentRow = Editor.currentRow();
 		const prevRow = Editor.findRow(prevP.id.toString());
 		const x = Editor.caretX();
 		const offsetResult = prevRow.offsetAtX(x);
@@ -711,10 +712,10 @@ function handleShiftArrowDown(): boolean {
 }
 
 function handleArrowLeft() : boolean {
-	clearCellSelection();
 	const currentRow = Editor.currentRow();
 	const activeCell = currentRow.activeCell;
 	if (!activeCell) return true;
+	clearCellSelection();
 	
 	const caret = currentRow.caretOffset;
 	const offset = caret?.offset ?? 0;
@@ -734,29 +735,41 @@ function handleArrowLeft() : boolean {
 }
 
 function handleArrowRight() : boolean {
-	clearCellSelection();
-	const currentRow = Editor.currentRow();
-	const activeCell = currentRow.activeCell;
-	if (!activeCell) return true;
-	
-	const caret = currentRow.caretOffset;
-	const offset = caret?.offset ?? 0;
-	
-	if (offset === activeCell.visibleTextLength) {
+	const e = model.site.cellSelection;
+	let activeRow = null;
+	let cellIndex = 0;
+	let offset = 0;
+	if (e instanceof CellTextSelection) {
+		activeRow = e.row;
+		cellIndex = e.cellIndex;
+		offset = e.focus;
+	} else if (e instanceof CellBlock) {
+		activeRow = e.activeSiteRow;
+		cellIndex = e.activeCellIndex;
+		offset = e.startColumnIndex;
+	}
+	if (!activeRow) 
+		return true;
+	const currentRow = model.scene.findRow(activeRow.id.toString());
+	const activeCell = currentRow.cells.cell(cellIndex);
+	if (offset === activeCell.text.length) {
 		// Cursor at right end of cell, find next editable cell
-		const nextCell = findNextEditableCell(currentRow, activeCell);
-		if (nextCell) {
+		if (cellIndex < currentRow.cells.count - 1) {
+			setCaretInRow(getEditorRow(currentRow), cellIndex+1, 0);
+		} else {
 			// Move to start (offset 0) of next cell
-			nextCell.setCaret(0);
+			const nextRow = currentRow.next;
+			setCaretInRow(getEditorRow(nextRow), nextRow.indent, 0);
 		}
 	} else {
 		// Move cursor right within current cell
-		const cellIndex = currentRow.getCellIndex(activeCell);
-		setCaretInRow(currentRow, cellIndex, offset + 1);
+		setCaretInRow(getEditorRow(currentRow), cellIndex, offset + 1);
 	}
 	return true;
 }
-
+function getEditorRow(sceneRow: SceneRow) : Editor.Row {
+	return Editor.findRow(sceneRow.id.value);
+}
 function handleHome() : boolean {
 	const currentRow = Editor.currentRow();
 	const cellIndex = currentRow.contentCells.length > 0 ? currentRow.getCellIndex(currentRow.contentCells[0]) : 0;
@@ -1470,9 +1483,10 @@ export function clearCellSelection(): void {
 
 export function setCaretInRow(row: Editor.Row, 
 	cell: number,
-	offset: number): void {
+	focus: number, anchor: number = -1): void {
 	const sceneRow = model.scene.findRow(row.id);
 	const siteRow = sceneRow.siteRow;
-	model.site.setSelection(new CellTextSelection(siteRow, siteRow.indent, offset, offset));
+	const _anchor = anchor === -1 ? focus : anchor;
+	model.site.setSelection(new CellTextSelection(siteRow, siteRow.indent, focus, _anchor));
 	model.scene.updatedSelection();
 }

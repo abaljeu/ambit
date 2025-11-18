@@ -1,10 +1,14 @@
 import { visibleOffsetToHtmlOffset } from '../htmlutil.js';
 import * as Dom from './editor-dom.js';
+import { Row } from './row.js';
 import { PureCell, PureCellKind } from './pureData.js';
 
 export class Cell {
 	constructor(public readonly newEl: Dom.CellElement) {
 
+	}
+	public get Row() : Row {
+		return new Row(this.newEl.parentNode as Dom.RowElement);
 	}
 	public get isIndent(): boolean {
 		return this.newEl.classList.contains(Dom.RowIndentClass);
