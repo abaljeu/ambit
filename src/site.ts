@@ -2,6 +2,7 @@ import { Doc, DocLine, noDoc, DocLineView } from './doc.js';
 import * as Change from './change.js';
 import { Id, Pool } from './pool.js';
 import { CellBlock, CellSelection, CellTextSelection } from './cellblock.js';
+import { SceneRowCells } from './sitecells.js';
 
 // SiteRow ID - uses 'Sxxxxxx' format  
 export class SiteRowId extends Id<'SiteRow'> {
@@ -37,6 +38,16 @@ export class SiteRow extends DocLineView {
     public readonly id: SiteRowId;
     private _folded : boolean = false;
     private readonly _docLine: DocLine;
+    
+    private _cells: SceneRowCells | undefined;
+    public get cells(): SceneRowCells {
+        if (this._cells === undefined) {
+            this._cells = new SceneRowCells(this.content, this.indent);
+        }
+        return this._cells;
+    }
+    public get content(): string { return this.docLine.content; }
+
     public get docLine(): DocLine { return this._docLine; }
     
     public static end = new SiteRow(DocLine.end, new SiteRowId('S000000'), SiteRowType.DocRef);
@@ -45,6 +56,8 @@ export class SiteRow extends DocLineView {
     private _parent: SiteRow = SiteRow.end; // SiteRow.end.parent gets null
     public setParent(parent: SiteRow): void {
         this._parent = parent;
+        this._cells = undefined;
+        this.children.forEach(child => child.setParent(this));
     }
     public get parent(): SiteRow { return this._parent ?? SiteRow.end; }
     public get indent(): number { return this.parent !== SiteRow.end ? this.parent.indent + 1 : -1; }
@@ -89,6 +102,16 @@ export class SiteRow extends DocLineView {
     }
     public docLineTextChanged(line: DocLine): void {
         if (line !== this.docLine) return;
+        const oldCells = this.cells;
+        this._cells = undefined;
+        const newCells = this.cells;
+
+        // todo: transfer cell selection to new cells.
+        // for  range (a,b) and old length L, new length N
+        // new range (c,d) will have L-b - N-d and b-a = d-c.
+        // (then if c<0 then c=0.)
+
+
         this._subscribers.forEach(subscriber => subscriber.siteRowTextChanged(this));
     }
     public indexOrLast(row : SiteRow): number {
@@ -213,7 +236,7 @@ export class Site {
     // private _doc: Doc = noDoc; // The root doc
     private _root: SiteRow = SiteRow.end;
     private _cellSelection: CellSelection = new CellTextSelection(SiteRow.end, 0, 0, 0);
-    
+
     // public get doc(): Doc { return this._doc; }
     public setDoc(doc: Doc): void {
         // this._doc = doc;

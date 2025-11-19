@@ -7,6 +7,7 @@ import * as Change from './change.js';
 import { CellBlock, CellSelection, CellTextSelection } from './cellblock.js';
 import { PureRow, PureCellSelection, PureCell, PureCellKind, PureTextSelection, PureSelection } from './web/pureData.js';
 import { model } from './model.js';
+import { SceneRowCells } from './sitecells.js';
 /*    => filter, flatten
     Scene
         SceneRow
@@ -14,58 +15,13 @@ import { model } from './model.js';
         compute visible
 */
 
-// export class SiteRowId extends Id<'SceneRow'> {
-//     public constructor(value: string) {
-//         if (!/^R[0-9A-Z]{6}$/.test(value)) {
-//             throw new Error('Invalid SiteRowId');
-//         }
-//         super(value);
-//     }
-// }
-export class SceneCell {
-    public constructor(public readonly type: string, public readonly text: string,
-        public readonly column:number, public readonly width: number 
-     ) {    }
-     public get nextColumn(): number { return this.width == -1 ? -1 : this.column + this.width; }
-}
-export class SceneRowCells {
-    private _cells: SceneCell[] = [];
-    public get cells(): readonly SceneCell[] { return this._cells; }
-    public constructor(public readonly source: string, public readonly indent: number) {
-        for (let i = 0; i < this.indent; i++) {
-            this._cells.push(new SceneCell('indent', '\t', i, 1));
-        }
-        let index = 0;
-        const _cellText = this.source.split('\t');
-        for (let i = 0; i < _cellText.length-1; i++) {
-            const text = _cellText[i];
-            this._cells.push(new SceneCell('text', text, index, text.length? 1: 1));
-            index += 1;
-        }
-        this._cells.push(new SceneCell('text', _cellText[_cellText.length-1], index, -1));
-    }
-    public get count(): number { return this._cells.length; }
-    public cell(index: number): SceneCell { return this._cells[index]; }
-    public get text(): string { return this._cells.map(cell => cell.text).join('\t'); }
-
-}
-export type CellSelectionState = {
-    cellIndex: number;
-    selected: boolean;
-    active: boolean;
-};
-
 export class SceneRow extends SiteRowSubscriber {
     public readonly id: SiteRowId;
     public  get indent(): number { return this.siteRow.indent; }
     public treeLength: number = 1;
     // public static end = new SceneRow(NoScene,  SiteRow.end, new SiteRowId('S000000'));
-    private _cells: SceneRowCells | undefined;
     public get cells(): SceneRowCells {
-        if (this._cells === undefined) {
-            this._cells = new SceneRowCells(this.content, this.indent);
-        }
-        return this._cells;
+        return this.siteRow.cells;
     }
     constructor(public  scene: Scene, public readonly siteRow: SiteRow, id: SiteRowId) {
         super();
@@ -156,19 +112,15 @@ export class SceneRow extends SiteRowSubscriber {
 
         const r : Editor.Row = Editor.findRow(this.id.value);
 
-        const oldCells = this.cells;
-        this._cells = undefined;
-        const newCells = this.cells;
-
         // todo: transfer cell selection to new cells.
         // for  range (a,b) and old length L, new length N
         // new range (c,d) will have L-b - N-d and b-a = d-c.
         // (then if c<0 then c=0.)
          if (r !== Editor.endRow) {
             // Convert SceneRow to PureRow
-            const cells = newCells.cells.map(cell => 
+            const cells = this.cells.cells.map(cell => 
                 new PureCell(
-                    cell.type === PureCellKind.Indent ? PureCellKind.Indent : PureCellKind.Text,
+                    cell.type,
                     cell.text,
                     cell.width
                 )

@@ -1,4 +1,6 @@
-import { SceneCell, SceneRow } from './scene.js';
+import { SceneRow } from './scene.js';
+import { SceneCell } from './sitecells.js';
+
 import { ArraySpan } from './arrayspan.js';
 import * as RowEditor from './web/row.js';
 import { Cell } from './web/cell.js';
