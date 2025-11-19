@@ -17,9 +17,9 @@ export function setMessage(message: string): void {
 	WebUI.setMessage(message);
 }
 
-export function links() {
+// export function links() {
 // 	// Get the content from the Editor div
-// 	const textareaValue = getEditorContent();
+// 	const textareaValue = Editor.getEditorContent();
 
 // 	// Clear previous links
 // 	lm.linksDiv.innerHTML = '';
@@ -37,7 +37,7 @@ export function links() {
 
 // 	// Inject the generated links into the links div
 // 	lm.linksDiv.innerHTML = linksHTML;
-}
+// }
 
 function updateAllFoldIndicators() {
 	const scene = model.scene;
@@ -180,6 +180,7 @@ function getCurrentRow(): Editor.Row {
 	Doc.processChange(insertBefore);
 	const textChange = Change.makeTextChange(docLine, 0, htmlOffset, '');
 	Doc.processChange(textChange);
+	Ops.setCaretInRow(currentRow, 0, 0);
  	return true;
  }
 
@@ -696,16 +697,21 @@ function handleShiftArrowDown(): boolean {
 }
 
 function handleArrowLeft() : boolean {
-	const currentRow = Editor.currentRow();
-	const activeCell = currentRow.activeCell;
-	if (!activeCell) return true;
-	
+	const currentRow : Editor.Row = Editor.currentRow();
+	const s: PureTextSelection | null= Editor.currentSelection();
+	if (s === null) {
+		return true;
+	}
+	const selection : CellTextSelection = s as unknown as CellTextSelection;
 	const caret = currentRow.caretOffset;
 	const offset = caret?.offset ?? 0;
+	const activeCell : Editor.Cell = currentRow.cellAt(selection.cellIndex);
 	
 	if (offset === 0) {
 		// Cursor at left end of cell, find previous editable cell
-		const prevCell = findPreviousEditableCell(currentRow, activeCell);
+
+		const prevCell = findPreviousEditableCell(currentRow,activeCell);
+
 		if (prevCell) {
 			// Move to end of previous cell
 			prevCell.setCaret(prevCell.visibleTextLength);
@@ -1419,7 +1425,7 @@ export function loadDoc(data: string, filePath: string): Doc {
 	SceneEditor.setEditorContent(new ArraySpan(
 		model.scene.rows, 0, model.scene.rows.length));
 
-	links();
+	// links();
 	return doc;
 }
 

@@ -66,5 +66,17 @@ export function getTextOffsetFromNode(
 	walk(container);
 	return textOffset;
 }
+export function getHtmlOffsetFromNode(
+	container: CellElement, 
+	targetNode: Node, 
+	targetOffset: number
+): number {
+	const range = document.createRange();
+	range.setStart(container, 0);
+	range.setEnd(targetNode, targetOffset);
 
+	const tmp = document.createElement('span');
+	tmp.appendChild(range.cloneContents());
 
+	return tmp.innerHTML.length;
+}

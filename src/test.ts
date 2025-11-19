@@ -16,6 +16,7 @@ import {
     assertEquals,
     assertNotEquals
 } from './test-infra.js';
+import * as HtmlUtil from './htmlutil.js';
 
 // // Global test runner instance
 const testRunner = new TestRunner();
@@ -148,7 +149,13 @@ const tests: (() => void)[] = [
     assertEquals("Lin", rows[1].htmlContent);
     assertEquals("e 1", rows[2].htmlContent);
     assertEquals("Line 2", rows[3].htmlContent);
-
+    const sel = model.site.cellSelection;
+    const ssel = sel as CellTextSelection;
+    assert(ssel !== null);
+    assertEquals(ssel.row.id.value, rows[2].id);
+    assertEquals(Editor.currentRow(), rows[2]);
+    assert(Editor.currentSelection() !== null);
+    assertEquals(rows[2].activeCell, rows[2].cells.at(0));
     Ops.setCaretInRow(rows[3], rows[3].indent, 0);
     sendKey('Enter', []);
     rows = Array.from(Editor.rows());
@@ -715,6 +722,13 @@ function testHandleArrowRight(): void {
     assertEquals(2, cellBlock.endChildIndex);
     assertEquals(2, cellBlock.activeCellIndex);
     
+},
+function testConvertTextToHtml(): void {
+    const text = "Hello [[World]]";
+    const html = HtmlUtil.convertTextToHtml(text);
+    assertEquals(html, "Hello <a href=\"ambit.php?doc=World.amb\">World</a>");
+    const text2 = HtmlUtil.convertHtmlToText(html);
+    assertEquals(text2, text);
 }
 ]
 // // Run all tests

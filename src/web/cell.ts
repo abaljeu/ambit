@@ -1,4 +1,7 @@
-import { visibleOffsetToHtmlOffset } from '../htmlutil.js';
+import { 
+	visibleOffsetToHtmlOffset, 
+	htmlOffsetToVisibleOffset 
+} from '../htmlutil.js';
 import * as Dom from './editor-dom.js';
 import { Row } from './row.js';
 import { PureCell, PureCellKind } from './pureData.js';
@@ -51,11 +54,11 @@ export class Cell {
 		const focusNode = selection.focusNode;
 		const focusOffset = selection.focusOffset;
 		if (focusNode && this.containsNode(focusNode)) {
-			return Dom.getTextOffsetFromNode(this.newEl, focusNode, focusOffset);
+			return Dom.getHtmlOffsetFromNode(this.newEl, focusNode, focusOffset);
 		}
 		// Fallback to start if focusNode is not available or not in this cell
 		if (this.containsNode(range.startContainer)) {
-			return Dom.getTextOffsetFromNode(this.newEl, range.startContainer, range.startOffset);
+			return Dom.getHtmlOffsetFromNode(this.newEl, range.startContainer, range.startOffset);
 		}
 		return 0;
 	}
@@ -94,9 +97,20 @@ export class Cell {
 		const selection = window.getSelection();
 		if (!selection) return;
 		
-		// Convert to node positions
-		const startPos = Dom.getNodeAndOffsetFromTextOffset(this.newEl, start);
-		const endPos = Dom.getNodeAndOffsetFromTextOffset(this.newEl, end);
+		// start and end are HTML offsets (including tag markup) in this.htmlContent.
+		// Convert HTML offsets to visible-text offsets, then to node positions.
+		const html = this.htmlContent;
+		const startVisible = htmlOffsetToVisibleOffset(html, start);
+		const endVisible = htmlOffsetToVisibleOffset(html, end);
+
+		const startPos = Dom.getNodeAndOffsetFromTextOffset(
+			this.newEl, 
+			startVisible
+		);
+		const endPos = Dom.getNodeAndOffsetFromTextOffset(
+			this.newEl, 
+			endVisible
+		);
 		
 		if (!startPos || !endPos) return;
 		

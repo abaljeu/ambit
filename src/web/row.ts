@@ -4,6 +4,7 @@ import * as Dom from './editor-dom.js';
 import { Cell } from './cell.js';
 import { PureCellKind, PureRow, PureCellSelection, PureSelection, PureTextSelection } from './pureData.js';
 import { SiteRowId } from '../site.js';
+import * as HtmlUtil from './htmlutil.js';
 function createRowElement(): Dom.RowElement {
 	// Create newEditor element (3-span: fold-indicator + indentation + rowContent)
 	const newEl = document.createElement(Dom.RowElementTag) as Dom.RowElement;
@@ -31,6 +32,11 @@ export class Row {
 	private _cachedCells: readonly Cell[] = [];
 	public equals(other: Row): boolean {
 		return this.newEl === other.newEl;
+	}
+	public cellAt(index: number): Cell {
+		if (index < 0 || index >= this.cells.length)
+			return this.cells[this.cells.length-1];
+		return this.cells[index];
 	}
 	public get cells(): readonly Cell[] {
 		if (this._cachedCells.length === 0) {
@@ -154,7 +160,7 @@ export class Row {
 			if (cell.kind === PureCellKind.Indent) {
 				const indentSpan = document.createElement('span');
 				indentSpan.className = Dom.RowIndentClass;
-				indentSpan.textContent = Dom.VISIBLE_TAB;
+				indentSpan.innerHTML = Dom.VISIBLE_TAB;
 				rowContent.appendChild(indentSpan);
 			}
 			else if (cell.kind === PureCellKind.Text) {
@@ -171,12 +177,13 @@ export class Row {
 					textSpan.style.width = `${cell.width}em`;
 				}
 				
-				textSpan.innerHTML = cell.text;
+				textSpan.innerHTML = HtmlUtil.convertTextToHtml(cell.text);
 				rowContent.appendChild(textSpan);
 			}
 		}
 		this._cachedCells = [];
 	}
+	
 	public get indent(): number {
 		// count the number of indent-units in the indentation span
 		return this.cells.filter((c: Cell) => c.isIndent).length;

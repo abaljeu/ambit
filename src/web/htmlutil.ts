@@ -404,3 +404,51 @@ export function testFixTags() : void {
 }
 
 
+export function convertTextToHtml(text: string): string {
+	// Regular expression to find wikilinks
+	const wikilinkRegex = /\[\[([a-zA-Z0-9 _\.-]+)\]\]/g;
+	
+	// Replace wikilinks with anchor tags, preserving existing HTML
+	return text.replace(wikilinkRegex, (match, linkText) => {
+		// Normalize spaces to underscores in the link name
+		const normalizedLink = linkText.replace(/ /g, '_');
+		const encodedLink = encodeURIComponent(normalizedLink);
+		return `<a href="ambit.php?doc=${encodedLink}.amb">${linkText}</a>`;
+	});
+}
+export function convertHtmlToText(html: string): string {
+	// Create a temporary div to parse HTML
+	const div = document.createElement('div');
+	div.innerHTML = html;
+	
+	// Find all anchor tags (convert to array to avoid live NodeList issues)
+	const links = Array.from(div.querySelectorAll('a'));
+	
+	// Replace each link
+	links.forEach(link => {
+		const href = link.getAttribute('href');
+		if (href && href.startsWith('ambit.php')) {
+			// Extract the doc parameter
+			const urlParams = new URLSearchParams(href.split('?')[1]);
+			const docParam = urlParams.get('doc');
+			if (docParam) {
+				// Remove .amb extension if present
+				const wikilink = docParam.endsWith('.amb') 
+					? docParam.slice(0, -4) 
+					: docParam;
+				// Decode the URL-encoded text
+				const decodedLink = decodeURIComponent(wikilink);
+				// Replace the anchor tag with [[wikilink]] format
+				const textNode = document.createTextNode(`[[${decodedLink}]]`);
+				link.parentNode?.replaceChild(textNode, link);
+			}
+		} else {
+			// For non-ambit.php links, just replace with their text content
+			const textNode = document.createTextNode(link.textContent ?? '');
+			link.parentNode?.replaceChild(textNode, link);
+		}
+	});
+	
+	// Return innerHTML to preserve HTML structure (spans, no <p> tags)
+	return div.innerHTML;
+}
