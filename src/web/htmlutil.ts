@@ -1,4 +1,3 @@
-import { LinkedList, LinkedListNode } from '@datastructures-js/linked-list';
 
 enum OpenClose { OPEN, CLOSE, NONE }
 
