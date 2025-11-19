@@ -52,10 +52,12 @@ export function hasEquals<T>(obj: unknown): obj is Equatable<T> {
 export function assertEquals<T>(expected: T, actual: T, message: string = "Assert"): void {
     if (hasEquals<T>(expected)) {
         if (!(expected as unknown as Equatable<T>).equals(actual)) {
+            console.log(`${message}: Expected "${expected.toString()}", got "${(actual as any).toString()}"`);
             throw new Error(`${message}: Expected "${expected.toString()}", got "${(actual as any).toString()}"`);
         }
     } else {
         if (expected !== actual) {
+            console.log(`${message}: Expected "${expected?.toString?.()}", got "${(actual as any)?.toString?.()}"`);
             throw new Error(`${message}: Expected "${expected?.toString?.()}", got "${(actual as any)?.toString?.()}"`);
         }
     }

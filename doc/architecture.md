@@ -31,35 +31,29 @@ Code is based on strongly typed objects with clear ownership:
 The server is a repository of text documents, 
 Model
     History
-    [] Doc 
-        name
-        []
-            DocLine
-                docLineId
     => organize by indentation
-    DocTree 
-        DocNode
+    [] Doc (received from server)
+        name
+        DocLine
+            docLineId
             length
             children
             parent
-            reference DocLine
+            reference : DocLine?
     => take the tree, add folding annotations
-    Site(Doc)
+    Site (composite of Doc fragments)
+        Root : DocLine
         SiteNode
+
             length
             siteNodeid
             children
             parent
-            reference DocNode
             folded = false
-        CellBlock (selection state)
-            parentSiteRow
-            child index range (vertical)
-            cell index range (horizontal, -1 = all columns)
-            active cell (SiteRow + cell index)
     => filter, flatten
     Scene
         SceneRow
+            SceneCell
         reference SiteNode
         compute visible
         queries Site for CellBlock state
@@ -70,7 +64,21 @@ Model
         EditorRow
             DOM Row Element
                 siteid
+
+            cells : Cell[]
+
         applies CellBlock CSS classes based on selection state passed from Scene
+    Selection =
+        CursorSelection
+            cell
+            start
+            end
+        | CellBlock (selection state)
+            parentSiteRow
+            child index range (vertical)
+            cell index range (horizontal, -1 = all columns)
+            active cell (SiteRow + cell index)
+
 
 ## History
 

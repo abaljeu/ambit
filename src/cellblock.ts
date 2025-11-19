@@ -88,22 +88,15 @@ export class CellBlock {
 
     // Check if a specific cell (row + cell index) is in this block
     public includesCell(siteRow: SiteRow, cellIndex: number): boolean {
-        // Empty state: parentSiteRow is SiteRow.end
         if (this.parentSiteRow === SiteRow.end) {
             return false;
         }
-        
-        // First check if the row is included
         if (!this.includesSiteRow(siteRow)) {
             return false;
         }
-
-        // Check horizontal range
         if (cellIndex < this._startCellIndex) {
             return false;
         }
-
-        // If endCellIndex is -1 (infinity), always include if >= start
         if (this._endCellIndex === -1) {
             return true;
         }
@@ -131,9 +124,26 @@ export class CellBlock {
             // Otherwise, activeCellIndex represents cell index
             return cellIndex === this.activeCellIndex;
         }
-        
         return false;
     }
-
 }
 
+export class CellTextSelection {
+    public readonly cellIndex: number;
+    public constructor(public readonly row: SiteRow, _cellIndex: number, 
+        public readonly focus: number, public readonly anchor: number) {
+            if (_cellIndex < 0) {
+                this.cellIndex = 0;
+            } else {
+                this.cellIndex = _cellIndex;
+            }
+            if (focus < 0) {
+                throw new Error('focus must be non-negative');
+            }
+            if (anchor < 0) {
+                throw new Error('anchor must be non-negative');
+            }
+        }
+}
+
+export type CellSelection = CellBlock | CellTextSelection;

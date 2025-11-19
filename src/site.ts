@@ -1,13 +1,14 @@
 import { Doc, DocLine, noDoc, DocLineView } from './doc.js';
 import * as Change from './change.js';
 import { Id, Pool } from './pool.js';
-import { CellBlock } from './cellblock.js';
+import { CellBlock, CellSelection, CellTextSelection } from './cellblock.js';
+import { SceneRowCells } from './sitecells.js';
 
 // SiteRow ID - uses 'Sxxxxxx' format  
 export class SiteRowId extends Id<'SiteRow'> {
     public constructor(value: string) {
         if (!/^S[0-9A-Z]{6}$/.test(value)) {
-            throw new Error('Invalid DocLineId');
+            throw new Error('Invalid SiteRowId');
         }
          super(value); 
     }
@@ -37,6 +38,16 @@ export class SiteRow extends DocLineView {
     public readonly id: SiteRowId;
     private _folded : boolean = false;
     private readonly _docLine: DocLine;
+    
+    private _cells: SceneRowCells | undefined;
+    public get cells(): SceneRowCells {
+        if (this._cells === undefined) {
+            this._cells = new SceneRowCells(this.content, this.indent);
+        }
+        return this._cells;
+    }
+    public get content(): string { return this.docLine.content; }
+
     public get docLine(): DocLine { return this._docLine; }
     
     public static end = new SiteRow(DocLine.end, new SiteRowId('S000000'), SiteRowType.DocRef);
@@ -45,6 +56,8 @@ export class SiteRow extends DocLineView {
     private _parent: SiteRow = SiteRow.end; // SiteRow.end.parent gets null
     public setParent(parent: SiteRow): void {
         this._parent = parent;
+        this._cells = undefined;
+        this.children.forEach(child => child.setParent(this));
     }
     public get parent(): SiteRow { return this._parent ?? SiteRow.end; }
     public get indent(): number { return this.parent !== SiteRow.end ? this.parent.indent + 1 : -1; }
@@ -89,6 +102,16 @@ export class SiteRow extends DocLineView {
     }
     public docLineTextChanged(line: DocLine): void {
         if (line !== this.docLine) return;
+        const oldCells = this.cells;
+        this._cells = undefined;
+        const newCells = this.cells;
+
+        // todo: transfer cell selection to new cells.
+        // for  range (a,b) and old length L, new length N
+        // new range (c,d) will have L-b - N-d and b-a = d-c.
+        // (then if c<0 then c=0.)
+
+
         this._subscribers.forEach(subscriber => subscriber.siteRowTextChanged(this));
     }
     public indexOrLast(row : SiteRow): number {
@@ -212,14 +235,32 @@ const siteRowPool = new SiteRowPool();
 export class Site {
     // private _doc: Doc = noDoc; // The root doc
     private _root: SiteRow = SiteRow.end;
-    private _cellBlock: CellBlock = CellBlock.empty;
-    
+    private _cellSelection: CellSelection = new CellTextSelection(SiteRow.end, 0, 0, 0);
+
+    // public get doc(): Doc { return this._doc; }
     public setDoc(doc: Doc): void {
         // this._doc = doc;
         this.buildTree(doc.root);
-        this._cellBlock = CellBlock.empty;
     }
     
+    public get cellSelection(): CellSelection {
+        return this._cellSelection;
+    }
+    
+    public setCellBlock(block: CellBlock): void {
+        this._cellSelection = block;
+    }
+    public setSelection(selection: CellSelection): void {
+        this._cellSelection = selection;
+    }
+    public clearCellBlock(): void {
+        if (this._cellSelection instanceof CellBlock) {
+            const row= this._cellSelection.activeSiteRow;
+            const cellIndex = this._cellSelection.activeCellIndex;
+            this._cellSelection = new CellTextSelection(row, cellIndex, 0, 0);
+        }
+    }
+    public get root(): SiteRow { return this._root; }
     private buildTree(line: DocLine ): void {
         // Create SiteRow for each DocLine, matching the tree structure
         this._root = SiteRow._buildTreeRecursive(line);
@@ -229,20 +270,6 @@ export class Site {
     }
     public getRoot(): SiteRow {
         return this._root;
-    }
-    
-    // public get doc(): Doc { return this._doc; }
-    
-    public get cellBlock(): CellBlock {
-        return this._cellBlock;
-    }
-    
-    public setCellBlock(block: CellBlock): void {
-        this._cellBlock = block;
-    }
-    
-    public clearCellBlock(): void {
-        this._cellBlock = CellBlock.empty;
     }
     
     constructor() {}

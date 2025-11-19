@@ -1,5 +1,7 @@
 RewriteEngine On
-RewriteBase /
+
+# Default file when accessing directory root
+DirectoryIndex php/index.php php/ambit.php
 
 # Preserve doc folder - redirect doc requests to php/doc
 RewriteRule ^doc/(.*)$ php/doc/$1 [L]
