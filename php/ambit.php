@@ -25,10 +25,10 @@ $content = ''; // Empty initially, JavaScript will populate via GET request
    <div id="details">
 
    <!-- show the active cell: tag, sourceText, classes list, -->
-         <input type="text" id="cellTag" name="cellTag" placeholder="Tag" />
-         <input type="text" id="cellClasses" name="cellClasses" placeholder="Classes" />
-         <br/>
-         <textarea id="cellSourceText" name="cellSourceText" placeholder="Source Text" rows="4" cols="50"></textarea>
+         <div id="target">Tag</div>
+         <div id="classes">Classes</div>
+         <p></p>
+         <div id="content" contentEditable="true" height="120px" width="100%" >b</div>
          <br/>
    </div>
 </div>
