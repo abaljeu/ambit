@@ -28,7 +28,7 @@ $content = ''; // Empty initially, JavaScript will populate via GET request
          <div id="target">Tag</div>
          <div id="classes">Classes</div>
          <p></p>
-         <div id="content" contentEditable="true" height="120px" width="100%" >b</div>
+         <div id="activeContent" contentEditable="true" height="120px" width="100%" >b</div>
          <br/>
    </div>
 </div>

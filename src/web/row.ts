@@ -5,6 +5,7 @@ import { Cell } from './cell.js';
 import { PureCellKind, PureRow, PureCellSelection, PureSelection, PureTextSelection } from './pureData.js';
 import { SiteRowId } from '../site.js';
 import * as HtmlUtil from './htmlutil.js';
+import * as Selection from './selection.js';
 function createRowElement(): Dom.RowElement {
 	// Create newEditor element (3-span: fold-indicator + indentation + rowContent)
 	const newEl = document.createElement(Dom.RowElementTag) as Dom.RowElement;

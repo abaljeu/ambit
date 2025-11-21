@@ -4,6 +4,7 @@ import {
 } from '../htmlutil.js';
 import * as Dom from './editor-dom.js';
 import { Row } from './row.js';
+import * as Selection from './selection.js';
 import { PureCell, PureCellKind } from './pureData.js';
 
 export class Cell {
@@ -92,8 +93,8 @@ export class Cell {
 
 	public setSelection(start: number, end: number): void {
 		if (!this.isText) return;
-		
 		this.newEl.focus();
+		Selection.setSelection(this, start, end);
 		const selection = window.getSelection();
 		if (!selection) return;
 		
