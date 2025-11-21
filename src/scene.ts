@@ -4,7 +4,7 @@ import * as Editor from './editor.js';
 import * as SceneEditor from './scene-editor.js';
 import { ArraySpan } from './arrayspan.js';
 import * as Change from './change.js';
-import { CellBlock, CellSelection, CellTextSelection } from './cellblock.js';
+import { CellBlock, CellSelection, CellTextSelection, NoSelection } from './cellblock.js';
 import { PureRow, PureCellSelection, PureCell, PureCellKind, PureTextSelection, PureSelection } from './web/pureData.js';
 import { model } from './model.js';
 import { SceneRowCells } from './sitecells.js';
@@ -42,24 +42,30 @@ export class SceneRow extends SiteRowSubscriber {
     public getCellSelectionStates(): readonly PureSelection[] {
         const sceneSelection : CellSelection = this.scene.getCellSelection();
         const states: PureSelection[] = [];
-            const cellCount = this.cells.count;
+        const cellCount = this.cells.count;
             
+        if (sceneSelection instanceof CellBlock) {
             for (let i = 0; i < cellCount; i++) {
-                if (sceneSelection instanceof CellBlock) {
-                    const _selected = sceneSelection.includesCell(this.siteRow, i);
-                    const active = sceneSelection.isActiveCell(this.siteRow, i);
-                    states.push(new PureCellSelection(this.id, i, _selected, active));
-                } else if (sceneSelection instanceof CellTextSelection) {
-                    const thisOne : boolean = (sceneSelection.row === this.siteRow)
-                        && (sceneSelection.cellIndex === i);
-                        if (thisOne) {
-                            states.push(new PureTextSelection(this.id, sceneSelection.cellIndex, sceneSelection.focus, sceneSelection.anchor));
-                        } else 
-                            states.push(new PureCellSelection(this.id, i, false, false));
-                            continue;
-                    }
-                }
-            return states;
+                const _selected = sceneSelection.includesCell(this.siteRow, i);
+                const active = sceneSelection.isActiveCell(this.siteRow, i);
+                states.push(new PureCellSelection(this.id, i, _selected, active));
+            }
+        } else if (sceneSelection instanceof CellTextSelection) {
+            for (let i = 0; i < cellCount; i++) {
+                const thisOne : boolean = 
+                    (sceneSelection.row === this.siteRow)
+                    && (sceneSelection.cellIndex === i);
+                if (thisOne) {
+                    states.push(new PureTextSelection(this.id, sceneSelection.cellIndex, sceneSelection.focus, sceneSelection.anchor));
+                } else 
+                    states.push(new PureCellSelection(this.id, i, false, false));
+            }
+        } else if (sceneSelection instanceof NoSelection) {
+            for (let i = 0; i < cellCount; i++) {
+                states.push(new PureCellSelection(this.id, i, false, false));
+            }
+        }
+        return states;
     }
     
     public indexInScene(): number {

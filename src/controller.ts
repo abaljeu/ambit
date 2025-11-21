@@ -6,7 +6,7 @@ import { Doc, DocLine } from './doc.js';
 import { Site, SiteRow } from './site.js';
 import * as Change from './change.js';
 import * as HtmlUtil from './htmlutil.js';
-import { CellSelection, CellBlock, CellTextSelection, CellSpec } from './cellblock.js';
+import { CellSelection, CellBlock, CellTextSelection, CellSpec, NoSelection } from './cellblock.js';
 import { PureTextSelection } from './web/pureData.js';
 
 import * as WebUI from './web/ui.js';
@@ -416,7 +416,9 @@ function findNextEditableCell(row: Editor.Row, fromCell: Editor.Cell): Editor.Ce
 
 function handleArrowUp() : boolean {
 	const cellSelection = model.site.cellSelection;
-	
+	if (cellSelection instanceof NoSelection) {
+		return false;
+	}
 	// If cellSelection is empty, initialize it to current row
 	if (cellSelection instanceof CellTextSelection) {
 		const sceneRow = model.scene.findRow(cellSelection.row.id.toString());
@@ -554,7 +556,9 @@ function handleArrowUp() : boolean {
 
 function handleShiftArrowUp(): boolean {
 	const cellSelection = model.site.cellSelection;
-	
+	if (cellSelection instanceof NoSelection) {
+		return false;
+	}
 	// If cellSelection is empty, initialize it to current row
 	if (cellSelection instanceof CellTextSelection) {
 		const currentRow = Editor.currentRow();

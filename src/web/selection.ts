@@ -11,7 +11,7 @@ import * as Selection from './selection.js';
 
 export function setSelection(cell: Cell, focus: number, anchor: number): void {
     const sel= window.getSelection();
-    DetailView.setDetailView(cell.visibleText);
+    DetailView.setDetailView(cell.htmlContent);
 	DetailView.setSelection(sel, focus, anchor);
 }
 

@@ -71,7 +71,7 @@ export class Row {
 	// Get cell index for a given Cell element
 	public getCellIndex(cell: Cell): number {
 		const allCells = this.cells;
-		const index = allCells.indexOf(cell);
+		const index = allCells.findIndex(c => c.equals(cell));
 		return index;
 	}
 	public getCellLineOffset(cell : Cell): number {

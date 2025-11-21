@@ -138,6 +138,9 @@ export class CellTextSelection {
     public readonly cellIndex: number;
     public constructor(public readonly row: SiteRow, _cellIndex: number, 
         public readonly focus: number, public readonly anchor: number) {
+            if (row === SiteRow.end) {
+                throw new Error('row cannot be SiteRow.end');
+            }
             if (_cellIndex < 0) {
                 this.cellIndex = 0;
             } else {
@@ -154,5 +157,5 @@ export class CellTextSelection {
         return new CellSpec(this.row, this.cellIndex);
     }
 }
-
-export type CellSelection = CellBlock | CellTextSelection;
+export class NoSelection {}
+export type CellSelection = CellBlock | CellTextSelection | NoSelection

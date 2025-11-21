@@ -1,7 +1,7 @@
 import { Doc, DocLine, noDoc, DocLineView } from './doc.js';
 import * as Change from './change.js';
 import { Id, Pool } from './pool.js';
-import { CellBlock, CellSelection, CellTextSelection } from './cellblock.js';
+import { CellBlock, CellSelection, CellTextSelection, NoSelection } from './cellblock.js';
 import { SceneRowCells } from './sitecells.js';
 import { CellSpec } from './cellblock.js';
 // SiteRow ID - uses 'Sxxxxxx' format  
@@ -236,7 +236,7 @@ export class Site {
 
     // private _doc: Doc = noDoc; // The root doc
     private _root: SiteRow = SiteRow.end;
-    private _cellSelection: CellSelection = new CellTextSelection(SiteRow.end, 0, 0, 0);
+    private _cellSelection: CellSelection = new NoSelection();
 
     // public get doc(): Doc { return this._doc; }
     public setDoc(doc: Doc): void {

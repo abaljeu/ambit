@@ -9,10 +9,12 @@ import { PureCell, PureCellKind } from './pureData.js';
 
 export class Cell {
 	constructor(public readonly newEl: Dom.CellElement) {
-
+	}
+	public equals(other: Cell): boolean {
+		return this.newEl === other.newEl;
 	}
 	public get Row() : Row {
-		return new Row(this.newEl.parentNode as Dom.RowElement);
+		return new Row(this.newEl.parentNode!.parentNode! as Dom.RowElement);
 	}
 	public get isIndent(): boolean {
 		return this.newEl.classList.contains(Dom.RowIndentClass);
