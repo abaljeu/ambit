@@ -3,7 +3,7 @@ import * as Change from './change.js';
 import { Id, Pool } from './pool.js';
 import { CellBlock, CellSelection, CellTextSelection } from './cellblock.js';
 import { SceneRowCells } from './sitecells.js';
-
+import { CellSpec } from './cellblock.js';
 // SiteRow ID - uses 'Sxxxxxx' format  
 export class SiteRowId extends Id<'SiteRow'> {
     public constructor(value: string) {
@@ -233,6 +233,7 @@ export class SiteRowPool extends Pool<SiteRow, SiteRowId> {
 const siteRowPool = new SiteRowPool();
 
 export class Site {
+
     // private _doc: Doc = noDoc; // The root doc
     private _root: SiteRow = SiteRow.end;
     private _cellSelection: CellSelection = new CellTextSelection(SiteRow.end, 0, 0, 0);
@@ -242,7 +243,14 @@ export class Site {
         // this._doc = doc;
         this.buildTree(doc.root);
     }
-    
+    public get activeCell() : CellSpec | null {
+        if (this.cellSelection instanceof CellBlock) {
+            return this.cellSelection.activeCell;
+        } else if (this.cellSelection instanceof CellTextSelection) {
+            return this.cellSelection.activeCell;
+        }
+        return null;
+    }
     public get cellSelection(): CellSelection {
         return this._cellSelection;
     }

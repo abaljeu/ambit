@@ -71,7 +71,7 @@ export function currentRow(): Row {
 	
 	return endRow;
 }
-function findCellContainingNode(subNode: Node) : Cell | null{
+export function findCellContainingNode(subNode: Node) : Cell | null{
     let node = subNode;
     // Navigate up to find the cell element that contains the cursor
     let cellElement: Dom.CellElement | null = null;

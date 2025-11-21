@@ -71,7 +71,7 @@ export function getHtmlOffsetFromNode(
 	targetNode: Node, 
 	targetOffset: number
 ): number {
-	const range = document.createRange();
+	const range = new Range();
 	range.setStart(container, 0);
 	range.setEnd(targetNode, targetOffset);
 

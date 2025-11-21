@@ -54,7 +54,9 @@ export class SceneRow extends SiteRowSubscriber {
                         && (sceneSelection.cellIndex === i);
                         if (thisOne) {
                             states.push(new PureTextSelection(this.id, sceneSelection.cellIndex, sceneSelection.focus, sceneSelection.anchor));
-                        } else states.push(new PureCellSelection(this.id, i, false, false));
+                        } else 
+                            states.push(new PureCellSelection(this.id, i, false, false));
+                            continue;
                     }
                 }
             return states;
@@ -255,6 +257,9 @@ export class Scene {
         return this._rows;
     }
     
+    private isTextSelection(state: PureSelection): boolean {
+        return state instanceof PureTextSelection;
+    }
     // Called by controller after updating site selection
     public updatedSelection(): void {
         let cursor = false;
@@ -263,7 +268,7 @@ export class Scene {
             if (editorRow !== Editor.endRow) {
                 const pureStates = row.getCellSelectionStates();
                 editorRow.updateCellBlockStyling(pureStates);
-                if (pureStates.some(state => state instanceof PureTextSelection)) {
+                if (pureStates.some(this.isTextSelection)) {
                     cursor = true;
                 }
             }

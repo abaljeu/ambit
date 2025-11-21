@@ -115,7 +115,7 @@ export class Cell {
 		
 		if (!startPos || !endPos) return;
 		
-		const range = document.createRange();
+		const range = new Range();
 		// Ensure start <= end for the range
 		// if (start <= end) {
 			range.setStart(startPos.node, startPos.offset);
@@ -165,6 +165,18 @@ export class Cell {
 		this.setSelection(anchorOffset, clampedOffset);
 	}
 
+	public static fromXY(x: number, y: number): {cell: Cell, offset: number} | null {
+		const pos = document.caretPositionFromPoint(x, y);
+		if (!pos)
+			return null;
+		const element = pos.offsetNode;
+		const cell = Selection.findCellContainingNode(element);
+		if (!cell)
+			return null;
+		return {cell, offset: pos.offset};
+	}
+
+
 	public offsetAtX(x: number): number {
 		const contentSpan = this.newEl;
 		if (!contentSpan) return 0;
@@ -183,7 +195,7 @@ export class Cell {
 			const position = Dom.getNodeAndOffsetFromTextOffset(contentSpan, i);
 			if (!position) continue;
 			
-			const r = document.createRange();
+			const r = new Range();
 			r.setStart(position.node, position.offset);
 			r.collapse(true);
 			const rect = r.getBoundingClientRect();

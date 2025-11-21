@@ -34,6 +34,9 @@ export class Row {
 	public equals(other: Row): boolean {
 		return this.newEl === other.newEl;
 	}
+	public toString(): string {
+		return `Row(id: ${this.id}, cells: ${this.cells.map(cell => cell.toString()).join(Dom.VISIBLE_TAB)})`;
+	}
 	public cellAt(index: number): Cell {
 		if (index < 0 || index >= this.cells.length)
 			return this.cells[this.cells.length-1];
@@ -610,7 +613,7 @@ export function caretX(): number {
 	const rect = r.getBoundingClientRect();
 	return rect.left;
 }
-
+	
 export function replaceRows(oldRows: RowSpan, newRows: ArraySpan<PureRow>): RowSpan {
 	if (oldRows.count === 0 && newRows.length === 0) return new RowSpan(endRow, 0);
 	

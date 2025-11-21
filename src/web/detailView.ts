@@ -16,7 +16,7 @@ export function getDetailView(): string {
 export function setSelection(sel: Selection | null, focus: number, anchor: number): void {
     if (!sel) return;
 
-    const range = document.createRange();
+    const range = new Range();
     const text = activeContent.textContent;
     const start = focus < text.length ? focus : text.length;
     const end = anchor < text.length ? anchor : text.length;

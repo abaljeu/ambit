@@ -1,9 +1,15 @@
 import { SiteRow } from './site.js';
 import { SceneRow } from './scene.js';
 
+export class CellSpec {
+    public constructor(public readonly row: SiteRow, public readonly cellIndex: number) {
+    }
+}
 export class CellBlock {
     private static _empty: CellBlock | null = null;
-    
+    public get activeCell() : CellSpec {
+        return new CellSpec(this.activeSiteRow, this.activeCellIndex);
+    }
     public static get empty(): CellBlock {
         if (CellBlock._empty === null) {
             CellBlock._empty = new CellBlock(
@@ -144,6 +150,9 @@ export class CellTextSelection {
                 throw new Error('anchor must be non-negative');
             }
         }
+    public get activeCell() : CellSpec {
+        return new CellSpec(this.row, this.cellIndex);
+    }
 }
 
 export type CellSelection = CellBlock | CellTextSelection;

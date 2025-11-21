@@ -6,7 +6,7 @@ import { Doc, DocLine } from './doc.js';
 import { Site, SiteRow } from './site.js';
 import * as Change from './change.js';
 import * as HtmlUtil from './htmlutil.js';
-import { CellSelection, CellBlock, CellTextSelection } from './cellblock.js';
+import { CellSelection, CellBlock, CellTextSelection, CellSpec } from './cellblock.js';
 import { PureTextSelection } from './web/pureData.js';
 
 import * as WebUI from './web/ui.js';
@@ -30,14 +30,22 @@ export function cellLocalToRowLevelOffset(row: Editor.Row, cell: Editor.Cell, ce
 	}
 	return rowLevelOffset;
 }
+export function setCaretInSite(row: SiteRow,
+                cellIndex: number,
+                focus: number, anchor: number = -1): void {
+    const _anchor = anchor === -1 ? focus : anchor;
+    model.site.setSelection(new CellTextSelection(row, cellIndex, focus, _anchor));
+    model.scene.updatedSelection();
+}
 export function setCaretInRow(row: Editor.Row, 
-	cell: number,
-	focus: number, anchor: number = -1): void {
-	const sceneRow = model.scene.findRow(row.id);
-	const siteRow = sceneRow.siteRow;
-	const _anchor = anchor === -1 ? focus : anchor;
-	model.site.setSelection(new CellTextSelection(siteRow, siteRow.indent, focus, _anchor));
-	model.scene.updatedSelection();
+        cellIndex: number,
+        focus: number, anchor: number = -1): void {
+    const sceneRow = model.scene.findRow(row.id);
+    const siteRow = sceneRow.siteRow;
+    setCaretInSite(siteRow, cellIndex, focus, anchor);
+}
+export function setCaret(cellSpec : CellSpec, offset: number, anchor: number = -1): void {
+    setCaretInSite(cellSpec.row, cellSpec.cellIndex, offset, anchor);
 }
 // Methods to manage CellSelection selection
 export function selectRow(initialRow: Editor.Row): void {

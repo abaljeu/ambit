@@ -6,7 +6,7 @@ import { Doc, DocLine } from './doc.js';
 import { Site, SiteRow } from './site.js';
 import * as Change from './change.js';
 import * as HtmlUtil from './htmlutil.js';
-import { CellSelection, CellBlock, CellTextSelection } from './cellblock.js';
+import { CellSelection, CellBlock, CellTextSelection, CellSpec } from './cellblock.js';
 import { PureTextSelection } from './web/pureData.js';
 
 import * as WebUI from './web/ui.js';
@@ -578,22 +578,22 @@ function handleShiftArrowUp(): boolean {
 	let newParentSiteRow = parentSiteRow;
 	
 	let newActiveCellIndex = cellSelection.activeCellIndex;
-	
+	const activeCellIndex = cellSelection.activeCellIndex;
 	// Try to move to previous sibling
 	if (activeChildIndex > 0) {
 		const prevSibling = parentSiteRow.children[activeChildIndex - 1];
 		if (isActiveAtTop) {
 			newStartIndex = activeChildIndex - 1;
 			newActiveSiteRow = prevSibling;
-			newActiveCellIndex = activeChildIndex - 1;
+			newActiveCellIndex = activeCellIndex;
 		} else if (isActiveAtBottom) {
 			newEndIndex = activeChildIndex - 1;
 			newActiveSiteRow = prevSibling;
-			newActiveCellIndex = activeChildIndex - 1;
+			newActiveCellIndex = activeCellIndex;
 		} else {
 			newStartIndex = activeChildIndex - 1;
 			newActiveSiteRow = prevSibling;
-			newActiveCellIndex = activeChildIndex - 1;
+			newActiveCellIndex = activeCellIndex;
 		}
 	} else {
 		// No previous sibling, select parent instead
@@ -648,22 +648,23 @@ function handleShiftArrowDown(): boolean {
 		let newActiveSiteRow = activeSiteRow;
 		let newParentSiteRow = parentSiteRow;
 		let newActiveCellIndex = cellSelection.activeCellIndex;
-		
+		const activeCellIndex = cellSelection.activeCellIndex;
+
 		// Try to move to next sibling
 		if (activeChildIndex < parentSiteRow.children.length - 1) {
 			const nextSibling = parentSiteRow.children[activeChildIndex + 1];
 			if (isActiveAtBottom) {
 				newEndIndex = activeChildIndex + 1;
 				newActiveSiteRow = nextSibling;
-				newActiveCellIndex = activeChildIndex + 1;
+				newActiveCellIndex = activeCellIndex
 			} else if (isActiveAtTop) {
 				newStartIndex = activeChildIndex + 1;
 				newActiveSiteRow = nextSibling;
-				newActiveCellIndex = activeChildIndex + 1;
+				newActiveCellIndex = activeCellIndex;
 			} else {
 				newStartIndex = activeChildIndex + 1;
 				newActiveSiteRow = nextSibling;
-				newActiveCellIndex = activeChildIndex + 1;
+				newActiveCellIndex = activeCellIndex;
 			}
 		} else {
 			// No next sibling, select parent instead
@@ -736,6 +737,8 @@ function handleArrowRight() : boolean {
 		activeRow = e.activeSiteRow;
 		cellIndex = e.activeCellIndex;
 		offset = e.startColumnIndex;
+		Ops.setCaret(e.activeCell, 0,0);
+		return true;
 	}
 	if (!activeRow) 
 		return true;
@@ -1434,3 +1437,18 @@ export function save() {
 }
 
 
+export function moveCursor(offset: number, anchor: number) {
+	const cellSpec = model.activeCell;
+	if (!cellSpec) 
+		return;
+	Ops.setCaret(cellSpec, offset, anchor);
+}
+export function moveCursorToCell(cell: Editor.Cell, offset: number, anchor: number) {
+	if (!cell) 
+		return;
+	const editorRow = cell.Row;
+	const index = editorRow.getCellIndex(cell);
+	const siteRow = model.scene.findRow(cell.Row.id).siteRow;
+	const cellSpec = new CellSpec(siteRow, index);
+	Ops.setCaret(cellSpec, offset, anchor);
+}

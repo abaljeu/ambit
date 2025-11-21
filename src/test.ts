@@ -604,7 +604,8 @@ function testHandleArrowRight(): void {
     assert(row2Cells[0].hasCellBlockActive());
 
     assertEquals(rows[2], Editor.currentRow());
-
+    assert(model.site.cellSelection instanceof CellBlock);
+    assertEquals(0, cellBlock.activeCellIndex);
     // Act & Assert: ArrowRight clears selection
     sendKey('ArrowRight', []);
     // selection should be empty.  cursor should be active in row 2
@@ -685,7 +686,7 @@ function testHandleArrowRight(): void {
     assert(cellBlock !== null);
     assertEquals(2, cellBlock.startChildIndex);
     assertEquals(2, cellBlock.endChildIndex);
-    assertEquals(2, cellBlock.activeCellIndex);
+    assertEquals(0, cellBlock.activeCellIndex);
 
 
     sendKey('ArrowUp', ['S']);
@@ -694,7 +695,7 @@ function testHandleArrowRight(): void {
     assert(cellBlock !== null);
     assertEquals(1, cellBlock.startChildIndex);
     assertEquals(2, cellBlock.endChildIndex);
-    assertEquals(1, cellBlock.activeCellIndex);
+    assertEquals(0, cellBlock.activeCellIndex);
 
     sendKey('ArrowUp', ['S']);
     cellSelection = model.site.cellSelection;
@@ -711,7 +712,7 @@ function testHandleArrowRight(): void {
     assert(cellBlock !== null);
     assertEquals(1, cellBlock.startChildIndex);
     assertEquals(2, cellBlock.endChildIndex);
-    assertEquals(1, cellBlock.activeCellIndex);
+    assertEquals(0, cellBlock.activeCellIndex);
     
 
     sendKey('ArrowDown', ['S']);
@@ -720,7 +721,7 @@ function testHandleArrowRight(): void {
     assert(cellBlock !== null);
     assertEquals(2, cellBlock.startChildIndex);
     assertEquals(2, cellBlock.endChildIndex);
-    assertEquals(2, cellBlock.activeCellIndex);
+    assertEquals(0, cellBlock.activeCellIndex);
     
 },
 function testConvertTextToHtml(): void {

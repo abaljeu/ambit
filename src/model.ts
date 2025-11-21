@@ -2,7 +2,8 @@ import { Doc, DocLine, DocLineId } from './doc.js';
 import { Scene } from './scene.js';
 import { Site, SiteRow } from './site.js';
 import { postDoc } from './ambit.js';
-
+import { Cell } from './editor.js';
+import { CellSpec } from './cellblock.js';
 export class Transaction {
 }
 
@@ -11,6 +12,9 @@ class Model {
     public  history : Transaction[] = [];
     public site: Site = new Site();
     public scene: Scene = new Scene(this.site);
+    public get activeCell(): CellSpec | null {
+        return this.site.activeCell;
+    }
     constructor() {
     }
     public addOrUpdateDoc(text: string, path:string): Doc {
