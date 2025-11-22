@@ -109,9 +109,25 @@ style to go side by side.
     box-sizing: border-box;
 }
 
-#content{
+#activeContent{
     border: 1px solid #ccc;
+    caret-color: transparent;
 }
+@keyframes detailCaretBlink {
+	0%, 50% { opacity: 1; }
+	50.01%, 100% { opacity: 0; }
+}
+#details{
+    position: relative;
+}
+
+#activeContentCursor{
+    position: absolute;
+    width: 1px;
+    background-color: #000;
+    pointer-events: none;
+}
+
 .cellBlock-selected {
     background-color: #f0f0f0;
 }

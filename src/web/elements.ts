@@ -4,3 +4,6 @@ export const messageArea = document.getElementById("messageElement") as HTMLElem
 export const linksDiv = document.getElementById('links') as HTMLElement;
 export const path = document.getElementById('path') as HTMLElement;
 export const activeContent = document.getElementById('activeContent') as HTMLDivElement;
+export const activeContentCursor = document.getElementById(
+	'activeContentCursor'
+) as HTMLDivElement;

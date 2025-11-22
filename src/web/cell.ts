@@ -6,6 +6,7 @@ import * as Dom from './editor-dom.js';
 import { Row } from './row.js';
 import * as Selection from './selection.js';
 import { PureCell, PureCellKind } from './pureData.js';
+import * as DetailView from './detailView.js';
 
 export class Cell {
 	constructor(public readonly newEl: Dom.CellElement) {
@@ -128,6 +129,7 @@ export class Cell {
 		// }
 		selection.removeAllRanges();
 		selection.addRange(range);
+		DetailView.setSelection(selection, start, end);
 	}
 
 	public getAnchorOffset(): number {
