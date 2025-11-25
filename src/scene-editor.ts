@@ -1,10 +1,11 @@
-import { SceneRow } from './scene.js';
 import { SceneCell } from './sitecells.js';
 
 import { ArraySpan } from './arrayspan.js';
 import * as RowEditor from './web/row.js';
 import { Cell } from './web/cell.js';
 import { PureCell, PureRow, PureCellKind } from './web/pureData.js';
+import { RowSpan } from './web/row.js';
+import { SiteRow } from './site.js';
 
 export type EditorRow = RowEditor.Row;
 export type EditorRowSpan = RowEditor.RowSpan;
@@ -17,10 +18,15 @@ export function sceneCellToPureCell(sceneCell: SceneCell): PureCell {
 	return new PureCell(kind, sceneCell.text, sceneCell.width);
 }
 
-export function sceneRowToPureRow(sceneRow: SceneRow): PureRow {
-	const cells = sceneRow.cells.cells.map(sceneCellToPureCell);
+export function SiteRowToPureRow(SiteRow: SiteRow): PureRow {
+	const cells = SiteRow.cells.toArray.map(sceneCellToPureCell);
 
-	return new PureRow(sceneRow.id, sceneRow.indent, cells);
+	return new PureRow(SiteRow.id, SiteRow.indent, cells);
+}
+export function siteRowToPureRow(siteRow: SiteRow): PureRow {
+	const cells = siteRow.cells.toArray.map(sceneCellToPureCell);
+
+	return new PureRow(siteRow.id, siteRow.indent, cells);
 }
 
 export function sceneCellMatchesEditorCell(sceneCell: SceneCell, editorCell: Cell): boolean {
@@ -29,29 +35,29 @@ export function sceneCellMatchesEditorCell(sceneCell: SceneCell, editorCell: Cel
 	return scenePure.equals(editorPure);
 }
 
-export function sceneRowMatchesEditorRow(sceneRow: SceneRow, editorRow: RowEditor.Row): boolean {
-	const scenePure = sceneRowToPureRow(sceneRow);
+export function SiteRowMatchesEditorRow(SiteRow: SiteRow, editorRow: RowEditor.Row): boolean {
+	const scenePure = SiteRowToPureRow(SiteRow);
 	const editorPure = editorRow.toPureRow();
 	return scenePure.equals(editorPure);
 }
 
-// Thin Scene→Editor adapter. Converts SceneRow to PureRow before calling web layer.
+// Thin Scene→Editor adapter. Converts SiteRow to PureRow before calling web layer.
 export function replaceRows(
 	oldRows: RowEditor.RowSpan,
-	newRows: ArraySpan<SceneRow>
+	newRows: SiteRow[]
 ): RowEditor.RowSpan {
 	const pureRows = new ArraySpan(
-		Array.from(newRows).map(sceneRowToPureRow),
+		Array.from(newRows).map(SiteRowToPureRow),
 		0,
 		newRows.length
 	);
 	return RowEditor.replaceRows(oldRows, pureRows);
 }
 
-export function setEditorContent(scene: ArraySpan<SceneRow>)
-	: RowEditor.RowSpan {
+export function setEditorContent(scene: ArraySpan<SiteRow>)
+	: RowSpan {
 	const pureRows = new ArraySpan(
-		Array.from(scene).map(sceneRowToPureRow),
+		Array.from(scene).map(SiteRowToPureRow),
 		0,
 		scene.length
 	);

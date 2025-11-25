@@ -1,5 +1,5 @@
-import { SiteRow } from './site.js';
-import { SceneRow } from './scene.js';
+import { RowCell, SiteRow } from './site.js';
+import { SceneCell } from './sitecells.js';
 
 export class CellSpec {
     public constructor(public readonly row: SiteRow, public readonly cellIndex: number) {
@@ -7,8 +7,8 @@ export class CellSpec {
 }
 export class CellBlock {
     private static _empty: CellBlock | null = null;
-    public get activeCell() : CellSpec {
-        return new CellSpec(this.activeSiteRow, this.activeCellIndex);
+    public get activeRowCell() : RowCell {
+        return new RowCell(this.activeSiteRow, this.activeSiteRow.cells.at(this.activeCellIndex));
     }
     public static get empty(): CellBlock {
         if (CellBlock._empty === null) {
@@ -153,8 +153,8 @@ export class CellTextSelection {
                 throw new Error('anchor must be non-negative');
             }
         }
-    public get activeCell() : CellSpec {
-        return new CellSpec(this.row, this.cellIndex);
+    public get activeRowCell() : RowCell {
+        return new RowCell(this.row, this.row.cells.at(this.cellIndex));
     }
 }
 export class NoSelection {}

@@ -50,12 +50,7 @@ export function setSelection(sel: Selection | null, focus: number, anchor: numbe
         cursor.style.animation = 'none';
     }
 }
-export function hasFocus(): boolean {
-	return activeContent.contains(window.getSelection()?.focusNode ?? null);
-}
 export function getSelection(): { focus: number, anchor: number } {
-	if (hasFocus())
-		return { focus: _focus, anchor: _anchor };
-	return { focus: -1, anchor: -1 };
+	return { focus: _focus, anchor: _anchor };
 }
 

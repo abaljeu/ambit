@@ -1,4 +1,7 @@
 import * as lm from './elements.js';
+import * as detailView from './detailView.js';
+import { model } from '../model.js';
+import { CellTextSelection } from '../cellblock.js';
 import { ArraySpan } from '../arrayspan.js';
 import * as Dom from './editor-dom.js';
 import { Cell } from './cell.js';
@@ -161,29 +164,9 @@ export class Row {
 		rowContent.innerHTML = '';
 		
 		for (const cell of pureRow.cells) {
-			if (cell.kind === PureCellKind.Indent) {
-				const indentSpan = document.createElement('span');
-				indentSpan.className = Dom.RowIndentClass;
-				indentSpan.innerHTML = Dom.VISIBLE_TAB;
-				rowContent.appendChild(indentSpan);
-			}
-			else if (cell.kind === PureCellKind.Text) {
-				const textSpan = document.createElement('span');
-				textSpan.className = Dom.TextCellClass;
-				textSpan.contentEditable = 'true';
-				// width of cell is source cell width in ems
-				// if -1, fills container after all other cells are set (flex: 1)
-				// if > 0, min 1em, max to fit content
-				if (cell.width === -1 || cell.width === 0) {
-					textSpan.classList.add(Dom.CellFlexClass);
-				} else {
-					textSpan.classList.add(Dom.CellFixedClass);
-					textSpan.style.width = `${cell.width}em`;
-				}
-				
-				textSpan.innerHTML = HtmlUtil.convertTextToHtml(cell.text);
-				rowContent.appendChild(textSpan);
-			}
+			const span = document.createElement('span');
+			rowContent.appendChild(span);
+			Cell.initializeFromPureCell(span, cell);
 		}
 		this._cachedCells = [];
 	}
@@ -398,6 +381,9 @@ export class RowSpan implements Iterable<Row> {
 		}
 		return row;
 	}
+	public first() : Row {
+		return this.row;
+	}
 	public last() : Row {
 		let row = this.row;
 		for (let i = 0; i < this.count - 1; i++) {
@@ -594,9 +580,9 @@ export function currentSelection() : PureTextSelection | null{
 	}
 	
 	const row = new Row(rowElement);
-	
-	const focus = cell.caretOffset();
-	const anchor = cell.getAnchorOffset();
+	const detailSelection = detailView.getSelection();// 
+	const focus = detailSelection.focus;
+	const anchor = detailSelection.anchor;
 	
 	return new PureTextSelection(
 		new SiteRowId(row.id),
@@ -636,7 +622,8 @@ export function setEditorContent(pureRows: ArraySpan<PureRow>): RowSpan {
 
 	// Create a Line element for each visible line
 	const end = endRow;
-	return addBefore(end, pureRows);
+	const newRows = addBefore(end, pureRows);
+	return newRows;
 }
 
 

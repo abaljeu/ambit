@@ -1,6 +1,6 @@
-import * as lm from './elements.js';
-import * as Controller from '../controller.js';
-import * as Cell from './cell.js';
+import * as lm from '../web/elements.js';
+import * as Controller from './controller.js';
+import * as Cell from '../web/cell.js';
 
 export function installEditorEvents(handlers: {
 	onKeyDown: (event: KeyboardEvent) => void;

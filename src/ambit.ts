@@ -1,7 +1,9 @@
-// import { RowId, endRowId } from './rowid.js';
-import * as Controller from './controller.js';
+import { CellTextSelection } from './cellblock.js';
+import { RowCell } from './site.js';
+import * as Ops from './ops.js';
+import * as Controller from './ctrl/controller.js';
 import * as lm from './web/elements.js';
-import * as WebEvents from './web/events.js';
+import * as WebEvents from './ctrl/events.js';
 import * as WebUI from './web/ui.js';
 import { model } from './model.js';
 import * as Test from './test.js';
@@ -72,4 +74,9 @@ if (typeof window !== 'undefined' && window.location.pathname.includes('ambit.ph
     
     await Test.runAllTests();
     await loadFromPath(filePath);
+    const row = model.scene.rows[0];
+    const cell = row.cells.at(0);
+    const rowcell = new RowCell(row, cell);
+    Ops.setCaretInCell(rowcell, 0);
+
 }

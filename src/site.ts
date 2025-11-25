@@ -2,9 +2,15 @@ import { Doc, DocLine, noDoc, DocLineView } from './doc.js';
 import * as Change from './change.js';
 import { Id, Pool } from './pool.js';
 import { CellBlock, CellSelection, CellTextSelection, NoSelection } from './cellblock.js';
-import { SceneRowCells } from './sitecells.js';
-import { CellSpec } from './cellblock.js';
+import { SceneCell, SceneRowCells } from './sitecells.js';
+import { PureCellSelection, PureCellKind, PureSelection, PureTextSelection, PureCell, PureRow } from './web/pureData.js';
+import * as Editor from './editor.js';
+import { model } from './model.js';
 // SiteRow ID - uses 'Sxxxxxx' format  
+export class RowCell {
+    public constructor(public readonly row: SiteRow, public readonly cell: SceneCell) { }
+    public get cellIndex(): number { return this.row.cells.indexOf(this.cell); }
+}
 export class SiteRowId extends Id<'SiteRow'> {
     public constructor(value: string) {
         if (!/^S[0-9A-Z]{6}$/.test(value)) {
@@ -13,12 +19,13 @@ export class SiteRowId extends Id<'SiteRow'> {
          super(value); 
     }
 }
-
+// Not used.  but should be in this file.
 export abstract class SiteRowSubscriber {
     abstract siteRowsInsertedBefore(siteRows: SiteRow[]): void;
     abstract siteRowsInsertedBelow(siteRows: SiteRow[]): void;
     abstract siteRowRemoving(): void;
     abstract siteRowTextChanged(siteRow: SiteRow): void;
+    abstract siteRowCellTextChanged(siteRow: SiteRow,cellIndex: number): void;
     abstract siteRowFolded(): void;
     abstract siteRowUnfolded(): void;
 }
@@ -38,7 +45,6 @@ export class SiteRow extends DocLineView {
     public readonly id: SiteRowId;
     private _folded : boolean = false;
     private readonly _docLine: DocLine;
-    
     private _cells: SceneRowCells | undefined;
     public get cells(): SceneRowCells {
         if (this._cells === undefined) {
@@ -60,6 +66,7 @@ export class SiteRow extends DocLineView {
         this.children.forEach(child => child.setParent(this));
     }
     public get parent(): SiteRow { return this._parent ?? SiteRow.end; }
+
     public get indent(): number { return this.parent !== SiteRow.end ? this.parent.indent + 1 : -1; }
     public get treeLength(): number {
         return 1 + this.children.reduce((sum, child) => sum + child.treeLength, 0);
@@ -71,6 +78,45 @@ export class SiteRow extends DocLineView {
             child.print();
         }
     }
+        
+        // Check if a specific cell index in this row is selected
+        public isCellSelected(cellIndex: number): boolean {
+            const cellSelection = model.site.cellSelection;
+            if (cellSelection instanceof CellBlock) {
+                return cellSelection.includesCell(this, cellIndex);
+            }
+            return false;
+        }
+        
+    public getCellSelectionStates(): readonly PureSelection[] {
+        const sceneSelection : CellSelection = cellSelection();
+        const states: PureSelection[] = [];
+        const cellCount = this.cells.count;
+            
+        if (sceneSelection instanceof CellBlock) {
+            for (let i = 0; i < cellCount; i++) {
+                const _selected = sceneSelection.includesCell(this, i);
+                const active = sceneSelection.isActiveCell(this, i);
+                states.push(new PureCellSelection(this.id, i, _selected, active));
+            }
+        } else if (sceneSelection instanceof CellTextSelection) {
+            for (let i = 0; i < cellCount; i++) {
+                const thisOne : boolean = 
+                    (sceneSelection.row === this)
+                    && (sceneSelection.cellIndex === i);
+                if (thisOne) {
+                    states.push(new PureTextSelection(this.id, sceneSelection.cellIndex, sceneSelection.focus, sceneSelection.anchor));
+                } else 
+                    states.push(new PureCellSelection(this.id, i, false, false));
+            }
+        } else if (sceneSelection instanceof NoSelection) {
+            for (let i = 0; i < cellCount; i++) {
+                states.push(new PureCellSelection(this.id, i, false, false));
+            }
+        }
+        return states;
+    }
+    
     public constructor(DocLine: DocLine, id: SiteRowId, 
             public readonly type: SiteRowType = SiteRowType.DocLineView) {
         super();
@@ -88,17 +134,48 @@ export class SiteRow extends DocLineView {
     public toggleFold(): void {
         this._folded = !this._folded;
         if (this._folded) {
-        this._subscribers.forEach(subscriber => subscriber.siteRowFolded());
+        this.siteRowFolded();
         } else {
-            this._subscribers.forEach(subscriber => subscriber.siteRowUnfolded());
+            this.siteRowUnfolded();
+        }
+    }
+    public siteRowFolded(): void {
+        const next = this.next;
+        const index = model.scene.indexOf(this);
+        let nextIndex = index;
+        if (next.valid) {
+            nextIndex = model.scene.indexOf(next);
+        } else {
+            nextIndex = model.scene.indexOf(SiteRow.end);
+        }
+        model.scene.deleteRows(index, nextIndex-index);
+    }
+    public siteRowUnfolded(): void {
+        const next = this.next;
+        const index = model.scene.indexOf(this);
+        let nextIndex = index;
+        if (next.valid) {
+            nextIndex = model.scene.indexOf(next);
+        } else {
+            nextIndex = model.scene.indexOf(SiteRow.end);
+        }
+        if (nextIndex == index+1) {
+            model.scene.addRows(index+1, this.children);        
         }
     }
     public get previous(): SiteRow {
         const index = this.parent.children.indexOf(this);
-        if (index <= 0) { // can expand in future
+        if (index <= 0) { 
              return SiteRow.end;
         }
         return this.parent.children[index - 1];
+    }
+    public get next(): SiteRow {
+        const index = this.parent.children.indexOf(this);
+        if (index >= this.parent.children.length - 1) {
+             return SiteRow.end;
+        }
+        return this.parent.children[index + 1];
     }
     public docLineTextChanged(line: DocLine): void {
         if (line !== this.docLine) return;
@@ -106,14 +183,42 @@ export class SiteRow extends DocLineView {
         this._cells = undefined;
         const newCells = this.cells;
 
+        this.siteRowTextChanged();
+    }
+    public siteRowTextChanged(): void {
+        const r : Editor.Row = Editor.findRow(this.id.value);
+
         // todo: transfer cell selection to new cells.
         // for  range (a,b) and old length L, new length N
         // new range (c,d) will have L-b - N-d and b-a = d-c.
         // (then if c<0 then c=0.)
-
-
-        this._subscribers.forEach(subscriber => subscriber.siteRowTextChanged(this));
+         if (r !== Editor.endRow) {
+            // Convert SceneRow to PureRow
+            const cells = this.cells.toArray.map(cell => 
+                new PureCell(cell.type, cell.text, cell.width)
+            );
+            const pureRow = new PureRow(this.id, this.indent, cells);
+            r.setContent(pureRow);
+         }
     }
+    public docLineCellTextChanged(line: DocLine, cellIndex: number, newText: string): void {
+        if (line !== this.docLine)
+            return;
+        this._cells = undefined;       
+        this.siteRowCellTextChanged(cellIndex);
+    }
+    public siteRowCellTextChanged(cellIndex: number): void {
+        const sceneCell = this.cells.at(cellIndex);
+        if (sceneCell === undefined) return;
+
+        const editorRow : Editor.Row = Editor.findRow(this.id.value);
+        if (editorRow !== Editor.endRow) {
+            const editorCell : Editor.Cell = editorRow.cellAt(cellIndex);
+            const pureCell = new PureCell(sceneCell.type, sceneCell.text, sceneCell.width);
+            editorCell.updateFromPureCell(pureCell);
+        }
+    }
+
     public indexOrLast(row : SiteRow): number {
         return this.children.indexOf(row) !== -1 ? this.children.indexOf(row) : this.children.length;
     }
@@ -127,13 +232,24 @@ export class SiteRow extends DocLineView {
     // these lines could pre-exist or be trees
     public docLinesInsertedBefore(lines: DocLine[]): void {
         const newRows = this.addBefore(lines);
-        this._subscribers.forEach(subscriber => subscriber.siteRowsInsertedBefore( newRows));
+    
+        const sceneParent = model.scene.search(row => row === this.parent)
+        if (sceneParent === SiteRow.end) return;
+        
+        const selfIndex = model.scene.indexOf(this);
+        model.scene.addRows(selfIndex, newRows);
     }
     public docLinesInsertedBelow(lines: DocLine[]): void {
         const newRows = lines.map(line => siteRowPool.create((id) => new SiteRow(line, id)));
         this.addChildren(newRows);
-        this._subscribers.forEach(subscriber => subscriber.siteRowsInsertedBelow( newRows));
+
+        if (this.folded) return;
+        if (this  === SiteRow.end) return;
+        
+        const index = model.scene.indexOf(this);
+        model.scene.addRows(index+this.treeLength, newRows);
     }
+
     public docLineMovingBefore(moving: DocLineView): void {
         // moving is a SiteRow.  need its SceneRow
         moving.docLineRemoving(); 
@@ -143,12 +259,21 @@ export class SiteRow extends DocLineView {
         const index = afterRow.parent.indexOrLast(afterRow);
         afterRow.parent.children.splice(index, 0, this);
         this.setParent(afterRow.parent);
-        afterRow._subscribers.forEach(subscriber => subscriber.siteRowsInsertedBefore([this]));
+
+        const sceneParent = model.scene.search(row => row === this.parent)
+        if (sceneParent === SiteRow.end) return;  
+        const selfIndex = model.scene.indexOf(this);
+        model.scene.addRows(selfIndex, [this]);
     }
     public insertBelow(parentRow: SiteRow): void {
         parentRow.children.push(this);
         this.setParent(parentRow);
-        parentRow._subscribers.forEach(subscriber => subscriber.siteRowsInsertedBelow([this]));
+
+        if (this.folded) return;
+        if (this  === SiteRow.end) return;
+        
+        const selfIndex = model.scene.indexOf(this);
+        model.scene.addRows(selfIndex+this.treeLength, [this]);
     }
     public docLineMovingBelow(moving: DocLineView): void {
         // moving is a SiteRow.  need its SceneRow
@@ -156,7 +281,8 @@ export class SiteRow extends DocLineView {
         (moving as SiteRow).insertBelow(this);
     }
     public docLineRemoving(): void {
-        this._subscribers.forEach(subscriber => subscriber.siteRowRemoving());
+        // delete self and children from scene.
+        model.scene.deleteRows(model.scene.indexOf(this), this.treeLength);
         this.parent.removeChild(this);
     }
     public docLineSplitted(docLine: DocLine): void {
@@ -166,7 +292,15 @@ export class SiteRow extends DocLineView {
         // Update length propagates up the tree
     }
     
-
+    public cellTextPosition(c: SceneCell): number {
+        let position = 0;
+        for (const cell of this.cells.toArray) {
+            if (cell === c)
+                return position;
+            position += cell.text.length + 1;
+        }
+        return position;
+    }        
     public get valid(): boolean { return this !== SiteRow.end; }
     public get folded(): boolean { return this._folded; }
     public addChild(child: SiteRow): void {
@@ -231,53 +365,58 @@ export class SiteRowPool extends Pool<SiteRow, SiteRowId> {
     public readonly tag: string = 'S';
 }
 const siteRowPool = new SiteRowPool();
+    // private _doc: Doc = noDoc; // The root doc
+let _root: SiteRow = SiteRow.end;
+let _cellSelection: CellSelection = new NoSelection();
+export function cellSelection(): CellSelection {
+    return _cellSelection;
+}
 
 export class Site {
 
-    // private _doc: Doc = noDoc; // The root doc
-    private _root: SiteRow = SiteRow.end;
-    private _cellSelection: CellSelection = new NoSelection();
 
     // public get doc(): Doc { return this._doc; }
     public setDoc(doc: Doc): void {
         // this._doc = doc;
         this.buildTree(doc.root);
     }
-    public get activeCell() : CellSpec | null {
+    public get cellSelection(): CellSelection {
+        return _cellSelection;
+    }
+    public get activeCell() : RowCell | null {
         if (this.cellSelection instanceof CellBlock) {
-            return this.cellSelection.activeCell;
+            return this.cellSelection.activeRowCell;
         } else if (this.cellSelection instanceof CellTextSelection) {
-            return this.cellSelection.activeCell;
+            return this.cellSelection.activeRowCell;
         }
         return null;
     }
-    public get cellSelection(): CellSelection {
-        return this._cellSelection;
+    public findRow(id: SiteRowId): SiteRow {
+        return siteRowPool.find(id);
     }
-    
     public setCellBlock(block: CellBlock): void {
-        this._cellSelection = block;
+        _cellSelection = block;
     }
     public setSelection(selection: CellSelection): void {
-        this._cellSelection = selection;
+        _cellSelection = selection;
     }
     public clearCellBlock(): void {
-        if (this._cellSelection instanceof CellBlock) {
-            const row= this._cellSelection.activeSiteRow;
-            const cellIndex = this._cellSelection.activeCellIndex;
-            this._cellSelection = new CellTextSelection(row, cellIndex, 0, 0);
+        if (_cellSelection instanceof CellBlock) {
+            const row= _cellSelection.activeSiteRow;
+            const cellIndex = _cellSelection.activeCellIndex;
+            _cellSelection = new CellTextSelection(row, cellIndex, 0, 0);
         }
     }
-    public get root(): SiteRow { return this._root; }
+    public get root(): SiteRow { return _root; }
     private buildTree(line: DocLine ): void {
         // Create SiteRow for each DocLine, matching the tree structure
-        this._root = SiteRow._buildTreeRecursive(line);
+        _root = SiteRow._buildTreeRecursive(line);
     }
     public testFindRowByDocLine(docLine: DocLine): SiteRow {
         return siteRowPool.search((row: SiteRow) => row.docLine === docLine);
     }
     public getRoot(): SiteRow {
-        return this._root;
+        return _root;
     }
     
     constructor() {}

@@ -16,7 +16,7 @@ import { PureCellKind } from './web/pureData.js';
     }
     export class SceneRowCells {
         private _cells: SceneCell[] = [];
-        public get cells(): readonly SceneCell[] { return this._cells; }
+        public get toArray(): readonly SceneCell[] { return this._cells; }
         public constructor(public readonly source: string, public readonly indent: number) {
             for (let i = 0; i < this.indent; i++) {
                 this._cells.push(new SceneCell(PureCellKind.Indent, '\t', i, 1));
@@ -37,6 +37,7 @@ import { PureCellKind } from './web/pureData.js';
             return this._cells[index]; }
         public get count(): number { return this._cells.length; }
         public cell(index: number): SceneCell { return this._cells[index]; }
+        public indexOf(cell: SceneCell): number { return this._cells.indexOf(cell); }
         public get text(): string { return this._cells.map(cell => cell.text).join('\t'); }
     
     }

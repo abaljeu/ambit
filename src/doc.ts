@@ -1,6 +1,7 @@
 import { Id, Pool, Poolable } from './pool.js';
 import * as Change from './change.js';
 import * as OrgViews from './orgviews.js';
+import { ArraySpan } from './arrayspan.js';
 // DocLine object
 // DocLine ID - uses 'Dxxxxxx' format
 export class DocLineId extends Id<'DocLine'> {
@@ -67,7 +68,21 @@ export class DocLine {
         this._content = content;
         return this;
     }
-    
+    public spliceContent(cellIndex: number, content: string): DocLine {
+        // const start = position of first character after `cellIndex` tabs;
+        // const end = position of next tab after start;
+        let start = 0;
+        for (let i = 0; i < cellIndex; i++) {
+            start += this._content.indexOf('\t', start) + 1;
+        }
+        let end = this._content.indexOf('\t', start);
+        if (end === -1) {
+            end = this._content.length;
+        }
+        this._content = this._content.substring(0, start) + content + this._content.substring(end);
+        
+        return this;
+    }
     public addChild(child: DocLine): DocLine {
         child._parent = this;
         this._children.push(child);
@@ -195,6 +210,7 @@ export abstract class DocLineView {
 
     abstract docLineRemoving(): void;
     abstract docLineTextChanged(line: DocLine): void;
+    abstract docLineCellTextChanged(line: DocLine, cellIndex: number, newText: string): void;
 }
 export class DocLinePool extends Pool<DocLine, DocLineId> {
     protected override fromString(value: string): DocLineId {
@@ -325,15 +341,20 @@ export class Doc {
             change.lines.forEach(line => line.removeParent());
         }
 
-    private static _handleTextChange(change: Change.TextChange) {
+    private static _handleLineTextChange(change: Change.LineTextChange) {
         change.line.setContent(change.newText);
         change.line.views.forEach(view => 
             view.docLineTextChanged(change.line));
         
     }
+    private static _handleCellTextChange(change: Change.CellTextChange) {
+        change.line.spliceContent(change.cellIndex, change.newText);
+        change.line.views.forEach(view => 
+            view.docLineCellTextChanged(change.line, change.cellIndex, change.newText));
+    }
     private static _handleMoveBelow(change: Change.MoveBelow) : void{
         const orgViews = OrgViews.orgByViews(change.line.views, change.targetBelow.views);
-        orgViews.forEach(view => this._moveBelow(change.line, change.targetBelow, view.a, view.b));
+        orgViews.forEach(view => this._moveBelow([change.line], change.targetBelow, view.a, view.b));
     }
     private static _handleMoveBefore(change: Change.MoveBefore) : void{
         const orgViews = OrgViews.orgByViews(change.line.views, change.targetBefore.views);
@@ -358,24 +379,26 @@ export class Doc {
 
     }
 
-    private static _moveBelow(line: DocLine, targetBelow: DocLine,
+    private static _moveBelow(lines: DocLine[], targetBelow: DocLine,
             view: DocLineView|null, viewBelow: DocLineView|null) : void{
-        if (line.isAncestorOf(targetBelow)) {
-            return;
-        }
-        if (view && !viewBelow) {
-            view.docLineRemoving()
-            line.removeParent();
-            targetBelow.addChildren([line]);
-        } else if (viewBelow && !view) {
-            line.removeParent();
-            targetBelow.addChildren([line]);
-            viewBelow.docLinesInsertedBelow([line])
-        } else if (view && viewBelow) {
-            viewBelow.docLineMovingBelow(view);
-            line.removeParent();
-            targetBelow.addChildren([line]);
-        }
+        for (const line of lines) {
+            if (line.isAncestorOf(targetBelow)) {
+                continue;
+            }
+            if (view && !viewBelow) {
+                view.docLineRemoving()
+                line.removeParent();
+                targetBelow.addChildren([line]);
+            } else if (viewBelow && !view) {
+                line.removeParent();
+                targetBelow.addChildren([line]);
+                viewBelow.docLinesInsertedBelow([line])
+            } else if (view && viewBelow) {
+                viewBelow.docLineMovingBelow(view);
+                line.removeParent();
+                targetBelow.addChildren([line]);
+            }
+    }
 }
     public static processChange(change: Change.Change) {
         switch (change.type) {
@@ -393,8 +416,11 @@ export class Doc {
             case Change.Type.Remove:
                 Doc._handleRemove(change);
                 break;
-            case Change.Type.TextChange:
-                Doc._handleTextChange(change);
+            case Change.Type.LineTextChange:
+                Doc._handleLineTextChange(change);
+                break;
+            case Change.Type.CellTextChange:
+                Doc._handleCellTextChange(change);
                 break;
             case Change.Type.MoveBefore:
                 Doc._handleMoveBefore(change);

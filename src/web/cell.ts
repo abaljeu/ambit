@@ -1,7 +1,4 @@
-import { 
-	visibleOffsetToHtmlOffset, 
-	htmlOffsetToVisibleOffset 
-} from '../htmlutil.js';
+import * as HtmlUtil from '../htmlutil.js';
 import * as Dom from './editor-dom.js';
 import { Row } from './row.js';
 import * as Selection from './selection.js';
@@ -45,7 +42,7 @@ export class Cell {
 
 	public getHtmlOffset(visibleOffset: number): number {
 		// Convert visible offset to HTML offset using stored HTML content
-		return visibleOffsetToHtmlOffset(this.htmlContent, visibleOffset);
+		return HtmlUtil.visibleOffsetToHtmlOffset(this.htmlContent, visibleOffset);
 	}
 
 	public caretOffset(): number {
@@ -104,8 +101,8 @@ export class Cell {
 		// start and end are HTML offsets (including tag markup) in this.htmlContent.
 		// Convert HTML offsets to visible-text offsets, then to node positions.
 		const html = this.htmlContent;
-		const startVisible = htmlOffsetToVisibleOffset(html, start);
-		const endVisible = htmlOffsetToVisibleOffset(html, end);
+		const startVisible = HtmlUtil.htmlOffsetToVisibleOffset(html, start);
+		const endVisible = HtmlUtil.htmlOffsetToVisibleOffset(html, end);
 
 		const startPos = Dom.getNodeAndOffsetFromTextOffset(
 			this.newEl, 
@@ -278,6 +275,42 @@ export class Cell {
 
 		return new PureCell(kind, text, width);
 	}
+
+		public static initializeFromPureCell(span: HTMLElement, cell: PureCell): void {
+			if (cell.kind === PureCellKind.Indent) {
+				span.className = Dom.RowIndentClass;
+				span.innerHTML = Dom.VISIBLE_TAB;
+			}
+			else if (cell.kind === PureCellKind.Text) {
+				span.className = Dom.TextCellClass;
+				span.contentEditable = 'true';
+				// width of cell is source cell width in ems
+				// if -1, fills container after all other cells are set (flex: 1)
+				// if > 0, min 1em, max to fit content
+				if (cell.width === -1 || cell.width === 0) {
+					span.classList.add(Dom.CellFlexClass);
+				} else {
+					span.classList.add(Dom.CellFixedClass);
+					span.style.width = `${cell.width}em`;
+				}
+				
+				span.innerHTML = HtmlUtil.convertTextToHtml(cell.text);
+			}
+		}
+		public updateFromPureCell(cell: PureCell): void {
+			const span = this.newEl;
+			if (cell.kind === PureCellKind.Indent) {
+				span.className = Dom.RowIndentClass;
+				span.innerHTML = Dom.VISIBLE_TAB;
+			}
+			else if (cell.kind === PureCellKind.Text) {
+				span.className = Dom.TextCellClass;
+				span.innerHTML = HtmlUtil.convertTextToHtml(cell.text);
+			}
+		}
+		
+	
+		
 }
 
 

@@ -3,11 +3,11 @@
 import { Doc, DocLine } from './doc.js';
 import * as Change from './change.js';
 import { model } from './model.js';
-import { Site, SiteRow } from './site.js';
-import { Scene, SceneRow } from './scene.js';
+import { Site, SiteRow, SiteRowId } from './site.js';
 import * as Editor from './editor.js';
-import * as Controller from './controller.js';
+import * as Controller from './ctrl/controller.js';
 import * as ambit from './ambit.js';
+import { RowCell } from './site.js';
 import { CellSelection, CellBlock, CellTextSelection } from './cellblock.js';
 import * as Ops from './ops.js';
 import {
@@ -45,13 +45,6 @@ function sendKey(key :string, modifiers: string[] = []): void {
             metaKey: modifiers.includes('M') });
     Controller.editorHandleKey(e);
 }
-export function assertSceneMatchesSite(sceneRow: SceneRow, siteRow: SiteRow): void {
-    assertEquals(sceneRow.siteRow, siteRow);
-    assertEquals(sceneRow.treeLength, siteRow.treeLength);
-    for (let i = 0; i < sceneRow.siteRow.children.length; i++) {
-        assertEquals(sceneRow.treeLength, siteRow.treeLength);
-    }
-}
 export function assertDocMatchesSite(docLine: DocLine, siteRow: SiteRow): void {
     assertEquals(docLine, siteRow.docLine);
     assertEquals(docLine.parent, siteRow.parent.docLine);
@@ -61,8 +54,8 @@ export function assertDocMatchesSite(docLine: DocLine, siteRow: SiteRow): void {
     }
     
 }
-function sceneRowFromRow(row: Editor.Row): SceneRow {
-    return model.scene.findRow(row.id);
+function siteRowFromRow(row: Editor.Row): SiteRow {
+    return model.site.findRow(new SiteRowId(row.id));
 }
 
 // Load test file and assert model/scene/editor state
@@ -93,7 +86,7 @@ const tests: (() => void)[] = [
         loadTestDoc();
         const rows = Array.from(Editor.rows());
         const secondRow = rows[2];
-        Ops.setCaretInRow(secondRow, secondRow.indent, 3); // Position in middle of "Line 2"
+        Controller.moveCursorToCell(secondRow.cellAt(secondRow.indent), secondRow.indent, 3); // Position in middle of "Line 2"
         const caret1 = secondRow.caretOffset;
         if (!caret1) throw new Error("Expected caret");
         assertEquals(3, caret1.offset); // depends on char widths
@@ -114,8 +107,9 @@ const tests: (() => void)[] = [
         // Arrange
         loadTestDoc();
         const rows = Array.from(Editor.rows());
-        const firstRow = rows[1];
-        Ops.setCaretInRow(firstRow, firstRow.indent, 4); // Position in middle of "Line 1"
+        const firstRow : Editor.Row = rows[1];
+        const cell : Editor.Cell= firstRow.cellAt(0);
+        Controller.moveCursorToCell(cell, 4, 4); // Position in middle of "Line 1"
         const caret1 = firstRow.caretOffset;
         if (!caret1) throw new Error("Expected caret");
         assertEquals(4, caret1.offset); // depends on char widths
@@ -141,7 +135,7 @@ const tests: (() => void)[] = [
     assertEquals(1, rows[2].indent);
     
     // Position cursor in middle of first line
-    Ops.setCaretInRow(currentRow, currentRow.indent, 3); // "Line 1" -> position after "Lin"   
+    Controller.moveCursorToCell(currentRow.cellAt(0), 3, 3); // "Line 1" -> position after "Lin"   
     sendKey('Enter', []);
     
     rows = Array.from(Editor.rows());
@@ -156,14 +150,14 @@ const tests: (() => void)[] = [
     assertEquals(Editor.currentRow(), rows[2]);
     assert(Editor.currentSelection() !== null);
     assertEquals(rows[2].activeCell, rows[2].cells.at(0));
-    Ops.setCaretInRow(rows[3], rows[3].indent, 0);
+    Controller.moveCursorToCell(rows[3].cellAt(0), 0);
     sendKey('Enter', []);
     rows = Array.from(Editor.rows());
     assertEquals(6, rows.length);
     assertEquals("", rows[3].htmlContent);
     assertEquals("Line 2", rows[4].htmlContent);
 
-    Ops.setCaretInRow(rows[4], rows[4].indent, 3);
+    Controller.moveCursorToCell(rows[4].cellAt(rows[4].indent), 3);
     sendKey('Enter', []);
     rows = Array.from(Editor.rows());
     assertEquals(7, rows.length);
@@ -177,7 +171,7 @@ const tests: (() => void)[] = [
     loadTestDoc();
     const rows = Array.from(Editor.rows());
     const secondRow = rows[2];
-    Ops.setCaretInRow(secondRow, secondRow.indent, 0); // Position at start of second row
+    Controller.moveCursorToCell(secondRow.cellAt(secondRow.indent), 0); // Position at start of second row
     
     // Act
     sendKey('Backspace', []);
@@ -195,7 +189,7 @@ const tests: (() => void)[] = [
     loadTestDoc();
     const rows = Array.from(Editor.rows());
     const secondRow = rows[2];
-    Ops.setCaretInRow(secondRow, secondRow.indent, 2); // Position in middle of "Line 2"
+    Controller.moveCursorToCell(secondRow.cellAt(secondRow.indent), 2); // Position in middle of "Line 2"
     assertEquals(2, secondRow.caretOffset.offset);
     assertEquals(secondRow, Editor.currentRow());
     assertEquals(2, secondRow.caretOffset.offset);
@@ -213,7 +207,7 @@ function testHandleArrowRight(): void {
     loadTestDoc();
     const rows = Array.from(Editor.rows());
     const firstRow = rows[1];
-    Ops.setCaretInRow(firstRow, firstRow.indent, 2); // Position in middle of "Line 1"
+    Controller.moveCursorToCell(firstRow.cellAt(firstRow.indent), 2); // Position in middle of "Line 1"
     let currentRow = Editor.currentRow();
     assert(currentRow.valid());
     assertEquals(2, currentRow.caretOffset.offset);
@@ -295,14 +289,14 @@ function testHandleArrowRight(): void {
     assertEquals(0, aLine.indent);
     const bLine = doc.root.children[1];
     const siteB = site.testFindRowByDocLine(bLine);
-    const sceneB = model.scene.search((row: SceneRow) => row.siteRow === siteB);
+    const sceneB = model.scene.search((row: SiteRow) => row === siteB);
     assertEquals(2, bLine.children.length);
     assertEquals(4, siteB.treeLength);
 
     assertEquals(2, siteB.children.length);
-    let  sceneIndexB = sceneB.indexInScene();
+    let  sceneIndexB = model.scene.indexOf(siteB);
     assertEquals(2, sceneIndexB);
-    assertSceneMatchesSite(sceneB, siteB);
+    assertEquals(sceneB, siteB);
     const dLine = bLine.children[1];
 
     // Act - move line 'a' (index 1) to after 'c' (index 3)
@@ -317,18 +311,18 @@ function testHandleArrowRight(): void {
     const siteParent = siteB.parent;
     const siteA = siteB.children[1];
     // assertEquals(siteA, siteB.children[1])
-    const sceneA = model.scene.search((row: SceneRow) => row.siteRow === siteA);
+    const sceneA = model.scene.search((row: SiteRow) => row === siteA);
     assertEquals(1, sceneA.indent);
 
-    // assertEqual(siteParent.children.length === 4);
+    // assertEquals(siteParent.children.length === 4);
     const scene = model.scene;
     assertEquals(5, siteB.treeLength);
     assertEquals(5, sceneB.treeLength);
-    assertSceneMatchesSite(sceneB, siteB);
+    assertEquals(sceneB, siteB);
 
-    sceneIndexB = sceneB.indexInScene();
+    sceneIndexB = model.scene.indexOf(siteB);
     assertEquals(1, sceneIndexB)
-    const sceneIndexA = sceneA.indexInScene();
+    const sceneIndexA = model.scene.indexOf(siteA);
     assertEquals(3, sceneIndexA);
 
     const editorRowB : Editor.Row = Editor.at(sceneIndexB);
@@ -345,10 +339,10 @@ function testHandleArrowRight(): void {
         const actualWithoutTabs = actualContent.replace(/^\t+/, '');
         assertEquals(actualWithoutTabs, expectedContent);
     }
-    // const sceneRow = scene.search((row: SceneRow) => row.siteRow === siteRow);
-    // assert(sceneRow.valid);
-    // assertEquals(bLine, sceneRow.docLine);
-    // const sceneParent = sceneRow.parent;
+    // const siteRow = scene.search((row: SiteRow) => row.siteRow === siteRow);
+    // assert(siteRow.valid);
+    // assertEquals(bLine, siteRow.docLine);
+    // const sceneParent = siteRow.parent;
 }
 // Test 8: handleSwapUp function
 ,function testHandleSwapUp(): void {
@@ -356,7 +350,7 @@ function testHandleArrowRight(): void {
     loadTestDoc();
     const rows = Array.from(Editor.rows());
     const secondRow = rows[2];
-    Ops.setCaretInRow(secondRow, secondRow.indent, 0);
+    Controller.moveCursorToCell(secondRow.cellAt(secondRow.indent), 0);
     
     // Act
     sendKey('ArrowUp', ['C']);
@@ -373,7 +367,7 @@ function testHandleArrowRight(): void {
     loadTestDoc();
     let rows = Array.from(Editor.rows());
     const firstRow = rows[1];
-    Ops.setCaretInRow(firstRow, firstRow.indent, 0);
+    Controller.moveCursorToCell(firstRow.cellAt(firstRow.indent), 0);
     
     // Act
     sendKey('ArrowDown', ['C']);
@@ -386,9 +380,9 @@ function testHandleArrowRight(): void {
 // swap down at end
     rows = Array.from(Editor.rows());
     const lastRow = rows[rows.length - 1];
-    const lastSceneRow = model.scene.findRow(lastRow.id);
-    const lastLine = lastSceneRow.siteRow.docLine;
-    Ops.setCaretInRow(lastRow, lastRow.indent, 0);
+    const lastSiteRow = model.scene.findRow(lastRow.id);
+    const lastLine = lastSiteRow.docLine;
+    Controller.moveCursorToCell(lastRow.cellAt(lastRow.indent), 0);
     assertEquals(lastRow.indent, 0);
     sendKey('ArrowDown', ['C']);
     assertEquals(lastRow.htmlContent, "Line 1");
@@ -408,14 +402,12 @@ function testHandleArrowRight(): void {
     assertEquals(secondRow.indent, 0);
     
     // Act
-    Ops.setCaretInRow(secondRow, secondRow.indent, 0); // Position at start of line
+    Controller.moveCursorToCell(secondRow.cellAt(secondRow.indent), 0); // Position at start of line
     sendKey('Tab', []);
     
     // Assert
-    const sceneRow1 = model.scene.findRow(firstRow.id);
-    const sceneRow2 = model.scene.findRow(secondRow.id);
-    const siteRow1 = sceneRow1.siteRow;
-    const siteRow2 = sceneRow2.siteRow;
+    const siteRow1 = model.scene.findRow(firstRow.id);
+    const siteRow2 = model.scene.findRow(secondRow.id);
     const docLine1 = siteRow1.docLine;
     const docLine2 = siteRow2.docLine;
     const content = secondRow.htmlContent;
@@ -430,7 +422,7 @@ function testHandleArrowRight(): void {
     loadTestDoc();
     const rows = Array.from(Editor.rows());
     const row2 = rows[2];
-    Ops.setCaretInRow(row2, row2.indent, 4); // Position in middle of line
+    Controller.moveCursorToCell(row2.cellAt(row2.indent), 4); // Position in middle of line
     assertEquals(row2.indent, 0);
     const content = row2.htmlContent;
     assertEquals(content, "Line 2");
@@ -452,7 +444,7 @@ function testHandleArrowRight(): void {
 
     // Indent Row 1 refuses.
     const firstRow = rows[0];
-    Ops.setCaretInRow(firstRow, firstRow.indent, 0);
+    Controller.moveCursorToCell(firstRow.cellAt(firstRow.indent), 0);
     const firstIndent = firstRow.indent;
     sendKey('Tab', []);
     assertEquals(firstIndent, firstRow.indent);
@@ -461,7 +453,7 @@ function testHandleArrowRight(): void {
     const secondRow = rows[1];
     const secondIndent = secondRow.indent;
     assertEquals(secondIndent, 0);
-    Ops.setCaretInRow(secondRow, secondRow.indent, 0);
+    Controller.moveCursorToCell(secondRow.cellAt(secondRow.indent), 0);
     sendKey('Tab', []);
     assertEquals(secondIndent , secondRow.indent);
 
@@ -471,21 +463,21 @@ function testHandleArrowRight(): void {
     assertEquals(thirdIndent, 0);
     let fourthRow = rows[3];
     assertEquals(fourthRow.indent, 1);
-    Ops.setCaretInRow(thirdRow, thirdRow.indent, 0);
+    Controller.moveCursorToCell(thirdRow.cellAt(thirdRow.indent), 0);
     sendKey('Tab', []);
     assertEquals(thirdIndent+1 , Editor.currentRow().indent);
 
 
     // Then position cursor in indent area
     let updatedRows = Array.from(Editor.rows());
-    Ops.setCaretInRow(updatedRows[2], updatedRows[2].indent, 0);
+    Controller.moveCursorToCell(updatedRows[2].cellAt(updatedRows[2].indent), 0);
     
     // 4 succeeds.
     fourthRow = updatedRows[3];
     const fourthIndent = fourthRow.indent;
     assertEquals(fourthIndent, 2);
 
-    Ops.setCaretInRow(fourthRow, fourthRow.indent, 0);
+    Controller.moveCursorToCell(fourthRow.cellAt(fourthRow.indent), 0);
     sendKey('Tab', []);
     updatedRows = Array.from(Editor.rows());
     const newFourthRow = updatedRows[3];
@@ -499,7 +491,7 @@ function testHandleArrowRight(): void {
 
     // unindent
     const newThirdRow = Editor.findRow(thirdRow.id);
-    Ops.setCaretInRow(newThirdRow, newThirdRow.indent, 0);
+    Controller.moveCursorToCell(newThirdRow.cellAt(newThirdRow.indent), 0);
     sendKey('Tab', ['S']);
     const newRows = Array.from(Editor.rows());
     assertEquals(newRows[2].htmlContent, "Line 2"); // No indent after unindent
@@ -517,7 +509,7 @@ function testHandleArrowRight(): void {
     
     const rows = Array.from(Editor.rows());
     const parentRow = rows[1];
-    Ops.setCaretInRow(parentRow, parentRow.indent, 0);
+    Controller.moveCursorToCell(parentRow.cellAt(parentRow.indent), 0);
     
     // Act
     sendKey('.', ['C']);
@@ -532,22 +524,22 @@ function testHandleArrowRight(): void {
     loadTestDoc();
     const rows = Array.from(Editor.rows());
     const firstRow : Editor.Row =  rows[1];
-    Ops.setCaretInRow(firstRow, firstRow.indent, 0);
-    Ops.selectRow(firstRow);
+    Controller.moveCursorToCell(firstRow.cellAt(firstRow.indent), 0);
+    Ops.selectRow(siteRowFromRow(firstRow));
 6
     const cellSelection = model.site.cellSelection;
     assert(cellSelection instanceof CellBlock);
     const activeCell : Editor.Cell | null = firstRow.activeCell;
     assert(activeCell !== null);
-    const sceneRow = model.scene.findRow(firstRow.id);
-    const sceneCell = sceneRow.cells.cells.find(cell => cell.column === 0);
+    const siteRow = model.scene.findRow(firstRow.id);
+    const sceneCell = siteRow.cells.toArray.find(cell => cell.column === 0);
     assert(sceneCell != null);
     assertEquals(sceneCell!.column, 0);
     // Find the cell index in the cells array
-    const cellIndex = sceneRow.cells.cells.indexOf(sceneCell!);
+    const cellIndex = siteRow.cells.toArray.indexOf(sceneCell!);
     assert(cellIndex !== -1);
-    // Check if this cell is selected using SceneRow's method
-    assert(sceneRow.isCellSelected(cellIndex));
+    // Check if this cell is selected using SiteRow's method
+    assert(siteRow.isCellSelected(cellIndex));
     // Check that the corresponding Editor.Cell has the selected CSS class
     const editorCells = firstRow.cells;
     const editorCell = editorCells[cellIndex];
@@ -574,8 +566,8 @@ function testHandleArrowRight(): void {
 
     const rows : Editor.Row[] = Array.from(Editor.rows());
     const firstRow = rows[1];
-    Ops.setCaretInRow(firstRow, firstRow.indent, 0);
-    Ops.selectRow(firstRow);
+    Controller.moveCursorToCell(firstRow.cellAt(firstRow.indent), 0);
+    Ops.selectRow(siteRowFromRow(firstRow));
     
     // Act & Assert: Shift-ArrowDown from row 1 (a)
     let cellSelection = model.site.cellSelection;
@@ -593,10 +585,10 @@ function testHandleArrowRight(): void {
     cellBlock = cellSelection as CellBlock;
     assertEquals(0, cellBlock.startChildIndex);
     assertEquals(1, cellBlock.endChildIndex);
-    assertEquals(sceneRowFromRow(rows[2]).siteRow, cellBlock.activeSiteRow);
+    assertEquals(siteRowFromRow(rows[2]), cellBlock.activeSiteRow);
 
-    // assertEquals(cellSelection.activeSiteRow, sceneRowFromRow(rows[1]).siteRow);
-    assertEquals(cellBlock.activeSiteRow, sceneRowFromRow(rows[2]).siteRow);
+    // assertEquals(cellSelection.activeSiteRow, siteRowFromRow(rows[1]).siteRow);
+    assertEquals(cellBlock.activeSiteRow, siteRowFromRow(rows[2]));
     const row2Cells = rows[2].cells;
     const row3Cells = rows[3].cells;
     assert(row2Cells[0].hasCellBlockSelected());
@@ -656,7 +648,7 @@ function testHandleArrowRight(): void {
     assert(row3Cells[0].hasCellBlockSelected());
     assert(row1Cells[0].hasCellBlockActive());
 
-    Ops.selectRow(rows[4]);
+    Ops.selectRow(siteRowFromRow(rows[4]));
     cellSelection = model.site.cellSelection;
     cellBlock = cellSelection as CellBlock;
     assert(cellBlock !== null);

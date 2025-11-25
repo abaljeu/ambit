@@ -1,6 +1,6 @@
 import { Doc, DocLine, DocLineId } from './doc.js';
 import { Scene } from './scene.js';
-import { Site, SiteRow } from './site.js';
+import { RowCell, Site, SiteRow } from './site.js';
 import { postDoc } from './ambit.js';
 import { Cell } from './editor.js';
 import { CellSpec } from './cellblock.js';
@@ -10,12 +10,14 @@ export class Transaction {
 class Model {
     public  docArray: Doc[] = [];
     public  history : Transaction[] = [];
-    public site: Site = new Site();
-    public scene: Scene = new Scene(this.site);
-    public get activeCell(): CellSpec | null {
+    public site!: Site;
+    public scene!: Scene;
+    public get activeCell(): RowCell | null {
         return this.site.activeCell;
     }
     constructor() {
+        this.site = new Site();
+        this.scene = new Scene(this.site);
     }
     public addOrUpdateDoc(text: string, path:string): Doc {
         let doc = this.docArray.find(d => d.name === path);
@@ -36,4 +38,22 @@ class Model {
     }
 }
 
-export const model = new Model();
+let _model!: Model;
+let _initialized = false;
+export const model: Model = new Proxy({} as Model, {
+    get(_target: unknown, prop: string) {
+        if (!_initialized) {
+            _model = new Model();
+            _initialized = true;
+        }
+        return (_model as unknown as Record<string, unknown>)[prop];
+    },
+    set(_target: unknown, prop: string, value: unknown) {
+        if (!_initialized) {
+            _model = new Model();
+            _initialized = true;
+        }
+        ( _model as unknown as Record<string, unknown>)[prop] = value;
+        return true;
+    }
+}) as unknown as Model;
