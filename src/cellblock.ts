@@ -8,7 +8,7 @@ export class CellSpec {
 export class CellBlock {
     private static _empty: CellBlock | null = null;
     public get activeRowCell() : RowCell {
-        return new RowCell(this.activeSiteRow, this.activeSiteRow.cells.at(this.activeCellIndex));
+        return new RowCell(this.focusSiteRow, this.focusSiteRow.cells.at(this.focusCellIndex));
     }
     public static get empty(): CellBlock {
         if (CellBlock._empty === null) {
@@ -30,25 +30,37 @@ export class CellBlock {
     public readonly endChildIndex: number;
     private readonly _startCellIndex: number;
     private readonly _endCellIndex: number; // if -1, acts as infinity
-    public readonly activeSiteRow: SiteRow;
-    public readonly activeCellIndex: number;
+    public readonly focusSiteRow: SiteRow;
+    public readonly focusCellIndex: number;
 
     public constructor(
         parentSiteRow: SiteRow,
-        startChildIndex: number,
-        endChildIndex: number,
+        startRowIndex: number,
+        endRowIndex: number,
         startCellIndex: number,
         endCellIndex: number, // -1 for all columns
         activeSiteRow: SiteRow,
         activeCellIndex: number
     ) {
         this.parentSiteRow = parentSiteRow;
-        this.startChildIndex = startChildIndex;
-        this.endChildIndex = endChildIndex;
+        this.startChildIndex = startRowIndex;
+        this.endChildIndex = endRowIndex;
         this._startCellIndex = startCellIndex;
         this._endCellIndex = endCellIndex;
-        this.activeSiteRow = activeSiteRow;
-        this.activeCellIndex = activeCellIndex;
+        this.focusSiteRow = activeSiteRow;
+        this.focusCellIndex = activeCellIndex;
+    }
+    public static create(
+        parentSiteRow: SiteRow,
+        focusRowIndex: number,
+        anchorRowIndex: number,
+    ): CellBlock {
+        const startRowIndex = focusRowIndex < anchorRowIndex ? focusRowIndex : anchorRowIndex;
+        const endRowIndex = focusRowIndex > anchorRowIndex ? focusRowIndex : anchorRowIndex;
+        const activeRow = (focusRowIndex >= 0 && focusRowIndex < parentSiteRow.children.length)
+            ? parentSiteRow.children[focusRowIndex]
+            : SiteRow.end;
+        return new CellBlock(parentSiteRow, startRowIndex, endRowIndex, 0, -1, activeRow, 0);
     }
 
     public get startColumnIndex(): number {
@@ -120,15 +132,15 @@ export class CellBlock {
         // If this is the active row, check if cellIndex matches activeCellIndex
         // activeCellIndex can represent either the cell index or child index
         // If it matches the child index, we use cell 0 as the active cell
-        if (siteRow === this.activeSiteRow) {
+        if (siteRow === this.focusSiteRow) {
             // Check if activeCellIndex matches the child index
             const childIndex = this.parentSiteRow.children.indexOf(siteRow);
-            if (childIndex === this.activeCellIndex) {
+            if (childIndex === this.focusCellIndex) {
                 // activeCellIndex represents child index, so use cell 0
                 return cellIndex === 0;
             }
             // Otherwise, activeCellIndex represents cell index
-            return cellIndex === this.activeCellIndex;
+            return cellIndex === this.focusCellIndex;
         }
         return false;
     }

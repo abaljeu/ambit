@@ -1,4 +1,5 @@
 import { CellTextSelection } from './cellblock.js';
+import { initModel } from './model.js';
 import { RowCell } from './site.js';
 import * as Ops from './ops.js';
 import * as Controller from './ctrl/controller.js';
@@ -65,6 +66,7 @@ export function postDoc(filePath :string, content : string) {
 
 if (typeof window !== 'undefined' && window.location.pathname.includes('ambit.php')) {
     // add globals for debugging.
+    initModel();
     Object.assign(window as any, { model, Controller });
     
     WebEvents.installEditorEvents({

@@ -38,22 +38,7 @@ class Model {
     }
 }
 
-let _model!: Model;
-let _initialized = false;
-export const model: Model = new Proxy({} as Model, {
-    get(_target: unknown, prop: string) {
-        if (!_initialized) {
-            _model = new Model();
-            _initialized = true;
-        }
-        return (_model as unknown as Record<string, unknown>)[prop];
-    },
-    set(_target: unknown, prop: string, value: unknown) {
-        if (!_initialized) {
-            _model = new Model();
-            _initialized = true;
-        }
-        ( _model as unknown as Record<string, unknown>)[prop] = value;
-        return true;
-    }
-}) as unknown as Model;
+export let model!: Model;
+export function initModel(): void {
+    model = new Model();
+}

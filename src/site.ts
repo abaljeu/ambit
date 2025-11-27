@@ -10,6 +10,9 @@ import { model } from './model.js';
 export class RowCell {
     public constructor(public readonly row: SiteRow, public readonly cell: SceneCell) { }
     public get cellIndex(): number { return this.row.cells.indexOf(this.cell); }
+    public cellTextPosition(): number {
+        return this.row.cellTextPosition(this.cell);
+    }
 }
 export class SiteRowId extends Id<'SiteRow'> {
     public constructor(value: string) {
@@ -148,7 +151,7 @@ export class SiteRow extends DocLineView {
         } else {
             nextIndex = model.scene.indexOf(SiteRow.end);
         }
-        model.scene.deleteRows(index, nextIndex-index);
+        model.scene.deleteRows(index+1, nextIndex-index);
     }
     public siteRowUnfolded(): void {
         const next = this.next;
@@ -262,7 +265,7 @@ export class SiteRow extends DocLineView {
 
         const sceneParent = model.scene.search(row => row === this.parent)
         if (sceneParent === SiteRow.end) return;  
-        const selfIndex = model.scene.indexOf(this);
+        const selfIndex = model.scene.indexOf(afterRow);
         model.scene.addRows(selfIndex, [this]);
     }
     public insertBelow(parentRow: SiteRow): void {
@@ -297,7 +300,11 @@ export class SiteRow extends DocLineView {
         for (const cell of this.cells.toArray) {
             if (cell === c)
                 return position;
-            position += cell.text.length + 1;
+            if (cell.type === PureCellKind.Indent) {
+                position += 0
+            } else {
+                position += cell.text.length + 1;
+            }
         }
         return position;
     }        
@@ -402,8 +409,8 @@ export class Site {
     }
     public clearCellBlock(): void {
         if (_cellSelection instanceof CellBlock) {
-            const row= _cellSelection.activeSiteRow;
-            const cellIndex = _cellSelection.activeCellIndex;
+            const row= _cellSelection.focusSiteRow;
+            const cellIndex = _cellSelection.focusCellIndex;
             _cellSelection = new CellTextSelection(row, cellIndex, 0, 0);
         }
     }

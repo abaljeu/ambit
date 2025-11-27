@@ -86,11 +86,12 @@ const tests: (() => void)[] = [
         loadTestDoc();
         const rows = Array.from(Editor.rows());
         const secondRow = rows[2];
-        Controller.moveCursorToCell(secondRow.cellAt(secondRow.indent), secondRow.indent, 3); // Position in middle of "Line 2"
+        Controller.moveCursorToCell(secondRow.cellAt(secondRow.indent), 3); // Position in middle of "Line 2"
         const caret1 = secondRow.caretOffset;
         if (!caret1) throw new Error("Expected caret");
         assertEquals(3, caret1.offset); // depends on char widths
-        
+        const sel = window.getSelection();
+        assert(sel !== null && sel.isCollapsed);
         // Act
         sendKey('ArrowUp', []);
         
@@ -109,7 +110,7 @@ const tests: (() => void)[] = [
         const rows = Array.from(Editor.rows());
         const firstRow : Editor.Row = rows[1];
         const cell : Editor.Cell= firstRow.cellAt(0);
-        Controller.moveCursorToCell(cell, 4, 4); // Position in middle of "Line 1"
+        Controller.moveCursorToCell(cell, 4); // Position in middle of "Line 1"
         const caret1 = firstRow.caretOffset;
         if (!caret1) throw new Error("Expected caret");
         assertEquals(4, caret1.offset); // depends on char widths
@@ -135,7 +136,7 @@ const tests: (() => void)[] = [
     assertEquals(1, rows[2].indent);
     
     // Position cursor in middle of first line
-    Controller.moveCursorToCell(currentRow.cellAt(0), 3, 3); // "Line 1" -> position after "Lin"   
+    Controller.moveCursorToCell(currentRow.cellAt(0), 3); // "Line 1" -> position after "Lin"   
     sendKey('Enter', []);
     
     rows = Array.from(Editor.rows());
@@ -143,8 +144,8 @@ const tests: (() => void)[] = [
     assertEquals("Lin", rows[1].htmlContent);
     assertEquals("e 1", rows[2].htmlContent);
     assertEquals("Line 2", rows[3].htmlContent);
-    const sel = model.site.cellSelection;
-    const ssel = sel as CellTextSelection;
+    let sel = model.site.cellSelection;
+    let ssel = sel as CellTextSelection;
     assert(ssel !== null);
     assertEquals(ssel.row.id.value, rows[2].id);
     assertEquals(Editor.currentRow(), rows[2]);
@@ -158,6 +159,10 @@ const tests: (() => void)[] = [
     assertEquals("Line 2", rows[4].htmlContent);
 
     Controller.moveCursorToCell(rows[4].cellAt(rows[4].indent), 3);
+    sel = model.site.cellSelection;
+    ssel = sel as CellTextSelection;
+	const beforeLength = ssel.activeRowCell.cellTextPosition();
+    assertEquals(0, beforeLength);// indents don't count.
     sendKey('Enter', []);
     rows = Array.from(Editor.rows());
     assertEquals(7, rows.length);
@@ -310,11 +315,11 @@ function testHandleArrowRight(): void {
     assertDocMatchesSite(bLine, siteB);
     const siteParent = siteB.parent;
     const siteA = siteB.children[1];
-    // assertEquals(siteA, siteB.children[1])
+
     const sceneA = model.scene.search((row: SiteRow) => row === siteA);
     assertEquals(1, sceneA.indent);
 
-    // assertEquals(siteParent.children.length === 4);
+
     const scene = model.scene;
     assertEquals(5, siteB.treeLength);
     assertEquals(5, sceneB.treeLength);
@@ -429,6 +434,9 @@ function testHandleArrowRight(): void {
     // Act
     sendKey('Tab', []);
     
+    const sel = model.site.cellSelection;
+    const ssel = sel as CellTextSelection;
+    assertEquals(2, ssel.activeRowCell.row.cells.count);
     // Assert
     const updatedRows = Array.from(Editor.rows());
     assertEquals(updatedRows[2].indent, 0);
@@ -585,10 +593,10 @@ function testHandleArrowRight(): void {
     cellBlock = cellSelection as CellBlock;
     assertEquals(0, cellBlock.startChildIndex);
     assertEquals(1, cellBlock.endChildIndex);
-    assertEquals(siteRowFromRow(rows[2]), cellBlock.activeSiteRow);
+    assertEquals(siteRowFromRow(rows[2]), cellBlock.focusSiteRow);
 
     // assertEquals(cellSelection.activeSiteRow, siteRowFromRow(rows[1]).siteRow);
-    assertEquals(cellBlock.activeSiteRow, siteRowFromRow(rows[2]));
+    assertEquals(cellBlock.focusSiteRow, siteRowFromRow(rows[2]));
     const row2Cells = rows[2].cells;
     const row3Cells = rows[3].cells;
     assert(row2Cells[0].hasCellBlockSelected());
@@ -597,7 +605,7 @@ function testHandleArrowRight(): void {
 
     assertEquals(rows[2], Editor.currentRow());
     assert(model.site.cellSelection instanceof CellBlock);
-    assertEquals(0, cellBlock.activeCellIndex);
+    assertEquals(0, cellBlock.focusCellIndex);
     // Act & Assert: ArrowRight clears selection
     sendKey('ArrowRight', []);
     // selection should be empty.  cursor should be active in row 2
@@ -678,7 +686,7 @@ function testHandleArrowRight(): void {
     assert(cellBlock !== null);
     assertEquals(2, cellBlock.startChildIndex);
     assertEquals(2, cellBlock.endChildIndex);
-    assertEquals(0, cellBlock.activeCellIndex);
+    assertEquals(0, cellBlock.focusCellIndex);
 
 
     sendKey('ArrowUp', ['S']);
@@ -687,7 +695,7 @@ function testHandleArrowRight(): void {
     assert(cellBlock !== null);
     assertEquals(1, cellBlock.startChildIndex);
     assertEquals(2, cellBlock.endChildIndex);
-    assertEquals(0, cellBlock.activeCellIndex);
+    assertEquals(0, cellBlock.focusCellIndex);
 
     sendKey('ArrowUp', ['S']);
     cellSelection = model.site.cellSelection;
@@ -695,7 +703,7 @@ function testHandleArrowRight(): void {
     assert(cellBlock !== null);
     assertEquals(0, cellBlock.startChildIndex);
     assertEquals(2, cellBlock.endChildIndex);
-    assertEquals(0, cellBlock.activeCellIndex);
+    assertEquals(0, cellBlock.focusCellIndex);
     
 
     sendKey('ArrowDown', ['S']);
@@ -704,7 +712,7 @@ function testHandleArrowRight(): void {
     assert(cellBlock !== null);
     assertEquals(1, cellBlock.startChildIndex);
     assertEquals(2, cellBlock.endChildIndex);
-    assertEquals(0, cellBlock.activeCellIndex);
+    assertEquals(0, cellBlock.focusCellIndex);
     
 
     sendKey('ArrowDown', ['S']);
@@ -713,7 +721,7 @@ function testHandleArrowRight(): void {
     assert(cellBlock !== null);
     assertEquals(2, cellBlock.startChildIndex);
     assertEquals(2, cellBlock.endChildIndex);
-    assertEquals(0, cellBlock.activeCellIndex);
+    assertEquals(0, cellBlock.focusCellIndex);
     
 },
 function testConvertTextToHtml(): void {

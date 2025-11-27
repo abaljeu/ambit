@@ -80,7 +80,8 @@ export function moveCursorToRow(targetRow: SiteRow) {
 	const offsetResult = editorRow.offsetAtX(x);
 	if (offsetResult) {
 		const cellIndex = editorRow.getCellIndex(offsetResult.cell);
-		setCaretInCell(new RowCell(targetRow, targetRow.cells.at(cellIndex)), offsetResult.offset, 0);
+		setCaretInCell(new RowCell(targetRow, targetRow.cells.at(cellIndex)), offsetResult.offset, 
+			offsetResult.offset);
 	}
 	return true;
 }

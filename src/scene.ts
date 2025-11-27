@@ -63,7 +63,7 @@ export class Scene {
     public at(index : number) : SiteRow {
         if (index < 0 || index >= this._rows.length)
             return this.end;
-        return this.at(index);
+        return this._rows[index];
     }
     public loadFromSite(site: SiteRow): void {
         this._rows = this._flattenTree(site);

@@ -22,7 +22,7 @@ export function editorClick(event: MouseEvent) {
 	const y = event.clientY;
 	const result = Cell.Cell.fromXY(x, y);
 	if (result) {
-		Controller.moveCursorToCell(result.cell, result.offset, result.offset);
+		Controller.moveCursorToCell(result.cell, result.offset);
 	}
 }
 export function activecontentClick(event: MouseEvent) {
