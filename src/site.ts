@@ -392,7 +392,7 @@ export class Site {
     }
     public get activeCell() : RowCell | null {
         if (this.cellSelection instanceof CellBlock) {
-            return this.cellSelection.activeRowCell;
+            return this.cellSelection.focusCell;
         } else if (this.cellSelection instanceof CellTextSelection) {
             return this.cellSelection.activeRowCell;
         }
@@ -409,7 +409,7 @@ export class Site {
     }
     public clearCellBlock(): void {
         if (_cellSelection instanceof CellBlock) {
-            const row= _cellSelection.focusSiteRow;
+            const row= _cellSelection.focusRow;
             const cellIndex = _cellSelection.focusCellIndex;
             _cellSelection = new CellTextSelection(row, cellIndex, 0, 0);
         }

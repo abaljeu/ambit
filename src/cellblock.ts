@@ -7,69 +7,59 @@ export class CellSpec {
 }
 export class CellBlock {
     private static _empty: CellBlock | null = null;
+    public rows(): readonly SiteRow[] {
+        return this.parentSiteRow.children.slice(this.startChildIndex, this.endChildIndex + 1);
+    }
     public get activeRowCell() : RowCell {
-        return new RowCell(this.focusSiteRow, this.focusSiteRow.cells.at(this.focusCellIndex));
+        return new RowCell(this.focusRow, this.focusRow.cells.at(this.focusCellIndex));
     }
     public static get empty(): CellBlock {
         if (CellBlock._empty === null) {
-            CellBlock._empty = new CellBlock(
-                SiteRow.end,
-                0,
-                -1,
-                0,
-                -1,
-                SiteRow.end,
-                0
-            );
+            CellBlock._empty = CellBlock.create(SiteRow.end, 0, -1);
         }
         return CellBlock._empty;
     }
     
-    public readonly parentSiteRow: SiteRow;
-    public readonly startChildIndex: number;
-    public readonly endChildIndex: number;
-    private readonly _startCellIndex: number;
-    private readonly _endCellIndex: number; // if -1, acts as infinity
-    public readonly focusSiteRow: SiteRow;
-    public readonly focusCellIndex: number;
+    public get focusRow() : SiteRow {
+        return this.parentSiteRow.children.at(this.focusChildIndex) ?? SiteRow.end;
+    }
+    public get anchorRow() : SiteRow {
+        return this.parentSiteRow.children.at(this.anchorChildIndex) ?? SiteRow.end;
+    }
+    public get focusCell() : RowCell {
+        return new RowCell(this.focusRow, this.focusRow.cells.at(this.focusCellIndex));
+    }
+    public get anchorCell() : RowCell {
+        return new RowCell(this.anchorRow, this.anchorRow.cells.at(this.anchorCellIndex));
+    }
 
+    public get startChildIndex() : number {
+        return this.focusChildIndex < this.anchorChildIndex ? this.focusChildIndex : this.anchorChildIndex;
+    }
+    public get endChildIndex() : number {
+        return this.focusChildIndex > this.anchorChildIndex ? this.focusChildIndex : this.anchorChildIndex;
+    }
+    public get startCellIndex() : number {
+        return this.focusCellIndex < this.anchorCellIndex ? this.focusCellIndex : this.anchorCellIndex;
+    }
+    public get endCellIndex() : number {
+        return this.focusCellIndex > this.anchorCellIndex ? this.focusCellIndex : this.anchorCellIndex;
+    }
     public constructor(
-        parentSiteRow: SiteRow,
-        startRowIndex: number,
-        endRowIndex: number,
-        startCellIndex: number,
-        endCellIndex: number, // -1 for all columns
-        activeSiteRow: SiteRow,
-        activeCellIndex: number
-    ) {
-        this.parentSiteRow = parentSiteRow;
-        this.startChildIndex = startRowIndex;
-        this.endChildIndex = endRowIndex;
-        this._startCellIndex = startCellIndex;
-        this._endCellIndex = endCellIndex;
-        this.focusSiteRow = activeSiteRow;
-        this.focusCellIndex = activeCellIndex;
+        public readonly parentSiteRow: SiteRow,
+        public readonly focusChildIndex: number,
+        public readonly anchorChildIndex: number,
+        public readonly focusCellIndex: number,
+        public readonly anchorCellIndex: number) {
     }
     public static create(
         parentSiteRow: SiteRow,
         focusRowIndex: number,
         anchorRowIndex: number,
     ): CellBlock {
-        const startRowIndex = focusRowIndex < anchorRowIndex ? focusRowIndex : anchorRowIndex;
-        const endRowIndex = focusRowIndex > anchorRowIndex ? focusRowIndex : anchorRowIndex;
-        const activeRow = (focusRowIndex >= 0 && focusRowIndex < parentSiteRow.children.length)
-            ? parentSiteRow.children[focusRowIndex]
-            : SiteRow.end;
-        return new CellBlock(parentSiteRow, startRowIndex, endRowIndex, 0, -1, activeRow, 0);
+        return new CellBlock(parentSiteRow, focusRowIndex, anchorRowIndex, 0, -1);
     }
 
-    public get startColumnIndex(): number {
-        return this._startCellIndex;
-    }
-
-    public get endColumnIndex(): number {
-        return this._endCellIndex; // -1 means "all columns" (infinity)
-    }
 
     // Check if a SiteRow is part of this block (including descendants)
     public includesSiteRow(siteRow: SiteRow): boolean {
@@ -112,14 +102,14 @@ export class CellBlock {
         if (!this.includesSiteRow(siteRow)) {
             return false;
         }
-        if (cellIndex < this._startCellIndex) {
+        if (cellIndex < this.startCellIndex) {
             return false;
         }
-        if (this._endCellIndex === -1) {
+        if (this.endCellIndex === -1) {
             return true;
         }
 
-        return cellIndex <= this._endCellIndex;
+        return cellIndex <= this.endCellIndex;
     }
 
     // Check if a cell is the active cell
@@ -132,7 +122,7 @@ export class CellBlock {
         // If this is the active row, check if cellIndex matches activeCellIndex
         // activeCellIndex can represent either the cell index or child index
         // If it matches the child index, we use cell 0 as the active cell
-        if (siteRow === this.focusSiteRow) {
+        if (siteRow === this.focusRow) {
             // Check if activeCellIndex matches the child index
             const childIndex = this.parentSiteRow.children.indexOf(siteRow);
             if (childIndex === this.focusCellIndex) {

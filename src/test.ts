@@ -587,16 +587,16 @@ function testHandleArrowRight(): void {
 
 
     sendKey('ArrowDown', ['S']);
-    // selection should be rows 2 and 3.  active should be 2.
+    // selection should be rows 1 and 2.  active should be 2.
     cellSelection = model.site.cellSelection;
     assert(cellSelection instanceof CellBlock);
     cellBlock = cellSelection as CellBlock;
     assertEquals(0, cellBlock.startChildIndex);
     assertEquals(1, cellBlock.endChildIndex);
-    assertEquals(siteRowFromRow(rows[2]), cellBlock.focusSiteRow);
+    assertEquals(siteRowFromRow(rows[2]), cellBlock.focusRow);
 
     // assertEquals(cellSelection.activeSiteRow, siteRowFromRow(rows[1]).siteRow);
-    assertEquals(cellBlock.focusSiteRow, siteRowFromRow(rows[2]));
+    assertEquals(cellBlock.focusRow, siteRowFromRow(rows[2]));
     const row2Cells = rows[2].cells;
     const row3Cells = rows[3].cells;
     assert(row2Cells[0].hasCellBlockSelected());

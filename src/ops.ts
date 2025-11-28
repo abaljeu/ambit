@@ -54,15 +54,10 @@ export function selectRow(siteRow: SiteRow): void {
         return;
 	
 	if (childIndex === -1) return;
-	const cellSelection = new CellBlock(
+	const cellSelection = CellBlock.create(
 		parentSiteRow,
 		childIndex,
-		childIndex,
-		0,
-		-1, // -1 means all columns
-		siteRow,
-		0 // active cell is first cell
-	);
+		childIndex);
 	
 	model.site.setCellBlock(cellSelection);
 	model.scene.updatedSelection();

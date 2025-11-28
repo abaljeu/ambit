@@ -52,7 +52,28 @@ class KeyBinding {
 	) {}
 }
 
-const keyBindings: KeyBinding[] = [
+class BlockKeyBinding {
+	constructor(
+		readonly combo: string,
+		readonly handler: (sel: CellBlock) => boolean
+	) {}
+}
+
+const blockKeyBindings: BlockKeyBinding[] = [
+	new BlockKeyBinding("ArrowUp", handleBlockArrowUp),
+	new BlockKeyBinding("ArrowDown", handleBlockArrowDown),
+	new BlockKeyBinding("S-ArrowUp", handleBlockShiftArrowUp),
+	new BlockKeyBinding("ArrowRight", handleBlockArrowRight),
+	new BlockKeyBinding("ArrowLeft", handleBlockArrowLeft),
+	new BlockKeyBinding("S-ArrowDown", handleBlockShiftArrowDown),
+	new BlockKeyBinding("C-ArrowUp", handleBlockSwapUp),
+	new BlockKeyBinding("C-ArrowDown", handleBlockSwapDown),
+	new BlockKeyBinding("Tab", handleBlockTab),
+	new BlockKeyBinding("S-Tab", handleBlockShiftTab),
+	new BlockKeyBinding("C-.", handleBlockToggleFold),
+];
+
+const textKeyBindings: KeyBinding[] = [
 	new KeyBinding("F12", (_)=>false),
 	new KeyBinding("F5",  (_)=>false),
 	new KeyBinding("C-F5",  () => false),
@@ -112,16 +133,20 @@ function findKeyBinding(e : KeyboardEvent): () => boolean {
 	// }
 	
 	const cellSelection = model.site.cellSelection;
-	if (!(cellSelection instanceof CellTextSelection))
-		return () => true;
-
-	let binding = keyBindings.find(kb => kb.combo === combo);
-	if (binding) return (() => binding.handler(cellSelection));
-	if (combo.length == 1) {
-		return (() => handleInsertChar(cellSelection, combo));
-	} else if (combo.length == 3 && combo[0] == 'S') {
-		// shifted character.
-		return (() => handleInsertChar(cellSelection, combo[2]));
+	if (cellSelection instanceof CellTextSelection) {
+		let binding = textKeyBindings.find(kb => kb.combo === combo);
+		if (binding) return (() => binding.handler(cellSelection));
+		if (combo.length == 1) {
+			return (() => handleInsertChar(cellSelection, combo));
+		} else if (combo.length == 3 && combo[0] == 'S') {
+			// shifted character.
+			return (() => handleInsertChar(cellSelection, combo[2]));
+		}
+		return (() => true);
+	} else if (cellSelection instanceof CellBlock) {
+		let binding = blockKeyBindings.find(kb => kb.combo === combo);
+		if (binding) return (() => binding.handler(cellSelection));
+		return (() => true);
 	}
 	return (() => true);
 }
@@ -228,7 +253,7 @@ function handleDelete(sel: CellTextSelection) : boolean {
 }
 
 function handleBlockArrowUp(sel: CellBlock) : boolean {
-	const activeSiteRow = sel.focusSiteRow;
+	const activeSiteRow = sel.focusRow;
 	const parentSiteRow = sel.parentSiteRow;
 	const activeChildIndex = parentSiteRow.children.indexOf(activeSiteRow);
 	
@@ -284,7 +309,7 @@ function handleArrowUp(sel: CellTextSelection) : boolean {
 	return true;
 }
 function handleBlockArrowDown(block: CellBlock) : boolean {
-		const activeSiteRow = block.focusSiteRow;
+		const activeSiteRow = block.focusRow;
 		const parentSiteRow = block.parentSiteRow;
 		const activeChildIndex = parentSiteRow.children.indexOf(activeSiteRow);
 		
@@ -327,7 +352,7 @@ function handleBlockArrowDown(block: CellBlock) : boolean {
 
 
 function handleBlockShiftArrowUp(block: CellBlock): boolean {
-	const activeSiteRow = block.focusSiteRow;
+	const activeSiteRow = block.focusRow;
 	const parentSiteRow = block.parentSiteRow;
 	const activeChildIndex = parentSiteRow.children.indexOf(activeSiteRow);
 	
@@ -388,53 +413,46 @@ function handleShiftArrowUp(sel: CellTextSelection): boolean {
 }
 
 function handleBlockShiftArrowDown(block: CellBlock): boolean {
-	const activeSiteRow = block.focusSiteRow;
-	const parentSiteRow = block.parentSiteRow;
-	const activeChildIndex = parentSiteRow.children.indexOf(activeSiteRow);
+	const focusRow = block.focusRow;
+	const parentRow = block.parentSiteRow;
+	const focusChildIndex = parentRow.children.indexOf(focusRow);
 	
-	if (activeChildIndex === -1) return true;
+	if (focusChildIndex === -1) return true;
 	
-	const isActiveAtTop = activeChildIndex === block.startChildIndex;
-	const isActiveAtBottom = activeChildIndex === block.endChildIndex;
+	const isActiveAtTop = focusChildIndex === block.startChildIndex;
+	const isActiveAtBottom = focusChildIndex === block.endChildIndex;
 	
-	let newStartIndex = block.startChildIndex;
-	let newEndIndex = block.endChildIndex;
-	let newActiveSiteRow = activeSiteRow;
-	let newParentSiteRow = parentSiteRow;
-	let newActiveCellIndex = block.focusCellIndex;
-	const activeCellIndex = block.focusCellIndex;
+	let newParentRow = parentRow;
+	let newFocus = block.focusChildIndex;
+	let newAnchor = block.anchorChildIndex;
+	let newFocusCellIndex = block.focusCellIndex;
+	const focusCellIndex = block.focusCellIndex;
 
 		// Try to move to next sibling
-		if (activeChildIndex < parentSiteRow.children.length - 1) {
-			const nextSibling = parentSiteRow.children[activeChildIndex + 1];
+		if (focusChildIndex < parentRow.children.length - 1) {
+			const nextSibling = parentRow.children[focusChildIndex + 1];
 			if (isActiveAtBottom) {
-				newEndIndex = activeChildIndex + 1;
-				newActiveSiteRow = nextSibling;
-				newActiveCellIndex = activeCellIndex
+				newFocus = focusChildIndex + 1;
+				newFocusCellIndex = focusCellIndex;
 			} else if (isActiveAtTop) {
-				newStartIndex = activeChildIndex + 1;
-				newActiveSiteRow = nextSibling;
-				newActiveCellIndex = activeCellIndex;
+				newFocus = focusChildIndex + 1;
+				newFocusCellIndex = focusCellIndex;
 			} else {
-				newStartIndex = activeChildIndex + 1;
-				newActiveSiteRow = nextSibling;
-				newActiveCellIndex = activeCellIndex;
+				newFocus = focusChildIndex + 1;
+				newFocusCellIndex = focusCellIndex;
 			}
 		} else {
 			// No next sibling, select parent instead
-			const grandparent = parentSiteRow.parent;
+			const grandparent = parentRow.parent;
 			if (grandparent === SiteRow.end) return true;
 			
-			const parentIndex = grandparent.children.indexOf(parentSiteRow);
+			const parentIndex = grandparent.children.indexOf(parentRow);
 			if (parentIndex === -1) return true;
 			
-			newParentSiteRow = grandparent;
-			newStartIndex = parentIndex;
-			newEndIndex = parentIndex;
-			newActiveSiteRow = parentSiteRow;
+			newParentRow = grandparent;
 		}
 		
-	const newCellSelection = CellBlock.create( newParentSiteRow, newStartIndex, newEndIndex);
+	const newCellSelection = CellBlock.create( newParentRow, newFocus, newAnchor);
 	
 	model.site.setCellBlock(newCellSelection);
 	model.scene.updatedSelection();
@@ -460,6 +478,16 @@ function handleArrowLeft(sel: CellTextSelection) : boolean {
 	return true;
 }
 
+function handleBlockArrowRight(sel: CellBlock) : boolean {
+	const s = new CellTextSelection(sel.focusRow, sel.focusCellIndex, 0,0);
+	Ops.setCaretInCell(s.activeRowCell, 0);
+	return true;
+}
+function handleBlockArrowLeft(sel: CellBlock) : boolean {
+	const s = new CellTextSelection(sel.focusRow, sel.focusCellIndex, sel.focusCellIndex, sel.focusCellIndex);
+	Ops.setCaretInCell(s.activeRowCell, 0);
+	return true;
+}
 function handleArrowRight(sel: CellTextSelection) : boolean {
 	if (sel.focus === sel.activeRowCell.cell.text.length) {
 		// Cursor at right end of cell, find next editable cell
@@ -472,6 +500,7 @@ function handleArrowRight(sel: CellTextSelection) : boolean {
 	}
 	return true;
 }
+
 function handleHome(sel: CellTextSelection) : boolean {
 	if (sel.focus === 0 && sel.anchor === 0) {
 		const nextCell = sel.row.cells.at(sel.row.indent);
@@ -761,6 +790,12 @@ function handleSwapDown(sel: CellTextSelection): boolean {
 
 function handleToggleFold(sel: CellTextSelection) : boolean {
 	sel.row.toggleFold();
+	return true;
+}
+function handleBlockToggleFold(block: CellBlock) : boolean {
+	for (const siteRow of block.rows()) {
+		siteRow.toggleFold();
+	}
 	return true;
 }
 function handleAddMarkup(sel: CellTextSelection, tagName: string): boolean {
