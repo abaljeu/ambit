@@ -126,7 +126,7 @@ export class Cell {
 		// }
 		selection.removeAllRanges();
 		selection.addRange(range);
-		DetailView.setSelection(selection, start, end);
+		// DetailView.setSelection(selection, start, end);
 	}
 
 	public getAnchorOffset(): number {
@@ -177,6 +177,14 @@ export class Cell {
 		return {cell, offset: pos.offset};
 	}
 
+	public static cellWithCursor(): Cell | null {
+		const selection = window.getSelection();
+		if (!selection || selection.rangeCount === 0) return null;
+		const range = selection.getRangeAt(0);
+		const focusNode = selection.focusNode;
+		if (!focusNode) return null;
+		return Selection.findCellContainingNode(focusNode);
+	}
 
 	public offsetAtX(x: number): number {
 		const contentSpan = this.newEl;

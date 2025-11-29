@@ -151,7 +151,7 @@ export class SiteRow extends DocLineView {
         } else {
             nextIndex = model.scene.indexOf(SiteRow.end);
         }
-        model.scene.deleteRows(index+1, nextIndex-index);
+        model.scene.deleteRows(index+1, nextIndex-index-1);
     }
     public siteRowUnfolded(): void {
         const next = this.next;

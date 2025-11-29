@@ -5,9 +5,7 @@ import { model } from '../model.js';
 import { Doc, DocLine } from '../doc.js';
 import { RowCell, Site, SiteRow, SiteRowId } from '../site.js';
 import * as Change from '../change.js';
-import * as HtmlUtil from '../htmlutil.js';
 import { CellSelection, CellBlock, CellTextSelection, CellSpec, NoSelection } from '../cellblock.js';
-import { PureTextSelection } from '../web/pureData.js';
 import { SceneCell } from '../sitecells.js';
 
 import * as WebUI from '../web/ui.js';
@@ -62,15 +60,17 @@ class BlockKeyBinding {
 const blockKeyBindings: BlockKeyBinding[] = [
 	new BlockKeyBinding("ArrowUp", handleBlockArrowUp),
 	new BlockKeyBinding("ArrowDown", handleBlockArrowDown),
-	new BlockKeyBinding("S-ArrowUp", handleBlockShiftArrowUp),
 	new BlockKeyBinding("ArrowRight", handleBlockArrowRight),
 	new BlockKeyBinding("ArrowLeft", handleBlockArrowLeft),
+	new BlockKeyBinding("S-ArrowUp", handleBlockShiftArrowUp),
 	new BlockKeyBinding("S-ArrowDown", handleBlockShiftArrowDown),
 	new BlockKeyBinding("C-ArrowUp", handleBlockSwapUp),
 	new BlockKeyBinding("C-ArrowDown", handleBlockSwapDown),
 	new BlockKeyBinding("Tab", handleBlockTab),
 	new BlockKeyBinding("S-Tab", handleBlockShiftTab),
 	new BlockKeyBinding("C-.", handleBlockToggleFold),
+	new BlockKeyBinding("F5",  () => false),
+	new BlockKeyBinding("C-F5",  () => false),
 ];
 
 const textKeyBindings: KeyBinding[] = [
@@ -252,32 +252,32 @@ function handleDelete(sel: CellTextSelection) : boolean {
 	return true;
 }
 
-function handleBlockArrowUp(sel: CellBlock) : boolean {
-	const activeSiteRow = sel.focusRow;
-	const parentSiteRow = sel.parentSiteRow;
+function handleBlockArrowUp(block: CellBlock) : boolean {
+	const activeSiteRow = block.focusRow;
+	const parentSiteRow = block.parentSiteRow;
 	const activeChildIndex = parentSiteRow.children.indexOf(activeSiteRow);
 	
 	if (activeChildIndex === -1)
 		return true;
 	
-	const isActiveAtStart = activeChildIndex === sel.startChildIndex;
-	const startChildIndex = sel.startChildIndex;
+	const isActiveAtStart = activeChildIndex === block.startRowIndex;
+	const startChildIndex = block.startRowIndex;
 	const isStartAtFirst = startChildIndex <= 0;
 	
-	let newStartIndex = sel.startChildIndex;
-	let newEndIndex = sel.endChildIndex;
+	let newStartIndex = block.startRowIndex;
+	let newEndIndex = block.endRowIndex;
 	let newActiveSiteRow = activeSiteRow;
-	let newActiveCellIndex = sel.focusCellIndex;
+	let newActiveCellIndex = block.focusCellIndex;
 	
 	if (!isActiveAtStart) {
 		// Set active cell to start row
 		const startRow = parentSiteRow.children[startChildIndex];
-		newActiveSiteRow = startRow;
-		newActiveCellIndex = startChildIndex;
+		newStartIndex = block.endRowIndex;
+		newEndIndex = block.startRowIndex;
 	} else if (!isStartAtFirst) {
 		// Shift the selection (start and end) up one
-		newStartIndex = sel.startChildIndex - 1;
-		newEndIndex = sel.endChildIndex - 1;
+		newStartIndex = block.startRowIndex - 1;
+		newEndIndex = block.endRowIndex - 1;
 		const newStartRow = parentSiteRow.children[newStartIndex];
 		newActiveSiteRow = newStartRow;
 		newActiveCellIndex = newStartIndex;
@@ -286,7 +286,8 @@ function handleBlockArrowUp(sel: CellBlock) : boolean {
 		return true;
 	}
 	
-	const newCellSelection = CellBlock.create(parentSiteRow, newStartIndex, newEndIndex);
+	const newCellSelection = new CellBlock(parentSiteRow, newStartIndex, newEndIndex,
+		newActiveCellIndex, -1);
 	
 	model.site.setCellBlock(newCellSelection);
 	model.scene.updatedSelection();
@@ -308,6 +309,7 @@ function handleArrowUp(sel: CellTextSelection) : boolean {
 	Ops.moveCursorToRow(nextRow);
 	return true;
 }
+
 function handleBlockArrowDown(block: CellBlock) : boolean {
 		const activeSiteRow = block.focusRow;
 		const parentSiteRow = block.parentSiteRow;
@@ -316,25 +318,24 @@ function handleBlockArrowDown(block: CellBlock) : boolean {
 		if (activeChildIndex === -1)
 			return true;
 		
-		const isActiveAtStart = activeChildIndex === block.startChildIndex;
-		const isActiveAtEnd = activeChildIndex === block.endChildIndex;
-		const endChildIndex = block.endChildIndex;
+		const isActiveAtStart = activeChildIndex === block.startRowIndex;
+		const isActiveAtEnd = activeChildIndex === block.endRowIndex;
+		const endChildIndex = block.endRowIndex;
 		const isEndAtLast = endChildIndex >= parentSiteRow.children.length - 1;
 		
-		let newStartIndex = block.startChildIndex;
-		let newEndIndex = block.endChildIndex;
+		let newStartIndex = block.startRowIndex;
+		let newEndIndex = block.endRowIndex;
 		let newActiveSiteRow = activeSiteRow;
 		let newActiveCellIndex = block.focusCellIndex;
 		
 		if (!isActiveAtEnd) {
 			// Set active cell to end row
-			const endRow = parentSiteRow.children[endChildIndex];
-			newActiveSiteRow = endRow;
-			newActiveCellIndex = endChildIndex;
+			newStartIndex = block.startRowIndex;
+			newEndIndex = block.endRowIndex;
 		} else if (!isEndAtLast) {
 			// Shift the selection (start and end) down one
-			newStartIndex = block.startChildIndex + 1;
-			newEndIndex = block.endChildIndex + 1;
+			newStartIndex = block.startRowIndex + 1;
+			newEndIndex = block.endRowIndex + 1;
 			const newEndRow = parentSiteRow.children[newEndIndex];
 			newActiveSiteRow = newEndRow;
 			newActiveCellIndex = newEndIndex;
@@ -343,8 +344,9 @@ function handleBlockArrowDown(block: CellBlock) : boolean {
 			return true;
 		}
 		
-		const newCellSelection = CellBlock.create(parentSiteRow, newStartIndex, newEndIndex);
-		
+		const newCellSelection = new CellBlock(parentSiteRow, newStartIndex, newEndIndex,
+			newActiveCellIndex, -1);
+			
 		model.site.setCellBlock(newCellSelection);
 		model.scene.updatedSelection();
 		return true;
@@ -359,11 +361,11 @@ function handleBlockShiftArrowUp(block: CellBlock): boolean {
 	if (activeChildIndex === -1)
 		return true;
 	
-	const isActiveAtTop = activeChildIndex === block.startChildIndex;
-	const isActiveAtBottom = activeChildIndex === block.endChildIndex;
+	const isActiveAtTop = activeChildIndex === block.startRowIndex;
+	const isActiveAtBottom = activeChildIndex === block.endRowIndex;
 	
-	let newStartIndex = block.startChildIndex;
-	let newEndIndex = block.endChildIndex;
+	let newStartIndex = block.startRowIndex;
+	let newEndIndex = block.endRowIndex;
 	let newActiveSiteRow = activeSiteRow;
 	let newParentSiteRow = parentSiteRow;
 	
@@ -412,6 +414,8 @@ function handleShiftArrowUp(sel: CellTextSelection): boolean {
 	return true;
 }
 
+
+
 function handleBlockShiftArrowDown(block: CellBlock): boolean {
 	const focusRow = block.focusRow;
 	const parentRow = block.parentSiteRow;
@@ -419,12 +423,12 @@ function handleBlockShiftArrowDown(block: CellBlock): boolean {
 	
 	if (focusChildIndex === -1) return true;
 	
-	const isActiveAtTop = focusChildIndex === block.startChildIndex;
-	const isActiveAtBottom = focusChildIndex === block.endChildIndex;
+	const isActiveAtTop = focusChildIndex === block.startRowIndex;
+	const isActiveAtBottom = focusChildIndex === block.endRowIndex;
 	
 	let newParentRow = parentRow;
-	let newFocus = block.focusChildIndex;
-	let newAnchor = block.anchorChildIndex;
+	let newFocus = block.focusRowIndex;
+	let newAnchor = block.anchorRowIndex;
 	let newFocusCellIndex = block.focusCellIndex;
 	const focusCellIndex = block.focusCellIndex;
 
@@ -704,7 +708,7 @@ export function moveBelow(line: DocLine, targetBelow: DocLine): void {
 }
 function handleBlockSwapUp(block: CellBlock): boolean {
 	const parentSiteRow = block.parentSiteRow;
-	const startChildIndex = block.startChildIndex;
+	const startChildIndex = block.startRowIndex;
 	
 	// Find previous sibling before block's start row
 	if (startChildIndex === 0) {
@@ -712,7 +716,7 @@ function handleBlockSwapUp(block: CellBlock): boolean {
 	}
 	
 	const prevSibling = parentSiteRow.children[startChildIndex - 1];
-	const endRow = parentSiteRow.children[block.endChildIndex];
+	const endRow = parentSiteRow.children[block.endRowIndex];
 	
 	// Find what comes after the end row to move before it
 	const endRowNextSibling = endRow.docLine.nextSibling();
@@ -722,7 +726,7 @@ function handleBlockSwapUp(block: CellBlock): boolean {
 		moveBefore(prevSibling.docLine, endRowNextSibling);
 	}
 	
-	const newCellSelection = CellBlock.create(parentSiteRow, startChildIndex - 1, block.endChildIndex-1);
+	const newCellSelection = CellBlock.create(parentSiteRow, startChildIndex - 1, block.endRowIndex-1);
 	model.site.setCellBlock(newCellSelection);
 	model.scene.updatedSelection();
 	return true;
@@ -746,7 +750,7 @@ function handleSwapUp(sel: CellTextSelection): boolean {
 
 function handleBlockSwapDown(block: CellBlock): boolean {
 	const parentSiteRow = block.parentSiteRow;
-	const endChildIndex = block.endChildIndex;
+	const endChildIndex = block.endRowIndex;
 	
 	// Find next sibling after block's end row
 	if (endChildIndex >= parentSiteRow.children.length - 1) {
@@ -754,12 +758,12 @@ function handleBlockSwapDown(block: CellBlock): boolean {
 	}
 	
 	const nextSibling = parentSiteRow.children[endChildIndex + 1];
-	const startRow = parentSiteRow.children[block.startChildIndex];
+	const startRow = parentSiteRow.children[block.startRowIndex];
 	
 	// Move next row before block's start row
 	moveBefore(nextSibling.docLine, startRow.docLine);
 	
-	const newCellSelection = CellBlock.create( parentSiteRow, block.startChildIndex+1, endChildIndex + 1);
+	const newCellSelection = CellBlock.create( parentSiteRow, block.startRowIndex+1, endChildIndex + 1);
 	model.site.setCellBlock(newCellSelection);
 	model.scene.updatedSelection();
 	return true;
@@ -859,8 +863,8 @@ function handleInsertChar(sel: CellTextSelection, ch : string) {
 
 function handleBlockTab(block: CellBlock): boolean {
 	const parentSiteRow = block.parentSiteRow;
-	const startChildIndex = block.startChildIndex;
-	const endChildIndex = block.endChildIndex;
+	const startChildIndex = block.startRowIndex;
+	const endChildIndex = block.endRowIndex;
 	
 	// Look for a row previous to start
 	if (startChildIndex === 0) {
@@ -940,8 +944,8 @@ function moveAfterParent(docLine : DocLine) {
 
 function handleBlockShiftTab(block: CellBlock): boolean {
 	const parentSiteRow = block.parentSiteRow;
-	const startChildIndex = block.startChildIndex;
-	const endChildIndex = block.endChildIndex;
+	const startChildIndex = block.startRowIndex;
+	const endChildIndex = block.endRowIndex;
 	
 	// Get all top-level rows of block selection
 	const topLevelRows: SiteRow[] = [];

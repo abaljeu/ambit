@@ -34,9 +34,10 @@ export function cellLocalToRowLevelOffset(row: Editor.Row, cell: Editor.Cell, ce
 export function setCaretInSite(row: SiteRow,
                 cellIndex: number,
                 focus: number, anchor: number = -1): void {
-    const _anchor = anchor === -1 ? focus : anchor;
-    model.site.setSelection(new CellTextSelection(row, cellIndex, focus, _anchor));
-    model.scene.updatedSelection();
+	// const focus = _focus < row.indent? row.indent : _focus;
+	const _anchor = anchor === -1 ? focus : anchor;
+	model.site.setSelection(new CellTextSelection(row, cellIndex, focus, _anchor));
+	model.scene.updatedSelection();
 }
 export function setCaretInCell(rowCell: RowCell, 
         focus: number, anchor: number = -1): void {

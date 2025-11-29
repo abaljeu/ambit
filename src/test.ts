@@ -152,6 +152,9 @@ const tests: (() => void)[] = [
     assert(Editor.currentSelection() !== null);
     assertEquals(rows[2].activeCell, rows[2].cells.at(0));
     Controller.moveCursorToCell(rows[3].cellAt(0), 0);
+    sel = model.site.cellSelection;
+    ssel = sel as CellTextSelection;
+    assertEquals(ssel.focus, ssel.anchor);
     sendKey('Enter', []);
     rows = Array.from(Editor.rows());
     assertEquals(6, rows.length);
@@ -512,10 +515,11 @@ function testHandleArrowRight(): void {
 // Test 12: handleToggleFold function
 , function testHandleToggleFold(): void {
     // Arrange - create content with indented lines
-    const foldedContent = "Parent\n\tChild 1\n\tChild 2";
+    const foldedContent = "Parent\n\tChild 1\n\tChild 2\nChild 3";
     const doc = Controller.loadDoc(foldedContent, "fold_test.amb");
     
     const rows = Array.from(Editor.rows());
+    assertEquals(rows.length, 5);
     const parentRow = rows[1];
     Controller.moveCursorToCell(parentRow.cellAt(parentRow.indent), 0);
     
@@ -523,9 +527,13 @@ function testHandleArrowRight(): void {
     sendKey('.', ['C']);
     
     // Assert
-    const updatedRows = Array.from(Editor.rows());
-    assertEquals(updatedRows.length, 2);
+    let updatedRows = Array.from(Editor.rows());
+    assertEquals(updatedRows.length, 3);
     assertEquals(updatedRows[1].htmlContent, "Parent"); // No indent
+    assertEquals(updatedRows[2].htmlContent, "Child 3");
+    sendKey('.', ['C']);
+    updatedRows = Array.from(Editor.rows());
+    assertEquals(updatedRows.length, 5);
 }
 , function testInitCellSelectionToRow(): void {
     // Arrange
@@ -582,8 +590,8 @@ function testHandleArrowRight(): void {
     assert(cellSelection instanceof CellBlock);
     let cellBlock : CellBlock = cellSelection as CellBlock;
     assertEquals(rows[0].id, cellBlock.parentSiteRow.id.toString());
-    assertEquals(0, cellBlock.startChildIndex);
-    assertEquals(0, cellBlock.endChildIndex);
+    assertEquals(0, cellBlock.startRowIndex);
+    assertEquals(0, cellBlock.endRowIndex);
 
 
     sendKey('ArrowDown', ['S']);
@@ -591,8 +599,8 @@ function testHandleArrowRight(): void {
     cellSelection = model.site.cellSelection;
     assert(cellSelection instanceof CellBlock);
     cellBlock = cellSelection as CellBlock;
-    assertEquals(0, cellBlock.startChildIndex);
-    assertEquals(1, cellBlock.endChildIndex);
+    assertEquals(0, cellBlock.startRowIndex);
+    assertEquals(1, cellBlock.endRowIndex);
     assertEquals(siteRowFromRow(rows[2]), cellBlock.focusRow);
 
     // assertEquals(cellSelection.activeSiteRow, siteRowFromRow(rows[1]).siteRow);
@@ -660,8 +668,8 @@ function testHandleArrowRight(): void {
     cellSelection = model.site.cellSelection;
     cellBlock = cellSelection as CellBlock;
     assert(cellBlock !== null);
-    assertEquals(2, cellBlock.startChildIndex);
-    assertEquals(2, cellBlock.endChildIndex);
+    assertEquals(2, cellBlock.startRowIndex);
+    assertEquals(2, cellBlock.endRowIndex);
     assert(row4Cells[0].hasCellBlockSelected());
     assert(row5Cells[0].hasCellBlockSelected());
     assert(row6Cells[0].hasCellBlockSelected());
@@ -671,21 +679,21 @@ function testHandleArrowRight(): void {
     cellSelection = model.site.cellSelection;
     cellBlock = cellSelection as CellBlock;
     assert(cellBlock !== null);
-    assertEquals(2, cellBlock.startChildIndex);
-    assertEquals(3, cellBlock.endChildIndex);
+    assertEquals(2, cellBlock.startRowIndex);
+    assertEquals(3, cellBlock.endRowIndex);
     sendKey('ArrowDown', ['S']);
     cellSelection = model.site.cellSelection;
     cellBlock = cellSelection as CellBlock;
     assert(cellBlock !== null);
-    assertEquals(2, cellBlock.startChildIndex);
-    assertEquals(3, cellBlock.endChildIndex);
+    assertEquals(2, cellBlock.startRowIndex);
+    assertEquals(3, cellBlock.endRowIndex);
 
     sendKey('ArrowUp', ['S']);
     cellSelection = model.site.cellSelection;
     cellBlock = cellSelection as CellBlock;
     assert(cellBlock !== null);
-    assertEquals(2, cellBlock.startChildIndex);
-    assertEquals(2, cellBlock.endChildIndex);
+    assertEquals(2, cellBlock.startRowIndex);
+    assertEquals(2, cellBlock.endRowIndex);
     assertEquals(0, cellBlock.focusCellIndex);
 
 
@@ -693,16 +701,16 @@ function testHandleArrowRight(): void {
     cellSelection = model.site.cellSelection;
     cellBlock = cellSelection as CellBlock;
     assert(cellBlock !== null);
-    assertEquals(1, cellBlock.startChildIndex);
-    assertEquals(2, cellBlock.endChildIndex);
+    assertEquals(1, cellBlock.startRowIndex);
+    assertEquals(2, cellBlock.endRowIndex);
     assertEquals(0, cellBlock.focusCellIndex);
 
     sendKey('ArrowUp', ['S']);
     cellSelection = model.site.cellSelection;
     cellBlock = cellSelection as CellBlock;
     assert(cellBlock !== null);
-    assertEquals(0, cellBlock.startChildIndex);
-    assertEquals(2, cellBlock.endChildIndex);
+    assertEquals(0, cellBlock.startRowIndex);
+    assertEquals(2, cellBlock.endRowIndex);
     assertEquals(0, cellBlock.focusCellIndex);
     
 
@@ -710,8 +718,8 @@ function testHandleArrowRight(): void {
     cellSelection = model.site.cellSelection;
     cellBlock = cellSelection as CellBlock;
     assert(cellBlock !== null);
-    assertEquals(1, cellBlock.startChildIndex);
-    assertEquals(2, cellBlock.endChildIndex);
+    assertEquals(1, cellBlock.startRowIndex);
+    assertEquals(2, cellBlock.endRowIndex);
     assertEquals(0, cellBlock.focusCellIndex);
     
 
@@ -719,8 +727,8 @@ function testHandleArrowRight(): void {
     cellSelection = model.site.cellSelection;
     cellBlock = cellSelection as CellBlock;
     assert(cellBlock !== null);
-    assertEquals(2, cellBlock.startChildIndex);
-    assertEquals(2, cellBlock.endChildIndex);
+    assertEquals(2, cellBlock.startRowIndex);
+    assertEquals(2, cellBlock.endRowIndex);
     assertEquals(0, cellBlock.focusCellIndex);
     
 },

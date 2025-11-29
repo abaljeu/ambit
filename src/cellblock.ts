@@ -8,7 +8,7 @@ export class CellSpec {
 export class CellBlock {
     private static _empty: CellBlock | null = null;
     public rows(): readonly SiteRow[] {
-        return this.parentSiteRow.children.slice(this.startChildIndex, this.endChildIndex + 1);
+        return this.parentSiteRow.children.slice(this.startRowIndex, this.endRowIndex + 1);
     }
     public get activeRowCell() : RowCell {
         return new RowCell(this.focusRow, this.focusRow.cells.at(this.focusCellIndex));
@@ -21,10 +21,10 @@ export class CellBlock {
     }
     
     public get focusRow() : SiteRow {
-        return this.parentSiteRow.children.at(this.focusChildIndex) ?? SiteRow.end;
+        return this.parentSiteRow.children.at(this.focusRowIndex) ?? SiteRow.end;
     }
     public get anchorRow() : SiteRow {
-        return this.parentSiteRow.children.at(this.anchorChildIndex) ?? SiteRow.end;
+        return this.parentSiteRow.children.at(this.anchorRowIndex) ?? SiteRow.end;
     }
     public get focusCell() : RowCell {
         return new RowCell(this.focusRow, this.focusRow.cells.at(this.focusCellIndex));
@@ -33,22 +33,34 @@ export class CellBlock {
         return new RowCell(this.anchorRow, this.anchorRow.cells.at(this.anchorCellIndex));
     }
 
-    public get startChildIndex() : number {
-        return this.focusChildIndex < this.anchorChildIndex ? this.focusChildIndex : this.anchorChildIndex;
+    public get startRowIndex() : number {
+        return this.focusRowIndex < this.anchorRowIndex ? this.focusRowIndex : this.anchorRowIndex;
     }
-    public get endChildIndex() : number {
-        return this.focusChildIndex > this.anchorChildIndex ? this.focusChildIndex : this.anchorChildIndex;
+    public get endRowIndex() : number {
+        return this.focusRowIndex > this.anchorRowIndex ? this.focusRowIndex : this.anchorRowIndex;
     }
     public get startCellIndex() : number {
-        return this.focusCellIndex < this.anchorCellIndex ? this.focusCellIndex : this.anchorCellIndex;
+        if (this.anchorCellIndex === -1) {
+            return this.focusCellIndex;
+        }
+        if (this.focusCellIndex === -1) {
+            return this.anchorCellIndex;
+        }
+        return Math.min(this.focusCellIndex, this.anchorCellIndex);
     }
     public get endCellIndex() : number {
-        return this.focusCellIndex > this.anchorCellIndex ? this.focusCellIndex : this.anchorCellIndex;
+        if (this.focusCellIndex === -1) {
+            return this.focusCellIndex;
+        }
+        if (this.anchorCellIndex === -1) {
+            return this.anchorCellIndex;
+        }
+        return Math.max(this.focusCellIndex, this.anchorCellIndex);
     }
     public constructor(
         public readonly parentSiteRow: SiteRow,
-        public readonly focusChildIndex: number,
-        public readonly anchorChildIndex: number,
+        public readonly focusRowIndex: number,
+        public readonly anchorRowIndex: number,
         public readonly focusCellIndex: number,
         public readonly anchorCellIndex: number) {
     }
@@ -81,7 +93,7 @@ export class CellBlock {
                 }
                 
                 // Check if childIndex is in the range
-                if (childIndex >= this.startChildIndex && childIndex <= this.endChildIndex) {
+                if (childIndex >= this.startRowIndex && childIndex <= this.endRowIndex) {
                     return true;
                 }
                 return false;

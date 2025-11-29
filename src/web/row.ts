@@ -59,7 +59,10 @@ export class Row {
 		const cellBlockActive = this.cells.find(cell => cell.hasCellBlockActive());
 		if (cellBlockActive) 
 			return cellBlockActive;
-		
+
+		const ac = Cell.cellWithCursor();
+		if (ac)
+			return ac;
 		// Otherwise, check DOM focus (normal text editing mode)
 		return this.cells.find(cell => cell.active) ?? null;
 	}
@@ -206,19 +209,11 @@ export class Row {
 	}
 	public get caretOffset(): { cell: Cell, offset: number }  {
 		// Find active cell using Cell.active() getter
-		const activeCell = this.cells.find(cell => cell.active);
+		const activeCell = this.activeCell;
 		if (!activeCell) {
-			const firstCell = this.cells[0];
-			if (!firstCell) {
-				// No cells at all - return a sentinel
-				return { cell: new Cell(document.createElement('span')), offset: 0 };
-			}
-			return { cell: firstCell, offset: 0 };
+			throw new Error("No active cell in row");
 		}
-		
-		// Delegate to that cell's caretOffset() method (returns cell-local offset)
-		const offset = activeCell.caretOffset();
-		return { cell: activeCell, offset };
+		return { cell: activeCell, offset: activeCell.caretOffset() };
 	}
 	
 	private setCaretInRow(visibleOffset: number) {
@@ -329,8 +324,8 @@ export class Row {
 				const cell = this.cells[state.cellIndex];
 				if (cell) {
 					cell.updateCellBlockStyling({ 
-						selected: true, 
-						active: true 
+						selected: false, 
+						active: true
 					});
 					cell.setSelection(state.focus, state.anchor);
 				}
@@ -509,11 +504,9 @@ export function currentRow(): Row {
 	if (!p){
 		for (const row of rows()) {
 			if (row.valid()) {
-				for (const cell of row.cells) {
-					if (cell.active) {
-						return row;
-					}
-				}
+				const ac = row.activeCell;
+				if (ac)
+					return row;
 			}
 		}
 		 return endRow;
