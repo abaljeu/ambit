@@ -58,6 +58,8 @@ class BlockKeyBinding {
 }
 
 const blockKeyBindings: BlockKeyBinding[] = [
+	new BlockKeyBinding("C-]", handleBlockZoomIn),
+	new BlockKeyBinding("C-[", handleBlockZoomOut),
 	new BlockKeyBinding("ArrowUp", handleBlockArrowUp),
 	new BlockKeyBinding("ArrowDown", handleBlockArrowDown),
 	new BlockKeyBinding("ArrowRight", handleBlockArrowRight),
@@ -74,6 +76,8 @@ const blockKeyBindings: BlockKeyBinding[] = [
 ];
 
 const textKeyBindings: KeyBinding[] = [
+	new KeyBinding("C-]", handleZoomIn),
+	new KeyBinding("C-[", handleZoomOut),
 	new KeyBinding("F12", (_)=>false),
 	new KeyBinding("F5",  (_)=>false),
 	new KeyBinding("C-F5",  () => false),
@@ -536,7 +540,32 @@ function handleShiftArrowLeft(sel: CellTextSelection) : boolean {
 	}
 	return true;
 }
+function handleZoomIn(sel: CellTextSelection) : boolean {
+	if (model.site.zoomIn()) {
+		SceneEditor.setEditorContent(new ArraySpan(
+			model.scene.rows,0, model.scene.rows.length));
+		Ops.setCaretInCell(sel.activeRowCell, sel.focus);
+	}
+	return true;
+}
+function handleBlockZoomIn(block: CellBlock) : boolean {
+	return handleZoomIn(textSelectionFromBlock(block));
+}
+function handleZoomOut(sel: CellTextSelection) : boolean {
+	if (model.site.zoomOut()) {
+		SceneEditor.setEditorContent(new ArraySpan(
+			model.scene.rows,0, model.scene.rows.length));
+		Ops.setCaretInCell(sel.activeRowCell, sel.focus);
+	}
+	return true;
+}
 
+function handleBlockZoomOut(block: CellBlock) : boolean {
+	return handleZoomOut(textSelectionFromBlock(block));
+}
+function textSelectionFromBlock(block: CellBlock): CellTextSelection {
+	return new CellTextSelection(block.focusRow, block.focusCellIndex, 0,0);
+}
 function handleShiftArrowRight(sel: CellTextSelection) : boolean {
 	const maxOffset = sel.activeRowCell.cell.text.length;
 	if (sel.focus < maxOffset) {

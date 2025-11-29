@@ -425,7 +425,27 @@ export class Site {
     public getRoot(): SiteRow {
         return _root;
     }
-    
-    constructor() {}
+    public zoomIn(): boolean {
+        const activeCell = this.activeCell;
+        if (activeCell) {
+            if (activeCell.row.content.length > 0 || activeCell.row.children.length > 0) {
+                model.scene.loadFromSite(activeCell.row);
+            } else if (activeCell.row.parent !== SiteRow.end) {
+                    model.scene.loadFromSite(activeCell.row.parent);
+            } else {
+                model.scene.loadFromSite(activeCell.row);
+            }
+            return true;
+        }
+        return false;
+        // else nothing.
+    }
+    public zoomOut(): boolean {
+        const root = model.scene.rows[0];
+        if (root !== SiteRow.end && root.parent !== SiteRow.end) {
+            model.scene.loadFromSite(root.parent);
+            return true;
+        } 
+        return false;  
+    }
 }
-
