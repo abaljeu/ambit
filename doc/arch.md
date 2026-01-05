@@ -12,6 +12,18 @@ This app is structured around a small set of operations (ops) that transform a g
 - Client: local-first, applies ops immediately, renders outline, maintains selection
 - Server: authoritative log + persistence, assigns revisions, serves sync endpoints
 
+## Directory structure
+doc/
+src/Client - UI code
+src/Server - backend code
+src/Shared - ALL code that can run on both Fable and .NET
+tests/ - automated tests (separate projects)
+  - tests/Shared.Tests - pure domain/ops tests (highest value)
+  - tests/Server.Tests - store + endpoint contract tests
+  - tests/Client.Tests - only for pure client logic that can run on .NET (optional)
+
+Rationale: a single src/Test folder tends to mix concerns and makes it harder to run a targeted test suite. Separate test projects let you reference exactly the code under test (Shared vs Server) and keep dependencies clean.
+
 ## Client
 
 ### Requirements
@@ -91,15 +103,18 @@ noderoot : node
 
 ### Low-level ops (shared client + server)
 
-- create node
-- set text old new
-- replace (establishes parent-child relations)
+- [x] create node
+- [x] set text old new
+- [ ] replace (establishes parent-child relations)
   - node
   - index
   - [ old guids ]
   - [ new guids ]
 - undo
 - redo
+
+### Model Building
+- [ ] create many nodes from text
 
 ### Site/composite model (client)
 
@@ -239,6 +254,3 @@ Keep server testing minimal by pushing logic into a store module.
 	- “render plan” / line-diff computation (if separated) is correct
 - Skip browser automation initially. Add Playwright only if regressions become painful.
 
-## Directory structure
-
-TBD

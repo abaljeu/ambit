@@ -18,9 +18,12 @@ Write test - stop for review.
 Make test pass.  Stop for review.  
 Refactor.  Stop for review.
 
+Don't bother using git unless asked a history or status question.  I will take care of git.
+
 ## Source code
 Maximum 100 characters per line.
 Follow language norms.
+TABs are not allowed in F#   Always 4 spaces.
 
 ## Environment
 Windows
