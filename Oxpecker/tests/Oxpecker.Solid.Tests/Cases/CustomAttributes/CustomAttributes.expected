@@ -1,8 +1,0 @@
-
-
-export function Test() {
-    return <body hello="world">
-        <h1 data-abcd="efgh" />
-    </body>;
-}
-

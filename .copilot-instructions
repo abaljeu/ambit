@@ -7,7 +7,7 @@ We are working through [[doc/plan]].
 In markdown files reference files using the format  [[workspace_path/filename.ext]]
 
 ## How to work
-Maximum 100 lines of change per request.  If a request would require more than that, instead write a plan describing the change so we can work at smaller increments.
+Maximum 100 lines of change per request.  Prefer less.  If a request would require more than that, instead write a plan describing the change so we can work at smaller increments.
 
 If a requested course of action seems inefficient, stop and propose a more efficient course.
 
