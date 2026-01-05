@@ -1,0 +1,34 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Fable.Browser.Dom" Version="2.18.1" />
+    <PackageReference Include="Fable.Core" Version="4.5.0" />
+    <PackageReference Include="Thoth.Fetch" Version="3.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="README.md" />
+    <Content Include="public\oxpecker-128.png" />
+    <Compile Include="src\Shared\Data.fs" />
+    <Compile Include="src\Components\CreateOrderButton.fs" />
+    <Compile Include="src\Components\Orders.fs" />
+    <Compile Include="src\App.fs" />
+    <Compile Include="src\Program.fs" />
+    <Content Include="src\index.css" />
+    <Content Include="package.json" />
+    <Content Include="index.html" />
+    <TypeScriptCompile Include="vite.config.ts" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\Oxpecker.Solid\Oxpecker.Solid.fsproj" />
+    <ProjectReference Include="..\Shared\Shared.fsproj" />
+  </ItemGroup>
+
+</Project>

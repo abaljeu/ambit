@@ -1,0 +1,36 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <WarningsAsErrors>3239;0025;3261</WarningsAsErrors>
+        <Nullable>enable</Nullable>
+        <PackageId>Oxpecker.Htmx</PackageId>
+        <Title>Oxpecker.Htmx</Title>
+        <RootNamespace>Oxpecker.Htmx</RootNamespace>
+        <AssemblyName>Oxpecker.Htmx</AssemblyName>
+        <Company>F# community</Company>
+        <Description>HTMX support for Oxpecker.ViewEngine</Description>
+        <RepositoryUrl>https://github.com/Lanayx/Oxpecker</RepositoryUrl>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageProjectUrl>https://github.com/Lanayx/Oxpecker/tree/develop/src/Oxpecker.Htmx</PackageProjectUrl>
+        <PackageIcon>oxpecker-128.png</PackageIcon>
+        <RepositoryType>git</RepositoryType>
+        <PackageTags>Oxpecker;ViewEngine;F#;FSharp;DSL;Html;Web;HTMX</PackageTags>
+        <Authors>Vladimir Shchur and contributors</Authors>
+        <Copyright>Copyright (c) Vladimir Shchur 2024</Copyright>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <IncludeSymbols>true</IncludeSymbols>
+        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+        <Version>2.0.0</Version>
+        <PackageVersion>2.0.0</PackageVersion>
+        <PackageReleaseNotes>Major release</PackageReleaseNotes>
+    </PropertyGroup>
+    <ItemGroup>
+        <None Include="..\..\images\oxpecker-128.png" Pack="true" PackagePath="\" />
+        <None Include="README.md" Pack="true" PackagePath="\" />
+        <Compile Include="Attributes.fs" />
+        <Compile Include="Headers.fs" />
+    </ItemGroup>
+    <ItemGroup>
+      <ProjectReference Include="..\Oxpecker.ViewEngine\Oxpecker.ViewEngine.fsproj" />
+    </ItemGroup>
+</Project>
