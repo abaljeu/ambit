@@ -23,7 +23,9 @@ Don't bother using git unless asked a history or status question.  I will take c
 ## Source code
 Maximum 100 characters per line.
 Follow language norms.
-TABs are not allowed in F#   Always 4 spaces.
+TABs are not allowed in F#
+Always indent 4 spaces.
+Indentation is AS important AS it is in python or Haskell.
 
 ## Environment
 Windows
