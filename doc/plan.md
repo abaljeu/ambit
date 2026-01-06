@@ -7,13 +7,13 @@ We are implementing [[spec]], following the [[arch]].  All documents are in deve
 This plan assumes a lightweight client (hidden-input editing) and a simple server that serves the page and persists ops.
 Multi-client support is described below but not to be coded yet.  For now we will assume sequential clients only, so there can never be a conflict to resolve.
 
-## 1. Choose the client/server approach
-
+## 1. client/server approach
+DONE.
 - Fable with a tiny MVU loop (no React)
 - Optional later refactor: adopt Elmish if the homegrown loop grows complex
 
 ## 2. Define the core data + ops (shared)
-
+In Progress.
 - Define `node` and `noderoot`
 - Define low-level ops:
 	- create node

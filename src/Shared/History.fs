@@ -22,10 +22,40 @@ type History =
       nextId: int }
 
 
+type State =
+    { graph: Graph
+      history: History }
+
+
 [<RequireQualifiedAccess>]
 module Change =
     let addOp (op: Op) (change: Change) : Change =
         { change with ops = change.ops @ [ op ] }
+
+
+[<RequireQualifiedAccess>]
+module Op =
+    let apply (op: Op) (state: State) : State =
+        match op with
+        | Op.NewNode(nodeId, text) ->
+            let node: Node =
+                { id = nodeId
+                  text = text
+                  children = [] }
+
+            let nodes = state.graph.nodes |> Map.add nodeId node
+
+            { state with
+                  graph = { state.graph with nodes = nodes } }
+        | Op.SetText(nodeId, oldText, newText) ->
+            match Graph.setText nodeId oldText newText state.graph with
+            | Ok graph -> { state with graph = graph }
+            | Error _ -> state
+        | Op.Replace(parentId, index, oldIds, newIds) ->
+            match Graph.replace parentId index oldIds newIds state.graph with
+            | Ok graph -> { state with graph = graph }
+            | Error _ -> state
+
 
 
 [<RequireQualifiedAccess>]
@@ -47,7 +77,3 @@ module History =
               future = []
               nextId = nextId }
 
-
-type State =
-    { graph: Graph
-      history: History }
