@@ -7,9 +7,13 @@ let main args =
     let builder = WebApplication.CreateBuilder(args)
     let app = builder.Build()
 
-    app.MapGet("/", Func<string>(fun () -> "Hello World!")) |> ignore
+    app.UseDefaultFiles() |> ignore
+    app.UseStaticFiles() |> ignore
+
+    app.MapGet("/api/hello", Func<obj>(fun () ->
+        {| message = "Hello from Gambol server!" |} :> obj
+    )) |> ignore
 
     app.Run()
 
     0 // Exit code
-

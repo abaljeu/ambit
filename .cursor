@@ -32,5 +32,6 @@ If a function might fail, use Result types with errors, eschewing exceptions for
 ## Environment
 Windows
 GIT Bash shell
+Do not use `cd`.  Your working directory is the project root.  If ever there's a reason not using `cd` is an obstacle, ask the user.
 Occasionally the first time you send a command, the tool will delete the first character of your command.  If so, just send it again.
 F# front and back end.  Client compiled with Fable for browser UI.  .NET for server.  Shared files should be compilable in either so use basic libraries only.
