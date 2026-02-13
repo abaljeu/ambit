@@ -1,0 +1,36 @@
+# Project
+The aim is for robust, private, useful software.
+Full Stack Functional F#
+
+We are working through [[doc/plan]].
+
+In markdown files reference files using the format  [[workspace_path/filename.ext]]
+
+## How to work
+Maximum 100 lines of change (total diff) per request.  Prefer less.  If a request would require more than that, instead write a plan describing the change so we can work at smaller increments.
+
+If a requested course of action seems inefficient, stop and propose a more efficient course.
+If a request is unclear, just ask.
+
+Put non-trivial plans in a markdown file in doc/ so I can review.
+
+Use Test Driven Development.
+Write test - stop for review.  
+Make test pass.  Stop for review.  
+Refactor.  Stop for review.
+
+Don't bother using git unless asked a history or status question.  I will take care of git.
+
+## Source code
+Maximum 100 characters per line.
+Follow language norms.
+TABs are not allowed in F#
+Always indent 4 spaces.
+Indentation is AS important AS it is in python or Haskell.
+If a function might fail, use Result types with errors, eschewing exceptions for things that should be handled (e.g. retries).
+
+## Environment
+Windows
+GIT Bash shell
+Occasionally the first time you send a command, the tool will delete the first character of your command.  If so, just send it again.
+F# front and back end.  Client compiled with Fable for browser UI.  .NET for server.  Shared files should be compilable in either so use basic libraries only.

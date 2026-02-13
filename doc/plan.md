@@ -5,7 +5,7 @@
 We are implementing [[spec]], following the [[arch]].  All documents are in development.
 
 This plan assumes a lightweight client (hidden-input editing) and a simple server that serves the page and persists ops.
-Multi-client support is described below but not to be coded yet.  For now we will assume sequential clients only, so there can never be a conflict to resolve.
+Multi-client sync (N<5 clients) is designed in [[api]] and will be implemented in section 4a.
 
 ## 1. client/server approach
 DONE.
@@ -21,8 +21,6 @@ In Progress.
 	- replace (parent-child relations)
 	- undo/redo
 
-Deliverable: a JSON encoding for ops + state.
-
 ## 3. Implement the client skeleton
 
 - Render visible “lines” from state
@@ -32,21 +30,34 @@ Deliverable: a JSON encoding for ops + state.
 
 ## 4. Implement the server skeleton
 
+- Add JSON serialization for shared types (in Shared/)
+    - Encode/decode `Op` (all variants)
+    - Encode/decode `Change`
+    - Encode/decode `State`/`Graph` (for state endpoint)
+    - Encode/decode `NodeId` (Guid)
+    - Round-trip tests
+- Define API contract (see [[api]])
+- Implement revision tracking
+    - Revision type (monotonically increasing integer)
+    - Revision in server state
+    - Message log (append-only log of all requests)
 - Serve `GET /` with the client assets
-- `GET /state` -> graph + revision
-- Implement POST endpoints that correspond 1:1 with ops:
-    - `POST /op/new-node`
-    - `POST /op/set-text`
-    - `POST /op/replace`
-    - `POST /op/undo`
-    - `POST /op/redo`
+- `GET /state` -> graph + revision (JSON)
+- `POST /op/apply` -> apply change with revision tracking (see [[api]])
+- `POST /op/undo` -> undo with revision tracking
+- `POST /op/redo` -> redo with revision tracking
+- `GET /ops?since={revision}` -> get changes since revision
 
-## 4a. Multi-device sync (single user)
+## 4a. Multi-client sync (N<5 clients)
 
-- Client queues ops locally and POSTs them in the background
-- Server assigns revisions and appends to ops log
-- Client polls `GET /ops?since=rev` to receive remote ops
-- On revision mismatch (`409`), client resyncs (fetch missing ops or reload full state) then retries pending ops
+MVP: last-write-wins per version (see [[sync-mvp]])
+- Client sends `(version, change)` to server
+- If another client already wrote at that version, server discards previous and keeps new
+- Server responds with `(newVersion, graph)` so client replaces local state
+- No client-side merging required
+- Undo/redo is client-local; inverse changes sent as normal edits
+
+Later: upgrade to merge-based sync (see [[api]])
 
 ## 5. Persistence
 
@@ -58,13 +69,16 @@ Deliverable: a JSON encoding for ops + state.
 
     op = New Node | Change Text | Insert Children | Remove Children | Undo | Redo
 
-- Periodic snapshot text file
-    snapshot = 
-        change number
-        [ node ]
-    node = 
-        nodeid : Guid
-        text
-        children : [ nodeid ]
+- Snapshot format: files in a directory
+    - Each file is a text outline with tabs establishing indentation
+    - Graph structure resolves to this format
+    - Lines may be:
+        - Indentation + text content
+        - Indentation + `[[wikilink#label]]` (link to another node)
+        - Indentation + `#label` (label/tag)
+    - File structure represents the graph hierarchy
+    - Each node maps to a line (or set of lines) with appropriate indentation
 
 - Rebuild graph, from snapshot forward, on startup
+    - Parse text outline files to reconstruct graph
+    - Apply ops log from last snapshot change number

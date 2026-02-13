@@ -54,38 +54,31 @@ Server should stay simple:
 - Provide a minimal API for fetching state and applying ops
 - Persist a single data type (graph + operations)
 
-### Sync (single-user, multi-device)
+### Sync (multi-client, N<5)
 
-Assumption: one user may have multiple devices open.
+Assumption: multiple clients (up to 5) may operate on the same model concurrently.
 
-Client behavior:
-- Apply ops locally immediately (optimistic)
-- Persist changes by POSTing the same ops to the server
-- Periodically pull remote changes and apply them locally
+**MVP** (see [[sync-mvp]]): last-write-wins per version.
+- Client sends `(version, change)` to server
+- Server discards any previous change at that version, applies the new one
+- Server responds with `(newVersion, graph)` — client replaces local state
+- No client-side merging; undo/redo is client-local
 
-Server behavior:
-- Maintain an authoritative append-only ops log
-- Maintain a monotonically increasing `revision`
-- Accept op batches with a `baseRevision`
-- Provide a way to fetch ops since a revision
-
-Conflict handling (keep it simple):
-- If `baseRevision` != server `revision`, server may reject with `409 Conflict`
-- Client resolves by fetching missing ops since `baseRevision`, applying them locally, then retrying (rebasing pending ops)
-- Initial implementation may choose a simpler rule: on conflict, client reloads full state and replays its pending ops
-- Initial use will not have concurrent devices, so we're only coding safety against corruption, not data loss.
+**Later** (see [[api]]): upgrade to merge-based sync with `remoteChanges`.
 
 ### HTTP API
 
+See [[api]] for full API contract.
+
+Summary:
 - `GET /` -> HTML
 - `GET /state` -> current graph + revision
-- POST endpoints correspond 1:1 with ops. Each endpoint applies exactly one op and returns an ack with the new revision.
-  - `POST /op/new-node`
-  - `POST /op/set-text`
-  - `POST /op/replace`
-  - `POST /op/undo`
-  - `POST /op/redo`
-- `GET /ops?since={revision}` -> ops since revision (or empty)
+- `POST /op/apply` -> apply change with revision tracking
+- `POST /op/undo` -> undo with revision tracking
+- `POST /op/redo` -> redo with revision tracking
+- `GET /ops?since={revision}` -> changes since revision
+
+All requests include client revision; server returns new revision and any remote changes.
 
 ## Domain model
 
@@ -178,14 +171,21 @@ Append-only time-reversible ops log:
 - `change = (change number, [ op ])`
 - `op = New Node | Change Text | Insert Children | Remove Children | Undo | Redo`
 
-Periodic snapshot text file:
+Periodic snapshot: files in a directory
 
-- `snapshot = (change number, [ node ])`
-- `node = (nodeid : Guid, text, children : [ nodeid ])`
+- Each file is a text outline with tabs establishing indentation
+- Graph structure resolves to this format
+- Lines may be:
+    - Indentation + text content
+    - Indentation + `[[wikilink#label]]` (link to another node)
+    - Indentation + `#label` (label/tag)
+- File structure represents the graph hierarchy
+- Each node maps to a line (or set of lines) with appropriate indentation
+- Snapshot includes change number (stored separately or in metadata)
 
 Startup:
 
-- Load snapshot
+- Parse text outline files to reconstruct graph
 - Replay log entries after snapshot change number
 
 

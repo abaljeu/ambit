@@ -13,9 +13,22 @@ type NodeId =
     static member New() = NodeId(Guid.NewGuid())
 
 
+[<Struct>]
+type Revision =
+    | Revision of int
+
+    member this.Value =
+        let (Revision value) = this
+        value
+
+    static member Zero = Revision 0
+    static member One = Revision 1
+
+
 type Node =
     { id: NodeId
       text: string
+      name: string option
       children: NodeId list }
 
 
@@ -32,6 +45,7 @@ module Graph =
         let rootNode: Node = // depth 0 node
             { id = rootId
               text = ""
+              name = None
               children = [] }
 
         { root = rootId
@@ -49,6 +63,7 @@ module Graph =
         let node: Node =
             { id = nodeId
               text = text
+              name = None
               children = [] }
 
         let nodes = graph.nodes |> Map.add nodeId node

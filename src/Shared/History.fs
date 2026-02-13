@@ -28,33 +28,105 @@ type State =
 
 
 [<RequireQualifiedAccess>]
-module Change =
-    let addOp (op: Op) (change: Change) : Change =
-        { change with ops = change.ops @ [ op ] }
+type ApplyResult =
+    | Changed of State
+    | Unchanged of State
+    | Invalid of State * string
 
 
 [<RequireQualifiedAccess>]
 module Op =
-    let apply (op: Op) (state: State) : State =
+    let private fromGraphResult (state: State) (result: Result<Graph, string>) : ApplyResult =
+        match result with
+        | Ok graph -> ApplyResult.Changed { state with graph = graph }
+        | Error msg -> ApplyResult.Invalid(state, msg)
+
+    let private fromGraphResultUnchanged (state: State) (result: Result<Graph, string>) : ApplyResult =
+        match result with
+        | Ok graph -> ApplyResult.Changed { state with graph = graph }
+        | Error msg -> ApplyResult.Invalid(state, msg)
+
+    let apply (op: Op) (state: State) : ApplyResult =
         match op with
         | Op.NewNode(nodeId, text) ->
             let node: Node =
                 { id = nodeId
                   text = text
+                  name = None
                   children = [] }
 
-            let nodes = state.graph.nodes |> Map.add nodeId node
-
-            { state with
-                  graph = { state.graph with nodes = nodes } }
+            ApplyResult.Changed
+                { state with
+                      graph =
+                          { state.graph with
+                                nodes = state.graph.nodes |> Map.add nodeId node } }
         | Op.SetText(nodeId, oldText, newText) ->
-            match Graph.setText nodeId oldText newText state.graph with
-            | Ok graph -> { state with graph = graph }
-            | Error _ -> state
+            Graph.setText nodeId oldText newText state.graph
+            |> fromGraphResult state
         | Op.Replace(parentId, index, oldIds, newIds) ->
-            match Graph.replace parentId index oldIds newIds state.graph with
-            | Ok graph -> { state with graph = graph }
-            | Error _ -> state
+            Graph.replace parentId index oldIds newIds state.graph
+            |> fromGraphResult state
+
+    let undo (op: Op) (state: State) : ApplyResult =
+        match op with
+        | Op.NewNode(_, _) -> ApplyResult.Invalid(state, "undo for NewNode not implemented")
+        | Op.SetText(nodeId, oldText, newText) ->
+            // Inverse: ensure current text == newText, set back to oldText
+            Graph.setText nodeId newText oldText state.graph
+            |> fromGraphResult state
+        | Op.Replace(parentId, index, oldIds, newIds) ->
+            // Inverse: swap old/new to restore
+            Graph.replace parentId index newIds oldIds state.graph
+            |> fromGraphResult state
+
+
+[<RequireQualifiedAccess>]
+module Change =
+    let addOp (op: Op) (change: Change) : Change =
+        { change with ops = change.ops @ [ op ] }
+
+    let apply (change: Change) (state: State) : ApplyResult =
+        let step (accState, hasChanged) op =
+            match Op.apply op accState with
+            | ApplyResult.Invalid _ as err -> Error err
+            | ApplyResult.Unchanged s' -> Ok(s', hasChanged)
+            | ApplyResult.Changed s' -> Ok(s', true)
+
+        let result =
+            change.ops
+            |> List.fold
+                (fun acc op ->
+                    match acc with
+                    | Error err -> Error err
+                    | Ok (s, changed) -> step (s, changed) op)
+                (Ok(state, false))
+
+        match result with
+        | Error err -> err
+        | Ok (s, false) -> ApplyResult.Unchanged s
+        | Ok (s, true) -> ApplyResult.Changed s
+
+    let undo (change: Change) (state: State) : ApplyResult =
+        let step (accState, hasChanged) op =
+            match Op.undo op accState with
+            | ApplyResult.Invalid _ as err -> Error err
+            | ApplyResult.Unchanged s' -> Ok(s', hasChanged)
+            | ApplyResult.Changed s' -> Ok(s', true)
+
+        let result =
+            change.ops
+            |> List.rev
+            |> List.fold
+                (fun acc op ->
+                    match acc with
+                    | Error err -> Error err
+                    | Ok (s, changed) -> step (s, changed) op)
+                (Ok(state, false))
+
+        match result with
+        | Error err -> err
+        | Ok (s, false) -> ApplyResult.Unchanged s
+        | Ok (s, true) -> ApplyResult.Changed s
 
 
 
@@ -76,4 +148,42 @@ module History =
               past = change :: history.past
               future = []
               nextId = nextId }
+
+    let applyChange (change: Change) (state: State) : ApplyResult =
+        match Change.apply change state with
+        | ApplyResult.Invalid _ as err -> err
+        | ApplyResult.Unchanged s -> ApplyResult.Unchanged s
+        | ApplyResult.Changed s ->
+            let history' = addChange change s.history
+            ApplyResult.Changed { s with history = history' }
+
+    let undo (state: State) : ApplyResult =
+        match state.history.past with
+        | [] -> ApplyResult.Unchanged state
+        | change :: restPast ->
+            match Change.undo change state with
+            | ApplyResult.Invalid _ as err -> err
+            | ApplyResult.Unchanged s -> ApplyResult.Unchanged s
+            | ApplyResult.Changed s ->
+                let history' =
+                    { s.history with
+                        past = restPast
+                        future = change :: s.history.future }
+
+                ApplyResult.Changed { s with history = history' }
+
+    let redo (state: State) : ApplyResult =
+        match state.history.future with
+        | [] -> ApplyResult.Unchanged state
+        | change :: restFuture ->
+            match Change.apply change state with
+            | ApplyResult.Invalid _ as err -> err
+            | ApplyResult.Unchanged s -> ApplyResult.Unchanged s
+            | ApplyResult.Changed s ->
+                let history' =
+                    { s.history with
+                        past = change :: s.history.past
+                        future = restFuture }
+
+                ApplyResult.Changed { s with history = history' }
 
