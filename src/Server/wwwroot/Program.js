@@ -1,6 +1,6 @@
 
 import { FSharpMap__get_Item } from "./fable_modules/fable-library-js.5.0.0-alpha.23/Map.js";
-import { disposeSafe, getEnumerator, int32ToString } from "./fable_modules/fable-library-js.5.0.0-alpha.23/Util.js";
+import { disposeSafe, getEnumerator } from "./fable_modules/fable-library-js.5.0.0-alpha.23/Util.js";
 import { fromString } from "./fable_modules/Thoth.Json.JavaScript.0.4.1/Decode.fs.js";
 import { object } from "./fable_modules/Thoth.Json.Core.0.7.1/Decode.fs.js";
 import { decodeGraph } from "./Shared/Serialization.js";
@@ -8,10 +8,18 @@ import { concat } from "./fable_modules/fable-library-js.5.0.0-alpha.23/String.j
 
 export function renderNode(container, graph, depth, nodeId) {
     const node = FSharpMap__get_Item(graph.nodes, nodeId);
-    const div = document.createElement("div");
-    div.setAttribute("style", ("padding-left: " + int32ToString(depth * 24)) + "px");
-    div.textContent = node.text;
-    container.appendChild(div);
+    const row = document.createElement("div");
+    row.classList.add("row");
+    for (let forLoopVar = 1; forLoopVar <= depth; forLoopVar++) {
+        const indent = document.createElement("div");
+        indent.classList.add("indent");
+        row.appendChild(indent);
+    }
+    const text = document.createElement("div");
+    text.classList.add("text");
+    text.textContent = node.text;
+    row.appendChild(text);
+    container.appendChild(row);
     const enumerator = getEnumerator(node.children);
     try {
         while (enumerator["System.Collections.IEnumerator.MoveNext"]()) {

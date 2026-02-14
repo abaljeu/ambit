@@ -9,10 +9,17 @@ let fetchText (url: string) (callback: string -> unit) : unit = jsNative
 
 let rec renderNode (container: Browser.Types.Element) (graph: Graph) (depth: int) (nodeId: NodeId) =
     let node = graph.nodes.[nodeId]
-    let div = document.createElement "div"
-    div.setAttribute ("style", "padding-left: " + string (depth * 24) + "px")
-    div.textContent <- node.text
-    container.appendChild div |> ignore
+    let row = document.createElement "div"
+    row.classList.add "row"
+    for _ in 1 .. depth do
+        let indent = document.createElement "div"
+        indent.classList.add "indent"
+        row.appendChild indent |> ignore
+    let text = document.createElement "div"
+    text.classList.add "text"
+    text.textContent <- node.text
+    row.appendChild text |> ignore
+    container.appendChild row |> ignore
     for childId in node.children do
         renderNode container graph (depth + 1) childId
 
