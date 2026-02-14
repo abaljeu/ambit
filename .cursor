@@ -26,6 +26,8 @@ Don't bother using git unless asked a history or status question.  I will take c
 ## Source code
 Maximum 100 characters per line.
 Follow language norms.
+Use pure functional F#.  If there is ever imperative constructs like mutating objects or reassigning variables, the reason for not being pure must be commented in that spot.
+
 TABs are not allowed in F#
 Always indent 4 spaces.
 Indentation is AS important AS it is in python or Haskell.

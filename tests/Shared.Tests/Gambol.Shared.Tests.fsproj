@@ -9,6 +9,7 @@
     <Compile Include="ModelTests.fs" />
     <Compile Include="ModelBuilderTests.fs" />
     <Compile Include="HistoryTests.fs" />
+    <Compile Include="SnapshotTests.fs" />
     <Compile Include="SerializationTests.fs" />
   </ItemGroup>
 

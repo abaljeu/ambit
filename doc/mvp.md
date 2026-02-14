@@ -92,35 +92,34 @@ Each step is a deliverable that can be reviewed and tested.
 - [x] Round-trip tests (9 tests via Thoth.Json.Newtonsoft)
 - [x] Works in both .NET and Fable (Thoth.Json.Core in Shared)
 
-### Step 2: Server endpoints
+### Step 2: Persistence ✓
+- [x] `Snapshot.write`: Graph → tab-indented text outline
+- [x] `Snapshot.read`: tab-indented text → new Graph (fresh NodeIds)
+- [x] XUnit tests: format verification, round-trip consistency, file I/O (10 tests)
+
+### Step 3: Server endpoints
 - `GET /` returns a static HTML page (hardcoded or from file)
 - `GET /state` returns graph + version as JSON
 - `POST /op/apply` applies change, returns new graph + version
-- In-memory server state, no persistence yet
+- Server state backed by persistence from Step 2
 - Test with curl / HTTP tests
 
-### Step 3: Client rendering
+### Step 4: Client rendering
 - Fable compiles to JS, served by `GET /`
 - On load: fetch state, render outline as indented divs
 - Click to select a line (visual highlight)
 - No editing yet — read-only view
 
-### Step 4: Client editing – text
+### Step 5: Client editing – text
 - Hidden `<input>` element captures typing
 - On input → `SetText` op → apply locally → re-render line
 - POST change to server in background
 
-### Step 5: Client editing – structure
+### Step 6: Client editing – structure
 - Enter → create new node, insert as sibling
 - Tab → indent (reparent)
 - Shift+Tab → outdent (reparent)
 - Each structural edit = `NewNode` + `Replace` ops in a `Change`
-
-### Step 6: Persistence
-- Server writes snapshot file on shutdown (or periodic timer)
-- Server loads snapshot file on startup
-- Text outline format with tab indentation
-- Test: edit → restart server → edits survive
 
 ## Success criteria
 
