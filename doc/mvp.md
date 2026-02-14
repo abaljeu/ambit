@@ -30,11 +30,12 @@ client → ops → server → persistence → reload.
 - [x] JSON serialization (encode/decode for all shared types)
 
 ### Server
-- [ ] In-memory `ServerState` (graph + version)
+- [ ] In-memory `ServerState` (graph + revision + transaction log)
 - [ ] `GET /` serves HTML page + compiled client JS
-- [ ] `GET /state` returns `{ version, graph }` as JSON
-- [ ] `POST /op/apply` accepts `{ version, change }`, returns `{ version, graph }`
-- [ ] Append-only message log (in-memory list for MVP, no file persistence yet)
+- [ ] `GET /state` returns `{ revision, graph }` as JSON
+- [ ] `POST /op/apply` accepts `{ clientRevision, change }`, returns `{ revision, graph }`
+- [ ] `POST /save` writes snapshot to disk on explicit request
+- [ ] Append-only transaction log (in-memory list; enables future undo/redo and replay)
 - [ ] Last-write-wins sync per [[sync-mvp]]
 
 ### Client (Fable → JS)
@@ -50,9 +51,10 @@ client → ops → server → persistence → reload.
 - [ ] On POST response: replace local graph + version from server
 
 ### Persistence (minimal)
-- [ ] On server shutdown / periodic: write snapshot to disk
+- [ ] Snapshot written only on explicit `POST /save` (not on every edit)
 - [ ] Snapshot = single text outline file (tabs for indentation)
 - [ ] On server startup: load snapshot file if present → rebuild graph
+- [ ] Transaction log (in-memory) records every applied change for future undo/redo and replay
 
 ### Tests
 - [ ] Elements of the above that can be easily tested with XUnit shall have basic tests defined.
@@ -72,7 +74,7 @@ client → ops → server → persistence → reload.
 | HTTPS | HTTP only for local dev |
 | Styled UI | Functional appearance only |
 | `GET /ops?since=` endpoint | Not needed without polling |
-| Ops log file persistence | In-memory log only; snapshot is sufficient |
+| Transaction log file persistence | In-memory log only; disk persistence is a future enhancement |
 
 ## Implementation order
 
@@ -99,10 +101,11 @@ Each step is a deliverable that can be reviewed and tested.
 
 ### Step 3: Server endpoints
 - `GET /` returns a static HTML page (hardcoded or from file)
-- `GET /state` returns graph + version as JSON
-- `POST /op/apply` applies change, returns new graph + version
-- Server state backed by persistence from Step 2
-- Test with curl / HTTP tests
+- `GET /state` returns graph + revision as JSON
+- `POST /op/apply` applies change, appends to transaction log, returns new graph + revision
+- `POST /save` writes snapshot to disk (explicit save, not on every edit)
+- On startup: load snapshot if present; transaction log starts empty
+- Test with curl and xunit HTTP tests
 
 ### Step 4: Client rendering
 - Fable compiles to JS, served by `GET /`

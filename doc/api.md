@@ -10,12 +10,13 @@ HTTP API for client-server communication with multi-client sync support (N<5 cli
 - Client tracks its local revision
 - Client must send its revision with each request
 
-## Message Log
+## Transaction Log
 
-All messages sent to server are appended to an append-only message log:
-- Each message includes: client version, timestamp, operation
-- Server processes messages in order
-- Log enables replay and debugging
+All applied changes are appended to an in-memory append-only transaction log:
+- Each entry includes: revision, timestamp, change
+- Server processes changes in order; log preserves full history
+- Enables: future undo/redo, load snapshot → replay, debugging
+- In-memory only for MVP; disk persistence is a future enhancement
 
 ## Endpoints
 
@@ -144,6 +145,34 @@ Redo the most recent undone change.
 ```
 
 **Response**: Same as `POST /op/apply` (redo is treated as a change)
+
+---
+
+### `POST /save`
+Write current graph state to snapshot file on disk.
+
+**Request**: No body required.
+
+**Response** (JSON):
+```json
+{
+  "success": true,
+  "snapshotPath": "gambol-snapshot.txt"
+}
+```
+
+**Error Response** (500, JSON):
+```json
+{
+  "success": false,
+  "error": "Failed to write snapshot: ..."
+}
+```
+
+**Notes**:
+- This is the only way to persist state to disk. Edits are not auto-saved.
+- Snapshot is a tab-indented text outline file (see Snapshot module).
+- On server restart, only the last saved snapshot is restored. Unsaved edits are lost.
 
 ---
 
@@ -304,22 +333,24 @@ When client receives `409 Conflict`:
 
 **Note**: Since ops are designed to be mergeable (e.g., `SetText` with old/new validation), conflicts should be rare. If a change cannot be applied after merging remote changes, client should show error to user.
 
-### Message Log Structure
+### Transaction Log Structure
 
-Server maintains append-only log:
+Server maintains in-memory append-only log:
 ```
 [
-  { "timestamp": "...", "clientId": "...", "revision": 1, "change": {...} },
-  { "timestamp": "...", "clientId": "...", "revision": 2, "change": {...} },
+  { "timestamp": "...", "revision": 1, "change": {...} },
+  { "timestamp": "...", "revision": 2, "change": {...} },
   ...
 ]
 ```
 
 Each entry:
-- `timestamp`: When message was received
-- `clientId`: Optional client identifier (for debugging)
+- `timestamp`: When change was applied
 - `revision`: Revision after applying this change
 - `change`: The change that was applied
+
+**Note**: Log is in-memory only for MVP. Disk persistence (for crash recovery
+and load → replay) is a future enhancement.
 
 ---
 
