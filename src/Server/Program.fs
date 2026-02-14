@@ -2,6 +2,7 @@ namespace Gambol.Server
 
 open System
 open System.IO
+open System.Threading.Tasks
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Http
 open Microsoft.Extensions.Configuration
@@ -11,6 +12,7 @@ open Gambol.Shared
 type Program = class end
 
 module Encode = Thoth.Json.Newtonsoft.Encode
+module Decode = Thoth.Json.Newtonsoft.Decode
 
 /// Mutable server state behind a lock.
 type ServerState =
@@ -44,12 +46,38 @@ module ServerState =
         lock lock' (fun () -> f state)
 
 module Api =
-    let getState (serverState: ServerState) =
+    let private encodeStateJson (serverState: ServerState) =
         Encode.toString 0 (
             Thoth.Json.Core.Encode.object
                 [ "revision", Serialization.encodeRevision serverState.revision
                   "graph", Serialization.encodeGraph serverState.state.graph ]
         )
+
+    let private jsonResult json =
+        Results.Content(json, "application/json")
+
+    let private submitDecoder =
+        Thoth.Json.Core.Decode.object (fun get ->
+            get.Required.Field "clientRevision" Serialization.decodeRevision,
+            get.Required.Field "change" Serialization.decodeChange)
+
+    let getState (serverState: ServerState) =
+        encodeStateJson serverState |> jsonResult
+
+    let submit (body: string) (serverState: ServerState) =
+        match Decode.fromString submitDecoder body with
+        | Error err ->
+            Results.BadRequest({| error = $"Invalid JSON: {err}" |})
+        | Ok (_clientRevision, change) ->
+            match History.applyChange change serverState.state with
+            | ApplyResult.Invalid(_, msg) ->
+                Results.BadRequest({| error = msg |})
+            | ApplyResult.Unchanged _ ->
+                encodeStateJson serverState |> jsonResult
+            | ApplyResult.Changed newState ->
+                serverState.state <- newState
+                serverState.revision <- Revision(serverState.revision.Value + 1)
+                encodeStateJson serverState |> jsonResult
 
 module Main =
     [<EntryPoint>]
@@ -64,9 +92,14 @@ module Main =
         app.UseStaticFiles() |> ignore
 
         app.MapGet("/state", Func<IResult>(fun () ->
-            let json = ServerState.withLock Api.getState state
-            Results.Content(json, "application/json")
+            ServerState.withLock Api.getState state
         )) |> ignore
+
+        app.MapPost("/submit", Func<HttpRequest, Task<IResult>>(fun req -> task {
+            use reader = new StreamReader(req.Body)
+            let! body = reader.ReadToEndAsync()
+            return ServerState.withLock (Api.submit body) state
+        })) |> ignore
 
         app.Run()
 
