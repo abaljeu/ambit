@@ -14,6 +14,8 @@ If a request is unclear, just ask.
 
 Put non-trivial plans in a markdown file in doc/ so I can review.
 
+Use internal knowledge rather than websearch.  If a detail of the current tools mismatches your knowledge, ask the user.
+
 Use Test Driven Development.
 Write test - stop for review.  
 Make test pass.  Stop for review.  
