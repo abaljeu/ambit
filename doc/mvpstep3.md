@@ -7,14 +7,10 @@
 - **`GET /state`** endpoint — returns `{ revision, graph }` as JSON (Thoth serializers)
 - **`GET /`** — serves `index.html` + `style.css` + Fable-compiled `Program.js`
 - **Server state** — `ServerState` record holding a shared `State` (graph + history) plus `revision`, initialized from snapshot or fresh graph. The `History` inside `State` serves as the transaction log.
-- **Data directory** — `data/` at repo root, configured via `DataDir` in `appsettings.json` (relative to content root). Gitignored.
+- **Data directory** — `data/` at repo root, configured via `DataDir` in `appsettings.json` (relative to content root). 
 - **Client rendering** — Fable client fetches `/state`, decodes graph with shared Thoth decoders (`Thoth.Json.JavaScript`), renders outline as CSS-classed divs
 - **Integration tests** — `Server.Tests` project with `WebApplicationFactory<Program>`, isolated via temp data dir override
-- **All 38 tests pass** (36 shared + 2 server)
-
-### Remaining
-
-- **`POST /submit`** — accept `{ clientRevision, change }`, apply change, bump revision, append to history (which is the transaction log), return `{ graph, revision }`
+- **`POST /submit`** — accepts `{ clientRevision, change }`, applies change via `History.applyChange`, bumps revision, returns `{ graph, revision }`. Returns 400 for invalid JSON or failed ops.
   - A `Change` is `{ id: int, ops: Op list }`. The three `Op` cases:
     - **`NewNode(nodeId, text)`** — add a new node to the graph (no parent link yet)
     - **`SetText(nodeId, oldText, newText)`** — change a node's text (old-text guard)
@@ -24,8 +20,12 @@
     - *Enter (new sibling)* — `NewNode` + `Replace` (insert into parent's children)
     - *Tab (indent)* — `Replace` on old parent (remove) + `Replace` on new parent (insert)
     - *Shift+Tab (outdent)* — `Replace` on old parent (remove) + `Replace` on grandparent (insert)
+- **All 44 tests pass** (36 shared + 8 server)
+
+### Remaining
+
 - **`POST /save`** — write snapshot to disk
-- **Tests** for the above endpoints
+- **Tests** for `/save`
 
 ## Architecture notes
 
@@ -35,8 +35,9 @@
 - `ServerState` — mutable record holding shared `State` (graph + history) and `revision`, behind `ServerState.withLock`
 - `ServerState.resolveDataDir` reads `DataDir` from `IConfiguration`, defaults to `../../data` relative to content root
 - `ServerState.create` loads `gambol-snapshot.txt` from data dir if present
-- `Api.getState` encodes state via `Thoth.Json.Newtonsoft.Encode` + `Thoth.Json.Core.Encode`
-- `Main.main` — ASP.NET minimal API entry point
+- `Api.getState` encodes state as JSON and returns `IResult`
+- `Api.submit` decodes `{ clientRevision, change }`, applies via `History.applyChange`, bumps revision, returns `{ graph, revision }` or 400 on error
+- `Main.main` — ASP.NET minimal API entry point, routes: `GET /state`, `POST /submit`
 
 ### Client (`src/Client/Program.fs`)
 
@@ -49,8 +50,8 @@
 ### Tests (`tests/Server.Tests/StateEndpointTests.fs`)
 
 - Each test creates a `WebApplicationFactory<Program>` with `DataDir` overridden to an empty temp directory (no snapshot interference)
-- `getStateJson()` helper — does GET, asserts 200 + content-type, returns body
-- `decode` helper — wraps `Thoth.Json.Newtonsoft.Decode.fromString` with failwith on error
+ - Helpers: `getStateJson` (GET + assert 200), `decodeRevision`, `decodeGraph`, `encodeSubmitBody`, `postSubmit`
+- `decode` — wraps `Thoth.Json.Newtonsoft.Decode.fromString` with failwith on error
 
 ### Thoth.Json backend split
 

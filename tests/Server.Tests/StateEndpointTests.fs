@@ -14,10 +14,13 @@ open Gambol.Shared
 module Encode = Thoth.Json.Newtonsoft.Encode
 module Decode = Thoth.Json.Newtonsoft.Decode
 
-/// Create a test client with an empty data directory (no snapshot).
-let private createClient () =
-    let tempDir = Path.Combine(Path.GetTempPath(), $"gambol-test-{Guid.NewGuid()}")
-    Directory.CreateDirectory(tempDir) |> ignore
+let private newTempDir () =
+    let dir = Path.Combine(Path.GetTempPath(), $"gambol-test-{Guid.NewGuid()}")
+    Directory.CreateDirectory(dir) |> ignore
+    dir
+
+/// Create a test client pointing at the given data directory.
+let private createClientForDir (tempDir: string) =
     let factory =
         (new WebApplicationFactory<Program>())
             .WithWebHostBuilder(fun builder ->
@@ -28,6 +31,9 @@ let private createClient () =
                 ) |> ignore
             )
     factory.CreateClient()
+
+/// Create a test client with a fresh empty data directory.
+let private createClient () = newTempDir () |> createClientForDir
 
 let private decode decoder json =
     match Decode.fromString decoder json with
@@ -63,6 +69,19 @@ let private postSubmit (client: HttpClient) (clientRevision: Revision) (change: 
     let body = encodeSubmitBody clientRevision change
     let content = new StringContent(body, Encoding.UTF8, "application/json")
     return! client.PostAsync("/submit", content)
+}
+
+/// POST /save with optional filename and return the raw response.
+let private postSave (client: HttpClient) (filename: string option) = task {
+    let body =
+        match filename with
+        | None -> ""
+        | Some f ->
+            Encode.toString 0 (
+                Thoth.Json.Core.Encode.object
+                    [ "filename", Thoth.Json.Core.Encode.string f ])
+    let content = new StringContent(body, Encoding.UTF8, "application/json")
+    return! client.PostAsync("/save", content)
 }
 
 [<Fact>]
@@ -172,4 +191,90 @@ let ``POST /submit persists in GET /state`` () = task {
     let! json = getStateJson client
     Assert.Equal(Revision 1, decodeRevision json)
     Assert.Equal("persisted", (decodeGraph json).nodes.[rootId].text)
+}
+
+// ---- POST /save tests ----
+
+/// Submit a NewNode+Replace that adds a child with the given text under root.
+let private addChild (client: HttpClient) (rootId: NodeId) (rev: Revision) (text: string) = task {
+    let childId = NodeId.New()
+    let change =
+        { id = rev.Value
+          ops =
+            [ Op.NewNode(childId, text)
+              Op.Replace(rootId, 0, [], [ childId ]) ] }
+    let! resp = postSubmit client rev change
+    Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
+    return childId
+}
+
+[<Fact>]
+let ``POST /save writes default snapshot file`` () = task {
+    let tempDir = newTempDir ()
+    use client = createClientForDir tempDir
+    let! json0 = getStateJson client
+    let rootId = (decodeGraph json0).root
+
+    let! _ = addChild client rootId (Revision 0) "saved"
+
+    let! resp = postSave client None
+    Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
+
+    let snapshotPath = Path.Combine(tempDir, "gambol-snapshot.txt")
+    Assert.True(File.Exists(snapshotPath))
+    let content = File.ReadAllText(snapshotPath)
+    Assert.Contains("saved", content)
+}
+
+[<Fact>]
+let ``POST /save with filename writes to that file`` () = task {
+    let tempDir = newTempDir ()
+    use client = createClientForDir tempDir
+    let! json0 = getStateJson client
+    let rootId = (decodeGraph json0).root
+
+    let! _ = addChild client rootId (Revision 0) "custom"
+
+    let! resp = postSave client (Some "other.txt")
+    Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
+
+    let customPath = Path.Combine(tempDir, "other.txt")
+    Assert.True(File.Exists(customPath))
+    let content = File.ReadAllText(customPath)
+    Assert.Contains("custom", content)
+
+    // Default file should not exist
+    let defaultPath = Path.Combine(tempDir, "gambol-snapshot.txt")
+    Assert.False(File.Exists(defaultPath))
+}
+
+[<Fact>]
+let ``POST /save with empty body writes default file`` () = task {
+    let tempDir = newTempDir ()
+    use client = createClientForDir tempDir
+
+    let! resp = postSave client None
+    Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
+
+    let snapshotPath = Path.Combine(tempDir, "gambol-snapshot.txt")
+    Assert.True(File.Exists(snapshotPath))
+}
+
+[<Fact>]
+let ``POST /save saved file can be loaded by new server`` () = task {
+    let tempDir = newTempDir ()
+    use client1 = createClientForDir tempDir
+    let! json0 = getStateJson client1
+    let rootId = (decodeGraph json0).root
+
+    let! _ = addChild client1 rootId (Revision 0) "reloaded"
+    let! _ = postSave client1 None
+
+    // Start a new server pointing at the same data dir
+    use client2 = createClientForDir tempDir
+    let! json = getStateJson client2
+    let graph = decodeGraph json
+    // Snapshot.read creates fresh NodeIds, so find by text
+    let child = graph.nodes |> Map.toSeq |> Seq.map snd |> Seq.find (fun n -> n.text = "reloaded")
+    Assert.Equal("reloaded", child.text)
 }

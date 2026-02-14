@@ -17,10 +17,12 @@ module Decode = Thoth.Json.Newtonsoft.Decode
 /// Mutable server state behind a lock.
 type ServerState =
     { mutable state: State
-      mutable revision: Revision }
+      mutable revision: Revision
+      dataDir: string
+      mutable snapshotFile: string }
 
 module ServerState =
-    let snapshotFilename = "gambol-snapshot.txt"
+    let defaultSnapshotFile = "gambol-snapshot.txt"
 
     let resolveDataDir (contentRoot: string) (config: IConfiguration) =
         let relative = config.["DataDir"] |> Option.ofObj |> Option.defaultValue "../../data"
@@ -28,8 +30,8 @@ module ServerState =
         Directory.CreateDirectory(dataDir) |> ignore
         dataDir
 
-    let create (dataDir: string) =
-        let snapshotPath = Path.Combine(dataDir, snapshotFilename)
+    let create (dataDir: string) (snapshotFile: string) =
+        let snapshotPath = Path.Combine(dataDir, snapshotFile)
         let graph =
             if File.Exists(snapshotPath) then
                 let text = File.ReadAllText(snapshotPath)
@@ -38,7 +40,9 @@ module ServerState =
                 Graph.create ()
 
         { state = { graph = graph; history = History.empty }
-          revision = Revision 0 }
+          revision = Revision 0
+          dataDir = dataDir
+          snapshotFile = snapshotFile }
 
     let lock' = obj ()
 
@@ -79,6 +83,34 @@ module Api =
                 serverState.revision <- Revision(serverState.revision.Value + 1)
                 encodeStateJson serverState |> jsonResult
 
+    let private saveDecoder =
+        Thoth.Json.Core.Decode.object (fun get ->
+            get.Optional.Field "filename" Thoth.Json.Core.Decode.string)
+
+    let save (body: string) (serverState: ServerState) =
+        let filenameOpt =
+            if String.IsNullOrWhiteSpace(body) then None
+            else
+                match Decode.fromString saveDecoder body with
+                | Error _ -> None
+                | Ok opt -> opt
+
+        let filename = filenameOpt |> Option.defaultValue serverState.snapshotFile
+        let path = Path.Combine(serverState.dataDir, filename)
+
+        try
+            let text = Snapshot.write serverState.state.graph
+            File.WriteAllText(path, text)
+            serverState.snapshotFile <- filename
+
+            Encode.toString 0 (
+                Thoth.Json.Core.Encode.object
+                    [ "success", Thoth.Json.Core.Encode.bool true
+                      "snapshotFile", Thoth.Json.Core.Encode.string filename ])
+            |> jsonResult
+        with ex ->
+            Results.Json({| success = false; error = ex.Message |}, statusCode = 500)
+
 module Main =
     [<EntryPoint>]
     let main args =
@@ -86,7 +118,11 @@ module Main =
         let app = builder.Build()
 
         let dataDir = ServerState.resolveDataDir app.Environment.ContentRootPath app.Configuration
-        let state = ServerState.create dataDir
+        let snapshotFile =
+            app.Configuration.["SnapshotFile"]
+            |> Option.ofObj
+            |> Option.defaultValue ServerState.defaultSnapshotFile
+        let state = ServerState.create dataDir snapshotFile
 
         app.UseDefaultFiles() |> ignore
         app.UseStaticFiles() |> ignore
@@ -99,6 +135,12 @@ module Main =
             use reader = new StreamReader(req.Body)
             let! body = reader.ReadToEndAsync()
             return ServerState.withLock (Api.submit body) state
+        })) |> ignore
+
+        app.MapPost("/save", Func<HttpRequest, Task<IResult>>(fun req -> task {
+            use reader = new StreamReader(req.Body)
+            let! body = reader.ReadToEndAsync()
+            return ServerState.withLock (Api.save body) state
         })) |> ignore
 
         app.Run()
