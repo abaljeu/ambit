@@ -74,14 +74,14 @@ Client:
 - Produces high-level `Change` records from user intent.
 - Applies changes optimistically to local `State`.
 - Calls server endpoints:
-  - `POST /op/*` or `POST /ops` (batch) returning ack with revision + change id.
+  - `POST /submit` returning ack with revision + change id.
 
 Server:
 - Authoritative graph + history in memory.
 - Applies incoming change batches and assigns `id` (and revision).
 - Provides undo/redo endpoints:
-  - `POST /op/undo` pops one change and applies its inverse.
-  - `POST /op/redo` reapplies one change.
+  - `POST /undo` pops one change and applies its inverse.
+  - `POST /redo` reapplies one change.
 
 ## Error handling
 

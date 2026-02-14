@@ -13,14 +13,15 @@ This app is structured around a small set of operations (ops) that transform a g
 - Server: authoritative log + persistence, assigns revisions, serves sync endpoints
 
 ## Directory structure
-doc/
-src/Client - UI code
-src/Server - backend code
-src/Shared - ALL code that can run on both Fable and .NET
-tests/ - automated tests (separate projects)
-  - tests/Shared.Tests - pure domain/ops tests (highest value)
-  - tests/Server.Tests - store + endpoint contract tests
-  - tests/Client.Tests - only for pure client logic that can run on .NET (optional)
+
+## Project Structure
+
+| Layer  | Technology                          |
+|--------|-------------------------------------|
+| Client | F# compiled to JavaScript via Fable |
+| Server | ASP.NET Core (minimal API)          |
+| Shared | Pure F# domain model                |
+| Tests  | xUnit                               |
 
 Rationale: a single src/Test folder tends to mix concerns and makes it harder to run a targeted test suite. Separate test projects let you reference exactly the code under test (Shared vs Server) and keep dependencies clean.
 
@@ -73,9 +74,9 @@ See [[api]] for full API contract.
 Summary:
 - `GET /` -> HTML
 - `GET /state` -> current graph + revision
-- `POST /op/apply` -> apply change with revision tracking
-- `POST /op/undo` -> undo with revision tracking
-- `POST /op/redo` -> redo with revision tracking
+- `POST /submit` -> apply change with revision tracking
+- `POST /undo` -> undo with revision tracking
+- `POST /redo` -> redo with revision tracking
 - `GET /ops?since={revision}` -> changes since revision
 
 All requests include client revision; server returns new revision and any remote changes.

@@ -10,11 +10,10 @@ HTTP API for client-server communication with multi-client sync support (N<5 cli
 - Client tracks its local revision
 - Client must send its revision with each request
 
-## Transaction Log
+## Transaction Log (History)
 
-All applied changes are appended to an in-memory append-only transaction log:
-- Each entry includes: revision, timestamp, change
-- Server processes changes in order; log preserves full history
+The server uses the shared `History` type (from `State`) as its transaction log — they are the same object. All applied changes are appended to `History.past`:
+- Server processes changes in order; the history preserves the full linear record
 - Enables: future undo/redo, load snapshot → replay, debugging
 - In-memory only for MVP; disk persistence is a future enhancement
 
@@ -44,7 +43,7 @@ Get current graph state and revision.
 
 ---
 
-### `POST /op/apply`
+### `POST /submit`
 Apply a change (batch of ops) to the graph.
 
 **Request** (JSON):
@@ -120,7 +119,7 @@ Apply a change (batch of ops) to the graph.
 
 ---
 
-### `POST /op/undo`
+### `POST /undo`
 Undo the most recent change.
 
 **Request** (JSON):
@@ -130,11 +129,11 @@ Undo the most recent change.
 }
 ```
 
-**Response**: Same as `POST /op/apply` (undo is treated as a change)
+**Response**: Same as `POST /submit` (undo is treated as a change)
 
 ---
 
-### `POST /op/redo`
+### `POST /redo`
 Redo the most recent undone change.
 
 **Request** (JSON):
@@ -144,7 +143,7 @@ Redo the most recent undone change.
 }
 ```
 
-**Response**: Same as `POST /op/apply` (redo is treated as a change)
+**Response**: Same as `POST /submit` (redo is treated as a change)
 
 ---
 
@@ -307,7 +306,7 @@ Guid as string.
    - Queue change for server sync
 
 3. **Sync to Server**:
-   - `POST /op/apply` with `clientRevision` and queued change
+   - `POST /submit` with `clientRevision` and queued change
    - If `success: true`:
      - Update local revision to `newRevision`
      - Apply any `remoteChanges` from response
@@ -335,19 +334,9 @@ When client receives `409 Conflict`:
 
 ### Transaction Log Structure
 
-Server maintains in-memory append-only log:
-```
-[
-  { "timestamp": "...", "revision": 1, "change": {...} },
-  { "timestamp": "...", "revision": 2, "change": {...} },
-  ...
-]
-```
+The server's transaction log is the shared `History` type inside `State`. `History.past` is a list of `Change` records (newest first). Each `Change` has an `id` and a list of `Op`s.
 
-Each entry:
-- `timestamp`: When change was applied
-- `revision`: Revision after applying this change
-- `change`: The change that was applied
+The server additionally tracks `revision` (on `ServerState`) which is bumped with each applied change.
 
 **Note**: Log is in-memory only for MVP. Disk persistence (for crash recovery
 and load → replay) is a future enhancement.

@@ -69,7 +69,9 @@ module Op =
 
     let undo (op: Op) (state: State) : ApplyResult =
         match op with
-        | Op.NewNode(_, _) -> ApplyResult.Invalid(state, "undo for NewNode not implemented")
+        | Op.NewNode(nodeId, _) ->
+            let nodes = state.graph.nodes |> Map.remove nodeId
+            ApplyResult.Changed { state with graph = { state.graph with nodes = nodes } }
         | Op.SetText(nodeId, oldText, newText) ->
             // Inverse: ensure current text == newText, set back to oldText
             Graph.setText nodeId newText oldText state.graph

@@ -30,12 +30,12 @@ client → ops → server → persistence → reload.
 - [x] JSON serialization (encode/decode for all shared types)
 
 ### Server
-- [ ] In-memory `ServerState` (graph + revision + transaction log)
+- [ ] In-memory `ServerState` (shared `State` with graph + history, plus revision)
 - [ ] `GET /` serves HTML page + compiled client JS
 - [ ] `GET /state` returns `{ revision, graph }` as JSON
-- [ ] `POST /op/apply` accepts `{ clientRevision, change }`, returns `{ revision, graph }`
+- [ ] `POST /submit` accepts `{ clientRevision, change }`, returns `{ revision, graph }`
 - [ ] `POST /save` writes snapshot to disk on explicit request
-- [ ] Append-only transaction log (in-memory list; enables future undo/redo and replay)
+- [ ] History serves as transaction log (in-memory; enables future undo/redo and replay)
 - [ ] Last-write-wins sync per [[sync-mvp]]
 
 ### Client (Fable → JS)
@@ -54,7 +54,7 @@ client → ops → server → persistence → reload.
 - [ ] Snapshot written only on explicit `POST /save` (not on every edit)
 - [ ] Snapshot = single text outline file (tabs for indentation)
 - [ ] On server startup: load snapshot file if present → rebuild graph
-- [ ] Transaction log (in-memory) records every applied change for future undo/redo and replay
+- [ ] History (in-memory, same as transaction log) records every applied change for future undo/redo and replay
 
 ### Tests
 - [ ] Elements of the above that can be easily tested with XUnit shall have basic tests defined.
@@ -100,9 +100,9 @@ Each step is a deliverable that can be reviewed and tested.
 - [x] XUnit tests: format verification, round-trip consistency, file I/O (10 tests)
 
 ### Step 3: Server endpoints
-- `GET /` returns a static HTML page (hardcoded or from file)
+- [x] `GET /` returns a static HTML page (hardcoded or from file)
 - `GET /state` returns graph + revision as JSON
-- `POST /op/apply` applies change, appends to transaction log, returns new graph + revision
+- `POST /submit` applies change, appends to transaction log, returns new graph + revision
 - `POST /save` writes snapshot to disk (explicit save, not on every edit)
 - On startup: load snapshot if present; transaction log starts empty
 - Test with curl and xunit HTTP tests

@@ -138,11 +138,9 @@ Deliverable: a JSON encoding for ops + state.
 **Documentation** (`arch.md` line 78-88, `plan.md` line 36-42):
 - `GET /` -> HTML
 - `GET /state` -> current graph + revision
-- `POST /op/new-node`
-- `POST /op/set-text`
-- `POST /op/replace`
-- `POST /op/undo`
-- `POST /op/redo`
+- `POST /submit`
+- `POST /undo`
+- `POST /redo`
 - `GET /ops?since={revision}` -> ops since revision
 
 **Implementation**: 

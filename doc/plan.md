@@ -43,9 +43,9 @@ In Progress.
     - Message log (append-only log of all requests)
 - Serve `GET /` with the client assets
 - `GET /state` -> graph + revision (JSON)
-- `POST /op/apply` -> apply change with revision tracking (see [[api]])
-- `POST /op/undo` -> undo with revision tracking
-- `POST /op/redo` -> redo with revision tracking
+- `POST /submit` -> apply change with revision tracking (see [[api]])
+- `POST /undo` -> undo with revision tracking
+- `POST /redo` -> redo with revision tracking
 - `GET /ops?since={revision}` -> get changes since revision
 
 ## 4a. Multi-client sync (N<5 clients)

@@ -14,9 +14,8 @@ module Encode = Thoth.Json.Newtonsoft.Encode
 
 /// Mutable server state behind a lock.
 type ServerState =
-    { mutable graph: Graph
-      mutable revision: Revision
-      mutable transactionLog: Change list }
+    { mutable state: State
+      mutable revision: Revision }
 
 module ServerState =
     let snapshotFilename = "gambol-snapshot.txt"
@@ -36,9 +35,8 @@ module ServerState =
             else
                 Graph.create ()
 
-        { graph = graph
-          revision = Revision 0
-          transactionLog = [] }
+        { state = { graph = graph; history = History.empty }
+          revision = Revision 0 }
 
     let lock' = obj ()
 
@@ -46,11 +44,11 @@ module ServerState =
         lock lock' (fun () -> f state)
 
 module Api =
-    let getState (state: ServerState) =
+    let getState (serverState: ServerState) =
         Encode.toString 0 (
             Thoth.Json.Core.Encode.object
-                [ "revision", Serialization.encodeRevision state.revision
-                  "graph", Serialization.encodeGraph state.graph ]
+                [ "revision", Serialization.encodeRevision serverState.revision
+                  "graph", Serialization.encodeGraph serverState.state.graph ]
         )
 
 module Main =

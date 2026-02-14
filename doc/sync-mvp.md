@@ -46,7 +46,7 @@ log     : (version * Change) list  -- append-only, may have superseded entries
 
 ## Endpoint Changes (vs [[api]])
 
-### `POST /op/apply`
+### `POST /submit`
 
 **Request**:
 ```json
@@ -83,7 +83,7 @@ Unchanged.  Returns `{ "version": N, "graph": { ... } }`.
 ### Undo / Redo
 
 Undo/redo remain client-local for MVP.  Client keeps its own history stack and
-sends the resulting inverse change via `POST /op/apply` like any other edit.
+sends the resulting inverse change via `POST /submit` like any other edit.
 
 ## Message Log Format
 
