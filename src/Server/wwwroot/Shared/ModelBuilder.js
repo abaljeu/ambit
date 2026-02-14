@@ -1,7 +1,7 @@
 
-import { singleton, item, length, ofArray, reverse, empty, cons, fold } from "../fable_modules/fable-library-js.5.0.0-alpha.19/List.js";
+import { singleton, item, length, ofArray, reverse, empty, cons, fold } from "../fable_modules/fable-library-js.5.0.0-alpha.23/List.js";
 import { GraphModule_replace, GraphModule_setText, GraphModule_create, GraphModule_newNode } from "./Model.js";
-import { Exception } from "../fable_modules/fable-library-js.5.0.0-alpha.19/Util.js";
+import { Exception } from "../fable_modules/fable-library-js.5.0.0-alpha.23/Util.js";
 import { State, HistoryModule_empty } from "./History.js";
 
 export function createNodes(texts, graph) {

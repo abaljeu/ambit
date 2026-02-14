@@ -1,11 +1,11 @@
 
-import { Record, Union } from "../fable_modules/fable-library-js.5.0.0-alpha.19/Types.js";
-import { record_type, list_type, option_type, string_type, int32_type, union_type, class_type } from "../fable_modules/fable-library-js.5.0.0-alpha.19/Reflection.js";
-import { newGuid } from "../fable_modules/fable-library-js.5.0.0-alpha.19/Guid.js";
-import { tryFind, add, FSharpMap__ContainsKey, FSharpMap__get_Count, ofList } from "../fable_modules/fable-library-js.5.0.0-alpha.19/Map.js";
-import { append, skip, take, exists, length, singleton, empty } from "../fable_modules/fable-library-js.5.0.0-alpha.19/List.js";
-import { equals, compare } from "../fable_modules/fable-library-js.5.0.0-alpha.19/Util.js";
-import { FSharpResult$2 } from "../fable_modules/fable-library-js.5.0.0-alpha.19/Result.js";
+import { Record, Union } from "../fable_modules/fable-library-js.5.0.0-alpha.23/Types.js";
+import { record_type, list_type, option_type, string_type, int32_type, union_type, class_type } from "../fable_modules/fable-library-js.5.0.0-alpha.23/Reflection.js";
+import { newGuid } from "../fable_modules/fable-library-js.5.0.0-alpha.23/Guid.js";
+import { tryFind, add, FSharpMap__ContainsKey, FSharpMap__get_Count, ofList } from "../fable_modules/fable-library-js.5.0.0-alpha.23/Map.js";
+import { append, skip, take, exists, length, singleton, empty } from "../fable_modules/fable-library-js.5.0.0-alpha.23/List.js";
+import { equals, compare } from "../fable_modules/fable-library-js.5.0.0-alpha.23/Util.js";
+import { FSharpResult$2 } from "../fable_modules/fable-library-js.5.0.0-alpha.23/Result.js";
 
 export class NodeId extends Union {
     constructor(Item) {

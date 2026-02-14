@@ -1,11 +1,11 @@
 
-import { Record, Union } from "../fable_modules/fable-library-js.5.0.0-alpha.19/Types.js";
+import { Record, Union } from "../fable_modules/fable-library-js.5.0.0-alpha.23/Types.js";
 import { Graph, Node$, GraphModule_replace, GraphModule_setText, Graph_$reflection, NodeId_$reflection } from "./Model.js";
-import { record_type, union_type, list_type, int32_type, string_type } from "../fable_modules/fable-library-js.5.0.0-alpha.19/Reflection.js";
-import { add } from "../fable_modules/fable-library-js.5.0.0-alpha.19/Map.js";
-import { tail, head, isEmpty, cons, reverse, fold, singleton, append, empty } from "../fable_modules/fable-library-js.5.0.0-alpha.19/List.js";
-import { FSharpResult$2 } from "../fable_modules/fable-library-js.5.0.0-alpha.19/Result.js";
-import { max } from "../fable_modules/fable-library-js.5.0.0-alpha.19/Double.js";
+import { record_type, union_type, list_type, int32_type, string_type } from "../fable_modules/fable-library-js.5.0.0-alpha.23/Reflection.js";
+import { add } from "../fable_modules/fable-library-js.5.0.0-alpha.23/Map.js";
+import { tail, head, isEmpty, cons, reverse, fold, singleton, append, empty } from "../fable_modules/fable-library-js.5.0.0-alpha.23/List.js";
+import { FSharpResult$2 } from "../fable_modules/fable-library-js.5.0.0-alpha.23/Result.js";
+import { max } from "../fable_modules/fable-library-js.5.0.0-alpha.23/Double.js";
 
 export class Op extends Union {
     constructor(tag, fields) {

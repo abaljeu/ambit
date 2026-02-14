@@ -402,3 +402,6 @@ FodyWeavers.xsd
 *.jsx
 *.fable-temp.csproj
 dist/
+
+# Runtime data
+data/
