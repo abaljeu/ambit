@@ -101,22 +101,22 @@ Each step is a deliverable that can be reviewed and tested.
 
 ### Step 3: Server endpoints
 - [x] `GET /` returns a static HTML page (hardcoded or from file)
-- `GET /state` returns graph + revision as JSON
-- `POST /submit` applies change, appends to transaction log, returns new graph + revision
-- `POST /save` writes snapshot to disk (explicit save, not on every edit)
-- On startup: load snapshot if present; transaction log starts empty
-- Test with curl and xunit HTTP tests
+- [x] `GET /state` returns graph + revision as JSON
+- [x] `POST /submit` applies change, appends to transaction log, returns new graph + revision
+- [x] `POST /save` writes snapshot to disk (explicit save, not on every edit)
+- [x] On startup: load snapshot if present; transaction log starts empty
+- [x] Test with xunit HTTP tests
 
 ### Step 4: Client rendering
-- Fable compiles to JS, served by `GET /`
-- On load: fetch state, render outline as indented divs
-- Click to select a line (visual highlight)
-- No editing yet — read-only view
+- [x] Fable compiles to JS, served by `GET /`
+- [x] On load: fetch state, render outline as indented divs
+- [x] No editing yet — read-only view
 
 ### Step 5: Client editing – text
-- Hidden `<input>` element captures typing
-- On input → `SetText` op → apply locally → re-render line
-- POST change to server in background
+- [ ] Click to select a line (visual highlight)
+- [ ] Hidden `<input>` element captures typing
+- [ ] On input → `SetText` op → apply locally → re-render line
+- [ ] POST change to server in background
 
 ### Step 6: Client editing – structure
 - Enter → create new node, insert as sibling
@@ -137,3 +137,65 @@ The MVP is complete when:
 7. Refreshing the page shows the current state
 8. Restarting the server preserves the outline
 
+## Architecture notes
+
+### Server (`src/Server/Program.fs`)
+
+- `namespace Gambol.Server` with `type Program = class end` marker for `WebApplicationFactory`
+- `ServerState` — mutable record holding shared `State` (graph + history) and `revision`, behind `ServerState.withLock`
+- `ServerState.resolveDataDir` reads `DataDir` from `IConfiguration`, defaults to `../../data` relative to content root
+- `ServerState.create` takes `dataDir` and `snapshotFile`, loads snapshot if present
+- `Api.getState` encodes state as JSON and returns `IResult`
+- `Api.submit` decodes `{ clientRevision, change }`, applies via `History.applyChange`, bumps revision, returns `{ graph, revision }` or 400 on error
+- `Api.save` writes snapshot to disk, accepts optional `{ "filename": "..." }`, returns `{ success, snapshotFile }` or 500 on error
+- `Main.main` — ASP.NET minimal API entry point, routes: `GET /state`, `POST /submit`, `POST /save`
+
+### Client (`src/Client/Program.fs`)
+
+- Fable-compiled to `src/Server/wwwroot/` via `dotnet fable src/Client/Gambol.Client.fsproj -o src/Server/wwwroot`
+- **No MSBuild property for outDir** — Fable 5 alpha requires `-o` on the CLI
+- Uses `Thoth.Json.JavaScript` (v0.4.1) as the Fable backend for `Thoth.Json.Core` decoders
+- Renders outline: each node is a `.row` div containing N `.indent` divs (for depth) + a `.text` div
+- CSS in separate `wwwroot/style.css`: `#ccc` global background, `#eee` row background, `0.2rem` gaps
+
+### Tests (`tests/Server.Tests/StateEndpointTests.fs`)
+
+- Each test creates a `WebApplicationFactory<Program>` with `DataDir` overridden to an empty temp directory (no snapshot interference)
+- Helpers: `getStateJson`, `decodeRevision`, `decodeGraph`, `encodeSubmitBody`, `postSubmit`, `postSave`, `addChild`
+- `createClientForDir` allows save tests to verify files in the temp directory
+
+### Thoth.Json backend split
+
+- **Shared** (`Thoth.Json.Core` v0.7.1) — abstract encoders/decoders, compiles on both .NET and Fable
+- **Server** (`Thoth.Json.Newtonsoft` v0.3.3) — .NET concrete backend
+- **Client** (`Thoth.Json.JavaScript` v0.4.1) — Fable/JS concrete backend
+- **Tests** (`Thoth.Json.Newtonsoft` v0.3.3) — same as server
+
+### Process management
+
+- **Don't run the server from agent commands.** Tests use `WebApplicationFactory` (in-process, no port). Manual browser testing is done by the user in their own terminal.
+- The server locks DLLs while running — stop it (Ctrl+C) before building or running tests.
+
+## Design decisions
+
+- **JSON on the server**: Shared uses `Thoth.Json.Core` (abstract). Server needs `Thoth.Json.Newtonsoft` to produce JSON strings.
+- **MVP response shape**: `POST /submit` returns `{ graph, revision }` — no `remoteChanges`, `changeId`, or conflict detection. Grow the contract later.
+- **Thread safety**: Simple lock around mutable state. Sufficient for single-client MVP.
+- **Persistence**: Snapshot only on explicit `POST /save`. History (which is the transaction log) is in-memory only. Disk persistence of the log is a future enhancement.
+- **NewNode undo**: All three `Op` cases are reversible from their structure. `NewNode` undo removes the node from the graph's nodes map.
+- **Data directory**: `data/` at repo root, gitignored. Path configurable via `appsettings.json` `DataDir` key. Tests override to temp dir.
+
+## Key file paths
+
+| What | Path |
+|---|---|
+| Server entry point | `src/Server/Program.fs` |
+| Server config | `src/Server/appsettings.json` |
+| Client entry point | `src/Client/Program.fs` |
+| Client project | `src/Client/Gambol.Client.fsproj` |
+| HTML | `src/Server/wwwroot/index.html` |
+| CSS | `src/Server/wwwroot/style.css` |
+| Compiled JS | `src/Server/wwwroot/Program.js` (Fable output) |
+| Server tests | `tests/Server.Tests/StateEndpointTests.fs` |
+| Snapshot data | `data/gambol-snapshot.txt` |
+| Fable compile command | `dotnet fable src/Client/Gambol.Client.fsproj -o src/Server/wwwroot` |
