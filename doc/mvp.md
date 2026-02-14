@@ -27,7 +27,7 @@ client → ops → server → persistence → reload.
 - [x] `Op.apply`, `Op.undo`, `Change.apply`, `Change.undo`
 - [x] `History.applyChange`, `History.undo`, `History.redo`
 - [x] `Revision` type
-- [ ] JSON serialization (encode/decode for all shared types)
+- [x] JSON serialization (encode/decode for all shared types)
 
 ### Server
 - [ ] In-memory `ServerState` (graph + version)
@@ -78,10 +78,19 @@ client → ops → server → persistence → reload.
 
 Each step is a deliverable that can be reviewed and tested.
 
-### Step 1: JSON serialization (Shared)
-- Encode/decode `NodeId`, `Node`, `Graph`, `Op`, `Change`, `Revision`
-- Round-trip tests
-- Must work in both .NET and Fable
+### Step 0: Establish shared data models ✓
+- [x] `NodeId`, `Revision` (struct wrappers)
+- [x] `Node`, `Graph`, `Graph` module (create, newNode, setText, replace)
+- [x] `Op`, `Change`, `History`, `State`, `ApplyResult`
+- [x] `Op.apply/undo`, `Change.apply/undo`
+- [x] `History.applyChange/undo/redo`
+- [x] `ModelBuilder` helpers + `createDag12` test fixture
+- [x] Unit tests for Model, ModelBuilder, History
+
+### Step 1: JSON serialization (Shared) ✓
+- [x] Encode/decode `NodeId`, `Node`, `Graph`, `Op`, `Change`, `Revision`
+- [x] Round-trip tests (9 tests via Thoth.Json.Newtonsoft)
+- [x] Works in both .NET and Fable (Thoth.Json.Core in Shared)
 
 ### Step 2: Server endpoints
 - `GET /` returns a static HTML page (hardcoded or from file)

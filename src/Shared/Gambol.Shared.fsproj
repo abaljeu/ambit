@@ -9,6 +9,11 @@
     <Compile Include="Model.fs" />
     <Compile Include="History.fs" />
     <Compile Include="ModelBuilder.fs" />
+    <Compile Include="Serialization.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Thoth.Json.Core" Version="0.7.1" />
   </ItemGroup>
 
 </Project>
