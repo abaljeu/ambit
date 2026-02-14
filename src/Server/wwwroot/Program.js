@@ -1,58 +1,69 @@
 
-import { FSharpMap__get_Item } from "./fable_modules/fable-library-js.5.0.0-alpha.23/Map.js";
-import { disposeSafe, getEnumerator } from "./fable_modules/fable-library-js.5.0.0-alpha.23/Util.js";
-import { fromString } from "./fable_modules/Thoth.Json.JavaScript.0.4.1/Decode.fs.js";
-import { object } from "./fable_modules/Thoth.Json.Core.0.7.1/Decode.fs.js";
-import { decodeGraph } from "./Shared/Serialization.js";
+import { compare, createAtom } from "./fable_modules/fable-library-js.5.0.0-alpha.23/Util.js";
+import { Revision_get_Zero, Graph, NodeId } from "./Shared/Model.js";
+import { empty } from "./fable_modules/fable-library-js.5.0.0-alpha.23/Map.js";
+import { Msg, Model, Mode } from "./Model.js";
+import { decodeStateResponse, update } from "./Update.js";
+import { app, render } from "./View.js";
+import { Operators_IsNull } from "./fable_modules/fable-library-js.5.0.0-alpha.23/FSharp.Core.js";
 import { concat } from "./fable_modules/fable-library-js.5.0.0-alpha.23/String.js";
 
-export function renderNode(container, graph, depth, nodeId) {
-    const node = FSharpMap__get_Item(graph.nodes, nodeId);
-    const row = document.createElement("div");
-    row.classList.add("row");
-    for (let forLoopVar = 1; forLoopVar <= depth; forLoopVar++) {
-        const indent = document.createElement("div");
-        indent.classList.add("indent");
-        row.appendChild(indent);
+export let currentModel = createAtom(new Model(new Graph(new NodeId("00000000-0000-0000-0000-000000000000"), empty({
+    Compare: (x, y) => (compare(x, y) | 0),
+})), Revision_get_Zero(), undefined, new Mode(0, [])));
+
+export let editPrefill = createAtom(undefined);
+
+export function dispatch(msg) {
+    if (msg.tag === 2) {
+        editPrefill(msg.fields[0]);
     }
-    const text = document.createElement("div");
-    text.classList.add("text");
-    text.textContent = node.text;
-    row.appendChild(text);
-    container.appendChild(row);
-    const enumerator = getEnumerator(node.children);
-    try {
-        while (enumerator["System.Collections.IEnumerator.MoveNext"]()) {
-            renderNode(container, graph, depth + 1, enumerator["System.Collections.Generic.IEnumerator`1.get_Current"]());
+    currentModel(update(msg, currentModel(), (msg_1) => {
+        dispatch(msg_1);
+    }));
+    render(currentModel(), (msg_2) => {
+        dispatch(msg_2);
+    });
+    const matchValue = editPrefill();
+    let matchResult, prefill_1;
+    if (msg.tag === 2) {
+        if (matchValue != null) {
+            matchResult = 0;
+            prefill_1 = matchValue;
+        }
+        else {
+            matchResult = 1;
         }
     }
-    finally {
-        disposeSafe(enumerator);
+    else {
+        matchResult = 1;
+    }
+    switch (matchResult) {
+        case 0: {
+            const editInput = document.getElementById("edit-input");
+            if (!Operators_IsNull(editInput)) {
+                const inp = editInput;
+                inp.value = prefill_1;
+                inp.focus();
+                const len = prefill_1.length | 0;
+                inp.setSelectionRange(len, len);
+            }
+            editPrefill(undefined);
+            break;
+        }
+        case 1: {
+            break;
+        }
     }
 }
 
-export const app = document.getElementById("app");
-
 fetch("/state").then(r => r.text()).then((text) => {
-    const matchValue = fromString(object((get$) => {
-        const objectArg = get$.Required;
-        return objectArg.Field("graph", decodeGraph);
-    }), text);
+    const matchValue = decodeStateResponse(text);
     if (matchValue.tag === 1) {
         app.textContent = concat("Error: ", ...matchValue.fields[0]);
     }
     else {
-        const graph = matchValue.fields[0];
-        app.innerHTML = "";
-        const enumerator = getEnumerator(FSharpMap__get_Item(graph.nodes, graph.root).children);
-        try {
-            while (enumerator["System.Collections.IEnumerator.MoveNext"]()) {
-                renderNode(app, graph, 0, enumerator["System.Collections.Generic.IEnumerator`1.get_Current"]());
-            }
-        }
-        finally {
-            disposeSafe(enumerator);
-        }
+        dispatch(new Msg(0, [matchValue.fields[0][0], matchValue.fields[0][1]]));
     }
 });
 

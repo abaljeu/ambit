@@ -1,40 +1,64 @@
-module App
+module Gambol.Client.Program
 
 open Browser.Dom
+open Browser.Types
 open Fable.Core
 open Gambol.Shared
+open Gambol.Client
+open Gambol.Client.Update
+open Gambol.Client.View
+
+// ---------------------------------------------------------------------------
+// JS interop
+// ---------------------------------------------------------------------------
 
 [<Emit("fetch($0).then(r => r.text()).then($1)")>]
 let fetchText (url: string) (callback: string -> unit) : unit = jsNative
 
-let rec renderNode (container: Browser.Types.Element) (graph: Graph) (depth: int) (nodeId: NodeId) =
-    let node = graph.nodes.[nodeId]
-    let row = document.createElement "div"
-    row.classList.add "row"
-    for _ in 1 .. depth do
-        let indent = document.createElement "div"
-        indent.classList.add "indent"
-        row.appendChild indent |> ignore
-    let text = document.createElement "div"
-    text.classList.add "text"
-    text.textContent <- node.text
-    row.appendChild text |> ignore
-    container.appendChild row |> ignore
-    for childId in node.children do
-        renderNode container graph (depth + 1) childId
+// ---------------------------------------------------------------------------
+// MVU dispatch loop
+// ---------------------------------------------------------------------------
 
-let app = document.getElementById "app"
+let mutable currentModel: Model =
+    { graph = { root = NodeId(System.Guid.Empty); nodes = Map.empty }
+      revision = Revision.Zero
+      selectedNode = None
+      mode = Selection }
+
+/// Mutable reference for edit prefill text (set on StartEdit, consumed on render)
+let mutable editPrefill: string option = None
+
+let rec dispatch (msg: Msg) : unit =
+    // Special handling: StartEdit stores the prefill before updating model
+    match msg with
+    | StartEdit prefill -> editPrefill <- Some prefill
+    | _ -> ()
+
+    currentModel <- update msg currentModel dispatch
+
+    // Render, then apply prefill override for StartEdit
+    render currentModel dispatch
+
+    match msg, editPrefill with
+    | StartEdit _, Some prefill ->
+        let editInput = document.getElementById "edit-input"
+        if not (isNull editInput) then
+            let inp = editInput :?> HTMLInputElement
+            inp.value <- prefill
+            inp.focus()
+            let len = prefill.Length
+            inp.setSelectionRange(len, len)
+        editPrefill <- None
+    | _ -> ()
+
+// ---------------------------------------------------------------------------
+// Bootstrap
+// ---------------------------------------------------------------------------
 
 fetchText "/state" (fun text ->
-    let decoder =
-        Thoth.Json.Core.Decode.object (fun get ->
-            get.Required.Field "graph" Serialization.decodeGraph)
-    match Thoth.Json.JavaScript.Decode.fromString decoder text with
-    | Ok graph ->
-        app.innerHTML <- ""
-        let root = graph.nodes.[graph.root]
-        for childId in root.children do
-            renderNode app graph 0 childId
+    match decodeStateResponse text with
+    | Ok (graph, revision) ->
+        dispatch (StateLoaded (graph, revision))
     | Error err ->
         app.textContent <- $"Error: {err}"
 )

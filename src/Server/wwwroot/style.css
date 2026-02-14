@@ -25,3 +25,22 @@ body {
     padding: 0.15rem 0.3rem;
     background: #eee;
 }
+.row.selected {
+    background: #bde;
+}
+.row.selected .text {
+    background: #cdf;
+}
+.edit-input {
+    flex: 1;
+    font: inherit;
+    font-size: inherit;
+    padding: 0.15rem 0.3rem;
+    border: 1px solid #89a;
+    outline: none;
+    background: #fff;
+}
+#hidden-input {
+    position: absolute;
+    left: -9999px;
+}

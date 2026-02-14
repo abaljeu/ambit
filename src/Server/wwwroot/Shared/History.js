@@ -2,7 +2,7 @@
 import { Record, Union } from "../fable_modules/fable-library-js.5.0.0-alpha.23/Types.js";
 import { Graph, Node$, GraphModule_replace, GraphModule_setText, Graph_$reflection, NodeId_$reflection } from "./Model.js";
 import { record_type, union_type, list_type, int32_type, string_type } from "../fable_modules/fable-library-js.5.0.0-alpha.23/Reflection.js";
-import { add } from "../fable_modules/fable-library-js.5.0.0-alpha.23/Map.js";
+import { remove, add } from "../fable_modules/fable-library-js.5.0.0-alpha.23/Map.js";
 import { tail, head, isEmpty, cons, reverse, fold, singleton, append, empty } from "../fable_modules/fable-library-js.5.0.0-alpha.23/List.js";
 import { FSharpResult$2 } from "../fable_modules/fable-library-js.5.0.0-alpha.23/Result.js";
 import { max } from "../fable_modules/fable-library-js.5.0.0-alpha.23/Double.js";
@@ -112,7 +112,7 @@ export function OpModule_undo(op, state) {
         case 2:
             return OpModule_fromGraphResult(state, GraphModule_replace(op.fields[0], op.fields[1], op.fields[3], op.fields[2], state.graph));
         default:
-            return new ApplyResult(2, [state, "undo for NewNode not implemented"]);
+            return new ApplyResult(0, [new State(new Graph(state.graph.root, remove(op.fields[0], state.graph.nodes)), state.history)]);
     }
 }
 
