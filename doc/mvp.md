@@ -39,17 +39,17 @@ client → ops → server → persistence → reload.
 - [ ] Last-write-wins sync per [[sync-mvp]]
 
 ### Client (Fable → JS)
-- [ ] On load: `GET /state`, build local model
-- [ ] Render outline: recursive indented `<div>`s from graph
-- [ ] Click line → select it (highlight); two modes: selection and edit (like Excel)
-- [ ] Hidden `<input>` captures keystrokes in selection mode
-- [ ] Typing or F2 → edit mode; inline `<input>` in selected row
-- [ ] Enter commits edit (`SetText` op on selected node); Escape cancels
+- [x] On load: `GET /state`, build local model
+- [x] Render outline: recursive indented `<div>`s from graph
+- [x] Click line → select it (highlight); two modes: selection and edit (like Excel)
+- [x] Hidden `<input>` captures keystrokes in selection mode
+- [x] Typing or F2 → edit mode; inline `<input>` in selected row
+- [x] Enter commits edit (`SetText` op on selected node); Escape cancels
 - [ ] Enter → `NewNode` + `Replace` (insert sibling)
 - [ ] Tab → `Replace` (reparent under previous sibling)
 - [ ] Shift+Tab → `Replace` (reparent under grandparent)
-- [ ] After each edit: apply locally, POST to server in background
-- [ ] On POST response: update local revision (optimistic — local graph is already correct)
+- [x] After each edit: apply locally, POST to server in background
+- [x] On POST response: update local revision (optimistic — local graph is already correct)
 
 ### Persistence (minimal)
 - [ ] Snapshot written only on explicit `POST /save` (not on every edit)
@@ -113,33 +113,33 @@ Each step is a deliverable that can be reviewed and tested.
 - [x] On load: fetch state, render outline as indented divs
 - [x] No editing yet — read-only view
 
-### Step 5: Client editing – text
+### Step 5: Client editing – text ✓
 Two UI modes (like Excel): **selection mode** and **edit mode**.
 See [[mvpstep5]] for detailed design.
 
 **Selection mode** (default):
-- [ ] Click a row to select it (`.selected` highlight); at most one selected row
-- [ ] Hidden `<input>` (off-screen) retains keyboard focus to capture keystrokes
-- [ ] Typing a printable character → enter edit mode (input starts with that character, replacing)
-- [ ] F2 → enter edit mode (input starts with the row's current text, appending)
+- [x] Click a row to select it (`.selected` highlight); at most one selected row
+- [x] Hidden `<input>` (off-screen) retains keyboard focus to capture keystrokes
+- [x] Typing a printable character → enter edit mode (input starts with that character, replacing)
+- [x] F2 → enter edit mode (input starts with the row's current text, appending)
 
 **Edit mode**:
-- [ ] Inline `<input>` appears inside the selected row (replaces `.text` content), receives focus
-- [ ] User edits text freely in the input
-- [ ] Enter → **commit**: if text changed, create `SetText` op → apply locally → re-render → return to selection mode
-- [ ] Escape → **cancel**: revert to original text → return to selection mode
-- [ ] Click another row → commit current edit, select the clicked row
+- [x] Inline `<input>` appears inside the selected row (replaces `.text` content), receives focus
+- [x] User edits text freely in the input
+- [x] Enter → **commit**: if text changed, create `SetText` op → apply locally → re-render → return to selection mode
+- [x] Escape → **cancel**: revert to original text → return to selection mode
+- [x] Click another row → commit current edit, select the clicked row
 
 **Server sync** (optimistic post):
-- [ ] After each committed edit (text changed), POST change to server in background
-- [ ] On response: update local revision (local graph is already correct)
-- [ ] On no response: repost with usual retry protocol
+- [x] After each committed edit (text changed), POST change to server in background
+- [x] On response: update local revision (local graph is already correct)
+- [ ] On no response: repost with usual retry protocol (deferred — fire-and-forget for MVP)
 
 ### Step 6: Client editing – structure
-- Enter → create new node, insert as sibling
-- Tab → indent (reparent)
-- Shift+Tab → outdent (reparent)
-- Each structural edit = `NewNode` + `Replace` ops in a `Change`
+- [ ] Enter → create new node, insert as sibling
+- [ ] Tab → indent (reparent)
+- [ ] Shift+Tab → outdent (reparent)
+- [ ] Each structural edit = `NewNode` + `Replace` ops in a `Change`
 
 ## Success criteria
 
