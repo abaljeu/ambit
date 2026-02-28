@@ -15,6 +15,57 @@ let app = document.getElementById "app"
 let isPrintableKey (key: string) : bool =
     key.Length = 1 && key >= " "
 
+type SelectionKeyContext =
+        { keyEvent: KeyboardEvent
+            selectedNodeText: string }
+
+type EditingKeyContext =
+        { keyEvent: KeyboardEvent
+            editInput: HTMLInputElement }
+
+type KeyHandler<'Context> = 'Context -> Msg
+
+let printableKeyToken = "__PRINTABLE__"
+
+let selectionKeyTable: (string * KeyHandler<SelectionKeyContext>) list =
+        [ "F2", (fun ctx -> StartEdit ctx.selectedNodeText)
+            "Enter", (fun _ -> InsertSibling)
+            "ArrowUp", (fun _ -> MoveSelectionUp)
+            "ArrowDown", (fun _ -> MoveSelectionDown)
+            "Escape", (fun _ -> CancelEdit)
+            printableKeyToken, (fun ctx -> StartEdit ctx.keyEvent.key) ]
+
+let editingKeyTable: (string * KeyHandler<EditingKeyContext>) list =
+        [ "Enter", (fun ctx -> CommitEdit ctx.editInput.value)
+            "ArrowUp", (fun _ -> MoveSelectionUp)
+            "ArrowDown", (fun _ -> MoveSelectionDown)
+            "Escape", (fun _ -> CancelEdit) ]
+
+let tryResolveOperation
+        (table: (string * KeyHandler<'Context>) list)
+    (ke: KeyboardEvent)
+        : KeyHandler<'Context> option =
+    match table |> List.tryPick (fun (k, handler) -> if k = ke.key then Some handler else None) with
+    | Some handler -> Some handler
+    | None ->
+        if isPrintableKey ke.key && not ke.ctrlKey && not ke.metaKey && not ke.altKey then
+            table
+            |> List.tryPick (fun (k, handler) -> if k = printableKeyToken then Some handler else None)
+        else
+            None
+
+let handleKey
+    (table: (string * KeyHandler<'Context>) list)
+    (ctx: 'Context)
+    (keyEvent: KeyboardEvent)
+    (dispatch: Msg -> unit)
+    : unit =
+    match tryResolveOperation table keyEvent with
+    | None -> ()
+    | Some handler ->
+        keyEvent.preventDefault()
+        handler ctx |> dispatch
+
 // ---------------------------------------------------------------------------
 // Render
 // ---------------------------------------------------------------------------
@@ -37,25 +88,11 @@ let rec render (model: Model) (dispatch: Msg -> unit) : unit =
         match model.selectedNode with
         | None -> ()
         | Some nodeId ->
-            let node = model.graph.nodes.[nodeId]
-            if ke.key = "F2" then
-                ke.preventDefault()
-                dispatch (StartEdit node.text)
-            elif ke.key = "Enter" then
-                ke.preventDefault()
-                dispatch InsertSibling
-            elif ke.key = "ArrowUp" then
-                ke.preventDefault()
-                dispatch MoveSelectionUp
-            elif ke.key = "ArrowDown" then
-                ke.preventDefault()
-                dispatch MoveSelectionDown
-            elif ke.key = "Escape" then
-                ke.preventDefault()
-                dispatch CancelEdit // in selection mode, this deselects
-            elif isPrintableKey ke.key && not ke.ctrlKey && not ke.metaKey && not ke.altKey then
-                ke.preventDefault()
-                dispatch (StartEdit ke.key)
+            let nodeText = model.graph.nodes.[nodeId].text
+            let ctx =
+                { keyEvent = ke
+                  selectedNodeText = nodeText }
+            handleKey selectionKeyTable ctx ke dispatch
     )
     app.appendChild hiddenInput |> ignore
 
@@ -101,19 +138,10 @@ and renderNode (model: Model) (dispatch: Msg -> unit) (depth: int) (nodeId: Node
         (editInput :?> HTMLInputElement).value <- prefill
         editInput.addEventListener("keydown", fun (ev: Event) ->
             let ke = ev :?> KeyboardEvent
-            if ke.key = "Enter" then
-                ke.preventDefault()
-                let value = (editInput :?> HTMLInputElement).value
-                dispatch (CommitEdit value)
-            elif ke.key = "ArrowUp" then
-                ke.preventDefault()
-                dispatch MoveSelectionUp
-            elif ke.key = "ArrowDown" then
-                ke.preventDefault()
-                dispatch MoveSelectionDown
-            elif ke.key = "Escape" then
-                ke.preventDefault()
-                dispatch CancelEdit
+            let ctx =
+                { keyEvent = ke
+                  editInput = (editInput :?> HTMLInputElement) }
+            handleKey editingKeyTable ctx ke dispatch
         )
         // Prevent clicks inside the edit input from bubbling to the row's
         // mousedown handler (which would commit and exit edit mode)
