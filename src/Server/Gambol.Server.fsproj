@@ -5,7 +5,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Program.fs" />
+    <Compile Include="Server.fs" />
   </ItemGroup>
 
   <ItemGroup>
