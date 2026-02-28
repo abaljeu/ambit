@@ -69,6 +69,12 @@ let handleKey
 /// Render the full outline from the model.
 /// Wires event handlers that call dispatch.
 let rec render (model: Model) (dispatch: Msg -> unit) : unit =
+    let saveButton = document.getElementById "save-button"
+    if not (isNull saveButton) then
+        (saveButton :?> HTMLButtonElement).onclick <- (fun (_: Event) ->
+            dispatch SaveRequested
+            null)
+
     app.innerHTML <- ""
 
     let root = model.graph.nodes.[model.graph.root]

@@ -24,6 +24,21 @@ type ServerState =
 module ServerState =
     let defaultSnapshotFile = "gambol-snapshot.txt"
 
+    let private sanitizeFilename (filename: string) =
+        let name = Path.GetFileName(filename)
+        if String.IsNullOrWhiteSpace(name) || name <> filename then
+            None
+        else
+            Some name
+
+    let private loadGraphForFile (dataDir: string) (snapshotFile: string) =
+        let snapshotPath = Path.Combine(dataDir, snapshotFile)
+        if File.Exists(snapshotPath) then
+            let text = File.ReadAllText(snapshotPath)
+            Snapshot.read text
+        else
+            Graph.create ()
+
     let resolveDataDir (contentRoot: string) (config: IConfiguration) =
         let relative = config.["DataDir"] |> Option.ofObj |> Option.defaultValue "../../data"
         let dataDir = Path.Combine(contentRoot, relative) |> Path.GetFullPath
@@ -31,13 +46,7 @@ module ServerState =
         dataDir
 
     let create (dataDir: string) (snapshotFile: string) =
-        let snapshotPath = Path.Combine(dataDir, snapshotFile)
-        let graph =
-            if File.Exists(snapshotPath) then
-                let text = File.ReadAllText(snapshotPath)
-                Snapshot.read text
-            else
-                Graph.create ()
+        let graph = loadGraphForFile dataDir snapshotFile
 
         { state = { graph = graph; history = History.empty }
           revision = Revision 0
@@ -48,6 +57,16 @@ module ServerState =
 
     let withLock f state =
         lock lock' (fun () -> f state)
+
+    let switchSnapshotFile (filename: string) (serverState: ServerState) : bool =
+        match sanitizeFilename filename with
+        | None -> false
+        | Some safeName ->
+            let graph = loadGraphForFile serverState.dataDir safeName
+            serverState.state <- { graph = graph; history = History.empty }
+            serverState.revision <- Revision.Zero
+            serverState.snapshotFile <- safeName
+            true
 
 module Api =
     let private encodeStateJson (serverState: ServerState) =
@@ -142,6 +161,15 @@ module Main =
             let! body = reader.ReadToEndAsync()
             return ServerState.withLock (Api.save body) state
         })) |> ignore
+
+        app.MapGet("/{filename}", Func<string, IResult>(fun filename ->
+            let switched = ServerState.withLock (ServerState.switchSnapshotFile filename) state
+            if not switched then
+                Results.BadRequest({| error = "Invalid filename" |})
+            else
+                let indexPath = Path.Combine(app.Environment.WebRootPath, "index.html")
+                Results.File(indexPath, "text/html")
+        )) |> ignore
 
         app.Run()
 

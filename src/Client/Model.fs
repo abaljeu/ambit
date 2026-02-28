@@ -20,5 +20,6 @@ type Msg =
     | StartEdit of prefill: string
     | CommitEdit of newText: string
     | InsertSibling
+    | SaveRequested
     | CancelEdit
     | SubmitResponse of Revision

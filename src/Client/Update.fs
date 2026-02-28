@@ -205,6 +205,11 @@ let update (msg: Msg) (model: Model) (dispatch: Msg -> unit) : Model =
     | InsertSibling ->
         insertSibling model dispatch
 
+    | SaveRequested ->
+        // Explicit snapshot save on demand
+        postJson "/save" "" (fun _ -> ())
+        model
+
     | CancelEdit ->
         match model.mode with
         | Editing _ ->
