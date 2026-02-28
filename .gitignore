@@ -34,8 +34,13 @@ bld/
 
 # Visual Studio 2015/2017 cache/options directory
 .vs/
-# Uncomment if you have tasks that create the project's static files in wwwroot
-#wwwroot/
+# generated www rfiles.
+src/Client/**/*.js
+src/Shared/**/*.js
+src/Server/wwwroot/*.js
+src/Server/wwwroot/Shared/
+src/Client/fable_modules/
+src/Server/wwwroot/fable_modules/
 
 # Visual Studio 2017 auto generated files
 Generated\ Files/

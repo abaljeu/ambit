@@ -1,0 +1,50 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "fable: Build Client",
+      "type": "shell",
+      "command": "dotnet fable src/Client --outDir src/Server/wwwroot",
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "fable: Watch Client",
+      "type": "shell",
+      "command": "dotnet fable watch src/Client --outDir src/Server/wwwroot",
+      "isBackground": true,
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "server: Run",
+      "type": "shell",
+      "command": "dotnet run --project src/Server",
+      "isBackground": true,
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "dev: Watch + Run",
+      "dependsOn": ["fable: Watch Client", "server: Run"],
+      "dependsOrder": "parallel",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    }
+  ]
+}

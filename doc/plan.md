@@ -13,7 +13,7 @@ DONE.
 - Optional later refactor: adopt Elmish if the homegrown loop grows complex
 
 ## 2. Define the core data + ops (shared)
-In Progress.
+DONE.
 - Define `node` and `noderoot`
 - Define low-level ops:
 	- create node
@@ -22,38 +22,42 @@ In Progress.
 	- undo/redo
 
 ## 3. Implement the client skeleton
+DONE for MVP text editing; structural editing remains.
 
-- Render visible “lines” from state
-- Hidden-input editing loop (keydown/input -> ops)
-- Selection model: selected nodeview + span
-- Apply incremental DOM updates for replace/remove/insert
+- [x] Render visible “lines” from state
+- [x] Hidden-input editing loop (keydown/input -> ops)
+- [x] Selection model: selected nodeview + span
+- [x] Text edit commit/cancel with optimistic `POST /submit`
+- [ ] Apply structural edits (Enter new sibling, Tab indent, Shift+Tab outdent)
 
 ## 4. Implement the server skeleton
 
-- Add JSON serialization for shared types (in Shared/)
+DONE for MVP server + save flow.
+
+- [x] Add JSON serialization for shared types (in Shared/)
     - Encode/decode `Op` (all variants)
     - Encode/decode `Change`
     - Encode/decode `State`/`Graph` (for state endpoint)
     - Encode/decode `NodeId` (Guid)
     - Round-trip tests
-- Define API contract (see [[api]])
-- Implement revision tracking
+- [x] Define API contract (see [[api]])
+- [x] Implement revision tracking
     - Revision type (monotonically increasing integer)
     - Revision in server state
-    - Message log (append-only log of all requests)
-- Serve `GET /` with the client assets
-- `GET /state` -> graph + revision (JSON)
-- `POST /submit` -> apply change with revision tracking (see [[api]])
-- `POST /undo` -> undo with revision tracking
-- `POST /redo` -> redo with revision tracking
-- `GET /ops?since={revision}` -> get changes since revision
+    - In-memory history in `State` (no persisted message log in MVP)
+- [x] Serve `GET /` with the client assets
+- [x] `GET /state` -> graph + revision (JSON)
+- [x] `POST /submit` -> apply change with revision tracking (see [[api]])
+- [x] `POST /save` -> explicit snapshot write
+- [ ] `POST /undo` -> undo with revision tracking (deferred)
+- [ ] `POST /redo` -> redo with revision tracking (deferred)
+- [ ] `GET /ops?since={revision}` -> get changes since revision (deferred)
 
 ## 4a. Multi-client sync (N<5 clients)
 
-MVP: last-write-wins per version (see [[sync-mvp]])
-- Client sends `(version, change)` to server
-- If another client already wrote at that version, server discards previous and keeps new
-- Server responds with `(newVersion, graph)` so client replaces local state
+MVP baseline: last-write-wins by arrival order (see [[sync-mvp]])
+- Client sends `(clientRevision, change)` to server
+- Server applies against current state and responds with `(revision, graph)`
 - No client-side merging required
 - Undo/redo is client-local; inverse changes sent as normal edits
 
@@ -61,24 +65,14 @@ Later: upgrade to merge-based sync (see [[api]])
 
 ## 5. Persistence
 
-- Append-only time-reversible ops log
-    log = [ change ]
-    change = 
-        change number
-        [ op ]
+DONE for MVP scope.
 
-    op = New Node | Change Text | Insert Children | Remove Children | Undo | Redo
+- [x] Snapshot format: single text outline file with tabs for indentation
+- [x] Explicit save via `POST /save` (no autosave on every edit)
+- [x] Rebuild graph from snapshot on startup
+- [x] Keep history in-memory for this phase
 
-- Snapshot format: files in a directory
-    - Each file is a text outline with tabs establishing indentation
-    - Graph structure resolves to this format
-    - Lines may be:
-        - Indentation + text content
-        - Indentation + `[[wikilink#label]]` (link to another node)
-        - Indentation + `#label` (label/tag)
-    - File structure represents the graph hierarchy
-    - Each node maps to a line (or set of lines) with appropriate indentation
-
-- Rebuild graph, from snapshot forward, on startup
-    - Parse text outline files to reconstruct graph
-    - Apply ops log from last snapshot change number
+- Deferred:
+    - Persisted append-only transaction log
+    - Multi-file snapshot model
+    - Replay ops log after snapshot load

@@ -13,20 +13,26 @@ A Workflowy-style outline editor built with full-stack F#. Tree-structured text 
 
 The **Shared** project contains the domain model and is referenced by both client and server. The **Client** project is compiled from F# to JavaScript using Fable and served as static files. The **Server** project is an ASP.NET Core app that serves the client and exposes an HTTP API.
 
-## Prerequisites
+## Running
+
+### Prerequisites
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
 
-## Load the environment
+### Load the environment
 
 dotnet tool restore (pull in fable and other dependencies)
 
-### Build and run
+### Build
 Use commands like these
 
 dotnet build gambol.sln
-dotnet fable src/Client
-dotnet fable watch src/Client
+dotnet fable src/Client --outDir src/Server/wwwroot
+dotnet fable watch src/Client --outDir src/Server/wwwroot
 dotnet run --project src/Server
     The app will be available at **http://localhost:5115**.
 dotnet test gambol.sln
+
+### Dev (VS Code)
+Run the default build task (`Ctrl+Shift+B`) to start Fable watch and the server together.
+Both use the correct `--outDir` so `fable_modules` lands in `wwwroot` alongside the compiled JS.

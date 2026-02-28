@@ -30,13 +30,13 @@ client → ops → server → persistence → reload.
 - [x] JSON serialization (encode/decode for all shared types)
 
 ### Server
-- [ ] In-memory `ServerState` (shared `State` with graph + history, plus revision)
-- [ ] `GET /` serves HTML page + compiled client JS
-- [ ] `GET /state` returns `{ revision, graph }` as JSON
-- [ ] `POST /submit` accepts `{ clientRevision, change }`, returns `{ revision, graph }`
-- [ ] `POST /save` writes snapshot to disk on explicit request
-- [ ] History serves as transaction log (in-memory; enables future undo/redo and replay)
-- [ ] Last-write-wins sync per [[sync-mvp]]
+- [x] In-memory `ServerState` (shared `State` with graph + history, plus revision)
+- [x] `GET /` serves HTML page + compiled client JS
+- [x] `GET /state` returns `{ revision, graph }` as JSON
+- [x] `POST /submit` accepts `{ clientRevision, change }`, returns `{ revision, graph }`
+- [x] `POST /save` writes snapshot to disk on explicit request
+- [x] History serves as transaction log (in-memory; enables future undo/redo and replay)
+- [x] Last-write-wins sync per [[sync-mvp]]
 
 ### Client (Fable → JS)
 - [x] On load: `GET /state`, build local model
@@ -52,13 +52,13 @@ client → ops → server → persistence → reload.
 - [x] On POST response: update local revision (optimistic — local graph is already correct)
 
 ### Persistence (minimal)
-- [ ] Snapshot written only on explicit `POST /save` (not on every edit)
-- [ ] Snapshot = single text outline file (tabs for indentation)
-- [ ] On server startup: load snapshot file if present → rebuild graph
-- [ ] History (in-memory, same as transaction log) records every applied change for future undo/redo and replay
+- [x] Snapshot written only on explicit `POST /save` (not on every edit)
+- [x] Snapshot = single text outline file (tabs for indentation)
+- [x] On server startup: load snapshot file if present → rebuild graph
+- [x] History (in-memory, same as transaction log) records every applied change for future undo/redo and replay
 
 ### Tests
-- [ ] Elements of the above that can be easily tested with XUnit shall have basic tests defined.
+- [x] Elements of the above that can be easily tested with XUnit shall have basic tests defined.
 
 ## What is excluded from MVP
 
@@ -156,7 +156,7 @@ The MVP is complete when:
 
 ## Architecture notes
 
-### Server (`src/Server/Program.fs`)
+### Server (`src/Server/Server.fs`)
 
 - `namespace Gambol.Server` with `type Program = class end` marker for `WebApplicationFactory`
 - `ServerState` — mutable record holding shared `State` (graph + history) and `revision`, behind `ServerState.withLock`
@@ -206,7 +206,7 @@ The MVP is complete when:
 
 | What | Path |
 |---|---|
-| Server entry point | `src/Server/Program.fs` |
+| Server entry point | `src/Server/Server.fs` |
 | Server config | `src/Server/appsettings.json` |
 | Client entry point | `src/Client/Program.fs` |
 | Client project | `src/Client/Gambol.Client.fsproj` |
