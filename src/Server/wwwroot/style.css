@@ -1,0 +1,48 @@
+body {
+    font-family: system-ui, -apple-system, sans-serif;
+    margin: 2rem;
+    color: #222;
+    background: #ccc;
+}
+#app {
+    font-size: 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+.row {
+    display: flex;
+    gap: 0.2rem;
+    background: #ccc
+}
+.indent {
+    width: 1.5rem;
+    flex-shrink: 0;
+    background: #ddd;
+}
+.text {
+    flex: 1;
+    padding: 0.15rem 0.3rem;
+    min-height: 1em;
+    background: #eee;
+}
+.row.selected {
+    background: #bde;
+}
+.row.selected .text {
+    background: #cdf;
+}
+.edit-input {
+    flex: 1;
+    font: inherit;
+    font-size: inherit;
+    padding: 0.15rem 0.3rem;
+    min-height: 1em;
+    border: 1px solid #89a;
+    outline: none;
+    background: #fff;
+}
+#hidden-input {
+    position: absolute;
+    left: -9999px;
+}

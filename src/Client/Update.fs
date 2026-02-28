@@ -52,6 +52,15 @@ let readEditInputValue () : string =
     if isNull el then ""
     else (el :?> HTMLInputElement).value
 
+/// Find parent and index of a node in the current graph.
+let tryFindParentAndIndex (graph: Graph) (targetId: NodeId) : (NodeId * int) option =
+    graph.nodes
+    |> Map.toSeq
+    |> Seq.tryPick (fun (parentId, parent) ->
+        parent.children
+        |> List.tryFindIndex ((=) targetId)
+        |> Option.map (fun index -> parentId, index))
+
 /// Apply a committed text edit to the model and POST to server.
 /// Returns the updated model. Dispatches SubmitResponse asynchronously.
 let commitTextEdit
@@ -83,6 +92,36 @@ let commitTextEdit
             { model with mode = Selection }
         | ApplyResult.Unchanged _s ->
             { model with mode = Selection }
+
+/// Insert a new empty sibling below the selected node (selection mode).
+let insertSibling (model: Model) (dispatch: Msg -> unit) : Model =
+    match model.mode, model.selectedNode with
+    | Selection, Some selectedId ->
+        match tryFindParentAndIndex model.graph selectedId with
+        | None -> model
+        | Some (parentId, indexInParent) ->
+            let newNodeId = NodeId.New()
+            let change: Change =
+                { id = 0
+                  ops =
+                    [ Op.NewNode(newNodeId, "")
+                      Op.Replace(parentId, indexInParent + 1, [], [ newNodeId ]) ] }
+            let state: State = { graph = model.graph; history = History.empty }
+            match Change.apply change state with
+            | ApplyResult.Changed newState ->
+                let body = encodeSubmitBody change model.revision
+                postJson "/submit" body (fun responseText ->
+                    match decodeSubmitResponse responseText with
+                    | Ok rev -> dispatch (SubmitResponse rev)
+                    | Error _err -> ()
+                )
+                { model with
+                    graph = newState.graph
+                    selectedNode = Some newNodeId
+                    mode = Selection }
+            | ApplyResult.Invalid (_s, _err) -> model
+            | ApplyResult.Unchanged _s -> model
+    | _ -> model
 
 // ---------------------------------------------------------------------------
 // Update
@@ -120,6 +159,9 @@ let update (msg: Msg) (model: Model) (dispatch: Msg -> unit) : Model =
         | Editing originalText, Some nodeId ->
             commitTextEdit nodeId originalText newText model dispatch
         | _ -> model
+
+    | InsertSibling ->
+        insertSibling model dispatch
 
     | CancelEdit ->
         match model.mode with

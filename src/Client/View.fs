@@ -41,6 +41,9 @@ let rec render (model: Model) (dispatch: Msg -> unit) : unit =
             if ke.key = "F2" then
                 ke.preventDefault()
                 dispatch (StartEdit node.text)
+            elif ke.key = "Enter" then
+                ke.preventDefault()
+                dispatch InsertSibling
             elif ke.key = "Escape" then
                 ke.preventDefault()
                 dispatch CancelEdit // in selection mode, this deselects

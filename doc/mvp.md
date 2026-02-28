@@ -45,7 +45,7 @@ client → ops → server → persistence → reload.
 - [x] Hidden `<input>` captures keystrokes in selection mode
 - [x] Typing or F2 → edit mode; inline `<input>` in selected row
 - [x] Enter commits edit (`SetText` op on selected node); Escape cancels
-- [ ] Enter → `NewNode` + `Replace` (insert sibling)
+- [x] Enter → `NewNode` + `Replace` (insert sibling)
 - [ ] Tab → `Replace` (reparent under previous sibling)
 - [ ] Shift+Tab → `Replace` (reparent under grandparent)
 - [x] After each edit: apply locally, POST to server in background
@@ -136,9 +136,9 @@ See [[mvpstep5]] for detailed design.
 - [ ] On no response: repost with usual retry protocol (deferred — fire-and-forget for MVP)
 
 ### Step 6: Client editing – structure
-- [ ] Enter → create new node, insert as sibling
-- [ ] Tab → indent (reparent)
-- [ ] Shift+Tab → outdent (reparent)
+- [x] Enter → create new node, insert as sibling
+- [ ] Tab → indent (reparent) [ if this is first node in its parent, this is a NO-OP ]
+- [ ] Shift+Tab → outdent (reparent) [ if this is a root node, this is a NO-OP.]
 - [ ] Each structural edit = `NewNode` + `Replace` ops in a `Change`
 
 ## Success criteria

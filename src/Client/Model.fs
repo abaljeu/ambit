@@ -17,5 +17,6 @@ type Msg =
     | SelectRow of NodeId
     | StartEdit of prefill: string
     | CommitEdit of newText: string
+    | InsertSibling
     | CancelEdit
     | SubmitResponse of Revision

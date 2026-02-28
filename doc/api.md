@@ -1,6 +1,6 @@
 # API Contract
 
-HTTP API for client-server communication with multi-client sync support (N<5 clients).
+HTTP API for current MVP client-server communication.
 
 ## Revision Tracking
 
@@ -58,63 +58,29 @@ Apply a change (batch of ops) to the graph.
 ```
 
 **Fields**:
-- `clientRevision`: Client's current revision (must match server or be behind)
+- `clientRevision`: Client's current revision (currently accepted as advisory in MVP)
 - `change`: Change to apply (see Change JSON encoding)
 
 **Response** (JSON):
 ```json
 {
-  "success": true,
-  "newRevision": 42,
-  "changeId": 15,
-  "remoteChanges": [
-    {
-      "id": 14,
-      "ops": [ ... ],
-      "revision": 41
-    }
-  ]
+  "revision": 42,
+  "graph": { ... }
 }
 ```
 
 **Fields**:
-- `success`: Whether the change was accepted
-- `newRevision`: New server revision after applying change
-- `changeId`: Server-assigned change ID
-- `remoteChanges`: Array of changes from other clients that occurred since `clientRevision` (may be empty)
-
-**Error Response** (409 Conflict, JSON):
-```json
-{
-  "success": false,
-  "error": "revision_mismatch",
-  "serverRevision": 45,
-  "remoteChanges": [
-    {
-      "id": 14,
-      "ops": [ ... ],
-      "revision": 41
-    },
-    {
-      "id": 15,
-      "ops": [ ... ],
-      "revision": 42
-    }
-  ]
-}
-```
+- `revision`: Current server revision after handling the request
+- `graph`: Current authoritative graph
 
 **Error Cases**:
-- `409 Conflict`: Client revision is behind server (server has newer changes)
-  - Server returns all changes since client's revision
-  - Client must merge these changes locally, then retry
 - `400 Bad Request`: Invalid change (e.g., op validation failed)
-  - Returns error message, no remote changes
+  - Returns error message
 
 **Client Behavior**:
 1. Send change with current `clientRevision`
-2. If `success: true`: update local revision to `newRevision`, apply any `remoteChanges`
-3. If `409 Conflict`: apply `remoteChanges` locally, update revision, retry original change
+2. On success: update local revision from `revision`
+3. Keep local graph (already optimistic) or replace with returned `graph`
 4. If `400 Bad Request`: show error, do not retry
 
 ---
@@ -129,7 +95,7 @@ Undo the most recent change.
 }
 ```
 
-**Response**: Same as `POST /submit` (undo is treated as a change)
+**Status**: Deferred in current MVP (endpoint not implemented).
 
 ---
 
@@ -143,7 +109,7 @@ Redo the most recent undone change.
 }
 ```
 
-**Response**: Same as `POST /submit` (redo is treated as a change)
+**Status**: Deferred in current MVP (endpoint not implemented).
 
 ---
 
@@ -156,7 +122,7 @@ Write current graph state to snapshot file on disk.
 ```json
 {
   "success": true,
-  "snapshotPath": "gambol-snapshot.txt"
+  "snapshotFile": "gambol-snapshot.txt"
 }
 ```
 
@@ -177,6 +143,8 @@ Write current graph state to snapshot file on disk.
 
 ### `GET /ops?since={revision}`
 Get all changes since a given revision.
+
+**Status**: Deferred in current MVP (endpoint not implemented).
 
 **Query Parameters**:
 - `since`: Revision number to fetch changes after
@@ -204,7 +172,7 @@ Get all changes since a given revision.
 - `changes`: Array of changes since `since` revision (may be empty)
 - `latestRevision`: Current server revision
 
-**Use Case**: Client polling for remote changes, or resync after conflict
+**Use Case** (future): Client polling for remote changes, or resync after conflict
 
 ---
 
@@ -255,7 +223,7 @@ Guid as string.
 }
 ```
 
-**Note**: Client sends `id: 0` for new changes; server assigns actual ID.
+**Note**: Client-provided `id` is passed through in MVP; there is no server-side reassignment yet.
 
 ### Node
 ```json
@@ -286,7 +254,7 @@ Guid as string.
 
 ---
 
-## Multi-Client Sync Protocol
+## Multi-Client Sync Protocol (Current MVP)
 
 ### Assumptions
 - Maximum 5 concurrent clients (N<5)
@@ -307,30 +275,15 @@ Guid as string.
 
 3. **Sync to Server**:
    - `POST /submit` with `clientRevision` and queued change
-   - If `success: true`:
-     - Update local revision to `newRevision`
-     - Apply any `remoteChanges` from response
-     - Remove change from queue
-   - If `409 Conflict`:
-     - Apply all `remoteChanges` to local state
-     - Update local revision to `serverRevision`
-     - Retry queued change with new revision
-     - If retry fails again, may need full resync
+  - On success: update local revision from response
+  - On `400`: surface error and keep local state unchanged
 
-4. **Polling for Remote Changes** (optional, for real-time sync):
-   - Periodically `GET /ops?since={localRevision}`
-   - Apply received changes to local state
-   - Update local revision
+4. **Polling for Remote Changes**:
+  - Not part of current MVP (no `GET /ops?since=` endpoint yet)
 
 ### Conflict Resolution
 
-When client receives `409 Conflict`:
-1. Apply all `remoteChanges` in order to local state
-2. Update local revision to `serverRevision`
-3. Re-apply any pending local changes (rebased on new state)
-4. Retry original request
-
-**Note**: Since ops are designed to be mergeable (e.g., `SetText` with old/new validation), conflicts should be rare. If a change cannot be applied after merging remote changes, client should show error to user.
+Advanced conflict handling is deferred for MVP. Current behavior is effectively last-write-wins by arrival order.
 
 ### Transaction Log Structure
 
@@ -347,7 +300,6 @@ and load → replay) is a future enhancement.
 
 - `200 OK`: Success
 - `400 Bad Request`: Invalid request (malformed JSON, invalid op, etc.)
-- `409 Conflict`: Revision mismatch (client behind server)
 - `500 Internal Server Error`: Server error
 
 ---
@@ -356,7 +308,7 @@ and load → replay) is a future enhancement.
 
 - All timestamps in ISO 8601 format
 - All GUIDs as lowercase strings without braces
-- Server assigns change IDs sequentially
-- Revision starts at 0 or 1 (TBD)
+- Server does not currently reassign change IDs
+- Revision starts at 0
 - Empty arrays should be `[]`, not omitted
 
