@@ -15,13 +15,9 @@ let app = document.getElementById "app"
 let isPrintableKey (key: string) : bool =
     key.Length = 1 && key >= " "
 
-type SelectionKeyContext =
-        { keyEvent: KeyboardEvent
-            selectedNodeText: string }
+type SelectionKeyContext = { keyEvent: KeyboardEvent; selectedNodeText: string }
 
-type EditingKeyContext =
-        { keyEvent: KeyboardEvent
-            editInput: HTMLInputElement }
+type EditingKeyContext = { keyEvent: KeyboardEvent; editInput: HTMLInputElement }
 
 type KeyHandler<'Context> = 'Context -> Msg
 
@@ -29,22 +25,22 @@ let printableKeyToken = "__PRINTABLE__"
 
 let selectionKeyTable: (string * KeyHandler<SelectionKeyContext>) list =
         [ "F2", (fun ctx -> StartEdit ctx.selectedNodeText)
-            "Enter", (fun _ -> InsertSibling)
-            "ArrowUp", (fun _ -> MoveSelectionUp)
-            "ArrowDown", (fun _ -> MoveSelectionDown)
-            "Escape", (fun _ -> CancelEdit)
-            printableKeyToken, (fun ctx -> StartEdit ctx.keyEvent.key) ]
+            ; "Enter", (fun _ -> InsertSibling)
+            ; "ArrowUp", (fun _ -> MoveSelectionUp)
+            ; "ArrowDown", (fun _ -> MoveSelectionDown)
+            ; "Escape", (fun _ -> CancelEdit)
+            ; printableKeyToken, (fun ctx -> StartEdit ctx.keyEvent.key) ]
 
 let editingKeyTable: (string * KeyHandler<EditingKeyContext>) list =
         [ "Enter", (fun ctx -> CommitEdit ctx.editInput.value)
-            "ArrowUp", (fun _ -> MoveSelectionUp)
-            "ArrowDown", (fun _ -> MoveSelectionDown)
-            "Escape", (fun _ -> CancelEdit) ]
+            ; "ArrowUp", (fun _ -> MoveSelectionUp)
+            ; "ArrowDown", (fun _ -> MoveSelectionDown)
+            ; "Escape", (fun _ -> CancelEdit) ]
 
 let tryResolveOperation
-        (table: (string * KeyHandler<'Context>) list)
+    (table: (string * KeyHandler<'Context>) list)
     (ke: KeyboardEvent)
-        : KeyHandler<'Context> option =
+    : KeyHandler<'Context> option =
     match table |> List.tryPick (fun (k, handler) -> if k = ke.key then Some handler else None) with
     | Some handler -> Some handler
     | None ->
