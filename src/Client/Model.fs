@@ -15,6 +15,8 @@ type Model =
 type Msg =
     | StateLoaded of Graph * Revision
     | SelectRow of NodeId
+    | MoveSelectionUp
+    | MoveSelectionDown
     | StartEdit of prefill: string
     | CommitEdit of newText: string
     | InsertSibling

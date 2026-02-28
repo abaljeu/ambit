@@ -44,6 +44,12 @@ let rec render (model: Model) (dispatch: Msg -> unit) : unit =
             elif ke.key = "Enter" then
                 ke.preventDefault()
                 dispatch InsertSibling
+            elif ke.key = "ArrowUp" then
+                ke.preventDefault()
+                dispatch MoveSelectionUp
+            elif ke.key = "ArrowDown" then
+                ke.preventDefault()
+                dispatch MoveSelectionDown
             elif ke.key = "Escape" then
                 ke.preventDefault()
                 dispatch CancelEdit // in selection mode, this deselects
@@ -99,6 +105,12 @@ and renderNode (model: Model) (dispatch: Msg -> unit) (depth: int) (nodeId: Node
                 ke.preventDefault()
                 let value = (editInput :?> HTMLInputElement).value
                 dispatch (CommitEdit value)
+            elif ke.key = "ArrowUp" then
+                ke.preventDefault()
+                dispatch MoveSelectionUp
+            elif ke.key = "ArrowDown" then
+                ke.preventDefault()
+                dispatch MoveSelectionDown
             elif ke.key = "Escape" then
                 ke.preventDefault()
                 dispatch CancelEdit

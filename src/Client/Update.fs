@@ -61,6 +61,30 @@ let tryFindParentAndIndex (graph: Graph) (targetId: NodeId) : (NodeId * int) opt
         |> List.tryFindIndex ((=) targetId)
         |> Option.map (fun index -> parentId, index))
 
+/// Flatten graph into visible row order (preorder, excluding root).
+let getVisibleRowIds (graph: Graph) : NodeId list =
+    let rec gather (nodeId: NodeId) : NodeId list =
+        let node = graph.nodes.[nodeId]
+        nodeId :: (node.children |> List.collect gather)
+
+    let root = graph.nodes.[graph.root]
+    root.children |> List.collect gather
+
+/// Move current selection by delta (-1 for up, +1 for down) in visible row order.
+let moveSelectionBy (delta: int) (model: Model) : Model =
+    match model.selectedNode with
+    | None -> model
+    | Some selectedId ->
+        let rows = getVisibleRowIds model.graph
+        match rows |> List.tryFindIndex ((=) selectedId) with
+        | None -> model
+        | Some currentIndex ->
+            let nextIndex = currentIndex + delta
+            if nextIndex < 0 || nextIndex >= rows.Length then
+                model
+            else
+                { model with selectedNode = Some rows[nextIndex]; mode = Selection }
+
 /// Apply a committed text edit to the model and POST to server.
 /// Returns the updated model. Dispatches SubmitResponse asynchronously.
 let commitTextEdit
@@ -146,6 +170,24 @@ let update (msg: Msg) (model: Model) (dispatch: Msg -> unit) : Model =
             { model' with selectedNode = Some nodeId }
         | _ ->
             { model with selectedNode = Some nodeId; mode = Selection }
+
+    | MoveSelectionUp ->
+        match model.mode, model.selectedNode with
+        | Editing originalText, Some editingId ->
+            let newText = readEditInputValue ()
+            let model' = commitTextEdit editingId originalText newText model dispatch
+            moveSelectionBy -1 model'
+        | _ ->
+            moveSelectionBy -1 model
+
+    | MoveSelectionDown ->
+        match model.mode, model.selectedNode with
+        | Editing originalText, Some editingId ->
+            let newText = readEditInputValue ()
+            let model' = commitTextEdit editingId originalText newText model dispatch
+            moveSelectionBy 1 model'
+        | _ ->
+            moveSelectionBy 1 model
 
     | StartEdit _prefill ->
         match model.selectedNode with

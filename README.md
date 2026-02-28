@@ -13,6 +13,19 @@ A Workflowy-style outline editor built with full-stack F#. Tree-structured text 
 
 The **Shared** project contains the domain model and is referenced by both client and server. The **Client** project is compiled from F# to JavaScript using Fable and served as static files. The **Server** project is an ASP.NET Core app that serves the client and exposes an HTTP API.
 
+## Ambit
+ambit/ contains a different implementation with slightly different semantics.
+Notable differences: 
+- a multi-column definition scheme
+- the backlink scheme is not the same
+- the implementation architecture is different.
+
+
+
+Never modify anything in ambit.
+Do not assume ambit's code is definitive for gambol behavior.
+Do reference ambit for proposing definitions of gambol behavior.
+
 ## Running
 
 ### Prerequisites
