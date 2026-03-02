@@ -55,7 +55,7 @@ let rec dispatch (msg: Msg) : unit =
 // Bootstrap
 // ---------------------------------------------------------------------------
 
-fetchText "/state" (fun text ->
+fetchText $"/{Update.currentFile}/state" (fun text ->
     match decodeStateResponse text with
     | Ok (graph, revision) ->
         dispatch (StateLoaded (graph, revision))

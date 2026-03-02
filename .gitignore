@@ -41,6 +41,7 @@ ambit/
 src/Client/**/*.js
 src/Shared/**/*.js
 src/Server/wwwroot/*.js
+src/Server/wwwroot/*.js.map
 src/Server/wwwroot/Shared/
 src/Client/fable_modules/
 src/Server/wwwroot/fable_modules/

@@ -15,25 +15,22 @@ open Thoth.Json.Core
 let postJson (url: string) (body: string) (callback: string -> unit) : unit = jsNative
 
 // ---------------------------------------------------------------------------
+// File identity (derived from URL path)
+// ---------------------------------------------------------------------------
+
+let currentFile =
+    let path = Browser.Dom.window.location.pathname
+    if path.StartsWith("/") then path.Substring(1) else path
+
+// ---------------------------------------------------------------------------
 // Encoding / decoding helpers
 // ---------------------------------------------------------------------------
 
-/// Encode the body for POST /submit
-let encodeSubmitBody (change: Change) (revision: Revision) : string =
-    let encoded =
-        Encode.object
-            [ "clientRevision", Serialization.encodeRevision revision
-              "change", Serialization.encodeChange change ]
-    Thoth.Json.JavaScript.Encode.toString 0 encoded
+/// Encode a Change as compact JSON for POST /{file}/changes
+let encodeChangeBody (change: Change) : string =
+    Thoth.Json.JavaScript.Encode.toString 0 (Serialization.encodeChange change)
 
-/// Decode the response from POST /submit (just need revision)
-let decodeSubmitResponse (text: string) : Result<Revision, string> =
-    let decoder =
-        Decode.object (fun get ->
-            get.Required.Field "revision" Serialization.decodeRevision)
-    Thoth.Json.JavaScript.Decode.fromString decoder text
-
-/// Decode the initial GET /state response
+/// Decode the response from GET /{file}/state or POST /{file}/changes
 let decodeStateResponse (text: string) : Result<Graph * Revision, string> =
     let decoder =
         Decode.object (fun get ->
@@ -99,15 +96,15 @@ let commitTextEdit
         { model with mode = Selection }
     else
         let op = Op.SetText(nodeId, originalText, newText)
-        let change: Change = { id = 0; ops = [ op ] }
+        let change: Change = { id = model.revision.Value; ops = [ op ] }
         let state: State = { graph = model.graph; history = History.empty }
         match Change.apply change state with
         | ApplyResult.Changed newState ->
             // POST to server in background (optimistic)
-            let body = encodeSubmitBody change model.revision
-            postJson "/submit" body (fun responseText ->
-                match decodeSubmitResponse responseText with
-                | Ok rev -> dispatch (SubmitResponse rev)
+            let body = encodeChangeBody change
+            postJson $"/{currentFile}/changes" body (fun responseText ->
+                match decodeStateResponse responseText with
+                | Ok (_graph, rev) -> dispatch (SubmitResponse rev)
                 | Error _err -> () // MVP: ignore errors
             )
             { model with graph = newState.graph; mode = Selection }
@@ -126,17 +123,17 @@ let insertSibling (model: Model) (dispatch: Msg -> unit) : Model =
         | Some (parentId, indexInParent) ->
             let newNodeId = NodeId.New()
             let change: Change =
-                { id = 0
+                { id = model.revision.Value
                   ops =
                     [ Op.NewNode(newNodeId, "")
                       Op.Replace(parentId, indexInParent + 1, [], [ newNodeId ]) ] }
             let state: State = { graph = model.graph; history = History.empty }
             match Change.apply change state with
             | ApplyResult.Changed newState ->
-                let body = encodeSubmitBody change model.revision
-                postJson "/submit" body (fun responseText ->
-                    match decodeSubmitResponse responseText with
-                    | Ok rev -> dispatch (SubmitResponse rev)
+                let body = encodeChangeBody change
+                postJson $"/{currentFile}/changes" body (fun responseText ->
+                    match decodeStateResponse responseText with
+                    | Ok (_graph, rev) -> dispatch (SubmitResponse rev)
                     | Error _err -> ()
                 )
                 { model with
@@ -204,11 +201,6 @@ let update (msg: Msg) (model: Model) (dispatch: Msg -> unit) : Model =
 
     | InsertSibling ->
         insertSibling model dispatch
-
-    | SaveRequested ->
-        // Explicit snapshot save on demand
-        postJson "/save" "" (fun _ -> ())
-        model
 
     | CancelEdit ->
         match model.mode with

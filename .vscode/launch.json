@@ -1,0 +1,47 @@
+{
+    "version": "0.2.0",
+    "compounds": [
+        {
+            "name": "Full Stack",
+            "configurations": ["Launch Server",
+                "Launch Client (Edge)"]
+        }
+    ],
+    "configurations": [
+    {
+            "name": "Launch Server",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "server: Build",
+            "program": "${workspaceFolder}/src/Server/bin/Debug/net10.0/Gambol.Server.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "console": "internalConsole",
+            "env": {
+                "ASPNETCORE_ENVIRONMENT": "Development",
+                "ASPNETCORE_URLS": "http://localhost:5115"
+            }
+        },
+        {
+            "name": "Launch Client (Edge)",
+            "type": "msedge",
+            "request": "launch",
+            "url": "http://localhost:5115/gambol",
+            "webRoot": "${workspaceFolder}/src/Server/wwwroot",
+            "sourceMapPathOverrides": {
+                "../../Client/*": "${workspaceFolder}/src/Client/*"
+            }
+        },
+        {
+            "name": "Launch Client (Chrome)",
+            "type": "chrome",
+            "request": "launch",
+            "url": "http://localhost:5115/gambol",
+            "webRoot": "${workspaceFolder}/src/Server/wwwroot",
+            "sourceMapPathOverrides": {
+                "../../Client/*": "${workspaceFolder}/src/Client/*"
+            }
+        }
+    ]
+}

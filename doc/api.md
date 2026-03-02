@@ -1,4 +1,141 @@
-# API Contract
+# New API Contract
+
+To be implemented.
+
+## Data Model
+
+```
+Node {
+  id: NodeId (UUID)
+  text: string
+  name: string | null
+  children: ChildHolder[]
+}
+
+ChildHolder = Owned(NodeId) | Ref(NodeId)
+
+Graph {
+  rootId: NodeId
+  nodes: Map<NodeId, Node>
+}
+```
+
+**Constraints:**
+- Every node has exactly one Owned holder
+- A node can have multiple Ref holders
+- When an Owned holder is removed, an arbitrary Ref is promoted to Owned
+- If no Refs exist, node is orphaned (moved to holding area)
+
+---
+
+## Concurrency Model
+
+- Server maintains a linear operation log
+- Each changeset has a sequence number
+- Client submits with `baseSequence`
+- Server accepts if `baseSequence == currentSequence`, else rejects (409)
+- On rejection, client rewinds, replays missed changesets, re-applies its change, retries
+
+---
+
+## Operations
+
+| Operation | Payload |
+|-----------|---------|
+| `CreateNodes` | `parentId`, `position`, `nodes[]` (recursive, with client-generated UUIDs) |
+| `CreateReference` | `parentId`, `position`, `nodeId` |
+| `RemoveNodes` | `parentId`, `range [m, n)` |
+| `MoveNodes` | `sourceParentId`, `sourceRange [m, n)`, `destParentId`, `destPosition` |
+| `EditNode` | `nodeId`, `text`, `name` |
+| `SetMetadata` | `nodeId`, `key`, `value` |
+
+---
+
+## HTTP Endpoints
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `GET` | `/documents/{docId}` | Full document state + current sequence |
+| `GET` | `/documents/{docId}/operations?from={seq}&to={seq}` | Fetch operation range |
+| `POST` | `/documents/{docId}/operations` | Submit changeset |
+
+### POST Request
+```json
+{
+  "changesetId": "uuid",
+  "baseSequence": 42,
+  "clientId": "uuid",
+  "operations": [...]
+}
+```
+
+### POST Response (200)
+```json
+{
+  "sequence": 43
+}
+```
+
+### POST Response (409)
+```json
+{
+  "currentSequence": 47
+}
+```
+
+### GET /documents/{docId} Response
+```json
+{
+  "sequence": 47,
+  "rootId": "uuid",
+  "nodes": {
+    "uuid": {
+      "id": "uuid",
+      "text": "...",
+      "name": null,
+      "children": [
+        {"type": "Owned", "nodeId": "..."},
+        {"type": "Ref", "nodeId": "..."}
+      ]
+    }
+  }
+}
+```
+
+---
+
+## WebSocket
+
+**Connect:** `/documents/{docId}/ws?clientId={uuid}&fromSequence={seq}`
+
+**Server pushes:**
+```json
+{
+  "sequence": 44,
+  "changesetId": "uuid",
+  "clientId": "uuid",
+  "operations": [...]
+}
+```
+
+---
+
+## Deferred
+
+- Undo/redo mechanism
+- Rebase logic ("how to apply" after conflict)
+- MoveNodes validation rules (cycles, ownership preservation)
+- Orphan holding area structure
+- Ref promotion selection logic
+
+---
+
+Anything to add, revise, or clarify before this is final?
+
+# Old API Contract
+
+
+
 
 HTTP API for current MVP client-server communication.
 

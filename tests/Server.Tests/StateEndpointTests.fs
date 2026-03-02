@@ -5,6 +5,7 @@ open System.IO
 open System.Net
 open System.Net.Http
 open System.Text
+open System.Threading.Tasks
 open Microsoft.AspNetCore.Mvc.Testing
 open Microsoft.Extensions.Configuration
 open Xunit
@@ -13,6 +14,9 @@ open Gambol.Shared
 
 module Encode = Thoth.Json.Newtonsoft.Encode
 module Decode = Thoth.Json.Newtonsoft.Decode
+
+/// Default test filename used in all endpoints.
+let private testFile = "test"
 
 let private newTempDir () =
     let dir = Path.Combine(Path.GetTempPath(), $"gambol-test-{Guid.NewGuid()}")
@@ -50,51 +54,43 @@ let private decodeGraph json =
         get.Required.Field "graph" Serialization.decodeGraph)
     |> decode <| json
 
-/// GET /state, assert 200 + JSON content type, return body string.
-let private getStateJson (client: HttpClient) = task {
-    let! resp = client.GetAsync("/state")
+/// GET /{file}/state, assert 200 + JSON content type, return body string.
+let private getStateJson (client: HttpClient) (file: string) = task {
+    let! resp = client.GetAsync($"/{file}/state")
     Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
     Assert.Equal("application/json", resp.Content.Headers.ContentType.MediaType)
     return! resp.Content.ReadAsStringAsync()
 }
 
-let private encodeSubmitBody (clientRevision: Revision) (change: Change) =
-    Encode.toString 0 (
-        Thoth.Json.Core.Encode.object
-            [ "clientRevision", Serialization.encodeRevision clientRevision
-              "change", Serialization.encodeChange change ])
+let private encodeChangeBody (change: Change) =
+    Encode.toString 0 (Serialization.encodeChange change)
 
-/// POST /submit with a change and return the raw response.
-let private postSubmit (client: HttpClient) (clientRevision: Revision) (change: Change) = task {
-    let body = encodeSubmitBody clientRevision change
+/// POST /{file}/changes with a change and return the raw response.
+let private postChange (client: HttpClient) (file: string) (change: Change) = task {
+    let body = encodeChangeBody change
     let content = new StringContent(body, Encoding.UTF8, "application/json")
-    return! client.PostAsync("/submit", content)
+    return! client.PostAsync($"/{file}/changes", content)
 }
 
-/// POST /save with optional filename and return the raw response.
-let private postSave (client: HttpClient) (filename: string option) = task {
-    let body =
-        match filename with
-        | None -> ""
-        | Some f ->
-            Encode.toString 0 (
-                Thoth.Json.Core.Encode.object
-                    [ "filename", Thoth.Json.Core.Encode.string f ])
-    let content = new StringContent(body, Encoding.UTF8, "application/json")
-    return! client.PostAsync("/save", content)
-}
+/// Read a file that may be held open by a FileAgent (shared read).
+let private readFileShared (path: string) =
+    use fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
+    use reader = new StreamReader(fs)
+    reader.ReadToEnd()
+
+// ---- GET /{file}/state tests ----
 
 [<Fact>]
-let ``GET /state returns revision 0 for fresh server`` () = task {
+let ``GET state returns revision 0 for fresh server`` () = task {
     use client = createClient ()
-    let! json = getStateJson client
+    let! json = getStateJson client testFile
     Assert.Equal(Revision 0, decodeRevision json)
 }
 
 [<Fact>]
-let ``GET /state returns valid graph with root node`` () = task {
+let ``GET state returns valid graph with root node`` () = task {
     use client = createClient ()
-    let! json = getStateJson client
+    let! json = getStateJson client testFile
     let graph = decodeGraph json
     Assert.Equal(1, graph.nodes.Count)
     Assert.True(graph.nodes.ContainsKey graph.root)
@@ -103,16 +99,16 @@ let ``GET /state returns valid graph with root node`` () = task {
     Assert.Empty(root.children)
 }
 
-// ---- POST /submit tests ----
+// ---- POST /{file}/changes tests ----
 
 [<Fact>]
-let ``POST /submit SetText changes root text and bumps revision`` () = task {
+let ``POST changes SetText changes root text and bumps revision`` () = task {
     use client = createClient ()
-    let! json0 = getStateJson client
+    let! json0 = getStateJson client testFile
     let rootId = (decodeGraph json0).root
 
     let change = { id = 0; ops = [ Op.SetText(rootId, "", "hello") ] }
-    let! resp = postSubmit client (Revision 0) change
+    let! resp = postChange client testFile change
     Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
 
     let! json = resp.Content.ReadAsStringAsync()
@@ -122,9 +118,9 @@ let ``POST /submit SetText changes root text and bumps revision`` () = task {
 }
 
 [<Fact>]
-let ``POST /submit NewNode+Replace adds child to root`` () = task {
+let ``POST changes NewNode+Replace adds child to root`` () = task {
     use client = createClient ()
-    let! json0 = getStateJson client
+    let! json0 = getStateJson client testFile
     let rootId = (decodeGraph json0).root
     let childId = NodeId.New()
 
@@ -134,7 +130,7 @@ let ``POST /submit NewNode+Replace adds child to root`` () = task {
             [ Op.NewNode(childId, "child")
               Op.Replace(rootId, 0, [], [ childId ]) ] }
 
-    let! resp = postSubmit client (Revision 0) change
+    let! resp = postChange client testFile change
     Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
 
     let! json = resp.Content.ReadAsStringAsync()
@@ -145,34 +141,36 @@ let ``POST /submit NewNode+Replace adds child to root`` () = task {
 }
 
 [<Fact>]
-let ``POST /submit with invalid JSON returns 400`` () = task {
+let ``POST changes with invalid JSON returns 400`` () = task {
     use client = createClient ()
+    // First touch the file so the agent is created
+    let! _ = getStateJson client testFile
     let content = new StringContent("not json", Encoding.UTF8, "application/json")
-    let! resp = client.PostAsync("/submit", content)
+    let! resp = client.PostAsync($"/{testFile}/changes", content)
     Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode)
 }
 
 [<Fact>]
-let ``POST /submit with bad op returns 400`` () = task {
+let ``POST changes with bad op returns 400`` () = task {
     use client = createClient ()
-    // SetText with wrong oldText should fail
+    let! _ = getStateJson client testFile
     let bogusId = NodeId.New()
     let change = { id = 0; ops = [ Op.SetText(bogusId, "wrong", "new") ] }
-    let! resp = postSubmit client (Revision 0) change
+    let! resp = postChange client testFile change
     Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode)
 }
 
 [<Fact>]
-let ``POST /submit twice bumps revision to 2`` () = task {
+let ``POST changes twice bumps revision to 2`` () = task {
     use client = createClient ()
-    let! json0 = getStateJson client
+    let! json0 = getStateJson client testFile
     let rootId = (decodeGraph json0).root
 
-    let! resp1 = postSubmit client (Revision 0) { id = 0; ops = [ Op.SetText(rootId, "", "first") ] }
+    let! resp1 = postChange client testFile { id = 0; ops = [ Op.SetText(rootId, "", "first") ] }
     Assert.Equal(HttpStatusCode.OK, resp1.StatusCode)
 
     let change2 = { id = 1; ops = [ Op.SetText(rootId, "first", "second") ] }
-    let! resp2 = postSubmit client (Revision 1) change2
+    let! resp2 = postChange client testFile change2
     Assert.Equal(HttpStatusCode.OK, resp2.StatusCode)
 
     let! json = resp2.Content.ReadAsStringAsync()
@@ -181,100 +179,111 @@ let ``POST /submit twice bumps revision to 2`` () = task {
 }
 
 [<Fact>]
-let ``POST /submit persists in GET /state`` () = task {
+let ``POST changes persists in GET state`` () = task {
     use client = createClient ()
-    let! json0 = getStateJson client
+    let! json0 = getStateJson client testFile
     let rootId = (decodeGraph json0).root
 
-    let! _ = postSubmit client (Revision 0) { id = 0; ops = [ Op.SetText(rootId, "", "persisted") ] }
+    let! _ = postChange client testFile { id = 0; ops = [ Op.SetText(rootId, "", "persisted") ] }
 
-    let! json = getStateJson client
+    let! json = getStateJson client testFile
     Assert.Equal(Revision 1, decodeRevision json)
     Assert.Equal("persisted", (decodeGraph json).nodes.[rootId].text)
 }
 
-// ---- POST /save tests ----
+// ---- Change log + persistence tests ----
 
 /// Submit a NewNode+Replace that adds a child with the given text under root.
-let private addChild (client: HttpClient) (rootId: NodeId) (rev: Revision) (text: string) = task {
+let private addChild (client: HttpClient) (file: string) (rootId: NodeId) (rev: Revision) (text: string) = task {
     let childId = NodeId.New()
     let change =
         { id = rev.Value
           ops =
             [ Op.NewNode(childId, text)
               Op.Replace(rootId, 0, [], [ childId ]) ] }
-    let! resp = postSubmit client rev change
+    let! resp = postChange client file change
     Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
     return childId
 }
 
 [<Fact>]
-let ``POST /save writes default snapshot file`` () = task {
+let ``POST changes creates log file`` () = task {
     let tempDir = newTempDir ()
     use client = createClientForDir tempDir
-    let! json0 = getStateJson client
+    let! json0 = getStateJson client testFile
     let rootId = (decodeGraph json0).root
 
-    let! _ = addChild client rootId (Revision 0) "saved"
+    let! _ = addChild client testFile rootId (Revision 0) "logged"
 
-    let! resp = postSave client None
-    Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
+    let logPath = Path.Combine(tempDir, $"{testFile}.log")
+    Assert.True(File.Exists(logPath), "Log file should exist after first change")
+    let content = readFileShared logPath
+    Assert.Contains("logged", content)
+}
 
-    let snapshotPath = Path.Combine(tempDir, "gambol-snapshot.txt")
-    Assert.True(File.Exists(snapshotPath))
+[<Fact>]
+let ``Snapshot is written asynchronously after change`` () = task {
+    let tempDir = newTempDir ()
+    use client = createClientForDir tempDir
+    let! json0 = getStateJson client testFile
+    let rootId = (decodeGraph json0).root
+
+    let! _ = addChild client testFile rootId (Revision 0) "snapped"
+
+    // Snapshot is async — wait briefly
+    do! Task.Delay(500)
+
+    let snapshotPath = Path.Combine(tempDir, testFile)
+    Assert.True(File.Exists(snapshotPath), "Snapshot file should exist")
     let content = File.ReadAllText(snapshotPath)
-    Assert.Contains("saved", content)
+    Assert.Contains("snapped", content)
+
+    let metaPath = snapshotPath + ".meta"
+    Assert.True(File.Exists(metaPath), "Meta file should exist")
+    let rev = Int32.Parse(File.ReadAllText(metaPath).Trim())
+    Assert.Equal(1, rev)
 }
 
 [<Fact>]
-let ``POST /save with filename writes to that file`` () = task {
+let ``Log contains valid change data after POST`` () = task {
     let tempDir = newTempDir ()
     use client = createClientForDir tempDir
-    let! json0 = getStateJson client
+    let! json0 = getStateJson client testFile
     let rootId = (decodeGraph json0).root
 
-    let! _ = addChild client rootId (Revision 0) "custom"
+    let! _ = addChild client testFile rootId (Revision 0) "logged-entry"
 
-    let! resp = postSave client (Some "other.txt")
-    Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
-
-    let customPath = Path.Combine(tempDir, "other.txt")
-    Assert.True(File.Exists(customPath))
-    let content = File.ReadAllText(customPath)
-    Assert.Contains("custom", content)
-
-    // Default file should not exist
-    let defaultPath = Path.Combine(tempDir, "gambol-snapshot.txt")
-    Assert.False(File.Exists(defaultPath))
+    // Read the log file — should contain the change JSON with "logged-entry"
+    let logPath = Path.Combine(tempDir, $"{testFile}.log")
+    Assert.True(File.Exists(logPath))
+    let content = readFileShared logPath
+    Assert.Contains("logged-entry", content)
+    // Verify the 8-char numeric prefix format
+    Assert.True(content.StartsWith("00000000"), "Log entry should have 8-digit padded change id prefix")
 }
 
 [<Fact>]
-let ``POST /save with empty body writes default file`` () = task {
-    let tempDir = newTempDir ()
-    use client = createClientForDir tempDir
-
-    let! resp = postSave client None
-    Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
-
-    let snapshotPath = Path.Combine(tempDir, "gambol-snapshot.txt")
-    Assert.True(File.Exists(snapshotPath))
-}
-
-[<Fact>]
-let ``POST /save saved file can be loaded by new server`` () = task {
+let ``New server uses snapshot + log replay`` () = task {
     let tempDir = newTempDir ()
     use client1 = createClientForDir tempDir
-    let! json0 = getStateJson client1
+    let! json0 = getStateJson client1 testFile
     let rootId = (decodeGraph json0).root
 
-    let! _ = addChild client1 rootId (Revision 0) "reloaded"
-    let! _ = postSave client1 None
+    let! _ = addChild client1 testFile rootId (Revision 0) "first"
+    do! Task.Delay(500) // let snapshot + meta write
 
-    // Start a new server pointing at the same data dir
+    // Second change — will be in the log beyond the snapshot
+    let! json1 = getStateJson client1 testFile
+    let rootId2 = (decodeGraph json1).root
+    let root = (decodeGraph json1).nodes.[rootId2]
+    let firstChildId = root.children.[0]
+    let! _ = postChange client1 testFile { id = 1; ops = [ Op.SetText(firstChildId, "first", "updated") ] }
+
+    // New server — should load snapshot (rev 1) + replay change 1 from log
     use client2 = createClientForDir tempDir
-    let! json = getStateJson client2
+    let! json = getStateJson client2 testFile
     let graph = decodeGraph json
-    // Snapshot.read creates fresh NodeIds, so find by text
-    let child = graph.nodes |> Map.toSeq |> Seq.map snd |> Seq.find (fun n -> n.text = "reloaded")
-    Assert.Equal("reloaded", child.text)
+    let child = graph.nodes |> Map.toSeq |> Seq.map snd |> Seq.find (fun n -> n.text = "updated")
+    Assert.Equal("updated", child.text)
+    Assert.Equal(Revision 2, decodeRevision json)
 }
