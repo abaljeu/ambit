@@ -11,6 +11,7 @@
     <Compile Include="HistoryTests.fs" />
     <Compile Include="SnapshotTests.fs" />
     <Compile Include="SerializationTests.fs" />
+    <Compile Include="ViewModelTests.fs" />
   </ItemGroup>
 
   <ItemGroup>

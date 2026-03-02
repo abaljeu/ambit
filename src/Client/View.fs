@@ -3,7 +3,7 @@ module Gambol.Client.View
 open Browser.Dom
 open Browser.Types
 open Gambol.Shared
-open Gambol.Client
+open Gambol.Shared.ViewModel
 open Gambol.Client.Update
 
 // ---------------------------------------------------------------------------

@@ -13,8 +13,8 @@ All logic that doesn't touch the DOM or Fable JS interop should live in
 
 ### New file: `src/Shared/ViewModel.fs`
 
-Pulled from `src/Client/Model.fs` (types) and `src/Client/Update.fs`
-(pure helpers):
+Move `src/Client/Model.fs`  to src/Shared/ViewModel.fs.  
+Move in helpers from `src/Client/Update.fs`
 
 **Types**
 - `Mode` — `Selecting | Editing of originalText * cursorPos option`
