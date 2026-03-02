@@ -138,12 +138,22 @@ See [[mvpstep5]] for detailed design.
 - [x] Client/Model.fs selectedNodes should now use a node range.  Default semantics will apply the first selected node.
 - [x] Shift-Arrow up/down -> extend the range within the current parent.  
 - [x] Make the UI highlight the full range, including all descendants.
-- [ ] Selection will be NodeRange plus Focus:int.  It will be a number within the range.
+- [ ] Add a Focus:
+  - `Selection = { range: NodeRange; focus: int }` — focus is an index into `range.parent.children`, always `range.start` or `range.endd - 1`.
+  - The focus row (and its descendants) are highlighted with a distinct color (`.focused` CSS class).
+  - **Shift-Up**: decrements the focused end (moves it up). No-op if it would go below index 0 or collapse an empty range.
+  - **Shift-Down**: increments the focused end. No-op if it would exceed the parent's child count.
+  - Single-node selection always extends (Shift-Up extends start up; Shift-Down extends endd down); focus follows the moved end.
+  - **Arrow Up/Down** (no Shift): collapses to the focus node as a single-node selection, then moves as normal.
+
 
 ### Step 7: Client editing – structure
 - [x] Enter (in edit mode) → split node at cursor (`SplitNode` msg → `NewNode` + `Replace` ± `SetText`)
 - [ ] Tab → indent (reparent) [ if this is first node in its parent, this is a NO-OP ]
+  - Selected nodes become children, appended to the end, of the sibling before `start`
 - [ ] Shift+Tab → outdent (reparent) [ if this is a root node, this is a NO-OP.]
+  - Selected nodes become siblings after their former parent.
+  -)
 - [ ] Each structural edit = `NewNode` + `Replace` ops in a `Change`
 
 ## Success criteria

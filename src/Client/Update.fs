@@ -58,15 +58,20 @@ let tryFindParentAndIndex (graph: Graph) (targetId: NodeId) : (NodeId * int) opt
         |> List.tryFindIndex ((=) targetId)
         |> Option.map (fun index -> parentId, index))
 
-/// Build a single-node NodeRange for the given nodeId, using the graph to locate its parent.
+/// Build a single-node Selection for the given nodeId, using the graph to locate its parent.
 /// Returns None if the node has no parent (i.e. it is the root).
-let singleNodeRange (graph: Graph) (nodeId: NodeId) : NodeRange option =
+let singleSelection (graph: Graph) (nodeId: NodeId) : Selection option =
     tryFindParentAndIndex graph nodeId
-    |> Option.map (fun (parentId, index) -> { parent = parentId; start = index; endd = index + 1 })
+    |> Option.map (fun (parentId, index) ->
+        { range = { parent = parentId; start = index; endd = index + 1 }; focus = index })
 
-/// Extract the primary (first) selected NodeId from a NodeRange.
-let firstSelectedNodeId (graph: Graph) (range: NodeRange) : NodeId =
-    graph.nodes.[range.parent].children.[range.start]
+/// Extract the first (start) selected NodeId from a Selection.
+let firstSelectedNodeId (graph: Graph) (sel: Selection) : NodeId =
+    graph.nodes.[sel.range.parent].children.[sel.range.start]
+
+/// Extract the focused NodeId from a Selection (the active end, used for editing and Arrow movement).
+let focusedNodeId (graph: Graph) (sel: Selection) : NodeId =
+    graph.nodes.[sel.range.parent].children.[sel.focus]
 
 /// Flatten graph into visible row order (preorder, excluding root).
 let getVisibleRowIds (graph: Graph) : NodeId list =
@@ -77,31 +82,61 @@ let getVisibleRowIds (graph: Graph) : NodeId list =
     let root = graph.nodes.[graph.root]
     root.children |> List.collect gather
 
-/// Extend the selection range by one step within its parent.
-/// delta = -1 grows start upward; +1 grows endd downward.
-/// Has no effect when nothing is selected or when the boundary is already reached.
-let extendSelection (delta: int) (model: Model) : Model =
+/// Shift-Arrow: move the focused end of the range by delta (-1 = up, +1 = down).
+/// For a single-node selection, always extends. For multi-node, the focused end moves.
+/// Focus follows the moved end. No-op if the move would exceed parent bounds.
+let shiftArrow (delta: int) (model: Model) : Model =
     match model.selectedNodes with
     | None -> model
-    | Some range ->
+    | Some sel ->
+        let range = sel.range
         let childCount = model.graph.nodes.[range.parent].children.Length
-        if delta < 0 then
-            let newStart = max 0 (range.start + delta)
-            { model with selectedNodes = Some { range with start = newStart } }
+        let rangeSize = range.endd - range.start
+        if rangeSize = 1 then
+            // Single node: always extend in the arrow direction
+            if delta < 0 then
+                let newStart = range.start - 1
+                if newStart < 0 then model
+                else { model with selectedNodes = Some { range = { range with start = newStart }; focus = newStart } }
+            else
+                let newEndd = range.endd + 1
+                if newEndd > childCount then model
+                else { model with selectedNodes = Some { range = { range with endd = newEndd }; focus = newEndd - 1 } }
         else
-            let newEndd = min childCount (range.endd + delta)
-            { model with selectedNodes = Some { range with endd = newEndd } }
+            let focusAtStart = sel.focus = range.start
+            if delta < 0 then
+                if focusAtStart then
+                    // extend upward
+                    let newStart = range.start - 1
+                    if newStart < 0 then model
+                    else { model with selectedNodes = Some { range = { range with start = newStart }; focus = newStart } }
+                else
+                    // shrink from bottom
+                    let newEndd = range.endd - 1
+                    if newEndd <= range.start then model
+                    else { model with selectedNodes = Some { range = { range with endd = newEndd }; focus = newEndd - 1 } }
+            else
+                if focusAtStart then
+                    // shrink from top
+                    let newStart = range.start + 1
+                    if newStart >= range.endd then model
+                    else { model with selectedNodes = Some { range = { range with start = newStart }; focus = newStart } }
+                else
+                    // extend downward
+                    let newEndd = range.endd + 1
+                    if newEndd > childCount then model
+                    else { model with selectedNodes = Some { range = { range with endd = newEndd }; focus = newEndd - 1 } }
 
 /// Move current selection by delta (-1 for up, +1 for down) in visible row order.
-/// When the selection spans multiple nodes, movement is relative to the first node;
-/// the resulting selection is always a single-node range.
+/// Collapses any multi-node selection to the focus node, then moves from there.
+/// The resulting selection is always a single-node Selection.
 let moveSelectionBy (delta: int) (model: Model) : Model =
     match model.selectedNodes with
     | None -> model
-    | Some range ->
-        let selectedId = firstSelectedNodeId model.graph range
+    | Some sel ->
+        let anchorId = focusedNodeId model.graph sel
         let rows = getVisibleRowIds model.graph
-        match rows |> List.tryFindIndex ((=) selectedId) with
+        match rows |> List.tryFindIndex ((=) anchorId) with
         | None -> model
         | Some currentIndex ->
             let nextIndex = currentIndex + delta
@@ -109,9 +144,9 @@ let moveSelectionBy (delta: int) (model: Model) : Model =
                 model
             else
                 let nextId = rows[nextIndex]
-                match singleNodeRange model.graph nextId with
+                match singleSelection model.graph nextId with
                 | None -> model
-                | Some newRange -> { model with selectedNodes = Some newRange; mode = Selecting }
+                | Some newSel -> { model with selectedNodes = Some newSel; mode = Selecting }
 
 /// Apply a change to the local graph, POST it to the server in the background,
 /// and return the updated graph (or None if the change was rejected locally).
@@ -151,11 +186,11 @@ let commitTextEdit
 /// cursor > 0    → current node gets text-before; new sibling gets text-after; focus at start of new node.
 let splitNode (currentText: string) (cursorPos: int) (model: Model) (dispatch: Msg -> unit) : Model =
     match model.mode, model.selectedNodes with
-    | Editing (originalText, _), Some range ->
-        // Use range's parent + start directly (avoids re-scanning the graph).
-        let selectedId  = firstSelectedNodeId model.graph range
-        let parentId    = range.parent
-        let indexInParent = range.start
+    | Editing (originalText, _), Some sel ->
+        // The node being edited is the focus node.
+        let selectedId  = focusedNodeId model.graph sel
+        let parentId    = sel.range.parent
+        let indexInParent = sel.focus
         let clampedPos = max 0 (min cursorPos currentText.Length)
         let textBefore = currentText.[..clampedPos - 1]
         let textAfter  = currentText.[clampedPos..]
@@ -182,7 +217,7 @@ let splitNode (currentText: string) (cursorPos: int) (model: Model) (dispatch: M
         | Some graph ->
             { model with
                 graph = graph
-                selectedNodes = singleNodeRange graph focusId
+                selectedNodes = singleSelection graph focusId
                 mode = Editing (focusText, Some 0) }
         | None -> model
     | _ -> model
@@ -204,19 +239,19 @@ let update (msg: Msg) (model: Model) (dispatch: Msg -> unit) : Model =
 
     | SelectRow nodeId ->
         match model.mode, model.selectedNodes with
-        | Editing (originalText, _), Some range ->
+        | Editing (originalText, _), Some sel ->
             // Commit current edit, then select new row
-            let editingId = firstSelectedNodeId model.graph range
+            let editingId = focusedNodeId model.graph sel
             let newText = readEditInputValue ()
             let model' = commitTextEdit editingId originalText newText model dispatch
-            { model' with selectedNodes = singleNodeRange model'.graph nodeId }
+            { model' with selectedNodes = singleSelection model'.graph nodeId }
         | _ ->
-            { model with selectedNodes = singleNodeRange model.graph nodeId; mode = Selecting }
+            { model with selectedNodes = singleSelection model.graph nodeId; mode = Selecting }
 
     | MoveSelectionUp ->
         match model.mode, model.selectedNodes with
-        | Editing (originalText, _), Some range ->
-            let editingId = firstSelectedNodeId model.graph range
+        | Editing (originalText, _), Some sel ->
+            let editingId = focusedNodeId model.graph sel
             let newText = readEditInputValue ()
             let model' = commitTextEdit editingId originalText newText model dispatch
             moveSelectionBy -1 model'
@@ -225,8 +260,8 @@ let update (msg: Msg) (model: Model) (dispatch: Msg -> unit) : Model =
 
     | MoveSelectionDown ->
         match model.mode, model.selectedNodes with
-        | Editing (originalText, _), Some range ->
-            let editingId = firstSelectedNodeId model.graph range
+        | Editing (originalText, _), Some sel ->
+            let editingId = focusedNodeId model.graph sel
             let newText = readEditInputValue ()
             let model' = commitTextEdit editingId originalText newText model dispatch
             moveSelectionBy 1 model'
@@ -236,13 +271,13 @@ let update (msg: Msg) (model: Model) (dispatch: Msg -> unit) : Model =
     | StartEdit _prefill ->
         match model.selectedNodes with
         | None -> model // nothing selected, ignore
-        | Some range ->
-            let nodeId = firstSelectedNodeId model.graph range
+        | Some sel ->
+            let nodeId = focusedNodeId model.graph sel
             let node = model.graph.nodes.[nodeId]
             { model with mode = Editing (node.text, None) }  // None = cursor at end
 
-    | ChangeSelectionUp   -> extendSelection -1 model
-    | ExtendSelectionDown  -> extendSelection  1 model
+    | ShiftArrowUp   -> shiftArrow -1 model
+    | ShiftArrowDown -> shiftArrow  1 model
 
     | SplitNode (currentText, cursorPos) ->
         splitNode currentText cursorPos model dispatch

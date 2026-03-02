@@ -32,6 +32,12 @@ body {
 .row.selected .text {
     background: #cdf;
 }
+.row.focused {
+    background: #acd;
+}
+.row.focused .text {
+    background: #bde;
+}
 .edit-input {
     flex: 1;
     font: inherit;
