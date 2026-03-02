@@ -32,6 +32,12 @@ type Node =
       children: NodeId list }
 
 
+// defines span of nodes in parent where start <= index in children < end
+type NodeRange = 
+    { parent : NodeId
+      start: int
+      endd : int } 
+
 type Graph =
     { root: NodeId
       nodes: Map<NodeId, Node> }

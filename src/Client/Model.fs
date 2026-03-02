@@ -3,14 +3,14 @@ namespace Gambol.Client
 open Gambol.Shared
 
 type Mode =
-    | Selection
+    | Selecting
     | Editing of originalText: string * cursorPos: int option
     // cursorPos: None = place cursor at end; Some n = place cursor at position n
 
 type Model =
     { graph: Graph
       revision: Revision
-      selectedNode: NodeId option
+      selectedNodes: NodeRange option
       mode: Mode }
 
 type Msg =

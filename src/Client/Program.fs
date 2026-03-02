@@ -22,8 +22,8 @@ let fetchText (url: string) (callback: string -> unit) : unit = jsNative
 let mutable currentModel: Model =
     { graph = { root = NodeId(System.Guid.Empty); nodes = Map.empty }
       revision = Revision.Zero
-      selectedNode = None
-      mode = Selection }
+      selectedNodes = None
+      mode = Selecting }
 
 /// Mutable reference for edit prefill text (set on StartEdit, consumed on render)
 let mutable editPrefill: string option = None

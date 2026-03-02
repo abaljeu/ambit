@@ -4,6 +4,7 @@ open Browser.Dom
 open Browser.Types
 open Gambol.Shared
 open Gambol.Client
+open Gambol.Client.Update
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -81,9 +82,10 @@ let rec render (model: Model) (dispatch: Msg -> unit) : unit =
     hiddenInput.setAttribute("autocomplete", "off")
     hiddenInput.addEventListener("keydown", fun (ev: Event) ->
         let ke = ev :?> KeyboardEvent
-        match model.selectedNode with
+        match model.selectedNodes with
         | None -> ()
-        | Some nodeId ->
+        | Some range ->
+            let nodeId = firstSelectedNodeId model.graph range
             let nodeText = model.graph.nodes.[nodeId].text
             let ctx =
                 { keyEvent = ke
@@ -104,7 +106,7 @@ let rec render (model: Model) (dispatch: Msg -> unit) : unit =
                 | Editing (_, Some p) -> p
                 | _ -> inp.value.Length
             inp.setSelectionRange(pos, pos)
-    | Selection ->
+    | Selecting ->
         hiddenInput.focus()
 
 and renderNode (model: Model) (dispatch: Msg -> unit) (depth: int) (nodeId: NodeId) : unit =
@@ -112,7 +114,14 @@ and renderNode (model: Model) (dispatch: Msg -> unit) (depth: int) (nodeId: Node
     let row = document.createElement "div"
     row.classList.add "row"
 
-    let isSelected = model.selectedNode = Some nodeId
+    let isSelected =
+        match model.selectedNodes with
+        | None -> false
+        | Some range ->
+            let parentNode = model.graph.nodes.[range.parent]
+            parentNode.children
+            |> List.indexed
+            |> List.exists (fun (i, id) -> id = nodeId && i >= range.start && i < range.endd)
     if isSelected then
         row.classList.add "selected"
 

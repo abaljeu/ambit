@@ -42,11 +42,11 @@ client → ops → server → persistence → reload.
 ### Client (Fable → JS)
 - [x] On load: `GET /gambol/state`, build local model
 - [x] Render outline: recursive indented `<div>`s from graph
-- [x] Click line → select it (highlight); two modes: selection and edit (like Excel)
-- [x] Hidden `<input>` captures keystrokes in selection mode
+- [x] Click line → select it (highlight); two modes: select and edit (like Excel)
+- [x] Hidden `<input>` captures keystrokes in select mode
 - [x] Typing, F2, or Enter → edit mode; inline `<input>` in selected row
 - [x] Enter in edit mode → split node at cursor (`SplitNode` → `NewNode` + `Replace` ± `SetText`)
-- [x] Escape → cancel edit, return to selection mode
+- [x] Escape → cancel edit, return to select mode
 - [ ] Tab → `Replace` (reparent under previous sibling)
 - [ ] Shift+Tab → `Replace` (reparent under grandparent)
 - [x] After each structural/text change: apply locally, POST to server in background
@@ -76,7 +76,6 @@ client → ops → server → persistence → reload.
 | HTTPS | HTTP only for local dev |
 | Styled UI | Functional appearance only |
 | `GET /ops?since=` endpoint | Not needed without polling |
-| Transaction log file persistence | In-memory log only; disk persistence is a future enhancement |
 
 ## Implementation order
 
@@ -114,10 +113,10 @@ Each step is a deliverable that can be reviewed and tested.
 - [x] No editing yet — read-only view
 
 ### Step 5: Client editing – text ✓
-Two UI modes (like Excel): **selection mode** and **edit mode**.
+Two UI modes (like Excel): **select mode** and **edit mode**.
 See [[mvpstep5]] for detailed design.
 
-**Selection mode** (default):
+**Select mode** (default):
 - [x] Click a row to select it (`.selected` highlight); at most one selected row
 - [x] Hidden `<input>` (off-screen) retains keyboard focus to capture keystrokes
 - [x] Typing a printable character → enter edit mode (input starts with that character, replacing)
@@ -127,7 +126,7 @@ See [[mvpstep5]] for detailed design.
 - [x] Inline `<input>` appears inside the selected row (replaces `.text` content), receives focus
 - [x] User edits text freely in the input
 - [x] Enter → **split**: split node at cursor position; focus moves to start of the second node
-- [x] Escape → **cancel**: revert to original text → return to selection mode
+- [x] Escape → **cancel**: revert to original text → return to select mode
 - [x] Click another row → commit current edit, select the clicked row
 
 **Server sync** (optimistic post):
@@ -135,7 +134,11 @@ See [[mvpstep5]] for detailed design.
 - [x] On response: update local revision (local graph is already correct)
 - [ ] On no response: repost with usual retry protocol (deferred — fire-and-forget for MVP)
 
-### Step 6: Client editing – structure
+### Selection Range Support
+- [ ] Client/Model.fs selectedNodes should now use a node range.  Default semantics will apply the first selected node.
+- [ ] 
+
+### Step 7: Client editing – structure
 - [x] Enter (in edit mode) → split node at cursor (`SplitNode` msg → `NewNode` + `Replace` ± `SetText`)
 - [ ] Tab → indent (reparent) [ if this is first node in its parent, this is a NO-OP ]
 - [ ] Shift+Tab → outdent (reparent) [ if this is a root node, this is a NO-OP.]

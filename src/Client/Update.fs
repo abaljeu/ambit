@@ -58,6 +58,16 @@ let tryFindParentAndIndex (graph: Graph) (targetId: NodeId) : (NodeId * int) opt
         |> List.tryFindIndex ((=) targetId)
         |> Option.map (fun index -> parentId, index))
 
+/// Build a single-node NodeRange for the given nodeId, using the graph to locate its parent.
+/// Returns None if the node has no parent (i.e. it is the root).
+let singleNodeRange (graph: Graph) (nodeId: NodeId) : NodeRange option =
+    tryFindParentAndIndex graph nodeId
+    |> Option.map (fun (parentId, index) -> { parent = parentId; start = index; endd = index + 1 })
+
+/// Extract the primary (first) selected NodeId from a NodeRange.
+let firstSelectedNodeId (graph: Graph) (range: NodeRange) : NodeId =
+    graph.nodes.[range.parent].children.[range.start]
+
 /// Flatten graph into visible row order (preorder, excluding root).
 let getVisibleRowIds (graph: Graph) : NodeId list =
     let rec gather (nodeId: NodeId) : NodeId list =
@@ -68,10 +78,13 @@ let getVisibleRowIds (graph: Graph) : NodeId list =
     root.children |> List.collect gather
 
 /// Move current selection by delta (-1 for up, +1 for down) in visible row order.
+/// When the selection spans multiple nodes, movement is relative to the first node;
+/// the resulting selection is always a single-node range.
 let moveSelectionBy (delta: int) (model: Model) : Model =
-    match model.selectedNode with
+    match model.selectedNodes with
     | None -> model
-    | Some selectedId ->
+    | Some range ->
+        let selectedId = firstSelectedNodeId model.graph range
         let rows = getVisibleRowIds model.graph
         match rows |> List.tryFindIndex ((=) selectedId) with
         | None -> model
@@ -80,7 +93,10 @@ let moveSelectionBy (delta: int) (model: Model) : Model =
             if nextIndex < 0 || nextIndex >= rows.Length then
                 model
             else
-                { model with selectedNode = Some rows[nextIndex]; mode = Selection }
+                let nextId = rows[nextIndex]
+                match singleNodeRange model.graph nextId with
+                | None -> model
+                | Some newRange -> { model with selectedNodes = Some newRange; mode = Selecting }
 
 /// Apply a change to the local graph, POST it to the server in the background,
 /// and return the updated graph (or None if the change was rejected locally).
@@ -107,53 +123,55 @@ let commitTextEdit
     (dispatch: Msg -> unit)
     : Model =
     if newText = originalText then
-        { model with mode = Selection }
+        { model with mode = Selecting }
     else
         let change: Change = { id = model.revision.Value; ops = [ Op.SetText(nodeId, originalText, newText) ] }
         match applyAndPost change model dispatch with
-        | Some graph -> { model with graph = graph; mode = Selection }
-        | None       -> { model with mode = Selection }
+        | Some graph -> { model with graph = graph; mode = Selecting }
+        | None       -> { model with mode = Selecting }
 
 /// Split the currently-edited node at the cursor position.
 ///
 /// cursor at 0   → blank sibling inserted above; current node keeps its text; focus at start of current node.
 /// cursor > 0    → current node gets text-before; new sibling gets text-after; focus at start of new node.
 let splitNode (currentText: string) (cursorPos: int) (model: Model) (dispatch: Msg -> unit) : Model =
-    match model.mode, model.selectedNode with
-    | Editing (originalText, _), Some selectedId ->
-        match tryFindParentAndIndex model.graph selectedId with
+    match model.mode, model.selectedNodes with
+    | Editing (originalText, _), Some range ->
+        // Use range's parent + start directly (avoids re-scanning the graph).
+        let selectedId  = firstSelectedNodeId model.graph range
+        let parentId    = range.parent
+        let indexInParent = range.start
+        let clampedPos = max 0 (min cursorPos currentText.Length)
+        let textBefore = currentText.[..clampedPos - 1]
+        let textAfter  = currentText.[clampedPos..]
+        let newNodeId  = NodeId.New()
+
+        let (insertIndex, newNodeText, focusId, focusText) =
+            if clampedPos = 0 then
+                // blank node above; focus stays on current node
+                (indexInParent, "", selectedId, currentText)
+            else
+                // new node after; focus moves to new node
+                (indexInParent + 1, textAfter, newNodeId, textAfter)
+
+        let ops =
+            [ yield Op.NewNode(newNodeId, newNodeText)
+              yield Op.Replace(parentId, insertIndex, [], [newNodeId])
+              // update current node's text only when it actually changes
+              let updatedText = if clampedPos = 0 then currentText else textBefore
+              if updatedText <> originalText then
+                  yield Op.SetText(selectedId, originalText, updatedText) ]
+
+        let change: Change = { id = model.revision.Value; ops = ops }
+        match applyAndPost change model dispatch with
+        | Some graph ->
+            { model with
+                graph = graph
+                selectedNodes = singleNodeRange graph focusId
+                mode = Editing (focusText, Some 0) }
         | None -> model
-        | Some (parentId, indexInParent) ->
-            let clampedPos = max 0 (min cursorPos currentText.Length)
-            let textBefore = currentText.[..clampedPos - 1]
-            let textAfter  = currentText.[clampedPos..]
-            let newNodeId  = NodeId.New()
-
-            let (insertIndex, newNodeText, focusId, focusText) =
-                if clampedPos = 0 then
-                    // blank node above; focus stays on current node
-                    (indexInParent, "", selectedId, currentText)
-                else
-                    // new node after; focus moves to new node
-                    (indexInParent + 1, textAfter, newNodeId, textAfter)
-
-            let ops =
-                [ yield Op.NewNode(newNodeId, newNodeText)
-                  yield Op.Replace(parentId, insertIndex, [], [newNodeId])
-                  // update current node's text only when it actually changes
-                  let updatedText = if clampedPos = 0 then currentText else textBefore
-                  if updatedText <> originalText then
-                      yield Op.SetText(selectedId, originalText, updatedText) ]
-
-            let change: Change = { id = model.revision.Value; ops = ops }
-            match applyAndPost change model dispatch with
-            | Some graph ->
-                { model with
-                    graph = graph
-                    selectedNode = Some focusId
-                    mode = Editing (focusText, Some 0) }
-            | None -> model
     | _ -> model
+
 
 // ---------------------------------------------------------------------------
 // Update
@@ -166,22 +184,24 @@ let update (msg: Msg) (model: Model) (dispatch: Msg -> unit) : Model =
     | StateLoaded (graph, revision) ->
         { graph = graph
           revision = revision
-          selectedNode = None
-          mode = Selection }
+          selectedNodes = None
+          mode = Selecting }
 
     | SelectRow nodeId ->
-        match model.mode, model.selectedNode with
-        | Editing (originalText, _), Some editingId ->
+        match model.mode, model.selectedNodes with
+        | Editing (originalText, _), Some range ->
             // Commit current edit, then select new row
+            let editingId = firstSelectedNodeId model.graph range
             let newText = readEditInputValue ()
             let model' = commitTextEdit editingId originalText newText model dispatch
-            { model' with selectedNode = Some nodeId }
+            { model' with selectedNodes = singleNodeRange model'.graph nodeId }
         | _ ->
-            { model with selectedNode = Some nodeId; mode = Selection }
+            { model with selectedNodes = singleNodeRange model.graph nodeId; mode = Selecting }
 
     | MoveSelectionUp ->
-        match model.mode, model.selectedNode with
-        | Editing (originalText, _), Some editingId ->
+        match model.mode, model.selectedNodes with
+        | Editing (originalText, _), Some range ->
+            let editingId = firstSelectedNodeId model.graph range
             let newText = readEditInputValue ()
             let model' = commitTextEdit editingId originalText newText model dispatch
             moveSelectionBy -1 model'
@@ -189,8 +209,9 @@ let update (msg: Msg) (model: Model) (dispatch: Msg -> unit) : Model =
             moveSelectionBy -1 model
 
     | MoveSelectionDown ->
-        match model.mode, model.selectedNode with
-        | Editing (originalText, _), Some editingId ->
+        match model.mode, model.selectedNodes with
+        | Editing (originalText, _), Some range ->
+            let editingId = firstSelectedNodeId model.graph range
             let newText = readEditInputValue ()
             let model' = commitTextEdit editingId originalText newText model dispatch
             moveSelectionBy 1 model'
@@ -198,10 +219,11 @@ let update (msg: Msg) (model: Model) (dispatch: Msg -> unit) : Model =
             moveSelectionBy 1 model
 
     | StartEdit _prefill ->
-        match model.selectedNode with
+        match model.selectedNodes with
         | None -> model // nothing selected, ignore
-        | Some _nodeId ->
-            let node = model.graph.nodes.[_nodeId]
+        | Some range ->
+            let nodeId = firstSelectedNodeId model.graph range
+            let node = model.graph.nodes.[nodeId]
             { model with mode = Editing (node.text, None) }  // None = cursor at end
 
     | SplitNode (currentText, cursorPos) ->
@@ -211,10 +233,10 @@ let update (msg: Msg) (model: Model) (dispatch: Msg -> unit) : Model =
         match model.mode with
         | Editing _ ->
             // In edit mode: revert text, return to selection mode
-            { model with mode = Selection }
-        | Selection ->
+            { model with mode = Selecting }
+        | Selecting ->
             // In selection mode: deselect
-            { model with selectedNode = None }
+            { model with selectedNodes = None }
 
     | SubmitResponse revision ->
         { model with revision = revision }
