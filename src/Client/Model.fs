@@ -4,7 +4,8 @@ open Gambol.Shared
 
 type Mode =
     | Selection
-    | Editing of originalText: string
+    | Editing of originalText: string * cursorPos: int option
+    // cursorPos: None = place cursor at end; Some n = place cursor at position n
 
 type Model =
     { graph: Graph
@@ -18,7 +19,6 @@ type Msg =
     | MoveSelectionUp
     | MoveSelectionDown
     | StartEdit of prefill: string
-    | CommitEdit of newText: string
-    | InsertSibling
+    | SplitNode of currentText: string * cursorPos: int
     | CancelEdit
     | SubmitResponse of Revision

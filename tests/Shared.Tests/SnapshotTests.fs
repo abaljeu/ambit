@@ -1,5 +1,6 @@
 module Gambol.Shared.Tests.SnapshotTests
 
+open System
 open Xunit
 open Gambol.Shared
 
@@ -29,24 +30,25 @@ let ``write flat graph produces unindented lines`` () =
         Graph.replace graph.root 0 [] ids graph
         |> ModelBuilder.requireOk "test"
     let result = Snapshot.write graph
-    Assert.Equal("alpha\nbeta\ngamma\n", result)
+    Assert.Equal("alpha" + Environment.NewLine + "beta" + Environment.NewLine + "gamma" + Environment.NewLine, result)
 
 [<Fact>]
 let ``write createDag12 produces expected outline`` () =
     let graph = ModelBuilder.createDag12 ()
     let result = Snapshot.write graph
+    let nl = Environment.NewLine
     let expected =
-        "a\n"
-        + "\td\n"
-        + "\t\tj\n"
-        + "\te\n"
-        + "b\n"
-        + "\tf\n"
-        + "\t\tk\n"
-        + "\tg\n"
-        + "c\n"
-        + "\th\n"
-        + "\ti\n"
+        "a" + nl
+        + "\td" + nl
+        + "\t\tj" + nl
+        + "\te" + nl
+        + "b" + nl
+        + "\tf" + nl
+        + "\t\tk" + nl
+        + "\tg" + nl
+        + "c" + nl
+        + "\th" + nl
+        + "\ti" + nl
     Assert.Equal(expected, result)
 
 // ---- read tests ----

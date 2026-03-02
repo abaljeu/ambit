@@ -9,10 +9,11 @@ module Snapshot =
     /// The root node is implicit; its children become top-level lines.
     let write (graph: Graph) : string =
         let sb = Text.StringBuilder()
+        let nl = Environment.NewLine
 
         let rec writeNode (depth: int) (nodeId: NodeId) =
             let node = graph.nodes.[nodeId]
-            sb.Append(String.replicate depth "\t").Append(node.text).Append('\n')
+            sb.Append(String.replicate depth "\t").Append(node.text).Append(nl)
             |> ignore
 
             for childId in node.children do

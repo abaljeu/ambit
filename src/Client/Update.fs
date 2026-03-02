@@ -82,6 +82,21 @@ let moveSelectionBy (delta: int) (model: Model) : Model =
             else
                 { model with selectedNode = Some rows[nextIndex]; mode = Selection }
 
+/// Apply a change to the local graph, POST it to the server in the background,
+/// and return the updated graph (or None if the change was rejected locally).
+let applyAndPost (change: Change) (model: Model) (dispatch: Msg -> unit) : Graph option =
+    let state: State = { graph = model.graph; history = History.empty }
+    match Change.apply change state with
+    | ApplyResult.Changed newState ->
+        let body = encodeChangeBody change
+        postJson $"/{currentFile}/changes" body (fun responseText ->
+            match decodeStateResponse responseText with
+            | Ok (_graph, rev) -> dispatch (SubmitResponse rev)
+            | Error _err -> ()
+        )
+        Some newState.graph
+    | _ -> None
+
 /// Apply a committed text edit to the model and POST to server.
 /// Returns the updated model. Dispatches SubmitResponse asynchronously.
 let commitTextEdit
@@ -92,56 +107,52 @@ let commitTextEdit
     (dispatch: Msg -> unit)
     : Model =
     if newText = originalText then
-        // No change — just exit edit mode
         { model with mode = Selection }
     else
-        let op = Op.SetText(nodeId, originalText, newText)
-        let change: Change = { id = model.revision.Value; ops = [ op ] }
-        let state: State = { graph = model.graph; history = History.empty }
-        match Change.apply change state with
-        | ApplyResult.Changed newState ->
-            // POST to server in background (optimistic)
-            let body = encodeChangeBody change
-            postJson $"/{currentFile}/changes" body (fun responseText ->
-                match decodeStateResponse responseText with
-                | Ok (_graph, rev) -> dispatch (SubmitResponse rev)
-                | Error _err -> () // MVP: ignore errors
-            )
-            { model with graph = newState.graph; mode = Selection }
-        | ApplyResult.Invalid (_s, _err) ->
-            // Op failed locally — just exit edit mode, don't POST
-            { model with mode = Selection }
-        | ApplyResult.Unchanged _s ->
-            { model with mode = Selection }
+        let change: Change = { id = model.revision.Value; ops = [ Op.SetText(nodeId, originalText, newText) ] }
+        match applyAndPost change model dispatch with
+        | Some graph -> { model with graph = graph; mode = Selection }
+        | None       -> { model with mode = Selection }
 
-/// Insert a new empty sibling below the selected node (selection mode).
-let insertSibling (model: Model) (dispatch: Msg -> unit) : Model =
+/// Split the currently-edited node at the cursor position.
+///
+/// cursor at 0   → blank sibling inserted above; current node keeps its text; focus at start of current node.
+/// cursor > 0    → current node gets text-before; new sibling gets text-after; focus at start of new node.
+let splitNode (currentText: string) (cursorPos: int) (model: Model) (dispatch: Msg -> unit) : Model =
     match model.mode, model.selectedNode with
-    | Selection, Some selectedId ->
+    | Editing (originalText, _), Some selectedId ->
         match tryFindParentAndIndex model.graph selectedId with
         | None -> model
         | Some (parentId, indexInParent) ->
-            let newNodeId = NodeId.New()
-            let change: Change =
-                { id = model.revision.Value
-                  ops =
-                    [ Op.NewNode(newNodeId, "")
-                      Op.Replace(parentId, indexInParent + 1, [], [ newNodeId ]) ] }
-            let state: State = { graph = model.graph; history = History.empty }
-            match Change.apply change state with
-            | ApplyResult.Changed newState ->
-                let body = encodeChangeBody change
-                postJson $"/{currentFile}/changes" body (fun responseText ->
-                    match decodeStateResponse responseText with
-                    | Ok (_graph, rev) -> dispatch (SubmitResponse rev)
-                    | Error _err -> ()
-                )
+            let clampedPos = max 0 (min cursorPos currentText.Length)
+            let textBefore = currentText.[..clampedPos - 1]
+            let textAfter  = currentText.[clampedPos..]
+            let newNodeId  = NodeId.New()
+
+            let (insertIndex, newNodeText, focusId, focusText) =
+                if clampedPos = 0 then
+                    // blank node above; focus stays on current node
+                    (indexInParent, "", selectedId, currentText)
+                else
+                    // new node after; focus moves to new node
+                    (indexInParent + 1, textAfter, newNodeId, textAfter)
+
+            let ops =
+                [ yield Op.NewNode(newNodeId, newNodeText)
+                  yield Op.Replace(parentId, insertIndex, [], [newNodeId])
+                  // update current node's text only when it actually changes
+                  let updatedText = if clampedPos = 0 then currentText else textBefore
+                  if updatedText <> originalText then
+                      yield Op.SetText(selectedId, originalText, updatedText) ]
+
+            let change: Change = { id = model.revision.Value; ops = ops }
+            match applyAndPost change model dispatch with
+            | Some graph ->
                 { model with
-                    graph = newState.graph
-                    selectedNode = Some newNodeId
-                    mode = Selection }
-            | ApplyResult.Invalid (_s, _err) -> model
-            | ApplyResult.Unchanged _s -> model
+                    graph = graph
+                    selectedNode = Some focusId
+                    mode = Editing (focusText, Some 0) }
+            | None -> model
     | _ -> model
 
 // ---------------------------------------------------------------------------
@@ -160,7 +171,7 @@ let update (msg: Msg) (model: Model) (dispatch: Msg -> unit) : Model =
 
     | SelectRow nodeId ->
         match model.mode, model.selectedNode with
-        | Editing originalText, Some editingId ->
+        | Editing (originalText, _), Some editingId ->
             // Commit current edit, then select new row
             let newText = readEditInputValue ()
             let model' = commitTextEdit editingId originalText newText model dispatch
@@ -170,7 +181,7 @@ let update (msg: Msg) (model: Model) (dispatch: Msg -> unit) : Model =
 
     | MoveSelectionUp ->
         match model.mode, model.selectedNode with
-        | Editing originalText, Some editingId ->
+        | Editing (originalText, _), Some editingId ->
             let newText = readEditInputValue ()
             let model' = commitTextEdit editingId originalText newText model dispatch
             moveSelectionBy -1 model'
@@ -179,7 +190,7 @@ let update (msg: Msg) (model: Model) (dispatch: Msg -> unit) : Model =
 
     | MoveSelectionDown ->
         match model.mode, model.selectedNode with
-        | Editing originalText, Some editingId ->
+        | Editing (originalText, _), Some editingId ->
             let newText = readEditInputValue ()
             let model' = commitTextEdit editingId originalText newText model dispatch
             moveSelectionBy 1 model'
@@ -191,16 +202,10 @@ let update (msg: Msg) (model: Model) (dispatch: Msg -> unit) : Model =
         | None -> model // nothing selected, ignore
         | Some _nodeId ->
             let node = model.graph.nodes.[_nodeId]
-            { model with mode = Editing node.text }
+            { model with mode = Editing (node.text, None) }  // None = cursor at end
 
-    | CommitEdit newText ->
-        match model.mode, model.selectedNode with
-        | Editing originalText, Some nodeId ->
-            commitTextEdit nodeId originalText newText model dispatch
-        | _ -> model
-
-    | InsertSibling ->
-        insertSibling model dispatch
+    | SplitNode (currentText, cursorPos) ->
+        splitNode currentText cursorPos model dispatch
 
     | CancelEdit ->
         match model.mode with

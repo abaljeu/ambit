@@ -30,7 +30,7 @@ module ChangeLog =
     let appendEntry (stream: FileStream) (changeId: int) (json: string) : int64 =
         let offset = stream.Position
         let header = sprintf "%08d" changeId
-        let line = header + json + "\n"
+        let line = header + json + Environment.NewLine
         let bytes = Encoding.UTF8.GetBytes(line)
         stream.Write(bytes, 0, bytes.Length)
         stream.Flush()
@@ -67,7 +67,7 @@ module ChangeLog =
         while b >= 0 && b <> int '\n' do
             buf.Add(byte b)
             b <- stream.ReadByte()
-        let line = Encoding.UTF8.GetString(buf.ToArray())
+        let line = Encoding.UTF8.GetString(buf.ToArray()).TrimEnd('\r')
         let changeId = Int32.Parse(line.Substring(0, headerLength))
         let json = line.Substring(headerLength)
         changeId, json

@@ -16,7 +16,7 @@ module Encode = Thoth.Json.Newtonsoft.Encode
 module Decode = Thoth.Json.Newtonsoft.Decode
 
 /// Default test filename used in all endpoints.
-let private testFile = "test"
+let private testFile = "gambol"
 
 let private newTempDir () =
     let dir = Path.Combine(Path.GetTempPath(), $"gambol-test-{Guid.NewGuid()}")

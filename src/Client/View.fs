@@ -25,14 +25,14 @@ let printableKeyToken = "__PRINTABLE__"
 
 let selectionKeyTable: (string * KeyHandler<SelectionKeyContext>) list =
         [ "F2", (fun ctx -> StartEdit ctx.selectedNodeText)
-            ; "Enter", (fun _ -> InsertSibling)
+            ; "Enter", (fun ctx -> StartEdit ctx.selectedNodeText)
             ; "ArrowUp", (fun _ -> MoveSelectionUp)
             ; "ArrowDown", (fun _ -> MoveSelectionDown)
             ; "Escape", (fun _ -> CancelEdit)
             ; printableKeyToken, (fun ctx -> StartEdit ctx.keyEvent.key) ]
 
 let editingKeyTable: (string * KeyHandler<EditingKeyContext>) list =
-        [ "Enter", (fun ctx -> CommitEdit ctx.editInput.value)
+        [ "Enter", (fun ctx -> SplitNode (ctx.editInput.value, int ctx.editInput.selectionStart))
             ; "ArrowUp", (fun _ -> MoveSelectionUp)
             ; "ArrowDown", (fun _ -> MoveSelectionDown)
             ; "Escape", (fun _ -> CancelEdit) ]
@@ -98,10 +98,12 @@ let rec render (model: Model) (dispatch: Msg -> unit) : unit =
         let editInput = document.getElementById "edit-input"
         if not (isNull editInput) then
             (editInput :?> HTMLInputElement).focus()
-            // Place cursor at end of input
             let inp = editInput :?> HTMLInputElement
-            let len = inp.value.Length
-            inp.setSelectionRange(len, len)
+            let pos =
+                match model.mode with
+                | Editing (_, Some p) -> p
+                | _ -> inp.value.Length
+            inp.setSelectionRange(pos, pos)
     | Selection ->
         hiddenInput.focus()
 
@@ -129,7 +131,7 @@ and renderNode (model: Model) (dispatch: Msg -> unit) (depth: int) (nodeId: Node
         // Set the prefill text (originalText initially; dispatch overwrites with actual prefill)
         let prefill =
             match model.mode with
-            | Editing originalText -> originalText
+            | Editing (originalText, _) -> originalText
             | _ -> node.text
         (editInput :?> HTMLInputElement).value <- prefill
         editInput.addEventListener("keydown", fun (ev: Event) ->

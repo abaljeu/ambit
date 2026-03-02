@@ -30,32 +30,33 @@ client → ops → server → persistence → reload.
 - [x] JSON serialization (encode/decode for all shared types)
 
 ### Server
-- [x] In-memory `ServerState` (shared `State` with graph + history, plus revision)
-- [x] `GET /` serves HTML page + compiled client JS
-- [x] `GET /state` returns `{ revision, graph }` as JSON
-- [x] `POST /submit` accepts `{ clientRevision, change }`, returns `{ revision, graph }`
-- [x] `POST /save` writes snapshot to disk on explicit request
-- [x] History serves as transaction log (in-memory; enables future undo/redo and replay)
+- [x] `FileAgent` per file — holds in-memory graph + revision, serialises access
+- [x] `GET /gambol` serves `gambol.html` (client app entry point)
+- [x] `GET /gambol/state` returns `{ revision, graph }` as JSON
+- [x] `POST /gambol/changes` accepts `{ id, ops }`, returns `{ revision, graph }`
+- [x] Snapshot written automatically to disk after each accepted change
+- [x] Change log appended to `{file}.log` after each accepted change
+- [x] On startup: load snapshot + replay log entries that follow it
 - [x] Last-write-wins sync per [[sync-mvp]]
 
 ### Client (Fable → JS)
-- [x] On load: `GET /state`, build local model
+- [x] On load: `GET /gambol/state`, build local model
 - [x] Render outline: recursive indented `<div>`s from graph
 - [x] Click line → select it (highlight); two modes: selection and edit (like Excel)
 - [x] Hidden `<input>` captures keystrokes in selection mode
-- [x] Typing or F2 → edit mode; inline `<input>` in selected row
-- [x] Enter commits edit (`SetText` op on selected node); Escape cancels
-- [x] Enter → `NewNode` + `Replace` (insert sibling)
+- [x] Typing, F2, or Enter → edit mode; inline `<input>` in selected row
+- [x] Enter in edit mode → split node at cursor (`SplitNode` → `NewNode` + `Replace` ± `SetText`)
+- [x] Escape → cancel edit, return to selection mode
 - [ ] Tab → `Replace` (reparent under previous sibling)
 - [ ] Shift+Tab → `Replace` (reparent under grandparent)
-- [x] After each edit: apply locally, POST to server in background
+- [x] After each structural/text change: apply locally, POST to server in background
 - [x] On POST response: update local revision (optimistic — local graph is already correct)
 
 ### Persistence (minimal)
-- [x] Snapshot written only on explicit `POST /save` (not on every edit)
+- [x] Snapshot written automatically after each accepted change (async, via `FileAgent`)
 - [x] Snapshot = single text outline file (tabs for indentation)
-- [x] On server startup: load snapshot file if present → rebuild graph
-- [x] History (in-memory, same as transaction log) records every applied change for future undo/redo and replay
+- [x] Change log (`{file}.log`) appended after each change; entries prefixed with 8-digit change id
+- [x] On server startup: load snapshot + replay any log entries with id ≥ snapshot revision
 
 ### Tests
 - [x] Elements of the above that can be easily tested with XUnit shall have basic tests defined.
@@ -101,16 +102,15 @@ Each step is a deliverable that can be reviewed and tested.
 - [x] XUnit tests: format verification, round-trip consistency, file I/O (10 tests)
 
 ### Step 3: Server endpoints
-- [x] `GET /` returns a static HTML page (hardcoded or from file)
-- [x] `GET /state` returns graph + revision as JSON
-- [x] `POST /submit` applies change, appends to transaction log, returns new graph + revision
-- [x] `POST /save` writes snapshot to disk (explicit save, not on every edit)
-- [x] On startup: load snapshot if present; transaction log starts empty
+- [x] `GET /gambol` serves `gambol.html` (single entry point for the app)
+- [x] `GET /gambol/state` returns graph + revision as JSON
+- [x] `POST /gambol/changes` applies change, appends to log, writes snapshot, returns new graph + revision
+- [x] On startup: load snapshot + replay log if present
 - [x] Test with xunit HTTP tests
 
 ### Step 4: Client rendering
-- [x] Fable compiles to JS, served by `GET /`
-- [x] On load: fetch state, render outline as indented divs
+- [x] Fable compiles to JS, served via `GET /gambol`
+- [x] On load: fetch `GET /gambol/state`, render outline as indented divs
 - [x] No editing yet — read-only view
 
 ### Step 5: Client editing – text ✓
@@ -126,7 +126,7 @@ See [[mvpstep5]] for detailed design.
 **Edit mode**:
 - [x] Inline `<input>` appears inside the selected row (replaces `.text` content), receives focus
 - [x] User edits text freely in the input
-- [x] Enter → **commit**: if text changed, create `SetText` op → apply locally → re-render → return to selection mode
+- [x] Enter → **split**: split node at cursor position; focus moves to start of the second node
 - [x] Escape → **cancel**: revert to original text → return to selection mode
 - [x] Click another row → commit current edit, select the clicked row
 
@@ -136,7 +136,7 @@ See [[mvpstep5]] for detailed design.
 - [ ] On no response: repost with usual retry protocol (deferred — fire-and-forget for MVP)
 
 ### Step 6: Client editing – structure
-- [x] Enter → create new node, insert as sibling
+- [x] Enter (in edit mode) → split node at cursor (`SplitNode` msg → `NewNode` + `Replace` ± `SetText`)
 - [ ] Tab → indent (reparent) [ if this is first node in its parent, this is a NO-OP ]
 - [ ] Shift+Tab → outdent (reparent) [ if this is a root node, this is a NO-OP.]
 - [ ] Each structural edit = `NewNode` + `Replace` ops in a `Change`
@@ -146,7 +146,7 @@ See [[mvpstep5]] for detailed design.
 The MVP is complete when:
 
 1. `dotnet run` starts the server
-2. Opening `http://localhost:5115` shows an outline
+2. Opening `http://localhost:5115/gambol` shows an outline
 3. Clicking a line selects it
 4. Typing changes the selected line's text
 5. Enter creates a new line
@@ -159,13 +159,11 @@ The MVP is complete when:
 ### Server (`src/Server/Server.fs`)
 
 - `namespace Gambol.Server` with `type Program = class end` marker for `WebApplicationFactory`
-- `ServerState` — mutable record holding shared `State` (graph + history) and `revision`, behind `ServerState.withLock`
-- `ServerState.resolveDataDir` reads `DataDir` from `IConfiguration`, defaults to `../../data` relative to content root
-- `ServerState.create` takes `dataDir` and `snapshotFile`, loads snapshot if present
+- `FileAgent` — one per file; owns in-memory graph + revision; serialises reads/writes; writes snapshot + log asynchronously
+- `Main.resolveDataDir` reads `DataDir` from `IConfiguration`, defaults to `../../data` relative to content root
 - `Api.getState` encodes state as JSON and returns `IResult`
-- `Api.submit` decodes `{ clientRevision, change }`, applies via `History.applyChange`, bumps revision, returns `{ graph, revision }` or 400 on error
-- `Api.save` writes snapshot to disk, accepts optional `{ "filename": "..." }`, returns `{ success, snapshotFile }` or 500 on error
-- `Main.main` — ASP.NET minimal API entry point, routes: `GET /state`, `POST /submit`, `POST /save`
+- `Api.postChange` decodes `{ id, ops }`, applies via `Change.apply`, bumps revision, writes log + snapshot, returns `{ graph, revision }` or 400 on error
+- `Main.main` — ASP.NET minimal API entry point, routes: `GET /gambol`, `GET /gambol/state`, `POST /gambol/changes`
 
 ### Client (`src/Client/Program.fs`)
 
@@ -177,9 +175,10 @@ The MVP is complete when:
 
 ### Tests (`tests/Server.Tests/StateEndpointTests.fs`)
 
-- Each test creates a `WebApplicationFactory<Program>` with `DataDir` overridden to an empty temp directory (no snapshot interference)
-- Helpers: `getStateJson`, `decodeRevision`, `decodeGraph`, `encodeSubmitBody`, `postSubmit`, `postSave`, `addChild`
-- `createClientForDir` allows save tests to verify files in the temp directory
+- Each test creates a `WebApplicationFactory<Program>` with `DataDir` overridden to a fresh temp directory
+- All tests use `testFile = "gambol"` → routes `GET /gambol/state`, `POST /gambol/changes`
+- Helpers: `getStateJson`, `decodeRevision`, `decodeGraph`, `encodeChangeBody`, `postChange`, `addChild`
+- `createClientForDir` allows persistence tests to inspect snapshot and log files in the temp directory
 
 ### Thoth.Json backend split
 
@@ -196,9 +195,9 @@ The MVP is complete when:
 ## Design decisions
 
 - **JSON on the server**: Shared uses `Thoth.Json.Core` (abstract). Server needs `Thoth.Json.Newtonsoft` to produce JSON strings.
-- **MVP response shape**: `POST /submit` returns `{ graph, revision }` — no `remoteChanges`, `changeId`, or conflict detection. Grow the contract later.
-- **Thread safety**: Simple lock around mutable state. Sufficient for single-client MVP.
-- **Persistence**: Snapshot only on explicit `POST /save`. History (which is the transaction log) is in-memory only. Disk persistence of the log is a future enhancement.
+- **MVP response shape**: `POST /gambol/changes` returns `{ graph, revision }` — no `remoteChanges`, conflict detection. Grow the contract later.
+- **Thread safety**: `FileAgent` mailbox serialises all state access per file. Sufficient for single-client MVP.
+- **Persistence**: Snapshot and log written automatically after each accepted change. Log entries are prefixed with an 8-digit padded change id for replay ordering.
 - **NewNode undo**: All three `Op` cases are reversible from their structure. `NewNode` undo removes the node from the graph's nodes map.
 - **Data directory**: `data/` at repo root, gitignored. Path configurable via `appsettings.json` `DataDir` key. Tests override to temp dir.
 
@@ -210,9 +209,10 @@ The MVP is complete when:
 | Server config | `src/Server/appsettings.json` |
 | Client entry point | `src/Client/Program.fs` |
 | Client project | `src/Client/Gambol.Client.fsproj` |
-| HTML | `src/Server/wwwroot/index.html` |
+| HTML | `src/Server/wwwroot/gambol.html` |
 | CSS | `src/Server/wwwroot/style.css` |
 | Compiled JS | `src/Server/wwwroot/Program.js` (Fable output) |
 | Server tests | `tests/Server.Tests/StateEndpointTests.fs` |
-| Snapshot data | `data/gambol-snapshot.txt` |
-| Fable compile command | `dotnet fable src/Client/Gambol.Client.fsproj -o src/Server/wwwroot` |
+| Snapshot data | `data/gambol` |
+| Change log | `data/gambol.log` |
+| Fable compile command | `dotnet fable src/Client --outDir src/Server/wwwroot --sourceMaps` |
