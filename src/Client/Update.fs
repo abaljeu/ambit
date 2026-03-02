@@ -125,6 +125,45 @@ let splitNode (currentText: string) (cursorPos: int) (model: Model) (dispatch: M
 
 
 // ---------------------------------------------------------------------------
+// Indent / Outdent
+// ---------------------------------------------------------------------------
+
+/// Tab: make selected nodes children of the sibling immediately before them.
+/// No-op if the selection starts at index 0 (no previous sibling).
+/// Move the selected nodes from their current parent to a new parent at insertIdx.
+/// Common core of indent and outdent.
+let reparentSelection (newParentId: NodeId) (insertIdx: int) (sel: Selection) (model: Model) (dispatch: Msg -> unit) : Model =
+    let range = sel.range
+    let selectedIds = model.graph.nodes.[range.parent].children |> List.skip range.start |> List.take (range.endd - range.start)
+    let ops =
+        [ Op.Replace(range.parent, range.start, selectedIds, [])
+          Op.Replace(newParentId,  insertIdx,   [],          selectedIds) ]
+    let change = { id = model.revision.Value; ops = ops }
+    match applyAndPost change model dispatch with
+    | Some graph ->
+        let newSel = { range = { parent = newParentId; start = insertIdx; endd = insertIdx + selectedIds.Length }; focus = insertIdx }
+        { model with graph = graph; selectedNodes = Some newSel }
+    | None -> model
+
+let indentSelection (model: Model) (dispatch: Msg -> unit) : Model =
+    match model.selectedNodes with
+    | None -> model
+    | Some sel when sel.range.start = 0 -> model  // no previous sibling — no-op
+    | Some sel ->
+        let prevSibId = model.graph.nodes.[sel.range.parent].children.[sel.range.start - 1]
+        let insertIdx = model.graph.nodes.[prevSibId].children.Length
+        reparentSelection prevSibId insertIdx sel model dispatch
+
+let outdentSelection (model: Model) (dispatch: Msg -> unit) : Model =
+    match model.selectedNodes with
+    | None -> model
+    | Some sel ->
+        match tryFindParentAndIndex model.graph sel.range.parent with
+        | None -> model  // parent is root — no-op
+        | Some (grandparentId, parentIdx) ->
+            reparentSelection grandparentId (parentIdx + 1) sel model dispatch
+
+// ---------------------------------------------------------------------------
 // Update
 // ---------------------------------------------------------------------------
 
@@ -182,6 +221,26 @@ let update (msg: Msg) (model: Model) (dispatch: Msg -> unit) : Model =
 
     | SplitNode (currentText, cursorPos) ->
         splitNode currentText cursorPos model dispatch
+
+    | IndentSelection ->
+        let model' =
+            match model.mode, model.selectedNodes with
+            | Editing (originalText, _), Some sel ->
+                let editingId = focusedNodeId model.graph sel
+                let newText = readEditInputValue ()
+                commitTextEdit editingId originalText newText model dispatch
+            | _ -> model
+        indentSelection model' dispatch
+
+    | OutdentSelection ->
+        let model' =
+            match model.mode, model.selectedNodes with
+            | Editing (originalText, _), Some sel ->
+                let editingId = focusedNodeId model.graph sel
+                let newText = readEditInputValue ()
+                commitTextEdit editingId originalText newText model dispatch
+            | _ -> model
+        outdentSelection model' dispatch
 
     | CancelEdit ->
         match model.mode with

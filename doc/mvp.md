@@ -47,8 +47,8 @@ client → ops → server → persistence → reload.
 - [x] Typing, F2, or Enter → edit mode; inline `<input>` in selected row
 - [x] Enter in edit mode → split node at cursor (`SplitNode` → `NewNode` + `Replace` ± `SetText`)
 - [x] Escape → cancel edit, return to select mode
-- [ ] Tab → `Replace` (reparent under previous sibling)
-- [ ] Shift+Tab → `Replace` (reparent under grandparent)
+- [x] Tab → `Replace` (reparent under previous sibling)
+- [x] Shift+Tab → `Replace` (reparent under grandparent)
 - [x] After each structural/text change: apply locally, POST to server in background
 - [x] On POST response: update local revision (optimistic — local graph is already correct)
 
@@ -138,7 +138,7 @@ See [[mvpstep5]] for detailed design.
 - [x] Client/Model.fs selectedNodes should now use a node range.  Default semantics will apply the first selected node.
 - [x] Shift-Arrow up/down -> extend the range within the current parent.  
 - [x] Make the UI highlight the full range, including all descendants.
-- [ ] Add a Focus:
+- [x] Add a Focus:
   - `Selection = { range: NodeRange; focus: int }` — focus is an index into `range.parent.children`, always `range.start` or `range.endd - 1`.
   - The focus row (and its descendants) are highlighted with a distinct color (`.focused` CSS class).
   - **Shift-Up**: decrements the focused end (moves it up). No-op if it would go below index 0 or collapse an empty range.
@@ -149,12 +149,10 @@ See [[mvpstep5]] for detailed design.
 
 ### Step 7: Client editing – structure
 - [x] Enter (in edit mode) → split node at cursor (`SplitNode` msg → `NewNode` + `Replace` ± `SetText`)
-- [ ] Tab → indent (reparent) [ if this is first node in its parent, this is a NO-OP ]
+- [x] Tab → indent (reparent) [ if this is first node in its parent, this is a NO-OP ]
   - Selected nodes become children, appended to the end, of the sibling before `start`
-- [ ] Shift+Tab → outdent (reparent) [ if this is a root node, this is a NO-OP.]
-  - Selected nodes become siblings after their former parent.
-  -)
-- [ ] Each structural edit = `NewNode` + `Replace` ops in a `Change`
+- [x] Shift+Tab → outdent (reparent) [ if this is a root node, this is a NO-OP.]
+- [x] Selected nodes become siblings after their former parent.
 
 ## Success criteria
 

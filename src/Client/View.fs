@@ -31,6 +31,8 @@ let selectionKeyTable: (string * KeyHandler<SelectionKeyContext>) list =
             ; "ArrowDown", (fun _ -> MoveSelectionDown)
             ; "Shift+ArrowUp", (fun _ -> ShiftArrowUp)
             ; "Shift+ArrowDown", (fun _ -> ShiftArrowDown)
+            ; "Tab", (fun _ -> IndentSelection)
+            ; "Shift+Tab", (fun _ -> OutdentSelection)
             ; "Escape", (fun _ -> CancelEdit)
             ; printableKeyToken, (fun ctx -> StartEdit ctx.keyEvent.key) ]
 
@@ -38,6 +40,8 @@ let editingKeyTable: (string * KeyHandler<EditingKeyContext>) list =
         [ "Enter", (fun ctx -> SplitNode (ctx.editInput.value, int ctx.editInput.selectionStart))
             ; "ArrowUp", (fun _ -> MoveSelectionUp)
             ; "ArrowDown", (fun _ -> MoveSelectionDown)
+            ; "Tab", (fun _ -> IndentSelection)
+            ; "Shift+Tab", (fun _ -> OutdentSelection)
             ; "Escape", (fun _ -> CancelEdit) ]
 
 let tryResolveOperation
@@ -87,8 +91,11 @@ let rec render (model: Model) (dispatch: Msg -> unit) : unit =
     let hiddenInput = document.createElement "input"
     hiddenInput.id <- "hidden-input"
     hiddenInput.setAttribute("autocomplete", "off")
+    hiddenInput.setAttribute("tabindex", "-1")
     hiddenInput.addEventListener("keydown", fun (ev: Event) ->
         let ke = ev :?> KeyboardEvent
+        // Always prevent Tab/Shift+Tab from navigating browser focus
+        if ke.key = "Tab" then ev.preventDefault()
         match model.selectedNodes with
         | None -> ()
         | Some sel ->
@@ -161,6 +168,7 @@ and renderNode (model: Model) (dispatch: Msg -> unit) (depth: int) (nodeId: Node
         let editInput = document.createElement "input"
         editInput.id <- "edit-input"
         editInput.classList.add "edit-input"
+        editInput.setAttribute("tabindex", "-1")
         // Set the prefill text (originalText initially; dispatch overwrites with actual prefill)
         let prefill =
             match model.mode with

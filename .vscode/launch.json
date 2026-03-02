@@ -27,6 +27,7 @@
             "name": "Launch Client (Edge)",
             "type": "msedge",
             "request": "launch",
+            "preLaunchTask": "fable: Build Client",
             "url": "http://localhost:5115/gambol",
             "webRoot": "${workspaceFolder}/src/Server/wwwroot",
             "sourceMapPathOverrides": {
@@ -37,6 +38,7 @@
             "name": "Launch Client (Chrome)",
             "type": "chrome",
             "request": "launch",
+            "preLaunchTask": "fable: Build Client",
             "url": "http://localhost:5115/gambol",
             "webRoot": "${workspaceFolder}/src/Server/wwwroot",
             "sourceMapPathOverrides": {

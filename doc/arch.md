@@ -11,6 +11,7 @@ This app is structured around a small set of operations (ops) that transform a g
 
 - Client: local-first, applies ops immediately, renders outline, maintains selection
 - Server: authoritative log + persistence, assigns revisions, serves sync endpoints
+- All major functionality should be tested if easy testing is possible.  This means prefer Shared for code location.
 
 ## Directory structure
 

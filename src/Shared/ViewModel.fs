@@ -26,6 +26,8 @@ type Msg =
     | ShiftArrowDown
     | StartEdit of prefill: string
     | SplitNode of currentText: string * cursorPos: int
+    | IndentSelection
+    | OutdentSelection
     | CancelEdit
     | SubmitResponse of Revision
 
