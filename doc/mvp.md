@@ -135,8 +135,10 @@ See [[mvpstep5]] for detailed design.
 - [ ] On no response: repost with usual retry protocol (deferred — fire-and-forget for MVP)
 
 ### Selection Range Support
-- [ ] Client/Model.fs selectedNodes should now use a node range.  Default semantics will apply the first selected node.
-- [ ] 
+- [x] Client/Model.fs selectedNodes should now use a node range.  Default semantics will apply the first selected node.
+- [x] Shift-Arrow up/down -> extend the range within the current parent.  
+- [x] Make the UI highlight the full range, including all descendants.
+- [ ] Selection will be NodeRange plus Focus:int.  It will be a number within the range.
 
 ### Step 7: Client editing – structure
 - [x] Enter (in edit mode) → split node at cursor (`SplitNode` msg → `NewNode` + `Replace` ± `SetText`)

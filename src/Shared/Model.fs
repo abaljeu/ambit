@@ -33,6 +33,7 @@ type Node =
 
 
 // defines span of nodes in parent where start <= index in children < end
+// and start<end.
 type NodeRange = 
     { parent : NodeId
       start: int

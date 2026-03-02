@@ -29,6 +29,8 @@ let selectionKeyTable: (string * KeyHandler<SelectionKeyContext>) list =
             ; "Enter", (fun ctx -> StartEdit ctx.selectedNodeText)
             ; "ArrowUp", (fun _ -> MoveSelectionUp)
             ; "ArrowDown", (fun _ -> MoveSelectionDown)
+            ; "Shift+ArrowUp", (fun _ -> ChangeSelectionUp)
+            ; "Shift+ArrowDown", (fun _ -> ExtendSelectionDown)
             ; "Escape", (fun _ -> CancelEdit)
             ; printableKeyToken, (fun ctx -> StartEdit ctx.keyEvent.key) ]
 
@@ -42,14 +44,19 @@ let tryResolveOperation
     (table: (string * KeyHandler<'Context>) list)
     (ke: KeyboardEvent)
     : KeyHandler<'Context> option =
-    match table |> List.tryPick (fun (k, handler) -> if k = ke.key then Some handler else None) with
-    | Some handler -> Some handler
+    let tryKey k = table |> List.tryPick (fun (t, h) -> if t = k then Some h else None)
+    // Try shift-qualified key first so Shift+Arrow beats plain Arrow
+    let resolved = if ke.shiftKey then tryKey ("Shift+" + ke.key) else None
+    match resolved with
+    | Some _ -> resolved
     | None ->
-        if isPrintableKey ke.key && not ke.ctrlKey && not ke.metaKey && not ke.altKey then
-            table
-            |> List.tryPick (fun (k, handler) -> if k = printableKeyToken then Some handler else None)
-        else
-            None
+        match tryKey ke.key with
+        | Some handler -> Some handler
+        | None ->
+            if isPrintableKey ke.key && not ke.ctrlKey && not ke.metaKey && not ke.altKey then
+                tryKey printableKeyToken
+            else
+                None
 
 let handleKey
     (table: (string * KeyHandler<'Context>) list)
@@ -74,7 +81,7 @@ let rec render (model: Model) (dispatch: Msg -> unit) : unit =
 
     let root = model.graph.nodes.[model.graph.root]
     for childId in root.children do
-        renderNode model dispatch 0 childId
+        renderNode model dispatch 0 childId false
 
     // Hidden input — captures keystrokes in selection mode
     let hiddenInput = document.createElement "input"
@@ -109,12 +116,13 @@ let rec render (model: Model) (dispatch: Msg -> unit) : unit =
     | Selecting ->
         hiddenInput.focus()
 
-and renderNode (model: Model) (dispatch: Msg -> unit) (depth: int) (nodeId: NodeId) : unit =
+and renderNode (model: Model) (dispatch: Msg -> unit) (depth: int) (nodeId: NodeId) (inSelectedSubtree: bool) : unit =
     let node = model.graph.nodes.[nodeId]
     let row = document.createElement "div"
     row.classList.add "row"
 
-    let isSelected =
+    // True when nodeId is one of the direct children in the NodeRange.
+    let isDirectlySelected =
         match model.selectedNodes with
         | None -> false
         | Some range ->
@@ -122,8 +130,17 @@ and renderNode (model: Model) (dispatch: Msg -> unit) (depth: int) (nodeId: Node
             parentNode.children
             |> List.indexed
             |> List.exists (fun (i, id) -> id = nodeId && i >= range.start && i < range.endd)
+
+    // Highlight if directly selected or if an ancestor was directly selected.
+    let isSelected = isDirectlySelected || inSelectedSubtree
     if isSelected then
         row.classList.add "selected"
+
+    // Edit input is only shown for the focus node (first in range).
+    let isFocusNode =
+        match model.selectedNodes with
+        | None -> false
+        | Some range -> firstSelectedNodeId model.graph range = nodeId
 
     // Indentation
     for _ in 1 .. depth do
@@ -132,7 +149,7 @@ and renderNode (model: Model) (dispatch: Msg -> unit) (depth: int) (nodeId: Node
         row.appendChild indent |> ignore
 
     // Content: either edit input or text div
-    let isEditing = isSelected && (match model.mode with Editing _ -> true | _ -> false)
+    let isEditing = isFocusNode && (match model.mode with Editing _ -> true | _ -> false)
     if isEditing then
         let editInput = document.createElement "input"
         editInput.id <- "edit-input"
@@ -172,4 +189,4 @@ and renderNode (model: Model) (dispatch: Msg -> unit) (depth: int) (nodeId: Node
 
     // Recurse into children
     for childId in node.children do
-        renderNode model dispatch (depth + 1) childId
+        renderNode model dispatch (depth + 1) childId (isDirectlySelected || inSelectedSubtree)

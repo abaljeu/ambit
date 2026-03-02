@@ -18,6 +18,8 @@ type Msg =
     | SelectRow of NodeId
     | MoveSelectionUp
     | MoveSelectionDown
+    | ChangeSelectionUp
+    | ExtendSelectionDown
     | StartEdit of prefill: string
     | SplitNode of currentText: string * cursorPos: int
     | CancelEdit

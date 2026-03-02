@@ -77,6 +77,21 @@ let getVisibleRowIds (graph: Graph) : NodeId list =
     let root = graph.nodes.[graph.root]
     root.children |> List.collect gather
 
+/// Extend the selection range by one step within its parent.
+/// delta = -1 grows start upward; +1 grows endd downward.
+/// Has no effect when nothing is selected or when the boundary is already reached.
+let extendSelection (delta: int) (model: Model) : Model =
+    match model.selectedNodes with
+    | None -> model
+    | Some range ->
+        let childCount = model.graph.nodes.[range.parent].children.Length
+        if delta < 0 then
+            let newStart = max 0 (range.start + delta)
+            { model with selectedNodes = Some { range with start = newStart } }
+        else
+            let newEndd = min childCount (range.endd + delta)
+            { model with selectedNodes = Some { range with endd = newEndd } }
+
 /// Move current selection by delta (-1 for up, +1 for down) in visible row order.
 /// When the selection spans multiple nodes, movement is relative to the first node;
 /// the resulting selection is always a single-node range.
@@ -225,6 +240,9 @@ let update (msg: Msg) (model: Model) (dispatch: Msg -> unit) : Model =
             let nodeId = firstSelectedNodeId model.graph range
             let node = model.graph.nodes.[nodeId]
             { model with mode = Editing (node.text, None) }  // None = cursor at end
+
+    | ChangeSelectionUp   -> extendSelection -1 model
+    | ExtendSelectionDown  -> extendSelection  1 model
 
     | SplitNode (currentText, cursorPos) ->
         splitNode currentText cursorPos model dispatch
