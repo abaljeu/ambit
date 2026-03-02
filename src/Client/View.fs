@@ -31,6 +31,8 @@ let selectionKeyTable: (string * KeyHandler<SelectionKeyContext>) list =
             ; "ArrowDown", (fun _ -> MoveSelectionDown)
             ; "Shift+ArrowUp", (fun _ -> ShiftArrowUp)
             ; "Shift+ArrowDown", (fun _ -> ShiftArrowDown)
+            ; "Alt+ArrowUp", (fun _ -> MoveNodeUp)
+            ; "Alt+ArrowDown", (fun _ -> MoveNodeDown)
             ; "Tab", (fun _ -> IndentSelection)
             ; "Shift+Tab", (fun _ -> OutdentSelection)
             ; "Escape", (fun _ -> CancelEdit)
@@ -40,6 +42,8 @@ let editingKeyTable: (string * KeyHandler<EditingKeyContext>) list =
         [ "Enter", (fun ctx -> SplitNode (ctx.editInput.value, int ctx.editInput.selectionStart))
             ; "ArrowUp", (fun _ -> MoveSelectionUp)
             ; "ArrowDown", (fun _ -> MoveSelectionDown)
+            ; "Alt+ArrowUp", (fun _ -> MoveNodeUp)
+            ; "Alt+ArrowDown", (fun _ -> MoveNodeDown)
             ; "Tab", (fun _ -> IndentSelection)
             ; "Shift+Tab", (fun _ -> OutdentSelection)
             ; "Escape", (fun _ -> CancelEdit) ]
@@ -49,10 +53,13 @@ let tryResolveOperation
     (ke: KeyboardEvent)
     : KeyHandler<'Context> option =
     let tryKey k = table |> List.tryPick (fun (t, h) -> if t = k then Some h else None)
-    // Try shift-qualified key first so Shift+Arrow beats plain Arrow
-    let resolved = if ke.shiftKey then tryKey ("Shift+" + ke.key) else None
-    match resolved with
-    | Some _ -> resolved
+    // Try modifier-qualified keys first (more specific beats less specific)
+    let qualified =
+        if ke.altKey   then tryKey ("Alt+"   + ke.key) else
+        if ke.shiftKey then tryKey ("Shift+" + ke.key) else
+        None
+    match qualified with
+    | Some _ -> qualified
     | None ->
         match tryKey ke.key with
         | Some handler -> Some handler

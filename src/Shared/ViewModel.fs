@@ -28,6 +28,8 @@ type Msg =
     | SplitNode of currentText: string * cursorPos: int
     | IndentSelection
     | OutdentSelection
+    | MoveNodeUp
+    | MoveNodeDown
     | CancelEdit
     | SubmitResponse of Revision
 

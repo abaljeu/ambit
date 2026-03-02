@@ -163,6 +163,40 @@ let outdentSelection (model: Model) (dispatch: Msg -> unit) : Model =
         | Some (grandparentId, parentIdx) ->
             reparentSelection grandparentId (parentIdx + 1) sel model dispatch
 
+/// If currently editing, commit the edit and return Selecting model; otherwise return model as-is.
+let commitIfEditing (model: Model) (dispatch: Msg -> unit) : Model =
+    match model.mode, model.selectedNodes with
+    | Editing (originalText, _), Some sel ->
+        let editingId = focusedNodeId model.graph sel
+        commitTextEdit editingId originalText (readEditInputValue ()) model dispatch
+    | _ -> model
+
+/// Alt+Up/Down: swap the selected range with the adjacent sibling using a single Op.Replace.
+let moveNode (delta: int) (model: Model) (dispatch: Msg -> unit) : Model =
+    match model.selectedNodes with
+    | None -> model
+    | Some sel ->
+        let range       = sel.range
+        let parentNode  = model.graph.nodes.[range.parent]
+        let selectedIds = parentNode.children |> List.skip range.start |> List.take (range.endd - range.start)
+        let swapOpt =
+            if delta < 0 && range.start > 0 then
+                let sib = parentNode.children.[range.start - 1]
+                Some (range.start - 1, sib :: selectedIds, selectedIds @ [sib], range.start - 1)
+            elif delta > 0 && range.endd < parentNode.children.Length then
+                let sib = parentNode.children.[range.endd]
+                Some (range.start, selectedIds @ [sib], sib :: selectedIds, range.start + 1)
+            else None
+        match swapOpt with
+        | None -> model
+        | Some (opStart, oldSpan, newSpan, newStart) ->
+            let change = { id = model.revision.Value; ops = [ Op.Replace(range.parent, opStart, oldSpan, newSpan) ] }
+            match applyAndPost change model dispatch with
+            | Some graph ->
+                let newSel = { range = { range with start = newStart; endd = newStart + selectedIds.Length }; focus = sel.focus + delta }
+                { model with graph = graph; selectedNodes = Some newSel }
+            | None -> model
+
 // ---------------------------------------------------------------------------
 // Update
 // ---------------------------------------------------------------------------
@@ -189,24 +223,14 @@ let update (msg: Msg) (model: Model) (dispatch: Msg -> unit) : Model =
             { model with selectedNodes = singleSelection model.graph nodeId; mode = Selecting }
 
     | MoveSelectionUp ->
-        match model.mode, model.selectedNodes with
-        | Editing (originalText, _), Some sel ->
-            let editingId = focusedNodeId model.graph sel
-            let newText = readEditInputValue ()
-            let model' = commitTextEdit editingId originalText newText model dispatch
-            moveSelectionBy -1 model'
-        | _ ->
-            applyMoveSelectionUp model
+        match model.mode with
+        | Editing _ -> moveSelectionBy -1 (commitIfEditing model dispatch)
+        | Selecting -> applyMoveSelectionUp model
 
     | MoveSelectionDown ->
-        match model.mode, model.selectedNodes with
-        | Editing (originalText, _), Some sel ->
-            let editingId = focusedNodeId model.graph sel
-            let newText = readEditInputValue ()
-            let model' = commitTextEdit editingId originalText newText model dispatch
-            moveSelectionBy 1 model'
-        | _ ->
-            applyMoveSelectionDown model
+        match model.mode with
+        | Editing _ -> moveSelectionBy 1 (commitIfEditing model dispatch)
+        | Selecting -> applyMoveSelectionDown model
 
     | StartEdit _prefill ->
         match model.selectedNodes with
@@ -222,25 +246,10 @@ let update (msg: Msg) (model: Model) (dispatch: Msg -> unit) : Model =
     | SplitNode (currentText, cursorPos) ->
         splitNode currentText cursorPos model dispatch
 
-    | IndentSelection ->
-        let model' =
-            match model.mode, model.selectedNodes with
-            | Editing (originalText, _), Some sel ->
-                let editingId = focusedNodeId model.graph sel
-                let newText = readEditInputValue ()
-                commitTextEdit editingId originalText newText model dispatch
-            | _ -> model
-        indentSelection model' dispatch
-
-    | OutdentSelection ->
-        let model' =
-            match model.mode, model.selectedNodes with
-            | Editing (originalText, _), Some sel ->
-                let editingId = focusedNodeId model.graph sel
-                let newText = readEditInputValue ()
-                commitTextEdit editingId originalText newText model dispatch
-            | _ -> model
-        outdentSelection model' dispatch
+    | IndentSelection  -> indentSelection  (commitIfEditing model dispatch) dispatch
+    | OutdentSelection -> outdentSelection (commitIfEditing model dispatch) dispatch
+    | MoveNodeUp       -> moveNode -1      (commitIfEditing model dispatch) dispatch
+    | MoveNodeDown     -> moveNode  1      (commitIfEditing model dispatch) dispatch
 
     | CancelEdit ->
         match model.mode with
