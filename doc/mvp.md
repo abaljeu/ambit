@@ -154,6 +154,11 @@ See [[mvpstep5]] for detailed design.
 - [x] Shift+Tab → outdent (reparent) [ if this is a root node, this is a NO-OP.]
 - [x] Selected nodes become siblings after their former parent.
 
+### Step 8:
+- Paste external
+- Cut/Copy internal
+- Paste internal
+
 ## Success criteria
 
 The MVP is complete when:

@@ -32,6 +32,7 @@ type Msg =
     | MoveNodeDown
     | CancelEdit
     | SubmitResponse of Revision
+    | PasteNodes of pastedText: string
 
 // ---------------------------------------------------------------------------
 // Pure view-model helpers (no DOM / Fable interop)

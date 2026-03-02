@@ -2,12 +2,15 @@ First item
 Second item
 	Nested under second
 	Another nested
-		Extra Nesting
-		hello
 		excellent
+			hello
+		            "name": "Launch Client (Chrome)",
+		            "type": "chrome",
+		            "request": "launch",
 		
 		hello
-	
+		Extra Nesting
+	"name": "Launch Client (Chrome)",            "type": "chrome",            "request": "launch",
 	
 	aeue
 Third item

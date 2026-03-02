@@ -2,9 +2,32 @@ module Gambol.Client.View
 
 open Browser.Dom
 open Browser.Types
+open Fable.Core
 open Gambol.Shared
 open Gambol.Shared.ViewModel
 open Gambol.Client.Update
+
+// ---------------------------------------------------------------------------
+// Clipboard / paste helpers
+// ---------------------------------------------------------------------------
+
+/// Strip HTML tags to plain text via a temporary DOM element.
+/// Block elements (p, div, br, tr, li, td) become newlines via innerText.
+[<Emit("(function(h){var d=document.createElement('div');d.innerHTML=h;return(d.innerText||d.textContent||'').trim();})(" + "$0" + ")")>]
+let stripHtmlToText (html: string) : string = jsNative
+
+/// Read a named format from a paste ClipboardEvent's clipboardData.
+[<Emit("$0.clipboardData.getData($1)")>]
+let getClipboardData (ev: Event) (format: string) : string = jsNative
+
+/// Handle a paste event: extract plain text (from HTML or plain), dispatch PasteNodes.
+/// Prefer text/plain — code editors (VS Code, etc.) always supply it with real newlines.
+/// Fall back to stripping text/html only when plain is absent (e.g. browser-page copy).
+let onPaste (ev: Event) (dispatch: Msg -> unit) : unit =
+    ev.preventDefault()
+    let plain = getClipboardData ev "text/plain"
+    let text  = if plain <> "" then plain else stripHtmlToText (getClipboardData ev "text/html")
+    if text <> "" then dispatch (PasteNodes text)
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -33,6 +56,8 @@ let selectionKeyTable: (string * KeyHandler<SelectionKeyContext>) list =
             ; "Shift+ArrowDown", (fun _ -> ShiftArrowDown)
             ; "Alt+ArrowUp", (fun _ -> MoveNodeUp)
             ; "Alt+ArrowDown", (fun _ -> MoveNodeDown)
+            ; "Ctrl+ArrowUp", (fun _ -> MoveNodeUp)
+            ; "Ctrl+ArrowDown", (fun _ -> MoveNodeDown)
             ; "Tab", (fun _ -> IndentSelection)
             ; "Shift+Tab", (fun _ -> OutdentSelection)
             ; "Escape", (fun _ -> CancelEdit)
@@ -44,6 +69,8 @@ let editingKeyTable: (string * KeyHandler<EditingKeyContext>) list =
             ; "ArrowDown", (fun _ -> MoveSelectionDown)
             ; "Alt+ArrowUp", (fun _ -> MoveNodeUp)
             ; "Alt+ArrowDown", (fun _ -> MoveNodeDown)
+            ; "Ctrl+ArrowUp", (fun _ -> MoveNodeUp)
+            ; "Ctrl+ArrowDown", (fun _ -> MoveNodeDown)
             ; "Tab", (fun _ -> IndentSelection)
             ; "Shift+Tab", (fun _ -> OutdentSelection)
             ; "Escape", (fun _ -> CancelEdit) ]
@@ -113,6 +140,7 @@ let rec render (model: Model) (dispatch: Msg -> unit) : unit =
                   selectedNodeText = nodeText }
             handleKey selectionKeyTable ctx ke dispatch
     )
+    hiddenInput.addEventListener("paste", fun ev -> onPaste ev dispatch)
     app.appendChild hiddenInput |> ignore
 
     // Focus management
@@ -194,6 +222,7 @@ and renderNode (model: Model) (dispatch: Msg -> unit) (depth: int) (nodeId: Node
         editInput.addEventListener("mousedown", fun (ev: Event) ->
             ev.stopPropagation()
         )
+        editInput.addEventListener("paste", fun ev -> onPaste ev dispatch)
         row.appendChild editInput |> ignore
     else
         let textDiv = document.createElement "div"

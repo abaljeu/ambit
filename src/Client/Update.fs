@@ -4,6 +4,7 @@ open Browser.Dom
 open Browser.Types
 open Fable.Core
 open Gambol.Shared
+open Gambol.Shared.Paste
 open Gambol.Shared.ViewModel
 open Thoth.Json.Core
 
@@ -48,6 +49,12 @@ let readEditInputValue () : string =
     let el = document.getElementById "edit-input"
     if isNull el then ""
     else (el :?> HTMLInputElement).value
+
+/// Read the edit input cursor position from the DOM.
+let readEditInputCursor () : int =
+    let el = document.getElementById "edit-input"
+    if isNull el then 0
+    else int (el :?> HTMLInputElement).selectionStart
 
 /// Apply a change to the local graph, POST it to the server in the background,
 /// and return the updated graph (or None if the change was rejected locally).
@@ -123,6 +130,72 @@ let splitNode (currentText: string) (cursorPos: int) (model: Model) (dispatch: M
         | None -> model
     | _ -> model
 
+
+// ---------------------------------------------------------------------------
+// Paste
+// ---------------------------------------------------------------------------
+
+/// Handle a PasteNodes message.
+///
+/// Select mode: replaces the current selection with the pasted subtree.
+/// Edit mode:   splices the first pasted line into the node at the cursor;
+///              remaining top-level lines become siblings below the current node.
+let pasteNodes (pastedText: string) (model: Model) (dispatch: Msg -> unit) : Model =
+    match model.selectedNodes with
+    | None -> model
+    | Some sel ->
+        let entries = parsePasteText pastedText
+        if entries.IsEmpty then model
+        else
+        match model.mode with
+        | Selecting ->
+            let (topLevelIds, pasteOps) = buildPasteOps entries
+            if topLevelIds.IsEmpty then model
+            else
+            let range = sel.range
+            let parentNode = model.graph.nodes.[range.parent]
+            let selectedIds = parentNode.children |> List.skip range.start |> List.take (range.endd - range.start)
+            let replaceOp = Op.Replace(range.parent, range.start, selectedIds, topLevelIds)
+            let change = { id = model.revision.Value; ops = pasteOps @ [replaceOp] }
+            match applyAndPost change model dispatch with
+            | Some graph ->
+                let newEnd = range.start + topLevelIds.Length
+                let newSel = { range = { parent = range.parent; start = range.start; endd = newEnd }; focus = range.start }
+                { model with graph = graph; selectedNodes = Some newSel }
+            | None -> model
+        | Editing (originalText, _) ->
+            let currentText = readEditInputValue ()
+            let cursorPos   = readEditInputCursor ()
+            let focusId  = focusedNodeId model.graph sel
+            let parentId = sel.range.parent
+            let focusIdx = sel.focus
+            match entries with
+            | [] -> model
+            | [(firstText, _)] ->
+                // Single pasted line: splice into current node at cursor, no new nodes
+                let newText = currentText.[..cursorPos - 1] + firstText + currentText.[cursorPos..]
+                if newText = originalText then { model with mode = Selecting }
+                else
+                let change = { id = model.revision.Value; ops = [ Op.SetText(focusId, originalText, newText) ] }
+                match applyAndPost change model dispatch with
+                | Some graph -> { model with graph = graph; mode = Selecting }
+                | None -> model
+            | (firstText, _) :: rest ->
+                // Multi-line: splice first line at cursor; remaining become siblings below
+                let newText = currentText.[..cursorPos - 1] + firstText + currentText.[cursorPos..]
+                let setTextOps =
+                    if newText <> originalText then [ Op.SetText(focusId, originalText, newText) ] else []
+                let (remainingTopIds, remainingOps) = buildPasteOps rest
+                let insertOps =
+                    if remainingTopIds.IsEmpty then []
+                    else [ Op.Replace(parentId, focusIdx + 1, [], remainingTopIds) ]
+                let allOps = setTextOps @ remainingOps @ insertOps
+                if allOps.IsEmpty then { model with mode = Selecting }
+                else
+                let change = { id = model.revision.Value; ops = allOps }
+                match applyAndPost change model dispatch with
+                | Some graph -> { model with graph = graph; mode = Selecting }
+                | None -> model
 
 // ---------------------------------------------------------------------------
 // Indent / Outdent
@@ -262,3 +335,6 @@ let update (msg: Msg) (model: Model) (dispatch: Msg -> unit) : Model =
 
     | SubmitResponse revision ->
         { model with revision = revision }
+
+    | PasteNodes pastedText ->
+        pasteNodes pastedText model dispatch

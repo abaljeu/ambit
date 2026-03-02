@@ -9,6 +9,7 @@
     <Compile Include="Model.fs" />
     <Compile Include="ViewModel.fs" />
     <Compile Include="History.fs" />
+    <Compile Include="Paste.fs" />
     <Compile Include="ModelBuilder.fs" />
     <Compile Include="Snapshot.fs" />
     <Compile Include="Serialization.fs" />
