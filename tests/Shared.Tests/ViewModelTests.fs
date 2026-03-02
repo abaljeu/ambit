@@ -19,7 +19,9 @@ let buildFlat (texts: string list) : Graph * NodeId list =
 
 /// Minimal Model helper — no selection, Selecting mode.
 let emptyModel (graph: Graph) : Model =
-    { graph = graph; revision = Revision.Zero; selectedNodes = None; mode = Selecting }
+    let siteRoot, nextId = ViewModel.buildSiteTree graph
+    { graph = graph; revision = Revision.Zero; selectedNodes = None; mode = Selecting
+      siteRoot = siteRoot; nextInstanceId = nextId; clipboard = None }
 
 /// Model with a selection covering [start, endd) in root's children, focus at focusIdx.
 let modelWithSel (graph: Graph) (start: int) (endd: int) (focusIdx: int) : Model =

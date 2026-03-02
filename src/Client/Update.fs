@@ -279,10 +279,14 @@ let moveNode (delta: int) (model: Model) (dispatch: Msg -> unit) : Model =
 let update (msg: Msg) (model: Model) (dispatch: Msg -> unit) : Model =
     match msg with
     | StateLoaded (graph, revision) ->
+        let siteRoot, nextId = ViewModel.buildSiteTree graph
         { graph = graph
           revision = revision
           selectedNodes = None
-          mode = Selecting }
+          mode = Selecting
+          siteRoot = siteRoot
+          nextInstanceId = nextId
+          clipboard = None }
 
     | SelectRow nodeId ->
         match model.mode, model.selectedNodes with

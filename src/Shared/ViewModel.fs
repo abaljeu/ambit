@@ -11,11 +11,29 @@ type Selection =
     { range: NodeRange
       focus: int }
 
+/// A rendered appearance of a node in the outline. Each appearance gets a unique
+/// instanceId so that fold state is per-occurrence, not per-NodeId.
+/// In a DAG the same NodeId may have multiple SiteNode instances.
+type SiteNode =
+    { instanceId: int
+      nodeId: NodeId
+      expanded: bool
+      children: SiteNode list }
+
+/// Self-contained snapshot of copied/cut nodes for internal clipboard.
+/// Independent of graph.nodes — survives graph mutations and snapshot reload.
+type ClipboardContent =
+    { topLevelIds: NodeId list
+      nodes: Map<NodeId, Node> }
+
 type Model =
     { graph: Graph
       revision: Revision
       selectedNodes: Selection option
-      mode: Mode }
+      mode: Mode
+      siteRoot: SiteNode
+      nextInstanceId: int
+      clipboard: ClipboardContent option }
 
 type Msg =
     | StateLoaded of Graph * Revision
@@ -39,6 +57,32 @@ type Msg =
 // ---------------------------------------------------------------------------
 
 module ViewModel =
+
+    /// Create a placeholder SiteNode for an empty/unloaded graph.
+    let emptySiteRoot : SiteNode =
+        { instanceId = 0
+          nodeId = NodeId(System.Guid.Empty)
+          expanded = true
+          children = [] }
+
+    /// Build a full SiteNode tree from a graph.  All nodes start collapsed
+    /// except the root (which is always expanded).  Returns the root SiteNode
+    /// and the next available instanceId.
+    let buildSiteTree (graph: Graph) : SiteNode * int =
+        let mutable counter = 0
+        let nextId () =
+            let id = counter
+            counter <- counter + 1
+            id
+        let rec build (nodeId: NodeId) (isRoot: bool) : SiteNode =
+            let node = graph.nodes.[nodeId]
+            let id = nextId ()
+            { instanceId = id
+              nodeId = nodeId
+              expanded = isRoot
+              children = node.children |> List.map (fun cid -> build cid false) }
+        let root = build graph.root true
+        root, counter
 
     /// Find parent and index of a node in the current graph.
     let tryFindParentAndIndex (graph: Graph) (targetId: NodeId) : (NodeId * int) option =

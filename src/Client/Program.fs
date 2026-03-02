@@ -4,6 +4,7 @@ open Browser.Dom
 open Browser.Types
 open Fable.Core
 open Gambol.Shared
+open Gambol.Shared.ViewModel
 open Gambol.Client
 open Gambol.Client.Update
 open Gambol.Client.View
@@ -23,7 +24,10 @@ let mutable currentModel: Model =
     { graph = { root = NodeId(System.Guid.Empty); nodes = Map.empty }
       revision = Revision.Zero
       selectedNodes = None
-      mode = Selecting }
+      mode = Selecting
+      siteRoot = ViewModel.emptySiteRoot
+      nextInstanceId = 1
+      clipboard = None }
 
 /// Mutable reference for edit prefill text (set on StartEdit, consumed on render)
 let mutable editPrefill: string option = None
