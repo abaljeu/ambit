@@ -127,6 +127,16 @@ let shiftArrow (delta: int) (model: Model) : Model =
                     if newEndd > childCount then model
                     else { model with selectedNodes = Some { range = { range with endd = newEndd }; focus = newEndd - 1 } }
 
+/// Collapse a multi-node selection to a single-node selection at the focus node, without moving.
+let collapseToFocus (model: Model) : Model =
+    match model.selectedNodes with
+    | None -> model
+    | Some sel ->
+        let focusId = focusedNodeId model.graph sel
+        match singleSelection model.graph focusId with
+        | None -> model
+        | Some newSel -> { model with selectedNodes = Some newSel }
+
 /// Move current selection by delta (-1 for up, +1 for down) in visible row order.
 /// Collapses any multi-node selection to the focus node, then moves from there.
 /// The resulting selection is always a single-node Selection.
@@ -255,6 +265,9 @@ let update (msg: Msg) (model: Model) (dispatch: Msg -> unit) : Model =
             let newText = readEditInputValue ()
             let model' = commitTextEdit editingId originalText newText model dispatch
             moveSelectionBy -1 model'
+        | _, Some sel when sel.focus > sel.range.start ->
+            // Multi-node selection, focus not at start: collapse to focus without moving
+            collapseToFocus model
         | _ ->
             moveSelectionBy -1 model
 
@@ -265,6 +278,9 @@ let update (msg: Msg) (model: Model) (dispatch: Msg -> unit) : Model =
             let newText = readEditInputValue ()
             let model' = commitTextEdit editingId originalText newText model dispatch
             moveSelectionBy 1 model'
+        | _, Some sel when sel.focus < sel.range.endd - 1 ->
+            // Multi-node selection, focus not at end: collapse to focus without moving
+            collapseToFocus model
         | _ ->
             moveSelectionBy 1 model
 

@@ -5,6 +5,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Prevent dotnet watch from restarting the server when Fable rewrites wwwroot -->
+    <Watch Remove="wwwroot\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Compile Include="Types.fs" />
     <Compile Include="ChangeLog.fs" />
     <Compile Include="FileAgent.fs" />

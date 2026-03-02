@@ -33,10 +33,10 @@ body {
     background: #cdf;
 }
 .row.focused {
-    background: #acd;
+    background: #edb;
 }
 .row.focused .text {
-    background: #bde;
+    background: #fdc;
 }
 .edit-input {
     flex: 1;
