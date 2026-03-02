@@ -266,8 +266,8 @@ let update (msg: Msg) (model: Model) (dispatch: Msg -> unit) : Model =
             let model' = commitTextEdit editingId originalText newText model dispatch
             moveSelectionBy -1 model'
         | _, Some sel when sel.focus > sel.range.start ->
-            // Multi-node selection, focus not at start: collapse to focus without moving
-            collapseToFocus model
+            // Focus not at start: move focus to start, keep range
+            { model with selectedNodes = Some { sel with focus = sel.range.start } }
         | _ ->
             moveSelectionBy -1 model
 
@@ -279,8 +279,8 @@ let update (msg: Msg) (model: Model) (dispatch: Msg -> unit) : Model =
             let model' = commitTextEdit editingId originalText newText model dispatch
             moveSelectionBy 1 model'
         | _, Some sel when sel.focus < sel.range.endd - 1 ->
-            // Multi-node selection, focus not at end: collapse to focus without moving
-            collapseToFocus model
+            // Focus not at end: move focus to end, keep range
+            { model with selectedNodes = Some { sel with focus = sel.range.endd - 1 } }
         | _ ->
             moveSelectionBy 1 model
 
