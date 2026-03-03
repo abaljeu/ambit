@@ -155,9 +155,7 @@ See [[mvpstep5]] for detailed design.
 - [x] Selected nodes become siblings after their former parent.
 
 ### Step 8:
-- Paste external
-- Cut/Copy internal
-- Paste internal
+- [x] Paste external.  See [[paste.md]]
 
 ## Success criteria
 

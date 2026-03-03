@@ -225,7 +225,9 @@ let indentSelection (model: Model) (dispatch: Msg -> unit) : Model =
     | Some sel ->
         let prevSibId = model.graph.nodes.[sel.range.parent].children.[sel.range.start - 1]
         let insertIdx = model.graph.nodes.[prevSibId].children.Length
-        reparentSelection prevSibId insertIdx sel model dispatch
+        let result = reparentSelection prevSibId insertIdx sel model dispatch
+        // Expand the new parent so the indented items are visible
+        { result with siteRoot = ViewModel.expandNodeId prevSibId result.siteRoot }
 
 let outdentSelection (model: Model) (dispatch: Msg -> unit) : Model =
     match model.selectedNodes with
@@ -274,6 +276,11 @@ let moveNode (delta: int) (model: Model) (dispatch: Msg -> unit) : Model =
 // Update
 // ---------------------------------------------------------------------------
 
+/// Rebuild the site tree after a graph mutation, preserving fold states.
+let withSiteTree (model: Model) : Model =
+    let siteRoot, nextId = ViewModel.rebuildSiteTree model.graph model.siteRoot model.nextInstanceId
+    { model with siteRoot = siteRoot; nextInstanceId = nextId }
+
 /// Update function. The dispatch parameter is needed for async effects
 /// (server POST callbacks).
 let update (msg: Msg) (model: Model) (dispatch: Msg -> unit) : Model =
@@ -289,25 +296,31 @@ let update (msg: Msg) (model: Model) (dispatch: Msg -> unit) : Model =
           clipboard = None }
 
     | SelectRow nodeId ->
-        match model.mode, model.selectedNodes with
-        | Editing (originalText, _), Some sel ->
-            // Commit current edit, then select new row
-            let editingId = focusedNodeId model.graph sel
-            let newText = readEditInputValue ()
-            let model' = commitTextEdit editingId originalText newText model dispatch
-            { model' with selectedNodes = singleSelection model'.graph nodeId }
-        | _ ->
-            { model with selectedNodes = singleSelection model.graph nodeId; mode = Selecting }
+        let result =
+            match model.mode, model.selectedNodes with
+            | Editing (originalText, _), Some sel ->
+                // Commit current edit, then select new row
+                let editingId = focusedNodeId model.graph sel
+                let newText = readEditInputValue ()
+                let model' = commitTextEdit editingId originalText newText model dispatch
+                { model' with selectedNodes = singleSelection model'.graph nodeId }
+            | _ ->
+                { model with selectedNodes = singleSelection model.graph nodeId; mode = Selecting }
+        if not (System.Object.ReferenceEquals(result.graph, model.graph)) then withSiteTree result else result
 
     | MoveSelectionUp ->
-        match model.mode with
-        | Editing _ -> moveSelectionBy -1 (commitIfEditing model dispatch)
-        | Selecting -> applyMoveSelectionUp model
+        let result =
+            match model.mode with
+            | Editing _ -> moveSelectionBy -1 (commitIfEditing model dispatch)
+            | Selecting -> applyMoveSelectionUp model
+        if not (System.Object.ReferenceEquals(result.graph, model.graph)) then withSiteTree result else result
 
     | MoveSelectionDown ->
-        match model.mode with
-        | Editing _ -> moveSelectionBy 1 (commitIfEditing model dispatch)
-        | Selecting -> applyMoveSelectionDown model
+        let result =
+            match model.mode with
+            | Editing _ -> moveSelectionBy 1 (commitIfEditing model dispatch)
+            | Selecting -> applyMoveSelectionDown model
+        if not (System.Object.ReferenceEquals(result.graph, model.graph)) then withSiteTree result else result
 
     | StartEdit _prefill ->
         match model.selectedNodes with
@@ -321,12 +334,12 @@ let update (msg: Msg) (model: Model) (dispatch: Msg -> unit) : Model =
     | ShiftArrowDown -> shiftArrow  1 model
 
     | SplitNode (currentText, cursorPos) ->
-        splitNode currentText cursorPos model dispatch
+        splitNode currentText cursorPos model dispatch |> withSiteTree
 
-    | IndentSelection  -> indentSelection  (commitIfEditing model dispatch) dispatch
-    | OutdentSelection -> outdentSelection (commitIfEditing model dispatch) dispatch
-    | MoveNodeUp       -> moveNode -1      (commitIfEditing model dispatch) dispatch
-    | MoveNodeDown     -> moveNode  1      (commitIfEditing model dispatch) dispatch
+    | IndentSelection  -> indentSelection  (commitIfEditing model dispatch) dispatch |> withSiteTree
+    | OutdentSelection -> outdentSelection (commitIfEditing model dispatch) dispatch |> withSiteTree
+    | MoveNodeUp       -> moveNode -1      (commitIfEditing model dispatch) dispatch |> withSiteTree
+    | MoveNodeDown     -> moveNode  1      (commitIfEditing model dispatch) dispatch |> withSiteTree
 
     | CancelEdit ->
         match model.mode with
@@ -341,4 +354,7 @@ let update (msg: Msg) (model: Model) (dispatch: Msg -> unit) : Model =
         { model with revision = revision }
 
     | PasteNodes pastedText ->
-        pasteNodes pastedText model dispatch
+        pasteNodes pastedText model dispatch |> withSiteTree
+
+    | ToggleFold instanceId ->
+        { model with siteRoot = ViewModel.toggleFold instanceId model.siteRoot }

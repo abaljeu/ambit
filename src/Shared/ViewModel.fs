@@ -51,6 +51,7 @@ type Msg =
     | CancelEdit
     | SubmitResponse of Revision
     | PasteNodes of pastedText: string
+    | ToggleFold of instanceId: int
 
 // ---------------------------------------------------------------------------
 // Pure view-model helpers (no DOM / Fable interop)
@@ -84,6 +85,53 @@ module ViewModel =
         let root = build graph.root true
         root, counter
 
+    /// Reconcile the site tree after a graph change.  Preserves existing
+    /// instanceIds and fold states for nodes that still exist; assigns new IDs
+    /// (starting from nextId) for newly-added nodes.  New nodes default to
+    /// collapsed.  The root is always expanded.
+    let rebuildSiteTree (graph: Graph) (oldRoot: SiteNode) (nextId: int) : SiteNode * int =
+        // Build lookup: NodeId -> old SiteNode (Phase 1 = 1:1)
+        let oldMap =
+            let rec collect (node: SiteNode) (acc: Map<NodeId, SiteNode>) =
+                let acc' = Map.add node.nodeId node acc
+                node.children |> List.fold (fun a child -> collect child a) acc'
+            collect oldRoot Map.empty
+        let mutable counter = nextId
+        let freshId () =
+            let id = counter
+            counter <- counter + 1
+            id
+        let rec build (nodeId: NodeId) (isRoot: bool) : SiteNode =
+            let node = graph.nodes.[nodeId]
+            let (instId, expanded) =
+                match Map.tryFind nodeId oldMap with
+                | Some old -> (old.instanceId, old.expanded)
+                | None     -> (freshId (), false)
+            { instanceId = instId
+              nodeId = nodeId
+              expanded = if isRoot then true else expanded
+              children = node.children |> List.map (fun cid -> build cid false) }
+        let root = build graph.root true
+        root, counter
+
+    /// Toggle the expanded flag of the SiteNode with the given instanceId.
+    let toggleFold (instanceId: int) (siteRoot: SiteNode) : SiteNode =
+        let rec toggle (node: SiteNode) : SiteNode =
+            if node.instanceId = instanceId then
+                { node with expanded = not node.expanded }
+            else
+                { node with children = node.children |> List.map toggle }
+        toggle siteRoot
+
+    /// Ensure the first SiteNode matching the given NodeId is expanded.
+    let expandNodeId (nodeId: NodeId) (siteRoot: SiteNode) : SiteNode =
+        let rec go (node: SiteNode) : SiteNode =
+            if node.nodeId = nodeId then
+                { node with expanded = true }
+            else
+                { node with children = node.children |> List.map go }
+        go siteRoot
+
     /// Find parent and index of a node in the current graph.
     let tryFindParentAndIndex (graph: Graph) (targetId: NodeId) : (NodeId * int) option =
         graph.nodes
@@ -108,14 +156,15 @@ module ViewModel =
     let focusedNodeId (graph: Graph) (sel: Selection) : NodeId =
         graph.nodes.[sel.range.parent].children.[sel.focus]
 
-    /// Flatten graph into visible row order (preorder, excluding root).
-    let getVisibleRowIds (graph: Graph) : NodeId list =
-        let rec gather (nodeId: NodeId) : NodeId list =
-            let node = graph.nodes.[nodeId]
-            nodeId :: (node.children |> List.collect gather)
-
-        let root = graph.nodes.[graph.root]
-        root.children |> List.collect gather
+    /// Flatten site tree into visible row order (preorder, excluding root).
+    /// Respects fold state: only recurses into expanded nodes.
+    let getVisibleRowIds (siteRoot: SiteNode) : NodeId list =
+        let rec gather (siteNode: SiteNode) : NodeId list =
+            siteNode.nodeId ::
+                (if siteNode.expanded then
+                     siteNode.children |> List.collect gather
+                 else [])
+        siteRoot.children |> List.collect gather
 
     /// Shift-Arrow: move the focused end of the range by delta (-1 = up, +1 = down).
     /// For a single-node selection, always extends. For multi-node, the focused end moves.
@@ -180,7 +229,7 @@ module ViewModel =
         | None -> model
         | Some sel ->
             let anchorId = focusedNodeId model.graph sel
-            let rows = getVisibleRowIds model.graph
+            let rows = getVisibleRowIds model.siteRoot
             match rows |> List.tryFindIndex ((=) anchorId) with
             | None -> model
             | Some currentIndex ->

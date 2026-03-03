@@ -117,9 +117,8 @@ let handleKey
 let rec render (model: Model) (dispatch: Msg -> unit) : unit =
     app.innerHTML <- ""
 
-    let root = model.graph.nodes.[model.graph.root]
-    for childId in root.children do
-        renderNode model dispatch 0 childId false false
+    for childSite in model.siteRoot.children do
+        renderNode model dispatch 0 childSite false false
 
     // Hidden input — captures keystrokes in selection mode
     let hiddenInput = document.createElement "input"
@@ -158,8 +157,10 @@ let rec render (model: Model) (dispatch: Msg -> unit) : unit =
     | Selecting ->
         hiddenInput.focus()
 
-and renderNode (model: Model) (dispatch: Msg -> unit) (depth: int) (nodeId: NodeId) (inSelectedSubtree: bool) (inFocusedSubtree: bool) : unit =
+and renderNode (model: Model) (dispatch: Msg -> unit) (depth: int) (siteNode: SiteNode) (inSelectedSubtree: bool) (inFocusedSubtree: bool) : unit =
+    let nodeId = siteNode.nodeId
     let node = model.graph.nodes.[nodeId]
+    let hasChildren = not siteNode.children.IsEmpty
     let row = document.createElement "div"
     row.classList.add "row"
 
@@ -196,6 +197,18 @@ and renderNode (model: Model) (dispatch: Msg -> unit) (depth: int) (nodeId: Node
         let indent = document.createElement "div"
         indent.classList.add "indent"
         row.appendChild indent |> ignore
+
+    // Fold toggle indicator (▶ collapsed / ▼ expanded) for nodes with children
+    if hasChildren then
+        let toggle = document.createElement "span"
+        toggle.classList.add "fold-toggle"
+        toggle.textContent <- if siteNode.expanded then "\u25BC" else "\u25B6"
+        toggle.addEventListener("mousedown", fun (ev: Event) ->
+            ev.preventDefault()
+            ev.stopPropagation()
+            dispatch (ToggleFold siteNode.instanceId)
+        )
+        row.appendChild toggle |> ignore
 
     // Content: either edit input or text div
     let isEditing = isEditingFocusNode && (match model.mode with Editing _ -> true | _ -> false)
@@ -238,6 +251,7 @@ and renderNode (model: Model) (dispatch: Msg -> unit) (depth: int) (nodeId: Node
 
     app.appendChild row |> ignore
 
-    // Recurse into children
-    for childId in node.children do
-        renderNode model dispatch (depth + 1) childId (isDirectlySelected || inSelectedSubtree) (isFocusNode || inFocusedSubtree)
+    // Recurse into children only when expanded
+    if siteNode.expanded then
+        for childSite in siteNode.children do
+            renderNode model dispatch (depth + 1) childSite (isDirectlySelected || inSelectedSubtree) (isFocusNode || inFocusedSubtree)
