@@ -37,17 +37,17 @@ module Main =
         let mutable currentAgent: (string * FileAgent) option = None
         let agentLock = obj ()
 
-        let getOrCreateAgent (filename: string) =
+        let getOrCreateAgent (filename: string) : FileAgent =
             lock agentLock (fun () ->
                 match currentAgent with
                 | Some (name, agent) when name = filename -> agent
                 | Some (_, agent) ->
-                    (agent :> IDisposable).Dispose()
-                    let newAgent = new FileAgent(dataDir, filename)
+                    FileAgent.dispose agent
+                    let newAgent = FileAgent.create dataDir filename
                     currentAgent <- Some (filename, newAgent)
                     newAgent
                 | None ->
-                    let newAgent = new FileAgent(dataDir, filename)
+                    let newAgent = FileAgent.create dataDir filename
                     currentAgent <- Some (filename, newAgent)
                     newAgent
             )

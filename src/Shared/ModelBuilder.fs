@@ -49,7 +49,8 @@ module ModelBuilder =
 
     let createState12 () : State =
         { graph = createDag12 ()
-          history = History.empty }
+          history = History.empty
+          revision = Revision.Zero }
 
     /// Graph where the same node ("shared") appears under two different parents:
     ///   root

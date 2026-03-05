@@ -26,8 +26,9 @@ type ClipboardContent =
     { topLevelIds: NodeId list
       nodes: Map<NodeId, Node> }
 
-type Model =
-    { graph: Graph
+// Server State is in FileAgent, and mainly the graph.
+type Model = // the client state
+    { graph: Graph // the core data
       revision: Revision
       selectedNodes: Selection option
       mode: Mode
@@ -70,25 +71,6 @@ module ViewModel =
           expanded = true
           children = [] }
 
-    /// Build a full SiteNode tree from a graph.  All nodes start collapsed
-    /// except the root (which is always expanded).  Returns the root SiteNode
-    /// and the next available instanceId.
-    let buildSiteTree (graph: Graph) : SiteNode * int =
-        let mutable counter = 0
-        let nextId () =
-            let id = counter
-            counter <- counter + 1
-            id
-        let rec build (nodeId: NodeId) (isRoot: bool) : SiteNode =
-            let node = graph.nodes.[nodeId]
-            let id = nextId ()
-            { instanceId = id
-              nodeId = nodeId
-              expanded = isRoot
-              children = node.children |> List.map (fun cid -> build cid false) }
-        let root = build graph.root true
-        root, counter
-
     /// Reconcile the site tree after a graph change.  Preserves existing
     /// instanceIds and fold states for nodes that still exist; assigns new IDs
     /// (starting from nextId) for newly-added nodes.  New nodes default to
@@ -117,6 +99,12 @@ module ViewModel =
               children = node.children |> List.map (fun cid -> build cid false) }
         let root = build graph.root true
         root, counter
+
+    /// Build a full SiteNode tree from a graph.  All nodes start collapsed
+    /// except the root (which is always expanded).  Returns the root SiteNode
+    /// and the next available instanceId.
+    let buildSiteTree (graph: Graph) : SiteNode * int =
+        rebuildSiteTree graph emptySiteRoot 0
 
     /// Toggle the expanded flag of the SiteNode with the given instanceId.
     let toggleFold (instanceId: int) (siteRoot: SiteNode) : SiteNode =
@@ -179,41 +167,27 @@ module ViewModel =
         | Some sel ->
             let range = sel.range
             let childCount = model.graph.nodes.[range.parent].children.Length
-            let rangeSize = range.endd - range.start
-            if rangeSize = 1 then
-                // Single node: always extend in the arrow direction
-                if delta < 0 then
-                    let newStart = range.start - 1
-                    if newStart < 0 then model
-                    else { model with selectedNodes = Some { range = { range with start = newStart }; focus = newStart } }
+            let update r f = { model with selectedNodes = Some { range = r; focus = f } }
+            let single = range.endd - range.start = 1
+            let focusAtStart = sel.focus = range.start
+            if delta < 0 then
+                if focusAtStart then
+                    // extend upward (single-node always lands here since focus = start)
+                    let s = range.start - 1
+                    if s < 0 then model else update { range with start = s } s
                 else
-                    let newEndd = range.endd + 1
-                    if newEndd > childCount then model
-                    else { model with selectedNodes = Some { range = { range with endd = newEndd }; focus = newEndd - 1 } }
+                    // shrink from bottom
+                    let e = range.endd - 1
+                    if e <= range.start then model else update { range with endd = e } (e - 1)
             else
-                let focusAtStart = sel.focus = range.start
-                if delta < 0 then
-                    if focusAtStart then
-                        // extend upward
-                        let newStart = range.start - 1
-                        if newStart < 0 then model
-                        else { model with selectedNodes = Some { range = { range with start = newStart }; focus = newStart } }
-                    else
-                        // shrink from bottom
-                        let newEndd = range.endd - 1
-                        if newEndd <= range.start then model
-                        else { model with selectedNodes = Some { range = { range with endd = newEndd }; focus = newEndd - 1 } }
+                if single || not focusAtStart then
+                    // extend downward (single-node always extends; multi-node when focus is at end)
+                    let e = range.endd + 1
+                    if e > childCount then model else update { range with endd = e } (e - 1)
                 else
-                    if focusAtStart then
-                        // shrink from top
-                        let newStart = range.start + 1
-                        if newStart >= range.endd then model
-                        else { model with selectedNodes = Some { range = { range with start = newStart }; focus = newStart } }
-                    else
-                        // extend downward
-                        let newEndd = range.endd + 1
-                        if newEndd > childCount then model
-                        else { model with selectedNodes = Some { range = { range with endd = newEndd }; focus = newEndd - 1 } }
+                    // shrink from top
+                    let s = range.start + 1
+                    if s >= range.endd then model else update { range with start = s } s
 
     /// Collapse a multi-node selection to a single-node selection at the focus node, without moving.
     let collapseToFocus (model: Model) : Model =

@@ -4,9 +4,9 @@ open Browser.Dom
 open Browser.Types
 open Fable.Core
 open Gambol.Shared
-open Gambol.Shared.ViewModel
 open Gambol.Client
 open Gambol.Client.Update
+open Gambol.Client.Controller
 open Gambol.Client.View
 
 // ---------------------------------------------------------------------------

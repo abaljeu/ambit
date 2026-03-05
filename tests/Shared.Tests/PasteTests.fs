@@ -158,7 +158,7 @@ let ``collectSubtree multiple top-level nodes`` () =
 
 let private applyOps (ops: Op list) (graph: Graph) : Graph =
     ops |> List.fold (fun g op ->
-        let state = { graph = g; history = History.empty }
+        let state = { graph = g; history = History.empty; revision = Revision.Zero }
         match Op.apply op state with
         | ApplyResult.Changed s -> s.graph
         | _ -> failwith "op failed") graph

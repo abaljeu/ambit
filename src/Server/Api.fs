@@ -8,12 +8,12 @@ module Api =
         Results.Content(json, "application/json")
 
     let getState (agent: FileAgent) : Async<IResult> = async {
-        let! json = agent.GetState()
+        let! json = FileAgent.getState agent
         return jsonResult json
     }
 
     let postChange (agent: FileAgent) (body: string) : Async<IResult> = async {
-        let! result = agent.PostChange(body)
+        let! result = FileAgent.postChange agent body
         match result with
         | Ok json -> return jsonResult json
         | Error err -> return Results.BadRequest({| error = err |})

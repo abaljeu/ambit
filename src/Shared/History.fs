@@ -24,7 +24,8 @@ type History =
 
 type State =
     { graph: Graph
-      history: History }
+      history: History
+      revision: Revision }
 
 
 [<RequireQualifiedAccess>]

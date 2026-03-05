@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <Compile Include="Update.fs" />
+    <Compile Include="Controller.fs" />
     <Compile Include="View.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>

@@ -156,7 +156,7 @@ structure. Produces the same `NewNode + Replace` op list.
 ## Summary
 
 When clipboard content is detected as Gambol snapshot format, a program option
-(settings checkbox: **"Paste Gambol content as links"**) controls behaviour:
+(settings checkbox: **"Paste Gambol content as references"**) controls behaviour:
 
 - **Off (default):** deep-copy — new nodes are created as in Section 2.
 - **On:** link-paste — existing nodes are re-used by NodeId; new occurrences
