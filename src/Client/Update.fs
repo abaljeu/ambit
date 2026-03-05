@@ -59,7 +59,7 @@ let readEditInputCursor () : int =
 /// Apply a change to the local graph, POST it to the server in the background,
 /// and return the updated graph (or None if the change was rejected locally).
 let applyAndPost (change: Change) (model: Model) (dispatch: Msg -> unit) : Graph option =
-    let state: State = { graph = model.graph; history = History.empty }
+    let state: State = { graph = model.graph; revision = model.revision; history = History.empty }
     match Change.apply change state with
     | ApplyResult.Changed newState ->
         let body = encodeChangeBody change
@@ -236,7 +236,7 @@ let outdentSelection (model: Model) (dispatch: Msg -> unit) : Model =
     match model.selectedNodes with
     | None -> model
     | Some sel ->
-        match tryFindParentAndIndex model.graph sel.range.parent with
+        match Graph.tryFindParentAndIndex sel.range.parent model.graph with
         | None -> model  // parent is root — no-op
         | Some (grandparentId, parentIdx) ->
             reparentSelection grandparentId (parentIdx + 1) sel model dispatch

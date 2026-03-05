@@ -136,3 +136,11 @@ module Graph =
 
                     let nodes = graph.nodes |> Map.add parentId updatedParent
                     Ok { graph with nodes = nodes }
+
+    let tryFindParentAndIndex (targetId: NodeId) (graph: Graph) : (NodeId * int) option =
+        graph.nodes
+        |> Map.toSeq
+        |> Seq.tryPick (fun (parentId, parent) ->
+            parent.children
+            |> List.tryFindIndex ((=) targetId)
+            |> Option.map (fun index -> parentId, index))
