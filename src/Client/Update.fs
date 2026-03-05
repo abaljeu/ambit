@@ -71,6 +71,10 @@ let applyAndPost (change: Change) (model: Model) (dispatch: Msg -> unit) : Graph
         Some newState.graph
     | _ -> None
 
+/// Extract the list of node IDs covered by a NodeRange.
+let rangeChildren (graph: Graph) (range: NodeRange) =
+    graph.nodes.[range.parent].children |> List.skip range.start |> List.take (range.endd - range.start)
+
 /// Apply a committed text edit to the model and POST to server.
 /// Returns the updated model. Dispatches SubmitResponse asynchronously.
 let commitTextEdit
@@ -153,8 +157,7 @@ let pasteNodes (pastedText: string) (model: Model) (dispatch: Msg -> unit) : Mod
             if topLevelIds.IsEmpty then model
             else
             let range = sel.range
-            let parentNode = model.graph.nodes.[range.parent]
-            let selectedIds = parentNode.children |> List.skip range.start |> List.take (range.endd - range.start)
+            let selectedIds = rangeChildren model.graph range
             let replaceOp = Op.Replace(range.parent, range.start, selectedIds, topLevelIds)
             let change = { id = model.revision.Value; ops = pasteOps @ [replaceOp] }
             match applyAndPost change model dispatch with
@@ -207,7 +210,7 @@ let pasteNodes (pastedText: string) (model: Model) (dispatch: Msg -> unit) : Mod
 /// Common core of indent and outdent.
 let reparentSelection (newParentId: NodeId) (insertIdx: int) (sel: Selection) (model: Model) (dispatch: Msg -> unit) : Model =
     let range = sel.range
-    let selectedIds = model.graph.nodes.[range.parent].children |> List.skip range.start |> List.take (range.endd - range.start)
+    let selectedIds = rangeChildren model.graph range
     let ops =
         [ Op.Replace(range.parent, range.start, selectedIds, [])
           Op.Replace(newParentId,  insertIdx,   [],          selectedIds) ]
@@ -252,11 +255,7 @@ let cutSelection (model: Model) (dispatch: Msg -> unit) : Model =
     match model.selectedNodes with
     | None -> model
     | Some sel ->
-        let parentNode = model.graph.nodes.[sel.range.parent]
-        let selectedIds =
-            parentNode.children
-            |> List.skip sel.range.start
-            |> List.take (sel.range.endd - sel.range.start)
+        let selectedIds = rangeChildren model.graph sel.range
         let cb = collectSubtree model.graph model.siteRoot selectedIds
         let removeOp = Op.Replace(sel.range.parent, sel.range.start, selectedIds, [])
         let change = { id = model.revision.Value; ops = [removeOp] }
@@ -282,7 +281,7 @@ let moveNode (delta: int) (model: Model) (dispatch: Msg -> unit) : Model =
     | Some sel ->
         let range       = sel.range
         let parentNode  = model.graph.nodes.[range.parent]
-        let selectedIds = parentNode.children |> List.skip range.start |> List.take (range.endd - range.start)
+        let selectedIds = rangeChildren model.graph range
         let swapOpt =
             if delta < 0 && range.start > 0 then
                 let sib = parentNode.children.[range.start - 1]
@@ -322,7 +321,8 @@ let update (msg: Msg) (model: Model) (dispatch: Msg -> unit) : Model =
           mode = Selecting
           siteRoot = siteRoot
           nextInstanceId = nextId
-          clipboard = None }
+          clipboard = None
+          linkPasteEnabled = false }
 
     | SelectRow nodeId ->
         let result =
@@ -389,11 +389,7 @@ let update (msg: Msg) (model: Model) (dispatch: Msg -> unit) : Model =
         match model.selectedNodes with
         | None -> model
         | Some sel ->
-            let parentNode = model.graph.nodes.[sel.range.parent]
-            let selectedIds =
-                parentNode.children
-                |> List.skip sel.range.start
-                |> List.take (sel.range.endd - sel.range.start)
+            let selectedIds = rangeChildren model.graph sel.range
             { model with clipboard = Some (collectSubtree model.graph model.siteRoot selectedIds) }
 
     | CutSelection ->
@@ -401,3 +397,6 @@ let update (msg: Msg) (model: Model) (dispatch: Msg -> unit) : Model =
 
     | ToggleFold instanceId ->
         { model with siteRoot = ViewModel.toggleFold instanceId model.siteRoot }
+
+    | ToggleLinkPaste ->
+        { model with linkPasteEnabled = not model.linkPasteEnabled }

@@ -21,7 +21,7 @@ let buildFlat (texts: string list) : Graph * NodeId list =
 let emptyModel (graph: Graph) : Model =
     let siteRoot, nextId = ViewModel.buildSiteTree graph
     { graph = graph; revision = Revision.Zero; selectedNodes = None; mode = Selecting
-      siteRoot = siteRoot; nextInstanceId = nextId; clipboard = None }
+      siteRoot = siteRoot; nextInstanceId = nextId; clipboard = None; linkPasteEnabled = false }
 
 /// Model with a selection covering [start, endd) in root's children, focus at focusIdx.
 let modelWithSel (graph: Graph) (start: int) (endd: int) (focusIdx: int) : Model =

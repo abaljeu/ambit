@@ -174,6 +174,22 @@ let rec render (model: Model) (dispatch: Msg -> unit) : unit =
     hiddenInput.addEventListener("cut",   fun ev -> onCut   model ev dispatch)
     app.appendChild hiddenInput |> ignore
 
+    // Settings bar
+    let settingsBar = document.createElement "div"
+    settingsBar.id <- "settings-bar"
+    let cbId = "setting-link-paste"
+    let label = document.createElement "label"
+    label.setAttribute("for", cbId)
+    let cb = document.createElement "input"
+    cb.id <- cbId
+    cb.setAttribute("type", "checkbox")
+    (cb :?> HTMLInputElement).``checked`` <- model.linkPasteEnabled
+    cb.addEventListener("change", fun _ -> dispatch ToggleLinkPaste)
+    label.appendChild cb |> ignore
+    label.appendChild (document.createTextNode " Copy/Paste reference to original") |> ignore
+    settingsBar.appendChild label |> ignore
+    app.appendChild settingsBar |> ignore
+
     // Focus management
     match model.mode with
     | Editing _ ->

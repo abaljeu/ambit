@@ -33,7 +33,8 @@ type Model =
       mode: Mode
       siteRoot: SiteNode
       nextInstanceId: int
-      clipboard: ClipboardContent option }
+      clipboard: ClipboardContent option
+      linkPasteEnabled: bool }
 
 type Msg =
     | StateLoaded of Graph * Revision
@@ -54,6 +55,7 @@ type Msg =
     | CopySelection
     | CutSelection
     | ToggleFold of instanceId: int
+    | ToggleLinkPaste
 
 // ---------------------------------------------------------------------------
 // Pure view-model helpers (no DOM / Fable interop)

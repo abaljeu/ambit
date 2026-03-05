@@ -27,7 +27,8 @@ let mutable currentModel: Model =
       mode = Selecting
       siteRoot = ViewModel.emptySiteRoot
       nextInstanceId = 1
-      clipboard = None }
+      clipboard = None
+      linkPasteEnabled = false }
 
 /// Mutable reference for edit prefill text (set on StartEdit, consumed on render)
 let mutable editPrefill: string option = None
