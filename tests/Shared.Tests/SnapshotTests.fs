@@ -110,3 +110,57 @@ let ``file write then read preserves tree`` () =
         Assert.Equal<(int * string) list>(treeShape original, treeShape decoded)
     finally
         System.IO.File.Delete(path)
+
+// ---- shared-node (multi-occurrence) write ----
+
+[<Fact>]
+let ``write shared node emits hash on first visit and arrow on subsequent`` () =
+    let graph = ModelBuilder.createSharedNodeGraph ()
+    let text = Snapshot.write graph
+    let nl = Environment.NewLine
+    let expected =
+        "parent1" + nl
+        + "\t#n1 shared" + nl
+        + "parent2" + nl
+        + "\t-> #n1" + nl
+    Assert.Equal(expected, text)
+
+// ---- shared-node read ----
+
+[<Fact>]
+let ``read shared-node format produces shared NodeId`` () =
+    let text = "parent1\n\t#n1 shared\nparent2\n\t-> #n1\n"
+    let graph = Snapshot.read text
+    let root = graph.nodes.[graph.root]
+    Assert.Equal(2, root.children.Length)
+    let p1 = graph.nodes.[root.children.[0]]
+    let p2 = graph.nodes.[root.children.[1]]
+    Assert.Equal("parent1", p1.text)
+    Assert.Equal("parent2", p2.text)
+    Assert.Equal(1, p1.children.Length)
+    Assert.Equal(1, p2.children.Length)
+    Assert.Equal(p1.children.[0], p2.children.[0])   // same NodeId
+    Assert.Equal("shared", graph.nodes.[p1.children.[0]].text)
+    Assert.Equal(4, Graph.nodeCount graph)             // root + parent1 + parent2 + shared
+
+// ---- shared-node round-trip ----
+
+[<Fact>]
+let ``round-trip shared-node graph preserves shape and sharing`` () =
+    let original = ModelBuilder.createSharedNodeGraph ()
+    let decoded = original |> Snapshot.write |> Snapshot.read
+    Assert.Equal<(int * string) list>(treeShape original, treeShape decoded)
+    Assert.Equal(4, Graph.nodeCount decoded)            // root + parent1 + parent2 + shared
+    let root = decoded.nodes.[decoded.root]
+    let p1 = decoded.nodes.[root.children.[0]]
+    let p2 = decoded.nodes.[root.children.[1]]
+    Assert.Equal(p1.children.[0], p2.children.[0])     // truly shared NodeId
+
+// ---- backward compatibility: plain lines still load correctly ----
+
+[<Fact>]
+let ``read old-format snapshot without hash markers loads unchanged`` () =
+    let text = "a\n\tb\n\t\tc\nd\n"
+    let graph = Snapshot.read text
+    let expected = [ (0,"a"); (1,"b"); (2,"c"); (0,"d") ]
+    Assert.Equal<(int * string) list>(expected, treeShape graph)

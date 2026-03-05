@@ -50,3 +50,25 @@ module ModelBuilder =
     let createState12 () : State =
         { graph = createDag12 ()
           history = History.empty }
+
+    /// Graph where the same node ("shared") appears under two different parents:
+    ///   root
+    ///     parent1
+    ///       shared      ← same NodeId as...
+    ///     parent2
+    ///       shared      ← ...this one
+    let createSharedNodeGraph () : Graph =
+        let graph0 = Graph.create ()
+        let graph1, ids = createNodes [ "parent1"; "parent2"; "shared" ] graph0
+        let p1 = List.item 0 ids
+        let p2 = List.item 1 ids
+        let sh = List.item 2 ids
+
+        let replaceInsert parentId newIds graph =
+            Graph.replace parentId 0 [] newIds graph
+            |> requireOk "createSharedNodeGraph.replace"
+
+        graph1
+        |> replaceInsert graph1.root [ p1; p2 ]
+        |> replaceInsert p1 [ sh ]
+        |> replaceInsert p2 [ sh ]
