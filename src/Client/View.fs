@@ -4,6 +4,7 @@ open Browser.Dom
 open Browser.Types
 open Fable.Core
 open Gambol.Shared
+open Gambol.Shared.Paste
 open Gambol.Shared.ViewModel
 open Gambol.Client.Update
 
@@ -20,6 +21,10 @@ let stripHtmlToText (html: string) : string = jsNative
 [<Emit("$0.clipboardData.getData($1)")>]
 let getClipboardData (ev: Event) (format: string) : string = jsNative
 
+/// Write a named format to a copy/cut ClipboardEvent's clipboardData.
+[<Emit("$0.clipboardData.setData($1,$2)")>]
+let setClipboardData (ev: Event) (format: string) (data: string) : unit = jsNative
+
 /// Handle a paste event: extract plain text (from HTML or plain), dispatch PasteNodes.
 /// Prefer text/plain — code editors (VS Code, etc.) always supply it with real newlines.
 /// Fall back to stripping text/html only when plain is absent (e.g. browser-page copy).
@@ -28,6 +33,30 @@ let onPaste (ev: Event) (dispatch: Msg -> unit) : unit =
     let plain = getClipboardData ev "text/plain"
     let text  = if plain <> "" then plain else stripHtmlToText (getClipboardData ev "text/html")
     if text <> "" then dispatch (PasteNodes text)
+
+let private onCopyOrCut (model: Model) (ev: Event) (dispatch: Msg -> unit) (msg: Msg) : unit =
+    match model.selectedNodes with
+    | None -> ()
+    | Some sel ->
+        ev.preventDefault()
+        let parentNode = model.graph.nodes.[sel.range.parent]
+        let selectedIds =
+            parentNode.children
+            |> List.skip sel.range.start
+            |> List.take (sel.range.endd - sel.range.start)
+        let serialized = serializeSubtree model.graph model.siteRoot selectedIds
+        setClipboardData ev "text/plain" serialized
+        dispatch msg
+
+/// Handle a copy event in select mode: serialize the visible selected subtree to the
+/// system clipboard and dispatch CopySelection so update can store model.clipboard.
+let onCopy (model: Model) (ev: Event) (dispatch: Msg -> unit) : unit =
+    onCopyOrCut model ev dispatch CopySelection
+
+/// Handle a cut event in select mode: same as copy, then dispatch CutSelection
+/// so update removes the nodes and adjusts the selection.
+let onCut (model: Model) (ev: Event) (dispatch: Msg -> unit) : unit =
+    onCopyOrCut model ev dispatch CutSelection
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -84,6 +113,7 @@ let tryResolveOperation
     let qualified =
         if ke.altKey   then tryKey ("Alt+"   + ke.key) else
         if ke.shiftKey then tryKey ("Shift+" + ke.key) else
+        if ke.ctrlKey  then tryKey ("Ctrl+"  + ke.key) else
         None
     match qualified with
     | Some _ -> qualified
@@ -140,6 +170,8 @@ let rec render (model: Model) (dispatch: Msg -> unit) : unit =
             handleKey selectionKeyTable ctx ke dispatch
     )
     hiddenInput.addEventListener("paste", fun ev -> onPaste ev dispatch)
+    hiddenInput.addEventListener("copy",  fun ev -> onCopy  model ev dispatch)
+    hiddenInput.addEventListener("cut",   fun ev -> onCut   model ev dispatch)
     app.appendChild hiddenInput |> ignore
 
     // Focus management

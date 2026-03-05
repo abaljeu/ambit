@@ -246,6 +246,35 @@ let commitIfEditing (model: Model) (dispatch: Msg -> unit) : Model =
         commitTextEdit editingId originalText (readEditInputValue ()) model dispatch
     | _ -> model
 
+/// CutSelection: store clipboard content, remove selected nodes, update selection.
+/// Post-cut priority: sibling after > sibling before > parent.
+let cutSelection (model: Model) (dispatch: Msg -> unit) : Model =
+    match model.selectedNodes with
+    | None -> model
+    | Some sel ->
+        let parentNode = model.graph.nodes.[sel.range.parent]
+        let selectedIds =
+            parentNode.children
+            |> List.skip sel.range.start
+            |> List.take (sel.range.endd - sel.range.start)
+        let cb = collectSubtree model.graph model.siteRoot selectedIds
+        let removeOp = Op.Replace(sel.range.parent, sel.range.start, selectedIds, [])
+        let change = { id = model.revision.Value; ops = [removeOp] }
+        match applyAndPost change model dispatch with
+        | Some graph ->
+            let newChildren = graph.nodes.[sel.range.parent].children
+            let newSel =
+                if sel.range.start < newChildren.Length then
+                    let i = sel.range.start
+                    Some { range = { parent = sel.range.parent; start = i; endd = i + 1 }; focus = i }
+                elif sel.range.start > 0 then
+                    let i = sel.range.start - 1
+                    Some { range = { parent = sel.range.parent; start = i; endd = i + 1 }; focus = i }
+                else
+                    singleSelection graph sel.range.parent
+            { model with graph = graph; clipboard = Some cb; selectedNodes = newSel }
+        | None -> model
+
 /// Alt+Up/Down: swap the selected range with the adjacent sibling using a single Op.Replace.
 let moveNode (delta: int) (model: Model) (dispatch: Msg -> unit) : Model =
     match model.selectedNodes with
@@ -355,6 +384,20 @@ let update (msg: Msg) (model: Model) (dispatch: Msg -> unit) : Model =
 
     | PasteNodes pastedText ->
         pasteNodes pastedText model dispatch |> withSiteTree
+
+    | CopySelection ->
+        match model.selectedNodes with
+        | None -> model
+        | Some sel ->
+            let parentNode = model.graph.nodes.[sel.range.parent]
+            let selectedIds =
+                parentNode.children
+                |> List.skip sel.range.start
+                |> List.take (sel.range.endd - sel.range.start)
+            { model with clipboard = Some (collectSubtree model.graph model.siteRoot selectedIds) }
+
+    | CutSelection ->
+        cutSelection model dispatch |> withSiteTree
 
     | ToggleFold instanceId ->
         { model with siteRoot = ViewModel.toggleFold instanceId model.siteRoot }

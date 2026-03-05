@@ -1,4 +1,4 @@
-# Paste (External)
+# 1. Paste (External)
 
 ## Summary
 
@@ -73,3 +73,95 @@ Remaining pasted lines become **siblings below** the current node.
 | Msg type | `src/Shared/ViewModel.fs` |
 | HTML stripping, paste handler | `src/Client/View.fs` |
 | Text parsing, op building, handler | `src/Client/Update.fs` |
+
+
+# 2. Paste (internal or between two windows, deep)
+
+## Summary
+
+`Ctrl+C` / `Ctrl+X` in select mode write the selected **visible** nodes and
+their visible (unfolded) children to the system clipboard as tab-indented text
+(the snapshot format). Folded children are not included. Pasting in any Gambol
+window — same or different tab — re-instantiates exactly that visible subtree
+with fresh NodeIds. This is the deep-copy path; no internal-only channel is needed.
+
+## Copy / Cut
+
+Handled via the native `copy` and `cut` DOM events on `hidden-input` (select
+mode). No key table entries for `Ctrl+C` / `Ctrl+X` are needed. The handler
+calls `e.preventDefault()` and writes to the clipboard via
+`e.clipboardData.setData('text/plain', serialized)` — no `navigator.clipboard`
+permission required, works on non-HTTPS and in Firefox.
+
+In Elmish, the `view` function receives `model` as a parameter, so event
+handlers defined within it close over the current model. The `copy`/`cut`
+handlers exploit this: `e.clipboardData` is only valid synchronously during
+the event, so serialization must happen inside the handler before it returns —
+it cannot be deferred to `update`.
+
+The handler does two things synchronously, then dispatches:
+
+1. Calls `serializeSubtree model.graph model.selection` → writes the result to
+   `e.clipboardData.setData('text/plain', ...)` immediately.
+2. Dispatches `CopySelection` / `CutSelection` so `update` can call
+   `collectSubtree` and store the result in `model.clipboard`.
+
+- `copy` event on `hidden-input` → (serialize synchronously) → dispatch `CopySelection`
+- `cut` event on `hidden-input` → (serialize synchronously) → dispatch `CutSelection`
+
+- `serializeSubtree : Graph -> NodeId list -> string` — preorder walk over
+  selected nodes and their **visible children only** (respects fold state);
+  called synchronously in the event handler.
+- `collectSubtree : Graph -> NodeId list -> ClipboardContent` — same visible
+  traversal, captures node map; called in `update`, stored in `model.clipboard`
+  (reserved for Phase 3 link-paste).
+
+`CutSelection` additionally applies `Op.Replace` to remove the selected nodes,
+then selects sibling-after > sibling-before > parent.
+
+Edit mode: `copy` / `cut` events on `edit-input` are **not** intercepted —
+browser-native clipboard handles text within the edit input.
+
+## Paste (deep)
+
+The `paste` event fires on `hidden-input` and is handled by the existing
+`onPaste → PasteNodes text` path. Because `serializeSubtree` produces
+tab-indented text identical to external paste input, `parsePasteText` +
+`buildPasteOpsFromClipboard` (remaps to fresh NodeIds) handle it. The pasted
+result reflects exactly the visible subtree that was copied — folded children
+are not re-instantiated.
+
+Only standard `Ctrl+V` is used for paste — no custom keybinding. In Phase 3,
+when clipboard content is detected as Gambol snapshot format, a program
+option (checkbox in settings) controls whether it pastes as deep-copy (new
+nodes) or as links. See Section 3.
+
+## `buildPasteOpsFromClipboard`
+
+Unlike `buildPasteOps` (which parses text), this function accepts a
+`ClipboardContent` and remaps every NodeId to a fresh one, preserving tree
+structure. Produces the same `NewNode + Replace` op list.
+
+## Key Files
+
+| What | Where |
+|---|---|
+| `serializeSubtree`, `collectSubtree`, `buildPasteOpsFromClipboard` | `src/Shared/Paste.fs` |
+| `CopySelection`, `CutSelection` msgs | `src/Shared/ViewModel.fs` |
+| `copy`/`cut` event handlers, `e.clipboardData.setData` interop | `src/Client/View.fs` |
+| `CopySelection` / `CutSelection` handlers, post-cut selection | `src/Client/Update.fs` |
+
+# 3. Paste Link (internal, option-controlled)
+
+## Summary
+
+When clipboard content is detected as Gambol snapshot format, a program option
+(settings checkbox: **"Paste Gambol content as links"**) controls behaviour:
+
+- **Off (default):** deep-copy — new nodes are created as in Section 2.
+- **On:** link-paste — existing nodes are re-used by NodeId; new occurrences
+  reference the same nodes.
+
+No custom keybinding is required. Detection and branching happen inside the
+existing `onPaste` handler after reading `e.clipboardData.getData('text/plain')`.
+The setting is part of app/user preferences and exposed in the settings UI.

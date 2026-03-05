@@ -51,6 +51,8 @@ type Msg =
     | CancelEdit
     | SubmitResponse of Revision
     | PasteNodes of pastedText: string
+    | CopySelection
+    | CutSelection
     | ToggleFold of instanceId: int
 
 // ---------------------------------------------------------------------------
