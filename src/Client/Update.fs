@@ -234,7 +234,9 @@ let indentSelection (model: Model) (dispatch: Msg -> unit) : Model =
         let result = reparentSelection prevSibEntry insertIdx sel model dispatch
         // Ensure the new parent is expanded so the indented items are visible after reconcile
         if prevSibEntry.expanded then result
-        else { result with siteMap = ViewModel.toggleFold prevSibEntry.instanceId result.siteMap }
+        else
+            let siteMap, nextId = ViewModel.expandEntry prevSibEntry.instanceId result.graph result.siteMap result.nextInstanceId
+            { result with siteMap = siteMap; nextInstanceId = nextId }
 
 let outdentSelection (model: Model) (dispatch: Msg -> unit) : Model =
     match model.selectedNodes with

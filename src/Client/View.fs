@@ -29,7 +29,7 @@ let private computeDepth (siteMap: SiteMap) (entry: SiteEntry) : int =
 let private makeRowElement (model: Model) (dispatch: Msg -> unit) (depth: int) (siteEntry: SiteEntry) : HTMLElement =
     let nodeId = siteEntry.nodeId
     let node = model.graph.nodes.[nodeId]
-    let hasChildren = not siteEntry.children.IsEmpty
+    let hasChildren = not node.children.IsEmpty
     let row = document.createElement "div"
     row.classList.add "row"
 
@@ -53,6 +53,11 @@ let private makeRowElement (model: Model) (dispatch: Msg -> unit) (depth: int) (
             dispatch (ToggleFold siteEntry.instanceId)
         )
         row.appendChild toggle |> ignore
+    else
+        let dot = document.createElement "span"
+        dot.classList.add "fold-toggle"
+        dot.textContent <- "\u25CF"
+        row.appendChild dot |> ignore
 
     // Content: edit input or text div
     if isEditingEntry model siteEntry then

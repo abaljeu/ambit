@@ -307,7 +307,7 @@ module ViewModel =
     type RowPatch =
         | SetClassName of newClass: string
         | SetText of newText: string
-        | SetFoldArrow of arrow: string   // "▼" or "▶"
+        | SetFoldArrow of arrow: string   // "▼" or "▶" (has children); "●" (no children, no behavior)
 
     type RowMutation =
         | RemoveRow of instId: int
@@ -335,10 +335,11 @@ module ViewModel =
                     let wasEditing = isEditingEntry oldModel entry
                     let nowEditing = isEditingEntry newModel entry
                     let oldHasChildren =
-                        Map.tryFind instId oldModel.siteMap.entries
-                        |> Option.map (fun e -> not e.children.IsEmpty)
-                        |> Option.defaultValue (not entry.children.IsEmpty)
-                    let newHasChildren = not entry.children.IsEmpty
+                        oldModel.graph.nodes
+                        |> Map.tryFind entry.nodeId
+                        |> Option.map (fun n -> not n.children.IsEmpty)
+                        |> Option.defaultValue false
+                    let newHasChildren = not (newModel.graph.nodes.[entry.nodeId].children.IsEmpty)
                     if wasEditing <> nowEditing || oldHasChildren <> newHasChildren then
                         RecreateRow instId
                     else
