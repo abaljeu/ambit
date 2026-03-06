@@ -149,6 +149,21 @@ module ViewModel =
         | None -> []
         | Some root -> root.children |> List.collect gather
 
+    /// Preorder walk of visible entries, returning instanceIds in display order (excluding root).
+    /// Mirrors getVisibleRowIds but keyed by instanceId for DOM-cache lookups.
+    let getVisibleInstanceIds (siteMap: SiteMap) : int list =
+        let entries = siteMap.entries
+        let rec gather (instId: int) : int list =
+            match Map.tryFind instId entries with
+            | None -> []
+            | Some entry ->
+                entry.instanceId ::
+                    (if entry.expanded then entry.children |> List.collect gather
+                     else [])
+        match Map.tryFind siteMap.rootId entries with
+        | None -> []
+        | Some root -> root.children |> List.collect gather
+
     /// Build a single-node Selection for the given nodeId, using the graph to locate its parent
     /// and the site map to obtain the parent SiteEntry.
     /// Returns None if the node has no parent (i.e. it is the root) or if the parent is not in the site map.
