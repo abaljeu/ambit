@@ -65,9 +65,9 @@ let ``serializeSubtree node with collapsed children omits children`` () =
 [<Fact>]
 let ``serializeSubtree node with expanded children includes children`` () =
     let graph, parentId, _childIds = buildNested "parent" ["child1"; "child2"]
-    let siteMap, _ = buildSiteMap graph 0
+    let siteMap, nextId = buildSiteMap graph 0
     let parentInstanceId = findInstanceId parentId siteMap
-    let siteMap' = toggleFold parentInstanceId siteMap
+    let siteMap', _ = expandEntry parentInstanceId graph siteMap nextId
     let result = serializeSubtree graph siteMap' [parentId]
     Assert.Equal("parent" + nl + "\tchild1" + nl + "\tchild2" + nl, result)
 
@@ -80,12 +80,12 @@ let ``serializeSubtree multi-level expanded`` () =
     let g2 = Graph.replace g1.root 0 [] [aId] g1 |> requireOk "root"
     let g3 = Graph.replace aId 0 [] [bId] g2 |> requireOk "a"
     let g4 = Graph.replace bId 0 [] [cId] g3 |> requireOk "b"
-    let siteMap, _ = buildSiteMap g4 0
-    // Expand a and b
+    let siteMap, nextId = buildSiteMap g4 0
+    // Expand a, then b (b becomes visible as a child of a after expanding a)
     let aInst = findInstanceId aId siteMap
-    let siteMap' = toggleFold aInst siteMap
+    let siteMap', nextId' = expandEntry aInst g4 siteMap nextId
     let bInst = findInstanceId bId siteMap'
-    let siteMap'' = toggleFold bInst siteMap'
+    let siteMap'', _ = expandEntry bInst g4 siteMap' nextId'
     let result = serializeSubtree g4 siteMap'' [aId]
     Assert.Equal("a" + nl + "\tb" + nl + "\t\tc" + nl, result)
 
@@ -98,9 +98,9 @@ let ``serializeSubtree partial expand: only expanded level included`` () =
     let g2 = Graph.replace g1.root 0 [] [aId] g1 |> requireOk "root"
     let g3 = Graph.replace aId 0 [] [bId] g2 |> requireOk "a"
     let g4 = Graph.replace bId 0 [] [cId] g3 |> requireOk "b"
-    let siteMap, _ = buildSiteMap g4 0
+    let siteMap, nextId = buildSiteMap g4 0
     let aInst = findInstanceId aId siteMap
-    let siteMap' = toggleFold aInst siteMap  // expand a only
+    let siteMap', _ = expandEntry aInst g4 siteMap nextId  // expand a only
     let result = serializeSubtree g4 siteMap' [aId]
     // b is collapsed → c not included
     Assert.Equal("a" + nl + "\tb" + nl, result)
@@ -133,9 +133,9 @@ let ``collectSubtree collapsed node excludes children`` () =
 [<Fact>]
 let ``collectSubtree expanded node includes children`` () =
     let graph, parentId, childIds = buildNested "p" ["c1"; "c2"]
-    let siteMap, _ = buildSiteMap graph 0
+    let siteMap, nextId = buildSiteMap graph 0
     let parentInst = findInstanceId parentId siteMap
-    let siteMap' = toggleFold parentInst siteMap
+    let siteMap', _ = expandEntry parentInst graph siteMap nextId
     let cb = collectSubtree graph siteMap' [parentId]
     Assert.Equal<NodeId list>([parentId], cb.topLevelIds)
     Assert.Equal(3, cb.nodes.Count)  // parent + 2 children

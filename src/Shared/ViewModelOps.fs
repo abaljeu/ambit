@@ -8,7 +8,7 @@ module ViewModel =
 
     let emptySiteMap : SiteMap =
         let rootEntry = { instanceId = 0; nodeId = NodeId(System.Guid.Empty)
-                          parentInstanceId = None; expanded = true; children = [] }
+                          parentInstanceId = None; expanded = true; childrenStale = false; children = [] }
         { rootId = 0; entries = Map.ofList [0, rootEntry] }
 
     // Returns (freshId generator, counter getter) for sequencing integer IDs.
@@ -16,87 +16,89 @@ module ViewModel =
         let mutable n = start
         (fun () -> let id = n in n <- n + 1; id), (fun () -> n)
 
-    /// Build a full SiteMap from a graph. All nodes start collapsed except the root.
-    /// Tracks ancestors per path to detect cycles; a back-edge produces an entry with
-    /// children = [] (the node appears but its subtree is not re-entered on that path).
+    /// Build a SiteMap from a graph. The root is expanded; its immediate children are
+    /// collapsed with children = [] and childrenStale = true, populated on demand via expandEntry.
+    /// Cycle termination is implicit: new entries start collapsed with no children, so expanding
+    /// an ancestor reachable via a back-edge produces a collapsed leaf that stops the recursion.
     /// Returns the SiteMap and the next available instanceId.
     let buildSiteMap (graph: Graph) (startId: int) : SiteMap * int =
         let freshId, endCount = makeCounter startId
         let mutable acc = Map.empty<int, SiteEntry>
-        let rec walk (nodeId: NodeId) (parentInstId: int option) (isRoot: bool) (ancestors: Set<NodeId>) : int =
-            let isCycle = ancestors.Contains nodeId
-            let instId = freshId ()
-            let childInstIds =
-                if isCycle then []
-                else
-                    let node = graph.nodes.[nodeId]
-                    let ancestors' = ancestors.Add nodeId
-                    node.children |> List.map (fun cid -> walk cid (Some instId) false ancestors')
-            let entry : SiteEntry =
-                { instanceId = instId
-                  nodeId = nodeId
-                  parentInstanceId = parentInstId
-                  expanded = isRoot && not isCycle
-                  children = childInstIds }
-            acc <- Map.add instId entry acc
-            instId
-        let rootInstId = walk graph.root None true Set.empty
+        let rootInstId = freshId ()
+        let rootNode = graph.nodes.[graph.root]
+        let childInstIds =
+            rootNode.children |> List.map (fun cid ->
+                let childId = freshId ()
+                acc <- Map.add childId { instanceId = childId; nodeId = cid
+                                         parentInstanceId = Some rootInstId
+                                         expanded = false; childrenStale = true; children = [] } acc
+                childId)
+        acc <- Map.add rootInstId { instanceId = rootInstId; nodeId = graph.root
+                                    parentInstanceId = None
+                                    expanded = true; childrenStale = false; children = childInstIds } acc
         { rootId = rootInstId; entries = acc }, endCount ()
 
-    /// Reconcile a SiteMap after a graph change. Recovers instanceIds and fold states
-    /// by matching children positionally (position i in old parent's children list).
-    /// A position match requires the nodeId to agree; mismatches get a fresh instanceId.
-    /// New nodes default to collapsed. Per-path ancestor guard detects cycles.
+    /// Reconcile a SiteMap after a graph change. Walks only expanded entries, syncing their
+    /// children lists from the graph. Collapsed children of expanded entries are reused by
+    /// position (nodeId must match) with childrenStale = true and children = []; they are not
+    /// recursed into. Orphaned entries from removed or now-unexpanded paths are dropped.
     /// Returns the updated SiteMap and next available instanceId.
     let reconcileSiteMap (graph: Graph) (oldMap: SiteMap) (startId: int) : SiteMap * int =
         let freshId, endCount = makeCounter startId
         let mutable acc = Map.empty<int, SiteEntry>
-        let rec walk (nodeId: NodeId) (parentInstId: int option) (isRoot: bool) (ancestors: Set<NodeId>) (oldInstIdOpt: int option) : int =
-            let isCycle = ancestors.Contains nodeId
-            // Recover old entry only if it exists and its nodeId matches
+        let rec walk (nodeId: NodeId) (parentInstId: int option) (isRoot: bool) (oldInstIdOpt: int option) : int =
             let oldEntryOpt =
                 oldInstIdOpt
                 |> Option.bind (fun id -> Map.tryFind id oldMap.entries)
                 |> Option.bind (fun e -> if e.nodeId = nodeId then Some e else None)
-            let (instId, expanded) =
+            let instId, expanded =
                 match oldEntryOpt with
-                | Some old -> (old.instanceId, old.expanded)
-                | None -> (freshId (), false)
+                | Some old -> old.instanceId, old.expanded
+                | None -> freshId (), false
             let childInstIds =
-                if isCycle then []
-                else
+                if isRoot || expanded then
                     let node = graph.nodes.[nodeId]
-                    let ancestors' = ancestors.Add nodeId
                     let oldChildren = oldEntryOpt |> Option.map (fun o -> o.children) |> Option.defaultValue []
                     node.children |> List.mapi (fun i cid ->
-                        // Position-based match: old child at position i must have matching nodeId
-                        let oldChildInstIdOpt =
+                        let oldChildOpt =
                             List.tryItem i oldChildren
-                            |> Option.bind (fun oid ->
-                                Map.tryFind oid oldMap.entries
-                                |> Option.bind (fun e -> if e.nodeId = cid then Some oid else None))
-                        walk cid (Some instId) false ancestors' oldChildInstIdOpt)
-            let entry : SiteEntry =
-                { instanceId = instId
-                  nodeId = nodeId
-                  parentInstanceId = parentInstId
+                            |> Option.bind (fun oid -> Map.tryFind oid oldMap.entries)
+                            |> Option.bind (fun e -> if e.nodeId = cid then Some e else None)
+                        match oldChildOpt with
+                        | Some old when old.expanded -> walk cid (Some instId) false (Some old.instanceId)
+                        | Some old ->
+                            acc <- Map.add old.instanceId { old with childrenStale = true; children = [] } acc
+                            old.instanceId
+                        | None ->
+                            let newId = freshId ()
+                            acc <- Map.add newId { instanceId = newId; nodeId = cid
+                                                   parentInstanceId = Some instId
+                                                   expanded = false; childrenStale = true; children = [] } acc
+                            newId)
+                else []
+            let entry =
+                { instanceId = instId; nodeId = nodeId; parentInstanceId = parentInstId
                   expanded = if isRoot then true else expanded
-                  children = childInstIds }
+                  childrenStale = false; children = childInstIds }
             acc <- Map.add instId entry acc
             instId
-        let rootInstId = walk graph.root None true Set.empty (Some oldMap.rootId)
+        let rootInstId = walk graph.root None true (Some oldMap.rootId)
         { rootId = rootInstId; entries = acc }, endCount ()
 
-    /// Toggle the expanded flag of the entry with the given instanceId. O(log S).
+    /// Collapse the entry with the given instanceId, marking its children as stale. O(log S).
+    /// The children list is preserved so that a subsequent expandEntry can reuse instanceIds
+    /// positionally (restoring nested fold state) when no structural op has intervened.
+    /// For expanding, use expandEntry which re-syncs children from the graph.
     let toggleFold (instanceId: int) (siteMap: SiteMap) : SiteMap =
         match Map.tryFind instanceId siteMap.entries with
         | None -> siteMap
         | Some entry ->
-            { siteMap with entries = Map.add instanceId { entry with expanded = not entry.expanded } siteMap.entries }
+            { siteMap with entries = Map.add instanceId { entry with expanded = false; childrenStale = true } siteMap.entries }
 
-    /// Expand a collapsed entry, inserting any missing immediate child SiteEntries.
-    /// Does not recurse into grandchildren — children of the new entries start collapsed
-    /// with children = [] and are populated on their own expansion.
+    /// Expand a collapsed entry, inserting or re-syncing immediate child SiteEntries from the graph.
+    /// Children are matched positionally by nodeId to preserve existing instanceIds and fold state
+    /// (useful when re-expanding after a simple collapse with no intervening structural op).
+    /// New children start collapsed with childrenStale = true and children = [].
     /// Returns the updated SiteMap and next available instanceId.
     let expandEntry (instanceId: int) (graph: Graph) (siteMap: SiteMap) (startId: int) : SiteMap * int =
         match Map.tryFind instanceId siteMap.entries with
@@ -114,15 +116,11 @@ module ViewModel =
                         | Some existing when existing.nodeId = cid -> existing.instanceId
                         | _ ->
                             let newId = freshId ()
-                            let childEntry : SiteEntry =
-                                { instanceId = newId
-                                  nodeId = cid
-                                  parentInstanceId = Some instanceId
-                                  expanded = false
-                                  children = [] }
-                            acc <- Map.add newId childEntry acc
+                            acc <- Map.add newId { instanceId = newId; nodeId = cid
+                                                   parentInstanceId = Some instanceId
+                                                   expanded = false; childrenStale = true; children = [] } acc
                             newId)
-                let updated = { entry with expanded = true; children = childInstIds }
+                let updated = { entry with expanded = true; childrenStale = false; children = childInstIds }
                 acc <- Map.add instanceId updated acc
                 { siteMap with entries = acc }, endCount ()
 
