@@ -263,3 +263,112 @@ module ViewModel =
     /// Otherwise, moves the whole selection down by one visible row.
     let applyMoveSelectionDown = applyMoveSelection 1
 
+// ---------------------------------------------------------------------------
+// Selection / focus / edit helpers (pure — no Browser interop)
+// ---------------------------------------------------------------------------
+
+    let isNodeDirectlySelected (model: Model) (nodeId: NodeId) : bool =
+        match model.selectedNodes with
+        | None -> false
+        | Some sel ->
+            let parentNode = model.graph.nodes.[sel.range.parent.nodeId]
+            parentNode.children
+            |> List.indexed
+            |> List.exists (fun (i, id) -> id = nodeId && i >= sel.range.start && i < sel.range.endd)
+
+    let isNodeFocused (model: Model) (nodeId: NodeId) : bool =
+        match model.selectedNodes with
+        | None -> false
+        | Some sel -> focusedNodeId model.graph sel = nodeId
+
+    let private ancestorMatch (model: Model) (entry: SiteEntry) (pred: NodeId -> bool) : bool =
+        let rec go parentInstId =
+            match parentInstId with
+            | None -> false
+            | Some pid ->
+                match Map.tryFind pid model.siteMap.entries with
+                | None -> false
+                | Some pe -> pred pe.nodeId || go pe.parentInstanceId
+        pred entry.nodeId || go entry.parentInstanceId
+
+    let isEntrySelected (model: Model) (entry: SiteEntry) =
+        ancestorMatch model entry (isNodeDirectlySelected model)
+
+    let isEntryFocused (model: Model) (entry: SiteEntry) =
+        ancestorMatch model entry (isNodeFocused model)
+
+    let isEditingEntry (model: Model) (entry: SiteEntry) : bool =
+        match model.mode with
+        | Editing _ -> isNodeFocused model entry.nodeId
+        | Selecting -> false
+
+// ---------------------------------------------------------------------------
+// DOM mutation plan (pure — no Browser interop)
+// ---------------------------------------------------------------------------
+
+    type RowPatch =
+        | SetClassName of newClass: string
+        | SetText of newText: string
+        | SetFoldArrow of arrow: string   // "▼" or "▶"
+
+    type RowMutation =
+        | RemoveRow of instId: int
+        | CreateRow of instId: int
+        | RecreateRow of instId: int
+        | PatchRow of instId: int * patches: RowPatch list
+
+    /// Compute the minimal set of DOM mutations needed to transition from oldModel to newModel.
+    /// cachedInstIds is the set of instanceIds currently held in the element cache.
+    /// Returns removals followed by visible-row operations in preorder display order.
+    let planPatchDOM (oldModel: Model) (newModel: Model) (cachedInstIds: Set<int>) : RowMutation list =
+        let newVisible = getVisibleInstanceIds newModel.siteMap
+        let newVisibleSet = Set.ofList newVisible
+
+        let removals =
+            cachedInstIds
+            |> Set.filter (fun id -> not (Set.contains id newVisibleSet))
+            |> Set.toList
+            |> List.map RemoveRow
+
+        let upserts =
+            newVisible |> List.map (fun instId ->
+                let entry = newModel.siteMap.entries.[instId]
+                if Set.contains instId cachedInstIds then
+                    let wasEditing = isEditingEntry oldModel entry
+                    let nowEditing = isEditingEntry newModel entry
+                    let oldHasChildren =
+                        Map.tryFind instId oldModel.siteMap.entries
+                        |> Option.map (fun e -> not e.children.IsEmpty)
+                        |> Option.defaultValue (not entry.children.IsEmpty)
+                    let newHasChildren = not entry.children.IsEmpty
+                    if wasEditing <> nowEditing || oldHasChildren <> newHasChildren then
+                        RecreateRow instId
+                    else
+                        let oldEntry = Map.tryFind instId oldModel.siteMap.entries
+                        let patches = [
+                            let sel = isEntrySelected newModel entry
+                            let foc = isEntryFocused newModel entry
+                            let newClass = "row" + (if sel then " selected" else "") + (if foc then " focused" else "")
+                            let oldSel = oldEntry |> Option.map (isEntrySelected oldModel) |> Option.defaultValue false
+                            let oldFoc = oldEntry |> Option.map (isEntryFocused oldModel) |> Option.defaultValue false
+                            let oldClass = "row" + (if oldSel then " selected" else "") + (if oldFoc then " focused" else "")
+                            if newClass <> oldClass then yield SetClassName newClass
+                            if not nowEditing then
+                                let newText = newModel.graph.nodes.[entry.nodeId].text
+                                let oldText =
+                                    oldModel.graph.nodes
+                                    |> Map.tryFind entry.nodeId
+                                    |> Option.map (fun n -> n.text)
+                                    |> Option.defaultValue ""
+                                if newText <> oldText then yield SetText newText
+                            if newHasChildren then
+                                let oldExpanded = oldEntry |> Option.map (fun e -> e.expanded) |> Option.defaultValue false
+                                if entry.expanded <> oldExpanded then
+                                    yield SetFoldArrow (if entry.expanded then "\u25BC" else "\u25B6")
+                        ]
+                        PatchRow (instId, patches)
+                else
+                    CreateRow instId)
+
+        removals @ upserts
+

@@ -4,6 +4,8 @@ Second item
 	Another nested
 		excellent
 			hello
+		okay
+		
 		
 			            "request": "launch",
 			            "name": "Launch Client (Chrome)",

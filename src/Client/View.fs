@@ -7,59 +7,8 @@ open Gambol.Shared.ViewModel
 open Gambol.Client.Controller
 
 // ---------------------------------------------------------------------------
-// Selection / focus / depth helpers
+// Depth helper
 // ---------------------------------------------------------------------------
-
-let private isNodeDirectlySelected (model: Model) (nodeId: NodeId) : bool =
-    match model.selectedNodes with
-    | None -> false
-    | Some sel ->
-        let parentNode = model.graph.nodes.[sel.range.parent.nodeId]
-        parentNode.children
-        |> List.indexed
-        |> List.exists (fun (i, id) -> id = nodeId && i >= sel.range.start && i < sel.range.endd)
-
-/// True when entry is directly selected OR any ancestor is directly selected.
-let private isEntrySelected (model: Model) (entry: SiteEntry) : bool =
-    if isNodeDirectlySelected model entry.nodeId then true
-    else
-        let siteMap = model.siteMap
-        let rec go (parentInstId: int option) =
-            match parentInstId with
-            | None -> false
-            | Some pid ->
-                match Map.tryFind pid siteMap.entries with
-                | None -> false
-                | Some pe ->
-                    if isNodeDirectlySelected model pe.nodeId then true
-                    else go pe.parentInstanceId
-        go entry.parentInstanceId
-
-let private isNodeFocused (model: Model) (nodeId: NodeId) : bool =
-    match model.selectedNodes with
-    | None -> false
-    | Some sel -> focusedNodeId model.graph sel = nodeId
-
-/// True when entry is the focus node OR any ancestor is the focus node.
-let private isEntryFocused (model: Model) (entry: SiteEntry) : bool =
-    if isNodeFocused model entry.nodeId then true
-    else
-        let siteMap = model.siteMap
-        let rec go (parentInstId: int option) =
-            match parentInstId with
-            | None -> false
-            | Some pid ->
-                match Map.tryFind pid siteMap.entries with
-                | None -> false
-                | Some pe ->
-                    if isNodeFocused model pe.nodeId then true
-                    else go pe.parentInstanceId
-        go entry.parentInstanceId
-
-let private isEditingEntry (model: Model) (entry: SiteEntry) : bool =
-    match model.mode with
-    | Editing _ -> isNodeFocused model entry.nodeId
-    | Selecting -> false
 
 /// Depth of entry in the site map (root's children are at depth 0).
 let private computeDepth (siteMap: SiteMap) (entry: SiteEntry) : int =
@@ -142,52 +91,6 @@ let private makeRowElement (model: Model) (dispatch: Msg -> unit) (depth: int) (
     row
 
 // ---------------------------------------------------------------------------
-// In-place row update
-// ---------------------------------------------------------------------------
-
-/// Update an existing cached row element in-place.
-/// Returns false if the element must be fully recreated (editing mode toggled or
-/// hasChildren changed), true if the in-place patch was sufficient.
-let private updateRowElement (oldModel: Model) (newModel: Model) (instId: int) (el: HTMLElement) : bool =
-    match Map.tryFind instId newModel.siteMap.entries with
-    | None -> false
-    | Some entry ->
-        let wasEditing = isEditingEntry oldModel entry
-        let nowEditing = isEditingEntry newModel entry
-        if wasEditing <> nowEditing then false
-        else
-            // If hasChildren changed, fold toggle must appear/disappear → recreate
-            let oldHasChildren =
-                Map.tryFind instId oldModel.siteMap.entries
-                |> Option.map (fun e -> not e.children.IsEmpty)
-                |> Option.defaultValue (not entry.children.IsEmpty)
-            if oldHasChildren <> not entry.children.IsEmpty then false
-            else
-                // Update CSS classes
-                let sel = isEntrySelected newModel entry
-                let foc = isEntryFocused newModel entry
-                let newClass = "row" + (if sel then " selected" else "") + (if foc then " focused" else "")
-                if el.className <> newClass then el.className <- newClass
-
-                // Update text content when not editing
-                if not nowEditing then
-                    let node = newModel.graph.nodes.[entry.nodeId]
-                    let textDiv = el.querySelector ".text"
-                    if not (isNull textDiv) then
-                        let td = textDiv :?> HTMLElement
-                        if td.textContent <> node.text then td.textContent <- node.text
-
-                // Update fold-toggle indicator
-                if not entry.children.IsEmpty then
-                    let foldToggle = el.querySelector ".fold-toggle"
-                    if not (isNull foldToggle) then
-                        let ft = foldToggle :?> HTMLElement
-                        let expected = if entry.expanded then "\u25BC" else "\u25B6"
-                        if ft.textContent <> expected then ft.textContent <- expected
-
-                true
-
-// ---------------------------------------------------------------------------
 // Focus management
 // ---------------------------------------------------------------------------
 
@@ -255,35 +158,63 @@ let render (model: Model) (dispatch: Msg -> unit) : Map<int, HTMLElement> =
 /// removes stale rows, creates/moves new rows, updates existing rows in-place.
 /// Returns the updated element cache.
 let patchDOM (oldModel: Model) (newModel: Model) (dispatch: Msg -> unit) (cache: Map<int, HTMLElement>) : Map<int, HTMLElement> =
-    let newVisible = ViewModel.getVisibleInstanceIds newModel.siteMap
-    let newVisibleSet = newVisible |> Set.ofList
+    let cachedInstIds = cache |> Map.toSeq |> Seq.map fst |> Set.ofSeq
+    let mutations = ViewModel.planPatchDOM oldModel newModel cachedInstIds
 
-    // Remove entries no longer visible from DOM and cache
-    let mutable cache' =
-        cache |> Map.filter (fun instId el ->
-            if Set.contains instId newVisibleSet then true
-            else el.remove(); false)
+    // Index upsert mutations by instId for O(log n) lookup below
+    let upsertIndex =
+        mutations |> List.choose (fun m ->
+            match m with
+            | RemoveRow _ -> None
+            | CreateRow id  -> Some (id, m)
+            | RecreateRow id -> Some (id, m)
+            | PatchRow (id, _) -> Some (id, m))
+        |> Map.ofList
 
+    let mutable cache' = cache
+
+    // Apply removals
+    for mut in mutations do
+        match mut with
+        | RemoveRow instId ->
+            match Map.tryFind instId cache' with
+            | Some el -> el.remove()
+            | None -> ()
+            cache' <- Map.remove instId cache'
+        | _ -> ()
+
+    // Apply upserts in preorder, correcting DOM position as we go
     let mutable prevNode: Browser.Types.Node option = None
 
-    for instId in newVisible do
+    for instId in ViewModel.getVisibleInstanceIds newModel.siteMap do
         let entry = newModel.siteMap.entries.[instId]
         let depth = computeDepth newModel.siteMap entry
 
         let row : HTMLElement =
-            match Map.tryFind instId cache' with
-            | Some existingEl ->
-                let ok = updateRowElement oldModel newModel instId existingEl
-                if not ok then
-                    existingEl.remove()
-                    let newEl = makeRowElement newModel dispatch depth entry
-                    cache' <- Map.add instId newEl cache'
-                    newEl
-                else existingEl
-            | None ->
-                let newEl = makeRowElement newModel dispatch depth entry
-                cache' <- Map.add instId newEl cache'
-                newEl
+            match Map.tryFind instId upsertIndex with
+            | Some (RecreateRow _) ->
+                match Map.tryFind instId cache' with
+                | Some old -> old.remove()
+                | None -> ()
+                let el = makeRowElement newModel dispatch depth entry
+                cache' <- Map.add instId el cache'
+                el
+            | Some (PatchRow (_, patches)) ->
+                let el = cache'.[instId]
+                for patch in patches do
+                    match patch with
+                    | SetClassName cls -> el.className <- cls
+                    | SetText txt ->
+                        let textDiv = el.querySelector ".text"
+                        if not (isNull textDiv) then (textDiv :?> HTMLElement).textContent <- txt
+                    | SetFoldArrow arrow ->
+                        let ft = el.querySelector ".fold-toggle"
+                        if not (isNull ft) then (ft :?> HTMLElement).textContent <- arrow
+                el
+            | _ ->  // CreateRow or missing
+                let el = makeRowElement newModel dispatch depth entry
+                cache' <- Map.add instId el cache'
+                el
 
         // Ensure the row sits in the correct DOM position (preorder sequence)
         let atCorrectPos =

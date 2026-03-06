@@ -505,3 +505,72 @@ let ``SiteMap getVisibleRowIds shows children of expanded node`` () =
     Assert.Equal(ids.[2], visible.[1])
     Assert.Equal(ids.[3], visible.[2])
     Assert.Equal(ids.[1], visible.[3])
+
+// ---------------------------------------------------------------------------
+// planPatchDOM
+// ---------------------------------------------------------------------------
+
+/// Build a cache set containing all currently visible instanceIds.
+let buildCacheSet (siteMap: SiteMap) : Set<int> =
+    getVisibleInstanceIds siteMap |> Set.ofList
+
+[<Fact>]
+let ``planPatchDOM text change produces SetText patch and no CreateRow`` () =
+    let graph, ids = buildFlat ["a"; "b"; "c"]
+    let oldModel = emptyModel graph
+    // Change the text of the second node
+    let targetId = ids.[1]
+    let newNode = { graph.nodes.[targetId] with text = "b-edited" }
+    let newGraph = { graph with nodes = Map.add targetId newNode graph.nodes }
+    let newModel = { oldModel with graph = newGraph }
+    let cachedInstIds = buildCacheSet oldModel.siteMap
+
+    let mutations = planPatchDOM oldModel newModel cachedInstIds
+
+    let textPatches =
+        mutations |> List.collect (fun m ->
+            match m with
+            | PatchRow (_, patches) -> patches |> List.filter (function SetText _ -> true | _ -> false)
+            | _ -> [])
+    let creates = mutations |> List.filter (function CreateRow _ -> true | _ -> false)
+
+    Assert.Equal(1, textPatches.Length)   // exactly K=1 DOM text update
+    Assert.Equal(0, creates.Length)       // no new elements created
+
+[<Fact>]
+let ``planPatchDOM expand inserts correct child count`` () =
+    let graph, _ = buildNested ()
+    let siteMap, nextId = buildSiteMap graph 0
+    let rootEntry = siteMap.entries.[siteMap.rootId]
+    let aInstId = rootEntry.children.[0]   // "a" has 2 children: a1, a2
+
+    let oldModel = emptyModel graph        // "a" collapsed
+    // Expand "a" in the new model
+    let newSiteMap, newNextId = expandEntry aInstId graph siteMap nextId
+    let newModel = { oldModel with siteMap = newSiteMap; nextInstanceId = newNextId }
+    let cachedInstIds = buildCacheSet oldModel.siteMap
+
+    let mutations = planPatchDOM oldModel newModel cachedInstIds
+
+    let creates = mutations |> List.filter (function CreateRow _ -> true | _ -> false)
+    Assert.Equal(2, creates.Length)   // a1 and a2
+
+[<Fact>]
+let ``planPatchDOM collapse removes stale cache entries`` () =
+    let graph, _ = buildNested ()
+    let siteMap, nextId = buildSiteMap graph 0
+    let rootEntry = siteMap.entries.[siteMap.rootId]
+    let aInstId = rootEntry.children.[0]
+
+    // Start with "a" expanded
+    let expandedSiteMap, newNextId = expandEntry aInstId graph siteMap nextId
+    let oldModel = { emptyModel graph with siteMap = expandedSiteMap; nextInstanceId = newNextId }
+    // Collapse "a" for the new model
+    let collapsedSiteMap = toggleFold aInstId expandedSiteMap
+    let newModel = { oldModel with siteMap = collapsedSiteMap }
+    let cachedInstIds = buildCacheSet oldModel.siteMap
+
+    let mutations = planPatchDOM oldModel newModel cachedInstIds
+
+    let removes = mutations |> List.filter (function RemoveRow _ -> true | _ -> false)
+    Assert.Equal(2, removes.Length)   // a1 and a2 evicted
