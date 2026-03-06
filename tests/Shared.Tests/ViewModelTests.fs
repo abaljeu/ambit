@@ -393,3 +393,255 @@ let ``getVisibleRowIds shows children of expanded node`` () =
     Assert.Equal(ids.[2], visible.[1])   // a1
     Assert.Equal(ids.[3], visible.[2])   // a2
     Assert.Equal(ids.[1], visible.[3])   // b
+
+// ---------------------------------------------------------------------------
+// SiteMapOps.buildSiteMap
+// ---------------------------------------------------------------------------
+
+[<Fact>]
+let ``SiteMap buildSiteMap assigns unique instanceIds`` () =
+    let graph, _ = buildNested ()
+    let siteMap, nextId = ViewModel.SiteMapOps.buildSiteMap graph 0
+    let allIds = siteMap.entries |> Map.toList |> List.map fst
+    Assert.Equal(allIds.Length, allIds |> List.distinct |> List.length)
+    // nextId should equal number of entries allocated
+    Assert.Equal(siteMap.entries.Count, nextId)
+
+[<Fact>]
+let ``SiteMap buildSiteMap root is expanded, children collapsed`` () =
+    let graph, _ = buildNested ()
+    let siteMap, _ = ViewModel.SiteMapOps.buildSiteMap graph 0
+    let root = siteMap.entries.[siteMap.rootId]
+    Assert.True(root.expanded)
+    for childInstId in root.children do
+        Assert.False(siteMap.entries.[childInstId].expanded)
+
+[<Fact>]
+let ``SiteMap buildSiteMap preserves graph structure`` () =
+    let graph, ids = buildNested ()
+    let a = ids.[0]
+    let b = ids.[1]
+    let siteMap, _ = ViewModel.SiteMapOps.buildSiteMap graph 0
+    let root = siteMap.entries.[siteMap.rootId]
+    Assert.Equal(2, root.children.Length)
+    Assert.Equal(a, siteMap.entries.[root.children.[0]].nodeId)
+    Assert.Equal(b, siteMap.entries.[root.children.[1]].nodeId)
+    Assert.Equal(2, siteMap.entries.[root.children.[0]].children.Length)  // a has a1, a2
+    Assert.Equal(1, siteMap.entries.[root.children.[1]].children.Length)  // b has b1
+
+[<Fact>]
+let ``SiteMap buildSiteMap cycle guard terminates and emits entry with no children`` () =
+    // Build a cyclic graph: root -> A -> B -> A (back-edge)
+    let graph0 = Graph.create ()
+    let graph1, ids = ModelBuilder.createNodes ["a"; "b"] graph0
+    let a = ids.[0]
+    let b = ids.[1]
+    let graph2 = Graph.replace graph1.root 0 [] [a] graph1 |> ModelBuilder.requireOk "root->a"
+    let graph3 = Graph.replace a 0 [] [b] graph2 |> ModelBuilder.requireOk "a->b"
+    let graph4 = Graph.replace b 0 [] [a] graph3 |> ModelBuilder.requireOk "b->a (cycle)"
+    // Must terminate
+    let siteMap, _ = ViewModel.SiteMapOps.buildSiteMap graph4 0
+    // B's child entry for A (back-edge) should have children = []
+    let rootEntry = siteMap.entries.[siteMap.rootId]
+    let aEntry = siteMap.entries.[rootEntry.children.[0]]
+    let bEntry = siteMap.entries.[aEntry.children.[0]]
+    // bEntry's child is A (back-edge) — should have children = []
+    let aBackEdgeEntry = siteMap.entries.[bEntry.children.[0]]
+    Assert.Equal(a, aBackEdgeEntry.nodeId)
+    Assert.Equal(0, aBackEdgeEntry.children.Length)
+
+// ---------------------------------------------------------------------------
+// SiteMapOps.reconcileSiteMap
+// ---------------------------------------------------------------------------
+
+[<Fact>]
+let ``SiteMap reconcileSiteMap preserves instanceIds for unchanged nodes`` () =
+    let graph, _ = buildNested ()
+    let siteMap, nextId = ViewModel.SiteMapOps.buildSiteMap graph 0
+    let rebuilt, nextId2 = ViewModel.SiteMapOps.reconcileSiteMap graph siteMap nextId
+    // All instanceIds should be the same
+    for KeyValue(instId, entry) in siteMap.entries do
+        Assert.True(rebuilt.entries.ContainsKey instId)
+        Assert.Equal(entry.nodeId, rebuilt.entries.[instId].nodeId)
+    Assert.Equal(nextId, nextId2)  // No new IDs allocated
+
+[<Fact>]
+let ``SiteMap reconcileSiteMap preserves fold state`` () =
+    let graph, _ = buildNested ()
+    let siteMap, nextId = ViewModel.SiteMapOps.buildSiteMap graph 0
+    let rootEntry = siteMap.entries.[siteMap.rootId]
+    let aInstId = rootEntry.children.[0]
+    // Expand "a"
+    let expanded = ViewModel.SiteMapOps.toggleFold aInstId siteMap
+    Assert.True(expanded.entries.[aInstId].expanded)
+    // Reconcile — fold state for "a" should survive
+    let rebuilt, _ = ViewModel.SiteMapOps.reconcileSiteMap graph expanded nextId
+    Assert.True(rebuilt.entries.[aInstId].expanded)
+    Assert.False(rebuilt.entries.[rootEntry.children.[1]].expanded)  // "b" still collapsed
+
+[<Fact>]
+let ``SiteMap reconcileSiteMap assigns new IDs for added nodes`` () =
+    let graph, _ = buildNested ()
+    let siteMap, nextId = ViewModel.SiteMapOps.buildSiteMap graph 0
+    // Add a new child under root
+    let graph2, newNodeId = Graph.newNode "c" graph
+    let rootChildren = graph2.nodes.[graph2.root].children
+    let graph3 = Graph.replace graph2.root rootChildren.Length [] [newNodeId] graph2 |> ModelBuilder.requireOk "add c"
+    let rebuilt, nextId2 = ViewModel.SiteMapOps.reconcileSiteMap graph3 siteMap nextId
+    let rootEntry = rebuilt.entries.[rebuilt.rootId]
+    Assert.Equal(3, rootEntry.children.Length)
+    let newEntry = rebuilt.entries.[rootEntry.children.[2]]
+    Assert.Equal(newNodeId, newEntry.nodeId)
+    Assert.True(newEntry.instanceId >= nextId)
+    Assert.Equal(nextId + 1, nextId2)
+
+[<Fact>]
+let ``SiteMap reconcileSiteMap two occurrences of same NodeId get distinct instanceIds`` () =
+    // Build DAG: root -> [A, B], A -> [C], B -> [C]  (C shared)
+    let graph0 = Graph.create ()
+    let graph1, ids = ModelBuilder.createNodes ["a"; "b"; "c"] graph0
+    let a = ids.[0]
+    let b = ids.[1]
+    let c = ids.[2]
+    let graph2 = Graph.replace graph1.root 0 [] [a; b] graph1 |> ModelBuilder.requireOk "root"
+    let graph3 = Graph.replace a 0 [] [c] graph2 |> ModelBuilder.requireOk "a->c"
+    let graph4 = Graph.replace b 0 [] [c] graph3 |> ModelBuilder.requireOk "b->c"
+    let siteMap, nextId = ViewModel.SiteMapOps.buildSiteMap graph4 0
+    let rebuilt, _ = ViewModel.SiteMapOps.reconcileSiteMap graph4 siteMap nextId
+    // Find the two occurrences of C in the rebuilt map
+    let cEntries = rebuilt.entries |> Map.toList |> List.filter (fun (_, e) -> e.nodeId = c)
+    Assert.Equal(2, cEntries.Length)
+    let cIds = cEntries |> List.map fst
+    Assert.Equal(2, cIds |> List.distinct |> List.length)  // distinct instanceIds
+
+[<Fact>]
+let ``SiteMap reconcileSiteMap two occurrences have independent fold state`` () =
+    let graph0 = Graph.create ()
+    // C has a child D so we can toggle fold on C
+    let graph1, ids = ModelBuilder.createNodes ["a"; "b"; "c"; "d"] graph0
+    let a = ids.[0]
+    let b = ids.[1]
+    let c = ids.[2]
+    let d = ids.[3]
+    let graph2 = Graph.replace graph1.root 0 [] [a; b] graph1 |> ModelBuilder.requireOk "root"
+    let graph3 = Graph.replace a 0 [] [c] graph2 |> ModelBuilder.requireOk "a->c"
+    let graph4 = Graph.replace b 0 [] [c] graph3 |> ModelBuilder.requireOk "b->c"
+    let graph5 = Graph.replace c 0 [] [d] graph4 |> ModelBuilder.requireOk "c->d"
+    let siteMap, _ = ViewModel.SiteMapOps.buildSiteMap graph5 0
+    let occurrenceIndex = ViewModel.SiteMapOps.buildOccurrenceIndex siteMap
+    let cInstIds = occurrenceIndex.[c]
+    Assert.Equal(2, cInstIds.Length)
+    // Toggle fold on only the first occurrence of C
+    let siteMap2 = ViewModel.SiteMapOps.toggleFold cInstIds.[0] siteMap
+    // One C is expanded, the other is not
+    let e0 = siteMap2.entries.[cInstIds.[0]]
+    let e1 = siteMap2.entries.[cInstIds.[1]]
+    Assert.NotEqual(e0.expanded, e1.expanded)
+
+// ---------------------------------------------------------------------------
+// SiteMapOps.toggleFold
+// ---------------------------------------------------------------------------
+
+[<Fact>]
+let ``SiteMap toggleFold flips expanded for matching instanceId`` () =
+    let graph, _ = buildNested ()
+    let siteMap, _ = ViewModel.SiteMapOps.buildSiteMap graph 0
+    let rootEntry = siteMap.entries.[siteMap.rootId]
+    let aInstId = rootEntry.children.[0]
+    Assert.False(siteMap.entries.[aInstId].expanded)
+    let toggled = ViewModel.SiteMapOps.toggleFold aInstId siteMap
+    Assert.True(toggled.entries.[aInstId].expanded)
+    let toggledBack = ViewModel.SiteMapOps.toggleFold aInstId toggled
+    Assert.False(toggledBack.entries.[aInstId].expanded)
+
+[<Fact>]
+let ``SiteMap toggleFold is no-op for unknown instanceId`` () =
+    let graph, _ = buildNested ()
+    let siteMap, nextId = ViewModel.SiteMapOps.buildSiteMap graph 0
+    let result = ViewModel.SiteMapOps.toggleFold nextId siteMap  // nextId not in map
+    Assert.Equal(siteMap.entries.Count, result.entries.Count)
+
+// ---------------------------------------------------------------------------
+// SiteMapOps.expandEntry
+// ---------------------------------------------------------------------------
+
+[<Fact>]
+let ``SiteMap expandEntry sets expanded true`` () =
+    let graph, _ = buildNested ()
+    let siteMap, nextId = ViewModel.SiteMapOps.buildSiteMap graph 0
+    let rootEntry = siteMap.entries.[siteMap.rootId]
+    let aInstId = rootEntry.children.[0]
+    Assert.False(siteMap.entries.[aInstId].expanded)
+    let expanded, _ = ViewModel.SiteMapOps.expandEntry aInstId graph siteMap nextId
+    Assert.True(expanded.entries.[aInstId].expanded)
+
+[<Fact>]
+let ``SiteMap expandEntry on already-expanded entry is a no-op`` () =
+    let graph, _ = buildNested ()
+    let siteMap, nextId = ViewModel.SiteMapOps.buildSiteMap graph 0
+    let rootId = siteMap.rootId
+    // Root is already expanded
+    let result, nextId2 = ViewModel.SiteMapOps.expandEntry rootId graph siteMap nextId
+    Assert.Equal(nextId, nextId2)
+    Assert.Equal(siteMap.entries.Count, result.entries.Count)
+
+[<Fact>]
+let ``SiteMap expandEntry inserts missing child entries`` () =
+    // Start with a partially-built siteMap that does NOT have child entries for aInstId
+    let graph, ids = buildNested ()
+    let a = ids.[0]
+    let siteMap, nextId = ViewModel.SiteMapOps.buildSiteMap graph 0
+    let rootEntry = siteMap.entries.[siteMap.rootId]
+    let aInstId = rootEntry.children.[0]
+    let aEntry = siteMap.entries.[aInstId]
+    // Manually strip child entries from the map to simulate "missing" state
+    let stripped = { siteMap with entries = siteMap.entries |> Map.add aInstId { aEntry with children = [] } }
+    let expanded, _ = ViewModel.SiteMapOps.expandEntry aInstId graph stripped nextId
+    let aExpanded = expanded.entries.[aInstId]
+    Assert.True(aExpanded.expanded)
+    // Children for a (a1, a2) should now be in the map
+    Assert.Equal(2, aExpanded.children.Length)
+    for childInstId in aExpanded.children do
+        Assert.True(expanded.entries.ContainsKey childInstId)
+
+// ---------------------------------------------------------------------------
+// SiteMapOps.buildOccurrenceIndex
+// ---------------------------------------------------------------------------
+
+[<Fact>]
+let ``SiteMap buildOccurrenceIndex maps each nodeId to its instanceIds`` () =
+    let graph, ids = buildNested ()
+    let siteMap, _ = ViewModel.SiteMapOps.buildSiteMap graph 0
+    let index = ViewModel.SiteMapOps.buildOccurrenceIndex siteMap
+    // Every node in the graph should appear in index exactly once (tree, no sharing)
+    for nodeId in graph.nodes |> Map.toSeq |> Seq.map fst do
+        Assert.True(index.ContainsKey nodeId)
+        Assert.Equal(1, index.[nodeId].Length)
+
+// ---------------------------------------------------------------------------
+// SiteMapOps.getVisibleRowIds
+// ---------------------------------------------------------------------------
+
+[<Fact>]
+let ``SiteMap getVisibleRowIds shows only top-level when all collapsed`` () =
+    let graph, ids = buildNested ()
+    let siteMap, _ = ViewModel.SiteMapOps.buildSiteMap graph 0
+    let visible = ViewModel.SiteMapOps.getVisibleRowIds siteMap
+    Assert.Equal(2, visible.Length)
+    Assert.Equal(ids.[0], visible.[0])
+    Assert.Equal(ids.[1], visible.[1])
+
+[<Fact>]
+let ``SiteMap getVisibleRowIds shows children of expanded node`` () =
+    let graph, ids = buildNested ()
+    let siteMap, _ = ViewModel.SiteMapOps.buildSiteMap graph 0
+    let rootEntry = siteMap.entries.[siteMap.rootId]
+    let aInstId = rootEntry.children.[0]
+    let expanded = ViewModel.SiteMapOps.toggleFold aInstId siteMap
+    let visible = ViewModel.SiteMapOps.getVisibleRowIds expanded
+    // a, a1, a2, b
+    Assert.Equal(4, visible.Length)
+    Assert.Equal(ids.[0], visible.[0])
+    Assert.Equal(ids.[2], visible.[1])
+    Assert.Equal(ids.[3], visible.[2])
+    Assert.Equal(ids.[1], visible.[3])

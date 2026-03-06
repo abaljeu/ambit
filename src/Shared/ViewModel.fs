@@ -28,6 +28,21 @@ type Selection =
     { range: SiteNodeRange
       focus: int }
 
+/// A rendered appearance of a node in a flat site map. Each appearance gets a unique
+/// instanceId so that fold state is per-occurrence, not per-NodeId.
+/// In a DAG the same NodeId may appear multiple times with independent fold states.
+type SiteEntry =
+    { instanceId: int
+      nodeId: NodeId
+      parentInstanceId: int option   // None = root
+      expanded: bool
+      children: int list }           // instanceId list, ordered to match graph.children
+
+/// Flat map keyed by instanceId. O(log S) per-entry access for all operations.
+type SiteMap =
+    { rootId: int
+      entries: Map<int, SiteEntry> }
+
 /// Self-contained snapshot of copied/cut nodes for internal clipboard.
 /// Independent of graph.nodes — survives graph mutations and snapshot reload.
 type ClipboardContent =

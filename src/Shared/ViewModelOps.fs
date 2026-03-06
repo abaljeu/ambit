@@ -183,3 +183,157 @@ module ViewModel =
             { model with selectedNodes = Some { sel with focus = sel.range.endd - 1 } }
         | _ ->
             moveSelectionBy 1 model
+
+    // ---------------------------------------------------------------------------
+    // SiteMap — flat O(log S) render-map (replaces SiteNode tree in 3c-ii)
+    // ---------------------------------------------------------------------------
+
+    module SiteMapOps =
+
+        /// Build a full SiteMap from a graph. All nodes start collapsed except the root.
+        /// Tracks ancestors per path to detect cycles; a back-edge produces an entry with
+        /// children = [] (the node appears but its subtree is not re-entered on that path).
+        /// Returns the SiteMap and the next available instanceId.
+        let buildSiteMap (graph: Graph) (startId: int) : SiteMap * int =
+            let mutable counter = startId
+            let mutable acc = Map.empty<int, SiteEntry>
+            let freshId () =
+                let id = counter
+                counter <- counter + 1
+                id
+            let rec walk (nodeId: NodeId) (parentInstId: int option) (isRoot: bool) (ancestors: Set<NodeId>) : int =
+                let isCycle = ancestors.Contains nodeId
+                let instId = freshId ()
+                let childInstIds =
+                    if isCycle then []
+                    else
+                        let node = graph.nodes.[nodeId]
+                        let ancestors' = ancestors.Add nodeId
+                        node.children |> List.map (fun cid -> walk cid (Some instId) false ancestors')
+                let entry : SiteEntry =
+                    { instanceId = instId
+                      nodeId = nodeId
+                      parentInstanceId = parentInstId
+                      expanded = isRoot && not isCycle
+                      children = childInstIds }
+                acc <- Map.add instId entry acc
+                instId
+            let rootInstId = walk graph.root None true Set.empty
+            { rootId = rootInstId; entries = acc }, counter
+
+        /// Reconcile a SiteMap after a graph change. Recovers instanceIds and fold states
+        /// by matching children positionally (position i in old parent's children list).
+        /// A position match requires the nodeId to agree; mismatches get a fresh instanceId.
+        /// New nodes default to collapsed. Per-path ancestor guard detects cycles.
+        /// Returns the updated SiteMap and next available instanceId.
+        let reconcileSiteMap (graph: Graph) (oldMap: SiteMap) (startId: int) : SiteMap * int =
+            let mutable counter = startId
+            let mutable acc = Map.empty<int, SiteEntry>
+            let freshId () =
+                let id = counter
+                counter <- counter + 1
+                id
+            let rec walk (nodeId: NodeId) (parentInstId: int option) (isRoot: bool) (ancestors: Set<NodeId>) (oldInstIdOpt: int option) : int =
+                let isCycle = ancestors.Contains nodeId
+                // Recover old entry only if it exists and its nodeId matches
+                let oldEntryOpt =
+                    oldInstIdOpt
+                    |> Option.bind (fun id -> Map.tryFind id oldMap.entries)
+                    |> Option.bind (fun e -> if e.nodeId = nodeId then Some e else None)
+                let (instId, expanded) =
+                    match oldEntryOpt with
+                    | Some old -> (old.instanceId, old.expanded)
+                    | None -> (freshId (), false)
+                let childInstIds =
+                    if isCycle then []
+                    else
+                        let node = graph.nodes.[nodeId]
+                        let ancestors' = ancestors.Add nodeId
+                        let oldChildren =
+                            match oldEntryOpt with
+                            | Some old -> old.children
+                            | None -> []
+                        node.children |> List.mapi (fun i cid ->
+                            // Position-based match: old child at position i must have matching nodeId
+                            let oldChildInstIdOpt =
+                                List.tryItem i oldChildren
+                                |> Option.bind (fun oid ->
+                                    Map.tryFind oid oldMap.entries
+                                    |> Option.bind (fun e -> if e.nodeId = cid then Some oid else None))
+                            walk cid (Some instId) false ancestors' oldChildInstIdOpt)
+                let entry : SiteEntry =
+                    { instanceId = instId
+                      nodeId = nodeId
+                      parentInstanceId = parentInstId
+                      expanded = if isRoot then true else expanded
+                      children = childInstIds }
+                acc <- Map.add instId entry acc
+                instId
+            let rootInstId = walk graph.root None true Set.empty (Some oldMap.rootId)
+            { rootId = rootInstId; entries = acc }, counter
+
+        /// Toggle the expanded flag of the entry with the given instanceId. O(log S).
+        let toggleFold (instanceId: int) (siteMap: SiteMap) : SiteMap =
+            match Map.tryFind instanceId siteMap.entries with
+            | None -> siteMap
+            | Some entry ->
+                { siteMap with entries = Map.add instanceId { entry with expanded = not entry.expanded } siteMap.entries }
+
+        /// Expand a collapsed entry, inserting any missing immediate child SiteEntries.
+        /// Does not recurse into grandchildren — children of the new entries start collapsed
+        /// with children = [] and are populated on their own expansion.
+        /// Returns the updated SiteMap and next available instanceId.
+        let expandEntry (instanceId: int) (graph: Graph) (siteMap: SiteMap) (startId: int) : SiteMap * int =
+            match Map.tryFind instanceId siteMap.entries with
+            | None -> siteMap, startId
+            | Some entry ->
+                if entry.expanded then siteMap, startId
+                else
+                    let mutable counter = startId
+                    let mutable acc = siteMap.entries
+                    let freshId () =
+                        let id = counter
+                        counter <- counter + 1
+                        id
+                    let node = graph.nodes.[entry.nodeId]
+                    let childInstIds =
+                        node.children |> List.mapi (fun i cid ->
+                            // Reuse existing child entry at this position if nodeId matches
+                            match List.tryItem i entry.children |> Option.bind (fun oid -> Map.tryFind oid acc) with
+                            | Some existing when existing.nodeId = cid -> existing.instanceId
+                            | _ ->
+                                let newId = freshId ()
+                                let childEntry : SiteEntry =
+                                    { instanceId = newId
+                                      nodeId = cid
+                                      parentInstanceId = Some instanceId
+                                      expanded = false
+                                      children = [] }
+                                acc <- Map.add newId childEntry acc
+                                newId)
+                    let updated = { entry with expanded = true; children = childInstIds }
+                    acc <- Map.add instanceId updated acc
+                    { siteMap with entries = acc }, counter
+
+        /// Build an index from NodeId to all instanceIds (all occurrences). O(S log S).
+        let buildOccurrenceIndex (siteMap: SiteMap) : Map<NodeId, int list> =
+            siteMap.entries
+            |> Map.fold (fun acc _ entry ->
+                let existing = acc |> Map.tryFind entry.nodeId |> Option.defaultValue []
+                Map.add entry.nodeId (entry.instanceId :: existing) acc)
+                Map.empty
+
+        /// Preorder walk of visible entries, returning NodeIds in display order (excluding root).
+        /// Respects fold state: unexpanded entries do not contribute their children.
+        let getVisibleRowIds (siteMap: SiteMap) : NodeId list =
+            let entries = siteMap.entries
+            let rec gather (instId: int) : NodeId list =
+                match Map.tryFind instId entries with
+                | None -> []
+                | Some entry ->
+                    entry.nodeId ::
+                        (if entry.expanded then entry.children |> List.collect gather
+                         else [])
+            match Map.tryFind siteMap.rootId entries with
+            | None -> []
+            | Some root -> root.children |> List.collect gather
