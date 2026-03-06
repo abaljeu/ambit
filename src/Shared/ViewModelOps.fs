@@ -13,6 +13,11 @@ module ViewModel =
           expanded = true
           children = [] }
 
+    // Returns (next, current) for sequencing integer IDs.
+    let private makeCounter (start: int) =
+        let mutable n = start
+        (fun () -> let id = n in n <- n + 1; id), (fun () -> n)
+
     /// Reconcile the site tree after a graph change.  Preserves existing
     /// instanceIds and fold states for nodes that still exist; assigns new IDs
     /// (starting from nextId) for newly-added nodes.  New nodes default to
@@ -24,11 +29,7 @@ module ViewModel =
                 let acc' = Map.add node.nodeId node acc
                 node.children |> List.fold (fun a child -> collect child a) acc'
             collect oldRoot Map.empty
-        let mutable counter = nextId
-        let freshId () =
-            let id = counter
-            counter <- counter + 1
-            id
+        let freshId, endCount = makeCounter nextId
         let rec build (nodeId: NodeId) (isRoot: bool) : SiteNode =
             let node = graph.nodes.[nodeId]
             let (instId, expanded) =
@@ -40,7 +41,7 @@ module ViewModel =
               expanded = if isRoot then true else expanded
               children = node.children |> List.map (fun cid -> build cid false) }
         let root = build graph.root true
-        root, counter
+        root, endCount ()
 
     /// Build a full SiteNode tree from a graph.  All nodes start collapsed
     /// except the root (which is always expanded).  Returns the root SiteNode
@@ -164,25 +165,23 @@ module ViewModel =
                     | None -> model
                     | Some newSel -> { model with selectedNodes = Some newSel; mode = Selecting }
 
+    let private applyMoveSelection (delta: int) (model: Model) : Model =
+        match model.selectedNodes with
+        | Some sel ->
+            let focusEnd = if delta < 0 then sel.range.start else sel.range.endd - 1
+            if sel.focus <> focusEnd then { model with selectedNodes = Some { sel with focus = focusEnd } }
+            else moveSelectionBy delta model
+        | None -> model
+
     /// Pure portion of MoveSelectionUp: handles the non-editing cases.
     /// When focus is not at the range start, moves focus to start (keep range).
     /// Otherwise, moves the whole selection up by one visible row.
-    let applyMoveSelectionUp (model: Model) : Model =
-        match model.selectedNodes with
-        | Some sel when sel.focus > sel.range.start ->
-            { model with selectedNodes = Some { sel with focus = sel.range.start } }
-        | _ ->
-            moveSelectionBy -1 model
+    let applyMoveSelectionUp = applyMoveSelection -1
 
     /// Pure portion of MoveSelectionDown: handles the non-editing cases.
     /// When focus is not at the range end, moves focus to end (keep range).
     /// Otherwise, moves the whole selection down by one visible row.
-    let applyMoveSelectionDown (model: Model) : Model =
-        match model.selectedNodes with
-        | Some sel when sel.focus < sel.range.endd - 1 ->
-            { model with selectedNodes = Some { sel with focus = sel.range.endd - 1 } }
-        | _ ->
-            moveSelectionBy 1 model
+    let applyMoveSelectionDown = applyMoveSelection 1
 
     // ---------------------------------------------------------------------------
     // SiteMap — flat O(log S) render-map (replaces SiteNode tree in 3c-ii)
@@ -195,12 +194,8 @@ module ViewModel =
         /// children = [] (the node appears but its subtree is not re-entered on that path).
         /// Returns the SiteMap and the next available instanceId.
         let buildSiteMap (graph: Graph) (startId: int) : SiteMap * int =
-            let mutable counter = startId
+            let freshId, endCount = makeCounter startId
             let mutable acc = Map.empty<int, SiteEntry>
-            let freshId () =
-                let id = counter
-                counter <- counter + 1
-                id
             let rec walk (nodeId: NodeId) (parentInstId: int option) (isRoot: bool) (ancestors: Set<NodeId>) : int =
                 let isCycle = ancestors.Contains nodeId
                 let instId = freshId ()
@@ -219,7 +214,7 @@ module ViewModel =
                 acc <- Map.add instId entry acc
                 instId
             let rootInstId = walk graph.root None true Set.empty
-            { rootId = rootInstId; entries = acc }, counter
+            { rootId = rootInstId; entries = acc }, endCount ()
 
         /// Reconcile a SiteMap after a graph change. Recovers instanceIds and fold states
         /// by matching children positionally (position i in old parent's children list).
@@ -227,12 +222,8 @@ module ViewModel =
         /// New nodes default to collapsed. Per-path ancestor guard detects cycles.
         /// Returns the updated SiteMap and next available instanceId.
         let reconcileSiteMap (graph: Graph) (oldMap: SiteMap) (startId: int) : SiteMap * int =
-            let mutable counter = startId
+            let freshId, endCount = makeCounter startId
             let mutable acc = Map.empty<int, SiteEntry>
-            let freshId () =
-                let id = counter
-                counter <- counter + 1
-                id
             let rec walk (nodeId: NodeId) (parentInstId: int option) (isRoot: bool) (ancestors: Set<NodeId>) (oldInstIdOpt: int option) : int =
                 let isCycle = ancestors.Contains nodeId
                 // Recover old entry only if it exists and its nodeId matches
@@ -249,10 +240,7 @@ module ViewModel =
                     else
                         let node = graph.nodes.[nodeId]
                         let ancestors' = ancestors.Add nodeId
-                        let oldChildren =
-                            match oldEntryOpt with
-                            | Some old -> old.children
-                            | None -> []
+                        let oldChildren = oldEntryOpt |> Option.map (fun o -> o.children) |> Option.defaultValue []
                         node.children |> List.mapi (fun i cid ->
                             // Position-based match: old child at position i must have matching nodeId
                             let oldChildInstIdOpt =
@@ -270,7 +258,7 @@ module ViewModel =
                 acc <- Map.add instId entry acc
                 instId
             let rootInstId = walk graph.root None true Set.empty (Some oldMap.rootId)
-            { rootId = rootInstId; entries = acc }, counter
+            { rootId = rootInstId; entries = acc }, endCount ()
 
         /// Toggle the expanded flag of the entry with the given instanceId. O(log S).
         let toggleFold (instanceId: int) (siteMap: SiteMap) : SiteMap =
@@ -289,12 +277,8 @@ module ViewModel =
             | Some entry ->
                 if entry.expanded then siteMap, startId
                 else
-                    let mutable counter = startId
+                    let freshId, endCount = makeCounter startId
                     let mutable acc = siteMap.entries
-                    let freshId () =
-                        let id = counter
-                        counter <- counter + 1
-                        id
                     let node = graph.nodes.[entry.nodeId]
                     let childInstIds =
                         node.children |> List.mapi (fun i cid ->
@@ -313,7 +297,7 @@ module ViewModel =
                                 newId)
                     let updated = { entry with expanded = true; children = childInstIds }
                     acc <- Map.add instanceId updated acc
-                    { siteMap with entries = acc }, counter
+                    { siteMap with entries = acc }, endCount ()
 
         /// Build an index from NodeId to all instanceIds (all occurrences). O(S log S).
         let buildOccurrenceIndex (siteMap: SiteMap) : Map<NodeId, int list> =
