@@ -50,26 +50,21 @@ let buildPasteOps (entries: (string * int) list) : NodeId list * Op list =
 // Copy / Cut clipboard support
 // ---------------------------------------------------------------------------
 
-/// Build a NodeId → SiteNode lookup (first occurrence per nodeId, preorder).
-let private buildSiteLookup (siteRoot: SiteNode) : Map<NodeId, SiteNode> =
-    let rec collect (acc: Map<NodeId, SiteNode>) (sn: SiteNode) =
-        let acc = if acc.ContainsKey sn.nodeId then acc else acc |> Map.add sn.nodeId sn
-        sn.children |> List.fold collect acc
-    collect Map.empty siteRoot
-
 /// Serialize selected nodes and their visible (unfolded) children as tab-indented
 /// text, identical to the snapshot format.  Called synchronously in the copy/cut
 /// event handler so the result can be written to e.clipboardData before returning.
-let serializeSubtree (graph: Graph) (siteRoot: SiteNode) (topLevelIds: NodeId list) : string =
-    let lookup = buildSiteLookup siteRoot
+let serializeSubtree (graph: Graph) (siteMap: SiteMap) (topLevelIds: NodeId list) : string =
+    let occIdx = ViewModel.buildOccurrenceIndex siteMap
     let sb = Text.StringBuilder()
     let nl = Environment.NewLine
     let rec walk (depth: int) (nodeId: NodeId) =
         let node = graph.nodes.[nodeId]
         sb.Append(String.replicate depth "\t").Append(node.text).Append(nl) |> ignore
-        match lookup |> Map.tryFind nodeId with
-        | Some sn when sn.expanded ->
-            sn.children |> List.iter (fun child -> walk (depth + 1) child.nodeId)
+        match Map.tryFind nodeId occIdx |> Option.bind List.tryHead
+              |> Option.bind (fun instId -> Map.tryFind instId siteMap.entries) with
+        | Some entry when entry.expanded ->
+            entry.children |> List.iter (fun childInstId ->
+                walk (depth + 1) siteMap.entries.[childInstId].nodeId)
         | _ -> ()
     topLevelIds |> List.iter (walk 0)
     sb.ToString()
@@ -77,20 +72,25 @@ let serializeSubtree (graph: Graph) (siteRoot: SiteNode) (topLevelIds: NodeId li
 /// Collect selected nodes and their visible children into a self-contained
 /// ClipboardContent.  Each node's children list is trimmed to only the visible
 /// (unfolded) children.  Called in update; stored in model.clipboard for Phase 3.
-let collectSubtree (graph: Graph) (siteRoot: SiteNode) (topLevelIds: NodeId list) : ClipboardContent =
-    let lookup = buildSiteLookup siteRoot
-    let rec walk (acc: Map<NodeId, Node>) (nodeId: NodeId) (visibleChildren: SiteNode list) =
+let collectSubtree (graph: Graph) (siteMap: SiteMap) (topLevelIds: NodeId list) : ClipboardContent =
+    let occIdx = ViewModel.buildOccurrenceIndex siteMap
+    let findEntry nodeId =
+        Map.tryFind nodeId occIdx
+        |> Option.bind List.tryHead
+        |> Option.bind (fun instId -> Map.tryFind instId siteMap.entries)
+    let rec walk (acc: Map<NodeId, Node>) (nodeId: NodeId) (visibleChildInstIds: int list) =
         let node = graph.nodes.[nodeId]
-        let visibleChildIds = visibleChildren |> List.map (fun sn -> sn.nodeId)
+        let visibleChildIds = visibleChildInstIds |> List.map (fun instId -> siteMap.entries.[instId].nodeId)
         let acc = acc |> Map.add nodeId { node with children = visibleChildIds }
-        visibleChildren |> List.fold (fun acc childSn ->
-            let grandchildren = if childSn.expanded then childSn.children else []
-            walk acc childSn.nodeId grandchildren) acc
+        visibleChildInstIds |> List.fold (fun acc childInstId ->
+            let childEntry = siteMap.entries.[childInstId]
+            let grandchildren = if childEntry.expanded then childEntry.children else []
+            walk acc childEntry.nodeId grandchildren) acc
     let nodes =
         topLevelIds |> List.fold (fun acc topId ->
-            match lookup |> Map.tryFind topId with
-            | Some topSn ->
-                let children = if topSn.expanded then topSn.children else []
+            match findEntry topId with
+            | Some topEntry ->
+                let children = if topEntry.expanded then topEntry.children else []
                 walk acc topId children
             | None ->
                 acc |> Map.add topId { graph.nodes.[topId] with children = [] }

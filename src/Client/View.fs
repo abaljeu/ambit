@@ -15,8 +15,9 @@ open Gambol.Client.Controller
 let rec render (model: Model) (dispatch: Msg -> unit) : unit =
     app.innerHTML <- ""
 
-    for childSite in model.siteRoot.children do
-        renderNode model dispatch 0 childSite false false
+    let rootEntry = model.siteMap.entries.[model.siteMap.rootId]
+    for childInstId in rootEntry.children do
+        renderNode model dispatch 0 model.siteMap.entries.[childInstId] false false
 
     // Hidden input — captures keystrokes in selection mode
     let hiddenInput = document.createElement "input"
@@ -73,10 +74,10 @@ let rec render (model: Model) (dispatch: Msg -> unit) : unit =
     | Selecting ->
         hiddenInput.focus()
 
-and renderNode (model: Model) (dispatch: Msg -> unit) (depth: int) (siteNode: SiteNode) (inSelectedSubtree: bool) (inFocusedSubtree: bool) : unit =
-    let nodeId = siteNode.nodeId
+and renderNode (model: Model) (dispatch: Msg -> unit) (depth: int) (siteEntry: SiteEntry) (inSelectedSubtree: bool) (inFocusedSubtree: bool) : unit =
+    let nodeId = siteEntry.nodeId
     let node = model.graph.nodes.[nodeId]
-    let hasChildren = not siteNode.children.IsEmpty
+    let hasChildren = not siteEntry.children.IsEmpty
     let row = document.createElement "div"
     row.classList.add "row"
 
@@ -118,11 +119,11 @@ and renderNode (model: Model) (dispatch: Msg -> unit) (depth: int) (siteNode: Si
     if hasChildren then
         let toggle = document.createElement "span"
         toggle.classList.add "fold-toggle"
-        toggle.textContent <- if siteNode.expanded then "\u25BC" else "\u25B6"
+        toggle.textContent <- if siteEntry.expanded then "\u25BC" else "\u25B6"
         toggle.addEventListener("mousedown", fun (ev: Event) ->
             ev.preventDefault()
             ev.stopPropagation()
-            dispatch (ToggleFold siteNode.instanceId)
+            dispatch (ToggleFold siteEntry.instanceId)
         )
         row.appendChild toggle |> ignore
 
@@ -168,6 +169,6 @@ and renderNode (model: Model) (dispatch: Msg -> unit) (depth: int) (siteNode: Si
     app.appendChild row |> ignore
 
     // Recurse into children only when expanded
-    if siteNode.expanded then
-        for childSite in siteNode.children do
-            renderNode model dispatch (depth + 1) childSite (isDirectlySelected || inSelectedSubtree) (isFocusNode || inFocusedSubtree)
+    if siteEntry.expanded then
+        for childInstId in siteEntry.children do
+            renderNode model dispatch (depth + 1) model.siteMap.entries.[childInstId] (isDirectlySelected || inSelectedSubtree) (isFocusNode || inFocusedSubtree)

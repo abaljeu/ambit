@@ -5,29 +5,6 @@ type Mode =
     | Editing of originalText: string * cursorPos: int option
     // cursorPos: None = place cursor at end; Some n = place cursor at position n
 
-/// A rendered appearance of a node in the outline. Each appearance gets a unique
-/// instanceId so that fold state is per-occurrence, not per-NodeId.
-/// In a DAG the same NodeId may have multiple SiteNode instances.
-type SiteNode =
-    { instanceId: int
-      nodeId: NodeId
-      expanded: bool
-      children: SiteNode list }
-
-/// A contiguous span of children under a specific site-tree occurrence of a parent node.
-/// parent is a SiteNode (not just a NodeId) so the selection is unambiguous in a DAG
-/// where the same NodeId may appear at multiple positions.
-type SiteNodeRange =
-    { parent: SiteNode
-      start: int
-      endd: int }
-
-/// A SiteNodeRange with a focus index marking the "active" end used for Shift-Arrow and editing.
-/// focus is always range.start or range.endd - 1.
-type Selection =
-    { range: SiteNodeRange
-      focus: int }
-
 /// A rendered appearance of a node in a flat site map. Each appearance gets a unique
 /// instanceId so that fold state is per-occurrence, not per-NodeId.
 /// In a DAG the same NodeId may appear multiple times with independent fold states.
@@ -43,6 +20,20 @@ type SiteMap =
     { rootId: int
       entries: Map<int, SiteEntry> }
 
+/// A contiguous span of children under a specific site-map occurrence of a parent node.
+/// parent is a SiteEntry (not just a NodeId) so the selection is unambiguous in a DAG
+/// where the same NodeId may appear at multiple positions.
+type SiteNodeRange =
+    { parent: SiteEntry
+      start: int
+      endd: int }
+
+/// A SiteNodeRange with a focus index marking the "active" end used for Shift-Arrow and editing.
+/// focus is always range.start or range.endd - 1.
+type Selection =
+    { range: SiteNodeRange
+      focus: int }
+
 /// Self-contained snapshot of copied/cut nodes for internal clipboard.
 /// Independent of graph.nodes — survives graph mutations and snapshot reload.
 type ClipboardContent =
@@ -55,7 +46,7 @@ type Model = // the client state
       revision: Revision
       selectedNodes: Selection option
       mode: Mode
-      siteRoot: SiteNode
+      siteMap: SiteMap
       nextInstanceId: int
       clipboard: ClipboardContent option
       linkPasteEnabled: bool }

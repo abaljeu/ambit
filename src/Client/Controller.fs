@@ -42,7 +42,7 @@ let private onCopyOrCut (model: Model) (ev: Event) (dispatch: Msg -> unit) (msg:
             parentNode.children
             |> List.skip sel.range.start
             |> List.take (sel.range.endd - sel.range.start)
-        let serialized = serializeSubtree model.graph model.siteRoot selectedIds
+        let serialized = serializeSubtree model.graph model.siteMap selectedIds
         setClipboardData ev "text/plain" serialized
         dispatch msg
 

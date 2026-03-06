@@ -129,7 +129,7 @@ let splitNode (currentText: string) (cursorPos: int) (model: Model) (dispatch: M
         | Some graph ->
             { model with
                 graph = graph
-                selectedNodes = singleSelection graph model.siteRoot focusId
+                selectedNodes = singleSelection graph model.siteMap focusId
                 mode = Editing (focusText, Some 0) }
         | None -> model
     | _ -> model
@@ -208,16 +208,16 @@ let pasteNodes (pastedText: string) (model: Model) (dispatch: Msg -> unit) : Mod
 /// No-op if the selection starts at index 0 (no previous sibling).
 /// Move the selected nodes from their current parent to a new parent at insertIdx.
 /// Common core of indent and outdent.
-let reparentSelection (newParentSiteNode: SiteNode) (insertIdx: int) (sel: Selection) (model: Model) (dispatch: Msg -> unit) : Model =
+let reparentSelection (newParentEntry: SiteEntry) (insertIdx: int) (sel: Selection) (model: Model) (dispatch: Msg -> unit) : Model =
     let range = sel.range
     let selectedIds = rangeChildren model.graph range
     let ops =
         [ Op.Replace(range.parent.nodeId, range.start, selectedIds, [])
-          Op.Replace(newParentSiteNode.nodeId, insertIdx, [], selectedIds) ]
+          Op.Replace(newParentEntry.nodeId, insertIdx, [], selectedIds) ]
     let change = { id = model.revision.Value; ops = ops }
     match applyAndPost change model dispatch with
     | Some graph ->
-        let newSel = { range = { parent = newParentSiteNode; start = insertIdx; endd = insertIdx + selectedIds.Length }; focus = insertIdx }
+        let newSel = { range = { parent = newParentEntry; start = insertIdx; endd = insertIdx + selectedIds.Length }; focus = insertIdx }
         { model with graph = graph; selectedNodes = Some newSel }
     | None -> model
 
@@ -228,12 +228,13 @@ let indentSelection (model: Model) (dispatch: Msg -> unit) : Model =
     | Some sel ->
         let prevSibId = model.graph.nodes.[sel.range.parent.nodeId].children.[sel.range.start - 1]
         let insertIdx = model.graph.nodes.[prevSibId].children.Length
-        match findSiteNodeByNodeId prevSibId model.siteRoot with
+        match model.siteMap.entries |> Map.tryPick (fun _ e -> if e.nodeId = prevSibId then Some e else None) with
         | None -> model
-        | Some prevSibSiteNode ->
-        let result = reparentSelection prevSibSiteNode insertIdx sel model dispatch
-        // Expand the new parent so the indented items are visible
-        { result with siteRoot = ViewModel.expandNodeId prevSibId result.siteRoot }
+        | Some prevSibEntry ->
+        let result = reparentSelection prevSibEntry insertIdx sel model dispatch
+        // Ensure the new parent is expanded so the indented items are visible after reconcile
+        if prevSibEntry.expanded then result
+        else { result with siteMap = ViewModel.toggleFold prevSibEntry.instanceId result.siteMap }
 
 let outdentSelection (model: Model) (dispatch: Msg -> unit) : Model =
     match model.selectedNodes with
@@ -242,10 +243,10 @@ let outdentSelection (model: Model) (dispatch: Msg -> unit) : Model =
         match Graph.tryFindParentAndIndex sel.range.parent.nodeId model.graph with
         | None -> model  // parent is root — no-op
         | Some (grandparentId, parentIdx) ->
-            match findSiteNodeByNodeId grandparentId model.siteRoot with
+            match model.siteMap.entries |> Map.tryPick (fun _ e -> if e.nodeId = grandparentId then Some e else None) with
             | None -> model
-            | Some grandparentSiteNode ->
-            reparentSelection grandparentSiteNode (parentIdx + 1) sel model dispatch
+            | Some grandparentEntry ->
+            reparentSelection grandparentEntry (parentIdx + 1) sel model dispatch
 
 /// If currently editing, commit the edit and return Selecting model; otherwise return model as-is.
 let commitIfEditing (model: Model) (dispatch: Msg -> unit) : Model =
@@ -262,7 +263,7 @@ let cutSelection (model: Model) (dispatch: Msg -> unit) : Model =
     | None -> model
     | Some sel ->
         let selectedIds = rangeChildren model.graph sel.range
-        let cb = collectSubtree model.graph model.siteRoot selectedIds
+        let cb = collectSubtree model.graph model.siteMap selectedIds
         let removeOp = Op.Replace(sel.range.parent.nodeId, sel.range.start, selectedIds, [])
         let change = { id = model.revision.Value; ops = [removeOp] }
         match applyAndPost change model dispatch with
@@ -276,7 +277,7 @@ let cutSelection (model: Model) (dispatch: Msg -> unit) : Model =
                     let i = sel.range.start - 1
                     Some { range = { parent = sel.range.parent; start = i; endd = i + 1 }; focus = i }
                 else
-                    singleSelection graph model.siteRoot sel.range.parent.nodeId
+                    singleSelection graph model.siteMap sel.range.parent.nodeId
             { model with graph = graph; clipboard = Some cb; selectedNodes = newSel }
         | None -> model
 
@@ -310,22 +311,22 @@ let moveNode (delta: int) (model: Model) (dispatch: Msg -> unit) : Model =
 // Update
 // ---------------------------------------------------------------------------
 
-/// Rebuild the site tree after a graph mutation, preserving fold states.
-let withSiteTree (model: Model) : Model =
-    let siteRoot, nextId = ViewModel.rebuildSiteTree model.graph model.siteRoot model.nextInstanceId
-    { model with siteRoot = siteRoot; nextInstanceId = nextId }
+/// Rebuild the site map after a graph mutation, preserving fold states.
+let withSiteMap (model: Model) : Model =
+    let siteMap, nextId = ViewModel.reconcileSiteMap model.graph model.siteMap model.nextInstanceId
+    { model with siteMap = siteMap; nextInstanceId = nextId }
 
 /// Update function. The dispatch parameter is needed for async effects
 /// (server POST callbacks).
 let update (msg: Msg) (model: Model) (dispatch: Msg -> unit) : Model =
     match msg with
     | StateLoaded (graph, revision) ->
-        let siteRoot, nextId = ViewModel.buildSiteTree graph
+        let siteMap, nextId = ViewModel.buildSiteMap graph 0
         { graph = graph
           revision = revision
           selectedNodes = None
           mode = Selecting
-          siteRoot = siteRoot
+          siteMap = siteMap
           nextInstanceId = nextId
           clipboard = None
           linkPasteEnabled = false }
@@ -338,24 +339,24 @@ let update (msg: Msg) (model: Model) (dispatch: Msg -> unit) : Model =
                 let editingId = focusedNodeId model.graph sel
                 let newText = readEditInputValue ()
                 let model' = commitTextEdit editingId originalText newText model dispatch
-                { model' with selectedNodes = singleSelection model'.graph model'.siteRoot nodeId }
+                { model' with selectedNodes = singleSelection model'.graph model'.siteMap nodeId }
             | _ ->
-                { model with selectedNodes = singleSelection model.graph model.siteRoot nodeId; mode = Selecting }
-        if not (System.Object.ReferenceEquals(result.graph, model.graph)) then withSiteTree result else result
+                { model with selectedNodes = singleSelection model.graph model.siteMap nodeId; mode = Selecting }
+        if not (System.Object.ReferenceEquals(result.graph, model.graph)) then withSiteMap result else result
 
     | MoveSelectionUp ->
         let result =
             match model.mode with
             | Editing _ -> moveSelectionBy -1 (commitIfEditing model dispatch)
             | Selecting -> applyMoveSelectionUp model
-        if not (System.Object.ReferenceEquals(result.graph, model.graph)) then withSiteTree result else result
+        if not (System.Object.ReferenceEquals(result.graph, model.graph)) then withSiteMap result else result
 
     | MoveSelectionDown ->
         let result =
             match model.mode with
             | Editing _ -> moveSelectionBy 1 (commitIfEditing model dispatch)
             | Selecting -> applyMoveSelectionDown model
-        if not (System.Object.ReferenceEquals(result.graph, model.graph)) then withSiteTree result else result
+        if not (System.Object.ReferenceEquals(result.graph, model.graph)) then withSiteMap result else result
 
     | StartEdit _prefill ->
         match model.selectedNodes with
@@ -369,12 +370,12 @@ let update (msg: Msg) (model: Model) (dispatch: Msg -> unit) : Model =
     | ShiftArrowDown -> shiftArrow  1 model
 
     | SplitNode (currentText, cursorPos) ->
-        splitNode currentText cursorPos model dispatch |> withSiteTree
+        splitNode currentText cursorPos model dispatch |> withSiteMap
 
-    | IndentSelection  -> indentSelection  (commitIfEditing model dispatch) dispatch |> withSiteTree
-    | OutdentSelection -> outdentSelection (commitIfEditing model dispatch) dispatch |> withSiteTree
-    | MoveNodeUp       -> moveNode -1      (commitIfEditing model dispatch) dispatch |> withSiteTree
-    | MoveNodeDown     -> moveNode  1      (commitIfEditing model dispatch) dispatch |> withSiteTree
+    | IndentSelection  -> indentSelection  (commitIfEditing model dispatch) dispatch |> withSiteMap
+    | OutdentSelection -> outdentSelection (commitIfEditing model dispatch) dispatch |> withSiteMap
+    | MoveNodeUp       -> moveNode -1      (commitIfEditing model dispatch) dispatch |> withSiteMap
+    | MoveNodeDown     -> moveNode  1      (commitIfEditing model dispatch) dispatch |> withSiteMap
 
     | CancelEdit ->
         match model.mode with
@@ -389,20 +390,27 @@ let update (msg: Msg) (model: Model) (dispatch: Msg -> unit) : Model =
         { model with revision = revision }
 
     | PasteNodes pastedText ->
-        pasteNodes pastedText model dispatch |> withSiteTree
+        pasteNodes pastedText model dispatch |> withSiteMap
 
     | CopySelection ->
         match model.selectedNodes with
         | None -> model
         | Some sel ->
             let selectedIds = rangeChildren model.graph sel.range
-            { model with clipboard = Some (collectSubtree model.graph model.siteRoot selectedIds) }
+            { model with clipboard = Some (collectSubtree model.graph model.siteMap selectedIds) }
 
     | CutSelection ->
-        cutSelection model dispatch |> withSiteTree
+        cutSelection model dispatch |> withSiteMap
 
     | ToggleFold instanceId ->
-        { model with siteRoot = ViewModel.toggleFold instanceId model.siteRoot }
+        match Map.tryFind instanceId model.siteMap.entries with
+        | None -> model
+        | Some entry ->
+            if entry.expanded then
+                { model with siteMap = ViewModel.toggleFold instanceId model.siteMap }
+            else
+                let siteMap, nextId = ViewModel.expandEntry instanceId model.graph model.siteMap model.nextInstanceId
+                { model with siteMap = siteMap; nextInstanceId = nextId }
 
     | ToggleLinkPaste ->
         { model with linkPasteEnabled = not model.linkPasteEnabled }
