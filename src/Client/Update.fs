@@ -71,9 +71,9 @@ let applyAndPost (change: Change) (model: Model) (dispatch: Msg -> unit) : Graph
         Some newState.graph
     | _ -> None
 
-/// Extract the list of node IDs covered by a NodeRange.
-let rangeChildren (graph: Graph) (range: NodeRange) =
-    graph.nodes.[range.parent].children |> List.skip range.start |> List.take (range.endd - range.start)
+/// Extract the list of node IDs covered by a SiteNodeRange.
+let rangeChildren (graph: Graph) (range: SiteNodeRange) =
+    graph.nodes.[range.parent.nodeId].children |> List.skip range.start |> List.take (range.endd - range.start)
 
 /// Apply a committed text edit to the model and POST to server.
 /// Returns the updated model. Dispatches SubmitResponse asynchronously.
@@ -101,7 +101,7 @@ let splitNode (currentText: string) (cursorPos: int) (model: Model) (dispatch: M
     | Editing (originalText, _), Some sel ->
         // The node being edited is the focus node.
         let selectedId  = focusedNodeId model.graph sel
-        let parentId    = sel.range.parent
+        let parentId    = sel.range.parent.nodeId
         let indexInParent = sel.focus
         let clampedPos = max 0 (min cursorPos currentText.Length)
         let textBefore = currentText.[..clampedPos - 1]
@@ -129,7 +129,7 @@ let splitNode (currentText: string) (cursorPos: int) (model: Model) (dispatch: M
         | Some graph ->
             { model with
                 graph = graph
-                selectedNodes = singleSelection graph focusId
+                selectedNodes = singleSelection graph model.siteRoot focusId
                 mode = Editing (focusText, Some 0) }
         | None -> model
     | _ -> model
@@ -158,7 +158,7 @@ let pasteNodes (pastedText: string) (model: Model) (dispatch: Msg -> unit) : Mod
             else
             let range = sel.range
             let selectedIds = rangeChildren model.graph range
-            let replaceOp = Op.Replace(range.parent, range.start, selectedIds, topLevelIds)
+            let replaceOp = Op.Replace(range.parent.nodeId, range.start, selectedIds, topLevelIds)
             let change = { id = model.revision.Value; ops = pasteOps @ [replaceOp] }
             match applyAndPost change model dispatch with
             | Some graph ->
@@ -170,7 +170,7 @@ let pasteNodes (pastedText: string) (model: Model) (dispatch: Msg -> unit) : Mod
             let currentText = readEditInputValue ()
             let cursorPos   = readEditInputCursor ()
             let focusId  = focusedNodeId model.graph sel
-            let parentId = sel.range.parent
+            let parentId = sel.range.parent.nodeId
             let focusIdx = sel.focus
             match entries with
             | [] -> model
@@ -208,16 +208,16 @@ let pasteNodes (pastedText: string) (model: Model) (dispatch: Msg -> unit) : Mod
 /// No-op if the selection starts at index 0 (no previous sibling).
 /// Move the selected nodes from their current parent to a new parent at insertIdx.
 /// Common core of indent and outdent.
-let reparentSelection (newParentId: NodeId) (insertIdx: int) (sel: Selection) (model: Model) (dispatch: Msg -> unit) : Model =
+let reparentSelection (newParentSiteNode: SiteNode) (insertIdx: int) (sel: Selection) (model: Model) (dispatch: Msg -> unit) : Model =
     let range = sel.range
     let selectedIds = rangeChildren model.graph range
     let ops =
-        [ Op.Replace(range.parent, range.start, selectedIds, [])
-          Op.Replace(newParentId,  insertIdx,   [],          selectedIds) ]
+        [ Op.Replace(range.parent.nodeId, range.start, selectedIds, [])
+          Op.Replace(newParentSiteNode.nodeId, insertIdx, [], selectedIds) ]
     let change = { id = model.revision.Value; ops = ops }
     match applyAndPost change model dispatch with
     | Some graph ->
-        let newSel = { range = { parent = newParentId; start = insertIdx; endd = insertIdx + selectedIds.Length }; focus = insertIdx }
+        let newSel = { range = { parent = newParentSiteNode; start = insertIdx; endd = insertIdx + selectedIds.Length }; focus = insertIdx }
         { model with graph = graph; selectedNodes = Some newSel }
     | None -> model
 
@@ -226,9 +226,12 @@ let indentSelection (model: Model) (dispatch: Msg -> unit) : Model =
     | None -> model
     | Some sel when sel.range.start = 0 -> model  // no previous sibling — no-op
     | Some sel ->
-        let prevSibId = model.graph.nodes.[sel.range.parent].children.[sel.range.start - 1]
+        let prevSibId = model.graph.nodes.[sel.range.parent.nodeId].children.[sel.range.start - 1]
         let insertIdx = model.graph.nodes.[prevSibId].children.Length
-        let result = reparentSelection prevSibId insertIdx sel model dispatch
+        match findSiteNodeByNodeId prevSibId model.siteRoot with
+        | None -> model
+        | Some prevSibSiteNode ->
+        let result = reparentSelection prevSibSiteNode insertIdx sel model dispatch
         // Expand the new parent so the indented items are visible
         { result with siteRoot = ViewModel.expandNodeId prevSibId result.siteRoot }
 
@@ -236,10 +239,13 @@ let outdentSelection (model: Model) (dispatch: Msg -> unit) : Model =
     match model.selectedNodes with
     | None -> model
     | Some sel ->
-        match Graph.tryFindParentAndIndex sel.range.parent model.graph with
+        match Graph.tryFindParentAndIndex sel.range.parent.nodeId model.graph with
         | None -> model  // parent is root — no-op
         | Some (grandparentId, parentIdx) ->
-            reparentSelection grandparentId (parentIdx + 1) sel model dispatch
+            match findSiteNodeByNodeId grandparentId model.siteRoot with
+            | None -> model
+            | Some grandparentSiteNode ->
+            reparentSelection grandparentSiteNode (parentIdx + 1) sel model dispatch
 
 /// If currently editing, commit the edit and return Selecting model; otherwise return model as-is.
 let commitIfEditing (model: Model) (dispatch: Msg -> unit) : Model =
@@ -257,11 +263,11 @@ let cutSelection (model: Model) (dispatch: Msg -> unit) : Model =
     | Some sel ->
         let selectedIds = rangeChildren model.graph sel.range
         let cb = collectSubtree model.graph model.siteRoot selectedIds
-        let removeOp = Op.Replace(sel.range.parent, sel.range.start, selectedIds, [])
+        let removeOp = Op.Replace(sel.range.parent.nodeId, sel.range.start, selectedIds, [])
         let change = { id = model.revision.Value; ops = [removeOp] }
         match applyAndPost change model dispatch with
         | Some graph ->
-            let newChildren = graph.nodes.[sel.range.parent].children
+            let newChildren = graph.nodes.[sel.range.parent.nodeId].children
             let newSel =
                 if sel.range.start < newChildren.Length then
                     let i = sel.range.start
@@ -270,7 +276,7 @@ let cutSelection (model: Model) (dispatch: Msg -> unit) : Model =
                     let i = sel.range.start - 1
                     Some { range = { parent = sel.range.parent; start = i; endd = i + 1 }; focus = i }
                 else
-                    singleSelection graph sel.range.parent
+                    singleSelection graph model.siteRoot sel.range.parent.nodeId
             { model with graph = graph; clipboard = Some cb; selectedNodes = newSel }
         | None -> model
 
@@ -280,7 +286,7 @@ let moveNode (delta: int) (model: Model) (dispatch: Msg -> unit) : Model =
     | None -> model
     | Some sel ->
         let range       = sel.range
-        let parentNode  = model.graph.nodes.[range.parent]
+        let parentNode  = model.graph.nodes.[range.parent.nodeId]
         let selectedIds = rangeChildren model.graph range
         let swapOpt =
             if delta < 0 && range.start > 0 then
@@ -293,7 +299,7 @@ let moveNode (delta: int) (model: Model) (dispatch: Msg -> unit) : Model =
         match swapOpt with
         | None -> model
         | Some (opStart, oldSpan, newSpan, newStart) ->
-            let change = { id = model.revision.Value; ops = [ Op.Replace(range.parent, opStart, oldSpan, newSpan) ] }
+            let change = { id = model.revision.Value; ops = [ Op.Replace(range.parent.nodeId, opStart, oldSpan, newSpan) ] }
             match applyAndPost change model dispatch with
             | Some graph ->
                 let newSel = { range = { range with start = newStart; endd = newStart + selectedIds.Length }; focus = sel.focus + delta }
@@ -332,9 +338,9 @@ let update (msg: Msg) (model: Model) (dispatch: Msg -> unit) : Model =
                 let editingId = focusedNodeId model.graph sel
                 let newText = readEditInputValue ()
                 let model' = commitTextEdit editingId originalText newText model dispatch
-                { model' with selectedNodes = singleSelection model'.graph nodeId }
+                { model' with selectedNodes = singleSelection model'.graph model'.siteRoot nodeId }
             | _ ->
-                { model with selectedNodes = singleSelection model.graph nodeId; mode = Selecting }
+                { model with selectedNodes = singleSelection model.graph model.siteRoot nodeId; mode = Selecting }
         if not (System.Object.ReferenceEquals(result.graph, model.graph)) then withSiteTree result else result
 
     | MoveSelectionUp ->

@@ -80,12 +80,12 @@ and renderNode (model: Model) (dispatch: Msg -> unit) (depth: int) (siteNode: Si
     let row = document.createElement "div"
     row.classList.add "row"
 
-    // True when nodeId is one of the direct children in the NodeRange.
+    // True when nodeId is one of the direct children in the SiteNodeRange.
     let isDirectlySelected =
         match model.selectedNodes with
         | None -> false
         | Some sel ->
-            let parentNode = model.graph.nodes.[sel.range.parent]
+            let parentNode = model.graph.nodes.[sel.range.parent.nodeId]
             parentNode.children
             |> List.indexed
             |> List.exists (fun (i, id) -> id = nodeId && i >= sel.range.start && i < sel.range.endd)

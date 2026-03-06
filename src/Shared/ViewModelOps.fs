@@ -66,20 +66,31 @@ module ViewModel =
                 { node with children = node.children |> List.map go }
         go siteRoot
 
-    /// Build a single-node Selection for the given nodeId, using the graph to locate its parent.
-    /// Returns None if the node has no parent (i.e. it is the root).
-    let singleSelection (graph: Graph) (nodeId: NodeId) : Selection option =
+    /// Find the first SiteNode (preorder) whose nodeId matches the given NodeId.
+    /// Returns None if not found (e.g. the node is not visible in the current site tree).
+    let findSiteNodeByNodeId (nodeId: NodeId) (siteRoot: SiteNode) : SiteNode option =
+        let rec find (node: SiteNode) : SiteNode option =
+            if node.nodeId = nodeId then Some node
+            else node.children |> List.tryPick find
+        find siteRoot
+
+    /// Build a single-node Selection for the given nodeId, using the graph to locate its parent
+    /// and the site tree to obtain the parent SiteNode.
+    /// Returns None if the node has no parent (i.e. it is the root) or if the parent is not in the site tree.
+    let singleSelection (graph: Graph) (siteRoot: SiteNode) (nodeId: NodeId) : Selection option =
         Graph.tryFindParentAndIndex nodeId graph
-        |> Option.map (fun (parentId, index) ->
-            { range = { parent = parentId; start = index; endd = index + 1 }; focus = index })
+        |> Option.bind (fun (parentId, index) ->
+            findSiteNodeByNodeId parentId siteRoot
+            |> Option.map (fun parentSiteNode ->
+                { range = { parent = parentSiteNode; start = index; endd = index + 1 }; focus = index }))
 
     /// Extract the first (start) selected NodeId from a Selection.
     let firstSelectedNodeId (graph: Graph) (sel: Selection) : NodeId =
-        graph.nodes.[sel.range.parent].children.[sel.range.start]
+        graph.nodes.[sel.range.parent.nodeId].children.[sel.range.start]
 
     /// Extract the focused NodeId from a Selection (the active end, used for editing and Arrow movement).
     let focusedNodeId (graph: Graph) (sel: Selection) : NodeId =
-        graph.nodes.[sel.range.parent].children.[sel.focus]
+        graph.nodes.[sel.range.parent.nodeId].children.[sel.focus]
 
     /// Flatten site tree into visible row order (preorder, excluding root).
     /// Respects fold state: only recurses into expanded nodes.
@@ -99,7 +110,7 @@ module ViewModel =
         | None -> model
         | Some sel ->
             let range = sel.range
-            let childCount = model.graph.nodes.[range.parent].children.Length
+            let childCount = model.graph.nodes.[range.parent.nodeId].children.Length
             let update r f = { model with selectedNodes = Some { range = r; focus = f } }
             let single = range.endd - range.start = 1
             let focusAtStart = sel.focus = range.start
@@ -128,7 +139,7 @@ module ViewModel =
         | None -> model
         | Some sel ->
             let focusId = focusedNodeId model.graph sel
-            match singleSelection model.graph focusId with
+            match singleSelection model.graph model.siteRoot focusId with
             | None -> model
             | Some newSel -> { model with selectedNodes = Some newSel }
 
@@ -149,7 +160,7 @@ module ViewModel =
                     model
                 else
                     let nextId = rows[nextIndex]
-                    match singleSelection model.graph nextId with
+                    match singleSelection model.graph model.siteRoot nextId with
                     | None -> model
                     | Some newSel -> { model with selectedNodes = Some newSel; mode = Selecting }
 

@@ -25,8 +25,9 @@ let emptyModel (graph: Graph) : Model =
 
 /// Model with a selection covering [start, endd) in root's children, focus at focusIdx.
 let modelWithSel (graph: Graph) (start: int) (endd: int) (focusIdx: int) : Model =
-    { emptyModel graph with
-        selectedNodes = Some { range = { parent = graph.root; start = start; endd = endd }; focus = focusIdx } }
+    let m = emptyModel graph
+    { m with
+        selectedNodes = Some { range = { parent = m.siteRoot; start = start; endd = endd }; focus = focusIdx } }
 
 // ---------------------------------------------------------------------------
 // singleSelection
@@ -36,19 +37,21 @@ let modelWithSel (graph: Graph) (start: int) (endd: int) (focusIdx: int) : Model
 let ``singleSelection returns Selection with focus equal to start`` () =
     let graph, ids = buildFlat ["a"; "b"; "c"]
     let nodeId = ids.[1]  // "b", index 1 in root's children
-    let result = singleSelection graph nodeId
+    let siteRoot, _ = ViewModel.buildSiteTree graph
+    let result = singleSelection graph siteRoot nodeId
     match result with
     | None -> Assert.True(false, "Expected Some, got None")
     | Some sel ->
         Assert.Equal(sel.range.start, sel.focus)
         Assert.Equal(1, sel.range.start)
         Assert.Equal(2, sel.range.endd)
-        Assert.Equal(graph.root, sel.range.parent)
+        Assert.Equal(graph.root, sel.range.parent.nodeId)
 
 [<Fact>]
 let ``singleSelection returns None for root node`` () =
     let graph, _ = buildFlat ["a"]
-    let result = singleSelection graph graph.root
+    let siteRoot, _ = ViewModel.buildSiteTree graph
+    let result = singleSelection graph siteRoot graph.root
     Assert.True(result.IsNone)
 
 // ---------------------------------------------------------------------------
@@ -194,7 +197,7 @@ let ``applyMoveSelectionDown with focus at end collapses and moves down`` () =
     | Some sel ->
         // Should have moved to ids.[1]
         let expectedId = graph.nodes.[graph.root].children.[1]
-        let gotId = graph.nodes.[sel.range.parent].children.[sel.focus]
+        let gotId = graph.nodes.[sel.range.parent.nodeId].children.[sel.focus]
         Assert.Equal(expectedId, gotId)
         Assert.Equal(1, sel.range.endd - sel.range.start)  // single-node
 

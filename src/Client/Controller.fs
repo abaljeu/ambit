@@ -37,7 +37,7 @@ let private onCopyOrCut (model: Model) (ev: Event) (dispatch: Msg -> unit) (msg:
     | None -> ()
     | Some sel ->
         ev.preventDefault()
-        let parentNode = model.graph.nodes.[sel.range.parent]
+        let parentNode = model.graph.nodes.[sel.range.parent.nodeId]
         let selectedIds =
             parentNode.children
             |> List.skip sel.range.start

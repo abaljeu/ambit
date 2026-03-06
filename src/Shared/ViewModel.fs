@@ -5,12 +5,6 @@ type Mode =
     | Editing of originalText: string * cursorPos: int option
     // cursorPos: None = place cursor at end; Some n = place cursor at position n
 
-/// A NodeRange with a focus index marking the "active" end used for Shift-Arrow and editing.
-/// focus is always range.start or range.endd - 1.
-type Selection =
-    { range: NodeRange
-      focus: int }
-
 /// A rendered appearance of a node in the outline. Each appearance gets a unique
 /// instanceId so that fold state is per-occurrence, not per-NodeId.
 /// In a DAG the same NodeId may have multiple SiteNode instances.
@@ -20,13 +14,27 @@ type SiteNode =
       expanded: bool
       children: SiteNode list }
 
+/// A contiguous span of children under a specific site-tree occurrence of a parent node.
+/// parent is a SiteNode (not just a NodeId) so the selection is unambiguous in a DAG
+/// where the same NodeId may appear at multiple positions.
+type SiteNodeRange =
+    { parent: SiteNode
+      start: int
+      endd: int }
+
+/// A SiteNodeRange with a focus index marking the "active" end used for Shift-Arrow and editing.
+/// focus is always range.start or range.endd - 1.
+type Selection =
+    { range: SiteNodeRange
+      focus: int }
+
 /// Self-contained snapshot of copied/cut nodes for internal clipboard.
 /// Independent of graph.nodes — survives graph mutations and snapshot reload.
 type ClipboardContent =
     { topLevelIds: NodeId list
       nodes: Map<NodeId, Node> }
 
-// Server State is in FileAgent, and mainly the graph.
+// Server `State` is in `FileAgent`, and mainly the graph.
 type Model = // the client state
     { graph: Graph // the core data
       revision: Revision
