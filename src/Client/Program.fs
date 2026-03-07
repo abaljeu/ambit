@@ -52,7 +52,14 @@ let setupStaticDOM (dispatch: Msg -> unit) : unit =
         let ke = ev :?> KeyboardEvent
         if ke.key = "Tab" then ev.preventDefault()
         match currentModel.selectedNodes with
-        | None -> ()
+        | None ->
+            let rootNode = currentModel.graph.nodes.[currentModel.graph.root]
+            match ke.key with
+            | "Enter" | "F2" -> dispatch (StartEdit rootNode.text)
+            | "ArrowDown"    -> dispatch MoveSelectionDown
+            | _ ->
+                if isPrintableKey ke.key && not ke.ctrlKey && not ke.metaKey && not ke.altKey then
+                    dispatch (StartEdit ke.key)
         | Some sel ->
             let nodeId = focusedNodeId currentModel.graph sel
             let nodeText = currentModel.graph.nodes.[nodeId].text

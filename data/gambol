@@ -1,29 +1,10 @@
 First item
 Second item
-	Nested under second
-	Another nested
-		excellent
-			hello
-		okay
-		
-		
-			            "request": "launch",
-			            "name": "Launch Client (Chrome)",
-			            "type": "chrome",
-		Extra Nesting
-		"name": "Launch Client (Chrome)",            "type": "chrome",            "request": "launch",
-	hello
-	blue
-	                        let newEndd = range.endd + 1
-	                        if newEndd > childCount then model
-	                        else { model with selectedNodes = Some { range = { range with endd = newEndd }; focus = newEndd - 1 } }
-	
-	aeue
 Third item
 	blue
 	hello
-	red
-	
-	h
-	blue
-	ue
+		red
+		
+		h
+		blue
+		ue

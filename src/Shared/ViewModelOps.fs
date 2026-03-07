@@ -147,7 +147,7 @@ module ViewModel =
         | None -> []
         | Some root -> root.children |> List.collect gather
 
-    /// Preorder walk of visible entries, returning instanceIds in display order (excluding root).
+    /// Preorder walk of visible entries, returning instanceIds in display order (including root).
     /// Mirrors getVisibleRowIds but keyed by instanceId for DOM-cache lookups.
     let getVisibleInstanceIds (siteMap: SiteMap) : int list =
         let entries = siteMap.entries
@@ -160,7 +160,9 @@ module ViewModel =
                      else [])
         match Map.tryFind siteMap.rootId entries with
         | None -> []
-        | Some root -> root.children |> List.collect gather
+        | Some root ->
+            root.instanceId ::
+                (root.children |> List.collect gather)
 
     /// Build a single-node Selection for the given nodeId, using the graph to locate its parent
     /// and the site map to obtain the parent SiteEntry.
@@ -235,7 +237,9 @@ module ViewModel =
             | None -> model
             | Some currentIndex ->
                 let nextIndex = currentIndex + delta
-                if nextIndex < 0 || nextIndex >= rows.Length then
+                if nextIndex < 0 then
+                    { model with selectedNodes = None; mode = Selecting }
+                elif nextIndex >= rows.Length then
                     model
                 else
                     let nextId = rows[nextIndex]
@@ -249,7 +253,15 @@ module ViewModel =
             let focusEnd = if delta < 0 then sel.range.start else sel.range.endd - 1
             if sel.focus <> focusEnd then { model with selectedNodes = Some { sel with focus = focusEnd } }
             else moveSelectionBy delta model
-        | None -> model
+        | None ->
+            if delta > 0 then
+                match getVisibleRowIds model.siteMap with
+                | firstId :: _ ->
+                    match singleSelection model.graph model.siteMap firstId with
+                    | Some sel -> { model with selectedNodes = Some sel; mode = Selecting }
+                    | None -> model
+                | [] -> model
+            else model
 
     /// Pure portion of MoveSelectionUp: handles the non-editing cases.
     /// When focus is not at the range start, moves focus to start (keep range).
@@ -290,15 +302,18 @@ module ViewModel =
         pred entry.nodeId || go entry.parentInstanceId
 
     let isEntrySelected (model: VM) (entry: SiteEntry) =
-        ancestorMatch model entry (isNodeDirectlySelected model)
+        if model.selectedNodes = None && entry.parentInstanceId = None then true
+        else ancestorMatch model entry (isNodeDirectlySelected model)
 
     let isEntryFocused (model: VM) (entry: SiteEntry) =
-        ancestorMatch model entry (isNodeFocused model)
+        if model.selectedNodes = None && entry.parentInstanceId = None then true
+        else ancestorMatch model entry (isNodeFocused model)
 
     let isEditingEntry (model: VM) (entry: SiteEntry) : bool =
-        match model.mode with
-        | Editing _ -> isNodeFocused model entry.nodeId
-        | Selecting -> false
+        match model.mode, model.selectedNodes with
+        | Editing _, None   -> entry.parentInstanceId = None
+        | Editing _, Some _ -> isNodeFocused model entry.nodeId
+        | Selecting, _      -> false
 
 // ---------------------------------------------------------------------------
 // DOM mutation plan (pure — no Browser interop)
@@ -347,10 +362,12 @@ module ViewModel =
                         let patches = [
                             let sel = isEntrySelected newModel entry
                             let foc = isEntryFocused newModel entry
-                            let newClass = "row" + (if sel then " selected" else "") + (if foc then " focused" else "")
+                            let isRoot = entry.instanceId = newModel.siteMap.rootId
+                            let rootClass = if isRoot then " view-root" else ""
+                            let newClass = "row" + rootClass + (if sel then " selected" else "") + (if foc then " focused" else "")
                             let oldSel = oldEntry |> Option.map (isEntrySelected oldModel) |> Option.defaultValue false
                             let oldFoc = oldEntry |> Option.map (isEntryFocused oldModel) |> Option.defaultValue false
-                            let oldClass = "row" + (if oldSel then " selected" else "") + (if oldFoc then " focused" else "")
+                            let oldClass = "row" + rootClass + (if oldSel then " selected" else "") + (if oldFoc then " focused" else "")
                             if newClass <> oldClass then yield SetClassName newClass
                             if not nowEditing then
                                 let newText = newModel.graph.nodes.[entry.nodeId].text

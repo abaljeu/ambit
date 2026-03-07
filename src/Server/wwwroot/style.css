@@ -32,6 +32,11 @@ body {
     min-height: 1em;
     background: #eee;
 }
+.view-root {
+    font-size: 2rem;
+    font-weight: bold;
+    margin: 0.67em 0;
+}
 .row.selected {
     background: #bde;
 }

@@ -70,37 +70,48 @@ type SelectionKeyContext = { keyEvent: KeyboardEvent; selectedNodeText: string }
 
 type EditingKeyContext = { keyEvent: KeyboardEvent; editInput: HTMLInputElement }
 
-type KeyHandler<'Context> = 'Context -> Msg
+/// Result returned by a key handler. `Handled msg` causes preventDefault + dispatch;
+/// `NotHandled` lets the browser process the event normally.
+type KeyResult =
+    | Handled of Msg
+    | NotHandled
+
+type KeyHandler<'Context> = 'Context -> KeyResult
 
 let printableKeyToken = "__PRINTABLE__"
 
 let selectionKeyTable: (string * KeyHandler<SelectionKeyContext>) list =
-        [ "F2", (fun ctx -> StartEdit ctx.selectedNodeText)
-            ; "Enter", (fun ctx -> StartEdit ctx.selectedNodeText)
-            ; "ArrowUp", (fun _ -> MoveSelectionUp)
-            ; "ArrowDown", (fun _ -> MoveSelectionDown)
-            ; "Shift+ArrowUp", (fun _ -> ShiftArrowUp)
-            ; "Shift+ArrowDown", (fun _ -> ShiftArrowDown)
-            ; "Alt+ArrowUp", (fun _ -> MoveNodeUp)
-            ; "Alt+ArrowDown", (fun _ -> MoveNodeDown)
-            ; "Ctrl+ArrowUp", (fun _ -> MoveNodeUp)
-            ; "Ctrl+ArrowDown", (fun _ -> MoveNodeDown)
-            ; "Tab", (fun _ -> IndentSelection)
-            ; "Shift+Tab", (fun _ -> OutdentSelection)
-            ; "Escape", (fun _ -> CancelEdit)
-            ; printableKeyToken, (fun ctx -> StartEdit ctx.keyEvent.key) ]
+        [ "F2",             (fun ctx -> Handled (StartEdit ctx.selectedNodeText))
+          "Enter",          (fun ctx -> Handled (StartEdit ctx.selectedNodeText))
+          "ArrowUp",        (fun _ ->   Handled MoveSelectionUp)
+          "ArrowDown",      (fun _ ->   Handled MoveSelectionDown)
+          "Shift+ArrowUp",  (fun _ ->   Handled ShiftArrowUp)
+          "Shift+ArrowDown",(fun _ ->   Handled ShiftArrowDown)
+          "Alt+ArrowUp",    (fun _ ->   Handled MoveNodeUp)
+          "Alt+ArrowDown",  (fun _ ->   Handled MoveNodeDown)
+          "Ctrl+ArrowUp",   (fun _ ->   Handled MoveNodeUp)
+          "Ctrl+ArrowDown", (fun _ ->   Handled MoveNodeDown)
+          "Tab",            (fun _ ->   Handled IndentSelection)
+          "Shift+Tab",      (fun _ ->   Handled OutdentSelection)
+          "Escape",         (fun _ ->   Handled CancelEdit)
+          printableKeyToken,(fun ctx -> Handled (StartEdit ctx.keyEvent.key)) ]
+
+let handleBackspace (ctx: EditingKeyContext) : KeyResult =
+    if int ctx.editInput.selectionStart = 0 then Handled (JoinWithPrevious ctx.editInput.value)
+    else NotHandled
 
 let editingKeyTable: (string * KeyHandler<EditingKeyContext>) list =
-        [ "Enter", (fun ctx -> SplitNode (ctx.editInput.value, int ctx.editInput.selectionStart))
-            ; "ArrowUp", (fun _ -> MoveSelectionUp)
-            ; "ArrowDown", (fun _ -> MoveSelectionDown)
-            ; "Alt+ArrowUp", (fun _ -> MoveNodeUp)
-            ; "Alt+ArrowDown", (fun _ -> MoveNodeDown)
-            ; "Ctrl+ArrowUp", (fun _ -> MoveNodeUp)
-            ; "Ctrl+ArrowDown", (fun _ -> MoveNodeDown)
-            ; "Tab", (fun _ -> IndentSelection)
-            ; "Shift+Tab", (fun _ -> OutdentSelection)
-            ; "Escape", (fun _ -> CancelEdit) ]
+        [ "Enter",          (fun ctx -> Handled (SplitNode (ctx.editInput.value, int ctx.editInput.selectionStart)))
+          "Backspace",      handleBackspace
+          "ArrowUp",        (fun _ ->   Handled MoveSelectionUp)
+          "ArrowDown",      (fun _ ->   Handled MoveSelectionDown)
+          "Alt+ArrowUp",    (fun _ ->   Handled MoveNodeUp)
+          "Alt+ArrowDown",  (fun _ ->   Handled MoveNodeDown)
+          "Ctrl+ArrowUp",   (fun _ ->   Handled MoveNodeUp)
+          "Ctrl+ArrowDown", (fun _ ->   Handled MoveNodeDown)
+          "Tab",            (fun _ ->   Handled IndentSelection)
+          "Shift+Tab",      (fun _ ->   Handled OutdentSelection)
+          "Escape",         (fun _ ->   Handled CancelEdit) ]
 
 let tryResolveOperation
     (table: (string * KeyHandler<'Context>) list)
@@ -133,5 +144,8 @@ let handleKey
     match tryResolveOperation table keyEvent with
     | None -> ()
     | Some handler ->
-        keyEvent.preventDefault()
-        handler ctx |> dispatch
+        match handler ctx with
+        | Handled msg ->
+            keyEvent.preventDefault()
+            dispatch msg
+        | NotHandled -> ()

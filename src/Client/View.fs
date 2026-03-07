@@ -33,6 +33,7 @@ let private makeRowElement (model: VM) (dispatch: Msg -> unit) (depth: int) (sit
     let row = document.createElement "div"
     row.classList.add "row"
 
+    if siteEntry.parentInstanceId = None then row.classList.add "view-root"
     if isEntrySelected model siteEntry then row.classList.add "selected"
     if isEntryFocused  model siteEntry then row.classList.add "focused"
 
@@ -71,11 +72,11 @@ let private makeRowElement (model: VM) (dispatch: Msg -> unit) (depth: int) (sit
             | _ -> node.text
         (editInput :?> HTMLInputElement).value <- prefill
         editInput.addEventListener("keydown", fun (ev: Event) ->
-            let ke = ev :?> KeyboardEvent
+            let key = ev :?> KeyboardEvent
             let ctx =
-                { keyEvent = ke
+                { keyEvent = key
                   editInput = (editInput :?> HTMLInputElement) }
-            handleKey editingKeyTable ctx ke dispatch
+            handleKey editingKeyTable ctx key dispatch
         )
         editInput.addEventListener("mousedown", fun (ev: Event) ->
             ev.stopPropagation()

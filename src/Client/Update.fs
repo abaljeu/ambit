@@ -98,6 +98,9 @@ let commitTextEdit
 /// cursor > 0    → current node gets text-before; new sibling gets text-after; focus at start of new node.
 let splitNode (currentText: string) (cursorPos: int) (model: VM) (dispatch: Msg -> unit) : VM =
     match model.mode, model.selectedNodes with
+    | Editing (originalText, _), None ->
+        // Root is being edited: commit text, no split
+        commitTextEdit model.graph.root originalText (readEditInputValue ()) model dispatch
     | Editing (originalText, _), Some sel ->
         // The node being edited is the focus node.
         let selectedId  = focusedNodeId model.graph sel
@@ -253,6 +256,8 @@ let outdentSelection (model: VM) (dispatch: Msg -> unit) : VM =
 /// If currently editing, commit the edit and return Selecting model; otherwise return model as-is.
 let commitIfEditing (model: VM) (dispatch: Msg -> unit) : VM =
     match model.mode, model.selectedNodes with
+    | Editing (originalText, _), None ->
+        commitTextEdit model.graph.root originalText (readEditInputValue ()) model dispatch
     | Editing (originalText, _), Some sel ->
         let editingId = focusedNodeId model.graph sel
         commitTextEdit editingId originalText (readEditInputValue ()) model dispatch
@@ -318,6 +323,45 @@ let withSiteMap (model: VM) : VM =
     let siteMap, nextId = ViewModel.reconcileSiteMap model.graph model.siteMap model.nextInstanceId
     { model with siteMap = siteMap; nextInstanceId = nextId }
 
+/// Join the currently-edited node with the previous visible (inorder) node.
+/// 1. If current has no children: append current's text to prev, delete current.
+/// 2. If current and prev both have children: abort.
+/// 3. If current has children but prev does not: move current's children to prev, then do 1.
+/// Cursor lands at the join point (end of prevText) in prev.
+let joinWithPrevious (currentText: string) (model: VM) (dispatch: Msg -> unit) : VM =
+    match model.mode, model.selectedNodes with
+    | Editing _, Some sel ->
+        let currentId = focusedNodeId model.graph sel
+        let rows = getVisibleRowIds model.siteMap
+        match rows |> List.tryFindIndex ((=) currentId) with
+        | None | Some 0 -> model
+        | Some currentIndex ->
+            let prevId = rows.[currentIndex - 1]
+            let prevNode = model.graph.nodes.[prevId]
+            let currentNode = model.graph.nodes.[currentId]
+            if not currentNode.children.IsEmpty && not prevNode.children.IsEmpty then model
+            else
+                match Graph.tryFindParentAndIndex currentId model.graph with
+                | None -> model
+                | Some (parentId, indexInParent) ->
+                    let joinedText = prevNode.text + currentText
+                    let cursorPos = prevNode.text.Length
+                    let ops =
+                        [ if joinedText <> prevNode.text then
+                              yield Op.SetText(prevId, prevNode.text, joinedText)
+                          if not currentNode.children.IsEmpty then
+                              yield Op.Replace(prevId, prevNode.children.Length, [], currentNode.children)
+                          yield Op.Replace(parentId, indexInParent, [currentId], []) ]
+                    let change = { id = model.revision.Value; ops = ops }
+                    match applyAndPost change model dispatch with
+                    | None -> model
+                    | Some graph ->
+                        let result = withSiteMap { model with graph = graph }
+                        { result with
+                            mode = Editing (joinedText, Some cursorPos)
+                            selectedNodes = singleSelection result.graph result.siteMap prevId }
+    | _ -> model
+
 /// Update function. The dispatch parameter is needed for async effects
 /// (server POST callbacks).
 let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
@@ -362,7 +406,9 @@ let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
 
     | StartEdit _prefill ->
         match model.selectedNodes with
-        | None -> model // nothing selected, ignore
+        | None ->
+            let root = model.graph.nodes.[model.graph.root]
+            { model with mode = Editing (root.text, None) }
         | Some sel ->
             let nodeId = focusedNodeId model.graph sel
             let node = model.graph.nodes.[nodeId]
@@ -373,6 +419,9 @@ let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
 
     | SplitNode (currentText, cursorPos) ->
         splitNode currentText cursorPos model dispatch |> withSiteMap
+
+    | JoinWithPrevious currentText ->
+        joinWithPrevious currentText model dispatch
 
     | IndentSelection  -> indentSelection  (commitIfEditing model dispatch) dispatch |> withSiteMap
     | OutdentSelection -> outdentSelection (commitIfEditing model dispatch) dispatch |> withSiteMap

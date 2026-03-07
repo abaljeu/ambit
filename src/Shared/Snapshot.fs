@@ -77,7 +77,7 @@ module Snapshot =
 
         let rootNode: Node =
             { id = rootId
-              text = ""
+              text = "ROOT"
               name = None
               children = [] }
 

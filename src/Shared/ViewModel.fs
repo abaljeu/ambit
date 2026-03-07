@@ -63,6 +63,7 @@ type Msg =
     | ShiftArrowDown
     | StartEdit of prefill: string
     | SplitNode of currentText: string * cursorPos: int
+    | JoinWithPrevious of currentText: string
     | IndentSelection
     | OutdentSelection
     | MoveNodeUp
