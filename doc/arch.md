@@ -46,7 +46,7 @@ Principle: keep the architecture benefits of MVU while avoiding a heavy UI frame
 
 - Model/update in F# compiled to JS
 - Prefer direct DOM calls via `Fable.Browser.Dom` (or similar minimal bindings)
-- Implement `update : Model -> Msg -> Model * Cmd list` (or `Model` only, if no cmds)
+- Implement `update : VM -> Msg -> VM * Cmd list` (or `VM` only, if no cmds)
 - Keep dependencies minimal; avoid React stacks
 
 ## Server

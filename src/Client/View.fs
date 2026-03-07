@@ -124,7 +124,7 @@ let manageFocus (model: VM) : unit =
 /// Rebuild all row elements from scratch: removes existing rows (children of app
 /// that precede the hidden-input sentinel), then recreates them in preorder.
 /// Returns a fresh element cache keyed by instanceId.
-let render (model: VM) (dispatch: Msg -> unit) : Map<int, HTMLElement> =
+let render (vm: VM) (dispatch: Msg -> unit) : Map<int, HTMLElement> =
     // Remove existing rows — everything before the hidden-input sentinel
     let hiddenInput = document.getElementById "hidden-input"
     if isNull hiddenInput then
@@ -137,11 +137,11 @@ let render (model: VM) (dispatch: Msg -> unit) : Map<int, HTMLElement> =
             sib <- prev
 
     let mutable cache = Map.empty<int, HTMLElement>
-    let visible = ViewModel.getVisibleInstanceIds model.siteMap
+    let visible = ViewModel.getVisibleInstanceIds vm.siteMap
     for instId in visible do
-        let entry = model.siteMap.entries.[instId]
-        let depth = computeDepth model.siteMap entry
-        let row = makeRowElement model dispatch depth entry
+        let entry = vm.siteMap.entries.[instId]
+        let depth = computeDepth vm.siteMap entry
+        let row = makeRowElement vm dispatch depth entry
         cache <- Map.add instId row cache
         let sentinel = document.getElementById "hidden-input"
         if isNull sentinel then app.appendChild row |> ignore
@@ -150,9 +150,9 @@ let render (model: VM) (dispatch: Msg -> unit) : Map<int, HTMLElement> =
     // Sync the settings-bar checkbox
     let cb = document.getElementById "setting-link-paste"
     if not (isNull cb) then
-        (cb :?> HTMLInputElement).``checked`` <- model.linkPasteEnabled
+        (cb :?> HTMLInputElement).``checked`` <- vm.linkPasteEnabled
 
-    manageFocus model
+    manageFocus vm
     cache
 
 // ---------------------------------------------------------------------------

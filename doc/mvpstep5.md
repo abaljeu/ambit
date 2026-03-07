@@ -25,14 +25,14 @@ In Excel, a cell can be *selected* (blue border, value displayed) or *being edit
 
 This outliner follows the same pattern, adapted for rows instead of cells.
 
-## Model
+## VM
 
 ```fsharp
 type Mode =
     | SelectionMode
     | EditMode of originalText: string
 
-type Model =
+type VM =
     { graph: Graph
       revision: int
       selectedNode: NodeId option
