@@ -74,4 +74,5 @@ type Msg =
     | CopySelection
     | CutSelection
     | ToggleFold of instanceId: int
+    | ToggleFoldSelection
     | ToggleLinkPaste

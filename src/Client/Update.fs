@@ -463,5 +463,29 @@ let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
                 let siteMap, nextId = ViewModel.expandEntry instanceId model.graph model.siteMap model.nextInstanceId
                 { model with siteMap = siteMap; nextInstanceId = nextId }
 
+    | ToggleFoldSelection ->
+        match model.selectedNodes with
+        | None -> model
+        | Some sel ->
+            let selectedInstIds =
+                sel.range.parent.children
+                |> List.skip sel.range.start
+                |> List.take (sel.range.endd - sel.range.start)
+            let anyExpanded =
+                selectedInstIds |> List.exists (fun instId ->
+                    match Map.tryFind instId model.siteMap.entries with
+                    | Some entry -> entry.expanded
+                    | None -> false)
+            if anyExpanded then
+                let siteMap =
+                    selectedInstIds |> List.fold (fun sm instId -> ViewModel.toggleFold instId sm) model.siteMap
+                { model with siteMap = siteMap }
+            else
+                let siteMap, nextId =
+                    selectedInstIds |> List.fold
+                        (fun (sm, nid) instId -> ViewModel.expandEntry instId model.graph sm nid)
+                        (model.siteMap, model.nextInstanceId)
+                { model with siteMap = siteMap; nextInstanceId = nextId }
+
     | ToggleLinkPaste ->
         { model with linkPasteEnabled = not model.linkPasteEnabled }
