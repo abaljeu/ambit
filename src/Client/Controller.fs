@@ -32,7 +32,7 @@ let onPaste (ev: Event) (dispatch: Msg -> unit) : unit =
     let text  = if plain <> "" then plain else stripHtmlToText (getClipboardData ev "text/html")
     if text <> "" then dispatch (PasteNodes text)
 
-let private onCopyOrCut (model: Model) (ev: Event) (dispatch: Msg -> unit) (msg: Msg) : unit =
+let private onCopyOrCut (model: VM) (ev: Event) (dispatch: Msg -> unit) (msg: Msg) : unit =
     match model.selectedNodes with
     | None -> ()
     | Some sel ->
@@ -48,12 +48,12 @@ let private onCopyOrCut (model: Model) (ev: Event) (dispatch: Msg -> unit) (msg:
 
 /// Handle a copy event in select mode: serialize the visible selected subtree to the
 /// system clipboard and dispatch CopySelection so update can store model.clipboard.
-let onCopy (model: Model) (ev: Event) (dispatch: Msg -> unit) : unit =
+let onCopy (model: VM) (ev: Event) (dispatch: Msg -> unit) : unit =
     onCopyOrCut model ev dispatch CopySelection
 
 /// Handle a cut event in select mode: same as copy, then dispatch CutSelection
 /// so update removes the nodes and adjusts the selection.
-let onCut (model: Model) (ev: Event) (dispatch: Msg -> unit) : unit =
+let onCut (model: VM) (ev: Event) (dispatch: Msg -> unit) : unit =
     onCopyOrCut model ev dispatch CutSelection
 
 // ---------------------------------------------------------------------------

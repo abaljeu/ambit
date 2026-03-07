@@ -184,7 +184,7 @@ module ViewModel =
     /// Shift-Arrow: move the focused end of the range by delta (-1 = up, +1 = down).
     /// For a single-node selection, always extends. For multi-node, the focused end moves.
     /// Focus follows the moved end. No-op if the move would exceed parent bounds.
-    let shiftArrow (delta: int) (model: Model) : Model =
+    let shiftArrow (delta: int) (model: VM) : VM =
         match model.selectedNodes with
         | None -> model
         | Some sel ->
@@ -213,7 +213,7 @@ module ViewModel =
                     if s >= range.endd then model else update { range with start = s } s
 
     /// Collapse a multi-node selection to a single-node selection at the focus node, without moving.
-    let collapseToFocus (model: Model) : Model =
+    let collapseToFocus (model: VM) : VM =
         match model.selectedNodes with
         | None -> model
         | Some sel ->
@@ -225,7 +225,7 @@ module ViewModel =
     /// Move current selection by delta (-1 for up, +1 for down) in visible row order.
     /// Collapses any multi-node selection to the focus node, then moves from there.
     /// The resulting selection is always a single-node Selection.
-    let moveSelectionBy (delta: int) (model: Model) : Model =
+    let moveSelectionBy (delta: int) (model: VM) : VM =
         match model.selectedNodes with
         | None -> model
         | Some sel ->
@@ -243,7 +243,7 @@ module ViewModel =
                     | None -> model
                     | Some newSel -> { model with selectedNodes = Some newSel; mode = Selecting }
 
-    let private applyMoveSelection (delta: int) (model: Model) : Model =
+    let private applyMoveSelection (delta: int) (model: VM) : VM =
         match model.selectedNodes with
         | Some sel ->
             let focusEnd = if delta < 0 then sel.range.start else sel.range.endd - 1
@@ -265,7 +265,7 @@ module ViewModel =
 // Selection / focus / edit helpers (pure — no Browser interop)
 // ---------------------------------------------------------------------------
 
-    let isNodeDirectlySelected (model: Model) (nodeId: NodeId) : bool =
+    let isNodeDirectlySelected (model: VM) (nodeId: NodeId) : bool =
         match model.selectedNodes with
         | None -> false
         | Some sel ->
@@ -274,12 +274,12 @@ module ViewModel =
             |> List.indexed
             |> List.exists (fun (i, id) -> id = nodeId && i >= sel.range.start && i < sel.range.endd)
 
-    let isNodeFocused (model: Model) (nodeId: NodeId) : bool =
+    let isNodeFocused (model: VM) (nodeId: NodeId) : bool =
         match model.selectedNodes with
         | None -> false
         | Some sel -> focusedNodeId model.graph sel = nodeId
 
-    let private ancestorMatch (model: Model) (entry: SiteEntry) (pred: NodeId -> bool) : bool =
+    let private ancestorMatch (model: VM) (entry: SiteEntry) (pred: NodeId -> bool) : bool =
         let rec go parentInstId =
             match parentInstId with
             | None -> false
@@ -289,13 +289,13 @@ module ViewModel =
                 | Some pe -> pred pe.nodeId || go pe.parentInstanceId
         pred entry.nodeId || go entry.parentInstanceId
 
-    let isEntrySelected (model: Model) (entry: SiteEntry) =
+    let isEntrySelected (model: VM) (entry: SiteEntry) =
         ancestorMatch model entry (isNodeDirectlySelected model)
 
-    let isEntryFocused (model: Model) (entry: SiteEntry) =
+    let isEntryFocused (model: VM) (entry: SiteEntry) =
         ancestorMatch model entry (isNodeFocused model)
 
-    let isEditingEntry (model: Model) (entry: SiteEntry) : bool =
+    let isEditingEntry (model: VM) (entry: SiteEntry) : bool =
         match model.mode with
         | Editing _ -> isNodeFocused model entry.nodeId
         | Selecting -> false
@@ -318,7 +318,7 @@ module ViewModel =
     /// Compute the minimal set of DOM mutations needed to transition from oldModel to newModel.
     /// cachedInstIds is the set of instanceIds currently held in the element cache.
     /// Returns removals followed by visible-row operations in preorder display order.
-    let planPatchDOM (oldModel: Model) (newModel: Model) (cachedInstIds: Set<int>) : RowMutation list =
+    let planPatchDOM (oldModel: VM) (newModel: VM) (cachedInstIds: Set<int>) : RowMutation list =
         let newVisible = getVisibleInstanceIds newModel.siteMap
         let newVisibleSet = Set.ofList newVisible
 

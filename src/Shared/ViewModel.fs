@@ -44,7 +44,7 @@ type ClipboardContent =
       nodes: Map<NodeId, Node> }
 
 // Server `State` is in `FileAgent`, and mainly the graph.
-type Model = // the client state
+type VM = // the client state
     { graph: Graph // the core data
       revision: Revision
       selectedNodes: Selection option

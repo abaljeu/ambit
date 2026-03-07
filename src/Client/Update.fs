@@ -58,7 +58,7 @@ let readEditInputCursor () : int =
 
 /// Apply a change to the local graph, POST it to the server in the background,
 /// and return the updated graph (or None if the change was rejected locally).
-let applyAndPost (change: Change) (model: Model) (dispatch: Msg -> unit) : Graph option =
+let applyAndPost (change: Change) (model: VM) (dispatch: Msg -> unit) : Graph option =
     let state: State = { graph = model.graph; revision = model.revision; history = History.empty }
     match Change.apply change state with
     | ApplyResult.Changed newState ->
@@ -81,9 +81,9 @@ let commitTextEdit
     (nodeId: NodeId)
     (originalText: string)
     (newText: string)
-    (model: Model)
+    (model: VM)
     (dispatch: Msg -> unit)
-    : Model =
+    : VM =
     if newText = originalText then
         { model with mode = Selecting }
     else
@@ -96,7 +96,7 @@ let commitTextEdit
 ///
 /// cursor at 0   → blank sibling inserted above; current node keeps its text; focus at start of current node.
 /// cursor > 0    → current node gets text-before; new sibling gets text-after; focus at start of new node.
-let splitNode (currentText: string) (cursorPos: int) (model: Model) (dispatch: Msg -> unit) : Model =
+let splitNode (currentText: string) (cursorPos: int) (model: VM) (dispatch: Msg -> unit) : VM =
     match model.mode, model.selectedNodes with
     | Editing (originalText, _), Some sel ->
         // The node being edited is the focus node.
@@ -144,7 +144,7 @@ let splitNode (currentText: string) (cursorPos: int) (model: Model) (dispatch: M
 /// Select mode: replaces the current selection with the pasted subtree.
 /// Edit mode:   splices the first pasted line into the node at the cursor;
 ///              remaining top-level lines become siblings below the current node.
-let pasteNodes (pastedText: string) (model: Model) (dispatch: Msg -> unit) : Model =
+let pasteNodes (pastedText: string) (model: VM) (dispatch: Msg -> unit) : VM =
     match model.selectedNodes with
     | None -> model
     | Some sel ->
@@ -208,7 +208,7 @@ let pasteNodes (pastedText: string) (model: Model) (dispatch: Msg -> unit) : Mod
 /// No-op if the selection starts at index 0 (no previous sibling).
 /// Move the selected nodes from their current parent to a new parent at insertIdx.
 /// Common core of indent and outdent.
-let reparentSelection (newParentEntry: SiteEntry) (insertIdx: int) (sel: Selection) (model: Model) (dispatch: Msg -> unit) : Model =
+let reparentSelection (newParentEntry: SiteEntry) (insertIdx: int) (sel: Selection) (model: VM) (dispatch: Msg -> unit) : VM =
     let range = sel.range
     let selectedIds = rangeChildren model.graph range
     let ops =
@@ -221,7 +221,7 @@ let reparentSelection (newParentEntry: SiteEntry) (insertIdx: int) (sel: Selecti
         { model with graph = graph; selectedNodes = Some newSel }
     | None -> model
 
-let indentSelection (model: Model) (dispatch: Msg -> unit) : Model =
+let indentSelection (model: VM) (dispatch: Msg -> unit) : VM =
     match model.selectedNodes with
     | None -> model
     | Some sel when sel.range.start = 0 -> model  // no previous sibling — no-op
@@ -238,7 +238,7 @@ let indentSelection (model: Model) (dispatch: Msg -> unit) : Model =
             let siteMap, nextId = ViewModel.expandEntry prevSibEntry.instanceId result.graph result.siteMap result.nextInstanceId
             { result with siteMap = siteMap; nextInstanceId = nextId }
 
-let outdentSelection (model: Model) (dispatch: Msg -> unit) : Model =
+let outdentSelection (model: VM) (dispatch: Msg -> unit) : VM =
     match model.selectedNodes with
     | None -> model
     | Some sel ->
@@ -251,7 +251,7 @@ let outdentSelection (model: Model) (dispatch: Msg -> unit) : Model =
             reparentSelection grandparentEntry (parentIdx + 1) sel model dispatch
 
 /// If currently editing, commit the edit and return Selecting model; otherwise return model as-is.
-let commitIfEditing (model: Model) (dispatch: Msg -> unit) : Model =
+let commitIfEditing (model: VM) (dispatch: Msg -> unit) : VM =
     match model.mode, model.selectedNodes with
     | Editing (originalText, _), Some sel ->
         let editingId = focusedNodeId model.graph sel
@@ -260,7 +260,7 @@ let commitIfEditing (model: Model) (dispatch: Msg -> unit) : Model =
 
 /// CutSelection: store clipboard content, remove selected nodes, update selection.
 /// Post-cut priority: sibling after > sibling before > parent.
-let cutSelection (model: Model) (dispatch: Msg -> unit) : Model =
+let cutSelection (model: VM) (dispatch: Msg -> unit) : VM =
     match model.selectedNodes with
     | None -> model
     | Some sel ->
@@ -284,7 +284,7 @@ let cutSelection (model: Model) (dispatch: Msg -> unit) : Model =
         | None -> model
 
 /// Alt+Up/Down: swap the selected range with the adjacent sibling using a single Op.Replace.
-let moveNode (delta: int) (model: Model) (dispatch: Msg -> unit) : Model =
+let moveNode (delta: int) (model: VM) (dispatch: Msg -> unit) : VM =
     match model.selectedNodes with
     | None -> model
     | Some sel ->
@@ -314,13 +314,13 @@ let moveNode (delta: int) (model: Model) (dispatch: Msg -> unit) : Model =
 // ---------------------------------------------------------------------------
 
 /// Rebuild the site map after a graph mutation, preserving fold states.
-let withSiteMap (model: Model) : Model =
+let withSiteMap (model: VM) : VM =
     let siteMap, nextId = ViewModel.reconcileSiteMap model.graph model.siteMap model.nextInstanceId
     { model with siteMap = siteMap; nextInstanceId = nextId }
 
 /// Update function. The dispatch parameter is needed for async effects
 /// (server POST callbacks).
-let update (msg: Msg) (model: Model) (dispatch: Msg -> unit) : Model =
+let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
     match msg with
     | StateLoaded (graph, revision) ->
         let siteMap, nextId = ViewModel.buildSiteMap graph 0

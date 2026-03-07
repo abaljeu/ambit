@@ -19,8 +19,8 @@ let buildFlat (texts: string list) : Graph * NodeId list =
 
     graph2, ids
 
-/// Minimal Model helper — no selection, Selecting mode.
-let emptyModel (graph: Graph) : Model =
+/// Minimal VM helper — no selection, Selecting mode.
+let emptyModel (graph: Graph) : VM =
     let siteMap, nextId = buildSiteMap graph 0
 
     { graph = graph
@@ -32,8 +32,8 @@ let emptyModel (graph: Graph) : Model =
       clipboard = None
       linkPasteEnabled = false }
 
-/// Model with a selection covering [start, endd) in root's children, focus at focusIdx.
-let modelWithSel (graph: Graph) (start: int) (endd: int) (focusIdx: int) : Model =
+/// VM with a selection covering [start, endd) in root's children, focus at focusIdx.
+let modelWithSel (graph: Graph) (start: int) (endd: int) (focusIdx: int) : VM =
     let m = emptyModel graph
 
     { m with

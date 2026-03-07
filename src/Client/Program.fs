@@ -21,7 +21,7 @@ let fetchText (url: string) (callback: string -> unit) : unit = jsNative
 // MVU dispatch loop
 // ---------------------------------------------------------------------------
 
-let mutable currentModel: Model =
+let mutable currentModel: VM =
     { graph = { root = NodeId(System.Guid.Empty); nodes = Map.empty }
       revision = Revision.Zero
       selectedNodes = None

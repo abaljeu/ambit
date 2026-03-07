@@ -26,7 +26,7 @@ let private computeDepth (siteMap: SiteMap) (entry: SiteEntry) : int =
 // ---------------------------------------------------------------------------
 
 /// Create a fresh DOM row for the given SiteEntry at the given depth.
-let private makeRowElement (model: Model) (dispatch: Msg -> unit) (depth: int) (siteEntry: SiteEntry) : HTMLElement =
+let private makeRowElement (model: VM) (dispatch: Msg -> unit) (depth: int) (siteEntry: SiteEntry) : HTMLElement =
     let nodeId = siteEntry.nodeId
     let node = model.graph.nodes.[nodeId]
     let hasChildren = not node.children.IsEmpty
@@ -100,7 +100,7 @@ let private makeRowElement (model: Model) (dispatch: Msg -> unit) (depth: int) (
 // ---------------------------------------------------------------------------
 
 /// Focus the correct element (edit-input or hidden-input) after each dispatch.
-let manageFocus (model: Model) : unit =
+let manageFocus (model: VM) : unit =
     match model.mode with
     | Editing _ ->
         let editInput = document.getElementById "edit-input"
@@ -124,7 +124,7 @@ let manageFocus (model: Model) : unit =
 /// Rebuild all row elements from scratch: removes existing rows (children of app
 /// that precede the hidden-input sentinel), then recreates them in preorder.
 /// Returns a fresh element cache keyed by instanceId.
-let render (model: Model) (dispatch: Msg -> unit) : Map<int, HTMLElement> =
+let render (model: VM) (dispatch: Msg -> unit) : Map<int, HTMLElement> =
     // Remove existing rows — everything before the hidden-input sentinel
     let hiddenInput = document.getElementById "hidden-input"
     if isNull hiddenInput then
@@ -162,7 +162,7 @@ let render (model: Model) (dispatch: Msg -> unit) : Map<int, HTMLElement> =
 /// Patch the DOM incrementally: diff old and new SiteMap visibility,
 /// removes stale rows, creates/moves new rows, updates existing rows in-place.
 /// Returns the updated element cache.
-let patchDOM (oldModel: Model) (newModel: Model) (dispatch: Msg -> unit) (cache: Map<int, HTMLElement>) : Map<int, HTMLElement> =
+let patchDOM (oldModel: VM) (newModel: VM) (dispatch: Msg -> unit) (cache: Map<int, HTMLElement>) : Map<int, HTMLElement> =
     let cachedInstIds = cache |> Map.toSeq |> Seq.map fst |> Set.ofSeq
     let mutations = ViewModel.planPatchDOM oldModel newModel cachedInstIds
 
