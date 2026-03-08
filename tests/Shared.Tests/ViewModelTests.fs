@@ -25,6 +25,7 @@ let emptyModel (graph: Graph) : VM =
 
     { graph = graph
       revision = Revision.Zero
+      history = History.empty
       selectedNodes = None
       mode = Selecting
       siteMap = siteMap

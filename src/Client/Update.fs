@@ -58,9 +58,9 @@ let readEditInputCursor () : int =
 
 /// Apply a change to the local graph, POST it to the server in the background,
 /// and return the updated graph (or None if the change was rejected locally).
-let applyAndPost (change: Change) (model: VM) (dispatch: Msg -> unit) : Graph option =
-    let state: State = { graph = model.graph; revision = model.revision; history = History.empty }
-    match Change.apply change state with
+let applyAndPost (change: Change) (model: VM) (dispatch: Msg -> unit) : (Graph * History) option =
+    let state: State = { graph = model.graph; revision = model.revision; history = model.history }
+    match History.applyChange change state with
     | ApplyResult.Changed newState ->
         let body = encodeChangeBody change
         postJson $"/{currentFile}/changes" body (fun responseText ->
@@ -68,7 +68,7 @@ let applyAndPost (change: Change) (model: VM) (dispatch: Msg -> unit) : Graph op
             | Ok (_graph, rev) -> dispatch (SubmitResponse rev)
             | Error _err -> ()
         )
-        Some newState.graph
+        Some (newState.graph, newState.history)
     | _ -> None
 
 /// Extract the list of node IDs covered by a SiteNodeRange.
@@ -89,8 +89,8 @@ let commitTextEdit
     else
         let change: Change = { id = model.revision.Value; ops = [ Op.SetText(nodeId, originalText, newText) ] }
         match applyAndPost change model dispatch with
-        | Some graph -> { model with graph = graph; mode = Selecting }
-        | None       -> { model with mode = Selecting }
+        | Some (graph, history) -> { model with graph = graph; history = history; mode = Selecting }
+        | None                  -> { model with mode = Selecting }
 
 /// Split the currently-edited node at the cursor position.
 ///
@@ -129,9 +129,10 @@ let splitNode (currentText: string) (cursorPos: int) (model: VM) (dispatch: Msg 
 
         let change: Change = { id = model.revision.Value; ops = ops }
         match applyAndPost change model dispatch with
-        | Some graph ->
+        | Some (graph, history) ->
             { model with
                 graph = graph
+                history = history
                 selectedNodes = singleSelection graph model.siteMap focusId
                 mode = Editing (focusText, Some 0) }
         | None -> model
@@ -164,10 +165,10 @@ let pasteNodes (pastedText: string) (model: VM) (dispatch: Msg -> unit) : VM =
             let replaceOp = Op.Replace(range.parent.nodeId, range.start, selectedIds, topLevelIds)
             let change = { id = model.revision.Value; ops = pasteOps @ [replaceOp] }
             match applyAndPost change model dispatch with
-            | Some graph ->
+            | Some (graph, history) ->
                 let newEnd = range.start + topLevelIds.Length
                 let newSel = { range = { parent = range.parent; start = range.start; endd = newEnd }; focus = range.start }
-                { model with graph = graph; selectedNodes = Some newSel }
+                { model with graph = graph; history = history; selectedNodes = Some newSel }
             | None -> model
         | Editing (originalText, _) ->
             let currentText = readEditInputValue ()
@@ -184,7 +185,7 @@ let pasteNodes (pastedText: string) (model: VM) (dispatch: Msg -> unit) : VM =
                 else
                 let change = { id = model.revision.Value; ops = [ Op.SetText(focusId, originalText, newText) ] }
                 match applyAndPost change model dispatch with
-                | Some graph -> { model with graph = graph; mode = Selecting }
+                | Some (graph, history) -> { model with graph = graph; history = history; mode = Selecting }
                 | None -> model
             | (firstText, _) :: rest ->
                 // Multi-line: splice first line at cursor; remaining become siblings below
@@ -200,7 +201,7 @@ let pasteNodes (pastedText: string) (model: VM) (dispatch: Msg -> unit) : VM =
                 else
                 let change = { id = model.revision.Value; ops = allOps }
                 match applyAndPost change model dispatch with
-                | Some graph -> { model with graph = graph; mode = Selecting }
+                | Some (graph, history) -> { model with graph = graph; history = history; mode = Selecting }
                 | None -> model
 
 // ---------------------------------------------------------------------------
@@ -219,9 +220,9 @@ let reparentSelection (newParentEntry: SiteEntry) (insertIdx: int) (sel: Selecti
           Op.Replace(newParentEntry.nodeId, insertIdx, [], selectedIds) ]
     let change = { id = model.revision.Value; ops = ops }
     match applyAndPost change model dispatch with
-    | Some graph ->
+    | Some (graph, history) ->
         let newSel = { range = { parent = newParentEntry; start = insertIdx; endd = insertIdx + selectedIds.Length }; focus = insertIdx }
-        { model with graph = graph; selectedNodes = Some newSel }
+        { model with graph = graph; history = history; selectedNodes = Some newSel }
     | None -> model
 
 let indentSelection (model: VM) (dispatch: Msg -> unit) : VM =
@@ -274,7 +275,7 @@ let cutSelection (model: VM) (dispatch: Msg -> unit) : VM =
         let removeOp = Op.Replace(sel.range.parent.nodeId, sel.range.start, selectedIds, [])
         let change = { id = model.revision.Value; ops = [removeOp] }
         match applyAndPost change model dispatch with
-        | Some graph ->
+        | Some (graph, history) ->
             let newChildren = graph.nodes.[sel.range.parent.nodeId].children
             let newSel =
                 if sel.range.start < newChildren.Length then
@@ -285,7 +286,7 @@ let cutSelection (model: VM) (dispatch: Msg -> unit) : VM =
                     Some { range = { parent = sel.range.parent; start = i; endd = i + 1 }; focus = i }
                 else
                     singleSelection graph model.siteMap sel.range.parent.nodeId
-            { model with graph = graph; clipboard = Some cb; selectedNodes = newSel }
+            { model with graph = graph; history = history; clipboard = Some cb; selectedNodes = newSel }
         | None -> model
 
 /// Alt+Up/Down: swap the selected range with the adjacent sibling using a single Op.Replace.
@@ -309,9 +310,9 @@ let moveNode (delta: int) (model: VM) (dispatch: Msg -> unit) : VM =
         | Some (opStart, oldSpan, newSpan, newStart) ->
             let change = { id = model.revision.Value; ops = [ Op.Replace(range.parent.nodeId, opStart, oldSpan, newSpan) ] }
             match applyAndPost change model dispatch with
-            | Some graph ->
+            | Some (graph, history) ->
                 let newSel = { range = { range with start = newStart; endd = newStart + selectedIds.Length }; focus = sel.focus + delta }
-                { model with graph = graph; selectedNodes = Some newSel }
+                { model with graph = graph; history = history; selectedNodes = Some newSel }
             | None -> model
 
 // ---------------------------------------------------------------------------
@@ -355,8 +356,8 @@ let joinWithPrevious (currentText: string) (model: VM) (dispatch: Msg -> unit) :
                     let change = { id = model.revision.Value; ops = ops }
                     match applyAndPost change model dispatch with
                     | None -> model
-                    | Some graph ->
-                        let result = withSiteMap { model with graph = graph }
+                    | Some (graph, history) ->
+                        let result = withSiteMap { model with graph = graph; history = history }
                         { result with
                             mode = Editing (joinedText, Some cursorPos)
                             selectedNodes = singleSelection result.graph result.siteMap prevId }
@@ -370,6 +371,7 @@ let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
         let siteMap, nextId = ViewModel.buildSiteMap graph 0
         { graph = graph
           revision = revision
+          history = History.empty
           selectedNodes = None
           mode = Selecting
           siteMap = siteMap
@@ -438,7 +440,9 @@ let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
             { model with selectedNodes = None }
 
     | SubmitResponse revision ->
-        { model with revision = revision }
+        { model with
+            revision = revision
+            history = { model.history with nextId = max model.history.nextId revision.Value } }
 
     | PasteNodes pastedText ->
         pasteNodes pastedText model dispatch |> withSiteMap
@@ -489,3 +493,41 @@ let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
 
     | ToggleLinkPaste ->
         { model with linkPasteEnabled = not model.linkPasteEnabled }
+
+    | Undo ->
+        let model' = commitIfEditing model dispatch
+        let state = { graph = model'.graph; history = model'.history; revision = model'.revision }
+        match model'.history.past |> List.tryHead with
+        | None -> model'
+        | Some headChange ->
+            match History.undo state with
+            | ApplyResult.Changed newState ->
+                let invertedChange = { Change.invert headChange with id = model'.history.nextId }
+                let body = encodeChangeBody invertedChange
+                postJson $"/{currentFile}/changes" body (fun responseText ->
+                    match decodeStateResponse responseText with
+                    | Ok (_, rev) -> dispatch (SubmitResponse rev)
+                    | Error _ -> ()
+                )
+                { model' with graph = newState.graph; history = newState.history; mode = Selecting }
+                |> withSiteMap
+            | _ -> model'
+
+    | Redo ->
+        let model' = commitIfEditing model dispatch
+        let state = { graph = model'.graph; history = model'.history; revision = model'.revision }
+        match model'.history.future |> List.tryHead with
+        | None -> model'
+        | Some headChange ->
+            match History.redo state with
+            | ApplyResult.Changed newState ->
+                let reChange = { headChange with id = model'.history.nextId }
+                let body = encodeChangeBody reChange
+                postJson $"/{currentFile}/changes" body (fun responseText ->
+                    match decodeStateResponse responseText with
+                    | Ok (_, rev) -> dispatch (SubmitResponse rev)
+                    | Error _ -> ()
+                )
+                { model' with graph = newState.graph; history = newState.history; mode = Selecting }
+                |> withSiteMap
+            | _ -> model'

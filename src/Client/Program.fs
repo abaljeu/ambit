@@ -24,6 +24,7 @@ let fetchText (url: string) (callback: string -> unit) : unit = jsNative
 let mutable currentModel: VM =
     { graph = { root = NodeId(System.Guid.Empty); nodes = Map.empty }
       revision = Revision.Zero
+      history = History.empty
       selectedNodes = None
       mode = Selecting
       siteMap = ViewModel.emptySiteMap

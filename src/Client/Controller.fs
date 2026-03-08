@@ -95,6 +95,8 @@ let selectionKeyTable: (string * KeyHandler<SelectionKeyContext>) list =
           "Shift+Tab",      (fun _ ->   Handled OutdentSelection)
           "Escape",         (fun _ ->   Handled CancelEdit)
           "Ctrl+.",         (fun _ ->   Handled ToggleFoldSelection)
+          "Ctrl+z",         (fun _ ->   Handled Undo)
+          "Ctrl+y",         (fun _ ->   Handled Redo)
           printableKeyToken,(fun ctx -> Handled (StartEdit ctx.keyEvent.key)) ]
 
 let handleBackspace (ctx: EditingKeyContext) : KeyResult =
@@ -113,7 +115,9 @@ let editingKeyTable: (string * KeyHandler<EditingKeyContext>) list =
           "Tab",            (fun _ ->   Handled IndentSelection)
           "Shift+Tab",      (fun _ ->   Handled OutdentSelection)
           "Escape",         (fun _ ->   Handled CancelEdit)
-          "Ctrl+.",         (fun _ ->   Handled ToggleFoldSelection) ]
+          "Ctrl+.",         (fun _ ->   Handled ToggleFoldSelection)
+          "Ctrl+z",         (fun _ ->   Handled Undo)
+          "Ctrl+y",         (fun _ ->   Handled Redo) ]
 
 let tryResolveOperation
     (table: (string * KeyHandler<'Context>) list)

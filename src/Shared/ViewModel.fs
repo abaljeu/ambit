@@ -47,6 +47,7 @@ type ClipboardContent =
 type VM = // the client state
     { graph: Graph // the core data
       revision: Revision
+      history: History
       selectedNodes: Selection option
       mode: Mode
       siteMap: SiteMap
@@ -76,3 +77,5 @@ type Msg =
     | ToggleFold of instanceId: int
     | ToggleFoldSelection
     | ToggleLinkPaste
+    | Undo
+    | Redo

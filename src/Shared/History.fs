@@ -88,6 +88,18 @@ module Change =
     let addOp (op: Op) (change: Change) : Change =
         { change with ops = change.ops @ [ op ] }
 
+    /// Construct the inverse of a change: reversed op list, each op with old/new swapped.
+    /// Change.undo(invert c) re-applies c's effect (valid for SetText and Replace).
+    /// NewNode has no DeleteNode counterpart, so its inversion is imperfect; undo-of-undo
+    /// for splits will return ApplyResult.Invalid and leave state unchanged.
+    let invert (change: Change) : Change =
+        let invertOp op =
+            match op with
+            | Op.NewNode(id, text)              -> Op.NewNode(id, text)
+            | Op.SetText(id, old, new_)          -> Op.SetText(id, new_, old)
+            | Op.Replace(pid, i, olds, news)     -> Op.Replace(pid, i, news, olds)
+        { change with ops = change.ops |> List.rev |> List.map invertOp }
+
     let apply (change: Change) (state: State) : ApplyResult =
         let step (accState, hasChanged) op =
             match Op.apply op accState with
@@ -146,9 +158,12 @@ module History =
 
     let addChange (change: Change) (history: History) : History =
         let nextId = max history.nextId (change.id + 1)
-
+        // Emacs stack model: instead of discarding the future on a new change, fold it back
+        // into past as inverse changes. Subsequent undos will re-apply those inverses,
+        // giving "undo the undo" (redo-via-undo) without a separate redo stack clearing.
+        let requeued = history.future |> List.map Change.invert
         { history with
-              past = change :: history.past
+              past = change :: requeued @ history.past
               future = []
               nextId = nextId }
 
