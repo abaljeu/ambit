@@ -99,11 +99,29 @@ let handleBackspace (ctx: EditingKeyContext) : Msg option =
     if int ctx.editInput.selectionStart = 0 then Some (User (JoinWithPrevious ctx.editInput.value))
     else None
 
+let handleDelete (ctx: EditingKeyContext) : Msg option =
+    if int ctx.editInput.selectionStart = ctx.editInput.value.Length then Some (User (JoinWithNext ctx.editInput.value))
+    else None
+
+let handleArrowLeft (ctx: EditingKeyContext) : Msg option =
+    if int ctx.editInput.selectionStart = 0 && int ctx.editInput.selectionEnd = 0 then Some (User MoveSelectionUp)
+    else None
+
+let handleArrowRight (ctx: EditingKeyContext) : Msg option =
+    let len = ctx.editInput.value.Length
+    if int ctx.editInput.selectionStart = len && int ctx.editInput.selectionEnd = len then Some (User MoveSelectionDown)
+    else None
+
 let editingKeyTable: (string * KeyHandler<EditingKeyContext>) list =
         [ "Enter",          (fun ctx -> Some (User (SplitNode (ctx.editInput.value, int ctx.editInput.selectionStart))))
           "Backspace",      handleBackspace
-          "ArrowUp",        (fun _ ->   Some (User MoveSelectionUp))
-          "ArrowDown",      (fun _ ->   Some (User MoveSelectionDown))
+          "Delete",         handleDelete
+          "ArrowLeft",      handleArrowLeft
+          "ArrowRight",     handleArrowRight
+          "Ctrl+ArrowLeft", handleArrowLeft
+          "Ctrl+ArrowRight",handleArrowRight
+          "ArrowUp",        (fun ctx -> Some (User (MoveEditUp   (int ctx.editInput.selectionStart))))
+          "ArrowDown",      (fun ctx -> Some (User (MoveEditDown (int ctx.editInput.selectionStart))))
           "Alt+ArrowUp",    (fun _ ->   Some (User MoveNodeUp))
           "Alt+ArrowDown",  (fun _ ->   Some (User MoveNodeDown))
           "Ctrl+ArrowUp",   (fun _ ->   Some (User MoveNodeUp))

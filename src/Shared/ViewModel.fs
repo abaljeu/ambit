@@ -78,6 +78,9 @@ type UserMsg =
     | StartEdit of prefill: string
     | SplitNode of currentText: string * cursorPos: int
     | JoinWithPrevious of currentText: string
+    | JoinWithNext of currentText: string
+    | MoveEditUp of cursorPos: int
+    | MoveEditDown of cursorPos: int
     | IndentSelection
     | OutdentSelection
     | MoveNodeUp

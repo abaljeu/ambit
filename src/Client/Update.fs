@@ -341,6 +341,62 @@ let withSiteMap (model: VM) : VM =
 /// 2. If current and prev both have children: abort.
 /// 3. If current has children but prev does not: move current's children to prev, then do 1.
 /// Cursor lands at the join point (end of prevText) in prev.
+let moveEdit (delta: int) (cursorPos: int) (model: VM) (dispatch: Msg -> unit) : VM =
+    match model.selectedNodes with
+    | None -> model
+    | Some sel ->
+        let currentId = focusedNodeId model.graph sel
+        let committed = commitTextEdit currentId (match model.mode with Editing (t, _) -> t | _ -> "") (readEditInputValue ()) model dispatch
+        let rows = getVisibleRowIds committed.siteMap
+        match rows |> List.tryFindIndex ((=) currentId) with
+        | None -> committed
+        | Some idx ->
+            let targetIdx = idx + delta
+            if targetIdx < 0 || targetIdx >= rows.Length then committed
+            else
+                let targetId = rows.[targetIdx]
+                let targetText = committed.graph.nodes.[targetId].text
+                let clampedPos = min cursorPos targetText.Length
+                { committed with
+                    mode = Editing (targetText, Some clampedPos)
+                    selectedNodes = singleSelection committed.graph committed.siteMap targetId }
+
+let joinWithNext (currentText: string) (model: VM) (dispatch: Msg -> unit) : VM =
+    match model.mode, model.selectedNodes with
+    | Editing _, Some sel ->
+        let currentId = focusedNodeId model.graph sel
+        let rows = getVisibleRowIds model.siteMap
+        match rows |> List.tryFindIndex ((=) currentId) with
+        | None -> model
+        | Some currentIndex ->
+            if currentIndex >= rows.Length - 1 then model
+            else
+                let nextId = rows.[currentIndex + 1]
+                let nextNode = model.graph.nodes.[nextId]
+                let currentNode = model.graph.nodes.[currentId]
+                if not currentNode.children.IsEmpty && not nextNode.children.IsEmpty then model
+                else
+                    match Graph.tryFindParentAndIndex nextId model.graph with
+                    | None -> model
+                    | Some (parentId, indexInParent) ->
+                        let joinedText = currentText + nextNode.text
+                        let cursorPos = currentText.Length
+                        let ops =
+                            [ if joinedText <> currentText then
+                                  yield Op.SetText(currentId, currentText, joinedText)
+                              if not nextNode.children.IsEmpty then
+                                  yield Op.Replace(currentId, currentNode.children.Length, [], nextNode.children)
+                              yield Op.Replace(parentId, indexInParent, [nextId], []) ]
+                        let change = { id = model.revision.Value; ops = ops }
+                        match applyAndPost change model dispatch with
+                        | None -> model
+                        | Some m ->
+                            let result = withSiteMap m
+                            { result with
+                                mode = Editing (joinedText, Some cursorPos)
+                                selectedNodes = singleSelection result.graph result.siteMap currentId }
+    | _ -> model
+
 let joinWithPrevious (currentText: string) (model: VM) (dispatch: Msg -> unit) : VM =
     match model.mode, model.selectedNodes with
     | Editing _, Some sel ->
@@ -438,6 +494,15 @@ let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
 
     | User (JoinWithPrevious currentText) ->
         joinWithPrevious currentText model dispatch
+
+    | User (JoinWithNext currentText) ->
+        joinWithNext currentText model dispatch
+
+    | User (MoveEditUp cursorPos) ->
+        moveEdit -1 cursorPos model dispatch
+
+    | User (MoveEditDown cursorPos) ->
+        moveEdit 1 cursorPos model dispatch
 
     | User IndentSelection  -> indentSelection  (commitIfEditing model dispatch) dispatch |> withSiteMap
     | User OutdentSelection -> outdentSelection (commitIfEditing model dispatch) dispatch |> withSiteMap
