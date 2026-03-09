@@ -119,6 +119,36 @@ let manageFocus (model: VM) : unit =
             (hiddenInput :?> HTMLInputElement).focus()
 
 // ---------------------------------------------------------------------------
+// status indicators
+// ---------------------------------------------------------------------------
+
+/// Update the persistent status element text and style.
+let renderStatus (model: VM) : unit =
+    let el = document.getElementById "sync-status"
+    if not (isNull el) then
+        match model.syncState with
+        | Synced  ->
+            el.textContent <- "synced"
+            el.className <- "sync-status"
+        | Syncing ->
+            el.textContent <- "Saving\u2026"
+            el.className <- "sync-status syncing"
+        | Pending ->
+            el.textContent <- "Unsaved changes \u2014 click to retry"
+            el.className <- "sync-status pending"
+
+/// Update the undo/redo status indicator based on history.
+let renderUndoStatus (model: VM) : unit =
+    let el = document.getElementById "undo-status"
+    if not (isNull el) then
+        let canUndo = not model.history.past.IsEmpty
+        let canRedo = not model.history.future.IsEmpty
+        let undoText = if canUndo then "\u21B6" else "\u2205"           // ↶ or ∅
+        let redoText = if canRedo then "\u21B7" else "\u2205"           // ↷ or ∅
+        el.textContent <- $"{undoText} {redoText}"
+        el.className <- if canUndo || canRedo then "undo-status active" else "undo-status"
+
+// ---------------------------------------------------------------------------
 // Full rebuild (StateLoaded)
 // ---------------------------------------------------------------------------
 
@@ -154,6 +184,7 @@ let render (vm: VM) (dispatch: Msg -> unit) : Map<int, HTMLElement> =
         (cb :?> HTMLInputElement).``checked`` <- vm.linkPasteEnabled
 
     manageFocus vm
+    renderStatus vm
     cache
 
 // ---------------------------------------------------------------------------
@@ -247,4 +278,5 @@ let patchDOM (oldModel: VM) (newModel: VM) (dispatch: Msg -> unit) (cache: Map<i
         (cb :?> HTMLInputElement).``checked`` <- newModel.linkPasteEnabled
 
     manageFocus newModel
+    renderStatus newModel
     cache'

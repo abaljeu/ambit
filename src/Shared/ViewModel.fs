@@ -43,6 +43,11 @@ type ClipboardContent =
     { topLevelIds: NodeId list
       nodes: Map<NodeId, Node> }
 
+type SyncState =
+    | Synced    // all changes confirmed by server
+    | Syncing   // a POST is currently in-flight
+    | Pending   // last POST failed; changes queued, awaiting user retry
+
 // Server `State` is in `FileAgent`, and mainly the graph.
 type VM = // the client state
     { graph: Graph // the core data
@@ -53,7 +58,9 @@ type VM = // the client state
       siteMap: SiteMap
       nextInstanceId: int
       clipboard: ClipboardContent option
-      linkPasteEnabled: bool }
+      linkPasteEnabled: bool
+      pendingChanges: Change list  // FIFO queue of changes awaiting server confirmation
+      syncState: SyncState }
 
 type Msg =
     | StateLoaded of Graph * Revision
@@ -71,6 +78,8 @@ type Msg =
     | MoveNodeDown
     | CancelEdit
     | SubmitResponse of Revision
+    | SubmitFailed
+    | RetryPending
     | PasteNodes of pastedText: string
     | CopySelection
     | CutSelection

@@ -30,7 +30,9 @@ let mutable currentModel: VM =
       siteMap = ViewModel.emptySiteMap
       nextInstanceId = 1
       clipboard = None
-      linkPasteEnabled = false }
+      linkPasteEnabled = false
+      pendingChanges = []
+      syncState = Synced }
 
 /// Element cache: instanceId → DOM row element.  Populated on first StateLoaded.
 let mutable elementCache: Map<int, HTMLElement> = Map.empty
@@ -89,6 +91,16 @@ let setupStaticDOM (dispatch: Msg -> unit) : unit =
     settingsBar.appendChild label |> ignore
     app.appendChild settingsBar |> ignore
 
+    let syncStatus = document.createElement "div"
+    syncStatus.id <- "sync-status"
+    syncStatus.addEventListener("click", fun _ -> dispatch RetryPending)
+    app.appendChild syncStatus |> ignore
+
+    let undoStatus = document.createElement "div"
+    undoStatus.id <- "undo-status"
+    undoStatus.setAttribute("title", "Undo/Redo status")
+    app.appendChild undoStatus |> ignore
+
 let rec dispatch (msg: Msg) : unit =
     // Special handling: StartEdit stores the prefill before updating model
     match msg with
@@ -102,9 +114,17 @@ let rec dispatch (msg: Msg) : unit =
     | StateLoaded _ ->
         // Full rebuild on initial load; warm the element cache
         elementCache <- render currentModel dispatch
+    | SubmitResponse _ | SubmitFailed | RetryPending ->
+        // Sync-only update: no tree changes, just refresh the status indicator
+        View.renderStatus currentModel
     | _ ->
-        // Incremental patch for all other messages
+        // Incremental patch for all other messages (including Undo | Redo)
         elementCache <- patchDOM prevModel currentModel dispatch elementCache
+
+    // Update undo/redo status whenever history might have changed
+    match msg with
+    | SubmitResponse _ | SubmitFailed | RetryPending -> ()  // No history change
+    | _ -> View.renderUndoStatus currentModel
 
     // Apply the prefill text override for StartEdit (edit-input was just created)
     match msg, editPrefill with

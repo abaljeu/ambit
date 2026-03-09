@@ -12,8 +12,8 @@ open Thoth.Json.Core
 // JS interop
 // ---------------------------------------------------------------------------
 
-[<Emit("fetch($0,{method:'POST',headers:{'Content-Type':'application/json'},body:$1}).then(r=>r.text()).then($2)")>]
-let postJson (url: string) (body: string) (callback: string -> unit) : unit = jsNative
+[<Emit("fetch($0,{method:'POST',headers:{'Content-Type':'application/json'},body:$1}).then(r=>r.text()).then($2).catch(function(){$3()})")>]
+let postJson (url: string) (body: string) (onSuccess: string -> unit) (onFail: unit -> unit) : unit = jsNative
 
 // ---------------------------------------------------------------------------
 // File identity (derived from URL path)
@@ -56,19 +56,33 @@ let readEditInputCursor () : int =
     if isNull el then 0
     else int (el :?> HTMLInputElement).selectionStart
 
-/// Apply a change to the local graph, POST it to the server in the background,
-/// and return the updated graph (or None if the change was rejected locally).
-let applyAndPost (change: Change) (model: VM) (dispatch: Msg -> unit) : (Graph * History) option =
+/// Fire the next POST in the pending queue (head of the list).
+let fireNextPending (pending: Change list) (dispatch: Msg -> unit) : unit =
+    match pending with
+    | [] -> ()
+    | change :: _ ->
+        let body = encodeChangeBody change
+        postJson $"/{currentFile}/changes" body
+            (fun responseText ->
+                match decodeStateResponse responseText with
+                | Ok (_graph, rev) -> dispatch (SubmitResponse rev)
+                | Error _ -> dispatch SubmitFailed)
+            (fun () -> dispatch SubmitFailed)
+
+/// Apply a change to the local model, enqueue it for posting to the server,
+/// and return the updated VM (or None if the change was rejected locally).
+let applyAndPost (change: Change) (model: VM) (dispatch: Msg -> unit) : VM option =
     let state: State = { graph = model.graph; revision = model.revision; history = model.history }
     match History.applyChange change state with
     | ApplyResult.Changed newState ->
-        let body = encodeChangeBody change
-        postJson $"/{currentFile}/changes" body (fun responseText ->
-            match decodeStateResponse responseText with
-            | Ok (_graph, rev) -> dispatch (SubmitResponse rev)
-            | Error _err -> ()
-        )
-        Some (newState.graph, newState.history)
+        let wasEmpty = model.pendingChanges.IsEmpty
+        let pending = model.pendingChanges @ [change]
+        if wasEmpty then fireNextPending pending dispatch
+        Some { model with
+                 graph = newState.graph
+                 history = newState.history
+                 pendingChanges = pending
+                 syncState = Syncing }
     | _ -> None
 
 /// Extract the list of node IDs covered by a SiteNodeRange.
@@ -89,8 +103,8 @@ let commitTextEdit
     else
         let change: Change = { id = model.revision.Value; ops = [ Op.SetText(nodeId, originalText, newText) ] }
         match applyAndPost change model dispatch with
-        | Some (graph, history) -> { model with graph = graph; history = history; mode = Selecting }
-        | None                  -> { model with mode = Selecting }
+        | Some m -> { m with mode = Selecting }
+        | None   -> { model with mode = Selecting }
 
 /// Split the currently-edited node at the cursor position.
 ///
@@ -129,11 +143,9 @@ let splitNode (currentText: string) (cursorPos: int) (model: VM) (dispatch: Msg 
 
         let change: Change = { id = model.revision.Value; ops = ops }
         match applyAndPost change model dispatch with
-        | Some (graph, history) ->
-            { model with
-                graph = graph
-                history = history
-                selectedNodes = singleSelection graph model.siteMap focusId
+        | Some m ->
+            { m with
+                selectedNodes = singleSelection m.graph m.siteMap focusId
                 mode = Editing (focusText, Some 0) }
         | None -> model
     | _ -> model
@@ -165,10 +177,10 @@ let pasteNodes (pastedText: string) (model: VM) (dispatch: Msg -> unit) : VM =
             let replaceOp = Op.Replace(range.parent.nodeId, range.start, selectedIds, topLevelIds)
             let change = { id = model.revision.Value; ops = pasteOps @ [replaceOp] }
             match applyAndPost change model dispatch with
-            | Some (graph, history) ->
+            | Some m ->
                 let newEnd = range.start + topLevelIds.Length
                 let newSel = { range = { parent = range.parent; start = range.start; endd = newEnd }; focus = range.start }
-                { model with graph = graph; history = history; selectedNodes = Some newSel }
+                { m with selectedNodes = Some newSel }
             | None -> model
         | Editing (originalText, _) ->
             let currentText = readEditInputValue ()
@@ -185,7 +197,7 @@ let pasteNodes (pastedText: string) (model: VM) (dispatch: Msg -> unit) : VM =
                 else
                 let change = { id = model.revision.Value; ops = [ Op.SetText(focusId, originalText, newText) ] }
                 match applyAndPost change model dispatch with
-                | Some (graph, history) -> { model with graph = graph; history = history; mode = Selecting }
+                | Some m -> { m with mode = Selecting }
                 | None -> model
             | (firstText, _) :: rest ->
                 // Multi-line: splice first line at cursor; remaining become siblings below
@@ -201,7 +213,7 @@ let pasteNodes (pastedText: string) (model: VM) (dispatch: Msg -> unit) : VM =
                 else
                 let change = { id = model.revision.Value; ops = allOps }
                 match applyAndPost change model dispatch with
-                | Some (graph, history) -> { model with graph = graph; history = history; mode = Selecting }
+                | Some m -> { m with mode = Selecting }
                 | None -> model
 
 // ---------------------------------------------------------------------------
@@ -220,9 +232,9 @@ let reparentSelection (newParentEntry: SiteEntry) (insertIdx: int) (sel: Selecti
           Op.Replace(newParentEntry.nodeId, insertIdx, [], selectedIds) ]
     let change = { id = model.revision.Value; ops = ops }
     match applyAndPost change model dispatch with
-    | Some (graph, history) ->
+    | Some m ->
         let newSel = { range = { parent = newParentEntry; start = insertIdx; endd = insertIdx + selectedIds.Length }; focus = insertIdx }
-        { model with graph = graph; history = history; selectedNodes = Some newSel }
+        { m with selectedNodes = Some newSel }
     | None -> model
 
 let indentSelection (model: VM) (dispatch: Msg -> unit) : VM =
@@ -275,8 +287,8 @@ let cutSelection (model: VM) (dispatch: Msg -> unit) : VM =
         let removeOp = Op.Replace(sel.range.parent.nodeId, sel.range.start, selectedIds, [])
         let change = { id = model.revision.Value; ops = [removeOp] }
         match applyAndPost change model dispatch with
-        | Some (graph, history) ->
-            let newChildren = graph.nodes.[sel.range.parent.nodeId].children
+        | Some m ->
+            let newChildren = m.graph.nodes.[sel.range.parent.nodeId].children
             let newSel =
                 if sel.range.start < newChildren.Length then
                     let i = sel.range.start
@@ -285,8 +297,8 @@ let cutSelection (model: VM) (dispatch: Msg -> unit) : VM =
                     let i = sel.range.start - 1
                     Some { range = { parent = sel.range.parent; start = i; endd = i + 1 }; focus = i }
                 else
-                    singleSelection graph model.siteMap sel.range.parent.nodeId
-            { model with graph = graph; history = history; clipboard = Some cb; selectedNodes = newSel }
+                    singleSelection m.graph m.siteMap sel.range.parent.nodeId
+            { m with clipboard = Some cb; selectedNodes = newSel }
         | None -> model
 
 /// Alt+Up/Down: swap the selected range with the adjacent sibling using a single Op.Replace.
@@ -310,9 +322,9 @@ let moveNode (delta: int) (model: VM) (dispatch: Msg -> unit) : VM =
         | Some (opStart, oldSpan, newSpan, newStart) ->
             let change = { id = model.revision.Value; ops = [ Op.Replace(range.parent.nodeId, opStart, oldSpan, newSpan) ] }
             match applyAndPost change model dispatch with
-            | Some (graph, history) ->
+            | Some m ->
                 let newSel = { range = { range with start = newStart; endd = newStart + selectedIds.Length }; focus = sel.focus + delta }
-                { model with graph = graph; history = history; selectedNodes = Some newSel }
+                { m with selectedNodes = Some newSel }
             | None -> model
 
 // ---------------------------------------------------------------------------
@@ -356,8 +368,8 @@ let joinWithPrevious (currentText: string) (model: VM) (dispatch: Msg -> unit) :
                     let change = { id = model.revision.Value; ops = ops }
                     match applyAndPost change model dispatch with
                     | None -> model
-                    | Some (graph, history) ->
-                        let result = withSiteMap { model with graph = graph; history = history }
+                    | Some m ->
+                        let result = withSiteMap m
                         { result with
                             mode = Editing (joinedText, Some cursorPos)
                             selectedNodes = singleSelection result.graph result.siteMap prevId }
@@ -377,7 +389,9 @@ let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
           siteMap = siteMap
           nextInstanceId = nextId
           clipboard = None
-          linkPasteEnabled = false }
+          linkPasteEnabled = false
+          pendingChanges = []
+          syncState = Synced }
 
     | SelectRow nodeId ->
         let result =
@@ -440,9 +454,23 @@ let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
             { model with selectedNodes = None }
 
     | SubmitResponse revision ->
+        let pending = match model.pendingChanges with _ :: t -> t | [] -> []
+        if not pending.IsEmpty then fireNextPending pending dispatch
         { model with
             revision = revision
-            history = { model.history with nextId = max model.history.nextId revision.Value } }
+            history = { model.history with nextId = max model.history.nextId revision.Value }
+            pendingChanges = pending
+            syncState = if pending.IsEmpty then Synced else Syncing }
+
+    | SubmitFailed ->
+        { model with syncState = Pending }
+
+    | RetryPending ->
+        match model.pendingChanges with
+        | [] -> { model with syncState = Synced }
+        | _  ->
+            fireNextPending model.pendingChanges dispatch
+            { model with syncState = Syncing }
 
     | PasteNodes pastedText ->
         pasteNodes pastedText model dispatch |> withSiteMap
@@ -503,13 +531,15 @@ let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
             match History.undo state with
             | ApplyResult.Changed newState ->
                 let invertedChange = { Change.invert headChange with id = model'.history.nextId }
-                let body = encodeChangeBody invertedChange
-                postJson $"/{currentFile}/changes" body (fun responseText ->
-                    match decodeStateResponse responseText with
-                    | Ok (_, rev) -> dispatch (SubmitResponse rev)
-                    | Error _ -> ()
-                )
-                { model' with graph = newState.graph; history = newState.history; mode = Selecting }
+                let wasEmpty = model'.pendingChanges.IsEmpty
+                let pending = model'.pendingChanges @ [invertedChange]
+                if wasEmpty then fireNextPending pending dispatch
+                { model' with
+                    graph = newState.graph
+                    history = newState.history
+                    mode = Selecting
+                    pendingChanges = pending
+                    syncState = Syncing }
                 |> withSiteMap
             | _ -> model'
 
@@ -522,12 +552,14 @@ let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
             match History.redo state with
             | ApplyResult.Changed newState ->
                 let reChange = { headChange with id = model'.history.nextId }
-                let body = encodeChangeBody reChange
-                postJson $"/{currentFile}/changes" body (fun responseText ->
-                    match decodeStateResponse responseText with
-                    | Ok (_, rev) -> dispatch (SubmitResponse rev)
-                    | Error _ -> ()
-                )
-                { model' with graph = newState.graph; history = newState.history; mode = Selecting }
+                let wasEmpty = model'.pendingChanges.IsEmpty
+                let pending = model'.pendingChanges @ [reChange]
+                if wasEmpty then fireNextPending pending dispatch
+                { model' with
+                    graph = newState.graph
+                    history = newState.history
+                    mode = Selecting
+                    pendingChanges = pending
+                    syncState = Syncing }
                 |> withSiteMap
             | _ -> model'
