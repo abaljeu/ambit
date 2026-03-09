@@ -70,54 +70,50 @@ type SelectionKeyContext = { keyEvent: KeyboardEvent; selectedNodeText: string }
 
 type EditingKeyContext = { keyEvent: KeyboardEvent; editInput: HTMLInputElement }
 
-/// Result returned by a key handler. `Handled msg` causes preventDefault + dispatch;
-/// `NotHandled` lets the browser process the event normally.
-type KeyResult =
-    | Handled of Msg
-    | NotHandled
-
-type KeyHandler<'Context> = 'Context -> KeyResult
+/// Result returned by a key handler. `Some msg` causes preventDefault + dispatch;
+/// `None` lets the browser process the event normally.
+type KeyHandler<'Context> = 'Context -> Msg option
 
 let printableKeyToken = "__PRINTABLE__"
 
 let selectionKeyTable: (string * KeyHandler<SelectionKeyContext>) list =
-        [ "F2",             (fun ctx -> Handled (User (StartEdit ctx.selectedNodeText)))
-          "Enter",          (fun ctx -> Handled (User (StartEdit ctx.selectedNodeText)))
-          "ArrowUp",        (fun _ ->   Handled (User MoveSelectionUp))
-          "ArrowDown",      (fun _ ->   Handled (User MoveSelectionDown))
-          "Shift+ArrowUp",  (fun _ ->   Handled (User ShiftArrowUp))
-          "Shift+ArrowDown",(fun _ ->   Handled (User ShiftArrowDown))
-          "Alt+ArrowUp",    (fun _ ->   Handled (User MoveNodeUp))
-          "Alt+ArrowDown",  (fun _ ->   Handled (User MoveNodeDown))
-          "Ctrl+ArrowUp",   (fun _ ->   Handled (User MoveNodeUp))
-          "Ctrl+ArrowDown", (fun _ ->   Handled (User MoveNodeDown))
-          "Tab",            (fun _ ->   Handled (User IndentSelection))
-          "Shift+Tab",      (fun _ ->   Handled (User OutdentSelection))
-          "Escape",         (fun _ ->   Handled (User CancelEdit))
-          "Ctrl+.",         (fun _ ->   Handled (User ToggleFoldSelection))
-          "Ctrl+z",         (fun _ ->   Handled (User Undo))
-          "Ctrl+y",         (fun _ ->   Handled (User Redo))
-          printableKeyToken,(fun ctx -> Handled (User (StartEdit ctx.keyEvent.key))) ]
+        [ "F2",             (fun ctx -> Some (User (StartEdit ctx.selectedNodeText)))
+          "Enter",          (fun ctx -> Some (User (StartEdit ctx.selectedNodeText)))
+          "ArrowUp",        (fun _ ->   Some (User MoveSelectionUp))
+          "ArrowDown",      (fun _ ->   Some (User MoveSelectionDown))
+          "Shift+ArrowUp",  (fun _ ->   Some (User ShiftArrowUp))
+          "Shift+ArrowDown",(fun _ ->   Some (User ShiftArrowDown))
+          "Alt+ArrowUp",    (fun _ ->   Some (User MoveNodeUp))
+          "Alt+ArrowDown",  (fun _ ->   Some (User MoveNodeDown))
+          "Ctrl+ArrowUp",   (fun _ ->   Some (User MoveNodeUp))
+          "Ctrl+ArrowDown", (fun _ ->   Some (User MoveNodeDown))
+          "Tab",            (fun _ ->   Some (User IndentSelection))
+          "Shift+Tab",      (fun _ ->   Some (User OutdentSelection))
+          "Escape",         (fun _ ->   Some (User CancelEdit))
+          "Ctrl+.",         (fun _ ->   Some (User ToggleFoldSelection))
+          "Ctrl+z",         (fun _ ->   Some (User Undo))
+          "Ctrl+y",         (fun _ ->   Some (User Redo))
+          printableKeyToken,(fun ctx -> Some (User (StartEdit ctx.keyEvent.key))) ]
 
-let handleBackspace (ctx: EditingKeyContext) : KeyResult =
-    if int ctx.editInput.selectionStart = 0 then Handled (User (JoinWithPrevious ctx.editInput.value))
-    else NotHandled
+let handleBackspace (ctx: EditingKeyContext) : Msg option =
+    if int ctx.editInput.selectionStart = 0 then Some (User (JoinWithPrevious ctx.editInput.value))
+    else None
 
 let editingKeyTable: (string * KeyHandler<EditingKeyContext>) list =
-        [ "Enter",          (fun ctx -> Handled (User (SplitNode (ctx.editInput.value, int ctx.editInput.selectionStart))))
+        [ "Enter",          (fun ctx -> Some (User (SplitNode (ctx.editInput.value, int ctx.editInput.selectionStart))))
           "Backspace",      handleBackspace
-          "ArrowUp",        (fun _ ->   Handled (User MoveSelectionUp))
-          "ArrowDown",      (fun _ ->   Handled (User MoveSelectionDown))
-          "Alt+ArrowUp",    (fun _ ->   Handled (User MoveNodeUp))
-          "Alt+ArrowDown",  (fun _ ->   Handled (User MoveNodeDown))
-          "Ctrl+ArrowUp",   (fun _ ->   Handled (User MoveNodeUp))
-          "Ctrl+ArrowDown", (fun _ ->   Handled (User MoveNodeDown))
-          "Tab",            (fun _ ->   Handled (User IndentSelection))
-          "Shift+Tab",      (fun _ ->   Handled (User OutdentSelection))
-          "Escape",         (fun _ ->   Handled (User CancelEdit))
-          "Ctrl+.",         (fun _ ->   Handled (User ToggleFoldSelection))
-          "Ctrl+z",         (fun _ ->   Handled (User Undo))
-          "Ctrl+y",         (fun _ ->   Handled (User Redo)) ]
+          "ArrowUp",        (fun _ ->   Some (User MoveSelectionUp))
+          "ArrowDown",      (fun _ ->   Some (User MoveSelectionDown))
+          "Alt+ArrowUp",    (fun _ ->   Some (User MoveNodeUp))
+          "Alt+ArrowDown",  (fun _ ->   Some (User MoveNodeDown))
+          "Ctrl+ArrowUp",   (fun _ ->   Some (User MoveNodeUp))
+          "Ctrl+ArrowDown", (fun _ ->   Some (User MoveNodeDown))
+          "Tab",            (fun _ ->   Some (User IndentSelection))
+          "Shift+Tab",      (fun _ ->   Some (User OutdentSelection))
+          "Escape",         (fun _ ->   Some (User CancelEdit))
+          "Ctrl+.",         (fun _ ->   Some (User ToggleFoldSelection))
+          "Ctrl+z",         (fun _ ->   Some (User Undo))
+          "Ctrl+y",         (fun _ ->   Some (User Redo)) ]
 
 let tryResolveOperation
     (table: (string * KeyHandler<'Context>) list)
@@ -151,7 +147,7 @@ let handleKey
     | None -> ()
     | Some handler ->
         match handler ctx with
-        | Handled msg ->
+        | Some msg ->
             keyEvent.preventDefault()
             dispatch msg
-        | NotHandled -> ()
+        | None -> ()
