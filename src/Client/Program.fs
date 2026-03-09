@@ -58,11 +58,11 @@ let setupStaticDOM (dispatch: Msg -> unit) : unit =
         | None ->
             let rootNode = currentModel.graph.nodes.[currentModel.graph.root]
             match ke.key with
-            | "Enter" | "F2" -> dispatch (StartEdit rootNode.text)
-            | "ArrowDown"    -> dispatch MoveSelectionDown
+            | "Enter" | "F2" -> dispatch (User (StartEdit rootNode.text))
+            | "ArrowDown"    -> dispatch (User MoveSelectionDown)
             | _ ->
                 if isPrintableKey ke.key && not ke.ctrlKey && not ke.metaKey && not ke.altKey then
-                    dispatch (StartEdit ke.key)
+                    dispatch (User (StartEdit ke.key))
         | Some sel ->
             let nodeId = focusedNodeId currentModel.graph sel
             let nodeText = currentModel.graph.nodes.[nodeId].text
@@ -85,7 +85,7 @@ let setupStaticDOM (dispatch: Msg -> unit) : unit =
     cb.id <- cbId
     cb.setAttribute("type", "checkbox")
     (cb :?> HTMLInputElement).``checked`` <- currentModel.linkPasteEnabled
-    cb.addEventListener("change", fun _ -> dispatch ToggleLinkPaste)
+    cb.addEventListener("change", fun _ -> dispatch (User ToggleLinkPaste))
     label.appendChild cb |> ignore
     label.appendChild (document.createTextNode " Copy/Paste reference to original") |> ignore
     settingsBar.appendChild label |> ignore
@@ -93,7 +93,7 @@ let setupStaticDOM (dispatch: Msg -> unit) : unit =
 
     let syncStatus = document.createElement "div"
     syncStatus.id <- "sync-status"
-    syncStatus.addEventListener("click", fun _ -> dispatch RetryPending)
+    syncStatus.addEventListener("click", fun _ -> dispatch (User RetryPending))
     app.appendChild syncStatus |> ignore
 
     let undoStatus = document.createElement "div"
@@ -104,17 +104,17 @@ let setupStaticDOM (dispatch: Msg -> unit) : unit =
 let rec dispatch (msg: Msg) : unit =
     // Special handling: StartEdit stores the prefill before updating model
     match msg with
-    | StartEdit prefill -> editPrefill <- Some prefill
+    | User (StartEdit prefill) -> editPrefill <- Some prefill
     | _ -> ()
 
     let prevModel = currentModel
     currentModel <- update msg currentModel dispatch
 
     match msg with
-    | StateLoaded _ ->
+    | System (StateLoaded _) ->
         // Full rebuild on initial load; warm the element cache
         elementCache <- render currentModel dispatch
-    | SubmitResponse _ | SubmitFailed | RetryPending ->
+    | System (SubmitResponse _) | System SubmitFailed | User RetryPending ->
         // Sync-only update: no tree changes, just refresh the status indicator
         View.renderStatus currentModel
     | _ ->
@@ -123,12 +123,12 @@ let rec dispatch (msg: Msg) : unit =
 
     // Update undo/redo status whenever history might have changed
     match msg with
-    | SubmitResponse _ | SubmitFailed | RetryPending -> ()  // No history change
+    | System (SubmitResponse _) | System SubmitFailed | User RetryPending -> ()  // No history change
     | _ -> View.renderUndoStatus currentModel
 
     // Apply the prefill text override for StartEdit (edit-input was just created)
     match msg, editPrefill with
-    | StartEdit _, Some prefill ->
+    | User (StartEdit _), Some prefill ->
         let editInput = document.getElementById "edit-input"
         if not (isNull editInput) then
             let inp = editInput :?> HTMLInputElement
@@ -148,7 +148,7 @@ setupStaticDOM dispatch
 fetchText $"/{Update.currentFile}/state" (fun text ->
     match decodeStateResponse text with
     | Ok (graph, revision) ->
-        dispatch (StateLoaded (graph, revision))
+        dispatch (System (StateLoaded (graph, revision)))
     | Error err ->
         app.textContent <- $"Error: {err}"
 )

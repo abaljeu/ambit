@@ -62,8 +62,14 @@ type VM = // the client state
       pendingChanges: Change list  // FIFO queue of changes awaiting server confirmation
       syncState: SyncState }
 
-type Msg =
+/// Messages dispatched by async server callbacks (not directly caused by user input).
+type SystemMsg =
     | StateLoaded of Graph * Revision
+    | SubmitResponse of Revision
+    | SubmitFailed
+
+/// Messages dispatched directly by user interactions (keyboard, mouse, clipboard).
+type UserMsg =
     | SelectRow of NodeId
     | MoveSelectionUp
     | MoveSelectionDown
@@ -77,8 +83,6 @@ type Msg =
     | MoveNodeUp
     | MoveNodeDown
     | CancelEdit
-    | SubmitResponse of Revision
-    | SubmitFailed
     | RetryPending
     | PasteNodes of pastedText: string
     | CopySelection
@@ -88,3 +92,7 @@ type Msg =
     | ToggleLinkPaste
     | Undo
     | Redo
+
+type Msg =
+    | System of SystemMsg
+    | User of UserMsg

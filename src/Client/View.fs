@@ -51,7 +51,7 @@ let private makeRowElement (model: VM) (dispatch: Msg -> unit) (depth: int) (sit
         toggle.addEventListener("mousedown", fun (ev: Event) ->
             ev.preventDefault()
             ev.stopPropagation()
-            dispatch (ToggleFold siteEntry.instanceId)
+            dispatch (User (ToggleFold siteEntry.instanceId))
         )
         row.appendChild toggle |> ignore
     else
@@ -92,7 +92,7 @@ let private makeRowElement (model: VM) (dispatch: Msg -> unit) (depth: int) (sit
     // Row click → select
     row.addEventListener("mousedown", fun (ev: Event) ->
         ev.preventDefault()
-        dispatch (SelectRow nodeId)
+        dispatch (User (SelectRow nodeId))
     )
     row
 

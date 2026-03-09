@@ -30,7 +30,7 @@ let onPaste (ev: Event) (dispatch: Msg -> unit) : unit =
     ev.preventDefault()
     let plain = getClipboardData ev "text/plain"
     let text  = if plain <> "" then plain else stripHtmlToText (getClipboardData ev "text/html")
-    if text <> "" then dispatch (PasteNodes text)
+    if text <> "" then dispatch (User (PasteNodes text))
 
 let private onCopyOrCut (model: VM) (ev: Event) (dispatch: Msg -> unit) (msg: Msg) : unit =
     match model.selectedNodes with
@@ -49,12 +49,12 @@ let private onCopyOrCut (model: VM) (ev: Event) (dispatch: Msg -> unit) (msg: Ms
 /// Handle a copy event in select mode: serialize the visible selected subtree to the
 /// system clipboard and dispatch CopySelection so update can store model.clipboard.
 let onCopy (model: VM) (ev: Event) (dispatch: Msg -> unit) : unit =
-    onCopyOrCut model ev dispatch CopySelection
+    onCopyOrCut model ev dispatch (User CopySelection)
 
 /// Handle a cut event in select mode: same as copy, then dispatch CutSelection
 /// so update removes the nodes and adjusts the selection.
 let onCut (model: VM) (ev: Event) (dispatch: Msg -> unit) : unit =
-    onCopyOrCut model ev dispatch CutSelection
+    onCopyOrCut model ev dispatch (User CutSelection)
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -81,43 +81,43 @@ type KeyHandler<'Context> = 'Context -> KeyResult
 let printableKeyToken = "__PRINTABLE__"
 
 let selectionKeyTable: (string * KeyHandler<SelectionKeyContext>) list =
-        [ "F2",             (fun ctx -> Handled (StartEdit ctx.selectedNodeText))
-          "Enter",          (fun ctx -> Handled (StartEdit ctx.selectedNodeText))
-          "ArrowUp",        (fun _ ->   Handled MoveSelectionUp)
-          "ArrowDown",      (fun _ ->   Handled MoveSelectionDown)
-          "Shift+ArrowUp",  (fun _ ->   Handled ShiftArrowUp)
-          "Shift+ArrowDown",(fun _ ->   Handled ShiftArrowDown)
-          "Alt+ArrowUp",    (fun _ ->   Handled MoveNodeUp)
-          "Alt+ArrowDown",  (fun _ ->   Handled MoveNodeDown)
-          "Ctrl+ArrowUp",   (fun _ ->   Handled MoveNodeUp)
-          "Ctrl+ArrowDown", (fun _ ->   Handled MoveNodeDown)
-          "Tab",            (fun _ ->   Handled IndentSelection)
-          "Shift+Tab",      (fun _ ->   Handled OutdentSelection)
-          "Escape",         (fun _ ->   Handled CancelEdit)
-          "Ctrl+.",         (fun _ ->   Handled ToggleFoldSelection)
-          "Ctrl+z",         (fun _ ->   Handled Undo)
-          "Ctrl+y",         (fun _ ->   Handled Redo)
-          printableKeyToken,(fun ctx -> Handled (StartEdit ctx.keyEvent.key)) ]
+        [ "F2",             (fun ctx -> Handled (User (StartEdit ctx.selectedNodeText)))
+          "Enter",          (fun ctx -> Handled (User (StartEdit ctx.selectedNodeText)))
+          "ArrowUp",        (fun _ ->   Handled (User MoveSelectionUp))
+          "ArrowDown",      (fun _ ->   Handled (User MoveSelectionDown))
+          "Shift+ArrowUp",  (fun _ ->   Handled (User ShiftArrowUp))
+          "Shift+ArrowDown",(fun _ ->   Handled (User ShiftArrowDown))
+          "Alt+ArrowUp",    (fun _ ->   Handled (User MoveNodeUp))
+          "Alt+ArrowDown",  (fun _ ->   Handled (User MoveNodeDown))
+          "Ctrl+ArrowUp",   (fun _ ->   Handled (User MoveNodeUp))
+          "Ctrl+ArrowDown", (fun _ ->   Handled (User MoveNodeDown))
+          "Tab",            (fun _ ->   Handled (User IndentSelection))
+          "Shift+Tab",      (fun _ ->   Handled (User OutdentSelection))
+          "Escape",         (fun _ ->   Handled (User CancelEdit))
+          "Ctrl+.",         (fun _ ->   Handled (User ToggleFoldSelection))
+          "Ctrl+z",         (fun _ ->   Handled (User Undo))
+          "Ctrl+y",         (fun _ ->   Handled (User Redo))
+          printableKeyToken,(fun ctx -> Handled (User (StartEdit ctx.keyEvent.key))) ]
 
 let handleBackspace (ctx: EditingKeyContext) : KeyResult =
-    if int ctx.editInput.selectionStart = 0 then Handled (JoinWithPrevious ctx.editInput.value)
+    if int ctx.editInput.selectionStart = 0 then Handled (User (JoinWithPrevious ctx.editInput.value))
     else NotHandled
 
 let editingKeyTable: (string * KeyHandler<EditingKeyContext>) list =
-        [ "Enter",          (fun ctx -> Handled (SplitNode (ctx.editInput.value, int ctx.editInput.selectionStart)))
+        [ "Enter",          (fun ctx -> Handled (User (SplitNode (ctx.editInput.value, int ctx.editInput.selectionStart))))
           "Backspace",      handleBackspace
-          "ArrowUp",        (fun _ ->   Handled MoveSelectionUp)
-          "ArrowDown",      (fun _ ->   Handled MoveSelectionDown)
-          "Alt+ArrowUp",    (fun _ ->   Handled MoveNodeUp)
-          "Alt+ArrowDown",  (fun _ ->   Handled MoveNodeDown)
-          "Ctrl+ArrowUp",   (fun _ ->   Handled MoveNodeUp)
-          "Ctrl+ArrowDown", (fun _ ->   Handled MoveNodeDown)
-          "Tab",            (fun _ ->   Handled IndentSelection)
-          "Shift+Tab",      (fun _ ->   Handled OutdentSelection)
-          "Escape",         (fun _ ->   Handled CancelEdit)
-          "Ctrl+.",         (fun _ ->   Handled ToggleFoldSelection)
-          "Ctrl+z",         (fun _ ->   Handled Undo)
-          "Ctrl+y",         (fun _ ->   Handled Redo) ]
+          "ArrowUp",        (fun _ ->   Handled (User MoveSelectionUp))
+          "ArrowDown",      (fun _ ->   Handled (User MoveSelectionDown))
+          "Alt+ArrowUp",    (fun _ ->   Handled (User MoveNodeUp))
+          "Alt+ArrowDown",  (fun _ ->   Handled (User MoveNodeDown))
+          "Ctrl+ArrowUp",   (fun _ ->   Handled (User MoveNodeUp))
+          "Ctrl+ArrowDown", (fun _ ->   Handled (User MoveNodeDown))
+          "Tab",            (fun _ ->   Handled (User IndentSelection))
+          "Shift+Tab",      (fun _ ->   Handled (User OutdentSelection))
+          "Escape",         (fun _ ->   Handled (User CancelEdit))
+          "Ctrl+.",         (fun _ ->   Handled (User ToggleFoldSelection))
+          "Ctrl+z",         (fun _ ->   Handled (User Undo))
+          "Ctrl+y",         (fun _ ->   Handled (User Redo)) ]
 
 let tryResolveOperation
     (table: (string * KeyHandler<'Context>) list)

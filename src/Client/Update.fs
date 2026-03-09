@@ -65,9 +65,9 @@ let fireNextPending (pending: Change list) (dispatch: Msg -> unit) : unit =
         postJson $"/{currentFile}/changes" body
             (fun responseText ->
                 match decodeStateResponse responseText with
-                | Ok (_graph, rev) -> dispatch (SubmitResponse rev)
-                | Error _ -> dispatch SubmitFailed)
-            (fun () -> dispatch SubmitFailed)
+                | Ok (_graph, rev) -> dispatch (System (SubmitResponse rev))
+                | Error _ -> dispatch (System SubmitFailed))
+            (fun () -> dispatch (System SubmitFailed))
 
 /// Apply a change to the local model, enqueue it for posting to the server,
 /// and return the updated VM (or None if the change was rejected locally).
@@ -379,7 +379,7 @@ let joinWithPrevious (currentText: string) (model: VM) (dispatch: Msg -> unit) :
 /// (server POST callbacks).
 let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
     match msg with
-    | StateLoaded (graph, revision) ->
+    | System (StateLoaded (graph, revision)) ->
         let siteMap, nextId = ViewModel.buildSiteMap graph 0
         { graph = graph
           revision = revision
@@ -393,7 +393,7 @@ let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
           pendingChanges = []
           syncState = Synced }
 
-    | SelectRow nodeId ->
+    | User (SelectRow nodeId) ->
         let result =
             match model.mode, model.selectedNodes with
             | Editing (originalText, _), Some sel ->
@@ -406,21 +406,21 @@ let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
                 { model with selectedNodes = singleSelection model.graph model.siteMap nodeId; mode = Selecting }
         if not (System.Object.ReferenceEquals(result.graph, model.graph)) then withSiteMap result else result
 
-    | MoveSelectionUp ->
+    | User MoveSelectionUp ->
         let result =
             match model.mode with
             | Editing _ -> moveSelectionBy -1 (commitIfEditing model dispatch)
             | Selecting -> applyMoveSelectionUp model
         if not (System.Object.ReferenceEquals(result.graph, model.graph)) then withSiteMap result else result
 
-    | MoveSelectionDown ->
+    | User MoveSelectionDown ->
         let result =
             match model.mode with
             | Editing _ -> moveSelectionBy 1 (commitIfEditing model dispatch)
             | Selecting -> applyMoveSelectionDown model
         if not (System.Object.ReferenceEquals(result.graph, model.graph)) then withSiteMap result else result
 
-    | StartEdit _prefill ->
+    | User (StartEdit _prefill) ->
         match model.selectedNodes with
         | None ->
             let root = model.graph.nodes.[model.graph.root]
@@ -430,21 +430,21 @@ let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
             let node = model.graph.nodes.[nodeId]
             { model with mode = Editing (node.text, None) }  // None = cursor at end
 
-    | ShiftArrowUp   -> shiftArrow -1 model
-    | ShiftArrowDown -> shiftArrow  1 model
+    | User ShiftArrowUp   -> shiftArrow -1 model
+    | User ShiftArrowDown -> shiftArrow  1 model
 
-    | SplitNode (currentText, cursorPos) ->
+    | User (SplitNode (currentText, cursorPos)) ->
         splitNode currentText cursorPos model dispatch |> withSiteMap
 
-    | JoinWithPrevious currentText ->
+    | User (JoinWithPrevious currentText) ->
         joinWithPrevious currentText model dispatch
 
-    | IndentSelection  -> indentSelection  (commitIfEditing model dispatch) dispatch |> withSiteMap
-    | OutdentSelection -> outdentSelection (commitIfEditing model dispatch) dispatch |> withSiteMap
-    | MoveNodeUp       -> moveNode -1      (commitIfEditing model dispatch) dispatch |> withSiteMap
-    | MoveNodeDown     -> moveNode  1      (commitIfEditing model dispatch) dispatch |> withSiteMap
+    | User IndentSelection  -> indentSelection  (commitIfEditing model dispatch) dispatch |> withSiteMap
+    | User OutdentSelection -> outdentSelection (commitIfEditing model dispatch) dispatch |> withSiteMap
+    | User MoveNodeUp       -> moveNode -1      (commitIfEditing model dispatch) dispatch |> withSiteMap
+    | User MoveNodeDown     -> moveNode  1      (commitIfEditing model dispatch) dispatch |> withSiteMap
 
-    | CancelEdit ->
+    | User CancelEdit ->
         match model.mode with
         | Editing _ ->
             // In edit mode: revert text, return to selection mode
@@ -453,7 +453,7 @@ let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
             // In selection mode: deselect
             { model with selectedNodes = None }
 
-    | SubmitResponse revision ->
+    | System (SubmitResponse revision) ->
         let pending = match model.pendingChanges with _ :: t -> t | [] -> []
         if not pending.IsEmpty then fireNextPending pending dispatch
         { model with
@@ -462,30 +462,30 @@ let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
             pendingChanges = pending
             syncState = if pending.IsEmpty then Synced else Syncing }
 
-    | SubmitFailed ->
+    | System SubmitFailed ->
         { model with syncState = Pending }
 
-    | RetryPending ->
+    | User RetryPending ->
         match model.pendingChanges with
         | [] -> { model with syncState = Synced }
         | _  ->
             fireNextPending model.pendingChanges dispatch
             { model with syncState = Syncing }
 
-    | PasteNodes pastedText ->
+    | User (PasteNodes pastedText) ->
         pasteNodes pastedText model dispatch |> withSiteMap
 
-    | CopySelection ->
+    | User CopySelection ->
         match model.selectedNodes with
         | None -> model
         | Some sel ->
             let selectedIds = rangeChildren model.graph sel.range
             { model with clipboard = Some (collectSubtree model.graph model.siteMap selectedIds) }
 
-    | CutSelection ->
+    | User CutSelection ->
         cutSelection model dispatch |> withSiteMap
 
-    | ToggleFold instanceId ->
+    | User (ToggleFold instanceId) ->
         match Map.tryFind instanceId model.siteMap.entries with
         | None -> model
         | Some entry ->
@@ -495,7 +495,7 @@ let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
                 let siteMap, nextId = ViewModel.expandEntry instanceId model.graph model.siteMap model.nextInstanceId
                 { model with siteMap = siteMap; nextInstanceId = nextId }
 
-    | ToggleFoldSelection ->
+    | User ToggleFoldSelection ->
         match model.selectedNodes with
         | None -> model
         | Some sel ->
@@ -519,10 +519,10 @@ let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
                         (model.siteMap, model.nextInstanceId)
                 { model with siteMap = siteMap; nextInstanceId = nextId }
 
-    | ToggleLinkPaste ->
+    | User ToggleLinkPaste ->
         { model with linkPasteEnabled = not model.linkPasteEnabled }
 
-    | Undo ->
+    | User Undo ->
         let model' = commitIfEditing model dispatch
         let state = { graph = model'.graph; history = model'.history; revision = model'.revision }
         match model'.history.past |> List.tryHead with
@@ -543,7 +543,7 @@ let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
                 |> withSiteMap
             | _ -> model'
 
-    | Redo ->
+    | User Redo ->
         let model' = commitIfEditing model dispatch
         let state = { graph = model'.graph; history = model'.history; revision = model'.revision }
         match model'.history.future |> List.tryHead with
