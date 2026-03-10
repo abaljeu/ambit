@@ -5,6 +5,7 @@ open Browser.Types
 open Gambol.Shared
 open Gambol.Shared.ViewModel
 open Gambol.Client.Controller
+open Gambol.Client.Update
 
 // ---------------------------------------------------------------------------
 // Depth helper
@@ -26,7 +27,7 @@ let private computeDepth (siteMap: SiteMap) (entry: SiteEntry) : int =
 // ---------------------------------------------------------------------------
 
 /// Create a fresh DOM row for the given SiteEntry at the given depth.
-let private makeRowElement (model: VM) (dispatch: Msg -> unit) (depth: int) (siteEntry: SiteEntry) : HTMLElement =
+let private makeRowElement (model: VM) (applyOp: Op -> unit) (depth: int) (siteEntry: SiteEntry) : HTMLElement =
     let nodeId = siteEntry.nodeId
     let node = model.graph.nodes.[nodeId]
     let hasChildren = not node.children.IsEmpty
@@ -51,7 +52,7 @@ let private makeRowElement (model: VM) (dispatch: Msg -> unit) (depth: int) (sit
         toggle.addEventListener("mousedown", fun (ev: Event) ->
             ev.preventDefault()
             ev.stopPropagation()
-            dispatch (User (ToggleFold siteEntry.instanceId))
+            applyOp (toggleFoldOp siteEntry.instanceId)
         )
         row.appendChild toggle |> ignore
     else
@@ -68,7 +69,8 @@ let private makeRowElement (model: VM) (dispatch: Msg -> unit) (depth: int) (sit
         editInput.setAttribute("tabindex", "-1")
         let prefill =
             match model.mode with
-            | Editing (originalText, _) -> originalText
+            | Editing (originalText, Some pf, _) -> pf
+            | Editing (originalText, None, _)    -> originalText
             | _ -> node.text
         (editInput :?> HTMLInputElement).value <- prefill
         editInput.addEventListener("keydown", fun (ev: Event) ->
@@ -76,12 +78,12 @@ let private makeRowElement (model: VM) (dispatch: Msg -> unit) (depth: int) (sit
             let ctx =
                 { keyEvent = key
                   editInput = (editInput :?> HTMLInputElement) }
-            handleKey editingKeyTable ctx key dispatch
+            handleKey editingKeyTable ctx key applyOp
         )
         editInput.addEventListener("mousedown", fun (ev: Event) ->
             ev.stopPropagation()
         )
-        editInput.addEventListener("paste", fun ev -> onPaste ev dispatch)
+        editInput.addEventListener("paste", fun ev -> onPaste ev applyOp)
         row.appendChild editInput |> ignore
     else
         let textDiv = document.createElement "div"
@@ -92,7 +94,14 @@ let private makeRowElement (model: VM) (dispatch: Msg -> unit) (depth: int) (sit
     // Row click → select
     row.addEventListener("mousedown", fun (ev: Event) ->
         ev.preventDefault()
-        dispatch (User (SelectRow nodeId))
+        applyOp (selectRow nodeId)
+    )
+    // Row double-click → enter edit mode with cursor at mouse position
+    row.addEventListener("dblclick", fun (ev: Event) ->
+        ev.preventDefault()
+        let me = ev :?> MouseEvent
+        let offset = getCaretOffset me.clientX me.clientY
+        applyOp (startEditAtPos node.text offset)
     )
     row
 
@@ -110,7 +119,7 @@ let manageFocus (model: VM) : unit =
             inp.focus()
             let pos =
                 match model.mode with
-                | Editing (_, Some p) -> p
+                | Editing (_, _, Some p) -> p
                 | _ -> inp.value.Length
             inp.setSelectionRange(pos, pos)
     | Selecting ->
@@ -155,7 +164,7 @@ let renderUndoStatus (model: VM) : unit =
 /// Rebuild all row elements from scratch: removes existing rows (children of app
 /// that precede the hidden-input sentinel), then recreates them in preorder.
 /// Returns a fresh element cache keyed by instanceId.
-let render (vm: VM) (dispatch: Msg -> unit) : Map<int, HTMLElement> =
+let render (vm: VM) (applyOp: Op -> unit) : Map<int, HTMLElement> =
     // Remove existing rows — everything before the hidden-input sentinel
     let hiddenInput = document.getElementById "hidden-input"
     if isNull hiddenInput then
@@ -172,7 +181,7 @@ let render (vm: VM) (dispatch: Msg -> unit) : Map<int, HTMLElement> =
     for instId in visible do
         let entry = vm.siteMap.entries.[instId]
         let depth = computeDepth vm.siteMap entry
-        let row = makeRowElement vm dispatch depth entry
+        let row = makeRowElement vm applyOp depth entry
         cache <- Map.add instId row cache
         let sentinel = document.getElementById "hidden-input"
         if isNull sentinel then app.appendChild row |> ignore
@@ -188,13 +197,13 @@ let render (vm: VM) (dispatch: Msg -> unit) : Map<int, HTMLElement> =
     cache
 
 // ---------------------------------------------------------------------------
-// Incremental DOM patch (all dispatches except StateLoaded)
+// Incremental DOM patch (all ops except StateLoaded)
 // ---------------------------------------------------------------------------
 
 /// Patch the DOM incrementally: diff old and new SiteMap visibility,
 /// removes stale rows, creates/moves new rows, updates existing rows in-place.
 /// Returns the updated element cache.
-let patchDOM (oldModel: VM) (newModel: VM) (dispatch: Msg -> unit) (cache: Map<int, HTMLElement>) : Map<int, HTMLElement> =
+let patchDOM (oldModel: VM) (newModel: VM) (applyOp: Op -> unit) (cache: Map<int, HTMLElement>) : Map<int, HTMLElement> =
     let cachedInstIds = cache |> Map.toSeq |> Seq.map fst |> Set.ofSeq
     let mutations = ViewModel.planPatchDOM oldModel newModel cachedInstIds
 
@@ -233,7 +242,7 @@ let patchDOM (oldModel: VM) (newModel: VM) (dispatch: Msg -> unit) (cache: Map<i
                 match Map.tryFind instId cache' with
                 | Some old -> old.remove()
                 | None -> ()
-                let el = makeRowElement newModel dispatch depth entry
+                let el = makeRowElement newModel applyOp depth entry
                 cache' <- Map.add instId el cache'
                 el
             | Some (PatchRow (_, patches)) ->
@@ -249,7 +258,7 @@ let patchDOM (oldModel: VM) (newModel: VM) (dispatch: Msg -> unit) (cache: Map<i
                         if not (isNull ft) then (ft :?> HTMLElement).textContent <- arrow
                 el
             | _ ->  // CreateRow or missing
-                let el = makeRowElement newModel dispatch depth entry
+                let el = makeRowElement newModel applyOp depth entry
                 cache' <- Map.add instId el cache'
                 el
 

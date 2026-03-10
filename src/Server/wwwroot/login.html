@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gambol — Login</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background: #f5f5f5;
+        }
+        form {
+            background: white;
+            padding: 2rem;
+            border-radius: 6px;
+            box-shadow: 0 2px 8px rgba(0,0,0,.15);
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            min-width: 280px;
+        }
+        h2 { margin: 0; font-size: 1.4rem; }
+        label { display: flex; flex-direction: column; gap: .25rem; font-size: .9rem; }
+        input[type=text], input[type=password] {
+            padding: .5rem;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+        button {
+            padding: .6rem;
+            background: #333;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+        button:hover { background: #555; }
+        .error { color: #c00; font-size: .85rem; min-height: 1.2em; }
+    </style>
+</head>
+<body>
+    <form method="post" action="/login">
+        <h2>Gambol</h2>
+        <label>Username <input type="text" name="username" autofocus autocomplete="username" required></label>
+        <label>Password <input type="password" name="password" autocomplete="current-password" required></label>
+        <button type="submit">Log in</button>
+        <div class="error" id="err"></div>
+    </form>
+    <script>
+        if (new URLSearchParams(location.search).has('error')) {
+            document.getElementById('err').textContent = 'Invalid username or password.';
+        }
+    </script>
+</body>
+</html>

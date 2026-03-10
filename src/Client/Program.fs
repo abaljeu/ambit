@@ -37,16 +37,13 @@ let mutable currentModel: VM =
 /// Element cache: instanceId → DOM row element.  Populated on first StateLoaded.
 let mutable elementCache: Map<int, HTMLElement> = Map.empty
 
-/// Mutable reference for edit prefill text (set on StartEdit, consumed on render)
-let mutable editPrefill: string option = None
-
 // ---------------------------------------------------------------------------
 // One-time static DOM setup (hidden-input + settings-bar)
 // These elements persist for the lifetime of the page; their event handlers
 // read currentModel so they always operate on the latest state.
 // ---------------------------------------------------------------------------
 
-let setupStaticDOM (dispatch: Msg -> unit) : unit =
+let setupStaticDOM (applyOp: Op -> unit) : unit =
     let hiddenInput = document.createElement "input"
     hiddenInput.id <- "hidden-input"
     hiddenInput.setAttribute("autocomplete", "off")
@@ -58,22 +55,22 @@ let setupStaticDOM (dispatch: Msg -> unit) : unit =
         | None ->
             let rootNode = currentModel.graph.nodes.[currentModel.graph.root]
             match ke.key with
-            | "Enter" | "F2" -> dispatch (User (StartEdit rootNode.text))
-            | "ArrowDown"    -> dispatch (User MoveSelectionDown)
+            | "Enter" | "F2" -> applyOp (startEdit rootNode.text)
+            | "ArrowDown"    -> applyOp moveSelectionDown
             | _ ->
                 if isPrintableKey ke.key && not ke.ctrlKey && not ke.metaKey && not ke.altKey then
-                    dispatch (User (StartEdit ke.key))
+                    applyOp (startEdit ke.key)
         | Some sel ->
             let nodeId = focusedNodeId currentModel.graph sel
             let nodeText = currentModel.graph.nodes.[nodeId].text
             let ctx =
                 { keyEvent = ke
                   selectedNodeText = nodeText }
-            handleKey selectionKeyTable ctx ke dispatch
+            handleKey selectionKeyTable ctx ke applyOp
     )
-    hiddenInput.addEventListener("paste", fun ev -> onPaste ev dispatch)
-    hiddenInput.addEventListener("copy",  fun ev -> onCopy  currentModel ev dispatch)
-    hiddenInput.addEventListener("cut",   fun ev -> onCut   currentModel ev dispatch)
+    hiddenInput.addEventListener("paste", fun ev -> onPaste ev applyOp)
+    hiddenInput.addEventListener("copy",  fun ev -> onCopy  currentModel ev applyOp)
+    hiddenInput.addEventListener("cut",   fun ev -> onCut   currentModel ev applyOp)
     app.appendChild hiddenInput |> ignore
 
     let settingsBar = document.createElement "div"
@@ -85,15 +82,22 @@ let setupStaticDOM (dispatch: Msg -> unit) : unit =
     cb.id <- cbId
     cb.setAttribute("type", "checkbox")
     (cb :?> HTMLInputElement).``checked`` <- currentModel.linkPasteEnabled
-    cb.addEventListener("change", fun _ -> dispatch (User ToggleLinkPaste))
+    cb.addEventListener("change", fun _ -> applyOp toggleLinkPasteOp)
     label.appendChild cb |> ignore
     label.appendChild (document.createTextNode " Copy/Paste reference to original") |> ignore
     settingsBar.appendChild label |> ignore
+
+    let logoutLink = document.createElement "a"
+    logoutLink.setAttribute("href", "/logout")
+    logoutLink.setAttribute("style", "margin-left: 1rem; font-size: .85rem; color: #555;")
+    logoutLink.textContent <- "Logout"
+    settingsBar.appendChild logoutLink |> ignore
+
     app.appendChild settingsBar |> ignore
 
     let syncStatus = document.createElement "div"
     syncStatus.id <- "sync-status"
-    syncStatus.addEventListener("click", fun _ -> dispatch (User RetryPending))
+    syncStatus.addEventListener("click", fun _ -> applyOp retryPendingOp)
     app.appendChild syncStatus |> ignore
 
     let undoStatus = document.createElement "div"
@@ -101,49 +105,28 @@ let setupStaticDOM (dispatch: Msg -> unit) : unit =
     undoStatus.setAttribute("title", "Undo/Redo status")
     app.appendChild undoStatus |> ignore
 
-let rec dispatch (msg: Msg) : unit =
-    // Special handling: StartEdit stores the prefill before updating model
-    match msg with
-    | User (StartEdit prefill) -> editPrefill <- Some prefill
-    | _ -> ()
+let rec applyOp (op: Op) : unit =
+    let prevModel = currentModel
+    currentModel <- op currentModel dispatch
+    elementCache <- patchDOM prevModel currentModel applyOp elementCache
+    View.renderUndoStatus currentModel
 
+and dispatch (msg: Msg) : unit =
     let prevModel = currentModel
     currentModel <- update msg currentModel dispatch
 
     match msg with
     | System (StateLoaded _) ->
-        // Full rebuild on initial load; warm the element cache
-        elementCache <- render currentModel dispatch
-    | System (SubmitResponse _) | System SubmitFailed | User RetryPending ->
-        // Sync-only update: no tree changes, just refresh the status indicator
+        elementCache <- render currentModel applyOp
+        View.renderUndoStatus currentModel
+    | System (SubmitResponse _) | System SubmitFailed ->
         View.renderStatus currentModel
-    | _ ->
-        // Incremental patch for all other messages (including Undo | Redo)
-        elementCache <- patchDOM prevModel currentModel dispatch elementCache
-
-    // Update undo/redo status whenever history might have changed
-    match msg with
-    | System (SubmitResponse _) | System SubmitFailed | User RetryPending -> ()  // No history change
-    | _ -> View.renderUndoStatus currentModel
-
-    // Apply the prefill text override for StartEdit (edit-input was just created)
-    match msg, editPrefill with
-    | User (StartEdit _), Some prefill ->
-        let editInput = document.getElementById "edit-input"
-        if not (isNull editInput) then
-            let inp = editInput :?> HTMLInputElement
-            inp.value <- prefill
-            inp.focus()
-            let len = prefill.Length
-            inp.setSelectionRange(len, len)
-        editPrefill <- None
-    | _ -> ()
 
 // ---------------------------------------------------------------------------
 // Bootstrap
 // ---------------------------------------------------------------------------
 
-setupStaticDOM dispatch
+setupStaticDOM applyOp
 
 fetchText $"/{Update.currentFile}/state" (fun text ->
     match decodeStateResponse text with

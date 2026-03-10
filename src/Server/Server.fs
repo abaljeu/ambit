@@ -2,6 +2,7 @@ namespace Gambol.Server
 
 open System
 open System.IO
+open System.Security.Cryptography
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Http
@@ -9,18 +10,18 @@ open Microsoft.Extensions.Configuration
 
 module Main =
 
-    let private sanitizeFilename (filename: string) =
-        let name = Path.GetFileName(filename)
-        if String.IsNullOrWhiteSpace(name) || name <> filename then
-            None
-        else
-            Some name
-
     let resolveDataDir (contentRoot: string) (config: IConfiguration) =
         let relative = config.["DataDir"] |> Option.ofObj |> Option.defaultValue "../../data"
         let dataDir = Path.Combine(contentRoot, relative) |> Path.GetFullPath
         Directory.CreateDirectory(dataDir) |> ignore
         dataDir
+
+    let private cookieName = "gambol_auth"
+
+    let private generateToken () =
+        let bytes = Array.zeroCreate<byte> 32
+        RandomNumberGenerator.Fill(Span<byte>(bytes))
+        Convert.ToBase64String(bytes)
 
     [<EntryPoint>]
     let main args =
@@ -31,9 +32,32 @@ module Main =
         let builder = WebApplication.CreateBuilder(options)
         let app = builder.Build()
 
-        let dataDir = resolveDataDir app.Environment.ContentRootPath app.Configuration
+        let config = app.Configuration
+        let dataDir = resolveDataDir app.Environment.ContentRootPath config
 
-        // One agent at a time — keyed by filename
+        // ── Session token (single-user, in-memory) ─────────────────────────
+        let mutable sessionToken: string option = None
+
+        let isAuthenticated (req: HttpRequest) =
+            match sessionToken with
+            | None -> false
+            | Some token ->
+                match req.Cookies.TryGetValue(cookieName) with
+                | true, cookie -> cookie = token
+                | _ -> false
+
+        let setAuthCookie (resp: HttpResponse) (token: string) =
+            let opts =
+                CookieOptions(
+                    HttpOnly = true,
+                    SameSite = SameSiteMode.Strict,
+                    Expires = Nullable(DateTimeOffset.UtcNow.AddYears(10)))
+            resp.Cookies.Append(cookieName, token, opts)
+
+        let clearAuthCookie (resp: HttpResponse) =
+            resp.Cookies.Delete(cookieName)
+
+        // ── File agent ─────────────────────────────────────────────────────
         let mutable currentAgent: (string * FileAgent) option = None
         let agentLock = obj ()
 
@@ -55,23 +79,63 @@ module Main =
         app.UseDefaultFiles() |> ignore
         app.UseStaticFiles() |> ignore
 
+        // GET /login → serve login.html
+        let loginHtml = Path.Combine(app.Environment.WebRootPath, "login.html")
+        app.MapGet("/login", Func<IResult>(fun () ->
+            Results.File(loginHtml, "text/html")
+        )) |> ignore
+
+        // POST /login → validate credentials, set permanent cookie, redirect
+        app.MapPost("/login", Func<HttpRequest, Task<IResult>>(fun req -> task {
+            let! form = req.ReadFormAsync()
+            let username = string form.["username"]
+            let password = string form.["password"]
+            let expectedUser = config.["Auth:Username"] |> Option.ofObj |> Option.defaultValue ""
+            let expectedPass = config.["Auth:Password"] |> Option.ofObj |> Option.defaultValue ""
+            if username = expectedUser && password = expectedPass && username <> "" then
+                let token = generateToken()
+                sessionToken <- Some token
+                setAuthCookie req.HttpContext.Response token
+                return Results.Redirect("/gambol")
+            else
+                return Results.Redirect("/login?error=1")
+        })) |> ignore
+
+        // GET /logout → clear session, redirect to login
+        app.MapGet("/logout", Func<HttpResponse, IResult>(fun resp ->
+            sessionToken <- None
+            clearAuthCookie resp
+            Results.Redirect("/login")
+        )) |> ignore
+
         // GET /gambol/state → JSON { revision, graph }
-        app.MapGet("/gambol/state", Func<Task<IResult>>(fun () -> task {
-            let agent = getOrCreateAgent "gambol"
-            return! Api.getState agent |> Async.StartAsTask
+        app.MapGet("/gambol/state", Func<HttpRequest, Task<IResult>>(fun req -> task {
+            if not (isAuthenticated req) then
+                return Results.Unauthorized()
+            else
+                let agent = getOrCreateAgent "gambol"
+                return! Api.getState agent |> Async.StartAsTask
         })) |> ignore
 
         // POST /gambol/changes → JSON { revision, graph } or 400
         app.MapPost("/gambol/changes", Func<HttpRequest, Task<IResult>>(fun req -> task {
-            use reader = new StreamReader(req.Body)
-            let! body = reader.ReadToEndAsync()
-            let agent = getOrCreateAgent "gambol"
-            return! Api.postChange agent body |> Async.StartAsTask
+            if not (isAuthenticated req) then
+                return Results.Unauthorized()
+            else
+                use reader = new StreamReader(req.Body)
+                let! body = reader.ReadToEndAsync()
+                let agent = getOrCreateAgent "gambol"
+                return! Api.postChange agent body |> Async.StartAsTask
         })) |> ignore
 
-        // GET /gambol → serve gambol.html (URL stays as /gambol so client reads filename correctly)
+        // GET /gambol → serve gambol.html (protected)
         let gambolHtml = Path.Combine(app.Environment.WebRootPath, "gambol.html")
-        app.MapGet("/gambol", Func<IResult>(fun () -> Results.File(gambolHtml, "text/html"))) |> ignore
+        app.MapGet("/gambol", Func<HttpRequest, IResult>(fun req ->
+            if isAuthenticated req then
+                Results.File(gambolHtml, "text/html")
+            else
+                Results.Redirect("/login")
+        )) |> ignore
 
         app.Run()
 

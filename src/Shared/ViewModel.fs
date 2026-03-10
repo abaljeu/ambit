@@ -2,7 +2,8 @@ namespace Gambol.Shared
 
 type Mode =
     | Selecting
-    | Editing of originalText: string * cursorPos: int option
+    | Editing of originalText: string * prefill: string option * cursorPos: int option
+    // prefill: the initial text shown in the edit input (if different from originalText)
     // cursorPos: None = place cursor at end; Some n = place cursor at position n
 
 /// A rendered appearance of a node in a flat site map. Each appearance gets a unique
@@ -68,34 +69,5 @@ type SystemMsg =
     | SubmitResponse of Revision
     | SubmitFailed
 
-/// Messages dispatched directly by user interactions (keyboard, mouse, clipboard).
-type UserMsg =
-    | SelectRow of NodeId
-    | MoveSelectionUp
-    | MoveSelectionDown
-    | ShiftArrowUp
-    | ShiftArrowDown
-    | StartEdit of prefill: string
-    | SplitNode of currentText: string * cursorPos: int
-    | JoinWithPrevious of currentText: string
-    | JoinWithNext of currentText: string
-    | MoveEditUp of cursorPos: int
-    | MoveEditDown of cursorPos: int
-    | IndentSelection
-    | OutdentSelection
-    | MoveNodeUp
-    | MoveNodeDown
-    | CancelEdit
-    | RetryPending
-    | PasteNodes of pastedText: string
-    | CopySelection
-    | CutSelection
-    | ToggleFold of instanceId: int
-    | ToggleFoldSelection
-    | ToggleLinkPaste
-    | Undo
-    | Redo
-
 type Msg =
     | System of SystemMsg
-    | User of UserMsg
