@@ -28,7 +28,7 @@
             "type": "msedge",
             "request": "launch",
             "preLaunchTask": "fable: Build Client",
-            "url": "http://localhost:5115/gambol",
+            "url": "http://localhost:5115/amble",
             "webRoot": "${workspaceFolder}/src/Server/wwwroot",
             "sourceMapPathOverrides": {
                 "../../Client/*": "${workspaceFolder}/src/Client/*"
@@ -39,7 +39,7 @@
             "type": "chrome",
             "request": "launch",
             "preLaunchTask": "fable: Build Client",
-            "url": "http://localhost:5115/gambol",
+            "url": "http://localhost:5115/amble",
             "webRoot": "${workspaceFolder}/src/Server/wwwroot",
             "sourceMapPathOverrides": {
                 "../../Client/*": "${workspaceFolder}/src/Client/*"

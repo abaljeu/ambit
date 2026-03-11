@@ -96,7 +96,7 @@ module Main =
                 let token = generateToken()
                 sessionToken <- Some token
                 setAuthCookie req.HttpContext.Response token
-                return Results.Redirect("/gambol")
+                return Results.Redirect("/amble")
             else
                 return Results.Redirect("/login?error=1")
         })) |> ignore
@@ -108,8 +108,8 @@ module Main =
             Results.Redirect("/login")
         )) |> ignore
 
-        // GET /gambol/state → JSON { revision, graph }
-        app.MapGet("/gambol/state", Func<HttpRequest, Task<IResult>>(fun req -> task {
+        // GET /amble/state → JSON { revision, graph }
+        app.MapGet("/amble/state", Func<HttpRequest, Task<IResult>>(fun req -> task {
             if not (isAuthenticated req) then
                 return Results.Unauthorized()
             else
@@ -117,8 +117,8 @@ module Main =
                 return! Api.getState agent |> Async.StartAsTask
         })) |> ignore
 
-        // POST /gambol/changes → JSON { revision, graph } or 400
-        app.MapPost("/gambol/changes", Func<HttpRequest, Task<IResult>>(fun req -> task {
+        // POST /amble/changes → JSON { revision, graph } or 400
+        app.MapPost("/amble/changes", Func<HttpRequest, Task<IResult>>(fun req -> task {
             if not (isAuthenticated req) then
                 return Results.Unauthorized()
             else
@@ -128,9 +128,9 @@ module Main =
                 return! Api.postChange agent body |> Async.StartAsTask
         })) |> ignore
 
-        // GET /gambol → serve gambol.html (protected)
+        // GET /amble → serve gambol.html (protected)
         let gambolHtml = Path.Combine(app.Environment.WebRootPath, "gambol.html")
-        app.MapGet("/gambol", Func<HttpRequest, IResult>(fun req ->
+        app.MapGet("/amble", Func<HttpRequest, IResult>(fun req ->
             if isAuthenticated req then
                 Results.File(gambolHtml, "text/html")
             else
