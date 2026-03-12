@@ -5,6 +5,8 @@
       "label": "server: Build",
       "type": "shell",
       "command": "dotnet build src/Server",
+      "dependsOn": ["fable: Build Client"],
+      "dependsOrder": "sequence",
       "group": "build",
       "presentation": {
         "reveal": "silent",

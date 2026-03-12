@@ -63,3 +63,13 @@ body {
     position: absolute;
     left: -9999px;
 }
+#settings-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0;
+    margin-top: 0.5rem;
+    border-top: 1px solid #bbb;
+    font-size: 0.85rem;
+    color: #444;
+}

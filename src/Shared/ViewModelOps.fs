@@ -277,42 +277,62 @@ module ViewModel =
 // Selection / focus / edit helpers (pure — no Browser interop)
 // ---------------------------------------------------------------------------
 
-    let isNodeDirectlySelected (model: VM) (nodeId: NodeId) : bool =
-        match model.selectedNodes with
-        | None -> false
-        | Some sel ->
-            let parentNode = model.graph.nodes.[sel.range.parent.nodeId]
-            parentNode.children
-            |> List.indexed
-            |> List.exists (fun (i, id) -> id = nodeId && i >= sel.range.start && i < sel.range.endd)
+    /// True when entry is directly within the selected index range AND is a child
+    /// of the exact same parent instance that the selection was made on.
+    /// Prevents sibling occurrences of the same NodeId (DIGRAPH links) from lighting up.
+    let private isInstanceDirectlySelected (sel: Selection) (siteMap: SiteMap) (entry: SiteEntry) : bool =
+        match entry.parentInstanceId with
+        | Some parentInstId when parentInstId = sel.range.parent.instanceId ->
+            match Map.tryFind parentInstId siteMap.entries with
+            | None -> false
+            | Some parentEntry ->
+                match parentEntry.children |> List.tryFindIndex ((=) entry.instanceId) with
+                | Some idx -> idx >= sel.range.start && idx < sel.range.endd
+                | None -> false
+        | _ -> false
 
-    let isNodeFocused (model: VM) (nodeId: NodeId) : bool =
-        match model.selectedNodes with
-        | None -> false
-        | Some sel -> focusedNodeId model.graph sel = nodeId
+    /// True when entry is at the focused index AND is a child of the exact same
+    /// parent instance that the selection was made on.
+    let private isInstanceFocused (sel: Selection) (siteMap: SiteMap) (entry: SiteEntry) : bool =
+        match entry.parentInstanceId with
+        | Some parentInstId when parentInstId = sel.range.parent.instanceId ->
+            match Map.tryFind parentInstId siteMap.entries with
+            | None -> false
+            | Some parentEntry ->
+                match parentEntry.children |> List.tryFindIndex ((=) entry.instanceId) with
+                | Some idx -> idx = sel.focus
+                | None -> false
+        | _ -> false
 
-    let private ancestorMatch (model: VM) (entry: SiteEntry) (pred: NodeId -> bool) : bool =
+    /// Walk up the parentInstanceId chain: true if entry or any ancestor satisfies pred.
+    let private ancestorMatch (siteMap: SiteMap) (entry: SiteEntry) (pred: SiteEntry -> bool) : bool =
         let rec go parentInstId =
             match parentInstId with
             | None -> false
             | Some pid ->
-                match Map.tryFind pid model.siteMap.entries with
+                match Map.tryFind pid siteMap.entries with
                 | None -> false
-                | Some pe -> pred pe.nodeId || go pe.parentInstanceId
-        pred entry.nodeId || go entry.parentInstanceId
+                | Some pe -> pred pe || go pe.parentInstanceId
+        pred entry || go entry.parentInstanceId
 
     let isEntrySelected (model: VM) (entry: SiteEntry) =
         if model.selectedNodes = None && entry.parentInstanceId = None then true
-        else ancestorMatch model entry (isNodeDirectlySelected model)
+        else
+            match model.selectedNodes with
+            | None -> false
+            | Some sel -> ancestorMatch model.siteMap entry (isInstanceDirectlySelected sel model.siteMap)
 
     let isEntryFocused (model: VM) (entry: SiteEntry) =
         if model.selectedNodes = None && entry.parentInstanceId = None then true
-        else ancestorMatch model entry (isNodeFocused model)
+        else
+            match model.selectedNodes with
+            | None -> false
+            | Some sel -> ancestorMatch model.siteMap entry (isInstanceFocused sel model.siteMap)
 
     let isEditingEntry (model: VM) (entry: SiteEntry) : bool =
         match model.mode, model.selectedNodes with
         | Editing _, None   -> entry.parentInstanceId = None
-        | Editing _, Some _ -> isNodeFocused model entry.nodeId
+        | Editing _, Some sel -> isInstanceFocused sel model.siteMap entry
         | Selecting, _      -> false
 
 // ---------------------------------------------------------------------------

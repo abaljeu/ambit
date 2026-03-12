@@ -157,6 +157,14 @@ let splitNode (currentText: string) (cursorPos: int) (model: VM) (dispatch: Msg 
 
 /// Handle a PasteNodes message.
 ///
+/// When linkPasteEnabled: each pasted line that is a valid NodeId GUID for an
+/// existing node is resolved to that existing node.  Only Op.Replace is emitted
+/// (no NewNode ops), so the node is inserted as a link rather than a copy.
+/// Select mode: replaces the current selection with the resolved nodes.
+/// Edit mode:   commits current text then inserts resolved nodes as siblings
+///              below the active node; falls back to normal splice if no GUIDs found.
+///
+/// When linkPasteEnabled is off (default deep-copy):
 /// Select mode: replaces the current selection with the pasted subtree.
 /// Edit mode:   splices the first pasted line into the node at the cursor;
 ///              remaining top-level lines become siblings below the current node.
@@ -167,9 +175,28 @@ let pasteNodes (pastedText: string) (model: VM) (dispatch: Msg -> unit) : VM =
         let entries = parsePasteText pastedText
         if entries.IsEmpty then model
         else
+
+        /// When linkPasteEnabled, resolve each entry whose text is a NodeId GUID
+        /// that already exists in the graph.  Returns Some ids (non-empty) or None.
+        let tryLinkIds () =
+            if not model.linkPasteEnabled then None
+            else
+                let ids =
+                    entries
+                    |> List.choose (fun (text, _) ->
+                        match System.Guid.TryParse(text.Trim()) with
+                        | true, guid ->
+                            let id = NodeId guid
+                            if Map.containsKey id model.graph.nodes then Some id else None
+                        | _ -> None)
+                if ids.IsEmpty then None else Some ids
+
         match model.mode with
         | Selecting ->
-            let (topLevelIds, pasteOps) = buildPasteOps entries
+            let topLevelIds, pasteOps =
+                match tryLinkIds () with
+                | Some existingIds -> existingIds, []
+                | None -> buildPasteOps entries
             if topLevelIds.IsEmpty then model
             else
             let range = sel.range
@@ -188,6 +215,17 @@ let pasteNodes (pastedText: string) (model: VM) (dispatch: Msg -> unit) : VM =
             let focusId  = focusedNodeId model.graph sel
             let parentId = sel.range.parent.nodeId
             let focusIdx = sel.focus
+            match tryLinkIds () with
+            | Some refIds ->
+                // Link-paste in editing mode: commit current text, insert referenced nodes as siblings below
+                let setTextOps =
+                    if currentText <> originalText then [ Op.SetText(focusId, originalText, currentText) ] else []
+                let insertOp = Op.Replace(parentId, focusIdx + 1, [], refIds)
+                let change = { id = model.revision.Value; ops = setTextOps @ [insertOp] }
+                match applyAndPost change model dispatch with
+                | Some m -> { m with mode = Selecting }
+                | None -> model
+            | None ->
             match entries with
             | [] -> model
             | [(firstText, _)] ->

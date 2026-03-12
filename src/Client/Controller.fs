@@ -45,7 +45,14 @@ let private onCopyOrCut (model: VM) (ev: Event) (applyOp: Op -> unit) (op: Op) :
             parentNode.children
             |> List.skip sel.range.start
             |> List.take (sel.range.endd - sel.range.start)
-        let serialized = serializeSubtree model.graph model.siteMap selectedIds
+        let serialized =
+            if model.linkPasteEnabled then
+                // Write raw NodeId GUIDs so paste-reference can find the existing nodes
+                selectedIds
+                |> List.map (fun (NodeId guid) -> guid.ToString())
+                |> String.concat "\n"
+            else
+                serializeSubtree model.graph model.siteMap selectedIds
         setClipboardData ev "text/plain" serialized
         applyOp op
 

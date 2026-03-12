@@ -7,6 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="BuildInfo.fs" />
     <Compile Include="Update.fs" />
     <Compile Include="Controller.fs" />
     <Compile Include="View.fs" />

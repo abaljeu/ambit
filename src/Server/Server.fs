@@ -166,11 +166,18 @@ module Main =
                     return! Api.postChange agent body |> Async.StartAsTask
             })) |> ignore
 
-            // GET /amble → serve gambol.html (protected)
+            // GET /amble → serve gambol.html (protected) with startup stamp injected
             let gambolHtml = Path.Combine(app.Environment.WebRootPath, "gambol.html")
+            let torontoTz = TimeZoneInfo.FindSystemTimeZoneById("America/Toronto")
+            let torontoNow = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, torontoTz)
+            let startupStamp = torontoNow.ToString("yyyy-MM-dd HH:mm:ss") + " ET"
+            let gambolHtmlWithStamp =
+                let raw = File.ReadAllText(gambolHtml)
+                let snippet = "    <script>window.__BUILD__ = \"" + startupStamp + "\";</script>\n</head>"
+                raw.Replace("</head>", snippet)
             app.MapGet("/amble", Func<HttpRequest, IResult>(fun req ->
                 if isAuthenticated req then
-                    Results.File(gambolHtml, "text/html")
+                    Results.Content(gambolHtmlWithStamp, "text/html")
                 else
                     Results.Redirect("/login")
             )) |> ignore

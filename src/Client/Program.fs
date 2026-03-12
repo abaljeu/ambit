@@ -17,6 +17,9 @@ open Gambol.Client.View
 [<Emit("fetch($0).then(r => r.text()).then($1)")>]
 let fetchText (url: string) (callback: string -> unit) : unit = jsNative
 
+[<Emit("(typeof window.__BUILD__ !== 'undefined' ? window.__BUILD__ : $0)")>]
+let readBuildStamp (fallback: string) : string = jsNative
+
 // ---------------------------------------------------------------------------
 // MVU dispatch loop
 // ---------------------------------------------------------------------------
@@ -92,6 +95,11 @@ let setupStaticDOM (applyOp: Op -> unit) : unit =
     logoutLink.setAttribute("style", "margin-left: 1rem; font-size: .85rem; color: #555;")
     logoutLink.textContent <- "Logout"
     settingsBar.appendChild logoutLink |> ignore
+
+    let buildLabel = document.createElement "span"
+    buildLabel.setAttribute("style", "margin-left: auto; font-size: .75rem; color: #666;")
+    buildLabel.textContent <- readBuildStamp BuildInfo.buildNumber
+    settingsBar.appendChild buildLabel |> ignore
 
     app.appendChild settingsBar |> ignore
 
