@@ -1,6 +1,6 @@
 # Deploying Gambol alongside WordPress (SSH access)
 
-## Step 1: Install .NET 10 on the server
+## [x] Step 1: Install .NET 10 on the server
 
 ```bash
 wget https://dot.net/v1/dotnet-install.sh
@@ -17,53 +17,85 @@ source ~/.bashrc
 dotnet publish src/Server -c Release -o ./publish
 ```
 
-Copy `publish/` and `data/` to the server via `scp` or `rsync`:
+Copy `publish/` to the server using `scripts/deploy.sh` (zips first to avoid per-file overhead):
 
 ```bash
-rsync -av publish/ user@yourserver:/var/www/gambol/
-rsync -av data/ user@yourserver:/var/www/gambol-data/
+bash scripts/deploy.sh
 ```
 
-## Step 3: Create a systemd service
-
-On the server, create `/etc/systemd/system/gambol.service`:
-
-```ini
-[Unit]
-Description=Gambol ASP.NET Core App
-After=network.target
-
-[Service]
-WorkingDirectory=/var/www/gambol
-ExecStart=/root/.dotnet/dotnet Gambol.Server.dll
-Restart=always
-Environment=ASPNETCORE_URLS=http://localhost:5000
-Environment=ASPNETCORE_ENVIRONMENT=Production
-
-[Install]
-WantedBy=multi-user.target
-```
+For data (only needed on first deploy or if data files changed):
 
 ```bash
-sudo systemctl enable gambol && sudo systemctl start gambol
+scp -i ~/.ssh/collab-sys.rsa -r data/ abaljeu@collaborative-systems.org:~/gambol-data/
 ```
 
-## Step 4: Configure Nginx reverse proxy
+## Step 3: Keep the app running (shared cPanel hosting — no systemd)
 
-Add a location block to your WordPress site's Nginx config:
+cPanel shared hosting has no `sudo`, systemd, or direct Nginx access.
+Instead, use a wrapper script + cron job.
 
-```nginx
-location /gambol/ {
-    proxy_pass http://localhost:5000/gambol/;
-    proxy_http_version 1.1;
-    proxy_set_header Host $host;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-}
+**Create `~/gambol/start.sh`** on the server:
+
+```bash
+#!/bin/bash
+APP_DIR="$HOME/gambol"
+LOG="$APP_DIR/gambol.log"
+PIDFILE="$APP_DIR/gambol.pid"
+
+if [ -f "$PIDFILE" ] && kill -0 "$(cat $PIDFILE)" 2>/dev/null; then
+    exit 0  # already running
+fi
+
+cd "$APP_DIR"
+export DOTNET_ROOT="$HOME/.dotnet"
+export PATH="$PATH:$HOME/.dotnet"
+export ASPNETCORE_URLS="http://localhost:5000"
+export ASPNETCORE_ENVIRONMENT="Production"
+
+nohup dotnet Gambol.Server.dll >> "$LOG" 2>&1 &
+echo $! > "$PIDFILE"
 ```
 
 ```bash
-sudo nginx -s reload
+chmod +x ~/gambol/start.sh
+~/gambol/start.sh
 ```
+
+**Add a cron job** in cPanel → Cron Jobs (or via `crontab -e`):
+
+```
+*/5 * * * * ~/gambol/start.sh
+```
+
+This restarts the app if it crashes or the server reboots. Logs go to `~/gambol/gambol.log`.
+
+## Step 4: Configure reverse proxy via .htaccess
+
+cPanel uses Apache. Add these rules to `~/.htaccess` (the root htaccess that serves the main site), before `# BEGIN WordPress`:
+
+```apache
+RewriteEngine On
+
+# Proxy /amble and /login to the Gambol app
+RewriteRule ^(amble|amble/.*|login|logout)$ http://localhost:5000/$1 [P,L]
+```
+
+Or using `ProxyPass` directives (place before `# BEGIN WordPress`):
+
+```apache
+<IfModule mod_proxy.c>
+    ProxyPass /amble http://localhost:5000/amble
+    ProxyPassReverse /amble http://localhost:5000/amble
+    ProxyPass /login http://localhost:5000/login
+    ProxyPassReverse /login http://localhost:5000/login
+    ProxyPass /logout http://localhost:5000/logout
+    ProxyPassReverse /logout http://localhost:5000/logout
+</IfModule>
+```
+
+The app is already coded for these paths — `/amble` serves the main UI, `/login` and `/logout` handle auth, `/amble/state` and `/amble/changes` are the API endpoints.
+
+If neither works, contact the host to confirm `mod_proxy` / `mod_rewrite [P]` is enabled.
 
 ## Step 5: Update appsettings.json
 
@@ -77,6 +109,9 @@ Set `DataDir` in `src/Server/appsettings.json` to the data directory on the serv
 
 ## Notes
 
-- Requires a VPS with systemd (not managed/shared hosting)
-- Requires `sudo` access to edit Nginx config and manage services
+- Server is cPanel shared hosting (Apache, no systemd, no sudo)
+- Home directory is `/home3/abaljeu/`; WordPress docs likely under `~/public_html/`
+- 5GB disk available; .NET runtime (~300–500MB) + app (~50MB) fits comfortably
 - The app targets .NET 10; verify `dotnet --version` after install
+- `mod_proxy` support on Apache shared hosts varies — may need to ask host to enable it
+- The cron-based restart is best-effort; the host may kill long-running processes
