@@ -21,10 +21,31 @@ type FileAgent = {
 
 module FileAgent =
 
+    let private backupRetentionDays = 30
+
+    let private makeStartupBackup (snapshotPath: string) =
+        if File.Exists(snapshotPath) then
+            let dateStamp = DateTime.Today.ToString("yyyyMMdd")
+            let backupPath = snapshotPath + ".bak." + dateStamp
+            if not (File.Exists(backupPath)) then
+                File.Copy(snapshotPath, backupPath)
+            // Prune backups beyond retention limit
+            let dir = Path.GetDirectoryName(snapshotPath)
+            let prefix = Path.GetFileName(snapshotPath) + ".bak."
+            let backups =
+                Directory.GetFiles(dir, prefix + "*")
+                |> Array.sort
+                |> Array.toList
+            let excess = backups.Length - backupRetentionDays
+            if excess > 0 then
+                backups |> List.take excess |> List.iter File.Delete
+
     let create (dataDir: string) (filename: string) : FileAgent =
         let snapshotPath = Path.Combine(dataDir, filename)
         let metaPath = snapshotPath + ".meta"
         let logPath = snapshotPath + ".log"
+
+        makeStartupBackup snapshotPath
 
         let initialGraph =
             if File.Exists(snapshotPath) then

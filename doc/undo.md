@@ -1,97 +1,104 @@
-# Undo / Redo design (in-memory)
+# Undo design
 
-Goal: support undo/redo across client + server using shared types and pure logic.
-This document covers in-memory structures only (no persistence yet).
+## Operational model
 
-## Concepts
+Single client, single server. Operations are applied optimistically on the client
+first (zero latency) and POSTed to the server asynchronously. The server is
+authoritative for persistence and revision numbering, not for conflict resolution.
 
-- **Op**: a single low-level mutation intent (new node, set text, replace children).
-- **Change**: a high-level user action, represented as a batch of ops.
-- **Undo (high-level)**: reverses a whole Change.
-- **Undo (low-level)**: reverses a single Op.
+There is no separate redo endpoint. Redo is a consequence of the Emacs stack model
+(see below).
 
-## Shared types (proposed)
+## Core types (`Shared/History.fs`)
 
-- `type Op = NewNode of ... | SetText of ... | Replace of ...`
-- `type Change = { id: int; ops: Op list }`
-- `type History = { past: Change list; future: Change list }`
-- `type State = { graph: Graph; history: History }`
+```fsharp
+type Op =
+    | NewNode of nodeId: NodeId * text: string
+    | SetText of nodeId: NodeId * oldText: string * newText: string
+    | Replace of parentId: NodeId * index: int * oldIds: NodeId list * newIds: NodeId list
 
-Notes:
-- `past` is newest-first (stack). `future` is newest-first (stack).
-- `id` can be a monotonically increasing int assigned by the server.
+type Change = { id: int; ops: Op list }
+type History = { past: Change list; future: Change list; nextId: int }
+type State   = { graph: Graph; history: History; revision: Revision }
+```
 
-## Core pure functions (shared)
+- `past` is newest-first. Each undo pops from `past`.
+- `future` is newest-first. Each redo pops from `future`.
+- `id` is a monotonically increasing int (assigned by the client, confirmed by the server).
 
-- `applyOp : Op -> Graph -> Result<Graph, string>`
-- `invertOp : Op -> Op`
-- `applyChange : Change -> Graph -> Result<Graph, string>`
-- `invertChange : Change -> Change`
+## Inversion (`Change.invert`)
 
-Rules:
-- `applyChange` applies ops in order.
-- `invertChange` reverses op order and inverts each op.
-  - `invertChange { ops = [o1;o2;o3] }` becomes `{ ops = [inv o3; inv o2; inv o1] }`.
+`Change.invert` builds the structural inverse of a change: op list is reversed
+and each op has old/new swapped.
 
-## Inversion rules (low-level undo)
+| Op | Inverse |
+|----|---------|
+| `NewNode(id, text)` | `NewNode(id, text)` — identity; see note below |
+| `SetText(id, old, new)` | `SetText(id, new, old)` |
+| `Replace(pid, i, olds, news)` | `Replace(pid, i, news, olds)` |
 
-- `NewNode(nodeId, ...)` inverts to `DeleteNode(nodeId, snapshot)` OR avoid deletion for now.
-  - For now we can choose a simpler rule: do not implement undo for NewNode yet.
-- `SetText(nodeId, old, new)` inverts to `SetText(nodeId, new, old)`.
-- `Replace(parentId, index, oldIds, newIds)` inverts to
-  `Replace(parentId, index, newIds, oldIds)`.
+`NewNode` has no `DeleteNode` counterpart in the op set. Its inverse is left as
+itself; if undo-of-undo of a `NewNode` is attempted, `Op.undo` will call
+`Graph.setText` with a mismatched state and return `ApplyResult.Invalid`, leaving
+the graph unchanged. This is acceptable: split-then-undo-then-undo is an edge case
+with low practical impact.
 
-Design note:
-- To make inversion possible, ops must carry enough info to reverse.
-  - `SetText` already carries both old/new.
-  - `Replace` already carries both old/new.
+## Emacs stack model (`History.addChange`)
+
+When a new change is committed after one or more undos, the `future` stack is
+**not discarded**. Instead it is folded back into `past` as inverse changes:
+
+```
+future = [c2; c3]   (most-recently-undone first)
+new change = c4
+
+past becomes: [c4; inv(c2); inv(c3); ...old past...]
+future becomes: []
+```
+
+Subsequent undos traverse: undo c4 → undo inv(c2) ≡ redo c2 → undo inv(c3) ≡ redo c3.
+This gives "redo via undo" without a separate redo branch, matching Emacs behaviour.
+
+Classical redo (`History.redo`) still works when no new change has been committed
+since the last undo, because `future` is only consumed by `addChange`.
 
 ## History transitions
 
-Given `state = { graph; history = { past; future } }`.
+| Action | `past` | `future` |
+|--------|--------|----------|
+| Commit change `c` (no prior undos) | `c :: past` | `[]` |
+| Commit change `c` (after undos, `future = [c2;c3]`) | `c :: inv(c2) :: inv(c3) :: past` | `[]` |
+| Undo | pop `c` → `past'`; push `c` → `future` | `c :: future'` |
+| Redo | pop `c` → `future'`; push `c` → `past` | — |
 
-- **Commit change** (normal edit)
-  - apply `change` to `graph` -> `graph'`
-  - `past' = change :: past`
-  - `future' = []` (branch cut)
+## Client flow
 
-- **Undo change**
-  - pop `change` from `past`
-  - apply `invertChange change` to `graph` -> `graph'`
-  - push `change` onto `future`
+1. User action → `Change` built in `Update.fs`.
+2. `applyAndPost` applies the change locally via `Change.apply` (zero latency).
+3. Change is POSTed to `POST /{file}/changes` asynchronously.
+4. Server applies via `History.applyChange`, appends to log, triggers snapshot.
+5. Server responds with new `revision`; client dispatches `SubmitResponse revision`.
 
-- **Redo change**
-  - pop `change` from `future`
-  - apply `change` to `graph` -> `graph'`
-  - push `change` onto `past`
+Undo (Ctrl+Z) and Redo (Ctrl+Y) will follow the same pattern: apply locally,
+POST the inverse/reapplication to the server. **Not yet wired to server endpoints.**
 
-## Client/server responsibilities
+## Keybindings
 
-Shared:
-- Defines `Op`, `Change`, `History`, and the pure apply/invert functions.
+| Key | Action |
+|-----|--------|
+| `Ctrl+Z` | Undo |
+| `Ctrl+Y` | Redo |
 
-Client:
-- Produces high-level `Change` records from user intent.
-- Applies changes optimistically to local `State`.
-- Calls server endpoints:
-  - `POST /submit` returning ack with revision + change id.
-
-Server:
-- Authoritative graph + history in memory.
-- Applies incoming change batches and assigns `id` (and revision).
-- Provides undo/redo endpoints:
-  - `POST /undo` pops one change and applies its inverse.
-  - `POST /redo` reapplies one change.
+Available in both selection and editing modes.
 
 ## Error handling
 
-- If applying a change fails, do not mutate history.
-- Undo/redo on empty stacks is a no-op or error; pick one and test it.
+- If `Change.apply` returns `Invalid`, the history is not mutated and the model
+  is returned unchanged.
+- Undo/redo on empty stacks returns `ApplyResult.Unchanged`.
 
-## Testing checklist
+## What is not implemented
 
-- Applying a change pushes to `past` and clears `future`.
-- `apply; undo` returns to original graph.
-- `apply; undo; redo` returns to post-apply graph.
-- Inverse laws for reversible ops:
-  - `applyOp op; applyOp (invertOp op)` restores graph.
+- Server-side undo/redo endpoints (currently undo/redo only apply locally;
+  the server state will diverge until a subsequent normal change is posted).
+- Undo of `NewNode` via a `DeleteNode` op.

@@ -1,0 +1,6 @@
+<Project>
+  <PropertyGroup>
+    <!-- Fable's project cracker can fail when EOL TFM warnings are emitted -->
+    <CheckEolTargetFramework>false</CheckEolTargetFramework>
+  </PropertyGroup>
+</Project>

@@ -25,12 +25,15 @@ let emptyModel (graph: Graph) : VM =
 
     { graph = graph
       revision = Revision.Zero
+      history = History.empty
       selectedNodes = None
       mode = Selecting
       siteMap = siteMap
       nextInstanceId = nextId
       clipboard = None
-      linkPasteEnabled = false }
+      linkPasteEnabled = false
+      pendingChanges = []
+      syncState = Synced }
 
 /// VM with a selection covering [start, endd) in root's children, focus at focusIdx.
 let modelWithSel (graph: Graph) (start: int) (endd: int) (focusIdx: int) : VM =

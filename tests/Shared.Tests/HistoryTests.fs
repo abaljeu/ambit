@@ -52,7 +52,10 @@ let ``AddChange pushes to past and clears future`` () =
 
     let change: Change = History.newChange history0
     let history1 = History.addChange change history0
-    Assert.Equal(1, history1.past.Length)
+    // Emacs model: the existing future entry is folded back into past as an inverse,
+    // so past = [newChange; invert(futureEntry)] — length 2.
+    Assert.Equal(2, history1.past.Length)
+    Assert.Equal(change, history1.past.[0])
     Assert.Empty(history1.future)
 
 [<Fact>]

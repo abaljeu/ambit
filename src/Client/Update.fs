@@ -12,8 +12,8 @@ open Thoth.Json.Core
 // JS interop
 // ---------------------------------------------------------------------------
 
-[<Emit("fetch($0,{method:'POST',headers:{'Content-Type':'application/json'},body:$1}).then(r=>r.text()).then($2)")>]
-let postJson (url: string) (body: string) (callback: string -> unit) : unit = jsNative
+[<Emit("fetch($0,{method:'POST',headers:{'Content-Type':'application/json'},body:$1}).then(r=>r.text()).then($2).catch(function(){$3()})")>]
+let postJson (url: string) (body: string) (onSuccess: string -> unit) (onFail: unit -> unit) : unit = jsNative
 
 // ---------------------------------------------------------------------------
 // File identity (derived from URL path)
@@ -56,19 +56,33 @@ let readEditInputCursor () : int =
     if isNull el then 0
     else int (el :?> HTMLInputElement).selectionStart
 
-/// Apply a change to the local graph, POST it to the server in the background,
-/// and return the updated graph (or None if the change was rejected locally).
-let applyAndPost (change: Change) (model: VM) (dispatch: Msg -> unit) : Graph option =
-    let state: State = { graph = model.graph; revision = model.revision; history = History.empty }
-    match Change.apply change state with
-    | ApplyResult.Changed newState ->
+/// Fire the next POST in the pending queue (head of the list).
+let fireNextPending (pending: Change list) (dispatch: Msg -> unit) : unit =
+    match pending with
+    | [] -> ()
+    | change :: _ ->
         let body = encodeChangeBody change
-        postJson $"/{currentFile}/changes" body (fun responseText ->
-            match decodeStateResponse responseText with
-            | Ok (_graph, rev) -> dispatch (SubmitResponse rev)
-            | Error _err -> ()
-        )
-        Some newState.graph
+        postJson $"/{currentFile}/changes" body
+            (fun responseText ->
+                match decodeStateResponse responseText with
+                | Ok (_graph, rev) -> dispatch (System (SubmitResponse rev))
+                | Error _ -> dispatch (System SubmitFailed))
+            (fun () -> dispatch (System SubmitFailed))
+
+/// Apply a change to the local model, enqueue it for posting to the server,
+/// and return the updated VM (or None if the change was rejected locally).
+let applyAndPost (change: Change) (model: VM) (dispatch: Msg -> unit) : VM option =
+    let state: State = { graph = model.graph; revision = model.revision; history = model.history }
+    match History.applyChange change state with
+    | ApplyResult.Changed newState ->
+        let wasEmpty = model.pendingChanges.IsEmpty
+        let pending = model.pendingChanges @ [change]
+        if wasEmpty then fireNextPending pending dispatch
+        Some { model with
+                 graph = newState.graph
+                 history = newState.history
+                 pendingChanges = pending
+                 syncState = Syncing }
     | _ -> None
 
 /// Extract the list of node IDs covered by a SiteNodeRange.
@@ -89,8 +103,8 @@ let commitTextEdit
     else
         let change: Change = { id = model.revision.Value; ops = [ Op.SetText(nodeId, originalText, newText) ] }
         match applyAndPost change model dispatch with
-        | Some graph -> { model with graph = graph; mode = Selecting }
-        | None       -> { model with mode = Selecting }
+        | Some m -> { m with mode = Selecting }
+        | None   -> { model with mode = Selecting }
 
 /// Split the currently-edited node at the cursor position.
 ///
@@ -98,10 +112,10 @@ let commitTextEdit
 /// cursor > 0    → current node gets text-before; new sibling gets text-after; focus at start of new node.
 let splitNode (currentText: string) (cursorPos: int) (model: VM) (dispatch: Msg -> unit) : VM =
     match model.mode, model.selectedNodes with
-    | Editing (originalText, _), None ->
+    | Editing (originalText, _, _), None ->
         // Root is being edited: commit text, no split
         commitTextEdit model.graph.root originalText (readEditInputValue ()) model dispatch
-    | Editing (originalText, _), Some sel ->
+    | Editing (originalText, _, _), Some sel ->
         // The node being edited is the focus node.
         let selectedId  = focusedNodeId model.graph sel
         let parentId    = sel.range.parent.nodeId
@@ -129,11 +143,10 @@ let splitNode (currentText: string) (cursorPos: int) (model: VM) (dispatch: Msg 
 
         let change: Change = { id = model.revision.Value; ops = ops }
         match applyAndPost change model dispatch with
-        | Some graph ->
-            { model with
-                graph = graph
-                selectedNodes = singleSelection graph model.siteMap focusId
-                mode = Editing (focusText, Some 0) }
+        | Some m ->
+            { m with
+                selectedNodes = singleSelection m.graph m.siteMap focusId
+                mode = Editing (focusText, None, Some 0) }
         | None -> model
     | _ -> model
 
@@ -164,12 +177,12 @@ let pasteNodes (pastedText: string) (model: VM) (dispatch: Msg -> unit) : VM =
             let replaceOp = Op.Replace(range.parent.nodeId, range.start, selectedIds, topLevelIds)
             let change = { id = model.revision.Value; ops = pasteOps @ [replaceOp] }
             match applyAndPost change model dispatch with
-            | Some graph ->
+            | Some m ->
                 let newEnd = range.start + topLevelIds.Length
                 let newSel = { range = { parent = range.parent; start = range.start; endd = newEnd }; focus = range.start }
-                { model with graph = graph; selectedNodes = Some newSel }
+                { m with selectedNodes = Some newSel }
             | None -> model
-        | Editing (originalText, _) ->
+        | Editing (originalText, _, _) ->
             let currentText = readEditInputValue ()
             let cursorPos   = readEditInputCursor ()
             let focusId  = focusedNodeId model.graph sel
@@ -184,7 +197,7 @@ let pasteNodes (pastedText: string) (model: VM) (dispatch: Msg -> unit) : VM =
                 else
                 let change = { id = model.revision.Value; ops = [ Op.SetText(focusId, originalText, newText) ] }
                 match applyAndPost change model dispatch with
-                | Some graph -> { model with graph = graph; mode = Selecting }
+                | Some m -> { m with mode = Selecting }
                 | None -> model
             | (firstText, _) :: rest ->
                 // Multi-line: splice first line at cursor; remaining become siblings below
@@ -200,7 +213,7 @@ let pasteNodes (pastedText: string) (model: VM) (dispatch: Msg -> unit) : VM =
                 else
                 let change = { id = model.revision.Value; ops = allOps }
                 match applyAndPost change model dispatch with
-                | Some graph -> { model with graph = graph; mode = Selecting }
+                | Some m -> { m with mode = Selecting }
                 | None -> model
 
 // ---------------------------------------------------------------------------
@@ -219,9 +232,9 @@ let reparentSelection (newParentEntry: SiteEntry) (insertIdx: int) (sel: Selecti
           Op.Replace(newParentEntry.nodeId, insertIdx, [], selectedIds) ]
     let change = { id = model.revision.Value; ops = ops }
     match applyAndPost change model dispatch with
-    | Some graph ->
+    | Some m ->
         let newSel = { range = { parent = newParentEntry; start = insertIdx; endd = insertIdx + selectedIds.Length }; focus = insertIdx }
-        { model with graph = graph; selectedNodes = Some newSel }
+        { m with selectedNodes = Some newSel }
     | None -> model
 
 let indentSelection (model: VM) (dispatch: Msg -> unit) : VM =
@@ -256,9 +269,9 @@ let outdentSelection (model: VM) (dispatch: Msg -> unit) : VM =
 /// If currently editing, commit the edit and return Selecting model; otherwise return model as-is.
 let commitIfEditing (model: VM) (dispatch: Msg -> unit) : VM =
     match model.mode, model.selectedNodes with
-    | Editing (originalText, _), None ->
+    | Editing (originalText, _, _), None ->
         commitTextEdit model.graph.root originalText (readEditInputValue ()) model dispatch
-    | Editing (originalText, _), Some sel ->
+    | Editing (originalText, _, _), Some sel ->
         let editingId = focusedNodeId model.graph sel
         commitTextEdit editingId originalText (readEditInputValue ()) model dispatch
     | _ -> model
@@ -274,8 +287,8 @@ let cutSelection (model: VM) (dispatch: Msg -> unit) : VM =
         let removeOp = Op.Replace(sel.range.parent.nodeId, sel.range.start, selectedIds, [])
         let change = { id = model.revision.Value; ops = [removeOp] }
         match applyAndPost change model dispatch with
-        | Some graph ->
-            let newChildren = graph.nodes.[sel.range.parent.nodeId].children
+        | Some m ->
+            let newChildren = m.graph.nodes.[sel.range.parent.nodeId].children
             let newSel =
                 if sel.range.start < newChildren.Length then
                     let i = sel.range.start
@@ -284,8 +297,8 @@ let cutSelection (model: VM) (dispatch: Msg -> unit) : VM =
                     let i = sel.range.start - 1
                     Some { range = { parent = sel.range.parent; start = i; endd = i + 1 }; focus = i }
                 else
-                    singleSelection graph model.siteMap sel.range.parent.nodeId
-            { model with graph = graph; clipboard = Some cb; selectedNodes = newSel }
+                    singleSelection m.graph m.siteMap sel.range.parent.nodeId
+            { m with clipboard = Some cb; selectedNodes = newSel }
         | None -> model
 
 /// Alt+Up/Down: swap the selected range with the adjacent sibling using a single Op.Replace.
@@ -309,9 +322,9 @@ let moveNode (delta: int) (model: VM) (dispatch: Msg -> unit) : VM =
         | Some (opStart, oldSpan, newSpan, newStart) ->
             let change = { id = model.revision.Value; ops = [ Op.Replace(range.parent.nodeId, opStart, oldSpan, newSpan) ] }
             match applyAndPost change model dispatch with
-            | Some graph ->
+            | Some m ->
                 let newSel = { range = { range with start = newStart; endd = newStart + selectedIds.Length }; focus = sel.focus + delta }
-                { model with graph = graph; selectedNodes = Some newSel }
+                { m with selectedNodes = Some newSel }
             | None -> model
 
 // ---------------------------------------------------------------------------
@@ -328,6 +341,62 @@ let withSiteMap (model: VM) : VM =
 /// 2. If current and prev both have children: abort.
 /// 3. If current has children but prev does not: move current's children to prev, then do 1.
 /// Cursor lands at the join point (end of prevText) in prev.
+let moveEdit (delta: int) (cursorPos: int) (model: VM) (dispatch: Msg -> unit) : VM =
+    match model.selectedNodes with
+    | None -> model
+    | Some sel ->
+        let currentId = focusedNodeId model.graph sel
+        let committed = commitTextEdit currentId (match model.mode with Editing (t, _, _) -> t | _ -> "") (readEditInputValue ()) model dispatch
+        let rows = getVisibleRowIds committed.siteMap
+        match rows |> List.tryFindIndex ((=) currentId) with
+        | None -> committed
+        | Some idx ->
+            let targetIdx = idx + delta
+            if targetIdx < 0 || targetIdx >= rows.Length then committed
+            else
+                let targetId = rows.[targetIdx]
+                let targetText = committed.graph.nodes.[targetId].text
+                let clampedPos = min cursorPos targetText.Length
+                { committed with
+                    mode = Editing (targetText, None, Some clampedPos)
+                    selectedNodes = singleSelection committed.graph committed.siteMap targetId }
+
+let joinWithNext (currentText: string) (model: VM) (dispatch: Msg -> unit) : VM =
+    match model.mode, model.selectedNodes with
+    | Editing _, Some sel ->
+        let currentId = focusedNodeId model.graph sel
+        let rows = getVisibleRowIds model.siteMap
+        match rows |> List.tryFindIndex ((=) currentId) with
+        | None -> model
+        | Some currentIndex ->
+            if currentIndex >= rows.Length - 1 then model
+            else
+                let nextId = rows.[currentIndex + 1]
+                let nextNode = model.graph.nodes.[nextId]
+                let currentNode = model.graph.nodes.[currentId]
+                if not currentNode.children.IsEmpty && not nextNode.children.IsEmpty then model
+                else
+                    match Graph.tryFindParentAndIndex nextId model.graph with
+                    | None -> model
+                    | Some (parentId, indexInParent) ->
+                        let joinedText = currentText + nextNode.text
+                        let cursorPos = currentText.Length
+                        let ops =
+                            [ if joinedText <> currentText then
+                                  yield Op.SetText(currentId, currentText, joinedText)
+                              if not nextNode.children.IsEmpty then
+                                  yield Op.Replace(currentId, currentNode.children.Length, [], nextNode.children)
+                              yield Op.Replace(parentId, indexInParent, [nextId], []) ]
+                        let change = { id = model.revision.Value; ops = ops }
+                        match applyAndPost change model dispatch with
+                        | None -> model
+                        | Some m ->
+                            let result = withSiteMap m
+                            { result with
+                                mode = Editing (joinedText, None, Some cursorPos)
+                                selectedNodes = singleSelection result.graph result.siteMap currentId }
+    | _ -> model
+
 let joinWithPrevious (currentText: string) (model: VM) (dispatch: Msg -> unit) : VM =
     match model.mode, model.selectedNodes with
     | Editing _, Some sel ->
@@ -355,137 +424,250 @@ let joinWithPrevious (currentText: string) (model: VM) (dispatch: Msg -> unit) :
                     let change = { id = model.revision.Value; ops = ops }
                     match applyAndPost change model dispatch with
                     | None -> model
-                    | Some graph ->
-                        let result = withSiteMap { model with graph = graph }
+                    | Some m ->
+                        let result = withSiteMap m
                         { result with
-                            mode = Editing (joinedText, Some cursorPos)
+                            mode = Editing (joinedText, None, Some cursorPos)
                             selectedNodes = singleSelection result.graph result.siteMap prevId }
     | _ -> model
 
-/// Update function. The dispatch parameter is needed for async effects
-/// (server POST callbacks).
+// ---------------------------------------------------------------------------
+// Op type and named operations
+// User interactions are represented as Op values and applied directly,
+// bypassing the Msg union entirely.
+// ---------------------------------------------------------------------------
+
+/// A self-contained model transformation. dispatch is provided for operations
+/// that fire async server POSTs; pure transforms ignore it with _.
+type Op = VM -> (Msg -> unit) -> VM
+
+/// Op: Move to selection mode (or deselect if already selecting), reverting any edit.
+let cancelEdit (model: VM) _dispatch : VM =
+    match model.mode with
+    | Editing _ -> { model with mode = Selecting }
+    | Selecting -> { model with selectedNodes = None }
+
+/// Op: Copy the focused subtree to the internal clipboard.
+let copySelectionOp (model: VM) _dispatch : VM =
+    match model.selectedNodes with
+    | None -> model
+    | Some sel ->
+        let selectedIds = rangeChildren model.graph sel.range
+        { model with clipboard = Some (collectSubtree model.graph model.siteMap selectedIds) }
+
+/// Op: Cut the focused subtree.
+let cutSelectionOp (model: VM) (dispatch: Msg -> unit) : VM =
+    cutSelection model dispatch |> withSiteMap
+
+/// Op: Enter edit mode for the focused node, showing prefill text in the input.
+let startEdit (prefill: string) (model: VM) _dispatch : VM =
+    match model.selectedNodes with
+    | None ->
+        let root = model.graph.nodes.[model.graph.root]
+        { model with mode = Editing (root.text, Some prefill, None) }
+    | Some sel ->
+        let nodeId = focusedNodeId model.graph sel
+        let node = model.graph.nodes.[nodeId]
+        { model with mode = Editing (node.text, Some prefill, None) }
+
+/// Op: Enter edit mode for the focused node, with cursor placed at a specific position.
+let startEditAtPos (prefill: string) (cursorPos: int) (model: VM) _dispatch : VM =
+    match model.selectedNodes with
+    | None ->
+        let root = model.graph.nodes.[model.graph.root]
+        { model with mode = Editing (root.text, Some prefill, Some cursorPos) }
+    | Some sel ->
+        let nodeId = focusedNodeId model.graph sel
+        let node = model.graph.nodes.[nodeId]
+        { model with mode = Editing (node.text, Some prefill, Some cursorPos) }
+
+/// Op: Select a specific node, committing any in-progress edit first.
+let selectRow (nodeId: NodeId) (model: VM) (dispatch: Msg -> unit) : VM =
+    let result =
+        match model.mode, model.selectedNodes with
+        | Editing (originalText, _, _), Some sel ->
+            let editingId = focusedNodeId model.graph sel
+            let newText = readEditInputValue ()
+            let model' = commitTextEdit editingId originalText newText model dispatch
+            { model' with selectedNodes = singleSelection model'.graph model'.siteMap nodeId }
+        | _ ->
+            { model with selectedNodes = singleSelection model.graph model.siteMap nodeId; mode = Selecting }
+    if not (System.Object.ReferenceEquals(result.graph, model.graph)) then withSiteMap result else result
+
+/// Op: Move selection up, committing any in-progress edit first.
+let moveSelectionUp (model: VM) (dispatch: Msg -> unit) : VM =
+    let result =
+        match model.mode with
+        | Editing _ -> moveSelectionBy -1 (commitIfEditing model dispatch)
+        | Selecting -> applyMoveSelectionUp model
+    if not (System.Object.ReferenceEquals(result.graph, model.graph)) then withSiteMap result else result
+
+/// Op: Move selection down, committing any in-progress edit first.
+let moveSelectionDown (model: VM) (dispatch: Msg -> unit) : VM =
+    let result =
+        match model.mode with
+        | Editing _ -> moveSelectionBy 1 (commitIfEditing model dispatch)
+        | Selecting -> applyMoveSelectionDown model
+    if not (System.Object.ReferenceEquals(result.graph, model.graph)) then withSiteMap result else result
+
+/// Op: Extend or shrink the selection by one row (Shift+Arrow).
+let shiftArrowOp (delta: int) (model: VM) _dispatch : VM = shiftArrow delta model
+
+/// Op: Split the node at the given cursor position.
+let splitNodeOp (currentText: string) (cursorPos: int) (model: VM) (dispatch: Msg -> unit) : VM =
+    splitNode currentText cursorPos model dispatch |> withSiteMap
+
+/// Op: Commit current edit and move into edit mode on the previous visible row.
+let moveEditUp (cursorPos: int) (model: VM) (dispatch: Msg -> unit) : VM =
+    moveEdit -1 cursorPos model dispatch
+
+/// Op: Commit current edit and move into edit mode on the next visible row.
+let moveEditDown (cursorPos: int) (model: VM) (dispatch: Msg -> unit) : VM =
+    moveEdit 1 cursorPos model dispatch
+
+/// Op: Indent selection (Tab), committing any in-progress edit first.
+let indentOp (model: VM) (dispatch: Msg -> unit) : VM =
+    indentSelection (commitIfEditing model dispatch) dispatch |> withSiteMap
+
+/// Op: Outdent selection (Shift+Tab), committing any in-progress edit first.
+let outdentOp (model: VM) (dispatch: Msg -> unit) : VM =
+    outdentSelection (commitIfEditing model dispatch) dispatch |> withSiteMap
+
+/// Op: Move selected nodes up, committing any in-progress edit first.
+let moveNodeUpOp (model: VM) (dispatch: Msg -> unit) : VM =
+    moveNode -1 (commitIfEditing model dispatch) dispatch |> withSiteMap
+
+/// Op: Move selected nodes down, committing any in-progress edit first.
+let moveNodeDownOp (model: VM) (dispatch: Msg -> unit) : VM =
+    moveNode 1 (commitIfEditing model dispatch) dispatch |> withSiteMap
+
+/// Op: Paste text into the model.
+let pasteNodesOp (pastedText: string) (model: VM) (dispatch: Msg -> unit) : VM =
+    pasteNodes pastedText model dispatch |> withSiteMap
+
+/// Op: Toggle fold for a specific site-map entry.
+let toggleFoldOp (instanceId: int) (model: VM) _dispatch : VM =
+    match Map.tryFind instanceId model.siteMap.entries with
+    | None -> model
+    | Some entry ->
+        if entry.expanded then
+            { model with siteMap = ViewModel.toggleFold instanceId model.siteMap }
+        else
+            let siteMap, nextId = ViewModel.expandEntry instanceId model.graph model.siteMap model.nextInstanceId
+            { model with siteMap = siteMap; nextInstanceId = nextId }
+
+/// Op: Toggle fold for all selected entries.
+let toggleFoldSelectionOp (model: VM) _dispatch : VM =
+    match model.selectedNodes with
+    | None -> model
+    | Some sel ->
+        let selectedInstIds =
+            sel.range.parent.children
+            |> List.skip sel.range.start
+            |> List.take (sel.range.endd - sel.range.start)
+        let anyExpanded =
+            selectedInstIds |> List.exists (fun instId ->
+                match Map.tryFind instId model.siteMap.entries with
+                | Some entry -> entry.expanded
+                | None -> false)
+        if anyExpanded then
+            let siteMap =
+                selectedInstIds |> List.fold (fun sm instId -> ViewModel.toggleFold instId sm) model.siteMap
+            { model with siteMap = siteMap }
+        else
+            let siteMap, nextId =
+                selectedInstIds |> List.fold
+                    (fun (sm, nid) instId -> ViewModel.expandEntry instId model.graph sm nid)
+                    (model.siteMap, model.nextInstanceId)
+            { model with siteMap = siteMap; nextInstanceId = nextId }
+
+/// Op: Toggle the link-paste setting.
+let toggleLinkPasteOp (model: VM) _dispatch : VM =
+    { model with linkPasteEnabled = not model.linkPasteEnabled }
+
+/// Op: Retry pending server POST.
+let retryPendingOp (model: VM) (dispatch: Msg -> unit) : VM =
+    match model.pendingChanges with
+    | [] -> { model with syncState = Synced }
+    | _  ->
+        fireNextPending model.pendingChanges dispatch
+        { model with syncState = Syncing }
+
+/// Op: Undo the last change, committing any in-progress edit first.
+let undoOp (model: VM) (dispatch: Msg -> unit) : VM =
+    let model' = commitIfEditing model dispatch
+    let state = { graph = model'.graph; history = model'.history; revision = model'.revision }
+    match model'.history.past |> List.tryHead with
+    | None -> model'
+    | Some headChange ->
+        match History.undo state with
+        | ApplyResult.Changed newState ->
+            let invertedChange = { Change.invert headChange with id = model'.history.nextId }
+            let wasEmpty = model'.pendingChanges.IsEmpty
+            let pending = model'.pendingChanges @ [invertedChange]
+            if wasEmpty then fireNextPending pending dispatch
+            { model' with
+                graph = newState.graph
+                history = newState.history
+                mode = Selecting
+                pendingChanges = pending
+                syncState = Syncing }
+            |> withSiteMap
+        | _ -> model'
+
+/// Op: Redo the last undone change, committing any in-progress edit first.
+let redoOp (model: VM) (dispatch: Msg -> unit) : VM =
+    let model' = commitIfEditing model dispatch
+    let state = { graph = model'.graph; history = model'.history; revision = model'.revision }
+    match model'.history.future |> List.tryHead with
+    | None -> model'
+    | Some headChange ->
+        match History.redo state with
+        | ApplyResult.Changed newState ->
+            let reChange = { headChange with id = model'.history.nextId }
+            let wasEmpty = model'.pendingChanges.IsEmpty
+            let pending = model'.pendingChanges @ [reChange]
+            if wasEmpty then fireNextPending pending dispatch
+            { model' with
+                graph = newState.graph
+                history = newState.history
+                mode = Selecting
+                pendingChanges = pending
+                syncState = Syncing }
+            |> withSiteMap
+        | _ -> model'
+
+// ---------------------------------------------------------------------------
+// System message handler
+// User actions bypass this and call the named Op functions directly.
+// ---------------------------------------------------------------------------
+
+/// Process an async server message. Op-based user actions do not go through here.
 let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
     match msg with
-    | StateLoaded (graph, revision) ->
+    | System (StateLoaded (graph, revision)) ->
         let siteMap, nextId = ViewModel.buildSiteMap graph 0
         { graph = graph
           revision = revision
+          history = History.empty
           selectedNodes = None
           mode = Selecting
           siteMap = siteMap
           nextInstanceId = nextId
           clipboard = None
-          linkPasteEnabled = false }
+          linkPasteEnabled = false
+          pendingChanges = []
+          syncState = Synced }
 
-    | SelectRow nodeId ->
-        let result =
-            match model.mode, model.selectedNodes with
-            | Editing (originalText, _), Some sel ->
-                // Commit current edit, then select new row
-                let editingId = focusedNodeId model.graph sel
-                let newText = readEditInputValue ()
-                let model' = commitTextEdit editingId originalText newText model dispatch
-                { model' with selectedNodes = singleSelection model'.graph model'.siteMap nodeId }
-            | _ ->
-                { model with selectedNodes = singleSelection model.graph model.siteMap nodeId; mode = Selecting }
-        if not (System.Object.ReferenceEquals(result.graph, model.graph)) then withSiteMap result else result
+    | System (SubmitResponse revision) ->
+        let pending = match model.pendingChanges with _ :: t -> t | [] -> []
+        if not pending.IsEmpty then fireNextPending pending dispatch
+        { model with
+            revision = revision
+            history = { model.history with nextId = max model.history.nextId revision.Value }
+            pendingChanges = pending
+            syncState = if pending.IsEmpty then Synced else Syncing }
 
-    | MoveSelectionUp ->
-        let result =
-            match model.mode with
-            | Editing _ -> moveSelectionBy -1 (commitIfEditing model dispatch)
-            | Selecting -> applyMoveSelectionUp model
-        if not (System.Object.ReferenceEquals(result.graph, model.graph)) then withSiteMap result else result
+    | System SubmitFailed ->
+        { model with syncState = Pending }
 
-    | MoveSelectionDown ->
-        let result =
-            match model.mode with
-            | Editing _ -> moveSelectionBy 1 (commitIfEditing model dispatch)
-            | Selecting -> applyMoveSelectionDown model
-        if not (System.Object.ReferenceEquals(result.graph, model.graph)) then withSiteMap result else result
-
-    | StartEdit _prefill ->
-        match model.selectedNodes with
-        | None ->
-            let root = model.graph.nodes.[model.graph.root]
-            { model with mode = Editing (root.text, None) }
-        | Some sel ->
-            let nodeId = focusedNodeId model.graph sel
-            let node = model.graph.nodes.[nodeId]
-            { model with mode = Editing (node.text, None) }  // None = cursor at end
-
-    | ShiftArrowUp   -> shiftArrow -1 model
-    | ShiftArrowDown -> shiftArrow  1 model
-
-    | SplitNode (currentText, cursorPos) ->
-        splitNode currentText cursorPos model dispatch |> withSiteMap
-
-    | JoinWithPrevious currentText ->
-        joinWithPrevious currentText model dispatch
-
-    | IndentSelection  -> indentSelection  (commitIfEditing model dispatch) dispatch |> withSiteMap
-    | OutdentSelection -> outdentSelection (commitIfEditing model dispatch) dispatch |> withSiteMap
-    | MoveNodeUp       -> moveNode -1      (commitIfEditing model dispatch) dispatch |> withSiteMap
-    | MoveNodeDown     -> moveNode  1      (commitIfEditing model dispatch) dispatch |> withSiteMap
-
-    | CancelEdit ->
-        match model.mode with
-        | Editing _ ->
-            // In edit mode: revert text, return to selection mode
-            { model with mode = Selecting }
-        | Selecting ->
-            // In selection mode: deselect
-            { model with selectedNodes = None }
-
-    | SubmitResponse revision ->
-        { model with revision = revision }
-
-    | PasteNodes pastedText ->
-        pasteNodes pastedText model dispatch |> withSiteMap
-
-    | CopySelection ->
-        match model.selectedNodes with
-        | None -> model
-        | Some sel ->
-            let selectedIds = rangeChildren model.graph sel.range
-            { model with clipboard = Some (collectSubtree model.graph model.siteMap selectedIds) }
-
-    | CutSelection ->
-        cutSelection model dispatch |> withSiteMap
-
-    | ToggleFold instanceId ->
-        match Map.tryFind instanceId model.siteMap.entries with
-        | None -> model
-        | Some entry ->
-            if entry.expanded then
-                { model with siteMap = ViewModel.toggleFold instanceId model.siteMap }
-            else
-                let siteMap, nextId = ViewModel.expandEntry instanceId model.graph model.siteMap model.nextInstanceId
-                { model with siteMap = siteMap; nextInstanceId = nextId }
-
-    | ToggleFoldSelection ->
-        match model.selectedNodes with
-        | None -> model
-        | Some sel ->
-            let selectedInstIds =
-                sel.range.parent.children
-                |> List.skip sel.range.start
-                |> List.take (sel.range.endd - sel.range.start)
-            let anyExpanded =
-                selectedInstIds |> List.exists (fun instId ->
-                    match Map.tryFind instId model.siteMap.entries with
-                    | Some entry -> entry.expanded
-                    | None -> false)
-            if anyExpanded then
-                let siteMap =
-                    selectedInstIds |> List.fold (fun sm instId -> ViewModel.toggleFold instId sm) model.siteMap
-                { model with siteMap = siteMap }
-            else
-                let siteMap, nextId =
-                    selectedInstIds |> List.fold
-                        (fun (sm, nid) instId -> ViewModel.expandEntry instId model.graph sm nid)
-                        (model.siteMap, model.nextInstanceId)
-                { model with siteMap = siteMap; nextInstanceId = nextId }
-
-    | ToggleLinkPaste ->
-        { model with linkPasteEnabled = not model.linkPasteEnabled }

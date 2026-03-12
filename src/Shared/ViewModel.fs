@@ -2,7 +2,8 @@ namespace Gambol.Shared
 
 type Mode =
     | Selecting
-    | Editing of originalText: string * cursorPos: int option
+    | Editing of originalText: string * prefill: string option * cursorPos: int option
+    // prefill: the initial text shown in the edit input (if different from originalText)
     // cursorPos: None = place cursor at end; Some n = place cursor at position n
 
 /// A rendered appearance of a node in a flat site map. Each appearance gets a unique
@@ -43,36 +44,30 @@ type ClipboardContent =
     { topLevelIds: NodeId list
       nodes: Map<NodeId, Node> }
 
+type SyncState =
+    | Synced    // all changes confirmed by server
+    | Syncing   // a POST is currently in-flight
+    | Pending   // last POST failed; changes queued, awaiting user retry
+
 // Server `State` is in `FileAgent`, and mainly the graph.
 type VM = // the client state
     { graph: Graph // the core data
       revision: Revision
+      history: History
       selectedNodes: Selection option
       mode: Mode
       siteMap: SiteMap
       nextInstanceId: int
       clipboard: ClipboardContent option
-      linkPasteEnabled: bool }
+      linkPasteEnabled: bool
+      pendingChanges: Change list  // FIFO queue of changes awaiting server confirmation
+      syncState: SyncState }
+
+/// Messages dispatched by async server callbacks (not directly caused by user input).
+type SystemMsg =
+    | StateLoaded of Graph * Revision
+    | SubmitResponse of Revision
+    | SubmitFailed
 
 type Msg =
-    | StateLoaded of Graph * Revision
-    | SelectRow of NodeId
-    | MoveSelectionUp
-    | MoveSelectionDown
-    | ShiftArrowUp
-    | ShiftArrowDown
-    | StartEdit of prefill: string
-    | SplitNode of currentText: string * cursorPos: int
-    | JoinWithPrevious of currentText: string
-    | IndentSelection
-    | OutdentSelection
-    | MoveNodeUp
-    | MoveNodeDown
-    | CancelEdit
-    | SubmitResponse of Revision
-    | PasteNodes of pastedText: string
-    | CopySelection
-    | CutSelection
-    | ToggleFold of instanceId: int
-    | ToggleFoldSelection
-    | ToggleLinkPaste
+    | System of SystemMsg
