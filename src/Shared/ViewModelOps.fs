@@ -155,6 +155,22 @@ module ViewModel =
         | None -> []
         | Some root -> root.children |> List.collect gather
 
+    /// Preorder walk of visible entries, returning instanceIds in display order (excluding root).
+    /// Mirrors getVisibleRowIds but keyed by instanceId. Use this for instance-aware navigation
+    /// so that duplicate NodeIds are treated as distinct positions.
+    let getVisibleRowInstanceIds (siteMap: SiteMap) : int list =
+        let entries = siteMap.entries
+        let rec gather (instId: int) : int list =
+            match Map.tryFind instId entries with
+            | None -> []
+            | Some entry ->
+                entry.instanceId ::
+                    (if entry.expanded then entry.children |> List.collect gather
+                     else [])
+        match Map.tryFind siteMap.rootId entries with
+        | None -> []
+        | Some root -> root.children |> List.collect gather
+
     /// Preorder walk of visible entries, returning instanceIds in display order (including root).
     /// Mirrors getVisibleRowIds but keyed by instanceId for DOM-cache lookups.
     let getVisibleInstanceIds (siteMap: SiteMap) : int list =
@@ -183,6 +199,23 @@ module ViewModel =
             |> Option.map (fun parentEntry ->
                 { range = { parent = parentEntry; start = index; endd = index + 1 }; focus = index }))
 
+    /// Build a single-node Selection for the given instanceId directly, without searching by NodeId.
+    /// Use this for instance-aware navigation when a NodeId may appear multiple times.
+    /// Returns None if the entry has no parent (i.e. it is the root) or if the parent is not in the site map.
+    let singleSelectionForInstance (siteMap: SiteMap) (instanceId: int) : Selection option =
+        match Map.tryFind instanceId siteMap.entries with
+        | None -> None
+        | Some entry ->
+            match entry.parentInstanceId with
+            | None -> None
+            | Some parentInstId ->
+                match Map.tryFind parentInstId siteMap.entries with
+                | None -> None
+                | Some parentEntry ->
+                    match parentEntry.children |> List.tryFindIndex ((=) instanceId) with
+                    | None -> None
+                    | Some idx -> Some { range = { parent = parentEntry; start = idx; endd = idx + 1 }; focus = idx }
+
     /// Extract the first (start) selected NodeId from a Selection.
     let firstSelectedNodeId (graph: Graph) (sel: Selection) : NodeId =
         graph.nodes.[sel.range.parent.nodeId].children.[sel.range.start]
@@ -190,6 +223,11 @@ module ViewModel =
     /// Extract the focused NodeId from a Selection (the active end, used for editing and Arrow movement).
     let focusedNodeId (graph: Graph) (sel: Selection) : NodeId =
         graph.nodes.[sel.range.parent.nodeId].children.[sel.focus]
+
+    /// Extract the focused instanceId from a Selection. Since SiteEntry.children is an instanceId list,
+    /// this gives the exact view-line of the focused node rather than its graph identity.
+    let focusedInstanceId (sel: Selection) : int =
+        sel.range.parent.children.[sel.focus]
 
     /// Shift-Arrow: move the focused end of the range by delta (-1 = up, +1 = down).
     /// For a single-node selection, always extends. For multi-node, the focused end moves.
@@ -227,21 +265,22 @@ module ViewModel =
         match model.selectedNodes with
         | None -> model
         | Some sel ->
-            let focusId = focusedNodeId model.graph sel
-            match singleSelection model.graph model.siteMap focusId with
+            let instId = focusedInstanceId sel
+            match singleSelectionForInstance model.siteMap instId with
             | None -> model
             | Some newSel -> { model with selectedNodes = Some newSel }
 
     /// Move current selection by delta (-1 for up, +1 for down) in visible row order.
     /// Collapses any multi-node selection to the focus node, then moves from there.
+    /// Uses instanceId-based navigation so that duplicate NodeIds are treated as distinct positions.
     /// The resulting selection is always a single-node Selection.
     let moveSelectionBy (delta: int) (model: VM) : VM =
         match model.selectedNodes with
         | None -> model
         | Some sel ->
-            let anchorId = focusedNodeId model.graph sel
-            let rows = getVisibleRowIds model.siteMap
-            match rows |> List.tryFindIndex ((=) anchorId) with
+            let instId = focusedInstanceId sel
+            let rows = getVisibleRowInstanceIds model.siteMap
+            match rows |> List.tryFindIndex ((=) instId) with
             | None -> model
             | Some currentIndex ->
                 let nextIndex = currentIndex + delta
@@ -250,8 +289,8 @@ module ViewModel =
                 elif nextIndex >= rows.Length then
                     model
                 else
-                    let nextId = rows[nextIndex]
-                    match singleSelection model.graph model.siteMap nextId with
+                    let nextInstId = rows[nextIndex]
+                    match singleSelectionForInstance model.siteMap nextInstId with
                     | None -> model
                     | Some newSel -> { model with selectedNodes = Some newSel; mode = Selecting }
 
@@ -263,9 +302,9 @@ module ViewModel =
             else moveSelectionBy delta model
         | None ->
             if delta > 0 then
-                match getVisibleRowIds model.siteMap with
-                | firstId :: _ ->
-                    match singleSelection model.graph model.siteMap firstId with
+                match getVisibleRowInstanceIds model.siteMap with
+                | firstInstId :: _ ->
+                    match singleSelectionForInstance model.siteMap firstInstId with
                     | Some sel -> { model with selectedNodes = Some sel; mode = Selecting }
                     | None -> model
                 | [] -> model

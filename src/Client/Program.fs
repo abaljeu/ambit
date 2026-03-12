@@ -57,7 +57,8 @@ let setupStaticDOM (applyOp: Op -> unit) : unit =
         if ke.key = "Tab" then ev.preventDefault()
         match currentModel.selectedNodes with
         | None ->
-            let rootNode = currentModel.graph.nodes.[currentModel.graph.root]
+            let viewRootId = currentModel.zoomRoot |> Option.defaultValue currentModel.graph.root
+            let rootNode = currentModel.graph.nodes.[viewRootId]
             match ke.key with
             | "Enter" | "F2" -> applyOp (startEdit rootNode.text)
             | "ArrowDown"    -> applyOp moveSelectionDown

@@ -99,6 +99,7 @@ let private startEditFromKey (ctx: SelectionKeyContext) : Op option =
 let selectionKeyTable: (string * KeyHandler<SelectionKeyContext>) list =
     [ "F2",              startEditFromSelection
       "Enter",           startEditFromSelection
+      "Delete",          always deleteSelectionOp
       "ArrowUp",         always moveSelectionUp
       "ArrowDown",       always moveSelectionDown
       "Shift+ArrowUp",   always (shiftArrowOp -1)

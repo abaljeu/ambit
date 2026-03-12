@@ -1,4 +1,72 @@
-First item
+Passion Projects
+	Ambit - Outlining Info Organizer
+		Ambit (n) - Area of Influence
+		#n1 Outlining Editor
+			edit
+			move
+			expand
+				collapse
+				
+			select
+				arrange
+			create
+		Infinite Organizing
+			Zoom
+			Link
+				-> #n1
+		Into the World
+			Document editing
+				[[Document.md]]
+					# Document
+					This content here would be the actual content of a markdown file
+					Press Load / Save to update outline from source
+				[[data.json]]
+					item : "value"
+					coords
+						x : 5
+						y : 10
+				[[x.cpp]]
+					#include "x.h"
+					// coment
+					int main() 
+						int x = 3;
+						return x;
+			Styling
+				CSS Controls
+					Change the appearance of nodes
+					Assign classes to any line
+				Make a particular outline look like formatted document
+			Embedded computation
+				#n2 $x = [2 + 3, 3*5]
+					#n3 5
+					15
+				#n4 $y = $x[0]
+					-> #n3
+			Shell 
+				> ls -L
+					
+		
+	FSharp
+	Knowledge Driven Design Automation
+		Using Prolog
+		C#
+		C++
+		Custom DSL
+		any CAD system
+		import user specs
+		apply custom knowledge base
+		interpret requirements documents
+		
+	Windsor Chess Challenge
+		annual tournament for 1500 children
+		online registration system
+			web-based each school registers participants
+			automatic section builder
+			name tag generation
+		interactive pairing program
+			
+		automated results presentation
+		
 Second item
 Third item
 	blue
@@ -9,28 +77,9 @@ Third item
 		h
 		blue
 		ue
-#n1 ha
+ha
 	eau
 		
-	aoeue
-Third itemuu
--> #n1
-Third item
-Third itemu
-
-
-aoeu
-ueau
-ueauui
-ha
-Third item
-Third item
-
-ha
-	aoeueuoii
+	blue
 	
-	aoeue
-ha
-
-
-aoeu
+Third itemuu

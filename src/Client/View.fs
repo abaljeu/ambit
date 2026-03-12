@@ -91,10 +91,10 @@ let private makeRowElement (model: VM) (applyOp: Op -> unit) (depth: int) (siteE
         textDiv.textContent <- node.text
         row.appendChild textDiv |> ignore
 
-    // Row click → select
+    // Row click → select the exact view-line instance, not just the first occurrence of the nodeId
     row.addEventListener("mousedown", fun (ev: Event) ->
         ev.preventDefault()
-        applyOp (selectRow nodeId)
+        applyOp (selectInstance siteEntry.instanceId)
     )
     // Row double-click → enter edit mode with cursor at mouse position
     row.addEventListener("dblclick", fun (ev: Event) ->
