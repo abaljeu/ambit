@@ -32,6 +32,7 @@ let mutable currentModel: VM =
       mode = Selecting
       siteMap = ViewModel.emptySiteMap
       nextInstanceId = 1
+      zoomRoot = None
       clipboard = None
       linkPasteEnabled = false
       pendingChanges = []

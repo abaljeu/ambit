@@ -370,9 +370,18 @@ let moveNode (delta: int) (model: VM) (dispatch: Msg -> unit) : VM =
 // ---------------------------------------------------------------------------
 
 /// Rebuild the site map after a graph mutation, preserving fold states.
+/// Uses the effective zoom root if set (and still present in the graph); falls back to graph.root.
 let withSiteMap (model: VM) : VM =
-    let siteMap, nextId = ViewModel.reconcileSiteMap model.graph model.siteMap model.nextInstanceId
-    { model with siteMap = siteMap; nextInstanceId = nextId }
+    let effectiveRoot =
+        model.zoomRoot
+        |> Option.filter (fun zr -> Map.containsKey zr model.graph.nodes)
+        |> Option.defaultValue model.graph.root
+    let zoomRoot =
+        match model.zoomRoot with
+        | Some zr when not (Map.containsKey zr model.graph.nodes) -> None
+        | z -> z
+    let siteMap, nextId = ViewModel.reconcileSiteMapFrom model.graph effectiveRoot model.siteMap model.nextInstanceId
+    { model with siteMap = siteMap; nextInstanceId = nextId; zoomRoot = zoomRoot }
 
 /// Join the currently-edited node with the previous visible (inorder) node.
 /// 1. If current has no children: append current's text to prev, delete current.
@@ -623,6 +632,55 @@ let toggleFoldSelectionOp (model: VM) _dispatch : VM =
 let toggleLinkPasteOp (model: VM) _dispatch : VM =
     { model with linkPasteEnabled = not model.linkPasteEnabled }
 
+/// Build a first-child Selection for the root entry of a freshly-built siteMap.
+/// Returns None if the root has no children.
+let private firstChildSelection (siteMap: SiteMap) (rootNodeId: NodeId) : Selection option =
+    siteMap.entries
+    |> Map.tryPick (fun _ e -> if e.nodeId = rootNodeId then Some e else None)
+    |> Option.bind (fun rootEntry ->
+        if rootEntry.children.IsEmpty then None
+        else Some { range = { parent = rootEntry; start = 0; endd = 1 }; focus = 0 })
+
+/// Op: Zoom in — set the view root to the first selected node (Ctrl+]).
+/// Commits any in-progress edit first. No-op when the view root is focused or the node is a leaf.
+let zoomInOp (model: VM) (dispatch: Msg -> unit) : VM =
+    let model' = commitIfEditing model dispatch
+    match model'.selectedNodes with
+    | None -> model'
+    | Some sel ->
+        let zoomNodeId = firstSelectedNodeId model'.graph sel
+        let zoomNode = model'.graph.nodes.[zoomNodeId]
+        if zoomNode.children.IsEmpty then model'
+        else
+            let siteMap, nextId = ViewModel.buildSiteMapFrom model'.graph zoomNodeId model'.nextInstanceId
+            { model' with
+                zoomRoot = Some zoomNodeId
+                siteMap = siteMap
+                nextInstanceId = nextId
+                selectedNodes = firstChildSelection siteMap zoomNodeId
+                mode = Selecting }
+
+/// Op: Zoom out — move the view root one level up toward the graph root (Ctrl+[).
+/// Commits any in-progress edit first. No-op when already showing the full tree.
+let zoomOutOp (model: VM) (dispatch: Msg -> unit) : VM =
+    let model' = commitIfEditing model dispatch
+    match model'.zoomRoot with
+    | None -> model'
+    | Some currentZoomRoot ->
+        let newZoomRoot =
+            match Graph.tryFindParentAndIndex currentZoomRoot model'.graph with
+            | None -> None
+            | Some (parentId, _) ->
+                if parentId = model'.graph.root then None else Some parentId
+        let effectiveRoot = newZoomRoot |> Option.defaultValue model'.graph.root
+        let siteMap, nextId = ViewModel.buildSiteMapFrom model'.graph effectiveRoot model'.nextInstanceId
+        { model' with
+            zoomRoot = newZoomRoot
+            siteMap = siteMap
+            nextInstanceId = nextId
+            selectedNodes = firstChildSelection siteMap effectiveRoot
+            mode = Selecting }
+
 /// Op: Retry pending server POST.
 let retryPendingOp (model: VM) (dispatch: Msg -> unit) : VM =
     match model.pendingChanges with
@@ -692,6 +750,7 @@ let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
           mode = Selecting
           siteMap = siteMap
           nextInstanceId = nextId
+          zoomRoot = None
           clipboard = None
           linkPasteEnabled = false
           pendingChanges = []

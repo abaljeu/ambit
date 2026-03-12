@@ -111,6 +111,8 @@ let selectionKeyTable: (string * KeyHandler<SelectionKeyContext>) list =
       "Shift+Tab",       always outdentOp
       "Escape",          always cancelEdit
       "Ctrl+.",          always toggleFoldSelectionOp
+      "Ctrl+]",          always zoomInOp
+      "Ctrl+[",          always zoomOutOp
       "Ctrl+z",          always undoOp
       "Ctrl+y",          always redoOp
       printableKeyToken, startEditFromKey ]
@@ -169,6 +171,8 @@ let editingKeyTable: (string * KeyHandler<EditingKeyContext>) list =
       "Shift+Tab",       always outdentOp
       "Escape",          always cancelEdit
       "Ctrl+.",          always toggleFoldSelectionOp
+      "Ctrl+]",          always zoomInOp
+      "Ctrl+[",          always zoomOutOp
       "Ctrl+z",          always undoOp
       "Ctrl+y",          always redoOp ]
 

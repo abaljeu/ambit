@@ -58,6 +58,7 @@ type VM = // the client state
       mode: Mode
       siteMap: SiteMap
       nextInstanceId: int
+      zoomRoot: NodeId option   // None = display from graph.root; Some id = display rooted at that node
       clipboard: ClipboardContent option
       linkPasteEnabled: bool
       pendingChanges: Change list  // FIFO queue of changes awaiting server confirmation

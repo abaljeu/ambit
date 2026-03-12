@@ -16,16 +16,16 @@ module ViewModel =
         let mutable n = start
         (fun () -> let id = n in n <- n + 1; id), (fun () -> n)
 
-    /// Build a SiteMap from a graph. The root is expanded; its immediate children are
+    /// Build a SiteMap rooted at rootNodeId. The root is expanded; its immediate children are
     /// collapsed with children = [] and childrenStale = true, populated on demand via expandEntry.
     /// Cycle termination is implicit: new entries start collapsed with no children, so expanding
     /// an ancestor reachable via a back-edge produces a collapsed leaf that stops the recursion.
     /// Returns the SiteMap and the next available instanceId.
-    let buildSiteMap (graph: Graph) (startId: int) : SiteMap * int =
+    let buildSiteMapFrom (graph: Graph) (rootNodeId: NodeId) (startId: int) : SiteMap * int =
         let freshId, endCount = makeCounter startId
         let mutable acc = Map.empty<int, SiteEntry>
         let rootInstId = freshId ()
-        let rootNode = graph.nodes.[graph.root]
+        let rootNode = graph.nodes.[rootNodeId]
         let childInstIds =
             rootNode.children |> List.map (fun cid ->
                 let childId = freshId ()
@@ -33,17 +33,21 @@ module ViewModel =
                                          parentInstanceId = Some rootInstId
                                          expanded = false; childrenStale = true; children = [] } acc
                 childId)
-        acc <- Map.add rootInstId { instanceId = rootInstId; nodeId = graph.root
+        acc <- Map.add rootInstId { instanceId = rootInstId; nodeId = rootNodeId
                                     parentInstanceId = None
                                     expanded = true; childrenStale = false; children = childInstIds } acc
         { rootId = rootInstId; entries = acc }, endCount ()
 
-    /// Reconcile a SiteMap after a graph change. Walks only expanded entries, syncing their
-    /// children lists from the graph. Collapsed children of expanded entries are reused by
-    /// position (nodeId must match) with childrenStale = true and children = []; they are not
-    /// recursed into. Orphaned entries from removed or now-unexpanded paths are dropped.
+    /// Build a SiteMap from the graph root. See buildSiteMapFrom for details.
+    let buildSiteMap (graph: Graph) (startId: int) : SiteMap * int =
+        buildSiteMapFrom graph graph.root startId
+
+    /// Reconcile a SiteMap rooted at rootNodeId after a graph change. Walks only expanded entries,
+    /// syncing their children lists from the graph. Collapsed children of expanded entries are
+    /// reused by position (nodeId must match) with childrenStale = true and children = []; they
+    /// are not recursed into. Orphaned entries from removed or now-unexpanded paths are dropped.
     /// Returns the updated SiteMap and next available instanceId.
-    let reconcileSiteMap (graph: Graph) (oldMap: SiteMap) (startId: int) : SiteMap * int =
+    let reconcileSiteMapFrom (graph: Graph) (rootNodeId: NodeId) (oldMap: SiteMap) (startId: int) : SiteMap * int =
         let freshId, endCount = makeCounter startId
         let mutable acc = Map.empty<int, SiteEntry>
         let rec walk (nodeId: NodeId) (parentInstId: int option) (isRoot: bool) (oldInstIdOpt: int option) : int =
@@ -82,8 +86,12 @@ module ViewModel =
                   childrenStale = false; children = childInstIds }
             acc <- Map.add instId entry acc
             instId
-        let rootInstId = walk graph.root None true (Some oldMap.rootId)
+        let rootInstId = walk rootNodeId None true (Some oldMap.rootId)
         { rootId = rootInstId; entries = acc }, endCount ()
+
+    /// Reconcile a SiteMap from the graph root after a graph change. See reconcileSiteMapFrom for details.
+    let reconcileSiteMap (graph: Graph) (oldMap: SiteMap) (startId: int) : SiteMap * int =
+        reconcileSiteMapFrom graph graph.root oldMap startId
 
     /// Collapse the entry with the given instanceId, marking its children as stale. O(log S).
     /// The children list is preserved so that a subsequent expandEntry can reuse instanceIds

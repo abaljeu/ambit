@@ -30,6 +30,7 @@ let emptyModel (graph: Graph) : VM =
       mode = Selecting
       siteMap = siteMap
       nextInstanceId = nextId
+      zoomRoot = None
       clipboard = None
       linkPasteEnabled = false
       pendingChanges = []
