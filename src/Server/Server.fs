@@ -47,6 +47,9 @@ module Main =
                         ContentRootPath = contentRoot,
                         WebRootPath = Path.Combine(contentRoot, "wwwroot"))
         let builder = WebApplication.CreateBuilder(options)
+        // Env-specific appsettings: required in Production (fail if missing), optional elsewhere
+        let envFile = "appsettings." + builder.Environment.EnvironmentName + ".json"
+        builder.Configuration.AddJsonFile(envFile, optional = (builder.Environment.EnvironmentName <> "Production"))
         let app = builder.Build()
         port |> Option.iter (fun p -> app.Urls.Add(sprintf "http://0.0.0.0:%s" p))
 
