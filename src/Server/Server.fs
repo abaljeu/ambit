@@ -169,14 +169,24 @@ module Main =
                     return! Api.postChange agent body |> Async.StartAsTask
             })) |> ignore
 
-            // GET /amble → serve gambol.html (protected) with startup stamp injected
+            // GET /amble → serve gambol.html (protected) with startup stamp and page file stamp injected
             let gambolHtml = Path.Combine(app.Environment.WebRootPath, "gambol.html")
+            let programJs = Path.Combine(app.Environment.WebRootPath, "Program.js")
             let torontoTz = TimeZoneInfo.FindSystemTimeZoneById("America/Toronto")
             let torontoNow = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, torontoTz)
             let startupStamp = torontoNow.ToString("yyyy-MM-dd HH:mm:ss") + " ET"
+            let pageBuildStamp () =
+                let htmlTime = if File.Exists(gambolHtml) then File.GetLastWriteTimeUtc(gambolHtml) else DateTime.MinValue
+                let jsTime = if File.Exists(programJs) then File.GetLastWriteTimeUtc(programJs) else DateTime.MinValue
+                let latest = max htmlTime jsTime
+                if latest > DateTime.MinValue then
+                    TimeZoneInfo.ConvertTimeFromUtc(latest, torontoTz).ToString("yyyy-MM-dd HH:mm:ss") + " ET"
+                else
+                    "unknown"
             let gambolHtmlWithStamp =
                 let raw = File.ReadAllText(gambolHtml)
-                let snippet = "    <script>window.__BUILD__ = \"" + startupStamp + "\";</script>\n</head>"
+                let pageStamp = pageBuildStamp ()
+                let snippet = "    <script>window.__BUILD__ = \"" + startupStamp + "\"; window.__PAGE_BUILD__ = \"" + pageStamp + "\";</script>\n</head>"
                 raw.Replace("</head>", snippet)
             app.MapGet("/amble", Func<HttpRequest, IResult>(fun req ->
                 if isAuthenticated req then

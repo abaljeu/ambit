@@ -20,6 +20,9 @@ let fetchText (url: string) (callback: string -> unit) : unit = jsNative
 [<Emit("(typeof window.__BUILD__ !== 'undefined' ? window.__BUILD__ : $0)")>]
 let readBuildStamp (fallback: string) : string = jsNative
 
+[<Emit("(typeof window.__PAGE_BUILD__ !== 'undefined' ? window.__PAGE_BUILD__ : $0)")>]
+let readPageStamp (fallback: string) : string = jsNative
+
 // ---------------------------------------------------------------------------
 // MVU dispatch loop
 // ---------------------------------------------------------------------------
@@ -103,7 +106,10 @@ let setupStaticDOM (applyOp: Op -> unit) : unit =
 
     let buildLabel = document.createElement "span"
     buildLabel.setAttribute("style", "margin-left: auto; font-size: .75rem; color: #666;")
-    buildLabel.textContent <- readBuildStamp BuildInfo.buildNumber
+    let serverStamp = readBuildStamp BuildInfo.buildNumber
+    let pageStamp = readPageStamp "?"
+    buildLabel.textContent <- $"Server: {serverStamp} | Page: {pageStamp}"
+    buildLabel.setAttribute("title", "Server = when served; Page = when assets were built. Reload if Page is old.")
     settingsBar.appendChild buildLabel |> ignore
 
     app.appendChild settingsBar |> ignore

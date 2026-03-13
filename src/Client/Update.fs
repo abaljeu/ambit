@@ -438,27 +438,50 @@ let joinWithNext (currentText: string) (model: VM) (dispatch: Msg -> unit) : VM 
                 let nextId = nextEntry.nodeId
                 let nextNode = model.graph.nodes.[nextId]
                 let currentNode = model.graph.nodes.[currentId]
-                if not currentNode.children.IsEmpty && not nextNode.children.IsEmpty then model
+                if not currentNode.children.IsEmpty then
+                    let pos = readEditInputCursor ()
+                    match model.mode with
+                    | Editing (t, pf, _) -> { model with mode = Editing (t, pf, Some pos) }
+                    | _ -> model
                 else
                     match Graph.tryFindParentAndIndex nextId model.graph with
                     | None -> model
                     | Some (parentId, indexInParent) ->
-                        let joinedText = currentText + nextNode.text
-                        let cursorPos = currentText.Length
-                        let ops =
-                            [ if joinedText <> currentText then
-                                  yield Op.SetText(currentId, currentText, joinedText)
-                              if not nextNode.children.IsEmpty then
-                                  yield Op.Replace(currentId, currentNode.children.Length, [], nextNode.children)
-                              yield Op.Replace(parentId, indexInParent, [nextId], []) ]
-                        let change = { id = model.revision.Value; ops = ops }
-                        match applyAndPost change model dispatch with
-                        | None -> model
-                        | Some m ->
-                            let result = withSiteMap m
-                            { result with
-                                mode = Editing (joinedText, None, Some cursorPos)
-                                selectedNodes = singleSelection result.graph result.siteMap currentId }
+                        if System.String.IsNullOrWhiteSpace currentText then
+                            // Empty current row: delete current, keep next
+                            match Graph.tryFindParentAndIndex currentId model.graph with
+                            | None -> model
+                            | Some (currParentId, currIndexInParent) ->
+                                let ops = [ Op.Replace(currParentId, currIndexInParent, [currentId], []) ]
+                                let change = { id = model.revision.Value; ops = ops }
+                                match applyAndPost change model dispatch with
+                                | None -> model
+                                | Some m ->
+                                    let result = withSiteMap m
+                                    { result with
+                                        mode = Editing (nextNode.text, None, Some 0)
+                                        selectedNodes = singleSelection result.graph result.siteMap nextId }
+                        else
+                            // Standard join: merge current into next, delete current, keep next
+                            let joinedText = currentText + nextNode.text
+                            let cursorPos = currentText.Length
+                            match Graph.tryFindParentAndIndex currentId model.graph with
+                            | None -> model
+                            | Some (currParentId, currIndexInParent) ->
+                                let ops =
+                                    [ if joinedText <> nextNode.text then
+                                          yield Op.SetText(nextId, nextNode.text, joinedText)
+                                      if not currentNode.children.IsEmpty then
+                                          yield Op.Replace(nextId, 0, [], currentNode.children)
+                                      yield Op.Replace(currParentId, currIndexInParent, [currentId], []) ]
+                                let change = { id = model.revision.Value; ops = ops }
+                                match applyAndPost change model dispatch with
+                                | None -> model
+                                | Some m ->
+                                    let result = withSiteMap m
+                                    { result with
+                                        mode = Editing (joinedText, None, Some cursorPos)
+                                        selectedNodes = singleSelection result.graph result.siteMap nextId }
     | _ -> model
 
 let joinWithPrevious (currentText: string) (model: VM) (dispatch: Msg -> unit) : VM =
