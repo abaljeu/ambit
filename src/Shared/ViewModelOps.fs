@@ -65,9 +65,19 @@ module ViewModel =
                     let oldChildren = oldEntryOpt |> Option.map (fun o -> o.children) |> Option.defaultValue []
                     node.children |> List.mapi (fun i cid ->
                         let oldChildOpt =
-                            List.tryItem i oldChildren
-                            |> Option.bind (fun oid -> Map.tryFind oid oldMap.entries)
-                            |> Option.bind (fun e -> if e.nodeId = cid then Some e else None)
+                            let positional =
+                                List.tryItem i oldChildren
+                                |> Option.bind (fun oid -> Map.tryFind oid oldMap.entries)
+                                |> Option.bind (fun e -> if e.nodeId = cid then Some e else None)
+                            match positional with
+                            | Some _ -> positional
+                            | None ->
+                                // Positional match failed (e.g. nodes were reordered by a move);
+                                // fall back to searching old children by nodeId to preserve fold state.
+                                oldChildren
+                                |> List.tryPick (fun oid ->
+                                    Map.tryFind oid oldMap.entries
+                                    |> Option.bind (fun e -> if e.nodeId = cid then Some e else None))
                         match oldChildOpt with
                         | Some old when old.expanded -> walk cid (Some instId) false (Some old.instanceId)
                         | Some old ->
