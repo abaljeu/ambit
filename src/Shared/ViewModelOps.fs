@@ -390,6 +390,7 @@ module ViewModel =
         | SetClassName of newClass: string
         | SetText of newText: string
         | SetFoldArrow of arrow: string   // "▼" or "▶" (has children); "●" (no children, no behavior)
+        | SetNodeGuid of guid: System.Guid   // diagnostic: node identity on row
 
     type RowMutation =
         | RemoveRow of instId: int
@@ -427,6 +428,8 @@ module ViewModel =
                     else
                         let oldEntry = Map.tryFind instId oldModel.siteMap.entries
                         let patches = [
+                            let nodeGuid = newModel.graph.nodes.[entry.nodeId].id.Value
+                            yield SetNodeGuid nodeGuid
                             let sel = isEntrySelected newModel entry
                             let foc = isEntryFocused newModel entry
                             let isRoot = entry.instanceId = newModel.siteMap.rootId

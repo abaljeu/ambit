@@ -16,7 +16,7 @@ module Main =
             if onAzure then
                 // Azure App Service: use persistent /home mount; ignore DataDir config
                 let home = Environment.GetEnvironmentVariable("HOME") |> Option.ofObj |> Option.defaultValue "/home"
-                Path.Combine(home, "site", "data")
+                Path.Combine(home, "data")
             else
                 let relative = config.["DataDir"] |> Option.ofObj |> Option.defaultValue "../../data"
                 if Path.IsPathRooted(relative) then relative

@@ -32,6 +32,12 @@ body {
     min-height: 1em;
     background: #eee;
 }
+.node-guid {
+    flex-shrink: 0;
+    font-size: 0.7em;
+    color: #888;
+    align-self: center;
+}
 .view-root {
     font-size: 2rem;
     font-weight: bold;

@@ -92,8 +92,11 @@ let setupStaticDOM (applyOp: Op -> unit) : unit =
     label.appendChild (document.createTextNode " Copy/Paste reference to original") |> ignore
     settingsBar.appendChild label |> ignore
 
+    let basePath =
+        let path = window.location.pathname
+        if path.StartsWith("/ambit") then "/ambit" else ""
     let logoutLink = document.createElement "a"
-    logoutLink.setAttribute("href", "/logout")
+    logoutLink.setAttribute("href", basePath + "/logout")
     logoutLink.setAttribute("style", "margin-left: 1rem; font-size: .85rem; color: #555;")
     logoutLink.textContent <- "Logout"
     settingsBar.appendChild logoutLink |> ignore

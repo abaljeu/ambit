@@ -10,7 +10,7 @@ order deny,allow
 deny from all
 </Limit>
 RewriteEngine On
-RewriteRule ^gambol(/.*)?$ https://amble-f6bfcfdygjd9b6b7.canadacentral-01.azurewebsites.net/gambol$1 [R=302,L]
+RewriteRule ^ambit(/.*)?$ proxy.php?path=$1 [QSA,L]
 
 AuthName collaborative-systems.org
 IndexIgnore .htaccess */.??* *~ *# */HEADER* */README* */_vti*

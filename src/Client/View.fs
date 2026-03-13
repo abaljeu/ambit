@@ -33,6 +33,7 @@ let private makeRowElement (model: VM) (applyOp: Op -> unit) (depth: int) (siteE
     let hasChildren = not node.children.IsEmpty
     let row = document.createElement "div"
     row.classList.add "row"
+    row.setAttribute("data-node-id", node.id.Value.ToString())
 
     if siteEntry.parentInstanceId = None then row.classList.add "view-root"
     if isEntrySelected model siteEntry then row.classList.add "selected"
@@ -91,6 +92,14 @@ let private makeRowElement (model: VM) (applyOp: Op -> unit) (depth: int) (siteE
         textDiv.textContent <- node.text
         row.appendChild textDiv |> ignore
 
+    // Diagnostic: last 8 chars of node GUID, right-justified
+    let guidSuffix = node.id.Value.ToString()
+    let guidTail = if guidSuffix.Length >= 8 then guidSuffix.Substring(guidSuffix.Length - 8) else guidSuffix
+    let guidSpan = document.createElement "span"
+    guidSpan.classList.add "node-guid"
+    guidSpan.textContent <- guidTail
+    row.appendChild guidSpan |> ignore
+
     // Row click → select the exact view-line instance, not just the first occurrence of the nodeId
     row.addEventListener("mousedown", fun (ev: Event) ->
         ev.preventDefault()
@@ -104,6 +113,46 @@ let private makeRowElement (model: VM) (applyOp: Op -> unit) (depth: int) (siteE
         applyOp (startEditAtPos node.text offset)
     )
     row
+
+/// Apply in-place patches to an existing row DOM element.
+let private applyRowPatches (el: HTMLElement) (patches: RowPatch list) : unit =
+    for patch in patches do
+        match patch with
+        | SetClassName cls -> el.className <- cls
+        | SetText txt ->
+            let textDiv = el.querySelector ".text"
+            if not (isNull textDiv) then (textDiv :?> HTMLElement).textContent <- txt
+        | SetFoldArrow arrow ->
+            let ft = el.querySelector ".fold-toggle"
+            if not (isNull ft) then (ft :?> HTMLElement).textContent <- arrow
+        | SetNodeGuid guid ->
+            el.setAttribute("data-node-id", guid.ToString())
+            let guidStr = guid.ToString()
+            let tail = if guidStr.Length >= 8 then guidStr.Substring(guidStr.Length - 8) else guidStr
+            let g = el.querySelector ".node-guid"
+            if not (isNull g) then (g :?> HTMLElement).textContent <- tail
+
+/// Resolve the row element for an instance: create, recreate, or patch as dictated by the upsert index.
+/// Returns the row element and the updated cache.
+let private resolveRow
+    (newModel: VM) (applyOp: Op -> unit) (depth: int) (entry: SiteEntry)
+    (instId: int) (upsertIndex: Map<int, RowMutation>) (cache: Map<int, HTMLElement>)
+    : HTMLElement * Map<int, HTMLElement> =
+    match Map.tryFind instId upsertIndex with
+    | Some (RecreateRow _) ->
+        let cache' =
+            match Map.tryFind instId cache with
+            | Some old -> old.remove(); cache
+            | None -> cache
+        let el = makeRowElement newModel applyOp depth entry
+        (el, Map.add instId el cache')
+    | Some (PatchRow (_, patches)) ->
+        let el = cache.[instId]
+        applyRowPatches el patches
+        (el, cache)
+    | _ ->  // CreateRow or missing
+        let el = makeRowElement newModel applyOp depth entry
+        (el, Map.add instId el cache)
 
 // ---------------------------------------------------------------------------
 // Focus management
@@ -236,31 +285,8 @@ let patchDOM (oldModel: VM) (newModel: VM) (applyOp: Op -> unit) (cache: Map<int
         let entry = newModel.siteMap.entries.[instId]
         let depth = computeDepth newModel.siteMap entry
 
-        let row : HTMLElement =
-            match Map.tryFind instId upsertIndex with
-            | Some (RecreateRow _) ->
-                match Map.tryFind instId cache' with
-                | Some old -> old.remove()
-                | None -> ()
-                let el = makeRowElement newModel applyOp depth entry
-                cache' <- Map.add instId el cache'
-                el
-            | Some (PatchRow (_, patches)) ->
-                let el = cache'.[instId]
-                for patch in patches do
-                    match patch with
-                    | SetClassName cls -> el.className <- cls
-                    | SetText txt ->
-                        let textDiv = el.querySelector ".text"
-                        if not (isNull textDiv) then (textDiv :?> HTMLElement).textContent <- txt
-                    | SetFoldArrow arrow ->
-                        let ft = el.querySelector ".fold-toggle"
-                        if not (isNull ft) then (ft :?> HTMLElement).textContent <- arrow
-                el
-            | _ ->  // CreateRow or missing
-                let el = makeRowElement newModel applyOp depth entry
-                cache' <- Map.add instId el cache'
-                el
+        let row, cache'' = resolveRow newModel applyOp depth entry instId upsertIndex cache'
+        cache' <- cache''
 
         // Ensure the row sits in the correct DOM position (preorder sequence)
         let atCorrectPos =
