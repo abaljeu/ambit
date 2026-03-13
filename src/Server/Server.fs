@@ -44,8 +44,8 @@ module Main =
 
         let options = WebApplicationOptions(
                         Args = args,
-                        ContentRootPath = __SOURCE_DIRECTORY__,
-                        WebRootPath = Path.Combine(__SOURCE_DIRECTORY__, "wwwroot"))
+                        ContentRootPath = contentRoot,
+                        WebRootPath = Path.Combine(contentRoot, "wwwroot"))
         let builder = WebApplication.CreateBuilder(options)
         let app = builder.Build()
         port |> Option.iter (fun p -> app.Urls.Add(sprintf "http://0.0.0.0:%s" p))
