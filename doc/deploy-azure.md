@@ -47,8 +47,8 @@ Data persists across redeploys — the zip only overwrites `/home/site/wwwroot/`
 
 | | |
 |---|---|
-| App | https://amble-f6bfcfdygjd9b6b7.canadacentral-01.azurewebsites.net/amble |
-| Login | https://amble-f6bfcfdygjd9b6b7.canadacentral-01.azurewebsites.net/login |
+| App | https://collaborative-systems.org/amble |
+| Login | https://collaborative-systems.org/login |
 
 ## Redirect from cPanel host
 
