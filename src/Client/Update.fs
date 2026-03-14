@@ -1,4 +1,4 @@
-﻿module Gambol.Client.Update
+module Gambol.Client.Update
 
 open Browser.Dom
 open Browser.Types
@@ -715,26 +715,41 @@ let toggleLinkPasteOp (model: VM) _dispatch : VM =
 [<Emit("window.prompt($0, $1)")>]
 let private promptDialog (msg: string) (def: string) : string = jsNative
 
-/// Op: Prompt for a CSS class name and toggle its presence on the focused node.
+/// Op: Prompt for a CSS class name and toggle its presence on all selected nodes.
+/// If all selected nodes have the class, removes it from all; otherwise adds it to any that lack it.
 /// Accepts any legal CSS identifier that does not start with "amb-".
 let toggleClassOp (model: VM) (dispatch: Msg -> unit) : VM =
     match model.selectedNodes with
     | None -> model
     | Some sel ->
-        let nodeId = focusedNodeId model.graph sel
-        let node = model.graph.nodes.[nodeId]
         let input = promptDialog "CSS class name:" ""
         if isNull input || input.Trim() = "" then model
         else
             let name = input.Trim()
             if not (CssClass.isValidUserClass name) then model
             else
-                let oldClasses = node.cssClasses
-                let newClasses = CssClass.toggle name oldClasses
-                let change = { id = model.revision.Value; ops = [ Op.SetClasses(nodeId, oldClasses, newClasses) ] }
-                match applyAndPost change model dispatch with
-                | Some m -> m
-                | None -> model
+                let parentNode = model.graph.nodes.[sel.range.parent.nodeId]
+                let selectedIds =
+                    parentNode.children
+                    |> List.skip sel.range.start
+                    |> List.take (sel.range.endd - sel.range.start)
+                let allHave = selectedIds |> List.forall (fun nid -> CssClass.contains name model.graph.nodes.[nid].cssClasses)
+                let ops =
+                    selectedIds
+                    |> List.choose (fun nid ->
+                        let node = model.graph.nodes.[nid]
+                        let oldClasses = node.cssClasses
+                        let hasIt = CssClass.contains name oldClasses
+                        // remove from all when all have it; add only to those that lack it
+                        let shouldChange = if allHave then hasIt else not hasIt
+                        if not shouldChange then None
+                        else Some (Op.SetClasses(nid, oldClasses, CssClass.toggle name oldClasses)))
+                if ops.IsEmpty then model
+                else
+                    let change = { id = model.revision.Value; ops = ops }
+                    match applyAndPost change model dispatch with
+                    | Some m -> m
+                    | None -> model
 
 /// Build a first-child Selection for the root entry of a freshly-built siteMap.
 /// Returns None if the root has no children.

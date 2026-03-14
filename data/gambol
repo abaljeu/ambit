@@ -120,10 +120,10 @@ Third item
 		ue
 Third itemuu
 	aoeua
-{.blue}ha
-	eau
+ha
+	{.blue}eau
 		
-	blue
+	{.blue}blue
 	
 	{.h1}ohello
 		i
