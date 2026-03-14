@@ -67,6 +67,8 @@ let private makeRowElement (model: VM) (applyOp: Op -> unit) (depth: int) (siteE
         let editInput = document.createElement "input"
         editInput.id <- "edit-input"
         editInput.classList.add "amb-edit-input"
+        for cls in CssClass.toList node.cssClasses do
+            editInput.classList.add cls
         editInput.setAttribute("tabindex", "-1")
         let prefill =
             match model.mode with
@@ -131,6 +133,12 @@ let private applyRowPatches (el: HTMLElement) (patches: RowPatch list) : unit =
                 td.className <- "amb-text"
                 for cls in CssClass.toList classes do
                     td.classList.add cls
+            let editInput = el.querySelector ".amb-edit-input"
+            if not (isNull editInput) then
+                let inp = editInput :?> HTMLElement
+                inp.className <- "amb-edit-input"
+                for cls in CssClass.toList classes do
+                    inp.classList.add cls
         | SetFoldArrow arrow ->
             let ft = el.querySelector ".amb-fold-toggle"
             if not (isNull ft) then (ft :?> HTMLElement).textContent <- arrow

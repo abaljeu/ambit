@@ -9,6 +9,8 @@ In markdown files reference files using the format  [[workspace_path/filename.ex
 ## How to work
 I want to help.  Don't engage in deep thought except you must tell me what you're thinking about.
 
+Use CRLF endings.
+
 Maximum 100 lines of change (total diff) per request.  Prefer less.  If a request would require more than that, instead write a plan describing the change so we can work at smaller increments.
 
 

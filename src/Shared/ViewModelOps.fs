@@ -457,15 +457,15 @@ module ViewModel =
                                 |> CssClass.addIf oldSel "amb-selected"
                                 |> CssClass.addIf oldFoc "amb-focused"
                             if newClass <> oldClass then yield SetClassName newClass
+                            let newNode = newModel.graph.nodes.[entry.nodeId]
+                            let oldNode = oldModel.graph.nodes |> Map.tryFind entry.nodeId
                             if not nowEditing then
-                                let newNode = newModel.graph.nodes.[entry.nodeId]
-                                let oldNode = oldModel.graph.nodes |> Map.tryFind entry.nodeId
                                 let newText = newNode.text
                                 let oldText = oldNode |> Option.map (fun n -> n.text) |> Option.defaultValue ""
                                 if newText <> oldText then yield SetText newText
-                                let newClasses = newNode.cssClasses
-                                let oldClasses = oldNode |> Option.map (fun n -> n.cssClasses) |> Option.defaultValue CssClass.empty
-                                if newClasses <> oldClasses then yield SetTextClasses newClasses
+                            let newClasses = newNode.cssClasses
+                            let oldClasses = oldNode |> Option.map (fun n -> n.cssClasses) |> Option.defaultValue CssClass.empty
+                            if newClasses <> oldClasses then yield SetTextClasses newClasses
                             if newHasChildren then
                                 let oldExpanded = oldEntry |> Option.map (fun e -> e.expanded) |> Option.defaultValue false
                                 if entry.expanded <> oldExpanded then

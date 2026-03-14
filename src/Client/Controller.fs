@@ -1,4 +1,4 @@
-module Gambol.Client.Controller
+﻿module Gambol.Client.Controller
 
 open Browser.Dom
 open Browser.Types
@@ -176,7 +176,9 @@ let editingKeyTable: (string * KeyHandler<EditingKeyContext>) list =
       "Ctrl+]",          always zoomInOp
       "Ctrl+[",          always zoomOutOp
       "Ctrl+z",          always undoOp
-      "Ctrl+y",          always redoOp ]
+      "Ctrl+y",          always redoOp
+      "Alt+c",           always toggleClassOp
+       ]
 
 let tryResolveOperation
     (table: (string * KeyHandler<'Context>) list)

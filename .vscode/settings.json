@@ -5,6 +5,7 @@
             "path": "C:\\Program Files\\Git\\bin\\bash.exe",
             "args": ["--login"]
         }
-    }
+    },
+    "editor.inlayHints.enabled": "offUnlessPressed"
 }
 

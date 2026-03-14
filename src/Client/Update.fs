@@ -1,4 +1,4 @@
-module Gambol.Client.Update
+﻿module Gambol.Client.Update
 
 open Browser.Dom
 open Browser.Types

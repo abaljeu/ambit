@@ -1,4 +1,4 @@
-namespace Gambol.Shared
+﻿namespace Gambol.Shared
 
 open System
 

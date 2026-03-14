@@ -1,4 +1,4 @@
-module Gambol.Shared.Tests.SerializationTests
+﻿module Gambol.Shared.Tests.SerializationTests
 
 open Xunit
 open Gambol.Shared

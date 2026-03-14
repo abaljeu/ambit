@@ -1,4 +1,4 @@
-module Gambol.Shared.Tests.PasteTests
+﻿module Gambol.Shared.Tests.PasteTests
 
 open System
 open Xunit

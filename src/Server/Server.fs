@@ -1,4 +1,4 @@
-namespace Gambol.Server
+﻿namespace Gambol.Server
 
 open System
 open System.IO
