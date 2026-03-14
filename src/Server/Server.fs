@@ -26,10 +26,12 @@ module Main =
 
     let private cookieName = "gambol_auth"
 
-    let private generateToken () =
-        let bytes = Array.zeroCreate<byte> 32
-        RandomNumberGenerator.Fill(Span<byte>(bytes))
-        Convert.ToBase64String(bytes)
+    // Derive a stable token from credentials so authentication survives server restarts.
+    // The token is an HMAC-SHA256 of the username keyed by the password, hex-encoded.
+    let private deriveToken (username: string) (password: string) =
+        use hmac = new HMACSHA256(Text.Encoding.UTF8.GetBytes(password))
+        let hash = hmac.ComputeHash(Text.Encoding.UTF8.GetBytes(username))
+        Convert.ToHexString(hash).ToLowerInvariant()
 
     [<EntryPoint>]
     let main args =
@@ -58,24 +60,23 @@ module Main =
             try Ok (resolveDataDir app.Environment.ContentRootPath config)
             with ex -> Error ex
 
-        // ── Session token (single-user, in-memory) ─────────────────────────
-        let mutable sessionToken: string option = None
+        // ── Auth (stateless — token is derived from credentials, no in-memory state) ──
+        let expectedUser = config.["Auth:Username"] |> Option.ofObj |> Option.defaultValue ""
+        let expectedPass = config.["Auth:Password"] |> Option.ofObj |> Option.defaultValue ""
+        let validToken = deriveToken expectedUser expectedPass
 
         let isAuthenticated (req: HttpRequest) =
-            match sessionToken with
-            | None -> false
-            | Some token ->
-                match req.Cookies.TryGetValue(cookieName) with
-                | true, cookie -> cookie = token
-                | _ -> false
+            match req.Cookies.TryGetValue(cookieName) with
+            | true, cookie -> cookie = validToken
+            | _ -> false
 
-        let setAuthCookie (resp: HttpResponse) (token: string) =
+        let setAuthCookie (resp: HttpResponse) =
             let opts =
                 CookieOptions(
                     HttpOnly = true,
                     SameSite = SameSiteMode.Strict,
                     Expires = Nullable(DateTimeOffset.UtcNow.AddYears(10)))
-            resp.Cookies.Append(cookieName, token, opts)
+            resp.Cookies.Append(cookieName, validToken, opts)
 
         let clearAuthCookie (resp: HttpResponse) =
             resp.Cookies.Delete(cookieName)
@@ -131,12 +132,8 @@ module Main =
                 let! form = req.ReadFormAsync()
                 let username = string form.["username"]
                 let password = string form.["password"]
-                let expectedUser = config.["Auth:Username"] |> Option.ofObj |> Option.defaultValue ""
-                let expectedPass = config.["Auth:Password"] |> Option.ofObj |> Option.defaultValue ""
                 if username = expectedUser && password = expectedPass && username <> "" then
-                    let token = generateToken()
-                    sessionToken <- Some token
-                    setAuthCookie req.HttpContext.Response token
+                    setAuthCookie req.HttpContext.Response
                     return Results.Redirect("/amble")
                 else
                     return Results.Redirect("/login?error=1")
@@ -144,7 +141,6 @@ module Main =
 
             // GET /logout → clear session, redirect to login
             app.MapGet("/logout", Func<HttpResponse, IResult>(fun resp ->
-                sessionToken <- None
                 clearAuthCookie resp
                 Results.Redirect("/login")
             )) |> ignore

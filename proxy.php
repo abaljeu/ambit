@@ -67,6 +67,11 @@ $body = substr($response, $headerSize);
 
 // Parse and forward response headers (rewrite Location for same-origin redirects)
 $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'];
+// These headers are invalidated by curl reassembling the chunked response body.
+// content-encoding is NOT skipped — curl passes the compressed body through
+// unchanged, so the browser still needs that header to decompress it.
+$skipHeaders = ['transfer-encoding', 'content-length'];
+
 foreach (explode("\r\n", $headerBlock) as $line) {
     if (stripos($line, 'HTTP/') === 0) {
         http_response_code($httpCode);
@@ -75,6 +80,7 @@ foreach (explode("\r\n", $headerBlock) as $line) {
     if (strpos($line, ':') === false) continue;
     list($name, $value) = explode(':', $line, 2);
     $value = trim($value);
+    if (in_array(strtolower(trim($name)), $skipHeaders)) continue;
     // Rewrite Location header so redirects stay on our domain under /ambit
     if (stripos($name, 'Location') === 0) {
         if (preg_match('#^/#', $value)) {
