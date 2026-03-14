@@ -1,8 +1,14 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
+
+  <!-- Run Fable before publish so deployed wwwroot always has the latest client -->
+  <Target Name="BuildFableBeforePublish" BeforeTargets="ComputeFilesToPublish">
+    <Exec Command="dotnet fable ..\Client --outDir $(ProjectDir)wwwroot --sourceMaps"
+          WorkingDirectory="$(ProjectDir)" />
+  </Target>
 
   <ItemGroup>
     <!-- Prevent dotnet watch from restarting the server when Fable rewrites wwwroot -->

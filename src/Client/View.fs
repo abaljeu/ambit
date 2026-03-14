@@ -78,6 +78,7 @@ let private makeRowElement (model: VM) (applyOp: Op -> unit) (depth: int) (siteE
         (editInput :?> HTMLInputElement).value <- prefill
         editInput.addEventListener("keydown", fun (ev: Event) ->
             let key = ev :?> KeyboardEvent
+            recordKeyAndRenderDiagnostic key
             let ctx =
                 { keyEvent = key
                   editInput = (editInput :?> HTMLInputElement) }

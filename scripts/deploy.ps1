@@ -1,4 +1,4 @@
-dotnet fable src/Client  -o ../Server/wwwroot
+dotnet fable src/Client --outDir src/Server/wwwroot
 
 dotnet publish src/Server -c Release -o ./publish
 

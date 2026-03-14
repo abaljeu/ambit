@@ -57,6 +57,7 @@ let setupStaticDOM (applyOp: Op -> unit) : unit =
     hiddenInput.setAttribute("tabindex", "-1")
     hiddenInput.addEventListener("keydown", fun (ev: Event) ->
         let ke = ev :?> KeyboardEvent
+        recordKeyAndRenderDiagnostic ke
         if ke.key = "Tab" then ev.preventDefault()
         match currentModel.selectedNodes with
         | None ->
@@ -108,11 +109,25 @@ let setupStaticDOM (applyOp: Op -> unit) : unit =
     buildLabel.setAttribute("style", "margin-left: auto; font-size: .75rem; color: #666;")
     let serverStamp = readBuildStamp BuildInfo.buildNumber
     let pageStamp = readPageStamp "?"
-    buildLabel.textContent <- $"Server: {serverStamp} | Page: {pageStamp}"
-    buildLabel.setAttribute("title", "Server = when served; Page = when assets were built. Reload if Page is old.")
+    buildLabel.textContent <- $"Server: {serverStamp} | Page: {pageStamp} "
+    buildLabel.setAttribute("title", "Server = when served; Page = when assets were built.")
     settingsBar.appendChild buildLabel |> ignore
 
+    let reloadBtn = document.createElement "button"
+    reloadBtn.setAttribute("type", "button")
+    reloadBtn.setAttribute("style", "margin-left: 0.5rem; font-size: .75rem; padding: 0.1rem 0.4rem; cursor: pointer;")
+    reloadBtn.textContent <- "⟳ Reload"
+    reloadBtn.setAttribute("title", "Full reload (useful if Page is old or assets are cached)")
+    reloadBtn.addEventListener("click", fun _ -> window.location.reload())
+    settingsBar.appendChild reloadBtn |> ignore
+
     app.appendChild settingsBar |> ignore
+
+    let diagBar = document.createElement "div"
+    diagBar.id <- "key-platform-diagnostic"
+    diagBar.setAttribute("style", "font-size: .7rem; color: #888; padding: 0.25rem 0.5rem; font-family: monospace; white-space: nowrap; overflow-x: auto; border-top: 1px solid #eee;")
+    diagBar.textContent <- "Platform: " + getPlatformDiagnostic (isIOS ()) + " | Last key: (none)"
+    app.appendChild diagBar |> ignore
 
     let syncStatus = document.createElement "div"
     syncStatus.id <- "sync-status"

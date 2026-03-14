@@ -74,6 +74,31 @@ let app = document.getElementById "app"
 let isPrintableKey (key: string) : bool =
     key.Length = 1 && key >= " "
 
+/// True when running on iOS (iPad, iPhone, iPod). Cmd+key is then treated as Ctrl+key.
+[<Emit("typeof navigator !== 'undefined' && (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1))")>]
+let isIOS () : bool = jsNative
+
+/// Platform string for diagnostics: platform, touchPoints, isIOS, userAgent snippet.
+[<Emit("(typeof navigator !== 'undefined' ? navigator.platform + ' | maxTouchPoints=' + navigator.maxTouchPoints + ' | isIOS=' + $0 + ' | ' + navigator.userAgent.substring(0, 100) : 'n/a')")>]
+let getPlatformDiagnostic (isIOSResult: bool) : string = jsNative
+
+/// Format a KeyboardEvent as a modifier+key string (e.g. "Ctrl+Shift+z").
+let private formatKeyCombo (ke: KeyboardEvent) : string =
+    let parts = ResizeArray<string>()
+    if ke.ctrlKey  then parts.Add "Ctrl"
+    if ke.metaKey  then parts.Add "Cmd"
+    if ke.altKey   then parts.Add "Alt"
+    if ke.shiftKey then parts.Add "Shift"
+    parts.Add ke.key
+    String.concat "+" parts
+
+/// Record the last key combo and refresh the diagnostic display. Call from keydown handlers.
+let recordKeyAndRenderDiagnostic (ke: KeyboardEvent) : unit =
+    let key = formatKeyCombo ke
+    let el = document.getElementById "key-platform-diagnostic"
+    if not (isNull el) then
+        el.textContent <- "| Last key: " + key + "Platform: " + getPlatformDiagnostic (isIOS ()) 
+
 type SelectionKeyContext = { keyEvent: KeyboardEvent; selectedNodeText: string }
 
 type EditingKeyContext = { keyEvent: KeyboardEvent; editInput: HTMLInputElement }
@@ -186,10 +211,11 @@ let tryResolveOperation
     : KeyHandler<'Context> option =
     let tryKey k = table |> List.tryPick (fun (t, h) -> if t = k then Some h else None)
     // Try modifier-qualified keys first (more specific beats less specific)
+    let ctrlOrCmd = ke.ctrlKey || (isIOS () && ke.metaKey)
     let qualified =
         if ke.altKey   then tryKey ("Alt+"   + ke.key) else
         if ke.shiftKey then tryKey ("Shift+" + ke.key) else
-        if ke.ctrlKey  then tryKey ("Ctrl+"  + ke.key) else
+        if ctrlOrCmd   then tryKey ("Ctrl+"  + ke.key) else
         None
     match qualified with
     | Some _ -> qualified
