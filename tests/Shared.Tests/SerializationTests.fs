@@ -30,7 +30,8 @@ let ``Node round-trip with Some name`` () =
         { id = NodeId.New()
           text = "hello world"
           name = Some "myname"
-          children = [ NodeId.New(); NodeId.New() ] }
+          children = [ NodeId.New(); NodeId.New() ]
+          cssClasses = CssClass.empty }
     let decoded = roundTrip Serialization.encodeNode Serialization.decodeNode node
     Assert.Equal(node, decoded)
 
@@ -40,7 +41,8 @@ let ``Node round-trip with None name`` () =
         { id = NodeId.New()
           text = "hello"
           name = None
-          children = [] }
+          children = []
+          cssClasses = CssClass.empty }
     let decoded = roundTrip Serialization.encodeNode Serialization.decodeNode node
     Assert.Equal(node, decoded)
 

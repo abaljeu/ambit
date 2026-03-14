@@ -399,6 +399,7 @@ module ViewModel =
     type RowPatch =
         | SetClassName of newClass: string
         | SetText of newText: string
+        | SetTextClasses of classes: CssClasses
         | SetFoldArrow of arrow: string   // "▼" or "▶" (has children); "●" (no children, no behavior)
         | SetNodeGuid of guid: System.Guid   // diagnostic: node identity on row
 
@@ -444,26 +445,27 @@ module ViewModel =
                             let foc = isEntryFocused newModel entry
                             let isRoot = entry.instanceId = newModel.siteMap.rootId
                             let newClass =
-                                "row"
-                                |> CssClass.addIf isRoot "view-root"
-                                |> CssClass.addIf sel "selected"
-                                |> CssClass.addIf foc "focused"
+                                "amb-row"
+                                |> CssClass.addIf isRoot "amb-view-root"
+                                |> CssClass.addIf sel "amb-selected"
+                                |> CssClass.addIf foc "amb-focused"
                             let oldSel = oldEntry |> Option.map (isEntrySelected oldModel) |> Option.defaultValue false
                             let oldFoc = oldEntry |> Option.map (isEntryFocused oldModel) |> Option.defaultValue false
                             let oldClass =
-                                "row"
-                                |> CssClass.addIf isRoot "view-root"
-                                |> CssClass.addIf oldSel "selected"
-                                |> CssClass.addIf oldFoc "focused"
+                                "amb-row"
+                                |> CssClass.addIf isRoot "amb-view-root"
+                                |> CssClass.addIf oldSel "amb-selected"
+                                |> CssClass.addIf oldFoc "amb-focused"
                             if newClass <> oldClass then yield SetClassName newClass
                             if not nowEditing then
-                                let newText = newModel.graph.nodes.[entry.nodeId].text
-                                let oldText =
-                                    oldModel.graph.nodes
-                                    |> Map.tryFind entry.nodeId
-                                    |> Option.map (fun n -> n.text)
-                                    |> Option.defaultValue ""
+                                let newNode = newModel.graph.nodes.[entry.nodeId]
+                                let oldNode = oldModel.graph.nodes |> Map.tryFind entry.nodeId
+                                let newText = newNode.text
+                                let oldText = oldNode |> Option.map (fun n -> n.text) |> Option.defaultValue ""
                                 if newText <> oldText then yield SetText newText
+                                let newClasses = newNode.cssClasses
+                                let oldClasses = oldNode |> Option.map (fun n -> n.cssClasses) |> Option.defaultValue CssClass.empty
+                                if newClasses <> oldClasses then yield SetTextClasses newClasses
                             if newHasChildren then
                                 let oldExpanded = oldEntry |> Option.map (fun e -> e.expanded) |> Option.defaultValue false
                                 if entry.expanded <> oldExpanded then

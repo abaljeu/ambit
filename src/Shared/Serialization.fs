@@ -28,14 +28,16 @@ module Serialization =
             [ "id", encodeNodeId node.id
               "text", Encode.string node.text
               "name", Encode.lossyOption Encode.string node.name
-              "children", node.children |> List.map encodeNodeId |> Encode.list ]
+              "children", node.children |> List.map encodeNodeId |> Encode.list
+              "cssClasses", node.cssClasses |> CssClass.toList |> List.map Encode.string |> Encode.list ]
 
     let decodeNode: Decoder<Node> =
         Decode.object (fun get ->
             { id = get.Required.Field "id" decodeNodeId
               text = get.Required.Field "text" Decode.string
               name = get.Optional.Field "name" Decode.string
-              children = get.Required.Field "children" (Decode.list decodeNodeId) })
+              children = get.Required.Field "children" (Decode.list decodeNodeId)
+              cssClasses = get.Optional.Field "cssClasses" (Decode.list Decode.string) |> Option.defaultValue [] |> CssClass.ofList })
 
     // ---- Graph ----
 
@@ -69,6 +71,12 @@ module Serialization =
                   "nodeId", encodeNodeId nodeId
                   "oldText", Encode.string oldText
                   "newText", Encode.string newText ]
+        | Op.SetClasses(nodeId, oldClasses, newClasses) ->
+            Encode.object
+                [ "type", Encode.string "SetClasses"
+                  "nodeId", encodeNodeId nodeId
+                  "oldClasses", oldClasses |> CssClass.toList |> List.map Encode.string |> Encode.list
+                  "newClasses", newClasses |> CssClass.toList |> List.map Encode.string |> Encode.list ]
         | Op.Replace(parentId, index, oldIds, newIds) ->
             Encode.object
                 [ "type", Encode.string "Replace"
@@ -92,6 +100,12 @@ module Serialization =
                         get.Required.Field "nodeId" decodeNodeId,
                         get.Required.Field "oldText" Decode.string,
                         get.Required.Field "newText" Decode.string))
+            | "SetClasses" ->
+                Decode.object (fun get ->
+                    Op.SetClasses(
+                        get.Required.Field "nodeId" decodeNodeId,
+                        get.Required.Field "oldClasses" (Decode.list Decode.string) |> CssClass.ofList,
+                        get.Required.Field "newClasses" (Decode.list Decode.string) |> CssClass.ofList))
             | "Replace" ->
                 Decode.object (fun get ->
                     Op.Replace(

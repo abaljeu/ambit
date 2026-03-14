@@ -116,6 +116,7 @@ let selectionKeyTable: (string * KeyHandler<SelectionKeyContext>) list =
       "Ctrl+[",          always zoomOutOp
       "Ctrl+z",          always undoOp
       "Ctrl+y",          always redoOp
+      "Alt+c",           always toggleClassOp
       printableKeyToken, startEditFromKey ]
 
 // ---------------------------------------------------------------------------

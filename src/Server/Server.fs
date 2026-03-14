@@ -165,6 +165,15 @@ module Main =
                     return! Api.postChange agent body |> Async.StartAsTask
             })) |> ignore
 
+            // GET /amble/user.css → serve dataDir/user.css, falling back to wwwroot/user.css
+            let defaultUserCss = Path.Combine(app.Environment.WebRootPath, "user.css")
+            app.MapGet("/amble/user.css", Func<IResult>(fun () ->
+                let userPath = Path.Combine(dataDir, "user.css")
+                let path = if File.Exists(userPath) then userPath else defaultUserCss
+                if File.Exists(path) then Results.File(path, "text/css")
+                else Results.NoContent()
+            )) |> ignore
+
             // GET /amble → serve gambol.html (protected) with startup stamp and page file stamp injected
             let gambolHtml = Path.Combine(app.Environment.WebRootPath, "gambol.html")
             let programJs = Path.Combine(app.Environment.WebRootPath, "Program.js")
@@ -179,14 +188,14 @@ module Main =
                     TimeZoneInfo.ConvertTimeFromUtc(latest, torontoTz).ToString("yyyy-MM-dd HH:mm:ss") + " ET"
                 else
                     "unknown"
-            let gambolHtmlWithStamp =
+            let gambolHtmlWithStamp () =
                 let raw = File.ReadAllText(gambolHtml)
                 let pageStamp = pageBuildStamp ()
                 let snippet = "    <script>window.__BUILD__ = \"" + startupStamp + "\"; window.__PAGE_BUILD__ = \"" + pageStamp + "\";</script>\n</head>"
                 raw.Replace("</head>", snippet)
             app.MapGet("/amble", Func<HttpRequest, IResult>(fun req ->
                 if isAuthenticated req then
-                    Results.Content(gambolHtmlWithStamp, "text/html")
+                    Results.Content(gambolHtmlWithStamp (), "text/html")
                 else
                     Results.Redirect("/login")
             )) |> ignore

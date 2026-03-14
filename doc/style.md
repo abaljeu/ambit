@@ -1,6 +1,6 @@
 # Custom styling
 
-The target element is the `<div class="text">` inside each row — not the outer row div.
+The target element is the `<div class="amb-text">` inside each row — not the outer row div.
 User-defined classes are applied to that element only.
 
 ## Implementation phases
@@ -9,19 +9,21 @@ User-defined classes are applied to that element only.
 Useful result: hand-edit `{.h1}` in the data file and see the style applied in the browser.
 
 - rename system classes to `amb-` prefix in View.fs and the app stylesheet (prerequisite)
-- add `cssClasses: string list` to `Node`
+- add `cssClasses: CssClasses` to `Node` (type defined in `CssClass.fs`; operations: `empty`, `ofList`, `toList`, `toggle`, `contains`)
 - add `Op.SetClasses(nodeId, oldClasses, newClasses)`
 - extend `Snapshot.read`/`write` with `{.class}` metadata block syntax
 - extend `encodeNode`/`decodeNode` with `cssClasses` field
 - update `makeRowElement` to apply `node.cssClasses` to the `.text` div
 - ship a default `user.css` with a handful of predefined classes; add `<link>` to gambol.html
 - add `GET /amble/user.css` endpoint (serves `dataDir/user.css`, falls back to default)
+- simple temporary UI: Alt-C pops up a dialog; if the entered name is a legal CSS identifier and does not start with `amb-`, toggle its presence in the node's `cssClasses`
 
+ 
 ### Phase 2 — CSS editable via the server; live reload
 Useful result: edit class definitions through `POST /amble/css` and see changes immediately without a page reload. (Can be exercised via curl or a temporary button before the UI exists.)
 
 - add `POST /amble/css` endpoint (writes raw CSS text to `dataDir/user.css`)
-- client: on CSS save, bump the `<link>` href with a cache-busting parameter to live-refresh the stylesheet
+- client: on CSS save, bump the `<link id="user-css">` href with a cache-busting parameter to live-refresh the stylesheet
 
 ### Phase 3 — Side panel UI
 Useful result: full keyboard-driven class assignment and CSS editing without touching files directly.
@@ -34,12 +36,12 @@ Useful result: full keyboard-driven class assignment and CSS editing without tou
 
 ## Document storage
 
-User class assignments live in the `Node` record as `cssClasses: string list`.
+User class assignments live in the `Node` record as `cssClasses: CssClasses`.
 They travel through the existing op/change pipeline:
 - new `Op.SetClasses(nodeId, oldClasses, newClasses)` case (same optimistic-concurrency pattern as `SetText`)
 - posted via the existing `POST /amble/changes` endpoint
 - applied to the graph and persisted to disk by the FileAgent — no new server endpoint needed
-- JSON serialization (`encodeNode`/`decodeNode`): gains a `cssClasses` field; old API messages decode with `cssClasses = []`
+- JSON serialization (`encodeNode`/`decodeNode`): gains a `cssClasses` field; old API messages decode with `cssClasses = CssClass.empty`
 - Snapshot text format (disk): after stripping indentation tabs, if line content starts with `{`, the `{...}` block is metadata; everything after `}` is node text
   - metadata is optional; lines without it are written and parsed as plain text (backward compatible)
   - `.classname` sigil for CSS classes, space-separated: `{.h1 .blue}Third item`
@@ -47,7 +49,7 @@ They travel through the existing op/change pipeline:
   - braces are not allowed unquoted inside the metadata block (CSS class names are safe — no braces possible)
   - if a node's text itself starts with `{`, the line is written with an empty metadata prefix: `{}{text...}` to disambiguate
 
-`makeRowElement` in View.fs reads `node.cssClasses` and adds each name to the `<div class="text">` classList.
+`makeRowElement` in View.fs reads `node.cssClasses` and adds each name to the `<div class="amb-text">` classList.
 
 ## CSS store
 
@@ -63,16 +65,13 @@ The editor only manages simple single-class rules of the form `.classname { ... 
 All other rules present in `user.css` — including rules targeting system classes (e.g. `.amb-row`), compound or descendant selectors (e.g. `x > y { ... }`), at-rules, or anything else outside that pattern — are left entirely untouched: they remain in the file, take effect in the browser, but are invisible to the editor.
 When the editor writes an updated `user.css`, it rewrites only the rules it owns and preserves everything else verbatim.
 
-No distinction between built-in and user-defined classes in code.
+No distinction between built-in and user-defined classes in code (not counting system classes which are not available for customizing).
 The app ships a default `user.css` containing the predefined classes.
 If no user CSS exists in `dataDir` yet, the server falls back to the default.
 Once the user makes any edit, their version is saved to `dataDir` and served from there.
 
 The `amb-` prefix is reserved for all app system classes (e.g. `amb-row`, `amb-selected`, `amb-focused`).
 User class names must not start with `amb-`; no other restrictions.
-
-**Prerequisite:** rename all existing system classes in the codebase to use the `amb-` prefix
-(currently `row`, `selected`, `focused`, `indent`, `fold-toggle`, `view-root`, etc. in View.fs and the app stylesheet).
 
 ## Applying classes to rows
 

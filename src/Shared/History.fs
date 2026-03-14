@@ -4,6 +4,7 @@ namespace Gambol.Shared
 type Op =
     | NewNode of nodeId: NodeId * text: string
     | SetText of nodeId: NodeId * oldText: string * newText: string
+    | SetClasses of nodeId: NodeId * oldClasses: CssClasses * newClasses: CssClasses
     | Replace of
         parentId: NodeId *
         index: int *
@@ -54,7 +55,8 @@ module Op =
                 { id = nodeId
                   text = text
                   name = None
-                  children = [] }
+                  children = []
+                  cssClasses = CssClass.empty }
 
             ApplyResult.Changed
                 { state with
@@ -63,6 +65,9 @@ module Op =
                                 nodes = state.graph.nodes |> Map.add nodeId node } }
         | Op.SetText(nodeId, oldText, newText) ->
             Graph.setText nodeId oldText newText state.graph
+            |> fromGraphResult state
+        | Op.SetClasses(nodeId, oldClasses, newClasses) ->
+            Graph.setClasses nodeId oldClasses newClasses state.graph
             |> fromGraphResult state
         | Op.Replace(parentId, index, oldIds, newIds) ->
             Graph.replace parentId index oldIds newIds state.graph
@@ -74,8 +79,10 @@ module Op =
             let nodes = state.graph.nodes |> Map.remove nodeId
             ApplyResult.Changed { state with graph = { state.graph with nodes = nodes } }
         | Op.SetText(nodeId, oldText, newText) ->
-            // Inverse: ensure current text == newText, set back to oldText
             Graph.setText nodeId newText oldText state.graph
+            |> fromGraphResult state
+        | Op.SetClasses(nodeId, oldClasses, newClasses) ->
+            Graph.setClasses nodeId newClasses oldClasses state.graph
             |> fromGraphResult state
         | Op.Replace(parentId, index, oldIds, newIds) ->
             // Inverse: swap old/new to restore
@@ -95,9 +102,10 @@ module Change =
     let invert (change: Change) : Change =
         let invertOp op =
             match op with
-            | Op.NewNode(id, text)              -> Op.NewNode(id, text)
-            | Op.SetText(id, old, new_)          -> Op.SetText(id, new_, old)
-            | Op.Replace(pid, i, olds, news)     -> Op.Replace(pid, i, news, olds)
+            | Op.NewNode(id, text)                   -> Op.NewNode(id, text)
+            | Op.SetText(id, old, new_)              -> Op.SetText(id, new_, old)
+            | Op.SetClasses(id, oldCls, newCls)      -> Op.SetClasses(id, newCls, oldCls)
+            | Op.Replace(pid, i, olds, news)         -> Op.Replace(pid, i, news, olds)
         { change with ops = change.ops |> List.rev |> List.map invertOp }
 
     let apply (change: Change) (state: State) : ApplyResult =

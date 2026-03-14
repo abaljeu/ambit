@@ -29,7 +29,8 @@ type Node =
     { id: NodeId
       text: string
       name: string option
-      children: NodeId list }
+      children: NodeId list
+      cssClasses: CssClasses }
 
 
 // defines span of nodes in parent where start <= index in children < end
@@ -46,17 +47,6 @@ type Graph =
 
 [<RequireQualifiedAccess>]
 module Graph =
-    let create () : Graph =
-        let rootId = NodeId.New()
-
-        let rootNode: Node = // depth 0 node
-            { id = rootId
-              text = ""
-              name = None
-              children = [] }
-
-        { root = rootId
-          nodes = Map.ofList [ rootId, rootNode ] }
 
     let nodeCount (graph: Graph) =
         graph.nodes.Count
@@ -71,10 +61,15 @@ module Graph =
             { id = nodeId
               text = text
               name = None
-              children = [] }
+              children = []
+              cssClasses = CssClass.empty }
 
         let nodes = graph.nodes |> Map.add nodeId node
         { graph with nodes = nodes }, nodeId
+    let create () : Graph =
+        let emptyGraph = { root = NodeId.New(); nodes = Map.empty }
+        let graph, rootId = newNode "" emptyGraph
+        { graph with root = rootId }
 
     let setText
         (nodeId: NodeId)
@@ -90,6 +85,23 @@ module Graph =
                 Error "old text does not match"
             else
                 let updatedNode = { node with text = newText }
+                let nodes = graph.nodes |> Map.add nodeId updatedNode
+                Ok { graph with nodes = nodes }
+
+    let setClasses
+        (nodeId: NodeId)
+        (oldClasses: CssClasses)
+        (newClasses: CssClasses)
+        (graph: Graph)
+        : Result<Graph, string>
+        =
+        match graph.nodes |> Map.tryFind nodeId with
+        | None -> Error "node not found"
+        | Some node ->
+            if node.cssClasses <> oldClasses then
+                Error "old classes do not match"
+            else
+                let updatedNode = { node with cssClasses = newClasses }
                 let nodes = graph.nodes |> Map.add nodeId updatedNode
                 Ok { graph with nodes = nodes }
 

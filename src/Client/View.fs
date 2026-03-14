@@ -32,23 +32,23 @@ let private makeRowElement (model: VM) (applyOp: Op -> unit) (depth: int) (siteE
     let node = model.graph.nodes.[nodeId]
     let hasChildren = not node.children.IsEmpty
     let row = document.createElement "div"
-    row.classList.add "row"
+    row.classList.add "amb-row"
     row.setAttribute("data-node-id", node.id.Value.ToString())
 
-    if siteEntry.parentInstanceId = None then row.classList.add "view-root"
-    if isEntrySelected model siteEntry then row.classList.add "selected"
-    if isEntryFocused  model siteEntry then row.classList.add "focused"
+    if siteEntry.parentInstanceId = None then row.classList.add "amb-view-root"
+    if isEntrySelected model siteEntry then row.classList.add "amb-selected"
+    if isEntryFocused  model siteEntry then row.classList.add "amb-focused"
 
     // Indentation
     for _ in 1 .. depth do
         let indent = document.createElement "div"
-        indent.classList.add "indent"
+        indent.classList.add "amb-indent"
         row.appendChild indent |> ignore
 
     // Fold toggle indicator
     if hasChildren then
         let toggle = document.createElement "span"
-        toggle.classList.add "fold-toggle"
+        toggle.classList.add "amb-fold-toggle"
         toggle.textContent <- if siteEntry.expanded then "\u25BC" else "\u25B6"
         toggle.addEventListener("mousedown", fun (ev: Event) ->
             ev.preventDefault()
@@ -58,7 +58,7 @@ let private makeRowElement (model: VM) (applyOp: Op -> unit) (depth: int) (siteE
         row.appendChild toggle |> ignore
     else
         let dot = document.createElement "span"
-        dot.classList.add "fold-toggle"
+        dot.classList.add "amb-fold-toggle"
         dot.textContent <- "\u25CF"
         row.appendChild dot |> ignore
 
@@ -66,7 +66,7 @@ let private makeRowElement (model: VM) (applyOp: Op -> unit) (depth: int) (siteE
     if isEditingEntry model siteEntry then
         let editInput = document.createElement "input"
         editInput.id <- "edit-input"
-        editInput.classList.add "edit-input"
+        editInput.classList.add "amb-edit-input"
         editInput.setAttribute("tabindex", "-1")
         let prefill =
             match model.mode with
@@ -88,7 +88,9 @@ let private makeRowElement (model: VM) (applyOp: Op -> unit) (depth: int) (siteE
         row.appendChild editInput |> ignore
     else
         let textDiv = document.createElement "div"
-        textDiv.classList.add "text"
+        textDiv.classList.add "amb-text"
+        for cls in CssClass.toList node.cssClasses do
+            textDiv.classList.add cls
         textDiv.textContent <- node.text
         row.appendChild textDiv |> ignore
 
@@ -96,7 +98,7 @@ let private makeRowElement (model: VM) (applyOp: Op -> unit) (depth: int) (siteE
     let guidSuffix = node.id.Value.ToString()
     let guidTail = if guidSuffix.Length >= 8 then guidSuffix.Substring(guidSuffix.Length - 8) else guidSuffix
     let guidSpan = document.createElement "span"
-    guidSpan.classList.add "node-guid"
+    guidSpan.classList.add "amb-node-guid"
     guidSpan.textContent <- guidTail
     row.appendChild guidSpan |> ignore
 
@@ -120,16 +122,23 @@ let private applyRowPatches (el: HTMLElement) (patches: RowPatch list) : unit =
         match patch with
         | SetClassName cls -> el.className <- cls
         | SetText txt ->
-            let textDiv = el.querySelector ".text"
+            let textDiv = el.querySelector ".amb-text"
             if not (isNull textDiv) then (textDiv :?> HTMLElement).textContent <- txt
+        | SetTextClasses classes ->
+            let textDiv = el.querySelector ".amb-text"
+            if not (isNull textDiv) then
+                let td = textDiv :?> HTMLElement
+                td.className <- "amb-text"
+                for cls in CssClass.toList classes do
+                    td.classList.add cls
         | SetFoldArrow arrow ->
-            let ft = el.querySelector ".fold-toggle"
+            let ft = el.querySelector ".amb-fold-toggle"
             if not (isNull ft) then (ft :?> HTMLElement).textContent <- arrow
         | SetNodeGuid guid ->
             el.setAttribute("data-node-id", guid.ToString())
             let guidStr = guid.ToString()
             let tail = if guidStr.Length >= 8 then guidStr.Substring(guidStr.Length - 8) else guidStr
-            let g = el.querySelector ".node-guid"
+            let g = el.querySelector ".amb-node-guid"
             if not (isNull g) then (g :?> HTMLElement).textContent <- tail
 
 /// Resolve the row element for an instance: create, recreate, or patch as dictated by the upsert index.

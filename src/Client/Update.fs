@@ -712,6 +712,30 @@ let deleteSelectionOp (model: VM) (dispatch: Msg -> unit) : VM =
 let toggleLinkPasteOp (model: VM) _dispatch : VM =
     { model with linkPasteEnabled = not model.linkPasteEnabled }
 
+[<Emit("window.prompt($0, $1)")>]
+let private promptDialog (msg: string) (def: string) : string = jsNative
+
+/// Op: Prompt for a CSS class name and toggle its presence on the focused node.
+/// Accepts any legal CSS identifier that does not start with "amb-".
+let toggleClassOp (model: VM) (dispatch: Msg -> unit) : VM =
+    match model.selectedNodes with
+    | None -> model
+    | Some sel ->
+        let nodeId = focusedNodeId model.graph sel
+        let node = model.graph.nodes.[nodeId]
+        let input = promptDialog "CSS class name:" ""
+        if isNull input || input.Trim() = "" then model
+        else
+            let name = input.Trim()
+            if not (CssClass.isValidUserClass name) then model
+            else
+                let oldClasses = node.cssClasses
+                let newClasses = CssClass.toggle name oldClasses
+                let change = { id = model.revision.Value; ops = [ Op.SetClasses(nodeId, oldClasses, newClasses) ] }
+                match applyAndPost change model dispatch with
+                | Some m -> m
+                | None -> model
+
 /// Build a first-child Selection for the root entry of a freshly-built siteMap.
 /// Returns None if the root has no children.
 let private firstChildSelection (siteMap: SiteMap) (rootNodeId: NodeId) : Selection option =

@@ -10,52 +10,53 @@ body {
     flex-direction: column;
     gap: 0.2rem;
 }
-.row {
+.amb-row {
     display: flex;
     gap: 0.2rem;
     background: #ccc
 }
-.indent {
+.amb-indent {
     width: 1.5rem;
     flex-shrink: 0;
     background: #ddd;
 }
-.fold-toggle {
+.amb-fold-toggle {
     display: inline-block;
     width: 1.5rem;
     flex-shrink: 0;
     text-align: center;
+    align-self: center;
 }
-.text {
+.amb-text {
     flex: 1;
     padding: 0.15rem 0.3rem;
     min-height: 1em;
     background: #eee;
 }
-.node-guid {
+.amb-node-guid {
     flex-shrink: 0;
     font-size: 0.7em;
     color: #888;
     align-self: center;
 }
-.view-root {
+.amb-view-root {
     font-size: 2rem;
     font-weight: bold;
     margin: 0.67em 0;
 }
-.row.selected {
+.amb-row.amb-selected {
     background: #bde;
 }
-.row.selected .text {
+.amb-row.amb-selected .amb-text {
     background: #cdf;
 }
-.row.focused {
+.amb-row.amb-focused {
     background: #edb;
 }
-.row.focused .text {
+.amb-row.amb-focused .amb-text {
     background: #fdc;
 }
-.edit-input {
+.amb-edit-input {
     flex: 1;
     font: inherit;
     font-size: inherit;
