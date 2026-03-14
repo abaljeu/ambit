@@ -8,11 +8,10 @@ $BACKEND = 'https://amble-f6bfcfdygjd9b6b7.canadacentral-01.azurewebsites.net';
 $MOUNT = '/ambit';
 
 $path = isset($_GET['path']) ? $_GET['path'] : '';
-$path = $path === '' ? '' : $path;  // /ambit -> '', /ambit/login -> /login, /ambit/amble/state -> /amble/state
+$path = $path === '' ? '' : $path;  // /ambit -> '', /ambit/login -> /login, /ambit/state -> /state
 
-// Build backend URL (Azure app runs at root: /login, /amble, /amble/state, /amble/changes, /logout)
-// /ambit alone -> /amble (entry point)
-$backendPath = ($path === '' || $path === '/') ? '/amble' : $path;
+// Build backend URL — paths match: proxy /ambit/* forwards to backend /ambit/*
+$backendPath = $MOUNT . ($path === '' || $path === '/' ? '' : $path);
 $backendUrl = rtrim($BACKEND, '/') . $backendPath;
 if (!empty($_GET)) {
     $params = $_GET;
@@ -81,12 +80,12 @@ foreach (explode("\r\n", $headerBlock) as $line) {
     list($name, $value) = explode(':', $line, 2);
     $value = trim($value);
     if (in_array(strtolower(trim($name)), $skipHeaders)) continue;
-    // Rewrite Location header so redirects stay on our domain under /ambit
+    // Rewrite Location header so redirects stay on our domain (backend paths already use /ambit/*)
     if (stripos($name, 'Location') === 0) {
         if (preg_match('#^/#', $value)) {
-            $value = $MOUNT . $value;  // /login -> /ambit/login
+            $value = $baseUrl . $value;  // /ambit -> our-origin/ambit
         } else {
-            $value = preg_replace('#^https?://[^/]+/#', $baseUrl . $MOUNT . '/', $value);
+            $value = preg_replace('#^https?://[^/]+#', $baseUrl, $value);  // backend URL -> our origin
         }
     }
     header($name . ': ' . $value, false);

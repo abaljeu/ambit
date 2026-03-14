@@ -51,7 +51,8 @@ module Main =
         let builder = WebApplication.CreateBuilder(options)
         // Env-specific appsettings: required in Production (fail if missing), optional elsewhere
         let envFile = "appsettings." + builder.Environment.EnvironmentName + ".json"
-        builder.Configuration.AddJsonFile(envFile, optional = (builder.Environment.EnvironmentName <> "Production"))
+        builder.Configuration.AddJsonFile(envFile, optional = (builder.Environment.EnvironmentName <> "Production")) 
+            |> ignore
         let app = builder.Build()
         port |> Option.iter (fun p -> app.Urls.Add(sprintf "http://0.0.0.0:%s" p))
 
@@ -83,6 +84,8 @@ module Main =
 
         app.UseDefaultFiles() |> ignore
         app.UseStaticFiles() |> ignore
+        // Serve wwwroot under /ambit so assets work when app is mounted at /ambit
+        app.UseStaticFiles(StaticFileOptions(RequestPath = PathString("/ambit"))) |> ignore
 
         match dataDirResult with
         | Error ex ->
@@ -121,32 +124,32 @@ module Main =
                         newAgent
                 )
 
-            // GET /login → serve login.html
+            // GET /ambit/login → serve login.html
             let loginHtml = Path.Combine(app.Environment.WebRootPath, "login.html")
-            app.MapGet("/login", Func<IResult>(fun () ->
+            app.MapGet("/ambit/login", Func<IResult>(fun () ->
                 Results.File(loginHtml, "text/html")
             )) |> ignore
 
-            // POST /login → validate credentials, set permanent cookie, redirect
-            app.MapPost("/login", Func<HttpRequest, Task<IResult>>(fun req -> task {
+            // POST /ambit/login → validate credentials, set permanent cookie, redirect
+            app.MapPost("/ambit/login", Func<HttpRequest, Task<IResult>>(fun req -> task {
                 let! form = req.ReadFormAsync()
                 let username = string form.["username"]
                 let password = string form.["password"]
                 if username = expectedUser && password = expectedPass && username <> "" then
                     setAuthCookie req.HttpContext.Response
-                    return Results.Redirect("/amble")
+                    return Results.Redirect("/ambit")
                 else
-                    return Results.Redirect("/login?error=1")
+                    return Results.Redirect("/ambit/login?error=1")
             })) |> ignore
 
-            // GET /logout → clear session, redirect to login
-            app.MapGet("/logout", Func<HttpResponse, IResult>(fun resp ->
+            // GET /ambit/logout → clear session, redirect to login
+            app.MapGet("/ambit/logout", Func<HttpResponse, IResult>(fun resp ->
                 clearAuthCookie resp
-                Results.Redirect("/login")
+                Results.Redirect("/ambit/login")
             )) |> ignore
 
-            // GET /amble/state → JSON { revision, graph }
-            app.MapGet("/amble/state", Func<HttpRequest, Task<IResult>>(fun req -> task {
+            // GET /ambit/state → JSON { revision, graph }
+            app.MapGet("/ambit/state", Func<HttpRequest, Task<IResult>>(fun req -> task {
                 if not (isAuthenticated req) then
                     return Results.Unauthorized()
                 else
@@ -154,8 +157,8 @@ module Main =
                     return! Api.getState agent |> Async.StartAsTask
             })) |> ignore
 
-            // POST /amble/changes → JSON { revision, graph } or 400
-            app.MapPost("/amble/changes", Func<HttpRequest, Task<IResult>>(fun req -> task {
+            // POST /ambit/changes → JSON { revision, graph } or 400
+            app.MapPost("/ambit/changes", Func<HttpRequest, Task<IResult>>(fun req -> task {
                 if not (isAuthenticated req) then
                     return Results.Unauthorized()
                 else
@@ -165,16 +168,16 @@ module Main =
                     return! Api.postChange agent body |> Async.StartAsTask
             })) |> ignore
 
-            // GET /amble/user.css → serve dataDir/user.css, falling back to wwwroot/user.css
+            // GET /ambit/user.css → serve dataDir/user.css, falling back to wwwroot/user.css
             let defaultUserCss = Path.Combine(app.Environment.WebRootPath, "user.css")
-            app.MapGet("/amble/user.css", Func<IResult>(fun () ->
+            let serveUserCss () =
                 let userPath = Path.Combine(dataDir, "user.css")
                 let path = if File.Exists(userPath) then userPath else defaultUserCss
                 if File.Exists(path) then Results.File(path, "text/css")
                 else Results.NoContent()
-            )) |> ignore
+            app.MapGet("/ambit/user.css", Func<IResult>(fun () -> serveUserCss ())) |> ignore
 
-            // GET /amble → serve gambol.html (protected) with startup stamp and page file stamp injected
+            // GET /ambit → serve gambol.html (protected) with startup stamp and page file stamp injected
             let gambolHtml = Path.Combine(app.Environment.WebRootPath, "gambol.html")
             let programJs = Path.Combine(app.Environment.WebRootPath, "Program.js")
             let torontoTz = TimeZoneInfo.FindSystemTimeZoneById("America/Toronto")
@@ -193,11 +196,11 @@ module Main =
                 let pageStamp = pageBuildStamp ()
                 let snippet = "    <script>window.__BUILD__ = \"" + startupStamp + "\"; window.__PAGE_BUILD__ = \"" + pageStamp + "\";</script>\n</head>"
                 raw.Replace("</head>", snippet)
-            app.MapGet("/amble", Func<HttpRequest, IResult>(fun req ->
+            app.MapGet("/ambit", Func<HttpRequest, IResult>(fun req ->
                 if isAuthenticated req then
                     Results.Content(gambolHtmlWithStamp (), "text/html")
                 else
-                    Results.Redirect("/login")
+                    Results.Redirect("/ambit/login")
             )) |> ignore
 
         app.Run()

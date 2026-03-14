@@ -76,24 +76,20 @@ cPanel uses Apache. Add these rules to `~/.htaccess` (the root htaccess that ser
 ```apache
 RewriteEngine On
 
-# Proxy /amble and /login to the Gambol app
-RewriteRule ^(amble|amble/.*|login|logout)$ http://localhost:5000/$1 [P,L]
+# Proxy /ambit to the Gambol app
+RewriteRule ^ambit(/.*)?$ http://localhost:5000/ambit$1 [P,L]
 ```
 
 Or using `ProxyPass` directives (place before `# BEGIN WordPress`):
 
 ```apache
 <IfModule mod_proxy.c>
-    ProxyPass /amble http://localhost:5000/amble
-    ProxyPassReverse /amble http://localhost:5000/amble
-    ProxyPass /login http://localhost:5000/login
-    ProxyPassReverse /login http://localhost:5000/login
-    ProxyPass /logout http://localhost:5000/logout
-    ProxyPassReverse /logout http://localhost:5000/logout
+    ProxyPass /ambit http://localhost:5000/ambit
+    ProxyPassReverse /ambit http://localhost:5000/ambit
 </IfModule>
 ```
 
-The app is already coded for these paths — `/amble` serves the main UI, `/login` and `/logout` handle auth, `/amble/state` and `/amble/changes` are the API endpoints.
+The app serves all routes under `/ambit` — main UI, login, logout, state, changes, user.css.
 
 If neither works, contact the host to confirm `mod_proxy` / `mod_rewrite [P]` is enabled.
 

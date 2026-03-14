@@ -47,12 +47,12 @@ Data persists across redeploys — the zip only overwrites `/home/site/wwwroot/`
 
 | | |
 |---|---|
-| App | https://collaborative-systems.org/amble |
-| Login | https://collaborative-systems.org/login |
+| App | https://collaborative-systems.org/ambit |
+| Login | https://collaborative-systems.org/ambit/login |
 
 ## Redirect from cPanel host
 
-`/.htaccess` redirects `/gambol` (and `/amble`) to Azure.
+`/.htaccess` redirects `/ambit` (and subpaths) to Azure via proxy.php.
 Upload `.htaccess` to the cPanel host root after any changes.
 
 ## Troubleshooting

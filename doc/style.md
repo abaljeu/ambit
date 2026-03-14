@@ -15,14 +15,14 @@ Useful result: hand-edit `{.h1}` in the data file and see the style applied in t
 - extend `encodeNode`/`decodeNode` with `cssClasses` field
 - update `makeRowElement` to apply `node.cssClasses` to the `.text` div
 - ship a default `user.css` with a handful of predefined classes; add `<link>` to gambol.html
-- add `GET /amble/user.css` endpoint (serves `dataDir/user.css`, falls back to default)
+- add `GET /ambit/user.css` endpoint (serves `dataDir/user.css`, falls back to default)
 - simple temporary UI: Alt-C pops up a dialog; if the entered name is a legal CSS identifier and does not start with `amb-`, toggle its presence in the node's `cssClasses`
 
  
 ### Phase 2 — CSS editable via the server; live reload
-Useful result: edit class definitions through `POST /amble/css` and see changes immediately without a page reload. (Can be exercised via curl or a temporary button before the UI exists.)
+Useful result: edit class definitions through `POST /ambit/css` and see changes immediately without a page reload. (Can be exercised via curl or a temporary button before the UI exists.)
 
-- add `POST /amble/css` endpoint (writes raw CSS text to `dataDir/user.css`)
+- add `POST /ambit/css` endpoint (writes raw CSS text to `dataDir/user.css`)
 - client: on CSS save, bump the `<link id="user-css">` href with a cache-busting parameter to live-refresh the stylesheet
 
 ### Phase 3 — Side panel UI
@@ -39,7 +39,7 @@ Useful result: full keyboard-driven class assignment and CSS editing without tou
 User class assignments live in the `Node` record as `cssClasses: CssClasses`.
 They travel through the existing op/change pipeline:
 - new `Op.SetClasses(nodeId, oldClasses, newClasses)` case (same optimistic-concurrency pattern as `SetText`)
-- posted via the existing `POST /amble/changes` endpoint
+- posted via the existing `POST /ambit/changes` endpoint
 - applied to the graph and persisted to disk by the FileAgent — no new server endpoint needed
 - JSON serialization (`encodeNode`/`decodeNode`): gains a `cssClasses` field; old API messages decode with `cssClasses = CssClass.empty`
 - Snapshot text format (disk): after stripping indentation tabs, if line content starts with `{`, the `{...}` block is metadata; everything after `}` is node text
