@@ -443,11 +443,18 @@ module ViewModel =
                             let sel = isEntrySelected newModel entry
                             let foc = isEntryFocused newModel entry
                             let isRoot = entry.instanceId = newModel.siteMap.rootId
-                            let rootClass = if isRoot then " view-root" else ""
-                            let newClass = "row" + rootClass + (if sel then " selected" else "") + (if foc then " focused" else "")
+                            let newClass =
+                                "row"
+                                |> CssClass.addIf isRoot "view-root"
+                                |> CssClass.addIf sel "selected"
+                                |> CssClass.addIf foc "focused"
                             let oldSel = oldEntry |> Option.map (isEntrySelected oldModel) |> Option.defaultValue false
                             let oldFoc = oldEntry |> Option.map (isEntryFocused oldModel) |> Option.defaultValue false
-                            let oldClass = "row" + rootClass + (if oldSel then " selected" else "") + (if oldFoc then " focused" else "")
+                            let oldClass =
+                                "row"
+                                |> CssClass.addIf isRoot "view-root"
+                                |> CssClass.addIf oldSel "selected"
+                                |> CssClass.addIf oldFoc "focused"
                             if newClass <> oldClass then yield SetClassName newClass
                             if not nowEditing then
                                 let newText = newModel.graph.nodes.[entry.nodeId].text
