@@ -1,4 +1,4 @@
-﻿module Gambol.Client.Controller
+module Gambol.Client.Controller
 
 open Browser.Dom
 open Browser.Types
@@ -127,6 +127,8 @@ let selectionKeyTable: (string * KeyHandler<SelectionKeyContext>) list =
       "Delete",          always deleteSelectionOp
       "ArrowUp",         always moveSelectionUp
       "ArrowDown",       always moveSelectionDown
+      "ArrowLeft",       always arrowLeftSelectionOp
+      "ArrowRight",      always arrowRightSelectionOp
       "Shift+ArrowUp",   always (shiftArrowOp -1)
       "Shift+ArrowDown", always (shiftArrowOp  1)
       "Alt+ArrowUp",     always moveNodeUpOp

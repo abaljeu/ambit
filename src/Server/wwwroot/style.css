@@ -8,12 +8,13 @@
     font-size: 1.2rem;
     display: flex;
     flex-direction: column;
-    gap: 0.2rem;
+    /*gap: 0.2rem;*/
 }
 .amb-row {
     display: flex;
-    gap: 0.2rem;
-    background: #ccc
+    /*gap: 0.2rem;*/
+    background: #ccc;
+    padding: 0.17em 0 0.17em 0;
 }
 .amb-indent {
     width: 1.5rem;
@@ -29,7 +30,7 @@
 }
 .amb-text {
     flex: 1;
-    padding: 0.15rem 0.3rem;
+    padding: 0rem 0.3rem;
     min-height: 1em;
     background: #eee;
 }
@@ -47,14 +48,8 @@
 .amb-row.amb-selected {
     background: #bde;
 }
-.amb-row.amb-selected .amb-text {
-    background: #cdf;
-}
 .amb-row.amb-focused {
     background: #edb;
-}
-.amb-row.amb-focused .amb-text {
-    background: #fdc;
 }
 .amb-edit-input {
     flex: 1;

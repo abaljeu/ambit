@@ -660,6 +660,50 @@ let toggleFoldOp (instanceId: int) (model: VM) _dispatch : VM =
             let siteMap, nextId = ViewModel.expandEntry instanceId model.graph model.siteMap model.nextInstanceId
             { model with siteMap = siteMap; nextInstanceId = nextId }
 
+/// Op: ArrowLeft in selection — fold if expanded, else move to parent.
+let arrowLeftSelectionOp (model: VM) _dispatch : VM =
+    match model.selectedNodes with
+    | None -> model
+    | Some sel ->
+        let focusInstId = focusedInstanceId sel
+        match Map.tryFind focusInstId model.siteMap.entries with
+        | None -> model
+        | Some entry ->
+            let node = model.graph.nodes.[entry.nodeId]
+            let hasChildren = not node.children.IsEmpty
+            if hasChildren && entry.expanded then
+                { model with siteMap = ViewModel.toggleFold focusInstId model.siteMap }
+            else
+                match entry.parentInstanceId with
+                | None -> model
+                | Some parentInstId ->
+                    match singleSelectionForInstance model.siteMap parentInstId with
+                    | None -> model
+                    | Some parentSel -> { model with selectedNodes = Some parentSel }
+
+/// Op: ArrowRight in selection — expand if folded, else move to first child.
+let arrowRightSelectionOp (model: VM) _dispatch : VM =
+    match model.selectedNodes with
+    | None -> model
+    | Some sel ->
+        let focusInstId = focusedInstanceId sel
+        match Map.tryFind focusInstId model.siteMap.entries with
+        | None -> model
+        | Some entry ->
+            let node = model.graph.nodes.[entry.nodeId]
+            let hasChildren = not node.children.IsEmpty
+            if not hasChildren then model
+            elif not entry.expanded then
+                let siteMap, nextId = ViewModel.expandEntry focusInstId model.graph model.siteMap model.nextInstanceId
+                { model with siteMap = siteMap; nextInstanceId = nextId }
+            else
+                match entry.children with
+                | [] -> model
+                | firstChildInstId :: _ ->
+                    match singleSelectionForInstance model.siteMap firstChildInstId with
+                    | None -> model
+                    | Some childSel -> { model with selectedNodes = Some childSel }
+
 /// Op: Toggle fold for all selected entries.
 let toggleFoldSelectionOp (model: VM) _dispatch : VM =
     match model.selectedNodes with
