@@ -142,6 +142,33 @@ module ViewModel =
                 acc <- Map.add instanceId updated acc
                 { siteMap with entries = acc }, endCount ()
 
+    /// Restore fold state from a saved set of expanded NodeIds.
+    /// Walks the siteMap in BFS order, expanding each entry whose nodeId is in
+    /// expandedNodeIds.  Parent-before-child ordering ensures that children only
+    /// become visible after their parent is expanded.
+    /// Returns the updated SiteMap and next available instanceId.
+    let applyFoldSession (expandedNodeIds: Set<NodeId>) (graph: Graph) (siteMap: SiteMap) (startId: int) : SiteMap * int =
+        if Set.isEmpty expandedNodeIds then siteMap, startId
+        else
+            let rec bfs (queue: int list) (sm: SiteMap) (nextId: int) : SiteMap * int =
+                match queue with
+                | [] -> sm, nextId
+                | instId :: rest ->
+                    match Map.tryFind instId sm.entries with
+                    | None -> bfs rest sm nextId
+                    | Some entry ->
+                        let sm', nextId' =
+                            if Set.contains entry.nodeId expandedNodeIds && not entry.expanded
+                            then expandEntry instId graph sm nextId
+                            else sm, nextId
+                        // Re-read after potential expansion to enqueue visible children.
+                        let children =
+                            match Map.tryFind instId sm'.entries with
+                            | Some e when e.expanded -> e.children
+                            | _ -> []
+                        bfs (rest @ children) sm' nextId'
+            bfs [ siteMap.rootId ] siteMap startId
+
     /// Build an index from NodeId to all instanceIds (all occurrences). O(S log S).
     let buildOccurrenceIndex (siteMap: SiteMap) : Map<NodeId, int list> =
         siteMap.entries
