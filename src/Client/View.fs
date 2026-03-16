@@ -225,7 +225,8 @@ let renderUndoStatus (model: VM) : unit =
         let undoText = if canUndo then "\u21B6" else "\u2205"           // ↶ or ∅
         let redoText = if canRedo then "\u21B7" else "\u2205"           // ↷ or ∅
         el.textContent <- $"{undoText} {redoText}"
-        el.className <- if canUndo || canRedo then "undo-status active" else "undo-status"
+        el.className <- if canUndo || canRedo then "amb-undo-status amb-active" 
+                        else "amb-undo-status"
 
 // ---------------------------------------------------------------------------
 // Full rebuild (StateLoaded)

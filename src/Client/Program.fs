@@ -133,98 +133,58 @@ let mutable retryCount = 0
 // ---------------------------------------------------------------------------
 
 let setupStaticDOM (applyOp: Op -> unit) : unit =
-    let hiddenInput = document.createElement "input"
-    hiddenInput.id <- "hidden-input"
-    hiddenInput.setAttribute("autocomplete", "off")
-    hiddenInput.setAttribute("tabindex", "-1")
+    let hiddenInput = document.getElementById "hidden-input" :?> HTMLInputElement
     hiddenInput.addEventListener("keydown", fun (ev: Event) ->
         let ke = ev :?> KeyboardEvent
         recordKeyAndRenderDiagnostic ke
         if ke.key = "Tab" then ev.preventDefault()
-        match currentModel.selectedNodes with
-        | None ->
-            let viewRootId = currentModel.zoomRoot |> Option.defaultValue currentModel.graph.root
-            let rootNode = currentModel.graph.nodes.[viewRootId]
-            match ke.key with
-            | "Enter" | "F2" -> applyOp (startEdit rootNode.text)
-            | "ArrowDown"    -> applyOp moveSelectionDown
-            | _ ->
-                if isPrintableKey ke.key && not ke.ctrlKey && not ke.metaKey && not ke.altKey then
-                    applyOp (startEdit ke.key)
-        | Some sel ->
-            let nodeId = focusedNodeId currentModel.graph sel
-            let nodeText = currentModel.graph.nodes.[nodeId].text
-            let ctx =
-                { keyEvent = ke
-                  selectedNodeText = nodeText }
-            handleKey selectionKeyTable ctx ke applyOp
+        let viewRootId = currentModel.zoomRoot |> Option.defaultValue currentModel.graph.root
+        let rootNode = currentModel.graph.nodes.[viewRootId]
+        let textToEdit =
+            match currentModel.selectedNodes with
+            | None -> rootNode.text
+            | Some sel ->
+                let nodeId = focusedNodeId currentModel.graph sel
+                currentModel.graph.nodes.[nodeId].text
+        let ctx = { keyEvent = ke; selectedNodeText = textToEdit }
+        handleKey selectionKeyTable ctx ke applyOp
     )
     hiddenInput.addEventListener("paste", fun ev -> onPaste ev applyOp)
     hiddenInput.addEventListener("copy",  fun ev -> onCopy  currentModel ev applyOp)
     hiddenInput.addEventListener("cut",   fun ev -> onCut   currentModel ev applyOp)
-    app.appendChild hiddenInput |> ignore
 
-    let settingsBar = document.createElement "div"
-    settingsBar.id <- "settings-bar"
-    let cbId = "setting-link-paste"
-    let label = document.createElement "label"
-    label.setAttribute("for", cbId)
-    let cb = document.createElement "input"
-    cb.id <- cbId
-    cb.setAttribute("type", "checkbox")
-    (cb :?> HTMLInputElement).``checked`` <- currentModel.linkPasteEnabled
+    let cb = document.getElementById "setting-link-paste" :?> HTMLInputElement
+    cb.``checked`` <- currentModel.linkPasteEnabled
     cb.addEventListener("change", fun _ -> applyOp toggleLinkPasteOp)
-    label.appendChild cb |> ignore
-    label.appendChild (document.createTextNode " Copy/Paste reference to original") |> ignore
-    settingsBar.appendChild label |> ignore
 
     let basePath =
         let path = window.location.pathname
         if path.StartsWith("/ambit") then "/ambit" else ""
-    let logoutLink = document.createElement "a"
+    let logoutLink = document.getElementById "logout-link" :?> HTMLAnchorElement
     logoutLink.setAttribute("href", basePath + "/logout")
-    logoutLink.setAttribute("style", "margin-left: 1rem; font-size: .85rem; color: #555;")
-    logoutLink.textContent <- "Logout"
-    settingsBar.appendChild logoutLink |> ignore
 
-    let buildLabel = document.createElement "span"
-    buildLabel.setAttribute("style", "margin-left: auto; font-size: .75rem; color: #666;")
+    let buildLabel = document.getElementById "build-label" 
     let serverStamp = readBuildStamp BuildInfo.buildNumber
     let pageStamp = readPageStamp "?"
     buildLabel.textContent <- $"Server: {serverStamp} | Page: {pageStamp} "
     buildLabel.setAttribute("title", "Server = when served; Page = when assets were built.")
-    settingsBar.appendChild buildLabel |> ignore
 
-    let reloadBtn = document.createElement "button"
-    reloadBtn.setAttribute("type", "button")
-    reloadBtn.setAttribute("style", "margin-left: 0.5rem; font-size: .75rem; padding: 0.1rem 0.4rem; cursor: pointer;")
-    reloadBtn.textContent <- "⟳ Reload"
+    let reloadBtn = document.getElementById "reload-btn" 
     reloadBtn.setAttribute("title", "Full reload (useful if Page is old or assets are cached)")
     reloadBtn.addEventListener("click", fun _ -> window.location.reload())
-    settingsBar.appendChild reloadBtn |> ignore
 
-    app.appendChild settingsBar |> ignore
-
-    let diagBar = document.createElement "div"
-    diagBar.id <- "key-platform-diagnostic"
-    diagBar.setAttribute("style", "font-size: .7rem; color: #888; padding: 0.25rem 0.5rem; font-family: monospace; white-space: nowrap; overflow-x: auto; border-top: 1px solid #eee;")
-    diagBar.textContent <- "Platform: " + getPlatformDiagnostic (isIOS ()) + " | Last key: (none)"
-    app.appendChild diagBar |> ignore
+    let platformInfo = document.getElementById "key-platform-info"
+    platformInfo.textContent <- "Platform: " + getPlatformDiagnostic (isIOS ())
+    let lastKeyEl = document.getElementById "key-last-key"
+    lastKeyEl.textContent <- " | Last key: (none)"
 
     document.addEventListener("visibilitychange", fun _ ->
         if isDocumentHidden () then saveSessionState currentModel)
     window.addEventListener("pagehide", fun _ ->
         saveSessionState currentModel)
 
-    let syncStatus = document.createElement "div"
-    syncStatus.id <- "sync-status"
+    let syncStatus = document.getElementById "sync-status"
     syncStatus.addEventListener("click", fun _ -> applyOp retryPendingOp)
-    app.appendChild syncStatus |> ignore
-
-    let undoStatus = document.createElement "div"
-    undoStatus.id <- "undo-status"
-    undoStatus.setAttribute("title", "Undo/Redo status")
-    app.appendChild undoStatus |> ignore
 
 let rec applyOp (op: Op) : unit =
     let prevModel = currentModel

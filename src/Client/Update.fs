@@ -349,6 +349,8 @@ let commitIfEditing (model: VM) (dispatch: Msg -> unit) : VM =
         commitTextEdit editingId originalText (readEditInputValue ()) model dispatch
     | _ -> model
 
+let copyLink  (model: VM) (dispatch: Msg -> unit) : VM =
+    
 /// CutSelection: store clipboard content, remove selected nodes, update selection.
 /// Post-cut priority: sibling after > sibling before > parent.
 let cutSelection (model: VM) (dispatch: Msg -> unit) : VM =
@@ -579,6 +581,9 @@ let copySelectionOp (model: VM) _dispatch : VM =
 /// Op: Cut the focused subtree.
 let cutSelectionOp (model: VM) (dispatch: Msg -> unit) : VM =
     cutSelection model dispatch |> withSiteMap
+
+let copyLinksOp (model: VM) (dispatch: Msg -> unit) : VM =
+    copyLinks model dispatch |> withSiteMap
 
 /// Op: Enter edit mode for the focused node, showing prefill text in the input.
 let startEdit (prefill: string) (model: VM) _dispatch : VM =

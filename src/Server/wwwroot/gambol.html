@@ -9,7 +9,23 @@
     <link id="user-css" rel="stylesheet" href="/ambit/user.css">
 </head>
 <body>
-    <div id="app">Loading...</div>
+    <div id="app">
+        Loading...
+        <input id="hidden-input" class="amb-hidden-input" autocomplete="off" tabindex="-1">
+        <div id="settings-bar" class="amb-settings-bar">
+            <label for="setting-link-paste">
+                <input id="setting-link-paste" type="checkbox">
+                Copy/Paste reference to original
+            </label>
+            <a id="logout-link" class="amb-logout-link" href="/ambit/logout">Logout</a>
+            <span id="build-label" class="amb-build-label"></span>
+            <button type="button" id="reload-btn" class="amb-reload-btn">⟳ Reload</button>
+        </div>
+        <div id="key-platform-info"></div>
+        <div id="key-last-key" class="amb-diag-last-key"></div>
+        <div id="sync-status" class="amb-sync-status"></div>
+        <div id="undo-status" class="amb-undo-status" title="Undo/Redo status"></div>
+    </div>
     <script type="module" src="/ambit/Program.js"></script>
 </body>
 </html>

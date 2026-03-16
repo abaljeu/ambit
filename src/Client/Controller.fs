@@ -1,4 +1,4 @@
-module Gambol.Client.Controller
+﻿module Gambol.Client.Controller
 
 open Browser.Dom
 open Browser.Types
@@ -95,9 +95,9 @@ let private formatKeyCombo (ke: KeyboardEvent) : string =
 /// Record the last key combo and refresh the diagnostic display. Call from keydown handlers.
 let recordKeyAndRenderDiagnostic (ke: KeyboardEvent) : unit =
     let key = formatKeyCombo ke
-    let el = document.getElementById "key-platform-diagnostic"
+    let el = document.getElementById "key-last-key"
     if not (isNull el) then
-        el.textContent <- "| Last key: " + key + "Platform: " + getPlatformDiagnostic (isIOS ()) 
+        el.textContent <- " | Last key: " + key 
 
 type SelectionKeyContext = { keyEvent: KeyboardEvent; selectedNodeText: string }
 

@@ -5,7 +5,7 @@ body {
     background: #ccc;
 }
 #app {
-    font-size: 1.2rem;
+    font-size: 1rem;
     display: flex;
     flex-direction: column;
     /*gap: 0.2rem;*/
@@ -19,7 +19,7 @@ body {
 .amb-indent {
     width: 1.5rem;
     flex-shrink: 0;
-    background: #ddd;
+    background: #ddddddc0;
 }
 .amb-fold-toggle {
     display: inline-block;
@@ -27,12 +27,6 @@ body {
     flex-shrink: 0;
     text-align: center;
     align-self: center;
-}
-.amb-text {
-    flex: 1;
-    padding: 0rem 0.3rem;
-    min-height: 1em;
-    background: #eee;
 }
 .amb-node-guid {
     flex-shrink: 0;
@@ -51,21 +45,27 @@ body {
 .amb-row.amb-focused {
     background: #edb;
 }
-.amb-edit-input {
+.amb-text, .amb-edit-input {
     flex: 1;
+    padding: 0rem 0.3rem;
+    min-height: 1em;
     font: inherit;
     font-size: inherit;
-    padding: 0.15rem 0.3rem;
-    min-height: 1em;
+}
+.amb-text {
+    background: #eeeeeec0;
+    border: 1px transparent;
+}
+.amb-edit-input {
     border: 1px solid #89a;
     outline: none;
     background: #fff;
 }
-#hidden-input {
+.amb-hidden-input {
     position: absolute;
     left: -9999px;
 }
-#settings-bar {
+.amb-settings-bar {
     display: flex;
     align-items: center;
     gap: 0.5rem;
@@ -74,6 +74,31 @@ body {
     border-top: 1px solid #bbb;
     font-size: 0.85rem;
     color: #444;
+}
+.amb-logout-link {
+    margin-left: 1rem;
+    font-size: .85rem;
+    color: #555;
+}
+.amb-build-label {
+    margin-left: auto;
+    font-size: .75rem;
+    color: #666;
+}
+.amb-reload-btn {
+    margin-left: 0.5rem;
+    font-size: .75rem;
+    padding: 0.1rem 0.4rem;
+    cursor: pointer;
+}
+.amb-diag-bar {
+    font-size: .7rem;
+    color: #888;
+    padding: 0.25rem 0.5rem;
+    font-family: monospace;
+    white-space: nowrap;
+    overflow-x: auto;
+    border-top: 1px solid #eee;
 }
 .amb-sync-status {
     padding: 0.2rem 0.4rem;

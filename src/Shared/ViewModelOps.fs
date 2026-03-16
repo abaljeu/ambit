@@ -150,24 +150,25 @@ module ViewModel =
     let applyFoldSession (expandedNodeIds: Set<NodeId>) (graph: Graph) (siteMap: SiteMap) (startId: int) : SiteMap * int =
         if Set.isEmpty expandedNodeIds then siteMap, startId
         else
-            let rec bfs (queue: int list) (sm: SiteMap) (nextId: int) : SiteMap * int =
-                match queue with
-                | [] -> sm, nextId
-                | instId :: rest ->
+            let mutable sm = siteMap
+            let mutable nextId = startId
+            let queue = System.Collections.Generic.Queue<int>()
+            queue.Enqueue(sm.rootId)
+            while queue.Count > 0 do
+                let instId = queue.Dequeue()
+                match Map.tryFind instId sm.entries with
+                | None -> ()
+                | Some entry ->
+                    if Set.contains entry.nodeId expandedNodeIds && not entry.expanded then
+                        let sm', nextId' = expandEntry instId graph sm nextId
+                        sm <- sm'
+                        nextId <- nextId'
+                    // Re-read after potential expansion to enqueue the (now visible) children.
                     match Map.tryFind instId sm.entries with
-                    | None -> bfs rest sm nextId
-                    | Some entry ->
-                        let sm', nextId' =
-                            if Set.contains entry.nodeId expandedNodeIds && not entry.expanded
-                            then expandEntry instId graph sm nextId
-                            else sm, nextId
-                        // Re-read after potential expansion to enqueue visible children.
-                        let children =
-                            match Map.tryFind instId sm'.entries with
-                            | Some e when e.expanded -> e.children
-                            | _ -> []
-                        bfs (rest @ children) sm' nextId'
-            bfs [ siteMap.rootId ] siteMap startId
+                    | Some e when e.expanded ->
+                        for childId in e.children do queue.Enqueue(childId)
+                    | _ -> ()
+            sm, nextId
 
     /// Build an index from NodeId to all instanceIds (all occurrences). O(S log S).
     let buildOccurrenceIndex (siteMap: SiteMap) : Map<NodeId, int list> =
