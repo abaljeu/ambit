@@ -1,4 +1,4 @@
-# Gambol
+# Ambit
 
 A Workflowy-style outline editor built with full-stack F#. Tree-structured text outlines with editing, indentation, persistence, and sync.
 
