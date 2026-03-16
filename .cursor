@@ -39,7 +39,7 @@ Indentation is AS important AS it is in python or Haskell.
 If a function might fail, use Result types with errors, eschewing exceptions for things that should be handled (e.g. retries).
 
 ## Environment
-Windows
+Windows.  ALWAYS put CRLF on files.
 GIT Bash shell
 Your working directory is the project root.  If ever there's a reason not using `cd` is an obstacle, ask the user.
 **Do not use `cd`.  Do not change directories.**  
