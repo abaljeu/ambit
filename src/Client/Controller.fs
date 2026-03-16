@@ -1,4 +1,4 @@
-﻿module Gambol.Client.Controller
+module Gambol.Client.Controller
 
 open Browser.Dom
 open Browser.Types
@@ -20,22 +20,51 @@ let stripHtmlToText (html: string) : string = jsNative
 [<Emit("$0.clipboardData.getData($1)")>]
 let getClipboardData (ev: Event) (format: string) : string = jsNative
 
+let private nodeIdsFormat = "application/x-gambol-nodeids"
+
+/// Read node IDs format from a paste event, if present.
+let getPasteNodeIds (ev: Event) : string option =
+    let s = getClipboardData ev nodeIdsFormat
+    if s = "" || isNull s then None else Some s
+
 /// Write a named format to a copy/cut ClipboardEvent's clipboardData.
 [<Emit("$0.clipboardData.setData($1,$2)")>]
 let setClipboardData (ev: Event) (format: string) (data: string) : unit = jsNative
+
+[<Emit("navigator.clipboard.write([new ClipboardItem({'text/plain':new Blob([$0],{type:'text/plain'}),'" + "application/x-gambol-nodeids" + "':new Blob([$0],{type:'text/plain'})})]).then(()=>{$1();})")>]
+let private writeClipboardTextAndNodeIds (text: string) (continuation: unit -> unit) : unit = jsNative
+
+/// Copy selection as raw NodeId GUIDs (for paste-as-link). Bypasses the copy event.
+/// Sets both text/plain and application/x-gambol-nodeids for consistency with cut.
+let copySelectionAsLinks (model: VM) (dispatch: Msg -> unit) : VM =
+    match model.selectedNodes with
+    | None -> model
+    | Some sel ->
+        let parentNode = model.graph.nodes.[sel.range.parent.nodeId]
+        let selectedIds =
+            parentNode.children
+            |> List.skip sel.range.start
+            |> List.take (sel.range.endd - sel.range.start)
+        let idsText =
+            selectedIds
+            |> List.map (fun (NodeId guid) -> guid.ToString())
+            |> String.concat "\n"
+        writeClipboardTextAndNodeIds idsText ignore
+        copySelectionOp model dispatch
 
 /// Get the character offset at a given client (x, y) position using the browser's caret APIs.
 [<Emit("(function(x,y){if(document.caretRangeFromPoint){var r=document.caretRangeFromPoint(x,y);return r?r.startOffset:0;}if(document.caretPositionFromPoint){var p=document.caretPositionFromPoint(x,y);return p?p.offset:0;}return 0;})($0,$1)")>]
 let getCaretOffset (x: float) (y: float) : int = jsNative
 
-/// Handle a paste event: extract plain text, apply pasteNodesOp.
+/// Handle a paste event: extract plain text and optional node IDs, apply pasteNodesOp.
 let onPaste (ev: Event) (applyOp: Op -> unit) : unit =
     ev.preventDefault()
     let plain = getClipboardData ev "text/plain"
     let text  = if plain <> "" then plain else stripHtmlToText (getClipboardData ev "text/html")
-    if text <> "" then applyOp (pasteNodesOp text)
+    let nodeIds = getPasteNodeIds ev
+    if text <> "" then applyOp (pasteNodesOp text nodeIds)
 
-let private onCopyOrCut (model: VM) (ev: Event) (applyOp: Op -> unit) (op: Op) : unit =
+let private onCopyOrCut (model: VM) (ev: Event) (applyOp: Op -> unit) (op: Op) (includeNodeIds: bool) : unit =
     match model.selectedNodes with
     | None -> ()
     | Some sel ->
@@ -45,24 +74,24 @@ let private onCopyOrCut (model: VM) (ev: Event) (applyOp: Op -> unit) (op: Op) :
             parentNode.children
             |> List.skip sel.range.start
             |> List.take (sel.range.endd - sel.range.start)
-        let serialized =
-            if model.linkPasteEnabled then
-                // Write raw NodeId GUIDs so paste-reference can find the existing nodes
+        let serialized = serializeSubtree model.graph model.siteMap selectedIds
+        setClipboardData ev "text/plain" serialized
+        if includeNodeIds then
+            let idsText =
                 selectedIds
                 |> List.map (fun (NodeId guid) -> guid.ToString())
                 |> String.concat "\n"
-            else
-                serializeSubtree model.graph model.siteMap selectedIds
-        setClipboardData ev "text/plain" serialized
+            setClipboardData ev nodeIdsFormat idsText
         applyOp op
 
 /// Handle a copy event: serialize the selected subtree to the clipboard.
 let onCopy (model: VM) (ev: Event) (applyOp: Op -> unit) : unit =
-    onCopyOrCut model ev applyOp copySelectionOp
+    onCopyOrCut model ev applyOp copySelectionOp false
 
 /// Handle a cut event: serialize and remove the selected subtree.
+/// Puts both node IDs and full data on clipboard; paste prefers IDs when resolvable.
 let onCut (model: VM) (ev: Event) (applyOp: Op -> unit) : unit =
-    onCopyOrCut model ev applyOp cutSelectionOp
+    onCopyOrCut model ev applyOp cutSelectionOp true
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -99,7 +128,9 @@ let recordKeyAndRenderDiagnostic (ke: KeyboardEvent) : unit =
     if not (isNull el) then
         el.textContent <- " | Last key: " + key 
 
-type SelectionKeyContext = { keyEvent: KeyboardEvent; selectedNodeText: string }
+type SelectionKeyContext =
+    { keyEvent: KeyboardEvent
+      selectedNodeText: string }
 
 type EditingKeyContext = { keyEvent: KeyboardEvent; editInput: HTMLInputElement }
 
@@ -115,15 +146,13 @@ let printableKeyToken = "__PRINTABLE__"
 /// Lift an Op into any key-handler context (for keys with fixed, context-free behaviour).
 let private always (op: Op) (_: 'ctx) : Op option = Some op
 
-let private startEditFromSelection (ctx: SelectionKeyContext) : Op option =
-    Some (startEdit ctx.selectedNodeText)
-
-let private startEditFromKey (ctx: SelectionKeyContext) : Op option =
-    Some (startEdit ctx.keyEvent.key)
+/// Like always but for ops that need context (model, applyOp).
+let private alwaysFromCtx (opFrom: SelectionKeyContext -> Op) (ctx: SelectionKeyContext) : Op option =
+    Some (opFrom ctx)
 
 let selectionKeyTable: (string * KeyHandler<SelectionKeyContext>) list =
-    [ "F2",              startEditFromSelection
-      "Enter",           startEditFromSelection
+    [ "F2",              always startEditOp
+      "Enter",           always startEditOp
       "Delete",          always deleteSelectionOp
       "ArrowUp",         always moveSelectionUp
       "ArrowDown",       always moveSelectionDown
@@ -143,8 +172,9 @@ let selectionKeyTable: (string * KeyHandler<SelectionKeyContext>) list =
       "Ctrl+[",          always zoomOutOp
       "Ctrl+z",          always undoOp
       "Ctrl+y",          always redoOp
+      "Ctrl+Shift+c",    always copySelectionAsLinks
       "Alt+c",           always toggleClassOp
-      printableKeyToken, startEditFromKey ]
+      printableKeyToken, alwaysFromCtx (fun ctx -> startEdit ctx.keyEvent.key) ]
 
 // ---------------------------------------------------------------------------
 // Editing key handlers
@@ -215,6 +245,7 @@ let tryResolveOperation
     // Try modifier-qualified keys first (more specific beats less specific)
     let ctrlOrCmd = ke.ctrlKey || (isIOS () && ke.metaKey)
     let qualified =
+        if ctrlOrCmd && ke.shiftKey then tryKey ("Ctrl+Shift+" + ke.key) else
         if ke.altKey   then tryKey ("Alt+"   + ke.key) else
         if ke.shiftKey then tryKey ("Shift+" + ke.key) else
         if ctrlOrCmd   then tryKey ("Ctrl+"  + ke.key) else

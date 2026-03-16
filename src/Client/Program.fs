@@ -116,7 +116,6 @@ let mutable currentModel: VM =
       nextInstanceId = 1
       zoomRoot = None
       clipboard = None
-      linkPasteEnabled = false
       pendingChanges = []
       syncState = Synced }
 
@@ -146,16 +145,14 @@ let setupStaticDOM (applyOp: Op -> unit) : unit =
             | Some sel ->
                 let nodeId = focusedNodeId currentModel.graph sel
                 currentModel.graph.nodes.[nodeId].text
-        let ctx = { keyEvent = ke; selectedNodeText = textToEdit }
+        let ctx =
+            { keyEvent = ke
+              selectedNodeText = textToEdit }
         handleKey selectionKeyTable ctx ke applyOp
     )
     hiddenInput.addEventListener("paste", fun ev -> onPaste ev applyOp)
     hiddenInput.addEventListener("copy",  fun ev -> onCopy  currentModel ev applyOp)
     hiddenInput.addEventListener("cut",   fun ev -> onCut   currentModel ev applyOp)
-
-    let cb = document.getElementById "setting-link-paste" :?> HTMLInputElement
-    cb.``checked`` <- currentModel.linkPasteEnabled
-    cb.addEventListener("change", fun _ -> applyOp toggleLinkPasteOp)
 
     let basePath =
         let path = window.location.pathname

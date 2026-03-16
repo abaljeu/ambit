@@ -258,11 +258,6 @@ let render (vm: VM) (applyOp: Op -> unit) : Map<int, HTMLElement> =
         if isNull sentinel then app.appendChild row |> ignore
         else app.insertBefore(row, sentinel) |> ignore
 
-    // Sync the settings-bar checkbox
-    let cb = document.getElementById "setting-link-paste"
-    if not (isNull cb) then
-        (cb :?> HTMLInputElement).``checked`` <- vm.linkPasteEnabled
-
     manageFocus vm
     renderStatus vm
     cache
@@ -328,11 +323,6 @@ let patchDOM (oldModel: VM) (newModel: VM) (applyOp: Op -> unit) (cache: Map<int
             app.insertBefore(row, anchor) |> ignore
 
         prevNode <- Some (row :> Browser.Types.Node)
-
-    // Sync the settings-bar checkbox
-    let cb = document.getElementById "setting-link-paste"
-    if not (isNull cb) then
-        (cb :?> HTMLInputElement).``checked`` <- newModel.linkPasteEnabled
 
     manageFocus newModel
     renderStatus newModel

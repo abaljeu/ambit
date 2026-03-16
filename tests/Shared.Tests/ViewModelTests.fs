@@ -32,7 +32,6 @@ let emptyModel (graph: Graph) : VM =
       nextInstanceId = nextId
       zoomRoot = None
       clipboard = None
-      linkPasteEnabled = false
       pendingChanges = []
       syncState = Synced }
 

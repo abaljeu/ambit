@@ -1,6 +1,10 @@
+$ErrorActionPreference = "Stop"
+
 dotnet fable src/Client --outDir src/Server/wwwroot
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 dotnet publish src/Server -c Release -o ./publish
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Compress-Archive -Path ./publish/* -DestinationPath ./site.zip -Force
 

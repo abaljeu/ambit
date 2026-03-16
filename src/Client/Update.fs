@@ -190,20 +190,32 @@ let splitNode (currentText: string) (cursorPos: int) (model: VM) (dispatch: Msg 
 // Paste
 // ---------------------------------------------------------------------------
 
+/// Parse node IDs format (newline-separated GUIDs) and resolve to existing nodes.
+let private tryResolveNodeIdsFormat (nodeIdsText: string) (graph: Graph) : NodeId list option =
+    if System.String.IsNullOrWhiteSpace nodeIdsText then None
+    else
+        let ids =
+            nodeIdsText.Split('\n')
+            |> Array.toList
+            |> List.choose (fun line ->
+                match System.Guid.TryParse(line.Trim()) with
+                | true, guid ->
+                    let id = NodeId guid
+                    if Map.containsKey id graph.nodes then Some id else None
+                | _ -> None)
+        if ids.IsEmpty then None else Some ids
+
 /// Handle a PasteNodes message.
 ///
-/// When linkPasteEnabled: each pasted line that is a valid NodeId GUID for an
-/// existing node is resolved to that existing node.  Only Op.Replace is emitted
-/// (no NewNode ops), so the node is inserted as a link rather than a copy.
-/// Select mode: replaces the current selection with the resolved nodes.
-/// Edit mode:   commits current text then inserts resolved nodes as siblings
-///              below the active node; falls back to normal splice if no GUIDs found.
+/// When preferredNodeIds is Some (from cut/copy-as-links clipboard format), resolve
+/// to existing nodes and insert as links (Op.Replace only, no NewNode).
+/// Select mode: replaces selection with resolved nodes.
+/// Edit mode: commits current text then inserts resolved nodes as siblings below.
 ///
-/// When linkPasteEnabled is off (default deep-copy):
-/// Select mode: replaces the current selection with the pasted subtree.
-/// Edit mode:   splices the first pasted line into the node at the cursor;
-///              remaining top-level lines become siblings below the current node.
-let pasteNodes (pastedText: string) (model: VM) (dispatch: Msg -> unit) : VM =
+/// Otherwise (normal deep-copy paste):
+/// Select mode: replaces selection with pasted subtree.
+/// Edit mode: splices first line into node at cursor; remaining lines become siblings.
+let pasteNodes (pastedText: string) (preferredNodeIds: string option) (model: VM) (dispatch: Msg -> unit) : VM =
     match model.selectedNodes with
     | None -> model
     | Some sel ->
@@ -211,11 +223,11 @@ let pasteNodes (pastedText: string) (model: VM) (dispatch: Msg -> unit) : VM =
         if entries.IsEmpty then model
         else
 
-        /// When linkPasteEnabled, resolve each entry whose text is a NodeId GUID
-        /// that already exists in the graph.  Returns Some ids (non-empty) or None.
+        /// Prefer node IDs format if present and resolvable; else try GUIDs in text/plain.
         let tryLinkIds () =
-            if not model.linkPasteEnabled then None
-            else
+            match preferredNodeIds |> Option.bind (fun s -> tryResolveNodeIdsFormat s model.graph) with
+            | Some ids -> Some ids
+            | None ->
                 let ids =
                     entries
                     |> List.choose (fun (text, _) ->
@@ -349,8 +361,7 @@ let commitIfEditing (model: VM) (dispatch: Msg -> unit) : VM =
         commitTextEdit editingId originalText (readEditInputValue ()) model dispatch
     | _ -> model
 
-let copyLink  (model: VM) (dispatch: Msg -> unit) : VM =
-    
+
 /// CutSelection: store clipboard content, remove selected nodes, update selection.
 /// Post-cut priority: sibling after > sibling before > parent.
 let cutSelection (model: VM) (dispatch: Msg -> unit) : VM =
@@ -582,8 +593,13 @@ let copySelectionOp (model: VM) _dispatch : VM =
 let cutSelectionOp (model: VM) (dispatch: Msg -> unit) : VM =
     cutSelection model dispatch |> withSiteMap
 
-let copyLinksOp (model: VM) (dispatch: Msg -> unit) : VM =
-    copyLinks model dispatch |> withSiteMap
+/// Op: Enter edit mode for the focused node, prefilled with its current text.
+let startEditOp (model: VM) _dispatch : VM =
+    let text =
+        match model.selectedNodes with
+        | None -> model.graph.nodes.[viewRootNodeId model].text
+        | Some sel -> model.graph.nodes.[focusedNodeId model.graph sel].text
+    { model with mode = Editing (text, Some text, None) }
 
 /// Op: Enter edit mode for the focused node, showing prefill text in the input.
 let startEdit (prefill: string) (model: VM) _dispatch : VM =
@@ -681,9 +697,9 @@ let moveNodeUpOp (model: VM) (dispatch: Msg -> unit) : VM =
 let moveNodeDownOp (model: VM) (dispatch: Msg -> unit) : VM =
     moveNode 1 (commitIfEditing model dispatch) dispatch |> withSiteMap
 
-/// Op: Paste text into the model.
-let pasteNodesOp (pastedText: string) (model: VM) (dispatch: Msg -> unit) : VM =
-    pasteNodes pastedText model dispatch |> withSiteMap
+/// Op: Paste text into the model. preferredNodeIds from clipboard format, if present.
+let pasteNodesOp (pastedText: string) (preferredNodeIds: string option) (model: VM) (dispatch: Msg -> unit) : VM =
+    pasteNodes pastedText preferredNodeIds model dispatch |> withSiteMap
 
 /// Op: Toggle fold for a specific site-map entry.
 let toggleFoldOp (instanceId: int) (model: VM) _dispatch : VM =
@@ -787,10 +803,6 @@ let deleteSelectionOp (model: VM) (dispatch: Msg -> unit) : VM =
                     singleSelection m.graph m.siteMap sel.range.parent.nodeId
             { m with selectedNodes = newSel }
         |> withSiteMap
-
-/// Op: Toggle the link-paste setting.
-let toggleLinkPasteOp (model: VM) _dispatch : VM =
-    { model with linkPasteEnabled = not model.linkPasteEnabled }
 
 [<Emit("window.prompt($0, $1)")>]
 let private promptDialog (msg: string) (def: string) : string = jsNative
@@ -954,7 +966,6 @@ let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
           nextInstanceId = nextId
           zoomRoot = None
           clipboard = None
-          linkPasteEnabled = false
           pendingChanges = []
           syncState = Synced }
 
@@ -970,4 +981,5 @@ let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
 
     | System SubmitFailed ->
         { model with syncState = Pending }
+
 
