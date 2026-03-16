@@ -45,9 +45,10 @@ type ClipboardContent =
       nodes: Map<NodeId, Node> }
 
 type SyncState =
-    | Synced    // all changes confirmed by server
-    | Syncing   // a POST is currently in-flight
-    | Pending   // last POST failed; changes queued, awaiting user retry
+    | Synced      // all changes confirmed by server
+    | Syncing     // a POST is currently in-flight
+    | Pending     // last POST failed; auto-retry scheduled
+    | Conflicted  // received 409; rebase in progress
 
 // Server `State` is in `FileAgent`, and mainly the graph.
 type VM = // the client state

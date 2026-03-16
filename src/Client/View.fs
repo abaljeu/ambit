@@ -205,13 +205,16 @@ let renderStatus (model: VM) : unit =
         match model.syncState with
         | Synced  ->
             el.textContent <- "synced"
-            el.className <- "sync-status"
+            el.className <- "amb-sync-status amb-synced"
         | Syncing ->
             el.textContent <- "Saving\u2026"
-            el.className <- "sync-status syncing"
+            el.className <- "amb-sync-status amb-syncing"
         | Pending ->
             el.textContent <- "Unsaved changes \u2014 click to retry"
-            el.className <- "sync-status pending"
+            el.className <- "amb-sync-status amb-pending"
+        | Conflicted ->
+            el.textContent <- "Conflict detected \u2014 resolving\u2026"
+            el.className <- "amb-sync-status amb-conflicted"
 
 /// Update the undo/redo status indicator based on history.
 let renderUndoStatus (model: VM) : unit =

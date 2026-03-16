@@ -1,4 +1,4 @@
-﻿body {
+body {
     font-family: system-ui, -apple-system, sans-serif;
     margin: 2rem;
     color: #222;
@@ -74,4 +74,21 @@
     border-top: 1px solid #bbb;
     font-size: 0.85rem;
     color: #444;
+}
+.amb-sync-status {
+    padding: 0.2rem 0.4rem;
+    border-radius: 0.2rem;
+    cursor: pointer;
+}
+.amb-sync-status.amb-synced {
+    background: #9f9;
+    color: #161;
+}
+.amb-sync-status.amb-syncing {
+    background: #ff9;
+    color: #660;
+}
+.amb-sync-status.amb-pending {
+    background: #f99;
+    color: #611;
 }

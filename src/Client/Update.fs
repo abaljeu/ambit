@@ -15,6 +15,18 @@ open Thoth.Json.Core
 [<Emit("fetch($0,{method:'POST',headers:{'Content-Type':'application/json'},body:$1}).then(r=>r.text()).then($2).catch(function(){$3()})")>]
 let postJson (url: string) (body: string) (onSuccess: string -> unit) (onFail: unit -> unit) : unit = jsNative
 
+[<Emit("window.setTimeout($0, $1)")>]
+let setTimeout (f: unit -> unit) (ms: int) : unit = jsNative
+
+[<Emit("localStorage.setItem($0,$1)")>]
+let private lsSet (k: string) (v: string) : unit = jsNative
+
+[<Emit("localStorage.getItem($0)")>]
+let private lsGet (k: string) : string = jsNative
+
+[<Emit("localStorage.removeItem($0)")>]
+let private lsDel (k: string) : unit = jsNative
+
 // ---------------------------------------------------------------------------
 // File identity (derived from URL path)
 // ---------------------------------------------------------------------------
@@ -39,6 +51,24 @@ let decodeStateResponse (text: string) : Result<Graph * Revision, string> =
             let r = get.Required.Field "revision" Serialization.decodeRevision
             g, r)
     Thoth.Json.JavaScript.Decode.fromString decoder text
+
+// ---------------------------------------------------------------------------
+// Pending-queue localStorage persistence
+// ---------------------------------------------------------------------------
+
+let private pendingKey = "gambol-pending-v1"
+
+let savePendingQueue (changes: Change list) =
+    if changes.IsEmpty then lsDel pendingKey
+    else lsSet pendingKey (Thoth.Json.JavaScript.Encode.toString 0 (Encode.list (changes |> List.map Serialization.encodeChange)))
+
+let loadPendingQueue () : Change list =
+    let json = lsGet pendingKey
+    if isNull json || json = "" then []
+    else
+        match Thoth.Json.JavaScript.Decode.fromString (Decode.list Serialization.decodeChange) json with
+        | Ok cs -> cs
+        | Error _ -> []
 
 // ---------------------------------------------------------------------------
 // Update helpers
@@ -77,6 +107,7 @@ let applyAndPost (change: Change) (model: VM) (dispatch: Msg -> unit) : VM optio
     | ApplyResult.Changed newState ->
         let wasEmpty = model.pendingChanges.IsEmpty
         let pending = model.pendingChanges @ [change]
+        savePendingQueue pending
         if wasEmpty then fireNextPending pending dispatch
         Some { model with
                  graph = newState.graph
@@ -105,7 +136,7 @@ let commitTextEdit
     if newText = originalText then
         { model with mode = Selecting }
     else
-        let change: Change = { id = model.revision.Value; ops = [ Op.SetText(nodeId, originalText, newText) ] }
+        let change: Change = { id = model.revision.Value; changeId = System.Guid.NewGuid(); ops = [ Op.SetText(nodeId, originalText, newText) ] }
         match applyAndPost change model dispatch with
         | Some m -> { m with mode = Selecting }
         | None   -> { model with mode = Selecting }
@@ -145,7 +176,7 @@ let splitNode (currentText: string) (cursorPos: int) (model: VM) (dispatch: Msg 
               if updatedText <> originalText then
                   yield Op.SetText(selectedId, originalText, updatedText) ]
 
-        let change: Change = { id = model.revision.Value; ops = ops }
+        let change: Change = { id = model.revision.Value; changeId = System.Guid.NewGuid(); ops = ops }
         match applyAndPost change model dispatch with
         | Some m ->
             { m with
@@ -206,7 +237,7 @@ let pasteNodes (pastedText: string) (model: VM) (dispatch: Msg -> unit) : VM =
             let range = sel.range
             let selectedIds = rangeChildren model.graph range
             let replaceOp = Op.Replace(range.parent.nodeId, range.start, selectedIds, topLevelIds)
-            let change = { id = model.revision.Value; ops = pasteOps @ [replaceOp] }
+            let change = { id = model.revision.Value; changeId = System.Guid.NewGuid(); ops = pasteOps @ [replaceOp] }
             match applyAndPost change model dispatch with
             | Some m ->
                 let newEnd = range.start + topLevelIds.Length
@@ -225,7 +256,7 @@ let pasteNodes (pastedText: string) (model: VM) (dispatch: Msg -> unit) : VM =
                 let setTextOps =
                     if currentText <> originalText then [ Op.SetText(focusId, originalText, currentText) ] else []
                 let insertOp = Op.Replace(parentId, focusIdx + 1, [], refIds)
-                let change = { id = model.revision.Value; ops = setTextOps @ [insertOp] }
+                let change = { id = model.revision.Value; changeId = System.Guid.NewGuid(); ops = setTextOps @ [insertOp] }
                 match applyAndPost change model dispatch with
                 | Some m -> { m with mode = Selecting }
                 | None -> model
@@ -237,7 +268,7 @@ let pasteNodes (pastedText: string) (model: VM) (dispatch: Msg -> unit) : VM =
                 let newText = currentText.[..cursorPos - 1] + firstText + currentText.[cursorPos..]
                 if newText = originalText then { model with mode = Selecting }
                 else
-                let change = { id = model.revision.Value; ops = [ Op.SetText(focusId, originalText, newText) ] }
+                let change = { id = model.revision.Value; changeId = System.Guid.NewGuid(); ops = [ Op.SetText(focusId, originalText, newText) ] }
                 match applyAndPost change model dispatch with
                 | Some m -> { m with mode = Selecting }
                 | None -> model
@@ -253,7 +284,7 @@ let pasteNodes (pastedText: string) (model: VM) (dispatch: Msg -> unit) : VM =
                 let allOps = setTextOps @ remainingOps @ insertOps
                 if allOps.IsEmpty then { model with mode = Selecting }
                 else
-                let change = { id = model.revision.Value; ops = allOps }
+                let change = { id = model.revision.Value; changeId = System.Guid.NewGuid(); ops = allOps }
                 match applyAndPost change model dispatch with
                 | Some m -> { m with mode = Selecting }
                 | None -> model
@@ -272,7 +303,7 @@ let reparentSelection (newParentEntry: SiteEntry) (insertIdx: int) (sel: Selecti
     let ops =
         [ Op.Replace(range.parent.nodeId, range.start, selectedIds, [])
           Op.Replace(newParentEntry.nodeId, insertIdx, [], selectedIds) ]
-    let change = { id = model.revision.Value; ops = ops }
+    let change = { id = model.revision.Value; changeId = System.Guid.NewGuid(); ops = ops }
     match applyAndPost change model dispatch with
     | Some m ->
         let newSel = { range = { parent = newParentEntry; start = insertIdx; endd = insertIdx + selectedIds.Length }; focus = insertIdx }
@@ -327,7 +358,7 @@ let cutSelection (model: VM) (dispatch: Msg -> unit) : VM =
         let selectedIds = rangeChildren model.graph sel.range
         let cb = collectSubtree model.graph model.siteMap selectedIds
         let removeOp = Op.Replace(sel.range.parent.nodeId, sel.range.start, selectedIds, [])
-        let change = { id = model.revision.Value; ops = [removeOp] }
+        let change = { id = model.revision.Value; changeId = System.Guid.NewGuid(); ops = [removeOp] }
         match applyAndPost change model dispatch with
         | Some m ->
             let newChildren = m.graph.nodes.[sel.range.parent.nodeId].children
@@ -362,7 +393,7 @@ let moveNode (delta: int) (model: VM) (dispatch: Msg -> unit) : VM =
         match swapOpt with
         | None -> model
         | Some (opStart, oldSpan, newSpan, newStart) ->
-            let change = { id = model.revision.Value; ops = [ Op.Replace(range.parent.nodeId, opStart, oldSpan, newSpan) ] }
+            let change = { id = model.revision.Value; changeId = System.Guid.NewGuid(); ops = [ Op.Replace(range.parent.nodeId, opStart, oldSpan, newSpan) ] }
             match applyAndPost change model dispatch with
             | Some m ->
                 let newSel = { range = { range with start = newStart; endd = newStart + selectedIds.Length }; focus = sel.focus + delta }
@@ -453,7 +484,7 @@ let joinWithNext (currentText: string) (model: VM) (dispatch: Msg -> unit) : VM 
                             | None -> model
                             | Some (currParentId, currIndexInParent) ->
                                 let ops = [ Op.Replace(currParentId, currIndexInParent, [currentId], []) ]
-                                let change = { id = model.revision.Value; ops = ops }
+                                let change = { id = model.revision.Value; changeId = System.Guid.NewGuid(); ops = ops }
                                 match applyAndPost change model dispatch with
                                 | None -> model
                                 | Some m ->
@@ -474,7 +505,7 @@ let joinWithNext (currentText: string) (model: VM) (dispatch: Msg -> unit) : VM 
                                       if not currentNode.children.IsEmpty then
                                           yield Op.Replace(nextId, 0, [], currentNode.children)
                                       yield Op.Replace(currParentId, currIndexInParent, [currentId], []) ]
-                                let change = { id = model.revision.Value; ops = ops }
+                                let change = { id = model.revision.Value; changeId = System.Guid.NewGuid(); ops = ops }
                                 match applyAndPost change model dispatch with
                                 | None -> model
                                 | Some m ->
@@ -511,7 +542,7 @@ let joinWithPrevious (currentText: string) (model: VM) (dispatch: Msg -> unit) :
                           if not currentNode.children.IsEmpty then
                               yield Op.Replace(prevId, prevNode.children.Length, [], currentNode.children)
                           yield Op.Replace(parentId, indexInParent, [currentId], []) ]
-                    let change = { id = model.revision.Value; ops = ops }
+                    let change = { id = model.revision.Value; changeId = System.Guid.NewGuid(); ops = ops }
                     match applyAndPost change model dispatch with
                     | None -> model
                     | Some m ->
@@ -735,7 +766,7 @@ let deleteSelectionOp (model: VM) (dispatch: Msg -> unit) : VM =
     | None -> model
     | Some sel ->
         let selectedIds = rangeChildren model.graph sel.range
-        let change = { id = model.revision.Value; ops = [ Op.Replace(sel.range.parent.nodeId, sel.range.start, selectedIds, []) ] }
+        let change = { id = model.revision.Value; changeId = System.Guid.NewGuid(); ops = [ Op.Replace(sel.range.parent.nodeId, sel.range.start, selectedIds, []) ] }
         match applyAndPost change model dispatch with
         | None -> model
         | Some m ->
@@ -790,7 +821,7 @@ let toggleClassOp (model: VM) (dispatch: Msg -> unit) : VM =
                         else Some (Op.SetClasses(nid, oldClasses, CssClass.toggle name oldClasses)))
                 if ops.IsEmpty then model
                 else
-                    let change = { id = model.revision.Value; ops = ops }
+                    let change = { id = model.revision.Value; changeId = System.Guid.NewGuid(); ops = ops }
                     match applyAndPost change model dispatch with
                     | Some m -> m
                     | None -> model
@@ -846,9 +877,10 @@ let zoomOutOp (model: VM) (dispatch: Msg -> unit) : VM =
 
 /// Op: Retry pending server POST.
 let retryPendingOp (model: VM) (dispatch: Msg -> unit) : VM =
-    match model.pendingChanges with
-    | [] -> { model with syncState = Synced }
-    | _  ->
+    match model.syncState, model.pendingChanges with
+    | _, [] -> { model with syncState = Synced }
+    | Syncing, _ -> model
+    | _, _ ->
         fireNextPending model.pendingChanges dispatch
         { model with syncState = Syncing }
 
@@ -864,6 +896,7 @@ let undoOp (model: VM) (dispatch: Msg -> unit) : VM =
             let invertedChange = { Change.invert headChange with id = model'.history.nextId }
             let wasEmpty = model'.pendingChanges.IsEmpty
             let pending = model'.pendingChanges @ [invertedChange]
+            savePendingQueue pending
             if wasEmpty then fireNextPending pending dispatch
             { model' with
                 graph = newState.graph
@@ -883,9 +916,10 @@ let redoOp (model: VM) (dispatch: Msg -> unit) : VM =
     | Some headChange ->
         match History.redo state with
         | ApplyResult.Changed newState ->
-            let reChange = { headChange with id = model'.history.nextId }
+            let reChange = { headChange with id = model'.history.nextId; changeId = System.Guid.NewGuid() }
             let wasEmpty = model'.pendingChanges.IsEmpty
             let pending = model'.pendingChanges @ [reChange]
+            savePendingQueue pending
             if wasEmpty then fireNextPending pending dispatch
             { model' with
                 graph = newState.graph
@@ -921,6 +955,7 @@ let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
 
     | System (SubmitResponse revision) ->
         let pending = match model.pendingChanges with _ :: t -> t | [] -> []
+        savePendingQueue pending
         if not pending.IsEmpty then fireNextPending pending dispatch
         { model with
             revision = revision

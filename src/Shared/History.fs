@@ -14,6 +14,7 @@ type Op =
 
 type Change =
     { id: int
+      changeId: System.Guid   // unique per network submission; used for server-side dedup
       ops: Op list }
 
 
@@ -106,7 +107,9 @@ module Change =
             | Op.SetText(id, old, new_)              -> Op.SetText(id, new_, old)
             | Op.SetClasses(id, oldCls, newCls)      -> Op.SetClasses(id, newCls, oldCls)
             | Op.Replace(pid, i, olds, news)         -> Op.Replace(pid, i, news, olds)
-        { change with ops = change.ops |> List.rev |> List.map invertOp }
+        { change with
+            changeId = System.Guid.NewGuid()
+            ops = change.ops |> List.rev |> List.map invertOp }
 
     let apply (change: Change) (state: State) : ApplyResult =
         let step (accState, hasChanged) op =
@@ -162,6 +165,7 @@ module History =
 
     let newChange (history: History) : Change =
         { id = history.nextId
+          changeId = System.Guid.NewGuid()
           ops = [] }
 
     let addChange (change: Change) (history: History) : History =

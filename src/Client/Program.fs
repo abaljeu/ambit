@@ -123,6 +123,9 @@ let mutable currentModel: VM =
 /// Element cache: instanceId → DOM row element.  Populated on first StateLoaded.
 let mutable elementCache: Map<int, HTMLElement> = Map.empty
 
+/// Exponential backoff counter for auto-retry on SubmitFailed.
+let mutable retryCount = 0
+
 // ---------------------------------------------------------------------------
 // One-time static DOM setup (hidden-input + settings-bar)
 // These elements persist for the lifetime of the page; their event handlers
@@ -236,9 +239,33 @@ and dispatch (msg: Msg) : unit =
     match msg with
     | System (StateLoaded _) ->
         currentModel <- restoreSessionState currentModel
+        let saved = loadPendingQueue ()
+        let serverRev = currentModel.revision.Value
+        let filtered = saved |> List.filter (fun c -> c.id >= serverRev)
+        let localGraph, restoredPending =
+            filtered |> List.fold (fun (g, acc) c ->
+                let s: State = { graph = g; history = History.empty; revision = Revision 0 }
+                match Change.apply c s with
+                | ApplyResult.Changed s' -> s'.graph, acc @ [c]
+                | _ -> g, acc) (currentModel.graph, [])
+        savePendingQueue restoredPending
+        if not restoredPending.IsEmpty then
+            currentModel <- { currentModel with
+                                graph = localGraph
+                                pendingChanges = restoredPending
+                                syncState = Syncing }
+            fireNextPending restoredPending dispatch
         elementCache <- render currentModel applyOp
         View.renderUndoStatus currentModel
-    | System (SubmitResponse _) | System SubmitFailed ->
+    | System (SubmitResponse _) ->
+        retryCount <- 0
+        View.renderStatus currentModel
+    | System SubmitFailed ->
+        retryCount <- retryCount + 1
+        let delaySec = min 60 (1 <<< (min retryCount 6))
+        setTimeout (fun () ->
+            applyOp retryPendingOp
+            View.renderStatus currentModel) (delaySec * 1000)
         View.renderStatus currentModel
 
 // ---------------------------------------------------------------------------
