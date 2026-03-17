@@ -2,10 +2,14 @@ module Gambol.Client.View
 
 open Browser.Dom
 open Browser.Types
+open Fable.Core
 open Gambol.Shared
 open Gambol.Shared.ViewModel
 open Gambol.Client.Controller
 open Gambol.Client.Update
+
+[<Emit("$0.scrollIntoView({block:'nearest'})")>]
+let private scrollIntoViewNearest (_: obj) : unit = jsNative
 
 // ---------------------------------------------------------------------------
 // Depth helper
@@ -83,6 +87,8 @@ let private makeRowElement (model: VM) (applyOp: Op -> unit) (depth: int) (siteE
         editInput.addEventListener("keydown", fun (ev: Event) ->
             let key = ev :?> KeyboardEvent
             recordKeyAndRenderDiagnostic key
+            if (key.ctrlKey || key.metaKey) && key.key = "p" && not key.shiftKey then
+                ev.preventDefault()
             let ctx =
                 { keyEvent = key
                   editInput = (editInput :?> HTMLInputElement) }
@@ -208,15 +214,20 @@ let private paletteWired = ref false
 
 /// Populate the results list of a palette container, highlighting the selected item.
 /// Upper-bounds selectedCommand to the list length to handle stale indices.
+/// Scrolls the selected item into view so it stays visible when navigating with arrows.
 let renderPalette (container: HTMLElement) (items: string list) (selectedCommand: int) : unit =
     let ul = container.querySelector ".amb-palette-results" :?> HTMLElement
     ul.innerHTML <- ""
     let clampedSel = if items.IsEmpty then 0 else min selectedCommand (items.Length - 1)
+    let mutable selectedLi: Element option = None
     items |> List.iteri (fun i label ->
         let li = document.createElement "li"
         li.textContent <- label
-        if i = clampedSel then li.classList.add "amb-palette-selected"
+        if i = clampedSel then
+            li.classList.add "amb-palette-selected"
+            selectedLi <- Some li
         ul.appendChild li |> ignore)
+    selectedLi |> Option.iter (fun el -> scrollIntoViewNearest el)
 
 /// Show or hide the command palette overlay and keep it up to date with the model.
 /// Event listeners are wired once on the first call.
@@ -241,6 +252,8 @@ let renderCommandPalette (model: VM) (applyOp: Op -> unit) : unit =
 
             input.addEventListener("keydown", fun (ev: Event) ->
                 let ke = ev :?> KeyboardEvent
+                if (ke.ctrlKey || ke.metaKey) && ke.key = "p" && not ke.shiftKey then
+                    ev.preventDefault()
                 handleKey paletteKeyTable { keyEvent = ke } ke applyOp)
 
             ul.addEventListener("click", fun (ev: Event) ->

@@ -625,15 +625,9 @@ let startEditAtPos (prefill: string) (cursorPos: int) (model: VM) _dispatch : VM
         let node = model.graph.nodes.[nodeId]
         { model with mode = Editing (node.text, Some prefill, Some cursorPos) }
 
-/// Op: Open the command palette, preserving the current mode as returnTo.
-let openCommandPaletteOp (model: VM) _dispatch : VM =
-    { model with mode = CommandPalette ("", 0, model.mode) }
-
-/// Op: Close the command palette, restoring the prior mode.
-let closeCommandPaletteOp (model: VM) _dispatch : VM =
-    match model.mode with
-    | CommandPalette (_, _, ret) -> { model with mode = ret }
-    | _ -> model
+/// Re-export palette ops for use by Controller and View.
+let openCommandPaletteOp = Gambol.Client.CommandPalette.openCommandPaletteOp
+let closeCommandPaletteOp = Gambol.Client.CommandPalette.closeCommandPaletteOp
 
 /// Op: Select a specific node, committing any in-progress edit first.
 let selectRow (nodeId: NodeId) (model: VM) (dispatch: Msg -> unit) : VM =
@@ -665,8 +659,7 @@ let selectInstance (instanceId: int) (model: VM) (dispatch: Msg -> unit) : VM =
 /// Op: Move selection up, committing any in-progress edit first.
 let moveSelectionUp (model: VM) (dispatch: Msg -> unit) : VM =
     match model.mode with
-    | CommandPalette (q, selectedCommand, ret) ->
-        { model with mode = CommandPalette (q, max 0 (selectedCommand - 1), ret) }
+    | CommandPalette _ -> Gambol.Client.CommandPalette.paletteSelectUpOp model dispatch
     | _ ->
         let result =
             match model.mode with
@@ -677,8 +670,7 @@ let moveSelectionUp (model: VM) (dispatch: Msg -> unit) : VM =
 /// Op: Move selection down, committing any in-progress edit first.
 let moveSelectionDown (model: VM) (dispatch: Msg -> unit) : VM =
     match model.mode with
-    | CommandPalette (q, selectedCommand, ret) ->
-        { model with mode = CommandPalette (q, selectedCommand + 1, ret) }
+    | CommandPalette _ -> Gambol.Client.CommandPalette.paletteSelectDownOp model dispatch
     | _ ->
         let result =
             match model.mode with

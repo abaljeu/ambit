@@ -137,6 +137,8 @@ let setupStaticDOM (applyOp: Op -> unit) : unit =
         let ke = ev :?> KeyboardEvent
         recordKeyAndRenderDiagnostic ke
         if ke.key = "Tab" then ev.preventDefault()
+        if (ke.ctrlKey || ke.metaKey) && ke.key = "p" && not ke.shiftKey then
+            ev.preventDefault()
         let viewRootId = currentModel.zoomRoot |> Option.defaultValue currentModel.graph.root
         let rootNode = currentModel.graph.nodes.[viewRootId]
         let textToEdit =

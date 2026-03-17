@@ -146,6 +146,12 @@ type SelectionKeyContext =
 
 type EditingKeyContext = { keyEvent: KeyboardEvent; editInput: HTMLInputElement }
 
+type KeyContext =
+    | SelectionKey of SelectionKeyContext
+    | EditingKey of EditingKeyContext
+
+type PaletteKeyContext = { keyEvent: KeyboardEvent }
+
 /// A key handler returns an Op to apply, or None to let the browser handle the event.
 type KeyHandler<'Context> = 'Context -> Op option
 
@@ -163,78 +169,7 @@ let private alwaysFromCtx (opFrom: SelectionKeyContext -> Op) (ctx: SelectionKey
     Some (opFrom ctx)
 
 // ---------------------------------------------------------------------------
-// Command registry and palette ops
-// ---------------------------------------------------------------------------
-
-type CommandEntry = { name: string; op: Op }
-
-let commandRegistry : CommandEntry list =
-    [ { name = "Edit node";     op = startEditOp }
-      { name = "Delete";        op = deleteSelectionOp }
-      { name = "Move up";       op = moveNodeUpOp }
-      { name = "Move down";     op = moveNodeDownOp }
-      { name = "Indent";        op = indentOp }
-      { name = "Outdent";       op = outdentOp }
-      { name = "Fold / unfold"; op = toggleFoldSelectionOp }
-      { name = "Zoom in";       op = zoomInOp }
-      { name = "Zoom out";      op = zoomOutOp }
-      { name = "Undo";          op = undoOp }
-      { name = "Redo";          op = redoOp }
-      { name = "Copy as links"; op = copySelectionAsLinks }
-      { name = "Toggle class";  op = toggleClassOp } ]
-
-let filteredCommands (query: string) : CommandEntry list =
-    if query = "" then commandRegistry
-    else
-        let q = query.ToLowerInvariant()
-        commandRegistry |> List.filter (fun c -> c.name.ToLowerInvariant().Contains(q))
-
-let private onPalette (f: string -> int -> Mode -> VM -> (Msg -> unit) -> VM)
-                      (model: VM) (dispatch: Msg -> unit) : VM =
-    match model.mode with
-    | CommandPalette (q, selectedCommand, ret) -> f q selectedCommand ret model dispatch
-    | _ -> model
-
-let paletteRunOp = onPalette (fun q selectedCommand ret model dispatch ->
-    match List.tryItem selectedCommand (filteredCommands q) with
-    | None     -> { model with mode = ret }
-    | Some cmd ->
-        recordCommandRun cmd.name
-        cmd.op { model with mode = ret } dispatch)
-
-let paletteSetQueryOp (q: string) = onPalette (fun _ _ ret model _ ->
-    { model with mode = CommandPalette (q, 0, ret) })
-
-let selectionKeyTable: (string * KeyHandler<SelectionKeyContext>) list =
-    [ "F2",              always startEditOp
-      "Enter",           always startEditOp
-      "Delete",          always deleteSelectionOp
-      "Backspace",          always deleteSelectionOp
-      "ArrowUp",         always moveSelectionUp
-      "ArrowDown",       always moveSelectionDown
-      "ArrowLeft",       always arrowLeftSelectionOp
-      "ArrowRight",      always arrowRightSelectionOp
-      "Shift+ArrowUp",   always (shiftArrowOp -1)
-      "Shift+ArrowDown", always (shiftArrowOp  1)
-      "Alt+ArrowUp",     always moveNodeUpOp
-      "Alt+ArrowDown",   always moveNodeDownOp
-      "Ctrl+ArrowUp",    always moveNodeUpOp
-      "Ctrl+ArrowDown",  always moveNodeDownOp
-      "Tab",             always indentOp
-      "Shift+Tab",       always outdentOp
-      "Escape",          always cancelEdit
-      "Ctrl+.",          always toggleFoldSelectionOp
-      "Ctrl+]",          always zoomInOp
-      "Ctrl+[",          always zoomOutOp
-      "Ctrl+z",          always undoOp
-      "Ctrl+y",          always redoOp
-      "Ctrl+Shift+c",    always copySelectionAsLinks
-      "Ctrl+Shift+P",    always openCommandPaletteOp
-      "Alt+c",           always toggleClassOp
-      printableKeyToken, alwaysFromCtx (fun ctx -> startEdit ctx.keyEvent.key) ]
-
-// ---------------------------------------------------------------------------
-// Editing key handlers
+// EditingKey key handlers (used in bindings; defined before commandRegistry)
 // ---------------------------------------------------------------------------
 
 let private splitAtCursor (ctx: EditingKeyContext) : Op option =
@@ -269,49 +204,258 @@ let handleArrowRight (ctx: EditingKeyContext) : Op option =
         Some (moveEditDown 0)
     else None
 
-let editingKeyTable: (string * KeyHandler<EditingKeyContext>) list =
-    [ "Enter",           splitAtCursor
-      "Backspace",       handleBackspace
-      "Delete",          handleDelete
-      "ArrowLeft",       handleArrowLeft
-      "ArrowRight",      handleArrowRight
-      "Ctrl+ArrowLeft",  handleArrowLeft
-      "Ctrl+ArrowRight", handleArrowRight
-      "ArrowUp",         editMoveUp
-      "ArrowDown",       editMoveDown
-      "Alt+ArrowUp",     always moveNodeUpOp
-      "Alt+ArrowDown",   always moveNodeDownOp
-      "Ctrl+ArrowUp",    always moveNodeUpOp
-      "Ctrl+ArrowDown",  always moveNodeDownOp
-      "Tab",             always indentOp
-      "Shift+Tab",       always outdentOp
-      "Escape",          always cancelEdit
-      "Ctrl+.",          always toggleFoldSelectionOp
-      "Ctrl+]",          always zoomInOp
-      "Ctrl+[",          always zoomOutOp
-      "Ctrl+z",          always undoOp
-      "Ctrl+y",          always redoOp
-      "Ctrl+Shift+P",    always openCommandPaletteOp
-      "Alt+c",           always toggleClassOp ]
-
 // ---------------------------------------------------------------------------
-// Palette key handlers
+// Command registry and palette ops
 // ---------------------------------------------------------------------------
 
-type PaletteKeyContext = { keyEvent: KeyboardEvent }
+/// No-op for key-only commands that are not invokable from the palette.
+let private noOp : Op = fun m _ -> m
 
-let paletteKeyTable : (string * KeyHandler<PaletteKeyContext>) list =
-    [ "Escape",    always closeCommandPaletteOp
-      "ArrowUp",   always moveSelectionUp
-      "ArrowDown",  always moveSelectionDown
-      "Enter",     always paletteRunOp ]
+type CommandEntry = {
+    name: string
+    op: Op
+    sel: bool
+    edit: bool
+    palette: bool
+    keys: string list
+    handler: KeyContext -> Op option
+}
 
-let tryResolveOperation
-    (table: (string * KeyHandler<'Context>) list)
+let commandRegistry : CommandEntry list =
+    [ { name = "Edit node"
+        op = startEditOp
+        sel = true; edit = false; palette = true
+        keys = ["F2"; "Enter"]
+        handler = function SelectionKey s -> Some (startEdit s.keyEvent.key) | _ -> None }
+      { name = "Split at cursor"
+        op = noOp; sel = false; edit = true; palette = true
+        keys = ["Enter"]
+        handler = function EditingKey e -> splitAtCursor e | _ -> None }
+      { name = "Delete"
+        op = deleteSelectionOp
+        sel = true; edit = false; palette = true
+        keys = ["Delete"; "Backspace"]
+        handler = function SelectionKey _ -> Some deleteSelectionOp | _ -> None }
+      { name = "Join with previous"
+        op = noOp; sel = false; edit = true; palette = true
+        keys = ["Backspace"]
+        handler = function EditingKey e -> handleBackspace e | _ -> None }
+      { name = "Join with next"
+        op = noOp; sel = false; edit = true; palette = true
+        keys = ["Delete"]
+        handler = function EditingKey e -> handleDelete e | _ -> None }
+      { name = "Move selection up"
+        op = moveSelectionUp
+        sel = true; edit = false; palette = true
+        keys = ["ArrowUp"]
+        handler = function SelectionKey _ -> Some moveSelectionUp | _ -> None }
+      { name = "Move selection down"
+        op = moveSelectionDown
+        sel = true; edit = false; palette = true
+        keys = ["ArrowDown"]
+        handler = function SelectionKey _ -> Some moveSelectionDown | _ -> None }
+      { name = "Move focus left"
+        op = arrowLeftSelectionOp
+        sel = true; edit = false; palette = true
+        keys = ["ArrowLeft"]
+        handler = function SelectionKey _ -> Some arrowLeftSelectionOp | _ -> None }
+      { name = "Move to previous node"
+        op = noOp; sel = false; edit = true; palette = true
+        keys = ["ArrowLeft"; "Ctrl+ArrowLeft"]
+        handler = function EditingKey e -> handleArrowLeft e | _ -> None }
+      { name = "Move focus right"
+        op = arrowRightSelectionOp
+        sel = true; edit = false; palette = true
+        keys = ["ArrowRight"]
+        handler = function SelectionKey _ -> Some arrowRightSelectionOp | _ -> None }
+      { name = "Move to next node"
+        op = noOp; sel = false; edit = true; palette = true
+        keys = ["ArrowRight"; "Ctrl+ArrowRight"]
+        handler = function EditingKey e -> handleArrowRight e | _ -> None }
+      { name = "Extend selection up"
+        op = shiftArrowOp -1
+        sel = true; edit = false; palette = true
+        keys = ["Shift+ArrowUp"]
+        handler = function SelectionKey _ -> Some (shiftArrowOp -1) | _ -> None }
+      { name = "Extend selection down"
+        op = shiftArrowOp 1
+        sel = true; edit = false; palette = true
+        keys = ["Shift+ArrowDown"]
+        handler = function SelectionKey _ -> Some (shiftArrowOp 1) | _ -> None }
+      { name = "Move edit up"
+        op = noOp; sel = false; edit = true; palette = true
+        keys = ["ArrowUp"]
+        handler = function EditingKey e -> editMoveUp e | _ -> None }
+      { name = "Move edit down"
+        op = noOp; sel = false; edit = true; palette = true
+        keys = ["ArrowDown"]
+        handler = function EditingKey e -> editMoveDown e | _ -> None }
+      { name = "Move up"
+        op = moveNodeUpOp
+        sel = true; edit = true; palette = true
+        keys = ["Alt+ArrowUp"; "Ctrl+ArrowUp"]
+        handler = fun _ -> Some moveNodeUpOp }
+      { name = "Move down"
+        op = moveNodeDownOp
+        sel = true; edit = true; palette = true
+        keys = ["Alt+ArrowDown"; "Ctrl+ArrowDown"]
+        handler = fun _ -> Some moveNodeDownOp }
+      { name = "Indent"
+        op = indentOp
+        sel = true; edit = true; palette = true
+        keys = ["Tab"]
+        handler = fun _ -> Some indentOp }
+      { name = "Outdent"
+        op = outdentOp
+        sel = true; edit = true; palette = true
+        keys = ["Shift+Tab"]
+        handler = fun _ -> Some outdentOp }
+      { name = "Cancel"
+        op = cancelEdit
+        sel = true; edit = true; palette = true
+        keys = ["Escape"]
+        handler = function
+          | SelectionKey _ -> Some cancelEdit
+          | EditingKey _ -> Some cancelEdit }
+      { name = "Fold / unfold"
+        op = toggleFoldSelectionOp
+        sel = true; edit = true; palette = true
+        keys = ["Ctrl+."]
+        handler = fun _ -> Some toggleFoldSelectionOp }
+      { name = "Zoom in"
+        op = zoomInOp
+        sel = true; edit = true; palette = true
+        keys = ["Ctrl+]"]
+        handler = fun _ -> Some zoomInOp }
+      { name = "Zoom out"
+        op = zoomOutOp
+        sel = true; edit = true; palette = true
+        keys = ["Ctrl+["]
+        handler = fun _ -> Some zoomOutOp }
+      { name = "Undo"
+        op = undoOp
+        sel = true; edit = true; palette = true
+        keys = ["Ctrl+z"]
+        handler = fun _ -> Some undoOp }
+      { name = "Redo"
+        op = redoOp
+        sel = true; edit = true; palette = true
+        keys = ["Ctrl+y"]
+        handler = fun _ -> Some redoOp }
+      { name = "Copy as links"
+        op = copySelectionAsLinks
+        sel = true; edit = false; palette = true
+        keys = ["Ctrl+Shift+c"]
+        handler = function SelectionKey _ -> Some copySelectionAsLinks | _ -> None }
+      { name = "Command palette"
+        op = openCommandPaletteOp
+        sel = true; edit = true; palette = true
+        keys = ["Ctrl+Shift+P"]
+        handler = fun _ -> Some openCommandPaletteOp }
+      { name = "Toggle class"
+        op = toggleClassOp
+        sel = true; edit = true; palette = true
+        keys = ["Alt+c"]
+        handler = fun _ -> Some toggleClassOp } ]
+
+/// Commands invokable from the palette (sel or edit mode, palette flag set).
+let paletteCommands : CommandEntry list =
+    commandRegistry |> List.filter (fun c -> (c.sel || c.edit) && c.palette) 
+
+let filteredCommands (query: string) : CommandEntry list =
+    if query = "" then paletteCommands
+    else
+        let q = query.ToLowerInvariant()
+        paletteCommands |> List.filter (fun c -> c.name.ToLowerInvariant().Contains(q))
+
+let private onPalette (f: string -> int -> Mode -> VM -> (Msg -> unit) -> VM)
+                      (model: VM) (dispatch: Msg -> unit) : VM =
+    match model.mode with
+    | CommandPalette (q, selectedCommand, ret) -> f q selectedCommand ret model dispatch
+    | _ -> model
+
+let paletteRunOp = onPalette (fun q selectedCommand ret model dispatch ->
+    match List.tryItem selectedCommand (filteredCommands q) with
+    | None     -> { model with mode = ret }
+    | Some cmd ->
+        recordCommandRun cmd.name
+        cmd.op { model with mode = ret } dispatch)
+
+let paletteSetQueryOp (q: string) = onPalette (fun _ _ ret model _ ->
+    { model with mode = CommandPalette (q, 0, ret) })
+
+/// Key table entry: key string, handler, and command name for diagnostic.
+type KeyTableEntry<'Context> = {
+    key: string
+    handler: KeyHandler<'Context>
+    commandName: string
+}
+
+/// Rebuild selection key table from commandRegistry (first binding per key wins).
+/// Printable key binding is injected separately; keys do not include printableKeyToken.
+let selectionKeyTable : KeyTableEntry<SelectionKeyContext> list =
+    let rec collect seen acc entries =
+        match entries with
+        | [] -> acc
+        | entry :: rest when entry.sel ->
+            let bindings =
+                entry.keys
+                |> List.choose (fun k ->
+                    if Set.contains k seen then None
+                    else
+                        let h s = entry.handler (SelectionKey s)
+                        Some { key = k; handler = h; commandName = entry.name })
+            let seen' = bindings |> List.fold (fun s e -> Set.add e.key s) seen
+            let acc' = acc @ bindings
+            collect seen' acc' rest
+        | _ :: rest -> collect seen acc rest
+    let fromRegistry = collect Set.empty [] commandRegistry
+    let printEdit (s: SelectionKeyContext) = Some (startEdit s.keyEvent.key)
+    fromRegistry
+    @ [ { key = printableKeyToken; handler = printEdit; commandName = "Edit node" } ]
+
+/// Rebuild editing key table from commandRegistry (first binding per key wins).
+let editingKeyTable : KeyTableEntry<EditingKeyContext> list =
+    let rec collect seen acc entries =
+        match entries with
+        | [] -> acc
+        | entry :: rest when entry.edit ->
+            let bindings =
+                entry.keys
+                |> List.choose (fun k ->
+                    if Set.contains k seen then None
+                    else
+                        let h e = entry.handler (EditingKey e)
+                        Some { key = k; handler = h; commandName = entry.name })
+            let seen' = bindings |> List.fold (fun s e -> Set.add e.key s) seen
+            let acc' = acc @ bindings
+            collect seen' acc' rest
+        | _ :: rest -> collect seen acc rest
+    collect Set.empty [] commandRegistry
+
+/// Literal palette key table (Escape, ArrowUp, ArrowDown, Enter). Not derived from registry.
+let paletteKeyTable : KeyTableEntry<PaletteKeyContext> list =
+    [ { key = "Escape"
+        handler = fun _ -> Some closeCommandPaletteOp
+        commandName = "Close palette" }
+      { key = "ArrowUp"
+        handler = fun _ -> Some moveSelectionUp
+        commandName = "Select previous" }
+      { key = "ArrowDown"
+        handler = fun _ -> Some moveSelectionDown
+        commandName = "Select next" }
+      { key = "Enter"
+        handler = fun _ -> Some paletteRunOp
+        commandName = "Run command" } ]
+
+let private tryResolveFromNamed
+    (table: KeyTableEntry<'Context> list)
     (ke: KeyboardEvent)
-    : KeyHandler<'Context> option =
-    let tryKey k = table |> List.tryPick (fun (t, h) -> if t = k then Some h else None)
-    // Try modifier-qualified keys first (more specific beats less specific)
+    : (KeyHandler<'Context> * string) option =
+    let tryKey k =
+        table
+        |> List.tryPick (fun e ->
+            if e.key = k then Some (e.handler, e.commandName) else None)
     let ctrlOrCmd = ke.ctrlKey || (isIOS () && ke.metaKey)
     let qualified =
         if ctrlOrCmd && ke.shiftKey then tryKey ("Ctrl+Shift+" + ke.key) else
@@ -323,7 +467,7 @@ let tryResolveOperation
     | Some _ -> qualified
     | None ->
         match tryKey ke.key with
-        | Some handler -> Some handler
+        | Some r -> Some r
         | None ->
             if isPrintableKey ke.key && not ke.ctrlKey && not ke.metaKey && not ke.altKey then
                 tryKey printableKeyToken
@@ -331,20 +475,17 @@ let tryResolveOperation
                 None
 
 let handleKey
-    (table: (string * KeyHandler<'Context>) list)
+    (table: KeyTableEntry<'Context> list)
     (ctx: 'Context)
     (keyEvent: KeyboardEvent)
     (applyOp: Op -> unit)
     : unit =
-    match tryResolveOperation table keyEvent with
+    match tryResolveFromNamed table keyEvent with
     | None -> ()
-    | Some handler ->
+    | Some (handler, name) ->
         match handler ctx with
         | Some op ->
             keyEvent.preventDefault()
-            let predicate c =
-                if System.Object.ReferenceEquals(c.op :> obj, op :> obj) then Some c.name else None
-            let matchingCommand = List.tryPick predicate commandRegistry
-            Option.iter appendCommandName matchingCommand
+            appendCommandName name
             applyOp op
         | None -> ()

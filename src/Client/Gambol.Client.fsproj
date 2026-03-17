@@ -7,6 +7,7 @@
 
   <ItemGroup>
     <Compile Include="BuildInfo.fs" />
+    <Compile Include="CommandPalette.fs" />
     <Compile Include="Update.fs" />
     <Compile Include="Controller.fs" />
     <Compile Include="View.fs" />
