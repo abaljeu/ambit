@@ -209,6 +209,7 @@ let selectionKeyTable: (string * KeyHandler<SelectionKeyContext>) list =
     [ "F2",              always startEditOp
       "Enter",           always startEditOp
       "Delete",          always deleteSelectionOp
+      "Backspace",          always deleteSelectionOp
       "ArrowUp",         always moveSelectionUp
       "ArrowDown",       always moveSelectionDown
       "ArrowLeft",       always arrowLeftSelectionOp

@@ -18,10 +18,14 @@
             <span id="build-label" class="amb-build-label"></span>
             <button type="button" id="reload-btn" class="amb-reload-btn">⟳ Reload</button>
         </div>
-        <div id="key-platform-info"></div>
-        <div id="key-last-key" class="amb-diag-last-key"></div>
+        <div id="key-platform-info" class="amb-diag-bar"></div>
+        <div id="key-last-key" class="amb-diag-bar"></div>
         <div id="sync-status" class="amb-sync-status"></div>
         <div id="undo-status" class="amb-undo-status" title="Undo/Redo status"></div>
+        <div id="command-palette" class="amb-palette">
+            <input id="command-palette-input" class="amb-palette-input" type="text" placeholder="Search commands..." autocomplete="off">
+            <ul id="command-palette-results" class="amb-palette-results"></ul>
+        </div>
     </div>
     <script type="module" src="/ambit/Program.js"></script>
 </body>
