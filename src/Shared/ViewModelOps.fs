@@ -72,7 +72,7 @@ module ViewModel =
                                 |> Option.bind (fun e -> if e.nodeId = cid then Some e else None)
                             match positional with
                             | Some old when not (Set.contains old.instanceId usedIds.Value) ->
-                                usedIds := Set.add old.instanceId usedIds.Value
+                                usedIds.Value <- Set.add old.instanceId usedIds.Value
                                 Some old
                             | Some _ -> None
                             | None ->
@@ -85,7 +85,7 @@ module ViewModel =
                                     Map.tryFind oid oldMap.entries
                                     |> Option.bind (fun e ->
                                         if e.nodeId = cid && not (Set.contains e.instanceId usedIds.Value)
-                                        then (usedIds := Set.add e.instanceId usedIds.Value; Some e)
+                                        then usedIds.Value <- Set.add e.instanceId usedIds.Value; Some e
                                         else None))
                         match oldChildOpt with
                         | Some old when old.expanded -> walk cid (Some instId) false (Some old.instanceId)

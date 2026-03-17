@@ -12,8 +12,10 @@ open Thoth.Json.Core
 // JS interop
 // ---------------------------------------------------------------------------
 
-[<Emit("fetch($0,{method:'POST',headers:{'Content-Type':'application/json'},body:$1}).then(r=>r.text()).then($2).catch(function(){$3()})")>]
-let postJson (url: string) (body: string) (onSuccess: string -> unit) (onFail: unit -> unit) : unit = jsNative
+[<Emit("fetch($0,{method:'POST',headers:{'Content-Type':'application/json'},body:$1})" +
+       ".then(r=>r.text()).then($2).catch(function(){$3()})")>]
+let postJson (url: string) (body: string) (onSuccess: string -> unit) (onFail: unit -> unit)
+    : unit = jsNative
 
 [<Emit("window.setTimeout($0, $1)")>]
 let setTimeout (f: unit -> unit) (ms: int) : unit = jsNative
@@ -43,7 +45,8 @@ let currentFile =
 let encodeChangeBody (change: Change) : string =
     Thoth.Json.JavaScript.Encode.toString 0 (Serialization.encodeChange change)
 
-/// Decode the response from GET /{file}/poll — lightweight { r, b, p } (int avoids int64/BigInt mismatch with window vars)
+/// Decode the response from GET /{file}/poll — lightweight { r, b, p }
+/// (int avoids int64/BigInt mismatch with window vars)
 let decodePollResponse (text: string) : Result<int * int * int, string> =
     let decoder =
         Decode.object (fun get ->
@@ -70,13 +73,17 @@ let private pendingKey = "gambol-pending-v1"
 
 let savePendingQueue (changes: Change list) =
     if changes.IsEmpty then lsDel pendingKey
-    else lsSet pendingKey (Thoth.Json.JavaScript.Encode.toString 0 (Encode.list (changes |> List.map Serialization.encodeChange)))
+    else
+        let encoded = Encode.list (changes |> List.map Serialization.encodeChange)
+        let json = Thoth.Json.JavaScript.Encode.toString 0 encoded
+        lsSet pendingKey json
 
 let loadPendingQueue () : Change list =
     let json = lsGet pendingKey
     if isNull json || json = "" then []
     else
-        match Thoth.Json.JavaScript.Decode.fromString (Decode.list Serialization.decodeChange) json with
+        match Thoth.Json.JavaScript.Decode.fromString
+            (Decode.list Serialization.decodeChange) json with
         | Ok cs -> cs
         | Error _ -> []
 
@@ -128,7 +135,9 @@ let applyAndPost (change: Change) (model: VM) (dispatch: Msg -> unit) : VM optio
 
 /// Extract the list of node IDs covered by a SiteNodeRange.
 let rangeChildren (graph: Graph) (range: SiteNodeRange) =
-    graph.nodes.[range.parent.nodeId].children |> List.skip range.start |> List.take (range.endd - range.start)
+    graph.nodes.[range.parent.nodeId].children
+    |> List.skip range.start
+    |> List.take (range.endd - range.start)
 
 /// The node being edited when selectedNodes = None: the zoom root if zoomed, else the graph root.
 let private viewRootNodeId (model: VM) : NodeId =
@@ -146,7 +155,10 @@ let commitTextEdit
     if newText = originalText then
         { model with mode = Selecting }
     else
-        let change: Change = { id = model.revision.Value; changeId = System.Guid.NewGuid(); ops = [ Op.SetText(nodeId, originalText, newText) ] }
+        let change: Change =
+            { id = model.revision.Value
+              changeId = System.Guid.NewGuid()
+              ops = [ Op.SetText(nodeId, originalText, newText) ] }
         match applyAndPost change model dispatch with
         | Some m -> { m with mode = Selecting }
         | None   -> { model with mode = Selecting }
@@ -185,7 +197,10 @@ let splitNode (currentText: string) (cursorPos: int) (model: VM) (dispatch: Msg 
               if updatedText <> originalText then
                   yield Op.SetText(selectedId, originalText, updatedText) ]
 
-        let change: Change = { id = model.revision.Value; changeId = System.Guid.NewGuid(); ops = ops }
+        let change: Change =
+            { id = model.revision.Value
+              changeId = System.Guid.NewGuid()
+              ops = ops }
         match applyAndPost change model dispatch with
         | Some m ->
             let effRoot =
@@ -240,7 +255,8 @@ let private tryResolveNodeIdsFormat (nodeIdsText: string) (graph: Graph) : NodeI
 /// Otherwise (normal deep-copy paste):
 /// Select mode: replaces selection with pasted subtree.
 /// Edit mode: splices first line into node at cursor; remaining lines become siblings.
-let pasteNodes (pastedText: string) (preferredNodeIds: string option) (model: VM) (dispatch: Msg -> unit) : VM =
+let pasteNodes (pastedText: string) (preferredNodeIds: string option) (model: VM)
+    (dispatch: Msg -> unit) : VM =
     match model.selectedNodes with
     | None -> model
     | Some sel ->
@@ -250,7 +266,8 @@ let pasteNodes (pastedText: string) (preferredNodeIds: string option) (model: VM
 
         /// Prefer node IDs format if present and resolvable; else try GUIDs in text/plain.
         let tryLinkIds () =
-            match preferredNodeIds |> Option.bind (fun s -> tryResolveNodeIdsFormat s model.graph) with
+            match preferredNodeIds
+                |> Option.bind (fun s -> tryResolveNodeIdsFormat s model.graph) with
             | Some ids -> Some ids
             | None ->
                 let ids =
@@ -275,11 +292,16 @@ let pasteNodes (pastedText: string) (preferredNodeIds: string option) (model: VM
             let range = sel.range
             let selectedIds = rangeChildren model.graph range
             let replaceOp = Op.Replace(range.parent.nodeId, range.start, selectedIds, topLevelIds)
-            let change = { id = model.revision.Value; changeId = System.Guid.NewGuid(); ops = pasteOps @ [replaceOp] }
+            let change =
+                { id = model.revision.Value
+                  changeId = System.Guid.NewGuid()
+                  ops = pasteOps @ [replaceOp] }
             match applyAndPost change model dispatch with
             | Some m ->
                 let newEnd = range.start + topLevelIds.Length
-                let newSel = { range = { parent = range.parent; start = range.start; endd = newEnd }; focus = range.start }
+                let newSel =
+                    { range = { parent = range.parent; start = range.start; endd = newEnd }
+                      focus = range.start }
                 { m with selectedNodes = Some newSel }
             | None -> model
         | Editing (originalText, _, _) ->
@@ -290,11 +312,17 @@ let pasteNodes (pastedText: string) (preferredNodeIds: string option) (model: VM
             let focusIdx = sel.focus
             match tryLinkIds () with
             | Some refIds ->
-                // Link-paste in editing mode: commit current text, insert referenced nodes as siblings below
+                // Link-paste in editing mode: commit current text,
+                // insert referenced nodes as siblings below
                 let setTextOps =
-                    if currentText <> originalText then [ Op.SetText(focusId, originalText, currentText) ] else []
+                    if currentText <> originalText then
+                        [ Op.SetText(focusId, originalText, currentText) ]
+                    else []
                 let insertOp = Op.Replace(parentId, focusIdx + 1, [], refIds)
-                let change = { id = model.revision.Value; changeId = System.Guid.NewGuid(); ops = setTextOps @ [insertOp] }
+                let change =
+                    { id = model.revision.Value
+                      changeId = System.Guid.NewGuid()
+                      ops = setTextOps @ [insertOp] }
                 match applyAndPost change model dispatch with
                 | Some m -> { m with mode = Selecting }
                 | None -> model
@@ -306,7 +334,10 @@ let pasteNodes (pastedText: string) (preferredNodeIds: string option) (model: VM
                 let newText = currentText.[..cursorPos - 1] + firstText + currentText.[cursorPos..]
                 if newText = originalText then { model with mode = Selecting }
                 else
-                let change = { id = model.revision.Value; changeId = System.Guid.NewGuid(); ops = [ Op.SetText(focusId, originalText, newText) ] }
+                let change =
+                    { id = model.revision.Value
+                      changeId = System.Guid.NewGuid()
+                      ops = [ Op.SetText(focusId, originalText, newText) ] }
                 match applyAndPost change model dispatch with
                 | Some m -> { m with mode = Selecting }
                 | None -> model
@@ -314,7 +345,9 @@ let pasteNodes (pastedText: string) (preferredNodeIds: string option) (model: VM
                 // Multi-line: splice first line at cursor; remaining become siblings below
                 let newText = currentText.[..cursorPos - 1] + firstText + currentText.[cursorPos..]
                 let setTextOps =
-                    if newText <> originalText then [ Op.SetText(focusId, originalText, newText) ] else []
+                    if newText <> originalText then
+                        [ Op.SetText(focusId, originalText, newText) ]
+                    else []
                 let (remainingTopIds, remainingOps) = buildPasteOps rest
                 let insertOps =
                     if remainingTopIds.IsEmpty then []
@@ -322,7 +355,10 @@ let pasteNodes (pastedText: string) (preferredNodeIds: string option) (model: VM
                 let allOps = setTextOps @ remainingOps @ insertOps
                 if allOps.IsEmpty then { model with mode = Selecting }
                 else
-                let change = { id = model.revision.Value; changeId = System.Guid.NewGuid(); ops = allOps }
+                let change =
+                    { id = model.revision.Value
+                      changeId = System.Guid.NewGuid()
+                      ops = allOps }
                 match applyAndPost change model dispatch with
                 | Some m -> { m with mode = Selecting }
                 | None -> model
@@ -335,16 +371,23 @@ let pasteNodes (pastedText: string) (preferredNodeIds: string option) (model: VM
 /// No-op if the selection starts at index 0 (no previous sibling).
 /// Move the selected nodes from their current parent to a new parent at insertIdx.
 /// Common core of indent and outdent.
-let reparentSelection (newParentEntry: SiteEntry) (insertIdx: int) (sel: Selection) (model: VM) (dispatch: Msg -> unit) : VM =
+let reparentSelection (newParentEntry: SiteEntry) (insertIdx: int) (sel: Selection) (model: VM)
+    (dispatch: Msg -> unit) : VM =
     let range = sel.range
     let selectedIds = rangeChildren model.graph range
     let ops =
         [ Op.Replace(range.parent.nodeId, range.start, selectedIds, [])
           Op.Replace(newParentEntry.nodeId, insertIdx, [], selectedIds) ]
-    let change = { id = model.revision.Value; changeId = System.Guid.NewGuid(); ops = ops }
+    let change =
+        { id = model.revision.Value
+          changeId = System.Guid.NewGuid()
+          ops = ops }
     match applyAndPost change model dispatch with
     | Some m ->
-        let newSel = { range = { parent = newParentEntry; start = insertIdx; endd = insertIdx + selectedIds.Length }; focus = insertIdx }
+        let newSel =
+            { range = { parent = newParentEntry; start = insertIdx
+                        endd = insertIdx + selectedIds.Length }
+              focus = insertIdx }
         { m with selectedNodes = Some newSel }
     | None -> model
 
@@ -355,14 +398,17 @@ let indentSelection (model: VM) (dispatch: Msg -> unit) : VM =
     | Some sel ->
         let prevSibId = model.graph.nodes.[sel.range.parent.nodeId].children.[sel.range.start - 1]
         let insertIdx = model.graph.nodes.[prevSibId].children.Length
-        match model.siteMap.entries |> Map.tryPick (fun _ e -> if e.nodeId = prevSibId then Some e else None) with
+        match model.siteMap.entries
+            |> Map.tryPick (fun _ e -> if e.nodeId = prevSibId then Some e else None) with
         | None -> model
         | Some prevSibEntry ->
         let result = reparentSelection prevSibEntry insertIdx sel model dispatch
         // Ensure the new parent is expanded so the indented items are visible after reconcile
         if prevSibEntry.expanded then result
         else
-            let siteMap, nextId = ViewModel.expandEntry prevSibEntry.instanceId result.graph result.siteMap result.nextInstanceId
+            let siteMap, nextId =
+                ViewModel.expandEntry prevSibEntry.instanceId result.graph result.siteMap
+                    result.nextInstanceId
             { result with siteMap = siteMap; nextInstanceId = nextId }
 
 let outdentSelection (model: VM) (dispatch: Msg -> unit) : VM =
@@ -372,7 +418,8 @@ let outdentSelection (model: VM) (dispatch: Msg -> unit) : VM =
         match Graph.tryFindParentAndIndex sel.range.parent.nodeId model.graph with
         | None -> model  // parent is root — no-op
         | Some (grandparentId, parentIdx) ->
-            match model.siteMap.entries |> Map.tryPick (fun _ e -> if e.nodeId = grandparentId then Some e else None) with
+            match model.siteMap.entries
+                |> Map.tryPick (fun _ e -> if e.nodeId = grandparentId then Some e else None) with
             | None -> model
             | Some grandparentEntry ->
             reparentSelection grandparentEntry (parentIdx + 1) sel model dispatch
@@ -397,17 +444,22 @@ let cutSelection (model: VM) (dispatch: Msg -> unit) : VM =
         let selectedIds = rangeChildren model.graph sel.range
         let cb = collectSubtree model.graph model.siteMap selectedIds
         let removeOp = Op.Replace(sel.range.parent.nodeId, sel.range.start, selectedIds, [])
-        let change = { id = model.revision.Value; changeId = System.Guid.NewGuid(); ops = [removeOp] }
+        let change =
+            { id = model.revision.Value
+              changeId = System.Guid.NewGuid()
+              ops = [removeOp] }
         match applyAndPost change model dispatch with
         | Some m ->
             let newChildren = m.graph.nodes.[sel.range.parent.nodeId].children
             let newSel =
                 if sel.range.start < newChildren.Length then
                     let i = sel.range.start
-                    Some { range = { parent = sel.range.parent; start = i; endd = i + 1 }; focus = i }
+                    Some { range = { parent = sel.range.parent; start = i; endd = i + 1 }
+                           focus = i }
                 elif sel.range.start > 0 then
                     let i = sel.range.start - 1
-                    Some { range = { parent = sel.range.parent; start = i; endd = i + 1 }; focus = i }
+                    Some { range = { parent = sel.range.parent; start = i; endd = i + 1 }
+                           focus = i }
                 else
                     singleSelection m.graph m.siteMap sel.range.parent.nodeId
             { m with clipboard = Some cb; selectedNodes = newSel }
@@ -432,10 +484,14 @@ let moveNode (delta: int) (model: VM) (dispatch: Msg -> unit) : VM =
         match swapOpt with
         | None -> model
         | Some (opStart, oldSpan, newSpan, newStart) ->
-            let change = { id = model.revision.Value; changeId = System.Guid.NewGuid(); ops = [ Op.Replace(range.parent.nodeId, opStart, oldSpan, newSpan) ] }
+            let change =
+                { id = model.revision.Value
+                  changeId = System.Guid.NewGuid()
+                  ops = [ Op.Replace(range.parent.nodeId, opStart, oldSpan, newSpan) ] }
             match applyAndPost change model dispatch with
             | Some m ->
-                let newSel = { range = { range with start = newStart; endd = newStart + selectedIds.Length }; focus = sel.focus + delta }
+                let newRange = { range with start = newStart; endd = newStart + selectedIds.Length }
+                let newSel = { range = newRange; focus = sel.focus + delta }
                 { m with selectedNodes = Some newSel }
             | None -> model
 
@@ -456,14 +512,17 @@ let withSiteMap (model: VM) : VM =
         match model.zoomRoot with
         | Some zr when not (Map.containsKey zr model.graph.nodes) -> None
         | z -> z
-    let siteMap, nextId = ViewModel.reconcileSiteMapFrom model.graph effectiveRoot model.siteMap model.nextInstanceId
+    let siteMap, nextId =
+        ViewModel.reconcileSiteMapFrom model.graph effectiveRoot model.siteMap model.nextInstanceId
     let model' = { model with siteMap = siteMap; nextInstanceId = nextId; zoomRoot = zoomRoot }
     match model'.selectedNodes with
     | None -> model'
     | Some sel ->
         match Map.tryFind sel.range.parent.instanceId model'.siteMap.entries with
         | None -> model'
-        | Some freshParent -> { model' with selectedNodes = Some { sel with range = { sel.range with parent = freshParent } } }
+        | Some freshParent ->
+            { model' with
+                selectedNodes = Some { sel with range = { sel.range with parent = freshParent } } }
 
 /// Join the currently-edited node with the previous visible (inorder) node.
 /// 1. If current has no children: append current's text to prev, delete current.
@@ -476,7 +535,10 @@ let moveEdit (delta: int) (cursorPos: int) (model: VM) (dispatch: Msg -> unit) :
     | Some sel ->
         let currentId = focusedNodeId model.graph sel
         let focusInstId = focusedInstanceId sel
-        let committed = commitTextEdit currentId (match model.mode with Editing (t, _, _) -> t | _ -> "") (readEditInputValue ()) model dispatch
+        let committed =
+            commitTextEdit currentId
+                (match model.mode with Editing (t, _, _) -> t | _ -> "")
+                (readEditInputValue ()) model dispatch
         let rows = getVisibleRowInstanceIds committed.siteMap
         match rows |> List.tryFindIndex ((=) focusInstId) with
         | None -> committed
@@ -522,15 +584,20 @@ let joinWithNext (currentText: string) (model: VM) (dispatch: Msg -> unit) : VM 
                             match Graph.tryFindParentAndIndex currentId model.graph with
                             | None -> model
                             | Some (currParentId, currIndexInParent) ->
-                                let ops = [ Op.Replace(currParentId, currIndexInParent, [currentId], []) ]
-                                let change = { id = model.revision.Value; changeId = System.Guid.NewGuid(); ops = ops }
+                                let ops =
+                                    [ Op.Replace(currParentId, currIndexInParent, [currentId], []) ]
+                                let change =
+                                    { id = model.revision.Value
+                                      changeId = System.Guid.NewGuid()
+                                      ops = ops }
                                 match applyAndPost change model dispatch with
                                 | None -> model
                                 | Some m ->
                                     let result = withSiteMap m
                                     { result with
                                         mode = Editing (nextNode.text, None, Some 0)
-                                        selectedNodes = singleSelection result.graph result.siteMap nextId }
+                                        selectedNodes =
+                                            singleSelection result.graph result.siteMap nextId }
                         else
                             // Standard join: merge current into next, delete current, keep next
                             let joinedText = currentText + nextNode.text
@@ -542,16 +609,23 @@ let joinWithNext (currentText: string) (model: VM) (dispatch: Msg -> unit) : VM 
                                     [ if joinedText <> nextNode.text then
                                           yield Op.SetText(nextId, nextNode.text, joinedText)
                                       if not currentNode.children.IsEmpty then
-                                          yield Op.Replace(nextId, 0, [], currentNode.children)
-                                      yield Op.Replace(currParentId, currIndexInParent, [currentId], []) ]
-                                let change = { id = model.revision.Value; changeId = System.Guid.NewGuid(); ops = ops }
+                                          yield Op.Replace
+                                              (nextId, 0, [], currentNode.children)
+                                      yield Op.Replace
+                                          (currParentId, currIndexInParent, [currentId], [])
+                                      ]
+                                let change =
+                                    { id = model.revision.Value
+                                      changeId = System.Guid.NewGuid()
+                                      ops = ops }
                                 match applyAndPost change model dispatch with
                                 | None -> model
                                 | Some m ->
                                     let result = withSiteMap m
                                     { result with
                                         mode = Editing (joinedText, None, Some cursorPos)
-                                        selectedNodes = singleSelection result.graph result.siteMap nextId }
+                                        selectedNodes =
+                                            singleSelection result.graph result.siteMap nextId }
     | _ -> model
 
 let joinWithPrevious (currentText: string) (model: VM) (dispatch: Msg -> unit) : VM =
@@ -579,16 +653,21 @@ let joinWithPrevious (currentText: string) (model: VM) (dispatch: Msg -> unit) :
                         [ if joinedText <> prevNode.text then
                               yield Op.SetText(prevId, prevNode.text, joinedText)
                           if not currentNode.children.IsEmpty then
-                              yield Op.Replace(prevId, prevNode.children.Length, [], currentNode.children)
+                              yield Op.Replace
+                                  (prevId, prevNode.children.Length, [], currentNode.children)
                           yield Op.Replace(parentId, indexInParent, [currentId], []) ]
-                    let change = { id = model.revision.Value; changeId = System.Guid.NewGuid(); ops = ops }
+                    let change =
+                        { id = model.revision.Value
+                          changeId = System.Guid.NewGuid()
+                          ops = ops }
                     match applyAndPost change model dispatch with
                     | None -> model
                     | Some m ->
                         let result = withSiteMap m
                         { result with
                             mode = Editing (joinedText, None, Some cursorPos)
-                            selectedNodes = singleSelection result.graph result.siteMap prevId }
+                            selectedNodes =
+                                singleSelection result.graph result.siteMap prevId }
     | _ -> model
 
 // ---------------------------------------------------------------------------
@@ -664,8 +743,11 @@ let selectRow (nodeId: NodeId) (model: VM) (dispatch: Msg -> unit) : VM =
             let model' = commitTextEdit editingId originalText newText model dispatch
             { model' with selectedNodes = singleSelection model'.graph model'.siteMap nodeId }
         | _ ->
-            { model with selectedNodes = singleSelection model.graph model.siteMap nodeId; mode = Selecting }
-    if not (System.Object.ReferenceEquals(result.graph, model.graph)) then withSiteMap result else result
+            { model with
+                selectedNodes = singleSelection model.graph model.siteMap nodeId
+                mode = Selecting }
+    if not (System.Object.ReferenceEquals(result.graph, model.graph)) then
+        withSiteMap result else result
 
 /// Op: Select a specific view-line by instanceId, committing any in-progress edit first.
 /// Prefer this over selectRow when a nodeId may appear multiple times in the view.
@@ -678,8 +760,11 @@ let selectInstance (instanceId: int) (model: VM) (dispatch: Msg -> unit) : VM =
             let model' = commitTextEdit editingId originalText newText model dispatch
             { model' with selectedNodes = singleSelectionForInstance model'.siteMap instanceId }
         | _ ->
-            { model with selectedNodes = singleSelectionForInstance model.siteMap instanceId; mode = Selecting }
-    if not (System.Object.ReferenceEquals(result.graph, model.graph)) then withSiteMap result else result
+            { model with
+                selectedNodes = singleSelectionForInstance model.siteMap instanceId
+                mode = Selecting }
+    if not (System.Object.ReferenceEquals(result.graph, model.graph)) then
+        withSiteMap result else result
 
 /// Op: Move selection up, committing any in-progress edit first.
 let moveSelectionUp (model: VM) (dispatch: Msg -> unit) : VM =
@@ -690,7 +775,8 @@ let moveSelectionUp (model: VM) (dispatch: Msg -> unit) : VM =
             match model.mode with
             | Editing _ -> moveSelectionBy -1 (commitIfEditing model dispatch)
             | _         -> applyMoveSelectionUp model
-        if not (System.Object.ReferenceEquals(result.graph, model.graph)) then withSiteMap result else result
+        if not (System.Object.ReferenceEquals(result.graph, model.graph)) then
+            withSiteMap result else result
 
 /// Op: Move selection down, committing any in-progress edit first.
 let moveSelectionDown (model: VM) (dispatch: Msg -> unit) : VM =
@@ -701,7 +787,8 @@ let moveSelectionDown (model: VM) (dispatch: Msg -> unit) : VM =
             match model.mode with
             | Editing _ -> moveSelectionBy 1 (commitIfEditing model dispatch)
             | _         -> applyMoveSelectionDown model
-        if not (System.Object.ReferenceEquals(result.graph, model.graph)) then withSiteMap result else result
+        if not (System.Object.ReferenceEquals(result.graph, model.graph)) then
+            withSiteMap result else result
 
 /// Op: Extend or shrink the selection by one row (Shift+Arrow).
 let shiftArrowOp (delta: int) (model: VM) _dispatch : VM = shiftArrow delta model
@@ -735,7 +822,8 @@ let moveNodeDownOp (model: VM) (dispatch: Msg -> unit) : VM =
     moveNode 1 (commitIfEditing model dispatch) dispatch |> withSiteMap
 
 /// Op: Paste text into the model. preferredNodeIds from clipboard format, if present.
-let pasteNodesOp (pastedText: string) (preferredNodeIds: string option) (model: VM) (dispatch: Msg -> unit) : VM =
+let pasteNodesOp (pastedText: string) (preferredNodeIds: string option) (model: VM)
+    (dispatch: Msg -> unit) : VM =
     pasteNodes pastedText preferredNodeIds model dispatch |> withSiteMap
 
 /// Op: Toggle fold for a specific site-map entry.
@@ -746,7 +834,8 @@ let toggleFoldOp (instanceId: int) (model: VM) _dispatch : VM =
         if entry.expanded then
             { model with siteMap = ViewModel.toggleFold instanceId model.siteMap }
         else
-            let siteMap, nextId = ViewModel.expandEntry instanceId model.graph model.siteMap model.nextInstanceId
+            let siteMap, nextId =
+                ViewModel.expandEntry instanceId model.graph model.siteMap model.nextInstanceId
             { model with siteMap = siteMap; nextInstanceId = nextId }
 
 /// Op: ArrowLeft in selection — fold if expanded, else move to parent.
@@ -783,7 +872,8 @@ let arrowRightSelectionOp (model: VM) _dispatch : VM =
             let hasChildren = not node.children.IsEmpty
             if not hasChildren then model
             elif not entry.expanded then
-                let siteMap, nextId = ViewModel.expandEntry focusInstId model.graph model.siteMap model.nextInstanceId
+                let siteMap, nextId =
+                    ViewModel.expandEntry focusInstId model.graph model.siteMap model.nextInstanceId
                 { model with siteMap = siteMap; nextInstanceId = nextId }
             else
                 match entry.children with
@@ -809,7 +899,8 @@ let toggleFoldSelectionOp (model: VM) _dispatch : VM =
                 | None -> false)
         if anyExpanded then
             let siteMap =
-                selectedInstIds |> List.fold (fun sm instId -> ViewModel.toggleFold instId sm) model.siteMap
+                selectedInstIds
+                |> List.fold (fun sm instId -> ViewModel.toggleFold instId sm) model.siteMap
             { model with siteMap = siteMap }
         else
             let siteMap, nextId =
@@ -818,8 +909,8 @@ let toggleFoldSelectionOp (model: VM) _dispatch : VM =
                     (model.siteMap, model.nextInstanceId)
             { model with siteMap = siteMap; nextInstanceId = nextId }
 
-/// Op: Duplicate the selected nodes as references — insert the same NodeIds beside the selection.
-/// Inserts at range.endd (right after the selection); selection expands to include the new references.
+/// Op: Duplicate the selected nodes as references — insert the same NodeIds beside.
+/// Inserts at range.endd; selection expands to include the new references.
 let duplicateSelectionOp (model: VM) (dispatch: Msg -> unit) : VM =
     match model.selectedNodes with
     | None -> model
@@ -828,7 +919,10 @@ let duplicateSelectionOp (model: VM) (dispatch: Msg -> unit) : VM =
         if selectedIds.IsEmpty then model
         else
             let insertOp = Op.Replace(sel.range.parent.nodeId, sel.range.endd, [], selectedIds)
-            let change = { id = model.revision.Value; changeId = System.Guid.NewGuid(); ops = [ insertOp ] }
+            let change =
+                { id = model.revision.Value
+                  changeId = System.Guid.NewGuid()
+                  ops = [ insertOp ] }
             match applyAndPost change model dispatch with
             | None -> model
             | Some m ->
@@ -843,7 +937,10 @@ let deleteSelectionOp (model: VM) (dispatch: Msg -> unit) : VM =
     | None -> model
     | Some sel ->
         let selectedIds = rangeChildren model.graph sel.range
-        let change = { id = model.revision.Value; changeId = System.Guid.NewGuid(); ops = [ Op.Replace(sel.range.parent.nodeId, sel.range.start, selectedIds, []) ] }
+        let change =
+            { id = model.revision.Value
+              changeId = System.Guid.NewGuid()
+              ops = [ Op.Replace(sel.range.parent.nodeId, sel.range.start, selectedIds, []) ] }
         match applyAndPost change model dispatch with
         | None -> model
         | Some m ->
@@ -851,10 +948,12 @@ let deleteSelectionOp (model: VM) (dispatch: Msg -> unit) : VM =
             let newSel =
                 if sel.range.start < newChildren.Length then
                     let i = sel.range.start
-                    Some { range = { parent = sel.range.parent; start = i; endd = i + 1 }; focus = i }
+                    Some { range = { parent = sel.range.parent; start = i; endd = i + 1 }
+                           focus = i }
                 elif sel.range.start > 0 then
                     let i = sel.range.start - 1
-                    Some { range = { parent = sel.range.parent; start = i; endd = i + 1 }; focus = i }
+                    Some { range = { parent = sel.range.parent; start = i; endd = i + 1 }
+                           focus = i }
                 else
                     singleSelection m.graph m.siteMap sel.range.parent.nodeId
             { m with selectedNodes = newSel }
@@ -864,7 +963,7 @@ let deleteSelectionOp (model: VM) (dispatch: Msg -> unit) : VM =
 let private promptDialog (msg: string) (def: string) : string = jsNative
 
 /// Op: Prompt for a CSS class name and toggle its presence on all selected nodes.
-/// If all selected nodes have the class, removes it from all; otherwise adds it to any that lack it.
+/// If all selected nodes have the class, removes it; else adds it to any that lack it.
 /// Accepts any legal CSS identifier that does not start with "amb-".
 let toggleClassOp (model: VM) (dispatch: Msg -> unit) : VM =
     match model.selectedNodes with
@@ -881,7 +980,10 @@ let toggleClassOp (model: VM) (dispatch: Msg -> unit) : VM =
                     parentNode.children
                     |> List.skip sel.range.start
                     |> List.take (sel.range.endd - sel.range.start)
-                let allHave = selectedIds |> List.forall (fun nid -> CssClass.contains name model.graph.nodes.[nid].cssClasses)
+                let allHave =
+                    selectedIds
+                    |> List.forall (fun nid ->
+                        CssClass.contains name model.graph.nodes.[nid].cssClasses)
                 let ops =
                     selectedIds
                     |> List.choose (fun nid ->
@@ -894,7 +996,10 @@ let toggleClassOp (model: VM) (dispatch: Msg -> unit) : VM =
                         else Some (Op.SetClasses(nid, oldClasses, CssClass.toggle name oldClasses)))
                 if ops.IsEmpty then model
                 else
-                    let change = { id = model.revision.Value; changeId = System.Guid.NewGuid(); ops = ops }
+                    let change =
+                        { id = model.revision.Value
+                          changeId = System.Guid.NewGuid()
+                          ops = ops }
                     match applyAndPost change model dispatch with
                     | Some m -> m
                     | None -> model
@@ -919,7 +1024,8 @@ let zoomInOp (model: VM) (dispatch: Msg -> unit) : VM =
         let zoomNode = model'.graph.nodes.[zoomNodeId]
         if zoomNode.children.IsEmpty then model'
         else
-            let siteMap, nextId = ViewModel.buildSiteMapFrom model'.graph zoomNodeId model'.nextInstanceId
+            let siteMap, nextId =
+                ViewModel.buildSiteMapFrom model'.graph zoomNodeId model'.nextInstanceId
             { model' with
                 zoomRoot = Some zoomNodeId
                 siteMap = siteMap
@@ -940,7 +1046,8 @@ let zoomOutOp (model: VM) (dispatch: Msg -> unit) : VM =
             | Some (parentId, _) ->
                 if parentId = model'.graph.root then None else Some parentId
         let effectiveRoot = newZoomRoot |> Option.defaultValue model'.graph.root
-        let siteMap, nextId = ViewModel.buildSiteMapFrom model'.graph effectiveRoot model'.nextInstanceId
+        let siteMap, nextId =
+            ViewModel.buildSiteMapFrom model'.graph effectiveRoot model'.nextInstanceId
         { model' with
             zoomRoot = newZoomRoot
             siteMap = siteMap
@@ -989,7 +1096,10 @@ let redoOp (model: VM) (dispatch: Msg -> unit) : VM =
     | Some headChange ->
         match History.redo state with
         | ApplyResult.Changed newState ->
-            let reChange = { headChange with id = model'.history.nextId; changeId = System.Guid.NewGuid() }
+            let reChange =
+                { headChange with
+                    id = model'.history.nextId
+                    changeId = System.Guid.NewGuid() }
             let wasEmpty = model'.pendingChanges.IsEmpty
             let pending = model'.pendingChanges @ [reChange]
             savePendingQueue pending
