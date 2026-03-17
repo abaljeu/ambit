@@ -124,8 +124,6 @@ Third item
 		blue
 		ue
 #n5 ha
-	{.blue}eau
-		
 	{.blue}blue
 	{.h2}water
 	
@@ -138,4 +136,6 @@ Third item
 		i
 	
 	euo
+	{.blue}eau
+		
 -> #n5

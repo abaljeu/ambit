@@ -553,18 +553,29 @@ let moveNodeDelta (delta: int) (model: VM) (dispatch: Msg -> unit) : VM =
             elif delta > 0 && range.endd < parentLen then
                 // Move to after sibling below
                 Some ({ parent = range.parent; start = range.endd; endd = range.endd + 1 } : SiteNodeRange)
-            elif delta = -1 then
-                // Move to end of previous sibling (if expanded)
-                SiteNodeRange.firstChild range model.siteMap
-                |> Option.bind (fun fc -> parentSiblingOpen -1 fc model)
-                |> Option.map (fun sib ->
-                    let insertIdx = model.graph.nodes.[sib.nodeId].children.Length
-                    { parent = sib; start = insertIdx; endd = insertIdx } : SiteNodeRange)
-            elif delta = 1 then
-                // Move to beginning of next sibling (if expanded)
-                SiteNodeRange.lastChild range model.siteMap
-                |> Option.bind (fun lc -> parentSiblingOpen 1 lc model)
-                |> Option.map (fun sib -> { parent = sib; start = 0; endd = 0 } : SiteNodeRange)
+            elif delta = -1 || delta = 1 then
+                let effectiveRoot = model.zoomRoot |> Option.defaultValue model.graph.root
+                let moveToSib =
+                    (if delta = -1 then SiteNodeRange.firstChild else SiteNodeRange.lastChild) range model.siteMap
+                    |> Option.bind (fun child -> parentSiblingOpen delta child model)
+                    |> Option.map (fun sib ->
+                        if delta = -1 then
+                            let insertIdx = model.graph.nodes.[sib.nodeId].children.Length
+                            { parent = sib; start = insertIdx; endd = insertIdx } : SiteNodeRange
+                        else
+                            { parent = sib; start = 0; endd = 0 } : SiteNodeRange)
+                let moveToGrandparent =
+                    if range.parent.nodeId = effectiveRoot then None
+                    else
+                        range.parent.parentInstanceId
+                        |> Option.bind (fun gpid -> Map.tryFind gpid model.siteMap.entries)
+                        |> Option.bind (fun gp ->
+                            model.graph.nodes.[gp.nodeId].children
+                            |> List.tryFindIndex ((=) range.parent.nodeId)
+                            |> Option.map (fun parentIdx ->
+                                let insertIdx = parentIdx + (if delta = -1 then 0 else 1)
+                                { parent = gp; start = insertIdx; endd = insertIdx } : SiteNodeRange))
+                moveToSib |> Option.orElseWith (fun () -> moveToGrandparent)
             else None
         match too with
         | None -> model
