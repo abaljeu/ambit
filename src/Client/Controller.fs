@@ -5,6 +5,7 @@ open Browser.Types
 open Fable.Core
 open Gambol.Shared
 open Gambol.Shared.Paste
+open Gambol.Shared.ViewModel
 open Gambol.Client.Update
 
 // ---------------------------------------------------------------------------
@@ -22,22 +23,49 @@ let getClipboardData (ev: Event) (format: string) : string = jsNative
 
 let private nodeIdsFormat = "application/x-gambol-nodeids"
 
-/// Read node IDs format from a paste event, if present.
+/// Prefix for "copy as links" in text/plain (Clipboard API only supports text/plain).
+let private nodeIdsPrefix = "x-gambol-nodeids:"
+
+/// Read node IDs from a paste event. Checks text/plain for prefix first (async copy), else application/x-gambol-nodeids (sync cut).
 let getPasteNodeIds (ev: Event) : string option =
-    let s = getClipboardData ev nodeIdsFormat
-    if s = "" || isNull s then None else Some s
+    let plain = getClipboardData ev "text/plain"
+    if plain.StartsWith nodeIdsPrefix then
+        plain.Substring nodeIdsPrefix.Length
+        |> fun s -> s.TrimStart([| '\r'; '\n' |])
+        |> fun s -> if s = "" then None else Some s
+    else
+        let s = getClipboardData ev nodeIdsFormat
+        if s = "" || isNull s then None else Some s
 
 /// Write a named format to a copy/cut ClipboardEvent's clipboardData.
 [<Emit("$0.clipboardData.setData($1,$2)")>]
 let setClipboardData (ev: Event) (format: string) (data: string) : unit = jsNative
 
-[<Emit("navigator.clipboard.write([new ClipboardItem({'text/plain'
-    :new Blob([$0],{type:'text/plain'}),'" 
-    + "application/x-gambol-nodeids" + "':new Blob([$0],{type:'text/plain'})})]).then(()=>{$1();})")>]
-let private writeClipboardTextAndNodeIds (text: string) (continuation: unit -> unit) : unit = jsNative
+/// Last successful operation for diagnostic display (preserved when key has no match).
+let private lastSuccessfulOp = ref None
 
-/// Copy selection as raw NodeId GUIDs (for paste-as-link). Bypasses the copy event.
-/// Sets both text/plain and application/x-gambol-nodeids for consistency with cut.
+/// Single function to set the last-key diagnostic. Never appends; always replaces. Preserves last successful operation when operation is None.
+let setLastKeyDisplay (key: string option) (operation: string option) : unit =
+    let el = document.getElementById "key-last-key"
+    if isNull el then () else
+    match operation with
+    | Some op -> lastSuccessfulOp := Some op
+    | None -> ()
+    let o = match operation with
+            | Some _ -> operation
+            | None -> lastSuccessfulOp.contents
+    let txt =
+        match key, o with
+        | None, None -> " | Last key: (none)"
+        | Some keyStr, None -> " | Last key: " + keyStr
+        | Some keyStr, Some op -> " | Last key: " + keyStr + " → " + op
+        | None, Some op -> " | Last key: Palette → " + op
+    el.textContent <- txt
+
+[<Emit("navigator.clipboard.writeText($0).then(function(){ $1(); }).catch(function(e){ console.error('Clipboard write failed:', e); })")>]
+let private writeClipboardText (text: string) (continuation: unit -> unit) : unit = jsNative
+
+/// Copy selection as raw NodeId GUIDs (for paste-as-link). Writes text/plain with x-gambol-nodeids prefix.
 let copySelectionAsLinks (model: VM) (dispatch: Msg -> unit) : VM =
     match model.selectedNodes with
     | None -> model
@@ -51,7 +79,7 @@ let copySelectionAsLinks (model: VM) (dispatch: Msg -> unit) : VM =
             selectedIds
             |> List.map (fun (NodeId guid) -> guid.ToString())
             |> String.concat "\n"
-        writeClipboardTextAndNodeIds idsText ignore
+        writeClipboardText (nodeIdsPrefix + "\n" + idsText) ignore
         copySelectionOp model dispatch
 
 /// Get the character offset at a given client (x, y) position using the browser's caret APIs.
@@ -64,13 +92,20 @@ let onPaste (ev: Event) (applyOp: VmMsgUnitVm -> unit) : unit =
     let plain = getClipboardData ev "text/plain"
     let text  = if plain <> "" then plain else stripHtmlToText (getClipboardData ev "text/html")
     let nodeIds = getPasteNodeIds ev
-    if text <> "" then applyOp (pasteNodesOp text nodeIds)
+    let pastedText =
+        match nodeIds with
+        | Some ids -> ids
+        | _ -> text
+    if pastedText <> "" then
+        setLastKeyDisplay (Some "Ctrl+V") (Some "Paste")
+        applyOp (pasteNodesOp pastedText nodeIds)
 
 let private onCopyOrCut (model: VM) (ev: Event) (applyOp: VmMsgUnitVm -> unit) (op: VmMsgUnitVm) (includeNodeIds: bool) : unit =
     match model.selectedNodes with
     | None -> ()
     | Some sel ->
         ev.preventDefault()
+        setLastKeyDisplay (Some (if includeNodeIds then "Ctrl+X" else "Ctrl+C")) (Some (if includeNodeIds then "Cut" else "Copy"))
         let parentNode = model.graph.nodes.[sel.range.parent.nodeId]
         let selectedIds =
             parentNode.children
@@ -123,19 +158,6 @@ let private formatKeyCombo (ke: KeyboardEvent) : string =
     parts.Add ke.key
     String.concat "+" parts
 
-/// Single function to set the last-key diagnostic. Never appends; always replaces.
-/// key: the key combo (if any); operation: the command/operation name (if any).
-let setLastKeyDisplay (key: string option) (operation: string option) : unit =
-    let el = document.getElementById "key-last-key"
-    if isNull el then () else
-    let txt =
-        match key, operation with
-        | None, None -> " | Last key: (none)"
-        | Some k, None -> " | Last key: " + k
-        | Some k, Some o -> " | Last key: " + k + " → " + o
-        | None, Some o -> " | Last key: Palette → " + o
-    el.textContent <- txt
-
 type SelectionKeyContext =
     { keyEvent: KeyboardEvent
       selectedNodeText: string }
@@ -145,7 +167,6 @@ type EditingKeyContext = { keyEvent: KeyboardEvent; editInput: HTMLInputElement 
 type KeyContext =
     | SelectionKey of SelectionKeyContext
     | EditingKey of EditingKeyContext
-    | Palette
 
 type PaletteKeyContext = { keyEvent: KeyboardEvent }
 
@@ -159,9 +180,12 @@ let printableKeyToken = "__PRINTABLE__"
 // ---------------------------------------------------------------------------
 
 /// Helpers for the generic (sel/edit) patterns. Used when defining named key ops.
-let private selOnly op = function SelectionKey _ | Palette -> Some op | _ -> None
-let private editOnly op = function EditingKey _ | Palette -> Some op | _ -> None
+let private selOnly (f: SelectionKeyContext -> VmMsgUnitVm option) = function SelectionKey s -> f s | _ -> None
+let private editOnly (f: EditingKeyContext -> VmMsgUnitVm option) = function EditingKey e -> f e | _ -> None
 let private both op = fun _ -> Some op
+
+[<Emit("new KeyboardEvent('keydown',{key:'',bubbles:true})")>]
+let private dummyKeyEvent () : KeyboardEvent = jsNative
 
 /// Enter edit mode: use key as prefill if printable, else keep existing text.
 let private startEditFromKey (key: string) (existingText: string) : VmMsgUnitVm =
@@ -207,38 +231,9 @@ let handleArrowRight (ctx: EditingKeyContext) : VmMsgUnitVm option =
 // Named key ops (KeyContext -> VmMsgUnitVm option) — one per command
 // ---------------------------------------------------------------------------
 
-/// Context-dependent key ops (8)
+/// Context-dependent key op
 let private editNodeKeyOp = function
     | SelectionKey s -> Some (startEditFromKey s.keyEvent.key s.selectedNodeText)
-    | Palette -> Some startEditOp
-    | _ -> None
-
-let private splitAtCursorKeyOp = function
-    | EditingKey e -> splitAtCursor e
-    | _ -> None
-
-let private joinWithPreviousKeyOp = function
-    | EditingKey e -> handleBackspace e
-    | _ -> None
-
-let private joinWithNextKeyOp = function
-    | EditingKey e -> handleDelete e
-    | _ -> None
-
-let private moveToPreviousNodeKeyOp = function
-    | EditingKey e -> handleArrowLeft e
-    | _ -> None
-
-let private moveToNextNodeKeyOp = function
-    | EditingKey e -> handleArrowRight e
-    | _ -> None
-
-let private moveEditUpKeyOp = function
-    | EditingKey e -> editMoveUp e
-    | _ -> None
-
-let private moveEditDownKeyOp = function
-    | EditingKey e -> editMoveDown e
     | _ -> None
 
 // ---------------------------------------------------------------------------
@@ -259,59 +254,59 @@ let commandRegistry : CommandEntry list =
         sel = true; edit = false
         keys = ["F2"; "Enter"] }
       { name = "Split at cursor"
-        op = splitAtCursorKeyOp
+        op = editOnly splitAtCursor
         sel = false; edit = true
         keys = ["Enter"] }
       { name = "Delete"
-        op = selOnly deleteSelectionOp
+        op = selOnly (fun _ -> Some deleteSelectionOp)
         sel = true; edit = false
         keys = ["Delete"; "Backspace"] }
       { name = "Join with previous"
-        op = joinWithPreviousKeyOp
+        op = editOnly handleBackspace
         sel = false; edit = true
         keys = ["Backspace"] }
       { name = "Join with next"
-        op = joinWithNextKeyOp
+        op = editOnly handleDelete
         sel = false; edit = true
         keys = ["Delete"] }
       { name = "Move selection up"
-        op = selOnly moveSelectionUp
+        op = selOnly (fun _ -> Some moveSelectionUp)
         sel = true; edit = false
         keys = ["ArrowUp"] }
       { name = "Move selection down"
-        op = selOnly moveSelectionDown
+        op = selOnly (fun _ -> Some moveSelectionDown)
         sel = true; edit = false
         keys = ["ArrowDown"] }
       { name = "Move focus left"
-        op = selOnly arrowLeftSelectionOp
+        op = selOnly (fun _ -> Some arrowLeftSelectionOp)
         sel = true; edit = false
         keys = ["ArrowLeft"] }
       { name = "Move to previous node"
-        op = moveToPreviousNodeKeyOp
+        op = editOnly handleArrowLeft
         sel = false; edit = true
         keys = ["ArrowLeft"; "Ctrl+ArrowLeft"] }
       { name = "Move focus right"
-        op = selOnly arrowRightSelectionOp
+        op = selOnly (fun _ -> Some arrowRightSelectionOp)
         sel = true; edit = false
         keys = ["ArrowRight"] }
       { name = "Move to next node"
-        op = moveToNextNodeKeyOp
+        op = editOnly handleArrowRight
         sel = false; edit = true
         keys = ["ArrowRight"; "Ctrl+ArrowRight"] }
       { name = "Extend selection up"
-        op = selOnly (shiftArrowOp -1)
+        op = selOnly (fun _ -> Some (shiftArrowOp -1))
         sel = true; edit = false
         keys = ["Shift+ArrowUp"] }
       { name = "Extend selection down"
-        op = selOnly (shiftArrowOp 1)
+        op = selOnly (fun _ -> Some (shiftArrowOp 1))
         sel = true; edit = false
         keys = ["Shift+ArrowDown"] }
       { name = "Move edit up"
-        op = moveEditUpKeyOp
+        op = editOnly editMoveUp
         sel = false; edit = true
         keys = ["ArrowUp"] }
       { name = "Move edit down"
-        op = moveEditDownKeyOp
+        op = editOnly editMoveDown
         sel = false; edit = true
         keys = ["ArrowDown"] }
       { name = "Move up"
@@ -355,7 +350,7 @@ let commandRegistry : CommandEntry list =
         sel = true; edit = true
         keys = ["Ctrl+y"] }
       { name = "Copy as links"
-        op = selOnly copySelectionAsLinks
+        op = selOnly (fun _ -> Some copySelectionAsLinks)
         sel = true; edit = false
         keys = ["Ctrl+Shift+c"] }
       { name = "Command palette"
@@ -377,6 +372,25 @@ let filteredCommands (query: string) : CommandEntry list =
         let q = query.ToLowerInvariant()
         paletteCommands |> List.filter (fun c -> c.name.ToLowerInvariant().Contains(q))
 
+/// Build KeyContext from the mode we're returning to when running a command from the palette.
+let contextFromReturnMode (ret: Mode) (model: VM) : KeyContext option =
+    match ret with
+    | Selecting ->
+        let viewRootId = model.zoomRoot |> Option.defaultValue model.graph.root
+        let rootNode = model.graph.nodes.[viewRootId]
+        let textToEdit =
+            match model.selectedNodes with
+            | None -> rootNode.text
+            | Some sel ->
+                let nodeId = focusedNodeId model.graph sel
+                model.graph.nodes.[nodeId].text
+        Some (SelectionKey { keyEvent = dummyKeyEvent (); selectedNodeText = textToEdit })
+    | Editing _ ->
+        match document.getElementById "edit-input" with
+        | null -> None
+        | el -> Some (EditingKey { keyEvent = dummyKeyEvent (); editInput = el :?> HTMLInputElement })
+    | CommandPalette _ -> None
+
 let private onPalette (f: string -> int -> Mode -> VM -> (Msg -> unit) -> VM)
                       (model: VM) (dispatch: Msg -> unit) : VM =
     match model.mode with
@@ -387,7 +401,7 @@ let paletteRunOp = onPalette (fun q selectedCommand ret model dispatch ->
     match List.tryItem selectedCommand (filteredCommands q) with
     | None     -> { model with mode = ret }
     | Some cmd ->
-        match cmd.op Palette with
+        match contextFromReturnMode ret model |> Option.bind (fun ctx -> cmd.op ctx) with
         | None     -> { model with mode = ret }
         | Some runOp ->
             setLastKeyDisplay None (Some cmd.name)

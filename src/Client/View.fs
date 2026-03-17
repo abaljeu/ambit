@@ -270,7 +270,7 @@ let renderCommandPalette (model: VM) (applyOp: VmMsgUnitVm -> unit) : unit =
                             match List.tryItem idx (filteredCommands q) with
                             | None -> { m with mode = ret }
                             | Some cmd ->
-                                match cmd.op Palette with
+                                match contextFromReturnMode ret m |> Option.bind (fun ctx -> cmd.op ctx) with
                                 | None -> { m with mode = ret }
                                 | Some runOp ->
                                     setLastKeyDisplay None (Some cmd.name)
