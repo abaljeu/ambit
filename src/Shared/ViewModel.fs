@@ -5,6 +5,7 @@ type Mode =
     | Editing of originalText: string * prefill: string option * cursorPos: int option
     // prefill: the initial text shown in the edit input (if different from originalText)
     // cursorPos: None = place cursor at end; Some n = place cursor at position n
+    | CommandPalette of query: string * selectedCommand: int * returnTo: Mode
 
 /// A rendered appearance of a node in a flat site map. Each appearance gets a unique
 /// instanceId so that fold state is per-occurrence, not per-NodeId.

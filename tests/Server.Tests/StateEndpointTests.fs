@@ -30,7 +30,11 @@ let private createClientForDir (tempDir: string) =
             .WithWebHostBuilder(fun builder ->
                 builder.ConfigureAppConfiguration(fun _ config ->
                     config.AddInMemoryCollection(
-                        dict [ "DataDir", tempDir ]
+                        dict [
+                            "DataDir", tempDir
+                            "Auth:Username", ""
+                            "Auth:Password", ""
+                        ]
                     ) |> ignore
                 ) |> ignore
             )
@@ -54,9 +58,9 @@ let private decodeGraph json =
         get.Required.Field "graph" Serialization.decodeGraph)
     |> decode <| json
 
-/// GET /{file}/state, assert 200 + JSON content type, return body string.
-let private getStateJson (client: HttpClient) (file: string) = task {
-    let! resp = client.GetAsync($"/{file}/state")
+/// GET /ambit/state, assert 200 + JSON content type, return body string.
+let private getStateJson (client: HttpClient) (_file: string) = task {
+    let! resp = client.GetAsync("/ambit/state")
     Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
     Assert.Equal("application/json", resp.Content.Headers.ContentType.MediaType)
     return! resp.Content.ReadAsStringAsync()
@@ -65,11 +69,11 @@ let private getStateJson (client: HttpClient) (file: string) = task {
 let private encodeChangeBody (change: Change) =
     Encode.toString 0 (Serialization.encodeChange change)
 
-/// POST /{file}/changes with a change and return the raw response.
-let private postChange (client: HttpClient) (file: string) (change: Change) = task {
+/// POST /ambit/changes with a change and return the raw response.
+let private postChange (client: HttpClient) (_file: string) (change: Change) = task {
     let body = encodeChangeBody change
     let content = new StringContent(body, Encoding.UTF8, "application/json")
-    return! client.PostAsync($"/{file}/changes", content)
+    return! client.PostAsync("/ambit/changes", content)
 }
 
 /// Read a file that may be held open by a FileAgent (shared read).
@@ -107,7 +111,7 @@ let ``POST changes SetText changes root text and bumps revision`` () = task {
     let! json0 = getStateJson client testFile
     let rootId = (decodeGraph json0).root
 
-    let change = { id = 0; ops = [ Op.SetText(rootId, "", "hello") ] }
+    let change = { id = 0; changeId = Guid.NewGuid(); ops = [ Op.SetText(rootId, "", "hello") ] }
     let! resp = postChange client testFile change
     Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
 
@@ -126,6 +130,7 @@ let ``POST changes NewNode+Replace adds child to root`` () = task {
 
     let change =
         { id = 0
+          changeId = Guid.NewGuid()
           ops =
             [ Op.NewNode(childId, "child")
               Op.Replace(rootId, 0, [], [ childId ]) ] }
@@ -146,7 +151,7 @@ let ``POST changes with invalid JSON returns 400`` () = task {
     // First touch the file so the agent is created
     let! _ = getStateJson client testFile
     let content = new StringContent("not json", Encoding.UTF8, "application/json")
-    let! resp = client.PostAsync($"/{testFile}/changes", content)
+    let! resp = client.PostAsync("/ambit/changes", content)
     Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode)
 }
 
@@ -155,7 +160,7 @@ let ``POST changes with bad op returns 400`` () = task {
     use client = createClient ()
     let! _ = getStateJson client testFile
     let bogusId = NodeId.New()
-    let change = { id = 0; ops = [ Op.SetText(bogusId, "wrong", "new") ] }
+    let change = { id = 0; changeId = Guid.NewGuid(); ops = [ Op.SetText(bogusId, "wrong", "new") ] }
     let! resp = postChange client testFile change
     Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode)
 }
@@ -166,10 +171,10 @@ let ``POST changes twice bumps revision to 2`` () = task {
     let! json0 = getStateJson client testFile
     let rootId = (decodeGraph json0).root
 
-    let! resp1 = postChange client testFile { id = 0; ops = [ Op.SetText(rootId, "", "first") ] }
+    let! resp1 = postChange client testFile { id = 0; changeId = Guid.NewGuid(); ops = [ Op.SetText(rootId, "", "first") ] }
     Assert.Equal(HttpStatusCode.OK, resp1.StatusCode)
 
-    let change2 = { id = 1; ops = [ Op.SetText(rootId, "first", "second") ] }
+    let change2 = { id = 1; changeId = Guid.NewGuid(); ops = [ Op.SetText(rootId, "first", "second") ] }
     let! resp2 = postChange client testFile change2
     Assert.Equal(HttpStatusCode.OK, resp2.StatusCode)
 
@@ -184,7 +189,7 @@ let ``POST changes persists in GET state`` () = task {
     let! json0 = getStateJson client testFile
     let rootId = (decodeGraph json0).root
 
-    let! _ = postChange client testFile { id = 0; ops = [ Op.SetText(rootId, "", "persisted") ] }
+    let! _ = postChange client testFile { id = 0; changeId = Guid.NewGuid(); ops = [ Op.SetText(rootId, "", "persisted") ] }
 
     let! json = getStateJson client testFile
     Assert.Equal(Revision 1, decodeRevision json)
@@ -198,6 +203,7 @@ let private addChild (client: HttpClient) (file: string) (rootId: NodeId) (rev: 
     let childId = NodeId.New()
     let change =
         { id = rev.Value
+          changeId = Guid.NewGuid()
           ops =
             [ Op.NewNode(childId, text)
               Op.Replace(rootId, 0, [], [ childId ]) ] }
@@ -277,7 +283,8 @@ let ``New server uses snapshot + log replay`` () = task {
     let rootId2 = (decodeGraph json1).root
     let root = (decodeGraph json1).nodes.[rootId2]
     let firstChildId = root.children.[0]
-    let! _ = postChange client1 testFile { id = 1; ops = [ Op.SetText(firstChildId, "first", "updated") ] }
+    let! _ = postChange client1 testFile { id = 1; changeId = Guid.NewGuid(); 
+        ops = [ Op.SetText(firstChildId, "first", "updated") ] }
 
     // New server — should load snapshot (rev 1) + replay change 1 from log
     use client2 = createClientForDir tempDir

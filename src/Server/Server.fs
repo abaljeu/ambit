@@ -1,4 +1,4 @@
-﻿namespace Gambol.Server
+namespace Gambol.Server
 
 open System
 open System.IO
@@ -66,10 +66,13 @@ module Main =
         let expectedPass = config.["Auth:Password"] |> Option.ofObj |> Option.defaultValue ""
         let validToken = deriveToken expectedUser expectedPass
 
+        let authDisabled = expectedUser = "" && expectedPass = ""
         let isAuthenticated (req: HttpRequest) =
-            match req.Cookies.TryGetValue(cookieName) with
-            | true, cookie -> cookie = validToken
-            | _ -> false
+            if authDisabled then true
+            else
+                match req.Cookies.TryGetValue(cookieName) with
+                | true, cookie -> cookie = validToken
+                | _ -> false
 
         let setAuthCookie (resp: HttpResponse) =
             let opts =
@@ -86,6 +89,22 @@ module Main =
         app.UseStaticFiles() |> ignore
         // Serve wwwroot under /ambit so assets work when app is mounted at /ambit
         app.UseStaticFiles(StaticFileOptions(RequestPath = PathString("/ambit"))) |> ignore
+
+        // Development only: serve Client/Shared source files so Chrome DevTools can load mapped sources
+        if app.Environment.EnvironmentName = "Development" then
+            let contentRoot = app.Environment.ContentRootPath
+            let clientDir = Path.GetFullPath(Path.Combine(contentRoot, "..", "Client"))
+            let sharedDir = Path.GetFullPath(Path.Combine(contentRoot, "..", "Shared"))
+            let serveSource (dir: string) (path: string) =
+                let fullPath = Path.GetFullPath(Path.Combine(dir, path))
+                if fullPath.StartsWith(dir, StringComparison.OrdinalIgnoreCase)
+                   && File.Exists(fullPath)
+                   && (path.EndsWith(".fs", StringComparison.OrdinalIgnoreCase)
+                       || path.EndsWith(".fsx", StringComparison.OrdinalIgnoreCase))
+                then Results.File(fullPath, "text/plain")
+                else Results.NotFound()
+            app.MapGet("/Client/{*path}", Func<string, IResult>(fun path -> serveSource clientDir path)) |> ignore
+            app.MapGet("/Shared/{*path}", Func<string, IResult>(fun path -> serveSource sharedDir path)) |> ignore
 
         match dataDirResult with
         | Error ex ->

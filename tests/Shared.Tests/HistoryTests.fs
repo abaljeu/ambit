@@ -48,7 +48,7 @@ let ``AddOp appends to change`` () =
 let ``AddChange pushes to past and clears future`` () =
     let history0 =
         { History.empty with
-            future = [ { id = 99; ops = [] } ] }
+            future = [ { id = 99; changeId = System.Guid.NewGuid(); ops = [] } ] }
 
     let change: Change = History.newChange history0
     let history1 = History.addChange change history0

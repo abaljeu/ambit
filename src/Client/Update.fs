@@ -239,6 +239,7 @@ let pasteNodes (pastedText: string) (preferredNodeIds: string option) (model: VM
                 if ids.IsEmpty then None else Some ids
 
         match model.mode with
+        | CommandPalette _ -> model
         | Selecting ->
             let topLevelIds, pasteOps =
                 match tryLinkIds () with
@@ -580,6 +581,7 @@ let cancelEdit (model: VM) _dispatch : VM =
     match model.mode with
     | Editing _ -> { model with mode = Selecting }
     | Selecting -> { model with selectedNodes = None }
+    | CommandPalette _ -> model  // handled by closeCommandPaletteOp
 
 /// Op: Copy the focused subtree to the internal clipboard.
 let copySelectionOp (model: VM) _dispatch : VM =
@@ -623,6 +625,16 @@ let startEditAtPos (prefill: string) (cursorPos: int) (model: VM) _dispatch : VM
         let node = model.graph.nodes.[nodeId]
         { model with mode = Editing (node.text, Some prefill, Some cursorPos) }
 
+/// Op: Open the command palette, preserving the current mode as returnTo.
+let openCommandPaletteOp (model: VM) _dispatch : VM =
+    { model with mode = CommandPalette ("", 0, model.mode) }
+
+/// Op: Close the command palette, restoring the prior mode.
+let closeCommandPaletteOp (model: VM) _dispatch : VM =
+    match model.mode with
+    | CommandPalette (_, _, ret) -> { model with mode = ret }
+    | _ -> model
+
 /// Op: Select a specific node, committing any in-progress edit first.
 let selectRow (nodeId: NodeId) (model: VM) (dispatch: Msg -> unit) : VM =
     let result =
@@ -652,19 +664,27 @@ let selectInstance (instanceId: int) (model: VM) (dispatch: Msg -> unit) : VM =
 
 /// Op: Move selection up, committing any in-progress edit first.
 let moveSelectionUp (model: VM) (dispatch: Msg -> unit) : VM =
-    let result =
-        match model.mode with
-        | Editing _ -> moveSelectionBy -1 (commitIfEditing model dispatch)
-        | Selecting -> applyMoveSelectionUp model
-    if not (System.Object.ReferenceEquals(result.graph, model.graph)) then withSiteMap result else result
+    match model.mode with
+    | CommandPalette (q, selectedCommand, ret) ->
+        { model with mode = CommandPalette (q, max 0 (selectedCommand - 1), ret) }
+    | _ ->
+        let result =
+            match model.mode with
+            | Editing _ -> moveSelectionBy -1 (commitIfEditing model dispatch)
+            | _         -> applyMoveSelectionUp model
+        if not (System.Object.ReferenceEquals(result.graph, model.graph)) then withSiteMap result else result
 
 /// Op: Move selection down, committing any in-progress edit first.
 let moveSelectionDown (model: VM) (dispatch: Msg -> unit) : VM =
-    let result =
-        match model.mode with
-        | Editing _ -> moveSelectionBy 1 (commitIfEditing model dispatch)
-        | Selecting -> applyMoveSelectionDown model
-    if not (System.Object.ReferenceEquals(result.graph, model.graph)) then withSiteMap result else result
+    match model.mode with
+    | CommandPalette (q, selectedCommand, ret) ->
+        { model with mode = CommandPalette (q, selectedCommand + 1, ret) }
+    | _ ->
+        let result =
+            match model.mode with
+            | Editing _ -> moveSelectionBy 1 (commitIfEditing model dispatch)
+            | _         -> applyMoveSelectionDown model
+        if not (System.Object.ReferenceEquals(result.graph, model.graph)) then withSiteMap result else result
 
 /// Op: Extend or shrink the selection by one row (Shift+Arrow).
 let shiftArrowOp (delta: int) (model: VM) _dispatch : VM = shiftArrow delta model

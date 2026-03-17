@@ -31,7 +31,9 @@ let getPasteNodeIds (ev: Event) : string option =
 [<Emit("$0.clipboardData.setData($1,$2)")>]
 let setClipboardData (ev: Event) (format: string) (data: string) : unit = jsNative
 
-[<Emit("navigator.clipboard.write([new ClipboardItem({'text/plain':new Blob([$0],{type:'text/plain'}),'" + "application/x-gambol-nodeids" + "':new Blob([$0],{type:'text/plain'})})]).then(()=>{$1();})")>]
+[<Emit("navigator.clipboard.write([new ClipboardItem({'text/plain'
+    :new Blob([$0],{type:'text/plain'}),'" 
+    + "application/x-gambol-nodeids" + "':new Blob([$0],{type:'text/plain'})})]).then(()=>{$1();})")>]
 let private writeClipboardTextAndNodeIds (text: string) (continuation: unit -> unit) : unit = jsNative
 
 /// Copy selection as raw NodeId GUIDs (for paste-as-link). Bypasses the copy event.
@@ -126,7 +128,17 @@ let recordKeyAndRenderDiagnostic (ke: KeyboardEvent) : unit =
     let key = formatKeyCombo ke
     let el = document.getElementById "key-last-key"
     if not (isNull el) then
-        el.textContent <- " | Last key: " + key 
+        el.textContent <- " | Last key: " + key
+
+let private appendCommandName (name: string) : unit =
+    let el = document.getElementById "key-last-key"
+    if not (isNull el) then
+        el.textContent <- el.textContent + " → " + name
+
+let private recordCommandRun (name: string) : unit =
+    let el = document.getElementById "key-last-key"
+    if not (isNull el) then
+        el.textContent <- " | Last key: Palette → " + name
 
 type SelectionKeyContext =
     { keyEvent: KeyboardEvent
@@ -149,6 +161,49 @@ let private always (op: Op) (_: 'ctx) : Op option = Some op
 /// Like always but for ops that need context (model, applyOp).
 let private alwaysFromCtx (opFrom: SelectionKeyContext -> Op) (ctx: SelectionKeyContext) : Op option =
     Some (opFrom ctx)
+
+// ---------------------------------------------------------------------------
+// Command registry and palette ops
+// ---------------------------------------------------------------------------
+
+type CommandEntry = { name: string; op: Op }
+
+let commandRegistry : CommandEntry list =
+    [ { name = "Edit node";     op = startEditOp }
+      { name = "Delete";        op = deleteSelectionOp }
+      { name = "Move up";       op = moveNodeUpOp }
+      { name = "Move down";     op = moveNodeDownOp }
+      { name = "Indent";        op = indentOp }
+      { name = "Outdent";       op = outdentOp }
+      { name = "Fold / unfold"; op = toggleFoldSelectionOp }
+      { name = "Zoom in";       op = zoomInOp }
+      { name = "Zoom out";      op = zoomOutOp }
+      { name = "Undo";          op = undoOp }
+      { name = "Redo";          op = redoOp }
+      { name = "Copy as links"; op = copySelectionAsLinks }
+      { name = "Toggle class";  op = toggleClassOp } ]
+
+let filteredCommands (query: string) : CommandEntry list =
+    if query = "" then commandRegistry
+    else
+        let q = query.ToLowerInvariant()
+        commandRegistry |> List.filter (fun c -> c.name.ToLowerInvariant().Contains(q))
+
+let private onPalette (f: string -> int -> Mode -> VM -> (Msg -> unit) -> VM)
+                      (model: VM) (dispatch: Msg -> unit) : VM =
+    match model.mode with
+    | CommandPalette (q, selectedCommand, ret) -> f q selectedCommand ret model dispatch
+    | _ -> model
+
+let paletteRunOp = onPalette (fun q selectedCommand ret model dispatch ->
+    match List.tryItem selectedCommand (filteredCommands q) with
+    | None     -> { model with mode = ret }
+    | Some cmd ->
+        recordCommandRun cmd.name
+        cmd.op { model with mode = ret } dispatch)
+
+let paletteSetQueryOp (q: string) = onPalette (fun _ _ ret model _ ->
+    { model with mode = CommandPalette (q, 0, ret) })
 
 let selectionKeyTable: (string * KeyHandler<SelectionKeyContext>) list =
     [ "F2",              always startEditOp
@@ -173,6 +228,7 @@ let selectionKeyTable: (string * KeyHandler<SelectionKeyContext>) list =
       "Ctrl+z",          always undoOp
       "Ctrl+y",          always redoOp
       "Ctrl+Shift+c",    always copySelectionAsLinks
+      "Ctrl+Shift+P",    always openCommandPaletteOp
       "Alt+c",           always toggleClassOp
       printableKeyToken, alwaysFromCtx (fun ctx -> startEdit ctx.keyEvent.key) ]
 
@@ -234,8 +290,20 @@ let editingKeyTable: (string * KeyHandler<EditingKeyContext>) list =
       "Ctrl+[",          always zoomOutOp
       "Ctrl+z",          always undoOp
       "Ctrl+y",          always redoOp
-      "Alt+c",           always toggleClassOp
-       ]
+      "Ctrl+Shift+P",    always openCommandPaletteOp
+      "Alt+c",           always toggleClassOp ]
+
+// ---------------------------------------------------------------------------
+// Palette key handlers
+// ---------------------------------------------------------------------------
+
+type PaletteKeyContext = { keyEvent: KeyboardEvent }
+
+let paletteKeyTable : (string * KeyHandler<PaletteKeyContext>) list =
+    [ "Escape",    always closeCommandPaletteOp
+      "ArrowUp",   always moveSelectionUp
+      "ArrowDown",  always moveSelectionDown
+      "Enter",     always paletteRunOp ]
 
 let tryResolveOperation
     (table: (string * KeyHandler<'Context>) list)
@@ -273,5 +341,9 @@ let handleKey
         match handler ctx with
         | Some op ->
             keyEvent.preventDefault()
+            let predicate c =
+                if System.Object.ReferenceEquals(c.op :> obj, op :> obj) then Some c.name else None
+            let matchingCommand = List.tryPick predicate commandRegistry
+            Option.iter appendCommandName matchingCommand
             applyOp op
         | None -> ()

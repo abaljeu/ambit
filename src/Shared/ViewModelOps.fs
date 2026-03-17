@@ -415,10 +415,14 @@ module ViewModel =
             | Some sel -> ancestorMatch model.siteMap entry (isInstanceFocused sel model.siteMap)
 
     let isEditingEntry (model: VM) (entry: SiteEntry) : bool =
-        match model.mode, model.selectedNodes with
-        | Editing _, None   -> entry.parentInstanceId = None
+        let effectiveMode =
+            match model.mode with
+            | CommandPalette (_, _, ret) -> ret
+            | m -> m
+        match effectiveMode, model.selectedNodes with
+        | Editing _, None    -> entry.parentInstanceId = None
         | Editing _, Some sel -> isInstanceFocused sel model.siteMap entry
-        | Selecting, _      -> false
+        | _ -> false
 
 // ---------------------------------------------------------------------------
 // DOM mutation plan (pure — no Browser interop)

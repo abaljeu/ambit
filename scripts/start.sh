@@ -15,7 +15,7 @@ export DOTNET_ROLL_FORWARD="LatestMajor"
 export ASPNETCORE_URLS="http://localhost:5000"
 export ASPNETCORE_ENVIRONMENT="Production"
 
-nohup dotnet Gambol.Server.dll >> "$LOG" 2>&1 &
+nohup dotnet Ambit.Server.dll >> "$LOG" 2>&1 &
 echo $! > "$PIDFILE"
 sleep 2
 

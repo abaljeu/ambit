@@ -10,6 +10,9 @@ order deny,allow
 deny from all
 </Limit>
 RewriteEngine On
+# Redirect doubled path (e.g. /ambit/ambit/login -> /ambit/login)
+RewriteRule ^ambit/ambit(/.*)?$ /ambit$1 [R=301,L]
+# Proxy /ambit and /ambit/* to backend
 RewriteRule ^ambit(/.*)?$ proxy.php?path=$1 [QSA,L]
 
 AuthName collaborative-systems.org

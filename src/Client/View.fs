@@ -70,8 +70,12 @@ let private makeRowElement (model: VM) (applyOp: Op -> unit) (depth: int) (siteE
         for cls in CssClass.toList node.cssClasses do
             editInput.classList.add cls
         editInput.setAttribute("tabindex", "-1")
-        let prefill =
+        let effectiveMode =
             match model.mode with
+            | CommandPalette (_, _, ret) -> ret
+            | m -> m
+        let prefill =
+            match effectiveMode with
             | Editing (originalText, Some pf, _) -> pf
             | Editing (originalText, None, _)    -> originalText
             | _ -> node.text
@@ -176,9 +180,11 @@ let private resolveRow
 // Focus management
 // ---------------------------------------------------------------------------
 
-/// Focus the correct element (edit-input or hidden-input) after each dispatch.
+/// Focus the correct element after each dispatch.
 let manageFocus (model: VM) : unit =
     match model.mode with
+    | CommandPalette _ ->
+        () // focus is handled by renderCommandPalette after the element becomes visible
     | Editing _ ->
         let editInput = document.getElementById "edit-input"
         if not (isNull editInput) then
@@ -193,6 +199,69 @@ let manageFocus (model: VM) : unit =
         let hiddenInput = document.getElementById "hidden-input"
         if not (isNull hiddenInput) then
             (hiddenInput :?> HTMLInputElement).focus()
+
+// ---------------------------------------------------------------------------
+// Command palette rendering
+// ---------------------------------------------------------------------------
+
+let private paletteWired = ref false
+
+/// Populate the results list of a palette container, highlighting the selected item.
+/// Upper-bounds selectedCommand to the list length to handle stale indices.
+let renderPalette (container: HTMLElement) (items: string list) (selectedCommand: int) : unit =
+    let ul = container.querySelector ".amb-palette-results" :?> HTMLElement
+    ul.innerHTML <- ""
+    let clampedSel = if items.IsEmpty then 0 else min selectedCommand (items.Length - 1)
+    items |> List.iteri (fun i label ->
+        let li = document.createElement "li"
+        li.textContent <- label
+        if i = clampedSel then li.classList.add "amb-palette-selected"
+        ul.appendChild li |> ignore)
+
+/// Show or hide the command palette overlay and keep it up to date with the model.
+/// Event listeners are wired once on the first call.
+let renderCommandPalette (model: VM) (applyOp: Op -> unit) : unit =
+    let container = document.getElementById "command-palette"
+    if isNull container then () else
+
+    match model.mode with
+    | CommandPalette (q, selectedCommand, _) ->
+        container.classList.add "amb-palette-open"
+        let input = document.getElementById "command-palette-input" :?> HTMLInputElement
+        window.setTimeout((fun _ -> input.focus()), 0) |> ignore
+        let items = filteredCommands q |> List.map (fun c -> c.name)
+        renderPalette container items selectedCommand
+
+        if not paletteWired.Value then
+            paletteWired.Value <- true
+            let ul = document.getElementById "command-palette-results"
+
+            input.addEventListener("input", fun _ ->
+                applyOp (paletteSetQueryOp input.value))
+
+            input.addEventListener("keydown", fun (ev: Event) ->
+                let ke = ev :?> KeyboardEvent
+                handleKey paletteKeyTable { keyEvent = ke } ke applyOp)
+
+            ul.addEventListener("click", fun (ev: Event) ->
+                let target = ev.target :?> HTMLElement
+                match target.closest "li" with
+                | None -> ()
+                | Some li ->
+                    let lis = ul.querySelectorAll "li"
+                    let mutable idx = 0
+                    for i in 0 .. int lis.length - 1 do
+                        if System.Object.ReferenceEquals(lis.[i], li) then idx <- i
+                    applyOp (fun m d ->
+                        match m.mode with
+                        | CommandPalette (q, _, ret) ->
+                            match List.tryItem idx (filteredCommands q) with
+                            | None -> { m with mode = ret }
+                            | Some cmd -> cmd.op { m with mode = ret } d
+                        | _ -> m))
+
+    | _ ->
+        container.classList.remove "amb-palette-open"
 
 // ---------------------------------------------------------------------------
 // status indicators

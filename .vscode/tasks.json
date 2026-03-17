@@ -4,7 +4,7 @@
     {
       "label": "server: Build",
       "type": "shell",
-      "command": "dotnet build src/Server",
+      "command": "dotnet build src/Server -c Debug",
       "dependsOn": ["fable: Build Client"],
       "dependsOrder": "sequence",
       "group": "build",
@@ -23,6 +23,21 @@
         "reveal": "always",
         "panel": "shared"
       },
+      "problemMatcher": []
+    },
+    {
+      "label": "wait for server",
+      "type": "shell",
+      "command": "bash -c \"i=0; while [ \\$i -lt 60 ]; do curl -sf -o /dev/null http://localhost:5115/ambit 2>/dev/null && exit 0; sleep 1; i=\\$((i+1)); done; exit 1\"",
+      "group": "build",
+      "presentation": { "reveal": "silent", "panel": "shared" },
+      "problemMatcher": []
+    },
+    {
+      "label": "client: Launch Prep",
+      "dependsOn": ["fable: Build Client", "wait for server"],
+      "dependsOrder": "sequence",
+      "group": "build",
       "problemMatcher": []
     },
     {

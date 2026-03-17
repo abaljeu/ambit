@@ -1,4 +1,4 @@
-﻿module Gambol.Shared.Tests.SerializationTests
+module Gambol.Shared.Tests.SerializationTests
 
 open Xunit
 open Gambol.Shared
@@ -75,6 +75,7 @@ let ``Op.Replace round-trip`` () =
 let ``Change round-trip`` () =
     let change =
         { id = 5
+          changeId = System.Guid.NewGuid()
           ops =
             [ Op.NewNode(NodeId.New(), "hello")
               Op.SetText(NodeId.New(), "old", "new")

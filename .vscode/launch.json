@@ -4,7 +4,7 @@
         {
             "name": "Full Stack",
             "configurations": ["Launch Server",
-                "Launch Client (Edge)"]
+                "Launch Client (Chrome)"]
         }
     ],
     "configurations": [
@@ -13,7 +13,7 @@
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "server: Build",
-            "program": "${workspaceFolder}/src/Server/bin/Debug/net10.0/Gambol.Server.dll",
+            "program": "${workspaceFolder}/src/Server/bin/Debug/net10.0/Ambit.Server.dll",
             "args": [],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
@@ -31,7 +31,8 @@
             "url": "http://localhost:5115/ambit",
             "webRoot": "${workspaceFolder}/src/Server/wwwroot",
             "sourceMapPathOverrides": {
-                "../../Client/*": "${workspaceFolder}/src/Client/*"
+                "../../Client/*": "${workspaceFolder}/src/Client/*",
+                "../../../Shared/*": "${workspaceFolder}/src/Shared/*"
             }
         },
         {
@@ -42,7 +43,8 @@
             "url": "http://localhost:5115/ambit",
             "webRoot": "${workspaceFolder}/src/Server/wwwroot",
             "sourceMapPathOverrides": {
-                "../../Client/*": "${workspaceFolder}/src/Client/*"
+                "../../Client/*": "${workspaceFolder}/src/Client/*",
+                "../../../Shared/*": "${workspaceFolder}/src/Shared/*"
             }
         }
     ]

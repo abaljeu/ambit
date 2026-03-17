@@ -35,4 +35,4 @@ ENV ASPNETCORE_URLS=http://+:8080
 ENV PORT=8080
 EXPOSE 8080
 
-ENTRYPOINT ["dotnet", "Gambol.Server.dll"]
+ENTRYPOINT ["dotnet", "Ambit.Server.dll"]
