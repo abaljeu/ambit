@@ -994,4 +994,6 @@ let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
     | System SubmitFailed ->
         { model with syncState = Pending }
 
+    | System (ServerAhead _) ->
+        { model with syncState = Stale }
 

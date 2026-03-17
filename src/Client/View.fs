@@ -86,7 +86,6 @@ let private makeRowElement (model: VM) (applyOp: Op -> unit) (depth: int) (siteE
         (editInput :?> HTMLInputElement).value <- prefill
         editInput.addEventListener("keydown", fun (ev: Event) ->
             let key = ev :?> KeyboardEvent
-            recordKeyAndRenderDiagnostic key
             if (key.ctrlKey || key.metaKey) && key.key = "p" && not key.shiftKey then
                 ev.preventDefault()
             let ctx =
@@ -270,7 +269,9 @@ let renderCommandPalette (model: VM) (applyOp: Op -> unit) : unit =
                         | CommandPalette (q, _, ret) ->
                             match List.tryItem idx (filteredCommands q) with
                             | None -> { m with mode = ret }
-                            | Some cmd -> cmd.op { m with mode = ret } d
+                            | Some cmd ->
+                                setLastKeyDisplay None (Some cmd.name)
+                                cmd.op { m with mode = ret } d
                         | _ -> m))
 
     | _ ->
@@ -297,6 +298,9 @@ let renderStatus (model: VM) : unit =
         | Conflicted ->
             el.textContent <- "Conflict detected \u2014 resolving\u2026"
             el.className <- "amb-sync-status amb-conflicted"
+        | Stale ->
+            el.textContent <- "Refresh the view"
+            el.className <- "amb-sync-status amb-stale"
 
 /// Update the undo/redo status indicator based on history.
 let renderUndoStatus (model: VM) : unit =

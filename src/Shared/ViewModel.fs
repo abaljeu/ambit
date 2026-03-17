@@ -50,6 +50,7 @@ type SyncState =
     | Syncing     // a POST is currently in-flight
     | Pending     // last POST failed; auto-retry scheduled
     | Conflicted  // received 409; rebase in progress
+    | Stale       // server has changes we don't have — refresh to see them
 
 // Server `State` is in `FileAgent`, and mainly the graph.
 type VM = // the client state
@@ -70,6 +71,7 @@ type SystemMsg =
     | StateLoaded of Graph * Revision
     | SubmitResponse of Revision
     | SubmitFailed
+    | ServerAhead of Revision  // poll found server revision > client; view is stale
 
 type Msg =
     | System of SystemMsg

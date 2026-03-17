@@ -117,6 +117,10 @@ body {
     background: #f99;
     color: #611;
 }
+.amb-sync-status.amb-stale {
+    background: #39f;
+    color: #fff;
+}
 
 /* ---------------------------------------------------------------------------
    Command / search palette overlay (shared by all .amb-palette instances)

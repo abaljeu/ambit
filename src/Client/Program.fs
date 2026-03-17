@@ -18,6 +18,12 @@ open Gambol.Client.View
 [<Emit("fetch($0).then(r => r.text()).then($1)")>]
 let fetchText (url: string) (callback: string -> unit) : unit = jsNative
 
+[<Emit("fetch($0, {cache: 'no-store', credentials: 'same-origin'}).then(r => r.ok ? r.text() : Promise.reject(r.status)).then($1).catch(function(){})")>]
+let private fetchTextNoCache (url: string) (callback: string -> unit) : unit = jsNative
+
+[<Emit("Date.now()")>]
+let private nowMs () : int = jsNative
+
 [<Emit("(typeof window.__BUILD__ !== 'undefined' ? window.__BUILD__ : $0)")>]
 let readBuildStamp (fallback: string) : string = jsNative
 
@@ -32,6 +38,9 @@ let private sessionSet (key: string) (value: string) : unit = jsNative
 
 [<Emit("document.hidden")>]
 let private isDocumentHidden () : bool = jsNative
+
+[<Emit("setInterval($0, $1)")>]
+let private setInterval (f: unit -> unit) (ms: int) : int = jsNative
 
 // ---------------------------------------------------------------------------
 // Session state: persist zoom root + fold state across browser-initiated reloads
@@ -135,7 +144,6 @@ let setupStaticDOM (applyOp: Op -> unit) : unit =
     let hiddenInput = document.getElementById "hidden-input" :?> HTMLInputElement
     hiddenInput.addEventListener("keydown", fun (ev: Event) ->
         let ke = ev :?> KeyboardEvent
-        recordKeyAndRenderDiagnostic ke
         if ke.key = "Tab" then ev.preventDefault()
         if (ke.ctrlKey || ke.metaKey) && ke.key = "p" && not ke.shiftKey then
             ev.preventDefault()
@@ -170,12 +178,13 @@ let setupStaticDOM (applyOp: Op -> unit) : unit =
 
     let reloadBtn = document.getElementById "reload-btn" 
     reloadBtn.setAttribute("title", "Full reload (useful if Page is old or assets are cached)")
-    reloadBtn.addEventListener("click", fun _ -> window.location.reload())
+    reloadBtn.addEventListener("click", fun _ ->
+        let path = window.location.pathname
+        window.location.assign(path + "?_=" + string (System.DateTime.Now.Ticks)))
 
     let platformInfo = document.getElementById "key-platform-info"
     platformInfo.textContent <- "Platform: " + getPlatformDiagnostic (isIOS ())
-    let lastKeyEl = document.getElementById "key-last-key"
-    lastKeyEl.textContent <- " | Last key: (none)"
+    setLastKeyDisplay None None
 
     document.addEventListener("visibilitychange", fun _ ->
         if isDocumentHidden () then saveSessionState currentModel)
@@ -183,7 +192,12 @@ let setupStaticDOM (applyOp: Op -> unit) : unit =
         saveSessionState currentModel)
 
     let syncStatus = document.getElementById "sync-status"
-    syncStatus.addEventListener("click", fun _ -> applyOp retryPendingOp)
+    syncStatus.addEventListener("click", fun _ ->
+        match currentModel.syncState with
+        | Stale ->
+            let path = window.location.pathname
+            window.location.assign(path + "?_=" + string (System.DateTime.Now.Ticks))
+        | _ -> applyOp retryPendingOp)
 
 let rec applyOp (op: Op) : unit =
     let prevModel = currentModel
@@ -228,6 +242,8 @@ and dispatch (msg: Msg) : unit =
             applyOp retryPendingOp
             View.renderStatus currentModel) (delaySec * 1000)
         View.renderStatus currentModel
+    | System (ServerAhead _) ->
+        View.renderStatus currentModel
 
 // ---------------------------------------------------------------------------
 // Bootstrap
@@ -235,10 +251,26 @@ and dispatch (msg: Msg) : unit =
 
 setupStaticDOM applyOp
 
+let pollForRemoteChanges () : unit =
+    let url = $"/{Update.currentFile}/state?_={nowMs ()}"
+    fetchTextNoCache url (fun text ->
+        match decodeStateResponse text with
+        | Ok (_graph, serverRev) ->
+            if serverRev.Value > currentModel.revision.Value then
+                dispatch (System (ServerAhead serverRev))
+        | Error _ -> ())
+
+let startPolling () : unit =
+    setInterval pollForRemoteChanges 5000 |> ignore
+    window.addEventListener("focus", fun _ -> pollForRemoteChanges ())
+    document.addEventListener("visibilitychange", fun _ ->
+        if not (isDocumentHidden ()) then pollForRemoteChanges ())
+
 fetchText $"/{Update.currentFile}/state" (fun text ->
     match decodeStateResponse text with
     | Ok (graph, revision) ->
         dispatch (System (StateLoaded (graph, revision)))
+        startPolling ()
     | Error err ->
         app.textContent <- $"Error: {err}"
 )

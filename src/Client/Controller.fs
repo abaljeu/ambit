@@ -123,22 +123,18 @@ let private formatKeyCombo (ke: KeyboardEvent) : string =
     parts.Add ke.key
     String.concat "+" parts
 
-/// Record the last key combo and refresh the diagnostic display. Call from keydown handlers.
-let recordKeyAndRenderDiagnostic (ke: KeyboardEvent) : unit =
-    let key = formatKeyCombo ke
+/// Single function to set the last-key diagnostic. Never appends; always replaces.
+/// key: the key combo (if any); operation: the command/operation name (if any).
+let setLastKeyDisplay (key: string option) (operation: string option) : unit =
     let el = document.getElementById "key-last-key"
-    if not (isNull el) then
-        el.textContent <- " | Last key: " + key
-
-let private appendCommandName (name: string) : unit =
-    let el = document.getElementById "key-last-key"
-    if not (isNull el) then
-        el.textContent <- el.textContent + " → " + name
-
-let private recordCommandRun (name: string) : unit =
-    let el = document.getElementById "key-last-key"
-    if not (isNull el) then
-        el.textContent <- " | Last key: Palette → " + name
+    if isNull el then () else
+    let txt =
+        match key, operation with
+        | None, None -> " | Last key: (none)"
+        | Some k, None -> " | Last key: " + k
+        | Some k, Some o -> " | Last key: " + k + " → " + o
+        | None, Some o -> " | Last key: Palette → " + o
+    el.textContent <- txt
 
 type SelectionKeyContext =
     { keyEvent: KeyboardEvent
@@ -167,6 +163,10 @@ let private always (op: Op) (_: 'ctx) : Op option = Some op
 /// Like always but for ops that need context (model, applyOp).
 let private alwaysFromCtx (opFrom: SelectionKeyContext -> Op) (ctx: SelectionKeyContext) : Op option =
     Some (opFrom ctx)
+
+/// Enter edit mode: use key as prefill if printable, else keep existing text.
+let private startEditFromKey (key: string) (existingText: string) : Op =
+    startEdit (if isPrintableKey key then key else existingText)
 
 // ---------------------------------------------------------------------------
 // EditingKey key handlers (used in bindings; defined before commandRegistry)
@@ -226,7 +226,9 @@ let commandRegistry : CommandEntry list =
         op = startEditOp
         sel = true; edit = false; palette = true
         keys = ["F2"; "Enter"]
-        handler = function SelectionKey s -> Some (startEdit s.keyEvent.key) | _ -> None }
+        handler = function
+          | SelectionKey s -> Some (startEditFromKey s.keyEvent.key s.selectedNodeText)
+          | _ -> None }
       { name = "Split at cursor"
         op = noOp; sel = false; edit = true; palette = true
         keys = ["Enter"]
@@ -378,7 +380,7 @@ let paletteRunOp = onPalette (fun q selectedCommand ret model dispatch ->
     match List.tryItem selectedCommand (filteredCommands q) with
     | None     -> { model with mode = ret }
     | Some cmd ->
-        recordCommandRun cmd.name
+        setLastKeyDisplay None (Some cmd.name)
         cmd.op { model with mode = ret } dispatch)
 
 let paletteSetQueryOp (q: string) = onPalette (fun _ _ ret model _ ->
@@ -410,7 +412,7 @@ let selectionKeyTable : KeyTableEntry<SelectionKeyContext> list =
             collect seen' acc' rest
         | _ :: rest -> collect seen acc rest
     let fromRegistry = collect Set.empty [] commandRegistry
-    let printEdit (s: SelectionKeyContext) = Some (startEdit s.keyEvent.key)
+    let printEdit (s: SelectionKeyContext) = Some (startEditFromKey s.keyEvent.key s.selectedNodeText)
     fromRegistry
     @ [ { key = printableKeyToken; handler = printEdit; commandName = "Edit node" } ]
 
@@ -480,12 +482,15 @@ let handleKey
     (keyEvent: KeyboardEvent)
     (applyOp: Op -> unit)
     : unit =
+    let keyStr = formatKeyCombo keyEvent
     match tryResolveFromNamed table keyEvent with
-    | None -> ()
+    | None ->
+        setLastKeyDisplay (Some keyStr) None
     | Some (handler, name) ->
         match handler ctx with
         | Some op ->
             keyEvent.preventDefault()
-            appendCommandName name
+            setLastKeyDisplay (Some keyStr) (Some name)
             applyOp op
-        | None -> ()
+        | None ->
+            setLastKeyDisplay (Some keyStr) None
