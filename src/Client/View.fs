@@ -287,7 +287,7 @@ let renderStatus (model: VM) : unit =
     if not (isNull el) then
         match model.syncState with
         | Synced  ->
-            el.textContent <- "synced"
+            el.textContent <- "sync"
             el.className <- "amb-sync-status amb-synced"
         | Syncing ->
             el.textContent <- "Saving\u2026"

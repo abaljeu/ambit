@@ -6,6 +6,7 @@ open System.Security.Cryptography
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Http
+open Microsoft.AspNetCore.StaticFiles
 open Microsoft.Extensions.Configuration
 
 module Main =
@@ -87,8 +88,19 @@ module Main =
 
         app.UseDefaultFiles() |> ignore
         app.UseStaticFiles() |> ignore
-        // Serve wwwroot under /ambit so assets work when app is mounted at /ambit
-        app.UseStaticFiles(StaticFileOptions(RequestPath = PathString("/ambit"))) |> ignore
+        // Serve wwwroot under /ambit/ so assets like /ambit/Program.js work. Use /ambit/ not /ambit
+        // so that GET /ambit (exact) falls through to MapGet rather than 404 from static files.
+        // JS and source maps: no-cache so Reload button (needed on iPad Safari) fetches fresh modules.
+        let ambitOpts = StaticFileOptions(
+            RequestPath = PathString("/ambit"),
+            OnPrepareResponse = Action<StaticFileResponseContext>(fun ctx ->
+                let path = ctx.Context.Request.Path.Value
+                if path.EndsWith(".js", StringComparison.OrdinalIgnoreCase)
+                    || path.EndsWith(".js.map", StringComparison.OrdinalIgnoreCase) then
+                    ctx.Context.Response.Headers.CacheControl <- "no-cache, no-store, must-revalidate"
+                    ctx.Context.Response.Headers.Pragma <- "no-cache"
+                    ctx.Context.Response.Headers.Expires <- "0"))
+        app.UseStaticFiles(ambitOpts) |> ignore
 
         // Development only: serve Client/Shared source files so Chrome DevTools can load mapped sources
         if app.Environment.EnvironmentName = "Development" then
@@ -167,13 +179,44 @@ module Main =
                 Results.Redirect("/ambit/login")
             )) |> ignore
 
-            // GET /ambit/state → JSON { revision, graph }
+            // Build stamps for client to detect server redeploy (used in state + gambol.html)
+            let gambolHtml = Path.Combine(app.Environment.WebRootPath, "gambol.html")
+            let programJs = Path.Combine(app.Environment.WebRootPath, "Program.js")
+            let torontoTz = TimeZoneInfo.FindSystemTimeZoneById("America/Toronto")
+            let torontoNow = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, torontoTz)
+            let startupStamp = torontoNow.ToString("yyyy-MM-dd HH:mm:ss") + " ET"
+            let pageBuildStamp () =
+                let htmlTime = if File.Exists(gambolHtml) then File.GetLastWriteTimeUtc(gambolHtml) else DateTime.MinValue
+                let jsTime = if File.Exists(programJs) then File.GetLastWriteTimeUtc(programJs) else DateTime.MinValue
+                let latest = max htmlTime jsTime
+                if latest > DateTime.MinValue then
+                    TimeZoneInfo.ConvertTimeFromUtc(latest, torontoTz).ToString("yyyy-MM-dd HH:mm:ss") + " ET"
+                else
+                    "unknown"
+            let pageBuildEpochSec () =
+                let htmlTime = if File.Exists(gambolHtml) then File.GetLastWriteTimeUtc(gambolHtml) else DateTime.MinValue
+                let jsTime = if File.Exists(programJs) then File.GetLastWriteTimeUtc(programJs) else DateTime.MinValue
+                let latest = max htmlTime jsTime
+                int (latest.Subtract(DateTime.UnixEpoch).TotalSeconds)
+            let startupEpochSec = int (torontoNow.Subtract(DateTime.UnixEpoch).TotalSeconds)
+
+            // GET /ambit/state → JSON { revision, graph } (full payload for initial load)
             app.MapGet("/ambit/state", Func<HttpRequest, Task<IResult>>(fun req -> task {
                 if not (isAuthenticated req) then
                     return Results.Unauthorized()
                 else
                     let agent = getOrCreateAgent "gambol"
                     return! Api.getState agent |> Async.StartAsTask
+            })) |> ignore
+
+            // GET /ambit/poll → JSON { r, b, p } (revision, buildEpochSec, pageBuildEpochSec — lightweight)
+            app.MapGet("/ambit/poll", Func<HttpRequest, Task<IResult>>(fun req -> task {
+                if not (isAuthenticated req) then
+                    return Results.Unauthorized()
+                else
+                    let agent = getOrCreateAgent "gambol"
+                    let pageEpoch = pageBuildEpochSec ()
+                    return! Api.getPoll agent startupEpochSec pageEpoch |> Async.StartAsTask
             })) |> ignore
 
             // POST /ambit/changes → JSON { revision, graph } or 400
@@ -197,26 +240,22 @@ module Main =
             app.MapGet("/ambit/user.css", Func<IResult>(fun () -> serveUserCss ())) |> ignore
 
             // GET /ambit → serve gambol.html (protected) with startup stamp and page file stamp injected
-            let gambolHtml = Path.Combine(app.Environment.WebRootPath, "gambol.html")
-            let programJs = Path.Combine(app.Environment.WebRootPath, "Program.js")
-            let torontoTz = TimeZoneInfo.FindSystemTimeZoneById("America/Toronto")
-            let torontoNow = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, torontoTz)
-            let startupStamp = torontoNow.ToString("yyyy-MM-dd HH:mm:ss") + " ET"
-            let pageBuildStamp () =
-                let htmlTime = if File.Exists(gambolHtml) then File.GetLastWriteTimeUtc(gambolHtml) else DateTime.MinValue
-                let jsTime = if File.Exists(programJs) then File.GetLastWriteTimeUtc(programJs) else DateTime.MinValue
-                let latest = max htmlTime jsTime
-                if latest > DateTime.MinValue then
-                    TimeZoneInfo.ConvertTimeFromUtc(latest, torontoTz).ToString("yyyy-MM-dd HH:mm:ss") + " ET"
-                else
-                    "unknown"
             let gambolHtmlWithStamp () =
                 let raw = File.ReadAllText(gambolHtml)
                 let pageStamp = pageBuildStamp ()
-                let snippet = "    <script>window.__BUILD__ = \"" + startupStamp + "\"; window.__PAGE_BUILD__ = \"" + pageStamp + "\";</script>\n</head>"
-                raw.Replace("</head>", snippet)
-            app.MapGet("/ambit", Func<HttpRequest, IResult>(fun req ->
-                if isAuthenticated req then
+                let pageEpoch = pageBuildEpochSec ()
+                let snippet =
+                    "    <script>window.__BUILD__ = \"" + startupStamp + "\"; window.__PAGE_BUILD__ = \"" + pageStamp
+                    + "\"; window.__BUILD_TS__ = " + string startupEpochSec
+                    + "; window.__PAGE_BUILD_TS__ = " + string pageEpoch + ";</script>\n</head>"
+                let withStamp = raw.Replace("</head>", snippet)
+                // Cache-bust Program.js so reload gets fresh assets when server redeploys
+                withStamp.Replace("src=\"/ambit/Program.js\"", sprintf "src=\"/ambit/Program.js?v=%d\"" pageEpoch)
+            app.MapGet("/ambit", Func<HttpContext, IResult>(fun ctx ->
+                if isAuthenticated ctx.Request then
+                    ctx.Response.Headers.CacheControl <- "no-cache, no-store, must-revalidate"
+                    ctx.Response.Headers.Pragma <- "no-cache"
+                    ctx.Response.Headers.Expires <- "0"
                     Results.Content(gambolHtmlWithStamp (), "text/html")
                 else
                     Results.Redirect("/ambit/login")

@@ -43,6 +43,16 @@ let currentFile =
 let encodeChangeBody (change: Change) : string =
     Thoth.Json.JavaScript.Encode.toString 0 (Serialization.encodeChange change)
 
+/// Decode the response from GET /{file}/poll — lightweight { r, b, p } (int avoids int64/BigInt mismatch with window vars)
+let decodePollResponse (text: string) : Result<int * int * int, string> =
+    let decoder =
+        Decode.object (fun get ->
+            let r = get.Required.Field "r" Decode.int
+            let b = get.Required.Field "b" Decode.int
+            let p = get.Required.Field "p" Decode.int
+            r, b, p)
+    Thoth.Json.JavaScript.Decode.fromString decoder text
+
 /// Decode the response from GET /{file}/state or POST /{file}/changes
 let decodeStateResponse (text: string) : Result<Graph * Revision, string> =
     let decoder =

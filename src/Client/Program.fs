@@ -30,6 +30,12 @@ let readBuildStamp (fallback: string) : string = jsNative
 [<Emit("(typeof window.__PAGE_BUILD__ !== 'undefined' ? window.__PAGE_BUILD__ : $0)")>]
 let readPageStamp (fallback: string) : string = jsNative
 
+[<Emit("(typeof window.__BUILD_TS__ !== 'undefined' ? window.__BUILD_TS__ : 0)")>]
+let private readBuildEpochSec () : int = jsNative
+
+[<Emit("(typeof window.__PAGE_BUILD_TS__ !== 'undefined' ? window.__PAGE_BUILD_TS__ : 0)")>]
+let private readPageBuildEpochSec () : int = jsNative
+
 [<Emit("sessionStorage.getItem($0)")>]
 let private sessionGet (key: string) : string = jsNative
 
@@ -180,7 +186,7 @@ let setupStaticDOM (applyOp: Op -> unit) : unit =
     reloadBtn.setAttribute("title", "Full reload (useful if Page is old or assets are cached)")
     reloadBtn.addEventListener("click", fun _ ->
         let path = window.location.pathname
-        window.location.assign(path + "?_=" + string (System.DateTime.Now.Ticks)))
+        window.location.assign(path + "?bust=" + string (nowMs ())))
 
     let platformInfo = document.getElementById "key-platform-info"
     platformInfo.textContent <- "Platform: " + getPlatformDiagnostic (isIOS ())
@@ -196,7 +202,7 @@ let setupStaticDOM (applyOp: Op -> unit) : unit =
         match currentModel.syncState with
         | Stale ->
             let path = window.location.pathname
-            window.location.assign(path + "?_=" + string (System.DateTime.Now.Ticks))
+            window.location.assign(path + "?bust=" + string (nowMs ()))
         | _ -> applyOp retryPendingOp)
 
 let rec applyOp (op: Op) : unit =
@@ -252,12 +258,16 @@ and dispatch (msg: Msg) : unit =
 setupStaticDOM applyOp
 
 let pollForRemoteChanges () : unit =
-    let url = $"/{Update.currentFile}/state?_={nowMs ()}"
+    let url = $"/{Update.currentFile}/poll?_={nowMs ()}"
     fetchTextNoCache url (fun text ->
-        match decodeStateResponse text with
-        | Ok (_graph, serverRev) ->
-            if serverRev.Value > currentModel.revision.Value then
-                dispatch (System (ServerAhead serverRev))
+        match Update.decodePollResponse text with
+        | Ok (serverRev, serverBuild, serverPage) ->
+            let dataStale = serverRev > currentModel.revision.Value
+            let clientBuild = readBuildEpochSec ()
+            let clientPage = readPageBuildEpochSec ()
+            let serverNewer = serverBuild <> clientBuild || serverPage <> clientPage
+            if dataStale || serverNewer then
+                dispatch (System (ServerAhead (Revision serverRev)))
         | Error _ -> ())
 
 let startPolling () : unit =
