@@ -584,7 +584,7 @@ let joinWithPrevious (currentText: string) (model: VM) (dispatch: Msg -> unit) :
 
 /// A self-contained model transformation. dispatch is provided for operations
 /// that fire async server POSTs; pure transforms ignore it with _.
-type Op = VM -> (Msg -> unit) -> VM
+type VmMsgUnitVm = VM -> (Msg -> unit) -> VM
 
 /// Op: Move to selection mode (or deselect if already selecting), reverting any edit.
 let cancelEdit (model: VM) _dispatch : VM =

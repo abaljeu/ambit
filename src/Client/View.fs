@@ -31,7 +31,7 @@ let private computeDepth (siteMap: SiteMap) (entry: SiteEntry) : int =
 // ---------------------------------------------------------------------------
 
 /// Create a fresh DOM row for the given SiteEntry at the given depth.
-let private makeRowElement (model: VM) (applyOp: Op -> unit) (depth: int) (siteEntry: SiteEntry) : HTMLElement =
+let private makeRowElement (model: VM) (applyOp: VmMsgUnitVm -> unit) (depth: int) (siteEntry: SiteEntry) : HTMLElement =
     let nodeId = siteEntry.nodeId
     let node = model.graph.nodes.[nodeId]
     let hasChildren = not node.children.IsEmpty
@@ -162,7 +162,7 @@ let private applyRowPatches (el: HTMLElement) (patches: RowPatch list) : unit =
 /// Resolve the row element for an instance: create, recreate, or patch as dictated by the upsert index.
 /// Returns the row element and the updated cache.
 let private resolveRow
-    (newModel: VM) (applyOp: Op -> unit) (depth: int) (entry: SiteEntry)
+    (newModel: VM) (applyOp: VmMsgUnitVm -> unit) (depth: int) (entry: SiteEntry)
     (instId: int) (upsertIndex: Map<int, RowMutation>) (cache: Map<int, HTMLElement>)
     : HTMLElement * Map<int, HTMLElement> =
     match Map.tryFind instId upsertIndex with
@@ -230,7 +230,7 @@ let renderPalette (container: HTMLElement) (items: string list) (selectedCommand
 
 /// Show or hide the command palette overlay and keep it up to date with the model.
 /// Event listeners are wired once on the first call.
-let renderCommandPalette (model: VM) (applyOp: Op -> unit) : unit =
+let renderCommandPalette (model: VM) (applyOp: VmMsgUnitVm -> unit) : unit =
     let container = document.getElementById "command-palette"
     if isNull container then () else
 
@@ -270,8 +270,11 @@ let renderCommandPalette (model: VM) (applyOp: Op -> unit) : unit =
                             match List.tryItem idx (filteredCommands q) with
                             | None -> { m with mode = ret }
                             | Some cmd ->
-                                setLastKeyDisplay None (Some cmd.name)
-                                cmd.op { m with mode = ret } d
+                                match cmd.op Palette with
+                                | None -> { m with mode = ret }
+                                | Some runOp ->
+                                    setLastKeyDisplay None (Some cmd.name)
+                                    runOp { m with mode = ret } d
                         | _ -> m))
 
     | _ ->
@@ -321,7 +324,7 @@ let renderUndoStatus (model: VM) : unit =
 /// Rebuild all row elements from scratch: removes existing rows (children of app
 /// that precede the hidden-input sentinel), then recreates them in preorder.
 /// Returns a fresh element cache keyed by instanceId.
-let render (vm: VM) (applyOp: Op -> unit) : Map<int, HTMLElement> =
+let render (vm: VM) (applyOp: VmMsgUnitVm -> unit) : Map<int, HTMLElement> =
     // Remove existing rows — everything before the hidden-input sentinel
     let hiddenInput = document.getElementById "hidden-input"
     if isNull hiddenInput then
@@ -355,7 +358,7 @@ let render (vm: VM) (applyOp: Op -> unit) : Map<int, HTMLElement> =
 /// Patch the DOM incrementally: diff old and new SiteMap visibility,
 /// removes stale rows, creates/moves new rows, updates existing rows in-place.
 /// Returns the updated element cache.
-let patchDOM (oldModel: VM) (newModel: VM) (applyOp: Op -> unit) (cache: Map<int, HTMLElement>) : Map<int, HTMLElement> =
+let patchDOM (oldModel: VM) (newModel: VM) (applyOp: VmMsgUnitVm -> unit) (cache: Map<int, HTMLElement>) : Map<int, HTMLElement> =
     let cachedInstIds = cache |> Map.toSeq |> Seq.map fst |> Set.ofSeq
     let mutations = ViewModel.planPatchDOM oldModel newModel cachedInstIds
 
