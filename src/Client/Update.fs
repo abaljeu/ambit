@@ -153,8 +153,7 @@ let commitTextEdit
 
 /// Split the currently-edited node at the cursor position.
 ///
-/// cursor at 0   → blank sibling inserted above; current node keeps its text; focus at start of current node.
-/// cursor > 0    → current node gets text-before; new sibling gets text-after; focus at start of new node.
+/// cursor at 0: blank above, focus stays. cursor > 0: split, focus on new node.
 let splitNode (currentText: string) (cursorPos: int) (model: VM) (dispatch: Msg -> unit) : VM =
     match model.mode, model.selectedNodes with
     | Editing (originalText, _, _), None ->
@@ -189,9 +188,25 @@ let splitNode (currentText: string) (cursorPos: int) (model: VM) (dispatch: Msg 
         let change: Change = { id = model.revision.Value; changeId = System.Guid.NewGuid(); ops = ops }
         match applyAndPost change model dispatch with
         | Some m ->
-            { m with
-                selectedNodes = singleSelection m.graph m.siteMap focusId
-                mode = Editing (focusText, None, Some 0) }
+            let effRoot =
+                m.zoomRoot
+                |> Option.filter (fun zr -> Map.containsKey zr m.graph.nodes)
+                |> Option.defaultValue m.graph.root
+            let siteMap, nextId =
+                ViewModel.reconcileSiteMapFrom m.graph effRoot m.siteMap m.nextInstanceId
+            let m2 = { m with siteMap = siteMap; nextInstanceId = nextId }
+            let focusInstId =
+                if clampedPos = 0 then focusedInstanceId sel
+                else
+                    match Map.tryFind sel.range.parent.instanceId m2.siteMap.entries with
+                    | Some p when insertIndex < p.children.Length ->
+                        p.children.[insertIndex]
+                    | _ -> -1
+            let newSel =
+                singleSelectionForInstance m2.siteMap focusInstId
+                |> Option.orElseWith
+                    (fun () -> singleSelection m2.graph m2.siteMap focusId)
+            { m2 with selectedNodes = newSel; mode = Editing (focusText, None, Some 0) }
         | None -> model
     | _ -> model
 
@@ -802,6 +817,25 @@ let toggleFoldSelectionOp (model: VM) _dispatch : VM =
                     (fun (sm, nid) instId -> ViewModel.expandEntry instId model.graph sm nid)
                     (model.siteMap, model.nextInstanceId)
             { model with siteMap = siteMap; nextInstanceId = nextId }
+
+/// Op: Duplicate the selected nodes as references — insert the same NodeIds beside the selection.
+/// Inserts at range.endd (right after the selection); selection expands to include the new references.
+let duplicateSelectionOp (model: VM) (dispatch: Msg -> unit) : VM =
+    match model.selectedNodes with
+    | None -> model
+    | Some sel ->
+        let selectedIds = rangeChildren model.graph sel.range
+        if selectedIds.IsEmpty then model
+        else
+            let insertOp = Op.Replace(sel.range.parent.nodeId, sel.range.endd, [], selectedIds)
+            let change = { id = model.revision.Value; changeId = System.Guid.NewGuid(); ops = [ insertOp ] }
+            match applyAndPost change model dispatch with
+            | None -> model
+            | Some m ->
+                let newEnd = sel.range.endd + selectedIds.Length
+                let newSel = { range = { sel.range with endd = newEnd }; focus = sel.focus }
+                { m with selectedNodes = Some newSel }
+            |> withSiteMap
 
 /// Op: Delete the selected nodes (Replace with nothing), updating selection to next/prev/parent.
 let deleteSelectionOp (model: VM) (dispatch: Msg -> unit) : VM =

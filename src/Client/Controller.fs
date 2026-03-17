@@ -49,7 +49,7 @@ let setLastKeyDisplay (key: string option) (operation: string option) : unit =
     let el = document.getElementById "key-last-key"
     if isNull el then () else
     match operation with
-    | Some op -> lastSuccessfulOp := Some op
+    | Some op -> lastSuccessfulOp.Value <- Some op
     | None -> ()
     let o = match operation with
             | Some _ -> operation
@@ -261,6 +261,11 @@ let commandRegistry : CommandEntry list =
         op = selOnly (fun _ -> Some deleteSelectionOp)
         sel = true; edit = false
         keys = ["Delete"; "Backspace"] }
+      { name = "Duplicate"
+        op = selOnly (fun _ -> Some duplicateSelectionOp)
+        sel = true; edit = false
+        keys = ["Ctrl+D"] }
+
       { name = "Join with previous"
         op = editOnly handleBackspace
         sel = false; edit = true
