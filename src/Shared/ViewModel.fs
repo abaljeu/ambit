@@ -33,6 +33,23 @@ type SiteNodeRange =
       start: int
       endd: int }
 
+[<RequireQualifiedAccess>]
+module SiteNodeRange =
+    /// The SiteEntry for the first node in the range, if in bounds.
+    let firstChild (range: SiteNodeRange) (siteMap: SiteMap) : SiteEntry option =
+        range.parent.children
+        |> List.tryItem range.start
+        |> Option.bind (fun id -> Map.tryFind id siteMap.entries)
+
+    /// The SiteEntry for the last node in the range, if in bounds.
+    let lastChild (range: SiteNodeRange) (siteMap: SiteMap) : SiteEntry option =
+        if range.endd > 0 then
+            range.parent.children
+            |> List.tryItem (range.endd - 1)
+            |> Option.bind (fun id -> Map.tryFind id siteMap.entries)
+        else
+            None
+
 /// A SiteNodeRange with a focus index marking the "active" end used for Shift-Arrow and editing.
 /// focus is always range.start or range.endd - 1.
 type Selection =

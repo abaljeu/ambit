@@ -465,35 +465,110 @@ let cutSelection (model: VM) (dispatch: Msg -> unit) : VM =
             { m with clipboard = Some cb; selectedNodes = newSel }
         | None -> model
 
-/// Alt+Up/Down: swap the selected range with the adjacent sibling using a single Op.Replace.
-let moveNode (delta: int) (model: VM) (dispatch: Msg -> unit) : VM =
+/// Returns the adjacent sibling of me's parent (delta=-1 for previous, +1 for next) if it exists,
+/// is visible (neither me nor its parent is the VM root), and is expanded; otherwise None.
+let parentSiblingOpen (delta: int) (me: SiteEntry) (model: VM) : SiteEntry option =
+    let parentEntryOpt =
+        match me.parentInstanceId with
+        | None -> None
+        | Some parentId -> Map.tryFind parentId model.siteMap.entries
+
+    match parentEntryOpt with
+    | None -> None
+    | Some parentEntry ->
+        let effectiveRoot = model.zoomRoot |> Option.defaultValue model.graph.root
+        let isMeRoot = me.nodeId = effectiveRoot
+        let isParentRoot = parentEntry.nodeId = effectiveRoot
+
+        if isMeRoot || isParentRoot then
+            None
+        else
+            let grandparentOpt =
+                parentEntry.parentInstanceId
+                |> Option.bind (fun id -> Map.tryFind id model.siteMap.entries)
+            match grandparentOpt with
+            | None -> None
+            | Some grandparent ->
+                match grandparent.children |> List.tryFindIndex ((=) parentEntry.instanceId) with
+                | Some idx ->
+                    let sibIdx = idx + delta
+                    if sibIdx >= 0 && sibIdx < grandparent.children.Length then
+                        let sibInstId = grandparent.children.[sibIdx]
+                        match Map.tryFind sibInstId model.siteMap.entries with
+                        | Some sibEntry when sibEntry.expanded -> Some sibEntry
+                        | _ -> None
+                    else
+                        None
+                | None -> None
+/// Move the selected nodes to after `too`. May remove from old parent and add to new
+/// (two Op.Replace ops), or reorder within the same parent.
+let moveNodeFromTo (too: SiteNodeRange) (model: VM) (dispatch: Msg -> unit) : VM =
     match model.selectedNodes with
     | None -> model
     | Some sel ->
-        let range       = sel.range
-        let parentNode  = model.graph.nodes.[range.parent.nodeId]
-        let selectedIds = rangeChildren model.graph range
-        let swapOpt =
-            if delta < 0 && range.start > 0 then
-                let sib = parentNode.children.[range.start - 1]
-                Some (range.start - 1, sib :: selectedIds, selectedIds @ [sib], range.start - 1)
-            elif delta > 0 && range.endd < parentNode.children.Length then
-                let sib = parentNode.children.[range.endd]
-                Some (range.start, selectedIds @ [sib], sib :: selectedIds, range.start + 1)
-            else None
-        match swapOpt with
-        | None -> model
-        | Some (opStart, oldSpan, newSpan, newStart) ->
+        let from = sel.range
+        let selectedIds = rangeChildren model.graph from
+        if selectedIds.IsEmpty then model
+        else
+            let count = selectedIds.Length
+            let sameParent = from.parent.nodeId = too.parent.nodeId
+            let ops =
+                if sameParent then
+                    // Reordering within same parent: remove then insert.
+                    // Insert index after removal: if too.endd > from.endd, shift left by count.
+                    let insertIdx =
+                        if too.endd <= from.start then too.endd
+                        else too.endd - count
+                    [ Op.Replace(from.parent.nodeId, from.start, selectedIds, [])
+                      Op.Replace(from.parent.nodeId, insertIdx, [], selectedIds) ]
+                else
+                    [ Op.Replace(from.parent.nodeId, from.start, selectedIds, [])
+                      Op.Replace(too.parent.nodeId, too.endd, [], selectedIds) ]
             let change =
                 { id = model.revision.Value
                   changeId = System.Guid.NewGuid()
-                  ops = [ Op.Replace(range.parent.nodeId, opStart, oldSpan, newSpan) ] }
+                  ops = ops }
             match applyAndPost change model dispatch with
             | Some m ->
-                let newRange = { range with start = newStart; endd = newStart + selectedIds.Length }
-                let newSel = { range = newRange; focus = sel.focus + delta }
-                { m with selectedNodes = Some newSel }
+                let insertIdx = if sameParent then (if too.endd <= from.start then too.endd else too.endd - count) else too.endd
+                let newParent = if sameParent then from.parent else too.parent
+                let newRange: SiteNodeRange = { parent = newParent; start = insertIdx; endd = insertIdx + count }
+                let focusOffset = sel.focus - from.start
+                let newFocus = insertIdx + (min (max 0 focusOffset) (count - 1))
+                { m with selectedNodes = Some { range = newRange; focus = newFocus } }
             | None -> model
+
+/// Alt+Up/Down: swap the selected range with the adjacent sibling. Delegates to moveNodeFromTo.
+let moveNodeDelta (delta: int) (model: VM) (dispatch: Msg -> unit) : VM =
+    match model.selectedNodes with
+    | None -> model
+    | Some sel ->
+        let range = sel.range
+        let parentLen = model.graph.nodes.[range.parent.nodeId].children.Length
+        let too =
+            if delta < 0 && range.start > 0 then
+                // Move to before sibling above: insert at range.start - 1 (after the range ending there)
+                let s = if range.start = 1 then 0 else range.start - 2
+                Some ({ parent = range.parent; start = s; endd = range.start - 1 } : SiteNodeRange)
+            elif delta > 0 && range.endd < parentLen then
+                // Move to after sibling below
+                Some ({ parent = range.parent; start = range.endd; endd = range.endd + 1 } : SiteNodeRange)
+            elif delta = -1 then
+                // Move to end of previous sibling (if expanded)
+                SiteNodeRange.firstChild range model.siteMap
+                |> Option.bind (fun fc -> parentSiblingOpen -1 fc model)
+                |> Option.map (fun sib ->
+                    let insertIdx = model.graph.nodes.[sib.nodeId].children.Length
+                    { parent = sib; start = insertIdx; endd = insertIdx } : SiteNodeRange)
+            elif delta = 1 then
+                // Move to beginning of next sibling (if expanded)
+                SiteNodeRange.lastChild range model.siteMap
+                |> Option.bind (fun lc -> parentSiblingOpen 1 lc model)
+                |> Option.map (fun sib -> { parent = sib; start = 0; endd = 0 } : SiteNodeRange)
+            else None
+        match too with
+        | None -> model
+        | Some t -> moveNodeFromTo t model dispatch
 
 // ---------------------------------------------------------------------------
 // Update
@@ -815,11 +890,11 @@ let outdentOp (model: VM) (dispatch: Msg -> unit) : VM =
 
 /// Op: Move selected nodes up, committing any in-progress edit first.
 let moveNodeUpOp (model: VM) (dispatch: Msg -> unit) : VM =
-    moveNode -1 (commitIfEditing model dispatch) dispatch |> withSiteMap
+    moveNodeDelta -1 (commitIfEditing model dispatch) dispatch |> withSiteMap
 
 /// Op: Move selected nodes down, committing any in-progress edit first.
 let moveNodeDownOp (model: VM) (dispatch: Msg -> unit) : VM =
-    moveNode 1 (commitIfEditing model dispatch) dispatch |> withSiteMap
+    moveNodeDelta 1 (commitIfEditing model dispatch) dispatch |> withSiteMap
 
 /// Op: Paste text into the model. preferredNodeIds from clipboard format, if present.
 let pasteNodesOp (pastedText: string) (preferredNodeIds: string option) (model: VM)
