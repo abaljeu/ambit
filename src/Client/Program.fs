@@ -24,12 +24,6 @@ let private fetchTextNoCache (url: string) (callback: string -> unit) : unit = j
 [<Emit("Date.now()")>]
 let private nowMs () : int = jsNative
 
-[<Emit("(typeof window.__BUILD__ !== 'undefined' ? window.__BUILD__ : $0)")>]
-let readBuildStamp (fallback: string) : string = jsNative
-
-[<Emit("(typeof window.__PAGE_BUILD__ !== 'undefined' ? window.__PAGE_BUILD__ : $0)")>]
-let readPageStamp (fallback: string) : string = jsNative
-
 [<Emit("(typeof window.__BUILD_TS__ !== 'undefined' ? window.__BUILD_TS__ : 0)")>]
 let private readBuildEpochSec () : int = jsNative
 
@@ -176,20 +170,12 @@ let setupStaticDOM (applyOp: Op -> unit) : unit =
     let logoutLink = document.getElementById "logout-link" :?> HTMLAnchorElement
     logoutLink.setAttribute("href", basePath + "/logout")
 
-    let buildLabel = document.getElementById "build-label" 
-    let serverStamp = readBuildStamp BuildInfo.buildNumber
-    let pageStamp = readPageStamp "?"
-    buildLabel.textContent <- $"Server: {serverStamp} | Page: {pageStamp} "
-    buildLabel.setAttribute("title", "Server = when served; Page = when assets were built.")
-
     let reloadBtn = document.getElementById "reload-btn" 
     reloadBtn.setAttribute("title", "Full reload (useful if Page is old or assets are cached)")
     reloadBtn.addEventListener("click", fun _ ->
         let path = window.location.pathname
         window.location.assign(path + "?bust=" + string (nowMs ())))
 
-    let platformInfo = document.getElementById "key-platform-info"
-    platformInfo.textContent <- "Platform: " + getPlatformDiagnostic (isIOS ())
     setLastKeyDisplay None None
 
     document.addEventListener("visibilitychange", fun _ ->

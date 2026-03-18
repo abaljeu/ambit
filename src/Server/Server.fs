@@ -50,12 +50,38 @@ module Main =
                         ContentRootPath = contentRoot,
                         WebRootPath = Path.Combine(contentRoot, "wwwroot"))
         let builder = WebApplication.CreateBuilder(options)
-        // Env-specific appsettings: required in Production (fail if missing), optional elsewhere
+        // Env-specific appsettings.
+        // In Azure, read from persistent /home (not the site wwwroot) so config can survive redeploys.
+        let onAzure = Environment.GetEnvironmentVariable("WEBSITE_SITE_NAME") |> Option.ofObj |> Option.isSome
+        let homeDir = Environment.GetEnvironmentVariable("HOME") |> Option.ofObj |> Option.defaultValue "/home"
         let envFile = "appsettings." + builder.Environment.EnvironmentName + ".json"
-        builder.Configuration.AddJsonFile(envFile, optional = (builder.Environment.EnvironmentName <> "Production")) 
+        let envFilePath = if onAzure then Path.Combine(homeDir, envFile) else envFile
+        builder.Configuration.AddJsonFile(envFilePath, optional = true)
             |> ignore
         let app = builder.Build()
         port |> Option.iter (fun p -> app.Urls.Add(sprintf "http://0.0.0.0:%s" p))
+
+        // Production without appsettings.Production.json: start but show error to every request
+        let expectedProductionConfigPath =
+            let filename = "appsettings.Production.json"
+            if onAzure then Path.Combine(homeDir, filename)
+            else Path.Combine(app.Environment.ContentRootPath, filename)
+        let productionConfigMissing =
+            app.Environment.EnvironmentName = "Production"
+            && not (File.Exists(expectedProductionConfigPath))
+        if productionConfigMissing then
+            app.Use(fun (ctx: HttpContext) (next: RequestDelegate) ->
+                ctx.Response.StatusCode <- 500
+                ctx.Response.ContentType <- "text/html; charset=utf-8"
+                let errorHtmlPath = Path.Combine(app.Environment.WebRootPath, "missing-production-config.html")
+                let errorHtml =
+                    if File.Exists(errorHtmlPath) then
+                        File.ReadAllText(errorHtmlPath)
+                    else
+                        sprintf "Missing appsettings.Production.json at %s" expectedProductionConfigPath
+                let html = errorHtml.Replace("{{CONFIG_PATH}}", expectedProductionConfigPath)
+                ctx.Response.WriteAsync(html)
+            ) |> ignore
 
         let config = app.Configuration
         let dataDirResult =

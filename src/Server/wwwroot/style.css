@@ -10,6 +10,37 @@ body {
     flex-direction: column;
     /*gap: 0.2rem;*/
 }
+.amb-sticky-header {
+    order: -1;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: #ccc;
+    border-bottom: 1px solid #bbb;
+    flex-shrink: 0;
+}
+.amb-header-row1 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.2rem 0.4rem;
+    font-size: 0.85rem;
+    color: #444;
+}
+.amb-header-row2 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.1rem 0.4rem 0.2rem;
+}
+.amb-last-key {
+    font-size: 0.7rem;
+    color: #888;
+    font-family: monospace;
+}
+.amb-undo-status {
+    font-size: 0.8rem;
+}
 .amb-row {
     display: flex;
     /*gap: 0.2rem;*/
@@ -65,40 +96,14 @@ body {
     position: absolute;
     left: -9999px;
 }
-.amb-settings-bar {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.4rem 0;
-    margin-top: 0.5rem;
-    border-top: 1px solid #bbb;
-    font-size: 0.85rem;
-    color: #444;
-}
 .amb-logout-link {
-    margin-left: 1rem;
-    font-size: .85rem;
+    font-size: 0.85rem;
     color: #555;
 }
-.amb-build-label {
-    margin-left: auto;
-    font-size: .75rem;
-    color: #666;
-}
 .amb-reload-btn {
-    margin-left: 0.5rem;
-    font-size: .75rem;
+    font-size: 0.75rem;
     padding: 0.1rem 0.4rem;
     cursor: pointer;
-}
-.amb-diag-bar {
-    font-size: .7rem;
-    color: #888;
-    padding: 0.25rem 0.5rem;
-    font-family: monospace;
-    white-space: nowrap;
-    overflow-x: auto;
-    border-top: 1px solid #eee;
 }
 .amb-sync-status {
     padding: 0.2rem 0.4rem;
