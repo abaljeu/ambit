@@ -114,6 +114,37 @@ module Main =
 
         app.UseDefaultFiles() |> ignore
         app.UseStaticFiles() |> ignore
+        // Absolute origin for CSS + Program.js when the app page is served from another host (PHP proxy, custom domain).
+        // Fable uses relative imports; they resolve against Program.js URL — if Program.js is same-origin as the page,
+        // fable_modules stays on that host. Rewriting the script (and CSS) to Azure fixes that.
+        // On Azure App Service Production, defaults to https://WEBSITE_HOSTNAME when PublicAssetBase is unset.
+        let publicAssetBaseOpt =
+            let raw = config.["PublicAssetBase"] |> Option.ofObj |> Option.defaultValue ""
+            let trimmed = raw.Trim().TrimEnd('/')
+            let fromConfig = if String.IsNullOrWhiteSpace(trimmed) then None else Some trimmed
+            match fromConfig with
+            | Some b -> Some b
+            | None ->
+                if onAzure && app.Environment.EnvironmentName = "Production" then
+                    Environment.GetEnvironmentVariable("WEBSITE_HOSTNAME")
+                    |> Option.ofObj
+                    |> Option.map (fun h -> ("https://" + h.Trim()).TrimEnd('/'))
+                else None
+
+        // Comma-separated origins for Access-Control-Allow-Origin on /ambit/*.js (ES modules cross-origin).
+        // If empty but PublicAssetBase is in effect, default to "*" so proxy + Azure works without extra config.
+        let jsModuleCorsOrigins =
+            let rawCors = config.["JsModuleCorsOrigins"] |> Option.ofObj |> Option.defaultValue ""
+            let parsed =
+                if String.IsNullOrWhiteSpace(rawCors) then
+                    [||]
+                else
+                    rawCors.Split(',')
+                    |> Array.map (fun s -> s.Trim())
+                    |> Array.filter (fun s -> s.Length > 0)
+            if parsed.Length > 0 then parsed
+            elif Option.isSome publicAssetBaseOpt then [| "*" |]
+            else [||]
         // Serve wwwroot under /ambit/ so assets like /ambit/Program.js work. Use /ambit/ not /ambit
         // so that GET /ambit (exact) falls through to MapGet rather than 404 from static files.
         // JS and source maps: no-cache so Reload button (needed on iPad Safari) fetches fresh modules.
@@ -125,8 +156,31 @@ module Main =
                     || path.EndsWith(".js.map", StringComparison.OrdinalIgnoreCase) then
                     ctx.Context.Response.Headers.CacheControl <- "no-cache, no-store, must-revalidate"
                     ctx.Context.Response.Headers.Pragma <- "no-cache"
-                    ctx.Context.Response.Headers.Expires <- "0"))
+                    ctx.Context.Response.Headers.Expires <- "0"
+                    if jsModuleCorsOrigins.Length > 0 then
+                        let allowAny = jsModuleCorsOrigins |> Array.exists (fun o -> o = "*")
+                        if allowAny then
+                            ctx.Context.Response.Headers.Append("Access-Control-Allow-Origin", "*")
+                        else
+                            match ctx.Context.Request.Headers.TryGetValue("Origin") with
+                            | true, originVals ->
+                                let origin = originVals.ToString()
+                                if jsModuleCorsOrigins |> Array.contains origin then
+                                    ctx.Context.Response.Headers.Append("Access-Control-Allow-Origin", origin)
+                                    ctx.Context.Response.Headers.Append("Vary", "Origin")
+                            | _ -> ()))
         app.UseStaticFiles(ambitOpts) |> ignore
+
+        // Do not register both MapGet("/ambit") and MapGet("/ambit/") — routing treats them as ambiguous for the same request.
+        // Normalize trailing slash to the canonical app URL.
+        app.Use(fun (ctx: HttpContext) (next: RequestDelegate) ->
+            if HttpMethods.IsGet(ctx.Request.Method) && ctx.Request.Path.Equals(PathString("/ambit/")) then
+                ctx.Response.Redirect("/ambit", false)
+                Task.CompletedTask
+            else
+                next.Invoke(ctx)
+        )
+        |> ignore
 
         // Development only: serve Client/Shared source files so Chrome DevTools can load mapped sources
         if app.Environment.EnvironmentName = "Development" then
@@ -206,11 +260,22 @@ module Main =
             )) |> ignore
 
             // Build stamps for client to detect server redeploy (used in state + gambol.html)
-            let gambolHtml = Path.Combine(app.Environment.WebRootPath, "gambol.html")
+            // Not named gambol.html — that path would be served as a raw static file under /ambit/ (no URL rewrites).
+            let gambolHtml = Path.Combine(app.Environment.WebRootPath, "gambol.template.html")
             let programJs = Path.Combine(app.Environment.WebRootPath, "Program.js")
             let torontoTz = TimeZoneInfo.FindSystemTimeZoneById("America/Toronto")
-            let torontoNow = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, torontoTz)
-            let startupStamp = torontoNow.ToString("yyyy-MM-dd HH:mm:ss") + " ET"
+
+            // Prefer "build/publish time" by reading the last-write time of the running server assembly.
+            // This is more useful than server startup time for diagnostics.
+            let serverAssemblyPath = System.Reflection.Assembly.GetExecutingAssembly().Location
+            if String.IsNullOrWhiteSpace serverAssemblyPath then
+                failwith "Could not determine server assembly path for build timestamp."
+            if not (File.Exists serverAssemblyPath) then
+                failwithf "Could not read server assembly timestamp: missing file at '%s'." serverAssemblyPath
+
+            let serverBuildUtc = File.GetLastWriteTimeUtc(serverAssemblyPath)
+            let serverBuildStamp () =
+                TimeZoneInfo.ConvertTimeFromUtc(serverBuildUtc, torontoTz).ToString("yyyy-MM-dd HH:mm:ss") + " ET"
             let pageBuildStamp () =
                 let htmlTime = if File.Exists(gambolHtml) then File.GetLastWriteTimeUtc(gambolHtml) else DateTime.MinValue
                 let jsTime = if File.Exists(programJs) then File.GetLastWriteTimeUtc(programJs) else DateTime.MinValue
@@ -224,7 +289,9 @@ module Main =
                 let jsTime = if File.Exists(programJs) then File.GetLastWriteTimeUtc(programJs) else DateTime.MinValue
                 let latest = max htmlTime jsTime
                 int (latest.Subtract(DateTime.UnixEpoch).TotalSeconds)
-            let startupEpochSec = int (torontoNow.Subtract(DateTime.UnixEpoch).TotalSeconds)
+
+            let serverBuildEpochSec () =
+                int (serverBuildUtc.Subtract(DateTime.UnixEpoch).TotalSeconds)
 
             // GET /ambit/state → JSON { revision, graph } (full payload for initial load)
             app.MapGet("/ambit/state", Func<HttpRequest, Task<IResult>>(fun req -> task {
@@ -242,7 +309,7 @@ module Main =
                 else
                     let agent = getOrCreateAgent "gambol"
                     let pageEpoch = pageBuildEpochSec ()
-                    return! Api.getPoll agent startupEpochSec pageEpoch |> Async.StartAsTask
+                    return! Api.getPoll agent (serverBuildEpochSec ()) pageEpoch |> Async.StartAsTask
             })) |> ignore
 
             // POST /ambit/changes → JSON { revision, graph } or 400
@@ -270,14 +337,25 @@ module Main =
                 let raw = File.ReadAllText(gambolHtml)
                 let pageStamp = pageBuildStamp ()
                 let pageEpoch = pageBuildEpochSec ()
+                let withAbsoluteAssets =
+                    match publicAssetBaseOpt with
+                    | None -> raw
+                    | Some baseUrl ->
+                        raw
+                            .Replace("href=\"/ambit/style.css\"", sprintf "href=\"%s/ambit/style.css\"" baseUrl)
+                            .Replace("href=\"/ambit/user.css\"", sprintf "href=\"%s/ambit/user.css\"" baseUrl)
                 let snippet =
-                    "    <script>window.__BUILD__ = \"" + startupStamp + "\"; window.__PAGE_BUILD__ = \"" + pageStamp
-                    + "\"; window.__BUILD_TS__ = " + string startupEpochSec
+                    "    <script>window.__BUILD__ = \"" + serverBuildStamp () + "\"; window.__PAGE_BUILD__ = \"" + pageStamp
+                    + "\"; window.__BUILD_TS__ = " + string (serverBuildEpochSec ())
                     + "; window.__PAGE_BUILD_TS__ = " + string pageEpoch + ";</script>\n</head>"
-                let withStamp = raw.Replace("</head>", snippet)
+                let withStamp = withAbsoluteAssets.Replace("</head>", snippet)
                 // Cache-bust Program.js so reload gets fresh assets when server redeploys
-                withStamp.Replace("src=\"/ambit/Program.js\"", sprintf "src=\"/ambit/Program.js?v=%d\"" pageEpoch)
-            app.MapGet("/ambit", Func<HttpContext, IResult>(fun ctx ->
+                let programSrc =
+                    match publicAssetBaseOpt with
+                    | None -> sprintf "/ambit/Program.js?v=%d" pageEpoch
+                    | Some baseUrl -> sprintf "%s/ambit/Program.js?v=%d" baseUrl pageEpoch
+                withStamp.Replace("src=\"/ambit/Program.js\"", sprintf "src=\"%s\"" programSrc)
+            let serveAmbitApp (ctx: HttpContext) : IResult =
                 if isAuthenticated ctx.Request then
                     ctx.Response.Headers.CacheControl <- "no-cache, no-store, must-revalidate"
                     ctx.Response.Headers.Pragma <- "no-cache"
@@ -285,7 +363,7 @@ module Main =
                     Results.Content(gambolHtmlWithStamp (), "text/html")
                 else
                     Results.Redirect("/ambit/login")
-            )) |> ignore
+            app.MapGet("/ambit", Func<HttpContext, IResult>(serveAmbitApp)) |> ignore
 
         app.Run()
 

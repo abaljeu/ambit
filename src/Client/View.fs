@@ -289,6 +289,9 @@ let renderStatus (model: VM) : unit =
         | Synced  ->
             el.textContent <- "sync"
             el.className <- "amb-sync-status amb-synced"
+        | Inactive ->
+            el.textContent <- "Inactive"
+            el.className <- "amb-sync-status amb-inactive"
         | Syncing ->
             el.textContent <- "Saving\u2026"
             el.className <- "amb-sync-status amb-syncing"

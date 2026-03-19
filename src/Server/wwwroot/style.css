@@ -114,6 +114,10 @@ body {
     background: #9f9;
     color: #161;
 }
+.amb-sync-status.amb-inactive {
+    background: #ddd;
+    color: #444;
+}
 .amb-sync-status.amb-syncing {
     background: #ff9;
     color: #660;

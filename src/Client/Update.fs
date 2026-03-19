@@ -1007,3 +1007,15 @@ let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
     | System (ServerAhead _) ->
         { model with syncState = Stale }
 
+    | System PollingInactive ->
+        if model.syncState = Synced && model.pendingChanges.IsEmpty then
+            { model with syncState = Inactive }
+        else
+            model
+
+    | System PollingActive ->
+        if model.syncState = Inactive then
+            { model with syncState = Synced }
+        else
+            model
+

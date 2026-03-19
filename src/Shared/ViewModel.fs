@@ -47,6 +47,7 @@ type ClipboardContent =
 
 type SyncState =
     | Synced      // all changes confirmed by server
+    | Inactive   // client paused remote polling due to idle/hidden
     | Syncing     // a POST is currently in-flight
     | Pending     // last POST failed; auto-retry scheduled
     | Conflicted  // received 409; rebase in progress
@@ -72,6 +73,8 @@ type SystemMsg =
     | SubmitResponse of Revision
     | SubmitFailed
     | ServerAhead of Revision  // poll found server revision > client; view is stale
+    | PollingInactive
+    | PollingActive
 
 type Msg =
     | System of SystemMsg

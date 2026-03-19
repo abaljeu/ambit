@@ -1,17 +1,24 @@
 $ErrorActionPreference = "Stop"
 
+# 1. Build Fable client
 dotnet fable src/Client --outDir src/Server/wwwroot
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+# 2. Publish ASP.NET server
 dotnet publish src/Server -c Release -o ./publish
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-Compress-Archive -Path ./publish/* -DestinationPath ./site.zip -Force
+# 3. Remove old zip (if not locked) and create new one
+if (Test-Path .\site.zip) {
+    # If this throws "in use by another process", you'll know what is locking it
+    Remove-Item .\site.zip -Force
+}
 
-Write-Host ""
-Write-Host "Then deploy via Kudu:"
-Write-Host ""
-Write-Host "  1. Portal -> your Web App -> Advanced Tools -> Go"
-Write-Host "  2. Tools -> Zip Push Deploy"
-Write-Host "  3. IMPORTANT: set Target/Destination directory to / (NOT /wwwroot)"
-Write-Host "  4. Drag and drop site.zip onto the page"
+Compress-Archive -Path .\publish\* -DestinationPath .\site.zip -Force
+
+# 4. Deploy to Azure App Service using the new command
+az webapp deploy `
+  --resource-group "Amble_group" `
+  --name "Amble" `
+  --src-path ".\site.zip" `
+  --type zip
