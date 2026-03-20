@@ -208,7 +208,7 @@ type CommandKeyHandler =
 
 type CommandEntry = {
     name: string
-    op: Op
+    bbbbbbb: Op
     keys: string list
     handler: CommandKeyHandler
 }
@@ -216,103 +216,103 @@ type CommandEntry = {
 let commandRegistry : CommandEntry list =
     [ 
       { name = "Edit node"
-        op = startEditOp
+        bbbbbbb = startEditOp
         keys = ["F2"; "Enter"]
         handler =
             SelectionHandler (fun _ -> Some startEditOp) }
       
       { name = "Split at cursor"
-        op = noOp
+        bbbbbbb = noOp
         keys = ["Enter"]
         handler = EditingHandler splitAtCursor }
       
       { name = "Delete"
-        op = deleteSelectionOp
+        bbbbbbb = deleteSelectionOp
         keys = ["Delete"; "Backspace"]
         handler = SelectionHandler (fun _ -> Some deleteSelectionOp) }
       
       { name = "Join with previous"
-        op = noOp
+        bbbbbbb = noOp
         keys = ["Backspace"]
         handler = EditingHandler handleBackspace }
       
       { name = "Join with next"
-        op = noOp
+        bbbbbbb = noOp
         keys = ["Delete"]
         handler = EditingHandler handleDelete }
       
       { name = "Move selection up"
-        op = moveSelectionUp
+        bbbbbbb = moveSelectionUp
         keys = ["ArrowUp"]
         handler = SelectionHandler (fun _ -> Some moveSelectionUp) }
       
       { name = "Move selection down"
-        op = moveSelectionDown
+        bbbbbbb = moveSelectionDown
         keys = ["ArrowDown"]
         handler = SelectionHandler (fun _ -> Some moveSelectionDown) }
       
       { name = "Move focus left"
-        op = arrowLeftSelectionOp
+        bbbbbbb = arrowLeftSelectionOp
         keys = ["ArrowLeft"]
         handler = SelectionHandler (fun _ -> Some arrowLeftSelectionOp) }
       
       { name = "Move to previous node"
-        op = noOp
+        bbbbbbb = noOp
         keys = ["ArrowLeft"; "Ctrl+ArrowLeft"]
         handler = EditingHandler handleArrowLeft }
       
       { name = "Move focus right"
-        op = arrowRightSelectionOp
+        bbbbbbb = arrowRightSelectionOp
         keys = ["ArrowRight"]
         handler = SelectionHandler (fun _ -> Some arrowRightSelectionOp) }
       
       { name = "Move to next node"
-        op = noOp
+        bbbbbbb = noOp
         keys = ["ArrowRight"; "Ctrl+ArrowRight"]
         handler = EditingHandler handleArrowRight }
       
       { name = "Extend selection up"
-        op = shiftArrowOp -1
+        bbbbbbb = shiftArrowOp -1
         keys = ["Shift+ArrowUp"]
         handler = SelectionHandler (fun _ -> Some (shiftArrowOp -1)) }
       
       { name = "Extend selection down"
-        op = shiftArrowOp 1
+        bbbbbbb = shiftArrowOp 1
         keys = ["Shift+ArrowDown"]
         handler = SelectionHandler (fun _ -> Some (shiftArrowOp 1)) }
       
       { name = "Move edit up"
-        op = noOp
+        bbbbbbb = noOp
         keys = ["ArrowUp"]
         handler = EditingHandler editMoveUp }
       
       { name = "Move edit down"
-        op = noOp
+        bbbbbbb = noOp
         keys = ["ArrowDown"]
         handler = EditingHandler editMoveDown }
       
       { name = "Move up"
-        op = moveNodeUpOp
+        bbbbbbb = moveNodeUpOp
         keys = ["Alt+ArrowUp"; "Ctrl+ArrowUp"]
         handler = UniversalHandler (fun _ -> Some moveNodeUpOp) }
       
       { name = "Move down"
-        op = moveNodeDownOp
+        bbbbbbb = moveNodeDownOp
         keys = ["Alt+ArrowDown"; "Ctrl+ArrowDown"]
         handler = UniversalHandler (fun _ -> Some moveNodeDownOp) }
       
       { name = "Indent"
-        op = indentOp
+        bbbbbbb = indentOp
         keys = ["Tab"]
         handler = UniversalHandler (fun _ -> Some indentOp) }
       
       { name = "Outdent"
-        op = outdentOp
+        bbbbbbb = outdentOp
         keys = ["Shift+Tab"]
         handler = UniversalHandler (fun _ -> Some outdentOp) }
       
       { name = "Cancel"
-        op = cancelEdit
+        bbbbbbb = cancelEdit
         keys = ["Escape"]
         handler =
             UniversalHandler (function
@@ -320,42 +320,42 @@ let commandRegistry : CommandEntry list =
                 | EditingKey _ -> Some cancelEdit) }
       
       { name = "Fold / unfold"
-        op = toggleFoldSelectionOp
+        bbbbbbb = toggleFoldSelectionOp
         keys = ["Ctrl+."]
         handler = UniversalHandler (fun _ -> Some toggleFoldSelectionOp) }
       
       { name = "Zoom in"
-        op = zoomInOp
+        bbbbbbb = zoomInOp
         keys = ["Ctrl+]"]
         handler = UniversalHandler (fun _ -> Some zoomInOp) }
       
       { name = "Zoom out"
-        op = zoomOutOp
+        bbbbbbb = zoomOutOp
         keys = ["Ctrl+["]
         handler = UniversalHandler (fun _ -> Some zoomOutOp) }
       
       { name = "Undo"
-        op = undoOp
+        bbbbbbb = undoOp
         keys = ["Ctrl+z"]
         handler = UniversalHandler (fun _ -> Some undoOp) }
       
       { name = "Redo"
-        op = redoOp
+        bbbbbbb = redoOp
         keys = ["Ctrl+y"]
         handler = UniversalHandler (fun _ -> Some redoOp) }
       
       { name = "Copy as links"
-        op = copySelectionAsLinks
+        bbbbbbb = copySelectionAsLinks
         keys = ["Ctrl+Shift+c"]
         handler = SelectionHandler (fun _ -> Some copySelectionAsLinks) }
       
       { name = "Command palette"
-        op = openCommandPaletteOp
+        bbbbbbb = openCommandPaletteOp
         keys = ["Ctrl+Shift+P"]
         handler = UniversalHandler (fun _ -> Some openCommandPaletteOp) }
       
       { name = "Toggle class"
-        op = toggleClassOp
+        bbbbbbb = toggleClassOp
         keys = ["Alt+c"]
         handler = UniversalHandler (fun _ -> Some toggleClassOp) } ]
 
@@ -393,7 +393,7 @@ let paletteRunOp = onPalette (fun q selectedCommand ret model dispatch ->
     | None     -> { model with mode = ret }
     | Some cmd ->
         setLastKeyDisplay None (Some cmd.name)
-        cmd.op { model with mode = ret } dispatch)
+        cmd.bbbbbbb { model with mode = ret } dispatch)
 
 let paletteSetQueryOp (q: string) = onPalette (fun _ _ ret model _ ->
     { model with mode = CommandPalette (q, 0, ret) })
