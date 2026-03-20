@@ -300,17 +300,17 @@ let commandRegistry : CommandEntry list =
         keys = [ "ArrowDown"; "O" ]
         keyScope = SelectionOnly }
 
-      { name = "Cursor outward (no fold)"
+      { name = "Cursor left to parent"
         run = keyAlways arrowLeftSelectionNoFoldOp
         keys = [ "ArrowLeft"; "A" ]
         keyScope = SelectionOnly }
 
-      { name = "Cursor outward"
+      { name = "Cursor fold left"
         run = keyAlways arrowLeftSelectionOp
         keys = [ "Shift+ArrowLeft"; "Shift+A" ]
         keyScope = SelectionOnly }
 
-      { name = "Cursor inward"
+      { name = "Cursor unfold right"
         run = keyAlways arrowRightSelectionOp
         keys = [ "Shift+ArrowRight"; "ArrowRight" ;"Shift+E" ;"E" ]
         keyScope = SelectionOnly }
@@ -399,6 +399,12 @@ let commandRegistry : CommandEntry list =
         run = keyAlways copySelectionAsLinks
         keys = [ "Ctrl+Shift+C";"Shift+C" ]
         keyScope = SelectionOnly }
+
+      { name = "Duplicate (link)"
+        run = keyAlways duplicateSelectionOp
+        keys = [ "Shift+C" ]
+        keyScope = SelectionOnly }
+
 
       { name = "Command palette"
         run = keyAlways openCommandPaletteOp
