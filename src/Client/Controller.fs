@@ -115,6 +115,21 @@ let private isSingleLetterKey (key: string) : bool =
 let private isUppercaseLetterKey (key: string) : bool =
     isSingleLetterKey key && System.Char.IsUpper key[0]
 
+let private tryUnshiftPunctuationKey (key: string) : string option =
+    match key with
+    | "<" -> Some ","
+    | ">" -> Some "."
+    | "?" -> Some "/"
+    | ":" -> Some ";"
+    | "\"" -> Some "'"
+    | "{" -> Some "["
+    | "}" -> Some "]"
+    | "|" -> Some "\\"
+    | "+" -> Some "="
+    | "_" -> Some "-"
+    | "~" -> Some "`"
+    | _ -> None
+
 let private normalizeKeyToken (key: string) : string =
     if isSingleLetterKey key then string (System.Char.ToUpperInvariant key[0]) else key
 
@@ -123,13 +138,20 @@ let private formatKeyCombo (ke: KeyboardEvent) : string =
     let parts = ResizeArray<string>()
     let hasNonShiftModifier = ke.ctrlKey || ke.altKey || ke.metaKey
     let shiftOnlySource = ke.shiftKey || (not hasNonShiftModifier && isUppercaseLetterKey ke.key)
+    let keyToken =
+        if shiftOnlySource then
+            match tryUnshiftPunctuationKey ke.key with
+            | Some key -> key
+            | None -> ke.key
+        else
+            ke.key
 
     if ke.ctrlKey then parts.Add "Ctrl"
     if ke.metaKey then parts.Add "Cmd"
     if ke.altKey  then parts.Add "Alt"
     if shiftOnlySource then parts.Add "Shift"
 
-    parts.Add (normalizeKeyToken ke.key)
+    parts.Add (normalizeKeyToken keyToken)
     String.concat "+" parts
 
 /// Single function to set the last-key diagnostic. Never appends; always replaces.
