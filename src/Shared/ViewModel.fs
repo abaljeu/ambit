@@ -2,8 +2,7 @@ namespace Gambol.Shared
 
 type Mode =
     | Selecting
-    | Editing of originalText: string * prefill: string option * cursorPos: int option
-    // prefill: the initial text shown in the edit input (if different from originalText)
+    | Editing of originalText: string * cursorPos: int option
     // cursorPos: None = place cursor at end; Some n = place cursor at position n
     | CommandPalette of query: string * selectedCommand: int * returnTo: Mode
 

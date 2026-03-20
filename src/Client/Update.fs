@@ -157,10 +157,10 @@ let commitTextEdit
 /// cursor > 0    → current node gets text-before; new sibling gets text-after; focus at start of new node.
 let splitNode (currentText: string) (cursorPos: int) (model: VM) (dispatch: Msg -> unit) : VM =
     match model.mode, model.selectedNodes with
-    | Editing (originalText, _, _), None ->
+    | Editing (originalText, _), None ->
         // View root is being edited: commit text, no split
         commitTextEdit (viewRootNodeId model) originalText (readEditInputValue ()) model dispatch
-    | Editing (originalText, _, _), Some sel ->
+    | Editing (originalText, _), Some sel ->
         // The node being edited is the focus node.
         let selectedId  = focusedNodeId model.graph sel
         let parentId    = sel.range.parent.nodeId
@@ -191,7 +191,7 @@ let splitNode (currentText: string) (cursorPos: int) (model: VM) (dispatch: Msg 
         | Some m ->
             { m with
                 selectedNodes = singleSelection m.graph m.siteMap focusId
-                mode = Editing (focusText, None, Some 0) }
+                mode = Editing (focusText, Some 0) }
         | None -> model
     | _ -> model
 
@@ -267,7 +267,7 @@ let pasteNodes (pastedText: string) (preferredNodeIds: string option) (model: VM
                 let newSel = { range = { parent = range.parent; start = range.start; endd = newEnd }; focus = range.start }
                 { m with selectedNodes = Some newSel }
             | None -> model
-        | Editing (originalText, _, _) ->
+        | Editing (originalText, _) ->
             let currentText = readEditInputValue ()
             let cursorPos   = readEditInputCursor ()
             let focusId  = focusedNodeId model.graph sel
@@ -365,9 +365,9 @@ let outdentSelection (model: VM) (dispatch: Msg -> unit) : VM =
 /// If currently editing, commit the edit and return Selecting model; otherwise return model as-is.
 let commitIfEditing (model: VM) (dispatch: Msg -> unit) : VM =
     match model.mode, model.selectedNodes with
-    | Editing (originalText, _, _), None ->
+    | Editing (originalText, _), None ->
         commitTextEdit (viewRootNodeId model) originalText (readEditInputValue ()) model dispatch
-    | Editing (originalText, _, _), Some sel ->
+    | Editing (originalText, _), Some sel ->
         let editingId = focusedNodeId model.graph sel
         commitTextEdit editingId originalText (readEditInputValue ()) model dispatch
     | _ -> model
@@ -461,7 +461,7 @@ let moveEdit (delta: int) (cursorPos: int) (model: VM) (dispatch: Msg -> unit) :
     | Some sel ->
         let currentId = focusedNodeId model.graph sel
         let focusInstId = focusedInstanceId sel
-        let committed = commitTextEdit currentId (match model.mode with Editing (t, _, _) -> t | _ -> "") (readEditInputValue ()) model dispatch
+        let committed = commitTextEdit currentId (match model.mode with Editing (t, _) -> t | _ -> "") (readEditInputValue ()) model dispatch
         let rows = getVisibleRowInstanceIds committed.siteMap
         match rows |> List.tryFindIndex ((=) focusInstId) with
         | None -> committed
@@ -474,7 +474,7 @@ let moveEdit (delta: int) (cursorPos: int) (model: VM) (dispatch: Msg -> unit) :
                 let targetText = committed.graph.nodes.[targetEntry.nodeId].text
                 let clampedPos = min cursorPos targetText.Length
                 { committed with
-                    mode = Editing (targetText, None, Some clampedPos)
+                    mode = Editing (targetText, Some clampedPos)
                     selectedNodes = singleSelectionForInstance committed.siteMap targetInstId }
 
 let joinWithNext (currentText: string) (model: VM) (dispatch: Msg -> unit) : VM =
@@ -496,7 +496,7 @@ let joinWithNext (currentText: string) (model: VM) (dispatch: Msg -> unit) : VM 
                 if not currentNode.children.IsEmpty then
                     let pos = readEditInputCursor ()
                     match model.mode with
-                    | Editing (t, pf, _) -> { model with mode = Editing (t, pf, Some pos) }
+                    | Editing (t, _) -> { model with mode = Editing (t, Some pos) }
                     | _ -> model
                 else
                     match Graph.tryFindParentAndIndex nextId model.graph with
@@ -514,7 +514,7 @@ let joinWithNext (currentText: string) (model: VM) (dispatch: Msg -> unit) : VM 
                                 | Some m ->
                                     let result = withSiteMap m
                                     { result with
-                                        mode = Editing (nextNode.text, None, Some 0)
+                                        mode = Editing (nextNode.text, Some 0)
                                         selectedNodes = singleSelection result.graph result.siteMap nextId }
                         else
                             // Standard join: merge current into next, delete current, keep next
@@ -535,7 +535,7 @@ let joinWithNext (currentText: string) (model: VM) (dispatch: Msg -> unit) : VM 
                                 | Some m ->
                                     let result = withSiteMap m
                                     { result with
-                                        mode = Editing (joinedText, None, Some cursorPos)
+                                        mode = Editing (joinedText, Some cursorPos)
                                         selectedNodes = singleSelection result.graph result.siteMap nextId }
     | _ -> model
 
@@ -572,7 +572,7 @@ let joinWithPrevious (currentText: string) (model: VM) (dispatch: Msg -> unit) :
                     | Some m ->
                         let result = withSiteMap m
                         { result with
-                            mode = Editing (joinedText, None, Some cursorPos)
+                            mode = Editing (joinedText, Some cursorPos)
                             selectedNodes = singleSelection result.graph result.siteMap prevId }
     | _ -> model
 
@@ -611,29 +611,15 @@ let startEditOp (model: VM) _dispatch : VM =
         match model.selectedNodes with
         | None -> model.graph.nodes.[viewRootNodeId model].text
         | Some sel -> model.graph.nodes.[focusedNodeId model.graph sel].text
-    { model with mode = Editing (text, Some text, None) }
-
-/// Op: Enter edit mode for the focused node, showing prefill text in the input.
-let startEdit (prefill: string) (model: VM) _dispatch : VM =
-    match model.selectedNodes with
-    | None ->
-        let node = model.graph.nodes.[viewRootNodeId model]
-        { model with mode = Editing (node.text, Some prefill, None) }
-    | Some sel ->
-        let nodeId = focusedNodeId model.graph sel
-        let node = model.graph.nodes.[nodeId]
-        { model with mode = Editing (node.text, Some prefill, None) }
+    { model with mode = Editing (text, None) }
 
 /// Op: Enter edit mode for the focused node, with cursor placed at a specific position.
-let startEditAtPos (prefill: string) (cursorPos: int) (model: VM) _dispatch : VM =
-    match model.selectedNodes with
-    | None ->
-        let node = model.graph.nodes.[viewRootNodeId model]
-        { model with mode = Editing (node.text, Some prefill, Some cursorPos) }
-    | Some sel ->
-        let nodeId = focusedNodeId model.graph sel
-        let node = model.graph.nodes.[nodeId]
-        { model with mode = Editing (node.text, Some prefill, Some cursorPos) }
+let startEditAtPos (cursorPos: int) (model: VM) _dispatch : VM =
+    let text =
+        match model.selectedNodes with
+        | None -> model.graph.nodes.[viewRootNodeId model].text
+        | Some sel -> model.graph.nodes.[focusedNodeId model.graph sel].text
+    { model with mode = Editing (text, Some cursorPos) }
 
 /// Re-export palette ops for use by Controller and View.
 let openCommandPaletteOp = Gambol.Client.CommandPalette.openCommandPaletteOp
@@ -643,7 +629,7 @@ let closeCommandPaletteOp = Gambol.Client.CommandPalette.closeCommandPaletteOp
 let selectRow (nodeId: NodeId) (model: VM) (dispatch: Msg -> unit) : VM =
     let result =
         match model.mode, model.selectedNodes with
-        | Editing (originalText, _, _), Some sel ->
+        | Editing (originalText, _), Some sel ->
             let editingId = focusedNodeId model.graph sel
             let newText = readEditInputValue ()
             let model' = commitTextEdit editingId originalText newText model dispatch
@@ -657,7 +643,7 @@ let selectRow (nodeId: NodeId) (model: VM) (dispatch: Msg -> unit) : VM =
 let selectInstance (instanceId: int) (model: VM) (dispatch: Msg -> unit) : VM =
     let result =
         match model.mode, model.selectedNodes with
-        | Editing (originalText, _, _), Some sel ->
+        | Editing (originalText, _), Some sel ->
             let editingId = focusedNodeId model.graph sel
             let newText = readEditInputValue ()
             let model' = commitTextEdit editingId originalText newText model dispatch

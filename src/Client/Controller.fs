@@ -101,10 +101,6 @@ let onCut (model: VM) (ev: Event) (applyOp: Op -> unit) : unit =
 
 let app = document.getElementById "app"
 
-/// Check if a key string represents a single printable character
-let isPrintableKey (key: string) : bool =
-    key.Length = 1 && key >= " "
-
 /// True when running on iOS (iPad, iPhone, iPod). Cmd+key is then treated as Ctrl+key.
 [<Emit("typeof navigator !== 'undefined' && (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1))")>]
 let isIOS () : bool = jsNative
@@ -151,8 +147,6 @@ type PaletteKeyContext = { keyEvent: KeyboardEvent }
 /// A key handler returns an Op to apply, or None to let the browser handle the event.
 type KeyHandler<'Context> = 'Context -> Op option
 
-let printableKeyToken = "__PRINTABLE__"
-
 // ---------------------------------------------------------------------------
 // Selection key handlers
 // ---------------------------------------------------------------------------
@@ -163,10 +157,6 @@ let private always (op: Op) (_: 'ctx) : Op option = Some op
 /// Like always but for ops that need context (model, applyOp).
 let private alwaysFromCtx (opFrom: SelectionKeyContext -> Op) (ctx: SelectionKeyContext) : Op option =
     Some (opFrom ctx)
-
-/// Enter edit mode: use key as prefill if printable, else keep existing text.
-let private startEditFromKey (key: string) (existingText: string) : Op =
-    startEdit (if isPrintableKey key then key else existingText)
 
 // ---------------------------------------------------------------------------
 // EditingKey key handlers (used in bindings; defined before commandRegistry)
@@ -211,164 +201,186 @@ let handleArrowRight (ctx: EditingKeyContext) : Op option =
 /// No-op for key-only commands that are not invokable from the palette.
 let private noOp : Op = fun m _ -> m
 
+type CommandKeyHandler =
+    | SelectionHandler of (SelectionKeyContext -> Op option)
+    | EditingHandler of (EditingKeyContext -> Op option)
+    | UniversalHandler of (KeyContext -> Op option)
+
 type CommandEntry = {
     name: string
     op: Op
-    sel: bool
-    edit: bool
-    palette: bool
     keys: string list
-    handler: KeyContext -> Op option
+    handler: CommandKeyHandler
 }
 
 let commandRegistry : CommandEntry list =
-    [ { name = "Edit node"
+    [ 
+      { name = "Edit node"
         op = startEditOp
-        sel = true; edit = false; palette = true
         keys = ["F2"; "Enter"]
-        handler = function
-          | SelectionKey s -> Some (startEditFromKey s.keyEvent.key s.selectedNodeText)
-          | _ -> None }
+        handler =
+            SelectionHandler (fun _ -> Some startEditOp) }
+      
       { name = "Split at cursor"
-        op = noOp; sel = false; edit = true; palette = true
+        op = noOp
         keys = ["Enter"]
-        handler = function EditingKey e -> splitAtCursor e | _ -> None }
+        handler = EditingHandler splitAtCursor }
+      
       { name = "Delete"
         op = deleteSelectionOp
-        sel = true; edit = false; palette = true
         keys = ["Delete"; "Backspace"]
-        handler = function SelectionKey _ -> Some deleteSelectionOp | _ -> None }
+        handler = SelectionHandler (fun _ -> Some deleteSelectionOp) }
+      
       { name = "Join with previous"
-        op = noOp; sel = false; edit = true; palette = true
+        op = noOp
         keys = ["Backspace"]
-        handler = function EditingKey e -> handleBackspace e | _ -> None }
+        handler = EditingHandler handleBackspace }
+      
       { name = "Join with next"
-        op = noOp; sel = false; edit = true; palette = true
+        op = noOp
         keys = ["Delete"]
-        handler = function EditingKey e -> handleDelete e | _ -> None }
+        handler = EditingHandler handleDelete }
+      
       { name = "Move selection up"
         op = moveSelectionUp
-        sel = true; edit = false; palette = true
         keys = ["ArrowUp"]
-        handler = function SelectionKey _ -> Some moveSelectionUp | _ -> None }
+        handler = SelectionHandler (fun _ -> Some moveSelectionUp) }
+      
       { name = "Move selection down"
         op = moveSelectionDown
-        sel = true; edit = false; palette = true
         keys = ["ArrowDown"]
-        handler = function SelectionKey _ -> Some moveSelectionDown | _ -> None }
+        handler = SelectionHandler (fun _ -> Some moveSelectionDown) }
+      
       { name = "Move focus left"
         op = arrowLeftSelectionOp
-        sel = true; edit = false; palette = true
         keys = ["ArrowLeft"]
-        handler = function SelectionKey _ -> Some arrowLeftSelectionOp | _ -> None }
+        handler = SelectionHandler (fun _ -> Some arrowLeftSelectionOp) }
+      
       { name = "Move to previous node"
-        op = noOp; sel = false; edit = true; palette = true
+        op = noOp
         keys = ["ArrowLeft"; "Ctrl+ArrowLeft"]
-        handler = function EditingKey e -> handleArrowLeft e | _ -> None }
+        handler = EditingHandler handleArrowLeft }
+      
       { name = "Move focus right"
         op = arrowRightSelectionOp
-        sel = true; edit = false; palette = true
         keys = ["ArrowRight"]
-        handler = function SelectionKey _ -> Some arrowRightSelectionOp | _ -> None }
+        handler = SelectionHandler (fun _ -> Some arrowRightSelectionOp) }
+      
       { name = "Move to next node"
-        op = noOp; sel = false; edit = true; palette = true
+        op = noOp
         keys = ["ArrowRight"; "Ctrl+ArrowRight"]
-        handler = function EditingKey e -> handleArrowRight e | _ -> None }
+        handler = EditingHandler handleArrowRight }
+      
       { name = "Extend selection up"
         op = shiftArrowOp -1
-        sel = true; edit = false; palette = true
         keys = ["Shift+ArrowUp"]
-        handler = function SelectionKey _ -> Some (shiftArrowOp -1) | _ -> None }
+        handler = SelectionHandler (fun _ -> Some (shiftArrowOp -1)) }
+      
       { name = "Extend selection down"
         op = shiftArrowOp 1
-        sel = true; edit = false; palette = true
         keys = ["Shift+ArrowDown"]
-        handler = function SelectionKey _ -> Some (shiftArrowOp 1) | _ -> None }
+        handler = SelectionHandler (fun _ -> Some (shiftArrowOp 1)) }
+      
       { name = "Move edit up"
-        op = noOp; sel = false; edit = true; palette = true
+        op = noOp
         keys = ["ArrowUp"]
-        handler = function EditingKey e -> editMoveUp e | _ -> None }
+        handler = EditingHandler editMoveUp }
+      
       { name = "Move edit down"
-        op = noOp; sel = false; edit = true; palette = true
+        op = noOp
         keys = ["ArrowDown"]
-        handler = function EditingKey e -> editMoveDown e | _ -> None }
+        handler = EditingHandler editMoveDown }
+      
       { name = "Move up"
         op = moveNodeUpOp
-        sel = true; edit = true; palette = true
         keys = ["Alt+ArrowUp"; "Ctrl+ArrowUp"]
-        handler = fun _ -> Some moveNodeUpOp }
+        handler = UniversalHandler (fun _ -> Some moveNodeUpOp) }
+      
       { name = "Move down"
         op = moveNodeDownOp
-        sel = true; edit = true; palette = true
         keys = ["Alt+ArrowDown"; "Ctrl+ArrowDown"]
-        handler = fun _ -> Some moveNodeDownOp }
+        handler = UniversalHandler (fun _ -> Some moveNodeDownOp) }
+      
       { name = "Indent"
         op = indentOp
-        sel = true; edit = true; palette = true
         keys = ["Tab"]
-        handler = fun _ -> Some indentOp }
+        handler = UniversalHandler (fun _ -> Some indentOp) }
+      
       { name = "Outdent"
         op = outdentOp
-        sel = true; edit = true; palette = true
         keys = ["Shift+Tab"]
-        handler = fun _ -> Some outdentOp }
+        handler = UniversalHandler (fun _ -> Some outdentOp) }
+      
       { name = "Cancel"
         op = cancelEdit
-        sel = true; edit = true; palette = true
         keys = ["Escape"]
-        handler = function
-          | SelectionKey _ -> Some cancelEdit
-          | EditingKey _ -> Some cancelEdit }
+        handler =
+            UniversalHandler (function
+                | SelectionKey _ -> Some cancelEdit
+                | EditingKey _ -> Some cancelEdit) }
+      
       { name = "Fold / unfold"
         op = toggleFoldSelectionOp
-        sel = true; edit = true; palette = true
         keys = ["Ctrl+."]
-        handler = fun _ -> Some toggleFoldSelectionOp }
+        handler = UniversalHandler (fun _ -> Some toggleFoldSelectionOp) }
+      
       { name = "Zoom in"
         op = zoomInOp
-        sel = true; edit = true; palette = true
         keys = ["Ctrl+]"]
-        handler = fun _ -> Some zoomInOp }
+        handler = UniversalHandler (fun _ -> Some zoomInOp) }
+      
       { name = "Zoom out"
         op = zoomOutOp
-        sel = true; edit = true; palette = true
         keys = ["Ctrl+["]
-        handler = fun _ -> Some zoomOutOp }
+        handler = UniversalHandler (fun _ -> Some zoomOutOp) }
+      
       { name = "Undo"
         op = undoOp
-        sel = true; edit = true; palette = true
         keys = ["Ctrl+z"]
-        handler = fun _ -> Some undoOp }
+        handler = UniversalHandler (fun _ -> Some undoOp) }
+      
       { name = "Redo"
         op = redoOp
-        sel = true; edit = true; palette = true
         keys = ["Ctrl+y"]
-        handler = fun _ -> Some redoOp }
+        handler = UniversalHandler (fun _ -> Some redoOp) }
+      
       { name = "Copy as links"
         op = copySelectionAsLinks
-        sel = true; edit = false; palette = true
         keys = ["Ctrl+Shift+c"]
-        handler = function SelectionKey _ -> Some copySelectionAsLinks | _ -> None }
+        handler = SelectionHandler (fun _ -> Some copySelectionAsLinks) }
+      
       { name = "Command palette"
         op = openCommandPaletteOp
-        sel = true; edit = true; palette = true
         keys = ["Ctrl+Shift+P"]
-        handler = fun _ -> Some openCommandPaletteOp }
+        handler = UniversalHandler (fun _ -> Some openCommandPaletteOp) }
+      
       { name = "Toggle class"
         op = toggleClassOp
-        sel = true; edit = true; palette = true
         keys = ["Alt+c"]
-        handler = fun _ -> Some toggleClassOp } ]
+        handler = UniversalHandler (fun _ -> Some toggleClassOp) } ]
 
-/// Commands invokable from the palette (sel or edit mode, palette flag set).
-let paletteCommands : CommandEntry list =
-    commandRegistry |> List.filter (fun c -> (c.sel || c.edit) && c.palette) 
+/// True if palette was opened from selection (unwrap nested CommandPalette to the real return target).
+let rec paletteWasSelecting (returnTo: Mode) : bool =
+    match returnTo with
+    | Selecting -> true
+    | Editing _ -> false
+    | CommandPalette (_, _, inner) -> paletteWasSelecting inner
 
-let filteredCommands (query: string) : CommandEntry list =
-    if query = "" then paletteCommands
+let commandsForPalette (returnTo: Mode) : CommandEntry list =
+    let sel = paletteWasSelecting returnTo
+    commandRegistry
+    |> List.filter (fun c ->
+        match c.handler with
+        | SelectionHandler _ -> sel
+        | EditingHandler _ -> not sel
+        | UniversalHandler _ -> true)
+
+let filteredCommands (returnTo: Mode) (query: string) : CommandEntry list =
+    let baseList = commandsForPalette returnTo
+    if query = "" then baseList
     else
         let q = query.ToLowerInvariant()
-        paletteCommands |> List.filter (fun c -> c.name.ToLowerInvariant().Contains(q))
+        baseList |> List.filter (fun c -> c.name.ToLowerInvariant().Contains(q))
 
 let private onPalette (f: string -> int -> Mode -> VM -> (Msg -> unit) -> VM)
                       (model: VM) (dispatch: Msg -> unit) : VM =
@@ -377,7 +389,7 @@ let private onPalette (f: string -> int -> Mode -> VM -> (Msg -> unit) -> VM)
     | _ -> model
 
 let paletteRunOp = onPalette (fun q selectedCommand ret model dispatch ->
-    match List.tryItem selectedCommand (filteredCommands q) with
+    match List.tryItem selectedCommand (filteredCommands ret q) with
     | None     -> { model with mode = ret }
     | Some cmd ->
         setLastKeyDisplay None (Some cmd.name)
@@ -393,46 +405,56 @@ type KeyTableEntry<'Context> = {
     commandName: string
 }
 
+/// Map registry entry to selection-mode key handler, if any.
+let private selectionKeyHandler (entry: CommandEntry) : (SelectionKeyContext -> Op option) option =
+    match entry.handler with
+    | SelectionHandler h -> Some h
+    | UniversalHandler h -> Some (fun s -> h (SelectionKey s))
+    | EditingHandler _ -> None
+
 /// Rebuild selection key table from commandRegistry (first binding per key wins).
-/// Printable key binding is injected separately; keys do not include printableKeyToken.
 let selectionKeyTable : KeyTableEntry<SelectionKeyContext> list =
     let rec collect seen acc entries =
         match entries with
         | [] -> acc
-        | entry :: rest when entry.sel ->
-            let bindings =
-                entry.keys
-                |> List.choose (fun k ->
-                    if Set.contains k seen then None
-                    else
-                        let h s = entry.handler (SelectionKey s)
-                        Some { key = k; handler = h; commandName = entry.name })
-            let seen' = bindings |> List.fold (fun s e -> Set.add e.key s) seen
-            let acc' = acc @ bindings
-            collect seen' acc' rest
-        | _ :: rest -> collect seen acc rest
-    let fromRegistry = collect Set.empty [] commandRegistry
-    let printEdit (s: SelectionKeyContext) = Some (startEditFromKey s.keyEvent.key s.selectedNodeText)
-    fromRegistry
-    @ [ { key = printableKeyToken; handler = printEdit; commandName = "Edit node" } ]
+        | entry :: rest ->
+            match selectionKeyHandler entry with
+            | None -> collect seen acc rest
+            | Some rowHandler ->
+                let bindings =
+                    entry.keys
+                    |> List.choose (fun k ->
+                        if Set.contains k seen then None
+                        else Some { key = k; handler = rowHandler; commandName = entry.name })
+                let seen' = bindings |> List.fold (fun s e -> Set.add e.key s) seen
+                let acc' = acc @ bindings
+                collect seen' acc' rest
+    collect Set.empty [] commandRegistry
+
+/// Map registry entry to editing-mode key handler, if any.
+let private editingKeyHandler (entry: CommandEntry) : (EditingKeyContext -> Op option) option =
+    match entry.handler with
+    | EditingHandler h -> Some h
+    | UniversalHandler h -> Some (fun e -> h (EditingKey e))
+    | SelectionHandler _ -> None
 
 /// Rebuild editing key table from commandRegistry (first binding per key wins).
 let editingKeyTable : KeyTableEntry<EditingKeyContext> list =
     let rec collect seen acc entries =
         match entries with
         | [] -> acc
-        | entry :: rest when entry.edit ->
-            let bindings =
-                entry.keys
-                |> List.choose (fun k ->
-                    if Set.contains k seen then None
-                    else
-                        let h e = entry.handler (EditingKey e)
-                        Some { key = k; handler = h; commandName = entry.name })
-            let seen' = bindings |> List.fold (fun s e -> Set.add e.key s) seen
-            let acc' = acc @ bindings
-            collect seen' acc' rest
-        | _ :: rest -> collect seen acc rest
+        | entry :: rest ->
+            match editingKeyHandler entry with
+            | None -> collect seen acc rest
+            | Some rowHandler ->
+                let bindings =
+                    entry.keys
+                    |> List.choose (fun k ->
+                        if Set.contains k seen then None
+                        else Some { key = k; handler = rowHandler; commandName = entry.name })
+                let seen' = bindings |> List.fold (fun s e -> Set.add e.key s) seen
+                let acc' = acc @ bindings
+                collect seen' acc' rest
     collect Set.empty [] commandRegistry
 
 /// Literal palette key table (Escape, ArrowUp, ArrowDown, Enter). Not derived from registry.
@@ -467,14 +489,7 @@ let private tryResolveFromNamed
         None
     match qualified with
     | Some _ -> qualified
-    | None ->
-        match tryKey ke.key with
-        | Some r -> Some r
-        | None ->
-            if isPrintableKey ke.key && not ke.ctrlKey && not ke.metaKey && not ke.altKey then
-                tryKey printableKeyToken
-            else
-                None
+    | None -> tryKey ke.key
 
 let handleKey
     (table: KeyTableEntry<'Context> list)

@@ -78,12 +78,11 @@ let private makeRowElement (model: VM) (applyOp: Op -> unit) (depth: int) (siteE
             match model.mode with
             | CommandPalette (_, _, ret) -> ret
             | m -> m
-        let prefill =
+        let initialValue =
             match effectiveMode with
-            | Editing (originalText, Some pf, _) -> pf
-            | Editing (originalText, None, _)    -> originalText
+            | Editing (text, _) -> text
             | _ -> node.text
-        (editInput :?> HTMLInputElement).value <- prefill
+        (editInput :?> HTMLInputElement).value <- initialValue
         editInput.addEventListener("keydown", fun (ev: Event) ->
             let key = ev :?> KeyboardEvent
             if (key.ctrlKey || key.metaKey) && key.key = "p" && not key.shiftKey then
@@ -124,7 +123,7 @@ let private makeRowElement (model: VM) (applyOp: Op -> unit) (depth: int) (siteE
         ev.preventDefault()
         let me = ev :?> MouseEvent
         let offset = getCaretOffset me.clientX me.clientY
-        applyOp (startEditAtPos node.text offset)
+        applyOp (startEditAtPos offset)
     )
     row
 
@@ -197,7 +196,7 @@ let manageFocus (model: VM) : unit =
             inp.focus()
             let pos =
                 match model.mode with
-                | Editing (_, _, Some p) -> p
+                | Editing (_, Some p) -> p
                 | _ -> inp.value.Length
             inp.setSelectionRange(pos, pos)
     | Selecting ->
@@ -235,11 +234,11 @@ let renderCommandPalette (model: VM) (applyOp: Op -> unit) : unit =
     if isNull container then () else
 
     match model.mode with
-    | CommandPalette (q, selectedCommand, _) ->
+    | CommandPalette (q, selectedCommand, ret) ->
         container.classList.add "amb-palette-open"
         let input = document.getElementById "command-palette-input" :?> HTMLInputElement
         window.setTimeout((fun _ -> input.focus()), 0) |> ignore
-        let items = filteredCommands q |> List.map (fun c -> c.name)
+        let items = filteredCommands ret q |> List.map (fun c -> c.name)
         renderPalette container items selectedCommand
 
         if not paletteWired.Value then
@@ -267,7 +266,7 @@ let renderCommandPalette (model: VM) (applyOp: Op -> unit) : unit =
                     applyOp (fun m d ->
                         match m.mode with
                         | CommandPalette (q, _, ret) ->
-                            match List.tryItem idx (filteredCommands q) with
+                            match List.tryItem idx (filteredCommands ret q) with
                             | None -> { m with mode = ret }
                             | Some cmd ->
                                 setLastKeyDisplay None (Some cmd.name)
