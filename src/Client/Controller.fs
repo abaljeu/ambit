@@ -300,14 +300,19 @@ let commandRegistry : CommandEntry list =
         keys = [ "ArrowDown"; "O" ]
         keyScope = SelectionOnly }
 
+      { name = "Cursor outward (no fold)"
+        run = keyAlways arrowLeftSelectionNoFoldOp
+        keys = [ "ArrowLeft"; "A" ]
+        keyScope = SelectionOnly }
+
       { name = "Cursor outward"
         run = keyAlways arrowLeftSelectionOp
-        keys = [ "ArrowLeft"; "A" ]
+        keys = [ "Shift+ArrowLeft"; "Shift+A" ]
         keyScope = SelectionOnly }
 
       { name = "Cursor inward"
         run = keyAlways arrowRightSelectionOp
-        keys = [ "ArrowRight"; "E" ]
+        keys = [ "Shift+ArrowRight"; "ArrowRight" ;"Shift+E" ;"E" ]
         keyScope = SelectionOnly }
 
       { name = "Move to previous node"

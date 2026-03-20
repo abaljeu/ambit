@@ -74,7 +74,7 @@ body {
     background: #bde;
 }
 .amb-row.amb-focused {
-    background: #edb;
+    background: #dca;
 }
 .amb-text, .amb-edit-input {
     flex: 1;
@@ -84,7 +84,7 @@ body {
     font-size: inherit;
 }
 .amb-text {
-    background: #eeeeeec0;
+    background: #eeeeee80;
     border: 1px transparent;
 }
 .amb-edit-input {

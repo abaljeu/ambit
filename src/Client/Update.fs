@@ -922,24 +922,31 @@ let toggleFoldOp (instanceId: int) (model: VM) _dispatch : VM =
 
 /// Op: ArrowLeft in selection — fold if expanded, else move to parent.
 let arrowLeftSelectionOp (model: VM) _dispatch : VM =
-    match model.selectedNodes with
-    | None -> model
-    | Some sel ->
-        let focusInstId = focusedInstanceId sel
-        match Map.tryFind focusInstId model.siteMap.entries with
-        | None -> model
-        | Some entry ->
-            let node = model.graph.nodes.[entry.nodeId]
-            let hasChildren = not node.children.IsEmpty
-            if hasChildren && entry.expanded then
-                { model with siteMap = ViewModel.toggleFold focusInstId model.siteMap }
-            else
-                match entry.parentInstanceId with
-                | None -> model
-                | Some parentInstId ->
-                    match singleSelectionForInstance model.siteMap parentInstId with
-                    | None -> model
-                    | Some parentSel -> { model with selectedNodes = Some parentSel }
+    model.selectedNodes
+    |> Option.map (fun sel -> (focusedInstanceId sel, sel))
+    |> Option.bind (fun (fid, _) ->
+        Map.tryFind fid model.siteMap.entries
+        |> Option.map (fun entry -> (entry, fid)))
+    |> Option.map (fun (entry, focusInstId) ->
+        let node = model.graph.nodes.[entry.nodeId]
+        if not node.children.IsEmpty && entry.expanded then
+            { model with siteMap = ViewModel.toggleFold focusInstId model.siteMap }
+        else
+            entry.parentInstanceId
+            |> Option.bind (singleSelectionForInstance model.siteMap)
+            |> Option.map (fun parentSel -> { model with selectedNodes = Some parentSel })
+            |> Option.defaultValue model)
+    |> Option.defaultValue model
+
+/// Op: ArrowLeft in selection — move to parent (do not fold).
+let arrowLeftSelectionNoFoldOp (model: VM) _dispatch : VM =
+    model.selectedNodes
+    |> Option.map focusedInstanceId
+    |> Option.bind (fun fid -> Map.tryFind fid model.siteMap.entries)
+    |> Option.bind (fun e -> e.parentInstanceId)
+    |> Option.bind (singleSelectionForInstance model.siteMap)
+    |> Option.map (fun ps -> { model with selectedNodes = Some ps })
+    |> Option.defaultValue model
 
 /// Op: ArrowRight in selection — expand if folded, else move to first child.
 let arrowRightSelectionOp (model: VM) _dispatch : VM =
