@@ -166,7 +166,7 @@ let commitTextEdit
         let change: Change =
             { id = model.revision.Value
               changeId = System.Guid.NewGuid()
-              ops = [ Op.SetText(nodeId, originalText, newText) ] }
+              ops = [ Op.SetText(nodeId, _originalText, newText) ] }
         match applyAndPost change model dispatch with
         | Some m -> { m with mode = Selecting }
         | None   -> { model with mode = Selecting }
@@ -231,7 +231,7 @@ let splitNode (currentText: string) (cursorPos: int) (model: VM) (dispatch: Msg 
                 singleSelectionForInstance m2.siteMap focusInstId
                 |> Option.orElseWith
                     (fun () -> singleSelection m2.graph m2.siteMap focusId)
-            { m2 with selectedNodes = newSel; mode = Editing (focusText, None, Some 0) }
+            { m2 with selectedNodes = newSel; mode = Editing (focusText, Some 0) }
         | None -> model
     | _ -> model
 
@@ -633,7 +633,7 @@ let moveEdit (delta: int) (cursorPos: int) (model: VM) (dispatch: Msg -> unit) :
         let focusInstId = focusedInstanceId sel
         let committed =
             commitTextEdit currentId
-                (match model.mode with Editing (t, _, _) -> t | _ -> "")
+                (match model.mode with Editing (t, _) -> t | _ -> "")
                 (readEditInputValue ()) model dispatch
         let rows = getVisibleRowInstanceIds committed.siteMap
         match rows |> List.tryFindIndex ((=) focusInstId) with
@@ -691,7 +691,7 @@ let joinWithNext (currentText: string) (model: VM) (dispatch: Msg -> unit) : VM 
                                 | Some m ->
                                     let result = withSiteMap m
                                     { result with
-                                        mode = Editing (nextNode.text, None, Some 0)
+                                        mode = Editing (nextNode.text, Some 0)
                                         selectedNodes =
                                             singleSelection result.graph result.siteMap nextId }
                         else
@@ -719,7 +719,7 @@ let joinWithNext (currentText: string) (model: VM) (dispatch: Msg -> unit) : VM 
                                 | Some m ->
                                     let result = withSiteMap m
                                     { result with
-                                        mode = Editing (joinedText, None, Some cursorPos)
+                                        mode = Editing (joinedText, Some cursorPos)
                                         selectedNodes =
                                             singleSelection result.graph result.siteMap nextId }
     | _ -> model
@@ -761,7 +761,7 @@ let joinWithPrevious (currentText: string) (model: VM) (dispatch: Msg -> unit) :
                     | Some m ->
                         let result = withSiteMap m
                         { result with
-                            mode = Editing (joinedText, None, Some cursorPos)
+                            mode = Editing (joinedText, Some cursorPos)
                             selectedNodes =
                                 singleSelection result.graph result.siteMap prevId }
     | _ -> model
@@ -774,7 +774,7 @@ let joinWithPrevious (currentText: string) (model: VM) (dispatch: Msg -> unit) :
 
 /// A self-contained model transformation. dispatch is provided for operations
 /// that fire async server POSTs; pure transforms ignore it with _.
-type VmMsgUnitVm = VM -> (Msg -> unit) -> VM
+type Op = VM -> (Msg -> unit) -> VM
 
 /// Op: Move to selection mode (or deselect if already selecting), reverting any edit.
 let handleEsc (model: VM) dispatch : VM =

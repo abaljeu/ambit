@@ -87,7 +87,7 @@ let copySelectionAsLinks (model: VM) (dispatch: Msg -> unit) : VM =
 let getCaretOffset (x: float) (y: float) : int = jsNative
 
 /// Handle a paste event: extract plain text and optional node IDs, apply pasteNodesOp.
-let onPaste (ev: Event) (applyOp: VmMsgUnitVm -> unit) : unit =
+let onPaste (ev: Event) (applyOp: Op -> unit) : unit =
     ev.preventDefault()
     let plain = getClipboardData ev "text/plain"
     let text  = if plain <> "" then plain else stripHtmlToText (getClipboardData ev "text/html")
@@ -100,7 +100,7 @@ let onPaste (ev: Event) (applyOp: VmMsgUnitVm -> unit) : unit =
         setLastKeyDisplay (Some "Ctrl+V") (Some "Paste")
         applyOp (pasteNodesOp pastedText nodeIds)
 
-let private onCopyOrCut (model: VM) (ev: Event) (applyOp: VmMsgUnitVm -> unit) (op: VmMsgUnitVm) (includeNodeIds: bool) : unit =
+let private onCopyOrCut (model: VM) (ev: Event) (applyOp: Op -> unit) (op: Op) (includeNodeIds: bool) : unit =
     match model.selectedNodes with
     | None -> ()
     | Some sel ->
@@ -122,12 +122,12 @@ let private onCopyOrCut (model: VM) (ev: Event) (applyOp: VmMsgUnitVm -> unit) (
         applyOp op
 
 /// Handle a copy event: serialize the selected subtree to the clipboard.
-let onCopy (model: VM) (ev: Event) (applyOp: VmMsgUnitVm -> unit) : unit =
+let onCopy (model: VM) (ev: Event) (applyOp: Op -> unit) : unit =
     onCopyOrCut model ev applyOp copySelectionOp false
 
 /// Handle a cut event: serialize and remove the selected subtree.
 /// Puts both node IDs and full data on clipboard; paste prefers IDs when resolvable.
-let onCut (model: VM) (ev: Event) (applyOp: VmMsgUnitVm -> unit) : unit =
+let onCut (model: VM) (ev: Event) (applyOp: Op -> unit) : unit =
     onCopyOrCut model ev applyOp cutSelectionOp true
 
 // ---------------------------------------------------------------------------
@@ -195,16 +195,6 @@ let private formatKeyCombo (ke: KeyboardEvent) : string =
 
 /// Single function to set the last-key diagnostic. Never appends; always replaces.
 /// key: the key combo (if any); operation: the command/operation name (if any).
-let setLastKeyDisplay (key: string option) (operation: string option) : unit =
-    let el = document.getElementById "key-last-key"
-    if isNull el then () else
-    let txt =
-        match key, operation with
-        | None, None -> " | Last key: (none)"
-        | Some k, None -> " | Last key: " + k
-        | Some k, Some o -> " | Last key: " + k + " → " + o
-        | None, Some o -> " | Last key: Palette → " + o
-    el.textContent <- txt
 
 /// Which keyboard maps include this command's bindings.
 type CommandKeyScope =

@@ -6,6 +6,7 @@
             "args": ["--login"]
         }
     },
-    "editor.inlayHints.enabled": "offUnlessPressed"
+    "editor.inlayHints.enabled": "offUnlessPressed",
+    "git.mergeEditor" : false
 }
 

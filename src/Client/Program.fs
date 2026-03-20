@@ -158,7 +158,7 @@ let mutable lastActivityMs = nowMs ()
 // read currentModel so they always operate on the latest state.
 // ---------------------------------------------------------------------------
 
-let setupStaticDOM (applyOp: VmMsgUnitVm -> unit) : unit =
+let setupStaticDOM (applyOp: Op -> unit) (wakePolling: unit -> unit) : unit =
     let hiddenInput = document.getElementById "hidden-input" :?> HTMLInputElement
     hiddenInput.addEventListener("keydown", fun (ev: Event) ->
         let ke = ev :?> KeyboardEvent
@@ -209,7 +209,7 @@ let setupStaticDOM (applyOp: VmMsgUnitVm -> unit) : unit =
             window.location.assign(path + "?bust=" + string (nowMs ()))
         | _ -> applyOp retryPendingOp)
 
-let rec applyOp (op: VmMsgUnitVm) : unit =
+let rec applyOp (op: Op) : unit =
     let prevModel = currentModel
     currentModel <- op currentModel dispatch
     elementCache <- patchDOM prevModel currentModel applyOp elementCache
