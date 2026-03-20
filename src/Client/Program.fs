@@ -165,18 +165,7 @@ let setupStaticDOM (applyOp: Op -> unit) (wakePolling: unit -> unit) : unit =
         if ke.key = "Tab" then ev.preventDefault()
         if (ke.ctrlKey || ke.metaKey) && ke.key = "p" && not ke.shiftKey then
             ev.preventDefault()
-        let viewRootId = currentModel.zoomRoot |> Option.defaultValue currentModel.graph.root
-        let rootNode = currentModel.graph.nodes.[viewRootId]
-        let textToEdit =
-            match currentModel.selectedNodes with
-            | None -> rootNode.text
-            | Some sel ->
-                let nodeId = focusedNodeId currentModel.graph sel
-                currentModel.graph.nodes.[nodeId].text
-        let ctx =
-            { keyEvent = ke
-              selectedNodeText = textToEdit }
-        handleKey selectionKeyTable ctx ke applyOp
+        handleKey currentModel.mode ke applyOp
     )
     hiddenInput.addEventListener("paste", fun ev -> onPaste ev applyOp)
     hiddenInput.addEventListener("copy",  fun ev -> onCopy  currentModel ev applyOp)

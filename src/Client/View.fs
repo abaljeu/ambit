@@ -87,10 +87,7 @@ let private makeRowElement (model: VM) (applyOp: Op -> unit) (depth: int) (siteE
             let key = ev :?> KeyboardEvent
             if (key.ctrlKey || key.metaKey) && key.key = "p" && not key.shiftKey then
                 ev.preventDefault()
-            let ctx =
-                { keyEvent = key
-                  editInput = (editInput :?> HTMLInputElement) }
-            handleKey editingKeyTable ctx key applyOp
+            handleKey effectiveMode key applyOp
         )
         editInput.addEventListener("mousedown", fun (ev: Event) ->
             ev.stopPropagation()
@@ -252,7 +249,7 @@ let renderCommandPalette (model: VM) (applyOp: Op -> unit) : unit =
                 let ke = ev :?> KeyboardEvent
                 if (ke.ctrlKey || ke.metaKey) && ke.key = "p" && not ke.shiftKey then
                     ev.preventDefault()
-                handleKey paletteKeyTable { keyEvent = ke } ke applyOp)
+                handlePaletteKey ke applyOp)
 
             ul.addEventListener("click", fun (ev: Event) ->
                 let target = ev.target :?> HTMLElement
@@ -270,7 +267,7 @@ let renderCommandPalette (model: VM) (applyOp: Op -> unit) : unit =
                             | None -> { m with mode = ret }
                             | Some cmd ->
                                 setLastKeyDisplay None (Some cmd.name)
-                                cmd.bbbbbbb { m with mode = ret } d
+                                cmd.op { m with mode = ret } d
                         | _ -> m))
 
     | _ ->

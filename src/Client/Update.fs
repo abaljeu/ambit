@@ -91,10 +91,17 @@ let readEditInputValue () : string =
     else (el :?> HTMLInputElement).value
 
 /// Read the edit input cursor position from the DOM.
+/// anchor and focus don't exist in input, but selectionDirection can be used to compute these.
 let readEditInputCursor () : int =
     let el = document.getElementById "edit-input"
     if isNull el then 0
     else int (el :?> HTMLInputElement).selectionStart
+
+/// Read the edit input selection end from the DOM (same as caret when no range).
+let readEditInputSelectionEnd () : int =
+    let el = document.getElementById "edit-input"
+    if isNull el then 0
+    else int (el :?> HTMLInputElement).selectionEnd
 
 /// Fire the next POST in the pending queue (head of the list).
 let fireNextPending (pending: Change list) (dispatch: Msg -> unit) : unit =
