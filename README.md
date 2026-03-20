@@ -49,3 +49,11 @@ dotnet test gambol.sln
 ### Dev (VS Code)
 Run the default build task (`Ctrl+Shift+B`) to start Fable watch and the server together.
 Both use the correct `--outDir` so `fable_modules` lands in `wwwroot` alongside the compiled JS.
+
+### Custom domain (PHP proxy) with JS/CSS loaded directly from Azure
+
+Fable emits **relative** `import` paths (e.g. `./fable_modules/...`). The browser resolves those against the URL of **`Program.js`**. If `Program.js` is loaded as `https://your-domain/ambit/Program.js`, every chunk stays on your domain (including through a PHP proxy). To load the module graph from Azure, the HTML must point `Program.js` (and CSS) at the Azure origin.
+
+- **Template file** is `src/Server/wwwroot/gambol.template.html` (not `gambol.html`). A file named `gambol.html` under `wwwroot` would be served as a **static** `/ambit/gambol.html` with **no** URL rewrites — a common reason everything still hits the proxy domain.
+- **`PublicAssetBase`** — optional override: origin only, no trailing slash (e.g. `https://yourapp.azurewebsites.net`). On **Azure App Service** in **Production**, if this is unset or empty, it **defaults to `https://` + `WEBSITE_HOSTNAME`**, so rewritten asset URLs target the app host without extra JSON.
+- **`JsModuleCorsOrigins`** — comma-separated allowed `Origin` values for cross-origin ES modules. If **empty** but a public asset base is in effect (configured or auto), the server defaults to **`*`** for `/ambit/*.js` so a proxied HTML origin can load the module graph.

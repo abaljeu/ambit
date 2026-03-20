@@ -24,14 +24,22 @@ let private fetchTextNoCache (url: string) (callback: string -> unit) : unit = j
 [<Emit("Date.now()")>]
 let private nowMs () : int = jsNative
 
-[<Emit("(typeof window.__BUILD__ !== 'undefined' ? window.__BUILD__ : $0)")>]
-let readBuildStamp (fallback: string) : string = jsNative
-
-[<Emit("(typeof window.__PAGE_BUILD__ !== 'undefined' ? window.__PAGE_BUILD__ : $0)")>]
-let readPageStamp (fallback: string) : string = jsNative
-
 [<Emit("(typeof window.__BUILD_TS__ !== 'undefined' ? window.__BUILD_TS__ : 0)")>]
 let private readBuildEpochSec () : int = jsNative
+
+[<Emit("(function(epochSec){
+    var d = new Date(epochSec*1000);
+    var parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Toronto',
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        hour12: false
+    }).formatToParts(d);
+    var m = {};
+    parts.forEach(function(p){ if(p.type !== 'literal') m[p.type] = p.value; });
+    return m.year + '-' + m.month + '-' + m.day + ' ' + m.hour + ':' + m.minute + ':' + m.second + ' ET';
+})($0)")>]
+let private epochSecToTorontoString (epochSec: int) : string = jsNative
 
 [<Emit("(typeof window.__PAGE_BUILD_TS__ !== 'undefined' ? window.__PAGE_BUILD_TS__ : 0)")>]
 let private readPageBuildEpochSec () : int = jsNative
@@ -140,6 +148,10 @@ let mutable elementCache: Map<int, HTMLElement> = Map.empty
 /// Exponential backoff counter for auto-retry on SubmitFailed.
 let mutable retryCount = 0
 
+// Idle/pause remote polling after a period of no user interaction (battery-friendly).
+let idleTimeoutMs = 5 * 60 * 1000
+let mutable lastActivityMs = nowMs ()
+
 // ---------------------------------------------------------------------------
 // One-time static DOM setup (hidden-input + settings-bar)
 // These elements persist for the lifetime of the page; their event handlers
@@ -153,18 +165,7 @@ let setupStaticDOM (applyOp: VmMsgUnitVm -> unit) : unit =
         if ke.key = "Tab" then ev.preventDefault()
         if (ke.ctrlKey || ke.metaKey) && ke.key = "p" && not ke.shiftKey then
             ev.preventDefault()
-        let viewRootId = currentModel.zoomRoot |> Option.defaultValue currentModel.graph.root
-        let rootNode = currentModel.graph.nodes.[viewRootId]
-        let textToEdit =
-            match currentModel.selectedNodes with
-            | None -> rootNode.text
-            | Some sel ->
-                let nodeId = focusedNodeId currentModel.graph sel
-                currentModel.graph.nodes.[nodeId].text
-        let ctx =
-            { keyEvent = ke
-              selectedNodeText = textToEdit }
-        handleKey selectionKeyTable ctx ke applyOp
+        handleKey currentModel.mode ke applyOp
     )
     hiddenInput.addEventListener("paste", fun ev -> onPaste ev applyOp)
     hiddenInput.addEventListener("copy",  fun ev -> onCopy  currentModel ev applyOp)
@@ -176,21 +177,22 @@ let setupStaticDOM (applyOp: VmMsgUnitVm -> unit) : unit =
     let logoutLink = document.getElementById "logout-link" :?> HTMLAnchorElement
     logoutLink.setAttribute("href", basePath + "/logout")
 
-    let buildLabel = document.getElementById "build-label" 
-    let serverStamp = readBuildStamp BuildInfo.buildNumber
-    let pageStamp = readPageStamp "?"
-    buildLabel.textContent <- $"Server: {serverStamp} | Page: {pageStamp} "
-    buildLabel.setAttribute("title", "Server = when served; Page = when assets were built.")
-
     let reloadBtn = document.getElementById "reload-btn" 
     reloadBtn.setAttribute("title", "Full reload (useful if Page is old or assets are cached)")
     reloadBtn.addEventListener("click", fun _ ->
         let path = window.location.pathname
         window.location.assign(path + "?bust=" + string (nowMs ())))
 
-    let platformInfo = document.getElementById "key-platform-info"
-    platformInfo.textContent <- "Platform: " + getPlatformDiagnostic (isIOS ())
     setLastKeyDisplay None None
+
+    // Server build timestamp (injected by Server.fs into gambol page HTML as window.__BUILD_TS__).
+    let buildEl = document.getElementById "server-build-stamp"
+    if isNull buildEl then () else
+        let stampEpochSec = readBuildEpochSec ()
+        let txt =
+            if stampEpochSec <= 0 then "Server build: (unknown)"
+            else "Server build: " + epochSecToTorontoString stampEpochSec
+        buildEl.textContent <- txt
 
     document.addEventListener("visibilitychange", fun _ ->
         if isDocumentHidden () then saveSessionState currentModel)
@@ -200,6 +202,8 @@ let setupStaticDOM (applyOp: VmMsgUnitVm -> unit) : unit =
     let syncStatus = document.getElementById "sync-status"
     syncStatus.addEventListener("click", fun _ ->
         match currentModel.syncState with
+        | Inactive ->
+            wakePolling ()
         | Stale ->
             let path = window.location.pathname
             window.location.assign(path + "?bust=" + string (nowMs ()))
@@ -219,6 +223,7 @@ and dispatch (msg: Msg) : unit =
     match msg with
     | System (StateLoaded _) ->
         currentModel <- restoreSessionState currentModel
+        lastActivityMs <- nowMs ()
         let saved = loadPendingQueue ()
         let serverRev = currentModel.revision.Value
         let filtered = saved |> List.filter (fun c -> c.id >= serverRev)
@@ -251,30 +256,73 @@ and dispatch (msg: Msg) : unit =
     | System (ServerAhead _) ->
         View.renderStatus currentModel
 
+    | System PollingInactive
+    | System PollingActive ->
+        View.renderStatus currentModel
+
 // ---------------------------------------------------------------------------
 // Bootstrap
 // ---------------------------------------------------------------------------
 
-setupStaticDOM applyOp
-
 let pollForRemoteChanges () : unit =
-    let url = $"/{Update.currentFile}/poll?_={nowMs ()}"
-    fetchTextNoCache url (fun text ->
-        match Update.decodePollResponse text with
-        | Ok (serverRev, serverBuild, serverPage) ->
-            let dataStale = serverRev > currentModel.revision.Value
-            let clientBuild = readBuildEpochSec ()
-            let clientPage = readPageBuildEpochSec ()
-            let serverNewer = serverBuild <> clientBuild || serverPage <> clientPage
-            if dataStale || serverNewer then
-                dispatch (System (ServerAhead (Revision serverRev)))
-        | Error _ -> ())
+    let now = nowMs ()
+    let hidden = isDocumentHidden ()
+    let idleForMs = now - lastActivityMs
+    let shouldPoll = (not hidden) && idleForMs < idleTimeoutMs
+
+    if not shouldPoll then
+        if currentModel.syncState = Synced && currentModel.pendingChanges.IsEmpty then
+            dispatch (System PollingInactive)
+        ()
+    else
+        if currentModel.syncState = Inactive then
+            dispatch (System PollingActive)
+
+        let url = $"/{Update.currentFile}/poll?_={now}"
+        fetchTextNoCache url (fun text ->
+            match Update.decodePollResponse text with
+            | Ok (serverRev, serverBuild, serverPage) ->
+                let dataStale = serverRev > currentModel.revision.Value
+                let clientBuild = readBuildEpochSec ()
+                let clientPage = readPageBuildEpochSec ()
+                let serverNewer = serverBuild <> clientBuild || serverPage <> clientPage
+                if dataStale || serverNewer then
+                    dispatch (System (ServerAhead (Revision serverRev)))
+            | Error _ -> ())
+
+let recordActivity (wakeIfInactive: bool) : unit =
+    lastActivityMs <- nowMs ()
+    if wakeIfInactive && not (isDocumentHidden ()) && currentModel.syncState = Inactive then
+        pollForRemoteChanges ()
+
+let wakePolling () : unit =
+    lastActivityMs <- nowMs ()
+    if currentModel.syncState = Inactive then dispatch (System PollingActive)
+    pollForRemoteChanges ()
 
 let startPolling () : unit =
     setInterval pollForRemoteChanges 5000 |> ignore
-    window.addEventListener("focus", fun _ -> pollForRemoteChanges ())
+
+    // Keep a cheap "are we active?" signal so we can stop polling when idle.
+    document.addEventListener("pointerdown", fun _ -> recordActivity true)
+    document.addEventListener("keydown", fun _ -> recordActivity true)
+    document.addEventListener("wheel", fun _ -> recordActivity true)
+    document.addEventListener("touchstart", fun _ -> recordActivity true)
+    window.addEventListener("scroll", fun _ -> recordActivity true)
+
+    window.addEventListener("focus", fun _ ->
+        recordActivity false
+        pollForRemoteChanges ())
+
     document.addEventListener("visibilitychange", fun _ ->
-        if not (isDocumentHidden ()) then pollForRemoteChanges ())
+        if isDocumentHidden () then
+            if currentModel.syncState = Synced && currentModel.pendingChanges.IsEmpty then
+                dispatch (System PollingInactive)
+        else
+            recordActivity false
+            pollForRemoteChanges ())
+
+setupStaticDOM applyOp wakePolling
 
 fetchText $"/{Update.currentFile}/state" (fun text ->
     match decodeStateResponse text with

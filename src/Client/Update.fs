@@ -98,10 +98,17 @@ let readEditInputValue () : string =
     else (el :?> HTMLInputElement).value
 
 /// Read the edit input cursor position from the DOM.
+/// anchor and focus don't exist in input, but selectionDirection can be used to compute these.
 let readEditInputCursor () : int =
     let el = document.getElementById "edit-input"
     if isNull el then 0
     else int (el :?> HTMLInputElement).selectionStart
+
+/// Read the edit input selection end from the DOM (same as caret when no range).
+let readEditInputSelectionEnd () : int =
+    let el = document.getElementById "edit-input"
+    if isNull el then 0
+    else int (el :?> HTMLInputElement).selectionEnd
 
 /// Fire the next POST in the pending queue (head of the list).
 let fireNextPending (pending: Change list) (dispatch: Msg -> unit) : unit =
@@ -147,12 +154,13 @@ let private viewRootNodeId (model: VM) : NodeId =
 /// Returns the updated model. Dispatches SubmitResponse asynchronously.
 let commitTextEdit
     (nodeId: NodeId)
-    (originalText: string)
+    (_originalText: string)
     (newText: string)
     (model: VM)
     (dispatch: Msg -> unit)
     : VM =
-    if newText = originalText then
+    let modelText = model.graph.nodes.[nodeId].text
+    if newText = modelText then
         { model with mode = Selecting }
     else
         let change: Change =
@@ -165,15 +173,17 @@ let commitTextEdit
 
 /// Split the currently-edited node at the cursor position.
 ///
-/// cursor at 0: blank above, focus stays. cursor > 0: split, focus on new node.
+/// cursor at 0   → blank sibling inserted above; current node keeps its text; focus moves to the new blank node.
+/// cursor > 0    → current node gets text-before; new sibling gets text-after; focus at start of new node.
 let splitNode (currentText: string) (cursorPos: int) (model: VM) (dispatch: Msg -> unit) : VM =
     match model.mode, model.selectedNodes with
-    | Editing (originalText, _, _), None ->
+    | Editing (originalText, _), None ->
         // View root is being edited: commit text, no split
         commitTextEdit (viewRootNodeId model) originalText (readEditInputValue ()) model dispatch
-    | Editing (originalText, _, _), Some sel ->
+    | Editing (originalText, _), Some sel ->
         // The node being edited is the focus node.
         let selectedId  = focusedNodeId model.graph sel
+        let modelText = model.graph.nodes.[selectedId].text
         let parentId    = sel.range.parent.nodeId
         let indexInParent = sel.focus
         let clampedPos = max 0 (min cursorPos currentText.Length)
@@ -183,8 +193,8 @@ let splitNode (currentText: string) (cursorPos: int) (model: VM) (dispatch: Msg 
 
         let (insertIndex, newNodeText, focusId, focusText) =
             if clampedPos = 0 then
-                // blank node above; focus stays on current node
-                (indexInParent, "", selectedId, currentText)
+                // blank node above; focus moves to the new blank node
+                (indexInParent, "", newNodeId, "")
             else
                 // new node after; focus moves to new node
                 (indexInParent + 1, textAfter, newNodeId, textAfter)
@@ -194,8 +204,8 @@ let splitNode (currentText: string) (cursorPos: int) (model: VM) (dispatch: Msg 
               yield Op.Replace(parentId, insertIndex, [], [newNodeId])
               // update current node's text only when it actually changes
               let updatedText = if clampedPos = 0 then currentText else textBefore
-              if updatedText <> originalText then
-                  yield Op.SetText(selectedId, originalText, updatedText) ]
+              if updatedText <> modelText then
+                  yield Op.SetText(selectedId, modelText, updatedText) ]
 
         let change: Change =
             { id = model.revision.Value
@@ -304,7 +314,7 @@ let pasteNodes (pastedText: string) (preferredNodeIds: string option) (model: VM
                       focus = range.start }
                 { m with selectedNodes = Some newSel }
             | None -> model
-        | Editing (originalText, _, _) ->
+        | Editing (originalText, _) ->
             let currentText = readEditInputValue ()
             let cursorPos   = readEditInputCursor ()
             let focusId  = focusedNodeId model.graph sel
@@ -427,9 +437,9 @@ let outdentSelection (model: VM) (dispatch: Msg -> unit) : VM =
 /// If currently editing, commit the edit and return Selecting model; otherwise return model as-is.
 let commitIfEditing (model: VM) (dispatch: Msg -> unit) : VM =
     match model.mode, model.selectedNodes with
-    | Editing (originalText, _, _), None ->
+    | Editing (originalText, _), None ->
         commitTextEdit (viewRootNodeId model) originalText (readEditInputValue ()) model dispatch
-    | Editing (originalText, _, _), Some sel ->
+    | Editing (originalText, _), Some sel ->
         let editingId = focusedNodeId model.graph sel
         commitTextEdit editingId originalText (readEditInputValue ()) model dispatch
     | _ -> model
@@ -637,7 +647,7 @@ let moveEdit (delta: int) (cursorPos: int) (model: VM) (dispatch: Msg -> unit) :
                 let targetText = committed.graph.nodes.[targetEntry.nodeId].text
                 let clampedPos = min cursorPos targetText.Length
                 { committed with
-                    mode = Editing (targetText, None, Some clampedPos)
+                    mode = Editing (targetText, Some clampedPos)
                     selectedNodes = singleSelectionForInstance committed.siteMap targetInstId }
 
 let joinWithNext (currentText: string) (model: VM) (dispatch: Msg -> unit) : VM =
@@ -659,7 +669,7 @@ let joinWithNext (currentText: string) (model: VM) (dispatch: Msg -> unit) : VM 
                 if not currentNode.children.IsEmpty then
                     let pos = readEditInputCursor ()
                     match model.mode with
-                    | Editing (t, pf, _) -> { model with mode = Editing (t, pf, Some pos) }
+                    | Editing (t, _) -> { model with mode = Editing (t, Some pos) }
                     | _ -> model
                 else
                     match Graph.tryFindParentAndIndex nextId model.graph with
@@ -767,10 +777,10 @@ let joinWithPrevious (currentText: string) (model: VM) (dispatch: Msg -> unit) :
 type VmMsgUnitVm = VM -> (Msg -> unit) -> VM
 
 /// Op: Move to selection mode (or deselect if already selecting), reverting any edit.
-let cancelEdit (model: VM) _dispatch : VM =
+let handleEsc (model: VM) dispatch : VM =
     match model.mode with
-    | Editing _ -> { model with mode = Selecting }
-    | Selecting -> { model with selectedNodes = None }
+    | Editing _ -> commitIfEditing model dispatch
+    | Selecting -> collapseToFocus model
     | CommandPalette _ -> model  // handled by closeCommandPaletteOp
 
 /// Op: Copy the focused subtree to the internal clipboard.
@@ -791,29 +801,15 @@ let startEditOp (model: VM) _dispatch : VM =
         match model.selectedNodes with
         | None -> model.graph.nodes.[viewRootNodeId model].text
         | Some sel -> model.graph.nodes.[focusedNodeId model.graph sel].text
-    { model with mode = Editing (text, Some text, None) }
-
-/// Op: Enter edit mode for the focused node, showing prefill text in the input.
-let startEdit (prefill: string) (model: VM) _dispatch : VM =
-    match model.selectedNodes with
-    | None ->
-        let node = model.graph.nodes.[viewRootNodeId model]
-        { model with mode = Editing (node.text, Some prefill, None) }
-    | Some sel ->
-        let nodeId = focusedNodeId model.graph sel
-        let node = model.graph.nodes.[nodeId]
-        { model with mode = Editing (node.text, Some prefill, None) }
+    { model with mode = Editing (text, None) }
 
 /// Op: Enter edit mode for the focused node, with cursor placed at a specific position.
-let startEditAtPos (prefill: string) (cursorPos: int) (model: VM) _dispatch : VM =
-    match model.selectedNodes with
-    | None ->
-        let node = model.graph.nodes.[viewRootNodeId model]
-        { model with mode = Editing (node.text, Some prefill, Some cursorPos) }
-    | Some sel ->
-        let nodeId = focusedNodeId model.graph sel
-        let node = model.graph.nodes.[nodeId]
-        { model with mode = Editing (node.text, Some prefill, Some cursorPos) }
+let startEditAtPos (cursorPos: int) (model: VM) _dispatch : VM =
+    let text =
+        match model.selectedNodes with
+        | None -> model.graph.nodes.[viewRootNodeId model].text
+        | Some sel -> model.graph.nodes.[focusedNodeId model.graph sel].text
+    { model with mode = Editing (text, Some cursorPos) }
 
 /// Re-export palette ops for use by Controller and View.
 let openCommandPaletteOp = Gambol.Client.CommandPalette.openCommandPaletteOp
@@ -823,7 +819,7 @@ let closeCommandPaletteOp = Gambol.Client.CommandPalette.closeCommandPaletteOp
 let selectRow (nodeId: NodeId) (model: VM) (dispatch: Msg -> unit) : VM =
     let result =
         match model.mode, model.selectedNodes with
-        | Editing (originalText, _, _), Some sel ->
+        | Editing (originalText, _), Some sel ->
             let editingId = focusedNodeId model.graph sel
             let newText = readEditInputValue ()
             let model' = commitTextEdit editingId originalText newText model dispatch
@@ -840,7 +836,7 @@ let selectRow (nodeId: NodeId) (model: VM) (dispatch: Msg -> unit) : VM =
 let selectInstance (instanceId: int) (model: VM) (dispatch: Msg -> unit) : VM =
     let result =
         match model.mode, model.selectedNodes with
-        | Editing (originalText, _, _), Some sel ->
+        | Editing (originalText, _), Some sel ->
             let editingId = focusedNodeId model.graph sel
             let newText = readEditInputValue ()
             let model' = commitTextEdit editingId originalText newText model dispatch
@@ -1236,4 +1232,16 @@ let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
 
     | System (ServerAhead _) ->
         { model with syncState = Stale }
+
+    | System PollingInactive ->
+        if model.syncState = Synced && model.pendingChanges.IsEmpty then
+            { model with syncState = Inactive }
+        else
+            model
+
+    | System PollingActive ->
+        if model.syncState = Inactive then
+            { model with syncState = Synced }
+        else
+            model
 

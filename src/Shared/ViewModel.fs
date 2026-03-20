@@ -2,8 +2,7 @@ namespace Gambol.Shared
 
 type Mode =
     | Selecting
-    | Editing of originalText: string * prefill: string option * cursorPos: int option
-    // prefill: the initial text shown in the edit input (if different from originalText)
+    | Editing of originalText: string * cursorPos: int option
     // cursorPos: None = place cursor at end; Some n = place cursor at position n
     | CommandPalette of query: string * selectedCommand: int * returnTo: Mode
 
@@ -64,6 +63,7 @@ type ClipboardContent =
 
 type SyncState =
     | Synced      // all changes confirmed by server
+    | Inactive   // client paused remote polling due to idle/hidden
     | Syncing     // a POST is currently in-flight
     | Pending     // last POST failed; auto-retry scheduled
     | Conflicted  // received 409; rebase in progress
@@ -89,6 +89,8 @@ type SystemMsg =
     | SubmitResponse of Revision
     | SubmitFailed
     | ServerAhead of Revision  // poll found server revision > client; view is stale
+    | PollingInactive
+    | PollingActive
 
 type Msg =
     | System of SystemMsg

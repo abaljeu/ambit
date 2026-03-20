@@ -14,7 +14,7 @@ Useful result: hand-edit `{.h1}` in the data file and see the style applied in t
 - extend `Snapshot.read`/`write` with `{.class}` metadata block syntax
 - extend `encodeNode`/`decodeNode` with `cssClasses` field
 - update `makeRowElement` to apply `node.cssClasses` to the `.text` div
-- ship a default `user.css` with a handful of predefined classes; add `<link>` to gambol.html
+- ship a default `user.css` with a handful of predefined classes; add `<link>` to `gambol.template.html`
 - add `GET /ambit/user.css` endpoint (serves `dataDir/user.css`, falls back to default)
 - simple temporary UI: Alt-C pops up a dialog; if the entered name is a legal CSS identifier and does not start with `amb-`, toggle its presence in the node's `cssClasses`
 

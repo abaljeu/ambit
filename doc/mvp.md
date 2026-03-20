@@ -225,7 +225,7 @@ The MVP is complete when:
 | Server config | `src/Server/appsettings.json` |
 | Client entry point | `src/Client/Program.fs` |
 | Client project | `src/Client/Gambol.Client.fsproj` |
-| HTML | `src/Server/wwwroot/gambol.html` |
+| HTML template | `src/Server/wwwroot/gambol.template.html` |
 | CSS | `src/Server/wwwroot/style.css` |
 | Compiled JS | `src/Server/wwwroot/Program.js` (Fable output) |
 | Server tests | `tests/Server.Tests/StateEndpointTests.fs` |
