@@ -310,13 +310,13 @@ let commandRegistry : CommandEntry list =
         keyScope = SelectionOrEditing }
 
       { name = "Cancel"
-        run = keyAlways cancelEdit
+        run = keyAlways handleEsc
         keys = [ "Escape" ]
         keyScope = SelectionOrEditing }
 
       { name = "Fold / unfold"
         run = keyAlways toggleFoldSelectionOp
-        keys = [ "Ctrl+."; "." ]
+        keys = [ "Ctrl+." ]
         keyScope = SelectionOrEditing }
 
       { name = "Zoom in"
@@ -331,12 +331,12 @@ let commandRegistry : CommandEntry list =
 
       { name = "Undo"
         run = keyAlways undoOp
-        keys = [ "Ctrl+Z" ]
+        keys = [ "Ctrl+Z" ; "Z"]
         keyScope = SelectionOrEditing }
 
       { name = "Redo"
         run = keyAlways redoOp
-        keys = [ "Ctrl+Y" ]
+        keys = [ "Ctrl+Y" ; "Y"]
         keyScope = SelectionOrEditing }
 
       { name = "Copy as links"
@@ -351,7 +351,7 @@ let commandRegistry : CommandEntry list =
 
       { name = "Toggle class"
         run = keyAlways toggleClassOp
-        keys = [ "Alt+C" ]
+        keys = [ "Alt+C"; "." ]
         keyScope = SelectionOrEditing } ]
 
 /// True if palette was opened from selection (unwrap nested CommandPalette to the real return target).

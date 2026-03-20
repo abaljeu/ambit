@@ -145,22 +145,23 @@ let private viewRootNodeId (model: VM) : NodeId =
 /// Returns the updated model. Dispatches SubmitResponse asynchronously.
 let commitTextEdit
     (nodeId: NodeId)
-    (originalText: string)
+    (_originalText: string)
     (newText: string)
     (model: VM)
     (dispatch: Msg -> unit)
     : VM =
-    if newText = originalText then
+    let modelText = model.graph.nodes.[nodeId].text
+    if newText = modelText then
         { model with mode = Selecting }
     else
-        let change: Change = { id = model.revision.Value; changeId = System.Guid.NewGuid(); ops = [ Op.SetText(nodeId, originalText, newText) ] }
+        let change: Change = { id = model.revision.Value; changeId = System.Guid.NewGuid(); ops = [ Op.SetText(nodeId, modelText, newText) ] }
         match applyAndPost change model dispatch with
         | Some m -> { m with mode = Selecting }
         | None   -> { model with mode = Selecting }
 
 /// Split the currently-edited node at the cursor position.
 ///
-/// cursor at 0   → blank sibling inserted above; current node keeps its text; focus at start of current node.
+/// cursor at 0   → blank sibling inserted above; current node keeps its text; focus moves to the new blank node.
 /// cursor > 0    → current node gets text-before; new sibling gets text-after; focus at start of new node.
 let splitNode (currentText: string) (cursorPos: int) (model: VM) (dispatch: Msg -> unit) : VM =
     match model.mode, model.selectedNodes with
@@ -170,6 +171,7 @@ let splitNode (currentText: string) (cursorPos: int) (model: VM) (dispatch: Msg 
     | Editing (originalText, _), Some sel ->
         // The node being edited is the focus node.
         let selectedId  = focusedNodeId model.graph sel
+        let modelText = model.graph.nodes.[selectedId].text
         let parentId    = sel.range.parent.nodeId
         let indexInParent = sel.focus
         let clampedPos = max 0 (min cursorPos currentText.Length)
@@ -179,8 +181,8 @@ let splitNode (currentText: string) (cursorPos: int) (model: VM) (dispatch: Msg 
 
         let (insertIndex, newNodeText, focusId, focusText) =
             if clampedPos = 0 then
-                // blank node above; focus stays on current node
-                (indexInParent, "", selectedId, currentText)
+                // blank node above; focus moves to the new blank node
+                (indexInParent, "", newNodeId, "")
             else
                 // new node after; focus moves to new node
                 (indexInParent + 1, textAfter, newNodeId, textAfter)
@@ -190,8 +192,8 @@ let splitNode (currentText: string) (cursorPos: int) (model: VM) (dispatch: Msg 
               yield Op.Replace(parentId, insertIndex, [], [newNodeId])
               // update current node's text only when it actually changes
               let updatedText = if clampedPos = 0 then currentText else textBefore
-              if updatedText <> originalText then
-                  yield Op.SetText(selectedId, originalText, updatedText) ]
+              if updatedText <> modelText then
+                  yield Op.SetText(selectedId, modelText, updatedText) ]
 
         let change: Change = { id = model.revision.Value; changeId = System.Guid.NewGuid(); ops = ops }
         match applyAndPost change model dispatch with
@@ -594,10 +596,10 @@ let joinWithPrevious (currentText: string) (model: VM) (dispatch: Msg -> unit) :
 type Op = VM -> (Msg -> unit) -> VM
 
 /// Op: Move to selection mode (or deselect if already selecting), reverting any edit.
-let cancelEdit (model: VM) _dispatch : VM =
+let handleEsc (model: VM) dispatch : VM =
     match model.mode with
-    | Editing _ -> { model with mode = Selecting }
-    | Selecting -> { model with selectedNodes = None }
+    | Editing _ -> commitIfEditing model dispatch
+    | Selecting -> collapseToFocus model
     | CommandPalette _ -> model  // handled by closeCommandPaletteOp
 
 /// Op: Copy the focused subtree to the internal clipboard.
