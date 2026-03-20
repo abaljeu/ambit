@@ -138,50 +138,50 @@ type CommandKeyScope =
     | EditingOnly
     | SelectionOrEditing
 
-/// A key handler returns an Op to apply, or None to let the browser handle the event.
-type KeyHandler = KeyboardEvent -> Op option
+/// Resolves an Op to apply, or None to let the browser handle the key event.
+type CommandOp = unit -> Op option
 
-/// Key table entry: key string, handler, and command name for diagnostic.
+/// Key table entry: key string, resolver, and command name for diagnostic.
 type KeyBinding = {
     key: string
-    handler: KeyHandler
+    handler: CommandOp
     commandName: string
 }
 
 // ---------------------------------------------------------------------------
-// Editing key handlers (read live caret from DOM; defined before commandRegistry)
+// Editing command ops (read live caret from DOM; defined before commandRegistry)
 // ---------------------------------------------------------------------------
 
-let private keyAlways (op: Op) : KeyHandler = fun _ -> Some op
+let private keyAlways (op: Op) : CommandOp = fun () -> Some op
 
-let private splitAtCursor (_ke: KeyboardEvent) : Op option =
+let private splitAtCursor () : Op option =
     let text = readEditInputValue ()
     let pos = readEditInputCursor ()
     Some (splitNodeOp text pos)
 
-let private editMoveUp (_ke: KeyboardEvent) : Op option =
+let private editMoveUp () : Op option =
     Some (moveEditUp (readEditInputCursor ()))
 
-let private editMoveDown (_ke: KeyboardEvent) : Op option =
+let private editMoveDown () : Op option =
     Some (moveEditDown (readEditInputCursor ()))
 
-let private handleBackspace (_ke: KeyboardEvent) : Op option =
+let private handleBackspace () : Op option =
     if readEditInputCursor () = 0 then
         Some (joinWithPrevious (readEditInputValue ()))
     else None
 
-let private handleDelete (_ke: KeyboardEvent) : Op option =
+let private handleDelete () : Op option =
     let v = readEditInputValue ()
     if readEditInputCursor () = v.Length then
         Some (joinWithNext v)
     else None
 
-let private handleArrowLeft (_ke: KeyboardEvent) : Op option =
+let private handleArrowLeft () : Op option =
     if readEditInputCursor () = 0 && readEditInputSelectionEnd () = 0 then
         Some (moveEditUp System.Int32.MaxValue)
     else None
 
-let private handleArrowRight (_ke: KeyboardEvent) : Op option =
+let private handleArrowRight () : Op option =
     let v = readEditInputValue ()
     let len = v.Length
     if readEditInputCursor () = len && readEditInputSelectionEnd () = len then
@@ -192,186 +192,154 @@ let private handleArrowRight (_ke: KeyboardEvent) : Op option =
 // Command registry and palette ops
 // ---------------------------------------------------------------------------
 
-/// No-op for key-only commands that are not invokable from the palette.
-let private noOp : Op = fun m _ -> m
-
 type CommandEntry = {
     name: string
-    op: Op
+    run: CommandOp
     keys: string list
     keyScope: CommandKeyScope
-    keyHandler: KeyHandler
 }
 
 let commandRegistry : CommandEntry list =
-    [ 
+    [
       { name = "Edit node"
-        op = startEditOp
-        keys = ["F2"; "Enter"]
-        keyScope = SelectionOnly
-        keyHandler = keyAlways startEditOp }
-      
+        run = keyAlways startEditOp
+        keys = [ "F2"; "Enter" ]
+        keyScope = SelectionOnly }
+
       { name = "Split at cursor"
-        op = noOp
-        keys = ["Enter"]
-        keyScope = EditingOnly
-        keyHandler = splitAtCursor }
-      
+        run = splitAtCursor
+        keys = [ "Enter" ]
+        keyScope = EditingOnly }
+
       { name = "Delete"
-        op = deleteSelectionOp
-        keys = ["Delete"; "Backspace"]
-        keyScope = SelectionOnly
-        keyHandler = keyAlways deleteSelectionOp }
-      
+        run = keyAlways deleteSelectionOp
+        keys = [ "Delete"; "Backspace" ]
+        keyScope = SelectionOnly }
+
       { name = "Join with previous"
-        op = noOp
-        keys = ["Backspace"]
-        keyScope = EditingOnly
-        keyHandler = handleBackspace }
-      
+        run = handleBackspace
+        keys = [ "Backspace" ]
+        keyScope = EditingOnly }
+
       { name = "Join with next"
-        op = noOp
-        keys = ["Delete"]
-        keyScope = EditingOnly
-        keyHandler = handleDelete }
-      
+        run = handleDelete
+        keys = [ "Delete" ]
+        keyScope = EditingOnly }
+
       { name = "Move selection up"
-        op = moveSelectionUp
-        keys = ["ArrowUp"]
-        keyScope = SelectionOnly
-        keyHandler = keyAlways moveSelectionUp }
-      
+        run = keyAlways moveSelectionUp
+        keys = [ "ArrowUp" ]
+        keyScope = SelectionOnly }
+
       { name = "Move selection down"
-        op = moveSelectionDown
-        keys = ["ArrowDown"]
-        keyScope = SelectionOnly
-        keyHandler = keyAlways moveSelectionDown }
-      
+        run = keyAlways moveSelectionDown
+        keys = [ "ArrowDown" ]
+        keyScope = SelectionOnly }
+
       { name = "Move focus left"
-        op = arrowLeftSelectionOp
-        keys = ["ArrowLeft"]
-        keyScope = SelectionOnly
-        keyHandler = keyAlways arrowLeftSelectionOp }
-      
+        run = keyAlways arrowLeftSelectionOp
+        keys = [ "ArrowLeft" ]
+        keyScope = SelectionOnly }
+
       { name = "Move to previous node"
-        op = noOp
-        keys = ["ArrowLeft"; "Ctrl+ArrowLeft"]
-        keyScope = EditingOnly
-        keyHandler = handleArrowLeft }
-      
+        run = handleArrowLeft
+        keys = [ "ArrowLeft"; "Ctrl+ArrowLeft" ]
+        keyScope = EditingOnly }
+
       { name = "Move focus right"
-        op = arrowRightSelectionOp
-        keys = ["ArrowRight"]
-        keyScope = SelectionOnly
-        keyHandler = keyAlways arrowRightSelectionOp }
-      
+        run = keyAlways arrowRightSelectionOp
+        keys = [ "ArrowRight" ]
+        keyScope = SelectionOnly }
+
       { name = "Move to next node"
-        op = noOp
-        keys = ["ArrowRight"; "Ctrl+ArrowRight"]
-        keyScope = EditingOnly
-        keyHandler = handleArrowRight }
-      
+        run = handleArrowRight
+        keys = [ "ArrowRight"; "Ctrl+ArrowRight" ]
+        keyScope = EditingOnly }
+
       { name = "Extend selection up"
-        op = shiftArrowOp -1
-        keys = ["Shift+ArrowUp"]
-        keyScope = SelectionOnly
-        keyHandler = keyAlways (shiftArrowOp -1) }
-      
+        run = keyAlways (shiftArrowOp -1)
+        keys = [ "Shift+ArrowUp" ]
+        keyScope = SelectionOnly }
+
       { name = "Extend selection down"
-        op = shiftArrowOp 1
-        keys = ["Shift+ArrowDown"]
-        keyScope = SelectionOnly
-        keyHandler = keyAlways (shiftArrowOp 1) }
-      
+        run = keyAlways (shiftArrowOp 1)
+        keys = [ "Shift+ArrowDown" ]
+        keyScope = SelectionOnly }
+
       { name = "Move edit up"
-        op = noOp
-        keys = ["ArrowUp"]
-        keyScope = EditingOnly
-        keyHandler = editMoveUp }
-      
+        run = editMoveUp
+        keys = [ "ArrowUp" ]
+        keyScope = EditingOnly }
+
       { name = "Move edit down"
-        op = noOp
-        keys = ["ArrowDown"]
-        keyScope = EditingOnly
-        keyHandler = editMoveDown }
-      
+        run = editMoveDown
+        keys = [ "ArrowDown" ]
+        keyScope = EditingOnly }
+
       { name = "Move up"
-        op = moveNodeUpOp
-        keys = ["Alt+ArrowUp"; "Ctrl+ArrowUp"]
-        keyScope = SelectionOrEditing
-        keyHandler = keyAlways moveNodeUpOp }
-      
+        run = keyAlways moveNodeUpOp
+        keys = [ "Alt+ArrowUp"; "Ctrl+ArrowUp" ]
+        keyScope = SelectionOrEditing }
+
       { name = "Move down"
-        op = moveNodeDownOp
-        keys = ["Alt+ArrowDown"; "Ctrl+ArrowDown"]
-        keyScope = SelectionOrEditing
-        keyHandler = keyAlways moveNodeDownOp }
-      
+        run = keyAlways moveNodeDownOp
+        keys = [ "Alt+ArrowDown"; "Ctrl+ArrowDown" ]
+        keyScope = SelectionOrEditing }
+
       { name = "Indent"
-        op = indentOp
-        keys = ["Tab"]
-        keyScope = SelectionOrEditing
-        keyHandler = keyAlways indentOp }
-      
+        run = keyAlways indentOp
+        keys = [ "Tab" ]
+        keyScope = SelectionOrEditing }
+
       { name = "Outdent"
-        op = outdentOp
-        keys = ["Shift+Tab"]
-        keyScope = SelectionOrEditing
-        keyHandler = keyAlways outdentOp }
-      
+        run = keyAlways outdentOp
+        keys = [ "Shift+Tab" ]
+        keyScope = SelectionOrEditing }
+
       { name = "Cancel"
-        op = cancelEdit
-        keys = ["Escape"]
-        keyScope = SelectionOrEditing
-        keyHandler = keyAlways cancelEdit }
-      
+        run = keyAlways cancelEdit
+        keys = [ "Escape" ]
+        keyScope = SelectionOrEditing }
+
       { name = "Fold / unfold"
-        op = toggleFoldSelectionOp
-        keys = ["Ctrl+."]
-        keyScope = SelectionOrEditing
-        keyHandler = keyAlways toggleFoldSelectionOp }
-      
+        run = keyAlways toggleFoldSelectionOp
+        keys = [ "Ctrl+." ]
+        keyScope = SelectionOrEditing }
+
       { name = "Zoom in"
-        op = zoomInOp
-        keys = ["Ctrl+]"]
-        keyScope = SelectionOrEditing
-        keyHandler = keyAlways zoomInOp }
-      
+        run = keyAlways zoomInOp
+        keys = [ "Ctrl+]" ]
+        keyScope = SelectionOrEditing }
+
       { name = "Zoom out"
-        op = zoomOutOp
-        keys = ["Ctrl+["]
-        keyScope = SelectionOrEditing
-        keyHandler = keyAlways zoomOutOp }
-      
+        run = keyAlways zoomOutOp
+        keys = [ "Ctrl+[" ]
+        keyScope = SelectionOrEditing }
+
       { name = "Undo"
-        op = undoOp
-        keys = ["Ctrl+z"]
-        keyScope = SelectionOrEditing
-        keyHandler = keyAlways undoOp }
-      
+        run = keyAlways undoOp
+        keys = [ "Ctrl+z" ]
+        keyScope = SelectionOrEditing }
+
       { name = "Redo"
-        op = redoOp
-        keys = ["Ctrl+y"]
-        keyScope = SelectionOrEditing
-        keyHandler = keyAlways redoOp }
-      
+        run = keyAlways redoOp
+        keys = [ "Ctrl+y" ]
+        keyScope = SelectionOrEditing }
+
       { name = "Copy as links"
-        op = copySelectionAsLinks
-        keys = ["Ctrl+Shift+c"]
-        keyScope = SelectionOnly
-        keyHandler = keyAlways copySelectionAsLinks }
-      
+        run = keyAlways copySelectionAsLinks
+        keys = [ "Ctrl+Shift+c" ]
+        keyScope = SelectionOnly }
+
       { name = "Command palette"
-        op = openCommandPaletteOp
-        keys = ["Ctrl+Shift+P"]
-        keyScope = SelectionOrEditing
-        keyHandler = keyAlways openCommandPaletteOp }
-      
+        run = keyAlways openCommandPaletteOp
+        keys = [ "Ctrl+Shift+P" ]
+        keyScope = SelectionOrEditing }
+
       { name = "Toggle class"
-        op = toggleClassOp
-        keys = ["Alt+c"]
-        keyScope = SelectionOrEditing
-        keyHandler = keyAlways toggleClassOp } ]
+        run = keyAlways toggleClassOp
+        keys = [ "Alt+c" ]
+        keyScope = SelectionOrEditing } ]
 
 /// True if palette was opened from selection (unwrap nested CommandPalette to the real return target).
 let rec paletteWasSelecting (returnTo: Mode) : bool =
@@ -404,10 +372,15 @@ let private onPalette (f: string -> int -> Mode -> VM -> (Msg -> unit) -> VM)
 
 let paletteRunOp = onPalette (fun q selectedCommand ret model dispatch ->
     match List.tryItem selectedCommand (filteredCommands ret q) with
-    | None     -> { model with mode = ret }
+    | None -> { model with mode = ret }
     | Some cmd ->
-        setLastKeyDisplay None (Some cmd.name)
-        cmd.op { model with mode = ret } dispatch)
+        match cmd.run () with
+        | None ->
+            setLastKeyDisplay None None
+            { model with mode = ret }
+        | Some op ->
+            setLastKeyDisplay None (Some cmd.name)
+            op { model with mode = ret } dispatch)
 
 let paletteSetQueryOp (q: string) = onPalette (fun _ _ ret model _ ->
     { model with mode = CommandPalette (q, 0, ret) })
@@ -430,7 +403,7 @@ let private selectionKeyBindings : KeyBinding list =
         | entry :: rest ->
             if not (scopeInSelectionMap entry.keyScope) then collect seen acc rest
             else
-                let rowHandler = entry.keyHandler
+                let rowHandler = entry.run
                 let bindings =
                     entry.keys
                     |> List.choose (fun k ->
@@ -448,7 +421,7 @@ let private editingKeyBindings : KeyBinding list =
         | entry :: rest ->
             if not (scopeInEditingMap entry.keyScope) then collect seen acc rest
             else
-                let rowHandler = entry.keyHandler
+                let rowHandler = entry.run
                 let bindings =
                     entry.keys
                     |> List.choose (fun k ->
@@ -473,7 +446,10 @@ let private paletteKeyBindings : KeyBinding list =
         handler = keyAlways paletteRunOp
         commandName = "Run command" } ]
 
-let private tryResolveFromNamed (table: KeyBinding list) (ke: KeyboardEvent) : (KeyHandler * string) option =
+let private tryResolveFromNamed
+    (table: KeyBinding list)
+    (ke: KeyboardEvent)
+    : (CommandOp * string) option =
     let tryKey k =
         table
         |> List.tryPick (fun e ->
@@ -491,11 +467,11 @@ let private tryResolveFromNamed (table: KeyBinding list) (ke: KeyboardEvent) : (
 
 let private dispatchResolvedKey
     (keyStr: string)
-    (handler: KeyHandler, name: string)
+    (handler: CommandOp, name: string)
     (keyEvent: KeyboardEvent)
     (applyOp: Op -> unit)
     : unit =
-    match handler keyEvent with
+    match handler () with
     | Some op ->
         keyEvent.preventDefault()
         setLastKeyDisplay (Some keyStr) (Some name)

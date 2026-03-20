@@ -266,8 +266,13 @@ let renderCommandPalette (model: VM) (applyOp: Op -> unit) : unit =
                             match List.tryItem idx (filteredCommands ret q) with
                             | None -> { m with mode = ret }
                             | Some cmd ->
-                                setLastKeyDisplay None (Some cmd.name)
-                                cmd.op { m with mode = ret } d
+                                match cmd.run () with
+                                | None ->
+                                    setLastKeyDisplay None None
+                                    { m with mode = ret }
+                                | Some op ->
+                                    setLastKeyDisplay None (Some cmd.name)
+                                    op { m with mode = ret } d
                         | _ -> m))
 
     | _ ->
