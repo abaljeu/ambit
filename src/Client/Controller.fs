@@ -109,14 +109,27 @@ let isIOS () : bool = jsNative
 [<Emit("(typeof navigator !== 'undefined' ? navigator.platform + ' | maxTouchPoints=' + navigator.maxTouchPoints + ' | isIOS=' + $0 + ' | ' + navigator.userAgent.substring(0, 100) : 'n/a')")>]
 let getPlatformDiagnostic (isIOSResult: bool) : string = jsNative
 
-/// Format a KeyboardEvent as a modifier+key string (e.g. "Ctrl+Shift+z").
+let private isSingleLetterKey (key: string) : bool =
+    key.Length = 1 && System.Char.IsLetter key[0]
+
+let private isUppercaseLetterKey (key: string) : bool =
+    isSingleLetterKey key && System.Char.IsUpper key[0]
+
+let private normalizeKeyToken (key: string) : string =
+    if isSingleLetterKey key then string (System.Char.ToUpperInvariant key[0]) else key
+
+/// Format a KeyboardEvent as a normalized modifier+key string (e.g. "Ctrl+Shift+P").
 let private formatKeyCombo (ke: KeyboardEvent) : string =
     let parts = ResizeArray<string>()
-    if ke.ctrlKey  then parts.Add "Ctrl"
-    if ke.metaKey  then parts.Add "Cmd"
-    if ke.altKey   then parts.Add "Alt"
-    if ke.shiftKey then parts.Add "Shift"
-    parts.Add ke.key
+    let hasNonShiftModifier = ke.ctrlKey || ke.altKey || ke.metaKey
+    let shiftOnlySource = ke.shiftKey || (not hasNonShiftModifier && isUppercaseLetterKey ke.key)
+
+    if ke.ctrlKey then parts.Add "Ctrl"
+    if ke.metaKey then parts.Add "Cmd"
+    if ke.altKey  then parts.Add "Alt"
+    if shiftOnlySource then parts.Add "Shift"
+
+    parts.Add (normalizeKeyToken ke.key)
     String.concat "+" parts
 
 /// Single function to set the last-key diagnostic. Never appends; always replaces.
@@ -226,19 +239,24 @@ let commandRegistry : CommandEntry list =
         keys = [ "Delete" ]
         keyScope = EditingOnly }
 
-      { name = "Move selection up"
+      { name = "Cursor up"
         run = keyAlways moveSelectionUp
-        keys = [ "ArrowUp" ]
+        keys = [ "ArrowUp"; "," ]
         keyScope = SelectionOnly }
 
-      { name = "Move selection down"
+      { name = "Cursor down"
         run = keyAlways moveSelectionDown
-        keys = [ "ArrowDown" ]
+        keys = [ "ArrowDown"; "O" ]
         keyScope = SelectionOnly }
 
-      { name = "Move focus left"
+      { name = "Cursor outward"
         run = keyAlways arrowLeftSelectionOp
-        keys = [ "ArrowLeft" ]
+        keys = [ "ArrowLeft"; "A" ]
+        keyScope = SelectionOnly }
+
+      { name = "Cursor inward"
+        run = keyAlways arrowRightSelectionOp
+        keys = [ "ArrowRight"; "E" ]
         keyScope = SelectionOnly }
 
       { name = "Move to previous node"
@@ -246,42 +264,37 @@ let commandRegistry : CommandEntry list =
         keys = [ "ArrowLeft"; "Ctrl+ArrowLeft" ]
         keyScope = EditingOnly }
 
-      { name = "Move focus right"
-        run = keyAlways arrowRightSelectionOp
-        keys = [ "ArrowRight" ]
-        keyScope = SelectionOnly }
-
       { name = "Move to next node"
         run = handleArrowRight
         keys = [ "ArrowRight"; "Ctrl+ArrowRight" ]
         keyScope = EditingOnly }
 
-      { name = "Extend selection up"
+      { name = "Selection up"
         run = keyAlways (shiftArrowOp -1)
-        keys = [ "Shift+ArrowUp" ]
+        keys = [ "Shift+ArrowUp" ;"Shift+,"]
         keyScope = SelectionOnly }
 
-      { name = "Extend selection down"
+      { name = "Selection down"
         run = keyAlways (shiftArrowOp 1)
-        keys = [ "Shift+ArrowDown" ]
+        keys = [ "Shift+ArrowDown" ;"Shift+O"]
         keyScope = SelectionOnly }
 
-      { name = "Move edit up"
+      { name = "Move cursor up"
         run = editMoveUp
         keys = [ "ArrowUp" ]
         keyScope = EditingOnly }
 
-      { name = "Move edit down"
+      { name = "Move cursor down"
         run = editMoveDown
         keys = [ "ArrowDown" ]
         keyScope = EditingOnly }
 
-      { name = "Move up"
+      { name = "Move selection up"
         run = keyAlways moveNodeUpOp
         keys = [ "Alt+ArrowUp"; "Ctrl+ArrowUp" ]
         keyScope = SelectionOrEditing }
 
-      { name = "Move down"
+      { name = "Move selection down"
         run = keyAlways moveNodeDownOp
         keys = [ "Alt+ArrowDown"; "Ctrl+ArrowDown" ]
         keyScope = SelectionOrEditing }
@@ -303,42 +316,42 @@ let commandRegistry : CommandEntry list =
 
       { name = "Fold / unfold"
         run = keyAlways toggleFoldSelectionOp
-        keys = [ "Ctrl+." ]
+        keys = [ "Ctrl+."; "." ]
         keyScope = SelectionOrEditing }
 
       { name = "Zoom in"
         run = keyAlways zoomInOp
-        keys = [ "Ctrl+]" ]
+        keys = [ "Ctrl+]"; "]" ]
         keyScope = SelectionOrEditing }
 
       { name = "Zoom out"
         run = keyAlways zoomOutOp
-        keys = [ "Ctrl+[" ]
+        keys = [ "Ctrl+["; "[" ]
         keyScope = SelectionOrEditing }
 
       { name = "Undo"
         run = keyAlways undoOp
-        keys = [ "Ctrl+z" ]
+        keys = [ "Ctrl+Z" ]
         keyScope = SelectionOrEditing }
 
       { name = "Redo"
         run = keyAlways redoOp
-        keys = [ "Ctrl+y" ]
+        keys = [ "Ctrl+Y" ]
         keyScope = SelectionOrEditing }
 
       { name = "Copy as links"
         run = keyAlways copySelectionAsLinks
-        keys = [ "Ctrl+Shift+c" ]
+        keys = [ "Ctrl+Shift+C";"Shift+C" ]
         keyScope = SelectionOnly }
 
       { name = "Command palette"
         run = keyAlways openCommandPaletteOp
-        keys = [ "Ctrl+Shift+P" ]
+        keys = [ "Ctrl+P";"P" ]
         keyScope = SelectionOrEditing }
 
       { name = "Toggle class"
         run = keyAlways toggleClassOp
-        keys = [ "Alt+c" ]
+        keys = [ "Alt+C" ]
         keyScope = SelectionOrEditing } ]
 
 /// True if palette was opened from selection (unwrap nested CommandPalette to the real return target).
@@ -395,6 +408,9 @@ let private scopeInEditingMap =
     | EditingOnly | SelectionOrEditing -> true
     | SelectionOnly -> false
 
+/// Editing uses a text field; skip bare one-character registry keys so the browser inserts that character.
+let private isSingleCharKeyBinding (k: string) : bool = k.Length = 1
+
 /// Rebuild selection key bindings from commandRegistry (first binding per key wins).
 let private selectionKeyBindings : KeyBinding list =
     let rec collect seen acc entries =
@@ -425,7 +441,7 @@ let private editingKeyBindings : KeyBinding list =
                 let bindings =
                     entry.keys
                     |> List.choose (fun k ->
-                        if Set.contains k seen then None
+                        if isSingleCharKeyBinding k || Set.contains k seen then None
                         else Some { key = k; handler = rowHandler; commandName = entry.name })
                 let seen' = bindings |> List.fold (fun s e -> Set.add e.key s) seen
                 collect seen' (acc @ bindings) rest
@@ -450,20 +466,10 @@ let private tryResolveFromNamed
     (table: KeyBinding list)
     (ke: KeyboardEvent)
     : (CommandOp * string) option =
-    let tryKey k =
-        table
-        |> List.tryPick (fun e ->
-            if e.key = k then Some (e.handler, e.commandName) else None)
-    let ctrlOrCmd = ke.ctrlKey || (isIOS () && ke.metaKey)
-    let qualified =
-        if ctrlOrCmd && ke.shiftKey then tryKey ("Ctrl+Shift+" + ke.key) else
-        if ke.altKey   then tryKey ("Alt+"   + ke.key) else
-        if ke.shiftKey then tryKey ("Shift+" + ke.key) else
-        if ctrlOrCmd   then tryKey ("Ctrl+"  + ke.key) else
-        None
-    match qualified with
-    | Some _ -> qualified
-    | None -> tryKey ke.key
+    let keyStr = formatKeyCombo ke
+    table
+    |> List.tryPick (fun e ->
+        if e.key = keyStr then Some (e.handler, e.commandName) else None)
 
 let private dispatchResolvedKey
     (keyStr: string)
