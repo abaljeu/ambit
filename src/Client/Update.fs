@@ -1282,6 +1282,7 @@ let retryPendingOp (resetCount: bool) (model: VM) (dispatch: Msg -> unit) : VM =
         fireNextPending model.pendingChanges dispatch
         let attempt = if resetCount then 1 else failCount + 1
         { model with syncState = Syncing attempt }
+    | _,_ -> model
 
 /// Op: Undo the last change, committing any in-progress edit first.
 let undoOp (model: VM) (dispatch: Msg -> unit) : VM =
