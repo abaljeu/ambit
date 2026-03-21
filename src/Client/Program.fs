@@ -207,7 +207,7 @@ let setupStaticDOM (applyOp: Op -> unit) (wakePolling: unit -> unit) : unit =
         | Stale ->
             let path = window.location.pathname
             window.location.assign(path + "?bust=" + string (nowMs ()))
-        | _ -> applyOp retryPendingOp)
+        | _ -> applyOp (retryPendingOp true))
 
 let rec applyOp (op: Op) : unit =
     let prevModel = currentModel
@@ -239,7 +239,7 @@ and dispatch (msg: Msg) : unit =
             currentModel <- { currentModel with
                                 graph = localGraph
                                 pendingChanges = restoredPending
-                                syncState = Syncing }
+                                syncState = Syncing 1 }
             fireNextPending restoredPending dispatch
         elementCache <- render currentModel applyOp
         View.renderUndoStatus currentModel
@@ -250,10 +250,13 @@ and dispatch (msg: Msg) : unit =
         View.renderStatus currentModel
     | System SubmitFailed ->
         retryCount <- retryCount + 1
+        let maxAutoRetries = 10
         let delaySec = min 60 (1 <<< (min retryCount 6))
-        setTimeout (fun () ->
-            applyOp retryPendingOp
-            View.renderStatus currentModel) (delaySec * 1000)
+        let canAutoRetry = match currentModel.syncState with Pending n -> n < maxAutoRetries | _ -> false
+        if currentModel.syncState <> Stale && canAutoRetry then
+            setTimeout (fun () ->
+                applyOp (retryPendingOp false)
+                View.renderStatus currentModel) (delaySec * 1000)
         View.renderStatus currentModel
     | System (ServerAhead _) ->
         View.renderStatus currentModel

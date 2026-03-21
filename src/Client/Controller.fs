@@ -82,6 +82,20 @@ let copySelectionAsLinks (model: VM) (dispatch: Msg -> unit) : VM =
         writeClipboardText (nodeIdsPrefix + "\n" + idsText) ignore
         copySelectionOp model dispatch
 
+/// Op: Copy the focused subtree to clipboard (Ctrl+C behavior). Serializes to text/plain and updates internal clipboard.
+let copyOp (model: VM) (dispatch: Msg -> unit) : VM =
+    match model.selectedNodes with
+    | None -> model
+    | Some sel ->
+        let parentNode = model.graph.nodes.[sel.range.parent.nodeId]
+        let selectedIds =
+            parentNode.children
+            |> List.skip sel.range.start
+            |> List.take (sel.range.endd - sel.range.start)
+        let serialized = serializeSubtree model.graph model.siteMap selectedIds
+        writeClipboardText serialized ignore
+        copySelectionOp model dispatch
+
 /// Get the character offset at a given client (x, y) position using the browser's caret APIs.
 [<Emit("(function(x,y){if(document.caretRangeFromPoint){var r=document.caretRangeFromPoint(x,y);return r?r.startOffset:0;}if(document.caretPositionFromPoint){var p=document.caretPositionFromPoint(x,y);return p?p.offset:0;}return 0;})($0,$1)")>]
 let getCaretOffset (x: float) (y: float) : int = jsNative
@@ -459,6 +473,11 @@ let commandRegistry : CommandEntry list =
         run = keyAlways redoOp
         keys = [ "Ctrl+Y" ; "Y"]
         keyScope = SelectionOrEditing }
+
+      { name = "Copy content"
+        run = keyAlways copyOp
+        keys = [ "C" ] // Ctrl+C also does copy but that's a browser event.
+        keyScope = SelectionOnly }
 
       { name = "Copy as links"
         run = keyAlways copySelectionAsLinks

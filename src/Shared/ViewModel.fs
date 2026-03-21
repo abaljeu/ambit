@@ -64,9 +64,9 @@ type ClipboardContent =
 
 type SyncState =
     | Synced      // all changes confirmed by server
-    | Inactive   // client paused remote polling due to idle/hidden
-    | Syncing     // a POST is currently in-flight
-    | Pending     // last POST failed; auto-retry scheduled
+    | Inactive    // client paused remote polling due to idle/hidden
+    | Syncing of int   // POST in-flight; int = attempt number (1-based)
+    | Pending of int  // last POST failed; int = failure count (1..10; stop auto-retry at 10)
     | Conflicted  // received 409; rebase in progress
     | Stale       // server has changes we don't have — refresh to see them
 

@@ -20,6 +20,9 @@ let postJson (url: string) (body: string) (onSuccess: string -> unit) (onFail: u
 [<Emit("window.setTimeout($0, $1)")>]
 let setTimeout (f: unit -> unit) (ms: int) : unit = jsNative
 
+[<Emit("window.clearTimeout($0)")>]
+let clearTimeout (id: obj) : unit = jsNative
+
 [<Emit("localStorage.setItem($0,$1)")>]
 let private lsSet (k: string) (v: string) : unit = jsNative
 
@@ -111,20 +114,27 @@ let readEditInputSelectionEnd () : int =
     else int (el :?> HTMLInputElement).selectionEnd
 
 /// Fire the next POST in the pending queue (head of the list).
+/// Uses a 5s client-side timeout so a hanging request transitions to Pending and can be retried.
 let fireNextPending (pending: Change list) (dispatch: Msg -> unit) : unit =
     match pending with
     | [] -> ()
     | change :: _ ->
         let body = encodeChangeBody change
+        let timeoutId = setTimeout (fun () -> dispatch (System SubmitFailed)) 5_000
+        let cancelTimeout () = clearTimeout timeoutId
         postJson $"/{currentFile}/changes" body
             (fun responseText ->
+                cancelTimeout ()
                 match decodeStateResponse responseText with
                 | Ok (_graph, rev) -> dispatch (System (SubmitResponse rev))
                 | Error _ -> dispatch (System SubmitFailed))
-            (fun () -> dispatch (System SubmitFailed))
+            (fun () ->
+                cancelTimeout ()
+                dispatch (System SubmitFailed))
 
 /// Apply a change to the local model, enqueue it for posting to the server,
 /// and return the updated VM (or None if the change was rejected locally).
+/// When Stale, applies locally but does not fire POST (Stale is preserved until reload).
 let applyAndPost (change: Change) (model: VM) (dispatch: Msg -> unit) : VM option =
     let state: State = { graph = model.graph; revision = model.revision; history = model.history }
     match History.applyChange change state with
@@ -132,12 +142,13 @@ let applyAndPost (change: Change) (model: VM) (dispatch: Msg -> unit) : VM optio
         let wasEmpty = model.pendingChanges.IsEmpty
         let pending = model.pendingChanges @ [change]
         savePendingQueue pending
-        if wasEmpty then fireNextPending pending dispatch
+        if model.syncState <> Stale && wasEmpty then fireNextPending pending dispatch
+        let syncState = if model.syncState = Stale then Stale else Syncing 1
         Some { model with
                  graph = newState.graph
                  history = newState.history
                  pendingChanges = pending
-                 syncState = Syncing }
+                 syncState = syncState }
     | _ -> None
 
 /// Extract the list of node IDs covered by a SiteNodeRange.
@@ -1261,14 +1272,16 @@ let zoomOutOp (model: VM) (dispatch: Msg -> unit) : VM =
             selectedNodes = firstChildSelection siteMap effectiveRoot
             mode = Selecting }
 
-/// Op: Retry pending server POST.
-let retryPendingOp (model: VM) (dispatch: Msg -> unit) : VM =
+/// Op: Retry pending server POST. When resetCount=true (manual click), resets attempt count for a fresh batch.
+let retryPendingOp (resetCount: bool) (model: VM) (dispatch: Msg -> unit) : VM =
     match model.syncState, model.pendingChanges with
+    | Stale, _ | Conflicted, _ -> model
     | _, [] -> { model with syncState = Synced }
-    | Syncing, _ -> model
-    | _, _ ->
+    | Syncing _, _ -> model
+    | Pending failCount, _ ->
         fireNextPending model.pendingChanges dispatch
-        { model with syncState = Syncing }
+        let attempt = if resetCount then 1 else failCount + 1
+        { model with syncState = Syncing attempt }
 
 /// Op: Undo the last change, committing any in-progress edit first.
 let undoOp (model: VM) (dispatch: Msg -> unit) : VM =
@@ -1283,13 +1296,14 @@ let undoOp (model: VM) (dispatch: Msg -> unit) : VM =
             let wasEmpty = model'.pendingChanges.IsEmpty
             let pending = model'.pendingChanges @ [invertedChange]
             savePendingQueue pending
-            if wasEmpty then fireNextPending pending dispatch
+            if model'.syncState <> Stale && wasEmpty then fireNextPending pending dispatch
+            let syncState = if model'.syncState = Stale then Stale else Syncing 1
             { model' with
                 graph = newState.graph
                 history = newState.history
                 mode = Selecting
                 pendingChanges = pending
-                syncState = Syncing }
+                syncState = syncState }
             |> withSiteMap
         | _ -> model'
 
@@ -1309,13 +1323,14 @@ let redoOp (model: VM) (dispatch: Msg -> unit) : VM =
             let wasEmpty = model'.pendingChanges.IsEmpty
             let pending = model'.pendingChanges @ [reChange]
             savePendingQueue pending
-            if wasEmpty then fireNextPending pending dispatch
+            if model'.syncState <> Stale && wasEmpty then fireNextPending pending dispatch
+            let syncState = if model'.syncState = Stale then Stale else Syncing 1
             { model' with
                 graph = newState.graph
                 history = newState.history
                 mode = Selecting
                 pendingChanges = pending
-                syncState = Syncing }
+                syncState = syncState }
             |> withSiteMap
         | _ -> model'
 
@@ -1342,17 +1357,22 @@ let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
           syncState = Synced }
 
     | System (SubmitResponse revision) ->
-        let pending = match model.pendingChanges with _ :: t -> t | [] -> []
-        savePendingQueue pending
-        if not pending.IsEmpty then fireNextPending pending dispatch
-        { model with
-            revision = revision
-            history = { model.history with nextId = max model.history.nextId revision.Value }
-            pendingChanges = pending
-            syncState = if pending.IsEmpty then Synced else Syncing }
+        if model.syncState = Stale then model
+        else
+            let pending = match model.pendingChanges with _ :: t -> t | [] -> []
+            savePendingQueue pending
+            if not pending.IsEmpty then fireNextPending pending dispatch
+            { model with
+                revision = revision
+                history = { model.history with nextId = max model.history.nextId revision.Value }
+                pendingChanges = pending
+                syncState = if pending.IsEmpty then Synced else Syncing 1 }
 
     | System SubmitFailed ->
-        { model with syncState = Pending }
+        if model.syncState = Stale then model
+        else
+            let failCount = match model.syncState with Syncing n -> n | _ -> 0
+            { model with syncState = Pending failCount }
 
     | System (ServerAhead _) ->
         { model with syncState = Stale }
