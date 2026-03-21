@@ -400,9 +400,10 @@ let commandRegistry : CommandEntry list =
         keys = [ "Ctrl+Shift+C";"Shift+C" ]
         keyScope = SelectionOnly }
 
+
       { name = "Duplicate (link)"
         run = keyAlways duplicateSelectionOp
-        keys = [ "Shift+C" ]
+        keys = [ "Shift+D" ]
         keyScope = SelectionOnly }
 
 
