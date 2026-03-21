@@ -696,3 +696,70 @@ let ``planPatchDOM collapse removes stale cache entries`` () =
             | _ -> false)
 
     Assert.Equal(2, removes.Length) // a1 and a2 evicted
+
+// ---------------------------------------------------------------------------
+// Page / Home — cursorLevel*, shiftPg*, cursorViewRoot*
+// ---------------------------------------------------------------------------
+
+[<Fact>]
+let ``cursorLevelEnd selects last sibling under same parent`` () =
+    let graph, _ = buildFlat [ "a"; "b"; "c" ]
+    let model = modelWithSel graph 0 1 0
+    let result = cursorLevelEnd model
+
+    match result.selectedNodes with
+    | Some sel ->
+        Assert.Equal(2, sel.range.start)
+        Assert.Equal(3, sel.range.endd)
+        Assert.Equal(2, sel.focus)
+    | None -> Assert.True(false, "Expected Some")
+
+[<Fact>]
+let ``cursorLevelStart selects first sibling under same parent`` () =
+    let graph, _ = buildFlat [ "a"; "b"; "c" ]
+    let model = modelWithSel graph 2 3 2
+    let result = cursorLevelStart model
+
+    match result.selectedNodes with
+    | Some sel ->
+        Assert.Equal(0, sel.range.start)
+        Assert.Equal(1, sel.range.endd)
+        Assert.Equal(0, sel.focus)
+    | None -> Assert.True(false, "Expected Some")
+
+[<Fact>]
+let ``shiftPgDown reaches full sibling span`` () =
+    let graph, _ = buildFlat [ "a"; "b"; "c" ]
+    let model = modelWithSel graph 0 1 0
+    let result = shiftPgDown model
+
+    match result.selectedNodes with
+    | Some sel ->
+        Assert.Equal(0, sel.range.start)
+        Assert.Equal(3, sel.range.endd)
+        Assert.Equal(2, sel.focus)
+    | None -> Assert.True(false, "Expected Some")
+
+[<Fact>]
+let ``cursorViewRootFirstChild selects first root child`` () =
+    let graph, _ = buildFlat [ "a"; "b"; "c" ]
+    let model = modelWithSel graph 1 2 1
+    let result = cursorViewRootFirstChild model
+
+    match result.selectedNodes with
+    | Some sel ->
+        Assert.Equal(0, sel.range.start)
+        Assert.Equal(1, sel.range.endd)
+    | None -> Assert.True(false, "Expected Some")
+
+[<Fact>]
+let ``cursorViewRootLastChild selects last root child`` () =
+    let graph, _ = buildFlat [ "a"; "b"; "c" ]
+    let model = modelWithSel graph 0 1 0
+    let result = cursorViewRootLastChild model
+
+    match result.selectedNodes with
+    | Some sel ->
+        Assert.Equal(2, sel.range.start)
+        Assert.Equal(3, sel.range.endd)
+    | None -> Assert.True(false, "Expected Some")

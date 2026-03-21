@@ -115,16 +115,12 @@ Tasks
 		----
 The proof must clearly separate the two parts of the coNP-completeness argument:
 extra requirements
-	Proving that the problem is in coNP, and
-	Proving coNP-hardness via a polynomial-time reduction from triangle cover.
+	
 	Each part must appear under its own subsection within the proof.
 	
 	Correctness Verification Requirement
 	
-	The proof must explicitly justify why the reduction is polynomial-time and explain both directions of correctness (i.e., why the constructed instance has a Pareto improvement if and only if the original graph has a triangle cover).
 	Structured Proof Formatting Requirement
-	
-	The final answer must present the proof under the heading ## Proof and include clearly labeled subsections such as:
 	
 	Problem in coNP
 	Reduction Construction
@@ -133,6 +129,10 @@ extra requirements
 	Logical Reasoning Requirement
 	
 	Each major step in the proof must include a short justification explaining why the step is valid (e.g., why a constructed preference structure forces triangle formation).
+	The final answer must present the proof under the heading ## Proof and include clearly labeled subsections such as:
+	Proving coNP-hardness via a polynomial-time reduction from triangle cover.
+	The proof must explicitly justify why the reduction is polynomial-time and explain both directions of correctness (i.e., why the constructed instance has a Pareto improvement if and only if the original graph has a triangle cover).
+	Proving that the problem is in coNP, and
 {.h1 .blue}Third item
 	blue
 		

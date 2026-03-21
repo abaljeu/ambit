@@ -172,26 +172,35 @@ let private tryUnshiftPunctuationKey (key: string) : string option =
 let private normalizeKeyToken (key: string) : string =
     if isSingleLetterKey key then string (System.Char.ToUpperInvariant key[0]) else key
 
+/// True when this keydown is only a modifier key (no "real" key yet).
+let private isModifierOnlyKeyPress (key: string) : bool =
+    match key with
+    | "Control" | "Shift" | "Alt" | "Meta" -> true
+    | _ -> false
+
 /// Format a KeyboardEvent as a normalized modifier+key string (e.g. "Ctrl+Shift+P").
 let private formatKeyCombo (ke: KeyboardEvent) : string =
-    let parts = ResizeArray<string>()
-    let hasNonShiftModifier = ke.ctrlKey || ke.altKey || ke.metaKey
-    let shiftOnlySource = ke.shiftKey || (not hasNonShiftModifier && isUppercaseLetterKey ke.key)
-    let keyToken =
-        if shiftOnlySource then
-            match tryUnshiftPunctuationKey ke.key with
-            | Some key -> key
-            | None -> ke.key
-        else
-            ke.key
+    if isModifierOnlyKeyPress ke.key then
+        ""
+    else
+        let parts = ResizeArray<string>()
+        let hasNonShiftModifier = ke.ctrlKey || ke.altKey || ke.metaKey
+        let shiftOnlySource = ke.shiftKey || (not hasNonShiftModifier && isUppercaseLetterKey ke.key)
+        let keyToken =
+            if shiftOnlySource then
+                match tryUnshiftPunctuationKey ke.key with
+                | Some key -> key
+                | None -> ke.key
+            else
+                ke.key
 
-    if ke.ctrlKey then parts.Add "Ctrl"
-    if ke.metaKey then parts.Add "Cmd"
-    if ke.altKey  then parts.Add "Alt"
-    if shiftOnlySource then parts.Add "Shift"
+        if ke.ctrlKey then parts.Add "Ctrl"
+        if ke.metaKey then parts.Add "Cmd"
+        if ke.altKey  then parts.Add "Alt"
+        if shiftOnlySource then parts.Add "Shift"
 
-    parts.Add (normalizeKeyToken keyToken)
-    String.concat "+" parts
+        parts.Add (normalizeKeyToken keyToken)
+        String.concat "+" parts
 
 /// Single function to set the last-key diagnostic. Never appends; always replaces.
 /// key: the key combo (if any); operation: the command/operation name (if any).
@@ -317,12 +326,12 @@ let commandRegistry : CommandEntry list =
 
       { name = "Move to previous node"
         run = handleArrowLeft
-        keys = [ "ArrowLeft"; "Ctrl+ArrowLeft" ]
+        keys = [ "ArrowLeft" ]
         keyScope = EditingOnly }
 
       { name = "Move to next node"
         run = handleArrowRight
-        keys = [ "ArrowRight"; "Ctrl+ArrowRight" ]
+        keys = [ "ArrowRight" ]
         keyScope = EditingOnly }
 
       { name = "Selection up"
@@ -353,6 +362,62 @@ let commandRegistry : CommandEntry list =
       { name = "Move selection down"
         run = keyAlways moveNodeDownOp
         keys = [ "Alt+ArrowDown"; "Ctrl+ArrowDown" ]
+        keyScope = SelectionOrEditing }
+
+      // PageDown / PageUp = cursor to end / start of current level (no graph move)
+      // Alt+PageDown / Alt+PageUp = move selected objects to end / start of current level; selection follows
+      // Shift+PageDown / Shift+PageUp = like Shift+ArrowDown/Up: move focus to end / start of current level
+      // Home / End (select) = cursor to first / last direct child of view root
+      // Alt+Home / Alt+End = move selected objects to first / last slot under view root; selection follows
+
+      { name = "Cursor to Start"
+        run = keyAlways pageCursorLevelStartOp
+        keys = [ "PageUp" ]
+        keyScope = SelectionOnly }
+
+      { name = "Cursor to End"
+        run = keyAlways pageCursorLevelEndOp
+        keys = [ "PageDown" ]
+        keyScope = SelectionOnly }
+
+      { name = "Move Selection to Start"
+        run = keyAlways moveSelectionToLevelStartOp
+        keys = [ "Alt+PageUp" ]
+        keyScope = SelectionOrEditing }
+
+      { name = "Move Selection to End"
+        run = keyAlways moveSelectionToLevelEndOp
+        keys = [ "Alt+PageDown" ]
+        keyScope = SelectionOrEditing }
+
+      { name = "Select to Start"
+        run = keyAlways shiftPgUpOp
+        keys = [ "Shift+PageUp" ]
+        keyScope = SelectionOnly }
+
+      { name = "Select to End"
+        run = keyAlways shiftPgDownOp
+        keys = [ "Shift+PageDown" ]
+        keyScope = SelectionOnly }
+
+      { name = "Cursor to Top of View"
+        run = keyAlways homeSelectionOp
+        keys = [ "Home" ]
+        keyScope = SelectionOnly }
+
+      { name = "Cursor to End of View"
+        run = keyAlways endSelectionOp
+        keys = [ "End" ]
+        keyScope = SelectionOnly }
+
+      { name = "Move Selection to Top of View"
+        run = keyAlways moveSelectionToViewRootStartOp
+        keys = [ "Alt+Home" ]
+        keyScope = SelectionOrEditing }
+
+      { name = "Move Selection to End of View"
+        run = keyAlways moveSelectionToViewRootEndOp
+        keys = [ "Alt+End" ]
         keyScope = SelectionOrEditing }
 
       { name = "Indent"
@@ -400,12 +465,10 @@ let commandRegistry : CommandEntry list =
         keys = [ "Ctrl+Shift+C";"Shift+C" ]
         keyScope = SelectionOnly }
 
-
       { name = "Duplicate (link)"
         run = keyAlways duplicateSelectionOp
         keys = [ "Shift+D" ]
         keyScope = SelectionOnly }
-
 
       { name = "Command palette"
         run = keyAlways openCommandPaletteOp

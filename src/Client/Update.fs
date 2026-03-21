@@ -905,6 +905,85 @@ let moveNodeUpOp (model: VM) (dispatch: Msg -> unit) : VM =
 let moveNodeDownOp (model: VM) (dispatch: Msg -> unit) : VM =
     moveNodeDelta 1 (commitIfEditing model dispatch) dispatch |> withSiteMap
 
+/// Op: PageUp — cursor to start of current level (no graph move).
+let pageCursorLevelStartOp (model: VM) (_dispatch: Msg -> unit) : VM =
+    ViewModel.cursorLevelStart model
+
+/// Op: PageDown — cursor to end of current level (no graph move).
+let pageCursorLevelEndOp (model: VM) (_dispatch: Msg -> unit) : VM =
+    ViewModel.cursorLevelEnd model
+
+/// Op: Shift+PageDown — shift-style focus motion to end of current level.
+let shiftPgDownOp (model: VM) (_dispatch: Msg -> unit) : VM =
+    ViewModel.shiftPgDown model
+
+/// Op: Shift+PageUp — shift-style focus motion to start of current level.
+let shiftPgUpOp (model: VM) (_dispatch: Msg -> unit) : VM =
+    ViewModel.shiftPgUp model
+
+/// Op: Home — cursor to first direct child of view root.
+let homeSelectionOp (model: VM) (_dispatch: Msg -> unit) : VM =
+    ViewModel.cursorViewRootFirstChild model
+
+/// Op: End — cursor to last direct child of view root.
+let endSelectionOp (model: VM) (_dispatch: Msg -> unit) : VM =
+    ViewModel.cursorViewRootLastChild model
+
+/// Commit edit if needed, then move selection with `moveNodeFromTo` when `resolveToo` returns Some.
+let private tryStructuralMove
+    (model: VM)
+    (dispatch: Msg -> unit)
+    (resolveToo: VM -> Selection -> SiteNodeRange option)
+    : VM =
+    let m = commitIfEditing model dispatch
+    match m.selectedNodes with
+    | None -> m
+    | Some sel ->
+        match resolveToo m sel with
+        | None -> m
+        | Some too -> moveNodeFromTo too m dispatch |> withSiteMap
+
+/// Op: Ctrl+PageUp — move selected objects to start of current level; selection follows.
+let moveSelectionToLevelStartOp (model: VM) (dispatch: Msg -> unit) : VM =
+    tryStructuralMove model dispatch (fun _ sel ->
+        Some { parent = sel.range.parent; start = 0; endd = 0 })
+
+/// Op: Ctrl+PageDown — move selected objects to end of current level; selection follows.
+let moveSelectionToLevelEndOp (model: VM) (dispatch: Msg -> unit) : VM =
+    tryStructuralMove model dispatch (fun m sel ->
+        let range = sel.range
+        let parentLen = m.graph.nodes.[range.parent.nodeId].children.Length
+        if parentLen = 0 || range.endd >= parentLen then None
+        else
+            Some
+                { parent = range.parent
+                  start = parentLen - 1
+                  endd = parentLen })
+
+/// Op: Ctrl+Home — move selected objects to first slot under view root; selection follows.
+let moveSelectionToViewRootStartOp (model: VM) (dispatch: Msg -> unit) : VM =
+    tryStructuralMove model dispatch (fun m sel ->
+        match Map.tryFind m.siteMap.rootId m.siteMap.entries with
+        | None -> None
+        | Some rootEntry ->
+            let n = m.graph.nodes.[rootEntry.nodeId].children.Length
+            if n = 0 then None
+            elif sel.range.parent.nodeId = rootEntry.nodeId && sel.range.start = 0 then None
+            else
+                Some { parent = rootEntry; start = 0; endd = 0 })
+
+/// Op: Ctrl+End — move selected objects to last slot under view root; selection follows.
+let moveSelectionToViewRootEndOp (model: VM) (dispatch: Msg -> unit) : VM =
+    tryStructuralMove model dispatch (fun m sel ->
+        match Map.tryFind m.siteMap.rootId m.siteMap.entries with
+        | None -> None
+        | Some rootEntry ->
+            let n = m.graph.nodes.[rootEntry.nodeId].children.Length
+            if n = 0 then None
+            elif sel.range.parent.nodeId = rootEntry.nodeId && sel.range.endd >= n then None
+            else
+                Some { parent = rootEntry; start = n - 1; endd = n })
+
 /// Op: Paste text into the model. preferredNodeIds from clipboard format, if present.
 let pasteNodesOp (pastedText: string) (preferredNodeIds: string option) (model: VM)
     (dispatch: Msg -> unit) : VM =

@@ -367,6 +367,70 @@ module ViewModel =
     /// Otherwise, moves the whole selection down by one visible row.
     let applyMoveSelectionDown = applyMoveSelection 1
 
+    /// Single-node selection on the child at `childIndex` under `parent` (site-map occurrence).
+    let private selectChildIndexUnderParent (model: VM) (parent: SiteEntry) (childIndex: int) : VM =
+        let childCount = model.graph.nodes.[parent.nodeId].children.Length
+        if childIndex < 0 || childIndex >= childCount then model
+        else
+            let instId = parent.children.[childIndex]
+            match singleSelectionForInstance model.siteMap instId with
+            | None -> model
+            | Some s -> { model with selectedNodes = Some s; mode = Selecting }
+
+    /// Cursor to the first sibling under the current selection's parent (no graph move).
+    let cursorLevelStart (model: VM) : VM =
+        match model.selectedNodes with
+        | None -> model
+        | Some sel -> selectChildIndexUnderParent model sel.range.parent 0
+
+    /// Cursor to the last sibling under the current selection's parent (no graph move).
+    let cursorLevelEnd (model: VM) : VM =
+        match model.selectedNodes with
+        | None -> model
+        | Some sel ->
+            let p = sel.range.parent
+            let n = model.graph.nodes.[p.nodeId].children.Length
+            selectChildIndexUnderParent model p (n - 1)
+
+    /// Shift+PgDown / Shift+PgUp: extend the sibling range to the level end or start in one step
+    /// (focus on last or first child under the same parent).
+    let private shiftPgByDelta (delta: int) (model: VM) : VM =
+        match model.selectedNodes with
+        | None -> model
+        | Some sel ->
+            let r = sel.range
+            let childCount = model.graph.nodes.[r.parent.nodeId].children.Length
+            if childCount <= 0 || r.start >= childCount || r.endd > childCount then
+                model
+            elif delta > 0 then
+                { model with
+                    selectedNodes =
+                        Some { range = { r with endd = childCount }
+                               focus = childCount - 1 } }
+            else
+                { model with
+                    selectedNodes = Some { range = { r with start = 0 }; focus = 0 } }
+
+    /// Like repeated Shift+ArrowDown until the level boundary.
+    let shiftPgDown = shiftPgByDelta 1
+
+    /// Like repeated Shift+ArrowUp until the level boundary.
+    let shiftPgUp = shiftPgByDelta -1
+
+    /// Cursor to the first direct child of the view root (siteMap.rootId).
+    let cursorViewRootFirstChild (model: VM) : VM =
+        match Map.tryFind model.siteMap.rootId model.siteMap.entries with
+        | None -> model
+        | Some root when root.children.IsEmpty -> model
+        | Some root -> selectChildIndexUnderParent model root 0
+
+    /// Cursor to the last direct child of the view root (siteMap.rootId).
+    let cursorViewRootLastChild (model: VM) : VM =
+        match Map.tryFind model.siteMap.rootId model.siteMap.entries with
+        | None -> model
+        | Some root when root.children.IsEmpty -> model
+        | Some root -> selectChildIndexUnderParent model root (root.children.Length - 1)
+
 // ---------------------------------------------------------------------------
 // Selection / focus / edit helpers (pure — no Browser interop)
 // ---------------------------------------------------------------------------
