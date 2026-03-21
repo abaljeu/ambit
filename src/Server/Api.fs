@@ -7,7 +7,7 @@ module Api =
     let private jsonResult (json: string) : IResult =
         Results.Content(json, "application/json")
 
-    /// Lightweight poll response: { r: revision, b: buildEpochSec, p: pageBuildEpochSec }
+    /// Lightweight poll response: { r: revision, b: deployEpochSec (__BUILD_TS__), p: pageBuildEpochSec }
     let getPoll (agent: FileAgent) (buildEpochSec: int) (pageBuildEpochSec: int) : Async<IResult> = async {
         let! rev = FileAgent.getRevision agent
         let json = sprintf "{\"r\":%d,\"b\":%d,\"p\":%d}" rev buildEpochSec pageBuildEpochSec

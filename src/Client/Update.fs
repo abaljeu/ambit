@@ -150,6 +150,11 @@ let rangeChildren (graph: Graph) (range: SiteNodeRange) =
 let private viewRootNodeId (model: VM) : NodeId =
     model.zoomRoot |> Option.defaultValue model.graph.root
 
+/// If `newText` differs from the graph, the same `SetText` op `commitTextEdit` would post (no mode change).
+let private tryTextCommitOps (nodeId: NodeId) (originalTextForHistory: string) (newText: string) (graph: Graph) : Op list =
+    let modelText = graph.nodes.[nodeId].text
+    if newText = modelText then [] else [ Op.SetText(nodeId, originalTextForHistory, newText) ]
+
 /// Apply a committed text edit to the model and POST to server.
 /// Returns the updated model. Dispatches SubmitResponse asynchronously.
 let commitTextEdit
@@ -159,14 +164,13 @@ let commitTextEdit
     (model: VM)
     (dispatch: Msg -> unit)
     : VM =
-    let modelText = model.graph.nodes.[nodeId].text
-    if newText = modelText then
-        { model with mode = Selecting }
-    else
+    match tryTextCommitOps nodeId _originalText newText model.graph with
+    | [] -> { model with mode = Selecting }
+    | ops ->
         let change: Change =
             { id = model.revision.Value
               changeId = System.Guid.NewGuid()
-              ops = [ Op.SetText(nodeId, _originalText, newText) ] }
+              ops = ops }
         match applyAndPost change model dispatch with
         | Some m -> { m with mode = Selecting }
         | None   -> { model with mode = Selecting }
@@ -373,67 +377,6 @@ let pasteNodes (pastedText: string) (preferredNodeIds: string option) (model: VM
                 | Some m -> { m with mode = Selecting }
                 | None -> model
 
-// ---------------------------------------------------------------------------
-// Indent / Outdent
-// ---------------------------------------------------------------------------
-
-/// Tab: make selected nodes children of the sibling immediately before them.
-/// No-op if the selection starts at index 0 (no previous sibling).
-/// Move the selected nodes from their current parent to a new parent at insertIdx.
-/// Common core of indent and outdent.
-let reparentSelection (newParentEntry: SiteEntry) (insertIdx: int) (sel: Selection) (model: VM)
-    (dispatch: Msg -> unit) : VM =
-    let range = sel.range
-    let selectedIds = rangeChildren model.graph range
-    let ops =
-        [ Op.Replace(range.parent.nodeId, range.start, selectedIds, [])
-          Op.Replace(newParentEntry.nodeId, insertIdx, [], selectedIds) ]
-    let change =
-        { id = model.revision.Value
-          changeId = System.Guid.NewGuid()
-          ops = ops }
-    match applyAndPost change model dispatch with
-    | Some m ->
-        let newSel =
-            { range = { parent = newParentEntry; start = insertIdx
-                        endd = insertIdx + selectedIds.Length }
-              focus = insertIdx }
-        { m with selectedNodes = Some newSel }
-    | None -> model
-
-let indentSelection (model: VM) (dispatch: Msg -> unit) : VM =
-    match model.selectedNodes with
-    | None -> model
-    | Some sel when sel.range.start = 0 -> model  // no previous sibling — no-op
-    | Some sel ->
-        let prevSibId = model.graph.nodes.[sel.range.parent.nodeId].children.[sel.range.start - 1]
-        let insertIdx = model.graph.nodes.[prevSibId].children.Length
-        match model.siteMap.entries
-            |> Map.tryPick (fun _ e -> if e.nodeId = prevSibId then Some e else None) with
-        | None -> model
-        | Some prevSibEntry ->
-        let result = reparentSelection prevSibEntry insertIdx sel model dispatch
-        // Ensure the new parent is expanded so the indented items are visible after reconcile
-        if prevSibEntry.expanded then result
-        else
-            let siteMap, nextId =
-                ViewModel.expandEntry prevSibEntry.instanceId result.graph result.siteMap
-                    result.nextInstanceId
-            { result with siteMap = siteMap; nextInstanceId = nextId }
-
-let outdentSelection (model: VM) (dispatch: Msg -> unit) : VM =
-    match model.selectedNodes with
-    | None -> model
-    | Some sel ->
-        match Graph.tryFindParentAndIndex sel.range.parent.nodeId model.graph with
-        | None -> model  // parent is root — no-op
-        | Some (grandparentId, parentIdx) ->
-            match model.siteMap.entries
-                |> Map.tryPick (fun _ e -> if e.nodeId = grandparentId then Some e else None) with
-            | None -> model
-            | Some grandparentEntry ->
-            reparentSelection grandparentEntry (parentIdx + 1) sel model dispatch
-
 /// If currently editing, commit the edit and return Selecting model; otherwise return model as-is.
 let commitIfEditing (model: VM) (dispatch: Msg -> unit) : VM =
     match model.mode, model.selectedNodes with
@@ -510,8 +453,22 @@ let parentSiblingOpen (delta: int) (me: SiteEntry) (model: VM) : SiteEntry optio
                     else
                         None
                 | None -> None
+
+/// Inline `Editing` leaf under optional palette/CSS wrappers: undo baseline + rebuild mode with text and caret.
+let private tryInlineEditWrap (mode: Mode) : (string * (string -> int -> Mode)) option =
+    let rec go m =
+        match m with
+        | Editing (orig, _) -> Some (orig, fun t c -> Editing (t, Some c))
+        | CommandPalette (q, sc, ret) ->
+            go ret |> Option.map (fun (o, w) -> (o, fun t c -> CommandPalette (q, sc, w t c)))
+        | CssClassPrompt (ret, iv) ->
+            go ret |> Option.map (fun (o, w) -> (o, fun t c -> CssClassPrompt (w t c, iv)))
+        | _ -> None
+    go mode
+
 /// Move the selected nodes to after `too`. May remove from old parent and add to new
 /// (two Op.Replace ops), or reorder within the same parent.
+/// Inline edit: `tryTextCommitOps` + move in one change; stay in edit mode with clamped caret.
 let moveNodeFromTo (too: SiteNodeRange) (model: VM) (dispatch: Msg -> unit) : VM =
     match model.selectedNodes with
     | None -> model
@@ -520,9 +477,17 @@ let moveNodeFromTo (too: SiteNodeRange) (model: VM) (dispatch: Msg -> unit) : VM
         let selectedIds = rangeChildren model.graph from
         if selectedIds.IsEmpty then model
         else
+            let wrap = tryInlineEditWrap model.mode
+            let live = readEditInputValue ()
+            let caret = readEditInputCursor ()
+            let editingId = focusedNodeId model.graph sel
+            let textOps =
+                match wrap with
+                | Some (orig, _) -> tryTextCommitOps editingId orig live model.graph
+                | None -> []
             let count = selectedIds.Length
             let sameParent = from.parent.nodeId = too.parent.nodeId
-            let ops =
+            let replaceOps =
                 if sameParent then
                     // Reordering within same parent: remove then insert.
                     // Insert index after removal: if too.endd > from.endd, shift left by count.
@@ -534,6 +499,7 @@ let moveNodeFromTo (too: SiteNodeRange) (model: VM) (dispatch: Msg -> unit) : VM
                 else
                     [ Op.Replace(from.parent.nodeId, from.start, selectedIds, [])
                       Op.Replace(too.parent.nodeId, too.endd, [], selectedIds) ]
+            let ops = textOps @ replaceOps
             let change =
                 { id = model.revision.Value
                   changeId = System.Guid.NewGuid()
@@ -545,7 +511,13 @@ let moveNodeFromTo (too: SiteNodeRange) (model: VM) (dispatch: Msg -> unit) : VM
                 let newRange: SiteNodeRange = { parent = newParent; start = insertIdx; endd = insertIdx + count }
                 let focusOffset = sel.focus - from.start
                 let newFocus = insertIdx + (min (max 0 focusOffset) (count - 1))
-                { m with selectedNodes = Some { range = newRange; focus = newFocus } }
+                let newSel = { range = newRange; focus = newFocus }
+                let m' = { m with selectedNodes = Some newSel }
+                match wrap with
+                | Some (_, rebuild) ->
+                    let t = m.graph.nodes.[focusedNodeId m.graph newSel].text
+                    { m' with mode = rebuild t (min (max 0 caret) t.Length) }
+                | None -> m'
             | None -> model
 
 /// Alt+Up/Down: swap the selected range with the adjacent sibling. Delegates to moveNodeFromTo.
@@ -619,6 +591,49 @@ let withSiteMap (model: VM) : VM =
         | Some freshParent ->
             { model' with
                 selectedNodes = Some { sel with range = { sel.range with parent = freshParent } } }
+
+// ---------------------------------------------------------------------------
+// Indent / Outdent (use moveNodeFromTo for edit-mode semantics)
+// ---------------------------------------------------------------------------
+
+/// Tab: make selected nodes children of the sibling immediately before them.
+/// No-op if the selection starts at index 0 (no previous sibling).
+let indentSelection (model: VM) (dispatch: Msg -> unit) : VM =
+    match model.selectedNodes with
+    | None -> model
+    | Some sel when sel.range.start = 0 -> model  // no previous sibling — no-op
+    | Some sel ->
+        let prevSibId = model.graph.nodes.[sel.range.parent.nodeId].children.[sel.range.start - 1]
+        let insertIdx = model.graph.nodes.[prevSibId].children.Length
+        match model.siteMap.entries
+            |> Map.tryPick (fun _ e -> if e.nodeId = prevSibId then Some e else None) with
+        | None -> model
+        | Some prevSibEntry ->
+            let too: SiteNodeRange = { parent = prevSibEntry; start = max 0 (insertIdx - 1); endd = insertIdx }
+            let result = moveNodeFromTo too model dispatch |> withSiteMap
+            // Ensure the new parent is expanded so the indented items are visible after reconcile
+            match result.siteMap.entries
+                |> Map.tryPick (fun _ e -> if e.nodeId = prevSibId then Some e else None) with
+            | Some entry when not entry.expanded ->
+                let siteMap, nextId =
+                    ViewModel.expandEntry entry.instanceId result.graph result.siteMap result.nextInstanceId
+                { result with siteMap = siteMap; nextInstanceId = nextId }
+            | _ -> result
+
+/// Shift+Tab: make selected nodes siblings of their current parent (under grandparent).
+let outdentSelection (model: VM) (dispatch: Msg -> unit) : VM =
+    match model.selectedNodes with
+    | None -> model
+    | Some sel ->
+        match Graph.tryFindParentAndIndex sel.range.parent.nodeId model.graph with
+        | None -> model  // parent is root — no-op
+        | Some (grandparentId, parentIdx) ->
+            match model.siteMap.entries
+                |> Map.tryPick (fun _ e -> if e.nodeId = grandparentId then Some e else None) with
+            | None -> model
+            | Some grandparentEntry ->
+                let too: SiteNodeRange = { parent = grandparentEntry; start = parentIdx; endd = parentIdx + 1 }
+                moveNodeFromTo too model dispatch |> withSiteMap
 
 /// Join the currently-edited node with the previous visible (inorder) node.
 /// 1. If current has no children: append current's text to prev, delete current.
@@ -889,21 +904,21 @@ let moveEditUp (cursorPos: int) (model: VM) (dispatch: Msg -> unit) : VM =
 let moveEditDown (cursorPos: int) (model: VM) (dispatch: Msg -> unit) : VM =
     moveEdit 1 cursorPos model dispatch
 
-/// Op: Indent selection (Tab), committing any in-progress edit first.
+/// Op: Indent selection (Tab). moveNodeFromTo commits in-progress edits and retains edit mode.
 let indentOp (model: VM) (dispatch: Msg -> unit) : VM =
-    indentSelection (commitIfEditing model dispatch) dispatch |> withSiteMap
+    indentSelection model dispatch |> withSiteMap
 
-/// Op: Outdent selection (Shift+Tab), committing any in-progress edit first.
+/// Op: Outdent selection (Shift+Tab). moveNodeFromTo commits in-progress edits and retains edit mode.
 let outdentOp (model: VM) (dispatch: Msg -> unit) : VM =
-    outdentSelection (commitIfEditing model dispatch) dispatch |> withSiteMap
+    outdentSelection model dispatch |> withSiteMap
 
-/// Op: Move selected nodes up, committing any in-progress edit first.
+/// Op: Move selected nodes up.
 let moveNodeUpOp (model: VM) (dispatch: Msg -> unit) : VM =
-    moveNodeDelta -1 (commitIfEditing model dispatch) dispatch |> withSiteMap
+    moveNodeDelta -1 model dispatch |> withSiteMap
 
-/// Op: Move selected nodes down, committing any in-progress edit first.
+/// Op: Move selected nodes down.
 let moveNodeDownOp (model: VM) (dispatch: Msg -> unit) : VM =
-    moveNodeDelta 1 (commitIfEditing model dispatch) dispatch |> withSiteMap
+    moveNodeDelta 1 model dispatch |> withSiteMap
 
 /// Op: PageUp — cursor to start of current level (no graph move).
 let pageCursorLevelStartOp (model: VM) (_dispatch: Msg -> unit) : VM =
@@ -929,19 +944,18 @@ let homeSelectionOp (model: VM) (_dispatch: Msg -> unit) : VM =
 let endSelectionOp (model: VM) (_dispatch: Msg -> unit) : VM =
     ViewModel.cursorViewRootLastChild model
 
-/// Commit edit if needed, then move selection with `moveNodeFromTo` when `resolveToo` returns Some.
+/// Move selection with `moveNodeFromTo` when `resolveToo` returns Some.
 let private tryStructuralMove
     (model: VM)
     (dispatch: Msg -> unit)
     (resolveToo: VM -> Selection -> SiteNodeRange option)
     : VM =
-    let m = commitIfEditing model dispatch
-    match m.selectedNodes with
-    | None -> m
+    match model.selectedNodes with
+    | None -> model
     | Some sel ->
-        match resolveToo m sel with
-        | None -> m
-        | Some too -> moveNodeFromTo too m dispatch |> withSiteMap
+        match resolveToo model sel with
+        | None -> model
+        | Some too -> moveNodeFromTo too model dispatch |> withSiteMap
 
 /// Op: Ctrl+PageUp — move selected objects to start of current level; selection follows.
 let moveSelectionToLevelStartOp (model: VM) (dispatch: Msg -> unit) : VM =

@@ -185,13 +185,13 @@ let setupStaticDOM (applyOp: Op -> unit) (wakePolling: unit -> unit) : unit =
 
     setLastKeyDisplay None None
 
-    // Server build timestamp (injected by Server.fs into gambol page HTML as window.__BUILD_TS__).
+    // Deployment stamp (injected as window.__BUILD_TS__ — max of server assembly + wwwroot client artifacts).
     let buildEl = document.getElementById "server-build-stamp"
     if isNull buildEl then () else
         let stampEpochSec = readBuildEpochSec ()
         let txt =
-            if stampEpochSec <= 0 then "Server build: (unknown)"
-            else "Server build: " + epochSecToTorontoString stampEpochSec
+            if stampEpochSec <= 0 then "Deploy: (unknown)"
+            else "Deploy: " + epochSecToTorontoString stampEpochSec
         buildEl.textContent <- txt
 
     document.addEventListener("visibilitychange", fun _ ->

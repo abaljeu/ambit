@@ -259,39 +259,46 @@ module Main =
                 Results.Redirect("/ambit/login")
             )) |> ignore
 
-            // Build stamps for client to detect server redeploy (used in state + gambol.html)
+            // Build stamps for client to detect redeploy or refreshed client bundles (poll + gambol.html).
             // Not named gambol.html — that path would be served as a raw static file under /ambit/ (no URL rewrites).
             let gambolHtml = Path.Combine(app.Environment.WebRootPath, "gambol.template.html")
             let programJs = Path.Combine(app.Environment.WebRootPath, "Program.js")
+            let updateJs = Path.Combine(app.Environment.WebRootPath, "Update.js")
             let torontoTz = TimeZoneInfo.FindSystemTimeZoneById("America/Toronto")
 
-            // Prefer "build/publish time" by reading the last-write time of the running server assembly.
-            // This is more useful than server startup time for diagnostics.
+            let fileWriteUtc (path: string) =
+                if File.Exists path then File.GetLastWriteTimeUtc path else DateTime.MinValue
+
+            // Newest of shell template + Fable output (name varies: Program.js vs Update.js).
+            let pageArtifactUtc =
+                max (fileWriteUtc gambolHtml) (max (fileWriteUtc programJs) (fileWriteUtc updateJs))
+
+            // Server assembly mtime (redeploy without touching wwwroot).
             let serverAssemblyPath = System.Reflection.Assembly.GetExecutingAssembly().Location
             if String.IsNullOrWhiteSpace serverAssemblyPath then
                 failwith "Could not determine server assembly path for build timestamp."
             if not (File.Exists serverAssemblyPath) then
                 failwithf "Could not read server assembly timestamp: missing file at '%s'." serverAssemblyPath
 
-            let serverBuildUtc = File.GetLastWriteTimeUtc(serverAssemblyPath)
-            let serverBuildStamp () =
-                TimeZoneInfo.ConvertTimeFromUtc(serverBuildUtc, torontoTz).ToString("yyyy-MM-dd HH:mm:ss") + " ET"
+            let serverAssemblyUtc = File.GetLastWriteTimeUtc(serverAssemblyPath)
+            // Single "deployment" epoch for poll field `b` / __BUILD_TS__: assembly or client assets, whichever is newer.
+            let deployUtc = max serverAssemblyUtc pageArtifactUtc
+
+            let deployStamp () =
+                TimeZoneInfo.ConvertTimeFromUtc(deployUtc, torontoTz).ToString("yyyy-MM-dd HH:mm:ss") + " ET"
             let pageBuildStamp () =
-                let htmlTime = if File.Exists(gambolHtml) then File.GetLastWriteTimeUtc(gambolHtml) else DateTime.MinValue
-                let jsTime = if File.Exists(programJs) then File.GetLastWriteTimeUtc(programJs) else DateTime.MinValue
-                let latest = max htmlTime jsTime
-                if latest > DateTime.MinValue then
-                    TimeZoneInfo.ConvertTimeFromUtc(latest, torontoTz).ToString("yyyy-MM-dd HH:mm:ss") + " ET"
+                if pageArtifactUtc > DateTime.MinValue then
+                    TimeZoneInfo.ConvertTimeFromUtc(pageArtifactUtc, torontoTz).ToString("yyyy-MM-dd HH:mm:ss") + " ET"
                 else
                     "unknown"
             let pageBuildEpochSec () =
-                let htmlTime = if File.Exists(gambolHtml) then File.GetLastWriteTimeUtc(gambolHtml) else DateTime.MinValue
-                let jsTime = if File.Exists(programJs) then File.GetLastWriteTimeUtc(programJs) else DateTime.MinValue
-                let latest = max htmlTime jsTime
-                int (latest.Subtract(DateTime.UnixEpoch).TotalSeconds)
+                let u =
+                    if pageArtifactUtc > DateTime.MinValue then pageArtifactUtc
+                    else deployUtc
+                int (u.Subtract(DateTime.UnixEpoch).TotalSeconds)
 
-            let serverBuildEpochSec () =
-                int (serverBuildUtc.Subtract(DateTime.UnixEpoch).TotalSeconds)
+            let deployEpochSec () =
+                int (deployUtc.Subtract(DateTime.UnixEpoch).TotalSeconds)
 
             // GET /ambit/state → JSON { revision, graph } (full payload for initial load)
             app.MapGet("/ambit/state", Func<HttpRequest, Task<IResult>>(fun req -> task {
@@ -309,7 +316,7 @@ module Main =
                 else
                     let agent = getOrCreateAgent "gambol"
                     let pageEpoch = pageBuildEpochSec ()
-                    return! Api.getPoll agent (serverBuildEpochSec ()) pageEpoch |> Async.StartAsTask
+                    return! Api.getPoll agent (deployEpochSec ()) pageEpoch |> Async.StartAsTask
             })) |> ignore
 
             // POST /ambit/changes → JSON { revision, graph } or 400
@@ -345,8 +352,8 @@ module Main =
                             .Replace("href=\"/ambit/style.css\"", sprintf "href=\"%s/ambit/style.css\"" baseUrl)
                             .Replace("href=\"/ambit/user.css\"", sprintf "href=\"%s/ambit/user.css\"" baseUrl)
                 let snippet =
-                    "    <script>window.__BUILD__ = \"" + serverBuildStamp () + "\"; window.__PAGE_BUILD__ = \"" + pageStamp
-                    + "\"; window.__BUILD_TS__ = " + string (serverBuildEpochSec ())
+                    "    <script>window.__BUILD__ = \"" + deployStamp () + "\"; window.__PAGE_BUILD__ = \"" + pageStamp
+                    + "\"; window.__BUILD_TS__ = " + string (deployEpochSec ())
                     + "; window.__PAGE_BUILD_TS__ = " + string pageEpoch + ";</script>\n</head>"
                 let withStamp = withAbsoluteAssets.Replace("</head>", snippet)
                 // Cache-bust Program.js so reload gets fresh assets when server redeploys
