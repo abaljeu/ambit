@@ -34,6 +34,14 @@ module CssClass =
     let add cls existing = existing + " " + cls
     let addIf cond cls existing = if cond then add cls existing else existing
 
+    /// Classes that start with "amb-" (reserved, preserved on substitution).
+    let ambOnly (Classes classes) : CssClasses =
+        Classes (List.filter (fun c -> c.StartsWith("amb-")) classes)
+
+    /// Classes that do not start with "amb-" (user-editable).
+    let userOnly (Classes classes) : CssClasses =
+        Classes (List.filter (fun c -> not (c.StartsWith("amb-"))) classes)
+
     // ---- Validation ----
 
     /// True when name is a legal CSS identifier and does not start with the reserved "amb-" prefix.
@@ -41,3 +49,14 @@ module CssClass =
         if System.String.IsNullOrEmpty(name) then false
         elif name.StartsWith("amb-") then false
         else Regex.IsMatch(name, @"^[a-zA-Z_][a-zA-Z0-9_-]*$")
+
+    /// Parse space-separated input into valid user classes (amb- rejected, invalid skipped).
+    let parseUserClasses (input: string) : CssClasses =
+        if System.String.IsNullOrWhiteSpace(input) then empty
+        else
+            input.Split([| ' '; '\t' |], System.StringSplitOptions.RemoveEmptyEntries)
+            |> Array.map (fun s -> s.Trim())
+            |> Array.filter (fun s -> s <> "" && isValidUserClass s)
+            |> Array.distinct
+            |> Array.toList
+            |> ofList

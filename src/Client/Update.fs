@@ -291,7 +291,7 @@ let pasteNodes (pastedText: string) (preferredNodeIds: string option) (model: VM
                 if ids.IsEmpty then None else Some ids
 
         match model.mode with
-        | CommandPalette _ -> model
+        | CommandPalette _ | CssClassPrompt _ -> model
         | Selecting ->
             let topLevelIds, pasteOps =
                 match tryLinkIds () with
@@ -781,7 +781,7 @@ let handleEsc (model: VM) dispatch : VM =
     match model.mode with
     | Editing _ -> commitIfEditing model dispatch
     | Selecting -> collapseToFocus model
-    | CommandPalette _ -> model  // handled by closeCommandPaletteOp
+    | CommandPalette _ | CssClassPrompt _ -> model  // handled by closeCommandPaletteOp / closeCssClassPromptOp
 
 /// Op: Copy the focused subtree to the internal clipboard.
 let copySelectionOp (model: VM) _dispatch : VM =
@@ -852,6 +852,7 @@ let selectInstance (instanceId: int) (model: VM) (dispatch: Msg -> unit) : VM =
 let moveSelectionUp (model: VM) (dispatch: Msg -> unit) : VM =
     match model.mode with
     | CommandPalette _ -> Gambol.Client.CommandPalette.paletteSelectUpOp model dispatch
+    | CssClassPrompt _ -> model
     | _ ->
         let result =
             match model.mode with
@@ -864,6 +865,7 @@ let moveSelectionUp (model: VM) (dispatch: Msg -> unit) : VM =
 let moveSelectionDown (model: VM) (dispatch: Msg -> unit) : VM =
     match model.mode with
     | CommandPalette _ -> Gambol.Client.CommandPalette.paletteSelectDownOp model dispatch
+    | CssClassPrompt _ -> model
     | _ ->
         let result =
             match model.mode with
@@ -1014,10 +1016,10 @@ let duplicateSelectionOp (model: VM) (dispatch: Msg -> unit) : VM =
                   ops = [ insertOp ] }
             match applyAndPost change model dispatch with
             | None -> model
-            | Some m ->
-                let newEnd = sel.range.endd + selectedIds.Length
-                let newSel = { range = { sel.range with endd = newEnd }; focus = sel.focus }
-                { m with selectedNodes = Some newSel }
+            | Some m -> m
+                // let newEnd = sel.range.endd + selectedIds.Length
+                // let newSel = { range = { sel.range with endd = newEnd }; focus = sel.focus }
+                // { m with selectedNodes = Some newSel }
             |> withSiteMap
 
 /// Op: Delete the selected nodes (Replace with nothing), updating selection to next/prev/parent.
@@ -1048,50 +1050,67 @@ let deleteSelectionOp (model: VM) (dispatch: Msg -> unit) : VM =
             { m with selectedNodes = newSel }
         |> withSiteMap
 
-[<Emit("window.prompt($0, $1)")>]
-let private promptDialog (msg: string) (def: string) : string = jsNative
+/// Union of user classes (non-amb-) across selected nodes, as space-separated string.
+let private initialUserClassesForSelection (model: VM) (sel: Selection) : string =
+    let parentNode = model.graph.nodes.[sel.range.parent.nodeId]
+    let selectedIds =
+        parentNode.children
+        |> List.skip sel.range.start
+        |> List.take (sel.range.endd - sel.range.start)
+    selectedIds
+    |> List.collect (fun nid ->
+        model.graph.nodes.[nid].cssClasses
+        |> CssClass.toList
+        |> List.filter (fun c -> not (c.StartsWith("amb-"))))
+    |> List.distinct
+    |> String.concat " "
 
-/// Op: Prompt for a CSS class name and toggle its presence on all selected nodes.
-/// If all selected nodes have the class, removes it; else adds it to any that lack it.
-/// Accepts any legal CSS identifier that does not start with "amb-".
-let toggleClassOp (model: VM) (dispatch: Msg -> unit) : VM =
+/// Op: Open the CSS class prompt overlay, pre-filled with current user classes (amb- excluded).
+let openCssClassPromptOp (model: VM) _dispatch : VM =
     match model.selectedNodes with
     | None -> model
-    | Some sel ->
-        let input = promptDialog "CSS class name:" ""
-        if isNull input || input.Trim() = "" then model
+    | Some sel -> { model with mode = CssClassPrompt (model.mode, initialUserClassesForSelection model sel) }
+
+/// Op: Close the CSS class prompt without applying.
+let closeCssClassPromptOp (model: VM) _dispatch : VM =
+    match model.mode with
+    | CssClassPrompt (ret, _) -> { model with mode = ret }
+    | _ -> model
+
+[<Emit("document.getElementById('css-class-prompt-input')?.value ?? ''")>]
+let private readCssClassPromptValue () : string = jsNative
+
+/// Op: Substitute user classes from prompt input (old → new), preserving amb- classes. Close.
+let submitCssClassPromptOp (model: VM) (dispatch: Msg -> unit) : VM =
+    match model.mode, model.selectedNodes with
+    | CssClassPrompt (ret, _), Some sel ->
+        let input = readCssClassPromptValue ()
+        let newUserClasses = CssClass.parseUserClasses (if isNull input then "" else input)
+        let result = { model with mode = ret }
+        let parentNode = model.graph.nodes.[sel.range.parent.nodeId]
+        let selectedIds =
+            parentNode.children
+            |> List.skip sel.range.start
+            |> List.take (sel.range.endd - sel.range.start)
+        let ops =
+            selectedIds
+            |> List.choose (fun nid ->
+                let node = model.graph.nodes.[nid]
+                let oldClasses = node.cssClasses
+                let ambClasses = CssClass.ambOnly oldClasses
+                let newClasses = CssClass.toList ambClasses @ CssClass.toList newUserClasses |> CssClass.ofList
+                if oldClasses = newClasses then None
+                else Some (Op.SetClasses(nid, oldClasses, newClasses)))
+        if ops.IsEmpty then result
         else
-            let name = input.Trim()
-            if not (CssClass.isValidUserClass name) then model
-            else
-                let parentNode = model.graph.nodes.[sel.range.parent.nodeId]
-                let selectedIds =
-                    parentNode.children
-                    |> List.skip sel.range.start
-                    |> List.take (sel.range.endd - sel.range.start)
-                let allHave =
-                    selectedIds
-                    |> List.forall (fun nid ->
-                        CssClass.contains name model.graph.nodes.[nid].cssClasses)
-                let ops =
-                    selectedIds
-                    |> List.choose (fun nid ->
-                        let node = model.graph.nodes.[nid]
-                        let oldClasses = node.cssClasses
-                        let hasIt = CssClass.contains name oldClasses
-                        // remove from all when all have it; add only to those that lack it
-                        let shouldChange = if allHave then hasIt else not hasIt
-                        if not shouldChange then None
-                        else Some (Op.SetClasses(nid, oldClasses, CssClass.toggle name oldClasses)))
-                if ops.IsEmpty then model
-                else
-                    let change =
-                        { id = model.revision.Value
-                          changeId = System.Guid.NewGuid()
-                          ops = ops }
-                    match applyAndPost change model dispatch with
-                    | Some m -> m
-                    | None -> model
+            let change =
+                { id = model.revision.Value
+                  changeId = System.Guid.NewGuid()
+                  ops = ops }
+            match applyAndPost change result dispatch with
+            | Some m -> m
+            | None -> result
+    | _ -> model
 
 /// Build a first-child Selection for the root entry of a freshly-built siteMap.
 /// Returns None if the root has no children.
@@ -1109,18 +1128,23 @@ let zoomInOp (model: VM) (dispatch: Msg -> unit) : VM =
     match model'.selectedNodes with
     | None -> model'
     | Some sel ->
-        let zoomNodeId = firstSelectedNodeId model'.graph sel
-        let zoomNode = model'.graph.nodes.[zoomNodeId]
-        if zoomNode.children.IsEmpty then model'
-        else
-            let siteMap, nextId =
-                ViewModel.buildSiteMapFrom model'.graph zoomNodeId model'.nextInstanceId
-            { model' with
-                zoomRoot = Some zoomNodeId
-                siteMap = siteMap
-                nextInstanceId = nextId
-                selectedNodes = firstChildSelection siteMap zoomNodeId
-                mode = Selecting }
+        let firstId = firstSelectedNodeId model'.graph sel
+        let firstNode = model'.graph.nodes.[firstId]
+        let zoomId = 
+            if firstNode.children.IsEmpty
+            then
+                match Graph.tryFindParentAndIndex firstId model'.graph with
+                | Some (parentId, _) -> parentId
+                | None -> firstId
+            else firstId
+        let siteMap, nextId =
+            ViewModel.buildSiteMapFrom model'.graph zoomId model'.nextInstanceId
+        { model' with
+            zoomRoot = Some zoomId
+            siteMap = siteMap
+            nextInstanceId = nextId
+            selectedNodes = firstChildSelection siteMap zoomId
+            mode = Selecting }
 
 /// Op: Zoom out — move the view root one level up toward the graph root (Ctrl+[).
 /// Commits any in-progress edit first. No-op when already showing the full tree.

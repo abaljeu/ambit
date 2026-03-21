@@ -427,6 +427,7 @@ module ViewModel =
         let effectiveMode =
             match model.mode with
             | CommandPalette (_, _, ret) -> ret
+            | CssClassPrompt (ret, _) -> ret
             | m -> m
         match effectiveMode, model.selectedNodes with
         | Editing _, None    -> entry.parentInstanceId = None

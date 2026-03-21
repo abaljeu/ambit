@@ -133,7 +133,7 @@ extra requirements
 	Logical Reasoning Requirement
 	
 	Each major step in the proof must include a short justification explaining why the step is valid (e.g., why a constructed preference structure forces triangle formation).
-Third item
+{.h1 .blue}Third item
 	blue
 		
 	hello

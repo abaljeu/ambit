@@ -300,14 +300,14 @@ let commandRegistry : CommandEntry list =
         keys = [ "ArrowDown"; "O" ]
         keyScope = SelectionOnly }
 
-      { name = "Cursor left to parent"
+      { name = "Cursor fold left"
         run = keyAlways arrowLeftSelectionNoFoldOp
-        keys = [ "ArrowLeft"; "A" ]
+        keys = [ "Shift+ArrowLeft"; "Shift+A" ]
         keyScope = SelectionOnly }
 
-      { name = "Cursor fold left"
+      { name = "Cursor left to parent"
         run = keyAlways arrowLeftSelectionOp
-        keys = [ "Shift+ArrowLeft"; "Shift+A" ]
+        keys = [ "ArrowLeft"; "A" ]
         keyScope = SelectionOnly }
 
       { name = "Cursor unfold right"
@@ -413,16 +413,17 @@ let commandRegistry : CommandEntry list =
         keyScope = SelectionOrEditing }
 
       { name = "Toggle class"
-        run = keyAlways toggleClassOp
+        run = keyAlways openCssClassPromptOp
         keys = [ "Alt+C"; "." ]
         keyScope = SelectionOrEditing } ]
 
-/// True if palette was opened from selection (unwrap nested CommandPalette to the real return target).
+/// True if palette was opened from selection (unwrap nested CommandPalette/CssClassPrompt to the real return target).
 let rec paletteWasSelecting (returnTo: Mode) : bool =
     match returnTo with
     | Selecting -> true
     | Editing _ -> false
     | CommandPalette (_, _, inner) -> paletteWasSelecting inner
+    | CssClassPrompt (inner, _) -> paletteWasSelecting inner
 
 let commandsForPalette (returnTo: Mode) : CommandEntry list =
     let sel = paletteWasSelecting returnTo
@@ -525,6 +526,15 @@ let private paletteKeyBindings : KeyBinding list =
         handler = keyAlways paletteRunOp
         commandName = "Run command" } ]
 
+/// Key bindings for the CSS class prompt overlay (Escape to cancel, Enter to submit).
+let private cssClassPromptKeyBindings : KeyBinding list =
+    [ { key = "Escape"
+        handler = keyAlways closeCssClassPromptOp
+        commandName = "Cancel" }
+      { key = "Enter"
+        handler = keyAlways submitCssClassPromptOp
+        commandName = "Apply class" } ]
+
 let private tryResolveFromNamed
     (table: KeyBinding list)
     (ke: KeyboardEvent)
@@ -548,12 +558,13 @@ let private dispatchResolvedKey
     | None ->
         setLastKeyDisplay (Some keyStr) None
 
-/// Route keyboard handling by mode: palette overlay, editing field, or selection (hidden input).
+/// Route keyboard handling by mode: palette overlay, CSS class prompt, editing field, or selection (hidden input).
 let handleKey (mode: Mode) (keyEvent: KeyboardEvent) (applyOp: Op -> unit) : unit =
     let keyStr = formatKeyCombo keyEvent
     let table =
         match mode with
         | CommandPalette _ -> paletteKeyBindings
+        | CssClassPrompt _ -> cssClassPromptKeyBindings
         | Editing _ -> editingKeyBindings
         | Selecting -> selectionKeyBindings
     match tryResolveFromNamed table keyEvent with
@@ -570,4 +581,11 @@ let handlePaletteKey (keyEvent: KeyboardEvent) (applyOp: Op -> unit) : unit =
         setLastKeyDisplay (Some keyStr) None
     | Some pair ->
         dispatchResolvedKey keyStr pair keyEvent applyOp
+
+/// CSS class prompt input: Escape to cancel, Enter to submit.
+let handleCssClassPromptKey (keyEvent: KeyboardEvent) (applyOp: Op -> unit) : unit =
+    let keyStr = formatKeyCombo keyEvent
+    match tryResolveFromNamed cssClassPromptKeyBindings keyEvent with
+    | None -> setLastKeyDisplay (Some keyStr) None
+    | Some pair -> dispatchResolvedKey keyStr pair keyEvent applyOp
 

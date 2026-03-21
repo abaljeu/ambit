@@ -77,6 +77,7 @@ let private makeRowElement (model: VM) (applyOp: Op -> unit) (depth: int) (siteE
         let effectiveMode =
             match model.mode with
             | CommandPalette (_, _, ret) -> ret
+            | CssClassPrompt (ret, _) -> ret
             | m -> m
         let initialValue =
             match effectiveMode with
@@ -184,8 +185,8 @@ let private resolveRow
 /// Focus the correct element after each dispatch.
 let manageFocus (model: VM) : unit =
     match model.mode with
-    | CommandPalette _ ->
-        () // focus is handled by renderCommandPalette after the element becomes visible
+    | CommandPalette _ | CssClassPrompt _ ->
+        () // focus is handled by renderCommandPalette / renderCssClassPrompt after the element becomes visible
     | Editing _ ->
         let editInput = document.getElementById "edit-input"
         if not (isNull editInput) then
@@ -275,6 +276,32 @@ let renderCommandPalette (model: VM) (applyOp: Op -> unit) : unit =
                                     op { m with mode = ret } d
                         | _ -> m))
 
+    | _ ->
+        container.classList.remove "amb-palette-open"
+
+let private cssClassPromptWired = ref false
+
+/// Show or hide the CSS class prompt overlay. Uses in-app modal instead of window.prompt for iPad.
+let renderCssClassPrompt (model: VM) (applyOp: Op -> unit) : unit =
+    let container = document.getElementById "css-class-prompt"
+    if isNull container then () else
+
+    match model.mode with
+    | CssClassPrompt (_, initialValue) ->
+        container.classList.add "amb-palette-open"
+        let input = document.getElementById "css-class-prompt-input" :?> HTMLInputElement
+        if not (isNull input) then
+            window.setTimeout((fun _ ->
+                input.focus()
+                input.value <- initialValue
+            ), 0) |> ignore
+            if not cssClassPromptWired.Value then
+                cssClassPromptWired.Value <- true
+                input.addEventListener("keydown", fun (ev: Event) ->
+                    let ke = ev :?> KeyboardEvent
+                    if (ke.ctrlKey || ke.metaKey) && ke.key = "p" && not ke.shiftKey then
+                        ev.preventDefault()
+                    handleCssClassPromptKey ke applyOp)
     | _ ->
         container.classList.remove "amb-palette-open"
 

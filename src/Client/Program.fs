@@ -215,6 +215,7 @@ let rec applyOp (op: Op) : unit =
     elementCache <- patchDOM prevModel currentModel applyOp elementCache
     View.renderUndoStatus currentModel
     View.renderCommandPalette currentModel applyOp
+    View.renderCssClassPrompt currentModel applyOp
 
 and dispatch (msg: Msg) : unit =
     let prevModel = currentModel
@@ -243,6 +244,7 @@ and dispatch (msg: Msg) : unit =
         elementCache <- render currentModel applyOp
         View.renderUndoStatus currentModel
         View.renderCommandPalette currentModel applyOp
+        View.renderCssClassPrompt currentModel applyOp
     | System (SubmitResponse _) ->
         retryCount <- 0
         View.renderStatus currentModel
