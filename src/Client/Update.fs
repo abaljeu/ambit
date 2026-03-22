@@ -233,15 +233,15 @@ let splitNode (currentText: string) (cursorPos: int) (model: VM) (dispatch: Msg 
                 |> Option.filter (fun zr -> Map.containsKey zr m.graph.nodes)
                 |> Option.defaultValue m.graph.root
             let siteMap, nextId =
-                ViewModel.reconcileSiteMapFrom m.graph effRoot m.siteMap m.nextInstanceId
-            let m2 = { m with siteMap = siteMap; nextInstanceId = nextId }
+                ViewModel.reconcileSiteMapFrom m.graph effRoot m.siteMap m.nextSiteId
+            let m2 = { m with siteMap = siteMap; nextSiteId = nextId }
             let focusInstId =
                 if clampedPos = 0 then focusedInstanceId sel
                 else
                     match Map.tryFind sel.range.parent.instanceId m2.siteMap.entries with
                     | Some p when insertIndex < p.children.Length ->
                         p.children.[insertIndex]
-                    | _ -> -1
+                    | _ -> Sid -1
             let newSel =
                 singleSelectionForInstance m2.siteMap focusInstId
                 |> Option.orElseWith
@@ -592,8 +592,8 @@ let withSiteMap (model: VM) : VM =
         | Some zr when not (Map.containsKey zr model.graph.nodes) -> None
         | z -> z
     let siteMap, nextId =
-        ViewModel.reconcileSiteMapFrom model.graph effectiveRoot model.siteMap model.nextInstanceId
-    let model' = { model with siteMap = siteMap; nextInstanceId = nextId; zoomRoot = zoomRoot }
+        ViewModel.reconcileSiteMapFrom model.graph effectiveRoot model.siteMap model.nextSiteId
+    let model' = { model with siteMap = siteMap; nextSiteId = nextId; zoomRoot = zoomRoot }
     match model'.selectedNodes with
     | None -> model'
     | Some sel ->
@@ -627,8 +627,8 @@ let indentSelection (model: VM) (dispatch: Msg -> unit) : VM =
                 |> Map.tryPick (fun _ e -> if e.nodeId = prevSibId then Some e else None) with
             | Some entry when not entry.expanded ->
                 let siteMap, nextId =
-                    ViewModel.expandEntry entry.instanceId result.graph result.siteMap result.nextInstanceId
-                { result with siteMap = siteMap; nextInstanceId = nextId }
+                    ViewModel.expandEntry entry.instanceId result.graph result.siteMap result.nextSiteId
+                { result with siteMap = siteMap; nextSiteId = nextId }
             | _ -> result
 
 /// Shift+Tab: make selected nodes siblings of their current parent (under grandparent).
@@ -1023,8 +1023,8 @@ let toggleFoldOp (instanceId: int) (model: VM) _dispatch : VM =
             { model with siteMap = ViewModel.toggleFold instanceId model.siteMap }
         else
             let siteMap, nextId =
-                ViewModel.expandEntry instanceId model.graph model.siteMap model.nextInstanceId
-            { model with siteMap = siteMap; nextInstanceId = nextId }
+                ViewModel.expandEntry instanceId model.graph model.siteMap model.nextSiteId
+            { model with siteMap = siteMap; nextSiteId = nextId }
 
 /// Op: ArrowLeft in selection — fold if expanded, else move to parent.
 let arrowLeftSelectionOp (model: VM) _dispatch : VM =
@@ -1068,8 +1068,8 @@ let arrowRightSelectionOp (model: VM) _dispatch : VM =
             if not hasChildren then model
             elif not entry.expanded then
                 let siteMap, nextId =
-                    ViewModel.expandEntry focusInstId model.graph model.siteMap model.nextInstanceId
-                { model with siteMap = siteMap; nextInstanceId = nextId }
+                    ViewModel.expandEntry focusInstId model.graph model.siteMap model.nextSiteId
+                { model with siteMap = siteMap; nextSiteId = nextId }
             else
                 match entry.children with
                 | [] -> model
@@ -1101,8 +1101,8 @@ let toggleFoldSelectionOp (model: VM) _dispatch : VM =
             let siteMap, nextId =
                 selectedInstIds |> List.fold
                     (fun (sm, nid) instId -> ViewModel.expandEntry instId model.graph sm nid)
-                    (model.siteMap, model.nextInstanceId)
-            { model with siteMap = siteMap; nextInstanceId = nextId }
+                    (model.siteMap, model.nextSiteId)
+            { model with siteMap = siteMap; nextSiteId = nextId }
 
 /// Op: Duplicate the selected nodes as references — insert the same NodeIds beside.
 /// Inserts at range.endd; selection expands to include the new references.
@@ -1242,11 +1242,11 @@ let zoomInOp (model: VM) (dispatch: Msg -> unit) : VM =
                 | None -> firstId
             else firstId
         let siteMap, nextId =
-            ViewModel.buildSiteMapFrom model'.graph zoomId model'.nextInstanceId
+            ViewModel.buildSiteMapFrom model'.graph zoomId model'.nextSiteId
         { model' with
             zoomRoot = Some zoomId
             siteMap = siteMap
-            nextInstanceId = nextId
+            nextSiteId = nextId
             selectedNodes = firstChildSelection siteMap zoomId
             mode = Selecting }
 
@@ -1264,11 +1264,11 @@ let zoomOutOp (model: VM) (dispatch: Msg -> unit) : VM =
                 if parentId = model'.graph.root then None else Some parentId
         let effectiveRoot = newZoomRoot |> Option.defaultValue model'.graph.root
         let siteMap, nextId =
-            ViewModel.buildSiteMapFrom model'.graph effectiveRoot model'.nextInstanceId
+            ViewModel.buildSiteMapFrom model'.graph effectiveRoot model'.nextSiteId
         { model' with
             zoomRoot = newZoomRoot
             siteMap = siteMap
-            nextInstanceId = nextId
+            nextSiteId = nextId
             selectedNodes = firstChildSelection siteMap effectiveRoot
             mode = Selecting }
 
@@ -1344,14 +1344,14 @@ let redoOp (model: VM) (dispatch: Msg -> unit) : VM =
 let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
     match msg with
     | System (StateLoaded (graph, revision)) ->
-        let siteMap, nextId = ViewModel.buildSiteMap graph 0
+        let siteMap, nextId = ViewModel.buildSiteMap graph (Sid 0)
         { graph = graph
           revision = revision
           history = History.empty
           selectedNodes = None
           mode = Selecting
           siteMap = siteMap
-          nextInstanceId = nextId
+          nextSiteId = nextId
           zoomRoot = None
           clipboard = None
           pendingChanges = []

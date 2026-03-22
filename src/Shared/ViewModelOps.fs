@@ -7,23 +7,24 @@ namespace Gambol.Shared
 module ViewModel =
 
     let emptySiteMap : SiteMap =
-        let rootEntry = { instanceId = 0; nodeId = NodeId(System.Guid.Empty)
+        let rootEntry = { instanceId = Sid 0; nodeId = NodeId(System.Guid.Empty)
                           parentInstanceId = None; expanded = true; childrenStale = false; children = [] }
-        { rootId = 0; entries = Map.ofList [0, rootEntry] }
+        { rootId = Sid 0; entries = Map.ofList [Sid 0, rootEntry] }
 
-    // Returns (freshId generator, counter getter) for sequencing integer IDs.
-    let private makeCounter (start: int) =
-        let mutable n = start
-        (fun () -> let id = n in n <- n + 1; id), (fun () -> n)
+    // Returns (freshId generator, counter getter) for sequencing SiteIds.
+    let private makeCounter (start: SiteId) =
+        let (Sid n) = start
+        let mutable curr = n
+        (fun () -> let id = curr in curr <- curr + 1; Sid id), (fun () -> Sid curr)
 
     /// Build a SiteMap rooted at rootNodeId. The root is expanded; its immediate children are
     /// collapsed with children = [] and childrenStale = true, populated on demand via expandEntry.
     /// Cycle termination is implicit: new entries start collapsed with no children, so expanding
     /// an ancestor reachable via a back-edge produces a collapsed leaf that stops the recursion.
     /// Returns the SiteMap and the next available instanceId.
-    let buildSiteMapFrom (graph: Graph) (rootNodeId: NodeId) (startId: int) : SiteMap * int =
+    let buildSiteMapFrom (graph: Graph) (rootNodeId: NodeId) (startId: SiteId) : SiteMap * SiteId =
         let freshId, endCount = makeCounter startId
-        let mutable acc = Map.empty<int, SiteEntry>
+        let mutable acc = Map.empty<SiteId, SiteEntry>
         let rootInstId = freshId ()
         let rootNode = graph.nodes.[rootNodeId]
         let childInstIds =
@@ -39,7 +40,7 @@ module ViewModel =
         { rootId = rootInstId; entries = acc }, endCount ()
 
     /// Build a SiteMap from the graph root. See buildSiteMapFrom for details.
-    let buildSiteMap (graph: Graph) (startId: int) : SiteMap * int =
+    let buildSiteMap (graph: Graph) (startId: SiteId) : SiteMap * SiteId =
         buildSiteMapFrom graph graph.root startId
 
     /// Reconcile a SiteMap rooted at rootNodeId after a graph change. Walks only expanded entries,
@@ -47,10 +48,10 @@ module ViewModel =
     /// reused by position (nodeId must match) with childrenStale = true and children = []; they
     /// are not recursed into. Orphaned entries from removed or now-unexpanded paths are dropped.
     /// Returns the updated SiteMap and next available instanceId.
-    let reconcileSiteMapFrom (graph: Graph) (rootNodeId: NodeId) (oldMap: SiteMap) (startId: int) : SiteMap * int =
+    let reconcileSiteMapFrom (graph: Graph) (rootNodeId: NodeId) (oldMap: SiteMap) (startId: SiteId) : SiteMap * SiteId =
         let freshId, endCount = makeCounter startId
-        let mutable acc = Map.empty<int, SiteEntry>
-        let rec walk (nodeId: NodeId) (parentInstId: int option) (isRoot: bool) (oldInstIdOpt: int option) : int =
+        let mutable acc = Map.empty<SiteId, SiteEntry>
+        let rec walk (nodeId: NodeId) (parentInstId: SiteId option) (isRoot: bool) (oldInstIdOpt: SiteId option) : SiteId =
             let oldEntryOpt =
                 oldInstIdOpt
                 |> Option.bind (fun id -> Map.tryFind id oldMap.entries)
@@ -63,7 +64,7 @@ module ViewModel =
                 if isRoot || expanded then
                     let node = graph.nodes.[nodeId]
                     let oldChildren = oldEntryOpt |> Option.map (fun o -> o.children) |> Option.defaultValue []
-                    let usedIds = ref Set.empty<int>
+                    let usedIds = ref Set.empty<SiteId>
                     node.children |> List.mapi (fun i cid ->
                         let oldChildOpt =
                             let positional =
@@ -109,14 +110,14 @@ module ViewModel =
         { rootId = rootInstId; entries = acc }, endCount ()
 
     /// Reconcile a SiteMap from the graph root after a graph change. See reconcileSiteMapFrom for details.
-    let reconcileSiteMap (graph: Graph) (oldMap: SiteMap) (startId: int) : SiteMap * int =
+    let reconcileSiteMap (graph: Graph) (oldMap: SiteMap) (startId: SiteId) : SiteMap * SiteId =
         reconcileSiteMapFrom graph graph.root oldMap startId
 
     /// Collapse the entry with the given instanceId, marking its children as stale. O(log S).
     /// The children list is preserved so that a subsequent expandEntry can reuse instanceIds
     /// positionally (restoring nested fold state) when no structural op has intervened.
     /// For expanding, use expandEntry which re-syncs children from the graph.
-    let toggleFold (instanceId: int) (siteMap: SiteMap) : SiteMap =
+    let toggleFold (instanceId: SiteId) (siteMap: SiteMap) : SiteMap =
         match Map.tryFind instanceId siteMap.entries with
         | None -> siteMap
         | Some entry ->
@@ -127,7 +128,7 @@ module ViewModel =
     /// (useful when re-expanding after a simple collapse with no intervening structural op).
     /// New children start collapsed with childrenStale = true and children = [].
     /// Returns the updated SiteMap and next available instanceId.
-    let expandEntry (instanceId: int) (graph: Graph) (siteMap: SiteMap) (startId: int) : SiteMap * int =
+    let expandEntry (instanceId: SiteId) (graph: Graph) (siteMap: SiteMap) (startId: SiteId) : SiteMap * SiteId =
         match Map.tryFind instanceId siteMap.entries with
         | None -> siteMap, startId
         | Some entry ->
@@ -156,12 +157,12 @@ module ViewModel =
     /// expandedNodeIds.  Parent-before-child ordering ensures that children only
     /// become visible after their parent is expanded.
     /// Returns the updated SiteMap and next available instanceId.
-    let applyFoldSession (expandedNodeIds: Set<NodeId>) (graph: Graph) (siteMap: SiteMap) (startId: int) : SiteMap * int =
+    let applyFoldSession (expandedNodeIds: Set<NodeId>) (graph: Graph) (siteMap: SiteMap) (startId: SiteId) : SiteMap * SiteId =
         if Set.isEmpty expandedNodeIds then siteMap, startId
         else
             let mutable sm = siteMap
             let mutable nextId = startId
-            let queue = System.Collections.Generic.Queue<int>()
+            let queue = System.Collections.Generic.Queue<SiteId>()
             queue.Enqueue(sm.rootId)
             while queue.Count > 0 do
                 let instId = queue.Dequeue()
@@ -180,7 +181,7 @@ module ViewModel =
             sm, nextId
 
     /// Build an index from NodeId to all instanceIds (all occurrences). O(S log S).
-    let buildOccurrenceIndex (siteMap: SiteMap) : Map<NodeId, int list> =
+    let buildOccurrenceIndex (siteMap: SiteMap) : Map<NodeId, SiteId list> =
         siteMap.entries
         |> Map.fold (fun acc _ entry ->
             let existing = acc |> Map.tryFind entry.nodeId |> Option.defaultValue []
@@ -191,7 +192,7 @@ module ViewModel =
     /// Respects fold state: unexpanded entries do not contribute their children.
     let getVisibleRowIds (siteMap: SiteMap) : NodeId list =
         let entries = siteMap.entries
-        let rec gather (instId: int) : NodeId list =
+        let rec gather (instId: SiteId) : NodeId list =
             match Map.tryFind instId entries with
             | None -> []
             | Some entry ->
@@ -205,9 +206,9 @@ module ViewModel =
     /// Preorder walk of visible entries, returning instanceIds in display order (excluding root).
     /// Mirrors getVisibleRowIds but keyed by instanceId. Use this for instance-aware navigation
     /// so that duplicate NodeIds are treated as distinct positions.
-    let getVisibleRowInstanceIds (siteMap: SiteMap) : int list =
+    let getVisibleRowInstanceIds (siteMap: SiteMap) : SiteId list =
         let entries = siteMap.entries
-        let rec gather (instId: int) : int list =
+        let rec gather (instId: SiteId) : SiteId list =
             match Map.tryFind instId entries with
             | None -> []
             | Some entry ->
@@ -220,9 +221,9 @@ module ViewModel =
 
     /// Preorder walk of visible entries, returning instanceIds in display order (including root).
     /// Mirrors getVisibleRowIds but keyed by instanceId for DOM-cache lookups.
-    let getVisibleInstanceIds (siteMap: SiteMap) : int list =
+    let getVisibleInstanceIds (siteMap: SiteMap) : SiteId list =
         let entries = siteMap.entries
-        let rec gather (instId: int) : int list =
+        let rec gather (instId: SiteId) : SiteId list =
             match Map.tryFind instId entries with
             | None -> []
             | Some entry ->
@@ -249,7 +250,7 @@ module ViewModel =
     /// Build a single-node Selection for the given instanceId directly, without searching by NodeId.
     /// Use this for instance-aware navigation when a NodeId may appear multiple times.
     /// Returns None if the entry has no parent (i.e. it is the root) or if the parent is not in the site map.
-    let singleSelectionForInstance (siteMap: SiteMap) (instanceId: int) : Selection option =
+    let singleSelectionForInstance (siteMap: SiteMap) (instanceId: SiteId) : Selection option =
         match Map.tryFind instanceId siteMap.entries with
         | None -> None
         | Some entry ->
@@ -273,7 +274,7 @@ module ViewModel =
 
     /// Extract the focused instanceId from a Selection. Since SiteEntry.children is an instanceId list,
     /// this gives the exact view-line of the focused node rather than its graph identity.
-    let focusedInstanceId (sel: Selection) : int =
+    let focusedInstanceId (sel: Selection) : SiteId =
         sel.range.parent.children.[sel.focus]
 
     /// Shift-Arrow: move the focused end of the range by delta (-1 = up, +1 = down).
@@ -510,15 +511,15 @@ module ViewModel =
         | SetNodeGuid of guid: System.Guid   // diagnostic: node identity on row
 
     type RowMutation =
-        | RemoveRow of instId: int
-        | CreateRow of instId: int
-        | RecreateRow of instId: int
-        | PatchRow of instId: int * patches: RowPatch list
+        | RemoveRow of instId: SiteId
+        | CreateRow of instId: SiteId
+        | RecreateRow of instId: SiteId
+        | PatchRow of instId: SiteId * patches: RowPatch list
 
     /// Compute the minimal set of DOM mutations needed to transition from oldModel to newModel.
     /// cachedInstIds is the set of instanceIds currently held in the element cache.
     /// Returns removals followed by visible-row operations in preorder display order.
-    let planPatchDOM (oldModel: VM) (newModel: VM) (cachedInstIds: Set<int>) : RowMutation list =
+    let planPatchDOM (oldModel: VM) (newModel: VM) (cachedInstIds: Set<SiteId>) : RowMutation list =
         let newVisible = getVisibleInstanceIds newModel.siteMap
         let newVisibleSet = Set.ofList newVisible
 

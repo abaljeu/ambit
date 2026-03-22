@@ -13,7 +13,6 @@
     <Compile Include="ModelOps.fs" />
     <Compile Include="ViewModelOps.fs" />
     <Compile Include="Paste.fs" />
-    <Compile Include="ModelBuilder.fs" />
     <Compile Include="Snapshot.fs" />
     <Compile Include="Serialization.fs" />
   </ItemGroup>

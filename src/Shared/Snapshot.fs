@@ -117,6 +117,7 @@ module Snapshot =
                             else None)
                     CssClass.ofList classList, nodeText
 
+        // !! creates reversed children !!
         let processLine (nodes, stack, idMap: Map<string, NodeId>) (line: string) =
             let depth =
                 line |> Seq.takeWhile ((=) '\t') |> Seq.length
@@ -130,7 +131,7 @@ module Snapshot =
                 // Reference to an already-introduced shared node.
                 let sid = content.Substring(4).Trim()
                 let nodeId = idMap.[sid]
-                let nodes = nodes |> Map.add parentId { parent with children = parent.children @ [ nodeId ] }
+                let nodes = nodes |> Map.add parentId { parent with children = nodeId :: parent.children }
                 // Do not push onto stack — no children are expected below a reference line.
                 (nodes, stack, idMap)
 
@@ -144,7 +145,7 @@ module Snapshot =
                 let nodeId = NodeId.New()
                 let node: Node = { id = nodeId; text = nodeText; name = None; children = []; cssClasses = classes }
                 let nodes = nodes |> Map.add nodeId node
-                let nodes = nodes |> Map.add parentId { parent with children = parent.children @ [ nodeId ] }
+                let nodes = nodes |> Map.add parentId { parent with children = nodeId :: parent.children }
                 let idMap = idMap |> Map.add sid nodeId
                 (nodes, (depth, nodeId) :: stack, idMap)
 
@@ -154,11 +155,15 @@ module Snapshot =
                 let nodeId = NodeId.New()
                 let node: Node = { id = nodeId; text = nodeText; name = None; children = []; cssClasses = classes }
                 let nodes = nodes |> Map.add nodeId node
-                let nodes = nodes |> Map.add parentId { parent with children = parent.children @ [ nodeId ] }
+                let nodes = nodes |> Map.add parentId { parent with children = nodeId :: parent.children }
                 (nodes, (depth, nodeId) :: stack, idMap)
 
-        let nodes, _, _ =
+        let (nodemap, _, _) =
             lines
             |> Array.fold processLine (Map.ofList [ rootId, rootNode ], [ (-1, rootId) ], Map.empty)
+
+        let nodes =
+            nodemap
+            |> Map.map (fun _ (node: Node) -> { node with children = List.rev node.children })
 
         { root = rootId; nodes = nodes }

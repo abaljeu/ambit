@@ -7,23 +7,25 @@ type Mode =
     | CommandPalette of query: string * selectedCommand: int * returnTo: Mode
     | CssClassPrompt of returnTo: Mode * initialValue: string
 
+type SiteId = Sid of int
+
 /// A rendered appearance of a node in a flat site map. Each appearance gets a unique
 /// instanceId so that fold state is per-occurrence, not per-NodeId.
 /// In a DAG (including cyclic graphs) the same NodeId may appear multiple times with
 /// independent fold states. Cycle termination relies on lazy expansion: a new entry
 /// starts collapsed with children = [], so recursion stops naturally.
 type SiteEntry =
-    { instanceId: int
+    { instanceId: SiteId
       nodeId: NodeId
-      parentInstanceId: int option   // None = root
+      parentInstanceId: SiteId option   // None = root
       expanded: bool
       childrenStale: bool            // true when children list may not match graph; re-synced on expand
-      children: int list }           // instanceId list, ordered to match graph.children (valid when not stale)
+      children: SiteId list }        // instanceId list, ordered to match graph.children (valid when not stale)
 
 /// Flat map keyed by instanceId. O(log S) per-entry access for all operations.
 type SiteMap =
-    { rootId: int
-      entries: Map<int, SiteEntry> }
+    { rootId: SiteId
+      entries: Map<SiteId, SiteEntry> }
 
 /// A contiguous span of children under a specific site-map occurrence of a parent node.
 /// parent is a SiteEntry (not just a NodeId) so the selection is unambiguous in a DAG
@@ -78,7 +80,7 @@ type VM = // the client state
       selectedNodes: Selection option
       mode: Mode
       siteMap: SiteMap
-      nextInstanceId: int
+      nextSiteId: SiteId
       zoomRoot: NodeId option   // None = display from graph.root; Some id = display rooted at that node
       clipboard: ClipboardContent option
       pendingChanges: Change list  // FIFO queue of changes awaiting server confirmation

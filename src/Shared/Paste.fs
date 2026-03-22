@@ -78,7 +78,7 @@ let collectSubtree (graph: Graph) (siteMap: SiteMap) (topLevelIds: NodeId list) 
         Map.tryFind nodeId occIdx
         |> Option.bind List.tryHead
         |> Option.bind (fun instId -> Map.tryFind instId siteMap.entries)
-    let rec walk (acc: Map<NodeId, Node>) (nodeId: NodeId) (visibleChildInstIds: int list) =
+    let rec walk (acc: Map<NodeId, Node>) (nodeId: NodeId) (visibleChildInstIds: SiteId list) =
         let node = graph.nodes.[nodeId]
         let visibleChildIds = visibleChildInstIds |> List.map (fun instId -> siteMap.entries.[instId].nodeId)
         let acc = acc |> Map.add nodeId { node with children = visibleChildIds }

@@ -108,8 +108,8 @@ let restoreSessionState (model: VM) : VM =
                 let effectiveRoot = zoomRoot |> Option.defaultValue model.graph.root
                 let siteMap0, nextId0 =
                     if effectiveRoot <> model.graph.root
-                    then ViewModel.buildSiteMapFrom model.graph effectiveRoot 0
-                    else model.siteMap, model.nextInstanceId
+                    then ViewModel.buildSiteMapFrom model.graph effectiveRoot (Sid 0)
+                    else model.siteMap, model.nextSiteId
                 let expandedSet =
                     expandedStrs
                     |> List.choose (fun s ->
@@ -122,7 +122,7 @@ let restoreSessionState (model: VM) : VM =
                 { model with
                     zoomRoot = zoomRoot
                     siteMap = siteMap1
-                    nextInstanceId = nextId1 }
+                    nextSiteId = nextId1 }
         with _ -> model
 
 // ---------------------------------------------------------------------------
@@ -136,7 +136,7 @@ let mutable currentModel: VM =
       selectedNodes = None
       mode = Selecting
       siteMap = ViewModel.emptySiteMap
-      nextInstanceId = 1
+      nextSiteId = Sid 1
       zoomRoot = None
       clipboard = None
       pendingChanges = []
