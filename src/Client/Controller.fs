@@ -235,7 +235,8 @@ let private formatKeyCombo (ke: KeyboardEvent) : string =
         else
             // Single-char key with only Shift (or none): output just the key character.
             // Browsers inconsistently report e.g. "]" vs "Shift+[", so we drop Shift and use the key.
-            ke.key
+            // Multi-char keys (Tab, ArrowUp, etc.): browser never includes Shift in key; preserve it.
+            if ke.key.Length > 1 && ke.shiftKey then "Shift+" + ke.key else ke.key
 
 /// Single function to set the last-key diagnostic. Never appends; always replaces.
 /// key: the key combo (if any); operation: the command/operation name (if any).

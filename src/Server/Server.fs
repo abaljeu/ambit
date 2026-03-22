@@ -264,14 +264,19 @@ module Main =
             let gambolHtml = Path.Combine(app.Environment.WebRootPath, "gambol.template.html")
             let programJs = Path.Combine(app.Environment.WebRootPath, "Program.js")
             let updateJs = Path.Combine(app.Environment.WebRootPath, "Update.js")
+            let styleCss = Path.Combine(app.Environment.WebRootPath, "style.css")
+            let defaultUserCss = Path.Combine(app.Environment.WebRootPath, "user.css")
             let torontoTz = TimeZoneInfo.FindSystemTimeZoneById("America/Toronto")
 
             let fileWriteUtc (path: string) =
                 if File.Exists path then File.GetLastWriteTimeUtc path else DateTime.MinValue
 
-            // Newest of shell template + Fable output (name varies: Program.js vs Update.js).
+            // Newest of shell template, Fable output, and CSS.
             let pageArtifactUtc =
-                max (fileWriteUtc gambolHtml) (max (fileWriteUtc programJs) (fileWriteUtc updateJs))
+                max (fileWriteUtc gambolHtml)
+                    (max (fileWriteUtc programJs)
+                        (max (fileWriteUtc updateJs)
+                            (max (fileWriteUtc styleCss) (fileWriteUtc defaultUserCss))))
 
             // Server assembly mtime (redeploy without touching wwwroot).
             let serverAssemblyPath = System.Reflection.Assembly.GetExecutingAssembly().Location
@@ -331,7 +336,6 @@ module Main =
             })) |> ignore
 
             // GET /ambit/user.css → serve dataDir/user.css, falling back to wwwroot/user.css
-            let defaultUserCss = Path.Combine(app.Environment.WebRootPath, "user.css")
             let serveUserCss () =
                 let userPath = Path.Combine(dataDir, "user.css")
                 let path = if File.Exists(userPath) then userPath else defaultUserCss
@@ -344,13 +348,13 @@ module Main =
                 let raw = File.ReadAllText(gambolHtml)
                 let pageStamp = pageBuildStamp ()
                 let pageEpoch = pageBuildEpochSec ()
+                let basePrefix = match publicAssetBaseOpt with None -> "" | Some u -> u
+                let styleHref = sprintf "%s/ambit/style.css?v=%d" basePrefix pageEpoch
+                let userHref = sprintf "%s/ambit/user.css?v=%d" basePrefix pageEpoch
                 let withAbsoluteAssets =
-                    match publicAssetBaseOpt with
-                    | None -> raw
-                    | Some baseUrl ->
-                        raw
-                            .Replace("href=\"/ambit/style.css\"", sprintf "href=\"%s/ambit/style.css\"" baseUrl)
-                            .Replace("href=\"/ambit/user.css\"", sprintf "href=\"%s/ambit/user.css\"" baseUrl)
+                    raw
+                        .Replace("href=\"/ambit/style.css\"", sprintf "href=\"%s\"" styleHref)
+                        .Replace("href=\"/ambit/user.css\"", sprintf "href=\"%s\"" userHref)
                 let snippet =
                     "    <script>window.__BUILD__ = \"" + deployStamp () + "\"; window.__PAGE_BUILD__ = \"" + pageStamp
                     + "\"; window.__BUILD_TS__ = " + string (deployEpochSec ())
