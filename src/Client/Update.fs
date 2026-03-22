@@ -1344,7 +1344,7 @@ let redoOp (model: VM) (dispatch: Msg -> unit) : VM =
 let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
     match msg with
     | System (StateLoaded (graph, revision)) ->
-        let siteMap, nextId = ViewModel.buildSiteMap graph (Sid 0)
+        let siteMap, nextId = ViewModel.buildSiteMap graph
         { graph = graph
           revision = revision
           history = History.empty

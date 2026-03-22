@@ -168,20 +168,32 @@ let private isSingleLetterKey (key: string) : bool =
 let private isUppercaseLetterKey (key: string) : bool =
     isSingleLetterKey key && System.Char.IsUpper key[0]
 
-let private tryUnshiftPunctuationKey (key: string) : string option =
-    match key with
-    | "<" -> Some ","
-    | ">" -> Some "."
-    | "?" -> Some "/"
-    | ":" -> Some ";"
-    | "\"" -> Some "'"
-    | "{" -> Some "["
-    | "}" -> Some "]"
-    | "|" -> Some "\\"
-    | "+" -> Some "="
-    | "_" -> Some "-"
-    | "~" -> Some "`"
-    | _ -> None
+/// US keyboard: (base, shifted) pairs for punctuation keys.
+let private punctuationShiftPairs: (string * string) list =
+    [ ",", "<"; ".", ">"; "/", "?"; ";", ":"; "'", "\""
+      "[", "{"; "]", "}"; "\\", "|"; "=", "+"; "-", "_"; "`", "~" ]
+
+let private shiftedToBase = punctuationShiftPairs |> List.map (fun (b, s) -> s, b) |> Map.ofList
+let private baseToShifted = punctuationShiftPairs |> Map.ofList
+
+let private tryUnshiftPunctuationKey (key: string) : string option = Map.tryFind key shiftedToBase
+let private tryShiftPunctuationKey (key: string) : string option = Map.tryFind key baseToShifted
+
+/// Normalize a registry key for matching: drop Shift, use resolved character.
+/// "Shift+M" -> "M", "Ctrl+Shift+C" -> "Ctrl+C"; "Shift+Tab" unchanged (Tab not single-char).
+let private normalizeRegistryKey (keyStr: string) : string =
+    if keyStr.Contains "+" then
+        let parts = keyStr.Split '+' |> Array.toList
+        let keyPart = List.last parts
+        if keyPart.Length = 1 && List.contains "Shift" parts then
+            let mods = parts |> List.filter ((<>) "Shift")
+            match mods with
+            | [ k ] -> k  // Just the key (Shift+M -> M)
+            | _ -> String.concat "+" mods  // Ctrl+Shift+C -> Ctrl+C
+        else
+            keyStr
+    else
+        keyStr
 
 let private normalizeKeyToken (key: string) : string =
     if isSingleLetterKey key then string (System.Char.ToUpperInvariant key[0]) else key
@@ -193,28 +205,37 @@ let private isModifierOnlyKeyPress (key: string) : bool =
     | _ -> false
 
 /// Format a KeyboardEvent as a normalized modifier+key string (e.g. "Ctrl+Shift+P").
+/// For single-char keys with only Shift, outputs just the final character (no "Shift+") so
+/// "]" and "Shift+[" both normalize to "]" across browsers.
 let private formatKeyCombo (ke: KeyboardEvent) : string =
     if isModifierOnlyKeyPress ke.key then
         ""
     else
-        let parts = ResizeArray<string>()
         let hasNonShiftModifier = ke.ctrlKey || ke.altKey || ke.metaKey
         let shiftOnlySource = ke.shiftKey || (not hasNonShiftModifier && isUppercaseLetterKey ke.key)
-        let keyToken =
-            if shiftOnlySource then
-                match tryUnshiftPunctuationKey ke.key with
-                | Some key -> key
-                | None -> ke.key
-            else
-                ke.key
 
-        if ke.ctrlKey then parts.Add "Ctrl"
-        if ke.metaKey then parts.Add "Cmd"
-        if ke.altKey  then parts.Add "Alt"
-        if shiftOnlySource then parts.Add "Shift"
-
-        parts.Add (normalizeKeyToken keyToken)
-        String.concat "+" parts
+        if hasNonShiftModifier then
+            let parts = ResizeArray<string>()
+            let keyToken =
+                if shiftOnlySource then
+                    match tryShiftPunctuationKey ke.key with
+                    | Some k -> k
+                    | None ->
+                        if isSingleLetterKey ke.key then string (System.Char.ToUpperInvariant ke.key[0]) else ke.key
+                else
+                    match tryUnshiftPunctuationKey ke.key with
+                    | Some k -> k
+                    | None -> if isSingleLetterKey ke.key then string (System.Char.ToLowerInvariant ke.key[0]) else ke.key
+            if ke.ctrlKey then parts.Add "Ctrl"
+            if ke.metaKey then parts.Add "Cmd"
+            if ke.altKey  then parts.Add "Alt"
+            if shiftOnlySource then parts.Add "Shift"
+            parts.Add (normalizeKeyToken keyToken)
+            String.concat "+" parts
+        else
+            // Single-char key with only Shift (or none): output just the key character.
+            // Browsers inconsistently report e.g. "]" vs "Shift+[", so we drop Shift and use the key.
+            ke.key
 
 /// Single function to set the last-key diagnostic. Never appends; always replaces.
 /// key: the key combo (if any); operation: the command/operation name (if any).
@@ -234,6 +255,17 @@ type KeyBinding = {
     handler: CommandOp
     commandName: string
 }
+
+/// A key binding that matched a key event, ready to dispatch.
+type ResolvedKeyBinding = {
+    handler: CommandOp
+    commandName: string
+}
+
+/// Key was not bound in the table.
+type KeyResolveError = 
+    | KeyNotBound of string
+    | IncompleteKey of string
 
 // ---------------------------------------------------------------------------
 // Editing command ops (read live caret from DOM; defined before commandRegistry)
@@ -320,22 +352,22 @@ let commandRegistry : CommandEntry list =
 
       { name = "Cursor down"
         run = keyAlways moveSelectionDown
-        keys = [ "ArrowDown"; "O" ]
+        keys = [ "ArrowDown"; "o" ]
         keyScope = SelectionOnly }
 
       { name = "Cursor fold left"
         run = keyAlways arrowLeftSelectionNoFoldOp
-        keys = [ "Shift+ArrowLeft"; "Shift+A" ]
+        keys = [ "Shift+ArrowLeft"; "A" ]
         keyScope = SelectionOnly }
 
       { name = "Cursor left to parent"
         run = keyAlways arrowLeftSelectionOp
-        keys = [ "ArrowLeft"; "A" ]
+        keys = [ "ArrowLeft"; "a" ]
         keyScope = SelectionOnly }
 
       { name = "Cursor unfold right"
         run = keyAlways arrowRightSelectionOp
-        keys = [ "Shift+ArrowRight"; "ArrowRight" ;"Shift+E" ;"E" ]
+        keys = [ "Shift+ArrowRight"; "ArrowRight"; "e"; "E" ]
         keyScope = SelectionOnly }
 
       { name = "Move to previous node"
@@ -350,12 +382,12 @@ let commandRegistry : CommandEntry list =
 
       { name = "Selection up"
         run = keyAlways (shiftArrowOp -1)
-        keys = [ "Shift+ArrowUp" ;"Shift+,"]
+        keys = [ "Shift+ArrowUp"; "<" ]
         keyScope = SelectionOnly }
 
       { name = "Selection down"
         run = keyAlways (shiftArrowOp 1)
-        keys = [ "Shift+ArrowDown" ;"Shift+O"]
+        keys = [ "Shift+ArrowDown"; "O" ]
         keyScope = SelectionOnly }
 
       { name = "Move cursor up"
@@ -456,42 +488,42 @@ let commandRegistry : CommandEntry list =
 
       { name = "Zoom in"
         run = keyAlways zoomInOp
-        keys = [ "Ctrl+]"; "]"; "Shift+]" ; "M" ]
+        keys = [ "Ctrl+]"; "]"; "m" ]
         keyScope = SelectionOrEditing }
 
       { name = "Zoom out"
         run = keyAlways zoomOutOp
-        keys = [ "Ctrl+["; "["; "Shift+[" ; "Shift+M"]
+        keys = [ "Ctrl+["; "["; "M" ]
         keyScope = SelectionOrEditing }
 
       { name = "Undo"
         run = keyAlways undoOp
-        keys = [ "Ctrl+Z" ; "Z"]
+        keys = [ "Ctrl+Z"; "z" ]
         keyScope = SelectionOrEditing }
 
       { name = "Redo"
         run = keyAlways redoOp
-        keys = [ "Ctrl+Y" ; "Y"]
+        keys = [ "Ctrl+Y"; "y" ]
         keyScope = SelectionOrEditing }
 
       { name = "Copy content"
         run = keyAlways copyOp
-        keys = [ "C" ] // Ctrl+C also does copy but that's a browser event.
+        keys = [ "c" ]
         keyScope = SelectionOnly }
 
       { name = "Copy as links"
         run = keyAlways copySelectionAsLinks
-        keys = [ "Ctrl+Shift+C";"Shift+C" ]
+        keys = [ "Ctrl+C"; "C" ]
         keyScope = SelectionOnly }
 
       { name = "Duplicate (link)"
         run = keyAlways duplicateSelectionOp
-        keys = [ "Shift+D" ]
+        keys = [ "D" ]
         keyScope = SelectionOnly }
 
       { name = "Command palette"
         run = keyAlways openCommandPaletteOp
-        keys = [ "Ctrl+P";"P" ]
+        keys = [ "Ctrl+P"; "p" ]
         keyScope = SelectionOrEditing }
 
       { name = "Toggle class"
@@ -569,8 +601,9 @@ let private selectionKeyBindings : KeyBinding list =
                 let bindings =
                     entry.keys
                     |> List.choose (fun k ->
-                        if Set.contains k seen then None
-                        else Some { key = k; handler = rowHandler; commandName = entry.name })
+                        let nk = normalizeRegistryKey k
+                        if Set.contains nk seen then None
+                        else Some { key = nk; handler = rowHandler; commandName = entry.name })
                 let seen' = bindings |> List.fold (fun s e -> Set.add e.key s) seen
                 collect seen' (acc @ bindings) rest
     collect Set.empty [] commandRegistry
@@ -587,8 +620,9 @@ let private editingKeyBindings : KeyBinding list =
                 let bindings =
                     entry.keys
                     |> List.choose (fun k ->
-                        if isSingleCharKeyBinding k || Set.contains k seen then None
-                        else Some { key = k; handler = rowHandler; commandName = entry.name })
+                        let nk = normalizeRegistryKey k
+                        if isSingleCharKeyBinding nk || Set.contains nk seen then None
+                        else Some { key = nk; handler = rowHandler; commandName = entry.name })
                 let seen' = bindings |> List.fold (fun s e -> Set.add e.key s) seen
                 collect seen' (acc @ bindings) rest
     collect Set.empty [] commandRegistry
@@ -617,25 +651,29 @@ let private cssClassPromptKeyBindings : KeyBinding list =
         handler = keyAlways submitCssClassPromptOp
         commandName = "Apply class" } ]
 
+    
 let private tryResolveFromNamed
     (table: KeyBinding list)
     (ke: KeyboardEvent)
-    : (CommandOp * string) option =
-    let keyStr = formatKeyCombo ke
-    table
-    |> List.tryPick (fun e ->
-        if e.key = keyStr then Some (e.handler, e.commandName) else None)
+    : Result<ResolvedKeyBinding, KeyResolveError> =
+    if isModifierOnlyKeyPress ke.key then
+        Error (IncompleteKey ke.key)
+    else
+        let keyStr = formatKeyCombo ke
+        match table |> List.tryFind (fun e -> e.key = keyStr) with
+        | None -> Error (KeyNotBound keyStr)
+        | Some e -> Ok { handler = e.handler; commandName = e.commandName }
 
 let private dispatchResolvedKey
     (keyStr: string)
-    (handler: CommandOp, name: string)
+    (resolved: ResolvedKeyBinding)
     (keyEvent: KeyboardEvent)
     (applyOp: Op -> unit)
     : unit =
-    match handler () with
+    match resolved.handler () with
     | Some op ->
         keyEvent.preventDefault()
-        setLastKeyDisplay (Some keyStr) (Some name)
+        setLastKeyDisplay (Some keyStr) (Some resolved.commandName)
         applyOp op
     | None ->
         setLastKeyDisplay (Some keyStr) None
@@ -650,24 +688,24 @@ let handleKey (mode: Mode) (keyEvent: KeyboardEvent) (applyOp: Op -> unit) : uni
         | Editing _ -> editingKeyBindings
         | Selecting -> selectionKeyBindings
     match tryResolveFromNamed table keyEvent with
-    | None ->
+    | Error _ ->
         setLastKeyDisplay (Some keyStr) None
-    | Some pair ->
-        dispatchResolvedKey keyStr pair keyEvent applyOp
+    | Ok resolved ->
+        dispatchResolvedKey keyStr resolved keyEvent applyOp
 
 /// Command palette input: fixed binding list (listener wired once; no Mode value in closure).
 let handlePaletteKey (keyEvent: KeyboardEvent) (applyOp: Op -> unit) : unit =
     let keyStr = formatKeyCombo keyEvent
     match tryResolveFromNamed paletteKeyBindings keyEvent with
-    | None ->
+    | Error _ ->
         setLastKeyDisplay (Some keyStr) None
-    | Some pair ->
-        dispatchResolvedKey keyStr pair keyEvent applyOp
+    | Ok resolved ->
+        dispatchResolvedKey keyStr resolved keyEvent applyOp
 
 /// CSS class prompt input: Escape to cancel, Enter to submit.
 let handleCssClassPromptKey (keyEvent: KeyboardEvent) (applyOp: Op -> unit) : unit =
     let keyStr = formatKeyCombo keyEvent
     match tryResolveFromNamed cssClassPromptKeyBindings keyEvent with
-    | None -> setLastKeyDisplay (Some keyStr) None
-    | Some pair -> dispatchResolvedKey keyStr pair keyEvent applyOp
+    | Error _ -> setLastKeyDisplay (Some keyStr) None
+    | Ok resolved -> dispatchResolvedKey keyStr resolved keyEvent applyOp
 
