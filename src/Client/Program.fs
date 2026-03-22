@@ -143,7 +143,7 @@ let mutable currentModel: VM =
       syncState = Synced }
 
 /// Element cache: instanceId → DOM row element.  Populated on first StateLoaded.
-let mutable elementCache: Map<int, HTMLElement> = Map.empty
+let mutable elementCache: Map<SiteId, HTMLElement> = Map.empty
 
 /// Exponential backoff counter for auto-retry on SubmitFailed.
 let mutable retryCount = 0

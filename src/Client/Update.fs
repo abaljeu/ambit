@@ -859,7 +859,7 @@ let selectRow (nodeId: NodeId) (model: VM) (dispatch: Msg -> unit) : VM =
 
 /// Op: Select a specific view-line by instanceId, committing any in-progress edit first.
 /// Prefer this over selectRow when a nodeId may appear multiple times in the view.
-let selectInstance (instanceId: int) (model: VM) (dispatch: Msg -> unit) : VM =
+let selectInstance (instanceId: SiteId) (model: VM) (dispatch: Msg -> unit) : VM =
     let result =
         match model.mode, model.selectedNodes with
         | Editing (originalText, _), Some sel ->
@@ -1015,7 +1015,7 @@ let pasteNodesOp (pastedText: string) (preferredNodeIds: string option) (model: 
     pasteNodes pastedText preferredNodeIds model dispatch |> withSiteMap
 
 /// Op: Toggle fold for a specific site-map entry.
-let toggleFoldOp (instanceId: int) (model: VM) _dispatch : VM =
+let toggleFoldOp (instanceId: SiteId) (model: VM) _dispatch : VM =
     match Map.tryFind instanceId model.siteMap.entries with
     | None -> model
     | Some entry ->

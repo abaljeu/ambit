@@ -17,7 +17,7 @@ let private scrollIntoViewNearest (_: obj) : unit = jsNative
 
 /// Depth of entry in the site map (root's children are at depth 0).
 let private computeDepth (siteMap: SiteMap) (entry: SiteEntry) : int =
-    let rec go (parentInstId: int option) acc =
+    let rec go (parentInstId: SiteId option) acc =
         match parentInstId with
         | None -> acc
         | Some pid ->
@@ -160,8 +160,8 @@ let private applyRowPatches (el: HTMLElement) (patches: RowPatch list) : unit =
 /// Returns the row element and the updated cache.
 let private resolveRow
     (newModel: VM) (applyOp: Op -> unit) (depth: int) (entry: SiteEntry)
-    (instId: int) (upsertIndex: Map<int, RowMutation>) (cache: Map<int, HTMLElement>)
-    : HTMLElement * Map<int, HTMLElement> =
+    (instId: SiteId) (upsertIndex: Map<SiteId, RowMutation>) (cache: Map<SiteId, HTMLElement>)
+    : HTMLElement * Map<SiteId, HTMLElement> =
     match Map.tryFind instId upsertIndex with
     | Some (RecreateRow _) ->
         let cache' =
@@ -352,7 +352,7 @@ let renderUndoStatus (model: VM) : unit =
 /// Rebuild all row elements from scratch: removes existing rows (children of app
 /// that precede the hidden-input sentinel), then recreates them in preorder.
 /// Returns a fresh element cache keyed by instanceId.
-let render (vm: VM) (applyOp: Op -> unit) : Map<int, HTMLElement> =
+let render (vm: VM) (applyOp: Op -> unit) : Map<SiteId, HTMLElement> =
     // Remove existing rows — everything before the hidden-input sentinel
     let hiddenInput = document.getElementById "hidden-input"
     if isNull hiddenInput then
@@ -364,7 +364,7 @@ let render (vm: VM) (applyOp: Op -> unit) : Map<int, HTMLElement> =
             app.removeChild sib |> ignore
             sib <- prev
 
-    let mutable cache = Map.empty<int, HTMLElement>
+    let mutable cache = Map.empty<SiteId, HTMLElement>
     let visible = ViewModel.getVisibleInstanceIds vm.siteMap
     for instId in visible do
         let entry = vm.siteMap.entries.[instId]
@@ -386,12 +386,12 @@ let render (vm: VM) (applyOp: Op -> unit) : Map<int, HTMLElement> =
 /// Patch the DOM incrementally: diff old and new SiteMap visibility,
 /// removes stale rows, creates/moves new rows, updates existing rows in-place.
 /// Returns the updated element cache.
-let patchDOM (oldModel: VM) (newModel: VM) (applyOp: Op -> unit) (cache: Map<int, HTMLElement>) : Map<int, HTMLElement> =
+let patchDOM (oldModel: VM) (newModel: VM) (applyOp: Op -> unit) (cache: Map<SiteId, HTMLElement>) : Map<SiteId, HTMLElement> =
     let cachedInstIds = cache |> Map.toSeq |> Seq.map fst |> Set.ofSeq
     let mutations = ViewModel.planPatchDOM oldModel newModel cachedInstIds
 
     // Index upsert mutations by instId for O(log n) lookup below
-    let upsertIndex =
+    let upsertIndex: Map<SiteId, RowMutation> =
         mutations |> List.choose (fun m ->
             match m with
             | RemoveRow _ -> None

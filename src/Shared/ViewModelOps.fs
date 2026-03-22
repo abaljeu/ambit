@@ -40,8 +40,8 @@ module ViewModel =
         { rootId = rootInstId; entries = acc }, endCount ()
 
     /// Build a SiteMap from the graph root. See buildSiteMapFrom for details.
-    let buildSiteMap (graph: Graph) (startId: SiteId) : SiteMap * SiteId =
-        buildSiteMapFrom graph graph.root startId
+    let buildSiteMap (graph: Graph) : SiteMap * SiteId =
+        buildSiteMapFrom graph graph.root (Sid 0)
 
     /// Reconcile a SiteMap rooted at rootNodeId after a graph change. Walks only expanded entries,
     /// syncing their children lists from the graph. Collapsed children of expanded entries are
