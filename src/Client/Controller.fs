@@ -456,12 +456,12 @@ let commandRegistry : CommandEntry list =
 
       { name = "Zoom in"
         run = keyAlways zoomInOp
-        keys = [ "Ctrl+]"; "]" ]
+        keys = [ "Ctrl+]"; "]"; "Shift+]" ; "M" ]
         keyScope = SelectionOrEditing }
 
       { name = "Zoom out"
         run = keyAlways zoomOutOp
-        keys = [ "Ctrl+["; "[" ]
+        keys = [ "Ctrl+["; "["; "Shift+[" ; "Shift+M"]
         keyScope = SelectionOrEditing }
 
       { name = "Undo"
