@@ -176,3 +176,22 @@ body {
 .amb-palette-results li.amb-palette-selected {
     background: #e8f0fe;
 }
+/* user */
+.h1 { font-size: 1.brem }
+.h2 { font-size: 1.5rem }
+.h3 { font-size: 1.2rem }
+.b { font-weight: bold; }
+.i { font-style: italic; }
+.check { text-decoration: line-through; }
+.blue { background-color: #bbf; }
+.green { background-color: #bfb; }
+.red { background-color: #fbb; }
+.orange { background-color: #fdb; }
+.purple { background-color: #dbf; }
+.cyan { background-color: #bff; }
+.yellow { background-color: #ffb; }
+.pink { background-color: #fcf; }
+.grey, .gray { background-color: #ddd; }
+
+.center { text-align: center; }
+.code { font-family: monospace; }
