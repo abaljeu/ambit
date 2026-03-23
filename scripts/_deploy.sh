@@ -1,4 +1,5 @@
 #!/bin/bash
+# we want to use deploy.ps1
 set -euo pipefail
 
 SSH_KEY=~/.ssh/collab-sys.rsa

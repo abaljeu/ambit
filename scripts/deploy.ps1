@@ -1,3 +1,6 @@
+#!/usr/bin/env powershell
+# Requires PowerShell (pwsh). Do not run with bash/sh. Use: pwsh scripts/deploy.ps1
+
 $ErrorActionPreference = "Stop"
 
 try {
