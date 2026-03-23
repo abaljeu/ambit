@@ -12,10 +12,10 @@ todos:
     content: Call savePendingQueue wherever pendingChanges is mutated (applyAndPost, undoOp, redoOp, SubmitResponse handler)
     status: completed
   - id: auto-retry
-    content: Add mutable retryCount to Program.fs; schedule setTimeout retry in SubmitFailed dispatch arm; reset on SubmitResponse
+    content: Add mutable retryCount to App.fs; schedule setTimeout retry in SubmitFailed dispatch arm; reset on SubmitResponse
     status: completed
   - id: restore-startup
-    content: Restore pending queue from localStorage in StateLoaded handler in Program.fs, filtering by serverRev and re-applying ops to reconstruct local graph
+    content: Restore pending queue from localStorage in StateLoaded handler in App.fs, filtering by serverRev and re-applying ops to reconstruct local graph
     status: completed
   - id: poll-stale-bar
     content: Client polls GET /state (interval + focus); if server revision > client, show blue Stale bar "Refresh the view"; click reloads
@@ -54,16 +54,16 @@ Two orthogonal improvements:
 
 - `[src/Shared/ViewModel.fs](src/Shared/ViewModel.fs)` — `SyncState` type, `VM` record
 - `[src/Client/Update.fs](src/Client/Update.fs)` — `applyAndPost`, `fireNextPending`, `update` handler for `SubmitFailed`/`SubmitResponse`
-- `[src/Client/Program.fs](src/Client/Program.fs)` — `dispatch` function, `StateLoaded` handler
-- `[src/Client/View.fs](src/Client/View.fs)` — `renderStatus`
+- `[src/Client/App.fs](src/Client/App.fs)` — `dispatch` function, `StateLoaded` handler
+- `[[src/Client/View.fs]]` — `renderStatus`
 
 ---
 
 ## Part 1 — Auto-retry with exponential backoff
 
-**Where the work lives: `Program.fs` (infrastructure side-effect, not model logic)**
+**Where the work lives: `App.fs` (infrastructure side-effect, not model logic)**
 
-Add a mutable `retryCount` in `Program.fs`. In the `dispatch` match arm that already handles `System SubmitFailed`:
+Add a mutable `retryCount` in `App.fs`. In the `dispatch` match arm that already handles `System SubmitFailed`:
 
 ```fsharp
 let mutable retryCount = 0
@@ -109,7 +109,7 @@ The UI text in `View.renderStatus` can stay unchanged or gain a "(auto-retrying)
 
 ## Part 2 — localStorage persistence
 
-**Where the work lives: `Update.fs` (save/load helpers) + `Program.fs` (restore on startup)**
+**Where the work lives: `Update.fs` (save/load helpers) + `App.fs` (restore on startup)**
 
 ### 2a. Save queue on every change
 
@@ -144,7 +144,7 @@ Call `savePendingQueue` in every place `pendingChanges` changes:
 
 ### 2b. Restore queue on startup
 
-In `Program.fs`, after `StateLoaded` creates the fresh VM from the server state:
+In `App.fs`, after `StateLoaded` creates the fresh VM from the server state:
 
 ```fsharp
 | System (StateLoaded _) ->
@@ -317,4 +317,4 @@ let attemptRebase (newGraph: Graph) (newBaseRevision: int) (stashed: Change) : R
     | _                     -> Discarded
 ```
 
-The `TODO` comment is the explicit placeholder. When the smart merge logic is built out, it replaces the `Discarded` branch with orphan-rescue logic (e.g. re-attaching children of a deleted parent to the nearest surviving ancestor).
+The `TODO` comment is the explicit placeholder. When the smart merge logic is built out, it replaces the `Discarded` branch with orphan-rescue logic (e.g. re-attaching children of a deleted parent to the nearest surviving ancestor).

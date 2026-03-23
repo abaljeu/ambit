@@ -129,4 +129,4 @@ The panel contains two editors:
 - navigate between rows with arrow keys, Enter, Tab, or mouse
 - leaving a row (by any of the above) commits it — saves `user.css` and live-refreshes the stylesheet
 - `<Add a property>` row at the bottom; Delete/Backspace on a row removes it
-- Tab moves focus back to the class list
+- Tab moves focus back to the class list

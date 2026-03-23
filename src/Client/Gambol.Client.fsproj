@@ -11,6 +11,9 @@
     <Compile Include="Update.fs" />
     <Compile Include="Controller.fs" />
     <Compile Include="View.fs" />
+    <Compile Include="JsInterop.fs" />
+    <Compile Include="SessionState.fs" />
+    <Compile Include="App.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 
