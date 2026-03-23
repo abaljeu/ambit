@@ -1360,13 +1360,10 @@ let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
                 syncState = if pending.IsEmpty then Synced else Syncing 1 }
 
     | SysMsg SubmitFailed ->
-        if model.syncState = Stale then model
-        else
-            let failCount = match model.syncState with Syncing n -> n | _ -> 0
-            { model with syncState = Pending failCount }
+        SyncLogic.applySubmitFailed model
 
-    | SysMsg (ServerAhead _) ->
-        { model with syncState = Stale }
+    | SysMsg (ServerAhead rev) ->
+        SyncLogic.applyServerAhead rev model
 
     | SysMsg PollingInactive ->
         if model.syncState = Synced && model.pendingChanges.IsEmpty then

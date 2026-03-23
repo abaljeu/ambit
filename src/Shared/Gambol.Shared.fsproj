@@ -15,6 +15,7 @@
     <Compile Include="Paste.fs" />
     <Compile Include="Snapshot.fs" />
     <Compile Include="Serialization.fs" />
+    <Compile Include="SyncLogic.fs" />
     <Compile Include="ModelBuilder.fs" />
   </ItemGroup>
 

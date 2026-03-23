@@ -12,6 +12,7 @@
     <Compile Include="SnapshotTests.fs" />
     <Compile Include="SerializationTests.fs" />
     <Compile Include="ViewModelTests.fs" />
+    <Compile Include="SyncLogicTests.fs" />
     <Compile Include="PasteTests.fs" />
   </ItemGroup>
 

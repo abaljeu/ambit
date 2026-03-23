@@ -172,11 +172,13 @@ let pollForRemoteChanges () : unit =
         fetchTextNoCache url (fun text ->
             match Serialization.decodePollResponse text with
             | Ok poll ->
-                let dataStale = poll.revision > currentModel.revision.Value
-                let clientBuild = readBuildEpochSec ()
-                let clientPage = readPageBuildEpochSec ()
-                let serverNewer = poll.buildEpochSec <> clientBuild || poll.pageBuildEpochSec <> clientPage
-                if dataStale || serverNewer then
+                let client =
+                    { ClientPollContext.revision = currentModel.revision.Value
+                      pendingCount = currentModel.pendingChanges.Length
+                      buildEpochSec = readBuildEpochSec ()
+                      pageBuildEpochSec = readPageBuildEpochSec () }
+                let stale = SyncLogic.shouldReportStale poll client
+                if stale then
                     dispatch (SysMsg (ServerAhead (Revision poll.revision)))
             | Error _ -> ())
 
