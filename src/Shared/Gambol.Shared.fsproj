@@ -15,10 +15,12 @@
     <Compile Include="Paste.fs" />
     <Compile Include="Snapshot.fs" />
     <Compile Include="Serialization.fs" />
+    <Compile Include="ModelBuilder.fs" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Thoth.Json.Core" Version="0.7.1" />
+    <PackageReference Include="Thoth.Json.JavaScript" Version="0.4.1" />
   </ItemGroup>
 
 </Project>

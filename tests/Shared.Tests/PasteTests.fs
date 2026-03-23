@@ -1,4 +1,4 @@
-﻿module Gambol.Shared.Tests.PasteTests
+module Gambol.Shared.Tests.PasteTests
 
 open System
 open Xunit
@@ -30,7 +30,7 @@ let private buildNested (parentText: string) (childTexts: string list) : Graph *
     g4, parentId, childIds
 
 /// Find the instanceId of the first SiteEntry whose nodeId matches.
-let private findInstanceId (nodeId: NodeId) (siteMap: SiteMap) : int =
+let private findInstanceId (nodeId: NodeId) (siteMap: SiteMap) : SiteId =
     siteMap.entries
     |> Map.tryPick (fun instId e -> if e.nodeId = nodeId then Some instId else None)
     |> Option.defaultWith (fun () -> failwith $"instanceId not found for {nodeId}")
@@ -43,21 +43,21 @@ let private findInstanceId (nodeId: NodeId) (siteMap: SiteMap) : int =
 let ``serializeSubtree single node no children`` () =
     let graph, ids = buildFlat ["hello"]
     let id = ids.[0]
-    let siteMap, _ = buildSiteMap graph 0
+    let siteMap, _ = buildSiteMap graph
     let result = serializeSubtree graph siteMap [id]
     Assert.Equal("hello" + nl, result)
 
 [<Fact>]
 let ``serializeSubtree two sibling nodes`` () =
     let graph, ids = buildFlat ["alpha"; "beta"]
-    let siteMap, _ = buildSiteMap graph 0
+    let siteMap, _ = buildSiteMap graph
     let result = serializeSubtree graph siteMap ids
     Assert.Equal("alpha" + nl + "beta" + nl, result)
 
 [<Fact>]
 let ``serializeSubtree node with collapsed children omits children`` () =
     let graph, parentId, _childIds = buildNested "parent" ["child1"; "child2"]
-    let siteMap, _ = buildSiteMap graph 0
+    let siteMap, _ = buildSiteMap graph
     // parent is collapsed by default
     let result = serializeSubtree graph siteMap [parentId]
     Assert.Equal("parent" + nl, result)
@@ -65,7 +65,7 @@ let ``serializeSubtree node with collapsed children omits children`` () =
 [<Fact>]
 let ``serializeSubtree node with expanded children includes children`` () =
     let graph, parentId, _childIds = buildNested "parent" ["child1"; "child2"]
-    let siteMap, nextId = buildSiteMap graph 0
+    let siteMap, nextId = buildSiteMap graph
     let parentInstanceId = findInstanceId parentId siteMap
     let siteMap', _ = expandEntry parentInstanceId graph siteMap nextId
     let result = serializeSubtree graph siteMap' [parentId]
@@ -80,7 +80,7 @@ let ``serializeSubtree multi-level expanded`` () =
     let g2 = Graph.replace g1.root 0 [] [aId] g1 |> requireOk "root"
     let g3 = Graph.replace aId 0 [] [bId] g2 |> requireOk "a"
     let g4 = Graph.replace bId 0 [] [cId] g3 |> requireOk "b"
-    let siteMap, nextId = buildSiteMap g4 0
+    let siteMap, nextId = buildSiteMap g4
     // Expand a, then b (b becomes visible as a child of a after expanding a)
     let aInst = findInstanceId aId siteMap
     let siteMap', nextId' = expandEntry aInst g4 siteMap nextId
@@ -98,7 +98,7 @@ let ``serializeSubtree partial expand: only expanded level included`` () =
     let g2 = Graph.replace g1.root 0 [] [aId] g1 |> requireOk "root"
     let g3 = Graph.replace aId 0 [] [bId] g2 |> requireOk "a"
     let g4 = Graph.replace bId 0 [] [cId] g3 |> requireOk "b"
-    let siteMap, nextId = buildSiteMap g4 0
+    let siteMap, nextId = buildSiteMap g4
     let aInst = findInstanceId aId siteMap
     let siteMap', _ = expandEntry aInst g4 siteMap nextId  // expand a only
     let result = serializeSubtree g4 siteMap' [aId]
@@ -113,7 +113,7 @@ let ``serializeSubtree partial expand: only expanded level included`` () =
 let ``collectSubtree single node no children`` () =
     let graph, ids = buildFlat ["x"]
     let id = ids.[0]
-    let siteMap, _ = buildSiteMap graph 0
+    let siteMap, _ = buildSiteMap graph
     let cb = collectSubtree graph siteMap [id]
     Assert.Equal<NodeId list>([id], cb.topLevelIds)
     Assert.Equal(1, cb.nodes.Count)
@@ -123,7 +123,7 @@ let ``collectSubtree single node no children`` () =
 [<Fact>]
 let ``collectSubtree collapsed node excludes children`` () =
     let graph, parentId, _childIds = buildNested "p" ["c1"; "c2"]
-    let siteMap, _ = buildSiteMap graph 0
+    let siteMap, _ = buildSiteMap graph
     // parent collapsed (default)
     let cb = collectSubtree graph siteMap [parentId]
     Assert.Equal<NodeId list>([parentId], cb.topLevelIds)
@@ -133,7 +133,7 @@ let ``collectSubtree collapsed node excludes children`` () =
 [<Fact>]
 let ``collectSubtree expanded node includes children`` () =
     let graph, parentId, childIds = buildNested "p" ["c1"; "c2"]
-    let siteMap, nextId = buildSiteMap graph 0
+    let siteMap, nextId = buildSiteMap graph
     let parentInst = findInstanceId parentId siteMap
     let siteMap', _ = expandEntry parentInst graph siteMap nextId
     let cb = collectSubtree graph siteMap' [parentId]
@@ -146,7 +146,7 @@ let ``collectSubtree expanded node includes children`` () =
 [<Fact>]
 let ``collectSubtree multiple top-level nodes`` () =
     let graph, ids = buildFlat ["a"; "b"; "c"]
-    let siteMap, _ = buildSiteMap graph 0
+    let siteMap, _ = buildSiteMap graph
     let cb = collectSubtree graph siteMap ids
     Assert.Equal<NodeId list>(ids, cb.topLevelIds |> List.ofSeq)
     Assert.Equal(3, cb.nodes.Count)

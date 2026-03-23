@@ -96,4 +96,4 @@ type SystemMsg =
     | PollingActive
 
 type Msg =
-    | System of SystemMsg
+    | SysMsg of SystemMsg

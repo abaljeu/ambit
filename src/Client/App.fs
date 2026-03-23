@@ -10,7 +10,6 @@ open Gambol.Client.Controller
 open Gambol.Client.View
 open Gambol.Client.JsInterop
 open Gambol.Client.SessionState
-
 // ---------------------------------------------------------------------------
 // MVU dispatch loop
 // ---------------------------------------------------------------------------
@@ -108,7 +107,7 @@ and dispatch (msg: Msg) : unit =
     currentModel <- update msg currentModel dispatch
 
     match msg with
-    | System (StateLoaded _) ->
+    | SysMsg (StateLoaded _) ->
         currentModel <- restoreSessionState currentModel
         lastActivityMs <- nowMs ()
         let saved = loadPendingQueue ()
@@ -131,10 +130,10 @@ and dispatch (msg: Msg) : unit =
         View.renderUndoStatus currentModel
         View.renderCommandPalette currentModel applyOp
         View.renderCssClassPrompt currentModel applyOp
-    | System (SubmitResponse _) ->
+    | SysMsg (SubmitResponse _) ->
         retryCount <- 0
         View.renderStatus currentModel
-    | System SubmitFailed ->
+    | SysMsg SubmitFailed ->
         retryCount <- retryCount + 1
         let maxAutoRetries = 10
         let delaySec = min 60 (1 <<< (min retryCount 6))
@@ -144,11 +143,11 @@ and dispatch (msg: Msg) : unit =
                 applyOp (retryPendingOp false)
                 View.renderStatus currentModel) (delaySec * 1000)
         View.renderStatus currentModel
-    | System (ServerAhead _) ->
+    | SysMsg (ServerAhead _) ->
         View.renderStatus currentModel
 
-    | System PollingInactive
-    | System PollingActive ->
+    | SysMsg PollingInactive
+    | SysMsg PollingActive ->
         View.renderStatus currentModel
 
 // ---------------------------------------------------------------------------
@@ -163,22 +162,22 @@ let pollForRemoteChanges () : unit =
 
     if not shouldPoll then
         if currentModel.syncState = Synced && currentModel.pendingChanges.IsEmpty then
-            dispatch (System PollingInactive)
+            dispatch (SysMsg PollingInactive)
         ()
     else
         if currentModel.syncState = Inactive then
-            dispatch (System PollingActive)
+            dispatch (SysMsg PollingActive)
 
         let url = $"/{Update.currentFile}/poll?_={now}"
         fetchTextNoCache url (fun text ->
-            match Update.decodePollResponse text with
-            | Ok (serverRev, serverBuild, serverPage) ->
-                let dataStale = serverRev > currentModel.revision.Value
+            match Serialization.decodePollResponse text with
+            | Ok poll ->
+                let dataStale = poll.revision > currentModel.revision.Value
                 let clientBuild = readBuildEpochSec ()
                 let clientPage = readPageBuildEpochSec ()
-                let serverNewer = serverBuild <> clientBuild || serverPage <> clientPage
+                let serverNewer = poll.buildEpochSec <> clientBuild || poll.pageBuildEpochSec <> clientPage
                 if dataStale || serverNewer then
-                    dispatch (System (ServerAhead (Revision serverRev)))
+                    dispatch (SysMsg (ServerAhead (Revision poll.revision)))
             | Error _ -> ())
 
 let recordActivity (wakeIfInactive: bool) : unit =
@@ -188,7 +187,7 @@ let recordActivity (wakeIfInactive: bool) : unit =
 
 let wakePolling () : unit =
     lastActivityMs <- nowMs ()
-    if currentModel.syncState = Inactive then dispatch (System PollingActive)
+    if currentModel.syncState = Inactive then dispatch (SysMsg PollingActive)
     pollForRemoteChanges ()
 
 let startPolling () : unit =
@@ -208,7 +207,7 @@ let startPolling () : unit =
     document.addEventListener("visibilitychange", fun _ ->
         if isDocumentHidden () then
             if currentModel.syncState = Synced && currentModel.pendingChanges.IsEmpty then
-                dispatch (System PollingInactive)
+                dispatch (SysMsg PollingInactive)
         else
             recordActivity false
             pollForRemoteChanges ())

@@ -36,9 +36,7 @@ module ModelBuilder =
             |> requireOk "createDag12.setText"
 
         let replaceInsert parentId newIds graph =
-            let newChildren =
-                newIds |> List.map (fun newId -> { id = newId; ownership = Owner })
-            Graph.replace parentId 0 [] newChildren graph
+            Graph.replace parentId 0 [] newIds graph
             |> requireOk "createDag12.replace"
 
         graph2
@@ -67,11 +65,11 @@ module ModelBuilder =
         let p2 = List.item 1 ids
         let sh = List.item 2 ids
 
-        let replaceInsert parentId newChildren graph =
-            Graph.replace parentId 0 [] newChildren graph
+        let replaceInsert parentId newIds graph =
+            Graph.replace parentId 0 [] newIds graph
             |> requireOk "createSharedNodeGraph.replace"
 
         graph1
-        |> replaceInsert graph1.root ([ p1; p2 ] |> List.map (fun n -> { id = n; ownership = Owner }))
-        |> replaceInsert p1 [ { id = sh; ownership = Owner } ]   // p1 owns shared
-        |> replaceInsert p2 [ { id = sh; ownership = Reference } ] // p2 references shared
+        |> replaceInsert graph1.root [ p1; p2 ]
+        |> replaceInsert p1 [ sh ]
+        |> replaceInsert p2 [ sh ]

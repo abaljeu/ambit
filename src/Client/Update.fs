@@ -48,16 +48,6 @@ let currentFile =
 let encodeChangeBody (change: Change) : string =
     Thoth.Json.JavaScript.Encode.toString 0 (Serialization.encodeChange change)
 
-/// Decode the response from GET /{file}/poll — lightweight { r, b, p }
-/// (int avoids int64/BigInt mismatch with window vars)
-let decodePollResponse (text: string) : Result<int * int * int, string> =
-    let decoder =
-        Decode.object (fun get ->
-            let r = get.Required.Field "r" Decode.int
-            let b = get.Required.Field "b" Decode.int
-            let p = get.Required.Field "p" Decode.int
-            r, b, p)
-    Thoth.Json.JavaScript.Decode.fromString decoder text
 
 /// Decode the response from GET /{file}/state or POST /{file}/changes
 let decodeStateResponse (text: string) : Result<Graph * Revision, string> =
@@ -120,17 +110,17 @@ let fireNextPending (pending: Change list) (dispatch: Msg -> unit) : unit =
     | [] -> ()
     | change :: _ ->
         let body = encodeChangeBody change
-        let timeoutId = setTimeout (fun () -> dispatch (System SubmitFailed)) 5_000
+        let timeoutId = setTimeout (fun () -> dispatch (SysMsg SubmitFailed)) 5_000
         let cancelTimeout () = clearTimeout timeoutId
         postJson $"/{currentFile}/changes" body
             (fun responseText ->
                 cancelTimeout ()
                 match decodeStateResponse responseText with
-                | Ok (_graph, rev) -> dispatch (System (SubmitResponse rev))
-                | Error _ -> dispatch (System SubmitFailed))
+                | Ok (_graph, rev) -> dispatch (SysMsg (SubmitResponse rev))
+                | Error _ -> dispatch (SysMsg SubmitFailed))
             (fun () ->
                 cancelTimeout ()
-                dispatch (System SubmitFailed))
+                dispatch (SysMsg SubmitFailed))
 
 /// Apply a change to the local model, enqueue it for posting to the server,
 /// and return the updated VM (or None if the change was rejected locally).
@@ -1343,7 +1333,7 @@ let redoOp (model: VM) (dispatch: Msg -> unit) : VM =
 /// Process an async server message. Op-based user actions do not go through here.
 let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
     match msg with
-    | System (StateLoaded (graph, revision)) ->
+    | SysMsg (StateLoaded (graph, revision)) ->
         let siteMap, nextId = ViewModel.buildSiteMap graph
         { graph = graph
           revision = revision
@@ -1357,7 +1347,7 @@ let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
           pendingChanges = []
           syncState = Synced }
 
-    | System (SubmitResponse revision) ->
+    | SysMsg (SubmitResponse revision) ->
         if model.syncState = Stale then model
         else
             let pending = match model.pendingChanges with _ :: t -> t | [] -> []
@@ -1369,22 +1359,22 @@ let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
                 pendingChanges = pending
                 syncState = if pending.IsEmpty then Synced else Syncing 1 }
 
-    | System SubmitFailed ->
+    | SysMsg SubmitFailed ->
         if model.syncState = Stale then model
         else
             let failCount = match model.syncState with Syncing n -> n | _ -> 0
             { model with syncState = Pending failCount }
 
-    | System (ServerAhead _) ->
+    | SysMsg (ServerAhead _) ->
         { model with syncState = Stale }
 
-    | System PollingInactive ->
+    | SysMsg PollingInactive ->
         if model.syncState = Synced && model.pendingChanges.IsEmpty then
             { model with syncState = Inactive }
         else
             model
 
-    | System PollingActive ->
+    | SysMsg PollingActive ->
         if model.syncState = Inactive then
             { model with syncState = Synced }
         else

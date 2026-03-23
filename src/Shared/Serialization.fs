@@ -1,9 +1,33 @@
 namespace Gambol.Shared
 
 open Thoth.Json.Core
+open Thoth.Json.JavaScript
+
+
+/// Response from GET /{file}/poll — { r, b, p }.
+type PollResponse =
+    { revision: int
+      buildEpochSec: int
+      pageBuildEpochSec: int }
 
 [<RequireQualifiedAccess>]
 module Serialization =
+
+    // ---- PollResponse ----
+
+    let encodePollResponse (r: PollResponse) : IEncodable =
+        Encode.object
+            [ "r", Encode.int r.revision
+              "b", Encode.int r.buildEpochSec
+              "p", Encode.int r.pageBuildEpochSec ]
+
+    let decodePollResponse (text: string) : Result<PollResponse, string> =
+        let decoder =
+            Decode.object (fun get ->
+                { revision = get.Required.Field "r" Decode.int
+                  buildEpochSec = get.Required.Field "b" Decode.int
+                  pageBuildEpochSec = get.Required.Field "p" Decode.int })
+        Decode.fromString decoder text
 
     // ---- NodeId ----
 

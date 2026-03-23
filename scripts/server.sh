@@ -40,8 +40,6 @@ done
 
 case "$ACTION" in
     build)
-        echo "==> Building client (Fable)..."
-        dotnet fable src/Client --outDir src/Server/wwwroot --sourceMaps
         echo "==> Building server ($CONFIG)..."
         dotnet build src/Server -c "$CONFIG"
         ;;
@@ -49,13 +47,9 @@ case "$ACTION" in
         dotnet clean src/Server -c "$CONFIG"
         ;;
     run)
-        echo "==> Building client (Fable)..."
-        dotnet fable src/Client --outDir src/Server/wwwroot --sourceMaps
         dotnet run --project src/Server -c "$CONFIG"
         ;;
     watch)
-        echo "==> Building client (Fable)..."
-        dotnet fable src/Client --outDir src/Server/wwwroot --sourceMaps
         dotnet watch run --project src/Server -c "$CONFIG"
         ;;
     *)
