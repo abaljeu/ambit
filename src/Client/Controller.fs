@@ -680,19 +680,25 @@ let private dispatchResolvedKey
         setLastKeyDisplay (Some keyStr) None
 
 /// Route keyboard handling by mode: palette overlay, CSS class prompt, editing field, or selection (hidden input).
-let handleKey (mode: Mode) (keyEvent: KeyboardEvent) (applyOp: Op -> unit) : unit =
-    let keyStr = formatKeyCombo keyEvent
-    let table =
-        match mode with
-        | CommandPalette _ -> paletteKeyBindings
-        | CssClassPrompt _ -> cssClassPromptKeyBindings
-        | Editing _ -> editingKeyBindings
-        | Selecting -> selectionKeyBindings
-    match tryResolveFromNamed table keyEvent with
-    | Error _ ->
-        setLastKeyDisplay (Some keyStr) None
-    | Ok resolved ->
-        dispatchResolvedKey keyStr resolved keyEvent applyOp
+let handleKey (mode: Mode) (ke: KeyboardEvent) (applyOp: Op -> unit) : unit =
+    let hasNonShiftModifier = ke.ctrlKey || ke.altKey || ke.metaKey
+    match mode with
+    | Editing _ when 
+            not hasNonShiftModifier && ke.key.Length = 1 ->
+            () // Let the visible edit input receive the character; skip hidden-input bindings.
+    | _ ->
+        let keyStr = formatKeyCombo ke
+        let table =
+            match mode with
+            | CommandPalette _ -> paletteKeyBindings
+            | CssClassPrompt _ -> cssClassPromptKeyBindings
+            | Editing _ -> editingKeyBindings
+            | Selecting -> selectionKeyBindings
+        match tryResolveFromNamed table ke with
+        | Error _ ->
+            setLastKeyDisplay (Some keyStr) None
+        | Ok resolved ->
+            dispatchResolvedKey keyStr resolved ke applyOp
 
 /// Command palette input: fixed binding list (listener wired once; no Mode value in closure).
 let handlePaletteKey (keyEvent: KeyboardEvent) (applyOp: Op -> unit) : unit =

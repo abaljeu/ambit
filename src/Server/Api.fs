@@ -3,6 +3,7 @@ namespace Gambol.Server
 open Microsoft.AspNetCore.Http
 open Gambol.Shared
 open Thoth.Json.Newtonsoft
+open Thoth.Json.Newtonsoft
 
 module Api =
 
