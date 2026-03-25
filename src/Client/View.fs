@@ -183,7 +183,7 @@ let private resolveRow
 // ---------------------------------------------------------------------------
 
 /// Focus the correct element after each dispatch.
-let manageFocus (model: VM) : unit =
+let manageFocus (model: VM) (rowByInstanceId: Map<SiteId, HTMLElement>) : unit =
     match model.mode with
     | CommandPalette _ | CssClassPrompt _ ->
         () // focus is handled by renderCommandPalette / renderCssClassPrompt after the element becomes visible
@@ -197,10 +197,17 @@ let manageFocus (model: VM) : unit =
                 | Editing (_, Some p) -> p
                 | _ -> inp.value.Length
             inp.setSelectionRange(pos, pos)
+            scrollIntoViewNearest inp
     | Selecting ->
         let hiddenInput = document.getElementById "hidden-input"
         if not (isNull hiddenInput) then
             (hiddenInput :?> HTMLInputElement).focus()
+        let focusedInstId =
+            match model.selectedNodes with
+            | None -> model.siteMap.rootId
+            | Some sel -> ViewModel.focusedInstanceId sel
+        Map.tryFind focusedInstId rowByInstanceId
+        |> Option.iter scrollIntoViewNearest
 
 // ---------------------------------------------------------------------------
 // Command palette rendering
@@ -375,7 +382,7 @@ let render (vm: VM) (applyOp: Op -> unit) : Map<SiteId, HTMLElement> =
         if isNull sentinel then app.appendChild row |> ignore
         else app.insertBefore(row, sentinel) |> ignore
 
-    manageFocus vm
+    manageFocus vm cache
     renderStatus vm
     cache
 
@@ -441,6 +448,6 @@ let patchDOM (oldModel: VM) (newModel: VM) (applyOp: Op -> unit) (cache: Map<Sit
 
         prevNode <- Some (row :> Browser.Types.Node)
 
-    manageFocus newModel
+    manageFocus newModel cache'
     renderStatus newModel
     cache'
