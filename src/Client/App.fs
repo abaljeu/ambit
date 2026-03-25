@@ -125,7 +125,7 @@ and dispatch (msg: Msg) : unit =
                                 graph = localGraph
                                 pendingChanges = restoredPending
                                 syncState = Syncing 1 }
-            fireNextPending restoredPending dispatch
+            fireNextPending serverRev restoredPending dispatch
         elementCache <- render currentModel applyOp
         View.renderUndoStatus currentModel
         View.renderCommandPalette currentModel applyOp

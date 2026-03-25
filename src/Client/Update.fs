@@ -110,12 +110,14 @@ let readEditInputSelectionEnd () : int =
     else int (el :?> HTMLInputElement).selectionEnd
 
 /// Fire the next POST in the pending queue (head of the list).
+/// `baseRevision` is the last server-acknowledged revision; the head change must use it as
+/// `Change.id` (multiple local edits before the first ack all encode with the old id — we fix on the wire).
 /// Uses a 5s client-side timeout so a hanging request transitions to Pending and can be retried.
-let fireNextPending (pending: Change list) (dispatch: Msg -> unit) : unit =
+let fireNextPending (baseRevision: int) (pending: Change list) (dispatch: Msg -> unit) : unit =
     match pending with
     | [] -> ()
     | change :: _ ->
-        let body = encodeChangeBody change
+        let body = encodeChangeBody { change with id = baseRevision }
         let timeoutId = setTimeout (fun () -> dispatch (SysMsg SubmitNoResponse)) 5_000
         postJson $"/{currentFile}/changes" body
             (fun responseText -> // Success response
@@ -137,7 +139,7 @@ let applyAndPost (change: Change) (model: VM) (dispatch: Msg -> unit) : VM optio
         let wasEmpty = model.pendingChanges.IsEmpty
         let pending = model.pendingChanges @ [change]
         savePendingQueue pending
-        if model.syncState <> Stale && wasEmpty then fireNextPending pending dispatch
+        if model.syncState <> Stale && wasEmpty then fireNextPending model.revision.Value pending dispatch
         let syncState = if model.syncState = Stale then Stale else Syncing 1
         Some { model with
                  graph = newState.graph
@@ -1274,7 +1276,7 @@ let retryPendingOp (resetCount: bool) (model: VM) (dispatch: Msg -> unit) : VM =
     | _, [] -> { model with syncState = Synced }
     | Syncing _, _ -> model
     | Pending failCount, _ ->
-        fireNextPending model.pendingChanges dispatch
+        fireNextPending model.revision.Value model.pendingChanges dispatch
         let attempt = if resetCount then 1 else failCount + 1
         { model with syncState = Syncing attempt }
     | _,_ -> model
@@ -1292,7 +1294,7 @@ let undoOp (model: VM) (dispatch: Msg -> unit) : VM =
             let wasEmpty = model'.pendingChanges.IsEmpty
             let pending = model'.pendingChanges @ [invertedChange]
             savePendingQueue pending
-            if model'.syncState <> Stale && wasEmpty then fireNextPending pending dispatch
+            if model'.syncState <> Stale && wasEmpty then fireNextPending model'.revision.Value pending dispatch
             let syncState = if model'.syncState = Stale then Stale else Syncing 1
             { model' with
                 graph = newState.graph
@@ -1319,7 +1321,7 @@ let redoOp (model: VM) (dispatch: Msg -> unit) : VM =
             let wasEmpty = model'.pendingChanges.IsEmpty
             let pending = model'.pendingChanges @ [reChange]
             savePendingQueue pending
-            if model'.syncState <> Stale && wasEmpty then fireNextPending pending dispatch
+            if model'.syncState <> Stale && wasEmpty then fireNextPending model'.revision.Value pending dispatch
             let syncState = if model'.syncState = Stale then Stale else Syncing 1
             { model' with
                 graph = newState.graph
@@ -1355,9 +1357,13 @@ let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
     | SysMsg (SubmitResponse revision) ->
         if model.syncState = Stale then model
         else
-            let pending = match model.pendingChanges with _ :: t -> t | [] -> []
+            let pendingTail = match model.pendingChanges with _ :: t -> t | [] -> []
+            let pending =
+                match pendingTail with
+                | [] -> []
+                | h :: t -> { h with id = revision.Value } :: t
             savePendingQueue pending
-            if not pending.IsEmpty then fireNextPending pending dispatch
+            if not pending.IsEmpty then fireNextPending revision.Value pending dispatch
             { model with
                 revision = revision
                 history = { model.history with nextId = max model.history.nextId revision.Value }
