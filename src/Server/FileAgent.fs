@@ -68,7 +68,9 @@ module FileAgent =
         let snapshotInProgress = ref false
         let snapshotNeeded = ref false
 
-        for i in state.Value.revision.Value .. offsetIndex.Count - 1 do
+        let replayFromLogIndex = state.Value.revision.Value
+
+        for i in replayFromLogIndex .. offsetIndex.Count - 1 do
             let _, json = ChangeLog.readEntryAt logStream offsetIndex.[i]
             match ChangeLog.decodeChange json with
             | Ok change ->
@@ -85,6 +87,14 @@ module FileAgent =
                 Thoth.Json.Core.Encode.object
                     [ "revision", Serialization.encodeRevision state.Value.revision
                       "graph", Serialization.encodeGraph state.Value.graph ])
+
+        let encodeChangeAckJson () =
+            Encode.toString 0 (
+                Thoth.Json.Core.Encode.object
+                    [ "revision", Serialization.encodeRevision state.Value.revision ])
+
+        let isDuplicateSubmission (change: Change) (history: History) =
+            history.past |> List.exists (fun c -> c.id = change.id && c.changeId = change.changeId)
 
         let startSnapshot (inbox: MailboxProcessor<FileAgentMsg>) =
             snapshotInProgress.Value <- true
@@ -112,19 +122,26 @@ module FileAgent =
             | Error err ->
                 reply.Reply(Error $"Invalid JSON: {err}")
             | Ok change ->
-                match History.applyChange change state.Value with
-                | ApplyResult.Invalid (_, errMsg) ->
-                    reply.Reply(Error errMsg)
-                | ApplyResult.Unchanged _ ->
-                    reply.Reply(Ok (encodeStateJson ()))
-                | ApplyResult.Changed newState ->
-                    let json = ChangeLog.encodeChange change
-                    let offset = ChangeLog.appendEntry logStream change.id json
-                    offsetIndex.Add(offset)
-                    state.Value <- { newState with revision = Revision (state.Value.revision.Value + 1) }
-                    reply.Reply(Ok (encodeStateJson ()))
-                    if snapshotInProgress.Value then snapshotNeeded.Value <- true
-                    else startSnapshot inbox
+                if isDuplicateSubmission change state.Value.history then
+                    reply.Reply(Ok (encodeChangeAckJson ()))
+                elif change.id <> state.Value.revision.Value then
+                    reply.Reply(
+                        Error
+                            $"Revision mismatch: server is at revision {state.Value.revision.Value}, but this change targets base revision {change.id}.")
+                else
+                    match History.applyChange change state.Value with
+                    | ApplyResult.Invalid (_, errMsg) ->
+                        reply.Reply(Error errMsg)
+                    | ApplyResult.Unchanged _ ->
+                        reply.Reply(Ok (encodeChangeAckJson ()))
+                    | ApplyResult.Changed newState ->
+                        let json = ChangeLog.encodeChange change
+                        let offset = ChangeLog.appendEntry logStream change.id json
+                        offsetIndex.Add(offset)
+                        state.Value <- { newState with revision = Revision (state.Value.revision.Value + 1) }
+                        reply.Reply(Ok (encodeChangeAckJson ()))
+                        if snapshotInProgress.Value then snapshotNeeded.Value <- true
+                        else startSnapshot inbox
 
         let mailbox = MailboxProcessor<FileAgentMsg>.Start(fun inbox ->
             let rec loop () = async {

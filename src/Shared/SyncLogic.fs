@@ -23,13 +23,15 @@ module SyncLogic =
         dataStale || serverNewer
 
     /// Handle SubmitFailed: ignore when Stale or when pending is empty (late timeout).
-    /// Otherwise transition to Pending with the current Syncing attempt count.
+    /// Otherwise transition to Stale so the user refreshes / reconciles with the server.
     let applySubmitFailed (model: VM) : VM =
         if model.syncState = Stale then model
         elif model.pendingChanges.IsEmpty then model
-        else
-            let failCount = match model.syncState with Syncing n -> n | _ -> 0
-            { model with syncState = Pending failCount }
+        else { model with syncState = Stale }
+
+    let applySubmitNoResponse (model: VM) : VM =
+        let failCount = match model.syncState with Syncing n -> n | _ -> 0
+        { model with syncState = Pending failCount }
 
     /// Handle ServerAhead: transition to Stale.
     let applyServerAhead (_rev: Revision) (model: VM) : VM =

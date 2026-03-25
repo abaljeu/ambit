@@ -326,9 +326,9 @@ let renderStatus (model: VM) : unit =
         | Pending _ ->
             el.textContent <- "Unsaved changes \u2014 click to retry"
             el.className <- "amb-sync-status amb-pending"
-        | Conflicted -> // not in use.
-            el.textContent <- "Conflict detected \u2014 resolving\u2026"
-            el.className <- "amb-sync-status amb-conflicted"
+        // | Conflicted ->
+        //     el.textContent <- "Conflict detected \u2014 resolving\u2026"
+        //     el.className <- "amb-sync-status amb-conflicted"
         | Stale ->
             el.textContent <- "Refresh the view"
             el.className <- "amb-sync-status amb-stale"

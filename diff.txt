@@ -1,0 +1,153 @@
+diff --git a/src/Client/App.fs b/src/Client/App.fs
+index 4e89f03..05ab578 100644
+--- a/src/Client/App.fs
++++ b/src/Client/App.fs
+@@ -134,6 +134,8 @@ and dispatch (msg: Msg) : unit =
+         retryCount <- 0
+         View.renderStatus currentModel
+     | SysMsg SubmitFailed ->
++        View.renderStatus currentModel
++    | SysMsg SubmitNoResponse ->
+         retryCount <- retryCount + 1
+         let maxAutoRetries = 10
+         let delaySec = min 60 (1 <<< (min retryCount 6))
+@@ -142,6 +144,7 @@ and dispatch (msg: Msg) : unit =
+             setTimeout (fun () ->
+                 applyOp (retryPendingOp false)
+                 View.renderStatus currentModel) (delaySec * 1000)
++            |> ignore
+         View.renderStatus currentModel
+     | SysMsg (ServerAhead _) ->
+         View.renderStatus currentModel
+diff --git a/src/Client/Update.fs b/src/Client/Update.fs
+index 6e8fc43..ad3cf38 100644
+--- a/src/Client/Update.fs
++++ b/src/Client/Update.fs
+@@ -18,10 +18,10 @@ let postJson (url: string) (body: string) (onSuccess: string -> unit) (onFail: u
+     : unit = jsNative
+ 
+ [<Emit("window.setTimeout($0, $1)")>]
+-let setTimeout (f: unit -> unit) (ms: int) : unit = jsNative
++let setTimeout (f: unit -> unit) (ms: int) : int = jsNative
+ 
+ [<Emit("window.clearTimeout($0)")>]
+-let clearTimeout (id: obj) : unit = jsNative
++let clearTimeout (id: int) : unit = jsNative
+ 
+ [<Emit("localStorage.setItem($0,$1)")>]
+ let private lsSet (k: string) (v: string) : unit = jsNative
+@@ -110,16 +110,15 @@ let fireNextPending (pending: Change list) (dispatch: Msg -> unit) : unit =
+     | [] -> ()
+     | change :: _ ->
+         let body = encodeChangeBody change
+-        let timeoutId = setTimeout (fun () -> dispatch (SysMsg SubmitFailed)) 5_000
+-        let cancelTimeout () = clearTimeout timeoutId
++        let timeoutId = setTimeout (fun () -> dispatch (SysMsg SubmitNoResponse)) 5_000
+         postJson $"/{currentFile}/changes" body
+-            (fun responseText ->
+-                cancelTimeout ()
++            (fun responseText -> // Success response
++                clearTimeout timeoutId
+                 match decodeStateResponse responseText with
+                 | Ok (_graph, rev) -> dispatch (SysMsg (SubmitResponse rev))
+-                | Error _ -> dispatch (SysMsg SubmitFailed))
++                | Error _ -> dispatch (SysMsg SubmitFailed)) // response not recognized
+             (fun () ->
+-                cancelTimeout ()
++                clearTimeout timeoutId
+                 dispatch (SysMsg SubmitFailed))
+ 
+ /// Apply a change to the local model, enqueue it for posting to the server,
+@@ -1265,7 +1264,7 @@ let zoomOutOp (model: VM) (dispatch: Msg -> unit) : VM =
+ /// Op: Retry pending server POST. When resetCount=true (manual click), resets attempt count for a fresh batch.
+ let retryPendingOp (resetCount: bool) (model: VM) (dispatch: Msg -> unit) : VM =
+     match model.syncState, model.pendingChanges with
+-    | Stale, _ | Conflicted, _ -> model
++    | Stale, _  -> model
+     | _, [] -> { model with syncState = Synced }
+     | Syncing _, _ -> model
+     | Pending failCount, _ ->
+@@ -1361,6 +1360,8 @@ let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
+ 
+     | SysMsg SubmitFailed ->
+         SyncLogic.applySubmitFailed model
++    | SysMsg SubmitNoResponse ->
++        SyncLogic.applySubmitNoResponse model
+ 
+     | SysMsg (ServerAhead rev) ->
+         SyncLogic.applyServerAhead rev model
+diff --git a/src/Client/View.fs b/src/Client/View.fs
+index 21e09ff..99e6d36 100644
+--- a/src/Client/View.fs
++++ b/src/Client/View.fs
+@@ -326,9 +326,9 @@ let renderStatus (model: VM) : unit =
+         | Pending _ ->
+             el.textContent <- "Unsaved changes \u2014 click to retry"
+             el.className <- "amb-sync-status amb-pending"
+-        | Conflicted -> // not in use.
+-            el.textContent <- "Conflict detected \u2014 resolving\u2026"
+-            el.className <- "amb-sync-status amb-conflicted"
++        // | Conflicted ->
++        //     el.textContent <- "Conflict detected \u2014 resolving\u2026"
++        //     el.className <- "amb-sync-status amb-conflicted"
+         | Stale ->
+             el.textContent <- "Refresh the view"
+             el.className <- "amb-sync-status amb-stale"
+diff --git a/src/Shared/SyncLogic.fs b/src/Shared/SyncLogic.fs
+index 7c466af..ce92189 100644
+--- a/src/Shared/SyncLogic.fs
++++ b/src/Shared/SyncLogic.fs
+@@ -27,9 +27,11 @@ module SyncLogic =
+     let applySubmitFailed (model: VM) : VM =
+         if model.syncState = Stale then model
+         elif model.pendingChanges.IsEmpty then model
+-        else
+-            let failCount = match model.syncState with Syncing n -> n | _ -> 0
+-            { model with syncState = Pending failCount }
++        else { model with syncState = Stale }
++
++    let applySubmitNoResponse (model: VM) : VM =
++        let failCount = match model.syncState with Syncing n -> n | _ -> 0
++        { model with syncState = Pending failCount }
+ 
+     /// Handle ServerAhead: transition to Stale.
+     let applyServerAhead (_rev: Revision) (model: VM) : VM =
+diff --git a/src/Shared/ViewModel.fs b/src/Shared/ViewModel.fs
+index e0096a6..9fdbf00 100644
+--- a/src/Shared/ViewModel.fs
++++ b/src/Shared/ViewModel.fs
+@@ -69,7 +69,7 @@ type SyncState =
+     | Inactive    // client paused remote polling due to idle/hidden
+     | Syncing of int   // POST in-flight; int = attempt number (1-based)
+     | Pending of int  // last POST failed; int = failure count (1..10; stop auto-retry at 10)
+-    | Conflicted  // received 409; rebase in progress
++    // | Conflicted  // received 409; rebase in progress
+     | Stale       // server has changes we don't have — refresh to see them
+ 
+ // Server `State` is in `FileAgent`, and mainly the graph.
+@@ -90,6 +90,7 @@ type VM = // the client state
+ type SystemMsg =
+     | StateLoaded of Graph * Revision
+     | SubmitResponse of Revision
++    | SubmitNoResponse
+     | SubmitFailed
+     | ServerAhead of Revision  // poll found server revision > client; view is stale
+     | PollingInactive
+diff --git a/tests/Shared.Tests/SyncLogicTests.fs b/tests/Shared.Tests/SyncLogicTests.fs
+index f74397d..365159e 100644
+--- a/tests/Shared.Tests/SyncLogicTests.fs
++++ b/tests/Shared.Tests/SyncLogicTests.fs
+@@ -98,11 +98,11 @@ let ``applySubmitFailed with empty pending returns model unchanged - late timeou
+     Assert.Equal(Synced, result.syncState)
+ 
+ [<Fact>]
+-let ``applySubmitFailed with Syncing 1 and non-empty pending transitions to Pending 1`` () =
++let ``applySubmitNoResponse with Syncing 1 and non-empty pending transitions to Pending 1`` () =
+     let graph = ModelBuilder.createDag12 ()
+     let pending = [ mkChange 0 ]
+     let model = modelWithPending graph pending (Syncing 1)
+-    let result = SyncLogic.applySubmitFailed model
++    let result = SyncLogic.applySubmitNoResponse model
+     Assert.Equal(Pending 1, result.syncState)
+     Assert.Equal(1, result.pendingChanges.Length)
+ 

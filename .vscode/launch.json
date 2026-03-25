@@ -3,8 +3,12 @@
     "compounds": [
         {
             "name": "Full Stack",
-            "configurations": ["Launch Server",
-                "Launch Client (Chrome)"]
+            "configurations": [
+                "Launch Server (Full Stack)",
+                "Launch Client (Full Stack Chrome)"
+            ],
+            "preLaunchTask": "fullstack: Build",
+            "stopAll": true
         }
     ],
     "configurations": [
@@ -40,6 +44,59 @@
             "type": "chrome",
             "request": "launch",
             "preLaunchTask": "fable: Build Client",
+            "url": "http://localhost:5115/ambit",
+            "webRoot": "${workspaceFolder}/src/Server/wwwroot",
+            "sourceMapPathOverrides": {
+                "../../Client/*": "${workspaceFolder}/src/Client/*",
+                "../../../Shared/*": "${workspaceFolder}/src/Shared/*"
+            }
+        },
+        {
+            "name": "Launch Client (Chrome) — collaborative-systems.org",
+            "type": "chrome",
+            "request": "launch",
+            "url": "https://collaborative-systems.org/ambit",
+            "webRoot": "${workspaceFolder}/src/Server/wwwroot",
+            "pathMapping": {
+                "/ambit": "${workspaceFolder}/src/Server/wwwroot"
+            },
+            "sourceMapPathOverrides": {
+                "../../Client/*": "${workspaceFolder}/src/Client/*",
+                "../../../Shared/*": "${workspaceFolder}/src/Shared/*"
+            }
+        },
+        {
+            "name": "Launch Client (Edge) — collaborative-systems.org",
+            "type": "msedge",
+            "request": "launch",
+            "url": "https://collaborative-systems.org/ambit",
+            "webRoot": "${workspaceFolder}/src/Server/wwwroot",
+            "pathMapping": {
+                "/ambit": "${workspaceFolder}/src/Server/wwwroot"
+            },
+            "sourceMapPathOverrides": {
+                "../../Client/*": "${workspaceFolder}/src/Client/*",
+                "../../../Shared/*": "${workspaceFolder}/src/Shared/*"
+            }
+        },
+        {
+            "name": "Launch Server (Full Stack)",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/Server/bin/Debug/net10.0/Gambol.Server.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "console": "internalConsole",
+            "env": {
+                "ASPNETCORE_ENVIRONMENT": "Development",
+                "ASPNETCORE_URLS": "http://localhost:5115"
+            }
+        },
+        {
+            "name": "Launch Client (Full Stack Chrome)",
+            "type": "chrome",
+            "request": "launch",
             "url": "http://localhost:5115/ambit",
             "webRoot": "${workspaceFolder}/src/Server/wwwroot",
             "sourceMapPathOverrides": {

@@ -5,7 +5,7 @@ $ErrorActionPreference = "Stop"
 
 try {
     # 1. Build Fable client
-    dotnet fable src/Client --outDir src/Server/wwwroot
+    dotnet fable src/Client --outDir src/Server/wwwroot --sourceMaps
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
     # 2. Publish ASP.NET server

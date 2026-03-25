@@ -98,11 +98,11 @@ let ``applySubmitFailed with empty pending returns model unchanged - late timeou
     Assert.Equal(Synced, result.syncState)
 
 [<Fact>]
-let ``applySubmitFailed with Syncing 1 and non-empty pending transitions to Pending 1`` () =
+let ``applySubmitNoResponse with Syncing 1 and non-empty pending transitions to Pending 1`` () =
     let graph = ModelBuilder.createDag12 ()
     let pending = [ mkChange 0 ]
     let model = modelWithPending graph pending (Syncing 1)
-    let result = SyncLogic.applySubmitFailed model
+    let result = SyncLogic.applySubmitNoResponse model
     Assert.Equal(Pending 1, result.syncState)
     Assert.Equal(1, result.pendingChanges.Length)
 

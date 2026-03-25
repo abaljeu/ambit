@@ -115,8 +115,10 @@ let ``POST changes SetText changes root text and bumps revision`` () = task {
     let! resp = postChange client testFile change
     Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
 
-    let! json = resp.Content.ReadAsStringAsync()
-    Assert.Equal(Revision 1, decodeRevision json)
+    let! postBody = resp.Content.ReadAsStringAsync()
+    Assert.Equal(Revision 1, decodeRevision postBody)
+
+    let! json = getStateJson client testFile
     let graph = decodeGraph json
     Assert.Equal("hello", graph.nodes.[rootId].text)
 }
@@ -138,7 +140,10 @@ let ``POST changes NewNode+Replace adds child to root`` () = task {
     let! resp = postChange client testFile change
     Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
 
-    let! json = resp.Content.ReadAsStringAsync()
+    let! postBody = resp.Content.ReadAsStringAsync()
+    Assert.Equal(Revision 1, decodeRevision postBody)
+
+    let! json = getStateJson client testFile
     let graph = decodeGraph json
     Assert.Equal(2, graph.nodes.Count)
     Assert.Equal<NodeId list>([ childId ], graph.nodes.[rootId].children)
@@ -178,8 +183,10 @@ let ``POST changes twice bumps revision to 2`` () = task {
     let! resp2 = postChange client testFile change2
     Assert.Equal(HttpStatusCode.OK, resp2.StatusCode)
 
-    let! json = resp2.Content.ReadAsStringAsync()
-    Assert.Equal(Revision 2, decodeRevision json)
+    let! postBody2 = resp2.Content.ReadAsStringAsync()
+    Assert.Equal(Revision 2, decodeRevision postBody2)
+
+    let! json = getStateJson client testFile
     Assert.Equal("second", (decodeGraph json).nodes.[rootId].text)
 }
 
@@ -194,6 +201,50 @@ let ``POST changes persists in GET state`` () = task {
     let! json = getStateJson client testFile
     Assert.Equal(Revision 1, decodeRevision json)
     Assert.Equal("persisted", (decodeGraph json).nodes.[rootId].text)
+}
+
+[<Fact>]
+let ``POST same changeId twice is idempotent`` () = task {
+    use client = createClient ()
+    let! json0 = getStateJson client testFile
+    let rootId = (decodeGraph json0).root
+    let cid = Guid.NewGuid()
+    let change =
+        { id = 0
+          changeId = cid
+          ops = [ Op.SetText(rootId, "", "once") ] }
+
+    // POST /changes: revision-only body; duplicate must ack same revision without re-applying.
+    let! r1 = postChange client testFile change
+    Assert.Equal(HttpStatusCode.OK, r1.StatusCode)
+    let! b1 = r1.Content.ReadAsStringAsync()
+    Assert.DoesNotContain("graph", b1, StringComparison.Ordinal)
+    Assert.Equal(Revision 1, decodeRevision b1)
+
+    let! r2 = postChange client testFile change
+    Assert.Equal(HttpStatusCode.OK, r2.StatusCode)
+    let! b2 = r2.Content.ReadAsStringAsync()
+    Assert.DoesNotContain("graph", b2, StringComparison.Ordinal)
+    Assert.Equal(Revision 1, decodeRevision b2)
+
+    // GET /state (in-memory FileAgent, not reading snapshot files): one apply, text still "once".
+    let! json = getStateJson client testFile
+    Assert.Equal(Revision 1, decodeRevision json)
+    Assert.Equal("once", (decodeGraph json).nodes.[rootId].text)
+}
+
+[<Fact>]
+let ``POST with wrong base revision returns 400`` () = task {
+    use client = createClient ()
+    let! json0 = getStateJson client testFile
+    let rootId = (decodeGraph json0).root
+    let change =
+        { id = 5
+          changeId = Guid.NewGuid()
+          ops = [ Op.SetText(rootId, "", "x") ] }
+
+    let! resp = postChange client testFile change
+    Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode)
 }
 
 // ---- Change log + persistence tests ----

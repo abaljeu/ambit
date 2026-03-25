@@ -69,7 +69,7 @@ type SyncState =
     | Inactive    // client paused remote polling due to idle/hidden
     | Syncing of int   // POST in-flight; int = attempt number (1-based)
     | Pending of int  // last POST failed; int = failure count (1..10; stop auto-retry at 10)
-    | Conflicted  // received 409; rebase in progress
+    // | Conflicted  // received 409; rebase in progress
     | Stale       // server has changes we don't have — refresh to see them
 
 // Server `State` is in `FileAgent`, and mainly the graph.
@@ -90,6 +90,7 @@ type VM = // the client state
 type SystemMsg =
     | StateLoaded of Graph * Revision
     | SubmitResponse of Revision
+    | SubmitNoResponse
     | SubmitFailed
     | ServerAhead of Revision  // poll found server revision > client; view is stale
     | PollingInactive

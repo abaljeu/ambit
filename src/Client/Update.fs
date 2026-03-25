@@ -18,10 +18,10 @@ let postJson (url: string) (body: string) (onSuccess: string -> unit) (onFail: u
     : unit = jsNative
 
 [<Emit("window.setTimeout($0, $1)")>]
-let setTimeout (f: unit -> unit) (ms: int) : unit = jsNative
+let setTimeout (f: unit -> unit) (ms: int) : int = jsNative
 
 [<Emit("window.clearTimeout($0)")>]
-let clearTimeout (id: obj) : unit = jsNative
+let clearTimeout (id: int) : unit = jsNative
 
 [<Emit("localStorage.setItem($0,$1)")>]
 let private lsSet (k: string) (v: string) : unit = jsNative
@@ -49,13 +49,19 @@ let encodeChangeBody (change: Change) : string =
     Thoth.Json.JavaScript.Encode.toString 0 (Serialization.encodeChange change)
 
 
-/// Decode the response from GET /{file}/state or POST /{file}/changes
+/// Decode the response from GET /{file}/state
 let decodeStateResponse (text: string) : Result<Graph * Revision, string> =
     let decoder =
         Decode.object (fun get ->
             let g = get.Required.Field "graph" Serialization.decodeGraph
             let r = get.Required.Field "revision" Serialization.decodeRevision
             g, r)
+    Thoth.Json.JavaScript.Decode.fromString decoder text
+
+/// Decode POST /{file}/changes success body (revision ack only).
+let decodeChangeAckResponse (text: string) : Result<Revision, string> =
+    let decoder =
+        Decode.object (fun get -> get.Required.Field "revision" Serialization.decodeRevision)
     Thoth.Json.JavaScript.Decode.fromString decoder text
 
 // ---------------------------------------------------------------------------
@@ -110,16 +116,15 @@ let fireNextPending (pending: Change list) (dispatch: Msg -> unit) : unit =
     | [] -> ()
     | change :: _ ->
         let body = encodeChangeBody change
-        let timeoutId = setTimeout (fun () -> dispatch (SysMsg SubmitFailed)) 5_000
-        let cancelTimeout () = clearTimeout timeoutId
+        let timeoutId = setTimeout (fun () -> dispatch (SysMsg SubmitNoResponse)) 5_000
         postJson $"/{currentFile}/changes" body
-            (fun responseText ->
-                cancelTimeout ()
-                match decodeStateResponse responseText with
-                | Ok (_graph, rev) -> dispatch (SysMsg (SubmitResponse rev))
-                | Error _ -> dispatch (SysMsg SubmitFailed))
+            (fun responseText -> // Success response
+                clearTimeout timeoutId
+                match decodeChangeAckResponse responseText with
+                | Ok rev -> dispatch (SysMsg (SubmitResponse rev))
+                | Error _ -> dispatch (SysMsg SubmitFailed)) // response not recognized
             (fun () ->
-                cancelTimeout ()
+                clearTimeout timeoutId
                 dispatch (SysMsg SubmitFailed))
 
 /// Apply a change to the local model, enqueue it for posting to the server,
@@ -1265,7 +1270,7 @@ let zoomOutOp (model: VM) (dispatch: Msg -> unit) : VM =
 /// Op: Retry pending server POST. When resetCount=true (manual click), resets attempt count for a fresh batch.
 let retryPendingOp (resetCount: bool) (model: VM) (dispatch: Msg -> unit) : VM =
     match model.syncState, model.pendingChanges with
-    | Stale, _ | Conflicted, _ -> model
+    | Stale, _  -> model
     | _, [] -> { model with syncState = Synced }
     | Syncing _, _ -> model
     | Pending failCount, _ ->
@@ -1361,6 +1366,8 @@ let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
 
     | SysMsg SubmitFailed ->
         SyncLogic.applySubmitFailed model
+    | SysMsg SubmitNoResponse ->
+        SyncLogic.applySubmitNoResponse model
 
     | SysMsg (ServerAhead rev) ->
         SyncLogic.applyServerAhead rev model

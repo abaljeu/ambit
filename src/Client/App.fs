@@ -134,6 +134,8 @@ and dispatch (msg: Msg) : unit =
         retryCount <- 0
         View.renderStatus currentModel
     | SysMsg SubmitFailed ->
+        View.renderStatus currentModel
+    | SysMsg SubmitNoResponse ->
         retryCount <- retryCount + 1
         let maxAutoRetries = 10
         let delaySec = min 60 (1 <<< (min retryCount 6))
@@ -142,6 +144,7 @@ and dispatch (msg: Msg) : unit =
             setTimeout (fun () ->
                 applyOp (retryPendingOp false)
                 View.renderStatus currentModel) (delaySec * 1000)
+            |> ignore
         View.renderStatus currentModel
     | SysMsg (ServerAhead _) ->
         View.renderStatus currentModel
