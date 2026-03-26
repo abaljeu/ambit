@@ -2,6 +2,27 @@ namespace Gambol.Shared
 
 [<RequireQualifiedAccess>]
 module ModelBuilder =
+    let private assignOwnership (graph: Graph) (ids: NodeId list) : ChildNode list =
+        let existingOccurrences =
+            graph.nodes
+            |> Map.values
+            |> Seq.collect (fun node -> node.children)
+            |> Seq.map (fun child -> child.id)
+            |> Set.ofSeq
+
+        let folder (seen, children) id =
+            let ownership =
+                if Set.contains id seen then
+                    Ownership.Ref
+                else
+                    Ownership.Owner
+
+            let child = { ref = ownership; id = id }
+            Set.add id seen, child :: children
+
+        let _, childrenRev = ids |> List.fold folder (existingOccurrences, [])
+        childrenRev |> List.rev
+
     let createNodes (texts: string list) (graph: Graph) : Graph * NodeId list =
         let folder (currentGraph, currentIds) text =
             let nextGraph, nodeId = Graph.newNode text currentGraph
@@ -36,7 +57,7 @@ module ModelBuilder =
             |> requireOk "createDag12.setText"
 
         let replaceInsert parentId newIds graph =
-            Graph.replace parentId 0 [] newIds graph
+            Graph.replace parentId 0 [] (assignOwnership graph newIds) graph
             |> requireOk "createDag12.replace"
 
         graph2
@@ -66,7 +87,7 @@ module ModelBuilder =
         let sh = List.item 2 ids
 
         let replaceInsert parentId newIds graph =
-            Graph.replace parentId 0 [] newIds graph
+            Graph.replace parentId 0 [] (assignOwnership graph newIds) graph
             |> requireOk "createSharedNodeGraph.replace"
 
         graph1

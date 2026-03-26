@@ -4,6 +4,9 @@ open Gambol.Shared
 open Gambol.Shared.ViewModel
 open Xunit
 
+let private owned (ids: NodeId list) : ChildNode list =
+    ids |> List.map (fun id -> { ref = Ownership.Owner; id = id })
+
 // ---------------------------------------------------------------------------
 // Test helpers
 // ---------------------------------------------------------------------------
@@ -14,7 +17,7 @@ let buildFlat (texts: string list) : Graph * NodeId list =
     let graph1, ids = ModelBuilder.createNodes texts graph0
 
     let graph2 =
-        Graph.replace graph1.root 0 [] ids graph1
+        Graph.replace graph1.root 0 [] (owned ids) graph1
         |> ModelBuilder.requireOk "buildFlat.replace"
 
     graph2, ids
@@ -225,8 +228,8 @@ let ``applyMoveSelectionDown with focus at end collapses and moves down`` () =
     | None -> Assert.True(false, "Expected Some")
     | Some sel ->
         // Should have moved to ids.[1]
-        let expectedId = graph.nodes.[graph.root].children.[1]
-        let gotId = graph.nodes.[sel.range.parent.nodeId].children.[sel.focus]
+        let expectedId = graph.nodes.[graph.root].children.[1].id
+        let gotId = graph.nodes.[sel.range.parent.nodeId].children.[sel.focus].id
         Assert.Equal(expectedId, gotId)
         Assert.Equal(1, sel.range.endd - sel.range.start) // single-node
 
@@ -280,14 +283,14 @@ let buildNested () : Graph * NodeId list =
     let b1 = ids.[4]
 
     let graph2 =
-        Graph.replace graph1.root 0 [] [ a; b ] graph1
+        Graph.replace graph1.root 0 [] (owned [ a; b ]) graph1
         |> ModelBuilder.requireOk "buildNested.root"
 
     let graph3 =
-        Graph.replace a 0 [] [ a1; a2 ] graph2 |> ModelBuilder.requireOk "buildNested.a"
+        Graph.replace a 0 [] (owned [ a1; a2 ]) graph2 |> ModelBuilder.requireOk "buildNested.a"
 
     let graph4 =
-        Graph.replace b 0 [] [ b1 ] graph3 |> ModelBuilder.requireOk "buildNested.b"
+        Graph.replace b 0 [] (owned [ b1 ]) graph3 |> ModelBuilder.requireOk "buildNested.b"
 
     graph4, ids
 
@@ -335,12 +338,12 @@ let ``SiteMap buildSiteMap terminates on cyclic graph`` () =
     let b = ids.[1]
 
     let graph2 =
-        Graph.replace graph1.root 0 [] [ a ] graph1 |> ModelBuilder.requireOk "root->a"
+        Graph.replace graph1.root 0 [] (owned [ a ]) graph1 |> ModelBuilder.requireOk "root->a"
 
-    let graph3 = Graph.replace a 0 [] [ b ] graph2 |> ModelBuilder.requireOk "a->b"
+    let graph3 = Graph.replace a 0 [] (owned [ b ]) graph2 |> ModelBuilder.requireOk "a->b"
 
     let graph4 =
-        Graph.replace b 0 [] [ a ] graph3 |> ModelBuilder.requireOk "b->a (cycle)"
+        Graph.replace b 0 [] (owned [ a ]) graph3 |> ModelBuilder.requireOk "b->a (cycle)"
     // Must terminate — buildSiteMap only creates root + direct children, no recursion
     let siteMap, _ = buildSiteMap graph4
     Assert.Equal(2, siteMap.entries.Count) // root + a (collapsed, stale)
@@ -399,7 +402,7 @@ let ``SiteMap reconcileSiteMap assigns new IDs for added nodes`` () =
     let rootChildren = graph2.nodes.[graph2.root].children
 
     let graph3 =
-        Graph.replace graph2.root rootChildren.Length [] [ newNodeId ] graph2
+        Graph.replace graph2.root rootChildren.Length [] (owned [ newNodeId ]) graph2
         |> ModelBuilder.requireOk "add c"
 
     let rebuilt, nextId2 = reconcileSiteMap graph3 siteMap nextId
@@ -419,10 +422,10 @@ let ``SiteMap reconcileSiteMap two occurrences of same NodeId get distinct insta
     let c = ids.[2]
 
     let graph2 =
-        Graph.replace graph1.root 0 [] [ a; b ] graph1 |> ModelBuilder.requireOk "root"
+        Graph.replace graph1.root 0 [] (owned [ a; b ]) graph1 |> ModelBuilder.requireOk "root"
 
-    let graph3 = Graph.replace a 0 [] [ c ] graph2 |> ModelBuilder.requireOk "a->c"
-    let graph4 = Graph.replace b 0 [] [ c ] graph3 |> ModelBuilder.requireOk "b->c"
+    let graph3 = Graph.replace a 0 [] (owned [ c ]) graph2 |> ModelBuilder.requireOk "a->c"
+    let graph4 = Graph.replace b 0 [] (owned [ c ]) graph3 |> ModelBuilder.requireOk "b->c"
     let siteMap, nextId = buildSiteMap graph4
     // Expand both A and B so C appears twice in the map
     let rootEntry = siteMap.entries.[siteMap.rootId]
@@ -450,11 +453,11 @@ let ``SiteMap reconcileSiteMap two occurrences have independent fold state`` () 
     let d = ids.[3]
 
     let graph2 =
-        Graph.replace graph1.root 0 [] [ a; b ] graph1 |> ModelBuilder.requireOk "root"
+        Graph.replace graph1.root 0 [] (owned [ a; b ]) graph1 |> ModelBuilder.requireOk "root"
 
-    let graph3 = Graph.replace a 0 [] [ c ] graph2 |> ModelBuilder.requireOk "a->c"
-    let graph4 = Graph.replace b 0 [] [ c ] graph3 |> ModelBuilder.requireOk "b->c"
-    let graph5 = Graph.replace c 0 [] [ d ] graph4 |> ModelBuilder.requireOk "c->d"
+    let graph3 = Graph.replace a 0 [] (owned [ c ]) graph2 |> ModelBuilder.requireOk "a->c"
+    let graph4 = Graph.replace b 0 [] (owned [ c ]) graph3 |> ModelBuilder.requireOk "b->c"
+    let graph5 = Graph.replace c 0 [] (owned [ d ]) graph4 |> ModelBuilder.requireOk "c->d"
     let siteMap, nextId = buildSiteMap graph5
     // Expand both A and B so C appears twice in the map
     let rootEntry = siteMap.entries.[siteMap.rootId]

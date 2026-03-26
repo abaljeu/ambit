@@ -4,15 +4,18 @@ open System
 open Xunit
 open Gambol.Shared
 
+let private childId (child: ChildNode) = child.id
+let private owned (ids: NodeId list) = ids |> List.map (fun id -> { ref = Ownership.Owner; id = id })
+
 /// Extract the tree shape as (depth, text) pairs via depth-first traversal.
 /// The root is excluded; its children are depth 0.
 let private treeShape (graph: Graph) : (int * string) list =
     let rec walk depth nodeId =
         let node = graph.nodes.[nodeId]
-        (depth, node.text) :: (node.children |> List.collect (walk (depth + 1)))
+        (depth, node.text) :: (node.children |> List.collect (fun child -> walk (depth + 1) child.id))
 
     let root = graph.nodes.[graph.root]
-    root.children |> List.collect (walk 0)
+    root.children |> List.collect (fun child -> walk 0 child.id)
 
 // ---- write tests ----
 
@@ -27,7 +30,7 @@ let ``write flat graph produces unindented lines`` () =
     let graph = Graph.create ()
     let graph, ids = ModelBuilder.createNodes [ "alpha"; "beta"; "gamma" ] graph
     let graph =
-        Graph.replace graph.root 0 [] ids graph
+        Graph.replace graph.root 0 [] (owned ids) graph
         |> ModelBuilder.requireOk "test"
     let result = Snapshot.write graph
     Assert.Equal("alpha" + Environment.NewLine + "beta" + Environment.NewLine + "gamma" + Environment.NewLine, result)
@@ -65,7 +68,7 @@ let ``read flat lines produces root with children`` () =
     let graph = Snapshot.read "alpha\nbeta\ngamma\n"
     let root = graph.nodes.[graph.root]
     Assert.Equal(3, root.children.Length)
-    let texts = root.children |> List.map (fun id -> graph.nodes.[id].text)
+    let texts = root.children |> List.map (fun child -> graph.nodes.[child.id].text)
     Assert.Equal<string list>([ "alpha"; "beta"; "gamma" ], texts)
 
 [<Fact>]
@@ -133,14 +136,14 @@ let ``read shared-node format produces shared NodeId`` () =
     let graph = Snapshot.read text
     let root = graph.nodes.[graph.root]
     Assert.Equal(2, root.children.Length)
-    let p1 = graph.nodes.[root.children.[0]]
-    let p2 = graph.nodes.[root.children.[1]]
+    let p1 = graph.nodes.[root.children.[0].id]
+    let p2 = graph.nodes.[root.children.[1].id]
     Assert.Equal("parent1", p1.text)
     Assert.Equal("parent2", p2.text)
     Assert.Equal(1, p1.children.Length)
     Assert.Equal(1, p2.children.Length)
-    Assert.Equal(p1.children.[0], p2.children.[0])   // same NodeId
-    Assert.Equal("shared", graph.nodes.[p1.children.[0]].text)
+    Assert.Equal(p1.children.[0].id, p2.children.[0].id)   // same NodeId
+    Assert.Equal("shared", graph.nodes.[p1.children.[0].id].text)
     Assert.Equal(4, Graph.nodeCount graph)             // root + parent1 + parent2 + shared
 
 // ---- shared-node round-trip ----
@@ -152,9 +155,9 @@ let ``round-trip shared-node graph preserves shape and sharing`` () =
     Assert.Equal<(int * string) list>(treeShape original, treeShape decoded)
     Assert.Equal(4, Graph.nodeCount decoded)            // root + parent1 + parent2 + shared
     let root = decoded.nodes.[decoded.root]
-    let p1 = decoded.nodes.[root.children.[0]]
-    let p2 = decoded.nodes.[root.children.[1]]
-    Assert.Equal(p1.children.[0], p2.children.[0])     // truly shared NodeId
+    let p1 = decoded.nodes.[root.children.[0].id]
+    let p2 = decoded.nodes.[root.children.[1].id]
+    Assert.Equal(p1.children.[0].id, p2.children.[0].id)     // truly shared NodeId
 
 // ---- backward compatibility: plain lines still load correctly ----
 

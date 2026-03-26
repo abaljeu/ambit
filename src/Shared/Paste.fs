@@ -3,6 +3,9 @@ module Gambol.Shared.Paste
 open System
 open Gambol.Shared
 
+let private ownedChildren (ids: NodeId list) : ChildNode list =
+    ids |> List.map (fun id -> { ref = Ownership.Owner; id = id })
+
 /// Parse clipboard plain text into (nodeText, depth) pairs.
 /// Tabs at the start of a line indicate nesting depth.
 /// Runs of 2+ consecutive blank lines collapse to a single blank entry.
@@ -43,7 +46,7 @@ let buildPasteOps (entries: (string * int) list) : NodeId list * Op list =
     let replaceOps =
         childrenMap
         |> Map.toList
-        |> List.map (fun (parentId, childIds) -> Op.Replace(parentId, 0, [], childIds))
+        |> List.map (fun (parentId, childIds) -> Op.Replace(parentId, 0, [], ownedChildren childIds))
     topLevel, newNodeOps @ replaceOps
 
 // ---------------------------------------------------------------------------
@@ -70,32 +73,43 @@ let serializeSubtree (graph: Graph) (siteMap: SiteMap) (topLevelIds: NodeId list
     sb.ToString()
 
 /// Collect selected nodes and their visible children into a self-contained
-/// ClipboardContent.  Each node's children list is trimmed to only the visible
-/// (unfolded) children.  Called in update; stored in model.clipboard for Phase 3.
-let collectSubtree (graph: Graph) (siteMap: SiteMap) (topLevelIds: NodeId list) : ClipboardContent =
+/// ClipboardContent. Receives top-level children directly from a parent.children slice.
+/// Each node's children list is trimmed to only the visible (unfolded) children.
+let collectSubtree (graph: Graph) (siteMap: SiteMap) 
+        (topLevelChildren: ChildNode list) : ClipboardContent =
     let occIdx = ViewModel.buildOccurrenceIndex siteMap
     let findEntry nodeId =
         Map.tryFind nodeId occIdx
         |> Option.bind List.tryHead
         |> Option.bind (fun instId -> Map.tryFind instId siteMap.entries)
-    let rec walk (acc: Map<NodeId, Node>) (nodeId: NodeId) (visibleChildInstIds: SiteId list) =
+    let rec walk
+        (acc: Map<NodeId, Node>)
+        (nodeId: NodeId)
+        (visibleChildren: ChildNode list)
+        (visibleChildInstIds: SiteId list)
+        =
         let node = graph.nodes.[nodeId]
-        let visibleChildIds = visibleChildInstIds |> List.map (fun instId -> siteMap.entries.[instId].nodeId)
-        let acc = acc |> Map.add nodeId { node with children = visibleChildIds }
+        let acc = acc |> Map.add nodeId { node with children = visibleChildren }
         visibleChildInstIds |> List.fold (fun acc childInstId ->
             let childEntry = siteMap.entries.[childInstId]
             let grandchildren = if childEntry.expanded then childEntry.children else []
-            walk acc childEntry.nodeId grandchildren) acc
+            let childNode = graph.nodes.[childEntry.nodeId]
+            let visibleGrandchildren =
+                if childEntry.expanded then childNode.children else []
+            walk acc childEntry.nodeId visibleGrandchildren grandchildren) acc
     let nodes =
-        topLevelIds |> List.fold (fun acc topId ->
+        topLevelChildren |> List.fold (fun acc topChild ->
+            let topId = topChild.id
             match findEntry topId with
             | Some topEntry ->
                 let children = if topEntry.expanded then topEntry.children else []
-                walk acc topId children
+                let topNode = graph.nodes.[topId]
+                let visibleChildren = if topEntry.expanded then topNode.children else []
+                walk acc topId visibleChildren children
             | None ->
                 acc |> Map.add topId { graph.nodes.[topId] with children = [] }
         ) Map.empty
-    { topLevelIds = topLevelIds; nodes = nodes }
+    { topLevelIds = topLevelChildren |> List.map (fun child -> child.id); nodes = nodes }
 
 /// Remap all NodeIds in a ClipboardContent to fresh ones, producing NewNode +
 /// Replace ops that recreate the subtree with independent identities (deep copy).
@@ -116,5 +130,9 @@ let buildPasteOpsFromClipboard (clipboard: ClipboardContent) : NodeId list * Op 
         |> Map.toList
         |> List.choose (fun (oldId, node) ->
             if node.children.IsEmpty then None
-            else Some (Op.Replace(mapId oldId, 0, [], node.children |> List.map mapId)))
+            else
+                let remappedChildren = // not sure about this
+                    node.children
+                    |> List.map (fun child -> { child with id = mapId child.id })
+                Some (Op.Replace(mapId oldId, 0, [], remappedChildren)))
     newTopLevelIds, newNodeOps @ replaceOps

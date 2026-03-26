@@ -25,7 +25,7 @@ module SyncLogic =
 
     /// Handle SubmitFailed: ignore when Stale or when pending is empty (late timeout).
     /// Otherwise transition to Pending (not Stale) so the user can retry.
-    let applySubmitFailed (model: VM) : VM =
+    let applySubmitRejected(model: VM) : VM =
         if model.syncState = Stale then model
         elif model.pendingChanges.IsEmpty then model
         else

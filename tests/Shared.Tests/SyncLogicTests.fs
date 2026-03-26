@@ -86,14 +86,14 @@ let ``shouldReportStale when build/page differ and client stamps non-zero return
     Assert.True(SyncLogic.shouldReportStale poll client)
 
 // ---------------------------------------------------------------------------
-// applySubmitFailed
+// applySubmitRejected
 // ---------------------------------------------------------------------------
 
 [<Fact>]
-let ``applySubmitFailed with empty pending returns model unchanged - late timeout ignore`` () =
+let ``applySubmitRejected with empty pending returns model unchanged`` () =
     let graph = ModelBuilder.createDag12 ()
     let model = emptyModel graph
-    let result = SyncLogic.applySubmitFailed model
+    let result = SyncLogic.applySubmitRejected model
     Assert.Same(model, result)
     Assert.Equal(Synced, result.syncState)
 
@@ -107,10 +107,19 @@ let ``applySubmitNoResponse with Syncing 1 and non-empty pending transitions to 
     Assert.Equal(1, result.pendingChanges.Length)
 
 [<Fact>]
-let ``applySubmitFailed when Stale returns model unchanged`` () =
+let ``applySubmitRejected with Syncing 1 and non-empty pending transitions to Stale`` () =
+    let graph = ModelBuilder.createDag12 ()
+    let pending = [ mkChange 0 ]
+    let model = modelWithPending graph pending (Syncing 1)
+    let result = SyncLogic.applySubmitRejected model
+    Assert.Equal(Stale, result.syncState)
+    Assert.Equal(1, result.pendingChanges.Length)
+
+[<Fact>]
+let ``applySubmitRejected when Stale returns model unchanged`` () =
     let graph = ModelBuilder.createDag12 ()
     let model = { emptyModel graph with syncState = Stale }
-    let result = SyncLogic.applySubmitFailed model
+    let result = SyncLogic.applySubmitRejected model
     Assert.Same(model, result)
     Assert.Equal(Stale, result.syncState)
 

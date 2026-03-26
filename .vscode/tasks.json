@@ -1,87 +1,108 @@
 {
-  "version": "2.0.0",
-  "tasks": [
-    {
-      "label": "server: Build",
-      "type": "shell",
-      "command": "dotnet build src/Server -c Debug",
-      "group": "build",
-      "presentation": {
-        "reveal": "silent",
-        "panel": "shared"
-      },
-      "problemMatcher": "$msCompile"
-    },
-    {
-      "label": "fable: Build Client",
-      "type": "shell",
-      "command": "dotnet fable src/Client --outDir src/Server/wwwroot --sourceMaps",
-      "group": "build",
-      "presentation": {
-        "reveal": "always",
-        "panel": "shared"
-      },
-      "problemMatcher": []
-    },
-    {
-      "label": "fullstack: Build",
-      "type": "shell",
-      "command": "bash scripts/fullstack-build.sh",
-      "group": "build",
-      "presentation": {
-        "reveal": "always",
-        "panel": "shared"
-      },
-      "problemMatcher": []
-    },
-    {
-      "label": "wait for server",
-      "type": "shell",
-      "command": "bash -c \"i=0; while [ \\$i -lt 60 ]; do curl -sf -o /dev/null http://localhost:5115/ambit 2>/dev/null && exit 0; sleep 1; i=\\$((i+1)); done; exit 1\"",
-      "group": "build",
-      "presentation": { "reveal": "silent", "panel": "shared" },
-      "problemMatcher": []
-    },
-    {
-      "label": "client: Launch Prep",
-      "dependsOn": ["fable: Build Client", "wait for server"],
-      "dependsOrder": "sequence",
-      "group": "build",
-      "problemMatcher": []
-    },
-    {
-      "label": "fable: Watch Client",
-      "type": "shell",
-      "command": "dotnet fable watch src/Client --outDir src/Server/wwwroot --sourceMaps",
-      "isBackground": true,
-      "group": "build",
-      "presentation": {
-        "reveal": "always",
-        "panel": "dedicated"
-      },
-      "problemMatcher": []
-    },
-    {
-      "label": "server: Run",
-      "type": "shell",
-      "command": "dotnet watch run --project src/Server",
-      "isBackground": true,
-      "group": "build",
-      "presentation": {
-        "reveal": "always",
-        "panel": "dedicated"
-      },
-      "problemMatcher": []
-    },
-    {
-      "label": "dev: Watch + Run",
-      "dependsOn": ["fable: Watch Client", "server: Run"],
-      "dependsOrder": "parallel",
-      "group": {
-        "kind": "build",
-        "isDefault": true
-      },
-      "problemMatcher": []
-    }
-  ]
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "server: Build",
+			"type": "shell",
+			"command": "dotnet build src/Server -c Debug",
+			"group": "build",
+			"presentation": {
+				"reveal": "silent",
+				"panel": "shared"
+			},
+			"problemMatcher": "$msCompile"
+		},
+		{
+			"label": "fable: Build Client",
+			"type": "shell",
+			"command": "dotnet fable src/Client --outDir src/Server/wwwroot --sourceMaps",
+			"group": "build",
+			"presentation": {
+				"reveal": "always",
+				"panel": "shared"
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "fullstack: Build",
+			"type": "shell",
+			"command": "bash scripts/fullstack-build.sh",
+			"group": "build",
+			"presentation": {
+				"reveal": "always",
+				"panel": "shared"
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "wait for server",
+			"type": "shell",
+			"command": "bash -c \"i=0; while [ \\$i -lt 60 ]; do curl -sf -o /dev/null http://localhost:5115/ambit 2>/dev/null && exit 0; sleep 1; i=\\$((i+1)); done; exit 1\"",
+			"group": "build",
+			"presentation": {
+				"reveal": "silent",
+				"panel": "shared"
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "client: Launch Prep",
+			"dependsOn": [
+				"fable: Build Client",
+				"wait for server"
+			],
+			"dependsOrder": "sequence",
+			"group": "build",
+			"problemMatcher": []
+		},
+		{
+			"label": "fable: Watch Client",
+			"type": "shell",
+			"command": "dotnet fable watch src/Client --outDir src/Server/wwwroot --sourceMaps",
+			"isBackground": true,
+			"group": "build",
+			"presentation": {
+				"reveal": "always",
+				"panel": "dedicated"
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "server: Run",
+			"type": "shell",
+			"command": "dotnet watch run --project src/Server",
+			"isBackground": true,
+			"group": "build",
+			"presentation": {
+				"reveal": "always",
+				"panel": "dedicated"
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "dev: Watch + Run",
+			"dependsOn": [
+				"fable: Watch Client",
+				"server: Run"
+			],
+			"dependsOrder": "parallel",
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "server: Build",
+			"type": "shell",
+			"command": "dotnet build src/Server -c Debug",
+			"group": "build"
+		},
+		{
+			"label": "fable: Build Client",
+			"type": "shell",
+			"command": "dotnet fable src/Client --outDir src/Server/wwwroot --sourceMaps",
+			"group": "build"
+		}
+	]
 }

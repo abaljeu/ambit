@@ -8,8 +8,8 @@ type Op =
     | Replace of
         parentId: NodeId *
         index: int *
-        oldIds: NodeId list *
-        newIds: NodeId list
+        oldChildren: ChildNode list *
+        newChildren: ChildNode list
 
 
 type Change =
@@ -70,8 +70,8 @@ module Op =
         | Op.SetClasses(nodeId, oldClasses, newClasses) ->
             Graph.setClasses nodeId oldClasses newClasses state.graph
             |> fromGraphResult state
-        | Op.Replace(parentId, index, oldIds, newIds) ->
-            Graph.replace parentId index oldIds newIds state.graph
+        | Op.Replace(parentId, index, oldChildren, newChildren) ->
+            Graph.replace parentId index oldChildren newChildren state.graph
             |> fromGraphResult state
 
     let undo (op: Op) (state: State) : ApplyResult =
@@ -85,9 +85,9 @@ module Op =
         | Op.SetClasses(nodeId, oldClasses, newClasses) ->
             Graph.setClasses nodeId newClasses oldClasses state.graph
             |> fromGraphResult state
-        | Op.Replace(parentId, index, oldIds, newIds) ->
+        | Op.Replace(parentId, index, oldChildren, newChildren) ->
             // Inverse: swap old/new to restore
-            Graph.replace parentId index newIds oldIds state.graph
+            Graph.replace parentId index newChildren oldChildren state.graph
             |> fromGraphResult state
 
 
@@ -158,6 +158,67 @@ module Change =
 
 [<RequireQualifiedAccess>]
 module History =
+    let private validateOwnershipSemantics (graph: Graph) : Result<unit, string> =
+        let allChildren =
+            graph.nodes
+            |> Map.toList
+            |> List.collect (fun (parentId, node) ->
+                node.children |> List.map (fun child -> parentId, child))
+
+        let allChildIds =
+            allChildren |> List.map (fun (_, child) -> child.id) |> Set.ofList
+
+        let ownerByChildId =
+            allChildren
+            |> List.choose (fun (parentId, child) ->
+                match child.ref with
+                | Ownership.Owner -> Some(child.id, parentId)
+                | Ownership.Ref -> None)
+            |> List.groupBy fst
+            |> List.map (fun (childId, pairs) -> childId, (pairs |> List.map snd))
+            |> Map.ofList
+
+        let childIdsMissingOwner =
+            allChildIds
+            |> Seq.filter (fun childId -> not (Map.containsKey childId ownerByChildId))
+            |> Seq.toList
+
+        if not childIdsMissingOwner.IsEmpty then
+            Error "invalid ownership semantics: missing owner occurrence"
+        else
+            let childIdsWithMultipleOwners =
+                ownerByChildId
+                |> Map.toSeq
+                |> Seq.filter (fun (_, owners) -> owners.Length <> 1)
+                |> Seq.toList
+
+            if not childIdsWithMultipleOwners.IsEmpty then
+                Error "invalid ownership semantics: expected exactly one owner occurrence"
+            else
+                let ownerParentOf childId = ownerByChildId.[childId] |> List.head
+
+                let rec reachesRootWithoutCycle (currentId: NodeId) (visited: Set<NodeId>) =
+                    if currentId = graph.root then
+                        true
+                    elif Set.contains currentId visited then
+                        false
+                    elif ownerByChildId |> Map.containsKey currentId then
+                        let parentId = ownerParentOf currentId
+                        reachesRootWithoutCycle parentId (Set.add currentId visited)
+                    else
+                        false
+
+                let hasBrokenOwnerChain =
+                    allChildIds
+                    |> Seq.exists (fun childId ->
+                        let ownerParent = ownerParentOf childId
+                        not (reachesRootWithoutCycle ownerParent Set.empty))
+
+                if hasBrokenOwnerChain then
+                    Error "invalid ownership semantics: owner chain does not reach root"
+                else
+                    Ok ()
+
     let empty: History =
         { past = []
           future = []
@@ -184,8 +245,11 @@ module History =
         | ApplyResult.Invalid _ as err -> err
         | ApplyResult.Unchanged s -> ApplyResult.Unchanged s
         | ApplyResult.Changed s ->
-            let history' = addChange change s.history
-            ApplyResult.Changed { s with history = history' }
+            match validateOwnershipSemantics s.graph with
+            | Error msg -> ApplyResult.Invalid(state, msg)
+            | Ok () ->
+                let history' = addChange change s.history
+                ApplyResult.Changed { s with history = history' }
 
     let undo (state: State) : ApplyResult =
         match state.history.past with

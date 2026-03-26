@@ -12,6 +12,27 @@ type PollResponse =
 
 [<RequireQualifiedAccess>]
 module Serialization =
+    let private encodeOwnership (ownership: Ownership) : IEncodable =
+        match ownership with
+        | Ownership.Ref -> Encode.string "ref"
+        | Ownership.Owner -> Encode.string "owner"
+
+    let private decodeOwnership: Decoder<Ownership> =
+        Decode.string
+        |> Decode.andThen (function
+            | "ref" -> Decode.succeed Ownership.Ref
+            | "owner" -> Decode.succeed Ownership.Owner
+            | other -> Decode.fail $"Unknown ownership: {other}")
+
+    let encodeChildNode (child: ChildNode) : IEncodable =
+        Encode.object
+            [ "ref", encodeOwnership child.ref
+              "id", Encode.guid child.id.Value ]
+
+    let decodeChildNode: Decoder<ChildNode> =
+        Decode.object (fun get ->
+            { ref = get.Required.Field "ref" decodeOwnership
+              id = get.Required.Field "id" (Decode.guid |> Decode.map NodeId) })
 
     // ---- PollResponse ----
 
@@ -52,7 +73,7 @@ module Serialization =
             [ "id", encodeNodeId node.id
               "text", Encode.string node.text
               "name", Encode.lossyOption Encode.string node.name
-              "children", node.children |> List.map encodeNodeId |> Encode.list
+              "children", node.children |> List.map encodeChildNode |> Encode.list
               "cssClasses", node.cssClasses |> CssClass.toList |> List.map Encode.string |> Encode.list ]
 
     let decodeNode: Decoder<Node> =
@@ -60,7 +81,7 @@ module Serialization =
             { id = get.Required.Field "id" decodeNodeId
               text = get.Required.Field "text" Decode.string
               name = get.Optional.Field "name" Decode.string
-              children = get.Required.Field "children" (Decode.list decodeNodeId)
+              children = get.Required.Field "children" (Decode.list decodeChildNode)
               cssClasses = get.Optional.Field "cssClasses" (Decode.list Decode.string) |> Option.defaultValue [] |> CssClass.ofList })
 
     // ---- Graph ----
@@ -101,13 +122,13 @@ module Serialization =
                   "nodeId", encodeNodeId nodeId
                   "oldClasses", oldClasses |> CssClass.toList |> List.map Encode.string |> Encode.list
                   "newClasses", newClasses |> CssClass.toList |> List.map Encode.string |> Encode.list ]
-        | Op.Replace(parentId, index, oldIds, newIds) ->
+        | Op.Replace(parentId, index, oldChildren, newChildren) ->
             Encode.object
                 [ "type", Encode.string "Replace"
                   "parentId", encodeNodeId parentId
                   "index", Encode.int index
-                  "oldIds", oldIds |> List.map encodeNodeId |> Encode.list
-                  "newIds", newIds |> List.map encodeNodeId |> Encode.list ]
+                  "oldIds", oldChildren |> List.map (fun child -> encodeNodeId child.id) |> Encode.list
+                  "newIds", newChildren |> List.map (fun child -> encodeNodeId child.id) |> Encode.list ]
 
     let decodeOp: Decoder<Op> =
         Decode.field "type" Decode.string
@@ -135,8 +156,8 @@ module Serialization =
                     Op.Replace(
                         get.Required.Field "parentId" decodeNodeId,
                         get.Required.Field "index" Decode.int,
-                        get.Required.Field "oldIds" (Decode.list decodeNodeId),
-                        get.Required.Field "newIds" (Decode.list decodeNodeId)))
+                        get.Required.Field "oldIds" (Decode.list decodeNodeId) |> List.map (fun id -> { ref = Ownership.Owner; id = id }),
+                        get.Required.Field "newIds" (Decode.list decodeNodeId) |> List.map (fun id -> { ref = Ownership.Owner; id = id })))
             | other ->
                 Decode.fail $"Unknown Op type: {other}")
 

@@ -77,6 +77,7 @@ let copySelectionAsLinks (model: VM) (dispatch: Msg -> unit) : VM =
             |> List.take (sel.range.endd - sel.range.start)
         let idsText =
             selectedIds
+            |> List.map (fun child -> child.id)
             |> List.map (fun (NodeId guid) -> guid.ToString())
             |> String.concat "\n"
         writeClipboardText (nodeIdsPrefix + "\n" + idsText) ignore
@@ -92,6 +93,7 @@ let copyOp (model: VM) (dispatch: Msg -> unit) : VM =
             parentNode.children
             |> List.skip sel.range.start
             |> List.take (sel.range.endd - sel.range.start)
+            |> List.map (fun child -> child.id)
         let serialized = serializeSubtree model.graph model.siteMap selectedIds
         writeClipboardText serialized ignore
         copySelectionOp model dispatch
@@ -125,11 +127,13 @@ let private onCopyOrCut (model: VM) (ev: Event) (applyOp: Op -> unit) (op: Op) (
             parentNode.children
             |> List.skip sel.range.start
             |> List.take (sel.range.endd - sel.range.start)
+            |> List.map (fun child -> child.id)
         let serialized = serializeSubtree model.graph model.siteMap selectedIds
         setClipboardData ev "text/plain" serialized
         if includeNodeIds then
             let idsText =
                 selectedIds
+                |> List.map (fun childId -> childId)
                 |> List.map (fun (NodeId guid) -> guid.ToString())
                 |> String.concat "\n"
             setClipboardData ev nodeIdsFormat idsText

@@ -153,11 +153,38 @@ let applyAndPost (change: Change) (model: VM) (dispatch: Msg -> unit) : VM optio
                  syncState = syncState }
     | _ -> None
 
-/// Extract the list of node IDs covered by a SiteNodeRange.
+/// Extract the child span covered by a SiteNodeRange.
 let rangeChildren (graph: Graph) (range: SiteNodeRange) =
     graph.nodes.[range.parent.nodeId].children
     |> List.skip range.start
     |> List.take (range.endd - range.start)
+
+let private ownedChild (id: NodeId) : ChildNode =
+    { ref = Ownership.Owner; id = id }
+
+let private ownedChildren (ids: NodeId list) : ChildNode list =
+    ids |> List.map ownedChild
+
+let private childrenForPaste (graph: Graph) (ids: NodeId list) : ChildNode list =
+    let existingOwnerIds =
+        graph.nodes
+        |> Map.values
+        |> Seq.collect (fun node -> node.children)
+        |> Seq.choose (fun child ->
+            match child.ref with
+            | Ownership.Owner -> Some child.id
+            | Ownership.Ref -> None)
+        |> Set.ofSeq
+
+    let folder (seenOwnerIds, children) id =
+        let ownership =
+            if Set.contains id seenOwnerIds then Ownership.Ref else Ownership.Owner
+
+        let child = { ref = ownership; id = id }
+        Set.add id seenOwnerIds, child :: children
+
+    let _, childrenRev = ids |> List.fold folder (existingOwnerIds, [])
+    childrenRev |> List.rev
 
 /// The node being edited when selectedNodes = None: the zoom root if zoomed, else the graph root.
 let private viewRootNodeId (model: VM) : NodeId =
@@ -206,19 +233,19 @@ let splitNode (currentText: string) (cursorPos: int) (model: VM) (dispatch: Msg 
         let clampedPos = max 0 (min cursorPos currentText.Length)
         let textBefore = currentText.[..clampedPos - 1]
         let textAfter  = currentText.[clampedPos..]
-        let newNodeId  = NodeId.New()
+        let newChild = ChildNode.New()
 
         let (insertIndex, newNodeText, focusId, focusText) =
             if clampedPos = 0 then
                 // blank node above; focus moves to the new blank node
-                (indexInParent, "", newNodeId, "")
+                (indexInParent, "", newChild.id, "")
             else
                 // new node after; focus moves to new node
-                (indexInParent + 1, textAfter, newNodeId, textAfter)
+                (indexInParent + 1, textAfter, newChild.id, textAfter)
 
         let ops =
-            [ yield Op.NewNode(newNodeId, newNodeText)
-              yield Op.Replace(parentId, insertIndex, [], [newNodeId])
+            [ yield Op.NewNode(newChild.id, newNodeText)
+              yield Op.Replace(parentId, insertIndex, [], [ newChild ])
               // update current node's text only when it actually changes
               let updatedText = if clampedPos = 0 then currentText else textBefore
               if updatedText <> modelText then
@@ -317,8 +344,14 @@ let pasteNodes (pastedText: string) (preferredNodeIds: string option) (model: VM
             if topLevelIds.IsEmpty then model
             else
             let range = sel.range
-            let selectedIds = rangeChildren model.graph range
-            let replaceOp = Op.Replace(range.parent.nodeId, range.start, selectedIds, topLevelIds)
+            let selectedChildren = rangeChildren model.graph range
+            let replaceOp =
+                Op.Replace(
+                    range.parent.nodeId,
+                    range.start,
+                    selectedChildren,
+                    childrenForPaste model.graph topLevelIds
+                )
             let change =
                 { id = model.revision.Value
                   changeId = System.Guid.NewGuid()
@@ -345,7 +378,7 @@ let pasteNodes (pastedText: string) (preferredNodeIds: string option) (model: VM
                     if currentText <> originalText then
                         [ Op.SetText(focusId, originalText, currentText) ]
                     else []
-                let insertOp = Op.Replace(parentId, focusIdx + 1, [], refIds)
+                let insertOp = Op.Replace(parentId, focusIdx + 1, [], childrenForPaste model.graph refIds)
                 let change =
                     { id = model.revision.Value
                       changeId = System.Guid.NewGuid()
@@ -378,7 +411,7 @@ let pasteNodes (pastedText: string) (preferredNodeIds: string option) (model: VM
                 let (remainingTopIds, remainingOps) = buildPasteOps rest
                 let insertOps =
                     if remainingTopIds.IsEmpty then []
-                    else [ Op.Replace(parentId, focusIdx + 1, [], remainingTopIds) ]
+                    else [ Op.Replace(parentId, focusIdx + 1, [], childrenForPaste model.graph remainingTopIds) ]
                 let allOps = setTextOps @ remainingOps @ insertOps
                 if allOps.IsEmpty then { model with mode = Selecting }
                 else
@@ -407,9 +440,13 @@ let cutSelection (model: VM) (dispatch: Msg -> unit) : VM =
     match model.selectedNodes with
     | None -> model
     | Some sel ->
-        let selectedIds = rangeChildren model.graph sel.range
-        let cb = collectSubtree model.graph model.siteMap selectedIds
-        let removeOp = Op.Replace(sel.range.parent.nodeId, sel.range.start, selectedIds, [])
+        let selectedChildren =
+            model.graph.nodes.[sel.range.parent.nodeId].children
+            |> List.skip sel.range.start
+            |> List.take (sel.range.endd - sel.range.start)
+        let selectedChildren = rangeChildren model.graph sel.range
+        let cb = collectSubtree model.graph model.siteMap selectedChildren
+        let removeOp = Op.Replace(sel.range.parent.nodeId, sel.range.start, selectedChildren, [])
         let change =
             { id = model.revision.Value
               changeId = System.Guid.NewGuid()
@@ -487,8 +524,8 @@ let moveNodeFromTo (too: SiteNodeRange) (model: VM) (dispatch: Msg -> unit) : VM
     | None -> model
     | Some sel ->
         let from = sel.range
-        let selectedIds = rangeChildren model.graph from
-        if selectedIds.IsEmpty then model
+        let selectedChildren = rangeChildren model.graph from
+        if selectedChildren.IsEmpty then model
         else
             let wrap = tryInlineEditWrap model.mode
             let live = readEditInputValue ()
@@ -498,7 +535,7 @@ let moveNodeFromTo (too: SiteNodeRange) (model: VM) (dispatch: Msg -> unit) : VM
                 match wrap with
                 | Some (orig, _) -> tryTextCommitOps editingId orig live model.graph
                 | None -> []
-            let count = selectedIds.Length
+            let count = selectedChildren.Length
             let sameParent = from.parent.nodeId = too.parent.nodeId
             let replaceOps =
                 if sameParent then
@@ -507,11 +544,11 @@ let moveNodeFromTo (too: SiteNodeRange) (model: VM) (dispatch: Msg -> unit) : VM
                     let insertIdx =
                         if too.endd <= from.start then too.endd
                         else too.endd - count
-                    [ Op.Replace(from.parent.nodeId, from.start, selectedIds, [])
-                      Op.Replace(from.parent.nodeId, insertIdx, [], selectedIds) ]
+                    [ Op.Replace(from.parent.nodeId, from.start, selectedChildren, [])
+                      Op.Replace(from.parent.nodeId, insertIdx, [], selectedChildren) ]
                 else
-                    [ Op.Replace(from.parent.nodeId, from.start, selectedIds, [])
-                      Op.Replace(too.parent.nodeId, too.endd, [], selectedIds) ]
+                    [ Op.Replace(from.parent.nodeId, from.start, selectedChildren, [])
+                      Op.Replace(too.parent.nodeId, too.endd, [], selectedChildren) ]
             let ops = textOps @ replaceOps
             let change =
                 { id = model.revision.Value
@@ -566,7 +603,7 @@ let moveNodeDelta (delta: int) (model: VM) (dispatch: Msg -> unit) : VM =
                         |> Option.bind (fun gpid -> Map.tryFind gpid model.siteMap.entries)
                         |> Option.bind (fun gp ->
                             model.graph.nodes.[gp.nodeId].children
-                            |> List.tryFindIndex ((=) range.parent.nodeId)
+                            |> List.tryFindIndex (fun child -> child.id = range.parent.nodeId)
                             |> Option.map (fun parentIdx ->
                                 let insertIdx = parentIdx + (if delta = -1 then 0 else 1)
                                 { parent = gp; start = insertIdx; endd = insertIdx } : SiteNodeRange))
@@ -616,7 +653,7 @@ let indentSelection (model: VM) (dispatch: Msg -> unit) : VM =
     | None -> model
     | Some sel when sel.range.start = 0 -> model  // no previous sibling — no-op
     | Some sel ->
-        let prevSibId = model.graph.nodes.[sel.range.parent.nodeId].children.[sel.range.start - 1]
+        let prevSibId = model.graph.nodes.[sel.range.parent.nodeId].children.[sel.range.start - 1].id
         let insertIdx = model.graph.nodes.[prevSibId].children.Length
         match model.siteMap.entries
             |> Map.tryPick (fun _ e -> if e.nodeId = prevSibId then Some e else None) with
@@ -709,7 +746,7 @@ let joinWithNext (currentText: string) (model: VM) (dispatch: Msg -> unit) : VM 
                             | None -> model
                             | Some (currParentId, currIndexInParent) ->
                                 let ops =
-                                    [ Op.Replace(currParentId, currIndexInParent, [currentId], []) ]
+                                    [ Op.Replace(currParentId, currIndexInParent, ownedChildren [currentId], []) ]
                                 let change =
                                     { id = model.revision.Value
                                       changeId = System.Guid.NewGuid()
@@ -733,10 +770,9 @@ let joinWithNext (currentText: string) (model: VM) (dispatch: Msg -> unit) : VM 
                                     [ if joinedText <> nextNode.text then
                                           yield Op.SetText(nextId, nextNode.text, joinedText)
                                       if not currentNode.children.IsEmpty then
-                                          yield Op.Replace
-                                              (nextId, 0, [], currentNode.children)
+                                          yield Op.Replace(nextId, 0, [], currentNode.children)
                                       yield Op.Replace
-                                          (currParentId, currIndexInParent, [currentId], [])
+                                          (currParentId, currIndexInParent, ownedChildren [currentId], [])
                                       ]
                                 let change =
                                     { id = model.revision.Value
@@ -777,9 +813,8 @@ let joinWithPrevious (currentText: string) (model: VM) (dispatch: Msg -> unit) :
                         [ if joinedText <> prevNode.text then
                               yield Op.SetText(prevId, prevNode.text, joinedText)
                           if not currentNode.children.IsEmpty then
-                              yield Op.Replace
-                                  (prevId, prevNode.children.Length, [], currentNode.children)
-                          yield Op.Replace(parentId, indexInParent, [currentId], []) ]
+                              yield Op.Replace(prevId, prevNode.children.Length, [], currentNode.children)
+                          yield Op.Replace(parentId, indexInParent, ownedChildren [currentId], []) ]
                     let change =
                         { id = model.revision.Value
                           changeId = System.Guid.NewGuid()
@@ -816,8 +851,11 @@ let copySelectionOp (model: VM) _dispatch : VM =
     match model.selectedNodes with
     | None -> model
     | Some sel ->
-        let selectedIds = rangeChildren model.graph sel.range
-        { model with clipboard = Some (collectSubtree model.graph model.siteMap selectedIds) }
+        let selectedChildren =
+            model.graph.nodes.[sel.range.parent.nodeId].children
+            |> List.skip sel.range.start
+            |> List.take (sel.range.endd - sel.range.start)
+        { model with clipboard = Some (collectSubtree model.graph model.siteMap selectedChildren) }
 
 /// Op: Cut the focused subtree.
 let cutSelectionOp (model: VM) (dispatch: Msg -> unit) : VM =
@@ -1112,10 +1150,13 @@ let duplicateSelectionOp (model: VM) (dispatch: Msg -> unit) : VM =
     match model.selectedNodes with
     | None -> model
     | Some sel ->
-        let selectedIds = rangeChildren model.graph sel.range
-        if selectedIds.IsEmpty then model
+        let selectedChildren = rangeChildren model.graph sel.range
+        if selectedChildren.IsEmpty then model
         else
-            let insertOp = Op.Replace(sel.range.parent.nodeId, sel.range.endd, [], selectedIds)
+            let duplicatedRefs =
+                selectedChildren
+                |> List.map (fun child -> { child with ref = Ownership.Ref })
+            let insertOp = Op.Replace(sel.range.parent.nodeId, sel.range.endd, [], duplicatedRefs)
             let change =
                 { id = model.revision.Value
                   changeId = System.Guid.NewGuid()
@@ -1133,11 +1174,68 @@ let deleteSelectionOp (model: VM) (dispatch: Msg -> unit) : VM =
     match model.selectedNodes with
     | None -> model
     | Some sel ->
-        let selectedIds = rangeChildren model.graph sel.range
+        let selectedChildren = rangeChildren model.graph sel.range
+        let ownedDeletedIds =
+            selectedChildren
+            |> List.choose (fun child ->
+                match child.ref with
+                | Ownership.Owner -> Some child.id
+                | Ownership.Ref -> None)
+            |> List.distinct
+
+        let excludedParentsForSearch =
+            let descendantsAndSelf (startId: NodeId) =
+                let rec loop (stack: NodeId list) (visited: Set<NodeId>) =
+                    match stack with
+                    | [] -> visited
+                    | nodeId :: rest ->
+                        if Set.contains nodeId visited then
+                            loop rest visited
+                        else
+                            let childIds =
+                                model.graph.nodes
+                                |> Map.tryFind nodeId
+                                |> Option.map (fun node -> node.children |> List.map (fun child -> child.id))
+                                |> Option.defaultValue []
+                            loop (childIds @ rest) (Set.add nodeId visited)
+
+                loop [ startId ] Set.empty
+
+            selectedChildren
+            |> List.fold (fun acc child -> Set.union acc (descendantsAndSelf child.id)) Set.empty
+
+        let replacementOpsForOrphanedOwners =
+            let tryPromoteRefToOwner (targetId: NodeId) =
+                model.graph.nodes
+                |> Map.toSeq
+                |> Seq.tryPick (fun (parentId, parent) ->
+                    if Set.contains parentId excludedParentsForSearch then
+                        None
+                    else
+                        parent.children
+                        |> List.mapi (fun index child -> index, child)
+                        |> List.tryPick (fun (index, child) ->
+                            let inDeletedSpan =
+                                parentId = sel.range.parent.nodeId
+                                && index >= sel.range.start
+                                && index < sel.range.endd
+
+                            if inDeletedSpan then
+                                None
+                            elif child.id = targetId && child.ref = Ownership.Ref then
+                                Some(Op.Replace(parentId, index, [ child ], [ { child with ref = Ownership.Owner } ]))
+                            else
+                                None))
+                |> Option.toList
+
+            ownedDeletedIds |> List.collect tryPromoteRefToOwner
+
         let change =
             { id = model.revision.Value
               changeId = System.Guid.NewGuid()
-              ops = [ Op.Replace(sel.range.parent.nodeId, sel.range.start, selectedIds, []) ] }
+              ops =
+                replacementOpsForOrphanedOwners
+                @ [ Op.Replace(sel.range.parent.nodeId, sel.range.start, selectedChildren, []) ] }
         match applyAndPost change model dispatch with
         | None -> model
         | Some m ->
@@ -1163,6 +1261,7 @@ let private initialUserClassesForSelection (model: VM) (sel: Selection) : string
         parentNode.children
         |> List.skip sel.range.start
         |> List.take (sel.range.endd - sel.range.start)
+        |> List.map (fun child -> child.id)
     selectedIds
     |> List.collect (fun nid ->
         model.graph.nodes.[nid].cssClasses
@@ -1198,6 +1297,7 @@ let submitCssClassPromptOp (model: VM) (dispatch: Msg -> unit) : VM =
             parentNode.children
             |> List.skip sel.range.start
             |> List.take (sel.range.endd - sel.range.start)
+            |> List.map (fun child -> child.id)
         let ops =
             selectedIds
             |> List.choose (fun nid ->
@@ -1376,7 +1476,7 @@ let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
                 syncState = if pending.IsEmpty then Synced else Syncing 1 }
 
     | SysMsg SubmitFailed ->
-        SyncLogic.applySubmitFailed model
+        SyncLogic.applySubmitRejected model
     | SysMsg SubmitNoResponse ->
         SyncLogic.applySubmitNoResponse model
 

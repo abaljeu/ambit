@@ -30,7 +30,9 @@ let ``Node round-trip with Some name`` () =
         { id = NodeId.New()
           text = "hello world"
           name = Some "myname"
-          children = [ NodeId.New(); NodeId.New() ]
+          children =
+            [ ChildNode.New()
+              ChildNode.New()]
           cssClasses = CssClass.empty }
     let decoded = roundTrip Serialization.encodeNode Serialization.decodeNode node
     Assert.Equal(node, decoded)
@@ -67,7 +69,7 @@ let ``Op.SetText round-trip`` () =
 
 [<Fact>]
 let ``Op.Replace round-trip`` () =
-    let op = Op.Replace(NodeId.New(), 2, [ NodeId.New() ], [ NodeId.New(); NodeId.New() ])
+    let op = Op.Replace(NodeId.New(), 2, [ ChildNode.New() ], [ ChildNode.New(); ChildNode.New() ])
     let decoded = roundTrip Serialization.encodeOp Serialization.decodeOp op
     Assert.Equal(op, decoded)
 
@@ -79,7 +81,7 @@ let ``Change round-trip`` () =
           ops =
             [ Op.NewNode(NodeId.New(), "hello")
               Op.SetText(NodeId.New(), "old", "new")
-              Op.Replace(NodeId.New(), 0, [], [ NodeId.New() ]) ] }
+              Op.Replace(NodeId.New(), 0, [], [ ChildNode.New() ]) ] }
     let decoded = roundTrip Serialization.encodeChange Serialization.decodeChange change
     Assert.Equal(change.id, decoded.id)
     Assert.Equal<Op list>(change.ops, decoded.ops)

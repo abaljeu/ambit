@@ -15,6 +15,12 @@ let private expectUnchanged (result: ApplyResult) : State =
     | ApplyResult.Changed _ -> failwith "expected Unchanged, got Changed"
     | ApplyResult.Invalid(_, msg) -> failwithf "expected Unchanged, got Invalid: %s" msg
 
+let private expectInvalid (result: ApplyResult) : State * string =
+    match result with
+    | ApplyResult.Invalid(state, msg) -> state, msg
+    | ApplyResult.Changed _ -> failwith "expected Invalid, got Changed"
+    | ApplyResult.Unchanged _ -> failwith "expected Invalid, got Unchanged"
+
 let private findNodeByText (text: string) (state: State) : Node =
     state.graph.nodes
     |> Map.toSeq
@@ -129,9 +135,64 @@ let ``Apply Replace updates parent children`` () =
     let parent = state.graph.nodes |> Map.find parentId
     let originalChildren = parent.children
     let oldChild0 = originalChildren |> List.head
-    let newNodeId = NodeId.New()
-    let state1 = Op.apply (Op.NewNode(newNodeId, "new")) state |> expectChanged
-    let op = Op.Replace(parentId, 0, [ oldChild0 ], [ newNodeId ])
+    let newNode = ChildNode.New()
+    let state1 = Op.apply (Op.NewNode(newNode.id, "new")) state |> expectChanged
+    let op =
+        Op.Replace(
+            parentId,
+            0,
+            [ oldChild0 ],
+            [ newNode ]
+        )
     let state2 = Op.apply op state1 |> expectChanged
     let updatedParent = state2.graph.nodes |> Map.find parentId
-    Assert.Equal(newNodeId, updatedParent.children.[0])
+    Assert.Equal(newNode.id, updatedParent.children.[0].id)
+
+[<Fact>]
+let ``Invalid move change does not modify graph`` () =
+    let state0 = ModelBuilder.createState12 ()
+    let parentId = state0.graph.root
+    let parent0 = state0.graph.nodes |> Map.find parentId
+    let originalChildren = parent0.children
+    let first = originalChildren.[0]
+    let second = originalChildren.[1]
+
+    // Simulate a move as remove+insert, but make the remove invalid
+    // by supplying a mismatched old span at index 0.
+    let invalidRemove = Op.Replace(parentId, 0, [ second ], [])
+    let insertAtEnd = Op.Replace(parentId, originalChildren.Length, [], [ first ])
+    let moveChange =
+        History.newChange state0.history
+        |> Change.addOp invalidRemove
+        |> Change.addOp insertAtEnd
+
+    let stateAfter, _ = History.applyChange moveChange state0 |> expectInvalid
+    let parentAfter = stateAfter.graph.nodes |> Map.find parentId
+    Assert.Equal<ChildNode>(originalChildren, parentAfter.children)
+
+[<Fact>]
+let ``Move with correct old span is rejected when target is owned-descendant`` () =
+    let state0 = ModelBuilder.createState12 ()
+    let rootId = state0.graph.root
+    let root = state0.graph.nodes |> Map.find rootId
+    let childA = root.children.[0]
+    let nodeA = state0.graph.nodes |> Map.find childA.id
+    let childB = nodeA.children.[0]
+    let originalRootChildren = root.children
+    let originalBChildren = (state0.graph.nodes |> Map.find childB.id).children
+
+    // Valid move-shape (remove+insert) using the correct old span.
+    // Illegal by ownership semantics: moving A under its owned descendant B.
+    let removeAFromRoot = Op.Replace(rootId, 0, [ childA ], [])
+    let insertAUnderB = Op.Replace(childB.id, originalBChildren.Length, [], [ childA ])
+    let moveChange =
+        History.newChange state0.history
+        |> Change.addOp removeAFromRoot
+        |> Change.addOp insertAUnderB
+
+    let stateAfter, _ = History.applyChange moveChange state0 |> expectInvalid
+    let rootAfter = stateAfter.graph.nodes |> Map.find rootId
+    let bAfter = stateAfter.graph.nodes |> Map.find childB.id
+
+    Assert.Equal<ChildNode>(originalRootChildren, rootAfter.children)
+    Assert.Equal<ChildNode>(originalBChildren, bAfter.children)

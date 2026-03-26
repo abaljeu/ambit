@@ -28,7 +28,7 @@ let ``CreateDag12 builds a 12 node dag with depth 3`` () =
             | children ->
                 let visited2 = Set.add nodeId visited
                 children
-                |> List.map (fun childId -> maxDepthFrom childId (depth + 1) visited2)
+                |> List.map (fun child -> maxDepthFrom child.id (depth + 1) visited2)
                 |> List.max
 
     let depth = maxDepthFrom graph.root 0 Set.empty

@@ -22,15 +22,27 @@ type Revision =
         value
 
     static member Zero = Revision 0
-    static member One = Revision 1
+
+type Ownership =
+    | Ref
+    | Owner
+
+// For each id:NodeId exactly one will have ref: Owner.
+type ChildNode =
+    { ref: Ownership
+      id: NodeId }
+
+    static member New() : ChildNode =
+        { ref = Ownership.Owner
+          id = NodeId.New() }
 
 
 type Node =
-    { id: NodeId
-      text: string
-      name: string option
-      children: NodeId list
-      cssClasses: CssClasses }
+    { id         : NodeId
+      text       : string
+      name       : string option
+      children   : ChildNode list
+      cssClasses : CssClasses }
 
 
 // defines span of nodes in parent where start <= index in children < end
@@ -56,14 +68,12 @@ module Graph =
 
     let newNode (text: string) (graph: Graph) : Graph * NodeId =
         let nodeId = NodeId.New()
-
         let node: Node =
             { id = nodeId
               text = text
               name = None
               children = []
               cssClasses = CssClass.empty }
-
         let nodes = graph.nodes |> Map.add nodeId node
         { graph with nodes = nodes }, nodeId
     let create () : Graph =
@@ -108,8 +118,8 @@ module Graph =
     let replace
         (parentId: NodeId)
         (index: int)
-        (oldIds: NodeId list)
-        (newIds: NodeId list)
+        (oldChildren: ChildNode list)
+        (newChildren: ChildNode list)
         (graph: Graph)
         : Result<Graph, string>
         =
@@ -120,15 +130,15 @@ module Graph =
         | Some parent ->
             let children = parent.children
             let childCount = List.length children
-            let oldCount = List.length oldIds
+            let oldCount = List.length oldChildren
 
             if index < 0 || index > childCount then
                 Error "index out of bounds"
             elif index + oldCount > childCount then
                 Error "old span out of bounds"
             elif
-                newIds
-                |> List.exists (fun nodeId -> not (graph.nodes.ContainsKey nodeId))
+                newChildren
+                |> List.exists (fun child -> not (graph.nodes.ContainsKey child.id))
             then
                 Error "new child not found"
             else
@@ -137,14 +147,14 @@ module Graph =
                     |> List.skip index
                     |> List.take oldCount
 
-                if existing <> oldIds then
+                if existing <> oldChildren then
                     Error "old span does not match"
                 else
                     let prefix = children |> List.take index
                     let suffix = children |> List.skip (index + oldCount)
                     let updatedParent =
                         { parent with
-                            children = prefix @ newIds @ suffix }
+                            children = prefix @ newChildren @ suffix }
 
                     let nodes = graph.nodes |> Map.add parentId updatedParent
                     Ok { graph with nodes = nodes }
@@ -154,5 +164,5 @@ module Graph =
         |> Map.toSeq
         |> Seq.tryPick (fun (parentId, parent) ->
             parent.children
-            |> List.tryFindIndex ((=) targetId)
+            |> List.tryFindIndex (fun child -> child.id = targetId)
             |> Option.map (fun index -> parentId, index))

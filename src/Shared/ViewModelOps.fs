@@ -17,6 +17,95 @@ module ViewModel =
         let mutable curr = n
         (fun () -> let id = curr in curr <- curr + 1; Sid id), (fun () -> Sid curr)
 
+    let private shouldExpandChildren (isRoot: bool) (expanded: bool) : bool =
+        isRoot || expanded
+
+    let rec private walkReconciled
+        (graph: Graph)
+        (oldMap: SiteMap)
+        (freshId: unit -> SiteId)
+        (acc: Map<SiteId, SiteEntry> ref)
+        (nodeId: NodeId)
+        (parentInstId: SiteId option)
+        (isRoot: bool)
+        (oldInstIdOpt: SiteId option) : SiteId =
+        let oldEntryOpt =
+            oldInstIdOpt
+            |> Option.bind (fun id -> Map.tryFind id oldMap.entries)
+            |> Option.bind (fun e -> if e.nodeId = nodeId then Some e else None)
+        let instId, expanded =
+            match oldEntryOpt with
+            | Some old -> old.instanceId, old.expanded
+            | None -> freshId (), false
+        let childInstIds =
+            resolveChildInstIds graph oldMap freshId acc nodeId isRoot expanded oldEntryOpt instId
+        let entry =
+            { instanceId = instId; nodeId = nodeId; parentInstanceId = parentInstId
+              expanded = if isRoot then true else expanded
+              childrenStale = false; children = childInstIds }
+        acc.Value <- Map.add instId entry acc.Value
+        instId
+
+    and private resolveChildInstIds
+        (graph: Graph)
+        (oldMap: SiteMap)
+        (freshId: unit -> SiteId)
+        (acc: Map<SiteId, SiteEntry> ref)
+        (nodeId: NodeId)
+        (isRoot: bool)
+        (expanded: bool)
+        (oldEntryOpt: SiteEntry option)
+        (instId: SiteId) : SiteId list =
+        if shouldExpandChildren isRoot expanded then
+            let node = graph.nodes.[nodeId]
+            let oldChildren = oldEntryOpt |> Option.map (fun o -> o.children) |> Option.defaultValue []
+            let usedIds = ref Set.empty<SiteId>
+            node.children |> List.mapi (fun i child ->
+                let oldChildOpt =
+                    let positional =
+                        List.tryItem i oldChildren
+                        |> Option.bind (fun oid -> Map.tryFind oid oldMap.entries)
+                        |> Option.bind (fun e -> if e.nodeId = child.id
+                                                 then Some e
+                                                 else None)
+                    match positional with
+                    | Some old when not (Set.contains old.instanceId usedIds.Value) ->
+                        usedIds.Value <- Set.add old.instanceId usedIds.Value
+                        Some old
+                    | Some _ -> None
+                    | None ->
+                        // Positional match failed (e.g. nodes reordered, or duplicate refs).
+                        // Fall back to searching old children by nodeId — but only reuse if
+                        // that instance hasn't already been assigned (avoids duplicate
+                        // instanceIds when the same NodeId appears multiple times as references).
+                        oldChildren
+                        |> List.tryPick (fun oid ->
+                            Map.tryFind oid oldMap.entries
+                            |> Option.bind (fun e ->
+                                if e.nodeId = child.id && not (Set.contains e.instanceId usedIds.Value)
+                                then usedIds.Value <- Set.add e.instanceId usedIds.Value; Some e
+                                else None))
+                match oldChildOpt with
+                | Some old when old.expanded ->
+                    walkReconciled graph oldMap freshId acc child.id 
+                        (Some instId) false (Some old.instanceId)
+                | Some old ->
+                    acc.Value <- Map.add old.instanceId 
+                        { old with childrenStale = true; children = [] } 
+                        acc.Value
+                    old.instanceId
+                | None ->
+                    let newId = freshId ()
+                    acc.Value <- Map.add newId { instanceId = newId; nodeId = child.id
+                                                 parentInstanceId = Some instId
+                                                 expanded = false; 
+                                                 childrenStale = true; 
+                                                 children = [] 
+                                                 } 
+                                            acc.Value
+                    newId)
+        else []
+
     /// Build a SiteMap rooted at rootNodeId. The root is expanded; its immediate children are
     /// collapsed with children = [] and childrenStale = true, populated on demand via expandEntry.
     /// Cycle termination is implicit: new entries start collapsed with no children, so expanding
@@ -28,9 +117,9 @@ module ViewModel =
         let rootInstId = freshId ()
         let rootNode = graph.nodes.[rootNodeId]
         let childInstIds =
-            rootNode.children |> List.map (fun cid ->
+            rootNode.children |> List.map (fun child ->
                 let childId = freshId ()
-                acc <- Map.add childId { instanceId = childId; nodeId = cid
+                acc <- Map.add childId { instanceId = childId; nodeId = child.id
                                          parentInstanceId = Some rootInstId
                                          expanded = false; childrenStale = true; children = [] } acc
                 childId)
@@ -50,64 +139,9 @@ module ViewModel =
     /// Returns the updated SiteMap and next available instanceId.
     let reconcileSiteMapFrom (graph: Graph) (rootNodeId: NodeId) (oldMap: SiteMap) (startId: SiteId) : SiteMap * SiteId =
         let freshId, endCount = makeCounter startId
-        let mutable acc = Map.empty<SiteId, SiteEntry>
-        let rec walk (nodeId: NodeId) (parentInstId: SiteId option) (isRoot: bool) (oldInstIdOpt: SiteId option) : SiteId =
-            let oldEntryOpt =
-                oldInstIdOpt
-                |> Option.bind (fun id -> Map.tryFind id oldMap.entries)
-                |> Option.bind (fun e -> if e.nodeId = nodeId then Some e else None)
-            let instId, expanded =
-                match oldEntryOpt with
-                | Some old -> old.instanceId, old.expanded
-                | None -> freshId (), false
-            let childInstIds =
-                if isRoot || expanded then
-                    let node = graph.nodes.[nodeId]
-                    let oldChildren = oldEntryOpt |> Option.map (fun o -> o.children) |> Option.defaultValue []
-                    let usedIds = ref Set.empty<SiteId>
-                    node.children |> List.mapi (fun i cid ->
-                        let oldChildOpt =
-                            let positional =
-                                List.tryItem i oldChildren
-                                |> Option.bind (fun oid -> Map.tryFind oid oldMap.entries)
-                                |> Option.bind (fun e -> if e.nodeId = cid then Some e else None)
-                            match positional with
-                            | Some old when not (Set.contains old.instanceId usedIds.Value) ->
-                                usedIds.Value <- Set.add old.instanceId usedIds.Value
-                                Some old
-                            | Some _ -> None
-                            | None ->
-                                // Positional match failed (e.g. nodes reordered, or duplicate refs).
-                                // Fall back to searching old children by nodeId — but only reuse if
-                                // that instance hasn't already been assigned (avoids duplicate
-                                // instanceIds when the same NodeId appears multiple times as references).
-                                oldChildren
-                                |> List.tryPick (fun oid ->
-                                    Map.tryFind oid oldMap.entries
-                                    |> Option.bind (fun e ->
-                                        if e.nodeId = cid && not (Set.contains e.instanceId usedIds.Value)
-                                        then usedIds.Value <- Set.add e.instanceId usedIds.Value; Some e
-                                        else None))
-                        match oldChildOpt with
-                        | Some old when old.expanded -> walk cid (Some instId) false (Some old.instanceId)
-                        | Some old ->
-                            acc <- Map.add old.instanceId { old with childrenStale = true; children = [] } acc
-                            old.instanceId
-                        | None ->
-                            let newId = freshId ()
-                            acc <- Map.add newId { instanceId = newId; nodeId = cid
-                                                   parentInstanceId = Some instId
-                                                   expanded = false; childrenStale = true; children = [] } acc
-                            newId)
-                else []
-            let entry =
-                { instanceId = instId; nodeId = nodeId; parentInstanceId = parentInstId
-                  expanded = if isRoot then true else expanded
-                  childrenStale = false; children = childInstIds }
-            acc <- Map.add instId entry acc
-            instId
-        let rootInstId = walk rootNodeId None true (Some oldMap.rootId)
-        { rootId = rootInstId; entries = acc }, endCount ()
+        let acc = ref Map.empty<SiteId, SiteEntry>
+        let rootInstId = walkReconciled graph oldMap freshId acc rootNodeId None true (Some oldMap.rootId)
+        { rootId = rootInstId; entries = acc.Value }, endCount ()
 
     /// Reconcile a SiteMap from the graph root after a graph change. See reconcileSiteMapFrom for details.
     let reconcileSiteMap (graph: Graph) (oldMap: SiteMap) (startId: SiteId) : SiteMap * SiteId =
@@ -138,13 +172,13 @@ module ViewModel =
                 let mutable acc = siteMap.entries
                 let node = graph.nodes.[entry.nodeId]
                 let childInstIds =
-                    node.children |> List.mapi (fun i cid ->
+                    node.children |> List.mapi (fun i child ->
                         // Reuse existing child entry at this position if nodeId matches
                         match List.tryItem i entry.children |> Option.bind (fun oid -> Map.tryFind oid acc) with
-                        | Some existing when existing.nodeId = cid -> existing.instanceId
+                        | Some existing when existing.nodeId = child.id -> existing.instanceId
                         | _ ->
                             let newId = freshId ()
-                            acc <- Map.add newId { instanceId = newId; nodeId = cid
+                            acc <- Map.add newId { instanceId = newId; nodeId = child.id
                                                    parentInstanceId = Some instanceId
                                                    expanded = false; childrenStale = true; children = [] } acc
                             newId)
@@ -266,11 +300,11 @@ module ViewModel =
 
     /// Extract the first (start) selected NodeId from a Selection.
     let firstSelectedNodeId (graph: Graph) (sel: Selection) : NodeId =
-        graph.nodes.[sel.range.parent.nodeId].children.[sel.range.start]
+        graph.nodes.[sel.range.parent.nodeId].children.[sel.range.start].id
 
     /// Extract the focused NodeId from a Selection (the active end, used for editing and Arrow movement).
     let focusedNodeId (graph: Graph) (sel: Selection) : NodeId =
-        graph.nodes.[sel.range.parent.nodeId].children.[sel.focus]
+        graph.nodes.[sel.range.parent.nodeId].children.[sel.focus].id
 
     /// Extract the focused instanceId from a Selection. Since SiteEntry.children is an instanceId list,
     /// this gives the exact view-line of the focused node rather than its graph identity.

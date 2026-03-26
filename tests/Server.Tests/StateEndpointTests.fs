@@ -135,7 +135,7 @@ let ``POST changes NewNode+Replace adds child to root`` () = task {
           changeId = Guid.NewGuid()
           ops =
             [ Op.NewNode(childId, "child")
-              Op.Replace(rootId, 0, [], [ childId ]) ] }
+              Op.Replace(rootId, 0, [], [ { ref = Ownership.Owner; id = childId } ]) ] }
 
     let! resp = postChange client testFile change
     Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
@@ -146,7 +146,7 @@ let ``POST changes NewNode+Replace adds child to root`` () = task {
     let! json = getStateJson client testFile
     let graph = decodeGraph json
     Assert.Equal(2, graph.nodes.Count)
-    Assert.Equal<NodeId list>([ childId ], graph.nodes.[rootId].children)
+    Assert.Equal<ChildNode list>([ { ref = Ownership.Owner; id = childId } ], graph.nodes.[rootId].children)
     Assert.Equal("child", graph.nodes.[childId].text)
 }
 
@@ -257,7 +257,7 @@ let private addChild (client: HttpClient) (file: string) (rootId: NodeId) (rev: 
           changeId = Guid.NewGuid()
           ops =
             [ Op.NewNode(childId, text)
-              Op.Replace(rootId, 0, [], [ childId ]) ] }
+              Op.Replace(rootId, 0, [], [ { ref = Ownership.Owner; id = childId } ]) ] }
     let! resp = postChange client file change
     Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
     return childId
@@ -333,7 +333,7 @@ let ``New server uses snapshot + log replay`` () = task {
     let! json1 = getStateJson client1 testFile
     let rootId2 = (decodeGraph json1).root
     let root = (decodeGraph json1).nodes.[rootId2]
-    let firstChildId = root.children.[0]
+    let firstChildId = root.children.[0].id
     let! _ = postChange client1 testFile { id = 1; changeId = Guid.NewGuid(); 
         ops = [ Op.SetText(firstChildId, "first", "updated") ] }
 

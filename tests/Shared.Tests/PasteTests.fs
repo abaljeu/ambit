@@ -7,6 +7,8 @@ open Gambol.Shared.Paste
 open Gambol.Shared.ViewModel
 
 let private nl = Environment.NewLine
+let private owned (ids: NodeId list) : ChildNode list =
+    ids |> List.map (fun id -> { ref = Ownership.Owner; id = id })
 
 let private requireOk label = function
     | Ok v -> v
@@ -16,7 +18,7 @@ let private requireOk label = function
 let private buildFlat (texts: string list) : Graph * NodeId list =
     let g0 = Graph.create ()
     let g1, ids = ModelBuilder.createNodes texts g0
-    let g2 = Graph.replace g1.root 0 [] ids g1 |> requireOk "buildFlat"
+    let g2 = Graph.replace g1.root 0 [] (owned ids) g1 |> requireOk "buildFlat"
     g2, ids
 
 /// Build graph: root → [parentText → childTexts].
@@ -25,8 +27,8 @@ let private buildNested (parentText: string) (childTexts: string list) : Graph *
     let g1, parentIds = ModelBuilder.createNodes [parentText] g0
     let parentId = parentIds.[0]
     let g2, childIds = ModelBuilder.createNodes childTexts g1
-    let g3 = Graph.replace g2.root 0 [] [parentId] g2 |> requireOk "buildNested.root"
-    let g4 = Graph.replace parentId 0 [] childIds g3 |> requireOk "buildNested.parent"
+    let g3 = Graph.replace g2.root 0 [] (owned [parentId]) g2 |> requireOk "buildNested.root"
+    let g4 = Graph.replace parentId 0 [] (owned childIds) g3 |> requireOk "buildNested.parent"
     g4, parentId, childIds
 
 /// Find the instanceId of the first SiteEntry whose nodeId matches.
@@ -77,9 +79,9 @@ let ``serializeSubtree multi-level expanded`` () =
     let g0 = Graph.create ()
     let g1, abcIds = ModelBuilder.createNodes ["a"; "b"; "c"] g0
     let aId, bId, cId = abcIds.[0], abcIds.[1], abcIds.[2]
-    let g2 = Graph.replace g1.root 0 [] [aId] g1 |> requireOk "root"
-    let g3 = Graph.replace aId 0 [] [bId] g2 |> requireOk "a"
-    let g4 = Graph.replace bId 0 [] [cId] g3 |> requireOk "b"
+    let g2 = Graph.replace g1.root 0 [] (owned [aId]) g1 |> requireOk "root"
+    let g3 = Graph.replace aId 0 [] (owned [bId]) g2 |> requireOk "a"
+    let g4 = Graph.replace bId 0 [] (owned [cId]) g3 |> requireOk "b"
     let siteMap, nextId = buildSiteMap g4
     // Expand a, then b (b becomes visible as a child of a after expanding a)
     let aInst = findInstanceId aId siteMap
@@ -95,9 +97,9 @@ let ``serializeSubtree partial expand: only expanded level included`` () =
     let g0 = Graph.create ()
     let g1, abcIds = ModelBuilder.createNodes ["a"; "b"; "c"] g0
     let aId, bId, cId = abcIds.[0], abcIds.[1], abcIds.[2]
-    let g2 = Graph.replace g1.root 0 [] [aId] g1 |> requireOk "root"
-    let g3 = Graph.replace aId 0 [] [bId] g2 |> requireOk "a"
-    let g4 = Graph.replace bId 0 [] [cId] g3 |> requireOk "b"
+    let g2 = Graph.replace g1.root 0 [] (owned [aId]) g1 |> requireOk "root"
+    let g3 = Graph.replace aId 0 [] (owned [bId]) g2 |> requireOk "a"
+    let g4 = Graph.replace bId 0 [] (owned [cId]) g3 |> requireOk "b"
     let siteMap, nextId = buildSiteMap g4
     let aInst = findInstanceId aId siteMap
     let siteMap', _ = expandEntry aInst g4 siteMap nextId  // expand a only
@@ -114,7 +116,7 @@ let ``collectSubtree single node no children`` () =
     let graph, ids = buildFlat ["x"]
     let id = ids.[0]
     let siteMap, _ = buildSiteMap graph
-    let cb = collectSubtree graph siteMap [id]
+    let cb = collectSubtree graph siteMap (owned [id])
     Assert.Equal<NodeId list>([id], cb.topLevelIds)
     Assert.Equal(1, cb.nodes.Count)
     Assert.Equal("x", cb.nodes.[id].text)
@@ -125,7 +127,7 @@ let ``collectSubtree collapsed node excludes children`` () =
     let graph, parentId, _childIds = buildNested "p" ["c1"; "c2"]
     let siteMap, _ = buildSiteMap graph
     // parent collapsed (default)
-    let cb = collectSubtree graph siteMap [parentId]
+    let cb = collectSubtree graph siteMap (owned [parentId])
     Assert.Equal<NodeId list>([parentId], cb.topLevelIds)
     Assert.Equal(1, cb.nodes.Count)
     Assert.Empty(cb.nodes.[parentId].children)
@@ -136,10 +138,10 @@ let ``collectSubtree expanded node includes children`` () =
     let siteMap, nextId = buildSiteMap graph
     let parentInst = findInstanceId parentId siteMap
     let siteMap', _ = expandEntry parentInst graph siteMap nextId
-    let cb = collectSubtree graph siteMap' [parentId]
+    let cb = collectSubtree graph siteMap' (owned [parentId])
     Assert.Equal<NodeId list>([parentId], cb.topLevelIds)
     Assert.Equal(3, cb.nodes.Count)  // parent + 2 children
-    Assert.Equal<NodeId list>(childIds, cb.nodes.[parentId].children)
+    Assert.Equal<NodeId list>(childIds, cb.nodes.[parentId].children |> List.map (fun child -> child.id))
     for cid in childIds do
         Assert.True(cb.nodes.ContainsKey cid)
 
@@ -147,7 +149,7 @@ let ``collectSubtree expanded node includes children`` () =
 let ``collectSubtree multiple top-level nodes`` () =
     let graph, ids = buildFlat ["a"; "b"; "c"]
     let siteMap, _ = buildSiteMap graph
-    let cb = collectSubtree graph siteMap ids
+    let cb = collectSubtree graph siteMap (owned ids)
     Assert.Equal<NodeId list>(ids, cb.topLevelIds |> List.ofSeq)
     Assert.Equal(3, cb.nodes.Count)
 
@@ -183,7 +185,7 @@ let ``buildPasteOpsFromClipboard remaps parent-child relationship`` () =
     let cb =
         { topLevelIds = [aId]
           nodes = Map.ofList
-            [ aId, { id = aId; text = "a"; name = None; children = [bId]; cssClasses = CssClass.empty }
+            [ aId, { id = aId; text = "a"; name = None; children = owned [bId]; cssClasses = CssClass.empty }
               bId, { id = bId; text = "b"; name = None; children = []; cssClasses = CssClass.empty } ] }
     let newTopIds, ops = buildPasteOpsFromClipboard cb
     let graph = applyOps ops (Graph.create ())
@@ -192,7 +194,7 @@ let ``buildPasteOpsFromClipboard remaps parent-child relationship`` () =
     let newANode = graph.nodes.[newAId]
     Assert.Equal("a", newANode.text)
     Assert.Equal(1, newANode.children.Length)
-    let newBId = newANode.children.[0]
+    let newBId = newANode.children.[0].id
     Assert.NotEqual(bId, newBId)
     let newBNode = graph.nodes.[newBId]
     Assert.Equal("b", newBNode.text)

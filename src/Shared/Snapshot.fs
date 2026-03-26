@@ -20,7 +20,7 @@ module Snapshot =
         let occurrenceCount =
             graph.nodes
             |> Map.toSeq
-            |> Seq.collect (fun (_, node) -> node.children)
+            |> Seq.collect (fun (_, node) -> node.children |> Seq.map (fun child -> child.id))
             |> Seq.groupBy id
             |> Seq.map (fun (nodeId, xs) -> nodeId, Seq.length xs)
             |> Map.ofSeq
@@ -59,13 +59,13 @@ module Snapshot =
                     sb.Append(indent).Append("#").Append(sid).Append(" ").Append(lineBody).Append(nl) |> ignore
                 else
                     sb.Append(indent).Append(lineBody).Append(nl) |> ignore
-                for childId in node.children do
-                    writeNode (depth + 1) childId
+                for child in node.children do
+                    writeNode (depth + 1) child.id
 
         let root = graph.nodes.[graph.root]
 
-        for childId in root.children do
-            writeNode 0 childId
+        for child in root.children do
+            writeNode 0 child.id
 
         sb.ToString()
 
@@ -131,7 +131,8 @@ module Snapshot =
                 // Reference to an already-introduced shared node.
                 let sid = content.Substring(4).Trim()
                 let nodeId = idMap.[sid]
-                let nodes = nodes |> Map.add parentId { parent with children = nodeId :: parent.children }
+                let child = { ref = Ownership.Ref; id = nodeId }
+                let nodes = nodes |> Map.add parentId { parent with children = child :: parent.children }
                 // Do not push onto stack — no children are expected below a reference line.
                 (nodes, stack, idMap)
 
@@ -145,7 +146,8 @@ module Snapshot =
                 let nodeId = NodeId.New()
                 let node: Node = { id = nodeId; text = nodeText; name = None; children = []; cssClasses = classes }
                 let nodes = nodes |> Map.add nodeId node
-                let nodes = nodes |> Map.add parentId { parent with children = nodeId :: parent.children }
+                let child = { ref = Ownership.Owner; id = nodeId }
+                let nodes = nodes |> Map.add parentId { parent with children = child :: parent.children }
                 let idMap = idMap |> Map.add sid nodeId
                 (nodes, (depth, nodeId) :: stack, idMap)
 
@@ -155,7 +157,8 @@ module Snapshot =
                 let nodeId = NodeId.New()
                 let node: Node = { id = nodeId; text = nodeText; name = None; children = []; cssClasses = classes }
                 let nodes = nodes |> Map.add nodeId node
-                let nodes = nodes |> Map.add parentId { parent with children = nodeId :: parent.children }
+                let child = { ref = Ownership.Owner; id = nodeId }
+                let nodes = nodes |> Map.add parentId { parent with children = child :: parent.children }
                 (nodes, (depth, nodeId) :: stack, idMap)
 
         let (nodemap, _, _) =

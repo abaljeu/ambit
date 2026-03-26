@@ -133,7 +133,9 @@ and dispatch (msg: Msg) : unit =
     | SysMsg (SubmitResponse _) ->
         retryCount <- 0
         View.renderStatus currentModel
-    | SysMsg SubmitFailed ->
+    | SysMsg SubmitFailed -> // server has refused our change.  It cannot be sent.
+                            //  Refresh and losing the change, on the user's time is
+                            // obligatory to resume working with the server.
         View.renderStatus currentModel
     | SysMsg SubmitNoResponse ->
         retryCount <- retryCount + 1
