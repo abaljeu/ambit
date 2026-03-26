@@ -25,9 +25,13 @@
     },
     {
       "label": "fullstack: Build",
-      "dependsOn": ["server: Build", "fable: Build Client"],
-      "dependsOrder": "parallel",
+      "type": "shell",
+      "command": "bash scripts/fullstack-build.sh",
       "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
       "problemMatcher": []
     },
     {
