@@ -139,8 +139,13 @@ let applyAndPost (change: Change) (model: VM) (dispatch: Msg -> unit) : VM optio
         let wasEmpty = model.pendingChanges.IsEmpty
         let pending = model.pendingChanges @ [change]
         savePendingQueue pending
-        if model.syncState <> Stale && wasEmpty then fireNextPending model.revision.Value pending dispatch
-        let syncState = if model.syncState = Stale then Stale else Syncing 1
+        // If we're in Pending, do NOT fireNextPending or transition to Syncing. Wait for user/auto retry.
+        let syncState, firePost =
+            match model.syncState with
+            | Stale -> Stale, false
+            | Pending _ -> model.syncState, false
+            | _ -> Syncing 1, wasEmpty
+        if firePost then fireNextPending model.revision.Value pending dispatch
         Some { model with
                  graph = newState.graph
                  history = newState.history

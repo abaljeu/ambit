@@ -109,6 +109,13 @@ Third itemuu
 		uaoeusont 
 	
 	aeu o
+{.h1 .blue}Third item
+	blue
+		
+	hello
+		h
+		blue
+		ue
 ham
 	{.blue}eau
 		
@@ -125,13 +132,6 @@ ham
 		i
 	
 	euo
-{.h1 .blue}Third item
-	blue
-		
-	hello
-		h
-		blue
-		ue
 Tasks
 	now
 		outlier
