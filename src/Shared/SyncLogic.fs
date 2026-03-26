@@ -24,18 +24,23 @@ module SyncLogic =
 
 
     /// Handle SubmitFailed: ignore when Stale or when pending is empty (late timeout).
-    /// Otherwise transition to Pending (not Stale) so the user can retry.
+    /// Otherwise transition to Stale.
     let applySubmitRejected(model: VM) : VM =
         if model.syncState = Stale then model
         elif model.pendingChanges.IsEmpty then model
-        else
-            let failCount = match model.syncState with Syncing n -> n | Pending n -> n | _ -> 0
-            { model with syncState = Pending (failCount + 1) }
+        else { model with syncState = Stale }
 
-    /// Handle SubmitNoResponse: transition to Pending (not Stale) for retry/backoff.
+    /// Handle SubmitNoResponse: keep increasing Syncing attempts until cap, then Pending.
     let applySubmitNoResponse (model: VM) : VM =
-        let failCount = match model.syncState with Syncing n -> n | Pending n -> n | _ -> 0
-        { model with syncState = Pending (failCount + 1) }
+        if model.pendingChanges.IsEmpty then model
+        else
+            let nextState =
+                match model.syncState with
+                | Syncing n when n < 10 -> Syncing (n + 1)
+                | Syncing n -> Pending n
+                | Pending n -> Pending n
+                | _ -> Pending 1
+            { model with syncState = nextState }
 
     /// Handle ServerAhead: transition to Stale.
     let applyServerAhead (_rev: Revision) (model: VM) : VM =

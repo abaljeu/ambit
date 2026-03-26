@@ -127,8 +127,8 @@ module Serialization =
                 [ "type", Encode.string "Replace"
                   "parentId", encodeNodeId parentId
                   "index", Encode.int index
-                  "oldIds", oldChildren |> List.map (fun child -> encodeNodeId child.id) |> Encode.list
-                  "newIds", newChildren |> List.map (fun child -> encodeNodeId child.id) |> Encode.list ]
+                  "oldChildren", oldChildren |> List.map encodeChildNode |> Encode.list
+                  "newChildren", newChildren |> List.map encodeChildNode |> Encode.list ]
 
     let decodeOp: Decoder<Op> =
         Decode.field "type" Decode.string
@@ -156,8 +156,8 @@ module Serialization =
                     Op.Replace(
                         get.Required.Field "parentId" decodeNodeId,
                         get.Required.Field "index" Decode.int,
-                        get.Required.Field "oldIds" (Decode.list decodeNodeId) |> List.map (fun id -> { ref = Ownership.Owner; id = id }),
-                        get.Required.Field "newIds" (Decode.list decodeNodeId) |> List.map (fun id -> { ref = Ownership.Owner; id = id })))
+                        get.Required.Field "oldChildren" (Decode.list decodeChildNode),
+                        get.Required.Field "newChildren" (Decode.list decodeChildNode)))
             | other ->
                 Decode.fail $"Unknown Op type: {other}")
 

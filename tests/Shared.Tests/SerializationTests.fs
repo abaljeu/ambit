@@ -74,6 +74,19 @@ let ``Op.Replace round-trip`` () =
     Assert.Equal(op, decoded)
 
 [<Fact>]
+let ``Op.Replace round-trip preserves child ownership`` () =
+    let shared = NodeId.New()
+    let op =
+        Op.Replace(
+            NodeId.New(),
+            0,
+            [],
+            [ { ref = Ownership.Owner; id = shared }
+              { ref = Ownership.Ref; id = shared } ])
+    let decoded = roundTrip Serialization.encodeOp Serialization.decodeOp op
+    Assert.Equal(op, decoded)
+
+[<Fact>]
 let ``Change round-trip`` () =
     let change =
         { id = 5

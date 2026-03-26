@@ -554,6 +554,24 @@ module ViewModel =
     /// cachedInstIds is the set of instanceIds currently held in the element cache.
     /// Returns removals followed by visible-row operations in preorder display order.
     let planPatchDOM (oldModel: VM) (newModel: VM) (cachedInstIds: Set<SiteId>) : RowMutation list =
+        let ownershipClass (model: VM) (entry: SiteEntry) =
+            match entry.parentInstanceId with
+            | None -> "amb-row-owned"
+            | Some parentInstId ->
+                match Map.tryFind parentInstId model.siteMap.entries with
+                | None -> "amb-row-owned"
+                | Some parentEntry ->
+                    let childIndex =
+                        parentEntry.children
+                        |> List.tryFindIndex (fun childInstId -> childInstId = entry.instanceId)
+                    match childIndex with
+                    | None -> "amb-row-owned"
+                    | Some idx ->
+                        let parentNode = model.graph.nodes.[parentEntry.nodeId]
+                        match parentNode.children |> List.tryItem idx with
+                        | Some child when child.ref = Ownership.Ref -> "amb-row-ref"
+                        | _ -> "amb-row-owned"
+
         let newVisible = getVisibleInstanceIds newModel.siteMap
         let newVisibleSet = Set.ofList newVisible
 
@@ -587,6 +605,7 @@ module ViewModel =
                             let isRoot = entry.instanceId = newModel.siteMap.rootId
                             let newClass =
                                 "amb-row"
+                                |> CssClass.add (ownershipClass newModel entry)
                                 |> CssClass.addIf isRoot "amb-view-root"
                                 |> CssClass.addIf sel "amb-selected"
                                 |> CssClass.addIf foc "amb-focused"
@@ -594,6 +613,7 @@ module ViewModel =
                             let oldFoc = oldEntry |> Option.map (isEntryFocused oldModel) |> Option.defaultValue false
                             let oldClass =
                                 "amb-row"
+                                |> CssClass.add (oldEntry |> Option.map (ownershipClass oldModel) |> Option.defaultValue "amb-row-owned")
                                 |> CssClass.addIf isRoot "amb-view-root"
                                 |> CssClass.addIf oldSel "amb-selected"
                                 |> CssClass.addIf oldFoc "amb-focused"

@@ -1476,7 +1476,13 @@ let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
                 syncState = if pending.IsEmpty then Synced else Syncing 1 }
 
     | SysMsg SubmitFailed ->
-        SyncLogic.applySubmitRejected model
+        let next = SyncLogic.applySubmitRejected model
+        if next.syncState = Stale then
+            // Rejected payload cannot be replayed safely; drop persisted queue so reload starts clean.
+            savePendingQueue []
+            { next with pendingChanges = [] }
+        else
+            next
     | SysMsg SubmitNoResponse ->
         SyncLogic.applySubmitNoResponse model
 

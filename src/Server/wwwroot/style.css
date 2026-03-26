@@ -70,6 +70,12 @@ body {
     text-align: center;
     align-self: center;
 }
+.amb-row-owned .amb-fold-toggle {
+    color: #000;
+}
+.amb-row-ref .amb-fold-toggle {
+    color: #00f;
+}
 .amb-node-guid {
     flex-shrink: 0;
     font-size: 0.7em;
