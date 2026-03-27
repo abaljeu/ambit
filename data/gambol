@@ -126,13 +126,14 @@ Third itemuu
 	
 	aeu o
 {.h1 .blue}Third item
-	#n3 blue
+	#n3 <blue>
 		u
 	hello
 		h
 		blue
 		ue
 -> #n3
+
 Tasks
 	now
 		outlier

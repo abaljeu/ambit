@@ -6,6 +6,7 @@ open Fable.Core.JsInterop
 open Gambol.Shared
 open Gambol.Shared.ViewModel
 open Gambol.Client.Controller
+open Gambol.Client.JsInterop
 open Gambol.Client.Update
 
 let private scrollIntoViewNearest (el: HTMLElement) : unit =
@@ -86,15 +87,16 @@ let private makeRowElement (model: VM) (applyOp: Op -> unit) (depth: int) (siteE
         dot.textContent <- "\u25CF"
         row.appendChild dot |> ignore
 
-    // Content: edit input or text div
+    // One `.amb-text` per row; new row ⇒ new div. Same node for view and edit (contentEditable).
+    let textDiv = document.createElement "div"
+    textDiv.classList.add "amb-text"
+    for cls in CssClass.toList node.cssClasses do
+        textDiv.classList.add cls
     if isEditingEntry model siteEntry then
-        let editInput = document.createElement "input"
-        editInput.id <- "edit-input"
-        editInput.classList.add "amb-edit-input"
-        for cls in CssClass.toList node.cssClasses do
-            editInput.classList.add cls
-        editInput.setAttribute("tabindex", "-1")
-        editInput.setAttribute("autocomplete", "off")
+        textDiv.id <- "edit-input"
+        textDiv.classList.add "amb-edit-input"
+        textDiv.contentEditable <- "true"
+        textDiv.setAttribute("tabindex", "-1")
         let effectiveMode =
             match model.mode with
             | CommandPalette (_, _, ret) -> ret
@@ -104,25 +106,22 @@ let private makeRowElement (model: VM) (applyOp: Op -> unit) (depth: int) (siteE
             match effectiveMode with
             | Editing (text, _) -> text
             | _ -> node.text
-        (editInput :?> HTMLInputElement).value <- initialValue
-        editInput.addEventListener("keydown", fun (ev: Event) ->
+        textDiv.textContent <- initialValue
+        textDiv.addEventListener("keydown", fun (ev: Event) ->
             let key = ev :?> KeyboardEvent
             if (key.ctrlKey || key.metaKey) && key.key = "p" && not key.shiftKey then
                 ev.preventDefault()
             handleKey effectiveMode key applyOp
         )
-        editInput.addEventListener("mousedown", fun (ev: Event) ->
+        textDiv.addEventListener("mousedown", fun (ev: Event) ->
             ev.stopPropagation()
         )
-        editInput.addEventListener("paste", fun ev -> onPaste ev applyOp)
-        row.appendChild editInput |> ignore
+        textDiv.addEventListener("paste", fun ev -> onPaste ev applyOp)
     else
-        let textDiv = document.createElement "div"
-        textDiv.classList.add "amb-text"
-        for cls in CssClass.toList node.cssClasses do
-            textDiv.classList.add cls
+        textDiv.removeAttribute "id"
+        textDiv.contentEditable <- "false"
         textDiv.textContent <- node.text
-        row.appendChild textDiv |> ignore
+    row.appendChild textDiv |> ignore
 
     // Diagnostic: last 8 chars of node GUID, right-justified
     let guidSuffix = node.id.Value.ToString()
@@ -159,15 +158,9 @@ let private applyRowPatches (el: HTMLElement) (patches: RowPatch list) : unit =
             if not (isNull textDiv) then
                 let td = textDiv :?> HTMLElement
                 td.className <- "amb-text"
+                if td.id = "edit-input" then td.classList.add "amb-edit-input"
                 for cls in CssClass.toList classes do
                     td.classList.add cls
-            let editInput = el.querySelector ".amb-edit-input"
-            if not (isNull editInput) then
-                let inp = editInput :?> HTMLElement
-                inp.className <- "amb-edit-input"
-                for cls in CssClass.toList classes do
-                    inp.classList.add cls
-                inp.setAttribute("autocomplete", "off")
         | SetFoldArrow arrow ->
             let ft = el.querySelector ".amb-fold-toggle"
             if not (isNull ft) then (ft :?> HTMLElement).textContent <- arrow
@@ -210,16 +203,18 @@ let manageFocus (model: VM) (rowByInstanceId: Map<SiteId, HTMLElement>) : unit =
     | CommandPalette _ | CssClassPrompt _ ->
         () // focus is handled by renderCommandPalette / renderCssClassPrompt after the element becomes visible
     | Editing _ ->
-        let editInput = document.getElementById "edit-input"
-        if not (isNull editInput) then
-            let inp = editInput :?> HTMLInputElement
-            inp.focus()
+        let editEl = document.getElementById "edit-input"
+        if not (isNull editEl) then
+            let root = editEl
+            root.focus()
             let pos =
                 match model.mode with
                 | Editing (_, Some p) -> p
-                | _ -> inp.value.Length
-            inp.setSelectionRange(pos, pos)
-            scrollIntoViewNearest (inp :> HTMLElement)
+                | _ ->
+                    let t = root.textContent
+                    if isNull t then 0 else t.Length
+            setContentEditableCaret root pos
+            scrollIntoViewNearest root
     | Selecting ->
         let hiddenInput = document.getElementById "hidden-input"
         if not (isNull hiddenInput) then

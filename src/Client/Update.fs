@@ -3,6 +3,7 @@ module Gambol.Client.Update
 open Browser.Dom
 open Browser.Types
 open Fable.Core
+open Gambol.Client.JsInterop
 open Gambol.Shared
 open Gambol.Shared.Paste
 open Gambol.Shared.ViewModel
@@ -90,24 +91,25 @@ let loadPendingQueue () : Change list =
 // Update helpers
 // ---------------------------------------------------------------------------
 
-/// Read the edit input value from the DOM (impure — pragmatic for MVP)
+/// Read the live edit field text from the DOM (`contentEditable` `div#edit-input`).
 let readEditInputValue () : string =
     let el = document.getElementById "edit-input"
     if isNull el then ""
-    else (el :?> HTMLInputElement).value
+    else
+        let t = el.textContent
+        if isNull t then "" else t
 
-/// Read the edit input cursor position from the DOM.
-/// anchor and focus don't exist in input, but selectionDirection can be used to compute these.
+/// Read caret start offset (UTF-16) within `#edit-input`.
 let readEditInputCursor () : int =
     let el = document.getElementById "edit-input"
     if isNull el then 0
-    else int (el :?> HTMLInputElement).selectionStart
+    else getContentEditableSelectionStart el
 
-/// Read the edit input selection end from the DOM (same as caret when no range).
+/// Read selection end offset within `#edit-input`.
 let readEditInputSelectionEnd () : int =
     let el = document.getElementById "edit-input"
     if isNull el then 0
-    else int (el :?> HTMLInputElement).selectionEnd
+    else getContentEditableSelectionEnd el
 
 /// Fire the next POST in the pending queue (head of the list).
 /// `baseRevision` is the last server-acknowledged revision; the head change must use it as

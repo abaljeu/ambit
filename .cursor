@@ -1,49 +1,35 @@
 # Project
 The aim is for robust, private, useful software.
-Full Stack Functional F#
-
-We are working through [[doc/plan]].
-
-In markdown files reference files using the format  [[workspace_path/filename.ext]]
+Full Stack Functional F# (ASP.net, and Fable client)
 
 ## How to work
-I want to help.  Don't engage in deep thought except you must tell me what you're thinking about.
-
-Use CRLF endings.
-
-Maximum 100 lines of change (total diff) per request.  Prefer less.  If a request would require more than that, instead write a plan describing the change so we can work at smaller increments.
-
-
-If a requested course of action seems inefficient, stop and propose a more efficient course.
+Include me in your work.  Tell me what you're thinking about.  Tell me what you did before running tools.
+Advise me if there is a better way to do something.
 If a request is unclear, just ask.
 
-Put non-trivial plans in a markdown file in doc/ so I can review.
-
-Use internal knowledge rather than websearch.  If a detail of the current tools mismatches your knowledge, ask the user.
-
-Use Test Driven Development.
-Write test - stop for review.  
-Make test pass.  Stop for review.  
-Refactor.  Stop for review.
-
-Don't bother using git unless asked a history or status question.  I will take care of git.
+Do not websearch.  Tell me if you lack information.
+Use Test Driven Development.  Write tests for new functionality.
 
 ## Source code
-Maximum 100 characters per line.
+Use pure functional F#.  Don't use mutable.  If you must, ask.
+Don't embed anything more than tiny amounts of html, CSS or JS in F# code.
+If you are looking for browser access functions, look at ./other/fable.browser.dom.fs.
+Use CRLF endings.
+100 characters or less per line.
+30 lines or less per function.
 Follow language norms.
-Use pure functional F#.  If there is ever imperative constructs like mutating objects or reassigning variables, the reason for not being pure must be commented in that spot.
 
 TABs are not allowed in F#
 Always indent 4 spaces.
-Indentation is AS important AS it is in python or Haskell.
-If a function might fail, use Result types with errors, eschewing exceptions for things that should be handled (e.g. retries).
+Indentation is equally important as it is in python or Haskell.
+Don't use Exceptions.  Use Error types.
 
 ## Environment
-Windows.  ALWAYS put CRLF on files.
-GIT Bash shell
-Your working directory is the project root.  If ever there's a reason not using `cd` is an obstacle, ask the user.
+Windows 10
+GIT Bash shell. Use it.
+Don't use git unless asked.
+Your working directory is the project root.  
 **Do not use `cd`.  Do not change directories.**  
-Use relative paths such as ./src.
+Do not use absolute paths.  Use relative paths such as ./src.
 
 Occasionally the first time you send a command, the tool will delete the first character of your command.  If so, just send it again.
-F# front and back end.  Client compiled with Fable for browser UI.  .NET for server.  Shared files should be compilable in either so use basic libraries only.

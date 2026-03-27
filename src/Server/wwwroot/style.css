@@ -104,7 +104,8 @@ body {
     background: #eeeeee80;
     border: 1px transparent;
 }
-.amb-edit-input {
+/* Editing chrome on contentEditable div.amb-text */
+.amb-text.amb-edit-input {
     border: 1px solid #89a;
     outline: none;
     background: #fff;
