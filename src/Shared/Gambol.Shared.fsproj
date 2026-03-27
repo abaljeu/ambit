@@ -7,6 +7,7 @@
 
   <ItemGroup>
     <Compile Include="CssClass.fs" />
+    <Compile Include="ClientRectCaret.fs" />
     <Compile Include="Model.fs" />
     <Compile Include="History.fs" />
     <Compile Include="ViewModel.fs" />

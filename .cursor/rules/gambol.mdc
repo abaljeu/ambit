@@ -1,0 +1,41 @@
+---
+description: Gambol project conventions, F# stack, and agent workflow
+alwaysApply: true
+---
+
+# Project
+The aim is for robust, private, useful software.
+Full Stack Functional F# (ASP.net, and Fable client)
+
+## How to work
+Include me in your work.  Tell me what you're thinking about.  Tell me what you did before running tools.
+Advise me if there is a better way to do something.
+If a request is unclear, just ask.
+
+Do not websearch.  Tell me if you lack information.
+Use Test Driven Development.  Write tests for new functionality.
+But we are not testing to the browser.  Any complex logic should be testable purely where possible.  (If it depends on ambiguous browser behavior, it isn't).
+
+## Source code
+Use pure functional F#.  Don't use mutable.  If you must, ask.
+Don't embed anything more than tiny amounts of html, CSS or JS in F# code.
+If you are looking for browser access functions, look at ./other/fable.browser.dom.fs.
+Use CRLF endings.
+100 characters or less per line.
+30 lines or less per function.
+Follow language norms.
+
+TABs are not allowed in F#
+Always indent 4 spaces.
+Indentation is equally important as it is in python or Haskell.
+Don't use Exceptions.  Use Error types.
+
+## Environment
+Windows 10
+GIT Bash shell. Use it.
+Don't use git unless asked.
+Your working directory is the project root.  
+**Do not use `cd`.  Do not change directories.**  
+Do not use absolute paths.  Use relative paths such as ./src.
+
+Occasionally the first time you send a command, the tool will delete the first character of your command.  If so, just send it again.
