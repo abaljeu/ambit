@@ -136,21 +136,25 @@ let applyAndPost (change: Change) (model: VM) (dispatch: Msg -> unit) : VM optio
     let state: State = { graph = model.graph; revision = model.revision; history = model.history }
     match History.applyChange change state with
     | ApplyResult.Changed newState ->
-        let wasEmpty = model.pendingChanges.IsEmpty
-        let pending = model.pendingChanges @ [change]
+        let wasEmpty = model.syncInfo.pendingChanges.IsEmpty
+        let pending = model.syncInfo.pendingChanges @ [change]
         savePendingQueue pending
         // If we're in Pending, do NOT fireNextPending or transition to Syncing. Wait for user/auto retry.
         let syncState, firePost =
-            match model.syncState with
+            match model.syncInfo.syncState with
             | Stale -> Stale, false
-            | Pending _ -> model.syncState, false
+            | Pending _ -> model.syncInfo.syncState, false
             | _ -> Syncing 1, wasEmpty
         if firePost then fireNextPending model.revision.Value pending dispatch
-        Some { model with
-                 graph = newState.graph
-                 history = newState.history
-                 pendingChanges = pending
-                 syncState = syncState }
+        let syncInfo =
+            model.syncInfo
+            |> SyncInfo.withPendingChanges pending
+            |> SyncInfo.withSyncState syncState
+        Some
+            { model with
+                graph = newState.graph
+                history = newState.history
+                syncInfo = syncInfo }
     | _ -> None
 
 /// Extract the child span covered by a SiteNodeRange.
@@ -1376,14 +1380,20 @@ let zoomOutOp (model: VM) (dispatch: Msg -> unit) : VM =
 
 /// Op: Retry pending server POST. When resetCount=true (manual click), resets attempt count for a fresh batch.
 let retryPendingOp (resetCount: bool) (model: VM) (dispatch: Msg -> unit) : VM =
-    match model.syncState, model.pendingChanges with
+    match model.syncInfo.syncState, model.syncInfo.pendingChanges with
     | Stale, _  -> model
-    | _, [] -> { model with syncState = Synced }
+    | _, [] ->
+        { model with
+            syncInfo =
+                model.syncInfo
+                |> SyncInfo.withPendingChanges []
+                |> SyncInfo.withSyncState Synced }
     | Syncing _, _ -> model
     | Pending failCount, _ ->
-        fireNextPending model.revision.Value model.pendingChanges dispatch
+        fireNextPending model.revision.Value model.syncInfo.pendingChanges dispatch
         let attempt = if resetCount then 1 else failCount + 1
-        { model with syncState = Syncing attempt }
+        { model with
+            syncInfo = SyncInfo.withSyncState (Syncing attempt) model.syncInfo }
     | _,_ -> model
 
 /// Op: Undo the last change, committing any in-progress edit first.
@@ -1396,17 +1406,20 @@ let undoOp (model: VM) (dispatch: Msg -> unit) : VM =
         match History.undo state with
         | ApplyResult.Changed newState ->
             let invertedChange = { Change.invert headChange with id = model'.history.nextId }
-            let wasEmpty = model'.pendingChanges.IsEmpty
-            let pending = model'.pendingChanges @ [invertedChange]
+            let wasEmpty = model'.syncInfo.pendingChanges.IsEmpty
+            let pending = model'.syncInfo.pendingChanges @ [invertedChange]
             savePendingQueue pending
-            if model'.syncState <> Stale && wasEmpty then fireNextPending model'.revision.Value pending dispatch
-            let syncState = if model'.syncState = Stale then Stale else Syncing 1
+            if model'.syncInfo.syncState <> Stale && wasEmpty then fireNextPending model'.revision.Value pending dispatch
+            let syncState = if model'.syncInfo.syncState = Stale then Stale else Syncing 1
+            let syncInfo =
+                model'.syncInfo
+                |> SyncInfo.withPendingChanges pending
+                |> SyncInfo.withSyncState syncState
             { model' with
                 graph = newState.graph
                 history = newState.history
                 mode = Selecting
-                pendingChanges = pending
-                syncState = syncState }
+                syncInfo = syncInfo }
             |> withSiteMap
         | _ -> model'
 
@@ -1423,17 +1436,20 @@ let redoOp (model: VM) (dispatch: Msg -> unit) : VM =
                 { headChange with
                     id = model'.history.nextId
                     changeId = System.Guid.NewGuid() }
-            let wasEmpty = model'.pendingChanges.IsEmpty
-            let pending = model'.pendingChanges @ [reChange]
+            let wasEmpty = model'.syncInfo.pendingChanges.IsEmpty
+            let pending = model'.syncInfo.pendingChanges @ [reChange]
             savePendingQueue pending
-            if model'.syncState <> Stale && wasEmpty then fireNextPending model'.revision.Value pending dispatch
-            let syncState = if model'.syncState = Stale then Stale else Syncing 1
+            if model'.syncInfo.syncState <> Stale && wasEmpty then fireNextPending model'.revision.Value pending dispatch
+            let syncState = if model'.syncInfo.syncState = Stale then Stale else Syncing 1
+            let syncInfo =
+                model'.syncInfo
+                |> SyncInfo.withPendingChanges pending
+                |> SyncInfo.withSyncState syncState
             { model' with
                 graph = newState.graph
                 history = newState.history
                 mode = Selecting
-                pendingChanges = pending
-                syncState = syncState }
+                syncInfo = syncInfo }
             |> withSiteMap
         | _ -> model'
 
@@ -1456,31 +1472,38 @@ let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
           nextSiteId = nextId
           zoomRoot = None
           clipboard = None
-          pendingChanges = []
-          syncState = Synced }
+          syncInfo = SyncInfo.initial }
+
+    | AckSyncRisk ->
+        { model with
+            syncInfo = { model.syncInfo with syncRiskAcknowledged = true } }
 
     | SysMsg (SubmitResponse revision) ->
-        if model.syncState = Stale then model
+        if model.syncInfo.syncState = Stale then model
         else
-            let pendingTail = match model.pendingChanges with _ :: t -> t | [] -> []
+            let pendingTail = match model.syncInfo.pendingChanges with _ :: t -> t | [] -> []
             let pending =
                 match pendingTail with
                 | [] -> []
                 | h :: t -> { h with id = revision.Value } :: t
             savePendingQueue pending
             if not pending.IsEmpty then fireNextPending revision.Value pending dispatch
+            let syncInfo =
+                model.syncInfo
+                |> SyncInfo.withPendingChanges pending
+                |> SyncInfo.withSyncState (if pending.IsEmpty then Synced else Syncing 1)
             { model with
                 revision = revision
                 history = { model.history with nextId = max model.history.nextId revision.Value }
-                pendingChanges = pending
-                syncState = if pending.IsEmpty then Synced else Syncing 1 }
+                syncInfo = syncInfo }
 
     | SysMsg SubmitFailed ->
         let next = SyncLogic.applySubmitRejected model
-        if next.syncState = Stale then
+        if next.syncInfo.syncState = Stale then
             // Rejected payload cannot be replayed safely; drop persisted queue so reload starts clean.
             savePendingQueue []
-            { next with pendingChanges = [] }
+            { next with
+                syncInfo = SyncInfo.withPendingChanges [] next.syncInfo }
         else
             next
     | SysMsg SubmitNoResponse ->
@@ -1490,14 +1513,16 @@ let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
         SyncLogic.applyServerAhead rev model
 
     | SysMsg PollingInactive ->
-        if model.syncState = Synced && model.pendingChanges.IsEmpty then
-            { model with syncState = Inactive }
+        if model.syncInfo.syncState = Synced && model.syncInfo.pendingChanges.IsEmpty then
+            { model with
+                syncInfo = SyncInfo.withSyncState Inactive model.syncInfo }
         else
             model
 
     | SysMsg PollingActive ->
-        if model.syncState = Inactive then
-            { model with syncState = Synced }
+        if model.syncInfo.syncState = Inactive then
+            { model with
+                syncInfo = SyncInfo.withSyncState Synced model.syncInfo }
         else
             model
 

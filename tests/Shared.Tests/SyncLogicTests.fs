@@ -20,12 +20,15 @@ let private emptyModel (graph: Graph) : VM =
       nextSiteId = nextId
       zoomRoot = None
       clipboard = None
-      pendingChanges = []
-      syncState = Synced }
+      syncInfo = SyncInfo.initial }
 
 let private modelWithPending (graph: Graph) (pending: Change list) (syncState: SyncState) : VM =
     let m = emptyModel graph
-    { m with pendingChanges = pending; syncState = syncState }
+    { m with
+        syncInfo =
+            { m.syncInfo with
+                pendingChanges = pending
+                syncState = syncState } }
 
 let private mkChange id = { id = id; changeId = System.Guid.NewGuid(); ops = [] }
 
@@ -95,7 +98,7 @@ let ``applySubmitRejected with empty pending returns model unchanged`` () =
     let model = emptyModel graph
     let result = SyncLogic.applySubmitRejected model
     Assert.Same(model, result)
-    Assert.Equal(Synced, result.syncState)
+    Assert.Equal(Synced, result.syncInfo.syncState)
 
 [<Fact>]
 let ``applySubmitNoResponse with Syncing 1 and non-empty pending transitions to Syncing 2`` () =
@@ -103,8 +106,8 @@ let ``applySubmitNoResponse with Syncing 1 and non-empty pending transitions to 
     let pending = [ mkChange 0 ]
     let model = modelWithPending graph pending (Syncing 1)
     let result = SyncLogic.applySubmitNoResponse model
-    Assert.Equal(Syncing 2, result.syncState)
-    Assert.Equal(1, result.pendingChanges.Length)
+    Assert.Equal(Syncing 2, result.syncInfo.syncState)
+    Assert.Equal(1, result.syncInfo.pendingChanges.Length)
 
 [<Fact>]
 let ``applySubmitNoResponse with Syncing 9 and non-empty pending transitions to Syncing 10`` () =
@@ -112,8 +115,8 @@ let ``applySubmitNoResponse with Syncing 9 and non-empty pending transitions to 
     let pending = [ mkChange 0 ]
     let model = modelWithPending graph pending (Syncing 9)
     let result = SyncLogic.applySubmitNoResponse model
-    Assert.Equal(Syncing 10, result.syncState)
-    Assert.Equal(1, result.pendingChanges.Length)
+    Assert.Equal(Syncing 10, result.syncInfo.syncState)
+    Assert.Equal(1, result.syncInfo.pendingChanges.Length)
 
 [<Fact>]
 let ``applySubmitNoResponse with Syncing 10 and non-empty pending transitions to Pending 10`` () =
@@ -121,8 +124,8 @@ let ``applySubmitNoResponse with Syncing 10 and non-empty pending transitions to
     let pending = [ mkChange 0 ]
     let model = modelWithPending graph pending (Syncing 10)
     let result = SyncLogic.applySubmitNoResponse model
-    Assert.Equal(Pending 10, result.syncState)
-    Assert.Equal(1, result.pendingChanges.Length)
+    Assert.Equal(Pending 10, result.syncInfo.syncState)
+    Assert.Equal(1, result.syncInfo.pendingChanges.Length)
 
 [<Fact>]
 let ``applySubmitRejected with Syncing 1 and non-empty pending transitions to Stale`` () =
@@ -130,16 +133,17 @@ let ``applySubmitRejected with Syncing 1 and non-empty pending transitions to St
     let pending = [ mkChange 0 ]
     let model = modelWithPending graph pending (Syncing 1)
     let result = SyncLogic.applySubmitRejected model
-    Assert.Equal(Stale, result.syncState)
-    Assert.Equal(1, result.pendingChanges.Length)
+    Assert.Equal(Stale, result.syncInfo.syncState)
+    Assert.Equal(1, result.syncInfo.pendingChanges.Length)
 
 [<Fact>]
 let ``applySubmitRejected when Stale returns model unchanged`` () =
     let graph = ModelBuilder.createDag12 ()
-    let model = { emptyModel graph with syncState = Stale }
+    let m0 = emptyModel graph
+    let model = { m0 with syncInfo = { m0.syncInfo with syncState = Stale } }
     let result = SyncLogic.applySubmitRejected model
     Assert.Same(model, result)
-    Assert.Equal(Stale, result.syncState)
+    Assert.Equal(Stale, result.syncInfo.syncState)
 
 // ---------------------------------------------------------------------------
 // applyServerAhead
@@ -150,5 +154,32 @@ let ``applyServerAhead transitions syncState to Stale`` () =
     let graph = ModelBuilder.createDag12 ()
     let model = emptyModel graph
     let result = SyncLogic.applyServerAhead (Revision 10) model
-    Assert.Equal(Stale, result.syncState)
+    Assert.Equal(Stale, result.syncInfo.syncState)
     Assert.Equal(model.graph, result.graph)
+
+// ---------------------------------------------------------------------------
+// SyncInfo helpers
+// ---------------------------------------------------------------------------
+
+[<Fact>]
+let ``SyncInfo withPendingChanges clears ack when queue changes`` () =
+    let si =
+        { SyncInfo.initial with
+            pendingChanges = [ mkChange 0 ]
+            syncRiskAcknowledged = true }
+    let si2 = SyncInfo.withPendingChanges [ mkChange 1 ] si
+    Assert.False(si2.syncRiskAcknowledged)
+
+[<Fact>]
+let ``SyncInfo withPendingChanges keeps ack when queue unchanged`` () =
+    let pending = [ mkChange 0 ]
+    let si = { SyncInfo.initial with pendingChanges = pending; syncRiskAcknowledged = true }
+    let si2 = SyncInfo.withPendingChanges pending si
+    Assert.True(si2.syncRiskAcknowledged)
+
+[<Fact>]
+let ``SyncInfo withSyncState keeps ack within Pending to Stale`` () =
+    let si = { SyncInfo.initial with syncState = Pending 3; syncRiskAcknowledged = true }
+    let si2 = SyncInfo.withSyncState Stale si
+    Assert.True(si2.syncRiskAcknowledged)
+    Assert.Equal(Stale, si2.syncState)

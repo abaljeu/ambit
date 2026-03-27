@@ -24,8 +24,7 @@ let mutable currentModel: VM =
       nextSiteId = Sid 1
       zoomRoot = None
       clipboard = None
-      pendingChanges = []
-      syncState = Synced }
+      syncInfo = SyncInfo.initial }
 
 /// Element cache: instanceId → DOM row element.  Populated on first StateLoaded.
 let mutable elementCache: Map<SiteId, HTMLElement> = Map.empty
@@ -65,6 +64,9 @@ let setupStaticDOM (applyOp: Op -> unit) (wakePolling: unit -> unit) : unit =
     let reloadBtn = document.getElementById "reload-btn"
     reloadBtn.setAttribute("title", "Full reload (useful if Page is old or assets are cached)")
     reloadBtn.addEventListener("click", fun _ ->
+        currentModel <-
+            { currentModel with
+                syncInfo = { currentModel.syncInfo with syncRiskAcknowledged = false } }
         let path = window.location.pathname
         window.location.assign(path + "?bust=" + string (nowMs ())))
 
@@ -86,18 +88,26 @@ let setupStaticDOM (applyOp: Op -> unit) (wakePolling: unit -> unit) : unit =
 
     let syncStatus = document.getElementById "sync-status"
     syncStatus.addEventListener("click", fun _ ->
-        match currentModel.syncState with
+        match currentModel.syncInfo.syncState with
         | Inactive ->
             wakePolling ()
         | Stale ->
+            currentModel <-
+                { currentModel with
+                    syncInfo = { currentModel.syncInfo with syncRiskAcknowledged = false } }
             let path = window.location.pathname
             window.location.assign(path + "?bust=" + string (nowMs ()))
-        | _ -> applyOp (retryPendingOp true))
+        | _ ->
+            currentModel <-
+                { currentModel with
+                    syncInfo = { currentModel.syncInfo with syncRiskAcknowledged = false } }
+            applyOp (retryPendingOp true)
+    )
 
 let rec applyOp (op: Op) : unit =
     let prevModel = currentModel
     currentModel <- op currentModel dispatch
-    elementCache <- patchDOM prevModel currentModel applyOp elementCache
+    elementCache <- patchDOM prevModel currentModel applyOp dispatch elementCache
     View.renderUndoStatus currentModel
     View.renderCommandPalette currentModel applyOp
     View.renderCssClassPrompt currentModel applyOp
@@ -121,39 +131,43 @@ and dispatch (msg: Msg) : unit =
                 | _ -> g, acc) (currentModel.graph, [])
         savePendingQueue restoredPending
         if not restoredPending.IsEmpty then
-            currentModel <- { currentModel with
-                                graph = localGraph
-                                pendingChanges = restoredPending
-                                syncState = Syncing 1 }
+            currentModel <-
+                { currentModel with
+                    graph = localGraph
+                    syncInfo =
+                        currentModel.syncInfo
+                        |> SyncInfo.withPendingChanges restoredPending
+                        |> SyncInfo.withSyncState (Syncing 1) }
             fireNextPending serverRev restoredPending dispatch
-        elementCache <- render currentModel applyOp
+        elementCache <- render currentModel applyOp dispatch
         View.renderUndoStatus currentModel
         View.renderCommandPalette currentModel applyOp
         View.renderCssClassPrompt currentModel applyOp
     | SysMsg (SubmitResponse _) ->
         retryCount <- 0
-        View.renderStatus currentModel
+        View.renderSyncChrome currentModel dispatch
     | SysMsg SubmitFailed -> // server has refused our change.  It cannot be sent.
                             //  Refresh and losing the change, on the user's time is
                             // obligatory to resume working with the server.
-        View.renderStatus currentModel
+        View.renderSyncChrome currentModel dispatch
     | SysMsg SubmitNoResponse ->
         retryCount <- retryCount + 1
         let maxAutoRetries = 10
         let delaySec = min 60 (1 <<< (min retryCount 6))
-        let canAutoRetry = match currentModel.syncState with Pending n -> n < maxAutoRetries | _ -> false
-        if currentModel.syncState <> Stale && canAutoRetry then
-            setTimeout (fun () ->
-                applyOp (retryPendingOp false)
-                View.renderStatus currentModel) (delaySec * 1000)
+        let canAutoRetry = match currentModel.syncInfo.syncState with Pending n -> n < maxAutoRetries | _ -> false
+        if currentModel.syncInfo.syncState <> Stale && canAutoRetry then
+            setTimeout (fun () -> applyOp (retryPendingOp false)) (delaySec * 1000)
             |> ignore
-        View.renderStatus currentModel
+        View.renderSyncChrome currentModel dispatch
     | SysMsg (ServerAhead _) ->
-        View.renderStatus currentModel
+        View.renderSyncChrome currentModel dispatch
 
     | SysMsg PollingInactive
     | SysMsg PollingActive ->
-        View.renderStatus currentModel
+        View.renderSyncChrome currentModel dispatch
+
+    | AckSyncRisk ->
+        View.renderSyncChrome currentModel dispatch
 
 // ---------------------------------------------------------------------------
 // Polling
@@ -166,11 +180,11 @@ let pollForRemoteChanges () : unit =
     let shouldPoll = (not hidden) && idleForMs < idleTimeoutMs
 
     if not shouldPoll then
-        if currentModel.syncState = Synced && currentModel.pendingChanges.IsEmpty then
+        if currentModel.syncInfo.syncState = Synced && currentModel.syncInfo.pendingChanges.IsEmpty then
             dispatch (SysMsg PollingInactive)
         ()
     else
-        if currentModel.syncState = Inactive then
+        if currentModel.syncInfo.syncState = Inactive then
             dispatch (SysMsg PollingActive)
 
         let url = $"/{Update.currentFile}/poll?_={now}"
@@ -179,7 +193,7 @@ let pollForRemoteChanges () : unit =
             | Ok poll ->
                 let client =
                     { ClientPollContext.revision = currentModel.revision.Value
-                      pendingCount = currentModel.pendingChanges.Length
+                      pendingCount = currentModel.syncInfo.pendingChanges.Length
                       buildEpochSec = readBuildEpochSec ()
                       pageBuildEpochSec = readPageBuildEpochSec () }
                 let stale = SyncLogic.shouldReportStale poll client
@@ -189,12 +203,12 @@ let pollForRemoteChanges () : unit =
 
 let recordActivity (wakeIfInactive: bool) : unit =
     lastActivityMs <- nowMs ()
-    if wakeIfInactive && not (isDocumentHidden ()) && currentModel.syncState = Inactive then
+    if wakeIfInactive && not (isDocumentHidden ()) && currentModel.syncInfo.syncState = Inactive then
         pollForRemoteChanges ()
 
 let wakePolling () : unit =
     lastActivityMs <- nowMs ()
-    if currentModel.syncState = Inactive then dispatch (SysMsg PollingActive)
+    if currentModel.syncInfo.syncState = Inactive then dispatch (SysMsg PollingActive)
     pollForRemoteChanges ()
 
 let startPolling () : unit =
@@ -213,7 +227,7 @@ let startPolling () : unit =
 
     document.addEventListener("visibilitychange", fun _ ->
         if isDocumentHidden () then
-            if currentModel.syncState = Synced && currentModel.pendingChanges.IsEmpty then
+            if currentModel.syncInfo.syncState = Synced && currentModel.syncInfo.pendingChanges.IsEmpty then
                 dispatch (SysMsg PollingInactive)
         else
             recordActivity false

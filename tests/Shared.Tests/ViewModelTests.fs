@@ -35,8 +35,7 @@ let emptyModel (graph: Graph) : VM =
       nextSiteId = nextId
       zoomRoot = None
       clipboard = None
-      pendingChanges = []
-      syncState = Synced }
+      syncInfo = SyncInfo.initial }
 
 /// VM with a selection covering [start, endd) in root's children, focus at focusIdx.
 let modelWithSel (graph: Graph) (start: int) (endd: int) (focusIdx: int) : VM =

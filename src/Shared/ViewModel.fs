@@ -72,6 +72,36 @@ type SyncState =
     // | Conflicted  // received 409; rebase in progress
     | Stale       // server has changes we don't have — refresh to see them
 
+type SyncInfo =
+    { syncState: SyncState
+      pendingChanges: Change list
+      syncRiskAcknowledged: bool }
+
+[<RequireQualifiedAccess>]
+module SyncInfo =
+    let initial: SyncInfo =
+        { syncState = Synced
+          pendingChanges = []
+          syncRiskAcknowledged = false }
+
+    /// Replaces the pending queue. If the list differs, clears risk acknowledgment so the alert can show again.
+    let withPendingChanges (pending: Change list) (si: SyncInfo) : SyncInfo =
+        if si.pendingChanges = pending then si
+        else { si with pendingChanges = pending; syncRiskAcknowledged = false }
+
+    /// Updates sync state. While remaining in Pending/Stale, keeps acknowledgment; crossing in or out clears it.
+    let withSyncState (newState: SyncState) (si: SyncInfo) : SyncInfo =
+        let inRisk =
+            function
+            | Pending _
+            | Stale -> true
+            | _ -> false
+        let wasR = inRisk si.syncState
+        let nowR = inRisk newState
+        if wasR && nowR then { si with syncState = newState }
+        elif not wasR && not nowR then { si with syncState = newState }
+        else { si with syncState = newState; syncRiskAcknowledged = false }
+
 // Server `State` is in `FileAgent`, and mainly the graph.
 type VM = // the client state
     { graph: Graph // the core data
@@ -83,8 +113,7 @@ type VM = // the client state
       nextSiteId: SiteId
       zoomRoot: NodeId option   // None = display from graph.root; Some id = display rooted at that node
       clipboard: ClipboardContent option
-      pendingChanges: Change list  // FIFO queue of changes awaiting server confirmation
-      syncState: SyncState }
+      syncInfo: SyncInfo }
 
 /// Messages dispatched by async server callbacks (not directly caused by user input).
 type SystemMsg =
@@ -98,3 +127,4 @@ type SystemMsg =
 
 type Msg =
     | SysMsg of SystemMsg
+    | AckSyncRisk

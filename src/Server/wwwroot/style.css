@@ -194,6 +194,56 @@ body {
 .amb-palette-results li.amb-palette-selected {
     background: #e8f0fe;
 }
+
+/* Blocking sync-risk alert (above palette z-index) */
+.amb-blocking-alert {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 1100;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.45);
+    padding: 16px;
+    box-sizing: border-box;
+}
+.amb-blocking-alert.amb-blocking-alert-open {
+    display: flex;
+}
+.amb-blocking-alert-panel {
+    width: 100%;
+    max-width: 420px;
+    background: #fff;
+    border-radius: 8px;
+    padding: 1.25rem 1.5rem 1.5rem;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    border: 1px solid #bbb;
+}
+.amb-blocking-alert-title {
+    margin: 0 0 0.75rem;
+    font-size: 1.15rem;
+    font-weight: 600;
+}
+.amb-blocking-alert-message {
+    margin: 0 0 1.25rem;
+    font-size: 0.95rem;
+    line-height: 1.45;
+    color: #333;
+}
+.amb-blocking-alert-ok {
+    min-width: 120px;
+    min-height: 44px;
+    padding: 0.5rem 1.25rem;
+    font-size: 1rem;
+    cursor: pointer;
+    border-radius: 6px;
+    border: 1px solid #888;
+    background: #f4f4f4;
+}
+.amb-blocking-alert-ok:hover {
+    background: #e8e8e8;
+}
+
 /* user */
 .h1 { font-size: 1.brem }
 .h2 { font-size: 1.5rem }

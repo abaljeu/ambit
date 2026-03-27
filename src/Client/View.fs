@@ -338,7 +338,7 @@ let renderCssClassPrompt (model: VM) (applyOp: Op -> unit) : unit =
 let renderStatus (model: VM) : unit =
     let el = document.getElementById "sync-status"
     if not (isNull el) then
-        match model.syncState with
+        match model.syncInfo.syncState with
         | Synced  ->
             el.textContent <- "synced"
             el.className <- "amb-sync-status amb-synced"
@@ -357,6 +357,55 @@ let renderStatus (model: VM) : unit =
         | Stale ->
             el.textContent <- "Refresh the view"
             el.className <- "amb-sync-status amb-stale"
+
+let private syncRiskAlertWired = ref false
+
+/// Full-screen sync risk notice (Pending / Stale) until the user acknowledges.
+let renderSyncRiskAlert (model: VM) (dispatch: Msg -> unit) : unit =
+    let root = document.getElementById "blocking-alert"
+    if isNull root then () else
+
+    let shouldShow =
+        match model.syncInfo.syncState with
+        | Pending _
+        | Stale -> not model.syncInfo.syncRiskAcknowledged
+        | _ -> false
+
+    if shouldShow then
+        root.classList.add "amb-blocking-alert-open"
+        let titleEl = document.getElementById "blocking-alert-title"
+        let msgEl = document.getElementById "blocking-alert-message"
+        let okBtn = document.getElementById "blocking-alert-ok" :?> HTMLButtonElement
+        if not (isNull titleEl) && not (isNull msgEl) then
+            match model.syncInfo.syncState with
+            | Pending n ->
+                titleEl.textContent <- "Could not save"
+                msgEl.textContent <-
+                    $"Your changes are queued but the server did not confirm (attempt {n}). "
+                    + "You can retry from the status control, or reload when safe."
+            | Stale ->
+                titleEl.textContent <- "View is out of date"
+                msgEl.textContent <-
+                    "The server has newer data than this page. Use Refresh or Reload before continuing."
+            | _ -> ()
+
+        if not (isNull okBtn) then
+            window.setTimeout ((fun _ -> okBtn.focus ()), 0) |> ignore
+            if not syncRiskAlertWired.Value then
+                syncRiskAlertWired.Value <- true
+                okBtn.addEventListener ("click", fun _ -> dispatch AckSyncRisk)
+                okBtn.addEventListener ("keydown", fun (ev: Event) ->
+                    let ke = ev :?> KeyboardEvent
+                    if ke.key = "Enter" || ke.key = " " then
+                        ke.preventDefault ()
+                        dispatch AckSyncRisk)
+    else
+        root.classList.remove "amb-blocking-alert-open"
+
+/// Status pill plus sync-risk overlay.
+let renderSyncChrome (model: VM) (dispatch: Msg -> unit) : unit =
+    renderStatus model
+    renderSyncRiskAlert model dispatch
 
 /// Update the undo/redo status indicator based on history.
 let renderUndoStatus (model: VM) : unit =
@@ -377,7 +426,7 @@ let renderUndoStatus (model: VM) : unit =
 /// Rebuild all row elements from scratch: removes existing rows (children of app
 /// that precede the hidden-input sentinel), then recreates them in preorder.
 /// Returns a fresh element cache keyed by instanceId.
-let render (vm: VM) (applyOp: Op -> unit) : Map<SiteId, HTMLElement> =
+let render (vm: VM) (applyOp: Op -> unit) (dispatch: Msg -> unit) : Map<SiteId, HTMLElement> =
     // Remove existing rows — everything before the hidden-input sentinel
     let hiddenInput = document.getElementById "hidden-input"
     if isNull hiddenInput then
@@ -401,7 +450,7 @@ let render (vm: VM) (applyOp: Op -> unit) : Map<SiteId, HTMLElement> =
         else app.insertBefore(row, sentinel) |> ignore
 
     manageFocus vm cache
-    renderStatus vm
+    renderSyncChrome vm dispatch
     cache
 
 // ---------------------------------------------------------------------------
@@ -411,7 +460,7 @@ let render (vm: VM) (applyOp: Op -> unit) : Map<SiteId, HTMLElement> =
 /// Patch the DOM incrementally: diff old and new SiteMap visibility,
 /// removes stale rows, creates/moves new rows, updates existing rows in-place.
 /// Returns the updated element cache.
-let patchDOM (oldModel: VM) (newModel: VM) (applyOp: Op -> unit) (cache: Map<SiteId, HTMLElement>) : Map<SiteId, HTMLElement> =
+let patchDOM (oldModel: VM) (newModel: VM) (applyOp: Op -> unit) (dispatch: Msg -> unit) (cache: Map<SiteId, HTMLElement>) : Map<SiteId, HTMLElement> =
     let cachedInstIds = cache |> Map.toSeq |> Seq.map fst |> Set.ofSeq
     let mutations = ViewModel.planPatchDOM oldModel newModel cachedInstIds
 
@@ -467,5 +516,5 @@ let patchDOM (oldModel: VM) (newModel: VM) (applyOp: Op -> unit) (cache: Map<Sit
         prevNode <- Some (row :> Browser.Types.Node)
 
     manageFocus newModel cache'
-    renderStatus newModel
+    renderSyncChrome newModel dispatch
     cache'
