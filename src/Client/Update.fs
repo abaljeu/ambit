@@ -281,7 +281,9 @@ let splitNode (currentText: string) (cursorPos: int) (model: VM) (dispatch: Msg 
                 singleSelectionForInstance m2.siteMap focusInstId
                 |> Option.orElseWith
                     (fun () -> singleSelection m2.graph m2.siteMap focusId)
-            { m2 with selectedNodes = newSel; mode = Editing (focusText, Some 0) }
+            { m2 with
+                selectedNodes = newSel
+                mode = Editing (focusText, EditCaret.Utf16Index 0) }
         | None -> model
     | _ -> model
 
@@ -305,16 +307,154 @@ let private tryResolveNodeIdsFormat (nodeIdsText: string) (graph: Graph) : NodeI
                 | _ -> None)
         if ids.IsEmpty then None else Some ids
 
-/// Handle a PasteNodes message.
-///
+/// Prefer node IDs from clipboard format, else GUIDs parsed from paste entry lines.
+let private tryPasteLinkIds
+    (graph: Graph) (preferredNodeIds: string option) (entries: (string * int) list)
+    : NodeId list option =
+    match preferredNodeIds |> Option.bind (fun s -> tryResolveNodeIdsFormat s graph) with
+    | Some ids -> Some ids
+    | None ->
+        let ids =
+            entries
+            |> List.choose (fun (text, _) ->
+                match System.Guid.TryParse(text.Trim()) with
+                | true, guid ->
+                    let id = NodeId guid
+                    if Map.containsKey id graph.nodes then Some id else None
+                | _ -> None)
+        if ids.IsEmpty then None else Some ids
+
+let private spliceTextAtCaret (line: string) (caret: int) (insert: string) : string =
+    line.[..caret - 1] + insert + line.[caret..]
+
+/// Keep `Editing` after paste: baseline text from graph; caret clamped to that text.
+let private editingModeAfterPaste (m: VM) (focusId: NodeId) (caretUtf16: int) : VM =
+    let t = m.graph.nodes.[focusId].text
+    { m with mode = Editing (t, EditCaret.utf16ClampedToLength caretUtf16 t.Length) }
+
+let private editingUnchangedAtCaret (model: VM) (line: string) (caret: int) : VM =
+    { model with mode = Editing (line, EditCaret.utf16ClampedToLength caret line.Length) }
+
+let private newChange (model: VM) (ops: Op list) : Change =
+    { id = model.revision.Value; changeId = System.Guid.NewGuid(); ops = ops }
+
+let private pasteNodesSelecting
+    (model: VM) (sel: Selection) (entries: (string * int) list) (preferredNodeIds: string option)
+    (dispatch: Msg -> unit)
+    : VM =
+    let topLevelIds, pasteOps =
+        match tryPasteLinkIds model.graph preferredNodeIds entries with
+        | Some existingIds -> existingIds, []
+        | None -> buildPasteOps entries
+    if topLevelIds.IsEmpty then
+        model
+    else
+        let range = sel.range
+        let selectedChildren = rangeChildren model.graph range
+        let replaceOp =
+            Op.Replace(
+                range.parent.nodeId,
+                range.start,
+                selectedChildren,
+                childrenForPaste model.graph topLevelIds
+            )
+        let change = newChange model (pasteOps @ [replaceOp])
+        match applyAndPost change model dispatch with
+        | Some m ->
+            let newEnd = range.start + topLevelIds.Length
+            let newSel =
+                { range = { parent = range.parent; start = range.start; endd = newEnd }
+                  focus = range.start }
+            { m with selectedNodes = Some newSel }
+        | None -> model
+
+let private pasteEditingLink
+    (model: VM) (originalText: string) (currentText: string) (cursorPos: int) (focusId: NodeId)
+    (parentId: NodeId) (focusIdx: int) (refIds: NodeId list) (dispatch: Msg -> unit)
+    : VM =
+    let setTextOps =
+        if currentText <> originalText then [ Op.SetText(focusId, originalText, currentText) ]
+        else []
+    let insertOp =
+        Op.Replace(parentId, focusIdx + 1, [], childrenForPaste model.graph refIds)
+    let change = newChange model (setTextOps @ [insertOp])
+    match applyAndPost change model dispatch with
+    | Some m -> editingModeAfterPaste m focusId cursorPos
+    | None -> model
+
+let private pasteEditingSingleLine
+    (model: VM) (originalText: string) (currentText: string) (cursorPos: int) (focusId: NodeId)
+    (firstText: string) (dispatch: Msg -> unit)
+    : VM =
+    let newText = spliceTextAtCaret currentText cursorPos firstText
+    if newText = originalText then
+        editingUnchangedAtCaret model originalText cursorPos
+    else
+        let ops = [ Op.SetText(focusId, originalText, newText) ]
+        let afterCaret = cursorPos + firstText.Length
+        match applyAndPost (newChange model ops) model dispatch with
+        | Some m -> editingModeAfterPaste m focusId afterCaret
+        | None -> model
+
+let private pasteEditingMultiline
+    (model: VM) (originalText: string) (currentText: string) (cursorPos: int) (focusId: NodeId)
+    (parentId: NodeId) (focusIdx: int) (firstText: string) (rest: (string * int) list)
+    (dispatch: Msg -> unit)
+    : VM =
+    let newText = spliceTextAtCaret currentText cursorPos firstText
+    let setTextOps =
+        if newText <> originalText then [ Op.SetText(focusId, originalText, newText) ]
+        else []
+    let remainingTopIds, remainingOps = buildPasteOps rest
+    let insertOps =
+        if remainingTopIds.IsEmpty then []
+        else [ Op.Replace(parentId, focusIdx + 1, [], childrenForPaste model.graph remainingTopIds) ]
+    let allOps = setTextOps @ remainingOps @ insertOps
+    let afterCaret = cursorPos + firstText.Length
+    if allOps.IsEmpty then
+        editingUnchangedAtCaret model originalText cursorPos
+    else
+        match applyAndPost (newChange model allOps) model dispatch with
+        | Some m -> editingModeAfterPaste m focusId afterCaret
+        | None -> model
+
+let private pasteEditingPlainEntries
+    (model: VM) (originalText: string) (currentText: string) (cursorPos: int) (focusId: NodeId)
+    (parentId: NodeId) (focusIdx: int) (entries: (string * int) list) (dispatch: Msg -> unit)
+    : VM =
+    match entries with
+    | [] -> model
+    | [(firstText, _)] ->
+        pasteEditingSingleLine model originalText currentText cursorPos focusId firstText dispatch
+    | (firstText, _) :: rest ->
+        pasteEditingMultiline
+            model originalText currentText cursorPos focusId parentId focusIdx firstText rest dispatch
+
+let private pasteNodesEditing
+    (model: VM) (sel: Selection) (entries: (string * int) list) (preferredNodeIds: string option)
+    (originalText: string) (dispatch: Msg -> unit)
+    : VM =
+    let currentText = readEditInputValue ()
+    let cursorPos = readEditInputCursor ()
+    let focusId = focusedNodeId model.graph sel
+    let parentId = sel.range.parent.nodeId
+    let focusIdx = sel.focus
+    match tryPasteLinkIds model.graph preferredNodeIds entries with
+    | Some refIds ->
+        pasteEditingLink
+            model originalText currentText cursorPos focusId parentId focusIdx refIds dispatch
+    | None ->
+        pasteEditingPlainEntries
+            model originalText currentText cursorPos focusId parentId focusIdx entries dispatch
+
 /// When preferredNodeIds is Some (from cut/copy-as-links clipboard format), resolve
 /// to existing nodes and insert as links (Op.Replace only, no NewNode).
 /// Select mode: replaces selection with resolved nodes.
-/// Edit mode: commits current text then inserts resolved nodes as siblings below.
+/// Edit mode: commits current text then inserts resolved nodes as siblings below; stays Editing.
 ///
 /// Otherwise (normal deep-copy paste):
 /// Select mode: replaces selection with pasted subtree.
-/// Edit mode: splices first line into node at cursor; remaining lines become siblings.
+/// Edit mode: splices first line into node at cursor; remaining lines become siblings; stays Editing.
 let pasteNodes (pastedText: string) (preferredNodeIds: string option) (model: VM)
     (dispatch: Msg -> unit) : VM =
     match model.selectedNodes with
@@ -323,111 +463,11 @@ let pasteNodes (pastedText: string) (preferredNodeIds: string option) (model: VM
         let entries = parsePasteText pastedText
         if entries.IsEmpty then model
         else
-
-        /// Prefer node IDs format if present and resolvable; else try GUIDs in text/plain.
-        let tryLinkIds () =
-            match preferredNodeIds
-                |> Option.bind (fun s -> tryResolveNodeIdsFormat s model.graph) with
-            | Some ids -> Some ids
-            | None ->
-                let ids =
-                    entries
-                    |> List.choose (fun (text, _) ->
-                        match System.Guid.TryParse(text.Trim()) with
-                        | true, guid ->
-                            let id = NodeId guid
-                            if Map.containsKey id model.graph.nodes then Some id else None
-                        | _ -> None)
-                if ids.IsEmpty then None else Some ids
-
         match model.mode with
         | CommandPalette _ | CssClassPrompt _ -> model
-        | Selecting ->
-            let topLevelIds, pasteOps =
-                match tryLinkIds () with
-                | Some existingIds -> existingIds, []
-                | None -> buildPasteOps entries
-            if topLevelIds.IsEmpty then model
-            else
-            let range = sel.range
-            let selectedChildren = rangeChildren model.graph range
-            let replaceOp =
-                Op.Replace(
-                    range.parent.nodeId,
-                    range.start,
-                    selectedChildren,
-                    childrenForPaste model.graph topLevelIds
-                )
-            let change =
-                { id = model.revision.Value
-                  changeId = System.Guid.NewGuid()
-                  ops = pasteOps @ [replaceOp] }
-            match applyAndPost change model dispatch with
-            | Some m ->
-                let newEnd = range.start + topLevelIds.Length
-                let newSel =
-                    { range = { parent = range.parent; start = range.start; endd = newEnd }
-                      focus = range.start }
-                { m with selectedNodes = Some newSel }
-            | None -> model
+        | Selecting -> pasteNodesSelecting model sel entries preferredNodeIds dispatch
         | Editing (originalText, _) ->
-            let currentText = readEditInputValue ()
-            let cursorPos   = readEditInputCursor ()
-            let focusId  = focusedNodeId model.graph sel
-            let parentId = sel.range.parent.nodeId
-            let focusIdx = sel.focus
-            match tryLinkIds () with
-            | Some refIds ->
-                // Link-paste in editing mode: commit current text,
-                // insert referenced nodes as siblings below
-                let setTextOps =
-                    if currentText <> originalText then
-                        [ Op.SetText(focusId, originalText, currentText) ]
-                    else []
-                let insertOp = Op.Replace(parentId, focusIdx + 1, [], childrenForPaste model.graph refIds)
-                let change =
-                    { id = model.revision.Value
-                      changeId = System.Guid.NewGuid()
-                      ops = setTextOps @ [insertOp] }
-                match applyAndPost change model dispatch with
-                | Some m -> { m with mode = Selecting }
-                | None -> model
-            | None ->
-            match entries with
-            | [] -> model
-            | [(firstText, _)] ->
-                // Single pasted line: splice into current node at cursor, no new nodes
-                let newText = currentText.[..cursorPos - 1] + firstText + currentText.[cursorPos..]
-                if newText = originalText then { model with mode = Selecting }
-                else
-                let change =
-                    { id = model.revision.Value
-                      changeId = System.Guid.NewGuid()
-                      ops = [ Op.SetText(focusId, originalText, newText) ] }
-                match applyAndPost change model dispatch with
-                | Some m -> { m with mode = Selecting }
-                | None -> model
-            | (firstText, _) :: rest ->
-                // Multi-line: splice first line at cursor; remaining become siblings below
-                let newText = currentText.[..cursorPos - 1] + firstText + currentText.[cursorPos..]
-                let setTextOps =
-                    if newText <> originalText then
-                        [ Op.SetText(focusId, originalText, newText) ]
-                    else []
-                let (remainingTopIds, remainingOps) = buildPasteOps rest
-                let insertOps =
-                    if remainingTopIds.IsEmpty then []
-                    else [ Op.Replace(parentId, focusIdx + 1, [], childrenForPaste model.graph remainingTopIds) ]
-                let allOps = setTextOps @ remainingOps @ insertOps
-                if allOps.IsEmpty then { model with mode = Selecting }
-                else
-                let change =
-                    { id = model.revision.Value
-                      changeId = System.Guid.NewGuid()
-                      ops = allOps }
-                match applyAndPost change model dispatch with
-                | Some m -> { m with mode = Selecting }
-                | None -> model
+            pasteNodesEditing model sel entries preferredNodeIds originalText dispatch
 
 /// If currently editing, commit the edit and return Selecting model; otherwise return model as-is.
 let commitIfEditing (model: VM) (dispatch: Msg -> unit) : VM =
@@ -514,7 +554,8 @@ let parentSiblingOpen (delta: int) (me: SiteEntry) (model: VM) : SiteEntry optio
 let private tryInlineEditWrap (mode: Mode) : (string * (string -> int -> Mode)) option =
     let rec go m =
         match m with
-        | Editing (orig, _) -> Some (orig, fun t c -> Editing (t, Some c))
+        | Editing (orig, _) ->
+            Some (orig, fun t c -> Editing (t, EditCaret.utf16ClampedToLength c t.Length))
         | CommandPalette (q, sc, ret) ->
             go ret |> Option.map (fun (o, w) -> (o, fun t c -> CommandPalette (q, sc, w t c)))
         | CssClassPrompt (ret, iv) ->
@@ -691,12 +732,12 @@ let outdentSelection (model: VM) (dispatch: Msg -> unit) : VM =
                 let too: SiteNodeRange = { parent = grandparentEntry; start = parentIdx; endd = parentIdx + 1 }
                 moveNodeFromTo too model dispatch |> withSiteMap
 
-/// Join the currently-edited node with the previous visible (inorder) node.
-/// 1. If current has no children: append current's text to prev, delete current.
-/// 2. If current and prev both have children: abort.
-/// 3. If current has children but prev does not: move current's children to prev, then do 1.
-/// Cursor lands at the join point (end of prevText) in prev.
-let moveEdit (delta: int) (cursorPos: int) (model: VM) (dispatch: Msg -> unit) : VM =
+type private MoveEditCaret =
+    | MoveEditUtf16 of int
+    | MoveEditPrevLastLineX of float
+    | MoveEditNextFirstLineX of float
+
+let private moveEditImpl (delta: int) (how: MoveEditCaret) (model: VM) (dispatch: Msg -> unit) : VM =
     match model.selectedNodes with
     | None -> model
     | Some sel ->
@@ -716,11 +757,30 @@ let moveEdit (delta: int) (cursorPos: int) (model: VM) (dispatch: Msg -> unit) :
                 let targetInstId = rows.[targetIdx]
                 let targetEntry = committed.siteMap.entries.[targetInstId]
                 let targetText = committed.graph.nodes.[targetEntry.nodeId].text
-                let clampedPos = min cursorPos targetText.Length
+                let caret: EditCaret =
+                    match how with
+                    | MoveEditUtf16 pos ->
+                        EditCaret.utf16ClampedToLength pos targetText.Length
+                    | MoveEditPrevLastLineX x -> EditCaret.LastVisualLineAtClientX x
+                    | MoveEditNextFirstLineX x -> EditCaret.FirstVisualLineAtClientX x
                 { committed with
-                    mode = Editing (targetText, Some clampedPos)
+                    mode = Editing (targetText, caret)
                     selectedNodes = singleSelectionForInstance committed.siteMap targetInstId }
 
+let moveEdit (delta: int) (cursorPos: int) (model: VM) (dispatch: Msg -> unit) : VM =
+    moveEditImpl delta (MoveEditUtf16 cursorPos) model dispatch
+
+let moveEditUpAtClientX (clientX: float) (model: VM) (dispatch: Msg -> unit) : VM =
+    moveEditImpl -1 (MoveEditPrevLastLineX clientX) model dispatch
+
+let moveEditDownAtClientX (clientX: float) (model: VM) (dispatch: Msg -> unit) : VM =
+    moveEditImpl 1 (MoveEditNextFirstLineX clientX) model dispatch
+
+/// Join the currently-edited node with the previous visible (inorder) node.
+/// 1. If current has no children: append current's text to prev, delete current.
+/// 2. If current and prev both have children: abort.
+/// 3. If current has children but prev does not: move current's children to prev, then do 1.
+/// Cursor lands at the join point (end of prevText) in prev.
 let joinWithNext (currentText: string) (model: VM) (dispatch: Msg -> unit) : VM =
     match model.mode, model.selectedNodes with
     | Editing _, Some sel ->
@@ -740,7 +800,8 @@ let joinWithNext (currentText: string) (model: VM) (dispatch: Msg -> unit) : VM 
                 if not currentNode.children.IsEmpty then
                     let pos = readEditInputCursor ()
                     match model.mode with
-                    | Editing (t, _) -> { model with mode = Editing (t, Some pos) }
+                    | Editing (t, _) ->
+                        { model with mode = Editing (t, EditCaret.Utf16Index pos) }
                     | _ -> model
                 else
                     match Graph.tryFindParentAndIndex nextId model.graph with
@@ -762,7 +823,7 @@ let joinWithNext (currentText: string) (model: VM) (dispatch: Msg -> unit) : VM 
                                 | Some m ->
                                     let result = withSiteMap m
                                     { result with
-                                        mode = Editing (nextNode.text, Some 0)
+                                        mode = Editing (nextNode.text, EditCaret.Utf16Index 0)
                                         selectedNodes =
                                             singleSelection result.graph result.siteMap nextId }
                         else
@@ -789,7 +850,7 @@ let joinWithNext (currentText: string) (model: VM) (dispatch: Msg -> unit) : VM 
                                 | Some m ->
                                     let result = withSiteMap m
                                     { result with
-                                        mode = Editing (joinedText, Some cursorPos)
+                                        mode = Editing (joinedText, EditCaret.Utf16Index cursorPos)
                                         selectedNodes =
                                             singleSelection result.graph result.siteMap nextId }
     | _ -> model
@@ -830,7 +891,7 @@ let joinWithPrevious (currentText: string) (model: VM) (dispatch: Msg -> unit) :
                     | Some m ->
                         let result = withSiteMap m
                         { result with
-                            mode = Editing (joinedText, Some cursorPos)
+                            mode = Editing (joinedText, EditCaret.Utf16Index cursorPos)
                             selectedNodes =
                                 singleSelection result.graph result.siteMap prevId }
     | _ -> model
@@ -873,7 +934,7 @@ let startEditOp (model: VM) _dispatch : VM =
         match model.selectedNodes with
         | None -> model.graph.nodes.[viewRootNodeId model].text
         | Some sel -> model.graph.nodes.[focusedNodeId model.graph sel].text
-    { model with mode = Editing (text, None) }
+    { model with mode = Editing (text, EditCaret.EndOfText) }
 
 /// Op: Enter edit mode for the focused node, with cursor placed at a specific position.
 let startEditAtPos (cursorPos: int) (model: VM) _dispatch : VM =
@@ -881,7 +942,7 @@ let startEditAtPos (cursorPos: int) (model: VM) _dispatch : VM =
         match model.selectedNodes with
         | None -> model.graph.nodes.[viewRootNodeId model].text
         | Some sel -> model.graph.nodes.[focusedNodeId model.graph sel].text
-    { model with mode = Editing (text, Some cursorPos) }
+    { model with mode = Editing (text, EditCaret.Utf16Index cursorPos) }
 
 /// Re-export palette ops for use by Controller and View.
 let openCommandPaletteOp = Gambol.Client.CommandPalette.openCommandPaletteOp

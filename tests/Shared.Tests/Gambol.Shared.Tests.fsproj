@@ -15,6 +15,7 @@
     <Compile Include="SyncLogicTests.fs" />
     <Compile Include="PasteTests.fs" />
     <Compile Include="ClientRectCaretTests.fs" />
+    <Compile Include="EditCaretTests.fs" />
   </ItemGroup>
 
   <ItemGroup>

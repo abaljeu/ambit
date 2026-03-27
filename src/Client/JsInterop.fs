@@ -10,7 +10,7 @@ type private DomNode = Browser.Types.Node
 type private DomSelection = Browser.Types.Selection
 
 /// Collapsed caret at UTF-16 offset `pos` inside `root` (contenteditable).
-let setContentEditableCaret (root: HTMLElement) (pos: int) : unit =
+let setEditorCaret (root: HTMLElement) (pos: int) : unit =
     let sel = window.getSelection ()
     if isNull sel then
         ()
@@ -71,6 +71,77 @@ let getContentEditableCaretOffset (root: HTMLElement) : int =
         if not (root.contains r.startContainer) then 0
         else rangeBoundaryOffsetInRoot root r.startContainer r.startOffset
 
+/// Div has no element children: empty, or exactly one `#text` child (wrapped lines OK).
+type private FlatEditable =
+    | FlatEmpty
+    | FlatOneText of Text
+    | FlatInvalid
+
+let private classifyFlatEditable (root: HTMLElement) : FlatEditable =
+    let nch = root.childNodes.length
+    if nch = 0 then FlatEmpty
+    elif nch > 1 then FlatInvalid
+    else
+        let n = root.firstChild
+        if isNull n || n.nodeType <> 3. then FlatInvalid else FlatOneText (n :?> Text)
+
+let private visualLineEpsilon = 4.
+
+let private rangeLineTop (container: DomNode) (offset: float) : float =
+    let rr = document.createRange ()
+    rr.setStart (container, offset)
+    rr.collapse true
+    rr.getBoundingClientRect().top
+
+let private selectionCaretTop (root: HTMLElement) : float option =
+    let s = window.getSelection ()
+    if isNull s || s.rangeCount < 1. then None
+    else
+        let r = s.getRangeAt 0.
+        if not (root.contains r.startContainer) then None
+        else Some (rangeLineTop r.startContainer r.startOffset)
+
+/// Viewport `left` of the collapsed caret at the selection **start**, if it lies in `root`.
+let getContentEditableCaretClientX (root: HTMLElement) : float option =
+    let s = window.getSelection ()
+    if isNull s || s.rangeCount < 1. then None
+    else
+        let r = s.getRangeAt 0.
+        if not (root.contains r.startContainer) then None
+        else
+            let rr = document.createRange ()
+            rr.setStart (r.startContainer, r.startOffset)
+            rr.collapse true
+            Some (rr.getBoundingClientRect().left)
+
+type private VisualLineKind =
+    | VisualLineFirst
+    | VisualLineLast
+
+let private refTopForVisualLine (t: Text) (kind: VisualLineKind) : float =
+    match kind with
+    | VisualLineFirst -> rangeLineTop t 0.
+    | VisualLineLast -> rangeLineTop t (float t.length)
+
+/// Shared: flat empty = one line; `FlatOneText` compares caret `top` to line end.
+let private isContentEditableCaretOnVisualLine (kind: VisualLineKind) (root: HTMLElement) : bool =
+    match classifyFlatEditable root with
+    | FlatInvalid -> false
+    | FlatEmpty -> selectionCaretTop root |> Option.isSome
+    | FlatOneText t ->
+        match selectionCaretTop root with
+        | None -> false
+        | Some y -> abs (y - refTopForVisualLine t kind) < visualLineEpsilon
+
+/// True when the selection start lies on the first visual line (`root` flat per
+/// `classifyFlatEditable`). Non-collapsed ranges use the start boundary.
+let isContentEditableCaretOnVisualFirstLine (root: HTMLElement) : bool =
+    isContentEditableCaretOnVisualLine VisualLineFirst root
+
+/// True when the selection start lies on the last visual line (`root` flat).
+let isContentEditableCaretOnVisualLastLine (root: HTMLElement) : bool =
+    isContentEditableCaretOnVisualLine VisualLineLast root
+
 /// Collapsed range at (x, y) in viewport coords, or null — caretRangeFromPoint /
 /// caretPositionFromPoint.
 [<Emit("""(function(x,y){
@@ -85,6 +156,15 @@ let private rootTextUtf16Length (root: HTMLElement) : int =
     let t = root.textContent
     if isNull t then 0 else t.Length
 
+let private insetForCaretHit (left: float) (top: float) (right: float) (bottom: float) (inset: float) : float =
+    let w = max 0. (right - left)
+    let h = max 0. (bottom - top)
+    min inset (max 1. (min w h / 4.))
+
+let private clampClientXForCaretHit (left: float) (top: float) (right: float) (bottom: float) (clientX: float) : float =
+    let ins = insetForCaretHit left top right bottom 2.
+    ClientRectCaret.clamp (left + ins) (right - ins) clientX
+
 let private selectionApplyIfInRoot (root: HTMLElement) (sel: DomSelection) (r: Range) : bool =
     if isNull r || not (root.contains r.startContainer) then
         false
@@ -93,8 +173,8 @@ let private selectionApplyIfInRoot (root: HTMLElement) (sel: DomSelection) (r: R
         sel.addRange r
         true
 
-/// Focus `root`, then place the caret on the first visual line via caretRangeFromPoint;
-/// falls back to offset 0.
+/// Focus `root`, then caret on first visual line (`caretRangeFromPoint` + `ClientRectCaret`
+/// probe). Fallback: `setContentEditableCaret` at 0. Works for any contenteditable layout.
 let setContentEditableCaretVisualFirstLine (root: HTMLElement) : unit =
     root.focus ()
     let sel = window.getSelection ()
@@ -106,10 +186,9 @@ let setContentEditableCaretVisualFirstLine (root: HTMLElement) : unit =
             ClientRectCaret.probeFirstVisualLine rect.left rect.top rect.right rect.bottom 2.
         let r = tryDocumentCaretRangeFromPoint x y
         if not (selectionApplyIfInRoot root sel r) then
-            setContentEditableCaret root 0
+            setEditorCaret root 0
 
-/// Focus `root`, then place the caret on the last visual line via caretRangeFromPoint;
-/// falls back to end of text.
+/// Focus `root`, then caret on last visual line; fallback end of `textContent`.
 let setContentEditableCaretVisualLastLine (root: HTMLElement) : unit =
     root.focus ()
     let sel = window.getSelection ()
@@ -122,7 +201,44 @@ let setContentEditableCaretVisualLastLine (root: HTMLElement) : unit =
         let r = tryDocumentCaretRangeFromPoint x y
         let endPos = rootTextUtf16Length root
         if not (selectionApplyIfInRoot root sel r) then
-            setContentEditableCaret root endPos
+            setEditorCaret root endPos
+
+/// Like `setContentEditableCaretVisualLastLine` but uses viewport `clientX` (e.g. from
+/// `getContentEditableCaretClientX` on the previous field). `clientX` is clamped into the
+/// element rect with the same inset rule as the line probes.
+let setEditorCaretToLastLineAtX (root: HTMLElement) (clientX: float) : unit =
+    root.focus ()
+    let sel = window.getSelection ()
+    if isNull sel then
+        ()
+    else
+        let rect = root.getBoundingClientRect ()
+        let _, y =
+            ClientRectCaret.probeLastVisualLine rect.left rect.top rect.right rect.bottom 2.
+        let x =
+            clampClientXForCaretHit rect.left rect.top rect.right rect.bottom clientX
+        let r = tryDocumentCaretRangeFromPoint x y
+        let endPos = rootTextUtf16Length root
+        if not (selectionApplyIfInRoot root sel r) then
+            setEditorCaret root endPos
+
+/// Like `setContentEditableCaretVisualFirstLine` but uses viewport `clientX` on the first
+/// visual line (same inset/clamp as last-line-at-X).
+let setEditorCarentToFirstLineAtX (root: HTMLElement) (clientX: float) :
+        unit =
+    root.focus ()
+    let sel = window.getSelection ()
+    if isNull sel then
+        ()
+    else
+        let rect = root.getBoundingClientRect ()
+        let _, y =
+            ClientRectCaret.probeFirstVisualLine rect.left rect.top rect.right rect.bottom 2.
+        let x =
+            clampClientXForCaretHit rect.left rect.top rect.right rect.bottom clientX
+        let r = tryDocumentCaretRangeFromPoint x y
+        if not (selectionApplyIfInRoot root sel r) then
+            setEditorCaret root 0
 
 [<Emit("fetch($0).then(r => r.text()).then($1)")>]
 let fetchText (url: string) (callback: string -> unit) : unit = jsNative

@@ -16,6 +16,8 @@ Do not websearch.  Tell me if you lack information.
 Use Test Driven Development.  Write tests for new functionality.
 But we are not testing to the browser.  Any complex logic should be testable purely where possible.  (If it depends on ambiguous browser behavior, it isn't).
 
+Do NOT fix bugs unrelated to the task.  Do inform about those bugs.
+
 ## Source code
 Use pure functional F#.  Don't use mutable.  If you must, ask.
 Don't embed anything more than tiny amounts of html, CSS or JS in F# code.

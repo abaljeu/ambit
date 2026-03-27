@@ -125,16 +125,18 @@ Third itemuu
 		euo
 	
 	aeu o
-{.h1 .blue}Third item
-	#n3 <blue>
-		u
+#n3 <blue>
+	u
+{.h1 .blue}Third item aoeu aoeu text = Third item aoeu aoeu 
+	-> #n3
 	hello
 		h
 		blue
 		ue
--> #n3
 
-Tasks
+aoeu 
+aoeu 
+#n4 Tasks
 	now
 		outlier
 		----
@@ -142,7 +144,7 @@ Tasks
 		
 		ambit
 		----
-extra requirements
+#n5 extra requirements
 	Logical Reasoning Requirement
 	Structured Proof Formatting Requirement
 	okay so what we need to do is
@@ -162,5 +164,8 @@ extra requirements
 	Correctness of Reduction
 	Complexity Argument
 	Each major step in the proof must include a short justification explaining why the step is valid (e.g., why a constructed preference structure forces triangle formation).
-The roof must clearly separate the two parts of the coNP-completeness argument:u
+-> #n4
+-> #n5
+
+The roof must clearly separate the two parts of the coNP-completeness argument:u The roof must clearly separate the two parts of the coNP-completeness argument:u. 
 fist

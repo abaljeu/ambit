@@ -34,7 +34,8 @@ let private computeDepth (siteMap: SiteMap) (entry: SiteEntry) : int =
 // ---------------------------------------------------------------------------
 
 /// Create a fresh DOM row for the given SiteEntry at the given depth.
-let private makeRowElement (model: VM) (applyOp: Op -> unit) (depth: int) (siteEntry: SiteEntry) : HTMLElement =
+let private makeRowElement
+    (model: VM) (applyOp: Op -> unit) (depth: int) (siteEntry: SiteEntry) : HTMLElement =
     let nodeId = siteEntry.nodeId
     let node = model.graph.nodes.[nodeId]
     let hasChildren = not node.children.IsEmpty
@@ -117,6 +118,8 @@ let private makeRowElement (model: VM) (applyOp: Op -> unit) (depth: int) (siteE
             ev.stopPropagation()
         )
         textDiv.addEventListener("paste", fun ev -> onPaste ev applyOp)
+        textDiv.addEventListener("copy", fun ev -> onCopyWhileEditing model ev applyOp)
+        textDiv.addEventListener("cut", fun ev -> onCutWhileEditing model ev applyOp)
     else
         textDiv.removeAttribute "id"
         textDiv.contentEditable <- "false"
@@ -206,14 +209,20 @@ let manageFocus (model: VM) (rowByInstanceId: Map<SiteId, HTMLElement>) : unit =
         let editEl = document.getElementById "edit-input"
         if not (isNull editEl) then
             let root = editEl
-            root.focus()
-            let pos =
-                match model.mode with
-                | Editing (_, Some p) -> p
-                | _ ->
+            root.focus ()
+            match model.mode with
+            | Editing (_, caret) ->
+                match caret with
+                | EditCaret.EndOfText ->
                     let t = root.textContent
-                    if isNull t then 0 else t.Length
-            setContentEditableCaret root pos
+                    let n = if isNull t then 0 else t.Length
+                    setEditorCaret root n
+                | EditCaret.Utf16Index p -> setEditorCaret root p
+                | EditCaret.LastVisualLineAtClientX x ->
+                    setEditorCaretToLastLineAtX root x
+                | EditCaret.FirstVisualLineAtClientX x ->
+                    setEditorCarentToFirstLineAtX root x
+            | _ -> ()
             scrollIntoViewNearest root
     | Selecting ->
         let hiddenInput = document.getElementById "hidden-input"
@@ -459,7 +468,10 @@ let render (vm: VM) (applyOp: Op -> unit) (dispatch: Msg -> unit) : Map<SiteId, 
 /// Patch the DOM incrementally: diff old and new SiteMap visibility,
 /// removes stale rows, creates/moves new rows, updates existing rows in-place.
 /// Returns the updated element cache.
-let patchDOM (oldModel: VM) (newModel: VM) (applyOp: Op -> unit) (dispatch: Msg -> unit) (cache: Map<SiteId, HTMLElement>) : Map<SiteId, HTMLElement> =
+let patchDOM
+        (oldModel: VM) (newModel: VM) (applyOp: Op -> unit) (dispatch: Msg -> unit)
+        (cache: Map<SiteId, HTMLElement>)
+        : Map<SiteId, HTMLElement> =
     let cachedInstIds = cache |> Map.toSeq |> Seq.map fst |> Set.ofSeq
     let mutations = ViewModel.planPatchDOM oldModel newModel cachedInstIds
 

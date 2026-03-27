@@ -1,9 +1,23 @@
 namespace Gambol.Shared
 
+/// How to place the caret after focusing `#edit-input`.
+[<RequireQualifiedAccess>]
+type EditCaret =
+    | EndOfText
+    | Utf16Index of int
+    | LastVisualLineAtClientX of float
+    | FirstVisualLineAtClientX of float
+
+[<RequireQualifiedAccess>]
+module EditCaret =
+    /// UTF-16 index clamped to `[0, textLen]` (former `moveEdit` rule with lower bound).
+    let utf16ClampedToLength (cursorUtf16: int) (textLen: int) : EditCaret =
+        EditCaret.Utf16Index (min (max 0 cursorUtf16) textLen)
+
 type Mode =
     | Selecting
-    | Editing of originalText: string * cursorPos: int option
-    // cursorPos: None = place cursor at end; Some n = place cursor at position n
+    /// `caret` placement after `#edit-input` receives focus (see `manageFocus`).
+    | Editing of originalText: string * caret: EditCaret
     | CommandPalette of query: string * selectedCommand: int * returnTo: Mode
     | CssClassPrompt of returnTo: Mode * initialValue: string
 

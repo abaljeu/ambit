@@ -6,6 +6,7 @@ open Fable.Core
 open Gambol.Shared
 open Gambol.Shared.Paste
 open Gambol.Shared.ViewModel
+open Gambol.Client.JsInterop
 open Gambol.Client.Update
 
 // ---------------------------------------------------------------------------
@@ -115,14 +116,15 @@ let getCaretOffset (x: float) (y: float) : int = jsNative
 
 /// Handle a paste event: extract plain text and optional node IDs, apply pasteNodesOp.
 let onPaste (ev: Event) (applyOp: Op -> unit) : unit =
-    ev.preventDefault()
     let plain = getClipboardData ev "text/plain"
-    let text  = if plain <> "" then plain else stripHtmlToText (getClipboardData ev "text/html")
+    let html = getClipboardData ev "text/html"
+    let text = if plain <> "" then plain else stripHtmlToText html
     let nodeIds = getPasteNodeIds ev
     let pastedText =
         match nodeIds with
         | Some ids -> ids
         | _ -> text
+    ev.preventDefault()
     if pastedText <> "" then
         setLastKeyDisplay (Some "Ctrl+V") (Some "Paste")
         applyOp (pasteNodesOp pastedText nodeIds)
@@ -158,6 +160,20 @@ let onCopy (model: VM) (ev: Event) (applyOp: Op -> unit) : unit =
 /// Puts both node IDs and full data on clipboard; paste prefers IDs when resolvable.
 let onCut (model: VM) (ev: Event) (applyOp: Op -> unit) : unit =
     onCopyOrCut model ev applyOp cutSelectionOp true
+
+/// True when `#edit-input` has a non-collapsed text range (browser should own copy/cut).
+let editFieldHasTextRangeSelection () : bool =
+    readEditInputCursor () <> readEditInputSelectionEnd ()
+
+/// Structured copy while editing; skipped when user selected text inside the field.
+let onCopyWhileEditing (model: VM) (ev: Event) (applyOp: Op -> unit) : unit =
+    if editFieldHasTextRangeSelection () then ()
+    else onCopy model ev applyOp
+
+/// Structured cut while editing; skipped when user selected text inside the field.
+let onCutWhileEditing (model: VM) (ev: Event) (applyOp: Op -> unit) : unit =
+    if editFieldHasTextRangeSelection () then ()
+    else onCut model ev applyOp
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -295,10 +311,22 @@ let private splitAtCursor () : Op option =
     Some (splitNodeOp text pos)
 
 let private editMoveUp () : Op option =
-    Some (moveEditUp (readEditInputCursor ()))
+    let el = document.getElementById "edit-input"
+    if isNull el || not (isContentEditableCaretOnVisualFirstLine el) then
+        None
+    else
+        match getContentEditableCaretClientX el with
+        | None -> None
+        | Some x -> Some (moveEditUpAtClientX x)
 
 let private editMoveDown () : Op option =
-    Some (moveEditDown (readEditInputCursor ()))
+    let el = document.getElementById "edit-input"
+    if isNull el || not (isContentEditableCaretOnVisualLastLine el) then
+        None
+    else
+        match getContentEditableCaretClientX el with
+        | None -> None
+        | Some x -> Some (moveEditDownAtClientX x)
 
 let private handleBackspace () : Op option =
     if readEditInputCursor () = 0 then
@@ -529,7 +557,7 @@ let commandRegistry : CommandEntry list =
 
       { name = "Copy as links"
         run = keyAlways copySelectionAsLinks
-        keys = [ "Ctrl+C"; "C" ]
+        keys = [ "Ctrl+Shift+C"; "C" ]
         keyScope = SelectionOnly }
 
       { name = "Duplicate (link)"
