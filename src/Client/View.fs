@@ -2,14 +2,16 @@ module Gambol.Client.View
 
 open Browser.Dom
 open Browser.Types
-open Fable.Core
+open Fable.Core.JsInterop
 open Gambol.Shared
 open Gambol.Shared.ViewModel
 open Gambol.Client.Controller
 open Gambol.Client.Update
 
-[<Emit("$0.scrollIntoView({block:'nearest'})")>]
-let private scrollIntoViewNearest (_: obj) : unit = jsNative
+let private scrollIntoViewNearest (el: HTMLElement) : unit =
+    let o = createEmpty<ScrollIntoViewOptions>
+    o.block <- ScrollAlignment.Nearest
+    el.scrollIntoView o
 
 // ---------------------------------------------------------------------------
 // Depth helper
@@ -217,7 +219,7 @@ let manageFocus (model: VM) (rowByInstanceId: Map<SiteId, HTMLElement>) : unit =
                 | Editing (_, Some p) -> p
                 | _ -> inp.value.Length
             inp.setSelectionRange(pos, pos)
-            scrollIntoViewNearest inp
+            scrollIntoViewNearest (inp :> HTMLElement)
     | Selecting ->
         let hiddenInput = document.getElementById "hidden-input"
         if not (isNull hiddenInput) then
@@ -250,7 +252,7 @@ let renderPalette (container: HTMLElement) (items: string list) (selectedCommand
             li.classList.add "amb-palette-selected"
             selectedLi <- Some li
         ul.appendChild li |> ignore)
-    selectedLi |> Option.iter (fun el -> scrollIntoViewNearest el)
+    selectedLi |> Option.iter (fun el -> scrollIntoViewNearest (el :?> HTMLElement))
 
 /// Show or hide the command palette overlay and keep it up to date with the model.
 /// Event listeners are wired once on the first call.

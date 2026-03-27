@@ -14,12 +14,22 @@ open Gambol.Client.Update
 
 /// Strip HTML tags to plain text via a temporary DOM element.
 /// Block elements (p, div, br, tr, li, td) become newlines via innerText.
-[<Emit("(function(h){var d=document.createElement('div');d.innerHTML=h;return(d.innerText||d.textContent||'').trim();})(" + "$0" + ")")>]
-let stripHtmlToText (html: string) : string = jsNative
+let stripHtmlToText (html: string) : string =
+    let d = document.createElement "div"
+    d.innerHTML <- html
+    let t = d.innerText
+    let s =
+        if System.String.IsNullOrEmpty t then
+            d.textContent
+        else
+            t
+    if isNull s then ""
+    else s.Trim()
 
 /// Read a named format from a paste ClipboardEvent's clipboardData.
-[<Emit("$0.clipboardData.getData($1)")>]
-let getClipboardData (ev: Event) (format: string) : string = jsNative
+let getClipboardData (ev: Event) (format: string) : string =
+    let e = ev :?> ClipboardEvent
+    e.clipboardData.getData format
 
 let private nodeIdsFormat = "application/x-gambol-nodeids"
 
@@ -38,8 +48,9 @@ let getPasteNodeIds (ev: Event) : string option =
         if s = "" || isNull s then None else Some s
 
 /// Write a named format to a copy/cut ClipboardEvent's clipboardData.
-[<Emit("$0.clipboardData.setData($1,$2)")>]
-let setClipboardData (ev: Event) (format: string) (data: string) : unit = jsNative
+let setClipboardData (ev: Event) (format: string) (data: string) : unit =
+    let e = ev :?> ClipboardEvent
+    e.clipboardData.setData (format, data) |> ignore
 
 /// Last successful operation for diagnostic display (preserved when key has no match).
 let private lastSuccessfulOp = ref None

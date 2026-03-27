@@ -1,0 +1,165 @@
+Passion Projects
+	FSharp
+	
+	Windsor Chess Challenge
+		annual tournament for 1500 children
+		online registration system
+			web-based each school registers participants
+			automatic section builder
+			name tag generation
+		interactive pairing program
+			
+		automated results presentation
+		Mm
+	Knowledge Driven Design Automation
+		Using Prolog
+		C#
+		C++
+		Custom DSL
+		any CAD system
+		import user specs
+		apply custom knowledge base
+		interpret requirements documents
+		
+	Ambit - Outlining Info Organizer
+		Ambit (n) - Area of Influence
+		#n1 Outlining Editor
+			edit
+			move
+			expand
+				collapse
+				
+			select
+				arrange
+			create
+		Infinite Organizing
+			Zoom
+			Link
+				-> #n1
+		Into the World
+			Document editing
+				[[Document.md]]
+					Document
+					This content here would be the actual content of a markdown file
+					Press Load / Save to update outline from source
+				[[data.json]]
+					item : "value"
+					coords
+						x : 5
+						y : 10
+				[[x.cpp]]
+					"x.h"
+					// coment
+					int main() 
+						int x = 3;
+						return x;
+			Styling
+				CSS Controls
+					Change the appearance of nodes
+					Assign classes to any line
+				Make a particular outline look like formatted document
+			Embedded computation
+				$x = [2 + 3, 3*5]
+					#n2 5
+					15
+				$y = $x[0]
+					-> #n2
+			Shell 
+				> ls -L
+					total 2657
+					drwxr-xr-x 1 Windows 197121       0 Mar 12 11:38 ambit/
+					drwxr-xr-x 1 Windows 197121       0 Jan  5 15:45 bin/
+					drwxr-xr-x 1 Windows 197121       0 Mar 12 16:32 data/
+					-rw-r--r-- 1 Windows 197121     199 Mar 12 14:36 Directory.Build.props
+					drwxr-xr-x 1 Windows 197121       0 Mar 12 14:49 doc/
+					-rw-r--r-- 1 Windows 197121    1015 Mar 12 13:05 dockerfile
+					-rw-r--r-- 1 Windows 197121    7615 Feb 14 08:49 gambol.sln
+					drwxr-xr-x 1 Windows 197121       0 Jan  5 15:45 obj/
+					drwxr-xr-x 1 Windows 197121       0 Mar 12 15:42 publish/
+					-rw-r--r-- 1 Windows 197121    1855 Mar 12 11:38 README.md
+					drwxr-xr-x 1 Windows 197121       0 Mar 12 15:40 scripts/
+					-rw-r--r-- 1 Windows 197121 2494065 Mar 12 15:43 site.zip
+					drwxr-xr-x 1 Windows 197121       0 Jan  5 16:25 src/
+					drwxr-xr-x 1 Windows 197121       0 Feb 14 08:41 tests/
+				$example = > curl www.example.com | htmlToAmbit
+					html
+						script
+							
+						body
+							h1
+								Example
+							p
+								This is example text
+					
+			LLM
+				? Hey Claude, what do you think of the Blue Jays?
+					long
+					rambling response
+				 ? Yes but, don't you think
+					long
+					rambling response
+					
+		
+	Other People's Passions
+		
+Third itemuu
+	ueau
+		ueau
+		aoeua
+		uaoeusont 
+	ham
+		{.blue}eau
+			
+		{.blue}blue
+		{.h2}water
+			plastic
+			
+		blue
+		
+		
+		
+		
+		{.h1}ohello
+			i
+		
+		euo
+	
+	aeu o
+{.h1 .blue}Third item
+	#n3 blue
+		
+	hello
+		h
+		blue
+		ue
+-> #n3
+Tasks
+	now
+		outlier
+		----
+	later
+		
+		ambit
+		----
+extra requirements
+	Logical Reasoning Requirement
+	Structured Proof Formatting Requirement
+	okay so what we need to do is
+	
+		Each part must appear under its own subsection within the proof.
+			
+		Correctness Verification Requirement
+	The final answer must present the proof under the heading ## Proof and include clearly labeled subsections such as:
+	but everything works
+	Proving that the problem is in coNP, and
+	aeustnh
+	Proving coNP-hardness via a polynomial-time reduction from triangle cover.
+	The proof must explicitly justify why the reduction is polynomial-time and explain both directions of correctness (i.e., why the constructed instance has a Pareto improvement if and only if the original graph has a triangle cover).
+	Problem in coNP
+	euaoe 
+	Reduction Construction
+	Correctness of Reduction
+	Complexity Argument
+	Each major step in the proof must include a short justification explaining why the step is valid (e.g., why a constructed preference structure forces triangle formation).
+The roof must clearly separate the two parts of the coNP-completeness argument:u
+fist

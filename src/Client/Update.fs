@@ -17,20 +17,20 @@ open Thoth.Json.Core
 let postJson (url: string) (body: string) (onSuccess: string -> unit) (onFail: unit -> unit)
     : unit = jsNative
 
-[<Emit("window.setTimeout($0, $1)")>]
-let setTimeout (f: unit -> unit) (ms: int) : int = jsNative
+let setTimeout (f: unit -> unit) (ms: int) : float =
+    window.setTimeout ((fun _ -> f ()), ms)
 
-[<Emit("window.clearTimeout($0)")>]
-let clearTimeout (id: int) : unit = jsNative
+let clearTimeout (id: float) : unit =
+    window.clearTimeout id
 
-[<Emit("localStorage.setItem($0,$1)")>]
-let private lsSet (k: string) (v: string) : unit = jsNative
+let private lsSet (k: string) (v: string) : unit =
+    window.localStorage.setItem (k, v)
 
-[<Emit("localStorage.getItem($0)")>]
-let private lsGet (k: string) : string = jsNative
+let private lsGet (k: string) : string =
+    window.localStorage.getItem k
 
-[<Emit("localStorage.removeItem($0)")>]
-let private lsDel (k: string) : unit = jsNative
+let private lsDel (k: string) : unit =
+    window.localStorage.removeItem k
 
 // ---------------------------------------------------------------------------
 // File identity (derived from URL path)
@@ -1286,8 +1286,10 @@ let closeCssClassPromptOp (model: VM) _dispatch : VM =
     | CssClassPrompt (ret, _) -> { model with mode = ret }
     | _ -> model
 
-[<Emit("document.getElementById('css-class-prompt-input')?.value ?? ''")>]
-let private readCssClassPromptValue () : string = jsNative
+let private readCssClassPromptValue () : string =
+    let el = document.getElementById "css-class-prompt-input"
+    if isNull el then ""
+    else (el :?> HTMLInputElement).value
 
 /// Op: Substitute user classes from prompt input (old → new), preserving amb- classes. Close.
 let submitCssClassPromptOp (model: VM) (dispatch: Msg -> unit) : VM =

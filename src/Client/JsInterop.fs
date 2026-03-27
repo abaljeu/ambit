@@ -1,5 +1,6 @@
 module Gambol.Client.JsInterop
 
+open Browser.Dom
 open Fable.Core
 
 [<Emit("fetch($0).then(r => r.text()).then($1)")>]
@@ -31,14 +32,15 @@ let epochSecToTorontoString (epochSec: int) : string = jsNative
 [<Emit("(typeof window.__PAGE_BUILD_TS__ !== 'undefined' ? window.__PAGE_BUILD_TS__ : 0)")>]
 let readPageBuildEpochSec () : int = jsNative
 
-[<Emit("sessionStorage.getItem($0)")>]
-let sessionGet (key: string) : string = jsNative
+let sessionGet (key: string) : string =
+    window.sessionStorage.getItem key
 
-[<Emit("sessionStorage.setItem($0, $1)")>]
-let sessionSet (key: string) (value: string) : unit = jsNative
+let sessionSet (key: string) (value: string) : unit =
+    window.sessionStorage.setItem (key, value)
 
-[<Emit("document.hidden")>]
-let isDocumentHidden () : bool = jsNative
+let isDocumentHidden () : bool =
+    document.hidden
 
-[<Emit("setInterval($0, $1)")>]
-let setInterval (f: unit -> unit) (ms: int) : int = jsNative
+/// Returns the timer handle (pass to browser APIs if needed).
+let setInterval (f: unit -> unit) (ms: int) : float =
+    window.setInterval ((fun _ -> f ()), ms)
