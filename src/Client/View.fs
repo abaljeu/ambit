@@ -92,6 +92,7 @@ let private makeRowElement (model: VM) (applyOp: Op -> unit) (depth: int) (siteE
         for cls in CssClass.toList node.cssClasses do
             editInput.classList.add cls
         editInput.setAttribute("tabindex", "-1")
+        editInput.setAttribute("autocomplete", "off")
         let effectiveMode =
             match model.mode with
             | CommandPalette (_, _, ret) -> ret
@@ -164,6 +165,7 @@ let private applyRowPatches (el: HTMLElement) (patches: RowPatch list) : unit =
                 inp.className <- "amb-edit-input"
                 for cls in CssClass.toList classes do
                     inp.classList.add cls
+                inp.setAttribute("autocomplete", "off")
         | SetFoldArrow arrow ->
             let ft = el.querySelector ".amb-fold-toggle"
             if not (isNull ft) then (ft :?> HTMLElement).textContent <- arrow
