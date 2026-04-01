@@ -143,8 +143,34 @@ let ``read shared-node format produces shared NodeId`` () =
     Assert.Equal(1, p1.children.Length)
     Assert.Equal(1, p2.children.Length)
     Assert.Equal(p1.children.[0].id, p2.children.[0].id)   // same NodeId
+    Assert.Equal(Ownership.Owner, p1.children.[0].ref)
+    Assert.Equal(Ownership.Ref, p2.children.[0].ref)
     Assert.Equal("shared", graph.nodes.[p1.children.[0].id].text)
     Assert.Equal(4, Graph.nodeCount graph)             // root + parent1 + parent2 + shared
+
+[<Fact>]
+let ``read ref-before-owner creates stub then merges owner`` () =
+    let nl = Environment.NewLine
+    let text =
+        "parent2" + nl + "\t-> #n1" + nl + "parent1" + nl + "\t#n1 shared" + nl
+    let graph = Snapshot.read text
+    let root = graph.nodes.[graph.root]
+    Assert.Equal(2, root.children.Length)
+    let p2 = graph.nodes.[root.children.[0].id]
+    let p1 = graph.nodes.[root.children.[1].id]
+    Assert.Equal("parent2", p2.text)
+    Assert.Equal("parent1", p1.text)
+    Assert.Equal(Ownership.Ref, p2.children.[0].ref)
+    Assert.Equal(Ownership.Owner, p1.children.[0].ref)
+    Assert.Equal(p1.children.[0].id, p2.children.[0].id)
+    Assert.Equal("shared", graph.nodes.[p1.children.[0].id].text)
+    Assert.Equal(4, Graph.nodeCount graph)
+
+let private createSharedNodeGraphRefParentFirst () : Graph =
+    let g = ModelBuilder.createSharedNodeGraph ()
+    let root = g.nodes.[g.root]
+    let ch = root.children
+    Graph.replace g.root 0 ch (List.rev ch) g |> ModelBuilder.requireOk "reorder root children"
 
 // ---- shared-node round-trip ----
 
@@ -158,6 +184,22 @@ let ``round-trip shared-node graph preserves shape and sharing`` () =
     let p1 = decoded.nodes.[root.children.[0].id]
     let p2 = decoded.nodes.[root.children.[1].id]
     Assert.Equal(p1.children.[0].id, p2.children.[0].id)     // truly shared NodeId
+    Assert.Equal(Ownership.Owner, p1.children.[0].ref)
+    Assert.Equal(Ownership.Ref, p2.children.[0].ref)
+
+[<Fact>]
+let ``write ref parent before owner emits arrow before hash definition`` () =
+    let original = createSharedNodeGraphRefParentFirst ()
+    let text = Snapshot.write original
+    let arrowIdx = text.IndexOf("-> #")
+    let hashIdx = text.IndexOf("#n1 ")
+    Assert.True(arrowIdx >= 0, "expected -> # line")
+    Assert.True(hashIdx > arrowIdx, "ref line should precede owner definition")
+    let decoded = Snapshot.read text
+    Assert.Equal<(int * string) list>(treeShape original, treeShape decoded)
+    let root = decoded.nodes.[decoded.root]
+    Assert.Equal(decoded.nodes.[root.children.[0].id].children.[0].id,
+                 decoded.nodes.[root.children.[1].id].children.[0].id)
 
 // ---- backward compatibility: plain lines still load correctly ----
 
