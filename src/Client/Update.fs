@@ -13,10 +13,17 @@ open Thoth.Json.Core
 // JS interop
 // ---------------------------------------------------------------------------
 
+/// Three-way POST: onSuccess (HTTP 2xx body text), onReject (HTTP error), onNetworkFail (no response).
 [<Emit("fetch($0,{method:'POST',headers:{'Content-Type':'application/json'},body:$1})" +
-       ".then(r=>r.text()).then($2).catch(function(){$3()})")>]
-let postJson (url: string) (body: string) (onSuccess: string -> unit) (onFail: unit -> unit)
+       ".then(function(r){return r.ok?r.text().then($2):($3(),undefined)})" +
+       ".catch(function(){$4()})")>]
+let postJson
+    (url: string) (body: string) (onSuccess: string -> unit)
+    (onReject: unit -> unit) (onNetworkFail: unit -> unit)
     : unit = jsNative
+
+/// True while a network request (POST or poll GET) is in-flight. Enforces the single-message queue.
+let mutable networkBusy = false
 
 let setTimeout (f: unit -> unit) (ms: int) : float =
     window.setTimeout ((fun _ -> f ()), ms)
@@ -112,28 +119,40 @@ let readEditInputSelectionEnd () : int =
     else getContentEditableSelectionEnd el
 
 /// Fire the next POST in the pending queue (head of the list).
-/// `baseRevision` is the last server-acknowledged revision; the head change must use it as
-/// `Change.id` (multiple local edits before the first ack all encode with the old id — we fix on the wire).
-/// Uses a 5s client-side timeout so a hanging request transitions to Pending and can be retried.
+/// `baseRevision` is the last server-acknowledged revision; the head change encodes with it.
+/// Sets `networkBusy = true` before the fetch and clears it on every callback path.
+/// Uses a 5 s client-side timeout so a hanging request is treated as a network failure.
 let fireNextPending (baseRevision: int) (pending: Change list) (dispatch: Msg -> unit) : unit =
     match pending with
     | [] -> ()
     | change :: _ ->
+        networkBusy <- true
         let body = encodeChangeBody { change with id = baseRevision }
-        let timeoutId = setTimeout (fun () -> dispatch (SysMsg SubmitNoResponse)) 5_000
+        let timeoutId =
+            setTimeout (fun () ->
+                networkBusy <- false
+                dispatch (SysMsg SubmitNetworkError)) 5_000
         postJson $"/{currentFile}/changes" body
-            (fun responseText -> // Success response
+            (fun responseText ->
                 clearTimeout timeoutId
+                networkBusy <- false
                 match decodeChangeAckResponse responseText with
                 | Ok rev -> dispatch (SysMsg (SubmitResponse rev))
-                | Error _ -> dispatch (SysMsg SubmitFailed)) // response not recognized
+                | Error _ -> dispatch (SysMsg SubmitRejected))
             (fun () ->
                 clearTimeout timeoutId
-                dispatch (SysMsg SubmitFailed))
+                networkBusy <- false
+                dispatch (SysMsg SubmitRejected))
+            (fun () ->
+                clearTimeout timeoutId
+                networkBusy <- false
+                dispatch (SysMsg SubmitNetworkError))
 
 /// Apply a change to the local model, enqueue it for posting to the server,
 /// and return the updated VM (or None if the change was rejected locally).
-/// When Stale, applies locally but does not fire POST (Stale is preserved until reload).
+/// Fires POST only when the queue was empty and no request is in-flight.
+/// Blocked states (ServerRejected / CodeOutdated / DataOutdated / WaitingToRetry) queue
+/// changes locally but do not fire a POST.
 let applyAndPost (change: Change) (model: VM) (dispatch: Msg -> unit) : VM option =
     let state: State = { graph = model.graph; revision = model.revision; history = model.history }
     match History.applyChange change state with
@@ -141,12 +160,12 @@ let applyAndPost (change: Change) (model: VM) (dispatch: Msg -> unit) : VM optio
         let wasEmpty = model.syncInfo.pendingChanges.IsEmpty
         let pending = model.syncInfo.pendingChanges @ [change]
         savePendingQueue pending
-        // If we're in Pending, do NOT fireNextPending or transition to Syncing. Wait for user/auto retry.
         let syncState, firePost =
             match model.syncInfo.syncState with
-            | Stale -> Stale, false
-            | Pending _ -> model.syncInfo.syncState, false
-            | _ -> Syncing 1, wasEmpty
+            | ServerRejected | CodeOutdated | DataOutdated -> model.syncInfo.syncState, false
+            | WaitingToRetry _ -> model.syncInfo.syncState, false
+            | Sending _ -> Sending 1, false
+            | Idle -> Sending 1, wasEmpty && not networkBusy
         if firePost then fireNextPending model.revision.Value pending dispatch
         let syncInfo =
             model.syncInfo
@@ -1443,23 +1462,19 @@ let zoomOutOp (model: VM) (dispatch: Msg -> unit) : VM =
             selectedNodes = firstChildSelection siteMap effectiveRoot
             mode = Selecting }
 
-/// Op: Retry pending server POST. When resetCount=true (manual click), resets attempt count for a fresh batch.
+/// Op: Retry pending server POST. Only valid from WaitingToRetry state.
+/// resetCount=true (manual click) restarts the attempt counter from 1.
 let retryPendingOp (resetCount: bool) (model: VM) (dispatch: Msg -> unit) : VM =
     match model.syncInfo.syncState, model.syncInfo.pendingChanges with
-    | Stale, _  -> model
+    | ServerRejected, _ | CodeOutdated, _ | DataOutdated, _ -> model
     | _, [] ->
-        { model with
-            syncInfo =
-                model.syncInfo
-                |> SyncInfo.withPendingChanges []
-                |> SyncInfo.withSyncState Synced }
-    | Syncing _, _ -> model
-    | Pending failCount, _ ->
+        { model with syncInfo = SyncInfo.withSyncState Idle model.syncInfo }
+    | WaitingToRetry n, _ ->
         fireNextPending model.revision.Value model.syncInfo.pendingChanges dispatch
-        let attempt = if resetCount then 1 else failCount + 1
-        { model with
-            syncInfo = SyncInfo.withSyncState (Syncing attempt) model.syncInfo }
-    | _,_ -> model
+        let nextAttempt = if resetCount then 1 else n + 1
+        { model with syncInfo = SyncInfo.withSyncState (Sending nextAttempt) model.syncInfo }
+    | Sending _, _ -> model
+    | _ -> model
 
 /// Op: Undo the last change, committing any in-progress edit first.
 let undoOp (model: VM) (dispatch: Msg -> unit) : VM =
@@ -1474,8 +1489,14 @@ let undoOp (model: VM) (dispatch: Msg -> unit) : VM =
             let wasEmpty = model'.syncInfo.pendingChanges.IsEmpty
             let pending = model'.syncInfo.pendingChanges @ [invertedChange]
             savePendingQueue pending
-            if model'.syncInfo.syncState <> Stale && wasEmpty then fireNextPending model'.revision.Value pending dispatch
-            let syncState = if model'.syncInfo.syncState = Stale then Stale else Syncing 1
+            let blocked =
+                match model'.syncInfo.syncState with
+                | ServerRejected | CodeOutdated | DataOutdated | WaitingToRetry _ -> true
+                | _ -> false
+            if not blocked && wasEmpty && not networkBusy then
+                fireNextPending model'.revision.Value pending dispatch
+            let syncState =
+                if blocked then model'.syncInfo.syncState else Sending 1
             let syncInfo =
                 model'.syncInfo
                 |> SyncInfo.withPendingChanges pending
@@ -1504,8 +1525,14 @@ let redoOp (model: VM) (dispatch: Msg -> unit) : VM =
             let wasEmpty = model'.syncInfo.pendingChanges.IsEmpty
             let pending = model'.syncInfo.pendingChanges @ [reChange]
             savePendingQueue pending
-            if model'.syncInfo.syncState <> Stale && wasEmpty then fireNextPending model'.revision.Value pending dispatch
-            let syncState = if model'.syncInfo.syncState = Stale then Stale else Syncing 1
+            let blocked =
+                match model'.syncInfo.syncState with
+                | ServerRejected | CodeOutdated | DataOutdated | WaitingToRetry _ -> true
+                | _ -> false
+            if not blocked && wasEmpty && not networkBusy then
+                fireNextPending model'.revision.Value pending dispatch
+            let syncState =
+                if blocked then model'.syncInfo.syncState else Sending 1
             let syncInfo =
                 model'.syncInfo
                 |> SyncInfo.withPendingChanges pending
@@ -1544,9 +1571,11 @@ let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
             syncInfo = { model.syncInfo with syncRiskAcknowledged = true } }
 
     | SysMsg (SubmitResponse revision) ->
-        if model.syncInfo.syncState = Stale then model
-        else
-            let pendingTail = match model.syncInfo.pendingChanges with _ :: t -> t | [] -> []
+        match model.syncInfo.syncState with
+        | ServerRejected | CodeOutdated | DataOutdated -> model
+        | _ ->
+            let pendingTail =
+                match model.syncInfo.pendingChanges with _ :: t -> t | [] -> []
             let pending =
                 match pendingTail with
                 | [] -> []
@@ -1556,38 +1585,32 @@ let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
             let syncInfo =
                 model.syncInfo
                 |> SyncInfo.withPendingChanges pending
-                |> SyncInfo.withSyncState (if pending.IsEmpty then Synced else Syncing 1)
+                |> SyncInfo.withSyncState (if pending.IsEmpty then Idle else Sending 1)
             { model with
                 revision = revision
                 history = { model.history with nextId = max model.history.nextId revision.Value }
                 syncInfo = syncInfo }
 
-    | SysMsg SubmitFailed ->
-        let next = SyncLogic.applySubmitRejected model
-        if next.syncInfo.syncState = Stale then
+    | SysMsg SubmitRejected ->
+        if model.syncInfo.pendingChanges.IsEmpty then model
+        else
             // Rejected payload cannot be replayed safely; drop persisted queue so reload starts clean.
             savePendingQueue []
-            { next with
-                syncInfo = SyncInfo.withPendingChanges [] next.syncInfo }
-        else
-            next
-    | SysMsg SubmitNoResponse ->
-        SyncLogic.applySubmitNoResponse model
-
-    | SysMsg (ServerAhead rev) ->
-        SyncLogic.applyServerAhead rev model
-
-    | SysMsg PollingInactive ->
-        if model.syncInfo.syncState = Synced && model.syncInfo.pendingChanges.IsEmpty then
             { model with
-                syncInfo = SyncInfo.withSyncState Inactive model.syncInfo }
-        else
-            model
+                syncInfo =
+                    model.syncInfo
+                    |> SyncInfo.withPendingChanges []
+                    |> SyncInfo.withSyncState ServerRejected }
 
-    | SysMsg PollingActive ->
-        if model.syncInfo.syncState = Inactive then
-            { model with
-                syncInfo = SyncInfo.withSyncState Synced model.syncInfo }
+    | SysMsg SubmitNetworkError ->
+        if model.syncInfo.pendingChanges.IsEmpty then model
         else
-            model
+            let n = match model.syncInfo.syncState with Sending n -> n | _ -> 1
+            { model with syncInfo = SyncInfo.withSyncState (WaitingToRetry n) model.syncInfo }
+
+    | SysMsg (SetPollingActive active) ->
+        { model with syncInfo = { model.syncInfo with isPollingActive = active } }
+
+    | SysMsg (SetSyncState state) ->
+        { model with syncInfo = SyncInfo.withSyncState state model.syncInfo }
 

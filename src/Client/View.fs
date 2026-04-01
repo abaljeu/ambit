@@ -347,36 +347,39 @@ let renderStatus (model: VM) : unit =
     let el = document.getElementById "sync-status"
     if not (isNull el) then
         match model.syncInfo.syncState with
-        | Synced  ->
-            el.textContent <- "synced"
+        | Idle ->
+            let txt = if model.syncInfo.isPollingActive then "synced" else "idle"
+            el.textContent <- txt
             el.className <- "amb-sync-status amb-synced"
-        | Inactive ->
-            el.textContent <- "Inactive"
-            el.className <- "amb-sync-status amb-inactive"
-        | Syncing attempt ->
-            el.textContent <- $"Saving\u2026 (retry {attempt})"
+        | Sending 1 ->
+            el.textContent <- "Saving\u2026"
             el.className <- "amb-sync-status amb-syncing"
-        | Pending _ ->
-            el.textContent <- "Unsaved changes \u2014 click to retry"
+        | Sending n ->
+            el.textContent <- $"Saving\u2026 (retry {n})"
+            el.className <- "amb-sync-status amb-syncing"
+        | WaitingToRetry n ->
+            el.textContent <- $"Unsaved \u2014 click to retry (\u00d7{n})"
             el.className <- "amb-sync-status amb-pending"
-        // | Conflicted ->
-        //     el.textContent <- "Conflict detected \u2014 resolving\u2026"
-        //     el.className <- "amb-sync-status amb-conflicted"
-        | Stale ->
-            el.textContent <- "Refresh the view"
+        | ServerRejected ->
+            el.textContent <- "Server rejected change \u2014 reload required"
+            el.className <- "amb-sync-status amb-stale"
+        | CodeOutdated ->
+            el.textContent <- "New version available \u2014 click to reload"
+            el.className <- "amb-sync-status amb-stale"
+        | DataOutdated ->
+            el.textContent <- "Data changed on server \u2014 click to reload"
             el.className <- "amb-sync-status amb-stale"
 
 let private syncRiskAlertWired = ref false
 
-/// Full-screen sync risk notice (Pending / Stale) until the user acknowledges.
+/// Full-screen sync risk notice (ServerRejected / CodeOutdated / DataOutdated) until acknowledged.
 let renderSyncRiskAlert (model: VM) (dispatch: Msg -> unit) : unit =
     let root = document.getElementById "blocking-alert"
     if isNull root then () else
 
     let shouldShow =
         match model.syncInfo.syncState with
-        | Pending _
-        | Stale -> not model.syncInfo.syncRiskAcknowledged
+        | ServerRejected | CodeOutdated | DataOutdated -> not model.syncInfo.syncRiskAcknowledged
         | _ -> false
 
     if shouldShow then
@@ -386,15 +389,20 @@ let renderSyncRiskAlert (model: VM) (dispatch: Msg -> unit) : unit =
         let okBtn = document.getElementById "blocking-alert-ok" :?> HTMLButtonElement
         if not (isNull titleEl) && not (isNull msgEl) then
             match model.syncInfo.syncState with
-            | Pending n ->
-                titleEl.textContent <- "Could not save"
+            | ServerRejected ->
+                titleEl.textContent <- "Server rejected change"
                 msgEl.textContent <-
-                    $"Your changes are queued but the server did not confirm (attempt {n}). "
-                    + "You can retry from the status control, or reload when safe."
-            | Stale ->
+                    "The server could not apply your change (revision mismatch or invalid op). "
+                    + "Reload the page to resync. Your unsaved changes will be lost."
+            | CodeOutdated ->
+                titleEl.textContent <- "New version available"
+                msgEl.textContent <-
+                    "A new version of this application has been deployed. "
+                    + "Reload the page to get the latest version."
+            | DataOutdated ->
                 titleEl.textContent <- "View is out of date"
                 msgEl.textContent <-
-                    "The server has newer data than this page. Use Refresh or Reload before continuing."
+                    "The server has newer data than this page. Reload before continuing."
             | _ -> ()
 
         if not (isNull okBtn) then

@@ -22,164 +22,94 @@ let private emptyModel (graph: Graph) : VM =
       clipboard = None
       syncInfo = SyncInfo.initial }
 
-let private modelWithPending (graph: Graph) (pending: Change list) (syncState: SyncState) : VM =
-    let m = emptyModel graph
-    { m with
-        syncInfo =
-            { m.syncInfo with
-                pendingChanges = pending
-                syncState = syncState } }
-
 let private mkChange id = { id = id; changeId = System.Guid.NewGuid(); ops = [] }
 
-// ---------------------------------------------------------------------------
-// shouldReportStale
-// ---------------------------------------------------------------------------
+let private mkContext build page =
+    { ClientPollContext.buildEpochSec = build
+      pageBuildEpochSec = page }
 
-[<Fact>]
-let ``shouldReportStale with pending returns false - server ahead but our in-flight change`` () =
-    let poll =
-        { revision = 6
-          buildEpochSec = 1
-          pageBuildEpochSec = 1 }
-    let client =
-        { ClientPollContext.revision = 5
-          pendingCount = 1
-          buildEpochSec = 1
-          pageBuildEpochSec = 1 }
-    Assert.False(SyncLogic.shouldReportStale poll client)
-
-[<Fact>]
-let ``shouldReportStale without pending and server ahead returns true`` () =
-    let poll =
-        { revision = 6
-          buildEpochSec = 1
-          pageBuildEpochSec = 1 }
-    let client =
-        { ClientPollContext.revision = 5
-          pendingCount = 0
-          buildEpochSec = 1
-          pageBuildEpochSec = 1 }
-    Assert.True(SyncLogic.shouldReportStale poll client)
-
-[<Fact>]
-let ``shouldReportStale when clientBuild 0 and clientPage 0 skips serverNewer - no false Stale`` () =
-    let poll =
-        { revision = 5
-          buildEpochSec = 99
-          pageBuildEpochSec = 99 }
-    let client =
-        { ClientPollContext.revision = 5
-          pendingCount = 0
-          buildEpochSec = 0
-          pageBuildEpochSec = 0 }
-    Assert.False(SyncLogic.shouldReportStale poll client)
-
-[<Fact>]
-let ``shouldReportStale when build/page differ and client stamps non-zero returns true`` () =
-    let poll =
-        { revision = 5
-          buildEpochSec = 2
-          pageBuildEpochSec = 2 }
-    let client =
-        { ClientPollContext.revision = 5
-          pendingCount = 0
-          buildEpochSec = 1
-          pageBuildEpochSec = 1 }
-    Assert.True(SyncLogic.shouldReportStale poll client)
+let private mkPoll rev build page =
+    { revision = rev; buildEpochSec = build; pageBuildEpochSec = page }
 
 // ---------------------------------------------------------------------------
-// applySubmitRejected
+// getPollOutcome — data outdated
 // ---------------------------------------------------------------------------
 
 [<Fact>]
-let ``applySubmitRejected with empty pending returns model unchanged`` () =
-    let graph = ModelBuilder.createDag12 ()
-    let model = emptyModel graph
-    let result = SyncLogic.applySubmitRejected model
-    Assert.Same(model, result)
-    Assert.Equal(Synced, result.syncInfo.syncState)
+let ``getPollOutcome returns DataOutdated when server revision is ahead`` () =
+    let poll = mkPoll 6 1 1
+    let ctx = mkContext 1 1
+    Assert.Equal(Some DataOutdated, SyncLogic.getPollOutcome poll 5 ctx)
 
 [<Fact>]
-let ``applySubmitNoResponse with Syncing 1 and non-empty pending transitions to Syncing 2`` () =
-    let graph = ModelBuilder.createDag12 ()
-    let pending = [ mkChange 0 ]
-    let model = modelWithPending graph pending (Syncing 1)
-    let result = SyncLogic.applySubmitNoResponse model
-    Assert.Equal(Syncing 2, result.syncInfo.syncState)
-    Assert.Equal(1, result.syncInfo.pendingChanges.Length)
-
-[<Fact>]
-let ``applySubmitNoResponse with Syncing 9 and non-empty pending transitions to Syncing 10`` () =
-    let graph = ModelBuilder.createDag12 ()
-    let pending = [ mkChange 0 ]
-    let model = modelWithPending graph pending (Syncing 9)
-    let result = SyncLogic.applySubmitNoResponse model
-    Assert.Equal(Syncing 10, result.syncInfo.syncState)
-    Assert.Equal(1, result.syncInfo.pendingChanges.Length)
-
-[<Fact>]
-let ``applySubmitNoResponse with Syncing 10 and non-empty pending transitions to Pending 10`` () =
-    let graph = ModelBuilder.createDag12 ()
-    let pending = [ mkChange 0 ]
-    let model = modelWithPending graph pending (Syncing 10)
-    let result = SyncLogic.applySubmitNoResponse model
-    Assert.Equal(Pending 10, result.syncInfo.syncState)
-    Assert.Equal(1, result.syncInfo.pendingChanges.Length)
-
-[<Fact>]
-let ``applySubmitRejected with Syncing 1 and non-empty pending transitions to Stale`` () =
-    let graph = ModelBuilder.createDag12 ()
-    let pending = [ mkChange 0 ]
-    let model = modelWithPending graph pending (Syncing 1)
-    let result = SyncLogic.applySubmitRejected model
-    Assert.Equal(Stale, result.syncInfo.syncState)
-    Assert.Equal(1, result.syncInfo.pendingChanges.Length)
-
-[<Fact>]
-let ``applySubmitRejected when Stale returns model unchanged`` () =
-    let graph = ModelBuilder.createDag12 ()
-    let m0 = emptyModel graph
-    let model = { m0 with syncInfo = { m0.syncInfo with syncState = Stale } }
-    let result = SyncLogic.applySubmitRejected model
-    Assert.Same(model, result)
-    Assert.Equal(Stale, result.syncInfo.syncState)
+let ``getPollOutcome returns None when server revision equals client`` () =
+    let poll = mkPoll 5 1 1
+    let ctx = mkContext 1 1
+    Assert.Equal(None, SyncLogic.getPollOutcome poll 5 ctx)
 
 // ---------------------------------------------------------------------------
-// applyServerAhead
+// getPollOutcome — code outdated
 // ---------------------------------------------------------------------------
 
 [<Fact>]
-let ``applyServerAhead transitions syncState to Stale`` () =
-    let graph = ModelBuilder.createDag12 ()
-    let model = emptyModel graph
-    let result = SyncLogic.applyServerAhead (Revision 10) model
-    Assert.Equal(Stale, result.syncInfo.syncState)
-    Assert.Equal(model.graph, result.graph)
+let ``getPollOutcome returns CodeOutdated when build stamps differ and client stamps non-zero`` () =
+    let poll = mkPoll 5 2 2
+    let ctx = mkContext 1 1
+    Assert.Equal(Some CodeOutdated, SyncLogic.getPollOutcome poll 5 ctx)
+
+[<Fact>]
+let ``getPollOutcome returns None when client build stamp is 0 (stamps not yet injected)`` () =
+    let poll = mkPoll 5 99 99
+    let ctx = mkContext 0 0
+    Assert.Equal(None, SyncLogic.getPollOutcome poll 5 ctx)
+
+[<Fact>]
+let ``getPollOutcome returns None when client page stamp is 0`` () =
+    let poll = mkPoll 5 99 99
+    let ctx = mkContext 99 0
+    Assert.Equal(None, SyncLogic.getPollOutcome poll 5 ctx)
+
+// ---------------------------------------------------------------------------
+// getPollOutcome — priority: CodeOutdated beats DataOutdated
+// ---------------------------------------------------------------------------
+
+[<Fact>]
+let ``getPollOutcome returns CodeOutdated when both code and data are outdated`` () =
+    let poll = mkPoll 6 2 2
+    let ctx = mkContext 1 1
+    Assert.Equal(Some CodeOutdated, SyncLogic.getPollOutcome poll 5 ctx)
 
 // ---------------------------------------------------------------------------
 // SyncInfo helpers
 // ---------------------------------------------------------------------------
 
 [<Fact>]
-let ``SyncInfo withPendingChanges clears ack when queue changes`` () =
-    let si =
-        { SyncInfo.initial with
-            pendingChanges = [ mkChange 0 ]
-            syncRiskAcknowledged = true }
-    let si2 = SyncInfo.withPendingChanges [ mkChange 1 ] si
+let ``SyncInfo withPendingChanges replaces pending list`` () =
+    let pending = [ mkChange 0 ]
+    let si = SyncInfo.initial
+    let si2 = SyncInfo.withPendingChanges pending si
+    Assert.Equal(1, si2.pendingChanges.Length)
+
+[<Fact>]
+let ``SyncInfo withSyncState clears ack when entering risk state`` () =
+    let si = { SyncInfo.initial with syncRiskAcknowledged = true }
+    let si2 = SyncInfo.withSyncState ServerRejected si
     Assert.False(si2.syncRiskAcknowledged)
 
 [<Fact>]
-let ``SyncInfo withPendingChanges keeps ack when queue unchanged`` () =
-    let pending = [ mkChange 0 ]
-    let si = { SyncInfo.initial with pendingChanges = pending; syncRiskAcknowledged = true }
-    let si2 = SyncInfo.withPendingChanges pending si
+let ``SyncInfo withSyncState keeps ack within risk states`` () =
+    let si = { SyncInfo.initial with syncState = ServerRejected; syncRiskAcknowledged = true }
+    let si2 = SyncInfo.withSyncState DataOutdated si
     Assert.True(si2.syncRiskAcknowledged)
 
 [<Fact>]
-let ``SyncInfo withSyncState keeps ack within Pending to Stale`` () =
-    let si = { SyncInfo.initial with syncState = Pending 3; syncRiskAcknowledged = true }
-    let si2 = SyncInfo.withSyncState Stale si
+let ``SyncInfo withSyncState clears ack when leaving risk state`` () =
+    let si = { SyncInfo.initial with syncState = CodeOutdated; syncRiskAcknowledged = true }
+    let si2 = SyncInfo.withSyncState Idle si
+    Assert.False(si2.syncRiskAcknowledged)
+
+[<Fact>]
+let ``SyncInfo withSyncState keeps ack within non-risk states`` () =
+    let si = { SyncInfo.initial with syncState = Sending 1; syncRiskAcknowledged = true }
+    let si2 = SyncInfo.withSyncState (WaitingToRetry 1) si
     Assert.True(si2.syncRiskAcknowledged)
-    Assert.Equal(Stale, si2.syncState)

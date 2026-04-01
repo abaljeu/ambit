@@ -79,41 +79,39 @@ type ClipboardContent =
       nodes: Map<NodeId, Node> }
 
 type SyncState =
-    | Synced      // all changes confirmed by server
-    | Inactive    // client paused remote polling due to idle/hidden
-    | Syncing of int   // POST in-flight; int = attempt number (1-based)
-    | Pending of int  // last POST failed; int = failure count (1..10; stop auto-retry at 10)
-    // | Conflicted  // received 409; rebase in progress
-    | Stale       // server has changes we don't have — refresh to see them
+    | Idle            // all confirmed, nothing pending
+    | Sending of attempt: int   // POST in-flight; attempt = 1-based send count
+    | WaitingToRetry of attempt: int  // last POST had a network error; waiting to retry
+    | ServerRejected  // server returned 400 — change cannot be applied; reload required
+    | CodeOutdated    // server has newer code (build stamp changed) — reload required
+    | DataOutdated    // server has newer data with no local pending — reload required
 
 type SyncInfo =
     { syncState: SyncState
       pendingChanges: Change list
+      isPollingActive: bool
       syncRiskAcknowledged: bool }
 
 [<RequireQualifiedAccess>]
 module SyncInfo =
     let initial: SyncInfo =
-        { syncState = Synced
+        { syncState = Idle
           pendingChanges = []
+          isPollingActive = false
           syncRiskAcknowledged = false }
 
-    /// Replaces the pending queue. If the list differs, clears risk acknowledgment so the alert can show again.
     let withPendingChanges (pending: Change list) (si: SyncInfo) : SyncInfo =
-        if si.pendingChanges = pending then si
-        else { si with pendingChanges = pending; syncRiskAcknowledged = false }
+        { si with pendingChanges = pending }
 
-    /// Updates sync state. While remaining in Pending/Stale, keeps acknowledgment; crossing in or out clears it.
+    /// Updates sync state. Clears risk acknowledgment when crossing the risk boundary.
     let withSyncState (newState: SyncState) (si: SyncInfo) : SyncInfo =
         let inRisk =
             function
-            | Pending _
-            | Stale -> true
+            | ServerRejected | CodeOutdated | DataOutdated -> true
             | _ -> false
         let wasR = inRisk si.syncState
         let nowR = inRisk newState
-        if wasR && nowR then { si with syncState = newState }
-        elif not wasR && not nowR then { si with syncState = newState }
+        if wasR = nowR then { si with syncState = newState }
         else { si with syncState = newState; syncRiskAcknowledged = false }
 
 // Server `State` is in `FileAgent`, and mainly the graph.
@@ -133,11 +131,10 @@ type VM = // the client state
 type SystemMsg =
     | StateLoaded of Graph * Revision
     | SubmitResponse of Revision
-    | SubmitNoResponse
-    | SubmitFailed
-    | ServerAhead of Revision  // poll found server revision > client; view is stale
-    | PollingInactive
-    | PollingActive
+    | SubmitRejected      // server returned HTTP error — change cannot be applied
+    | SubmitNetworkError  // timeout or network failure — retryable
+    | SetPollingActive of bool
+    | SetSyncState of SyncState
 
 type Msg =
     | SysMsg of SystemMsg

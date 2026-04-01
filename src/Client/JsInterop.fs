@@ -246,6 +246,12 @@ let fetchText (url: string) (callback: string -> unit) : unit = jsNative
 [<Emit("fetch($0, {cache: 'no-store', credentials: 'same-origin'}).then(r => r.ok ? r.text() : Promise.reject(r.status)).then($1).catch(function(){})")>]
 let fetchTextNoCache (url: string) (callback: string -> unit) : unit = jsNative
 
+[<Emit("fetch($0, {cache: 'no-store', credentials: 'same-origin'})" +
+       ".then(r => r.ok ? r.text() : Promise.reject(r.status))" +
+       ".then($1).catch(function(){ $2(); })")>]
+let fetchTextNoCacheWithFail (url: string) (callback: string -> unit) (onFail: unit -> unit)
+    : unit = jsNative
+
 [<Emit("Date.now()")>]
 let nowMs () : int = jsNative
 
