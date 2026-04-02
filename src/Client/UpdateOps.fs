@@ -1,12 +1,16 @@
 module Gambol.Client.UpdateOps
+
 open Browser.Dom
 open Browser.Types
 open Fable.Core
 open Gambol.Client.JsInterop
+open Gambol.Client.UpdateEdit
+open Gambol.Client.UpdateHelpers
+open Gambol.Client.UpdateMove
+open Gambol.Client.UpdatePaste
 open Gambol.Shared
 open Gambol.Shared.Paste
 open Gambol.Shared.ViewModel
-open Thoth.Json.Core
 
 
 // ---------------------------------------------------------------------------

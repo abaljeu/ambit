@@ -1,13 +1,11 @@
 module Gambol.Client.UpdateEdit
 
 open Browser.Dom
-open Browser.Types
 open Fable.Core
 open Gambol.Client.JsInterop
+open Gambol.Client.UpdateHelpers
 open Gambol.Shared
-open Gambol.Shared.Paste
 open Gambol.Shared.ViewModel
-open Thoth.Json.Core
 
 
 let moveEdit (delta: int) (cursorPos: int) (model: VM) : VM * Effect list =

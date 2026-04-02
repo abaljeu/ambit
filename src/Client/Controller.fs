@@ -8,6 +8,9 @@ open Gambol.Shared.Paste
 open Gambol.Shared.ViewModel
 open Gambol.Client.JsInterop
 open Gambol.Client.Update
+open Gambol.Client.UpdateEdit
+open Gambol.Client.UpdateHelpers
+open Gambol.Client.UpdateOps
 
 // ---------------------------------------------------------------------------
 // Clipboard / paste helpers
@@ -115,7 +118,7 @@ let copyOp (model: VM) : VM * Effect list =
 let getCaretOffset (x: float) (y: float) : int = jsNative
 
 /// Handle a paste event: extract plain text and optional node IDs, apply pasteNodesOp.
-let onPaste (ev: Event) (applyOp: Op -> unit) : unit =
+let onPaste (ev: Event) (dispatch: Msg -> unit) : unit =
     let plain = getClipboardData ev "text/plain"
     let html = getClipboardData ev "text/html"
     let text = if plain <> "" then plain else stripHtmlToText html
@@ -127,9 +130,9 @@ let onPaste (ev: Event) (applyOp: Op -> unit) : unit =
     ev.preventDefault()
     if pastedText <> "" then
         setLastKeyDisplay (Some "Ctrl+V") (Some "Paste")
-        applyOp (pasteNodesOp pastedText nodeIds)
+        dispatch (ApplyOp (pasteNodesOp pastedText nodeIds))
 
-let private onCopyOrCut (model: VM) (ev: Event) (applyOp: Op -> unit) (op: Op) (includeNodeIds: bool) : unit =
+let private onCopyOrCut (model: VM) (ev: Event) (dispatch: Msg -> unit) (op: Op) (includeNodeIds: bool) : unit =
     match model.selectedNodes with
     | None -> ()
     | Some sel ->
@@ -150,30 +153,30 @@ let private onCopyOrCut (model: VM) (ev: Event) (applyOp: Op -> unit) (op: Op) (
                 |> List.map (fun (NodeId guid) -> guid.ToString())
                 |> String.concat "\n"
             setClipboardData ev nodeIdsFormat idsText
-        applyOp op
+        dispatch (ApplyOp op)
 
 /// Handle a copy event: serialize the selected subtree to the clipboard.
-let onCopy (model: VM) (ev: Event) (applyOp: Op -> unit) : unit =
-    onCopyOrCut model ev applyOp copySelectionOp false
+let onCopy (model: VM) (ev: Event) (dispatch: Msg -> unit) : unit =
+    onCopyOrCut model ev dispatch copySelectionOp false
 
 /// Handle a cut event: serialize and remove the selected subtree.
 /// Puts both node IDs and full data on clipboard; paste prefers IDs when resolvable.
-let onCut (model: VM) (ev: Event) (applyOp: Op -> unit) : unit =
-    onCopyOrCut model ev applyOp cutSelectionOp true
+let onCut (model: VM) (ev: Event) (dispatch: Msg -> unit) : unit =
+    onCopyOrCut model ev dispatch cutSelectionOp true
 
 /// True when `#edit-input` has a non-collapsed text range (browser should own copy/cut).
 let editFieldHasTextRangeSelection () : bool =
     readEditInputCursor () <> readEditInputSelectionEnd ()
 
 /// Structured copy while editing; skipped when user selected text inside the field.
-let onCopyWhileEditing (model: VM) (ev: Event) (applyOp: Op -> unit) : unit =
+let onCopyWhileEditing (model: VM) (ev: Event) (dispatch: Msg -> unit) : unit =
     if editFieldHasTextRangeSelection () then ()
-    else onCopy model ev applyOp
+    else onCopy model ev dispatch
 
 /// Structured cut while editing; skipped when user selected text inside the field.
-let onCutWhileEditing (model: VM) (ev: Event) (applyOp: Op -> unit) : unit =
+let onCutWhileEditing (model: VM) (ev: Event) (dispatch: Msg -> unit) : unit =
     if editFieldHasTextRangeSelection () then ()
-    else onCut model ev applyOp
+    else onCut model ev dispatch
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -712,18 +715,18 @@ let private dispatchResolvedKey
     (keyStr: string)
     (resolved: ResolvedKeyBinding)
     (keyEvent: KeyboardEvent)
-    (applyOp: Op -> unit)
+    (dispatch: Msg -> unit)
     : unit =
     match resolved.handler () with
     | Some op ->
         keyEvent.preventDefault()
         setLastKeyDisplay (Some keyStr) (Some resolved.commandName)
-        applyOp op
+        dispatch (ApplyOp op)
     | None ->
         setLastKeyDisplay (Some keyStr) None
 
 /// Route keyboard handling by mode: palette overlay, CSS class prompt, editing field, or selection (hidden input).
-let handleKey (mode: Mode) (ke: KeyboardEvent) (applyOp: Op -> unit) : unit =
+let handleKey (mode: Mode) (ke: KeyboardEvent) (dispatch: Msg -> unit) : unit =
     let hasNonShiftModifier = ke.ctrlKey || ke.altKey || ke.metaKey
     match mode with
     | Editing _ when 
@@ -741,21 +744,21 @@ let handleKey (mode: Mode) (ke: KeyboardEvent) (applyOp: Op -> unit) : unit =
         | Error _ ->
             setLastKeyDisplay (Some keyStr) None
         | Ok resolved ->
-            dispatchResolvedKey keyStr resolved ke applyOp
+            dispatchResolvedKey keyStr resolved ke dispatch
 
 /// Command palette input: fixed binding list (listener wired once; no Mode value in closure).
-let handlePaletteKey (keyEvent: KeyboardEvent) (applyOp: Op -> unit) : unit =
+let handlePaletteKey (keyEvent: KeyboardEvent) (dispatch: Msg -> unit) : unit =
     let keyStr = formatKeyCombo keyEvent
     match tryResolveFromNamed paletteKeyBindings keyEvent with
     | Error _ ->
         setLastKeyDisplay (Some keyStr) None
     | Ok resolved ->
-        dispatchResolvedKey keyStr resolved keyEvent applyOp
+        dispatchResolvedKey keyStr resolved keyEvent dispatch
 
 /// CSS class prompt input: Escape to cancel, Enter to submit.
-let handleCssClassPromptKey (keyEvent: KeyboardEvent) (applyOp: Op -> unit) : unit =
+let handleCssClassPromptKey (keyEvent: KeyboardEvent) (dispatch: Msg -> unit) : unit =
     let keyStr = formatKeyCombo keyEvent
     match tryResolveFromNamed cssClassPromptKeyBindings keyEvent with
     | Error _ -> setLastKeyDisplay (Some keyStr) None
-    | Ok resolved -> dispatchResolvedKey keyStr resolved keyEvent applyOp
+    | Ok resolved -> dispatchResolvedKey keyStr resolved keyEvent dispatch
 

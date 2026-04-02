@@ -8,6 +8,7 @@ open Gambol.Shared.ViewModel
 open Gambol.Client.Controller
 open Gambol.Client.JsInterop
 open Gambol.Client.Update
+open Gambol.Client.UpdateOps
 
 let private scrollIntoViewNearest (el: HTMLElement) : unit =
     let o = createEmpty<ScrollIntoViewOptions>
@@ -35,7 +36,7 @@ let private computeDepth (siteMap: SiteMap) (entry: SiteEntry) : int =
 
 /// Create a fresh DOM row for the given SiteEntry at the given depth.
 let private makeRowElement
-    (model: VM) (applyOp: Op -> unit) (depth: int) (siteEntry: SiteEntry) : HTMLElement =
+    (model: VM) (dispatch: Msg -> unit) (depth: int) (siteEntry: SiteEntry) : HTMLElement =
     let nodeId = siteEntry.nodeId
     let node = model.graph.nodes.[nodeId]
     let hasChildren = not node.children.IsEmpty
@@ -79,7 +80,7 @@ let private makeRowElement
         toggle.addEventListener("mousedown", fun (ev: Event) ->
             ev.preventDefault()
             ev.stopPropagation()
-            applyOp (toggleFoldOp siteEntry.instanceId)
+            dispatch (ApplyOp (toggleFoldOp siteEntry.instanceId))
         )
         row.appendChild toggle |> ignore
     else
@@ -112,14 +113,14 @@ let private makeRowElement
             let key = ev :?> KeyboardEvent
             if (key.ctrlKey || key.metaKey) && key.key = "p" && not key.shiftKey then
                 ev.preventDefault()
-            handleKey effectiveMode key applyOp
+            handleKey effectiveMode key dispatch
         )
         textDiv.addEventListener("mousedown", fun (ev: Event) ->
             ev.stopPropagation()
         )
-        textDiv.addEventListener("paste", fun ev -> onPaste ev applyOp)
-        textDiv.addEventListener("copy", fun ev -> onCopyWhileEditing model ev applyOp)
-        textDiv.addEventListener("cut", fun ev -> onCutWhileEditing model ev applyOp)
+        textDiv.addEventListener("paste", fun ev -> onPaste ev dispatch)
+        textDiv.addEventListener("copy", fun ev -> onCopyWhileEditing model ev dispatch)
+        textDiv.addEventListener("cut", fun ev -> onCutWhileEditing model ev dispatch)
     else
         textDiv.removeAttribute "id"
         textDiv.contentEditable <- "false"
@@ -137,14 +138,14 @@ let private makeRowElement
     // Row click → select the exact view-line instance, not just the first occurrence of the nodeId
     row.addEventListener("mousedown", fun (ev: Event) ->
         ev.preventDefault()
-        applyOp (selectInstance siteEntry.instanceId)
+        dispatch (ApplyOp (selectInstance siteEntry.instanceId))
     )
     // Row double-click → enter edit mode with cursor at mouse position
     row.addEventListener("dblclick", fun (ev: Event) ->
         ev.preventDefault()
         let me = ev :?> MouseEvent
         let offset = getCaretOffset me.clientX me.clientY
-        applyOp (startEditAtPos offset)
+        dispatch (ApplyOp (startEditAtPos offset))
     )
     row
 
@@ -177,7 +178,7 @@ let private applyRowPatches (el: HTMLElement) (patches: RowPatch list) : unit =
 /// Resolve the row element for an instance: create, recreate, or patch as dictated by the upsert index.
 /// Returns the row element and the updated cache.
 let private resolveRow
-    (newModel: VM) (applyOp: Op -> unit) (depth: int) (entry: SiteEntry)
+    (newModel: VM) (dispatch: Msg -> unit) (depth: int) (entry: SiteEntry)
     (instId: SiteId) (upsertIndex: Map<SiteId, RowMutation>) (cache: Map<SiteId, HTMLElement>)
     : HTMLElement * Map<SiteId, HTMLElement> =
     match Map.tryFind instId upsertIndex with
@@ -186,14 +187,14 @@ let private resolveRow
             match Map.tryFind instId cache with
             | Some old -> old.remove(); cache
             | None -> cache
-        let el = makeRowElement newModel applyOp depth entry
+        let el = makeRowElement newModel dispatch depth entry
         (el, Map.add instId el cache')
     | Some (PatchRow (_, patches)) ->
         let el = cache.[instId]
         applyRowPatches el patches
         (el, cache)
     | _ ->  // CreateRow or missing
-        let el = makeRowElement newModel applyOp depth entry
+        let el = makeRowElement newModel dispatch depth entry
         (el, Map.add instId el cache)
 
 // ---------------------------------------------------------------------------
@@ -260,7 +261,7 @@ let renderPalette (container: HTMLElement) (items: string list) (selectedCommand
 
 /// Show or hide the command palette overlay and keep it up to date with the model.
 /// Event listeners are wired once on the first call.
-let renderCommandPalette (model: VM) (applyOp: Op -> unit) : unit =
+let renderCommandPalette (model: VM) (dispatch: Msg -> unit) : unit =
     let container = document.getElementById "command-palette"
     if isNull container then () else
 
@@ -277,13 +278,13 @@ let renderCommandPalette (model: VM) (applyOp: Op -> unit) : unit =
             let ul = document.getElementById "command-palette-results"
 
             input.addEventListener("input", fun _ ->
-                applyOp (paletteSetQueryOp input.value))
+                dispatch (ApplyOp (paletteSetQueryOp input.value)))
 
             input.addEventListener("keydown", fun (ev: Event) ->
                 let ke = ev :?> KeyboardEvent
                 if (ke.ctrlKey || ke.metaKey) && ke.key = "p" && not ke.shiftKey then
                     ev.preventDefault()
-                handlePaletteKey ke applyOp)
+                handlePaletteKey ke dispatch)
 
             ul.addEventListener("click", fun (ev: Event) ->
                 let target = ev.target :?> HTMLElement
@@ -294,7 +295,7 @@ let renderCommandPalette (model: VM) (applyOp: Op -> unit) : unit =
                     let mutable idx = 0
                     for i in 0 .. int lis.length - 1 do
                         if System.Object.ReferenceEquals(lis.[i], li) then idx <- i
-                    applyOp (fun m ->
+                    dispatch (ApplyOp (fun m ->
                         match m.mode with
                         | CommandPalette (q, _, ret) ->
                             match List.tryItem idx (filteredCommands ret q) with
@@ -307,7 +308,7 @@ let renderCommandPalette (model: VM) (applyOp: Op -> unit) : unit =
                                 | Some op ->
                                     setLastKeyDisplay None (Some cmd.name)
                                     op { m with mode = ret }
-                        | _ -> m, []))
+                        | _ -> m, [])))
 
     | _ ->
         container.classList.remove "amb-palette-open"
@@ -315,7 +316,7 @@ let renderCommandPalette (model: VM) (applyOp: Op -> unit) : unit =
 let private cssClassPromptWired = ref false
 
 /// Show or hide the CSS class prompt overlay. Uses in-app modal instead of window.prompt for iPad.
-let renderCssClassPrompt (model: VM) (applyOp: Op -> unit) : unit =
+let renderCssClassPrompt (model: VM) (dispatch: Msg -> unit) : unit =
     let container = document.getElementById "css-class-prompt"
     if isNull container then () else
 
@@ -334,7 +335,7 @@ let renderCssClassPrompt (model: VM) (applyOp: Op -> unit) : unit =
                     let ke = ev :?> KeyboardEvent
                     if (ke.ctrlKey || ke.metaKey) && ke.key = "p" && not ke.shiftKey then
                         ev.preventDefault()
-                    handleCssClassPromptKey ke applyOp)
+                    handleCssClassPromptKey ke dispatch)
     | _ ->
         container.classList.remove "amb-palette-open"
 
@@ -445,7 +446,7 @@ let renderUndoStatus (model: VM) : unit =
 /// Rebuild all row elements from scratch: removes existing rows (children of app
 /// that precede the hidden-input sentinel), then recreates them in preorder.
 /// Returns a fresh element cache keyed by instanceId.
-let render (vm: VM) (applyOp: Op -> unit) (dispatch: Msg -> unit) : Map<SiteId, HTMLElement> =
+let render (vm: VM) (dispatch: Msg -> unit) : Map<SiteId, HTMLElement> =
     // Remove existing rows — everything before the hidden-input sentinel
     let hiddenInput = document.getElementById "hidden-input"
     if isNull hiddenInput then
@@ -462,7 +463,7 @@ let render (vm: VM) (applyOp: Op -> unit) (dispatch: Msg -> unit) : Map<SiteId, 
     for instId in visible do
         let entry = vm.siteMap.entries.[instId]
         let depth = computeDepth vm.siteMap entry
-        let row = makeRowElement vm applyOp depth entry
+        let row = makeRowElement vm dispatch depth entry
         cache <- Map.add instId row cache
         let sentinel = document.getElementById "hidden-input"
         if isNull sentinel then app.appendChild row |> ignore
@@ -480,7 +481,7 @@ let render (vm: VM) (applyOp: Op -> unit) (dispatch: Msg -> unit) : Map<SiteId, 
 /// removes stale rows, creates/moves new rows, updates existing rows in-place.
 /// Returns the updated element cache.
 let patchDOM
-        (oldModel: VM) (newModel: VM) (applyOp: Op -> unit) (dispatch: Msg -> unit)
+        (oldModel: VM) (newModel: VM) (dispatch: Msg -> unit)
         (cache: Map<SiteId, HTMLElement>)
         : Map<SiteId, HTMLElement> =
     let cachedInstIds = cache |> Map.toSeq |> Seq.map fst |> Set.ofSeq
@@ -515,7 +516,7 @@ let patchDOM
         let entry = newModel.siteMap.entries.[instId]
         let depth = computeDepth newModel.siteMap entry
 
-        let row, cache'' = resolveRow newModel applyOp depth entry instId upsertIndex cache'
+        let row, cache'' = resolveRow newModel dispatch depth entry instId upsertIndex cache'
         cache' <- cache''
 
         // Ensure the row sits in the correct DOM position (preorder sequence)

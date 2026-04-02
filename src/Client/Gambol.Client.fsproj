@@ -9,6 +9,12 @@
     <Compile Include="BuildInfo.fs" />
     <Compile Include="JsInterop.fs" />
     <Compile Include="CommandPalette.fs" />
+    <Compile Include="UpdateHelpers.fs" />
+    <Compile Include="UpdateCodec.fs" />
+    <Compile Include="UpdateEdit.fs" />
+    <Compile Include="UpdateMove.fs" />
+    <Compile Include="UpdatePaste.fs" />
+    <Compile Include="UpdateOps.fs" />
     <Compile Include="Update.fs" />
     <Compile Include="Controller.fs" />
     <Compile Include="View.fs" />

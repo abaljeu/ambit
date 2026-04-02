@@ -6,147 +6,175 @@ open Gambol.Shared
 open Gambol.Shared.ViewModel
 open Gambol.Client
 open Gambol.Client.Update
+open Gambol.Client.UpdateHelpers
+open Gambol.Client.UpdateOps
 open Gambol.Client.Controller
 open Gambol.Client.View
 open Gambol.Client.JsInterop
 open Gambol.Client.SessionState
 
 // ---------------------------------------------------------------------------
-// MVU runtime (model cell + effect interpreter)
+// MVU runtime (factory: model cell + effect interpreter)
 // ---------------------------------------------------------------------------
-
-let mutable currentModel: VM =
-    { graph = { root = NodeId(System.Guid.Empty); nodes = Map.empty }
-      revision = Revision.Zero
-      history = History.empty
-      selectedNodes = None
-      mode = Selecting
-      siteMap = ViewModel.emptySiteMap
-      nextSiteId = Sid 1
-      zoomRoot = None
-      clipboard = None
-      syncInfo = SyncInfo.initial }
-
-/// Element cache: instanceId → DOM row. Populated on first StateLoaded.
-let mutable elementCache: Map<SiteId, HTMLElement> = Map.empty
 
 // Idle/pause remote polling after a period of no user interaction (battery-friendly).
 let idleTimeoutMs = 5 * 60 * 1000
-let mutable lastActivityMs = nowMs ()
 
-/// Restore local pending queue onto a fresh server snapshot. Returns model + effects.
-let private mergePendingAfterLoad (restored: VM) : VM * Effect list =
-    lastActivityMs <- nowMs ()
-    let saved = loadPendingQueue ()
-    let serverRev = restored.revision.Value
-    let filtered = saved |> List.filter (fun c -> c.id >= serverRev)
-    let localGraph, restoredPending =
-        filtered |> List.fold
-            (fun (g, acc) c ->
-                let s: State =
-                    { graph = g
-                      history = History.empty
-                      revision = Revision 0 }
-                match Change.apply c s with
-                | ApplyResult.Changed s' -> s'.graph, acc @ [c]
-                | _ -> g, acc)
-            (restored.graph, [])
-    savePendingQueue restoredPending
-    if restoredPending.IsEmpty then
-        { restored with graph = localGraph }, []
-    else
-        let submitEffects =
-            restoredPending
-            |> List.tryHead
-            |> Option.map (fun head -> [ SubmitChange (serverRev, head) ])
-            |> Option.defaultValue []
-        { restored with
-            graph = localGraph
-            syncInfo =
-                restored.syncInfo
-                |> SyncInfo.withPendingChanges restoredPending
-                |> SyncInfo.withSyncState (Sending 1) },
-        submitEffects
+let createRuntime (initialModel: VM) =
+    let mutable model = initialModel
+    let mutable elementCache = Map.empty<SiteId, HTMLElement>
+    let mutable lastActivityMs = nowMs ()
 
-let rec applyOp (op: Op) : unit =
-    dispatch (ApplyOp op)
+    /// Restore local pending queue onto a fresh server snapshot. Returns model + effects.
+    let mergePendingAfterLoad (restored: VM) : VM * Effect list =
+        lastActivityMs <- nowMs ()
+        let saved = loadPendingQueue ()
+        let serverRev = restored.revision.Value
+        let filtered = saved |> List.filter (fun c -> c.id >= serverRev)
+        let localGraph, restoredPending =
+            filtered |> List.fold
+                (fun (g, acc) c ->
+                    let s: State =
+                        { graph = g
+                          history = History.empty
+                          revision = Revision 0 }
+                    match Change.apply c s with
+                    | ApplyResult.Changed s' -> s'.graph, acc @ [ c ]
+                    | _ -> g, acc)
+                (restored.graph, [])
+        savePendingQueue restoredPending
+        if restoredPending.IsEmpty then
+            { restored with graph = localGraph }, []
+        else
+            let submitEffects =
+                restoredPending
+                |> List.tryHead
+                |> Option.map (fun head -> [ SubmitChange (serverRev, head) ])
+                |> Option.defaultValue []
+            { restored with
+                graph = localGraph
+                syncInfo =
+                    restored.syncInfo
+                    |> SyncInfo.withPendingChanges restoredPending
+                    |> SyncInfo.withSyncState (Sending 1) },
+            submitEffects
 
-and runEffects (effects: Effect list) : unit =
-    for e in effects do
-        match e with
-        | SubmitChange (_, change) ->
-            let url = $"/{currentFile}/changes"
-            let body = encodeChangeBody change
-            postJson url body
-                (fun text ->
-                    match decodeChangeAckResponse text with
-                    | Ok ack ->
-                        dispatch (SysMsg (SubmitResponse (ack.ackChangeId, ack.revision)))
-                    | Error _ ->
-                        dispatch (SysMsg SubmitRejected))
-                (fun () -> dispatch (SysMsg SubmitRejected))
-                (fun () -> dispatch (SysMsg SubmitNetworkError))
-        | PollServer _ ->
-            let url = $"/{currentFile}/poll?_={nowMs ()}"
-            fetchTextNoCacheWithFail url
-                (fun text ->
-                    match Serialization.decodePollResponse text with
-                    | Ok poll ->
-                        let context =
-                            { ClientPollContext.buildEpochSec = readBuildEpochSec ()
-                              pageBuildEpochSec = readPageBuildEpochSec () }
-                        let outcome =
-                            SyncLogic.getPollOutcome poll currentModel.revision.Value context
-                        dispatch (SysMsg (PollDone outcome))
-                    | Error _ ->
-                        dispatch (SysMsg (PollDone None)))
-                (fun () -> dispatch (SysMsg (PollDone None)))
-        | ScheduleRetry delayMs ->
-            setTimeout (fun () -> dispatch (SysMsg RetrySubmit)) delayMs |> ignore
-        | SavePendingQueue q ->
-            savePendingQueue q
+    let rec runEffects (effects: Effect list) : unit =
+        for e in effects do
+            match e with
+            | SubmitChange (_, change) ->
+                let url = $"/{currentFile}/changes"
+                let body = encodeChangeBody change
+                postJson url body
+                    (fun text ->
+                        match decodeChangeAckResponse text with
+                        | Ok ack ->
+                            dispatch (SysMsg (SubmitResponse (ack.ackChangeId, ack.revision)))
+                        | Error _ ->
+                            dispatch (SysMsg SubmitRejected))
+                    (fun () -> dispatch (SysMsg SubmitRejected))
+                    (fun () -> dispatch (SysMsg SubmitNetworkError))
+            | PollServer _ ->
+                let url = $"/{currentFile}/poll?_={nowMs ()}"
+                fetchTextNoCacheWithFail url
+                    (fun text ->
+                        match Serialization.decodePollResponse text with
+                        | Ok poll ->
+                            let context =
+                                { ClientPollContext.buildEpochSec = readBuildEpochSec ()
+                                  pageBuildEpochSec = readPageBuildEpochSec () }
+                            let outcome =
+                                SyncLogic.getPollOutcome poll model.revision.Value context
+                            dispatch (SysMsg (PollDone outcome))
+                        | Error _ ->
+                            dispatch (SysMsg (PollDone None)))
+                    (fun () -> dispatch (SysMsg (PollDone None)))
+            | ScheduleRetry delayMs ->
+                setTimeout (fun () -> dispatch (SysMsg RetrySubmit)) delayMs |> ignore
+            | SavePendingQueue q ->
+                savePendingQueue q
 
-and dispatch (msg: Msg) : unit =
-    let prevModel = currentModel
+    and dispatch (msg: Msg) : unit =
+        let prev = model
 
-    let newModel, effects =
-        match msg with
-        | SysMsg (StateLoaded _) ->
-            let baseModel, e0 = update msg prevModel
-            let restored = restoreSessionState baseModel
-            let merged, e1 = mergePendingAfterLoad restored
-            merged, e0 @ e1
-        | _ ->
-            update msg prevModel
+        let newModel, effects =
+            match msg with
+            | SysMsg (StateLoaded _) ->
+                let baseModel, e0 = update msg prev
+                let restored = restoreSessionState baseModel
+                let merged, e1 = mergePendingAfterLoad restored
+                merged, e0 @ e1
+            | _ ->
+                update msg prev
 
-    currentModel <- newModel
-    elementCache <-
-        match msg with
-        | SysMsg (StateLoaded _) ->
-            render currentModel applyOp dispatch
-        | _ ->
-            patchDOM prevModel currentModel applyOp dispatch elementCache
-    renderUndoStatus currentModel
-    renderCommandPalette currentModel applyOp
-    renderCssClassPrompt currentModel applyOp
-    runEffects effects
+        model <- newModel
+        elementCache <-
+            match msg with
+            | SysMsg (StateLoaded _) ->
+                render newModel dispatch
+            | _ ->
+                patchDOM prev newModel dispatch elementCache
+        renderUndoStatus newModel
+        renderCommandPalette newModel dispatch
+        renderCssClassPrompt newModel dispatch
+        runEffects effects
+
+    let pollForRemoteChanges () =
+        let now = nowMs ()
+        let idleForMs = now - lastActivityMs
+        let shouldPoll = not (isDocumentHidden ()) && idleForMs < idleTimeoutMs
+        if not shouldPoll then
+            if model.syncInfo.isPollingActive then
+                dispatch (SysMsg (SetPollingActive false))
+        else
+            if not model.syncInfo.isPollingActive then
+                dispatch (SysMsg (SetPollingActive true))
+            dispatch (SysMsg PollTick)
+
+    let recordActivity (wakeIfInactive: bool) =
+        lastActivityMs <- nowMs ()
+        if
+            wakeIfInactive
+            && not (isDocumentHidden ())
+            && not model.syncInfo.isPollingActive
+        then
+            dispatch (SysMsg (SetPollingActive true))
+            pollForRemoteChanges ()
+
+    let wakePolling () =
+        lastActivityMs <- nowMs ()
+        if not model.syncInfo.isPollingActive then
+            dispatch (SysMsg (SetPollingActive true))
+        pollForRemoteChanges ()
+
+    document.addEventListener("visibilitychange", fun _ ->
+        if isDocumentHidden () then
+            saveSessionState model
+            if model.syncInfo.isPollingActive then
+                dispatch (SysMsg (SetPollingActive false))
+        else
+            recordActivity false
+            pollForRemoteChanges ())
+    window.addEventListener("pagehide", fun _ -> saveSessionState model)
+
+    dispatch, (fun () -> model), wakePolling, pollForRemoteChanges, recordActivity
 
 // ---------------------------------------------------------------------------
 // One-time static DOM setup (hidden-input + settings-bar)
 // ---------------------------------------------------------------------------
 
-let setupStaticDOM (applyOpArg: Op -> unit) (wakePolling: unit -> unit) : unit =
+let setupStaticDOM (dispatch: Msg -> unit) (getModel: unit -> VM) (_wakePolling: unit -> unit) : unit =
     let hiddenInput = document.getElementById "hidden-input" :?> HTMLInputElement
     hiddenInput.addEventListener("keydown", fun (ev: Event) ->
         let ke = ev :?> KeyboardEvent
         if ke.key = "Tab" then ev.preventDefault()
         if (ke.ctrlKey || ke.metaKey) && ke.key = "p" && not ke.shiftKey then
             ev.preventDefault()
-        handleKey currentModel.mode ke applyOpArg
+        handleKey (getModel ()).mode ke dispatch
     )
-    hiddenInput.addEventListener("paste", fun ev -> onPaste ev applyOpArg)
-    hiddenInput.addEventListener("copy",  fun ev -> onCopy  currentModel ev applyOpArg)
-    hiddenInput.addEventListener("cut",   fun ev -> onCut   currentModel ev applyOpArg)
+    hiddenInput.addEventListener("paste", fun ev -> onPaste ev dispatch)
+    hiddenInput.addEventListener("copy",  fun ev -> onCopy  (getModel ()) ev dispatch)
+    hiddenInput.addEventListener("cut",   fun ev -> onCut   (getModel ()) ev dispatch)
 
     let basePath =
         let path = window.location.pathname
@@ -170,16 +198,11 @@ let setupStaticDOM (applyOpArg: Op -> unit) (wakePolling: unit -> unit) : unit =
             else "Deploy: " + epochSecToTorontoString stampEpochSec
         buildEl.textContent <- txt
 
-    document.addEventListener("visibilitychange", fun _ ->
-        if isDocumentHidden () then saveSessionState currentModel)
-    window.addEventListener("pagehide", fun _ ->
-        saveSessionState currentModel)
-
     let syncStatus = document.getElementById "sync-status"
     syncStatus.addEventListener("click", fun _ ->
-        match currentModel.syncInfo.syncState with
+        match (getModel ()).syncInfo.syncState with
         | WaitingToRetry _ ->
-            applyOpArg (retryPendingOp true)
+            dispatch (ApplyOp (retryPendingOp true))
         | ServerRejected | CodeOutdated | DataOutdated ->
             let path = window.location.pathname
             window.location.assign(path + "?bust=" + string (nowMs ()))
@@ -190,33 +213,7 @@ let setupStaticDOM (applyOpArg: Op -> unit) (wakePolling: unit -> unit) : unit =
 // Polling
 // ---------------------------------------------------------------------------
 
-let pollForRemoteChanges () : unit =
-    let now = nowMs ()
-    let hidden = isDocumentHidden ()
-    let idleForMs = now - lastActivityMs
-    let shouldPoll = (not hidden) && idleForMs < idleTimeoutMs
-
-    if not shouldPoll then
-        if currentModel.syncInfo.isPollingActive then
-            dispatch (SysMsg (SetPollingActive false))
-    else
-        if not currentModel.syncInfo.isPollingActive then
-            dispatch (SysMsg (SetPollingActive true))
-        dispatch (SysMsg PollTick)
-
-let recordActivity (wakeIfInactive: bool) : unit =
-    lastActivityMs <- nowMs ()
-    if wakeIfInactive && not (isDocumentHidden ()) && not currentModel.syncInfo.isPollingActive then
-        dispatch (SysMsg (SetPollingActive true))
-        pollForRemoteChanges ()
-
-let wakePolling () : unit =
-    lastActivityMs <- nowMs ()
-    if not currentModel.syncInfo.isPollingActive then
-        dispatch (SysMsg (SetPollingActive true))
-    pollForRemoteChanges ()
-
-let startPolling () : unit =
+let startPolling (pollForRemoteChanges: unit -> unit) (recordActivity: bool -> unit) : unit =
     setInterval pollForRemoteChanges 5000 |> ignore
 
     document.addEventListener("pointerdown", fun _ -> recordActivity true)
@@ -228,11 +225,3 @@ let startPolling () : unit =
     window.addEventListener("focus", fun _ ->
         recordActivity false
         pollForRemoteChanges ())
-
-    document.addEventListener("visibilitychange", fun _ ->
-        if isDocumentHidden () then
-            if currentModel.syncInfo.isPollingActive then
-                dispatch (SysMsg (SetPollingActive false))
-        else
-            recordActivity false
-            pollForRemoteChanges ())

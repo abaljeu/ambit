@@ -1,13 +1,11 @@
 module Gambol.Client.UpdateMove
 
 open Browser.Dom
-open Browser.Types
 open Fable.Core
 open Gambol.Client.JsInterop
+open Gambol.Client.UpdateHelpers
 open Gambol.Shared
-open Gambol.Shared.Paste
 open Gambol.Shared.ViewModel
-open Thoth.Json.Core
 
 
 /// Returns the adjacent sibling of me's parent (delta=-1 for previous, +1 for next) if it exists,

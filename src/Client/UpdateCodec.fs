@@ -1,13 +1,7 @@
 module Gambol.Client.UpdateCodec
-open Browser.Dom
-open Browser.Types
-open Fable.Core
-open Gambol.Client.JsInterop
-open Gambol.Shared
-open Gambol.Shared.Paste
-open Gambol.Shared.ViewModel
-open Thoth.Json.Core
 
+open Gambol.Shared
+open Thoth.Json.Core
 
 // ---------------------------------------------------------------------------
 // Encoding / decoding helpers
