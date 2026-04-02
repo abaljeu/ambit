@@ -79,8 +79,9 @@ type ClipboardContent =
       nodes: Map<NodeId, Node> }
 
 type SyncState =
-    | Idle            // all confirmed, nothing pending
-    | Sending of attempt: int   // POST in-flight; attempt = 1-based send count
+    | Idle                       // all confirmed, nothing pending
+    | Sending of attempt: int    // POST in-flight; attempt = 1-based send count
+    | Polling                    // GET poll in-flight
     | WaitingToRetry of attempt: int  // last POST had a network error; waiting to retry
     | ServerRejected  // server returned 400 — change cannot be applied; reload required
     | CodeOutdated    // server has newer code (build stamp changed) — reload required
@@ -89,8 +90,6 @@ type SyncState =
 type SyncInfo =
     { syncState: SyncState
       pendingChanges: Change list
-      submitInFlight: bool
-      pollInFlight: bool
       isPollingActive: bool
       syncRiskAcknowledged: bool }
 
@@ -99,19 +98,11 @@ module SyncInfo =
     let initial: SyncInfo =
         { syncState = Idle
           pendingChanges = []
-          submitInFlight = false
-          pollInFlight = false
           isPollingActive = false
           syncRiskAcknowledged = false }
 
     let withPendingChanges (pending: Change list) (si: SyncInfo) : SyncInfo =
         { si with pendingChanges = pending }
-
-    let withSubmitInFlight (value: bool) (si: SyncInfo) : SyncInfo =
-        { si with submitInFlight = value }
-
-    let withPollInFlight (value: bool) (si: SyncInfo) : SyncInfo =
-        { si with pollInFlight = value }
 
     /// Updates sync state. Clears risk acknowledgment when crossing the risk boundary.
     let withSyncState (newState: SyncState) (si: SyncInfo) : SyncInfo =
@@ -123,6 +114,12 @@ module SyncInfo =
         let nowR = inRisk newState
         if wasR = nowR then { si with syncState = newState }
         else { si with syncState = newState; syncRiskAcknowledged = false }
+
+type Effect =
+    | SubmitChange of baseRevision: int * change: Change
+    | PollServer of revision: int
+    | ScheduleRetry of delayMs: int
+    | SavePendingQueue of Change list
 
 // Server `State` is in `FileAgent`, and mainly the graph.
 type VM = // the client state
@@ -144,8 +141,11 @@ type SystemMsg =
     | SubmitRejected      // server returned HTTP error — change cannot be applied
     | SubmitNetworkError  // timeout or network failure — retryable
     | SetPollingActive of bool
-    | SetSyncState of SyncState
+    | PollTick            // polling timer fired; update decides whether to emit PollServer effect
+    | PollDone of SyncState option   // poll GET response arrived
+    | RetrySubmit         // retry timer fired
 
 type Msg =
     | SysMsg of SystemMsg
     | AckSyncRisk
+    | ApplyOp of (VM -> VM * Effect list)

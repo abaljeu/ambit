@@ -124,7 +124,7 @@ module FileAgent =
                 reply.Reply(Error $"Invalid JSON: {err}")
             | Ok change ->
                 if isDuplicateSubmission change state.Value.history then
-                    reply.Reply(Ok (encodeChangeAckJson ()))
+                    reply.Reply(Ok (encodeChangeAckJson change.changeId))
                 elif change.id <> state.Value.revision.Value then
                     reply.Reply(
                         Error
