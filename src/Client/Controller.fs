@@ -78,9 +78,9 @@ let setLastKeyDisplay (key: string option) (operation: string option) : unit =
 let private writeClipboardText (text: string) (continuation: unit -> unit) : unit = jsNative
 
 /// Copy selection as raw NodeId GUIDs (for paste-as-link). Writes text/plain with x-gambol-nodeids prefix.
-let copySelectionAsLinks (model: VM) (dispatch: Msg -> unit) : VM =
+let copySelectionAsLinks (model: VM) : VM * Effect list =
     match model.selectedNodes with
-    | None -> model
+    | None -> model, []
     | Some sel ->
         let parentNode = model.graph.nodes.[sel.range.parent.nodeId]
         let selectedIds =
@@ -93,12 +93,12 @@ let copySelectionAsLinks (model: VM) (dispatch: Msg -> unit) : VM =
             |> List.map (fun (NodeId guid) -> guid.ToString())
             |> String.concat "\n"
         writeClipboardText (nodeIdsPrefix + "\n" + idsText) ignore
-        copySelectionOp model dispatch
+        copySelectionOp model
 
-/// Op: Copy the focused subtree to clipboard (Ctrl+C behavior). Serializes to text/plain and updates internal clipboard.
-let copyOp (model: VM) (dispatch: Msg -> unit) : VM =
+/// Op: Copy focused subtree to clipboard (Ctrl+C). Serializes text/plain; updates internal clipboard.
+let copyOp (model: VM) : VM * Effect list =
     match model.selectedNodes with
-    | None -> model
+    | None -> model, []
     | Some sel ->
         let parentNode = model.graph.nodes.[sel.range.parent.nodeId]
         let selectedIds =
@@ -108,7 +108,7 @@ let copyOp (model: VM) (dispatch: Msg -> unit) : VM =
             |> List.map (fun child -> child.id)
         let serialized = serializeSubtree model.graph model.siteMap selectedIds
         writeClipboardText serialized ignore
-        copySelectionOp model dispatch
+        copySelectionOp model
 
 /// Get the character offset at a given client (x, y) position using the browser's caret APIs.
 [<Emit("(function(x,y){if(document.caretRangeFromPoint){var r=document.caretRangeFromPoint(x,y);return r?r.startOffset:0;}if(document.caretPositionFromPoint){var p=document.caretPositionFromPoint(x,y);return p?p.offset:0;}return 0;})($0,$1)")>]
@@ -599,26 +599,26 @@ let filteredCommands (returnTo: Mode) (query: string) : CommandEntry list =
         let q = query.ToLowerInvariant()
         baseList |> List.filter (fun c -> c.name.ToLowerInvariant().Contains(q))
 
-let private onPalette (f: string -> int -> Mode -> VM -> (Msg -> unit) -> VM)
-                      (model: VM) (dispatch: Msg -> unit) : VM =
+let private onPalette (f: string -> int -> Mode -> VM -> VM * Effect list) (model: VM) : VM * Effect list =
     match model.mode with
-    | CommandPalette (q, selectedCommand, ret) -> f q selectedCommand ret model dispatch
-    | _ -> model
+    | CommandPalette (q, selectedCommand, ret) -> f q selectedCommand ret model
+    | _ -> model, []
 
-let paletteRunOp = onPalette (fun q selectedCommand ret model dispatch ->
-    match List.tryItem selectedCommand (filteredCommands ret q) with
-    | None -> { model with mode = ret }
-    | Some cmd ->
-        match cmd.run () with
-        | None ->
-            setLastKeyDisplay None None
-            { model with mode = ret }
-        | Some op ->
-            setLastKeyDisplay None (Some cmd.name)
-            op { model with mode = ret } dispatch)
+let paletteRunOp =
+    onPalette (fun q selectedCommand ret model ->
+        match List.tryItem selectedCommand (filteredCommands ret q) with
+        | None -> { model with mode = ret }, []
+        | Some cmd ->
+            match cmd.run () with
+            | None ->
+                setLastKeyDisplay None None
+                { model with mode = ret }, []
+            | Some op ->
+                setLastKeyDisplay None (Some cmd.name)
+                op { model with mode = ret })
 
-let paletteSetQueryOp (q: string) = onPalette (fun _ _ ret model _ ->
-    { model with mode = CommandPalette (q, 0, ret) })
+let paletteSetQueryOp (q: string) =
+    onPalette (fun _ _ ret model -> { model with mode = CommandPalette (q, 0, ret) }, [])
 
 let private scopeInSelectionMap =
     function

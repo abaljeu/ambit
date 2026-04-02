@@ -294,20 +294,20 @@ let renderCommandPalette (model: VM) (applyOp: Op -> unit) : unit =
                     let mutable idx = 0
                     for i in 0 .. int lis.length - 1 do
                         if System.Object.ReferenceEquals(lis.[i], li) then idx <- i
-                    applyOp (fun m d ->
+                    applyOp (fun m ->
                         match m.mode with
                         | CommandPalette (q, _, ret) ->
                             match List.tryItem idx (filteredCommands ret q) with
-                            | None -> { m with mode = ret }
+                            | None -> { m with mode = ret }, []
                             | Some cmd ->
                                 match cmd.run () with
                                 | None ->
                                     setLastKeyDisplay None None
-                                    { m with mode = ret }
+                                    { m with mode = ret }, []
                                 | Some op ->
                                     setLastKeyDisplay None (Some cmd.name)
-                                    op { m with mode = ret } d
-                        | _ -> m))
+                                    op { m with mode = ret }
+                        | _ -> m, []))
 
     | _ ->
         container.classList.remove "amb-palette-open"
@@ -356,6 +356,9 @@ let renderStatus (model: VM) : unit =
             el.className <- "amb-sync-status amb-syncing"
         | Sending n ->
             el.textContent <- $"Saving\u2026 (retry {n})"
+            el.className <- "amb-sync-status amb-syncing"
+        | Polling ->
+            el.textContent <- "Checking\u2026"
             el.className <- "amb-sync-status amb-syncing"
         | WaitingToRetry n ->
             el.textContent <- $"Unsaved \u2014 click to retry (\u00d7{n})"
