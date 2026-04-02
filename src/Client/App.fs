@@ -100,7 +100,6 @@ let rec applyOp (op: Op) : unit =
     View.renderCssClassPrompt currentModel applyOp
 
 and dispatch (msg: Msg) : unit =
-    let prevModel = currentModel
     currentModel <- update msg currentModel dispatch
 
     match msg with
@@ -118,14 +117,20 @@ and dispatch (msg: Msg) : unit =
                 | _ -> g, acc) (currentModel.graph, [])
         savePendingQueue restoredPending
         if not restoredPending.IsEmpty then
+            let effects =
+                restoredPending
+                |> List.tryHead
+                |> Option.map (fun head -> [ Update.SubmitHeadChange (serverRev, head) ])
+                |> Option.defaultValue []
+            Update.runClientEffects effects dispatch
             currentModel <-
                 { currentModel with
                     graph = localGraph
                     syncInfo =
                         currentModel.syncInfo
                         |> SyncInfo.withPendingChanges restoredPending
-                        |> SyncInfo.withSyncState (Sending 1) }
-            fireNextPending serverRev restoredPending dispatch
+                        |> SyncInfo.withSyncState (Sending 1)
+                        |> SyncInfo.withSubmitInFlight (not effects.IsEmpty) }
         elementCache <- render currentModel applyOp dispatch
         View.renderUndoStatus currentModel
         View.renderCommandPalette currentModel applyOp
@@ -166,14 +171,19 @@ let pollForRemoteChanges () : unit =
         if not currentModel.syncInfo.isPollingActive then
             dispatch (SysMsg (SetPollingActive true))
         // Guard: only fire GET when the queue is clear and no request is in-flight
-        if not networkBusy
+        if not currentModel.syncInfo.submitInFlight
+           && not currentModel.syncInfo.pollInFlight
            && currentModel.syncInfo.pendingChanges.IsEmpty
            && currentModel.syncInfo.syncState = Idle then
-            networkBusy <- true
+            currentModel <-
+                { currentModel with
+                    syncInfo = SyncInfo.withPollInFlight true currentModel.syncInfo }
             let url = $"/{Update.currentFile}/poll?_={now}"
             fetchTextNoCacheWithFail url
                 (fun text ->
-                    networkBusy <- false
+                    currentModel <-
+                        { currentModel with
+                            syncInfo = SyncInfo.withPollInFlight false currentModel.syncInfo }
                     match Serialization.decodePollResponse text with
                     | Ok poll ->
                         let context =
@@ -183,7 +193,10 @@ let pollForRemoteChanges () : unit =
                         | Some state -> dispatch (SysMsg (SetSyncState state))
                         | None -> ()
                     | Error _ -> ())
-                (fun () -> networkBusy <- false)
+                (fun () ->
+                    currentModel <-
+                        { currentModel with
+                            syncInfo = SyncInfo.withPollInFlight false currentModel.syncInfo })
 
 let recordActivity (wakeIfInactive: bool) : unit =
     lastActivityMs <- nowMs ()

@@ -88,10 +88,11 @@ module FileAgent =
                     [ "revision", Serialization.encodeRevision state.Value.revision
                       "graph", Serialization.encodeGraph state.Value.graph ])
 
-        let encodeChangeAckJson () =
+        let encodeChangeAckJson (ackChangeId: Guid) =
             Encode.toString 0 (
                 Thoth.Json.Core.Encode.object
-                    [ "revision", Serialization.encodeRevision state.Value.revision ])
+                    [ "ackChangeId", Thoth.Json.Core.Encode.guid ackChangeId
+                      "revision", Serialization.encodeRevision state.Value.revision ])
 
         let isDuplicateSubmission (change: Change) (history: History) =
             history.past |> List.exists (fun c -> c.id = change.id && c.changeId = change.changeId)
@@ -133,13 +134,13 @@ module FileAgent =
                     | ApplyResult.Invalid (_, errMsg) ->
                         reply.Reply(Error errMsg)
                     | ApplyResult.Unchanged _ ->
-                        reply.Reply(Ok (encodeChangeAckJson ()))
+                        reply.Reply(Ok (encodeChangeAckJson change.changeId))
                     | ApplyResult.Changed newState ->
                         let json = ChangeLog.encodeChange change
                         let offset = ChangeLog.appendEntry logStream change.id json
                         offsetIndex.Add(offset)
                         state.Value <- { newState with revision = Revision (state.Value.revision.Value + 1) }
-                        reply.Reply(Ok (encodeChangeAckJson ()))
+                        reply.Reply(Ok (encodeChangeAckJson change.changeId))
                         if snapshotInProgress.Value then snapshotNeeded.Value <- true
                         else startSnapshot inbox
 

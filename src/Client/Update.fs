@@ -22,9 +22,6 @@ let postJson
     (onReject: unit -> unit) (onNetworkFail: unit -> unit)
     : unit = jsNative
 
-/// True while a network request (POST or poll GET) is in-flight. Enforces the single-message queue.
-let mutable networkBusy = false
-
 let setTimeout (f: unit -> unit) (ms: int) : float =
     window.setTimeout ((fun _ -> f ()), ms)
 
@@ -66,10 +63,17 @@ let decodeStateResponse (text: string) : Result<Graph * Revision, string> =
             g, r)
     Thoth.Json.JavaScript.Decode.fromString decoder text
 
-/// Decode POST /{file}/changes success body (revision ack only).
-let decodeChangeAckResponse (text: string) : Result<Revision, string> =
+type ChangeAck =
+    { ackChangeId: System.Guid
+      revision: Revision }
+
+/// Decode POST /{file}/changes success body.
+let decodeChangeAckResponse (text: string) : Result<ChangeAck, string> =
     let decoder =
-        Decode.object (fun get -> get.Required.Field "revision" Serialization.decodeRevision)
+        Decode.object (fun get ->
+            let ack = get.Required.Field "ackChangeId" Decode.guid
+            let rev = get.Required.Field "revision" Serialization.decodeRevision
+            { ackChangeId = ack; revision = rev })
     Thoth.Json.JavaScript.Decode.fromString decoder text
 
 // ---------------------------------------------------------------------------
@@ -118,65 +122,63 @@ let readEditInputSelectionEnd () : int =
     if isNull el then 0
     else getContentEditableSelectionEnd el
 
-/// Fire the next POST in the pending queue (head of the list).
-/// `baseRevision` is the last server-acknowledged revision; the head change encodes with it.
-/// Sets `networkBusy = true` before the fetch and clears it on every callback path.
-/// Uses a 5 s client-side timeout so a hanging request is treated as a network failure.
-let fireNextPending (baseRevision: int) (pending: Change list) (dispatch: Msg -> unit) : unit =
-    match pending with
-    | [] -> ()
-    | change :: _ ->
-        networkBusy <- true
-        let body = encodeChangeBody { change with id = baseRevision }
-        let timeoutId =
-            setTimeout (fun () ->
-                networkBusy <- false
-                dispatch (SysMsg SubmitNetworkError)) 5_000
-        postJson $"/{currentFile}/changes" body
-            (fun responseText ->
-                clearTimeout timeoutId
-                networkBusy <- false
-                match decodeChangeAckResponse responseText with
-                | Ok rev -> dispatch (SysMsg (SubmitResponse rev))
-                | Error _ -> dispatch (SysMsg SubmitRejected))
-            (fun () ->
-                clearTimeout timeoutId
-                networkBusy <- false
-                dispatch (SysMsg SubmitRejected))
-            (fun () ->
-                clearTimeout timeoutId
-                networkBusy <- false
-                dispatch (SysMsg SubmitNetworkError))
+type ClientEffect =
+    | SubmitHeadChange of baseRevision: int * headChange: Change
+
+let runClientEffects (effects: ClientEffect list) (dispatch: Msg -> unit) : unit =
+    effects
+    |> List.iter (fun effect ->
+        match effect with
+        | SubmitHeadChange (baseRevision, change) ->
+            let body = encodeChangeBody { change with id = baseRevision }
+            let timeoutId =
+                setTimeout (fun () ->
+                    dispatch (SysMsg SubmitNetworkError)) 5_000
+            postJson $"/{currentFile}/changes" body
+                (fun responseText ->
+                    clearTimeout timeoutId
+                    match decodeChangeAckResponse responseText with
+                    | Ok ack ->
+                        dispatch (SysMsg (SubmitResponse (ack.ackChangeId, ack.revision)))
+                    | Error _ -> dispatch (SysMsg SubmitRejected))
+                (fun () ->
+                    clearTimeout timeoutId
+                    dispatch (SysMsg SubmitRejected))
+                (fun () ->
+                    clearTimeout timeoutId
+                    dispatch (SysMsg SubmitNetworkError)))
 
 /// Apply a change to the local model, enqueue it for posting to the server,
 /// and return the updated VM (or None if the change was rejected locally).
 /// Fires POST only when the queue was empty and no request is in-flight.
 /// Blocked states (ServerRejected / CodeOutdated / DataOutdated / WaitingToRetry) queue
 /// changes locally but do not fire a POST.
-let applyAndPost (change: Change) (model: VM) (dispatch: Msg -> unit) : VM option =
+let private applyAndPostPure (change: Change) (model: VM) : VM option * ClientEffect list =
     let state: State = { graph = model.graph; revision = model.revision; history = model.history }
     match History.applyChange change state with
     | ApplyResult.Changed newState ->
-        let wasEmpty = model.syncInfo.pendingChanges.IsEmpty
         let pending = model.syncInfo.pendingChanges @ [change]
         savePendingQueue pending
-        let syncState, firePost =
-            match model.syncInfo.syncState with
-            | ServerRejected | CodeOutdated | DataOutdated -> model.syncInfo.syncState, false
-            | WaitingToRetry _ -> model.syncInfo.syncState, false
-            | Sending _ -> Sending 1, false
-            | Idle -> Sending 1, wasEmpty && not networkBusy
-        if firePost then fireNextPending model.revision.Value pending dispatch
+        let nextSyncInfo, intent =
+            { model.syncInfo with pendingChanges = pending }
+            |> SyncPlanner.tryStartSubmit model.revision
+        let effects =
+            match intent with
+            | NoSubmit -> []
+            | SubmitHead (baseRevision, head) -> [ SubmitHeadChange (baseRevision, head) ]
         let syncInfo =
-            model.syncInfo
-            |> SyncInfo.withPendingChanges pending
-            |> SyncInfo.withSyncState syncState
+            nextSyncInfo
         Some
             { model with
                 graph = newState.graph
                 history = newState.history
-                syncInfo = syncInfo }
-    | _ -> None
+                syncInfo = syncInfo }, effects
+    | _ -> None, []
+
+let applyAndPost (change: Change) (model: VM) (dispatch: Msg -> unit) : VM option =
+    let nextModel, effects = applyAndPostPure change model
+    runClientEffects effects dispatch
+    nextModel
 
 /// Extract the child span covered by a SiteNodeRange.
 let rangeChildren (graph: Graph) (range: SiteNodeRange) =
@@ -1468,11 +1470,24 @@ let retryPendingOp (resetCount: bool) (model: VM) (dispatch: Msg -> unit) : VM =
     match model.syncInfo.syncState, model.syncInfo.pendingChanges with
     | ServerRejected, _ | CodeOutdated, _ | DataOutdated, _ -> model
     | _, [] ->
-        { model with syncInfo = SyncInfo.withSyncState Idle model.syncInfo }
+        { model with
+            syncInfo =
+                model.syncInfo
+                |> SyncInfo.withSyncState Idle
+                |> SyncInfo.withSubmitInFlight false }
     | WaitingToRetry n, _ ->
-        fireNextPending model.revision.Value model.syncInfo.pendingChanges dispatch
+        let effects =
+            model.syncInfo.pendingChanges
+            |> List.tryHead
+            |> Option.map (fun head -> [ SubmitHeadChange (model.revision.Value, head) ])
+            |> Option.defaultValue []
+        runClientEffects effects dispatch
         let nextAttempt = if resetCount then 1 else n + 1
-        { model with syncInfo = SyncInfo.withSyncState (Sending nextAttempt) model.syncInfo }
+        { model with
+            syncInfo =
+                model.syncInfo
+                |> SyncInfo.withSyncState (Sending nextAttempt)
+                |> SyncInfo.withSubmitInFlight (not effects.IsEmpty) }
     | Sending _, _ -> model
     | _ -> model
 
@@ -1493,14 +1508,22 @@ let undoOp (model: VM) (dispatch: Msg -> unit) : VM =
                 match model'.syncInfo.syncState with
                 | ServerRejected | CodeOutdated | DataOutdated | WaitingToRetry _ -> true
                 | _ -> false
-            if not blocked && wasEmpty && not networkBusy then
-                fireNextPending model'.revision.Value pending dispatch
+            let effects =
+                if not blocked
+                   && wasEmpty
+                   && not model'.syncInfo.submitInFlight
+                   && not model'.syncInfo.pollInFlight then
+                    [ SubmitHeadChange (model'.revision.Value, invertedChange) ]
+                else
+                    []
+            runClientEffects effects dispatch
             let syncState =
                 if blocked then model'.syncInfo.syncState else Sending 1
             let syncInfo =
                 model'.syncInfo
                 |> SyncInfo.withPendingChanges pending
                 |> SyncInfo.withSyncState syncState
+                |> SyncInfo.withSubmitInFlight (not effects.IsEmpty || model'.syncInfo.submitInFlight)
             { model' with
                 graph = newState.graph
                 history = newState.history
@@ -1529,14 +1552,22 @@ let redoOp (model: VM) (dispatch: Msg -> unit) : VM =
                 match model'.syncInfo.syncState with
                 | ServerRejected | CodeOutdated | DataOutdated | WaitingToRetry _ -> true
                 | _ -> false
-            if not blocked && wasEmpty && not networkBusy then
-                fireNextPending model'.revision.Value pending dispatch
+            let effects =
+                if not blocked
+                   && wasEmpty
+                   && not model'.syncInfo.submitInFlight
+                   && not model'.syncInfo.pollInFlight then
+                    [ SubmitHeadChange (model'.revision.Value, reChange) ]
+                else
+                    []
+            runClientEffects effects dispatch
             let syncState =
                 if blocked then model'.syncInfo.syncState else Sending 1
             let syncInfo =
                 model'.syncInfo
                 |> SyncInfo.withPendingChanges pending
                 |> SyncInfo.withSyncState syncState
+                |> SyncInfo.withSubmitInFlight (not effects.IsEmpty || model'.syncInfo.submitInFlight)
             { model' with
                 graph = newState.graph
                 history = newState.history
@@ -1574,22 +1605,18 @@ let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
         match model.syncInfo.syncState with
         | ServerRejected | CodeOutdated | DataOutdated -> model
         | _ ->
-            let pendingTail =
-                match model.syncInfo.pendingChanges with _ :: t -> t | [] -> []
-            let pending =
-                match pendingTail with
-                | [] -> []
-                | h :: t -> { h with id = revision.Value } :: t
+            let nextSyncInfo, pending, intent =
+                SyncPlanner.ackSubmit ackChangeId revision model.syncInfo
             savePendingQueue pending
-            if not pending.IsEmpty then fireNextPending revision.Value pending dispatch
-            let syncInfo =
-                model.syncInfo
-                |> SyncInfo.withPendingChanges pending
-                |> SyncInfo.withSyncState (if pending.IsEmpty then Idle else Sending 1)
+            let effects =
+                match intent with
+                | NoSubmit -> []
+                | SubmitHead (baseRevision, head) -> [ SubmitHeadChange (baseRevision, head) ]
+            runClientEffects effects dispatch
             { model with
                 revision = revision
                 history = { model.history with nextId = max model.history.nextId revision.Value }
-                syncInfo = syncInfo }
+                syncInfo = nextSyncInfo }
 
     | SysMsg SubmitRejected ->
         if model.syncInfo.pendingChanges.IsEmpty then model
@@ -1600,13 +1627,18 @@ let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
                 syncInfo =
                     model.syncInfo
                     |> SyncInfo.withPendingChanges []
-                    |> SyncInfo.withSyncState ServerRejected }
+                    |> SyncInfo.withSyncState ServerRejected
+                    |> SyncInfo.withSubmitInFlight false }
 
     | SysMsg SubmitNetworkError ->
         if model.syncInfo.pendingChanges.IsEmpty then model
         else
             let n = match model.syncInfo.syncState with Sending n -> n | _ -> 1
-            { model with syncInfo = SyncInfo.withSyncState (WaitingToRetry n) model.syncInfo }
+            { model with
+                syncInfo =
+                    model.syncInfo
+                    |> SyncInfo.withSyncState (WaitingToRetry n)
+                    |> SyncInfo.withSubmitInFlight false }
 
     | SysMsg (SetPollingActive active) ->
         { model with syncInfo = { model.syncInfo with isPollingActive = active } }

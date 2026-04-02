@@ -13,6 +13,7 @@
     <Compile Include="SerializationTests.fs" />
     <Compile Include="ViewModelTests.fs" />
     <Compile Include="SyncLogicTests.fs" />
+    <Compile Include="SyncPlannerTests.fs" />
     <Compile Include="PasteTests.fs" />
     <Compile Include="ClientRectCaretTests.fs" />
     <Compile Include="EditCaretTests.fs" />

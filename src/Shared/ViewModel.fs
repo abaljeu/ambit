@@ -89,6 +89,8 @@ type SyncState =
 type SyncInfo =
     { syncState: SyncState
       pendingChanges: Change list
+      submitInFlight: bool
+      pollInFlight: bool
       isPollingActive: bool
       syncRiskAcknowledged: bool }
 
@@ -97,11 +99,19 @@ module SyncInfo =
     let initial: SyncInfo =
         { syncState = Idle
           pendingChanges = []
+          submitInFlight = false
+          pollInFlight = false
           isPollingActive = false
           syncRiskAcknowledged = false }
 
     let withPendingChanges (pending: Change list) (si: SyncInfo) : SyncInfo =
         { si with pendingChanges = pending }
+
+    let withSubmitInFlight (value: bool) (si: SyncInfo) : SyncInfo =
+        { si with submitInFlight = value }
+
+    let withPollInFlight (value: bool) (si: SyncInfo) : SyncInfo =
+        { si with pollInFlight = value }
 
     /// Updates sync state. Clears risk acknowledgment when crossing the risk boundary.
     let withSyncState (newState: SyncState) (si: SyncInfo) : SyncInfo =
@@ -130,7 +140,7 @@ type VM = // the client state
 /// Messages dispatched by async server callbacks (not directly caused by user input).
 type SystemMsg =
     | StateLoaded of Graph * Revision
-    | SubmitResponse of Revision
+    | SubmitResponse of System.Guid * Revision
     | SubmitRejected      // server returned HTTP error — change cannot be applied
     | SubmitNetworkError  // timeout or network failure — retryable
     | SetPollingActive of bool
