@@ -8,6 +8,9 @@ open Gambol.Shared.Paste
 open Gambol.Shared.ViewModel
 open Gambol.Client.JsInterop
 open Gambol.Client.Update
+open Gambol.Client.UpdateEdit
+open Gambol.Client.UpdateHelpers
+open Gambol.Client.UpdateOps
 
 // ---------------------------------------------------------------------------
 // Clipboard / paste helpers
@@ -78,9 +81,9 @@ let setLastKeyDisplay (key: string option) (operation: string option) : unit =
 let private writeClipboardText (text: string) (continuation: unit -> unit) : unit = jsNative
 
 /// Copy selection as raw NodeId GUIDs (for paste-as-link). Writes text/plain with x-gambol-nodeids prefix.
-let copySelectionAsLinks (model: VM) (dispatch: Msg -> unit) : VM =
+let copySelectionAsLinks (model: VM) : VM * Effect list =
     match model.selectedNodes with
-    | None -> model
+    | None -> model, []
     | Some sel ->
         let parentNode = model.graph.nodes.[sel.range.parent.nodeId]
         let selectedIds =
@@ -93,12 +96,12 @@ let copySelectionAsLinks (model: VM) (dispatch: Msg -> unit) : VM =
             |> List.map (fun (NodeId guid) -> guid.ToString())
             |> String.concat "\n"
         writeClipboardText (nodeIdsPrefix + "\n" + idsText) ignore
-        copySelectionOp model dispatch
+        copySelectionOp model
 
-/// Op: Copy the focused subtree to clipboard (Ctrl+C behavior). Serializes to text/plain and updates internal clipboard.
-let copyOp (model: VM) (dispatch: Msg -> unit) : VM =
+/// Op: Copy focused subtree to clipboard (Ctrl+C). Serializes text/plain; updates internal clipboard.
+let copyOp (model: VM) : VM * Effect list =
     match model.selectedNodes with
-    | None -> model
+    | None -> model, []
     | Some sel ->
         let parentNode = model.graph.nodes.[sel.range.parent.nodeId]
         let selectedIds =
@@ -108,14 +111,14 @@ let copyOp (model: VM) (dispatch: Msg -> unit) : VM =
             |> List.map (fun child -> child.id)
         let serialized = serializeSubtree model.graph model.siteMap selectedIds
         writeClipboardText serialized ignore
-        copySelectionOp model dispatch
+        copySelectionOp model
 
 /// Get the character offset at a given client (x, y) position using the browser's caret APIs.
 [<Emit("(function(x,y){if(document.caretRangeFromPoint){var r=document.caretRangeFromPoint(x,y);return r?r.startOffset:0;}if(document.caretPositionFromPoint){var p=document.caretPositionFromPoint(x,y);return p?p.offset:0;}return 0;})($0,$1)")>]
 let getCaretOffset (x: float) (y: float) : int = jsNative
 
 /// Handle a paste event: extract plain text and optional node IDs, apply pasteNodesOp.
-let onPaste (ev: Event) (applyOp: Op -> unit) : unit =
+let onPaste (ev: Event) (dispatch: Msg -> unit) : unit =
     let plain = getClipboardData ev "text/plain"
     let html = getClipboardData ev "text/html"
     let text = if plain <> "" then plain else stripHtmlToText html
@@ -127,9 +130,9 @@ let onPaste (ev: Event) (applyOp: Op -> unit) : unit =
     ev.preventDefault()
     if pastedText <> "" then
         setLastKeyDisplay (Some "Ctrl+V") (Some "Paste")
-        applyOp (pasteNodesOp pastedText nodeIds)
+        dispatch (ApplyOp (pasteNodesOp pastedText nodeIds))
 
-let private onCopyOrCut (model: VM) (ev: Event) (applyOp: Op -> unit) (op: Op) (includeNodeIds: bool) : unit =
+let private onCopyOrCut (model: VM) (ev: Event) (dispatch: Msg -> unit) (op: Op) (includeNodeIds: bool) : unit =
     match model.selectedNodes with
     | None -> ()
     | Some sel ->
@@ -150,30 +153,30 @@ let private onCopyOrCut (model: VM) (ev: Event) (applyOp: Op -> unit) (op: Op) (
                 |> List.map (fun (NodeId guid) -> guid.ToString())
                 |> String.concat "\n"
             setClipboardData ev nodeIdsFormat idsText
-        applyOp op
+        dispatch (ApplyOp op)
 
 /// Handle a copy event: serialize the selected subtree to the clipboard.
-let onCopy (model: VM) (ev: Event) (applyOp: Op -> unit) : unit =
-    onCopyOrCut model ev applyOp copySelectionOp false
+let onCopy (model: VM) (ev: Event) (dispatch: Msg -> unit) : unit =
+    onCopyOrCut model ev dispatch copySelectionOp false
 
 /// Handle a cut event: serialize and remove the selected subtree.
 /// Puts both node IDs and full data on clipboard; paste prefers IDs when resolvable.
-let onCut (model: VM) (ev: Event) (applyOp: Op -> unit) : unit =
-    onCopyOrCut model ev applyOp cutSelectionOp true
+let onCut (model: VM) (ev: Event) (dispatch: Msg -> unit) : unit =
+    onCopyOrCut model ev dispatch cutSelectionOp true
 
 /// True when `#edit-input` has a non-collapsed text range (browser should own copy/cut).
 let editFieldHasTextRangeSelection () : bool =
     readEditInputCursor () <> readEditInputSelectionEnd ()
 
 /// Structured copy while editing; skipped when user selected text inside the field.
-let onCopyWhileEditing (model: VM) (ev: Event) (applyOp: Op -> unit) : unit =
+let onCopyWhileEditing (model: VM) (ev: Event) (dispatch: Msg -> unit) : unit =
     if editFieldHasTextRangeSelection () then ()
-    else onCopy model ev applyOp
+    else onCopy model ev dispatch
 
 /// Structured cut while editing; skipped when user selected text inside the field.
-let onCutWhileEditing (model: VM) (ev: Event) (applyOp: Op -> unit) : unit =
+let onCutWhileEditing (model: VM) (ev: Event) (dispatch: Msg -> unit) : unit =
     if editFieldHasTextRangeSelection () then ()
-    else onCut model ev applyOp
+    else onCut model ev dispatch
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -599,26 +602,26 @@ let filteredCommands (returnTo: Mode) (query: string) : CommandEntry list =
         let q = query.ToLowerInvariant()
         baseList |> List.filter (fun c -> c.name.ToLowerInvariant().Contains(q))
 
-let private onPalette (f: string -> int -> Mode -> VM -> (Msg -> unit) -> VM)
-                      (model: VM) (dispatch: Msg -> unit) : VM =
+let private onPalette (f: string -> int -> Mode -> VM -> VM * Effect list) (model: VM) : VM * Effect list =
     match model.mode with
-    | CommandPalette (q, selectedCommand, ret) -> f q selectedCommand ret model dispatch
-    | _ -> model
+    | CommandPalette (q, selectedCommand, ret) -> f q selectedCommand ret model
+    | _ -> model, []
 
-let paletteRunOp = onPalette (fun q selectedCommand ret model dispatch ->
-    match List.tryItem selectedCommand (filteredCommands ret q) with
-    | None -> { model with mode = ret }
-    | Some cmd ->
-        match cmd.run () with
-        | None ->
-            setLastKeyDisplay None None
-            { model with mode = ret }
-        | Some op ->
-            setLastKeyDisplay None (Some cmd.name)
-            op { model with mode = ret } dispatch)
+let paletteRunOp =
+    onPalette (fun q selectedCommand ret model ->
+        match List.tryItem selectedCommand (filteredCommands ret q) with
+        | None -> { model with mode = ret }, []
+        | Some cmd ->
+            match cmd.run () with
+            | None ->
+                setLastKeyDisplay None None
+                { model with mode = ret }, []
+            | Some op ->
+                setLastKeyDisplay None (Some cmd.name)
+                op { model with mode = ret })
 
-let paletteSetQueryOp (q: string) = onPalette (fun _ _ ret model _ ->
-    { model with mode = CommandPalette (q, 0, ret) })
+let paletteSetQueryOp (q: string) =
+    onPalette (fun _ _ ret model -> { model with mode = CommandPalette (q, 0, ret) }, [])
 
 let private scopeInSelectionMap =
     function
@@ -712,18 +715,18 @@ let private dispatchResolvedKey
     (keyStr: string)
     (resolved: ResolvedKeyBinding)
     (keyEvent: KeyboardEvent)
-    (applyOp: Op -> unit)
+    (dispatch: Msg -> unit)
     : unit =
     match resolved.handler () with
     | Some op ->
         keyEvent.preventDefault()
         setLastKeyDisplay (Some keyStr) (Some resolved.commandName)
-        applyOp op
+        dispatch (ApplyOp op)
     | None ->
         setLastKeyDisplay (Some keyStr) None
 
 /// Route keyboard handling by mode: palette overlay, CSS class prompt, editing field, or selection (hidden input).
-let handleKey (mode: Mode) (ke: KeyboardEvent) (applyOp: Op -> unit) : unit =
+let handleKey (mode: Mode) (ke: KeyboardEvent) (dispatch: Msg -> unit) : unit =
     let hasNonShiftModifier = ke.ctrlKey || ke.altKey || ke.metaKey
     match mode with
     | Editing _ when 
@@ -741,21 +744,21 @@ let handleKey (mode: Mode) (ke: KeyboardEvent) (applyOp: Op -> unit) : unit =
         | Error _ ->
             setLastKeyDisplay (Some keyStr) None
         | Ok resolved ->
-            dispatchResolvedKey keyStr resolved ke applyOp
+            dispatchResolvedKey keyStr resolved ke dispatch
 
 /// Command palette input: fixed binding list (listener wired once; no Mode value in closure).
-let handlePaletteKey (keyEvent: KeyboardEvent) (applyOp: Op -> unit) : unit =
+let handlePaletteKey (keyEvent: KeyboardEvent) (dispatch: Msg -> unit) : unit =
     let keyStr = formatKeyCombo keyEvent
     match tryResolveFromNamed paletteKeyBindings keyEvent with
     | Error _ ->
         setLastKeyDisplay (Some keyStr) None
     | Ok resolved ->
-        dispatchResolvedKey keyStr resolved keyEvent applyOp
+        dispatchResolvedKey keyStr resolved keyEvent dispatch
 
 /// CSS class prompt input: Escape to cancel, Enter to submit.
-let handleCssClassPromptKey (keyEvent: KeyboardEvent) (applyOp: Op -> unit) : unit =
+let handleCssClassPromptKey (keyEvent: KeyboardEvent) (dispatch: Msg -> unit) : unit =
     let keyStr = formatKeyCombo keyEvent
     match tryResolveFromNamed cssClassPromptKeyBindings keyEvent with
     | Error _ -> setLastKeyDisplay (Some keyStr) None
-    | Ok resolved -> dispatchResolvedKey keyStr resolved keyEvent applyOp
+    | Ok resolved -> dispatchResolvedKey keyStr resolved keyEvent dispatch
 

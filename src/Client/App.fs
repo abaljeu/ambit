@@ -6,51 +6,204 @@ open Gambol.Shared
 open Gambol.Shared.ViewModel
 open Gambol.Client
 open Gambol.Client.Update
+open Gambol.Client.UpdateHelpers
+open Gambol.Client.UpdateOps
 open Gambol.Client.Controller
 open Gambol.Client.View
 open Gambol.Client.JsInterop
 open Gambol.Client.SessionState
-// ---------------------------------------------------------------------------
-// MVU dispatch loop
-// ---------------------------------------------------------------------------
 
-let mutable currentModel: VM =
-    { graph = { root = NodeId(System.Guid.Empty); nodes = Map.empty }
-      revision = Revision.Zero
-      history = History.empty
-      selectedNodes = None
-      mode = Selecting
-      siteMap = ViewModel.emptySiteMap
-      nextSiteId = Sid 1
-      zoomRoot = None
-      clipboard = None
-      syncInfo = SyncInfo.initial }
-
-/// Element cache: instanceId → DOM row element.  Populated on first StateLoaded.
-let mutable elementCache: Map<SiteId, HTMLElement> = Map.empty
+// ---------------------------------------------------------------------------
+// MVU runtime (factory: model cell + effect interpreter)
+// ---------------------------------------------------------------------------
 
 // Idle/pause remote polling after a period of no user interaction (battery-friendly).
 let idleTimeoutMs = 5 * 60 * 1000
-let mutable lastActivityMs = nowMs ()
+
+let createRuntime (initialModel: VM) =
+    let mutable model = initialModel
+    let mutable elementCache = Map.empty<SiteId, HTMLElement>
+    let mutable lastActivityMs = nowMs ()
+
+    /// Restore local pending queue onto a fresh server snapshot. Returns model + effects.
+    let mergePendingAfterLoad (restored: VM) : VM * Effect list =
+        lastActivityMs <- nowMs ()
+        let saved = loadPendingQueue ()
+        let serverRev = restored.revision.Value
+        let filtered = saved |> List.filter (fun c -> c.id >= serverRev)
+        let localGraph, restoredPending =
+            filtered |> List.fold
+                (fun (g, acc) c ->
+                    let s: State =
+                        { graph = g
+                          history = History.empty
+                          revision = Revision 0 }
+                    match Change.apply c s with
+                    | ApplyResult.Changed s' -> s'.graph, acc @ [ c ]
+                    | _ -> g, acc)
+                (restored.graph, [])
+        savePendingQueue restoredPending
+        if restoredPending.IsEmpty then
+            { restored with graph = localGraph }, []
+        else
+            consoleLog (
+                "[Gambol sync] StateLoaded firePending serverRev=" + string serverRev
+                + " restoredQLen=" + string restoredPending.Length)
+            let submitEffects =
+                restoredPending
+                |> List.tryHead
+                |> Option.map (fun head -> [ SubmitChange (serverRev, head) ])
+                |> Option.defaultValue []
+            { restored with
+                graph = localGraph
+                syncInfo =
+                    restored.syncInfo
+                    |> SyncInfo.withPendingChanges restoredPending
+                    |> SyncInfo.withSyncState (Sending 1) },
+            submitEffects
+
+    let rec runEffects (effects: Effect list) : unit =
+        for e in effects do
+            match e with
+            | SubmitChange (baseRev, change) ->
+                let reqId = change.changeId.ToString("N").Substring(0, 8)
+                let url = $"/{currentFile}/changes"
+                let body = encodeChangeBody { change with id = baseRev }
+                let qLen = model.syncInfo.pendingChanges.Length
+                consoleLog (
+                    "[Gambol sync] POST start req=" + reqId + " baseRev=" + string baseRev
+                    + " qLen=" + string qLen + " headStoredId=" + string change.id)
+                let timeoutId =
+                    setTimeout
+                        (fun () ->
+                            consoleLog ("[Gambol sync] POST timeout 5s req=" + reqId)
+                            dispatch (SysMsg SubmitNetworkError))
+                        5_000
+                postJson url body
+                    (fun text ->
+                        clearTimeout timeoutId
+                        let n = text.Length
+                        match decodeChangeAckResponse text with
+                        | Ok ack ->
+                            consoleLog (
+                                "[Gambol sync] POST 200 req=" + reqId
+                                + " ackRev=" + string ack.revision.Value
+                                + " bodyLen=" + string n)
+                            dispatch (SysMsg (SubmitResponse (ack.ackChangeId, ack.revision)))
+                        | Error err ->
+                            consoleLog (
+                                "[Gambol sync] POST 200 bad ACK JSON req=" + reqId
+                                + " err=" + err + " bodyLen=" + string n)
+                            dispatch (SysMsg SubmitRejected))
+                    (fun () ->
+                        clearTimeout timeoutId
+                        consoleLog ("[Gambol sync] POST HTTP not ok req=" + reqId)
+                        dispatch (SysMsg SubmitRejected))
+                    (fun () ->
+                        clearTimeout timeoutId
+                        consoleLog ("[Gambol sync] POST fetch failed req=" + reqId)
+                        dispatch (SysMsg SubmitNetworkError))
+            | PollServer _ ->
+                let url = $"/{currentFile}/poll?_={nowMs ()}"
+                fetchTextNoCacheWithFail url
+                    (fun text ->
+                        match Serialization.decodePollResponse text with
+                        | Ok poll ->
+                            let context =
+                                { ClientPollContext.buildEpochSec = readBuildEpochSec ()
+                                  pageBuildEpochSec = readPageBuildEpochSec () }
+                            let outcome =
+                                SyncLogic.getPollOutcome poll model.revision.Value context
+                            dispatch (SysMsg (PollDone outcome))
+                        | Error _ ->
+                            dispatch (SysMsg (PollDone None)))
+                    (fun () -> dispatch (SysMsg (PollDone None)))
+            | ScheduleRetry delayMs ->
+                setTimeout (fun () -> dispatch (SysMsg RetrySubmit)) delayMs |> ignore
+            | SavePendingQueue q ->
+                savePendingQueue q
+
+    and dispatch (msg: Msg) : unit =
+        let prev = model
+
+        let newModel, effects =
+            match msg with
+            | SysMsg (StateLoaded _) ->
+                let baseModel, e0 = update msg prev
+                let restored = restoreSessionState baseModel
+                let merged, e1 = mergePendingAfterLoad restored
+                merged, e0 @ e1
+            | _ ->
+                update msg prev
+
+        model <- newModel
+        elementCache <-
+            match msg with
+            | SysMsg (StateLoaded _) ->
+                render newModel dispatch
+            | _ ->
+                patchDOM prev newModel dispatch elementCache
+        renderUndoStatus newModel
+        renderCommandPalette newModel dispatch
+        renderCssClassPrompt newModel dispatch
+        runEffects effects
+
+    let pollForRemoteChanges () =
+        let now = nowMs ()
+        let idleForMs = now - lastActivityMs
+        let shouldPoll = not (isDocumentHidden ()) && idleForMs < idleTimeoutMs
+        if not shouldPoll then
+            if model.syncInfo.isPollingActive then
+                dispatch (SysMsg (SetPollingActive false))
+        else
+            if not model.syncInfo.isPollingActive then
+                dispatch (SysMsg (SetPollingActive true))
+            dispatch (SysMsg PollTick)
+
+    let recordActivity (wakeIfInactive: bool) =
+        lastActivityMs <- nowMs ()
+        if
+            wakeIfInactive
+            && not (isDocumentHidden ())
+            && not model.syncInfo.isPollingActive
+        then
+            dispatch (SysMsg (SetPollingActive true))
+            pollForRemoteChanges ()
+
+    let wakePolling () =
+        lastActivityMs <- nowMs ()
+        if not model.syncInfo.isPollingActive then
+            dispatch (SysMsg (SetPollingActive true))
+        pollForRemoteChanges ()
+
+    document.addEventListener("visibilitychange", fun _ ->
+        if isDocumentHidden () then
+            saveSessionState model
+            if model.syncInfo.isPollingActive then
+                dispatch (SysMsg (SetPollingActive false))
+        else
+            recordActivity false
+            pollForRemoteChanges ())
+    window.addEventListener("pagehide", fun _ -> saveSessionState model)
+
+    dispatch, (fun () -> model), wakePolling, pollForRemoteChanges, recordActivity
 
 // ---------------------------------------------------------------------------
 // One-time static DOM setup (hidden-input + settings-bar)
-// These elements persist for the lifetime of the page; their event handlers
-// read currentModel so they always operate on the latest state.
 // ---------------------------------------------------------------------------
 
-let setupStaticDOM (applyOp: Op -> unit) (wakePolling: unit -> unit) : unit =
+let setupStaticDOM (dispatch: Msg -> unit) (getModel: unit -> VM) (_wakePolling: unit -> unit) : unit =
     let hiddenInput = document.getElementById "hidden-input" :?> HTMLInputElement
     hiddenInput.addEventListener("keydown", fun (ev: Event) ->
         let ke = ev :?> KeyboardEvent
         if ke.key = "Tab" then ev.preventDefault()
         if (ke.ctrlKey || ke.metaKey) && ke.key = "p" && not ke.shiftKey then
             ev.preventDefault()
-        handleKey currentModel.mode ke applyOp
+        handleKey (getModel ()).mode ke dispatch
     )
-    hiddenInput.addEventListener("paste", fun ev -> onPaste ev applyOp)
-    hiddenInput.addEventListener("copy",  fun ev -> onCopy  currentModel ev applyOp)
-    hiddenInput.addEventListener("cut",   fun ev -> onCut   currentModel ev applyOp)
+    hiddenInput.addEventListener("paste", fun ev -> onPaste ev dispatch)
+    hiddenInput.addEventListener("copy",  fun ev -> onCopy  (getModel ()) ev dispatch)
+    hiddenInput.addEventListener("cut",   fun ev -> onCut   (getModel ()) ev dispatch)
 
     let basePath =
         let path = window.location.pathname
@@ -66,7 +219,6 @@ let setupStaticDOM (applyOp: Op -> unit) (wakePolling: unit -> unit) : unit =
 
     setLastKeyDisplay None None
 
-    // Deployment stamp (injected as window.__BUILD_TS__ — max of server assembly + wwwroot client artifacts).
     let buildEl = document.getElementById "server-build-stamp"
     if isNull buildEl then () else
         let stampEpochSec = readBuildEpochSec ()
@@ -75,135 +227,24 @@ let setupStaticDOM (applyOp: Op -> unit) (wakePolling: unit -> unit) : unit =
             else "Deploy: " + epochSecToTorontoString stampEpochSec
         buildEl.textContent <- txt
 
-    document.addEventListener("visibilitychange", fun _ ->
-        if isDocumentHidden () then saveSessionState currentModel)
-    window.addEventListener("pagehide", fun _ ->
-        saveSessionState currentModel)
-
     let syncStatus = document.getElementById "sync-status"
     syncStatus.addEventListener("click", fun _ ->
-        match currentModel.syncInfo.syncState with
+        match (getModel ()).syncInfo.syncState with
         | WaitingToRetry _ ->
-            applyOp (retryPendingOp true)
+            dispatch (ApplyOp (retryPendingOp true))
         | ServerRejected | CodeOutdated | DataOutdated ->
             let path = window.location.pathname
             window.location.assign(path + "?bust=" + string (nowMs ()))
         | _ -> ()
     )
 
-let rec applyOp (op: Op) : unit =
-    let prevModel = currentModel
-    currentModel <- op currentModel dispatch
-    elementCache <- patchDOM prevModel currentModel applyOp dispatch elementCache
-    View.renderUndoStatus currentModel
-    View.renderCommandPalette currentModel applyOp
-    View.renderCssClassPrompt currentModel applyOp
-
-and dispatch (msg: Msg) : unit =
-    let prevModel = currentModel
-    currentModel <- update msg currentModel dispatch
-
-    match msg with
-    | SysMsg (StateLoaded _) ->
-        currentModel <- restoreSessionState currentModel
-        lastActivityMs <- nowMs ()
-        let saved = loadPendingQueue ()
-        let serverRev = currentModel.revision.Value
-        let filtered = saved |> List.filter (fun c -> c.id >= serverRev)
-        let localGraph, restoredPending =
-            filtered |> List.fold (fun (g, acc) c ->
-                let s: State = { graph = g; history = History.empty; revision = Revision 0 }
-                match Change.apply c s with
-                | ApplyResult.Changed s' -> s'.graph, acc @ [c]
-                | _ -> g, acc) (currentModel.graph, [])
-        savePendingQueue restoredPending
-        if not restoredPending.IsEmpty then
-            currentModel <-
-                { currentModel with
-                    graph = localGraph
-                    syncInfo =
-                        currentModel.syncInfo
-                        |> SyncInfo.withPendingChanges restoredPending
-                        |> SyncInfo.withSyncState (Sending 1) }
-            consoleLog (
-                "[Gambol sync] StateLoaded firePending serverRev=" + string serverRev
-                + " restoredQLen=" + string restoredPending.Length)
-            fireNextPending serverRev restoredPending dispatch
-        elementCache <- render currentModel applyOp dispatch
-        View.renderUndoStatus currentModel
-        View.renderCommandPalette currentModel applyOp
-        View.renderCssClassPrompt currentModel applyOp
-    | SysMsg (SubmitResponse _) ->
-        View.renderSyncChrome currentModel dispatch
-    | SysMsg SubmitRejected ->
-        View.renderSyncChrome currentModel dispatch
-    | SysMsg SubmitNetworkError ->
-        let maxAutoRetries = 10
-        match currentModel.syncInfo.syncState with
-        | WaitingToRetry n when n < maxAutoRetries ->
-            let delaySec = min 60 (1 <<< (min n 6))
-            setTimeout (fun () -> applyOp (retryPendingOp false)) (delaySec * 1000) |> ignore
-        | _ -> ()
-        View.renderSyncChrome currentModel dispatch
-    | SysMsg (SetPollingActive _) ->
-        View.renderSyncChrome currentModel dispatch
-    | SysMsg (SetSyncState _) ->
-        View.renderSyncChrome currentModel dispatch
-    | AckSyncRisk ->
-        View.renderSyncChrome currentModel dispatch
-
 // ---------------------------------------------------------------------------
 // Polling
 // ---------------------------------------------------------------------------
 
-let pollForRemoteChanges () : unit =
-    let now = nowMs ()
-    let hidden = isDocumentHidden ()
-    let idleForMs = now - lastActivityMs
-    let shouldPoll = (not hidden) && idleForMs < idleTimeoutMs
-
-    if not shouldPoll then
-        if currentModel.syncInfo.isPollingActive then
-            dispatch (SysMsg (SetPollingActive false))
-    else
-        if not currentModel.syncInfo.isPollingActive then
-            dispatch (SysMsg (SetPollingActive true))
-        // Guard: only fire GET when the queue is clear and no request is in-flight
-        if not networkBusy
-           && currentModel.syncInfo.pendingChanges.IsEmpty
-           && currentModel.syncInfo.syncState = Idle then
-            networkBusy <- true
-            let url = $"/{Update.currentFile}/poll?_={now}"
-            fetchTextNoCacheWithFail url
-                (fun text ->
-                    networkBusy <- false
-                    match Serialization.decodePollResponse text with
-                    | Ok poll ->
-                        let context =
-                            { ClientPollContext.buildEpochSec = readBuildEpochSec ()
-                              pageBuildEpochSec = readPageBuildEpochSec () }
-                        match SyncLogic.getPollOutcome poll currentModel.revision.Value context with
-                        | Some state -> dispatch (SysMsg (SetSyncState state))
-                        | None -> ()
-                    | Error _ -> ())
-                (fun () -> networkBusy <- false)
-
-let recordActivity (wakeIfInactive: bool) : unit =
-    lastActivityMs <- nowMs ()
-    if wakeIfInactive && not (isDocumentHidden ()) && not currentModel.syncInfo.isPollingActive then
-        dispatch (SysMsg (SetPollingActive true))
-        pollForRemoteChanges ()
-
-let wakePolling () : unit =
-    lastActivityMs <- nowMs ()
-    if not currentModel.syncInfo.isPollingActive then
-        dispatch (SysMsg (SetPollingActive true))
-    pollForRemoteChanges ()
-
-let startPolling () : unit =
+let startPolling (pollForRemoteChanges: unit -> unit) (recordActivity: bool -> unit) : unit =
     setInterval pollForRemoteChanges 5000 |> ignore
 
-    // Keep a cheap "are we active?" signal so we can stop polling when idle.
     document.addEventListener("pointerdown", fun _ -> recordActivity true)
     document.addEventListener("keydown", fun _ -> recordActivity true)
     document.addEventListener("wheel", fun _ -> recordActivity true)
@@ -213,11 +254,3 @@ let startPolling () : unit =
     window.addEventListener("focus", fun _ ->
         recordActivity false
         pollForRemoteChanges ())
-
-    document.addEventListener("visibilitychange", fun _ ->
-        if isDocumentHidden () then
-            if currentModel.syncInfo.isPollingActive then
-                dispatch (SysMsg (SetPollingActive false))
-        else
-            recordActivity false
-            pollForRemoteChanges ())

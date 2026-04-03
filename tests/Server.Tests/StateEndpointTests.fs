@@ -53,6 +53,11 @@ let private decodeRevision json =
         get.Required.Field "revision" Serialization.decodeRevision)
     |> decode <| json
 
+let private decodeAckChangeId json =
+    Thoth.Json.Core.Decode.object (fun get ->
+        get.Required.Field "ackChangeId" Thoth.Json.Core.Decode.guid)
+    |> decode <| json
+
 let private decodeGraph json =
     Thoth.Json.Core.Decode.object (fun get ->
         get.Required.Field "graph" Serialization.decodeGraph)
@@ -117,6 +122,7 @@ let ``POST changes SetText changes root text and bumps revision`` () = task {
 
     let! postBody = resp.Content.ReadAsStringAsync()
     Assert.Equal(Revision 1, decodeRevision postBody)
+    Assert.Equal(change.changeId, decodeAckChangeId postBody)
 
     let! json = getStateJson client testFile
     let graph = decodeGraph json
@@ -142,6 +148,7 @@ let ``POST changes NewNode+Replace adds child to root`` () = task {
 
     let! postBody = resp.Content.ReadAsStringAsync()
     Assert.Equal(Revision 1, decodeRevision postBody)
+    Assert.Equal(change.changeId, decodeAckChangeId postBody)
 
     let! json = getStateJson client testFile
     let graph = decodeGraph json
@@ -220,12 +227,14 @@ let ``POST same changeId twice is idempotent`` () = task {
     let! b1 = r1.Content.ReadAsStringAsync()
     Assert.DoesNotContain("graph", b1, StringComparison.Ordinal)
     Assert.Equal(Revision 1, decodeRevision b1)
+    Assert.Equal(cid, decodeAckChangeId b1)
 
     let! r2 = postChange client testFile change
     Assert.Equal(HttpStatusCode.OK, r2.StatusCode)
     let! b2 = r2.Content.ReadAsStringAsync()
     Assert.DoesNotContain("graph", b2, StringComparison.Ordinal)
     Assert.Equal(Revision 1, decodeRevision b2)
+    Assert.Equal(cid, decodeAckChangeId b2)
 
     // GET /state (in-memory FileAgent, not reading snapshot files): one apply, text still "once".
     let! json = getStateJson client testFile

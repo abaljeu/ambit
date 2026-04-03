@@ -240,6 +240,16 @@ let setEditorCarentToFirstLineAtX (root: HTMLElement) (clientX: float) :
         if not (selectionApplyIfInRoot root sel r) then
             setEditorCaret root 0
 
+/// Three-way POST: onSuccess (HTTP 2xx body text), onReject (HTTP error),
+/// onNetworkFail (no response).
+[<Emit("fetch($0,{method:'POST',headers:{'Content-Type':'application/json'},body:$1})" +
+       ".then(function(r){return r.ok?r.text().then($2):($3(),undefined)})" +
+       ".catch(function(){$4()})")>]
+let postJson
+    (url: string) (body: string) (onSuccess: string -> unit)
+    (onReject: unit -> unit) (onNetworkFail: unit -> unit)
+    : unit = jsNative
+
 [<Emit("fetch($0).then(r => r.text()).then($1)")>]
 let fetchText (url: string) (callback: string -> unit) : unit = jsNative
 
@@ -291,3 +301,18 @@ let setInterval (f: unit -> unit) (ms: int) : float =
 /// Browser devtools console (sync / revision diagnostics).
 [<Emit("console.log($0)")>]
 let consoleLog (line: string) : unit = jsNative
+
+let setTimeout (f: unit -> unit) (ms: int) : float =
+    window.setTimeout ((fun _ -> f ()), ms)
+
+let clearTimeout (id: float) : unit =
+    window.clearTimeout id
+
+let localStorageGet (k: string) : string =
+    window.localStorage.getItem k
+
+let localStorageSet (k: string) (v: string) : unit =
+    window.localStorage.setItem (k, v)
+
+let localStorageRemove (k: string) : unit =
+    window.localStorage.removeItem k
