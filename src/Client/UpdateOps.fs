@@ -63,7 +63,6 @@ let startEditAtPos (cursorPos: int) (model: VM) : VM * Effect list =
 /// Re-export palette ops for use by Controller and View.
 let openCommandPaletteOp = Gambol.Client.CommandPalette.openCommandPaletteOp
 let closeCommandPaletteOp = Gambol.Client.CommandPalette.closeCommandPaletteOp
-let openSearchDialogOp = Gambol.Client.SearchDialog.openSearchDialogOp
 let closeSearchDialogOp = Gambol.Client.SearchDialog.closeSearchDialogOp
 
 /// Op: Select a specific node, committing any in-progress edit first.
@@ -194,7 +193,7 @@ let endSelectionOp (model: VM) : VM * Effect list =
 /// Move selection with `moveNodeFromTo` when `resolveToo` returns Some.
 let private tryStructuralMove
     (model: VM)
-    (resolveToo: VM -> Selection -> SiteNodeRange option)
+    (resolveToo: VM -> Selection -> NodeRange option)
     : VM * Effect list =
     match model.selectedNodes with
     | None -> model, []
@@ -207,8 +206,8 @@ let private tryStructuralMove
 
 /// Op: Ctrl+PageUp — move selected objects to start of current level; selection follows.
 let moveSelectionToLevelStartOp (model: VM) : VM * Effect list =
-    tryStructuralMove model (fun _ sel ->
-        Some { parent = sel.range.parent; start = 0; endd = 0 })
+    tryStructuralMove model (fun m sel ->
+        Some { parent = sel.range.parent.nodeId; start = 0; endd = 0 })
 
 /// Op: Ctrl+PageDown — move selected objects to end of current level; selection follows.
 let moveSelectionToLevelEndOp (model: VM) : VM * Effect list =
@@ -218,9 +217,13 @@ let moveSelectionToLevelEndOp (model: VM) : VM * Effect list =
         if parentLen = 0 || range.endd >= parentLen then None
         else
             Some
-                { parent = range.parent
+                { parent = range.parent.nodeId
                   start = parentLen - 1
                   endd = parentLen })
+
+/// Op: Move Selected (m) — no target picker yet; no-op until implemented.
+let moveNodesOp (model: VM) : VM * Effect list =
+    model, []
 
 /// Op: Ctrl+Home — move selected objects to first slot under view root; selection follows.
 let moveSelectionToViewRootStartOp (model: VM) : VM * Effect list =
@@ -232,7 +235,7 @@ let moveSelectionToViewRootStartOp (model: VM) : VM * Effect list =
             if n = 0 then None
             elif sel.range.parent.nodeId = rootEntry.nodeId && sel.range.start = 0 then None
             else
-                Some { parent = rootEntry; start = 0; endd = 0 })
+                Some { parent = rootEntry.nodeId; start = 0; endd = 0 })
 
 /// Op: Ctrl+End — move selected objects to last slot under view root; selection follows.
 let moveSelectionToViewRootEndOp (model: VM) : VM * Effect list =
@@ -244,7 +247,7 @@ let moveSelectionToViewRootEndOp (model: VM) : VM * Effect list =
             if n = 0 then None
             elif sel.range.parent.nodeId = rootEntry.nodeId && sel.range.endd >= n then None
             else
-                Some { parent = rootEntry; start = n - 1; endd = n })
+                Some { parent = rootEntry.nodeId; start = n - 1; endd = n })
 
 /// Op: Paste text into the model. preferredNodeIds from clipboard format, if present.
 let pasteNodesOp (pastedText: string) (preferredNodeIds: string option) (model: VM)

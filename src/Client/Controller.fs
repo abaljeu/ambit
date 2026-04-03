@@ -11,7 +11,7 @@ open Gambol.Client.Update
 open Gambol.Client.UpdateEdit
 open Gambol.Client.UpdateHelpers
 open Gambol.Client.UpdateOps
-
+open Gambol.Client.SearchDialog
 // ---------------------------------------------------------------------------
 // Clipboard / paste helpers
 // ---------------------------------------------------------------------------
@@ -535,12 +535,12 @@ let commandRegistry : CommandEntry list =
 
       { name = "Zoom in"
         run = keyAlways zoomInOp
-        keys = [ "Ctrl+]"; "]"; "m" ]
+        keys = [ "Ctrl+]"; "]" ]
         keyScope = SelectionOrEditing }
 
       { name = "Zoom out"
         run = keyAlways zoomOutOp
-        keys = [ "Ctrl+["; "["; "M" ]
+        keys = [ "Ctrl+["; "[" ]
         keyScope = SelectionOrEditing }
 
       { name = "Undo"
@@ -573,6 +573,10 @@ let commandRegistry : CommandEntry list =
         keys = [ "Ctrl+P"; "p" ]
         keyScope = SelectionOrEditing }
 
+      { name = "Move Selected"
+        run = keyAlways moveNodesOp
+        keys = [ "m" ; "Ctrl+m" ]
+        keyScope = SelectionOrEditing }
       { name = "Search nodes"
         run = keyAlways openSearchDialogOp
         keys = [ "Ctrl+F" ]

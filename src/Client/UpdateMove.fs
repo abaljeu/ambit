@@ -58,7 +58,7 @@ let private tryInlineEditWrap (mode: Mode) : (string * (string -> int -> Mode)) 
 /// Move the selected nodes to after `too`. May remove from old parent and add to new
 /// (two Op.Replace ops), or reorder within the same parent.
 /// Inline edit: `tryTextCommitOps` + move in one change; stay in edit mode with clamped caret.
-let moveNodeFromTo (too: SiteNodeRange) (model: VM) : VM * Effect list =
+let moveNodeFromTo (too: NodeRange) (model: VM) : VM * Effect list =
     match model.selectedNodes with
     | None -> model, []
     | Some sel ->
@@ -75,7 +75,7 @@ let moveNodeFromTo (too: SiteNodeRange) (model: VM) : VM * Effect list =
                 | Some (orig, _) -> tryTextCommitOps editingId orig live model.graph
                 | None -> []
             let count = selectedChildren.Length
-            let sameParent = from.parent.nodeId = too.parent.nodeId
+            let sameParent = from.parent.nodeId = too.parent
             let replaceOps =
                 if sameParent then
                     // Reordering within same parent: remove then insert.
@@ -87,7 +87,7 @@ let moveNodeFromTo (too: SiteNodeRange) (model: VM) : VM * Effect list =
                       Op.Replace(from.parent.nodeId, insertIdx, [], selectedChildren) ]
                 else
                     [ Op.Replace(from.parent.nodeId, from.start, selectedChildren, [])
-                      Op.Replace(too.parent.nodeId, too.endd, [], selectedChildren) ]
+                      Op.Replace(too.parent, too.endd, [], selectedChildren) ]
             let ops = textOps @ replaceOps
             let change =
                 { id = model.revision.Value
@@ -98,7 +98,13 @@ let moveNodeFromTo (too: SiteNodeRange) (model: VM) : VM * Effect list =
                 let insertIdx =
                     if sameParent then (if too.endd <= from.start then too.endd else too.endd - count)
                     else too.endd
-                let newParent = if sameParent then from.parent else too.parent
+                let newParent =
+                    if sameParent then
+                        from.parent
+                    else
+                        m.siteMap.entries
+                        |> Map.tryPick (fun _ e -> if e.nodeId = too.parent then Some e else None)
+                        |> Option.defaultValue from.parent
                 let newRange: SiteNodeRange = { parent = newParent; start = insertIdx; endd = insertIdx + count }
                 let focusOffset = sel.focus - from.start
                 let newFocus = insertIdx + (min (max 0 focusOffset) (count - 1))
@@ -117,26 +123,28 @@ let moveNodeDelta (delta: int) (model: VM) : VM * Effect list =
     | None -> model, []
     | Some sel ->
         let range = sel.range
-        let parentLen = model.graph.nodes.[range.parent.nodeId].children.Length
+        let parentId = range.parent.nodeId
+        let parentLen = model.graph.nodes.[parentId].children.Length
         let too =
             if delta < 0 && range.start > 0 then
                 // Move to before sibling above: insert at range.start - 1 (after the range ending there)
                 let s = if range.start = 1 then 0 else range.start - 2
-                Some ({ parent = range.parent; start = s; endd = range.start - 1 } : SiteNodeRange)
+                Some { parent = parentId; start = s; endd = range.start - 1 }
             elif delta > 0 && range.endd < parentLen then
                 // Move to after sibling below
-                Some ({ parent = range.parent; start = range.endd; endd = range.endd + 1 } : SiteNodeRange)
+                Some { parent = parentId; start = range.endd; endd = range.endd + 1 }
             elif delta = -1 || delta = 1 then
                 let effectiveRoot = model.zoomRoot |> Option.defaultValue model.graph.root
                 let moveToSib =
                     (if delta = -1 then SiteNodeRange.firstChild else SiteNodeRange.lastChild) range model.siteMap
                     |> Option.bind (fun child -> parentSiblingOpen delta child model)
                     |> Option.map (fun sib ->
+                        let sibId = sib.nodeId
                         if delta = -1 then
-                            let insertIdx = model.graph.nodes.[sib.nodeId].children.Length
-                            { parent = sib; start = insertIdx; endd = insertIdx } : SiteNodeRange
+                            let insertIdx = model.graph.nodes.[sibId].children.Length
+                            { parent = sibId; start = insertIdx; endd = insertIdx }
                         else
-                            { parent = sib; start = 0; endd = 0 } : SiteNodeRange)
+                            { parent = sibId; start = 0; endd = 0 })
                 let moveToGrandparent =
                     if range.parent.nodeId = effectiveRoot then None
                     else
@@ -147,7 +155,7 @@ let moveNodeDelta (delta: int) (model: VM) : VM * Effect list =
                             |> List.tryFindIndex (fun child -> child.id = range.parent.nodeId)
                             |> Option.map (fun parentIdx ->
                                 let insertIdx = parentIdx + (if delta = -1 then 0 else 1)
-                                { parent = gp; start = insertIdx; endd = insertIdx } : SiteNodeRange))
+                                { parent = gp.nodeId; start = insertIdx; endd = insertIdx }))
                 moveToSib |> Option.orElseWith (fun () -> moveToGrandparent)
             else None
         match too with
@@ -171,8 +179,9 @@ let indentSelection (model: VM) : VM * Effect list =
         match model.siteMap.entries
             |> Map.tryPick (fun _ e -> if e.nodeId = prevSibId then Some e else None) with
         | None -> model, []
-        | Some prevSibEntry ->
-            let too: SiteNodeRange = { parent = prevSibEntry; start = max 0 (insertIdx - 1); endd = insertIdx }
+        | Some _ ->
+            let too: NodeRange =
+                { parent = prevSibId; start = max 0 (insertIdx - 1); endd = insertIdx }
             let result, effects = moveNodeFromTo too model
             let result = withSiteMap result
             // Ensure the new parent is expanded so the indented items are visible after reconcile
@@ -195,8 +204,9 @@ let outdentSelection (model: VM) : VM * Effect list =
             match model.siteMap.entries
                 |> Map.tryPick (fun _ e -> if e.nodeId = grandparentId then Some e else None) with
             | None -> model, []
-            | Some grandparentEntry ->
-                let too: SiteNodeRange = { parent = grandparentEntry; start = parentIdx; endd = parentIdx + 1 }
+            | Some _ ->
+                let too: NodeRange =
+                    { parent = grandparentId; start = parentIdx; endd = parentIdx + 1 }
                 let result, effects = moveNodeFromTo too model
                 withSiteMap result, effects
 
