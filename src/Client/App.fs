@@ -125,6 +125,9 @@ and dispatch (msg: Msg) : unit =
                         currentModel.syncInfo
                         |> SyncInfo.withPendingChanges restoredPending
                         |> SyncInfo.withSyncState (Sending 1) }
+            consoleLog (
+                "[Gambol sync] StateLoaded firePending serverRev=" + string serverRev
+                + " restoredQLen=" + string restoredPending.Length)
             fireNextPending serverRev restoredPending dispatch
         elementCache <- render currentModel applyOp dispatch
         View.renderUndoStatus currentModel

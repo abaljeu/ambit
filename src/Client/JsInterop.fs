@@ -287,3 +287,7 @@ let isDocumentHidden () : bool =
 /// Returns the timer handle (pass to browser APIs if needed).
 let setInterval (f: unit -> unit) (ms: int) : float =
     window.setInterval ((fun _ -> f ()), ms)
+
+/// Browser devtools console (sync / revision diagnostics).
+[<Emit("console.log($0)")>]
+let consoleLog (line: string) : unit = jsNative

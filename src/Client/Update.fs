@@ -118,6 +118,27 @@ let readEditInputSelectionEnd () : int =
     if isNull el then 0
     else getContentEditableSelectionEnd el
 
+let private postSuccessLogAndDispatch
+    (reqId: string)
+    (timeoutId: float)
+    (responseText: string)
+    (dispatch: Msg -> unit)
+    : unit =
+    clearTimeout timeoutId
+    networkBusy <- false
+    let n = responseText.Length
+    match decodeChangeAckResponse responseText with
+    | Ok rev ->
+        consoleLog (
+            "[Gambol sync] POST 200 req=" + reqId + " ackRev=" + string rev.Value
+            + " bodyLen=" + string n)
+        dispatch (SysMsg (SubmitResponse rev))
+    | Error err ->
+        consoleLog (
+            "[Gambol sync] POST 200 bad ACK JSON req=" + reqId + " err=" + err
+            + " bodyLen=" + string n)
+        dispatch (SysMsg SubmitRejected)
+
 /// Fire the next POST in the pending queue (head of the list).
 /// `baseRevision` is the last server-acknowledged revision; the head change encodes with it.
 /// Sets `networkBusy = true` before the fetch and clears it on every callback path.
@@ -126,26 +147,28 @@ let fireNextPending (baseRevision: int) (pending: Change list) (dispatch: Msg ->
     match pending with
     | [] -> ()
     | change :: _ ->
+        let reqId = change.changeId.ToString("N").Substring(0, 8)
         networkBusy <- true
         let body = encodeChangeBody { change with id = baseRevision }
+        consoleLog (
+            "[Gambol sync] POST start req=" + reqId + " baseRev=" + string baseRevision
+            + " qLen=" + string pending.Length + " headStoredId=" + string change.id)
         let timeoutId =
             setTimeout (fun () ->
+                consoleLog ("[Gambol sync] POST timeout 5s req=" + reqId)
                 networkBusy <- false
                 dispatch (SysMsg SubmitNetworkError)) 5_000
         postJson $"/{currentFile}/changes" body
-            (fun responseText ->
-                clearTimeout timeoutId
-                networkBusy <- false
-                match decodeChangeAckResponse responseText with
-                | Ok rev -> dispatch (SysMsg (SubmitResponse rev))
-                | Error _ -> dispatch (SysMsg SubmitRejected))
+            (fun responseText -> postSuccessLogAndDispatch reqId timeoutId responseText dispatch)
             (fun () ->
                 clearTimeout timeoutId
                 networkBusy <- false
+                consoleLog ("[Gambol sync] POST HTTP not ok req=" + reqId)
                 dispatch (SysMsg SubmitRejected))
             (fun () ->
                 clearTimeout timeoutId
                 networkBusy <- false
+                consoleLog ("[Gambol sync] POST fetch failed req=" + reqId)
                 dispatch (SysMsg SubmitNetworkError))
 
 /// Apply a change to the local model, enqueue it for posting to the server,
@@ -166,7 +189,11 @@ let applyAndPost (change: Change) (model: VM) (dispatch: Msg -> unit) : VM optio
             | WaitingToRetry _ -> model.syncInfo.syncState, false
             | Sending _ -> Sending 1, false
             | Idle -> Sending 1, wasEmpty && not networkBusy
-        if firePost then fireNextPending model.revision.Value pending dispatch
+        if firePost then
+            consoleLog (
+                "[Gambol sync] applyAndPost fireFirst modelRev=" + string model.revision.Value
+                + " qLen=" + string pending.Length)
+            fireNextPending model.revision.Value pending dispatch
         let syncInfo =
             model.syncInfo
             |> SyncInfo.withPendingChanges pending
@@ -1470,6 +1497,9 @@ let retryPendingOp (resetCount: bool) (model: VM) (dispatch: Msg -> unit) : VM =
     | _, [] ->
         { model with syncInfo = SyncInfo.withSyncState Idle model.syncInfo }
     | WaitingToRetry n, _ ->
+        consoleLog (
+            "[Gambol sync] retryPendingOp modelRev=" + string model.revision.Value
+            + " qLen=" + string model.syncInfo.pendingChanges.Length)
         fireNextPending model.revision.Value model.syncInfo.pendingChanges dispatch
         let nextAttempt = if resetCount then 1 else n + 1
         { model with syncInfo = SyncInfo.withSyncState (Sending nextAttempt) model.syncInfo }
@@ -1572,14 +1602,23 @@ let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
 
     | SysMsg (SubmitResponse revision) ->
         match model.syncInfo.syncState with
-        | ServerRejected | CodeOutdated | DataOutdated -> model
+        | ServerRejected | CodeOutdated | DataOutdated ->
+            consoleLog (
+                "[Gambol sync] SubmitResponse IGNORED blocked-risk serverAck="
+                + string revision.Value + " modelRev=" + string model.revision.Value)
+            model
         | _ ->
+            let pendingWas = model.syncInfo.pendingChanges.Length
             let pendingTail =
                 match model.syncInfo.pendingChanges with _ :: t -> t | [] -> []
             let pending =
                 match pendingTail with
                 | [] -> []
                 | h :: t -> { h with id = revision.Value } :: t
+            consoleLog (
+                "[Gambol sync] SubmitResponse apply prevRev=" + string model.revision.Value
+                + " serverAck=" + string revision.Value + " pendingWas=" + string pendingWas
+                + " pendingNext=" + string pending.Length)
             savePendingQueue pending
             if not pending.IsEmpty then fireNextPending revision.Value pending dispatch
             let syncInfo =
@@ -1592,6 +1631,9 @@ let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
                 syncInfo = syncInfo }
 
     | SysMsg SubmitRejected ->
+        consoleLog (
+            "[Gambol sync] SubmitRejected modelRev=" + string model.revision.Value
+            + " pending=" + string model.syncInfo.pendingChanges.Length)
         if model.syncInfo.pendingChanges.IsEmpty then model
         else
             // Rejected payload cannot be replayed safely; drop persisted queue so reload starts clean.
@@ -1603,6 +1645,9 @@ let update (msg: Msg) (model: VM) (dispatch: Msg -> unit) : VM =
                     |> SyncInfo.withSyncState ServerRejected }
 
     | SysMsg SubmitNetworkError ->
+        consoleLog (
+            "[Gambol sync] SubmitNetworkError modelRev=" + string model.revision.Value
+            + " pending=" + string model.syncInfo.pendingChanges.Length)
         if model.syncInfo.pendingChanges.IsEmpty then model
         else
             let n = match model.syncInfo.syncState with Sending n -> n | _ -> 1
