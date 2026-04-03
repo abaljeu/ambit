@@ -25,7 +25,7 @@ let handleEsc (model: VM) : VM * Effect list =
     match model.mode with
     | Editing _ -> commitIfEditing model
     | Selecting -> collapseToFocus model, []
-    | CommandPalette _ | SearchDialog _ | CssClassPrompt _ ->
+    | CommandPalette _ | SearchDialog (_, _, _, _) | CssClassPrompt _ ->
         model, []  // handled by close modal operations
 
 /// Op: Copy the focused subtree to the internal clipboard.
@@ -63,7 +63,6 @@ let startEditAtPos (cursorPos: int) (model: VM) : VM * Effect list =
 /// Re-export palette ops for use by Controller and View.
 let openCommandPaletteOp = Gambol.Client.CommandPalette.openCommandPaletteOp
 let closeCommandPaletteOp = Gambol.Client.CommandPalette.closeCommandPaletteOp
-let closeSearchDialogOp = Gambol.Client.SearchDialog.closeSearchDialogOp
 
 /// Op: Select a specific node, committing any in-progress edit first.
 let selectRow (nodeId: NodeId) (model: VM) : VM * Effect list =
@@ -102,7 +101,6 @@ let selectInstance (instanceId: SiteId) (model: VM) : VM * Effect list =
 let moveSelectionUp (model: VM) : VM * Effect list =
     match model.mode with
     | CommandPalette _ -> Gambol.Client.CommandPalette.paletteSelectUpOp model
-    | SearchDialog _ -> Gambol.Client.SearchDialog.searchSelectUpOp model
     | CssClassPrompt _ -> model, []
     | _ ->
         let result, effects =
@@ -118,7 +116,6 @@ let moveSelectionUp (model: VM) : VM * Effect list =
 let moveSelectionDown (model: VM) : VM * Effect list =
     match model.mode with
     | CommandPalette _ -> Gambol.Client.CommandPalette.paletteSelectDownOp model
-    | SearchDialog _ -> Gambol.Client.SearchDialog.searchSelectDownOp model
     | CssClassPrompt _ -> model, []
     | _ ->
         let result, effects =
@@ -207,7 +204,7 @@ let private tryStructuralMove
 /// Op: Ctrl+PageUp — move selected objects to start of current level; selection follows.
 let moveSelectionToLevelStartOp (model: VM) : VM * Effect list =
     tryStructuralMove model (fun m sel ->
-        Some { parent = sel.range.parent.nodeId; start = 0; endd = 0 })
+        Some { pnode = sel.range.parent.nodeId; start = 0; endd = 0 })
 
 /// Op: Ctrl+PageDown — move selected objects to end of current level; selection follows.
 let moveSelectionToLevelEndOp (model: VM) : VM * Effect list =
@@ -217,13 +214,23 @@ let moveSelectionToLevelEndOp (model: VM) : VM * Effect list =
         if parentLen = 0 || range.endd >= parentLen then None
         else
             Some
-                { parent = range.parent.nodeId
+                { pnode = range.parent.nodeId
                   start = parentLen - 1
                   endd = parentLen })
 
-/// Op: Move Selected (m) — no target picker yet; no-op until implemented.
+let private searchPickMoveAfterHit (hit: NodeSearchResult) (model: VM) : VM * Effect list =
+    match Graph.makeNodeRangeForInsertingUnder hit.nodeId model.graph with
+    | None -> model, []
+    | Some too ->
+        let m, effs = moveNodeFromTo too model
+        withSiteMap m, effs
+
+/// Op: Move Selected (m) — pick target via search, then move after that node.
 let moveNodesOp (model: VM) : VM * Effect list =
-    model, []
+    match model.selectedNodes with
+    | None -> model, []
+    | Some _ ->
+        Gambol.Client.SearchDialog.openSearchDialogWithOnPick searchPickMoveAfterHit model
 
 /// Op: Ctrl+Home — move selected objects to first slot under view root; selection follows.
 let moveSelectionToViewRootStartOp (model: VM) : VM * Effect list =
@@ -235,7 +242,7 @@ let moveSelectionToViewRootStartOp (model: VM) : VM * Effect list =
             if n = 0 then None
             elif sel.range.parent.nodeId = rootEntry.nodeId && sel.range.start = 0 then None
             else
-                Some { parent = rootEntry.nodeId; start = 0; endd = 0 })
+                Some { pnode = rootEntry.nodeId; start = 0; endd = 0 })
 
 /// Op: Ctrl+End — move selected objects to last slot under view root; selection follows.
 let moveSelectionToViewRootEndOp (model: VM) : VM * Effect list =
@@ -247,7 +254,7 @@ let moveSelectionToViewRootEndOp (model: VM) : VM * Effect list =
             if n = 0 then None
             elif sel.range.parent.nodeId = rootEntry.nodeId && sel.range.endd >= n then None
             else
-                Some { parent = rootEntry.nodeId; start = n - 1; endd = n })
+                Some { pnode = rootEntry.nodeId; start = n - 1; endd = n })
 
 /// Op: Paste text into the model. preferredNodeIds from clipboard format, if present.
 let pasteNodesOp (pastedText: string) (preferredNodeIds: string option) (model: VM)

@@ -3,41 +3,53 @@ module Gambol.Client.SearchDialog
 open Gambol.Shared
 open Gambol.Shared.ViewModel
 
+let openSearchDialogWithOnPick
+    (onPick: NodeSearchResult -> VM -> VM * Effect list)
+    (model: VM)
+    : VM * Effect list =
+    { model with mode = SearchDialog ("", 0, model.mode, onPick) }, []
+
 let openSearchDialogOp (model: VM) : VM * Effect list =
-    { model with mode = SearchDialog ("", 0, model.mode) }, []
+    openSearchDialogWithOnPick
+        (fun hit m -> ViewModelSearch.selectNodeFromSearch hit.nodeId m, [])
+        model
 
 let closeSearchDialogOp (model: VM) : VM * Effect list =
     match model.mode with
-    | SearchDialog (_, _, ret) -> { model with mode = ret }, []
+    | SearchDialog (_, _, ret, _) -> { model with mode = ret }, []
     | _ -> model, []
 
 let searchSelectUpOp (model: VM) : VM * Effect list =
     match model.mode with
-    | SearchDialog (q, selectedResult, ret) ->
-        { model with mode = SearchDialog (q, max 0 (selectedResult - 1), ret) }, []
+    | SearchDialog (q, selectedIndex, ret, onPick) ->
+        { model with mode = SearchDialog (q, max 0 (selectedIndex - 1), ret, onPick) }, []
     | _ -> model, []
 
 let searchSelectDownOp (model: VM) : VM * Effect list =
     match model.mode with
-    | SearchDialog (q, selectedResult, ret) ->
-        { model with mode = SearchDialog (q, selectedResult + 1, ret) }, []
+    | SearchDialog (q, selectedIndex, ret, onPick) ->
+        let n = ViewModelSearch.searchNodes q model.graph |> List.length
+        let cap = max 0 (n - 1)
+        let next = min (selectedIndex + 1) cap
+        { model with mode = SearchDialog (q, next, ret, onPick) }, []
     | _ -> model, []
 
 let searchSetQueryOp (query: string) (model: VM) : VM * Effect list =
     match model.mode with
-    | SearchDialog (_, _, ret) -> { model with mode = SearchDialog (query, 0, ret) }, []
+    | SearchDialog (_, _, ret, onPick) ->
+        { model with mode = SearchDialog (query, 0, ret, onPick) }, []
     | _ -> model, []
 
-let currentSearchResults (model: VM) : ViewModelSearch.NodeSearchResult list =
+let currentSearchResults (model: VM) : NodeSearchResult list =
     match model.mode with
-    | SearchDialog (query, _, _) -> ViewModelSearch.searchNodes query model.graph
+    | SearchDialog (query, _, _, _) -> ViewModelSearch.searchNodes query model.graph
     | _ -> []
 
-let runSearchSelectionOp (model: VM) : VM * Effect list =
-    match model.mode with
-    | SearchDialog (_, selectedResult, ret) ->
-        match List.tryItem selectedResult (currentSearchResults model) with
-        | None -> { model with mode = ret }, []
-        | Some hit ->
-            ViewModelSearch.selectNodeFromSearch hit.nodeId model, []
+let runSearchSelectionOp (mode: Mode) (model: VM) : VM * Effect list =
+    match mode with
+    | SearchDialog (q, selectedIndex, ret, onPick) ->
+        let closed = { model with mode = ret }
+        match ViewModelSearch.trySearchResultAtDisplayIndex q model.graph selectedIndex with
+        | None -> model, []
+        | Some hit -> onPick hit closed
     | _ -> model, []

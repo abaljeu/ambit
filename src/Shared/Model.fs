@@ -45,12 +45,17 @@ type Node =
       cssClasses : CssClasses }
 
 
-// defines span of nodes in parent where start <= index in children < end
-// and start<end.
-type NodeRange = 
-    { parent : NodeId
+// Span of child indices [start, endd) under graph node `pnode` (parent NodeId).
+type NodeRange =
+    { pnode: NodeId
       start: int
       endd : int } 
+
+/// One row from node search (Ctrl+F); shared by ViewModelSearch and SearchDialog onPick.
+type NodeSearchResult =
+    { nodeId: NodeId
+      text: string
+      name: string option }
 
 type Graph =
     { root: NodeId
@@ -166,3 +171,11 @@ module Graph =
             parent.children
             |> List.tryFindIndex (fun child -> child.id = targetId)
             |> Option.map (fun index -> parentId, index))
+
+    /// Insert position as the last child of nodeId.
+    let makeNodeRangeForInsertingUnder (nodeId: NodeId) (graph: Graph) : NodeRange option =
+        match Map.tryFind nodeId graph.nodes with
+        | None -> None
+        | Some node ->
+            let childCount = List.length node.children
+            Some { pnode = nodeId; start = childCount; endd = childCount }

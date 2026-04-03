@@ -179,7 +179,7 @@ let pasteNodes (pastedText: string) (preferredNodeIds: string option) (model: VM
         if entries.IsEmpty then model, []
         else
             match model.mode with
-            | CommandPalette _ | SearchDialog _ | CssClassPrompt _ -> model, []
+            | CommandPalette _ | SearchDialog (_, _, _, _) | CssClassPrompt _ -> model, []
             | Selecting -> pasteNodesSelecting model sel entries preferredNodeIds
             | Editing (originalText, _) ->
                 pasteNodesEditing model sel entries preferredNodeIds originalText

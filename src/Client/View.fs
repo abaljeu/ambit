@@ -102,7 +102,7 @@ let private makeRowElement
         let effectiveMode =
             match model.mode with
             | CommandPalette (_, _, ret) -> ret
-            | SearchDialog (_, _, ret) -> ret
+            | SearchDialog (_, _, ret, _) -> ret
             | CssClassPrompt (ret, _) -> ret
             | m -> m
         let initialValue =
@@ -203,29 +203,34 @@ let private resolveRow
 // ---------------------------------------------------------------------------
 
 /// Focus the correct element after each dispatch.
-let manageFocus (model: VM) (rowByInstanceId: Map<SiteId, HTMLElement>) : unit =
+/// `previousModel` = model before this dispatch; None on full `render` (always apply caret).
+let manageFocus
+        (previousModel: VM option) (model: VM) (rowByInstanceId: Map<SiteId, HTMLElement>)
+        : unit =
+    let preserveEditCaret = EditingCaretPreserve.shouldPreserveDomCaret previousModel model
     match model.mode with
-    | CommandPalette _ | SearchDialog _ | CssClassPrompt _ ->
+    | CommandPalette _ | SearchDialog (_, _, _, _) | CssClassPrompt _ ->
         () // focus is handled by overlay renderers after the element becomes visible
     | Editing _ ->
         let editEl = document.getElementById "edit-input"
         if not (isNull editEl) then
             let root = editEl
             root.focus ()
-            match model.mode with
-            | Editing (_, caret) ->
-                match caret with
-                | EditCaret.EndOfText ->
-                    let t = root.textContent
-                    let n = if isNull t then 0 else t.Length
-                    setEditorCaret root n
-                | EditCaret.Utf16Index p -> setEditorCaret root p
-                | EditCaret.LastVisualLineAtClientX x ->
-                    setEditorCaretToLastLineAtX root x
-                | EditCaret.FirstVisualLineAtClientX x ->
-                    setEditorCarentToFirstLineAtX root x
-            | _ -> ()
-            scrollIntoViewNearest root
+            if not preserveEditCaret then
+                match model.mode with
+                | Editing (_, caret) ->
+                    match caret with
+                    | EditCaret.EndOfText ->
+                        let t = root.textContent
+                        let n = if isNull t then 0 else t.Length
+                        setEditorCaret root n
+                    | EditCaret.Utf16Index p -> setEditorCaret root p
+                    | EditCaret.LastVisualLineAtClientX x ->
+                        setEditorCaretToLastLineAtX root x
+                    | EditCaret.FirstVisualLineAtClientX x ->
+                        setEditorCarentToFirstLineAtX root x
+                | _ -> ()
+                scrollIntoViewNearest root
     | Selecting ->
         let hiddenInput = document.getElementById "hidden-input"
         if not (isNull hiddenInput) then
@@ -470,7 +475,7 @@ let render (vm: VM) (dispatch: Msg -> unit) : Map<SiteId, HTMLElement> =
         if isNull sentinel then app.appendChild row |> ignore
         else app.insertBefore(row, sentinel) |> ignore
 
-    manageFocus vm cache
+    manageFocus None vm cache
     renderSyncChrome vm dispatch
     cache
 
@@ -539,6 +544,6 @@ let patchDOM
 
         prevNode <- Some (row :> Browser.Types.Node)
 
-    manageFocus newModel cache'
+    manageFocus (Some oldModel) newModel cache'
     renderSyncChrome newModel dispatch
     cache'

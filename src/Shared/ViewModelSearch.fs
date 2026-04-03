@@ -6,11 +6,6 @@ module ViewModelSearch =
         { term: string
           preferName: bool }
 
-    type NodeSearchResult =
-        { nodeId: NodeId
-          text: string
-          name: string option }
-
     let parseNodeSearchQuery (query: string) : NodeSearchQuery option =
         let q = if isNull query then "" else query.Trim()
         if q = "" then None
@@ -57,6 +52,21 @@ module ViewModelSearch =
                 (r.name |> Option.defaultValue "" |> fun n -> n.ToLowerInvariant()),
                 r.nodeId.Value.ToString("N"))
             |> List.map snd
+
+    /// Same index rule as the search UI: clamp to [0 .. count-1].
+    let trySearchResultAtDisplayIndex
+        (query: string)
+        (graph: Graph)
+        (selectedIndex: int)
+        : NodeSearchResult option =
+        let results = searchNodes query graph
+        if results.IsEmpty then None
+        else
+            let i =
+                selectedIndex
+                |> min (results.Length - 1)
+                |> max 0
+            List.tryItem i results
 
     let private ownerPathFromRoot (graph: Graph) (targetNodeId: NodeId) : NodeId list option =
         let rec loop (current: NodeId) (acc: NodeId list) =

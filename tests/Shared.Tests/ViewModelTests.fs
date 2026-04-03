@@ -808,3 +808,52 @@ let ``selectNodeFromSearch resets zoom and selects node outside current zoom`` (
         result.selectedNodes
         |> Option.map (focusedNodeId result.graph)
     Assert.Equal(Some a1, selectedId)
+
+// ---------------------------------------------------------------------------
+// EditingCaretPreserve — sync-only updates must not reset contenteditable caret
+// ---------------------------------------------------------------------------
+
+[<Fact>]
+let ``EditingCaretPreserve None means apply caret from model`` () =
+    let graph, _ = buildFlat [ "hi" ]
+    let m = emptyModel graph
+    let editing =
+        { m with mode = Editing ("hi", EditCaret.Utf16Index 1) }
+    Assert.False(EditingCaretPreserve.shouldPreserveDomCaret None editing)
+
+[<Fact>]
+let ``EditingCaretPreserve false when not editing`` () =
+    let graph, _ = buildFlat [ "hi" ]
+    let prev = emptyModel graph
+    let next = { prev with syncInfo = { prev.syncInfo with isPollingActive = true } }
+    Assert.False(EditingCaretPreserve.shouldPreserveDomCaret (Some prev) next)
+
+[<Fact>]
+let ``EditingCaretPreserve true when only sync fields change`` () =
+    let graph, _ = buildFlat [ "hi" ]
+    let prev =
+        { emptyModel graph with mode = Editing ("hi", EditCaret.Utf16Index 1) }
+    let next =
+        { prev with
+            syncInfo =
+                { prev.syncInfo with
+                    isPollingActive = true
+                    syncState = Polling } }
+    Assert.True(EditingCaretPreserve.shouldPreserveDomCaret (Some prev) next)
+
+[<Fact>]
+let ``EditingCaretPreserve false when EditCaret in model changes`` () =
+    let graph, _ = buildFlat [ "hi" ]
+    let prev =
+        { emptyModel graph with mode = Editing ("hi", EditCaret.Utf16Index 1) }
+    let next = { prev with mode = Editing ("hi", EditCaret.Utf16Index 2) }
+    Assert.False(EditingCaretPreserve.shouldPreserveDomCaret (Some prev) next)
+
+[<Fact>]
+let ``EditingCaretPreserve false when graph reference changes`` () =
+    let graph, _ = buildFlat [ "hi" ]
+    let prev =
+        { emptyModel graph with mode = Editing ("hi", EditCaret.Utf16Index 1) }
+    let g2 = { graph with root = graph.root }
+    let next = { prev with graph = g2 }
+    Assert.False(EditingCaretPreserve.shouldPreserveDomCaret (Some prev) next)

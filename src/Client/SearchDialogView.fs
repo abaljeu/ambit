@@ -15,11 +15,11 @@ let private scrollIntoViewNearest (el: HTMLElement) : unit =
 let private renderSearchResults
     (container: HTMLElement)
     (items: string list)
-    (selectedResult: int)
+    (selectedIndex: int)
     : unit =
     let ul = container.querySelector ".amb-palette-results" :?> HTMLElement
     ul.innerHTML <- ""
-    let clampedSel = if items.IsEmpty then 0 else min selectedResult (items.Length - 1)
+    let clampedSel = if items.IsEmpty then 0 else min selectedIndex (items.Length - 1)
     let mutable selectedLi: Element option = None
     items
     |> List.iteri (fun i label ->
@@ -31,6 +31,23 @@ let private renderSearchResults
         ul.appendChild li |> ignore)
     selectedLi |> Option.iter (fun el -> scrollIntoViewNearest (el :?> HTMLElement))
 
+let private handleSearchKey (ke: KeyboardEvent) (dispatch: Msg -> unit) : unit =
+    let keyStr = formatKeyCombo ke
+    let named label op =
+        ke.preventDefault()
+        setLastKeyDisplay (Some keyStr) (Some label)
+        dispatch (ApplyOp op)
+    match keyStr with
+    | "Escape"    -> named "Close search"           Gambol.Client.SearchDialog.closeSearchDialogOp
+    | "ArrowUp"   -> named "Select previous result" Gambol.Client.SearchDialog.searchSelectUpOp
+    | "ArrowDown" -> named "Select next result"     Gambol.Client.SearchDialog.searchSelectDownOp
+    | "Enter"     ->
+        ke.preventDefault()
+        setLastKeyDisplay (Some keyStr) (Some "Choose node")
+        dispatch (ApplyOp (fun m ->
+            Gambol.Client.SearchDialog.runSearchSelectionOp m.mode m))
+    | _           -> setLastKeyDisplay (Some keyStr) None
+
 let private searchDialogWired = ref false
 
 /// Show or hide the node-search overlay and keep it in sync with query/results.
@@ -39,9 +56,10 @@ let renderSearchDialog (model: VM) (dispatch: Msg -> unit) : unit =
     if isNull container then () else
 
     match model.mode with
-    | SearchDialog (q, selectedResult, _) ->
+    | SearchDialog (q, selectedIndex, _, _) ->
         container.classList.add "amb-palette-open"
         let input = document.getElementById "search-dialog-input" :?> HTMLInputElement
+        if input.value <> q then input.value <- q
         window.setTimeout((fun _ -> input.focus()), 0) |> ignore
         let items =
             Gambol.Client.SearchDialog.currentSearchResults model
@@ -49,7 +67,7 @@ let renderSearchDialog (model: VM) (dispatch: Msg -> unit) : unit =
                 match hit.name with
                 | Some name -> $"${name}  {hit.text}"
                 | None -> hit.text)
-        renderSearchResults container items selectedResult
+        renderSearchResults container items selectedIndex
 
         if not searchDialogWired.Value then
             searchDialogWired.Value <- true
@@ -62,7 +80,7 @@ let renderSearchDialog (model: VM) (dispatch: Msg -> unit) : unit =
                 let ke = ev :?> KeyboardEvent
                 if (ke.ctrlKey || ke.metaKey) && ke.key = "p" && not ke.shiftKey then
                     ev.preventDefault()
-                handleSearchDialogKey ke dispatch)
+                handleSearchKey ke dispatch)
 
             ul.addEventListener("click", fun (ev: Event) ->
                 let target = ev.target :?> HTMLElement
@@ -75,9 +93,9 @@ let renderSearchDialog (model: VM) (dispatch: Msg -> unit) : unit =
                         if System.Object.ReferenceEquals(lis.[i], li) then idx <- i
                     dispatch (ApplyOp (fun m ->
                         match m.mode with
-                        | SearchDialog (q, _, ret) ->
-                            let m' = { m with mode = SearchDialog (q, idx, ret) }
-                            Gambol.Client.SearchDialog.runSearchSelectionOp m'
+                        | SearchDialog (q, _, ret, onPick) ->
+                            Gambol.Client.SearchDialog.runSearchSelectionOp
+                                (SearchDialog (q, idx, ret, onPick)) m
                         | _ -> m, [])))
     | _ ->
         container.classList.remove "amb-palette-open"

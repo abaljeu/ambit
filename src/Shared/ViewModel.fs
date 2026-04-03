@@ -14,14 +14,6 @@ module EditCaret =
     let utf16ClampedToLength (cursorUtf16: int) (textLen: int) : EditCaret =
         EditCaret.Utf16Index (min (max 0 cursorUtf16) textLen)
 
-type Mode =
-    | Selecting
-    /// `caret` placement after `#edit-input` receives focus (see `manageFocus`).
-    | Editing of originalText: string * caret: EditCaret
-    | CommandPalette of query: string * selectedCommand: int * returnTo: Mode
-    | SearchDialog of query: string * selectedResult: int * returnTo: Mode
-    | CssClassPrompt of returnTo: Mode * initialValue: string
-
 type SiteId = Sid of int
 
 /// A rendered appearance of a node in a flat site map. Each appearance gets a unique
@@ -122,8 +114,21 @@ type Effect =
     | ScheduleRetry of delayMs: int
     | SavePendingQueue of Change list
 
+/// UI mode; `SearchDialog.onPick` closes over model updates (mutually recursive with `VM`).
+type Mode =
+    | Selecting
+    /// `caret` placement after `#edit-input` receives focus (see `manageFocus`).
+    | Editing of originalText: string * caret: EditCaret
+    | CommandPalette of query: string * selectedCommand: int * returnTo: Mode
+    | SearchDialog of
+        query: string *
+        selectedIndex: int *
+        returnTo: Mode *
+        onPick: (NodeSearchResult -> VM -> VM * Effect list)
+    | CssClassPrompt of returnTo: Mode * initialValue: string
+
 // Server `State` is in `FileAgent`, and mainly the graph.
-type VM = // the client state
+and VM = // the client state
     { graph: Graph // the core data
       revision: Revision
       history: History
@@ -150,3 +155,16 @@ type Msg =
     | SysMsg of SystemMsg
     | AckSyncRisk
     | ApplyOp of (VM -> VM * Effect list)
+
+/// Client `manageFocus`: when this is true, the live DOM caret in `#edit-input` must not be
+/// overwritten from `model.mode` — e.g. contenteditable typing with only `syncInfo` changed.
+[<RequireQualifiedAccess>]
+module EditingCaretPreserve =
+    let shouldPreserveDomCaret (previousModel: VM option) (model: VM) : bool =
+        match previousModel, model.mode with
+        | Some prev, Editing _ ->
+            LanguagePrimitives.PhysicalEquality prev.mode model.mode
+            && LanguagePrimitives.PhysicalEquality prev.graph model.graph
+            && LanguagePrimitives.PhysicalEquality prev.siteMap model.siteMap
+            && LanguagePrimitives.PhysicalEquality prev.selectedNodes model.selectedNodes
+        | _ -> false

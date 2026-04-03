@@ -241,7 +241,7 @@ let private isModifierOnlyKeyPress (key: string) : bool =
 /// Format a KeyboardEvent as a normalized modifier+key string (e.g. "Ctrl+Shift+P").
 /// For single-char keys with only Shift, outputs just the final character (no "Shift+") so
 /// "]" and "Shift+[" both normalize to "]" across browsers.
-let private formatKeyCombo (ke: KeyboardEvent) : string =
+let formatKeyCombo (ke: KeyboardEvent) : string =
     if isModifierOnlyKeyPress ke.key then
         ""
     else
@@ -593,7 +593,7 @@ let rec paletteWasSelecting (returnTo: Mode) : bool =
     | Selecting -> true
     | Editing _ -> false
     | CommandPalette (_, _, inner) -> paletteWasSelecting inner
-    | SearchDialog (_, _, inner) -> paletteWasSelecting inner
+    | SearchDialog (_, _, inner, _) -> paletteWasSelecting inner
     | CssClassPrompt (inner, _) -> paletteWasSelecting inner
 
 let commandsForPalette (returnTo: Mode) : CommandEntry list =
@@ -708,22 +708,7 @@ let private cssClassPromptKeyBindings : KeyBinding list =
         handler = keyAlways submitCssClassPromptOp
         commandName = "Apply class" } ]
 
-/// Key bindings for the node search overlay.
-let private searchDialogKeyBindings : KeyBinding list =
-    [ { key = "Escape"
-        handler = keyAlways closeSearchDialogOp
-        commandName = "Close search" }
-      { key = "ArrowUp"
-        handler = keyAlways moveSelectionUp
-        commandName = "Select previous result" }
-      { key = "ArrowDown"
-        handler = keyAlways moveSelectionDown
-        commandName = "Select next result" }
-      { key = "Enter"
-        handler = keyAlways Gambol.Client.SearchDialog.runSearchSelectionOp
-        commandName = "Go to node" } ]
 
-    
 let private tryResolveFromNamed
     (table: KeyBinding list)
     (ke: KeyboardEvent)
@@ -762,7 +747,7 @@ let handleKey (mode: Mode) (ke: KeyboardEvent) (dispatch: Msg -> unit) : unit =
         let table =
             match mode with
             | CommandPalette _ -> paletteKeyBindings
-            | SearchDialog _ -> searchDialogKeyBindings
+            | SearchDialog (_, _, _, _) -> [] // keys handled by search input's own listener
             | CssClassPrompt _ -> cssClassPromptKeyBindings
             | Editing _ -> editingKeyBindings
             | Selecting -> selectionKeyBindings
@@ -788,10 +773,4 @@ let handleCssClassPromptKey (keyEvent: KeyboardEvent) (dispatch: Msg -> unit) : 
     | Error _ -> setLastKeyDisplay (Some keyStr) None
     | Ok resolved -> dispatchResolvedKey keyStr resolved keyEvent dispatch
 
-/// Search dialog input: Escape to cancel, arrows to navigate, Enter to select.
-let handleSearchDialogKey (keyEvent: KeyboardEvent) (dispatch: Msg -> unit) : unit =
-    let keyStr = formatKeyCombo keyEvent
-    match tryResolveFromNamed searchDialogKeyBindings keyEvent with
-    | Error _ -> setLastKeyDisplay (Some keyStr) None
-    | Ok resolved -> dispatchResolvedKey keyStr resolved keyEvent dispatch
 
