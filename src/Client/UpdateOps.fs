@@ -25,7 +25,8 @@ let handleEsc (model: VM) : VM * Effect list =
     match model.mode with
     | Editing _ -> commitIfEditing model
     | Selecting -> collapseToFocus model, []
-    | CommandPalette _ | CssClassPrompt _ -> model, []  // handled by closeCommandPaletteOp / closeCssClassPromptOp
+    | CommandPalette _ | SearchDialog _ | CssClassPrompt _ ->
+        model, []  // handled by close modal operations
 
 /// Op: Copy the focused subtree to the internal clipboard.
 let copySelectionOp (model: VM) : VM * Effect list =
@@ -62,6 +63,8 @@ let startEditAtPos (cursorPos: int) (model: VM) : VM * Effect list =
 /// Re-export palette ops for use by Controller and View.
 let openCommandPaletteOp = Gambol.Client.CommandPalette.openCommandPaletteOp
 let closeCommandPaletteOp = Gambol.Client.CommandPalette.closeCommandPaletteOp
+let openSearchDialogOp = Gambol.Client.SearchDialog.openSearchDialogOp
+let closeSearchDialogOp = Gambol.Client.SearchDialog.closeSearchDialogOp
 
 /// Op: Select a specific node, committing any in-progress edit first.
 let selectRow (nodeId: NodeId) (model: VM) : VM * Effect list =
@@ -100,6 +103,7 @@ let selectInstance (instanceId: SiteId) (model: VM) : VM * Effect list =
 let moveSelectionUp (model: VM) : VM * Effect list =
     match model.mode with
     | CommandPalette _ -> Gambol.Client.CommandPalette.paletteSelectUpOp model
+    | SearchDialog _ -> Gambol.Client.SearchDialog.searchSelectUpOp model
     | CssClassPrompt _ -> model, []
     | _ ->
         let result, effects =
@@ -115,6 +119,7 @@ let moveSelectionUp (model: VM) : VM * Effect list =
 let moveSelectionDown (model: VM) : VM * Effect list =
     match model.mode with
     | CommandPalette _ -> Gambol.Client.CommandPalette.paletteSelectDownOp model
+    | SearchDialog _ -> Gambol.Client.SearchDialog.searchSelectDownOp model
     | CssClassPrompt _ -> model, []
     | _ ->
         let result, effects =

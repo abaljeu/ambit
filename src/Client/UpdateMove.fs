@@ -48,6 +48,8 @@ let private tryInlineEditWrap (mode: Mode) : (string * (string -> int -> Mode)) 
             Some (orig, fun t c -> Editing (t, EditCaret.utf16ClampedToLength c t.Length))
         | CommandPalette (q, sc, ret) ->
             unwrapMode ret |> Option.map (fun (o, w) -> (o, fun t c -> CommandPalette (q, sc, w t c)))
+        | SearchDialog (q, sr, ret) ->
+            unwrapMode ret |> Option.map (fun (o, w) -> (o, fun t c -> SearchDialog (q, sr, w t c)))
         | CssClassPrompt (ret, iv) ->
             unwrapMode ret |> Option.map (fun (o, w) -> (o, fun t c -> CssClassPrompt (w t c, iv)))
         | _ -> None

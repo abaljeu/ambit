@@ -20,6 +20,7 @@ module ViewModel =
     let private shouldExpandChildren (isRoot: bool) (expanded: bool) : bool =
         isRoot || expanded
 
+
     let rec private walkReconciled
         (graph: Graph)
         (oldMap: SiteMap)
@@ -526,6 +527,7 @@ module ViewModel =
         let effectiveMode =
             match model.mode with
             | CommandPalette (_, _, ret) -> ret
+            | SearchDialog (_, _, ret) -> ret
             | CssClassPrompt (ret, _) -> ret
             | m -> m
         match effectiveMode, model.selectedNodes with

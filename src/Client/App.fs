@@ -10,6 +10,7 @@ open Gambol.Client.UpdateHelpers
 open Gambol.Client.UpdateOps
 open Gambol.Client.Controller
 open Gambol.Client.View
+open Gambol.Client.SearchDialogView
 open Gambol.Client.JsInterop
 open Gambol.Client.SessionState
 
@@ -145,6 +146,7 @@ let createRuntime (initialModel: VM) =
                 patchDOM prev newModel dispatch elementCache
         renderUndoStatus newModel
         renderCommandPalette newModel dispatch
+        renderSearchDialog newModel dispatch
         renderCssClassPrompt newModel dispatch
         runEffects effects
 

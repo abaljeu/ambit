@@ -764,3 +764,47 @@ let ``cursorViewRootLastChild selects last root child`` () =
         Assert.Equal(2, sel.range.start)
         Assert.Equal(3, sel.range.endd)
     | None -> Assert.True(false, "Expected Some")
+
+// ---------------------------------------------------------------------------
+// selectNodeFromSearch
+// ---------------------------------------------------------------------------
+
+[<Fact>]
+let ``selectNodeFromSearch reveals collapsed ancestors and selects deep node`` () =
+    let graph, ids = buildNested ()
+    let a = ids.[0]
+    let a1 = ids.[2]
+    let model = emptyModel graph
+
+    let result = ViewModelSearch.selectNodeFromSearch a1 model
+
+    let selectedId =
+        result.selectedNodes
+        |> Option.map (focusedNodeId result.graph)
+    Assert.Equal(Some a1, selectedId)
+    Assert.Equal(None, result.zoomRoot)
+
+    let aInstId =
+        result.siteMap.entries.[result.siteMap.rootId].children
+        |> List.find (fun childInst -> result.siteMap.entries.[childInst].nodeId = a)
+    Assert.True(result.siteMap.entries.[aInstId].expanded)
+
+[<Fact>]
+let ``selectNodeFromSearch resets zoom and selects node outside current zoom`` () =
+    let graph, ids = buildNested ()
+    let b = ids.[1]
+    let a1 = ids.[2]
+    let zoomSiteMap, nextId = buildSiteMapFrom graph b (Sid 0)
+    let model =
+        { (emptyModel graph) with
+            zoomRoot = Some b
+            siteMap = zoomSiteMap
+            nextSiteId = nextId }
+
+    let result = ViewModelSearch.selectNodeFromSearch a1 model
+
+    Assert.Equal(None, result.zoomRoot)
+    let selectedId =
+        result.selectedNodes
+        |> Option.map (focusedNodeId result.graph)
+    Assert.Equal(Some a1, selectedId)

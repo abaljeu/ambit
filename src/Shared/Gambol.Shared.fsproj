@@ -13,6 +13,7 @@
     <Compile Include="ViewModel.fs" />
     <Compile Include="ModelOps.fs" />
     <Compile Include="ViewModelOps.fs" />
+    <Compile Include="ViewModelSearch.fs" />
     <Compile Include="Paste.fs" />
     <Compile Include="Snapshot.fs" />
     <Compile Include="Serialization.fs" />

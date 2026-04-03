@@ -19,6 +19,7 @@ type Mode =
     /// `caret` placement after `#edit-input` receives focus (see `manageFocus`).
     | Editing of originalText: string * caret: EditCaret
     | CommandPalette of query: string * selectedCommand: int * returnTo: Mode
+    | SearchDialog of query: string * selectedResult: int * returnTo: Mode
     | CssClassPrompt of returnTo: Mode * initialValue: string
 
 type SiteId = Sid of int

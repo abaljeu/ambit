@@ -102,6 +102,7 @@ let private makeRowElement
         let effectiveMode =
             match model.mode with
             | CommandPalette (_, _, ret) -> ret
+            | SearchDialog (_, _, ret) -> ret
             | CssClassPrompt (ret, _) -> ret
             | m -> m
         let initialValue =
@@ -204,8 +205,8 @@ let private resolveRow
 /// Focus the correct element after each dispatch.
 let manageFocus (model: VM) (rowByInstanceId: Map<SiteId, HTMLElement>) : unit =
     match model.mode with
-    | CommandPalette _ | CssClassPrompt _ ->
-        () // focus is handled by renderCommandPalette / renderCssClassPrompt after the element becomes visible
+    | CommandPalette _ | SearchDialog _ | CssClassPrompt _ ->
+        () // focus is handled by overlay renderers after the element becomes visible
     | Editing _ ->
         let editEl = document.getElementById "edit-input"
         if not (isNull editEl) then
