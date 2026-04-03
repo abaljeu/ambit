@@ -125,7 +125,7 @@ let moveNodeDelta (delta: int) (model: VM) : VM * Effect list =
         let range = sel.range
         let parentId = range.parent.nodeId
         let parentLen = model.graph.nodes.[parentId].children.Length
-        let too =
+        let too: NodeRange option =
             if delta < 0 && range.start > 0 then
                 // Move to before sibling above: insert at range.start - 1 (after the range ending there)
                 let s = if range.start = 1 then 0 else range.start - 2
