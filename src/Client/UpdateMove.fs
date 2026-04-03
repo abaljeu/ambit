@@ -1,8 +1,5 @@
 module Gambol.Client.UpdateMove
 
-open Browser.Dom
-open Fable.Core
-open Gambol.Client.JsInterop
 open Gambol.Client.UpdateHelpers
 open Gambol.Shared
 open Gambol.Shared.ViewModel
@@ -44,18 +41,17 @@ let parentSiblingOpen (delta: int) (me: SiteEntry) (model: VM) : SiteEntry optio
                         None
                 | None -> None
 
-/// Inline `Editing` leaf under optional palette/CSS wrappers: undo baseline + rebuild mode with text and caret.
 let private tryInlineEditWrap (mode: Mode) : (string * (string -> int -> Mode)) option =
-    let rec go m =
+    let rec unwrapMode m =
         match m with
         | Editing (orig, _) ->
             Some (orig, fun t c -> Editing (t, EditCaret.utf16ClampedToLength c t.Length))
         | CommandPalette (q, sc, ret) ->
-            go ret |> Option.map (fun (o, w) -> (o, fun t c -> CommandPalette (q, sc, w t c)))
+            unwrapMode ret |> Option.map (fun (o, w) -> (o, fun t c -> CommandPalette (q, sc, w t c)))
         | CssClassPrompt (ret, iv) ->
-            go ret |> Option.map (fun (o, w) -> (o, fun t c -> CssClassPrompt (w t c, iv)))
+            unwrapMode ret |> Option.map (fun (o, w) -> (o, fun t c -> CssClassPrompt (w t c, iv)))
         | _ -> None
-    go mode
+    unwrapMode mode
 
 /// Move the selected nodes to after `too`. May remove from old parent and add to new
 /// (two Op.Replace ops), or reorder within the same parent.

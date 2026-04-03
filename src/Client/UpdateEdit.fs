@@ -1,8 +1,5 @@
 module Gambol.Client.UpdateEdit
 
-open Browser.Dom
-open Fable.Core
-open Gambol.Client.JsInterop
 open Gambol.Client.UpdateHelpers
 open Gambol.Shared
 open Gambol.Shared.ViewModel
