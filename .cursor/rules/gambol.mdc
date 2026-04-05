@@ -13,6 +13,8 @@ Advise me if there is a better way to do something.
 If a request is unclear, just ask.
 
 Do not websearch.  Tell me if you lack information.
+While in plan mode, any request for a change should be interpreted as a request to plan for the change; do not write detailed code then.
+
 Use Test Driven Development.  Write tests for new functionality.
 But we are not testing to the browser.  Any complex logic should be testable purely where possible.  (If it depends on ambiguous browser behavior, it isn't).
 

@@ -277,7 +277,8 @@ let toggleFoldOp (instanceId: SiteId) (model: VM) : VM * Effect list =
 /// Op: ArrowLeft in selection — fold if expanded, else move to parent.
 let arrowLeftSelectionOp (model: VM) : VM * Effect list =
     model.selectedNodes
-    |> Option.map (fun sel -> (focusedInstanceId sel, sel))
+    |> Option.bind (fun sel ->
+        focusedInstanceId sel |> Option.map (fun fid -> (fid, sel)))
     |> Option.bind (fun (fid, _) ->
         Map.tryFind fid model.siteMap.entries
         |> Option.map (fun entry -> (entry, fid)))
@@ -296,7 +297,7 @@ let arrowLeftSelectionOp (model: VM) : VM * Effect list =
 /// Op: ArrowLeft in selection — move to parent (do not fold).
 let arrowLeftSelectionNoFoldOp (model: VM) : VM * Effect list =
     model.selectedNodes
-    |> Option.map focusedInstanceId
+    |> Option.bind focusedInstanceId
     |> Option.bind (fun fid -> Map.tryFind fid model.siteMap.entries)
     |> Option.bind (fun e -> e.parentInstanceId)
     |> Option.bind (singleSelectionForInstance model.siteMap)
@@ -309,24 +310,28 @@ let arrowRightSelectionOp (model: VM) : VM * Effect list =
     match model.selectedNodes with
     | None -> model, []
     | Some sel ->
-        let focusInstId = focusedInstanceId sel
-        match Map.tryFind focusInstId model.siteMap.entries with
+        match focusedInstanceId sel with
         | None -> model, []
-        | Some entry ->
-            let node = model.graph.nodes.[entry.nodeId]
-            let hasChildren = not node.children.IsEmpty
-            if not hasChildren then model, []
-            elif not entry.expanded then
-                let siteMap, nextId =
-                    ViewModel.expandEntry focusInstId model.graph model.siteMap model.nextSiteId
-                { model with siteMap = siteMap; nextSiteId = nextId }, []
-            else
-                match entry.children with
-                | [] -> model, []
-                | firstChildInstId :: _ ->
-                    match singleSelectionForInstance model.siteMap firstChildInstId with
-                    | None -> model, []
-                    | Some childSel -> { model with selectedNodes = Some childSel }, []
+        | Some focusInstId ->
+            match Map.tryFind focusInstId model.siteMap.entries with
+            | None -> model, []
+            | Some entry ->
+                let node = model.graph.nodes.[entry.nodeId]
+                let hasChildren = not node.children.IsEmpty
+                if not hasChildren then model, []
+                elif not entry.expanded then
+                    let siteMap, nextId =
+                        ViewModel.expandEntry
+                            focusInstId model.graph model.siteMap model.nextSiteId
+                    { model with siteMap = siteMap; nextSiteId = nextId }, []
+                else
+                    match entry.children with
+                    | [] -> model, []
+                    | firstChildInstId :: _ ->
+                        match singleSelectionForInstance model.siteMap firstChildInstId with
+                        | None -> model, []
+                        | Some childSel ->
+                            { model with selectedNodes = Some childSel }, []
 
 /// Op: Toggle fold for all selected entries.
 let toggleFoldSelectionOp (model: VM) : VM * Effect list =

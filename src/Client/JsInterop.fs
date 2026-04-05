@@ -240,14 +240,15 @@ let setEditorCarentToFirstLineAtX (root: HTMLElement) (clientX: float) :
         if not (selectionApplyIfInRoot root sel r) then
             setEditorCaret root 0
 
-/// Three-way POST: onSuccess (HTTP 2xx body text), onReject (HTTP error),
-/// onNetworkFail (no response).
+/// POST JSON: onSuccess (2xx body), onHttpError (4xx/5xx status + body text),
+/// onNetworkFail (fetch failure). Error bodies are logged in App.fs SubmitChange.
 [<Emit("fetch($0,{method:'POST',headers:{'Content-Type':'application/json'},body:$1})" +
-       ".then(function(r){return r.ok?r.text().then($2):($3(),undefined)})" +
+       ".then(function(r){return r.text().then(function(t){" +
+       "if(r.ok){$2(t);}else{$3(r.status,t);}});})" +
        ".catch(function(){$4()})")>]
 let postJson
     (url: string) (body: string) (onSuccess: string -> unit)
-    (onReject: unit -> unit) (onNetworkFail: unit -> unit)
+    (onHttpError: int -> string -> unit) (onNetworkFail: unit -> unit)
     : unit = jsNative
 
 [<Emit("fetch($0).then(r => r.text()).then($1)")>]
@@ -261,6 +262,9 @@ let fetchTextNoCache (url: string) (callback: string -> unit) : unit = jsNative
        ".then($1).catch(function(){ $2(); })")>]
 let fetchTextNoCacheWithFail (url: string) (callback: string -> unit) (onFail: unit -> unit)
     : unit = jsNative
+
+[<Emit("window.open($0, '_blank', 'noopener,noreferrer')")>]
+let openUrlInNewTab (url: string) : unit = jsNative
 
 [<Emit("Date.now()")>]
 let nowMs () : int = jsNative

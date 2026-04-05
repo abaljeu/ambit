@@ -20,6 +20,7 @@
     <Compile Include="SyncPlanner.fs" />
     <Compile Include="SyncLogic.fs" />
     <Compile Include="ModelBuilder.fs" />
+    <Compile Include="OpenTarget.fs" />
   </ItemGroup>
 
   <ItemGroup>

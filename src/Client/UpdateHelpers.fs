@@ -196,7 +196,8 @@ let splitNode (currentText: string) (cursorPos: int) (model: VM) : VM * Effect l
                 ViewModel.reconcileSiteMapFrom m.graph effRoot m.siteMap m.nextSiteId
             let m2 = { m with siteMap = siteMap; nextSiteId = nextId }
             let focusInstId =
-                if clampedPos = 0 then focusedInstanceId sel
+                if clampedPos = 0 then
+                    focusedInstanceId sel |> Option.defaultValue (Sid -1)
                 else
                     match Map.tryFind sel.range.parent.instanceId m2.siteMap.entries with
                     | Some p when insertIndex < p.children.Length ->
@@ -225,7 +226,7 @@ let commitIfEditing (model: VM) : VM * Effect list =
 /// Rebuild the site map after a graph mutation, preserving fold states.
 /// Uses the effective zoom root if set (and still present in the graph); falls back to graph.root.
 /// Also refreshes selectedNodes.range.parent from the new siteMap so that
-/// focusedInstanceId reads current children (not the pre-mutation snapshot).
+/// focusedInstanceId can resolve against an up-to-date parent.children list.
 let withSiteMap (model: VM) : VM =
     let effectiveRoot =
         model.zoomRoot
@@ -261,27 +262,31 @@ let moveEditImpl (delta: int) (how: MoveEditCaret) (model: VM) : VM * Effect lis
     | None -> model, []
     | Some sel ->
         let currentId = focusedNodeId model.graph sel
-        let focusInstId = focusedInstanceId sel
         let committed, effects =
             commitTextEdit currentId
                 (match model.mode with Editing (t, _) -> t | _ -> "")
                 (readEditInputValue ()) model
         let rows = getVisibleRowInstanceIds committed.siteMap
-        match rows |> List.tryFindIndex ((=) focusInstId) with
+        match focusedInstanceId sel with
         | None -> committed, effects
-        | Some idx ->
-            let targetIdx = idx + delta
-            if targetIdx < 0 || targetIdx >= rows.Length then committed, effects
-            else
-                let targetInstId = rows.[targetIdx]
-                let targetEntry = committed.siteMap.entries.[targetInstId]
-                let targetText = committed.graph.nodes.[targetEntry.nodeId].text
-                let caret: EditCaret =
-                    match how with
-                    | MoveEditUtf16 pos ->
-                        EditCaret.utf16ClampedToLength pos targetText.Length
-                    | MoveEditPrevLastLineX x -> EditCaret.LastVisualLineAtClientX x
-                    | MoveEditNextFirstLineX x -> EditCaret.FirstVisualLineAtClientX x
-                { committed with
-                    mode = Editing (targetText, caret)
-                    selectedNodes = singleSelectionForInstance committed.siteMap targetInstId }, effects
+        | Some focusInstId ->
+            match rows |> List.tryFindIndex ((=) focusInstId) with
+            | None -> committed, effects
+            | Some idx ->
+                let targetIdx = idx + delta
+                if targetIdx < 0 || targetIdx >= rows.Length then committed, effects
+                else
+                    let targetInstId = rows.[targetIdx]
+                    let targetEntry = committed.siteMap.entries.[targetInstId]
+                    let targetText = committed.graph.nodes.[targetEntry.nodeId].text
+                    let caret: EditCaret =
+                        match how with
+                        | MoveEditUtf16 pos ->
+                            EditCaret.utf16ClampedToLength pos targetText.Length
+                        | MoveEditPrevLastLineX x -> EditCaret.LastVisualLineAtClientX x
+                        | MoveEditNextFirstLineX x -> EditCaret.FirstVisualLineAtClientX x
+                    { committed with
+                        mode = Editing (targetText, caret)
+                        selectedNodes =
+                            singleSelectionForInstance committed.siteMap targetInstId },
+                    effects

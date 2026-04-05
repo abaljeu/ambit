@@ -238,7 +238,9 @@ let manageFocus
         let focusedInstId =
             match model.selectedNodes with
             | None -> model.siteMap.rootId
-            | Some sel -> ViewModel.focusedInstanceId sel
+            | Some sel ->
+                ViewModel.focusedInstanceId sel
+                |> Option.defaultValue model.siteMap.rootId
         Map.tryFind focusedInstId rowByInstanceId
         |> Option.iter scrollIntoViewNearest
 

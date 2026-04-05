@@ -96,9 +96,15 @@ let createRuntime (initialModel: VM) =
                                 "[Gambol sync] POST 200 bad ACK JSON req=" + reqId
                                 + " err=" + err + " bodyLen=" + string n)
                             dispatch (SysMsg SubmitRejected))
-                    (fun () ->
+                    (fun httpStatus bodyText ->
                         clearTimeout timeoutId
-                        consoleLog ("[Gambol sync] POST HTTP not ok req=" + reqId)
+                        let cap = 400
+                        let snippet =
+                            if bodyText.Length <= cap then bodyText
+                            else bodyText.Substring(0, cap) + "..."
+                        consoleLog (
+                            "[Gambol sync] GAMBOL_HTTP_ERR POST fail req=" + reqId
+                            + " http=" + string httpStatus + " body=" + snippet)
                         dispatch (SysMsg SubmitRejected))
                     (fun () ->
                         clearTimeout timeoutId
@@ -138,17 +144,24 @@ let createRuntime (initialModel: VM) =
                 update msg prev
 
         model <- newModel
-        elementCache <-
-            match msg with
-            | SysMsg (StateLoaded _) ->
-                render newModel dispatch
-            | _ ->
-                patchDOM prev newModel dispatch elementCache
-        renderUndoStatus newModel
-        renderCommandPalette newModel dispatch
-        renderSearchDialog newModel dispatch
-        renderCssClassPrompt newModel dispatch
-        runEffects effects
+        try
+            try
+                elementCache <-
+                    match msg with
+                    | SysMsg (StateLoaded _) ->
+                        render newModel dispatch
+                    | _ ->
+                        patchDOM prev newModel dispatch elementCache
+                renderUndoStatus newModel
+                renderCommandPalette newModel dispatch
+                renderSearchDialog newModel dispatch
+                renderCssClassPrompt newModel dispatch
+            with ex ->
+                consoleLog (
+                    "[Gambol dispatch] view/render exception: " + ex.Message)
+        finally
+            renderSyncChrome newModel dispatch
+            runEffects effects
 
     let pollForRemoteChanges () =
         let now = nowMs ()

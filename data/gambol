@@ -146,6 +146,7 @@ Third itemuu
 			
 			ambit
 			----
+		-> #n5
 #n5 extra requirements
 	Logical Reasoning Requirement
 	Structured Proof Formatting Requirement
@@ -168,6 +169,5 @@ Third itemuu
 	Each major step in the proof must include a short justification explaining why the step is valid (e.g., why a constructed preference structure forces triangle formation).
 -> #n4
 
--> #n5
 The roof must clearly separate the two parts of the coNP-completeness argument:u The roof must clearly separate the two parts of the coNP-completeness argument:u. 
 fist

@@ -106,10 +106,17 @@ let moveNodeFromTo (too: NodeRange) (model: VM) : VM * Effect list =
                         m.siteMap.entries
                         |> Map.tryPick (fun _ e -> if e.nodeId = too.pnode then Some e else None)
                         |> Option.defaultValue from.parent
-                let newRange: SiteNodeRange = { parent = newParent; start = insertIdx; endd = insertIdx + count }
                 let focusOffset = sel.focus - from.start
-                let newFocus = insertIdx + (min (max 0 focusOffset) (count - 1))
-                let newSel = { range = newRange; focus = newFocus }
+                let newSel =
+                    ViewModel.selectionAfterStructuralMove
+                        model.graph
+                        m.graph
+                        m.siteMap
+                        from
+                        newParent
+                        insertIdx
+                        count
+                        focusOffset
                 let m' = { m with selectedNodes = Some newSel }
                 match wrap with
                 | Some (_, rebuild) ->

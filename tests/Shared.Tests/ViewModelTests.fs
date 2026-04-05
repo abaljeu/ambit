@@ -76,6 +76,82 @@ let ``singleSelection returns None for root node`` () =
     let result = singleSelection graph siteMap graph.root
     Assert.True(result.IsNone)
 
+[<Fact>]
+let ``selectionAfterStructuralMove expanded parent spans moved nodes`` () =
+    let graph, _ = buildFlat [ "a"; "b"; "c" ]
+    let m0 = emptyModel graph
+    let rootEntry = m0.siteMap.entries.[m0.siteMap.rootId]
+    let expandedRoot = { rootEntry with expanded = true }
+    let fromParent = m0.siteMap.entries.[m0.siteMap.rootId]
+    let sel =
+        selectionAfterStructuralMove graph graph m0.siteMap
+            { parent = fromParent; start = 0; endd = 2 }
+            expandedRoot
+            1
+            2
+            1
+
+    Assert.Equal(1, sel.range.start)
+    Assert.Equal(3, sel.range.endd)
+    Assert.Equal(2, sel.focus)
+
+[<Fact>]
+let ``selectionAfterStructuralMove collapsed parent picks original sibling above`` () =
+    let graphPre, ids = buildFlat [ "a"; "b"; "c" ]
+    let a = ids.[0]
+    let b = ids.[1]
+    let root = graphPre.root
+    let bChild = graphPre.nodes.[root].children.[1]
+    let gMid =
+        Graph.replace root 1 [ bChild ] [] graphPre |> ModelBuilder.requireOk "rm b"
+    let gPost =
+        Graph.replace a 0 [] [ bChild ] gMid |> ModelBuilder.requireOk "add b under a"
+    let siteMap, _ = buildSiteMap gPost
+    let mPre = emptyModel graphPre
+    let rootPre = mPre.siteMap.entries.[mPre.siteMap.rootId]
+
+    let newParent =
+        siteMap.entries
+        |> Map.pick (fun _ e -> if e.nodeId = a then Some e else None)
+
+    let sel =
+        selectionAfterStructuralMove graphPre gPost siteMap
+            { parent = rootPre; start = 1; endd = 2 }
+            newParent
+            0
+            1
+            0
+
+    Assert.Equal(a, focusedNodeId gPost sel)
+
+[<Fact>]
+let ``selectionAfterStructuralMove collapsed parent picks original sibling below at range start`` () =
+    let graphPre, ids = buildFlat [ "a"; "b"; "c" ]
+    let a = ids.[0]
+    let b = ids.[1]
+    let root = graphPre.root
+    let aChild = graphPre.nodes.[root].children.[0]
+    let gMid =
+        Graph.replace root 0 [ aChild ] [] graphPre |> ModelBuilder.requireOk "rm a"
+    let gPost =
+        Graph.replace b 0 [] [ aChild ] gMid |> ModelBuilder.requireOk "add a under b"
+    let siteMap, _ = buildSiteMap gPost
+    let mPre = emptyModel graphPre
+    let rootPre = mPre.siteMap.entries.[mPre.siteMap.rootId]
+
+    let newParent =
+        siteMap.entries |> Map.pick (fun _ e -> if e.nodeId = b then Some e else None)
+
+    let sel =
+        selectionAfterStructuralMove graphPre gPost siteMap
+            { parent = rootPre; start = 0; endd = 1 }
+            newParent
+            0
+            1
+            0
+
+    Assert.Equal(b, focusedNodeId gPost sel)
+
 // ---------------------------------------------------------------------------
 // shiftArrow — single node always extends
 // ---------------------------------------------------------------------------

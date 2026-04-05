@@ -354,6 +354,37 @@ let private handleArrowRight () : Op option =
         Some (moveEditDown 0)
     else None
 
+/// Flatten stored node HTML when needed so URL scan sees visible text.
+let private plainTextForOpenTarget (raw: string) : string =
+    if raw.IndexOf '<' >= 0 then stripHtmlToText raw else raw
+
+let private firstChildPlainOpt (graph: Graph) (focusId: NodeId) : string option =
+    Map.tryFind focusId graph.nodes
+    |> Option.bind (fun node ->
+        List.tryHead node.children
+        |> Option.bind (fun ch -> Map.tryFind ch.id graph.nodes)
+        |> Option.map (fun n -> plainTextForOpenTarget n.text))
+
+let jumpTargetOp (model: VM) : VM * Effect list =
+    let focusId =
+        match model.selectedNodes with
+        | None -> viewRootNodeId model
+        | Some sel -> focusedNodeId model.graph sel
+
+    let primaryRaw =
+        match model.mode with
+        | Editing _ -> readEditInputValue ()
+        | _ -> model.graph.nodes.[focusId].text
+
+    let primaryPlain = plainTextForOpenTarget primaryRaw
+    let childPlain = firstChildPlainOpt model.graph focusId
+
+    match OpenTarget.tryFindOpenableUriWithFirstChildFallback primaryPlain childPlain with
+    | None -> model, []
+    | Some url ->
+        openUrlInNewTab url
+        model, []
+
 // ---------------------------------------------------------------------------
 // Command registry and palette ops
 // ---------------------------------------------------------------------------
@@ -585,7 +616,11 @@ let commandRegistry : CommandEntry list =
       { name = "Toggle class"
         run = keyAlways openCssClassPromptOp
         keys = [ "Alt+C"; "." ]
-        keyScope = SelectionOrEditing } ]
+        keyScope = SelectionOrEditing }
+      { name = "Jump to Target"
+        run = keyAlways jumpTargetOp
+        keys = ["Alt+j" ; "j" ]
+        keyScope = SelectionOrEditing} ]
 
 /// True if palette was opened from selection (unwrap nested CommandPalette/CssClassPrompt to the real return target).
 let rec paletteWasSelecting (returnTo: Mode) : bool =

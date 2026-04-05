@@ -299,6 +299,43 @@ module ViewModel =
                     | None -> None
                     | Some idx -> Some { range = { parent = parentEntry; start = idx; endd = idx + 1 }; focus = idx }
 
+    let private tryOriginalAdjacentNodeId (preGraph: Graph) (fromRange: SiteNodeRange) : NodeId option =
+        let pid = fromRange.parent.nodeId
+        let kids = preGraph.nodes.[pid].children
+        if fromRange.start > 0 then Some kids.[fromRange.start - 1].id
+        elif fromRange.endd < kids.Length then Some kids.[fromRange.endd].id
+        else None
+
+    /// Selection after a structural move. When `newParent.expanded`, span the moved block and
+    /// clamp `focusOffset` into it. When the target is collapsed, focus the graph sibling that
+    /// bordered the range before the move (prefer the node above), else the original parent.
+    let selectionAfterStructuralMove
+            (preGraph: Graph)
+            (postGraph: Graph)
+            (postSiteMap: SiteMap)
+            (fromRange: SiteNodeRange)
+            (newParent: SiteEntry)
+            (insertIdx: int)
+            (count: int)
+            (focusOffset: int)
+            : Selection =
+        let movedBlock () =
+            let lo = min (max 0 focusOffset) (max 0 (count - 1))
+            { range =
+                  { parent = newParent
+                    start = insertIdx
+                    endd = insertIdx + count }
+              focus = insertIdx + lo }
+
+        if newParent.expanded then movedBlock ()
+        else
+            let parentSel () =
+                singleSelection postGraph postSiteMap fromRange.parent.nodeId
+            tryOriginalAdjacentNodeId preGraph fromRange
+            |> Option.bind (fun nid -> singleSelection postGraph postSiteMap nid)
+            |> Option.orElseWith parentSel
+            |> Option.defaultWith movedBlock
+
     /// Extract the first (start) selected NodeId from a Selection.
     let firstSelectedNodeId (graph: Graph) (sel: Selection) : NodeId =
         graph.nodes.[sel.range.parent.nodeId].children.[sel.range.start].id
@@ -307,10 +344,9 @@ module ViewModel =
     let focusedNodeId (graph: Graph) (sel: Selection) : NodeId =
         graph.nodes.[sel.range.parent.nodeId].children.[sel.focus].id
 
-    /// Extract the focused instanceId from a Selection. Since SiteEntry.children is an instanceId list,
-    /// this gives the exact view-line of the focused node rather than its graph identity.
-    let focusedInstanceId (sel: Selection) : SiteId =
-        sel.range.parent.children.[sel.focus]
+    /// Focused instance under `sel.range.parent` at `sel.focus`, if in range of that snapshot list.
+    let focusedInstanceId (sel: Selection) : SiteId option =
+        List.tryItem sel.focus sel.range.parent.children
 
     /// Shift-Arrow: move the focused end of the range by delta (-1 = up, +1 = down).
     /// For a single-node selection, always extends. For multi-node, the focused end moves.
@@ -348,10 +384,12 @@ module ViewModel =
         match model.selectedNodes with
         | None -> model
         | Some sel ->
-            let instId = focusedInstanceId sel
-            match singleSelectionForInstance model.siteMap instId with
+            match focusedInstanceId sel with
             | None -> model
-            | Some newSel -> { model with selectedNodes = Some newSel }
+            | Some instId ->
+                match singleSelectionForInstance model.siteMap instId with
+                | None -> model
+                | Some newSel -> { model with selectedNodes = Some newSel }
 
     /// Move current selection by delta (-1 for up, +1 for down) in visible row order.
     /// Collapses any multi-node selection to the focus node, then moves from there.
@@ -361,21 +399,24 @@ module ViewModel =
         match model.selectedNodes with
         | None -> model
         | Some sel ->
-            let instId = focusedInstanceId sel
-            let rows = getVisibleRowInstanceIds model.siteMap
-            match rows |> List.tryFindIndex ((=) instId) with
+            match focusedInstanceId sel with
             | None -> model
-            | Some currentIndex ->
-                let nextIndex = currentIndex + delta
-                if nextIndex < 0 then
-                    { model with selectedNodes = None; mode = Selecting }
-                elif nextIndex >= rows.Length then
-                    model
-                else
-                    let nextInstId = rows[nextIndex]
-                    match singleSelectionForInstance model.siteMap nextInstId with
-                    | None -> model
-                    | Some newSel -> { model with selectedNodes = Some newSel; mode = Selecting }
+            | Some instId ->
+                let rows = getVisibleRowInstanceIds model.siteMap
+                match rows |> List.tryFindIndex ((=) instId) with
+                | None -> model
+                | Some currentIndex ->
+                    let nextIndex = currentIndex + delta
+                    if nextIndex < 0 then
+                        { model with selectedNodes = None; mode = Selecting }
+                    elif nextIndex >= rows.Length then
+                        model
+                    else
+                        let nextInstId = rows[nextIndex]
+                        match singleSelectionForInstance model.siteMap nextInstId with
+                        | None -> model
+                        | Some newSel ->
+                            { model with selectedNodes = Some newSel; mode = Selecting }
 
     let private applyMoveSelection (delta: int) (model: VM) : VM =
         match model.selectedNodes with
