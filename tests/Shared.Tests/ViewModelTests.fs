@@ -531,7 +531,7 @@ let ``SiteNav parent twice matches explicit siteParent chain`` () =
     let aInstId = siteMap.entries.[siteMap.rootId].children.[0]
     let sm2, _ = expandEntry aInstId graph siteMap nextId
     let a1InstId = sm2.entries.[aInstId].children.[0]
-    let via = SiteNav.at sm2 (Some a1InstId) |> (SiteNav.parent >> SiteNav.parent) |> SiteNav.current
+    let via = Site.at sm2 (Some a1InstId) |> (Site.parent >> Site.parent) |> Site.current
     let viaExplicit = SiteMap.siteParent sm2 (SiteMap.siteParent sm2 (Some a1InstId))
     Assert.Equal(viaExplicit, via)
 
@@ -542,8 +542,8 @@ let ``SiteNav prevCousin from first root branch grandchild is None`` () =
     let aInst = siteMap.entries.[siteMap.rootId].children.[0]
     let sm2, _ = expandEntry aInst graph siteMap nextId
     let a1Inst = sm2.entries.[aInst].children.[0]
-    let prevCousin = SiteNav.parent >> SiteNav.prev >> SiteNav.lastChild
-    let result = SiteNav.at sm2 (Some a1Inst) |> prevCousin |> SiteNav.current
+    let prevCousin = Site.parent >> Site.prev >> Site.lastChild
+    let result = Site.at sm2 (Some a1Inst) |> prevCousin |> Site.current
     Assert.True(result |> Option.isNone)
 
 [<Fact>]
@@ -557,8 +557,8 @@ let ``SiteNav prevCousin from second root branch child is last grandchild of fir
     let sm3, _ = expandEntry bInst graph sm2 nextId2
     let b1Inst = sm3.entries.[bInst].children.[0]
     let a2Inst = sm3.entries.[aInst].children.[1]
-    let prevCousin = SiteNav.parent >> SiteNav.prev >> SiteNav.lastChild
-    let result = SiteNav.at sm3 (Some b1Inst) |> prevCousin |> SiteNav.current
+    let prevCousin = Site.parent >> Site.prev >> Site.lastChild
+    let result = Site.at sm3 (Some b1Inst) |> prevCousin |> Site.current
     Assert.Equal(Some a2Inst, result)
 
 [<Fact>]

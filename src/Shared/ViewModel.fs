@@ -74,7 +74,7 @@ module SiteMap =
 type SiteNav = SiteNav of SiteMap * SiteId option
 
 [<RequireQualifiedAccess>]
-module SiteNav =
+module Site =
     let at (siteMap: SiteMap) (id: SiteId option) : SiteNav = SiteNav(siteMap, id)
     let current (SiteNav(_, id)) : SiteId option = id
 
@@ -85,6 +85,7 @@ module SiteNav =
     let lastChild  = step SiteMap.siteLastChild
     let next       = step SiteMap.siteNext
     let prev       = step SiteMap.sitePrev
+    let prevCousin = parent >> prev >> lastChild
 
 /// A contiguous span of children under a specific site-map occurrence of a parent node.
 /// parent is a SiteEntry (not just a NodeId) so the selection is unambiguous in a DAG

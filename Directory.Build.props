@@ -3,6 +3,6 @@
     <!-- Fable's project cracker can fail when EOL TFM warnings are emitted -->
     <CheckEolTargetFramework>false</CheckEolTargetFramework>
     <!-- Treat incomplete pattern match (FS0025) as error -->
-    <OtherFlags>$(OtherFlags) --warnaserror+:25</OtherFlags>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
 </Project>

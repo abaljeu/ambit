@@ -66,7 +66,7 @@ module OpenTarget =
     let private normalizeCandidate (trimmed: string) : string =
         let t = trimmed.Trim()
         if t.StartsWith("mailto:", StringComparison.OrdinalIgnoreCase) then t
-        elif t.Contains("://", StringComparison.Ordinal) then t
+        elif t.Contains("://") then t
         else "https://" + t
 
     let private acceptOpenable (candidate: string) : string option =

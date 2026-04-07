@@ -41,89 +41,139 @@ let parentSiblingOpen (delta: int) (me: SiteEntry) (model: VM) : SiteEntry optio
                         None
                 | None -> None
 
-let private tryInlineEditWrap (mode: Mode) : (string * (string -> int -> Mode)) option =
+type private InlineEditContext =
+    { originalText: string
+      rebuildMode: string -> int -> Mode }
+
+let private mapRebuild
+    (rewrap: (string -> int -> Mode) -> string -> int -> Mode)
+    (ctx: InlineEditContext)
+    : InlineEditContext =
+    { ctx with rebuildMode = rewrap ctx.rebuildMode }
+
+let private trySaveContext (mode: Mode) : InlineEditContext option =
     let rec unwrapMode m =
         match m with
         | Editing (orig, _) ->
-            Some (orig, fun t c -> Editing (t, EditCaret.utf16ClampedToLength c t.Length))
+            Some
+                { originalText = orig
+                  rebuildMode = fun t c -> Editing (t, EditCaret.utf16ClampedToLength c t.Length) }
         | CommandPalette (q, sc, ret) ->
-            unwrapMode ret |> Option.map (fun (o, w) -> (o, fun t c -> CommandPalette (q, sc, w t c)))
+            unwrapMode ret
+            |> Option.map (mapRebuild (fun rebuild t c -> CommandPalette (q, sc, rebuild t c)))
         | SearchDialog (q, sr, ret, onPick) ->
             unwrapMode ret
-            |> Option.map (fun (o, w) -> (o, fun t c -> SearchDialog (q, sr, w t c, onPick)))
+            |> Option.map (mapRebuild (fun rebuild t c -> SearchDialog (q, sr, rebuild t c, onPick)))
         | CssClassPrompt (ret, iv) ->
-            unwrapMode ret |> Option.map (fun (o, w) -> (o, fun t c -> CssClassPrompt (w t c, iv)))
-        | _ -> None
+            unwrapMode ret
+            |> Option.map (mapRebuild (fun rebuild t c -> CssClassPrompt (rebuild t c, iv)))
+        | Selecting ->
+            None
     unwrapMode mode
+
+
+let private tryApplyOps (ops: Op list) (model: VM) : (VM * Effect list) option =
+    let change =
+        { id = model.revision.Value
+          changeId = System.Guid.NewGuid()
+          ops = ops }
+    match applyAndPost change model with
+    | Some m, effects -> Some (m, effects)
+    | None, _ -> None
+
+let private tryBuildMoveInputs
+    (too: NodeRange)
+    (model: VM)
+    =
+    match model.selectedNodes with
+    | None -> None
+    | Some sel ->
+        let from = sel.range
+        let selectedChildren = rangeChildren model.graph from
+        if selectedChildren.IsEmpty then
+            None
+        else
+            let count = selectedChildren.Length
+            let sameParent = from.parent.nodeId = too.pnode
+            let insertIdx =
+                if sameParent && too.endd > from.start then too.endd - count else too.endd
+            Some (sel, from, selectedChildren, count, sameParent, insertIdx)
+
+let private replaceOpsForMove
+    (too: NodeRange)
+    (from: SiteNodeRange)
+    (selectedChildren: ChildNode list)
+    (sameParent: bool)
+    (insertIdx: int)
+    : Op list =
+    if sameParent then
+        [ Op.Replace(from.parent.nodeId, from.start, selectedChildren, [])
+          Op.Replace(from.parent.nodeId, insertIdx, [], selectedChildren) ]
+    else
+        [ Op.Replace(from.parent.nodeId, from.start, selectedChildren, [])
+          Op.Replace(too.pnode, too.endd, [], selectedChildren) ]
+
+let private resolveNewParent
+    (too: NodeRange)
+    (from: SiteNodeRange)
+    (sameParent: bool)
+    (movedModel: VM)
+    : SiteEntry =
+    if sameParent then
+        from.parent
+    else
+        movedModel.siteMap.entries
+        |> Map.tryPick (fun _ e -> if e.nodeId = too.pnode then Some e else None)
+        |> Option.defaultValue from.parent
+
+let private restoreInlineMode
+    (oldMode: InlineEditContext option)
+    (caret: int)
+    (newSel: Selection)
+    (model: VM)
+    : VM =
+    match oldMode with
+    | None -> model
+    | Some ctx ->
+        let text = model.graph.nodes.[focusedNodeId model.graph newSel].text
+        let clampedCaret = min (max 0 caret) text.Length
+        { model with mode = ctx.rebuildMode text clampedCaret }
 
 /// Move the selected nodes to after `too`. May remove from old parent and add to new
 /// (two Op.Replace ops), or reorder within the same parent.
 /// Inline edit: `tryTextCommitOps` + move in one change; stay in edit mode with clamped caret.
 let moveNodeFromTo (too: NodeRange) (model: VM) : VM * Effect list =
-    match model.selectedNodes with
-    | None -> model, []
-    | Some sel ->
-        let from = sel.range
-        let selectedChildren = rangeChildren model.graph from
-        if selectedChildren.IsEmpty then model, []
-        else
-            let wrap = tryInlineEditWrap model.mode
-            let live = readEditInputValue ()
-            let caret = readEditInputCursor ()
+    let oldMode = trySaveContext model.mode
+    let live = readEditInputValue ()
+    let caret = readEditInputCursor ()
+    let textOps =
+        match model.selectedNodes, oldMode with
+        | Some sel, Some ctx ->
             let editingId = focusedNodeId model.graph sel
-            let textOps =
-                match wrap with
-                | Some (orig, _) -> tryTextCommitOps editingId orig live model.graph
-                | None -> []
-            let count = selectedChildren.Length
-            let sameParent = from.parent.nodeId = too.pnode
-            let replaceOps =
-                if sameParent then
-                    // Reordering within same parent: remove then insert.
-                    // Insert index after removal: if too.endd > from.endd, shift left by count.
-                    let insertIdx =
-                        if too.endd <= from.start then too.endd
-                        else too.endd - count
-                    [ Op.Replace(from.parent.nodeId, from.start, selectedChildren, [])
-                      Op.Replace(from.parent.nodeId, insertIdx, [], selectedChildren) ]
-                else
-                    [ Op.Replace(from.parent.nodeId, from.start, selectedChildren, [])
-                      Op.Replace(too.pnode, too.endd, [], selectedChildren) ]
-            let ops = textOps @ replaceOps
-            let change =
-                { id = model.revision.Value
-                  changeId = System.Guid.NewGuid()
-                  ops = ops }
-            match applyAndPost change model with
-            | Some m, effects ->
-                let insertIdx =
-                    if sameParent then (if too.endd <= from.start then too.endd else too.endd - count)
-                    else too.endd
-                let newParent =
-                    if sameParent then
-                        from.parent
-                    else
-                        m.siteMap.entries
-                        |> Map.tryPick (fun _ e -> if e.nodeId = too.pnode then Some e else None)
-                        |> Option.defaultValue from.parent
-                let focusOffset = sel.focus - from.start
-                let newSel =
-                    ViewModel.selectionAfterStructuralMove
-                        model.graph
-                        m.graph
-                        m.siteMap
-                        from
-                        newParent
-                        insertIdx
-                        count
-                        focusOffset
-                let m' = { m with selectedNodes = Some newSel }
-                match wrap with
-                | Some (_, rebuild) ->
-                    let t = m.graph.nodes.[focusedNodeId m.graph newSel].text
-                    { m' with mode = rebuild t (min (max 0 caret) t.Length) }, effects
-                | None -> m', effects
-            | None, _ -> model, []
+            tryTextCommitOps editingId ctx.originalText live model.graph
+        | _ -> []
+    match tryBuildMoveInputs too model with
+    | None -> model, []
+    | Some (sel, from, selectedChildren, count, sameParent, insertIdx) ->
+        let replaceOps = replaceOpsForMove too from selectedChildren sameParent insertIdx
+        let ops = textOps @ replaceOps
+        match tryApplyOps ops model with
+        | None -> model, []
+        | Some (movedModel, effects) ->
+            let newParent = resolveNewParent too from sameParent movedModel
+            let focusOffset = sel.focus - from.start
+            let newSel =
+                ViewModel.selectionAfterStructuralMove
+                    model.graph
+                    movedModel.graph
+                    movedModel.siteMap
+                    from
+                    newParent
+                    insertIdx
+                    count
+                    focusOffset
+            let movedModel = { movedModel with selectedNodes = Some newSel }
+            restoreInlineMode oldMode caret newSel movedModel, effects
 
 /// Alt+Up/Down: swap the selected range with the adjacent sibling. Delegates to moveNodeFromTo.
 let moveNodeDelta (delta: int) (model: VM) : VM * Effect list =
