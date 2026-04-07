@@ -19,7 +19,7 @@ open Gambol.Client.SessionState
 // ---------------------------------------------------------------------------
 
 // Idle/pause remote polling after a period of no user interaction (battery-friendly).
-let idleTimeoutMs = 5 * 60 * 1000
+let idleTimeoutMs = 15 * 60 * 1000
 
 let createRuntime (initialModel: VM) =
     let mutable model = initialModel

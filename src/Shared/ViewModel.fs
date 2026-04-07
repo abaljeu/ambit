@@ -34,6 +34,58 @@ type SiteMap =
     { rootId: SiteId
       entries: Map<SiteId, SiteEntry> }
 
+[<RequireQualifiedAccess>]
+module SiteMap =
+    let private withEntry (siteMap: SiteMap) (id: SiteId option) (f: SiteEntry -> 'a option) : 'a option =
+        id |> Option.bind (fun sid -> Map.tryFind sid siteMap.entries |> Option.bind f)
+
+    /// One step up the instance parent chain (`parentInstanceId`). Prefer `nav siteMap` and
+    /// `.parent` when composing; `None` in → `None` out.
+    let siteParent (siteMap: SiteMap) (id: SiteId option) : SiteId option =
+        withEntry siteMap id (fun e -> e.parentInstanceId)
+
+    /// First child instance under this occurrence (`children` head). Composes like `siteParent`.
+    let siteFirstChild (siteMap: SiteMap) (id: SiteId option) : SiteId option =
+        withEntry siteMap id (fun e -> List.tryHead e.children)
+
+    /// Last child instance under this occurrence. None if `children` is empty.
+    let siteLastChild (siteMap: SiteMap) (id: SiteId option) : SiteId option =
+        withEntry siteMap id (fun e -> List.tryItem (e.children.Length - 1) e.children)
+
+    let private siteSiblingOffset (delta: int) (siteMap: SiteMap) (id: SiteId option) : SiteId option =
+        withEntry siteMap id (fun e ->
+            e.parentInstanceId
+            |> Option.bind (fun pid ->
+                Map.tryFind pid siteMap.entries
+                |> Option.bind (fun parent ->
+                    List.tryFindIndex ((=) e.instanceId) parent.children
+                    |> Option.bind (fun i -> List.tryItem (i + delta) parent.children))))
+
+    /// Next sibling under the same parent (`children` order). Root has no siblings.
+    let siteNext = siteSiblingOffset 1
+
+    /// Previous sibling under the same parent. Root has no siblings.
+    let sitePrev = siteSiblingOffset -1
+
+/// Carries a fixed SiteMap and a current position. Every step is `SiteNav -> SiteNav`,
+/// so paths compose freely with `>>` without repeating `siteMap`.
+///   let prevCousin = SiteNav.parent >> SiteNav.prev >> SiteNav.lastChild
+///   SiteNav.at siteMap (Some id) |> prevCousin |> SiteNav.current
+type SiteNav = SiteNav of SiteMap * SiteId option
+
+[<RequireQualifiedAccess>]
+module SiteNav =
+    let at (siteMap: SiteMap) (id: SiteId option) : SiteNav = SiteNav(siteMap, id)
+    let current (SiteNav(_, id)) : SiteId option = id
+
+    let private step f (SiteNav(sm, id)) = SiteNav(sm, f sm id)
+
+    let parent     = step SiteMap.siteParent
+    let firstChild = step SiteMap.siteFirstChild
+    let lastChild  = step SiteMap.siteLastChild
+    let next       = step SiteMap.siteNext
+    let prev       = step SiteMap.sitePrev
+
 /// A contiguous span of children under a specific site-map occurrence of a parent node.
 /// parent is a SiteEntry (not just a NodeId) so the selection is unambiguous in a DAG
 /// where the same NodeId may appear at multiple positions.

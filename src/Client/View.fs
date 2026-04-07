@@ -368,7 +368,7 @@ let renderStatus (model: VM) : unit =
             el.className <- "amb-sync-status amb-syncing"
         | Polling ->
             el.textContent <- "Checking\u2026"
-            el.className <- "amb-sync-status amb-syncing"
+            el.className <- "amb-sync-status amb-synced"
         | WaitingToRetry n ->
             el.textContent <- $"Unsaved \u2014 click to retry (\u00d7{n})"
             el.className <- "amb-sync-status amb-pending"

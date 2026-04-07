@@ -369,6 +369,198 @@ let buildNested () : Graph * NodeId list =
 
     graph4, ids
 
+// ---------------------------------------------------------------------------
+// SiteMap.siteParent
+// ---------------------------------------------------------------------------
+
+[<Fact>]
+let ``siteParent None returns None`` () =
+    let graph, _ = buildFlat [ "a" ]
+    let siteMap, _ = buildSiteMap graph
+    Assert.True(SiteMap.siteParent siteMap None |> Option.isNone)
+
+[<Fact>]
+let ``siteParent at root returns None`` () =
+    let graph, _ = buildFlat [ "a" ]
+    let siteMap, _ = buildSiteMap graph
+    let rootId = siteMap.rootId
+    Assert.True(SiteMap.siteParent siteMap (Some rootId) |> Option.isNone)
+
+[<Fact>]
+let ``siteParent of child is Some root instanceId`` () =
+    let graph, _ = buildFlat [ "a"; "b" ]
+    let siteMap, _ = buildSiteMap graph
+    let rootEntry = siteMap.entries.[siteMap.rootId]
+    let childInst = rootEntry.children.[0]
+    let parentOpt = SiteMap.siteParent siteMap (Some childInst)
+    Assert.Equal(Some siteMap.rootId, parentOpt)
+
+[<Fact>]
+let ``siteParent composed twice matches two explicit steps`` () =
+    let graph, _ = buildNested ()
+    let siteMap, nextId = buildSiteMap graph
+    let aInstId = siteMap.entries.[siteMap.rootId].children.[0]
+    let sm2, nextId2 = expandEntry aInstId graph siteMap nextId
+    let a1InstId = sm2.entries.[aInstId].children.[0]
+    let p = SiteMap.siteParent sm2
+    let viaCompose = (p >> p) (Some a1InstId)
+    let viaExplicit = SiteMap.siteParent sm2 (SiteMap.siteParent sm2 (Some a1InstId))
+    Assert.Equal(viaExplicit, viaCompose)
+
+[<Fact>]
+let ``siteParent composed twice from None stays None`` () =
+    let graph, _ = buildNested ()
+    let siteMap, nextId = buildSiteMap graph
+    let aInstId = siteMap.entries.[siteMap.rootId].children.[0]
+    let sm2, _ = expandEntry aInstId graph siteMap nextId
+    let p = SiteMap.siteParent sm2
+    Assert.True((p >> p) None |> Option.isNone)
+
+// ---------------------------------------------------------------------------
+// SiteMap.siteFirstChild / siteLastChild / siteNext / sitePrev
+// ---------------------------------------------------------------------------
+
+[<Fact>]
+let ``siteFirstChild None returns None`` () =
+    let graph, _ = buildFlat [ "a" ]
+    let siteMap, _ = buildSiteMap graph
+    Assert.True(SiteMap.siteFirstChild siteMap None |> Option.isNone)
+
+[<Fact>]
+let ``siteFirstChild on root returns first child instance`` () =
+    let graph, _ = buildFlat [ "a"; "b"; "c" ]
+    let siteMap, _ = buildSiteMap graph
+    let root = siteMap.rootId
+    let expected = Some siteMap.entries.[root].children.[0]
+    Assert.Equal(expected, SiteMap.siteFirstChild siteMap (Some root))
+
+[<Fact>]
+let ``siteFirstChild on leaf with empty children returns None`` () =
+    let graph, _ = buildFlat [ "a" ]
+    let siteMap, _ = buildSiteMap graph
+    let childInst = siteMap.entries.[siteMap.rootId].children.[0]
+    Assert.True(SiteMap.siteFirstChild siteMap (Some childInst) |> Option.isNone)
+
+[<Fact>]
+let ``siteLastChild on root returns last child instance`` () =
+    let graph, _ = buildFlat [ "a"; "b"; "c" ]
+    let siteMap, _ = buildSiteMap graph
+    let root = siteMap.rootId
+    let n = siteMap.entries.[root].children.Length
+    let expected = Some siteMap.entries.[root].children.[n - 1]
+    Assert.Equal(expected, SiteMap.siteLastChild siteMap (Some root))
+
+[<Fact>]
+let ``siteLastChild on empty children returns None`` () =
+    let graph, _ = buildFlat [ "a" ]
+    let siteMap, _ = buildSiteMap graph
+    let childInst = siteMap.entries.[siteMap.rootId].children.[0]
+    Assert.True(SiteMap.siteLastChild siteMap (Some childInst) |> Option.isNone)
+
+[<Fact>]
+let ``siteFirstChild after expand returns first grandchild instance`` () =
+    let graph, _ = buildNested ()
+    let siteMap, nextId = buildSiteMap graph
+    let aInst = siteMap.entries.[siteMap.rootId].children.[0]
+    let sm2, _ = expandEntry aInst graph siteMap nextId
+    let a1 = Some sm2.entries.[aInst].children.[0]
+    Assert.Equal(a1, SiteMap.siteFirstChild sm2 (Some aInst))
+
+[<Fact>]
+let ``siteNext moves to next root child`` () =
+    let graph, _ = buildFlat [ "a"; "b"; "c" ]
+    let siteMap, _ = buildSiteMap graph
+    let c = siteMap.entries.[siteMap.rootId].children
+    Assert.Equal(Some c.[1], SiteMap.siteNext siteMap (Some c.[0]))
+    Assert.Equal(Some c.[2], SiteMap.siteNext siteMap (Some c.[1]))
+
+[<Fact>]
+let ``siteNext on last sibling returns None`` () =
+    let graph, _ = buildFlat [ "a"; "b" ]
+    let siteMap, _ = buildSiteMap graph
+    let last = siteMap.entries.[siteMap.rootId].children.[1]
+    Assert.True(SiteMap.siteNext siteMap (Some last) |> Option.isNone)
+
+[<Fact>]
+let ``sitePrev moves to previous root child`` () =
+    let graph, _ = buildFlat [ "a"; "b"; "c" ]
+    let siteMap, _ = buildSiteMap graph
+    let c = siteMap.entries.[siteMap.rootId].children
+    Assert.Equal(Some c.[0], SiteMap.sitePrev siteMap (Some c.[1]))
+    Assert.Equal(Some c.[1], SiteMap.sitePrev siteMap (Some c.[2]))
+
+[<Fact>]
+let ``sitePrev on first sibling returns None`` () =
+    let graph, _ = buildFlat [ "a"; "b" ]
+    let siteMap, _ = buildSiteMap graph
+    let first = siteMap.entries.[siteMap.rootId].children.[0]
+    Assert.True(SiteMap.sitePrev siteMap (Some first) |> Option.isNone)
+
+[<Fact>]
+let ``siteNext and sitePrev on root return None`` () =
+    let graph, _ = buildFlat [ "a"; "b" ]
+    let siteMap, _ = buildSiteMap graph
+    let root = Some siteMap.rootId
+    Assert.True(SiteMap.siteNext siteMap root |> Option.isNone)
+    Assert.True(SiteMap.sitePrev siteMap root |> Option.isNone)
+
+[<Fact>]
+let ``siteNext composed from first reaches last`` () =
+    let graph, _ = buildFlat [ "a"; "b"; "c" ]
+    let siteMap, _ = buildSiteMap graph
+    let c = siteMap.entries.[siteMap.rootId].children
+    let n = SiteMap.siteNext siteMap
+    Assert.Equal(Some c.[2], (n >> n) (Some c.[0]))
+
+[<Fact>]
+let ``sitePrev composed from last reaches first`` () =
+    let graph, _ = buildFlat [ "a"; "b"; "c" ]
+    let siteMap, _ = buildSiteMap graph
+    let c = siteMap.entries.[siteMap.rootId].children
+    let p = SiteMap.sitePrev siteMap
+    Assert.Equal(Some c.[0], (p >> p) (Some c.[2]))
+
+// ---------------------------------------------------------------------------
+// SiteNav — carry (SiteMap, SiteId option); compose steps with >>
+// ---------------------------------------------------------------------------
+
+[<Fact>]
+let ``SiteNav parent twice matches explicit siteParent chain`` () =
+    let graph, _ = buildNested ()
+    let siteMap, nextId = buildSiteMap graph
+    let aInstId = siteMap.entries.[siteMap.rootId].children.[0]
+    let sm2, _ = expandEntry aInstId graph siteMap nextId
+    let a1InstId = sm2.entries.[aInstId].children.[0]
+    let via = SiteNav.at sm2 (Some a1InstId) |> (SiteNav.parent >> SiteNav.parent) |> SiteNav.current
+    let viaExplicit = SiteMap.siteParent sm2 (SiteMap.siteParent sm2 (Some a1InstId))
+    Assert.Equal(viaExplicit, via)
+
+[<Fact>]
+let ``SiteNav prevCousin from first root branch grandchild is None`` () =
+    let graph, _ = buildNested ()
+    let siteMap, nextId = buildSiteMap graph
+    let aInst = siteMap.entries.[siteMap.rootId].children.[0]
+    let sm2, _ = expandEntry aInst graph siteMap nextId
+    let a1Inst = sm2.entries.[aInst].children.[0]
+    let prevCousin = SiteNav.parent >> SiteNav.prev >> SiteNav.lastChild
+    let result = SiteNav.at sm2 (Some a1Inst) |> prevCousin |> SiteNav.current
+    Assert.True(result |> Option.isNone)
+
+[<Fact>]
+let ``SiteNav prevCousin from second root branch child is last grandchild of first branch`` () =
+    let graph, _ = buildNested ()
+    let siteMap, nextId = buildSiteMap graph
+    let root = siteMap.rootId
+    let aInst = siteMap.entries.[root].children.[0]
+    let bInst = siteMap.entries.[root].children.[1]
+    let sm2, nextId2 = expandEntry aInst graph siteMap nextId
+    let sm3, _ = expandEntry bInst graph sm2 nextId2
+    let b1Inst = sm3.entries.[bInst].children.[0]
+    let a2Inst = sm3.entries.[aInst].children.[1]
+    let prevCousin = SiteNav.parent >> SiteNav.prev >> SiteNav.lastChild
+    let result = SiteNav.at sm3 (Some b1Inst) |> prevCousin |> SiteNav.current
+    Assert.Equal(Some a2Inst, result)
+
 [<Fact>]
 let ``SiteMap buildSiteMap assigns unique instanceIds`` () =
     let graph, _ = buildNested ()
