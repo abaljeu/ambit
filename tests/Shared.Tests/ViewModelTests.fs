@@ -266,6 +266,24 @@ let ``shiftArrow +1 is no-op when single node is at last index`` () =
     Assert.Equal(model.selectedNodes, result.selectedNodes)
 
 // ---------------------------------------------------------------------------
+// collapseToFocus
+// ---------------------------------------------------------------------------
+
+[<Fact>]
+let ``collapseToFocus narrows multi-node selection to focused row`` () =
+    let graph, ids = buildFlat [ "a"; "b"; "c" ]
+    let model = modelWithSel graph 0 2 1
+    let result = collapseToFocus model
+
+    match result.selectedNodes with
+    | None -> Assert.True(false, "expected selection")
+    | Some sel ->
+        Assert.Equal(1, sel.range.start)
+        Assert.Equal(2, sel.range.endd)
+        Assert.Equal(1, sel.focus)
+        Assert.Equal(ids.[1], focusedNodeId graph sel)
+
+// ---------------------------------------------------------------------------
 // applyMoveSelectionDown / applyMoveSelectionUp — multi-range focus moves
 // ---------------------------------------------------------------------------
 

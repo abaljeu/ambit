@@ -461,12 +461,12 @@ let commandRegistry : CommandEntry list =
       { name = "Selection up"
         run = keyAlways (shiftArrowOp -1)
         keys = [ "Shift+ArrowUp"; "<" ]
-        keyScope = SelectionOnly }
+        keyScope = SelectionOrEditing }
 
       { name = "Selection down"
         run = keyAlways (shiftArrowOp 1)
         keys = [ "Shift+ArrowDown"; "O" ]
-        keyScope = SelectionOnly }
+        keyScope = SelectionOrEditing }
 
       { name = "Move cursor up"
         run = editMoveUp

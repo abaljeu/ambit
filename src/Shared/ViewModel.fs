@@ -41,8 +41,8 @@ module SiteMap =
     let private withEntry (siteMap: SiteMap) (id: SiteId option) (f: SiteEntry -> 'a option) : 'a option =
         id |> Option.bind (fun sid -> Map.tryFind sid siteMap.entries |> Option.bind f)
 
-    /// One step up the instance parent chain (`parentInstanceId`). Prefer `nav siteMap` and
-    /// `.parent` when composing; `None` in → `None` out.
+    /// One step up the instance parent chain. Uses `parentByInstanceId` (root has no key).
+    /// Prefer `Site.at siteMap id |> Site.parent` when composing; `None` in → `None` out.
     let siteParent (siteMap: SiteMap) (id: SiteId option) : SiteId option =
         id
         |> Option.bind (fun sid ->
@@ -76,8 +76,8 @@ module SiteMap =
 
 /// Carries a fixed SiteMap and a current position. Every step is `SiteNav -> SiteNav`,
 /// so paths compose freely with `>>` without repeating `siteMap`.
-///   let prevCousin = SiteNav.parent >> SiteNav.prev >> SiteNav.lastChild
-///   SiteNav.at siteMap (Some id) |> prevCousin |> SiteNav.current
+///   let prevCousin = Site.parent >> Site.prev >> Site.lastChild
+///   Site.at siteMap (Some id) |> prevCousin |> Site.current
 type SiteNav = SiteNav of SiteMap * SiteId option
 
 [<RequireQualifiedAccess>]

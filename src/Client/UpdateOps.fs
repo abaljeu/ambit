@@ -128,7 +128,18 @@ let moveSelectionDown (model: VM) : VM * Effect list =
             withSiteMap result, effects else result, effects
 
 /// Op: Extend or shrink the selection by one row (Shift+Arrow).
-let shiftArrowOp (delta: int) (model: VM) : VM * Effect list = shiftArrow delta model, []
+/// In edit mode: commit only, same row, single-line selection (delta ignored).
+let shiftArrowOp (delta: int) (model: VM) : VM * Effect list =
+    match model.mode with
+    | Editing _ ->
+        let committed, effs = commitIfEditing model
+        let result = collapseToFocus committed
+        if not (System.Object.ReferenceEquals(result.graph, model.graph)) then
+            withSiteMap result, effs
+        else
+            result, effs
+    | _ ->
+        shiftArrow delta model, []
 
 /// Op: Split the node at the given cursor position.
 let splitNodeOp (currentText: string) (cursorPos: int) (model: VM) : VM * Effect list =
