@@ -48,9 +48,9 @@ let private assertValidOwnership (graph: Graph) =
             false
 
     for childId in allChildIds do
-        let ownerParent = ownerParentOf childId
+        let owner = ownerParentOf childId
         Assert.True(
-            reachesRootWithoutCycle childId ownerParent Set.empty,
+            reachesRootWithoutCycle childId owner Set.empty,
             $"Owner chain for {childId} does not trace to root without cycles"
         )
 
@@ -115,8 +115,42 @@ let ``Replace can insert duplicate id with owner then ref`` () =
         let inserted = graph2.nodes[graph2.root].children
         Assert.Equal<ChildNode>(children, inserted)
         assertValidOwnership graph2
+        Assert.Equal(Some graph2.root, Graph.owner graph2 (Some shared))
     | Error err -> Assert.True(false, $"Expected Ok, got Error: {err}")
 
+[<Fact>]
+let ``Graph navigation owner first last on flat tree`` () =
+    let graph0 = Graph.create ()
+    let graph1, ids = ModelBuilder.createNodes [ "a"; "b"; "c" ] graph0
+
+    let graph2 =
+        Graph.replace graph1.root 0 [] (owned ids) graph1
+        |> ModelBuilder.requireOk "nav.replace"
+
+    assertValidOwnership graph2
+    Assert.Equal(None, Graph.owner graph2 (Some graph2.root))
+    Assert.Equal(None, Graph.owner graph2 None)
+    Assert.Equal(Some ids[0], Graph.nodeFirstChild graph2 (Some graph2.root))
+    Assert.Equal(Some ids[2], Graph.nodeLastChild graph2 (Some graph2.root))
+    Assert.Equal(Some graph2.root, Graph.owner graph2 (Some ids[0]))
+    Assert.Equal(Some graph2.root, Graph.owner graph2 (Some ids[1]))
+    Assert.Equal(None, Graph.nodeFirstChild graph2 (Some ids[0]))
+    Assert.Equal(None, Graph.nodeLastChild graph2 (Some ids[0]))
+
+[<Fact>]
+let ``NodeNav owner composes like Graph.owner`` () =
+    let graph0 = Graph.create ()
+    let graph1, ids = ModelBuilder.createNodes [ "x"; "y" ] graph0
+
+    let graph2 =
+        Graph.replace graph1.root 0 [] (owned ids) graph1
+        |> ModelBuilder.requireOk "nodenav.replace"
+
+    let mid = ids[1]
+    let fromNav =
+        Node.at graph2 (Some mid) |> Node.owner |> Node.current
+
+    Assert.Equal(Graph.owner graph2 (Some mid), fromNav)
 
 // For Graph.replace node index oldList newList -> Result
 

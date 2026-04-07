@@ -172,6 +172,38 @@ module Graph =
             |> List.tryFindIndex (fun child -> child.id = targetId)
             |> Option.map (fun index -> parentId, index))
 
+    /// Parent along the canonical `Ownership.Owner` edge. `None` id -> `None`.
+    let owner (graph: Graph) (id: NodeId option) : NodeId option =
+        id
+        |> Option.bind (fun nid ->
+            graph.nodes
+            |> Map.toSeq
+            |> Seq.tryPick (fun (parentId, parent) ->
+                parent.children
+                |> List.tryPick (fun child ->
+                    if child.id = nid && child.ref = Ownership.Owner then
+                        Some parentId
+                    else
+                        None)))
+
+    let nodeFirstChild (graph: Graph) (id: NodeId option) : NodeId option =
+        id
+        |> Option.bind (fun nid ->
+            Map.tryFind nid graph.nodes
+            |> Option.bind (fun node ->
+                node.children |> List.tryHead |> Option.map (fun c -> c.id)))
+
+    let nodeLastChild (graph: Graph) (id: NodeId option) : NodeId option =
+        id
+        |> Option.bind (fun nid ->
+            Map.tryFind nid graph.nodes
+            |> Option.bind (fun node ->
+                let n = List.length node.children
+                if n = 0 then
+                    None
+                else
+                    List.tryItem (n - 1) node.children |> Option.map (fun c -> c.id)))
+
     /// Insert position as the last child of nodeId.
     let makeNodeRangeForInsertingUnder (nodeId: NodeId) (graph: Graph) : NodeRange option =
         match Map.tryFind nodeId graph.nodes with
@@ -179,3 +211,17 @@ module Graph =
         | Some node ->
             let childCount = List.length node.children
             Some { pnode = nodeId; start = childCount; endd = childCount }
+
+/// Carries a fixed `Graph` and current `NodeId`; steps compose like `SiteNav`.
+type NodeNav = NodeNav of Graph * NodeId option
+
+[<RequireQualifiedAccess>]
+module Node =
+    let at (graph: Graph) (id: NodeId option) : NodeNav = NodeNav(graph, id)
+    let current (NodeNav(_, id)) : NodeId option = id
+
+    let private step f (NodeNav(g, id)) = NodeNav(g, f g id)
+
+    let owner = step Graph.owner
+    let firstChild = step Graph.nodeFirstChild
+    let lastChild = step Graph.nodeLastChild
