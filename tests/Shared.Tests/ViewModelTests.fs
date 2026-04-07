@@ -11,6 +11,15 @@ let private owned (ids: NodeId list) : ChildNode list =
 // Test helpers
 // ---------------------------------------------------------------------------
 
+let private assertParentIndexMatchesEntries (siteMap: SiteMap) =
+    siteMap.entries
+    |> Map.iter (fun _ e ->
+        if e.instanceId <> siteMap.rootId then
+            match e.parentInstanceId with
+            | None -> Assert.True(false, "non-root entry must have parentInstanceId")
+            | Some p ->
+                Assert.Equal(Some p, Map.tryFind e.instanceId siteMap.parentByInstanceId))
+
 /// Build a flat graph: root has `texts.Length` children in order.
 let buildFlat (texts: string list) : Graph * NodeId list =
     let graph0 = Graph.create ()
@@ -415,6 +424,15 @@ let ``siteParent composed twice from None stays None`` () =
     let sm2, _ = expandEntry aInstId graph siteMap nextId
     let p = SiteMap.siteParent sm2
     Assert.True((p >> p) None |> Option.isNone)
+
+[<Fact>]
+let ``SiteMap parentByInstanceId matches entries after build and expand`` () =
+    let graph, _ = buildNested ()
+    let siteMap, nextId = buildSiteMap graph
+    assertParentIndexMatchesEntries siteMap
+    let aInstId = siteMap.entries.[siteMap.rootId].children.[0]
+    let sm2, _ = expandEntry aInstId graph siteMap nextId
+    assertParentIndexMatchesEntries sm2
 
 // ---------------------------------------------------------------------------
 // SiteMap.siteFirstChild / siteLastChild / siteNext / sitePrev
@@ -935,9 +953,7 @@ let ``planPatchDOM text change produces SetText patch and no CreateRow`` () =
         { graph.nodes.[targetId] with
             text = "b-edited" }
 
-    let newGraph =
-        { graph with
-            nodes = Map.add targetId newNode graph.nodes }
+    let newGraph = Graph.fromNodes graph.root (Map.add targetId newNode graph.nodes)
 
     let newModel = { oldModel with graph = newGraph }
     let cachedInstIds = buildCacheSet oldModel.siteMap
@@ -1181,6 +1197,6 @@ let ``EditingCaretPreserve false when graph reference changes`` () =
     let graph, _ = buildFlat [ "hi" ]
     let prev =
         { emptyModel graph with mode = Editing ("hi", EditCaret.Utf16Index 1) }
-    let g2 = { graph with root = graph.root }
+    let g2 = Graph.fromNodes graph.root graph.nodes
     let next = { prev with graph = g2 }
     Assert.False(EditingCaretPreserve.shouldPreserveDomCaret (Some prev) next)

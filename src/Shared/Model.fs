@@ -59,11 +59,47 @@ type NodeSearchResult =
 
 type Graph =
     { root: NodeId
-      nodes: Map<NodeId, Node> }
+      nodes: Map<NodeId, Node>
+      /// Child id -> structural parent and index (min parent NodeId wins when shared).
+      parentByChild: Map<NodeId, NodeId * int>
+      /// Child id -> graph parent along the single Ownership.Owner edge.
+      ownerParentByChild: Map<NodeId, NodeId> }
 
 
 [<RequireQualifiedAccess>]
 module Graph =
+
+    let private addStructuralEdges (parentId: NodeId) (parent: Node) acc =
+        parent.children
+        |> List.mapi (fun i c -> i, c.id)
+        |> List.fold
+            (fun a (i, cid) ->
+                if Map.containsKey cid a then a else Map.add cid (parentId, i) a)
+            acc
+
+    let private addOwnerEdges (parentId: NodeId) (parent: Node) acc =
+        parent.children
+        |> List.fold
+            (fun a child ->
+                match child.ref with
+                | Ownership.Owner -> Map.add child.id parentId a
+                | Ownership.Ref -> a)
+            acc
+
+    let private buildParentMaps (nodes: Map<NodeId, Node>) =
+        let structural =
+            nodes |> Map.fold (fun acc pid p -> addStructuralEdges pid p acc) Map.empty
+        let owners =
+            nodes |> Map.fold (fun acc pid p -> addOwnerEdges pid p acc) Map.empty
+        structural, owners
+
+    /// Build a graph with recomputed parent indexes (use for decode, snapshots, tests).
+    let fromNodes (root: NodeId) (nodes: Map<NodeId, Node>) : Graph =
+        let pbc, opc = buildParentMaps nodes
+        { root = root
+          nodes = nodes
+          parentByChild = pbc
+          ownerParentByChild = opc }
 
     let nodeCount (graph: Graph) =
         graph.nodes.Count
@@ -81,9 +117,11 @@ module Graph =
               cssClasses = CssClass.empty }
         let nodes = graph.nodes |> Map.add nodeId node
         { graph with nodes = nodes }, nodeId
+
     let create () : Graph =
-        let emptyGraph = { root = NodeId.New(); nodes = Map.empty }
-        let graph, rootId = newNode "" emptyGraph
+        let placeholderRoot = NodeId.New()
+        let g0 = fromNodes placeholderRoot Map.empty
+        let graph, rootId = newNode "" g0
         { graph with root = rootId }
 
     let setText
@@ -162,29 +200,14 @@ module Graph =
                             children = prefix @ newChildren @ suffix }
 
                     let nodes = graph.nodes |> Map.add parentId updatedParent
-                    Ok { graph with nodes = nodes }
+                    Ok (fromNodes graph.root nodes)
 
     let tryFindParentAndIndex (targetId: NodeId) (graph: Graph) : (NodeId * int) option =
-        graph.nodes
-        |> Map.toSeq
-        |> Seq.tryPick (fun (parentId, parent) ->
-            parent.children
-            |> List.tryFindIndex (fun child -> child.id = targetId)
-            |> Option.map (fun index -> parentId, index))
+        Map.tryFind targetId graph.parentByChild
 
     /// Parent along the canonical `Ownership.Owner` edge. `None` id -> `None`.
     let owner (graph: Graph) (id: NodeId option) : NodeId option =
-        id
-        |> Option.bind (fun nid ->
-            graph.nodes
-            |> Map.toSeq
-            |> Seq.tryPick (fun (parentId, parent) ->
-                parent.children
-                |> List.tryPick (fun child ->
-                    if child.id = nid && child.ref = Ownership.Owner then
-                        Some parentId
-                    else
-                        None)))
+        id |> Option.bind (fun nid -> Map.tryFind nid graph.ownerParentByChild)
 
     let nodeFirstChild (graph: Graph) (id: NodeId option) : NodeId option =
         id

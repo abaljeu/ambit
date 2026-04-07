@@ -152,6 +152,48 @@ let ``NodeNav owner composes like Graph.owner`` () =
 
     Assert.Equal(Graph.owner graph2 (Some mid), fromNav)
 
+let private tryFindParentAndIndexScan (targetId: NodeId) (graph: Graph) =
+    graph.nodes
+    |> Map.toSeq
+    |> Seq.tryPick (fun (parentId, parent) ->
+        parent.children
+        |> List.tryFindIndex (fun child -> child.id = targetId)
+        |> Option.map (fun index -> parentId, index))
+
+let private ownerScan (graph: Graph) (id: NodeId option) =
+    id
+    |> Option.bind (fun nid ->
+        graph.nodes
+        |> Map.toSeq
+        |> Seq.tryPick (fun (parentId, parent) ->
+            parent.children
+            |> List.tryPick (fun child ->
+                if child.id = nid && child.ref = Ownership.Owner then
+                    Some parentId
+                else
+                    None)))
+
+[<Fact>]
+let ``Graph parent indexes match linear scans`` () =
+    let graph = ModelBuilder.createDag12 ()
+    graph.nodes
+    |> Map.iter (fun nid _ ->
+        Assert.Equal(tryFindParentAndIndexScan nid graph, Map.tryFind nid graph.parentByChild))
+    let childIds =
+        graph.nodes
+        |> Map.values
+        |> Seq.collect (fun n -> n.children |> Seq.map (fun c -> c.id))
+        |> Set.ofSeq
+    for cid in childIds do
+        Assert.Equal(ownerScan graph (Some cid), Map.tryFind cid graph.ownerParentByChild)
+
+[<Fact>]
+let ``Graph fromNodes is idempotent on shared-node graph`` () =
+    let g = ModelBuilder.createSharedNodeGraph ()
+    let g2 = Graph.fromNodes g.root g.nodes
+    Assert.Equal<Map<NodeId, NodeId * int>>(g.parentByChild, g2.parentByChild)
+    Assert.Equal<Map<NodeId, NodeId>>(g.ownerParentByChild, g2.ownerParentByChild)
+
 // For Graph.replace node index oldList newList -> Result
 
 // replace: when old span matches, parent children are updated

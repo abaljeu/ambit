@@ -199,7 +199,7 @@ module Snapshot =
         let nodes =
             nodemap
             |> Map.map (fun _ (n: Node) -> { n with children = List.rev n.children })
-        { root = rootId; nodes = nodes }
+        Graph.fromNodes rootId nodes
 
     /// Parse tab-indented text outline into a new Graph.
     /// Creates new NodeIds; original IDs are not preserved.

@@ -10,7 +10,7 @@ open Gambol.Client.Controller
 open Gambol.Client.JsInterop
 
 let initialModel: VM =
-    { graph = { root = NodeId(System.Guid.Empty); nodes = Map.empty }
+    { graph = Graph.fromNodes (NodeId(System.Guid.Empty)) Map.empty
       revision = Revision.Zero
       history = History.empty
       selectedNodes = None

@@ -62,8 +62,9 @@ module Op =
             ApplyResult.Changed
                 { state with
                       graph =
-                          { state.graph with
-                                nodes = state.graph.nodes |> Map.add nodeId node } }
+                          Graph.fromNodes
+                              state.graph.root
+                              (state.graph.nodes |> Map.add nodeId node) }
         | Op.SetText(nodeId, oldText, newText) ->
             Graph.setText nodeId oldText newText state.graph
             |> fromGraphResult state
@@ -78,7 +79,8 @@ module Op =
         match op with
         | Op.NewNode(nodeId, _) ->
             let nodes = state.graph.nodes |> Map.remove nodeId
-            ApplyResult.Changed { state with graph = { state.graph with nodes = nodes } }
+            ApplyResult.Changed
+                { state with graph = Graph.fromNodes state.graph.root nodes }
         | Op.SetText(nodeId, oldText, newText) ->
             Graph.setText nodeId newText oldText state.graph
             |> fromGraphResult state

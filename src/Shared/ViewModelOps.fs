@@ -6,10 +6,20 @@ namespace Gambol.Shared
 
 module ViewModel =
 
+    let buildParentInstanceIndex (entries: Map<SiteId, SiteEntry>) : Map<SiteId, SiteId> =
+        entries
+        |> Map.toSeq
+        |> Seq.choose (fun (_, e) ->
+            e.parentInstanceId |> Option.map (fun p -> e.instanceId, p))
+        |> Map.ofSeq
+
     let emptySiteMap : SiteMap =
         let rootEntry = { instanceId = Sid 0; nodeId = NodeId(System.Guid.Empty)
                           parentInstanceId = None; expanded = true; childrenStale = false; children = [] }
-        { rootId = Sid 0; entries = Map.ofList [Sid 0, rootEntry] }
+        let entries = Map.ofList [Sid 0, rootEntry]
+        { rootId = Sid 0
+          entries = entries
+          parentByInstanceId = buildParentInstanceIndex entries }
 
     // Returns (freshId generator, counter getter) for sequencing SiteIds.
     let private makeCounter (start: SiteId) =
@@ -127,7 +137,9 @@ module ViewModel =
         acc <- Map.add rootInstId { instanceId = rootInstId; nodeId = rootNodeId
                                     parentInstanceId = None
                                     expanded = true; childrenStale = false; children = childInstIds } acc
-        { rootId = rootInstId; entries = acc }, endCount ()
+        { rootId = rootInstId
+          entries = acc
+          parentByInstanceId = buildParentInstanceIndex acc }, endCount ()
 
     /// Build a SiteMap from the graph root. See buildSiteMapFrom for details.
     let buildSiteMap (graph: Graph) : SiteMap * SiteId =
@@ -142,7 +154,10 @@ module ViewModel =
         let freshId, endCount = makeCounter startId
         let acc = ref Map.empty<SiteId, SiteEntry>
         let rootInstId = walkReconciled graph oldMap freshId acc rootNodeId None true (Some oldMap.rootId)
-        { rootId = rootInstId; entries = acc.Value }, endCount ()
+        let entries = acc.Value
+        { rootId = rootInstId
+          entries = entries
+          parentByInstanceId = buildParentInstanceIndex entries }, endCount ()
 
     /// Reconcile a SiteMap from the graph root after a graph change. See reconcileSiteMapFrom for details.
     let reconcileSiteMap (graph: Graph) (oldMap: SiteMap) (startId: SiteId) : SiteMap * SiteId =
@@ -185,7 +200,9 @@ module ViewModel =
                             newId)
                 let updated = { entry with expanded = true; childrenStale = false; children = childInstIds }
                 acc <- Map.add instanceId updated acc
-                { siteMap with entries = acc }, endCount ()
+                { siteMap with
+                    entries = acc
+                    parentByInstanceId = buildParentInstanceIndex acc }, endCount ()
 
     /// Restore fold state from a saved set of expanded NodeIds.
     /// Walks the siteMap in BFS order, expanding each entry whose nodeId is in

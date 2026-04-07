@@ -32,7 +32,9 @@ type SiteEntry =
 /// Flat map keyed by instanceId. O(log S) per-entry access for all operations.
 type SiteMap =
     { rootId: SiteId
-      entries: Map<SiteId, SiteEntry> }
+      entries: Map<SiteId, SiteEntry>
+      /// Non-root instanceId -> `parentInstanceId` (root has no key).
+      parentByInstanceId: Map<SiteId, SiteId> }
 
 [<RequireQualifiedAccess>]
 module SiteMap =
@@ -42,7 +44,12 @@ module SiteMap =
     /// One step up the instance parent chain (`parentInstanceId`). Prefer `nav siteMap` and
     /// `.parent` when composing; `None` in → `None` out.
     let siteParent (siteMap: SiteMap) (id: SiteId option) : SiteId option =
-        withEntry siteMap id (fun e -> e.parentInstanceId)
+        id
+        |> Option.bind (fun sid ->
+            if sid = siteMap.rootId then
+                None
+            else
+                Map.tryFind sid siteMap.parentByInstanceId)
 
     /// First child instance under this occurrence (`children` head). Composes like `siteParent`.
     let siteFirstChild (siteMap: SiteMap) (id: SiteId option) : SiteId option =

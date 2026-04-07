@@ -99,7 +99,7 @@ module Serialization =
             let root = get.Required.Field "root" decodeNodeId
             let nodeList = get.Required.Field "nodes" (Decode.list decodeNode)
             let nodes = nodeList |> List.map (fun n -> n.id, n) |> Map.ofList
-            { root = root; nodes = nodes })
+            Graph.fromNodes root nodes)
 
     // ---- Op ----
 

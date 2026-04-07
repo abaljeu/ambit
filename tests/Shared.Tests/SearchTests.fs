@@ -6,7 +6,7 @@ open Xunit
 
 let private setNodeName (nodeId: NodeId) (name: string option) (graph: Graph) : Graph =
     let node = graph.nodes.[nodeId]
-    { graph with nodes = graph.nodes |> Map.add nodeId { node with name = name } }
+    Graph.fromNodes graph.root (graph.nodes |> Map.add nodeId { node with name = name })
 
 let private ownedRootChildren (ids: NodeId list) (graph: Graph) : Graph =
     let ch = ids |> List.map (fun id -> { ref = Ownership.Owner; id = id })
