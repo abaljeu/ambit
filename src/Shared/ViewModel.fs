@@ -87,6 +87,61 @@ module Site =
     let prev       = step SiteMap.sitePrev
     let prevCousin = parent >> prev >> lastChild
 
+/// Like `SiteNav`, but `at` / each step keep `SiteId` only when fold-visible on that `SiteMap`.
+type VisiNav = VisiNav of SiteMap * SiteId option
+
+[<RequireQualifiedAccess>]
+module VisibleSite =
+    let rec private siteEntryIsVisible (siteMap: SiteMap) (sid: SiteId) : bool =
+        match Map.tryFind sid siteMap.entries with
+        | None -> false
+        | Some entry ->
+            match entry.parentInstanceId with
+            | None -> sid = siteMap.rootId
+            | Some pid ->
+                match Map.tryFind pid siteMap.entries with
+                | None -> false
+                | Some parent ->
+                    if not parent.expanded then
+                        false
+                    elif not (List.exists ((=) sid) parent.children) then
+                        false
+                    else
+                        siteEntryIsVisible siteMap pid
+
+    let at (siteMap: SiteMap) (id: SiteId option) : VisiNav =
+        let filtered =
+            id
+            |> Option.bind (fun sid ->
+                if siteEntryIsVisible siteMap sid then
+                    Some sid
+                else
+                    None)
+
+        VisiNav(siteMap, filtered)
+
+    let current (VisiNav(_, id)) : SiteId option = id
+
+    let private step f (VisiNav(sm, id)) =
+        let nextId = f sm id
+
+        let filtered =
+            nextId
+            |> Option.bind (fun sid ->
+                if siteEntryIsVisible sm sid then
+                    Some sid
+                else
+                    None)
+
+        VisiNav(sm, filtered)
+
+    let parent = step SiteMap.siteParent
+    let firstChild = step SiteMap.siteFirstChild
+    let lastChild = step SiteMap.siteLastChild
+    let next = step SiteMap.siteNext
+    let prev = step SiteMap.sitePrev
+    let prevCousin = parent >> prev >> lastChild
+
 /// A contiguous span of children under a specific site-map occurrence of a parent node.
 /// parent is a SiteEntry (not just a NodeId) so the selection is unambiguous in a DAG
 /// where the same NodeId may appear at multiple positions.

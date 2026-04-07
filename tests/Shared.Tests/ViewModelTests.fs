@@ -561,6 +561,65 @@ let ``SiteNav prevCousin from second root branch child is last grandchild of fir
     let result = Site.at sm3 (Some b1Inst) |> prevCousin |> Site.current
     Assert.Equal(Some a2Inst, result)
 
+// ---------------------------------------------------------------------------
+// VisibleSite / VisiNav — fold-aware; matches `Site` API shape
+// ---------------------------------------------------------------------------
+
+[<Fact>]
+let ``VisibleSite at root is visible unknown SiteId is None`` () =
+    let graph, _ = buildFlat [ "a" ]
+    let siteMap, _ = buildSiteMap graph
+    let root = siteMap.rootId
+
+    Assert.Equal(Some root, VisibleSite.at siteMap (Some root) |> VisibleSite.current)
+    Assert.True(VisibleSite.at siteMap (Some (Sid 999_999)) |> VisibleSite.current |> Option.isNone)
+
+[<Fact>]
+let ``VisibleSite at root child is None when root collapsed`` () =
+    let graph, _ = buildFlat [ "a"; "b" ]
+    let siteMap, _ = buildSiteMap graph
+    let childInst = siteMap.entries.[siteMap.rootId].children.[0]
+    let collapsed = toggleFold siteMap.rootId siteMap
+    Assert.Equal(None, VisibleSite.at collapsed (Some childInst) |> VisibleSite.current)
+
+[<Fact>]
+let ``VisibleSite parent chain matches Site when path expanded`` () =
+    let graph, _ = buildNested ()
+    let siteMap, nextId = buildSiteMap graph
+    let aInstId = siteMap.entries.[siteMap.rootId].children.[0]
+    let sm2, _ = expandEntry aInstId graph siteMap nextId
+    let a1InstId = sm2.entries.[aInstId].children.[0]
+    let steps = VisibleSite.parent >> VisibleSite.parent
+    let vis = VisibleSite.at sm2 (Some a1InstId) |> steps |> VisibleSite.current
+
+    let plain =
+        Site.at sm2 (Some a1InstId) |> (Site.parent >> Site.parent) |> Site.current
+
+    Assert.Equal(plain, vis)
+
+[<Fact>]
+let ``VisibleSite prevCousin matches Site when branches expanded`` () =
+    let graph, _ = buildNested ()
+    let siteMap, nextId = buildSiteMap graph
+    let root = siteMap.rootId
+    let aInst = siteMap.entries.[root].children.[0]
+    let bInst = siteMap.entries.[root].children.[1]
+    let sm2, nextId2 = expandEntry aInst graph siteMap nextId
+    let sm3, _ = expandEntry bInst graph sm2 nextId2
+    let b1Inst = sm3.entries.[bInst].children.[0]
+    let a2Inst = sm3.entries.[aInst].children.[1]
+    let visiPrevCousin = VisibleSite.parent >> VisibleSite.prev >> VisibleSite.lastChild
+    let sitePrevCousin = Site.parent >> Site.prev >> Site.lastChild
+
+    let vis =
+        VisibleSite.at sm3 (Some b1Inst) |> visiPrevCousin |> VisibleSite.current
+
+    let plain =
+        Site.at sm3 (Some b1Inst) |> sitePrevCousin |> Site.current
+
+    Assert.Equal(plain, vis)
+    Assert.Equal(Some a2Inst, vis)
+
 [<Fact>]
 let ``SiteMap buildSiteMap assigns unique instanceIds`` () =
     let graph, _ = buildNested ()
