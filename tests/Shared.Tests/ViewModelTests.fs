@@ -134,6 +134,35 @@ let ``selectionAfterStructuralMove collapsed parent picks original sibling above
     Assert.Equal(a, focusedNodeId gPost sel)
 
 [<Fact>]
+let ``selectionAfterStructuralMove expanded newParent focuses moved node indent topology`` () =
+    let graphPre, ids = buildFlat [ "a"; "b"; "c" ]
+    let a = ids.[0]
+    let b = ids.[1]
+    let root = graphPre.root
+    let bChild = graphPre.nodes.[root].children.[1]
+    let gMid =
+        Graph.replace root 1 [ bChild ] [] graphPre |> ModelBuilder.requireOk "rm b"
+    let gPost =
+        Graph.replace a 0 [] [ bChild ] gMid |> ModelBuilder.requireOk "add b under a"
+    let siteMap, _ = buildSiteMap gPost
+    let mPre = emptyModel graphPre
+    let rootPre = mPre.siteMap.entries.[mPre.siteMap.rootId]
+
+    let newParentCollapsed =
+        siteMap.entries |> Map.pick (fun _ e -> if e.nodeId = a then Some e else None)
+    let newParentExpanded = { newParentCollapsed with expanded = true }
+
+    let sel =
+        selectionAfterStructuralMove graphPre gPost siteMap
+            { parent = rootPre; start = 1; endd = 2 }
+            newParentExpanded
+            0
+            1
+            0
+
+    Assert.Equal(b, focusedNodeId gPost sel)
+
+[<Fact>]
 let ``selectionAfterStructuralMove collapsed parent picks original sibling below at range start`` () =
     let graphPre, ids = buildFlat [ "a"; "b"; "c" ]
     let a = ids.[0]

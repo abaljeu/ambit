@@ -234,23 +234,27 @@ let indentSelection (model: VM) : VM * Effect list =
     | None -> model, []
     | Some sel when sel.range.start = 0 -> model, []  // no previous sibling — no-op
     | Some sel ->
-        let prevSibId = model.graph.nodes.[sel.range.parent.nodeId].children.[sel.range.start - 1].id
-        let insertIdx = model.graph.nodes.[prevSibId].children.Length
-        match model.siteMap.entries
-            |> Map.tryPick (fun _ e -> if e.nodeId = prevSibId then Some e else None) with
+        let prevInstId = sel.range.parent.children.[sel.range.start - 1]
+        match Map.tryFind prevInstId model.siteMap.entries with
         | None -> model, []
-        | Some _ ->
+        | Some prevEntry ->
+            let siteMap, nextId =
+                if prevEntry.expanded then model.siteMap, model.nextSiteId
+                else ViewModel.expandEntry prevInstId model.graph model.siteMap model.nextSiteId
+            let model = { model with siteMap = siteMap; nextSiteId = nextId }
+            let parentId = sel.range.parent.nodeId
+            let prevSibId = model.graph.nodes.[parentId].children.[sel.range.start - 1].id
+            let insertIdx = model.graph.nodes.[prevSibId].children.Length
             let too: NodeRange =
                 { pnode = prevSibId; start = max 0 (insertIdx - 1); endd = insertIdx }
             let result, effects = moveNodeFromTo too model
             let result = withSiteMap result
             // Ensure the new parent is expanded so the indented items are visible after reconcile
-            match result.siteMap.entries
-                |> Map.tryPick (fun _ e -> if e.nodeId = prevSibId then Some e else None) with
+            match Map.tryFind prevInstId result.siteMap.entries with
             | Some entry when not entry.expanded ->
-                let siteMap, nextId =
+                let sm, nid =
                     ViewModel.expandEntry entry.instanceId result.graph result.siteMap result.nextSiteId
-                { result with siteMap = siteMap; nextSiteId = nextId }, effects
+                { result with siteMap = sm; nextSiteId = nid }, effects
             | _ -> result, effects
 
 /// Shift+Tab: make selected nodes siblings of their current parent (under grandparent).
