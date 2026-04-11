@@ -24,21 +24,34 @@ let private newTempDir () =
     dir
 
 /// Create a test client pointing at the given data directory.
+/// File-backend tests: clear `DB_CONNECTION_STRING` while the host starts so a
+/// process-wide dev env var does not force the PostgreSQL agent.
 let private createClientForDir (tempDir: string) =
-    let factory =
-        (new WebApplicationFactory<Program>())
-            .WithWebHostBuilder(fun builder ->
-                builder.ConfigureAppConfiguration(fun _ config ->
-                    config.AddInMemoryCollection(
-                        dict [
-                            "DataDir", tempDir
-                            "Auth:Username", ""
-                            "Auth:Password", ""
-                        ]
+    let priorDb = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING")
+
+    try
+        Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", null)
+
+        let factory =
+            (new WebApplicationFactory<Program>())
+                .WithWebHostBuilder(fun builder ->
+                    builder.ConfigureAppConfiguration(fun _ config ->
+                        config.AddInMemoryCollection(
+                            dict [
+                                "DataDir", tempDir
+                                "Auth:Username", ""
+                                "Auth:Password", ""
+                            ]
+                        ) |> ignore
                     ) |> ignore
-                ) |> ignore
-            )
-    factory.CreateClient()
+                )
+
+        factory.CreateClient()
+    finally
+        if isNull priorDb then
+            Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", null)
+        else
+            Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", priorDb)
 
 /// Create a test client with a fresh empty data directory.
 let private createClient () = newTempDir () |> createClientForDir

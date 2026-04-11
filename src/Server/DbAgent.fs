@@ -31,7 +31,8 @@ module DbAgent =
                     Snapshot.read row.content, row.revision
 
             let! rows =
-                Database.getChangesAfter connectionString baseRevision |> Async.AwaitTask
+                Database.getChangesAfterSnapshotRevision connectionString baseRevision
+                |> Async.AwaitTask
 
             let initialState =
                 { graph = baseGraph
@@ -119,7 +120,9 @@ module DbAgent =
                     | ApplyResult.Changed newState ->
                         let json = ChangeLog.encodeChange change
                         try
-                            (Database.appendChange connectionString change.id json)
+                            let serverRevAfter = state.Value.revision.Value + 1
+
+                            (Database.appendChange connectionString serverRevAfter change.id json)
                                 .GetAwaiter().GetResult()
                         with ex ->
                             // Log but don't fail the client; the in-memory state is still updated.

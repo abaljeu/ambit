@@ -37,6 +37,24 @@ module Database =
                 CREATE INDEX IF NOT EXISTS idx_changes_change_id
                     ON changes (change_id);
 
+                ALTER TABLE changes
+                    ADD COLUMN IF NOT EXISTS server_revision_after INTEGER;
+
+                UPDATE changes AS c
+                SET server_revision_after = s.rn
+                FROM (
+                    SELECT seq_id, ROW_NUMBER() OVER (ORDER BY seq_id) AS rn
+                    FROM changes
+                    WHERE server_revision_after IS NULL
+                ) AS s
+                WHERE c.seq_id = s.seq_id;
+
+                ALTER TABLE changes
+                    ALTER COLUMN server_revision_after SET NOT NULL;
+
+                CREATE INDEX IF NOT EXISTS idx_changes_server_revision_after
+                    ON changes (server_revision_after);
+
                 CREATE TABLE IF NOT EXISTS snapshots (
                     id          BIGSERIAL    PRIMARY KEY,
                     revision    INT          NOT NULL,
@@ -55,26 +73,44 @@ module Database =
         { change_id: int
           payload: string }
 
-    /// Append a change to the log. Payload is the compact JSON of the Change.
-    let appendChange (connectionString: string) (changeId: int) (json: string) : Task =
+    /// Append a change. `clientBaseRevision` is Change.id (log line header). `serverRevisionAfter`
+    /// is the server revision after applying this change (matches FileAgent meta / replay index).
+    let appendChange
+        (connectionString: string)
+        (serverRevisionAfter: int)
+        (clientBaseRevision: int)
+        (json: string)
+        : Task =
         task {
             use conn = getConnection connectionString
             do! conn.OpenAsync()
             do! conn.ExecuteAsync(
-                    "INSERT INTO changes (change_id, payload) VALUES (@change_id, @payload)",
-                    {| change_id = changeId; payload = json |})
+                    """
+                    INSERT INTO changes (change_id, server_revision_after, payload)
+                    VALUES (@change_id, @server_revision_after, @payload)
+                    """,
+                    {| change_id = clientBaseRevision
+                       server_revision_after = serverRevisionAfter
+                       payload = json |})
                 :> Task
         }
 
-    /// Load all change rows with change_id > afterChangeId, ordered ascending.
-    let getChangesAfter (connectionString: string) (afterChangeId: int) : Task<ChangeRow list> =
+    /// Changes applied after snapshot revision `snapshotRevision` (replay tail of the log).
+    let getChangesAfterSnapshotRevision
+        (connectionString: string)
+        (snapshotRevision: int)
+        : Task<ChangeRow list> =
         task {
             use conn = getConnection connectionString
             do! conn.OpenAsync()
             let! rows =
                 conn.QueryAsync<ChangeRow>(
-                    "SELECT change_id, payload FROM changes WHERE change_id > @after ORDER BY change_id ASC",
-                    {| after = afterChangeId |})
+                    """
+                    SELECT change_id, payload FROM changes
+                    WHERE server_revision_after > @snapRev
+                    ORDER BY server_revision_after ASC
+                    """,
+                    {| snapRev = snapshotRevision |})
             return rows |> Seq.toList
         }
 

@@ -239,6 +239,8 @@ module Main =
                 )
 
             // DB agent is a single shared instance (one database, one handle name).
+            // Eagerly initialise at startup when DB_CONNECTION_STRING is set so that
+            // initSchema runs (and tables are created) before any request arrives.
             let dbAgentCache: (string * DbAgent) option ref = ref None
             let dbAgentLock = obj ()
 
@@ -251,6 +253,10 @@ module Main =
                         dbAgentCache.Value <- Some (filename, agent)
                         agent
                 )
+
+            match dbConnString with
+            | Some connStr -> getOrCreateDbAgent connStr "gambol" |> ignore
+            | None -> ()
 
             let getHandle (filename: string) : AgentHandle =
                 match dbConnString with

@@ -10,28 +10,17 @@
 
 ## Files Changed (worktree → gambol/src/Server/)
 
-Copy these 5 files from the worktree if not already done:
-
-```
-WORKTREE=d:/dev/amble/gambol.worktrees/copilot-worktree-2026-04-11T20-14-26/src/Server
-MAIN=d:/dev/amble/gambol/src/Server
-
-cp "$WORKTREE/Database.fs"              "$MAIN/"
-cp "$WORKTREE/DbAgent.fs"               "$MAIN/"
-cp "$WORKTREE/Api.fs"                   "$MAIN/"
-cp "$WORKTREE/Server.fs"               "$MAIN/"
-cp "$WORKTREE/Gambol.Server.fsproj"    "$MAIN/"
-```
-
-### What each file does
-
 | File | Change |
 |---|---|
-| `Database.fs` | **New** — Npgsql+Dapper helpers: `initSchema`, `appendChange`, `getChangesAfter`, `insertSnapshot`, `getLatestSnapshot` |
+| `Database.fs` | **New** — Npgsql+Dapper helpers: `initSchema`, `appendChange` (stores `server_revision_after`), `getChangesAfterSnapshotRevision`, `insertSnapshot`, `getLatestSnapshot` |
 | `DbAgent.fs` | **New** — PostgreSQL-backed `MailboxProcessor<FileAgentMsg>`; startup loads snapshot + replays changes |
 | `Api.fs` | **Modified** — `AgentHandle` record abstraction; `AgentHandle.ofFile` / `AgentHandle.ofDb` factories |
 | `Server.fs` | **Modified** — selects backend via `DB_CONNECTION_STRING` env var; dev-only `/ambit/validate` endpoint |
 | `Gambol.Server.fsproj` | **Modified** — adds Npgsql 9.0.3 + Dapper 2.1.35; compile order: `Database.fs → DbAgent.fs` between `FileAgent.fs` and `Api.fs` |
+| `tests/Server.Tests/DbAgentTests.fs` | **New** — `gambol_test` smoke test; skipped unless `TEST_DB_CONNECTION_STRING` is set |
+| `tests/Server.Tests/AssemblyInfo.fs` | **New** — disables parallel test runs in this assembly (env var isolation) |
+| `tests/Server.Tests/StateEndpointTests.fs` | **Modified** — clears `DB_CONNECTION_STRING` while starting `WebApplicationFactory` (file-backend tests) |
+| `tests/Server.Tests/Gambol.Server.Tests.fsproj` | **Modified** — `Xunit.SkippableFact` package |
 
 ---
 
@@ -127,10 +116,11 @@ type AgentHandle = {
 
 ```sql
 CREATE TABLE changes (
-    seq_id      BIGSERIAL PRIMARY KEY,
-    change_id   INT NOT NULL,
-    payload     TEXT NOT NULL,
-    recorded_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    seq_id                 BIGSERIAL PRIMARY KEY,
+    change_id              INT NOT NULL,
+    server_revision_after  INT NOT NULL,
+    payload                TEXT NOT NULL,
+    recorded_at            TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE TABLE snapshots (
@@ -142,6 +132,27 @@ CREATE TABLE snapshots (
 ```
 
 `payload` is TEXT (not JSONB) to stay symmetric with the existing ChangeLog format (Thoth JSON strings). `content` in snapshots uses the same `Snapshot.write` format as the file snapshot.
+
+`server_revision_after` is the server revision **after** applying that row (same index semantics as the file `.meta` + `.log` replay). `initSchema` adds the column on existing databases and backfills with `ROW_NUMBER() OVER (ORDER BY seq_id)` where it was null. Replay loads the latest snapshot, then applies changes with `server_revision_after` **greater than** the snapshot’s `revision`.
+
+---
+
+## Test database (`gambol_test`)
+
+Automated DB tests in `tests/Server.Tests/DbAgentTests.fs` use a **separate** database so `TRUNCATE` never touches `gambol_dev` data. Create it once as the PostgreSQL superuser (`postgres`):
+
+```sql
+CREATE DATABASE gambol_test OWNER gambol_dev;
+```
+
+Run tests with `TEST_DB_CONNECTION_STRING` set (same host/user/password as dev, different database name):
+
+```bash
+export TEST_DB_CONNECTION_STRING="Host=localhost;Port=5432;Database=gambol_test;Username=gambol_dev;Password=gambol_dev"
+dotnet test tests/Server.Tests/Gambol.Server.Tests.fsproj
+```
+
+If `TEST_DB_CONNECTION_STRING` is unset, DB tests are **skipped** (other `Server.Tests` still run).
 
 ---
 
