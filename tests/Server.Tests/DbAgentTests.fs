@@ -65,7 +65,7 @@ let private decodeGraph (json: string) : Graph =
     | Error e -> failwith $"Decode graph: {e}"
 
 [<SkippableFact>]
-let ``DbAgent empty test DB has revision 0 and blank root`` () = task {
+let ``DbAgent empty test DB has revision 0 and canonical ROOT`` () = task {
     let connStr = connStrOrEmpty ()
     Skip.If(String.IsNullOrWhiteSpace(connStr), $"Set {testConnEnv} for PostgreSQL tests (gambol_test).")
     do! resetTestDatabase connStr
@@ -75,7 +75,7 @@ let ``DbAgent empty test DB has revision 0 and blank root`` () = task {
     Assert.Equal(0, rev)
     let graph = decodeGraph json
     Assert.Equal(1, graph.nodes.Count)
-    Assert.Equal("", graph.nodes.[graph.root].text)
+    Assert.Equal("ROOT", graph.nodes.[graph.root].text)
 }
 
 [<SkippableFact>]
@@ -108,6 +108,7 @@ let ``DbAgent new process loads state from snapshot after change`` () = task {
     let! json2 = DbAgent.getState agent2 |> Async.StartAsTask
     Assert.Equal(1, rev2)
     let graph2 = decodeGraph json2
+    Assert.Equal(Graph.rootId, graph2.root)
     let root = graph2.nodes.[graph2.root]
     Assert.Equal(1, root.children.Length)
     let cid = root.children.[0].id

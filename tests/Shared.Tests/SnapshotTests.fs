@@ -60,6 +60,8 @@ let ``write createDag12 produces expected outline`` () =
 let ``read empty string produces empty graph`` () =
     let graph = Snapshot.read ""
     let root = graph.nodes.[graph.root]
+    Assert.Equal(Graph.rootId, graph.root)
+    Assert.Equal("ROOT", root.text)
     Assert.Empty(root.children)
     Assert.Equal(1, Graph.nodeCount graph) // root only
 
@@ -92,6 +94,8 @@ let ``read handles Windows line endings`` () =
 let ``round-trip empty graph`` () =
     let original = Graph.create ()
     let decoded = original |> Snapshot.write |> Snapshot.read
+    Assert.Equal(Graph.rootId, decoded.root)
+    Assert.Equal("ROOT", decoded.nodes.[decoded.root].text)
     Assert.Equal<(int * string) list>(treeShape original, treeShape decoded)
 
 [<Fact>]

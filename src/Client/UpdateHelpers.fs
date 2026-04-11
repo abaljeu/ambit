@@ -124,8 +124,11 @@ let viewRootNodeId (model: VM) : NodeId =
 
 /// If `newText` differs from the graph, the same `SetText` op `commitTextEdit` would post (no mode change).
 let tryTextCommitOps (nodeId: NodeId) (originalTextForHistory: string) (newText: string) (graph: Graph) : Op list =
-    let modelText = graph.nodes.[nodeId].text
-    if newText = modelText then [] else [ Op.SetText(nodeId, originalTextForHistory, newText) ]
+    if nodeId = graph.root then
+        []
+    else
+        let modelText = graph.nodes.[nodeId].text
+        if newText = modelText then [] else [ Op.SetText(nodeId, originalTextForHistory, newText) ]
 
 /// Apply a committed text edit to the model and POST to server.
 /// Returns the updated model and any effects.

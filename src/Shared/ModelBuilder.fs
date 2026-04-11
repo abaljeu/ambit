@@ -52,16 +52,12 @@ module ModelBuilder =
 
         let id index = ids |> List.item index
 
-        let graph2 =
-            Graph.setText graph1.root "" "root" graph1
-            |> requireOk "createDag12.setText"
-
         let replaceInsert parentId newIds graph =
             Graph.replace parentId 0 [] (assignOwnership graph newIds) graph
             |> requireOk "createDag12.replace"
 
-        graph2
-        |> replaceInsert graph2.root [ id 0; id 1; id 2 ]
+        graph1
+        |> replaceInsert graph1.root [ id 0; id 1; id 2 ]
         |> replaceInsert (id 0) [ id 3; id 4 ]
         |> replaceInsert (id 1) [ id 5; id 6 ]
         |> replaceInsert (id 2) [ id 7; id 8 ]

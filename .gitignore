@@ -417,4 +417,4 @@ FodyWeavers.xsd
 dist/
 
 # Runtime data
-#data/
+data/*.bak.*

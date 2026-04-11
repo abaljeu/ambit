@@ -135,6 +135,12 @@ CREATE TABLE snapshots (
 
 `server_revision_after` is the server revision **after** applying that row (same index semantics as the file `.meta` + `.log` replay). `initSchema` adds the column on existing databases and backfills with `ROW_NUMBER() OVER (ORDER BY seq_id)` where it was null. Replay loads the latest snapshot, then applies changes with `server_revision_after` **greater than** the snapshot’s `revision`.
 
+### Canonical document root (replay alignment)
+
+The graph root uses a fixed `NodeId` (`Guid.Empty`) and label text `ROOT`. The tab-outline snapshot has no metadata line for the root, so only children of root are persisted as lines; `SetText` / `SetClasses` on the root are rejected in shared code, and the client does not open edit mode on the root row. That keeps replayed ops and `Snapshot.read` / `Graph.create` aligned after restart.
+
+**Upgrade note:** older `.log` rows that targeted a randomly generated root id from a previous server build may no longer apply after this change. If replay errors appear, rely on the latest snapshot and truncate or archive the log, or re-seed the document.
+
 ---
 
 ## Test database (`gambol_test`)

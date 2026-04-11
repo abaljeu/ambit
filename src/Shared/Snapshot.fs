@@ -159,16 +159,6 @@ module Snapshot =
         else
             text.Replace("\r\n", "\n").TrimEnd('\n').Split('\n')
 
-    let private newOutlineRoot () : NodeId * Node =
-        let rootId = NodeId.New()
-        let rootNode: Node =
-            { id = rootId
-              text = "ROOT"
-              name = None
-              children = []
-              cssClasses = CssClass.empty }
-        rootId, rootNode
-
     let private foldOutlineLine (nodes, stack, idMap: Map<string, NodeId>) (line: string) =
         let depth = line |> Seq.takeWhile ((=) '\t') |> Seq.length
         let content = line.Substring(depth)
@@ -202,10 +192,12 @@ module Snapshot =
         Graph.fromNodes rootId nodes
 
     /// Parse tab-indented text outline into a new Graph.
-    /// Creates new NodeIds; original IDs are not preserved.
+    /// Canonical root id is preserved; other NodeIds are minted fresh.
     /// Formats: #n1 text (Owner), -> #n1 (Ref), or plain line. Owner may update a ref stub.
     let read (text: string) : Graph =
-        let rootId, rootNode = newOutlineRoot ()
-        let initial = (Map.ofList [ rootId, rootNode ], [ (-1, rootId) ], Map.empty)
+        let initial =
+            ( Map.ofList [ Graph.rootId, Graph.rootPlaceholder ]
+              , [ (-1, Graph.rootId) ]
+              , Map.empty )
         let nodemap, _, _ = outlineSourceLines text |> Array.fold foldOutlineLine initial
-        finalizeOutlineGraph rootId nodemap
+        finalizeOutlineGraph Graph.rootId nodemap

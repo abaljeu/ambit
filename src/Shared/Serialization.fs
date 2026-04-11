@@ -100,6 +100,18 @@ module Serialization =
             let nodeList = get.Required.Field "nodes" (Decode.list decodeNode)
             let nodes = nodeList |> List.map (fun n -> n.id, n) |> Map.ofList
             Graph.fromNodes root nodes)
+        |> Decode.andThen (fun g ->
+            if g.root <> Graph.rootId then
+                Decode.fail "graph root id must be canonical"
+            elif not (Map.containsKey Graph.rootId g.nodes) then
+                Decode.fail "graph missing canonical root node"
+            else
+                let n = g.nodes.[Graph.rootId]
+                if n.id <> Graph.rootId || n.text <> "ROOT" || n.name.IsSome
+                   || n.cssClasses <> CssClass.empty then
+                    Decode.fail "canonical root node has wrong shape"
+                else
+                    Decode.succeed g)
 
     // ---- Op ----
 

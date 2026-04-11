@@ -46,19 +46,27 @@ let cutSelectionOp (model: VM) : VM * Effect list =
 
 /// Op: Enter edit mode for the focused node, prefilled with its current text.
 let startEditOp (model: VM) : VM * Effect list =
-    let text =
+    let targetId =
         match model.selectedNodes with
-        | None -> model.graph.nodes.[viewRootNodeId model].text
-        | Some sel -> model.graph.nodes.[focusedNodeId model.graph sel].text
-    { model with mode = Editing (text, EditCaret.EndOfText) }, []
+        | None -> viewRootNodeId model
+        | Some sel -> focusedNodeId model.graph sel
+    if targetId = model.graph.root then
+        model, []
+    else
+        let text = model.graph.nodes.[targetId].text
+        { model with mode = Editing (text, EditCaret.EndOfText) }, []
 
 /// Op: Enter edit mode for the focused node, with cursor placed at a specific position.
 let startEditAtPos (cursorPos: int) (model: VM) : VM * Effect list =
-    let text =
+    let targetId =
         match model.selectedNodes with
-        | None -> model.graph.nodes.[viewRootNodeId model].text
-        | Some sel -> model.graph.nodes.[focusedNodeId model.graph sel].text
-    { model with mode = Editing (text, EditCaret.Utf16Index cursorPos) }, []
+        | None -> viewRootNodeId model
+        | Some sel -> focusedNodeId model.graph sel
+    if targetId = model.graph.root then
+        model, []
+    else
+        let text = model.graph.nodes.[targetId].text
+        { model with mode = Editing (text, EditCaret.Utf16Index cursorPos) }, []
 
 /// Re-export palette ops for use by Controller and View.
 let openCommandPaletteOp = Gambol.Client.CommandPalette.openCommandPaletteOp

@@ -14,7 +14,7 @@ module ViewModel =
         |> Map.ofSeq
 
     let emptySiteMap : SiteMap =
-        let rootEntry = { instanceId = Sid 0; nodeId = NodeId(System.Guid.Empty)
+        let rootEntry = { instanceId = Sid 0; nodeId = Graph.rootId
                           parentInstanceId = None; expanded = true; childrenStale = false; children = [] }
         let entries = Map.ofList [Sid 0, rootEntry]
         { rootId = Sid 0

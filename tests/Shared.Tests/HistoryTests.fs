@@ -120,13 +120,29 @@ let ``Apply NewNode adds node to graph`` () =
     Assert.Equal("hello", node.text)
 
 [<Fact>]
+let ``Apply NewNode with canonical root id is invalid`` () =
+    let state = ModelBuilder.createState12 ()
+    let op = Op.NewNode(Graph.rootId, "evil")
+    let _, msg = Op.apply op state |> expectInvalid
+    Assert.Contains("root", msg)
+
+[<Fact>]
 let ``Apply SetText updates node text`` () =
     let state = ModelBuilder.createState12 ()
-    let nodeId = state.graph.root
-    let op = Op.SetText(nodeId, "root", "new root text")
+    let rootNode = state.graph.nodes.[state.graph.root]
+    let nodeId = rootNode.children.[0].id
+    let oldText = state.graph.nodes.[nodeId].text
+    let op = Op.SetText(nodeId, oldText, oldText + "!")
     let state2 = Op.apply op state |> expectChanged
     let node = state2.graph.nodes |> Map.find nodeId
-    Assert.Equal("new root text", node.text)
+    Assert.Equal(oldText + "!", node.text)
+
+[<Fact>]
+let ``Apply SetText on canonical root is invalid`` () =
+    let state = ModelBuilder.createState12 ()
+    let op = Op.SetText(Graph.rootId, "ROOT", "x")
+    let _, msg = Op.apply op state |> expectInvalid
+    Assert.Contains("root", msg)
 
 [<Fact>]
 let ``Apply Replace updates parent children`` () =

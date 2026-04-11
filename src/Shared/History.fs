@@ -52,19 +52,22 @@ module Op =
     let apply (op: Op) (state: State) : ApplyResult =
         match op with
         | Op.NewNode(nodeId, text) ->
-            let node: Node =
-                { id = nodeId
-                  text = text
-                  name = None
-                  children = []
-                  cssClasses = CssClass.empty }
+            if nodeId = Graph.rootId then
+                ApplyResult.Invalid(state, "cannot NewNode with canonical root id")
+            else
+                let node: Node =
+                    { id = nodeId
+                      text = text
+                      name = None
+                      children = []
+                      cssClasses = CssClass.empty }
 
-            ApplyResult.Changed
-                { state with
-                      graph =
-                          Graph.fromNodes
-                              state.graph.root
-                              (state.graph.nodes |> Map.add nodeId node) }
+                ApplyResult.Changed
+                    { state with
+                          graph =
+                              Graph.fromNodes
+                                  state.graph.root
+                                  (state.graph.nodes |> Map.add nodeId node) }
         | Op.SetText(nodeId, oldText, newText) ->
             Graph.setText nodeId oldText newText state.graph
             |> fromGraphResult state

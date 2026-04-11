@@ -94,6 +94,20 @@ let private postChange (client: HttpClient) (_file: string) (change: Change) = t
     return! client.PostAsync("/ambit/changes", content)
 }
 
+let private ownedChild (id: NodeId) : ChildNode list =
+    [ { ref = Ownership.Owner; id = id } ]
+
+/// Build a change (base revision `rev`) that adds one child under root; returns change + child id.
+let private changeAddChild (rootId: NodeId) (rev: int) (childText: string) : Change * NodeId =
+    let childId = NodeId.New()
+    let c =
+        { id = rev
+          changeId = Guid.NewGuid()
+          ops =
+            [ Op.NewNode(childId, childText)
+              Op.Replace(rootId, 0, [], ownedChild childId) ] }
+    c, childId
+
 /// Read a file that may be held open by a FileAgent (shared read).
 let private readFileShared (path: string) =
     use fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
@@ -117,29 +131,32 @@ let ``GET state returns valid graph with root node`` () = task {
     Assert.Equal(1, graph.nodes.Count)
     Assert.True(graph.nodes.ContainsKey graph.root)
     let root = graph.nodes.[graph.root]
-    Assert.Equal("", root.text)
+    Assert.Equal("ROOT", root.text)
     Assert.Empty(root.children)
 }
 
 // ---- POST /{file}/changes tests ----
 
 [<Fact>]
-let ``POST changes SetText changes root text and bumps revision`` () = task {
+let ``POST changes SetText changes child text and bumps revision`` () = task {
     use client = createClient ()
     let! json0 = getStateJson client testFile
     let rootId = (decodeGraph json0).root
+    let change0, childId = changeAddChild rootId 0 ""
+    let! r0 = postChange client testFile change0
+    Assert.Equal(HttpStatusCode.OK, r0.StatusCode)
 
-    let change = { id = 0; changeId = Guid.NewGuid(); ops = [ Op.SetText(rootId, "", "hello") ] }
+    let change = { id = 1; changeId = Guid.NewGuid(); ops = [ Op.SetText(childId, "", "hello") ] }
     let! resp = postChange client testFile change
     Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
 
     let! postBody = resp.Content.ReadAsStringAsync()
-    Assert.Equal(Revision 1, decodeRevision postBody)
+    Assert.Equal(Revision 2, decodeRevision postBody)
     Assert.Equal(change.changeId, decodeAckChangeId postBody)
 
     let! json = getStateJson client testFile
     let graph = decodeGraph json
-    Assert.Equal("hello", graph.nodes.[rootId].text)
+    Assert.Equal("hello", graph.nodes.[childId].text)
 }
 
 [<Fact>]
@@ -195,11 +212,11 @@ let ``POST changes twice bumps revision to 2`` () = task {
     use client = createClient ()
     let! json0 = getStateJson client testFile
     let rootId = (decodeGraph json0).root
-
-    let! resp1 = postChange client testFile { id = 0; changeId = Guid.NewGuid(); ops = [ Op.SetText(rootId, "", "first") ] }
+    let change1, childId = changeAddChild rootId 0 "first"
+    let! resp1 = postChange client testFile change1
     Assert.Equal(HttpStatusCode.OK, resp1.StatusCode)
 
-    let change2 = { id = 1; changeId = Guid.NewGuid(); ops = [ Op.SetText(rootId, "first", "second") ] }
+    let change2 = { id = 1; changeId = Guid.NewGuid(); ops = [ Op.SetText(childId, "first", "second") ] }
     let! resp2 = postChange client testFile change2
     Assert.Equal(HttpStatusCode.OK, resp2.StatusCode)
 
@@ -207,7 +224,8 @@ let ``POST changes twice bumps revision to 2`` () = task {
     Assert.Equal(Revision 2, decodeRevision postBody2)
 
     let! json = getStateJson client testFile
-    Assert.Equal("second", (decodeGraph json).nodes.[rootId].text)
+    let g = decodeGraph json
+    Assert.Equal("second", g.nodes.[childId].text)
 }
 
 [<Fact>]
@@ -215,12 +233,15 @@ let ``POST changes persists in GET state`` () = task {
     use client = createClient ()
     let! json0 = getStateJson client testFile
     let rootId = (decodeGraph json0).root
-
-    let! _ = postChange client testFile { id = 0; changeId = Guid.NewGuid(); ops = [ Op.SetText(rootId, "", "persisted") ] }
+    let c0, childId = changeAddChild rootId 0 ""
+    let! _ = postChange client testFile c0
+    let! _ =
+        postChange client testFile { id = 1; changeId = Guid.NewGuid(); ops = [ Op.SetText(childId, "", "persisted") ] }
 
     let! json = getStateJson client testFile
-    Assert.Equal(Revision 1, decodeRevision json)
-    Assert.Equal("persisted", (decodeGraph json).nodes.[rootId].text)
+    Assert.Equal(Revision 2, decodeRevision json)
+    let g = decodeGraph json
+    Assert.Equal("persisted", g.nodes.[childId].text)
 }
 
 [<Fact>]
@@ -229,10 +250,13 @@ let ``POST same changeId twice is idempotent`` () = task {
     let! json0 = getStateJson client testFile
     let rootId = (decodeGraph json0).root
     let cid = Guid.NewGuid()
+    let childId = NodeId.New()
     let change =
         { id = 0
           changeId = cid
-          ops = [ Op.SetText(rootId, "", "once") ] }
+          ops =
+            [ Op.NewNode(childId, "once")
+              Op.Replace(rootId, 0, [], ownedChild childId) ] }
 
     // POST /changes: revision-only body; duplicate must ack same revision without re-applying.
     let! r1 = postChange client testFile change
@@ -252,7 +276,7 @@ let ``POST same changeId twice is idempotent`` () = task {
     // GET /state (in-memory FileAgent, not reading snapshot files): one apply, text still "once".
     let! json = getStateJson client testFile
     Assert.Equal(Revision 1, decodeRevision json)
-    Assert.Equal("once", (decodeGraph json).nodes.[rootId].text)
+    Assert.Equal("once", (decodeGraph json).nodes.[childId].text)
 }
 
 [<Fact>]
@@ -273,13 +297,7 @@ let ``POST with wrong base revision returns 400`` () = task {
 
 /// Submit a NewNode+Replace that adds a child with the given text under root.
 let private addChild (client: HttpClient) (file: string) (rootId: NodeId) (rev: Revision) (text: string) = task {
-    let childId = NodeId.New()
-    let change =
-        { id = rev.Value
-          changeId = Guid.NewGuid()
-          ops =
-            [ Op.NewNode(childId, text)
-              Op.Replace(rootId, 0, [], [ { ref = Ownership.Owner; id = childId } ]) ] }
+    let change, childId = changeAddChild rootId rev.Value text
     let! resp = postChange client file change
     Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
     return childId

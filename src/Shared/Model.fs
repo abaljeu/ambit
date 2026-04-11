@@ -69,6 +69,17 @@ type Graph =
 [<RequireQualifiedAccess>]
 module Graph =
 
+    /// Canonical document root; stable across snapshot load and replay (not stored in outline).
+    let rootId: NodeId = NodeId Guid.Empty
+
+    /// Initial root node: fixed label, no user-editable fields on root.
+    let rootPlaceholder: Node =
+        { id = rootId
+          text = "ROOT"
+          name = None
+          children = []
+          cssClasses = CssClass.empty }
+
     let private addStructuralEdges (parentId: NodeId) (parent: Node) acc =
         parent.children
         |> List.mapi (fun i c -> i, c.id)
@@ -119,10 +130,7 @@ module Graph =
         { graph with nodes = nodes }, nodeId
 
     let create () : Graph =
-        let placeholderRoot = NodeId.New()
-        let g0 = fromNodes placeholderRoot Map.empty
-        let graph, rootId = newNode "" g0
-        { graph with root = rootId }
+        fromNodes rootId (Map.ofList [ rootId, rootPlaceholder ])
 
     let setText
         (nodeId: NodeId)
@@ -131,15 +139,18 @@ module Graph =
         (graph: Graph)
         : Result<Graph, string>
         =
-        match graph.nodes |> Map.tryFind nodeId with
-        | None -> Error "node not found"
-        | Some node ->
-            if node.text <> oldText then
-                Error "old text does not match"
-            else
-                let updatedNode = { node with text = newText }
-                let nodes = graph.nodes |> Map.add nodeId updatedNode
-                Ok { graph with nodes = nodes }
+        if nodeId = rootId then
+            Error "cannot modify canonical root text"
+        else
+            match graph.nodes |> Map.tryFind nodeId with
+            | None -> Error "node not found"
+            | Some node ->
+                if node.text <> oldText then
+                    Error "old text does not match"
+                else
+                    let updatedNode = { node with text = newText }
+                    let nodes = graph.nodes |> Map.add nodeId updatedNode
+                    Ok { graph with nodes = nodes }
 
     let setClasses
         (nodeId: NodeId)
@@ -148,15 +159,18 @@ module Graph =
         (graph: Graph)
         : Result<Graph, string>
         =
-        match graph.nodes |> Map.tryFind nodeId with
-        | None -> Error "node not found"
-        | Some node ->
-            if node.cssClasses <> oldClasses then
-                Error "old classes do not match"
-            else
-                let updatedNode = { node with cssClasses = newClasses }
-                let nodes = graph.nodes |> Map.add nodeId updatedNode
-                Ok { graph with nodes = nodes }
+        if nodeId = rootId then
+            Error "cannot set classes on canonical root"
+        else
+            match graph.nodes |> Map.tryFind nodeId with
+            | None -> Error "node not found"
+            | Some node ->
+                if node.cssClasses <> oldClasses then
+                    Error "old classes do not match"
+                else
+                    let updatedNode = { node with cssClasses = newClasses }
+                    let nodes = graph.nodes |> Map.add nodeId updatedNode
+                    Ok { graph with nodes = nodes }
 
     let replace
         (parentId: NodeId)

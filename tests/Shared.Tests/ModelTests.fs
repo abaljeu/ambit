@@ -6,6 +6,11 @@ open Xunit
 let private owned (ids: NodeId list) : ChildNode list =
     ids |> List.map (fun id -> { ref = Ownership.Owner; id = id })
 
+let private requireOk label r =
+    match r with
+    | Ok v -> v
+    | Error e -> failwith $"{label}: {e}"
+
 let private assertValidOwnership (graph: Graph) =
     let allChildren =
         graph.nodes
@@ -76,12 +81,22 @@ let ``New node increments node count`` () =
     assertValidOwnership graph1
 
 [<Fact>]
-let ``Set text updates node when old matches`` () =
+let ``Set text on canonical root is rejected`` () =
+    let graph = Graph.create ()
+    let result = Graph.setText graph.root "ROOT" "hello" graph
+    Assert.True(Result.isError result)
+
+[<Fact>]
+let ``Set text updates non-root node when old matches`` () =
     let graph0 = Graph.create ()
-    let result = Graph.setText graph0.root "" "hello" graph0
+    let graph1, childId = Graph.newNode "hello" graph0
+
+    let graph2 = Graph.replace graph1.root 0 [] (owned [ childId ]) graph1 |> requireOk "replace"
+
+    let result = Graph.setText childId "hello" "bye" graph2
 
     match result with
-    | Ok graph1 -> Assert.Equal("hello", graph1.nodes[graph1.root].text)
+    | Ok graph3 -> Assert.Equal("bye", graph3.nodes[childId].text)
     | Error err -> Assert.True(false, $"Expected Ok, got Error: {err}")
 
 [<Fact>]
