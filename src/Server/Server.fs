@@ -216,24 +216,48 @@ module Main =
 
         | Ok dataDir ->
 
-            // ── File agent ─────────────────────────────────────────────────
-            let mutable currentAgent: (string * FileAgent) option = None
-            let agentLock = obj ()
+            // ── Persistence backend: file (default) or PostgreSQL ───────────
+            let dbConnString =
+                Environment.GetEnvironmentVariable("DB_CONNECTION_STRING") |> Option.ofObj
 
-            let getOrCreateAgent (filename: string) : FileAgent =
-                lock agentLock (fun () ->
-                    match currentAgent with
+            let mutable currentFileAgent: (string * FileAgent) option = None
+            let fileAgentLock = obj ()
+
+            let getOrCreateFileAgent (filename: string) : FileAgent =
+                lock fileAgentLock (fun () ->
+                    match currentFileAgent with
                     | Some (name, agent) when name = filename -> agent
                     | Some (_, agent) ->
                         FileAgent.dispose agent
                         let newAgent = FileAgent.create dataDir filename
-                        currentAgent <- Some (filename, newAgent)
+                        currentFileAgent <- Some (filename, newAgent)
                         newAgent
                     | None ->
                         let newAgent = FileAgent.create dataDir filename
-                        currentAgent <- Some (filename, newAgent)
+                        currentFileAgent <- Some (filename, newAgent)
                         newAgent
                 )
+
+            // DB agent is a single shared instance (one database, one handle name).
+            let dbAgentCache: (string * DbAgent) option ref = ref None
+            let dbAgentLock = obj ()
+
+            let getOrCreateDbAgent (connStr: string) (filename: string) : DbAgent =
+                lock dbAgentLock (fun () ->
+                    match !dbAgentCache with
+                    | Some (name, agent) when name = filename -> agent
+                    | _ ->
+                        let agent = DbAgent.create connStr
+                        dbAgentCache.Value <- Some (filename, agent)
+                        agent
+                )
+
+            let getHandle (filename: string) : AgentHandle =
+                match dbConnString with
+                | Some connStr ->
+                    AgentHandle.ofDb (getOrCreateDbAgent connStr filename)
+                | None ->
+                    AgentHandle.ofFile (getOrCreateFileAgent filename)
 
             // GET /ambit/login → serve login.html
             let loginHtml = Path.Combine(app.Environment.WebRootPath, "login.html")
@@ -310,8 +334,8 @@ module Main =
                 if not (isAuthenticated req) then
                     return Results.Unauthorized()
                 else
-                    let agent = getOrCreateAgent "gambol"
-                    return! Api.getState agent |> Async.StartAsTask
+                    let handle = getHandle "gambol"
+                    return! Api.getState handle |> Async.StartAsTask
             })) |> ignore
 
             // GET /ambit/poll → JSON { r, b, p } (revision, buildEpochSec, pageBuildEpochSec — lightweight)
@@ -319,9 +343,9 @@ module Main =
                 if not (isAuthenticated req) then
                     return Results.Unauthorized()
                 else
-                    let agent = getOrCreateAgent "gambol"
+                    let handle = getHandle "gambol"
                     let pageEpoch = pageBuildEpochSec ()
-                    return! Api.getPoll agent (deployEpochSec ()) pageEpoch |> Async.StartAsTask
+                    return! Api.getPoll handle (deployEpochSec ()) pageEpoch |> Async.StartAsTask
             })) |> ignore
 
             // POST /ambit/changes → JSON { revision, graph } or 400
@@ -331,8 +355,8 @@ module Main =
                 else
                     use reader = new StreamReader(req.Body)
                     let! body = reader.ReadToEndAsync()
-                    let agent = getOrCreateAgent "gambol"
-                    return! Api.postChange agent body |> Async.StartAsTask
+                    let handle = getHandle "gambol"
+                    return! Api.postChange handle body |> Async.StartAsTask
             })) |> ignore
 
             // GET /ambit/user.css → serve dataDir/user.css, falling back to wwwroot/user.css
@@ -342,6 +366,24 @@ module Main =
                 if File.Exists(path) then Results.File(path, "text/css")
                 else Results.NoContent()
             app.MapGet("/ambit/user.css", Func<IResult>(fun () -> serveUserCss ())) |> ignore
+
+            // Dev-only: GET /ambit/validate → compare graph from file and DB
+            // Returns { "match": true } or { "match": false, "file": "...", "db": "..." }.
+            if app.Environment.EnvironmentName = "Development" then
+                app.MapGet("/ambit/validate", Func<Task<IResult>>(fun () -> task {
+                    match dbConnString with
+                    | None ->
+                        return Results.BadRequest({| error = "DB_CONNECTION_STRING not set; no DB backend to compare" |})
+                    | Some connStr ->
+                        let fileAgent = getOrCreateFileAgent "gambol"
+                        let dbAgent   = getOrCreateDbAgent connStr "gambol"
+                        let! fileJson = FileAgent.getState fileAgent |> Async.StartAsTask
+                        let! dbJson   = DbAgent.getState dbAgent |> Async.StartAsTask
+                        if fileJson = dbJson then
+                            return Results.Json({| ``match`` = true |})
+                        else
+                            return Results.Json({| ``match`` = false; file = fileJson; db = dbJson |})
+                })) |> ignore
 
             // GET /ambit → serve gambol.html (protected) with startup stamp and page file stamp injected
             let gambolHtmlWithStamp () =
