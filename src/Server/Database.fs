@@ -1,32 +1,30 @@
 namespace Gambol.Server
 
 open System
+open System.Data
+open System.IO
 open System.Threading.Tasks
-open Npgsql
 open Dapper
+open Gambol.Shared
+open Newtonsoft.Json
+open Npgsql
 
-/// Low-level PostgreSQL helpers. All operations are explicit and typed to the
-/// present model (Change JSON via Serialization, Graph text via Snapshot.write).
+/// PostgreSQL: append-only `changes` plus normalized `graph` / `nodes` / `node_children`.
 [<RequireQualifiedAccess>]
 module Database =
 
-    // ------------------------------------------------------------------
-    // Connection
-    // ------------------------------------------------------------------
-
     let getConnection (connectionString: string) =
         new NpgsqlConnection(connectionString)
-
-    // ------------------------------------------------------------------
-    // Schema bootstrap
-    // ------------------------------------------------------------------
 
     let initSchema (connectionString: string) : Task =
         task {
             use conn = getConnection connectionString
             do! conn.OpenAsync()
             use cmd = conn.CreateCommand()
+
             cmd.CommandText <- """
+                DROP TABLE IF EXISTS snapshots;
+
                 CREATE TABLE IF NOT EXISTS changes (
                     seq_id      BIGSERIAL    PRIMARY KEY,
                     change_id   INT          NOT NULL,
@@ -55,26 +53,83 @@ module Database =
                 CREATE INDEX IF NOT EXISTS idx_changes_server_revision_after
                     ON changes (server_revision_after);
 
-                CREATE TABLE IF NOT EXISTS snapshots (
-                    id          BIGSERIAL    PRIMARY KEY,
-                    revision    INT          NOT NULL,
-                    content     TEXT         NOT NULL,
-                    recorded_at TIMESTAMPTZ  DEFAULT NOW()
+                CREATE TABLE IF NOT EXISTS graph (
+                    singleton   SMALLINT PRIMARY KEY DEFAULT 1 CHECK (singleton = 1),
+                    root_id     UUID         NOT NULL,
+                    revision    INT          NOT NULL
                 );
+
+                CREATE TABLE IF NOT EXISTS nodes (
+                    id            UUID         PRIMARY KEY,
+                    text          TEXT         NOT NULL,
+                    name          TEXT         NULL,
+                    css_classes   JSONB        NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS node_children (
+                    parent_id   UUID         NOT NULL REFERENCES nodes (id) ON DELETE CASCADE,
+                    ordinal     INT          NOT NULL,
+                    child_id    UUID         NOT NULL REFERENCES nodes (id) ON DELETE CASCADE,
+                    ownership   TEXT         NOT NULL CHECK (ownership IN ('owner','ref')),
+                    PRIMARY KEY (parent_id, ordinal)
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_node_children_child
+                    ON node_children (child_id);
             """
+
             do! cmd.ExecuteNonQueryAsync() :> Task
         }
-
-    // ------------------------------------------------------------------
-    // Changes table
-    // ------------------------------------------------------------------
 
     type ChangeRow =
         { change_id: int
           payload: string }
 
-    /// Append a change. `clientBaseRevision` is Change.id (log line header). `serverRevisionAfter`
-    /// is the server revision after applying this change (matches FileAgent meta / replay index).
+    type GraphSingletonRow =
+        { root_id: Guid
+          revision: int }
+
+    type NodeDbRow =
+        { id: Guid
+          text: string
+          name: string // null from SQL when column is NULL
+          css_classes: string }
+
+    type NodeChildDbRow =
+        { parent_id: Guid
+          ordinal: int
+          child_id: Guid
+          ownership: string }
+
+    let private cssJson (classes: CssClasses) : string =
+        JsonConvert.SerializeObject(CssClass.toList classes)
+
+    let private decodeCss (json: string) : CssClasses =
+        if String.IsNullOrWhiteSpace json then
+            CssClass.empty
+        else
+            try
+                CssClass.ofList (JsonConvert.DeserializeObject<string list>(json))
+            with _ ->
+                CssClass.empty
+
+    let appendChangeWithTx
+        (tx: IDbTransaction)
+        (serverRevisionAfter: int)
+        (clientBaseRevision: int)
+        (json: string)
+        : Task =
+        tx.Connection.ExecuteAsync(
+            """
+            INSERT INTO changes (change_id, server_revision_after, payload)
+            VALUES (@change_id, @server_revision_after, @payload)
+            """,
+            {| change_id = clientBaseRevision
+               server_revision_after = serverRevisionAfter
+               payload = json |},
+            tx)
+        :> Task
+
     let appendChange
         (connectionString: string)
         (serverRevisionAfter: int)
@@ -84,63 +139,259 @@ module Database =
         task {
             use conn = getConnection connectionString
             do! conn.OpenAsync()
-            do! conn.ExecuteAsync(
-                    """
-                    INSERT INTO changes (change_id, server_revision_after, payload)
-                    VALUES (@change_id, @server_revision_after, @payload)
-                    """,
-                    {| change_id = clientBaseRevision
-                       server_revision_after = serverRevisionAfter
-                       payload = json |})
-                :> Task
+            use tx = conn.BeginTransaction()
+
+            do! appendChangeWithTx tx serverRevisionAfter clientBaseRevision json
+            tx.Commit()
         }
 
-    /// Changes applied after snapshot revision `snapshotRevision` (replay tail of the log).
-    let getChangesAfterSnapshotRevision
+    let getChangesAfterCheckpointRevision
         (connectionString: string)
-        (snapshotRevision: int)
+        (checkpointRevision: int)
         : Task<ChangeRow list> =
         task {
             use conn = getConnection connectionString
             do! conn.OpenAsync()
+
             let! rows =
                 conn.QueryAsync<ChangeRow>(
                     """
                     SELECT change_id, payload FROM changes
-                    WHERE server_revision_after > @snapRev
+                    WHERE server_revision_after > @rev
                     ORDER BY server_revision_after ASC
                     """,
-                    {| snapRev = snapshotRevision |})
+                    {| rev = checkpointRevision |})
+
             return rows |> Seq.toList
         }
 
-    // ------------------------------------------------------------------
-    // Snapshots table
-    // ------------------------------------------------------------------
-
-    type SnapshotRow =
-        { revision: int
-          content: string }
-
-    /// Insert a new snapshot. Each snapshot is the full Snapshot.write text
-    /// plus the revision it was taken at.
-    let insertSnapshot (connectionString: string) (revision: int) (content: string) : Task =
+    let tryGetGraphSingleton (connectionString: string) : Task<GraphSingletonRow option> =
         task {
             use conn = getConnection connectionString
             do! conn.OpenAsync()
-            do! conn.ExecuteAsync(
-                    "INSERT INTO snapshots (revision, content) VALUES (@revision, @content)",
-                    {| revision = revision; content = content |})
-                :> Task
+
+            let! row =
+                conn.QueryFirstOrDefaultAsync<GraphSingletonRow>(
+                    "SELECT root_id, revision FROM graph WHERE singleton = 1")
+
+            return if obj.ReferenceEquals(row, null) then None else Some row
         }
 
-    /// Load the most recent snapshot, or None if no snapshots exist yet.
-    let getLatestSnapshot (connectionString: string) : Task<SnapshotRow option> =
+    let private readNodeRows (conn: NpgsqlConnection) : Task<NodeDbRow list> =
+        task {
+            let! rows = conn.QueryAsync<NodeDbRow>("SELECT id, text, name, css_classes::text FROM nodes")
+            return rows |> Seq.toList
+        }
+
+    let private readChildRows (conn: NpgsqlConnection) : Task<NodeChildDbRow list> =
+        task {
+            let! rows =
+                conn.QueryAsync<NodeChildDbRow>(
+                    "SELECT parent_id, ordinal, child_id, ownership FROM node_children")
+
+            return rows |> Seq.toList
+        }
+
+    let tryLoadGraphFromProjection (connectionString: string) : Task<Result<Graph * int, string>> =
         task {
             use conn = getConnection connectionString
             do! conn.OpenAsync()
-            let! row =
-                conn.QueryFirstOrDefaultAsync<SnapshotRow>(
-                    "SELECT revision, content FROM snapshots ORDER BY revision DESC LIMIT 1")
-            return if obj.ReferenceEquals(row, null) then None else Some row
+
+            let! singleton =
+                conn.QueryFirstOrDefaultAsync<GraphSingletonRow>(
+                    "SELECT root_id, revision FROM graph WHERE singleton = 1")
+
+            match
+                if obj.ReferenceEquals(singleton, null) then
+                    None
+                else
+                    Some singleton
+            with
+            | None -> return Ok(Graph.create (), 0)
+            | Some gRow ->
+                let! nRows = readNodeRows conn |> Async.AwaitTask
+                let! cRows = readChildRows conn |> Async.AwaitTask
+
+                if List.isEmpty nRows then
+                    return Ok(Graph.create (), gRow.revision)
+                else
+
+                let nPersist =
+                    nRows
+                    |> List.map (fun r ->
+                        ({ id = r.id
+                           text = r.text
+                           name =
+                            if String.IsNullOrEmpty(r.name) then
+                                None
+                            else
+                                Some r.name
+                           cssClassNames = CssClass.toList (decodeCss r.css_classes) }
+                        : GraphProjection.NodePersistenceRow))
+
+                let cPersist =
+                    cRows
+                    |> List.map (fun r ->
+                        ({ parentId = r.parent_id
+                           ordinal = r.ordinal
+                           childId = r.child_id
+                           ownership =
+                            match r.ownership with
+                            | "owner" -> Ownership.Owner
+                            | "ref" -> Ownership.Ref
+                            | x -> failwith $"invalid ownership: {x}" }
+                        : GraphProjection.ChildPersistenceRow))
+
+                let rootId = NodeId gRow.root_id
+
+                return
+                    match GraphProjection.graphFromPersistence rootId nPersist cPersist with
+                    | Ok g -> Ok(g, gRow.revision)
+                    | Error e -> Error e
+        }
+
+    let replaceGraphProjectionWithTx (tx: IDbTransaction) (graph: Graph) (revision: int) : Task =
+        task {
+            let conn = tx.Connection :?> NpgsqlConnection
+
+            do! conn.ExecuteAsync("TRUNCATE node_children, nodes RESTART IDENTITY CASCADE", transaction = tx)
+                :> Task
+
+            do!
+                conn.ExecuteAsync(
+                    """
+                    INSERT INTO graph (singleton, root_id, revision) VALUES (1, @root, @rev)
+                    ON CONFLICT (singleton) DO UPDATE SET root_id = @root, revision = @rev
+                    """,
+                    {| root = graph.root.Value; rev = revision |},
+                    tx)
+                :> Task
+
+            let nodeRows = GraphProjection.nodeRowsFromGraph graph
+
+            for r in nodeRows do
+                let nameParam: obj = match r.name with | None -> null | Some n -> box n
+
+                do!
+                    conn.ExecuteAsync(
+                        """
+                        INSERT INTO nodes (id, text, name, css_classes)
+                        VALUES (@id, @text, @name, CAST(@css AS jsonb))
+                        """,
+                        {| id = r.id
+                           text = r.text
+                           name = nameParam
+                           css = cssJson (CssClass.ofList r.cssClassNames) |},
+                        tx)
+                    :> Task
+
+            let childRows = GraphProjection.childRowsFromGraph graph
+
+            for c in childRows do
+                let own =
+                    match c.ownership with
+                    | Ownership.Owner -> "owner"
+                    | Ownership.Ref -> "ref"
+
+                do!
+                    conn.ExecuteAsync(
+                        """
+                        INSERT INTO node_children (parent_id, ordinal, child_id, ownership)
+                        VALUES (@p, @o, @c, @own)
+                        """,
+                        {| p = c.parentId
+                           o = c.ordinal
+                           c = c.childId
+                           own = own |},
+                        tx)
+                    :> Task
+        }
+
+    let loadPersistedState (connectionString: string) (decodeChange: string -> Result<Change, string>) : Task<State> =
+        task {
+            let! proj = tryLoadGraphFromProjection connectionString |> Async.AwaitTask
+
+            let baseGraph, baseRevision =
+                match proj with
+                | Ok (g, r) -> g, r
+                | Error _ -> Graph.create (), 0
+
+            let! rows =
+                getChangesAfterCheckpointRevision connectionString baseRevision
+                |> Async.AwaitTask
+
+            let st0 =
+                { graph = baseGraph
+                  history = History.empty
+                  revision = Revision baseRevision }
+
+            let stFinal =
+                rows
+                |> List.fold
+                    (fun st row ->
+                        match decodeChange row.payload with
+                        | Error _ -> st
+                        | Ok change ->
+                            match History.applyChange change st with
+                            | ApplyResult.Changed newState ->
+                                { newState with revision = Revision (st.revision.Value + 1) }
+                            | _ -> st)
+                    st0
+
+            return stFinal
+        }
+
+    /// Truncate all persistence tables and replay the on-disk log from entry 0.
+    let rebuildFromDocumentFiles (connectionString: string) (dataDir: string) (filename: string) : Task =
+        task {
+            let logPath = Path.Combine(dataDir, filename + ".log")
+
+            use conn = getConnection connectionString
+            do! conn.OpenAsync()
+            use tx = conn.BeginTransaction()
+
+            do!
+                conn.ExecuteAsync(
+                    "TRUNCATE changes RESTART IDENTITY CASCADE",
+                    transaction = tx)
+                :> Task
+
+            do!
+                conn.ExecuteAsync(
+                    "TRUNCATE node_children, nodes RESTART IDENTITY CASCADE",
+                    transaction = tx)
+                :> Task
+
+            do! conn.ExecuteAsync("DELETE FROM graph", transaction = tx) :> Task
+
+            let mutable st =
+                { graph = Graph.create ()
+                  history = History.empty
+                  revision = Revision 0 }
+
+            use logStream =
+                new FileStream(logPath, FileMode.OpenOrCreate, FileAccess.Read, FileShare.ReadWrite)
+
+            let idx = ChangeLog.buildIndex logStream
+
+            for i in 0 .. idx.Count - 1 do
+                let _, json = ChangeLog.readEntryAt logStream idx.[i]
+
+                match ChangeLog.decodeChange json with
+                | Error _ -> ()
+                | Ok change ->
+                    match History.applyChange change st with
+                    | ApplyResult.Changed newSt ->
+                        let serverRevAfter = st.revision.Value + 1
+
+                        do!
+                            appendChangeWithTx tx serverRevAfter change.id json
+                            |> Async.AwaitTask
+
+                        st <-
+                            { newSt with revision = Revision serverRevAfter }
+                    | _ -> ()
+
+            do! replaceGraphProjectionWithTx tx st.graph st.revision.Value |> Async.AwaitTask
+            tx.Commit()
         }

@@ -1246,7 +1246,7 @@
         "path": "d:\\dev\\amble\\gambol\\tests\\Shared.Tests\\obj\\Debug\\net10.0\\Gambol.Shared.Tests.AssemblyInfo.fs",
         "exists": true,
         "length": 737,
-        "lastWriteTimeUtcTicks": 639115417111116827
+        "lastWriteTimeUtcTicks": 639115495778994471
       },
       {
         "path": "d:\\dev\\amble\\gambol\\tests\\Shared.Tests\\obj\\Debug\\net10.0\\.NETCoreApp,Version=v10.0.AssemblyAttributes.fs",
@@ -1255,16 +1255,10 @@
         "lastWriteTimeUtcTicks": 639078981040152019
       },
       {
-        "path": "d:\\dev\\amble\\gambol\\tests\\Shared.Tests\\OpenTargetTests.fs",
-        "exists": true,
-        "length": 2790,
-        "lastWriteTimeUtcTicks": 639109900255952562
-      },
-      {
         "path": "d:\\dev\\amble\\gambol\\tests\\Shared.Tests\\ModelTests.fs",
         "exists": true,
-        "length": 7967,
-        "lastWriteTimeUtcTicks": 639111900735970926
+        "length": 8443,
+        "lastWriteTimeUtcTicks": 639115452718910175
       },
       {
         "path": "d:\\dev\\amble\\gambol\\tests\\Shared.Tests\\ModelBuilderTests.fs",
@@ -1275,26 +1269,20 @@
       {
         "path": "d:\\dev\\amble\\gambol\\tests\\Shared.Tests\\HistoryTests.fs",
         "exists": true,
-        "length": 7819,
-        "lastWriteTimeUtcTicks": 639101310277991745
+        "length": 8442,
+        "lastWriteTimeUtcTicks": 639115453617964426
       },
       {
         "path": "d:\\dev\\amble\\gambol\\tests\\Shared.Tests\\SnapshotTests.fs",
         "exists": true,
-        "length": 8192,
-        "lastWriteTimeUtcTicks": 639106007434595855
+        "length": 8380,
+        "lastWriteTimeUtcTicks": 639115452861875587
       },
       {
         "path": "d:\\dev\\amble\\gambol\\tests\\Shared.Tests\\SerializationTests.fs",
         "exists": true,
         "length": 3403,
         "lastWriteTimeUtcTicks": 639101334393888516
-      },
-      {
-        "path": "d:\\dev\\amble\\gambol\\tests\\Shared.Tests\\SearchTests.fs",
-        "exists": true,
-        "length": 4233,
-        "lastWriteTimeUtcTicks": 639111899600928398
       },
       {
         "path": "d:\\dev\\amble\\gambol\\tests\\Shared.Tests\\ViewModelTests.fs",
@@ -1307,12 +1295,6 @@
         "exists": true,
         "length": 4412,
         "lastWriteTimeUtcTicks": 639106000655103286
-      },
-      {
-        "path": "d:\\dev\\amble\\gambol\\tests\\Shared.Tests\\SyncPlannerTests.fs",
-        "exists": true,
-        "length": 3251,
-        "lastWriteTimeUtcTicks": 639108118098488361
       },
       {
         "path": "d:\\dev\\amble\\gambol\\tests\\Shared.Tests\\PasteTests.fs",
@@ -1342,7 +1324,7 @@
         "path": "d:\\dev\\amble\\gambol\\src\\Shared\\obj\\Debug\\net10.0\\Gambol.Shared.AssemblyInfo.fs",
         "exists": true,
         "length": 719,
-        "lastWriteTimeUtcTicks": 639115417045816626
+        "lastWriteTimeUtcTicks": 639115460625822306
       },
       {
         "path": "d:\\dev\\amble\\gambol\\src\\Shared\\obj\\Debug\\net10.0\\.NETCoreApp,Version=v10.0.AssemblyAttributes.fs",
@@ -1365,20 +1347,20 @@
       {
         "path": "d:\\dev\\amble\\gambol\\src\\Shared\\Model.fs",
         "exists": true,
-        "length": 8371,
-        "lastWriteTimeUtcTicks": 639111899549943707
+        "length": 8928,
+        "lastWriteTimeUtcTicks": 639115451939532125
       },
       {
         "path": "d:\\dev\\amble\\gambol\\src\\Shared\\History.fs",
         "exists": true,
-        "length": 11280,
-        "lastWriteTimeUtcTicks": 639111899583837983
+        "length": 11474,
+        "lastWriteTimeUtcTicks": 639115453580882208
       },
       {
         "path": "d:\\dev\\amble\\gambol\\src\\Shared\\ViewModel.fs",
         "exists": true,
         "length": 12051,
-        "lastWriteTimeUtcTicks": 639111951377396023
+        "lastWriteTimeUtcTicks": 639115472152517096
       },
       {
         "path": "d:\\dev\\amble\\gambol\\src\\Shared\\ModelOps.fs",
@@ -1389,14 +1371,8 @@
       {
         "path": "d:\\dev\\amble\\gambol\\src\\Shared\\ViewModelOps.fs",
         "exists": true,
-        "length": 37623,
-        "lastWriteTimeUtcTicks": 639111899868551362
-      },
-      {
-        "path": "d:\\dev\\amble\\gambol\\src\\Shared\\ViewModelSearch.fs",
-        "exists": true,
-        "length": 5389,
-        "lastWriteTimeUtcTicks": 639108307101985123
+        "length": 37610,
+        "lastWriteTimeUtcTicks": 639115452188158401
       },
       {
         "path": "d:\\dev\\amble\\gambol\\src\\Shared\\Paste.fs",
@@ -1407,20 +1383,14 @@
       {
         "path": "d:\\dev\\amble\\gambol\\src\\Shared\\Snapshot.fs",
         "exists": true,
-        "length": 8493,
-        "lastWriteTimeUtcTicks": 639111899575189917
+        "length": 8229,
+        "lastWriteTimeUtcTicks": 639115451989439046
       },
       {
         "path": "d:\\dev\\amble\\gambol\\src\\Shared\\Serialization.fs",
         "exists": true,
-        "length": 7534,
-        "lastWriteTimeUtcTicks": 639111899570035049
-      },
-      {
-        "path": "d:\\dev\\amble\\gambol\\src\\Shared\\SyncPlanner.fs",
-        "exists": true,
-        "length": 1995,
-        "lastWriteTimeUtcTicks": 639108118098403062
+        "length": 8144,
+        "lastWriteTimeUtcTicks": 639115472151704529
       },
       {
         "path": "d:\\dev\\amble\\gambol\\src\\Shared\\SyncLogic.fs",
@@ -1431,20 +1401,14 @@
       {
         "path": "d:\\dev\\amble\\gambol\\src\\Shared\\ModelBuilder.fs",
         "exists": true,
-        "length": 3316,
-        "lastWriteTimeUtcTicks": 639101272863283664
-      },
-      {
-        "path": "d:\\dev\\amble\\gambol\\src\\Shared\\OpenTarget.fs",
-        "exists": true,
-        "length": 3963,
-        "lastWriteTimeUtcTicks": 639111645916594742
+        "length": 3188,
+        "lastWriteTimeUtcTicks": 639115452097985097
       },
       {
         "path": "d:\\dev\\amble\\gambol\\tests\\Server.Tests\\obj\\Debug\\net10.0\\Gambol.Server.Tests.AssemblyInfo.fs",
         "exists": true,
         "length": 737,
-        "lastWriteTimeUtcTicks": 639115417060333480
+        "lastWriteTimeUtcTicks": 639115453252606086
       },
       {
         "path": "d:\\dev\\amble\\gambol\\tests\\Server.Tests\\obj\\Debug\\net10.0\\.NETCoreApp,Version=v10.0.AssemblyAttributes.fs",
@@ -1455,8 +1419,8 @@
       {
         "path": "d:\\dev\\amble\\gambol\\tests\\Server.Tests\\StateEndpointTests.fs",
         "exists": true,
-        "length": 13456,
-        "lastWriteTimeUtcTicks": 639108118098449647
+        "length": 14779,
+        "lastWriteTimeUtcTicks": 639115458878722562
       },
       {
         "path": "C:\\Users\\Windows 8\\.nuget\\packages\\microsoft.net.test.sdk\\18.0.1\\build\\net8.0\\Microsoft.NET.Test.Sdk.Program.fs",
@@ -1468,7 +1432,7 @@
         "path": "d:\\dev\\amble\\gambol\\src\\Server\\obj\\Debug\\net10.0\\Gambol.Server.AssemblyInfo.fs",
         "exists": true,
         "length": 719,
-        "lastWriteTimeUtcTicks": 639115417043749337
+        "lastWriteTimeUtcTicks": 639115460623917574
       },
       {
         "path": "d:\\dev\\amble\\gambol\\src\\Server\\obj\\Debug\\net10.0\\.NETCoreApp,Version=v10.0.AssemblyAttributes.fs",
@@ -1486,19 +1450,19 @@
         "path": "d:\\dev\\amble\\gambol\\src\\Server\\ChangeLog.fs",
         "exists": true,
         "length": 3468,
-        "lastWriteTimeUtcTicks": 639100737594705751
+        "lastWriteTimeUtcTicks": 639115472150472652
       },
       {
         "path": "d:\\dev\\amble\\gambol\\src\\Server\\FileAgent.fs",
         "exists": true,
-        "length": 7864,
-        "lastWriteTimeUtcTicks": 639108118098368217
+        "length": 6632,
+        "lastWriteTimeUtcTicks": 639115496182886134
       },
       {
         "path": "d:\\dev\\amble\\gambol\\src\\Server\\Api.fs",
         "exists": true,
         "length": 1886,
-        "lastWriteTimeUtcTicks": 639115408809788219
+        "lastWriteTimeUtcTicks": 639115472150482439
       },
       {
         "path": "d:\\dev\\amble\\gambol\\src\\Server\\Server.fs",
@@ -1510,7 +1474,7 @@
         "path": "d:\\dev\\amble\\gambol\\src\\Client\\obj\\Debug\\net10.0\\Gambol.Client.AssemblyInfo.fs",
         "exists": true,
         "length": 719,
-        "lastWriteTimeUtcTicks": 639115417065707464
+        "lastWriteTimeUtcTicks": 639115453428570449
       },
       {
         "path": "d:\\dev\\amble\\gambol\\src\\Client\\obj\\Debug\\net10.0\\.NETCoreApp,Version=v10.0.AssemblyAttributes.fs",
@@ -1537,64 +1501,16 @@
         "lastWriteTimeUtcTicks": 639108118097921866
       },
       {
-        "path": "d:\\dev\\amble\\gambol\\src\\Client\\UpdateHelpers.fs",
-        "exists": true,
-        "length": 13338,
-        "lastWriteTimeUtcTicks": 639108329919215960
-      },
-      {
-        "path": "d:\\dev\\amble\\gambol\\src\\Client\\UpdateCodec.fs",
-        "exists": true,
-        "length": 1400,
-        "lastWriteTimeUtcTicks": 639108118098266182
-      },
-      {
-        "path": "d:\\dev\\amble\\gambol\\src\\Client\\UpdateEdit.fs",
-        "exists": true,
-        "length": 8289,
-        "lastWriteTimeUtcTicks": 639108329538314342
-      },
-      {
-        "path": "d:\\dev\\amble\\gambol\\src\\Client\\UpdateMove.fs",
-        "exists": true,
-        "length": 12486,
-        "lastWriteTimeUtcTicks": 639112887542414826
-      },
-      {
-        "path": "d:\\dev\\amble\\gambol\\src\\Client\\SearchDialog.fs",
-        "exists": true,
-        "length": 2112,
-        "lastWriteTimeUtcTicks": 639108307257543910
-      },
-      {
-        "path": "d:\\dev\\amble\\gambol\\src\\Client\\UpdatePaste.fs",
-        "exists": true,
-        "length": 10056,
-        "lastWriteTimeUtcTicks": 639108174576701814
-      },
-      {
-        "path": "d:\\dev\\amble\\gambol\\src\\Client\\UpdateOps.fs",
-        "exists": true,
-        "length": 30914,
-        "lastWriteTimeUtcTicks": 639111957296994683
-      },
-      {
         "path": "d:\\dev\\amble\\gambol\\src\\Client\\Update.fs",
         "exists": true,
         "length": 4414,
-        "lastWriteTimeUtcTicks": 639108121661559081
+        "lastWriteTimeUtcTicks": 639115472152731753
       },
       {
         "path": "d:\\dev\\amble\\gambol\\src\\Client\\Controller.fs",
         "exists": true,
         "length": 32179,
         "lastWriteTimeUtcTicks": 639111957314814513
-      },
-      {
-        "path": "d:\\dev\\amble\\gambol\\src\\Client\\SearchDialogView.fs",
-        "exists": true,
-        "length": 4409,
-        "lastWriteTimeUtcTicks": 639108307396589628
       },
       {
         "path": "d:\\dev\\amble\\gambol\\src\\Client\\View.fs",
@@ -1612,55 +1528,55 @@
         "path": "d:\\dev\\amble\\gambol\\src\\Client\\App.fs",
         "exists": true,
         "length": 12246,
-        "lastWriteTimeUtcTicks": 639109947025155643
+        "lastWriteTimeUtcTicks": 639115472153675404
       },
       {
         "path": "d:\\dev\\amble\\gambol\\src\\Client\\Program.fs",
         "exists": true,
-        "length": 1071,
-        "lastWriteTimeUtcTicks": 639111899576975803
+        "length": 1033,
+        "lastWriteTimeUtcTicks": 639115452099212875
       }
     ],
     "assemblyFiles": [
       {
         "path": "d:\\dev\\amble\\gambol\\tests\\Shared.Tests\\bin\\Debug\\net10.0\\Gambol.Shared.Tests.dll",
         "exists": true,
-        "length": 104960,
-        "lastWriteTimeUtcTicks": 639115417212831567
+        "length": 107008,
+        "lastWriteTimeUtcTicks": 639115495859671061
       },
       {
         "path": "d:\\dev\\amble\\gambol\\src\\Shared\\bin\\Debug\\net10.0\\Gambol.Shared.dll",
         "exists": true,
-        "length": 237056,
-        "lastWriteTimeUtcTicks": 639115420460462423
+        "length": 248832,
+        "lastWriteTimeUtcTicks": 639115495698404280
       },
       {
         "path": "d:\\dev\\amble\\gambol\\tests\\Server.Tests\\bin\\Debug\\net10.0\\Gambol.Server.Tests.dll",
         "exists": true,
-        "length": 51200,
-        "lastWriteTimeUtcTicks": 639115435947336891
+        "length": 58880,
+        "lastWriteTimeUtcTicks": 639115459007585338
       },
       {
         "path": "d:\\dev\\amble\\gambol\\src\\Server\\bin\\Debug\\net10.0\\Gambol.Server.dll",
         "exists": true,
-        "length": 103424,
-        "lastWriteTimeUtcTicks": 639115420508132007
+        "length": 105984,
+        "lastWriteTimeUtcTicks": 639115460761752448
       },
       {
         "path": "d:\\dev\\amble\\gambol\\src\\Client\\bin\\Debug\\net10.0\\Gambol.Client.dll",
         "exists": true,
         "length": 200192,
-        "lastWriteTimeUtcTicks": 639115417176280992
+        "lastWriteTimeUtcTicks": 639115453484377661
       }
     ]
   },
-  "sourceFilesScanned": 63,
+  "sourceFilesScanned": 49,
   "assembliesLoaded": [
     {
       "name": "Gambol.Shared.Tests",
       "path": "d:\\dev\\amble\\gambol\\tests\\Shared.Tests\\bin\\Debug\\net10.0\\Gambol.Shared.Tests.dll",
       "namespaceCount": 1,
-      "moduleCount": 8
+      "moduleCount": 6
     },
     {
       "name": "Gambol.Shared",
@@ -1845,31 +1761,13 @@
       }
     },
     {
-      "name": "Gambol.Client.UpdateHelpers",
-      "kind": {
-        "Case": "Namespace"
-      }
-    },
-    {
-      "name": "Gambol.Client.UpdateEdit",
-      "kind": {
-        "Case": "Namespace"
-      }
-    },
-    {
-      "name": "Gambol.Client.UpdateMove",
-      "kind": {
-        "Case": "Namespace"
-      }
-    },
-    {
-      "name": "Gambol.Client.UpdatePaste",
-      "kind": {
-        "Case": "Namespace"
-      }
-    },
-    {
       "name": "Gambol.Client.UpdateCodec",
+      "kind": {
+        "Case": "Namespace"
+      }
+    },
+    {
+      "name": "Gambol.Client.UpdateHelpers",
       "kind": {
         "Case": "Namespace"
       }
@@ -1887,19 +1785,25 @@
       }
     },
     {
+      "name": "Gambol.Client.UpdateEdit",
+      "kind": {
+        "Case": "Namespace"
+      }
+    },
+    {
       "name": "Gambol.Client.SearchDialog",
       "kind": {
         "Case": "Namespace"
       }
     },
     {
-      "name": "Gambol.Client.Controller",
+      "name": "Fable.Core.JsInterop",
       "kind": {
         "Case": "Namespace"
       }
     },
     {
-      "name": "Fable.Core.JsInterop",
+      "name": "Gambol.Client.Controller",
       "kind": {
         "Case": "Namespace"
       }
@@ -1959,12 +1863,6 @@
       }
     },
     {
-      "name": "SearchTests",
-      "kind": {
-        "Case": "Module"
-      }
-    },
-    {
       "name": "HistoryTests",
       "kind": {
         "Case": "Module"
@@ -1978,12 +1876,6 @@
     },
     {
       "name": "ModelTests",
-      "kind": {
-        "Case": "Module"
-      }
-    },
-    {
-      "name": "OpenTargetTests",
       "kind": {
         "Case": "Module"
       }

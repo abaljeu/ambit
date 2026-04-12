@@ -22,31 +22,12 @@ type FileAgent = {
 
 module FileAgent =
 
-    let private backupRetentionDays = 30
-
-    let private makeStartupBackup (snapshotPath: string) =
-        if File.Exists(snapshotPath) then
-            let dateStamp = DateTime.Today.ToString("yyyyMMdd")
-            let backupPath = snapshotPath + ".bak." + dateStamp
-            if not (File.Exists(backupPath)) then
-                File.Copy(snapshotPath, backupPath)
-            // Prune backups beyond retention limit
-            let dir = Path.GetDirectoryName(snapshotPath)
-            let prefix = Path.GetFileName(snapshotPath) + ".bak."
-            let backups =
-                Directory.GetFiles(dir, prefix + "*")
-                |> Array.sort
-                |> Array.toList
-            let excess = backups.Length - backupRetentionDays
-            if excess > 0 then
-                backups |> List.take excess |> List.iter File.Delete
-
     let create (dataDir: string) (filename: string) : FileAgent =
         let snapshotPath = Path.Combine(dataDir, filename)
         let metaPath = snapshotPath + ".meta"
         let logPath = snapshotPath + ".log"
 
-        makeStartupBackup snapshotPath
+        DocumentLoader.ensureSnapshotBackup snapshotPath
 
         let initialGraph =
             if File.Exists(snapshotPath) then
@@ -70,15 +51,8 @@ module FileAgent =
 
         let replayFromLogIndex = state.Value.revision.Value
 
-        for i in replayFromLogIndex .. offsetIndex.Count - 1 do
-            let _, json = ChangeLog.readEntryAt logStream offsetIndex.[i]
-            match ChangeLog.decodeChange json with
-            | Ok change ->
-                match History.applyChange change state.Value with
-                | ApplyResult.Changed newState ->
-                    state.Value <- { newState with revision = Revision (state.Value.revision.Value + 1) }
-                | _ -> ()
-            | Error _ -> ()
+        state.Value <-
+            DocumentLoader.replayLogFromIndex logStream offsetIndex replayFromLogIndex state.Value
 
         logStream.Seek(0L, SeekOrigin.End) |> ignore
 

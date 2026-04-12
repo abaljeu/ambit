@@ -8,6 +8,7 @@ open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Http
 open Microsoft.AspNetCore.StaticFiles
 open Microsoft.Extensions.Configuration
+open Gambol.Shared
 
 module Main =
 
@@ -254,8 +255,36 @@ module Main =
                         agent
                 )
 
+            let decodeChangePayload (s: string) =
+                Thoth.Json.Newtonsoft.Decode.fromString Serialization.decodeChange s
+
+            /// Files are authority: if the DB projection or replay diverges, rebuild from disk.
+            let ensurePostgresMatchesFileAuthority (connStr: string) =
+                let fileSt = DocumentLoader.loadState dataDir "gambol"
+
+                let dbSt =
+                    Database.loadPersistedState connStr decodeChangePayload
+                    |> Async.AwaitTask
+                    |> Async.RunSynchronously
+
+                let graphOk = GraphProjection.graphEquals fileSt.graph dbSt.graph
+                let revOk = fileSt.revision.Value = dbSt.revision.Value
+
+                if not graphOk || not revOk then
+                    Database.rebuildFromDocumentFiles connStr dataDir "gambol"
+                    |> Async.AwaitTask
+                    |> Async.RunSynchronously
+
+                    eprintfn
+                        "Gambol: PostgreSQL rebuilt from file authority (graphOk=%b revOk=%b)."
+                        graphOk
+                        revOk
+
             match dbConnString with
-            | Some connStr -> getOrCreateDbAgent connStr "gambol" |> ignore
+            | Some connStr ->
+                Database.initSchema connStr |> Async.AwaitTask |> Async.RunSynchronously
+                ensurePostgresMatchesFileAuthority connStr
+                getOrCreateDbAgent connStr "gambol" |> ignore
             | None -> ()
 
             let getHandle (filename: string) : AgentHandle =
@@ -372,24 +401,6 @@ module Main =
                 if File.Exists(path) then Results.File(path, "text/css")
                 else Results.NoContent()
             app.MapGet("/ambit/user.css", Func<IResult>(fun () -> serveUserCss ())) |> ignore
-
-            // Dev-only: GET /ambit/validate → compare graph from file and DB
-            // Returns { "match": true } or { "match": false, "file": "...", "db": "..." }.
-            if app.Environment.EnvironmentName = "Development" then
-                app.MapGet("/ambit/validate", Func<Task<IResult>>(fun () -> task {
-                    match dbConnString with
-                    | None ->
-                        return Results.BadRequest({| error = "DB_CONNECTION_STRING not set; no DB backend to compare" |})
-                    | Some connStr ->
-                        let fileAgent = getOrCreateFileAgent "gambol"
-                        let dbAgent   = getOrCreateDbAgent connStr "gambol"
-                        let! fileJson = FileAgent.getState fileAgent |> Async.StartAsTask
-                        let! dbJson   = DbAgent.getState dbAgent |> Async.StartAsTask
-                        if fileJson = dbJson then
-                            return Results.Json({| ``match`` = true |})
-                        else
-                            return Results.Json({| ``match`` = false; file = fileJson; db = dbJson |})
-                })) |> ignore
 
             // GET /ambit → serve gambol.html (protected) with startup stamp and page file stamp injected
             let gambolHtmlWithStamp () =

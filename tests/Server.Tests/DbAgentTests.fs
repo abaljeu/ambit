@@ -22,38 +22,13 @@ let private resetTestDatabase (connStr: string) =
         use conn = new Npgsql.NpgsqlConnection(connStr)
         do! conn.OpenAsync()
         use cmd = conn.CreateCommand()
-        cmd.CommandText <- "TRUNCATE TABLE changes, snapshots RESTART IDENTITY;"
+
+        cmd.CommandText <-
+            "TRUNCATE TABLE changes, node_children, nodes, graph RESTART IDENTITY CASCADE;"
+
         let! _ = cmd.ExecuteNonQueryAsync()
         return ()
     }
-
-let private snapshotRowCount (connStr: string) =
-    task {
-        use conn = new Npgsql.NpgsqlConnection(connStr)
-        do! conn.OpenAsync()
-        use cmd = conn.CreateCommand()
-        cmd.CommandText <- "SELECT COUNT(*)::int FROM snapshots"
-        let! o = cmd.ExecuteScalarAsync()
-        return o :?> int
-    }
-
-/// Async snapshot uses `Task.Run`; poll until a row exists (bounded wait).
-let private waitForAtLeastOneSnapshot (connStr: string) =
-    let rec loop (attempt: int) =
-        task {
-            if attempt >= 50 then
-                failwith "Timed out waiting for snapshots row."
-
-            let! n = snapshotRowCount connStr
-
-            if n >= 1 then
-                return ()
-            else
-                do! Task.Delay 100
-                return! loop (attempt + 1)
-        }
-
-    loop 0
 
 let private decodeGraph (json: string) : Graph =
     let decoder =
@@ -79,7 +54,7 @@ let ``DbAgent empty test DB has revision 0 and canonical ROOT`` () = task {
 }
 
 [<SkippableFact>]
-let ``DbAgent new process loads state from snapshot after change`` () = task {
+let ``DbAgent new process loads state from projection and changes after post`` () = task {
     let connStr = connStrOrEmpty ()
     Skip.If(String.IsNullOrWhiteSpace(connStr), $"Set {testConnEnv} for PostgreSQL tests (gambol_test).")
     do! resetTestDatabase connStr
@@ -102,7 +77,6 @@ let ``DbAgent new process loads state from snapshot after change`` () = task {
     | Error e -> Assert.Fail($"postChange: {e}")
     | Ok _ -> ()
 
-    do! waitForAtLeastOneSnapshot connStr
     let agent2 = DbAgent.create connStr
     let! rev2 = DbAgent.getRevision agent2 |> Async.StartAsTask
     let! json2 = DbAgent.getState agent2 |> Async.StartAsTask

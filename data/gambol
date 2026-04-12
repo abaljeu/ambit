@@ -1,3 +1,4 @@
+-> #n1
 Passion Projects
 	FSharp
 	
@@ -23,7 +24,7 @@ Passion Projects
 		
 	Ambit - Outlining Info Organizer
 		Ambit (n) - Area of Influence
-		#n1 Outlining Editor
+		#n2 Outlining Editor
 			edit
 			move
 			expand
@@ -35,7 +36,7 @@ Passion Projects
 		Infinite Organizing
 			Zoom
 			Link
-				-> #n1
+				-> #n2
 		Into the World
 			Document editing
 				[[Document.md]]
@@ -60,10 +61,10 @@ Passion Projects
 				Make a particular outline look like formatted document
 			Embedded computation
 				$x = [2 + 3, 3*5]
-					#n2 5
+					#n3 5
 					15
 				$y = $x[0]
-					-> #n2
+					-> #n3
 			Shell 
 				> ls -L
 					total 2657
@@ -100,7 +101,7 @@ Passion Projects
 					rambling response
 					
 				{.h1 .blue}Third item aoeu aoeu text = Third item aoeu aoeu 
-					-> #n3
+					-> #n4
 					hnsteaueoua
 					ham
 						{.blue}eau
@@ -127,18 +128,18 @@ Passion Projects
 		
 Third itemuu
 	
-	#n3 <blue>
+	#n4 <blue>
 		u
 		aeu o ntsauheonutousntoeu nshanuotea uoehu oushouensh othnoensth uea e
 	{.h3 .b}ueau
 		ueau
 		aoeua
 		uaoeusont 
-	-> #n3
+	-> #n4
 	oeauoeu
 	aoeu 
 	aoeu 
-	#n4 Tasks
+	#n1 Tasks
 		now
 			outlier
 			----
@@ -167,8 +168,9 @@ Third itemuu
 	Correctness of Reduction
 	Complexity Argument
 	Each major step in the proof must include a short justification explaining why the step is valid (e.g., why a constructed preference structure forces triangle formation).
--> #n4
-uetetetenoshuethusnoteuhonstuhotuesaunteounsthoauthountousthaohusohtusoseuoestueonusaoehutsaoesuouhoethuoeshuansothunsothunsotehunsoteh
+-> #n1
+ousthaohusohtusoseuoestueonusaoehutsaoesuouhoethuoeshuansothunsothunsotehunsoteh
+uetetetenoshuethusnoteuhonstuhotuesaunteounsthoauthount
 
 The roof must clearly separate the two parts of the coNP-completeness argument:u The roof must clearly separate the two parts of the coNP-completeness argument:u. 
 fist

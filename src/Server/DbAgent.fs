@@ -7,69 +7,23 @@ open Gambol.Shared
 module Encode = Thoth.Json.Newtonsoft.Encode
 module Decode = Thoth.Json.Newtonsoft.Decode
 
-/// PostgreSQL-backed agent. Exposes the same message type as FileAgent so the
-/// rest of the server (Api.fs, Server.fs) needs no structural changes.
+/// PostgreSQL-backed agent. Same message type as `FileAgent`.
 type DbAgent = { mailbox: MailboxProcessor<FileAgentMsg> }
 
 [<RequireQualifiedAccess>]
 module DbAgent =
 
-    // ------------------------------------------------------------------
-    // Startup: load latest snapshot then replay newer changes
-    // ------------------------------------------------------------------
+    let private decodeChangePayload (s: string) =
+        Decode.fromString Serialization.decodeChange s
 
     let private loadInitialState (connectionString: string) : Async<State> =
-        async {
-            let! snapshotOpt =
-                Database.getLatestSnapshot connectionString |> Async.AwaitTask
-
-            let (baseGraph, baseRevision) =
-                match snapshotOpt with
-                | None ->
-                    Graph.create (), 0
-                | Some row ->
-                    Snapshot.read row.content, row.revision
-
-            let! rows =
-                Database.getChangesAfterSnapshotRevision connectionString baseRevision
-                |> Async.AwaitTask
-
-            let initialState =
-                { graph = baseGraph
-                  history = History.empty
-                  revision = Revision baseRevision }
-
-            let state =
-                rows
-                |> List.fold
-                    (fun (st: State) row ->
-                        match Decode.fromString Serialization.decodeChange row.payload with
-                        | Error _ -> st
-                        | Ok change ->
-                            match History.applyChange change st with
-                            | ApplyResult.Changed newState ->
-                                { newState with revision = Revision (st.revision.Value + 1) }
-                            | _ -> st)
-                    initialState
-
-            return state
-        }
-
-    // ------------------------------------------------------------------
-    // Create
-    // ------------------------------------------------------------------
+        Database.loadPersistedState connectionString decodeChangePayload |> Async.AwaitTask
 
     let create (connectionString: string) : DbAgent =
-
-        // Init schema synchronously before the agent starts (blocking is acceptable at startup).
-        Database.initSchema connectionString |> Async.AwaitTask |> Async.RunSynchronously
-
         let initialState =
             loadInitialState connectionString |> Async.RunSynchronously
 
         let state = ref initialState
-        let snapshotInProgress = ref false
-        let snapshotNeeded = ref false
 
         let encodeStateJson () =
             Encode.toString 0 (
@@ -86,21 +40,7 @@ module DbAgent =
         let isDuplicateSubmission (change: Change) (history: History) =
             history.past |> List.exists (fun c -> c.id = change.id && c.changeId = change.changeId)
 
-        let startSnapshot (inbox: MailboxProcessor<FileAgentMsg>) =
-            snapshotInProgress.Value <- true
-            snapshotNeeded.Value <- false
-            let text = Snapshot.write state.Value.graph
-            let rev = state.Value.revision.Value
-            Task.Run(fun () ->
-                try
-                    (Database.insertSnapshot connectionString rev text)
-                        .GetAwaiter().GetResult()
-                with _ ->
-                    ()  // snapshot failure is non-fatal; changes table has the data
-                inbox.Post(SnapshotDone)
-            ) |> ignore
-
-        let handlePostChange body (reply: AsyncReplyChannel<Result<string, string>>) inbox =
+        let handlePostChange body (reply: AsyncReplyChannel<Result<string, string>>) _inbox =
             match Decode.fromString Serialization.decodeChange body with
             | Error err ->
                 reply.Reply(Error $"Invalid JSON: {err}")
@@ -119,18 +59,30 @@ module DbAgent =
                         reply.Reply(Ok (encodeChangeAckJson change.changeId))
                     | ApplyResult.Changed newState ->
                         let json = ChangeLog.encodeChange change
-                        try
-                            let serverRevAfter = state.Value.revision.Value + 1
+                        let serverRevAfter = state.Value.revision.Value + 1
 
-                            (Database.appendChange connectionString serverRevAfter change.id json)
-                                .GetAwaiter().GetResult()
+                        try
+                            use conn = Database.getConnection connectionString
+                            conn.Open()
+                            use tx = conn.BeginTransaction()
+
+                            (Database.appendChangeWithTx tx serverRevAfter change.id json)
+                                .GetAwaiter()
+                                .GetResult()
+
+                            (Database.replaceGraphProjectionWithTx tx newState.graph serverRevAfter)
+                                .GetAwaiter()
+                                .GetResult()
+
+                            tx.Commit()
+
+                            state.Value <-
+                                { newState with revision = Revision serverRevAfter }
+
+                            reply.Reply(Ok (encodeChangeAckJson change.changeId))
                         with ex ->
-                            // Log but don't fail the client; the in-memory state is still updated.
                             eprintfn "DbAgent: failed to persist change %d: %s" change.id ex.Message
-                        state.Value <- { newState with revision = Revision (state.Value.revision.Value + 1) }
-                        reply.Reply(Ok (encodeChangeAckJson change.changeId))
-                        if snapshotInProgress.Value then snapshotNeeded.Value <- true
-                        else startSnapshot inbox
+                            reply.Reply(Error $"Database error: {ex.Message}")
 
         let mailbox =
             MailboxProcessor<FileAgentMsg>.Start(fun inbox ->
@@ -144,18 +96,12 @@ module DbAgent =
                     | PostChange (body, reply) ->
                         handlePostChange body reply inbox
                     | SnapshotDone ->
-                        snapshotInProgress.Value <- false
-                        if snapshotNeeded.Value then startSnapshot inbox
+                        ()
                     return! loop ()
                 }
-                loop ()
-            )
+                loop ())
 
         { mailbox = mailbox }
-
-    // ------------------------------------------------------------------
-    // Public API (mirrors FileAgent)
-    // ------------------------------------------------------------------
 
     let getState (agent: DbAgent) : Async<string> =
         agent.mailbox.PostAndAsyncReply(GetState)
