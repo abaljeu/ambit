@@ -28,3 +28,22 @@ module SyncLogic =
         if codeOutdated then Some CodeOutdated
         elif dataOutdated then Some DataOutdated
         else None
+
+    /// Apply a server-supplied change tail onto local state.
+    /// Returns Ok updatedState on success (revision increments by one per change),
+    /// or Error msg if any change is invalid (short-circuits on first failure).
+    /// An empty list is a no-op and returns Ok state unchanged.
+    let applyServerTail (changes: Change list) (state: State) : Result<State, string> =
+        changes
+        |> List.fold
+            (fun acc change ->
+                match acc with
+                | Error _ -> acc
+                | Ok st ->
+                    match History.applyChange change st with
+                    | ApplyResult.Changed newSt ->
+                        Ok { newSt with revision = Revision (st.revision.Value + 1) }
+                    | ApplyResult.Unchanged newSt ->
+                        Ok { newSt with revision = Revision (st.revision.Value + 1) }
+                    | ApplyResult.Invalid (_, msg) -> Error msg)
+            (Ok state)

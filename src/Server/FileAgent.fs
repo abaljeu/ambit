@@ -11,6 +11,7 @@ module Decode = Thoth.Json.Newtonsoft.Decode
 type FileAgentMsg =
     | GetState of AsyncReplyChannel<string>
     | GetRevision of AsyncReplyChannel<int>
+    | GetChangesSince of after: int * AsyncReplyChannel<Change list>
     | PostChange of body: string * AsyncReplyChannel<Result<string, string>>
     | SnapshotDone
 
@@ -126,6 +127,15 @@ module FileAgent =
                     reply.Reply(encodeStateJson ())
                 | GetRevision reply ->
                     reply.Reply(state.Value.revision.Value)
+                | GetChangesSince (after, reply) ->
+                    let changes =
+                        [ after .. offsetIndex.Count - 1 ]
+                        |> List.choose (fun i ->
+                            let _, json = ChangeLog.readEntryAt logStream offsetIndex.[i]
+                            match ChangeLog.decodeChange json with
+                            | Ok change -> Some change
+                            | Error _ -> None)
+                    reply.Reply(changes)
                 | PostChange (body, reply) ->
                     handlePostChange body reply inbox
                 | SnapshotDone ->
@@ -143,6 +153,9 @@ module FileAgent =
 
     let getRevision (agent: FileAgent) : Async<int> =
         agent.mailbox.PostAndAsyncReply(GetRevision)
+
+    let getChangesSince (agent: FileAgent) (after: int) : Async<Change list> =
+        agent.mailbox.PostAndAsyncReply(fun reply -> GetChangesSince(after, reply))
 
     let postChange (agent: FileAgent) (body: string) : Async<Result<string, string>> =
         agent.mailbox.PostAndAsyncReply(fun reply -> PostChange(body, reply))

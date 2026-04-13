@@ -93,6 +93,18 @@ module DbAgent =
                         reply.Reply(encodeStateJson ())
                     | GetRevision reply ->
                         reply.Reply(state.Value.revision.Value)
+                    | GetChangesSince (after, reply) ->
+                        let rows =
+                            Database.getChangesAfterCheckpointRevision connectionString after
+                            |> Async.AwaitTask
+                            |> Async.RunSynchronously
+                        let changes =
+                            rows
+                            |> List.choose (fun row ->
+                                match decodeChangePayload row.payload with
+                                | Ok change -> Some change
+                                | Error _ -> None)
+                        reply.Reply(changes)
                     | PostChange (body, reply) ->
                         handlePostChange body reply inbox
                     | SnapshotDone ->
@@ -108,6 +120,9 @@ module DbAgent =
 
     let getRevision (agent: DbAgent) : Async<int> =
         agent.mailbox.PostAndAsyncReply(GetRevision)
+
+    let getChangesSince (agent: DbAgent) (after: int) : Async<Change list> =
+        agent.mailbox.PostAndAsyncReply(fun reply -> GetChangesSince(after, reply))
 
     let postChange (agent: DbAgent) (body: string) : Async<Result<string, string>> =
         agent.mailbox.PostAndAsyncReply(fun reply -> PostChange(body, reply))

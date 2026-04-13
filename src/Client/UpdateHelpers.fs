@@ -122,6 +122,44 @@ let childrenForPaste (graph: Graph) (ids: NodeId list) : ChildNode list =
 let viewRootNodeId (model: VM) : NodeId =
     model.zoomRoot |> Option.defaultValue model.graph.root
 
+/// True when autosync from a poll response must not proceed:
+///   - pending queue is non-empty (defensive; tryStartPoll already blocks this)
+///   - mode is Editing and the live edit field differs from the graph (dirty edit)
+let isAutoSyncBlocked (model: VM) : bool =
+    if not model.syncInfo.pendingChanges.IsEmpty then
+        true
+    else
+        match model.mode with
+        | Editing _ ->
+            let editingId =
+                match model.selectedNodes with
+                | Some sel -> focusedNodeId model.graph sel
+                | None -> viewRootNodeId model
+            let graphText =
+                model.graph.nodes
+                |> Map.tryFind editingId
+                |> Option.map (fun n -> n.text)
+                |> Option.defaultValue ""
+            readEditInputValue () <> graphText
+        | _ -> false
+
+/// After applying server changes, keep Editing mode only if the server didn't
+/// touch the node being edited. Otherwise switch to Selecting.
+let adjustModeAfterServerApply (prevGraph: Graph) (model: VM) : VM =
+    match model.mode with
+    | Editing _ ->
+        let editingId =
+            match model.selectedNodes with
+            | Some sel -> focusedNodeId model.graph sel
+            | None -> viewRootNodeId model
+        let prevText =
+            prevGraph.nodes |> Map.tryFind editingId |> Option.map (fun n -> n.text)
+        let newText =
+            model.graph.nodes |> Map.tryFind editingId |> Option.map (fun n -> n.text)
+        if prevText = newText then model
+        else { model with mode = Selecting }
+    | _ -> model
+
 /// If `newText` differs from the graph, the same `SetText` op `commitTextEdit` would post (no mode change).
 let tryTextCommitOps (nodeId: NodeId) (originalTextForHistory: string) (newText: string) (graph: Graph) : Op list =
     if nodeId = graph.root then

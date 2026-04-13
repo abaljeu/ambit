@@ -98,3 +98,44 @@ let ``Change round-trip`` () =
     let decoded = roundTrip Serialization.encodeChange Serialization.decodeChange change
     Assert.Equal(change.id, decoded.id)
     Assert.Equal<Op list>(change.ops, decoded.ops)
+
+[<Fact>]
+let ``PollResponse round-trip with non-empty changes`` () =
+    let change =
+        { id = 3
+          changeId = System.Guid.NewGuid()
+          ops = [ Op.SetText(NodeId.New(), "old", "new") ] }
+    let poll =
+        { revision = 7
+          buildEpochSec = 100
+          pageBuildEpochSec = 200
+          changes = [ change ] }
+    let decoded =
+        roundTrip Serialization.encodePollResponse Serialization.decodePollResponseDecoder poll
+    Assert.Equal(poll.revision, decoded.revision)
+    Assert.Equal(poll.buildEpochSec, decoded.buildEpochSec)
+    Assert.Equal(poll.pageBuildEpochSec, decoded.pageBuildEpochSec)
+    Assert.Equal(1, decoded.changes.Length)
+    Assert.Equal(change.id, decoded.changes.[0].id)
+    Assert.Equal<Op list>(change.ops, decoded.changes.[0].ops)
+
+[<Fact>]
+let ``PollResponse round-trip with empty changes`` () =
+    let poll =
+        { revision = 5
+          buildEpochSec = 0
+          pageBuildEpochSec = 0
+          changes = [] }
+    let decoded =
+        roundTrip Serialization.encodePollResponse Serialization.decodePollResponseDecoder poll
+    Assert.Equal(poll.revision, decoded.revision)
+    Assert.Equal<Change list>([], decoded.changes)
+
+[<Fact>]
+let ``PollResponse decoder tolerates missing changes field`` () =
+    let json = """{"r":4,"b":100,"p":200}"""
+    match Dec.fromString Serialization.decodePollResponseDecoder json with
+    | Error err -> failwith $"Decode failed: {err}"
+    | Ok decoded ->
+        Assert.Equal(4, decoded.revision)
+        Assert.Equal<Change list>([], decoded.changes)

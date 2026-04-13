@@ -93,10 +93,33 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
         let si, effects = SyncPlanner.tryStartPoll model.revision model.syncInfo
         { model with syncInfo = si }, effects
 
-    | SysMsg (PollDone stateOpt) ->
+    | SysMsg (PollDone (stateOpt, changes)) ->
         let si = SyncInfo.withSyncState Idle model.syncInfo
         match stateOpt with
         | None -> { model with syncInfo = si }, []
+        | Some CodeOutdated ->
+            { model with syncInfo = SyncInfo.withSyncState CodeOutdated si }, []
+        | Some DataOutdated when changes.IsEmpty || isAutoSyncBlocked model ->
+            { model with syncInfo = SyncInfo.withSyncState DataOutdated si }, []
+        | Some DataOutdated ->
+            let state: State =
+                { graph = model.graph; history = model.history; revision = model.revision }
+            match SyncLogic.applyServerTail changes state with
+            | Error _ ->
+                { model with syncInfo = SyncInfo.withSyncState DataOutdated si }, []
+            | Ok newState ->
+                consoleLog (
+                    "[Gambol sync] PollDone autoSync applied="
+                    + string changes.Length + " newRev=" + string newState.revision.Value)
+                let synced =
+                    { model with
+                        graph = newState.graph
+                        history = newState.history
+                        revision = newState.revision
+                        syncInfo = si }
+                    |> withSiteMap
+                    |> adjustModeAfterServerApply model.graph
+                synced, []
         | Some s -> { model with syncInfo = SyncInfo.withSyncState s si }, []
 
     | SysMsg RetrySubmit ->

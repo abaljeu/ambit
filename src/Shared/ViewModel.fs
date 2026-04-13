@@ -263,7 +263,7 @@ type SystemMsg =
     | SubmitNetworkError  // timeout or network failure — retryable
     | SetPollingActive of bool
     | PollTick            // polling timer fired; update decides whether to emit PollServer effect
-    | PollDone of SyncState option   // poll GET response arrived
+    | PollDone of SyncState option * Change list   // poll GET response arrived
     | RetrySubmit         // retry timer fired
 
 type Msg =

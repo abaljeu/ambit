@@ -29,7 +29,7 @@ let private mkContext build page =
       pageBuildEpochSec = page }
 
 let private mkPoll rev build page =
-    { revision = rev; buildEpochSec = build; pageBuildEpochSec = page }
+    { revision = rev; buildEpochSec = build; pageBuildEpochSec = page; changes = [] }
 
 // ---------------------------------------------------------------------------
 // getPollOutcome — data outdated
@@ -113,3 +113,76 @@ let ``SyncInfo withSyncState keeps ack within non-risk states`` () =
     let si = { SyncInfo.initial with syncState = Sending 1; syncRiskAcknowledged = true }
     let si2 = SyncInfo.withSyncState (WaitingToRetry 1) si
     Assert.True(si2.syncRiskAcknowledged)
+
+// ---------------------------------------------------------------------------
+// applyServerTail
+// ---------------------------------------------------------------------------
+
+let private emptyState () : State =
+    { graph = Graph.create ()
+      history = History.empty
+      revision = Revision 5 }
+
+let private stateWithNode text : State * NodeId =
+    let graph0 = Graph.create ()
+    let graph1, nodeId = Graph.newNode text graph0
+    let st = { graph = graph1; history = History.empty; revision = Revision 3 }
+    st, nodeId
+
+[<Fact>]
+let ``applyServerTail empty list returns Ok with state unchanged`` () =
+    let st = emptyState ()
+    match SyncLogic.applyServerTail [] st with
+    | Error msg -> failwith $"Expected Ok, got Error: {msg}"
+    | Ok result ->
+        Assert.Equal(st.revision, result.revision)
+        Assert.Equal(st.graph.root, result.graph.root)
+
+[<Fact>]
+let ``applyServerTail advances revision by one per change`` () =
+    let st = emptyState ()
+    let changes = [ mkChange 5; mkChange 6; mkChange 7 ]
+    match SyncLogic.applyServerTail changes st with
+    | Error msg -> failwith $"Expected Ok, got Error: {msg}"
+    | Ok result -> Assert.Equal(Revision 8, result.revision)
+
+[<Fact>]
+let ``applyServerTail applies graph mutations`` () =
+    let st, nodeId = stateWithNode "before"
+    let change =
+        { id = 3
+          changeId = System.Guid.NewGuid()
+          ops = [ Op.SetText(nodeId, "before", "after") ] }
+    match SyncLogic.applyServerTail [ change ] st with
+    | Error msg -> failwith $"Expected Ok, got Error: {msg}"
+    | Ok result ->
+        Assert.Equal("after", result.graph.nodes.[nodeId].text)
+        Assert.Equal(Revision 4, result.revision)
+
+[<Fact>]
+let ``applyServerTail returns Error on first invalid change`` () =
+    let st = emptyState ()
+    let badChange =
+        { id = 5
+          changeId = System.Guid.NewGuid()
+          ops = [ Op.SetText(NodeId.New(), "old", "new") ] }
+    let goodChange = mkChange 6
+    match SyncLogic.applyServerTail [ badChange; goodChange ] st with
+    | Ok _ -> failwith "Expected Error but got Ok"
+    | Error _ -> ()
+
+[<Fact>]
+let ``applyServerTail short-circuits: state unchanged after invalid change`` () =
+    let st, nodeId = stateWithNode "original"
+    let badChange =
+        { id = 3
+          changeId = System.Guid.NewGuid()
+          ops = [ Op.SetText(NodeId.New(), "x", "y") ] }
+    let goodChange =
+        { id = 4
+          changeId = System.Guid.NewGuid()
+          ops = [ Op.SetText(nodeId, "original", "modified") ] }
+    match SyncLogic.applyServerTail [ badChange; goodChange ] st with
+    | Ok _ -> failwith "Expected Error but got Ok"
+    | Error _ ->
+        Assert.Equal("original", st.graph.nodes.[nodeId].text)

@@ -134,7 +134,8 @@ let createRuntime (initialModel: VM) =
             (SubmitChangeCallbacks.onPostFetchFail timeoutId reqId dispatch)
 
     and runPollServer () : unit =
-        let url = $"/{currentFile}/poll?_={nowMs ()}"
+        let url =
+            $"/{currentFile}/poll?_={nowMs ()}&rev={model.revision.Value}"
         let onPollOk (text: string) : unit =
             match Serialization.decodePollResponse text with
             | Ok poll ->
@@ -143,11 +144,11 @@ let createRuntime (initialModel: VM) =
                       pageBuildEpochSec = readPageBuildEpochSec () }
                 let outcome =
                     SyncLogic.getPollOutcome poll model.revision.Value context
-                dispatch (SysMsg (PollDone outcome))
+                dispatch (SysMsg (PollDone (outcome, poll.changes)))
             | Error _ ->
-                dispatch (SysMsg (PollDone None))
+                dispatch (SysMsg (PollDone (None, [])))
         let onPollFail () : unit =
-            dispatch (SysMsg (PollDone None))
+            dispatch (SysMsg (PollDone (None, [])))
         fetchTextNoCacheWithFail url onPollOk onPollFail
 
     and runScheduleRetry (delayMs: int) : unit =

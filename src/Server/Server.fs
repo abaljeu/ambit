@@ -375,14 +375,24 @@ module Main =
                     return! Api.getState handle |> Async.StartAsTask
             })) |> ignore
 
-            // GET /ambit/poll → JSON { r, b, p } (revision, buildEpochSec, pageBuildEpochSec — lightweight)
+            // GET /ambit/poll → JSON { r, b, p, c } (revision, stamps, change tail)
+            // ?rev= client revision; server includes changes since that revision when behind.
             app.MapGet("/ambit/poll", Func<HttpRequest, Task<IResult>>(fun req -> task {
                 if not (isAuthenticated req) then
                     return Results.Unauthorized()
                 else
                     let handle = getHandle "gambol"
                     let pageEpoch = pageBuildEpochSec ()
-                    return! Api.getPoll handle (deployEpochSec ()) pageEpoch |> Async.StartAsTask
+                    let clientRev =
+                        match req.Query.TryGetValue "rev" with
+                        | true, v ->
+                            match System.Int32.TryParse(string v) with
+                            | true, n -> n
+                            | _ -> 0
+                        | _ -> 0
+                    return!
+                        Api.getPoll handle (deployEpochSec ()) pageEpoch clientRev
+                        |> Async.StartAsTask
             })) |> ignore
 
             // POST /ambit/changes → JSON { revision, graph } or 400
