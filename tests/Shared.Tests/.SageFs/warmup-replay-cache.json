@@ -26,6 +26,7 @@
       "-r:C:\\Users\\Windows 8\\.nuget\\packages\\xunit.assert\\2.9.3\\lib\\net6.0\\xunit.assert.dll",
       "-r:C:\\Users\\Windows 8\\.nuget\\packages\\xunit.extensibility.core\\2.9.3\\lib\\netstandard1.1\\xunit.core.dll",
       "-r:C:\\Users\\Windows 8\\.nuget\\packages\\xunit.extensibility.execution\\2.9.3\\lib\\netstandard1.1\\xunit.execution.dotnet.dll",
+      "-r:C:\\Users\\Windows 8\\.nuget\\packages\\dapper\\2.1.35\\lib\\net7.0\\Dapper.dll",
       "-r:C:\\Users\\Windows 8\\.nuget\\packages\\microsoft.aspnetcore.mvc.testing\\10.0.3\\lib\\net10.0\\Microsoft.AspNetCore.Mvc.Testing.dll",
       "-r:C:\\Users\\Windows 8\\.nuget\\packages\\microsoft.aspnetcore.testhost\\10.0.3\\lib\\net10.0\\Microsoft.AspNetCore.TestHost.dll",
       "-r:C:\\Users\\Windows 8\\.nuget\\packages\\microsoft.codecoverage\\18.0.1\\lib\\net8.0\\Microsoft.VisualStudio.CodeCoverage.Shim.dll",
@@ -41,6 +42,7 @@
       "-r:C:\\Users\\Windows 8\\.nuget\\packages\\microsoft.testplatform.testhost\\18.0.1\\lib\\net8.0\\Microsoft.VisualStudio.TestPlatform.Common.dll",
       "-r:C:\\Users\\Windows 8\\.nuget\\packages\\microsoft.testplatform.testhost\\18.0.1\\lib\\net8.0\\Microsoft.VisualStudio.TestPlatform.ObjectModel.dll",
       "-r:C:\\Users\\Windows 8\\.nuget\\packages\\microsoft.testplatform.testhost\\18.0.1\\lib\\net8.0\\testhost.dll",
+      "-r:C:\\Users\\Windows 8\\.nuget\\packages\\npgsql\\9.0.3\\lib\\net8.0\\Npgsql.dll",
       "-r:C:\\Users\\Windows 8\\.nuget\\packages\\newtonsoft.json\\13.0.1\\lib\\netstandard2.0\\Newtonsoft.Json.dll",
       "-r:C:\\Users\\Windows 8\\.nuget\\packages\\fable.browser.blob\\1.4.0\\lib\\netstandard2.0\\Browser.Blob.dll",
       "-r:C:\\Users\\Windows 8\\.nuget\\packages\\fable.browser.dom\\2.17.0\\lib\\netstandard2.0\\Browser.Dom.dll",
@@ -414,6 +416,7 @@
       "-r:C:\\Users\\Windows 8\\.nuget\\packages\\thoth.json.core\\0.7.1\\lib\\netstandard2.0\\Thoth.Json.Core.dll",
       "-r:C:\\Users\\Windows 8\\.nuget\\packages\\thoth.json.javascript\\0.4.1\\lib\\netstandard2.0\\Thoth.Json.JavaScript.dll",
       "-r:C:\\Program Files\\dotnet\\packs\\Microsoft.NETCore.App.Ref\\10.0.3\\ref\\net10.0\\WindowsBase.dll",
+      "-r:C:\\Users\\Windows 8\\.nuget\\packages\\dapper\\2.1.35\\lib\\net7.0\\Dapper.dll",
       "-r:C:\\Users\\Windows 8\\.nuget\\packages\\fable.core\\4.1.0\\lib\\netstandard2.0\\Fable.Core.dll",
       "-r:C:\\Users\\Windows 8\\.nuget\\packages\\fsharp.core\\10.0.103\\lib\\netstandard2.1\\FSharp.Core.dll",
       "-r:d:\\dev\\amble\\gambol\\src\\Server\\obj\\Debug\\net10.0\\ref\\Gambol.Server.dll",
@@ -573,6 +576,7 @@
       "-r:C:\\Program Files\\dotnet\\packs\\Microsoft.NETCore.App.Ref\\10.0.3\\ref\\net10.0\\mscorlib.dll",
       "-r:C:\\Program Files\\dotnet\\packs\\Microsoft.NETCore.App.Ref\\10.0.3\\ref\\net10.0\\netstandard.dll",
       "-r:C:\\Users\\Windows 8\\.nuget\\packages\\newtonsoft.json\\13.0.3\\lib\\net6.0\\Newtonsoft.Json.dll",
+      "-r:C:\\Users\\Windows 8\\.nuget\\packages\\npgsql\\9.0.3\\lib\\net8.0\\Npgsql.dll",
       "-r:C:\\Program Files\\dotnet\\packs\\Microsoft.NETCore.App.Ref\\10.0.3\\ref\\net10.0\\System.AppContext.dll",
       "-r:C:\\Program Files\\dotnet\\packs\\Microsoft.NETCore.App.Ref\\10.0.3\\ref\\net10.0\\System.Buffers.dll",
       "-r:C:\\Program Files\\dotnet\\packs\\Microsoft.NETCore.App.Ref\\10.0.3\\ref\\net10.0\\System.Collections.Concurrent.dll",
@@ -745,6 +749,7 @@
       "-r:C:\\Users\\Windows 8\\.nuget\\packages\\xunit.assert\\2.9.3\\lib\\net6.0\\xunit.assert.dll",
       "-r:C:\\Users\\Windows 8\\.nuget\\packages\\xunit.extensibility.core\\2.9.3\\lib\\netstandard1.1\\xunit.core.dll",
       "-r:C:\\Users\\Windows 8\\.nuget\\packages\\xunit.extensibility.execution\\2.9.3\\lib\\netstandard1.1\\xunit.execution.dotnet.dll",
+      "-r:C:\\Users\\Windows 8\\.nuget\\packages\\dapper\\2.1.35\\lib\\net7.0\\Dapper.dll",
       "-r:C:\\Users\\Windows 8\\.nuget\\packages\\fable.core\\4.1.0\\lib\\netstandard2.0\\Fable.Core.dll",
       "-r:C:\\Users\\Windows 8\\.nuget\\packages\\fsharp.core\\10.0.103\\lib\\netstandard2.1\\FSharp.Core.dll",
       "-r:d:\\dev\\amble\\gambol\\src\\Shared\\obj\\Debug\\net10.0\\ref\\Gambol.Shared.dll",
@@ -892,6 +897,7 @@
       "-r:C:\\Program Files\\dotnet\\packs\\Microsoft.NETCore.App.Ref\\10.0.3\\ref\\net10.0\\mscorlib.dll",
       "-r:C:\\Program Files\\dotnet\\packs\\Microsoft.NETCore.App.Ref\\10.0.3\\ref\\net10.0\\netstandard.dll",
       "-r:C:\\Users\\Windows 8\\.nuget\\packages\\newtonsoft.json\\13.0.1\\lib\\netstandard2.0\\Newtonsoft.Json.dll",
+      "-r:C:\\Users\\Windows 8\\.nuget\\packages\\npgsql\\9.0.3\\lib\\net8.0\\Npgsql.dll",
       "-r:C:\\Program Files\\dotnet\\packs\\Microsoft.NETCore.App.Ref\\10.0.3\\ref\\net10.0\\System.AppContext.dll",
       "-r:C:\\Program Files\\dotnet\\packs\\Microsoft.NETCore.App.Ref\\10.0.3\\ref\\net10.0\\System.Buffers.dll",
       "-r:C:\\Program Files\\dotnet\\packs\\Microsoft.NETCore.App.Ref\\10.0.3\\ref\\net10.0\\System.Collections.Concurrent.dll",
@@ -1246,13 +1252,19 @@
         "path": "d:\\dev\\amble\\gambol\\tests\\Shared.Tests\\obj\\Debug\\net10.0\\Gambol.Shared.Tests.AssemblyInfo.fs",
         "exists": true,
         "length": 737,
-        "lastWriteTimeUtcTicks": 639115495778994471
+        "lastWriteTimeUtcTicks": 639115523372070230
       },
       {
         "path": "d:\\dev\\amble\\gambol\\tests\\Shared.Tests\\obj\\Debug\\net10.0\\.NETCoreApp,Version=v10.0.AssemblyAttributes.fs",
         "exists": true,
         "length": 193,
         "lastWriteTimeUtcTicks": 639078981040152019
+      },
+      {
+        "path": "d:\\dev\\amble\\gambol\\tests\\Shared.Tests\\OpenTargetTests.fs",
+        "exists": true,
+        "length": 2790,
+        "lastWriteTimeUtcTicks": 639109900255952562
       },
       {
         "path": "d:\\dev\\amble\\gambol\\tests\\Shared.Tests\\ModelTests.fs",
@@ -1285,6 +1297,12 @@
         "lastWriteTimeUtcTicks": 639101334393888516
       },
       {
+        "path": "d:\\dev\\amble\\gambol\\tests\\Shared.Tests\\SearchTests.fs",
+        "exists": true,
+        "length": 4233,
+        "lastWriteTimeUtcTicks": 639111899600928398
+      },
+      {
         "path": "d:\\dev\\amble\\gambol\\tests\\Shared.Tests\\ViewModelTests.fs",
         "exists": true,
         "length": 49992,
@@ -1295,6 +1313,12 @@
         "exists": true,
         "length": 4412,
         "lastWriteTimeUtcTicks": 639106000655103286
+      },
+      {
+        "path": "d:\\dev\\amble\\gambol\\tests\\Shared.Tests\\SyncPlannerTests.fs",
+        "exists": true,
+        "length": 3251,
+        "lastWriteTimeUtcTicks": 639108118098488361
       },
       {
         "path": "d:\\dev\\amble\\gambol\\tests\\Shared.Tests\\PasteTests.fs",
@@ -1324,7 +1348,7 @@
         "path": "d:\\dev\\amble\\gambol\\src\\Shared\\obj\\Debug\\net10.0\\Gambol.Shared.AssemblyInfo.fs",
         "exists": true,
         "length": 719,
-        "lastWriteTimeUtcTicks": 639115460625822306
+        "lastWriteTimeUtcTicks": 639115523298734478
       },
       {
         "path": "d:\\dev\\amble\\gambol\\src\\Shared\\obj\\Debug\\net10.0\\.NETCoreApp,Version=v10.0.AssemblyAttributes.fs",
@@ -1375,6 +1399,12 @@
         "lastWriteTimeUtcTicks": 639115452188158401
       },
       {
+        "path": "d:\\dev\\amble\\gambol\\src\\Shared\\ViewModelSearch.fs",
+        "exists": true,
+        "length": 5389,
+        "lastWriteTimeUtcTicks": 639108307101985123
+      },
+      {
         "path": "d:\\dev\\amble\\gambol\\src\\Shared\\Paste.fs",
         "exists": true,
         "length": 6857,
@@ -1393,6 +1423,12 @@
         "lastWriteTimeUtcTicks": 639115472151704529
       },
       {
+        "path": "d:\\dev\\amble\\gambol\\src\\Shared\\SyncPlanner.fs",
+        "exists": true,
+        "length": 1995,
+        "lastWriteTimeUtcTicks": 639115472153695399
+      },
+      {
         "path": "d:\\dev\\amble\\gambol\\src\\Shared\\SyncLogic.fs",
         "exists": true,
         "length": 1311,
@@ -1405,10 +1441,16 @@
         "lastWriteTimeUtcTicks": 639115452097985097
       },
       {
+        "path": "d:\\dev\\amble\\gambol\\src\\Shared\\OpenTarget.fs",
+        "exists": true,
+        "length": 3963,
+        "lastWriteTimeUtcTicks": 639111645916594742
+      },
+      {
         "path": "d:\\dev\\amble\\gambol\\tests\\Server.Tests\\obj\\Debug\\net10.0\\Gambol.Server.Tests.AssemblyInfo.fs",
         "exists": true,
         "length": 737,
-        "lastWriteTimeUtcTicks": 639115453252606086
+        "lastWriteTimeUtcTicks": 639115499091847101
       },
       {
         "path": "d:\\dev\\amble\\gambol\\tests\\Server.Tests\\obj\\Debug\\net10.0\\.NETCoreApp,Version=v10.0.AssemblyAttributes.fs",
@@ -1459,6 +1501,18 @@
         "lastWriteTimeUtcTicks": 639115496182886134
       },
       {
+        "path": "d:\\dev\\amble\\gambol\\src\\Server\\Database.fs",
+        "exists": true,
+        "length": 13777,
+        "lastWriteTimeUtcTicks": 639115522747979001
+      },
+      {
+        "path": "d:\\dev\\amble\\gambol\\src\\Server\\DbAgent.fs",
+        "exists": true,
+        "length": 5019,
+        "lastWriteTimeUtcTicks": 639115505463660008
+      },
+      {
         "path": "d:\\dev\\amble\\gambol\\src\\Server\\Api.fs",
         "exists": true,
         "length": 1886,
@@ -1467,14 +1521,14 @@
       {
         "path": "d:\\dev\\amble\\gambol\\src\\Server\\Server.fs",
         "exists": true,
-        "length": 23916,
-        "lastWriteTimeUtcTicks": 639115417083037949
+        "length": 24068,
+        "lastWriteTimeUtcTicks": 639115505712810345
       },
       {
         "path": "d:\\dev\\amble\\gambol\\src\\Client\\obj\\Debug\\net10.0\\Gambol.Client.AssemblyInfo.fs",
         "exists": true,
         "length": 719,
-        "lastWriteTimeUtcTicks": 639115453428570449
+        "lastWriteTimeUtcTicks": 639115506153133105
       },
       {
         "path": "d:\\dev\\amble\\gambol\\src\\Client\\obj\\Debug\\net10.0\\.NETCoreApp,Version=v10.0.AssemblyAttributes.fs",
@@ -1501,6 +1555,48 @@
         "lastWriteTimeUtcTicks": 639108118097921866
       },
       {
+        "path": "d:\\dev\\amble\\gambol\\src\\Client\\UpdateHelpers.fs",
+        "exists": true,
+        "length": 13401,
+        "lastWriteTimeUtcTicks": 639115472153948380
+      },
+      {
+        "path": "d:\\dev\\amble\\gambol\\src\\Client\\UpdateCodec.fs",
+        "exists": true,
+        "length": 1400,
+        "lastWriteTimeUtcTicks": 639115472153928352
+      },
+      {
+        "path": "d:\\dev\\amble\\gambol\\src\\Client\\UpdateEdit.fs",
+        "exists": true,
+        "length": 8289,
+        "lastWriteTimeUtcTicks": 639108329538314342
+      },
+      {
+        "path": "d:\\dev\\amble\\gambol\\src\\Client\\UpdateMove.fs",
+        "exists": true,
+        "length": 12486,
+        "lastWriteTimeUtcTicks": 639112887542414826
+      },
+      {
+        "path": "d:\\dev\\amble\\gambol\\src\\Client\\SearchDialog.fs",
+        "exists": true,
+        "length": 2112,
+        "lastWriteTimeUtcTicks": 639108307257543910
+      },
+      {
+        "path": "d:\\dev\\amble\\gambol\\src\\Client\\UpdatePaste.fs",
+        "exists": true,
+        "length": 10056,
+        "lastWriteTimeUtcTicks": 639108174576701814
+      },
+      {
+        "path": "d:\\dev\\amble\\gambol\\src\\Client\\UpdateOps.fs",
+        "exists": true,
+        "length": 31078,
+        "lastWriteTimeUtcTicks": 639115472153938355
+      },
+      {
         "path": "d:\\dev\\amble\\gambol\\src\\Client\\Update.fs",
         "exists": true,
         "length": 4414,
@@ -1511,6 +1607,12 @@
         "exists": true,
         "length": 32179,
         "lastWriteTimeUtcTicks": 639111957314814513
+      },
+      {
+        "path": "d:\\dev\\amble\\gambol\\src\\Client\\SearchDialogView.fs",
+        "exists": true,
+        "length": 4409,
+        "lastWriteTimeUtcTicks": 639108307396589628
       },
       {
         "path": "d:\\dev\\amble\\gambol\\src\\Client\\View.fs",
@@ -1541,26 +1643,26 @@
       {
         "path": "d:\\dev\\amble\\gambol\\tests\\Shared.Tests\\bin\\Debug\\net10.0\\Gambol.Shared.Tests.dll",
         "exists": true,
-        "length": 107008,
-        "lastWriteTimeUtcTicks": 639115495859671061
+        "length": 108032,
+        "lastWriteTimeUtcTicks": 639115523704183585
       },
       {
         "path": "d:\\dev\\amble\\gambol\\src\\Shared\\bin\\Debug\\net10.0\\Gambol.Shared.dll",
         "exists": true,
         "length": 248832,
-        "lastWriteTimeUtcTicks": 639115495698404280
+        "lastWriteTimeUtcTicks": 639115523367516737
       },
       {
         "path": "d:\\dev\\amble\\gambol\\tests\\Server.Tests\\bin\\Debug\\net10.0\\Gambol.Server.Tests.dll",
         "exists": true,
-        "length": 58880,
-        "lastWriteTimeUtcTicks": 639115459007585338
+        "length": 54784,
+        "lastWriteTimeUtcTicks": 639115502871601697
       },
       {
         "path": "d:\\dev\\amble\\gambol\\src\\Server\\bin\\Debug\\net10.0\\Gambol.Server.dll",
         "exists": true,
-        "length": 105984,
-        "lastWriteTimeUtcTicks": 639115460761752448
+        "length": 130560,
+        "lastWriteTimeUtcTicks": 639115506838689167
       },
       {
         "path": "d:\\dev\\amble\\gambol\\src\\Client\\bin\\Debug\\net10.0\\Gambol.Client.dll",
@@ -1570,13 +1672,13 @@
       }
     ]
   },
-  "sourceFilesScanned": 49,
+  "sourceFilesScanned": 65,
   "assembliesLoaded": [
     {
       "name": "Gambol.Shared.Tests",
       "path": "d:\\dev\\amble\\gambol\\tests\\Shared.Tests\\bin\\Debug\\net10.0\\Gambol.Shared.Tests.dll",
       "namespaceCount": 1,
-      "moduleCount": 6
+      "moduleCount": 8
     },
     {
       "name": "Gambol.Shared",
@@ -1707,6 +1809,30 @@
       }
     },
     {
+      "name": "System.Data",
+      "kind": {
+        "Case": "Namespace"
+      }
+    },
+    {
+      "name": "Dapper",
+      "kind": {
+        "Case": "Namespace"
+      }
+    },
+    {
+      "name": "Newtonsoft.Json",
+      "kind": {
+        "Case": "Namespace"
+      }
+    },
+    {
+      "name": "Npgsql",
+      "kind": {
+        "Case": "Namespace"
+      }
+    },
+    {
       "name": "Microsoft.AspNetCore.Http",
       "kind": {
         "Case": "Namespace"
@@ -1761,13 +1887,31 @@
       }
     },
     {
-      "name": "Gambol.Client.UpdateCodec",
+      "name": "Gambol.Client.UpdateHelpers",
       "kind": {
         "Case": "Namespace"
       }
     },
     {
-      "name": "Gambol.Client.UpdateHelpers",
+      "name": "Gambol.Client.UpdateEdit",
+      "kind": {
+        "Case": "Namespace"
+      }
+    },
+    {
+      "name": "Gambol.Client.UpdateMove",
+      "kind": {
+        "Case": "Namespace"
+      }
+    },
+    {
+      "name": "Gambol.Client.UpdatePaste",
+      "kind": {
+        "Case": "Namespace"
+      }
+    },
+    {
+      "name": "Gambol.Client.UpdateCodec",
       "kind": {
         "Case": "Namespace"
       }
@@ -1785,25 +1929,19 @@
       }
     },
     {
-      "name": "Gambol.Client.UpdateEdit",
-      "kind": {
-        "Case": "Namespace"
-      }
-    },
-    {
       "name": "Gambol.Client.SearchDialog",
       "kind": {
         "Case": "Namespace"
       }
     },
     {
-      "name": "Fable.Core.JsInterop",
+      "name": "Gambol.Client.Controller",
       "kind": {
         "Case": "Namespace"
       }
     },
     {
-      "name": "Gambol.Client.Controller",
+      "name": "Fable.Core.JsInterop",
       "kind": {
         "Case": "Namespace"
       }
@@ -1863,6 +2001,12 @@
       }
     },
     {
+      "name": "SearchTests",
+      "kind": {
+        "Case": "Module"
+      }
+    },
+    {
       "name": "HistoryTests",
       "kind": {
         "Case": "Module"
@@ -1876,6 +2020,12 @@
     },
     {
       "name": "ModelTests",
+      "kind": {
+        "Case": "Module"
+      }
+    },
+    {
+      "name": "OpenTargetTests",
       "kind": {
         "Case": "Module"
       }

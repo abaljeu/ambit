@@ -2,7 +2,6 @@ namespace Gambol.Server
 
 open System
 open System.Data
-open System.IO
 open System.Threading.Tasks
 open Dapper
 open Gambol.Shared
@@ -341,10 +340,12 @@ module Database =
             return stFinal
         }
 
-    /// Truncate all persistence tables and replay the on-disk log from entry 0.
+    /// Truncate SQL tables and replace the projection from file authority (`DocumentLoader.loadState`).
+    /// `changes` is cleared; new posts repopulate the log. Matches snapshot + meta + tail replay, not
+    /// raw log replay from empty (which can diverge when the snapshot checkpoints the prefix).
     let rebuildFromDocumentFiles (connectionString: string) (dataDir: string) (filename: string) : Task =
         task {
-            let logPath = Path.Combine(dataDir, filename + ".log")
+            let fileSt = DocumentLoader.loadState dataDir filename
 
             use conn = getConnection connectionString
             do! conn.OpenAsync()
@@ -364,34 +365,6 @@ module Database =
 
             do! conn.ExecuteAsync("DELETE FROM graph", transaction = tx) :> Task
 
-            let mutable st =
-                { graph = Graph.create ()
-                  history = History.empty
-                  revision = Revision 0 }
-
-            use logStream =
-                new FileStream(logPath, FileMode.OpenOrCreate, FileAccess.Read, FileShare.ReadWrite)
-
-            let idx = ChangeLog.buildIndex logStream
-
-            for i in 0 .. idx.Count - 1 do
-                let _, json = ChangeLog.readEntryAt logStream idx.[i]
-
-                match ChangeLog.decodeChange json with
-                | Error _ -> ()
-                | Ok change ->
-                    match History.applyChange change st with
-                    | ApplyResult.Changed newSt ->
-                        let serverRevAfter = st.revision.Value + 1
-
-                        do!
-                            appendChangeWithTx tx serverRevAfter change.id json
-                            |> Async.AwaitTask
-
-                        st <-
-                            { newSt with revision = Revision serverRevAfter }
-                    | _ -> ()
-
-            do! replaceGraphProjectionWithTx tx st.graph st.revision.Value |> Async.AwaitTask
+            do! replaceGraphProjectionWithTx tx fileSt.graph fileSt.revision.Value |> Async.AwaitTask
             tx.Commit()
         }

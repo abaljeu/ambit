@@ -38,6 +38,7 @@ module Main =
     [<EntryPoint>]
     let main args =
         let port = Environment.GetEnvironmentVariable("PORT") |> Option.ofObj
+        let hasHead = HeadPresence.detectHasHead ()
 
         // Dev: __SOURCE_DIRECTORY__ has wwwroot next to it (Fable output).
         // Published: wwwroot is copied into the publish output dir alongside the DLL.
@@ -61,6 +62,7 @@ module Main =
             |> ignore
         let app = builder.Build()
         port |> Option.iter (fun p -> app.Urls.Add(sprintf "http://0.0.0.0:%s" p))
+        eprintfn "Gambol: server hasHead=%b (Environment.UserInteractive=%b)." hasHead Environment.UserInteractive
 
         // Production without appsettings.Production.json: start but show error to every request
         let expectedProductionConfigPath =
@@ -183,8 +185,8 @@ module Main =
         )
         |> ignore
 
-        // Development only: serve Client/Shared source files so Chrome DevTools can load mapped sources
-        if app.Environment.EnvironmentName = "Development" then
+        // Headed only: serve Client/Shared sources for browser source maps.
+        if hasHead then
             let contentRoot = app.Environment.ContentRootPath
             let clientDir = Path.GetFullPath(Path.Combine(contentRoot, "..", "Client"))
             let sharedDir = Path.GetFullPath(Path.Combine(contentRoot, "..", "Shared"))

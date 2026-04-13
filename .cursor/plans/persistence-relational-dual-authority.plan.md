@@ -132,9 +132,9 @@ then `DbAgent`, then server wiring and tests.
 
 ## Todos
 
-- [ ] Shared: `Graph` equality / rebuild-from-rows pure functions + tests
-- [ ] `Database.fs`: drop `snapshots`; add `graph` / `nodes` / `node_children` DDL + CRUD; keep `changes`
-- [ ] `DbAgent.fs`: load from relational rows + replay tail; persist projection on change; no `Snapshot.write` to SQL
-- [ ] `Server.fs`: startup parity + rebuild from file; remove or replace `/ambit/validate`
-- [ ] `DbAgentTests.fs` + integration tests for reload and parity/rebuild
+- [x] Shared: `Graph` equality / rebuild-from-rows pure functions + tests
+- [x] `Database.fs`: drop `snapshots`; add `graph` / `nodes` / `node_children` DDL + CRUD; keep `changes`
+- [x] `DbAgent.fs`: load from relational rows + replay tail; persist projection on change; no `Snapshot.write` to SQL
+- [x] `Server.fs`: startup parity + rebuild from file; remove or replace `/ambit/validate`
+- [x] `DbAgentTests.fs` + integration tests for reload and parity/rebuild
 - [x] Docs: persistence-vs-domain-model + postgres stub; removed db-change-doc-mode

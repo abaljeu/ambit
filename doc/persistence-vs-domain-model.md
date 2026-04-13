@@ -30,8 +30,8 @@ These are the persistence goals for Gambol, independent of how much is implement
    (one persisted change per row, comparable payloads), so the event history can be audited against
    the file log.
 
-Target vs legacy code: canonical schema is here; `doc/postgres-migration.md` only points at this
-file and notes interim `Database.fs` / `DbAgent.fs` behavior.
+Implementation status: normalized projection and startup parity/rebuild follow this document; see
+`doc/postgres-migration.md` for a short operational summary.
 
 ---
 
@@ -160,14 +160,19 @@ in-memory derivation.
 
 ## Current implementation vs target
 
-Today’s server bootstrap (`src/Server/Database.fs`) creates **`changes`** (as above in spirit) and
-a **`snapshots`** table holding **outline text** plus `revision` — that is a **blob checkpoint**
-tied to file syntax, **not** the target normalized projection.
+`Database.initSchema` creates **`changes`** plus **`graph`**, **`nodes`**, and **`node_children`**,
+and drops any legacy **`snapshots`** table. `DbAgent` loads the projection row and node/child rows,
+replays the `changes` tail (`server_revision_after` beyond the projection revision), and on each
+accepted change appends a `changes` row and replaces the projection in one transaction.
 
-`DbAgent` loads the latest snapshot row and replays `changes`; the target design is to **drop**
-reliance on outline `TEXT` in SQL, keep **files** as authority, maintain **`graph` / `nodes` /
-`node_children`** from the canonical in-memory `Graph` (and singleton revision), and run **startup
-parity** with **rebuild-on-failure** as in the aims above.
+`Server` startup calls **`DocumentLoader.loadState`** (files) and **`Database.loadPersistedState`**
+(DB); on graph or revision mismatch it runs **`rebuildFromDocumentFiles`**, which truncates SQL
+tables and writes the projection from file authority (same semantics as the loader, including
+snapshot + `.meta` + tail replay). The dev endpoint **`GET /ambit/validate`** is not used; parity
+is handled at startup.
+
+The obsolete doc **`db-change-doc-mode.md`** (blob-first Postgres) was removed; it is not part of
+this design.
 
 ---
 

@@ -1,6 +1,7 @@
 module Gambol.Server.Tests.DbAgentTests
 
 open System
+open System.IO
 open System.Threading.Tasks
 open Xunit
 open Gambol.Server
@@ -8,6 +9,9 @@ open Gambol.Shared
 
 module Decode = Thoth.Json.Newtonsoft.Decode
 module Encode = Thoth.Json.Newtonsoft.Encode
+
+let private decodeChange (s: string) =
+    Decode.fromString Serialization.decodeChange s
 
 let private testConnEnv = "TEST_DB_CONNECTION_STRING"
 
@@ -42,7 +46,7 @@ let private decodeGraph (json: string) : Graph =
 [<SkippableFact>]
 let ``DbAgent empty test DB has revision 0 and canonical ROOT`` () = task {
     let connStr = connStrOrEmpty ()
-    Skip.If(String.IsNullOrWhiteSpace(connStr), $"Set {testConnEnv} for PostgreSQL tests (gambol_test).")
+    Skip.If(String.IsNullOrWhiteSpace(connStr), $"Set {testConnEnv} for PostgreSQL tests.")
     do! resetTestDatabase connStr
     let agent = DbAgent.create connStr
     let! rev = DbAgent.getRevision agent |> Async.StartAsTask
@@ -56,7 +60,7 @@ let ``DbAgent empty test DB has revision 0 and canonical ROOT`` () = task {
 [<SkippableFact>]
 let ``DbAgent new process loads state from projection and changes after post`` () = task {
     let connStr = connStrOrEmpty ()
-    Skip.If(String.IsNullOrWhiteSpace(connStr), $"Set {testConnEnv} for PostgreSQL tests (gambol_test).")
+    Skip.If(String.IsNullOrWhiteSpace(connStr), $"Set {testConnEnv} for PostgreSQL tests.")
     do! resetTestDatabase connStr
     let agent1 = DbAgent.create connStr
     let! json0 = DbAgent.getState agent1 |> Async.StartAsTask
@@ -87,4 +91,56 @@ let ``DbAgent new process loads state from projection and changes after post`` (
     Assert.Equal(1, root.children.Length)
     let cid = root.children.[0].id
     Assert.Equal("reload-check", graph2.nodes.[cid].text)
+}
+
+[<SkippableFact>]
+let ``rebuildFromDocumentFiles aligns DB with on-disk document`` () = task {
+    let connStr = connStrOrEmpty ()
+    Skip.If(String.IsNullOrWhiteSpace(connStr), $"Set {testConnEnv} for PostgreSQL tests.")
+
+    let tempRoot =
+        Path.Combine(Path.GetTempPath(), "gambol-rebuild-" + Guid.NewGuid().ToString("N"))
+
+    try
+        Directory.CreateDirectory(tempRoot) |> ignore
+        File.WriteAllText(Path.Combine(tempRoot, "gambol"), Snapshot.write (Graph.create ()))
+        File.WriteAllText(Path.Combine(tempRoot, "gambol.meta"), "0")
+        File.WriteAllText(Path.Combine(tempRoot, "gambol.log"), "")
+
+        do! resetTestDatabase connStr
+        let agent = DbAgent.create connStr
+        let childId = NodeId.New()
+
+        let change =
+            { id = 0
+              changeId = Guid.NewGuid()
+              ops =
+                [ Op.NewNode(childId, "db-only")
+                  Op.Replace(Graph.rootId, 0, [], [ { ref = Ownership.Owner; id = childId } ]) ] }
+
+        let body = Encode.toString 0 (Serialization.encodeChange change)
+        let! postR = DbAgent.postChange agent body |> Async.StartAsTask
+
+        match postR with
+        | Error e -> Assert.Fail($"postChange: {e}")
+        | Ok _ -> ()
+
+        let fileSt = DocumentLoader.loadState tempRoot "gambol"
+        let! dbBefore = Database.loadPersistedState connStr decodeChange |> Async.AwaitTask
+
+        let differs =
+            not (GraphProjection.graphEquals fileSt.graph dbBefore.graph)
+            || fileSt.revision.Value <> dbBefore.revision.Value
+
+        Assert.True(differs, "expected file and DB to differ before rebuild")
+
+        do! Database.rebuildFromDocumentFiles connStr tempRoot "gambol" |> Async.AwaitTask
+
+        let! dbAfter = Database.loadPersistedState connStr decodeChange |> Async.AwaitTask
+
+        Assert.True(GraphProjection.graphEquals fileSt.graph dbAfter.graph)
+        Assert.Equal(fileSt.revision.Value, dbAfter.revision.Value)
+    finally
+        if Directory.Exists(tempRoot) then
+            Directory.Delete(tempRoot, true)
 }
