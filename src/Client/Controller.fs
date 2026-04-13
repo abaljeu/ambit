@@ -608,6 +608,12 @@ let commandRegistry : CommandEntry list =
         run = keyAlways moveNodesOp
         keys = [ "m" ; "Ctrl+m" ]
         keyScope = SelectionOrEditing }
+
+      { name = "Find"
+        run = keyAlways findRootOp
+        keys = [ "/" ; "Ctrl+f" ]
+        keyScope = SelectionOrEditing }
+
       { name = "Search nodes"
         run = keyAlways openSearchDialogOp
         keys = [ "Ctrl+F" ]

@@ -606,6 +606,27 @@ let zoomOutOp (model: VM) : VM * Effect list =
             selectedNodes = firstChildSelection siteMap effectiveRoot
             mode = Selecting }, effs
 
+let private searchPickSetRoot (hit: NodeSearchResult) (model: VM) : VM * Effect list =
+    let node = model.graph.nodes.[hit.nodeId]
+    let zoomId =
+        if node.children.IsEmpty then
+            match Graph.tryFindParentAndIndex hit.nodeId model.graph with
+            | Some (parentId, _) -> parentId
+            | None -> hit.nodeId
+        else hit.nodeId
+    let siteMap, nextId =
+        ViewModel.buildSiteMapFrom model.graph zoomId model.nextSiteId
+    { model with
+        zoomRoot = Some zoomId
+        siteMap = siteMap
+        nextSiteId = nextId
+        selectedNodes = firstChildSelection siteMap zoomId
+        mode = Selecting }, []
+
+/// Op: Find (/) — pick target via search, then set it as the view root.
+let findRootOp (model: VM) : VM * Effect list =
+    Gambol.Client.SearchDialog.openSearchDialogWithOnPick searchPickSetRoot model
+
 /// Op: Retry pending server POST. Only valid from WaitingToRetry state.
 /// resetCount=true (manual click) restarts the attempt counter from 1.
 let retryPendingOp (resetCount: bool) (model: VM) : VM * Effect list =
