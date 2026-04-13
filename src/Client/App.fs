@@ -18,6 +18,41 @@ open Gambol.Client.SessionState
 // MVU runtime (factory: model cell + effect interpreter)
 // ---------------------------------------------------------------------------
 
+module private SubmitChangeCallbacks =
+    open Gambol.Shared.LogText
+    open Gambol.Shared.ViewModel
+    open Gambol.Client.JsInterop
+    open Gambol.Client.Update
+
+    let onPostOk (timeoutId: float) (reqId: string) (dispatch: Msg -> unit) (text: string) : unit =
+        clearTimeout timeoutId
+        let n = text.Length
+        match decodeChangeAckResponse text with
+        | Ok ack ->
+            consoleLog (
+                "[Gambol sync] POST 200 req=" + reqId
+                + " ackRev=" + string ack.revision.Value
+                + " bodyLen=" + string n)
+            dispatch (SysMsg (SubmitResponse (ack.ackChangeId, ack.revision)))
+        | Error err ->
+            consoleLog (
+                "[Gambol sync] POST 200 bad ACK JSON req=" + reqId
+                + " err=" + err + " bodyLen=" + string n)
+            dispatch (SysMsg SubmitRejected)
+
+    let onPostHttp (timeoutId: float) (reqId: string) (dispatch: Msg -> unit) (httpStatus: int) (bodyText: string) : unit =
+        clearTimeout timeoutId
+        let snippet = truncateForLog 400 bodyText
+        consoleLog (
+            "[Gambol sync] GAMBOL_HTTP_ERR POST fail req=" + reqId
+            + " http=" + string httpStatus + " body=" + snippet)
+        dispatch (SysMsg SubmitRejected)
+
+    let onPostFetchFail (timeoutId: float) (reqId: string) (dispatch: Msg -> unit) () : unit =
+        clearTimeout timeoutId
+        consoleLog ("[Gambol sync] POST fetch failed req=" + reqId)
+        dispatch (SysMsg SubmitNetworkError)
+
 // Idle/pause remote polling after a period of no user interaction (battery-friendly).
 let idleTimeoutMs = 15 * 60 * 1000
 
@@ -64,71 +99,62 @@ let createRuntime (initialModel: VM) =
             submitEffects
 
     let rec runEffects (effects: Effect list) : unit =
-        for e in effects do
-            match e with
-            | SubmitChange (baseRev, change) ->
-                let reqId = change.changeId.ToString("N").Substring(0, 8)
-                let url = $"/{currentFile}/changes"
-                let body = encodeChangeBody { change with id = baseRev }
-                let qLen = model.syncInfo.pendingChanges.Length
-                consoleLog (
-                    "[Gambol sync] POST start req=" + reqId + " baseRev=" + string baseRev
-                    + " qLen=" + string qLen + " headStoredId=" + string change.id)
-                let timeoutId =
-                    setTimeout
-                        (fun () ->
-                            consoleLog ("[Gambol sync] POST timeout 5s req=" + reqId)
-                            dispatch (SysMsg SubmitNetworkError))
-                        5_000
-                postJson url body
-                    (fun text ->
-                        clearTimeout timeoutId
-                        let n = text.Length
-                        match decodeChangeAckResponse text with
-                        | Ok ack ->
-                            consoleLog (
-                                "[Gambol sync] POST 200 req=" + reqId
-                                + " ackRev=" + string ack.revision.Value
-                                + " bodyLen=" + string n)
-                            dispatch (SysMsg (SubmitResponse (ack.ackChangeId, ack.revision)))
-                        | Error err ->
-                            consoleLog (
-                                "[Gambol sync] POST 200 bad ACK JSON req=" + reqId
-                                + " err=" + err + " bodyLen=" + string n)
-                            dispatch (SysMsg SubmitRejected))
-                    (fun httpStatus bodyText ->
-                        clearTimeout timeoutId
-                        let cap = 400
-                        let snippet =
-                            if bodyText.Length <= cap then bodyText
-                            else bodyText.Substring(0, cap) + "..."
-                        consoleLog (
-                            "[Gambol sync] GAMBOL_HTTP_ERR POST fail req=" + reqId
-                            + " http=" + string httpStatus + " body=" + snippet)
-                        dispatch (SysMsg SubmitRejected))
-                    (fun () ->
-                        clearTimeout timeoutId
-                        consoleLog ("[Gambol sync] POST fetch failed req=" + reqId)
-                        dispatch (SysMsg SubmitNetworkError))
-            | PollServer _ ->
-                let url = $"/{currentFile}/poll?_={nowMs ()}"
-                fetchTextNoCacheWithFail url
-                    (fun text ->
-                        match Serialization.decodePollResponse text with
-                        | Ok poll ->
-                            let context =
-                                { ClientPollContext.buildEpochSec = readBuildEpochSec ()
-                                  pageBuildEpochSec = readPageBuildEpochSec () }
-                            let outcome =
-                                SyncLogic.getPollOutcome poll model.revision.Value context
-                            dispatch (SysMsg (PollDone outcome))
-                        | Error _ ->
-                            dispatch (SysMsg (PollDone None)))
-                    (fun () -> dispatch (SysMsg (PollDone None)))
-            | ScheduleRetry delayMs ->
-                setTimeout (fun () -> dispatch (SysMsg RetrySubmit)) delayMs |> ignore
-            | SavePendingQueue q ->
-                savePendingQueue q
+        match effects with
+        | [] -> ()
+        | e :: rest ->
+            runEffect e
+            runEffects rest
+
+    and runEffect (e: Effect) : unit =
+        match e with
+        | SubmitChange (baseRev, change) -> runSubmitChange baseRev change
+        | PollServer _ -> runPollServer ()
+        | ScheduleRetry delayMs -> runScheduleRetry delayMs
+        | SavePendingQueue q -> runSavePendingQueue q
+
+    and runSubmitChange (baseRev: int) (change: Change) : unit =
+        let reqId = change.changeId.ToString("N").Substring(0, 8)
+        let url = $"/{currentFile}/changes"
+        let body = encodeChangeBody { change with id = baseRev }
+        let qLen = model.syncInfo.pendingChanges.Length
+        consoleLog (
+            "[Gambol sync] POST start req=" + reqId + " baseRev=" + string baseRev
+            + " qLen=" + string qLen + " headStoredId=" + string change.id)
+        let timeoutId =
+            setTimeout
+                (fun () ->
+                    consoleLog ("[Gambol sync] POST timeout 5s req=" + reqId)
+                    dispatch (SysMsg SubmitNetworkError))
+                5_000
+        postJson
+            url
+            body
+            (SubmitChangeCallbacks.onPostOk timeoutId reqId dispatch)
+            (SubmitChangeCallbacks.onPostHttp timeoutId reqId dispatch)
+            (SubmitChangeCallbacks.onPostFetchFail timeoutId reqId dispatch)
+
+    and runPollServer () : unit =
+        let url = $"/{currentFile}/poll?_={nowMs ()}"
+        let onPollOk (text: string) : unit =
+            match Serialization.decodePollResponse text with
+            | Ok poll ->
+                let context =
+                    { ClientPollContext.buildEpochSec = readBuildEpochSec ()
+                      pageBuildEpochSec = readPageBuildEpochSec () }
+                let outcome =
+                    SyncLogic.getPollOutcome poll model.revision.Value context
+                dispatch (SysMsg (PollDone outcome))
+            | Error _ ->
+                dispatch (SysMsg (PollDone None))
+        let onPollFail () : unit =
+            dispatch (SysMsg (PollDone None))
+        fetchTextNoCacheWithFail url onPollOk onPollFail
+
+    and runScheduleRetry (delayMs: int) : unit =
+        setTimeout (fun () -> dispatch (SysMsg RetrySubmit)) delayMs |> ignore
+
+    and runSavePendingQueue (q: Change list) : unit =
+        savePendingQueue q
 
     and dispatch (msg: Msg) : unit =
         let prev = model

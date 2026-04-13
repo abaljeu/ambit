@@ -11,6 +11,7 @@
     <Compile Include="GraphProjectionTests.fs" />
     <Compile Include="ModelBuilderTests.fs" />
     <Compile Include="HistoryTests.fs" />
+    <Compile Include="LogTextTests.fs" />
     <Compile Include="SnapshotTests.fs" />
     <Compile Include="SerializationTests.fs" />
     <Compile Include="SearchTests.fs" />
