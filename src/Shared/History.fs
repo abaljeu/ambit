@@ -60,7 +60,9 @@ module Op =
                       text = text
                       name = None
                       children = []
-                      cssClasses = CssClass.empty }
+                      cssClasses = CssClass.empty
+                      owner = Graph.rootId
+                      kind = Normal }
 
                 ApplyResult.Changed
                     { state with

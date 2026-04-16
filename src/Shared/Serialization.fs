@@ -14,6 +14,37 @@ type PollResponse =
 
 [<RequireQualifiedAccess>]
 module Serialization =
+    let private encodeSpecialKind (kind: SpecialKind) : IEncodable =
+        match kind with
+        | Trash -> Encode.string "trash"
+
+    let private decodeSpecialKind: Decoder<SpecialKind> =
+        Decode.string
+        |> Decode.andThen (function
+            | "trash" -> Decode.succeed Trash
+            | other -> Decode.fail $"Unknown special node kind: {other}")
+
+    let private encodeNodeKind (kind: NodeKind) : IEncodable =
+        match kind with
+        | Normal -> Encode.string "normal"
+        | Special sk ->
+            Encode.object
+                [ "type", Encode.string "special"
+                  "kind", encodeSpecialKind sk ]
+
+    let private decodeNodeKind: Decoder<NodeKind> =
+        Decode.oneOf
+            [ Decode.string
+              |> Decode.andThen (function
+                  | "normal" -> Decode.succeed Normal
+                  | other -> Decode.fail $"Unknown node kind: {other}")
+              Decode.object (fun get ->
+                  match get.Required.Field "type" Decode.string with
+                  | "special" ->
+                      let sk = get.Required.Field "kind" decodeSpecialKind
+                      Special sk
+                  | other ->
+                      failwithf "Unknown node kind type discriminator: %s" other) ]
     let private encodeOwnership (ownership: Ownership) : IEncodable =
         match ownership with
         | Ownership.Ref -> Encode.string "ref"
@@ -60,15 +91,21 @@ module Serialization =
               "text", Encode.string node.text
               "name", Encode.lossyOption Encode.string node.name
               "children", node.children |> List.map encodeChildNode |> Encode.list
-              "cssClasses", node.cssClasses |> CssClass.toList |> List.map Encode.string |> Encode.list ]
+              "cssClasses", node.cssClasses |> CssClass.toList |> List.map Encode.string |> Encode.list
+              "kind", encodeNodeKind node.kind ]
 
     let decodeNode: Decoder<Node> =
         Decode.object (fun get ->
+            let kind =
+                get.Optional.Field "kind" decodeNodeKind
+                |> Option.defaultValue Normal
             { id = get.Required.Field "id" decodeNodeId
               text = get.Required.Field "text" Decode.string
               name = get.Optional.Field "name" Decode.string
               children = get.Required.Field "children" (Decode.list decodeChildNode)
-              cssClasses = get.Optional.Field "cssClasses" (Decode.list Decode.string) |> Option.defaultValue [] |> CssClass.ofList })
+              cssClasses = get.Optional.Field "cssClasses" (Decode.list Decode.string) |> Option.defaultValue [] |> CssClass.ofList
+              owner = Graph.rootId
+              kind = kind })
 
     // ---- Graph ----
 

@@ -87,17 +87,20 @@ let private tryBuildMoveInputs
     =
     match model.selectedNodes with
     | None -> None
-    | Some sel ->
-        let from = sel.range
-        let selectedChildren = rangeChildren model.graph from
-        if selectedChildren.IsEmpty then
-            None
-        else
-            let count = selectedChildren.Length
-            let sameParent = from.parent.nodeId = too.pnode
-            let insertIdx =
-                if sameParent && too.endd > from.start then too.endd - count else too.endd
-            Some (sel, from, selectedChildren, count, sameParent, insertIdx)
+    | Some staleSel ->
+        match ViewModel.refreshSelection model.graph model.siteMap staleSel with
+        | None -> None
+        | Some sel ->
+            let from = sel.range
+            let selectedChildren = rangeChildren model.graph from
+            if selectedChildren.IsEmpty then
+                None
+            else
+                let count = selectedChildren.Length
+                let sameParent = from.parent.nodeId = too.pnode
+                let insertIdx =
+                    if sameParent && too.endd > from.start then too.endd - count else too.endd
+                Some (sel, from, selectedChildren, count, sameParent, insertIdx)
 
 let private replaceOpsForMove
     (too: NodeRange)
@@ -232,30 +235,36 @@ let moveNodeDelta (delta: int) (model: VM) : VM * Effect list =
 let indentSelection (model: VM) : VM * Effect list =
     match model.selectedNodes with
     | None -> model, []
-    | Some sel when sel.range.start = 0 -> model, []  // no previous sibling — no-op
-    | Some sel ->
-        let prevInstId = sel.range.parent.children.[sel.range.start - 1]
-        match Map.tryFind prevInstId model.siteMap.entries with
+    | Some staleSel ->
+        match ViewModel.refreshSelection model.graph model.siteMap staleSel with
         | None -> model, []
-        | Some prevEntry ->
-            let siteMap, nextId =
-                if prevEntry.expanded then model.siteMap, model.nextSiteId
-                else ViewModel.expandEntry prevInstId model.graph model.siteMap model.nextSiteId
-            let model = { model with siteMap = siteMap; nextSiteId = nextId }
-            let parentId = sel.range.parent.nodeId
-            let prevSibId = model.graph.nodes.[parentId].children.[sel.range.start - 1].id
-            let insertIdx = model.graph.nodes.[prevSibId].children.Length
-            let too: NodeRange =
-                { pnode = prevSibId; start = max 0 (insertIdx - 1); endd = insertIdx }
-            let result, effects = moveNodeFromTo too model
-            let result = withSiteMap result
-            // Ensure the new parent is expanded so the indented items are visible after reconcile
-            match Map.tryFind prevInstId result.siteMap.entries with
-            | Some entry when not entry.expanded ->
-                let sm, nid =
-                    ViewModel.expandEntry entry.instanceId result.graph result.siteMap result.nextSiteId
-                { result with siteMap = sm; nextSiteId = nid }, effects
-            | _ -> result, effects
+        | Some sel when sel.range.start = 0 -> model, []  // no previous sibling — no-op
+        | Some sel ->
+            let prevInstId = sel.range.parent.children.[sel.range.start - 1]
+            match Map.tryFind prevInstId model.siteMap.entries with
+            | None -> model, []
+            | Some prevEntry ->
+                let siteMap, nextId =
+                    if prevEntry.expanded then model.siteMap, model.nextSiteId
+                    else ViewModel.expandEntry prevInstId model.graph model.siteMap model.nextSiteId
+                let model = { model with siteMap = siteMap; nextSiteId = nextId }
+                let parentId = sel.range.parent.nodeId
+                let prevSibId = model.graph.nodes.[parentId].children.[sel.range.start - 1].id
+                let insertIdx = model.graph.nodes.[prevSibId].children.Length
+                let too: NodeRange =
+                    { pnode = prevSibId; start = max 0 (insertIdx - 1); endd = insertIdx }
+                let result, effects = moveNodeFromTo too model
+                let result = withSiteMap result
+                // Ensure the new parent is expanded so the indented items are visible after reconcile
+                match Map.tryFind prevInstId result.siteMap.entries with
+                | Some entry when not entry.expanded ->
+                    let sm, nid =
+                        ViewModel.expandEntry entry.instanceId
+                            result.graph
+                            result.siteMap
+                            result.nextSiteId
+                    { result with siteMap = sm; nextSiteId = nid }, effects
+                | _ -> result, effects
 
 /// Shift+Tab: make selected nodes siblings of their current parent (under grandparent).
 let outdentSelection (model: VM) : VM * Effect list =

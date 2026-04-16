@@ -86,6 +86,37 @@ let ``singleSelection returns None for root node`` () =
     Assert.True(result.IsNone)
 
 [<Fact>]
+let ``refreshSelection rebinds stale parent snapshot to current site map`` () =
+    let graph, _ = buildFlat [ "a"; "b"; "c" ]
+    let model = modelWithSel graph 1 2 1
+    let staleSel =
+        match model.selectedNodes with
+        | None -> failwith "Expected selected node"
+        | Some sel ->
+            let staleParent = { sel.range.parent with children = [] }
+            { sel with range = { sel.range with parent = staleParent } }
+    let rebuiltMap, _ = buildSiteMap graph
+    match refreshSelection graph rebuiltMap staleSel with
+    | None -> Assert.True(false, "Expected refreshed selection")
+    | Some refreshed ->
+        Assert.Equal(1, refreshed.range.start)
+        Assert.Equal(2, refreshed.range.endd)
+        Assert.Equal(3, refreshed.range.parent.children.Length)
+
+[<Fact>]
+let ``refreshSelection returns None when parent instance no longer exists`` () =
+    let graph, _ = buildFlat [ "a"; "b" ]
+    let model = modelWithSel graph 0 1 0
+    let staleSel =
+        match model.selectedNodes with
+        | None -> failwith "Expected selected node"
+        | Some sel ->
+            let orphanParent = { sel.range.parent with instanceId = Sid 9_999 }
+            { sel with range = { sel.range with parent = orphanParent } }
+    let siteMap, _ = buildSiteMap graph
+    Assert.True((refreshSelection graph siteMap staleSel).IsNone)
+
+[<Fact>]
 let ``selectionAfterStructuralMove expanded parent spans moved nodes`` () =
     let graph, _ = buildFlat [ "a"; "b"; "c" ]
     let m0 = emptyModel graph

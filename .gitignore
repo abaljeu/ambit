@@ -418,3 +418,4 @@ dist/
 
 # Runtime data
 data/*.bak.*
+**/.SageFs/

@@ -37,12 +37,22 @@ type ChildNode =
           id = NodeId.New() }
 
 
+type SpecialKind =
+    | Trash
+
+type NodeKind =
+    | Normal
+    | Special of SpecialKind
+
+
 type Node =
     { id         : NodeId
       text       : string
       name       : string option
       children   : ChildNode list
-      cssClasses : CssClasses }
+      cssClasses : CssClasses
+      owner      : NodeId
+      kind       : NodeKind }
 
 
 // Span of child indices [start, endd) under graph node `pnode` (parent NodeId).
@@ -72,13 +82,18 @@ module Graph =
     /// Canonical document root; stable across snapshot load and replay (not stored in outline).
     let rootId: NodeId = NodeId Guid.Empty
 
+    /// Canonical trash node id; stable across snapshot load and replay.
+    let trashId: NodeId = NodeId(Guid.Parse "00000000-0000-0000-0000-000000000001")
+
     /// Initial root node: fixed label, no user-editable fields on root.
     let rootPlaceholder: Node =
         { id = rootId
           text = "ROOT"
           name = None
           children = []
-          cssClasses = CssClass.empty }
+          cssClasses = CssClass.empty
+          owner = rootId
+          kind = Normal }
 
     let private addStructuralEdges (parentId: NodeId) (parent: Node) acc =
         parent.children
@@ -104,11 +119,79 @@ module Graph =
             nodes |> Map.fold (fun acc pid p -> addOwnerEdges pid p acc) Map.empty
         structural, owners
 
+    let private ensureTrashNode (nodes: Map<NodeId, Node>) : Map<NodeId, Node> =
+        let hasTrash = Map.containsKey trashId nodes
+        let nodesWithTrash =
+            if hasTrash then
+                nodes
+            else
+                let rootNode = nodes.[rootId]
+                let trashNode: Node =
+                    { id = trashId
+                      text = "Trash"
+                      name = None
+                      children = []
+                      cssClasses = CssClass.empty
+                      owner = rootId
+                      kind = Special Trash }
+
+                let trashChild: ChildNode =
+                    { ref = Ownership.Owner
+                      id = trashId }
+
+                let rootChildren =
+                    if rootNode.children |> List.exists (fun c -> c.id = trashId) then
+                        rootNode.children
+                    else
+                        rootNode.children @ [ trashChild ]
+
+                nodes
+                |> Map.add rootId { rootNode with children = rootChildren }
+                |> Map.add trashId trashNode
+
+        // If a Trash node exists but is not an Owner child of ROOT, fix it up.
+        let rootNode = nodesWithTrash.[rootId]
+
+        let rootChildrenWithoutTrash, trashOccurrences =
+            rootNode.children
+            |> List.partition (fun c -> c.id <> trashId)
+
+        let trashChild =
+            match trashOccurrences |> List.tryFind (fun c -> c.ref = Ownership.Owner) with
+            | Some ownerChild -> ownerChild
+            | None ->
+                { ref = Ownership.Owner
+                  id = trashId }
+
+        let fixedRootChildren = rootChildrenWithoutTrash @ [ trashChild ]
+
+        nodesWithTrash
+        |> Map.add rootId { rootNode with children = fixedRootChildren }
+
+    let private applyOwnerField
+        (root: NodeId)
+        (ownerParentByChild: Map<NodeId, NodeId>)
+        (nodes: Map<NodeId, Node>)
+        : Map<NodeId, Node>
+        =
+        nodes
+        |> Map.map (fun nid node ->
+            if nid = root then
+                { node with owner = root }
+            else
+                let ownerParent =
+                    ownerParentByChild
+                    |> Map.tryFind nid
+                    |> Option.defaultValue root
+                { node with owner = ownerParent })
+
     /// Build a graph with recomputed parent indexes (use for decode, snapshots, tests).
     let fromNodes (root: NodeId) (nodes: Map<NodeId, Node>) : Graph =
-        let pbc, opc = buildParentMaps nodes
+        let nodesWithTrash = ensureTrashNode nodes
+        let pbc, opc = buildParentMaps nodesWithTrash
+        let nodesWithOwner = applyOwnerField root opc nodesWithTrash
         { root = root
-          nodes = nodes
+          nodes = nodesWithOwner
           parentByChild = pbc
           ownerParentByChild = opc }
 
@@ -125,7 +208,9 @@ module Graph =
               text = text
               name = None
               children = []
-              cssClasses = CssClass.empty }
+              cssClasses = CssClass.empty
+              owner = rootId
+              kind = Normal }
         let nodes = graph.nodes |> Map.add nodeId node
         { graph with nodes = nodes }, nodeId
 
@@ -141,6 +226,8 @@ module Graph =
         =
         if nodeId = rootId then
             Error "cannot modify canonical root text"
+        elif nodeId = trashId then
+            Error "cannot modify trash node text"
         else
             match graph.nodes |> Map.tryFind nodeId with
             | None -> Error "node not found"
@@ -161,6 +248,8 @@ module Graph =
         =
         if nodeId = rootId then
             Error "cannot set classes on canonical root"
+        elif nodeId = trashId then
+            Error "cannot set classes on trash node"
         else
             match graph.nodes |> Map.tryFind nodeId with
             | None -> Error "node not found"
@@ -209,12 +298,42 @@ module Graph =
                 else
                     let prefix = children |> List.take index
                     let suffix = children |> List.skip (index + oldCount)
-                    let updatedParent =
-                        { parent with
-                            children = prefix @ newChildren @ suffix }
+                    let updatedChildren = prefix @ newChildren @ suffix
 
-                    let nodes = graph.nodes |> Map.add parentId updatedParent
-                    Ok (fromNodes graph.root nodes)
+                    // Guard TRASH against invalid structural mutations.
+                    if parentId = trashId then
+                        Error "cannot use trash as a parent"
+                    else
+                        if parentId = rootId then
+                            let hadTrashOwner =
+                                children
+                                |> List.exists (fun c -> c.id = trashId && c.ref = Ownership.Owner)
+                            let hasTrashOwnerAfter =
+                                updatedChildren
+                                |> List.exists (fun c -> c.id = trashId && c.ref = Ownership.Owner)
+
+                            if hadTrashOwner && not hasTrashOwnerAfter then
+                                Error "cannot remove trash owner child from root"
+                            elif
+                                updatedChildren
+                                |> List.filter (fun c -> c.id = trashId && c.ref = Ownership.Owner)
+                                |> List.length
+                                <> 1
+                            then
+                                Error "trash must appear exactly once as an Owner child of root"
+                            else
+                                let updatedParent = { parent with children = updatedChildren }
+                                let nodes = graph.nodes |> Map.add parentId updatedParent
+                                Ok (fromNodes graph.root nodes)
+                        elif
+                            updatedChildren
+                            |> List.exists (fun c -> c.id = trashId)
+                        then
+                            Error "trash may not be a child of any non-root parent"
+                        else
+                            let updatedParent = { parent with children = updatedChildren }
+                            let nodes = graph.nodes |> Map.add parentId updatedParent
+                            Ok (fromNodes graph.root nodes)
 
     let tryFindParentAndIndex (targetId: NodeId) (graph: Graph) : (NodeId * int) option =
         Map.tryFind targetId graph.parentByChild

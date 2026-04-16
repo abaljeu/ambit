@@ -47,6 +47,12 @@ module Snapshot =
             else
                 node.text
 
+        let ensureCanonicalSid (nodeId: NodeId) : string option =
+            if nodeId = Graph.trashId then
+                Some "TRASH"
+            else
+                None
+
         let rec writeChild (depth: int) (child: ChildNode) =
             let indent = String.replicate depth "\t"
             let nodeId = child.id
@@ -55,13 +61,21 @@ module Snapshot =
 
             match child.ref with
             | Ownership.Ref ->
-                let sid = ensureShortId nodeId
+                let sid =
+                    ensureCanonicalSid nodeId
+                    |> Option.defaultWith (fun () -> ensureShortId nodeId)
                 sb.Append(indent).Append("-> #").Append(sid).Append(nl) |> ignore
             | Ownership.Owner ->
                 let node = graph.nodes.[nodeId]
                 let body = lineBodyFor node
-                if isShared then
-                    let sid = ensureShortId nodeId
+                let isSpecial =
+                    match node.kind with
+                    | Special _ -> true
+                    | Normal -> false
+                if isShared || isSpecial then
+                    let sid =
+                        ensureCanonicalSid nodeId
+                        |> Option.defaultWith (fun () -> ensureShortId nodeId)
                     sb.Append(indent).Append("#").Append(sid).Append(" ").Append(body).Append(nl)
                     |> ignore
                 else
@@ -101,7 +115,13 @@ module Snapshot =
           text = nodeText
           name = None
           children = []
-          cssClasses = classes }
+          cssClasses = classes
+          owner = Graph.rootId
+          kind =
+              if id = Graph.trashId then
+                  Special Trash
+              else
+                  Normal }
 
     let private outlineStubNode (id: NodeId) : Node =
         outlineTextNode id "" CssClass.empty
@@ -120,16 +140,30 @@ module Snapshot =
         if spaceIdx < 0 then content.Substring(1), ""
         else content.Substring(1, spaceIdx - 1), content.Substring(spaceIdx + 1)
 
+    let private canonicalNodeIdForSid (sid: string) : NodeId option =
+        match sid with
+        | "TRASH" -> Some Graph.trashId
+        | _ -> None
+
     let private resolveRefSid
         (sid: string)
         (nodes: Map<NodeId, Node>)
         (idMap: Map<string, NodeId>)
         =
-        match idMap |> Map.tryFind sid with
-        | Some nid -> nid, nodes, idMap
-        | None ->
-            let nid = NodeId.New()
-            nid, nodes |> Map.add nid (outlineStubNode nid), idMap |> Map.add sid nid
+        let chosenId =
+            match canonicalNodeIdForSid sid, idMap |> Map.tryFind sid with
+            | Some canonical, _ -> canonical
+            | None, Some nid -> nid
+            | None, None -> NodeId.New()
+
+        let nodes' =
+            if Map.containsKey chosenId nodes then
+                nodes
+            else
+                nodes |> Map.add chosenId (outlineStubNode chosenId)
+
+        let idMap' = idMap |> Map.add sid chosenId
+        chosenId, nodes', idMap'
 
     let private resolveOwnerSid
         (sid: string)
@@ -138,15 +172,21 @@ module Snapshot =
         (nodes: Map<NodeId, Node>)
         (idMap: Map<string, NodeId>)
         =
-        match idMap |> Map.tryFind sid with
-        | Some nid ->
-            let prior = nodes |> Map.find nid
-            let n = { prior with text = nodeText; cssClasses = classes }
-            nid, nodes |> Map.add nid n, idMap
-        | None ->
-            let nid = NodeId.New()
-            let n = outlineTextNode nid nodeText classes
-            nid, nodes |> Map.add nid n, idMap |> Map.add sid nid
+        let chosenId =
+            match canonicalNodeIdForSid sid, idMap |> Map.tryFind sid with
+            | Some canonical, _ -> canonical
+            | None, Some nid -> nid
+            | None, None -> NodeId.New()
+
+        let prior =
+            nodes
+            |> Map.tryFind chosenId
+            |> Option.defaultValue (outlineTextNode chosenId nodeText classes)
+
+        let n = { prior with text = nodeText; cssClasses = classes }
+        let nodes' = nodes |> Map.add chosenId n
+        let idMap' = idMap |> Map.add sid chosenId
+        chosenId, nodes', idMap'
 
     let rec private popOutlineStack depth stack =
         match stack with
@@ -174,9 +214,9 @@ module Snapshot =
         elif content.StartsWith("#") then
             let sid, body = parseHashDefLine content
             let classes, nodeText = parseOutlineMeta body
-            let nid, nodes, idMap = resolveOwnerSid sid classes nodeText nodes idMap
+            let nid, nodes', idMap' = resolveOwnerSid sid classes nodeText nodes idMap
             let edge = { ref = Ownership.Owner; id = nid }
-            (prependOutlineChild parentId edge nodes, (depth, nid) :: stack, idMap)
+            (prependOutlineChild parentId edge nodes', (depth, nid) :: stack, idMap')
 
         else
             let classes, nodeText = parseOutlineMeta content

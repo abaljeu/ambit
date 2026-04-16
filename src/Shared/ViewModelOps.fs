@@ -316,6 +316,33 @@ module ViewModel =
                     | None -> None
                     | Some idx -> Some { range = { parent = parentEntry; start = idx; endd = idx + 1 }; focus = idx }
 
+    /// Refreshes a Selection against the current site map and graph.
+    /// Returns None when the parent occurrence is gone or range bounds are invalid.
+    let refreshSelection (graph: Graph) (siteMap: SiteMap) (sel: Selection) : Selection option =
+        let parentOpt = Map.tryFind sel.range.parent.instanceId siteMap.entries
+        let mkRefreshed parent =
+            let visibleCount = parent.children.Length
+            let graphCount = graph.nodes.[parent.nodeId].children.Length
+            let count = min visibleCount graphCount
+            let start = sel.range.start
+            let finish = sel.range.endd
+            let focus = sel.focus
+            if start < 0 || finish < 0 || focus < 0 then
+                None
+            elif start >= finish then
+                None
+            elif finish > count then
+                None
+            elif focus < start || focus >= finish then
+                None
+            else
+                Some
+                    { range = { parent = parent; start = start; endd = finish }
+                      focus = focus }
+        match parentOpt with
+        | Some parent when parent.nodeId = sel.range.parent.nodeId -> mkRefreshed parent
+        | _ -> None
+
     let private tryOriginalAdjacentNodeId (preGraph: Graph) (fromRange: SiteNodeRange) : NodeId option =
         let pid = fromRange.parent.nodeId
         let kids = preGraph.nodes.[pid].children
@@ -697,4 +724,58 @@ module ViewModel =
                     CreateRow instId)
 
         removals @ upserts
+
+    // -----------------------------------------------------------------------
+    // Ownership / occurrence helpers (shared between client and server logic)
+    // -----------------------------------------------------------------------
+
+    /// All occurrences (parent, index, child) of the given nodeId in the graph.
+    let getAllOccurrences (graph: Graph) (nodeId: NodeId) : (NodeId * int * ChildNode) list =
+        graph.nodes
+        |> Map.toList
+        |> List.collect (fun (parentId, node) ->
+            node.children
+            |> List.mapi (fun index child ->
+                if child.id = nodeId then
+                    Some(parentId, index, child)
+                else
+                    None)
+            |> List.choose id)
+
+    /// The unique owner occurrence (parent, index, child) for nodeId, assuming invariants hold.
+    let getOwnerOccurrence (graph: Graph) (nodeId: NodeId) : (NodeId * int * ChildNode) =
+        getAllOccurrences graph nodeId
+        |> List.find (fun (_, _, child) -> child.ref = Ownership.Owner)
+
+    /// True when the unique owner's ancestor chain includes TRASH between the node and ROOT.
+    let isOwnerUnderTrash (graph: Graph) (nodeId: NodeId) : bool =
+        let ownerParent, _, _ = getOwnerOccurrence graph nodeId
+
+        let rec loop (current: NodeId) =
+            if current = graph.root then
+                false
+            elif current = Graph.trashId then
+                true
+            else
+                graph.ownerParentByChild
+                |> Map.tryFind current
+                |> Option.map loop
+                |> Option.defaultValue false
+
+        loop ownerParent
+
+    /// All occurrences of nodeId that are not within the given SiteNodeRange span.
+    let occurrencesOutsideSelection
+        (graph: Graph)
+        (range: SiteNodeRange)
+        (nodeId: NodeId)
+        : (NodeId * int * ChildNode) list
+        =
+        let all = getAllOccurrences graph nodeId
+        all
+        |> List.filter (fun (parentId, index, _) ->
+            if parentId <> range.parent.nodeId then
+                true
+            else
+                index < range.start || index >= range.endd)
 
