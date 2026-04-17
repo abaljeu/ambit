@@ -33,7 +33,9 @@ let ``Node round-trip with Some name`` () =
           children =
             [ ChildNode.New()
               ChildNode.New()]
-          cssClasses = CssClass.empty }
+          cssClasses = CssClass.empty
+          owner = Graph.rootId
+          kind = Normal }
     let decoded = roundTrip Serialization.encodeNode Serialization.decodeNode node
     Assert.Equal(node, decoded)
 
@@ -44,7 +46,9 @@ let ``Node round-trip with None name`` () =
           text = "hello"
           name = None
           children = []
-          cssClasses = CssClass.empty }
+          cssClasses = CssClass.empty
+          owner = Graph.rootId
+          kind = Normal }
     let decoded = roundTrip Serialization.encodeNode Serialization.decodeNode node
     Assert.Equal(node, decoded)
 

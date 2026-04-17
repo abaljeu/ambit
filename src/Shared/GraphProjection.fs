@@ -84,7 +84,9 @@ module GraphProjection =
                   text = r.text
                   name = r.name
                   children = []
-                  cssClasses = CssClass.ofList r.cssClassNames })
+                  cssClasses = CssClass.ofList r.cssClassNames
+                  owner = Graph.rootId
+                  kind = Normal })
             |> Map.ofList
 
         let badRef (g: ChildPersistenceRow) =

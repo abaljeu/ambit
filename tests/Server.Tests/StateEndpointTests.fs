@@ -11,6 +11,7 @@ open Microsoft.Extensions.Configuration
 open Xunit
 open Gambol.Server
 open Gambol.Shared
+open SpecialNodeTestHelpers
 
 module Encode = Thoth.Json.Newtonsoft.Encode
 module Decode = Thoth.Json.Newtonsoft.Decode
@@ -128,11 +129,11 @@ let ``GET state returns valid graph with root node`` () = task {
     use client = createClient ()
     let! json = getStateJson client testFile
     let graph = decodeGraph json
-    Assert.Equal(1, graph.nodes.Count)
+    Assert.Equal(1, userNodeCount graph)
     Assert.True(graph.nodes.ContainsKey graph.root)
     let root = graph.nodes.[graph.root]
     Assert.Equal("ROOT", root.text)
-    Assert.Empty(root.children)
+    Assert.Empty(userRootChildren graph)
 }
 
 // ---- POST /{file}/changes tests ----
@@ -182,8 +183,8 @@ let ``POST changes NewNode+Replace adds child to root`` () = task {
 
     let! json = getStateJson client testFile
     let graph = decodeGraph json
-    Assert.Equal(2, graph.nodes.Count)
-    Assert.Equal<ChildNode list>([ { ref = Ownership.Owner; id = childId } ], graph.nodes.[rootId].children)
+    Assert.Equal(2, userNodeCount graph)
+    Assert.Equal<ChildNode list>([ { ref = Ownership.Owner; id = childId } ], userRootChildren graph)
     Assert.Equal("child", graph.nodes.[childId].text)
 }
 

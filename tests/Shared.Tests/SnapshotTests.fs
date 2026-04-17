@@ -3,6 +3,7 @@ module Gambol.Shared.Tests.SnapshotTests
 open System
 open Xunit
 open Gambol.Shared
+open SpecialNodeTestHelpers
 
 let private childId (child: ChildNode) = child.id
 let private owned (ids: NodeId list) = ids |> List.map (fun id -> { ref = Ownership.Owner; id = id })
@@ -10,12 +11,8 @@ let private owned (ids: NodeId list) = ids |> List.map (fun id -> { ref = Owners
 /// Extract the tree shape as (depth, text) pairs via depth-first traversal.
 /// The root is excluded; its children are depth 0.
 let private treeShape (graph: Graph) : (int * string) list =
-    let rec walk depth nodeId =
-        let node = graph.nodes.[nodeId]
-        (depth, node.text) :: (node.children |> List.collect (fun child -> walk (depth + 1) child.id))
-
-    let root = graph.nodes.[graph.root]
-    root.children |> List.collect (fun child -> walk 0 child.id)
+    // Legacy tests should ignore special nodes like TRASH; reuse shared helper.
+    userTreeShape graph
 
 // ---- write tests ----
 
@@ -23,7 +20,7 @@ let private treeShape (graph: Graph) : (int * string) list =
 let ``write empty graph produces empty string`` () =
     let graph = Graph.create ()
     let result = Snapshot.write graph
-    Assert.Equal("", result)
+    Assert.Equal("", stripSpecialLinesFromOutline result)
 
 [<Fact>]
 let ``write flat graph produces unindented lines`` () =
@@ -32,13 +29,13 @@ let ``write flat graph produces unindented lines`` () =
     let graph =
         Graph.replace graph.root 0 [] (owned ids) graph
         |> ModelBuilder.requireOk "test"
-    let result = Snapshot.write graph
+    let result = Snapshot.write graph |> stripSpecialLinesFromOutline
     Assert.Equal("alpha" + Environment.NewLine + "beta" + Environment.NewLine + "gamma" + Environment.NewLine, result)
 
 [<Fact>]
 let ``write createDag12 produces expected outline`` () =
     let graph = ModelBuilder.createDag12 ()
-    let result = Snapshot.write graph
+    let result = Snapshot.write graph |> stripSpecialLinesFromOutline
     let nl = Environment.NewLine
     let expected =
         "a" + nl
@@ -62,15 +59,15 @@ let ``read empty string produces empty graph`` () =
     let root = graph.nodes.[graph.root]
     Assert.Equal(Graph.rootId, graph.root)
     Assert.Equal("ROOT", root.text)
-    Assert.Empty(root.children)
-    Assert.Equal(1, Graph.nodeCount graph) // root only
+    Assert.Empty(userRootChildren graph)
+    Assert.Equal(1, userNodeCount graph) // root only (ignore TRASH)
 
 [<Fact>]
 let ``read flat lines produces root with children`` () =
     let graph = Snapshot.read "alpha\nbeta\ngamma\n"
-    let root = graph.nodes.[graph.root]
-    Assert.Equal(3, root.children.Length)
-    let texts = root.children |> List.map (fun child -> graph.nodes.[child.id].text)
+    let rootChildren = userRootChildren graph
+    Assert.Equal(3, rootChildren.Length)
+    let texts = rootChildren |> List.map (fun child -> graph.nodes.[child.id].text)
     Assert.Equal<string list>([ "alpha"; "beta"; "gamma" ], texts)
 
 [<Fact>]
@@ -123,7 +120,7 @@ let ``file write then read preserves tree`` () =
 [<Fact>]
 let ``write shared node emits hash on first visit and arrow on subsequent`` () =
     let graph = ModelBuilder.createSharedNodeGraph ()
-    let text = Snapshot.write graph
+    let text = Snapshot.write graph |> stripSpecialLinesFromOutline
     let nl = Environment.NewLine
     let expected =
         "parent1" + nl
@@ -139,9 +136,10 @@ let ``read shared-node format produces shared NodeId`` () =
     let text = "parent1\n\t#n1 shared\nparent2\n\t-> #n1\n"
     let graph = Snapshot.read text
     let root = graph.nodes.[graph.root]
-    Assert.Equal(2, root.children.Length)
-    let p1 = graph.nodes.[root.children.[0].id]
-    let p2 = graph.nodes.[root.children.[1].id]
+    let userChildren = userRootChildren graph
+    Assert.Equal(2, userChildren.Length)
+    let p1 = graph.nodes.[userChildren.[0].id]
+    let p2 = graph.nodes.[userChildren.[1].id]
     Assert.Equal("parent1", p1.text)
     Assert.Equal("parent2", p2.text)
     Assert.Equal(1, p1.children.Length)
@@ -150,7 +148,7 @@ let ``read shared-node format produces shared NodeId`` () =
     Assert.Equal(Ownership.Owner, p1.children.[0].ref)
     Assert.Equal(Ownership.Ref, p2.children.[0].ref)
     Assert.Equal("shared", graph.nodes.[p1.children.[0].id].text)
-    Assert.Equal(4, Graph.nodeCount graph)             // root + parent1 + parent2 + shared
+    Assert.Equal(4, userNodeCount graph)             // root + parent1 + parent2 + shared
 
 [<Fact>]
 let ``read ref-before-owner creates stub then merges owner`` () =
@@ -158,17 +156,17 @@ let ``read ref-before-owner creates stub then merges owner`` () =
     let text =
         "parent2" + nl + "\t-> #n1" + nl + "parent1" + nl + "\t#n1 shared" + nl
     let graph = Snapshot.read text
-    let root = graph.nodes.[graph.root]
-    Assert.Equal(2, root.children.Length)
-    let p2 = graph.nodes.[root.children.[0].id]
-    let p1 = graph.nodes.[root.children.[1].id]
+    let userChildren = userRootChildren graph
+    Assert.Equal(2, userChildren.Length)
+    let p2 = graph.nodes.[userChildren.[0].id]
+    let p1 = graph.nodes.[userChildren.[1].id]
     Assert.Equal("parent2", p2.text)
     Assert.Equal("parent1", p1.text)
     Assert.Equal(Ownership.Ref, p2.children.[0].ref)
     Assert.Equal(Ownership.Owner, p1.children.[0].ref)
     Assert.Equal(p1.children.[0].id, p2.children.[0].id)
     Assert.Equal("shared", graph.nodes.[p1.children.[0].id].text)
-    Assert.Equal(4, Graph.nodeCount graph)
+    Assert.Equal(4, userNodeCount graph)
 
 let private createSharedNodeGraphRefParentFirst () : Graph =
     let g = ModelBuilder.createSharedNodeGraph ()
@@ -183,10 +181,10 @@ let ``round-trip shared-node graph preserves shape and sharing`` () =
     let original = ModelBuilder.createSharedNodeGraph ()
     let decoded = original |> Snapshot.write |> Snapshot.read
     Assert.Equal<(int * string) list>(treeShape original, treeShape decoded)
-    Assert.Equal(4, Graph.nodeCount decoded)            // root + parent1 + parent2 + shared
-    let root = decoded.nodes.[decoded.root]
-    let p1 = decoded.nodes.[root.children.[0].id]
-    let p2 = decoded.nodes.[root.children.[1].id]
+    Assert.Equal(4, userNodeCount decoded)            // root + parent1 + parent2 + shared
+    let userChildren = userRootChildren decoded
+    let p1 = decoded.nodes.[userChildren.[0].id]
+    let p2 = decoded.nodes.[userChildren.[1].id]
     Assert.Equal(p1.children.[0].id, p2.children.[0].id)     // truly shared NodeId
     Assert.Equal(Ownership.Owner, p1.children.[0].ref)
     Assert.Equal(Ownership.Ref, p2.children.[0].ref)

@@ -21,6 +21,15 @@ let decodeStateResponse (text: string) : Result<Graph * Revision, string> =
             g, r)
     Thoth.Json.JavaScript.Decode.fromString decoder text
 
+/// Decode `{ "error": "..." }` from POST /{file}/changes 400 body.
+let decodePostChangeError (text: string) : string option =
+    let decoder =
+        Decode.object (fun get -> get.Optional.Field "error" Decode.string)
+    match Thoth.Json.JavaScript.Decode.fromString decoder text with
+    | Ok (Some e) -> Some e
+    | Ok None -> None
+    | Error _ -> None
+
 type ChangeAck =
     { ackChangeId: System.Guid
       revision: Revision }

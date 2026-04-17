@@ -259,7 +259,7 @@ and VM = // the client state
 type SystemMsg =
     | StateLoaded of Graph * Revision
     | SubmitResponse of System.Guid * Revision
-    | SubmitRejected      // server returned HTTP error — change cannot be applied
+    | SubmitRejected of detail: string // server HTTP error (decoded `error` or short body snippet)
     | SubmitNetworkError  // timeout or network failure — retryable
     | SetPollingActive of bool
     | PollTick            // polling timer fired; update decides whether to emit PollServer effect

@@ -399,89 +399,188 @@ let duplicateSelectionOp (model: VM) : VM * Effect list =
             | None, _ -> model, []
             | Some m, effects -> withSiteMap m, effects
 
-/// Op: Delete the selected nodes (Replace with nothing), updating selection to next/prev/parent.
+/// Op: Delete the selected nodes, integrating TRASH semantics and ownership rules.
 let deleteSelectionOp (model: VM) : VM * Effect list =
     match model.selectedNodes with
     | None -> model, []
     | Some sel ->
-        let selectedChildren = rangeChildren model.graph sel.range
-        let ownedDeletedIds =
-            selectedChildren
-            |> List.choose (fun child ->
-                match child.ref with
-                | Ownership.Owner -> Some child.id
-                | Ownership.Ref -> None)
-            |> List.distinct
+        let classified =
+            ViewModelDeleteOps.classifyDeleteForSelection model.graph sel.range
 
-        let excludedParentsForSearch =
-            let descendantsAndSelf (startId: NodeId) =
-                let rec loop (stack: NodeId list) (visited: Set<NodeId>) =
-                    match stack with
-                    | [] -> visited
-                    | nodeId :: rest ->
-                        if Set.contains nodeId visited then
-                            loop rest visited
+        if classified.IsEmpty then
+            model, []
+        else
+            // Partition by action for downstream planning.
+            let hardDeleteRoots =
+                classified
+                |> List.choose (fun item ->
+                    match item.action with
+                    | ViewModelDeleteOps.HardDeleteSubtreeInTrash -> Some item.child.id
+                    | _ -> None)
+                |> List.distinct
+
+            let moveToTrashItems =
+                classified
+                |> List.filter (fun item -> item.action = ViewModelDeleteOps.MoveToTrash)
+
+            let promoteItems =
+                classified
+                |> List.filter (fun item -> item.action = ViewModelDeleteOps.LocalDeleteWithPromotion)
+
+            let refOnlyItems =
+                classified
+                |> List.filter (fun item -> item.action = ViewModelDeleteOps.LocalDeleteRefOnly)
+
+            // Hard delete under TRASH: compute global subtree removals.
+            let hardDeleteOps =
+                hardDeleteRoots
+                |> List.collect (fun rootId ->
+                    let plan = ViewModelDeleteOps.hardDeleteSubtreePlan model.graph rootId
+                    plan
+                    |> Map.toList
+                    |> List.map (fun (parentId, indices) ->
+                        let node = model.graph.nodes.[parentId]
+                        let children = node.children
+                        let indicesSet = indices |> Set.ofList
+                        let remaining =
+                            children
+                            |> List.mapi (fun i c -> i, c)
+                            |> List.filter (fun (i, _) -> not (Set.contains i indicesSet))
+                            |> List.map snd
+                        Op.Replace(parentId, 0, children, remaining)))
+
+            // For MoveToTrash and LocalDeleteWithPromotion we operate per-node id.
+            let moveOps, promoteOps, localDeleteOps =
+                // Group by NodeId so that we process each logical node once.
+                let byNodeId =
+                    classified
+                    |> List.groupBy (fun item -> item.child.id)
+
+                byNodeId
+                |> List.fold
+                    (fun (moveAcc, promoteAcc, localAcc) (nodeId, itemsForNode) ->
+                        // Prefer the owner occurrence inside the selection if present.
+                        let ownerItemOpt =
+                            itemsForNode
+                            |> List.tryFind (fun item ->
+                                match item.child.ref, item.action with
+                                | Ownership.Owner, _ -> true
+                                | _ -> false)
+
+                        match ownerItemOpt with
+                        | Some ownerItem ->
+                                match ownerItem.action with
+                                | ViewModelDeleteOps.MoveToTrash ->
+                                    // Remove owner occurrence from current parent.
+                                    let parentNode = model.graph.nodes.[ownerItem.parentId]
+                                    let children = parentNode.children
+                                    let oldChild = children.[ownerItem.index]
+                                    let prefix = children |> List.take ownerItem.index
+                                    let suffix = children |> List.skip (ownerItem.index + 1)
+                                    let updatedChildren = prefix @ suffix
+
+                                    let removeOwnerOp =
+                                        Op.Replace(ownerItem.parentId, 0, children, updatedChildren)
+
+                                    // Append as Owner under TRASH (at the end of its children).
+                                    let trashNode = model.graph.nodes.[Graph.trashId]
+                                    let trashChildren = trashNode.children
+                                    let newTrashChildren =
+                                        trashChildren
+                                        @ [ { ref = Ownership.Owner; id = nodeId } ]
+
+                                    let trashOp =
+                                        Op.Replace(Graph.trashId, 0, trashChildren, newTrashChildren)
+
+                                    removeOwnerOp :: trashOp :: moveAcc, promoteAcc, localAcc
+
+                                | ViewModelDeleteOps.LocalDeleteWithPromotion ->
+                                    // Choose a reference occurrence outside the selection to promote.
+                                    let promoTargetOpt =
+                                        ownerItem.otherOccurrences
+                                        |> List.tryFind (fun (_, _, child) -> child.ref = Ownership.Ref)
+
+                                    match promoTargetOpt with
+                                    | None ->
+                                        moveAcc, promoteAcc, localAcc
+                                    | Some (promoParentId, promoIndex, promoChild) ->
+                                        let promoParent = model.graph.nodes.[promoParentId]
+                                        let promoChildren = promoParent.children
+                                        let oldPromoChild = promoChildren.[promoIndex]
+                                        let newPromoChild = { oldPromoChild with ref = Ownership.Owner }
+                                        let promoChildren' =
+                                            promoChildren
+                                            |> List.mapi (fun i c -> if i = promoIndex then newPromoChild else c)
+
+                                        let promoteOp =
+                                            Op.Replace(promoParentId, 0, promoChildren, promoChildren')
+
+                                        // Remove original owner occurrence inside the selection.
+                                        let ownerParent = model.graph.nodes.[ownerItem.parentId]
+                                        let ownerChildren = ownerParent.children
+                                        let prefix = ownerChildren |> List.take ownerItem.index
+                                        let suffix = ownerChildren |> List.skip (ownerItem.index + 1)
+                                        let ownerChildren' = prefix @ suffix
+
+                                        let removeOwnerOp =
+                                            Op.Replace(ownerItem.parentId, 0, ownerChildren, ownerChildren')
+
+                                        moveAcc,
+                                        promoteOp :: promoteAcc,
+                                        removeOwnerOp :: localAcc
+
+                                | ViewModelDeleteOps.HardDeleteSubtreeInTrash
+                                | ViewModelDeleteOps.LocalDeleteRefOnly ->
+                                    moveAcc, promoteAcc, localAcc
+                        | None ->
+                            moveAcc, promoteAcc, localAcc)
+                    ([], [], [])
+
+            // Local ref-only deletions for any remaining Ref occurrences selected.
+            let localRefOps =
+                refOnlyItems
+                |> List.map (fun item ->
+                    let parentNode = model.graph.nodes.[item.parentId]
+                    let children = parentNode.children
+                    let prefix = children |> List.take item.index
+                    let suffix = children |> List.skip (item.index + 1)
+                    let updatedChildren = prefix @ suffix
+                    Op.Replace(item.parentId, 0, children, updatedChildren))
+
+            let allOps =
+                hardDeleteOps
+                @ moveOps
+                @ promoteOps
+                @ localRefOps
+                |> List.distinct
+
+            if allOps.IsEmpty then
+                model, []
+            else
+                let change =
+                    { id = model.revision.Value
+                      changeId = System.Guid.NewGuid()
+                      ops = allOps }
+
+                match applyAndPost change model with
+                | None, _ -> model, []
+                | Some m, effects ->
+                    let newChildren = m.graph.nodes.[sel.range.parent.nodeId].children
+                    let newSel =
+                        if sel.range.start < newChildren.Length then
+                            let i = sel.range.start
+                            Some
+                                { range = { parent = sel.range.parent; start = i; endd = i + 1 }
+                                  focus = i }
+                        elif sel.range.start > 0 then
+                            let i = sel.range.start - 1
+                            Some
+                                { range = { parent = sel.range.parent; start = i; endd = i + 1 }
+                                  focus = i }
                         else
-                            let childIds =
-                                model.graph.nodes
-                                |> Map.tryFind nodeId
-                                |> Option.map (fun node -> node.children |> List.map (fun child -> child.id))
-                                |> Option.defaultValue []
-                            loop (childIds @ rest) (Set.add nodeId visited)
+                            singleSelection m.graph m.siteMap sel.range.parent.nodeId
 
-                loop [ startId ] Set.empty
-
-            selectedChildren
-            |> List.fold (fun acc child -> Set.union acc (descendantsAndSelf child.id)) Set.empty
-
-        let replacementOpsForOrphanedOwners =
-            let tryPromoteRefToOwner (targetId: NodeId) =
-                model.graph.nodes
-                |> Map.toSeq
-                |> Seq.tryPick (fun (parentId, parent) ->
-                    if Set.contains parentId excludedParentsForSearch then
-                        None
-                    else
-                        parent.children
-                        |> List.mapi (fun index child -> index, child)
-                        |> List.tryPick (fun (index, child) ->
-                            let inDeletedSpan =
-                                parentId = sel.range.parent.nodeId
-                                && index >= sel.range.start
-                                && index < sel.range.endd
-
-                            if inDeletedSpan then
-                                None
-                            elif child.id = targetId && child.ref = Ownership.Ref then
-                                Some(Op.Replace(parentId, index, [ child ], [ { child with ref = Ownership.Owner } ]))
-                            else
-                                None))
-                |> Option.toList
-
-            ownedDeletedIds |> List.collect tryPromoteRefToOwner
-
-        let change =
-            { id = model.revision.Value
-              changeId = System.Guid.NewGuid()
-              ops =
-                replacementOpsForOrphanedOwners
-                @ [ Op.Replace(sel.range.parent.nodeId, sel.range.start, selectedChildren, []) ] }
-        match applyAndPost change model with
-        | None, _ -> model, []
-        | Some m, effects ->
-            let newChildren = m.graph.nodes.[sel.range.parent.nodeId].children
-            let newSel =
-                if sel.range.start < newChildren.Length then
-                    let i = sel.range.start
-                    Some { range = { parent = sel.range.parent; start = i; endd = i + 1 }
-                           focus = i }
-                elif sel.range.start > 0 then
-                    let i = sel.range.start - 1
-                    Some { range = { parent = sel.range.parent; start = i; endd = i + 1 }
-                           focus = i }
-                else
-                    singleSelection m.graph m.siteMap sel.range.parent.nodeId
-            withSiteMap { m with selectedNodes = newSel }, effects
+                    withSiteMap { m with selectedNodes = newSel }, effects
 
 /// Union of user classes (non-amb-) across selected nodes, as space-separated string.
 let private initialUserClassesForSelection (model: VM) (sel: Selection) : string =

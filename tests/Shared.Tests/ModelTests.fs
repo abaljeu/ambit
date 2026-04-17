@@ -1,6 +1,8 @@
 module ModelTests
 
 open Gambol.Shared
+open SpecialNodeTestHelpers
+open SpecialNodeTestHelpers
 open Xunit
 
 let private owned (ids: NodeId list) : ChildNode list =
@@ -62,7 +64,7 @@ let private assertValidOwnership (graph: Graph) =
 [<Fact>]
 let ``Create graph has one node`` () =
     let graph = Graph.create ()
-    Assert.Equal(1, Graph.nodeCount graph)
+    Assert.Equal(1, userNodeCount graph)
     assertValidOwnership graph
 
 [<Fact>]
@@ -74,10 +76,11 @@ let ``Root node exists in graph`` () =
 [<Fact>]
 let ``New node increments node count`` () =
     let graph0 = Graph.create ()
-    let count0 = Graph.nodeCount graph0
+    let count0 = userNodeCount graph0
     let graph1, _nodeId = Graph.newNode "hello" graph0
-    Assert.Equal(count0 + 1, Graph.nodeCount graph1)
-    Assert.Equal(0, graph1.nodes[graph1.root].children.Length)
+    Assert.Equal(count0 + 1, userNodeCount graph1)
+    // Root children should still be empty of user nodes.
+    Assert.Empty(userRootChildren graph1)
     assertValidOwnership graph1
 
 [<Fact>]
@@ -100,57 +103,66 @@ let ``Set text updates non-root node when old matches`` () =
     | Error err -> Assert.True(false, $"Expected Ok, got Error: {err}")
 
 [<Fact>]
-let ``Replace can insert children into root`` () =
+let ``Replace can insert children into non-root node`` () =
     let graph0 = Graph.create ()
-    let graph1, (ids : NodeId list) = ModelBuilder.createNodes [ "a"; "b"; "c" ] graph0
-    let result = Graph.replace graph1.root 0 [] (owned ids) graph1
+    let graph1, contIds = ModelBuilder.createNodes [ "container" ] graph0
+    let cont = contIds.[0]
+    let graph2 = Graph.replace graph1.root 0 [] (owned [ cont ]) graph1 |> requireOk "add cont"
+    let graph3, (ids : NodeId list) = ModelBuilder.createNodes [ "a"; "b"; "c" ] graph2
+    let result = Graph.replace cont 0 [] (owned ids) graph3
 
     match result with
-    | Ok (graph2 : Graph) -> 
-        let children = graph2.nodes[graph2.root].children
+    | Ok (graph4 : Graph) ->
+        let children = graph4.nodes[cont].children
         let childIds : NodeId list = children |> List.map (fun child -> child.id)
         Assert.Equal<NodeId>(ids, childIds)
         Assert.All<ChildNode>(children, fun child -> Assert.Equal(Ownership.Owner, child.ref))
-        assertValidOwnership graph2
+        assertValidOwnership graph4
     | Error err -> Assert.True(false, $"Expected Ok, got Error: {err}")
 
 [<Fact>]
 let ``Replace can insert duplicate id with owner then ref`` () =
     let graph0 = Graph.create ()
-    let graph1, ids = ModelBuilder.createNodes [ "shared" ] graph0
+    let graph1, contIds = ModelBuilder.createNodes [ "container" ] graph0
+    let cont = contIds.[0]
+    let graph2 = Graph.replace graph1.root 0 [] (owned [ cont ]) graph1 |> requireOk "add cont"
+    let graph3, ids = ModelBuilder.createNodes [ "shared" ] graph2
     let shared = ids |> List.head
     let children =
         [ { ref = Ownership.Owner; id = shared }
           { ref = Ownership.Ref; id = shared } ]
 
-    let result = Graph.replace graph1.root 0 [] children graph1
+    let result = Graph.replace cont 0 [] children graph3
 
     match result with
-    | Ok graph2 ->
-        let inserted = graph2.nodes[graph2.root].children
+    | Ok graph4 ->
+        let inserted = graph4.nodes[cont].children
         Assert.Equal<ChildNode>(children, inserted)
-        assertValidOwnership graph2
-        Assert.Equal(Some graph2.root, Graph.owner graph2 (Some shared))
+        assertValidOwnership graph4
+        Assert.Equal(Some cont, Graph.owner graph4 (Some shared))
     | Error err -> Assert.True(false, $"Expected Ok, got Error: {err}")
 
 [<Fact>]
 let ``Graph navigation owner first last on flat tree`` () =
     let graph0 = Graph.create ()
-    let graph1, ids = ModelBuilder.createNodes [ "a"; "b"; "c" ] graph0
+    let graph1, contIds = ModelBuilder.createNodes [ "container" ] graph0
+    let cont = contIds.[0]
+    let graph2 = Graph.replace graph1.root 0 [] (owned [ cont ]) graph1 |> ModelBuilder.requireOk "nav.cont"
+    let graph3, ids = ModelBuilder.createNodes [ "a"; "b"; "c" ] graph2
 
-    let graph2 =
-        Graph.replace graph1.root 0 [] (owned ids) graph1
+    let graph4 =
+        Graph.replace cont 0 [] (owned ids) graph3
         |> ModelBuilder.requireOk "nav.replace"
 
-    assertValidOwnership graph2
-    Assert.Equal(None, Graph.owner graph2 (Some graph2.root))
-    Assert.Equal(None, Graph.owner graph2 None)
-    Assert.Equal(Some ids[0], Graph.nodeFirstChild graph2 (Some graph2.root))
-    Assert.Equal(Some ids[2], Graph.nodeLastChild graph2 (Some graph2.root))
-    Assert.Equal(Some graph2.root, Graph.owner graph2 (Some ids[0]))
-    Assert.Equal(Some graph2.root, Graph.owner graph2 (Some ids[1]))
-    Assert.Equal(None, Graph.nodeFirstChild graph2 (Some ids[0]))
-    Assert.Equal(None, Graph.nodeLastChild graph2 (Some ids[0]))
+    assertValidOwnership graph4
+    Assert.Equal(None, Graph.owner graph4 (Some graph4.root))
+    Assert.Equal(None, Graph.owner graph4 None)
+    Assert.Equal(Some ids[0], Graph.nodeFirstChild graph4 (Some cont))
+    Assert.Equal(Some ids[2], Graph.nodeLastChild graph4 (Some cont))
+    Assert.Equal(Some cont, Graph.owner graph4 (Some ids[0]))
+    Assert.Equal(Some cont, Graph.owner graph4 (Some ids[1]))
+    Assert.Equal(None, Graph.nodeFirstChild graph4 (Some ids[0]))
+    Assert.Equal(None, Graph.nodeLastChild graph4 (Some ids[0]))
 
 [<Fact>]
 let ``NodeNav owner composes like Graph.owner`` () =
@@ -208,6 +220,17 @@ let ``Graph fromNodes is idempotent on shared-node graph`` () =
     let g2 = Graph.fromNodes g.root g.nodes
     Assert.Equal<Map<NodeId, NodeId * int>>(g.parentByChild, g2.parentByChild)
     Assert.Equal<Map<NodeId, NodeId>>(g.ownerParentByChild, g2.ownerParentByChild)
+
+[<Fact>]
+let ``Graph replace parent missing error ends with last 8 hex of parent id`` () =
+    let graph = Graph.create ()
+    let missing = NodeId.New ()
+    let wantSuffix = NodeId.GuidTail8 missing.Value
+    match Graph.replace missing 0 [] [] graph with
+    | Error msg ->
+        Assert.StartsWith("parent not found ", msg)
+        Assert.Equal(wantSuffix, msg.Substring("parent not found ".Length))
+    | Ok _ -> Assert.Fail("expected Error")
 
 // For Graph.replace node index oldList newList -> Result
 

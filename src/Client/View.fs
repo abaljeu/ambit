@@ -128,9 +128,8 @@ let private makeRowElement
         textDiv.textContent <- node.text
     row.appendChild textDiv |> ignore
 
-    // Diagnostic: last 8 chars of node GUID, right-justified
-    let guidSuffix = node.id.Value.ToString()
-    let guidTail = if guidSuffix.Length >= 8 then guidSuffix.Substring(guidSuffix.Length - 8) else guidSuffix
+    // Diagnostic: last 8 chars of node GUID, right-justified (see NodeId.GuidTail8)
+    let guidTail = NodeId.GuidTail8 node.id.Value
     let guidSpan = document.createElement "span"
     guidSpan.classList.add "amb-node-guid"
     guidSpan.textContent <- guidTail
@@ -171,8 +170,7 @@ let private applyRowPatches (el: HTMLElement) (patches: RowPatch list) : unit =
             if not (isNull ft) then (ft :?> HTMLElement).textContent <- arrow
         | SetNodeGuid guid ->
             el.setAttribute("data-node-id", guid.ToString())
-            let guidStr = guid.ToString()
-            let tail = if guidStr.Length >= 8 then guidStr.Substring(guidStr.Length - 8) else guidStr
+            let tail = NodeId.GuidTail8 guid
             let g = el.querySelector ".amb-node-guid"
             if not (isNull g) then (g :?> HTMLElement).textContent <- tail
 

@@ -6,6 +6,7 @@ open Gambol.Shared
 open Gambol.Shared.ViewModel
 open Gambol.Client
 open Gambol.Client.Update
+open Gambol.Client.UpdateCodec
 open Gambol.Client.UpdateHelpers
 open Gambol.Client.UpdateOps
 open Gambol.Client.Controller
@@ -38,7 +39,7 @@ module private SubmitChangeCallbacks =
             consoleLog (
                 "[Gambol sync] POST 200 bad ACK JSON req=" + reqId
                 + " err=" + err + " bodyLen=" + string n)
-            dispatch (SysMsg SubmitRejected)
+            dispatch (SysMsg (SubmitRejected ("ACK decode: " + err)))
 
     let onPostHttp (timeoutId: float) (reqId: string) (dispatch: Msg -> unit) (httpStatus: int) (bodyText: string) : unit =
         clearTimeout timeoutId
@@ -46,7 +47,10 @@ module private SubmitChangeCallbacks =
         consoleLog (
             "[Gambol sync] GAMBOL_HTTP_ERR POST fail req=" + reqId
             + " http=" + string httpStatus + " body=" + snippet)
-        dispatch (SysMsg SubmitRejected)
+        let detail =
+            decodePostChangeError bodyText
+            |> Option.defaultValue (truncateForLog 400 bodyText)
+        dispatch (SysMsg (SubmitRejected detail))
 
     let onPostFetchFail (timeoutId: float) (reqId: string) (dispatch: Msg -> unit) () : unit =
         clearTimeout timeoutId

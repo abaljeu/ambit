@@ -61,10 +61,11 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                     { model.history with nextId = max model.history.nextId revision.Value }
                 syncInfo = nextSyncInfo }, effects
 
-    | SysMsg SubmitRejected ->
+    | SysMsg (SubmitRejected detail) ->
         consoleLog (
             "[Gambol sync] SubmitRejected modelRev=" + string model.revision.Value
-            + " pending=" + string model.syncInfo.pendingChanges.Length)
+            + " pending=" + string model.syncInfo.pendingChanges.Length
+            + " detail=" + detail)
         if model.syncInfo.pendingChanges.IsEmpty then model, []
         else
             // Rejected payload cannot be replayed safely; drop persisted queue so reload starts clean.

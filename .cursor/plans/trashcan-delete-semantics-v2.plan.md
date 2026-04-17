@@ -1,4 +1,11 @@
 ---
+name: ""
+overview: ""
+todos: []
+isProject: false
+---
+
+---
 name: trashcan-delete-semantics-v2
 overview: Updated plan for TRASH node semantics, documenting completed data/model work and remaining delete and testing work.
 todos:
@@ -16,13 +23,13 @@ todos:
     status: completed
   - id: delete-classification
     content: Implement delete classification (MoveToTrash, HardDeleteSubtreeInTrash, LocalDeleteWithPromotion, LocalDeleteRefOnly)
-    status: pending
+  status: completed
   - id: client-delete-update
     content: Refactor deleteSelectionOp to use new classification and generate appropriate Replace ops
-    status: pending
+  status: completed
   - id: tests-trash-semantics
     content: Add and update shared view model tests to cover trash semantics and invariants
-    status: pending
+  status: in_progress
 isProject: false
 ---
 
@@ -150,7 +157,7 @@ isProject: false
   - Add and/or update tests to cover:
     - **TRASH bootstrap and invariants**:
       - Any loaded or newly created graph contains a Trash node under Root with `kind = Special Trash`.
-      - Attempts to delete, move, or rename Trash via operations (including `deleteSelectionOp`) result in an invalid change or no-op.
+      - Trash not deletable via bad ops (e.g. wipe all root children): reject + **graph unchanged**; full clear under a non-root parent (e.g. `buildFlat`’s `cont`) is allowed. Move-to-trash tests: root `Replace` must not span TRASH.
     - **Move-to-trash behaviour**:
       - Deleting the last non-Trash owner occurrence of a node moves it under Trash instead of rejecting.
       - After move, `History.validateOwnershipSemantics` succeeds and the owner chain for the node becomes `ROOT → TRASH → ...`.
@@ -161,9 +168,6 @@ isProject: false
       - When there are refs outside Trash, deleting within Trash only removes occurrences under Trash; external refs remain.
     - **Mixed selections**:
       - Selections that mix nodes of different classes (`MoveToTrash`, `HardDeleteSubtreeInTrash`, `LocalDeleteRefOnly`) are processed in one `Change` while `History.validateOwnershipSemantics` continues to pass.
-  - Optionally add property-style checks:
-    - After any delete operation in tests, assert `History.validateOwnershipSemantics graph = Ok ()`.
-    - Assert that undo restores the original graph.
 
 ### Notes and future-proofing considerations
 
@@ -174,4 +178,3 @@ isProject: false
       - Adding a new case and mapping there.
       - Assigning the right `kind` based on `Node.id`.
   - All algorithmic logic (classification, delete behaviour) should prefer checking `Node.kind` in combination with ancestry rather than relying purely on ids, so behaviour composes if more special nodes are introduced.
-

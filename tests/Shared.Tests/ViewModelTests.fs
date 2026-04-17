@@ -2,6 +2,7 @@ module ViewModelTests
 
 open Gambol.Shared
 open Gambol.Shared.ViewModel
+open SpecialNodeTestHelpers
 open Xunit
 
 let private owned (ids: NodeId list) : ChildNode list =
@@ -20,16 +21,19 @@ let private assertParentIndexMatchesEntries (siteMap: SiteMap) =
             | Some p ->
                 Assert.Equal(Some p, Map.tryFind e.instanceId siteMap.parentByInstanceId))
 
-/// Build a flat graph: root has `texts.Length` children in order.
-let buildFlat (texts: string list) : Graph * NodeId list =
+/// Build a flat graph: root -> container -> ids.
+let buildFlat (texts: string list) : Graph * NodeId * NodeId list =
     let graph0 = Graph.create ()
-    let graph1, ids = ModelBuilder.createNodes texts graph0
-
-    let graph2 =
-        Graph.replace graph1.root 0 [] (owned ids) graph1
-        |> ModelBuilder.requireOk "buildFlat.replace"
-
-    graph2, ids
+    let graph1, contIds = ModelBuilder.createNodes [ "container" ] graph0
+    let cont = contIds.[0]
+    let graph2, ids = ModelBuilder.createNodes texts graph1
+    let graph3 =
+        Graph.replace graph2.root 0 [] (owned [ cont ]) graph2
+        |> ModelBuilder.requireOk "buildFlat.root"
+    let graph4 =
+        Graph.replace cont 0 [] (owned ids) graph3
+        |> ModelBuilder.requireOk "buildFlat.cont"
+    graph4, cont, ids
 
 /// Minimal VM helper — no selection, Selecting mode.
 let emptyModel (graph: Graph) : VM =
@@ -46,9 +50,24 @@ let emptyModel (graph: Graph) : VM =
       clipboard = None
       syncInfo = SyncInfo.initial }
 
-/// VM with a selection covering [start, endd) in root's children, focus at focusIdx.
-let modelWithSel (graph: Graph) (start: int) (endd: int) (focusIdx: int) : VM =
-    let m = emptyModel graph
+/// VM scoped to viewRoot as the display root (siteMap built from viewRoot).
+let emptyModelAt (graph: Graph) (viewRoot: NodeId) : VM =
+    let siteMap, nextId = buildSiteMapFrom graph viewRoot (Sid 0)
+
+    { graph = graph
+      revision = Revision.Zero
+      history = History.empty
+      selectedNodes = None
+      mode = Selecting
+      siteMap = siteMap
+      nextSiteId = nextId
+      zoomRoot = if viewRoot = graph.root then None else Some viewRoot
+      clipboard = None
+      syncInfo = SyncInfo.initial }
+
+/// VM with a selection covering [start, endd) in parentNodeId's children, focus at focusIdx.
+let modelWithSel (graph: Graph) (parentNodeId: NodeId) (start: int) (endd: int) (focusIdx: int) : VM =
+    let m = emptyModelAt graph parentNodeId
 
     { m with
         selectedNodes =
@@ -65,9 +84,9 @@ let modelWithSel (graph: Graph) (start: int) (endd: int) (focusIdx: int) : VM =
 
 [<Fact>]
 let ``singleSelection returns Selection with focus equal to start`` () =
-    let graph, ids = buildFlat [ "a"; "b"; "c" ]
-    let nodeId = ids.[1] // "b", index 1 in root's children
-    let siteMap, _ = buildSiteMap graph
+    let graph, cont, ids = buildFlat [ "a"; "b"; "c" ]
+    let nodeId = ids.[1] // "b", index 1 in cont's children
+    let siteMap, _ = buildSiteMapFrom graph cont (Sid 0)
     let result = singleSelection graph siteMap nodeId
 
     match result with
@@ -76,26 +95,26 @@ let ``singleSelection returns Selection with focus equal to start`` () =
         Assert.Equal(sel.range.start, sel.focus)
         Assert.Equal(1, sel.range.start)
         Assert.Equal(2, sel.range.endd)
-        Assert.Equal(graph.root, sel.range.parent.nodeId)
+        Assert.Equal(cont, sel.range.parent.nodeId)
 
 [<Fact>]
 let ``singleSelection returns None for root node`` () =
-    let graph, _ = buildFlat [ "a" ]
-    let siteMap, _ = buildSiteMap graph
+    let graph, cont, _ = buildFlat [ "a" ]
+    let siteMap, _ = buildSiteMapFrom graph cont (Sid 0)
     let result = singleSelection graph siteMap graph.root
     Assert.True(result.IsNone)
 
 [<Fact>]
 let ``refreshSelection rebinds stale parent snapshot to current site map`` () =
-    let graph, _ = buildFlat [ "a"; "b"; "c" ]
-    let model = modelWithSel graph 1 2 1
+    let graph, cont, _ = buildFlat [ "a"; "b"; "c" ]
+    let model = modelWithSel graph cont 1 2 1
     let staleSel =
         match model.selectedNodes with
         | None -> failwith "Expected selected node"
         | Some sel ->
             let staleParent = { sel.range.parent with children = [] }
             { sel with range = { sel.range with parent = staleParent } }
-    let rebuiltMap, _ = buildSiteMap graph
+    let rebuiltMap, _ = buildSiteMapFrom graph cont (Sid 0)
     match refreshSelection graph rebuiltMap staleSel with
     | None -> Assert.True(false, "Expected refreshed selection")
     | Some refreshed ->
@@ -105,21 +124,21 @@ let ``refreshSelection rebinds stale parent snapshot to current site map`` () =
 
 [<Fact>]
 let ``refreshSelection returns None when parent instance no longer exists`` () =
-    let graph, _ = buildFlat [ "a"; "b" ]
-    let model = modelWithSel graph 0 1 0
+    let graph, cont, _ = buildFlat [ "a"; "b" ]
+    let model = modelWithSel graph cont 0 1 0
     let staleSel =
         match model.selectedNodes with
         | None -> failwith "Expected selected node"
         | Some sel ->
             let orphanParent = { sel.range.parent with instanceId = Sid 9_999 }
             { sel with range = { sel.range with parent = orphanParent } }
-    let siteMap, _ = buildSiteMap graph
+    let siteMap, _ = buildSiteMapFrom graph cont (Sid 0)
     Assert.True((refreshSelection graph siteMap staleSel).IsNone)
 
 [<Fact>]
 let ``selectionAfterStructuralMove expanded parent spans moved nodes`` () =
-    let graph, _ = buildFlat [ "a"; "b"; "c" ]
-    let m0 = emptyModel graph
+    let graph, cont, _ = buildFlat [ "a"; "b"; "c" ]
+    let m0 = emptyModelAt graph cont
     let rootEntry = m0.siteMap.entries.[m0.siteMap.rootId]
     let expandedRoot = { rootEntry with expanded = true }
     let fromParent = m0.siteMap.entries.[m0.siteMap.rootId]
@@ -137,17 +156,16 @@ let ``selectionAfterStructuralMove expanded parent spans moved nodes`` () =
 
 [<Fact>]
 let ``selectionAfterStructuralMove collapsed parent picks original sibling above`` () =
-    let graphPre, ids = buildFlat [ "a"; "b"; "c" ]
+    let graphPre, cont, ids = buildFlat [ "a"; "b"; "c" ]
     let a = ids.[0]
     let b = ids.[1]
-    let root = graphPre.root
-    let bChild = graphPre.nodes.[root].children.[1]
+    let bChild = graphPre.nodes.[cont].children.[1]
     let gMid =
-        Graph.replace root 1 [ bChild ] [] graphPre |> ModelBuilder.requireOk "rm b"
+        Graph.replace cont 1 [ bChild ] [] graphPre |> ModelBuilder.requireOk "rm b"
     let gPost =
         Graph.replace a 0 [] [ bChild ] gMid |> ModelBuilder.requireOk "add b under a"
-    let siteMap, _ = buildSiteMap gPost
-    let mPre = emptyModel graphPre
+    let siteMap, _ = buildSiteMapFrom gPost cont (Sid 0)
+    let mPre = emptyModelAt graphPre cont
     let rootPre = mPre.siteMap.entries.[mPre.siteMap.rootId]
 
     let newParent =
@@ -166,17 +184,16 @@ let ``selectionAfterStructuralMove collapsed parent picks original sibling above
 
 [<Fact>]
 let ``selectionAfterStructuralMove expanded newParent focuses moved node indent topology`` () =
-    let graphPre, ids = buildFlat [ "a"; "b"; "c" ]
+    let graphPre, cont, ids = buildFlat [ "a"; "b"; "c" ]
     let a = ids.[0]
     let b = ids.[1]
-    let root = graphPre.root
-    let bChild = graphPre.nodes.[root].children.[1]
+    let bChild = graphPre.nodes.[cont].children.[1]
     let gMid =
-        Graph.replace root 1 [ bChild ] [] graphPre |> ModelBuilder.requireOk "rm b"
+        Graph.replace cont 1 [ bChild ] [] graphPre |> ModelBuilder.requireOk "rm b"
     let gPost =
         Graph.replace a 0 [] [ bChild ] gMid |> ModelBuilder.requireOk "add b under a"
-    let siteMap, _ = buildSiteMap gPost
-    let mPre = emptyModel graphPre
+    let siteMap, _ = buildSiteMapFrom gPost cont (Sid 0)
+    let mPre = emptyModelAt graphPre cont
     let rootPre = mPre.siteMap.entries.[mPre.siteMap.rootId]
 
     let newParentCollapsed =
@@ -195,17 +212,16 @@ let ``selectionAfterStructuralMove expanded newParent focuses moved node indent 
 
 [<Fact>]
 let ``selectionAfterStructuralMove collapsed parent picks original sibling below at range start`` () =
-    let graphPre, ids = buildFlat [ "a"; "b"; "c" ]
+    let graphPre, cont, ids = buildFlat [ "a"; "b"; "c" ]
     let a = ids.[0]
     let b = ids.[1]
-    let root = graphPre.root
-    let aChild = graphPre.nodes.[root].children.[0]
+    let aChild = graphPre.nodes.[cont].children.[0]
     let gMid =
-        Graph.replace root 0 [ aChild ] [] graphPre |> ModelBuilder.requireOk "rm a"
+        Graph.replace cont 0 [ aChild ] [] graphPre |> ModelBuilder.requireOk "rm a"
     let gPost =
         Graph.replace b 0 [] [ aChild ] gMid |> ModelBuilder.requireOk "add a under b"
-    let siteMap, _ = buildSiteMap gPost
-    let mPre = emptyModel graphPre
+    let siteMap, _ = buildSiteMapFrom gPost cont (Sid 0)
+    let mPre = emptyModelAt graphPre cont
     let rootPre = mPre.siteMap.entries.[mPre.siteMap.rootId]
 
     let newParent =
@@ -227,8 +243,8 @@ let ``selectionAfterStructuralMove collapsed parent picks original sibling below
 
 [<Fact>]
 let ``shiftArrow +1 on single-node selection extends downward`` () =
-    let graph, _ = buildFlat [ "a"; "b"; "c" ]
-    let model = modelWithSel graph 0 1 0
+    let graph, cont, _ = buildFlat [ "a"; "b"; "c" ]
+    let model = modelWithSel graph cont 0 1 0
     let result = shiftArrow 1 model
 
     match result.selectedNodes with
@@ -240,8 +256,8 @@ let ``shiftArrow +1 on single-node selection extends downward`` () =
 
 [<Fact>]
 let ``shiftArrow -1 on single-node selection extends upward`` () =
-    let graph, _ = buildFlat [ "a"; "b"; "c" ]
-    let model = modelWithSel graph 1 2 1
+    let graph, cont, _ = buildFlat [ "a"; "b"; "c" ]
+    let model = modelWithSel graph cont 1 2 1
     let result = shiftArrow -1 model
 
     match result.selectedNodes with
@@ -257,8 +273,8 @@ let ``shiftArrow -1 on single-node selection extends upward`` () =
 
 [<Fact>]
 let ``shiftArrow -1 with focus at start extends upward`` () =
-    let graph, _ = buildFlat [ "a"; "b"; "c"; "d" ]
-    let model = modelWithSel graph 1 3 1 // [1,3), focus at start=1
+    let graph, cont, _ = buildFlat [ "a"; "b"; "c"; "d" ]
+    let model = modelWithSel graph cont 1 3 1 // [1,3), focus at start=1
     let result = shiftArrow -1 model
 
     match result.selectedNodes with
@@ -270,8 +286,8 @@ let ``shiftArrow -1 with focus at start extends upward`` () =
 
 [<Fact>]
 let ``shiftArrow -1 with focus at end shrinks from bottom`` () =
-    let graph, _ = buildFlat [ "a"; "b"; "c"; "d" ]
-    let model = modelWithSel graph 1 3 2 // [1,3), focus at endd-1=2
+    let graph, cont, _ = buildFlat [ "a"; "b"; "c"; "d" ]
+    let model = modelWithSel graph cont 1 3 2 // [1,3), focus at endd-1=2
     let result = shiftArrow -1 model
 
     match result.selectedNodes with
@@ -283,8 +299,8 @@ let ``shiftArrow -1 with focus at end shrinks from bottom`` () =
 
 [<Fact>]
 let ``shiftArrow +1 with focus at end extends downward`` () =
-    let graph, _ = buildFlat [ "a"; "b"; "c"; "d" ]
-    let model = modelWithSel graph 1 3 2 // focus at endd-1=2
+    let graph, cont, _ = buildFlat [ "a"; "b"; "c"; "d" ]
+    let model = modelWithSel graph cont 1 3 2 // focus at endd-1=2
     let result = shiftArrow 1 model
 
     match result.selectedNodes with
@@ -296,8 +312,8 @@ let ``shiftArrow +1 with focus at end extends downward`` () =
 
 [<Fact>]
 let ``shiftArrow +1 with focus at start shrinks from top`` () =
-    let graph, _ = buildFlat [ "a"; "b"; "c"; "d" ]
-    let model = modelWithSel graph 1 3 1 // focus at start=1
+    let graph, cont, _ = buildFlat [ "a"; "b"; "c"; "d" ]
+    let model = modelWithSel graph cont 1 3 1 // focus at start=1
     let result = shiftArrow 1 model
 
     match result.selectedNodes with
@@ -313,15 +329,15 @@ let ``shiftArrow +1 with focus at start shrinks from top`` () =
 
 [<Fact>]
 let ``shiftArrow -1 is no-op when single node is at index 0`` () =
-    let graph, _ = buildFlat [ "a"; "b"; "c" ]
-    let model = modelWithSel graph 0 1 0
+    let graph, cont, _ = buildFlat [ "a"; "b"; "c" ]
+    let model = modelWithSel graph cont 0 1 0
     let result = shiftArrow -1 model
     Assert.Equal(model.selectedNodes, result.selectedNodes)
 
 [<Fact>]
 let ``shiftArrow +1 is no-op when single node is at last index`` () =
-    let graph, _ = buildFlat [ "a"; "b"; "c" ]
-    let model = modelWithSel graph 2 3 2
+    let graph, cont, _ = buildFlat [ "a"; "b"; "c" ]
+    let model = modelWithSel graph cont 2 3 2
     let result = shiftArrow 1 model
     Assert.Equal(model.selectedNodes, result.selectedNodes)
 
@@ -331,8 +347,8 @@ let ``shiftArrow +1 is no-op when single node is at last index`` () =
 
 [<Fact>]
 let ``collapseToFocus narrows multi-node selection to focused row`` () =
-    let graph, ids = buildFlat [ "a"; "b"; "c" ]
-    let model = modelWithSel graph 0 2 1
+    let graph, cont, ids = buildFlat [ "a"; "b"; "c" ]
+    let model = modelWithSel graph cont 0 2 1
     let result = collapseToFocus model
 
     match result.selectedNodes with
@@ -349,9 +365,9 @@ let ``collapseToFocus narrows multi-node selection to focused row`` () =
 
 [<Fact>]
 let ``applyMoveSelectionDown with 3-item range focus at start moves focus to endd-1`` () =
-    let graph, _ = buildFlat [ "a"; "b"; "c"; "d"; "e" ]
+    let graph, cont, _ = buildFlat [ "a"; "b"; "c"; "d"; "e" ]
     // range [1,4), focus at start=1
-    let model = modelWithSel graph 1 4 1
+    let model = modelWithSel graph cont 1 4 1
     let result = applyMoveSelectionDown model
 
     match result.selectedNodes with
@@ -363,9 +379,9 @@ let ``applyMoveSelectionDown with 3-item range focus at start moves focus to end
 
 [<Fact>]
 let ``applyMoveSelectionUp with 3-item range focus at end moves focus to start`` () =
-    let graph, _ = buildFlat [ "a"; "b"; "c"; "d"; "e" ]
+    let graph, cont, _ = buildFlat [ "a"; "b"; "c"; "d"; "e" ]
     // range [1,4), focus at endd-1=3
-    let model = modelWithSel graph 1 4 3
+    let model = modelWithSel graph cont 1 4 3
     let result = applyMoveSelectionUp model
 
     match result.selectedNodes with
@@ -381,16 +397,16 @@ let ``applyMoveSelectionUp with 3-item range focus at end moves focus to start``
 
 [<Fact>]
 let ``applyMoveSelectionDown with focus at end collapses and moves down`` () =
-    let graph, ids = buildFlat [ "a"; "b"; "c" ]
+    let graph, cont, _ = buildFlat [ "a"; "b"; "c" ]
     // single-node at index 0, focus also at 0
-    let model = modelWithSel graph 0 1 0
+    let model = modelWithSel graph cont 0 1 0
     let result = applyMoveSelectionDown model
 
     match result.selectedNodes with
     | None -> Assert.True(false, "Expected Some")
     | Some sel ->
         // Should have moved to ids.[1]
-        let expectedId = graph.nodes.[graph.root].children.[1].id
+        let expectedId = graph.nodes.[cont].children.[1].id
         let gotId = graph.nodes.[sel.range.parent.nodeId].children.[sel.focus].id
         Assert.Equal(expectedId, gotId)
         Assert.Equal(1, sel.range.endd - sel.range.start) // single-node
@@ -401,8 +417,8 @@ let ``applyMoveSelectionDown with focus at end collapses and moves down`` () =
 
 [<Fact>]
 let ``moveSelectionBy 1 advances from first to second visible row`` () =
-    let graph, ids = buildFlat [ "a"; "b"; "c" ]
-    let model = modelWithSel graph 0 1 0 // select first child
+    let graph, cont, ids = buildFlat [ "a"; "b"; "c" ]
+    let model = modelWithSel graph cont 0 1 0 // select first child
     let result = moveSelectionBy 1 model
 
     match result.selectedNodes with
@@ -413,8 +429,8 @@ let ``moveSelectionBy 1 advances from first to second visible row`` () =
 
 [<Fact>]
 let ``moveSelectionBy -1 moves back to previous row`` () =
-    let graph, ids = buildFlat [ "a"; "b"; "c" ]
-    let model = modelWithSel graph 1 2 1 // select second child
+    let graph, cont, ids = buildFlat [ "a"; "b"; "c" ]
+    let model = modelWithSel graph cont 1 2 1 // select second child
     let result = moveSelectionBy -1 model
 
     match result.selectedNodes with
@@ -425,8 +441,8 @@ let ``moveSelectionBy -1 moves back to previous row`` () =
 
 [<Fact>]
 let ``moveSelectionBy 1 is no-op at last row`` () =
-    let graph, _ = buildFlat [ "a"; "b"; "c" ]
-    let model = modelWithSel graph 2 3 2 // select last child
+    let graph, cont, _ = buildFlat [ "a"; "b"; "c" ]
+    let model = modelWithSel graph cont 2 3 2 // select last child
     let result = moveSelectionBy 1 model
     Assert.Equal(model.selectedNodes, result.selectedNodes)
 
@@ -434,27 +450,30 @@ let ``moveSelectionBy 1 is no-op at last row`` () =
 // buildSiteMap
 // ---------------------------------------------------------------------------
 
-/// Build a 2-level graph: root -> [a, b], a -> [a1, a2], b -> [b1]
-let buildNested () : Graph * NodeId list =
+/// Build a 2-level graph: root -> container -> [a, b], a -> [a1, a2], b -> [b1].
+let buildNested () : Graph * NodeId * NodeId list =
     let graph0 = Graph.create ()
-    let graph1, ids = ModelBuilder.createNodes [ "a"; "b"; "a1"; "a2"; "b1" ] graph0
+    let graph1, contIds = ModelBuilder.createNodes [ "container" ] graph0
+    let cont = contIds.[0]
+    let graph2, ids = ModelBuilder.createNodes [ "a"; "b"; "a1"; "a2"; "b1" ] graph1
     let a = ids.[0]
     let b = ids.[1]
     let a1 = ids.[2]
     let a2 = ids.[3]
     let b1 = ids.[4]
-
-    let graph2 =
-        Graph.replace graph1.root 0 [] (owned [ a; b ]) graph1
-        |> ModelBuilder.requireOk "buildNested.root"
-
     let graph3 =
-        Graph.replace a 0 [] (owned [ a1; a2 ]) graph2 |> ModelBuilder.requireOk "buildNested.a"
-
+        Graph.replace graph2.root 0 [] (owned [ cont ]) graph2
+        |> ModelBuilder.requireOk "buildNested.root"
     let graph4 =
-        Graph.replace b 0 [] (owned [ b1 ]) graph3 |> ModelBuilder.requireOk "buildNested.b"
-
-    graph4, ids
+        Graph.replace cont 0 [] (owned [ a; b ]) graph3
+        |> ModelBuilder.requireOk "buildNested.cont"
+    let graph5 =
+        Graph.replace a 0 [] (owned [ a1; a2 ]) graph4
+        |> ModelBuilder.requireOk "buildNested.a"
+    let graph6 =
+        Graph.replace b 0 [] (owned [ b1 ]) graph5
+        |> ModelBuilder.requireOk "buildNested.b"
+    graph6, cont, ids
 
 // ---------------------------------------------------------------------------
 // SiteMap.siteParent
@@ -462,21 +481,21 @@ let buildNested () : Graph * NodeId list =
 
 [<Fact>]
 let ``siteParent None returns None`` () =
-    let graph, _ = buildFlat [ "a" ]
-    let siteMap, _ = buildSiteMap graph
+    let graph, cont, _ = buildFlat [ "a" ]
+    let siteMap, _ = buildSiteMapFrom graph cont (Sid 0)
     Assert.True(SiteMap.siteParent siteMap None |> Option.isNone)
 
 [<Fact>]
 let ``siteParent at root returns None`` () =
-    let graph, _ = buildFlat [ "a" ]
-    let siteMap, _ = buildSiteMap graph
+    let graph, cont, _ = buildFlat [ "a" ]
+    let siteMap, _ = buildSiteMapFrom graph cont (Sid 0)
     let rootId = siteMap.rootId
     Assert.True(SiteMap.siteParent siteMap (Some rootId) |> Option.isNone)
 
 [<Fact>]
 let ``siteParent of child is Some root instanceId`` () =
-    let graph, _ = buildFlat [ "a"; "b" ]
-    let siteMap, _ = buildSiteMap graph
+    let graph, cont, _ = buildFlat [ "a"; "b" ]
+    let siteMap, _ = buildSiteMapFrom graph cont (Sid 0)
     let rootEntry = siteMap.entries.[siteMap.rootId]
     let childInst = rootEntry.children.[0]
     let parentOpt = SiteMap.siteParent siteMap (Some childInst)
@@ -484,8 +503,8 @@ let ``siteParent of child is Some root instanceId`` () =
 
 [<Fact>]
 let ``siteParent composed twice matches two explicit steps`` () =
-    let graph, _ = buildNested ()
-    let siteMap, nextId = buildSiteMap graph
+    let graph, cont, _ = buildNested ()
+    let siteMap, nextId = buildSiteMapFrom graph cont (Sid 0)
     let aInstId = siteMap.entries.[siteMap.rootId].children.[0]
     let sm2, nextId2 = expandEntry aInstId graph siteMap nextId
     let a1InstId = sm2.entries.[aInstId].children.[0]
@@ -496,8 +515,8 @@ let ``siteParent composed twice matches two explicit steps`` () =
 
 [<Fact>]
 let ``siteParent composed twice from None stays None`` () =
-    let graph, _ = buildNested ()
-    let siteMap, nextId = buildSiteMap graph
+    let graph, cont, _ = buildNested ()
+    let siteMap, nextId = buildSiteMapFrom graph cont (Sid 0)
     let aInstId = siteMap.entries.[siteMap.rootId].children.[0]
     let sm2, _ = expandEntry aInstId graph siteMap nextId
     let p = SiteMap.siteParent sm2
@@ -505,8 +524,8 @@ let ``siteParent composed twice from None stays None`` () =
 
 [<Fact>]
 let ``SiteMap parentByInstanceId matches entries after build and expand`` () =
-    let graph, _ = buildNested ()
-    let siteMap, nextId = buildSiteMap graph
+    let graph, cont, _ = buildNested ()
+    let siteMap, nextId = buildSiteMapFrom graph cont (Sid 0)
     assertParentIndexMatchesEntries siteMap
     let aInstId = siteMap.entries.[siteMap.rootId].children.[0]
     let sm2, _ = expandEntry aInstId graph siteMap nextId
@@ -518,29 +537,29 @@ let ``SiteMap parentByInstanceId matches entries after build and expand`` () =
 
 [<Fact>]
 let ``siteFirstChild None returns None`` () =
-    let graph, _ = buildFlat [ "a" ]
-    let siteMap, _ = buildSiteMap graph
+    let graph, cont, _ = buildFlat [ "a" ]
+    let siteMap, _ = buildSiteMapFrom graph cont (Sid 0)
     Assert.True(SiteMap.siteFirstChild siteMap None |> Option.isNone)
 
 [<Fact>]
 let ``siteFirstChild on root returns first child instance`` () =
-    let graph, _ = buildFlat [ "a"; "b"; "c" ]
-    let siteMap, _ = buildSiteMap graph
+    let graph, cont, _ = buildFlat [ "a"; "b"; "c" ]
+    let siteMap, _ = buildSiteMapFrom graph cont (Sid 0)
     let root = siteMap.rootId
     let expected = Some siteMap.entries.[root].children.[0]
     Assert.Equal(expected, SiteMap.siteFirstChild siteMap (Some root))
 
 [<Fact>]
 let ``siteFirstChild on leaf with empty children returns None`` () =
-    let graph, _ = buildFlat [ "a" ]
-    let siteMap, _ = buildSiteMap graph
+    let graph, cont, _ = buildFlat [ "a" ]
+    let siteMap, _ = buildSiteMapFrom graph cont (Sid 0)
     let childInst = siteMap.entries.[siteMap.rootId].children.[0]
     Assert.True(SiteMap.siteFirstChild siteMap (Some childInst) |> Option.isNone)
 
 [<Fact>]
 let ``siteLastChild on root returns last child instance`` () =
-    let graph, _ = buildFlat [ "a"; "b"; "c" ]
-    let siteMap, _ = buildSiteMap graph
+    let graph, cont, _ = buildFlat [ "a"; "b"; "c" ]
+    let siteMap, _ = buildSiteMapFrom graph cont (Sid 0)
     let root = siteMap.rootId
     let n = siteMap.entries.[root].children.Length
     let expected = Some siteMap.entries.[root].children.[n - 1]
@@ -548,15 +567,15 @@ let ``siteLastChild on root returns last child instance`` () =
 
 [<Fact>]
 let ``siteLastChild on empty children returns None`` () =
-    let graph, _ = buildFlat [ "a" ]
-    let siteMap, _ = buildSiteMap graph
+    let graph, cont, _ = buildFlat [ "a" ]
+    let siteMap, _ = buildSiteMapFrom graph cont (Sid 0)
     let childInst = siteMap.entries.[siteMap.rootId].children.[0]
     Assert.True(SiteMap.siteLastChild siteMap (Some childInst) |> Option.isNone)
 
 [<Fact>]
 let ``siteFirstChild after expand returns first grandchild instance`` () =
-    let graph, _ = buildNested ()
-    let siteMap, nextId = buildSiteMap graph
+    let graph, cont, _ = buildNested ()
+    let siteMap, nextId = buildSiteMapFrom graph cont (Sid 0)
     let aInst = siteMap.entries.[siteMap.rootId].children.[0]
     let sm2, _ = expandEntry aInst graph siteMap nextId
     let a1 = Some sm2.entries.[aInst].children.[0]
@@ -564,54 +583,54 @@ let ``siteFirstChild after expand returns first grandchild instance`` () =
 
 [<Fact>]
 let ``siteNext moves to next root child`` () =
-    let graph, _ = buildFlat [ "a"; "b"; "c" ]
-    let siteMap, _ = buildSiteMap graph
+    let graph, cont, _ = buildFlat [ "a"; "b"; "c" ]
+    let siteMap, _ = buildSiteMapFrom graph cont (Sid 0)
     let c = siteMap.entries.[siteMap.rootId].children
     Assert.Equal(Some c.[1], SiteMap.siteNext siteMap (Some c.[0]))
     Assert.Equal(Some c.[2], SiteMap.siteNext siteMap (Some c.[1]))
 
 [<Fact>]
 let ``siteNext on last sibling returns None`` () =
-    let graph, _ = buildFlat [ "a"; "b" ]
-    let siteMap, _ = buildSiteMap graph
+    let graph, cont, _ = buildFlat [ "a"; "b" ]
+    let siteMap, _ = buildSiteMapFrom graph cont (Sid 0)
     let last = siteMap.entries.[siteMap.rootId].children.[1]
     Assert.True(SiteMap.siteNext siteMap (Some last) |> Option.isNone)
 
 [<Fact>]
 let ``sitePrev moves to previous root child`` () =
-    let graph, _ = buildFlat [ "a"; "b"; "c" ]
-    let siteMap, _ = buildSiteMap graph
+    let graph, cont, _ = buildFlat [ "a"; "b"; "c" ]
+    let siteMap, _ = buildSiteMapFrom graph cont (Sid 0)
     let c = siteMap.entries.[siteMap.rootId].children
     Assert.Equal(Some c.[0], SiteMap.sitePrev siteMap (Some c.[1]))
     Assert.Equal(Some c.[1], SiteMap.sitePrev siteMap (Some c.[2]))
 
 [<Fact>]
 let ``sitePrev on first sibling returns None`` () =
-    let graph, _ = buildFlat [ "a"; "b" ]
-    let siteMap, _ = buildSiteMap graph
+    let graph, cont, _ = buildFlat [ "a"; "b" ]
+    let siteMap, _ = buildSiteMapFrom graph cont (Sid 0)
     let first = siteMap.entries.[siteMap.rootId].children.[0]
     Assert.True(SiteMap.sitePrev siteMap (Some first) |> Option.isNone)
 
 [<Fact>]
 let ``siteNext and sitePrev on root return None`` () =
-    let graph, _ = buildFlat [ "a"; "b" ]
-    let siteMap, _ = buildSiteMap graph
+    let graph, cont, _ = buildFlat [ "a"; "b" ]
+    let siteMap, _ = buildSiteMapFrom graph cont (Sid 0)
     let root = Some siteMap.rootId
     Assert.True(SiteMap.siteNext siteMap root |> Option.isNone)
     Assert.True(SiteMap.sitePrev siteMap root |> Option.isNone)
 
 [<Fact>]
 let ``siteNext composed from first reaches last`` () =
-    let graph, _ = buildFlat [ "a"; "b"; "c" ]
-    let siteMap, _ = buildSiteMap graph
+    let graph, cont, _ = buildFlat [ "a"; "b"; "c" ]
+    let siteMap, _ = buildSiteMapFrom graph cont (Sid 0)
     let c = siteMap.entries.[siteMap.rootId].children
     let n = SiteMap.siteNext siteMap
     Assert.Equal(Some c.[2], (n >> n) (Some c.[0]))
 
 [<Fact>]
 let ``sitePrev composed from last reaches first`` () =
-    let graph, _ = buildFlat [ "a"; "b"; "c" ]
-    let siteMap, _ = buildSiteMap graph
+    let graph, cont, _ = buildFlat [ "a"; "b"; "c" ]
+    let siteMap, _ = buildSiteMapFrom graph cont (Sid 0)
     let c = siteMap.entries.[siteMap.rootId].children
     let p = SiteMap.sitePrev siteMap
     Assert.Equal(Some c.[0], (p >> p) (Some c.[2]))
@@ -622,8 +641,8 @@ let ``sitePrev composed from last reaches first`` () =
 
 [<Fact>]
 let ``SiteNav parent twice matches explicit siteParent chain`` () =
-    let graph, _ = buildNested ()
-    let siteMap, nextId = buildSiteMap graph
+    let graph, cont, _ = buildNested ()
+    let siteMap, nextId = buildSiteMapFrom graph cont (Sid 0)
     let aInstId = siteMap.entries.[siteMap.rootId].children.[0]
     let sm2, _ = expandEntry aInstId graph siteMap nextId
     let a1InstId = sm2.entries.[aInstId].children.[0]
@@ -633,8 +652,8 @@ let ``SiteNav parent twice matches explicit siteParent chain`` () =
 
 [<Fact>]
 let ``SiteNav prevCousin from first root branch grandchild is None`` () =
-    let graph, _ = buildNested ()
-    let siteMap, nextId = buildSiteMap graph
+    let graph, cont, _ = buildNested ()
+    let siteMap, nextId = buildSiteMapFrom graph cont (Sid 0)
     let aInst = siteMap.entries.[siteMap.rootId].children.[0]
     let sm2, _ = expandEntry aInst graph siteMap nextId
     let a1Inst = sm2.entries.[aInst].children.[0]
@@ -644,8 +663,8 @@ let ``SiteNav prevCousin from first root branch grandchild is None`` () =
 
 [<Fact>]
 let ``SiteNav prevCousin from second root branch child is last grandchild of first branch`` () =
-    let graph, _ = buildNested ()
-    let siteMap, nextId = buildSiteMap graph
+    let graph, cont, _ = buildNested ()
+    let siteMap, nextId = buildSiteMapFrom graph cont (Sid 0)
     let root = siteMap.rootId
     let aInst = siteMap.entries.[root].children.[0]
     let bInst = siteMap.entries.[root].children.[1]
@@ -663,8 +682,8 @@ let ``SiteNav prevCousin from second root branch child is last grandchild of fir
 
 [<Fact>]
 let ``VisibleSite at root is visible unknown SiteId is None`` () =
-    let graph, _ = buildFlat [ "a" ]
-    let siteMap, _ = buildSiteMap graph
+    let graph, cont, _ = buildFlat [ "a" ]
+    let siteMap, _ = buildSiteMapFrom graph cont (Sid 0)
     let root = siteMap.rootId
 
     Assert.Equal(Some root, VisibleSite.at siteMap (Some root) |> VisibleSite.current)
@@ -672,16 +691,16 @@ let ``VisibleSite at root is visible unknown SiteId is None`` () =
 
 [<Fact>]
 let ``VisibleSite at root child is None when root collapsed`` () =
-    let graph, _ = buildFlat [ "a"; "b" ]
-    let siteMap, _ = buildSiteMap graph
+    let graph, cont, _ = buildFlat [ "a"; "b" ]
+    let siteMap, _ = buildSiteMapFrom graph cont (Sid 0)
     let childInst = siteMap.entries.[siteMap.rootId].children.[0]
     let collapsed = toggleFold siteMap.rootId siteMap
     Assert.Equal(None, VisibleSite.at collapsed (Some childInst) |> VisibleSite.current)
 
 [<Fact>]
 let ``VisibleSite parent chain matches Site when path expanded`` () =
-    let graph, _ = buildNested ()
-    let siteMap, nextId = buildSiteMap graph
+    let graph, cont, _ = buildNested ()
+    let siteMap, nextId = buildSiteMapFrom graph cont (Sid 0)
     let aInstId = siteMap.entries.[siteMap.rootId].children.[0]
     let sm2, _ = expandEntry aInstId graph siteMap nextId
     let a1InstId = sm2.entries.[aInstId].children.[0]
@@ -695,8 +714,8 @@ let ``VisibleSite parent chain matches Site when path expanded`` () =
 
 [<Fact>]
 let ``VisibleSite prevCousin matches Site when branches expanded`` () =
-    let graph, _ = buildNested ()
-    let siteMap, nextId = buildSiteMap graph
+    let graph, cont, _ = buildNested ()
+    let siteMap, nextId = buildSiteMapFrom graph cont (Sid 0)
     let root = siteMap.rootId
     let aInst = siteMap.entries.[root].children.[0]
     let bInst = siteMap.entries.[root].children.[1]
@@ -718,8 +737,8 @@ let ``VisibleSite prevCousin matches Site when branches expanded`` () =
 
 [<Fact>]
 let ``SiteMap buildSiteMap assigns unique instanceIds`` () =
-    let graph, _ = buildNested ()
-    let siteMap, Sid nextId = buildSiteMap graph
+    let graph, cont, _ = buildNested ()
+    let siteMap, Sid nextId = buildSiteMapFrom graph cont (Sid 0)
     let allIds = siteMap.entries |> Map.toList |> List.map fst
     Assert.Equal(allIds.Length, allIds |> List.distinct |> List.length)
     // nextId should equal number of entries allocated
@@ -727,8 +746,8 @@ let ``SiteMap buildSiteMap assigns unique instanceIds`` () =
 
 [<Fact>]
 let ``SiteMap buildSiteMap root is expanded, children collapsed`` () =
-    let graph, _ = buildNested ()
-    let siteMap, _ = buildSiteMap graph
+    let graph, cont, _ = buildNested ()
+    let siteMap, _ = buildSiteMapFrom graph cont (Sid 0)
     let root = siteMap.entries.[siteMap.rootId]
     Assert.True(root.expanded)
 
@@ -737,10 +756,10 @@ let ``SiteMap buildSiteMap root is expanded, children collapsed`` () =
 
 [<Fact>]
 let ``SiteMap buildSiteMap root children have correct NodeIds and are stale`` () =
-    let graph, ids = buildNested ()
+    let graph, cont, ids = buildNested ()
     let a = ids.[0]
     let b = ids.[1]
-    let siteMap, _ = buildSiteMap graph
+    let siteMap, _ = buildSiteMapFrom graph cont (Sid 0)
     let root = siteMap.entries.[siteMap.rootId]
     Assert.Equal(2, root.children.Length)
     Assert.Equal(a, siteMap.entries.[root.children.[0]].nodeId)
@@ -753,37 +772,35 @@ let ``SiteMap buildSiteMap root children have correct NodeIds and are stale`` ()
 
 [<Fact>]
 let ``SiteMap buildSiteMap terminates on cyclic graph`` () =
-    // Lazy expansion means no recursion in buildSiteMap — only root + direct children are created
     let graph0 = Graph.create ()
-    let graph1, ids = ModelBuilder.createNodes [ "a"; "b" ] graph0
-    let a = ids.[0]
-    let b = ids.[1]
-
+    let graph1, contIds = ModelBuilder.createNodes [ "container"; "a"; "b" ] graph0
+    let cont = contIds.[0]
+    let a = contIds.[1]
+    let b = contIds.[2]
     let graph2 =
-        Graph.replace graph1.root 0 [] (owned [ a ]) graph1 |> ModelBuilder.requireOk "root->a"
-
-    let graph3 = Graph.replace a 0 [] (owned [ b ]) graph2 |> ModelBuilder.requireOk "a->b"
-
-    let graph4 =
-        Graph.replace b 0 [] (owned [ a ]) graph3 |> ModelBuilder.requireOk "b->a (cycle)"
-    // Must terminate — buildSiteMap only creates root + direct children, no recursion
-    let siteMap, _ = buildSiteMap graph4
-    Assert.Equal(2, siteMap.entries.Count) // root + a (collapsed, stale)
+        Graph.replace graph1.root 0 [] (owned [ cont ]) graph1
+        |> ModelBuilder.requireOk "root->cont"
+    let graph3 =
+        Graph.replace cont 0 [] (owned [ a ]) graph2
+        |> ModelBuilder.requireOk "cont->a"
+    let graph4 = Graph.replace a 0 [] (owned [ b ]) graph3 |> ModelBuilder.requireOk "a->b"
+    let graph5 =
+        Graph.replace b 0 [] (owned [ a ]) graph4 |> ModelBuilder.requireOk "b->a (cycle)"
+    let siteMap, _ = buildSiteMapFrom graph5 cont (Sid 0)
+    Assert.Equal(2, siteMap.entries.Count) // cont + a (collapsed, stale)
     let rootEntry = siteMap.entries.[siteMap.rootId]
     let aEntry = siteMap.entries.[rootEntry.children.[0]]
     Assert.Equal(a, aEntry.nodeId)
     Assert.False(aEntry.expanded)
     Assert.True(aEntry.childrenStale)
-    // Expanding into a cycle: expand a → get b (collapsed); expand b → get a again (collapsed leaf)
-    let siteMap2, nextId2 = expandEntry aEntry.instanceId graph4 siteMap (Sid 2)
+    let siteMap2, nextId2 = expandEntry aEntry.instanceId graph5 siteMap (Sid 2)
     let bInstId = siteMap2.entries.[aEntry.instanceId].children.[0]
-    let siteMap3, _ = expandEntry bInstId graph4 siteMap2 nextId2
-    // The back-edge 'a' entry is a new collapsed leaf — no infinite recursion
+    let siteMap3, _ = expandEntry bInstId graph5 siteMap2 nextId2
     let bEntry = siteMap3.entries.[bInstId]
     let aBackInstId = bEntry.children.[0]
     let aBackEntry = siteMap3.entries.[aBackInstId]
     Assert.Equal(a, aBackEntry.nodeId)
-    Assert.False(aBackEntry.expanded) // started collapsed — recursion stops
+    Assert.False(aBackEntry.expanded)
 
 // ---------------------------------------------------------------------------
 // SiteMapOps.reconcileSiteMap
@@ -791,9 +808,9 @@ let ``SiteMap buildSiteMap terminates on cyclic graph`` () =
 
 [<Fact>]
 let ``SiteMap reconcileSiteMap preserves instanceIds for unchanged nodes`` () =
-    let graph, _ = buildNested ()
-    let siteMap, nextId = buildSiteMap graph
-    let rebuilt, nextId2 = reconcileSiteMap graph siteMap nextId
+    let graph, cont, _ = buildNested ()
+    let siteMap, nextId = buildSiteMapFrom graph cont (Sid 0)
+    let rebuilt, nextId2 = reconcileSiteMapFrom graph cont siteMap nextId
     // All instanceIds should be the same
     for KeyValue(instId, entry) in siteMap.entries do
         Assert.True(rebuilt.entries.ContainsKey instId)
@@ -803,31 +820,30 @@ let ``SiteMap reconcileSiteMap preserves instanceIds for unchanged nodes`` () =
 
 [<Fact>]
 let ``SiteMap reconcileSiteMap preserves fold state`` () =
-    let graph, _ = buildNested ()
-    let siteMap, nextId = buildSiteMap graph
+    let graph, cont, _ = buildNested ()
+    let siteMap, nextId = buildSiteMapFrom graph cont (Sid 0)
     let rootEntry = siteMap.entries.[siteMap.rootId]
     let aInstId = rootEntry.children.[0]
     // Expand "a" using expandEntry
     let expanded, nextId' = expandEntry aInstId graph siteMap nextId
     Assert.True(expanded.entries.[aInstId].expanded)
     // Reconcile — fold state for "a" should survive
-    let rebuilt, _ = reconcileSiteMap graph expanded nextId'
+    let rebuilt, _ = reconcileSiteMapFrom graph cont expanded nextId'
     Assert.True(rebuilt.entries.[aInstId].expanded)
     Assert.False(rebuilt.entries.[rootEntry.children.[1]].expanded) // "b" still collapsed
 
 [<Fact>]
 let ``SiteMap reconcileSiteMap assigns new IDs for added nodes`` () =
-    let graph, _ = buildNested ()
-    let siteMap, nextId = buildSiteMap graph
-    // Add a new child under root
+    let graph, cont, _ = buildNested ()
+    let siteMap, nextId = buildSiteMapFrom graph cont (Sid 0)
     let graph2, newNodeId = Graph.newNode "c" graph
-    let rootChildren = graph2.nodes.[graph2.root].children
+    let contChildren = graph2.nodes.[cont].children
 
     let graph3 =
-        Graph.replace graph2.root rootChildren.Length [] (owned [ newNodeId ]) graph2
+        Graph.replace cont contChildren.Length [] (owned [ newNodeId ]) graph2
         |> ModelBuilder.requireOk "add c"
 
-    let rebuilt, nextId2 = reconcileSiteMap graph3 siteMap nextId
+    let rebuilt, nextId2 = reconcileSiteMapFrom graph3 cont siteMap nextId
     let rootEntry = rebuilt.entries.[rebuilt.rootId]
     Assert.Equal(3, rootEntry.children.Length)
     let newEntry = rebuilt.entries.[rootEntry.children.[2]]
@@ -836,26 +852,30 @@ let ``SiteMap reconcileSiteMap assigns new IDs for added nodes`` () =
 
 [<Fact>]
 let ``SiteMap reconcileSiteMap two occurrences of same NodeId get distinct instanceIds`` () =
-    // Build DAG: root -> [A, B], A -> [C], B -> [C]  (C shared)
+    // Build DAG: root -> cont -> [A, B], A -> [C], B -> [C]  (C shared)
     let graph0 = Graph.create ()
-    let graph1, ids = ModelBuilder.createNodes [ "a"; "b"; "c" ] graph0
-    let a = ids.[0]
-    let b = ids.[1]
-    let c = ids.[2]
+    let graph1, contIds = ModelBuilder.createNodes [ "container"; "a"; "b"; "c" ] graph0
+    let cont = contIds.[0]
+    let a = contIds.[1]
+    let b = contIds.[2]
+    let c = contIds.[3]
 
     let graph2 =
-        Graph.replace graph1.root 0 [] (owned [ a; b ]) graph1 |> ModelBuilder.requireOk "root"
+        Graph.replace graph1.root 0 [] (owned [ cont ]) graph1 |> ModelBuilder.requireOk "root"
 
-    let graph3 = Graph.replace a 0 [] (owned [ c ]) graph2 |> ModelBuilder.requireOk "a->c"
-    let graph4 = Graph.replace b 0 [] (owned [ c ]) graph3 |> ModelBuilder.requireOk "b->c"
-    let siteMap, nextId = buildSiteMap graph4
+    let graph3 =
+        Graph.replace cont 0 [] (owned [ a; b ]) graph2 |> ModelBuilder.requireOk "cont"
+
+    let graph4 = Graph.replace a 0 [] (owned [ c ]) graph3 |> ModelBuilder.requireOk "a->c"
+    let graph5 = Graph.replace b 0 [] (owned [ c ]) graph4 |> ModelBuilder.requireOk "b->c"
+    let siteMap, nextId = buildSiteMapFrom graph5 cont (Sid 0)
     // Expand both A and B so C appears twice in the map
     let rootEntry = siteMap.entries.[siteMap.rootId]
     let aInstId = rootEntry.children.[0]
     let bInstId = rootEntry.children.[1]
-    let siteMap2, nextId2 = expandEntry aInstId graph4 siteMap nextId
-    let siteMap3, nextId3 = expandEntry bInstId graph4 siteMap2 nextId2
-    let rebuilt, _ = reconcileSiteMap graph4 siteMap3 nextId3
+    let siteMap2, nextId2 = expandEntry aInstId graph5 siteMap nextId
+    let siteMap3, nextId3 = expandEntry bInstId graph5 siteMap2 nextId2
+    let rebuilt, _ = reconcileSiteMapFrom graph5 cont siteMap3 nextId3
     // Find the two occurrences of C in the rebuilt map
     let cEntries =
         rebuilt.entries |> Map.toList |> List.filter (fun (_, e) -> e.nodeId = c)
@@ -868,30 +888,35 @@ let ``SiteMap reconcileSiteMap two occurrences of same NodeId get distinct insta
 let ``SiteMap reconcileSiteMap two occurrences have independent fold state`` () =
     let graph0 = Graph.create ()
     // C has a child D so we can toggle fold on C
-    let graph1, ids = ModelBuilder.createNodes [ "a"; "b"; "c"; "d" ] graph0
-    let a = ids.[0]
-    let b = ids.[1]
-    let c = ids.[2]
-    let d = ids.[3]
+    let graph1, contIds =
+        ModelBuilder.createNodes [ "container"; "a"; "b"; "c"; "d" ] graph0
+    let cont = contIds.[0]
+    let a = contIds.[1]
+    let b = contIds.[2]
+    let c = contIds.[3]
+    let d = contIds.[4]
 
     let graph2 =
-        Graph.replace graph1.root 0 [] (owned [ a; b ]) graph1 |> ModelBuilder.requireOk "root"
+        Graph.replace graph1.root 0 [] (owned [ cont ]) graph1 |> ModelBuilder.requireOk "root"
 
-    let graph3 = Graph.replace a 0 [] (owned [ c ]) graph2 |> ModelBuilder.requireOk "a->c"
-    let graph4 = Graph.replace b 0 [] (owned [ c ]) graph3 |> ModelBuilder.requireOk "b->c"
-    let graph5 = Graph.replace c 0 [] (owned [ d ]) graph4 |> ModelBuilder.requireOk "c->d"
-    let siteMap, nextId = buildSiteMap graph5
+    let graph3 =
+        Graph.replace cont 0 [] (owned [ a; b ]) graph2 |> ModelBuilder.requireOk "cont"
+
+    let graph4 = Graph.replace a 0 [] (owned [ c ]) graph3 |> ModelBuilder.requireOk "a->c"
+    let graph5 = Graph.replace b 0 [] (owned [ c ]) graph4 |> ModelBuilder.requireOk "b->c"
+    let graph6 = Graph.replace c 0 [] (owned [ d ]) graph5 |> ModelBuilder.requireOk "c->d"
+    let siteMap, nextId = buildSiteMapFrom graph6 cont (Sid 0)
     // Expand both A and B so C appears twice in the map
     let rootEntry = siteMap.entries.[siteMap.rootId]
     let aInstId = rootEntry.children.[0]
     let bInstId = rootEntry.children.[1]
-    let siteMap2, nextId2 = expandEntry aInstId graph5 siteMap nextId
-    let siteMap3, nextId3 = expandEntry bInstId graph5 siteMap2 nextId2
+    let siteMap2, nextId2 = expandEntry aInstId graph6 siteMap nextId
+    let siteMap3, nextId3 = expandEntry bInstId graph6 siteMap2 nextId2
     let occurrenceIndex = buildOccurrenceIndex siteMap3
     let cInstIds = occurrenceIndex.[c]
     Assert.Equal(2, cInstIds.Length)
     // Expand only the first occurrence of C
-    let siteMap4, _ = expandEntry cInstIds.[0] graph5 siteMap3 nextId3
+    let siteMap4, _ = expandEntry cInstIds.[0] graph6 siteMap3 nextId3
     // One C is expanded, the other is not
     let e0 = siteMap4.entries.[cInstIds.[0]]
     let e1 = siteMap4.entries.[cInstIds.[1]]
@@ -903,8 +928,8 @@ let ``SiteMap reconcileSiteMap two occurrences have independent fold state`` () 
 
 [<Fact>]
 let ``SiteMap toggleFold collapses entry and marks children stale`` () =
-    let graph, _ = buildNested ()
-    let siteMap, nextId = buildSiteMap graph
+    let graph, cont, _ = buildNested ()
+    let siteMap, nextId = buildSiteMapFrom graph cont (Sid 0)
     let rootEntry = siteMap.entries.[siteMap.rootId]
     let aInstId = rootEntry.children.[0]
     // Expand "a" first
@@ -916,12 +941,14 @@ let ``SiteMap toggleFold collapses entry and marks children stale`` () =
     Assert.False(collapsed.entries.[aInstId].expanded)
     Assert.True(collapsed.entries.[aInstId].childrenStale)
     // Children list is preserved (for positional reuse on re-expand)
-    Assert.Equal<SiteId list>(expanded.entries.[aInstId].children, collapsed.entries.[aInstId].children)
+    Assert.Equal<SiteId list>(
+        expanded.entries.[aInstId].children,
+        collapsed.entries.[aInstId].children)
 
 [<Fact>]
 let ``SiteMap toggleFold is no-op for unknown instanceId`` () =
-    let graph, _ = buildNested ()
-    let siteMap, nextId = buildSiteMap graph
+    let graph, cont, _ = buildNested ()
+    let siteMap, nextId = buildSiteMapFrom graph cont (Sid 0)
     let result = toggleFold nextId siteMap // nextId not in map
     Assert.Equal(siteMap.entries.Count, result.entries.Count)
 
@@ -931,8 +958,8 @@ let ``SiteMap toggleFold is no-op for unknown instanceId`` () =
 
 [<Fact>]
 let ``SiteMap expandEntry sets expanded true`` () =
-    let graph, _ = buildNested ()
-    let siteMap, nextId = buildSiteMap graph
+    let graph, cont, _ = buildNested ()
+    let siteMap, nextId = buildSiteMapFrom graph cont (Sid 0)
     let rootEntry = siteMap.entries.[siteMap.rootId]
     let aInstId = rootEntry.children.[0]
     Assert.False(siteMap.entries.[aInstId].expanded)
@@ -941,8 +968,8 @@ let ``SiteMap expandEntry sets expanded true`` () =
 
 [<Fact>]
 let ``SiteMap expandEntry on already-expanded entry is a no-op`` () =
-    let graph, _ = buildNested ()
-    let siteMap, nextId = buildSiteMap graph
+    let graph, cont, _ = buildNested ()
+    let siteMap, nextId = buildSiteMapFrom graph cont (Sid 0)
     let rootId = siteMap.rootId
     // Root is already expanded
     let result, nextId2 = expandEntry rootId graph siteMap nextId
@@ -951,9 +978,9 @@ let ``SiteMap expandEntry on already-expanded entry is a no-op`` () =
 
 [<Fact>]
 let ``SiteMap expandEntry inserts child entries`` () =
-    // After buildSiteMap, "a" starts collapsed with children = [] (stale)
-    let graph, _ = buildNested ()
-    let siteMap, nextId = buildSiteMap graph
+    // After buildSiteMapFrom, "a" starts collapsed with children = [] (stale)
+    let graph, cont, _ = buildNested ()
+    let siteMap, nextId = buildSiteMapFrom graph cont (Sid 0)
     let rootEntry = siteMap.entries.[siteMap.rootId]
     let aInstId = rootEntry.children.[0]
     let expanded, _ = expandEntry aInstId graph siteMap nextId
@@ -972,12 +999,11 @@ let ``SiteMap expandEntry inserts child entries`` () =
 
 [<Fact>]
 let ``SiteMap buildOccurrenceIndex maps each nodeId to its instanceIds`` () =
-    let graph, ids = buildNested ()
-    let siteMap, _ = buildSiteMap graph
+    let graph, cont, ids = buildNested ()
+    let siteMap, _ = buildSiteMapFrom graph cont (Sid 0)
     let index = buildOccurrenceIndex siteMap
-    // After buildSiteMap only root + direct children (a, b) are in the map
-    Assert.Equal(3, index.Count) // root, a, b
-    Assert.True(index.ContainsKey graph.root)
+    Assert.Equal(3, index.Count) // cont, a, b
+    Assert.True(index.ContainsKey cont)
     Assert.True(index.ContainsKey ids.[0]) // a
     Assert.True(index.ContainsKey ids.[1]) // b
     // Each appears exactly once
@@ -990,8 +1016,8 @@ let ``SiteMap buildOccurrenceIndex maps each nodeId to its instanceIds`` () =
 
 [<Fact>]
 let ``SiteMap getVisibleRowIds shows only top-level when all collapsed`` () =
-    let graph, ids = buildNested ()
-    let siteMap, _ = buildSiteMap graph
+    let graph, cont, ids = buildNested ()
+    let siteMap, _ = buildSiteMapFrom graph cont (Sid 0)
     let visible = getVisibleRowIds siteMap
     Assert.Equal(2, visible.Length)
     Assert.Equal(ids.[0], visible.[0])
@@ -999,8 +1025,8 @@ let ``SiteMap getVisibleRowIds shows only top-level when all collapsed`` () =
 
 [<Fact>]
 let ``SiteMap getVisibleRowIds shows children of expanded node`` () =
-    let graph, ids = buildNested ()
-    let siteMap, nextId = buildSiteMap graph
+    let graph, cont, ids = buildNested ()
+    let siteMap, nextId = buildSiteMapFrom graph cont (Sid 0)
     let rootEntry = siteMap.entries.[siteMap.rootId]
     let aInstId = rootEntry.children.[0]
     let expanded, _ = expandEntry aInstId graph siteMap nextId
@@ -1022,8 +1048,8 @@ let buildCacheSet (siteMap: SiteMap) : Set<SiteId> =
 
 [<Fact>]
 let ``planPatchDOM text change produces SetText patch and no CreateRow`` () =
-    let graph, ids = buildFlat [ "a"; "b"; "c" ]
-    let oldModel = emptyModel graph
+    let graph, cont, ids = buildFlat [ "a"; "b"; "c" ]
+    let oldModel = emptyModelAt graph cont
     // Change the text of the second node
     let targetId = ids.[1]
 
@@ -1060,12 +1086,12 @@ let ``planPatchDOM text change produces SetText patch and no CreateRow`` () =
 
 [<Fact>]
 let ``planPatchDOM expand inserts correct child count`` () =
-    let graph, _ = buildNested ()
-    let siteMap, nextId = buildSiteMap graph
+    let graph, cont, _ = buildNested ()
+    let siteMap, nextId = buildSiteMapFrom graph cont (Sid 0)
     let rootEntry = siteMap.entries.[siteMap.rootId]
     let aInstId = rootEntry.children.[0] // "a" has 2 children: a1, a2
 
-    let oldModel = emptyModel graph // "a" collapsed
+    let oldModel = emptyModelAt graph cont // "a" collapsed
     // Expand "a" in the new model
     let newSiteMap, newNextId = expandEntry aInstId graph siteMap nextId
 
@@ -1088,8 +1114,8 @@ let ``planPatchDOM expand inserts correct child count`` () =
 
 [<Fact>]
 let ``planPatchDOM collapse removes stale cache entries`` () =
-    let graph, _ = buildNested ()
-    let siteMap, nextId = buildSiteMap graph
+    let graph, cont, _ = buildNested ()
+    let siteMap, nextId = buildSiteMapFrom graph cont (Sid 0)
     let rootEntry = siteMap.entries.[siteMap.rootId]
     let aInstId = rootEntry.children.[0]
 
@@ -1097,7 +1123,7 @@ let ``planPatchDOM collapse removes stale cache entries`` () =
     let expandedSiteMap, newNextId = expandEntry aInstId graph siteMap nextId
 
     let oldModel =
-        { emptyModel graph with
+        { emptyModelAt graph cont with
             siteMap = expandedSiteMap
             nextSiteId = newNextId }
     // Collapse "a" for the new model
@@ -1125,8 +1151,8 @@ let ``planPatchDOM collapse removes stale cache entries`` () =
 
 [<Fact>]
 let ``cursorLevelEnd selects last sibling under same parent`` () =
-    let graph, _ = buildFlat [ "a"; "b"; "c" ]
-    let model = modelWithSel graph 0 1 0
+    let graph, cont, _ = buildFlat [ "a"; "b"; "c" ]
+    let model = modelWithSel graph cont 0 1 0
     let result = cursorLevelEnd model
 
     match result.selectedNodes with
@@ -1138,8 +1164,8 @@ let ``cursorLevelEnd selects last sibling under same parent`` () =
 
 [<Fact>]
 let ``cursorLevelStart selects first sibling under same parent`` () =
-    let graph, _ = buildFlat [ "a"; "b"; "c" ]
-    let model = modelWithSel graph 2 3 2
+    let graph, cont, _ = buildFlat [ "a"; "b"; "c" ]
+    let model = modelWithSel graph cont 2 3 2
     let result = cursorLevelStart model
 
     match result.selectedNodes with
@@ -1151,8 +1177,8 @@ let ``cursorLevelStart selects first sibling under same parent`` () =
 
 [<Fact>]
 let ``shiftPgDown reaches full sibling span`` () =
-    let graph, _ = buildFlat [ "a"; "b"; "c" ]
-    let model = modelWithSel graph 0 1 0
+    let graph, cont, _ = buildFlat [ "a"; "b"; "c" ]
+    let model = modelWithSel graph cont 0 1 0
     let result = shiftPgDown model
 
     match result.selectedNodes with
@@ -1164,8 +1190,8 @@ let ``shiftPgDown reaches full sibling span`` () =
 
 [<Fact>]
 let ``cursorViewRootFirstChild selects first root child`` () =
-    let graph, _ = buildFlat [ "a"; "b"; "c" ]
-    let model = modelWithSel graph 1 2 1
+    let graph, cont, _ = buildFlat [ "a"; "b"; "c" ]
+    let model = modelWithSel graph cont 1 2 1
     let result = cursorViewRootFirstChild model
 
     match result.selectedNodes with
@@ -1176,8 +1202,8 @@ let ``cursorViewRootFirstChild selects first root child`` () =
 
 [<Fact>]
 let ``cursorViewRootLastChild selects last root child`` () =
-    let graph, _ = buildFlat [ "a"; "b"; "c" ]
-    let model = modelWithSel graph 0 1 0
+    let graph, cont, _ = buildFlat [ "a"; "b"; "c" ]
+    let model = modelWithSel graph cont 0 1 0
     let result = cursorViewRootLastChild model
 
     match result.selectedNodes with
@@ -1192,10 +1218,10 @@ let ``cursorViewRootLastChild selects last root child`` () =
 
 [<Fact>]
 let ``selectNodeFromSearch reveals collapsed ancestors and selects deep node`` () =
-    let graph, ids = buildNested ()
+    let graph, cont, ids = buildNested ()
     let a = ids.[0]
     let a1 = ids.[2]
-    let model = emptyModel graph
+    let model = emptyModelAt graph cont
 
     let result = ViewModelSearch.selectNodeFromSearch a1 model
 
@@ -1203,21 +1229,23 @@ let ``selectNodeFromSearch reveals collapsed ancestors and selects deep node`` (
         result.selectedNodes
         |> Option.map (focusedNodeId result.graph)
     Assert.Equal(Some a1, selectedId)
-    Assert.Equal(None, result.zoomRoot)
 
-    let aInstId =
+    let contInstId =
         result.siteMap.entries.[result.siteMap.rootId].children
+        |> List.find (fun childInst -> result.siteMap.entries.[childInst].nodeId = cont)
+    let aInstId =
+        result.siteMap.entries.[contInstId].children
         |> List.find (fun childInst -> result.siteMap.entries.[childInst].nodeId = a)
     Assert.True(result.siteMap.entries.[aInstId].expanded)
 
 [<Fact>]
 let ``selectNodeFromSearch resets zoom and selects node outside current zoom`` () =
-    let graph, ids = buildNested ()
+    let graph, cont, ids = buildNested ()
     let b = ids.[1]
     let a1 = ids.[2]
     let zoomSiteMap, nextId = buildSiteMapFrom graph b (Sid 0)
     let model =
-        { (emptyModel graph) with
+        { (emptyModelAt graph cont) with
             zoomRoot = Some b
             siteMap = zoomSiteMap
             nextSiteId = nextId }
@@ -1236,7 +1264,7 @@ let ``selectNodeFromSearch resets zoom and selects node outside current zoom`` (
 
 [<Fact>]
 let ``EditingCaretPreserve None means apply caret from model`` () =
-    let graph, _ = buildFlat [ "hi" ]
+    let graph, _, _ = buildFlat [ "hi" ]
     let m = emptyModel graph
     let editing =
         { m with mode = Editing ("hi", EditCaret.Utf16Index 1) }
@@ -1244,14 +1272,14 @@ let ``EditingCaretPreserve None means apply caret from model`` () =
 
 [<Fact>]
 let ``EditingCaretPreserve false when not editing`` () =
-    let graph, _ = buildFlat [ "hi" ]
+    let graph, _, _ = buildFlat [ "hi" ]
     let prev = emptyModel graph
     let next = { prev with syncInfo = { prev.syncInfo with isPollingActive = true } }
     Assert.False(EditingCaretPreserve.shouldPreserveDomCaret (Some prev) next)
 
 [<Fact>]
 let ``EditingCaretPreserve true when only sync fields change`` () =
-    let graph, _ = buildFlat [ "hi" ]
+    let graph, _, _ = buildFlat [ "hi" ]
     let prev =
         { emptyModel graph with mode = Editing ("hi", EditCaret.Utf16Index 1) }
     let next =
@@ -1264,7 +1292,7 @@ let ``EditingCaretPreserve true when only sync fields change`` () =
 
 [<Fact>]
 let ``EditingCaretPreserve false when EditCaret in model changes`` () =
-    let graph, _ = buildFlat [ "hi" ]
+    let graph, _, _ = buildFlat [ "hi" ]
     let prev =
         { emptyModel graph with mode = Editing ("hi", EditCaret.Utf16Index 1) }
     let next = { prev with mode = Editing ("hi", EditCaret.Utf16Index 2) }
@@ -1272,9 +1300,110 @@ let ``EditingCaretPreserve false when EditCaret in model changes`` () =
 
 [<Fact>]
 let ``EditingCaretPreserve false when graph reference changes`` () =
-    let graph, _ = buildFlat [ "hi" ]
+    let graph, _, _ = buildFlat [ "hi" ]
     let prev =
         { emptyModel graph with mode = Editing ("hi", EditCaret.Utf16Index 1) }
     let g2 = Graph.fromNodes graph.root graph.nodes
     let next = { prev with graph = g2 }
     Assert.False(EditingCaretPreserve.shouldPreserveDomCaret (Some prev) next)
+
+// ---------------------------------------------------------------------------
+// TRASH semantics – bootstrap, delete classification, and behaviour
+// ---------------------------------------------------------------------------
+
+[<Fact>]
+let ``Graph.create bootstraps TRASH under root with special kind`` () =
+    let graph = Graph.create ()
+    let rootNode = graph.nodes.[graph.root]
+    let trashChildOpt =
+        rootNode.children
+        |> List.tryFind (fun c -> c.id = Graph.trashId && c.ref = Ownership.Owner)
+    Assert.True(trashChildOpt.IsSome)
+    let trashNode = graph.nodes.[Graph.trashId]
+    match trashNode.kind with
+    | Special Trash -> ()
+    | _ -> Assert.True(false, "Trash node must have kind = Special Trash")
+
+[<Fact>]
+let ``Graph.replace rejects wiping all root children and leaves root unchanged`` () =
+    let graph0 = Graph.create ()
+    let graph1, ids = ModelBuilder.createNodes [ "a" ] graph0
+    let a = ids.[0]
+    let graph2 =
+        Graph.replace graph1.root 0 [] (owned [ a ]) graph1
+        |> ModelBuilder.requireOk "root->a"
+    let rootId = graph2.root
+    let rootChildrenBefore = graph2.nodes.[rootId].children
+    let wipe = Graph.replace rootId 0 rootChildrenBefore [] graph2
+    match wipe with
+    | Ok _ -> Assert.True(false, "expected Error when removing trash owner from root")
+    | Error msg ->
+        Assert.Contains("cannot remove trash owner child from root", msg)
+        let rootChildrenAfter = graph2.nodes.[rootId].children
+        Assert.Equal<ChildNode list>(rootChildrenBefore, rootChildrenAfter)
+
+[<Fact>]
+let ``Graph.replace clears all children under buildFlat cont`` () =
+    let graph, cont, _ids = buildFlat [ "a"; "b"; "c" ]
+    let contChildren = graph.nodes.[cont].children
+    let graph2 =
+        Graph.replace cont 0 contChildren [] graph
+        |> ModelBuilder.requireOk "cont wipe"
+    Assert.Empty(graph2.nodes.[cont].children)
+
+[<Fact>]
+let ``classifyDeleteForSelection marks last non-trash owner as MoveToTrash`` () =
+    let graph0 = Graph.create ()
+    let graph1, ids = ModelBuilder.createNodes [ "a" ] graph0
+    let a = ids.[0]
+    let graph2 =
+        Graph.replace graph1.root 0 [] (owned [ a ]) graph1
+        |> ModelBuilder.requireOk "root->a"
+    let model = modelWithSel graph2 graph2.root 0 1 0
+    let sel =
+        match model.selectedNodes with
+        | Some s -> s
+        | None -> failwith "expected selection"
+    let classified = ViewModelDeleteOps.classifyDeleteForSelection model.graph sel.range
+    Assert.Equal(1, classified.Length)
+    let item = classified.Head
+    Assert.Equal(a, item.child.id)
+    Assert.Equal(ViewModelDeleteOps.MoveToTrash, item.action)
+
+[<Fact>]
+let ``MoveToTrash ops apply successfully and node lands under TRASH`` () =
+    let graph0 = Graph.create ()
+    let graph1, ids = ModelBuilder.createNodes [ "a" ] graph0
+    let a = ids.[0]
+    let graph2 =
+        Graph.replace graph1.root 0 [] (owned [ a ]) graph1
+        |> ModelBuilder.requireOk "root->a"
+    let state0 : State =
+        { graph = graph2; history = History.empty; revision = Revision.Zero }
+
+    let removeOp = Op.Replace(graph2.root, 0, owned [ a ], [])
+
+    let trashChildren = graph2.nodes.[Graph.trashId].children
+    let newTrashChildren = trashChildren @ [ { ref = Ownership.Owner; id = a } ]
+    let addToTrashOp = Op.Replace(Graph.trashId, 0, trashChildren, newTrashChildren)
+
+    let change =
+        { id = 0; changeId = System.Guid.NewGuid(); ops = [ removeOp; addToTrashOp ] }
+
+    let result = History.applyChange change state0
+
+    match result with
+    | ApplyResult.Invalid(_, msg) ->
+        Assert.True(false, sprintf "Expected Changed but got Invalid: %s" msg)
+    | ApplyResult.Unchanged _ ->
+        Assert.True(false, "Expected Changed but got Unchanged")
+    | ApplyResult.Changed newState ->
+        let trashNode = newState.graph.nodes.[Graph.trashId]
+        let aUnderTrash =
+            trashNode.children
+            |> List.exists (fun c -> c.id = a && c.ref = Ownership.Owner)
+        Assert.True(aUnderTrash, "node 'a' should be an Owner child of TRASH")
+        let rootNode = newState.graph.nodes.[graph2.root]
+        let aUnderRoot =
+            rootNode.children |> List.exists (fun c -> c.id = a)
+        Assert.False(aUnderRoot, "node 'a' should no longer be under root")

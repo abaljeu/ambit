@@ -6,6 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="SpecialNodeTestHelpers.fs" />
     <Compile Include="OpenTargetTests.fs" />
     <Compile Include="ModelTests.fs" />
     <Compile Include="GraphProjectionTests.fs" />

@@ -10,6 +10,11 @@ type NodeId =
         let (NodeId value) = this
         value
 
+    /// Last 8 chars of `Guid.ToString()`; matches DOM `.amb-node-guid` display.
+    static member GuidTail8 (guid: Guid) : string =
+        let s = guid.ToString()
+        if s.Length >= 8 then s.Substring(s.Length - 8) else s
+
     static member New() = NodeId(Guid.NewGuid())
 
 
@@ -272,7 +277,7 @@ module Graph =
         let parentOpt = graph.nodes |> Map.tryFind parentId
 
         match parentOpt with
-        | None -> Error "parent not found"
+        | None -> Error $"parent not found {NodeId.GuidTail8 parentId.Value}"
         | Some parent ->
             let children = parent.children
             let childCount = List.length children
@@ -300,40 +305,36 @@ module Graph =
                     let suffix = children |> List.skip (index + oldCount)
                     let updatedChildren = prefix @ newChildren @ suffix
 
-                    // Guard TRASH against invalid structural mutations.
-                    if parentId = trashId then
-                        Error "cannot use trash as a parent"
-                    else
-                        if parentId = rootId then
-                            let hadTrashOwner =
-                                children
-                                |> List.exists (fun c -> c.id = trashId && c.ref = Ownership.Owner)
-                            let hasTrashOwnerAfter =
-                                updatedChildren
-                                |> List.exists (fun c -> c.id = trashId && c.ref = Ownership.Owner)
+                    if parentId = rootId then
+                        let hadTrashOwner =
+                            children
+                            |> List.exists (fun c -> c.id = trashId && c.ref = Ownership.Owner)
+                        let hasTrashOwnerAfter =
+                            updatedChildren
+                            |> List.exists (fun c -> c.id = trashId && c.ref = Ownership.Owner)
 
-                            if hadTrashOwner && not hasTrashOwnerAfter then
-                                Error "cannot remove trash owner child from root"
-                            elif
-                                updatedChildren
-                                |> List.filter (fun c -> c.id = trashId && c.ref = Ownership.Owner)
-                                |> List.length
-                                <> 1
-                            then
-                                Error "trash must appear exactly once as an Owner child of root"
-                            else
-                                let updatedParent = { parent with children = updatedChildren }
-                                let nodes = graph.nodes |> Map.add parentId updatedParent
-                                Ok (fromNodes graph.root nodes)
+                        if hadTrashOwner && not hasTrashOwnerAfter then
+                            Error "cannot remove trash owner child from root"
                         elif
                             updatedChildren
-                            |> List.exists (fun c -> c.id = trashId)
+                            |> List.filter (fun c -> c.id = trashId && c.ref = Ownership.Owner)
+                            |> List.length
+                            <> 1
                         then
-                            Error "trash may not be a child of any non-root parent"
+                            Error "trash must appear exactly once as an Owner child of root"
                         else
                             let updatedParent = { parent with children = updatedChildren }
                             let nodes = graph.nodes |> Map.add parentId updatedParent
                             Ok (fromNodes graph.root nodes)
+                    elif
+                        updatedChildren
+                        |> List.exists (fun c -> c.id = trashId)
+                    then
+                        Error "trash may not be a child of any non-root parent"
+                    else
+                        let updatedParent = { parent with children = updatedChildren }
+                        let nodes = graph.nodes |> Map.add parentId updatedParent
+                        Ok (fromNodes graph.root nodes)
 
     let tryFindParentAndIndex (targetId: NodeId) (graph: Graph) : (NodeId * int) option =
         Map.tryFind targetId graph.parentByChild
