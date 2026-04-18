@@ -20,6 +20,8 @@ Refactor.  Stop for review.
 
 Don't bother using git unless asked a history or status question.  I will take care of git.
 
+Markdown should only have linebreaks at paragraph boundaries or for markdown formatting.
+
 ## Source code
 Maximum 100 characters per line.
 Follow language norms.
