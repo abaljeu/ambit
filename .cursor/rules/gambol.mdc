@@ -25,7 +25,7 @@ Use pure functional F#.  Don't use mutable.  If you must, ask.
 Don't embed anything more than tiny amounts of html, CSS or JS in F# code.
 If you are looking for browser access functions, look at ./other/fable.browser.dom.fs.
 Use CRLF endings.
-100 characters or less per line.
+100 characters or less per line.  Markdown is unlimited length.
 30 lines or less per function.
 Follow language norms.
 
