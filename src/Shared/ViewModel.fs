@@ -251,7 +251,7 @@ and VM = // the client state
       mode: Mode
       siteMap: SiteMap
       nextSiteId: SiteId
-      zoomRoot: NodeId option   // None = display from graph.root; Some id = display rooted at that node
+      zoomRoot: NodeId // display starting from here
       clipboard: ClipboardContent option
       syncInfo: SyncInfo }
 

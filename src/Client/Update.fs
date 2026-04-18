@@ -18,13 +18,17 @@ let currentFile = UpdateHelpers.currentFile
 // ---------------------------------------------------------------------------
 // update : Msg -> VM -> VM * Effect list
 // ---------------------------------------------------------------------------
+let firstGraphChild graph =
+    defaultArg (Node.at graph (Some graph.root) |> Node.firstChild |> Node.current) graph.root
 
 let update (msg: Msg) (model: VM) : VM * Effect list =
     match msg with
     | ApplyOp op -> op model
 
     | SysMsg (StateLoaded (graph, revision)) ->
-        let siteMap, nextId = ViewModel.buildSiteMap graph
+        let zoomRoot = firstGraphChild graph
+        let siteMap, nextId =
+            ViewModel.buildSiteMapFrom graph zoomRoot (Sid 0)
         { graph = graph
           revision = revision
           history = History.empty
@@ -32,7 +36,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
           mode = Selecting
           siteMap = siteMap
           nextSiteId = nextId
-          zoomRoot = None
+          zoomRoot = zoomRoot
           clipboard = None
           syncInfo = SyncInfo.initial }, []
 

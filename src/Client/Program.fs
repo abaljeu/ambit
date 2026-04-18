@@ -9,15 +9,17 @@ open Gambol.Client.UpdateCodec
 open Gambol.Client.Controller
 open Gambol.Client.JsInterop
 
+let initialGraph = Graph.create ()
+
 let initialModel: VM =
-    { graph = Graph.create ()
+    { graph = initialGraph
       revision = Revision.Zero
       history = History.empty
       selectedNodes = None
       mode = Selecting
       siteMap = ViewModel.emptySiteMap
       nextSiteId = Sid 1
-      zoomRoot = None
+      zoomRoot = initialGraph.root
       clipboard = None
       syncInfo = SyncInfo.initial }
 

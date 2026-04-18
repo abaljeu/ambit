@@ -9,11 +9,6 @@ let openSearchDialogWithOnPick
     : VM * Effect list =
     { model with mode = SearchDialog ("", 0, model.mode, onPick) }, []
 
-let openSearchDialogOp (model: VM) : VM * Effect list =
-    openSearchDialogWithOnPick
-        (fun hit m -> ViewModelSearch.selectNodeFromSearch hit.nodeId m, [])
-        model
-
 let closeSearchDialogOp (model: VM) : VM * Effect list =
     match model.mode with
     | SearchDialog (_, _, ret, _) -> { model with mode = ret }, []

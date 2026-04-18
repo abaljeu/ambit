@@ -1,4 +1,12 @@
--> #n1
+#n1 Tasks
+	now
+		outlier
+		----
+	later
+		
+		ambit
+		----
+	-> #n2
 Passion Projects
 	FSharp
 	
@@ -24,7 +32,7 @@ Passion Projects
 		
 	Ambit - Outlining Info Organizer
 		Ambit (n) - Area of Influence
-		#n2 Outlining Editor
+		#n3 Outlining Editor
 			edit
 			move
 			expand
@@ -36,7 +44,7 @@ Passion Projects
 		Infinite Organizing
 			Zoom
 			Link
-				-> #n2
+				-> #n3
 		Into the World
 			Document editing
 				[[Document.md]]
@@ -61,10 +69,10 @@ Passion Projects
 				Make a particular outline look like formatted document
 			Embedded computation
 				$x = [2 + 3, 3*5]
-					#n3 5
+					#n4 5
 					15
 				$y = $x[0]
-					-> #n3
+					-> #n4
 			Shell 
 				> ls -L
 					total 2657
@@ -101,7 +109,7 @@ Passion Projects
 					rambling response
 					
 				{.h1 .blue}Third item aoeu aoeu text = Third item aoeu aoeu 
-					-> #n4
+					-> #n5
 					hnsteaueoua
 					ham
 						{.blue}eau
@@ -128,27 +136,19 @@ Passion Projects
 		
 Third itemuu
 	
-	#n4 <blue>
+	#n5 <blue>
 		u
 		aeu o ntsauheonutousntoeu nshanuotea uoehu oushouensh othnoensth uea e
 	{.h3 .b}ueau
 		ueau
 		aoeua
 		uaoeusont 
-	-> #n4
+	-> #n5
 	oeauoeu
 	aoeu 
 	aoeu 
-	#n1 Tasks
-		now
-			outlier
-			----
-		later
-			
-			ambit
-			----
-		-> #n5
-#n5 extra requirements
+	-> #n1
+#n2 extra requirements
 	Logical Reasoning Requirement
 	Structured Proof Formatting Requirement
 	okay so what we need to do is

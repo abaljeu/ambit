@@ -614,11 +614,6 @@ let commandRegistry : CommandEntry list =
         keys = [ "/" ; "Ctrl+f" ]
         keyScope = SelectionOrEditing }
 
-      { name = "Search nodes"
-        run = keyAlways openSearchDialogOp
-        keys = [ "Ctrl+F" ]
-        keyScope = SelectionOrEditing }
-
       { name = "Toggle class"
         run = keyAlways openCssClassPromptOp
         keys = [ "Alt+C"; "." ]

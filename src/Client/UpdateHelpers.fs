@@ -120,7 +120,7 @@ let childrenForPaste (graph: Graph) (ids: NodeId list) : ChildNode list =
 
 /// The node being edited when selectedNodes = None: the zoom root if zoomed, else the graph root.
 let viewRootNodeId (model: VM) : NodeId =
-    model.zoomRoot |> Option.defaultValue model.graph.root
+    model.zoomRoot
 
 /// True when autosync from a poll response must not proceed:
 ///   - pending queue is non-empty (defensive; tryStartPoll already blocks this)
@@ -229,10 +229,7 @@ let splitNode (currentText: string) (cursorPos: int) (model: VM) : VM * Effect l
               ops = ops }
         match applyAndPost change model with
         | Some m, effects ->
-            let effRoot =
-                m.zoomRoot
-                |> Option.filter (fun zr -> Map.containsKey zr m.graph.nodes)
-                |> Option.defaultValue m.graph.root
+            let effRoot = m.zoomRoot
             let siteMap, nextId =
                 ViewModel.reconcileSiteMapFrom m.graph effRoot m.siteMap m.nextSiteId
             let m2 = { m with siteMap = siteMap; nextSiteId = nextId }
@@ -269,16 +266,9 @@ let commitIfEditing (model: VM) : VM * Effect list =
 /// Also refreshes selectedNodes.range.parent from the new siteMap so that
 /// focusedInstanceId can resolve against an up-to-date parent.children list.
 let withSiteMap (model: VM) : VM =
-    let effectiveRoot =
-        model.zoomRoot
-        |> Option.filter (fun zr -> Map.containsKey zr model.graph.nodes)
-        |> Option.defaultValue model.graph.root
-    let zoomRoot =
-        match model.zoomRoot with
-        | Some zr when not (Map.containsKey zr model.graph.nodes) -> None
-        | z -> z
+    let zoomRoot = model.zoomRoot
     let siteMap, nextId =
-        ViewModel.reconcileSiteMapFrom model.graph effectiveRoot model.siteMap model.nextSiteId
+        ViewModel.reconcileSiteMapFrom model.graph zoomRoot model.siteMap model.nextSiteId
     let model' = { model with siteMap = siteMap; nextSiteId = nextId; zoomRoot = zoomRoot }
     match model'.selectedNodes with
     | None -> model'

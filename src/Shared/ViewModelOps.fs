@@ -145,6 +145,15 @@ module ViewModel =
     let buildSiteMap (graph: Graph) : SiteMap * SiteId =
         buildSiteMapFrom graph graph.root (Sid 0)
 
+    /// Selection spanning the first child under the site-map entry for `rootNodeId`.
+    /// Returns None if that entry has no children.
+    let firstChildSelection (siteMap: SiteMap) (rootNodeId: NodeId) : Selection option =
+        siteMap.entries
+        |> Map.tryPick (fun _ e -> if e.nodeId = rootNodeId then Some e else None)
+        |> Option.bind (fun rootEntry ->
+            if rootEntry.children.IsEmpty then None
+            else Some { range = { parent = rootEntry; start = 0; endd = 1 }; focus = 0 })
+
     /// Reconcile a SiteMap rooted at rootNodeId after a graph change. Walks only expanded entries,
     /// syncing their children lists from the graph. Collapsed children of expanded entries are
     /// reused by position (nodeId must match) with childrenStale = true and children = []; they

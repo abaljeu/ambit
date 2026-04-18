@@ -23,10 +23,8 @@ let saveSessionState (model: VM) : unit =
             if e.expanded && e.parentInstanceId <> None
             then Some (e.nodeId.Value.ToString())
             else None)
-    let zoomJson =
-        match model.zoomRoot with
-        | Some (NodeId g) -> "\"" + g.ToString() + "\""
-        | None -> "null"
+    let (NodeId zg) = model.zoomRoot
+    let zoomJson = "\"" + zg.ToString() + "\""
     let idsJson =
         expandedIds |> Array.map (fun s -> "\"" + s + "\"") |> String.concat ","
     sessionSet sessionKey (sprintf "{\"z\":%s,\"e\":[%s]}" zoomJson idsJson)
@@ -47,18 +45,21 @@ let restoreSessionState (model: VM) : VM =
             | Error _ -> model
             | Ok (zoomStr, expandedStrs) ->
                 let zoomRoot =
-                    zoomStr |> Option.bind (fun s ->
+                    zoomStr
+                    |> Option.map (fun s ->
                         match System.Guid.TryParse(s) with
                         | true, g ->
                             let nid = NodeId g
-                            if Map.containsKey nid model.graph.nodes then Some nid
-                            else None
-                        | _ -> None)
-                let effectiveRoot = zoomRoot |> Option.defaultValue model.graph.root
+                            if Map.containsKey nid model.graph.nodes then nid
+                            else model.zoomRoot
+                        | _ -> model.zoomRoot)
+                    |> Option.defaultValue model.zoomRoot
+
                 let siteMap0, nextId0 =
-                    if effectiveRoot <> model.graph.root
-                    then ViewModel.buildSiteMapFrom model.graph effectiveRoot (Sid 0)
-                    else model.siteMap, model.nextSiteId
+                    if zoomRoot <> model.zoomRoot then
+                        ViewModel.buildSiteMapFrom model.graph zoomRoot (Sid 0)
+                    else
+                        model.siteMap, model.nextSiteId
                 let expandedSet =
                     expandedStrs
                     |> List.choose (fun s ->

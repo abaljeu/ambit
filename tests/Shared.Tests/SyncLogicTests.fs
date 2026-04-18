@@ -18,7 +18,7 @@ let private emptyModel (graph: Graph) : VM =
       mode = Selecting
       siteMap = siteMap
       nextSiteId = nextId
-      zoomRoot = None
+      zoomRoot = graph.root
       clipboard = None
       syncInfo = SyncInfo.initial }
 

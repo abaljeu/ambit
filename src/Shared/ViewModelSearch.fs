@@ -68,64 +68,22 @@ module ViewModelSearch =
                 |> max 0
             List.tryItem i results
 
-    let private ownerPathFromRoot (graph: Graph) (targetNodeId: NodeId) : NodeId list option =
-        let rec loop (current: NodeId) (acc: NodeId list) =
-            if current = graph.root then Some (graph.root :: acc)
-            else
-                match Graph.tryFindParentAndIndex current graph with
-                | None -> None
-                | Some (parentId, _) -> loop parentId (current :: acc)
-        if not (Map.containsKey targetNodeId graph.nodes) then None
-        else loop targetNodeId []
+    /// Find (/): after picking a search hit, re-root the site map at the hit, or at its parent
+    /// when the hit is a leaf (same framing as zoom-in on a leaf).
+    let searchPickSetRoot (hit: NodeSearchResult) (model: VM) : VM * Effect list =
+        let node = model.graph.nodes.[hit.nodeId]
+        let zoomId =
+            if node.children.IsEmpty then
+                match Graph.tryFindParentAndIndex hit.nodeId model.graph with
+                | Some (parentId, _) -> parentId
+                | None -> hit.nodeId
+            else hit.nodeId
+        let siteMap, nextId =
+            ViewModel.buildSiteMapFrom model.graph zoomId model.nextSiteId
+        { model with
+            zoomRoot = zoomId
+            siteMap = siteMap
+            nextSiteId = nextId
+            selectedNodes = ViewModel.firstChildSelection siteMap zoomId
+            mode = Selecting }, []
 
-    let private tryFindChildInstanceByNodeId
-        (siteMap: SiteMap)
-        (parentInstId: SiteId)
-        (childNodeId: NodeId)
-        : SiteId option =
-        Map.tryFind parentInstId siteMap.entries
-        |> Option.bind (fun parent ->
-            parent.children
-            |> List.tryPick (fun childInstId ->
-                match Map.tryFind childInstId siteMap.entries with
-                | Some child when child.nodeId = childNodeId -> Some childInstId
-                | _ -> None))
-
-    let private expandPathToNode
-        (graph: Graph)
-        (path: NodeId list)
-        (siteMap: SiteMap)
-        (nextId: SiteId)
-        : SiteId option * SiteMap * SiteId =
-        let rec walk (remaining: NodeId list) (parentInstId: SiteId) (sm: SiteMap) (nid: SiteId) =
-            match remaining with
-            | [] -> Some parentInstId, sm, nid
-            | childNodeId :: rest ->
-                let smExpanded, nidExpanded = ViewModel.expandEntry parentInstId graph sm nid
-                match tryFindChildInstanceByNodeId smExpanded parentInstId childNodeId with
-                | None -> None, smExpanded, nidExpanded
-                | Some childInstId -> walk rest childInstId smExpanded nidExpanded
-        match path with
-        | [] -> None, siteMap, nextId
-        | _ :: children -> walk children siteMap.rootId siteMap nextId
-
-    let selectNodeFromSearch (targetNodeId: NodeId) (model: VM) : VM =
-        if targetNodeId = model.graph.root then
-            { model with selectedNodes = None; mode = Selecting }
-        else
-            match ownerPathFromRoot model.graph targetNodeId with
-            | None -> model
-            | Some path ->
-                let baseMap, baseNext =
-                    ViewModel.buildSiteMapFrom model.graph model.graph.root model.nextSiteId
-                let targetInstOpt, siteMap', nextId' =
-                    expandPathToNode model.graph path baseMap baseNext
-                let selected =
-                    targetInstOpt
-                    |> Option.bind (ViewModel.singleSelectionForInstance siteMap')
-                { model with
-                    zoomRoot = None
-                    selectedNodes = selected
-                    mode = Selecting
-                    siteMap = siteMap'
-                    nextSiteId = nextId' }

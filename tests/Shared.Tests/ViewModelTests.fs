@@ -46,7 +46,7 @@ let emptyModel (graph: Graph) : VM =
       mode = Selecting
       siteMap = siteMap
       nextSiteId = nextId
-      zoomRoot = None
+      zoomRoot = graph.root
       clipboard = None
       syncInfo = SyncInfo.initial }
 
@@ -61,7 +61,7 @@ let emptyModelAt (graph: Graph) (viewRoot: NodeId) : VM =
       mode = Selecting
       siteMap = siteMap
       nextSiteId = nextId
-      zoomRoot = if viewRoot = graph.root then None else Some viewRoot
+      zoomRoot = viewRoot
       clipboard = None
       syncInfo = SyncInfo.initial }
 
@@ -1213,49 +1213,46 @@ let ``cursorViewRootLastChild selects last root child`` () =
     | None -> Assert.True(false, "Expected Some")
 
 // ---------------------------------------------------------------------------
-// selectNodeFromSearch
+// ViewModelSearch.searchPickSetRoot (Find /)
 // ---------------------------------------------------------------------------
 
+let private searchHit (graph: Graph) (nodeId: NodeId) : NodeSearchResult =
+    let n = graph.nodes.[nodeId]
+    { nodeId = nodeId; text = n.text; name = n.name }
+
 [<Fact>]
-let ``selectNodeFromSearch reveals collapsed ancestors and selects deep node`` () =
+let ``searchPickSetRoot reframes at parent and selects first child for a leaf hit`` () =
     let graph, cont, ids = buildNested ()
     let a = ids.[0]
     let a1 = ids.[2]
     let model = emptyModelAt graph cont
+    let result = ViewModelSearch.searchPickSetRoot (searchHit graph a1) model |> fst
 
-    let result = ViewModelSearch.selectNodeFromSearch a1 model
-
+    Assert.Equal(a, result.zoomRoot)
+    Assert.Equal(a, result.siteMap.entries.[result.siteMap.rootId].nodeId)
+    Assert.True(result.siteMap.entries.[result.siteMap.rootId].expanded)
     let selectedId =
-        result.selectedNodes
-        |> Option.map (focusedNodeId result.graph)
+        result.selectedNodes |> Option.map (focusedNodeId result.graph)
     Assert.Equal(Some a1, selectedId)
 
-    let contInstId =
-        result.siteMap.entries.[result.siteMap.rootId].children
-        |> List.find (fun childInst -> result.siteMap.entries.[childInst].nodeId = cont)
-    let aInstId =
-        result.siteMap.entries.[contInstId].children
-        |> List.find (fun childInst -> result.siteMap.entries.[childInst].nodeId = a)
-    Assert.True(result.siteMap.entries.[aInstId].expanded)
-
 [<Fact>]
-let ``selectNodeFromSearch resets zoom and selects node outside current zoom`` () =
+let ``searchPickSetRoot reframes outside prior zoom when hit is not under zoom root`` () =
     let graph, cont, ids = buildNested ()
     let b = ids.[1]
+    let a = ids.[0]
     let a1 = ids.[2]
     let zoomSiteMap, nextId = buildSiteMapFrom graph b (Sid 0)
     let model =
         { (emptyModelAt graph cont) with
-            zoomRoot = Some b
+            zoomRoot = b
             siteMap = zoomSiteMap
             nextSiteId = nextId }
 
-    let result = ViewModelSearch.selectNodeFromSearch a1 model
+    let result = ViewModelSearch.searchPickSetRoot (searchHit graph a1) model |> fst
 
-    Assert.Equal(None, result.zoomRoot)
+    Assert.Equal(a, result.zoomRoot)
     let selectedId =
-        result.selectedNodes
-        |> Option.map (focusedNodeId result.graph)
+        result.selectedNodes |> Option.map (focusedNodeId result.graph)
     Assert.Equal(Some a1, selectedId)
 
 // ---------------------------------------------------------------------------

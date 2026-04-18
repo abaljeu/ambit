@@ -16,9 +16,8 @@ let parentSiblingOpen (delta: int) (me: SiteEntry) (model: VM) : SiteEntry optio
     match parentEntryOpt with
     | None -> None
     | Some parentEntry ->
-        let effectiveRoot = model.zoomRoot |> Option.defaultValue model.graph.root
-        let isMeRoot = me.nodeId = effectiveRoot
-        let isParentRoot = parentEntry.nodeId = effectiveRoot
+        let isMeRoot = me.nodeId = model.zoomRoot
+        let isParentRoot = parentEntry.nodeId = model.zoomRoot
 
         if isMeRoot || isParentRoot then
             None
@@ -195,7 +194,6 @@ let moveNodeDelta (delta: int) (model: VM) : VM * Effect list =
                 // Move to after sibling below
                 Some { pnode = parentId; start = range.endd; endd = range.endd + 1 }
             elif delta = -1 || delta = 1 then
-                let effectiveRoot = model.zoomRoot |> Option.defaultValue model.graph.root
                 let moveToSib =
                     (if delta = -1 then SiteNodeRange.firstChild else SiteNodeRange.lastChild) range model.siteMap
                     |> Option.bind (fun child -> parentSiblingOpen delta child model)
@@ -207,7 +205,7 @@ let moveNodeDelta (delta: int) (model: VM) : VM * Effect list =
                         else
                             { pnode = sibId; start = 0; endd = 0 })
                 let moveToGrandparent =
-                    if range.parent.nodeId = effectiveRoot then
+                    if range.parent.nodeId = model.zoomRoot then
                         None
                     else
                         range.parent.parentInstanceId

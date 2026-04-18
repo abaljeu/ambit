@@ -649,15 +649,6 @@ let submitCssClassPromptOp (model: VM) : VM * Effect list =
             | None, _ -> result, []
     | _ -> model, []
 
-/// Build a first-child Selection for the root entry of a freshly-built siteMap.
-/// Returns None if the root has no children.
-let private firstChildSelection (siteMap: SiteMap) (rootNodeId: NodeId) : Selection option =
-    siteMap.entries
-    |> Map.tryPick (fun _ e -> if e.nodeId = rootNodeId then Some e else None)
-    |> Option.bind (fun rootEntry ->
-        if rootEntry.children.IsEmpty then None
-        else Some { range = { parent = rootEntry; start = 0; endd = 1 }; focus = 0 })
-
 /// Op: Zoom in — set the view root to the first selected node (Ctrl+]).
 /// Commits any in-progress edit first. No-op when the view root is focused or the node is a leaf.
 let zoomInOp (model: VM) : VM * Effect list =
@@ -677,54 +668,36 @@ let zoomInOp (model: VM) : VM * Effect list =
         let siteMap, nextId =
             ViewModel.buildSiteMapFrom model'.graph zoomId model'.nextSiteId
         { model' with
-            zoomRoot = Some zoomId
+            zoomRoot = zoomId
             siteMap = siteMap
             nextSiteId = nextId
-            selectedNodes = firstChildSelection siteMap zoomId
+            selectedNodes = ViewModel.firstChildSelection siteMap zoomId
             mode = Selecting }, effs
 
 /// Op: Zoom out — move the view root one level up toward the graph root (Ctrl+[).
 /// Commits any in-progress edit first. No-op when already showing the full tree.
 let zoomOutOp (model: VM) : VM * Effect list =
     let model', effs = commitIfEditing model
-    match model'.zoomRoot with
-    | None -> model', effs
-    | Some currentZoomRoot ->
+    let currentZoomRoot = model'.zoomRoot
+    if currentZoomRoot = model'.graph.root then model', effs
+    else 
         let newZoomRoot =
-            match Graph.tryFindParentAndIndex currentZoomRoot model'.graph with
-            | None -> None
-            | Some (parentId, _) ->
-                if parentId = model'.graph.root then None else Some parentId
-        let effectiveRoot = newZoomRoot |> Option.defaultValue model'.graph.root
+                match Graph.tryFindParentAndIndex currentZoomRoot model'.graph with
+                | None -> currentZoomRoot
+                | Some (parentId, _) ->
+                    if parentId = model'.graph.root then currentZoomRoot else parentId
         let siteMap, nextId =
-            ViewModel.buildSiteMapFrom model'.graph effectiveRoot model'.nextSiteId
+            ViewModel.buildSiteMapFrom model'.graph newZoomRoot model'.nextSiteId
         { model' with
             zoomRoot = newZoomRoot
             siteMap = siteMap
             nextSiteId = nextId
-            selectedNodes = firstChildSelection siteMap effectiveRoot
+            selectedNodes = ViewModel.firstChildSelection siteMap newZoomRoot
             mode = Selecting }, effs
-
-let private searchPickSetRoot (hit: NodeSearchResult) (model: VM) : VM * Effect list =
-    let node = model.graph.nodes.[hit.nodeId]
-    let zoomId =
-        if node.children.IsEmpty then
-            match Graph.tryFindParentAndIndex hit.nodeId model.graph with
-            | Some (parentId, _) -> parentId
-            | None -> hit.nodeId
-        else hit.nodeId
-    let siteMap, nextId =
-        ViewModel.buildSiteMapFrom model.graph zoomId model.nextSiteId
-    { model with
-        zoomRoot = Some zoomId
-        siteMap = siteMap
-        nextSiteId = nextId
-        selectedNodes = firstChildSelection siteMap zoomId
-        mode = Selecting }, []
 
 /// Op: Find (/) — pick target via search, then set it as the view root.
 let findRootOp (model: VM) : VM * Effect list =
-    Gambol.Client.SearchDialog.openSearchDialogWithOnPick searchPickSetRoot model
+    Gambol.Client.SearchDialog.openSearchDialogWithOnPick ViewModelSearch.searchPickSetRoot model
 
 /// Op: Retry pending server POST. Only valid from WaitingToRetry state.
 /// resetCount=true (manual click) restarts the attempt counter from 1.
