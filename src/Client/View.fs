@@ -327,14 +327,11 @@ let renderCssClassPrompt (model: VM) (dispatch: Msg -> unit) : unit =
     if isNull container then () else
 
     match model.mode with
-    | CssClassPrompt (_, initialValue) ->
+    | CssClassPrompt _ ->
         container.classList.add "amb-palette-open"
         let input = document.getElementById "css-class-prompt-input" :?> HTMLInputElement
         if not (isNull input) then
-            window.setTimeout((fun _ ->
-                input.focus()
-                input.value <- initialValue
-            ), 0) |> ignore
+            window.setTimeout((fun _ -> input.focus()), 0) |> ignore
             if not cssClassPromptWired.Value then
                 cssClassPromptWired.Value <- true
                 input.addEventListener("keydown", fun (ev: Event) ->
@@ -344,6 +341,9 @@ let renderCssClassPrompt (model: VM) (dispatch: Msg -> unit) : unit =
                     handleCssClassPromptKey ke dispatch)
     | _ ->
         container.classList.remove "amb-palette-open"
+        let input = document.getElementById "css-class-prompt-input" :?> HTMLInputElement
+        if not (isNull input) && input.value <> "" then
+            input.value <- ""
 
 // ---------------------------------------------------------------------------
 // status indicators

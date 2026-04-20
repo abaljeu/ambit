@@ -44,7 +44,7 @@ body {
 }
 .amb-last-key {
     font-size: 0.7rem;
-    color: #888;
+    color: #884;
     font-family: monospace;
 }
 .amb-undo-status {
@@ -79,7 +79,7 @@ body {
 .amb-node-guid {
     flex-shrink: 0;
     font-size: 0.7em;
-    color: #888;
+    color: #884;
     align-self: center;
 }
 .amb-view-root {
@@ -87,22 +87,12 @@ body {
     font-weight: bold;
     margin: 0.67em 0;
 }
-.amb-row.amb-selected {
-    background: #bde;
-}
-.amb-row.amb-focused {
-    background: #dca;
-}
 .amb-text, .amb-edit-input {
     flex: 1;
     padding: 0rem 0.3rem;
     min-height: 1em;
     font: inherit;
     font-size: inherit;
-}
-.amb-text {
-    background: #eeeeee80;
-    border: 1px transparent;
 }
 /* Editing chrome on contentEditable div.amb-text */
 .amb-text.amb-edit-input {
@@ -239,11 +229,21 @@ body {
     font-size: 1rem;
     cursor: pointer;
     border-radius: 6px;
-    border: 1px solid #888;
+    border: 1px solid #884;
     background: #f4f4f4;
 }
 .amb-blocking-alert-ok:hover {
-    background: #e8e8e8;
+    background: #e8e8e4;
+}
+.amb-row.amb-selected {
+    background: #8bbc;
+}
+.amb-row.amb-focused {
+    background: #bb8c;
+}
+.amb-text {
+    background: #eeeeee80;
+    border: 1px transparent;
 }
 
 /* user */
@@ -252,16 +252,18 @@ body {
 .h3 { font-size: 1.2rem }
 .b { font-weight: bold; }
 .i { font-style: italic; }
+.redletter { color: #f00; }
+.blueletter { color:#00f; }
 .check { text-decoration: line-through; }
-.blue { background-color: #bbf; }
-.green { background-color: #bfb; }
-.red { background-color: #fbb; }
-.orange { background-color: #fdb; }
-.purple { background-color: #dbf; }
-.cyan { background-color: #bff; }
-.yellow { background-color: #ffb; }
-.pink { background-color: #fcf; }
-.grey, .gray { background-color: #ddd; }
+.blue { background-color: #77f6; }
+.green { background-color: #7f76; }
+.red { background-color: #f776; }
+.orange { background-color: #fb66; }
+.purple { background-color: #a6f6; }
+.cyan { background-color: #bff6; }
+.yellow { background-color: #ff64 }
+.pink { background-color: #f996; }
+.grey, .gray { background-color: #8886; }
 
 .center { text-align: center; }
 .code { font-family: monospace; }

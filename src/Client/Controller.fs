@@ -332,13 +332,13 @@ let private editMoveDown () : Op option =
         | Some x -> Some (moveEditDownAtClientX x)
 
 let private handleBackspace () : Op option =
-    if readEditInputCursor () = 0 then
+    if readEditInputCursor () = 0 && readEditInputSelectionEnd () = 0 then
         Some (joinWithPrevious (readEditInputValue ()))
     else None
 
 let private handleDelete () : Op option =
     let v = readEditInputValue ()
-    if readEditInputCursor () = v.Length then
+    if readEditInputSelectionEnd () = v.Length && readEditInputCursor () = v.Length then
         Some (joinWithNext v)
     else None
 
