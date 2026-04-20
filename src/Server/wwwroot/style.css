@@ -164,6 +164,10 @@ body {
     background: #9f9;
     color: #161;
 }
+.amb-db-status.amb-db-mismatch {
+    background: #fa0;
+    color: #530;
+}
 .amb-db-status.amb-db-absent {
     background: #ddd;
     color: #444;

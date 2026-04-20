@@ -220,9 +220,6 @@ module Main =
         | Ok dataDir ->
 
             // ── Persistence backend: file (default) or PostgreSQL ───────────
-            let dbConnString =
-                config.["DB_CONNECTION_STRING"] |> Option.ofObj
-
             let mutable currentFileAgent: (string * FileAgent) option = None
             let fileAgentLock = obj ()
 
@@ -241,64 +238,16 @@ module Main =
                         newAgent
                 )
 
-            // DB agent is a single shared instance (one database, one handle name).
-            // Eagerly initialise at startup when DB_CONNECTION_STRING is set so that
-            // initSchema runs (and tables are created) before any request arrives.
-            let dbAgentCache: (string * DbAgent) option ref = ref None
-            let dbAgentLock = obj ()
-
-            let getOrCreateDbAgent (connStr: string) (filename: string) : DbAgent =
-                lock dbAgentLock (fun () ->
-                    match !dbAgentCache with
-                    | Some (name, agent) when name = filename -> agent
-                    | _ ->
-                        let agent = DbAgent.create connStr
-                        dbAgentCache.Value <- Some (filename, agent)
-                        agent
-                )
-
-            let decodeChangePayload (s: string) =
-                Thoth.Json.Newtonsoft.Decode.fromString Serialization.decodeChange s
-
-            /// Files are authority: if the DB projection or replay diverges, rebuild from disk.
-            let ensurePostgresMatchesFileAuthority (connStr: string) =
-                let fileSt = DocumentLoader.loadState dataDir "gambol"
-
-                let dbSt =
-                    Database.loadPersistedState connStr decodeChangePayload
-                    |> Async.AwaitTask
-                    |> Async.RunSynchronously
-
-                let graphOk = GraphProjection.graphEquals fileSt.graph dbSt.graph
-                let revOk = fileSt.revision.Value = dbSt.revision.Value
-
-                if not graphOk || not revOk then
-                    Database.rebuildFromDocumentFiles connStr dataDir "gambol"
-                    |> Async.AwaitTask
-                    |> Async.RunSynchronously
-
-                    eprintfn
-                        "Gambol: PostgreSQL rebuilt from file authority (graphOk=%b revOk=%b)."
-                        graphOk
-                        revOk
-
-            let resolvedDbConnString =
-                match dbConnString with
-                | None -> None
-                | Some connStr ->
-                    try
-                        Database.initSchema connStr |> Async.AwaitTask |> Async.RunSynchronously
-                        ensurePostgresMatchesFileAuthority connStr
-                        getOrCreateDbAgent connStr "gambol" |> ignore
-                        Some connStr
-                    with ex ->
-                        eprintfn "Gambol: DB_CONNECTION_STRING set but connection failed — falling back to file store. %s" ex.Message
-                        None
+            // (connStr * dbStatus) option  — status is "ok" | "mismatch" | "absent"
+            // Eagerly initialises schema and validates DB against file authority at startup.
+            let resolvedDbConnString : (string * string) option =
+                let dbConnString = config.["DB_CONNECTION_STRING"] |> Option.ofObj
+                DatabaseSetup.resolveDbConnection dbConnString dataDir
 
             let getHandle (filename: string) : AgentHandle =
                 match resolvedDbConnString with
-                | Some connStr ->
-                    AgentHandle.ofDb (getOrCreateDbAgent connStr filename)
+                | Some (connStr, _) ->
+                    AgentHandle.ofDb (DatabaseSetup.getOrCreateDbAgent connStr filename)
                 | None ->
                     AgentHandle.ofFile (getOrCreateFileAgent filename)
 
@@ -436,7 +385,7 @@ module Main =
                     "    <script>window.__BUILD__ = \"" + deployStamp () + "\"; window.__PAGE_BUILD__ = \"" + pageStamp
                     + "\"; window.__BUILD_TS__ = " + string (deployEpochSec ())
                     + "; window.__PAGE_BUILD_TS__ = " + string pageEpoch
-                    + "; window.__DB_PRESENT__ = " + (if resolvedDbConnString.IsSome then "true" else "false") + ";</script>\n</head>"
+                    + "; window.__DB_PRESENT__ = \"" + (resolvedDbConnString |> Option.map snd |> Option.defaultValue "absent") + "\";</script>\n</head>"
                 let withStamp = withAbsoluteAssets.Replace("</head>", snippet)
                 // Cache-bust Program.js so reload gets fresh assets when server redeploys
                 let programSrc =
