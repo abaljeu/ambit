@@ -2,12 +2,69 @@
 description: Gambol project conventions, F# stack, and agent workflow
 alwaysApply: true
 ---
+## 1. Think Before Coding
 
-# Project
+**Don't assume. Don't hide confusion. Surface tradeoffs.**
+
+Before implementing:
+- State your assumptions explicitly. If uncertain, ask.
+- If multiple interpretations exist, present them - don't pick silently.
+- If a simpler approach exists, say so. Push back when warranted.
+- If something is unclear, stop. Name what's confusing. Ask.
+
+## 2. Simplicity First
+
+**Minimum code that solves the problem. Nothing speculative.**
+
+- No features beyond what was asked.
+- No abstractions for single-use code.
+- No "flexibility" or "configurability" that wasn't requested.
+- No error handling for impossible scenarios.
+- If you write 200 lines and it could be 50, rewrite it.
+
+Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
+
+## 3. Surgical Changes
+
+**Touch only what you must. Clean up only your own mess.**
+
+When editing existing code:
+- Don't "improve" adjacent code, comments, or formatting.
+- Don't refactor things that aren't broken.
+- Match existing style, even if you'd do it differently.
+- If you notice unrelated dead code, mention it - don't delete it.
+
+When your changes create orphans:
+- Remove imports/variables/functions that YOUR changes made unused.
+- Don't remove pre-existing dead code unless asked.
+
+The test: Every changed line should trace directly to the user's request.
+
+## 4. Goal-Driven Execution
+
+**Define success criteria. Loop until verified.**
+
+Transform tasks into verifiable goals:
+- "Add validation" → "Write tests for invalid inputs, then make them pass"
+- "Fix the bug" → "Write a test that reproduces it, then make it pass"
+- "Refactor X" → "Ensure tests pass before and after"
+
+For multi-step tasks, state a brief plan:
+```
+1. [Step] → verify: [check]
+2. [Step] → verify: [check]
+3. [Step] → verify: [check]
+```
+
+Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
+
+---
+
+## 5. Project
 The aim is for robust, private, useful software.
 Full Stack Functional F# (ASP.net, and Fable client)
 
-## How to work
+## 6. How to work
 Include me in your work.  Tell me what you're thinking about.  Tell me what you did before running tools.
 Advise me if there is a better way to do something.
 If a request is unclear, just ask.
@@ -16,17 +73,16 @@ Do not websearch.  Tell me if you lack information.
 While in plan mode, any request for a change should be interpreted as a request to plan for the change; do not write detailed code then.
 
 Use Test Driven Development.  Write tests for new functionality.
-But we are not testing to the browser.  Any complex logic should be testable purely where possible.  (If it depends on ambiguous browser behavior, it isn't).
-
-Do NOT fix bugs unrelated to the task.  Do inform about those bugs.
+But we are not testing to the browser.  All logic should be in Shared/, if possible, based on library dependencies. 
+Any complex logic should be testable purely where possible.  (If it depends on ambiguous browser behavior, it isn't).
 
 ## Source code
-Use pure functional F#.  Don't use mutable.  If you must, ask.
-Don't embed anything more than tiny amounts of html, CSS or JS in F# code.
+Use pure functional F#.  Don't use mutable.
+Don't embed anything more than tiny amounts of html, CSS, JS or SQL in F# code.
 If you are looking for browser access functions, look at ./other/fable.browser.dom.fs.
 Use CRLF endings.
 100 characters or less per line.  Markdown is unlimited length.
-30 lines or less per function.
+40 lines or less per function.
 Follow language norms.
 
 TABs are not allowed in F#
