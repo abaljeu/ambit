@@ -82,6 +82,7 @@ Don't embed anything more than tiny amounts of html, CSS, JS or SQL in F# code.
 If you are looking for browser access functions, look at ./other/fable.browser.dom.fs.
 Use CRLF endings.
 100 characters or less per line.  Markdown is unlimited length.
+Markdown file paths should use [[wikilinks]], relative to project root if local files, not ``.
 40 lines or less per function.
 Follow language norms.
 

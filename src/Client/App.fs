@@ -255,8 +255,6 @@ let setupStaticDOM (dispatch: Msg -> unit) (getModel: unit -> VM) (_wakePolling:
         let path = window.location.pathname
         if path.StartsWith("/ambit") then "/ambit" else ""
 
-    setLastKeyDisplay None None
-
     let buildEl = document.getElementById "server-build-stamp"
     if isNull buildEl then () else
         let stampEpochSec = readBuildEpochSec ()

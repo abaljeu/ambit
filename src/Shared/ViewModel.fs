@@ -253,7 +253,9 @@ and VM = // the client state
       nextSiteId: SiteId
       zoomRoot: NodeId // display starting from here
       clipboard: ClipboardContent option
-      syncInfo: SyncInfo }
+      syncInfo: SyncInfo
+      lastSuccessfulKey: string   // key combo of the most recently handled command (e.g. "Ctrl+Z")
+      lastSuccessfulOp: string }  // display name of the most recently handled command (e.g. "Undo")
 
 /// Messages dispatched by async server callbacks (not directly caused by user input).
 type SystemMsg =

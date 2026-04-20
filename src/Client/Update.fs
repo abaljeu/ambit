@@ -38,7 +38,9 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
           nextSiteId = nextId
           zoomRoot = zoomRoot
           clipboard = None
-          syncInfo = SyncInfo.initial }, []
+          syncInfo = SyncInfo.initial
+          lastSuccessfulKey = ""
+          lastSuccessfulOp = "" }, []
 
     | AckSyncRisk ->
         { model with syncInfo = { model.syncInfo with syncRiskAcknowledged = true } }, []

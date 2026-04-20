@@ -21,7 +21,9 @@ let initialModel: VM =
       nextSiteId = Sid 1
       zoomRoot = initialGraph.root
       clipboard = None
-      syncInfo = SyncInfo.initial }
+      syncInfo = SyncInfo.initial
+      lastSuccessfulKey = ""
+      lastSuccessfulOp = "" }
 
 let dispatch, getModel, wakePolling, pollForRemoteChanges, recordActivity =
     createRuntime initialModel

@@ -56,26 +56,19 @@ let setClipboardData (ev: Event) (format: string) (data: string) : unit =
     let e = ev :?> ClipboardEvent
     e.clipboardData.setData (format, data) |> ignore
 
-/// Last successful operation for diagnostic display (preserved when key has no match).
-let private lastSuccessfulOp = ref None
+/// Wrap an op with diagnostic state: sets `lastSuccessfulKey` and `lastSuccessfulOp` on the
+/// returned VM. Call sites pass the key combo and command name; the VM update is automatic.
+let withDiagnostic (key: string) (opName: string) (f: VM -> VM * Effect list) : VM -> VM * Effect list =
+    fun model ->
+        let newModel, effects = f model
+        { newModel with lastSuccessfulKey = key; lastSuccessfulOp = opName }, effects
 
-/// Single function to set the last-key diagnostic. Never appends; always replaces. Preserves last successful operation when operation is None.
-let setLastKeyDisplay (key: string option) (operation: string option) : unit =
+/// Render the last-key diagnostic element from a key/op pair. Pure DOM formatter; no state.
+let setLastKeyDisplay (key: string) (operation: string) : unit =
     let el = document.getElementById "key-last-key"
-    if isNull el then () else
-    match operation with
-    | Some op -> lastSuccessfulOp.Value <- Some op
-    | None -> ()
-    let o = match operation with
-            | Some _ -> operation
-            | None -> lastSuccessfulOp.contents
-    let txt =
-        match key, o with
-        | None, None -> " | Last key: (none)"
-        | Some keyStr, None -> " | Last key: " + keyStr
-        | Some keyStr, Some op -> " | Last key: " + keyStr + " → " + op
-        | None, Some op -> " | Last key: Palette → " + op
-    el.textContent <- txt
+    if not (isNull el) then
+        let txt = " | Last key: " + key + " \u2192 " + operation
+        el.textContent <- txt
 
 [<Emit("navigator.clipboard.writeText($0).then(function(){ $1(); }).catch(function(e){ console.error('Clipboard write failed:', e); })")>]
 let private writeClipboardText (text: string) (continuation: unit -> unit) : unit = jsNative
@@ -129,15 +122,13 @@ let onPaste (ev: Event) (dispatch: Msg -> unit) : unit =
         | _ -> text
     ev.preventDefault()
     if pastedText <> "" then
-        setLastKeyDisplay (Some "Ctrl+V") (Some "Paste")
-        dispatch (ApplyOp (pasteNodesOp pastedText nodeIds))
+        dispatch (ApplyOp (withDiagnostic "Ctrl+V" "Paste" (pasteNodesOp pastedText nodeIds)))
 
 let private onCopyOrCut (model: VM) (ev: Event) (dispatch: Msg -> unit) (op: Op) (includeNodeIds: bool) : unit =
     match model.selectedNodes with
     | None -> ()
     | Some sel ->
         ev.preventDefault()
-        setLastKeyDisplay (Some (if includeNodeIds then "Ctrl+X" else "Ctrl+C")) (Some (if includeNodeIds then "Cut" else "Copy"))
         let parentNode = model.graph.nodes.[sel.range.parent.nodeId]
         let selectedIds =
             parentNode.children
@@ -153,7 +144,9 @@ let private onCopyOrCut (model: VM) (ev: Event) (dispatch: Msg -> unit) (op: Op)
                 |> List.map (fun (NodeId guid) -> guid.ToString())
                 |> String.concat "\n"
             setClipboardData ev nodeIdsFormat idsText
-        dispatch (ApplyOp op)
+        let keyLabel = if includeNodeIds then "Ctrl+X" else "Ctrl+C"
+        let opLabel  = if includeNodeIds then "Cut" else "Copy"
+        dispatch (ApplyOp (withDiagnostic keyLabel opLabel op))
 
 /// Handle a copy event: serialize the selected subtree to the clipboard.
 let onCopy (model: VM) (ev: Event) (dispatch: Msg -> unit) : unit =
@@ -396,12 +389,15 @@ type CommandEntry = {
     keyScope: CommandKeyScope
 }
 
-let commandRegistry : CommandEntry list =
-    [
+let editCommand = 
       { name = "Edit node"
         run = keyAlways startEditOp
         keys = [ "F2"; "Enter" ]
         keyScope = SelectionOnly }
+
+let commandRegistry : CommandEntry list =
+    [
+      editCommand
 
       { name = "Split at cursor"
         run = splitAtCursor
@@ -614,7 +610,7 @@ let commandRegistry : CommandEntry list =
         keys = [ "/" ; "Ctrl+f" ]
         keyScope = SelectionOrEditing }
 
-      { name = "Toggle class"
+      { name = "Edit classes"
         run = keyAlways openCssClassPromptOp
         keys = [ "Alt+C"; "." ]
         keyScope = SelectionOrEditing }
@@ -660,11 +656,9 @@ let paletteRunOp =
         | Some cmd ->
             match cmd.run () with
             | None ->
-                setLastKeyDisplay None None
                 { model with mode = ret }, []
             | Some op ->
-                setLastKeyDisplay None (Some cmd.name)
-                op { model with mode = ret })
+                withDiagnostic "" cmd.name op { model with mode = ret })
 
 let paletteSetQueryOp (q: string) =
     onPalette (fun _ _ ret model -> { model with mode = CommandPalette (q, 0, ret) }, [])
@@ -766,10 +760,9 @@ let private dispatchResolvedKey
     match resolved.handler () with
     | Some op ->
         keyEvent.preventDefault()
-        setLastKeyDisplay (Some keyStr) (Some resolved.commandName)
-        dispatch (ApplyOp op)
+        dispatch (ApplyOp (withDiagnostic keyStr resolved.commandName op))
     | None ->
-        setLastKeyDisplay (Some keyStr) None
+        ()
 
 /// Route keyboard handling by mode: palette overlay, CSS class prompt, editing field, or selection (hidden input).
 let handleKey (mode: Mode) (ke: KeyboardEvent) (dispatch: Msg -> unit) : unit =
@@ -788,8 +781,7 @@ let handleKey (mode: Mode) (ke: KeyboardEvent) (dispatch: Msg -> unit) : unit =
             | Editing _ -> editingKeyBindings
             | Selecting -> selectionKeyBindings
         match tryResolveFromNamed table ke with
-        | Error _ ->
-            setLastKeyDisplay (Some keyStr) None
+        | Error _ -> ()
         | Ok resolved ->
             dispatchResolvedKey keyStr resolved ke dispatch
 
@@ -797,8 +789,7 @@ let handleKey (mode: Mode) (ke: KeyboardEvent) (dispatch: Msg -> unit) : unit =
 let handlePaletteKey (keyEvent: KeyboardEvent) (dispatch: Msg -> unit) : unit =
     let keyStr = formatKeyCombo keyEvent
     match tryResolveFromNamed paletteKeyBindings keyEvent with
-    | Error _ ->
-        setLastKeyDisplay (Some keyStr) None
+    | Error _ -> ()
     | Ok resolved ->
         dispatchResolvedKey keyStr resolved keyEvent dispatch
 
@@ -806,7 +797,7 @@ let handlePaletteKey (keyEvent: KeyboardEvent) (dispatch: Msg -> unit) : unit =
 let handleCssClassPromptKey (keyEvent: KeyboardEvent) (dispatch: Msg -> unit) : unit =
     let keyStr = formatKeyCombo keyEvent
     match tryResolveFromNamed cssClassPromptKeyBindings keyEvent with
-    | Error _ -> setLastKeyDisplay (Some keyStr) None
+    | Error _ -> ()
     | Ok resolved -> dispatchResolvedKey keyStr resolved keyEvent dispatch
 
 

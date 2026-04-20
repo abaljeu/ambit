@@ -20,7 +20,9 @@ let private emptyModel (graph: Graph) : VM =
       nextSiteId = nextId
       zoomRoot = graph.root
       clipboard = None
-      syncInfo = SyncInfo.initial }
+      syncInfo = SyncInfo.initial
+      lastSuccessfulKey = ""
+      lastSuccessfulOp = "" }
 
 let private mkChange id = { id = id; changeId = System.Guid.NewGuid(); ops = [] }
 
@@ -126,8 +128,7 @@ let private emptyState () : State =
 let private stateWithNode text : State * NodeId =
     let graph0 = Graph.create ()
     let graph1, nodeId = Graph.newNode text graph0
-    let st = { graph = graph1; history = History.empty; revision = Revision 3 }
-    st, nodeId
+    { emptyState() with graph = graph1; revision = Revision 3 }, nodeId
 
 [<Fact>]
 let ``applyServerTail empty list returns Ok with state unchanged`` () =

@@ -35,18 +35,16 @@ let private handleSearchKey (ke: KeyboardEvent) (dispatch: Msg -> unit) : unit =
     let keyStr = formatKeyCombo ke
     let named label op =
         ke.preventDefault()
-        setLastKeyDisplay (Some keyStr) (Some label)
-        dispatch (ApplyOp op)
+        dispatch (ApplyOp (withDiagnostic keyStr label op))
     match keyStr with
     | "Escape"    -> named "Close search"           Gambol.Client.SearchDialog.closeSearchDialogOp
     | "ArrowUp"   -> named "Select previous result" Gambol.Client.SearchDialog.searchSelectUpOp
     | "ArrowDown" -> named "Select next result"     Gambol.Client.SearchDialog.searchSelectDownOp
     | "Enter"     ->
         ke.preventDefault()
-        setLastKeyDisplay (Some keyStr) (Some "Choose node")
-        dispatch (ApplyOp (fun m ->
-            Gambol.Client.SearchDialog.runSearchSelectionOp m.mode m))
-    | _           -> setLastKeyDisplay (Some keyStr) None
+        dispatch (ApplyOp (withDiagnostic keyStr "Choose node" (fun m ->
+            Gambol.Client.SearchDialog.runSearchSelectionOp m.mode m)))
+    | _           -> ()
 
 let private searchDialogWired = ref false
 

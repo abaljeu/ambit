@@ -309,17 +309,16 @@ let renderCommandPalette (model: VM) (dispatch: Msg -> unit) : unit =
                             | Some cmd ->
                                 match cmd.run () with
                                 | None ->
-                                    setLastKeyDisplay None None
                                     { m with mode = ret }, []
                                 | Some op ->
-                                    setLastKeyDisplay None (Some cmd.name)
-                                    op { m with mode = ret }
+                                    withDiagnostic "" cmd.name op { m with mode = ret }
                         | _ -> m, [])))
 
     | _ ->
         container.classList.remove "amb-palette-open"
 
 let private cssClassPromptWired = ref false
+let private cssClassPromptFilled = ref false
 
 /// Show or hide the CSS class prompt overlay. Uses in-app modal instead of window.prompt for iPad.
 let renderCssClassPrompt (model: VM) (dispatch: Msg -> unit) : unit =
@@ -327,10 +326,13 @@ let renderCssClassPrompt (model: VM) (dispatch: Msg -> unit) : unit =
     if isNull container then () else
 
     match model.mode with
-    | CssClassPrompt _ ->
+    | CssClassPrompt (_, initialValue) ->
         container.classList.add "amb-palette-open"
         let input = document.getElementById "css-class-prompt-input" :?> HTMLInputElement
         if not (isNull input) then
+            if not cssClassPromptFilled.Value then
+                cssClassPromptFilled.Value <- true
+                input.value <- initialValue
             window.setTimeout((fun _ -> input.focus()), 0) |> ignore
             if not cssClassPromptWired.Value then
                 cssClassPromptWired.Value <- true
@@ -341,6 +343,7 @@ let renderCssClassPrompt (model: VM) (dispatch: Msg -> unit) : unit =
                     handleCssClassPromptKey ke dispatch)
     | _ ->
         container.classList.remove "amb-palette-open"
+        cssClassPromptFilled.Value <- false
         let input = document.getElementById "css-class-prompt-input" :?> HTMLInputElement
         if not (isNull input) && input.value <> "" then
             input.value <- ""
@@ -428,10 +431,15 @@ let renderSyncRiskAlert (model: VM) (dispatch: Msg -> unit) : unit =
     else
         root.classList.remove "amb-blocking-alert-open"
 
+/// Update the last-key diagnostic display from the model.
+let renderDiagnostics (model: VM) : unit =
+    setLastKeyDisplay model.lastSuccessfulKey model.lastSuccessfulOp
+
 /// Status pill plus sync-risk overlay.
 let renderSyncChrome (model: VM) (dispatch: Msg -> unit) : unit =
     renderStatus model
     renderSyncRiskAlert model dispatch
+    renderDiagnostics model
 
 /// Update the undo/redo status indicator based on history.
 let renderUndoStatus (model: VM) : unit =

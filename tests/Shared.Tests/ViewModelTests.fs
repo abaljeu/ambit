@@ -48,7 +48,9 @@ let emptyModel (graph: Graph) : VM =
       nextSiteId = nextId
       zoomRoot = graph.root
       clipboard = None
-      syncInfo = SyncInfo.initial }
+      syncInfo = SyncInfo.initial
+      lastSuccessfulKey = ""
+      lastSuccessfulOp = "" }
 
 /// VM scoped to viewRoot as the display root (siteMap built from viewRoot).
 let emptyModelAt (graph: Graph) (viewRoot: NodeId) : VM =
@@ -63,7 +65,9 @@ let emptyModelAt (graph: Graph) (viewRoot: NodeId) : VM =
       nextSiteId = nextId
       zoomRoot = viewRoot
       clipboard = None
-      syncInfo = SyncInfo.initial }
+      syncInfo = SyncInfo.initial
+      lastSuccessfulKey = ""
+      lastSuccessfulOp = "" }
 
 /// VM with a selection covering [start, endd) in parentNodeId's children, focus at focusIdx.
 let modelWithSel (graph: Graph) (parentNodeId: NodeId) (start: int) (endd: int) (focusIdx: int) : VM =
