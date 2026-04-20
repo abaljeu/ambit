@@ -410,100 +410,7 @@ let deleteSelectionOp (model: VM) : VM * Effect list =
         if classified.IsEmpty then
             model, []
         else
-            // Partition by action for downstream planning.
-            let hardDeleteRoots =
-                classified
-                |> List.choose (fun item ->
-                    match item.action with
-                    | ViewModelDeleteOps.HardDeleteSubtreeInTrash -> Some item.child.id
-                    | _ -> None)
-                |> List.distinct
-
-            // Hard delete under TRASH: compute global subtree removals.
-            let hardDeleteOps =
-                hardDeleteRoots
-                |> List.collect (fun rootId ->
-                    let plan = ViewModelDeleteOps.hardDeleteSubtreePlan model.graph rootId
-                    plan
-                    |> Map.toList
-                    |> List.map (fun (parentId, indices) ->
-                        let node = model.graph.nodes.[parentId]
-                        let children = node.children
-                        let indicesSet = indices |> Set.ofList
-                        let remaining =
-                            children
-                            |> List.mapi (fun i c -> i, c)
-                            |> List.filter (fun (i, _) -> not (Set.contains i indicesSet))
-                            |> List.map snd
-                        Op.Replace(parentId, 0, children, remaining)))
-
-            // MoveToTrash: collect all owner nodes moving to trash from the same parent range.
-            // Use a single Remove op (the whole contiguous range) and a single Trash append op.
-            let moveToTrashItems =
-                classified
-                |> List.filter (fun item -> item.action = ViewModelDeleteOps.MoveToTrash)
-
-            let moveOps =
-                if moveToTrashItems.IsEmpty then []
-                else
-                    // All items share sel.range.parent.nodeId (range selection).
-                    let parentNode = model.graph.nodes.[sel.range.parent.nodeId]
-                    let selectedChildren =
-                        parentNode.children
-                        |> List.skip sel.range.start
-                        |> List.take (sel.range.endd - sel.range.start)
-                    // Filter to only the Owner-flagged children going to trash.
-                    let trashChildren =
-                        moveToTrashItems
-                        |> List.map (fun item -> { ref = Ownership.Owner; id = item.child.id })
-                    let removeOp =
-                        Op.Replace(sel.range.parent.nodeId, sel.range.start, selectedChildren, [])
-                    let trashNode = model.graph.nodes.[Graph.trashId]
-                    let newTrashChildren = trashNode.children @ trashChildren
-                    let trashOp =
-                        Op.Replace(Graph.trashId, trashNode.children.Length, [], trashChildren)
-                    [ removeOp; trashOp ]
-
-            // LocalDeleteWithPromotion: per-node (each has a distinct ref to promote).
-            let promoteOps =
-                classified
-                |> List.choose (fun item ->
-                    if item.action <> ViewModelDeleteOps.LocalDeleteWithPromotion then None
-                    else
-                        item.otherOccurrences
-                        |> List.tryFind (fun (_, _, child) -> child.ref = Ownership.Ref)
-                        |> Option.map (fun (promoParentId, promoIndex, _) ->
-                            let promoParent = model.graph.nodes.[promoParentId]
-                            let promoChildren = promoParent.children
-                            let newPromoChild = { promoChildren.[promoIndex] with ref = Ownership.Owner }
-                            let promoChildren' =
-                                promoChildren |> List.mapi (fun i c -> if i = promoIndex then newPromoChild else c)
-                            Op.Replace(promoParentId, 0, promoChildren, promoChildren')))
-
-            // For the owner-removal side of LocalDeleteWithPromotion and LocalDeleteRefOnly:
-            // all these items are in the same contiguous selection range, so one Replace removes them all.
-            let localRemoveItems =
-                classified
-                |> List.filter (fun item ->
-                    item.action = ViewModelDeleteOps.LocalDeleteWithPromotion ||
-                    item.action = ViewModelDeleteOps.LocalDeleteRefOnly)
-
-            let localRefOps =
-                if localRemoveItems.IsEmpty then []
-                else
-                    let parentNode = model.graph.nodes.[sel.range.parent.nodeId]
-                    let selectedChildren =
-                        parentNode.children
-                        |> List.skip sel.range.start
-                        |> List.take (sel.range.endd - sel.range.start)
-                    [ Op.Replace(sel.range.parent.nodeId, sel.range.start, selectedChildren, []) ]
-
-            let allOps =
-                hardDeleteOps
-                @ moveOps
-                @ promoteOps
-                @ localRefOps
-                |> List.distinct
+            let allOps = ViewModelDeleteOps.planDeleteOps model.graph sel.range classified
 
             if allOps.IsEmpty then
                 model, []
@@ -635,8 +542,7 @@ let zoomOutOp (model: VM) : VM * Effect list =
         let newZoomRoot =
                 match Graph.tryFindParentAndIndex currentZoomRoot model'.graph with
                 | None -> currentZoomRoot
-                | Some (parentId, _) ->
-                    if parentId = model'.graph.root then currentZoomRoot else parentId
+                | Some (parentId, _) -> parentId
         let siteMap, nextId =
             ViewModel.buildSiteMapFrom model'.graph newZoomRoot model'.nextSiteId
         { model' with

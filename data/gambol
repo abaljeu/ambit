@@ -167,11 +167,11 @@ Third itemuu
 	Complexity Argument
 	Each major step in the proof must include a short justification explaining why the step is valid (e.g., why a constructed preference structure forces triangle formation).
 -> #n1
-ousthaohusohtusoseuoestueonusaoehutsaoesuouhoethuoeshuansothunsothunsotehunsoteh
-uetetetenoshuethusnoteuhonstuhotuesaunteounsthoauthount
 
 The roof must clearly separate the two parts of the coNP-completeness argument:u The roof must clearly separate the two parts of the coNP-completeness argument:u. 
 	fist
 #TRASH Trash
-	outlier
-	----
+	{.pink}outlier
+	{.red}----
+	{.yellow}ousthaohusohtusoseuoestueonusaoehutsaoesuouhoethuoeshuansothunsothunsotehunsoteh
+	uetetetenoshuethusnoteuhonstuhotuesaunteounsthoauthount
