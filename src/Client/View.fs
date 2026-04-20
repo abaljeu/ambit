@@ -383,6 +383,15 @@ let renderStatus (model: VM) : unit =
             el.textContent <- "Data changed on server \u2014 click to reload"
             el.className <- "amb-sync-status amb-stale"
 
+    let dbEl = document.getElementById "db-status"
+    if not (isNull dbEl) then
+        if readDbPresent () then
+            dbEl.textContent <- "db"
+            dbEl.className <- "amb-db-status amb-db-present"
+        else
+            dbEl.textContent <- ""
+            dbEl.className <- "amb-db-status"
+
 let private syncRiskAlertWired = ref false
 
 /// Full-screen sync risk notice (ServerRejected / CodeOutdated / DataOutdated) until acknowledged.

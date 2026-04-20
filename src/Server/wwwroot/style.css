@@ -29,7 +29,7 @@ body {
     flex-shrink: 0;
 }
 /* Command button bar: 9 buttons at ~30px each + gaps ≈ 330px.
-   Fits 480px phones but may need flex-wrap or smaller padding at 320px. */
+   Fits 480px phone */
 .amb-command-buttons {
     display: flex;
     align-items: center;
@@ -50,13 +50,14 @@ body {
     font-family: monospace;
 }
 .amb-command-button {
+    font-family: "Segoe UI Symbol", "Apple Symbols", "Noto Sans Symbols", sans-serif;
     font-weight: 600;
     padding: 0.15rem 0.5rem;
     border-radius: 0.2rem;
     border: 1px solid #bbb;
     cursor: pointer;
     color: #444;
-    background: #ddd;
+    background: #6dd;
     user-select: none;
 }
 .amb-command-button:hover {
@@ -153,6 +154,15 @@ body {
 .amb-sync-status.amb-stale {
     background: #39f;
     color: #fff;
+}
+.amb-db-status {
+    padding: 0.2rem 0.4rem;
+    border-radius: 0.2rem;
+    font-size: 0.75em;
+}
+.amb-db-status.amb-db-present {
+    background: #9f9;
+    color: #161;
 }
 
 /* ---------------------------------------------------------------------------

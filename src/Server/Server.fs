@@ -429,7 +429,8 @@ module Main =
                 let snippet =
                     "    <script>window.__BUILD__ = \"" + deployStamp () + "\"; window.__PAGE_BUILD__ = \"" + pageStamp
                     + "\"; window.__BUILD_TS__ = " + string (deployEpochSec ())
-                    + "; window.__PAGE_BUILD_TS__ = " + string pageEpoch + ";</script>\n</head>"
+                    + "; window.__PAGE_BUILD_TS__ = " + string pageEpoch
+                    + "; window.__DB_PRESENT__ = " + (if dbConnString.IsSome then "true" else "false") + ";</script>\n</head>"
                 let withStamp = withAbsoluteAssets.Replace("</head>", snippet)
                 // Cache-bust Program.js so reload gets fresh assets when server redeploys
                 let programSrc =

@@ -289,6 +289,9 @@ let epochSecToTorontoString (epochSec: int) : string = jsNative
 [<Emit("(typeof window.__PAGE_BUILD_TS__ !== 'undefined' ? window.__PAGE_BUILD_TS__ : 0)")>]
 let readPageBuildEpochSec () : int = jsNative
 
+[<Emit("(typeof window.__DB_PRESENT__ !== 'undefined' ? window.__DB_PRESENT__ : false)")>]
+let readDbPresent () : bool = jsNative
+
 let sessionGet (key: string) : string =
     window.sessionStorage.getItem key
 

@@ -1,0 +1,25 @@
+Commands executed into Azure
+
+$ az webapp show --resource-group Amble_group --name Amble --query "{location:location, outboundIps:outboundIpAddresses}" -o json
+{
+  "location": "Canada Central",
+  "outboundIps": "4.248.233.23,20.48.202.164"
+}
+
+az postgres flexible-server create \
+  --resource-group Amble_group \
+  --name gambol-pg \
+  --location "Canada Central" \
+  --admin-user gambol_admin \
+  --admin-password "YOUR_PASSWORD_HERE" \
+  --sku-name Standard_B1ms \
+  --tier Burstable \
+  --storage-size 32 \
+  --version 17 \
+  --public-access 0.0.0.0
+
+  az postgres flexible-server db create \
+  --resource-group Amble_group \
+  --server-name gambol-pg \
+  --database-name gambol
+  
