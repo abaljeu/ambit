@@ -254,8 +254,6 @@ let setupStaticDOM (dispatch: Msg -> unit) (getModel: unit -> VM) (_wakePolling:
     let basePath =
         let path = window.location.pathname
         if path.StartsWith("/ambit") then "/ambit" else ""
-    let logoutLink = document.getElementById "logout-link" :?> HTMLAnchorElement
-    logoutLink.setAttribute("href", basePath + "/logout")
 
     setLastKeyDisplay None None
 
