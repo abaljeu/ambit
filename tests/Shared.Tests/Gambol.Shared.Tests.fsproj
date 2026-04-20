@@ -17,6 +17,7 @@
     <Compile Include="SerializationTests.fs" />
     <Compile Include="SearchTests.fs" />
     <Compile Include="ViewModelTests.fs" />
+    <Compile Include="DeleteOpsTests.fs" />
     <Compile Include="SyncLogicTests.fs" />
     <Compile Include="SyncPlannerTests.fs" />
     <Compile Include="PasteTests.fs" />
