@@ -1,9 +1,26 @@
 # Future Overview
 
 Summary of committed architectural directions for Gambol, distilled from the planning documents in this folder. Each section identifies the high-level decision and the document(s) that elaborate it.
+[x] = every aspect of this item is competed.
 
+## 0. PostgreSQL as the persistence back-end
+
+
+**Decision:** Move from flat-file-only storage to PostgreSQL with a normalized relational schema that mirrors the domain model (`Node`, child edges, `Ownership`), not the outline file syntax.
+
+**Key sub-decisions:**
+
+- [x] **File authority (dual-write period):** During migration the on-disk snapshot + `.meta` + `.log` files remain the source of truth. The database is a *projection*. The `nodes` and `graph` tables are updated in step with every file write — not derived by replaying the `changes` log. At startup the file-derived `Graph` is compared to the DB; on mismatch the DB is rebuilt from files. The goal during this period is zero mismatch errors; any mismatch indicates a bug in the write path that must be fixed before proceeding to Step 2.
+- [x] **No outline blobs in SQL:** The line-oriented snapshot format lives only in `Snapshot.fs`. The SQL schema stores domain records: `nodes`, `node_children`, a singleton `graph` row, and an append-only `changes` table.
+- [x] **Change log parity:** Each row in `changes` corresponds to one line in `gambol.log`, keeping the two audit trails aligned.
+
+- [ ] Add DB presence status to the status line.  Init at load.
+
+*Sources:* [[doc/future/persistence-vs-domain-model.md]] (canonical schema spec), [[doc/future/postgres-migration.md]] (operational summary), [[doc/future/database-migration.md]] (Azure setup notes), [[doc/future/postgres-environments.md]] (dev-to-prod environment management).
+
+- 
 ---
-## 0. Establish a PostgreSQL server
+## 1. Establish a PostgreSQL server
 
 **Decision:** Before migration phases, provision a production PostgreSQL host and wire the app to it via `DB_CONNECTION_STRING`.
 
@@ -22,19 +39,6 @@ This pre-step does not change merge/sync architecture. It only establishes the d
 *Source:* [[doc/future/postgres-environments.md]] (Decision now, section 3 setup, section 8 checklist, section 9 cost management).
 
 
-## 1. PostgreSQL as the persistence back-end
-
-(This has been coded but the database server doesn't exist yet.)
-
-**Decision:** Move from flat-file-only storage to PostgreSQL with a normalized relational schema that mirrors the domain model (`Node`, child edges, `Ownership`), not the outline file syntax.
-
-**Key sub-decisions:**
-
-- **File authority (dual-write period):** During migration the on-disk snapshot + `.meta` + `.log` files remain the source of truth. The database is a *projection*. The `nodes` and `graph` tables are updated in step with every file write — not derived by replaying the `changes` log. At startup the file-derived `Graph` is compared to the DB; on mismatch the DB is rebuilt from files. The goal during this period is zero mismatch errors; any mismatch indicates a bug in the write path that must be fixed before proceeding to Step 2.
-- **No outline blobs in SQL:** The line-oriented snapshot format lives only in `Snapshot.fs`. The SQL schema stores domain records: `nodes`, `node_children`, a singleton `graph` row, and an append-only `changes` table.
-- **Change log parity:** Each row in `changes` corresponds to one line in `gambol.log`, keeping the two audit trails aligned.
-
-*Sources:* [[doc/future/persistence-vs-domain-model.md]] (canonical schema spec), [[doc/future/postgres-migration.md]] (operational summary), [[doc/future/database-migration.md]] (Azure setup notes), [[doc/future/postgres-environments.md]] (dev-to-prod environment management).
 
 ---
 

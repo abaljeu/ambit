@@ -257,12 +257,6 @@ let setupStaticDOM (dispatch: Msg -> unit) (getModel: unit -> VM) (_wakePolling:
     let logoutLink = document.getElementById "logout-link" :?> HTMLAnchorElement
     logoutLink.setAttribute("href", basePath + "/logout")
 
-    let reloadBtn = document.getElementById "reload-btn"
-    reloadBtn.setAttribute("title", "Full reload (useful if Page is old or assets are cached)")
-    reloadBtn.addEventListener("click", fun _ ->
-        let path = window.location.pathname
-        window.location.assign(path + "?bust=" + string (nowMs ())))
-
     setLastKeyDisplay None None
 
     let buildEl = document.getElementById "server-build-stamp"
