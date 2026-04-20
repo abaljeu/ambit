@@ -221,7 +221,7 @@ module Main =
 
             // ── Persistence backend: file (default) or PostgreSQL ───────────
             let dbConnString =
-                Environment.GetEnvironmentVariable("DB_CONNECTION_STRING") |> Option.ofObj
+                config.["DB_CONNECTION_STRING"] |> Option.ofObj
 
             let mutable currentFileAgent: (string * FileAgent) option = None
             let fileAgentLock = obj ()
@@ -282,15 +282,21 @@ module Main =
                         graphOk
                         revOk
 
-            match dbConnString with
-            | Some connStr ->
-                Database.initSchema connStr |> Async.AwaitTask |> Async.RunSynchronously
-                ensurePostgresMatchesFileAuthority connStr
-                getOrCreateDbAgent connStr "gambol" |> ignore
-            | None -> ()
+            let resolvedDbConnString =
+                match dbConnString with
+                | None -> None
+                | Some connStr ->
+                    try
+                        Database.initSchema connStr |> Async.AwaitTask |> Async.RunSynchronously
+                        ensurePostgresMatchesFileAuthority connStr
+                        getOrCreateDbAgent connStr "gambol" |> ignore
+                        Some connStr
+                    with ex ->
+                        eprintfn "Gambol: DB_CONNECTION_STRING set but connection failed — falling back to file store. %s" ex.Message
+                        None
 
             let getHandle (filename: string) : AgentHandle =
-                match dbConnString with
+                match resolvedDbConnString with
                 | Some connStr ->
                     AgentHandle.ofDb (getOrCreateDbAgent connStr filename)
                 | None ->
@@ -430,7 +436,7 @@ module Main =
                     "    <script>window.__BUILD__ = \"" + deployStamp () + "\"; window.__PAGE_BUILD__ = \"" + pageStamp
                     + "\"; window.__BUILD_TS__ = " + string (deployEpochSec ())
                     + "; window.__PAGE_BUILD_TS__ = " + string pageEpoch
-                    + "; window.__DB_PRESENT__ = " + (if dbConnString.IsSome then "true" else "false") + ";</script>\n</head>"
+                    + "; window.__DB_PRESENT__ = " + (if resolvedDbConnString.IsSome then "true" else "false") + ";</script>\n</head>"
                 let withStamp = withAbsoluteAssets.Replace("</head>", snippet)
                 // Cache-bust Program.js so reload gets fresh assets when server redeploys
                 let programSrc =

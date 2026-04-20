@@ -14,7 +14,7 @@ Summary of committed architectural directions for Gambol, distilled from the pla
 - [x] **No outline blobs in SQL:** The line-oriented snapshot format lives only in `Snapshot.fs`. The SQL schema stores domain records: `nodes`, `node_children`, a singleton `graph` row, and an append-only `changes` table.
 - [x] **Change log parity:** Each row in `changes` corresponds to one line in `gambol.log`, keeping the two audit trails aligned.
 
-- [ ] Add DB presence status to the status line.  Init at load.
+- [ ] Add DB presence status next to sync on the status line.  Init at load.
 
 *Sources:* [[doc/future/persistence-vs-domain-model.md]] (canonical schema spec), [[doc/future/postgres-migration.md]] (operational summary), [[doc/future/database-migration.md]] (Azure setup notes), [[doc/future/postgres-environments.md]] (dev-to-prod environment management).
 

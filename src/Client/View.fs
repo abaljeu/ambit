@@ -386,11 +386,11 @@ let renderStatus (model: VM) : unit =
     let dbEl = document.getElementById "db-status"
     if not (isNull dbEl) then
         if readDbPresent () then
-            dbEl.textContent <- "db"
+            dbEl.textContent <- "DB"
             dbEl.className <- "amb-db-status amb-db-present"
         else
-            dbEl.textContent <- ""
-            dbEl.className <- "amb-db-status"
+            dbEl.textContent <- "No DB"
+            dbEl.className <- "amb-db-status amb-db-absent"
 
 let private syncRiskAlertWired = ref false
 
