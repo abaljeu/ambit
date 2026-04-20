@@ -34,6 +34,15 @@ let private rootRange (graph: Graph) (start: int) (endd: int) : SiteNodeRange =
     let siteMap, _ = buildSiteMap graph
     { parent = siteMap.entries.[siteMap.rootId]; start = start; endd = endd }
 
+/// SiteNodeRange for TRASH's children [start, endd).
+let private trashRange (graph: Graph) (start: int) (endd: int) : SiteNodeRange =
+    let siteMap, _ = buildSiteMap graph
+    let trashEntry =
+        siteMap.entries
+        |> Map.values
+        |> Seq.find (fun e -> e.nodeId = Graph.trashId)
+    { parent = trashEntry; start = start; endd = endd }
+
 // ---------------------------------------------------------------------------
 // Multi-sibling MoveToTrash
 // ---------------------------------------------------------------------------
@@ -144,3 +153,60 @@ let ``planDeleteOps single node MoveToTrash still works`` () =
         Assert.True(trashChildren |> List.exists (fun c -> c.id = a), "a should be under TRASH")
         let rootChildren = s.graph.nodes.[s.graph.root].children
         Assert.False(rootChildren |> List.exists (fun c -> c.id = a), "a should not be under root")
+
+// ---------------------------------------------------------------------------
+// Hard-delete from TRASH (permanent deletion)
+// ---------------------------------------------------------------------------
+
+[<Fact>]
+let ``planDeleteOps single item hard-delete from TRASH: item removed permanently`` () =
+    // Put a single node under TRASH directly, then hard-delete it.
+    let g0 = Graph.create ()
+    let g1, ids = ModelBuilder.createNodes [ "a" ] g0
+    let a = ids.[0]
+    let g2 =
+        let trashLen = g1.nodes.[Graph.trashId].children.Length
+        Graph.replace Graph.trashId trashLen [] [ { ref = Ownership.Owner; id = a } ] g1
+        |> ModelBuilder.requireOk "trash->[a]"
+    let range = trashRange g2 0 1
+    let classified = ViewModelDeleteOps.classifyDeleteForSelection g2 range
+    Assert.Equal(1, classified.Length)
+    Assert.Equal(ViewModelDeleteOps.HardDeleteSubtreeInTrash, classified.[0].action)
+    let ops = ViewModelDeleteOps.planDeleteOps g2 range classified
+    let change = { id = 0; changeId = System.Guid.NewGuid(); ops = ops }
+    let result = History.applyChange change (stateOf g2)
+    match result with
+    | ApplyResult.Invalid(_, msg) -> Assert.True(false, $"Invalid: {msg}")
+    | ApplyResult.Unchanged _ -> Assert.True(false, "Expected Changed, not Unchanged")
+    | ApplyResult.Changed s ->
+        let trashChildren = s.graph.nodes.[Graph.trashId].children
+        Assert.False(trashChildren |> List.exists (fun c -> c.id = a), "a should be gone from TRASH")
+
+[<Fact>]
+let ``planDeleteOps multi-item hard-delete from TRASH: both items removed permanently`` () =
+    // Put two nodes under TRASH, then hard-delete both via multi-selection.
+    let g0 = Graph.create ()
+    let g1, ids = ModelBuilder.createNodes [ "a"; "b" ] g0
+    let a = ids.[0]
+    let b = ids.[1]
+    let g2 =
+        let trashLen = g1.nodes.[Graph.trashId].children.Length
+        Graph.replace Graph.trashId trashLen []
+            [ { ref = Ownership.Owner; id = a }; { ref = Ownership.Owner; id = b } ] g1
+        |> ModelBuilder.requireOk "trash->[a,b]"
+    let range = trashRange g2 0 2
+    let classified = ViewModelDeleteOps.classifyDeleteForSelection g2 range
+    Assert.Equal(2, classified.Length)
+    Assert.True(
+        classified |> List.forall (fun c -> c.action = ViewModelDeleteOps.HardDeleteSubtreeInTrash),
+        "all items should be HardDeleteSubtreeInTrash")
+    let ops = ViewModelDeleteOps.planDeleteOps g2 range classified
+    let change = { id = 0; changeId = System.Guid.NewGuid(); ops = ops }
+    let result = History.applyChange change (stateOf g2)
+    match result with
+    | ApplyResult.Invalid(_, msg) -> Assert.True(false, $"Invalid: {msg}")
+    | ApplyResult.Unchanged _ -> Assert.True(false, "Expected Changed, not Unchanged")
+    | ApplyResult.Changed s ->
+        let trashChildren = s.graph.nodes.[Graph.trashId].children
+        Assert.False(trashChildren |> List.exists (fun c -> c.id = a), "a should be gone from TRASH")
+        Assert.False(trashChildren |> List.exists (fun c -> c.id = b), "b should be gone from TRASH")

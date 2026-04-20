@@ -146,7 +146,7 @@ Third itemuu
 	aoeu 
 	aoeu 
 	-> #n1
-#n2 extra requirements
+#n2 {.red}extra requirements
 	Logical Reasoning Requirement
 	Structured Proof Formatting Requirement
 	okay so what we need to do is

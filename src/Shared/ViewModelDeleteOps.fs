@@ -151,8 +151,10 @@ module ViewModelDeleteOps =
             [ Op.Replace(Graph.trashId, trashLen, [], owners) ]
 
     /// Build hard-delete ops for HardDeleteSubtreeInTrash items.
+    /// selectionParentId is excluded from the plan because spanRemove already removes those entries.
     let private buildHardDeleteOps
         (graph: Graph)
+        (selectionParentId: NodeId)
         (classified: ClassifiedDelete list)
         : Op list
         =
@@ -165,15 +167,16 @@ module ViewModelDeleteOps =
         |> List.collect (fun rootId ->
             hardDeleteSubtreePlan graph rootId
             |> Map.toList
-            |> List.map (fun (parentId, indices) ->
-                let children = graph.nodes.[parentId].children
+            |> List.filter (fun (pid, _) -> pid <> selectionParentId)
+            |> List.map (fun (pid, indices) ->
+                let children = graph.nodes.[pid].children
                 let indicesSet = Set.ofList indices
                 let remaining =
                     children
                     |> List.mapi (fun i c -> i, c)
                     |> List.filter (fun (i, _) -> not (Set.contains i indicesSet))
                     |> List.map snd
-                Op.Replace(parentId, 0, children, remaining)))
+                Op.Replace(pid, 0, children, remaining)))
 
     /// Build the complete ordered op list for a classified delete gesture.
     /// Precondition: classified is non-empty (caller checks classifyDeleteForSelection <> []).
@@ -191,5 +194,5 @@ module ViewModelDeleteOps =
         let promoteOps = buildPromoteOps graph classified
         let spanRemove = Op.Replace(parentId, range.start, selectedChildren, [])
         let trashOps = buildTrashOp graph classified
-        let hardDeleteOps = buildHardDeleteOps graph classified
+        let hardDeleteOps = buildHardDeleteOps graph parentId classified
         promoteOps @ [ spanRemove ] @ trashOps @ hardDeleteOps
