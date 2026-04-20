@@ -28,7 +28,9 @@ body {
     border-bottom: 1px solid #bbb;
     flex-shrink: 0;
 }
-.amb-header-row1 {
+/* Command button bar: 9 buttons at ~30px each + gaps ≈ 330px.
+   Fits 480px phones but may need flex-wrap or smaller padding at 320px. */
+.amb-command-buttons {
     display: flex;
     align-items: center;
     gap: 0.5rem;
@@ -44,11 +46,32 @@ body {
 }
 .amb-last-key {
     font-size: 0.7rem;
-    color: #884;
+    color: #849;
     font-family: monospace;
 }
-.amb-undo-status {
-    font-size: 0.8rem;
+.amb-command-button {
+    font-weight: 600;
+    padding: 0.15rem 0.5rem;
+    border-radius: 0.2rem;
+    border: 1px solid #bbb;
+    cursor: pointer;
+    color: #444;
+    background: #ddd;
+    user-select: none;
+}
+.amb-command-button:hover {
+    background: #c8c8c8;
+    border-color: #999;
+}
+.amb-command-button.amb-inactive {
+    cursor: default;
+    color: #aaa;
+    border-color: transparent;
+    background: transparent;
+}
+.amb-command-button.amb-inactive:hover {
+    background: transparent;
+    border-color: transparent;
 }
 .amb-row {
     display: flex;

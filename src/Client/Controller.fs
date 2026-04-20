@@ -67,7 +67,7 @@ let withDiagnostic (key: string) (opName: string) (f: VM -> VM * Effect list) : 
 let setLastKeyDisplay (key: string) (operation: string) : unit =
     let el = document.getElementById "key-last-key"
     if not (isNull el) then
-        let txt = " | Last key: " + key + " \u2192 " + operation
+        let txt = "<"+key + "> \u2192 " + operation
         el.textContent <- txt
 
 [<Emit("navigator.clipboard.writeText($0).then(function(){ $1(); }).catch(function(e){ console.error('Clipboard write failed:', e); })")>]
@@ -474,12 +474,12 @@ let commandRegistry : CommandEntry list =
         keys = [ "ArrowDown" ]
         keyScope = EditingOnly }
 
-      { name = "Move selection up"
+      { name = "Move Up"
         run = keyAlways moveNodeUpOp
         keys = [ "Alt+ArrowUp"; "Ctrl+ArrowUp" ]
         keyScope = SelectionOrEditing }
 
-      { name = "Move selection down"
+      { name = "Move Down"
         run = keyAlways moveNodeDownOp
         keys = [ "Alt+ArrowDown"; "Ctrl+ArrowDown" ]
         keyScope = SelectionOrEditing }

@@ -441,17 +441,20 @@ let renderSyncChrome (model: VM) (dispatch: Msg -> unit) : unit =
     renderSyncRiskAlert model dispatch
     renderDiagnostics model
 
-/// Update the undo/redo status indicator based on history.
+/// Update the undo/redo status indicators based on history.
 let renderUndoStatus (model: VM) : unit =
-    let el = document.getElementById "undo-status"
-    if not (isNull el) then
-        let canUndo = not model.history.past.IsEmpty
-        let canRedo = not model.history.future.IsEmpty
-        let undoText = if canUndo then "\u21B6" else "\u2205"           // ↶ or ∅
-        let redoText = if canRedo then "\u21B7" else "\u2205"           // ↷ or ∅
-        el.textContent <- $"{undoText} {redoText}"
-        el.className <- if canUndo || canRedo then "amb-undo-status amb-active" 
-                        else "amb-undo-status"
+    let canUndo = not model.history.past.IsEmpty
+    let canRedo = not model.history.future.IsEmpty
+    let undoEl = document.getElementById "undo-command"
+    if not (isNull undoEl) then
+        undoEl.textContent <- if canUndo then "\u21B6" else "\u2205"   // ↶ or ∅
+        undoEl.className <- if canUndo then "amb-command-button"
+                            else "amb-command-button amb-inactive"
+    let redoEl = document.getElementById "redo-command"
+    if not (isNull redoEl) then
+        redoEl.textContent <- if canRedo then "\u21B7" else "\u2205"   // ↷ or ∅
+        redoEl.className <- if canRedo then "amb-command-button"
+                            else "amb-command-button amb-inactive"
 
 // ---------------------------------------------------------------------------
 // Full rebuild (StateLoaded)
