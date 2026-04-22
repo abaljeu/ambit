@@ -194,6 +194,12 @@ body {
 .amb-palette.amb-palette-open {
     display: block;
 }
+.amb-palette-context {
+    padding: 8px 14px 4px;
+    font-size: 0.85rem;
+    color: #555;
+    border-bottom: 1px solid #eee;
+}
 .amb-palette-input {
     width: 100%;
     box-sizing: border-box;

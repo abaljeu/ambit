@@ -54,10 +54,12 @@ let renderSearchDialog (model: VM) (dispatch: Msg -> unit) : unit =
     if isNull container then () else
 
     match model.mode with
-    | SearchDialog (q, selectedIndex, _, _) ->
+    | SearchDialog s ->
         container.classList.add "amb-palette-open"
+        let ctx = document.getElementById "search-dialog-context"
+        if not (isNull ctx) then ctx.textContent <- s.invokedCommand
         let input = document.getElementById "search-dialog-input" :?> HTMLInputElement
-        if input.value <> q then input.value <- q
+        if input.value <> s.query then input.value <- s.query
         window.setTimeout((fun _ -> input.focus()), 0) |> ignore
         let items =
             Gambol.Client.SearchDialog.currentSearchResults model
@@ -65,7 +67,7 @@ let renderSearchDialog (model: VM) (dispatch: Msg -> unit) : unit =
                 match hit.name with
                 | Some name -> $"${name}  {hit.text}"
                 | None -> hit.text)
-        renderSearchResults container items selectedIndex
+        renderSearchResults container items s.selectedIndex
 
         if not searchDialogWired.Value then
             searchDialogWired.Value <- true
@@ -91,9 +93,9 @@ let renderSearchDialog (model: VM) (dispatch: Msg -> unit) : unit =
                         if System.Object.ReferenceEquals(lis.[i], li) then idx <- i
                     dispatch (ApplyOp (fun m ->
                         match m.mode with
-                        | SearchDialog (q, _, ret, onPick) ->
+                        | SearchDialog s ->
                             Gambol.Client.SearchDialog.runSearchSelectionOp
-                                (SearchDialog (q, idx, ret, onPick)) m
+                                (SearchDialog { s with selectedIndex = idx }) m
                         | _ -> m, [])))
     | _ ->
         container.classList.remove "amb-palette-open"

@@ -25,7 +25,7 @@ let handleEsc (model: VM) : VM * Effect list =
     match model.mode with
     | Editing _ -> commitIfEditing model
     | Selecting -> collapseToFocus model, []
-    | CommandPalette _ | SearchDialog (_, _, _, _) | CssClassPrompt _ ->
+    | CommandPalette _ | SearchDialog _ | CssClassPrompt _ ->
         model, []  // handled by close modal operations
 
 /// Op: Copy the focused subtree to the internal clipboard.
@@ -249,7 +249,7 @@ let moveNodesOp (model: VM) : VM * Effect list =
     match model.selectedNodes with
     | None -> model, []
     | Some _ ->
-        Gambol.Client.SearchDialog.openSearchDialogWithOnPick searchPickMoveAfterHit model
+        Gambol.Client.SearchDialog.openSearchDialogWithOnPick "Move Selected" searchPickMoveAfterHit model
 
 /// Op: Ctrl+Home — move selected objects to first slot under view root; selection follows.
 let moveSelectionToViewRootStartOp (model: VM) : VM * Effect list =
@@ -554,7 +554,7 @@ let zoomOutOp (model: VM) : VM * Effect list =
 
 /// Op: Find (/) — pick target via search, then set it as the view root.
 let findRootOp (model: VM) : VM * Effect list =
-    Gambol.Client.SearchDialog.openSearchDialogWithOnPick ViewModelSearch.searchPickSetRoot model
+    Gambol.Client.SearchDialog.openSearchDialogWithOnPick "Find" ViewModelSearch.searchPickSetRoot model
 
 /// Op: Retry pending server POST. Only valid from WaitingToRetry state.
 /// resetCount=true (manual click) restarts the attempt counter from 1.
