@@ -235,12 +235,16 @@ type Mode =
     /// `caret` placement after `#edit-input` receives focus (see `manageFocus`).
     | Editing of originalText: string * caret: EditCaret
     | CommandPalette of query: string * selectedCommand: int * returnTo: Mode
-    | SearchDialog of
-        query: string *
-        selectedIndex: int *
-        returnTo: Mode *
-        onPick: (NodeSearchResult -> VM -> VM * Effect list)
+    | SearchDialog of SearchDialogState
     | CssClassPrompt of returnTo: Mode * initialValue: string
+
+/// Node search overlay: query, selection, and `onPick` (mutually recursive with `Mode` / `VM`).
+and SearchDialogState =
+    { invokedCommand: string
+      query: string
+      selectedIndex: int
+      returnTo: Mode
+      onPick: NodeSearchResult -> VM -> VM * Effect list }
 
 // Server `State` is in `FileAgent`, and mainly the graph.
 and VM = // the client state

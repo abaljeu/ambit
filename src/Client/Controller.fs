@@ -625,7 +625,7 @@ let rec paletteWasSelecting (returnTo: Mode) : bool =
     | Selecting -> true
     | Editing _ -> false
     | CommandPalette (_, _, inner) -> paletteWasSelecting inner
-    | SearchDialog (_, _, inner, _) -> paletteWasSelecting inner
+    | SearchDialog s -> paletteWasSelecting s.returnTo
     | CssClassPrompt (inner, _) -> paletteWasSelecting inner
 
 let commandsForPalette (returnTo: Mode) : CommandEntry list =
@@ -776,7 +776,7 @@ let handleKey (mode: Mode) (ke: KeyboardEvent) (dispatch: Msg -> unit) : unit =
         let table =
             match mode with
             | CommandPalette _ -> paletteKeyBindings
-            | SearchDialog (_, _, _, _) -> [] // keys handled by search input's own listener
+            | SearchDialog _ -> [] // keys handled by search input's own listener
             | CssClassPrompt _ -> cssClassPromptKeyBindings
             | Editing _ -> editingKeyBindings
             | Selecting -> selectionKeyBindings

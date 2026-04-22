@@ -60,9 +60,10 @@ let private trySaveContext (mode: Mode) : InlineEditContext option =
         | CommandPalette (q, sc, ret) ->
             unwrapMode ret
             |> Option.map (mapRebuild (fun rebuild t c -> CommandPalette (q, sc, rebuild t c)))
-        | SearchDialog (q, sr, ret, onPick) ->
-            unwrapMode ret
-            |> Option.map (mapRebuild (fun rebuild t c -> SearchDialog (q, sr, rebuild t c, onPick)))
+        | SearchDialog s ->
+            unwrapMode s.returnTo
+            |> Option.map (mapRebuild (fun rebuild t c ->
+                SearchDialog { s with returnTo = rebuild t c }))
         | CssClassPrompt (ret, iv) ->
             unwrapMode ret
             |> Option.map (mapRebuild (fun rebuild t c -> CssClassPrompt (rebuild t c, iv)))

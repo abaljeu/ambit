@@ -102,7 +102,7 @@ let private makeRowElement
         let effectiveMode =
             match model.mode with
             | CommandPalette (_, _, ret) -> ret
-            | SearchDialog (_, _, ret, _) -> ret
+            | SearchDialog s -> s.returnTo
             | CssClassPrompt (ret, _) -> ret
             | m -> m
         let initialValue =
@@ -207,7 +207,7 @@ let manageFocus
         : unit =
     let preserveEditCaret = EditingCaretPreserve.shouldPreserveDomCaret previousModel model
     match model.mode with
-    | CommandPalette _ | SearchDialog (_, _, _, _) | CssClassPrompt _ ->
+    | CommandPalette _ | SearchDialog _ | CssClassPrompt _ ->
         () // focus is handled by overlay renderers after the element becomes visible
     | Editing _ ->
         let editEl = document.getElementById "edit-input"

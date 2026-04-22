@@ -621,7 +621,7 @@ module ViewModel =
         let effectiveMode =
             match model.mode with
             | CommandPalette (_, _, ret) -> ret
-            | SearchDialog (_, _, ret, _) -> ret
+            | SearchDialog s -> s.returnTo
             | CssClassPrompt (ret, _) -> ret
             | m -> m
         match effectiveMode, model.selectedNodes with
