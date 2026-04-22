@@ -3,6 +3,7 @@
 How to provision, configure, and operate PostgreSQL across local development, CI, and production for Gambol.
 
 ---
+on desktop, db password is postgres/postgres
 
 ## Current state
 

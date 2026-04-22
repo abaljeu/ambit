@@ -18,8 +18,29 @@ az postgres flexible-server create \
   --version 17 \
   --public-access 0.0.0.0
 
+$ az postgres flexible-server create   --resource-group Amble_group   --name gambol-pg   --location "Canada Central"   --admin-user gambol_admin   --admin-password "LOIESvMEQDne7IMAeC5+P3/y2ClsqWfA"   --sku-name Standard_B1ms   --tier Burstable   --storage-size 32   --version 17   --public-access 0.0.0.0
+Checking the existence of the resource group 'Amble_group'...
+Resource group 'Amble_group' exists ? : True 
+Creating PostgreSQL Server 'gambol-pg' in group 'Amble_group'...
+Your server 'gambol-pg' is using sku 'Standard_B1ms' (Paid Tier). Please refer to https://aka.ms/postgres-pricing for pricing details
+Configuring server firewall rule, 'azure-access', to accept connections from all Azure resources...
+Make a note of your password. If you forget, you would have to reset your password with "az postgres flexible-server update -n gambol-pg -g Amble_group -p <new-password>".
+Try using 'az postgres flexible-server connect' command to test out connection.
+{
+  "connectionString": "postgresql://gambol_admin:LOIESvMEQDne7IMAeC5+P3/y2ClsqWfA@gambol-pg.postgres.database.azure.com/postgres?sslmode=require",
+  "databaseName": "postgres",
+  "firewallName": "AllowAllAzureServicesAndResourcesWithinAzureIps_2026-4-20_12-39-45",
+  "host": "gambol-pg.postgres.database.azure.com",
+  "id": "/subscriptions/186518c2-b4d7-4118-998c-d5cd0b67517e/resourceGroups/Amble_group/providers/Microsoft.DBforPostgreSQL/flexibleServers/gambol-pg",
+  "location": "Canada Central",
+  "password": "LOIESvMEQDne7IMAeC5+P3/y2ClsqWfA",
+  "resourceGroup": "Amble_group",
+  "skuname": "Standard_B1ms",
+  "username": "gambol_admin",
+  "version": "17"
+}
+
   az postgres flexible-server db create \
   --resource-group Amble_group \
   --server-name gambol-pg \
   --database-name gambol
-  
