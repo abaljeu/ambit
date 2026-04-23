@@ -576,6 +576,57 @@ let ``siteLastChild on empty children returns None`` () =
     let childInst = siteMap.entries.[siteMap.rootId].children.[0]
     Assert.True(SiteMap.siteLastChild siteMap (Some childInst) |> Option.isNone)
 
+// ---------------------------------------------------------------------------
+// SiteMap.siteChildIndex
+// ---------------------------------------------------------------------------
+
+[<Fact>]
+let ``siteChildIndex None parent or child returns None`` () =
+    let graph, cont, _ = buildFlat [ "a"; "b" ]
+    let siteMap, _ = buildSiteMapFrom graph cont (Sid 0)
+    let root = siteMap.rootId
+    let c0 = siteMap.entries.[root].children.[0]
+    Assert.True(SiteMap.siteChildIndex siteMap None (Some c0) |> Option.isNone)
+    Assert.True(SiteMap.siteChildIndex siteMap (Some root) None |> Option.isNone)
+
+[<Fact>]
+let ``siteChildIndex matches child position under root`` () =
+    let graph, cont, _ = buildFlat [ "a"; "b"; "c" ]
+    let siteMap, _ = buildSiteMapFrom graph cont (Sid 0)
+    let root = siteMap.rootId
+    let c = siteMap.entries.[root].children
+    Assert.Equal(Some 0, SiteMap.siteChildIndex siteMap (Some root) (Some c.[0]))
+    Assert.Equal(Some 1, SiteMap.siteChildIndex siteMap (Some root) (Some c.[1]))
+    Assert.Equal(Some 2, SiteMap.siteChildIndex siteMap (Some root) (Some c.[2]))
+
+[<Fact>]
+let ``siteChildIndex not a child of parent returns None`` () =
+    let graph, cont, _ = buildFlat [ "a"; "b" ]
+    let siteMap, _ = buildSiteMapFrom graph cont (Sid 0)
+    let root = siteMap.rootId
+    let c = siteMap.entries.[root].children
+    Assert.True(SiteMap.siteChildIndex siteMap (Some c.[0]) (Some c.[1]) |> Option.isNone)
+
+[<Fact>]
+let ``siteChildIndex under expanded node matches a1 a2 order`` () =
+    let graph, cont, _ = buildNested ()
+    let siteMap, nextId = buildSiteMapFrom graph cont (Sid 0)
+    let aInst = siteMap.entries.[siteMap.rootId].children.[0]
+    let sm2, _ = expandEntry aInst graph siteMap nextId
+    let a1 = sm2.entries.[aInst].children.[0]
+    let a2 = sm2.entries.[aInst].children.[1]
+    Assert.Equal(Some 0, SiteMap.siteChildIndex sm2 (Some aInst) (Some a1))
+    Assert.Equal(Some 1, SiteMap.siteChildIndex sm2 (Some aInst) (Some a2))
+
+[<Fact>]
+let ``siteChildIndex on unknown parent instanceId returns None`` () =
+    let graph, cont, _ = buildFlat [ "a" ]
+    let siteMap, _ = buildSiteMapFrom graph cont (Sid 0)
+    let root = siteMap.rootId
+    let c0 = siteMap.entries.[root].children.[0]
+    let bogus = Sid 999_999
+    Assert.True(SiteMap.siteChildIndex siteMap (Some bogus) (Some c0) |> Option.isNone)
+
 [<Fact>]
 let ``siteFirstChild after expand returns first grandchild instance`` () =
     let graph, cont, _ = buildNested ()
@@ -679,6 +730,43 @@ let ``SiteNav prevCousin from second root branch child is last grandchild of fir
     let prevCousin = Site.parent >> Site.prev >> Site.lastChild
     let result = Site.at sm3 (Some b1Inst) |> prevCousin |> Site.current
     Assert.Equal(Some a2Inst, result)
+
+// ---------------------------------------------------------------------------
+// Site.childIndex
+// ---------------------------------------------------------------------------
+
+[<Fact>]
+let ``Site.childIndex at root is None`` () =
+    let graph, cont, _ = buildFlat [ "a" ]
+    let siteMap, _ = buildSiteMapFrom graph cont (Sid 0)
+    let root = siteMap.rootId
+    Assert.True(Site.at siteMap (Some root) |> Site.childIndex |> Option.isNone)
+
+[<Fact>]
+let ``Site.childIndex on root children matches 0 1 2`` () =
+    let graph, cont, _ = buildFlat [ "a"; "b"; "c" ]
+    let siteMap, _ = buildSiteMapFrom graph cont (Sid 0)
+    let c = siteMap.entries.[siteMap.rootId].children
+    Assert.Equal(Some 0, Site.at siteMap (Some c.[0]) |> Site.childIndex)
+    Assert.Equal(Some 1, Site.at siteMap (Some c.[1]) |> Site.childIndex)
+    Assert.Equal(Some 2, Site.at siteMap (Some c.[2]) |> Site.childIndex)
+
+[<Fact>]
+let ``Site.childIndex after expand on nested a1 a2 is 0 and 1`` () =
+    let graph, cont, _ = buildNested ()
+    let siteMap, nextId = buildSiteMapFrom graph cont (Sid 0)
+    let aInst = siteMap.entries.[siteMap.rootId].children.[0]
+    let sm2, _ = expandEntry aInst graph siteMap nextId
+    let a1 = sm2.entries.[aInst].children.[0]
+    let a2 = sm2.entries.[aInst].children.[1]
+    Assert.Equal(Some 0, Site.at sm2 (Some a1) |> Site.childIndex)
+    Assert.Equal(Some 1, Site.at sm2 (Some a2) |> Site.childIndex)
+
+[<Fact>]
+let ``Site.childIndex None when current is None`` () =
+    let graph, cont, _ = buildFlat [ "a" ]
+    let siteMap, _ = buildSiteMapFrom graph cont (Sid 0)
+    Assert.True(Site.at siteMap None |> Site.childIndex |> Option.isNone)
 
 // ---------------------------------------------------------------------------
 // VisibleSite / VisiNav — fold-aware; matches `Site` API shape

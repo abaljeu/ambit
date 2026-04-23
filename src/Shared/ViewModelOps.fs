@@ -154,6 +154,17 @@ module ViewModel =
             if rootEntry.children.IsEmpty then None
             else Some { range = { parent = rootEntry; start = 0; endd = 1 }; focus = 0 })
 
+    /// Selection spanning the child at `index` under the site-map entry for `rootNodeId`.
+    /// Clamps `index` to [0, children.Length - 1]. Returns None if that entry has no children.
+    let childSelectionAt (siteMap: SiteMap) (rootNodeId: NodeId) (index: int) : Selection option =
+        siteMap.entries
+        |> Map.tryPick (fun _ e -> if e.nodeId = rootNodeId then Some e else None)
+        |> Option.bind (fun rootEntry ->
+            if rootEntry.children.IsEmpty then None
+            else
+                let i = max 0 (min index (rootEntry.children.Length - 1))
+                Some { range = { parent = rootEntry; start = i; endd = i + 1 }; focus = i })
+
     /// Reconcile a SiteMap rooted at rootNodeId after a graph change. Walks only expanded entries,
     /// syncing their children lists from the graph. Collapsed children of expanded entries are
     /// reused by position (nodeId must match) with childrenStale = true and children = []; they

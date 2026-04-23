@@ -539,18 +539,18 @@ let zoomOutOp (model: VM) : VM * Effect list =
     let currentZoomRoot = model'.zoomRoot
     if currentZoomRoot = model'.graph.root then model', effs
     else 
-        let newZoomRoot =
-                match Graph.tryFindParentAndIndex currentZoomRoot model'.graph with
-                | None -> currentZoomRoot
-                | Some (parentId, _) -> parentId
-        let siteMap, nextId =
-            ViewModel.buildSiteMapFrom model'.graph newZoomRoot model'.nextSiteId
-        { model' with
-            zoomRoot = newZoomRoot
-            siteMap = siteMap
-            nextSiteId = nextId
-            selectedNodes = ViewModel.firstChildSelection siteMap newZoomRoot
-            mode = Selecting }, effs
+        match Graph.tryFindParentAndIndex currentZoomRoot model'.graph with
+        | None -> model, effs
+        | Some (parentId, index) -> 
+            let newZoomRoot = parentId
+            let siteMap, nextId =
+                ViewModel.buildSiteMapFrom model'.graph newZoomRoot model'.nextSiteId
+            { model' with
+                zoomRoot = newZoomRoot
+                siteMap = siteMap
+                nextSiteId = nextId
+                selectedNodes = ViewModel.childSelectionAt siteMap newZoomRoot index
+                mode = Selecting }, effs
 
 /// Op: Find (/) — pick target via search, then set it as the view root.
 let findRootOp (model: VM) : VM * Effect list =

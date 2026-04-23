@@ -59,6 +59,15 @@ module SiteMap =
     let siteLastChild (siteMap: SiteMap) (id: SiteId option) : SiteId option =
         withEntry siteMap id (fun e -> List.tryItem (e.children.Length - 1) e.children)
 
+    /// 0-based index of `child` in `parent`'s `children` list. `None` if either id is
+    /// missing, the parent entry is missing, or `child` is not a direct child of that
+    /// parent instance.
+    let siteChildIndex (siteMap: SiteMap) (parent: SiteId option) (child: SiteId option) : int option =
+        withEntry siteMap parent 
+                    (fun p -> 
+                        child |> Option.bind (fun cid -> 
+                            List.tryFindIndex ((=) cid) p.children))
+
     let private siteSiblingOffset (delta: int) (siteMap: SiteMap) (id: SiteId option) : SiteId option =
         withEntry siteMap id (fun e ->
             e.parentInstanceId
@@ -93,6 +102,13 @@ module Site =
     let next       = step SiteMap.siteNext
     let prev       = step SiteMap.sitePrev
     let prevCousin = parent >> prev >> lastChild
+
+    /// 0-based index of the current `SiteId` among its parent's `children`, or `None` if
+    /// there is no current id, the entry is missing, or the id is the site-map root.
+    let childIndex (nav: SiteNav) : int option =
+        let (SiteNav (sm, id)) = nav
+        let parentId = nav |> parent |> current
+        SiteMap.siteChildIndex sm parentId id
 
 /// Like `SiteNav`, but `at` / each step keep `SiteId` only when fold-visible on that `SiteMap`.
 type VisiNav = VisiNav of SiteMap * SiteId option
