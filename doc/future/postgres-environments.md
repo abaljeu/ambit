@@ -9,7 +9,7 @@ on desktop, db password is postgres/postgres
 
 - **Code:** `Database.fs` and `DbAgent.fs` are complete. The server switches between file-only (`FileAgent`) and PostgreSQL (`DbAgent`) based on the `DB_CONNECTION_STRING` env var.
 - **Schema:** Auto-created by `Database.initSchema` on startup (4 tables: `changes`, `graph`, `nodes`, `node_children`). No external migration tool.
-- **Production:** Azure App Service running file-only mode at `collaborative-systems.org`. No PostgreSQL instance exists yet.
+- **Production:** Azure App Service (`Amble`) is still running file-only mode at `collaborative-systems.org`, but the production PostgreSQL host now exists: Azure Database for PostgreSQL Flexible Server `gambol-pg` in `Canada Central`, with database `gambol`. Network access from App Service to the DB has already been configured. The remaining production cutover steps are to set `DB_CONNECTION_STRING` in App Service, deploy once, and verify startup parity/rebuild.
 - **Dev:** File-only by default. DB tests exist (`DbAgentTests.fs`) gated on `TEST_DB_CONNECTION_STRING`.
 
 ## Decision now
@@ -133,7 +133,7 @@ RESOURCE_GROUP=Amble_group
 PG_SERVER=gambol-pg
 PG_ADMIN_USER=gambol_admin
 PG_ADMIN_PASSWORD=<generate-strong-password>
-LOCATION=eastus   # match your App Service region
+LOCATION="Canada Central"
 
 az postgres flexible-server create \
   --resource-group $RESOURCE_GROUP \
@@ -153,6 +153,8 @@ az postgres flexible-server db create \
   --database-name gambol
 ```
 
+**Current recorded result:** `gambol-pg.postgres.database.azure.com` exists, the `gambol` database exists, and Azure created an allow-Azure firewall rule during provisioning.
+
 #### Network access
 
 - Allow only the App Service's outbound IPs (find under App Service → Properties → Outbound IP Addresses).
@@ -170,6 +172,8 @@ for IP in $(az webapp show -g $RESOURCE_GROUP -n Amble --query outboundIpAddress
 done
 ```
 
+**Current recorded result:** Network access from Azure App Service (`Amble`) to the PostgreSQL server has already been configured well enough for Step 1 to proceed.
+
 #### Connection string
 
 ```
@@ -185,6 +189,16 @@ az webapp config appsettings set \
   --settings DB_CONNECTION_STRING="Host=gambol-pg.postgres.database.azure.com;Database=gambol;Username=gambol_admin;Password=<password>;SSL Mode=Require;Trust Server Certificate=true"
 ```
 
+To avoid storing the password in shell history or committed docs, use the helper script:
+
+```powershell
+./scripts/set-azure-db-connection-string.ps1
+```
+
+The script prompts for the password interactively, builds the connection string, and writes the `DB_CONNECTION_STRING` app setting to Azure App Service.
+
+**Future note:** We may want to move `DB_CONNECTION_STRING` fully out of `appsettings.Production.json` and rely on Azure App Service settings for the secret instead. That would make password rotation cleaner and keep secrets out of the production config file. If we do that, verify configuration precedence in startup so App Service environment variables win over the production JSON file.
+
 ---
 
 ## 4. Migration sequence (file-only → dual-write → DB-primary)
@@ -193,8 +207,8 @@ This is the phased rollout, not a one-shot cutover.
 
 ### Phase 1: PostgreSQL-first dual-write (execute now)
 
-1. Provision the production PostgreSQL instance (section 3).
-2. Set `DB_CONNECTION_STRING` in production.
+1. Provision the production PostgreSQL instance (section 3). Completed.
+2. Set `DB_CONNECTION_STRING` in production. Next action.
 3. Deploy. On first startup the server finds an empty DB, runs `initSchema`, and calls `rebuildFromDocumentFiles` to populate it from the existing flat files.
 4. Files remain the source of truth. The DB is a projection.
 5. **Verify:** After startup, spot-check a few nodes in the DB via `psql` to confirm parity.
@@ -263,7 +277,19 @@ az postgres flexible-server start \
   --name $PG_SERVER
 ```
 
-Azure auto-restarts a stopped server after 7 days. To prevent this, set up an Azure Automation runbook or a scheduled `az` CLI call to re-stop it if it's not needed.
+Repository helper:
+
+```bash
+./scripts/azure-postgres-server.sh start
+./scripts/azure-postgres-server.sh stop
+./scripts/azure-postgres-server.sh status
+./scripts/azure-postgres-restop.sh
+```
+
+Azure auto-restarts a stopped server after 7 days. That 7-day limit is Azure behavior, not a setting
+you can change in the portal or on the `az postgres flexible-server stop` command. To keep the server
+off longer, set up an Azure Automation runbook, Task Scheduler job, cron job, or other scheduled call
+that re-runs the stop command before the 7-day limit.
 
 ### App behavior when DB is down
 

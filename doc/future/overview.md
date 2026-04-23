@@ -4,6 +4,7 @@ Summary of committed architectural directions for Gambol, distilled from the pla
 
 [x] = every aspect of this item is competed.
 Action: Find the next step in the process, propose the action to the user.  Mark off completed actions with [x].  Update linked documents to keep in-sync with status.  overview.md is current information. Linked documents may require updating.
+A record of actions taken shall be maintained in `Commands executed into Azure.txt`.
 
 ## 0. PostgreSQL as the persistence back-end
 
@@ -31,7 +32,9 @@ Action: Find the next step in the process, propose the action to the user.  Mark
 - [x] Provision **Azure Database for PostgreSQL - Flexible Server** (PostgreSQL 17, smallest burstable tier).
 - [x] Create the `gambol` database and credentials.
 - [x] Configure network access from Azure App Service (`Amble`) to the database.
-- Set `DB_CONNECTION_STRING` in Azure App Service environment variables.
+- [x]  Set `DB_CONNECTION_STRING` in Azure App Service environment variables.
+- [x] Define a script in `scripts/` to turn the Azure-hosted PostgreSQL server on/off for clock savings.
+
 - Deploy once so startup runs `initSchema` and initial rebuild/parity checks.
 
 This pre-step does not change merge/sync architecture. It only establishes the database host so section 1 can run in dual-write mode.

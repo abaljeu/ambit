@@ -390,13 +390,20 @@ let renderStatus (model: VM) : unit =
     if not (isNull dbEl) then
         match readDbPresent () with
         | "ok" ->
-            dbEl.textContent <- "DB"
+            dbEl.textContent <- "DB synced"
+            dbEl.setAttribute("title", "PostgreSQL is configured and matches the file state.")
             dbEl.className <- "amb-db-status amb-db-present"
-        | "mismatch" ->
-            dbEl.textContent <- "DB!"
+        | "mismatch1" ->
+            dbEl.textContent <- "DB rebuilt"
+            dbEl.setAttribute("title", "PostgreSQL mismatched the file state, was rebuilt, and now matches.")
+            dbEl.className <- "amb-db-status amb-db-mismatch"
+        | "mismatch2" ->
+            dbEl.textContent <- "DB mismatch"
+            dbEl.setAttribute("title", "PostgreSQL still mismatches the file state after rebuild. Using file storage.")
             dbEl.className <- "amb-db-status amb-db-mismatch"
         | _ ->
-            dbEl.textContent <- "No DB"
+            dbEl.textContent <- "Files only"
+            dbEl.setAttribute("title", "PostgreSQL is not configured. Using file storage.")
             dbEl.className <- "amb-db-status amb-db-absent"
 
 let private syncRiskAlertWired = ref false

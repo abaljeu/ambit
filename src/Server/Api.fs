@@ -58,5 +58,11 @@ module Api =
         let! result = handle.postChange body
         match result with
         | Ok json -> return jsonResult json
+        | Error err when err.StartsWith("Database error:") ->
+            // Log the DB error but return success to client
+            eprintfn "[Api] Database write failed: %s" err
+            // Return a generic success (no DB ack, but file save succeeded)
+            // Optionally, you could return a warning in the response if desired
+            return jsonResult "{\"result\":\"ok (db write failed)\"}"
         | Error err -> return Results.BadRequest({| error = err |})
     }

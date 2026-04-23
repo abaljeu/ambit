@@ -6,34 +6,16 @@ open Gambol.Shared
 [<RequireQualifiedAccess>]
 module DatabaseSetup =
 
+    type DbStatus =
+        | Ok
+        | Mismatch1
+        | Mismatch2
+        | Absent
+
     let private decodeChangePayload (s: string) =
         Thoth.Json.Newtonsoft.Decode.fromString Serialization.decodeChange s
 
-    /// Files are authority: if the DB projection or replay diverges, rebuild from disk.
-    /// Returns true if a mismatch was detected and the DB was rebuilt.
-    let private ensurePostgresMatchesFileAuthority (connStr: string) (dataDir: string) : bool =
-        let fileSt = DocumentLoader.loadState dataDir "gambol"
 
-        let dbSt =
-            Database.loadPersistedState connStr decodeChangePayload
-            |> Async.AwaitTask
-            |> Async.RunSynchronously
-
-        let graphOk = GraphProjection.graphEquals fileSt.graph dbSt.graph
-        let revOk = fileSt.revision.Value = dbSt.revision.Value
-
-        if not graphOk || not revOk then
-            Database.rebuildFromDocumentFiles connStr dataDir "gambol"
-            |> Async.AwaitTask
-            |> Async.RunSynchronously
-
-            eprintfn
-                "Gambol: PostgreSQL rebuilt from file authority (graphOk=%b revOk=%b)."
-                graphOk
-                revOk
-            true
-        else
-            false
 
     // DB agent is a single shared instance (one database, one handle name).
     let private dbAgentCache: (string * DbAgent) option ref = ref None
@@ -49,18 +31,57 @@ module DatabaseSetup =
                 agent
         )
 
+    let statusFromMatches (matchesBeforeRebuild: bool) (matchesAfterRebuild: bool) : DbStatus =
+        if matchesBeforeRebuild then
+            DbStatus.Ok
+        elif matchesAfterRebuild then
+            DbStatus.Mismatch1
+        else
+            DbStatus.Mismatch2
+
     /// Resolve the DB connection string from config and run startup checks.
-    /// Returns Some (connStr, status) where status is "ok" | "mismatch", or None on failure / absent config.
-    let resolveDbConnection (dbConnStringOpt: string option) (dataDir: string) : (string * string) option =
-        match dbConnStringOpt with
-        | None -> None
-        | Some connStr ->
+    let resolveDbConnection (connStr: string) (dataDir: string) : DbStatus =
+        if connStr = "" then
+            DbStatus.Absent
+        else
             try
                 Database.initSchema connStr |> Async.AwaitTask |> Async.RunSynchronously
-                let hadMismatch = ensurePostgresMatchesFileAuthority connStr dataDir
-                getOrCreateDbAgent connStr "gambol" |> ignore
-                let status = if hadMismatch then "mismatch" else "ok"
-                Some (connStr, status)
+
+                // Inline ensurePostgresMatchesFileAuthority logic
+                let fileSt = DocumentLoader.loadState dataDir "gambol"
+                let dbSt =
+                    Database.loadPersistedState connStr decodeChangePayload
+                    |> Async.AwaitTask
+                    |> Async.RunSynchronously
+
+                let statesMatch left right =
+                    let graphOk = GraphProjection.graphEquals left.graph right.graph
+                    let revOk = left.revision.Value = right.revision.Value
+                    graphOk && revOk
+
+                let status =
+                    if statesMatch fileSt dbSt then
+                        DbStatus.Ok
+                    else
+                        Database.rebuildFromDocumentFiles connStr dataDir "gambol"
+                        |> Async.AwaitTask
+                        |> Async.RunSynchronously
+
+                        let dbStAfterRebuild =
+                            Database.loadPersistedState connStr decodeChangePayload
+                            |> Async.AwaitTask
+                            |> Async.RunSynchronously
+
+                        statusFromMatches false (statesMatch fileSt dbStAfterRebuild)
+
+                match status with
+                | DbStatus.Ok
+                | DbStatus.Mismatch1 ->
+                    getOrCreateDbAgent connStr "gambol" |> ignore
+                | DbStatus.Mismatch2
+                | DbStatus.Absent -> ()
+
+                status
             with ex ->
-                eprintfn "Gambol: DB_CONNECTION_STRING set but connection failed — falling back to file store. %s" ex.Message
-                None
+                eprintfn "Gambol: DB_CONNECTION_STRING set but connection failed - falling back to file store. %s" ex.Message
+                DbStatus.Absent

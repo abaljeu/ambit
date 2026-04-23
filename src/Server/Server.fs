@@ -238,17 +238,19 @@ module Main =
                         newAgent
                 )
 
-            // (connStr * dbStatus) option  — status is "ok" | "mismatch" | "absent"
+            // DbStatus — Ok | Mismatch | Absent
             // Eagerly initialises schema and validates DB against file authority at startup.
-            let resolvedDbConnString : (string * string) option =
-                let dbConnString = config.["DB_CONNECTION_STRING"] |> Option.ofObj
+            let resolvedDbStatus : DatabaseSetup.DbStatus =
+                let dbConnString = config.["DB_CONNECTION_STRING"] |> Option.ofObj |> Option.defaultValue ""
                 DatabaseSetup.resolveDbConnection dbConnString dataDir
 
             let getHandle (filename: string) : AgentHandle =
-                match resolvedDbConnString with
-                | Some (connStr, _) ->
-                    AgentHandle.ofDb (DatabaseSetup.getOrCreateDbAgent connStr filename)
-                | None ->
+                let dbConnString = config.["DB_CONNECTION_STRING"] |> Option.ofObj |> Option.defaultValue ""
+                match resolvedDbStatus with
+                | DatabaseSetup.DbStatus.Ok
+                | DatabaseSetup.DbStatus.Mismatch1 ->
+                    AgentHandle.ofDb (DatabaseSetup.getOrCreateDbAgent dbConnString filename)
+                | _ ->
                     AgentHandle.ofFile (getOrCreateFileAgent filename)
 
             // GET /ambit/login → serve login.html
@@ -385,7 +387,13 @@ module Main =
                     "    <script>window.__BUILD__ = \"" + deployStamp () + "\"; window.__PAGE_BUILD__ = \"" + pageStamp
                     + "\"; window.__BUILD_TS__ = " + string (deployEpochSec ())
                     + "; window.__PAGE_BUILD_TS__ = " + string pageEpoch
-                    + "; window.__DB_PRESENT__ = \"" + (resolvedDbConnString |> Option.map snd |> Option.defaultValue "absent") + "\";</script>\n</head>"
+                    + "; window.__DB_PRESENT__ = \"" +
+                        (match resolvedDbStatus with
+                         | DatabaseSetup.DbStatus.Ok -> "ok"
+                         | DatabaseSetup.DbStatus.Mismatch1 -> "mismatch1"
+                         | DatabaseSetup.DbStatus.Mismatch2 -> "mismatch2"
+                         | DatabaseSetup.DbStatus.Absent -> "absent")
+                        + "\";</script>\n</head>"
                 let withStamp = withAbsoluteAssets.Replace("</head>", snippet)
                 // Cache-bust Program.js so reload gets fresh assets when server redeploys
                 let programSrc =
