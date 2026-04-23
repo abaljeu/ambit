@@ -1,5 +1,7 @@
 namespace Gambol.Shared
 
+open System
+
 module ViewModelSearch =
 
     /// Trims; strips a leading `$` and trims again. None when the effective term is empty.
@@ -15,16 +17,27 @@ module ViewModelSearch =
                     q
             if t = "" then None else Some t
 
-    let private containsCaseInsensitive (needle: string) (haystack: string) : bool =
-        haystack.IndexOf(needle, System.StringComparison.OrdinalIgnoreCase) >= 0
+    /// Whitespace-separated pieces; each must match (name or text). None if no effective parts.
+    let private parseSearchParts (query: string) : string list option =
+        match parseSearchTerm query with
+        | None -> None
+        | Some term ->
+            let parts =
+                term.Split([| ' '; '\t'; '\n'; '\r' |], StringSplitOptions.RemoveEmptyEntries)
+                |> Array.toList
+            if parts.IsEmpty then None else Some parts
 
-    let private nodeMatchesTerm (term: string) (node: Node) : bool =
-        let textOk = containsCaseInsensitive term node.text
-        let nameOk =
-            node.name
-            |> Option.map (containsCaseInsensitive term)
-            |> Option.defaultValue false
+    /// Fable maps IndexOf poorly with StringComparison; fold case for JS and .NET.
+    let private containsCaseInsensitive (needle: string) (haystack: string) : bool =
+        haystack.ToLowerInvariant().IndexOf(needle.ToLowerInvariant()) >= 0
+
+    let private nodeMatchesPart (part: string) (node: Node) : bool =
+        let textOk = containsCaseInsensitive part node.text
+        let nameOk = node.name |> Option.exists (containsCaseInsensitive part)
         textOk || nameOk
+
+    let private nodeMatchesAllParts (parts: string list) (node: Node) : bool =
+        parts |> List.forall (fun p -> nodeMatchesPart p node)
 
     let private tryStructuralChildIds (graph: Graph) (nid: NodeId) : NodeId list =
         graph.nodes
@@ -64,13 +77,13 @@ module ViewModelSearch =
         o1 @ o2
 
     let searchNodes (query: string) (zoomRoot: NodeId) (graph: Graph) : NodeSearchResult list =
-        match parseSearchTerm query with
+        match parseSearchParts query with
         | None -> []
-        | Some term ->
+        | Some parts ->
             searchDiscoveryOrder zoomRoot graph
             |> List.choose (fun nid ->
                 let node = graph.nodes.[nid]
-                if nodeMatchesTerm term node then
+                if nodeMatchesAllParts parts node then
                     Some
                         { nodeId = node.id
                           text = node.text

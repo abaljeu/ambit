@@ -80,6 +80,56 @@ let ``searchNodes empty and whitespace query returns no results`` () =
     Assert.Empty(ViewModelSearch.searchNodes "$   " z graph)
 
 [<Fact>]
+let ``searchNodes matches text and name ignoring ASCII case`` () =
+    let graph0 = Graph.create ()
+    let graph1, ids = ModelBuilder.createNodes [ "CamelCase Body"; "plain" ] graph0
+    let bodyId = ids.[0]
+    let namedId = ids.[1]
+    let graph2 =
+        graph1 |> setNodeName namedId (Some "UPPER-TAG") |> ownedRootChildren ids
+    let z = graph2.root
+    let lowerQueryHits =
+        ViewModelSearch.searchNodes "camelcase" z graph2 |> List.map (fun r -> r.nodeId)
+    let upperNameHits =
+        ViewModelSearch.searchNodes "upper-tag" z graph2 |> List.map (fun r -> r.nodeId)
+    Assert.Equal<NodeId>([ bodyId ], lowerQueryHits)
+    Assert.Equal<NodeId>([ namedId ], upperNameHits)
+
+[<Fact>]
+let ``searchNodes requires every whitespace-separated part in name or text`` () =
+    let graph0 = Graph.create ()
+    let graph1, ids =
+        ModelBuilder.createNodes [ "alpha only"; "alpha with gamma tail"; "gamma first alpha second" ] graph0
+    let aOnly = ids.[0]
+    let aGamma = ids.[1]
+    let ga = ids.[2]
+    let graph2 = ownedRootChildren ids graph1
+    let z = graph2.root
+    let hits = ViewModelSearch.searchNodes "alpha gamma" z graph2 |> List.map (fun r -> r.nodeId)
+    Assert.Equal<NodeId>([ aGamma; ga ], hits)
+    Assert.DoesNotContain(aOnly, hits)
+
+[<Fact>]
+let ``searchNodes splits parts can match name and text on same node`` () =
+    let graph0 = Graph.create ()
+    let graph1, ids = ModelBuilder.createNodes [ "2024 filings"; "unrelated" ] graph0
+    let taxId = ids.[0]
+    let graph2 = graph1 |> setNodeName taxId (Some "IRS tax") |> ownedRootChildren ids
+    let z = graph2.root
+    let hits = ViewModelSearch.searchNodes "tax 2024" z graph2 |> List.map (fun r -> r.nodeId)
+    Assert.Equal<NodeId>([ taxId ], hits)
+
+[<Fact>]
+let ``searchNodes extra whitespace between parts same as single space`` () =
+    let graph0 = Graph.create ()
+    let graph1, ids = ModelBuilder.createNodes [ "one two" ] graph0
+    let graph2 = ownedRootChildren ids graph1
+    let z = graph2.root
+    let compact = ViewModelSearch.searchNodes "one two" z graph2 |> List.map (fun r -> r.nodeId)
+    let loose = ViewModelSearch.searchNodes "  one    two  " z graph2 |> List.map (fun r -> r.nodeId)
+    Assert.Equal<NodeId>(compact, loose)
+
+[<Fact>]
 let ``makeNodeRangeForInsertingUnder appends after existing children`` () =
     let graph0 = Graph.create ()
     let graph1, ids = ModelBuilder.createNodes [ "a"; "b"; "c" ] graph0
