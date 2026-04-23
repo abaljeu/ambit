@@ -2,65 +2,92 @@ namespace Gambol.Shared
 
 module ViewModelSearch =
 
-    type NodeSearchQuery =
-        { term: string
-          preferName: bool }
-
-    let parseNodeSearchQuery (query: string) : NodeSearchQuery option =
+    /// Trims; strips a leading `$` and trims again. None when the effective term is empty.
+    let parseSearchTerm (query: string) : string option =
         let q = if isNull query then "" else query.Trim()
-        if q = "" then None
-        elif q.StartsWith "$" then
-            let term = q.Substring(1).Trim()
-            if term = "" then None
-            else Some { term = term; preferName = true }
+        if q = "" then
+            None
         else
-            Some { term = q; preferName = false }
+            let t =
+                if q.StartsWith "$" then
+                    q.Substring(1).Trim()
+                else
+                    q
+            if t = "" then None else Some t
 
     let private containsCaseInsensitive (needle: string) (haystack: string) : bool =
         haystack.IndexOf(needle, System.StringComparison.OrdinalIgnoreCase) >= 0
 
-    let private nodeSearchRank (query: NodeSearchQuery) (node: Node) : int option =
-        let textMatch = containsCaseInsensitive query.term node.text
-        let nameMatch =
+    let private nodeMatchesTerm (term: string) (node: Node) : bool =
+        let textOk = containsCaseInsensitive term node.text
+        let nameOk =
             node.name
-            |> Option.map (containsCaseInsensitive query.term)
+            |> Option.map (containsCaseInsensitive term)
             |> Option.defaultValue false
-        if query.preferName then
-            if nameMatch then Some 0
-            elif textMatch then Some 1
-            else None
-        else
-            if textMatch then Some 0
-            else None
+        textOk || nameOk
 
-    let searchNodes (query: string) (graph: Graph) : NodeSearchResult list =
-        match parseNodeSearchQuery query with
+    let private tryStructuralChildIds (graph: Graph) (nid: NodeId) : NodeId list =
+        graph.nodes
+        |> Map.tryFind nid
+        |> Option.map (fun n -> n.children |> List.map (fun c -> c.id))
+        |> Option.defaultValue []
+
+    /// Breadth-first over structural `children`; skips ids missing from `graph.nodes`.
+    let private bfsAppendOrder (graph: Graph) (visited: Set<NodeId>) (queue: NodeId list) : NodeId list * Set<NodeId> =
+        let rec go visited accOrder q =
+            match q with
+            | [] -> List.rev accOrder, visited
+            | u :: rest ->
+                if Set.contains u visited then
+                    go visited accOrder rest
+                else
+                    let visited2 = Set.add u visited
+                    let acc2 = u :: accOrder
+                    let next =
+                        tryStructuralChildIds graph u
+                        |> List.filter (fun c -> Map.containsKey c graph.nodes)
+                    go visited2 acc2 (rest @ next)
+        go visited [] queue
+
+    /// Phase A from `zoomRoot`, then phase B from `graph.root` with the same visited set.
+    let private searchDiscoveryOrder (zoomRoot: NodeId) (graph: Graph) : NodeId list =
+        let o1, v1 =
+            if Map.containsKey zoomRoot graph.nodes then
+                bfsAppendOrder graph Set.empty [ zoomRoot ]
+            else
+                [], Set.empty
+        let o2, _ =
+            if Map.containsKey graph.root graph.nodes then
+                bfsAppendOrder graph v1 [ graph.root ]
+            else
+                [], v1
+        o1 @ o2
+
+    let searchNodes (query: string) (zoomRoot: NodeId) (graph: Graph) : NodeSearchResult list =
+        match parseSearchTerm query with
         | None -> []
-        | Some parsed ->
-            graph.nodes
-            |> Map.toList
-            |> List.choose (fun (_, node) ->
-                nodeSearchRank parsed node
-                |> Option.map (fun rank ->
-                    rank,
-                    { nodeId = node.id
-                      text = node.text
-                      name = node.name }))
-            |> List.sortBy (fun (rank, r) ->
-                rank,
-                r.text.ToLowerInvariant(),
-                (r.name |> Option.defaultValue "" |> fun n -> n.ToLowerInvariant()),
-                r.nodeId.Value.ToString("N"))
-            |> List.map snd
+        | Some term ->
+            searchDiscoveryOrder zoomRoot graph
+            |> List.choose (fun nid ->
+                let node = graph.nodes.[nid]
+                if nodeMatchesTerm term node then
+                    Some
+                        { nodeId = node.id
+                          text = node.text
+                          name = node.name }
+                else
+                    None)
 
     /// Same index rule as the search UI: clamp to [0 .. count-1].
     let trySearchResultAtDisplayIndex
         (query: string)
+        (zoomRoot: NodeId)
         (graph: Graph)
         (selectedIndex: int)
         : NodeSearchResult option =
-        let results = searchNodes query graph
-        if results.IsEmpty then None
+        let results = searchNodes query zoomRoot graph
+        if results.IsEmpty then
+            None
         else
             let i =
                 selectedIndex
@@ -77,7 +104,8 @@ module ViewModelSearch =
                 match Graph.tryFindParentAndIndex hit.nodeId model.graph with
                 | Some (parentId, _) -> parentId
                 | None -> hit.nodeId
-            else hit.nodeId
+            else
+                hit.nodeId
         let siteMap, nextId =
             ViewModel.buildSiteMapFrom model.graph zoomId model.nextSiteId
         { model with
@@ -86,4 +114,3 @@ module ViewModelSearch =
             nextSiteId = nextId
             selectedNodes = ViewModel.firstChildSelection siteMap zoomId
             mode = Selecting }, []
-

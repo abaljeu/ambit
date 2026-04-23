@@ -15,47 +15,69 @@ let private ownedRootChildren (ids: NodeId list) (graph: Graph) : Graph =
     | Error e -> failwith e
 
 [<Fact>]
-let ``searchNodes with $query matches name first and text too`` () =
+let ``searchNodes dollar prefix strips like plain term name or text`` () =
     let graph0 = Graph.create ()
     let graph1, ids = ModelBuilder.createNodes [ "alpha body"; "report body"; "misc" ] graph0
     let byName = ids.[0]
     let byText = ids.[1]
-    let graph2 = graph1 |> setNodeName byName (Some "report-tag")
-
-    let results = ViewModelSearch.searchNodes "$report" graph2
-    let resultIds = results |> List.map (fun r -> r.nodeId)
-
-    Assert.Equal<NodeId>([ byName; byText ], resultIds)
+    let graph2 = graph1 |> setNodeName byName (Some "report-tag") |> ownedRootChildren ids
+    let z = graph2.root
+    let withDollar = ViewModelSearch.searchNodes "$report" z graph2 |> List.map (fun r -> r.nodeId)
+    let plain = ViewModelSearch.searchNodes "report" z graph2 |> List.map (fun r -> r.nodeId)
+    Assert.Equal<NodeId>([ byName; byText ], withDollar)
+    Assert.Equal<NodeId>(plain, withDollar)
 
 [<Fact>]
-let ``searchNodes plain query matches text only`` () =
+let ``searchNodes matches name or text under root BFS order`` () =
     let graph0 = Graph.create ()
     let graph1, ids = ModelBuilder.createNodes [ "match me"; "other text" ] graph0
     let nameOnly = ids.[1]
-    let graph2 = graph1 |> setNodeName nameOnly (Some "match me")
-
-    let results = ViewModelSearch.searchNodes "match me" graph2
-    let resultIds = results |> List.map (fun r -> r.nodeId)
-
-    Assert.Equal<NodeId>([ ids.[0] ], resultIds)
+    let graph2 = graph1 |> setNodeName nameOnly (Some "match me") |> ownedRootChildren ids
+    let z = graph2.root
+    let resultIds = ViewModelSearch.searchNodes "match me" z graph2 |> List.map (fun r -> r.nodeId)
+    Assert.Equal<NodeId>([ ids.[0]; nameOnly ], resultIds)
 
 [<Fact>]
-let ``searchNodes ordering is deterministic for equal-score matches`` () =
+let ``searchNodes ordering is deterministic for equal matches under root`` () =
     let graph0 = Graph.create ()
-    let graph1, _ = ModelBuilder.createNodes [ "same token"; "same token"; "same token" ] graph0
-
-    let first = ViewModelSearch.searchNodes "same" graph1 |> List.map (fun r -> r.nodeId)
-    let second = ViewModelSearch.searchNodes "same" graph1 |> List.map (fun r -> r.nodeId)
-
+    let graph1, ids = ModelBuilder.createNodes [ "same token"; "same token"; "same token" ] graph0
+    let graph2 = ownedRootChildren ids graph1
+    let z = graph2.root
+    let first = ViewModelSearch.searchNodes "same" z graph2 |> List.map (fun r -> r.nodeId)
+    let second = ViewModelSearch.searchNodes "same" z graph2 |> List.map (fun r -> r.nodeId)
     Assert.Equal<NodeId list>(first, second)
+
+[<Fact>]
+let ``searchNodes phase A then B puts zoom subtree before rest of root tree`` () =
+    let graph0 = Graph.create ()
+    let graph1, ids =
+        ModelBuilder.createNodes [ "z"; "za"; "hit here"; "hit branch" ] graph0
+    let zId = ids.[0]
+    let zaId = ids.[1]
+    let hitUnderZa = ids.[2]
+    let hitUnderRoot = ids.[3]
+    let chZ = [ { ref = Ownership.Owner; id = zaId } ]
+    let chZa = [ { ref = Ownership.Owner; id = hitUnderZa } ]
+    let graph2 =
+        match Graph.replace zId 0 [] chZ graph1 with
+        | Ok g -> g
+        | Error e -> failwith e
+    let graph3 =
+        match Graph.replace zaId 0 [] chZa graph2 with
+        | Ok g -> g
+        | Error e -> failwith e
+    let graph4 = ownedRootChildren [ zId; hitUnderRoot ] graph3
+    let zRoot = graph4.root
+    let got = ViewModelSearch.searchNodes "hit" zaId graph4 |> List.map (fun r -> r.nodeId)
+    Assert.Equal<NodeId>([ hitUnderZa; hitUnderRoot ], got)
 
 [<Fact>]
 let ``searchNodes empty and whitespace query returns no results`` () =
     let graph = Graph.create ()
-
-    Assert.Empty(ViewModelSearch.searchNodes "" graph)
-    Assert.Empty(ViewModelSearch.searchNodes "   " graph)
-    Assert.Empty(ViewModelSearch.searchNodes "$   " graph)
+    let z = graph.root
+    Assert.Empty(ViewModelSearch.searchNodes "" z graph)
+    Assert.Empty(ViewModelSearch.searchNodes "   " z graph)
+    Assert.Empty(ViewModelSearch.searchNodes "$   " z graph)
 
 [<Fact>]
 let ``makeNodeRangeForInsertingUnder appends after existing children`` () =
@@ -88,16 +110,19 @@ let ``makeNodeRangeForInsertingUnder unknown node is None`` () =
 [<Fact>]
 let ``trySearchResultAtDisplayIndex clamps high index to last row`` () =
     let graph0 = Graph.create ()
-    let graph1, _ = ModelBuilder.createNodes [ "ax"; "bx"; "cx" ] graph0
-    let ordered = ViewModelSearch.searchNodes "x" graph1
+    let graph1, ids = ModelBuilder.createNodes [ "ax"; "bx"; "cx" ] graph0
+    let graph2 = ownedRootChildren ids graph1
+    let z = graph2.root
+    let ordered = ViewModelSearch.searchNodes "x" z graph2
     Assert.Equal(3, ordered.Length)
     let expectLast = ordered.[2].nodeId
     let got =
-        ViewModelSearch.trySearchResultAtDisplayIndex "x" graph1 999
+        ViewModelSearch.trySearchResultAtDisplayIndex "x" z graph2 999
         |> Option.map (fun r -> r.nodeId)
     Assert.Equal(Some expectLast, got)
+    Assert.Equal(ids.[2], expectLast)
 
 [<Fact>]
 let ``trySearchResultAtDisplayIndex empty results is None`` () =
     let graph = Graph.create ()
-    Assert.Equal(None, ViewModelSearch.trySearchResultAtDisplayIndex "nope" graph 0)
+    Assert.Equal(None, ViewModelSearch.trySearchResultAtDisplayIndex "nope" graph.root graph 0)
