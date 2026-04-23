@@ -1,7 +1,9 @@
 # Future Overview
 
 Summary of committed architectural directions for Gambol, distilled from the planning documents in this folder. Each section identifies the high-level decision and the document(s) that elaborate it.
+
 [x] = every aspect of this item is competed.
+Action: Find the next step in the process, propose the action to the user.  Mark off completed actions with [x].  Update linked documents to keep in-sync with status.  overview.md is current information. Linked documents may require updating.
 
 ## 0. PostgreSQL as the persistence back-end
 
@@ -14,7 +16,7 @@ Summary of committed architectural directions for Gambol, distilled from the pla
 - [x] **No outline blobs in SQL:** The line-oriented snapshot format lives only in `Snapshot.fs`. The SQL schema stores domain records: `nodes`, `node_children`, a singleton `graph` row, and an append-only `changes` table.
 - [x] **Change log parity:** Each row in `changes` corresponds to one line in `gambol.log`, keeping the two audit trails aligned.
 
-- [ ] Add DB presence status next to sync on the status line.  Init at load.
+- [x] Add DB presence status next to sync on the status line.  Init at load.
 
 *Sources:* [[doc/future/persistence-vs-domain-model.md]] (canonical schema spec), [[doc/future/postgres-migration.md]] (operational summary), [[doc/future/database-migration.md]] (Azure setup notes), [[doc/future/postgres-environments.md]] (dev-to-prod environment management).
 
@@ -26,9 +28,9 @@ Summary of committed architectural directions for Gambol, distilled from the pla
 
 **Pre-step scope:**
 
-- Provision **Azure Database for PostgreSQL - Flexible Server** (PostgreSQL 17, smallest burstable tier).
-- Create the `gambol` database and credentials.
-- Configure network access from Azure App Service (`Amble`) to the database.
+- [x] Provision **Azure Database for PostgreSQL - Flexible Server** (PostgreSQL 17, smallest burstable tier).
+- [x] Create the `gambol` database and credentials.
+- [x] Configure network access from Azure App Service (`Amble`) to the database.
 - Set `DB_CONNECTION_STRING` in Azure App Service environment variables.
 - Deploy once so startup runs `initSchema` and initial rebuild/parity checks.
 

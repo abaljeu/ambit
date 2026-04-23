@@ -277,9 +277,9 @@ If Azure costs are unfavorable after the first month, DigitalOcean Managed Postg
 
 ## 9. Checklist: first production DB deployment
 
-- [ ] Provision Azure Database for PostgreSQL – Flexible Server
-- [ ] Create `gambol` database and user
-- [ ] Configure network access (firewall rules or VNet)
+- [x] Provision Azure Database for PostgreSQL – Flexible Server
+- [x] Create `gambol` database and user
+- [x] Configure network access (firewall rules or VNet)
 - [ ] Set `DB_CONNECTION_STRING` in Azure App Service environment variables
 - [ ] Deploy the application
 - [ ] Verify startup logs: schema created, `rebuildFromDocumentFiles` completed
