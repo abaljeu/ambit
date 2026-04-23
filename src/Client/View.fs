@@ -80,7 +80,10 @@ let private makeRowElement
         toggle.addEventListener("mousedown", fun (ev: Event) ->
             ev.preventDefault()
             ev.stopPropagation()
-            dispatch (ApplyOp (toggleFoldOp siteEntry.instanceId))
+            let op =
+                if siteEntry.parentInstanceId = None then zoomOutOp
+                else toggleFoldOp siteEntry.instanceId
+            dispatch (ApplyOp op)
         )
         row.appendChild toggle |> ignore
     else
