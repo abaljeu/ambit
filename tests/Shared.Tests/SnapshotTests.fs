@@ -203,6 +203,18 @@ let ``write ref parent before owner emits arrow before hash definition`` () =
     Assert.Equal(decoded.nodes.[root.children.[0].id].children.[0].id,
                  decoded.nodes.[root.children.[1].id].children.[0].id)
 
+[<Fact>]
+let ``normalizeOutlineForCompare treats CRLF and LF the same`` () =
+    let a = "x\r\ny"
+    let b = "x\ny"
+    Assert.Equal(Snapshot.normalizeOutlineForCompare a, Snapshot.normalizeOutlineForCompare b)
+
+[<Fact>]
+let ``describeOutlineMismatch reports first differing code point`` () =
+    let msg = Snapshot.describeOutlineMismatch "hello" "hallo"
+    Assert.Contains("first differing", msg)
+    Assert.Contains("U+", msg)
+
 // ---- backward compatibility: plain lines still load correctly ----
 
 [<Fact>]

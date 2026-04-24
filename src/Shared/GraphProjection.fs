@@ -86,7 +86,11 @@ module GraphProjection =
                   children = []
                   cssClasses = CssClass.ofList r.cssClassNames
                   owner = Graph.rootId
-                  kind = Normal })
+                  kind =
+                    if nid = Graph.trashId then
+                        Special Trash
+                    else
+                        Normal })
             |> Map.ofList
 
         let badRef (g: ChildPersistenceRow) =

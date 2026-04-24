@@ -40,6 +40,7 @@ let private createClientForDir (tempDir: string) =
                         config.AddInMemoryCollection(
                             dict [
                                 "DataDir", tempDir
+                                "DB_CONNECTION_STRING", ""
                                 "Auth:Username", ""
                                 "Auth:Password", ""
                             ]

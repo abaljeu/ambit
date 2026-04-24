@@ -98,5 +98,6 @@ Don't use git unless asked.
 Your working directory is the project root.  
 **Do not use `cd`.  Do not change directories.**  
 Do not use absolute paths.  Use relative paths such as ./src.
+Do not run VSCode Tasks.
 
 Occasionally the first time you send a command, the tool will delete the first character of your command.  If so, just send it again.

@@ -14,7 +14,12 @@ let ``graphRoundTrip preserves default graph`` () =
 
     match GraphProjection.graphRoundTrip g with
     | Error e -> Assert.Fail(e)
-    | Ok g2 -> Assert.True(GraphProjection.graphEquals g g2)
+    | Ok g2 ->
+        Assert.True(GraphProjection.graphEquals g g2)
+
+        match g2.nodes.[Graph.trashId].kind with
+        | Special Trash -> ()
+        | k -> Assert.Fail(sprintf "trash kind after SQL round-trip: %A" k)
 
 [<Fact>]
 let ``graphRoundTrip preserves graph with child`` () =

@@ -10,6 +10,7 @@ open Microsoft.AspNetCore.StaticFiles
 open Microsoft.Extensions.Configuration
 open Gambol.Shared
 
+
 module Main =
 
     let resolveDataDir (contentRoot: string) (config: IConfiguration) =
@@ -246,12 +247,14 @@ module Main =
 
             let getHandle (filename: string) : AgentHandle =
                 let dbConnString = config.["DB_CONNECTION_STRING"] |> Option.ofObj |> Option.defaultValue ""
+                let file = getOrCreateFileAgent filename
+
                 match resolvedDbStatus with
                 | DatabaseSetup.DbStatus.Ok
                 | DatabaseSetup.DbStatus.Mismatch1 ->
-                    AgentHandle.ofDb (DatabaseSetup.getOrCreateDbAgent dbConnString filename)
+                    AgentHandle.ofFileWithDbMirror file (Some(DatabaseSetup.getOrCreateDbAgent dbConnString filename))
                 | _ ->
-                    AgentHandle.ofFile (getOrCreateFileAgent filename)
+                    AgentHandle.ofFile file
 
             // GET /ambit/login → serve login.html
             let loginHtml = Path.Combine(app.Environment.WebRootPath, "login.html")

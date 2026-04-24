@@ -221,7 +221,7 @@ module Database =
                         ({ id = r.id
                            text = r.text
                            name =
-                            if String.IsNullOrEmpty(r.name) then
+                            if isNull r.name then
                                 None
                             else
                                 Some r.name

@@ -90,6 +90,52 @@ module Snapshot =
 
         sb.ToString()
 
+    /// Collapse CR/LF variants for equality checks (line breaks between lines and any embedded
+    /// newlines inside node text). Editors often hide why raw `=` is false.
+    let normalizeOutlineForCompare (s: string) : string =
+        s.Replace("\r\n", "\n").Replace("\r", "\n")
+
+    let private firstOutlineDiffIndex (left: string) (right: string) : int option =
+        let rec go i =
+            if i >= left.Length && i >= right.Length then
+                None
+            elif i >= left.Length || i >= right.Length then
+                Some i
+            elif left.[i] = right.[i] then
+                go (i + 1)
+            else
+                Some i
+
+        go 0
+
+    /// When two outlines look the same in a viewer but `=` is false, this reports lengths,
+    /// CR/LF counts, first differing index, and short context (code points, not escaped body).
+    let describeOutlineMismatch (left: string) (right: string) : string =
+        let sb = Text.StringBuilder()
+        let cr (t: string) = t.Length - t.Replace("\r", "").Length
+        let lf (t: string) = t.Length - t.Replace("\n", "").Length
+        sb.AppendLine(sprintf "length left=%d right=%d" left.Length right.Length) |> ignore
+        sb.AppendLine(sprintf "CR count left=%d right=%d; LF left=%d right=%d" (cr left) (cr right) (lf left) (lf right))
+        |> ignore
+
+        match firstOutlineDiffIndex left right with
+        | None -> sb.Append("No character difference and lengths match.").ToString()
+        | Some i ->
+            let at (t: string) (j: int) =
+                if j >= t.Length then "EOF" else sprintf "U+%04X" (int t.[j])
+
+            let lo = max 0 (i - 24)
+
+            let span (t: string) =
+                if lo >= t.Length then ""
+                else t.Substring(lo, min 48 (t.Length - lo))
+
+            sb.AppendLine(sprintf "first differing index (0-based): %d" i) |> ignore
+            sb.AppendLine(sprintf "left_char=%s right_char=%s" (at left i) (at right i)) |> ignore
+            sb.AppendLine("context left:  " + span left) |> ignore
+            sb.Append("context right: " + span right) |> ignore
+            sb.ToString()
+
     /// Optional leading metadata "{...}rest" → (cssClasses, nodeText).
     let private parseOutlineMeta (raw: string) : CssClasses * string =
         if not (raw.StartsWith("{")) then

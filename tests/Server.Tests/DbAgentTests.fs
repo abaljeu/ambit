@@ -6,6 +6,7 @@ open System.Threading.Tasks
 open Xunit
 open Gambol.Server
 open Gambol.Shared
+open Gambol.Server.Tests.TestDbConfigTests
 
 module Decode = Thoth.Json.Newtonsoft.Decode
 module Encode = Thoth.Json.Newtonsoft.Encode
@@ -16,8 +17,9 @@ let private decodeChange (s: string) =
 let private testConnEnv = "TEST_DB_CONNECTION_STRING"
 
 let private connStrOrEmpty () =
-    Environment.GetEnvironmentVariable(testConnEnv)
-    |> Option.ofObj
+    TestDbConfig.resolveFrom
+        (fun () -> Environment.GetEnvironmentVariable(testConnEnv) |> Option.ofObj)
+        AppContext.BaseDirectory
     |> Option.defaultValue ""
 
 let private resetTestDatabase (connStr: string) =
@@ -53,8 +55,12 @@ let ``DbAgent empty test DB has revision 0 and canonical ROOT`` () = task {
     let! json = DbAgent.getState agent |> Async.StartAsTask
     Assert.Equal(0, rev)
     let graph = decodeGraph json
-    Assert.Equal(1, graph.nodes.Count)
-    Assert.Equal("ROOT", graph.nodes.[graph.root].text)
+    let root = graph.nodes.[graph.root]
+    Assert.Equal(2, graph.nodes.Count)
+    Assert.Equal("ROOT", root.text)
+    Assert.Equal(1, root.children.Length)
+    Assert.Equal(Graph.trashId, root.children.[0].id)
+    Assert.Equal("Trash", graph.nodes.[Graph.trashId].text)
 }
 
 [<SkippableFact>]
@@ -88,9 +94,10 @@ let ``DbAgent new process loads state from projection and changes after post`` (
     let graph2 = decodeGraph json2
     Assert.Equal(Graph.rootId, graph2.root)
     let root = graph2.nodes.[graph2.root]
-    Assert.Equal(1, root.children.Length)
+    Assert.Equal(2, root.children.Length)
     let cid = root.children.[0].id
     Assert.Equal("reload-check", graph2.nodes.[cid].text)
+    Assert.Equal(Graph.trashId, root.children.[1].id)
 }
 
 [<SkippableFact>]
@@ -143,4 +150,28 @@ let ``rebuildFromDocumentFiles aligns DB with on-disk document`` () = task {
     finally
         if Directory.Exists(tempRoot) then
             Directory.Delete(tempRoot, true)
+}
+
+[<SkippableFact>]
+let ``loadPersistedState preserves empty string node name`` () = task {
+    let connStr = connStrOrEmpty ()
+    Skip.If(String.IsNullOrWhiteSpace(connStr), $"Set {testConnEnv} for PostgreSQL tests.")
+    do! resetTestDatabase connStr
+
+    let baseGraph = Graph.create ()
+    let trashNode = baseGraph.nodes.[Graph.trashId]
+
+    let graphWithEmptyName =
+        baseGraph.nodes
+        |> Map.add Graph.trashId { trashNode with name = Some "" }
+        |> Graph.fromNodes baseGraph.root
+
+    use conn = Database.getConnection connStr
+    do! conn.OpenAsync()
+    use tx = conn.BeginTransaction()
+    do! Database.replaceGraphProjectionWithTx tx graphWithEmptyName 0 |> Async.AwaitTask
+    tx.Commit()
+
+    let! loaded = Database.loadPersistedState connStr decodeChange |> Async.AwaitTask
+    Assert.Equal(Some "", loaded.graph.nodes.[Graph.trashId].name)
 }

@@ -25,6 +25,29 @@ module AgentHandle =
           getChangesSince = fun after -> DbAgent.getChangesSince agent after
           postChange      = fun body -> DbAgent.postChange agent body }
 
+    /// On-disk document is authoritative; when `db` is present, each successful file `postChange`
+    /// is mirrored to PostgreSQL (best-effort log on DB failure; response still reflects file ack).
+    let ofFileWithDbMirror (file: FileAgent) (db: DbAgent option) : AgentHandle =
+        { getState        = fun () -> FileAgent.getState file
+          getRevision     = fun () -> FileAgent.getRevision file
+          getChangesSince = fun after -> FileAgent.getChangesSince file after
+          postChange      =
+            fun body -> async {
+                let! fileResult = FileAgent.postChange file body
+
+                match fileResult, db with
+                | Ok ackJson, Some dbAgent ->
+                    let! dbResult = DbAgent.postChange dbAgent body
+
+                    match dbResult with
+                    | Error err -> eprintfn "[Api] Secondary DB write failed after file persist: %s" err
+                    | Ok _ -> ()
+
+                    return Ok ackJson
+                | Ok ackJson, None -> return Ok ackJson
+                | Error err, _ -> return Error err
+            } }
+
 module Api =
 
     let private jsonResult (json: string) : IResult =
@@ -56,13 +79,8 @@ module Api =
 
     let postChange (handle: AgentHandle) (body: string) : Async<IResult> = async {
         let! result = handle.postChange body
+
         match result with
         | Ok json -> return jsonResult json
-        | Error err when err.StartsWith("Database error:") ->
-            // Log the DB error but return success to client
-            eprintfn "[Api] Database write failed: %s" err
-            // Return a generic success (no DB ack, but file save succeeded)
-            // Optionally, you could return a warning in the response if desired
-            return jsonResult "{\"result\":\"ok (db write failed)\"}"
         | Error err -> return Results.BadRequest({| error = err |})
     }
