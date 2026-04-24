@@ -19,6 +19,7 @@ type FileAgentMsg =
 type FileAgent = {
     mailbox: MailboxProcessor<FileAgentMsg>
     logStream: FileStream
+    initialState: Gambol.Shared.State  // post-replay state captured at startup; used by DB setup
 }
 
 module FileAgent =
@@ -54,6 +55,8 @@ module FileAgent =
 
         state.Value <-
             DocumentLoader.replayLogFromIndex logStream offsetIndex replayFromLogIndex state.Value
+
+        let capturedInitialState = state.Value
 
         logStream.Seek(0L, SeekOrigin.End) |> ignore
 
@@ -146,7 +149,7 @@ module FileAgent =
             loop ()
         )
 
-        { mailbox = mailbox; logStream = logStream }
+        { mailbox = mailbox; logStream = logStream; initialState = capturedInitialState }
 
     let getState (agent: FileAgent) : Async<string> =
         agent.mailbox.PostAndAsyncReply(GetState)

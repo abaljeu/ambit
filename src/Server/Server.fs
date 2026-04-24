@@ -239,11 +239,15 @@ module Main =
                         newAgent
                 )
 
+            // Create FileAgent eagerly so its post-replay State (with stable NodeIds) can be
+            // passed to DB setup — avoids a second Snapshot.read call that would mint different ids.
+            let initialFileAgent = getOrCreateFileAgent "gambol"
+
             // DbStatus — Ok | Mismatch | Absent
             // Eagerly initialises schema and validates DB against file authority at startup.
             let resolvedDbStatus : DatabaseSetup.DbStatus =
                 let dbConnString = config.["DB_CONNECTION_STRING"] |> Option.ofObj |> Option.defaultValue ""
-                DatabaseSetup.resolveDbConnection dbConnString dataDir
+                DatabaseSetup.resolveDbConnection dbConnString initialFileAgent.initialState
 
             let getHandle (filename: string) : AgentHandle =
                 let dbConnString = config.["DB_CONNECTION_STRING"] |> Option.ofObj |> Option.defaultValue ""

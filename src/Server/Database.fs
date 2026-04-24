@@ -340,13 +340,10 @@ module Database =
             return stFinal
         }
 
-    /// Truncate SQL tables and replace the projection from file authority (`DocumentLoader.loadState`).
-    /// `changes` is cleared; new posts repopulate the log. Matches snapshot + meta + tail replay, not
-    /// raw log replay from empty (which can diverge when the snapshot checkpoints the prefix).
-    let rebuildFromDocumentFiles (connectionString: string) (dataDir: string) (filename: string) : Task =
+    /// Truncate SQL tables and replace the projection from a pre-loaded file `State`.
+    /// `changes` is cleared; new posts repopulate the log.
+    let rebuildFromDocumentFiles (connectionString: string) (fileState: State) : Task =
         task {
-            let fileSt = DocumentLoader.loadState dataDir filename
-
             use conn = getConnection connectionString
             do! conn.OpenAsync()
             use tx = conn.BeginTransaction()
@@ -365,6 +362,6 @@ module Database =
 
             do! conn.ExecuteAsync("DELETE FROM graph", transaction = tx) :> Task
 
-            do! replaceGraphProjectionWithTx tx fileSt.graph fileSt.revision.Value |> Async.AwaitTask
+            do! replaceGraphProjectionWithTx tx fileState.graph fileState.revision.Value |> Async.AwaitTask
             tx.Commit()
         }

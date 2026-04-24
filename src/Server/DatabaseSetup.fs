@@ -44,44 +44,48 @@ module DatabaseSetup =
         else
             DbStatus.Mismatch2
 
-    /// Disk vs DB: same revision and same graph by id, or same canonical outline text.
-    /// Snapshot.read gives new Guids for plain lines on each load; DB keeps stable ids.
+    /// Disk vs DB: same persisted outline (Snapshot.write + normalize), then same revision.
+    /// Structural `GraphProjection.graphEquals` is not used: file vs DB ids usually differ.
     let documentStatesMatch (left: State) (right: State) : bool =
-        if left.revision.Value <> right.revision.Value then
-            false
-        elif GraphProjection.graphEquals left.graph right.graph then
-            true
-        else
-            let l = Snapshot.write left.graph
-            let r = Snapshot.write right.graph
-            let ln = Snapshot.normalizeOutlineForCompare l
-            let rn = Snapshot.normalizeOutlineForCompare r
+        let l = Snapshot.write left.graph
+        let r = Snapshot.write right.graph
+        let ln = Snapshot.normalizeOutlineForCompare l
+        let rn = Snapshot.normalizeOutlineForCompare r
 
-            if ln = rn then
-                true
-            else
-                eprintfn "Gambol: outline mismatch detail:%s%s" System.Environment.NewLine (Snapshot.describeOutlineMismatch ln rn)
-                false
+        if ln <> rn then
+            let dir = System.IO.Path.GetTempPath()
+            let leftPath = System.IO.Path.Combine(dir, "gambol-outline-left.txt")
+            let rightPath = System.IO.Path.Combine(dir, "gambol-outline-right.txt")
+            System.IO.File.WriteAllText(leftPath, l)
+            System.IO.File.WriteAllText(rightPath, r)
+            eprintfn "Gambol: outline mismatch detail:%s%s" System.Environment.NewLine (Snapshot.describeOutlineMismatch ln rn)
+            eprintfn "Gambol: wrote raw outlines to %s and %s" leftPath rightPath
+            false
+        elif left.revision.Value <> right.revision.Value then
+            false
+        else
+            true
 
     /// Resolve the DB connection string from config and run startup checks.
-    let resolveDbConnection (connStr: string) (dataDir: string) : DbStatus =
+    /// `fileState` is the authoritative state already loaded by the FileAgent — passing it in
+    /// avoids a second `Snapshot.read` call that would mint different NodeIds.
+    let resolveDbConnection (connStr: string) (fileState: State) : DbStatus =
         if connStr = "" then
             DbStatus.Absent
         else
             try
                 Database.initSchema connStr |> Async.AwaitTask |> Async.RunSynchronously
 
-                let fileSt = DocumentLoader.loadState dataDir "gambol"
                 let dbSt =
                     Database.loadPersistedState connStr decodeChangePayload
                     |> Async.AwaitTask
                     |> Async.RunSynchronously
 
                 let status =
-                    if documentStatesMatch fileSt dbSt then
+                    if documentStatesMatch fileState dbSt then
                         DbStatus.Ok
                     else
-                        Database.rebuildFromDocumentFiles connStr dataDir "gambol"
+                        Database.rebuildFromDocumentFiles connStr fileState
                         |> Async.AwaitTask
                         |> Async.RunSynchronously
 
@@ -90,7 +94,7 @@ module DatabaseSetup =
                             |> Async.AwaitTask
                             |> Async.RunSynchronously
 
-                        statusFromMatches false (documentStatesMatch fileSt dbStAfterRebuild)
+                        statusFromMatches false (documentStatesMatch fileState dbStAfterRebuild)
 
                 match status with
                 | DbStatus.Ok
