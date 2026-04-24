@@ -280,11 +280,16 @@ az postgres flexible-server start \
 Repository helper:
 
 ```bash
-./scripts/azure-postgres-server.sh start
-./scripts/azure-postgres-server.sh stop
-./scripts/azure-postgres-server.sh status
+./scripts/azure.sh start
+./scripts/azure.sh stop
+./scripts/azure.sh status
+./scripts/azure.sh web
 ./scripts/azure-postgres-restop.sh
 ```
+
+`./scripts/azure.sh web` restarts App Service `Amble` only (same `resource-group` default as below).
+After a successful `start` or `stop`, the same script also runs `az webapp restart` for `Amble`, so
+the ASP.NET process does not keep stale database connections.
 
 Azure auto-restarts a stopped server after 7 days. That 7-day limit is Azure behavior, not a setting
 you can change in the portal or on the `az postgres flexible-server stop` command. To keep the server
@@ -306,7 +311,7 @@ If Azure costs are unfavorable after the first month, DigitalOcean Managed Postg
 - [x] Provision Azure Database for PostgreSQL – Flexible Server
 - [x] Create `gambol` database and user
 - [x] Configure network access (firewall rules or VNet)
-- [ ] Set `DB_CONNECTION_STRING` in Azure App Service environment variables
+- [x] Set `DB_CONNECTION_STRING` in Azure App Service environment variables
 - [ ] Deploy the application
 - [ ] Verify startup logs: schema created, `rebuildFromDocumentFiles` completed
 - [ ] Spot-check DB contents via `psql`

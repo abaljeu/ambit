@@ -8,7 +8,7 @@ Current status from overview.md
 - [x] Provision Azure Database for PostgreSQL - Flexible Server
 - [x] Create the `gambol` database and credentials
 - [x] Configure network access from Azure App Service (`Amble`) to the database
-- [ ] Set `DB_CONNECTION_STRING` in Azure App Service environment variables
+- [x] Set `DB_CONNECTION_STRING` in Azure App Service environment variables
 - [ ] Deploy once so startup runs `initSchema` and the initial rebuild/parity checks
 
 Commands executed
@@ -122,3 +122,12 @@ Confirm that startup:
 - runs `initSchema`
 - rebuilds from file authority if needed
 - reports DB presence on the status line
+
+4. App Service restart bundled with DB start/stop (repository script)
+
+`./scripts/azure.sh` calls the following after a successful `start` or `stop`, and `./scripts/azure.sh
+web` runs the same step alone:
+
+```bash
+az webapp restart --resource-group Amble_group --name Amble
+```
