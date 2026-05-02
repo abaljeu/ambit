@@ -336,6 +336,132 @@ let ``Log contains valid change data after POST`` () = task {
     Assert.True(content.StartsWith("00000000"), "Log entry should have 8-digit padded change id prefix")
 }
 
+// ---- DB restart tests (DB backend only) ----
+
+[<Fact>]
+let ``DB change is written to database synchronously on postChange`` () = task {
+    let connStr = requireDbConnStr ()
+    do! resetTestDatabase connStr
+    use client1 = createDbClient connStr
+    let! json0 = getStateJson client1 testFile
+    let rootId = (decodeGraph json0).root
+    let change, _ = changeAddChild rootId 0 "probe"
+    let! r1 = postChange client1 testFile change
+    Assert.Equal(HttpStatusCode.OK, r1.StatusCode)
+    let! rows = Database.getChangesAfterCheckpointRevision connStr 0 |> Async.AwaitTask
+    Assert.Equal(1, rows.Length)
+}
+
+[<Fact>]
+let ``DB rows persist after agent cache reset`` () = task {
+    let connStr = requireDbConnStr ()
+    do! resetTestDatabase connStr
+    use client1 = createDbClient connStr
+    let! json0 = getStateJson client1 testFile
+    let rootId = (decodeGraph json0).root
+    let change, _ = changeAddChild rootId 0 "probe"
+    let! r1 = postChange client1 testFile change
+    Assert.Equal(HttpStatusCode.OK, r1.StatusCode)
+    DatabaseSetup.resetAgentCacheForTest ()
+    let! rows = Database.getChangesAfterCheckpointRevision connStr 0 |> Async.AwaitTask
+    Assert.Equal(1, rows.Length)
+}
+
+[<Fact>]
+let ``DB rows survive second server startup without DB reset`` () = task {
+    let connStr = requireDbConnStr ()
+    do! resetTestDatabase connStr
+    use client1 = createDbClient connStr
+    let! json0 = getStateJson client1 testFile
+    let rootId = (decodeGraph json0).root
+    let change, _ = changeAddChild rootId 0 "probe"
+    let! r1 = postChange client1 testFile change
+    Assert.Equal(HttpStatusCode.OK, r1.StatusCode)
+    let! rowsBefore = Database.getChangesAfterCheckpointRevision connStr 0 |> Async.AwaitTask
+    Assert.Equal(1, rowsBefore.Length)
+    use client2 = createDbClientNoReset connStr
+    let! rowsAfter = Database.getChangesAfterCheckpointRevision connStr 0 |> Async.AwaitTask
+    Assert.Equal(1, rowsAfter.Length)
+}
+
+[<Fact>]
+let ``DB restart preserves NodeIds`` () = task {
+    let connStr = requireDbConnStr ()
+    do! resetTestDatabase connStr
+    use client1 = createDbClient connStr
+    let! json0 = getStateJson client1 testFile
+    let rootId = (decodeGraph json0).root
+    let change, childId = changeAddChild rootId 0 "db-restart-child"
+    let! r1 = postChange client1 testFile change
+    Assert.Equal(HttpStatusCode.OK, r1.StatusCode)
+    use client2 = createDbClientNoReset connStr
+    let! json2 = getStateJson client2 testFile
+    let graph2 = decodeGraph json2
+    Assert.Equal(Revision 1, decodeRevision json2)
+    Assert.True(graph2.nodes.ContainsKey childId, "NodeId must survive restart")
+    Assert.Equal("db-restart-child", graph2.nodes.[childId].text)
+}
+
+[<Fact>]
+let ``DB restart replays log when projection is cleared`` () = task {
+    let connStr = requireDbConnStr ()
+    do! resetTestDatabase connStr
+    use client1 = createDbClient connStr
+    let! json0 = getStateJson client1 testFile
+    let rootId = (decodeGraph json0).root
+    let change1, childId1 = changeAddChild rootId 0 "first"
+    let! r1 = postChange client1 testFile change1
+    Assert.Equal(HttpStatusCode.OK, r1.StatusCode)
+    let change2, childId2 = changeAddChild rootId 1 "second"
+    let! r2 = postChange client1 testFile change2
+    Assert.Equal(HttpStatusCode.OK, r2.StatusCode)
+    let! logRows = Database.getChangesAfterCheckpointRevision connStr 0 |> Async.AwaitTask
+    Assert.Equal(2, logRows.Length)
+    // Wipe projection tables only (not changes) to force full log replay on restart
+    use conn = new Npgsql.NpgsqlConnection(connStr)
+    do! conn.OpenAsync()
+    use cmd = conn.CreateCommand()
+    cmd.CommandText <- "TRUNCATE node_children, nodes, graph RESTART IDENTITY CASCADE;"
+    let! _ = cmd.ExecuteNonQueryAsync()
+    use client2 = createDbClientNoReset connStr
+    let! json2 = getStateJson client2 testFile
+    Assert.Equal(Revision 2, decodeRevision json2)
+    let graph2 = decodeGraph json2
+    Assert.True(graph2.nodes.ContainsKey childId1, "first child must survive restart")
+    Assert.True(graph2.nodes.ContainsKey childId2, "second child must survive restart")
+    Assert.Equal("first", graph2.nodes.[childId1].text)
+    Assert.Equal("second", graph2.nodes.[childId2].text)
+}
+
+[<Fact>]
+let ``DB restart keeps duplicate changeId idempotent`` () = task {
+    let connStr = requireDbConnStr ()
+    do! resetTestDatabase connStr
+    use client1 = createDbClient connStr
+    let! json0 = getStateJson client1 testFile
+    let rootId = (decodeGraph json0).root
+    let change, childId = changeAddChild rootId 0 "once-after-restart"
+    let! r1 = postChange client1 testFile change
+    Assert.Equal(HttpStatusCode.OK, r1.StatusCode)
+    let! b1 = r1.Content.ReadAsStringAsync()
+    Assert.Equal(Revision 1, decodeRevision b1)
+    Assert.Equal(change.changeId, decodeAckChangeId b1)
+
+    use client2 = createDbClientNoReset connStr
+    let! r2 = postChange client2 testFile change
+    Assert.Equal(HttpStatusCode.OK, r2.StatusCode)
+    let! b2 = r2.Content.ReadAsStringAsync()
+    Assert.Equal(Revision 1, decodeRevision b2)
+    Assert.Equal(change.changeId, decodeAckChangeId b2)
+
+    let! json2 = getStateJson client2 testFile
+    Assert.Equal(Revision 1, decodeRevision json2)
+    let graph2 = decodeGraph json2
+    Assert.True(graph2.nodes.ContainsKey childId, "duplicate change must not create a new node")
+    Assert.Equal("once-after-restart", graph2.nodes.[childId].text)
+    Assert.Equal<ChildNode list>(ownedChild childId, userRootChildren graph2)
+}
+
 [<Fact>]
 let ``New server uses snapshot + log replay`` () = task {
     let tempDir = newTempDir ()

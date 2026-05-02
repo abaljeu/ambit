@@ -70,9 +70,10 @@ let createClientForDir (tempDir: string) =
 /// Create a test client with a fresh empty temp dir (file backend).
 let createFileClient () = newTempDir () |> createClientForDir
 
-/// Create a test client using the DB mirror backend.
+/// Create a test client using the DB backend.
 /// Caller must have already called resetTestDatabase before creating the client.
 let createDbClient (connStr: string) =
+    DatabaseSetup.resetAgentCacheForTest ()
     let priorDb = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING")
     try
         Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", connStr)
@@ -96,3 +97,9 @@ let createDbClient (connStr: string) =
             Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", null)
         else
             Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", priorDb)
+
+/// Like createDbClient but clears the DB agent cache first, simulating a process restart.
+/// Use when testing server behaviour after restart without resetting the database.
+let createDbClientNoReset (connStr: string) =
+    DatabaseSetup.resetAgentCacheForTest ()
+    createDbClient connStr

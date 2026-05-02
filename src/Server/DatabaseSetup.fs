@@ -66,44 +66,19 @@ module DatabaseSetup =
         else
             true
 
-    /// Resolve the DB connection string from config and run startup checks.
-    /// `fileState` is the authoritative state already loaded by the FileAgent — passing it in
-    /// avoids a second `Snapshot.read` call that would mint different NodeIds.
-    let resolveDbConnection (connStr: string) (fileState: State) : DbStatus =
+    /// Initialise schema and create the DB agent. DB is the sole authority when available.
+    let resolveDbConnection (connStr: string) : DbStatus =
         if connStr = "" then
             DbStatus.Absent
         else
             try
                 Database.initSchema connStr |> Async.AwaitTask |> Async.RunSynchronously
-
-                let dbSt =
-                    Database.loadPersistedState connStr decodeChangePayload
-                    |> Async.AwaitTask
-                    |> Async.RunSynchronously
-
-                let status =
-                    if documentStatesMatch fileState dbSt then
-                        DbStatus.Ok
-                    else
-                        Database.rebuildFromDocumentFiles connStr fileState
-                        |> Async.AwaitTask
-                        |> Async.RunSynchronously
-
-                        let dbStAfterRebuild =
-                            Database.loadPersistedState connStr decodeChangePayload
-                            |> Async.AwaitTask
-                            |> Async.RunSynchronously
-
-                        statusFromMatches false (documentStatesMatch fileState dbStAfterRebuild)
-
-                match status with
-                | DbStatus.Ok
-                | DbStatus.Mismatch1 ->
-                    getOrCreateDbAgent connStr "gambol" |> ignore
-                | DbStatus.Mismatch2
-                | DbStatus.Absent -> ()
-
-                status
+                getOrCreateDbAgent connStr "gambol" |> ignore
+                DbStatus.Ok
             with ex ->
-                eprintfn "Gambol: DB_CONNECTION_STRING set but connection failed - falling back to file store. %s" ex.Message
+                eprintfn "Gambol: DB connection failed - falling back to file store. %s" ex.Message
                 DbStatus.Absent
+
+    /// For test use only: clears the DB agent cache so the next startup creates a fresh instance.
+    let resetAgentCacheForTest () =
+        lock dbAgentLock (fun () -> dbAgentCache.Value <- None)

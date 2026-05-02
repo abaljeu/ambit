@@ -25,14 +25,42 @@ module Database =
                 DROP TABLE IF EXISTS snapshots;
 
                 CREATE TABLE IF NOT EXISTS changes (
-                    seq_id      BIGSERIAL    PRIMARY KEY,
-                    change_id   INT          NOT NULL,
-                    payload     TEXT         NOT NULL,
-                    recorded_at TIMESTAMPTZ  DEFAULT NOW()
+                    seq_id               BIGSERIAL    PRIMARY KEY,
+                    client_base_revision INT          NOT NULL,
+                    change_uuid          UUID         NOT NULL,
+                    payload              TEXT         NOT NULL,
+                    recorded_at          TIMESTAMPTZ  DEFAULT NOW()
                 );
 
-                CREATE INDEX IF NOT EXISTS idx_changes_change_id
-                    ON changes (change_id);
+                DO $$
+                BEGIN
+                    IF EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'changes' AND column_name = 'change_id'
+                    ) AND NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name = 'changes' AND column_name = 'client_base_revision'
+                    ) THEN
+                        ALTER TABLE changes RENAME COLUMN change_id TO client_base_revision;
+                    END IF;
+                END $$;
+
+                ALTER TABLE changes
+                    ADD COLUMN IF NOT EXISTS change_uuid UUID;
+
+                UPDATE changes
+                SET change_uuid = (payload::jsonb ->> 'changeId')::uuid
+                WHERE change_uuid IS NULL
+                  AND payload::jsonb ? 'changeId';
+
+                ALTER TABLE changes
+                    ALTER COLUMN change_uuid SET NOT NULL;
+
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_changes_change_uuid
+                    ON changes (change_uuid);
+
+                CREATE INDEX IF NOT EXISTS idx_changes_client_base_revision
+                    ON changes (client_base_revision);
 
                 ALTER TABLE changes
                     ADD COLUMN IF NOT EXISTS server_revision_after INTEGER;
@@ -81,7 +109,7 @@ module Database =
         }
 
     type ChangeRow =
-        { change_id: int
+        { client_base_revision: int
           payload: string }
 
     type GraphSingletonRow =
@@ -116,14 +144,26 @@ module Database =
         (tx: IDbTransaction)
         (serverRevisionAfter: int)
         (clientBaseRevision: int)
+        (clientChangeId: Guid)
         (json: string)
         : Task =
         tx.Connection.ExecuteAsync(
             """
-            INSERT INTO changes (change_id, server_revision_after, payload)
-            VALUES (@change_id, @server_revision_after, @payload)
+            INSERT INTO changes (
+                client_base_revision,
+                change_uuid,
+                server_revision_after,
+                payload
+            )
+            VALUES (
+                @client_base_revision,
+                @change_uuid,
+                @server_revision_after,
+                @payload
+            )
             """,
-            {| change_id = clientBaseRevision
+            {| client_base_revision = clientBaseRevision
+               change_uuid = clientChangeId
                server_revision_after = serverRevisionAfter
                payload = json |},
             tx)
@@ -133,6 +173,7 @@ module Database =
         (connectionString: string)
         (serverRevisionAfter: int)
         (clientBaseRevision: int)
+        (clientChangeId: Guid)
         (json: string)
         : Task =
         task {
@@ -140,7 +181,9 @@ module Database =
             do! conn.OpenAsync()
             use tx = conn.BeginTransaction()
 
-            do! appendChangeWithTx tx serverRevisionAfter clientBaseRevision json
+            do!
+                appendChangeWithTx tx serverRevisionAfter clientBaseRevision clientChangeId json
+
             tx.Commit()
         }
 
@@ -155,13 +198,33 @@ module Database =
             let! rows =
                 conn.QueryAsync<ChangeRow>(
                     """
-                    SELECT change_id, payload FROM changes
+                    SELECT client_base_revision, payload FROM changes
                     WHERE server_revision_after > @rev
                     ORDER BY server_revision_after ASC
                     """,
                     {| rev = checkpointRevision |})
 
             return rows |> Seq.toList
+        }
+
+    let hasPersistedChangeId
+        (connectionString: string)
+        (changeId: Guid)
+        : Task<bool> =
+        task {
+            use conn = getConnection connectionString
+            do! conn.OpenAsync()
+
+            let! exists =
+                conn.QuerySingleAsync<bool>(
+                    """
+                    SELECT EXISTS (
+                        SELECT 1 FROM changes WHERE change_uuid = @change_uuid
+                    )
+                    """,
+                    {| change_uuid = changeId |})
+
+            return exists
         }
 
     let tryGetGraphSingleton (connectionString: string) : Task<GraphSingletonRow option> =

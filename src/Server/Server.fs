@@ -239,26 +239,19 @@ module Main =
                         newAgent
                 )
 
-            // Create FileAgent eagerly so its post-replay State (with stable NodeIds) can be
-            // passed to DB setup — avoids a second Snapshot.read call that would mint different ids.
-            let initialFileAgent = getOrCreateFileAgent "gambol"
-
-            // DbStatus — Ok | Mismatch | Absent
-            // Eagerly initialises schema and validates DB against file authority at startup.
+            // DbStatus — Ok | Absent
+            // Eagerly initialises schema and creates the DB agent when DB_CONNECTION_STRING is set.
             let resolvedDbStatus : DatabaseSetup.DbStatus =
                 let dbConnString = config.["DB_CONNECTION_STRING"] |> Option.ofObj |> Option.defaultValue ""
-                DatabaseSetup.resolveDbConnection dbConnString initialFileAgent.initialState
+                DatabaseSetup.resolveDbConnection dbConnString
 
             let getHandle (filename: string) : AgentHandle =
                 let dbConnString = config.["DB_CONNECTION_STRING"] |> Option.ofObj |> Option.defaultValue ""
-                let file = getOrCreateFileAgent filename
-
                 match resolvedDbStatus with
-                | DatabaseSetup.DbStatus.Ok
-                | DatabaseSetup.DbStatus.Mismatch1 ->
-                    AgentHandle.ofFileWithDbMirror file (Some(DatabaseSetup.getOrCreateDbAgent dbConnString filename))
+                | DatabaseSetup.DbStatus.Ok ->
+                    AgentHandle.ofDb (DatabaseSetup.getOrCreateDbAgent dbConnString filename)
                 | _ ->
-                    AgentHandle.ofFile file
+                    AgentHandle.ofFile (getOrCreateFileAgent filename)
 
             // GET /ambit/login → serve login.html
             let loginHtml = Path.Combine(app.Environment.WebRootPath, "login.html")

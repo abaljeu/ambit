@@ -40,12 +40,20 @@ module DbAgent =
         let isDuplicateSubmission (change: Change) (history: History) =
             history.past |> List.exists (fun c -> c.id = change.id && c.changeId = change.changeId)
 
+        let isPersistedDuplicateSubmission (change: Change) =
+            Database.hasPersistedChangeId connectionString change.changeId
+            |> Async.AwaitTask
+            |> Async.RunSynchronously
+
         let handlePostChange body (reply: AsyncReplyChannel<Result<string, string>>) _inbox =
             match Decode.fromString Serialization.decodeChange body with
             | Error err ->
                 reply.Reply(Error $"Invalid JSON: {err}")
             | Ok change ->
                 if isDuplicateSubmission change state.Value.history then
+                    reply.Reply(Ok (encodeChangeAckJson change.changeId))
+                elif change.id <> state.Value.revision.Value
+                    && isPersistedDuplicateSubmission change then
                     reply.Reply(Ok (encodeChangeAckJson change.changeId))
                 elif change.id <> state.Value.revision.Value then
                     reply.Reply(
@@ -66,7 +74,12 @@ module DbAgent =
                             conn.Open()
                             use tx = conn.BeginTransaction()
 
-                            (Database.appendChangeWithTx tx serverRevAfter change.id json)
+                            (Database.appendChangeWithTx
+                                tx
+                                serverRevAfter
+                                change.id
+                                change.changeId
+                                json)
                                 .GetAwaiter()
                                 .GetResult()
 
