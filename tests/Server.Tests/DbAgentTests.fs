@@ -6,35 +6,13 @@ open System.Threading.Tasks
 open Xunit
 open Gambol.Server
 open Gambol.Shared
-open Gambol.Server.Tests.TestDbConfigTests
+open Gambol.Server.Tests.TestBackend
 
 module Decode = Thoth.Json.Newtonsoft.Decode
 module Encode = Thoth.Json.Newtonsoft.Encode
 
 let private decodeChange (s: string) =
     Decode.fromString Serialization.decodeChange s
-
-let private testConnEnv = "TEST_DB_CONNECTION_STRING"
-
-let private connStrOrEmpty () =
-    TestDbConfig.resolveFrom
-        (fun () -> Environment.GetEnvironmentVariable(testConnEnv) |> Option.ofObj)
-        AppContext.BaseDirectory
-    |> Option.defaultValue ""
-
-let private resetTestDatabase (connStr: string) =
-    task {
-        do! Database.initSchema connStr |> Async.AwaitTask
-        use conn = new Npgsql.NpgsqlConnection(connStr)
-        do! conn.OpenAsync()
-        use cmd = conn.CreateCommand()
-
-        cmd.CommandText <-
-            "TRUNCATE TABLE changes, node_children, nodes, graph RESTART IDENTITY CASCADE;"
-
-        let! _ = cmd.ExecuteNonQueryAsync()
-        return ()
-    }
 
 let private decodeGraph (json: string) : Graph =
     let decoder =
@@ -45,10 +23,9 @@ let private decodeGraph (json: string) : Graph =
     | Ok g -> g
     | Error e -> failwith $"Decode graph: {e}"
 
-[<SkippableFact>]
+[<Fact>]
 let ``DbAgent empty test DB has revision 0 and canonical ROOT`` () = task {
-    let connStr = connStrOrEmpty ()
-    Skip.If(String.IsNullOrWhiteSpace(connStr), $"Set {testConnEnv} for PostgreSQL tests.")
+    let connStr = requireDbConnStr ()
     do! resetTestDatabase connStr
     let agent = DbAgent.create connStr
     let! rev = DbAgent.getRevision agent |> Async.StartAsTask
@@ -63,10 +40,9 @@ let ``DbAgent empty test DB has revision 0 and canonical ROOT`` () = task {
     Assert.Equal("Trash", graph.nodes.[Graph.trashId].text)
 }
 
-[<SkippableFact>]
+[<Fact>]
 let ``DbAgent new process loads state from projection and changes after post`` () = task {
-    let connStr = connStrOrEmpty ()
-    Skip.If(String.IsNullOrWhiteSpace(connStr), $"Set {testConnEnv} for PostgreSQL tests.")
+    let connStr = requireDbConnStr ()
     do! resetTestDatabase connStr
     let agent1 = DbAgent.create connStr
     let! json0 = DbAgent.getState agent1 |> Async.StartAsTask
@@ -100,10 +76,9 @@ let ``DbAgent new process loads state from projection and changes after post`` (
     Assert.Equal(Graph.trashId, root.children.[1].id)
 }
 
-[<SkippableFact>]
+[<Fact>]
 let ``rebuildFromDocumentFiles aligns DB with on-disk document`` () = task {
-    let connStr = connStrOrEmpty ()
-    Skip.If(String.IsNullOrWhiteSpace(connStr), $"Set {testConnEnv} for PostgreSQL tests.")
+    let connStr = requireDbConnStr ()
 
     let tempRoot =
         Path.Combine(Path.GetTempPath(), "gambol-rebuild-" + Guid.NewGuid().ToString("N"))
@@ -141,7 +116,7 @@ let ``rebuildFromDocumentFiles aligns DB with on-disk document`` () = task {
 
         Assert.True(differs, "expected file and DB to differ before rebuild")
 
-        do! Database.rebuildFromDocumentFiles connStr tempRoot "gambol" |> Async.AwaitTask
+        do! Database.rebuildFromDocumentFiles connStr fileSt |> Async.AwaitTask
 
         let! dbAfter = Database.loadPersistedState connStr decodeChange |> Async.AwaitTask
 
@@ -152,10 +127,9 @@ let ``rebuildFromDocumentFiles aligns DB with on-disk document`` () = task {
             Directory.Delete(tempRoot, true)
 }
 
-[<SkippableFact>]
+[<Fact>]
 let ``loadPersistedState preserves empty string node name`` () = task {
-    let connStr = connStrOrEmpty ()
-    Skip.If(String.IsNullOrWhiteSpace(connStr), $"Set {testConnEnv} for PostgreSQL tests.")
+    let connStr = requireDbConnStr ()
     do! resetTestDatabase connStr
 
     let baseGraph = Graph.create ()

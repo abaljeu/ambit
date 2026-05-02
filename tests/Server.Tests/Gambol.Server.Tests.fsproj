@@ -11,6 +11,7 @@
     <Compile Include="HeadPresenceTests.fs" />
     <Compile Include="TestDbConfigTests.fs" />
     <Compile Include="DatabaseSetupTests.fs" />
+    <Compile Include="TestBackend.fs" />
     <Compile Include="DbAgentTests.fs" />
     <Compile Include="StateEndpointTests.fs" />
   </ItemGroup>
