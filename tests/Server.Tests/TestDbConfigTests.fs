@@ -2,6 +2,7 @@ module Gambol.Server.Tests.TestDbConfigTests
 
 open System
 open System.IO
+open Npgsql
 open Xunit
 
 module TestDbConfig =
@@ -43,12 +44,25 @@ module TestDbConfig =
         with _ ->
             None
 
+    let deriveTestConnectionString (connStr: string) =
+        let builder = NpgsqlConnectionStringBuilder(connStr)
+        let database = builder.Database
+
+        if String.IsNullOrWhiteSpace(database) then
+            None
+        elif database.EndsWith("_test", StringComparison.OrdinalIgnoreCase) then
+            Some builder.ConnectionString
+        else
+            builder.Database <- database + "_test"
+            Some builder.ConnectionString
+
     let resolveFrom (getEnv: unit -> string option) (startDir: string) =
         match getEnv () with
         | Some value when not (String.IsNullOrWhiteSpace(value)) -> Some value
         | _ ->
             tryFindUpwards startDir repoConfigRelativePath
             |> Option.bind tryReadConnStrFromSettingsFile
+            |> Option.bind deriveTestConnectionString
 
 [<Fact>]
 let ``resolveFrom prefers TEST_DB_CONNECTION_STRING when set`` () =
@@ -78,7 +92,25 @@ let ``resolveFrom falls back to appsettings development connection string`` () =
         Directory.CreateDirectory(startDir) |> ignore
 
         let resolved = TestDbConfig.resolveFrom (fun () -> None) startDir
-        Assert.Equal(Some "Host=file;Database=gambol", resolved)
+
+        match resolved with
+        | None -> Assert.Fail("Expected fallback connection string")
+        | Some connStr ->
+            let builder = NpgsqlConnectionStringBuilder(connStr)
+            Assert.Equal("file", builder.Host)
+            Assert.Equal("gambol_test", builder.Database)
     finally
         if Directory.Exists(tempRoot) then
             Directory.Delete(tempRoot, true)
+
+[<Fact>]
+let ``deriveTestConnectionString leaves explicit test database unchanged`` () =
+    let result =
+        TestDbConfig.deriveTestConnectionString
+            "Host=localhost;Database=gambol_test;Username=postgres"
+
+    match result with
+    | None -> Assert.Fail("Expected derived connection string")
+    | Some connStr ->
+        let builder = NpgsqlConnectionStringBuilder(connStr)
+        Assert.Equal("gambol_test", builder.Database)

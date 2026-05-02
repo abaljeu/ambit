@@ -5,6 +5,7 @@ open System.IO
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Mvc.Testing
 open Microsoft.Extensions.Configuration
+open Npgsql
 open Gambol.Server
 open Gambol.Server.Tests.TestDbConfigTests
 
@@ -12,22 +13,57 @@ type BackendKind = File | Db
 
 let private testConnEnv = "TEST_DB_CONNECTION_STRING"
 
+let private quoteIdentifier (identifier: string) =
+    "\"" + identifier.Replace("\"", "\"\"") + "\""
+
+let private ensureTestDatabaseExists (connStr: string) =
+    task {
+        let builder = NpgsqlConnectionStringBuilder(connStr)
+        let database = builder.Database
+
+        if String.IsNullOrWhiteSpace(database) then
+            failwith "DB tests require a connection string with a Database value."
+
+        let adminBuilder = NpgsqlConnectionStringBuilder(connStr)
+        adminBuilder.Database <- "postgres"
+
+        use conn = new NpgsqlConnection(adminBuilder.ConnectionString)
+        do! conn.OpenAsync()
+
+        use existsCmd = conn.CreateCommand()
+        existsCmd.CommandText <- "SELECT EXISTS (SELECT 1 FROM pg_database WHERE datname = @name);"
+        existsCmd.Parameters.AddWithValue("name", database) |> ignore
+        let! existsObj = existsCmd.ExecuteScalarAsync()
+        let exists = existsObj :?> bool
+
+        if not exists then
+            use createCmd = conn.CreateCommand()
+            createCmd.CommandText <- "CREATE DATABASE " + quoteIdentifier database + ";"
+            let! _ = createCmd.ExecuteNonQueryAsync()
+            return ()
+    }
+    |> fun t -> t.GetAwaiter().GetResult()
+
 /// Resolves the DB connection string, or fails with a clear error message.
-/// DB tests are not skippable — configure TEST_DB_CONNECTION_STRING to run them.
+/// DB tests are not skippable. If TEST_DB_CONNECTION_STRING is unset, use a
+/// sibling test DB derived from appsettings.Development.json.
 let requireDbConnStr () =
     match TestDbConfig.resolveFrom
             (fun () -> Environment.GetEnvironmentVariable(testConnEnv) |> Option.ofObj)
             AppContext.BaseDirectory with
-    | Some s -> s
+    | Some s ->
+        ensureTestDatabaseExists s
+        s
     | None ->
         failwith (
             $"DB tests require {testConnEnv} env var " +
-            "or DB_CONNECTION_STRING in appsettings.Development.json.")
+            "or DB_CONNECTION_STRING in appsettings.Development.json. " +
+            "When using appsettings.Development.json, tests derive a sibling *_test database.")
 
 let resetTestDatabase (connStr: string) : Task<unit> =
     task {
         do! Database.initSchema connStr |> Async.AwaitTask
-        use conn = new Npgsql.NpgsqlConnection(connStr)
+        use conn = new NpgsqlConnection(connStr)
         do! conn.OpenAsync()
         use cmd = conn.CreateCommand()
         cmd.CommandText <-
@@ -53,6 +89,7 @@ let createClientForDir (tempDir: string) =
                         config.AddInMemoryCollection(
                             dict [
                                 "DataDir", tempDir
+                                "Persistence:Mode", "FileFirst"
                                 "DB_CONNECTION_STRING", ""
                                 "Auth:Username", ""
                                 "Auth:Password", ""
@@ -70,9 +107,7 @@ let createClientForDir (tempDir: string) =
 /// Create a test client with a fresh empty temp dir (file backend).
 let createFileClient () = newTempDir () |> createClientForDir
 
-/// Create a test client using the DB backend.
-/// Caller must have already called resetTestDatabase before creating the client.
-let createDbClient (connStr: string) =
+let createDbClientForDir (connStr: string) (tempDir: string) =
     DatabaseSetup.resetAgentCacheForTest ()
     let priorDb = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING")
     try
@@ -83,7 +118,8 @@ let createDbClient (connStr: string) =
                     builder.ConfigureAppConfiguration(fun _ config ->
                         config.AddInMemoryCollection(
                             dict [
-                                "DataDir", newTempDir ()
+                                "DataDir", tempDir
+                                "Persistence:Mode", "Db"
                                 "DB_CONNECTION_STRING", connStr
                                 "Auth:Username", ""
                                 "Auth:Password", ""
@@ -98,8 +134,39 @@ let createDbClient (connStr: string) =
         else
             Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", priorDb)
 
+/// Create a test client using the DB backend.
+/// Caller must have already called resetTestDatabase before creating the client.
+let createDbClient (connStr: string) =
+    createDbClientForDir connStr (newTempDir ())
+
 /// Like createDbClient but clears the DB agent cache first, simulating a process restart.
 /// Use when testing server behaviour after restart without resetting the database.
 let createDbClientNoReset (connStr: string) =
     DatabaseSetup.resetAgentCacheForTest ()
     createDbClient connStr
+
+let createDbModeWithoutConnectionClient () =
+    let priorDb = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING")
+    try
+        Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", null)
+        let factory =
+            (new WebApplicationFactory<Program>())
+                .WithWebHostBuilder(fun builder ->
+                    builder.ConfigureAppConfiguration(fun _ config ->
+                        config.AddInMemoryCollection(
+                            dict [
+                                "DataDir", newTempDir ()
+                                "Persistence:Mode", "Db"
+                                "DB_CONNECTION_STRING", ""
+                                "Auth:Username", ""
+                                "Auth:Password", ""
+                            ]
+                        ) |> ignore
+                    ) |> ignore
+                )
+        factory.CreateClient()
+    finally
+        if isNull priorDb then
+            Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", null)
+        else
+            Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", priorDb)

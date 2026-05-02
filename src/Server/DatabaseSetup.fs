@@ -19,6 +19,23 @@ module DatabaseSetup =
         | Mismatch2
         | Absent
 
+    type PersistenceMode =
+        | Db
+        | FileFirst
+
+    let resolvePersistenceMode (raw: string) : Result<PersistenceMode, string> =
+        let normalized =
+            if isNull raw then ""
+            else raw.Trim().ToLowerInvariant()
+
+        match normalized with
+        | "" | "db" | "database" -> Microsoft.FSharp.Core.Ok PersistenceMode.Db
+        | "filefirst" | "file-first" | "file" -> Microsoft.FSharp.Core.Ok PersistenceMode.FileFirst
+        | _ ->
+            Microsoft.FSharp.Core.Error (
+                $"Unknown Persistence:Mode '{raw}'. " +
+                "Use 'Db' or 'FileFirst'.")
+
     let private decodeChangePayload (s: string) =
         Thoth.Json.Newtonsoft.Decode.fromString Serialization.decodeChange s
 
@@ -66,13 +83,30 @@ module DatabaseSetup =
         else
             true
 
+    let private bootstrapFromFileIfEmpty
+        (connStr: string)
+        (dataDir: string)
+        (filename: string)
+        : unit =
+        let empty =
+            Database.isEmpty connStr
+            |> Async.AwaitTask
+            |> Async.RunSynchronously
+
+        if empty then
+            let fileState = DocumentLoader.loadState dataDir filename
+            Database.rebuildFromDocumentFiles connStr fileState
+            |> Async.AwaitTask
+            |> Async.RunSynchronously
+
     /// Initialise schema and create the DB agent. DB is the sole authority when available.
-    let resolveDbConnection (connStr: string) : DbStatus =
+    let resolveDbConnection (connStr: string) (dataDir: string) : DbStatus =
         if connStr = "" then
             DbStatus.Absent
         else
             try
                 Database.initSchema connStr |> Async.AwaitTask |> Async.RunSynchronously
+                bootstrapFromFileIfEmpty connStr dataDir "gambol"
                 getOrCreateDbAgent connStr "gambol" |> ignore
                 DbStatus.Ok
             with ex ->

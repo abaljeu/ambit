@@ -96,6 +96,15 @@ let private withClient (backend: BackendKind) (f: HttpClient -> Task<unit>) = ta
         return! f client
 }
 
+[<Fact>]
+let ``DB authority without connection returns startup error`` () = task {
+    use client = createDbModeWithoutConnectionClient ()
+    let! resp = client.GetAsync("/ambit/state")
+    Assert.Equal(HttpStatusCode.InternalServerError, resp.StatusCode)
+    let! body = resp.Content.ReadAsStringAsync()
+    Assert.Contains("DB authority requires DB_CONNECTION_STRING", body)
+}
+
 // ---- GET /ambit/state tests (parameterised) ----
 
 [<Theory; MemberData(nameof backends)>]
@@ -382,6 +391,35 @@ let ``DB rows survive second server startup without DB reset`` () = task {
     use client2 = createDbClientNoReset connStr
     let! rowsAfter = Database.getChangesAfterCheckpointRevision connStr 0 |> Async.AwaitTask
     Assert.Equal(1, rowsAfter.Length)
+}
+
+[<Fact>]
+let ``DB startup imports files when database is empty`` () = task {
+    let connStr = requireDbConnStr ()
+    do! resetTestDatabase connStr
+    let tempDir = newTempDir ()
+
+    let initialState =
+        { graph = Graph.create ()
+          history = History.empty
+          revision = Revision 0 }
+
+    let change, _ = changeAddChild Graph.rootId 0 "from-file-bootstrap"
+
+    let fileState =
+        match History.applyChange change initialState with
+        | ApplyResult.Changed st -> { st with revision = Revision 1 }
+        | ApplyResult.Unchanged _ -> failwith "Expected file bootstrap change to apply"
+        | ApplyResult.Invalid (_, err) -> failwith $"Expected valid bootstrap change: {err}"
+
+    File.WriteAllText(Path.Combine(tempDir, testFile), Snapshot.write fileState.graph)
+    File.WriteAllText(Path.Combine(tempDir, $"{testFile}.meta"), string fileState.revision.Value)
+    File.WriteAllText(Path.Combine(tempDir, $"{testFile}.log"), "")
+
+    use client = createDbClientForDir connStr tempDir
+    let! json = getStateJson client testFile
+    Assert.Equal(Revision 1, decodeRevision json)
+    Assert.Contains((0, "from-file-bootstrap"), userTreeShape (decodeGraph json))
 }
 
 [<Fact>]

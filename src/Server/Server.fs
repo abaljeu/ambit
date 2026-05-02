@@ -202,8 +202,7 @@ module Main =
             app.MapGet("/Client/{*path}", Func<string, IResult>(fun path -> serveSource clientDir path)) |> ignore
             app.MapGet("/Shared/{*path}", Func<string, IResult>(fun path -> serveSource sharedDir path)) |> ignore
 
-        match dataDirResult with
-        | Error ex ->
+        let registerStartupError (message: string) =
             let errorHtml =
                 sprintf """<!DOCTYPE html>
 <html><head><title>Server Error</title>
@@ -211,16 +210,34 @@ module Main =
 </head><body>
 <h1>Server failed to start</h1>
 <pre>%s</pre>
-</body></html>""" (ex.ToString())
+</body></html>""" message
+            app.Use(fun (ctx: HttpContext) (_next: RequestDelegate) ->
+                ctx.Response.StatusCode <- 500
+                ctx.Response.ContentType <- "text/html; charset=utf-8"
+                ctx.Response.WriteAsync(errorHtml)
+            ) |> ignore
             app.MapFallback(fun (ctx: HttpContext) ->
                 ctx.Response.StatusCode <- 500
                 ctx.Response.ContentType <- "text/html; charset=utf-8"
                 ctx.Response.WriteAsync(errorHtml)
             ) |> ignore
 
-        | Ok dataDir ->
+        let persistenceModeResult =
+            config.["Persistence:Mode"]
+            |> Option.ofObj
+            |> Option.defaultValue ""
+            |> DatabaseSetup.resolvePersistenceMode
 
-            // ── Persistence backend: file (default) or PostgreSQL ───────────
+        match dataDirResult, persistenceModeResult with
+        | Error ex, _ ->
+            registerStartupError (ex.ToString())
+
+        | _, Error err ->
+            registerStartupError err
+
+        | Ok dataDir, Ok persistenceMode ->
+
+            // ── Persistence backend: PostgreSQL authority, with FileFirst rollback mode ──
             let mutable currentFileAgent: (string * FileAgent) option = None
             let fileAgentLock = obj ()
 
@@ -239,18 +256,41 @@ module Main =
                         newAgent
                 )
 
-            // DbStatus — Ok | Absent
-            // Eagerly initialises schema and creates the DB agent when DB_CONNECTION_STRING is set.
+            // DbStatus — Ok | Absent.
+            // Db mode requires a working DB.
+            // FileFirst mode uses file primary and mirrors to DB if present.
             let resolvedDbStatus : DatabaseSetup.DbStatus =
-                let dbConnString = config.["DB_CONNECTION_STRING"] |> Option.ofObj |> Option.defaultValue ""
-                DatabaseSetup.resolveDbConnection dbConnString
+                let dbConnString =
+                    config.["DB_CONNECTION_STRING"]
+                    |> Option.ofObj
+                    |> Option.defaultValue ""
+                DatabaseSetup.resolveDbConnection dbConnString dataDir
+
+            let dbAuthorityUnavailable =
+                match persistenceMode, resolvedDbStatus with
+                | DatabaseSetup.PersistenceMode.Db, DatabaseSetup.DbStatus.Absent -> true
+                | _ -> false
+
+            if dbAuthorityUnavailable then
+                registerStartupError (
+                    "DB authority requires DB_CONNECTION_STRING to point at a working database. " +
+                    "Set Persistence:Mode to FileFirst to use files as the primary store.")
 
             let getHandle (filename: string) : AgentHandle =
-                let dbConnString = config.["DB_CONNECTION_STRING"] |> Option.ofObj |> Option.defaultValue ""
-                match resolvedDbStatus with
-                | DatabaseSetup.DbStatus.Ok ->
+                let dbConnString =
+                    config.["DB_CONNECTION_STRING"]
+                    |> Option.ofObj
+                    |> Option.defaultValue ""
+                match persistenceMode, resolvedDbStatus with
+                | DatabaseSetup.PersistenceMode.Db, DatabaseSetup.DbStatus.Ok ->
                     AgentHandle.ofDb (DatabaseSetup.getOrCreateDbAgent dbConnString filename)
-                | _ ->
+                | DatabaseSetup.PersistenceMode.FileFirst, DatabaseSetup.DbStatus.Ok ->
+                    let fileAgent = getOrCreateFileAgent filename
+                    let dbAgent = DatabaseSetup.getOrCreateDbAgent dbConnString filename
+                    AgentHandle.ofFileWithDbMirror fileAgent (Some dbAgent)
+                | DatabaseSetup.PersistenceMode.FileFirst, _ ->
+                    AgentHandle.ofFile (getOrCreateFileAgent filename)
+                | DatabaseSetup.PersistenceMode.Db, _ ->
                     AgentHandle.ofFile (getOrCreateFileAgent filename)
 
             // GET /ambit/login → serve login.html

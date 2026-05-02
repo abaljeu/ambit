@@ -239,6 +239,22 @@ module Database =
             return if obj.ReferenceEquals(row, null) then None else Some row
         }
 
+    let isEmpty (connectionString: string) : Task<bool> =
+        task {
+            use conn = getConnection connectionString
+            do! conn.OpenAsync()
+
+            let! hasGraph =
+                conn.QuerySingleAsync<bool>(
+                    "SELECT EXISTS (SELECT 1 FROM graph)")
+
+            let! hasChanges =
+                conn.QuerySingleAsync<bool>(
+                    "SELECT EXISTS (SELECT 1 FROM changes)")
+
+            return not hasGraph && not hasChanges
+        }
+
     let private readNodeRows (conn: NpgsqlConnection) : Task<NodeDbRow list> =
         task {
             let! rows = conn.QueryAsync<NodeDbRow>("SELECT id, text, name, css_classes::text FROM nodes")
