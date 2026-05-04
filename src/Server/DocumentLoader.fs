@@ -81,3 +81,15 @@ module DocumentLoader =
 
         let afterReplay = replayLogFromIndex logStream offsetIndex initialRevision.Value st0
         afterReplay
+
+    /// Write a file-format backup from DB state without reading existing document files.
+    let writeStateBackup (dataDir: string) (filename: string) (state: State) : unit =
+        Directory.CreateDirectory(dataDir) |> ignore
+        let snapshotPath = Path.Combine(dataDir, filename)
+        let metaPath = snapshotPath + ".meta"
+        let logPath = snapshotPath + ".log"
+
+        File.WriteAllText(snapshotPath, Snapshot.write state.graph)
+        File.WriteAllText(metaPath, string state.revision.Value)
+        File.WriteAllText(logPath, "")
+        ensureSnapshotBackup snapshotPath

@@ -1,3 +1,16 @@
+# Database migration notes
+
+Status: historical Azure/PostgreSQL setup notes. The current persistence design is in
+[[doc/future/persistence-vs-domain-model.md]] and the operational rollout is in
+[[doc/future/postgres-environments.md]].
+
+The older `operations_log` / `documents` schema described below is superseded. Current Gambol
+PostgreSQL persistence uses `changes`, `graph`, `nodes`, and `node_children`. The current planned
+mode split is:
+
+- `db` is the default strict PostgreSQL authority. It does not import files at startup.
+- `file` is explicit file-authority mode. It may seed an empty DB from files and mirror writes to DB.
+
 Below is a partial description of a persistence mechanism I want to implement on my Azure server using Postgres. The problem I need you to help me solve: I don't have Postgres. I only have the most basic Azure node with a shared space for client data and server code. I am the only client, so this much works but how do i add a Postgres database and set up that program to achieve the below.
 
 

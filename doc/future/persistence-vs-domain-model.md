@@ -4,34 +4,41 @@
 
 These are the persistence goals for Gambol, independent of how much is implemented in code today.
 
-1. **File authority** — The on-disk document remains the source of truth: outline snapshot file,
-   `.meta` (revision), and `.log` (append-only changes). The database is a **projection**, not a
-   competing authority.
+1. **Two explicit persistence modes** — `file` mode keeps the on-disk document as the source of
+   truth: outline snapshot file, `.meta` (revision), and `.log` (append-only changes). `db` mode
+   makes PostgreSQL the source of truth and does not read files on startup.
 
-2. **Safe path from files to PostgreSQL** — While the DB is introduced, **dual persistence**
-   means the DB is kept aligned with files so we can detect mistakes before trusting the DB alone.
+2. **Safe path from files to PostgreSQL** — `file` mode keeps dual persistence available: files are
+   primary and successful file writes mirror to the DB when it is available. This remains the rollback
+   and migration mode.
 
-3. **Parity at startup** — After loading, compare canonical **`Graph`** from files with the
-   **`Graph`** implied by the database (relational read and/or replay). **On mismatch:** report
-   clearly, **rebuild** the database content from the file-derived graph (and log rows as
-   applicable), then **continue** running.
+3. **Strict DB authority** — In `db` mode, startup initializes the schema and loads DB state. An
+   empty DB stays empty; startup does not silently import files via `DocumentLoader.loadState` or
+   `rebuildFromDocumentFiles`.
 
-4. **No outline blobs in PostgreSQL** — Do not store the file snapshot’s **line-oriented outline
+4. **DB-to-disk backup** — In `db` mode, disk files are backup/export artifacts only. The server
+   periodically writes snapshot text, `.meta`, an empty `.log`, and the existing snapshot backup
+   rotation from DB state. It must not create a `FileAgent` for this backup because `FileAgent`
+   reads disk at startup.
+
+5. **No outline blobs in PostgreSQL** — Do not store the file snapshot’s **line-oriented outline
    syntax** as the graph source of truth in SQL (no monolithic `Snapshot.write` text as the
    projection). That syntax exists only in the **file** layer (`src/Shared/Snapshot.fs`).
 
-5. **Relational schema mirrors `Model.fs` fields** — Tables and columns reflect domain records
+6. **Relational schema mirrors `Model.fs` fields** — Tables and columns reflect domain records
    (`Node`, child lists, `Ownership`, etc.). They do **not** mirror outline indentation or line
    grammar. **`Graph.parentByChild`** and **`Graph.ownerParentByChild`** are **derived** in code
    from nodes and child rows (same as `Graph.fromNodes` in `Model.fs`); they need not be stored as
    separate tables if the node and child-edge data are complete.
 
-6. **Change log parity** — Rows in the SQL change log should **correspond** to lines in `gambol.log`
+7. **Change log parity in file mode** — Rows in the SQL change log should **correspond** to lines in
+   `gambol.log`
    (one persisted change per row, comparable payloads), so the event history can be audited against
-   the file log.
+   the file log while file authority is active.
 
-Implementation status: normalized projection and startup parity/rebuild follow this document; see
-`doc/postgres-migration.md` for a short operational summary.
+Implementation status: normalized projection and DB agent write logic exist. The current planned
+change is the `db`/`file` persistence split; see [[doc/future/postgres-migration.md]] for a short
+operational summary.
 
 ---
 
@@ -51,7 +58,7 @@ The canonical root id is fixed: `Graph.rootId` (`Guid.Empty`).
 
 ---
 
-## File persistence (authority)
+## File persistence (`file` mode authority)
 
 | Artifact | Role |
 |----------|------|
@@ -61,8 +68,9 @@ The canonical root id is fixed: `Graph.rootId` (`Guid.Empty`).
 | **`.log`** | Append-only JSON lines, one submitted `Change` per line (same idea as SQL `changes`
   rows). |
 
-Parity with the database is defined on **`Graph`** (and on the change sequence), not on matching
-raw outline text to SQL.
+In `file` mode, parity with the database is defined on **`Graph`** and revision, not on matching raw
+outline text to SQL. When the database is empty, startup may seed it from the loaded file state. In
+`db` mode these files are not read during startup and are not API authority.
 
 ---
 
@@ -165,11 +173,15 @@ and drops any legacy **`snapshots`** table. `DbAgent` loads the projection row a
 replays the `changes` tail (`server_revision_after` beyond the projection revision), and on each
 accepted change appends a `changes` row and replaces the projection in one transaction.
 
-`Server` startup calls **`DocumentLoader.loadState`** (files) and **`Database.loadPersistedState`**
-(DB); on graph or revision mismatch it runs **`rebuildFromDocumentFiles`**, which truncates SQL
-tables and writes the projection from file authority (same semantics as the loader, including
-snapshot + `.meta` + tail replay). The dev endpoint **`GET /ambit/validate`** is not used; parity
-is handled at startup.
+The next implementation change is to resolve `Persistence:Mode` as follows:
+
+- `""` or `"db"` means strict DB authority. Startup initializes schema and creates the DB agent, but
+  does not load files or call `rebuildFromDocumentFiles` when the DB is empty.
+- `"file"` means file authority. Startup keeps the existing behavior: files are primary, an empty DB
+  can be seeded from files, and API writes mirror to DB when it is available.
+
+`db` mode also needs a small disk backup helper that writes the file-format backup from
+`Database.loadPersistedState`: snapshot, `.meta`, empty `.log`, then `ensureSnapshotBackup`.
 
 The obsolete doc **`db-change-doc-mode.md`** (blob-first Postgres) was removed; it is not part of
 this design.

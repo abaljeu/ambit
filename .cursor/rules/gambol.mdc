@@ -84,6 +84,8 @@ Use CRLF endings.
 100 characters or less per line.  Markdown is unlimited length.
 Markdown file paths should use [[wikilinks]], relative to project root if local files, not ``.
 40 lines or less per function.
+400 lines or less per file.  If a file is already longer, only restructure to split up the code, if the changes you are making would increase it.  (Don't change things unrelated to your task.)
+
 Follow language norms.
 
 TABs are not allowed in F#

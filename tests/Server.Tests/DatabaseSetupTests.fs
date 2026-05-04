@@ -45,15 +45,20 @@ let ``resolvePersistenceMode defaults to DB authority`` () =
     Assert.Equal(Ok DatabaseSetup.PersistenceMode.Db, result)
 
 [<Fact>]
-let ``resolvePersistenceMode accepts FileFirst rollback mode`` () =
-    let result = DatabaseSetup.resolvePersistenceMode "FileFirst"
-    Assert.Equal(Ok DatabaseSetup.PersistenceMode.FileFirst, result)
+let ``resolvePersistenceMode accepts file rollback mode`` () =
+    let result = DatabaseSetup.resolvePersistenceMode "file"
+    Assert.Equal(Ok DatabaseSetup.PersistenceMode.File, result)
+
+[<Fact>]
+let ``resolvePersistenceMode accepts file mode casing`` () =
+    let result = DatabaseSetup.resolvePersistenceMode "File"
+    Assert.Equal(Ok DatabaseSetup.PersistenceMode.File, result)
 
 [<Fact>]
 let ``resolvePersistenceMode rejects unknown mode`` () =
     let result = DatabaseSetup.resolvePersistenceMode "mirror"
     match result with
-    | Error err -> Assert.Contains("Use 'Db' or 'FileFirst'", err)
+    | Error err -> Assert.Contains("Use 'db' or 'file'", err)
     | Ok mode -> failwith $"Expected invalid persistence mode, got {mode}."
 
 [<Fact>]

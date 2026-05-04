@@ -7,14 +7,17 @@ on desktop, db password is postgres/postgres
 
 ## Current state
 
-- **Code:** `Database.fs` and `DbAgent.fs` are complete. The server switches between file-only (`FileAgent`) and PostgreSQL (`DbAgent`) based on the `DB_CONNECTION_STRING` env var.
+- **Code:** `Database.fs` and `DbAgent.fs` are complete. The next code change is to make
+  `Persistence:Mode` explicit: `db` is the default strict PostgreSQL authority, and `file` keeps the
+  file-authority rollback path.
 - **Schema:** Auto-created by `Database.initSchema` on startup (4 tables: `changes`, `graph`, `nodes`, `node_children`). No external migration tool.
-- **Production:** Azure App Service (`Amble`) is still running file-only mode at `collaborative-systems.org`, but the production PostgreSQL host now exists: Azure Database for PostgreSQL Flexible Server `gambol-pg` in `Canada Central`, with database `gambol`. Network access from App Service to the DB has already been configured. The remaining production cutover steps are to set `DB_CONNECTION_STRING` in App Service, deploy once, and verify startup parity/rebuild.
-- **Dev:** File-only by default. DB tests exist (`DbAgentTests.fs`) gated on `TEST_DB_CONNECTION_STRING`.
+- **Production:** Azure App Service (`Amble`) has a production PostgreSQL host: Azure Database for PostgreSQL Flexible Server `gambol-pg` in `Canada Central`, with database `gambol`. Network access from App Service to the DB has already been configured.
+- **Dev:** Use `Persistence:Mode=file` for local file-authority work without PostgreSQL. Use the default `db` mode with `DB_CONNECTION_STRING` when developing the DB-authority path.
 
 ## Decision now
 
-- **PostgreSQL is Step 1.** We will provision production PostgreSQL now and run dual-write.
+- **PostgreSQL is Step 1.** We will provision production PostgreSQL and make the authority mode
+  explicit before relying on DB authority.
 - **Provider-neutral app contract:** The app only depends on `DB_CONNECTION_STRING` and startup schema/parity logic in code. Cloud-specific work is limited to provisioning a PostgreSQL host and setting environment variables.
 
 ---
@@ -73,11 +76,20 @@ Install PostgreSQL 17 via the Windows installer or `winget install PostgreSQL.Po
 
 ### Running without Postgres
 
-Omit `DB_CONNECTION_STRING` entirely — the server falls back to `FileAgent` and flat files in `data/`. This remains fully supported.
+Set `Persistence:Mode=file` and omit `DB_CONNECTION_STRING`. The server uses `FileAgent` and flat
+files in `data/`. This remains fully supported.
 
-### Dev → file parity
+Default `db` mode requires a working `DB_CONNECTION_STRING`. It should show a startup error rather
+than silently falling back to files.
 
-When `DB_CONNECTION_STRING` is set, startup compares the file-derived graph to the DB projection. On mismatch the DB is rebuilt from files. This means you can freely switch between file-only and DB modes during development without data loss.
+### Dev file mode and DB mirroring
+
+When `Persistence:Mode=file` and `DB_CONNECTION_STRING` is set, files are still the API authority.
+If the DB is empty, startup may seed it from the loaded file state. Successful file writes mirror to
+DB when it is available.
+
+When `Persistence:Mode=db`, startup does not import files. An empty DB stays empty unless an explicit
+operator import/migration is run.
 
 ---
 
@@ -201,29 +213,38 @@ The script prompts for the password interactively, builds the connection string,
 
 ---
 
-## 4. Migration sequence (file-only → dual-write → DB-primary)
+## 4. Migration sequence (file-only → explicit modes → DB-primary)
 
 This is the phased rollout, not a one-shot cutover.
 
-### Phase 1: PostgreSQL-first dual-write (execute now)
+### Phase 1: PostgreSQL host
 
 1. Provision the production PostgreSQL instance (section 3). Completed.
-2. Set `DB_CONNECTION_STRING` in production. Next action.
-3. Deploy. On first startup the server finds an empty DB, runs `initSchema`, and calls `rebuildFromDocumentFiles` to populate it from the existing flat files.
-4. Files remain the source of truth. The DB is a projection.
-5. **Verify:** After startup, spot-check a few nodes in the DB via `psql` to confirm parity.
+2. Set `DB_CONNECTION_STRING` in production. Completed.
 
-### Phase 2: Confidence period
+### Phase 2: Implement explicit `db` and `file` modes
 
-- Run dual-write in production for a period (weeks).
-- Monitor the startup parity check — it should report "DB matches files" every restart.
-- If it ever reports a mismatch and triggers a rebuild, investigate the cause before proceeding.
+- Rename the internal file-first implementation mode to `File`, exposed as config value `"file"`.
+- Make `""` and `"db"` resolve to strict DB authority.
+- In `file` mode, keep startup file import into an empty DB and keep DB mirroring.
+- In `db` mode, do not call `DocumentLoader.loadState` or `rebuildFromDocumentFiles` on startup.
+- Add a periodic disk backup from DB state only.
 
-### Phase 3: DB becomes primary (future)
+### Phase 3: File mode mirror verification
 
-- Flip the authority flag so the DB is the source of truth and files become the projection (or are dropped).
-- This requires a code change (not yet written) and is out of scope for now.
-- **Trigger:** Zero mismatches over a sustained period, plus merge/sync features relying on DB queries.
+- Deploy in `Persistence:Mode=file`.
+- On first startup, the server finds an empty DB, runs `initSchema`, and calls
+  `rebuildFromDocumentFiles` to populate it from the existing flat files.
+- Files remain the source of truth and DB is maintained as a mirror/projection.
+- **Verify:** After startup, spot-check a few nodes in the DB via `psql` to confirm parity.
+
+### Phase 4: Production DB authority
+
+- Ensure production DB has the intended graph. If needed, run an explicit import while still in
+  `file` mode.
+- Set production to `Persistence:Mode=db` or omit the mode because `db` is the default.
+- Verify `/ambit/state` comes from DB and that the periodic file-format backup appears in `DataDir`.
+- **Trigger:** Explicit operator decision that DB contents are correct and should be authoritative.
 
 ---
 
@@ -231,9 +252,11 @@ This is the phased rollout, not a one-shot cutover.
 
 Automated backups are enabled by default (7-day retention, configurable up to 35 days). Point-in-time restore is available via the portal or CLI. For extra safety, schedule a `pg_dump` to Azure Blob Storage via a cron job or Azure Automation runbook.
 
-### During dual-write period
+### During file mirror and DB authority modes
 
-The flat files in `data/` are already backed up (the `.bak.*` files visible in the workspace). These serve as an independent backup of the DB contents throughout Phase 1–2.
+In `file` mode, the flat files in `data/` remain the authoritative backup path and DB mirror source.
+In `db` mode, the server writes periodic file-format backups from DB state only. PostgreSQL managed
+backups and `pg_dump` remain the real database disaster-recovery path.
 
 ---
 
@@ -251,7 +274,8 @@ The flat files in `data/` are already backed up (the `.bak.*` files visible in t
 
 | Variable | Dev | Test | Production |
 |----------|-----|------|------------|
-| `DB_CONNECTION_STRING` | Optional (omit for file-only) | `gambol_test` DB on localhost | Azure Flexible Server |
+| `Persistence:Mode` | `file` for file work, default `db` for DB work | set per test | `db` for DB authority, `file` for rollback |
+| `DB_CONNECTION_STRING` | Required for `db`, optional for `file` mirror | `gambol_test` DB on localhost | Azure Flexible Server |
 | `TEST_DB_CONNECTION_STRING` | `gambol_test` DB on localhost | Same | Not set (don't run tests in prod) |
 | `DataDir` | `../../data` (default) | `../../data` | `/home/site/data` (Azure App Service) |
 
@@ -259,7 +283,8 @@ The flat files in `data/` are already backed up (the `.bak.*` files visible in t
 
 ## 8. Cost management: start/stop automation
 
-Provisioning the database starts a recurring cost (~$13–25/month on Azure Burstable). During Steps 0–1, the database is only needed when actively developing or testing dual-write, not 24/7. A start/stop system keeps costs near zero during idle periods.
+Provisioning the database starts a recurring cost (~$13–25/month on Azure Burstable). While actively
+developing or testing DB persistence, a start/stop system keeps costs near zero during idle periods.
 
 ### Azure: stop/start the Flexible Server
 
@@ -298,7 +323,11 @@ that re-runs the stop command before the 7-day limit.
 
 ### App behavior when DB is down
 
-The app already handles a missing database gracefully: if the connection fails at startup, it falls back to `FileAgent` and flat-file mode (provided `DB_CONNECTION_STRING` is unset or the connection times out). During the dual-write period, files are the source of truth anyway, so a stopped database just means parity checks are skipped until the next startup with the DB running.
+In `file` mode, the app handles a missing database gracefully: it uses `FileAgent` and skips DB
+mirroring until the next startup with the DB running.
+
+In default `db` mode, a missing database is a startup error. This is intentional: strict DB authority
+must not silently read or mutate the old file store.
 
 ### DigitalOcean fallback
 
@@ -312,8 +341,10 @@ If Azure costs are unfavorable after the first month, DigitalOcean Managed Postg
 - [x] Create `gambol` database and user
 - [x] Configure network access (firewall rules or VNet)
 - [x] Set `DB_CONNECTION_STRING` in Azure App Service environment variables
-- [ ] Deploy the application
-- [ ] Verify startup logs: schema created, `rebuildFromDocumentFiles` completed
+- [x] Implement explicit `db` / `file` persistence modes
+- [x] Deploy the application
+- [x] Verify `file` mode startup can seed empty DB from files
+- [x] Verify `db` mode startup does not import files into an empty DB
 - [ ] Spot-check DB contents via `psql`
+- [ ] Confirm periodic DB-to-disk backup works in `db` mode
 - [ ] Confirm backups are running
-- [ ] Monitor parity checks on subsequent restarts

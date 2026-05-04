@@ -49,15 +49,18 @@ This pre-step does not change merge/sync architecture. It only establishes the d
 
 ## 2. Drop file authority — DB as canonical store
 
-**Decision:** Once the dual-write period (Step 1) has produced sustained zero-mismatch operation, drop file authority and make the database the single source of truth.
+**Decision:** Make the database the single source of truth. Keep an explicit `file` mode for rollback and local file-authority operation.
 
-**Prerequisite:** Step 1 has been running in production with no mismatch errors between the file-derived graph and the database.
+**Status:** Implemented as the current DB-authority path. The planned refinement is to make the
+remaining file-persistence behavior explicit: `db` stays strict DB authority and maintains a
+periodic file-format backup from DB state; `file` keeps the old file-authority rollback path.
 
 **What changes:**
 
-- File writes (`gambol`, `gambol.meta`, `gambol.log`) are removed from the mutation path. All state lives in the `nodes`, `node_children`, `graph`, and `changes` tables.
-- The startup file-vs-DB comparison is removed. The DB is trusted on startup.
-- Backup and disaster-recovery procedures shift from file snapshots to database dumps.
+- File writes (`gambol`, `gambol.meta`, `gambol.log`) are removed from the mutation path. API state lives in the `nodes`, `node_children`, `graph`, and `changes` tables.
+- Startup file-vs-DB comparison is removed for DB authority. The DB is trusted on startup.
+- Backup and disaster-recovery procedures shift from file authority to database backup, with a new file-format backup refinement: periodically write snapshot text, `.meta`, an empty `.log`, and the existing snapshot backup rotation from DB state only.
+- `file` mode remains available as an explicit rollback/local mode: files are authoritative, an empty DB may be seeded from files, and successful file writes mirror to DB when DB is available.
 
 **What stays the same:**
 

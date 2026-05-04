@@ -1,5 +1,7 @@
 namespace Gambol.Server
 
+open System
+open System.Threading
 open Gambol.Shared
 /// Database initialisation, schema setup, and agent caching at startup.
 [<RequireQualifiedAccess>]
@@ -21,7 +23,7 @@ module DatabaseSetup =
 
     type PersistenceMode =
         | Db
-        | FileFirst
+        | File
 
     let resolvePersistenceMode (raw: string) : Result<PersistenceMode, string> =
         let normalized =
@@ -29,15 +31,66 @@ module DatabaseSetup =
             else raw.Trim().ToLowerInvariant()
 
         match normalized with
-        | "" | "db" | "database" -> Microsoft.FSharp.Core.Ok PersistenceMode.Db
-        | "filefirst" | "file-first" | "file" -> Microsoft.FSharp.Core.Ok PersistenceMode.FileFirst
+        | "" | "db" -> Microsoft.FSharp.Core.Ok PersistenceMode.Db
+        | "file" -> Microsoft.FSharp.Core.Ok PersistenceMode.File
         | _ ->
             Microsoft.FSharp.Core.Error (
                 $"Unknown Persistence:Mode '{raw}'. " +
-                "Use 'Db' or 'FileFirst'.")
+                "Use 'db' or 'file'.")
 
     let private decodeChangePayload (s: string) =
         Thoth.Json.Newtonsoft.Decode.fromString Serialization.decodeChange s
+
+    let parsePositiveInt (raw: string option) (fallback: int) =
+        match raw with
+        | Some value ->
+            match Int32.TryParse(value) with
+            | true, parsed when parsed > 0 -> parsed
+            | _ -> fallback
+        | None -> fallback
+
+    let private writeDbBackup (connStr: string) (dataDir: string) (filename: string) = async {
+        try
+            let! state =
+                Database.loadPersistedState connStr ChangeLog.decodeChange
+                |> Async.AwaitTask
+
+            DocumentLoader.writeStateBackup dataDir filename state
+        with ex ->
+            eprintfn "Gambol: DB backup failed. %s" ex.Message
+    }
+
+    let startDbBackupLoop
+        (connStr: string)
+        (dataDir: string)
+        (filename: string)
+        (intervalSeconds: int)
+        (stoppingToken: CancellationToken)
+        : unit =
+        let rec loop () = async {
+            do! writeDbBackup connStr dataDir filename
+
+            if not stoppingToken.IsCancellationRequested then
+                do! Async.Sleep(intervalSeconds * 1000)
+                return! loop ()
+        }
+
+        Async.Start(loop (), stoppingToken)
+
+    let startDbBackupIfNeeded
+        (persistenceMode: PersistenceMode)
+        (dbStatus: DbStatus)
+        (connStr: string)
+        (dataDir: string)
+        (filename: string)
+        (intervalRaw: string option)
+        (stoppingToken: CancellationToken)
+        : unit =
+        match persistenceMode, dbStatus with
+        | PersistenceMode.Db, DbStatus.Ok ->
+            let intervalSeconds = parsePositiveInt intervalRaw 300
+            startDbBackupLoop connStr dataDir filename intervalSeconds stoppingToken
+        | _ -> ()
 
     // DB agent is a single shared instance (one database, one handle name).
     let private dbAgentCache: (string * DbAgent) option ref = ref None
@@ -99,14 +152,19 @@ module DatabaseSetup =
             |> Async.AwaitTask
             |> Async.RunSynchronously
 
-    /// Initialise schema and create the DB agent. DB is the sole authority when available.
-    let resolveDbConnection (connStr: string) (dataDir: string) : DbStatus =
+    /// Initialise schema and create the DB agent. `file` mode may seed an empty DB from files.
+    let resolveDbConnection
+        (persistenceMode: PersistenceMode)
+        (connStr: string)
+        (dataDir: string)
+        : DbStatus =
         if connStr = "" then
             DbStatus.Absent
         else
             try
                 Database.initSchema connStr |> Async.AwaitTask |> Async.RunSynchronously
-                bootstrapFromFileIfEmpty connStr dataDir "gambol"
+                if persistenceMode = PersistenceMode.File then
+                    bootstrapFromFileIfEmpty connStr dataDir "gambol"
                 getOrCreateDbAgent connStr "gambol" |> ignore
                 DbStatus.Ok
             with ex ->

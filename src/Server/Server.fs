@@ -237,7 +237,7 @@ module Main =
 
         | Ok dataDir, Ok persistenceMode ->
 
-            // ── Persistence backend: PostgreSQL authority, with FileFirst rollback mode ──
+            // ── Persistence backend: PostgreSQL authority, with file rollback mode ──
             let mutable currentFileAgent: (string * FileAgent) option = None
             let fileAgentLock = obj ()
 
@@ -258,40 +258,39 @@ module Main =
 
             // DbStatus — Ok | Absent.
             // Db mode requires a working DB.
-            // FileFirst mode uses file primary and mirrors to DB if present.
+            // File mode uses file primary and mirrors to DB if present.
+            let dbConnString = config.["DB_CONNECTION_STRING"] |> Option.ofObj |> Option.defaultValue ""
+
             let resolvedDbStatus : DatabaseSetup.DbStatus =
-                let dbConnString =
-                    config.["DB_CONNECTION_STRING"]
-                    |> Option.ofObj
-                    |> Option.defaultValue ""
-                DatabaseSetup.resolveDbConnection dbConnString dataDir
+                DatabaseSetup.resolveDbConnection persistenceMode dbConnString dataDir
 
-            let dbAuthorityUnavailable =
-                match persistenceMode, resolvedDbStatus with
-                | DatabaseSetup.PersistenceMode.Db, DatabaseSetup.DbStatus.Absent -> true
-                | _ -> false
-
-            if dbAuthorityUnavailable then
+            if persistenceMode = DatabaseSetup.PersistenceMode.Db
+               && resolvedDbStatus = DatabaseSetup.DbStatus.Absent then
                 registerStartupError (
                     "DB authority requires DB_CONNECTION_STRING to point at a working database. " +
-                    "Set Persistence:Mode to FileFirst to use files as the primary store.")
+                    "Set Persistence:Mode to file to use files as the primary store.")
+
+            DatabaseSetup.startDbBackupIfNeeded
+                persistenceMode
+                resolvedDbStatus
+                dbConnString
+                dataDir
+                "gambol"
+                (config.["Persistence:BackupIntervalSeconds"] |> Option.ofObj)
+                app.Lifetime.ApplicationStopping
 
             let getHandle (filename: string) : AgentHandle =
-                let dbConnString =
-                    config.["DB_CONNECTION_STRING"]
-                    |> Option.ofObj
-                    |> Option.defaultValue ""
                 match persistenceMode, resolvedDbStatus with
                 | DatabaseSetup.PersistenceMode.Db, DatabaseSetup.DbStatus.Ok ->
                     AgentHandle.ofDb (DatabaseSetup.getOrCreateDbAgent dbConnString filename)
-                | DatabaseSetup.PersistenceMode.FileFirst, DatabaseSetup.DbStatus.Ok ->
+                | DatabaseSetup.PersistenceMode.File, DatabaseSetup.DbStatus.Ok ->
                     let fileAgent = getOrCreateFileAgent filename
                     let dbAgent = DatabaseSetup.getOrCreateDbAgent dbConnString filename
                     AgentHandle.ofFileWithDbMirror fileAgent (Some dbAgent)
-                | DatabaseSetup.PersistenceMode.FileFirst, _ ->
+                | DatabaseSetup.PersistenceMode.File, _ ->
                     AgentHandle.ofFile (getOrCreateFileAgent filename)
                 | DatabaseSetup.PersistenceMode.Db, _ ->
-                    AgentHandle.ofFile (getOrCreateFileAgent filename)
+                    failwith "DB authority is unavailable."
 
             // GET /ambit/login → serve login.html
             let loginHtml = Path.Combine(app.Environment.WebRootPath, "login.html")

@@ -89,7 +89,7 @@ let createClientForDir (tempDir: string) =
                         config.AddInMemoryCollection(
                             dict [
                                 "DataDir", tempDir
-                                "Persistence:Mode", "FileFirst"
+                                "Persistence:Mode", "file"
                                 "DB_CONNECTION_STRING", ""
                                 "Auth:Username", ""
                                 "Auth:Password", ""
@@ -120,6 +120,33 @@ let createDbClientForDir (connStr: string) (tempDir: string) =
                             dict [
                                 "DataDir", tempDir
                                 "Persistence:Mode", "Db"
+                                "DB_CONNECTION_STRING", connStr
+                                "Auth:Username", ""
+                                "Auth:Password", ""
+                            ]
+                        ) |> ignore
+                    ) |> ignore
+                )
+        factory.CreateClient()
+    finally
+        if isNull priorDb then
+            Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", null)
+        else
+            Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", priorDb)
+
+let createFileModeWithDbClientForDir (connStr: string) (tempDir: string) =
+    DatabaseSetup.resetAgentCacheForTest ()
+    let priorDb = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING")
+    try
+        Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", connStr)
+        let factory =
+            (new WebApplicationFactory<Program>())
+                .WithWebHostBuilder(fun builder ->
+                    builder.ConfigureAppConfiguration(fun _ config ->
+                        config.AddInMemoryCollection(
+                            dict [
+                                "DataDir", tempDir
+                                "Persistence:Mode", "file"
                                 "DB_CONNECTION_STRING", connStr
                                 "Auth:Username", ""
                                 "Auth:Password", ""

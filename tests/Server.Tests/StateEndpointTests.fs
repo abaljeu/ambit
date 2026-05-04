@@ -77,6 +77,24 @@ let private readFileShared (path: string) =
     use reader = new StreamReader(fs)
     reader.ReadToEnd()
 
+let private writeDocumentFiles (tempDir: string) (state: State) =
+    File.WriteAllText(Path.Combine(tempDir, testFile), Snapshot.write state.graph)
+    File.WriteAllText(Path.Combine(tempDir, $"{testFile}.meta"), string state.revision.Value)
+    File.WriteAllText(Path.Combine(tempDir, $"{testFile}.log"), "")
+
+let private stateWithChild (text: string) =
+    let initialState =
+        { graph = Graph.create ()
+          history = History.empty
+          revision = Revision 0 }
+
+    let change, _ = changeAddChild Graph.rootId 0 text
+
+    match History.applyChange change initialState with
+    | ApplyResult.Changed st -> { st with revision = Revision 1 }
+    | ApplyResult.Unchanged _ -> failwith "Expected file bootstrap change to apply"
+    | ApplyResult.Invalid (_, err) -> failwith $"Expected valid bootstrap change: {err}"
+
 // ---- Backend parameterisation ----
 
 /// Both backends under test. MemberData requires this to be public.
@@ -330,6 +348,20 @@ let ``Snapshot is written asynchronously after change`` () = task {
 }
 
 [<Fact>]
+let ``DB mode backup helper writes snapshot meta and empty log`` () =
+    let tempDir = newTempDir ()
+    let state = stateWithChild "db-backup"
+
+    DocumentLoader.writeStateBackup tempDir testFile state
+
+    let snapshotPath = Path.Combine(tempDir, testFile)
+    Assert.True(File.Exists(snapshotPath), "Snapshot file should exist")
+    Assert.Contains("db-backup", File.ReadAllText(snapshotPath))
+    Assert.Equal("1", File.ReadAllText(snapshotPath + ".meta"))
+    Assert.Equal("", File.ReadAllText(snapshotPath + ".log"))
+    Assert.NotEmpty(Directory.GetFiles(tempDir, testFile + ".bak.*"))
+
+[<Fact>]
 let ``Log contains valid change data after POST`` () = task {
     let tempDir = newTempDir ()
     use client = createClientForDir tempDir
@@ -394,29 +426,28 @@ let ``DB rows survive second server startup without DB reset`` () = task {
 }
 
 [<Fact>]
-let ``DB startup imports files when database is empty`` () = task {
+let ``DB authority does not import files when database is empty`` () = task {
     let connStr = requireDbConnStr ()
     do! resetTestDatabase connStr
     let tempDir = newTempDir ()
 
-    let initialState =
-        { graph = Graph.create ()
-          history = History.empty
-          revision = Revision 0 }
-
-    let change, _ = changeAddChild Graph.rootId 0 "from-file-bootstrap"
-
-    let fileState =
-        match History.applyChange change initialState with
-        | ApplyResult.Changed st -> { st with revision = Revision 1 }
-        | ApplyResult.Unchanged _ -> failwith "Expected file bootstrap change to apply"
-        | ApplyResult.Invalid (_, err) -> failwith $"Expected valid bootstrap change: {err}"
-
-    File.WriteAllText(Path.Combine(tempDir, testFile), Snapshot.write fileState.graph)
-    File.WriteAllText(Path.Combine(tempDir, $"{testFile}.meta"), string fileState.revision.Value)
-    File.WriteAllText(Path.Combine(tempDir, $"{testFile}.log"), "")
+    writeDocumentFiles tempDir (stateWithChild "from-file-bootstrap")
 
     use client = createDbClientForDir connStr tempDir
+    let! json = getStateJson client testFile
+    Assert.Equal(Revision 0, decodeRevision json)
+    Assert.DoesNotContain((0, "from-file-bootstrap"), userTreeShape (decodeGraph json))
+}
+
+[<Fact>]
+let ``file mode startup imports files when database is empty`` () = task {
+    let connStr = requireDbConnStr ()
+    do! resetTestDatabase connStr
+    let tempDir = newTempDir ()
+
+    writeDocumentFiles tempDir (stateWithChild "from-file-bootstrap")
+
+    use client = createFileModeWithDbClientForDir connStr tempDir
     let! json = getStateJson client testFile
     Assert.Equal(Revision 1, decodeRevision json)
     Assert.Contains((0, "from-file-bootstrap"), userTreeShape (decodeGraph json))
