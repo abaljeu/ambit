@@ -3,6 +3,11 @@ module Gambol.Client.SearchDialog
 open Gambol.Shared
 open Gambol.Shared.ViewModel
 
+let mutable lastNodeSearchQuery = ""
+
+let private rememberSearchQuery (q: string) : unit =
+    lastNodeSearchQuery <- q
+
 let openSearchDialogWithOnPick
     (invokedCommand: string)
     (onPick: NodeSearchResult -> VM -> VM * Effect list)
@@ -12,14 +17,16 @@ let openSearchDialogWithOnPick
         mode =
             SearchDialog
                 { invokedCommand = invokedCommand
-                  query = ""
+                  query = lastNodeSearchQuery
                   selectedIndex = 0
                   returnTo = model.mode
                   onPick = onPick } }, []
 
 let closeSearchDialogOp (model: VM) : VM * Effect list =
     match model.mode with
-    | SearchDialog s -> { model with mode = s.returnTo }, []
+    | SearchDialog s ->
+        rememberSearchQuery s.query
+        { model with mode = s.returnTo }, []
     | _ -> model, []
 
 let searchSelectUpOp (model: VM) : VM * Effect list =
@@ -58,6 +65,7 @@ let currentSearchResults (model: VM) : NodeSearchResult list =
 let runSearchSelectionOp (mode: Mode) (model: VM) : VM * Effect list =
     match mode with
     | SearchDialog s ->
+        rememberSearchQuery s.query
         let closed = { model with mode = s.returnTo }
         match ViewModelSearch.trySearchResultAtDisplayIndex s.query model.zoomRoot model.graph s.selectedIndex with
         | None -> model, []
