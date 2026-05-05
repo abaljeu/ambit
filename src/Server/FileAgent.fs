@@ -66,11 +66,11 @@ module FileAgent =
                     [ "revision", Serialization.encodeRevision state.Value.revision
                       "graph", Serialization.encodeGraph state.Value.graph ])
 
-        let encodeChangeAckJson (ackChangeId: Guid) =
+        let encodeChangeAckJson (ackedChangeIds: Guid list) =
             Encode.toString 0 (
-                Thoth.Json.Core.Encode.object
-                    [ "ackChangeId", Thoth.Json.Core.Encode.guid ackChangeId
-                      "revision", Serialization.encodeRevision state.Value.revision ])
+                Serialization.encodeChangeBatchAck
+                    { revision = state.Value.revision
+                      ackedChangeIds = ackedChangeIds })
 
         let isDuplicateSubmission (change: Change) (history: History) =
             history.past |> List.exists (fun c -> c.id = change.id && c.changeId = change.changeId)
@@ -96,31 +96,60 @@ module FileAgent =
                 inbox.Post(SnapshotDone)
             ) |> ignore
 
+        let applyBatch (changes: Change list) =
+            let step (s, acked, logEntries, changed) (change: Change) =
+                if isDuplicateSubmission change s.history then
+                    Ok(s, acked @ [ change.changeId ], logEntries, changed)
+                elif change.id <> s.revision.Value then
+                    Error
+                        $"Revision mismatch: server is at revision {s.revision.Value}, but this change targets base revision {change.id}."
+                else
+                    match History.applyChange change s with
+                    | ApplyResult.Invalid (_, errMsg) -> Error errMsg
+                    | ApplyResult.Unchanged s' ->
+                        Ok(s', acked @ [ change.changeId ], logEntries, changed)
+                    | ApplyResult.Changed s' ->
+                        let nextRev = s.revision.Value + 1
+                        let nextState = { s' with revision = Revision nextRev }
+                        let logEntry = change.id, ChangeLog.encodeChange change
+                        Ok(nextState, acked @ [ change.changeId ], logEntries @ [ logEntry ], true)
+
+            changes
+            |> List.fold
+                (fun acc change ->
+                    match acc with
+                    | Error err -> Error err
+                    | Ok stateAndLog -> step stateAndLog change)
+                (Ok(state.Value, [], [], false))
+
+        let persistLogEntries (logEntries: (int * string) list) =
+            let logStart = logStream.Length
+            logStream.Seek(0L, SeekOrigin.End) |> ignore
+            try
+                let offsets = ChangeLog.appendEntries logStream logEntries
+                Ok offsets
+            with ex ->
+                logStream.SetLength(logStart)
+                logStream.Seek(0L, SeekOrigin.End) |> ignore
+                Error $"Log error: {ex.Message}"
+
         let handlePostChange body (reply: AsyncReplyChannel<Result<string, string>>) inbox =
-            match Decode.fromString Serialization.decodeChange body with
+            match Decode.fromString Serialization.decodeChangeBatch body with
             | Error err ->
                 reply.Reply(Error $"Invalid JSON: {err}")
-            | Ok change ->
-                if isDuplicateSubmission change state.Value.history then
-                    reply.Reply(Ok (encodeChangeAckJson change.changeId))
-                elif change.id <> state.Value.revision.Value then
-                    reply.Reply(
-                        Error
-                            $"Revision mismatch: server is at revision {state.Value.revision.Value}, but this change targets base revision {change.id}.")
-                else
-                    match History.applyChange change state.Value with
-                    | ApplyResult.Invalid (_, errMsg) ->
-                        reply.Reply(Error errMsg)
-                    | ApplyResult.Unchanged _ ->
-                        reply.Reply(Ok (encodeChangeAckJson change.changeId))
-                    | ApplyResult.Changed newState ->
-                        let json = ChangeLog.encodeChange change
-                        let offset = ChangeLog.appendEntry logStream change.id json
-                        offsetIndex.Add(offset)
-                        state.Value <- { newState with revision = Revision (state.Value.revision.Value + 1) }
-                        reply.Reply(Ok (encodeChangeAckJson change.changeId))
-                        if snapshotInProgress.Value then snapshotNeeded.Value <- true
-                        else startSnapshot inbox
+            | Ok batch ->
+                match applyBatch batch.changes with
+                | Error err -> reply.Reply(Error err)
+                | Ok (newState, ackedChangeIds, logEntries, changed) ->
+                    match persistLogEntries logEntries with
+                    | Error err -> reply.Reply(Error err)
+                    | Ok offsets ->
+                        offsets |> List.iter offsetIndex.Add
+                        state.Value <- newState
+                        reply.Reply(Ok (encodeChangeAckJson ackedChangeIds))
+                        if changed then
+                            if snapshotInProgress.Value then snapshotNeeded.Value <- true
+                            else startSnapshot inbox
 
         let mailbox = MailboxProcessor<FileAgentMsg>.Start(fun inbox ->
             let rec loop () = async {

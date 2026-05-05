@@ -10,7 +10,7 @@ open Gambol.Client.UpdateOps
 type Op = UpdateOps.Op
 type ChangeAck = UpdateCodec.ChangeAck
 
-let encodeChangeBody = UpdateCodec.encodeChangeBody
+let encodePendingBatchBody = UpdateCodec.encodePendingBatchBody
 let decodeStateResponse = UpdateCodec.decodeStateResponse
 let decodeChangeAckResponse = UpdateCodec.decodeChangeAckResponse
 let currentFile = UpdateHelpers.currentFile
@@ -45,7 +45,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
     | AckSyncRisk ->
         { model with syncInfo = { model.syncInfo with syncRiskAcknowledged = true } }, []
 
-    | SysMsg (SubmitResponse (ackChangeId, revision)) ->
+    | SysMsg (SubmitResponse (ackedChangeIds, revision)) ->
         match model.syncInfo.syncState with
         | ServerRejected | CodeOutdated | DataOutdated ->
             consoleLog (
@@ -55,7 +55,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
         | _ ->
             let pendingWas = model.syncInfo.pendingChanges.Length
             let nextSyncInfo, pending, submitEffects =
-                SyncPlanner.ackSubmit ackChangeId revision model.syncInfo
+                SyncPlanner.ackBatch ackedChangeIds revision model.syncInfo
             let effects = (SavePendingQueue pending) :: submitEffects
             consoleLog (
                 "[Gambol sync] SubmitResponse apply prevRev=" + string model.revision.Value
@@ -81,16 +81,22 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                     |> SyncInfo.withPendingChanges []
                     |> SyncInfo.withSyncState ServerRejected }, [ SavePendingQueue [] ]
 
-    | SysMsg SubmitNetworkError ->
+    | SysMsg (SubmitNetworkError (baseRev, changes)) ->
         consoleLog (
             "[Gambol sync] SubmitNetworkError modelRev=" + string model.revision.Value
             + " pending=" + string model.syncInfo.pendingChanges.Length)
         if model.syncInfo.pendingChanges.IsEmpty then model, []
         else
-            let n = match model.syncInfo.syncState with Sending n -> n | _ -> 1
+            let n =
+                match model.syncInfo.syncState with
+                | Sending n -> n
+                | WaitingToRetry (n, _, _) -> n
+                | _ -> 1
             let delayMs = min (1000 * (pown 2 (n - 1))) 30_000
             { model with
-                syncInfo = model.syncInfo |> SyncInfo.withSyncState (WaitingToRetry n) },
+                syncInfo =
+                    model.syncInfo
+                    |> SyncInfo.withSyncState (WaitingToRetry (n, baseRev, changes)) },
             [ ScheduleRetry delayMs ]
 
     | SysMsg (SetPollingActive active) ->

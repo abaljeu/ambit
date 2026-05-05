@@ -31,11 +31,11 @@ module DbAgent =
                     [ "revision", Serialization.encodeRevision state.Value.revision
                       "graph", Serialization.encodeGraph state.Value.graph ])
 
-        let encodeChangeAckJson (ackChangeId: Guid) =
+        let encodeChangeAckJson (ackedChangeIds: Guid list) =
             Encode.toString 0 (
-                Thoth.Json.Core.Encode.object
-                    [ "ackChangeId", Thoth.Json.Core.Encode.guid ackChangeId
-                      "revision", Serialization.encodeRevision state.Value.revision ])
+                Serialization.encodeChangeBatchAck
+                    { revision = state.Value.revision
+                      ackedChangeIds = ackedChangeIds })
 
         let isDuplicateSubmission (change: Change) (history: History) =
             history.past |> List.exists (fun c -> c.id = change.id && c.changeId = change.changeId)
@@ -45,57 +45,81 @@ module DbAgent =
             |> Async.AwaitTask
             |> Async.RunSynchronously
 
+        let applyBatch (changes: Change list) =
+            let step (s, acked, logEntries) (change: Change) =
+                if isDuplicateSubmission change s.history then
+                    Ok(s, acked @ [ change.changeId ], logEntries)
+                elif change.id <> s.revision.Value
+                    && isPersistedDuplicateSubmission change then
+                    Ok(s, acked @ [ change.changeId ], logEntries)
+                elif change.id <> s.revision.Value then
+                    Error
+                        $"Revision mismatch: server is at revision {s.revision.Value}, but this change targets base revision {change.id}."
+                else
+                    match History.applyChange change s with
+                    | ApplyResult.Invalid (_, errMsg) -> Error errMsg
+                    | ApplyResult.Unchanged s' ->
+                        Ok(s', acked @ [ change.changeId ], logEntries)
+                    | ApplyResult.Changed s' ->
+                        let nextRev = s.revision.Value + 1
+                        let nextState = { s' with revision = Revision nextRev }
+                        let logEntry = nextRev, change, ChangeLog.encodeChange change
+                        Ok(nextState, acked @ [ change.changeId ], logEntries @ [ logEntry ])
+
+            changes
+            |> List.fold
+                (fun acc change ->
+                    match acc with
+                    | Error err -> Error err
+                    | Ok stateAndLog -> step stateAndLog change)
+                (Ok(state.Value, [], []))
+
+        let persistBatch (newState: State) (logEntries: (int * Change * string) list) =
+            try
+                use conn = Database.getConnection connectionString
+                conn.Open()
+                use tx = conn.BeginTransaction()
+
+                logEntries
+                |> List.iter (fun (serverRevAfter, change, json) ->
+                    (Database.appendChangeWithTx
+                        tx
+                        serverRevAfter
+                        change.id
+                        change.changeId
+                        json)
+                        .GetAwaiter()
+                        .GetResult())
+
+                match logEntries with
+                | [] -> ()
+                | _ ->
+                    (Database.replaceGraphProjectionWithTx
+                        tx
+                        newState.graph
+                        newState.revision.Value)
+                        .GetAwaiter()
+                        .GetResult()
+
+                tx.Commit()
+                Ok ()
+            with ex ->
+                eprintfn "DbAgent: failed to persist batch: %s" ex.Message
+                Error $"Database error: {ex.Message}"
+
         let handlePostChange body (reply: AsyncReplyChannel<Result<string, string>>) _inbox =
-            match Decode.fromString Serialization.decodeChange body with
+            match Decode.fromString Serialization.decodeChangeBatch body with
             | Error err ->
                 reply.Reply(Error $"Invalid JSON: {err}")
-            | Ok change ->
-                if isDuplicateSubmission change state.Value.history then
-                    reply.Reply(Ok (encodeChangeAckJson change.changeId))
-                elif change.id <> state.Value.revision.Value
-                    && isPersistedDuplicateSubmission change then
-                    reply.Reply(Ok (encodeChangeAckJson change.changeId))
-                elif change.id <> state.Value.revision.Value then
-                    reply.Reply(
-                        Error
-                            $"Revision mismatch: server is at revision {state.Value.revision.Value}, but this change targets base revision {change.id}.")
-                else
-                    match History.applyChange change state.Value with
-                    | ApplyResult.Invalid (_, errMsg) ->
-                        reply.Reply(Error errMsg)
-                    | ApplyResult.Unchanged _ ->
-                        reply.Reply(Ok (encodeChangeAckJson change.changeId))
-                    | ApplyResult.Changed newState ->
-                        let json = ChangeLog.encodeChange change
-                        let serverRevAfter = state.Value.revision.Value + 1
-
-                        try
-                            use conn = Database.getConnection connectionString
-                            conn.Open()
-                            use tx = conn.BeginTransaction()
-
-                            (Database.appendChangeWithTx
-                                tx
-                                serverRevAfter
-                                change.id
-                                change.changeId
-                                json)
-                                .GetAwaiter()
-                                .GetResult()
-
-                            (Database.replaceGraphProjectionWithTx tx newState.graph serverRevAfter)
-                                .GetAwaiter()
-                                .GetResult()
-
-                            tx.Commit()
-
-                            state.Value <-
-                                { newState with revision = Revision serverRevAfter }
-
-                            reply.Reply(Ok (encodeChangeAckJson change.changeId))
-                        with ex ->
-                            eprintfn "DbAgent: failed to persist change %d: %s" change.id ex.Message
-                            reply.Reply(Error $"Database error: {ex.Message}")
+            | Ok batch ->
+                match applyBatch batch.changes with
+                | Error err -> reply.Reply(Error err)
+                | Ok (newState, ackedChangeIds, logEntries) ->
+                    match persistBatch newState logEntries with
+                    | Error err -> reply.Reply(Error err)
+                    | Ok () ->
+                        state.Value <- newState
+                        reply.Reply(Ok (encodeChangeAckJson ackedChangeIds))
 
         let mailbox =
             MailboxProcessor<FileAgentMsg>.Start(fun inbox ->

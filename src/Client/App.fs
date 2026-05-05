@@ -34,7 +34,7 @@ module private SubmitChangeCallbacks =
                 "[Gambol sync] POST 200 req=" + reqId
                 + " ackRev=" + string ack.revision.Value
                 + " bodyLen=" + string n)
-            dispatch (SysMsg (SubmitResponse (ack.ackChangeId, ack.revision)))
+            dispatch (SysMsg (SubmitResponse (ack.ackedChangeIds, ack.revision)))
         | Error err ->
             consoleLog (
                 "[Gambol sync] POST 200 bad ACK JSON req=" + reqId
@@ -52,10 +52,17 @@ module private SubmitChangeCallbacks =
             |> Option.defaultValue (truncateForLog 400 bodyText)
         dispatch (SysMsg (SubmitRejected detail))
 
-    let onPostFetchFail (timeoutId: float) (reqId: string) (dispatch: Msg -> unit) () : unit =
+    let onPostFetchFail
+        (timeoutId: float)
+        (reqId: string)
+        (baseRev: int)
+        (changes: Change list)
+        (dispatch: Msg -> unit)
+        ()
+        : unit =
         clearTimeout timeoutId
         consoleLog ("[Gambol sync] POST fetch failed req=" + reqId)
-        dispatch (SysMsg SubmitNetworkError)
+        dispatch (SysMsg (SubmitNetworkError (baseRev, changes)))
 
 // Idle/pause remote polling after a period of no user interaction (battery-friendly).
 let idleTimeoutMs = 15 * 60 * 1000
@@ -90,10 +97,7 @@ let createRuntime (initialModel: VM) =
                 "[Gambol sync] StateLoaded firePending serverRev=" + string serverRev
                 + " restoredQLen=" + string restoredPending.Length)
             let submitEffects =
-                restoredPending
-                |> List.tryHead
-                |> Option.map (fun head -> [ SubmitChange (serverRev, head) ])
-                |> Option.defaultValue []
+                [ SubmitPendingBatch (serverRev, restoredPending) ]
             { restored with
                 graph = localGraph
                 syncInfo =
@@ -111,31 +115,36 @@ let createRuntime (initialModel: VM) =
 
     and runEffect (e: Effect) : unit =
         match e with
-        | SubmitChange (baseRev, change) -> runSubmitChange baseRev change
+        | SubmitPendingBatch (baseRev, changes) -> runSubmitPendingBatch baseRev changes
         | PollServer _ -> runPollServer ()
         | ScheduleRetry delayMs -> runScheduleRetry delayMs
         | SavePendingQueue q -> runSavePendingQueue q
 
-    and runSubmitChange (baseRev: int) (change: Change) : unit =
-        let reqId = change.changeId.ToString("N").Substring(0, 8)
+    and runSubmitPendingBatch (baseRev: int) (changes: Change list) : unit =
+        let reqId =
+            changes
+            |> List.tryHead
+            |> Option.map (fun change -> change.changeId.ToString("N").Substring(0, 8))
+            |> Option.defaultValue "empty"
         let url = $"/{currentFile}/changes"
-        let body = encodeChangeBody { change with id = baseRev }
+        let postChanges = Gambol.Shared.SyncBatch.toDeltaChain baseRev changes
+        let body = encodePendingBatchBody postChanges
         let qLen = model.syncInfo.pendingChanges.Length
         consoleLog (
             "[Gambol sync] POST start req=" + reqId + " baseRev=" + string baseRev
-            + " qLen=" + string qLen + " headStoredId=" + string change.id)
+            + " batchLen=" + string changes.Length + " qLen=" + string qLen)
         let timeoutId =
             setTimeout
                 (fun () ->
                     consoleLog ("[Gambol sync] POST timeout 5s req=" + reqId)
-                    dispatch (SysMsg SubmitNetworkError))
+                    dispatch (SysMsg (SubmitNetworkError (baseRev, changes))))
                 5_000
         postJson
             url
             body
             (SubmitChangeCallbacks.onPostOk timeoutId reqId dispatch)
             (SubmitChangeCallbacks.onPostHttp timeoutId reqId dispatch)
-            (SubmitChangeCallbacks.onPostFetchFail timeoutId reqId dispatch)
+            (SubmitChangeCallbacks.onPostFetchFail timeoutId reqId baseRev changes dispatch)
 
     and runPollServer () : unit =
         let url =

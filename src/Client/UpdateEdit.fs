@@ -76,8 +76,6 @@ let joinWithNext (currentText: string) (model: VM) : VM * Effect list =
                                     let ops =
                                         [ if joinedText <> nextNode.text then
                                               yield Op.SetText(nextId, nextNode.text, joinedText)
-                                          if not currentNode.children.IsEmpty then
-                                              yield Op.Replace(nextId, 0, [], currentNode.children)
                                           yield Op.Replace
                                               (currParentId, currIndexInParent, ownedChildren [currentId], [])
                                           ]

@@ -12,6 +12,13 @@ type PollResponse =
       pageBuildEpochSec: int
       changes: Change list }
 
+type ChangeBatch =
+    { changes: Change list }
+
+type ChangeBatchAck =
+    { revision: Revision
+      ackedChangeIds: System.Guid list }
+
 [<RequireQualifiedAccess>]
 module Serialization =
     let private encodeSpecialKind (kind: SpecialKind) : IEncodable =
@@ -212,6 +219,27 @@ module Serialization =
                 get.Optional.Field "changeId" Decode.guid
                 |> Option.defaultWith System.Guid.NewGuid
               ops = get.Required.Field "ops" (Decode.list decodeOp) })
+
+    let encodeChangeBatch (batch: ChangeBatch) : IEncodable =
+        Encode.object
+            [ "changes", batch.changes |> List.map encodeChange |> Encode.list ]
+
+    let decodeChangeBatch: Decoder<ChangeBatch> =
+        Decode.object (fun get ->
+            { changes = get.Required.Field "changes" (Decode.list decodeChange) })
+        |> Decode.andThen (fun batch ->
+            if batch.changes.IsEmpty then Decode.fail "changes must not be empty"
+            else Decode.succeed batch)
+
+    let encodeChangeBatchAck (ack: ChangeBatchAck) : IEncodable =
+        Encode.object
+            [ "revision", encodeRevision ack.revision
+              "ackedChangeIds", ack.ackedChangeIds |> List.map Encode.guid |> Encode.list ]
+
+    let decodeChangeBatchAck: Decoder<ChangeBatchAck> =
+        Decode.object (fun get ->
+            { revision = get.Required.Field "revision" decodeRevision
+              ackedChangeIds = get.Required.Field "ackedChangeIds" (Decode.list Decode.guid) })
 
     // ---- PollResponse ----
     // Defined after Change encode/decode because the response now includes a change tail.

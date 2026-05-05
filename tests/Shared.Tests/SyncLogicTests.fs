@@ -113,7 +113,7 @@ let ``SyncInfo withSyncState clears ack when leaving risk state`` () =
 [<Fact>]
 let ``SyncInfo withSyncState keeps ack within non-risk states`` () =
     let si = { SyncInfo.initial with syncState = Sending 1; syncRiskAcknowledged = true }
-    let si2 = SyncInfo.withSyncState (WaitingToRetry 1) si
+    let si2 = SyncInfo.withSyncState (WaitingToRetry (1, 0, [])) si
     Assert.True(si2.syncRiskAcknowledged)
 
 // ---------------------------------------------------------------------------

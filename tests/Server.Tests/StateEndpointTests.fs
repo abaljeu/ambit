@@ -29,9 +29,9 @@ let private decodeRevision json =
         get.Required.Field "revision" Serialization.decodeRevision)
     |> decode <| json
 
-let private decodeAckChangeId json =
+let private decodeAckChangeIds json =
     Thoth.Json.Core.Decode.object (fun get ->
-        get.Required.Field "ackChangeId" Thoth.Json.Core.Decode.guid)
+        get.Required.Field "ackedChangeIds" (Thoth.Json.Core.Decode.list Thoth.Json.Core.Decode.guid))
     |> decode <| json
 
 let private decodeGraph json =
@@ -47,12 +47,18 @@ let private getStateJson (client: HttpClient) (_file: string) = task {
     return! resp.Content.ReadAsStringAsync()
 }
 
-let private encodeChangeBody (change: Change) =
-    Encode.toString 0 (Serialization.encodeChange change)
+let private encodeChangeBatchBody (changes: Change list) =
+    Encode.toString 0 (Serialization.encodeChangeBatch { changes = changes })
 
 /// POST /ambit/changes with a change and return the raw response.
 let private postChange (client: HttpClient) (_file: string) (change: Change) = task {
-    let body = encodeChangeBody change
+    let body = encodeChangeBatchBody [ change ]
+    let content = new StringContent(body, Encoding.UTF8, "application/json")
+    return! client.PostAsync("/ambit/changes", content)
+}
+
+let private postChanges (client: HttpClient) (_file: string) (changes: Change list) = task {
+    let body = encodeChangeBatchBody changes
     let content = new StringContent(body, Encoding.UTF8, "application/json")
     return! client.PostAsync("/ambit/changes", content)
 }
@@ -172,7 +178,7 @@ let ``POST changes SetText changes child text and bumps revision`` (backend: Bac
 
         let! postBody = resp.Content.ReadAsStringAsync()
         Assert.Equal(Revision 2, decodeRevision postBody)
-        Assert.Equal(change.changeId, decodeAckChangeId postBody)
+        Assert.Equal<Guid list>([ change.changeId ], decodeAckChangeIds postBody)
 
         let! json = getStateJson client testFile
         let graph = decodeGraph json
@@ -198,7 +204,7 @@ let ``POST changes NewNode+Replace adds child to root`` (backend: BackendKind) =
 
         let! postBody = resp.Content.ReadAsStringAsync()
         Assert.Equal(Revision 1, decodeRevision postBody)
-        Assert.Equal(change.changeId, decodeAckChangeId postBody)
+        Assert.Equal<Guid list>([ change.changeId ], decodeAckChangeIds postBody)
 
         let! json = getStateJson client testFile
         let graph = decodeGraph json
@@ -248,6 +254,50 @@ let ``POST changes twice bumps revision to 2`` (backend: BackendKind) =
     })
 
 [<Theory; MemberData(nameof backends)>]
+let ``POST changes batch with two changes bumps revision to 2`` (backend: BackendKind) =
+    withClient backend (fun client -> task {
+        let! json0 = getStateJson client testFile
+        let rootId = (decodeGraph json0).root
+        let change1, childId = changeAddChild rootId 0 "first"
+        let change2 =
+            { id = 1
+              changeId = Guid.NewGuid()
+              ops = [ Op.SetText(childId, "first", "second") ] }
+
+        let! resp = postChanges client testFile [ change1; change2 ]
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
+
+        let! postBody = resp.Content.ReadAsStringAsync()
+        Assert.Equal(Revision 2, decodeRevision postBody)
+        Assert.Equal<Guid list>(
+            [ change1.changeId; change2.changeId ],
+            decodeAckChangeIds postBody)
+
+        let! json = getStateJson client testFile
+        let g = decodeGraph json
+        Assert.Equal("second", g.nodes.[childId].text)
+    })
+
+[<Theory; MemberData(nameof backends)>]
+let ``POST changes batch with bad second change leaves state unchanged`` (backend: BackendKind) =
+    withClient backend (fun client -> task {
+        let! json0 = getStateJson client testFile
+        let rootId = (decodeGraph json0).root
+        let change1, childId = changeAddChild rootId 0 "first"
+        let bad =
+            { id = 1
+              changeId = Guid.NewGuid()
+              ops = [ Op.SetText(NodeId.New(), "old", "new") ] }
+
+        let! resp = postChanges client testFile [ change1; bad ]
+        Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode)
+
+        let! json = getStateJson client testFile
+        Assert.Equal(Revision 0, decodeRevision json)
+        Assert.False((decodeGraph json).nodes.ContainsKey childId)
+    })
+
+[<Theory; MemberData(nameof backends)>]
 let ``POST changes persists in GET state`` (backend: BackendKind) =
     withClient backend (fun client -> task {
         let! json0 = getStateJson client testFile
@@ -283,14 +333,14 @@ let ``POST same changeId twice is idempotent`` (backend: BackendKind) =
         let! b1 = r1.Content.ReadAsStringAsync()
         Assert.DoesNotContain("graph", b1, StringComparison.Ordinal)
         Assert.Equal(Revision 1, decodeRevision b1)
-        Assert.Equal(cid, decodeAckChangeId b1)
+        Assert.Equal<Guid list>([ cid ], decodeAckChangeIds b1)
 
         let! r2 = postChange client testFile change
         Assert.Equal(HttpStatusCode.OK, r2.StatusCode)
         let! b2 = r2.Content.ReadAsStringAsync()
         Assert.DoesNotContain("graph", b2, StringComparison.Ordinal)
         Assert.Equal(Revision 1, decodeRevision b2)
-        Assert.Equal(cid, decodeAckChangeId b2)
+        Assert.Equal<Guid list>([ cid ], decodeAckChangeIds b2)
 
         let! json = getStateJson client testFile
         Assert.Equal(Revision 1, decodeRevision json)
@@ -525,14 +575,14 @@ let ``DB restart keeps duplicate changeId idempotent`` () = task {
     Assert.Equal(HttpStatusCode.OK, r1.StatusCode)
     let! b1 = r1.Content.ReadAsStringAsync()
     Assert.Equal(Revision 1, decodeRevision b1)
-    Assert.Equal(change.changeId, decodeAckChangeId b1)
+    Assert.Equal<Guid list>([ change.changeId ], decodeAckChangeIds b1)
 
     use client2 = createDbClientNoReset connStr
     let! r2 = postChange client2 testFile change
     Assert.Equal(HttpStatusCode.OK, r2.StatusCode)
     let! b2 = r2.Content.ReadAsStringAsync()
     Assert.Equal(Revision 1, decodeRevision b2)
-    Assert.Equal(change.changeId, decodeAckChangeId b2)
+    Assert.Equal<Guid list>([ change.changeId ], decodeAckChangeIds b2)
 
     let! json2 = getStateJson client2 testFile
     Assert.Equal(Revision 1, decodeRevision json2)

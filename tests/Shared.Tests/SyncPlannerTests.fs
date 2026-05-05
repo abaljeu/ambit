@@ -11,7 +11,7 @@ let private mkChange id =
       ops = [] }
 
 [<Fact>]
-let ``tryStartSubmit returns SubmitChange effect when queue is ready`` () =
+let ``tryStartSubmit returns SubmitPendingBatch effect when queue is ready`` () =
     let c = mkChange 7
     let syncInfo =
         { SyncInfo.initial with
@@ -19,11 +19,11 @@ let ``tryStartSubmit returns SubmitChange effect when queue is ready`` () =
     let nextInfo, effects = SyncPlanner.tryStartSubmit (Revision 9) syncInfo
     Assert.Equal(Sending 1, nextInfo.syncState)
     match effects with
-    | [ SubmitChange (baseRevision, head) ] ->
+    | [ SubmitPendingBatch (baseRevision, changes) ] ->
         Assert.Equal(9, baseRevision)
-        Assert.Equal(c.changeId, head.changeId)
+        Assert.Equal<Change list>([ c ], changes)
     | _ ->
-        failwith "Expected single SubmitChange effect"
+        failwith "Expected single SubmitPendingBatch effect"
 
 [<Fact>]
 let ``tryStartSubmit returns no effects when already sending`` () =
@@ -36,37 +36,54 @@ let ``tryStartSubmit returns no effects when already sending`` () =
     Assert.Empty(effects)
 
 [<Fact>]
-let ``ackSubmit dequeues head and schedules next`` () =
+let ``ackBatch dequeues acknowledged changes and schedules remainder`` () =
     let c1 = mkChange 0
     let c2 = mkChange 0
+    let c3 = mkChange 0
     let syncInfo =
         { SyncInfo.initial with
-            pendingChanges = [ c1; c2 ]
+            pendingChanges = [ c1; c2; c3 ]
             syncState = Sending 1 }
     let nextInfo, pending, effects =
-        SyncPlanner.ackSubmit c1.changeId (Revision 3) syncInfo
+        SyncPlanner.ackBatch [ c1.changeId; c2.changeId ] (Revision 3) syncInfo
     Assert.Single(pending) |> ignore
-    Assert.Equal(c2.changeId, pending.Head.changeId)
+    Assert.Equal(c3.changeId, pending.Head.changeId)
     Assert.Equal(Sending 1, nextInfo.syncState)
     match effects with
-    | [ SubmitChange (baseRevision, head) ] ->
+    | [ SubmitPendingBatch (baseRevision, changes) ] ->
         Assert.Equal(3, baseRevision)
-        Assert.Equal(c2.changeId, head.changeId)
+        Assert.Equal<Change list>([ c3 ], changes)
     | _ ->
-        failwith "Expected single SubmitChange effect for remaining queue"
+        failwith "Expected single SubmitPendingBatch effect for remaining queue"
 
 [<Fact>]
-let ``ackSubmit with last item returns Idle and no effects`` () =
+let ``ackBatch with last item returns Idle and no effects`` () =
     let c = mkChange 0
     let syncInfo =
         { SyncInfo.initial with
             pendingChanges = [ c ]
             syncState = Sending 1 }
     let nextInfo, pending, effects =
-        SyncPlanner.ackSubmit c.changeId (Revision 1) syncInfo
+        SyncPlanner.ackBatch [ c.changeId ] (Revision 1) syncInfo
     Assert.Empty(pending)
     Assert.Equal(Idle, nextInfo.syncState)
     Assert.Empty(effects)
+
+[<Fact>]
+let ``toDeltaChain rewrites stale queued ids to contiguous revisions`` () =
+    let c1 = mkChange 637
+    let c2 = mkChange 637
+    let c3 = mkChange 637
+    let chained = Gambol.Shared.SyncBatch.toDeltaChain 637 [ c1; c2; c3 ]
+    Assert.Equal<int list>([ 637; 638; 639 ], chained |> List.map (fun c -> c.id))
+    Assert.Equal<Guid list>(
+        [ c1.changeId; c2.changeId; c3.changeId ],
+        chained |> List.map (fun c -> c.changeId))
+
+[<Fact>]
+let ``toDeltaChain keeps empty batch empty`` () =
+    let chained = Gambol.Shared.SyncBatch.toDeltaChain 12 []
+    Assert.Empty(chained)
 
 [<Fact>]
 let ``tryStartPoll emits PollServer when idle with empty queue`` () =

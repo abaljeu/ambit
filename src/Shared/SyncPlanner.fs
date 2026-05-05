@@ -17,29 +17,29 @@ module SyncPlanner =
     let tryStartSubmit (baseRevision: Revision) (syncInfo: SyncInfo) : SyncInfo * Effect list =
         match syncInfo.pendingChanges with
         | [] -> syncInfo, []
-        | head :: _ when isBlocked syncInfo.syncState -> syncInfo, []
-        | head :: _ when isBusy syncInfo.syncState -> syncInfo, []
-        | head :: _ ->
+        | _ when isBlocked syncInfo.syncState -> syncInfo, []
+        | _ when isBusy syncInfo.syncState -> syncInfo, []
+        | changes ->
             let nextInfo = syncInfo |> SyncInfo.withSyncState (Sending 1)
-            nextInfo, [ SubmitChange (baseRevision.Value, head) ]
+            nextInfo, [ SubmitPendingBatch (baseRevision.Value, changes) ]
 
-    let ackSubmit
-        (ackChangeId: System.Guid)
+    let ackBatch
+        (ackedChangeIds: System.Guid list)
         (revision: Revision)
         (syncInfo: SyncInfo)
         : SyncInfo * Change list * Effect list =
+        let acked = ackedChangeIds |> Set.ofList
         let pending =
-            match syncInfo.pendingChanges with
-            | head :: tail when head.changeId = ackChangeId -> tail
-            | _ -> syncInfo.pendingChanges
+            syncInfo.pendingChanges
+            |> List.filter (fun change -> not (Set.contains change.changeId acked))
         let baseInfo = syncInfo |> SyncInfo.withPendingChanges pending
         match pending with
         | [] ->
             baseInfo |> SyncInfo.withSyncState Idle, pending, []
-        | head :: _ ->
+        | changes ->
             baseInfo |> SyncInfo.withSyncState (Sending 1),
             pending,
-            [ SubmitChange (revision.Value, head) ]
+            [ SubmitPendingBatch (revision.Value, changes) ]
 
     /// Emit a PollServer effect when idle with an empty queue and not already polling.
     let tryStartPoll (revision: Revision) (syncInfo: SyncInfo) : SyncInfo * Effect list =

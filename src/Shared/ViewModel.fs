@@ -206,7 +206,7 @@ type SyncState =
     | Idle                       // all confirmed, nothing pending
     | Sending of attempt: int    // POST in-flight; attempt = 1-based send count
     | Polling                    // GET poll in-flight
-    | WaitingToRetry of attempt: int  // last POST had a network error; waiting to retry
+    | WaitingToRetry of attempt: int * baseRevision: int * changes: Change list
     | ServerRejected  // server returned 400 — change cannot be applied; reload required
     | CodeOutdated    // server has newer code (build stamp changed) — reload required
     | DataOutdated    // server has newer data with no local pending — reload required
@@ -240,7 +240,7 @@ module SyncInfo =
         else { si with syncState = newState; syncRiskAcknowledged = false }
 
 type Effect =
-    | SubmitChange of baseRevision: int * change: Change
+    | SubmitPendingBatch of baseRevision: int * changes: Change list
     | PollServer of revision: int
     | ScheduleRetry of delayMs: int
     | SavePendingQueue of Change list
@@ -280,13 +280,13 @@ and VM = // the client state
 /// Messages dispatched by async server callbacks (not directly caused by user input).
 type SystemMsg =
     | StateLoaded of Graph * Revision
-    | SubmitResponse of System.Guid * Revision
+    | SubmitResponse of ackedChangeIds: System.Guid list * revision: Revision
     | SubmitRejected of detail: string // server HTTP error (decoded `error` or short body snippet)
-    | SubmitNetworkError  // timeout or network failure — retryable
+    | SubmitNetworkError of baseRevision: int * changes: Change list
     | SetPollingActive of bool
     | PollTick            // polling timer fired; update decides whether to emit PollServer effect
     | PollDone of SyncState option * Change list   // poll GET response arrived
-    | RetrySubmit         // retry timer fired
+    | RetrySubmit         // retry timer fired; update resends the stored batch snapshot
 
 type Msg =
     | SysMsg of SystemMsg

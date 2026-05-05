@@ -563,16 +563,12 @@ let retryPendingOp (resetCount: bool) (model: VM) : VM * Effect list =
     | ServerRejected, _ | CodeOutdated, _ | DataOutdated, _ -> model, []
     | _, [] ->
         { model with syncInfo = model.syncInfo |> SyncInfo.withSyncState Idle }, []
-    | WaitingToRetry n, _ ->
+    | WaitingToRetry (n, baseRev, changes), _ ->
         consoleLog (
             "[Gambol sync] retryPendingOp modelRev=" + string model.revision.Value
             + " qLen=" + string model.syncInfo.pendingChanges.Length)
         let nextAttempt = if resetCount then 1 else n + 1
-        let effects =
-            model.syncInfo.pendingChanges
-            |> List.tryHead
-            |> Option.map (fun head -> [ SubmitChange (model.revision.Value, head) ])
-            |> Option.defaultValue []
+        let effects = [ SubmitPendingBatch (baseRev, changes) ]
         { model with
             syncInfo = model.syncInfo |> SyncInfo.withSyncState (Sending nextAttempt) }, effects
     | Sending _, _ -> model, []

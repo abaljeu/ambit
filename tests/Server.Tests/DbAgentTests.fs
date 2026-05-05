@@ -23,6 +23,9 @@ let private decodeGraph (json: string) : Graph =
     | Ok g -> g
     | Error e -> failwith $"Decode graph: {e}"
 
+let private encodeChangeBatch (changes: Change list) =
+    Encode.toString 0 (Serialization.encodeChangeBatch { changes = changes })
+
 [<Fact>]
 let ``DbAgent empty test DB has revision 0 and canonical ROOT`` () = task {
     let connStr = requireDbConnStr ()
@@ -56,7 +59,7 @@ let ``DbAgent new process loads state from projection and changes after post`` (
             [ Op.NewNode(childId, "reload-check")
               Op.Replace(rootId, 0, [], [ { ref = Ownership.Owner; id = childId } ]) ] }
 
-    let body = Encode.toString 0 (Serialization.encodeChange change)
+    let body = encodeChangeBatch [ change ]
     let! postResult = DbAgent.postChange agent1 body |> Async.StartAsTask
 
     match postResult with
@@ -94,7 +97,7 @@ let ``DbAgent change fails and state is unchanged when DB goes away after startu
 
     try
         do! setDatabaseAllowConnections connStr false
-        let body = Encode.toString 0 (Serialization.encodeChange change)
+        let body = encodeChangeBatch [ change ]
         let! postResult = DbAgent.postChange agent body |> Async.StartAsTask
 
         match postResult with
@@ -134,7 +137,7 @@ let ``rebuildFromDocumentFiles aligns DB with on-disk document`` () = task {
                 [ Op.NewNode(childId, "db-only")
                   Op.Replace(Graph.rootId, 0, [], [ { ref = Ownership.Owner; id = childId } ]) ] }
 
-        let body = Encode.toString 0 (Serialization.encodeChange change)
+        let body = encodeChangeBatch [ change ]
         let! postR = DbAgent.postChange agent body |> Async.StartAsTask
 
         match postR with

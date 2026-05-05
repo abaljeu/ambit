@@ -47,18 +47,22 @@ This pre-step does not change merge/sync architecture. It only establishes the d
 
 ---
 
-## 2. Drop file authority — DB as canonical store
+## 2. Drop file authority when DB is present
 
-**Decision:** Make the database the single source of truth. Keep an explicit `file` mode for rollback and local file-authority operation.
+**Decision:** Make the database the single source of truth when it is available at startup. If
+the database is absent at startup, fall back to file mode for that process. Keep an explicit
+`file` mode for rollback and local file-authority operation.
 
-**Status:** Implemented as the current DB-authority path. The planned refinement is to make the
-remaining file-persistence behavior explicit: `db` stays strict DB authority and maintains a
-periodic file-format backup from DB state; `file` keeps the old file-authority rollback path.
+**Status:** Implemented as the current `db` / `file` mode split. In `db` mode, a working
+startup database is authoritative and maintains a periodic file-format backup from DB state.
+If the database is absent at startup, the server uses file authority for that run. Once DB
+authority has started, later DB write failures fail change requests rather than switching mode.
+`file` keeps the old file-authority rollback path.
 
 **What changes:**
 
-- File writes (`gambol`, `gambol.meta`, `gambol.log`) are removed from the mutation path. API state lives in the `nodes`, `node_children`, `graph`, and `changes` tables.
-- Startup file-vs-DB comparison is removed for DB authority. The DB is trusted on startup.
+- In `db` mode with a working startup DB, file writes (`gambol`, `gambol.meta`, `gambol.log`) are removed from the mutation path. API state lives in the `nodes`, `node_children`, `graph`, and `changes` tables.
+- Startup file-vs-DB comparison is removed for DB authority. A present DB is trusted on startup; an absent DB falls back to file mode for that process.
 - Backup and disaster-recovery procedures shift from file authority to database backup, with a new file-format backup refinement: periodically write snapshot text, `.meta`, an empty `.log`, and the existing snapshot backup rotation from DB state only.
 - `file` mode remains available as an explicit rollback/local mode: files are authoritative, an empty DB may be seeded from files, and successful file writes mirror to DB when DB is available.
 

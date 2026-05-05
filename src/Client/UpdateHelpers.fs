@@ -62,7 +62,7 @@ let readEditInputSelectionEnd () : int =
 
 /// Apply a change to the local model, enqueue it for posting to the server,
 /// and return the updated VM (or None if the change was rejected locally) plus effects.
-/// Fires SubmitChange only when the queue was empty and no request is in-flight.
+/// Fires SubmitPendingBatch only when the queue was empty and no request is in-flight.
 /// Blocked states (ServerRejected / CodeOutdated / DataOutdated / WaitingToRetry) queue
 /// changes locally but do not fire a POST.
 let applyAndPost (change: Change) (model: VM) : VM option * Effect list =

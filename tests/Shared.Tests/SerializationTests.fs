@@ -104,6 +104,32 @@ let ``Change round-trip`` () =
     Assert.Equal<Op list>(change.ops, decoded.ops)
 
 [<Fact>]
+let ``ChangeBatch round-trip`` () =
+    let change =
+        { id = 5
+          changeId = System.Guid.NewGuid()
+          ops = [ Op.SetText(NodeId.New(), "old", "new") ] }
+    let batch = { changes = [ change ] }
+    let decoded = roundTrip Serialization.encodeChangeBatch Serialization.decodeChangeBatch batch
+    Assert.Equal<Change list>(batch.changes, decoded.changes)
+
+[<Fact>]
+let ``ChangeBatch decoder rejects empty changes`` () =
+    let json = """{"changes":[]}"""
+    match Dec.fromString Serialization.decodeChangeBatch json with
+    | Ok _ -> failwith "Expected empty batch to fail decoding"
+    | Error _ -> ()
+
+[<Fact>]
+let ``ChangeBatchAck round-trip`` () =
+    let ack =
+        { revision = Revision 7
+          ackedChangeIds = [ System.Guid.NewGuid(); System.Guid.NewGuid() ] }
+    let decoded = roundTrip Serialization.encodeChangeBatchAck Serialization.decodeChangeBatchAck ack
+    Assert.Equal(ack.revision, decoded.revision)
+    Assert.Equal<System.Guid list>(ack.ackedChangeIds, decoded.ackedChangeIds)
+
+[<Fact>]
 let ``PollResponse round-trip with non-empty changes`` () =
     let change =
         { id = 3

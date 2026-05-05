@@ -186,6 +186,14 @@ module Main =
         )
         |> ignore
 
+        // Development only: add fixed response latency for sync/retry testing.
+        if app.Environment.EnvironmentName = "Development" then
+            app.Use(fun (ctx: HttpContext) (next: RequestDelegate) ->
+                Task.Delay(1000)
+                    .ContinueWith(fun (_: Task) -> next.Invoke(ctx))
+                    .Unwrap())
+            |> ignore
+
         // Headed only: serve Client/Shared sources for browser source maps.
         if hasHead then
             let contentRoot = app.Environment.ContentRootPath
