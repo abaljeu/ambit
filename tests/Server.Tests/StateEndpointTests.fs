@@ -115,12 +115,23 @@ let private withClient (backend: BackendKind) (f: HttpClient -> Task<unit>) = ta
 }
 
 [<Fact>]
-let ``DB authority without connection returns startup error`` () = task {
-    use client = createDbModeWithoutConnectionClient ()
+let ``DB mode without connection falls back to file mode at startup`` () = task {
+    let tempDir = newTempDir ()
+    use client = createDbModeWithoutConnectionClientForDir tempDir
     let! resp = client.GetAsync("/ambit/state")
-    Assert.Equal(HttpStatusCode.InternalServerError, resp.StatusCode)
+    Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
+
     let! body = resp.Content.ReadAsStringAsync()
-    Assert.Contains("DB authority requires DB_CONNECTION_STRING", body)
+    Assert.Equal(Revision 0, decodeRevision body)
+
+    let rootId = (decodeGraph body).root
+    let change, _ = changeAddChild rootId 0 "startup-file-fallback"
+    let! postResp = postChange client testFile change
+    Assert.Equal(HttpStatusCode.OK, postResp.StatusCode)
+    do! Task.Delay(500)
+
+    let snapshotPath = Path.Combine(tempDir, testFile)
+    Assert.Contains("startup-file-fallback", File.ReadAllText(snapshotPath))
 }
 
 // ---- GET /ambit/state tests (parameterised) ----
@@ -380,7 +391,7 @@ let ``Log contains valid change data after POST`` () = task {
 // ---- DB restart tests (DB backend only) ----
 
 [<Fact>]
-let ``DB change is written to database synchronously on postChange`` () = task {
+let ``DB is present in db mode`` () = task {
     let connStr = requireDbConnStr ()
     do! resetTestDatabase connStr
     use client1 = createDbClient connStr

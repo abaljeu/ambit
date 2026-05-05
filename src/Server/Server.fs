@@ -264,12 +264,6 @@ module Main =
             let resolvedDbStatus : DatabaseSetup.DbStatus =
                 DatabaseSetup.resolveDbConnection persistenceMode dbConnString dataDir
 
-            if persistenceMode = DatabaseSetup.PersistenceMode.Db
-               && resolvedDbStatus = DatabaseSetup.DbStatus.Absent then
-                registerStartupError (
-                    "DB authority requires DB_CONNECTION_STRING to point at a working database. " +
-                    "Set Persistence:Mode to file to use files as the primary store.")
-
             DatabaseSetup.startDbBackupIfNeeded
                 persistenceMode
                 resolvedDbStatus
@@ -290,7 +284,7 @@ module Main =
                 | DatabaseSetup.PersistenceMode.File, _ ->
                     AgentHandle.ofFile (getOrCreateFileAgent filename)
                 | DatabaseSetup.PersistenceMode.Db, _ ->
-                    failwith "DB authority is unavailable."
+                    AgentHandle.ofFile (getOrCreateFileAgent filename)
 
             // GET /ambit/login → serve login.html
             let loginHtml = Path.Combine(app.Environment.WebRootPath, "login.html")

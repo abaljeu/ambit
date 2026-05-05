@@ -44,6 +44,40 @@ let private ensureTestDatabaseExists (connStr: string) =
     }
     |> fun t -> t.GetAwaiter().GetResult()
 
+let setDatabaseAllowConnections (connStr: string) (allowConnections: bool) : Task<unit> =
+    task {
+        let builder = NpgsqlConnectionStringBuilder(connStr)
+        let database = builder.Database
+
+        if String.IsNullOrWhiteSpace(database) then
+            failwith "DB tests require a connection string with a Database value."
+
+        let adminBuilder = NpgsqlConnectionStringBuilder(connStr)
+        adminBuilder.Database <- "postgres"
+
+        use conn = new NpgsqlConnection(adminBuilder.ConnectionString)
+        do! conn.OpenAsync()
+
+        if not allowConnections then
+            use terminateCmd = conn.CreateCommand()
+            terminateCmd.CommandText <-
+                """
+                SELECT pg_terminate_backend(pid)
+                FROM pg_stat_activity
+                WHERE datname = @database AND pid <> pg_backend_pid();
+                """
+            terminateCmd.Parameters.AddWithValue("database", database) |> ignore
+            let! _ = terminateCmd.ExecuteNonQueryAsync()
+            ()
+
+        use allowCmd = conn.CreateCommand()
+        allowCmd.CommandText <-
+            "ALTER DATABASE " + quoteIdentifier database +
+            " WITH ALLOW_CONNECTIONS " + string allowConnections + ";"
+        let! _ = allowCmd.ExecuteNonQueryAsync()
+        return ()
+    }
+
 /// Resolves the DB connection string, or fails with a clear error message.
 /// DB tests are not skippable. If TEST_DB_CONNECTION_STRING is unset, use a
 /// sibling test DB derived from appsettings.Development.json.
@@ -172,7 +206,7 @@ let createDbClientNoReset (connStr: string) =
     DatabaseSetup.resetAgentCacheForTest ()
     createDbClient connStr
 
-let createDbModeWithoutConnectionClient () =
+let createDbModeWithoutConnectionClientForDir (tempDir: string) =
     let priorDb = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING")
     try
         Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", null)
@@ -182,7 +216,7 @@ let createDbModeWithoutConnectionClient () =
                     builder.ConfigureAppConfiguration(fun _ config ->
                         config.AddInMemoryCollection(
                             dict [
-                                "DataDir", newTempDir ()
+                                "DataDir", tempDir
                                 "Persistence:Mode", "Db"
                                 "DB_CONNECTION_STRING", ""
                                 "Auth:Username", ""
@@ -197,3 +231,6 @@ let createDbModeWithoutConnectionClient () =
             Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", null)
         else
             Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", priorDb)
+
+let createDbModeWithoutConnectionClient () =
+    createDbModeWithoutConnectionClientForDir (newTempDir ())

@@ -77,6 +77,40 @@ let ``DbAgent new process loads state from projection and changes after post`` (
 }
 
 [<Fact>]
+let ``DbAgent change fails and state is unchanged when DB goes away after startup`` () = task {
+    let connStr = requireDbConnStr ()
+    do! resetTestDatabase connStr
+    let agent = DbAgent.create connStr
+    let! json0 = DbAgent.getState agent |> Async.StartAsTask
+    let rootId = (decodeGraph json0).root
+    let childId = NodeId.New()
+
+    let change =
+        { id = 0
+          changeId = Guid.NewGuid()
+          ops =
+            [ Op.NewNode(childId, "db-down")
+              Op.Replace(rootId, 0, [], [ { ref = Ownership.Owner; id = childId } ]) ] }
+
+    try
+        do! setDatabaseAllowConnections connStr false
+        let body = Encode.toString 0 (Serialization.encodeChange change)
+        let! postResult = DbAgent.postChange agent body |> Async.StartAsTask
+
+        match postResult with
+        | Ok _ -> Assert.Fail("Expected postChange to fail while DB rejects connections.")
+        | Error err -> Assert.Contains("Database error:", err)
+
+        let! rev = DbAgent.getRevision agent |> Async.StartAsTask
+        let! jsonAfter = DbAgent.getState agent |> Async.StartAsTask
+        Assert.Equal(0, rev)
+        Assert.False((decodeGraph jsonAfter).nodes.ContainsKey childId)
+    finally
+        setDatabaseAllowConnections connStr true
+        |> fun t -> t.GetAwaiter().GetResult()
+}
+
+[<Fact>]
 let ``rebuildFromDocumentFiles aligns DB with on-disk document`` () = task {
     let connStr = requireDbConnStr ()
 
