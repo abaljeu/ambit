@@ -266,19 +266,29 @@ let indentSelection (model: VM) : VM * Effect list =
                 | _ -> result, effects
 
 /// Shift+Tab: make selected nodes siblings of their current parent (under grandparent).
+/// When the parent is the siteMap root, the move still succeeds and the siteMap root is
+/// shifted up to the grandparent so the moved nodes remain visible.
 let outdentSelection (model: VM) : VM * Effect list =
     match model.selectedNodes with
     | None -> model, []
     | Some sel ->
         match Graph.tryFindParentAndIndex sel.range.parent.nodeId model.graph with
-        | None -> model, []  // parent is root — no-op
+        | None -> model, []  // parent is graph root — no-op
         | Some (grandparentId, parentIdx) ->
-            match model.siteMap.entries
-                |> Map.tryPick (fun _ e -> if e.nodeId = grandparentId then Some e else None) with
-            | None -> model, []
-            | Some _ ->
-                let too: NodeRange =
-                    { pnode = grandparentId; start = parentIdx; endd = parentIdx + 1 }
-                let result, effects = moveNodeFromTo too model
+            let too: NodeRange =
+                { pnode = grandparentId; start = parentIdx; endd = parentIdx + 1 }
+            let result, effects = moveNodeFromTo too model
+            let grandparentInSiteMap =
+                model.siteMap.entries
+                |> Map.exists (fun _ e -> e.nodeId = grandparentId)
+            if grandparentInSiteMap then
                 withSiteMap result, effects
+            else
+                // parent was the siteMap root — zoom out to grandparent
+                let siteMap, nextId =
+                    ViewModel.buildSiteMapFrom result.graph grandparentId result.nextSiteId
+                { result with
+                    zoomRoot = grandparentId
+                    siteMap = siteMap
+                    nextSiteId = nextId }, effects
 

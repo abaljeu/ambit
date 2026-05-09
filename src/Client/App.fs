@@ -136,9 +136,9 @@ let createRuntime (initialModel: VM) =
         let timeoutId =
             setTimeout
                 (fun () ->
-                    consoleLog ("[Gambol sync] POST timeout 5s req=" + reqId)
+                    consoleLog ("[Gambol sync] POST timeout 10s req=" + reqId)
                     dispatch (SysMsg (SubmitNetworkError (baseRev, changes))))
-                5_000
+                10_000
         postJson
             url
             body

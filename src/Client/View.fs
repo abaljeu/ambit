@@ -368,13 +368,13 @@ let renderStatus (model: VM) : unit =
             el.textContent <- "Saving\u2026"
             el.className <- "amb-sync-status amb-syncing"
         | Sending n ->
-            el.textContent <- $"Saving\u2026 (retry {n})"
+            el.textContent <- $"Saving\u2026 (try {n})"
             el.className <- "amb-sync-status amb-syncing"
         | Polling ->
             el.textContent <- "Checking\u2026"
             el.className <- "amb-sync-status amb-synced"
         | WaitingToRetry (n, _, _) ->
-            el.textContent <- $"Unsaved \u2014 click to retry (\u00d7{n})"
+            el.textContent <- $"Unsaved \u2014 (try {n})"
             el.className <- "amb-sync-status amb-pending"
         | ServerRejected ->
             el.textContent <- "Server rejected change \u2014 reload required"
