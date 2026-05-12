@@ -287,8 +287,19 @@ let outdentSelection (model: VM) : VM * Effect list =
                 // parent was the siteMap root — zoom out to grandparent
                 let siteMap, nextId =
                     ViewModel.buildSiteMapFrom result.graph grandparentId result.nextSiteId
+                let grandparentEntry = siteMap.entries.[siteMap.rootId]
+                let count = sel.range.endd - sel.range.start
+                let lo = sel.focus - sel.range.start
+                let insertIdx = parentIdx + 1
+                let newSel =
+                    { range =
+                        { parent = grandparentEntry
+                          start = insertIdx
+                          endd = insertIdx + count }
+                      focus = insertIdx + lo }
                 { result with
                     zoomRoot = grandparentId
                     siteMap = siteMap
-                    nextSiteId = nextId }, effects
+                    nextSiteId = nextId
+                    selectedNodes = Some newSel }, effects
 
