@@ -1,3 +1,10 @@
+---
+name: ""
+overview: ""
+todos: []
+isProject: false
+---
+
 # Relational DB mirror: file authority, parity at startup, rebuild on drift
 
 ## Decisions (from iteration)

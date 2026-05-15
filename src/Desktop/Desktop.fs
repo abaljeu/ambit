@@ -28,9 +28,10 @@ module Program =
             "Gambol",
             "WebView2")
 
-    let private createMainWindow () =
-        let urlText = createStatusText ("URL: " + appUrl)
+    let private createMainWindow (localUrl: Uri) =
+        let urlText = createStatusText ("URL: " + string localUrl)
         let statusText = createStatusText "Loading state: initializing WebView2"
+        let proxyText = createStatusText ("Proxy target: " + appUrl)
 
         let statusPanel =
             StackPanel(
@@ -39,6 +40,7 @@ module Program =
 
         statusPanel.Children.Add urlText |> ignore
         statusPanel.Children.Add statusText |> ignore
+        statusPanel.Children.Add proxyText |> ignore
 
         let webView =
             new WebView2(
@@ -62,7 +64,7 @@ module Program =
             else
                 setStatus statusText ("failed: " + string args.WebErrorStatus))
 
-        webView.Source <- Uri appUrl
+        webView.Source <- localUrl
 
         let layout = DockPanel()
         DockPanel.SetDock(statusPanel, Dock.Top)
@@ -78,6 +80,13 @@ module Program =
 
     [<EntryPoint; STAThread>]
     let main _ =
+        let proxy: LocalProxy =
+            LocalProxy.start appUrl
+            |> Async.AwaitTask
+            |> Async.RunSynchronously
+
         let app = Application()
-        let window = createMainWindow ()
+        app.Exit.Add(fun _ -> proxy.Stop().GetAwaiter().GetResult())
+
+        let window = createMainWindow proxy.LocalUrl
         app.Run window
