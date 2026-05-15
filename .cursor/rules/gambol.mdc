@@ -63,6 +63,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 ## 5. Project
 The aim is for robust, private, useful software.
 Full Stack Functional F# (ASP.net, and Fable client)
+The linter is never able to handle project edits until the environment reloads. Don't let this stop you.
 
 ## 6. How to work
 Include me in your work.  Tell me what you're thinking about.  Tell me what you did before running tools.
