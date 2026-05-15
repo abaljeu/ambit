@@ -60,6 +60,22 @@ let ``Graph round-trip`` () =
     Assert.Equal<Map<NodeId, Node>>(graph.nodes, decoded.nodes)
 
 [<Fact>]
+let ``Desktop capabilities disabled round-trip`` () =
+    let decoded =
+        roundTrip
+            DesktopCapabilities.encode
+            DesktopCapabilities.decoder
+            DesktopCapabilities.disabled
+
+    Assert.Equal(DesktopCapabilities.disabled, decoded)
+
+[<Fact>]
+let ``Desktop capabilities use stable file keys`` () =
+    let json = Enc.toString 0 (DesktopCapabilities.encode DesktopCapabilities.disabled)
+
+    Assert.Equal(DesktopCapabilities.disabledJson, json)
+
+[<Fact>]
 let ``Op.NewNode round-trip`` () =
     let op = Op.NewNode(NodeId.New(), "new text")
     let decoded = roundTrip Serialization.encodeOp Serialization.decodeOp op

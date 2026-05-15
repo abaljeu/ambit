@@ -38,6 +38,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
           nextSiteId = nextId
           zoomRoot = zoomRoot
           clipboard = None
+          desktopCapabilities = model.desktopCapabilities
           syncInfo = SyncInfo.initial
           lastSuccessfulKey = ""
           lastSuccessfulOp = "" }, []
@@ -101,6 +102,9 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
 
     | SysMsg (SetPollingActive active) ->
         { model with syncInfo = { model.syncInfo with isPollingActive = active } }, []
+
+    | SysMsg (DesktopCapabilitiesDetected capabilities) ->
+        { model with desktopCapabilities = capabilities }, []
 
     | SysMsg PollTick ->
         let si, effects = SyncPlanner.tryStartPoll model.revision model.syncInfo

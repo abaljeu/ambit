@@ -273,6 +273,7 @@ and VM = // the client state
       nextSiteId: SiteId
       zoomRoot: NodeId // display starting from here
       clipboard: ClipboardContent option
+      desktopCapabilities: DesktopCapabilities option
       syncInfo: SyncInfo
       lastSuccessfulKey: string   // key combo of the most recently handled command (e.g. "Ctrl+Z")
       lastSuccessfulOp: string }  // display name of the most recently handled command (e.g. "Undo")
@@ -283,6 +284,7 @@ type SystemMsg =
     | SubmitResponse of ackedChangeIds: System.Guid list * revision: Revision
     | SubmitRejected of detail: string // server HTTP error (decoded `error` or short body snippet)
     | SubmitNetworkError of baseRevision: int * changes: Change list
+    | DesktopCapabilitiesDetected of DesktopCapabilities option
     | SetPollingActive of bool
     | PollTick            // polling timer fired; update decides whether to emit PollServer effect
     | PollDone of SyncState option * Change list   // poll GET response arrived

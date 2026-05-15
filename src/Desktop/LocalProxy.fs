@@ -5,6 +5,7 @@ open System.Collections.Generic
 open System.Net
 open System.Net.Http
 open System.Threading.Tasks
+open Gambol.Shared
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Hosting
 open Microsoft.AspNetCore.Http
@@ -90,6 +91,29 @@ module LocalProxy =
         let handler = new HttpClientHandler(AllowAutoRedirect = false)
         new HttpClient(handler, disposeHandler = true)
 
+    let private isDesktopRequest (path: PathString) =
+        path.StartsWithSegments(PathString "/_desktop")
+
+    let private writeCapabilities (context: HttpContext) = task {
+        context.Response.StatusCode <- StatusCodes.Status200OK
+        context.Response.ContentType <- "application/json; charset=utf-8"
+
+        do!
+            context.Response.WriteAsync(
+                DesktopCapabilities.disabledJson,
+                context.RequestAborted)
+    }
+
+    let private handleDesktopRequest (context: HttpContext) = task {
+        if
+            HttpMethods.IsGet context.Request.Method
+            && context.Request.Path.Equals(PathString "/_desktop/capabilities")
+        then
+            do! writeCapabilities context
+        else
+            context.Response.StatusCode <- StatusCodes.Status404NotFound
+    }
+
     let private forward (client: HttpClient) (cloudAppUrl: Uri) (context: HttpContext) = task {
         use proxyRequest = createProxyRequest cloudAppUrl context.Request
 
@@ -114,7 +138,11 @@ module LocalProxy =
 
         let app = builder.Build()
         let client = createHttpClient ()
-        app.Run(RequestDelegate(fun context -> forward client cloudUri context)) |> ignore
+        app.Run(RequestDelegate(fun context ->
+            if isDesktopRequest context.Request.Path then
+                handleDesktopRequest context
+            else
+                forward client cloudUri context)) |> ignore
 
         do! app.StartAsync()
 

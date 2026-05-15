@@ -20,6 +20,7 @@ let private emptyModel (graph: Graph) : VM =
       nextSiteId = nextId
       zoomRoot = graph.root
       clipboard = None
+      desktopCapabilities = None
       syncInfo = SyncInfo.initial
       lastSuccessfulKey = ""
       lastSuccessfulOp = "" }

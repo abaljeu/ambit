@@ -21,6 +21,7 @@ let initialModel: VM =
       nextSiteId = Sid 1
       zoomRoot = initialGraph.root
       clipboard = None
+      desktopCapabilities = None
       syncInfo = SyncInfo.initial
       lastSuccessfulKey = ""
       lastSuccessfulOp = "" }
@@ -29,6 +30,17 @@ let dispatch, getModel, wakePolling, pollForRemoteChanges, recordActivity =
     createRuntime initialModel
 
 setupStaticDOM dispatch getModel wakePolling
+
+fetchTextNoCacheWithFail
+    "/_desktop/capabilities"
+    (fun text ->
+        match decodeDesktopCapabilities text with
+        | Ok capabilities ->
+            dispatch (SysMsg (DesktopCapabilitiesDetected (Some capabilities)))
+        | Error err ->
+            consoleLog ("[Gambol desktop] capability decode failed: " + err)
+            dispatch (SysMsg (DesktopCapabilitiesDetected None)))
+    (fun () -> dispatch (SysMsg (DesktopCapabilitiesDetected None)))
 
 fetchText $"/{currentFile}/state" (fun text ->
     match decodeStateResponse text with
