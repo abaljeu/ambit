@@ -203,6 +203,20 @@ module Serialization =
             | other ->
                 Decode.fail $"Unknown Op type: {other}")
 
+    // ---- Desktop Import ----
+
+    let encodeDesktopImportPackage (package: DesktopImportPackage) : IEncodable =
+        Encode.object
+            [ "sourcePath", Encode.string package.sourcePath
+              "topLevelIds", package.topLevelIds |> List.map encodeNodeId |> Encode.list
+              "ops", package.ops |> List.map encodeOp |> Encode.list ]
+
+    let decodeDesktopImportPackage: Decoder<DesktopImportPackage> =
+        Decode.object (fun get ->
+            { sourcePath = get.Required.Field "sourcePath" Decode.string
+              topLevelIds = get.Required.Field "topLevelIds" (Decode.list decodeNodeId)
+              ops = get.Required.Field "ops" (Decode.list decodeOp) })
+
     // ---- Change ----
 
     let encodeChange (change: Change) : IEncodable =

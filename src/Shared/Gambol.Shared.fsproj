@@ -19,6 +19,7 @@
     <Compile Include="ViewModelDeleteOps.fs" />
     <Compile Include="ViewModelSearch.fs" />
     <Compile Include="Paste.fs" />
+    <Compile Include="ImportText.fs" />
     <Compile Include="Snapshot.fs" />
     <Compile Include="Serialization.fs" />
     <Compile Include="SyncBatch.fs" />
