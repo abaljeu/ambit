@@ -12,7 +12,19 @@
         }
     ],
     "configurations": [
-    {
+        {
+            "name": "Launch Desktop",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "desktop: Build",
+            "program": "${workspaceFolder}/src/Desktop/bin/Debug/net10.0-windows/Gambol.Desktop.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}/src/Desktop",
+            "stopAtEntry": false,
+            "console": "internalConsole",
+            "justMyCode": false
+        },
+        {
             "name": "Launch Server",
             "type": "coreclr",
             "request": "launch",

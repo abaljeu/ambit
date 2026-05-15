@@ -2,6 +2,28 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
+			"label": "desktop: Build",
+			"type": "shell",
+			"command": "bash scripts/desktop.sh build",
+			"group": "build",
+			"presentation": {
+				"reveal": "silent",
+				"panel": "shared"
+			},
+			"problemMatcher": "$msCompile"
+		},
+		{
+			"label": "desktop: Run",
+			"type": "shell",
+			"command": "bash scripts/desktop.sh run",
+			"group": "build",
+			"presentation": {
+				"reveal": "always",
+				"panel": "dedicated"
+			},
+			"problemMatcher": "$msCompile"
+		},
+		{
 			"label": "server: Build",
 			"type": "shell",
 			"command": "dotnet build src/Server -c Debug",
