@@ -55,12 +55,14 @@ let renderSearchDialog (model: VM) (dispatch: Msg -> unit) : unit =
 
     match model.mode with
     | SearchDialog s ->
+        let wasOpen = container.classList.contains "amb-palette-open"
         container.classList.add "amb-palette-open"
         let ctx = document.getElementById "search-dialog-context"
         if not (isNull ctx) then ctx.textContent <- s.invokedCommand
         let input = document.getElementById "search-dialog-input" :?> HTMLInputElement
         if input.value <> s.query then input.value <- s.query
-        window.setTimeout((fun _ -> input.focus()), 0) |> ignore
+        if not wasOpen then
+            window.setTimeout((fun _ -> input.select()), 0) |> ignore
         let items =
             Gambol.Client.SearchDialog.currentSearchResults model
             |> List.map (fun hit ->
