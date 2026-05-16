@@ -617,7 +617,14 @@ let commandRegistry : CommandEntry list =
       { name = "Jump to Target"
         run = keyAlways jumpTargetOp
         keys = ["Alt+j" ; "j" ]
-        keyScope = SelectionOrEditing} ]
+        keyScope = SelectionOrEditing}
+        
+      { name = "Import"
+        run = keyAlways importLocalOp
+        keys = [ "Ctrl+>" ]
+        keyScope = SelectionOrEditing }
+        
+    ]
 
 /// True if palette was opened from selection (unwrap nested CommandPalette/CssClassPrompt to the real return target).
 let rec paletteWasSelecting (returnTo: Mode) : bool =

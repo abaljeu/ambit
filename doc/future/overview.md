@@ -152,18 +152,21 @@ Topology (edges) is small enough to keep fully in memory across all documents. P
 
 **What "local files" means:**
 
-Local files are user content on the machine's filesystem — Markdown files for import/export, images, PDFs, or other attachments. This is unrelated to the flat-file storage from Steps 0–2 (which is gone by this point). Import reads a local `.md` file and creates a document in the graph; export writes a document out as `.md`. Attachments (images, etc.) can be referenced by nodes and served from the local filesystem.
+Local files are user content on the machine's filesystem — outline text, Markdown, images, PDFs, or other attachments. This is unrelated to the flat-file storage from Steps 0–2 (which is gone by this point). Nodes can carry a `[[filepath]]` wikilink to a path on disk. **Import** reads that local file (or directory listing) and replaces the focused node's children with the parsed outline; mutations still go through the normal client pending queue and cloud `/changes` endpoint. **Export** and **open** (launch a file with its default application) remain future commands. Attachments referenced from nodes may eventually be served from the local filesystem.
 
-**Why Step 7 (depends on Steps 5–6):**
+**Import and sync (current direction):**
 
-Import creates documents (Step 5's concept). The imported content becomes a document in the graph, replicated to the cloud as a whole-document unit (Step 6). Without the document abstraction, there is no natural boundary for what an import produces.
+- The desktop host reads files; it does not become a second source of truth for the graph.
+- Until nodes carry reliable dates, any existing local file or folder is treated as newer than the cloud copy for UI hints only; timestamp-based stale detection is future work.
+- Richer tagging (which nodes came from which source file, round-trip export) is future work; the import response shape leaves room for it without new node metadata yet.
+- Whole-document load/unload (sections 5–6) is orthogonal: import is node-scoped today, not "create a new document."
 
 **Technology:**
 
-Not yet decided. Candidates include a .NET app with an embedded browser control (WebView2), Electron, or similar. The key requirement is: local HTTP server + browser-like UI + access to the local filesystem.
+A .NET desktop host with WebView2 and a small local HTTP proxy (`/_desktop/...`) in front of the cloud API.
 
-**User experience after completion:**
+**User experience (target):**
 
-The user launches the desktop app. It opens a browser or browser-like window connected to the local webserver, which connects to the cloud. The UI is the same as the pure-web version, with three new commands: **import** (local file → document), **export** (document → local file), and **open** (launch a local file with its default application).
+The user launches the desktop app. It opens a browser-like window on the local proxy, which forwards to the cloud. The UI matches the web client, with desktop-only affordances when capabilities allow: a visible process working directory, a left-margin hint on the active row for the first `[[filepath]]` reference, and **Import file** when import is enabled. Export and open follow later.
 
 *Source:* Not yet elaborated in a dedicated document.
