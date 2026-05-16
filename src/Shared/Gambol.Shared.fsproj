@@ -13,6 +13,7 @@
     <Compile Include="History.fs" />
     <Compile Include="LogText.fs" />
     <Compile Include="DesktopCapabilities.fs" />
+    <Compile Include="RedirectRewrite.fs" />
     <Compile Include="ViewModel.fs" />
     <Compile Include="ModelOps.fs" />
     <Compile Include="ViewModelOps.fs" />

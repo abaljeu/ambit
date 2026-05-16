@@ -1,5 +1,6 @@
 namespace Gambol.Shared
 
+open System
 open Thoth.Json.Core
 
 type DesktopFileCapabilities =
@@ -9,6 +10,45 @@ type DesktopFileCapabilities =
 
 type DesktopCapabilities =
     { file: DesktopFileCapabilities }
+
+type FileReference =
+    | NoFileReference
+    | InvalidFileReference
+    | FileReference of string
+
+type DesktopFileStatus =
+    | InvalidPath
+    | CreateFile
+    | ExistingFile
+    | ExistingFolder
+
+type DesktopFileStatusResponse =
+    { path: string
+      status: DesktopFileStatus }
+
+[<RequireQualifiedAccess>]
+module FileReference =
+    let parseFirst (text: string) : FileReference =
+        if isNull text then
+            NoFileReference
+        else
+            let startIndex = text.IndexOf("[[", StringComparison.Ordinal)
+
+            if startIndex < 0 then
+                NoFileReference
+            else
+                let pathStart = startIndex + 2
+                let endIndex = text.IndexOf("]]", pathStart, StringComparison.Ordinal)
+
+                if endIndex < 0 then
+                    InvalidFileReference
+                else
+                    let path = text.Substring(pathStart, endIndex - pathStart).Trim()
+
+                    if path.Length = 0 then
+                        InvalidFileReference
+                    else
+                        FileReference path
 
 [<RequireQualifiedAccess>]
 module DesktopCapabilities =
@@ -38,3 +78,20 @@ module DesktopCapabilities =
     let decoder: Decoder<DesktopCapabilities> =
         Decode.object (fun get ->
             { file = get.Required.Field "file" decodeFileCapabilities })
+
+[<RequireQualifiedAccess>]
+module DesktopFileStatus =
+    let label =
+        function
+        | InvalidPath -> "invalid"
+        | CreateFile -> "create"
+        | ExistingFile -> "file"
+        | ExistingFolder -> "folder"
+
+    let tryParse (text: string) : DesktopFileStatus option =
+        match text with
+        | "invalid" -> Some InvalidPath
+        | "create" -> Some CreateFile
+        | "file" -> Some ExistingFile
+        | "folder" -> Some ExistingFolder
+        | _ -> None

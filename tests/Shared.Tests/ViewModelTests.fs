@@ -49,6 +49,7 @@ let emptyModel (graph: Graph) : VM =
       zoomRoot = graph.root
       clipboard = None
       desktopCapabilities = None
+      desktopFileIndicator = BlankFileIndicator
       syncInfo = SyncInfo.initial
       lastSuccessfulKey = ""
       lastSuccessfulOp = "" }
@@ -67,6 +68,7 @@ let emptyModelAt (graph: Graph) (viewRoot: NodeId) : VM =
       zoomRoot = viewRoot
       clipboard = None
       desktopCapabilities = None
+      desktopFileIndicator = BlankFileIndicator
       syncInfo = SyncInfo.initial
       lastSuccessfulKey = ""
       lastSuccessfulOp = "" }
@@ -83,6 +85,72 @@ let modelWithSel (graph: Graph) (parentNodeId: NodeId) (start: int) (endd: int) 
                       start = start
                       endd = endd }
                   focus = focusIdx } }
+
+let private withDesktop (model: VM) : VM =
+    { model with desktopCapabilities = Some DesktopCapabilities.disabled }
+
+let private selectedModelWithText (text: string) : VM =
+    let graph, cont, _ = buildFlat [ text ]
+    modelWithSel graph cont 0 1 0
+
+// ---------------------------------------------------------------------------
+// desktop file indicator
+// ---------------------------------------------------------------------------
+
+[<Fact>]
+let ``refreshDesktopFileIndicator leaves blank when active node has no reference`` () =
+    let model = selectedModelWithText "plain node" |> withDesktop
+    let refreshed, effects = refreshDesktopFileIndicator model
+
+    Assert.Equal(BlankFileIndicator, refreshed.desktopFileIndicator)
+    Assert.Empty(effects)
+
+[<Fact>]
+let ``refreshDesktopFileIndicator marks invalid reference without desktop effect`` () =
+    let model = selectedModelWithText "broken [[reference" |> withDesktop
+    let refreshed, effects = refreshDesktopFileIndicator model
+
+    Assert.Equal(InvalidFileReferenceIndicator, refreshed.desktopFileIndicator)
+    Assert.Empty(effects)
+
+[<Fact>]
+let ``refreshDesktopFileIndicator requests status for valid active reference`` () =
+    let model = selectedModelWithText "load [[note.txt]]" |> withDesktop
+    let refreshed, effects = refreshDesktopFileIndicator model
+    let nodeId = focusedNodeId refreshed.graph refreshed.selectedNodes.Value
+
+    Assert.Equal(CheckingFileStatus (nodeId, "note.txt"), refreshed.desktopFileIndicator)
+    Assert.Equal<Effect list>([ RequestDesktopFileStatus (nodeId, "note.txt") ], effects)
+
+[<Fact>]
+let ``refreshDesktopFileIndicator does not repeat matching status request`` () =
+    let model = selectedModelWithText "load [[note.txt]]" |> withDesktop
+    let checkedModel, _ = refreshDesktopFileIndicator model
+    let refreshed, effects = refreshDesktopFileIndicator checkedModel
+
+    Assert.Equal(checkedModel.desktopFileIndicator, refreshed.desktopFileIndicator)
+    Assert.Empty(effects)
+
+[<Fact>]
+let ``applyDesktopFileStatus ignores stale active node response`` () =
+    let graph, cont, ids = buildFlat [ "load [[a.txt]]"; "load [[b.txt]]" ]
+    let model = modelWithSel graph cont 1 2 1
+    let stale = ids.[0]
+    let updated = applyDesktopFileStatus stale "a.txt" ExistingFile model
+
+    Assert.Equal(BlankFileIndicator, updated.desktopFileIndicator)
+
+[<Fact>]
+let ``desktopFileIndicatorText shows status on active row only`` () =
+    let model = selectedModelWithText "load [[note.txt]]" |> withDesktop
+    let checking, _ = refreshDesktopFileIndicator model
+    let nodeId = focusedNodeId checking.graph checking.selectedNodes.Value
+    let checkedModel = applyDesktopFileStatus nodeId "note.txt" ExistingFile checking
+    let activeEntry = checkedModel.siteMap.entries.[checkedModel.selectedNodes.Value.range.parent.children.[0]]
+    let rootEntry = checkedModel.siteMap.entries.[checkedModel.siteMap.rootId]
+
+    Assert.Equal("file", desktopFileIndicatorText checkedModel activeEntry)
+    Assert.Equal("", desktopFileIndicatorText checkedModel rootEntry)
 
 // ---------------------------------------------------------------------------
 // singleSelection

@@ -22,6 +22,7 @@ let initialModel: VM =
       zoomRoot = initialGraph.root
       clipboard = None
       desktopCapabilities = None
+      desktopFileIndicator = BlankFileIndicator
       syncInfo = SyncInfo.initial
       lastSuccessfulKey = ""
       lastSuccessfulOp = "" }

@@ -21,6 +21,7 @@ let private emptyModel (graph: Graph) : VM =
       zoomRoot = graph.root
       clipboard = None
       desktopCapabilities = None
+      desktopFileIndicator = BlankFileIndicator
       syncInfo = SyncInfo.initial
       lastSuccessfulKey = ""
       lastSuccessfulOp = "" }

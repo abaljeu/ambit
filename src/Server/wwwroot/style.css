@@ -76,11 +76,22 @@ body {
 }
 .amb-row {
     display: flex;
+    position: relative;
     /*gap: 0.2rem;*/
     background: #ccc;
     padding: 0.17em 0 0.17em 0;
     /* Backup for targets of scrollIntoView (scroll-padding on html is primary) */
     scroll-margin-top: var(--amb-sticky-header-scroll-inset);
+}
+.amb-file-indicator {
+    position: absolute;
+    left: -3.8rem;
+    width: 3.4rem;
+    text-align: right;
+    font-size: 0.65rem;
+    line-height: 1rem;
+    color: #555;
+    pointer-events: none;
 }
 .amb-indent {
     width: 1.5rem;

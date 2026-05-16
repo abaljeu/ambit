@@ -26,6 +26,13 @@ let decodeStateResponse (text: string) : Result<Graph * Revision, string> =
 let decodeDesktopCapabilities (text: string) : Result<DesktopCapabilities, string> =
     Thoth.Json.JavaScript.Decode.fromString DesktopCapabilities.decoder text
 
+let encodeDesktopFileStatusRequest (path: string) : string =
+    Encode.object [ "path", Encode.string path ]
+    |> Thoth.Json.JavaScript.Encode.toString 0
+
+let decodeDesktopFileStatusResponse (text: string) : Result<DesktopFileStatusResponse, string> =
+    Thoth.Json.JavaScript.Decode.fromString Serialization.decodeDesktopFileStatusResponse text
+
 /// Decode `{ "error": "..." }` from POST /{file}/changes 400 body.
 let decodePostChangeError (text: string) : string option =
     let decoder =

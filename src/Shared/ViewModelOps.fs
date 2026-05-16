@@ -640,6 +640,70 @@ module ViewModel =
         | Editing _, Some sel -> isInstanceFocused sel model.siteMap entry
         | _ -> false
 
+    let isActiveEntry (model: VM) (entry: SiteEntry) : bool =
+        match model.selectedNodes with
+        | None -> entry.instanceId = model.siteMap.rootId
+        | Some sel -> focusedInstanceId sel = Some entry.instanceId
+
+    let activeNodeId (model: VM) : NodeId option =
+        match model.selectedNodes with
+        | None ->
+            model.siteMap.entries
+            |> Map.tryFind model.siteMap.rootId
+            |> Option.map (fun entry -> entry.nodeId)
+        | Some sel ->
+            Some (focusedNodeId model.graph sel)
+
+    let activeFileReference (model: VM) : (NodeId * FileReference) option =
+        activeNodeId model
+        |> Option.bind (fun nodeId ->
+            model.graph.nodes
+            |> Map.tryFind nodeId
+            |> Option.map (fun node -> nodeId, FileReference.parseFirst node.text))
+
+    let private indicatorMatches nodeId path =
+        function
+        | CheckingFileStatus (indicatorNodeId, indicatorPath)
+        | FileStatusIndicator (indicatorNodeId, indicatorPath, _) ->
+            indicatorNodeId = nodeId && indicatorPath = path
+        | _ -> false
+
+    let refreshDesktopFileIndicator (model: VM) : VM * Effect list =
+        match activeFileReference model with
+        | None
+        | Some (_, NoFileReference) ->
+            { model with desktopFileIndicator = BlankFileIndicator }, []
+        | Some (_, InvalidFileReference) ->
+            { model with desktopFileIndicator = InvalidFileReferenceIndicator }, []
+        | Some (nodeId, FileReference path) ->
+            match model.desktopCapabilities with
+            | None -> { model with desktopFileIndicator = BlankFileIndicator }, []
+            | Some _ when indicatorMatches nodeId path model.desktopFileIndicator -> model, []
+            | Some _ ->
+                { model with desktopFileIndicator = CheckingFileStatus (nodeId, path) },
+                [ RequestDesktopFileStatus (nodeId, path) ]
+
+    let applyDesktopFileStatus
+        (nodeId: NodeId)
+        (path: string)
+        (status: DesktopFileStatus)
+        (model: VM)
+        : VM =
+        match activeFileReference model with
+        | Some (activeNodeId, FileReference activePath)
+            when activeNodeId = nodeId && activePath = path ->
+            { model with desktopFileIndicator = FileStatusIndicator (nodeId, path, status) }
+        | _ -> model
+
+    let desktopFileIndicatorText (model: VM) (entry: SiteEntry) : string =
+        if not (isActiveEntry model entry) then ""
+        else
+            match model.desktopFileIndicator with
+            | BlankFileIndicator
+            | CheckingFileStatus _ -> ""
+            | InvalidFileReferenceIndicator -> "invalid"
+            | FileStatusIndicator (_, _, status) -> DesktopFileStatus.label status
+
 // ---------------------------------------------------------------------------
 // DOM mutation plan (pure — no Browser interop)
 // ---------------------------------------------------------------------------
@@ -650,6 +714,7 @@ module ViewModel =
         | SetTextClasses of classes: CssClasses
         | SetFoldArrow of arrow: string   // "▼" or "▶" (has children); "●" (no children, no behavior)
         | SetNodeGuid of guid: System.Guid   // diagnostic: node identity on row
+        | SetFileIndicator of text: string
 
     type RowMutation =
         | RemoveRow of instId: SiteId
@@ -727,6 +792,12 @@ module ViewModel =
                             if newClass <> oldClass then yield SetClassName newClass
                             let newNode = newModel.graph.nodes.[entry.nodeId]
                             let oldNode = oldModel.graph.nodes |> Map.tryFind entry.nodeId
+                            let newIndicator = desktopFileIndicatorText newModel entry
+                            let oldIndicator =
+                                oldEntry
+                                |> Option.map (desktopFileIndicatorText oldModel)
+                                |> Option.defaultValue ""
+                            if newIndicator <> oldIndicator then yield SetFileIndicator newIndicator
                             // Sync row text on any graph text change (editing row included — e.g. paste).
                             let newText = newNode.text
                             let oldText = oldNode |> Option.map (fun n -> n.text) |> Option.defaultValue ""

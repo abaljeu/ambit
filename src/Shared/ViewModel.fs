@@ -244,6 +244,13 @@ type Effect =
     | PollServer of revision: int
     | ScheduleRetry of delayMs: int
     | SavePendingQueue of Change list
+    | RequestDesktopFileStatus of nodeId: NodeId * path: string
+
+type DesktopFileIndicator =
+    | BlankFileIndicator
+    | CheckingFileStatus of nodeId: NodeId * path: string
+    | InvalidFileReferenceIndicator
+    | FileStatusIndicator of nodeId: NodeId * path: string * status: DesktopFileStatus
 
 /// UI mode; `SearchDialog.onPick` closes over model updates (mutually recursive with `VM`).
 type Mode =
@@ -274,6 +281,7 @@ and VM = // the client state
       zoomRoot: NodeId // display starting from here
       clipboard: ClipboardContent option
       desktopCapabilities: DesktopCapabilities option
+      desktopFileIndicator: DesktopFileIndicator
       syncInfo: SyncInfo
       lastSuccessfulKey: string   // key combo of the most recently handled command (e.g. "Ctrl+Z")
       lastSuccessfulOp: string }  // display name of the most recently handled command (e.g. "Undo")
@@ -285,6 +293,7 @@ type SystemMsg =
     | SubmitRejected of detail: string // server HTTP error (decoded `error` or short body snippet)
     | SubmitNetworkError of baseRevision: int * changes: Change list
     | DesktopCapabilitiesDetected of DesktopCapabilities option
+    | DesktopFileStatusReceived of nodeId: NodeId * path: string * status: DesktopFileStatus
     | SetPollingActive of bool
     | PollTick            // polling timer fired; update decides whether to emit PollServer effect
     | PollDone of SyncState option * Change list   // poll GET response arrived

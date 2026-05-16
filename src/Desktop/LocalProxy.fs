@@ -2,13 +2,17 @@ namespace Gambol.Desktop
 
 open System
 open System.Collections.Generic
+open System.IO
 open System.Net
 open System.Net.Http
+open System.Text.Json
 open System.Threading.Tasks
 open Gambol.Shared
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Hosting
 open Microsoft.AspNetCore.Http
+open Microsoft.Extensions.DependencyInjection
+open Microsoft.Extensions.Hosting
 open Microsoft.Extensions.Primitives
 
 type LocalProxy =
@@ -79,13 +83,33 @@ module LocalProxy =
 
         proxyRequest
 
+    let private currentOrigin (request: HttpRequest) =
+        Uri(request.Scheme + "://" + request.Host.Value)
+
+    let private rewriteHeader
+        (cloudAppUrl: Uri)
+        (localUrl: Uri)
+        (name: string)
+        (values: seq<string>)
+        =
+        if String.Equals(name, "Location", StringComparison.OrdinalIgnoreCase) then
+            values |> Seq.map (RedirectRewrite.rewriteLocation cloudAppUrl localUrl)
+        else
+            values
+
     let private copyHeaders
+        (cloudAppUrl: Uri)
+        (localUrl: Uri)
         (headers: IEnumerable<KeyValuePair<string, seq<string>>>)
         (response: HttpResponse)
         =
         for header in headers do
             if not (isHopByHopHeader header.Key) then
-                response.Headers[header.Key] <- StringValues(header.Value |> Seq.toArray)
+                let values =
+                    rewriteHeader cloudAppUrl localUrl header.Key header.Value
+                    |> Seq.toArray
+
+                response.Headers[header.Key] <- StringValues(values)
 
     let private createHttpClient () =
         let handler = new HttpClientHandler(AllowAutoRedirect = false)
@@ -104,18 +128,111 @@ module LocalProxy =
                 context.RequestAborted)
     }
 
+    let private quoteJson (text: string) =
+        JsonSerializer.Serialize text
+
+    let private writeJson (context: HttpContext) (json: string) = task {
+        context.Response.StatusCode <- StatusCodes.Status200OK
+        context.Response.ContentType <- "application/json; charset=utf-8"
+        do! context.Response.WriteAsync(json, context.RequestAborted)
+    }
+
+    let private writeBadRequest (context: HttpContext) (message: string) = task {
+        context.Response.StatusCode <- StatusCodes.Status400BadRequest
+        context.Response.ContentType <- "application/json; charset=utf-8"
+        let json = "{\"error\":" + quoteJson message + "}"
+        do! context.Response.WriteAsync(json, context.RequestAborted)
+    }
+
+    let private readRequestBody (context: HttpContext) = task {
+        use reader = new StreamReader(context.Request.Body)
+        return! reader.ReadToEndAsync(context.RequestAborted)
+    }
+
+    let private decodePathRequest (body: string) : Result<string, string> =
+        try
+            use document = JsonDocument.Parse body
+            let value = document.RootElement.GetProperty "path"
+
+            if value.ValueKind <> JsonValueKind.String then
+                Error "path must be a string"
+            else
+                match value.GetString() with
+                | null -> Error "path is required"
+                | path when path.Trim().Length = 0 -> Error "path is required"
+                | path -> Ok path
+        with
+        | :? JsonException -> Error "invalid JSON"
+        | :? KeyNotFoundException -> Error "path is required"
+        | :? InvalidOperationException -> Error "path must be a string"
+
+    let private hasInvalidPathChar (path: string) =
+        path.IndexOfAny(Path.GetInvalidPathChars()) >= 0
+
+    let private resolveLocalPath (path: string) : Result<string, string> =
+        let trimmed = path.Trim()
+
+        if trimmed.Length = 0 || hasInvalidPathChar trimmed then
+            Error "invalid path"
+        else
+            try
+                let combined =
+                    if Path.IsPathFullyQualified trimmed then trimmed
+                    else Path.Combine(Environment.CurrentDirectory, trimmed)
+
+                Ok (Path.GetFullPath combined)
+            with
+            | :? ArgumentException -> Error "invalid path"
+            | :? NotSupportedException -> Error "invalid path"
+            | :? PathTooLongException -> Error "invalid path"
+
+    let private fileStatusForPath (path: string) : DesktopFileStatus =
+        match resolveLocalPath path with
+        | Error _ -> InvalidPath
+        | Ok fullPath when File.Exists fullPath -> ExistingFile
+        | Ok fullPath when Directory.Exists fullPath -> ExistingFolder
+        | Ok _ -> CreateFile
+
+    let private localAppUrl (listenUrl: string) (cloudAppUrl: Uri) =
+        let baseUrl =
+            if listenUrl.EndsWith("/", StringComparison.Ordinal) then listenUrl
+            else listenUrl + "/"
+
+        Uri(Uri baseUrl, cloudAppUrl.AbsolutePath.TrimStart('/'))
+
+    let private writeFileStatus (context: HttpContext) (path: string) = task {
+        let status = fileStatusForPath path
+        let json =
+            "{\"path\":" + quoteJson path
+            + ",\"status\":" + quoteJson (DesktopFileStatus.label status) + "}"
+        do! writeJson context json
+    }
+
+    let private handleFileStatus (context: HttpContext) = task {
+        let! body = readRequestBody context
+        match decodePathRequest body with
+        | Error message -> do! writeBadRequest context message
+        | Ok path -> do! writeFileStatus context path
+    }
+
     let private handleDesktopRequest (context: HttpContext) = task {
         if
             HttpMethods.IsGet context.Request.Method
             && context.Request.Path.Equals(PathString "/_desktop/capabilities")
         then
             do! writeCapabilities context
+        elif
+            HttpMethods.IsPost context.Request.Method
+            && context.Request.Path.Equals(PathString "/_desktop/file-status")
+        then
+            do! handleFileStatus context
         else
             context.Response.StatusCode <- StatusCodes.Status404NotFound
     }
 
     let private forward (client: HttpClient) (cloudAppUrl: Uri) (context: HttpContext) = task {
         use proxyRequest = createProxyRequest cloudAppUrl context.Request
+        let localUrl = currentOrigin context.Request
 
         use! proxyResponse =
             client.SendAsync(
@@ -124,8 +241,8 @@ module LocalProxy =
                 context.RequestAborted)
 
         context.Response.StatusCode <- int proxyResponse.StatusCode
-        copyHeaders proxyResponse.Headers context.Response
-        copyHeaders proxyResponse.Content.Headers context.Response
+        copyHeaders cloudAppUrl localUrl proxyResponse.Headers context.Response
+        copyHeaders cloudAppUrl localUrl proxyResponse.Content.Headers context.Response
 
         do! proxyResponse.Content.CopyToAsync(context.Response.Body, context.RequestAborted)
     }
@@ -133,6 +250,10 @@ module LocalProxy =
     let start (cloudAppUrl: string) = task {
         let cloudUri = Uri cloudAppUrl
         let builder = WebApplication.CreateBuilder([||])
+        builder.Services.Configure<HostOptions>(fun (options: HostOptions) ->
+            options.ShutdownTimeout <- TimeSpan.FromSeconds 1.0)
+        |> ignore
+
         builder.WebHost.ConfigureKestrel(fun options -> options.Listen(IPAddress.Loopback, 0))
         |> ignore
 
@@ -146,7 +267,7 @@ module LocalProxy =
 
         do! app.StartAsync()
 
-        let localUrl = app.Urls |> Seq.exactlyOne |> Uri
+        let localUrl = localAppUrl (app.Urls |> Seq.exactlyOne) cloudUri
 
         let stop () = task {
             do! app.StopAsync()

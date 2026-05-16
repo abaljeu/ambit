@@ -119,6 +119,7 @@ let createRuntime (initialModel: VM) =
         | PollServer _ -> runPollServer ()
         | ScheduleRetry delayMs -> runScheduleRetry delayMs
         | SavePendingQueue q -> runSavePendingQueue q
+        | RequestDesktopFileStatus (nodeId, path) -> runDesktopFileStatus nodeId path
 
     and runSubmitPendingBatch (baseRev: int) (changes: Change list) : unit =
         let reqId =
@@ -170,10 +171,26 @@ let createRuntime (initialModel: VM) =
     and runSavePendingQueue (q: Change list) : unit =
         savePendingQueue q
 
+    and runDesktopFileStatus (nodeId: NodeId) (path: string) : unit =
+        let body = encodeDesktopFileStatusRequest path
+        let onOk (text: string) : unit =
+            match decodeDesktopFileStatusResponse text with
+            | Ok response ->
+                dispatch (SysMsg (DesktopFileStatusReceived (nodeId, response.path, response.status)))
+            | Error err ->
+                consoleLog ("[Gambol desktop] file-status decode failed: " + err)
+        let onHttpError (status: int) (text: string) : unit =
+            consoleLog (
+                "[Gambol desktop] file-status HTTP "
+                + string status + ": " + LogText.truncateForLog 200 text)
+        let onNetworkFail () : unit =
+            consoleLog "[Gambol desktop] file-status request failed"
+        postJson "/_desktop/file-status" body onOk onHttpError onNetworkFail
+
     and dispatch (msg: Msg) : unit =
         let prev = model
 
-        let newModel, effects =
+        let baseModel, baseEffects =
             match msg with
             | SysMsg (StateLoaded _) ->
                 let baseModel, e0 = update msg prev
@@ -182,6 +199,11 @@ let createRuntime (initialModel: VM) =
                 merged, e0 @ e1
             | _ ->
                 update msg prev
+
+        let indicatorModel, indicatorEffects =
+            ViewModel.refreshDesktopFileIndicator baseModel
+        let newModel = indicatorModel
+        let effects = baseEffects @ indicatorEffects
 
         model <- newModel
         try

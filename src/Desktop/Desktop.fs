@@ -32,6 +32,8 @@ module Program =
         let urlText = createStatusText ("URL: " + string localUrl)
         let statusText = createStatusText "Loading state: initializing WebView2"
         let proxyText = createStatusText ("Proxy target: " + appUrl)
+        let currentDirectoryText =
+            createStatusText ("Current directory: " + Environment.CurrentDirectory)
 
         let statusPanel =
             StackPanel(
@@ -41,6 +43,7 @@ module Program =
         statusPanel.Children.Add urlText |> ignore
         statusPanel.Children.Add statusText |> ignore
         statusPanel.Children.Add proxyText |> ignore
+        statusPanel.Children.Add currentDirectoryText |> ignore
 
         let webView =
             new WebView2(
@@ -85,8 +88,11 @@ module Program =
             |> Async.AwaitTask
             |> Async.RunSynchronously
 
-        let app = Application()
-        app.Exit.Add(fun _ -> proxy.Stop().GetAwaiter().GetResult())
+        let app = Application(ShutdownMode = ShutdownMode.OnMainWindowClose)
 
         let window = createMainWindow proxy.LocalUrl
-        app.Run window
+        app.MainWindow <- window
+        let exitCode = app.Run window
+
+        proxy.Stop().GetAwaiter().GetResult()
+        exitCode

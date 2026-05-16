@@ -26,24 +26,12 @@ module ImportText =
         else
             Error "import text is empty"
 
+    let parseFirstFileReference (text: string) : FileReference =
+        FileReference.parseFirst text
+
     let tryFindFirstFileReference (text: string) : Result<string, string> =
-        if isNull text then
-            Error "file reference not found"
-        else
-            let startIndex = text.IndexOf("[[", StringComparison.Ordinal)
+        match parseFirstFileReference text with
+        | NoFileReference -> Error "file reference not found"
+        | InvalidFileReference -> Error "file reference is invalid"
+        | FileReference path -> Ok path
 
-            if startIndex < 0 then
-                Error "file reference not found"
-            else
-                let pathStart = startIndex + 2
-                let endIndex = text.IndexOf("]]", pathStart, StringComparison.Ordinal)
-
-                if endIndex < 0 then
-                    Error "file reference not found"
-                else
-                    let path = text.Substring(pathStart, endIndex - pathStart).Trim()
-
-                    if path.Length = 0 then
-                        Error "file reference is empty"
-                    else
-                        Ok path

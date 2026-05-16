@@ -66,6 +66,11 @@ let private makeRowElement
     if isEntrySelected model siteEntry then row.classList.add "amb-selected"
     if isEntryFocused  model siteEntry then row.classList.add "amb-focused"
 
+    let fileIndicator = document.createElement "span"
+    fileIndicator.classList.add "amb-file-indicator"
+    fileIndicator.textContent <- ViewModel.desktopFileIndicatorText model siteEntry
+    row.appendChild fileIndicator |> ignore
+
     // Indentation
     for _ in 1 .. depth do
         let indent = document.createElement "div"
@@ -176,6 +181,9 @@ let private applyRowPatches (el: HTMLElement) (patches: RowPatch list) : unit =
             let tail = NodeId.GuidTail8 guid
             let g = el.querySelector ".amb-node-guid"
             if not (isNull g) then (g :?> HTMLElement).textContent <- tail
+        | SetFileIndicator text ->
+            let indicator = el.querySelector ".amb-file-indicator"
+            if not (isNull indicator) then (indicator :?> HTMLElement).textContent <- text
 
 /// Resolve the row element for an instance: create, recreate, or patch as dictated by the upsert index.
 /// Returns the row element and the updated cache.

@@ -217,6 +217,26 @@ module Serialization =
               topLevelIds = get.Required.Field "topLevelIds" (Decode.list decodeNodeId)
               ops = get.Required.Field "ops" (Decode.list decodeOp) })
 
+    let private encodeDesktopFileStatus (status: DesktopFileStatus) : IEncodable =
+        status |> DesktopFileStatus.label |> Encode.string
+
+    let private decodeDesktopFileStatus: Decoder<DesktopFileStatus> =
+        Decode.string
+        |> Decode.andThen (fun text ->
+            match DesktopFileStatus.tryParse text with
+            | Some status -> Decode.succeed status
+            | None -> Decode.fail $"Unknown desktop file status: {text}")
+
+    let encodeDesktopFileStatusResponse (response: DesktopFileStatusResponse) : IEncodable =
+        Encode.object
+            [ "path", Encode.string response.path
+              "status", encodeDesktopFileStatus response.status ]
+
+    let decodeDesktopFileStatusResponse: Decoder<DesktopFileStatusResponse> =
+        Decode.object (fun get ->
+            { path = get.Required.Field "path" Decode.string
+              status = get.Required.Field "status" decodeDesktopFileStatus })
+
     // ---- Change ----
 
     let encodeChange (change: Change) : IEncodable =

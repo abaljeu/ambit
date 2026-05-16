@@ -65,15 +65,22 @@ let ``buildPackage rejects blank input`` () =
     | Error err -> Assert.Equal("import text is empty", err)
 
 [<Fact>]
-let ``tryFindFirstFileReference extracts first trimmed reference`` () =
-    let result = ImportText.tryFindFirstFileReference "import [[ ./doc/file.md ]] now"
+let ``parseFirstFileReference extracts first trimmed reference`` () =
+    let result = ImportText.parseFirstFileReference "import [[ ./doc/file.md ]] now"
 
-    Assert.Equal(Ok "./doc/file.md", result)
+    Assert.Equal(FileReference "./doc/file.md", result)
 
 [<Fact>]
-let ``tryFindFirstFileReference rejects missing or empty references`` () =
+let ``parseFirstFileReference separates missing from invalid references`` () =
+    Assert.Equal(NoFileReference, ImportText.parseFirstFileReference "none")
+    Assert.Equal(InvalidFileReference, ImportText.parseFirstFileReference "[[ ]]")
+    Assert.Equal(InvalidFileReference, ImportText.parseFirstFileReference "before [[open")
+
+[<Fact>]
+let ``tryFindFirstFileReference keeps result compatibility`` () =
+    Assert.Equal(Ok "./doc/file.md", ImportText.tryFindFirstFileReference "[[./doc/file.md]]")
     Assert.Equal(Error "file reference not found", ImportText.tryFindFirstFileReference "none")
-    Assert.Equal(Error "file reference is empty", ImportText.tryFindFirstFileReference "[[ ]]")
+    Assert.Equal(Error "file reference is invalid", ImportText.tryFindFirstFileReference "[[ ]]")
 
 [<Fact>]
 let ``DesktopImportPackage serializes round-trip`` () =
@@ -86,3 +93,14 @@ let ``DesktopImportPackage serializes round-trip`` () =
         Assert.Equal(package.sourcePath, decoded.sourcePath)
         Assert.Equal<NodeId list>(package.topLevelIds, decoded.topLevelIds)
         Assert.Equal<Op list>(package.ops, decoded.ops)
+
+[<Fact>]
+let ``DesktopFileStatusResponse serializes round-trip`` () =
+    let response = { path = "note.txt"; status = ExistingFile }
+    let json = Enc.toString 0 (Serialization.encodeDesktopFileStatusResponse response)
+
+    match Dec.fromString Serialization.decodeDesktopFileStatusResponse json with
+    | Error err -> failwith $"Decode failed: {err}"
+    | Ok decoded ->
+        Assert.Equal(response.path, decoded.path)
+        Assert.Equal(response.status, decoded.status)
