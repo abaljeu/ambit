@@ -1325,6 +1325,29 @@ let ``cursorLevelEnd selects last sibling under same parent`` () =
     | None -> Assert.True(false, "Expected Some")
 
 [<Fact>]
+let ``cursorLevelEnd descends into expanded children of last sibling`` () =
+    let graph, cont, ids = buildNested ()
+    let b1NodeId = ids.[4]
+    let m = emptyModelAt graph cont
+    let rootEntry = m.siteMap.entries.[m.siteMap.rootId]
+    let bInst = rootEntry.children.[1]
+    let sm2, nextId2 = expandEntry bInst graph m.siteMap m.nextSiteId
+    let model =
+        { m with
+            siteMap = sm2
+            nextSiteId = nextId2
+            selectedNodes =
+                Some { range = { parent = rootEntry; start = 0; endd = 1 }; focus = 0 } }
+    let result = cursorLevelEnd model
+
+    match result.selectedNodes with
+    | Some sel ->
+        let focusedInstId = sel.range.parent.children.[sel.focus]
+        let focusedEntry = result.siteMap.entries.[focusedInstId]
+        Assert.Equal(b1NodeId, focusedEntry.nodeId)
+    | None -> Assert.True(false, "Expected Some")
+
+[<Fact>]
 let ``cursorLevelStart selects first sibling under same parent`` () =
     let graph, cont, _ = buildFlat [ "a"; "b"; "c" ]
     let model = modelWithSel graph cont 2 3 2

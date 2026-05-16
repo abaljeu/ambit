@@ -524,14 +524,28 @@ module ViewModel =
         | None -> model
         | Some sel -> selectChildIndexUnderParent model sel.range.parent 0
 
-    /// Cursor to the last sibling under the current selection's parent (no graph move).
+    /// Descend through last children while expanded, returning the deepest visible instance.
+    let rec private lastVisibleDescendantOrSelf (siteMap: SiteMap) (instId: SiteId) : SiteId =
+        match Map.tryFind instId siteMap.entries with
+        | None -> instId
+        | Some entry when not entry.expanded || entry.children.IsEmpty -> instId
+        | Some entry -> lastVisibleDescendantOrSelf siteMap (List.last entry.children)
+
+    /// Cursor to the last sibling under the current selection's parent, then recursively
+    /// descend into expanded children to reach the last visible node.
     let cursorLevelEnd (model: VM) : VM =
         match model.selectedNodes with
         | None -> model
         | Some sel ->
             let p = sel.range.parent
             let n = model.graph.nodes.[p.nodeId].children.Length
-            selectChildIndexUnderParent model p (n - 1)
+            if n = 0 then model
+            else
+                let lastSibInstId = p.children.[n - 1]
+                let targetInstId = lastVisibleDescendantOrSelf model.siteMap lastSibInstId
+                match singleSelectionForInstance model.siteMap targetInstId with
+                | None -> model
+                | Some s -> { model with selectedNodes = Some s; mode = Selecting }
 
     /// Shift+PgDown / Shift+PgUp: extend the sibling range to the level end or start in one step
     /// (focus on last or first child under the same parent).
@@ -699,8 +713,8 @@ module ViewModel =
         if not (isActiveEntry model entry) then ""
         else
             match model.desktopFileIndicator with
-            | BlankFileIndicator
-            | CheckingFileStatus _ -> ""
+            | BlankFileIndicator -> ""
+            | CheckingFileStatus _ -> "..."
             | InvalidFileReferenceIndicator -> "invalid"
             | FileStatusIndicator (_, _, status) -> DesktopFileStatus.label status
 
@@ -793,11 +807,7 @@ module ViewModel =
                             let newNode = newModel.graph.nodes.[entry.nodeId]
                             let oldNode = oldModel.graph.nodes |> Map.tryFind entry.nodeId
                             let newIndicator = desktopFileIndicatorText newModel entry
-                            let oldIndicator =
-                                oldEntry
-                                |> Option.map (desktopFileIndicatorText oldModel)
-                                |> Option.defaultValue ""
-                            if newIndicator <> oldIndicator then yield SetFileIndicator newIndicator
+                            yield SetFileIndicator newIndicator
                             // Sync row text on any graph text change (editing row included — e.g. paste).
                             let newText = newNode.text
                             let oldText = oldNode |> Option.map (fun n -> n.text) |> Option.defaultValue ""

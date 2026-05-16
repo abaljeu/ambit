@@ -4,6 +4,10 @@ open System
 
 [<RequireQualifiedAccess>]
 module RedirectRewrite =
+#if FABLE_COMPILER
+    let rewriteLocation (_cloudAppUrl: Uri) (_localUrl: Uri) (location: string) =
+        location
+#else
     let private sameOrigin (left: Uri) (right: Uri) =
         String.Equals(left.Scheme, right.Scheme, StringComparison.OrdinalIgnoreCase)
         && String.Equals(left.IdnHost, right.IdnHost, StringComparison.OrdinalIgnoreCase)
@@ -36,3 +40,4 @@ module RedirectRewrite =
             else
                 location
         | _ -> location
+#endif

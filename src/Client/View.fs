@@ -159,6 +159,18 @@ let private makeRowElement
 
 /// Apply in-place patches to an existing row DOM element.
 let private applyRowPatches (el: HTMLElement) (patches: RowPatch list) : unit =
+    let ensureFileIndicator () =
+        let indicator = el.querySelector ".amb-file-indicator"
+        if isNull indicator then
+            let created = document.createElement "span"
+            created.classList.add "amb-file-indicator"
+            let first = el.firstChild
+            if isNull first then el.appendChild created |> ignore
+            else el.insertBefore(created, first) |> ignore
+            created
+        else
+            indicator :?> HTMLElement
+
     for patch in patches do
         match patch with
         | SetClassName cls -> el.className <- cls
@@ -182,8 +194,7 @@ let private applyRowPatches (el: HTMLElement) (patches: RowPatch list) : unit =
             let g = el.querySelector ".amb-node-guid"
             if not (isNull g) then (g :?> HTMLElement).textContent <- tail
         | SetFileIndicator text ->
-            let indicator = el.querySelector ".amb-file-indicator"
-            if not (isNull indicator) then (indicator :?> HTMLElement).textContent <- text
+            (ensureFileIndicator ()).textContent <- text
 
 /// Resolve the row element for an instance: create, recreate, or patch as dictated by the upsert index.
 /// Returns the row element and the updated cache.
