@@ -8,6 +8,7 @@ open System.Net.Http
 open System.Text.Json
 open System.Threading.Tasks
 open Gambol.Shared
+open Thoth.Json.Newtonsoft
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Hosting
 open Microsoft.AspNetCore.Http
@@ -129,7 +130,7 @@ module LocalProxy =
 
         do!
             context.Response.WriteAsync(
-                DesktopCapabilities.disabledJson,
+                DesktopCapabilities.importEnabledJson,
                 context.RequestAborted)
     }
 
@@ -220,6 +221,52 @@ module LocalProxy =
         | Ok path -> do! writeFileStatus context path
     }
 
+    let private readDirectoryAsText (fullPath: string) : string =
+        let dir = DirectoryInfo fullPath
+
+        dir.EnumerateFileSystemInfos()
+        |> Seq.sortBy (fun e -> e.Name.ToLowerInvariant())
+        |> Seq.map (fun e ->
+            let name =
+                match e with
+                | :? DirectoryInfo -> e.Name + "/"
+                | _ -> e.Name
+
+            let ts = e.LastWriteTime.ToString("yyyy-MM-dd HH:mm")
+            sprintf "[[%s]] %s" name ts)
+        |> String.concat "\n"
+
+    let private handleImport (context: HttpContext) = task {
+        let! body = readRequestBody context
+
+        match decodePathRequest body with
+        | Error message -> do! writeBadRequest context message
+        | Ok path ->
+            match resolveLocalPath path with
+            | Error message -> do! writeBadRequest context message
+            | Ok fullPath ->
+                if not (File.Exists fullPath) && not (Directory.Exists fullPath) then
+                    do! writeBadRequest context "file not found"
+                else
+                    try
+                        let! text =
+                            if Directory.Exists fullPath then
+                                Task.FromResult(readDirectoryAsText fullPath)
+                            else
+                                File.ReadAllTextAsync(fullPath, context.RequestAborted)
+
+                        match ImportText.buildPackage path text with
+                        | Error message -> do! writeBadRequest context message
+                        | Ok package ->
+                            let json =
+                                Encode.toString 0 (Serialization.encodeDesktopImportPackage package)
+
+                            do! writeJson context json
+                    with
+                    | :? IOException as ex ->
+                        do! writeBadRequest context ("read failed: " + ex.Message)
+    }
+
     let private handleDesktopRequest (context: HttpContext) = task {
         if
             HttpMethods.IsGet context.Request.Method
@@ -231,6 +278,11 @@ module LocalProxy =
             && context.Request.Path.Equals(PathString "/_desktop/file-status")
         then
             do! handleFileStatus context
+        elif
+            HttpMethods.IsPost context.Request.Method
+            && context.Request.Path.Equals(PathString "/_desktop/import")
+        then
+            do! handleImport context
         else
             context.Response.StatusCode <- StatusCodes.Status404NotFound
     }
