@@ -39,6 +39,11 @@ module LocalProxy =
 
     let private isForwardedRequestHeader name =
         not (String.Equals(name, "Host", StringComparison.OrdinalIgnoreCase))
+        && not (String.Equals(name, "Cookie", StringComparison.OrdinalIgnoreCase))
+        && not (isHopByHopHeader name)
+
+    let private isForwardedResponseHeader name =
+        not (String.Equals(name, "Set-Cookie", StringComparison.OrdinalIgnoreCase))
         && not (isHopByHopHeader name)
 
     let private resolveTargetUri (cloudAppUrl: Uri) (path: PathString) (query: QueryString) =
@@ -104,7 +109,7 @@ module LocalProxy =
         (response: HttpResponse)
         =
         for header in headers do
-            if not (isHopByHopHeader header.Key) then
+            if isForwardedResponseHeader header.Key then
                 let values =
                     rewriteHeader cloudAppUrl localUrl header.Key header.Value
                     |> Seq.toArray
