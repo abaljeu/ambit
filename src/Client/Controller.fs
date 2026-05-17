@@ -12,6 +12,7 @@ open Gambol.Client.UpdateEdit
 open Gambol.Client.UpdateHelpers
 open Gambol.Client.UpdateOps
 open Gambol.Client.UpdateImport
+open Gambol.Client.UpdateExport
 open Gambol.Client.SearchDialog
 // ---------------------------------------------------------------------------
 // Clipboard / paste helpers
@@ -623,6 +624,11 @@ let commandRegistry : CommandEntry list =
       { name = "Import"
         run = keyAlways importLocalOp
         keys = [ "Ctrl+Shift+>" ]
+        keyScope = SelectionOrEditing }
+
+      { name = "Export"
+        run = keyAlways exportLocalOp
+        keys = [ "Ctrl+Shift+<" ]
         keyScope = SelectionOrEditing }
         
     ]

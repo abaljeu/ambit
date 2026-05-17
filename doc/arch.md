@@ -118,6 +118,8 @@ Optional host for users who need local filesystem access while using the same we
 
 - **Import**: `POST /_desktop/import` reads a local path and returns ops/text for the client to apply via normal cloud sync
 
+- **Export**: `POST /_desktop/export` writes tab-indented child text from the client to a local file (not directories)
+
 - **Auth**: desktop can store cloud session cookie (`AuthStore.fs`) so the proxied app is authenticated
 
 The desktop host does **not** become a second source of truth for the graph. See [[doc/future/overview.md]] §7 for product intent.

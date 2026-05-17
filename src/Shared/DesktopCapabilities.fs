@@ -53,7 +53,7 @@ module FileReference =
 [<RequireQualifiedAccess>]
 module DesktopCapabilities =
     let disabledJson = """{"file":{"open":false,"import":false,"export":false}}"""
-    let importEnabledJson = """{"file":{"open":false,"import":true,"export":false}}"""
+    let importEnabledJson = """{"file":{"open":false,"import":true,"export":true}}"""
 
     let disabled: DesktopCapabilities =
         { file =

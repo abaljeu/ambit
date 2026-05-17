@@ -292,6 +292,38 @@ module LocalProxy =
                         do! writeBadRequest context ("read failed: " + ex.Message)
     }
 
+    let private handleExport (context: HttpContext) = task {
+        let! body = readRequestBody context
+
+        match Decode.fromString Serialization.decodeDesktopExportRequest body with
+        | Error message -> do! writeBadRequest context message
+        | Ok request ->
+            match ExportText.validateExportContent request.content with
+            | Error message -> do! writeBadRequest context message
+            | Ok () ->
+                match resolveLocalPath request.path with
+                | Error message -> do! writeBadRequest context message
+                | Ok fullPath ->
+                    if Directory.Exists fullPath then
+                        do! writeBadRequest context "cannot export to a directory"
+                    else
+                        try
+                            do!
+                                File.WriteAllTextAsync(
+                                    fullPath,
+                                    request.content,
+                                    context.RequestAborted)
+
+                            let response = { path = request.path }
+                            let json =
+                                Encode.toString 0 (Serialization.encodeDesktopExportResponse response)
+
+                            do! writeJson context json
+                        with
+                        | :? IOException as ex ->
+                            do! writeBadRequest context ("write failed: " + ex.Message)
+    }
+
     let private handleDesktopRequest (context: HttpContext) = task {
         if
             HttpMethods.IsGet context.Request.Method
@@ -308,6 +340,11 @@ module LocalProxy =
             && context.Request.Path.Equals(PathString "/_desktop/import")
         then
             do! handleImport context
+        elif
+            HttpMethods.IsPost context.Request.Method
+            && context.Request.Path.Equals(PathString "/_desktop/export")
+        then
+            do! handleExport context
         else
             context.Response.StatusCode <- StatusCodes.Status404NotFound
     }
@@ -338,7 +375,7 @@ module LocalProxy =
         = task {
         if isAmbitLogoutGet context.Request then
             AuthStore.clear()
-            session := None
+            session .Value <- None
 
         let! bodyOverride, loginAttempt =
             if isAmbitLoginPost context.Request then
@@ -358,7 +395,7 @@ module LocalProxy =
                 task { return None, None }
 
         use proxyRequest =
-            createProxyRequest cloudAppUrl context.Request bodyOverride !session
+            createProxyRequest cloudAppUrl context.Request bodyOverride session.Value
 
         let localUrl = currentOrigin context.Request
 
@@ -371,7 +408,7 @@ module LocalProxy =
         match loginAttempt, LoginRedirect.isSuccess (int proxyResponse.StatusCode) (responseLocations proxyResponse) with
         | Some creds, true ->
             AuthStore.save creds
-            session := Some creds
+            session .Value <- Some creds
         | _ -> ()
 
         context.Response.StatusCode <- int proxyResponse.StatusCode

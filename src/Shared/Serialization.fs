@@ -217,6 +217,24 @@ module Serialization =
               topLevelIds = get.Required.Field "topLevelIds" (Decode.list decodeNodeId)
               ops = get.Required.Field "ops" (Decode.list decodeOp) })
 
+    // ---- Desktop Export ----
+
+    let encodeDesktopExportRequest (request: DesktopExportRequest) : IEncodable =
+        Encode.object
+            [ "path", Encode.string request.path
+              "content", Encode.string request.content ]
+
+    let decodeDesktopExportRequest: Decoder<DesktopExportRequest> =
+        Decode.object (fun get ->
+            { path = get.Required.Field "path" Decode.string
+              content = get.Required.Field "content" Decode.string })
+
+    let encodeDesktopExportResponse (response: DesktopExportResponse) : IEncodable =
+        Encode.object [ "path", Encode.string response.path ]
+
+    let decodeDesktopExportResponse: Decoder<DesktopExportResponse> =
+        Decode.object (fun get -> { path = get.Required.Field "path" Decode.string })
+
     let private encodeDesktopFileStatus (status: DesktopFileStatus) : IEncodable =
         status |> DesktopFileStatus.label |> Encode.string
 
