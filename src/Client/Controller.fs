@@ -213,7 +213,7 @@ let private normalizeRegistryKey (keyStr: string) : string =
     if keyStr.Contains "+" then
         let parts = keyStr.Split '+' |> Array.toList
         let keyPart = List.last parts
-        if keyPart.Length = 1 && List.contains "Shift" parts then
+        if keyPart.Length = 1 && System.Char.IsLetter keyPart[0] && List.contains "Shift" parts then
             let mods = parts |> List.filter ((<>) "Shift")
             match mods with
             | [ k ] -> k  // Just the key (Shift+M -> M)

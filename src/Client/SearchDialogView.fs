@@ -25,6 +25,7 @@ let private renderSearchResults
     |> List.iteri (fun i label ->
         let li = document.createElement "li"
         li.textContent <- label
+        li.dataset.["idx"] <- string i
         if i = clampedSel then
             li.classList.add "amb-palette-selected"
             selectedLi <- Some li
@@ -89,10 +90,8 @@ let renderSearchDialog (model: VM) (dispatch: Msg -> unit) : unit =
                 match target.closest "li" with
                 | None -> ()
                 | Some li ->
-                    let lis = ul.querySelectorAll "li"
-                    let mutable idx = 0
-                    for i in 0 .. int lis.length - 1 do
-                        if System.Object.ReferenceEquals(lis.[i], li) then idx <- i
+                    let idxStr = (li :?> HTMLElement).dataset.["idx"]
+                    let idx = if System.String.IsNullOrEmpty idxStr then 0 else int idxStr
                     dispatch (ApplyOp (fun m ->
                         match m.mode with
                         | SearchDialog s ->
