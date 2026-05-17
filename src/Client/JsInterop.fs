@@ -173,10 +173,14 @@ let private selectionApplyIfInRoot (root: HTMLElement) (sel: DomSelection) (r: R
         sel.addRange r
         true
 
+/// Focus without triggering browser scroll-to-element (use explicit scrollIntoView instead).
+[<Emit("$0.focus({preventScroll:true})")>]
+let focusPreventScroll (el: HTMLElement) : unit = jsNative
+
 /// Focus `root`, then caret on first visual line (`caretRangeFromPoint` + `ClientRectCaret`
 /// probe). Fallback: `setContentEditableCaret` at 0. Works for any contenteditable layout.
 let setContentEditableCaretVisualFirstLine (root: HTMLElement) : unit =
-    root.focus ()
+    focusPreventScroll root
     let sel = window.getSelection ()
     if isNull sel then
         ()
@@ -190,7 +194,7 @@ let setContentEditableCaretVisualFirstLine (root: HTMLElement) : unit =
 
 /// Focus `root`, then caret on last visual line; fallback end of `textContent`.
 let setContentEditableCaretVisualLastLine (root: HTMLElement) : unit =
-    root.focus ()
+    focusPreventScroll root
     let sel = window.getSelection ()
     if isNull sel then
         ()
@@ -207,7 +211,7 @@ let setContentEditableCaretVisualLastLine (root: HTMLElement) : unit =
 /// `getContentEditableCaretClientX` on the previous field). `clientX` is clamped into the
 /// element rect with the same inset rule as the line probes.
 let setEditorCaretToLastLineAtX (root: HTMLElement) (clientX: float) : unit =
-    root.focus ()
+    focusPreventScroll root
     let sel = window.getSelection ()
     if isNull sel then
         ()
@@ -226,7 +230,7 @@ let setEditorCaretToLastLineAtX (root: HTMLElement) (clientX: float) : unit =
 /// visual line (same inset/clamp as last-line-at-X).
 let setEditorCarentToFirstLineAtX (root: HTMLElement) (clientX: float) :
         unit =
-    root.focus ()
+    focusPreventScroll root
     let sel = window.getSelection ()
     if isNull sel then
         ()

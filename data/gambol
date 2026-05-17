@@ -116,7 +116,7 @@
 			        let addRequestHeader (key: string) (values: string array) =
 			            proxyRequest.Headers.TryAddWithoutValidation(key, Seq.ofArray values)
 			
-			        addAuthCookie credentials addRequestHeader
+			    addAuthCookie credentials addRequestHeader
 			        addHeaders addRequestHeader request.Headers
 			
 			        if not (isNull proxyRequest.Content) then
@@ -305,6 +305,38 @@
 			                        do! writeBadRequest context ("read failed: " + ex.Message)
 			    }
 			
+			    let private handleExport (context: HttpContext) = task {
+			        let! body = readRequestBody context
+			
+			        match Decode.fromString Serialization.decodeDesktopExportRequest body with
+			        | Error message -> do! writeBadRequest context message
+			        | Ok request ->
+			            match ExportText.validateExportContent request.content with
+			            | Error message -> do! writeBadRequest context message
+			            | Ok () ->
+			                match resolveLocalPath request.path with
+			                | Error message -> do! writeBadRequest context message
+			                | Ok fullPath ->
+			                    if Directory.Exists fullPath then
+			                        do! writeBadRequest context "cannot export to a directory"
+			                    else
+			                        try
+			                            do!
+			                                File.WriteAllTextAsync(
+			                                    fullPath,
+			                                    request.content,
+			                                    context.RequestAborted)
+			
+			                            let response = { path = request.path }
+			                            let json =
+			                                Encode.toString 0 (Serialization.encodeDesktopExportResponse response)
+			
+			                            do! writeJson context json
+			                        with
+			                        | :? IOException as ex ->
+			                            do! writeBadRequest context ("write failed: " + ex.Message)
+			    }
+			
 			    let private handleDesktopRequest (context: HttpContext) = task {
 			        if
 			            HttpMethods.IsGet context.Request.Method
@@ -321,6 +353,11 @@
 			            && context.Request.Path.Equals(PathString "/_desktop/import")
 			        then
 			            do! handleImport context
+			        elif
+			            HttpMethods.IsPost context.Request.Method
+			            && context.Request.Path.Equals(PathString "/_desktop/export")
+			        then
+			            do! handleExport context
 			        else
 			            context.Response.StatusCode <- StatusCodes.Status404NotFound
 			    }
@@ -351,7 +388,7 @@
 			        = task {
 			        if isAmbitLogoutGet context.Request then
 			            AuthStore.clear()
-			            session := None
+			            session .Value <- None
 			
 			        let! bodyOverride, loginAttempt =
 			            if isAmbitLoginPost context.Request then
@@ -371,7 +408,7 @@
 			                task { return None, None }
 			
 			        use proxyRequest =
-			            createProxyRequest cloudAppUrl context.Request bodyOverride !session
+			            createProxyRequest cloudAppUrl context.Request bodyOverride session.Value
 			
 			        let localUrl = currentOrigin context.Request
 			
@@ -384,7 +421,7 @@
 			        match loginAttempt, LoginRedirect.isSuccess (int proxyResponse.StatusCode) (responseLocations proxyResponse) with
 			        | Some creds, true ->
 			            AuthStore.save creds
-			            session := Some creds
+			            session .Value <- Some creds
 			        | _ -> ()
 			
 			        context.Response.StatusCode <- int proxyResponse.StatusCode
@@ -412,7 +449,7 @@
 			            if isDesktopRequest context.Request.Path then
 			                handleDesktopRequest context
 			            else
-			                forward client cloudUri session context)) |> ignore
+			                forward client cloudUri session context)) |> ignored
 			
 			        do! app.StartAsync()
 			
@@ -428,6 +465,12 @@
 			    }
 			
 		[[obj/]] 2026-05-16 22:25
+			[[Debug/]] 2026-05-15 20:09
+			[[Gambol.Desktop.fsproj.nuget.dgspec.json]] 2026-05-17 09:44
+			[[Gambol.Desktop.fsproj.nuget.g.props]] 2026-05-16 10:25
+			[[Gambol.Desktop.fsproj.nuget.g.targets]] 2026-05-15 18:05
+			[[project.assets.json]] 2026-05-17 09:44
+			[[project.nuget.cache]] 2026-05-17 09:44
 	later
 		
 		ambit
