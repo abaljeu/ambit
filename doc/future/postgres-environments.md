@@ -7,9 +7,7 @@ on desktop, db password is postgres/postgres
 
 ## Current state
 
-- **Code:** `Database.fs` and `DbAgent.fs` are complete. The next code change is to make
-  `Persistence:Mode` explicit: `db` is the default strict PostgreSQL authority, and `file` keeps the
-  file-authority rollback path.
+- **Code:** `Database.fs`, `DbAgent.fs`, and `Persistence:Mode` in `DatabaseSetup` / `Server.fs` are implemented: `db` is the default strict PostgreSQL authority; `file` keeps the file-authority rollback path.
 - **Schema:** Auto-created by `Database.initSchema` on startup (4 tables: `changes`, `graph`, `nodes`, `node_children`). No external migration tool.
 - **Production:** Azure App Service (`Amble`) has a production PostgreSQL host: Azure Database for PostgreSQL Flexible Server `gambol-pg` in `Canada Central`, with database `gambol`. Network access from App Service to the DB has already been configured.
 - **Dev:** Use `Persistence:Mode=file` for local file-authority work without PostgreSQL. Use the default `db` mode with `DB_CONNECTION_STRING` when developing the DB-authority path.

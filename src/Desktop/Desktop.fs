@@ -10,7 +10,31 @@ open Microsoft.Web.WebView2.Wpf
 
 module Program =
     [<Literal>]
-    let private appUrl = "https://collaborative-systems.org/ambit"
+    let private cloudAppUrl = "https://collaborative-systems.org/ambit"
+
+    [<Literal>]
+    let private localAppUrl = "http://localhost:5115/ambit"
+
+    let private targetFromEnv () =
+        match Environment.GetEnvironmentVariable "GAMBOL_TARGET_URL" with
+        | null
+        | "" -> None
+        | url -> Some url
+
+    let private targetFromArgs (args: string array) =
+        let rec loop i =
+            if i >= args.Length then None
+            elif args.[i] = "--target" && i + 1 < args.Length then Some args.[i + 1]
+            elif args.[i] = "--local" then Some localAppUrl
+            elif args.[i] = "--cloud" then Some cloudAppUrl
+            elif args.[i].StartsWith "--" then loop (i + 1)
+            else Some args.[i]
+        loop 0
+
+    let resolveTargetUrl (args: string array) =
+        targetFromArgs args
+        |> Option.orElseWith targetFromEnv
+        |> Option.defaultValue cloudAppUrl
 
     let private createStatusText text =
         TextBlock(
@@ -28,10 +52,10 @@ module Program =
             "Gambol",
             "WebView2")
 
-    let private createMainWindow (localUrl: Uri) =
+    let private createMainWindow (proxyTargetUrl: string) (localUrl: Uri) =
         let urlText = createStatusText ("URL: " + string localUrl)
         let statusText = createStatusText "Loading state: initializing WebView2"
-        let proxyText = createStatusText ("Proxy target: " + appUrl)
+        let proxyText = createStatusText ("Proxy target: " + proxyTargetUrl)
         let currentDirectoryText =
             createStatusText ("Current directory: " + Environment.CurrentDirectory)
 
@@ -82,15 +106,17 @@ module Program =
                 Content = layout)
 
     [<EntryPoint; STAThread>]
-    let main _ =
+    let main argv =
+        let proxyTargetUrl = resolveTargetUrl argv
+
         let proxy: LocalProxy =
-            LocalProxy.start appUrl
+            LocalProxy.start proxyTargetUrl
             |> Async.AwaitTask
             |> Async.RunSynchronously
 
         let app = Application(ShutdownMode = ShutdownMode.OnMainWindowClose)
 
-        let window = createMainWindow proxy.LocalUrl
+        let window = createMainWindow proxyTargetUrl proxy.LocalUrl
         app.MainWindow <- window
         let exitCode = app.Run window
 

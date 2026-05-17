@@ -9,16 +9,36 @@
             ],
             "preLaunchTask": "fullstack: Build",
             "stopAll": true
+        },
+        {
+            "name": "Desktop (local)",
+            "configurations": [
+                "Launch Server (Full Stack)",
+                "Launch Desktop (local)"
+            ],
+            "preLaunchTask": "desktop: local: build",
+            "stopAll": true
         }
     ],
     "configurations": [
         {
-            "name": "Launch Desktop",
+            "name": "Launch Desktop (cloud)",
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "desktop: Build",
             "program": "${workspaceFolder}/src/Desktop/bin/Debug/net10.0-windows/Gambol.Desktop.dll",
-            "args": [],
+            "args": ["--cloud"],
+            "cwd": "${workspaceFolder}/src/Desktop",
+            "stopAtEntry": false,
+            "console": "internalConsole",
+            "justMyCode": false
+        },
+        {
+            "name": "Launch Desktop (local)",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/Desktop/bin/Debug/net10.0-windows/Gambol.Desktop.dll",
+            "args": ["--local"],
             "cwd": "${workspaceFolder}/src/Desktop",
             "stopAtEntry": false,
             "console": "internalConsole",

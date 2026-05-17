@@ -13,9 +13,20 @@
 			"problemMatcher": "$msCompile"
 		},
 		{
-			"label": "desktop: Run",
+			"label": "desktop: Run (cloud)",
 			"type": "shell",
-			"command": "bash scripts/desktop.sh run",
+			"command": "bash scripts/desktop.sh run --cloud",
+			"group": "build",
+			"presentation": {
+				"reveal": "always",
+				"panel": "dedicated"
+			},
+			"problemMatcher": "$msCompile"
+		},
+		{
+			"label": "desktop: Run (local)",
+			"type": "shell",
+			"command": "bash scripts/desktop.sh run-local",
 			"group": "build",
 			"presentation": {
 				"reveal": "always",
@@ -33,6 +44,13 @@
 				"panel": "shared"
 			},
 			"problemMatcher": "$msCompile"
+		},
+		{
+			"label": "desktop: local: build",
+			"dependsOn": ["desktop: Build", "server: Build"],
+			"dependsOrder": "parallel",
+			"group": "build",
+			"problemMatcher": []
 		},
 		{
 			"label": "fable: Build Client",

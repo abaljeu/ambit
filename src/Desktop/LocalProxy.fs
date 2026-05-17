@@ -5,8 +5,10 @@ open System.Collections.Generic
 open System.IO
 open System.Net
 open System.Net.Http
+open System.Text
 open System.Text.Json
 open System.Threading.Tasks
+open Gambol.Server
 open Gambol.Shared
 open Thoth.Json.Newtonsoft
 open Microsoft.AspNetCore.Builder
@@ -38,10 +40,16 @@ module LocalProxy =
         |> List.exists (fun header ->
             String.Equals(header, name, StringComparison.OrdinalIgnoreCase))
 
+    let private isContentHeader name =
+        String.Equals(name, "Content-Type", StringComparison.OrdinalIgnoreCase)
+        || String.Equals(name, "Content-Length", StringComparison.OrdinalIgnoreCase)
+        || String.Equals(name, "Content-Encoding", StringComparison.OrdinalIgnoreCase)
+
     let private isForwardedRequestHeader name =
         not (String.Equals(name, "Host", StringComparison.OrdinalIgnoreCase))
         && not (String.Equals(name, "Cookie", StringComparison.OrdinalIgnoreCase))
         && not (isHopByHopHeader name)
+        && not (isContentHeader name)
 
     let private isForwardedResponseHeader name =
         not (String.Equals(name, "Set-Cookie", StringComparison.OrdinalIgnoreCase))
@@ -69,16 +77,33 @@ module LocalProxy =
             if isForwardedRequestHeader header.Key then
                 tryAdd header.Key (header.Value |> Seq.toArray) |> ignore
 
-    let private createProxyRequest (cloudAppUrl: Uri) (request: HttpRequest) =
+    let private addAuthCookie
+        (credentials: LoginForm.Credentials option)
+        (tryAdd: string -> string array -> bool)
+        =
+        credentials
+        |> Option.iter (fun creds ->
+            let cookie = AuthToken.cookieHeaderValue creds.Username creds.Password
+            tryAdd "Cookie" [| cookie |] |> ignore)
+
+    let private createProxyRequest
+        (cloudAppUrl: Uri)
+        (request: HttpRequest)
+        (bodyOverride: HttpContent option)
+        (credentials: LoginForm.Credentials option)
+        =
         let targetUri = resolveTargetUri cloudAppUrl request.Path request.QueryString
         let proxyRequest = new HttpRequestMessage(HttpMethod(request.Method), targetUri)
 
-        if requestHasBody request then
-            proxyRequest.Content <- new StreamContent(request.Body)
+        match bodyOverride with
+        | Some content -> proxyRequest.Content <- content
+        | None when requestHasBody request -> proxyRequest.Content <- new StreamContent(request.Body)
+        | None -> ()
 
         let addRequestHeader (key: string) (values: string array) =
             proxyRequest.Headers.TryAddWithoutValidation(key, Seq.ofArray values)
 
+        addAuthCookie credentials addRequestHeader
         addHeaders addRequestHeader request.Headers
 
         if not (isNull proxyRequest.Content) then
@@ -287,8 +312,54 @@ module LocalProxy =
             context.Response.StatusCode <- StatusCodes.Status404NotFound
     }
 
-    let private forward (client: HttpClient) (cloudAppUrl: Uri) (context: HttpContext) = task {
-        use proxyRequest = createProxyRequest cloudAppUrl context.Request
+    let private isAmbitLoginPost (request: HttpRequest) =
+        HttpMethods.IsPost request.Method
+        && request.Path.StartsWithSegments(PathString "/ambit/login")
+
+    let private isAmbitLogoutGet (request: HttpRequest) =
+        HttpMethods.IsGet request.Method
+        && request.Path.StartsWithSegments(PathString "/ambit/logout")
+
+    let private responseLocations (response: HttpResponseMessage) =
+        seq {
+            if not (isNull response.Headers.Location) then
+                yield string response.Headers.Location
+
+            match response.Headers.TryGetValues("Location") with
+            | true, values -> yield! values
+            | _ -> ()
+        }
+
+    let private forward
+        (client: HttpClient)
+        (cloudAppUrl: Uri)
+        (session: ref<LoginForm.Credentials option>)
+        (context: HttpContext)
+        = task {
+        if isAmbitLogoutGet context.Request then
+            AuthStore.clear()
+            session := None
+
+        let! bodyOverride, loginAttempt =
+            if isAmbitLoginPost context.Request then
+                task {
+                    let! body = readRequestBody context
+                    let parsed = LoginForm.tryParse body
+
+                    let mediaType =
+                        context.Request.ContentType
+                        |> Option.ofObj
+                        |> Option.defaultValue "application/x-www-form-urlencoded"
+
+                    let content = new StringContent(body, Encoding.UTF8, mediaType)
+                    return Some(content :> HttpContent), parsed
+                }
+            else
+                task { return None, None }
+
+        use proxyRequest =
+            createProxyRequest cloudAppUrl context.Request bodyOverride !session
+
         let localUrl = currentOrigin context.Request
 
         use! proxyResponse =
@@ -296,6 +367,12 @@ module LocalProxy =
                 proxyRequest,
                 HttpCompletionOption.ResponseHeadersRead,
                 context.RequestAborted)
+
+        match loginAttempt, LoginRedirect.isSuccess (int proxyResponse.StatusCode) (responseLocations proxyResponse) with
+        | Some creds, true ->
+            AuthStore.save creds
+            session := Some creds
+        | _ -> ()
 
         context.Response.StatusCode <- int proxyResponse.StatusCode
         copyHeaders cloudAppUrl localUrl proxyResponse.Headers context.Response
@@ -316,11 +393,13 @@ module LocalProxy =
 
         let app = builder.Build()
         let client = createHttpClient ()
+        let session = ref (AuthStore.load())
+
         app.Run(RequestDelegate(fun context ->
             if isDesktopRequest context.Request.Path then
                 handleDesktopRequest context
             else
-                forward client cloudUri context)) |> ignore
+                forward client cloudUri session context)) |> ignore
 
         do! app.StartAsync()
 

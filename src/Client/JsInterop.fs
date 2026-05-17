@@ -251,6 +251,16 @@ let postJson
     (onHttpError: int -> string -> unit) (onNetworkFail: unit -> unit)
     : unit = jsNative
 
+/// Blocking POST for desktop import (synchronous XMLHttpRequest).
+[<Emit(
+    "(function(url, body){" +
+    "var xhr=new XMLHttpRequest();" +
+    "xhr.open('POST',url,false);" +
+    "xhr.setRequestHeader('Content-Type','application/json');" +
+    "try{xhr.send(body);return [xhr.status,xhr.responseText||''];}" +
+    "catch(e){return [0,''];}})($0,$1)")>]
+let postJsonSync (url: string) (body: string) : int * string = jsNative
+
 [<Emit("fetch($0).then(r => r.text()).then($1)")>]
 let fetchText (url: string) (callback: string -> unit) : unit = jsNative
 

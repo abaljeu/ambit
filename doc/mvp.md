@@ -1,5 +1,7 @@
 # Minimum Viable Product
 
+> **Historical.** Tracer-bullet notes from early MVP. For current behavior see [[doc/arch.md]] and the implemented section of [[doc/api.md]].
+
 A tracer-bullet implementation: the thinnest slice that demonstrates
 the full stack working end-to-end as an editable outliner.
 

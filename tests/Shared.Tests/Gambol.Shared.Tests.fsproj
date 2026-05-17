@@ -15,6 +15,8 @@
     <Compile Include="LogTextTests.fs" />
     <Compile Include="SnapshotTests.fs" />
     <Compile Include="SerializationTests.fs" />
+    <Compile Include="LoginFormTests.fs" />
+    <Compile Include="LoginRedirectTests.fs" />
     <Compile Include="RedirectRewriteTests.fs" />
     <Compile Include="ImportTextTests.fs" />
     <Compile Include="SearchTests.fs" />

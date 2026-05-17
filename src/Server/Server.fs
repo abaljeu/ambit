@@ -2,7 +2,6 @@ namespace Gambol.Server
 
 open System
 open System.IO
-open System.Security.Cryptography
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Http
@@ -26,15 +25,6 @@ module Main =
                 else Path.Combine(contentRoot, relative) |> Path.GetFullPath
         Directory.CreateDirectory(dataDir) |> ignore
         dataDir
-
-    let private cookieName = "gambol_auth"
-
-    // Derive a stable token from credentials so authentication survives server restarts.
-    // The token is an HMAC-SHA256 of the username keyed by the password, hex-encoded.
-    let private deriveToken (username: string) (password: string) =
-        use hmac = new HMACSHA256(Text.Encoding.UTF8.GetBytes(password))
-        let hash = hmac.ComputeHash(Text.Encoding.UTF8.GetBytes(username))
-        Convert.ToHexString(hash).ToLowerInvariant()
 
     [<EntryPoint>]
     let main args =
@@ -95,13 +85,13 @@ module Main =
         // ── Auth (stateless — token is derived from credentials, no in-memory state) ──
         let expectedUser = config.["Auth:Username"] |> Option.ofObj |> Option.defaultValue ""
         let expectedPass = config.["Auth:Password"] |> Option.ofObj |> Option.defaultValue ""
-        let validToken = deriveToken expectedUser expectedPass
+        let validToken = AuthToken.deriveToken expectedUser expectedPass
 
         let authDisabled = expectedUser = "" && expectedPass = ""
         let isAuthenticated (req: HttpRequest) =
             if authDisabled then true
             else
-                match req.Cookies.TryGetValue(cookieName) with
+                match req.Cookies.TryGetValue(AuthToken.cookieName) with
                 | true, cookie -> cookie = validToken
                 | _ -> false
 
@@ -111,10 +101,10 @@ module Main =
                     HttpOnly = true,
                     SameSite = SameSiteMode.Strict,
                     Expires = Nullable(DateTimeOffset.UtcNow.AddYears(10)))
-            resp.Cookies.Append(cookieName, validToken, opts)
+            resp.Cookies.Append(AuthToken.cookieName, validToken, opts)
 
         let clearAuthCookie (resp: HttpResponse) =
-            resp.Cookies.Delete(cookieName)
+            resp.Cookies.Delete(AuthToken.cookieName)
 
         app.UseDefaultFiles() |> ignore
         app.UseStaticFiles() |> ignore

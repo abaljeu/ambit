@@ -11,6 +11,7 @@ open Gambol.Client.Update
 open Gambol.Client.UpdateEdit
 open Gambol.Client.UpdateHelpers
 open Gambol.Client.UpdateOps
+open Gambol.Client.UpdateImport
 open Gambol.Client.SearchDialog
 // ---------------------------------------------------------------------------
 // Clipboard / paste helpers
@@ -621,7 +622,7 @@ let commandRegistry : CommandEntry list =
         
       { name = "Import"
         run = keyAlways importLocalOp
-        keys = [ "Ctrl+>" ]
+        keys = [ "Ctrl+Shift+>" ]
         keyScope = SelectionOrEditing }
         
     ]
@@ -769,7 +770,7 @@ let private dispatchResolvedKey
         keyEvent.preventDefault()
         dispatch (ApplyOp (withDiagnostic keyStr resolved.commandName op))
     | None ->
-        ()
+        setLastKeyDisplay keyStr "(no-op)"
 
 /// Route keyboard handling by mode: palette overlay, CSS class prompt, editing field, or selection (hidden input).
 let handleKey (mode: Mode) (ke: KeyboardEvent) (dispatch: Msg -> unit) : unit =
@@ -788,6 +789,7 @@ let handleKey (mode: Mode) (ke: KeyboardEvent) (dispatch: Msg -> unit) : unit =
             | Editing _ -> editingKeyBindings
             | Selecting -> selectionKeyBindings
         match tryResolveFromNamed table ke with
+        | Error (KeyNotBound k) when k <> "" -> setLastKeyDisplay k "(unbound)"
         | Error _ -> ()
         | Ok resolved ->
             dispatchResolvedKey keyStr resolved ke dispatch

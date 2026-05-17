@@ -1,78 +1,90 @@
 # Plan
 
-
 ## Status
-We are implementing [[spec]], following the [[arch]].  All documents are in development.
+
+We are implementing [[spec]], following the [[arch]]. All documents are in development.
 
 This plan assumes a lightweight client (hidden-input editing) and a simple server that serves the page and persists ops.
-Multi-client sync (N<5 clients) is designed in [[api]] and will be implemented in section 4a.
+Multi-client sync (N<5 clients) is documented in [[sync-mvp]] and [[api]].
 
 ## 1. client/server approach
+
 DONE.
+
 - Fable with a tiny MVU loop (no React)
 - Optional later refactor: adopt Elmish if the homegrown loop grows complex
 
 ## 2. Define the core data + ops (shared)
+
 DONE.
+
 - Define `node` and `noderoot`
 - Define low-level ops:
-	- create node
-	- set text old new
-	- replace (parent-child relations)
-	- undo/redo
+    - create node
+    - set text old new
+    - set classes old new
+    - replace (parent-child relations)
+    - undo/redo
 
 ## 3. Implement the client skeleton
-DONE for MVP text editing; structural editing remains.
+
+DONE for MVP text editing; structural editing partially implemented.
 
 - [x] Render visible “lines” from state
 - [x] Hidden-input editing loop (keydown/input -> ops)
 - [x] Selection model: selected nodeview + span
-- [x] Text edit commit/cancel with optimistic `POST /submit`
-- [ ] Apply structural edits (Enter new sibling, Tab indent, Shift+Tab outdent)
+- [x] Text edit commit/cancel with optimistic `POST /{pathname}/changes`
+- [x] Tab indent / Shift+Tab outdent (`UpdateMove.fs`)
+- [x] Enter at cursor: split line / new sibling (`UpdateHelpers.fs`)
+- [ ] Remaining structural polish (e.g. full parity with spec for all move/delete flows)
 
 ## 4. Implement the server skeleton
 
-DONE for MVP server + save flow.
+DONE for current server + persistence.
 
 - [x] Add JSON serialization for shared types (in Shared/)
     - Encode/decode `Op` (all variants)
-    - Encode/decode `Change`
-    - Encode/decode `State`/`Graph` (for state endpoint)
+    - Encode/decode `Change`, `ChangeBatch`, `ChangeBatchAck`, `PollResponse`
+    - Encode/decode `Graph` (for state endpoint)
     - Encode/decode `NodeId` (Guid)
     - Round-trip tests
-- [x] Define API contract (see [[api]])
+- [x] Define API contract (see [[api]] — implemented `/ambit/*` section)
 - [x] Implement revision tracking
     - Revision type (monotonically increasing integer)
     - Revision in server state
-    - In-memory history in `State` (no persisted message log in MVP)
-- [x] Serve `GET /` with the client assets
-- [x] `GET /state` -> graph + revision (JSON)
-- [x] `POST /submit` -> apply change with revision tracking (see [[api]])
-- [x] `POST /save` -> explicit snapshot write
-- [ ] `POST /undo` -> undo with revision tracking (deferred)
-- [ ] `POST /redo` -> redo with revision tracking (deferred)
-- [ ] `GET /ops?since={revision}` -> get changes since revision (deferred)
+    - Durable append-only log (file `.log` and/or PostgreSQL `changes`)
+- [x] Serve app at `GET /ambit` with client assets
+- [x] `GET /ambit/state` → graph + revision (JSON)
+- [x] `POST /ambit/changes` → apply batch, return ack (see [[api]])
+- [x] `GET /ambit/poll?rev=` → revision, build stamps, change tail
+- [x] Automatic snapshot persistence (no `POST /save` route)
+- [ ] `POST /undo` → server undo (deferred)
+- [ ] `POST /redo` → server redo (deferred)
+- [ ] `GET /ops?since={revision}` → dedicated changes-since endpoint (deferred; poll tail covers MVP)
 
 ## 4a. Multi-client sync (N<5 clients)
 
-MVP baseline: last-write-wins by arrival order (see [[sync-mvp]])
-- Client sends `(clientRevision, change)` to server
-- Server applies against current state and responds with `(revision, graph)`
-- No client-side merging required
-- Undo/redo is client-local; inverse changes sent as normal edits
+Implemented baseline: last-write-wins by arrival order (see [[sync-mvp]], [[api]]).
 
-Later: upgrade to merge-based sync (see [[api]])
+- Client posts `ChangeBatch` to `POST /{pathname}/changes`
+- Server responds with `ChangeBatchAck` (revision + `ackedChangeIds`)
+- Client polls `GET /{pathname}/poll?rev=N` for remote changes
+- Full graph via `GET /{pathname}/state` when needed
+- Undo/redo client-local; inverses sent as normal changes
+
+Later: upgrade to target API in [[api]] (sequences, 409, multi-document).
 
 ## 5. Persistence
 
-DONE for MVP scope.
+DONE for current scope.
 
-- [x] Snapshot format: single text outline file with tabs for indentation
-- [x] Explicit save via `POST /save` (no autosave on every edit)
-- [x] Rebuild graph from snapshot on startup
-- [x] Keep history in-memory for this phase
+- [x] Snapshot format: tab-indented outline file
+- [x] Append-only change log (file `.log` and/or PostgreSQL `changes`)
+- [x] Replay log on startup after snapshot checkpoint
+- [x] `Persistence:Mode` — `db` (default) or `file` rollback
+- [x] Async snapshot write after accepted changes (not via `POST /save`)
 
-- Deferred:
-    - Persisted append-only transaction log
-    - Multi-file snapshot model
-    - Replay ops log after snapshot load
+Deferred:
+
+- Multi-file snapshot model (if still desired as a product feature)
+- Further DB/projection hardening beyond current schema (see [[doc/future/persistence-vs-domain-model.md]])

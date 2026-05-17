@@ -7,6 +7,7 @@
 
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
+    <Compile Include="AuthTokenTests.fs" />
     <Compile Include="..\Shared.Tests\SpecialNodeTestHelpers.fs" Link="SpecialNodeTestHelpers.fs" />
     <Compile Include="HeadPresenceTests.fs" />
     <Compile Include="TestDbConfigTests.fs" />

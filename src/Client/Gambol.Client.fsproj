@@ -16,6 +16,7 @@
     <Compile Include="UpdateMove.fs" />
     <Compile Include="SearchDialog.fs" />
     <Compile Include="UpdatePaste.fs" />
+    <Compile Include="UpdateImport.fs" />
     <Compile Include="UpdateOps.fs" />
     <Compile Include="Update.fs" />
     <Compile Include="Controller.fs" />

@@ -1,40 +1,90 @@
 # Architecture
 
 - Client/server architecture with a client-side MVU-style loop
+
 - Bias toward small download size and low conceptual overhead
+
 - Full-stack authored in F# with an immutable domain model
+
   - Main containers may be mutable; elements should remain immutable
 
 ## Architecture overview
 
 This app is structured around a small set of operations (ops) that transform a graph of nodes.
 
-- Client: local-first, applies ops immediately, renders outline, maintains selection
-- Server: authoritative log + persistence, assigns revisions, serves sync endpoints
-- All major functionality should be tested if easy testing is possible.  This means prefer Shared for code location.
+- **Client**: local-first editing, renders outline, maintains selection; syncs via poll + change POST
 
-## Directory structure
+- **Server**: authoritative graph + revision, append-only change log, serves `/ambit` API and static assets
 
-## Project Structure
+- **Desktop** (optional): WebView2 shell + local HTTP proxy to the cloud app; local file import only
 
-| Layer  | Technology                          |
-|--------|-------------------------------------|
-| Client | F# compiled to JavaScript via Fable |
-| Server | ASP.NET Core (minimal API)          |
-| Shared | Pure F# domain model                |
-| Tests  | xUnit                               |
+- **Shared**: pure domain, ops, serialization — preferred home for testable logic
 
-Rationale: a single src/Test folder tends to mix concerns and makes it harder to run a targeted test suite. Separate test projects let you reference exactly the code under test (Shared vs Server) and keep dependencies clean.
+- All major functionality should be tested where easy; prefer `src/Shared` for code location
+
+## Project structure
+
+| Layer   | Project / path              | Technology                          |
+
+|---------|-----------------------------|-------------------------------------|
+
+| Client  | `src/Client`                | F# → JavaScript (Fable)             |
+
+| Server  | `src/Server`                | ASP.NET Core (minimal API), Npgsql  |
+
+| Shared  | `src/Shared`                | Pure F# domain model                |
+
+| Desktop | `src/Desktop`               | .NET WPF + WebView2, local proxy    |
+
+| Tests   | `tests/Shared.Tests`, `tests/Server.Tests` | xUnit              |
+
+Rationale: separate test projects reference only the code under test (Shared vs Server) and keep dependencies clean.
+
+## Directory layout
+
+```
+
+gambol.sln
+
+src/
+
+  Client/          Fable MVU app (compiled to src/Server/wwwroot)
+
+  Server/          HTTP API, FileAgent, DbAgent, auth, static wwwroot
+
+  Shared/          Model, ops, ViewModel, Snapshot, Serialization, …
+
+  Desktop/         WPF host, LocalProxy, AuthStore
+
+tests/
+
+  Shared.Tests/
+
+  Server.Tests/    includes DbAgentTests when TEST_DB_CONNECTION_STRING is set
+
+data/              file-mode documents (outline, .meta, .log) — local dev default
+
+doc/               architecture, API notes, deployment, future plans
+
+scripts/           desktop.sh, fullstack-build.sh, azure helpers
+
+```
+
+VS Code: default build runs Fable watch + server (`dev: Watch + Run`). Desktop: `desktop: Run` → `scripts/desktop.sh run`.
 
 ## Client
 
 ### Requirements
 
 The client needs to:
+
 - Render “lines” for visible occurrences (respect folding/opened state)
+
 - Capture keys and drive edits via operations
+
 - Maintain selection state (nodeview + span)
-- Support undo/redo
+
+- Support undo/redo (client-local history; inverse changes submitted as normal edits)
 
 ### Implementation approach
 
@@ -44,215 +94,246 @@ Because learning F# is a core project goal, the client is authored in F#.
 
 Principle: keep the architecture benefits of MVU while avoiding a heavy UI framework.
 
-- Model/update in F# compiled to JS
-- Prefer direct DOM calls via `Fable.Browser.Dom` (or similar minimal bindings)
-- Implement `update : VM -> Msg -> VM * Cmd list` (or `VM` only, if no cmds)
-- Keep dependencies minimal; avoid React stacks
+- Model/update in F# compiled to JS (`src/Client/Update*.fs`, `View.fs`)
+
+- Direct DOM via `Fable.Browser.Dom` (see `other/fable.browser.dom.fs` when needed)
+
+- `update : VM -> Msg -> VM * Cmd list` (or `VM` only when no cmds)
+
+- Minimal dependencies; no React stack
+
+- Served under `/ambit` from server `wwwroot` (Fable `--outDir src/Server/wwwroot`)
+
+When running in the desktop shell, the client talks to `localhost` (local proxy). Graph authority remains the cloud server; desktop adds `/_desktop/*` for capabilities and file import.
+
+## Desktop
+
+Optional host for users who need local filesystem access while using the same web UI.
+
+- **UI**: WPF `WebView2` loads the local proxy URL (not the cloud origin directly)
+
+- **Proxy** (`src/Desktop/LocalProxy.fs`): forwards `/ambit/*` (and static assets) to the configured cloud base URL; handles `/_desktop/*` locally
+
+- **Capabilities** (`src/Shared/DesktopCapabilities.fs`): `GET /_desktop/capabilities` — what file open/import/export the host allows
+
+- **Import**: `POST /_desktop/import` reads a local path and returns ops/text for the client to apply via normal cloud sync
+
+- **Auth**: desktop can store cloud session cookie (`AuthStore.fs`) so the proxied app is authenticated
+
+The desktop host does **not** become a second source of truth for the graph. See [[doc/future/overview.md]] §7 for product intent.
 
 ## Server
 
-Server should stay simple:
-- Serve the initial page and client assets
-- Provide a minimal API for fetching state and applying ops
-- Persist a single data type (graph + operations)
+The server:
+
+- Serves `GET /ambit` (HTML shell from `gambol.template.html`) and Fable bundles from `wwwroot`
+
+- Exposes JSON API under `/ambit` (state, poll, changes)
+
+- Persists graph + append-only change log via **file** and/or **PostgreSQL** (see Storage)
+
+- Optional cookie auth (`Auth:Username` / `Auth:Password` in config → derived token cookie)
+
+Key modules: `Api.fs` (`AgentHandle`), `FileAgent.fs`, `DbAgent.fs`, `Database.fs`, `DatabaseSetup.fs`, `ChangeLog.fs`, `DocumentLoader.fs`.
 
 ### Sync (multi-client, N<5)
 
 Assumption: multiple clients (up to 5) may operate on the same model concurrently.
 
-**MVP** (see [[sync-mvp]]): last-write-wins per version.
-- Client sends `(version, change)` to server
-- Server discards any previous change at that version, applies the new one
-- Server responds with `(newVersion, graph)` — client replaces local state
-- No client-side merging; undo/redo is client-local
+**Current baseline** (see [[sync-mvp]]): last-write-wins by arrival order on the server.
 
-**Later** (see [[api]]): upgrade to merge-based sync with `remoteChanges`.
+- Client polls `GET /ambit/poll?rev={n}` for remote changes since `n`
 
-### HTTP API
+- Client posts changes to `POST /ambit/changes`
 
-See [[api]] for full API contract.
+- Server applies change, increments revision, append-only log records payload
 
-Summary:
-- `GET /` -> HTML
-- `GET /state` -> current graph + revision
-- `POST /submit` -> apply change with revision tracking
-- `POST /undo` -> undo with revision tracking
-- `POST /redo` -> redo with revision tracking
-- `GET /ops?since={revision}` -> changes since revision
+- Poll returns incremental `changes`; full graph available via `GET /ambit/state` when needed
 
-All requests include client revision; server returns new revision and any remote changes.
+- No client-side merging; undo/redo is client-local (inverse ops in submit body)
+
+**Later** (see [[api]]): merge-based sync, 409 conflicts, `remoteChanges`.
+
+### HTTP API (implemented paths)
+
+Canonical contract evolution: [[api]]. Running server uses `/ambit` prefix.
+
+| Method | Path | Purpose |
+
+|--------|------|---------|
+
+| `GET` | `/ambit` | App HTML (build stamps injected) |
+
+| `GET` | `/ambit/state` | `{ revision, graph }` |
+
+| `GET` | `/ambit/poll?rev={n}` | revision, build epochs, `changes` since `n` |
+
+| `POST` | `/ambit/changes` | apply `ChangeBatch` (JSON body); ack only |
+
+| `GET` | `/ambit/login`, `POST /ambit/login`, `GET /ambit/logout` | optional auth |
+
+Deferred vs older docs: `POST /undo`, `POST /redo`, `GET /ops?since=…` as separate endpoints — not exposed; undo is client-side.
 
 ## Domain model
 
-A pure, directed, potentially cyclic graph.
+A pure, directed, potentially cyclic graph (`src/Shared/Model.fs`).
 
-type node
-    - uid
-    - name
-    - children : [uid]
-    - text
+**`Node`**
 
-noderoot : node
+- `id` : `NodeId` (`Guid`)
+
+- `text`, `name` (`string option`)
+
+- `children` : `ChildNode list` — each child has `ref: Ownership` (`Owner` | `Ref`) and `id`
+
+- `cssClasses`, `owner`, `kind` (`Normal` | `Special` e.g. trash)
+
+**`Graph`**
+
+- `root`, `nodes` map
+
+- derived: `parentByChild`, `ownerParentByChild` (from nodes + child lists, not stored separately in SQL)
+
+**`Change` / `Op`** (`History.fs`)
+
+- `NewNode`, `SetText`, `SetClasses`, `Replace(parent, index, oldChildren, newChildren)`
+
+- `Change` has `id`, `changeId` (Guid for dedup), `ops`
+
+**Client view layer** (`ViewModel.fs`, not the server graph): site tree, selection span, line rendering — see View section below.
 
 ## Operations
 
 ### Low-level ops (shared client + server)
 
-- [x] create node
-- [x] set text old new
-- [ ] replace (establishes parent-child relations)
-  - node
-  - index
-  - [ old guids ]
-  - [ new guids ]
-- undo
-- redo
+- [x] create node (`NewNode`)
 
-### Model Building
-- [ ] create many nodes from text
+- [x] set text old/new (`SetText`)
+
+- [x] set CSS classes (`SetClasses`)
+
+- [x] replace children at index (`Replace` — parent-child and ref edges)
+
+- [x] undo/redo via `History` + inverted ops (client submits inverses; server stores forward log)
+
+### Model building
+
+- [x] paste / import text → ops (`Paste.fs`, `ImportText.fs`)
+
+- [ ] bulk create-from-outline helpers (beyond paste/import)
 
 ### Site/composite model (client)
 
-type sitenode
-    - node
-    - occurrence : scope
-    - opened (include children)
-    - children : [nodeview]
+type sitenode (conceptual)
 
-root : sitenode
+- node + occurrence scope
 
-selected : block
-    - nodeview
-    - span
+- opened (include children)
 
-### High-level ops (derived)
+- children : nodeview list
 
-- replace node childspan replacement_ids
-  algorithm
-  - with node
-    - for each occurrence
-      - if include_children
-        - remove children from index to old guids length
-        - create occurrence children
-        - add those at index
-- [[ link ]]
-  - find a node id'd link, and replace the current node with that
-- copy/paste links
-- edit link id (replace all uses)
-- select node, select range
+root : sitenode; selection : nodeview + span
+
+### High-level ops (derived in client)
+
+- structural delete with promotion, trash (`ViewModelDeleteOps.fs`)
+
+- paste, move, search-driven navigation
+
+- wikilink / `[[filepath]]` handling (desktop hints + import)
 
 ## View
-- viewroot
-    - nodeview
-    - trace
-- lines
-    - editable for cursor
-    - capture all keys
-    - recursively add sitenodes, stopping at folded
-- updates
-    - replace site node -> replace view line
-    - remove site node -> remove view lines, including all children.
-        - find node; find nextnode; remove lines between these indexes
-    - insert site node
-        - recursively build from site node
-        - insert into array
+
+- viewroot → nodeview + trace
+
+- lines: editable, key capture, recursive sitenodes respecting fold state
+
+- incremental line updates on site node replace/remove/insert
 
 ## Storage (server)
 
-Recommendation: append-only ops log + periodic snapshot.
+Two explicit **persistence modes** (`Persistence:Mode` in config; default **`db`**):
 
-- Simplest to implement undo/redo and debugging
-- Easy to rebuild graph on startup
-- Snapshot keeps startup time bounded
+| Mode | Authority | Startup | Notes |
 
-### Persistence data
+|------|-----------|---------|--------|
 
-Append-only time-reversible ops log:
+| **`db`** | PostgreSQL | Schema init; load from DB only — **no** silent import from files | Requires `DB_CONNECTION_STRING` |
 
-- `log = [ change ]`
-- `change = (change number, [ op ])`
-- `op = New Node | Change Text | Insert Children | Remove Children | Undo | Redo`
+| **`file`** | On-disk outline + `.meta` + `.log` | `FileAgent` loads snapshot, replays log | Optional DB mirror when connection string set |
 
-Periodic snapshot: files in a directory
+**File artifacts** (under `DataDir`, default `data/` locally, `/home/data` on Azure):
 
-- Each file is a text outline with tabs establishing indentation
-- Graph structure resolves to this format
-- Lines may be:
-    - Indentation + text content
-    - Indentation + `[[wikilink#label]]` (link to another node)
-    - Indentation + `#label` (label/tag)
-- File structure represents the graph hierarchy
-- Each node maps to a line (or set of lines) with appropriate indentation
-- Snapshot includes change number (stored separately or in metadata)
+- outline snapshot (tab-indented text; `Snapshot.fs`)
 
-Startup:
+- `.meta` — server revision after snapshot + replay
 
-- Parse text outline files to reconstruct graph
-- Replay log entries after snapshot change number
+- `.log` — one JSON `Change` per line (same payload concept as SQL `changes`)
 
+**PostgreSQL** (normalized projection; no outline blob as source of truth):
+
+- `changes` — append-only log (`payload` = full change JSON)
+
+- `graph` — singleton row (root id + revision)
+
+- `nodes`, `node_children` — relational mirror of `Node` / child edges
+
+`db` mode periodically writes **disk backup** from DB state (export only, not read at startup). `file` mode may seed an empty DB from file state on startup.
+
+Full schema and mode rules: [[doc/future/persistence-vs-domain-model.md]]. Operations / environments: [[doc/future/postgres-migration.md]], [[doc/future/postgres-environments.md]].
+
+Implementation: `Database.fs`, `DbAgent.fs`, `FileAgent.fs`, `AgentHandle` in `Api.fs`.
 
 ## Testing plan
 
-Goal: follow TDD (test-first, as-needed) while keeping tests high-value and lightweight.
+Goal: TDD where valuable; keep tests fast and layered.
 
-Workflow (repeat per feature):
-- Pick the next smallest behavior (one op, one endpoint, one rendering rule)
-- Write the smallest failing test that describes it (RED)
-- Implement the minimum code to pass (GREEN)
-- Refactor (REFACTOR)
+Workflow: smallest failing test → minimal implementation → refactor.
 
-Bias: write tests at the lowest level that still gives confidence.
-- Prefer pure functions (ops, reducers, diff planners)
-- Add persistence and HTTP tests only when implementing those modules
-- Avoid UI automation until it saves time
+Bias:
 
-###  Domain/ops unit tests (highest value)
+- Prefer pure functions in Shared (ops, ViewModel planners, serialization)
 
-- `applyOp` / `applyOps` are pure and should be developed test-first.
-- Invariants to assert after every op batch:
-	- All child uids referenced exist
-	- Root exists
-	- No duplicate child uid within a single node’s `children` list (unless links require it)
-	- `set text old new` fails if `old` doesn’t match current (if using optimistic concurrency)
-- Undo/redo correctness:
-	- `apply ops; undo;` returns to previous state
-	- `apply ops; undo; redo;` returns to post-op state
+- Server: test `DbAgent` / store logic with `TEST_DB_CONNECTION_STRING` when Postgres available
 
-Tooling recommendation: `Expecto` (+ optional `FsCheck` later for property tests).
+- Avoid browser automation until it pays off
 
-###  Serialization tests (contract safety)
+### Domain/ops unit tests
 
-- Add JSON tests when the JSON shapes are first introduced:
-	- snapshot encoding
-	- op batch encoding
-	- server response encoding
+- `applyOp` / `Change.apply` / undo invariants (Shared.Tests)
 
-- JSON round-trip for:
-	- state snapshot
-	- op batches
-	- server responses
-- Add a few “golden” JSON samples only once the shapes settle.
+- Graph invariants after op batches (child refs exist, root exists, ownership rules)
 
-###  Persistence tests (ops log + snapshot)
+Tooling: **xUnit** in `tests/Shared.Tests` and `tests/Server.Tests`.
 
-- When implementing persistence, drive it with a replay test:
-	- `state0 -> append ops -> snapshot -> restart -> load snapshot + replay -> state1` equals expected
-- Crash-safety-lite:
-	- tolerate trailing partial line / partial record in ops log (choose one: either tolerate or fail loudly and document)
+### Serialization tests
 
-###  Server tests
+- JSON round-trip for `Op`, `Change`, `Graph`, API DTOs (`SerializationTests.fs`)
 
-Keep server testing minimal by pushing logic into a store module.
+### Persistence tests
 
-- Unit test the store “command handler” function that backs endpoints (test-first per endpoint behavior):
-	- `POST /ops` applies ops, increments revision, appends log
-	- Revision mismatch returns conflict
-- Optional later: integration tests that spin up the ASP.NET Core app in-memory and call endpoints.
+- File: snapshot + log replay (`FileAgent` / document loader tests)
 
-###  Client tests (minimal)
+- DB: `DbAgentTests.fs` against real Postgres when `TEST_DB_CONNECTION_STRING` is set
 
-- Unit-test pure MVU parts when implementing them:
-	- `update` produces correct new model and ops queue
-	- “render plan” / line-diff computation (if separated) is correct
-- Skip browser automation initially. Add Playwright only if regressions become painful.
+- Replay: load persisted state → apply changes → matches expected graph/revision
 
+### Server tests
+
+- Command handlers behind endpoints (revision increment, change append, conflict behavior when added)
+
+- Optional later: in-memory ASP.NET Core integration tests
+
+### Client tests
+
+- Pure MVU/update helpers where extracted; no Playwright in baseline
+
+## Documentation map
+
+| Doc | Role |
+|-----|------|
+| [[doc/arch.md]] | Architecture, layers, persistence modes |
+| [[doc/api.md]] | HTTP contract (implemented + target) |
+| [[doc/sync-mvp.md]] | Current sync semantics (LWW, poll + changes) |
+| [[doc/future/persistence-vs-domain-model.md]] | DB schema vs domain model |
+| [[doc/future/postgres-environments.md]] | Dev/prod Postgres setup |

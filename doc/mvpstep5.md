@@ -1,5 +1,7 @@
 # Step 5: Client editing – text
 
+> **Historical.** Tracer-bullet notes from early MVP. For current behavior see [[doc/arch.md]] and the implemented section of [[doc/api.md]].
+
 ## Design overview
 
 Two UI modes, analogous to Excel's selection and edit modes:
@@ -53,8 +55,8 @@ type Msg =
     | EditInput of string                // oninput from inline <input>
     | CommitEdit                         // Enter in edit mode, or click-away
     | CancelEdit                         // Escape in edit mode
-    | SubmitResponse of Graph * int      // POST /submit success
-    | SubmitError of string              // POST /submit failure
+    | SubmitResponse of Graph * int      // (historical) POST /submit success; now ChangeBatchAck via POST /ambit/changes
+    | SubmitError of string              // (historical) POST /submit failure
 ```
 
 ## DOM structure
@@ -148,7 +150,7 @@ On commit (when text actually changed):
 1. Build `Change { id = 0; ops = [ SetText(nodeId, oldText, newText) ] }`
 2. Apply to local graph via shared `Op.apply` / `Change.apply`
 3. Re-render (local state is already correct)
-4. `POST /submit` with `{ clientRevision: model.revision, change }` in background
+4. `POST /ambit/changes` with `ChangeBatch` in background (was `POST /submit`)
 5. On success response: update local `revision` to server's `newRevision` (graph is already correct locally)
 6. On no response / network error: repost with usual retry protocol
 7. On error (400): log to console (MVP — no user-facing error UI yet)

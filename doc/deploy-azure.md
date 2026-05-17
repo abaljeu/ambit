@@ -9,6 +9,10 @@
    - `Auth__Username` = your username
    - `Auth__Password` = your password
    - `WEBSITES_ENABLE_APP_SERVICE_STORAGE` = `true`
+   - `Persistence__Mode` = `db` (production default; use `file` only for rollback/testing)
+   - `DB_CONNECTION_STRING` = PostgreSQL connection string (see [[doc/future/postgres-environments.md]])
+
+4. Place **`appsettings.Production.json`** on the persistent **`/home`** mount (not only in the deployed zip) so config survives redeploys. The server loads it from `/home/appsettings.Production.json` on App Service ([[src/Server/Server.fs]]).
 
 ## Build and deploy
 
@@ -31,17 +35,26 @@ Then deploy via Kudu:
 2. **Tools → Zip Push Deploy**
 3. Drag and drop `site.zip` onto the page
 
-## Upload data (first deploy only)
+## Upload data (persistence mode)
 
-Existing data files live in `data/` and are not included in the zip.
-To seed Azure with your local data:
+Whether you need to seed files depends on **`Persistence:Mode`**:
+
+### `db` mode (default production)
+
+- **PostgreSQL is authority.** An empty database starts empty; the app does not import local `data/` files on startup.
+- File upload to `/home/data` is **optional** — used only for backup/export artifacts the server may write, not as the source of truth.
+- Provision and connect Azure Database for PostgreSQL Flexible Server per [[doc/future/postgres-environments.md]].
+
+### `file` mode (rollback / testing)
+
+Seed the on-disk document (first deploy or migration):
 
 1. Portal → your Web App → **Advanced Tools** → Go (opens Kudu)
 2. **Debug console → CMD**
-3. Navigate to `/home/site/data/`
+3. Navigate to `/home/data/` (server `DataDir` on Azure)
 4. Drag and drop `gambol`, `gambol.log`, `gambol.meta` from your local `data/` folder
 
-Data persists across redeploys — the zip only overwrites `/home/site/wwwroot/`.
+Data under `/home/data` persists across redeploys — the zip only overwrites `/home/site/wwwroot/`.
 
 ## URLs
 
@@ -59,4 +72,4 @@ Upload `.htaccess` to the cPanel host root after any changes.
 
 - **Startup error in browser** — the server shows a `500` page with the full exception on startup failure.
 - **Log stream** — Portal → Monitoring → Log stream for live stdout.
-- **Restart** — Portal → Overview → Restart (needed after uploading data files via Kudu).
+- **Restart** — Portal → Overview → Restart (needed after uploading data files in **file** mode via Kudu).

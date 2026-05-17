@@ -7,6 +7,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="..\Server\AuthToken.fs" Link="AuthToken.fs" />
+    <Compile Include="AuthStore.fs" />
     <Compile Include="LocalProxy.fs" />
     <Compile Include="Desktop.fs" />
   </ItemGroup>

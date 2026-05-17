@@ -15,16 +15,26 @@ There is no separate redo endpoint. Redo is a consequence of the Emacs stack mod
 type Op =
     | NewNode of nodeId: NodeId * text: string
     | SetText of nodeId: NodeId * oldText: string * newText: string
-    | Replace of parentId: NodeId * index: int * oldIds: NodeId list * newIds: NodeId list
+    | SetClasses of nodeId: NodeId * oldClasses: CssClasses * newClasses: CssClasses
+    | Replace of
+        parentId: NodeId *
+        index: int *
+        oldChildren: ChildNode list *
+        newChildren: ChildNode list
 
-type Change = { id: int; ops: Op list }
+type Change =
+    { id: int
+      changeId: System.Guid
+      ops: Op list }
+
 type History = { past: Change list; future: Change list; nextId: int }
 type State   = { graph: Graph; history: History; revision: Revision }
 ```
 
 - `past` is newest-first. Each undo pops from `past`.
 - `future` is newest-first. Each redo pops from `future`.
-- `id` is a monotonically increasing int (assigned by the client, confirmed by the server).
+- `id` is the **base revision** the change was built against (must match server at submit).
+- `changeId` is a stable Guid per network submission (server dedup).
 
 ## Inversion (`Change.invert`)
 
@@ -35,6 +45,7 @@ and each op has old/new swapped.
 |----|---------|
 | `NewNode(id, text)` | `NewNode(id, text)` — identity; see note below |
 | `SetText(id, old, new)` | `SetText(id, new, old)` |
+| `SetClasses(id, old, new)` | `SetClasses(id, new, old)` |
 | `Replace(pid, i, olds, news)` | `Replace(pid, i, news, olds)` |
 
 `NewNode` has no `DeleteNode` counterpart in the op set. Its inverse is left as
@@ -73,14 +84,14 @@ since the last undo, because `future` is only consumed by `addChange`.
 
 ## Client flow
 
-1. User action → `Change` built in `Update.fs`.
-2. `applyAndPost` applies the change locally via `Change.apply` (zero latency).
-3. Change is POSTed to `POST /{file}/changes` asynchronously.
-4. Server applies via `History.applyChange`, appends to log, triggers snapshot.
-5. Server responds with new `revision`; client dispatches `SubmitResponse revision`.
+1. User action → `Change` built in client update modules.
+2. Change applied locally via `History.applyChange` (zero latency).
+3. Change is POSTed to `POST /{pathname}/changes` (e.g. `/ambit/changes`) in a `ChangeBatch`.
+4. Server applies via `History.applyChange`, appends to durable log, triggers snapshot.
+5. Server responds with `ChangeBatchAck` (`revision`, `ackedChangeIds`); client updates revision.
 
-Undo (Ctrl+Z) and Redo (Ctrl+Y) will follow the same pattern: apply locally,
-POST the inverse/reapplication to the server. **Not yet wired to server endpoints.**
+Undo (Ctrl+Z) and Redo (Ctrl+Y) follow the same pattern: apply locally,
+POST the inverse/reapplication in a normal `ChangeBatch`. **Not wired to server `POST /undo` / `POST /redo` endpoints** (those do not exist).
 
 ## Keybindings
 
@@ -99,6 +110,7 @@ Available in both selection and editing modes.
 
 ## What is not implemented
 
-- Server-side undo/redo endpoints (currently undo/redo only apply locally;
-  the server state will diverge until a subsequent normal change is posted).
+- Server-side undo/redo HTTP endpoints (undo/redo apply locally and sync via normal `POST /changes` batches).
 - Undo of `NewNode` via a `DeleteNode` op.
+
+See [[doc/api.md]] for the implemented HTTP contract.

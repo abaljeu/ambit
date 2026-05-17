@@ -1,5 +1,20 @@
 # Deploying Gambol alongside WordPress (SSH access)
 
+Production can use **cloud PostgreSQL** (`Persistence:Mode=db`) or **file-only** authority on the VM (`Persistence:Mode=file`). Match application settings to your choice.
+
+Recommended production settings (when using PostgreSQL):
+
+- `Persistence__Mode` = `db`
+- `DB_CONNECTION_STRING` = your Postgres connection string
+
+For file-authority rollback on the same host:
+
+- `Persistence__Mode` = `file`
+- `DataDir` pointing at the data directory (see Step 5)
+- Optional `DB_CONNECTION_STRING` if you want DB mirroring while files remain primary
+
+See [[doc/future/postgres-environments.md]] and [[doc/future/persistence-vs-domain-model.md]].
+
 ## [x] Step 1: Install .NET 10 on the server
 
 ```bash
@@ -23,11 +38,15 @@ Copy `publish/` to the server using `scripts/deploy.sh` (zips first to avoid per
 bash scripts/deploy.sh
 ```
 
-For data (only needed on first deploy or if data files changed):
+### Upload data (file mode only)
+
+Only needed when **`Persistence:Mode=file`** and you want to seed or replace the on-disk document:
 
 ```bash
 scp -i ~/.ssh/collab-sys.rsa -r data/ abaljeu@collaborative-systems.org:~/gambol-data/
 ```
+
+In **`db` mode**, PostgreSQL is authority; copying `data/` does not bootstrap an empty database.
 
 ## Step 3: Keep the app running (shared cPanel hosting — no systemd)
 
@@ -89,19 +108,21 @@ Or using `ProxyPass` directives (place before `# BEGIN WordPress`):
 </IfModule>
 ```
 
-The app serves all routes under `/ambit` — main UI, login, logout, state, changes, user.css.
+The app serves all routes under `/ambit` — main UI, login, logout, state, changes, poll, user.css.
 
 If neither works, contact the host to confirm `mod_proxy` / `mod_rewrite [P]` is enabled.
 
 ## Step 5: Update appsettings.json
 
-Set `DataDir` in `src/Server/appsettings.json` to the data directory on the server:
+Set `DataDir` in `src/Server/appsettings.json` to the data directory on the server (required for **file** mode; used for DB backup export paths in **db** mode):
 
 ```json
 {
   "DataDir": "/var/www/gambol-data"
 }
 ```
+
+Set `Persistence:Mode` and `DB_CONNECTION_STRING` in production config (environment variables or `appsettings.Production.json` on the server).
 
 ## Notes
 

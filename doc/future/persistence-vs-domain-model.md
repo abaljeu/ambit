@@ -36,9 +36,8 @@ These are the persistence goals for Gambol, independent of how much is implement
    (one persisted change per row, comparable payloads), so the event history can be audited against
    the file log while file authority is active.
 
-Implementation status: normalized projection and DB agent write logic exist. The current planned
-change is the `db`/`file` persistence split; see [[doc/future/postgres-migration.md]] for a short
-operational summary.
+Implementation status: normalized projection, DB/file agents, and `Persistence:Mode` are implemented.
+See [[doc/future/postgres-migration.md]] for a short operational summary.
 
 ---
 
@@ -168,20 +167,19 @@ in-memory derivation.
 
 ## Current implementation vs target
 
-`Database.initSchema` creates **`changes`** plus **`graph`**, **`nodes`**, and **`node_children`**,
-and drops any legacy **`snapshots`** table. `DbAgent` loads the projection row and node/child rows,
-replays the `changes` tail (`server_revision_after` beyond the projection revision), and on each
-accepted change appends a `changes` row and replaces the projection in one transaction.
+**Implemented today** ([[src/Server/DatabaseSetup.fs]], [[src/Server/Server.fs]]):
 
-The next implementation change is to resolve `Persistence:Mode` as follows:
+- **`Persistence:Mode`** — resolved at startup: `""` or `"db"` → strict DB authority; `"file"` → file authority with optional DB mirror when `DB_CONNECTION_STRING` is set.
+- **`Database.initSchema`** — creates **`changes`**, **`graph`**, **`nodes`**, **`node_children`**; drops legacy **`snapshots`** if present.
+- **`DbAgent`** — loads projection + replays `changes` tail; each accepted change appends a row and updates projection in one transaction.
+- **`FileAgent`** — snapshot + `.log` authority in file mode; async snapshot after changes.
+- **`startDbBackupIfNeeded`** — in `db` mode, periodic disk backup (snapshot, `.meta`, empty `.log`, rotation) from DB state; does not create a `FileAgent` for startup.
 
-- `""` or `"db"` means strict DB authority. Startup initializes schema and creates the DB agent, but
-  does not load files or call `rebuildFromDocumentFiles` when the DB is empty.
-- `"file"` means file authority. Startup keeps the existing behavior: files are primary, an empty DB
-  can be seeded from files, and API writes mirror to DB when it is available.
+**Optional follow-ups** (not required for the mode split above):
 
-`db` mode also needs a small disk backup helper that writes the file-format backup from
-`Database.loadPersistedState`: snapshot, `.meta`, empty `.log`, then `ensureSnapshotBackup`.
+- External migration tooling beyond `initSchema` on startup.
+- Multi-document / multi-file snapshot layout.
+- Further audit of file↔DB log parity under all edge cases.
 
 The obsolete doc **`db-change-doc-mode.md`** (blob-first Postgres) was removed; it is not part of
 this design.

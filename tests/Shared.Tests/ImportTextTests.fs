@@ -83,6 +83,31 @@ let ``tryFindFirstFileReference keeps result compatibility`` () =
     Assert.Equal(Error "file reference is invalid", ImportText.tryFindFirstFileReference "[[ ]]")
 
 [<Fact>]
+let ``buildImportChange single line attaches to focus`` () =
+    let package = ImportText.buildPackage "note.txt" "alpha" |> requirePackage
+    let focusId = NodeId.New()
+    let existing = owned [ NodeId.New() ]
+    let change =
+        ImportText.buildImportChange focusId existing package 1 (System.Guid.NewGuid())
+
+    Assert.Equal(1, change.id)
+    Assert.Equal<Op list>(
+        package.ops
+        @ [ Op.Replace(focusId, 0, existing, owned package.topLevelIds) ],
+        change.ops)
+
+[<Fact>]
+let ``buildImportChange nested package attaches top level only`` () =
+    let package = ImportText.buildPackage "note.txt" "parent\n\tchild" |> requirePackage
+    let focusId = NodeId.New()
+    let change =
+        ImportText.buildImportChange focusId [] package 2 (System.Guid.NewGuid())
+
+    Assert.Equal<Op list>(
+        package.ops @ [ Op.Replace(focusId, 0, [], owned package.topLevelIds) ],
+        change.ops)
+
+[<Fact>]
 let ``DesktopImportPackage serializes round-trip`` () =
     let package = ImportText.buildPackage "note.txt" "parent\n\tchild" |> requirePackage
     let json = Enc.toString 0 (Serialization.encodeDesktopImportPackage package)
