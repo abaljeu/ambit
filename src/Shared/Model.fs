@@ -43,6 +43,9 @@ type ChildNode =
 
 
 type SpecialKind =
+    | Workspace
+    | Directory
+    | File
     | Trash
 
 type NodeKind =

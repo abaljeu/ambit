@@ -2,17 +2,23 @@
 
 Status: Not implemented (target design)
 Authority: Design intent only; current behavior is defined in [[doc/arch.md]] and [[doc/api.md]].
-See also: [[doc/roadmap/future-merge-sync.md]], [[doc/reference/style.md]]
+See also: [[doc/roadmap/workspace-file-model.md]], [[doc/roadmap/future-merge-sync.md]], [[doc/reference/style.md]]
 
 We will have an expression/command language.  This file defines basic reference expressions that will typically resolve to an array of nodes.
 
 ## Model Elements
+
+The workspace, directory, and file identity rules used here are defined in
+[[doc/roadmap/workspace-file-model.md]].
 
 These expressions will be executed from the context of a node.  A node will usually belong to a file.  A file node owns a subtree of the graph.  A workspace maps a directory in the OS to a workspace node in the graph.  The subdirectories and files may be instantiated into the graph as nodes.  
 
 Workspace, file and directory nodes are unique.  A database table will capture the mapping of path to node.
 
 Within a file subtree, nodes can have tags, referred to as names below.  Not every node is tagged.  Tags may repeat within or across different files.
+
+Path matching for workspace, directory, and file resolution is case-insensitive and uses standard
+operating-system-style wildcard matching, including `*` and `?`.
 
 ## Expression Syntax
 ```ebnf
@@ -64,6 +70,12 @@ Statement  ::= Assignment | Command
    1. `Base` → `@ws1:`
    2. `Base Step` → `@ws1:"My Folder"`
    3. `PathExpr "/" Step` → `(@ws1:"My Folder") / "File Name.md"`
+
+*   **`@bobby:src/*.fs`**
+   1. `Base` → `@bobby:`
+   2. `Base Step` → `@bobby:src`
+   3. `PathExpr "/" Step` → `(@bobby:src) / *.fs`
+   4. Final step matches file names case-insensitively using wildcard semantics
 
 *   **`. / index.html // blue`**
     1. `Base` → `.` (Current file's directory node)
