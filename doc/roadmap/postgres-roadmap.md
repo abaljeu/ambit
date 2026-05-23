@@ -1,10 +1,10 @@
-# Future Overview
+# Roadmap Overview
 
-Summary of committed architectural directions for Gambol, distilled from the planning documents in this folder. Each section identifies the high-level decision and the document(s) that elaborate it.
+Summary of committed architectural directions for Gambol, distilled from the roadmap documents in this folder. Each section identifies the high-level decision and the document(s) that elaborate it.
 
 [x] = every aspect of this item is competed.
 Action: Find the next step in the process, propose the action to the user.  Mark off completed actions with [x].  Update linked documents to keep in-sync with status.  overview.md is current information. Linked documents may require updating.
-A record of actions taken shall be maintained in `Commands executed into Azure.txt`.
+A record of actions taken shall be maintained in [[doc/legacy/Commands executed into Azure.txt]].
 
 ## 0. PostgreSQL as the persistence back-end
 
@@ -19,7 +19,7 @@ A record of actions taken shall be maintained in `Commands executed into Azure.t
 
 - [x] Add DB presence status next to sync on the status line.  Init at load.
 
-*Sources:* [[doc/future/persistence-vs-domain-model.md]] (canonical schema spec), [[doc/future/postgres-migration.md]] (operational summary), [[doc/future/database-migration.md]] (Azure setup notes), [[doc/future/postgres-environments.md]] (dev-to-prod environment management).
+*Sources:* [[doc/roadmap/persistence-vs-domain-model.md]] (canonical schema spec), [[doc/roadmap/postgres-migration.md]] (operational summary), [[doc/roadmap/database-migration.md]] (Azure setup notes), [[doc/roadmap/postgres-environments.md]] (dev-to-prod environment management).
 
 - 
 ---
@@ -41,7 +41,7 @@ This pre-step does not change merge/sync architecture. It only establishes the d
 
 **Cost pressure:** Provisioning the database starts a financial clock (~$13–25/month on Azure Burstable). To manage this during low-usage periods, implement a start/stop automation so the server is only running when in use. If Azure costs remain unfavorable within the first month, evaluate switching to DigitalOcean Managed PostgreSQL (~$15/month, simpler pricing). The app is provider-neutral — only the connection string and provisioning scripts change.
 
-*Source:* [[doc/future/postgres-environments.md]] (Decision now, section 3 setup, section 8 checklist, section 9 cost management).
+*Source:* [[doc/roadmap/postgres-environments.md]] (Decision now, section 3 setup, section 8 checklist, section 9 cost management).
 
 
 
@@ -72,7 +72,7 @@ authority has started, later DB write failures fail change requests rather than 
 - The `changes` table remains the append-only audit trail from which any past state can be reconstructed.
 - The server API is unchanged — clients see no difference.
 
-*Sources:* [[doc/future/persistence-vs-domain-model.md]], [[doc/future/future-merge-sync.md]].
+*Sources:* [[doc/roadmap/persistence-vs-domain-model.md]], [[doc/roadmap/future-merge-sync.md]].
 
 ---
 
@@ -89,9 +89,9 @@ authority has started, later DB write failures fail change requests rather than 
 - **Not real-time collaboration:** Simultaneous editing is treated as a safety net for rare overlap, not as a sub-second shared-cursor experience.
 - **No client-side rebase:** The client does not attempt to rebase stale changes. It submits them as-is and accepts whatever the server returns (success with the merged result, or rejection).
 
-*Source:* [[doc/future/future-merge-sync.md]].
+*Source:* [[doc/roadmap/future-merge-sync.md]].
 
-> **Note:** [[doc/future/robust-client-server-sync.md]] describes a client-side rebase/409 protocol. That design is superseded by server-side merge: the server accepts stale-base submissions directly, so 409 conflict responses and client rebase are not needed.
+> **Note:** [[doc/legacy/robust-client-server-sync.md]] describes a client-side rebase/409 protocol. That design is superseded by server-side merge: the server accepts stale-base submissions directly, so 409 conflict responses and client rebase are not needed.
 
 ---
 
@@ -109,7 +109,7 @@ authority has started, later DB write failures fail change requests rather than 
 - **Polling for remote changes:** The client polls `GET /ambit/changes-since/{revision}` on focus, on `window.online`, and on a ~15-second interval. Remote changes are applied immediately unless they touch a dirty edit, in which case they are deferred until the edit commits or cancels.
 - **IndexedDB / offline cache:** Whether to add a client-side persistent cache (IndexedDB) for offline support is open; the current plan assumes low-latency server access and uses simple browser state.
 
-*Source:* [[doc/future/robust-client-server-sync.md]] (auto-retry and localStorage portions; client-rebase portions are superseded by server-side merge).
+*Source:* [[doc/legacy/robust-client-server-sync.md]] (auto-retry and localStorage portions; client-rebase portions are superseded by server-side merge).
 
 ---
 
@@ -136,7 +136,7 @@ Topology (edges) is small enough to keep fully in memory across all documents. P
 - **Hybrid search:** Instant search over loaded document payloads for local results; async server-side full-text search for global results across unloaded documents.
 - **Topology stays fully in memory:** Edge structure for all documents is always resident. Navigation and path-finding are always synchronous.
 
-*Source:* [[doc/future/memory-management.md]].
+*Source:* [[doc/legacy/memory-management.md]].
 
 ---
 
@@ -144,7 +144,7 @@ Topology (edges) is small enough to keep fully in memory across all documents. P
 
 **Decision:** The unit of replication between server and client is a *whole document* — the full set of nodes with a given `docId` within the single server graph. Edits are node-level, but sync and caching deal in complete documents. Cross-document references are allowed; cross-document edits are logged as a single operation with enough payload for per-document projections to update independently.
 
-*Source:* [[doc/future/future-merge-sync.md]].
+*Source:* [[doc/roadmap/future-merge-sync.md]].
 
 ## 7. Desktop app with local webserver
 

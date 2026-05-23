@@ -235,7 +235,7 @@ let manageFocus
         let editEl = document.getElementById "edit-input"
         if not (isNull editEl) then
             let root = editEl
-            root.focus ()
+            focusPreventScroll root
             if not preserveEditCaret then
                 match model.mode with
                 | Editing (_, caret) ->
@@ -254,15 +254,27 @@ let manageFocus
     | Selecting ->
         let hiddenInput = document.getElementById "hidden-input"
         if not (isNull hiddenInput) then
-            (hiddenInput :?> HTMLInputElement).focus()
+            focusPreventScroll (hiddenInput :?> HTMLInputElement)
         let focusedInstId =
             match model.selectedNodes with
             | None -> model.siteMap.rootId
             | Some sel ->
                 ViewModel.focusedInstanceId sel
                 |> Option.defaultValue model.siteMap.rootId
-        Map.tryFind focusedInstId rowByInstanceId
-        |> Option.iter scrollIntoViewNearest
+        // Only scroll when the focused row changed (navigation) or on a full render.
+        // This prevents the wheel-scroll snap-back caused by non-navigation dispatches.
+        let prevFocusedInstId =
+            match previousModel with
+            | None -> None  // full render — always scroll
+            | Some prev ->
+                match prev.selectedNodes with
+                | None -> Some prev.siteMap.rootId
+                | Some sel ->
+                    ViewModel.focusedInstanceId sel
+                    |> Option.orElse (Some prev.siteMap.rootId)
+        if prevFocusedInstId <> Some focusedInstId then
+            Map.tryFind focusedInstId rowByInstanceId
+            |> Option.iter scrollIntoViewNearest
 
 // ---------------------------------------------------------------------------
 // Command palette rendering
@@ -297,7 +309,7 @@ let renderCommandPalette (model: VM) (dispatch: Msg -> unit) : unit =
     | CommandPalette (q, selectedCommand, ret) ->
         container.classList.add "amb-palette-open"
         let input = document.getElementById "command-palette-input" :?> HTMLInputElement
-        window.setTimeout((fun _ -> input.focus()), 0) |> ignore
+        window.setTimeout((fun _ -> focusPreventScroll input), 0) |> ignore
         let items = filteredCommands ret q |> List.map (fun c -> c.name)
         renderPalette container items selectedCommand
 
@@ -355,7 +367,7 @@ let renderCssClassPrompt (model: VM) (dispatch: Msg -> unit) : unit =
             if not cssClassPromptFilled.Value then
                 cssClassPromptFilled.Value <- true
                 input.value <- initialValue
-            window.setTimeout((fun _ -> input.focus()), 0) |> ignore
+            window.setTimeout((fun _ -> focusPreventScroll input), 0) |> ignore
             if not cssClassPromptWired.Value then
                 cssClassPromptWired.Value <- true
                 input.addEventListener("keydown", fun (ev: Event) ->

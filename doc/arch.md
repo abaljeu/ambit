@@ -122,7 +122,7 @@ Optional host for users who need local filesystem access while using the same we
 
 - **Auth**: desktop can store cloud session cookie (`AuthStore.fs`) so the proxied app is authenticated
 
-The desktop host does **not** become a second source of truth for the graph. See [[doc/future/overview.md]] §7 for product intent.
+The desktop host does **not** become a second source of truth for the graph. See [[doc/roadmap/overview.md]] §7 for product intent.
 
 ## Server
 
@@ -142,7 +142,7 @@ Key modules: `Api.fs` (`AgentHandle`), `FileAgent.fs`, `DbAgent.fs`, `Database.f
 
 Assumption: multiple clients (up to 5) may operate on the same model concurrently.
 
-**Current baseline** (see [[sync-mvp]]): last-write-wins by arrival order on the server.
+**Current baseline** (see [[doc/current/sync-mvp.md]]): last-write-wins by arrival order on the server.
 
 - Client polls `GET /ambit/poll?rev={n}` for remote changes since `n`
 
@@ -282,7 +282,7 @@ Two explicit **persistence modes** (`Persistence:Mode` in config; default **`db`
 
 `db` mode periodically writes **disk backup** from DB state (export only, not read at startup). `file` mode may seed an empty DB from file state on startup.
 
-Full schema and mode rules: [[doc/future/persistence-vs-domain-model.md]]. Operations / environments: [[doc/future/postgres-migration.md]], [[doc/future/postgres-environments.md]].
+Full schema and mode rules: [[doc/roadmap/persistence-vs-domain-model.md]]. Operations / environments: [[doc/roadmap/postgres-migration.md]], [[doc/roadmap/postgres-environments.md]].
 
 Implementation: `Database.fs`, `DbAgent.fs`, `FileAgent.fs`, `AgentHandle` in `Api.fs`.
 
@@ -336,6 +336,6 @@ Tooling: **xUnit** in `tests/Shared.Tests` and `tests/Server.Tests`.
 |-----|------|
 | [[doc/arch.md]] | Architecture, layers, persistence modes |
 | [[doc/api.md]] | HTTP contract (implemented + target) |
-| [[doc/sync-mvp.md]] | Current sync semantics (LWW, poll + changes) |
-| [[doc/future/persistence-vs-domain-model.md]] | DB schema vs domain model |
-| [[doc/future/postgres-environments.md]] | Dev/prod Postgres setup |
+| [[doc/current/sync-mvp.md]] | Current sync semantics (LWW, poll + changes) |
+| [[doc/roadmap/persistence-vs-domain-model.md]] | DB schema vs domain model |
+| [[doc/roadmap/postgres-environments.md]] | Dev/prod Postgres setup |

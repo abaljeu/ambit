@@ -94,7 +94,7 @@ Append-only change log is **persisted**:
 
 On startup the server replays from the log after the last snapshot checkpoint. In-process `History` mirrors applied changes for the running process but is not the durable store.
 
-Persistence mode: `Persistence:Mode` (`db` default, `file` rollback). See [[doc/arch.md]] and [[doc/future/persistence-vs-domain-model.md]].
+Persistence mode: `Persistence:Mode` (`db` default, `file` rollback). See [[doc/arch.md]] and [[doc/roadmap/persistence-vs-domain-model.md]].
 
 There is **no** `POST /save`; snapshots are written asynchronously by agents after accepted changes.
 

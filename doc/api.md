@@ -35,7 +35,7 @@ sequenceDiagram
 - **`GET /state`** returns the full graph for initial load or resync.
 - **`GET /poll`** returns revision, deploy/page build stamps, and a change tail when the client is behind.
 
-There is **no** `POST /submit` (full graph in response) and **no** `POST /save` route. Persistence runs automatically after each accepted change (snapshot + append-only log on disk and/or PostgreSQL `changes` table). See [[doc/future/persistence-vs-domain-model.md]].
+There is **no** `POST /submit` (full graph in response) and **no** `POST /save` route. Persistence runs automatically after each accepted change (snapshot + append-only log on disk and/or PostgreSQL `changes` table). See [[doc/roadmap/persistence-vs-domain-model.md]].
 
 ### Revision tracking
 

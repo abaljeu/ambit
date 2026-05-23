@@ -39,7 +39,7 @@ client → ops → server → persistence → reload.
 - [x] Snapshot written automatically to disk after each accepted change
 - [x] Change log appended to `{file}.log` after each accepted change
 - [x] On startup: load snapshot + replay log entries that follow it
-- [x] Last-write-wins sync per [[sync-mvp]]
+- [x] Last-write-wins sync per [[doc/current/sync-mvp.md]]
 
 ### Client (Fable → JS)
 - [x] On load: `GET /gambol/state`, build local model
@@ -116,7 +116,7 @@ Each step is a deliverable that can be reviewed and tested.
 
 ### Step 5: Client editing – text ✓
 Two UI modes (like Excel): **select mode** and **edit mode**.
-See [[mvpstep5]] for detailed design.
+See [[doc/legacy/mvpstep5.md]] for detailed design.
 
 **Select mode** (default):
 - [x] Click a row to select it (`.selected` highlight); at most one selected row

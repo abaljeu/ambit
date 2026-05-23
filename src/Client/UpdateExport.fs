@@ -4,7 +4,6 @@ open Gambol.Client.JsInterop
 open Gambol.Client.UpdateCodec
 open Gambol.Shared
 open Gambol.Shared.ViewModel
-open Gambol.Shared.ViewModelOps
 
 let private exportBlockedMode =
     function

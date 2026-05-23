@@ -10,7 +10,7 @@
    - `Auth__Password` = your password
    - `WEBSITES_ENABLE_APP_SERVICE_STORAGE` = `true`
    - `Persistence__Mode` = `db` (production default; use `file` only for rollback/testing)
-   - `DB_CONNECTION_STRING` = PostgreSQL connection string (see [[doc/future/postgres-environments.md]])
+   - `DB_CONNECTION_STRING` = PostgreSQL connection string (see [[doc/roadmap/postgres-environments.md]])
 
 4. Place **`appsettings.Production.json`** on the persistent **`/home`** mount (not only in the deployed zip) so config survives redeploys. The server loads it from `/home/appsettings.Production.json` on App Service ([[src/Server/Server.fs]]).
 
@@ -43,7 +43,7 @@ Whether you need to seed files depends on **`Persistence:Mode`**:
 
 - **PostgreSQL is authority.** An empty database starts empty; the app does not import local `data/` files on startup.
 - File upload to `/home/data` is **optional** — used only for backup/export artifacts the server may write, not as the source of truth.
-- Provision and connect Azure Database for PostgreSQL Flexible Server per [[doc/future/postgres-environments.md]].
+- Provision and connect Azure Database for PostgreSQL Flexible Server per [[doc/roadmap/postgres-environments.md]].
 
 ### `file` mode (rollback / testing)
 

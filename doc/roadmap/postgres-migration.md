@@ -1,7 +1,7 @@
 # PostgreSQL (Gambol)
 
 **Canonical design** — Tables and the `db` / `file` authority split are specified in
-[[doc/future/persistence-vs-domain-model.md]].
+[[doc/roadmap/persistence-vs-domain-model.md]].
 
 **Current code** — [[src/Server/Database.fs]] maintains append-only `changes` and a normalized
 projection: singleton `graph`, `nodes`, `node_children`. The legacy `snapshots` SQL table is dropped

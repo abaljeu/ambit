@@ -1,8 +1,8 @@
 # Database migration notes
 
 Status: historical Azure/PostgreSQL setup notes. The current persistence design is in
-[[doc/future/persistence-vs-domain-model.md]] and the operational rollout is in
-[[doc/future/postgres-environments.md]].
+[[doc/roadmap/persistence-vs-domain-model.md]] and the operational rollout is in
+[[doc/roadmap/postgres-environments.md]].
 
 The older `operations_log` / `documents` schema described below is superseded. Current Gambol
 PostgreSQL persistence uses `changes`, `graph`, `nodes`, and `node_children`. The current planned

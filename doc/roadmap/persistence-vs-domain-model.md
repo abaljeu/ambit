@@ -37,7 +37,7 @@ These are the persistence goals for Gambol, independent of how much is implement
    the file log while file authority is active.
 
 Implementation status: normalized projection, DB/file agents, and `Persistence:Mode` are implemented.
-See [[doc/future/postgres-migration.md]] for a short operational summary.
+See [[doc/roadmap/postgres-migration.md]] for a short operational summary.
 
 ---
 
