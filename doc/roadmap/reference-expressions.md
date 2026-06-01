@@ -6,6 +6,10 @@ See also: [[doc/roadmap/workspace-file-model.md]], [[doc/roadmap/future-merge-sy
 
 We will have an expression/command language.  This file defines basic reference expressions that will typically resolve to an array of nodes.
 
+Scope note: this is a target-scope language design document.
+Current stage implementation scope is defined separately in
+[[doc/roadmap/workspace-stage-plan.md]], which is intentionally narrower.
+
 ## Model Elements
 
 The workspace, directory, and file identity rules used here are defined in
@@ -99,6 +103,55 @@ Examples below are tentative ideas.
 `ref` or `ref anything` is not valid.  #x above only accepts an identifier.
 
 Assignment semantics note: assignments always target the current node context.
+
+## Error Handling Semantics
+
+The expression language must not fail silently.
+
+### Parse Errors (syntax)
+
+If input cannot be parsed as a valid expression or statement:
+
+- evaluation does not run
+- no graph mutation is applied
+- the client surfaces a syntax diagnostic at the command/input location
+
+Examples:
+
+- unclosed string
+- unexpected token
+- incomplete step chain
+
+### Resolution Errors (undefined references)
+
+If parsing succeeds but any required reference cannot be resolved:
+
+- evaluation is marked unresolved/failed
+- no graph mutation is applied for mutation statements
+- the client surfaces which reference segment failed to resolve
+
+Examples:
+
+- unknown workspace label in `@workspace:`
+- missing path segment under a resolved base
+- unresolved tag/path selector in a context where at least one target is required
+
+### Command Result Contract
+
+Execution returns an explicit result kind:
+
+- success with resolved targets/value
+- syntax error with diagnostic payload
+- resolution error with diagnostic payload
+
+The language runtime must return one of these explicitly; it must not collapse failures into
+an empty success result.
+
+### UI Requirement
+
+When syntax or resolution errors occur, the user must receive immediate visible feedback.
+Bias to squiggle indicators and similar lightweight feedback.
+No-op without feedback is invalid behavior for this language.
 
 
 

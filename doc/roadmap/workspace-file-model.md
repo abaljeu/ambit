@@ -1,11 +1,15 @@
 # Workspace File Model
 
-Status: Draft
+Status: Draft staged design
 Authority: Design intent only; this document defines target model and persistence rules for workspace, directory, and file identity.
 See also: [[doc/roadmap/reference-expressions.md]], [[doc/roadmap/persistence-vs-domain-model.md]], [[doc/arch.md]]
 
 This document defines the model concepts needed by reference expressions such as `@bobby:`.
 It is about shared identity and persistence shape, not source-level implementation.
+
+Scope note: this is a target-scope design document.
+Current stage implementation scope is defined separately in
+[[doc/roadmap/workspace-stage-plan.md]], which is intentionally narrower.
 
 ## Purpose
 
@@ -15,6 +19,38 @@ directory tree, and how that directory tree relates to a user-visible workspace 
 `@bobby:`.
 
 The goal is to add those concepts without changing the current graph ownership rules.
+
+## Status Tracking
+
+This document describes the target model, but implementation is expected to land in stages.
+To keep the document useful during that process:
+
+- `[x]` means implemented in the current codebase
+- `[~]` means partially implemented or represented in the model, but not yet wired through
+- `[ ]` means target design only
+
+When a section below describes the target end state, that does not by itself mean it is already
+implemented. The stage list below is the current implementation summary.
+
+## Implementation Stages
+
+- `[x]` Stage 1: model vocabulary exists for workspace, directory, and file node kinds in the
+   shared model.
+- `[ ]` Stage 2: graph invariants and operations understand workspace, directory, and file nodes as
+   distinct behavior-bearing concepts.
+- `[ ]` Stage 3: shared persistence stores canonical workspace/path mappings.
+- `[ ]` Stage 4: reference resolution uses workspace/file/directory mappings.
+- `[ ]` Stage 5: client UI shows unresolved-reference indicators.
+- `[ ]` Stage 6: explicit user commands create and modify workspace/file/directory structure.
+
+## Current Implementation Snapshot
+
+- `[x]` `SpecialKind` includes `Workspace`, `Directory`, and `File` in the shared model.
+- `[ ]` No workspace root node behavior is implemented yet.
+- `[ ]` No directory/file path mapping is persisted yet.
+- `[ ]` No reference-expression resolver uses these concepts yet.
+- `[ ]` No visual unresolved-reference indicator is implemented yet.
+- `[ ]` No user command surface exists yet for workspace/file/directory creation or maintenance.
 
 ## Settled Decisions
 
@@ -191,6 +227,8 @@ From node context, `^` resolves to the owning file node.
 If a workspace, directory, or file reference does not resolve, the client should surface that state
 with a visual indicator.
 An unresolved reference does not mutate the graph and does not trigger any automatic repair.
+Unresolved handling must be explicit and user-visible; it must not silently behave as a successful
+empty result.
 
 ## Unmapped Workspace Labels
 

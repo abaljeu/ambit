@@ -1373,6 +1373,9 @@ let ``shiftPgDown reaches full sibling span`` () =
         Assert.Equal(2, sel.focus)
     | None -> Assert.True(false, "Expected Some")
 
+@workspace-doesnt-exist:path/to/file.md#e
+
+
 [<Fact>]
 let ``cursorViewRootFirstChild selects first root child`` () =
     let graph, cont, _ = buildFlat [ "a"; "b"; "c" ]
