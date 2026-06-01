@@ -156,8 +156,12 @@ Verification:
 
 ## 5. Command/UI Surface (Workspace Only)
 
-- Add explicit user commands for workspace lifecycle.
-- Add workspace listing in the client command surface.
+### 5a. Existing search command shall also match nodes based on their path.
+- [[@src/Shared/ViewModelSearch.fs:79-93]] existing search method
+- [[@src/Shared/RefExpr.fs:340-357]] new match method. Should return same NodeSearchResult.
+- The search dialog will merge these results.  RefExpr matches first.
+
+### 5b.
 - Add a desktop-accessible command on workspace nodes for opening the mapped workspace root in
    explorer.
 - Add clear "not locally mapped" feedback when desktop action is invoked without a local mapping.

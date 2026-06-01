@@ -335,6 +335,54 @@ module Graph =
                     let nodes = graph.nodes |> Map.add nodeId updatedNode
                     Ok { graph with nodes = nodes }
 
+    let setName
+        (nodeId: NodeId)
+        (oldName: string)
+        (newName: string)
+        (graph: Graph)
+        : Result<Graph, string>
+        =
+        if nodeId = rootId then
+            Error "cannot modify canonical root name"
+        elif nodeId = trashId then
+            Error "cannot modify trash node name"
+        elif nodeId = workspacesId then
+            Error "cannot modify workspaces node name"
+        else
+            match graph.nodes |> Map.tryFind nodeId with
+            | None -> Error "node not found"
+            | Some node ->
+                if node.name <> Filename.Ok oldName then
+                    Error "old name does not match"
+                else
+                    match Filename.create newName with
+                    | Filename.Invalid _ | Filename.Empty ->
+                        Error "new name is not a valid filename"
+                    | Filename.Ok _ ->
+                        let newNameLower = newName.ToLowerInvariant()
+                        let hasConflict =
+                            match graph.ownerParentByChild |> Map.tryFind nodeId with
+                            | None -> false
+                            | Some parentId ->
+                                graph.nodes.[parentId].children
+                                |> List.exists (fun c ->
+                                    c.ref = Ownership.Owner
+                                    && c.id <> nodeId
+                                    && (graph.nodes
+                                        |> Map.tryFind c.id
+                                        |> Option.bind (fun s ->
+                                            match s.name with
+                                            | Filename.Ok n -> Some(n.ToLowerInvariant())
+                                            | _ -> None)
+                                        |> Option.map (fun n -> n = newNameLower)
+                                        |> Option.defaultValue false))
+                        if hasConflict then
+                            Error "sibling name conflict"
+                        else
+                            let updatedNode =
+                                { node with name = Filename.Ok newName; text = newName }
+                            Ok { graph with nodes = graph.nodes |> Map.add nodeId updatedNode }
+
     let replace
         (parentId: NodeId)
         (index: int)
@@ -395,7 +443,21 @@ module Graph =
                         let suffix = children |> List.skip (index + oldCount)
                         let updatedChildren = prefix @ newChildren @ suffix
 
-                        if parentId = rootId then
+                        let ownerNames =
+                            updatedChildren
+                            |> List.choose (fun c ->
+                                if c.ref = Ownership.Owner then
+                                    graph.nodes
+                                    |> Map.tryFind c.id
+                                    |> Option.bind (fun n ->
+                                        match n.name with
+                                        | Filename.Ok s -> Some(s.ToLowerInvariant())
+                                        | _ -> None)
+                                else None)
+
+                        if ownerNames.Length <> (ownerNames |> List.distinct).Length then
+                            Error "sibling name conflict"
+                        elif parentId = rootId then
                             let hadTrashOwner =
                                 children
                                 |> List.exists (fun c -> c.id = trashId && c.ref = Ownership.Owner)

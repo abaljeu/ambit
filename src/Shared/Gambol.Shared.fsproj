@@ -10,6 +10,7 @@
     <Compile Include="ClientRectCaret.fs" />
     <Compile Include="Filename.fs" />
     <Compile Include="Model.fs" />
+    <Compile Include="RefExpr.fs" />
     <Compile Include="GraphProjection.fs" />
     <Compile Include="History.fs" />
     <Compile Include="LogText.fs" />

@@ -32,7 +32,6 @@ Expression ::= PathExpr
 PathExpr   ::= Base                    (* Evaluates to the base node itself *)
              | Base Step               (* e.g., ^ #blue or @ws1:dir_k *)
              | PathExpr "/" Step       (* e.g., @ws1:dir_k / file.md *)
-             | PathExpr "//" Step      (* e.g., @ws1: // blue *)
              | Primary
 
 Base       ::= "/"                     (* Root node of current workspace *)
@@ -45,10 +44,11 @@ Primary    ::= identifier              (* Function or command invocation *)
              | string                  (* Constant text *)
              | "(" Expression ")"
 
-Step       ::= identifier              (* Name/path segment without spaces *)
+Step       ::= identifier              (* Name/path segment without spaces; may contain * ? *)
              | string                  (* Name/path segment with spaces or punctuation *)
              | "#" identifier         (* Tag selector, e.g. #blue *)
-             | "*"                     (* Wildcard *)
+             | "*"                     (* Single-level wildcard *)
+             | "**"                    (* Multi-level wildcard, standard glob semantics *)
 
 Args       ::= Expression ( "," Expression )* 
              | empty
@@ -81,14 +81,14 @@ Statement  ::= Assignment | Command
    3. `PathExpr "/" Step` → `(@bobby:src) / *.fs`
    4. Final step matches file names case-insensitively using wildcard semantics
 
-*   **`. / index.html // blue`**
+*   **`. / index.html / ** / blue`**
     1. `Base` → `.` (Current file's directory node)
     2. `PathExpr "/" Step` → `. / index.html` (Finds the index file in the directory)
-    3. `PathExpr "//" Step` → `(. / index.html) // blue` (Searches that file for descendants named `blue`)
+    3. `PathExpr "/" Step` → `(. / index.html) / ** / blue` (Expands to descendants, then matches `blue`)
 
-*   **`^//#blue`**
+*   **`^ / ** / #blue`**
    1. `Base` → `^` (Current file root)
-   2. `PathExpr "//" Step` → `^ // #blue` (Descendants tagged `blue`)
+   2. `PathExpr "/" Step` → `^ / ** / #blue` (Descendants tagged `blue`)
 
 
 ## Usage

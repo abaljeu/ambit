@@ -10,6 +10,8 @@ type Op =
         index: int *
         oldChildren: ChildNode list *
         newChildren: ChildNode list
+    | NewSpecialNode of nodeId: NodeId * kind: SpecialKind * name: string
+    | SetName of nodeId: NodeId * oldName: string * newName: string
 
 
 type Change =
@@ -79,6 +81,33 @@ module Op =
         | Op.Replace(parentId, index, oldChildren, newChildren) ->
             Graph.replace parentId index oldChildren newChildren state.graph
             |> fromGraphResult state
+        | Op.NewSpecialNode(nodeId, kind, name) ->
+            if nodeId = Graph.rootId || nodeId = Graph.trashId || nodeId = Graph.workspacesId then
+                ApplyResult.Invalid(state, "cannot NewSpecialNode with canonical id")
+            elif kind = Workspaces || kind = Trash then
+                ApplyResult.Invalid(state, "cannot NewSpecialNode with system-only kind")
+            else
+                match Filename.create name with
+                | Filename.Empty | Filename.Invalid _ ->
+                    ApplyResult.Invalid(state, "invalid filename for NewSpecialNode")
+                | Filename.Ok _ ->
+                    let node: Node =
+                        { id = nodeId
+                          text = name
+                          name = Filename.Ok name
+                          children = []
+                          cssClasses = CssClass.empty
+                          owner = Graph.rootId
+                          kind = Special kind }
+                    ApplyResult.Changed
+                        { state with
+                              graph =
+                                  Graph.fromNodes
+                                      state.graph.root
+                                      (state.graph.nodes |> Map.add nodeId node) }
+        | Op.SetName(nodeId, oldName, newName) ->
+            Graph.setName nodeId oldName newName state.graph
+            |> fromGraphResult state
 
     let undo (op: Op) (state: State) : ApplyResult =
         match op with
@@ -95,6 +124,13 @@ module Op =
         | Op.Replace(parentId, index, oldChildren, newChildren) ->
             // Inverse: swap old/new to restore
             Graph.replace parentId index newChildren oldChildren state.graph
+            |> fromGraphResult state
+        | Op.NewSpecialNode(nodeId, _, _) ->
+            let nodes = state.graph.nodes |> Map.remove nodeId
+            ApplyResult.Changed
+                { state with graph = Graph.fromNodes state.graph.root nodes }
+        | Op.SetName(nodeId, oldName, newName) ->
+            Graph.setName nodeId newName oldName state.graph
             |> fromGraphResult state
 
 
@@ -114,6 +150,8 @@ module Change =
             | Op.SetText(id, old, new_)              -> Op.SetText(id, new_, old)
             | Op.SetClasses(id, oldCls, newCls)      -> Op.SetClasses(id, newCls, oldCls)
             | Op.Replace(pid, i, olds, news)         -> Op.Replace(pid, i, news, olds)
+            | Op.NewSpecialNode(id, kind, name)      -> Op.NewSpecialNode(id, kind, name)
+            | Op.SetName(id, old, new_)              -> Op.SetName(id, new_, old)
         { change with
             changeId = System.Guid.NewGuid()
             ops = change.ops |> List.rev |> List.map invertOp }

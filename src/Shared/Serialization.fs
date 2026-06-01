@@ -181,6 +181,18 @@ module Serialization =
                   "index", Encode.int index
                   "oldChildren", oldChildren |> List.map encodeChildNode |> Encode.list
                   "newChildren", newChildren |> List.map encodeChildNode |> Encode.list ]
+        | Op.NewSpecialNode(nodeId, kind, name) ->
+            Encode.object
+                [ "type", Encode.string "NewSpecialNode"
+                  "nodeId", encodeNodeId nodeId
+                  "kind", encodeSpecialKind kind
+                  "name", Encode.string name ]
+        | Op.SetName(nodeId, oldName, newName) ->
+            Encode.object
+                [ "type", Encode.string "SetName"
+                  "nodeId", encodeNodeId nodeId
+                  "oldName", Encode.string oldName
+                  "newName", Encode.string newName ]
 
     let decodeOp: Decoder<Op> =
         Decode.field "type" Decode.string
@@ -210,6 +222,18 @@ module Serialization =
                         get.Required.Field "index" Decode.int,
                         get.Required.Field "oldChildren" (Decode.list decodeChildNode),
                         get.Required.Field "newChildren" (Decode.list decodeChildNode)))
+            | "NewSpecialNode" ->
+                Decode.object (fun get ->
+                    Op.NewSpecialNode(
+                        get.Required.Field "nodeId" decodeNodeId,
+                        get.Required.Field "kind" decodeSpecialKind,
+                        get.Required.Field "name" Decode.string))
+            | "SetName" ->
+                Decode.object (fun get ->
+                    Op.SetName(
+                        get.Required.Field "nodeId" decodeNodeId,
+                        get.Required.Field "oldName" Decode.string,
+                        get.Required.Field "newName" Decode.string))
             | other ->
                 Decode.fail $"Unknown Op type: {other}")
 
