@@ -25,11 +25,11 @@ let ``Revision round-trip`` () =
     Assert.Equal(rev, decoded)
 
 [<Fact>]
-let ``Node round-trip with Some name`` () =
+let ``Node round-trip with Ok name`` () =
     let node =
         { id = NodeId.New()
           text = "hello world"
-          name = Filename.create "myname" |> Result.toOption
+          name = Filename.create "myname"
           children =
             [ ChildNode.New()
               ChildNode.New()]
@@ -40,11 +40,11 @@ let ``Node round-trip with Some name`` () =
     Assert.Equal(node, decoded)
 
 [<Fact>]
-let ``Node round-trip with None name`` () =
+let ``Node round-trip with Empty name`` () =
     let node =
         { id = NodeId.New()
           text = "hello"
-          name = None
+          name = Filename.Empty
           children = []
           cssClasses = CssClass.empty
           owner = Graph.rootId

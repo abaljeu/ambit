@@ -6,11 +6,12 @@ open Xunit
 
 let private setNodeName (nodeId: NodeId) (nameStr: string option) (graph: Graph) : Graph =
     let name =
-        nameStr
-        |> Option.map (fun s ->
-            match Filename.create s with
-            | Ok f -> f
-            | Error e -> failwith $"setNodeName: invalid filename '{s}': {e}")
+        match nameStr with
+        | None -> Filename.Empty
+        | Some s ->
+            let f = Filename.create s
+            if f = Filename.Invalid s then failwith $"setNodeName: invalid filename '{s}'"
+            f
     let node = graph.nodes.[nodeId]
     Graph.fromNodes graph.root (graph.nodes |> Map.add nodeId { node with name = name })
 

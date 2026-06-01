@@ -104,7 +104,7 @@ module Serialization =
         Encode.object
             [ "id", encodeNodeId node.id
               "text", Encode.string node.text
-              "name", Encode.lossyOption (fun (f: Filename) -> Encode.string f.Value) node.name
+              "name", Encode.lossyOption Encode.string (Filename.tryValue node.name)
               "children", node.children |> List.map encodeChildNode |> Encode.list
               "cssClasses", node.cssClasses |> CssClass.toList |> List.map Encode.string |> Encode.list
               "kind", encodeNodeKind node.kind ]
@@ -117,7 +117,8 @@ module Serialization =
             { id = get.Required.Field "id" decodeNodeId
               text = get.Required.Field "text" Decode.string
               name = get.Optional.Field "name" Decode.string
-                       |> Option.bind (fun s -> Filename.create s |> Result.toOption)
+                       |> Option.map Filename.create
+                       |> Option.defaultValue Filename.Empty
               children = get.Required.Field "children" (Decode.list decodeChildNode)
               cssClasses = get.Optional.Field "cssClasses" (Decode.list Decode.string) |> Option.defaultValue [] |> CssClass.ofList
               owner = Graph.rootId
@@ -146,7 +147,7 @@ module Serialization =
                 Decode.fail "graph missing canonical root node"
             else
                 let n = g.nodes.[Graph.rootId]
-                if n.id <> Graph.rootId || n.text <> "ROOT" || n.name.IsSome
+                if n.id <> Graph.rootId || n.text <> "ROOT" || n.name <> Filename.Empty
                    || n.cssClasses <> CssClass.empty then
                     Decode.fail "canonical root node has wrong shape"
                 else

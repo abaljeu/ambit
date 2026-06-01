@@ -68,8 +68,8 @@ let renderSearchDialog (model: VM) (dispatch: Msg -> unit) : unit =
             Gambol.Client.SearchDialog.currentSearchResults model
             |> List.map (fun hit ->
                 match hit.name with
-                | Some f -> $"${f.Value}  {hit.text}"
-                | None -> hit.text)
+                | Filename.Ok s -> $"${s}  {hit.text}"
+                | _ -> hit.text)
         renderSearchResults container items s.selectedIndex
 
         if not searchDialogWired.Value then

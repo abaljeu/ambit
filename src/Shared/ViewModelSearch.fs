@@ -33,7 +33,7 @@ module ViewModelSearch =
 
     let private nodeMatchesPart (part: string) (node: Node) : bool =
         let textOk = containsCaseInsensitive part node.text
-        let nameOk = node.name |> Option.exists (fun f -> containsCaseInsensitive part f.Value)
+        let nameOk = node.name |> Filename.tryValue |> Option.exists (containsCaseInsensitive part)
         textOk || nameOk
 
     let private nodeMatchesAllParts (parts: string list) (node: Node) : bool =

@@ -174,7 +174,7 @@ let ``loadPersistedState preserves node name`` () = task {
 
     let baseGraph = Graph.create ()
     let trashNode = baseGraph.nodes.[Graph.trashId]
-    let expectedName = Filename.create "trash-node" |> Result.toOption
+    let expectedName = Filename.create "trash-node"
 
     let graphWithName =
         baseGraph.nodes

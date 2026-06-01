@@ -57,7 +57,7 @@ type NodeKind =
 type Node =
     { id         : NodeId
       text       : string
-      name       : Filename option
+      name       : Filename
       children   : ChildNode list
       cssClasses : CssClasses
       owner      : NodeId
@@ -74,7 +74,7 @@ type NodeRange =
 type NodeSearchResult =
     { nodeId: NodeId
       text: string
-      name: Filename option }
+      name: Filename }
 
 type Graph =
     { root: NodeId
@@ -101,7 +101,7 @@ module Graph =
     let rootPlaceholder: Node =
         { id = rootId
           text = "ROOT"
-          name = None
+          name = Filename.Empty
           children = []
           cssClasses = CssClass.empty
           owner = rootId
@@ -141,7 +141,7 @@ module Graph =
                 let trashNode: Node =
                     { id = trashId
                       text = "Trash"
-                      name = None
+                      name = Filename.Empty
                       children = []
                       cssClasses = CssClass.empty
                       owner = rootId
@@ -192,7 +192,7 @@ module Graph =
                 let workspacesNode: Node =
                     { id = workspacesId
                       text = "Workspaces"
-                      name = None
+                      name = Filename.Empty
                       children = []
                       cssClasses = CssClass.empty
                       owner = rootId
@@ -276,7 +276,7 @@ module Graph =
         let node: Node =
             { id = nodeId
               text = text
-              name = None
+              name = Filename.Empty
               children = []
               cssClasses = CssClass.empty
               owner = rootId

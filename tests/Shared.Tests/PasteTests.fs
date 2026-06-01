@@ -174,7 +174,7 @@ let ``buildPasteOpsFromClipboard single node gets fresh id and same text`` () =
                 [ oldId,
                   { id = oldId
                     text = "hello"
-                    name = None
+                    name = Filename.Empty
                     children = []
                     cssClasses = CssClass.empty
                     owner = Graph.rootId
@@ -197,7 +197,7 @@ let ``buildPasteOpsFromClipboard remaps parent-child relationship`` () =
             [ aId,
               { id = aId
                 text = "a"
-                name = None
+                name = Filename.Empty
                 children = owned [ bId ]
                 cssClasses = CssClass.empty
                 owner = Graph.rootId
@@ -205,7 +205,7 @@ let ``buildPasteOpsFromClipboard remaps parent-child relationship`` () =
               bId,
               { id = bId
                 text = "b"
-                name = None
+                name = Filename.Empty
                 children = []
                 cssClasses = CssClass.empty
                 owner = Graph.rootId
@@ -232,7 +232,7 @@ let ``buildPasteOpsFromClipboard multiple top-level nodes`` () =
             [ id1,
               { id = id1
                 text = "x"
-                name = None
+                name = Filename.Empty
                 children = []
                 cssClasses = CssClass.empty
                 owner = Graph.rootId
@@ -240,7 +240,7 @@ let ``buildPasteOpsFromClipboard multiple top-level nodes`` () =
               id2,
               { id = id2
                 text = "y"
-                name = None
+                name = Filename.Empty
                 children = []
                 cssClasses = CssClass.empty
                 owner = Graph.rootId
@@ -263,7 +263,7 @@ let ``buildPasteOpsFromClipboard all old ids absent from new graph keys`` () =
                 [ oldId,
                   { id = oldId
                     text = "z"
-                    name = None
+                    name = Filename.Empty
                     children = []
                     cssClasses = CssClass.empty
                     owner = Graph.rootId

@@ -45,7 +45,7 @@ module GraphProjection =
         |> List.map (fun (_, n) ->
             { id = n.id.Value
               text = n.text
-              name = n.name |> Option.map (fun f -> f.Value)
+              name = Filename.tryValue n.name
               cssClassNames = CssClass.toList n.cssClasses })
 
     let childRowsFromGraph (g: Graph) : ChildPersistenceRow list =
@@ -82,7 +82,7 @@ module GraphProjection =
                 nid,
                 { id = nid
                   text = r.text
-                  name = r.name |> Option.bind (fun s -> Filename.create s |> Result.toOption)
+                  name = r.name |> Option.map Filename.create |> Option.defaultValue Filename.Empty
                   children = []
                   cssClasses = CssClass.ofList r.cssClassNames
                   owner = Graph.rootId

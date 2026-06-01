@@ -2,19 +2,12 @@ namespace Gambol.Shared
 
 open System
 
-type FilenameError =
-    | FilenameEmpty
-    | FilenameTooLong
-    | FilenameReserved
-    | FilenameHasInvalidChar of char
-
-[<Struct>]
+/// A node's filesystem name. Every node carries one of these three states.
+[<RequireQualifiedAccess>]
 type Filename =
-    private | Filename of string
-
-    member this.Value =
-        let (Filename v) = this
-        v
+    | Empty
+    | Invalid of string
+    | Ok of string
 
 [<RequireQualifiedAccess>]
 module Filename =
@@ -24,14 +17,23 @@ module Filename =
     let private isValidChar (c: char) : bool =
         Char.IsLetterOrDigit c || c = '.' || c = '-' || c = '_'
 
-    /// Valid filenames are non-empty, not "." or "..", at most 255 characters,
-    /// and composed only of [A-Za-z0-9._-] so they are transparently usable
-    /// as HTML GET query parameter values without percent-encoding.
-    let create (s: string) : Result<Filename, FilenameError> =
-        if String.IsNullOrEmpty s then Error FilenameEmpty
-        elif s.Length > maxLength then Error FilenameTooLong
-        elif s = "." || s = ".." then Error FilenameReserved
+    /// Maps a raw string to a Filename:
+    ///   null / empty  → Empty
+    ///   "." or ".."   → Invalid s
+    ///   > 255 chars   → Invalid s
+    ///   bad char      → Invalid s
+    ///   otherwise     → Ok s
+    let create (s: string) : Filename =
+        if String.IsNullOrEmpty s then Filename.Empty
+        elif s.Length > maxLength then Filename.Invalid s
+        elif s = "." || s = ".." then Filename.Invalid s
         else
             match s |> Seq.tryFind (fun c -> not (isValidChar c)) with
-            | Some c -> Error (FilenameHasInvalidChar c)
-            | None -> Ok (Filename s)
+            | Some _ -> Filename.Invalid s
+            | None -> Filename.Ok s
+
+    /// Returns the string value for Ok; None for Empty and Invalid.
+    let tryValue (f: Filename) : string option =
+        match f with
+        | Filename.Ok s -> Some s
+        | _ -> None
