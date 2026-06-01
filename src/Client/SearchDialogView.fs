@@ -68,7 +68,7 @@ let renderSearchDialog (model: VM) (dispatch: Msg -> unit) : unit =
             Gambol.Client.SearchDialog.currentSearchResults model
             |> List.map (fun hit ->
                 match hit.name with
-                | Some name -> $"${name}  {hit.text}"
+                | Some f -> $"${f.Value}  {hit.text}"
                 | None -> hit.text)
         renderSearchResults container items s.selectedIndex
 

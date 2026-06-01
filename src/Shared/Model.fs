@@ -57,7 +57,7 @@ type NodeKind =
 type Node =
     { id         : NodeId
       text       : string
-      name       : string option
+      name       : Filename option
       children   : ChildNode list
       cssClasses : CssClasses
       owner      : NodeId
@@ -74,7 +74,7 @@ type NodeRange =
 type NodeSearchResult =
     { nodeId: NodeId
       text: string
-      name: string option }
+      name: Filename option }
 
 type Graph =
     { root: NodeId

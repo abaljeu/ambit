@@ -29,7 +29,7 @@ let ``Node round-trip with Some name`` () =
     let node =
         { id = NodeId.New()
           text = "hello world"
-          name = Some "myname"
+          name = Filename.create "myname" |> Result.toOption
           children =
             [ ChildNode.New()
               ChildNode.New()]

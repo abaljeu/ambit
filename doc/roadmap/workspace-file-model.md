@@ -39,8 +39,8 @@ implemented. The stage list below is the current implementation summary.
    shared model.
 - `[~]` Stage 2: graph invariants and operations understand workspace, directory, and file nodes as
    distinct behavior-bearing concepts.
-- `[ ]` Stage 3: shared persistence stores canonical workspace-label -> workspace-root mapping only.
-- `[ ]` Stage 4: desktop-local API resolves workspace label + relative path via readonly local mapping.
+- `[~]` Stage 3: shared persistence stores canonical workspace-label -> workspace-root mapping only.
+- `[~]` Stage 4: desktop-local API resolves workspace label + relative path via readonly local mapping.
 - `[ ]` Stage 5: client UI uses desktop query surface and shows unresolved-reference indicators.
 - `[ ]` Stage 6: explicit user commands create and modify workspace/file/directory structure.
 
@@ -50,6 +50,8 @@ implemented. The stage list below is the current implementation summary.
 - `[x]` `workspacesId` canonical node exists with `kind = Special Workspaces`.
 - `[x]` `Workspaces` is permanent under root (cannot be removed or edited, like Trash).
 - `[x]` Graph invariants enforce structural placement rules (see Structural Invariants below).
+- `[~]` Desktop-local workspace label → local root mapping: JSON format defined, encode/decode/load/save/resolvePath
+  implemented (`src/Shared/WorkspaceLocalMapping.fs`). HTTP endpoint surface not yet wired.
 - `[ ]` No directory/file path mapping is persisted yet.
 - `[ ]` No reference-expression resolver uses these concepts yet.
 - `[ ]` No visual unresolved-reference indicator is implemented yet.

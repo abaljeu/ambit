@@ -168,24 +168,25 @@ let ``rebuildFromDocumentFiles aligns DB with on-disk document`` () = task {
 }
 
 [<Fact>]
-let ``loadPersistedState preserves empty string node name`` () = task {
+let ``loadPersistedState preserves node name`` () = task {
     let connStr = requireDbConnStr ()
     do! resetTestDatabase connStr
 
     let baseGraph = Graph.create ()
     let trashNode = baseGraph.nodes.[Graph.trashId]
+    let expectedName = Filename.create "trash-node" |> Result.toOption
 
-    let graphWithEmptyName =
+    let graphWithName =
         baseGraph.nodes
-        |> Map.add Graph.trashId { trashNode with name = Some "" }
+        |> Map.add Graph.trashId { trashNode with name = expectedName }
         |> Graph.fromNodes baseGraph.root
 
     use conn = Database.getConnection connStr
     do! conn.OpenAsync()
     use tx = conn.BeginTransaction()
-    do! Database.replaceGraphProjectionWithTx tx graphWithEmptyName 0 |> Async.AwaitTask
+    do! Database.replaceGraphProjectionWithTx tx graphWithName 0 |> Async.AwaitTask
     tx.Commit()
 
     let! loaded = Database.loadPersistedState connStr decodeChange |> Async.AwaitTask
-    Assert.Equal(Some "", loaded.graph.nodes.[Graph.trashId].name)
+    Assert.Equal(expectedName, loaded.graph.nodes.[Graph.trashId].name)
 }

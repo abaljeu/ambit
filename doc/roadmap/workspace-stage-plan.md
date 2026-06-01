@@ -95,6 +95,15 @@ Verification:
 - Keep local mapping storage fully separate from shared persistence.
 
 ## 4. Desktop-Local Workspace Configuration
+
+Done: local config persistence and path resolution implemented in `src/Shared/WorkspaceLocalMapping.fs`
+(encode/decode, loadFromFile/saveToFile, resolvePath). Validation covers label uniqueness, absolute-path
+requirement for workspace roots, and relative-path safety (no `..`, no empty segments, no `:`, `#`, `^`
+or other invalid filename chars; forward-slash separators only).
+Tests: `tests/Shared.Tests/WorkspaceLocalMappingTests.fs`.
+
+Remaining: wire HTTP endpoint surface.
+
 - Expose desktop-local endpoints (loopback + local auth token required):
   - GET workspaces -> workspace labels only
   - GET dir -> directory contents with metadata (name, kind, size, modifiedUtc)
@@ -120,6 +129,30 @@ Verification:
 - Security tests for loopback-only + token requirement.
 - Path validation tests (absolute path, upward traversal, root escape).
 - Conflict tests proving timestamp mismatch returns conflict + current modifiedUtc.
+
+## 4b. Desktop Startup Workspace Registration
+
+When the desktop app starts, it reads the local workspace config and ensures the cloud server's shared graph contains a workspace node for each configured label. This bootstraps the shared model from desktop-local config without requiring the user to issue create commands manually.
+
+- Load local workspace config at startup (before the local proxy begins serving requests) and hold it in memory so `/_desktop/*` workspace endpoints can resolve paths immediately.
+- If local config is absent or empty, skip registration; no requests are sent to the server.
+- If credentials are not available at startup (user not yet logged in), defer registration until the first successful login is detected.
+- Query the server for its current workspace label set.
+- For each label in local config that is absent from the server's workspace set: send a
+  create-workspace operation to the server using the stored credentials.
+- Treat a conflict response (label already exists) as success; this covers concurrent startup or prior partial sync.
+- Labels present in the server but absent from local config: leave unchanged. The server is authoritative for workspace existence; local config only supplies path bindings.
+- On any server error during registration: log the failure and continue. Desktop remains usable; unregistered labels will simply lack workspace nodes on the server until the next startup or until the user creates them via the normal command surface.
+
+Verification:
+
+- Test: startup with local=[A,B,C], server=[B,C,D] → creates A only, leaves B/C/D unchanged.
+- Test: startup with empty local config → no server requests sent.
+- Test: server returns conflict for a label during sync → counted as success, not retried.
+- Test: server unreachable during sync → error logged, remaining labels skipped, no crash.
+- Test: no credentials at startup → registration deferred; on login, sync runs with full label set.
+- Test: in-memory config is populated before the first `/_desktop/workspaces` request is served.
+
 
 ## 5. Command/UI Surface (Workspace Only)
 

@@ -4,7 +4,13 @@ open Gambol.Shared
 open Gambol.Shared.ViewModel
 open Xunit
 
-let private setNodeName (nodeId: NodeId) (name: string option) (graph: Graph) : Graph =
+let private setNodeName (nodeId: NodeId) (nameStr: string option) (graph: Graph) : Graph =
+    let name =
+        nameStr
+        |> Option.map (fun s ->
+            match Filename.create s with
+            | Ok f -> f
+            | Error e -> failwith $"setNodeName: invalid filename '{s}': {e}")
     let node = graph.nodes.[nodeId]
     Graph.fromNodes graph.root (graph.nodes |> Map.add nodeId { node with name = name })
 
@@ -30,11 +36,11 @@ let ``searchNodes dollar prefix strips like plain term name or text`` () =
 [<Fact>]
 let ``searchNodes matches name or text under root BFS order`` () =
     let graph0 = Graph.create ()
-    let graph1, ids = ModelBuilder.createNodes [ "match me"; "other text" ] graph0
+    let graph1, ids = ModelBuilder.createNodes [ "match-me"; "other text" ] graph0
     let nameOnly = ids.[1]
-    let graph2 = graph1 |> setNodeName nameOnly (Some "match me") |> ownedRootChildren ids
+    let graph2 = graph1 |> setNodeName nameOnly (Some "match-me") |> ownedRootChildren ids
     let z = graph2.root
-    let resultIds = ViewModelSearch.searchNodes "match me" z graph2 |> List.map (fun r -> r.nodeId)
+    let resultIds = ViewModelSearch.searchNodes "match-me" z graph2 |> List.map (fun r -> r.nodeId)
     Assert.Equal<NodeId>([ ids.[0]; nameOnly ], resultIds)
 
 [<Fact>]
@@ -114,7 +120,7 @@ let ``searchNodes splits parts can match name and text on same node`` () =
     let graph0 = Graph.create ()
     let graph1, ids = ModelBuilder.createNodes [ "2024 filings"; "unrelated" ] graph0
     let taxId = ids.[0]
-    let graph2 = graph1 |> setNodeName taxId (Some "IRS tax") |> ownedRootChildren ids
+    let graph2 = graph1 |> setNodeName taxId (Some "IRS-tax") |> ownedRootChildren ids
     let z = graph2.root
     let hits = ViewModelSearch.searchNodes "tax 2024" z graph2 |> List.map (fun r -> r.nodeId)
     Assert.Equal<NodeId>([ taxId ], hits)

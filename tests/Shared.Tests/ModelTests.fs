@@ -397,3 +397,49 @@ let ``Graph.replace accepts Normal node under any parent`` () =
         let children = graph3.nodes.[parent].children
         Assert.Equal<NodeId list>([ child ], children |> List.map (fun c -> c.id))
     | Error err -> Assert.True(false, $"Expected Ok, got Error: {err}")
+
+// ---------------------------------------------------------------------------
+// Filename.create
+// ---------------------------------------------------------------------------
+
+[<Fact>]
+let ``Filename.create accepts alphanumeric and ._- chars`` () =
+    Assert.True(Filename.create "hello" |> Result.isOk)
+    Assert.True(Filename.create "Hello-World_2024.txt" |> Result.isOk)
+    Assert.True(Filename.create ".hidden" |> Result.isOk)
+    Assert.True(Filename.create "file.tar.gz" |> Result.isOk)
+
+[<Fact>]
+let ``Filename.create rejects empty string`` () =
+    Assert.Equal(Error FilenameEmpty, Filename.create "")
+
+[<Fact>]
+let ``Filename.create rejects dot and double-dot`` () =
+    Assert.Equal(Error FilenameReserved, Filename.create ".")
+    Assert.Equal(Error FilenameReserved, Filename.create "..")
+
+[<Fact>]
+let ``Filename.create rejects strings over 255 chars`` () =
+    let long = System.String('a', 256)
+    Assert.Equal(Error FilenameTooLong, Filename.create long)
+
+[<Fact>]
+let ``Filename.create rejects space`` () =
+    match Filename.create "bad name" with
+    | Error (FilenameHasInvalidChar ' ') -> ()
+    | other -> Assert.True(false, $"Expected FilenameHasInvalidChar ' ', got {other}")
+
+[<Fact>]
+let ``Filename.create rejects path separators`` () =
+    match Filename.create "a/b" with
+    | Error (FilenameHasInvalidChar '/') -> ()
+    | other -> Assert.True(false, $"Expected FilenameHasInvalidChar '/', got {other}")
+    match Filename.create "a\\b" with
+    | Error (FilenameHasInvalidChar '\\') -> ()
+    | other -> Assert.True(false, $"Expected FilenameHasInvalidChar '\\', got {other}")
+
+[<Fact>]
+let ``Filename.create Value round-trips`` () =
+    match Filename.create "my-file.txt" with
+    | Ok f -> Assert.Equal("my-file.txt", f.Value)
+    | Error e -> Assert.True(false, $"Expected Ok, got {e}")
