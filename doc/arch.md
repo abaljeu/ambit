@@ -188,7 +188,7 @@ A pure, directed, potentially cyclic graph (`src/Shared/Model.fs`).
 
 - `children` : `ChildNode list` — each child has `ref: Ownership` (`Owner` | `Ref`) and `id`
 
-- `cssClasses`, `owner`, `kind` (`Normal` | `Special` e.g. trash)
+- `cssClasses`, `owner`, `kind` (`Normal` | `Special` — trash, workspaces, workspace, directory, file)
 
 **`Graph`**
 
@@ -337,5 +337,6 @@ Tooling: **xUnit** in `tests/Shared.Tests` and `tests/Server.Tests`.
 | [[doc/arch.md]] | Architecture, layers, persistence modes |
 | [[doc/api.md]] | HTTP contract (implemented + target) |
 | [[doc/current/sync-mvp.md]] | Current sync semantics (LWW, poll + changes) |
+| [[doc/current/workspace-graph.md]] | Workspace special nodes and graph invariants (partial) |
 | [[doc/roadmap/persistence-vs-domain-model.md]] | DB schema vs domain model |
 | [[doc/roadmap/postgres-environments.md]] | Dev/prod Postgres setup |

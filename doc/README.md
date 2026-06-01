@@ -16,7 +16,9 @@ Authority rule: when a roadmap, history, or unsorted doc disagrees with a curren
 Document header rule:
 
 - Use a short lightweight header when a doc needs status metadata.
-- Preferred fields: `Category`, `Status`, `Authority`, `See also`.
+- Preferred fields: 
+  - `Category` - NOT the doc's directory; some category of the program.
+  - `See Also`
 - Do not add YAML frontmatter by default; use plain markdown lines unless there is a specific reason to formalize metadata.
 
 Start here:
@@ -25,3 +27,8 @@ Start here:
 - [[doc/spec.md]]
 - [[doc/api.md]]
 - [[doc/roadmap/overview.md]]
+
+Current feature baselines (`current/`):
+
+- [[doc/current/sync-mvp.md]] — multi-client sync semantics
+- [[doc/current/workspace-graph.md]] — workspace special nodes and graph invariants

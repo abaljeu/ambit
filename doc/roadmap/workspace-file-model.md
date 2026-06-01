@@ -8,7 +8,8 @@ This document defines the model concepts needed by reference expressions such as
 It is about shared identity and persistence shape, not source-level implementation.
 
 Scope note: this is a target-scope design document.
-Current stage implementation scope is defined separately in
+Current implemented behavior is summarized in [[doc/current/workspace-graph.md]].
+Stage implementation scope is defined separately in
 [[doc/roadmap/workspace-stage-plan.md]], which is intentionally narrower.
 
 ## Purpose
@@ -38,9 +39,9 @@ implemented. The stage list below is the current implementation summary.
    shared model.
 - `[~]` Stage 2: graph invariants and operations understand workspace, directory, and file nodes as
    distinct behavior-bearing concepts.
-- `[ ]` Stage 3: shared persistence stores canonical workspace/path mappings.
-- `[ ]` Stage 4: reference resolution uses workspace/file/directory mappings.
-- `[ ]` Stage 5: client UI shows unresolved-reference indicators.
+- `[ ]` Stage 3: shared persistence stores canonical workspace-label -> workspace-root mapping only.
+- `[ ]` Stage 4: desktop-local API resolves workspace label + relative path via readonly local mapping.
+- `[ ]` Stage 5: client UI uses desktop query surface and shows unresolved-reference indicators.
 - `[ ]` Stage 6: explicit user commands create and modify workspace/file/directory structure.
 
 ## Current Implementation Snapshot

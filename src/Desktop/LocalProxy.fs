@@ -168,11 +168,22 @@ module LocalProxy =
         do! context.Response.WriteAsync(json, context.RequestAborted)
     }
 
+    let private writeJsonWithStatus (context: HttpContext) (status: int) (json: string) = task {
+        context.Response.StatusCode <- status
+        context.Response.ContentType <- "application/json; charset=utf-8"
+        do! context.Response.WriteAsync(json, context.RequestAborted)
+    }
+
     let private writeBadRequest (context: HttpContext) (message: string) = task {
         context.Response.StatusCode <- StatusCodes.Status400BadRequest
         context.Response.ContentType <- "application/json; charset=utf-8"
         let json = "{\"error\":" + quoteJson message + "}"
         do! context.Response.WriteAsync(json, context.RequestAborted)
+    }
+
+    let private writeUnauthorized (context: HttpContext) = task {
+        let json = "{\"error\":\"unauthorized\"}"
+        do! writeJsonWithStatus context StatusCodes.Status401Unauthorized json
     }
 
     let private readRequestBody (context: HttpContext) = task {
@@ -292,6 +303,20 @@ module LocalProxy =
                         do! writeBadRequest context ("read failed: " + ex.Message)
     }
 
+    let private handleImportGet (context: HttpContext) = task {
+        match context.Request.Query.TryGetValue("path") with
+        | false, _ -> do! writeBadRequest context "path is required"
+        | true, value ->
+            let path = string value
+
+            match decodePathRequest ("{\"path\":" + quoteJson path + "}") with
+            | Error message -> do! writeBadRequest context message
+            | Ok validPath ->
+                let body = "{\"path\":" + quoteJson validPath + "}"
+                context.Request.Body <- new MemoryStream(Encoding.UTF8.GetBytes(body))
+                do! handleImport context
+    }
+
     let private handleExport (context: HttpContext) = task {
         let! body = readRequestBody context
 
@@ -335,6 +360,16 @@ module LocalProxy =
             && context.Request.Path.Equals(PathString "/_desktop/file-status")
         then
             do! handleFileStatus context
+        elif
+            HttpMethods.IsGet context.Request.Method
+            && context.Request.Path.Equals(PathString "/_desktop/file")
+        then
+            do! handleImportGet context
+        elif
+            HttpMethods.IsPost context.Request.Method
+            && context.Request.Path.Equals(PathString "/_desktop/file")
+        then
+            do! handleExport context
         elif
             HttpMethods.IsPost context.Request.Method
             && context.Request.Path.Equals(PathString "/_desktop/import")

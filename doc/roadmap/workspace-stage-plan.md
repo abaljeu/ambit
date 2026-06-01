@@ -91,19 +91,10 @@ Verification:
 
 ## 3. Shared Persistence Shape
 
-- Extend persistence so shared storage can map:
-  - workspace label -> workspace root node
-- Keep workspace labels and node ids synchronized with graph state.
-- Validate startup loading enforces uniqueness and canonicalization.
-
-Verification:
-
-- Persistence round-trip tests for non-empty workspace sets.
-- Startup validation tests for duplicate/case-conflicting labels.
-
-## 4. Desktop-Local Workspace Configuration
 - Desktop feature: local mapping config in DataDir maps workspace label -> absolute local root path.
 - Keep local mapping storage fully separate from shared persistence.
+
+## 4. Desktop-Local Workspace Configuration
 - Expose desktop-local endpoints (loopback + local auth token required):
   - GET workspaces -> workspace labels only
   - GET dir -> directory contents with metadata (name, kind, size, modifiedUtc)

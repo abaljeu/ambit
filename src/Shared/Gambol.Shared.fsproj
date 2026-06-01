@@ -13,6 +13,7 @@
     <Compile Include="History.fs" />
     <Compile Include="LogText.fs" />
     <Compile Include="DesktopCapabilities.fs" />
+    <Compile Include="WorkspaceLocalMapping.fs" />
     <Compile Include="LoginForm.fs" />
     <Compile Include="LoginRedirect.fs" />
     <Compile Include="RedirectRewrite.fs" />
