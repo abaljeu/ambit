@@ -102,18 +102,33 @@ Verification:
 - Startup validation tests for duplicate/case-conflicting labels.
 
 ## 4. Desktop-Local Workspace Configuration
-
-- Add desktop-local store for:
-  - workspace label -> absolute local root path
-- Provide desktop config JSON load/save + validation for workspace mappings.
-- Do not add local-mapping edit/list commands in this stage.
-- Keep local configuration fully separate from shared persistence.
+- Desktop feature: local mapping config in DataDir maps workspace label -> absolute local root path.
+- Keep local mapping storage fully separate from shared persistence.
+- Expose desktop-local endpoints (loopback + local auth token required):
+  - GET workspaces -> workspace labels only
+  - GET dir -> directory contents with metadata (name, kind, size, modifiedUtc)
+  - PUT dir -> create directory
+  - DELETE dir -> delete directory
+  - GET file -> text content + modifiedUtc
+  - PUT file -> replace text content, requires expected modifiedUtc match
+  - DELETE file -> delete file
+- Path safety:
+  - Client sends workspace label + relative path only
+  - Reject absolute paths and any upward traversal (`..`)
+  - Resolve to absolute path under mapped workspace root only; reject root escapes
+- Timestamp validation:
+  - PUT file compares expected modifiedUtc with current modifiedUtc
+  - On mismatch, return conflict and include current modifiedUtc in response
 
 Verification:
 
 - Local config read/write tests.
 - Config validation tests (missing path, duplicate label, malformed JSON).
 - Tests proving local mapping changes do not alter shared graph state.
+- Endpoint contract tests for GET/PUT/DELETE dir/file and GET workspaces.
+- Security tests for loopback-only + token requirement.
+- Path validation tests (absolute path, upward traversal, root escape).
+- Conflict tests proving timestamp mismatch returns conflict + current modifiedUtc.
 
 ## 5. Command/UI Surface (Workspace Only)
 

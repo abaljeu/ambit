@@ -42,7 +42,12 @@ let stripSpecialLinesFromOutline (text: string) : string =
         |> Array.toList
         |> List.filter (fun line ->
             let trimmed = line.Trim()
-            not (trimmed = "#TRASH Trash" || trimmed = "-> #TRASH"))
+            not (
+                trimmed = "#WORKSPACES Workspaces"
+                || trimmed = "-> #WORKSPACES"
+                || trimmed = "#TRASH Trash"
+                || trimmed = "-> #TRASH"
+            ))
         |> List.rev
         |> List.skipWhile (fun l -> l = "")
         |> List.rev

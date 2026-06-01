@@ -87,7 +87,9 @@ module GraphProjection =
                   cssClasses = CssClass.ofList r.cssClassNames
                   owner = Graph.rootId
                   kind =
-                    if nid = Graph.trashId then
+                    if nid = Graph.workspacesId then
+                        Special Workspaces
+                    elif nid = Graph.trashId then
                         Special Trash
                     else
                         Normal })

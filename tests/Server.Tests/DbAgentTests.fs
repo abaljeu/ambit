@@ -36,10 +36,12 @@ let ``DbAgent empty test DB has revision 0 and canonical ROOT`` () = task {
     Assert.Equal(0, rev)
     let graph = decodeGraph json
     let root = graph.nodes.[graph.root]
-    Assert.Equal(2, graph.nodes.Count)
+    Assert.Equal(3, graph.nodes.Count)
     Assert.Equal("ROOT", root.text)
-    Assert.Equal(1, root.children.Length)
-    Assert.Equal(Graph.trashId, root.children.[0].id)
+    Assert.Equal(2, root.children.Length)
+    Assert.Equal(Graph.workspacesId, root.children.[0].id)
+    Assert.Equal("Workspaces", graph.nodes.[Graph.workspacesId].text)
+    Assert.Equal(Graph.trashId, root.children.[1].id)
     Assert.Equal("Trash", graph.nodes.[Graph.trashId].text)
 }
 
@@ -73,10 +75,11 @@ let ``DbAgent new process loads state from projection and changes after post`` (
     let graph2 = decodeGraph json2
     Assert.Equal(Graph.rootId, graph2.root)
     let root = graph2.nodes.[graph2.root]
-    Assert.Equal(2, root.children.Length)
+    Assert.Equal(3, root.children.Length)
     let cid = root.children.[0].id
     Assert.Equal("reload-check", graph2.nodes.[cid].text)
-    Assert.Equal(Graph.trashId, root.children.[1].id)
+    Assert.Equal(Graph.workspacesId, root.children.[1].id)
+    Assert.Equal(Graph.trashId, root.children.[2].id)
 }
 
 [<Fact>]

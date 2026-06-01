@@ -36,7 +36,7 @@ implemented. The stage list below is the current implementation summary.
 
 - `[x]` Stage 1: model vocabulary exists for workspace, directory, and file node kinds in the
    shared model.
-- `[ ]` Stage 2: graph invariants and operations understand workspace, directory, and file nodes as
+- `[~]` Stage 2: graph invariants and operations understand workspace, directory, and file nodes as
    distinct behavior-bearing concepts.
 - `[ ]` Stage 3: shared persistence stores canonical workspace/path mappings.
 - `[ ]` Stage 4: reference resolution uses workspace/file/directory mappings.
@@ -46,7 +46,9 @@ implemented. The stage list below is the current implementation summary.
 ## Current Implementation Snapshot
 
 - `[x]` `SpecialKind` includes `Workspace`, `Directory`, and `File` in the shared model.
-- `[ ]` No workspace root node behavior is implemented yet.
+- `[x]` `workspacesId` canonical node exists with `kind = Special Workspaces`.
+- `[x]` `Workspaces` is permanent under root (cannot be removed or edited, like Trash).
+- `[x]` Graph invariants enforce structural placement rules (see Structural Invariants below).
 - `[ ]` No directory/file path mapping is persisted yet.
 - `[ ]` No reference-expression resolver uses these concepts yet.
 - `[ ]` No visual unresolved-reference indicator is implemented yet.
@@ -75,6 +77,27 @@ implemented. The stage list below is the current implementation summary.
 14. Canonical path normalization follows standard operating-system normalization rules.
 15. Unresolved workspace or path references are surfaced to the user with a visual indicator.
 16. Existing graphs do not require automatic migration to introduce this model.
+17. `Workspaces` is a permanent canonical node under root, identified by a fixed `NodeId`, with the
+   same permanence semantics as `Trash`.
+18. `Workspace` nodes may only exist as direct children of the `Workspaces` node (drive semantics —
+   one level deep).
+19. `Directory` and `File` nodes may only exist as children of a `Workspace` node or another
+   `Directory` node (standard filesystem directory semantics).
+20. Normal nodes may be placed anywhere in the graph without structural restriction.
+
+## Structural Invariants
+
+These placement rules are enforced by `Graph.replace` at the graph layer:
+
+| Node kind | Allowed owner parent |
+|---|---|
+| `Workspaces` | root only (permanent, canonical) |
+| `Workspace` | `Workspaces` only |
+| `Directory` | `Workspace` or `Directory` |
+| `File` | `Workspace` or `Directory` |
+| Normal | anywhere |
+
+No command surface for creating `Workspace`, `Directory`, or `File` nodes exists yet (Stage 6).
 
 ## Model Entities
 

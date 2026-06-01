@@ -43,6 +43,7 @@ type ChildNode =
 
 
 type SpecialKind =
+    | Workspaces
     | Workspace
     | Directory
     | File
@@ -92,6 +93,9 @@ module Graph =
 
     /// Canonical trash node id; stable across snapshot load and replay.
     let trashId: NodeId = NodeId(Guid.Parse "00000000-0000-0000-0000-000000000001")
+
+    /// Canonical workspaces node id; stable across snapshot load and replay.
+    let workspacesId: NodeId = NodeId(Guid.Parse "00000000-0000-0000-0000-000000000002")
 
     /// Initial root node: fixed label, no user-editable fields on root.
     let rootPlaceholder: Node =
@@ -176,6 +180,63 @@ module Graph =
         nodesWithTrash
         |> Map.add rootId { rootNode with children = fixedRootChildren }
 
+    let private ensureWorkspacesNode (nodes: Map<NodeId, Node>) : Map<NodeId, Node> =
+        let hasWorkspaces = Map.containsKey workspacesId nodes
+
+        let nodesWithWorkspaces =
+            if hasWorkspaces then
+                nodes
+            else
+                let rootNode = nodes.[rootId]
+
+                let workspacesNode: Node =
+                    { id = workspacesId
+                      text = "Workspaces"
+                      name = None
+                      children = []
+                      cssClasses = CssClass.empty
+                      owner = rootId
+                      kind = Special Workspaces }
+
+                let workspacesChild: ChildNode =
+                    { ref = Ownership.Owner
+                      id = workspacesId }
+
+                let rootChildren =
+                    if rootNode.children |> List.exists (fun c -> c.id = workspacesId) then
+                        rootNode.children
+                    else
+                        rootNode.children @ [ workspacesChild ]
+
+                nodes
+                |> Map.add rootId { rootNode with children = rootChildren }
+                |> Map.add workspacesId workspacesNode
+
+        let rootNode = nodesWithWorkspaces.[rootId]
+
+        let withoutWorkspaces, workspacesOccurrences =
+            rootNode.children |> List.partition (fun c -> c.id <> workspacesId)
+
+        let workspacesChild =
+            match workspacesOccurrences |> List.tryFind (fun c -> c.ref = Ownership.Owner) with
+            | Some ownerChild -> ownerChild
+            | None ->
+                { ref = Ownership.Owner
+                  id = workspacesId }
+
+        let beforeTrash, afterTrashStart =
+            match withoutWorkspaces |> List.tryFindIndex (fun c -> c.id = trashId) with
+            | Some i ->
+                withoutWorkspaces |> List.take i,
+                withoutWorkspaces |> List.skip i
+            | None ->
+                withoutWorkspaces, []
+
+        let fixedRootChildren = beforeTrash @ [ workspacesChild ] @ afterTrashStart
+
+        nodesWithWorkspaces
+        |> Map.add rootId { rootNode with children = fixedRootChildren }
+
     let private applyOwnerField
         (root: NodeId)
         (ownerParentByChild: Map<NodeId, NodeId>)
@@ -195,7 +256,8 @@ module Graph =
 
     /// Build a graph with recomputed parent indexes (use for decode, snapshots, tests).
     let fromNodes (root: NodeId) (nodes: Map<NodeId, Node>) : Graph =
-        let nodesWithTrash = ensureTrashNode nodes
+        let nodesWithWorkspaces = ensureWorkspacesNode nodes
+        let nodesWithTrash = ensureTrashNode nodesWithWorkspaces
         let pbc, opc = buildParentMaps nodesWithTrash
         let nodesWithOwner = applyOwnerField root opc nodesWithTrash
         { root = root
@@ -236,6 +298,8 @@ module Graph =
             Error "cannot modify canonical root text"
         elif nodeId = trashId then
             Error "cannot modify trash node text"
+        elif nodeId = workspacesId then
+            Error "cannot modify workspaces node text"
         else
             match graph.nodes |> Map.tryFind nodeId with
             | None -> Error "node not found"
@@ -258,6 +322,8 @@ module Graph =
             Error "cannot set classes on canonical root"
         elif nodeId = trashId then
             Error "cannot set classes on trash node"
+        elif nodeId = workspacesId then
+            Error "cannot set classes on workspaces node"
         else
             match graph.nodes |> Map.tryFind nodeId with
             | None -> Error "node not found"
@@ -296,48 +362,84 @@ module Graph =
             then
                 Error "new child not found"
             else
-                let existing =
-                    children
-                    |> List.skip index
-                    |> List.take oldCount
+                let placementError =
+                    newChildren
+                    |> List.tryPick (fun child ->
+                        let childNode = graph.nodes.[child.id]
 
-                if existing <> oldChildren then
-                    Error "old span does not match"
-                else
-                    let prefix = children |> List.take index
-                    let suffix = children |> List.skip (index + oldCount)
-                    let updatedChildren = prefix @ newChildren @ suffix
+                        match childNode.kind with
+                        | Special Workspace when parentId <> workspacesId ->
+                            Some "Workspace nodes may only be placed under Workspaces"
+                        | Special Directory
+                        | Special File ->
+                            match parent.kind with
+                            | Special Workspace
+                            | Special Directory -> None
+                            | _ ->
+                                Some
+                                    "Directory/File nodes may only be placed under a Workspace or Directory node"
+                        | _ -> None)
 
-                    if parentId = rootId then
-                        let hadTrashOwner =
-                            children
-                            |> List.exists (fun c -> c.id = trashId && c.ref = Ownership.Owner)
-                        let hasTrashOwnerAfter =
-                            updatedChildren
-                            |> List.exists (fun c -> c.id = trashId && c.ref = Ownership.Owner)
+                match placementError with
+                | Some msg -> Error msg
+                | None ->
+                    let existing =
+                        children
+                        |> List.skip index
+                        |> List.take oldCount
 
-                        if hadTrashOwner && not hasTrashOwnerAfter then
-                            Error "cannot remove trash owner child from root"
+                    if existing <> oldChildren then
+                        Error "old span does not match"
+                    else
+                        let prefix = children |> List.take index
+                        let suffix = children |> List.skip (index + oldCount)
+                        let updatedChildren = prefix @ newChildren @ suffix
+
+                        if parentId = rootId then
+                            let hadTrashOwner =
+                                children
+                                |> List.exists (fun c -> c.id = trashId && c.ref = Ownership.Owner)
+                            let hasTrashOwnerAfter =
+                                updatedChildren
+                                |> List.exists (fun c -> c.id = trashId && c.ref = Ownership.Owner)
+                            let hadWorkspacesOwner =
+                                children
+                                |> List.exists (fun c -> c.id = workspacesId && c.ref = Ownership.Owner)
+                            let hasWorkspacesOwnerAfter =
+                                updatedChildren
+                                |> List.exists (fun c -> c.id = workspacesId && c.ref = Ownership.Owner)
+
+                            if hadTrashOwner && not hasTrashOwnerAfter then
+                                Error "cannot remove trash owner child from root"
+                            elif hadWorkspacesOwner && not hasWorkspacesOwnerAfter then
+                                Error "cannot remove workspaces owner child from root"
+                            elif
+                                updatedChildren
+                                |> List.filter (fun c -> c.id = trashId && c.ref = Ownership.Owner)
+                                |> List.length
+                                <> 1
+                            then
+                                Error "trash must appear exactly once as an Owner child of root"
+                            elif
+                                updatedChildren
+                                |> List.filter (fun c -> c.id = workspacesId && c.ref = Ownership.Owner)
+                                |> List.length
+                                <> 1
+                            then
+                                Error "workspaces must appear exactly once as an Owner child of root"
+                            else
+                                let updatedParent = { parent with children = updatedChildren }
+                                let nodes = graph.nodes |> Map.add parentId updatedParent
+                                Ok (fromNodes graph.root nodes)
                         elif
                             updatedChildren
-                            |> List.filter (fun c -> c.id = trashId && c.ref = Ownership.Owner)
-                            |> List.length
-                            <> 1
+                            |> List.exists (fun c -> c.id = trashId || c.id = workspacesId)
                         then
-                            Error "trash must appear exactly once as an Owner child of root"
+                            Error "trash and workspaces may not be children of any non-root parent"
                         else
                             let updatedParent = { parent with children = updatedChildren }
                             let nodes = graph.nodes |> Map.add parentId updatedParent
                             Ok (fromNodes graph.root nodes)
-                    elif
-                        updatedChildren
-                        |> List.exists (fun c -> c.id = trashId)
-                    then
-                        Error "trash may not be a child of any non-root parent"
-                    else
-                        let updatedParent = { parent with children = updatedChildren }
-                        let nodes = graph.nodes |> Map.add parentId updatedParent
-                        Ok (fromNodes graph.root nodes)
 
     let tryFindParentAndIndex (targetId: NodeId) (graph: Graph) : (NodeId * int) option =
         Map.tryFind targetId graph.parentByChild

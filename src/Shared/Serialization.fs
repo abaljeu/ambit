@@ -23,11 +23,19 @@ type ChangeBatchAck =
 module Serialization =
     let private encodeSpecialKind (kind: SpecialKind) : IEncodable =
         match kind with
+        | Workspaces -> Encode.string "workspaces"
+        | Workspace -> Encode.string "workspace"
+        | Directory -> Encode.string "directory"
+        | File -> Encode.string "file"
         | Trash -> Encode.string "trash"
 
     let private decodeSpecialKind: Decoder<SpecialKind> =
         Decode.string
         |> Decode.andThen (function
+            | "workspaces" -> Decode.succeed Workspaces
+            | "workspace" -> Decode.succeed Workspace
+            | "directory" -> Decode.succeed Directory
+            | "file" -> Decode.succeed File
             | "trash" -> Decode.succeed Trash
             | other -> Decode.fail $"Unknown special node kind: {other}")
 

@@ -242,3 +242,158 @@ let ``Graph replace parent missing error ends with last 8 hex of parent id`` () 
 // replace: errors when old span does not match existing children at index
 // replace: supports insert (old ids empty) at index
 // replace: supports delete (new ids empty) at index
+
+let private specialNode (id: NodeId) (kind: SpecialKind) (text: string) : Node =
+    { id = id
+      text = text
+      name = None
+      children = []
+      cssClasses = CssClass.empty
+      owner = Graph.rootId
+      kind = Special kind }
+
+let private addSpecialNode (id: NodeId) (kind: SpecialKind) (text: string) (graph: Graph) : Graph =
+    graph.nodes
+    |> Map.add id (specialNode id kind text)
+    |> fun nodes -> Graph.fromNodes graph.root nodes
+
+[<Fact>]
+let ``Graph.create bootstraps WORKSPACES under root with special kind`` () =
+    let graph = Graph.create ()
+    let workspacesNode = graph.nodes.[Graph.workspacesId]
+    match workspacesNode.kind with
+    | Special Workspaces -> ()
+    | _ -> Assert.True(false, "Workspaces node must have kind = Special Workspaces")
+    let rootNode = graph.nodes.[graph.root]
+    let workspacesChildOpt =
+        rootNode.children
+        |> List.tryFind (fun c -> c.id = Graph.workspacesId && c.ref = Ownership.Owner)
+    Assert.True(workspacesChildOpt.IsSome)
+
+[<Fact>]
+let ``Graph.replace rejects removing workspaces owner from root`` () =
+    let graph = Graph.create ()
+    let rootId = graph.root
+    let rootChildren = graph.nodes.[rootId].children
+    let withoutWorkspaces =
+        rootChildren |> List.filter (fun c -> c.id <> Graph.workspacesId)
+    match Graph.replace rootId 0 rootChildren withoutWorkspaces graph with
+    | Ok _ -> Assert.True(false, "expected Error")
+    | Error msg -> Assert.Contains("cannot remove workspaces owner child from root", msg)
+
+[<Fact>]
+let ``Graph.setText on workspaces node is rejected`` () =
+    let graph = Graph.create ()
+    let result = Graph.setText Graph.workspacesId "Workspaces" "Other" graph
+    Assert.True(Result.isError result)
+
+[<Fact>]
+let ``Graph.replace rejects Special Workspace under normal parent`` () =
+    let graph0 = Graph.create ()
+    let graph1, ids = ModelBuilder.createNodes [ "parent" ] graph0
+    let parent = ids.[0]
+    let graph2 =
+        Graph.replace graph1.root 0 [] (owned [ parent ]) graph1 |> requireOk "root->parent"
+    let wsId = NodeId.New()
+    let graph3 = addSpecialNode wsId Workspace "ws" graph2
+    match Graph.replace parent 0 [] (owned [ wsId ]) graph3 with
+    | Ok _ -> Assert.True(false, "expected Error")
+    | Error msg -> Assert.Contains("Workspace nodes may only be placed under Workspaces", msg)
+
+[<Fact>]
+let ``Graph.replace accepts Special Workspace under workspaces node`` () =
+    let graph0 = Graph.create ()
+    let wsId = NodeId.New()
+    let graph1 = addSpecialNode wsId Workspace "ws" graph0
+    match Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) graph1 with
+    | Ok graph2 ->
+        let children = graph2.nodes.[Graph.workspacesId].children
+        Assert.Equal<ChildNode list>(owned [ wsId ], children)
+    | Error err -> Assert.True(false, $"Expected Ok, got Error: {err}")
+
+[<Fact>]
+let ``Graph.replace rejects Special Directory under normal parent`` () =
+    let graph0 = Graph.create ()
+    let graph1, ids = ModelBuilder.createNodes [ "parent" ] graph0
+    let parent = ids.[0]
+    let graph2 =
+        Graph.replace graph1.root 0 [] (owned [ parent ]) graph1 |> requireOk "root->parent"
+    let dirId = NodeId.New()
+    let graph3 = addSpecialNode dirId Directory "dir" graph2
+    match Graph.replace parent 0 [] (owned [ dirId ]) graph3 with
+    | Ok _ -> Assert.True(false, "expected Error")
+    | Error msg ->
+        Assert.Contains(
+            "Directory/File nodes may only be placed under a Workspace or Directory node",
+            msg
+        )
+
+[<Fact>]
+let ``Graph.replace accepts Special Directory under Special Workspace`` () =
+    let graph0 = Graph.create ()
+    let wsId = NodeId.New()
+    let dirId = NodeId.New()
+    let graph1 = addSpecialNode wsId Workspace "ws" graph0
+    let graph2 =
+        Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) graph1
+        |> requireOk "workspaces->ws"
+    let graph3 = addSpecialNode dirId Directory "dir" graph2
+    match Graph.replace wsId 0 [] (owned [ dirId ]) graph3 with
+    | Ok graph4 ->
+        let children = graph4.nodes.[wsId].children
+        Assert.Equal<NodeId list>([ dirId ], children |> List.map (fun c -> c.id))
+    | Error err -> Assert.True(false, $"Expected Ok, got Error: {err}")
+
+[<Fact>]
+let ``Graph.replace accepts Special Directory under Special Directory`` () =
+    let graph0 = Graph.create ()
+    let wsId = NodeId.New()
+    let dirId = NodeId.New()
+    let subDirId = NodeId.New()
+    let graph1 = addSpecialNode wsId Workspace "ws" graph0
+    let graph2 =
+        Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) graph1
+        |> requireOk "workspaces->ws"
+    let graph3 = addSpecialNode dirId Directory "dir" graph2
+    let graph4 =
+        Graph.replace wsId 0 [] (owned [ dirId ]) graph3 |> requireOk "ws->dir"
+    let graph5 = addSpecialNode subDirId Directory "subdir" graph4
+    match Graph.replace dirId 0 [] (owned [ subDirId ]) graph5 with
+    | Ok graph6 ->
+        let children = graph6.nodes.[dirId].children
+        Assert.Equal<NodeId list>([ subDirId ], children |> List.map (fun c -> c.id))
+    | Error err -> Assert.True(false, $"Expected Ok, got Error: {err}")
+
+[<Fact>]
+let ``Graph.replace accepts Special File under Special Directory`` () =
+    let graph0 = Graph.create ()
+    let wsId = NodeId.New()
+    let dirId = NodeId.New()
+    let fileId = NodeId.New()
+    let graph1 = addSpecialNode wsId Workspace "ws" graph0
+    let graph2 =
+        Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) graph1
+        |> requireOk "workspaces->ws"
+    let graph3 = addSpecialNode dirId Directory "dir" graph2
+    let graph4 =
+        Graph.replace wsId 0 [] (owned [ dirId ]) graph3 |> requireOk "ws->dir"
+    let graph5 = addSpecialNode fileId File "file" graph4
+    match Graph.replace dirId 0 [] (owned [ fileId ]) graph5 with
+    | Ok graph6 ->
+        let children = graph6.nodes.[dirId].children
+        Assert.Equal<NodeId list>([ fileId ], children |> List.map (fun c -> c.id))
+    | Error err -> Assert.True(false, $"Expected Ok, got Error: {err}")
+
+[<Fact>]
+let ``Graph.replace accepts Normal node under any parent`` () =
+    let graph0 = Graph.create ()
+    let graph1, ids = ModelBuilder.createNodes [ "parent"; "child" ] graph0
+    let parent = ids.[0]
+    let child = ids.[1]
+    let graph2 =
+        Graph.replace graph1.root 0 [] (owned [ parent ]) graph1 |> requireOk "root->parent"
+    match Graph.replace parent 0 [] (owned [ child ]) graph2 with
+    | Ok graph3 ->
+        let children = graph3.nodes.[parent].children
+        Assert.Equal<NodeId list>([ child ], children |> List.map (fun c -> c.id))
+    | Error err -> Assert.True(false, $"Expected Ok, got Error: {err}")

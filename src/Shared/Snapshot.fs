@@ -48,7 +48,9 @@ module Snapshot =
                 node.text
 
         let ensureCanonicalSid (nodeId: NodeId) : string option =
-            if nodeId = Graph.trashId then
+            if nodeId = Graph.workspacesId then
+                Some "WORKSPACES"
+            elif nodeId = Graph.trashId then
                 Some "TRASH"
             else
                 None
@@ -164,7 +166,9 @@ module Snapshot =
           cssClasses = classes
           owner = Graph.rootId
           kind =
-              if id = Graph.trashId then
+              if id = Graph.workspacesId then
+                  Special Workspaces
+              elif id = Graph.trashId then
                   Special Trash
               else
                   Normal }
@@ -188,6 +192,7 @@ module Snapshot =
 
     let private canonicalNodeIdForSid (sid: string) : NodeId option =
         match sid with
+        | "WORKSPACES" -> Some Graph.workspacesId
         | "TRASH" -> Some Graph.trashId
         | _ -> None
 
