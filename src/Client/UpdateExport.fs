@@ -39,7 +39,7 @@ let exportLocalOp (model: VM) : VM * Effect list =
                     model, []
                 | Ok content ->
                     let body = encodeDesktopExportRequest { path = path; content = content }
-                    let status, responseText = postJsonSync "/_desktop/export" body
+                    let status, responseText = postJsonSync "/_desktop/file" body
 
                     if status < 200 || status >= 300 then
                         consoleLog (

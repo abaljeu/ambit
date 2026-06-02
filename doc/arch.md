@@ -104,7 +104,7 @@ Principle: keep the architecture benefits of MVU while avoiding a heavy UI frame
 
 - Served under `/ambit` from server `wwwroot` (Fable `--outDir src/Server/wwwroot`)
 
-When running in the desktop shell, the client talks to `localhost` (local proxy). Graph authority remains the cloud server; desktop adds `/_desktop/*` for capabilities and file import.
+When running in the desktop shell, the client talks to `localhost` (local proxy). Graph authority remains the cloud server; desktop adds `/_desktop/*` for capabilities and local file access.
 
 ## Desktop
 
@@ -114,11 +114,13 @@ Optional host for users who need local filesystem access while using the same we
 
 - **Proxy** (`src/Desktop/LocalProxy.fs`): forwards `/ambit/*` (and static assets) to the configured cloud base URL; handles `/_desktop/*` locally
 
-- **Capabilities** (`src/Shared/DesktopCapabilities.fs`): `GET /_desktop/capabilities` — what file open/import/export the host allows
+- **Capabilities** (`src/Shared/DesktopCapabilities.fs`): `GET /_desktop/capabilities` — what file open/import/export/status and workspace-path resolution the host allows
 
-- **Import**: `POST /_desktop/import` reads a local path and returns ops/text for the client to apply via normal cloud sync
+- **File status**: `POST /_desktop/file-status` with `{ "path": "..." }` returns whether the path is invalid, creatable, an existing file, or an existing folder (supports `@label:relative` workspace paths when mapped)
 
-- **Export**: `POST /_desktop/export` writes tab-indented child text from the client to a local file (not directories)
+- **File read (import)**: `GET /_desktop/file?path=...` reads a local file or directory listing and returns ops/text for the client to apply via normal cloud sync
+
+- **File write (export)**: `POST /_desktop/file` with `{ "path": "...", "content": "..." }` writes tab-indented child text to a local file (not directories)
 
 - **Auth**: desktop can store cloud session cookie (`AuthStore.fs`) so the proxied app is authenticated
 

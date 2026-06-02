@@ -99,8 +99,8 @@ let private handleImportHttpResponse
 let private requestImportAtPath
     (model: VM) (sel: Selection) (focusId: NodeId) (path: string)
     : VM * Effect list =
-    let body = encodeDesktopFileStatusRequest path
-    let status, responseText = postJsonSync "/_desktop/import" body
+    let url = "/_desktop/file?path=" + encodeUriComponent path
+    let status, responseText = getJsonSync url
 
     if status < 200 || status >= 300 then
         consoleLog (

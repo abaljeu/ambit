@@ -702,8 +702,10 @@ module ViewModel =
         | Some (nodeId, FileReference path) ->
             match model.desktopCapabilities with
             | None -> { model with desktopFileIndicator = BlankFileIndicator }, []
+            | Some { file = { canStatus = false } } ->
+                { model with desktopFileIndicator = BlankFileIndicator }, []
             | Some _ when indicatorMatches nodeId path model.desktopFileIndicator -> model, []
-            | Some _ ->
+            | Some { file = { canStatus = true } } ->
                 { model with desktopFileIndicator = CheckingFileStatus (nodeId, path) },
                 [ RequestDesktopFileStatus (nodeId, path) ]
 

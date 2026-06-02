@@ -87,7 +87,7 @@ let modelWithSel (graph: Graph) (parentNodeId: NodeId) (start: int) (endd: int) 
                   focus = focusIdx } }
 
 let private withDesktop (model: VM) : VM =
-    { model with desktopCapabilities = Some DesktopCapabilities.disabled }
+    { model with desktopCapabilities = Some DesktopCapabilities.desktopEnabled }
 
 let private selectedModelWithText (text: string) : VM =
     let graph, cont, _ = buildFlat [ text ]
@@ -100,6 +100,23 @@ let private selectedModelWithText (text: string) : VM =
 [<Fact>]
 let ``refreshDesktopFileIndicator leaves blank when active node has no reference`` () =
     let model = selectedModelWithText "plain node" |> withDesktop
+    let refreshed, effects = refreshDesktopFileIndicator model
+
+    Assert.Equal(BlankFileIndicator, refreshed.desktopFileIndicator)
+    Assert.Empty(effects)
+
+[<Fact>]
+let ``refreshDesktopFileIndicator leaves blank when status capability is disabled`` () =
+    let caps =
+        { DesktopCapabilities.desktopEnabled with
+            file =
+                { DesktopCapabilities.desktopEnabled.file with
+                    canStatus = false } }
+
+    let model =
+        selectedModelWithText "load [[note.txt]]"
+        |> fun m -> { m with desktopCapabilities = Some caps }
+
     let refreshed, effects = refreshDesktopFileIndicator model
 
     Assert.Equal(BlankFileIndicator, refreshed.desktopFileIndicator)

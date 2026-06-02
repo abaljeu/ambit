@@ -70,10 +70,26 @@ let ``Desktop capabilities disabled round-trip`` () =
     Assert.Equal(DesktopCapabilities.disabled, decoded)
 
 [<Fact>]
-let ``Desktop capabilities use stable file keys`` () =
+let ``Desktop capabilities disabled use stable file keys`` () =
     let json = Enc.toString 0 (DesktopCapabilities.encode DesktopCapabilities.disabled)
 
     Assert.Equal(DesktopCapabilities.disabledJson, json)
+
+[<Fact>]
+let ``Desktop capabilities enabled round-trip`` () =
+    let decoded =
+        roundTrip
+            DesktopCapabilities.encode
+            DesktopCapabilities.decoder
+            DesktopCapabilities.desktopEnabled
+
+    Assert.Equal(DesktopCapabilities.desktopEnabled, decoded)
+
+[<Fact>]
+let ``Desktop capabilities enabled use stable file keys`` () =
+    let json = Enc.toString 0 (DesktopCapabilities.encode DesktopCapabilities.desktopEnabled)
+
+    Assert.Equal(DesktopCapabilities.desktopEnabledJson, json)
 
 [<Fact>]
 let ``Op.NewNode round-trip`` () =

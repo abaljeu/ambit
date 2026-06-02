@@ -3,10 +3,13 @@ namespace Gambol.Shared
 open System
 open Thoth.Json.Core
 
+/// File-related endpoints served by the desktop local proxy under `/_desktop/*`.
 type DesktopFileCapabilities =
     { canOpen: bool
       canImport: bool
-      canExport: bool }
+      canExport: bool
+      canStatus: bool
+      canWorkspacePaths: bool }
 
 type DesktopCapabilities =
     { file: DesktopFileCapabilities }
@@ -52,20 +55,35 @@ module FileReference =
 
 [<RequireQualifiedAccess>]
 module DesktopCapabilities =
-    let disabledJson = """{"file":{"open":false,"import":false,"export":false}}"""
-    let importEnabledJson = """{"file":{"open":false,"import":true,"export":true}}"""
+    let disabledJson =
+        """{"file":{"open":false,"import":false,"export":false,"status":false,"workspacePaths":false}}"""
+
+    let desktopEnabledJson =
+        """{"file":{"open":false,"import":true,"export":true,"status":true,"workspacePaths":true}}"""
 
     let disabled: DesktopCapabilities =
         { file =
             { canOpen = false
               canImport = false
-              canExport = false } }
+              canExport = false
+              canStatus = false
+              canWorkspacePaths = false } }
+
+    let desktopEnabled: DesktopCapabilities =
+        { file =
+            { canOpen = false
+              canImport = true
+              canExport = true
+              canStatus = true
+              canWorkspacePaths = true } }
 
     let private encodeFileCapabilities (capabilities: DesktopFileCapabilities) : IEncodable =
         Encode.object
             [ "open", Encode.bool capabilities.canOpen
               "import", Encode.bool capabilities.canImport
-              "export", Encode.bool capabilities.canExport ]
+              "export", Encode.bool capabilities.canExport
+              "status", Encode.bool capabilities.canStatus
+              "workspacePaths", Encode.bool capabilities.canWorkspacePaths ]
 
     let encode (capabilities: DesktopCapabilities) : IEncodable =
         Encode.object [ "file", encodeFileCapabilities capabilities.file ]
@@ -74,7 +92,9 @@ module DesktopCapabilities =
         Decode.object (fun get ->
             { canOpen = get.Required.Field "open" Decode.bool
               canImport = get.Required.Field "import" Decode.bool
-              canExport = get.Required.Field "export" Decode.bool })
+              canExport = get.Required.Field "export" Decode.bool
+              canStatus = get.Required.Field "status" Decode.bool
+              canWorkspacePaths = get.Required.Field "workspacePaths" Decode.bool })
 
     let decoder: Decoder<DesktopCapabilities> =
         Decode.object (fun get ->

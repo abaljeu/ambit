@@ -255,7 +255,19 @@ let postJson
     (onHttpError: int -> string -> unit) (onNetworkFail: unit -> unit)
     : unit = jsNative
 
-/// Blocking POST for desktop import (synchronous XMLHttpRequest).
+/// Blocking GET for desktop file read (synchronous XMLHttpRequest).
+[<Emit(
+    "(function(url){" +
+    "var xhr=new XMLHttpRequest();" +
+    "xhr.open('GET',url,false);" +
+    "try{xhr.send();return [xhr.status,xhr.responseText||''];}" +
+    "catch(e){return [0,''];}})($0)")>]
+let getJsonSync (url: string) : int * string = jsNative
+
+[<Emit("encodeURIComponent($0)")>]
+let encodeUriComponent (text: string) : string = jsNative
+
+/// Blocking POST for desktop file write (synchronous XMLHttpRequest).
 [<Emit(
     "(function(url, body){" +
     "var xhr=new XMLHttpRequest();" +

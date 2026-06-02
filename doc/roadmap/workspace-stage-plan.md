@@ -159,11 +159,18 @@ Verification:
 ## 5. Command/UI Surface (Workspace Only)
 
 ### 5a. Existing search command shall also match nodes based on their path.
+Done
 - [[@src/Shared/ViewModelSearch.fs:79-93]] existing search method
 - [[@src/Shared/RefExpr.fs:340-357]] new match method. Should return same NodeSearchResult.
 - The search dialog will merge these results.  RefExpr matches first.
 
-### 5b.
+### 5b. Import children of node
+Done
+
+### 5c. Export node children to disk.
+
+### 5d. 
+
 - Add a desktop-accessible command on workspace nodes for opening the mapped workspace root in
    explorer.
 - Add clear "not locally mapped" feedback when desktop action is invoked without a local mapping.
@@ -173,16 +180,6 @@ Verification:
 
 - Command-level tests for happy path and invalid input.
 - UI state tests for unresolved labels and unmapped desktop actions.
-
-## 6. Resolver Support (Workspace Base Only)
-
-- Implement `@workspace:` resolution to workspace root node.
-- If label not found, return unresolved result and visual indicator.
-- Do not add directory/file path steps yet.
-
-Verification:
-
-- Resolver tests for exact, case-variant, and unknown labels.
 
 ## 7. Stage Exit Criteria
 

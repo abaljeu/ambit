@@ -161,7 +161,7 @@ module LocalProxy =
 
         do!
             context.Response.WriteAsync(
-                DesktopCapabilities.importEnabledJson,
+                DesktopCapabilities.desktopEnabledJson,
                 context.RequestAborted)
     }
 
@@ -421,16 +421,6 @@ module LocalProxy =
         elif
             HttpMethods.IsPost context.Request.Method
             && context.Request.Path.Equals(PathString "/_desktop/file")
-        then
-            do! handleExport workspaceMap context
-        elif
-            HttpMethods.IsPost context.Request.Method
-            && context.Request.Path.Equals(PathString "/_desktop/import")
-        then
-            do! handleImport workspaceMap context
-        elif
-            HttpMethods.IsPost context.Request.Method
-            && context.Request.Path.Equals(PathString "/_desktop/export")
         then
             do! handleExport workspaceMap context
         else
