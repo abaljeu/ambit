@@ -2,6 +2,7 @@ module SearchTests
 
 open Gambol.Shared
 open Gambol.Shared.ViewModel
+open RefExprTestTree
 open Xunit
 
 let private setNodeName (nodeId: NodeId) (nameStr: string option) (graph: Graph) : Graph =
@@ -183,3 +184,19 @@ let ``trySearchResultAtDisplayIndex clamps high index to last row`` () =
 let ``trySearchResultAtDisplayIndex empty results is None`` () =
     let graph = Graph.create ()
     Assert.Equal(None, ViewModelSearch.trySearchResultAtDisplayIndex "nope" graph.root graph 0)
+
+[<Fact>]
+let ``searchNodes path word matches RefExpr under root`` () =
+    let t = build ()
+    let got =
+        ViewModelSearch.searchNodes "@bobby:src" t.graph.root t.graph
+        |> List.map (fun r -> r.nodeId)
+    Assert.Equal<NodeId>([ t.bobbySrc ], got)
+
+[<Fact>]
+let ``searchNodes mixed text and path words require same node`` () =
+    let t = build ()
+    let got =
+        ViewModelSearch.searchNodes "readme @bobby:docs/readme.md" t.graph.root t.graph
+        |> List.map (fun r -> r.nodeId)
+    Assert.Equal<NodeId>([ t.readmeMd ], got)

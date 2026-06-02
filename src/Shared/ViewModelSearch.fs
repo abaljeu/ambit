@@ -36,8 +36,62 @@ module ViewModelSearch =
         let nameOk = node.name |> Filename.tryValue |> Option.exists (containsCaseInsensitive part)
         textOk || nameOk
 
-    let private nodeMatchesAllParts (parts: string list) (node: Node) : bool =
-        parts |> List.forall (fun p -> nodeMatchesPart p node)
+    let private nodeToSearchResult (node: Node) : NodeSearchResult =
+        { nodeId = node.id
+          text = node.text
+          name = node.name }
+
+    let private textMatchesPart
+        (part: string)
+        (discoveryOrder: NodeId list)
+        (graph: Graph)
+        : NodeSearchResult list =
+        discoveryOrder
+        |> List.choose (fun nid ->
+            let node = graph.nodes.[nid]
+
+            if nodeMatchesPart part node then
+                Some(nodeToSearchResult node)
+            else
+                None)
+
+    let private refMatchesPart
+        (ctx: RefContext)
+        (part: string)
+        (discoverySet: Set<NodeId>)
+        (graph: Graph)
+        : NodeSearchResult list =
+        match RefExpr.parse part with
+        | Error _ -> []
+        | Ok expr ->
+            RefExpr.match_ ctx graph expr
+            |> List.filter (fun r -> Set.contains r.nodeId discoverySet)
+
+    let private mergePartResults
+        (refHits: NodeSearchResult list)
+        (textHits: NodeSearchResult list)
+        : NodeSearchResult list =
+        let rec dedupeSearch seen (items: NodeSearchResult list) : NodeSearchResult list =
+            match items with
+            | [] -> []
+            | r :: rest ->
+                if Set.contains r.nodeId seen then
+                    dedupeSearch seen rest
+                else
+                    r :: dedupeSearch (Set.add r.nodeId seen) rest
+
+        dedupeSearch Set.empty (refHits @ textHits)
+
+    let private intersectByNodeId (lists: NodeSearchResult list list) : Set<NodeId> =
+        match lists with
+        | [] -> Set.empty
+        | first :: rest ->
+            let firstSet = first |> List.map (fun r -> r.nodeId) |> Set.ofList
+
+            rest
+            |> List.fold (fun acc lst ->
+                Set.intersect acc (lst |> List.map (fun r -> r.nodeId) |> Set.ofList))
+                firstSet
 
     let private tryStructuralChildIds (graph: Graph) (nid: NodeId) : NodeId list =
         graph.nodes
@@ -80,14 +134,23 @@ module ViewModelSearch =
         match parseSearchParts query with
         | None -> []
         | Some parts ->
-            searchDiscoveryOrder zoomRoot graph
+            let discoveryOrder = searchDiscoveryOrder zoomRoot graph
+            let discoverySet = Set.ofList discoveryOrder
+            let ctx = RefExpr.refContext zoomRoot graph
+
+            let perPart =
+                parts
+                |> List.map (fun part ->
+                    mergePartResults
+                        (refMatchesPart ctx part discoverySet graph)
+                        (textMatchesPart part discoveryOrder graph))
+
+            let hitIds = intersectByNodeId perPart
+
+            discoveryOrder
             |> List.choose (fun nid ->
-                let node = graph.nodes.[nid]
-                if nodeMatchesAllParts parts node then
-                    Some
-                        { nodeId = node.id
-                          text = node.text
-                          name = node.name }
+                if Set.contains nid hitIds then
+                    Some(nodeToSearchResult graph.nodes.[nid])
                 else
                     None)
 

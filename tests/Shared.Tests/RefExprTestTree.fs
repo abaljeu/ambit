@@ -95,9 +95,6 @@ let build () : Tree =
       plainChild = gamma.id }
 
 let refContext (tree: Tree) : RefContext =
-    { workspaceRoot = Some tree.workspaceRoot
-      fileRoot = Some tree.contentFile
-      fileDir = Some tree.contentFileDir
-      namedWorkspaces = tree.namedWorkspaces }
+    RefExpr.refContext tree.contentFile tree.graph
 
 let nodeIds (nodes: Node list) : NodeId list = nodes |> List.map (fun n -> n.id)

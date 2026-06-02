@@ -310,6 +310,72 @@ module RefExpr =
 
         result |> Seq.toList
 
+    let private nodeToSearchResult (node: Node) : NodeSearchResult =
+        { nodeId = node.id
+          text = node.text
+          name = node.name }
+
+    let private namedWorkspacesFromGraph (graph: Graph) : Map<string, NodeId> =
+        graph.nodes
+        |> Map.tryFind Graph.workspacesId
+        |> Option.map (fun ws ->
+            ws.children
+            |> List.choose (fun child ->
+                if child.ref <> Ownership.Owner then
+                    None
+                else
+                    graph.nodes
+                    |> Map.tryFind child.id
+                    |> Option.bind (fun node ->
+                        match node.kind with
+                        | Special Workspace ->
+                            match Filename.tryValue node.name with
+                            | Some label -> Some(label.ToLowerInvariant(), node.id)
+                            | None -> None
+                        | _ -> None)))
+        |> Option.defaultValue []
+        |> Map.ofList
+
+    let private walkOwnerChain
+        (contextNode: NodeId)
+        (graph: Graph)
+        : NodeId option * NodeId option * NodeId option =
+        let rec go id seen workspaceRoot fileRoot fileDir =
+            if Set.contains id seen || not (Map.containsKey id graph.nodes) then
+                workspaceRoot, fileRoot, fileDir
+            else
+                let node = graph.nodes.[id]
+
+                let workspaceRoot2 =
+                    match workspaceRoot, node.kind with
+                    | None, Special Workspace -> Some id
+                    | _ -> workspaceRoot
+
+                let fileRoot2 =
+                    match fileRoot, node.kind with
+                    | None, Special File -> Some id
+                    | _ -> fileRoot
+
+                let fileDir2 =
+                    match fileDir, node.kind with
+                    | None, Special Directory -> Some id
+                    | _ -> fileDir
+
+                if id = node.owner then
+                    workspaceRoot2, fileRoot2, fileDir2
+                else
+                    go node.owner (Set.add id seen) workspaceRoot2 fileRoot2 fileDir2
+
+        go contextNode Set.empty None None None
+
+    let refContext (contextNode: NodeId) (graph: Graph) : RefContext =
+        let workspaceRoot, fileRoot, fileDir = walkOwnerChain contextNode graph
+
+        { workspaceRoot = workspaceRoot
+          fileRoot = fileRoot
+          fileDir = fileDir
+          namedWorkspaces = namedWorkspacesFromGraph graph }
+
     let private resolveBase (ctx: RefContext) (pathBase: ExprBase) : NodeId option =
         match pathBase with
         | WorkspaceRoot -> ctx.workspaceRoot
@@ -337,7 +403,7 @@ module RefExpr =
             |> List.collect (fun n -> ownerChildren n.id graph)
             |> List.filter (fun child -> CssClass.contains tag child.cssClasses)
 
-    let match_ (ctx: RefContext) (graph: Graph) (expr: PathExpr) : Node list =
+    let match_ (ctx: RefContext) (graph: Graph) (expr: PathExpr) : NodeSearchResult list =
         let pathBase, steps =
             match expr with
             | BaseOnly b -> b, []
@@ -354,3 +420,4 @@ module RefExpr =
 
             steps
             |> List.fold (fun nodes step -> applyStep graph step nodes) start
+            |> List.map nodeToSearchResult

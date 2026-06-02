@@ -12,7 +12,7 @@ let private parseOk input =
     | Ok expr -> expr
     | Error err -> failwith $"parse failed: {err}"
 
-let private ids nodes = nodes |> List.map (fun n -> n.id) |> Set.ofList
+let private ids results = results |> List.map (fun r -> r.nodeId) |> Set.ofList
 
 // ---- parse ----
 
@@ -71,6 +71,17 @@ let ``parse round-trips all step kinds`` () =
         let expr = parseOk sample
         let again = parseOk (RefExpr.format expr)
         Assert.Equal(expr, again)
+
+// ---- refContext ----
+
+[<Fact>]
+let ``refContext from file node resolves owner chain and named workspaces`` () =
+    let t = tree.Value
+    let ctx = RefExpr.refContext t.contentFile t.graph
+    Assert.Equal(Some t.workspaceRoot, ctx.workspaceRoot)
+    Assert.Equal(Some t.contentFile, ctx.fileRoot)
+    Assert.Equal(Some t.contentFileDir, ctx.fileDir)
+    Assert.Equal<Map<string, NodeId>>(t.namedWorkspaces, ctx.namedWorkspaces)
 
 // ---- match: bases ----
 
