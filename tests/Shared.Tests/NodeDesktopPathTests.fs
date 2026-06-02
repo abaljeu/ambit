@@ -19,7 +19,8 @@ let private specialNode (id: NodeId) (kind: SpecialKind) (name: string) (owner: 
       children = []
       cssClasses = CssClass.empty
       owner = owner
-      kind = Special kind }
+      kind = Special kind
+      updateTime = NodeUpdateTime.missing }
 
 let private graphWithWorkspaceTree () : Graph * NodeId * NodeId * NodeId =
     let graph0 = Graph.create ()

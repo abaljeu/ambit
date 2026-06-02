@@ -103,6 +103,15 @@ let ``Set text updates non-root node when old matches`` () =
     | Error err -> Assert.True(false, $"Expected Ok, got Error: {err}")
 
 [<Fact>]
+let ``Set text updates updateTime`` () =
+    let graph0 = Graph.create ()
+    let graph1, childId = Graph.newNode "hello" graph0
+    let graph2 = Graph.replace graph1.root 0 [] (owned [ childId ]) graph1 |> requireOk "replace"
+    let before = graph2.nodes.[childId].updateTime
+    let graph3 = Graph.setText childId "hello" "bye" graph2 |> requireOk "setText"
+    Assert.True(graph3.nodes.[childId].updateTime > before)
+
+[<Fact>]
 let ``Replace can insert children into non-root node`` () =
     let graph0 = Graph.create ()
     let graph1, contIds = ModelBuilder.createNodes [ "container" ] graph0
@@ -250,7 +259,8 @@ let private specialNode (id: NodeId) (kind: SpecialKind) (text: string) : Node =
       children = []
       cssClasses = CssClass.empty
       owner = Graph.rootId
-      kind = Special kind }
+      kind = Special kind
+      updateTime = NodeUpdateTime.missing }
 
 let private addSpecialNode (id: NodeId) (kind: SpecialKind) (text: string) (graph: Graph) : Graph =
     graph.nodes

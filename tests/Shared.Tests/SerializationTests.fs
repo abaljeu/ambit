@@ -35,7 +35,8 @@ let ``Node round-trip with Ok name`` () =
               ChildNode.New()]
           cssClasses = CssClass.empty
           owner = Graph.rootId
-          kind = Normal }
+          kind = Normal
+          updateTime = System.DateTime(2024, 6, 1, 12, 0, 0, System.DateTimeKind.Utc) }
     let decoded = roundTrip Serialization.encodeNode Serialization.decodeNode node
     Assert.Equal(node, decoded)
 
@@ -48,9 +49,20 @@ let ``Node round-trip with Empty name`` () =
           children = []
           cssClasses = CssClass.empty
           owner = Graph.rootId
-          kind = Normal }
+          kind = Normal
+          updateTime = NodeUpdateTime.missing }
     let decoded = roundTrip Serialization.encodeNode Serialization.decodeNode node
     Assert.Equal(node, decoded)
+
+[<Fact>]
+let ``Node decode without updateTime uses missing sentinel`` () =
+    let nodeId = NodeId.New()
+    let json =
+        $"""{{"id":"{nodeId.Value}","text":"legacy","children":[],"cssClasses":[],"kind":"normal"}}"""
+
+    match Dec.fromString Serialization.decodeNode json with
+    | Error err -> failwith $"Decode failed: {err}"
+    | Ok decoded -> Assert.Equal(NodeUpdateTime.missing, decoded.updateTime)
 
 [<Fact>]
 let ``Graph round-trip`` () =

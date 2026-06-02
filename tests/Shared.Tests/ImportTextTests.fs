@@ -136,7 +136,8 @@ let private normalNode (id: NodeId) text children =
       children = children
       cssClasses = CssClass.empty
       owner = Graph.rootId
-      kind = Normal }
+      kind = Normal
+      updateTime = NodeUpdateTime.missing }
 
 let private specialFileNode (id: NodeId) (name: string) (owner: NodeId) =
     { id = id
@@ -145,7 +146,8 @@ let private specialFileNode (id: NodeId) (name: string) (owner: NodeId) =
       children = []
       cssClasses = CssClass.empty
       owner = owner
-      kind = Special File }
+      kind = Special File
+      updateTime = NodeUpdateTime.missing }
 
 let private graphWithFocus (focusId: NodeId) (focusChildren: ChildNode list) (extraNodes: Node list) =
     let graph0 = Graph.create ()

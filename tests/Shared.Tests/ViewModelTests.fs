@@ -150,7 +150,8 @@ let ``refreshDesktopFileIndicator requests status for Special Workspace path`` (
           children = []
           cssClasses = CssClass.empty
           owner = Graph.workspacesId
-          kind = Special Workspace }
+          kind = Special Workspace
+          updateTime = NodeUpdateTime.missing }
 
     let graph1 =
         graph0.nodes

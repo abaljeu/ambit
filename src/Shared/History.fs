@@ -64,7 +64,8 @@ module Op =
                       children = []
                       cssClasses = CssClass.empty
                       owner = Graph.rootId
-                      kind = Normal }
+                      kind = Normal
+                      updateTime = NodeUpdateTime.now () }
 
                 ApplyResult.Changed
                     { state with
@@ -98,7 +99,8 @@ module Op =
                           children = []
                           cssClasses = CssClass.empty
                           owner = Graph.rootId
-                          kind = Special kind }
+                          kind = Special kind
+                          updateTime = NodeUpdateTime.now () }
                     ApplyResult.Changed
                         { state with
                               graph =

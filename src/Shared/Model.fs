@@ -61,7 +61,18 @@ type Node =
       children   : ChildNode list
       cssClasses : CssClasses
       owner      : NodeId
-      kind       : NodeKind }
+      kind       : NodeKind
+      updateTime : DateTime }
+
+
+[<RequireQualifiedAccess>]
+module NodeUpdateTime =
+    /// Canonical nodes and JSON without `updateTime`.
+    let missing = DateTime.MinValue
+
+    let now () = DateTime.UtcNow
+
+    let touch (node: Node) : Node = { node with updateTime = now () }
 
 
 // Span of child indices [start, endd) under graph node `pnode` (parent NodeId).
@@ -105,7 +116,8 @@ module Graph =
           children = []
           cssClasses = CssClass.empty
           owner = rootId
-          kind = Normal }
+          kind = Normal
+          updateTime = NodeUpdateTime.missing }
 
     let private addStructuralEdges (parentId: NodeId) (parent: Node) acc =
         parent.children
@@ -145,7 +157,8 @@ module Graph =
                       children = []
                       cssClasses = CssClass.empty
                       owner = rootId
-                      kind = Special Trash }
+                      kind = Special Trash
+                      updateTime = NodeUpdateTime.missing }
 
                 let trashChild: ChildNode =
                     { ref = Ownership.Owner
@@ -196,7 +209,8 @@ module Graph =
                       children = []
                       cssClasses = CssClass.empty
                       owner = rootId
-                      kind = Special Workspaces }
+                      kind = Special Workspaces
+                      updateTime = NodeUpdateTime.missing }
 
                 let workspacesChild: ChildNode =
                     { ref = Ownership.Owner
@@ -280,7 +294,8 @@ module Graph =
               children = []
               cssClasses = CssClass.empty
               owner = rootId
-              kind = Normal }
+              kind = Normal
+              updateTime = NodeUpdateTime.now () }
         let nodes = graph.nodes |> Map.add nodeId node
         { graph with nodes = nodes }, nodeId
 
@@ -307,7 +322,7 @@ module Graph =
                 if node.text <> oldText then
                     Error "old text does not match"
                 else
-                    let updatedNode = { node with text = newText }
+                    let updatedNode = NodeUpdateTime.touch { node with text = newText }
                     let nodes = graph.nodes |> Map.add nodeId updatedNode
                     Ok { graph with nodes = nodes }
 
@@ -331,7 +346,7 @@ module Graph =
                 if node.cssClasses <> oldClasses then
                     Error "old classes do not match"
                 else
-                    let updatedNode = { node with cssClasses = newClasses }
+                    let updatedNode = NodeUpdateTime.touch { node with cssClasses = newClasses }
                     let nodes = graph.nodes |> Map.add nodeId updatedNode
                     Ok { graph with nodes = nodes }
 
@@ -380,7 +395,8 @@ module Graph =
                             Error "sibling name conflict"
                         else
                             let updatedNode =
-                                { node with name = Filename.Ok newName; text = newName }
+                                NodeUpdateTime.touch
+                                    { node with name = Filename.Ok newName; text = newName }
                             Ok { graph with nodes = graph.nodes |> Map.add nodeId updatedNode }
 
     let replace
@@ -490,7 +506,8 @@ module Graph =
                             then
                                 Error "workspaces must appear exactly once as an Owner child of root"
                             else
-                                let updatedParent = { parent with children = updatedChildren }
+                                let updatedParent =
+                                    NodeUpdateTime.touch { parent with children = updatedChildren }
                                 let nodes = graph.nodes |> Map.add parentId updatedParent
                                 Ok (fromNodes graph.root nodes)
                         elif
@@ -499,7 +516,8 @@ module Graph =
                         then
                             Error "trash and workspaces may not be children of any non-root parent"
                         else
-                            let updatedParent = { parent with children = updatedChildren }
+                            let updatedParent =
+                                NodeUpdateTime.touch { parent with children = updatedChildren }
                             let nodes = graph.nodes |> Map.add parentId updatedParent
                             Ok (fromNodes graph.root nodes)
 

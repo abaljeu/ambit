@@ -171,7 +171,8 @@ module Snapshot =
               elif id = Graph.trashId then
                   Special Trash
               else
-                  Normal }
+                  Normal
+          updateTime = NodeUpdateTime.missing }
 
     let private outlineStubNode (id: NodeId) : Node =
         outlineTextNode id "" CssClass.empty
@@ -234,7 +235,8 @@ module Snapshot =
             |> Map.tryFind chosenId
             |> Option.defaultValue (outlineTextNode chosenId nodeText classes)
 
-        let n = { prior with text = nodeText; cssClasses = classes }
+        let n =
+            NodeUpdateTime.touch { prior with text = nodeText; cssClasses = classes }
         let nodes' = nodes |> Map.add chosenId n
         let idMap' = idMap |> Map.add sid chosenId
         chosenId, nodes', idMap'

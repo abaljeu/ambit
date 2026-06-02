@@ -92,7 +92,8 @@ module GraphProjection =
                     elif nid = Graph.trashId then
                         Special Trash
                     else
-                        Normal })
+                        Normal
+                  updateTime = NodeUpdateTime.missing })
             |> Map.ofList
 
         let badRef (g: ChildPersistenceRow) =

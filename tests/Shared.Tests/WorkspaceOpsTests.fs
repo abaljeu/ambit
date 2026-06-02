@@ -40,7 +40,8 @@ let private addNamedNode (name: string) (graph: Graph) : Graph * NodeId =
           children = []
           cssClasses = CssClass.empty
           owner = Graph.rootId
-          kind = Normal }
+          kind = Normal
+          updateTime = NodeUpdateTime.missing }
     Graph.fromNodes graph.root (graph.nodes |> Map.add nodeId node), nodeId
 
 /// Insert a new owner child at the end of a node's child list.

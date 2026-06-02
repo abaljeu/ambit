@@ -1,5 +1,6 @@
 namespace Gambol.Shared
 
+open System
 open Thoth.Json.Core
 open Thoth.Json.JavaScript
 
@@ -107,7 +108,8 @@ module Serialization =
               "name", Encode.lossyOption Encode.string (Filename.tryValue node.name)
               "children", node.children |> List.map encodeChildNode |> Encode.list
               "cssClasses", node.cssClasses |> CssClass.toList |> List.map Encode.string |> Encode.list
-              "kind", encodeNodeKind node.kind ]
+              "kind", encodeNodeKind node.kind
+              "updateTime", Encode.int64 node.updateTime.Ticks ]
 
     let decodeNode: Decoder<Node> =
         Decode.object (fun get ->
@@ -122,7 +124,11 @@ module Serialization =
               children = get.Required.Field "children" (Decode.list decodeChildNode)
               cssClasses = get.Optional.Field "cssClasses" (Decode.list Decode.string) |> Option.defaultValue [] |> CssClass.ofList
               owner = Graph.rootId
-              kind = kind })
+              kind = kind
+              updateTime =
+                  get.Optional.Field "updateTime" Decode.int64
+                  |> Option.map (fun ticks -> DateTime(ticks, DateTimeKind.Utc))
+                  |> Option.defaultValue NodeUpdateTime.missing })
 
     // ---- Graph ----
 

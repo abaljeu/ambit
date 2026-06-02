@@ -24,7 +24,8 @@ let private specialNode (id: NodeId) (kind: SpecialKind) (name: string) (owner: 
       children = []
       cssClasses = CssClass.empty
       owner = owner
-      kind = Special kind }
+      kind = Special kind
+      updateTime = NodeUpdateTime.missing }
 
 let private addUnder (parentId: NodeId) (child: Node) (graph: Graph) : Graph =
     let parent = graph.nodes.[parentId]
@@ -42,7 +43,8 @@ let private normalNode (text: string) (classes: CssClasses) (owner: NodeId) : No
       children = []
       cssClasses = classes
       owner = owner
-      kind = Normal }
+      kind = Normal
+      updateTime = NodeUpdateTime.missing }
 
 /// Workspace tree under Workspaces plus a tagged outline under `app.fs`.
 let build () : Tree =
