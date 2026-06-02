@@ -408,6 +408,11 @@ module ViewModel =
     let focusedNodeId (graph: Graph) (sel: Selection) : NodeId =
         graph.nodes.[sel.range.parent.nodeId].children.[sel.focus].id
 
+    /// Focused graph node for `sel`, if it still exists in `graph.nodes`.
+    let tryFindFocusedNode (graph: Graph) (sel: Selection) : (NodeId * Node) option =
+        let focusId = focusedNodeId graph sel
+        Map.tryFind focusId graph.nodes |> Option.map (fun node -> focusId, node)
+
     /// Focused instance under `sel.range.parent` at `sel.focus`, if in range of that snapshot list.
     let focusedInstanceId (sel: Selection) : SiteId option =
         List.tryItem sel.focus sel.range.parent.children
@@ -668,12 +673,17 @@ module ViewModel =
         | Some sel ->
             Some (focusedNodeId model.graph sel)
 
+    let tryFindFocusedPath (graph: Graph) (sel: Selection) : (NodeId * string) option =
+        let focusId = focusedNodeId graph sel
+
+        NodeDesktopPath.pathForNodeId graph focusId
+        |> Option.map (fun path -> focusId, path)
+
     let activeFileReference (model: VM) : (NodeId * FileReference) option =
         activeNodeId model
         |> Option.bind (fun nodeId ->
-            model.graph.nodes
-            |> Map.tryFind nodeId
-            |> Option.map (fun node -> nodeId, FileReference.parseFirst node.text))
+            NodeDesktopPath.fileReferenceForNodeId model.graph nodeId
+            |> Option.map (fun fileRef -> nodeId, fileRef))
 
     let private indicatorMatches nodeId path =
         function

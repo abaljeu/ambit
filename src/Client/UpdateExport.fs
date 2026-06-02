@@ -18,14 +18,7 @@ let private canExportDesktop (model: VM) =
     | _ -> false
 
 let private focusFilePath (model: VM) (sel: Selection) : (NodeId * string) option =
-    let focusId = focusedNodeId model.graph sel
-
-    match Map.tryFind focusId model.graph.nodes with
-    | None -> None
-    | Some node ->
-        match FileReference.parseFirst node.text with
-        | FileReference path -> Some (focusId, path)
-        | _ -> None
+    tryFindFocusedPath model.graph sel
 
 /// Export owned children of the focus row to the local file at `[[path]]`.
 let exportLocalOp (model: VM) : VM * Effect list =

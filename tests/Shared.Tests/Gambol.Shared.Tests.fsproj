@@ -24,6 +24,7 @@
     <Compile Include="RedirectRewriteTests.fs" />
     <Compile Include="ImportTextTests.fs" />
     <Compile Include="ExportTextTests.fs" />
+    <Compile Include="NodeDesktopPathTests.fs" />
     <Compile Include="SearchTests.fs" />
     <Compile Include="SearchDialogModeTests.fs" />
     <Compile Include="ViewModelTests.fs" />

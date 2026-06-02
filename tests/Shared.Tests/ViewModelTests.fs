@@ -123,6 +123,34 @@ let ``refreshDesktopFileIndicator requests status for valid active reference`` (
     Assert.Equal<Effect list>([ RequestDesktopFileStatus (nodeId, "note.txt") ], effects)
 
 [<Fact>]
+let ``refreshDesktopFileIndicator requests status for Special Workspace path`` () =
+    let graph0 = Graph.create ()
+    let wsId = NodeId.New()
+    let wsNode =
+        { id = wsId
+          text = "home"
+          name = Filename.Ok "home"
+          children = []
+          cssClasses = CssClass.empty
+          owner = Graph.workspacesId
+          kind = Special Workspace }
+
+    let graph1 =
+        graph0.nodes
+        |> Map.add wsId wsNode
+        |> fun nodes -> Graph.fromNodes graph0.root nodes
+
+    let graph2 =
+        Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) graph1
+        |> ModelBuilder.requireOk "workspaces->ws"
+
+    let model = modelWithSel graph2 Graph.workspacesId 0 1 0 |> withDesktop
+    let refreshed, effects = refreshDesktopFileIndicator model
+
+    Assert.Equal(CheckingFileStatus (wsId, "@home:"), refreshed.desktopFileIndicator)
+    Assert.Equal<Effect list>([ RequestDesktopFileStatus (wsId, "@home:") ], effects)
+
+[<Fact>]
 let ``refreshDesktopFileIndicator does not repeat matching status request`` () =
     let model = selectedModelWithText "load [[note.txt]]" |> withDesktop
     let checkedModel, _ = refreshDesktopFileIndicator model
@@ -465,6 +493,30 @@ let ``collapseToFocus narrows multi-node selection to focused row`` () =
         Assert.Equal(2, sel.range.endd)
         Assert.Equal(1, sel.focus)
         Assert.Equal(ids.[1], focusedNodeId graph sel)
+
+// ---------------------------------------------------------------------------
+// tryFindFocusedNode
+// ---------------------------------------------------------------------------
+
+[<Fact>]
+let ``tryFindFocusedNode returns focused node when present`` () =
+    let graph, cont, ids = buildFlat [ "a"; "b"; "c" ]
+    let sel = modelWithSel graph cont 0 1 0 |> fun m -> m.selectedNodes.Value
+
+    match tryFindFocusedNode graph sel with
+    | None -> Assert.True(false, "expected Some")
+    | Some (focusId, node) ->
+        Assert.Equal(ids.[0], focusId)
+        Assert.Equal("a", node.text)
+
+[<Fact>]
+let ``tryFindFocusedNode returns None when node missing from graph`` () =
+    let graph, cont, ids = buildFlat [ "a"; "b" ]
+    let sel = modelWithSel graph cont 0 1 0 |> fun m -> m.selectedNodes.Value
+    let graphMissing =
+        { graph with nodes = graph.nodes |> Map.remove ids.[0] }
+
+    Assert.True(tryFindFocusedNode graphMissing sel |> Option.isNone)
 
 // ---------------------------------------------------------------------------
 // applyMoveSelectionDown / applyMoveSelectionUp — multi-range focus moves

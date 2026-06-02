@@ -1,5 +1,6 @@
 namespace Gambol.Shared
 
+#if !FABLE_COMPILER
 open System
 open System.IO
 open System.Text.Json
@@ -183,3 +184,4 @@ module WorkspaceLocalMapping =
                     | :? ArgumentException -> Error "invalid_path"
                     | :? NotSupportedException -> Error "invalid_path"
                     | :? PathTooLongException -> Error "invalid_path"
+#endif
