@@ -22,6 +22,7 @@
     <Compile Include="LoginFormTests.fs" />
     <Compile Include="LoginRedirectTests.fs" />
     <Compile Include="RedirectRewriteTests.fs" />
+    <Compile Include="FileSyncIndicatorTests.fs" />
     <Compile Include="ImportTextTests.fs" />
     <Compile Include="ExportTextTests.fs" />
     <Compile Include="NodeDesktopPathTests.fs" />

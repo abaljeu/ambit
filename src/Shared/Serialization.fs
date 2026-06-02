@@ -290,14 +290,26 @@ module Serialization =
             | None -> Decode.fail $"Unknown desktop file status: {text}")
 
     let encodeDesktopFileStatusResponse (response: DesktopFileStatusResponse) : IEncodable =
-        Encode.object
+        let fields =
             [ "path", Encode.string response.path
               "status", encodeDesktopFileStatus response.status ]
+
+        let fields =
+            match response.sourceModifiedUtc with
+            | None -> fields
+            | Some t ->
+                fields
+                @ [ "sourceModifiedUtc", Encode.int64 (t.ToUniversalTime().Ticks) ]
+
+        Encode.object fields
 
     let decodeDesktopFileStatusResponse: Decoder<DesktopFileStatusResponse> =
         Decode.object (fun get ->
             { path = get.Required.Field "path" Decode.string
-              status = get.Required.Field "status" decodeDesktopFileStatus })
+              status = get.Required.Field "status" decodeDesktopFileStatus
+              sourceModifiedUtc =
+                  get.Optional.Field "sourceModifiedUtc" Decode.int64
+                  |> Option.map (fun ticks -> System.DateTime(ticks, System.DateTimeKind.Utc)) })
 
     // ---- Change ----
 

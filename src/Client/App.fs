@@ -176,7 +176,13 @@ let createRuntime (initialModel: VM) =
         let onOk (text: string) : unit =
             match decodeDesktopFileStatusResponse text with
             | Ok response ->
-                dispatch (SysMsg (DesktopFileStatusReceived (nodeId, response.path, response.status)))
+                dispatch (
+                    SysMsg (
+                        DesktopFileStatusReceived (
+                            nodeId,
+                            response.path,
+                            response.status,
+                            response.sourceModifiedUtc)))
             | Error err ->
                 consoleLog ("[Gambol desktop] file-status decode failed: " + err)
         let onHttpError (status: int) (text: string) : unit =

@@ -234,7 +234,13 @@ let ``buildDirectoryMergeChange appends only new entries at end`` () =
 
 [<Fact>]
 let ``DesktopFileStatusResponse serializes round-trip`` () =
-    let response = { path = "note.txt"; status = ExistingFile }
+    let source = System.DateTime(2024, 6, 1, 12, 0, 0, System.DateTimeKind.Utc)
+
+    let response =
+        { path = "note.txt"
+          status = ExistingFile
+          sourceModifiedUtc = Some source }
+
     let json = Enc.toString 0 (Serialization.encodeDesktopFileStatusResponse response)
 
     match Dec.fromString Serialization.decodeDesktopFileStatusResponse json with
@@ -242,3 +248,4 @@ let ``DesktopFileStatusResponse serializes round-trip`` () =
     | Ok decoded ->
         Assert.Equal(response.path, decoded.path)
         Assert.Equal(response.status, decoded.status)
+        Assert.Equal(response.sourceModifiedUtc, decoded.sourceModifiedUtc)

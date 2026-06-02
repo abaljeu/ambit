@@ -688,7 +688,7 @@ module ViewModel =
     let private indicatorMatches nodeId path =
         function
         | CheckingFileStatus (indicatorNodeId, indicatorPath)
-        | FileStatusIndicator (indicatorNodeId, indicatorPath, _) ->
+        | FileStatusIndicator (indicatorNodeId, indicatorPath, _, _) ->
             indicatorNodeId = nodeId && indicatorPath = path
         | _ -> false
 
@@ -713,22 +713,26 @@ module ViewModel =
         (nodeId: NodeId)
         (path: string)
         (status: DesktopFileStatus)
+        (sourceModifiedUtc: System.DateTime option)
         (model: VM)
         : VM =
         match activeFileReference model with
         | Some (activeNodeId, FileReference activePath)
             when activeNodeId = nodeId && activePath = path ->
-            { model with desktopFileIndicator = FileStatusIndicator (nodeId, path, status) }
+            { model with
+                desktopFileIndicator =
+                    FileStatusIndicator (nodeId, path, status, sourceModifiedUtc) }
         | _ -> model
 
-    let desktopFileIndicatorText (model: VM) (entry: SiteEntry) : string =
+    let desktopFileIndicatorText (model: VM) (entry: SiteEntry) (node: Node) : string =
         if not (isActiveEntry model entry) then ""
         else
             match model.desktopFileIndicator with
             | BlankFileIndicator -> ""
             | CheckingFileStatus _ -> "..."
             | InvalidFileReferenceIndicator -> "invalid"
-            | FileStatusIndicator (_, _, status) -> DesktopFileStatus.label status
+            | FileStatusIndicator (_, _, status, sourceModifiedUtc) ->
+                FileSyncIndicator.indicatorTextForStatus node.updateTime status sourceModifiedUtc
 
     let specialKindRowClass (kind: NodeKind) : string option =
         match kind with
@@ -749,7 +753,7 @@ module ViewModel =
         | Special Trash -> Some "\u00D7"
 
     let rowFileIndicatorText (model: VM) (entry: SiteEntry) (node: Node) : string =
-        let desktop = desktopFileIndicatorText model entry
+        let desktop = desktopFileIndicatorText model entry node
         if desktop <> "" then desktop
         else specialKindSymbol node.kind |> Option.defaultValue ""
 

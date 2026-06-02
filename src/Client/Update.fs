@@ -107,8 +107,8 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
     | SysMsg (DesktopCapabilitiesDetected capabilities) ->
         { model with desktopCapabilities = capabilities }, []
 
-    | SysMsg (DesktopFileStatusReceived (nodeId, path, status)) ->
-        ViewModel.applyDesktopFileStatus nodeId path status model, []
+    | SysMsg (DesktopFileStatusReceived (nodeId, path, status, sourceModifiedUtc)) ->
+        ViewModel.applyDesktopFileStatus nodeId path status sourceModifiedUtc model, []
 
     | SysMsg PollTick ->
         let si, effects = SyncPlanner.tryStartPoll model.revision model.syncInfo

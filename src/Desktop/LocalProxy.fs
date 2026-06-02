@@ -257,13 +257,15 @@ module LocalProxy =
     let private fileStatusForPath
         (workspaceMap: Map<string, WorkspaceMapping>)
         (path: string)
-        : DesktopFileStatus
+        : DesktopFileStatus * System.DateTime option
         =
         match resolveLocalPath workspaceMap path with
-        | Error _ -> InvalidPath
-        | Ok fullPath when File.Exists fullPath -> ExistingFile
-        | Ok fullPath when Directory.Exists fullPath -> ExistingFolder
-        | Ok _ -> CreateFile
+        | Error _ -> InvalidPath, None
+        | Ok fullPath when File.Exists fullPath ->
+            ExistingFile, Some (File.GetLastWriteTimeUtc fullPath)
+        | Ok fullPath when Directory.Exists fullPath ->
+            ExistingFolder, Some (Directory.GetLastWriteTimeUtc fullPath)
+        | Ok _ -> CreateFile, None
 
     let private localAppUrl (listenUrl: string) (cloudAppUrl: Uri) =
         let baseUrl =
@@ -277,10 +279,21 @@ module LocalProxy =
         (context: HttpContext)
         (path: string)
         = task {
-        let status = fileStatusForPath workspaceMap path
+        let status, sourceModifiedUtc = fileStatusForPath workspaceMap path
+
+        let sourceJson =
+            match sourceModifiedUtc with
+            | None -> ""
+            | Some t ->
+                ",\"sourceModifiedUtc\":"
+                + string (t.ToUniversalTime().Ticks)
+
         let json =
             "{\"path\":" + quoteJson path
-            + ",\"status\":" + quoteJson (DesktopFileStatus.label status) + "}"
+            + ",\"status\":" + quoteJson (DesktopFileStatus.label status)
+            + sourceJson
+            + "}"
+
         do! writeJson context json
     }
 

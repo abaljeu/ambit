@@ -250,7 +250,11 @@ type DesktopFileIndicator =
     | BlankFileIndicator
     | CheckingFileStatus of nodeId: NodeId * path: string
     | InvalidFileReferenceIndicator
-    | FileStatusIndicator of nodeId: NodeId * path: string * status: DesktopFileStatus
+    | FileStatusIndicator of
+        nodeId: NodeId *
+        path: string *
+        status: DesktopFileStatus *
+        sourceModifiedUtc: System.DateTime option
 
 /// UI mode; `SearchDialog.onPick` closes over model updates (mutually recursive with `VM`).
 type Mode =
@@ -293,7 +297,11 @@ type SystemMsg =
     | SubmitRejected of detail: string // server HTTP error (decoded `error` or short body snippet)
     | SubmitNetworkError of baseRevision: int * changes: Change list
     | DesktopCapabilitiesDetected of DesktopCapabilities option
-    | DesktopFileStatusReceived of nodeId: NodeId * path: string * status: DesktopFileStatus
+    | DesktopFileStatusReceived of
+        nodeId: NodeId *
+        path: string *
+        status: DesktopFileStatus *
+        sourceModifiedUtc: System.DateTime option
     | SetPollingActive of bool
     | PollTick            // polling timer fired; update decides whether to emit PollServer effect
     | PollDone of SyncState option * Change list   // poll GET response arrived

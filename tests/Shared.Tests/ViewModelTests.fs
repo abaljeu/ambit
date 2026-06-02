@@ -1,5 +1,6 @@
 module ViewModelTests
 
+open System
 open Gambol.Shared
 open Gambol.Shared.ViewModel
 open SpecialNodeTestHelpers
@@ -93,6 +94,59 @@ let private selectedModelWithText (text: string) : VM =
     let graph, cont, _ = buildFlat [ text ]
     modelWithSel graph cont 0 1 0
 
+let private utc (y: int) (mo: int) (d: int) (h: int) (mi: int) (s: int) =
+    DateTime(y, mo, d, h, mi, s, DateTimeKind.Utc)
+
+let private fileSourceTime = utc 2024 6 1 12 0 0
+
+let private withNodeUpdateTime (model: VM) (nodeId: NodeId) (time: DateTime) : VM =
+    let node = model.graph.nodes.[nodeId]
+
+    { model with
+        graph =
+            { model.graph with
+                nodes = model.graph.nodes |> Map.add nodeId { node with updateTime = time } } }
+
+let private specialNode (id: NodeId) (kind: SpecialKind) (name: string) (owner: NodeId) : Node =
+    { id = id
+      text = name
+      name = Filename.create name
+      children = []
+      cssClasses = CssClass.empty
+      owner = owner
+      kind = Special kind
+      updateTime = NodeUpdateTime.missing }
+
+let private graphWithWorkspaceTree () : Graph * NodeId * NodeId * NodeId =
+    let graph0 = Graph.create ()
+    let wsId = NodeId.New()
+    let dirId = NodeId.New()
+    let fileId = NodeId.New()
+    let wsNode = specialNode wsId Workspace "home" Graph.workspacesId
+    let dirNode = specialNode dirId Directory "docs" wsId
+    let fileNode = specialNode fileId File "readme.txt" dirId
+
+    let graph1 =
+        graph0.nodes
+        |> Map.add wsId wsNode
+        |> Map.add dirId dirNode
+        |> Map.add fileId fileNode
+        |> fun nodes -> Graph.fromNodes graph0.root nodes
+
+    let graph2 =
+        Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) graph1
+        |> ModelBuilder.requireOk "workspaces->ws"
+
+    let graph3 =
+        Graph.replace wsId 0 [] (owned [ dirId ]) graph2
+        |> ModelBuilder.requireOk "ws->dir"
+
+    let graph4 =
+        Graph.replace dirId 0 [] (owned [ fileId ]) graph3
+        |> ModelBuilder.requireOk "dir->file"
+
+    graph4, wsId, dirId, fileId
+
 // ---------------------------------------------------------------------------
 // desktop file indicator
 // ---------------------------------------------------------------------------
@@ -182,21 +236,58 @@ let ``applyDesktopFileStatus ignores stale active node response`` () =
     let graph, cont, ids = buildFlat [ "load [[a.txt]]"; "load [[b.txt]]" ]
     let model = modelWithSel graph cont 1 2 1
     let stale = ids.[0]
-    let updated = applyDesktopFileStatus stale "a.txt" ExistingFile model
+    let updated =
+        applyDesktopFileStatus stale "a.txt" ExistingFile (Some fileSourceTime) model
 
     Assert.Equal(BlankFileIndicator, updated.desktopFileIndicator)
 
 [<Fact>]
-let ``desktopFileIndicatorText shows status on active row only`` () =
+let ``desktopFileIndicatorText shows sync label on active row only`` () =
     let model = selectedModelWithText "load [[note.txt]]" |> withDesktop
     let checking, _ = refreshDesktopFileIndicator model
     let nodeId = focusedNodeId checking.graph checking.selectedNodes.Value
-    let checkedModel = applyDesktopFileStatus nodeId "note.txt" ExistingFile checking
-    let activeEntry = checkedModel.siteMap.entries.[checkedModel.selectedNodes.Value.range.parent.children.[0]]
-    let rootEntry = checkedModel.siteMap.entries.[checkedModel.siteMap.rootId]
+    let nodeTime = utc 2024 6 1 10 0 0
 
-    Assert.Equal("file", desktopFileIndicatorText checkedModel activeEntry)
-    Assert.Equal("", desktopFileIndicatorText checkedModel rootEntry)
+    let checking = withNodeUpdateTime checking nodeId nodeTime
+
+    let checkedModel =
+        applyDesktopFileStatus nodeId "note.txt" ExistingFile (Some fileSourceTime) checking
+
+    let activeEntry =
+        checkedModel.siteMap.entries.[checkedModel.selectedNodes.Value.range.parent.children.[0]]
+
+    let activeNode = checkedModel.graph.nodes.[activeEntry.nodeId]
+    let rootEntry = checkedModel.siteMap.entries.[checkedModel.siteMap.rootId]
+    let rootNode = checkedModel.graph.nodes.[rootEntry.nodeId]
+
+    Assert.Equal("old", desktopFileIndicatorText checkedModel activeEntry activeNode)
+    Assert.Equal("", desktopFileIndicatorText checkedModel rootEntry rootNode)
+
+[<Fact>]
+let ``desktopFileIndicatorText shows current and edited for existing file`` () =
+    let model = selectedModelWithText "load [[note.txt]]" |> withDesktop
+    let checking, _ = refreshDesktopFileIndicator model
+    let nodeId = focusedNodeId checking.graph checking.selectedNodes.Value
+    let activeEntry = checking.siteMap.entries.[checking.selectedNodes.Value.range.parent.children.[0]]
+    let activeNode = checking.graph.nodes.[activeEntry.nodeId]
+
+    let currentModel =
+        checking
+        |> fun m -> withNodeUpdateTime m nodeId fileSourceTime
+        |> fun m -> applyDesktopFileStatus nodeId "note.txt" ExistingFile (Some fileSourceTime) m
+
+    Assert.Equal(
+        "current",
+        desktopFileIndicatorText currentModel activeEntry currentModel.graph.nodes.[nodeId])
+
+    let editedModel =
+        checking
+        |> fun m -> withNodeUpdateTime m nodeId (utc 2024 6 1 14 0 0)
+        |> fun m -> applyDesktopFileStatus nodeId "note.txt" ExistingFile (Some fileSourceTime) m
+
+    Assert.Equal(
+        "edited",
+        desktopFileIndicatorText editedModel activeEntry editedModel.graph.nodes.[nodeId])
 
 [<Fact>]
 let ``specialKindRowClass maps each SpecialKind to amb-row-special class`` () =
@@ -225,11 +316,40 @@ let ``rowFileIndicatorText shows kind symbol and desktop status wins on active r
     let model = selectedModelWithText "load [[note.txt]]" |> withDesktop
     let checking, _ = refreshDesktopFileIndicator model
     let nodeId = focusedNodeId checking.graph checking.selectedNodes.Value
-    let checkedModel = applyDesktopFileStatus nodeId "note.txt" ExistingFile checking
-    let activeEntry = checkedModel.siteMap.entries.[checkedModel.selectedNodes.Value.range.parent.children.[0]]
+    let nodeTime = utc 2024 6 1 10 0 0
+    let checking = withNodeUpdateTime checking nodeId nodeTime
+
+    let checkedModel =
+        applyDesktopFileStatus nodeId "note.txt" ExistingFile (Some fileSourceTime) checking
+
+    let activeEntry =
+        checkedModel.siteMap.entries.[checkedModel.selectedNodes.Value.range.parent.children.[0]]
+
     let activeNode = checkedModel.graph.nodes.[activeEntry.nodeId]
 
-    Assert.Equal("file", rowFileIndicatorText checkedModel activeEntry activeNode)
+    Assert.Equal("old", rowFileIndicatorText checkedModel activeEntry activeNode)
+
+[<Fact>]
+let ``rowFileIndicatorText shows sync label on active special file node`` () =
+    let graph, wsId, _, fileId = graphWithWorkspaceTree ()
+    let parentId = graph.nodes.[fileId].owner
+    let parent = graph.nodes.[parentId]
+    let fileIdx = parent.children |> List.findIndex (fun c -> c.id = fileId)
+    let model = modelWithSel graph parentId fileIdx (fileIdx + 1) fileIdx |> withDesktop
+    let checking, _ = refreshDesktopFileIndicator model
+    let path = NodeDesktopPath.pathForNodeId checking.graph fileId |> Option.get
+    let nodeTime = utc 2024 6 1 10 0 0
+    let checking = withNodeUpdateTime checking fileId nodeTime
+
+    let checkedModel =
+        applyDesktopFileStatus fileId path ExistingFile (Some fileSourceTime) checking
+
+    let fileEntry =
+        checkedModel.siteMap.entries.[checkedModel.selectedNodes.Value.range.parent.children.[fileIdx]]
+
+    let fileNode = checkedModel.graph.nodes.[fileId]
+
+    Assert.Equal("old", rowFileIndicatorText checkedModel fileEntry fileNode)
 
 // ---------------------------------------------------------------------------
 // singleSelection

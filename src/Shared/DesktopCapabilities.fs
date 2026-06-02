@@ -27,7 +27,8 @@ type DesktopFileStatus =
 
 type DesktopFileStatusResponse =
     { path: string
-      status: DesktopFileStatus }
+      status: DesktopFileStatus
+      sourceModifiedUtc: System.DateTime option }
 
 [<RequireQualifiedAccess>]
 module FileReference =
