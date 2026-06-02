@@ -9,7 +9,8 @@ module GraphProjection =
         { id: System.Guid
           text: string
           name: string option
-          cssClassNames: string list }
+          cssClassNames: string list
+          updateTime: System.DateTime }
 
     type ChildPersistenceRow =
         { parentId: System.Guid
@@ -25,6 +26,7 @@ module GraphProjection =
         && a.text = b.text
         && a.name = b.name
         && CssClass.toList a.cssClasses = CssClass.toList b.cssClasses
+        && a.updateTime = b.updateTime
         && List.length a.children = List.length b.children
         && List.forall2 (fun x y -> childNodeEquals x y) a.children b.children
 
@@ -46,7 +48,8 @@ module GraphProjection =
             { id = n.id.Value
               text = n.text
               name = Filename.tryValue n.name
-              cssClassNames = CssClass.toList n.cssClasses })
+              cssClassNames = CssClass.toList n.cssClasses
+              updateTime = n.updateTime })
 
     let childRowsFromGraph (g: Graph) : ChildPersistenceRow list =
         g.nodes
@@ -93,7 +96,7 @@ module GraphProjection =
                         Special Trash
                     else
                         Normal
-                  updateTime = NodeUpdateTime.missing })
+                  updateTime = r.updateTime })
             |> Map.ofList
 
         let badRef (g: ChildPersistenceRow) =

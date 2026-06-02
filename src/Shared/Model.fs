@@ -70,7 +70,14 @@ module NodeUpdateTime =
     /// Canonical nodes and JSON without `updateTime`.
     let missing = DateTime.MinValue
 
-    let now () = DateTime.UtcNow
+    /// PostgreSQL `timestamptz` stores microseconds; align before DB round-trip.
+    let private ticksPerMicrosecond = 10L
+
+    let toDbPrecision (time: DateTime) : DateTime =
+        let utc = time.ToUniversalTime()
+        DateTime(utc.Ticks - utc.Ticks % ticksPerMicrosecond, DateTimeKind.Utc)
+
+    let now () = DateTime.UtcNow |> toDbPrecision
 
     let touch (node: Node) : Node = { node with updateTime = now () }
 

@@ -90,8 +90,20 @@ module Database =
                     id            UUID         PRIMARY KEY,
                     text          TEXT         NOT NULL,
                     name          TEXT         NULL,
-                    css_classes   JSONB        NOT NULL
+                    css_classes   JSONB        NOT NULL,
+                    update_time   TIMESTAMPTZ  NOT NULL
+                        DEFAULT '0001-01-01T00:00:00Z'
                 );
+
+                ALTER TABLE nodes
+                    ADD COLUMN IF NOT EXISTS update_time TIMESTAMPTZ;
+
+                UPDATE nodes
+                SET update_time = '0001-01-01T00:00:00Z'::timestamptz
+                WHERE update_time IS NULL;
+
+                ALTER TABLE nodes
+                    ALTER COLUMN update_time SET NOT NULL;
 
                 CREATE TABLE IF NOT EXISTS node_children (
                     parent_id   UUID         NOT NULL REFERENCES nodes (id) ON DELETE CASCADE,
@@ -120,7 +132,8 @@ module Database =
         { id: Guid
           text: string
           name: string // null from SQL when column is NULL
-          css_classes: string }
+          css_classes: string
+          update_time: DateTime }
 
     type NodeChildDbRow =
         { parent_id: Guid
@@ -257,7 +270,9 @@ module Database =
 
     let private readNodeRows (conn: NpgsqlConnection) : Task<NodeDbRow list> =
         task {
-            let! rows = conn.QueryAsync<NodeDbRow>("SELECT id, text, name, css_classes::text FROM nodes")
+            let! rows =
+                conn.QueryAsync<NodeDbRow>(
+                    "SELECT id, text, name, css_classes::text, update_time FROM nodes")
             return rows |> Seq.toList
         }
 
@@ -304,7 +319,8 @@ module Database =
                                 None
                             else
                                 Some r.name
-                           cssClassNames = CssClass.toList (decodeCss r.css_classes) }
+                           cssClassNames = CssClass.toList (decodeCss r.css_classes)
+                           updateTime = NodeUpdateTime.toDbPrecision r.update_time }
                         : GraphProjection.NodePersistenceRow))
 
                 let cPersist =
@@ -353,13 +369,14 @@ module Database =
                 do!
                     conn.ExecuteAsync(
                         """
-                        INSERT INTO nodes (id, text, name, css_classes)
-                        VALUES (@id, @text, @name, CAST(@css AS jsonb))
+                        INSERT INTO nodes (id, text, name, css_classes, update_time)
+                        VALUES (@id, @text, @name, CAST(@css AS jsonb), @update_time)
                         """,
                         {| id = r.id
                            text = r.text
                            name = nameParam
-                           css = cssJson (CssClass.ofList r.cssClassNames) |},
+                           css = cssJson (CssClass.ofList r.cssClassNames)
+                           update_time = NodeUpdateTime.toDbPrecision r.updateTime |},
                         tx)
                     :> Task
 

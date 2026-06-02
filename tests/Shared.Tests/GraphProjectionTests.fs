@@ -1,5 +1,6 @@
 module Gambol.Shared.Tests.GraphProjectionTests
 
+open System
 open Xunit
 open Gambol.Shared
 
@@ -38,6 +39,32 @@ let ``graphRoundTrip preserves graph with child`` () =
         match GraphProjection.graphRoundTrip st.graph with
         | Error e -> Assert.Fail(e)
         | Ok g2 -> Assert.True(GraphProjection.graphEquals st.graph g2)
+    | _ -> Assert.Fail("expected Changed")
+
+[<Fact>]
+let ``graphRoundTrip preserves updateTime`` () =
+    let stamp = DateTime(2025, 3, 15, 10, 30, 0, DateTimeKind.Utc)
+    let g0 = Graph.create ()
+    let childId = NodeId.New()
+
+    let change =
+        { id = 0
+          changeId = Guid.NewGuid()
+          ops =
+            [ Op.NewNode(childId, "stamped")
+              Op.Replace(Graph.rootId, 0, [], [ { ref = Ownership.Owner; id = childId } ]) ] }
+
+    match History.applyChange change { graph = g0; history = History.empty; revision = Revision 0 } with
+    | ApplyResult.Changed st ->
+        let stamped =
+            { st.graph with
+                  nodes =
+                      st.graph.nodes
+                      |> Map.add childId { st.graph.nodes.[childId] with updateTime = stamp } }
+
+        match GraphProjection.graphRoundTrip stamped with
+        | Error e -> Assert.Fail(e)
+        | Ok g2 -> Assert.Equal(stamp, g2.nodes.[childId].updateTime)
     | _ -> Assert.Fail("expected Changed")
 
 [<Fact>]
@@ -80,11 +107,13 @@ let ``graphFromPersistence fails when ordinals not dense`` () =
         [ { id = root.Value
             text = "ROOT"
             name = None
-            cssClassNames = [] }
+            cssClassNames = []
+            updateTime = NodeUpdateTime.missing }
           { id = cid
             text = "c"
             name = None
-            cssClassNames = [] } ]
+            cssClassNames = []
+            updateTime = NodeUpdateTime.missing } ]
 
     let cr: GraphProjection.ChildPersistenceRow list =
         [ { parentId = root.Value

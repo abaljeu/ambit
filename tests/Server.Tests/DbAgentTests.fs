@@ -83,6 +83,39 @@ let ``DbAgent new process loads state from projection and changes after post`` (
 }
 
 [<Fact>]
+let ``DbAgent reload preserves node updateTime from projection`` () = task {
+    let connStr = requireDbConnStr ()
+    do! resetTestDatabase connStr
+    let agent1 = DbAgent.create connStr
+    let! json0 = DbAgent.getState agent1 |> Async.StartAsTask
+    let rootId = (decodeGraph json0).root
+    let childId = NodeId.New()
+
+    let change =
+        { id = 0
+          changeId = Guid.NewGuid()
+          ops =
+            [ Op.NewNode(childId, "stamped")
+              Op.Replace(rootId, 0, [], [ { ref = Ownership.Owner; id = childId } ]) ] }
+
+    let! postResult =
+        DbAgent.postChange agent1 (encodeChangeBatch [ change ]) |> Async.StartAsTask
+
+    match postResult with
+    | Error e -> Assert.Fail($"postChange: {e}")
+    | Ok _ -> ()
+
+    let! json1 = DbAgent.getState agent1 |> Async.StartAsTask
+    let stored = (decodeGraph json1).nodes.[childId].updateTime
+    Assert.True(stored > NodeUpdateTime.missing)
+
+    let agent2 = DbAgent.create connStr
+    let! json2 = DbAgent.getState agent2 |> Async.StartAsTask
+    let reloaded = (decodeGraph json2).nodes.[childId].updateTime
+    Assert.Equal(NodeUpdateTime.toDbPrecision stored, reloaded)
+}
+
+[<Fact>]
 let ``DbAgent change fails and state is unchanged when DB goes away after startup`` () = task {
     let connStr = requireDbConnStr ()
     do! resetTestDatabase connStr
