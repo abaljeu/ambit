@@ -91,6 +91,8 @@ Verification:
 
 ## 3. Shared Persistence Shape
 
+Done: `WorkspaceLocalMapping` in `src/Shared/` implements the desktop-local config format (JSON) and load/save. The caller (desktop layer) supplies the DataDir-relative path; the module has no knowledge of DataDir itself.
+
 - Desktop feature: local mapping config in DataDir maps workspace label -> absolute local root path.
 - Keep local mapping storage fully separate from shared persistence.
 

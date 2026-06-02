@@ -149,6 +149,12 @@ module LocalProxy =
     let private isDesktopRequest (path: PathString) =
         path.StartsWithSegments(PathString "/_desktop")
 
+    let private configPath =
+        Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Gambol",
+            "config.json")
+
     let private writeCapabilities (context: HttpContext) = task {
         context.Response.StatusCode <- StatusCodes.Status200OK
         context.Response.ContentType <- "application/json; charset=utf-8"
@@ -349,7 +355,10 @@ module LocalProxy =
                             do! writeBadRequest context ("write failed: " + ex.Message)
     }
 
-    let private handleDesktopRequest (context: HttpContext) = task {
+    let private handleDesktopRequest
+        (workspaceMap: Map<string, WorkspaceMapping>)
+        (context: HttpContext)
+        = task {
         if
             HttpMethods.IsGet context.Request.Method
             && context.Request.Path.Equals(PathString "/_desktop/capabilities")
@@ -455,6 +464,12 @@ module LocalProxy =
 
     let start (cloudAppUrl: string) = task {
         let cloudUri = Uri cloudAppUrl
+
+        let workspaceMap =
+            WorkspaceLocalMapping.loadFromFile configPath
+            |> Result.defaultWith (fun _ -> { entries = [] })
+            |> WorkspaceLocalMapping.toMap
+
         let builder = WebApplication.CreateBuilder([||])
         builder.Services.Configure<HostOptions>(fun (options: HostOptions) ->
             options.ShutdownTimeout <- TimeSpan.FromSeconds 1.0)
@@ -469,7 +484,7 @@ module LocalProxy =
 
         app.Run(RequestDelegate(fun context ->
             if isDesktopRequest context.Request.Path then
-                handleDesktopRequest context
+                handleDesktopRequest workspaceMap context
             else
                 forward client cloudUri session context)) |> ignore
 

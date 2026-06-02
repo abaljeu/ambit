@@ -65,10 +65,13 @@ let private makeRowElement
     if siteEntry.parentInstanceId = None then row.classList.add "amb-view-root"
     if isEntrySelected model siteEntry then row.classList.add "amb-selected"
     if isEntryFocused  model siteEntry then row.classList.add "amb-focused"
+    match ViewModel.specialKindRowClass node.kind with
+    | Some cls -> row.classList.add cls
+    | None -> ()
 
     let fileIndicator = document.createElement "span"
     fileIndicator.classList.add "amb-file-indicator"
-    fileIndicator.textContent <- ViewModel.desktopFileIndicatorText model siteEntry
+    fileIndicator.textContent <- ViewModel.rowFileIndicatorText model siteEntry node
     row.appendChild fileIndicator |> ignore
 
     // Indentation

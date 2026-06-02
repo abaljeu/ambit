@@ -152,6 +152,39 @@ let ``desktopFileIndicatorText shows status on active row only`` () =
     Assert.Equal("file", desktopFileIndicatorText checkedModel activeEntry)
     Assert.Equal("", desktopFileIndicatorText checkedModel rootEntry)
 
+[<Fact>]
+let ``specialKindRowClass maps each SpecialKind to amb-row-special class`` () =
+    Assert.Equal(Some "amb-row-special-workspaces", specialKindRowClass (Special Workspaces))
+    Assert.Equal(Some "amb-row-special-workspace", specialKindRowClass (Special Workspace))
+    Assert.Equal(Some "amb-row-special-directory", specialKindRowClass (Special Directory))
+    Assert.Equal(Some "amb-row-special-file", specialKindRowClass (Special File))
+    Assert.Equal(Some "amb-row-special-trash", specialKindRowClass (Special Trash))
+    Assert.Equal(None, specialKindRowClass Normal)
+
+[<Fact>]
+let ``rowFileIndicatorText shows kind symbol and desktop status wins on active row`` () =
+    let graph = Graph.create ()
+    let wsNode = graph.nodes.[Graph.workspacesId]
+    let siteMap, _ = buildSiteMap graph
+    let wsEntry =
+        siteMap.entries
+        |> Map.toSeq
+        |> Seq.map snd
+        |> Seq.find (fun e -> e.nodeId = Graph.workspacesId)
+    let model = emptyModel graph
+
+    Assert.Equal("\u229E", rowFileIndicatorText model wsEntry wsNode)
+    Assert.Equal("@", specialKindSymbol (Special Workspace) |> Option.get)
+
+    let model = selectedModelWithText "load [[note.txt]]" |> withDesktop
+    let checking, _ = refreshDesktopFileIndicator model
+    let nodeId = focusedNodeId checking.graph checking.selectedNodes.Value
+    let checkedModel = applyDesktopFileStatus nodeId "note.txt" ExistingFile checking
+    let activeEntry = checkedModel.siteMap.entries.[checkedModel.selectedNodes.Value.range.parent.children.[0]]
+    let activeNode = checkedModel.graph.nodes.[activeEntry.nodeId]
+
+    Assert.Equal("file", rowFileIndicatorText checkedModel activeEntry activeNode)
+
 // ---------------------------------------------------------------------------
 // singleSelection
 // ---------------------------------------------------------------------------

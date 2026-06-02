@@ -295,6 +295,21 @@ body {
     background: #eeeeee80;
     border: 1px transparent;
 }
+.amb-row-special-workspaces .amb-text {
+    border-left: 3px solid #85a;
+}
+.amb-row-special-workspace .amb-text {
+    border-left: 3px solid #5a8;
+}
+.amb-row-special-directory .amb-text {
+    border-left: 3px solid #a80;
+}
+.amb-row-special-file .amb-text {
+    border-left: 3px solid #58a;
+}
+.amb-row-special-trash .amb-text {
+    border-left: 3px solid #888;
+}
 
 /* user */
 .h1 { font-size: 1.brem }

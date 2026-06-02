@@ -111,15 +111,6 @@ module WorkspaceLocalMapping =
         with
         | :? JsonException -> Error "malformed_json"
 
-    let encode (mappings: WorkspaceMappings) : string =
-        let entriesJson =
-            mappings.entries
-            |> List.map (fun entry ->
-                $"{{\"label\":{JsonSerializer.Serialize(entry.label)},\"path\":{JsonSerializer.Serialize(entry.rootPath)}}}")
-            |> String.concat ","
-
-        "{\"workspaceMappings\":[" + entriesJson + "]}"
-
     let loadFromFile (path: string) : Result<WorkspaceMappings, string> =
         if not (File.Exists(path)) then
             Ok { entries = [] }
@@ -130,19 +121,6 @@ module WorkspaceLocalMapping =
             with
             | :? IOException -> Error "mapping_read_failed"
             | :? UnauthorizedAccessException -> Error "mapping_read_failed"
-
-    let saveToFile (path: string) (mappings: WorkspaceMappings) : Result<unit, string> =
-        try
-            let directory = Path.GetDirectoryName(path)
-
-            if not (String.IsNullOrWhiteSpace(directory)) then
-                Directory.CreateDirectory(directory) |> ignore
-
-            File.WriteAllText(path, encode mappings)
-            Ok ()
-        with
-        | :? IOException -> Error "mapping_write_failed"
-        | :? UnauthorizedAccessException -> Error "mapping_write_failed"
 
     let toMap (mappings: WorkspaceMappings) =
         mappings.entries

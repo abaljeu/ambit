@@ -1,7 +1,5 @@
 module Gambol.Shared.Tests.WorkspaceLocalMappingTests
 
-open System
-open System.IO
 open Gambol.Shared
 open Xunit
 
@@ -103,29 +101,3 @@ let ``resolvePath accepts valid relative path`` () =
     | Error err -> Assert.Fail($"Expected success, got: {err}")
     | Ok resolved -> Assert.StartsWith("C:\\repo", resolved)
 
-[<Fact>]
-let ``saveToFile and loadFromFile round-trip`` () =
-    let tempRoot =
-        Path.Combine(Path.GetTempPath(), "gambol-workspaces-" + Guid.NewGuid().ToString("N"))
-
-    let path = Path.Combine(tempRoot, "workspace-mappings.json")
-
-    try
-        let input =
-            { entries =
-                [ { label = "main"
-                    rootPath = "C:\\repo" } ] }
-
-        match WorkspaceLocalMapping.saveToFile path input with
-        | Error err -> Assert.Fail($"saveToFile failed: {err}")
-        | Ok () -> ()
-
-        match WorkspaceLocalMapping.loadFromFile path with
-        | Error err -> Assert.Fail($"loadFromFile failed: {err}")
-        | Ok loaded ->
-            Assert.Equal(input.entries.Length, loaded.entries.Length)
-            Assert.Equal(input.entries.Head.label, loaded.entries.Head.label)
-            Assert.Equal(input.entries.Head.rootPath, loaded.entries.Head.rootPath)
-    finally
-        if Directory.Exists(tempRoot) then
-            Directory.Delete(tempRoot, true)

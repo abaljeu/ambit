@@ -718,6 +718,34 @@ module ViewModel =
             | InvalidFileReferenceIndicator -> "invalid"
             | FileStatusIndicator (_, _, status) -> DesktopFileStatus.label status
 
+    let specialKindRowClass (kind: NodeKind) : string option =
+        match kind with
+        | Normal -> None
+        | Special Workspaces -> Some "amb-row-special-workspaces"
+        | Special Workspace -> Some "amb-row-special-workspace"
+        | Special Directory -> Some "amb-row-special-directory"
+        | Special File -> Some "amb-row-special-file"
+        | Special Trash -> Some "amb-row-special-trash"
+
+    let specialKindSymbol (kind: NodeKind) : string option =
+        match kind with
+        | Normal -> None
+        | Special Workspaces -> Some "\u229E"
+        | Special Workspace -> Some "@"
+        | Special Directory -> Some "\u25A4"
+        | Special File -> Some "\u2261"
+        | Special Trash -> Some "\u00D7"
+
+    let rowFileIndicatorText (model: VM) (entry: SiteEntry) (node: Node) : string =
+        let desktop = desktopFileIndicatorText model entry
+        if desktop <> "" then desktop
+        else specialKindSymbol node.kind |> Option.defaultValue ""
+
+    let private addSpecialKindRowClass (kind: NodeKind) (className: string) : string =
+        match specialKindRowClass kind with
+        | Some sk -> CssClass.add sk className
+        | None -> className
+
 // ---------------------------------------------------------------------------
 // DOM mutation plan (pure — no Browser interop)
 // ---------------------------------------------------------------------------
@@ -789,9 +817,12 @@ module ViewModel =
                             let sel = isEntrySelected newModel entry
                             let foc = isEntryFocused newModel entry
                             let isRoot = entry.instanceId = newModel.siteMap.rootId
+                            let newNode = newModel.graph.nodes.[entry.nodeId]
+                            let oldNode = oldModel.graph.nodes |> Map.tryFind entry.nodeId
                             let newClass =
                                 "amb-row"
                                 |> CssClass.add (ownershipClass newModel entry)
+                                |> addSpecialKindRowClass newNode.kind
                                 |> CssClass.addIf isRoot "amb-view-root"
                                 |> CssClass.addIf sel "amb-selected"
                                 |> CssClass.addIf foc "amb-focused"
@@ -800,13 +831,15 @@ module ViewModel =
                             let oldClass =
                                 "amb-row"
                                 |> CssClass.add (oldEntry |> Option.map (ownershipClass oldModel) |> Option.defaultValue "amb-row-owned")
+                                |> (fun s ->
+                                    match oldNode with
+                                    | Some n -> addSpecialKindRowClass n.kind s
+                                    | None -> s)
                                 |> CssClass.addIf isRoot "amb-view-root"
                                 |> CssClass.addIf oldSel "amb-selected"
                                 |> CssClass.addIf oldFoc "amb-focused"
                             if newClass <> oldClass then yield SetClassName newClass
-                            let newNode = newModel.graph.nodes.[entry.nodeId]
-                            let oldNode = oldModel.graph.nodes |> Map.tryFind entry.nodeId
-                            let newIndicator = desktopFileIndicatorText newModel entry
+                            let newIndicator = rowFileIndicatorText newModel entry newNode
                             yield SetFileIndicator newIndicator
                             // Sync row text on any graph text change (editing row included — e.g. paste).
                             let newText = newNode.text
