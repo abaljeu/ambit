@@ -217,25 +217,49 @@ module LocalProxy =
     let private hasInvalidPathChar (path: string) =
         path.IndexOfAny(Path.GetInvalidPathChars()) >= 0
 
-    let private resolveLocalPath (path: string) : Result<string, string> =
+    let private tryParseWorkspacePath (path: string) =
+        if path.StartsWith("@", StringComparison.Ordinal) && path.IndexOf(':') >= 0 then
+            let colon = path.IndexOf(':')
+            let label = path.Substring(1, colon - 1).Trim()
+            let rel = path.Substring(colon + 1).TrimStart('/')
+            Some (label, rel)
+        else
+            None
+
+    let private resolveLocalPath
+        (workspaceMap: Map<string, WorkspaceMapping>)
+        (path: string)
+        : Result<string, string>
+        =
         let trimmed = path.Trim()
 
-        if trimmed.Length = 0 || hasInvalidPathChar trimmed then
+        if trimmed.Length = 0 then
             Error "invalid path"
         else
-            try
-                let combined =
-                    if Path.IsPathFullyQualified trimmed then trimmed
-                    else Path.Combine(Environment.CurrentDirectory, trimmed)
+            match tryParseWorkspacePath trimmed with
+            | Some (label, rel) ->
+                WorkspaceLocalMapping.resolvePath workspaceMap label rel
+            | None ->
+                if hasInvalidPathChar trimmed then
+                    Error "invalid path"
+                else
+                    try
+                        let combined =
+                            if Path.IsPathFullyQualified trimmed then trimmed
+                            else Path.Combine(Environment.CurrentDirectory, trimmed)
 
-                Ok (Path.GetFullPath combined)
-            with
-            | :? ArgumentException -> Error "invalid path"
-            | :? NotSupportedException -> Error "invalid path"
-            | :? PathTooLongException -> Error "invalid path"
+                        Ok (Path.GetFullPath combined)
+                    with
+                    | :? ArgumentException -> Error "invalid path"
+                    | :? NotSupportedException -> Error "invalid path"
+                    | :? PathTooLongException -> Error "invalid path"
 
-    let private fileStatusForPath (path: string) : DesktopFileStatus =
-        match resolveLocalPath path with
+    let private fileStatusForPath
+        (workspaceMap: Map<string, WorkspaceMapping>)
+        (path: string)
+        : DesktopFileStatus
+        =
+        match resolveLocalPath workspaceMap path with
         | Error _ -> InvalidPath
         | Ok fullPath when File.Exists fullPath -> ExistingFile
         | Ok fullPath when Directory.Exists fullPath -> ExistingFolder
@@ -248,19 +272,26 @@ module LocalProxy =
 
         Uri(Uri baseUrl, cloudAppUrl.AbsolutePath.TrimStart('/'))
 
-    let private writeFileStatus (context: HttpContext) (path: string) = task {
-        let status = fileStatusForPath path
+    let private writeFileStatus
+        (workspaceMap: Map<string, WorkspaceMapping>)
+        (context: HttpContext)
+        (path: string)
+        = task {
+        let status = fileStatusForPath workspaceMap path
         let json =
             "{\"path\":" + quoteJson path
             + ",\"status\":" + quoteJson (DesktopFileStatus.label status) + "}"
         do! writeJson context json
     }
 
-    let private handleFileStatus (context: HttpContext) = task {
+    let private handleFileStatus
+        (workspaceMap: Map<string, WorkspaceMapping>)
+        (context: HttpContext)
+        = task {
         let! body = readRequestBody context
         match decodePathRequest body with
         | Error message -> do! writeBadRequest context message
-        | Ok path -> do! writeFileStatus context path
+        | Ok path -> do! writeFileStatus workspaceMap context path
     }
 
     let private readDirectoryAsText (fullPath: string) : string =
@@ -278,13 +309,16 @@ module LocalProxy =
             sprintf "[[%s]] %s" name ts)
         |> String.concat "\n"
 
-    let private handleImport (context: HttpContext) = task {
+    let private handleImport
+        (workspaceMap: Map<string, WorkspaceMapping>)
+        (context: HttpContext)
+        = task {
         let! body = readRequestBody context
 
         match decodePathRequest body with
         | Error message -> do! writeBadRequest context message
         | Ok path ->
-            match resolveLocalPath path with
+            match resolveLocalPath workspaceMap path with
             | Error message -> do! writeBadRequest context message
             | Ok fullPath ->
                 if not (File.Exists fullPath) && not (Directory.Exists fullPath) then
@@ -300,6 +334,10 @@ module LocalProxy =
                         match ImportText.buildPackage path text with
                         | Error message -> do! writeBadRequest context message
                         | Ok package ->
+                            let package =
+                                { package with
+                                    isDirectory = Directory.Exists fullPath }
+
                             let json =
                                 Encode.toString 0 (Serialization.encodeDesktopImportPackage package)
 
@@ -309,7 +347,10 @@ module LocalProxy =
                         do! writeBadRequest context ("read failed: " + ex.Message)
     }
 
-    let private handleImportGet (context: HttpContext) = task {
+    let private handleImportGet
+        (workspaceMap: Map<string, WorkspaceMapping>)
+        (context: HttpContext)
+        = task {
         match context.Request.Query.TryGetValue("path") with
         | false, _ -> do! writeBadRequest context "path is required"
         | true, value ->
@@ -320,10 +361,13 @@ module LocalProxy =
             | Ok validPath ->
                 let body = "{\"path\":" + quoteJson validPath + "}"
                 context.Request.Body <- new MemoryStream(Encoding.UTF8.GetBytes(body))
-                do! handleImport context
+                do! handleImport workspaceMap context
     }
 
-    let private handleExport (context: HttpContext) = task {
+    let private handleExport
+        (workspaceMap: Map<string, WorkspaceMapping>)
+        (context: HttpContext)
+        = task {
         let! body = readRequestBody context
 
         match Decode.fromString Serialization.decodeDesktopExportRequest body with
@@ -332,7 +376,7 @@ module LocalProxy =
             match ExportText.validateExportContent request.content with
             | Error message -> do! writeBadRequest context message
             | Ok () ->
-                match resolveLocalPath request.path with
+                match resolveLocalPath workspaceMap request.path with
                 | Error message -> do! writeBadRequest context message
                 | Ok fullPath ->
                     if Directory.Exists fullPath then
@@ -368,27 +412,27 @@ module LocalProxy =
             HttpMethods.IsPost context.Request.Method
             && context.Request.Path.Equals(PathString "/_desktop/file-status")
         then
-            do! handleFileStatus context
+            do! handleFileStatus workspaceMap context
         elif
             HttpMethods.IsGet context.Request.Method
             && context.Request.Path.Equals(PathString "/_desktop/file")
         then
-            do! handleImportGet context
+            do! handleImportGet workspaceMap context
         elif
             HttpMethods.IsPost context.Request.Method
             && context.Request.Path.Equals(PathString "/_desktop/file")
         then
-            do! handleExport context
+            do! handleExport workspaceMap context
         elif
             HttpMethods.IsPost context.Request.Method
             && context.Request.Path.Equals(PathString "/_desktop/import")
         then
-            do! handleImport context
+            do! handleImport workspaceMap context
         elif
             HttpMethods.IsPost context.Request.Method
             && context.Request.Path.Equals(PathString "/_desktop/export")
         then
-            do! handleExport context
+            do! handleExport workspaceMap context
         else
             context.Response.StatusCode <- StatusCodes.Status404NotFound
     }

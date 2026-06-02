@@ -109,15 +109,126 @@ let ``buildImportChange nested package attaches top level only`` () =
 
 [<Fact>]
 let ``DesktopImportPackage serializes round-trip`` () =
-    let package = ImportText.buildPackage "note.txt" "parent\n\tchild" |> requirePackage
+    let package =
+        ImportText.buildPackage "note.txt" "parent\n\tchild"
+        |> requirePackage
+        |> fun p -> { p with isDirectory = true }
+
     let json = Enc.toString 0 (Serialization.encodeDesktopImportPackage package)
 
     match Dec.fromString Serialization.decodeDesktopImportPackage json with
     | Error err -> failwith $"Decode failed: {err}"
     | Ok decoded ->
         Assert.Equal(package.sourcePath, decoded.sourcePath)
+        Assert.True(decoded.isDirectory)
         Assert.Equal<NodeId list>(package.topLevelIds, decoded.topLevelIds)
         Assert.Equal<Op list>(package.ops, decoded.ops)
+
+let private directoryPackage (text: string) =
+    ImportText.buildPackage "dir" text
+    |> requirePackage
+    |> fun p -> { p with isDirectory = true }
+
+let private normalNode (id: NodeId) text children =
+    { id = id
+      text = text
+      name = Filename.Empty
+      children = children
+      cssClasses = CssClass.empty
+      owner = Graph.rootId
+      kind = Normal }
+
+let private specialFileNode (id: NodeId) (name: string) (owner: NodeId) =
+    { id = id
+      text = name
+      name = Filename.Ok name
+      children = []
+      cssClasses = CssClass.empty
+      owner = owner
+      kind = Special File }
+
+let private graphWithFocus (focusId: NodeId) (focusChildren: ChildNode list) (extraNodes: Node list) =
+    let graph0 = Graph.create ()
+    let focus = normalNode focusId "dir" focusChildren
+
+    let nodes =
+        extraNodes
+        |> List.fold (fun acc n -> Map.add n.id n acc) graph0.nodes
+        |> Map.add focusId focus
+
+    Graph.fromNodes graph0.root nodes
+
+[<Fact>]
+let ``buildDirectoryMergeChange with empty existing adds all entries`` () =
+    let package = directoryPackage "[[alpha.txt]] ts\n[[beta.txt]] ts"
+    let focusId = NodeId.New()
+    let graph = graphWithFocus focusId [] []
+
+    let change =
+        ImportText.buildDirectoryMergeChange graph focusId [] package 1 (System.Guid.NewGuid())
+
+    Assert.Equal(2, package.topLevelIds.Length)
+
+    Assert.Equal<Op list>(
+        [ Op.Replace(focusId, 0, [], owned package.topLevelIds) ],
+        replaceOps change.ops)
+
+[<Fact>]
+let ``buildDirectoryMergeChange skips existing Normal child by file reference`` () =
+    let package = directoryPackage "[[readme.md]] ts\n[[beta.txt]] ts"
+    let focusId = NodeId.New()
+    let existingId = NodeId.New()
+    let existing = owned [ existingId ]
+    let graph =
+        graphWithFocus focusId existing
+            [ normalNode existingId "[[readme.md]] ts" [] ]
+
+    let change =
+        ImportText.buildDirectoryMergeChange graph focusId existing package 1 (System.Guid.NewGuid())
+
+    let betaId = List.last package.topLevelIds
+
+    Assert.Equal<Op list>(
+        [ Op.Replace(focusId, 1, [], owned [ betaId ]) ],
+        replaceOps change.ops)
+
+[<Fact>]
+let ``buildDirectoryMergeChange skips existing Special File child by name`` () =
+    let package = directoryPackage "[[script.sh]] ts\n[[beta.txt]] ts"
+    let focusId = NodeId.New()
+    let existingId = NodeId.New()
+    let existing = owned [ existingId ]
+    let graph =
+        graphWithFocus focusId existing
+            [ specialFileNode existingId "script.sh" focusId ]
+
+    let change =
+        ImportText.buildDirectoryMergeChange graph focusId existing package 1 (System.Guid.NewGuid())
+
+    let betaId = List.last package.topLevelIds
+
+    Assert.Equal<Op list>(
+        [ Op.Replace(focusId, 1, [], owned [ betaId ]) ],
+        replaceOps change.ops)
+
+[<Fact>]
+let ``buildDirectoryMergeChange appends only new entries at end`` () =
+    let package = directoryPackage "[[alpha.txt]] ts\n[[beta.txt]] ts"
+    let focusId = NodeId.New()
+    let existingId = NodeId.New()
+    let existing = owned [ existingId ]
+    let graph =
+        graphWithFocus focusId existing
+            [ normalNode existingId "[[alpha.txt]] ts" [] ]
+
+    let change =
+        ImportText.buildDirectoryMergeChange graph focusId existing package 1 (System.Guid.NewGuid())
+
+    let betaId = List.last package.topLevelIds
+
+    Assert.Equal<Op list>(
+        [ Op.Replace(focusId, 1, [], owned [ betaId ]) ],
+        replaceOps change.ops)
 
 [<Fact>]
 let ``DesktopFileStatusResponse serializes round-trip`` () =

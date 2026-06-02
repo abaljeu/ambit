@@ -242,12 +242,16 @@ module Serialization =
     let encodeDesktopImportPackage (package: DesktopImportPackage) : IEncodable =
         Encode.object
             [ "sourcePath", Encode.string package.sourcePath
+              "isDirectory", Encode.bool package.isDirectory
               "topLevelIds", package.topLevelIds |> List.map encodeNodeId |> Encode.list
               "ops", package.ops |> List.map encodeOp |> Encode.list ]
 
     let decodeDesktopImportPackage: Decoder<DesktopImportPackage> =
         Decode.object (fun get ->
             { sourcePath = get.Required.Field "sourcePath" Decode.string
+              isDirectory =
+                get.Optional.Field "isDirectory" Decode.bool
+                |> Option.defaultValue false
               topLevelIds = get.Required.Field "topLevelIds" (Decode.list decodeNodeId)
               ops = get.Required.Field "ops" (Decode.list decodeOp) })
 

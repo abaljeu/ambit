@@ -4,6 +4,7 @@ open System
 
 type DesktopImportPackage =
     { sourcePath: string
+      isDirectory: bool
       topLevelIds: NodeId list
       ops: Op list }
 
@@ -21,6 +22,7 @@ module ImportText =
 
             Ok
                 { sourcePath = sourcePath
+                  isDirectory = false
                   topLevelIds = topLevelIds
                   ops = ops }
         else
@@ -38,6 +40,25 @@ module ImportText =
     let private ownedChildren (ids: NodeId list) : ChildNode list =
         ids |> List.map (fun id -> { ref = Ownership.Owner; id = id })
 
+    let private normalizeEntryName (path: string) = path.TrimEnd('/')
+
+    let private entryNameFromText (text: string) =
+        match FileReference.parseFirst text with
+        | FileReference path -> Some (normalizeEntryName path)
+        | _ -> None
+
+    let private existingChildName (graph: Graph) (child: ChildNode) =
+        match Map.tryFind child.id graph.nodes with
+        | None -> None
+        | Some node ->
+            match node.kind with
+            | Special (File | Directory) -> Filename.tryValue node.name
+            | Normal ->
+                match FileReference.parseFirst node.text with
+                | FileReference path -> Some (normalizeEntryName path)
+                | _ -> None
+            | _ -> None
+
     /// One change: package paste ops plus replace-all-children on the focus node.
     let buildImportChange
         (focusId: NodeId)
@@ -53,3 +74,50 @@ module ImportText =
           changeId = changeId
           ops = package.ops @ [ attach ] }
 
+    /// Directory import: add only top-level entries whose names are not already children.
+    let buildDirectoryMergeChange
+        (graph: Graph)
+        (focusId: NodeId)
+        (existingChildren: ChildNode list)
+        (package: DesktopImportPackage)
+        (revision: int)
+        (changeId: System.Guid)
+        : Change =
+        let existingNames =
+            existingChildren
+            |> List.choose (existingChildName graph)
+            |> Set.ofList
+
+        let idToText =
+            package.ops
+            |> List.choose (function
+                | Op.NewNode(id, text) -> Some(id, text)
+                | _ -> None)
+            |> Map.ofList
+
+        let filteredIds =
+            package.topLevelIds
+            |> List.filter (fun id ->
+                match Map.tryFind id idToText with
+                | None -> true
+                | Some text ->
+                    match entryNameFromText text with
+                    | None -> true
+                    | Some name -> not (Set.contains name existingNames))
+
+        if filteredIds.IsEmpty then
+            { id = revision; changeId = changeId; ops = [] }
+        else
+            let filteredIdSet = Set.ofList filteredIds
+
+            let filteredOps =
+                package.ops
+                |> List.filter (function
+                    | Op.NewNode(id, _) -> Set.contains id filteredIdSet
+                    | Op.Replace(parentId, _, _, _) -> Set.contains parentId filteredIdSet
+                    | _ -> true)
+
+            let attach =
+                Op.Replace(focusId, existingChildren.Length, [], ownedChildren filteredIds)
+
+            { id = revision; changeId = changeId; ops = filteredOps @ [ attach ] }

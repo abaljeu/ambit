@@ -49,12 +49,21 @@ let private commitImportAtFocus
     let setTextOps = setTextOpsForEditing model focusId
 
     let baseChange =
-        ImportText.buildImportChange
-            focusId
-            existing
-            package
-            model.revision.Value
-            (System.Guid.NewGuid())
+        if package.isDirectory then
+            ImportText.buildDirectoryMergeChange
+                model.graph
+                focusId
+                existing
+                package
+                model.revision.Value
+                (System.Guid.NewGuid())
+        else
+            ImportText.buildImportChange
+                focusId
+                existing
+                package
+                model.revision.Value
+                (System.Guid.NewGuid())
 
     let change =
         { baseChange with ops = setTextOps @ baseChange.ops }
