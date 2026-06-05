@@ -92,6 +92,7 @@ If you are looking for browser access functions, look at ./other/fable.browser.d
 Use CRLF endings.
 100 characters or less per line.  Markdown is unlimited length.
 Markdown file paths should use [[wikilinks]], relative to project root if local files, not ``.
+When writing markdown with Write, do not include explicit CRLF (`\r\n`) in the content; use normal newlines and let the tool/editor preserve CRLF. Never use two or more consecutive blank lines. Separate blocks (heading, paragraph, list, table, code fence) with exactly one blank line. List items, table rows, and lines inside a code fence have no blank line between them.
 40 lines or less per function.
 400 lines or less per file.  If a file is already longer, only restructure to split up the code, if the changes you are making would increase it.  (Don't change things unrelated to your task.)
 
