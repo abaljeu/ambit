@@ -4,7 +4,7 @@ Status: Draft
 Authority: Planning document for implementation sequencing.
 See also: [[doc/roadmap/workspace-file-model.md]],
 [[doc/roadmap/reference-expressions.md]],
-[[doc/roadmap/persistence-vs-domain-model.md]]
+[[doc/current/persistence-model.md]]
 
 ## Scope Relationship
 
@@ -91,20 +91,23 @@ Verification:
 
 ## 3. Shared Persistence Shape
 
-Done: `WorkspaceLocalMapping` in `src/Shared/` implements the desktop-local config format (JSON) and load/save. The caller (desktop layer) supplies the DataDir-relative path; the module has no knowledge of DataDir itself.
+Done — see [[doc/current/workspace-local-mapping.md]].
 
-- Desktop feature: local mapping config in DataDir maps workspace label -> absolute local root path.
-- Keep local mapping storage fully separate from shared persistence.
+`WorkspaceLocalMapping` in `src/Shared/` implements desktop-local config (JSON load/decode,
+`resolvePath`). Local mapping storage is fully separate from shared persistence.
 
 ## 4. Desktop-Local Workspace Configuration
 
-Done: local config persistence and path resolution implemented in `src/Shared/WorkspaceLocalMapping.fs`
-(encode/decode, loadFromFile/saveToFile, resolvePath). Validation covers label uniqueness, absolute-path
-requirement for workspace roots, and relative-path safety (no `..`, no empty segments, no `:`, `#`, `^`
-or other invalid filename chars; forward-slash separators only).
-Tests: `tests/Shared.Tests/WorkspaceLocalMappingTests.fs`.
+### Done (interim API)
 
-Remaining: wire HTTP endpoint surface.
+See [[doc/current/desktop-local-files.md]] and [[doc/current/workspace-local-mapping.md]].
+
+- Local config at `%LocalAppData%/Gambol/config.json`; loaded at proxy startup.
+- `/_desktop/capabilities`, `/_desktop/file-status`, `GET/POST /_desktop/file` for import/export.
+- `@label:relative` path resolution when `workspacePaths` capability is enabled.
+- Tests: `tests/Shared.Tests/WorkspaceLocalMappingTests.fs`.
+
+### Remaining (target API)
 
 - Expose desktop-local endpoints (loopback + local auth token required):
   - GET workspaces -> workspace labels only
@@ -168,6 +171,8 @@ Done
 Done
 
 ### 5c. Export node children to disk.
+
+Done — see [[doc/current/desktop-local-files.md]].
 
 ### 5d. 
 

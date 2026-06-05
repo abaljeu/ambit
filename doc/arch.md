@@ -124,7 +124,8 @@ Optional host for users who need local filesystem access while using the same we
 
 - **Auth**: desktop can store cloud session cookie (`AuthStore.fs`) so the proxied app is authenticated
 
-The desktop host does **not** become a second source of truth for the graph. See [[doc/roadmap/overview.md]] §7 for product intent.
+The desktop host does **not** become a second source of truth for the graph. Full detail:
+[[doc/current/desktop-local-files.md]]. Roadmap: [[doc/roadmap/postgres-roadmap.md]] §7.
 
 ## Server
 
@@ -284,7 +285,8 @@ Two explicit **persistence modes** (`Persistence:Mode` in config; default **`db`
 
 `db` mode periodically writes **disk backup** from DB state (export only, not read at startup). `file` mode may seed an empty DB from file state on startup.
 
-Full schema and mode rules: [[doc/roadmap/persistence-vs-domain-model.md]]. Operations / environments: [[doc/roadmap/postgres-migration.md]], [[doc/roadmap/postgres-environments.md]].
+Full schema and mode rules: [[doc/current/persistence-model.md]]. Operations / environments:
+[[doc/reference/postgres-environments.md]].
 
 Implementation: `Database.fs`, `DbAgent.fs`, `FileAgent.fs`, `AgentHandle` in `Api.fs`.
 
@@ -339,6 +341,9 @@ Tooling: **xUnit** in `tests/Shared.Tests` and `tests/Server.Tests`.
 | [[doc/arch.md]] | Architecture, layers, persistence modes |
 | [[doc/api.md]] | HTTP contract (implemented + target) |
 | [[doc/current/sync-mvp.md]] | Current sync semantics (LWW, poll + changes) |
-| [[doc/current/workspace-graph.md]] | Workspace special nodes and graph invariants (partial) |
-| [[doc/roadmap/persistence-vs-domain-model.md]] | DB schema vs domain model |
-| [[doc/roadmap/postgres-environments.md]] | Dev/prod Postgres setup |
+| [[doc/current/persistence-model.md]] | DB schema and `file` / `db` mode rules |
+| [[doc/current/workspace-graph.md]] | Workspace special nodes and graph invariants |
+| [[doc/current/workspace-local-mapping.md]] | Desktop workspace label → local root config |
+| [[doc/current/desktop-local-files.md]] | Desktop proxy and `/_desktop/*` API |
+| [[doc/reference/postgres-environments.md]] | Dev/prod Postgres setup |
+| [[doc/roadmap/postgres-roadmap.md]] | Roadmap index (Postgres, sync, desktop) |

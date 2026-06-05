@@ -1,7 +1,8 @@
 # Workspace Graph – implemented baseline
 
 Category: Graph model
-See also: [[doc/roadmap/workspace-file-model.md]], [[doc/roadmap/workspace-stage-plan.md]], [[doc/arch.md]]
+See also: [[doc/current/workspace-local-mapping.md]], [[doc/current/desktop-local-files.md]],
+[[doc/roadmap/workspace-file-model.md]], [[doc/roadmap/workspace-stage-plan.md]], [[doc/arch.md]]
 
 The shared graph model includes vocabulary and structural rules for workspace-related special
 nodes, enforced at the graph layer.
@@ -57,4 +58,47 @@ required.
 `Serialization.encodeNodeKind` / `decodeNodeKind` support all `SpecialKind` discriminators
 (`workspaces`, `workspace`, `directory`, `file`, `trash`). Kind is stored on each node in the
 graph JSON payload.
+
+## Workspace lifecycle (graph ops)
+
+Workspace nodes are created and renamed through the general change op surface:
+
+- **Create** — `Op.NewSpecialNode(nodeId, Special Workspace, name)` then `Op.Replace` to attach
+  under `Graph.workspacesId`.
+- **Rename** — `Op.SetName(nodeId, oldName, newName)` with `Graph.setName` validation (case-insensitive
+  sibling uniqueness, invalid filename chars rejected).
+
+Canonical `Workspaces`, `Trash`, and `ROOT` ids cannot be renamed. No dedicated workspace-removal
+op in this stage.
+
+Tests: `tests/Shared.Tests/WorkspaceOpsTests.fs`.
+
+## Reference expressions (baseline)
+
+Partial implementation in `src/Shared/RefExpr.fs`. Target grammar:
+[[doc/roadmap/reference-expressions.md]].
+
+Implemented now:
+
+- Parse `@label:` as workspace-root base (`WorkspaceRoot`).
+- `refContext` walks owner chain from a node to find workspace root, file root, and directory
+  context.
+- `match_` resolves workspace-base expressions against the graph for search.
+
+Not implemented: directory/file path steps, wildcards, tags, full command language.
+
+## Path search
+
+Search dialog merges two result sources (`src/Shared/ViewModelSearch.fs`):
+
+1. **RefExpr matches** — path-style queries parsed and matched first.
+2. **Text search** — existing node text matching.
+
+Workspace nodes expose `@label:` as their desktop file path via `NodeDesktopPath` (used by the
+file-status indicator). See [[doc/current/desktop-local-files.md]].
+
+## Related desktop behavior
+
+Local filesystem mapping for `@label:relative` paths:
+[[doc/current/workspace-local-mapping.md]].
 

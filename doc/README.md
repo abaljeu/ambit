@@ -26,9 +26,17 @@ Start here:
 - [[doc/arch.md]]
 - [[doc/spec.md]]
 - [[doc/api.md]]
-- [[doc/roadmap/overview.md]]
+- [[doc/roadmap/postgres-roadmap.md]] — roadmap index
 
 Current feature baselines (`current/`):
 
 - [[doc/current/sync-mvp.md]] — multi-client sync semantics
+- [[doc/current/persistence-model.md]] — PostgreSQL schema and `file` / `db` modes
 - [[doc/current/workspace-graph.md]] — workspace special nodes and graph invariants
+- [[doc/current/workspace-local-mapping.md]] — desktop workspace label → local root config
+- [[doc/current/desktop-local-files.md]] — desktop proxy and `/_desktop/*` API
+
+Reference (`reference/`):
+
+- [[doc/reference/postgres-environments.md]] — dev/prod PostgreSQL setup
+- [[doc/reference/deploy-azure.md]] — Azure App Service deploy

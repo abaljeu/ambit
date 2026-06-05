@@ -2,7 +2,8 @@
 
 Status: Draft staged design
 Authority: Design intent only; this document defines target model and persistence rules for workspace, directory, and file identity.
-See also: [[doc/roadmap/reference-expressions.md]], [[doc/roadmap/persistence-vs-domain-model.md]], [[doc/arch.md]]
+See also: [[doc/current/workspace-graph.md]], [[doc/current/workspace-local-mapping.md]],
+[[doc/current/desktop-local-files.md]], [[doc/roadmap/reference-expressions.md]], [[doc/arch.md]]
 
 This document defines the model concepts needed by reference expressions such as `@bobby:`.
 It is about shared identity and persistence shape, not source-level implementation.
@@ -40,22 +41,27 @@ implemented. The stage list below is the current implementation summary.
 - `[~]` Stage 2: graph invariants and operations understand workspace, directory, and file nodes as
    distinct behavior-bearing concepts.
 - `[~]` Stage 3: shared persistence stores canonical workspace-label -> workspace-root mapping only.
-- `[~]` Stage 4: desktop-local API resolves workspace label + relative path via readonly local mapping.
-- `[ ]` Stage 5: client UI uses desktop query surface and shows unresolved-reference indicators.
-- `[ ]` Stage 6: explicit user commands create and modify workspace/file/directory structure.
+- `[x]` Stage 4: desktop-local API resolves workspace label + relative path via readonly local mapping
+  (interim `/_desktop/file` API — [[doc/current/desktop-local-files.md]]).
+- `[~]` Stage 5: client UI uses desktop query surface and shows unresolved-reference indicators
+  (file-status indicator done; full unresolved `@label:` UI not done).
+- `[~]` Stage 6: explicit user commands create and modify workspace/file/directory structure
+  (workspace create/rename via graph ops; directory/file commands not done).
 
 ## Current Implementation Snapshot
+
+Authority for implemented behavior: [[doc/current/workspace-graph.md]],
+[[doc/current/workspace-local-mapping.md]], [[doc/current/desktop-local-files.md]].
 
 - `[x]` `SpecialKind` includes `Workspace`, `Directory`, and `File` in the shared model.
 - `[x]` `workspacesId` canonical node exists with `kind = Special Workspaces`.
 - `[x]` `Workspaces` is permanent under root (cannot be removed or edited, like Trash).
-- `[x]` Graph invariants enforce structural placement rules (see Structural Invariants below).
-- `[~]` Desktop-local workspace label → local root mapping: JSON format defined, encode/decode/load/save/resolvePath
-  implemented (`src/Shared/WorkspaceLocalMapping.fs`). HTTP endpoint surface not yet wired.
-- `[ ]` No directory/file path mapping is persisted yet.
-- `[ ]` No reference-expression resolver uses these concepts yet.
-- `[ ]` No visual unresolved-reference indicator is implemented yet.
-- `[ ]` No user command surface exists yet for workspace/file/directory creation or maintenance.
+- `[x]` Graph invariants enforce structural placement rules — [[doc/current/workspace-graph.md]].
+- `[x]` Desktop-local workspace label → local root mapping and interim HTTP surface.
+- `[~]` RefExpr workspace-root resolution and path search — [[doc/current/workspace-graph.md]].
+- `[ ]` No directory/file path mapping is persisted in shared graph yet.
+- `[ ]` Full unresolved-reference indicator for unknown workspace labels.
+- `[~]` Workspace create/rename via graph ops; no directory/file command surface yet.
 
 ## Settled Decisions
 
@@ -90,17 +96,10 @@ implemented. The stage list below is the current implementation summary.
 
 ## Structural Invariants
 
-These placement rules are enforced by `Graph.replace` at the graph layer:
+See [[doc/current/workspace-graph.md]] for enforced placement rules.
 
-| Node kind | Allowed owner parent |
-|---|---|
-| `Workspaces` | root only (permanent, canonical) |
-| `Workspace` | `Workspaces` only |
-| `Directory` | `Workspace` or `Directory` |
-| `File` | `Workspace` or `Directory` |
-| Normal | anywhere |
-
-No command surface for creating `Workspace`, `Directory`, or `File` nodes exists yet (Stage 6).
+No command surface for creating `Directory` or `File` nodes exists yet (Stage 6). Workspace
+create/rename uses general graph ops — [[doc/current/workspace-graph.md]].
 
 ## Model Entities
 

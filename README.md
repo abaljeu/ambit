@@ -24,7 +24,8 @@ HTTP contract (implemented `/ambit/*` routes): [[doc/api.md]].
 - **`DB_CONNECTION_STRING`** — required for `db` mode; optional in `file` mode for mirroring/seed.
 - Snapshots and change logs are written automatically after accepted changes (no `POST /save`).
 
-See [[doc/future/postgres-environments.md]] for local dev and Azure Flexible Server setup.
+See [[doc/reference/postgres-environments.md]] for local dev and Azure Flexible Server setup.
+See [[doc/current/persistence-model.md]] for schema and mode rules.
 
 ## Desktop
 
