@@ -1,77 +1,101 @@
 # Workspace Text Outline Conversion
 
 Status: Draft
-Authority: Target design for converting between plain text and outline structure.
-See also: [[doc/roadmap/workspace-file-model.md]], [[doc/roadmap/workspace-file-persistence.md]], [[doc/roadmap/workspace-stage-plan.md]]
+
+Authority: Target design for converting between document files and outline structure. Mixes settled commitments with open questions; each section marks which.
+
+See also: [[doc/roadmap/workspace-file-model.md]], [[doc/roadmap/workspace-file-persistence.md]], [[doc/roadmap/workspace-stage-plan.md]], [[doc/roadmap/reference-expressions.md]], [[doc/roadmap/workspace-format-amb.md]]
 
 This document defines the separate conversion step used by the main import and export process. The workflow itself stays in the main process docs; this file only defines how text content becomes outline structure and how outline structure becomes text content again.
 
+Per-format line grammar, identity encoding, and reference syntax live in separate format documents. This file defines the generic conversion contract and how those formats plug into import/export.
+
 ## Scope
 
-This spec covers the conversion boundary between a text file and an outline tree.  It does not define desktop transfer, server persistence, or user command flow.
+This spec covers the conversion boundary between a text file and an outline tree. It does not define desktop transfer, server persistence, or user command flow.
 
-## Bidirectional Transformation
+## Settled
 
-The two conversions form a paired bidirectional transformation, not two independent functions. Treat them as a lens:
+These are committed.
 
-- `toOutline`: text content becomes outline structure (the `get` direction)
-- `toText`: outline structure becomes text content (the `put` direction)
+- **Bidirectional transformation.** The two directions are one paired unit, not independent functions. Neither side is a pure view of the other: a file may drop outline content (exact layout, node identity), and the outline holds content a file cannot represent. This is a symmetric transformation with a per-side **complement**: the information each side must preserve across a round trip though the other cannot represent it. Objectives:
 
-All definitions below must heed these objectives:
+  1. **No-op stability**: a round trip carrying no change produces no change.
 
-1. **Round-trip stability**: `toText (toOutline text)` returns the original text for any text the converter accepts. `toOutline (toText outline)` returns the original outline for any outline the converter accepts.
-2. **No silent loss**: any content or structure that cannot survive a round trip must be reported explicitly, never dropped or altered without notice.
-3. **Paired rules**: a rule added to one direction must have a defined counterpart in the other direction, so the two stay consistent.
-4. **Determinism**: each direction produces one defined result for a given input.
+  2. **Propagation**: a real edit survives the round trip.
 
-These objectives govern "Text To Outline", "Outline To Text", and "Round Trip Expectations" below.
+  3. **No silent loss**: content that cannot survive *the conversion itself* is reported, never dropped or altered silently. This is about conversion fidelity, not about an external editor deleting text (see **Deletion on import**).
 
+  4. **Determinism**: one defined result per input, except for any freshly minted identity.
 
-## Text To Outline
+- **Export/import asymmetry.** Export is delta-driven: the server file is continuously the projection of its subtree, updated per operation (`file_next = f_out(file_prev, op)`). Import is state-based: an externally edited file is reconciled against the current subtree (`out2 = f_in(file1, out1)`). Asymmetric because identity recovery is only hard where edits are untrusted.
 
-Given text content, the converter produces an outline structure. This is the `get` direction of the bidirectional pair.
+- **Subtree mapping.** The outline spans many files; each file maps to one subtree, and import is scoped to that subtree.
 
-The converter must define:
+- **Ownership migration (implemented).** Every node has one owner; removing it from its owner promotes another reference to owner, transferring the subtree. A cross-file reference can thereby become contained content, and undo reverses it. Identity handling must tolerate a node's file location changing. (When a node changes owner, the node is replaced with an updated node; all references to that node shall consider if re-persistence is needed.)
 
-1. how lines map to nodes
-2. how indentation or syntax determines parentage
-3. how empty lines and blank content are handled
-4. how invalid text is reported
-5. which `toText` rule each of the above pairs with
+- **Per-format specs.** Format-specific rules are defined in separate documents. This doc states requirements each format must satisfy; it does not duplicate line grammar.
 
-## Outline To Text
+- **Access unit (stage 1).** Import and export operate on the whole file artifact and its full outline subtree. Section windows — reconciling a matched slice while preserving text outside the window — are deferred; see **Later** below.
 
-Given an outline tree, the converter produces text content. This is the `put` direction of the bidirectional pair.
+- **Stable identity in the artifact.** Import recovers node identity from durable ids written in the file, not from structural alignment alone. This applies to Owner and Ref lines within a file and to cross-file references. A file must not need rewriting when another file changes merely because a peer was edited or moved. Backward compatibility with the ephemeral `#n1` short-id scheme in [[src/Shared/Snapshot.fs]] is not required; workspace `.amb` **replaces** that scheme rather than extending it.
 
-The converter must define:
+- **Format-specific reference encoding.** How a reference to a node is written readably and matched persistently through edits is defined per file format — not in this doc. Each format spec must pair export and import rules and reconcile with [[doc/roadmap/reference-expressions.md]] where the target is addressable that way. Stable `NodeId` remains authoritative; readable surface form is a format choice.
 
-1. how node hierarchy becomes line order
-2. how node content becomes text
-3. how indentation is emitted
-4. how unsupported structures are handled
-5. which `toOutline` rule each of the above pairs with
+- **Deletion on import.** When a node with a known stable id exists in the current subtree but is absent from the externally edited file, that is an external-editor deletion, not conversion loss. Resolution reuses existing graph semantics: if the node has an external reference, change-owner (ownership migration) semantics apply; if it has none, the delete-to-trash mechanism applies, within the outliner. Conversion does not invent a separate deletion path.
 
-## Round Trip Expectations
+## File Formats
 
-The conversion is defined as a paired unit so that import and export use the same rules in opposite directions. The round-trip laws stated under "Bidirectional Transformation" are the acceptance criteria for this pairing:
+| Format | Document | Notes |
 
-- `toText (toOutline text)` equals the original accepted text
-- `toOutline (toText outline)` equals the original accepted outline
-- anything that cannot satisfy these laws is reported, not silently changed
+|--------|----------|-------|
+
+| `.amb` (native) | [[doc/roadmap/workspace-format-amb.md]] | [[src/Shared/Snapshot.fs]] is a pre-workspace baseline only; workspace `.amb` replaces its id scheme. |
+
+Other formats are unspecified for now.
+
+## Content Conversion
+
+The pure content conversion pairs with identity and reference encoding defined per format.
+
+Each format document defines:
+
+- **Text to outline** — line-to-node mapping, parentage, blanks, invalid text, stable id matching on import, reference import grammar.
+- **Outline to text** — hierarchy to line order, content and indentation, stable ids, reference export grammar, unsupported structures.
+
+Each rule should name its counterpart in the other direction.
+
+## Later
+
+Not stage 1; design must not foreclose these.
+
+- **Section windows.** A request may eventually edit a matched **section** of a file: reconcile only the corresponding outline subtree and write back without altering text outside the window. Stage 1 still writes the whole file; reconciliation APIs and format grammar should remain definable on a scoped `(file, subtree)` pair rather than baking in irrecoverable whole-file-only semantics at the conversion layer.
+
+## Open Questions
+
+Under consideration; not committed.
+
+- **Loss / error reporting model.** "No silent loss" is settled, but the reporting shape is TBD. Candidates: structured diagnostics with partial apply; fail-whole-conversion; or tiered by severity (hard errors block, warnings proceed).
 
 ## Non-Goals
 
-- desktop file transfer mechanics
-- server write ordering
-- workspace identity and persistence
-- unrelated graph operations
+- desktop file transfer mechanics (separate project)
+- server write ordering (last write wins)
+- workspace identity and persistence (just know workspace+filepath resolves to a unique dir/file on disk)
+- unrelated graph operations (only consider here what an Op does to the persisted server file)
+- per-format line grammar and reference syntax (lives in format documents)
+- section-window editing (stage 1; see **Later**)
+- backward compatibility with [[src/Shared/Snapshot.fs]] short ids for workspace `.amb`
 
 ## Verification Targets
 
-- text input converts to a deterministic outline structure
-- outline structure converts back to deterministic text
-- `toText (toOutline text)` round-trips to the original accepted text
-- `toOutline (toText outline)` round-trips to the original accepted outline
+- text converts to a deterministic outline; outline converts back to deterministic text
+- export of an unchanged outline leaves the file unchanged
+- import of an unchanged file produces no operations
+- a real edit survives the round trip
 - content that cannot round-trip is reported, not dropped or altered
-- invalid text is reported explicitly
-- unsupported outline shapes are handled explicitly
+- invalid text and unsupported structures are reported explicitly
+- stage 1 import and export cover the whole file subtree end to end
+- import matches nodes by stable id across reorder, text edit, and ownership migration
+- editing file B does not require rewriting file A when A holds a cross-file reference to a node in B
+
