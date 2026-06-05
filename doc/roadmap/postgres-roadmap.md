@@ -135,4 +135,9 @@ Topology (edges) is small enough to keep fully in memory across all documents. P
 - Startup workspace registration (sync local config labels to cloud graph).
 - Full workspace filesystem API (dir/file CRUD with `modifiedUtc` conflicts).
 
+**Server workspace files (requirement, not implemented):** Directory and file graph objects will
+also persist on the server under `{DataDir}/@{label}/{path}` — same write pattern as snapshot
+backup. Desktop `@label:` mapping and manual Import/Export are unchanged. See
+[[doc/roadmap/workspace-file-model.md]] § Server workspace file persistence.
+
 *Source:* [[doc/current/desktop-local-files.md]], [[doc/roadmap/workspace-stage-plan.md]].

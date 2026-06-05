@@ -7,7 +7,6 @@ open Gambol.Client.UpdateCodec
 open Gambol.Client.UpdateHelpers
 open Gambol.Client.UpdateOps
 
-type Op = UpdateOps.Op
 type ChangeAck = UpdateCodec.ChangeAck
 
 let encodePendingBatchBody = UpdateCodec.encodePendingBatchBody

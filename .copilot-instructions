@@ -23,7 +23,8 @@ Don't bother using git unless asked a history or status question.  I will take c
 Markdown should only have linebreaks at paragraph boundaries or for markdown formatting.
 
 ## Source code
-Maximum 100 characters per line.  This does not apply to markdown.
+Markdown lines are unlimited length. Standard paragraph and list conventions apply.
+Code files are maximum 100 characters per line.
 Follow language norms.
 TABs are not allowed in F#
 Always indent 4 spaces.

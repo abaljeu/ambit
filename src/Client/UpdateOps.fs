@@ -14,13 +14,10 @@ open Gambol.Shared.ViewModel
 
 
 // ---------------------------------------------------------------------------
-// Op type and named operations
+// Updater functions
 // ---------------------------------------------------------------------------
 
-/// A self-contained pure model transformation. Returns the new VM and any effects to run.
-type Op = VM -> VM * Effect list
-
-/// Op: Move to selection mode (or deselect if already selecting), reverting any edit.
+/// Updater: Move to selection mode (or deselect if already selecting), reverting any edit.
 let handleEsc (model: VM) : VM * Effect list =
     match model.mode with
     | Editing _ -> commitIfEditing model

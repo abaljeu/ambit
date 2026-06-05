@@ -290,6 +290,9 @@ and VM = // the client state
       lastSuccessfulKey: string   // key combo of the most recently handled command (e.g. "Ctrl+Z")
       lastSuccessfulOp: string }  // display name of the most recently handled command (e.g. "Undo")
 
+/// Self-contained pure model transformation for the client update loop (see `Msg.ApplyOp`).
+type Updater = VM -> VM * Effect list
+
 /// Messages dispatched by async server callbacks (not directly caused by user input).
 type SystemMsg =
     | StateLoaded of Graph * Revision
@@ -310,7 +313,7 @@ type SystemMsg =
 type Msg =
     | SysMsg of SystemMsg
     | AckSyncRisk
-    | ApplyOp of (VM -> VM * Effect list)
+    | ApplyOp of Updater
 
 /// Client `manageFocus`: when this is true, the live DOM caret in `#edit-input` must not be
 /// overwritten from `model.mode` — e.g. contenteditable typing with only `syncInfo` changed.

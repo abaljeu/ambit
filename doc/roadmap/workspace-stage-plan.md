@@ -39,15 +39,20 @@ For this stage, "workspace support" means:
 - A `desktop`-accessible workspace-node command for "open workspace in explorer".
 - No commands to set, update, clear, or list local mappings.
 - Clear unresolved-workspace indication when label is unknown.
+- Server-side persistence of directory and file objects under `DataDir/@label/...` (requirement
+  documented; implementation deferred — see §7).
 
-### Out Of Scope (next stage)
+### Out Of Scope (this stage — next stage)
 
-- Directory node lifecycle.
-- File node lifecycle.
-- Workspace-relative directory/file path mapping.
+- Directory and file **graph** lifecycle (create/rename/move/remove `Special Directory` /
+  `Special File` nodes in the shared graph).
+- Workspace-relative directory/file path mapping in shared persistence.
 - Path wildcard resolution under workspaces.
-- Filesystem sync/import/reconciliation.
-- Reference language elements
+- Automatic filesystem sync/import/reconciliation (manual Import/Export via desktop continues).
+- Reference language elements beyond workspace-root baseline.
+
+Server `DataDir` persistence for dir/file objects is a **documented requirement** for a follow-on
+stage (§7), separate from graph lifecycle above.
 
 ## Deliverables
 
@@ -107,7 +112,11 @@ See [[doc/current/desktop-local-files.md]] and [[doc/current/workspace-local-map
 - `@label:relative` path resolution when `workspacePaths` capability is enabled.
 - Tests: `tests/Shared.Tests/WorkspaceLocalMappingTests.fs`.
 
-### Remaining (target API)
+### Remaining (target API — desktop-local only)
+
+This loopback API resolves paths against the desktop's mapped absolute workspace roots. It is
+**separate** from server `DataDir/@label/...` persistence (§7), which writes under the server's
+configured `DataDir`.
 
 - Expose desktop-local endpoints (loopback + local auth token required):
   - GET workspaces -> workspace labels only
@@ -176,8 +185,7 @@ Done — see [[doc/current/desktop-local-files.md]].
 
 ### 5d. 
 
-- Add a desktop-accessible command on workspace nodes for opening the mapped workspace root in
-   explorer.
+- Add a desktop-accessible command on workspace nodes for opening the mapped workspace root in explorer.
 - Add clear "not locally mapped" feedback when desktop action is invoked without a local mapping.
 - Display unresolved workspace label state in UI where references are shown.
 
@@ -186,7 +194,26 @@ Verification:
 - Command-level tests for happy path and invalid input.
 - UI state tests for unresolved labels and unmapped desktop actions.
 
-## 7. Stage Exit Criteria
+## 7. Server workspace file persistence (requirement)
+
+Documented requirement — not implemented. Full spec:
+[[doc/roadmap/workspace-file-persistence.md]],
+[[doc/roadmap/workspace-text-outline-conversion.md]].
+
+- **Path:** `{DataDir}/@{workspaceLabel}/{canonicalRelativePath}` (the `@` is part of the on-disk
+  path segment).
+- **Write pattern:** same as outline snapshot backup (`writeStateBackup`, `ensureSnapshotBackup`).
+- **Desktop unchanged:** `@label:` local mapping and manual Import/Export via `/_desktop/file`
+  continue ([[doc/current/workspace-local-mapping.md]], [[doc/current/desktop-local-files.md]]).
+
+Verification (when implemented):
+
+- Directory and file objects write under `DataDir/@label/...` with correct relative paths.
+- Prior file rotated to `.bak.{date}` on overwrite.
+- Path safety: no escape above `DataDir/@label/`.
+- No regression to desktop `/_desktop/file` import/export or `@label:relative` resolution.
+
+## 8. Stage Exit Criteria
 
 This stage is complete when all of the following are true:
 

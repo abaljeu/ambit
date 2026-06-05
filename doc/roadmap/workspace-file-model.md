@@ -47,6 +47,7 @@ implemented. The stage list below is the current implementation summary.
   (file-status indicator done; full unresolved `@label:` UI not done).
 - `[~]` Stage 6: explicit user commands create and modify workspace/file/directory structure
   (workspace create/rename via graph ops; directory/file commands not done).
+- `[ ]` Stage 7: server `DataDir/@label/...` persistence for directory and file objects.
 
 ## Current Implementation Snapshot
 
@@ -60,6 +61,7 @@ Authority for implemented behavior: [[doc/current/workspace-graph.md]],
 - `[x]` Desktop-local workspace label → local root mapping and interim HTTP surface.
 - `[~]` RefExpr workspace-root resolution and path search — [[doc/current/workspace-graph.md]].
 - `[ ]` No directory/file path mapping is persisted in shared graph yet.
+- `[ ]` No server `DataDir/@label/...` persistence for directory/file objects yet.
 - `[ ]` Full unresolved-reference indicator for unknown workspace labels.
 - `[~]` Workspace create/rename via graph ops; no directory/file command surface yet.
 
@@ -93,6 +95,11 @@ Authority for implemented behavior: [[doc/current/workspace-graph.md]],
 19. `Directory` and `File` nodes may only exist as children of a `Workspace` node or another
    `Directory` node (standard filesystem directory semantics).
 20. Normal nodes may be placed anywhere in the graph without structural restriction.
+21. The server persists directory and file object content under `DataDir`, using paths that embed
+    the workspace label with a leading `@` (e.g. `data/@home/src/lib.fs`). This is additive to
+    graph/DB identity; it does not replace PostgreSQL projection or desktop local mapping.
+22. Desktop `@label:` local mapping and manual Import/Export via `/_desktop/file` continue
+    unchanged; server `DataDir` paths are independent of desktop absolute roots.
 
 ## Structural Invariants
 
@@ -267,8 +274,8 @@ This keeps shared references stable while allowing partial local support.
 
 ## Persistence Shape
 
-This document does not lock the final SQL schema, but it does require shared persistence to store
-enough information to enforce the uniqueness rules above.
+This document does not lock the final SQL schema, but it does require shared
+persistence to store enough information to enforce the uniqueness rules above.
 
 At minimum, shared persistence must be able to map:
 
@@ -276,9 +283,11 @@ At minimum, shared persistence must be able to map:
 - `(workspace label, relative directory path)` to directory node
 - `(workspace label, relative file path)` to file node
 
-Desktop-local persistence must be able to map:
+Desktop-local persistence must be able to map workspace label to absolute local
+root path.
 
-- workspace label to absolute local root path
+Server `DataDir/@label/...` storage is described separately in
+[[doc/roadmap/workspace-file-persistence.md]].
 
 ## Migration
 

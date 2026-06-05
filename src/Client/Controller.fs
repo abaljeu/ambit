@@ -60,7 +60,7 @@ let setClipboardData (ev: Event) (format: string) (data: string) : unit =
 
 /// Wrap an op with diagnostic state: sets `lastSuccessfulKey` and `lastSuccessfulOp` on the
 /// returned VM. Call sites pass the key combo and command name; the VM update is automatic.
-let withDiagnostic (key: string) (opName: string) (f: VM -> VM * Effect list) : VM -> VM * Effect list =
+let withDiagnostic (key: string) (opName: string) (f: Updater) : Updater =
     fun model ->
         let newModel, effects = f model
         { newModel with lastSuccessfulKey = key; lastSuccessfulOp = opName }, effects
@@ -126,7 +126,7 @@ let onPaste (ev: Event) (dispatch: Msg -> unit) : unit =
     if pastedText <> "" then
         dispatch (ApplyOp (withDiagnostic "Ctrl+V" "Paste" (pasteNodesOp pastedText nodeIds)))
 
-let private onCopyOrCut (model: VM) (ev: Event) (dispatch: Msg -> unit) (op: Op) (includeNodeIds: bool) : unit =
+let private onCopyOrCut (model: VM) (ev: Event) (dispatch: Msg -> unit) (updater: Updater) (includeNodeIds: bool) : unit =
     match model.selectedNodes with
     | None -> ()
     | Some sel ->
@@ -148,7 +148,7 @@ let private onCopyOrCut (model: VM) (ev: Event) (dispatch: Msg -> unit) (op: Op)
             setClipboardData ev nodeIdsFormat idsText
         let keyLabel = if includeNodeIds then "Ctrl+X" else "Ctrl+C"
         let opLabel  = if includeNodeIds then "Cut" else "Copy"
-        dispatch (ApplyOp (withDiagnostic keyLabel opLabel op))
+        dispatch (ApplyOp (withDiagnostic keyLabel opLabel updater))
 
 /// Handle a copy event: serialize the selected subtree to the clipboard.
 let onCopy (model: VM) (ev: Event) (dispatch: Msg -> unit) : unit =
@@ -276,8 +276,8 @@ type CommandKeyScope =
     | EditingOnly
     | SelectionOrEditing
 
-/// Resolves an Op to apply, or None to let the browser handle the key event.
-type CommandOp = unit -> Op option
+/// Resolves an Updater to apply, or None to let the browser handle the key event.
+type CommandOp = unit -> Updater option
 
 /// Key table entry: key string, resolver, and command name for diagnostic.
 type KeyBinding = {
@@ -301,14 +301,14 @@ type KeyResolveError =
 // Editing command ops (read live caret from DOM; defined before commandRegistry)
 // ---------------------------------------------------------------------------
 
-let private keyAlways (op: Op) : CommandOp = fun () -> Some op
+let private keyAlways (updater: Updater) : CommandOp = fun () -> Some updater
 
-let private splitAtCursor () : Op option =
+let private splitAtCursor () : Updater option =
     let text = readEditInputValue ()
     let pos = readEditInputCursor ()
     Some (splitNodeOp text pos)
 
-let private editMoveUp () : Op option =
+let private editMoveUp () : Updater option =
     let el = document.getElementById "edit-input"
     if isNull el || not (isContentEditableCaretOnVisualFirstLine el) then
         None
@@ -317,7 +317,7 @@ let private editMoveUp () : Op option =
         | None -> None
         | Some x -> Some (moveEditUpAtClientX x)
 
-let private editMoveDown () : Op option =
+let private editMoveDown () : Updater option =
     let el = document.getElementById "edit-input"
     if isNull el || not (isContentEditableCaretOnVisualLastLine el) then
         None
@@ -326,23 +326,23 @@ let private editMoveDown () : Op option =
         | None -> None
         | Some x -> Some (moveEditDownAtClientX x)
 
-let private handleBackspace () : Op option =
+let private handleBackspace () : Updater option =
     if readEditInputCursor () = 0 && readEditInputSelectionEnd () = 0 then
         Some (joinWithPrevious (readEditInputValue ()))
     else None
 
-let private handleDelete () : Op option =
+let private handleDelete () : Updater option =
     let v = readEditInputValue ()
     if readEditInputSelectionEnd () = v.Length && readEditInputCursor () = v.Length then
         Some (joinWithNext v)
     else None
 
-let private handleArrowLeft () : Op option =
+let private handleArrowLeft () : Updater option =
     if readEditInputCursor () = 0 && readEditInputSelectionEnd () = 0 then
         Some (moveEditUp System.Int32.MaxValue)
     else None
 
-let private handleArrowRight () : Op option =
+let private handleArrowRight () : Updater option =
     let v = readEditInputValue ()
     let len = v.Length
     if readEditInputCursor () = len && readEditInputSelectionEnd () = len then
