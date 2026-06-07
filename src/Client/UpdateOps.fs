@@ -65,6 +65,12 @@ let startEditAtPos (cursorPos: int) (model: VM) : VM * Effect list =
         let text = model.graph.nodes.[targetId].text
         { model with mode = Editing (text, EditCaret.Utf16Index cursorPos) }, []
 
+/// Op: Select a view-line instance and enter edit mode at once (double-click path).
+let startEditInstanceAtPos (instanceId: SiteId) (cursorPos: int) (model: VM) : VM * Effect list =
+    match ViewModel.startEditInstanceAtPos instanceId cursorPos model with
+    | None -> model, []
+    | Some m -> m, []
+
 /// Re-export palette ops for use by Controller and View.
 let openCommandPaletteOp = Gambol.Client.CommandPalette.openCommandPaletteOp
 let closeCommandPaletteOp = Gambol.Client.CommandPalette.closeCommandPaletteOp

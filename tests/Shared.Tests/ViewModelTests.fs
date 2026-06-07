@@ -1572,6 +1572,60 @@ let ``planPatchDOM collapse removes stale cache entries`` () =
 
     Assert.Equal(2, removes.Length) // a1 and a2 evicted
 
+[<Fact>]
+let ``startEditInstanceAtPos selects instance and enters Editing with node text`` () =
+    let graph, cont, ids = buildFlat [ "alpha"; "beta"; "gamma" ]
+    let rootEntry = emptyModelAt graph cont |> fun m -> m.siteMap.entries.[m.siteMap.rootId]
+    let betaInst = rootEntry.children.[1]
+    let model = modelWithSel graph cont 0 1 0
+    let result =
+        startEditInstanceAtPos betaInst 3 model
+        |> Option.defaultWith (fun () -> Assert.True(false); model)
+    match result.selectedNodes with
+    | Some sel ->
+        Assert.Equal(ids.[1], focusedNodeId graph sel)
+        Assert.Equal(1, sel.focus)
+    | None -> Assert.True(false, "expected selection")
+    match result.mode with
+    | Editing (text, EditCaret.Utf16Index pos) ->
+        Assert.Equal("beta", text)
+        Assert.Equal(3, pos)
+    | _ -> Assert.True(false, "expected Editing mode")
+
+[<Fact>]
+let ``startEditInstanceAtPos ignores graph root node`` () =
+    let graph, _, _ = buildFlat [ "a" ]
+    let model = emptyModel graph
+    let result = startEditInstanceAtPos model.siteMap.rootId 0 model
+    Assert.True(result.IsNone)
+
+[<Fact>]
+let ``planPatchDOM entering edit mode yields RecreateRow not SetText`` () =
+    let graph, cont, _ = buildFlat [ "a"; "b"; "c" ]
+    let oldModel = modelWithSel graph cont 0 1 0
+    let targetInst = oldModel.siteMap.entries.[oldModel.siteMap.rootId].children.[1]
+    let newModel =
+        startEditInstanceAtPos targetInst 0 oldModel
+        |> Option.defaultWith (fun () -> Assert.True(false); oldModel)
+    let cachedInstIds = buildCacheSet oldModel.siteMap
+    let mutations = planPatchDOM oldModel newModel cachedInstIds
+    let recreates =
+        mutations
+        |> List.filter (function
+            | RecreateRow id -> id = targetInst
+            | _ -> false)
+    let setTextOnTarget =
+        mutations
+        |> List.collect (function
+            | PatchRow (id, patches) when id = targetInst ->
+                patches
+                |> List.filter (function
+                    | SetText _ -> true
+                    | _ -> false)
+            | _ -> [])
+    Assert.Equal(1, recreates.Length)
+    Assert.Equal(0, setTextOnTarget.Length)
+
 // ---------------------------------------------------------------------------
 // Page / Home — cursorLevel*, shiftPg*, cursorViewRoot*
 // ---------------------------------------------------------------------------

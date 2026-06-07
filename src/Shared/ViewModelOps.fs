@@ -671,6 +671,26 @@ module ViewModel =
         | Editing _, Some sel -> isInstanceFocused sel model.siteMap entry
         | _ -> false
 
+    /// Enter edit mode for a view-line instance in one model step (selection + Editing).
+    /// Returns None for unknown instances or the graph root node.
+    let startEditInstanceAtPos (instanceId: SiteId) (cursorPos: int) (model: VM) : VM option =
+        match Map.tryFind instanceId model.siteMap.entries with
+        | None -> None
+        | Some entry ->
+            if entry.nodeId = model.graph.root then
+                None
+            else
+                let text = model.graph.nodes.[entry.nodeId].text
+                let selectedNodes =
+                    if instanceId = model.siteMap.rootId then
+                        None
+                    else
+                        singleSelectionForInstance model.siteMap instanceId
+                Some
+                    { model with
+                        selectedNodes = selectedNodes
+                        mode = Editing (text, EditCaret.Utf16Index cursorPos) }
+
     let isActiveEntry (model: VM) (entry: SiteEntry) : bool =
         match model.selectedNodes with
         | None -> entry.instanceId = model.siteMap.rootId

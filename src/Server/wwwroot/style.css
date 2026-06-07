@@ -10,6 +10,7 @@
 
 html {
     scroll-padding-top: var(--amb-sticky-header-scroll-inset);
+    scroll-padding-bottom: env(keyboard-inset-height, 0px);
 }
 
 body {

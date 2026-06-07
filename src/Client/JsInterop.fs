@@ -177,6 +177,38 @@ let private selectionApplyIfInRoot (root: HTMLElement) (sel: DomSelection) (r: R
 [<Emit("$0.focus({preventScroll:true})")>]
 let focusPreventScroll (el: HTMLElement) : unit = jsNative
 
+/// Scroll element into view respecting CSS scroll-padding (layout viewport only).
+[<Emit("$0.scrollIntoView({block:'nearest'})")>]
+let scrollIntoViewNearest (el: HTMLElement) : unit = jsNative
+
+/// Scroll so `el` fits in the visual viewport (keyboard-aware on iOS). Always uses
+/// `scrollIntoView({block:'nearest'})` first; then nudges for `visualViewport` when present.
+[<Emit("""(function(el){
+function adjust(){
+var vv=window.visualViewport;
+if(!vv)return;
+var rect=el.getBoundingClientRect();
+var padTop=parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop)||0;
+var margin=8;
+var visTop=vv.offsetTop;
+var visBottom=vv.offsetTop+vv.height;
+var dy=0;
+if(rect.bottom>visBottom-margin){dy=rect.bottom-(visBottom-margin);}
+else if(rect.top<visTop+padTop){dy=rect.top-(visTop+padTop);}
+if(dy!==0){window.scrollBy({top:dy,left:0});}
+}
+el.scrollIntoView({block:'nearest'});
+adjust();
+setTimeout(adjust,350);
+})($0)""")>]
+let scrollElementIntoViewAboveKeyboard (el: HTMLElement) : unit = jsNative
+
+/// UTF-16 caret offset in `root` from a viewport click, or 0 when outside `root`.
+let getCaretOffsetInRoot (root: HTMLElement) (clientX: float) (clientY: float) : int =
+    let r = tryDocumentCaretRangeFromPoint clientX clientY
+    if isNull r || not (root.contains r.startContainer) then 0
+    else rangeBoundaryOffsetInRoot root r.startContainer r.startOffset
+
 /// Focus `root`, then caret on first visual line (`caretRangeFromPoint` + `ClientRectCaret`
 /// probe). Fallback: `setContentEditableCaret` at 0. Works for any contenteditable layout.
 let setContentEditableCaretVisualFirstLine (root: HTMLElement) : unit =

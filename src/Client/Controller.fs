@@ -73,10 +73,6 @@ let setLastKeyDisplay (key: string) (operation: string) : unit =
         let txt = "<"+key + "> \u2192 " + operation
         el.textContent <- txt
 
-/// Get the character offset at a given client (x, y) position using the browser's caret APIs.
-[<Emit("(function(x,y){if(document.caretRangeFromPoint){var r=document.caretRangeFromPoint(x,y);return r?r.startOffset:0;}if(document.caretPositionFromPoint){var p=document.caretPositionFromPoint(x,y);return p?p.offset:0;}return 0;})($0,$1)")>]
-let getCaretOffset (x: float) (y: float) : int = jsNative
-
 /// Handle a paste event: extract plain text and optional node IDs, apply pasteNodesOp.
 let onPaste (ev: Event) (dispatch: Msg -> unit) : unit =
     let plain = getClipboardData ev "text/plain"

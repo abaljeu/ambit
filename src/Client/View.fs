@@ -12,10 +12,28 @@ open Gambol.Client.Update
 open Gambol.Client.UpdateOps
 open Gambol.Shared.CommandDockLayout
 
-let private scrollIntoViewNearest (el: HTMLElement) : unit =
-    let o = createEmpty<ScrollIntoViewOptions>
-    o.block <- ScrollAlignment.Nearest
-    el.scrollIntoView o
+let private doubleTapScrollDeferMs = 400
+let mutable private deferSelectionScroll = false
+let mutable private pendingSelectionScrollTimer : float option = None
+
+let private cancelPendingSelectionScroll () : unit =
+    pendingSelectionScrollTimer |> Option.iter clearTimeout
+    pendingSelectionScrollTimer <- None
+
+let private scheduleDeferredSelectionScroll (el: HTMLElement) : unit =
+    cancelPendingSelectionScroll ()
+    pendingSelectionScrollTimer <-
+        Some (
+            setTimeout
+                (fun () ->
+                    pendingSelectionScrollTimer <- None
+                    deferSelectionScroll <- false
+                    scrollIntoViewNearest el)
+                doubleTapScrollDeferMs)
+
+let private scrollFocusedRow (el: HTMLElement) : unit =
+    if deferSelectionScroll then scheduleDeferredSelectionScroll el
+    else scrollIntoViewNearest el
 
 // ---------------------------------------------------------------------------
 // Depth helper
@@ -151,14 +169,20 @@ let private makeRowElement
     // Row click → select the exact view-line instance, not just the first occurrence of the nodeId
     row.addEventListener("mousedown", fun (ev: Event) ->
         ev.preventDefault()
+        deferSelectionScroll <- true
         dispatch (ApplyOp (selectInstance siteEntry.instanceId))
     )
     // Row double-click → enter edit mode with cursor at mouse position
     row.addEventListener("dblclick", fun (ev: Event) ->
         ev.preventDefault()
+        cancelPendingSelectionScroll ()
+        deferSelectionScroll <- false
         let me = ev :?> MouseEvent
-        let offset = getCaretOffset me.clientX me.clientY
-        dispatch (ApplyOp (startEditAtPos offset))
+        let textDiv = row.querySelector ".amb-text"
+        let offset =
+            if isNull textDiv then 0
+            else getCaretOffsetInRoot (textDiv :?> HTMLElement) me.clientX me.clientY
+        dispatch (ApplyOp (startEditInstanceAtPos siteEntry.instanceId offset))
     )
     row
 
@@ -181,7 +205,9 @@ let private applyRowPatches (el: HTMLElement) (patches: RowPatch list) : unit =
         | SetClassName cls -> el.className <- cls
         | SetText txt ->
             let textDiv = el.querySelector ".amb-text"
-            if not (isNull textDiv) then (textDiv :?> HTMLElement).textContent <- txt
+            if not (isNull textDiv) then
+                let td = textDiv :?> HTMLElement
+                if td.id <> "edit-input" then td.textContent <- txt
         | SetTextClasses classes ->
             let textDiv = el.querySelector ".amb-text"
             if not (isNull textDiv) then
@@ -237,6 +263,8 @@ let manageFocus
     | CommandPalette _ | SearchDialog _ | CssClassPrompt _ ->
         () // focus is handled by overlay renderers after the element becomes visible
     | Editing _ ->
+        cancelPendingSelectionScroll ()
+        deferSelectionScroll <- false
         let editEl = document.getElementById "edit-input"
         if not (isNull editEl) then
             let root = editEl
@@ -255,7 +283,7 @@ let manageFocus
                     | EditCaret.FirstVisualLineAtClientX x ->
                         setEditorCarentToFirstLineAtX root x
                 | _ -> ()
-                scrollIntoViewNearest root
+            scrollElementIntoViewAboveKeyboard root
     | Selecting ->
         let hiddenInput = document.getElementById "hidden-input"
         if not (isNull hiddenInput) then
@@ -279,7 +307,7 @@ let manageFocus
                     |> Option.orElse (Some prev.siteMap.rootId)
         if prevFocusedInstId <> Some focusedInstId then
             Map.tryFind focusedInstId rowByInstanceId
-            |> Option.iter scrollIntoViewNearest
+            |> Option.iter scrollFocusedRow
 
 // ---------------------------------------------------------------------------
 // Compact command dock
@@ -291,7 +319,6 @@ type private ActiveToolSurface =
 
 let mutable private activeToolSurface : ActiveToolSurface option = None
 let mutable private moreSheetOpen = false
-let mutable private lastDockContext = ""
 
 let private triggerGlyph = function
     | OpenMove -> "\u21C5"
@@ -419,15 +446,6 @@ let private renderDockSlots
 let rec renderCommandButtons (model: VM) (dispatch: Msg -> unit) : unit =
     let container = document.querySelector ".amb-command-buttons"
     if isNull container then () else
-    let ctxKey =
-        let ctx = commandContextMode model.mode
-        let sel = paletteWasSelecting ctx
-        string sel + ":" + string ctx
-    if ctxKey <> lastDockContext then
-        lastDockContext <- ctxKey
-        activeToolSurface <- None
-        moreSheetOpen <- false
-
     container.innerHTML <- ""
 
     let refresh = renderCommandButtons
