@@ -20,6 +20,7 @@
     <Compile Include="UpdateExport.fs" />
     <Compile Include="UpdateOps.fs" />
     <Compile Include="Update.fs" />
+    <Compile Include="Commands.fs" />
     <Compile Include="Controller.fs" />
     <Compile Include="SearchDialogView.fs" />
     <Compile Include="View.fs" />

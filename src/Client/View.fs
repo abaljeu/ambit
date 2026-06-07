@@ -6,9 +6,11 @@ open Fable.Core.JsInterop
 open Gambol.Shared
 open Gambol.Shared.ViewModel
 open Gambol.Client.Controller
+open Gambol.Client.Commands
 open Gambol.Client.JsInterop
 open Gambol.Client.Update
 open Gambol.Client.UpdateOps
+open Gambol.Shared.CommandDockLayout
 
 let private scrollIntoViewNearest (el: HTMLElement) : unit =
     let o = createEmpty<ScrollIntoViewOptions>
@@ -280,6 +282,183 @@ let manageFocus
             |> Option.iter scrollIntoViewNearest
 
 // ---------------------------------------------------------------------------
+// Compact command dock
+// ---------------------------------------------------------------------------
+
+type private ActiveToolSurface =
+    | DockMoveTools
+    | DockSelectTools
+
+let mutable private activeToolSurface : ActiveToolSurface option = None
+let mutable private moreSheetOpen = false
+let mutable private lastDockContext = ""
+
+let private triggerGlyph = function
+    | OpenMove -> "\u21C5"
+    | OpenSelect -> "\u29C9"
+    | OpenMore -> "\u22EF"
+
+let private triggerLabel = function
+    | OpenMove -> "Move tools"
+    | OpenSelect -> "Select tools"
+    | OpenMore -> "More commands"
+
+let private dockCssClass = function
+    | Base -> "amb-dock-base"
+    | MoveTools -> "amb-dock-move"
+    | SelectTools -> "amb-dock-select"
+    | MoreTools -> "amb-dock-more"
+    | _ -> "amb-dock-base"
+
+let private makeDockRow (surface: CommandDockSurface) : HTMLElement =
+    let row = document.createElement "div"
+    row.className <- "amb-dock " + dockCssClass surface
+    row
+
+let private makeGlyphButton
+        (label: string)
+        (glyph: string)
+        (extraClass: string option)
+        (onClick: unit -> unit)
+        : HTMLButtonElement =
+    let btn = document.createElement "button" :?> HTMLButtonElement
+    btn.``type`` <- "button"
+    btn.className <- "amb-dock-glyph"
+    btn.title <- label
+    btn.setAttribute("aria-label", label)
+    btn.textContent <- glyph
+    match extraClass with
+    | Some cls -> btn.classList.add cls
+    | None -> ()
+    btn.addEventListener ("click", fun _ -> onClick ())
+    btn
+
+let private makeCommandGlyphButton
+        (cmd: CommandEntry)
+        (dispatch: Msg -> unit)
+        (afterClick: unit -> unit)
+        : HTMLButtonElement =
+    let glyph = cmd.glyph |> Option.defaultValue ""
+    let btn = document.createElement "button" :?> HTMLButtonElement
+    btn.``type`` <- "button"
+    btn.className <- "amb-dock-glyph"
+    btn.title <- cmd.name
+    btn.setAttribute("aria-label", cmd.name)
+    btn.textContent <- glyph
+    match cmd.run () with
+    | None -> btn.classList.add "amb-inactive"
+    | Some op ->
+        btn.addEventListener ("click", fun _ ->
+            afterClick ()
+            dispatch (ApplyOp op))
+    btn
+
+let private appendDockSlot
+        (row: HTMLElement)
+        (model: VM)
+        (dispatch: Msg -> unit)
+        (slot: DockSlot)
+        (afterCommand: unit -> unit)
+        (refresh: VM -> (Msg -> unit) -> unit)
+        : unit =
+    match slot with
+    | DockClose ->
+        let close =
+            makeGlyphButton "Close" "\u00D7" (Some "amb-dock-close") (fun () ->
+                activeToolSurface <- None
+                moreSheetOpen <- false
+                refresh model dispatch)
+        row.appendChild close |> ignore
+    | DockTrigger trigger ->
+        let isOpen =
+            match trigger with
+            | OpenMove -> activeToolSurface = Some DockMoveTools
+            | OpenSelect -> activeToolSurface = Some DockSelectTools
+            | OpenMore -> moreSheetOpen
+        let extra =
+            if isOpen then Some "amb-dock-trigger-open" else None
+        let toggle =
+            makeGlyphButton (triggerLabel trigger) (triggerGlyph trigger) extra
+                (fun () ->
+                    match trigger with
+                    | OpenMove ->
+                        moreSheetOpen <- false
+                        activeToolSurface <-
+                            if activeToolSurface = Some DockMoveTools then None
+                            else Some DockMoveTools
+                    | OpenSelect ->
+                        moreSheetOpen <- false
+                        activeToolSurface <-
+                            if activeToolSurface = Some DockSelectTools then None
+                            else Some DockSelectTools
+                    | OpenMore ->
+                        activeToolSurface <- None
+                        moreSheetOpen <- not moreSheetOpen
+                    refresh model dispatch)
+        row.appendChild toggle |> ignore
+    | DockCommand name ->
+        match tryFindCommand name with
+        | None -> ()
+        | Some cmd ->
+            row.appendChild (makeCommandGlyphButton cmd dispatch afterCommand)
+            |> ignore
+
+let private renderDockSlots
+        (surface: CommandDockSurface)
+        (slots: DockSlot list)
+        (model: VM)
+        (dispatch: Msg -> unit)
+        (afterCommand: unit -> unit)
+        (refresh: VM -> (Msg -> unit) -> unit)
+        : HTMLElement =
+    let row = makeDockRow surface
+    for slot in slots do
+        appendDockSlot row model dispatch slot afterCommand refresh
+    row
+
+let rec renderCommandButtons (model: VM) (dispatch: Msg -> unit) : unit =
+    let container = document.querySelector ".amb-command-buttons"
+    if isNull container then () else
+    let ctxKey =
+        let ctx = commandContextMode model.mode
+        let sel = paletteWasSelecting ctx
+        string sel + ":" + string ctx
+    if ctxKey <> lastDockContext then
+        lastDockContext <- ctxKey
+        activeToolSurface <- None
+        moreSheetOpen <- false
+
+    container.innerHTML <- ""
+
+    let refresh = renderCommandButtons
+    let noop = ()
+    let baseRow =
+        renderDockSlots Base baseStripSlots model dispatch (fun () -> noop) refresh
+    container.appendChild baseRow |> ignore
+
+    match activeToolSurface with
+    | Some DockMoveTools ->
+        let moveRow =
+            renderDockSlots MoveTools moveToolsSlots model dispatch
+                (fun () -> activeToolSurface <- None) refresh
+        container.appendChild moveRow |> ignore
+    | Some DockSelectTools ->
+        let selectRow =
+            renderDockSlots SelectTools selectToolsSlots model dispatch
+                (fun () -> noop) refresh
+        container.appendChild selectRow |> ignore
+    | None -> ()
+
+    let moreOverlay = document.createElement "div"
+    moreOverlay.className <- "amb-dock-more-overlay"
+    if moreSheetOpen then moreOverlay.classList.add "amb-dock-more-open"
+    let moreRow =
+        renderDockSlots MoreTools moreToolsSlots model dispatch
+            (fun () -> moreSheetOpen <- false) refresh
+    moreOverlay.appendChild moreRow |> ignore
+    container.appendChild moreOverlay |> ignore
+
+// ---------------------------------------------------------------------------
 // Command palette rendering
 // ---------------------------------------------------------------------------
 
@@ -497,21 +676,6 @@ let renderSyncChrome (model: VM) (dispatch: Msg -> unit) : unit =
     renderStatus model
     renderSyncRiskAlert model dispatch
     renderDiagnostics model
-
-/// Update the undo/redo status indicators based on history.
-let renderUndoStatus (model: VM) : unit =
-    let canUndo = not model.history.past.IsEmpty
-    let canRedo = not model.history.future.IsEmpty
-    let undoEl = document.getElementById "undo-command"
-    if not (isNull undoEl) then
-        undoEl.textContent <- if canUndo then "\u21B6" else "\u2205"   // ↶ or ∅
-        undoEl.className <- if canUndo then "amb-command-button"
-                            else "amb-command-button amb-inactive"
-    let redoEl = document.getElementById "redo-command"
-    if not (isNull redoEl) then
-        redoEl.textContent <- if canRedo then "\u21B7" else "\u2205"   // ↷ or ∅
-        redoEl.className <- if canRedo then "amb-command-button"
-                            else "amb-command-button amb-inactive"
 
 // ---------------------------------------------------------------------------
 // Full rebuild (StateLoaded)

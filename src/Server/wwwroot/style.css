@@ -1,6 +1,11 @@
 /* Inset for scrollIntoView so focused rows aren't hidden behind #amb-sticky-header */
 :root {
-    --amb-sticky-header-scroll-inset: 4.75rem;
+    --amb-sticky-header-scroll-inset: 3.25rem;
+    --dock-base: #1f3a5f;
+    --dock-move: #b7791f;
+    --dock-select: #6b46c1;
+    --dock-more: #0f766e;
+    --dock-close: #b91c1c;
 }
 
 html {
@@ -25,54 +30,111 @@ body {
     top: 0;
     z-index: 100;
     background: #ccc;
-    border-bottom: 1px solid #bbb;
+    border-bottom: none;
     flex-shrink: 0;
+    padding: 0;
+    margin: 0;
 }
-/* Command button bar: 9 buttons at ~30px each + gaps ≈ 330px.
-   Fits 480px phone */
 .amb-command-buttons {
+    position: relative;
     display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.2rem 0.4rem;
-    font-size: 0.85rem;
+    flex-direction: column;
+    gap: 0;
+    padding: 0;
+    margin: 0;
+    font-size: 0.9rem;
     color: #444;
+}
+.amb-dock {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    gap: 0;
+    padding: 0;
+    margin: 0;
+    border-top: 3px solid var(--dock-accent, var(--dock-base));
+    background: transparent;
+}
+.amb-dock-base { --dock-accent: var(--dock-base); }
+.amb-dock-move { --dock-accent: var(--dock-move); }
+.amb-dock-select { --dock-accent: var(--dock-select); }
+.amb-dock-more { --dock-accent: var(--dock-more); }
+.amb-dock-glyph {
+    appearance: none;
+    font: inherit;
+    font-family: "Segoe UI Symbol", "Apple Symbols", "Noto Sans Symbols", sans-serif;
+    font-weight: 600;
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 2rem;
+    padding: 0;
+    margin: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    cursor: pointer;
+    color: #444;
+    user-select: none;
+    line-height: 1;
+}
+.amb-dock-glyph:hover {
+    color: #111;
+}
+.amb-dock-glyph:active {
+    color: #000;
+}
+.amb-dock-glyph:focus-visible {
+    outline: 2px solid #888;
+    outline-offset: -2px;
+}
+.amb-dock-glyph.amb-inactive {
+    cursor: default;
+    color: #aaa;
+}
+.amb-dock-glyph.amb-inactive:hover {
+    color: #aaa;
+}
+.amb-dock-glyph.amb-dock-close {
+    background-color: var(--dock-close);
+    color: white;
+}
+.amb-dock-glyph.amb-dock-trigger-open {
+    color: var(--dock-accent);
+}
+.amb-dock-more-overlay {
+    display: none;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    z-index: 110;
+    background: #f5f5f5;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+.amb-dock-more-overlay.amb-dock-more-open {
+    display: block;
 }
 .amb-header-row2 {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.1rem 0.4rem 0.2rem;
+    gap: 0.35rem;
+    padding: 0;
+    margin: 0;
 }
 .amb-last-key {
+    display: none;
     font-size: 0.7rem;
     color: #849;
     font-family: monospace;
 }
-.amb-command-button {
-    font-family: "Segoe UI Symbol", "Apple Symbols", "Noto Sans Symbols", sans-serif;
-    font-weight: 600;
-    padding: 0.15rem 0.5rem;
-    border-radius: 0.2rem;
-    border: 1px solid #bbb;
-    cursor: pointer;
-    color: #444;
-    background: #6dd;
-    user-select: none;
-}
-.amb-command-button:hover {
-    background: #c8c8c8;
-    border-color: #999;
-}
-.amb-command-button.amb-inactive {
-    cursor: default;
-    color: #aaa;
-    border-color: transparent;
-    background: transparent;
-}
-.amb-command-button.amb-inactive:hover {
-    background: transparent;
-    border-color: transparent;
+@media (max-width: 480px) {
+    body {
+        margin: 0.25rem;
+    }
+    .amb-dock-glyph {
+        min-height: 2.25rem;
+        font-size: 0.85rem;
+    }
 }
 .amb-row {
     display: flex;

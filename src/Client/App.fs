@@ -220,7 +220,7 @@ let createRuntime (initialModel: VM) =
                         render newModel dispatch
                     | _ ->
                         patchDOM prev newModel dispatch elementCache
-                renderUndoStatus newModel
+                renderCommandButtons newModel dispatch
                 renderCommandPalette newModel dispatch
                 renderSearchDialog newModel dispatch
                 renderCssClassPrompt newModel dispatch
@@ -274,35 +274,6 @@ let createRuntime (initialModel: VM) =
 // ---------------------------------------------------------------------------
 // One-time static DOM setup (hidden-input + settings-bar)
 // ---------------------------------------------------------------------------
-let installCommandButtons dispatch =
-    
-    let commandButtons = document.querySelector ".amb-command-buttons"
-    if not (isNull commandButtons) then
-        let commandButtonDefs = [
-            "undo-command",    "Undo",            "\u21B6"
-            "redo-command",    "Redo",            "\u21B7"
-            "indent-command",  "Indent",          "\u21E5"
-            "outdent-command", "Outdent",         "\u21E4"
-            "moveup-command",  "Move Up",         "\u2191"
-            "movedown-command","Move Down",       "\u2193"
-            "palette-command", "Command palette", "P"
-            "move-command",    "Move Selected",   "M"
-            "find-command",    "Find",            "/"
-        ]
-        for id, commandName, symbol in commandButtonDefs do
-            match commandRegistry |> List.tryFind (fun c -> c.name = commandName) with
-            | None -> ()
-            | Some cmd ->
-                let btn = document.createElement "div"
-                btn.id <- id
-                btn.className <- "amb-command-button"
-                btn.title <- commandName
-                btn.textContent <- symbol
-                btn.addEventListener("click", fun _ ->
-                    match cmd.run () with
-                    | Some op -> dispatch (ApplyOp op)
-                    | None -> ())
-                commandButtons.appendChild btn |> ignore
 
 // let buildEl = document.getElementById "server-build-stamp"
 // if isNull buildEl then () else
@@ -328,7 +299,6 @@ let setupStaticDOM (dispatch: Msg -> unit) (getModel: unit -> VM) (_wakePolling:
         let path = window.location.pathname
         if path.StartsWith("/ambit") then "/ambit" else ""
 
-    installCommandButtons dispatch
     let syncStatus = document.getElementById "sync-status"
     syncStatus.addEventListener("click", fun _ ->
         match (getModel ()).syncInfo.syncState with

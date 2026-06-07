@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Command dock color preview</title>
+    <style>
+        :root {
+            --base: #1f3a5f;
+            --move: #b7791f;
+            --select: #6b46c1;
+            --more: #0f766e;
+            --danger: #b91c1c;
+            --btn-bg: #f0f0f0;
+            --btn-border: #bbb;
+            --app-bg: #ccc;
+            --text-bg: #ddd;
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: system-ui, sans-serif;
+            margin: 1.5rem;
+            background: var(--app-bg);
+            color: #222;
+        }
+        h1 { font-size: 1.1rem; margin: 0 0 1rem; }
+        h2 { font-size: 0.95rem; margin: 1.5rem 0 0.5rem; }
+        .swatches { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+        .swatch {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.4rem 0.6rem;
+            background: #eee;
+            border-radius: 0.25rem;
+            font-size: 0.85rem;
+        }
+        .chip {
+            width: 2rem;
+            height: 2rem;
+            border-radius: 0.2rem;
+            border: 1px solid #333;
+            flex-shrink: 0;
+        }
+        .dock {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem;
+            padding: 0.4rem 0.5rem;
+            background: #e8e8e8;
+            border-top: 4px solid var(--accent, var(--base));
+            border-radius: 0 0 0.25rem 0.25rem;
+            margin-bottom: 0.5rem;
+        }
+        .dock--base { --accent: var(--base); }
+        .dock--move { --accent: var(--move); }
+        .dock--select { --accent: var(--select); }
+        .dock--more { --accent: var(--more); }
+        .btn {
+            min-width: 2.25rem;
+            min-height: 2.25rem;
+            padding: 0.3rem 0.5rem;
+            border: 1px solid var(--btn-border);
+            border-radius: 0.25rem;
+            background: var(--btn-bg);
+            font: inherit;
+            font-weight: 600;
+            cursor: default;
+        }
+        .btn--trigger-open {
+            outline: 2px solid var(--accent);
+            outline-offset: 1px;
+        }
+        .btn--danger { color: var(--danger); border-color: #d99; }
+        .label { font-size: 0.75rem; color: #555; margin-bottom: 0.25rem; }
+        .mock-page {
+            max-width: 24rem;
+            margin-top: 1rem;
+            border: 1px solid #999;
+            background: var(--app-bg);
+        }
+        .mock-header { background: var(--app-bg); }
+        .mock-content {
+            padding: 0;
+            background: var(--app-bg);
+            min-height: 6rem;
+            font-size: 1rem;
+        }
+        .mock-row {
+            display: flex;
+            background: var(--app-bg);
+            padding: 0.2rem 0;
+        }
+        .mock-indent {
+            width: 1.5rem;
+            flex-shrink: 0;
+            background: #ddddddc0;
+        }
+        .mock-text {
+            flex: 1;
+            padding: 0 0.3rem;
+            background: var(--text-bg);
+        }
+        .mock-status {
+            display: flex;
+            gap: 0.35rem;
+            padding: 0.25rem 0.5rem 0.4rem;
+            font-size: 0.7rem;
+        }
+        .status-pill {
+            padding: 0.15rem 0.4rem;
+            border-radius: 0.2rem;
+            background: #9f9;
+        }
+        /* iPhone 390 fit check */
+        .fit-note {
+            font-size: 0.8rem;
+            color: #444;
+            margin: 0.25rem 0 0.75rem;
+            max-width: 24rem;
+        }
+        .fit-note.fail { color: #b91c1c; font-weight: 600; }
+        .fit-note.pass { color: #0f766e; font-weight: 600; }
+        .iphone {
+            width: 390px;
+            border: 2px solid #333;
+            margin-bottom: 1.5rem;
+            background: var(--app-bg);
+        }
+        .iphone--margined body,
+        .iphone--margined { margin: 0; }
+        .iphone--margined .iphone-inner {
+            margin: 2rem;
+        }
+        .iphone-inner { margin: 0; }
+        .dock--nowrap { flex-wrap: nowrap; }
+        .dock--nowrap .btn {
+            flex: 1 1 0;
+            min-width: 0;
+            padding: 0.25rem 0.05rem;
+            font-size: 0.85rem;
+        }
+        .row-count {
+            font-size: 0.7rem;
+            font-family: monospace;
+            padding: 0 0.5rem 0.35rem;
+            color: #555;
+        }
+        .row-count.bad { color: #b91c1c; }
+        .row-count.ok { color: #0f766e; }
+    </style>
+</head>
+<body>
+    <h1>Compact command dock — color preview</h1>
+    <p>Neutral buttons; panel identity via top stripe + open trigger outline.</p>
+
+    <h2>Palette</h2>
+    <div class="swatches">
+        <div class="swatch">
+            <div class="chip" style="background:#1f3a5f"></div>
+            <span>Base <code>#1f3a5f</code></span>
+        </div>
+        <div class="swatch">
+            <div class="chip" style="background:#b7791f"></div>
+            <span>Move <code>#b7791f</code></span>
+        </div>
+        <div class="swatch">
+            <div class="chip" style="background:#6b46c1"></div>
+            <span>Select <code>#6b46c1</code></span>
+        </div>
+        <div class="swatch">
+            <div class="chip" style="background:#0f766e"></div>
+            <span>More <code>#0f766e</code></span>
+        </div>
+        <div class="swatch">
+            <div class="chip" style="background:#b91c1c"></div>
+            <span>Close <code>#b91c1c</code></span>
+        </div>
+        <div class="swatch">
+            <div class="chip" style="background:#ccc"></div>
+            <span>App bg <code>#ccc</code></span>
+        </div>
+        <div class="swatch">
+            <div class="chip" style="background:#ddd"></div>
+            <span>Text bg <code>#ddd</code> — avoid for chrome</span>
+        </div>
+        <div class="swatch">
+            <div class="chip" style="background:#fff;border-color:#89a"></div>
+            <span>Edit field only <code>#fff</code></span>
+        </div>
+    </div>
+
+    <h2>Strips alone</h2>
+    <div class="label">Base</div>
+    <div class="dock dock--base">
+        <button class="btn">↶</button>
+        <button class="btn">↷</button>
+        <button class="btn">[</button>
+        <button class="btn">]</button>
+        <button class="btn">⇅</button>
+        <button class="btn">⧉</button>
+        <button class="btn">/</button>
+        <button class="btn">↗</button>
+        <button class="btn">⋯</button>
+    </div>
+
+    <div class="label">Move tools (brass stripe)</div>
+    <div class="dock dock--move">
+        <button class="btn btn--danger">×</button>
+        <button class="btn">↑</button>
+        <button class="btn">↓</button>
+        <button class="btn">⇥</button>
+        <button class="btn">⇤</button>
+        <button class="btn">↤</button>
+        <button class="btn">↦</button>
+        <button class="btn">M</button>
+    </div>
+
+    <div class="label">Select tools (violet stripe)</div>
+    <div class="dock dock--select">
+        <button class="btn btn--danger">×</button>
+        <button class="btn">↑</button>
+        <button class="btn">↓</button>
+        <button class="btn">↤</button>
+        <button class="btn">↦</button>
+    </div>
+
+    <div class="label">More sheet (teal stripe)</div>
+    <div class="dock dock--more">
+        <button class="btn btn--danger">×</button>
+        <button class="btn">P</button>
+        <button class="btn">Copy</button>
+        <button class="btn">Dup</button>
+        <button class="btn">Class</button>
+    </div>
+
+    <h2>iPhone 390px — 2-row max fit check</h2>
+    <p class="fit-note">
+        Constraint: at most 2 button rows visible (base + one tool strip).
+        More sheet is an overlay and does not count as a row.
+    </p>
+
+    <p class="label">Current app sizing (2.75rem buttons, body margin 2rem) — FAILS</p>
+    <p class="fit-note fail">
+        Usable ~326px. Nine 44px buttons need ~440px. Base alone wraps to 2 rows;
+        base + Move = 3+ rows.
+    </p>
+    <div class="iphone iphone--margined">
+        <div class="iphone-inner">
+            <div class="dock dock--base" data-fit="current-base">
+                <button class="btn" style="min-width:2.75rem;min-height:2.75rem">↶</button>
+                <button class="btn" style="min-width:2.75rem;min-height:2.75rem">↷</button>
+                <button class="btn" style="min-width:2.75rem;min-height:2.75rem">[</button>
+                <button class="btn" style="min-width:2.75rem;min-height:2.75rem">]</button>
+                <button class="btn" style="min-width:2.75rem;min-height:2.75rem">⇅</button>
+                <button class="btn" style="min-width:2.75rem;min-height:2.75rem">⧉</button>
+                <button class="btn" style="min-width:2.75rem;min-height:2.75rem">/</button>
+                <button class="btn" style="min-width:2.75rem;min-height:2.75rem">↗</button>
+                <button class="btn" style="min-width:2.75rem;min-height:2.75rem">⋯</button>
+            </div>
+            <div class="row-count bad" id="count-current">measuring…</div>
+        </div>
+    </div>
+
+    <p class="label">Proposed mobile (full 390px, nowrap + equal flex, 2.25rem min-height)</p>
+    <p class="fit-note pass">
+        Shrink body margin on narrow screens; one nowrap row per strip; buttons share width.
+    </p>
+    <div class="iphone">
+        <div class="iphone-inner">
+            <div class="dock dock--base dock--nowrap" data-fit="prop-base">
+                <button class="btn">↶</button>
+                <button class="btn">↷</button>
+                <button class="btn">[</button>
+                <button class="btn">]</button>
+                <button class="btn">⇅</button>
+                <button class="btn">⧉</button>
+                <button class="btn">/</button>
+                <button class="btn">↗</button>
+                <button class="btn">⋯</button>
+            </div>
+            <div class="row-count" id="count-prop-base">measuring…</div>
+        </div>
+    </div>
+
+    <p class="label">Worst case: base (9) + Move strip (8)</p>
+    <div class="iphone">
+        <div class="iphone-inner">
+            <div class="dock dock--base dock--nowrap" data-fit="prop-move">
+                <button class="btn">↶</button>
+                <button class="btn">↷</button>
+                <button class="btn">[</button>
+                <button class="btn">]</button>
+                <button class="btn btn--trigger-open">⇅</button>
+                <button class="btn">⧉</button>
+                <button class="btn">/</button>
+                <button class="btn">↗</button>
+                <button class="btn">⋯</button>
+            </div>
+            <div class="dock dock--move dock--nowrap">
+                <button class="btn btn--danger">×</button>
+                <button class="btn">↑</button>
+                <button class="btn">↓</button>
+                <button class="btn">⇥</button>
+                <button class="btn">⇤</button>
+                <button class="btn">↤</button>
+                <button class="btn">↦</button>
+                <button class="btn">M</button>
+            </div>
+            <div class="row-count" id="count-prop-move">measuring…</div>
+        </div>
+    </div>
+
+    <p class="label">base + Select (5 buttons) — easy fit</p>
+    <div class="iphone">
+        <div class="iphone-inner">
+            <div class="dock dock--base dock--nowrap">
+                <button class="btn">↶</button>
+                <button class="btn">↷</button>
+                <button class="btn">[</button>
+                <button class="btn">]</button>
+                <button class="btn">⇅</button>
+                <button class="btn btn--trigger-open">⧉</button>
+                <button class="btn">/</button>
+                <button class="btn">↗</button>
+                <button class="btn">⋯</button>
+            </div>
+            <div class="dock dock--select dock--nowrap">
+                <button class="btn btn--danger">×</button>
+                <button class="btn">↑</button>
+                <button class="btn">↓</button>
+                <button class="btn">↤</button>
+                <button class="btn">↦</button>
+            </div>
+            <div class="row-count ok">2 rows (base + select) — OK</div>
+        </div>
+    </div>
+
+    <h2>Mobile mock — Move open</h2>
+    <div class="mock-page">
+        <div class="mock-header">
+            <div class="dock dock--base" style="margin:0;border-radius:0">
+                <button class="btn">↶</button>
+                <button class="btn">↷</button>
+                <button class="btn">[</button>
+                <button class="btn">]</button>
+                <button class="btn btn--trigger-open">⇅</button>
+                <button class="btn">⧉</button>
+                <button class="btn">/</button>
+                <button class="btn">↗</button>
+                <button class="btn">⋯</button>
+            </div>
+            <div class="dock dock--move dock--nowrap" style="margin:0;border-radius:0">
+                <button class="btn btn--danger">×</button>
+                <button class="btn">↑</button>
+                <button class="btn">↓</button>
+                <button class="btn">⇥</button>
+                <button class="btn">⇤</button>
+                <button class="btn">↤</button>
+                <button class="btn">↦</button>
+                <button class="btn">M</button>
+            </div>
+            <div class="mock-status">
+                <span class="status-pill">synced</span>
+            </div>
+        </div>
+        <div class="mock-content">
+            <div class="mock-row">
+                <span style="width:1.5rem;text-align:center">▼</span>
+                <div class="mock-text" style="font-size:1.5rem;font-weight:bold">
+                    My document
+                </div>
+            </div>
+            <div class="mock-row">
+                <div class="mock-indent"></div>
+                <span style="width:1.5rem;text-align:center">▶</span>
+                <div class="mock-text">Row text on #ddd — chrome must not blend in.</div>
+            </div>
+        </div>
+    </div>
+    <script>
+        function countDockRows(dock) {
+            const btns = [...dock.querySelectorAll(".btn")];
+            if (!btns.length) return 0;
+            const tops = new Set(btns.map(b => b.offsetTop));
+            return tops.size;
+        }
+        function measure() {
+            const current = document.querySelector('[data-fit="current-base"]');
+            const propBase = document.querySelector('[data-fit="prop-base"]');
+            const propMove = document.querySelector('[data-fit="prop-move"]');
+            const iphone = propMove.closest(".iphone");
+            const moveDock = iphone.querySelector(".dock--move");
+            const baseRows = countDockRows(current);
+            const propBaseRows = countDockRows(propBase);
+            const moveRows = countDockRows(moveDock);
+            const totalProp = propBaseRows + moveRows;
+            document.getElementById("count-current").textContent =
+                baseRows + " row(s) for base only — " + (baseRows > 1 ? "FAIL" : "OK");
+            document.getElementById("count-prop-base").textContent =
+                propBaseRows + " row(s) for base — " + (propBaseRows === 1 ? "OK" : "FAIL");
+            const el = document.getElementById("count-prop-move");
+            el.textContent = totalProp + " rows total (base " + propBaseRows
+                + " + move " + moveRows + ") — " + (totalProp <= 2 && moveRows === 1 ? "OK" : "FAIL");
+            el.className = "row-count " + (totalProp <= 2 && moveRows === 1 ? "ok" : "bad");
+        }
+        measure();
+        window.addEventListener("resize", measure);
+    </script>
+</body>
+</html>

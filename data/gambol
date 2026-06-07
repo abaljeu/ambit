@@ -168,7 +168,7 @@
 			
 			        do!
 			            context.Response.WriteAsync(
-			                DesktopCapabilities.desktopEnabledJson,
+			                DesktopCapabilities.importEnabledJson,
 			                context.RequestAborted)
 			    }
 			
@@ -304,21 +304,7 @@
 			                    | :? IOException as ex ->
 			                        do! writeBadRequest context ("read failed: " + ex.Message)
 			    }
-
-			    let private handleImportGet (context: HttpContext) = task {
-			        match context.Request.Query.TryGetValue("path") with
-			        | false, _ -> do! writeBadRequest context "path is required"
-			        | true, value ->
-			            let path = string value
-
-			            match decodePathRequest ("{\"path\":" + quoteJson path + "}") with
-			            | Error message -> do! writeBadRequest context message
-			            | Ok validPath ->
-			                let body = "{\"path\":" + quoteJson validPath + "}"
-			                context.Request.Body <- new MemoryStream(Encoding.UTF8.GetBytes(body))
-			                do! handleImport context
-			    }
-
+			
 			    let private handleExport (context: HttpContext) = task {
 			        let! body = readRequestBody context
 			
@@ -363,13 +349,13 @@
 			        then
 			            do! handleFileStatus context
 			        elif
-			            HttpMethods.IsGet context.Request.Method
-			            && context.Request.Path.Equals(PathString "/_desktop/file")
+			            HttpMethods.IsPost context.Request.Method
+			            && context.Request.Path.Equals(PathString "/_desktop/import")
 			        then
-			            do! handleImportGet context
+			            do! handleImport context
 			        elif
 			            HttpMethods.IsPost context.Request.Method
-			            && context.Request.Path.Equals(PathString "/_desktop/file")
+			            && context.Request.Path.Equals(PathString "/_desktop/export")
 			        then
 			            do! handleExport context
 			        else
