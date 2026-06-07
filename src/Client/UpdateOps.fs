@@ -214,7 +214,7 @@ let private tryStructuralMove
         match resolveToo model sel with
         | None -> model, []
         | Some too ->
-            let m, effs = moveNodeFromTo too model
+            let m, effs = moveNodeFromTo false too model
             withSiteMap m, effs
 
 /// Op: Ctrl+PageUp — move selected objects to start of current level; selection follows.
@@ -238,7 +238,7 @@ let private searchPickMoveAfterHit (hit: NodeSearchResult) (model: VM) : VM * Ef
     match Graph.makeNodeRangeForInsertingUnder hit.nodeId model.graph with
     | None -> model, []
     | Some too ->
-        let m, effs = moveNodeFromTo too model
+        let m, effs = moveNodeFromTo true too model
         withSiteMap m, effs
 
 /// Op: Move Selected (m) — pick target via search, then move after that node.

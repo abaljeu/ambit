@@ -370,23 +370,47 @@ module ViewModel =
         elif fromRange.endd < kids.Length then Some kids.[fromRange.endd].id
         else None
 
-    /// Selection after a structural move. Focus a sibling of the moved range at its
-    /// former parent (prefer above), else the former parent. None when the parent was
-    /// the view root and there is no bordering sibling.
+    /// Selection after a structural move. `stayAtSource` (Move Selected): sibling or parent at
+    /// the old location, else None at view root with no sibling. Otherwise selection follows
+    /// the moved block when `newParent` is expanded, or a bordering sibling / parent.
     let selectionAfterStructuralMove
             (preGraph: Graph)
             (postGraph: Graph)
             (postSiteMap: SiteMap)
             (fromRange: SiteNodeRange)
+            (stayAtSource: bool)
+            (newParent: SiteEntry)
+            (insertIdx: int)
+            (count: int)
+            (focusOffset: int)
             : Selection option =
-        let parent = postSiteMap.entries.[fromRange.parent.instanceId]
-        let parentSel () =
-            singleSelectionForInstance postSiteMap parent.instanceId
-            |> Option.orElse (singleSelection postGraph postSiteMap parent.nodeId)
-        tryOriginalAdjacentNodeId preGraph fromRange
-        |> Option.bind (fun nid -> singleSelection postGraph postSiteMap nid)
-        |> Option.orElseWith (fun () ->
-            if parent.instanceId = postSiteMap.rootId then None else parentSel ())
+        if stayAtSource then
+            let parent = postSiteMap.entries.[fromRange.parent.instanceId]
+            let parentSel () =
+                singleSelectionForInstance postSiteMap parent.instanceId
+                |> Option.orElse (singleSelection postGraph postSiteMap parent.nodeId)
+            tryOriginalAdjacentNodeId preGraph fromRange
+            |> Option.bind (fun nid -> singleSelection postGraph postSiteMap nid)
+            |> Option.orElseWith (fun () ->
+                if parent.instanceId = postSiteMap.rootId then None else parentSel ())
+        else
+            let movedBlock () =
+                let lo = min (max 0 focusOffset) (max 0 (count - 1))
+                { range =
+                      { parent = newParent
+                        start = insertIdx
+                        endd = insertIdx + count }
+                  focus = insertIdx + lo }
+            let sel =
+                if newParent.expanded then movedBlock ()
+                else
+                    let parentSel () =
+                        singleSelection postGraph postSiteMap fromRange.parent.nodeId
+                    tryOriginalAdjacentNodeId preGraph fromRange
+                    |> Option.bind (fun nid -> singleSelection postGraph postSiteMap nid)
+                    |> Option.orElseWith parentSel
+                    |> Option.defaultWith movedBlock
+            Some sel
 
     /// Extract the first (start) selected NodeId from a Selection.
     let firstSelectedNodeId (graph: Graph) (sel: Selection) : NodeId =

@@ -132,7 +132,7 @@ let private restoreInlineMode
 /// Move the selected nodes to after `too`. May remove from old parent and add to new
 /// (two Op.Replace ops), or reorder within the same parent.
 /// Inline edit: `tryTextCommitOps` + move in one change; stay in edit mode with clamped caret.
-let moveNodeFromTo (too: NodeRange) (model: VM) : VM * Effect list =
+let moveNodeFromTo (stayAtSource: bool) (too: NodeRange) (model: VM) : VM * Effect list =
     let oldMode = trySaveContext model.mode
     let live = readEditInputValue ()
     let caret = readEditInputCursor ()
@@ -150,12 +150,22 @@ let moveNodeFromTo (too: NodeRange) (model: VM) : VM * Effect list =
         match tryApplyOps ops model with
         | None -> model, []
         | Some (movedModel, effects) ->
+            let newParent =
+                if sameParent then from.parent else
+                    movedModel.siteMap.entries
+                    |> Map.tryPick (fun _ e -> if e.nodeId = too.pnode then Some e else None)
+                    |> Option.defaultValue from.parent
             let newSelOpt =
                 ViewModel.selectionAfterStructuralMove
                     model.graph
                     movedModel.graph
                     movedModel.siteMap
                     from
+                    stayAtSource
+                    newParent
+                    insertIdx
+                    count
+                    (sel.focus - from.start)
             let movedModel = { movedModel with selectedNodes = newSelOpt }
             match newSelOpt, oldMode with
             | Some newSel, _ -> restoreInlineMode oldMode caret newSel movedModel, effects
@@ -206,7 +216,7 @@ let moveNodeDelta (delta: int) (model: VM) : VM * Effect list =
                 None
         match too with
         | None -> model, []
-        | Some t -> moveNodeFromTo t model
+        | Some t -> moveNodeFromTo false t model
 
 
 // ---------------------------------------------------------------------------
@@ -236,7 +246,7 @@ let indentSelection (model: VM) : VM * Effect list =
                 let insertIdx = model.graph.nodes.[prevSibId].children.Length
                 let too: NodeRange =
                     { pnode = prevSibId; start = max 0 (insertIdx - 1); endd = insertIdx }
-                let result, effects = moveNodeFromTo too model
+                let result, effects = moveNodeFromTo false too model
                 let result = withSiteMap result
                 // Ensure the new parent is expanded so the indented items are visible after reconcile
                 match Map.tryFind prevInstId result.siteMap.entries with
@@ -261,7 +271,7 @@ let outdentSelection (model: VM) : VM * Effect list =
         | Some (grandparentId, parentIdx) ->
             let too: NodeRange =
                 { pnode = grandparentId; start = parentIdx; endd = parentIdx + 1 }
-            let result, effects = moveNodeFromTo too model
+            let result, effects = moveNodeFromTo false too model
             let grandparentInSiteMap =
                 model.siteMap.entries
                 |> Map.exists (fun _ e -> e.nodeId = grandparentId)
