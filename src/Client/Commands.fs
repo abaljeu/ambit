@@ -291,7 +291,7 @@ let commandRegistry : CommandEntry list =
       cmd "Outdent" (keyAlways outdentOp) [ "Shift+Tab" ]
           SelectionOrEditing MoveStructure MoveTools (Some "\u21E4")
 
-      cmd "Cancel" (keyAlways handleEsc) [ "Escape" ]
+      cmd "Escape" (keyAlways handleEsc) [ "Escape" ]
           SelectionOrEditing Navigate NoButton None
 
       cmd "Fold / unfold" (keyAlways toggleFoldSelectionOp) [ "Ctrl+." ]

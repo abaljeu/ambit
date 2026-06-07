@@ -116,19 +116,6 @@ let private replaceOpsForMove
         [ Op.Replace(from.parent.nodeId, from.start, selectedChildren, [])
           Op.Replace(too.pnode, too.endd, [], selectedChildren) ]
 
-let private resolveNewParent
-    (too: NodeRange)
-    (from: SiteNodeRange)
-    (sameParent: bool)
-    (movedModel: VM)
-    : SiteEntry =
-    if sameParent then
-        from.parent
-    else
-        movedModel.siteMap.entries
-        |> Map.tryPick (fun _ e -> if e.nodeId = too.pnode then Some e else None)
-        |> Option.defaultValue from.parent
-
 let private restoreInlineMode
     (oldMode: InlineEditContext option)
     (caret: int)
@@ -163,20 +150,17 @@ let moveNodeFromTo (too: NodeRange) (model: VM) : VM * Effect list =
         match tryApplyOps ops model with
         | None -> model, []
         | Some (movedModel, effects) ->
-            let newParent = resolveNewParent too from sameParent movedModel
-            let focusOffset = sel.focus - from.start
-            let newSel =
+            let newSelOpt =
                 ViewModel.selectionAfterStructuralMove
                     model.graph
                     movedModel.graph
                     movedModel.siteMap
                     from
-                    newParent
-                    insertIdx
-                    count
-                    focusOffset
-            let movedModel = { movedModel with selectedNodes = Some newSel }
-            restoreInlineMode oldMode caret newSel movedModel, effects
+            let movedModel = { movedModel with selectedNodes = newSelOpt }
+            match newSelOpt, oldMode with
+            | Some newSel, _ -> restoreInlineMode oldMode caret newSel movedModel, effects
+            | None, Some _ -> { movedModel with mode = Selecting }, effects
+            | None, None -> movedModel, effects
 
 /// Alt+Up/Down: swap the selected range with the adjacent sibling. Delegates to moveNodeFromTo.
 let moveNodeDelta (delta: int) (model: VM) : VM * Effect list =

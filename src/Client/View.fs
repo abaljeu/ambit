@@ -315,10 +315,14 @@ let private makeDockRow (surface: CommandDockSurface) : HTMLElement =
     row.className <- "amb-dock " + dockCssClass surface
     row
 
+let private addGlyphClasses (btn: HTMLButtonElement) (classes: string list) : unit =
+    for cls in classes do
+        if cls <> "" then btn.classList.add cls
+
 let private makeGlyphButton
         (label: string)
         (glyph: string)
-        (extraClass: string option)
+        (extraClasses: string list)
         (onClick: unit -> unit)
         : HTMLButtonElement =
     let btn = document.createElement "button" :?> HTMLButtonElement
@@ -327,11 +331,14 @@ let private makeGlyphButton
     btn.title <- label
     btn.setAttribute("aria-label", label)
     btn.textContent <- glyph
-    match extraClass with
-    | Some cls -> btn.classList.add cls
-    | None -> ()
+    addGlyphClasses btn extraClasses
     btn.addEventListener ("click", fun _ -> onClick ())
     btn
+
+let private triggerOpenClasses = function
+    | OpenMove -> [ "amb-dock-trigger-open"; "amb-dock-trigger-move" ]
+    | OpenSelect -> [ "amb-dock-trigger-open"; "amb-dock-trigger-select" ]
+    | OpenMore -> [ "amb-dock-trigger-open"; "amb-dock-trigger-more" ]
 
 let private makeCommandGlyphButton
         (cmd: CommandEntry)
@@ -364,7 +371,7 @@ let private appendDockSlot
     match slot with
     | DockClose ->
         let close =
-            makeGlyphButton "Close" "\u00D7" (Some "amb-dock-close") (fun () ->
+            makeGlyphButton "Close" "\u00D7" [ "amb-dock-close" ] (fun () ->
                 activeToolSurface <- None
                 moreSheetOpen <- false
                 refresh model dispatch)
@@ -375,8 +382,7 @@ let private appendDockSlot
             | OpenMove -> activeToolSurface = Some DockMoveTools
             | OpenSelect -> activeToolSurface = Some DockSelectTools
             | OpenMore -> moreSheetOpen
-        let extra =
-            if isOpen then Some "amb-dock-trigger-open" else None
+        let extra = if isOpen then triggerOpenClasses trigger else []
         let toggle =
             makeGlyphButton (triggerLabel trigger) (triggerGlyph trigger) extra
                 (fun () ->
