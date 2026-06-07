@@ -343,7 +343,6 @@ let private triggerOpenClasses = function
 let private makeCommandGlyphButton
         (cmd: CommandEntry)
         (dispatch: Msg -> unit)
-        (afterClick: unit -> unit)
         : HTMLButtonElement =
     let glyph = cmd.glyph |> Option.defaultValue ""
     let btn = document.createElement "button" :?> HTMLButtonElement
@@ -355,9 +354,7 @@ let private makeCommandGlyphButton
     match cmd.run () with
     | None -> btn.classList.add "amb-inactive"
     | Some op ->
-        btn.addEventListener ("click", fun _ ->
-            afterClick ()
-            dispatch (ApplyOp op))
+        btn.addEventListener ("click", fun _ -> dispatch (ApplyOp op))
     btn
 
 let private appendDockSlot
@@ -365,7 +362,6 @@ let private appendDockSlot
         (model: VM)
         (dispatch: Msg -> unit)
         (slot: DockSlot)
-        (afterCommand: unit -> unit)
         (refresh: VM -> (Msg -> unit) -> unit)
         : unit =
     match slot with
@@ -406,20 +402,18 @@ let private appendDockSlot
         match tryFindCommand name with
         | None -> ()
         | Some cmd ->
-            row.appendChild (makeCommandGlyphButton cmd dispatch afterCommand)
-            |> ignore
+            row.appendChild (makeCommandGlyphButton cmd dispatch) |> ignore
 
 let private renderDockSlots
         (surface: CommandDockSurface)
         (slots: DockSlot list)
         (model: VM)
         (dispatch: Msg -> unit)
-        (afterCommand: unit -> unit)
         (refresh: VM -> (Msg -> unit) -> unit)
         : HTMLElement =
     let row = makeDockRow surface
     for slot in slots do
-        appendDockSlot row model dispatch slot afterCommand refresh
+        appendDockSlot row model dispatch slot refresh
     row
 
 let rec renderCommandButtons (model: VM) (dispatch: Msg -> unit) : unit =
@@ -437,30 +431,23 @@ let rec renderCommandButtons (model: VM) (dispatch: Msg -> unit) : unit =
     container.innerHTML <- ""
 
     let refresh = renderCommandButtons
-    let noop = ()
-    let baseRow =
-        renderDockSlots Base baseStripSlots model dispatch (fun () -> noop) refresh
+    let baseRow = renderDockSlots Base baseStripSlots model dispatch refresh
     container.appendChild baseRow |> ignore
 
     match activeToolSurface with
     | Some DockMoveTools ->
-        let moveRow =
-            renderDockSlots MoveTools moveToolsSlots model dispatch
-                (fun () -> activeToolSurface <- None) refresh
+        let moveRow = renderDockSlots MoveTools moveToolsSlots model dispatch refresh
         container.appendChild moveRow |> ignore
     | Some DockSelectTools ->
         let selectRow =
-            renderDockSlots SelectTools selectToolsSlots model dispatch
-                (fun () -> noop) refresh
+            renderDockSlots SelectTools selectToolsSlots model dispatch refresh
         container.appendChild selectRow |> ignore
     | None -> ()
 
     let moreOverlay = document.createElement "div"
     moreOverlay.className <- "amb-dock-more-overlay"
     if moreSheetOpen then moreOverlay.classList.add "amb-dock-more-open"
-    let moreRow =
-        renderDockSlots MoreTools moreToolsSlots model dispatch
-            (fun () -> moreSheetOpen <- false) refresh
+    let moreRow = renderDockSlots MoreTools moreToolsSlots model dispatch refresh
     moreOverlay.appendChild moreRow |> ignore
     container.appendChild moreOverlay |> ignore
 
