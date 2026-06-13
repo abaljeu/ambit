@@ -1,12 +1,6 @@
 module Gambol.Shared.CommandDockLayout
 
-type CommandDockSurface =
-    | Base
-    | MoveTools
-    | SelectTools
-    | MoreTools
-    | PaletteOnly
-    | NoButton
+open Gambol.Shared.CommandEntry
 
 type DockTrigger =
     | OpenMove
@@ -14,52 +8,52 @@ type DockTrigger =
     | OpenMore
 
 type DockSlot =
-    | DockCommand of string
+    | DockCommand of CommandId
     | DockTrigger of DockTrigger
     | DockClose
 
 /// Base strip: undo, redo, zoom, move/select triggers, find, jump, more.
 let baseStripSlots : DockSlot list =
-    [ DockCommand "Undo"
-      DockCommand "Redo"
-      DockCommand "Zoom out"
-      DockCommand "Zoom in"
+    [ DockCommand Undo
+      DockCommand Redo
+      DockCommand ZoomOut
+      DockCommand ZoomIn
       DockTrigger OpenMove
       DockTrigger OpenSelect
-      DockCommand "Find"
-      DockCommand "Jump to Target"
+      DockCommand Find
+      DockCommand JumpToTarget
       DockTrigger OpenMore ]
 
 let moveToolsSlots : DockSlot list =
     [ DockClose
-      DockCommand "Move Up"
-      DockCommand "Move Down"
-      DockCommand "Indent"
-      DockCommand "Outdent"
-      DockCommand "Move Selection to Start"
-      DockCommand "Move Selection to End"
-      DockCommand "Move Selected" ]
+      DockCommand MoveUp
+      DockCommand MoveDown
+      DockCommand Outdent
+      DockCommand Indent
+      DockCommand MoveSelectionToStart
+      DockCommand MoveSelectionToEnd
+      DockCommand MoveSelected ]
 
 let selectToolsSlots : DockSlot list =
     [ DockClose
-      DockCommand "Selection up"
-      DockCommand "Selection down"
-      DockCommand "Select to Start"
-      DockCommand "Select to End" ]
+      DockCommand SelectionUp
+      DockCommand SelectionDown
+      DockCommand SelectToStart
+      DockCommand SelectToEnd ]
 
 let moreToolsSlots : DockSlot list =
     [ DockClose
-      DockCommand "Command palette"
-      DockCommand "Copy content"
-      DockCommand "Duplicate (link)"
-      DockCommand "Edit classes" ]
+      DockCommand CommandPalette
+      DockCommand CopyContent
+      DockCommand DuplicateLink
+      DockCommand EditClasses ]
 
 let maxBaseSlots = 9
 let maxMoveSlots = 8
 let maxSelectSlots = 5
 
-let commandNames (slots: DockSlot list) : string list =
+let commandIds (slots: DockSlot list) : CommandId list =
     slots
     |> List.choose (function
-        | DockCommand n -> Some n
+        | DockCommand id -> Some id
         | _ -> None)

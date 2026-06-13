@@ -11,7 +11,10 @@ open Gambol.Client.JsInterop
 open Gambol.Client.Update
 open Gambol.Client.UpdateOps
 open Gambol.Shared.CommandDockLayout
-open Gambol.Shared.CommandIcons
+open Gambol.Shared.CommandCategory
+open Gambol.Shared.CommandIconLookup
+
+module CommandMeta = Gambol.Shared.CommandEntry
 
 let private doubleTapScrollDeferMs = 400
 let mutable private deferSelectionScroll = false
@@ -328,7 +331,7 @@ let private makeDockIcon (iconId: string) : HTMLElement =
     svg.setAttribute("class", "amb-dock-icon")
     svg.setAttribute("aria-hidden", "true")
     let useEl = document.createElementNS(svgNs, "use")
-    useEl.setAttribute("href", spritePath + "#" + iconId)
+    useEl.setAttribute("href", "/ambit/command-dock.svg#" + iconId)
     svg.appendChild useEl |> ignore
     svg :?> HTMLElement
 
@@ -340,16 +343,9 @@ let private triggerLabel = function
     | OpenSelect -> "Select tools"
     | OpenMore -> "More commands"
 
-let private dockCssClass = function
-    | Base -> "amb-dock-base"
-    | MoveTools -> "amb-dock-move"
-    | SelectTools -> "amb-dock-select"
-    | MoreTools -> "amb-dock-more"
-    | _ -> "amb-dock-base"
-
-let private makeDockRow (surface: CommandDockSurface) : HTMLElement =
+let private makeDockRow (category: CommandCategory) : HTMLElement =
     let row = document.createElement "div"
-    row.className <- "amb-dock " + dockCssClass surface
+    row.className <- "amb-dock " + dockCssClass category
     row
 
 let private addGlyphClasses (btn: HTMLButtonElement) (classes: string list) : unit =
@@ -378,16 +374,20 @@ let private triggerOpenClasses = function
     | OpenMore -> [ "amb-dock-trigger-open"; "amb-dock-trigger-more" ]
 
 let private makeCommandIconButton
-        (cmd: CommandEntry)
+        (cmd: CommandEntry2)
         (dispatch: Msg -> unit)
         : HTMLButtonElement =
     let btn = document.createElement "button" :?> HTMLButtonElement
     btn.``type`` <- "button"
     btn.className <- "amb-dock-glyph"
-    btn.title <- cmd.name
-    btn.setAttribute("aria-label", cmd.name)
-    match cmd.iconId with
-    | Some iconId -> appendDockIcon btn iconId
+    let label = CommandMeta.displayName cmd.id
+    btn.title <- label
+    btn.setAttribute("aria-label", label)
+    match CommandMeta.commandFor cmd.id with
+    | Some meta ->
+        match meta.iconId with
+        | Some iconId -> appendDockIcon btn iconId
+        | None -> ()
     | None -> ()
     match cmd.run () with
     | None -> btn.classList.add "amb-inactive"
@@ -405,7 +405,7 @@ let private appendDockSlot
     match slot with
     | DockClose ->
         let closeBtn =
-            makeIconButton "Close" Gambol.Shared.CommandIcons.close
+            makeIconButton "Close" "amb-icon-close"
                 [ "amb-dock-close" ] (fun () ->
                 activeToolSurface <- None
                 moreSheetOpen <- false
@@ -437,20 +437,20 @@ let private appendDockSlot
                         moreSheetOpen <- not moreSheetOpen
                     refresh model dispatch)
         row.appendChild toggle |> ignore
-    | DockCommand name ->
-        match tryFindCommand name with
+    | DockCommand id ->
+        match tryFindCommand id with
         | None -> ()
         | Some cmd ->
             row.appendChild (makeCommandIconButton cmd dispatch) |> ignore
 
 let private renderDockSlots
-        (surface: CommandDockSurface)
+        (category: CommandCategory)
         (slots: DockSlot list)
         (model: VM)
         (dispatch: Msg -> unit)
         (refresh: VM -> (Msg -> unit) -> unit)
         : HTMLElement =
-    let row = makeDockRow surface
+    let row = makeDockRow category
     for slot in slots do
         appendDockSlot row model dispatch slot refresh
     row
@@ -461,23 +461,24 @@ let rec renderCommandButtons (model: VM) (dispatch: Msg -> unit) : unit =
     container.innerHTML <- ""
 
     let refresh = renderCommandButtons
-    let baseRow = renderDockSlots Base baseStripSlots model dispatch refresh
+    let baseRow = renderDockSlots Primary baseStripSlots model dispatch refresh
     container.appendChild baseRow |> ignore
 
     match activeToolSurface with
     | Some DockMoveTools ->
-        let moveRow = renderDockSlots MoveTools moveToolsSlots model dispatch refresh
+        let moveRow =
+            renderDockSlots MoveStructure moveToolsSlots model dispatch refresh
         container.appendChild moveRow |> ignore
     | Some DockSelectTools ->
         let selectRow =
-            renderDockSlots SelectTools selectToolsSlots model dispatch refresh
+            renderDockSlots Selection selectToolsSlots model dispatch refresh
         container.appendChild selectRow |> ignore
     | None -> ()
 
     let moreOverlay = document.createElement "div"
     moreOverlay.className <- "amb-dock-more-overlay"
     if moreSheetOpen then moreOverlay.classList.add "amb-dock-more-open"
-    let moreRow = renderDockSlots MoreTools moreToolsSlots model dispatch refresh
+    let moreRow = renderDockSlots Primary moreToolsSlots model dispatch refresh
     moreOverlay.appendChild moreRow |> ignore
     container.appendChild moreOverlay |> ignore
 
@@ -515,7 +516,7 @@ let renderCommandPalette (model: VM) (dispatch: Msg -> unit) : unit =
         container.classList.add "amb-palette-open"
         let input = document.getElementById "command-palette-input" :?> HTMLInputElement
         window.setTimeout((fun _ -> focusPreventScroll input), 0) |> ignore
-        let items = filteredCommands ret q |> List.map (fun c -> c.name)
+        let items = filteredCommands ret q |> List.map (fun c -> CommandMeta.displayName c.id)
         renderPalette container items selectedCommand
 
         if not paletteWired.Value then
@@ -550,7 +551,7 @@ let renderCommandPalette (model: VM) (dispatch: Msg -> unit) : unit =
                                 | None ->
                                     { m with mode = ret }, []
                                 | Some op ->
-                                    withDiagnostic "" cmd.name op { m with mode = ret }
+                                    withDiagnostic "" (CommandMeta.displayName cmd.id) op { m with mode = ret }
                         | _ -> m, [])))
 
     | _ ->

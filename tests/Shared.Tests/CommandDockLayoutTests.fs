@@ -16,9 +16,9 @@ let ``select tools strip fits mobile row limit`` () =
     Assert.Equal(maxSelectSlots, selectToolsSlots.Length)
 
 [<Fact>]
-let ``dock command names are unique within each strip`` () =
+let ``dock command ids are unique within each strip`` () =
     let uniqueCount slots =
-        (commandNames slots).Length = (Set.ofList (commandNames slots) |> Set.count)
+        (commandIds slots).Length = (Set.ofList (commandIds slots) |> Set.count)
     Assert.True(uniqueCount baseStripSlots)
     Assert.True(uniqueCount moveToolsSlots)
     Assert.True(uniqueCount selectToolsSlots)

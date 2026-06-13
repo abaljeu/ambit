@@ -2,14 +2,14 @@ module Gambol.Shared.Tests.CommandIconsTests
 
 open Xunit
 open Gambol.Shared.CommandDockLayout
-open Gambol.Shared.CommandIcons
+open Gambol.Shared.CommandIconLookup
 
 let private distinct (ids: string list) =
     ids.Length = (Set.ofList ids |> Set.count)
 
 let private allDockCommandsHaveIcons (slots: DockSlot list) =
-    dockCommandNames slots
-    |> List.forall (fun name -> iconForCommand name |> Option.isSome)
+    dockCommandIds slots
+    |> List.forall (fun id -> iconForCommand id |> Option.isSome)
 
 [<Fact>]
 let ``all base strip commands have icons`` () =

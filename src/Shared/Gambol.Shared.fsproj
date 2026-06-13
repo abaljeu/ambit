@@ -36,8 +36,10 @@
     <Compile Include="SyncLogic.fs" />
     <Compile Include="ModelBuilder.fs" />
     <Compile Include="OpenTarget.fs" />
+    <Compile Include="CommandCategory.fs" />
+    <Compile Include="CommandEntry.fs" />
     <Compile Include="CommandDockLayout.fs" />
-    <Compile Include="CommandIcons.fs" />
+    <Compile Include="CommandIconLookup.fs" />
   </ItemGroup>
 
   <ItemGroup>

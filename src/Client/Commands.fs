@@ -15,54 +15,21 @@ open Gambol.Client.UpdatePaste
 open Gambol.Client.UpdateImport
 open Gambol.Client.UpdateExport
 open Gambol.Shared.CommandDockLayout
-open Gambol.Shared.CommandIcons
+open Gambol.Shared.CommandEntry
 
 // ---------------------------------------------------------------------------
 // Command types
 // ---------------------------------------------------------------------------
 
-type CommandKeyScope =
-    | SelectionOnly
-    | EditingOnly
-    | SelectionOrEditing
-
 type CommandOp = unit -> Updater option
 
-// ---------------------------------------------------------------------------
-// Command metadata
-// ---------------------------------------------------------------------------
-
-type CommandCategory =
-    | Primary
-    | Navigate
-    | EditText
-    | MoveStructure
-    | Clipboard
-    | Format
-    | FileIO
-
-type CommandEntry = {
-    name: string
+type CommandEntry2 = {
+    id: CommandId
     run: CommandOp
-    keys: string list
-    keyScope: CommandKeyScope
-    category: CommandCategory
-    surface: CommandDockSurface
-    iconId: string option
 }
 
-let private cmd
-        name run keys keyScope category surface iconId
-        : CommandEntry =
-    { name = name
-      run = run
-      keys = keys
-      keyScope = keyScope
-      category = category
-      surface = surface
-      iconId = iconId }
-
-let private dockIcon name = iconForCommand name
+let private cmd (id: CommandId) (run: CommandOp) : CommandEntry2 =
+    { id = id; run = run }
 
 // ---------------------------------------------------------------------------
 // Editing command ops (read live caret from DOM)
@@ -194,155 +161,54 @@ let copyOp (model: VM) : VM * Effect list =
 // Command registry
 // ---------------------------------------------------------------------------
 
-let editCommand =
-    cmd "Edit node" (keyAlways startEditOp) [ "F2"; "Enter" ]
-        SelectionOnly EditText NoButton None
-
-let commandRegistry : CommandEntry list =
+let commandRegistry : CommandEntry2 list =
     [
-      editCommand
-
-      cmd "Split at cursor" splitAtCursor [ "Enter" ]
-          EditingOnly EditText NoButton None
-
-      cmd "Delete" (keyAlways deleteSelectionOp) [ "Delete"; "Backspace" ]
-          SelectionOnly EditText PaletteOnly None
-
-      cmd "Join with previous" handleBackspace [ "Backspace" ]
-          EditingOnly EditText NoButton None
-
-      cmd "Join with next" handleDelete [ "Delete" ]
-          EditingOnly EditText NoButton None
-
-      cmd "Cursor up" (keyAlways moveSelectionUp) [ "ArrowUp"; "," ]
-          SelectionOnly Navigate NoButton None
-
-      cmd "Cursor down" (keyAlways moveSelectionDown) [ "ArrowDown"; "o" ]
-          SelectionOnly Navigate NoButton None
-
-      cmd "Cursor fold left" (keyAlways arrowLeftSelectionNoFoldOp)
-          [ "Shift+ArrowLeft"; "A" ] SelectionOnly Navigate NoButton None
-
-      cmd "Cursor left to parent" (keyAlways arrowLeftSelectionOp)
-          [ "ArrowLeft"; "a" ] SelectionOnly Navigate NoButton None
-
-      cmd "Cursor unfold right" (keyAlways arrowRightSelectionOp)
-          [ "Shift+ArrowRight"; "ArrowRight"; "e"; "E" ]
-          SelectionOnly Navigate NoButton None
-
-      cmd "Move to previous node" handleArrowLeft [ "ArrowLeft" ]
-          EditingOnly EditText NoButton None
-
-      cmd "Move to next node" handleArrowRight [ "ArrowRight" ]
-          EditingOnly EditText NoButton None
-
-      cmd "Selection up" (keyAlways (shiftArrowOp -1))
-          [ "Shift+ArrowUp"; "<" ] SelectionOrEditing MoveStructure SelectTools
-          (dockIcon "Selection up")
-
-      cmd "Selection down" (keyAlways (shiftArrowOp 1))
-          [ "Shift+ArrowDown"; "O" ] SelectionOrEditing MoveStructure SelectTools
-          (dockIcon "Selection down")
-
-      cmd "Edit cursor up" editMoveUp [ "ArrowUp" ]
-          EditingOnly EditText NoButton None
-
-      cmd "Edit cursor down" editMoveDown [ "ArrowDown" ]
-          EditingOnly EditText NoButton None
-
-      cmd "Move Up" (keyAlways moveNodeUpOp)
-          [ "Alt+ArrowUp"; "Ctrl+ArrowUp" ] SelectionOrEditing MoveStructure MoveTools
-          (dockIcon "Move Up")
-
-      cmd "Move Down" (keyAlways moveNodeDownOp)
-          [ "Alt+ArrowDown"; "Ctrl+ArrowDown" ] SelectionOrEditing MoveStructure MoveTools
-          (dockIcon "Move Down")
-
-      cmd "Cursor to Start" (keyAlways pageCursorLevelStartOp) [ "PageUp" ]
-          SelectionOnly Navigate NoButton None
-
-      cmd "Cursor to End" (keyAlways pageCursorLevelEndOp) [ "PageDown" ]
-          SelectionOnly Navigate NoButton None
-
-      cmd "Move Selection to Start" (keyAlways moveSelectionToLevelStartOp)
-          [ "Alt+PageUp" ] SelectionOrEditing MoveStructure MoveTools
-          (dockIcon "Move Selection to Start")
-
-      cmd "Move Selection to End" (keyAlways moveSelectionToLevelEndOp)
-          [ "Alt+PageDown" ] SelectionOrEditing MoveStructure MoveTools
-          (dockIcon "Move Selection to End")
-
-      cmd "Select to Start" (keyAlways shiftPgUpOp) [ "Shift+PageUp" ]
-          SelectionOnly MoveStructure SelectTools (dockIcon "Select to Start")
-
-      cmd "Select to End" (keyAlways shiftPgDownOp) [ "Shift+PageDown" ]
-          SelectionOnly MoveStructure SelectTools (dockIcon "Select to End")
-
-      cmd "Cursor to Top of View" (keyAlways homeSelectionOp) [ "Home" ]
-          SelectionOnly Navigate NoButton None
-
-      cmd "Cursor to End of View" (keyAlways endSelectionOp) [ "End" ]
-          SelectionOnly Navigate NoButton None
-
-      cmd "Move Selection to Top of View" (keyAlways moveSelectionToViewRootStartOp)
-          [ "Alt+Home" ] SelectionOrEditing MoveStructure PaletteOnly None
-
-      cmd "Move Selection to End of View" (keyAlways moveSelectionToViewRootEndOp)
-          [ "Alt+End" ] SelectionOrEditing MoveStructure PaletteOnly None
-
-      cmd "Indent" (keyAlways indentOp) [ "Tab" ]
-          SelectionOrEditing MoveStructure MoveTools (dockIcon "Indent")
-
-      cmd "Outdent" (keyAlways outdentOp) [ "Shift+Tab" ]
-          SelectionOrEditing MoveStructure MoveTools (dockIcon "Outdent")
-
-      cmd "Escape" (keyAlways handleEsc) [ "Escape" ]
-          SelectionOrEditing Navigate NoButton None
-
-      cmd "Fold / unfold" (keyAlways toggleFoldSelectionOp) [ "Ctrl+." ]
-          SelectionOrEditing Navigate NoButton None
-
-      cmd "Zoom in" (keyAlways zoomInOp) [ "Ctrl+]"; "]" ]
-          SelectionOrEditing Navigate Base (dockIcon "Zoom in")
-
-      cmd "Zoom out" (keyAlways zoomOutOp) [ "Ctrl+["; "[" ]
-          SelectionOrEditing Navigate Base (dockIcon "Zoom out")
-
-      cmd "Undo" (keyAlways undoOp) [ "Ctrl+Z"; "z" ]
-          SelectionOrEditing Primary Base (dockIcon "Undo")
-
-      cmd "Redo" (keyAlways redoOp) [ "Ctrl+Y"; "y" ]
-          SelectionOrEditing Primary Base (dockIcon "Redo")
-
-      cmd "Copy content" (keyAlways copyOp) [ "c" ]
-          SelectionOnly Clipboard MoreTools (dockIcon "Copy content")
-
-      cmd "Copy as links" (keyAlways copySelectionAsLinks) [ "Ctrl+C"; "C" ]
-          SelectionOnly Clipboard PaletteOnly None
-
-      cmd "Duplicate (link)" (keyAlways duplicateSelectionOp) [ "D" ]
-          SelectionOnly Clipboard MoreTools (dockIcon "Duplicate (link)")
-
-      cmd "Command palette" (keyAlways openCommandPaletteOp) [ "Ctrl+P"; "p" ]
-          SelectionOrEditing Primary MoreTools (dockIcon "Command palette")
-
-      cmd "Move Selected" (keyAlways moveNodesOp) [ "m"; "Ctrl+m" ]
-          SelectionOrEditing MoveStructure MoveTools (dockIcon "Move Selected")
-
-      cmd "Find" (keyAlways findRootOp) [ "/"; "Ctrl+f" ]
-          SelectionOrEditing Primary Base (dockIcon "Find")
-
-      cmd "Edit classes" (keyAlways openCssClassPromptOp) [ "Alt+C"; "." ]
-          SelectionOrEditing Format MoreTools (dockIcon "Edit classes")
-
-      cmd "Jump to Target" (keyAlways jumpTargetOp) [ "Alt+j"; "j" ]
-          SelectionOrEditing Navigate Base (dockIcon "Jump to Target")
-
-      cmd "Import" (keyAlways importLocalOp) [ "Ctrl+Shift+>" ]
-          SelectionOrEditing FileIO PaletteOnly None
-
-      cmd "Export" (keyAlways exportLocalOp) [ "Ctrl+Shift+<" ]
-          SelectionOrEditing FileIO PaletteOnly None
+      cmd EditNode (keyAlways startEditOp)
+      cmd SplitAtCursor splitAtCursor
+      cmd Delete (keyAlways deleteSelectionOp)
+      cmd JoinWithPrevious handleBackspace
+      cmd JoinWithNext handleDelete
+      cmd CursorUp (keyAlways moveSelectionUp)
+      cmd CursorDown (keyAlways moveSelectionDown)
+      cmd CursorFoldLeft (keyAlways arrowLeftSelectionNoFoldOp)
+      cmd CursorLeftToParent (keyAlways arrowLeftSelectionOp)
+      cmd CursorUnfoldRight (keyAlways arrowRightSelectionOp)
+      cmd MoveToPreviousNode handleArrowLeft
+      cmd MoveToNextNode handleArrowRight
+      cmd SelectionUp (keyAlways (shiftArrowOp -1))
+      cmd SelectionDown (keyAlways (shiftArrowOp 1))
+      cmd EditCursorUp editMoveUp
+      cmd EditCursorDown editMoveDown
+      cmd MoveUp (keyAlways moveNodeUpOp)
+      cmd MoveDown (keyAlways moveNodeDownOp)
+      cmd CursorToStart (keyAlways pageCursorLevelStartOp)
+      cmd CursorToEnd (keyAlways pageCursorLevelEndOp)
+      cmd MoveSelectionToStart (keyAlways moveSelectionToLevelStartOp)
+      cmd MoveSelectionToEnd (keyAlways moveSelectionToLevelEndOp)
+      cmd SelectToStart (keyAlways shiftPgUpOp)
+      cmd SelectToEnd (keyAlways shiftPgDownOp)
+      cmd CursorToTopOfView (keyAlways homeSelectionOp)
+      cmd CursorToEndOfView (keyAlways endSelectionOp)
+      cmd MoveSelectionToTopOfView (keyAlways moveSelectionToViewRootStartOp)
+      cmd MoveSelectionToEndOfView (keyAlways moveSelectionToViewRootEndOp)
+      cmd Indent (keyAlways indentOp)
+      cmd Outdent (keyAlways outdentOp)
+      cmd Escape (keyAlways handleEsc)
+      cmd FoldUnfold (keyAlways toggleFoldSelectionOp)
+      cmd ZoomIn (keyAlways zoomInOp)
+      cmd ZoomOut (keyAlways zoomOutOp)
+      cmd Undo (keyAlways undoOp)
+      cmd Redo (keyAlways redoOp)
+      cmd CopyContent (keyAlways copyOp)
+      cmd CopyAsLinks (keyAlways copySelectionAsLinks)
+      cmd DuplicateLink (keyAlways duplicateSelectionOp)
+      cmd CommandPalette (keyAlways openCommandPaletteOp)
+      cmd MoveSelected (keyAlways moveNodesOp)
+      cmd Find (keyAlways findRootOp)
+      cmd EditClasses (keyAlways openCssClassPromptOp)
+      cmd JumpToTarget (keyAlways jumpTargetOp)
+      cmd Import (keyAlways importLocalOp)
+      cmd Export (keyAlways exportLocalOp)
     ]
 
 // ---------------------------------------------------------------------------
@@ -353,33 +219,33 @@ let rec paletteWasSelecting (returnTo: Mode) : bool =
     match returnTo with
     | Selecting -> true
     | Editing _ -> false
-    | CommandPalette (_, _, inner) -> paletteWasSelecting inner
+    | Mode.CommandPalette (_, _, inner) -> paletteWasSelecting inner
     | SearchDialog s -> paletteWasSelecting s.returnTo
     | CssClassPrompt (inner, _) -> paletteWasSelecting inner
 
-let private inKeyScope (sel: bool) (scope: CommandKeyScope) : bool =
-    match scope with
-    | SelectionOnly -> sel
-    | EditingOnly -> not sel
-    | SelectionOrEditing -> true
-
 let commandContextMode (mode: Mode) : Mode =
     match mode with
-    | CommandPalette (_, _, ret) -> ret
+    | Mode.CommandPalette (_, _, ret) -> ret
     | SearchDialog s -> s.returnTo
     | CssClassPrompt (inner, _) -> inner
     | m -> m
 
-let commandsForPalette (returnTo: Mode) : CommandEntry list =
+let commandsForPalette (returnTo: Mode) : CommandEntry2 list =
     let sel = paletteWasSelecting returnTo
-    commandRegistry |> List.filter (fun c -> inKeyScope sel c.keyScope)
+    commandRegistry
+    |> List.filter (fun c ->
+        match commandFor c.id with
+        | None -> false
+        | Some e -> inKeyScope sel e.keyScope)
 
-let filteredCommands (returnTo: Mode) (query: string) : CommandEntry list =
+let filteredCommands (returnTo: Mode) (query: string) : CommandEntry2 list =
     let baseList = commandsForPalette returnTo
     if query = "" then baseList
     else
         let q = query.ToLowerInvariant()
-        baseList |> List.filter (fun c -> c.name.ToLowerInvariant().Contains(q))
+        baseList
+        |> List.filter (fun c ->
+            displayName c.id |> fun n -> n.ToLowerInvariant().Contains q)
 
-let tryFindCommand (name: string) : CommandEntry option =
-    commandRegistry |> List.tryFind (fun c -> c.name = name)
+let tryFindCommand (id: CommandId) : CommandEntry2 option =
+    commandRegistry |> List.tryFind (fun c -> c.id = id)

@@ -15,6 +15,8 @@ open Gambol.Client.UpdateImport
 open Gambol.Client.UpdateExport
 open Gambol.Client.SearchDialog
 open Gambol.Client.Commands
+
+module CommandMeta = Gambol.Shared.CommandEntry
 // ---------------------------------------------------------------------------
 // Clipboard / paste helpers
 // ---------------------------------------------------------------------------
@@ -269,60 +271,66 @@ let paletteRunOp =
             | None ->
                 { model with mode = ret }, []
             | Some op ->
-                withDiagnostic "" cmd.name op { model with mode = ret })
+                withDiagnostic "" (CommandMeta.displayName cmd.id) op { model with mode = ret })
 
 let paletteSetQueryOp (q: string) =
-    onPalette (fun _ _ ret model -> { model with mode = CommandPalette (q, 0, ret) }, [])
-
-let private scopeInSelectionMap =
-    function
-    | SelectionOnly | SelectionOrEditing -> true
-    | EditingOnly -> false
-
-let private scopeInEditingMap =
-    function
-    | EditingOnly | SelectionOrEditing -> true
-    | SelectionOnly -> false
+    onPalette (fun _ _ ret model -> { model with mode = Mode.CommandPalette (q, 0, ret) }, [])
 
 /// Editing uses a text field; skip bare one-character registry keys so the browser inserts that character.
 let private isSingleCharKeyBinding (k: string) : bool = k.Length = 1
 
 /// Rebuild selection key bindings from commandRegistry (first binding per key wins).
 let private selectionKeyBindings : KeyBinding list =
-    let rec collect seen acc entries =
+    let rec collect seen acc (entries: CommandEntry2 list) =
         match entries with
         | [] -> acc
         | entry :: rest ->
-            if not (scopeInSelectionMap entry.keyScope) then collect seen acc rest
-            else
-                let rowHandler = entry.run
-                let bindings =
-                    entry.keys
-                    |> List.choose (fun k ->
-                        let nk = normalizeRegistryKey k
-                        if Set.contains nk seen then None
-                        else Some { key = nk; handler = rowHandler; commandName = entry.name })
-                let seen' = bindings |> List.fold (fun s e -> Set.add e.key s) seen
-                collect seen' (acc @ bindings) rest
+            match CommandMeta.commandFor entry.id with
+            | None -> collect seen acc rest
+            | Some meta ->
+                if not (CommandMeta.scopeInSelection meta.keyScope) then collect seen acc rest
+                else
+                    let rowHandler = entry.run
+                    let bindings =
+                        meta.keys
+                        |> List.choose (fun k ->
+                            let nk = normalizeRegistryKey k
+                            if Set.contains nk seen then None
+                            else
+                                Some {
+                                    key = nk
+                                    handler = rowHandler
+                                    commandName = meta.name
+                                })
+                    let seen' = bindings |> List.fold (fun s e -> Set.add e.key s) seen
+                    collect seen' (acc @ bindings) rest
     collect Set.empty [] commandRegistry
 
 /// Rebuild editing key bindings from commandRegistry (first binding per key wins).
 let private editingKeyBindings : KeyBinding list =
-    let rec collect seen acc entries =
+    let rec collect seen acc (entries: CommandEntry2 list) =
         match entries with
         | [] -> acc
         | entry :: rest ->
-            if not (scopeInEditingMap entry.keyScope) then collect seen acc rest
-            else
-                let rowHandler = entry.run
-                let bindings =
-                    entry.keys
-                    |> List.choose (fun k ->
-                        let nk = normalizeRegistryKey k
-                        if isSingleCharKeyBinding nk || Set.contains nk seen then None
-                        else Some { key = nk; handler = rowHandler; commandName = entry.name })
-                let seen' = bindings |> List.fold (fun s e -> Set.add e.key s) seen
-                collect seen' (acc @ bindings) rest
+            match CommandMeta.commandFor entry.id with
+            | None -> collect seen acc rest
+            | Some meta ->
+                if not (CommandMeta.scopeInEditing meta.keyScope) then collect seen acc rest
+                else
+                    let rowHandler = entry.run
+                    let bindings =
+                        meta.keys
+                        |> List.choose (fun k ->
+                            let nk = normalizeRegistryKey k
+                            if isSingleCharKeyBinding nk || Set.contains nk seen then None
+                            else
+                                Some {
+                                    key = nk
+                                    handler = rowHandler
+                                    commandName = meta.name
+                                })
+                    let seen' = bindings |> List.fold (fun s e -> Set.add e.key s) seen
+                    collect seen' (acc @ bindings) rest
     collect Set.empty [] commandRegistry
 
 /// Literal palette key bindings (Escape, ArrowUp, ArrowDown, Enter). Not derived from registry.

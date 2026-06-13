@@ -36,6 +36,8 @@
     <Compile Include="ClientRectCaretTests.fs" />
     <Compile Include="EditCaretTests.fs" />
     <Compile Include="CommandDockLayoutTests.fs" />
+    <Compile Include="CommandCategoryTests.fs" />
+    <Compile Include="CommandEntryTests.fs" />
     <Compile Include="CommandIconsTests.fs" />
   </ItemGroup>
 
