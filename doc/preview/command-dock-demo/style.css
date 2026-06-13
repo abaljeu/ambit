@@ -1,0 +1,241 @@
+:root {
+    --amb-sticky-header-scroll-inset: 3.25rem;
+    --dock-base: #1f3a5f;
+    --dock-move: #b7791f;
+    --dock-select: #6b46c1;
+    --dock-more: #0f766e;
+    --dock-close: #b91c1c;
+}
+
+html {
+    scroll-padding-top: var(--amb-sticky-header-scroll-inset);
+}
+
+body {
+    font-family: system-ui, -apple-system, sans-serif;
+    margin: 0.5rem;
+    color: #222;
+    background: #ccc;
+}
+
+#app {
+    font-size: 1rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.demo-note {
+    font-size: 0.8rem;
+    color: #555;
+    margin: 0.5rem 0.4rem 0;
+}
+
+.icon-prototype {
+    margin: 0.5rem 0.4rem 0.75rem;
+    padding: 0.6rem 0.75rem;
+    background: #f5f5f5;
+    border: 1px solid #bbb;
+    border-radius: 4px;
+}
+
+.icon-prototype-title {
+    margin: 0 0 0.5rem;
+    font-size: 0.8rem;
+    color: #444;
+}
+
+.icon-prototype-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem 1.5rem;
+}
+
+.icon-prototype-grid figure {
+    margin: 0;
+    text-align: center;
+}
+
+.icon-prototype-glyph {
+    width: 2.5rem;
+    height: 2.5rem;
+    display: block;
+    margin: 0 auto 0.25rem;
+    color: var(--dock-select);
+}
+
+.icon-prototype-glyph.amb-prototype-move {
+    color: var(--dock-move);
+}
+
+.amb-sticky-header {
+    order: -1;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: #ccc;
+    border-bottom: none;
+    flex-shrink: 0;
+    padding: 0;
+    margin: 0;
+}
+
+.amb-command-buttons {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding: 0;
+    margin: 0;
+    font-size: 0.9rem;
+    color: #444;
+}
+
+.amb-dock {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    gap: 0;
+    padding: 0;
+    margin: 0;
+    border-top: 3px solid var(--dock-accent, var(--dock-base));
+    background: transparent;
+}
+
+.amb-dock-base { --dock-accent: var(--dock-base); }
+.amb-dock-move { --dock-accent: var(--dock-move); }
+.amb-dock-select { --dock-accent: var(--dock-select); }
+.amb-dock-more { --dock-accent: var(--dock-more); }
+
+.amb-dock-glyph {
+    appearance: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 2rem;
+    padding: 0;
+    margin: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    cursor: pointer;
+    color: #444;
+    user-select: none;
+    line-height: 1;
+}
+
+.amb-dock-icon {
+    width: 1.1rem;
+    height: 1.1rem;
+    display: block;
+    flex-shrink: 0;
+}
+
+.amb-dock-glyph:hover {
+    color: #111;
+}
+
+.amb-dock-glyph:active {
+    color: #000;
+}
+
+.amb-dock-glyph:focus-visible {
+    outline: 2px solid #888;
+    outline-offset: -2px;
+}
+
+.amb-dock-glyph.amb-inactive {
+    cursor: default;
+    color: #aaa;
+}
+
+.amb-dock-glyph.amb-inactive:hover {
+    color: #aaa;
+}
+
+.amb-dock-glyph.amb-dock-close {
+    background-color: var(--dock-close);
+    color: white;
+}
+
+.amb-dock-glyph.amb-dock-trigger-open {
+    font-weight: 700;
+}
+
+.amb-dock-glyph.amb-dock-trigger-move {
+    color: var(--dock-move);
+    box-shadow: inset 0 -3px 0 var(--dock-move);
+}
+
+.amb-dock-glyph.amb-dock-trigger-select {
+    color: var(--dock-select);
+    box-shadow: inset 0 -3px 0 var(--dock-select);
+}
+
+.amb-dock-glyph.amb-dock-trigger-more {
+    color: var(--dock-more);
+    box-shadow: inset 0 -3px 0 var(--dock-more);
+}
+
+.amb-dock-more-overlay {
+    display: none;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    z-index: 110;
+    background: #f5f5f5;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.amb-dock-more-overlay.amb-dock-more-open {
+    display: block;
+}
+
+.amb-view-root {
+    font-size: 2rem;
+    font-weight: bold;
+    margin: 0.67em 0;
+}
+
+.amb-row {
+    display: flex;
+    background: #ccc;
+    padding: 0.17em 0;
+}
+
+.amb-indent {
+    width: 1.5rem;
+    flex-shrink: 0;
+    background: #ddddddc0;
+}
+
+.amb-fold-toggle {
+    display: inline-block;
+    width: 1.5rem;
+    flex-shrink: 0;
+    text-align: center;
+    align-self: center;
+}
+
+.amb-row-owned .amb-fold-toggle {
+    color: #000;
+}
+
+.amb-text {
+    flex: 1;
+    padding: 0 0.3rem;
+    min-height: 1em;
+    background: #ddd;
+}
+
+@media (max-width: 480px) {
+    body {
+        margin: 0.25rem;
+    }
+    .amb-dock-glyph {
+        min-height: 2.25rem;
+        font-size: 0.85rem;
+    }
+}

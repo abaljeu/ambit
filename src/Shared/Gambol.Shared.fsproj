@@ -37,6 +37,7 @@
     <Compile Include="ModelBuilder.fs" />
     <Compile Include="OpenTarget.fs" />
     <Compile Include="CommandDockLayout.fs" />
+    <Compile Include="CommandIcons.fs" />
   </ItemGroup>
 
   <ItemGroup>

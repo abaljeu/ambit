@@ -62,9 +62,9 @@ body {
 .amb-dock-more { --dock-accent: var(--dock-more); }
 .amb-dock-glyph {
     appearance: none;
-    font: inherit;
-    font-family: "Segoe UI Symbol", "Apple Symbols", "Noto Sans Symbols", sans-serif;
-    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     flex: 1 1 0;
     min-width: 0;
     min-height: 2rem;
@@ -77,6 +77,12 @@ body {
     color: #444;
     user-select: none;
     line-height: 1;
+}
+.amb-dock-icon {
+    width: 1.1rem;
+    height: 1.1rem;
+    display: block;
+    flex-shrink: 0;
 }
 .amb-dock-glyph:hover {
     color: #111;

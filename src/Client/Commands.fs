@@ -15,6 +15,7 @@ open Gambol.Client.UpdatePaste
 open Gambol.Client.UpdateImport
 open Gambol.Client.UpdateExport
 open Gambol.Shared.CommandDockLayout
+open Gambol.Shared.CommandIcons
 
 // ---------------------------------------------------------------------------
 // Command types
@@ -47,11 +48,11 @@ type CommandEntry = {
     keyScope: CommandKeyScope
     category: CommandCategory
     surface: CommandDockSurface
-    glyph: string option
+    iconId: string option
 }
 
 let private cmd
-        name run keys keyScope category surface glyph
+        name run keys keyScope category surface iconId
         : CommandEntry =
     { name = name
       run = run
@@ -59,7 +60,9 @@ let private cmd
       keyScope = keyScope
       category = category
       surface = surface
-      glyph = glyph }
+      iconId = iconId }
+
+let private dockIcon name = iconForCommand name
 
 // ---------------------------------------------------------------------------
 // Editing command ops (read live caret from DOM)
@@ -193,7 +196,7 @@ let copyOp (model: VM) : VM * Effect list =
 
 let editCommand =
     cmd "Edit node" (keyAlways startEditOp) [ "F2"; "Enter" ]
-        SelectionOnly EditText NoButton (Some "\u270E")
+        SelectionOnly EditText NoButton None
 
 let commandRegistry : CommandEntry list =
     [
@@ -203,7 +206,7 @@ let commandRegistry : CommandEntry list =
           EditingOnly EditText NoButton None
 
       cmd "Delete" (keyAlways deleteSelectionOp) [ "Delete"; "Backspace" ]
-          SelectionOnly EditText PaletteOnly (Some "\u2421")
+          SelectionOnly EditText PaletteOnly None
 
       cmd "Join with previous" handleBackspace [ "Backspace" ]
           EditingOnly EditText NoButton None
@@ -212,20 +215,20 @@ let commandRegistry : CommandEntry list =
           EditingOnly EditText NoButton None
 
       cmd "Cursor up" (keyAlways moveSelectionUp) [ "ArrowUp"; "," ]
-          SelectionOnly Navigate NoButton (Some "\u2191")
+          SelectionOnly Navigate NoButton None
 
       cmd "Cursor down" (keyAlways moveSelectionDown) [ "ArrowDown"; "o" ]
-          SelectionOnly Navigate NoButton (Some "\u2193")
+          SelectionOnly Navigate NoButton None
 
       cmd "Cursor fold left" (keyAlways arrowLeftSelectionNoFoldOp)
           [ "Shift+ArrowLeft"; "A" ] SelectionOnly Navigate NoButton None
 
       cmd "Cursor left to parent" (keyAlways arrowLeftSelectionOp)
-          [ "ArrowLeft"; "a" ] SelectionOnly Navigate NoButton (Some "\u2190")
+          [ "ArrowLeft"; "a" ] SelectionOnly Navigate NoButton None
 
       cmd "Cursor unfold right" (keyAlways arrowRightSelectionOp)
           [ "Shift+ArrowRight"; "ArrowRight"; "e"; "E" ]
-          SelectionOnly Navigate NoButton (Some "\u2192")
+          SelectionOnly Navigate NoButton None
 
       cmd "Move to previous node" handleArrowLeft [ "ArrowLeft" ]
           EditingOnly EditText NoButton None
@@ -235,11 +238,11 @@ let commandRegistry : CommandEntry list =
 
       cmd "Selection up" (keyAlways (shiftArrowOp -1))
           [ "Shift+ArrowUp"; "<" ] SelectionOrEditing MoveStructure SelectTools
-          (Some "\u2191")
+          (dockIcon "Selection up")
 
       cmd "Selection down" (keyAlways (shiftArrowOp 1))
           [ "Shift+ArrowDown"; "O" ] SelectionOrEditing MoveStructure SelectTools
-          (Some "\u2193")
+          (dockIcon "Selection down")
 
       cmd "Edit cursor up" editMoveUp [ "ArrowUp" ]
           EditingOnly EditText NoButton None
@@ -249,11 +252,11 @@ let commandRegistry : CommandEntry list =
 
       cmd "Move Up" (keyAlways moveNodeUpOp)
           [ "Alt+ArrowUp"; "Ctrl+ArrowUp" ] SelectionOrEditing MoveStructure MoveTools
-          (Some "\u2191")
+          (dockIcon "Move Up")
 
       cmd "Move Down" (keyAlways moveNodeDownOp)
           [ "Alt+ArrowDown"; "Ctrl+ArrowDown" ] SelectionOrEditing MoveStructure MoveTools
-          (Some "\u2193")
+          (dockIcon "Move Down")
 
       cmd "Cursor to Start" (keyAlways pageCursorLevelStartOp) [ "PageUp" ]
           SelectionOnly Navigate NoButton None
@@ -262,16 +265,18 @@ let commandRegistry : CommandEntry list =
           SelectionOnly Navigate NoButton None
 
       cmd "Move Selection to Start" (keyAlways moveSelectionToLevelStartOp)
-          [ "Alt+PageUp" ] SelectionOrEditing MoveStructure MoveTools (Some "\u21A4")
+          [ "Alt+PageUp" ] SelectionOrEditing MoveStructure MoveTools
+          (dockIcon "Move Selection to Start")
 
       cmd "Move Selection to End" (keyAlways moveSelectionToLevelEndOp)
-          [ "Alt+PageDown" ] SelectionOrEditing MoveStructure MoveTools (Some "\u21A6")
+          [ "Alt+PageDown" ] SelectionOrEditing MoveStructure MoveTools
+          (dockIcon "Move Selection to End")
 
       cmd "Select to Start" (keyAlways shiftPgUpOp) [ "Shift+PageUp" ]
-          SelectionOnly MoveStructure SelectTools (Some "\u21A4")
+          SelectionOnly MoveStructure SelectTools (dockIcon "Select to Start")
 
       cmd "Select to End" (keyAlways shiftPgDownOp) [ "Shift+PageDown" ]
-          SelectionOnly MoveStructure SelectTools (Some "\u21A6")
+          SelectionOnly MoveStructure SelectTools (dockIcon "Select to End")
 
       cmd "Cursor to Top of View" (keyAlways homeSelectionOp) [ "Home" ]
           SelectionOnly Navigate NoButton None
@@ -286,10 +291,10 @@ let commandRegistry : CommandEntry list =
           [ "Alt+End" ] SelectionOrEditing MoveStructure PaletteOnly None
 
       cmd "Indent" (keyAlways indentOp) [ "Tab" ]
-          SelectionOrEditing MoveStructure MoveTools (Some "\u21E5")
+          SelectionOrEditing MoveStructure MoveTools (dockIcon "Indent")
 
       cmd "Outdent" (keyAlways outdentOp) [ "Shift+Tab" ]
-          SelectionOrEditing MoveStructure MoveTools (Some "\u21E4")
+          SelectionOrEditing MoveStructure MoveTools (dockIcon "Outdent")
 
       cmd "Escape" (keyAlways handleEsc) [ "Escape" ]
           SelectionOrEditing Navigate NoButton None
@@ -298,40 +303,40 @@ let commandRegistry : CommandEntry list =
           SelectionOrEditing Navigate NoButton None
 
       cmd "Zoom in" (keyAlways zoomInOp) [ "Ctrl+]"; "]" ]
-          SelectionOrEditing Navigate Base (Some "]")
+          SelectionOrEditing Navigate Base (dockIcon "Zoom in")
 
       cmd "Zoom out" (keyAlways zoomOutOp) [ "Ctrl+["; "[" ]
-          SelectionOrEditing Navigate Base (Some "[")
+          SelectionOrEditing Navigate Base (dockIcon "Zoom out")
 
       cmd "Undo" (keyAlways undoOp) [ "Ctrl+Z"; "z" ]
-          SelectionOrEditing Primary Base (Some "\u21B6")
+          SelectionOrEditing Primary Base (dockIcon "Undo")
 
       cmd "Redo" (keyAlways redoOp) [ "Ctrl+Y"; "y" ]
-          SelectionOrEditing Primary Base (Some "\u21B7")
+          SelectionOrEditing Primary Base (dockIcon "Redo")
 
       cmd "Copy content" (keyAlways copyOp) [ "c" ]
-          SelectionOnly Clipboard MoreTools (Some "Copy")
+          SelectionOnly Clipboard MoreTools (dockIcon "Copy content")
 
       cmd "Copy as links" (keyAlways copySelectionAsLinks) [ "Ctrl+C"; "C" ]
           SelectionOnly Clipboard PaletteOnly None
 
       cmd "Duplicate (link)" (keyAlways duplicateSelectionOp) [ "D" ]
-          SelectionOnly Clipboard MoreTools (Some "Dup")
+          SelectionOnly Clipboard MoreTools (dockIcon "Duplicate (link)")
 
       cmd "Command palette" (keyAlways openCommandPaletteOp) [ "Ctrl+P"; "p" ]
-          SelectionOrEditing Primary MoreTools (Some "P")
+          SelectionOrEditing Primary MoreTools (dockIcon "Command palette")
 
       cmd "Move Selected" (keyAlways moveNodesOp) [ "m"; "Ctrl+m" ]
-          SelectionOrEditing MoveStructure MoveTools (Some "M")
+          SelectionOrEditing MoveStructure MoveTools (dockIcon "Move Selected")
 
       cmd "Find" (keyAlways findRootOp) [ "/"; "Ctrl+f" ]
-          SelectionOrEditing Primary Base (Some "/")
+          SelectionOrEditing Primary Base (dockIcon "Find")
 
       cmd "Edit classes" (keyAlways openCssClassPromptOp) [ "Alt+C"; "." ]
-          SelectionOrEditing Format MoreTools (Some "Class")
+          SelectionOrEditing Format MoreTools (dockIcon "Edit classes")
 
       cmd "Jump to Target" (keyAlways jumpTargetOp) [ "Alt+j"; "j" ]
-          SelectionOrEditing Navigate Base (Some "\u2197")
+          SelectionOrEditing Navigate Base (dockIcon "Jump to Target")
 
       cmd "Import" (keyAlways importLocalOp) [ "Ctrl+Shift+>" ]
           SelectionOrEditing FileIO PaletteOnly None

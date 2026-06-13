@@ -416,6 +416,9 @@ FodyWeavers.xsd
 *.fable-temp.csproj
 dist/
 
+# Lucide vendored package: tarball committed; icons/ extracted locally
+other/lucide/icons/
+
 # Runtime data
 data/*.bak.*
 **/.SageFs/

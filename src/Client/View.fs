@@ -11,6 +11,7 @@ open Gambol.Client.JsInterop
 open Gambol.Client.Update
 open Gambol.Client.UpdateOps
 open Gambol.Shared.CommandDockLayout
+open Gambol.Shared.CommandIcons
 
 let private doubleTapScrollDeferMs = 400
 let mutable private deferSelectionScroll = false
@@ -320,10 +321,19 @@ type private ActiveToolSurface =
 let mutable private activeToolSurface : ActiveToolSurface option = None
 let mutable private moreSheetOpen = false
 
-let private triggerGlyph = function
-    | OpenMove -> "\u21C5"
-    | OpenSelect -> "\u29C9"
-    | OpenMore -> "\u22EF"
+let private svgNs = "http://www.w3.org/2000/svg"
+
+let private makeDockIcon (iconId: string) : HTMLElement =
+    let svg = document.createElementNS(svgNs, "svg")
+    svg.setAttribute("class", "amb-dock-icon")
+    svg.setAttribute("aria-hidden", "true")
+    let useEl = document.createElementNS(svgNs, "use")
+    useEl.setAttribute("href", spritePath + "#" + iconId)
+    svg.appendChild useEl |> ignore
+    svg :?> HTMLElement
+
+let private appendDockIcon (btn: HTMLButtonElement) (iconId: string) : unit =
+    btn.appendChild (makeDockIcon iconId) |> ignore
 
 let private triggerLabel = function
     | OpenMove -> "Move tools"
@@ -346,9 +356,9 @@ let private addGlyphClasses (btn: HTMLButtonElement) (classes: string list) : un
     for cls in classes do
         if cls <> "" then btn.classList.add cls
 
-let private makeGlyphButton
+let private makeIconButton
         (label: string)
-        (glyph: string)
+        (iconId: string)
         (extraClasses: string list)
         (onClick: unit -> unit)
         : HTMLButtonElement =
@@ -357,7 +367,7 @@ let private makeGlyphButton
     btn.className <- "amb-dock-glyph"
     btn.title <- label
     btn.setAttribute("aria-label", label)
-    btn.textContent <- glyph
+    appendDockIcon btn iconId
     addGlyphClasses btn extraClasses
     btn.addEventListener ("click", fun _ -> onClick ())
     btn
@@ -367,17 +377,18 @@ let private triggerOpenClasses = function
     | OpenSelect -> [ "amb-dock-trigger-open"; "amb-dock-trigger-select" ]
     | OpenMore -> [ "amb-dock-trigger-open"; "amb-dock-trigger-more" ]
 
-let private makeCommandGlyphButton
+let private makeCommandIconButton
         (cmd: CommandEntry)
         (dispatch: Msg -> unit)
         : HTMLButtonElement =
-    let glyph = cmd.glyph |> Option.defaultValue ""
     let btn = document.createElement "button" :?> HTMLButtonElement
     btn.``type`` <- "button"
     btn.className <- "amb-dock-glyph"
     btn.title <- cmd.name
     btn.setAttribute("aria-label", cmd.name)
-    btn.textContent <- glyph
+    match cmd.iconId with
+    | Some iconId -> appendDockIcon btn iconId
+    | None -> ()
     match cmd.run () with
     | None -> btn.classList.add "amb-inactive"
     | Some op ->
@@ -393,12 +404,13 @@ let private appendDockSlot
         : unit =
     match slot with
     | DockClose ->
-        let close =
-            makeGlyphButton "Close" "\u00D7" [ "amb-dock-close" ] (fun () ->
+        let closeBtn =
+            makeIconButton "Close" Gambol.Shared.CommandIcons.close
+                [ "amb-dock-close" ] (fun () ->
                 activeToolSurface <- None
                 moreSheetOpen <- false
                 refresh model dispatch)
-        row.appendChild close |> ignore
+        row.appendChild closeBtn |> ignore
     | DockTrigger trigger ->
         let isOpen =
             match trigger with
@@ -407,7 +419,7 @@ let private appendDockSlot
             | OpenMore -> moreSheetOpen
         let extra = if isOpen then triggerOpenClasses trigger else []
         let toggle =
-            makeGlyphButton (triggerLabel trigger) (triggerGlyph trigger) extra
+            makeIconButton (triggerLabel trigger) (iconForTrigger trigger) extra
                 (fun () ->
                     match trigger with
                     | OpenMove ->
@@ -429,7 +441,7 @@ let private appendDockSlot
         match tryFindCommand name with
         | None -> ()
         | Some cmd ->
-            row.appendChild (makeCommandGlyphButton cmd dispatch) |> ignore
+            row.appendChild (makeCommandIconButton cmd dispatch) |> ignore
 
 let private renderDockSlots
         (surface: CommandDockSurface)
