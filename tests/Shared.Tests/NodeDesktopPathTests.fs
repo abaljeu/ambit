@@ -93,17 +93,19 @@ let ``pathForNodeId Directory and File append owner path and name`` () =
     Assert.Equal(Some "@home:/docs/readme.txt", NodeDesktopPath.pathForNodeId graph fileId)
 
 [<Fact>]
-let ``pathForNodeId Directory returns None when owner path is None`` () =
-    let graph = Graph.create ()
-    let dirId = NodeId.New()
-    let dirNode = specialNode dirId Directory "orphan" Graph.workspacesId
-
+let ``pathForNodeId File under ROOT returns at-colon path`` () =
+    let graph0 = Graph.create ()
+    let fileId = NodeId.New()
+    let fileNode = specialNode fileId File "name.ext" Graph.rootId
     let graph1 =
-        graph.nodes
-        |> Map.add dirId dirNode
-        |> fun nodes -> Graph.fromNodes graph.root nodes
-
-    Assert.Equal(None, NodeDesktopPath.pathForNodeId graph1 dirId)
+        graph0.nodes
+        |> Map.add fileId fileNode
+        |> fun nodes -> Graph.fromNodes graph0.root nodes
+    let idx = Graph.fileTreeInsertIndex graph1 Graph.rootId
+    let graph2 =
+        Graph.replace Graph.rootId idx [] (owned [ fileId ]) graph1
+        |> requireOk "root->file"
+    Assert.Equal(Some "@:/name.ext", NodeDesktopPath.pathForNodeId graph2 fileId)
 
 [<Fact>]
 let ``fileReferenceForNodeId Normal preserves invalid file reference`` () =

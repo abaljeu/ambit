@@ -60,7 +60,7 @@ let ``read empty string produces empty graph`` () =
     Assert.Equal(Graph.rootId, graph.root)
     Assert.Equal("ROOT", root.text)
     Assert.Empty(userRootChildren graph)
-    Assert.Equal(1, userNodeCount graph) // root only (ignore TRASH)
+    Assert.Equal(0, userNodeCount graph)
 
 [<Fact>]
 let ``read flat lines produces root with children`` () =
@@ -148,7 +148,7 @@ let ``read shared-node format produces shared NodeId`` () =
     Assert.Equal(Ownership.Owner, p1.children.[0].ref)
     Assert.Equal(Ownership.Ref, p2.children.[0].ref)
     Assert.Equal("shared", graph.nodes.[p1.children.[0].id].text)
-    Assert.Equal(4, userNodeCount graph)             // root + parent1 + parent2 + shared
+    Assert.Equal(3, userNodeCount graph)             // parent1 + parent2 + shared
 
 [<Fact>]
 let ``read ref-before-owner creates stub then merges owner`` () =
@@ -166,7 +166,7 @@ let ``read ref-before-owner creates stub then merges owner`` () =
     Assert.Equal(Ownership.Owner, p1.children.[0].ref)
     Assert.Equal(p1.children.[0].id, p2.children.[0].id)
     Assert.Equal("shared", graph.nodes.[p1.children.[0].id].text)
-    Assert.Equal(4, userNodeCount graph)
+    Assert.Equal(3, userNodeCount graph)
 
 let private createSharedNodeGraphRefParentFirst () : Graph =
     let g = ModelBuilder.createSharedNodeGraph ()
@@ -181,7 +181,7 @@ let ``round-trip shared-node graph preserves shape and sharing`` () =
     let original = ModelBuilder.createSharedNodeGraph ()
     let decoded = original |> Snapshot.write |> Snapshot.read
     Assert.Equal<(int * string) list>(treeShape original, treeShape decoded)
-    Assert.Equal(4, userNodeCount decoded)            // root + parent1 + parent2 + shared
+    Assert.Equal(3, userNodeCount decoded)            // parent1 + parent2 + shared
     let userChildren = userRootChildren decoded
     let p1 = decoded.nodes.[userChildren.[0].id]
     let p2 = decoded.nodes.[userChildren.[1].id]

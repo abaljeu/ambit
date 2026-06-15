@@ -18,7 +18,7 @@ let ``Create nodes from text list`` () =
 [<Fact>]
 let ``CreateDag12 builds a 12 node dag with depth 3`` () =
     let graph = ModelBuilder.createDag12 ()
-    Assert.Equal(12, userNodeCount graph)
+    Assert.Equal(11, userNodeCount graph)
 
     let rec maxDepthFrom nodeId depth visited =
         if Set.contains nodeId visited then

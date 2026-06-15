@@ -68,7 +68,9 @@ type ConcreteFileTarget = {
 
 **Workspace context**:
 
-- `/notes.md` and `@:/notes.md` target the **current workspace root** (`RefContext.workspaceRoot` from focus via `RefExpr.refContext`).
+- `/notes.md` and `@:/notes.md` target the **current workspace root** (`RefContext.workspaceRoot`
+  from focus via `RefExpr.refContext`). When focus has no named workspace in its owner chain,
+  this falls back to **ROOT** (implicit nameless workspace, `@:`).
 - `@:` parses as **`WorkspaceRoot`** (not `NamedWorkspace`).
 - `@bobby:notes.md` remains an explicit named workspace; intermediate missing `bobby` / dirs are created on **New**.
 

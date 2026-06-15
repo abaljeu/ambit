@@ -68,13 +68,21 @@ type Node =
 [<RequireQualifiedAccess>]
 module NodeUpdateTime =
     /// Canonical nodes and JSON without `updateTime`.
-    let missing = DateTime.MinValue
+    /// UTC kind so `toDbPrecision` does not shift through PostgreSQL `timestamptz`.
+    let missing = DateTime(0L, DateTimeKind.Utc)
 
     /// PostgreSQL `timestamptz` stores microseconds; align before DB round-trip.
     let private ticksPerMicrosecond = 10L
 
     let toDbPrecision (time: DateTime) : DateTime =
-        let utc = time.ToUniversalTime()
+        let utc =
+            match time.Kind with
+            | DateTimeKind.Utc -> time
+            | DateTimeKind.Local -> time.ToUniversalTime()
+            | DateTimeKind.Unspecified ->
+                // PostgreSQL `timestamptz` via Npgsql/Dapper: UTC clock, Unspecified kind.
+                DateTime.SpecifyKind(time, DateTimeKind.Utc)
+            | _ -> time.ToUniversalTime()
         DateTime(utc.Ticks - utc.Ticks % ticksPerMicrosecond, DateTimeKind.Utc)
 
     let now () = DateTime.UtcNow |> toDbPrecision
@@ -123,7 +131,7 @@ module Graph =
           children = []
           cssClasses = CssClass.empty
           owner = rootId
-          kind = Normal
+          kind = Special Workspace
           updateTime = NodeUpdateTime.missing }
 
     let private addStructuralEdges (parentId: NodeId) (parent: Node) acc =
@@ -258,6 +266,14 @@ module Graph =
         nodesWithWorkspaces
         |> Map.add rootId { rootNode with children = fixedRootChildren }
 
+    let private ensureRootKind (nodes: Map<NodeId, Node>) : Map<NodeId, Node> =
+        match Map.tryFind rootId nodes with
+        | None -> nodes
+        | Some rootNode ->
+            match rootNode.kind with
+            | Special Workspace -> nodes
+            | _ -> nodes |> Map.add rootId { rootNode with kind = Special Workspace }
+
     let private applyOwnerField
         (root: NodeId)
         (ownerParentByChild: Map<NodeId, NodeId>)
@@ -277,7 +293,8 @@ module Graph =
 
     /// Build a graph with recomputed parent indexes (use for decode, snapshots, tests).
     let fromNodes (root: NodeId) (nodes: Map<NodeId, Node>) : Graph =
-        let nodesWithWorkspaces = ensureWorkspacesNode nodes
+        let nodesWithRoot = ensureRootKind nodes
+        let nodesWithWorkspaces = ensureWorkspacesNode nodesWithRoot
         let nodesWithTrash = ensureTrashNode nodesWithWorkspaces
         let pbc, opc = buildParentMaps nodesWithTrash
         let nodesWithOwner = applyOwnerField root opc nodesWithTrash
@@ -308,6 +325,14 @@ module Graph =
 
     let create () : Graph =
         fromNodes rootId (Map.ofList [ rootId, rootPlaceholder ])
+
+    let fileTreeInsertIndex (graph: Graph) (parentId: NodeId) : int =
+        if parentId <> rootId then
+            graph.nodes.[parentId].children.Length
+        else
+            graph.nodes.[parentId].children
+            |> List.tryFindIndex (fun c -> c.id = workspacesId || c.id = trashId)
+            |> Option.defaultValue (graph.nodes.[parentId].children.Length)
 
     let setText
         (nodeId: NodeId)

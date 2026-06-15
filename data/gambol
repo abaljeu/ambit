@@ -1,6 +1,7 @@
 #n1 Tasks
 	uuuuuuuuuuu
 		d
+	-> #n2
 	r
 	
 	nowe
@@ -475,7 +476,7 @@
 		
 		ambit
 		----
-	-> #n2
+	-> #n3
 Passion Projects
 	FSharp
 	
@@ -501,7 +502,7 @@ Passion Projects
 		
 	Ambit - Outlining Info Organizer
 		Ambit (n) - Area of Influence
-		#n3 Outlining Editor
+		#n4 Outlining Editor
 			edit
 			move
 			expand
@@ -513,7 +514,7 @@ Passion Projects
 		Infinite Organizing
 			Zoom
 			Link
-				-> #n3
+				-> #n4
 		Into the World
 			Document editing
 				[[Document.md]]
@@ -538,10 +539,10 @@ Passion Projects
 				Make a particular outline look like formatted document
 			Embedded computation
 				$x = [2 + 3, 3*5]
-					#n4 5
+					#n5 5
 					15
 				$y = $x[0]
-					-> #n4
+					-> #n5
 			Shell 
 				> ls -L
 					total 2657
@@ -578,7 +579,7 @@ Passion Projects
 					rambling response
 					
 				{.h1 .blue}Third item aoeu aoeu text = Third item aoeu aoeu 
-					-> #n5
+					-> #n6
 					hnsteaueoua
 					ham
 						{.blue}eau
@@ -605,19 +606,19 @@ Passion Projects
 		
 Third itemuu
 	
-	#n5 <blue>
+	#n6 <blue>
 		u
 		aeu o ntsauheonutousntoeu nshanuotea uoehu oushouensh othnoensth uea e
 	{.h3 .b}ueau
 		ueau
 		aoeua
 		uaoeusont 
-	-> #n5
+	-> #n6
 	oeauoeu
 	aoeu 
 	aoeu 
 	-> #n1
-#n2 {.red}extra requirements
+#n3 {.red}extra requirements
 	Logical Reasoning Requirement
 	okay so what we need to do is
 	Structured Proof Formatting Requirement
@@ -644,6 +645,7 @@ The roof must clearly separate the two parts of the coNP-completeness argument:u
 
 
 {.pink}outlier
+#n2 file1
 #WORKSPACES Workspaces
 #TRASH Trash
 	{.red}----
@@ -652,3 +654,4 @@ The roof must clearly separate the two parts of the coNP-completeness argument:u
 	
 	e
 	eu
+	file1

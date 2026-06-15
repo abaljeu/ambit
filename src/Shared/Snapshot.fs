@@ -166,7 +166,9 @@ module Snapshot =
           cssClasses = classes
           owner = Graph.rootId
           kind =
-              if id = Graph.workspacesId then
+              if id = Graph.rootId then
+                  Special Workspace
+              elif id = Graph.workspacesId then
                   Special Workspaces
               elif id = Graph.trashId then
                   Special Trash
@@ -236,7 +238,9 @@ module Snapshot =
             |> Option.defaultValue (outlineTextNode chosenId nodeText classes)
 
         let n =
-            NodeUpdateTime.touch { prior with text = nodeText; cssClasses = classes }
+            match canonicalNodeIdForSid sid with
+            | Some _ -> { prior with text = nodeText; cssClasses = classes }
+            | None -> NodeUpdateTime.touch { prior with text = nodeText; cssClasses = classes }
         let nodes' = nodes |> Map.add chosenId n
         let idMap' = idMap |> Map.add sid chosenId
         chosenId, nodes', idMap'

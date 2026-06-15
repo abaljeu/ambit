@@ -223,3 +223,46 @@ let ``loadPersistedState preserves node name`` () = task {
     let! loaded = Database.loadPersistedState connStr decodeChange |> Async.AwaitTask
     Assert.Equal(expectedName, loaded.graph.nodes.[Graph.trashId].name)
 }
+
+[<Fact>]
+let ``loadPersistedState preserves node kind`` () = task {
+    let connStr = requireDbConnStr ()
+    do! resetTestDatabase connStr
+
+    let fileId = NodeId.New()
+    let g0 = Graph.create ()
+    let idx = Graph.fileTreeInsertIndex g0 Graph.rootId
+
+    let graphWithFile =
+        let change =
+            { id = 0
+              changeId = Guid.NewGuid()
+              ops =
+                [ Op.NewSpecialNode(fileId, SpecialKind.File, "file1")
+                  Op.Replace(
+                      Graph.rootId,
+                      idx,
+                      [],
+                      [ { ref = Ownership.Owner; id = fileId } ]) ] }
+
+        match
+            History.applyChange change
+                { graph = g0
+                  history = History.empty
+                  revision = Revision 0 }
+        with
+        | ApplyResult.Changed st -> st.graph
+        | _ -> failwith "expected Changed"
+
+    use conn = Database.getConnection connStr
+    do! conn.OpenAsync()
+    use tx = conn.BeginTransaction()
+    do! Database.replaceGraphProjectionWithTx tx graphWithFile 0 |> Async.AwaitTask
+    tx.Commit()
+
+    let! loaded = Database.loadPersistedState connStr decodeChange |> Async.AwaitTask
+
+    match loaded.graph.nodes.[fileId].kind with
+    | Special SpecialKind.File -> ()
+    | k -> Assert.Fail(sprintf "expected Special File, got %A" k)
+}

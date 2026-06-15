@@ -154,7 +154,7 @@ let ``GET state returns valid graph with root node`` (backend: BackendKind) =
     withClient backend (fun client -> task {
         let! json = getStateJson client testFile
         let graph = decodeGraph json
-        Assert.Equal(1, userNodeCount graph)
+        Assert.Equal(0, userNodeCount graph)
         Assert.True(graph.nodes.ContainsKey graph.root)
         let root = graph.nodes.[graph.root]
         Assert.Equal("ROOT", root.text)
@@ -208,7 +208,7 @@ let ``POST changes NewNode+Replace adds child to root`` (backend: BackendKind) =
 
         let! json = getStateJson client testFile
         let graph = decodeGraph json
-        Assert.Equal(2, userNodeCount graph)
+        Assert.Equal(1, userNodeCount graph)
         Assert.Equal<ChildNode list>([ { ref = Ownership.Owner; id = childId } ], userRootChildren graph)
         Assert.Equal("child", graph.nodes.[childId].text)
     })

@@ -13,7 +13,7 @@ Stable `NodeId` values (see `Graph` in `src/Shared/Model.fs`):
 
 | Node | `NodeId` suffix | Text | Kind |
 |------|-----------------|------|------|
-| Root | `00000000-0000-0000-0000-000000000000` | `ROOT` | `Normal` |
+| Root | `00000000-0000-0000-0000-000000000000` | `ROOT` | `Special Workspace` (nameless, `@:`) |
 | Trash | `…000000000001` | `Trash` | `Special Trash` |
 | Workspaces | `…000000000002` | `Workspaces` | `Special Workspaces` |
 
@@ -34,9 +34,12 @@ Enforced in `Graph.replace` (not by a separate command layer):
 |-----------|----------------------|
 | `Workspaces` | root only (permanent, canonical) |
 | `Workspace` | `Workspaces` only |
-| `Directory` | `Workspace` or `Directory` |
-| `File` | `Workspace` or `Directory` |
+| `Directory` | `Workspace`, `Directory`, or **ROOT** (implicit nameless workspace) |
+| `File` | `Workspace`, `Directory`, or **ROOT** |
 | `Normal` | anywhere |
+
+**ROOT** is the implicit nameless workspace (`@:`): `Special Workspace` with no filename.
+Named `Workspace` nodes remain under `Workspaces` only. Ref links are unrestricted.
 
 `Workspaces` and `Trash` may not appear as children of any non-root parent.
 
@@ -82,7 +85,7 @@ Implemented now:
 
 - Parse `@label:` as workspace-root base (`WorkspaceRoot`).
 - `refContext` walks owner chain from a node to find workspace root, file root, and directory
-  context.
+  context. When no `Special Workspace` is found, workspace root falls back to **ROOT** (`@:`).
 - `match_` resolves workspace-base expressions against the graph for search.
 
 Not implemented: directory/file path steps, wildcards, tags, full command language.

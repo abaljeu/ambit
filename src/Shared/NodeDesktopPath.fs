@@ -14,9 +14,12 @@ module NodeDesktopPath =
             | Special Workspaces
             | Special Trash -> None
             | Special Workspace ->
-                match Filename.tryValue node.name with
-                | Some name -> Some ("@" + name + ":")
-                | None -> None
+                if node.id = Graph.rootId then
+                    Some "@:"
+                else
+                    match Filename.tryValue node.name with
+                    | Some name -> Some ("@" + name + ":")
+                    | None -> None
             | Special Directory
             | Special File ->
                 match Filename.tryValue node.name with

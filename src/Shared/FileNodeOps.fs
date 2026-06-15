@@ -29,7 +29,7 @@ module FileNodeOps =
                     | _ -> None))
 
     let private appendOwnedOp (parentId: NodeId) (childId: NodeId) (graph: Graph) : Op =
-        let index = graph.nodes.[parentId].children.Length
+        let index = Graph.fileTreeInsertIndex graph parentId
         Op.Replace(parentId, index, [], [ { ref = Ownership.Owner; id = childId } ])
 
     let private applyOpToGraph (graph: Graph) (op: Op) : Graph =
@@ -54,7 +54,7 @@ module FileNodeOps =
             : Result<NodeId * Op list, string> =
             match segs with
             | [] ->
-                let idx = gAcc.nodes.[parentId].children.Length
+                let idx = Graph.fileTreeInsertIndex gAcc parentId
                 let ops2 =
                     ops
                     @ [ Op.NewSpecialNode(fileId, File, target.fileName)
@@ -73,7 +73,7 @@ module FileNodeOps =
 
         if List.isEmpty target.missingSegments then
             let parentId = target.parentId
-            let idx = graph.nodes.[parentId].children.Length
+            let idx = Graph.fileTreeInsertIndex graph parentId
 
             let ops =
                 [ Op.NewSpecialNode(fileId, File, target.fileName)

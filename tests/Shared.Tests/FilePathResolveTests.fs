@@ -4,12 +4,25 @@ open Gambol.Shared
 open RefExprTestTree
 open Xunit
 
+let private owned (ids: NodeId list) : ChildNode list =
+    ids |> List.map (fun id -> { ref = Ownership.Owner; id = id })
+
 let private tree = lazy build ()
 
 let private requireSome opt =
     match opt with
     | Some v -> v
     | None -> failwith "expected Some"
+
+let private outlineSetup () =
+    let graph0 = Graph.create ()
+    let graph1, ids = ModelBuilder.createNodes [ "focus" ] graph0
+    let focus = ids.[0]
+    let graph2 =
+        match Graph.replace graph1.root 0 [] (owned [ focus ]) graph1 with
+        | Ok g -> g
+        | Error e -> failwith e
+    focus, graph2
 
 [<Fact>]
 let ``tryResolveConcreteTarget bare filename uses workspace root`` () =
@@ -20,6 +33,21 @@ let ``tryResolveConcreteTarget bare filename uses workspace root`` () =
     Assert.Equal(t.workspaceRoot, target.parentId)
     Assert.Equal("notes.md", target.fileName)
     Assert.Empty(target.missingSegments)
+
+[<Fact>]
+let ``tryResolveConcreteTarget bare filename from outline focus uses ROOT`` () =
+    let focus, graph = outlineSetup ()
+    let target =
+        FilePathResolve.tryResolveConcreteTarget focus graph "file1"
+        |> requireSome
+    Assert.Equal(Graph.rootId, target.parentId)
+    Assert.Equal("file1", target.fileName)
+    Assert.Empty(target.missingSegments)
+
+[<Fact>]
+let ``isNewEnabled from outline focus for bare filename`` () =
+    let focus, graph = outlineSetup ()
+    Assert.True(FilePathResolve.isNewEnabled focus graph "file1")
 
 [<Fact>]
 let ``tryResolveConcreteTarget slash path matches at prefix`` () =

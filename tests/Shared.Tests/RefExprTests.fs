@@ -14,6 +14,9 @@ let private parseOk input =
 
 let private ids results = results |> List.map (fun r -> r.nodeId) |> Set.ofList
 
+let private owned (ids: NodeId list) : ChildNode list =
+    ids |> List.map (fun id -> { ref = Ownership.Owner; id = id })
+
 // ---- parse ----
 
 [<Fact>]
@@ -113,14 +116,18 @@ let ``match_ named workspace resolves and misses`` () =
     Assert.Empty(miss)
 
 [<Fact>]
-let ``match_ unresolved base returns empty`` () =
-    let emptyCtx =
-        { workspaceRoot = None
-          fileRoot = None
-          fileDir = None
-          namedWorkspaces = Map.empty }
-
-    Assert.Empty(RefExpr.match_ emptyCtx tree.Value.graph (BaseOnly WorkspaceRoot))
+let ``match_ workspace root from outline context resolves to ROOT`` () =
+    let graph0 = Graph.create ()
+    let graph1, focusIds = ModelBuilder.createNodes [ "focus" ] graph0
+    let focus = focusIds.[0]
+    let graph2 =
+        match Graph.replace graph1.root 0 [] (owned [ focus ]) graph1 with
+        | Ok g -> g
+        | Error e -> failwith e
+    let ctx = RefExpr.refContext focus graph2
+    Assert.Equal(Some Graph.rootId, ctx.workspaceRoot)
+    let nodes = RefExpr.match_ ctx graph2 (BaseOnly WorkspaceRoot)
+    Assert.Equal<Set<NodeId>>(Set [ Graph.rootId ], ids nodes)
 
 // ---- match: names ----
 

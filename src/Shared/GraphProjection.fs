@@ -9,6 +9,7 @@ module GraphProjection =
         { id: System.Guid
           text: string
           name: string option
+          kind: string
           cssClassNames: string list
           updateTime: System.DateTime }
 
@@ -25,6 +26,7 @@ module GraphProjection =
         a.id.Value = b.id.Value
         && a.text = b.text
         && a.name = b.name
+        && a.kind = b.kind
         && CssClass.toList a.cssClasses = CssClass.toList b.cssClasses
         && a.updateTime = b.updateTime
         && List.length a.children = List.length b.children
@@ -48,6 +50,7 @@ module GraphProjection =
             { id = n.id.Value
               text = n.text
               name = Filename.tryValue n.name
+              kind = NodeKindPersistence.toPersistString n.kind
               cssClassNames = CssClass.toList n.cssClasses
               updateTime = n.updateTime })
 
@@ -76,26 +79,36 @@ module GraphProjection =
         if not (Set.contains rootId.Value idSet) then
             Error "graphFromPersistence: root id missing from nodes"
         else
+        match
+            nodeRows
+            |> List.tryPick (fun r ->
+                match NodeKindPersistence.fromPersistString r.kind with
+                | Error e -> Some e
+                | Ok _ -> None)
+        with
+        | Some e -> Error e
+        | None ->
 
         let baseNodes : Map<NodeId, Node> =
             nodeRows
             |> List.map (fun r ->
                 let nid = NodeId r.id
+                let parsedKind =
+                    match NodeKindPersistence.fromPersistString r.kind with
+                    | Ok k -> k
+                    | Error _ -> Normal
 
                 nid,
                 { id = nid
                   text = r.text
-                  name = r.name |> Option.map Filename.create |> Option.defaultValue Filename.Empty
+                  name =
+                      r.name
+                      |> Option.map Filename.create
+                      |> Option.defaultValue Filename.Empty
                   children = []
                   cssClasses = CssClass.ofList r.cssClassNames
                   owner = Graph.rootId
-                  kind =
-                    if nid = Graph.workspacesId then
-                        Special Workspaces
-                    elif nid = Graph.trashId then
-                        Special Trash
-                    else
-                        Normal
+                  kind = NodeKindPersistence.legacyKindForCanonical nid parsedKind
                   updateTime = r.updateTime })
             |> Map.ofList
 

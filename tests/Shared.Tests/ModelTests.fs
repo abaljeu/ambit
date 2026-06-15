@@ -62,9 +62,12 @@ let private assertValidOwnership (graph: Graph) =
         )
 
 [<Fact>]
-let ``Create graph has one node`` () =
+let ``Create graph has canonical root workspace only`` () =
     let graph = Graph.create ()
-    Assert.Equal(1, userNodeCount graph)
+    Assert.Equal(0, userNodeCount graph)
+    match graph.nodes.[graph.root].kind with
+    | Special Workspace -> ()
+    | _ -> Assert.True(false, "root must have kind = Special Workspace")
     assertValidOwnership graph
 
 [<Fact>]
@@ -392,6 +395,30 @@ let ``Graph.replace accepts Special File under Special Directory`` () =
     | Ok graph6 ->
         let children = graph6.nodes.[dirId].children
         Assert.Equal<NodeId list>([ fileId ], children |> List.map (fun c -> c.id))
+    | Error err -> Assert.True(false, $"Expected Ok, got Error: {err}")
+
+[<Fact>]
+let ``Graph.replace accepts Special Directory under ROOT`` () =
+    let graph0 = Graph.create ()
+    let dirId = NodeId.New()
+    let graph1 = addSpecialNode dirId Directory "dir" graph0
+    let idx = Graph.fileTreeInsertIndex graph0 Graph.rootId
+    match Graph.replace Graph.rootId idx [] (owned [ dirId ]) graph1 with
+    | Ok graph2 ->
+        let children = graph2.nodes.[Graph.rootId].children
+        Assert.True(children |> List.exists (fun c -> c.id = dirId && c.ref = Ownership.Owner))
+    | Error err -> Assert.True(false, $"Expected Ok, got Error: {err}")
+
+[<Fact>]
+let ``Graph.replace accepts Special File under ROOT`` () =
+    let graph0 = Graph.create ()
+    let fileId = NodeId.New()
+    let graph1 = addSpecialNode fileId File "file" graph0
+    let idx = Graph.fileTreeInsertIndex graph0 Graph.rootId
+    match Graph.replace Graph.rootId idx [] (owned [ fileId ]) graph1 with
+    | Ok graph2 ->
+        let children = graph2.nodes.[Graph.rootId].children
+        Assert.True(children |> List.exists (fun c -> c.id = fileId && c.ref = Ownership.Owner))
     | Error err -> Assert.True(false, $"Expected Ok, got Error: {err}")
 
 [<Fact>]

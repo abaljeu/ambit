@@ -105,6 +105,21 @@ module Database =
                 ALTER TABLE nodes
                     ALTER COLUMN update_time SET NOT NULL;
 
+                ALTER TABLE nodes
+                    ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'normal';
+
+                UPDATE nodes
+                SET kind = 'workspace'
+                WHERE id = '00000000-0000-0000-0000-000000000000';
+
+                UPDATE nodes
+                SET kind = 'workspaces'
+                WHERE id = '00000000-0000-0000-0000-000000000002';
+
+                UPDATE nodes
+                SET kind = 'trash'
+                WHERE id = '00000000-0000-0000-0000-000000000001';
+
                 CREATE TABLE IF NOT EXISTS node_children (
                     parent_id   UUID         NOT NULL REFERENCES nodes (id) ON DELETE CASCADE,
                     ordinal     INT          NOT NULL,
@@ -133,7 +148,8 @@ module Database =
           text: string
           name: string // null from SQL when column is NULL
           css_classes: string
-          update_time: DateTime }
+          update_time: DateTime
+          kind: string }
 
     type NodeChildDbRow =
         { parent_id: Guid
@@ -272,7 +288,7 @@ module Database =
         task {
             let! rows =
                 conn.QueryAsync<NodeDbRow>(
-                    "SELECT id, text, name, css_classes::text, update_time FROM nodes")
+                    "SELECT id, text, name, css_classes::text, update_time, kind FROM nodes")
             return rows |> Seq.toList
         }
 
@@ -319,6 +335,7 @@ module Database =
                                 None
                             else
                                 Some r.name
+                           kind = r.kind
                            cssClassNames = CssClass.toList (decodeCss r.css_classes)
                            updateTime = NodeUpdateTime.toDbPrecision r.update_time }
                         : GraphProjection.NodePersistenceRow))
@@ -369,14 +386,15 @@ module Database =
                 do!
                     conn.ExecuteAsync(
                         """
-                        INSERT INTO nodes (id, text, name, css_classes, update_time)
-                        VALUES (@id, @text, @name, CAST(@css AS jsonb), @update_time)
+                        INSERT INTO nodes (id, text, name, css_classes, update_time, kind)
+                        VALUES (@id, @text, @name, CAST(@css AS jsonb), @update_time, @kind)
                         """,
                         {| id = r.id
                            text = r.text
                            name = nameParam
                            css = cssJson (CssClass.ofList r.cssClassNames)
-                           update_time = NodeUpdateTime.toDbPrecision r.updateTime |},
+                           update_time = NodeUpdateTime.toDbPrecision r.updateTime
+                           kind = r.kind |},
                         tx)
                     :> Task
 

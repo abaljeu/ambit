@@ -60,7 +60,8 @@ For automated DB tests, set `TEST_DB_CONNECTION_STRING` (see
 From `src/Shared/Model.fs` (abbreviated):
 
 - **`NodeId`** — `Guid` (use `UUID` in PostgreSQL).
-- **`Node`** — `id`, `text`, `name` (`string option`), `children` (`ChildNode list`),
+- **`Node`** — `id`, `text`, `name` (`string option`), `kind` (`NodeKind`: `Normal` or
+  `Special` of `File` / `Directory` / `Workspace` / system kinds), `children` (`ChildNode list`),
   `cssClasses` (ordered list of class names; see `CssClass.fs`).
 - **`ChildNode`** — `ref` (`Ownership`), `id` (`NodeId`).
 - **`Ownership`** — `Owner` | `Ref` (whether the child list holds the owning edge or a reference).
@@ -76,7 +77,8 @@ The canonical root id is fixed: `Graph.rootId` (`Guid.Empty`).
 | Artifact | Role |
 |----------|------|
 | **Snapshot file** | Outline **syntax** (lines, optional `{...}` class meta). Read into a `Graph`
-  via `Snapshot.read`. |
+  via `Snapshot.read`. Does **not** yet persist `NodeKind` for user special nodes; that is
+  deferred to future workspace-on-disk work. |
 | **`.meta`** | Server revision integer after snapshot + log replay. |
 | **`.log`** | Append-only JSON lines, one submitted `Change` per line (same idea as SQL `changes`
   rows). |
@@ -136,6 +138,7 @@ Columns map **`Model.Node`** except **`children`**, which is normalized into `no
 | `id`          | `UUID` | `id` (`NodeId`)    |
 | `text`        | `TEXT` | `text`             |
 | `name`        | `TEXT` | `name` (nullable)  |
+| `kind`        | `TEXT` | `kind` (`normal`, `file`, `directory`, `workspace`, `workspaces`, `trash`) |
 | `css_classes` | `JSONB` or `TEXT[]` | `cssClasses` (ordered class names) |
 
 ```sql
@@ -143,6 +146,7 @@ CREATE TABLE nodes (
     id              UUID        PRIMARY KEY,
     text            TEXT        NOT NULL,
     name            TEXT        NULL,
+    kind            TEXT        NOT NULL DEFAULT 'normal',
     css_classes     JSONB       NOT NULL
 );
 ```
