@@ -16,6 +16,7 @@ icons=(
     "amb-icon-zoom-in:zoom-in"
     # move-tools, select-tools, sel-*, move-*, *-to-* are custom — see demo index.html
     "amb-icon-find:search"
+    "amb-icon-delete:trash-2"
     "amb-icon-jump:external-link"
     "amb-icon-more:ellipsis"
     "amb-icon-close:x"

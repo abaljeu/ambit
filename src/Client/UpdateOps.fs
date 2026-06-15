@@ -22,7 +22,7 @@ let handleEsc (model: VM) : VM * Effect list =
     match model.mode with
     | Editing _ -> commitIfEditing model
     | Selecting -> collapseToFocus model, []
-    | CommandPalette _ | SearchDialog _ | CssClassPrompt _ ->
+    | CommandPalette _ | SearchDialog _ | FileSearchDialog _ | CssClassPrompt _ ->
         model, []  // handled by close modal operations
 
 /// Op: Copy the focused subtree to the internal clipboard.

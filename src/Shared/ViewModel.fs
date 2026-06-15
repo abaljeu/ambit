@@ -263,6 +263,7 @@ type Mode =
     | Editing of originalText: string * caret: EditCaret
     | CommandPalette of query: string * selectedCommand: int * returnTo: Mode
     | SearchDialog of SearchDialogState
+    | FileSearchDialog of FileSearchDialogState
     | CssClassPrompt of returnTo: Mode * initialValue: string
 
 /// Node search overlay: query, selection, and `onPick` (mutually recursive with `Mode` / `VM`).
@@ -272,6 +273,12 @@ and SearchDialogState =
       selectedIndex: int
       returnTo: Mode
       onPick: NodeSearchResult -> VM -> VM * Effect list }
+
+/// File search overlay: path query, list selection, and optional create via **New** button.
+and FileSearchDialogState =
+    { query: string
+      selectedIndex: int
+      returnTo: Mode }
 
 // Server `State` is in `FileAgent`, and mainly the graph.
 and VM = // the client state

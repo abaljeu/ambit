@@ -9,6 +9,7 @@ let private exportBlockedMode =
     function
     | CommandPalette _
     | SearchDialog _
+    | FileSearchDialog _
     | CssClassPrompt _ -> true
     | _ -> false
 

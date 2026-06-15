@@ -31,6 +31,7 @@
     <Compile Include="NodeDesktopPathTests.fs" />
     <Compile Include="SearchTests.fs" />
     <Compile Include="SearchDialogModeTests.fs" />
+    <Compile Include="FileSearchDialogModeTests.fs" />
     <Compile Include="ViewModelTests.fs" />
     <Compile Include="DeleteOpsTests.fs" />
     <Compile Include="SyncLogicTests.fs" />

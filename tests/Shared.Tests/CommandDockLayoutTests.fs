@@ -2,6 +2,7 @@ module Gambol.Shared.Tests.CommandDockLayoutTests
 
 open Xunit
 open Gambol.Shared.CommandDockLayout
+open Gambol.Shared.CommandEntry
 
 [<Fact>]
 let ``base strip fits mobile row limit`` () =
@@ -14,6 +15,16 @@ let ``move tools strip fits mobile row limit`` () =
 [<Fact>]
 let ``select tools strip fits mobile row limit`` () =
     Assert.Equal(maxSelectSlots, selectToolsSlots.Length)
+
+[<Fact>]
+let ``base strip has Delete not JumpToTarget`` () =
+    let ids = commandIds baseStripSlots
+    Assert.Contains(Delete, ids)
+    Assert.DoesNotContain(JumpToTarget, ids)
+
+[<Fact>]
+let ``more tools has JumpToTarget`` () =
+    Assert.Contains(JumpToTarget, commandIds moreToolsSlots)
 
 [<Fact>]
 let ``dock command ids are unique within each strip`` () =

@@ -15,6 +15,8 @@
     <Compile Include="UpdateEdit.fs" />
     <Compile Include="UpdateMove.fs" />
     <Compile Include="SearchDialog.fs" />
+    <Compile Include="FileSearchDialog.fs" />
+    <Compile Include="UpdateFileSearch.fs" />
     <Compile Include="UpdatePaste.fs" />
     <Compile Include="UpdateImport.fs" />
     <Compile Include="UpdateExport.fs" />

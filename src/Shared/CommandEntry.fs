@@ -74,7 +74,7 @@ let allCommands : CommandEntry list =
           category = EditText; iconId = None }
         { id = Delete; name = "Delete"
           keys = [ "Delete"; "Backspace" ]; keyScope = SelectionOnly
-          category = EditText; iconId = None }
+          category = EditText; iconId = Some "amb-icon-delete" }
         { id = JoinWithPrevious; name = "Join with previous"
           keys = [ "Backspace" ]; keyScope = EditingOnly
           category = EditText; iconId = None }

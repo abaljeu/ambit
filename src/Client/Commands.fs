@@ -221,12 +221,14 @@ let rec paletteWasSelecting (returnTo: Mode) : bool =
     | Editing _ -> false
     | Mode.CommandPalette (_, _, inner) -> paletteWasSelecting inner
     | SearchDialog s -> paletteWasSelecting s.returnTo
+    | FileSearchDialog s -> paletteWasSelecting s.returnTo
     | CssClassPrompt (inner, _) -> paletteWasSelecting inner
 
 let commandContextMode (mode: Mode) : Mode =
     match mode with
     | Mode.CommandPalette (_, _, ret) -> ret
     | SearchDialog s -> s.returnTo
+    | FileSearchDialog s -> s.returnTo
     | CssClassPrompt (inner, _) -> inner
     | m -> m
 

@@ -396,6 +396,7 @@ let handleKey (mode: Mode) (ke: KeyboardEvent) (dispatch: Msg -> unit) : unit =
             match mode with
             | CommandPalette _ -> paletteKeyBindings
             | SearchDialog _ -> [] // keys handled by search input's own listener
+            | FileSearchDialog _ -> []
             | CssClassPrompt _ -> cssClassPromptKeyBindings
             | Editing _ -> editingKeyBindings
             | Selecting -> selectionKeyBindings

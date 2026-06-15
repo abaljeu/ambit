@@ -12,7 +12,7 @@ type DockSlot =
     | DockTrigger of DockTrigger
     | DockClose
 
-/// Base strip: undo, redo, zoom, move/select triggers, find, jump, more.
+/// Base strip: undo, redo, zoom, move/select triggers, find, delete, more.
 let baseStripSlots : DockSlot list =
     [ DockCommand Undo
       DockCommand Redo
@@ -21,7 +21,7 @@ let baseStripSlots : DockSlot list =
       DockTrigger OpenMove
       DockTrigger OpenSelect
       DockCommand Find
-      DockCommand JumpToTarget
+      DockCommand Delete
       DockTrigger OpenMore ]
 
 let moveToolsSlots : DockSlot list =
@@ -46,7 +46,8 @@ let moreToolsSlots : DockSlot list =
       DockCommand CommandPalette
       DockCommand CopyContent
       DockCommand DuplicateLink
-      DockCommand EditClasses ]
+      DockCommand EditClasses
+      DockCommand JumpToTarget ]
 
 let maxBaseSlots = 9
 let maxMoveSlots = 8

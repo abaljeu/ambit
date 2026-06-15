@@ -138,6 +138,7 @@ let private makeRowElement
             match model.mode with
             | CommandPalette (_, _, ret) -> ret
             | SearchDialog s -> s.returnTo
+            | FileSearchDialog s -> s.returnTo
             | CssClassPrompt (ret, _) -> ret
             | m -> m
         let initialValue =
@@ -264,7 +265,7 @@ let manageFocus
         : unit =
     let preserveEditCaret = EditingCaretPreserve.shouldPreserveDomCaret previousModel model
     match model.mode with
-    | CommandPalette _ | SearchDialog _ | CssClassPrompt _ ->
+    | CommandPalette _ | SearchDialog _ | FileSearchDialog _ | CssClassPrompt _ ->
         () // focus is handled by overlay renderers after the element becomes visible
     | Editing _ ->
         cancelPendingSelectionScroll ()

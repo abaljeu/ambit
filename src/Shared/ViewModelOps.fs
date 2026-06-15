@@ -664,6 +664,7 @@ module ViewModel =
             match model.mode with
             | CommandPalette (_, _, ret) -> ret
             | SearchDialog s -> s.returnTo
+            | FileSearchDialog s -> s.returnTo
             | CssClassPrompt (ret, _) -> ret
             | m -> m
         match effectiveMode, model.selectedNodes with
