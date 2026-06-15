@@ -313,6 +313,20 @@ body {
     padding: 8px 14px;
     cursor: pointer;
 }
+.amb-palette-new {
+    display: block;
+    margin: 8px 14px 10px auto;
+    padding: 6px 14px;
+    font-size: 0.9rem;
+    border: 1px solid #bbb;
+    border-radius: 4px;
+    background: #f5f5f5;
+    cursor: pointer;
+}
+.amb-palette-new:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
 .amb-palette-results li:hover,
 .amb-palette-results li.amb-palette-selected {
     background: #e8f0fe;

@@ -12,6 +12,7 @@ open Gambol.Client.UpdateOps
 open Gambol.Client.Controller
 open Gambol.Client.View
 open Gambol.Client.SearchDialogView
+open Gambol.Client.FileSearchDialogView
 open Gambol.Client.JsInterop
 open Gambol.Client.SessionState
 
@@ -223,6 +224,7 @@ let createRuntime (initialModel: VM) =
                 renderCommandButtons newModel dispatch
                 renderCommandPalette newModel dispatch
                 renderSearchDialog newModel dispatch
+                renderFileSearchDialog newModel dispatch
                 renderCssClassPrompt newModel dispatch
             with ex ->
                 consoleLog (

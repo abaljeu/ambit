@@ -14,6 +14,7 @@ open Gambol.Client.UpdateOps
 open Gambol.Client.UpdatePaste
 open Gambol.Client.UpdateImport
 open Gambol.Client.UpdateExport
+open Gambol.Client.UpdateFileSearch
 open Gambol.Shared.CommandDockLayout
 open Gambol.Shared.CommandEntry
 
@@ -202,6 +203,7 @@ let commandRegistry : CommandEntry2 list =
       cmd CopyContent (keyAlways copyOp)
       cmd CopyAsLinks (keyAlways copySelectionAsLinks)
       cmd DuplicateLink (keyAlways duplicateSelectionOp)
+      cmd InsertFile (keyAlways openFileSearchDialogOp)
       cmd CommandPalette (keyAlways openCommandPaletteOp)
       cmd MoveSelected (keyAlways moveNodesOp)
       cmd Find (keyAlways findRootOp)

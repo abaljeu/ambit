@@ -54,6 +54,7 @@ type CommandId =
     | JumpToTarget
     | Import
     | Export
+    | InsertFile
 
 type CommandEntry = {
     id: CommandId
@@ -203,6 +204,9 @@ let allCommands : CommandEntry list =
           category = FileIO; iconId = None }
         { id = Export; name = "Export"
           keys = [ "Ctrl+Shift+<" ]; keyScope = SelectionOrEditing
+          category = FileIO; iconId = None }
+        { id = InsertFile; name = "Insert File"
+          keys = [ "f" ]; keyScope = SelectionOrEditing
           category = FileIO; iconId = None }
     ]
 
