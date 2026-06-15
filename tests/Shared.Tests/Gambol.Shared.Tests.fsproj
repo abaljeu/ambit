@@ -15,6 +15,9 @@
     <Compile Include="WorkspaceOpsTests.fs" />
     <Compile Include="RefExprTestTree.fs" />
     <Compile Include="RefExprTests.fs" />
+    <Compile Include="FilePathResolveTests.fs" />
+    <Compile Include="ViewModelFileSearchTests.fs" />
+    <Compile Include="FileNodeOpsTests.fs" />
     <Compile Include="LogTextTests.fs" />
     <Compile Include="SnapshotTests.fs" />
     <Compile Include="SerializationTests.fs" />

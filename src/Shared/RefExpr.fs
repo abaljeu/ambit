@@ -190,7 +190,7 @@ module RefExpr =
                 let label = s.Substring(1, colon - 1).Trim()
 
                 if label.Length = 0 then
-                    Error "workspace label required"
+                    Ok(WorkspaceRoot, s.Substring(colon + 1))
                 elif label |> Seq.exists (fun c -> not (isTagIdentChar c)) then
                     Error "invalid workspace label"
                 else

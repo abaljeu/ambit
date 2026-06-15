@@ -442,7 +442,7 @@ module Graph =
                         | Special Workspace when parentId <> workspacesId ->
                             Some "Workspace nodes may only be placed under Workspaces"
                         | Special Directory
-                        | Special File ->
+                        | Special File when child.ref = Ownership.Owner ->
                             match parent.kind with
                             | Special Workspace
                             | Special Directory -> None

@@ -35,6 +35,11 @@ let ``parse rejects workspace without colon`` () =
     | Ok _ -> Assert.Fail("expected Error")
 
 [<Fact>]
+let ``parse accepts at-colon as workspace root`` () =
+    Assert.Equal(BaseOnly WorkspaceRoot, parseOk "@:")
+    Assert.Equal(Path(WorkspaceRoot, [ NameStep "a" ]), parseOk "@:/a")
+
+[<Fact>]
 let ``parse accepts bases only`` () =
     Assert.Equal(BaseOnly WorkspaceRoot, parseOk "/")
     Assert.Equal(BaseOnly FileRoot, parseOk "^")
