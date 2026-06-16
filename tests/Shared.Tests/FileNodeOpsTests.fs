@@ -114,3 +114,27 @@ let ``planAddFileAtFocus from outline creates file under ROOT and ref at focus``
         graph2.nodes.[focus].children
         |> List.exists (fun c -> c.id = fileId && c.ref = Ownership.Ref)
     )
+
+[<Fact>]
+let ``planAddFileAtFocus creates dir file and ref for relative path`` () =
+    let t = tree.Value
+    let target =
+        FilePathResolve.tryResolveConcreteTarget t.contentFile t.graph "dir/file2"
+        |> Option.defaultWith (fun () -> failwith "expected concrete target")
+    let insert = { parentId = t.blueChild; index = 0 }
+    let fileId, ops = FileNodeOps.planAddFileAtFocus t.graph insert target |> requireOk
+    let graph2 = applyOps t.graph ops
+    let dirId =
+        graph2.nodes.[t.workspaceRoot].children
+        |> List.pick (fun c ->
+            match graph2.nodes |> Map.tryFind c.id with
+            | Some n when n.kind = Special Directory && n.name = Filename.Ok "dir" -> Some c.id
+            | _ -> None)
+    let fileNode = graph2.nodes.[fileId]
+    Assert.Equal(Special File, fileNode.kind)
+    Assert.Equal(Filename.Ok "file2", fileNode.name)
+    Assert.Equal(dirId, fileNode.owner)
+    Assert.True(
+        graph2.nodes.[t.blueChild].children
+        |> List.exists (fun c -> c.id = fileId && c.ref = Ownership.Ref)
+    )

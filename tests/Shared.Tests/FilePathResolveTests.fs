@@ -134,3 +134,58 @@ let ``isNewEnabled mirrors concrete unresolved file paths`` () =
     Assert.False(
         FilePathResolve.isNewEnabled t.contentFile t.graph "*.fs"
     )
+
+[<Fact>]
+let ``tryResolveConcreteTarget relative path dir/file2`` () =
+    let t = tree.Value
+    let target =
+        FilePathResolve.tryResolveConcreteTarget t.contentFile t.graph "dir/file2"
+        |> requireSome
+    Assert.Equal(t.workspaceRoot, target.parentId)
+    Assert.Equal("file2", target.fileName)
+    Assert.Equal<(SpecialKind * string) list>(
+        [ Directory, "dir" ],
+        target.missingSegments
+    )
+
+[<Fact>]
+let ``tryResolveConcreteTarget relative path matches slash path`` () =
+    let t = tree.Value
+    let relative =
+        FilePathResolve.tryResolveConcreteTarget t.contentFile t.graph "dir/file2"
+        |> requireSome
+    let slash =
+        FilePathResolve.tryResolveConcreteTarget t.contentFile t.graph "/dir/file2"
+        |> requireSome
+    Assert.Equal(slash.parentId, relative.parentId)
+    Assert.Equal(slash.fileName, relative.fileName)
+    Assert.Equal<(SpecialKind * string) list>(
+        slash.missingSegments,
+        relative.missingSegments
+    )
+
+[<Fact>]
+let ``isNewEnabled dir/file2 when neither exists`` () =
+    let t = tree.Value
+    Assert.True(FilePathResolve.isNewEnabled t.contentFile t.graph "dir/file2")
+
+[<Fact>]
+let ``tryResolveConcreteTarget rejects wildcards in relative path`` () =
+    let t = tree.Value
+    Assert.Equal(
+        None,
+        FilePathResolve.tryResolveConcreteTarget t.contentFile t.graph "dir/*.fs"
+    )
+
+[<Fact>]
+let ``tryResolveConcreteTarget relative path from outline focus uses ROOT`` () =
+    let focus, graph = outlineSetup ()
+    let target =
+        FilePathResolve.tryResolveConcreteTarget focus graph "dir/file2"
+        |> requireSome
+    Assert.Equal(Graph.rootId, target.parentId)
+    Assert.Equal("file2", target.fileName)
+    Assert.Equal<(SpecialKind * string) list>(
+        [ Directory, "dir" ],
+        target.missingSegments
+    )

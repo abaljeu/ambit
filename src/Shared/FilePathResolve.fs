@@ -26,6 +26,21 @@ module FilePathResolve =
         | NameStep name -> isConcreteFileName name
         | _ -> false
 
+    let private relativePathToExpr (query: string) : PathExpr option =
+        if not (query.Contains '/') then
+            None
+        else
+            let segments =
+                query.Split('/', StringSplitOptions.RemoveEmptyEntries)
+                |> Array.map (fun s -> s.Trim())
+                |> Array.filter (fun s -> s.Length > 0)
+
+            if segments.Length < 2 || not (Array.forall isConcreteFileName segments) then
+                None
+            else
+                let steps = segments |> Array.map NameStep |> Array.toList
+                Some(Path(WorkspaceRoot, steps))
+
     let queryToExpr (query: string) : PathExpr option =
         match RefExpr.parse query with
         | Ok expr -> Some expr
@@ -33,7 +48,7 @@ module FilePathResolve =
             if isConcreteFileName query then
                 Some(Path(WorkspaceRoot, [ NameStep query ]))
             else
-                None
+                relativePathToExpr query
 
     let private fileNodes (graph: Graph) (results: NodeSearchResult list) : NodeSearchResult list =
         results
