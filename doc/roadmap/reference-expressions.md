@@ -1,80 +1,106 @@
 # Reference Expressions
 
-Status: Not implemented (target design)
-Authority: Design intent only; current behavior is defined in [[doc/arch.md]] and [[doc/api.md]].
-See also: [[doc/roadmap/workspace-file-model.md]], [[doc/roadmap/future-merge-sync.md]], [[doc/reference/style.md]]
+Status: Partially superseded
+Authority: Reference **interpretation** semantics — [[doc/roadmap/reference-expression-interpretation.md]].
+See also: [[doc/roadmap/revising-workspace-file-model.md]], [[doc/roadmap/workspace-file-model.md]],
+[[doc/roadmap/workspace-stage-plan.md]], [[doc/reference/style.md]]
 
-We will have an expression/command language.  This file defines basic reference expressions that will typically resolve to an array of nodes.
+Expression/command language beyond reference resolution remains draft here.
 
-Scope note: this is a target-scope language design document.
-Current stage implementation scope is defined separately in
-[[doc/roadmap/workspace-stage-plan.md]], which is intentionally narrower.
+Scope note: current stage implementation scope is defined separately in
+[[doc/roadmap/workspace-stage-plan.md]].
 
-## Namespace Semantics
+## Interpretation
 
-Authority: [[doc/roadmap/revising-workspace-file-model]], [[doc/roadmap/workspace-file-model.md]].
-
-References resolve from the **context** of a node. Context is special-node ancestry along the owner
-chain (`workspace`, `directory`, `file`; `normal` nodes are skipped).
-
-| Base | Resolves to |
-|------|-------------|
-| `@label:` | Named workspace root |
-| `/` | Root of the current workspace namespace |
-| `./` | Current directory (directory context) |
-| `^` | Nearest owning special node (`workspace`, `directory`, or `file`) |
-
-Member lookup uses `dir / member` steps within the namespace established by the base. Directory
-members are not globally addressable without first naming the directory. `^name` finds `name` as a
-direct member under the owning special node.
-
-Member-name matching is case-insensitive and uses standard operating-system-style wildcard matching,
-including `*` and `?`.
-
-## Model Elements
-
-Workspace, directory, and file identity rules are defined in [[doc/roadmap/workspace-file-model.md]].
-
-Expressions run from a node context. A node usually sits inside a file-owned subtree. A file node
-owns a subtree of the graph. Workspace, directory, and file nodes are first-class special nodes in
-the ownership tree — not a separate path-to-node table.
-
-Within a namespace scope, nodes may carry tags (see `#` steps below). Not every node is tagged.
-Tags may repeat within or across different files.
+See [[doc/roadmap/reference-expression-interpretation.md]] for anchors, path steps, tagged nodes,
+wildcards, match semantics, property access, filtering, and content.
 
 ## Expression Syntax
 
-`/` between steps is namespace member lookup, not filesystem path syntax. Whitespace around `/` is
-optional (`dir/member` and `dir / member` parse the same).
+Surface syntax for reference expressions. Whitespace around `/` is optional (`a/b` and `a / b` are
+equivalent). Interpretation semantics: [[doc/roadmap/reference-expression-interpretation.md]].
 
 ```ebnf
-
 Expression ::= RefExpr
-
-RefExpr    ::= Base                    (* Evaluates to the base node itself *)
-             | Base Step               (* e.g., ^ #blue or @ws1:dir_k *)
-             | RefExpr "/" Step        (* e.g., @ws1:dir_k / file.md *)
              | Primary
 
-Base       ::= "/"                     (* Workspace namespace root *)
-             | "^"                     (* Owning special node: workspace, directory, or file *)
-             | "."                     (* Current directory; ./ is the explicit form *)
-             | "@" identifier ":"      (* Named workspace root *)
+RefExpr      ::= ( Anchor | ε ) ( Sep? Step )* Postfix*
 
-Primary    ::= identifier              (* Function or command invocation *)
-             | identifier "(" Args ")" (* Function with arguments *)
-             | string                  (* Constant text *)
-             | "(" Expression ")"
+Sep          ::= "/"
 
-Step       ::= identifier              (* Member name without spaces; may contain * ? *)
-             | string                  (* Member name with spaces or punctuation *)
-             | "#" identifier         (* Tag selector, e.g. #blue *)
-             | "*"                     (* Single-level wildcard over direct members *)
-             | "**"                    (* Multi-level wildcard, standard glob semantics *)
+Anchor       ::= "//"
+               | "/"
+               | "."
+               | "^"
+               | "@" identifier ":"
+               | "#" AnchorEnd          (* tagged anchor; see note *)
 
-Args       ::= Expression ( "," Expression )* 
-             | empty
+AnchorEnd    ::= ε                       (* # alone: not followed by NamePattern *)
+
+Step         ::= "**"
+               | TagStep
+               | DirStep
+               | FileStep
+
+TagStep      ::= "#" NamePattern
+DirStep      ::= NamePattern "/"
+FileStep     ::= NamePattern FileEnd
+
+FileEnd      ::= ε                       (* not immediately followed by "/" *)
+
+NamePattern  ::= string
+               | Identifier             (* may contain * wildcards *)
+
+Postfix      ::= Property
+               | Filter
+
+Property     ::= "." "text"
+               | "." "name"
+               | "." "children"
+
+Filter       ::= "[" integer "]"
+               | "[" "text" "~=" Pattern "]"
+               | "[" "kind" "=" KindName "]"
+
+Pattern      ::= string
+               | Identifier             (* wildcard semantics *)
+
+KindName     ::= identifier
+
+Primary      ::= identifier
+               | identifier "(" Args ")"
+               | string
+               | "(" Expression ")"
+
+Args         ::= Expression ( "," Expression )*
+               | ε
 ```
+
+**Notes**
+
+- `ε` as `( Anchor | ε )` — when no `Anchor` is given, the context node is the base.
+- `#` **anchor** (`AnchorEnd`) — `#` not followed by a `NamePattern` (e.g. `#`, `#/foo`,
+  `#.text`). `#` followed immediately by a name starts a `TagStep` (e.g. `#blue`).
+- `//` is tokenized before `/`.
+- `**` is tokenized before `*` within steps.
+- `DirStep` trailing `/` distinguishes directories from files (`dir/` vs `file`).
+- `Postfix` applies to the flat list produced by the preceding chain.
+
+### Examples
+
+| Expression | Meaning |
+|------------|---------|
+| `@ws:src/utils.fs` | workspace `ws`, directory `src/`, file `utils.fs` |
+| `/proj/docs/` | workspace in context, directory `proj/`, directory `docs/` |
+| `.` | current directory anchor |
+| `^` | current structural container (`file`, `directory`, or `workspace`) |
+| `#` | current tagged (`named`) normal ancestor |
+| `#todo` | tagged nodes named `todo` from context base |
+| `#todo/notes.md` | file `notes.md` under tagged `todo` |
+| `#a/#b` | tagged `b` under tagged `a` |
+| `^/**/*.md` | files matching `*.md` at any depth under `^` |
+| `/x/y[0]` | first match of workspace-relative path `/x/y` |
+| `^/src[text ~= *test*]` | nodes under `^/src` whose text matches `*test*` |
 
 ## Statement Syntax
 (incomplete)
@@ -83,39 +109,11 @@ Assignment ::= "=" Expression
 
 Statement  ::= Assignment | Command
 
-
-### How examples would parse now:
-
-*   **`@ws1:dir_k / file.md`**
-    1. `Base` → `@ws1:` (workspace namespace root)
-    2. `Base Step` → `@ws1:dir_k` (member `dir_k` under workspace)
-    3. `RefExpr "/" Step` → `(@ws1:dir_k) / file.md` (member `file.md` under directory)
-   *(Note: `file.md` may be tokenized as an identifier or as a string token.)*
-
-*   **`@ws1:"My Folder" / "File Name.md"`**
-   1. `Base` → `@ws1:`
-   2. `Base Step` → `@ws1:"My Folder"`
-   3. `RefExpr "/" Step` → `(@ws1:"My Folder") / "File Name.md"`
-
-*   **`@bobby:src / *.fs`**
-   1. `Base` → `@bobby:`
-   2. `Base Step` → `@bobby:src`
-   3. `RefExpr "/" Step` → `(@bobby:src) / *.fs`
-   4. Final step matches member names case-insensitively using wildcard semantics
-
-*   **`./ / index.html / ** / blue`**
-    1. `Base` → `.` (current directory namespace)
-    2. `RefExpr "/" Step` → `./ / index.html` (member `index.html` under current directory)
-    3. `RefExpr "/" Step` → `(. / index.html) / ** / blue` (descendants, then member `blue`)
-
-*   **`^ / ** / #blue`**
-   1. `Base` → `^` (owning special node — workspace, directory, or file)
-   2. `RefExpr "/" Step` → `^ / ** / #blue` (descendants tagged `blue`)
-
-
 ## Usage
 
-These expressions will be employed in model language.  The result of an expression will be an array of nodes, or sometimes one.  The language apart from these references can also be used to compute other datatypes of info.
+These expressions will be employed in model language. The result of an expression will be an array
+of nodes, or sometimes one. The language apart from these references can also be used to compute
+other datatypes of info.
 Examples below are tentative ideas.
 
 `[[ref]]` could establish a link to the reference.
@@ -174,14 +172,3 @@ an empty success result.
 When syntax or resolution errors occur, the user must receive immediate visible feedback.
 Bias to squiggle indicators and similar lightweight feedback.
 No-op without feedback is invalid behavior for this language.
-
-
-
-### What's missing / What's next?
-
-1. **Relative navigation from the "Current Node":** 
-   You mentioned omitting this for now since we're using "self-definition." If you ever need to query a sibling or parent of the *node currently being defined*, you might introduce a new base (like `_` or `~`) or a relative prefix (like `..`). 
-2. **Filtering / Predicates:** 
-   We previously discussed indexing `[0]` and content filtering `[content ~= "text"]`. Do you want to re-introduce `[` `]` into the `Step` definition now, or keep it strictly functional (e.g., `filter(#//blue, "text")`)? 
-3. **Property Access:** 
-   How do we want to extract `.content` or `.children`? Is it an operator, or a function like `content(#blue)`?

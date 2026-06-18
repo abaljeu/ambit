@@ -41,7 +41,7 @@ When a Correction is described below, the meaning is that the item previous is d
 - `[x]` Correction: document target persistence split (workspace/directory/file separately) and the file-traversal stop-at-child-special-node rule.
 - `[x]` Stage 4: desktop-local API resolves workspace label + relative path via readonly local mapping
   (interim `/_desktop/file` API — [[doc/current/desktop-local-files.md]]).
-- `[x]` Correction: align reference docs to namespace semantics (`/`, `dir / member`, `./`, `^`) instead of path-only framing.
+- `[x]` Correction: align reference docs to namespace semantics (anchors, `DirStep`/`FileStep`, `^`) instead of path-only framing.
 - `[~]` Stage 5: client UI uses desktop query surface and shows unresolved-reference indicators
   (file-status indicator done; full unresolved `@label:` UI not done).
 - `[ ]` Correction: unresolved UI should cover namespace resolution failures across workspace, directory, and file scopes.
@@ -56,7 +56,8 @@ Authority for implemented behavior: [[doc/current/workspace-graph.md]],
 [[doc/current/workspace-local-mapping.md]], [[doc/current/desktop-local-files.md]].
 
 - `[x]` `SpecialKind` includes `Workspace`, `Directory`, and `File` in the shared model.
-- `[ ]` Correction: treat these as context-defining special nodes for traversal and resolution.
+- `[x]` Correction: treat these as context-defining special nodes for traversal and resolution
+  (`RefExpr.refContext`, `RefExpr.match_`).
 - `[x]` `workspacesId` canonical node exists with `kind = Special Workspaces`.
 - `[ ]` Correction: clarify this is the only required top-level structural anchor.
 - `[x]` `Workspaces` is permanent under root (cannot be removed or edited, like Trash).
@@ -65,8 +66,11 @@ Authority for implemented behavior: [[doc/current/workspace-graph.md]],
 - `[x]` Correction: update placement rules so `directory` and `file` nodes may be placed anywhere.
 - `[x]` Desktop-local workspace label → local root mapping and interim HTTP surface.
 - `[ ]` Correction: clarify desktop mapping remains local and independent from server `DataDir` persistence shape.
-- `[~]` RefExpr workspace-root resolution and namespace search — [[doc/current/workspace-graph.md]].
-- `[ ]` Correction: align RefExpr semantics with directory-first member lookup and `^` owner-special lookup.
+- `[x]` RefExpr anchors, path steps, tag steps, and namespace search —
+  [[doc/current/workspace-graph.md]], [[doc/roadmap/reference-expression-interpretation.md]].
+- `[x]` Correction: align RefExpr semantics with directory-first member lookup (`DirStep`/`FileStep`)
+  and `^` structural-container lookup.
+- `[ ]` RefExpr postfixes (`.text`, `[n]`, filters) and command/assignment syntax.
 - `[ ]` No directory/file path mapping is persisted in shared graph yet.
 - `[ ]` No server `DataDir/@label/...` persistence for directory/file objects yet.
 - `[ ]` Full unresolved-reference indicator for unknown workspace labels.
@@ -209,7 +213,8 @@ mutate the shared graph.
 ## Canonical Paths
 
 Persistence may use workspace-relative path text on disk. Reference expressions use namespace
-semantics (`/`, `dir / member`, `./`, `^`) — see [[doc/roadmap/reference-expressions.md]].
+semantics — anchors (`/`, `.`, `^`, `#`, `@label:`), `DirStep` (`name/`), `FileStep` (`name`) — see
+[[doc/roadmap/reference-expressions.md]] and [[doc/roadmap/reference-expression-interpretation.md]].
 Absolute machine-local paths are never part of shared identity.
 
 Path text does not replace node ownership identity. Where persistence or desktop mapping uses path
@@ -217,25 +222,48 @@ text, canonical normalization rules apply consistently.
 
 ## Resolution Semantics
 
-These rules support the reference-expression design. `/` is namespace member lookup, not filesystem
-path syntax. Authority: [[doc/roadmap/reference-expressions.md]].
+These rules support the reference-expression design. Authority:
+[[doc/roadmap/reference-expression-interpretation.md]] (interpretation),
+[[doc/roadmap/reference-expressions.md]] (surface syntax).
+
+Implemented in `RefExprParse`, `RefExprMatch` (facade: `RefExpr`). See [[doc/current/workspace-graph.md]].
 
 ### `@workspace:`
 
 `@bobby:` resolves to the unique workspace root node for workspace label `bobby`.
 
-### `/`
+### Anchors (from context node)
 
-From workspace context, `/` resolves to the root of the current workspace namespace.
+Interpretation walks the ownership chain (including self) unless noted:
 
-### `./`
+- **Context** (no prefix) — the context node itself.
+- **`/`** — nearest `workspace` ancestor (falls back to **ROOT** when none).
+- **`//`** — always **ROOT**.
+- **`.`** — nearest `directory` or `workspace` ancestor (current directory).
+- **`^`** — nearest `file`, `directory`, or `workspace` ancestor (structural container).
+- **`#`** — nearest named `normal` ancestor (current tagged node). `#name` is a tag search step, not
+  this anchor.
 
-From directory context, `./` resolves to the current directory.
+### Path steps
 
-### `^`
+From each matched base node:
 
-From node context, `^` resolves to the nearest owning special node (`workspace`, `directory`, or
-`file`). `^name` finds `name` as a direct member under that node.
+- **`name/`** (`DirStep`) — a `directory` whose name matches `name` (glob semantics).
+- **`name`** (`FileStep`) — a `file` whose name matches `name`.
+- **`**`** — multi-level wildcard within path scope.
+
+Search uses recursive descent through owned children; recursion does not enter children of
+`directory` or `workspace` nodes. Each step uses the flat list of all matches from the prior step.
+
+### Tagged steps
+
+- **`#name`** — a named `normal` node whose `Node.name` matches `name`.
+- Search is within **content** only (owned `normal` nodes under the relevant structural container).
+
+### Not implemented yet
+
+Postfixes (`.text`, `.name`, `.children`, `[n]`, filters), command/assignment syntax, view-root
+anchor.
 
 ### Unresolved References
 
@@ -268,7 +296,7 @@ separate concerns — not one monolithic path map.
 The graph projection (`GraphProjection`, change-log ops) stores ownership-tree identity:
 
 - **Workspace** — label → workspace root node (`Special Workspace` under `Workspaces`,
-  `Node.name` = label). Implemented (Stage 3). Lookup: `RefExpr.namedWorkspacesFromGraph`,
+  `Node.name` = label). Implemented (Stage 3). Lookup: `RefExpr.refContext`, `RefExpr.match_`,
   `FilePathResolve.findOwnerChild`.
 - **Directory** — node identity (`kind`, `name`, owner link). No server `DataDir` path materialization
   yet.

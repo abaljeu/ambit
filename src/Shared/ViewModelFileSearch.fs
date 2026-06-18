@@ -131,7 +131,7 @@ module ViewModelFileSearch =
         let ctx = RefExpr.refContext focusNodeId graph
 
         let anchors =
-            [ ctx.fileDir
+            [ ctx.currentDir
               ctx.workspaceRoot
               Some Graph.workspacesId ]
             |> List.choose id

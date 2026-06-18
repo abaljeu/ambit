@@ -75,3 +75,20 @@ case-insensitive, with usual single-segment glob / `fnmatch` semantics.
 
 `**` is a multi-level wildcard with usual glob semantics: it matches zero or more descent levels
 within the current search scope (path steps or content, per the step kind).
+
+## Property access
+
+Suffix on base `x` (one node or a flat list of nodes). On a list, the property maps each element;
+`children` concatenates results.
+
+- `x.text` — `Node.text`.
+- `x.name` — nodes that have `Node.name` set (unnamed nodes drop out of a list).
+- `x.children` — direct **owned** children as nodes (`Ref` excluded).
+
+## Filtering and predicates
+
+Suffix on a flat list `xs` from a prior step:
+
+- `xs + "[n]"` — element at zero-based index `n` (empty if out of range).
+- `xs + "[text ~= pat]"` — nodes whose `text` matches `pat` (wildcard semantics as in **Wildcards**).
+- `xs + "[kind = k]"` — nodes whose kind equals `k` (`normal`, `file`, `directory`, `workspace`, …).

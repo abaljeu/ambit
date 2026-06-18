@@ -23,8 +23,19 @@ module FilePathResolve =
 
     let private isConcreteDirStep (step: ExprStep) : bool =
         match step with
-        | NameStep name -> isConcreteFileName name
+        | DirStep name -> isConcreteFileName name
         | _ -> false
+
+    let private isConcretePathSteps (steps: ExprStep list) : bool =
+        match steps with
+        | [] -> false
+        | steps ->
+            let dirSteps, fileSteps = List.splitAt (steps.Length - 1) steps
+
+            List.forall isConcreteDirStep dirSteps
+            && match fileSteps with
+               | [ FileStep name ] -> isConcreteFileName name
+               | _ -> false
 
     let private relativePathToExpr (query: string) : PathExpr option =
         if not (query.Contains '/') then
@@ -38,15 +49,31 @@ module FilePathResolve =
             if segments.Length < 2 || not (Array.forall isConcreteFileName segments) then
                 None
             else
-                let steps = segments |> Array.map NameStep |> Array.toList
-                Some(Path(WorkspaceRoot, steps))
+                let dirSteps =
+                    segments.[0 .. segments.Length - 2]
+                    |> Array.map (fun s -> DirStep s)
+                    |> Array.toList
+
+                let fileStep = FileStep segments.[segments.Length - 1]
+                Some(Path(WorkspaceRoot, dirSteps @ [ fileStep ]))
+
+    let private mapContextToWorkspace (expr: PathExpr) : PathExpr =
+        match expr with
+        | Path(Context, steps) -> Path(WorkspaceRoot, steps)
+        | AnchorOnly Context -> AnchorOnly WorkspaceRoot
+        | expr -> expr
 
     let queryToExpr (query: string) : PathExpr option =
+        let mapBareFile =
+            function
+            | Path(Context, [ FileStep name ]) -> Path(WorkspaceRoot, [ FileStep name ])
+            | expr -> mapContextToWorkspace expr
+
         match RefExpr.parse query with
-        | Ok expr -> Some expr
+        | Ok expr -> Some(mapBareFile expr)
         | Error _ ->
             if isConcreteFileName query then
-                Some(Path(WorkspaceRoot, [ NameStep query ]))
+                Some(Path(WorkspaceRoot, [ FileStep query ]))
             else
                 relativePathToExpr query
 
@@ -57,11 +84,11 @@ module FilePathResolve =
             | Special File -> true
             | _ -> false)
 
-    let private parentPathExpr (pathBase: ExprBase) (dirSteps: ExprStep list) : PathExpr =
+    let private parentPathExpr (anchor: ExprAnchor) (dirSteps: ExprStep list) : PathExpr =
         if List.isEmpty dirSteps then
-            BaseOnly pathBase
+            AnchorOnly anchor
         else
-            Path(pathBase, dirSteps)
+            Path(anchor, dirSteps)
 
     let private isWorkspaceOrDirectory (graph: Graph) (nodeId: NodeId) : bool =
         match graph.nodes.[nodeId].kind with
@@ -98,7 +125,7 @@ module FilePathResolve =
         let rec walk parentId steps missing =
             match steps with
             | [] -> parentId, List.rev missing
-            | NameStep name :: rest ->
+            | DirStep name :: rest ->
                 match findOwnerChild graph parentId Directory name with
                 | Some dirId -> walk dirId rest missing
                 | None -> walk parentId rest ((Directory, name) :: missing)
@@ -119,7 +146,7 @@ module FilePathResolve =
             let dirMissing =
                 dirSteps
                 |> List.choose (function
-                    | NameStep n -> Some(Directory, n)
+                    | DirStep n -> Some(Directory, n)
                     | _ -> None)
             (Some Graph.workspacesId, [ Workspace, label ] @ dirMissing)
 
@@ -143,20 +170,20 @@ module FilePathResolve =
         | Some expr ->
             let pathParts =
                 match expr with
-                | BaseOnly _ -> None
+                | AnchorOnly _ -> None
                 | Path(b, s) when not (List.isEmpty s) -> Some(b, s)
                 | _ -> None
 
             match pathParts with
             | None -> None
             | Some(pathBase, steps) ->
-                if not (List.forall isConcreteDirStep steps) then
+                if not (isConcretePathSteps steps) then
                     None
                 else
                     let dirSteps, fileSteps = List.splitAt (steps.Length - 1) steps
 
                     match fileSteps with
-                    | [ NameStep fileName ] when isConcreteFileName fileName ->
+                    | [ FileStep fileName ] when isConcreteFileName fileName ->
                         let ctx = RefExpr.refContext contextNode graph
                         let parentExpr = parentPathExpr pathBase dirSteps
 
@@ -192,8 +219,11 @@ module FilePathResolve =
                                             { parentId = parentId
                                               fileName = fileName
                                               missingSegments = missing }
-                                | FileRoot
-                                | FileDir -> None
+                                | Structural
+                                | CurrentDir
+                                | Context
+                                | GlobalRoot
+                                | Tagged -> None
                             | hit :: _ -> None
                     | _ -> None
 

@@ -27,14 +27,7 @@
 - If a node is inside a file-owned subtree, it persists beside the parent file's directory.
 
 ## References
-All references are resolved according to context.
-
-- Workspace namespace: `/` addresses objects in that workspace tree.
-- Directory namespace: address as `dir / member`.
-- Directory members are not globally addressable without first naming the directory.
-- Inside a directory, `./` addresses the current directory.
-- File, directory, and workspace nodes also provide namespace scope for `normal` nodes.
-- From within a file tree (or directory or workspace), `^` resolves to the owning special node and `^name` finds the `name` under that node.
+See [[doc/roadmap/reference-expression-interpretation.md]].
 
 ## Server File Persistence
 

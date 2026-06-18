@@ -91,17 +91,19 @@ Tests: `tests/Shared.Tests/WorkspaceOpsTests.fs`.
 
 ## Reference expressions (baseline)
 
-Partial implementation in `src/Shared/RefExpr.fs`. Target grammar:
-[[doc/roadmap/reference-expressions.md]].
+Implementation in `RefExprTypes.fs`, `RefExprParse.fs`, `RefExprMatch.fs` (facade: `RefExpr.fs`).
+Target grammar: [[doc/roadmap/reference-expression-interpretation.md]].
 
 Implemented now:
 
-- Parse `@label:` as workspace namespace root (`NamedWorkspace`).
-- `refContext` walks owner chain from a node to find workspace root, file root, and directory
-  context. When no `Special Workspace` is found, workspace root falls back to **ROOT** (`@:`).
-- `match_` resolves workspace-base expressions against the graph for search.
+- Anchors: context (no prefix), `/`, `//`, `.`, `^`, `#`, `@label:`.
+- Path steps: `DirStep` (`name/`), `FileStep` (`name`), `**`, glob patterns in names.
+- Tag steps: `#name` matches named `normal` nodes by `Node.name` within content scope.
+- `refContext` walks the owner chain for workspace root, current directory, structural container,
+  and tagged normal ancestor. Workspace root falls back to **ROOT** when none is found.
+- `match_` resolves expressions against the graph for search.
 
-Not implemented: namespace member steps (`/`, `./`, `^`), wildcards, tags, full command language.
+Not implemented: postfixes (`.text`, `[n]`, filters), command/assignment syntax, view-root anchor.
 
 ## Reference search
 

@@ -15,7 +15,8 @@ type Tree =
       contentFileDir: NodeId
       blueChild: NodeId
       nestedBlue: NodeId
-      plainChild: NodeId }
+      plainChild: NodeId
+      taggedAncestor: NodeId }
 
 let private specialNode (id: NodeId) (kind: SpecialKind) (name: string) (owner: NodeId) : Node =
     { id = id
@@ -36,12 +37,12 @@ let private addUnder (parentId: NodeId) (child: Node) (graph: Graph) : Graph =
         |> Map.add parentId { parent with children = parent.children @ [ link ] }
     Graph.fromNodes graph.root nodes
 
-let private normalNode (text: string) (classes: CssClasses) (owner: NodeId) : Node =
+let private namedNormalNode (text: string) (tagName: string) (owner: NodeId) : Node =
     { id = NodeId.New()
       text = text
-      name = Filename.Empty
+      name = Filename.create tagName
       children = []
-      cssClasses = classes
+      cssClasses = CssClass.empty
       owner = owner
       kind = Normal
       updateTime = NodeUpdateTime.missing }
@@ -73,9 +74,9 @@ let build () : Tree =
         |> addUnder srcId (specialNode libId File "lib.fs" srcId)
         |> addUnder docsId (specialNode readmeId File "readme.md" docsId)
 
-    let alpha = normalNode "alpha" (CssClass.ofList [ "blue" ]) appId
-    let beta = normalNode "beta" (CssClass.ofList [ "blue" ]) alpha.id
-    let gamma = normalNode "gamma" CssClass.empty appId
+    let alpha = namedNormalNode "alpha" "blue" appId
+    let beta = namedNormalNode "beta" "blue" alpha.id
+    let gamma = namedNormalNode "gamma" "plain" appId
 
     let graph4 =
         graph3
@@ -94,7 +95,8 @@ let build () : Tree =
       contentFileDir = srcId
       blueChild = alpha.id
       nestedBlue = beta.id
-      plainChild = gamma.id }
+      plainChild = gamma.id
+      taggedAncestor = beta.id }
 
 let refContext (tree: Tree) : RefContext =
     RefExpr.refContext tree.contentFile tree.graph

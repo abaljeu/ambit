@@ -189,7 +189,7 @@ let ``trySearchResultAtDisplayIndex empty results is None`` () =
 let ``searchNodes path word matches RefExpr under root`` () =
     let t = build ()
     let got =
-        ViewModelSearch.searchNodes "@bobby:src" t.graph.root t.graph
+        ViewModelSearch.searchNodes "@bobby:src/" t.graph.root t.graph
         |> List.map (fun r -> r.nodeId)
     Assert.Equal<NodeId>([ t.bobbySrc ], got)
 

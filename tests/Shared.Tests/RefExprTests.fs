@@ -38,36 +38,51 @@ let ``parse rejects workspace without colon`` () =
     | Ok _ -> Assert.Fail("expected Error")
 
 [<Fact>]
-let ``parse accepts at-colon as workspace root`` () =
-    Assert.Equal(BaseOnly WorkspaceRoot, parseOk "@:")
-    Assert.Equal(Path(WorkspaceRoot, [ NameStep "a" ]), parseOk "@:/a")
+let ``parse rejects postfix`` () =
+    match RefExpr.parse "/x/y[0]" with
+    | Error msg -> Assert.Contains("postfix", msg)
+    | Ok _ -> Assert.Fail("expected Error")
 
 [<Fact>]
-let ``parse accepts bases only`` () =
-    Assert.Equal(BaseOnly WorkspaceRoot, parseOk "/")
-    Assert.Equal(BaseOnly FileRoot, parseOk "^")
-    Assert.Equal(BaseOnly FileDir, parseOk ".")
-    Assert.Equal(BaseOnly(NamedWorkspace "bobby"), parseOk "@bobby:")
+let ``parse accepts at-colon as workspace root`` () =
+    Assert.Equal(AnchorOnly WorkspaceRoot, parseOk "@:")
+    Assert.Equal(Path(WorkspaceRoot, [ FileStep "a" ]), parseOk "@:/a")
+
+[<Fact>]
+let ``parse accepts anchors only`` () =
+    Assert.Equal(AnchorOnly WorkspaceRoot, parseOk "/")
+    Assert.Equal(AnchorOnly GlobalRoot, parseOk "//")
+    Assert.Equal(AnchorOnly Structural, parseOk "^")
+    Assert.Equal(AnchorOnly CurrentDir, parseOk ".")
+    Assert.Equal(AnchorOnly Tagged, parseOk "#")
+    Assert.Equal(AnchorOnly(NamedWorkspace "bobby"), parseOk "@bobby:")
 
 [<Fact>]
 let ``parse accepts named workspace with attached step`` () =
-    Assert.Equal(Path(NamedWorkspace "bobby", [ NameStep "src" ]), parseOk "@bobby:src")
+    Assert.Equal(Path(NamedWorkspace "bobby", [ DirStep "src" ]), parseOk "@bobby:src/")
 
 [<Fact>]
-let ``parse accepts slash-separated steps and wildcards`` () =
+let ``parse accepts dir and file steps with wildcards`` () =
     Assert.Equal(
-        Path(WorkspaceRoot, [ NameStep "src"; SingleWild; NameStep "app.fs" ]),
+        Path(WorkspaceRoot, [ DirStep "src"; DirStep "*"; FileStep "app.fs" ]),
         parseOk "/ src / * / app.fs"
     )
 
-    Assert.Equal(Path(FileRoot, [ MultiWild; TagStep "blue" ]), parseOk "^ / ** / #blue")
+    Assert.Equal(Path(Structural, [ MultiWild; TagStep "blue" ]), parseOk "^ / ** / #blue")
+
+[<Fact>]
+let ``parse disambiguates hash anchor from tag step`` () =
+    Assert.Equal(AnchorOnly Tagged, parseOk "#")
+    Assert.Equal(Path(Context, [ TagStep "todo" ]), parseOk "#todo")
 
 [<Fact>]
 let ``parse round-trips all step kinds`` () =
     let samples =
         [ "/"
+          "//"
           "^"
           "."
+          "#"
           "@bobby:"
           "@bobby:src/lib.fs"
           "/docs/readme.md"
@@ -86,33 +101,54 @@ let ``parse round-trips all step kinds`` () =
 let ``refContext from file node resolves owner chain and named workspaces`` () =
     let t = tree.Value
     let ctx = RefExpr.refContext t.contentFile t.graph
+    Assert.Equal(t.contentFile, ctx.contextNode)
     Assert.Equal(Some t.workspaceRoot, ctx.workspaceRoot)
-    Assert.Equal(Some t.contentFile, ctx.fileRoot)
-    Assert.Equal(Some t.contentFileDir, ctx.fileDir)
+    Assert.Equal(Some t.contentFile, ctx.structural)
+    Assert.Equal(Some t.contentFileDir, ctx.currentDir)
+    Assert.Equal(None, ctx.tagged)
     Assert.Equal<Map<string, NodeId>>(t.namedWorkspaces, ctx.namedWorkspaces)
 
-// ---- match: bases ----
+[<Fact>]
+let ``refContext tagged from named normal node`` () =
+    let t = tree.Value
+    let ctx = RefExpr.refContext t.nestedBlue t.graph
+    Assert.Equal(Some t.nestedBlue, ctx.tagged)
+
+// ---- match: anchors ----
 
 [<Fact>]
 let ``match_ workspace root returns workspace node`` () =
     let t = tree.Value
-    let nodes = RefExpr.match_ (ctx ()) t.graph (BaseOnly WorkspaceRoot)
+    let nodes = RefExpr.match_ (ctx ()) t.graph (AnchorOnly WorkspaceRoot)
     Assert.Equal<Set<NodeId>>(Set [ t.workspaceRoot ], ids nodes)
 
 [<Fact>]
-let ``match_ file root and file dir resolve`` () =
+let ``match_ global root returns ROOT`` () =
     let t = tree.Value
-    let fileNodes = RefExpr.match_ (ctx ()) t.graph (BaseOnly FileRoot)
+    let nodes = RefExpr.match_ (ctx ()) t.graph (AnchorOnly GlobalRoot)
+    Assert.Equal<Set<NodeId>>(Set [ Graph.rootId ], ids nodes)
+
+[<Fact>]
+let ``match_ structural and current dir resolve`` () =
+    let t = tree.Value
+    let fileNodes = RefExpr.match_ (ctx ()) t.graph (AnchorOnly Structural)
     Assert.Equal<Set<NodeId>>(Set [ t.contentFile ], ids fileNodes)
-    let dirNodes = RefExpr.match_ (ctx ()) t.graph (BaseOnly FileDir)
+    let dirNodes = RefExpr.match_ (ctx ()) t.graph (AnchorOnly CurrentDir)
     Assert.Equal<Set<NodeId>>(Set [ t.contentFileDir ], ids dirNodes)
+
+[<Fact>]
+let ``match_ tagged anchor from named normal context`` () =
+    let t = tree.Value
+    let ctx = RefExpr.refContext t.nestedBlue t.graph
+    let nodes = RefExpr.match_ ctx t.graph (AnchorOnly Tagged)
+    Assert.Equal<Set<NodeId>>(Set [ t.nestedBlue ], ids nodes)
 
 [<Fact>]
 let ``match_ named workspace resolves and misses`` () =
     let t = tree.Value
-    let hit = RefExpr.match_ (ctx ()) t.graph (BaseOnly(NamedWorkspace "bobby"))
+    let hit = RefExpr.match_ (ctx ()) t.graph (AnchorOnly(NamedWorkspace "bobby"))
     Assert.Equal<Set<NodeId>>(Set [ t.workspaceRoot ], ids hit)
-    let miss = RefExpr.match_ (ctx ()) t.graph (BaseOnly(NamedWorkspace "missing"))
+    let miss = RefExpr.match_ (ctx ()) t.graph (AnchorOnly(NamedWorkspace "missing"))
     Assert.Empty(miss)
 
 [<Fact>]
@@ -126,10 +162,10 @@ let ``match_ workspace root from outline context resolves to ROOT`` () =
         | Error e -> failwith e
     let ctx = RefExpr.refContext focus graph2
     Assert.Equal(Some Graph.rootId, ctx.workspaceRoot)
-    let nodes = RefExpr.match_ ctx graph2 (BaseOnly WorkspaceRoot)
+    let nodes = RefExpr.match_ ctx graph2 (AnchorOnly WorkspaceRoot)
     Assert.Equal<Set<NodeId>>(Set [ Graph.rootId ], ids nodes)
 
-// ---- match: names ----
+// ---- match: paths ----
 
 [<Fact>]
 let ``match_ resolves exact path under named workspace`` () =
@@ -145,7 +181,7 @@ let ``match_ path miss returns empty`` () =
     Assert.Empty(RefExpr.match_ (ctx ()) t.graph expr)
 
 [<Fact>]
-let ``match_ single wildcard at one level`` () =
+let ``match_ glob file step under directory`` () =
     let t = tree.Value
     let expr = parseOk "@bobby:src/*"
     let nodes = RefExpr.match_ (ctx ()) t.graph expr
@@ -161,11 +197,11 @@ let ``match_ glob pattern on file names`` () =
 // ---- match: tags ----
 
 [<Fact>]
-let ``match_ tag step on direct file children`` () =
+let ``match_ tag step on file content`` () =
     let t = tree.Value
     let expr = parseOk "^/#blue"
     let nodes = RefExpr.match_ (ctx ()) t.graph expr
-    Assert.Equal<Set<NodeId>>(Set [ t.blueChild ], ids nodes)
+    Assert.Equal<Set<NodeId>>(Set [ t.blueChild; t.nestedBlue ], ids nodes)
 
 [<Fact>]
 let ``match_ multi wildcard then tag across depths`` () =
@@ -173,3 +209,10 @@ let ``match_ multi wildcard then tag across depths`` () =
     let expr = parseOk "^/**/#blue"
     let nodes = RefExpr.match_ (ctx ()) t.graph expr
     Assert.Equal<Set<NodeId>>(Set [ t.blueChild; t.nestedBlue ], ids nodes)
+
+[<Fact>]
+let ``match_ nested tag steps`` () =
+    let t = tree.Value
+    let expr = parseOk "^/#blue/#blue"
+    let nodes = RefExpr.match_ (ctx ()) t.graph expr
+    Assert.Equal<Set<NodeId>>(Set [ t.nestedBlue ], ids nodes)
