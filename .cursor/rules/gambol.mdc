@@ -75,6 +75,8 @@ The linter is never able to handle project edits until the environment reloads. 
 
 ## 6. How to work
 Include me in your work.  Tell me what you're thinking about.  Tell me what you did before running tools.
+Never output multiple pages of text to the user.  That much content works much better as a file.
+
 Advise me if there is a better way to do something.
 If a request is unclear, just ask.
 

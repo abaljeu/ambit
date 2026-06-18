@@ -47,7 +47,7 @@ For this stage, "workspace support" means:
 - Directory and file **graph** lifecycle (create/rename/move/remove `Special Directory` /
   `Special File` nodes in the shared graph).
 - Workspace-relative directory/file path mapping in shared persistence.
-- Path wildcard resolution under workspaces.
+- Namespace wildcard resolution under workspaces.
 - Automatic filesystem sync/import/reconciliation (manual Import/Export via desktop continues).
 - Reference language elements beyond workspace-root baseline.
 
@@ -61,7 +61,7 @@ stage (§7), separate from graph lifecycle above.
 - Shared persistence updates for workspace mappings.
 - Desktop-local persistence updates for local workspace root mappings via config JSON.
 - UI/command surface for workspace management and desktop workspace actions.
-- Reference resolver support for workspace-only base references.
+- Reference resolver support for workspace namespace base references.
 - Tests for invariants, persistence round-trips, and command behavior.
 
 ## Implementation Plan
@@ -96,10 +96,18 @@ Verification:
 
 ## 3. Shared Persistence Shape
 
-Done — see [[doc/current/workspace-local-mapping.md]].
+Done — see [[doc/current/workspace-graph.md]] and [[doc/current/persistence-model.md]].
 
-`WorkspaceLocalMapping` in `src/Shared/` implements desktop-local config (JSON load/decode,
-`resolvePath`). Local mapping storage is fully separate from shared persistence.
+Shared workspace-label → workspace-root mapping is stored in the graph projection:
+
+- `Special Workspace` nodes under `Workspaces` with `Node.name` = label
+- `nodes.kind` / `nodes.name` in PostgreSQL (`GraphProjection`)
+- change-log JSON (`Op.NewSpecialNode`, `Op.SetName`, `Op.Replace`)
+- `Snapshot.write` emits `@label:` path bodies for workspace, directory, and file nodes
+
+Lookup: `RefExpr.namedWorkspacesFromGraph`, `FilePathResolve.findOwnerChild`.
+
+Desktop-local label → absolute root mapping is separate — [[doc/current/workspace-local-mapping.md]].
 
 ## 4. Desktop-Local Workspace Configuration
 
@@ -170,7 +178,7 @@ Verification:
 
 ## 5. Command/UI Surface (Workspace Only)
 
-### 5a. Existing search command shall also match nodes based on their path.
+### 5a. Existing search command shall also match nodes based on namespace references.
 Done
 - [[@src/Shared/ViewModelSearch.fs:79-93]] existing search method
 - [[@src/Shared/RefExpr.fs:340-357]] new match method. Should return same NodeSearchResult.

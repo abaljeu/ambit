@@ -26,22 +26,35 @@ Every graph built via `Graph.fromNodes` or `Graph.create` has:
 `Workspaces` and `Trash` cannot be edited (`setText`, `setClasses`) or removed from root
 (`replace` on root rejects their removal or duplication).
 
+## Context
+
+A node's **context** is its ancestry along the ownership tree, considering only
+`workspace`, `directory`, and `file` special nodes (`normal` nodes are skipped).
+Context drives reference resolution; it does not restrict where nodes may be placed.
+
+Authority: [[doc/roadmap/revising-workspace-file-model]].
+
 ## Structural invariants
 
-Enforced in `Graph.replace` (not by a separate command layer):
+Enforced in `Graph.replace` (not by a separate command layer).
+
+Placement restrictions apply only to canonical workspace structure:
 
 | Node kind | Allowed owner parent |
 |-----------|----------------------|
 | `Workspaces` | root only (permanent, canonical) |
 | `Workspace` | `Workspaces` only |
-| `Directory` | `Workspace`, `Directory`, or **ROOT** (implicit nameless workspace) |
-| `File` | `Workspace`, `Directory`, or **ROOT** |
+| `Directory` | anywhere |
+| `File` | anywhere |
 | `Normal` | anywhere |
 
 **ROOT** is the implicit nameless workspace (`@:`): `Special Workspace` with no filename.
 Named `Workspace` nodes remain under `Workspaces` only. Ref links are unrestricted.
 
 `Workspaces` and `Trash` may not appear as children of any non-root parent.
+
+Below `Workspaces`/`Workspace` structural rules, the outline is free-form.
+`Directory`, `File`, and `Normal` nodes may be owned by any parent.
 
 Tests: `tests/Shared.Tests/ModelTests.fs` (workspaces bootstrap and placement cases).
 
@@ -83,18 +96,18 @@ Partial implementation in `src/Shared/RefExpr.fs`. Target grammar:
 
 Implemented now:
 
-- Parse `@label:` as workspace-root base (`WorkspaceRoot`).
+- Parse `@label:` as workspace namespace root (`NamedWorkspace`).
 - `refContext` walks owner chain from a node to find workspace root, file root, and directory
   context. When no `Special Workspace` is found, workspace root falls back to **ROOT** (`@:`).
 - `match_` resolves workspace-base expressions against the graph for search.
 
-Not implemented: directory/file path steps, wildcards, tags, full command language.
+Not implemented: namespace member steps (`/`, `./`, `^`), wildcards, tags, full command language.
 
-## Path search
+## Reference search
 
 Search dialog merges two result sources (`src/Shared/ViewModelSearch.fs`):
 
-1. **RefExpr matches** — path-style queries parsed and matched first.
+1. **RefExpr matches** — namespace-style queries parsed and matched first.
 2. **Text search** — existing node text matching.
 
 Workspace nodes expose `@label:` as their desktop file path via `NodeDesktopPath` (used by the

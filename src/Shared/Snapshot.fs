@@ -39,13 +39,19 @@ module Snapshot =
             | Some sid -> sid
             | None -> assignShortId nodeId
 
-        let lineBodyFor (node: Node) =
+        let pathBodyFor (nodeId: NodeId) (node: Node) =
+            match node.kind with
+            | Special Workspace -> NodeDesktopPath.pathForNodeId graph nodeId
+            | Normal
+            | Special (Workspaces | Trash | Directory | File) -> None
+
+        let lineBodyFor (node: Node) (bodyText: string) =
             let needsMeta =
-                not (CssClass.toList node.cssClasses).IsEmpty || node.text.StartsWith("{")
+                not (CssClass.toList node.cssClasses).IsEmpty || bodyText.StartsWith("{")
             if needsMeta then
-                "{" + CssClass.toMetaString node.cssClasses + "}" + node.text
+                "{" + CssClass.toMetaString node.cssClasses + "}" + bodyText
             else
-                node.text
+                bodyText
 
         let ensureCanonicalSid (nodeId: NodeId) : string option =
             if nodeId = Graph.workspacesId then
@@ -69,12 +75,15 @@ module Snapshot =
                 sb.Append(indent).Append("-> #").Append(sid).Append(nl) |> ignore
             | Ownership.Owner ->
                 let node = graph.nodes.[nodeId]
-                let body = lineBodyFor node
+                let pathBody = pathBodyFor nodeId node
+                let body = lineBodyFor node (pathBody |> Option.defaultValue node.text)
                 let isSpecial =
                     match node.kind with
                     | Special _ -> true
                     | Normal -> false
-                if isShared || isSpecial then
+                if pathBody.IsSome && not isShared then
+                    sb.Append(indent).Append(body).Append(nl) |> ignore
+                elif isShared || isSpecial then
                     let sid =
                         ensureCanonicalSid nodeId
                         |> Option.defaultWith (fun () -> ensureShortId nodeId)

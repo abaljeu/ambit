@@ -10,44 +10,66 @@ Scope note: this is a target-scope language design document.
 Current stage implementation scope is defined separately in
 [[doc/roadmap/workspace-stage-plan.md]], which is intentionally narrower.
 
+## Namespace Semantics
+
+Authority: [[doc/roadmap/revising-workspace-file-model]], [[doc/roadmap/workspace-file-model.md]].
+
+References resolve from the **context** of a node. Context is special-node ancestry along the owner
+chain (`workspace`, `directory`, `file`; `normal` nodes are skipped).
+
+| Base | Resolves to |
+|------|-------------|
+| `@label:` | Named workspace root |
+| `/` | Root of the current workspace namespace |
+| `./` | Current directory (directory context) |
+| `^` | Nearest owning special node (`workspace`, `directory`, or `file`) |
+
+Member lookup uses `dir / member` steps within the namespace established by the base. Directory
+members are not globally addressable without first naming the directory. `^name` finds `name` as a
+direct member under the owning special node.
+
+Member-name matching is case-insensitive and uses standard operating-system-style wildcard matching,
+including `*` and `?`.
+
 ## Model Elements
 
-The workspace, directory, and file identity rules used here are defined in
-[[doc/roadmap/workspace-file-model.md]].
+Workspace, directory, and file identity rules are defined in [[doc/roadmap/workspace-file-model.md]].
 
-These expressions will be executed from the context of a node.  A node will usually belong to a file.  A file node owns a subtree of the graph.  A workspace maps a directory in the OS to a workspace node in the graph.  The subdirectories and files may be instantiated into the graph as nodes.  
+Expressions run from a node context. A node usually sits inside a file-owned subtree. A file node
+owns a subtree of the graph. Workspace, directory, and file nodes are first-class special nodes in
+the ownership tree — not a separate path-to-node table.
 
-Workspace, file and directory nodes are unique.  A database table will capture the mapping of path to node.
-
-Within a file subtree, nodes can have tags, referred to as names below.  Not every node is tagged.  Tags may repeat within or across different files.
-
-Path matching for workspace, directory, and file resolution is case-insensitive and uses standard
-operating-system-style wildcard matching, including `*` and `?`.
+Within a namespace scope, nodes may carry tags (see `#` steps below). Not every node is tagged.
+Tags may repeat within or across different files.
 
 ## Expression Syntax
+
+`/` between steps is namespace member lookup, not filesystem path syntax. Whitespace around `/` is
+optional (`dir/member` and `dir / member` parse the same).
+
 ```ebnf
 
-Expression ::= PathExpr
+Expression ::= RefExpr
 
-PathExpr   ::= Base                    (* Evaluates to the base node itself *)
+RefExpr    ::= Base                    (* Evaluates to the base node itself *)
              | Base Step               (* e.g., ^ #blue or @ws1:dir_k *)
-             | PathExpr "/" Step       (* e.g., @ws1:dir_k / file.md *)
+             | RefExpr "/" Step        (* e.g., @ws1:dir_k / file.md *)
              | Primary
 
-Base       ::= "/"                     (* Root node of current workspace *)
-             | "^"                     (* Root node of current file *)
-             | "."                     (* Directory node of current file *)
-             | "@" identifier ":"      (* Root node of specified workspace *)
+Base       ::= "/"                     (* Workspace namespace root *)
+             | "^"                     (* Owning special node: workspace, directory, or file *)
+             | "."                     (* Current directory; ./ is the explicit form *)
+             | "@" identifier ":"      (* Named workspace root *)
 
 Primary    ::= identifier              (* Function or command invocation *)
              | identifier "(" Args ")" (* Function with arguments *)
              | string                  (* Constant text *)
              | "(" Expression ")"
 
-Step       ::= identifier              (* Name/path segment without spaces; may contain * ? *)
-             | string                  (* Name/path segment with spaces or punctuation *)
+Step       ::= identifier              (* Member name without spaces; may contain * ? *)
+             | string                  (* Member name with spaces or punctuation *)
              | "#" identifier         (* Tag selector, e.g. #blue *)
-             | "*"                     (* Single-level wildcard *)
+             | "*"                     (* Single-level wildcard over direct members *)
              | "**"                    (* Multi-level wildcard, standard glob semantics *)
 
 Args       ::= Expression ( "," Expression )* 
@@ -64,31 +86,31 @@ Statement  ::= Assignment | Command
 
 ### How examples would parse now:
 
-*   **`@ws1:dir_k/file.md`**
-    1. `Base` → `@ws1:`
-    2. `Base Step` → `@ws1:dir_k`
-    3. `PathExpr "/" Step` → `(@ws1:dir_k) / file.md` 
+*   **`@ws1:dir_k / file.md`**
+    1. `Base` → `@ws1:` (workspace namespace root)
+    2. `Base Step` → `@ws1:dir_k` (member `dir_k` under workspace)
+    3. `RefExpr "/" Step` → `(@ws1:dir_k) / file.md` (member `file.md` under directory)
    *(Note: `file.md` may be tokenized as an identifier or as a string token.)*
 
-*   **`@ws1:"My Folder"/"File Name.md"`**
+*   **`@ws1:"My Folder" / "File Name.md"`**
    1. `Base` → `@ws1:`
    2. `Base Step` → `@ws1:"My Folder"`
-   3. `PathExpr "/" Step` → `(@ws1:"My Folder") / "File Name.md"`
+   3. `RefExpr "/" Step` → `(@ws1:"My Folder") / "File Name.md"`
 
-*   **`@bobby:src/*.fs`**
+*   **`@bobby:src / *.fs`**
    1. `Base` → `@bobby:`
    2. `Base Step` → `@bobby:src`
-   3. `PathExpr "/" Step` → `(@bobby:src) / *.fs`
-   4. Final step matches file names case-insensitively using wildcard semantics
+   3. `RefExpr "/" Step` → `(@bobby:src) / *.fs`
+   4. Final step matches member names case-insensitively using wildcard semantics
 
-*   **`. / index.html / ** / blue`**
-    1. `Base` → `.` (Current file's directory node)
-    2. `PathExpr "/" Step` → `. / index.html` (Finds the index file in the directory)
-    3. `PathExpr "/" Step` → `(. / index.html) / ** / blue` (Expands to descendants, then matches `blue`)
+*   **`./ / index.html / ** / blue`**
+    1. `Base` → `.` (current directory namespace)
+    2. `RefExpr "/" Step` → `./ / index.html` (member `index.html` under current directory)
+    3. `RefExpr "/" Step` → `(. / index.html) / ** / blue` (descendants, then member `blue`)
 
 *   **`^ / ** / #blue`**
-   1. `Base` → `^` (Current file root)
-   2. `PathExpr "/" Step` → `^ / ** / #blue` (Descendants tagged `blue`)
+   1. `Base` → `^` (owning special node — workspace, directory, or file)
+   2. `RefExpr "/" Step` → `^ / ** / #blue` (descendants tagged `blue`)
 
 
 ## Usage
@@ -133,8 +155,8 @@ If parsing succeeds but any required reference cannot be resolved:
 Examples:
 
 - unknown workspace label in `@workspace:`
-- missing path segment under a resolved base
-- unresolved tag/path selector in a context where at least one target is required
+- missing member under a resolved namespace base
+- unresolved tag or member selector in a context where at least one target is required
 
 ### Command Result Contract
 

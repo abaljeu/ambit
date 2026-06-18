@@ -203,6 +203,52 @@ let ``write ref parent before owner emits arrow before hash definition`` () =
     Assert.Equal(decoded.nodes.[root.children.[0].id].children.[0].id,
                  decoded.nodes.[root.children.[1].id].children.[0].id)
 
+let private specialNode (id: NodeId) (kind: SpecialKind) (name: string) (owner: NodeId) : Node =
+    { id = id
+      text = name
+      name = Filename.create name
+      children = []
+      cssClasses = CssClass.empty
+      owner = owner
+      kind = Special kind
+      updateTime = NodeUpdateTime.missing }
+
+let private graphWithWorkspaceTree () : Graph =
+    let graph0 = Graph.create ()
+    let wsId = NodeId.New()
+    let dirId = NodeId.New()
+    let fileId = NodeId.New()
+    let wsNode = specialNode wsId Workspace "home" Graph.workspacesId
+    let dirNode = specialNode dirId Directory "docs" wsId
+    let fileNode = specialNode fileId File "readme.txt" dirId
+
+    let graph1 =
+        graph0.nodes
+        |> Map.add wsId wsNode
+        |> Map.add dirId dirNode
+        |> Map.add fileId fileNode
+        |> fun nodes -> Graph.fromNodes graph0.root nodes
+
+    let graph2 =
+        Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) graph1
+        |> ModelBuilder.requireOk "workspaces->ws"
+
+    let graph3 =
+        Graph.replace wsId 0 [] (owned [ dirId ]) graph2
+        |> ModelBuilder.requireOk "ws->dir"
+
+    Graph.replace dirId 0 [] (owned [ fileId ]) graph3
+    |> ModelBuilder.requireOk "dir->file"
+
+[<Fact>]
+let ``write workspace emits label path body`` () =
+    let graph = graphWithWorkspaceTree ()
+    let text = Snapshot.write graph
+    Assert.Contains("@home:", text)
+    Assert.DoesNotContain("@home:/docs", text)
+    Assert.DoesNotContain("@home:/docs/readme.txt", text)
+    Assert.DoesNotContain("#n1 home", text)
+
 [<Fact>]
 let ``normalizeOutlineForCompare treats CRLF and LF the same`` () =
     let a = "x\r\ny"

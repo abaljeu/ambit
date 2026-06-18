@@ -466,14 +466,6 @@ module Graph =
                         match childNode.kind with
                         | Special Workspace when parentId <> workspacesId ->
                             Some "Workspace nodes may only be placed under Workspaces"
-                        | Special Directory
-                        | Special File when child.ref = Ownership.Owner ->
-                            match parent.kind with
-                            | Special Workspace
-                            | Special Directory -> None
-                            | _ ->
-                                Some
-                                    "Directory/File nodes may only be placed under a Workspace or Directory node"
                         | _ -> None)
 
                 match placementError with

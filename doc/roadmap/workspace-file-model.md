@@ -1,7 +1,7 @@
 # Workspace File Model
 
-Status: Draft staged design
-Authority: Design intent only; this document defines target model and persistence rules for workspace, directory, and file identity.
+Status: working draft
+Authority: [[revising-workspace-file-model]] is the authoritative behavioral target.  This file describes design intent to achieve the target model and persistence rules for workspace, directory, and file identity.  Implementation plans may be changed as needed.
 See also: [[doc/current/workspace-graph.md]], [[doc/current/workspace-local-mapping.md]],
 [[doc/current/desktop-local-files.md]], [[doc/roadmap/reference-expressions.md]], [[doc/arch.md]]
 
@@ -10,29 +10,25 @@ It is about shared identity and persistence shape, not source-level implementati
 
 Scope note: this is a target-scope design document.
 Current implemented behavior is summarized in [[doc/current/workspace-graph.md]].
-Stage implementation scope is defined separately in
-[[doc/roadmap/workspace-stage-plan.md]], which is intentionally narrower.
+Stage implementation scope is defined separately in [[doc/roadmap/workspace-stage-plan.md]], which is intentionally narrower.
 
 ## Purpose
 
 The existing graph model already defines node identity and owner/ref semantics.
-What it does not define is how a graph node belongs to a file, how a file belongs to a
-directory tree, and how that directory tree relates to a user-visible workspace label such as
-`@bobby:`.
+What it does not define is how a graph node belongs to a file, how a file belongs to a directory tree, and how that directory tree relates to a user-visible workspace label such as `@bobby:`.
 
 The goal is to add those concepts without changing the current graph ownership rules.
 
 ## Status Tracking
 
-This document describes the target model, but implementation is expected to land in stages.
-To keep the document useful during that process:
+This document describes the target model, but implementation is expected to land in stages.  To keep the document useful during that process:
 
 - `[x]` means implemented in the current codebase
 - `[~]` means partially implemented or represented in the model, but not yet wired through
 - `[ ]` means target design only
 
-When a section below describes the target end state, that does not by itself mean it is already
-implemented. The stage list below is the current implementation summary.
+When a section below describes the target end state, that does not by itself mean it is already implemented. The stage list below is the current implementation summary.
+When a Correction is described below, the meaning is that the item previous is described wrongly, but implemented.  To implement the correction, the incorrect implementation must be corrected.
 
 ## Implementation Stages
 
@@ -40,13 +36,18 @@ implemented. The stage list below is the current implementation summary.
    shared model.
 - `[~]` Stage 2: graph invariants and operations understand workspace, directory, and file nodes as
    distinct behavior-bearing concepts.
-- `[~]` Stage 3: shared persistence stores canonical workspace-label -> workspace-root mapping only.
+- `[x]` Correction: update invariants so `directory`, `file`, and `normal` nodes may be placed anywhere; only `workspaces`/`workspace` stay structurally restricted.
+- `[x]` Stage 3: shared persistence stores canonical workspace-label -> workspace-root mapping only.
+- `[x]` Correction: document target persistence split (workspace/directory/file separately) and the file-traversal stop-at-child-special-node rule.
 - `[x]` Stage 4: desktop-local API resolves workspace label + relative path via readonly local mapping
   (interim `/_desktop/file` API — [[doc/current/desktop-local-files.md]]).
+- `[x]` Correction: align reference docs to namespace semantics (`/`, `dir / member`, `./`, `^`) instead of path-only framing.
 - `[~]` Stage 5: client UI uses desktop query surface and shows unresolved-reference indicators
   (file-status indicator done; full unresolved `@label:` UI not done).
+- `[ ]` Correction: unresolved UI should cover namespace resolution failures across workspace, directory, and file scopes.
 - `[~]` Stage 6: explicit user commands create and modify workspace/file/directory structure
   (workspace create/rename via graph ops; directory/file commands not done).
+- `[ ]` Correction: add command support for free-form special-node ownership (including under `normal` and `file` nodes) while keeping persistence ownership rules explicit.
 - `[ ]` Stage 7: server `DataDir/@label/...` persistence for directory and file objects.
 
 ## Current Implementation Snapshot
@@ -55,58 +56,67 @@ Authority for implemented behavior: [[doc/current/workspace-graph.md]],
 [[doc/current/workspace-local-mapping.md]], [[doc/current/desktop-local-files.md]].
 
 - `[x]` `SpecialKind` includes `Workspace`, `Directory`, and `File` in the shared model.
+- `[ ]` Correction: treat these as context-defining special nodes for traversal and resolution.
 - `[x]` `workspacesId` canonical node exists with `kind = Special Workspaces`.
+- `[ ]` Correction: clarify this is the only required top-level structural anchor.
 - `[x]` `Workspaces` is permanent under root (cannot be removed or edited, like Trash).
+- `[x]` Correction: document that restrictions apply to `workspaces`/`workspace`; below that, layout is free-form.
 - `[x]` Graph invariants enforce structural placement rules — [[doc/current/workspace-graph.md]].
+- `[x]` Correction: update placement rules so `directory` and `file` nodes may be placed anywhere.
 - `[x]` Desktop-local workspace label → local root mapping and interim HTTP surface.
-- `[~]` RefExpr workspace-root resolution and path search — [[doc/current/workspace-graph.md]].
+- `[ ]` Correction: clarify desktop mapping remains local and independent from server `DataDir` persistence shape.
+- `[~]` RefExpr workspace-root resolution and namespace search — [[doc/current/workspace-graph.md]].
+- `[ ]` Correction: align RefExpr semantics with directory-first member lookup and `^` owner-special lookup.
 - `[ ]` No directory/file path mapping is persisted in shared graph yet.
 - `[ ]` No server `DataDir/@label/...` persistence for directory/file objects yet.
 - `[ ]` Full unresolved-reference indicator for unknown workspace labels.
 - `[~]` Workspace create/rename via graph ops; no directory/file command surface yet.
+- `[ ]` Correction: add command coverage for special-node hierarchy edits in free-form outlines.
 
 ## Settled Decisions
 
-1. Workspace labels such as `@bobby:` are shared, user-visible, stable, and not intended to be
-   renamed casually.
+1. Workspace labels such as `@bobby:` are shared, user-visible, stable identifiers.
 2. A client may define a local filesystem mapping for a workspace label, or ignore that label.
-3. Shared persistence stores workspace label plus workspace-relative path.
-4. Desktop-local configuration stores workspace label to absolute local root mappings.
-5. Directory nodes are first-class unique nodes.
-6. File nodes are first-class unique nodes.
-7. Every ordinary outline node belongs to exactly one file node through the owner chain.
-8. Existing owner/ref semantics remain the containment model for the graph.
-9. Canonical workspace-relative path identity is case-insensitive.
-10. Path resolution follows normal operating-system-style path matching, including `?` and `*`
-   wildcards.
-11. Workspace, directory, and file nodes change only through explicit user commands and normal
-   cross-client graph synchronization.
-12. There is no automatic background alignment between the graph and any client's local
-   filesystem.
-13. Workspace, directory, and file nodes are represented as `Special Workspace`,
-   `Special Directory`, and `Special File`.
-14. Canonical path normalization follows standard operating-system normalization rules.
-15. Unresolved workspace or path references are surfaced to the user with a visual indicator.
-16. Existing graphs do not require automatic migration to introduce this model.
-17. `Workspaces` is a permanent canonical node under root, identified by a fixed `NodeId`, with the
-   same permanence semantics as `Trash`.
-18. `Workspace` nodes may only exist as direct children of the `Workspaces` node (drive semantics —
-   one level deep).
-19. `Directory` and `File` nodes may only exist as children of a `Workspace` node or another
-   `Directory` node (standard filesystem directory semantics).
-20. Normal nodes may be placed anywhere in the graph without structural restriction.
-21. The server persists directory and file object content under `DataDir`, using paths that embed
-    the workspace label with a leading `@` (e.g. `data/@home/src/lib.fs`). This is additive to
-    graph/DB identity; it does not replace PostgreSQL projection or desktop local mapping.
-22. Desktop `@label:` local mapping and manual Import/Export via `/_desktop/file` continue
-    unchanged; server `DataDir` paths are independent of desktop absolute roots.
+3. The ownership tree remains the source of containment identity.
+4. Context traversal uses ancestry of special nodes (`workspace`, `directory`, `file`) only.
+5. `Directory` nodes are first-class nodes.
+6. `File` nodes are first-class nodes.
+7. Below `workspaces`/`workspace` structural rules, `directory`, `file`, and `normal` nodes may be owned by any parent.
+8. `normal` nodes may own `directory`, `file`, and `normal` nodes.
+9. `file` nodes may own `directory`, `file`, and `normal` nodes for outline structure.
+10. Workspace, directory, and file nodes change only through explicit user commands and normal
+    cross-client graph synchronization.
+11. There is no automatic background alignment between the graph and any client's local filesystem.
+12. Workspace, directory, and file nodes are represented as `Special Workspace`,
+    `Special Directory`, and `Special File`.
+13. Unresolved references are surfaced to the user with a visual indicator.
+14. Existing graphs do not require automatic migration to introduce this model.
+15. `Workspaces` is a permanent canonical node under root, identified by a fixed `NodeId`, with the
+    same permanence semantics as `Trash`.
+16. `Workspace` nodes exist as direct children of `Workspaces`.
+17. Server filesystem persistence remains additive to DB identity and independent from desktop-local
+    absolute root mapping.
 
 ## Structural Invariants
 
 See [[doc/current/workspace-graph.md]] for enforced placement rules.
 
+Placement restrictions apply only to `Workspaces` and named `Workspace` nodes.
+`Directory`, `File`, and `Normal` nodes may be placed anywhere in the ownership tree.
+
+**Context** (special-node ancestry used for reference resolution) is separate from placement.
+Context traversal uses only `workspace`, `directory`, and `file` nodes along the owner chain;
+`normal` nodes are ignored for context. See [[doc/roadmap/revising-workspace-file-model]].
+
 No command surface for creating `Directory` or `File` nodes exists yet (Stage 6). Workspace
 create/rename uses general graph ops — [[doc/current/workspace-graph.md]].
+
+The target placement model is free-form below `workspaces`/`workspace` structural rules:
+
+- `directory`, `file`, and `normal` nodes may be owned by any parent, including `normal` nodes
+- `normal` nodes may own `directory`, `file`, and `normal` nodes
+- `file` may own `directory`, `file`, and `normal` nodes for structural outlining
+- disk placement for special nodes is still determined by nearest owning `directory` ancestor
 
 ## Model Entities
 
@@ -126,28 +136,13 @@ Workspace nodes use `NodeKind = Special Workspace`.
 
 ### Directory Node
 
-A directory node represents one canonical directory within a workspace.
-
-A directory node is identified by:
-
-- workspace label
-- canonical workspace-relative directory path
-
-There is at most one directory node for a given `(workspace label, relative directory path)`.
+A directory node is a special structural node in the ownership tree.
 Directory nodes use `NodeKind = Special Directory`.
 
 ### File Node
 
-A file node represents one canonical file within a workspace.
-
-A file node is identified by:
-
-- workspace label
-- canonical workspace-relative file path
-
-There is at most one file node for a given `(workspace label, relative file path)`.
-
-Each file node owns the outline subtree for that file.
+A file node is a special structural node in the ownership tree.
+A file may own `directory`, `file`, and `normal` nodes for outline structure.
 File nodes use `NodeKind = Special File`.
 
 ### Ordinary Outline Node
@@ -155,8 +150,10 @@ File nodes use `NodeKind = Special File`.
 An ordinary outline node is any non-workspace, non-directory, non-file node in the existing
 graph.
 
-Each ordinary outline node must have exactly one owning file node by following owner links upward.
-Ref edges may point at the node from other places, but they do not change file membership.
+Ordinary outline nodes belong to exactly one owner-chain location in the graph.
+A normal node may own `directory`, `file`, and other `normal` nodes.
+Their nearest special-node ancestry defines context for resolution.
+Ref edges may point at the node from other places, but they do not change ownership.
 
 ## Shared Versus Local Data
 
@@ -168,9 +165,7 @@ The shared model and shared database are responsible for:
 - workspace root nodes
 - directory nodes
 - file nodes
-- canonical workspace-relative paths
-- the ownership relation from workspace to directory/file metadata nodes
-- the ownership relation from file nodes to ordinary outline nodes
+- ownership relations among special and normal nodes
 
 ### Client-Local Data
 
@@ -188,13 +183,10 @@ The following invariants define the model:
 
 1. Workspace labels are unique within the shared graph.
 2. Each workspace label has exactly one workspace root node.
-3. Each canonical workspace-relative directory path has exactly one directory node within its
-   workspace.
-4. Each canonical workspace-relative file path has exactly one file node within its workspace.
-5. Each ordinary outline node belongs to exactly one file node through the owner chain.
-6. Renaming or moving a file or directory changes path metadata but does not change node identity.
-7. Ref edges never change workspace membership, directory membership, or file membership.
-8. The model is not changed automatically by filesystem observation alone.
+3. Each node has exactly one owner in the ownership tree.
+4. Special-node ancestry (`workspace`, `directory`, `file`) defines context.
+5. Ref edges never change ownership or containment membership.
+6. The model is not changed automatically by filesystem observation alone.
 
 ## Materialization And Change Rules
 
@@ -216,27 +208,17 @@ mutate the shared graph.
 
 ## Canonical Paths
 
-Shared persistence uses canonical paths relative to the workspace root.
+Persistence may use workspace-relative path text on disk. Reference expressions use namespace
+semantics (`/`, `dir / member`, `./`, `^`) — see [[doc/roadmap/reference-expressions.md]].
 Absolute machine-local paths are never part of shared identity.
 
-Canonical path normalization follows standard operating-system normalization rules.
-The model requires:
-
-- standard operating-system normalization before canonical comparison
-- one canonical separator convention in shared storage
-- no absolute paths in shared storage
-- file and directory identity based on canonical relative path, not display text
-- case-insensitive comparison for canonical path identity
-
-Path resolution is matched case-insensitively.
-Wildcard matching follows standard operating-system-style path matching:
-
-- `*` matches any sequence of characters within the path-matching position
-- `?` matches any single character within the path-matching position
+Path text does not replace node ownership identity. Where persistence or desktop mapping uses path
+text, canonical normalization rules apply consistently.
 
 ## Resolution Semantics
 
-These rules support the reference-expression design.
+These rules support the reference-expression design. `/` is namespace member lookup, not filesystem
+path syntax. Authority: [[doc/roadmap/reference-expressions.md]].
 
 ### `@workspace:`
 
@@ -244,15 +226,16 @@ These rules support the reference-expression design.
 
 ### `/`
 
-From file context, `/` resolves to the root node of the current file's workspace.
+From workspace context, `/` resolves to the root of the current workspace namespace.
 
-### `.`
+### `./`
 
-From file context, `.` resolves to the unique directory node that owns the current file node.
+From directory context, `./` resolves to the current directory.
 
 ### `^`
 
-From node context, `^` resolves to the owning file node.
+From node context, `^` resolves to the nearest owning special node (`workspace`, `directory`, or
+`file`). `^name` finds `name` as a direct member under that node.
 
 ### Unresolved References
 
@@ -274,20 +257,60 @@ This keeps shared references stable while allowing partial local support.
 
 ## Persistence Shape
 
-This document does not lock the final SQL schema, but it does require shared
-persistence to store enough information to enforce the uniqueness rules above.
+Authority for server file persistence rules: [[doc/roadmap/revising-workspace-file-model]].
+On-disk layout detail: [[doc/roadmap/workspace-file-persistence.md]].
 
-At minimum, shared persistence must be able to map:
+Persistence is split by layer and by special-node kind. Workspace, directory, and file are
+separate concerns — not one monolithic path map.
 
-- workspace label to workspace root node
-- `(workspace label, relative directory path)` to directory node
-- `(workspace label, relative file path)` to file node
+### Shared graph persistence
 
-Desktop-local persistence must be able to map workspace label to absolute local
-root path.
+The graph projection (`GraphProjection`, change-log ops) stores ownership-tree identity:
 
-Server `DataDir/@label/...` storage is described separately in
-[[doc/roadmap/workspace-file-persistence.md]].
+- **Workspace** — label → workspace root node (`Special Workspace` under `Workspaces`,
+  `Node.name` = label). Implemented (Stage 3). Lookup: `RefExpr.namedWorkspacesFromGraph`,
+  `FilePathResolve.findOwnerChild`.
+- **Directory** — node identity (`kind`, `name`, owner link). No server `DataDir` path materialization
+  yet.
+- **File** — node identity (`kind`, `name`, owner link). No server `DataDir` path materialization
+  yet.
+
+`Snapshot.write` may emit `@label:` path text for workspace nodes (write-only hint). Directory and
+file path bodies in snapshot text are not shared persistence authority; round-trip and server
+`DataDir` layout are Stage 7.
+
+Desktop-local persistence maps workspace label to absolute local root path — fully separate from
+shared graph and server storage ([[doc/current/workspace-local-mapping.md]]).
+
+### Server file persistence (target — Stage 7)
+
+Not fully implemented. Three kinds persist separately on disk under `DataDir`:
+
+#### Workspace
+
+A workspace persists like a special directory. Label `wsname` maps to directory `@wsname` under the
+server data root.
+
+#### Directory
+
+Every directory persists under its owning directory on disk. Root workspace content persists
+directly in the workspace directory. `normal` nodes directly owned by a directory persist in
+`.amb` in that directory.
+
+#### File
+
+A file persists by writing the subtree it owns according to the file format.
+
+**Stop at child special node.** When traversing a file's owned tree for persistence, descent
+stops at each child `workspace`, `directory`, or `file` node:
+
+- do not recurse into that child's subtree as part of the parent file payload
+- continue traversing siblings and other branches of the current file tree
+- persist that child special node (and its descendants) as its own file or directory artifact
+- the parent file persists a reference to the child special node, not its nested content
+
+"Stops descending" means skip recursion into that child tree only — not halt the whole file
+traversal.
 
 ## Migration
 

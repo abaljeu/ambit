@@ -70,7 +70,8 @@ Workspace export projects one file subtree only (not the whole graph).
 
 ## References (within and cross-file)
 
-Readable anchor is `#name`. Cross-file form is `relative/path.amb#name`, aligned with [[doc/roadmap/reference-expressions.md]] path steps where applicable.
+Readable anchor is `#name`. Cross-file form is `relative/path.amb#name`, aligned with
+[[doc/roadmap/reference-expressions.md]] namespace member steps where applicable.
 
 - Bind by stable `NodeId`; editing file B must not force rewriting file A when A holds a cross-file reference into B.
 - Ambit ensures `name` is unique among reference targets within a file when a reference is created.
