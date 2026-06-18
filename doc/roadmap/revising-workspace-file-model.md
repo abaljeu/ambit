@@ -24,7 +24,11 @@
 - All other node types can be organized freely.
 - A `file` may own `file` or `directory` nodes for outline structure.
 - Disk placement is still based on nearest owning directory ancestor.
-- If a node is inside a file-owned subtree, it persists beside the parent file's directory.
+- Nested documents (child workspace/directory/file roots) persist as separate artifacts; members of a nested document are not inlined in the parent document's payload.
+
+## Documents
+
+See [[doc/roadmap/postgres-roadmap.md]] §5 and [[doc/roadmap/workspace-file-model.md]] § Documents. Document membership — not "owned by a file" — determines which persisted artifact holds a node's serialized content.
 
 ## References
 See [[doc/roadmap/reference-expression-interpretation.md]].
@@ -33,6 +37,9 @@ See [[doc/roadmap/reference-expression-interpretation.md]].
 
 - Not fully implemented yet.
 - Database persistence of file names is implemented.
+- **Primary:** live-save file and directory artifacts to the server `DataDir` on accepted graph changes.
+- **Secondary:** desktop clients may download or export server content to workspace-mapped local paths.
+- **Import unchanged:** desktop-local file → client graph edits → sync → server live-save persists.
 
 ### Workspace Persistence
 
@@ -41,14 +48,14 @@ See [[doc/roadmap/reference-expression-interpretation.md]].
 
 ### Directory Persistence
 
-- Every directory (including workspace directories) persists under its owning directory.
+- Every directory document (including workspace directories) persists under its owning directory on disk.
 - Root content persists directly in the data directory.
-- `normal` nodes directly owned by a directory persist in `.amb` in that directory.
+- Normal nodes with document membership in that directory document persist in `.amb` in that directory.
 
 ### File Persistence
 
-- A file persists by writing the tree it owns according to the file format.
-- Persistence traversal stops descending when another special node is reached.
-- That special node and its descendants persist as their own file or directory.
-- The parent file persists a reference to that child special node.
-- "Stops descending" means skip recursion into that child tree, while continuing full traversal of the current file tree.
+- A file document persists by writing its members according to the file format.
+- Persistence traversal stops at each nested document root (child workspace, directory, or file special node).
+- The nested document and its members persist as their own artifact.
+- The parent document persists a reference to the nested document root.
+- "Stops descending" means skip recursion into that nested document, while continuing serialization of the current document.

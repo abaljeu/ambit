@@ -199,7 +199,7 @@ in-memory derivation.
 ## Not implemented (see roadmap)
 
 - External migration tooling beyond `initSchema` on startup.
-- Multi-document / multi-file snapshot layout.
+- Multi-document / multi-file snapshot layout — [[doc/roadmap/workspace-file-persistence.md]] (snapshot integration, incremental writes).
 - Server-authoritative merge and conflict markers — [[doc/roadmap/future-merge-sync.md]].
 
 ---

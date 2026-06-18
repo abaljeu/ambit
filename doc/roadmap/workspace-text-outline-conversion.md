@@ -30,13 +30,13 @@ These are committed.
 
 - **Export/import asymmetry.** Export is delta-driven: the server file is continuously the projection of its subtree, updated per operation (`file_next = f_out(file_prev, op)`). Import is state-based: an externally edited file is reconciled against the current subtree (`out2 = f_in(file1, out1)`). Asymmetric because identity recovery is only hard where edits are untrusted.
 
-- **Subtree mapping.** The outline spans many files; each file maps to one subtree, and import is scoped to that subtree.
+- **Subtree mapping.** The outline spans many documents; each document (usually rooted at a `File` node) maps to one persisted artifact, and import is scoped to that document's members.
 
-- **Ownership migration (implemented).** Every node has one owner; removing it from its owner promotes another reference to owner, transferring the subtree. A cross-file reference can thereby become contained content, and undo reverses it. Identity handling must tolerate a node's file location changing. (When a node changes owner, the node is replaced with an updated node; all references to that node shall consider if re-persistence is needed.)
+- **Ownership migration (implemented).** Every node has one owner; removing it from its owner promotes another reference to owner, transferring the subtree. A cross-document reference can thereby become contained content, and undo reverses it. Identity handling must tolerate a node's document membership changing. (When a node changes owner, the node is replaced with an updated node; all references to that node shall consider if re-persistence is needed.)
 
 - **Per-format specs.** Format-specific rules are defined in separate documents. This doc states requirements each format must satisfy; it does not duplicate line grammar.
 
-- **Access unit (stage 1).** Import and export operate on the whole file artifact and its full outline subtree. Section windows — reconciling a matched slice while preserving text outside the window — are deferred; see **Later** below.
+- **Access unit (stage 1).** Import and export operate on the whole persisted artifact for one document and its member nodes. Section windows — reconciling a matched slice while preserving text outside the window — are deferred; see **Later** below.
 
 - **Stable identity in the artifact.** Import recovers node identity from durable ids written in the file, not from structural alignment alone. This applies to Owner and Ref lines within a file and to cross-file references. A file must not need rewriting when another file changes merely because a peer was edited or moved. Backward compatibility with the ephemeral `#n1` short-id scheme in [[src/Shared/Snapshot.fs]] is not required; workspace `.amb` **replaces** that scheme rather than extending it.
 

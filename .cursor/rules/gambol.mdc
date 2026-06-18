@@ -92,8 +92,8 @@ Use pure functional F#.  Don't use mutable.
 Don't embed anything more than tiny amounts of html, CSS, JS or SQL in F# code.
 If you are looking for browser access functions, look at ./other/fable.browser.dom.fs.
 Use CRLF endings.
-100 characters or less per line on program files.
-THIS DOES NOT APPLY TO MARKDOWN.  DON'T ADD EXTRA LINE BREAKS TO MARKDOWN.
+100 characters or less per line on source code.  THIS DOES NOT APPLY TO MARKDOWN.  DON'T ADD EXTRA LINE BREAKS TO MARKDOWN.  Notice this markdown file here as example does not split sentences for line length.
+You keep misunderstanding so I repeat.  DO NOT PUT LINEBREAKS in Markdown.  Wordwrap takes care of it for us.
 When writing markdown with Write, do not include explicit CRLF (`\r\n`) in the content; use normal newlines and let the tool/editor preserve CRLF. Never use two or more consecutive blank lines. Separate blocks (heading, paragraph, list, table, code fence) with exactly one blank line. List items, table rows, and lines inside a code fence have no blank line between them.
 Markdown file paths should use [[wikilinks]], relative to project root if local files, not ``.
 40 lines or less per function.

@@ -85,16 +85,18 @@ A record of actions taken shall be maintained in [[doc/legacy/Commands executed 
 
 ## 5. Client-side memory management (document-level loading)
 
-**Decision:** Introduce *document* as a first-class concept in the app. Prior to this step, the app has no document concept — there is one undifferentiated graph.
+**Decision:** Introduce *document* as a first-class concept in the app. **Today** the whole graph is one document (monolithic snapshot). **Target:** one graph, many documents. Prior to document roots in the workspace model, the app has no explicit document partition — only the undifferentiated graph.
 
 **What a document is:**
 
-There is always exactly one graph on the server. A *document* is a named partition of that graph: any node can be designated as a document root by fiat, which assigns it a new `docId`. Every node owned by that root belongs to the same document. The graph is not split into separate stores; document membership is a property of each node within the single graph.
+There is always exactly one graph on the server. A *document* is a named partition of that graph: a **document root** assigns a `docId` to every node with **document membership** in that partition (Owner-tree ancestry from the root; Ref edges do not confer membership). The graph is not split into separate stores; document membership is a property of each node within the single graph.
+
+In the workspace file model, document roots are `Special Workspace`, `Directory`, and `File` nodes (including implicit ROOT). See [[doc/roadmap/workspace-file-model.md]] § Documents. Persistence, client load/unload, and replication all use the same document boundary. Implementation: [[doc/roadmap/workspace-file-model.md]] Stage 9 (membership); Stages 7–8 (server persist).
 
 **How it begins:**
 
-- Initially there is one document: the entire graph. All nodes belong to it.
-- New documents are created by a split operation: designating a node as a document root generates a new `docId` and assigns that `docId` to all nodes owned by it.
+- **Now:** one document — the entire graph. All nodes belong to it.
+- **Target:** new documents when a workspace, directory, or file node becomes a document root (split): a new `docId` and document membership for all nodes under that root in the Owner tree.
 - Load/unload decisions operate at document granularity. A loaded document has all its node payloads resident. An unloaded document is absent from the payload map; only its topology edges remain so the graph structure is intact for navigation.
 
 **Why this boundary:**
@@ -113,6 +115,8 @@ Topology (edges) is small enough to keep fully in memory across all documents. P
 ## 6. Replication unit: whole documents
 
 **Decision:** The unit of replication between server and client is a *whole document* — the full set of nodes with a given `docId` within the single server graph. Edits are node-level, but sync and caching deal in complete documents. Cross-document references are allowed; cross-document edits are logged as a single operation with enough payload for per-document projections to update independently.
+
+Implementation: [[doc/roadmap/workspace-file-model.md]] Stage 9.
 
 *Source:* [[doc/roadmap/future-merge-sync.md]].
 
@@ -135,9 +139,6 @@ Topology (edges) is small enough to keep fully in memory across all documents. P
 - Startup workspace registration (sync local config labels to cloud graph).
 - Full workspace filesystem API (dir/file CRUD with `modifiedUtc` conflicts).
 
-**Server workspace files (requirement, not implemented):** Directory and file graph objects will
-also persist on the server under `{DataDir}/@{label}/{path}` — same write pattern as snapshot
-backup. Desktop `@label:` mapping and manual Import/Export are unchanged. See
-[[doc/roadmap/workspace-file-model.md]] § Server workspace file persistence.
+**Server workspace files (requirement, not implemented):** Documents rooted at workspace, directory, and file nodes persist on the server under `{DataDir}/@{label}/{path}` — same write pattern as snapshot backup. Desktop `@label:` mapping and manual Import/Export are unchanged. See [[doc/roadmap/workspace-file-model.md]] § Documents and server file persistence.
 
 *Source:* [[doc/current/desktop-local-files.md]], [[doc/roadmap/workspace-stage-plan.md]].

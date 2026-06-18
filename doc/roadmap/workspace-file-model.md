@@ -3,21 +3,42 @@
 Status: working draft
 Authority: [[revising-workspace-file-model]] is the authoritative behavioral target.  This file describes design intent to achieve the target model and persistence rules for workspace, directory, and file identity.  Implementation plans may be changed as needed.
 See also: [[doc/current/workspace-graph.md]], [[doc/current/workspace-local-mapping.md]],
-[[doc/current/desktop-local-files.md]], [[doc/roadmap/reference-expressions.md]], [[doc/arch.md]]
+[[doc/current/desktop-local-files.md]], [[doc/roadmap/reference-expressions.md]], [[doc/roadmap/postgres-roadmap.md]], [[doc/arch.md]]
 
 This document defines the model concepts needed by reference expressions such as `@bobby:`.
 It is about shared identity and persistence shape, not source-level implementation.
 
 Scope note: this is a target-scope design document.
 Current implemented behavior is summarized in [[doc/current/workspace-graph.md]].
-Stage implementation scope is defined separately in [[doc/roadmap/workspace-stage-plan.md]], which is intentionally narrower.
+
+Stage implementation scope and sequencing are tracked in [[doc/roadmap/workspace-stage-plan.md]].  For each implementation stage, refer to this file for details.
 
 ## Purpose
 
 The existing graph model already defines node identity and owner/ref semantics.
-What it does not define is how a graph node belongs to a file, how a file belongs to a directory tree, and how that directory tree relates to a user-visible workspace label such as `@bobby:`.
+What it does not define is how **document membership** relates to workspace, directory, and file nodes, and how that maps to paths such as `@bobby:`.
 
 The goal is to add those concepts without changing the current graph ownership rules.
+
+## Documents
+
+Authority for the document partition concept: [[doc/roadmap/postgres-roadmap.md]] §5.
+
+There is always one graph on the server. **Today** the whole graph is one document (monolithic snapshot). **Target:** one graph, many documents.
+
+A **document** is a partition of the graph defined by a **document root** — a `Special Workspace`, `Directory`, or `File` node (including implicit ROOT). **Document membership** follows Owner-tree ancestry from that root; Ref edges do not confer membership. **Ownership** means `Owner` vs `Ref` on a child slot only — not which document a node is in.
+
+Workspace, directory, and file special nodes are document roots. Each document is persisted under `DataDir` (Stages 7–8), loaded/unloaded on the client (Stage 9), and replicated as a unit. A document rooted at a `File` node usually persists as one file; workspace and directory roots persist as directory layouts (including `.amb` where applicable).
+
+## Persistence Strategy
+
+Workspace definitions and desktop `@label:` mappings remain part of the model, but file persistence is tiered:
+
+1. **Primary — server `DataDir`.** Edits sync through normal client/server graph operations; the server live-saves on the existing snapshot write path (`Snapshot.write` / `FileAgent` / db backup). Today that is one monolithic outline file (one document); target is ROOT plus separate persisted documents for each workspace/directory/file root under `DataDir/@label/...`, writing only documents whose serialization would change (Stages 7–8). Detail: [[doc/roadmap/workspace-file-persistence.md]].
+2. **Secondary — desktop workspace-mapped files.** A client may download or export server file content to a locally mapped workspace root. This does not replace server authority.
+3. **Import — unchanged.** User reads a desktop-local file (via `/_desktop/file` Import); client edits apply to the graph and sync to the server; subsequent persistence follows the primary server path.
+
+Desktop-local absolute root mapping is independent of server path layout. It is not the primary persistence mechanism.
 
 ## Status Tracking
 
@@ -38,17 +59,18 @@ When a Correction is described below, the meaning is that the item previous is d
    distinct behavior-bearing concepts.
 - `[x]` Correction: update invariants so `directory`, `file`, and `normal` nodes may be placed anywhere; only `workspaces`/`workspace` stay structurally restricted.
 - `[x]` Stage 3: shared persistence stores canonical workspace-label -> workspace-root mapping only.
-- `[x]` Correction: document target persistence split (workspace/directory/file separately) and the file-traversal stop-at-child-special-node rule.
+- `[x]` Correction: document target persistence split (workspace/directory/file documents separately) and the stop-at-nested-document-root rule.
 - `[x]` Stage 4: desktop-local API resolves workspace label + relative path via readonly local mapping
   (interim `/_desktop/file` API — [[doc/current/desktop-local-files.md]]).
 - `[x]` Correction: align reference docs to namespace semantics (anchors, `DirStep`/`FileStep`, `^`) instead of path-only framing.
-- `[~]` Stage 5: client UI uses desktop query surface and shows unresolved-reference indicators
-  (file-status indicator done; full unresolved `@label:` UI not done).
+- `[~]` Stage 5: client UI shows unresolved-reference indicators; file-status uses desktop query surface for locally mapped paths (primary server live-save not wired; full unresolved `@label:` UI not done). **Deferred** — bypassed for Stage 6; server file-status waits on Stage 7.
 - `[ ]` Correction: unresolved UI should cover namespace resolution failures across workspace, directory, and file scopes.
-- `[~]` Stage 6: explicit user commands create and modify workspace/file/directory structure
-  (workspace create/rename via graph ops; directory/file commands not done).
+- `[ ]` Correction: file-status queries server persistence when Stage 7 is wired; desktop query remains for secondary mapped paths until then.
+- `[ ]` Stage 6: **Insert…** and **Rename** (F2) for workspace, directory, and file structure; TRASH becomes `Special Directory` with `Node.name = TRASH`; shared `DocumentPathMove` planners (rename, reparent, move-to-TRASH) — graph ops and tests only, no server I/O.
 - `[ ]` Correction: add command support for free-form special-node ownership (including under `normal` and `file` nodes) while keeping persistence ownership rules explicit.
-- `[ ]` Stage 7: server `DataDir/@label/...` persistence for directory and file objects.
+- `[ ]` Stage 7: server `DataDir` live-save of documents (workspace/directory/file roots); unified filesystem moves from `DocumentPathMove` (rename, reparent, soft delete to TRASH); path layout and backup rotation ([[doc/roadmap/workspace-file-persistence.md]]).
+- `[ ]` Stage 8: snapshot integration — existing write path (`Snapshot.write` / `FileAgent` / db backup) emits ROOT plus per-document artifacts; incremental persist skips unchanged documents.
+- `[ ]` Stage 9: document membership in model — `docId` (or equivalent), derivation from document roots, client document load/unload and replication unit ([[doc/roadmap/postgres-roadmap.md]] §5–6).
 
 ## Current Implementation Snapshot
 
@@ -65,22 +87,23 @@ Authority for implemented behavior: [[doc/current/workspace-graph.md]],
 - `[x]` Graph invariants enforce structural placement rules — [[doc/current/workspace-graph.md]].
 - `[x]` Correction: update placement rules so `directory` and `file` nodes may be placed anywhere.
 - `[x]` Desktop-local workspace label → local root mapping and interim HTTP surface.
-- `[ ]` Correction: clarify desktop mapping remains local and independent from server `DataDir` persistence shape.
-- `[x]` RefExpr anchors, path steps, tag steps, and namespace search —
-  [[doc/current/workspace-graph.md]], [[doc/roadmap/reference-expression-interpretation.md]].
-- `[x]` Correction: align RefExpr semantics with directory-first member lookup (`DirStep`/`FileStep`)
-  and `^` structural-container lookup.
+- `[x]` Correction: document persistence tiers — server `DataDir` primary; desktop mapping secondary (download/export) plus Import entry; mapping independent of server path shape.
+- `[x]` RefExpr anchors, path steps, tag steps, and namespace search —  [[doc/current/workspace-graph.md]], [[doc/roadmap/reference-expression-interpretation.md]].
+- `[x]` Correction: align RefExpr semantics with directory-first member lookup (`DirStep`/`FileStep`) and `^` structural-container lookup.
 - `[ ]` RefExpr postfixes (`.text`, `[n]`, filters) and command/assignment syntax.
-- `[ ]` No directory/file path mapping is persisted in shared graph yet.
-- `[ ]` No server `DataDir/@label/...` persistence for directory/file objects yet.
+- `[ ]` Whole graph still one document; no `docId` / document membership in model yet (Stage 9).
+- `[ ]` Snapshot write still monolithic; no per-document `DataDir` persist (Stages 7–8).
+- `[ ]` No incremental per-document persist on snapshot pass (Stage 8).
 - `[ ]` Full unresolved-reference indicator for unknown workspace labels.
-- `[~]` Workspace create/rename via graph ops; no directory/file command surface yet.
+- `[ ]` File-status uses desktop query only; server-side status not wired (Stage 5 correction / Stage 7).
+- `[~]` Workspace create/rename via graph ops; **Insert…** / **Rename** command surface not done (Stage 6).
+- `[ ]` TRASH as `Special Directory` with `Node.name = TRASH` (Stage 6 — today: `Special Trash`).
 - `[ ]` Correction: add command coverage for special-node hierarchy edits in free-form outlines.
 
 ## Settled Decisions
 
 1. Workspace labels such as `@bobby:` are shared, user-visible, stable identifiers.
-2. A client may define a local filesystem mapping for a workspace label, or ignore that label.
+2. A client may define a local filesystem mapping for a workspace label, or ignore that label. Local mapping is for secondary download/export and Import; server `DataDir` is primary for file content persistence.
 3. The ownership tree remains the source of containment identity.
 4. Context traversal uses ancestry of special nodes (`workspace`, `directory`, `file`) only.
 5. `Directory` nodes are first-class nodes.
@@ -98,8 +121,10 @@ Authority for implemented behavior: [[doc/current/workspace-graph.md]],
 15. `Workspaces` is a permanent canonical node under root, identified by a fixed `NodeId`, with the
     same permanence semantics as `Trash`.
 16. `Workspace` nodes exist as direct children of `Workspaces`.
-17. Server filesystem persistence remains additive to DB identity and independent from desktop-local
-    absolute root mapping.
+17. Server `DataDir` is the primary file-content persistence layer; graph/DB identity remains authoritative. Desktop-local absolute root mapping is secondary and independent of server path layout.
+18. One graph holds many **documents** (partitions by document root). Document membership follows Owner ancestry from a workspace, directory, or file root; it is not the same as Owner vs Ref.
+19. **Rename** is F2 on the focused node; **Edit node** is Enter only.
+20. Soft delete reparents a node's owner occurrence under canonical TRASH (`MoveToTrash`). TRASH is a permanent `Special Directory` with `Node.name = TRASH` (Stage 6); graph delete semantics are unchanged — only the kind and path resolution change. Stage 7 persists soft delete as a filesystem reparent into `@:/TRASH/...` via the same `DocumentPathMove` handler as rename and reparent.
 
 ## Structural Invariants
 
@@ -112,8 +137,13 @@ Placement restrictions apply only to `Workspaces` and named `Workspace` nodes.
 Context traversal uses only `workspace`, `directory`, and `file` nodes along the owner chain;
 `normal` nodes are ignored for context. See [[doc/roadmap/revising-workspace-file-model]].
 
-No command surface for creating `Directory` or `File` nodes exists yet (Stage 6). Workspace
-create/rename uses general graph ops — [[doc/current/workspace-graph.md]].
+No full **Insert…** / **Rename** command surface exists yet (Stage 6). Workspace create/rename uses general graph ops today — [[doc/current/workspace-graph.md]].
+
+**Stage 6 target — Insert…:** under `Workspaces` focus, create `Special Workspace`; elsewhere create `Special Directory` or `Special File` as owner child of focus. Pick-existing insert (search result) unchanged.
+
+**Stage 6 target — Rename (F2):** `Op.SetName` on workspace, directory, file; `Node.name` only on normal nodes. Reject ROOT, Workspaces, and canonical TRASH.
+
+**Delete:** soft delete moves owner under TRASH (`MoveToTrash`); hard delete under TRASH removes subtree (Stage 7 artifact removal).
 
 The target placement model is free-form below `workspaces`/`workspace` structural rules:
 
@@ -149,6 +179,22 @@ A file node is a special structural node in the ownership tree.
 A file may own `directory`, `file`, and `normal` nodes for outline structure.
 File nodes use `NodeKind = Special File`.
 
+### TRASH (canonical delete container)
+
+**Today:** canonical `trashId` is `Special Trash` — not a document root; no on-disk folder.
+
+**Target (Stage 6):** `trashId` is **`Special Directory`** with `Node.name = TRASH` (display `text` may remain `Trash`). Retire `SpecialKind.Trash`.
+
+| Concern | Treatment |
+| --- | --- |
+| Permanence | Fixed `trashId`, permanent owner child of ROOT — not renamable or removable |
+| Soft delete | `MoveToTrash` appends owner under `trashId` (unchanged graph semantics) |
+| Snapshot / `.amb` | Stable sid `#TRASH`; owner line includes name token `TRASH` |
+| Path resolution | `@:/TRASH/` under nameless ROOT workspace (`NodeDesktopPath`) |
+| UI styling | Trash row class/symbol by `trashId`, not by retired `Special Trash` kind |
+
+**On disk (Stage 7):** TRASH is a persisted directory document — `TRASH/` folder with `TRASH.amb` under the ROOT workspace path in `DataDir` — [[doc/roadmap/workspace-file-persistence.md]].
+
 ### Ordinary Outline Node
 
 An ordinary outline node is any non-workspace, non-directory, non-file node in the existing
@@ -175,10 +221,11 @@ The shared model and shared database are responsible for:
 
 Each desktop client is responsible for:
 
-- choosing whether to handle a workspace label
-- mapping a handled workspace label to an absolute local filesystem root
+- choosing whether to handle a workspace label locally
+- mapping a handled workspace label to an absolute local filesystem root (secondary storage and Import)
 - deciding that a workspace label is currently unavailable on that machine
 
+File content authority lives on the server under `DataDir`. Local mapping does not replace it.
 Two clients may map the same shared workspace label to different absolute roots.
 
 ## Identity And Invariants
@@ -189,15 +236,17 @@ The following invariants define the model:
 2. Each workspace label has exactly one workspace root node.
 3. Each node has exactly one owner in the ownership tree.
 4. Special-node ancestry (`workspace`, `directory`, `file`) defines context.
-5. Ref edges never change ownership or containment membership.
+5. Ref edges never change ownership or containment. Document membership follows Owner ancestry from document roots; Ref edges do not transfer document membership.
 6. The model is not changed automatically by filesystem observation alone.
 
 ## Materialization And Change Rules
 
 Workspace, directory, and file nodes are created, renamed, moved, or removed only by:
 
-- explicit user commands
+- explicit user commands (**Insert…**, **Rename**, delete/move-to-TRASH, etc.)
 - normal cross-client graph synchronization of those user commands
+
+Soft delete is reparent under TRASH, not a separate persist primitive — Stage 7 maps it to a filesystem reparent into `@:/TRASH/...` alongside rename and reparent moves.
 
 The model is not reconciled automatically against any local filesystem view.
 In particular:
@@ -213,8 +262,7 @@ mutate the shared graph.
 ## Canonical Paths
 
 Persistence may use workspace-relative path text on disk. Reference expressions use namespace
-semantics — anchors (`/`, `.`, `^`, `#`, `@label:`), `DirStep` (`name/`), `FileStep` (`name`) — see
-[[doc/roadmap/reference-expressions.md]] and [[doc/roadmap/reference-expression-interpretation.md]].
+semantics — anchors (`/`, `.`, `^`, `#`, `@label:`), `DirStep` (`name/`), `FileStep` (`name`) — see [[doc/roadmap/reference-expressions.md]] and [[doc/roadmap/reference-expression-interpretation.md]].
 Absolute machine-local paths are never part of shared identity.
 
 Path text does not replace node ownership identity. Where persistence or desktop mapping uses path
@@ -227,38 +275,6 @@ These rules support the reference-expression design. Authority:
 [[doc/roadmap/reference-expressions.md]] (surface syntax).
 
 Implemented in `RefExprParse`, `RefExprMatch` (facade: `RefExpr`). See [[doc/current/workspace-graph.md]].
-
-### `@workspace:`
-
-`@bobby:` resolves to the unique workspace root node for workspace label `bobby`.
-
-### Anchors (from context node)
-
-Interpretation walks the ownership chain (including self) unless noted:
-
-- **Context** (no prefix) — the context node itself.
-- **`/`** — nearest `workspace` ancestor (falls back to **ROOT** when none).
-- **`//`** — always **ROOT**.
-- **`.`** — nearest `directory` or `workspace` ancestor (current directory).
-- **`^`** — nearest `file`, `directory`, or `workspace` ancestor (structural container).
-- **`#`** — nearest named `normal` ancestor (current tagged node). `#name` is a tag search step, not
-  this anchor.
-
-### Path steps
-
-From each matched base node:
-
-- **`name/`** (`DirStep`) — a `directory` whose name matches `name` (glob semantics).
-- **`name`** (`FileStep`) — a `file` whose name matches `name`.
-- **`**`** — multi-level wildcard within path scope.
-
-Search uses recursive descent through owned children; recursion does not enter children of
-`directory` or `workspace` nodes. Each step uses the flat list of all matches from the prior step.
-
-### Tagged steps
-
-- **`#name`** — a named `normal` node whose `Node.name` matches `name`.
-- Search is within **content** only (owned `normal` nodes under the relevant structural container).
 
 ### Not implemented yet
 
@@ -305,40 +321,36 @@ The graph projection (`GraphProjection`, change-log ops) stores ownership-tree i
 
 `Snapshot.write` may emit `@label:` path text for workspace nodes (write-only hint). Directory and
 file path bodies in snapshot text are not shared persistence authority; round-trip and server
-`DataDir` layout are Stage 7.
+`DataDir` layout are Stages 7–8.
 
-Desktop-local persistence maps workspace label to absolute local root path — fully separate from
-shared graph and server storage ([[doc/current/workspace-local-mapping.md]]).
+Desktop-local persistence maps workspace label to absolute local root path — fully separate from shared graph and server storage ([[doc/current/workspace-local-mapping.md]]). Used for Import, download/export to mapped paths, and local file-status queries — not as primary file authority.
 
-### Server file persistence (target — Stage 7)
+### Server file persistence (primary — Stages 7–8)
 
-Not fully implemented. Three kinds persist separately on disk under `DataDir`:
+Not fully implemented. Extends the existing snapshot write path; live-save on accepted server state. Each pass may emit ROOT plus one persisted form per workspace, directory, and file **document** under `DataDir`. Only documents whose member-subtree serialization would change are written.
 
-#### Workspace
+**Unified path moves (Stage 7):** graph changes that alter canonical on-disk location of document roots — rename (`Op.SetName`), reparent (`Op.Replace` owner parent), soft delete (`MoveToTrash` → reparent under `trashId`) — share one server handler driven by shared `DocumentPathMove` descriptors (planned in Stage 6). Subtrees with nested document roots may require moving multiple artifacts. Hard delete under TRASH (artifact removal) is a separate concern. Detail: [[doc/roadmap/workspace-file-persistence.md]] § Path moves.
 
-A workspace persists like a special directory. Label `wsname` maps to directory `@wsname` under the
-server data root.
+#### Workspace document
 
-#### Directory
+A workspace document persists like a special directory. Label `wsname` maps to directory `@wsname` under the server data root.
 
-Every directory persists under its owning directory on disk. Root workspace content persists
-directly in the workspace directory. `normal` nodes directly owned by a directory persist in
-`.amb` in that directory.
+#### Directory document
 
-#### File
+Every directory document persists under its owning directory on disk. Root workspace content persists directly in the workspace directory. Normal nodes with document membership in a directory-rooted document (direct members, not nested document roots) persist in `.amb` in that directory.
 
-A file persists by writing the subtree it owns according to the file format.
+#### File document
 
-**Stop at child special node.** When traversing a file's owned tree for persistence, descent
-stops at each child `workspace`, `directory`, or `file` node:
+A file document persists by writing the members of that document according to the file format.
 
-- do not recurse into that child's subtree as part of the parent file payload
-- continue traversing siblings and other branches of the current file tree
-- persist that child special node (and its descendants) as its own file or directory artifact
-- the parent file persists a reference to the child special node, not its nested content
+**Stop at nested document root.** When serializing a document for persistence, descent stops at each child `workspace`, `directory`, or `file` node that is itself a document root:
 
-"Stops descending" means skip recursion into that child tree only — not halt the whole file
-traversal.
+- do not recurse into that nested document's members as part of the parent document's payload
+- continue traversing siblings and other branches of the current document
+- persist the nested document (and its members) as its own artifact
+- the parent document persists a reference to the nested document root, not its nested content
+
+"Stops descending" means skip recursion into that nested document only — not halt serialization of the whole parent document.
 
 ## Migration
 

@@ -14,7 +14,7 @@ Stable `NodeId` values (see `Graph` in `src/Shared/Model.fs`):
 | Node | `NodeId` suffix | Text | Kind |
 |------|-----------------|------|------|
 | Root | `00000000-0000-0000-0000-000000000000` | `ROOT` | `Special Workspace` (nameless, `@:`) |
-| Trash | `…000000000001` | `Trash` | `Special Trash` |
+| Trash | `…000000000001` | `Trash` | `Special Trash` *(today)* → `Special Directory` with `Node.name = TRASH` *(Stage 6 target)* |
 | Workspaces | `…000000000002` | `Workspaces` | `Special Workspaces` |
 
 Every graph built via `Graph.fromNodes` or `Graph.create` has:
@@ -24,7 +24,9 @@ Every graph built via `Graph.fromNodes` or `Graph.create` has:
 - order: user root children first, then `Workspaces`, then `Trash`
 
 `Workspaces` and `Trash` cannot be edited (`setText`, `setClasses`) or removed from root
-(`replace` on root rejects their removal or duplication).
+(`replace` on root rejects their removal or duplication). TRASH cannot be renamed (`setName` rejects `trashId`).
+
+**Stage 6 target:** retire `SpecialKind.Trash`; TRASH becomes `Special Directory` with `Node.name = TRASH`. Same permanence and delete semantics (`MoveToTrash` reparents owner under `trashId`). Path: `@:/TRASH/`. UI trash styling maps by `trashId`, not kind. See [[doc/roadmap/workspace-file-model.md]] § TRASH.
 
 ## Context
 
@@ -63,6 +65,7 @@ Tests: `tests/Shared.Tests/ModelTests.fs` (workspaces bootstrap and placement ca
 - `Graph.fromNodes` calls `ensureWorkspacesNode` then `ensureTrashNode` before rebuilding parent
   maps.
 - `Snapshot.write` / `Snapshot.read` use canonical sid `#WORKSPACES` (parallel to `#TRASH`).
+- `#TRASH` owner lines include name token `TRASH` when Stage 6 lands (today: no name token on Trash owner line).
 - `GraphProjection.graphFromPersistence` assigns `Special Workspaces` when node id matches
   `Graph.workspacesId`.
 
@@ -73,7 +76,7 @@ required.
 
 `Serialization.encodeNodeKind` / `decodeNodeKind` support all `SpecialKind` discriminators
 (`workspaces`, `workspace`, `directory`, `file`, `trash`). Kind is stored on each node in the
-graph JSON payload.
+graph JSON payload. Stage 6 retires the `trash` discriminator; TRASH persists as `directory` with `Node.name = TRASH`.
 
 ## Workspace lifecycle (graph ops)
 
@@ -84,8 +87,12 @@ Workspace nodes are created and renamed through the general change op surface:
 - **Rename** — `Op.SetName(nodeId, oldName, newName)` with `Graph.setName` validation (case-insensitive
   sibling uniqueness, invalid filename chars rejected).
 
+**Stage 6 target — Insert…:** create workspace under `Workspaces`, or `Special Directory` / `Special File` as owner child of focus; pick-existing insert via search unchanged.
+
+**Stage 6 target — Rename (F2):** same `Op.SetName` for workspace, directory, file; normal nodes rename `Node.name` only. Edit node keeps Enter only.
+
 Canonical `Workspaces`, `Trash`, and `ROOT` ids cannot be renamed. No dedicated workspace-removal
-op in this stage.
+op in this stage. Soft delete reparents owner under `trashId` (`MoveToTrash`).
 
 Tests: `tests/Shared.Tests/WorkspaceOpsTests.fs`.
 
