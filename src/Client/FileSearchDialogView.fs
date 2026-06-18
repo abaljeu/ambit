@@ -5,8 +5,10 @@ open Browser.Types
 open Gambol.Shared
 open Gambol.Shared.ViewModel
 open Gambol.Client.Controller
+open Gambol.Client.JsInterop
 open Gambol.Client.Update
 open Gambol.Client.UpdateFileSearch
+open Gambol.Shared.CommandCategory
 
 let private scrollIntoViewNearest (el: HTMLElement) : unit =
     let o = Fable.Core.JsInterop.createEmpty<ScrollIntoViewOptions>
@@ -56,6 +58,13 @@ let private handleFileSearchKey (ke: KeyboardEvent) (dispatch: Msg -> unit) : un
             runFileSearchSelectionOp m.mode m)))
     | _           -> ()
 
+let private dockAccentClasses =
+    [ "amb-dock-base"; "amb-dock-move"; "amb-dock-select"; "amb-dock-more"; "amb-dock-file" ]
+
+let private setDockAccent (el: HTMLElement) (cls: string) : unit =
+    dockAccentClasses |> List.iter (fun c -> el.classList.remove c)
+    el.classList.add cls
+
 let private fileSearchDialogWired = ref false
 
 /// Show or hide the file-search overlay and keep it in sync with query/results.
@@ -68,11 +77,15 @@ let renderFileSearchDialog (model: VM) (dispatch: Msg -> unit) : unit =
         let wasOpen = container.classList.contains "amb-palette-open"
         container.classList.add "amb-palette-open"
         let ctx = document.getElementById "file-search-dialog-context"
-        if not (isNull ctx) then ctx.textContent <- "Insert File"
+        if not (isNull ctx) then
+            ctx.textContent <- "Insert File"
+            setDockAccent ctx (searchDialogDockCssClass "Insert File")
         let input = document.getElementById "file-search-dialog-input" :?> HTMLInputElement
         if input.value <> s.query then input.value <- s.query
         if not wasOpen then
-            window.setTimeout((fun _ -> input.select()), 0) |> ignore
+            window.setTimeout((fun _ ->
+                focusPreventScroll input
+                input.select()), 0) |> ignore
         let items =
             Gambol.Client.FileSearchDialog.currentFileSearchResults model
             |> List.map formatHitLabel

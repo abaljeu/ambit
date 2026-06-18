@@ -6,6 +6,7 @@
     --dock-select: #6b46c1;
     --dock-more: #0f766e;
     --dock-close: #b91c1c;
+    --dock-file: #5588aa;
 }
 
 html {
@@ -60,6 +61,7 @@ body {
 .amb-dock-move { --dock-accent: var(--dock-move); }
 .amb-dock-select { --dock-accent: var(--dock-select); }
 .amb-dock-more { --dock-accent: var(--dock-more); }
+.amb-dock-file { --dock-accent: var(--dock-file); }
 .amb-dock-glyph {
     appearance: none;
     display: flex;
@@ -290,8 +292,10 @@ body {
 .amb-palette-context {
     padding: 8px 14px 4px;
     font-size: 0.85rem;
-    color: #555;
-    border-bottom: 1px solid #eee;
+    color: #444;
+    border-bottom: 1px solid #e0e0e0;
+    border-top: 3px solid var(--dock-accent, var(--dock-base));
+    background: #f4f6f8;
 }
 .amb-palette-input {
     width: 100%;
@@ -301,6 +305,10 @@ body {
     border: none;
     border-bottom: 1px solid #ddd;
     outline: none;
+    background: #f0f2f5;
+}
+.amb-palette-input:focus {
+    background: #fff;
 }
 .amb-palette-results {
     list-style: none;
@@ -308,6 +316,7 @@ body {
     padding: 0;
     max-height: 320px;
     overflow-y: auto;
+    background: #fff;
 }
 .amb-palette-results li {
     padding: 8px 14px;
@@ -381,10 +390,10 @@ body {
     background: #e8e8e4;
 }
 .amb-row.amb-selected {
-    background: #8bbc;
+    background: #cbdc;
 }
 .amb-row.amb-focused {
-    background: #dbbc;
+    background: #b9cc;
 }
 .amb-text {
     background: #eeeeee80;
@@ -415,6 +424,7 @@ body {
 .redletter { color: #f00; }
 .blueletter { color:#00f; }
 .check { text-decoration: line-through; }
+.lblue { background-color: #aaf6; }
 .blue { background-color: #77f6; }
 .green { background-color: #7f76; }
 .red { background-color: #f776; }
