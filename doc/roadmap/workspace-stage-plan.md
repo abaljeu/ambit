@@ -152,7 +152,7 @@ Directory and file node identity (`kind`, `name`, owner link) may exist in the g
 
 Target persistence split (documented): workspace, directory, and file documents persist separately; serialization stops at nested document roots — see [[doc/roadmap/workspace-file-model.md]] Persistence Shape and [[doc/roadmap/workspace-file-persistence.md]].
 
-Lookup: `RefExpr.refContext`, `RefExpr.match_`, `FilePathResolve.findOwnerChild`.
+Lookup: `RefExpr.refContext`, `RefExpr.match_`, and owner-name scans in search helpers.
 
 Desktop-local label → absolute root mapping is separate — [[doc/current/workspace-local-mapping.md]]. Server `DataDir` is primary file authority; desktop mapping is secondary (download/export, Import, local file-status).
 

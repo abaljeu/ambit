@@ -43,6 +43,15 @@ let private trashRange (graph: Graph) (start: int) (endd: int) : SiteNodeRange =
         |> Seq.find (fun e -> e.nodeId = Graph.trashId)
     { parent = trashEntry; start = start; endd = endd }
 
+/// SiteNodeRange for Workspaces' children [start, endd).
+let private workspacesRange (graph: Graph) (start: int) (endd: int) : SiteNodeRange =
+    let siteMap, _ = buildSiteMap graph
+    let workspacesEntry =
+        siteMap.entries
+        |> Map.values
+        |> Seq.find (fun e -> e.nodeId = Graph.workspacesId)
+    { parent = workspacesEntry; start = start; endd = endd }
+
 // ---------------------------------------------------------------------------
 // Multi-sibling MoveToTrash
 // ---------------------------------------------------------------------------
@@ -126,6 +135,48 @@ let ``classifyDeleteForSelection returns empty when TRASH is in range`` () =
     let classified = ViewModelDeleteOps.classifyDeleteForSelection g2 range
     // TRASH in range must cancel entire classification (all-or-nothing)
     Assert.Empty(classified)
+
+[<Fact>]
+let ``classifyDeleteForSelection returns empty for workspace delete`` () =
+    let ws = NodeId.New()
+    let g0 = Graph.create ()
+    let g1 =
+        History.applyChange
+            { id = 0
+              changeId = System.Guid.NewGuid()
+              ops =
+                [ Op.NewSpecialNode(ws, Workspace, "home")
+                  Op.Replace(Graph.workspacesId, 0, [], owned [ ws ]) ] }
+            (stateOf g0)
+    match g1 with
+    | ApplyResult.Changed s ->
+        let range = workspacesRange s.graph 0 1
+        let classified = ViewModelDeleteOps.classifyDeleteForSelection s.graph range
+        Assert.Empty(classified)
+    | ApplyResult.Invalid(_, msg) -> Assert.True(false, $"Invalid: {msg}")
+    | ApplyResult.Unchanged _ -> Assert.True(false, "Expected Changed")
+
+[<Fact>]
+let ``classifyDeleteForSelection cancels whole selection when workspace is in range`` () =
+    let ws = NodeId.New()
+    let dir = NodeId.New()
+    let g0 = Graph.create ()
+    let g1 =
+        History.applyChange
+            { id = 0
+              changeId = System.Guid.NewGuid()
+              ops =
+                [ Op.NewSpecialNode(ws, Workspace, "home")
+                  Op.NewSpecialNode(dir, Directory, "docs")
+                  Op.Replace(Graph.workspacesId, 0, [], owned [ ws; dir ]) ] }
+            (stateOf g0)
+    match g1 with
+    | ApplyResult.Changed s ->
+        let range = workspacesRange s.graph 0 2
+        let classified = ViewModelDeleteOps.classifyDeleteForSelection s.graph range
+        Assert.Empty(classified)
+    | ApplyResult.Invalid(_, msg) -> Assert.True(false, $"Invalid: {msg}")
+    | ApplyResult.Unchanged _ -> Assert.True(false, "Expected Changed")
 
 // ---------------------------------------------------------------------------
 // Single-node regression

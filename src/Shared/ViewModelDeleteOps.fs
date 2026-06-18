@@ -32,10 +32,14 @@ module ViewModelDeleteOps =
             |> List.mapi (fun i child -> i, child)
             |> List.filter (fun (i, _) -> i >= range.start && i < range.endd)
 
-        // All-or-nothing: if any selected child is TRASH, cancel the entire delete.
-        // Behavioral note: previously TRASH was silently skipped; now it cancels all siblings too.
-        let anyTrash = selectedChildren |> List.exists (fun (_, c) -> c.id = Graph.trashId)
-        if anyTrash then []
+        // All-or-nothing: system TRASH and workspace roots are not deleted in Stage 6.
+        let isBlockedDeleteChild (child: ChildNode) =
+            child.id = Graph.trashId
+            || (match graph.nodes.[child.id].kind with
+                | Special Workspace -> true
+                | _ -> false)
+
+        if selectedChildren |> List.exists (fun (_, c) -> isBlockedDeleteChild c) then []
         else
 
         selectedChildren

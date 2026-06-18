@@ -69,6 +69,8 @@ module DocumentPathMove =
         match Map.tryFind nodeId graph.nodes with
         | None -> None
         | Some node when not (isDocumentRoot node.kind) -> None
+        | Some node when node.kind = Special Workspace && newParentId <> Graph.workspacesId ->
+            None
         | Some node ->
             match pathForDocumentRoot graph nodeId with
             | None -> None
@@ -110,9 +112,15 @@ module NodeRenameOps =
         else
             let node = graph.nodes.[nodeId]
             let oldName = nameString node.name
-            match Graph.setName nodeId oldName newName graph with
-            | Error msg -> Error msg
-            | Ok _ ->
-                let op = Op.SetName(nodeId, oldName, newName)
-                let pathMove = DocumentPathMove.planPathMoveForSetName graph nodeId newName
-                Ok ([ op ], pathMove)
+            match Filename.create newName with
+            | Filename.Ok validName when validName = oldName ->
+                Ok ([], None)
+            | Filename.Invalid _ | Filename.Empty ->
+                Error "new name is not a valid filename"
+            | Filename.Ok validName ->
+                match Graph.setName nodeId oldName validName graph with
+                | Error msg -> Error msg
+                | Ok _ ->
+                    let op = Op.SetName(nodeId, oldName, validName)
+                    let pathMove = DocumentPathMove.planPathMoveForSetName graph nodeId validName
+                    Ok ([ op ], pathMove)

@@ -71,13 +71,9 @@ let ``planPathMoveForSetName returns new path for workspace rename`` () =
         Assert.Equal(wsId, move.nodeId)
 
 [<Fact>]
-let ``planPathMoveForReparent move to trash updates workspace path`` () =
+let ``planPathMoveForReparent returns none for workspace move to trash`` () =
     let graph, wsId, _ = graphWithWorkspaceFile ()
-    match DocumentPathMove.planPathMoveForReparent graph wsId Graph.trashId with
-    | None -> Assert.Fail "expected Some"
-    | Some move ->
-        Assert.Equal("@home:", move.oldPath)
-        Assert.Equal("@:/TRASH/home", move.newPath)
+    Assert.Equal(None, DocumentPathMove.planPathMoveForReparent graph wsId Graph.trashId)
 
 [<Fact>]
 let ``planRenameNode rejects canonical trash id`` () =
@@ -96,6 +92,19 @@ let ``planRenameNode on Normal updates name not text`` () =
         let node = graph2.nodes.[nodeId]
         Assert.Equal(Filename.Ok "file-name", node.name)
         Assert.Equal("visible label", node.text)
+
+[<Fact>]
+let ``planRenameNode returns empty ops when name is unchanged`` () =
+    let graph0 = Graph.create ()
+    let graph1, nodeId = Graph.newNode "visible label" graph0
+    let graph2 =
+        Graph.setName nodeId "" "file-name" graph1
+        |> requireOk "set initial name"
+    match NodeRenameOps.planRenameNode graph2 nodeId "file-name" with
+    | Error e -> Assert.Fail e
+    | Ok (ops, pathMove) ->
+        Assert.Empty(ops)
+        Assert.Equal(None, pathMove)
 
 [<Fact>]
 let ``pathForNodeId trash returns TRASH directory path`` () =

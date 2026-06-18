@@ -30,7 +30,6 @@
     <Compile Include="ViewModelOps.fs" />
     <Compile Include="ViewModelDeleteOps.fs" />
     <Compile Include="ViewModelSearch.fs" />
-    <Compile Include="FilePathResolve.fs" />
     <Compile Include="ViewModelFileSearch.fs" />
     <Compile Include="FileNodeOps.fs" />
     <Compile Include="DocumentPathMove.fs" />

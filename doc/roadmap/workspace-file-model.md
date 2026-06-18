@@ -316,7 +316,7 @@ The graph projection (`GraphProjection`, change-log ops) stores ownership-tree i
 
 - **Workspace** — label → workspace root node (`Special Workspace` under `Workspaces`,
   `Node.name` = label). Implemented (Stage 3). Lookup: `RefExpr.refContext`, `RefExpr.match_`,
-  `FilePathResolve.findOwnerChild`.
+  and owner-name scans in search helpers.
 - **Directory** — node identity (`kind`, `name`, owner link). No server `DataDir` path materialization
   yet.
 - **File** — node identity (`kind`, `name`, owner link). No server `DataDir` path materialization
