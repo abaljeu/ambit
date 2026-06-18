@@ -666,6 +666,7 @@ module ViewModel =
             | SearchDialog s -> s.returnTo
             | FileSearchDialog s -> s.returnTo
             | CssClassPrompt (ret, _) -> ret
+            | RenamePrompt (ret, _) -> ret
             | m -> m
         match effectiveMode, model.selectedNodes with
         | Editing _, None    -> entry.parentInstanceId = None
@@ -767,31 +768,35 @@ module ViewModel =
             | FileStatusIndicator (_, _, status, sourceModifiedUtc) ->
                 FileSyncIndicator.indicatorTextForStatus node.updateTime status sourceModifiedUtc
 
-    let specialKindRowClass (kind: NodeKind) : string option =
-        match kind with
-        | Normal -> None
-        | Special Workspaces -> Some "amb-row-special-workspaces"
-        | Special Workspace -> Some "amb-row-special-workspace"
-        | Special Directory -> Some "amb-row-special-directory"
-        | Special File -> Some "amb-row-special-file"
-        | Special Trash -> Some "amb-row-special-trash"
+    let specialKindRowClass (nodeId: NodeId) (kind: NodeKind) : string option =
+        if nodeId = Graph.trashId then
+            Some "amb-row-special-trash"
+        else
+            match kind with
+            | Normal -> None
+            | Special Workspaces -> Some "amb-row-special-workspaces"
+            | Special Workspace -> Some "amb-row-special-workspace"
+            | Special Directory -> Some "amb-row-special-directory"
+            | Special File -> Some "amb-row-special-file"
 
-    let specialKindSymbol (kind: NodeKind) : string option =
-        match kind with
-        | Normal -> None
-        | Special Workspaces -> Some "\u229E"
-        | Special Workspace -> Some "@"
-        | Special Directory -> Some "\u25A4"
-        | Special File -> Some "\u2261"
-        | Special Trash -> Some "\u00D7"
+    let specialKindSymbol (nodeId: NodeId) (kind: NodeKind) : string option =
+        if nodeId = Graph.trashId then
+            Some "\u00D7"
+        else
+            match kind with
+            | Normal -> None
+            | Special Workspaces -> Some "\u229E"
+            | Special Workspace -> Some "@"
+            | Special Directory -> Some "\u25A4"
+            | Special File -> Some "\u2261"
 
     let rowFileIndicatorText (model: VM) (entry: SiteEntry) (node: Node) : string =
         let desktop = desktopFileIndicatorText model entry node
         if desktop <> "" then desktop
-        else specialKindSymbol node.kind |> Option.defaultValue ""
+        else specialKindSymbol node.id node.kind |> Option.defaultValue ""
 
-    let private addSpecialKindRowClass (kind: NodeKind) (className: string) : string =
-        match specialKindRowClass kind with
+    let private addSpecialKindRowClass (nodeId: NodeId) (kind: NodeKind) (className: string) : string =
+        match specialKindRowClass nodeId kind with
         | Some sk -> CssClass.add sk className
         | None -> className
 
@@ -871,7 +876,7 @@ module ViewModel =
                             let newClass =
                                 "amb-row"
                                 |> CssClass.add (ownershipClass newModel entry)
-                                |> addSpecialKindRowClass newNode.kind
+                                |> addSpecialKindRowClass newNode.id newNode.kind
                                 |> CssClass.addIf isRoot "amb-view-root"
                                 |> CssClass.addIf sel "amb-selected"
                                 |> CssClass.addIf foc "amb-focused"
@@ -882,7 +887,7 @@ module ViewModel =
                                 |> CssClass.add (oldEntry |> Option.map (ownershipClass oldModel) |> Option.defaultValue "amb-row-owned")
                                 |> (fun s ->
                                     match oldNode with
-                                    | Some n -> addSpecialKindRowClass n.kind s
+                                    | Some n -> addSpecialKindRowClass n.id n.kind s
                                     | None -> s)
                                 |> CssClass.addIf isRoot "amb-view-root"
                                 |> CssClass.addIf oldSel "amb-selected"

@@ -17,6 +17,7 @@
     <Compile Include="SearchDialog.fs" />
     <Compile Include="FileSearchDialog.fs" />
     <Compile Include="UpdateFileSearch.fs" />
+    <Compile Include="UpdateRename.fs" />
     <Compile Include="UpdatePaste.fs" />
     <Compile Include="UpdateImport.fs" />
     <Compile Include="UpdateExport.fs" />

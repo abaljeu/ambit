@@ -11,6 +11,7 @@ let private exportBlockedMode =
     | SearchDialog _
     | FileSearchDialog _
     | CssClassPrompt _ -> true
+    | RenamePrompt _ -> true
     | _ -> false
 
 let private canExportDesktop (model: VM) =

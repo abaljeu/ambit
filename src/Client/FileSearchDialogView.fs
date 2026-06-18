@@ -78,8 +78,8 @@ let renderFileSearchDialog (model: VM) (dispatch: Msg -> unit) : unit =
         container.classList.add "amb-palette-open"
         let ctx = document.getElementById "file-search-dialog-context"
         if not (isNull ctx) then
-            ctx.textContent <- "Insert File"
-            setDockAccent ctx (searchDialogDockCssClass "Insert File")
+            ctx.textContent <- "Insert…"
+            setDockAccent ctx (searchDialogDockCssClass "Insert…")
         let input = document.getElementById "file-search-dialog-input" :?> HTMLInputElement
         if input.value <> s.query then input.value <- s.query
         if not wasOpen then
@@ -91,8 +91,17 @@ let renderFileSearchDialog (model: VM) (dispatch: Msg -> unit) : unit =
             |> List.map formatHitLabel
         renderFileSearchResults container items s.selectedIndex
 
-        let newBtn = document.getElementById "file-search-dialog-new" :?> HTMLButtonElement
-        newBtn.disabled <- not (Gambol.Client.FileSearchDialog.isNewEnabled model)
+        let wsBtn = document.getElementById "file-search-dialog-new-workspace" :?> HTMLButtonElement
+        let fileBtn = document.getElementById "file-search-dialog-new-file" :?> HTMLButtonElement
+        let folderBtn = document.getElementById "file-search-dialog-new-folder" :?> HTMLButtonElement
+        let showWs = Gambol.Client.FileSearchDialog.insertDialogFocusIsWorkspaces model
+        let showFileFolder = Gambol.Client.FileSearchDialog.insertDialogShowsFileFolder model
+        let setButtonVisible (btn: HTMLButtonElement) (visible: bool) =
+            if visible then btn.removeAttribute "hidden"
+            else btn.setAttribute("hidden", "")
+        setButtonVisible wsBtn showWs
+        setButtonVisible fileBtn showFileFolder
+        setButtonVisible folderBtn showFileFolder
 
         if not fileSearchDialogWired.Value then
             fileSearchDialogWired.Value <- true
@@ -121,7 +130,13 @@ let renderFileSearchDialog (model: VM) (dispatch: Msg -> unit) : unit =
                                 (FileSearchDialog { s with selectedIndex = idx }) m
                         | _ -> m, [])))
 
-            newBtn.addEventListener("click", fun _ ->
-                dispatch (ApplyOp (withDiagnostic "" "Create file" runFileSearchNewOp)))
+            wsBtn.addEventListener("click", fun _ ->
+                dispatch (ApplyOp (withDiagnostic "" "New workspace" runFileSearchNewWorkspaceOp)))
+
+            fileBtn.addEventListener("click", fun _ ->
+                dispatch (ApplyOp (withDiagnostic "" "New file" runFileSearchNewFileOp)))
+
+            folderBtn.addEventListener("click", fun _ ->
+                dispatch (ApplyOp (withDiagnostic "" "New folder" runFileSearchNewFolderOp)))
     | _ ->
         container.classList.remove "amb-palette-open"

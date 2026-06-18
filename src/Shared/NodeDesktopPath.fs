@@ -11,8 +11,7 @@ module NodeDesktopPath =
                 match FileReference.parseFirst node.text with
                 | FileReference path -> Some path
                 | _ -> None
-            | Special Workspaces
-            | Special Trash -> None
+            | Special Workspaces -> None
             | Special Workspace ->
                 if node.id = Graph.rootId then
                     Some "@:"

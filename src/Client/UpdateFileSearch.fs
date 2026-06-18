@@ -21,6 +21,11 @@ let private applyOpsChange (ops: Op list) (model: VM) : VM * Effect list =
         | None, _ -> model, []
         | Some m, effects -> withSiteMap m, effects
 
+let private focusParentId (model: VM) : NodeId option =
+    match model.selectedNodes with
+    | None -> None
+    | Some sel -> Some (focusedNodeId model.graph sel)
+
 /// Op: Insert a file reference at the focus row from an existing workspaces file node.
 let fileSearchPickExisting (fileNodeId: NodeId) (model: VM) : VM * Effect list =
     match model.selectedNodes with
@@ -30,19 +35,23 @@ let fileSearchPickExisting (fileNodeId: NodeId) (model: VM) : VM * Effect list =
             FileNodeOps.planInsertFileRefAtFocus (focusInsertPoint sel) fileNodeId model.graph
         applyOpsChange ops model
 
-/// Op: Create a workspaces file from a concrete path query and insert a ref at focus.
-let fileSearchPickNew (query: string) (model: VM) : VM * Effect list =
-    match model.selectedNodes with
+let fileSearchCreateWorkspace (model: VM) : VM * Effect list =
+    let _, ops = FileNodeOps.planCreateWorkspace model.graph
+    applyOpsChange ops model
+
+let fileSearchCreateFile (model: VM) : VM * Effect list =
+    match focusParentId model with
     | None -> model, []
-    | Some sel ->
-        let focusId = focusedNodeId model.graph sel
-        let insert = focusInsertPoint sel
-        match FilePathResolve.tryResolveConcreteTarget focusId model.graph query with
-        | None -> model, []
-        | Some target ->
-            match FileNodeOps.planAddFileAtFocus model.graph insert target with
-            | Error _ -> model, []
-            | Ok (_, ops) -> applyOpsChange ops model
+    | Some parentId ->
+        let _, ops = FileNodeOps.planCreateOwnedFile model.graph parentId
+        applyOpsChange ops model
+
+let fileSearchCreateFolder (model: VM) : VM * Effect list =
+    match focusParentId model with
+    | None -> model, []
+    | Some parentId ->
+        let _, ops = FileNodeOps.planCreateOwnedDirectory model.graph parentId
+        applyOpsChange ops model
 
 let runFileSearchSelectionOp (mode: Mode) (model: VM) : VM * Effect list =
     match mode with
@@ -61,12 +70,28 @@ let runFileSearchSelectionOp (mode: Mode) (model: VM) : VM * Effect list =
             | Some hit -> fileSearchPickExisting hit.nodeId closed
     | _ -> model, []
 
-let runFileSearchNewOp (model: VM) : VM * Effect list =
+let runFileSearchNewWorkspaceOp (model: VM) : VM * Effect list =
     match model.mode with
     | FileSearchDialog s ->
         FileSearchDialog.rememberFileSearchQuery s.query
         let closed = { model with mode = s.returnTo }
-        fileSearchPickNew s.query closed
+        fileSearchCreateWorkspace closed
+    | _ -> model, []
+
+let runFileSearchNewFileOp (model: VM) : VM * Effect list =
+    match model.mode with
+    | FileSearchDialog s ->
+        FileSearchDialog.rememberFileSearchQuery s.query
+        let closed = { model with mode = s.returnTo }
+        fileSearchCreateFile closed
+    | _ -> model, []
+
+let runFileSearchNewFolderOp (model: VM) : VM * Effect list =
+    match model.mode with
+    | FileSearchDialog s ->
+        FileSearchDialog.rememberFileSearchQuery s.query
+        let closed = { model with mode = s.returnTo }
+        fileSearchCreateFolder closed
     | _ -> model, []
 
 let openFileSearchDialogOp = FileSearchDialog.openFileSearchDialogOp

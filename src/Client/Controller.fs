@@ -13,6 +13,7 @@ open Gambol.Client.UpdateHelpers
 open Gambol.Client.UpdateOps
 open Gambol.Client.UpdateImport
 open Gambol.Client.UpdateExport
+open Gambol.Client.UpdateRename
 open Gambol.Client.SearchDialog
 open Gambol.Client.Commands
 
@@ -357,6 +358,15 @@ let private cssClassPromptKeyBindings : KeyBinding list =
         handler = keyAlways submitCssClassPromptOp
         commandName = "Apply class" } ]
 
+/// Key bindings for the rename prompt overlay (Escape to cancel, Enter to submit).
+let private renamePromptKeyBindings : KeyBinding list =
+    [ { key = "Escape"
+        handler = keyAlways closeRenamePromptOp
+        commandName = "Cancel" }
+      { key = "Enter"
+        handler = keyAlways submitRenamePromptOp
+        commandName = "Rename" } ]
+
 
 let private tryResolveFromNamed
     (table: KeyBinding list)
@@ -398,6 +408,7 @@ let handleKey (mode: Mode) (ke: KeyboardEvent) (dispatch: Msg -> unit) : unit =
             | SearchDialog _ -> [] // keys handled by search input's own listener
             | FileSearchDialog _ -> []
             | CssClassPrompt _ -> cssClassPromptKeyBindings
+            | RenamePrompt _ -> renamePromptKeyBindings
             | Editing _ -> editingKeyBindings
             | Selecting -> selectionKeyBindings
         match tryResolveFromNamed table ke with
@@ -421,4 +432,10 @@ let handleCssClassPromptKey (keyEvent: KeyboardEvent) (dispatch: Msg -> unit) : 
     | Error _ -> ()
     | Ok resolved -> dispatchResolvedKey keyStr resolved keyEvent dispatch
 
+/// Rename prompt input: Escape to cancel, Enter to submit.
+let handleRenamePromptKey (keyEvent: KeyboardEvent) (dispatch: Msg -> unit) : unit =
+    let keyStr = formatKeyCombo keyEvent
+    match tryResolveFromNamed renamePromptKeyBindings keyEvent with
+    | Error _ -> ()
+    | Ok resolved -> dispatchResolvedKey keyStr resolved keyEvent dispatch
 

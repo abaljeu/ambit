@@ -35,32 +35,52 @@ let private outlineSetup () =
     focus, graph2
 
 [<Fact>]
-let ``planCreateFileInWorkspaces creates workspace directory and file`` () =
-    let t = tree.Value
-    let target =
-        FilePathResolve.tryResolveConcreteTarget t.contentFile t.graph "@newws:pkg/util.fs"
-        |> Option.defaultWith (fun () -> failwith "expected concrete target")
-    let fileId, ops = FileNodeOps.planCreateFileInWorkspaces t.graph target |> requireOk
-    let graph2 = applyOps t.graph ops
-    let fileNode = graph2.nodes.[fileId]
-    Assert.Equal(Special File, fileNode.kind)
-    Assert.Equal(Filename.Ok "util.fs", fileNode.name)
-    Assert.Equal(
-        Some "@newws:/pkg/util.fs",
-        NodeDesktopPath.pathForNodeId graph2 fileId
-    )
+let ``planCreateWorkspace creates workspace under Workspaces`` () =
+    let graph = Graph.create ()
+    let wsId, ops = FileNodeOps.planCreateWorkspace graph
+    let graph2 = applyOps graph ops
+    let wsNode = graph2.nodes.[wsId]
+    Assert.Equal(Special Workspace, wsNode.kind)
+    Assert.Equal(Filename.Ok "workspace", wsNode.name)
+    Assert.True(
+        graph2.nodes.[Graph.workspacesId].children
+        |> List.exists (fun c -> c.id = wsId && c.ref = Ownership.Owner))
 
 [<Fact>]
-let ``planCreateFileInWorkspaces reuses existing directories`` () =
-    let t = tree.Value
-    let target =
-        FilePathResolve.tryResolveConcreteTarget t.contentFile t.graph "@bobby:src/reuse.fs"
-        |> Option.defaultWith (fun () -> failwith "expected concrete target")
-    let _, ops = FileNodeOps.planCreateFileInWorkspaces t.graph target |> requireOk
-    Assert.DoesNotContain(ops, fun op ->
-        match op with
-        | Op.NewSpecialNode(_, Directory, _) -> true
-        | _ -> false)
+let ``planCreateOwnedFile creates file under focus parent`` () =
+    let focus, graph = outlineSetup ()
+    let fileId, ops = FileNodeOps.planCreateOwnedFile graph focus
+    let graph2 = applyOps graph ops
+    let fileNode = graph2.nodes.[fileId]
+    Assert.Equal(Special File, fileNode.kind)
+    Assert.Equal(Filename.Ok "file.txt", fileNode.name)
+    Assert.Equal(focus, fileNode.owner)
+
+[<Fact>]
+let ``planCreateOwnedDirectory creates folder under focus parent`` () =
+    let focus, graph = outlineSetup ()
+    let dirId, ops = FileNodeOps.planCreateOwnedDirectory graph focus
+    let graph2 = applyOps graph ops
+    let dirNode = graph2.nodes.[dirId]
+    Assert.Equal(Special Directory, dirNode.kind)
+    Assert.Equal(Filename.Ok "folder", dirNode.name)
+
+[<Fact>]
+let ``planCreateOwnedFile picks unused sibling name`` () =
+    let focus, graph = outlineSetup ()
+    let _, ops1 = FileNodeOps.planCreateOwnedFile graph focus
+    let graph2 = applyOps graph ops1
+    let _, ops2 = FileNodeOps.planCreateOwnedFile graph2 focus
+    let graph3 = applyOps graph2 ops2
+    let names =
+        graph3.nodes.[focus].children
+        |> List.choose (fun c ->
+            if c.ref <> Ownership.Owner then None
+            else
+                match graph3.nodes.[c.id].name with
+                | Filename.Ok n -> Some n
+                | _ -> None)
+    Assert.Equal< string list >([ "file.txt"; "file.txt1" ], names)
 
 [<Fact>]
 let ``planInsertFileRefAtFocus inserts ref at index`` () =
@@ -83,58 +103,3 @@ let ``planInsertFileRefAtFocus is idempotent when ref already present`` () =
     let insert = { parentId = t.blueChild; index = 0 }
     let ops = FileNodeOps.planInsertFileRefAtFocus insert t.libFs graph1
     Assert.Empty(ops)
-
-[<Fact>]
-let ``planCreateFileInWorkspaces inserts file before Workspaces on ROOT`` () =
-    let focus, graph = outlineSetup ()
-    let target =
-        FilePathResolve.tryResolveConcreteTarget focus graph "file1"
-        |> Option.defaultWith (fun () -> failwith "expected concrete target")
-    let fileId, ops = FileNodeOps.planCreateFileInWorkspaces graph target |> requireOk
-    let graph2 = applyOps graph ops
-    let rootChildren = graph2.nodes.[Graph.rootId].children
-    let fileIdx = rootChildren |> List.findIndex (fun c -> c.id = fileId)
-    let wsIdx = rootChildren |> List.findIndex (fun c -> c.id = Graph.workspacesId)
-    Assert.True(fileIdx < wsIdx)
-
-[<Fact>]
-let ``planAddFileAtFocus from outline creates file under ROOT and ref at focus`` () =
-    let focus, graph = outlineSetup ()
-    let target =
-        FilePathResolve.tryResolveConcreteTarget focus graph "file1"
-        |> Option.defaultWith (fun () -> failwith "expected concrete target")
-    let insert = { parentId = focus; index = 0 }
-    let fileId, ops = FileNodeOps.planAddFileAtFocus graph insert target |> requireOk
-    let graph2 = applyOps graph ops
-    Assert.True(
-        graph2.nodes.[Graph.rootId].children
-        |> List.exists (fun c -> c.id = fileId && c.ref = Ownership.Owner)
-    )
-    Assert.True(
-        graph2.nodes.[focus].children
-        |> List.exists (fun c -> c.id = fileId && c.ref = Ownership.Ref)
-    )
-
-[<Fact>]
-let ``planAddFileAtFocus creates dir file and ref for relative path`` () =
-    let t = tree.Value
-    let target =
-        FilePathResolve.tryResolveConcreteTarget t.contentFile t.graph "dir/file2"
-        |> Option.defaultWith (fun () -> failwith "expected concrete target")
-    let insert = { parentId = t.blueChild; index = 0 }
-    let fileId, ops = FileNodeOps.planAddFileAtFocus t.graph insert target |> requireOk
-    let graph2 = applyOps t.graph ops
-    let dirId =
-        graph2.nodes.[t.workspaceRoot].children
-        |> List.pick (fun c ->
-            match graph2.nodes |> Map.tryFind c.id with
-            | Some n when n.kind = Special Directory && n.name = Filename.Ok "dir" -> Some c.id
-            | _ -> None)
-    let fileNode = graph2.nodes.[fileId]
-    Assert.Equal(Special File, fileNode.kind)
-    Assert.Equal(Filename.Ok "file2", fileNode.name)
-    Assert.Equal(dirId, fileNode.owner)
-    Assert.True(
-        graph2.nodes.[t.blueChild].children
-        |> List.exists (fun c -> c.id = fileId && c.ref = Ownership.Ref)
-    )

@@ -89,7 +89,7 @@ let private makeRowElement
     if siteEntry.parentInstanceId = None then row.classList.add "amb-view-root"
     if isEntrySelected model siteEntry then row.classList.add "amb-selected"
     if isEntryFocused  model siteEntry then row.classList.add "amb-focused"
-    match ViewModel.specialKindRowClass node.kind with
+    match ViewModel.specialKindRowClass node.id node.kind with
     | Some cls -> row.classList.add cls
     | None -> ()
 
@@ -140,6 +140,7 @@ let private makeRowElement
             | SearchDialog s -> s.returnTo
             | FileSearchDialog s -> s.returnTo
             | CssClassPrompt (ret, _) -> ret
+            | RenamePrompt (ret, _) -> ret
             | m -> m
         let initialValue =
             match effectiveMode with
@@ -265,7 +266,7 @@ let manageFocus
         : unit =
     let preserveEditCaret = EditingCaretPreserve.shouldPreserveDomCaret previousModel model
     match model.mode with
-    | CommandPalette _ | SearchDialog _ | FileSearchDialog _ | CssClassPrompt _ ->
+    | CommandPalette _ | SearchDialog _ | FileSearchDialog _ | CssClassPrompt _ | RenamePrompt _ ->
         () // focus is handled by overlay renderers after the element becomes visible
     | Editing _ ->
         cancelPendingSelectionScroll ()
@@ -586,6 +587,39 @@ let renderCssClassPrompt (model: VM) (dispatch: Msg -> unit) : unit =
         container.classList.remove "amb-palette-open"
         cssClassPromptFilled.Value <- false
         let input = document.getElementById "css-class-prompt-input" :?> HTMLInputElement
+        if not (isNull input) && input.value <> "" then
+            input.value <- ""
+
+let private renamePromptWired = ref false
+let private renamePromptFilled = ref false
+
+/// Show or hide the rename prompt overlay.
+let renderRenamePrompt (model: VM) (dispatch: Msg -> unit) : unit =
+    let container = document.getElementById "rename-prompt"
+    if isNull container then () else
+
+    match model.mode with
+    | RenamePrompt (_, initialValue) ->
+        container.classList.add "amb-palette-open"
+        let input = document.getElementById "rename-prompt-input" :?> HTMLInputElement
+        if not (isNull input) then
+            if not renamePromptFilled.Value then
+                renamePromptFilled.Value <- true
+                input.value <- initialValue
+            window.setTimeout((fun _ ->
+                focusPreventScroll input
+                input.select()), 0) |> ignore
+            if not renamePromptWired.Value then
+                renamePromptWired.Value <- true
+                input.addEventListener("keydown", fun (ev: Event) ->
+                    let ke = ev :?> KeyboardEvent
+                    if (ke.ctrlKey || ke.metaKey) && ke.key = "p" && not ke.shiftKey then
+                        ev.preventDefault()
+                    handleRenamePromptKey ke dispatch)
+    | _ ->
+        container.classList.remove "amb-palette-open"
+        renamePromptFilled.Value <- false
+        let input = document.getElementById "rename-prompt-input" :?> HTMLInputElement
         if not (isNull input) && input.value <> "" then
             input.value <- ""
 

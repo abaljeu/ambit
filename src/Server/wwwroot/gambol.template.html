@@ -34,9 +34,14 @@
         <div id="file-search-dialog" class="amb-palette">
             <div id="file-search-dialog-context" class="amb-palette-context" aria-live="polite"></div>
             <input id="file-search-dialog-input" class="amb-palette-input" type="text"
-                placeholder="File path or name (@ws:dir/file, /file, *.fs)..." autocomplete="off">
+                placeholder="Search existing files..." autocomplete="off">
             <ul id="file-search-dialog-results" class="amb-palette-results"></ul>
-            <button id="file-search-dialog-new" class="amb-palette-new" type="button" disabled>New</button>
+            <button id="file-search-dialog-new-workspace" class="amb-palette-new" type="button">New Workspace</button>
+            <button id="file-search-dialog-new-file" class="amb-palette-new" type="button">New File</button>
+            <button id="file-search-dialog-new-folder" class="amb-palette-new" type="button">New Folder</button>
+        </div>
+        <div id="rename-prompt" class="amb-palette">
+            <input id="rename-prompt-input" class="amb-palette-input" type="text" placeholder="New name" autocomplete="off">
         </div>
         <div id="css-class-prompt" class="amb-palette">
             <input id="css-class-prompt-input" class="amb-palette-input" type="text" placeholder="Classes (space-separated)" autocomplete="off">

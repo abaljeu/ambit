@@ -43,7 +43,7 @@ module Snapshot =
             match node.kind with
             | Special Workspace -> NodeDesktopPath.pathForNodeId graph nodeId
             | Normal
-            | Special (Workspaces | Trash | Directory | File) -> None
+            | Special (Workspaces | Directory | File) -> None
 
         let lineBodyFor (node: Node) (bodyText: string) =
             let needsMeta =
@@ -168,9 +168,14 @@ module Snapshot =
                 CssClass.ofList classList, nodeText
 
     let private outlineTextNode (id: NodeId) (nodeText: string) (classes: CssClasses) : Node =
+        let name =
+            if id = Graph.trashId then
+                Filename.Ok "TRASH"
+            else
+                Filename.Empty
         { id = id
           text = nodeText
-          name = Filename.Empty
+          name = name
           children = []
           cssClasses = classes
           owner = Graph.rootId
@@ -180,7 +185,7 @@ module Snapshot =
               elif id = Graph.workspacesId then
                   Special Workspaces
               elif id = Graph.trashId then
-                  Special Trash
+                  Special Directory
               else
                   Normal
           updateTime = NodeUpdateTime.missing }

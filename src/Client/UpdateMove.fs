@@ -71,6 +71,9 @@ let private trySaveContext (mode: Mode) : InlineEditContext option =
         | CssClassPrompt (ret, iv) ->
             unwrapMode ret
             |> Option.map (mapRebuild (fun rebuild t c -> CssClassPrompt (rebuild t c, iv)))
+        | RenamePrompt (ret, iv) ->
+            unwrapMode ret
+            |> Option.map (mapRebuild (fun rebuild t c -> RenamePrompt (rebuild t c, iv)))
         | Selecting ->
             None
     unwrapMode mode

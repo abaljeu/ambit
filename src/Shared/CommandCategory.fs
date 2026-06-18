@@ -20,5 +20,5 @@ let dockCssClass = function
 let searchDialogDockCssClass (invokedCommand: string) : string =
     match invokedCommand with
     | "Move Selected" -> dockCssClass MoveStructure
-    | "Insert File" -> dockCssClass FileIO
+    | "Insert…" -> dockCssClass FileIO
     | _ -> dockCssClass Primary

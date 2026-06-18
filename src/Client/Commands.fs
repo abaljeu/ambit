@@ -15,6 +15,7 @@ open Gambol.Client.UpdatePaste
 open Gambol.Client.UpdateImport
 open Gambol.Client.UpdateExport
 open Gambol.Client.UpdateFileSearch
+open Gambol.Client.UpdateRename
 open Gambol.Shared.CommandDockLayout
 open Gambol.Shared.CommandEntry
 
@@ -165,6 +166,7 @@ let copyOp (model: VM) : VM * Effect list =
 let commandRegistry : CommandEntry2 list =
     [
       cmd EditNode (keyAlways startEditOp)
+      cmd Rename (keyAlways openRenamePromptOp)
       cmd SplitAtCursor splitAtCursor
       cmd Delete (keyAlways deleteSelectionOp)
       cmd JoinWithPrevious handleBackspace
@@ -225,6 +227,7 @@ let rec paletteWasSelecting (returnTo: Mode) : bool =
     | SearchDialog s -> paletteWasSelecting s.returnTo
     | FileSearchDialog s -> paletteWasSelecting s.returnTo
     | CssClassPrompt (inner, _) -> paletteWasSelecting inner
+    | RenamePrompt (inner, _) -> paletteWasSelecting inner
 
 let commandContextMode (mode: Mode) : Mode =
     match mode with
@@ -232,6 +235,7 @@ let commandContextMode (mode: Mode) : Mode =
     | SearchDialog s -> s.returnTo
     | FileSearchDialog s -> s.returnTo
     | CssClassPrompt (inner, _) -> inner
+    | RenamePrompt (inner, _) -> inner
     | m -> m
 
 let commandsForPalette (returnTo: Mode) : CommandEntry2 list =

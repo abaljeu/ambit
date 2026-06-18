@@ -22,7 +22,7 @@ let handleEsc (model: VM) : VM * Effect list =
     match model.mode with
     | Editing _ -> commitIfEditing model
     | Selecting -> collapseToFocus model, []
-    | CommandPalette _ | SearchDialog _ | FileSearchDialog _ | CssClassPrompt _ ->
+    | CommandPalette _ | SearchDialog _ | FileSearchDialog _ | CssClassPrompt _ | RenamePrompt _ ->
         model, []  // handled by close modal operations
 
 /// Op: Copy the focused subtree to the internal clipboard.
@@ -112,7 +112,7 @@ let selectInstance (instanceId: SiteId) (model: VM) : VM * Effect list =
 let moveSelectionUp (model: VM) : VM * Effect list =
     match model.mode with
     | CommandPalette _ -> Gambol.Client.CommandPalette.paletteSelectUpOp model
-    | CssClassPrompt _ -> model, []
+    | CssClassPrompt _ | RenamePrompt _ -> model, []
     | _ ->
         let result, effects =
             match model.mode with
@@ -127,7 +127,7 @@ let moveSelectionUp (model: VM) : VM * Effect list =
 let moveSelectionDown (model: VM) : VM * Effect list =
     match model.mode with
     | CommandPalette _ -> Gambol.Client.CommandPalette.paletteSelectDownOp model
-    | CssClassPrompt _ -> model, []
+    | CssClassPrompt _ | RenamePrompt _ -> model, []
     | _ ->
         let result, effects =
             match model.mode with

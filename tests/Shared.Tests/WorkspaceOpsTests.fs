@@ -53,13 +53,24 @@ let private appendOwned (parentId: NodeId) (childId: NodeId) (graph: Graph) : Gr
 // ─── Graph.setName ─────────────────────────────────────────────────────────
 
 [<Fact>]
-let ``SetName happy path updates name and text`` () =
-    let graph0 = Graph.create ()
-    let graph1, nodeId = addNamedNode "old-name" graph0
-    let graph2 = Graph.setName nodeId "old-name" "new-name" graph1 |> requireOk "setName"
+let ``SetName on special node updates name and text`` () =
+    let nodeId = NodeId.New()
+    let op = Op.NewSpecialNode(nodeId, Workspace, "my-ws")
+    let state1 = Op.apply op (freshState ()) |> requireChanged
+    let graph1 = state1.graph
+    let graph2 = Graph.setName nodeId "my-ws" "renamed" graph1 |> requireOk "setName"
     let node = graph2.nodes.[nodeId]
-    Assert.Equal(Filename.Ok "new-name", node.name)
-    Assert.Equal("new-name", node.text)
+    Assert.Equal(Filename.Ok "renamed", node.name)
+    Assert.Equal("renamed", node.text)
+
+[<Fact>]
+let ``SetName on Normal updates name only not text`` () =
+    let graph0 = Graph.create ()
+    let graph1, nodeId = Graph.newNode "visible label" graph0
+    let graph2 = Graph.setName nodeId "" "file-name" graph1 |> requireOk "setName"
+    let node = graph2.nodes.[nodeId]
+    Assert.Equal(Filename.Ok "file-name", node.name)
+    Assert.Equal("visible label", node.text)
 
 [<Fact>]
 let ``SetName rejects canonical root id`` () =
@@ -174,10 +185,9 @@ let ``NewSpecialNode Workspaces kind is rejected`` () =
     Assert.Contains("system-only", msg)
 
 [<Fact>]
-let ``NewSpecialNode Trash kind is rejected`` () =
-    let op = Op.NewSpecialNode(NodeId.New(), Trash, "tr")
-    let _, msg = Op.apply op (freshState ()) |> requireInvalid
-    Assert.Contains("system-only", msg)
+let ``NewSpecialNode Directory kind is allowed`` () =
+    let op = Op.NewSpecialNode(NodeId.New(), Directory, "pkg")
+    Op.apply op (freshState ()) |> requireChanged |> ignore
 
 [<Fact>]
 let ``NewSpecialNode invalid name is rejected`` () =

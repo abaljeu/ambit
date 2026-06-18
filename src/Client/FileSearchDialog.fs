@@ -13,6 +13,16 @@ let private focusNodeIdOpt (model: VM) : NodeId option =
     | None -> None
     | Some sel -> Some (focusedNodeId model.graph sel)
 
+let insertDialogFocusIsWorkspaces (model: VM) : bool =
+    match focusNodeIdOpt model with
+    | Some focus -> focus = Graph.workspacesId
+    | None -> false
+
+let insertDialogShowsFileFolder (model: VM) : bool =
+    match focusNodeIdOpt model with
+    | Some focus -> focus <> Graph.workspacesId
+    | None -> false
+
 let openFileSearchDialogOp (model: VM) : VM * Effect list =
     match focusNodeIdOpt model with
     | None -> model, []
@@ -66,9 +76,3 @@ let currentFileSearchResults (model: VM) : FileSearchResult list =
     | FileSearchDialog s, Some focus ->
         ViewModelFileSearch.searchFiles s.query focus model.graph
     | _ -> []
-
-let isNewEnabled (model: VM) : bool =
-    match model.mode, focusNodeIdOpt model with
-    | FileSearchDialog s, Some focus ->
-        FilePathResolve.isNewEnabled focus model.graph s.query
-    | _ -> false

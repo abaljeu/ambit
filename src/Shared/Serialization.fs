@@ -28,7 +28,6 @@ module Serialization =
         | Workspace -> Encode.string "workspace"
         | Directory -> Encode.string "directory"
         | File -> Encode.string "file"
-        | Trash -> Encode.string "trash"
 
     let private decodeSpecialKind: Decoder<SpecialKind> =
         Decode.string
@@ -37,7 +36,7 @@ module Serialization =
             | "workspace" -> Decode.succeed Workspace
             | "directory" -> Decode.succeed Directory
             | "file" -> Decode.succeed File
-            | "trash" -> Decode.succeed Trash
+            | "trash" -> Decode.succeed Directory
             | other -> Decode.fail $"Unknown special node kind: {other}")
 
     let private encodeNodeKind (kind: NodeKind) : IEncodable =

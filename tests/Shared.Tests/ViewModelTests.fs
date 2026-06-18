@@ -291,12 +291,13 @@ let ``desktopFileIndicatorText shows current and edited for existing file`` () =
 
 [<Fact>]
 let ``specialKindRowClass maps each SpecialKind to amb-row-special class`` () =
-    Assert.Equal(Some "amb-row-special-workspaces", specialKindRowClass (Special Workspaces))
-    Assert.Equal(Some "amb-row-special-workspace", specialKindRowClass (Special Workspace))
-    Assert.Equal(Some "amb-row-special-directory", specialKindRowClass (Special Directory))
-    Assert.Equal(Some "amb-row-special-file", specialKindRowClass (Special File))
-    Assert.Equal(Some "amb-row-special-trash", specialKindRowClass (Special Trash))
-    Assert.Equal(None, specialKindRowClass Normal)
+    let otherId = NodeId.New()
+    Assert.Equal(Some "amb-row-special-workspaces", specialKindRowClass Graph.workspacesId (Special Workspaces))
+    Assert.Equal(Some "amb-row-special-workspace", specialKindRowClass otherId (Special Workspace))
+    Assert.Equal(Some "amb-row-special-directory", specialKindRowClass otherId (Special Directory))
+    Assert.Equal(Some "amb-row-special-file", specialKindRowClass otherId (Special File))
+    Assert.Equal(Some "amb-row-special-trash", specialKindRowClass Graph.trashId (Special Directory))
+    Assert.Equal(None, specialKindRowClass otherId Normal)
 
 [<Fact>]
 let ``rowFileIndicatorText shows kind symbol and desktop status wins on active row`` () =
@@ -311,7 +312,7 @@ let ``rowFileIndicatorText shows kind symbol and desktop status wins on active r
     let model = emptyModel graph
 
     Assert.Equal("\u229E", rowFileIndicatorText model wsEntry wsNode)
-    Assert.Equal("@", specialKindSymbol (Special Workspace) |> Option.get)
+    Assert.Equal("@", specialKindSymbol (NodeId.New()) (Special Workspace) |> Option.get)
 
     let model = selectedModelWithText "load [[note.txt]]" |> withDesktop
     let checking, _ = refreshDesktopFileIndicator model
@@ -1813,7 +1814,7 @@ let ``EditingCaretPreserve false when graph reference changes`` () =
 // ---------------------------------------------------------------------------
 
 [<Fact>]
-let ``Graph.create bootstraps TRASH under root with special kind`` () =
+let ``Graph.create bootstraps TRASH under root as Directory with TRASH name`` () =
     let graph = Graph.create ()
     let rootNode = graph.nodes.[graph.root]
     let trashChildOpt =
@@ -1822,8 +1823,8 @@ let ``Graph.create bootstraps TRASH under root with special kind`` () =
     Assert.True(trashChildOpt.IsSome)
     let trashNode = graph.nodes.[Graph.trashId]
     match trashNode.kind with
-    | Special Trash -> ()
-    | _ -> Assert.True(false, "Trash node must have kind = Special Trash")
+    | Special Directory -> Assert.Equal(Filename.Ok "TRASH", trashNode.name)
+    | _ -> Assert.True(false, "Trash node must have kind = Special Directory")
 
 [<Fact>]
 let ``Graph.replace rejects wiping all root children and leaves root unchanged`` () =

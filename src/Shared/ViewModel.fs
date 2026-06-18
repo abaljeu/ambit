@@ -265,6 +265,7 @@ type Mode =
     | SearchDialog of SearchDialogState
     | FileSearchDialog of FileSearchDialogState
     | CssClassPrompt of returnTo: Mode * initialValue: string
+    | RenamePrompt of returnTo: Mode * initialValue: string
 
 /// Node search overlay: query, selection, and `onPick` (mutually recursive with `Mode` / `VM`).
 and SearchDialogState =

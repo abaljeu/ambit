@@ -85,7 +85,7 @@ module Op =
         | Op.NewSpecialNode(nodeId, kind, name) ->
             if nodeId = Graph.rootId || nodeId = Graph.trashId || nodeId = Graph.workspacesId then
                 ApplyResult.Invalid(state, "cannot NewSpecialNode with canonical id")
-            elif kind = Workspaces || kind = Trash then
+            elif kind = Workspaces then
                 ApplyResult.Invalid(state, "cannot NewSpecialNode with system-only kind")
             else
                 match Filename.create name with

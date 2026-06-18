@@ -47,7 +47,6 @@ type SpecialKind =
     | Workspace
     | Directory
     | File
-    | Trash
 
 type NodeKind =
     | Normal
@@ -168,11 +167,11 @@ module Graph =
                 let trashNode: Node =
                     { id = trashId
                       text = "Trash"
-                      name = Filename.Empty
+                      name = Filename.Ok "TRASH"
                       children = []
                       cssClasses = CssClass.empty
                       owner = rootId
-                      kind = Special Trash
+                      kind = Special Directory
                       updateTime = NodeUpdateTime.missing }
 
                 let trashChild: ChildNode =
@@ -205,8 +204,18 @@ module Graph =
 
         let fixedRootChildren = rootChildrenWithoutTrash @ [ trashChild ]
 
-        nodesWithTrash
-        |> Map.add rootId { rootNode with children = fixedRootChildren }
+        let nodesFixed =
+            nodesWithTrash
+            |> Map.add rootId { rootNode with children = fixedRootChildren }
+
+        match Map.tryFind trashId nodesFixed with
+        | None -> nodesFixed
+        | Some trash ->
+            nodesFixed
+            |> Map.add trashId
+                { trash with
+                    kind = Special Directory
+                    name = Filename.Ok "TRASH" }
 
     let private ensureWorkspacesNode (nodes: Map<NodeId, Node>) : Map<NodeId, Node> =
         let hasWorkspaces = Map.containsKey workspacesId nodes
@@ -399,14 +408,14 @@ module Graph =
             match graph.nodes |> Map.tryFind nodeId with
             | None -> Error "node not found"
             | Some node ->
-                if node.name <> Filename.Ok oldName then
+                if node.name <> Filename.create oldName then
                     Error "old name does not match"
                 else
                     match Filename.create newName with
                     | Filename.Invalid _ | Filename.Empty ->
                         Error "new name is not a valid filename"
-                    | Filename.Ok _ ->
-                        let newNameLower = newName.ToLowerInvariant()
+                    | Filename.Ok validName ->
+                        let newNameLower = validName.ToLowerInvariant()
                         let hasConflict =
                             match graph.ownerParentByChild |> Map.tryFind nodeId with
                             | None -> false
@@ -427,8 +436,12 @@ module Graph =
                             Error "sibling name conflict"
                         else
                             let updatedNode =
-                                NodeUpdateTime.touch
-                                    { node with name = Filename.Ok newName; text = newName }
+                                match node.kind with
+                                | Normal ->
+                                    NodeUpdateTime.touch { node with name = Filename.Ok validName }
+                                | Special _ ->
+                                    NodeUpdateTime.touch
+                                        { node with name = Filename.Ok validName; text = validName }
                             Ok { graph with nodes = graph.nodes |> Map.add nodeId updatedNode }
 
     let replace

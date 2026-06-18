@@ -55,6 +55,7 @@ type CommandId =
     | Import
     | Export
     | InsertFile
+    | Rename
 
 type CommandEntry = {
     id: CommandId
@@ -68,7 +69,7 @@ type CommandEntry = {
 let allCommands : CommandEntry list =
     [
         { id = EditNode; name = "Edit node"
-          keys = [ "F2"; "Enter" ]; keyScope = SelectionOnly
+          keys = [ "Enter" ]; keyScope = SelectionOnly
           category = EditText; iconId = None }
         { id = SplitAtCursor; name = "Split at cursor"
           keys = [ "Enter" ]; keyScope = EditingOnly
@@ -205,9 +206,12 @@ let allCommands : CommandEntry list =
         { id = Export; name = "Export"
           keys = [ "Ctrl+Shift+<" ]; keyScope = SelectionOrEditing
           category = FileIO; iconId = None }
-        { id = InsertFile; name = "Insert File"
+        { id = InsertFile; name = "Insert…"
           keys = [ "f" ]; keyScope = SelectionOrEditing
           category = FileIO; iconId = None }
+        { id = Rename; name = "Rename"
+          keys = [ "F2" ]; keyScope = SelectionOnly
+          category = EditText; iconId = None }
     ]
 
 let commandFor (id: CommandId) : CommandEntry option =

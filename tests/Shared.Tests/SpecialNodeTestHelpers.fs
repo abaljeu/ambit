@@ -46,6 +46,7 @@ let stripSpecialLinesFromOutline (text: string) : string =
                 trimmed = "#WORKSPACES Workspaces"
                 || trimmed = "-> #WORKSPACES"
                 || trimmed = "#TRASH Trash"
+                || trimmed = "#TRASH TRASH"
                 || trimmed = "-> #TRASH"
             ))
         |> List.rev

@@ -76,10 +76,10 @@ let ``pathForNodeId Normal returns first file reference`` () =
     Assert.Equal(Some "note.txt", path)
 
 [<Fact>]
-let ``pathForNodeId Workspaces and Trash return None`` () =
+let ``pathForNodeId Workspaces returns None and trash returns TRASH path`` () =
     let graph = Graph.create ()
     Assert.Equal(None, NodeDesktopPath.pathForNodeId graph Graph.workspacesId)
-    Assert.Equal(None, NodeDesktopPath.pathForNodeId graph Graph.trashId)
+    Assert.Equal(Some "@:/TRASH", NodeDesktopPath.pathForNodeId graph Graph.trashId)
 
 [<Fact>]
 let ``pathForNodeId Workspace returns at-name colon`` () =

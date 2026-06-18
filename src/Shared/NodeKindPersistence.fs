@@ -12,7 +12,6 @@ module NodeKindPersistence =
         | Special Workspace -> "workspace"
         | Special Directory -> "directory"
         | Special File -> "file"
-        | Special Trash -> "trash"
 
     let fromPersistString (s: string) : Result<NodeKind, string> =
         match s with
@@ -21,7 +20,7 @@ module NodeKindPersistence =
         | "workspace" -> Ok (Special Workspace)
         | "directory" -> Ok (Special Directory)
         | "file" -> Ok (Special File)
-        | "trash" -> Ok (Special Trash)
+        | "trash" -> Ok (Special Directory)
         | other -> Error $"Unknown node kind: {other}"
 
     /// Pre-migration rows default to `normal`; canonical ids still map to system kinds.
@@ -33,6 +32,6 @@ module NodeKindPersistence =
         elif nid = Graph.workspacesId then
             Special Workspaces
         elif nid = Graph.trashId then
-            Special Trash
+            Special Directory
         else
             Normal

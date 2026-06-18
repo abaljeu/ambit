@@ -7,31 +7,6 @@ type FocusInsertPoint =
 [<RequireQualifiedAccess>]
 module FileNodeOps =
 
-    let private findOwnerChild
-        (graph: Graph)
-        (parentId: NodeId)
-        (kind: SpecialKind)
-        (name: string)
-        : NodeId option =
-        let lower = name.ToLowerInvariant()
-
-        graph.nodes.[parentId].children
-        |> List.tryPick (fun child ->
-            if child.ref <> Ownership.Owner then
-                None
-            else
-                graph.nodes
-                |> Map.tryFind child.id
-                |> Option.bind (fun node ->
-                    match node.kind, node.name with
-                    | Special k, Filename.Ok n when k = kind && n.ToLowerInvariant() = lower ->
-                        Some node.id
-                    | _ -> None))
-
-    let private appendOwnedOp (parentId: NodeId) (childId: NodeId) (graph: Graph) : Op =
-        let index = Graph.fileTreeInsertIndex graph parentId
-        Op.Replace(parentId, index, [], [ { ref = Ownership.Owner; id = childId } ])
-
     let private applyOpToGraph (graph: Graph) (op: Op) : Graph =
         let state = { graph = graph; history = History.empty; revision = Revision.Zero }
 
@@ -40,48 +15,58 @@ module FileNodeOps =
         | ApplyResult.Unchanged s -> s.graph
         | ApplyResult.Invalid(_, msg) -> failwith msg
 
-    let planCreateFileInWorkspaces
+    let private siblingOwnerNamesLower (graph: Graph) (parentId: NodeId) : Set<string> =
+        graph.nodes.[parentId].children
+        |> List.choose (fun child ->
+            if child.ref <> Ownership.Owner then
+                None
+            else
+                graph.nodes
+                |> Map.tryFind child.id
+                |> Option.bind (fun node ->
+                    match node.name with
+                    | Filename.Ok n -> Some(n.ToLowerInvariant())
+                    | _ -> None))
+        |> Set.ofList
+
+    let private unusedOwnedName (graph: Graph) (parentId: NodeId) (baseName: string) : string =
+        let taken = siblingOwnerNamesLower graph parentId
+
+        let rec loop (i: int) =
+            let candidate =
+                if i = 0 then baseName else sprintf "%s%d" baseName i
+            if Set.contains (candidate.ToLowerInvariant()) taken then
+                loop (i + 1)
+            else
+                candidate
+
+        loop 0
+
+    let private appendOwnedOp (parentId: NodeId) (childId: NodeId) (graph: Graph) : Op =
+        let index = Graph.fileTreeInsertIndex graph parentId
+        Op.Replace(parentId, index, [], [ { ref = Ownership.Owner; id = childId } ])
+
+    let private planCreateOwnedSpecial
         (graph: Graph)
-        (target: ConcreteFileTarget)
-        : Result<NodeId * Op list, string> =
-        let fileId = NodeId.New()
+        (parentId: NodeId)
+        (kind: SpecialKind)
+        (baseName: string)
+        : NodeId * Op list =
+        let childId = NodeId.New()
+        let name = unusedOwnedName graph parentId baseName
+        let ops =
+            [ Op.NewSpecialNode(childId, kind, name)
+              appendOwnedOp parentId childId graph ]
+        childId, ops
 
-        let rec walk
-            (parentId: NodeId)
-            (segs: (SpecialKind * string) list)
-            (gAcc: Graph)
-            (ops: Op list)
-            : Result<NodeId * Op list, string> =
-            match segs with
-            | [] ->
-                let idx = Graph.fileTreeInsertIndex gAcc parentId
-                let ops2 =
-                    ops
-                    @ [ Op.NewSpecialNode(fileId, File, target.fileName)
-                        Op.Replace(parentId, idx, [], [ { ref = Ownership.Owner; id = fileId } ]) ]
-                Ok(fileId, ops2)
-            | (kind, name) :: remaining ->
-                match findOwnerChild gAcc parentId kind name with
-                | Some childId -> walk childId remaining gAcc ops
-                | None ->
-                    let childId = NodeId.New()
-                    let newOps =
-                        [ Op.NewSpecialNode(childId, kind, name)
-                          appendOwnedOp parentId childId gAcc ]
-                    let gNext = newOps |> List.fold applyOpToGraph gAcc
-                    walk childId remaining gNext (ops @ newOps)
+    let planCreateWorkspace (graph: Graph) : NodeId * Op list =
+        planCreateOwnedSpecial graph Graph.workspacesId Workspace "workspace"
 
-        if List.isEmpty target.missingSegments then
-            let parentId = target.parentId
-            let idx = Graph.fileTreeInsertIndex graph parentId
+    let planCreateOwnedFile (graph: Graph) (parentId: NodeId) : NodeId * Op list =
+        planCreateOwnedSpecial graph parentId File "file.txt"
 
-            let ops =
-                [ Op.NewSpecialNode(fileId, File, target.fileName)
-                  Op.Replace(parentId, idx, [], [ { ref = Ownership.Owner; id = fileId } ]) ]
-
-            Ok(fileId, ops)
-        else
-            walk target.parentId target.missingSegments graph ([] : Op list)
+    let planCreateOwnedDirectory (graph: Graph) (parentId: NodeId) : NodeId * Op list =
+        planCreateOwnedSpecial graph parentId Directory "folder"
 
     let planInsertFileRefAtFocus
         (insert: FocusInsertPoint)
@@ -102,16 +87,3 @@ module FileNodeOps =
                 []
             else
                 [ Op.Replace(insert.parentId, insert.index, [], [ newRef ]) ]
-
-    let planAddFileAtFocus
-        (graph: Graph)
-        (insert: FocusInsertPoint)
-        (target: ConcreteFileTarget)
-        : Result<NodeId * Op list, string> =
-        planCreateFileInWorkspaces graph target
-        |> Result.map (fun (fileId, createOps) ->
-            let graph2 =
-                createOps |> List.fold applyOpToGraph graph
-
-            let insertOps = planInsertFileRefAtFocus insert fileId graph2
-            fileId, createOps @ insertOps)

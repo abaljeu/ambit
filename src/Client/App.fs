@@ -226,6 +226,7 @@ let createRuntime (initialModel: VM) =
                 renderSearchDialog newModel dispatch
                 renderFileSearchDialog newModel dispatch
                 renderCssClassPrompt newModel dispatch
+                renderRenamePrompt newModel dispatch
             with ex ->
                 consoleLog (
                     "[Gambol dispatch] view/render exception: " + ex.Message)

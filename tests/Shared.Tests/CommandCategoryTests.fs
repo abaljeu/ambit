@@ -18,4 +18,4 @@ let ``dockCssClass defaults for other categories`` () =
 let ``searchDialogDockCssClass maps invoked command labels`` () =
     Assert.Equal("amb-dock-base", searchDialogDockCssClass "Find")
     Assert.Equal("amb-dock-move", searchDialogDockCssClass "Move Selected")
-    Assert.Equal("amb-dock-file", searchDialogDockCssClass "Insert File")
+    Assert.Equal("amb-dock-file", searchDialogDockCssClass "Insert…")

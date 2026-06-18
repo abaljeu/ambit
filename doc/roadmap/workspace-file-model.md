@@ -68,7 +68,10 @@ When a Correction is described below, the meaning is that the item previous is d
 - `[ ]` Correction: file-status queries server persistence when Stage 7 is wired; desktop query remains for secondary mapped paths until then.
 - `[ ]` Stage 6: **Insert…** and **Rename** (F2) for workspace, directory, and file structure; TRASH becomes `Special Directory` with `Node.name = TRASH`; shared `DocumentPathMove` planners (rename, reparent, move-to-TRASH) — graph ops and tests only, no server I/O.
 - `[ ]` Correction: add command support for free-form special-node ownership (including under `normal` and `file` nodes) while keeping persistence ownership rules explicit.
-- `[ ]` Stage 7: server `DataDir` live-save of documents (workspace/directory/file roots); unified filesystem moves from `DocumentPathMove` (rename, reparent, soft delete to TRASH); path layout and backup rotation ([[doc/roadmap/workspace-file-persistence.md]]).
+- `[ ]` Stage 7: Step 1: ALL files regardless of extension will persist in .amb format.  server `DataDir` live-save of documents (workspace/directory/file roots); unified filesystem moves from `DocumentPathMove` (rename, reparent, soft delete to TRASH); path layout and backup rotation ([[doc/roadmap/workspace-file-persistence.md]]).
+- `[ ]` Deferred: Support generic text file format.
+- `[ ]` Deferred: Support markdown text file format.
+- 
 - `[ ]` Stage 8: snapshot integration — existing write path (`Snapshot.write` / `FileAgent` / db backup) emits ROOT plus per-document artifacts; incremental persist skips unchanged documents.
 - `[ ]` Stage 9: document membership in model — `docId` (or equivalent), derivation from document roots, client document load/unload and replication unit ([[doc/roadmap/postgres-roadmap.md]] §5–6).
 

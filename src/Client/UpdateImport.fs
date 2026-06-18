@@ -12,6 +12,7 @@ let private importBlockedMode =
     | SearchDialog _
     | FileSearchDialog _
     | CssClassPrompt _ -> true
+    | RenamePrompt _ -> true
     | _ -> false
 
 let private canImportDesktop (model: VM) =

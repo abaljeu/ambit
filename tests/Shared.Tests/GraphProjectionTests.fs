@@ -73,7 +73,7 @@ let ``graphRoundTrip preserves default graph`` () =
         Assert.True(GraphProjection.graphEquals g g2)
 
         match g2.nodes.[Graph.trashId].kind with
-        | Special Trash -> ()
+        | Special Directory -> ()
         | k -> Assert.Fail(sprintf "trash kind after SQL round-trip: %A" k)
 
 [<Fact>]
@@ -222,7 +222,7 @@ let ``graphEquals is false when kind differs`` () =
     Assert.False(GraphProjection.graphEquals g0 g1)
 
 [<Fact>]
-let ``graphFromPersistence legacy normal kind maps canonical trash to Special Trash`` () =
+let ``graphFromPersistence legacy normal kind maps canonical trash to Directory`` () =
     let root = Graph.rootId
     let trash = Graph.trashId
 
@@ -259,4 +259,5 @@ let ``graphFromPersistence legacy normal kind maps canonical trash to Special Tr
     match GraphProjection.graphFromPersistence root nr cr with
     | Error e -> Assert.Fail(e)
     | Ok g ->
-        assertKind Trash g.nodes.[trash]
+        assertKind Directory g.nodes.[trash]
+        Assert.Equal(Filename.Ok "TRASH", g.nodes.[trash].name)
