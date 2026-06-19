@@ -66,9 +66,12 @@ When a Correction is described below, the meaning is that the item previous is d
 - `[~]` Stage 5: client UI shows unresolved-reference indicators; file-status uses desktop query surface for locally mapped paths (primary server live-save not wired; full unresolved `@label:` UI not done). **Deferred** — bypassed for Stage 6; server file-status waits on Stage 7.
 - `[ ]` Correction: unresolved UI should cover namespace resolution failures across workspace, directory, and file scopes.
 - `[ ]` Correction: file-status queries server persistence when Stage 7 is wired; desktop query remains for secondary mapped paths until then.
-- `[ ]` Stage 6: **Insert…** and **Rename** (F2) for workspace, directory, and file structure; TRASH becomes `Special Directory` with `Node.name = TRASH`; shared `DocumentPathMove` planners (rename, reparent, move-to-TRASH) — graph ops and tests only, no server I/O.
-- `[ ]` Correction: add command support for free-form special-node ownership (including under `normal` and `file` nodes) while keeping persistence ownership rules explicit.
-- `[ ]` Stage 7: Step 1: ALL files regardless of extension will persist in .amb format.  server `DataDir` live-save of documents (workspace/directory/file roots); unified filesystem moves from `DocumentPathMove` (rename, reparent, soft delete to TRASH); path layout and backup rotation ([[doc/roadmap/workspace-file-persistence.md]]).
+- `[x]` Stage 6: **Insert…** and **Rename** (F2) for workspace, directory, and file structure; TRASH becomes `Special Directory` with `Node.name = TRASH`; shared `DocumentPathMove` planners (rename, reparent, move-to-TRASH) — graph ops and tests only, no server I/O.
+- `[x]` Correction: add command support for free-form special-node ownership (including under `normal` and `file` nodes) while keeping persistence ownership rules explicit.
+- `[ ]` Stage 7: Step 1: server `DataDir` live-save of `.amb` document artifacts for workspace, directory, and file roots regardless of logical extension; path layout per [[doc/roadmap/workspace-file-persistence.md]].
+- `[ ]` Stage 7: Step 2: unified filesystem moves from `DocumentPathMove` (rename, reparent, soft delete to TRASH).
+- `[ ]` Stage 7: Step 3: backup rotation (`.bak.{date}`) on `.amb` overwrites.
+- `[ ]` Stage 7: Step 4: hard delete under TRASH removes on-disk artifacts.
 - `[ ]` Deferred: Support generic text file format.
 - `[ ]` Deferred: Support markdown text file format.
 - 
@@ -100,7 +103,7 @@ Authority for implemented behavior: [[doc/current/workspace-graph.md]],
 - `[ ]` Full unresolved-reference indicator for unknown workspace labels.
 - `[ ]` File-status uses desktop query only; server-side status not wired (Stage 5 correction / Stage 7).
 - `[~]` Workspace create/rename via graph ops; **Insert…** / **Rename** command surface not done (Stage 6).
-- `[ ]` TRASH as `Special Directory` with `Node.name = TRASH` (Stage 6 — today: `Special Trash`).
+- `[ ]` TRASH as `Special Directory` with `Node.name = TRASH` (Stage 6 — today: `Special Directory`).
 - `[ ]` Correction: add command coverage for special-node hierarchy edits in free-form outlines.
 
 ## Settled Decisions
@@ -184,7 +187,7 @@ File nodes use `NodeKind = Special File`.
 
 ### TRASH (canonical delete container)
 
-**Today:** canonical `trashId` is `Special Trash` — not a document root; no on-disk folder.
+**Today:** canonical `trashId` is `Special Directory` — not a document root; no on-disk folder.
 
 **Target (Stage 6):** `trashId` is **`Special Directory`** with `Node.name = TRASH` (display `text` may remain `Trash`). Retire `SpecialKind.Trash`.
 
@@ -194,7 +197,7 @@ File nodes use `NodeKind = Special File`.
 | Soft delete | `MoveToTrash` appends owner under `trashId` (unchanged graph semantics) |
 | Snapshot / `.amb` | Stable sid `#TRASH`; owner line includes name token `TRASH` |
 | Path resolution | `@:/TRASH/` under nameless ROOT workspace (`NodeDesktopPath`) |
-| UI styling | Trash row class/symbol by `trashId`, not by retired `Special Trash` kind |
+| UI styling | Trash row class/symbol by `trashId`, not by retired `Special Directory` kind |
 
 **On disk (Stage 7):** TRASH is a persisted directory document — `TRASH/` folder with `TRASH.amb` under the ROOT workspace path in `DataDir` — [[doc/roadmap/workspace-file-persistence.md]].
 

@@ -39,18 +39,22 @@ Where:
 Examples:
 
 - workspace `home`, file `src/lib.fs` -> `data/@home/src/lib.fs`
-- workspace `home`, directory `docs/specs` -> `data/@home/docs/specs`
-- nameless ROOT workspace, TRASH directory document -> `data/@/TRASH/` with `TRASH.amb` (Stage 7)
+- workspace `home`, directory `docs/specs` -> `data/@home/docs/specs/.amb`
+- nameless ROOT workspace, Special Directory document (directory persistence) -> `data/@/TRASH/.amb`
+  (Stage 7)
 
 The `@` prefix is part of the directory name on disk.
 
 ## TRASH on disk
 
-Stage 6 retires `Special Trash` in favor of `Special Directory` with `Node.name = TRASH`. Stage 7 materializes TRASH as a persisted directory document under the nameless ROOT workspace:
+Canonical `trashId` remains **`Special Directory`** — not a distinct `Special Directory` kind. Stage 7
+materializes it under the nameless ROOT workspace using **directory persistence semantics** (same
+folder and `.amb` artifact layout as `Special Directory` document roots):
 
 - **Folder:** `{DataDir}/@/TRASH/`
-- **Artifact:** `TRASH.amb` (exact filename per [[doc/roadmap/workspace-format-amb.md]])
-- **Graph:** same fixed `trashId`, permanent owner child of ROOT; soft delete still reparents owner under `trashId`
+- **Artifact:** `.amb` (directory persisted data; same filename as other `Special Directory` roots)
+- **Graph:** same fixed `trashId`, `Special Directory` kind, permanent owner child of ROOT; soft delete
+  still reparents owner under `trashId`
 
 Path resolution for TRASH is `@:/TRASH/` (`NodeDesktopPath`).
 
@@ -133,9 +137,9 @@ Stage 6: shared planners compute `DocumentPathMove` values; tests prove path com
 
 | Layer | Stage 6 | Stage 7 |
 | --- | --- | --- |
-| Graph | Insert…, Rename, TRASH → Directory | — |
+| Graph | Insert…, Rename; TRASH stays `Special Directory` (directory persistence semantics) | — |
 | Shared | Emit `DocumentPathMove` from planners; tests | — |
-| Server | No-op / discard effect | Execute moves; materialize `TRASH/TRASH.amb` |
+| Server | No-op / discard effect | Execute moves; materialize `TRASH/.amb` |
 
 ## Persistence Modes
 
@@ -180,5 +184,5 @@ The text-to-outline conversion rules are documented separately in
 - subtree moves cover nested workspace/directory/file document roots where needed
 - overwrites rotate prior files to `.bak.{date}`
 - path validation prevents escape above `DataDir/@label/`
-- TRASH directory document materialized (`@/TRASH/TRASH.amb`)
+- Special Directory document materialized with directory layout (`@/TRASH/.amb`)
 - desktop local mapping behavior remains unchanged

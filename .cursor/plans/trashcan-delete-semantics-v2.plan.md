@@ -53,7 +53,7 @@ isProject: false
     - `rootId : NodeId = NodeId Guid.Empty`.
     - `trashId : NodeId = NodeId(Guid.Parse "00000000-0000-0000-0000-000000000001")`.
   - `Graph.ensureTrashNode` enforces the invariant that there is always a Trash node:
-    - If `trashId` is missing from `nodes`, it creates a node `{ id = trashId; text = "Trash"; name = None; children = []; cssClasses = CssClass.empty; owner = rootId; kind = Special Trash }`.
+    - If `trashId` is missing from `nodes`, it creates a node `{ id = trashId; text = "Trash"; name = None; children = []; cssClasses = CssClass.empty; owner = rootId; kind = Special Directory }`.
     - It ensures that root’s children contain exactly one `ChildNode` with `id = trashId` and `ref = Owner`, appending it if necessary.
     - If an existing Trash node is present but not as an `Owner` child of `rootId`, it normalises root’s children so that Trash appears exactly once as an `Owner` child.
   - `Graph.applyOwnerField` recomputes `Node.owner` from `ownerParentByChild`:
@@ -102,7 +102,7 @@ isProject: false
       - Prefer the canonical `NodeId` for a known SID (e.g. `TRASH` → `trashId`).
       - Otherwise, reuse an existing `NodeId` for the same SID or mint a new one.
     - As a result, outlines that contain `#TRASH` and `-> #TRASH` round-trip through snapshot save/load using the single canonical Trash node, at any depth.
-  - `outlineTextNode` assigns `kind = Special Trash` when `id = Graph.trashId`, ensuring the reconstructed node’s `kind` matches its canonical identity.
+  - `outlineTextNode` assigns `kind = Special Directory` when `id = Graph.trashId`, ensuring the reconstructed node’s `kind` matches its canonical identity.
   - After outline parsing, `Snapshot.finalizeOutlineGraph` calls `Graph.fromNodes`, so the usual Trash and owner migration still applies.
 
 ### What remains to do (from the original plan)
@@ -156,7 +156,7 @@ isProject: false
 - **Tests for trash semantics (`tests/Shared.Tests/ViewModelTests.fs`)**
   - Add and/or update tests to cover:
     - **TRASH bootstrap and invariants**:
-      - Any loaded or newly created graph contains a Trash node under Root with `kind = Special Trash`.
+      - Any loaded or newly created graph contains a Trash node under Root with `kind = Special Directory`.
       - Trash not deletable via bad ops (e.g. wipe all root children): reject + **graph unchanged**; full clear under a non-root parent (e.g. `buildFlat`’s `cont`) is allowed. Move-to-trash tests: root `Replace` must not span TRASH.
     - **Move-to-trash behaviour**:
       - Deleting the last non-Trash owner occurrence of a node moves it under Trash instead of rejecting.

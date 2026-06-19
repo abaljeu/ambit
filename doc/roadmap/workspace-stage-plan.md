@@ -43,7 +43,7 @@ For Stages 6–7, "structure support" means:
 
 - users can define workspaces and create owned `Special Directory` / `Special File` nodes via **Insert…**
 - users can rename workspace, directory, and file nodes via **Rename** (F2)
-- soft delete continues to reparent under **TRASH** (Stage 6 retires `Special Trash` in favor of `Special Directory` with `Node.name = TRASH`)
+- soft delete continues to reparent under **TRASH** (Stage 6 retires `Special Directory` in favor of `Special Directory` with `Node.name = TRASH`)
 - shared planners emit `DocumentPathMove` descriptors for rename, reparent, and move-to-TRASH (Stage 6 — computation and tests only; Stage 7 executes on disk)
 
 Stage 1 vocabulary for `Special Directory` and `Special File` already exists in the shared model; Stage 6 adds command surfaces. Server `DataDir` materialization and live path moves land in Stage 7.
@@ -275,9 +275,9 @@ Status: Stage 6 `[ ]` — target design; next implementation slice.
 
 ### TRASH model change
 
-**Today:** canonical `trashId` is `Special Trash` — not a document root; no on-disk folder.
+**Today:** canonical `trashId` is `Special Directory` — not a document root; no on-disk folder.
 
-**Target:** `trashId` becomes **`Special Directory`** with `Node.name = TRASH` (display `text` may remain `Trash`). Retire `SpecialKind.Trash` / `Special Trash`.
+**Target:** `trashId` becomes **`Special Directory`** with `Node.name = TRASH` (display `text` may remain `Trash`). Retire `SpecialKind.Trash` / `Special Directory`.
 
 | Concern | Treatment |
 | --- | --- |

@@ -24,22 +24,24 @@ One line per outline row. Tab depth sets parentage; the file root is implicit.
 <indent>    ::= TAB*
 <content>   ::= <ref-line> | <owner-line> | <plain-line>
 <ref-line>  ::= "-> " <ref-target>
-<owner-line>::= "#" <stable-id> [" " <name-token>] <body>
+<owner-line>::= "^" <stable-id> <owner-rest>
+<owner-rest>::= <body>
+              | <name-token> TAB <body>
 <plain-line>::= <body>
 <body>      ::= [<meta>] <text>
 <meta>      ::= "{" <class-list> "}"
 <stable-id> ::= <guid> | "WORKSPACES" | "TRASH"
-<name-token>::= identifier satisfying [[src/Shared/Filename.fs]] Ok rules (without leading #)
-<ref-target>::= "#" <name-token>
-              | <workspace-relative-path> "#" <name-token>
+<name-token>::= identifier satisfying [[src/Shared/Filename.fs]] Ok rules (without leading ^)
+<ref-target>::= "^" <stable-id>
+              | <workspace-relative-path> "^" <stable-id>
 <guid>      ::= canonical `NodeId` string form (full GUID)
 ```
 
 Line breaks: `\n` or `\r\n`; normalize on read.
 
-**Owner line.** Replaces baseline `#n1`. The stable id is authoritative for import reconciliation. The optional `name-token` is the node's readable `name` field; required when the node is a reference target within or across files. `body` is node text after optional metadata prefix.
+**Owner line.** Replaces baseline `#n1`. Stable ids use `^`, not `#`. The stable id is authoritative for import reconciliation. When the node has a readable `name`, export writes `<name-token> TAB <body>` after the stable id; import splits on the first TAB in the remainder. When the node has no `name`, the remainder is `<body>` only (may contain spaces). `body` is node text after optional metadata prefix.
 
-**Ref line.** Replaces baseline `-> #n1`. Resolves by stable `NodeId` via the target's `name` in the current file subtree, or by cross-file path + name. Import must not rely on line order or tab depth alone.
+**Ref line.** Replaces baseline `-> #n1`. Resolves by stable `NodeId` via `^<stable-id>` in the current file, or `<path>^<stable-id>` cross-file. Import must not rely on line order or tab depth alone.
 
 **Plain line.** Content without a stable id. Import mints a new `NodeId`. Export uses owner lines for all persisted subtree nodes; plain lines appear only from external edits before reconciliation.
 
@@ -49,8 +51,8 @@ Line breaks: `\n` or `\r\n`; normalize on read.
 
 | Line kind | Import rule | Export counterpart |
 |-----------|-------------|-------------------|
-| Owner | Match `stable-id` to a node in the current file subtree; update text, classes, and children stack. Unknown id in subtree: report or mint per policy (TBD). | **Owner line** |
-| Ref | Resolve `ref-target` to `NodeId` (within-file by `name`, cross-file by path + `name` against graph). Emit Ref edge under current parent. | **Ref line** |
+| Owner | Match `stable-id` to a node in the current file subtree; update text, classes, name, and children stack. Unknown id in subtree: report or mint per policy (TBD). | **Owner line** |
+| Ref | Resolve `ref-target` to `NodeId` (within-file by `^<stable-id>`, cross-file by path + `^<stable-id>` against graph). Emit Ref edge under current parent. | **Ref line** |
 | Plain | Mint new `NodeId`; Owner edge; push onto stack. | **Owner line** (once persisted) |
 | Tab depth | Pop stack to depth; attach under stack head. | Same depth on write |
 | Metadata | Parse `{...}` prefix into classes + text. | Same prefix on write |
@@ -61,8 +63,8 @@ Special nodes: `WORKSPACES` and `TRASH` ids map to fixed canonical nodes as toda
 
 | Outline state | Export rule | Import counterpart |
 |---------------|-------------|-------------------|
-| Owned node in file subtree | `#<NodeId> [<name>] <body>` at tab depth from parentage; include `name-token` when node has a readable name or is referenceable. | **Owner line** |
-| Ref edge | `-> #<name>` within file, or `-> <path>#<name>` cross-file. | **Ref line** |
+| Owned node in file subtree | `^<NodeId> [<name> TAB] <body>` at tab depth from parentage; include `name-token` when node has a readable name. | **Owner line** |
+| Ref edge | `-> ^<NodeId>` within file, or `-> <path>^<NodeId>` cross-file. | **Ref line** |
 | Hierarchy | Tab depth = child depth under owner parentage. | Tab depth |
 | Classes | `{.class...}` prefix when non-empty or text starts with `{`. | Metadata prefix |
 
@@ -70,8 +72,7 @@ Workspace export projects one file subtree only (not the whole graph).
 
 ## References (within and cross-file)
 
-Readable anchor is `#name`. Cross-file form is `relative/path.amb#name`, aligned with
-[[doc/roadmap/reference-expressions.md]] namespace member steps where applicable.
+Stable anchor is `^<stable-id>`. Cross-file form is `<workspace-relative-path>^<stable-id>`, aligned with [[doc/roadmap/reference-expressions.md]] namespace member steps where applicable.
 
 - Bind by stable `NodeId`; editing file B must not force rewriting file A when A holds a cross-file reference into B.
 - Ambit ensures `name` is unique among reference targets within a file when a reference is created.

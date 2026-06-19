@@ -20,6 +20,7 @@
     <Compile Include="DocumentPathMoveTests.fs" />
     <Compile Include="LogTextTests.fs" />
     <Compile Include="SnapshotTests.fs" />
+    <Compile Include="AmbDocumentTests.fs" />
     <Compile Include="SerializationTests.fs" />
     <Compile Include="WorkspaceLocalMappingTests.fs" />
     <Compile Include="LoginFormTests.fs" />

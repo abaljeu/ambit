@@ -14,7 +14,7 @@ Stable `NodeId` values (see `Graph` in `src/Shared/Model.fs`):
 | Node | `NodeId` suffix | Text | Kind |
 |------|-----------------|------|------|
 | Root | `00000000-0000-0000-0000-000000000000` | `ROOT` | `Special Workspace` (nameless, `@:`) |
-| Trash | `…000000000001` | `Trash` | `Special Trash` *(today)* → `Special Directory` with `Node.name = TRASH` *(Stage 6 target)* |
+| Trash | `…000000000001` | `Trash` | `Special Directory` *(today)* → `Special Directory` with `Node.name = TRASH` *(Stage 6 target)* |
 | Workspaces | `…000000000002` | `Workspaces` | `Special Workspaces` |
 
 Every graph built via `Graph.fromNodes` or `Graph.create` has:
