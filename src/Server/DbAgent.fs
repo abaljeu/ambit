@@ -28,6 +28,7 @@ module DbAgent =
             loadInitialState connectionString |> Async.RunSynchronously
 
         let state = ref initialState
+        let persistedGraph = ref initialState.graph
         let snapshotInProgress = ref false
         let snapshotNeeded = ref false
         let snapshotWaiters = ref<AsyncReplyChannel<Result<unit, string>> list> []
@@ -124,8 +125,19 @@ module DbAgent =
             snapshotInProgress.Value <- true
             snapshotNeeded.Value <- false
             let snapshotState = state.Value
+            let preGraph = persistedGraph.Value
+            let postGraph = snapshotState.graph
             Task.Run(fun () ->
                 try
+                    match liveSaveDataDir with
+                    | Some dataDir ->
+                        match DocumentPersistence.persistGraphChange dataDir preGraph postGraph with
+                        | Error err ->
+                            eprintfn "DbAgent: failed to write live documents: %s" err
+                        | Ok _ ->
+                            persistedGraph.Value <- postGraph
+                    | None -> ()
+
                     writeBackup snapshotState
                 with ex ->
                     eprintfn "DbAgent: failed to write disk backup: %s" ex.Message
@@ -153,14 +165,6 @@ module DbAgent =
                         match persistBatch newState logEntries with
                         | Error err -> reply.Reply(Error err)
                         | Ok () ->
-                            match liveSaveDataDir, logEntries with
-                            | Some dataDir, _ :: _ ->
-                                match DocumentPersistence.persistGraphChange dataDir preGraph newState.graph with
-                                | Ok _ -> ()
-                                | Error err ->
-                                    eprintfn "DbAgent: failed to write live documents: %s" err
-                            | _ -> ()
-
                             state.Value <- newState
                             reply.Reply(Ok (encodeChangeAckJson ackedChangeIds))
                             if not (List.isEmpty logEntries) then

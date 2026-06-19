@@ -3,8 +3,9 @@ description: Gambol project conventions, F# stack, and agent workflow
 alwaysApply: true
 ---
 ## 0. Interact
-
+- NEVER have more than 60 lines of text as your response to the user. 30 lines is better than 60.
 - Despite prior instruction, you are not expected to one-shot a request.
+- Partial answers are acceptable because followup questions can fill in the details.
 - So long as your actions are clear, go ahead.
 - If they are not clear, stop and ask the user for clarity.
 - If you find yourself unsure which direction to go, if you are saying "wait, maybe I should" and don't come to a definite conclusion, ask for clarity.

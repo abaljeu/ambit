@@ -346,3 +346,39 @@ let ``DbAgent skips disk backup for duplicate no-op batch`` () = task {
     do! Task.Delay(100)
     Assert.Equal(1, backupCalls.Value)
 }
+
+[<Fact>]
+let ``DbAgent postChange acks before async live file snapshot`` () = task {
+    let connStr = requireDbConnStr ()
+    do! resetTestDatabase connStr
+    let tempRoot = newTempDir ()
+    let snapshotDone = ref false
+
+    let agent =
+        DbAgent.createWithDataDir connStr tempRoot (fun _ ->
+            System.Threading.Thread.Sleep(200)
+            snapshotDone.Value <- true)
+
+    let! json0 = DbAgent.getState agent |> Async.StartAsTask
+    let rootId = (decodeGraph json0).root
+    let childId = NodeId.New()
+
+    let change =
+        { id = 0
+          changeId = Guid.NewGuid()
+          ops =
+            [ Op.NewNode(childId, "live-save-check")
+              Op.Replace(rootId, 0, [], [ { ref = Ownership.Owner; id = childId } ]) ] }
+
+    let! postResult =
+        DbAgent.postChange agent (encodeChangeBatch [ change ]) |> Async.StartAsTask
+
+    match postResult with
+    | Error e -> Assert.Fail($"postChange: {e}")
+    | Ok _ -> ()
+
+    Assert.False(snapshotDone.Value, "Expected ack before live file snapshot finished.")
+
+    let! completed = waitUntil 2000 (fun () -> snapshotDone.Value)
+    Assert.True(completed, "Expected live file snapshot to complete after ack.")
+}
