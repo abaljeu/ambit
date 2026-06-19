@@ -83,9 +83,13 @@ If a request is unclear, just ask.
 Do not websearch.  Tell me if you lack information.
 While in plan mode, any request for a change should be interpreted as a request to plan for the change; do not write detailed code then.
 
-Use Test Driven Development.  Write tests for new functionality.
+## 7. Test Driven Develompent
+Write tests for new functionality.
 But we are not testing to the browser.  All logic should be in Shared/, if possible, based on library dependencies. 
 Any complex logic should be testable purely where possible.  (If it depends on ambiguous browser behavior, it isn't).
+
+Run all tests as a background process because it takes a very long time.
+Run targeted tests related to your edit as a foreground process.
 
 ## Source code
 Use pure functional F#.  Don't use mutable.

@@ -26,6 +26,14 @@ let private decodeGraph (json: string) : Graph =
 let private encodeChangeBatch (changes: Change list) =
     Encode.toString 0 (Serialization.encodeChangeBatch { changes = changes })
 
+let private waitUntil (timeoutMs: int) (predicate: unit -> bool) : Task<bool> = task {
+    let mutable elapsed = 0
+    while elapsed < timeoutMs && not (predicate ()) do
+        do! Task.Delay(20)
+        elapsed <- elapsed + 20
+    return predicate ()
+}
+
 [<Fact>]
 let ``DbAgent empty test DB has revision 0 and canonical ROOT`` () = task {
     let connStr = requireDbConnStr ()
@@ -265,4 +273,76 @@ let ``loadPersistedState preserves node kind`` () = task {
     match loaded.graph.nodes.[fileId].kind with
     | Special SpecialKind.File -> ()
     | k -> Assert.Fail(sprintf "expected Special File, got %A" k)
+}
+
+[<Fact>]
+let ``DbAgent writes disk backup after changed batch`` () = task {
+    let connStr = requireDbConnStr ()
+    do! resetTestDatabase connStr
+
+    let backedUpRevision = ref None
+    let agent =
+        DbAgent.createWithBackup connStr (fun state ->
+            backedUpRevision.Value <- Some state.revision.Value)
+
+    let! json0 = DbAgent.getState agent |> Async.StartAsTask
+    let rootId = (decodeGraph json0).root
+    let childId = NodeId.New()
+
+    let change =
+        { id = 0
+          changeId = Guid.NewGuid()
+          ops =
+            [ Op.NewNode(childId, "backup-check")
+              Op.Replace(rootId, 0, [], [ { ref = Ownership.Owner; id = childId } ]) ] }
+
+    let! postResult =
+        DbAgent.postChange agent (encodeChangeBatch [ change ]) |> Async.StartAsTask
+
+    match postResult with
+    | Error e -> Assert.Fail($"postChange: {e}")
+    | Ok _ -> ()
+
+    let! wroteBackup = waitUntil 1000 (fun () -> backedUpRevision.Value = Some 1)
+    Assert.True(wroteBackup, "Expected async backup callback for revision 1.")
+}
+
+[<Fact>]
+let ``DbAgent skips disk backup for duplicate no-op batch`` () = task {
+    let connStr = requireDbConnStr ()
+    do! resetTestDatabase connStr
+
+    let backupCalls = ref 0
+    let agent =
+        DbAgent.createWithBackup connStr (fun _ ->
+            backupCalls.Value <- backupCalls.Value + 1)
+
+    let! json0 = DbAgent.getState agent |> Async.StartAsTask
+    let rootId = (decodeGraph json0).root
+    let childId = NodeId.New()
+    let changeId = Guid.NewGuid()
+
+    let change =
+        { id = 0
+          changeId = changeId
+          ops =
+            [ Op.NewNode(childId, "duplicate-check")
+              Op.Replace(rootId, 0, [], [ { ref = Ownership.Owner; id = childId } ]) ] }
+
+    let body = encodeChangeBatch [ change ]
+    let! firstResult = DbAgent.postChange agent body |> Async.StartAsTask
+    let! secondResult = DbAgent.postChange agent body |> Async.StartAsTask
+
+    match firstResult with
+    | Error e -> Assert.Fail($"first postChange: {e}")
+    | Ok _ -> ()
+
+    match secondResult with
+    | Error e -> Assert.Fail($"second postChange: {e}")
+    | Ok _ -> ()
+
+    let! firstBackupDone = waitUntil 1000 (fun () -> backupCalls.Value >= 1)
+    Assert.True(firstBackupDone, "Expected first async backup callback.")
+    do! Task.Delay(100)
+    Assert.Equal(1, backupCalls.Value)
 }

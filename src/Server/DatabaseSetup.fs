@@ -1,7 +1,6 @@
 namespace Gambol.Server
 
 open System
-open System.Threading
 open Gambol.Shared
 /// Database initialisation, schema setup, and agent caching at startup.
 [<RequireQualifiedAccess>]
@@ -41,68 +40,19 @@ module DatabaseSetup =
     let private decodeChangePayload (s: string) =
         Thoth.Json.Newtonsoft.Decode.fromString Serialization.decodeChange s
 
-    let parsePositiveInt (raw: string option) (fallback: int) =
-        match raw with
-        | Some value ->
-            match Int32.TryParse(value) with
-            | true, parsed when parsed > 0 -> parsed
-            | _ -> fallback
-        | None -> fallback
-
-    let private writeDbBackup (connStr: string) (dataDir: string) (filename: string) = async {
-        try
-            let! state =
-                Database.loadPersistedState connStr ChangeLog.decodeChange
-                |> Async.AwaitTask
-
-            DocumentLoader.writeStateBackup dataDir filename state
-        with ex ->
-            eprintfn "Gambol: DB backup failed. %s" ex.Message
-    }
-
-    let startDbBackupLoop
-        (connStr: string)
-        (dataDir: string)
-        (filename: string)
-        (intervalSeconds: int)
-        (stoppingToken: CancellationToken)
-        : unit =
-        let rec loop () = async {
-            do! writeDbBackup connStr dataDir filename
-
-            if not stoppingToken.IsCancellationRequested then
-                do! Async.Sleep(intervalSeconds * 1000)
-                return! loop ()
-        }
-
-        Async.Start(loop (), stoppingToken)
-
-    let startDbBackupIfNeeded
-        (persistenceMode: PersistenceMode)
-        (dbStatus: DbStatus)
-        (connStr: string)
-        (dataDir: string)
-        (filename: string)
-        (intervalRaw: string option)
-        (stoppingToken: CancellationToken)
-        : unit =
-        match persistenceMode, dbStatus with
-        | PersistenceMode.Db, DbStatus.Ok ->
-            let intervalSeconds = parsePositiveInt intervalRaw 300
-            startDbBackupLoop connStr dataDir filename intervalSeconds stoppingToken
-        | _ -> ()
-
     // DB agent is a single shared instance (one database, one handle name).
-    let private dbAgentCache: (string * DbAgent) option ref = ref None
+    let private dbAgentCache: (string * string * DbAgent) option ref = ref None
     let private dbAgentLock = obj ()
 
-    let getOrCreateDbAgent (connStr: string) (filename: string) : DbAgent =
+    let getOrCreateDbAgent (connStr: string) (dataDir: string) (filename: string) : DbAgent =
         lock dbAgentLock (fun () ->
             match !dbAgentCache with
-            | Some (name, agent) when name = filename -> agent
+            | Some (dir, name, agent) when dir = dataDir && name = filename -> agent
             | _ ->
-                let agent = DbAgent.create connStr
-                dbAgentCache.Value <- Some (filename, agent)
+                let writeBackup state =
+                    DocumentLoader.writeStateBackup dataDir filename state
+                let agent = DbAgent.createWithDataDir connStr dataDir writeBackup
+                dbAgentCache.Value <- Some (dataDir, filename, agent)
                 agent
         )
 
@@ -208,7 +158,7 @@ module DatabaseSetup =
                     else
                         DbStatus.Ok
 
-                getOrCreateDbAgent connStr "gambol" |> ignore
+                getOrCreateDbAgent connStr dataDir "gambol" |> ignore
                 status
             with ex ->
                 eprintfn "Gambol: DB connection failed - falling back to file store. %s" ex.Message

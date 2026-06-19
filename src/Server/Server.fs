@@ -257,22 +257,13 @@ module Main =
             let resolvedDbStatus : DatabaseSetup.DbStatus =
                 DatabaseSetup.resolveDbConnection persistenceMode dbConnString dataDir
 
-            DatabaseSetup.startDbBackupIfNeeded
-                persistenceMode
-                resolvedDbStatus
-                dbConnString
-                dataDir
-                "gambol"
-                (config.["Persistence:BackupIntervalSeconds"] |> Option.ofObj)
-                app.Lifetime.ApplicationStopping
-
             let getHandle (filename: string) : AgentHandle =
                 match persistenceMode, resolvedDbStatus with
                 | DatabaseSetup.PersistenceMode.Db, DatabaseSetup.DbStatus.Ok ->
-                    AgentHandle.ofDb (DatabaseSetup.getOrCreateDbAgent dbConnString filename)
+                    AgentHandle.ofDb (DatabaseSetup.getOrCreateDbAgent dbConnString dataDir filename)
                 | DatabaseSetup.PersistenceMode.File, DatabaseSetup.DbStatus.Ok ->
                     let fileAgent = getOrCreateFileAgent filename
-                    let dbAgent = DatabaseSetup.getOrCreateDbAgent dbConnString filename
+                    let dbAgent = DatabaseSetup.getOrCreateDbAgent dbConnString dataDir filename
                     AgentHandle.ofFileWithDbMirror fileAgent (Some dbAgent)
                 | DatabaseSetup.PersistenceMode.File, _ ->
                     AgentHandle.ofFile (getOrCreateFileAgent filename)

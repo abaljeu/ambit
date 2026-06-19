@@ -40,6 +40,7 @@ module FileAgent =
 
         let offsetIndex = ChangeLog.buildIndex logStream
         let state = ref initialState
+        let persistedGraph = ref initialState.graph
         let snapshotInProgress = ref false
         let snapshotNeeded = ref false
         let snapshotWaiters = ref<AsyncReplyChannel<Result<unit, string>> list> []
@@ -73,11 +74,14 @@ module FileAgent =
             snapshotInProgress.Value <- true
             snapshotNeeded.Value <- false
             let rev = state.Value.revision.Value
+            let preGraph = persistedGraph.Value
+            let postGraph = state.Value.graph
             Task.Run(fun () ->
                 try
-                    match DocumentPersistence.writeAllDocuments dataDir state.Value.graph with
+                    match DocumentPersistence.persistGraphChange dataDir preGraph postGraph with
                     | Error _ -> ()
                     | Ok _ ->
+                        persistedGraph.Value <- postGraph
                         let metaTmpPath = metaPath + ".tmp"
                         File.WriteAllText(metaTmpPath, string rev)
                         // Rename meta last — documents are written first; log retains changes.
@@ -132,15 +136,19 @@ module FileAgent =
                 match applyBatch batch.changes with
                 | Error err -> reply.Reply(Error err)
                 | Ok (newState, ackedChangeIds, logEntries, changed) ->
-                    match persistLogEntries logEntries with
+                    let preGraph = state.Value.graph
+                    match DocumentPersistence.validatePathMoves dataDir preGraph newState.graph with
                     | Error err -> reply.Reply(Error err)
-                    | Ok offsets ->
-                        offsets |> List.iter offsetIndex.Add
-                        state.Value <- newState
-                        reply.Reply(Ok (encodeChangeAckJson ackedChangeIds))
-                        if changed then
-                            if snapshotInProgress.Value then snapshotNeeded.Value <- true
-                            else startSnapshot inbox
+                    | Ok () ->
+                        match persistLogEntries logEntries with
+                        | Error err -> reply.Reply(Error err)
+                        | Ok offsets ->
+                            offsets |> List.iter offsetIndex.Add
+                            state.Value <- newState
+                            reply.Reply(Ok (encodeChangeAckJson ackedChangeIds))
+                            if changed then
+                                if snapshotInProgress.Value then snapshotNeeded.Value <- true
+                                else startSnapshot inbox
 
         let mailbox = MailboxProcessor<FileAgentMsg>.Start(fun inbox ->
             let rec loop () = async {

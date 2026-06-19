@@ -19,11 +19,24 @@ module DbAgent =
     let private loadInitialState (connectionString: string) : Async<State> =
         Database.loadPersistedState connectionString decodeChangePayload |> Async.AwaitTask
 
-    let create (connectionString: string) : DbAgent =
+    let private createWithLiveSave
+        (connectionString: string)
+        (liveSaveDataDir: string option)
+        (writeBackup: State -> unit)
+        : DbAgent =
         let initialState =
             loadInitialState connectionString |> Async.RunSynchronously
 
         let state = ref initialState
+        let snapshotInProgress = ref false
+        let snapshotNeeded = ref false
+        let snapshotWaiters = ref<AsyncReplyChannel<Result<unit, string>> list> []
+
+        let notifySnapshotWaiters () =
+            if not snapshotInProgress.Value && not snapshotNeeded.Value then
+                snapshotWaiters.Value
+                |> List.iter (fun reply -> reply.Reply(Ok ()))
+                snapshotWaiters.Value <- []
 
         let encodeStateJson () =
             Encode.toString 0 (
@@ -107,7 +120,19 @@ module DbAgent =
                 eprintfn "DbAgent: failed to persist batch: %s" ex.Message
                 Error $"Database error: {ex.Message}"
 
-        let handlePostChange body (reply: AsyncReplyChannel<Result<string, string>>) _inbox =
+        let startSnapshot (inbox: MailboxProcessor<FileAgentMsg>) =
+            snapshotInProgress.Value <- true
+            snapshotNeeded.Value <- false
+            let snapshotState = state.Value
+            Task.Run(fun () ->
+                try
+                    writeBackup snapshotState
+                with ex ->
+                    eprintfn "DbAgent: failed to write disk backup: %s" ex.Message
+                inbox.Post(SnapshotDone)
+            ) |> ignore
+
+        let handlePostChange body (reply: AsyncReplyChannel<Result<string, string>>) inbox =
             match Decode.fromString Serialization.decodeChangeBatch body with
             | Error err ->
                 reply.Reply(Error $"Invalid JSON: {err}")
@@ -115,11 +140,32 @@ module DbAgent =
                 match applyBatch batch.changes with
                 | Error err -> reply.Reply(Error err)
                 | Ok (newState, ackedChangeIds, logEntries) ->
-                    match persistBatch newState logEntries with
+                    let preGraph = state.Value.graph
+                    let pathValidation =
+                        match liveSaveDataDir with
+                        | None -> Ok ()
+                        | Some dataDir ->
+                            DocumentPersistence.validatePathMoves dataDir preGraph newState.graph
+
+                    match pathValidation with
                     | Error err -> reply.Reply(Error err)
                     | Ok () ->
-                        state.Value <- newState
-                        reply.Reply(Ok (encodeChangeAckJson ackedChangeIds))
+                        match persistBatch newState logEntries with
+                        | Error err -> reply.Reply(Error err)
+                        | Ok () ->
+                            match liveSaveDataDir, logEntries with
+                            | Some dataDir, _ :: _ ->
+                                match DocumentPersistence.persistGraphChange dataDir preGraph newState.graph with
+                                | Ok _ -> ()
+                                | Error err ->
+                                    eprintfn "DbAgent: failed to write live documents: %s" err
+                            | _ -> ()
+
+                            state.Value <- newState
+                            reply.Reply(Ok (encodeChangeAckJson ackedChangeIds))
+                            if not (List.isEmpty logEntries) then
+                                if snapshotInProgress.Value then snapshotNeeded.Value <- true
+                                else startSnapshot inbox
 
         let mailbox =
             MailboxProcessor<FileAgentMsg>.Start(fun inbox ->
@@ -145,14 +191,34 @@ module DbAgent =
                     | PostChange (body, reply) ->
                         handlePostChange body reply inbox
                     | FlushSnapshot reply ->
-                        reply.Reply(Ok ())
+                        if snapshotInProgress.Value || snapshotNeeded.Value then
+                            snapshotWaiters.Value <- reply :: snapshotWaiters.Value
+                            if not snapshotInProgress.Value && snapshotNeeded.Value then
+                                startSnapshot inbox
+                        else
+                            reply.Reply(Ok ())
                     | SnapshotDone ->
-                        ()
+                        snapshotInProgress.Value <- false
+                        if snapshotNeeded.Value then startSnapshot inbox
+                        else notifySnapshotWaiters ()
                     return! loop ()
                 }
                 loop ())
 
         { mailbox = mailbox }
+
+    let createWithBackup (connectionString: string) (writeBackup: State -> unit) : DbAgent =
+        createWithLiveSave connectionString None writeBackup
+
+    let createWithDataDir
+        (connectionString: string)
+        (dataDir: string)
+        (writeBackup: State -> unit)
+        : DbAgent =
+        createWithLiveSave connectionString (Some dataDir) writeBackup
+
+    let create (connectionString: string) : DbAgent =
+        createWithBackup connectionString (fun _ -> ())
 
     let getState (agent: DbAgent) : Async<string> =
         agent.mailbox.PostAndAsyncReply(GetState)

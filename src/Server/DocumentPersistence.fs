@@ -56,6 +56,134 @@ module DocumentPersistence =
         | None -> Error "no artifact path for document root"
         | Some relativePath -> resolveUnderDataDir dataDir relativePath
 
+    let private resolveArtifactDirectoryPath
+        (dataDir: string)
+        (graph: Graph)
+        (documentRootId: NodeId)
+        : Result<string, string> =
+        match DocumentPartition.artifactDirectoryRelative graph documentRootId with
+        | None -> Error "no artifact directory path for document root"
+        | Some relativePath -> resolveUnderDataDir dataDir relativePath
+
+    let private resolveMovePath
+        (dataDir: string)
+        (graph: Graph)
+        (documentRootId: NodeId)
+        : Result<bool * string, string> =
+        match Map.tryFind documentRootId graph.nodes with
+        | None -> Error "node not found for document path move"
+        | Some node ->
+            match node.kind with
+            | Special File ->
+                resolveArtifactPath dataDir graph documentRootId
+                |> Result.map (fun path -> false, path)
+            | Special (Workspace | Directory) ->
+                resolveArtifactDirectoryPath dataDir graph documentRootId
+                |> Result.map (fun path -> true, path)
+            | _ -> Error "node is not a movable document root"
+
+    let private resolveMovePaths
+        (dataDir: string)
+        (preGraph: Graph)
+        (postGraph: Graph)
+        (move: DocumentPathMove)
+        : Result<(bool * string) * (bool * string), string> =
+        match resolveMovePath dataDir preGraph move.nodeId with
+        | Error msg -> Error msg
+        | Ok oldPath ->
+            match resolveMovePath dataDir postGraph move.nodeId with
+            | Error msg -> Error msg
+            | Ok newPath -> Ok (oldPath, newPath)
+
+    let private sameFullPath (left: string) (right: string) =
+        String.Equals(
+            Path.GetFullPath left,
+            Path.GetFullPath right,
+            StringComparison.OrdinalIgnoreCase)
+
+    let private pathExists (path: string) =
+        File.Exists path || Directory.Exists path
+
+    let private validateDestinationAvailable
+        (oldFullPath: string)
+        (newFullPath: string)
+        : Result<unit, string> =
+        if sameFullPath oldFullPath newFullPath then
+            Ok ()
+        elif pathExists newFullPath then
+            Error $"disk path already exists: {newFullPath}"
+        else
+            Ok ()
+
+    let private createParentDirectory (fullPath: string) =
+        let parent = Path.GetDirectoryName fullPath
+
+        if not (String.IsNullOrEmpty parent) then
+            Directory.CreateDirectory parent |> ignore
+
+    let validatePathMoves
+        (dataDir: string)
+        (preGraph: Graph)
+        (postGraph: Graph)
+        : Result<unit, string> =
+        DocumentPathMove.planPathMovesBetweenGraphs preGraph postGraph
+        |> DocumentPathMove.coalescePathMoves preGraph
+        |> List.fold
+            (fun acc move ->
+                match acc with
+                | Error msg -> Error msg
+                | Ok () ->
+                    match resolveMovePaths dataDir preGraph postGraph move with
+                    | Error msg -> Error msg
+                    | Ok ((_, oldFullPath), (_, newFullPath)) ->
+                        validateDestinationAvailable oldFullPath newFullPath)
+            (Ok ())
+
+    let private executePathMove
+        ((oldIsDirectory, oldFullPath): bool * string)
+        ((newIsDirectory, newFullPath): bool * string)
+        : Result<unit, string> =
+        if oldIsDirectory <> newIsDirectory then
+            Error "document path move changed artifact kind"
+        elif sameFullPath oldFullPath newFullPath then
+            Ok ()
+        else
+            match validateDestinationAvailable oldFullPath newFullPath with
+            | Error msg -> Error msg
+            | Ok () ->
+                try
+                    createParentDirectory newFullPath
+
+                    if oldIsDirectory then
+                        if Directory.Exists oldFullPath then
+                            Directory.Move(oldFullPath, newFullPath)
+                        Ok ()
+                    elif File.Exists oldFullPath then
+                        File.Move(oldFullPath, newFullPath)
+                        Ok ()
+                    else
+                        Ok ()
+                with ex ->
+                    Error ex.Message
+
+    let executePathMoves
+        (dataDir: string)
+        (preGraph: Graph)
+        (postGraph: Graph)
+        (moves: DocumentPathMove list)
+        : Result<unit, string> =
+        moves
+        |> DocumentPathMove.coalescePathMoves preGraph
+        |> List.fold
+            (fun acc move ->
+                match acc with
+                | Error msg -> Error msg
+                | Ok () ->
+                    match resolveMovePaths dataDir preGraph postGraph move with
+                    | Error msg -> Error msg
+                    | Ok (oldPath, newPath) -> executePathMove oldPath newPath)
+            (Ok ())
+
     let writeDocument
         (dataDir: string)
         (graph: Graph)
@@ -110,6 +238,17 @@ module DocumentPersistence =
                     | Error msg -> Error msg
                     | Ok path -> Ok (paths @ [ path ]))
             (Ok [])
+
+    let persistGraphChange
+        (dataDir: string)
+        (preGraph: Graph)
+        (postGraph: Graph)
+        : Result<string list, string> =
+        let moves = DocumentPathMove.planPathMovesBetweenGraphs preGraph postGraph
+
+        match executePathMoves dataDir preGraph postGraph moves with
+        | Error msg -> Error msg
+        | Ok () -> writeAllDocuments dataDir postGraph
 
     let private shouldSkipDiscoveryFile (fileName: string) =
         fileName = "gambol"
