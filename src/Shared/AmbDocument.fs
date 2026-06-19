@@ -101,6 +101,17 @@ module AmbDocument =
         else
             bodyText
 
+    let private plainLineContent (node: Node) (bodyText: string) =
+        lineBodyFor node bodyText
+
+    let private refTargetIds (graph: Graph) : Set<NodeId> =
+        graph.nodes
+        |> Map.toSeq
+        |> Seq.collect (fun (_, node) -> node.children)
+        |> Seq.filter (fun child -> child.ref = Ownership.Ref)
+        |> Seq.map (fun child -> child.id)
+        |> Set.ofSeq
+
     let private ownerLineContent (nodeId: NodeId) (node: Node) (bodyText: string) : string =
         let sid = formatStableId nodeId
         let body = lineBodyFor node bodyText
@@ -131,6 +142,7 @@ module AmbDocument =
         | None -> Error "document root not found"
         | Some rootNode ->
             let documentMembers = DocumentPartition.memberNodeIds graph documentRootId
+            let refTargets = refTargetIds graph
             let occurrenceCount =
                 graph.nodes
                 |> Map.toSeq
@@ -165,7 +177,13 @@ module AmbDocument =
                             |> ignore
                             emittedOwners
                         else
-                            sb.Append(indent).Append(ownerLineContent nodeId node body).Append(nl)
+                            let line =
+                                if isShared || Set.contains nodeId refTargets then
+                                    ownerLineContent nodeId node body
+                                else
+                                    plainLineContent node body
+
+                            sb.Append(indent).Append(line).Append(nl)
                             |> ignore
                             let emitted' = Set.add nodeId emittedOwners
                             node.children
@@ -273,45 +291,78 @@ module AmbDocument =
 
             Ok (nodeId, Map.add nodeId merged nodes)
 
-    let private foldOutlineLine
-        (documentRootId: NodeId)
+    let private tryMatchPlainOwnerChild
+        (parentId: NodeId)
+        (classes: CssClasses)
+        (nodeText: string)
+        (nodes: Map<NodeId, Node>)
         (contextGraph: Graph)
-        (nodes, stack, idMap: Map<string, NodeId>)
-        (line: string)
-        =
-        let depth = line |> Seq.takeWhile ((=) '\t') |> Seq.length
-        let content = line.Substring depth
-        let stack = popStack depth stack
-        let parentId = snd stack.Head
+        (claimed: Set<NodeId>)
+        : NodeId option =
+        let matchesNode (nodeId: NodeId) (node: Node) =
+            not (Set.contains nodeId claimed)
+            && node.text = nodeText
+            && node.cssClasses = classes
 
-        if content.StartsWith("-> ") then
-            let target = content.Substring(3).Trim()
-            match parseRefTarget target with
-            | None -> nodes, stack, idMap, Error ("invalid ref line: " + content)
-            | Some (path, stableToken) ->
-                match resolveRefTarget path stableToken contextGraph nodes with
-                | Error msg -> nodes, stack, idMap, Error msg
-                | Ok (nodeId, nodes') ->
-                    let edge = { ref = Ownership.Ref; id = nodeId }
-                    let nodes'' = prependChild parentId edge nodes'
-                    nodes'', stack, idMap, Ok ()
+        let fromOwnerChild (nodeSources: Map<NodeId, Node>) (nodeId: NodeId) =
+            match Map.tryFind nodeId nodeSources with
+            | Some node when matchesNode nodeId node -> Some nodeId
+            | _ -> None
 
-        elif content.StartsWith("^") then
-            match splitStableIdPrefix (content.Substring(1)) with
-            | None -> nodes, stack, idMap, Error ("invalid owner line: " + content)
-            | Some (stableToken, rest) ->
-                let name, bodyRest = parseOwnerRest rest
-                let classes, nodeText = parseOutlineMeta bodyRest
-                match resolveOwnerLine stableToken name classes nodeText nodes contextGraph with
-                | Error msg -> nodes, stack, idMap, Error msg
-                | Ok (nodeId, nodes') ->
-                    let idMap' = idMap |> Map.add stableToken nodeId
-                    let edge = { ref = Ownership.Owner; id = nodeId }
-                    let nodes'' = prependChild parentId edge nodes'
-                    nodes'', (depth, nodeId) :: stack, idMap', Ok ()
+        let fromParentChildren (nodeSources: Map<NodeId, Node>) (parent: Node) =
+            parent.children
+            |> List.tryPick (fun child ->
+                if child.ref <> Ownership.Owner then None
+                else fromOwnerChild nodeSources child.id)
 
-        else
-            let classes, nodeText = parseOutlineMeta content
+        let fromOwnerLinks (nodeSources: Map<NodeId, Node>) =
+            nodeSources
+            |> Map.toSeq
+            |> Seq.tryPick (fun (nodeId, node) ->
+                if node.owner = parentId then fromOwnerChild nodeSources nodeId
+                else None)
+
+        let trySources nodeSources =
+            match Map.tryFind parentId nodeSources with
+            | None -> None
+            | Some parent ->
+                match fromParentChildren nodeSources parent with
+                | Some nodeId -> Some nodeId
+                | None -> fromOwnerLinks nodeSources
+
+        match trySources contextGraph.nodes with
+        | Some nodeId -> Some nodeId
+        | None -> trySources nodes
+
+    let private resolvePlainLine
+        (parentId: NodeId)
+        (classes: CssClasses)
+        (nodeText: string)
+        (nodes: Map<NodeId, Node>)
+        (contextGraph: Graph)
+        (claimed: Set<NodeId>)
+        : NodeId * Map<NodeId, Node> * Set<NodeId> =
+        match tryMatchPlainOwnerChild parentId classes nodeText nodes contextGraph claimed with
+        | Some nodeId ->
+            let baseNode =
+                match Map.tryFind nodeId nodes, Map.tryFind nodeId contextGraph.nodes with
+                | Some node, _ -> node
+                | None, Some node -> node
+                | None, None ->
+                    { id = nodeId
+                      text = nodeText
+                      name = Filename.Empty
+                      children = []
+                      cssClasses = classes
+                      owner = parentId
+                      kind = Normal
+                      updateTime = NodeUpdateTime.now () }
+
+            let merged =
+                NodeUpdateTime.touch { baseNode with text = nodeText; cssClasses = classes }
+
+            nodeId, Map.add nodeId merged nodes, Set.add nodeId claimed
+        | None ->
             let nodeId = NodeId.New()
             let node =
                 { id = nodeId
@@ -322,10 +373,55 @@ module AmbDocument =
                   owner = parentId
                   kind = Normal
                   updateTime = NodeUpdateTime.now () }
-            let nodes' = nodes |> Map.add nodeId node
+
+            nodeId, Map.add nodeId node nodes, claimed
+
+    let private foldOutlineLine
+        (documentRootId: NodeId)
+        (contextGraph: Graph)
+        (nodes, stack, idMap: Map<string, NodeId>, claimed: Set<NodeId>)
+        (line: string)
+        =
+        let depth = line |> Seq.takeWhile ((=) '\t') |> Seq.length
+        let content = line.Substring depth
+        let stack = popStack depth stack
+        let parentId = snd stack.Head
+
+        if content.StartsWith("-> ") then
+            let target = content.Substring(3).Trim()
+            match parseRefTarget target with
+            | None -> nodes, stack, idMap, claimed, Error ("invalid ref line: " + content)
+            | Some (path, stableToken) ->
+                match resolveRefTarget path stableToken contextGraph nodes with
+                | Error msg -> nodes, stack, idMap, claimed, Error msg
+                | Ok (nodeId, nodes') ->
+                    let edge = { ref = Ownership.Ref; id = nodeId }
+                    let nodes'' = prependChild parentId edge nodes'
+                    nodes'', stack, idMap, claimed, Ok ()
+
+        elif content.StartsWith("^") then
+            match splitStableIdPrefix (content.Substring(1)) with
+            | None -> nodes, stack, idMap, claimed, Error ("invalid owner line: " + content)
+            | Some (stableToken, rest) ->
+                let name, bodyRest = parseOwnerRest rest
+                let classes, nodeText = parseOutlineMeta bodyRest
+                match resolveOwnerLine stableToken name classes nodeText nodes contextGraph with
+                | Error msg -> nodes, stack, idMap, claimed, Error msg
+                | Ok (nodeId, nodes') ->
+                    let idMap' = idMap |> Map.add stableToken nodeId
+                    let claimed' = Set.add nodeId claimed
+                    let edge = { ref = Ownership.Owner; id = nodeId }
+                    let nodes'' = prependChild parentId edge nodes'
+                    nodes'', (depth, nodeId) :: stack, idMap', claimed', Ok ()
+
+        else
+            let classes, nodeText = parseOutlineMeta content
+            let nodeId, nodes', claimed' =
+                resolvePlainLine parentId classes nodeText nodes contextGraph claimed
+
             let edge = { ref = Ownership.Owner; id = nodeId }
             let nodes'' = prependChild parentId edge nodes'
-            nodes'', (depth, nodeId) :: stack, idMap, Ok ()
+            nodes'', (depth, nodeId) :: stack, idMap, claimed', Ok ()
 
     let private finalizeDocument (nodemap: Map<NodeId, Node>) : Map<NodeId, Node> =
         nodemap
@@ -347,21 +443,22 @@ module AmbDocument =
             let initial =
                 ( seedNodes
                   , [ (-1, documentRootId) ]
-                  , Map.empty<string, NodeId> )
+                  , Map.empty<string, NodeId>
+                  , Set.empty )
 
             let folder acc line =
                 match acc with
                 | Error msg -> Error msg
-                | Ok (nodes, stack, idMap) ->
-                    let nodes', stack', idMap', result =
-                        foldOutlineLine documentRootId contextGraph (nodes, stack, idMap) line
+                | Ok (nodes, stack, idMap, claimed) ->
+                    let nodes', stack', idMap', claimed', result =
+                        foldOutlineLine documentRootId contextGraph (nodes, stack, idMap, claimed) line
                     match result with
-                    | Ok () -> Ok (nodes', stack', idMap')
+                    | Ok () -> Ok (nodes', stack', idMap', claimed')
                     | Error msg -> Error msg
 
             match outlineSourceLines text |> Array.fold folder (Ok initial) with
             | Error msg -> Error msg
-            | Ok (nodes, _, _) ->
+            | Ok (nodes, _, _, _) ->
                 let finalized = finalizeDocument nodes
                 Ok { documentRootId = documentRootId; nodes = finalized }
 

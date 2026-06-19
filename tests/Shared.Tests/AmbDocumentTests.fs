@@ -40,7 +40,7 @@ let private childTexts (graph: Graph) (docId: NodeId) : string list =
     |> List.map (fun c -> graph.nodes.[c.id].text)
 
 [<Fact>]
-let ``write owner line uses caret stable id`` () =
+let ``write unreferenced node uses plain line without stable id`` () =
     let nodeId = NodeId.New()
     let node =
         { id = nodeId
@@ -57,10 +57,44 @@ let ``write owner line uses caret stable id`` () =
         |> function
             | Ok s -> s
             | Error msg -> failwith msg
-    Assert.StartsWith("^" + AmbDocument.formatStableId nodeId + " hello", text)
+    Assert.Equal("hello" + Environment.NewLine, text)
+    Assert.DoesNotContain("^" + AmbDocument.formatStableId nodeId, text)
 
 [<Fact>]
-let ``write owner line with name uses tab before body`` () =
+let ``write referenced node uses caret stable id on ref line`` () =
+    let sharedId = NodeId.New()
+    let parentId = NodeId.New()
+    let parent =
+        { id = parentId
+          text = "holder"
+          name = Filename.Empty
+          children = [ { ref = Ownership.Ref; id = sharedId } ]
+          cssClasses = CssClass.empty
+          owner = Graph.rootId
+          kind = Normal
+          updateTime = NodeUpdateTime.missing }
+    let shared =
+        { id = sharedId
+          text = "hello"
+          name = Filename.Empty
+          children = []
+          cssClasses = CssClass.empty
+          owner = Graph.rootId
+          kind = Normal
+          updateTime = NodeUpdateTime.missing }
+    let graph, docId = graphWithDocument [ parent; shared ]
+    let text =
+        AmbDocument.write graph docId
+        |> function
+            | Ok s -> s
+            | Error msg -> failwith msg
+    let sid = AmbDocument.formatStableId sharedId
+    Assert.Contains("-> ^" + sid, text)
+    Assert.Contains("^" + sid + " hello", text)
+    Assert.StartsWith("holder", text)
+
+[<Fact>]
+let ``write unreferenced named node uses plain body only`` () =
     let nodeId = NodeId.New()
     let node =
         { id = nodeId
@@ -78,7 +112,40 @@ let ``write owner line with name uses tab before body`` () =
             | Ok s -> s
             | Error msg -> failwith msg
     let sid = AmbDocument.formatStableId nodeId
-    Assert.Equal("^" + sid + " anchor\tbody text" + Environment.NewLine, text)
+    Assert.Equal("body text" + Environment.NewLine, text)
+    Assert.DoesNotContain("^" + sid, text)
+
+[<Fact>]
+let ``write referenced named node uses caret stable id and tab before body`` () =
+    let sharedId = NodeId.New()
+    let parentId = NodeId.New()
+    let parent =
+        { id = parentId
+          text = "holder"
+          name = Filename.Empty
+          children = [ { ref = Ownership.Ref; id = sharedId } ]
+          cssClasses = CssClass.empty
+          owner = Graph.rootId
+          kind = Normal
+          updateTime = NodeUpdateTime.missing }
+    let shared =
+        { id = sharedId
+          text = "body text"
+          name = Filename.Ok "anchor"
+          children = []
+          cssClasses = CssClass.empty
+          owner = Graph.rootId
+          kind = Normal
+          updateTime = NodeUpdateTime.missing }
+    let graph, docId = graphWithDocument [ parent; shared ]
+    let text =
+        AmbDocument.write graph docId
+        |> function
+            | Ok s -> s
+            | Error msg -> failwith msg
+    let sid = AmbDocument.formatStableId sharedId
+    Assert.Contains("-> ^" + sid, text)
+    Assert.Contains("^" + sid + " anchor\tbody text", text)
 
 [<Fact>]
 let ``read same-document ref resolves stable id`` () =

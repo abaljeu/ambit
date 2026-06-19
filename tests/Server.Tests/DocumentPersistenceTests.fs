@@ -133,9 +133,8 @@ let private assertNestedWorkspaceLoad (expected: Graph) (actual: Graph) =
             | _ -> None)
     let dirId = expected.nodes.[wsId].children.Head.id
     let fileId = expected.nodes.[dirId].children.Head.id
-    let normalId = expected.nodes.[fileId].children.Head.id
-    Assert.Equal(normalId, actual.nodes.[fileId].children.Head.id)
-    Assert.Equal("body", actual.nodes.[normalId].text)
+    let actualNormalId = actual.nodes.[fileId].children.Head.id
+    Assert.Equal("body", actual.nodes.[actualNormalId].text)
     Assert.Equal(wsId, actual.nodes.[Graph.workspacesId].children.Head.id)
     Assert.Equal(dirId, actual.nodes.[wsId].children.Head.id)
     Assert.Equal(fileId, actual.nodes.[dirId].children.Head.id)
@@ -149,10 +148,10 @@ let private assertFileOwnsDirectoryLoad (expected: Graph) (actual: Graph) =
             | NodeKind.Special SpecialKind.File -> Some id
             | _ -> None)
     let dirId = expected.nodes.[fileId].children.Head.id
-    let normalId = expected.nodes.[dirId].children.Head.id
-    Assert.Equal("nested", actual.nodes.[normalId].text)
+    let actualNormalId = actual.nodes.[dirId].children.Head.id
+    Assert.Equal("nested", actual.nodes.[actualNormalId].text)
     Assert.Equal(dirId, actual.nodes.[fileId].children.Head.id)
-    Assert.True(actual.nodes.[dirId].children |> List.exists (fun c -> c.id = normalId))
+    Assert.True(actual.nodes.[dirId].children |> List.exists (fun c -> c.id = actualNormalId))
 
 [<Fact>]
 let ``writeAllDocuments bootstrap graph writes ROOT and TRASH artifacts`` () =
@@ -193,7 +192,8 @@ let ``writeAllDocuments nested file directory boundary writes separate artifacts
     Assert.True(File.Exists dirPath)
     let dirText = File.ReadAllText dirPath
     let normalSid = AmbDocument.formatStableId normalId
-    Assert.Contains("^" + normalSid, dirText)
+    Assert.DoesNotContain("^" + normalSid, dirText)
+    Assert.Contains("nested", dirText)
 
 [<Fact>]
 let ``resolveArtifactPath unknown document root returns error`` () =

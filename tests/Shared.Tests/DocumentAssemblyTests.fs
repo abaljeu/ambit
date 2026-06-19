@@ -223,8 +223,8 @@ let ``assembleFromArtifacts round trips nested workspace tree`` () =
     let expected, wsId, dirId, fileId, normalId = graphWithNestedDocs ()
     let artifacts = artifactMap expected
     let actual = DocumentAssembly.assembleFromArtifacts artifacts |> requireOk "assemble"
-    Assert.Equal(normalId, actual.nodes.[fileId].children.Head.id)
-    Assert.Equal("body", actual.nodes.[normalId].text)
+    let actualNormalId = actual.nodes.[fileId].children.Head.id
+    Assert.Equal("body", actual.nodes.[actualNormalId].text)
     Assert.Equal(wsId, actual.nodes.[Graph.workspacesId].children.Head.id)
     Assert.Equal(dirId, actual.nodes.[wsId].children.Head.id)
     Assert.Equal(fileId, actual.nodes.[dirId].children.Head.id)
@@ -234,9 +234,10 @@ let ``assembleFromArtifacts round trips file owns directory boundary`` () =
     let expected, fileId, dirId, normalId = graphFileOwnsDirectory ()
     let artifacts = artifactMap expected
     let actual = DocumentAssembly.assembleFromArtifacts artifacts |> requireOk "assemble"
-    Assert.Equal("nested", actual.nodes.[normalId].text)
+    let actualNormalId = actual.nodes.[dirId].children.Head.id
+    Assert.Equal("nested", actual.nodes.[actualNormalId].text)
     Assert.Equal(dirId, actual.nodes.[fileId].children.Head.id)
-    Assert.True(actual.nodes.[dirId].children |> List.exists (fun c -> c.id = normalId))
+    Assert.True(actual.nodes.[dirId].children |> List.exists (fun c -> c.id = actualNormalId))
 
 [<Fact>]
 let ``validateAssembledGraph catches missing ref target`` () =

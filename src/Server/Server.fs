@@ -14,17 +14,9 @@ module Main =
 
     let resolveDataDir (contentRoot: string) (config: IConfiguration) =
         let onAzure = Environment.GetEnvironmentVariable("WEBSITE_SITE_NAME") |> Option.ofObj |> Option.isSome
-        let dataDir =
-            if onAzure then
-                // Azure App Service: use persistent /home mount; ignore DataDir config
-                let home = Environment.GetEnvironmentVariable("HOME") |> Option.ofObj |> Option.defaultValue "/home"
-                Path.Combine(home, "data")
-            else
-                let relative = config.["DataDir"] |> Option.ofObj |> Option.defaultValue "../../data"
-                if Path.IsPathRooted(relative) then relative
-                else Path.Combine(contentRoot, relative) |> Path.GetFullPath
-        Directory.CreateDirectory(dataDir) |> ignore
-        DataDir.normalize dataDir
+        let home = Environment.GetEnvironmentVariable("HOME") |> Option.ofObj |> Option.defaultValue "/home"
+        let configured = config.["DataDir"] |> Option.ofObj
+        DataDir.resolve contentRoot configured onAzure home
 
     [<EntryPoint>]
     let main args =
@@ -47,6 +39,9 @@ module Main =
         // In Azure, read from persistent /home (not the site wwwroot) so config can survive redeploys.
         let onAzure = Environment.GetEnvironmentVariable("WEBSITE_SITE_NAME") |> Option.ofObj |> Option.isSome
         let homeDir = Environment.GetEnvironmentVariable("HOME") |> Option.ofObj |> Option.defaultValue "/home"
+        if onAzure then
+            builder.Configuration.AddJsonFile(Path.Combine(homeDir, "appsettings.json"), optional = true)
+                |> ignore
         let envFile = "appsettings." + builder.Environment.EnvironmentName + ".json"
         let envFilePath = if onAzure then Path.Combine(homeDir, envFile) else envFile
         builder.Configuration.AddJsonFile(envFilePath, optional = true)
