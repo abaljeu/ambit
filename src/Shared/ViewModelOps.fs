@@ -768,16 +768,19 @@ module ViewModel =
             | FileStatusIndicator (_, _, status, sourceModifiedUtc) ->
                 FileSyncIndicator.indicatorTextForStatus node.updateTime status sourceModifiedUtc
 
-    /// Outline row label: owned workspace/file nodes use `name`; canonical nodes keep `text`.
+    /// Outline row label: Special nodes prefer `text`, then `name`; canonical nodes keep `text`.
     let outlineDisplayText (node: Node) : string =
         if node.id = Graph.rootId || node.id = Graph.trashId || node.id = Graph.workspacesId then
             node.text
         else
             match node.kind with
             | Special (File | Directory | Workspace) ->
-                match node.name with
-                | Filename.Ok n -> n
-                | _ -> node.text
+                if node.text <> "" then
+                    node.text
+                else
+                    match node.name with
+                    | Filename.Ok n -> n
+                    | _ -> ""
             | _ -> node.text
 
     /// Right-hand row label from `Node.name` (Empty → blank).

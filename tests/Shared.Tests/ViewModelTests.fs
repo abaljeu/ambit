@@ -1473,10 +1473,23 @@ let ``SiteMap getVisibleRowIds shows children of expanded node`` () =
 // ---------------------------------------------------------------------------
 
 [<Fact>]
-let ``outlineDisplayText uses name for owned special directory`` () =
+let ``outlineDisplayText uses text for owned special directory when available`` () =
     let node =
         { id = NodeId.New()
           text = "folder"
+          name = Filename.Ok "my-docs"
+          children = []
+          cssClasses = CssClass.empty
+          owner = Graph.rootId
+          kind = Special Directory
+          updateTime = NodeUpdateTime.now () }
+    Assert.Equal("folder", outlineDisplayText node)
+
+[<Fact>]
+let ``outlineDisplayText falls back to name for owned special directory when text empty`` () =
+    let node =
+        { id = NodeId.New()
+          text = ""
           name = Filename.Ok "my-docs"
           children = []
           cssClasses = CssClass.empty
