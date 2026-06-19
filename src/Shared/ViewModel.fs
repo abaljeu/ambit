@@ -293,6 +293,7 @@ and VM = // the client state
       zoomRoot: NodeId // display starting from here
       clipboard: ClipboardContent option
       desktopCapabilities: DesktopCapabilities option
+      serverCapabilities: ServerCapabilities option
       desktopFileIndicator: DesktopFileIndicator
       syncInfo: SyncInfo
       lastSuccessfulKey: string   // key combo of the most recently handled command (e.g. "Ctrl+Z")
@@ -308,6 +309,7 @@ type SystemMsg =
     | SubmitRejected of detail: string // server HTTP error (decoded `error` or short body snippet)
     | SubmitNetworkError of baseRevision: int * changes: Change list
     | DesktopCapabilitiesDetected of DesktopCapabilities option
+    | ServerCapabilitiesDetected of ServerCapabilities option
     | DesktopFileStatusReceived of
         nodeId: NodeId *
         path: string *

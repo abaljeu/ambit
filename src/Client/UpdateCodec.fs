@@ -22,6 +22,14 @@ let decodeStateResponse (text: string) : Result<Graph * Revision, string> =
             g, r)
     Thoth.Json.JavaScript.Decode.fromString decoder text
 
+/// Decode the response from GET /{file}/capabilities.
+let decodeServerCapabilities (text: string) : Result<ServerCapabilities, string> =
+    Thoth.Json.JavaScript.Decode.fromString ServerCapabilities.decoder text
+
+/// Decode POST /{file}/save response.
+let decodeGitSaveResponse (text: string) : Result<GitSaveResponse, string> =
+    Thoth.Json.JavaScript.Decode.fromString GitSaveResponse.decoder text
+
 /// Decode the response from GET /_desktop/capabilities.
 let decodeDesktopCapabilities (text: string) : Result<DesktopCapabilities, string> =
     Thoth.Json.JavaScript.Decode.fromString DesktopCapabilities.decoder text

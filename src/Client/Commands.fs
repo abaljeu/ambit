@@ -14,6 +14,7 @@ open Gambol.Client.UpdateOps
 open Gambol.Client.UpdatePaste
 open Gambol.Client.UpdateImport
 open Gambol.Client.UpdateExport
+open Gambol.Client.UpdateSave
 open Gambol.Client.UpdateFileSearch
 open Gambol.Client.UpdateRename
 open Gambol.Shared.CommandDockLayout
@@ -213,6 +214,7 @@ let commandRegistry : CommandEntry2 list =
       cmd JumpToTarget (keyAlways jumpTargetOp)
       cmd Import (keyAlways importLocalOp)
       cmd Export (keyAlways exportLocalOp)
+      cmd Save (keyAlways gitSaveOp)
     ]
 
 // ---------------------------------------------------------------------------

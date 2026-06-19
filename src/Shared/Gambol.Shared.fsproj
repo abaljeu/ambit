@@ -19,6 +19,7 @@
     <Compile Include="History.fs" />
     <Compile Include="LogText.fs" />
     <Compile Include="DesktopCapabilities.fs" />
+    <Compile Include="ServerCapabilities.fs" />
     <Compile Include="FileSyncIndicator.fs" />
     <Compile Include="WorkspaceLocalMapping.fs" />
     <Compile Include="LoginForm.fs" />

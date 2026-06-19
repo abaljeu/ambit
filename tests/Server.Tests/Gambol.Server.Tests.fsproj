@@ -16,6 +16,8 @@
     <Compile Include="TestBackend.fs" />
     <Compile Include="DocumentPersistenceTests.fs" />
     <Compile Include="DocumentLoaderTests.fs" />
+    <Compile Include="GitSaveTests.fs" />
+    <Compile Include="GitSaveEndpointTests.fs" />
     <Compile Include="DbAgentTests.fs" />
     <Compile Include="StateEndpointTests.fs" />
   </ItemGroup>

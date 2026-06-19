@@ -50,6 +50,7 @@ let emptyModel (graph: Graph) : VM =
       zoomRoot = graph.root
       clipboard = None
       desktopCapabilities = None
+      serverCapabilities = None
       desktopFileIndicator = BlankFileIndicator
       syncInfo = SyncInfo.initial
       lastSuccessfulKey = ""
@@ -69,6 +70,7 @@ let emptyModelAt (graph: Graph) (viewRoot: NodeId) : VM =
       zoomRoot = viewRoot
       clipboard = None
       desktopCapabilities = None
+      serverCapabilities = None
       desktopFileIndicator = BlankFileIndicator
       syncInfo = SyncInfo.initial
       lastSuccessfulKey = ""
@@ -1467,6 +1469,29 @@ let ``SiteMap getVisibleRowIds shows children of expanded node`` () =
     Assert.Equal(ids.[1], visible.[3])
 
 // ---------------------------------------------------------------------------
+// outlineDisplayText
+// ---------------------------------------------------------------------------
+
+[<Fact>]
+let ``outlineDisplayText uses name for owned special directory`` () =
+    let node =
+        { id = NodeId.New()
+          text = "folder"
+          name = Filename.Ok "my-docs"
+          children = []
+          cssClasses = CssClass.empty
+          owner = Graph.rootId
+          kind = Special Directory
+          updateTime = NodeUpdateTime.now () }
+    Assert.Equal("my-docs", outlineDisplayText node)
+
+[<Fact>]
+let ``outlineDisplayText keeps trash label from text`` () =
+    let graph = Graph.create ()
+    let node = graph.nodes.[Graph.trashId]
+    Assert.Equal("Trash", outlineDisplayText node)
+
+// ---------------------------------------------------------------------------
 // planPatchDOM
 // ---------------------------------------------------------------------------
 
@@ -1511,6 +1536,39 @@ let ``planPatchDOM text change produces SetText patch and no CreateRow`` () =
 
     Assert.Equal(1, textPatches.Length) // exactly K=1 DOM text update
     Assert.Equal(0, creates.Length) // no new elements created
+
+[<Fact>]
+let ``planPatchDOM name change produces SetNodeName patch`` () =
+    let graph, cont, ids = buildFlat [ "a"; "b"; "c" ]
+    let oldModel = emptyModelAt graph cont
+    let targetId = ids.[1]
+    let oldNode = graph.nodes.[targetId]
+
+    let newNode =
+        { oldNode with
+            name = Filename.Ok "renamed.txt" }
+
+    let newGraph = Graph.fromNodes graph.root (Map.add targetId newNode graph.nodes)
+    let newModel = { oldModel with graph = newGraph }
+    let cachedInstIds = buildCacheSet oldModel.siteMap
+
+    let mutations = planPatchDOM oldModel newModel cachedInstIds
+
+    let namePatches =
+        mutations
+        |> List.collect (fun m ->
+            match m with
+            | PatchRow(_, patches) ->
+                patches
+                |> List.filter (function
+                    | SetNodeName _ -> true
+                    | _ -> false)
+            | _ -> [])
+
+    Assert.Equal(1, namePatches.Length)
+    match namePatches.[0] with
+    | SetNodeName "renamed.txt" -> ()
+    | other -> Assert.Fail(sprintf "unexpected patch %A" other)
 
 [<Fact>]
 let ``planPatchDOM expand inserts correct child count`` () =

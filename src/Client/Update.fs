@@ -38,6 +38,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
           zoomRoot = zoomRoot
           clipboard = None
           desktopCapabilities = model.desktopCapabilities
+          serverCapabilities = model.serverCapabilities
           desktopFileIndicator = BlankFileIndicator
           syncInfo = SyncInfo.initial
           lastSuccessfulKey = ""
@@ -105,6 +106,9 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
 
     | SysMsg (DesktopCapabilitiesDetected capabilities) ->
         { model with desktopCapabilities = capabilities }, []
+
+    | SysMsg (ServerCapabilitiesDetected capabilities) ->
+        { model with serverCapabilities = capabilities }, []
 
     | SysMsg (DesktopFileStatusReceived (nodeId, path, status, sourceModifiedUtc)) ->
         ViewModel.applyDesktopFileStatus nodeId path status sourceModifiedUtc model, []

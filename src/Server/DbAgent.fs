@@ -144,6 +144,8 @@ module DbAgent =
                         reply.Reply(changes)
                     | PostChange (body, reply) ->
                         handlePostChange body reply inbox
+                    | FlushSnapshot reply ->
+                        reply.Reply(Ok ())
                     | SnapshotDone ->
                         ()
                     return! loop ()

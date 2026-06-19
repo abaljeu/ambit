@@ -276,6 +276,15 @@ let setEditorCarentToFirstLineAtX (root: HTMLElement) (clientX: float) :
         if not (selectionApplyIfInRoot root sel r) then
             setEditorCaret root 0
 
+[<Emit("fetch($0,{method:'POST',credentials:'same-origin'})" +
+       ".then(function(r){return r.text().then(function(t){" +
+       "if(r.ok){$1(t);}else{$2(r.status,t);}});})" +
+       ".catch(function(){$3()})")>]
+let postEmpty
+    (url: string) (onSuccess: string -> unit)
+    (onHttpError: int -> string -> unit) (onNetworkFail: unit -> unit)
+    : unit = jsNative
+
 /// POST JSON: onSuccess (2xx body), onHttpError (4xx/5xx status + body text),
 /// onNetworkFail (fetch failure). Error bodies are logged in App.fs batch submit.
 [<Emit("fetch($0,{method:'POST',headers:{'Content-Type':'application/json'},body:$1})" +

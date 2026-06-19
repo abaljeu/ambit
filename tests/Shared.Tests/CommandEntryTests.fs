@@ -27,7 +27,7 @@ let ``scopeInEditing includes editing scopes only`` () =
 
 [<Fact>]
 let ``allCommands has unique ids for every CommandId case`` () =
-    Assert.Equal(48, allCommands.Length)
+    Assert.Equal(49, allCommands.Length)
     let ids = allCommands |> List.map (fun e -> e.id)
     Assert.Equal(allCommands.Length, List.distinct ids |> List.length)
     let unionCases =

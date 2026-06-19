@@ -54,6 +54,7 @@ type CommandId =
     | JumpToTarget
     | Import
     | Export
+    | Save
     | InsertFile
     | Rename
 
@@ -205,6 +206,9 @@ let allCommands : CommandEntry list =
           category = FileIO; iconId = None }
         { id = Export; name = "Export"
           keys = [ "Ctrl+Shift+<" ]; keyScope = SelectionOrEditing
+          category = FileIO; iconId = None }
+        { id = Save; name = "Save"
+          keys = [ "Ctrl+S" ]; keyScope = SelectionOrEditing
           category = FileIO; iconId = None }
         { id = InsertFile; name = "Insert…"
           keys = [ "f" ]; keyScope = SelectionOrEditing

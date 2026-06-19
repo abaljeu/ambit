@@ -3,6 +3,7 @@
 		d
 	-> @:/dd/file1^f456d9ef-7bab-4fd6-b2fa-af19724c6141
 	r
+		-> ^19af7202-0550-4a6e-8fb9-c6d3f86524f4
 	-> @:/dd/ff^8f3e52d7-c9db-41a8-830e-0b04dfc0199e
 	
 	nowe
@@ -648,4 +649,6 @@ The roof must clearly separate the two parts of the coNP-completeness argument:u
 {.pink}outlier
 -> @:/dd/^a9f330b1-e63f-467b-b555-463b133e75dd
 Workspaces
+	-> ^f17ba66c-da70-4f00-ac16-393b0e2f19e1
+	-> @workspace:^009f00aa-2602-429d-9ef2-9a445f343e76
 -> @:/TRASH/^TRASH

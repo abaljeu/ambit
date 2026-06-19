@@ -13,6 +13,7 @@ type FileAgentMsg =
     | GetRevision of AsyncReplyChannel<int>
     | GetChangesSince of after: int * AsyncReplyChannel<Change list>
     | PostChange of body: string * AsyncReplyChannel<Result<string, string>>
+    | FlushSnapshot of AsyncReplyChannel<Result<unit, string>>
     | SnapshotDone
 
 // FileAgent — serialises all reads/writes for a single file
@@ -41,10 +42,17 @@ module FileAgent =
         let state = ref initialState
         let snapshotInProgress = ref false
         let snapshotNeeded = ref false
+        let snapshotWaiters = ref<AsyncReplyChannel<Result<unit, string>> list> []
 
         let capturedInitialState = state.Value
 
         logStream.Seek(0L, SeekOrigin.End) |> ignore
+
+        let notifySnapshotWaiters () =
+            if not snapshotInProgress.Value && not snapshotNeeded.Value then
+                snapshotWaiters.Value
+                |> List.iter (fun reply -> reply.Reply(Ok ()))
+                snapshotWaiters.Value <- []
 
         let encodeStateJson () =
             Encode.toString 0 (
@@ -153,9 +161,17 @@ module FileAgent =
                     reply.Reply(changes)
                 | PostChange (body, reply) ->
                     handlePostChange body reply inbox
+                | FlushSnapshot reply ->
+                    if snapshotInProgress.Value || snapshotNeeded.Value then
+                        snapshotWaiters.Value <- reply :: snapshotWaiters.Value
+                        if not snapshotInProgress.Value && snapshotNeeded.Value then
+                            startSnapshot inbox
+                    else
+                        reply.Reply(Ok ())
                 | SnapshotDone ->
                     snapshotInProgress.Value <- false
                     if snapshotNeeded.Value then startSnapshot inbox
+                    else notifySnapshotWaiters ()
                 return! loop ()
             }
             loop ()
@@ -174,6 +190,9 @@ module FileAgent =
 
     let postChange (agent: FileAgent) (body: string) : Async<Result<string, string>> =
         agent.mailbox.PostAndAsyncReply(fun reply -> PostChange(body, reply))
+
+    let flushSnapshot (agent: FileAgent) : Async<Result<unit, string>> =
+        agent.mailbox.PostAndAsyncReply FlushSnapshot
 
     let dispose (agent: FileAgent) =
         agent.logStream.Flush()

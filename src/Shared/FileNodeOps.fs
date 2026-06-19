@@ -42,6 +42,15 @@ module FileNodeOps =
 
         loop 0
 
+    let private baseNameFromQuery (query: string) (defaultName: string) : string =
+        let trimmed = query.Trim()
+        if System.String.IsNullOrWhiteSpace trimmed then
+            defaultName
+        else
+            match Filename.create trimmed with
+            | Filename.Ok name -> name
+            | _ -> defaultName
+
     let private appendOwnedOp (parentId: NodeId) (childId: NodeId) (graph: Graph) : Op =
         let index = Graph.fileTreeInsertIndex graph parentId
         Op.Replace(parentId, index, [], [ { ref = Ownership.Owner; id = childId } ])
@@ -59,14 +68,14 @@ module FileNodeOps =
               appendOwnedOp parentId childId graph ]
         childId, ops
 
-    let planCreateWorkspace (graph: Graph) : NodeId * Op list =
-        planCreateOwnedSpecial graph Graph.workspacesId Workspace "workspace"
+    let planCreateWorkspace (graph: Graph) (query: string) : NodeId * Op list =
+        planCreateOwnedSpecial graph Graph.workspacesId Workspace (baseNameFromQuery query "workspace")
 
-    let planCreateOwnedFile (graph: Graph) (parentId: NodeId) : NodeId * Op list =
-        planCreateOwnedSpecial graph parentId File "file.txt"
+    let planCreateOwnedFile (graph: Graph) (parentId: NodeId) (query: string) : NodeId * Op list =
+        planCreateOwnedSpecial graph parentId File (baseNameFromQuery query "file.txt")
 
-    let planCreateOwnedDirectory (graph: Graph) (parentId: NodeId) : NodeId * Op list =
-        planCreateOwnedSpecial graph parentId Directory "folder"
+    let planCreateOwnedDirectory (graph: Graph) (parentId: NodeId) (query: string) : NodeId * Op list =
+        planCreateOwnedSpecial graph parentId Directory (baseNameFromQuery query "folder")
 
     let planInsertFileRefAtFocus
         (insert: FocusInsertPoint)

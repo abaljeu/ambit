@@ -1,9 +1,16 @@
 module Gambol.Client.UpdateFileSearch
 
+open Browser.Dom
+open Browser.Types
 open Gambol.Client.FileSearchDialog
 open Gambol.Client.UpdateHelpers
 open Gambol.Shared
 open Gambol.Shared.ViewModel
+
+let private readFileSearchQueryInput () : string =
+    let el = document.getElementById "file-search-dialog-input"
+    if isNull el then ""
+    else (el :?> HTMLInputElement).value
 
 let private focusInsertPoint (sel: Selection) : FocusInsertPoint =
     { parentId = sel.range.parent.nodeId
@@ -35,22 +42,22 @@ let fileSearchPickExisting (fileNodeId: NodeId) (model: VM) : VM * Effect list =
             FileNodeOps.planInsertFileRefAtFocus (focusInsertPoint sel) fileNodeId model.graph
         applyOpsChange ops model
 
-let fileSearchCreateWorkspace (model: VM) : VM * Effect list =
-    let _, ops = FileNodeOps.planCreateWorkspace model.graph
+let fileSearchCreateWorkspace (query: string) (model: VM) : VM * Effect list =
+    let _, ops = FileNodeOps.planCreateWorkspace model.graph query
     applyOpsChange ops model
 
-let fileSearchCreateFile (model: VM) : VM * Effect list =
+let fileSearchCreateFile (query: string) (model: VM) : VM * Effect list =
     match focusParentId model with
     | None -> model, []
     | Some parentId ->
-        let _, ops = FileNodeOps.planCreateOwnedFile model.graph parentId
+        let _, ops = FileNodeOps.planCreateOwnedFile model.graph parentId query
         applyOpsChange ops model
 
-let fileSearchCreateFolder (model: VM) : VM * Effect list =
+let fileSearchCreateFolder (query: string) (model: VM) : VM * Effect list =
     match focusParentId model with
     | None -> model, []
     | Some parentId ->
-        let _, ops = FileNodeOps.planCreateOwnedDirectory model.graph parentId
+        let _, ops = FileNodeOps.planCreateOwnedDirectory model.graph parentId query
         applyOpsChange ops model
 
 let runFileSearchSelectionOp (mode: Mode) (model: VM) : VM * Effect list =
@@ -73,25 +80,28 @@ let runFileSearchSelectionOp (mode: Mode) (model: VM) : VM * Effect list =
 let runFileSearchNewWorkspaceOp (model: VM) : VM * Effect list =
     match model.mode with
     | FileSearchDialog s ->
-        FileSearchDialog.rememberFileSearchQuery s.query
+        let query = readFileSearchQueryInput ()
+        FileSearchDialog.rememberFileSearchQuery query
         let closed = { model with mode = s.returnTo }
-        fileSearchCreateWorkspace closed
+        fileSearchCreateWorkspace query closed
     | _ -> model, []
 
 let runFileSearchNewFileOp (model: VM) : VM * Effect list =
     match model.mode with
     | FileSearchDialog s ->
-        FileSearchDialog.rememberFileSearchQuery s.query
+        let query = readFileSearchQueryInput ()
+        FileSearchDialog.rememberFileSearchQuery query
         let closed = { model with mode = s.returnTo }
-        fileSearchCreateFile closed
+        fileSearchCreateFile query closed
     | _ -> model, []
 
 let runFileSearchNewFolderOp (model: VM) : VM * Effect list =
     match model.mode with
     | FileSearchDialog s ->
-        FileSearchDialog.rememberFileSearchQuery s.query
+        let query = readFileSearchQueryInput ()
+        FileSearchDialog.rememberFileSearchQuery query
         let closed = { model with mode = s.returnTo }
-        fileSearchCreateFolder closed
+        fileSearchCreateFolder query closed
     | _ -> model, []
 
 let openFileSearchDialogOp = FileSearchDialog.openFileSearchDialogOp

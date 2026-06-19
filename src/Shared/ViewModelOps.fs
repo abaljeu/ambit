@@ -768,6 +768,24 @@ module ViewModel =
             | FileStatusIndicator (_, _, status, sourceModifiedUtc) ->
                 FileSyncIndicator.indicatorTextForStatus node.updateTime status sourceModifiedUtc
 
+    /// Outline row label: owned workspace/file nodes use `name`; canonical nodes keep `text`.
+    let outlineDisplayText (node: Node) : string =
+        if node.id = Graph.rootId || node.id = Graph.trashId || node.id = Graph.workspacesId then
+            node.text
+        else
+            match node.kind with
+            | Special (File | Directory | Workspace) ->
+                match node.name with
+                | Filename.Ok n -> n
+                | _ -> node.text
+            | _ -> node.text
+
+    /// Right-hand row label from `Node.name` (Empty → blank).
+    let rowNameDisplayText (name: Filename) : string =
+        match name with
+        | Filename.Ok s | Filename.Invalid s -> s
+        | Filename.Empty -> ""
+
     let specialKindRowClass (nodeId: NodeId) (kind: NodeKind) : string option =
         if nodeId = Graph.trashId then
             Some "amb-row-special-trash"
@@ -809,7 +827,7 @@ module ViewModel =
         | SetText of newText: string
         | SetTextClasses of classes: CssClasses
         | SetFoldArrow of arrow: string   // "▼" or "▶" (has children); "●" (no children, no behavior)
-        | SetNodeGuid of guid: System.Guid   // diagnostic: node identity on row
+        | SetNodeName of name: string
         | SetFileIndicator of text: string
 
     type RowMutation =
@@ -861,13 +879,17 @@ module ViewModel =
                         |> Option.map (fun n -> not n.children.IsEmpty)
                         |> Option.defaultValue false
                     let newHasChildren = not (newModel.graph.nodes.[entry.nodeId].children.IsEmpty)
-                    if wasEditing <> nowEditing || oldHasChildren <> newHasChildren then
+                    let oldKind =
+                        oldModel.graph.nodes
+                        |> Map.tryFind entry.nodeId
+                        |> Option.map (fun n -> n.kind)
+                    let newKind = newModel.graph.nodes.[entry.nodeId].kind
+                    if wasEditing <> nowEditing || oldHasChildren <> newHasChildren
+                       || oldKind <> Some newKind then
                         RecreateRow instId
                     else
                         let oldEntry = Map.tryFind instId oldModel.siteMap.entries
                         let patches = [
-                            let nodeGuid = newModel.graph.nodes.[entry.nodeId].id.Value
-                            yield SetNodeGuid nodeGuid
                             let sel = isEntrySelected newModel entry
                             let foc = isEntryFocused newModel entry
                             let isRoot = entry.instanceId = newModel.siteMap.rootId
@@ -895,10 +917,15 @@ module ViewModel =
                             if newClass <> oldClass then yield SetClassName newClass
                             let newIndicator = rowFileIndicatorText newModel entry newNode
                             yield SetFileIndicator newIndicator
-                            // Sync row text on any graph text change (editing row included — e.g. paste).
-                            let newText = newNode.text
-                            let oldText = oldNode |> Option.map (fun n -> n.text) |> Option.defaultValue ""
+                            // Sync row text on graph or filename changes (editing row included — e.g. paste).
+                            let newText = outlineDisplayText newNode
+                            let oldText =
+                                oldNode |> Option.map outlineDisplayText |> Option.defaultValue ""
                             if newText <> oldText then yield SetText newText
+                            let newName = rowNameDisplayText newNode.name
+                            let oldName =
+                                oldNode |> Option.map (fun n -> rowNameDisplayText n.name) |> Option.defaultValue ""
+                            if newName <> oldName then yield SetNodeName newName
                             let newClasses = newNode.cssClasses
                             let oldClasses = oldNode |> Option.map (fun n -> n.cssClasses) |> Option.defaultValue CssClass.empty
                             if newClasses <> oldClasses then yield SetTextClasses newClasses

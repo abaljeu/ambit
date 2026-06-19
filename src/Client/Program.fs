@@ -22,6 +22,7 @@ let initialModel: VM =
       zoomRoot = initialGraph.root
       clipboard = None
       desktopCapabilities = None
+      serverCapabilities = None
       desktopFileIndicator = BlankFileIndicator
       syncInfo = SyncInfo.initial
       lastSuccessfulKey = ""
@@ -42,6 +43,17 @@ fetchTextNoCacheWithFail
             consoleLog ("[Gambol desktop] capability decode failed: " + err)
             dispatch (SysMsg (DesktopCapabilitiesDetected None)))
     (fun () -> dispatch (SysMsg (DesktopCapabilitiesDetected None)))
+
+fetchTextNoCacheWithFail
+    (sprintf "/%s/capabilities" currentFile)
+    (fun text ->
+        match decodeServerCapabilities text with
+        | Ok capabilities ->
+            dispatch (SysMsg (ServerCapabilitiesDetected (Some capabilities)))
+        | Error err ->
+            consoleLog ("[Gambol] server capability decode failed: " + err)
+            dispatch (SysMsg (ServerCapabilitiesDetected None)))
+    (fun () -> dispatch (SysMsg (ServerCapabilitiesDetected None)))
 
 fetchText $"/{currentFile}/state" (fun text ->
     match decodeStateResponse text with

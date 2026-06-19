@@ -37,7 +37,7 @@ let private outlineSetup () =
 [<Fact>]
 let ``planCreateWorkspace creates workspace under Workspaces`` () =
     let graph = Graph.create ()
-    let wsId, ops = FileNodeOps.planCreateWorkspace graph
+    let wsId, ops = FileNodeOps.planCreateWorkspace graph ""
     let graph2 = applyOps graph ops
     let wsNode = graph2.nodes.[wsId]
     Assert.Equal(Special Workspace, wsNode.kind)
@@ -49,7 +49,7 @@ let ``planCreateWorkspace creates workspace under Workspaces`` () =
 [<Fact>]
 let ``planCreateOwnedFile creates file under focus parent`` () =
     let focus, graph = outlineSetup ()
-    let fileId, ops = FileNodeOps.planCreateOwnedFile graph focus
+    let fileId, ops = FileNodeOps.planCreateOwnedFile graph focus ""
     let graph2 = applyOps graph ops
     let fileNode = graph2.nodes.[fileId]
     Assert.Equal(Special File, fileNode.kind)
@@ -59,18 +59,28 @@ let ``planCreateOwnedFile creates file under focus parent`` () =
 [<Fact>]
 let ``planCreateOwnedDirectory creates folder under focus parent`` () =
     let focus, graph = outlineSetup ()
-    let dirId, ops = FileNodeOps.planCreateOwnedDirectory graph focus
+    let dirId, ops = FileNodeOps.planCreateOwnedDirectory graph focus ""
     let graph2 = applyOps graph ops
     let dirNode = graph2.nodes.[dirId]
     Assert.Equal(Special Directory, dirNode.kind)
     Assert.Equal(Filename.Ok "folder", dirNode.name)
 
 [<Fact>]
+let ``planCreateOwnedDirectory uses query as name and text`` () =
+    let focus, graph = outlineSetup ()
+    let dirId, ops = FileNodeOps.planCreateOwnedDirectory graph focus "my-docs"
+    let graph2 = applyOps graph ops
+    let dirNode = graph2.nodes.[dirId]
+    Assert.Equal(Special Directory, dirNode.kind)
+    Assert.Equal(Filename.Ok "my-docs", dirNode.name)
+    Assert.Equal("my-docs", dirNode.text)
+
+[<Fact>]
 let ``planCreateOwnedFile picks unused sibling name`` () =
     let focus, graph = outlineSetup ()
-    let _, ops1 = FileNodeOps.planCreateOwnedFile graph focus
+    let _, ops1 = FileNodeOps.planCreateOwnedFile graph focus ""
     let graph2 = applyOps graph ops1
-    let _, ops2 = FileNodeOps.planCreateOwnedFile graph2 focus
+    let _, ops2 = FileNodeOps.planCreateOwnedFile graph2 focus ""
     let graph3 = applyOps graph2 ops2
     let names =
         graph3.nodes.[focus].children

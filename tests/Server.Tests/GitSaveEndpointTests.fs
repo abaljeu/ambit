@@ -1,0 +1,56 @@
+module Gambol.Server.Tests.GitSaveEndpointTests
+
+open System.Diagnostics
+open System.IO
+open System.Net
+open System.Net.Http
+open System.Threading.Tasks
+open Xunit
+open Gambol.Server
+open Gambol.Server.Tests.TestBackend
+
+let private gitOnPath () =
+    try
+        let psi =
+            ProcessStartInfo(
+                FileName = "git",
+                Arguments = "--version",
+                RedirectStandardOutput = true,
+                UseShellExecute = false)
+        use proc = Process.Start(psi)
+        proc.WaitForExit()
+        proc.ExitCode = 0
+    with _ ->
+        false
+
+let private initRepo (dir: string) =
+    GitSave.runGit dir "-c user.email=t@test -c user.name=test init"
+    |> function
+        | Ok _ -> ()
+        | Error err -> failwith err
+
+[<SkippableFact>]
+let ``GET capabilities reports gitSave when data dir is a repo`` () = task {
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let tempDir = newTempDir ()
+    initRepo tempDir
+    use client = createClientForDir tempDir
+    let! resp = client.GetAsync("/ambit/capabilities")
+    Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
+    let! body = resp.Content.ReadAsStringAsync()
+    Assert.Contains(""""gitSave":true""", body.Replace(" ", ""))
+}
+
+[<SkippableFact>]
+let ``POST save commits file changes in data dir`` () = task {
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let tempDir = newTempDir ()
+    initRepo tempDir
+    File.WriteAllText(Path.Combine(tempDir, "gambol.meta"), "0")
+    use client = createClientForDir tempDir
+    let! resp = client.PostAsync("/ambit/save", null)
+    Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
+    match GitSave.runGit tempDir "log --oneline" with
+    | Ok text -> Assert.False(System.String.IsNullOrWhiteSpace text)
+    | Error err -> Assert.Fail(err)
+}

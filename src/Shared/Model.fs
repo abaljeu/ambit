@@ -10,7 +10,7 @@ type NodeId =
         let (NodeId value) = this
         value
 
-    /// Last 8 chars of `Guid.ToString()`; matches DOM `.amb-node-guid` display.
+    /// Last 8 chars of `Guid.ToString()` (compact id suffix for messages).
     static member GuidTail8 (guid: Guid) : string =
         let s = guid.ToString()
         if s.Length >= 8 then s.Substring(s.Length - 8) else s

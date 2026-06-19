@@ -145,7 +145,7 @@ let private makeRowElement
         let initialValue =
             match effectiveMode with
             | Editing (text, _) -> text
-            | _ -> node.text
+            | _ -> ViewModel.outlineDisplayText node
         textDiv.textContent <- initialValue
         textDiv.addEventListener("keydown", fun (ev: Event) ->
             let key = ev :?> KeyboardEvent
@@ -162,15 +162,13 @@ let private makeRowElement
     else
         textDiv.removeAttribute "id"
         textDiv.contentEditable <- "false"
-        textDiv.textContent <- node.text
+        textDiv.textContent <- ViewModel.outlineDisplayText node
     row.appendChild textDiv |> ignore
 
-    // Diagnostic: last 8 chars of node GUID, right-justified (see NodeId.GuidTail8)
-    let guidTail = NodeId.GuidTail8 node.id.Value
-    let guidSpan = document.createElement "span"
-    guidSpan.classList.add "amb-node-guid"
-    guidSpan.textContent <- guidTail
-    row.appendChild guidSpan |> ignore
+    let nameSpan = document.createElement "span"
+    nameSpan.classList.add "amb-node-guid"
+    nameSpan.textContent <- ViewModel.rowNameDisplayText node.name
+    row.appendChild nameSpan |> ignore
 
     // Row click → select the exact view-line instance, not just the first occurrence of the nodeId
     row.addEventListener("mousedown", fun (ev: Event) ->
@@ -225,11 +223,9 @@ let private applyRowPatches (el: HTMLElement) (patches: RowPatch list) : unit =
         | SetFoldArrow arrow ->
             let ft = el.querySelector ".amb-fold-toggle"
             if not (isNull ft) then (ft :?> HTMLElement).textContent <- arrow
-        | SetNodeGuid guid ->
-            el.setAttribute("data-node-id", guid.ToString())
-            let tail = NodeId.GuidTail8 guid
+        | SetNodeName name ->
             let g = el.querySelector ".amb-node-guid"
-            if not (isNull g) then (g :?> HTMLElement).textContent <- tail
+            if not (isNull g) then (g :?> HTMLElement).textContent <- name
         | SetFileIndicator text ->
             (ensureFileIndicator ()).textContent <- text
 

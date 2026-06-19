@@ -389,6 +389,34 @@ module Main =
                     return! Api.postChange handle body |> Async.StartAsTask
             })) |> ignore
 
+            let prepareGitSave () = async {
+                let handle = getHandle "gambol"
+                let fileAgent = getOrCreateFileAgent "gambol"
+                return!
+                    SavePrep.syncDataDir
+                        persistenceMode
+                        resolvedDbStatus
+                        (fun () -> handle.getState ())
+                        (fun () -> FileAgent.flushSnapshot fileAgent)
+                        (fun () -> FileAgent.getRevision fileAgent)
+                        dataDir
+                        "gambol"
+            }
+
+            // GET /ambit/capabilities → JSON { gitSave }
+            app.MapGet("/ambit/capabilities", Func<HttpRequest, IResult>(fun req ->
+                if authDisabled || isAuthenticated req then Api.getCapabilities dataDir
+                else Results.Unauthorized()
+            )) |> ignore
+
+            // POST /ambit/save → git commit in dataDir
+            app.MapPost("/ambit/save", Func<HttpRequest, Task<IResult>>(fun req -> task {
+                if not (isAuthenticated req) then
+                    return Results.Unauthorized()
+                else
+                    return! Api.gitSave prepareGitSave dataDir |> Async.StartAsTask
+            })) |> ignore
+
             // GET /ambit/user.css → serve dataDir/user.css, falling back to wwwroot/user.css
             let serveUserCss () =
                 let userPath = Path.Combine(dataDir, "user.css")

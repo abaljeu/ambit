@@ -84,3 +84,37 @@ module Api =
         | Ok json -> return jsonResult json
         | Error err -> return Results.BadRequest({| error = err |})
     }
+
+    let getCapabilities (dataDir: string) : IResult =
+        let capabilities =
+            { canGitSave = GitSave.isRepo dataDir }
+        let json =
+            Encode.toString 0 (ServerCapabilities.encode capabilities)
+        jsonResult json
+
+    let gitSave
+        (prepare: unit -> Async<Result<int, string>>)
+        (dataDir: string)
+        : Async<IResult> = async {
+        if not (GitSave.isRepo dataDir) then
+            let response =
+                { ok = false
+                  detail = ""
+                  error = Some "Git save is not enabled." }
+            return jsonResult (Encode.toString 0 (GitSaveResponse.encode response))
+        else
+            let! prepResult = prepare ()
+            match prepResult with
+            | Error err ->
+                let response = { ok = false; detail = ""; error = Some err }
+                return Results.BadRequest(Encode.toString 0 (GitSaveResponse.encode response))
+            | Ok rev ->
+                let message = sprintf "rev %d" rev
+                match GitSave.commitAll dataDir message with
+                | Ok detail ->
+                    let response = { ok = true; detail = detail; error = None }
+                    return jsonResult (Encode.toString 0 (GitSaveResponse.encode response))
+                | Error err ->
+                    let response = { ok = false; detail = ""; error = Some err }
+                    return Results.BadRequest(Encode.toString 0 (GitSaveResponse.encode response))
+    }
