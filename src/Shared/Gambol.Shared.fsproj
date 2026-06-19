@@ -35,6 +35,7 @@
     <Compile Include="FileNodeOps.fs" />
     <Compile Include="DocumentPathMove.fs" />
     <Compile Include="AmbDocument.fs" />
+    <Compile Include="DocumentAssembly.fs" />
     <Compile Include="Paste.fs" />
     <Compile Include="ImportText.fs" />
     <Compile Include="ExportText.fs" />

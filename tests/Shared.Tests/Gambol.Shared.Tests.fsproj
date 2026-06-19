@@ -19,6 +19,7 @@
     <Compile Include="FileNodeOpsTests.fs" />
     <Compile Include="DocumentPathMoveTests.fs" />
     <Compile Include="DocumentPartitionTests.fs" />
+    <Compile Include="DocumentAssemblyTests.fs" />
     <Compile Include="LogTextTests.fs" />
     <Compile Include="SnapshotTests.fs" />
     <Compile Include="AmbDocumentTests.fs" />

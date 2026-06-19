@@ -110,3 +110,74 @@ module DocumentPersistence =
                     | Error msg -> Error msg
                     | Ok path -> Ok (paths @ [ path ]))
             (Ok [])
+
+    let private shouldSkipDiscoveryFile (fileName: string) =
+        fileName = "gambol"
+        || fileName.EndsWith(".meta", StringComparison.OrdinalIgnoreCase)
+        || fileName.EndsWith(".log", StringComparison.OrdinalIgnoreCase)
+        || fileName.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase)
+        || fileName.Contains(".bak.", StringComparison.OrdinalIgnoreCase)
+
+    let private relativePathFromDataDir (dataDir: string) (fullPath: string) =
+        let basePrefix = dataDirBase dataDir + string Path.DirectorySeparatorChar
+        let full = Path.GetFullPath fullPath
+
+        if full.StartsWith(basePrefix, StringComparison.OrdinalIgnoreCase) then
+            full.Substring(basePrefix.Length).Replace('\\', '/')
+        else
+            full
+
+    let discoverArtifactRelatives (dataDir: string) : Result<string list, string> =
+        let baseDir = dataDirBase dataDir
+
+        if not (Directory.Exists baseDir) then
+            Ok []
+        else
+            try
+                Directory.EnumerateFiles(baseDir, "*", SearchOption.AllDirectories)
+                |> Seq.filter (fun fullPath -> not (shouldSkipDiscoveryFile (Path.GetFileName fullPath)))
+                |> Seq.map (fun fullPath ->
+                    relativePathFromDataDir dataDir fullPath,
+                    resolveUnderDataDir dataDir (relativePathFromDataDir dataDir fullPath))
+                |> Seq.fold
+                    (fun acc (rel, resolved) ->
+                        match acc with
+                        | Error msg -> Error msg
+                        | Ok paths ->
+                            match resolved with
+                            | Error msg -> Error msg
+                            | Ok _ -> Ok (rel :: paths))
+                    (Ok [])
+                |> Result.map List.rev
+            with ex ->
+                Error ex.Message
+
+    let hasArtifactSet (dataDir: string) : bool =
+        match discoverArtifactRelatives dataDir with
+        | Error _ -> false
+        | Ok paths ->
+            paths
+            |> List.exists (fun rel ->
+                rel <> ".amb"
+                && (rel.StartsWith("@") || rel.EndsWith("/.amb", StringComparison.Ordinal)))
+
+    let readAllDocuments (dataDir: string) : Result<Graph, string> =
+        match discoverArtifactRelatives dataDir with
+        | Error msg -> Error msg
+        | Ok relatives ->
+            relatives
+            |> List.fold
+                (fun acc rel ->
+                    match acc with
+                    | Error msg -> Error msg
+                    | Ok artifacts ->
+                        match resolveUnderDataDir dataDir rel with
+                        | Error msg -> Error msg
+                        | Ok fullPath ->
+                            try
+                                let text = File.ReadAllText fullPath
+                                Ok (Map.add rel text artifacts)
+                            with ex ->
+                                Error ex.Message)
+                (Ok Map.empty)
+            |> Result.bind DocumentAssembly.assembleFromArtifacts
