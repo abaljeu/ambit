@@ -29,32 +29,18 @@ module FileAgent =
         let metaPath = snapshotPath + ".meta"
         let logPath = snapshotPath + ".log"
 
-        DocumentLoader.ensureSnapshotBackup snapshotPath
-
-        let initialGraph =
-            if File.Exists(snapshotPath) then
-                Snapshot.read (File.ReadAllText(snapshotPath))
-            else
-                Graph.create ()
-
-        let initialRevision =
-            if File.Exists(metaPath) then
-                Revision (Int32.Parse(File.ReadAllText(metaPath).Trim()))
-            else
-                Revision 0
+        let initialState =
+            match DocumentLoader.tryLoadState dataDir filename with
+            | Ok state -> state
+            | Error msg -> failwith msg
 
         let logStream =
             new FileStream(logPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite)
 
         let offsetIndex = ChangeLog.buildIndex logStream
-        let state = ref { graph = initialGraph; history = History.empty; revision = initialRevision }
+        let state = ref initialState
         let snapshotInProgress = ref false
         let snapshotNeeded = ref false
-
-        let replayFromLogIndex = state.Value.revision.Value
-
-        state.Value <-
-            DocumentLoader.replayLogFromIndex logStream offsetIndex replayFromLogIndex state.Value
 
         let capturedInitialState = state.Value
 
@@ -78,19 +64,16 @@ module FileAgent =
         let startSnapshot (inbox: MailboxProcessor<FileAgentMsg>) =
             snapshotInProgress.Value <- true
             snapshotNeeded.Value <- false
-            let text = Snapshot.write state.Value.graph
             let rev = state.Value.revision.Value
             Task.Run(fun () ->
                 try
-                    let tmpPath = snapshotPath + ".tmp"
-                    let metaTmpPath = metaPath + ".tmp"
-                    File.WriteAllText(tmpPath, text)
-                    File.WriteAllText(metaTmpPath, string rev)
-                    // Rename meta first — if we crash between the two renames,
-                    // meta will be ahead of the snapshot, which is safe:
-                    // on replay we skip log entries the snapshot already has.
-                    File.Move(metaTmpPath, metaPath, true)
-                    File.Move(tmpPath, snapshotPath, true)
+                    match DocumentPersistence.writeAllDocuments dataDir state.Value.graph with
+                    | Error _ -> ()
+                    | Ok _ ->
+                        let metaTmpPath = metaPath + ".tmp"
+                        File.WriteAllText(metaTmpPath, string rev)
+                        // Rename meta last — documents are written first; log retains changes.
+                        File.Move(metaTmpPath, metaPath, true)
                 with _ ->
                     () // snapshot failure is non-fatal; log has the data
                 inbox.Post(SnapshotDone)

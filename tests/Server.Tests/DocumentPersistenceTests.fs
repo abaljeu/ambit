@@ -238,6 +238,16 @@ let ``discoverArtifactRelatives finds all written artifacts`` () =
     Assert.Equal<Set<string>>(expected, relatives)
 
 [<Fact>]
+let ``readAllDocuments round trip matches normalized snapshot outline`` () =
+    let dataDir = newTempDir ()
+    let graph = Graph.create ()
+    DocumentPersistence.writeAllDocuments dataDir graph |> requireOk "write" |> ignore
+    let actual = DocumentPersistence.readAllDocuments dataDir |> requireOk "read"
+    let expectedOutline = Snapshot.normalizeOutlineForCompare (Snapshot.write graph)
+    let actualOutline = Snapshot.normalizeOutlineForCompare (Snapshot.write actual)
+    Assert.Equal(expectedOutline, actualOutline)
+
+[<Fact>]
 let ``readAllDocuments round trips nested workspace tree`` () =
     let dataDir = newTempDir ()
     let expected, _, _, _, _ = graphWithNestedDocs ()

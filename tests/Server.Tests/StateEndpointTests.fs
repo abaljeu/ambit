@@ -136,8 +136,8 @@ let ``DB mode without connection falls back to file mode at startup`` () = task 
     Assert.Equal(HttpStatusCode.OK, postResp.StatusCode)
     do! Task.Delay(500)
 
-    let snapshotPath = Path.Combine(tempDir, testFile)
-    Assert.Contains("startup-file-fallback", File.ReadAllText(snapshotPath))
+    let ambPath = Path.Combine(tempDir, ".amb")
+    Assert.Contains("startup-file-fallback", File.ReadAllText ambPath)
 }
 
 // ---- GET /ambit/state tests (parameterised) ----
@@ -387,7 +387,7 @@ let ``POST changes creates log file`` () = task {
 }
 
 [<Fact>]
-let ``Snapshot is written asynchronously after change`` () = task {
+let ``Snapshot writes amb artifacts asynchronously after change`` () = task {
     let tempDir = newTempDir ()
     use client = createClientForDir tempDir
     let! json0 = getStateJson client testFile
@@ -397,30 +397,31 @@ let ``Snapshot is written asynchronously after change`` () = task {
 
     do! Task.Delay(500)
 
-    let snapshotPath = Path.Combine(tempDir, testFile)
-    Assert.True(File.Exists(snapshotPath), "Snapshot file should exist")
-    let content = File.ReadAllText(snapshotPath)
+    Assert.True(DocumentPersistence.hasArtifactSet tempDir)
+    let ambPath = Path.Combine(tempDir, ".amb")
+    Assert.True(File.Exists ambPath, ".amb snapshot should exist")
+    let content = File.ReadAllText ambPath
     Assert.Contains("snapped", content)
 
-    let metaPath = snapshotPath + ".meta"
-    Assert.True(File.Exists(metaPath), "Meta file should exist")
+    let metaPath = Path.Combine(tempDir, testFile + ".meta")
+    Assert.True(File.Exists metaPath, "Meta file should exist")
     let rev = Int32.Parse(File.ReadAllText(metaPath).Trim())
     Assert.Equal(1, rev)
 }
 
 [<Fact>]
-let ``DB mode backup helper writes snapshot meta and empty log`` () =
+let ``DB mode backup helper writes amb meta and empty log`` () =
     let tempDir = newTempDir ()
     let state = stateWithChild "db-backup"
 
     DocumentLoader.writeStateBackup tempDir testFile state
 
-    let snapshotPath = Path.Combine(tempDir, testFile)
-    Assert.True(File.Exists(snapshotPath), "Snapshot file should exist")
-    Assert.Contains("db-backup", File.ReadAllText(snapshotPath))
-    Assert.Equal("1", File.ReadAllText(snapshotPath + ".meta"))
-    Assert.Equal("", File.ReadAllText(snapshotPath + ".log"))
-    Assert.NotEmpty(Directory.GetFiles(tempDir, testFile + ".bak.*"))
+    Assert.True(DocumentPersistence.hasArtifactSet tempDir)
+    Assert.True(File.Exists(Path.Combine(tempDir, ".amb")))
+    let ambText = File.ReadAllText(Path.Combine(tempDir, ".amb"))
+    Assert.Contains("db-backup", ambText)
+    Assert.Equal("1", File.ReadAllText(Path.Combine(tempDir, testFile + ".meta")))
+    Assert.Equal("", File.ReadAllText(Path.Combine(tempDir, testFile + ".log")))
 
 [<Fact>]
 let ``Log contains valid change data after POST`` () = task {

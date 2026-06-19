@@ -15,6 +15,7 @@
     <Compile Include="DatabaseSetupTests.fs" />
     <Compile Include="TestBackend.fs" />
     <Compile Include="DocumentPersistenceTests.fs" />
+    <Compile Include="DocumentLoaderTests.fs" />
     <Compile Include="DbAgentTests.fs" />
     <Compile Include="StateEndpointTests.fs" />
   </ItemGroup>

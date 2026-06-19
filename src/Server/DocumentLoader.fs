@@ -50,24 +50,25 @@ module DocumentLoader =
                         | _ -> st)
                 initial
 
-    /// Read snapshot + meta + replay `.log`; does not keep the stream open.
-    let loadState (dataDir: string) (filename: string) : State =
-        let snapshotPath = Path.Combine(dataDir, filename)
-        let metaPath = snapshotPath + ".meta"
-        let logPath = snapshotPath + ".log"
-        ensureSnapshotBackup snapshotPath
+    let private readMetaRevision (metaPath: string) : Revision =
+        if File.Exists(metaPath) then
+            Revision(System.Int32.Parse(File.ReadAllText(metaPath).Trim()))
+        else
+            Revision 0
 
-        let initialGraph =
-            if File.Exists(snapshotPath) then
-                Snapshot.read (File.ReadAllText(snapshotPath))
-            else
-                Graph.create ()
+    let private loadGraphFromDisk (dataDir: string) (snapshotPath: string) : Result<Graph, string> =
+        if DocumentPersistence.hasArtifactSet dataDir then
+            DocumentPersistence.readAllDocuments dataDir
+        else
+            let graph =
+                if File.Exists(snapshotPath) then
+                    Snapshot.read (File.ReadAllText(snapshotPath))
+                else
+                    Graph.create ()
+            Ok graph
 
-        let initialRevision =
-            if File.Exists(metaPath) then
-                Revision(System.Int32.Parse(File.ReadAllText(metaPath).Trim()))
-            else
-                Revision 0
+    let private replayFromMetaAndLog (metaPath: string) (logPath: string) (initialGraph: Graph) : State =
+        let initialRevision = readMetaRevision metaPath
 
         use logStream =
             new FileStream(logPath, FileMode.OpenOrCreate, FileAccess.Read, FileShare.ReadWrite)
@@ -79,8 +80,35 @@ module DocumentLoader =
               history = History.empty
               revision = initialRevision }
 
-        let afterReplay = replayLogFromIndex logStream offsetIndex initialRevision.Value st0
-        afterReplay
+        replayLogFromIndex logStream offsetIndex initialRevision.Value st0
+
+    /// Read `.amb` network or legacy snapshot + meta + replay `.log`.
+    let tryLoadState (dataDir: string) (filename: string) : Result<State, string> =
+        let snapshotPath = Path.Combine(dataDir, filename)
+        let metaPath = snapshotPath + ".meta"
+        let logPath = snapshotPath + ".log"
+        let hadArtifacts = DocumentPersistence.hasArtifactSet dataDir
+
+        if not hadArtifacts && File.Exists(snapshotPath) then
+            ensureSnapshotBackup snapshotPath
+
+        match loadGraphFromDisk dataDir snapshotPath with
+        | Error msg -> Error msg
+        | Ok initialGraph ->
+            let afterReplay = replayFromMetaAndLog metaPath logPath initialGraph
+
+            if hadArtifacts then
+                Ok afterReplay
+            else
+                match DocumentPersistence.writeAllDocuments dataDir afterReplay.graph with
+                | Error msg -> Error msg
+                | Ok _ -> Ok afterReplay
+
+    /// Fail-fast wrapper around `tryLoadState`.
+    let loadState (dataDir: string) (filename: string) : State =
+        match tryLoadState dataDir filename with
+        | Ok state -> state
+        | Error msg -> failwith msg
 
     /// Write a file-format backup from DB state without reading existing document files.
     let writeStateBackup (dataDir: string) (filename: string) (state: State) : unit =
@@ -89,7 +117,9 @@ module DocumentLoader =
         let metaPath = snapshotPath + ".meta"
         let logPath = snapshotPath + ".log"
 
-        File.WriteAllText(snapshotPath, Snapshot.write state.graph)
+        match DocumentPersistence.writeAllDocuments dataDir state.graph with
+        | Error msg -> failwith msg
+        | Ok _ -> ()
+
         File.WriteAllText(metaPath, string state.revision.Value)
         File.WriteAllText(logPath, "")
-        ensureSnapshotBackup snapshotPath

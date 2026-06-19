@@ -152,6 +152,33 @@ module DatabaseSetup =
             |> Async.AwaitTask
             |> Async.RunSynchronously
 
+    let private loadPersistedDbState (connStr: string) : State =
+        Database.loadPersistedState connStr decodeChangePayload
+        |> Async.AwaitTask
+        |> Async.RunSynchronously
+
+    let private validateAmbNetworkAgainstDb
+        (connStr: string)
+        (dataDir: string)
+        (filename: string)
+        : DbStatus =
+        let fileState =
+            match DocumentLoader.tryLoadState dataDir filename with
+            | Microsoft.FSharp.Core.Ok state -> state
+            | Microsoft.FSharp.Core.Error msg -> failwith msg
+
+        let dbState = loadPersistedDbState connStr
+        let matchesBefore = documentStatesMatch fileState dbState
+
+        if not matchesBefore then
+            Database.rebuildFromDocumentFiles connStr fileState
+            |> Async.AwaitTask
+            |> Async.RunSynchronously
+
+        let dbAfter = loadPersistedDbState connStr
+        let matchesAfter = documentStatesMatch fileState dbAfter
+        statusFromMatches matchesBefore matchesAfter
+
     /// Initialise schema and create the DB agent. `file` mode may seed an empty DB from files.
     let resolveDbConnection
         (persistenceMode: PersistenceMode)
@@ -163,10 +190,26 @@ module DatabaseSetup =
         else
             try
                 Database.initSchema connStr |> Async.AwaitTask |> Async.RunSynchronously
-                if persistenceMode = PersistenceMode.File then
-                    bootstrapFromFileIfEmpty connStr dataDir "gambol"
+
+                let status =
+                    if persistenceMode = PersistenceMode.File then
+                        let dbEmpty =
+                            Database.isEmpty connStr
+                            |> Async.AwaitTask
+                            |> Async.RunSynchronously
+
+                        if dbEmpty then
+                            bootstrapFromFileIfEmpty connStr dataDir "gambol"
+                            DbStatus.Ok
+                        elif DocumentPersistence.hasArtifactSet dataDir then
+                            validateAmbNetworkAgainstDb connStr dataDir "gambol"
+                        else
+                            DbStatus.Ok
+                    else
+                        DbStatus.Ok
+
                 getOrCreateDbAgent connStr "gambol" |> ignore
-                DbStatus.Ok
+                status
             with ex ->
                 eprintfn "Gambol: DB connection failed - falling back to file store. %s" ex.Message
                 DbStatus.Absent

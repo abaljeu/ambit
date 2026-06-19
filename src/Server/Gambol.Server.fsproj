@@ -19,8 +19,8 @@
     <Compile Include="DataDir.fs" />
     <Compile Include="Types.fs" />
     <Compile Include="ChangeLog.fs" />
-    <Compile Include="DocumentLoader.fs" />
     <Compile Include="DocumentPersistence.fs" />
+    <Compile Include="DocumentLoader.fs" />
     <Compile Include="FileAgent.fs" />
     <Compile Include="Database.fs" />
     <Compile Include="DbAgent.fs" />
