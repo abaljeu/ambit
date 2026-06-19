@@ -1698,6 +1698,38 @@ let ``planPatchDOM entering edit mode yields RecreateRow not SetText`` () =
     Assert.Equal(1, recreates.Length)
     Assert.Equal(0, setTextOnTarget.Length)
 
+[<Fact>]
+let ``planPatchDOM editing row text change produces SetText not RecreateRow`` () =
+    let graph, cont, ids = buildFlat [ "a"; "b"; "c" ]
+    let oldModel = modelWithSel graph cont 1 2 1
+    let targetInst = oldModel.siteMap.entries.[oldModel.siteMap.rootId].children.[1]
+    let editingModel =
+        startEditInstanceAtPos targetInst 0 oldModel
+        |> Option.defaultWith (fun () -> Assert.True(false); oldModel)
+    let targetId = ids.[1]
+    let newNode = { graph.nodes.[targetId] with text = "b+pasted" }
+    let newGraph = Graph.fromNodes graph.root (Map.add targetId newNode graph.nodes)
+    let newModel = { editingModel with graph = newGraph }
+    let cachedInstIds = buildCacheSet editingModel.siteMap
+    let mutations = planPatchDOM editingModel newModel cachedInstIds
+    let recreates =
+        mutations
+        |> List.filter (function
+            | RecreateRow id -> id = targetInst
+            | _ -> false)
+    let setTextOnTarget =
+        mutations
+        |> List.collect (function
+            | PatchRow (id, patches) when id = targetInst ->
+                patches
+                |> List.choose (function
+                    | SetText t -> Some t
+                    | _ -> None)
+            | _ -> [])
+    Assert.Equal(0, recreates.Length)
+    Assert.Equal(1, setTextOnTarget.Length)
+    Assert.Equal("b+pasted", setTextOnTarget.[0])
+
 // ---------------------------------------------------------------------------
 // Page / Home — cursorLevel*, shiftPg*, cursorViewRoot*
 // ---------------------------------------------------------------------------

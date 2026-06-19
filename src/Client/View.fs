@@ -210,8 +210,7 @@ let private applyRowPatches (el: HTMLElement) (patches: RowPatch list) : unit =
         | SetText txt ->
             let textDiv = el.querySelector ".amb-text"
             if not (isNull textDiv) then
-                let td = textDiv :?> HTMLElement
-                if td.id <> "edit-input" then td.textContent <- txt
+                (textDiv :?> HTMLElement).textContent <- txt
         | SetTextClasses classes ->
             let textDiv = el.querySelector ".amb-text"
             if not (isNull textDiv) then
