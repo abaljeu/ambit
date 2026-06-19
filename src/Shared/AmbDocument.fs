@@ -93,25 +93,6 @@ module AmbDocument =
         else
             text.Replace("\r\n", "\n").TrimEnd('\n').Split('\n')
 
-    let private memberIds (graph: Graph) (documentRootId: NodeId) : Set<NodeId> =
-        let rec collect (nodeId: NodeId) (visited: Set<NodeId>) =
-            if Set.contains nodeId visited then
-                visited
-            else
-                let visited' = Set.add nodeId visited
-                match Map.tryFind nodeId graph.nodes with
-                | None -> visited'
-                | Some node ->
-                    node.children
-                    |> List.fold (fun acc child ->
-                        if child.ref = Ownership.Owner then
-                            collect child.id acc
-                        else
-                            acc)
-                        visited'
-
-        collect documentRootId Set.empty
-
     let private lineBodyFor (node: Node) (bodyText: string) =
         let needsMeta =
             not (CssClass.toList node.cssClasses).IsEmpty || bodyText.StartsWith("{")
@@ -127,21 +108,29 @@ module AmbDocument =
         | None -> "^" + sid + " " + body
         | Some name -> "^" + sid + " " + name + "\t" + body
 
-    let private refLineContent (graph: Graph) (documentMembers: Set<NodeId>) (nodeId: NodeId) : string =
+    let private refLineContent
+        (graph: Graph)
+        (documentRootId: NodeId)
+        (documentMembers: Set<NodeId>)
+        (nodeId: NodeId)
+        : string =
         let sid = formatStableId nodeId
-        if Set.contains nodeId documentMembers then
-            "-> ^" + sid
-        else
+        let usePath =
+            DocumentPartition.isNestedDocumentRootBoundary graph documentRootId nodeId
+            || not (Set.contains nodeId documentMembers)
+        if usePath then
             match NodeDesktopPath.pathForNodeId graph nodeId with
             | None -> "-> ^" + sid
             | Some path -> "-> " + path + "^" + sid
+        else
+            "-> ^" + sid
 
     /// Serialize one document subtree. The document root is implicit; its children are depth 0.
     let write (graph: Graph) (documentRootId: NodeId) : Result<string, string> =
         match Map.tryFind documentRootId graph.nodes with
         | None -> Error "document root not found"
         | Some rootNode ->
-            let documentMembers = memberIds graph documentRootId
+            let documentMembers = DocumentPartition.memberNodeIds graph documentRootId
             let occurrenceCount =
                 graph.nodes
                 |> Map.toSeq
@@ -160,22 +149,27 @@ module AmbDocument =
 
                 match child.ref with
                 | Ownership.Ref ->
-                    sb.Append(indent).Append(refLineContent graph documentMembers nodeId).Append(nl)
+                    sb.Append(indent).Append(refLineContent graph documentRootId documentMembers nodeId).Append(nl)
                     |> ignore
                     emittedOwners
                 | Ownership.Owner ->
                     let node = graph.nodes.[nodeId]
-                    let body = node.text
-                    if isShared && Set.contains nodeId emittedOwners then
-                        sb.Append(indent).Append(refLineContent graph documentMembers nodeId).Append(nl)
+                    if DocumentPartition.isNestedDocumentRootBoundary graph documentRootId nodeId then
+                        sb.Append(indent).Append(refLineContent graph documentRootId documentMembers nodeId).Append(nl)
                         |> ignore
                         emittedOwners
                     else
-                        sb.Append(indent).Append(ownerLineContent nodeId node body).Append(nl)
-                        |> ignore
-                        let emitted' = Set.add nodeId emittedOwners
-                        node.children
-                        |> List.fold (fun emitted c -> writeChild (depth + 1) emitted c) emitted'
+                        let body = node.text
+                        if isShared && Set.contains nodeId emittedOwners then
+                            sb.Append(indent).Append(refLineContent graph documentRootId documentMembers nodeId).Append(nl)
+                            |> ignore
+                            emittedOwners
+                        else
+                            sb.Append(indent).Append(ownerLineContent nodeId node body).Append(nl)
+                            |> ignore
+                            let emitted' = Set.add nodeId emittedOwners
+                            node.children
+                            |> List.fold (fun emitted c -> writeChild (depth + 1) emitted c) emitted'
 
             rootNode.children
             |> List.fold (fun emitted child -> writeChild 0 emitted child) Set.empty

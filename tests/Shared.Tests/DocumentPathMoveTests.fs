@@ -109,4 +109,4 @@ let ``planRenameNode returns empty ops when name is unchanged`` () =
 [<Fact>]
 let ``pathForNodeId trash returns TRASH directory path`` () =
     let graph = Graph.create ()
-    Assert.Equal(Some "@:/TRASH", NodeDesktopPath.pathForNodeId graph Graph.trashId)
+    Assert.Equal(Some "@:/TRASH/", NodeDesktopPath.pathForNodeId graph Graph.trashId)

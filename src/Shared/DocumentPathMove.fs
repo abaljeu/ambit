@@ -9,10 +9,9 @@ type DocumentPathMove = {
 [<RequireQualifiedAccess>]
 module DocumentPathMove =
 
-    let private isDocumentRoot (kind: NodeKind) : bool =
-        match kind with
-        | Special (Workspace | Directory | File) -> true
-        | _ -> false
+    let private joinParentName (parentPath: string) (name: string) : string =
+        if parentPath.EndsWith("/") then parentPath + name
+        else parentPath + "/" + name
 
     let private nameString (name: Filename) : string =
         match name with
@@ -22,7 +21,7 @@ module DocumentPathMove =
     let private pathForDocumentRoot (graph: Graph) (nodeId: NodeId) : string option =
         Map.tryFind nodeId graph.nodes
         |> Option.bind (fun node ->
-            if isDocumentRoot node.kind then
+            if DocumentPartition.isDocumentRootNode graph nodeId then
                 NodeDesktopPath.pathForNodeId graph nodeId
             else
                 None)
@@ -34,7 +33,7 @@ module DocumentPathMove =
         : DocumentPathMove option =
         match Map.tryFind nodeId graph.nodes with
         | None -> None
-        | Some node when not (isDocumentRoot node.kind) -> None
+        | Some node when not (DocumentPartition.isDocumentRootNode graph nodeId) -> None
         | Some node ->
             match pathForDocumentRoot graph nodeId with
             | None -> None
@@ -44,7 +43,7 @@ module DocumentPathMove =
                     let newPath =
                         match node.kind with
                         | Special Workspace -> Some ("@" + validName + ":")
-                        | Special (Directory | File) ->
+                        | Special Directory ->
                             let parentId =
                                 graph.ownerParentByChild
                                 |> Map.tryFind nodeId
@@ -54,7 +53,18 @@ module DocumentPathMove =
                                     Some "@:"
                                 else
                                     NodeDesktopPath.pathForNodeId graph parentId
-                            parentPath |> Option.map (fun prefix -> prefix + "/" + validName)
+                            parentPath |> Option.map (fun prefix -> joinParentName prefix validName + "/")
+                        | Special File ->
+                            let parentId =
+                                graph.ownerParentByChild
+                                |> Map.tryFind nodeId
+                                |> Option.defaultValue Graph.rootId
+                            let parentPath =
+                                if parentId = Graph.rootId then
+                                    Some "@:"
+                                else
+                                    NodeDesktopPath.pathForNodeId graph parentId
+                            parentPath |> Option.map (fun prefix -> joinParentName prefix validName)
                         | _ -> None
                     newPath
                     |> Option.map (fun path ->
@@ -68,7 +78,7 @@ module DocumentPathMove =
         : DocumentPathMove option =
         match Map.tryFind nodeId graph.nodes with
         | None -> None
-        | Some node when not (isDocumentRoot node.kind) -> None
+        | Some node when not (DocumentPartition.isDocumentRootNode graph nodeId) -> None
         | Some node when node.kind = Special Workspace && newParentId <> Graph.workspacesId ->
             None
         | Some node ->
@@ -83,10 +93,15 @@ module DocumentPathMove =
                             Some "@:"
                         else
                             NodeDesktopPath.pathForNodeId graph newParentId
-                    newParentPath
-                    |> Option.map (fun prefix -> prefix + "/" + name)
-                    |> Option.map (fun newPath ->
-                        { nodeId = nodeId; oldPath = oldPath; newPath = newPath })
+                    let newPath =
+                        match node.kind with
+                        | Special Directory ->
+                            newParentPath |> Option.map (fun prefix -> joinParentName prefix name + "/")
+                        | _ ->
+                            newParentPath |> Option.map (fun prefix -> joinParentName prefix name)
+                    newPath
+                    |> Option.map (fun path ->
+                        { nodeId = nodeId; oldPath = oldPath; newPath = path })
 
 [<RequireQualifiedAccess>]
 module NodeRenameOps =

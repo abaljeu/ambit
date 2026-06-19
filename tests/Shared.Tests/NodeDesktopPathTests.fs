@@ -79,7 +79,7 @@ let ``pathForNodeId Normal returns first file reference`` () =
 let ``pathForNodeId Workspaces returns None and trash returns TRASH path`` () =
     let graph = Graph.create ()
     Assert.Equal(None, NodeDesktopPath.pathForNodeId graph Graph.workspacesId)
-    Assert.Equal(Some "@:/TRASH", NodeDesktopPath.pathForNodeId graph Graph.trashId)
+    Assert.Equal(Some "@:/TRASH/", NodeDesktopPath.pathForNodeId graph Graph.trashId)
 
 [<Fact>]
 let ``pathForNodeId Workspace returns at-name colon`` () =
@@ -89,7 +89,7 @@ let ``pathForNodeId Workspace returns at-name colon`` () =
 [<Fact>]
 let ``pathForNodeId Directory and File append owner path and name`` () =
     let graph, _, dirId, fileId = graphWithWorkspaceTree ()
-    Assert.Equal(Some "@home:/docs", NodeDesktopPath.pathForNodeId graph dirId)
+    Assert.Equal(Some "@home:/docs/", NodeDesktopPath.pathForNodeId graph dirId)
     Assert.Equal(Some "@home:/docs/readme.txt", NodeDesktopPath.pathForNodeId graph fileId)
 
 [<Fact>]

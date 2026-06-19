@@ -24,7 +24,7 @@ module Main =
                 if Path.IsPathRooted(relative) then relative
                 else Path.Combine(contentRoot, relative) |> Path.GetFullPath
         Directory.CreateDirectory(dataDir) |> ignore
-        dataDir
+        DataDir.normalize dataDir
 
     [<EntryPoint>]
     let main args =

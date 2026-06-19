@@ -19,7 +19,19 @@ module NodeDesktopPath =
                     match Filename.tryValue node.name with
                     | Some name -> Some ("@" + name + ":")
                     | None -> None
-            | Special Directory
+            | Special Directory ->
+                match Filename.tryValue node.name with
+                | None -> None
+                | Some name ->
+                    match Map.tryFind node.owner graph.nodes with
+                    | None -> None
+                    | Some ownerNode ->
+                        pathForNode graph (Set.add node.id visited) ownerNode
+                        |> Option.map (fun ownerPath ->
+                            let segment =
+                                if ownerPath.EndsWith("/") then ownerPath + name
+                                else ownerPath + "/" + name
+                            segment + "/")
             | Special File ->
                 match Filename.tryValue node.name with
                 | None -> None
@@ -28,7 +40,9 @@ module NodeDesktopPath =
                     | None -> None
                     | Some ownerNode ->
                         pathForNode graph (Set.add node.id visited) ownerNode
-                        |> Option.map (fun ownerPath -> ownerPath + "/" + name)
+                        |> Option.map (fun ownerPath ->
+                            if ownerPath.EndsWith("/") then ownerPath + name
+                            else ownerPath + "/" + name)
 
     let pathForNodeId (graph: Graph) (nodeId: NodeId) : string option =
         Map.tryFind nodeId graph.nodes

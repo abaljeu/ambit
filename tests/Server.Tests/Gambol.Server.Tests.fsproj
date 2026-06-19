@@ -10,9 +10,11 @@
     <Compile Include="AuthTokenTests.fs" />
     <Compile Include="..\Shared.Tests\SpecialNodeTestHelpers.fs" Link="SpecialNodeTestHelpers.fs" />
     <Compile Include="HeadPresenceTests.fs" />
+    <Compile Include="DataDirTests.fs" />
     <Compile Include="TestDbConfigTests.fs" />
     <Compile Include="DatabaseSetupTests.fs" />
     <Compile Include="TestBackend.fs" />
+    <Compile Include="DocumentPersistenceTests.fs" />
     <Compile Include="DbAgentTests.fs" />
     <Compile Include="StateEndpointTests.fs" />
   </ItemGroup>

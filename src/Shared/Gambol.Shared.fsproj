@@ -27,6 +27,7 @@
     <Compile Include="ViewModel.fs" />
     <Compile Include="ModelOps.fs" />
     <Compile Include="NodeDesktopPath.fs" />
+    <Compile Include="DocumentPartition.fs" />
     <Compile Include="ViewModelOps.fs" />
     <Compile Include="ViewModelDeleteOps.fs" />
     <Compile Include="ViewModelSearch.fs" />
