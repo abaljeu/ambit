@@ -179,7 +179,7 @@ body {
 .amb-indent {
     width: 1.5rem;
     flex-shrink: 0;
-    background: #ddddddc0;
+    background: #dddddd88;
 }
 .amb-fold-toggle {
     display: inline-block;
@@ -387,10 +387,10 @@ body {
     background: #e8e8e4;
 }
 .amb-row.amb-selected {
-    background: #aa0c;
+    background: #e0e0ffcc;
 }
 .amb-row.amb-focused {
-    background: #dd8c;
+    background: #bbc;
 }
 .amb-text {
     background: #eeeeee80;

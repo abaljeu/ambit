@@ -25,8 +25,7 @@ let baseStripSlots : DockSlot list =
       DockTrigger OpenMore ]
 
 let moveToolsSlots : DockSlot list =
-    [ DockClose
-      DockCommand MoveUp
+    [ DockCommand MoveUp
       DockCommand MoveDown
       DockCommand Outdent
       DockCommand Indent
@@ -35,23 +34,17 @@ let moveToolsSlots : DockSlot list =
       DockCommand MoveSelected ]
 
 let selectToolsSlots : DockSlot list =
-    [ DockClose
-      DockCommand SelectionUp
+    [ DockCommand SelectionUp
       DockCommand SelectionDown
       DockCommand SelectToStart
       DockCommand SelectToEnd ]
 
 let moreToolsSlots : DockSlot list =
-    [ DockClose
-      DockCommand CommandPalette
+    [ DockCommand CommandPalette
       DockCommand CopyContent
       DockCommand DuplicateLink
       DockCommand EditClasses
       DockCommand JumpToTarget ]
-
-let maxBaseSlots = 9
-let maxMoveSlots = 8
-let maxSelectSlots = 5
 
 let commandIds (slots: DockSlot list) : CommandId list =
     slots
