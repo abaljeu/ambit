@@ -273,11 +273,12 @@ let withSiteMap (model: VM) : VM =
     match model'.selectedNodes with
     | None -> model'
     | Some sel ->
-        match Map.tryFind sel.range.parent.instanceId model'.siteMap.entries with
+        let adapted =
+            ViewModel.refreshSelection model'.graph model'.siteMap sel
+            |> Option.orElse (ViewModel.firstChildSelection model'.siteMap model'.zoomRoot)
+        match adapted with
+        | Some refreshed -> { model' with selectedNodes = Some refreshed }
         | None -> model'
-        | Some freshParent ->
-            { model' with
-                selectedNodes = Some { sel with range = { sel.range with parent = freshParent } } }
 
 // ---------------------------------------------------------------------------
 // Move-edit caret (shared with UpdateEdit)

@@ -302,12 +302,17 @@ and VM = // the client state
 /// Self-contained pure model transformation for the client update loop (see `Msg.ApplyOp`).
 type Updater = VM -> VM * Effect list
 
+type SubmitNetworkErrorKind =
+    | FetchFailed
+    | ClientTimeout
+
 /// Messages dispatched by async server callbacks (not directly caused by user input).
 type SystemMsg =
     | StateLoaded of Graph * Revision
     | SubmitResponse of ackedChangeIds: System.Guid list * revision: Revision
     | SubmitRejected of detail: string // server HTTP error (decoded `error` or short body snippet)
-    | SubmitNetworkError of baseRevision: int * changes: Change list
+    | SubmitNetworkError of
+        baseRevision: int * changes: Change list * kind: SubmitNetworkErrorKind
     | DesktopCapabilitiesDetected of DesktopCapabilities option
     | ServerCapabilitiesDetected of ServerCapabilities option
     | DesktopFileStatusReceived of

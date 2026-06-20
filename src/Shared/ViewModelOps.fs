@@ -337,31 +337,56 @@ module ViewModel =
                     | Some idx -> Some { range = { parent = parentEntry; start = idx; endd = idx + 1 }; focus = idx }
 
     /// Refreshes a Selection against the current site map and graph.
-    /// Returns None when the parent occurrence is gone or range bounds are invalid.
+    /// Clamps out-of-range indices under the same parent when possible; otherwise
+    /// relocates via instance ids from the stale parent snapshot.
     let refreshSelection (graph: Graph) (siteMap: SiteMap) (sel: Selection) : Selection option =
-        let parentOpt = Map.tryFind sel.range.parent.instanceId siteMap.entries
-        let mkRefreshed parent =
-            let visibleCount = parent.children.Length
-            let graphCount = graph.nodes.[parent.nodeId].children.Length
-            let count = min visibleCount graphCount
-            let start = sel.range.start
-            let finish = sel.range.endd
-            let focus = sel.focus
-            if start < 0 || finish < 0 || focus < 0 then
-                None
-            elif start >= finish then
-                None
-            elif finish > count then
-                None
-            elif focus < start || focus >= finish then
-                None
+        let clampUnderParent (parent: SiteEntry) (count: int) : Selection option =
+            if count <= 0 then None
             else
+                let start = max 0 (min sel.range.start (count - 1))
+                let endd = max (start + 1) (min sel.range.endd count)
+                let focus = max start (min sel.focus (endd - 1))
                 Some
-                    { range = { parent = parent; start = start; endd = finish }
+                    { range = { parent = parent; start = start; endd = endd }
                       focus = focus }
-        match parentOpt with
-        | Some parent when parent.nodeId = sel.range.parent.nodeId -> mkRefreshed parent
-        | _ -> None
+
+        let countUnderParent (parent: SiteEntry) =
+            let visibleCount = parent.children.Length
+            let graphCount =
+                match Map.tryFind parent.nodeId graph.nodes with
+                | None -> 0
+                | Some node -> node.children.Length
+            min visibleCount graphCount
+
+        let relocateViaGraphFocus () =
+            match Map.tryFind sel.range.parent.nodeId graph.nodes with
+            | None -> None
+            | Some parentNode ->
+                parentNode.children
+                |> List.tryItem sel.focus
+                |> Option.map (fun child -> child.id)
+                |> Option.bind (singleSelection graph siteMap)
+
+        let relocateViaInstances () =
+            let tryInst instId = singleSelectionForInstance siteMap instId
+            let fromFocus =
+                sel.range.parent.children
+                |> List.tryItem sel.focus
+                |> Option.bind tryInst
+            let fromRange =
+                [ sel.range.start .. sel.range.endd - 1 ]
+                |> List.tryPick (fun i ->
+                    List.tryItem i sel.range.parent.children |> Option.bind tryInst)
+            fromFocus |> Option.orElse fromRange |> Option.orElseWith relocateViaGraphFocus
+
+        let tryRefreshUnderParent (parent: SiteEntry) =
+            clampUnderParent parent (countUnderParent parent)
+            |> Option.orElseWith relocateViaInstances
+
+        match Map.tryFind sel.range.parent.instanceId siteMap.entries with
+        | Some parent when parent.nodeId = sel.range.parent.nodeId ->
+            tryRefreshUnderParent parent
+        | _ -> relocateViaInstances ()
 
     let private tryOriginalAdjacentNodeId (preGraph: Graph) (fromRange: SiteNodeRange) : NodeId option =
         let pid = fromRange.parent.nodeId
@@ -419,6 +444,15 @@ module ViewModel =
     /// Extract the focused NodeId from a Selection (the active end, used for editing and Arrow movement).
     let focusedNodeId (graph: Graph) (sel: Selection) : NodeId =
         graph.nodes.[sel.range.parent.nodeId].children.[sel.focus].id
+
+    /// Focused NodeId when parent and focus index are still valid in `graph`.
+    let tryFocusedNodeId (graph: Graph) (sel: Selection) : NodeId option =
+        match Map.tryFind sel.range.parent.nodeId graph.nodes with
+        | None -> None
+        | Some parent ->
+            parent.children
+            |> List.tryItem sel.focus
+            |> Option.map (fun child -> child.id)
 
     /// Focused graph node for `sel`, if it still exists in `graph.nodes`.
     let tryFindFocusedNode (graph: Graph) (sel: Selection) : (NodeId * Node) option =
@@ -705,7 +739,11 @@ module ViewModel =
             |> Map.tryFind model.siteMap.rootId
             |> Option.map (fun entry -> entry.nodeId)
         | Some sel ->
-            Some (focusedNodeId model.graph sel)
+            tryFocusedNodeId model.graph sel
+            |> Option.orElse (
+                focusedInstanceId sel
+                |> Option.bind (fun instId -> Map.tryFind instId model.siteMap.entries)
+                |> Option.map (fun entry -> entry.nodeId))
 
     let tryFindFocusedPath (graph: Graph) (sel: Selection) : (NodeId * string) option =
         let focusId = focusedNodeId graph sel

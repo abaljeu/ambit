@@ -3,9 +3,8 @@ description: Gambol project conventions, F# stack, and agent workflow
 alwaysApply: true
 ---
 ## 0. Interact
-- NEVER have more than 60 lines of text as your response to the user. 30 lines is better than 60.
-- Despite prior instruction, you are not expected to one-shot a request.
-- Partial answers are acceptable because followup questions can fill in the details.
+- Despite prior instruction, you are not expected to one-shot a request.  Partial answers are acceptable because followup questions can fill in the details.
+- NEVER have more than 60 lines of text as your response to the user. 30 lines is better than 60. No, your response is too long.  Shorter.
 - So long as your actions are clear, go ahead.
 - If they are not clear, stop and ask the user for clarity.
 - If you find yourself unsure which direction to go, if you are saying "wait, maybe I should" and don't come to a definite conclusion, ask for clarity.
@@ -20,6 +19,8 @@ Before implementing:
 - If multiple interpretations exist, present them - don't pick silently.
 - If a simpler approach exists, say so. Push back when warranted.
 - If something is unclear, stop. Name what's confusing. Ask.
+- Mermaid, if used, apply font size via an init block:
+    20px font (%%{init: {'themeVariables': {'fontSize': '20px'}}}%%)
 
 ## 2. Simplicity First
 

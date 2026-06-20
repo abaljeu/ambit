@@ -63,7 +63,7 @@ module private SubmitChangeCallbacks =
         : unit =
         clearTimeout timeoutId
         consoleLog ("[Gambol sync] POST fetch failed req=" + reqId)
-        dispatch (SysMsg (SubmitNetworkError (baseRev, changes)))
+        dispatch (SysMsg (SubmitNetworkError (baseRev, changes, SubmitNetworkErrorKind.FetchFailed)))
 
 // Idle/pause remote polling after a period of no user interaction (battery-friendly).
 let idleTimeoutMs = 15 * 60 * 1000
@@ -72,6 +72,14 @@ let createRuntime (initialModel: VM) =
     let mutable model = initialModel
     let mutable elementCache = Map.empty<SiteId, HTMLElement>
     let mutable lastActivityMs = nowMs ()
+    let mutable retryTimeoutId: float option = None
+
+    let clearRetryTimer () =
+        match retryTimeoutId with
+        | Some id ->
+            clearTimeout id
+            retryTimeoutId <- None
+        | None -> ()
 
     /// Restore local pending queue onto a fresh server snapshot. Returns model + effects.
     let mergePendingAfterLoad (restored: VM) : VM * Effect list =
@@ -138,9 +146,15 @@ let createRuntime (initialModel: VM) =
         let timeoutId =
             setTimeout
                 (fun () ->
-                    consoleLog ("[Gambol sync] POST timeout 10s req=" + reqId)
-                    dispatch (SysMsg (SubmitNetworkError (baseRev, changes))))
-                10_000
+                    consoleLog (
+                        "[Gambol sync] POST timeout "
+                        + string SyncRetry.postTimeoutMs
+                        + "ms req=" + reqId)
+                    dispatch (
+                        SysMsg (
+                            SubmitNetworkError (
+                                baseRev, changes, SubmitNetworkErrorKind.ClientTimeout))))
+                SyncRetry.postTimeoutMs
         postJson
             url
             body
@@ -167,7 +181,14 @@ let createRuntime (initialModel: VM) =
         fetchTextNoCacheWithFail url onPollOk onPollFail
 
     and runScheduleRetry (delayMs: int) : unit =
-        setTimeout (fun () -> dispatch (SysMsg RetrySubmit)) delayMs |> ignore
+        clearRetryTimer ()
+        retryTimeoutId <-
+            Some (
+                setTimeout
+                    (fun () ->
+                        retryTimeoutId <- None
+                        dispatch (SysMsg RetrySubmit))
+                    delayMs)
 
     and runSavePendingQueue (q: Change list) : unit =
         savePendingQueue q
@@ -204,6 +225,9 @@ let createRuntime (initialModel: VM) =
                 let restored = restoreSessionState baseModel
                 let merged, e1 = mergePendingAfterLoad restored
                 merged, e0 @ e1
+            | SysMsg (SubmitResponse _) ->
+                clearRetryTimer ()
+                update msg prev
             | _ ->
                 update msg prev
 

@@ -83,10 +83,11 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                     |> SyncInfo.withPendingChanges []
                     |> SyncInfo.withSyncState ServerRejected }, [ SavePendingQueue [] ]
 
-    | SysMsg (SubmitNetworkError (baseRev, changes)) ->
+    | SysMsg (SubmitNetworkError (baseRev, changes, kind)) ->
         consoleLog (
             "[Gambol sync] SubmitNetworkError modelRev=" + string model.revision.Value
-            + " pending=" + string model.syncInfo.pendingChanges.Length)
+            + " pending=" + string model.syncInfo.pendingChanges.Length
+            + " kind=" + string kind)
         if model.syncInfo.pendingChanges.IsEmpty then model, []
         else
             let n =
@@ -94,7 +95,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                 | Sending n -> n
                 | WaitingToRetry (n, _, _) -> n
                 | _ -> 1
-            let delayMs = min (1000 * (pown 2 (n - 1))) 30_000
+            let delayMs = SyncRetry.retryDelayMs n kind
             { model with
                 syncInfo =
                     model.syncInfo

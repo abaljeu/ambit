@@ -28,7 +28,7 @@ let private renderFileSearchResults
     (items: string list)
     (selectedIndex: int)
     : unit =
-    let ul = container.querySelector ".amb-palette-results" :?> HTMLElement
+    let ul = container.querySelector ".amb-dialog-results" :?> HTMLElement
     ul.innerHTML <- ""
     let clampedSel = if items.IsEmpty then 0 else min selectedIndex (items.Length - 1)
     let mutable selectedLi: Element option = None
@@ -38,7 +38,7 @@ let private renderFileSearchResults
         li.textContent <- label
         li.dataset.["idx"] <- string i
         if i = clampedSel then
-            li.classList.add "amb-palette-selected"
+            li.classList.add "amb-dialog-selected"
             selectedLi <- Some li
         ul.appendChild li |> ignore)
     selectedLi |> Option.iter (fun el -> scrollIntoViewNearest (el :?> HTMLElement))
@@ -74,8 +74,8 @@ let renderFileSearchDialog (model: VM) (dispatch: Msg -> unit) : unit =
 
     match model.mode with
     | FileSearchDialog s ->
-        let wasOpen = container.classList.contains "amb-palette-open"
-        container.classList.add "amb-palette-open"
+        let wasOpen = container.classList.contains "amb-dialog-open"
+        container.classList.add "amb-dialog-open"
         let ctx = document.getElementById "file-search-dialog-context"
         if not (isNull ctx) then
             ctx.textContent <- "Insert…"
@@ -139,4 +139,4 @@ let renderFileSearchDialog (model: VM) (dispatch: Msg -> unit) : unit =
             folderBtn.addEventListener("click", fun _ ->
                 dispatch (ApplyOp (withDiagnostic "" "New folder" runFileSearchNewFolderOp)))
     | _ ->
-        container.classList.remove "amb-palette-open"
+        container.classList.remove "amb-dialog-open"

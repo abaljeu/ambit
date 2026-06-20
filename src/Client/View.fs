@@ -489,7 +489,7 @@ let private paletteWired = ref false
 /// Upper-bounds selectedCommand to the list length to handle stale indices.
 /// Scrolls the selected item into view so it stays visible when navigating with arrows.
 let renderPalette (container: HTMLElement) (items: string list) (selectedCommand: int) : unit =
-    let ul = container.querySelector ".amb-palette-results" :?> HTMLElement
+    let ul = container.querySelector ".amb-dialog-results" :?> HTMLElement
     ul.innerHTML <- ""
     let clampedSel = if items.IsEmpty then 0 else min selectedCommand (items.Length - 1)
     let mutable selectedLi: Element option = None
@@ -497,7 +497,7 @@ let renderPalette (container: HTMLElement) (items: string list) (selectedCommand
         let li = document.createElement "li"
         li.textContent <- label
         if i = clampedSel then
-            li.classList.add "amb-palette-selected"
+            li.classList.add "amb-dialog-selected"
             selectedLi <- Some li
         ul.appendChild li |> ignore)
     selectedLi |> Option.iter (fun el -> scrollIntoViewNearest (el :?> HTMLElement))
@@ -510,7 +510,7 @@ let renderCommandPalette (model: VM) (dispatch: Msg -> unit) : unit =
 
     match model.mode with
     | CommandPalette (q, selectedCommand, ret) ->
-        container.classList.add "amb-palette-open"
+        container.classList.add "amb-dialog-open"
         let input = document.getElementById "command-palette-input" :?> HTMLInputElement
         window.setTimeout((fun _ -> focusPreventScroll input), 0) |> ignore
         let items = filteredCommands ret q |> List.map (fun c -> CommandMeta.displayName c.id)
@@ -552,7 +552,7 @@ let renderCommandPalette (model: VM) (dispatch: Msg -> unit) : unit =
                         | _ -> m, [])))
 
     | _ ->
-        container.classList.remove "amb-palette-open"
+        container.classList.remove "amb-dialog-open"
 
 let private cssClassPromptWired = ref false
 let private cssClassPromptFilled = ref false
@@ -564,7 +564,7 @@ let renderCssClassPrompt (model: VM) (dispatch: Msg -> unit) : unit =
 
     match model.mode with
     | CssClassPrompt (_, initialValue) ->
-        container.classList.add "amb-palette-open"
+        container.classList.add "amb-dialog-open"
         let input = document.getElementById "css-class-prompt-input" :?> HTMLInputElement
         if not (isNull input) then
             if not cssClassPromptFilled.Value then
@@ -579,7 +579,7 @@ let renderCssClassPrompt (model: VM) (dispatch: Msg -> unit) : unit =
                         ev.preventDefault()
                     handleCssClassPromptKey ke dispatch)
     | _ ->
-        container.classList.remove "amb-palette-open"
+        container.classList.remove "amb-dialog-open"
         cssClassPromptFilled.Value <- false
         let input = document.getElementById "css-class-prompt-input" :?> HTMLInputElement
         if not (isNull input) && input.value <> "" then
@@ -595,7 +595,7 @@ let renderRenamePrompt (model: VM) (dispatch: Msg -> unit) : unit =
 
     match model.mode with
     | RenamePrompt (_, initialValue) ->
-        container.classList.add "amb-palette-open"
+        container.classList.add "amb-dialog-open"
         let input = document.getElementById "rename-prompt-input" :?> HTMLInputElement
         if not (isNull input) then
             if not renamePromptFilled.Value then
@@ -612,7 +612,7 @@ let renderRenamePrompt (model: VM) (dispatch: Msg -> unit) : unit =
                         ev.preventDefault()
                     handleRenamePromptKey ke dispatch)
     | _ ->
-        container.classList.remove "amb-palette-open"
+        container.classList.remove "amb-dialog-open"
         renamePromptFilled.Value <- false
         let input = document.getElementById "rename-prompt-input" :?> HTMLInputElement
         if not (isNull input) && input.value <> "" then

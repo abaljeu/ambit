@@ -39,6 +39,7 @@
     <Compile Include="DeleteOpsTests.fs" />
     <Compile Include="SyncLogicTests.fs" />
     <Compile Include="SyncPlannerTests.fs" />
+    <Compile Include="SyncRetryTests.fs" />
     <Compile Include="PasteTests.fs" />
     <Compile Include="ClientRectCaretTests.fs" />
     <Compile Include="EditCaretTests.fs" />

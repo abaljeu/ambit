@@ -399,7 +399,7 @@ let ``refreshSelection rebinds stale parent snapshot to current site map`` () =
         Assert.Equal(3, refreshed.range.parent.children.Length)
 
 [<Fact>]
-let ``refreshSelection returns None when parent instance no longer exists`` () =
+let ``refreshSelection adapts when parent instance no longer exists`` () =
     let graph, cont, _ = buildFlat [ "a"; "b" ]
     let model = modelWithSel graph cont 0 1 0
     let staleSel =
@@ -409,7 +409,9 @@ let ``refreshSelection returns None when parent instance no longer exists`` () =
             let orphanParent = { sel.range.parent with instanceId = Sid 9_999 }
             { sel with range = { sel.range with parent = orphanParent } }
     let siteMap, _ = buildSiteMapFrom graph cont (Sid 0)
-    Assert.True((refreshSelection graph siteMap staleSel).IsNone)
+    match refreshSelection graph siteMap staleSel with
+    | None -> Assert.True(false, "Expected adapted selection via instance id")
+    | Some refreshed -> Assert.Equal(0, refreshed.range.start)
 
 [<Fact>]
 let ``selectionAfterStructuralMove expanded parent spans moved nodes`` () =
@@ -491,6 +493,84 @@ let ``selectionAfterStructuralMove expanded newParent focuses moved node indent 
         |> Option.get
 
     Assert.Equal(b, focusedNodeId gPost sel)
+
+let private indentUndoTopology () =
+    let graphPre, cont, ids = buildFlat [ "a"; "b"; "c" ]
+    let a = ids.[0]
+    let b = ids.[1]
+    let bChild = graphPre.nodes.[cont].children.[1]
+    let gMid =
+        Graph.replace cont 1 [ bChild ] [] graphPre |> ModelBuilder.requireOk "rm b"
+    let gPost =
+        Graph.replace a 0 [] [ bChild ] gMid |> ModelBuilder.requireOk "add b under a"
+    let postSiteMap, _ = buildSiteMapFrom gPost cont (Sid 0)
+    let mPre = emptyModelAt graphPre cont
+    let rootPre = mPre.siteMap.entries.[mPre.siteMap.rootId]
+    let newParentCollapsed =
+        postSiteMap.entries |> Map.pick (fun _ e -> if e.nodeId = a then Some e else None)
+    let postSiteMapExpanded, _ =
+        expandEntry newParentCollapsed.instanceId gPost postSiteMap mPre.nextSiteId
+    let newParentExpanded =
+        postSiteMapExpanded.entries.[newParentCollapsed.instanceId]
+    let postIndentSel =
+        selectionAfterStructuralMove graphPre gPost postSiteMapExpanded
+            { parent = rootPre; start = 1; endd = 2 }
+            false
+            newParentExpanded
+            0
+            1
+            0
+        |> Option.get
+    let postIndentModel =
+        { mPre with
+            graph = gPost
+            siteMap = postSiteMapExpanded
+            selectedNodes = Some postIndentSel }
+    graphPre, cont, mPre, postIndentModel, postIndentSel, b
+
+let private refreshSelectionAfterSiteMap (model: VM) : VM =
+    let siteMap, nextId =
+        reconcileSiteMapFrom model.graph model.zoomRoot model.siteMap model.nextSiteId
+    let model' = { model with siteMap = siteMap; nextSiteId = nextId }
+    match model'.selectedNodes with
+    | None -> model'
+    | Some sel ->
+        let adapted =
+            refreshSelection model'.graph model'.siteMap sel
+            |> Option.orElse (firstChildSelection model'.siteMap model'.zoomRoot)
+        match adapted with
+        | Some refreshed -> { model' with selectedNodes = Some refreshed }
+        | None -> model'
+
+[<Fact>]
+let ``refreshSelection adapts selection after indent undo topology`` () =
+    let graphPre, cont, _, postIndentModel, postIndentSel, b = indentUndoTopology ()
+    let undoSiteMap, _ =
+        reconcileSiteMapFrom graphPre cont postIndentModel.siteMap postIndentModel.nextSiteId
+    match refreshSelection graphPre undoSiteMap postIndentSel with
+    | None -> Assert.True(false, "Expected adapted selection")
+    | Some refreshed ->
+        Assert.Equal(b, focusedNodeId graphPre refreshed)
+        Assert.Equal(1, refreshed.range.start)
+
+[<Fact>]
+let ``withSiteMap adapts invalid selection after indent undo`` () =
+    let graphPre, _, _, postIndentModel, postIndentSel, b = indentUndoTopology ()
+    let undoModel = { postIndentModel with graph = graphPre; selectedNodes = Some postIndentSel }
+    let result = refreshSelectionAfterSiteMap undoModel
+    match result.selectedNodes with
+    | None -> Assert.True(false, "Expected adapted selection")
+    | Some sel ->
+        Assert.Equal(b, focusedNodeId graphPre sel)
+        Assert.Equal(1, sel.range.start)
+
+[<Fact>]
+let ``activeNodeId resolves stale selection after indent undo`` () =
+    let graphPre, _, _, postIndentModel, postIndentSel, b = indentUndoTopology ()
+    let model = { postIndentModel with graph = graphPre; selectedNodes = Some postIndentSel }
+    match activeNodeId model with
+    | None -> Assert.True(false, "Expected active node")
+    | Some nodeId -> Assert.Equal(b, nodeId)
 
 [<Fact>]
 let ``selectionAfterStructuralMove collapsed parent picks original sibling below at range start`` () =

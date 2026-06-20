@@ -22,29 +22,32 @@
                 <!-- <span id="server-build-stamp" class="amb-last-key" title="Deployment time (server + client assets)"></span> -->
             </div>
         </div>
-        <div id="command-palette" class="amb-palette">
-            <input id="command-palette-input" class="amb-palette-input" type="text" placeholder="Search commands..." autocomplete="off">
-            <ul id="command-palette-results" class="amb-palette-results"></ul>
+        <div id="command-palette" class="amb-dialog">
+            <div class="amb-dialog-context amb-dock-base">Command palette</div>
+            <input id="command-palette-input" class="amb-dialog-input" type="text" placeholder="Search commands..." autocomplete="off">
+            <ul id="command-palette-results" class="amb-dialog-results"></ul>
         </div>
-        <div id="search-dialog" class="amb-palette">
-            <div id="search-dialog-context" class="amb-palette-context" aria-live="polite"></div>
-            <input id="search-dialog-input" class="amb-palette-input" type="text" placeholder="Search nodes (use $name)..." autocomplete="off">
-            <ul id="search-dialog-results" class="amb-palette-results"></ul>
+        <div id="search-dialog" class="amb-dialog">
+            <div id="search-dialog-context" class="amb-dialog-context" aria-live="polite"></div>
+            <input id="search-dialog-input" class="amb-dialog-input" type="text" placeholder="Search nodes (use $name)..." autocomplete="off">
+            <ul id="search-dialog-results" class="amb-dialog-results"></ul>
         </div>
-        <div id="file-search-dialog" class="amb-palette">
-            <div id="file-search-dialog-context" class="amb-palette-context" aria-live="polite"></div>
-            <input id="file-search-dialog-input" class="amb-palette-input" type="text"
+        <div id="file-search-dialog" class="amb-dialog">
+            <div id="file-search-dialog-context" class="amb-dialog-context" aria-live="polite"></div>
+            <input id="file-search-dialog-input" class="amb-dialog-input" type="text"
                 placeholder="Search existing files..." autocomplete="off">
-            <ul id="file-search-dialog-results" class="amb-palette-results"></ul>
-            <button id="file-search-dialog-new-workspace" class="amb-palette-new" type="button">New Workspace</button>
-            <button id="file-search-dialog-new-file" class="amb-palette-new" type="button">New File</button>
-            <button id="file-search-dialog-new-folder" class="amb-palette-new" type="button">New Folder</button>
+            <ul id="file-search-dialog-results" class="amb-dialog-results"></ul>
+            <button id="file-search-dialog-new-workspace" class="amb-dialog-new" type="button">New Workspace</button>
+            <button id="file-search-dialog-new-file" class="amb-dialog-new" type="button">New File</button>
+            <button id="file-search-dialog-new-folder" class="amb-dialog-new" type="button">New Folder</button>
         </div>
-        <div id="rename-prompt" class="amb-palette">
-            <input id="rename-prompt-input" class="amb-palette-input" type="text" placeholder="New name" autocomplete="off">
+        <div id="rename-prompt" class="amb-dialog">
+            <div class="amb-dialog-context amb-dock-base">Rename</div>
+            <input id="rename-prompt-input" class="amb-dialog-input" type="text" placeholder="New name" autocomplete="off">
         </div>
-        <div id="css-class-prompt" class="amb-palette">
-            <input id="css-class-prompt-input" class="amb-palette-input" type="text" placeholder="Classes (space-separated)" autocomplete="off">
+        <div id="css-class-prompt" class="amb-dialog">
+            <div class="amb-dialog-context amb-dock-base">Edit classes</div>
+            <input id="css-class-prompt-input" class="amb-dialog-input" type="text" placeholder="Classes (space-separated)" autocomplete="off">
         </div>
         <div id="blocking-alert" class="amb-blocking-alert" aria-modal="true" role="alertdialog" aria-labelledby="blocking-alert-title" aria-describedby="blocking-alert-message">
             <div class="amb-blocking-alert-panel">

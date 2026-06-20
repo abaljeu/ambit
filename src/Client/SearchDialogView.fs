@@ -19,7 +19,7 @@ let private renderSearchResults
     (items: string list)
     (selectedIndex: int)
     : unit =
-    let ul = container.querySelector ".amb-palette-results" :?> HTMLElement
+    let ul = container.querySelector ".amb-dialog-results" :?> HTMLElement
     ul.innerHTML <- ""
     let clampedSel = if items.IsEmpty then 0 else min selectedIndex (items.Length - 1)
     let mutable selectedLi: Element option = None
@@ -29,7 +29,7 @@ let private renderSearchResults
         li.textContent <- label
         li.dataset.["idx"] <- string i
         if i = clampedSel then
-            li.classList.add "amb-palette-selected"
+            li.classList.add "amb-dialog-selected"
             selectedLi <- Some li
         ul.appendChild li |> ignore)
     selectedLi |> Option.iter (fun el -> scrollIntoViewNearest (el :?> HTMLElement))
@@ -65,8 +65,8 @@ let renderSearchDialog (model: VM) (dispatch: Msg -> unit) : unit =
 
     match model.mode with
     | SearchDialog s ->
-        let wasOpen = container.classList.contains "amb-palette-open"
-        container.classList.add "amb-palette-open"
+        let wasOpen = container.classList.contains "amb-dialog-open"
+        container.classList.add "amb-dialog-open"
         let ctx = document.getElementById "search-dialog-context"
         if not (isNull ctx) then
             ctx.textContent <- s.invokedCommand
@@ -112,4 +112,4 @@ let renderSearchDialog (model: VM) (dispatch: Msg -> unit) : unit =
                                 (SearchDialog { s with selectedIndex = idx }) m
                         | _ -> m, [])))
     | _ ->
-        container.classList.remove "amb-palette-open"
+        container.classList.remove "amb-dialog-open"
