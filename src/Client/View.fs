@@ -735,19 +735,21 @@ let renderSyncChrome (model: VM) (dispatch: Msg -> unit) : unit =
 // Full rebuild (StateLoaded)
 // ---------------------------------------------------------------------------
 
-/// Rebuild all row elements from scratch: removes existing rows (children of app
+/// Rebuild all row elements from scratch: removes existing rows (children of #amb-document
 /// that precede the hidden-input sentinel), then recreates them in preorder.
 /// Returns a fresh element cache keyed by instanceId.
 let render (vm: VM) (dispatch: Msg -> unit) : Map<SiteId, HTMLElement> =
+    let rowRoot =
+        if isNull ambDocument then app else ambDocument
     // Remove existing rows — everything before the hidden-input sentinel
     let hiddenInput = document.getElementById "hidden-input"
     if isNull hiddenInput then
-        app.innerHTML <- ""
+        rowRoot.innerHTML <- ""
     else
         let mutable sib = hiddenInput.previousSibling
         while not (isNull sib) do
             let prev = sib.previousSibling
-            app.removeChild sib |> ignore
+            rowRoot.removeChild sib |> ignore
             sib <- prev
 
     let mutable cache = Map.empty<SiteId, HTMLElement>
@@ -758,8 +760,8 @@ let render (vm: VM) (dispatch: Msg -> unit) : Map<SiteId, HTMLElement> =
         let row = makeRowElement vm dispatch depth entry
         cache <- Map.add instId row cache
         let sentinel = document.getElementById "hidden-input"
-        if isNull sentinel then app.appendChild row |> ignore
-        else app.insertBefore(row, sentinel) |> ignore
+        if isNull sentinel then rowRoot.appendChild row |> ignore
+        else rowRoot.insertBefore(row, sentinel) |> ignore
 
     manageFocus None vm cache
     renderSyncChrome vm dispatch
@@ -801,6 +803,9 @@ let patchDOM
             cache' <- Map.remove instId cache'
         | _ -> ()
 
+    let rowRoot =
+        if isNull ambDocument then app else ambDocument
+
     // Apply upserts in preorder, correcting DOM position as we go
     let mutable prevNode: Browser.Types.Node option = None
 
@@ -815,7 +820,7 @@ let patchDOM
         let atCorrectPos =
             match prevNode with
             | None ->
-                let first = app.firstChild
+                let first = rowRoot.firstChild
                 not (isNull first) && System.Object.ReferenceEquals(first, row)
             | Some pe ->
                 let ns = pe.nextSibling
@@ -824,9 +829,9 @@ let patchDOM
         if not atCorrectPos then
             let anchor =
                 match prevNode with
-                | None -> app.firstChild
+                | None -> rowRoot.firstChild
                 | Some pe -> pe.nextSibling
-            app.insertBefore(row, anchor) |> ignore
+            rowRoot.insertBefore(row, anchor) |> ignore
 
         prevNode <- Some (row :> Browser.Types.Node)
 

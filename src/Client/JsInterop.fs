@@ -181,21 +181,24 @@ let focusPreventScroll (el: HTMLElement) : unit = jsNative
 [<Emit("$0.scrollIntoView({block:'nearest'})")>]
 let scrollIntoViewNearest (el: HTMLElement) : unit = jsNative
 
-/// Scroll so `el` fits in the visual viewport (keyboard-aware on iOS). Always uses
-/// `scrollIntoView({block:'nearest'})` first; then nudges for `visualViewport` when present.
+/// Scroll element into view within #amb-document (keyboard-aware on iOS). Always uses
+/// `scrollIntoView({block:'nearest'})` first; then nudges within the document scroller.
 [<Emit("""(function(el){
+var sc=document.getElementById('amb-document');
 function adjust(){
+if(!sc)return;
 var vv=window.visualViewport;
-if(!vv)return;
 var rect=el.getBoundingClientRect();
-var padTop=parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop)||0;
+var scr=sc.getBoundingClientRect();
 var margin=8;
-var visTop=vv.offsetTop;
-var visBottom=vv.offsetTop+vv.height;
+var visTop=vv?vv.offsetTop:scr.top;
+var visBottom=vv?vv.offsetTop+vv.height:scr.bottom;
+var topBound=Math.max(visTop,scr.top)+margin;
+var bottomBound=Math.min(visBottom,scr.bottom)-margin;
 var dy=0;
-if(rect.bottom>visBottom-margin){dy=rect.bottom-(visBottom-margin);}
-else if(rect.top<visTop+padTop){dy=rect.top-(visTop+padTop);}
-if(dy!==0){window.scrollBy({top:dy,left:0});}
+if(rect.bottom>bottomBound){dy=rect.bottom-bottomBound;}
+else if(rect.top<topBound){dy=rect.top-topBound;}
+if(dy!==0){sc.scrollTop+=dy;}
 }
 el.scrollIntoView({block:'nearest'});
 adjust();

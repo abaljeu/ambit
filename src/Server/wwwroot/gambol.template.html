@@ -11,10 +11,7 @@
 </head>
 <body>
     <div id="app">
-        Loading...
-        <input id="hidden-input" class="amb-hidden-input" inputmode="none" autocomplete="off" tabindex="-1">
         <div id="amb-sticky-header" class="amb-sticky-header">
-            <div class="amb-command-buttons"></div>
             <div class="amb-header-row2">
                 <span id="sync-status" class="amb-sync-status"></span>
                 <span id="db-status" class="amb-db-status"></span>
@@ -22,6 +19,10 @@
                 <!-- <span id="server-build-stamp" class="amb-last-key" title="Deployment time (server + client assets)"></span> -->
             </div>
         </div>
+        <main id="amb-document" class="amb-document">
+            Loading...
+            <input id="hidden-input" class="amb-hidden-input" inputmode="none" autocomplete="off" tabindex="-1">
+        </main>
         <div id="command-palette" class="amb-dialog">
             <div class="amb-dialog-context amb-dock-base">Command palette</div>
             <input id="command-palette-input" class="amb-dialog-input" type="text" placeholder="Search commands..." autocomplete="off">
@@ -55,6 +56,9 @@
                 <p id="blocking-alert-message" class="amb-blocking-alert-message"></p>
                 <button type="button" id="blocking-alert-ok" class="amb-blocking-alert-ok">OK</button>
             </div>
+        </div>
+        <div id="amb-sticky-footer" class="amb-sticky-footer">
+            <div class="amb-command-buttons"></div>
         </div>
     </div>
     <script type="module" src="/ambit/Program.js"></script>

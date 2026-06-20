@@ -142,6 +142,7 @@ let onCutWhileEditing (model: VM) (ev: Event) (dispatch: Msg -> unit) : unit =
 // ---------------------------------------------------------------------------
 
 let app = document.getElementById "app"
+let ambDocument = document.getElementById "amb-document"
 
 /// Check if a key string represents a single printable character
 let isPrintableKey (key: string) : bool =
