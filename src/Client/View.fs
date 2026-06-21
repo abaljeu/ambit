@@ -327,7 +327,8 @@ let private makeDockIcon (iconId: string) : HTMLElement =
     svg.setAttribute("class", "amb-dock-icon")
     svg.setAttribute("aria-hidden", "true")
     let useEl = document.createElementNS(svgNs, "use")
-    useEl.setAttribute("href", "/ambit/command-dock.svg#" + iconId)
+    let v = readPageBuildEpochSec ()
+    useEl.setAttribute("href", sprintf "/ambit/command-dock.svg?v=%d#%s" v iconId)
     svg.appendChild useEl |> ignore
     svg :?> HTMLElement
 

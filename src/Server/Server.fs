@@ -142,7 +142,8 @@ module Main =
             OnPrepareResponse = Action<StaticFileResponseContext>(fun ctx ->
                 let path = ctx.Context.Request.Path.Value
                 if path.EndsWith(".js", StringComparison.OrdinalIgnoreCase)
-                    || path.EndsWith(".js.map", StringComparison.OrdinalIgnoreCase) then
+                    || path.EndsWith(".js.map", StringComparison.OrdinalIgnoreCase)
+                    || path.EndsWith(".svg", StringComparison.OrdinalIgnoreCase) then
                     ctx.Context.Response.Headers.CacheControl <- "no-cache, no-store, must-revalidate"
                     ctx.Context.Response.Headers.Pragma <- "no-cache"
                     ctx.Context.Response.Headers.Expires <- "0"
@@ -301,6 +302,7 @@ module Main =
             let updateJs = Path.Combine(app.Environment.WebRootPath, "Update.js")
             let styleCss = Path.Combine(app.Environment.WebRootPath, "style.css")
             let defaultUserCss = Path.Combine(app.Environment.WebRootPath, "user.css")
+            let commandDockSvg = Path.Combine(app.Environment.WebRootPath, "command-dock.svg")
             let torontoTz = TimeZoneInfo.FindSystemTimeZoneById("America/Toronto")
 
             let fileWriteUtc (path: string) =
@@ -310,8 +312,9 @@ module Main =
             let pageArtifactUtc =
                 max (fileWriteUtc gambolHtml)
                     (max (fileWriteUtc programJs)
-                        (max (fileWriteUtc updateJs)
-                            (max (fileWriteUtc styleCss) (fileWriteUtc defaultUserCss))))
+                            (max (fileWriteUtc updateJs)
+                                (max (fileWriteUtc styleCss)
+                                    (max (fileWriteUtc defaultUserCss) (fileWriteUtc commandDockSvg)))))
 
             // Server assembly mtime (redeploy without touching wwwroot).
             let serverAssemblyPath = System.Reflection.Assembly.GetExecutingAssembly().Location
