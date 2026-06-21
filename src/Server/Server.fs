@@ -340,6 +340,16 @@ module Main =
                     else deployUtc
                 int (u.Subtract(DateTime.UnixEpoch).TotalSeconds)
 
+            let inlineCommandDockSprite () =
+                if not (File.Exists commandDockSvg) then ""
+                else
+                    let text = File.ReadAllText commandDockSvg
+                    if text.StartsWith("<?xml") then
+                        match text.IndexOf("?>") with
+                        | -1 -> text
+                        | i -> text.Substring(i + 2).TrimStart()
+                    else text
+
             let deployEpochSec () =
                 int (deployUtc.Subtract(DateTime.UnixEpoch).TotalSeconds)
 
@@ -443,12 +453,16 @@ module Main =
                          | DatabaseSetup.DbStatus.Absent -> "absent")
                         + "\";</script>\n</head>"
                 let withStamp = withAbsoluteAssets.Replace("</head>", snippet)
+                let withSprite =
+                    withStamp.Replace(
+                        "<!-- command-dock-sprite -->",
+                        inlineCommandDockSprite ())
                 // Cache-bust Program.js so reload gets fresh assets when server redeploys
                 let programSrc =
                     match publicAssetBaseOpt with
                     | None -> sprintf "/ambit/Program.js?v=%d" pageEpoch
                     | Some baseUrl -> sprintf "%s/ambit/Program.js?v=%d" baseUrl pageEpoch
-                withStamp.Replace("src=\"/ambit/Program.js\"", sprintf "src=\"%s\"" programSrc)
+                withSprite.Replace("src=\"/ambit/Program.js\"", sprintf "src=\"%s\"" programSrc)
             let serveAmbitApp (ctx: HttpContext) : IResult =
                 if isAuthenticated ctx.Request then
                     ctx.Response.Headers.CacheControl <- "no-cache, no-store, must-revalidate"
