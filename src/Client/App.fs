@@ -322,6 +322,8 @@ let setupStaticDOM (dispatch: Msg -> unit) (getModel: unit -> VM) (_wakePolling:
     hiddenInput.addEventListener("copy",  fun ev -> onCopy  (getModel ()) ev dispatch)
     hiddenInput.addEventListener("cut",   fun ev -> onCut   (getModel ()) ev dispatch)
 
+    setupVisualViewportLayout ()
+
     let basePath =
         let path = window.location.pathname
         if path.StartsWith("/ambit") then "/ambit" else ""

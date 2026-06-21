@@ -206,6 +206,34 @@ setTimeout(adjust,350);
 })($0)""")>]
 let scrollElementIntoViewAboveKeyboard (el: HTMLElement) : unit = jsNative
 
+/// Pin #app to the visual viewport so header, document, and footer stay above the
+/// on-screen keyboard (iPad Safari keeps the layout viewport full-height otherwise).
+[<Emit("""(function(){
+var app=document.getElementById('app');
+var vv=window.visualViewport;
+if(!app||!vv)return;
+function sync(){
+var bs=getComputedStyle(document.body);
+var pl=parseFloat(bs.paddingLeft)||0;
+var pr=parseFloat(bs.paddingRight)||0;
+var pt=parseFloat(bs.paddingTop)||0;
+var pb=parseFloat(bs.paddingBottom)||0;
+app.style.position='fixed';
+app.style.top=(vv.offsetTop+pt)+'px';
+app.style.left=pl+'px';
+app.style.right=pr+'px';
+app.style.width='auto';
+app.style.height=(vv.height-pt-pb)+'px';
+app.style.boxSizing='border-box';
+}
+sync();
+vv.addEventListener('resize',sync);
+vv.addEventListener('scroll',sync);
+window.addEventListener('resize',sync);
+window.addEventListener('orientationchange',sync);
+})()""")>]
+let setupVisualViewportLayout () : unit = jsNative
+
 /// UTF-16 caret offset in `root` from a viewport click, or 0 when outside `root`.
 let getCaretOffsetInRoot (root: HTMLElement) (clientX: float) (clientY: float) : int =
     let r = tryDocumentCaretRangeFromPoint clientX clientY

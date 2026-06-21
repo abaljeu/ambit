@@ -349,6 +349,11 @@ let private addGlyphClasses (btn: HTMLButtonElement) (classes: string list) : un
     for cls in classes do
         if cls <> "" then btn.classList.add cls
 
+/// Keep focus and caret in `#edit-input` when tapping dock buttons while editing.
+let private preventDockFocusSteal (btn: HTMLButtonElement) : unit =
+    btn.addEventListener("pointerdown", fun (ev: Event) ->
+        (ev :?> PointerEvent).preventDefault())
+
 let private makeIconButton
         (label: string)
         (iconId: string)
@@ -362,6 +367,7 @@ let private makeIconButton
     btn.setAttribute("aria-label", label)
     appendDockIcon btn iconId
     addGlyphClasses btn extraClasses
+    preventDockFocusSteal btn
     btn.addEventListener ("click", fun _ -> onClick ())
     btn
 
@@ -386,6 +392,7 @@ let private makeCommandIconButton
         | Some iconId -> appendDockIcon btn iconId
         | None -> ()
     | None -> ()
+    preventDockFocusSteal btn
     match cmd.run () with
     | None -> btn.classList.add "amb-inactive"
     | Some op ->
