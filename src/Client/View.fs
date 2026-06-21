@@ -320,7 +320,13 @@ type private ActiveToolSurface =
     | DockMoreTools
 
 let mutable private activeToolSurface : ActiveToolSurface option = None
+let mutable private lastDockSnapshot : string option = None
 let private svgNs = "http://www.w3.org/2000/svg"
+
+let private dockSnapshot (model: VM) =
+    let ctx = commandContextMode model.mode
+    let sel = paletteWasSelecting ctx
+    sprintf "%A|%A|%b" activeToolSurface ctx sel
 
 let private makeDockIcon (iconId: string) : HTMLElement =
     let svg = document.createElementNS(svgNs, "svg")
@@ -447,27 +453,29 @@ let private renderDockSlots
 let rec renderCommandButtons (model: VM) (dispatch: Msg -> unit) : unit =
     let container = document.querySelector ".amb-command-buttons"
     if isNull container then () else
-    container.innerHTML <- ""
+    let snapshot = dockSnapshot model
+    if lastDockSnapshot <> Some snapshot then
+        lastDockSnapshot <- Some snapshot
+        container.innerHTML <- ""
 
-    let refresh = renderCommandButtons
-    let baseRow = renderDockSlots Primary baseStripSlots model dispatch refresh
-    container.appendChild baseRow |> ignore
+        let refresh = renderCommandButtons
+        let baseRow = renderDockSlots Primary baseStripSlots model dispatch refresh
+        container.appendChild baseRow |> ignore
 
-    match activeToolSurface with
-    | Some DockMoveTools ->
-        let moveRow =
-            renderDockSlots MoveStructure moveToolsSlots model dispatch refresh
-        container.appendChild moveRow |> ignore
-    | Some DockSelectTools ->
-        let selectRow =
-            renderDockSlots Selection selectToolsSlots model dispatch refresh
-        container.appendChild selectRow |> ignore
-    | Some DockMoreTools ->
-        let row = 
-            renderDockSlots More moreToolsSlots model dispatch refresh
-        container.appendChild row |> ignore
-
-    | None -> ()
+        match activeToolSurface with
+        | Some DockMoveTools ->
+            let moveRow =
+                renderDockSlots MoveStructure moveToolsSlots model dispatch refresh
+            container.appendChild moveRow |> ignore
+        | Some DockSelectTools ->
+            let selectRow =
+                renderDockSlots Selection selectToolsSlots model dispatch refresh
+            container.appendChild selectRow |> ignore
+        | Some DockMoreTools ->
+            let row =
+                renderDockSlots More moreToolsSlots model dispatch refresh
+            container.appendChild row |> ignore
+        | None -> ()
 
 // ---------------------------------------------------------------------------
 // Command palette rendering
