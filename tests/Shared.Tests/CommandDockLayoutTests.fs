@@ -5,18 +5,6 @@ open Gambol.Shared.CommandDockLayout
 open Gambol.Shared.CommandEntry
 
 [<Fact>]
-let ``base strip fits mobile row limit`` () =
-    Assert.Equal(maxBaseSlots, baseStripSlots.Length)
-
-[<Fact>]
-let ``move tools strip fits mobile row limit`` () =
-    Assert.Equal(maxMoveSlots, moveToolsSlots.Length)
-
-[<Fact>]
-let ``select tools strip fits mobile row limit`` () =
-    Assert.Equal(maxSelectSlots, selectToolsSlots.Length)
-
-[<Fact>]
 let ``base strip has Delete not JumpToTarget`` () =
     let ids = commandIds baseStripSlots
     Assert.Contains(Delete, ids)

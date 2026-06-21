@@ -9,11 +9,13 @@ type CommandCategory =
     | Clipboard
     | Format
     | FileIO
+    | More
 
 let dockCssClass = function
     | MoveStructure -> "amb-dock-move"
     | Selection -> "amb-dock-select"
     | FileIO -> "amb-dock-file"
+    | More -> "amb-dock-more"
     | _ -> "amb-dock-base"
 
 /// Dock accent for search-dialog title bars (matches invoked command category).

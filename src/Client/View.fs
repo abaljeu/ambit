@@ -317,10 +317,9 @@ let manageFocus
 type private ActiveToolSurface =
     | DockMoveTools
     | DockSelectTools
+    | DockMoreTools
 
 let mutable private activeToolSurface : ActiveToolSurface option = None
-let mutable private moreSheetOpen = false
-
 let private svgNs = "http://www.w3.org/2000/svg"
 
 let private makeDockIcon (iconId: string) : HTMLElement =
@@ -407,38 +406,23 @@ let private appendDockSlot
         (refresh: VM -> (Msg -> unit) -> unit)
         : unit =
     match slot with
-    | DockClose ->
-        let closeBtn =
-            makeIconButton "Close" "amb-icon-close"
-                [ "amb-dock-close" ] (fun () ->
-                activeToolSurface <- None
-                moreSheetOpen <- false
-                refresh model dispatch)
-        row.appendChild closeBtn |> ignore
     | DockTrigger trigger ->
         let isOpen =
             match trigger with
             | OpenMove -> activeToolSurface = Some DockMoveTools
             | OpenSelect -> activeToolSurface = Some DockSelectTools
-            | OpenMore -> moreSheetOpen
+            | OpenMore -> activeToolSurface = Some DockMoreTools
         let extra = if isOpen then triggerOpenClasses trigger else []
         let toggle =
             makeIconButton (triggerLabel trigger) (iconForTrigger trigger) extra
                 (fun () ->
                     match trigger with
                     | OpenMove ->
-                        moreSheetOpen <- false
-                        activeToolSurface <-
-                            if activeToolSurface = Some DockMoveTools then None
-                            else Some DockMoveTools
+                        activeToolSurface <- Some DockMoveTools
                     | OpenSelect ->
-                        moreSheetOpen <- false
-                        activeToolSurface <-
-                            if activeToolSurface = Some DockSelectTools then None
-                            else Some DockSelectTools
+                        activeToolSurface <- Some DockSelectTools
                     | OpenMore ->
-                        activeToolSurface <- None
-                        moreSheetOpen <- not moreSheetOpen
+                        activeToolSurface <- Some DockMoreTools
                     refresh model dispatch)
         row.appendChild toggle |> ignore
     | DockCommand id ->
@@ -477,14 +461,12 @@ let rec renderCommandButtons (model: VM) (dispatch: Msg -> unit) : unit =
         let selectRow =
             renderDockSlots Selection selectToolsSlots model dispatch refresh
         container.appendChild selectRow |> ignore
-    | None -> ()
+    | Some DockMoreTools ->
+        let row = 
+            renderDockSlots More moreToolsSlots model dispatch refresh
+        container.appendChild row |> ignore
 
-    let moreOverlay = document.createElement "div"
-    moreOverlay.className <- "amb-dock-more-overlay"
-    if moreSheetOpen then moreOverlay.classList.add "amb-dock-more-open"
-    let moreRow = renderDockSlots Primary moreToolsSlots model dispatch refresh
-    moreOverlay.appendChild moreRow |> ignore
-    container.appendChild moreOverlay |> ignore
+    | None -> ()
 
 // ---------------------------------------------------------------------------
 // Command palette rendering

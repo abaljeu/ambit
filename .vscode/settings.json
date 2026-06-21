@@ -7,6 +7,9 @@
         }
     },
     "editor.inlayHints.enabled": "offUnlessPressed",
-    "git.mergeEditor" : false
+    "git.mergeEditor" : false,
+    "workbench.editorAssociations": {
+            "*.svg": "default"
+    }
 }
 

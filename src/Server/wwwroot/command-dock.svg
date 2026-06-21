@@ -52,53 +52,41 @@
       <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
   </symbol>
   <symbol id="amb-icon-more" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="12" cy="12" r="1" />
-      <circle cx="19" cy="12" r="1" />
-      <circle cx="5" cy="12" r="1" />
-  </symbol>
-  <symbol id="amb-icon-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M18 6 6 18" />
-      <path d="m6 6 12 12" />
+      <line x1="4" x2="20" y1="6" y2="6" />
+      <line x1="4" x2="20" y1="12" y2="12" />
+      <line x1="4" x2="20" y1="18" y2="18" />
   </symbol>
   <symbol id="amb-icon-sel-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="m8 10 4-3 4 3" />
-      <path d="m8 6 4-3 4 3" />
+      <path d="m8 10 4-4 4 4" />
       <rect x="5.75" y="13" width="12.5" height="8" rx="1" />
   </symbol>
   <symbol id="amb-icon-sel-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <rect x="5.75" y="3" width="12.5" height="8" rx="1" />
-      <path d="m8 14 4 3 4-3" />
-      <path d="m8 18 4 3 4-3" />
+      <path d="m8 14 4 4 4-4" />
   </symbol>
   <symbol id="amb-icon-sel-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="m4 17-3-5 3-5" />
-      <path d="m8 17 -3-5 3-5" />
+      <path d="m4 17-4-5 4-5" />
       <rect x="12" y="8" width="11" height="8" rx="1" />
   </symbol>
   <symbol id="amb-icon-sel-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <rect x="1" y="8" width="11" height="8" rx="1" />
-      <path d="m20 17 3-5 -3-5" />
-      <path d="m15 17 3-5 -3-5" />
+      <path d="m15 17 4-5 -4-5" />
   </symbol>
   <symbol id="amb-icon-move-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="m8 10 4-3 4 3" />
-      <path d="m8 6 4-3 4 3" />
+      <path d="m8 10 4-4 4 4" />
       <rect x="5.75" y="13" width="12.5" height="8" rx="1" fill="currentColor" stroke="none" />
   </symbol>
   <symbol id="amb-icon-move-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <rect x="5.75" y="3" width="12.5" height="8" rx="1" fill="currentColor" stroke="none" />
-      <path d="m8 14 4 3 4-3" />
-      <path d="m8 18 4 3 4-3" />
+      <path d="m8 18 4 4 4-4" />
   </symbol>
   <symbol id="amb-icon-move-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="m4 17-3-5 3-5" />
-      <path d="m9 17 -3-5 3-5" />
+      <path d="m8 17 -4-5 4-5" />
       <rect x="12" y="8" width="11" height="8" rx="1" fill="currentColor" stroke="none" />
   </symbol>
   <symbol id="amb-icon-move-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <rect x="1" y="8" width="11" height="8" rx="1" fill="currentColor" stroke="none" />
-      <path d="m20 17 3-5 -3-5" />
-      <path d="m15 17 3-5 -3-5" />
+      <path d="m20 16 4-5 -4-5" />
   </symbol>
   <symbol id="amb-icon-indent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M21 5H11" />
@@ -113,27 +101,23 @@
       <path d="m7 8-4 4 4 4" />
   </symbol>
   <symbol id="amb-icon-sel-to-start" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="m8 10 4-3 4 3" />
-      <path d="m8 6 4-3 4 3" />
+      <path d="m8 7 4-5 4 5" />
       <path d="m7 1 10 0" />
       <rect x="5.75" y="13" width="12.5" height="8" rx="1" />
   </symbol>
   <symbol id="amb-icon-sel-to-end" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <rect x="5.75" y="3" width="12.5" height="8" rx="1" />
-      <path d="m8 14 4 3 4-3" />
-      <path d="m8 18 4 3 4-3" />
+      <path d="m8 17 4 5 4-5" />
       <path d="m7 23 10 0" />
   </symbol>
   <symbol id="amb-icon-move-to-start" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="m8 10 4-3 4 3" />
-      <path d="m8 6 4-3 4 3" />
+      <path d="m8 7 4-5 4 5" />
       <path d="m7 1 10 0" />
       <rect x="5.75" y="13" width="12.5" height="8" rx="1" fill="currentColor" stroke="none" />
   </symbol>
   <symbol id="amb-icon-move-to-end" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <rect x="5.75" y="3" width="12.5" height="8" rx="1" fill="currentColor" stroke="none" />
-      <path d="m8 14 4 3 4-3" />
-      <path d="m8 18 4 3 4-3" />
+      <path d="m8 17 4 5 4-5" />
       <path d="m7 23 10 0" />
   </symbol>
   <symbol id="amb-icon-palette" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

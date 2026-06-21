@@ -133,12 +133,6 @@
         row.className = dockClass(surface);
 
         slots.forEach(function (slot) {
-            if (slot.type === "close") {
-                var closeBtn = makeButton("Close", "amb-icon-close", ["amb-dock-close"]);
-                closeBtn.addEventListener("click", onClose);
-                row.appendChild(closeBtn);
-                return;
-            }
             if (slot.type === "trigger") {
                 var tBtn = makeButton(
                     slot.label,
