@@ -221,8 +221,8 @@ let ``refreshDesktopFileIndicator requests status for Special Workspace path`` (
     let model = modelWithSel graph2 Graph.workspacesId 0 1 0 |> withDesktop
     let refreshed, effects = refreshDesktopFileIndicator model
 
-    Assert.Equal(CheckingFileStatus (wsId, "@home:"), refreshed.desktopFileIndicator)
-    Assert.Equal<Effect list>([ RequestDesktopFileStatus (wsId, "@home:") ], effects)
+    Assert.Equal(CheckingFileStatus (wsId, "//home"), refreshed.desktopFileIndicator)
+    Assert.Equal<Effect list>([ RequestDesktopFileStatus (wsId, "//home") ], effects)
 
 [<Fact>]
 let ``refreshDesktopFileIndicator does not repeat matching status request`` () =

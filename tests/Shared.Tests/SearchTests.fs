@@ -30,7 +30,7 @@ let ``searchNodes dollar prefix strips like plain term name or text`` () =
     let byText = ids.[1]
     let graph2 = graph1 |> setNodeName byName (Some "report-tag") |> ownedRootChildren ids
     let z = graph2.root
-    let withDollar = ViewModelSearch.searchNodes "$report" z graph2 |> List.map (fun r -> r.nodeId)
+    let withDollar = ViewModelSearch.searchNodes "report" z graph2 |> List.map (fun r -> r.nodeId)
     let plain = ViewModelSearch.searchNodes "report" z graph2 |> List.map (fun r -> r.nodeId)
     Assert.Equal<NodeId>([ byName; byText ], withDollar)
     Assert.Equal<NodeId>(plain, withDollar)
@@ -85,7 +85,6 @@ let ``searchNodes empty and whitespace query returns no results`` () =
     let z = graph.root
     Assert.Empty(ViewModelSearch.searchNodes "" z graph)
     Assert.Empty(ViewModelSearch.searchNodes "   " z graph)
-    Assert.Empty(ViewModelSearch.searchNodes "$   " z graph)
 
 [<Fact>]
 let ``searchNodes matches text and name ignoring ASCII case`` () =
@@ -189,7 +188,7 @@ let ``trySearchResultAtDisplayIndex empty results is None`` () =
 let ``searchNodes path word matches RefExpr under root`` () =
     let t = build ()
     let got =
-        ViewModelSearch.searchNodes "@bobby:src/" t.graph.root t.graph
+        ViewModelSearch.searchNodes "//@bobby/src/" t.graph.root t.graph
         |> List.map (fun r -> r.nodeId)
     Assert.Equal<NodeId>([ t.bobbySrc ], got)
 
@@ -197,6 +196,6 @@ let ``searchNodes path word matches RefExpr under root`` () =
 let ``searchNodes mixed text and path words require same node`` () =
     let t = build ()
     let got =
-        ViewModelSearch.searchNodes "readme @bobby:docs/readme.md" t.graph.root t.graph
+        ViewModelSearch.searchNodes "readme //@bobby/docs/readme.md" t.graph.root t.graph
         |> List.map (fun r -> r.nodeId)
     Assert.Equal<NodeId>([ t.readmeMd ], got)

@@ -7,7 +7,6 @@ type ExprAnchor =
     | CurrentDir
     | Structural
     | Tagged
-    | NamedWorkspace of string
 
 type ExprStep =
     | DirStep of string
@@ -24,5 +23,4 @@ type RefContext =
       workspaceRoot: NodeId option
       currentDir: NodeId option
       structural: NodeId option
-      tagged: NodeId option
-      namedWorkspaces: Map<string, NodeId> }
+      tagged: NodeId option }

@@ -244,9 +244,9 @@ let private graphWithWorkspaceTree () : Graph =
 let ``write workspace emits label path body`` () =
     let graph = graphWithWorkspaceTree ()
     let text = Snapshot.write graph
-    Assert.Contains("@home:", text)
-    Assert.DoesNotContain("@home:/docs", text)
-    Assert.DoesNotContain("@home:/docs/readme.txt", text)
+    Assert.Contains("//home", text)
+    Assert.DoesNotContain("//home/docs", text)
+    Assert.DoesNotContain("//home/docs/readme.txt", text)
     Assert.DoesNotContain("#n1 home", text)
 
 [<Fact>]

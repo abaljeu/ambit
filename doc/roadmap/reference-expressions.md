@@ -5,92 +5,24 @@ Authority: Reference **interpretation** semantics — [[doc/roadmap/reference-ex
 See also: [[doc/roadmap/revising-workspace-file-model.md]], [[doc/roadmap/workspace-file-model.md]],
 [[doc/roadmap/workspace-stage-plan.md]], [[doc/reference/style.md]]
 
-Expression/command language beyond reference resolution remains draft here.
+Expression/command language beyond reference resolution remains draft in [[doc/roadmap/language-syntax.md]].
 
 Scope note: current stage implementation scope is defined separately in
 [[doc/roadmap/workspace-stage-plan.md]].
 
 ## Interpretation
 
-See [[doc/roadmap/reference-expression-interpretation.md]] for anchors, path steps, tagged nodes,
-wildcards, match semantics, property access, filtering, and content.
+See [[doc/roadmap/reference-expression-interpretation.md]] for anchors, path steps, tagged nodes, wildcards, match semantics, and content.
 
 ## Expression Syntax
 
-Surface syntax for reference expressions. Whitespace around `/` is optional (`a/b` and `a / b` are
-equivalent). Interpretation semantics: [[doc/roadmap/reference-expression-interpretation.md]].
-
-```ebnf
-Expression ::= RefExpr
-             | Primary
-
-RefExpr      ::= ( Anchor | ε ) ( Sep? Step )* Postfix*
-
-Sep          ::= "/"
-
-Anchor       ::= "//"
-               | "/"
-               | "."
-               | "^"
-               | "@" identifier ":"
-               | "#" AnchorEnd          (* tagged anchor; see note *)
-
-AnchorEnd    ::= ε                       (* # alone: not followed by NamePattern *)
-
-Step         ::= "**"
-               | TagStep
-               | DirStep
-               | FileStep
-
-TagStep      ::= "#" NamePattern
-DirStep      ::= NamePattern "/"
-FileStep     ::= NamePattern FileEnd
-
-FileEnd      ::= ε                       (* not immediately followed by "/" *)
-
-NamePattern  ::= string
-               | Identifier             (* may contain * wildcards *)
-
-Postfix      ::= Property
-               | Filter
-
-Property     ::= "." "text"
-               | "." "name"
-               | "." "children"
-
-Filter       ::= "[" integer "]"
-               | "[" "text" "~=" Pattern "]"
-               | "[" "kind" "=" KindName "]"
-
-Pattern      ::= string
-               | Identifier             (* wildcard semantics *)
-
-KindName     ::= identifier
-
-Primary      ::= identifier
-               | identifier "(" Args ")"
-               | string
-               | "(" Expression ")"
-
-Args         ::= Expression ( "," Expression )*
-               | ε
-```
-
-**Notes**
-
-- `ε` as `( Anchor | ε )` — when no `Anchor` is given, the context node is the base.
-- `#` **anchor** (`AnchorEnd`) — `#` not followed by a `NamePattern` (e.g. `#`, `#/foo`,
-  `#.text`). `#` followed immediately by a name starts a `TagStep` (e.g. `#blue`).
-- `//` is tokenized before `/`.
-- `**` is tokenized before `*` within steps.
-- `DirStep` trailing `/` distinguishes directories from files (`dir/` vs `file`).
-- `Postfix` applies to the flat list produced by the preceding chain.
+This document no longer duplicates the active grammar. Current reference-expression syntax is in [[doc/roadmap/reference-expression-interpretation.md]]. Surrounding language syntax, including function application forms such as `text Ref`, `children Ref`, and `name Ref`, is in [[doc/roadmap/language-syntax.md]].
 
 ### Examples
 
 | Expression | Meaning |
 |------------|---------|
-| `@ws:src/utils.fs` | workspace `ws`, directory `src/`, file `utils.fs` |
+| `//@workspaceName/src/utils.fs` | workspace `@workspaceName`, directory `src/`, file `utils.fs` |
 | `/proj/docs/` | workspace in context, directory `proj/`, directory `docs/` |
 | `.` | current directory anchor |
 | `^` | current structural container (`file`, `directory`, or `workspace`) |
@@ -99,8 +31,6 @@ Args         ::= Expression ( "," Expression )*
 | `#todo/notes.md` | file `notes.md` under tagged `todo` |
 | `#a/#b` | tagged `b` under tagged `a` |
 | `^/**/*.md` | files matching `*.md` at any depth under `^` |
-| `/x/y[0]` | first match of workspace-relative path `/x/y` |
-| `^/src[text ~= *test*]` | nodes under `^/src` whose text matches `*test*` |
 
 ## Statement Syntax
 (incomplete)
@@ -152,7 +82,7 @@ If parsing succeeds but any required reference cannot be resolved:
 
 Examples:
 
-- unknown workspace label in `@workspace:`
+- unknown workspace node in `//@workspaceName`
 - missing member under a resolved namespace base
 - unresolved tag or member selector in a context where at least one target is required
 

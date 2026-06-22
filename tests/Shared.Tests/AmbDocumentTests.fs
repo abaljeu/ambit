@@ -215,7 +215,7 @@ let ``read cross-document ref resolves against context graph`` () =
     let sid = AmbDocument.formatStableId externalId
     let outline =
         "^" + AmbDocument.formatStableId localId + " local" + Environment.NewLine
-        + "\t-> @:/peer.txt^" + sid + Environment.NewLine
+        + "\t-> //peer.txt^" + sid + Environment.NewLine
     let result =
         AmbDocument.read outline docId graph
         |> function

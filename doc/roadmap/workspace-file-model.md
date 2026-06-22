@@ -96,7 +96,7 @@ Authority for implemented behavior: [[doc/current/workspace-graph.md]],
 - `[x]` Correction: document persistence tiers — server `DataDir` primary; desktop mapping secondary (download/export) plus Import entry; mapping independent of server path shape.
 - `[x]` RefExpr anchors, path steps, tag steps, and namespace search —  [[doc/current/workspace-graph.md]], [[doc/roadmap/reference-expression-interpretation.md]].
 - `[x]` Correction: align RefExpr semantics with directory-first member lookup (`DirStep`/`FileStep`) and `^` structural-container lookup.
-- `[ ]` RefExpr postfixes (`.text`, `[n]`, filters) and command/assignment syntax.
+- `[ ]` Surrounding language functions (`text Ref`, `children Ref`, `name Ref`) and command/assignment syntax.
 - `[ ]` Whole graph still one document; no `docId` / document membership in model yet (Stage 9).
 - `[ ]` Snapshot write still monolithic; no per-document `DataDir` persist (Stages 7–8).
 - `[ ]` No incremental per-document persist on snapshot pass (Stage 8).
@@ -268,7 +268,7 @@ mutate the shared graph.
 ## Canonical Paths
 
 Persistence may use workspace-relative path text on disk. Reference expressions use namespace
-semantics — anchors (`/`, `.`, `^`, `#`, `@label:`), `DirStep` (`name/`), `FileStep` (`name`) — see [[doc/roadmap/reference-expressions.md]] and [[doc/roadmap/reference-expression-interpretation.md]].
+semantics — anchors (`//`, `/`, `.`, `^`, `#`), `DirStep` (`name/`), `FileStep` (`name`) — see [[doc/roadmap/reference-expressions.md]] and [[doc/roadmap/reference-expression-interpretation.md]]. Named workspace lookup uses ROOT-relative paths such as `//@label/...`.
 Absolute machine-local paths are never part of shared identity.
 
 Path text does not replace node ownership identity. Where persistence or desktop mapping uses path
@@ -284,8 +284,7 @@ Implemented in `RefExprParse`, `RefExprMatch` (facade: `RefExpr`). See [[doc/cur
 
 ### Not implemented yet
 
-Postfixes (`.text`, `.name`, `.children`, `[n]`, filters), command/assignment syntax, view-root
-anchor.
+Surrounding language functions (`text Ref`, `children Ref`, `name Ref`), command/assignment syntax, and view-root behavior.
 
 ### Unresolved References
 

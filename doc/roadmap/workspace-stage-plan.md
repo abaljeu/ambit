@@ -72,7 +72,7 @@ Stage 1 vocabulary for `Special Directory` and `Special File` already exists in 
 - Document membership in the model (`docId`, load/unload — Stage 9).
 - Namespace wildcard resolution under workspaces.
 - Automatic filesystem sync/import/reconciliation (manual Import/Export via desktop continues).
-- RefExpr postfixes (`.text`, `[n]`, filters) and command/assignment syntax.
+- Surrounding language functions (`text Ref`, `children Ref`, `name Ref`) and command/assignment syntax.
 
 Directory and file **node identity** is Stage 1 vocabulary; Stage 6 adds create/rename command surfaces and TRASH-as-directory model change. Stage 7 adds server `DataDir` persist and unified path moves.
 
@@ -391,7 +391,7 @@ This workspace stage is complete when all of the following are true:
 - Shared tests cover `DocumentPathMove` for rename and move-to-TRASH (no server I/O).
 - Local workspace root mappings can be read from and persisted to desktop config JSON.
 - No local-mapping edit/list command surface exists in this stage.
-- `@workspace:` resolves for known labels; Stage 5 unresolved UI corrections remain deferred.
+- `//@workspace` resolves for known workspace nodes; Stage 5 unresolved UI corrections remain deferred.
 - Server `DataDir` document persist, path moves, and `docId` (Stages 7–9) are not required for Stage 6 exit.
 - All new behavior has Shared/Client tests where applicable.
 

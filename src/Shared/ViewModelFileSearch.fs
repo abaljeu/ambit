@@ -14,10 +14,8 @@ module ViewModelFileSearch =
     let private nodeToFileResult (graph: Graph) (node: Node) : FileSearchResult =
         let pathLabel =
             NodeDesktopPath.pathForNodeId graph node.id
-            |> Option.defaultWith (fun () ->
-                node.name
-                |> Filename.tryValue
-                |> Option.defaultValue node.text)
+            |> Option.orElseWith (fun () -> node.name |> Filename.tryValue)
+            |> Option.defaultValue node.text
 
         { nodeId = node.id
           text = node.text

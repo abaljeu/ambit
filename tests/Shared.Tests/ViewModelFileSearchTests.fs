@@ -26,13 +26,13 @@ let ``searchFiles prefers same directory before other workspace files`` () =
 let ``searchFiles ranks file directory before other workspace directories`` () =
     let t = tree.Value
     let hits = ViewModelFileSearch.searchFiles "." t.contentFile t.graph |> fileIds
-    Assert.Equal<NodeId>([ t.appFs; t.libFs; t.readmeMd ], hits)
+    Assert.Equal<NodeId>([ t.appFs; t.libFs; t.embeddedMd; t.readmeMd ], hits)
 
 [<Fact>]
 let ``searchFiles path word matches RefExpr file hits`` () =
     let t = tree.Value
     let hits =
-        ViewModelFileSearch.searchFiles "@bobby:src/*.fs" t.graph.root t.graph
+        ViewModelFileSearch.searchFiles "//@bobby/src/*.fs" t.graph.root t.graph
         |> fileIds
     Assert.Equal<NodeId>([ t.appFs; t.libFs ], hits)
 
@@ -40,15 +40,15 @@ let ``searchFiles path word matches RefExpr file hits`` () =
 let ``searchFiles mixed words require same file node`` () =
     let t = tree.Value
     let hits =
-        ViewModelFileSearch.searchFiles "readme @bobby:docs/readme.md" t.graph.root t.graph
+        ViewModelFileSearch.searchFiles "readme //@bobby/docs/readme.md" t.graph.root t.graph
         |> fileIds
     Assert.Equal<NodeId>([ t.readmeMd ], hits)
 
 [<Fact>]
-let ``searchFiles pathLabel prefers desktop path`` () =
+let ``searchFiles pathLabel uses desktop path syntax`` () =
     let t = tree.Value
     let hit =
         ViewModelFileSearch.searchFiles "app.fs" t.contentFile t.graph
         |> List.tryFind (fun r -> r.nodeId = t.appFs)
         |> Option.defaultWith (fun () -> failwith "missing app.fs hit")
-    Assert.Equal("@bobby:/src/app.fs", hit.pathLabel)
+    Assert.Equal("//@bobby/src/app.fs", hit.pathLabel)

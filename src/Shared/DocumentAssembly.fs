@@ -56,38 +56,7 @@ module DocumentAssembly =
             Ok { relativePath = path; kind = DocumentArtifactKind.File }
 
     let artifactRelativeForNodeReference (nodeReference: string) : Result<string, string> =
-        let path = nodeReference.Trim()
-
-        if path.StartsWith("@:") then
-            let rest = path.Substring(2).TrimStart('/')
-
-            if path.EndsWith("/") then
-                let segments = splitSegments (rest.TrimEnd('/'))
-
-                match segments with
-                | [] -> Error ("invalid node reference: " + nodeReference)
-                | [ dir ] -> Ok (dir + "/.amb")
-                | file :: _ when file.Contains('.') ->
-                    let dirName = List.last segments
-                    Ok (dirName + "/.amb")
-                | segments -> Ok (String.concat "/" segments + "/.amb")
-            elif String.IsNullOrEmpty rest then
-                Error ("invalid node reference: " + nodeReference)
-            else
-                Ok rest
-        elif path.StartsWith("@") && path.Contains(":") then
-            let colonIdx = path.IndexOf(':')
-            let ws = path.Substring(1, colonIdx - 1)
-            let rest = path.Substring(colonIdx + 1)
-
-            if String.IsNullOrEmpty rest then
-                Ok ("@" + ws + "/.amb")
-            elif path.EndsWith("/") then
-                Ok ("@" + ws + rest.TrimEnd('/') + "/.amb")
-            else
-                Ok ("@" + ws + rest)
-        else
-            Error ("invalid node reference: " + nodeReference)
+        NodeDesktopPath.artifactRelativeForReference nodeReference
 
     let private sourceLines (text: string) =
         if String.IsNullOrEmpty text then

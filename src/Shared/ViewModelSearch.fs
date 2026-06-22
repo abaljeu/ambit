@@ -4,18 +4,12 @@ open System
 
 module ViewModelSearch =
 
-    /// Trims; strips a leading `$` and trims again. None when the effective term is empty.
     let parseSearchTerm (query: string) : string option =
         let q = if isNull query then "" else query.Trim()
         if q = "" then
             None
         else
-            let t =
-                if q.StartsWith "$" then
-                    q.Substring(1).Trim()
-                else
-                    q
-            if t = "" then None else Some t
+            Some q
 
     /// Whitespace-separated pieces; each must match (name or text). None if no effective parts.
     let private parseSearchParts (query: string) : string list option =

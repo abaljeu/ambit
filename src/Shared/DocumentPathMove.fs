@@ -29,7 +29,7 @@ module DocumentPathMove =
         Map.tryFind nodeId graph.nodes
         |> Option.bind (fun node ->
             if DocumentPartition.isDocumentRootNode graph nodeId then
-                NodeDesktopPath.pathForNodeId graph nodeId
+                NodeDesktopPath.expandedPathForNodeId graph nodeId
             else
                 None)
 
@@ -97,7 +97,8 @@ module DocumentPathMove =
                 | Filename.Ok validName ->
                     let newPath =
                         match node.kind with
-                        | Special Workspace -> Some ("@" + validName + ":")
+                        | Special Workspace ->
+                            Some (NodeDesktopPath.rootPrefix + validName)
                         | Special Directory ->
                             let parentId =
                                 graph.ownerParentByChild
@@ -105,7 +106,7 @@ module DocumentPathMove =
                                 |> Option.defaultValue Graph.rootId
                             let parentPath =
                                 if parentId = Graph.rootId then
-                                    Some "@:"
+                                    Some NodeDesktopPath.rootPrefix
                                 else
                                     NodeDesktopPath.pathForNodeId graph parentId
                             parentPath |> Option.map (fun prefix -> joinParentName prefix validName + "/")
@@ -116,7 +117,7 @@ module DocumentPathMove =
                                 |> Option.defaultValue Graph.rootId
                             let parentPath =
                                 if parentId = Graph.rootId then
-                                    Some "@:"
+                                    Some NodeDesktopPath.rootPrefix
                                 else
                                     NodeDesktopPath.pathForNodeId graph parentId
                             parentPath |> Option.map (fun prefix -> joinParentName prefix validName)
@@ -145,7 +146,7 @@ module DocumentPathMove =
                 | Some name ->
                     let newParentPath =
                         if newParentId = Graph.rootId then
-                            Some "@:"
+                            Some NodeDesktopPath.rootPrefix
                         else
                             NodeDesktopPath.pathForNodeId graph newParentId
                     let newPath =

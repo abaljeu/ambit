@@ -26,7 +26,7 @@ module RefExprMatch =
 
     let private nodeDirName (node: Node) : string option =
         match node.kind, Filename.tryValue node.name with
-        | Special Directory, Some n when not (String.IsNullOrEmpty n) -> Some n
+        | Special (Directory | Workspace), Some n when not (String.IsNullOrEmpty n) -> Some n
         | _ -> None
 
     let private globMatch (pattern: string) (text: string) : bool =
@@ -153,27 +153,6 @@ module RefExprMatch =
           text = node.text
           name = node.name }
 
-    let private namedWorkspacesFromGraph (graph: Graph) : Map<string, NodeId> =
-        graph.nodes
-        |> Map.tryFind Graph.workspacesId
-        |> Option.map (fun ws ->
-            ws.children
-            |> List.choose (fun child ->
-                if child.ref <> Ownership.Owner then
-                    None
-                else
-                    graph.nodes
-                    |> Map.tryFind child.id
-                    |> Option.bind (fun node ->
-                        match node.kind with
-                        | Special Workspace ->
-                            match Filename.tryValue node.name with
-                            | Some label -> Some(label.ToLowerInvariant(), node.id)
-                            | None -> None
-                        | _ -> None)))
-        |> Option.defaultValue []
-        |> Map.ofList
-
     let private hasNodeName (node: Node) : bool =
         Filename.tryValue node.name |> Option.isSome
 
@@ -225,8 +204,7 @@ module RefExprMatch =
           workspaceRoot = workspaceRoot
           currentDir = currentDir
           structural = structural
-          tagged = tagged
-          namedWorkspaces = namedWorkspacesFromGraph graph }
+          tagged = tagged }
 
     let private resolveAnchor (ctx: RefContext) (anchor: ExprAnchor) : NodeId option =
         match anchor with
@@ -236,9 +214,6 @@ module RefExprMatch =
         | CurrentDir -> ctx.currentDir
         | Structural -> ctx.structural
         | Tagged -> ctx.tagged
-        | NamedWorkspace label ->
-            ctx.namedWorkspaces
-            |> Map.tryFind (label.ToLowerInvariant())
 
     let private applyStep (graph: Graph) (step: ExprStep) (current: Node list) : Node list =
         match step with

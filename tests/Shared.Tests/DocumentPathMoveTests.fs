@@ -147,8 +147,8 @@ let ``planPathMoveForSetName returns new path for workspace rename`` () =
     match DocumentPathMove.planPathMoveForSetName graph wsId "renamed" with
     | None -> Assert.Fail "expected Some"
     | Some move ->
-        Assert.Equal("@home:", move.oldPath)
-        Assert.Equal("@renamed:", move.newPath)
+        Assert.Equal("//home", move.oldPath)
+        Assert.Equal("//renamed", move.newPath)
         Assert.Equal(wsId, move.nodeId)
 
 [<Fact>]
@@ -190,7 +190,7 @@ let ``planRenameNode returns empty ops when name is unchanged`` () =
 [<Fact>]
 let ``pathForNodeId trash returns TRASH directory path`` () =
     let graph = Graph.create ()
-    Assert.Equal(Some "@:/TRASH/", NodeDesktopPath.pathForNodeId graph Graph.trashId)
+    Assert.Equal(Some "//TRASH/", NodeDesktopPath.pathForNodeId graph Graph.trashId)
 
 [<Fact>]
 let ``planPathMovesBetweenGraphs includes nested roots after directory rename`` () =
@@ -199,12 +199,12 @@ let ``planPathMovesBetweenGraphs includes nested roots after directory rename`` 
     let moves = DocumentPathMove.planPathMovesBetweenGraphs graph postGraph
 
     Assert.Contains(
-        { nodeId = dirId; oldPath = "@home:/docs/"; newPath = "@home:/archive/" },
+        { nodeId = dirId; oldPath = "//home/docs/"; newPath = "//home/archive/" },
         moves)
     Assert.Contains(
         { nodeId = fileId
-          oldPath = "@home:/docs/readme.txt"
-          newPath = "@home:/archive/readme.txt" },
+          oldPath = "//home/docs/readme.txt"
+          newPath = "//home/archive/readme.txt" },
         moves)
 
 [<Fact>]
@@ -229,8 +229,8 @@ let ``planPathMovesBetweenGraphs includes file reparent across workspaces`` () =
     let moves = DocumentPathMove.planPathMovesBetweenGraphs graph postGraph
     Assert.Equal<DocumentPathMove list>(
         [ { nodeId = fileId
-            oldPath = "@home:/readme.txt"
-            newPath = "@other:/readme.txt" } ],
+            oldPath = "//home/readme.txt"
+            newPath = "//other/readme.txt" } ],
         moves)
 
 [<Fact>]
@@ -246,8 +246,8 @@ let ``planPathMovesBetweenGraphs includes file move to trash`` () =
     let moves = DocumentPathMove.planPathMovesBetweenGraphs graph postGraph
     Assert.Equal<DocumentPathMove list>(
         [ { nodeId = fileId
-            oldPath = "@home:/readme.txt"
-            newPath = "@:/TRASH/readme.txt" } ],
+            oldPath = "//home/readme.txt"
+            newPath = "//TRASH/readme.txt" } ],
         moves)
 
 [<Fact>]
@@ -258,7 +258,7 @@ let ``coalescePathMoves drops nested roots covered by directory move`` () =
     let coalesced = DocumentPathMove.coalescePathMoves graph moves
 
     Assert.Equal<DocumentPathMove list>(
-        [ { nodeId = dirId; oldPath = "@home:/docs/"; newPath = "@home:/archive/" } ],
+        [ { nodeId = dirId; oldPath = "//home/docs/"; newPath = "//home/archive/" } ],
         coalesced)
     Assert.DoesNotContain(coalesced, fun move -> move.nodeId = fileId)
 

@@ -79,21 +79,21 @@ let ``pathForNodeId Normal returns first file reference`` () =
 let ``pathForNodeId Workspaces returns None and trash returns TRASH path`` () =
     let graph = Graph.create ()
     Assert.Equal(None, NodeDesktopPath.pathForNodeId graph Graph.workspacesId)
-    Assert.Equal(Some "@:/TRASH/", NodeDesktopPath.pathForNodeId graph Graph.trashId)
+    Assert.Equal(Some "//TRASH/", NodeDesktopPath.pathForNodeId graph Graph.trashId)
 
 [<Fact>]
-let ``pathForNodeId Workspace returns at-name colon`` () =
+let ``pathForNodeId Workspace returns slash path`` () =
     let graph, wsId, _, _ = graphWithWorkspaceTree ()
-    Assert.Equal(Some "@home:", NodeDesktopPath.pathForNodeId graph wsId)
+    Assert.Equal(Some "//home", NodeDesktopPath.pathForNodeId graph wsId)
 
 [<Fact>]
 let ``pathForNodeId Directory and File append owner path and name`` () =
     let graph, _, dirId, fileId = graphWithWorkspaceTree ()
-    Assert.Equal(Some "@home:/docs/", NodeDesktopPath.pathForNodeId graph dirId)
-    Assert.Equal(Some "@home:/docs/readme.txt", NodeDesktopPath.pathForNodeId graph fileId)
+    Assert.Equal(Some "//home/docs/", NodeDesktopPath.pathForNodeId graph dirId)
+    Assert.Equal(Some "//home/docs/readme.txt", NodeDesktopPath.pathForNodeId graph fileId)
 
 [<Fact>]
-let ``pathForNodeId File under ROOT returns at-colon path`` () =
+let ``pathForNodeId File under ROOT returns root slash path`` () =
     let graph0 = Graph.create ()
     let fileId = NodeId.New()
     let fileNode = specialNode fileId File "name.ext" Graph.rootId
@@ -105,7 +105,46 @@ let ``pathForNodeId File under ROOT returns at-colon path`` () =
     let graph2 =
         Graph.replace Graph.rootId idx [] (owned [ fileId ]) graph1
         |> requireOk "root->file"
-    Assert.Equal(Some "@:/name.ext", NodeDesktopPath.pathForNodeId graph2 fileId)
+    Assert.Equal(Some "//name.ext", NodeDesktopPath.pathForNodeId graph2 fileId)
+
+let private graphFileOwnsDirectory () : Graph * NodeId * NodeId =
+    let graph0 = Graph.create ()
+    let fileId = NodeId.New()
+    let dirId = NodeId.New()
+    let fileNode = specialNode fileId File "container.txt" Graph.rootId
+    let dirNode = specialNode dirId Directory "inner" fileId
+
+    let graph1 =
+        graph0.nodes
+        |> Map.add fileId fileNode
+        |> Map.add dirId dirNode
+        |> fun nodes -> Graph.fromNodes graph0.root nodes
+
+    let idx = Graph.fileTreeInsertIndex graph1 Graph.rootId
+    let graph2 =
+        Graph.replace Graph.rootId idx [] (owned [ fileId ]) graph1
+        |> requireOk "root->file"
+
+    let graph3 =
+        Graph.replace fileId 0 [] (owned [ dirId ]) graph2
+        |> requireOk "file->dir"
+
+    graph3, fileId, dirId
+
+[<Fact>]
+let ``pathForNodeId directory owned by file uses canonical root path`` () =
+    let graph, _, dirId = graphFileOwnsDirectory ()
+    Assert.Equal(Some "//inner/", NodeDesktopPath.pathForNodeId graph dirId)
+
+[<Fact>]
+let ``canonicalDesktopPath collapses file owned directory ref`` () =
+    Assert.Equal(
+        Some "//inner/",
+        NodeDesktopPath.canonicalDesktopPath "//container.txt/inner/")
+    Assert.Equal(Some "//docs/", NodeDesktopPath.canonicalDesktopPath "//docs/")
+    Assert.Equal(
+        Some "//home/docs/",
+        NodeDesktopPath.canonicalDesktopPath "//home/docs/")
 
 [<Fact>]
 let ``fileReferenceForNodeId Normal preserves invalid file reference`` () =
@@ -126,4 +165,33 @@ let ``tryFindFocusedPath returns focus id and path`` () =
     | None -> Assert.True(false, "expected Some")
     | Some (focusId, path) ->
         Assert.Equal(fileId, focusId)
-        Assert.Equal("@home:/docs/readme.txt", path)
+        Assert.Equal("//home/docs/readme.txt", path)
+
+[<Fact>]
+let ``artifactRelativeForReference maps workspace and root directory refs`` () =
+    let ws =
+        NodeDesktopPath.artifactRelativeForReference "//home"
+        |> requireOk "workspace"
+    Assert.Equal("@home/.amb", ws)
+
+    let dir =
+        NodeDesktopPath.artifactRelativeForReference "//home/docs/"
+        |> requireOk "workspace directory"
+    Assert.Equal("@home/docs/.amb", dir)
+
+    let rootDir =
+        NodeDesktopPath.artifactRelativeForReference "//docs/"
+        |> requireOk "root directory"
+    Assert.Equal("docs/.amb", rootDir)
+
+[<Fact>]
+let ``artifactRelativeForReference maps file owned directory to sibling amb`` () =
+    let inner =
+        NodeDesktopPath.artifactRelativeForReference "//container.txt/inner/"
+        |> requireOk "non-canonical file owns directory"
+    Assert.Equal("inner/.amb", inner)
+
+    let canonical =
+        NodeDesktopPath.artifactRelativeForReference "//inner/"
+        |> requireOk "canonical root directory"
+    Assert.Equal("inner/.amb", canonical)

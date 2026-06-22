@@ -20,7 +20,7 @@ let private formatHitLabel (hit: FileSearchResult) : string =
         hit.pathLabel
     else
         match hit.name with
-        | Filename.Ok s -> $"${s}  {hit.text}"
+        | Filename.Ok s -> $"{s}  {hit.text}"
         | _ -> hit.text
 
 let private renderFileSearchResults

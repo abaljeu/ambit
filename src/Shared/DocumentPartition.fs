@@ -57,19 +57,6 @@ module DocumentPartition =
 
         collect documentRootId Set.empty
 
-    let private desktopFileToDisk (path: string) : string option =
-        if path.StartsWith("@:") then
-            let rest = path.Substring(2).TrimStart('/')
-            if System.String.IsNullOrEmpty rest then None else Some rest
-        else
-            let colonIdx = path.IndexOf(':')
-            if colonIdx < 1 then
-                None
-            else
-                let ws = path.Substring(1, colonIdx - 1)
-                let rest = path.Substring(colonIdx + 1)
-                Some ("@" + ws + rest)
-
     let private nearestDirectoryAncestor (graph: Graph) (nodeId: NodeId) : NodeId option =
         let rec walk (current: NodeId) =
             match Map.tryFind current graph.ownerParentByChild with
@@ -170,5 +157,5 @@ module DocumentPartition =
                     |> Option.map (fun dir -> dir + ".amb")
                 | Special File ->
                     NodeDesktopPath.pathForNodeId graph documentRootId
-                    |> Option.bind desktopFileToDisk
+                    |> Option.bind NodeDesktopPath.desktopFileToDisk
                 | _ -> None

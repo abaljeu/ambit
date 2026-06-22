@@ -217,15 +217,6 @@ module LocalProxy =
     let private hasInvalidPathChar (path: string) =
         path.IndexOfAny(Path.GetInvalidPathChars()) >= 0
 
-    let private tryParseWorkspacePath (path: string) =
-        if path.StartsWith("@", StringComparison.Ordinal) && path.IndexOf(':') >= 0 then
-            let colon = path.IndexOf(':')
-            let label = path.Substring(1, colon - 1).Trim()
-            let rel = path.Substring(colon + 1).TrimStart('/')
-            Some (label, rel)
-        else
-            None
-
     let private resolveLocalPath
         (workspaceMap: Map<string, WorkspaceMapping>)
         (path: string)
@@ -236,7 +227,7 @@ module LocalProxy =
         if trimmed.Length = 0 then
             Error "invalid path"
         else
-            match tryParseWorkspacePath trimmed with
+            match NodeDesktopPath.tryParseWorkspacePath trimmed with
             | Some (label, rel) ->
                 WorkspaceLocalMapping.resolvePath workspaceMap label rel
             | None ->

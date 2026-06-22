@@ -159,38 +159,43 @@ let ``classifyArtifactRelative rejects stray amb files`` () =
 [<Fact>]
 let ``artifactRelativeForNodeReference maps workspace directory and file paths`` () =
     let ws =
-        DocumentAssembly.artifactRelativeForNodeReference "@home:"
+        DocumentAssembly.artifactRelativeForNodeReference "//home"
         |> requireOk "workspace"
     Assert.Equal("@home/.amb", ws)
 
     let dir =
-        DocumentAssembly.artifactRelativeForNodeReference "@home:/docs/"
+        DocumentAssembly.artifactRelativeForNodeReference "//home/docs/"
         |> requireOk "directory"
     Assert.Equal("@home/docs/.amb", dir)
 
     let file =
-        DocumentAssembly.artifactRelativeForNodeReference "@home:/docs/readme.txt"
+        DocumentAssembly.artifactRelativeForNodeReference "//home/docs/readme.txt"
         |> requireOk "file"
     Assert.Equal("@home/docs/readme.txt", file)
 
 [<Fact>]
 let ``artifactRelativeForNodeReference maps root file and directory paths`` () =
     let rootFile =
-        DocumentAssembly.artifactRelativeForNodeReference "@:/name.ext"
+        DocumentAssembly.artifactRelativeForNodeReference "//name.ext"
         |> requireOk "root file"
     Assert.Equal("name.ext", rootFile)
 
     let rootDir =
-        DocumentAssembly.artifactRelativeForNodeReference "@:/docs/"
+        DocumentAssembly.artifactRelativeForNodeReference "//docs/"
         |> requireOk "root dir"
     Assert.Equal("docs/.amb", rootDir)
 
 [<Fact>]
 let ``artifactRelativeForNodeReference maps file owns directory to sibling amb`` () =
     let inner =
-        DocumentAssembly.artifactRelativeForNodeReference "@:/container.txt/inner/"
-        |> requireOk "file owns directory"
+        DocumentAssembly.artifactRelativeForNodeReference "//container.txt/inner/"
+        |> requireOk "non-canonical file owns directory"
     Assert.Equal("inner/.amb", inner)
+
+    let canonical =
+        DocumentAssembly.artifactRelativeForNodeReference "//inner/"
+        |> requireOk "canonical root directory"
+    Assert.Equal("inner/.amb", canonical)
 
 [<Fact>]
 let ``assembleFromArtifacts ignores stray amb in artifact map`` () =
@@ -214,9 +219,9 @@ let ``assembleFromArtifacts stubs missing referenced artifact`` () =
 [<Fact>]
 let ``scanRefIndex extracts workspace ref from ROOT text`` () =
     let wsId = NodeId.New()
-    let rootText = "-> @home:^" + AmbDocument.formatStableId wsId + System.Environment.NewLine
+    let rootText = "-> //home^" + AmbDocument.formatStableId wsId + System.Environment.NewLine
     let index = DocumentAssembly.scanRefIndex [ rootText ] |> requireOk "scan"
-    Assert.Equal(wsId, index.["@home:"])
+    Assert.Equal(wsId, index.["//home"])
 
 [<Fact>]
 let ``assembleFromArtifacts round trips nested workspace tree`` () =
