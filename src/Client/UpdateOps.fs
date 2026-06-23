@@ -555,6 +555,24 @@ let zoomOutOp (model: VM) : VM * Effect list =
                 selectedNodes = ViewModel.childSelectionAt siteMap newZoomRoot index
                 mode = Selecting }, effs
 
+/// Op: Zoom owner — move the view root to the owner parent (Ctrl+Shift+[).
+/// Like zoom out, but follows the canonical Owner edge from the focused node.
+let zoomOwnerOp (model: VM) : VM * Effect list =
+    let model', effs = commitIfEditing model
+    let focusId =
+        match model'.selectedNodes with
+        | None -> viewRootNodeId model'
+        | Some sel -> ViewModel.focusedNodeId model'.graph sel
+    match ViewModel.tryReframeZoomAtOwnerParent model'.graph focusId model'.nextSiteId with
+    | None -> model', effs
+    | Some (newZoomRoot, siteMap, nextId, sel) ->
+        { model' with
+            zoomRoot = newZoomRoot
+            siteMap = siteMap
+            nextSiteId = nextId
+            selectedNodes = sel
+            mode = Selecting }, effs
+
 /// Op: Find (/) — pick target via search, then set it as the view root.
 let findRootOp (model: VM) : VM * Effect list =
     Gambol.Client.SearchDialog.openSearchDialogWithOnPick "Find" ViewModelSearch.searchPickSetRoot model

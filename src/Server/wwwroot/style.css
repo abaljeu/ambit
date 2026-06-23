@@ -196,8 +196,9 @@ body {
 }
 .amb-node-guid {
     flex-shrink: 0;
-    font-size: 0.7em;
-    color: #884;
+    font-size:1em;
+    font-weight:bolder;
+    color: #88f;
     align-self: center;
 }
 .amb-view-root {

@@ -42,6 +42,7 @@ type CommandId =
     | FoldUnfold
     | ZoomIn
     | ZoomOut
+    | ZoomOwner
     | Undo
     | Redo
     | CopyContent
@@ -171,6 +172,9 @@ let allCommands : CommandEntry list =
           category = Navigate; iconId = Some "amb-icon-zoom-in" }
         { id = ZoomOut; name = "Zoom out"
           keys = [ "Ctrl+["; "[" ]; keyScope = SelectionOrEditing
+          category = Navigate; iconId = Some "amb-icon-zoom-out" }
+        { id = ZoomOwner; name = "Zoom owner"
+          keys = [ "Alt+[" ]; keyScope = SelectionOrEditing
           category = Navigate; iconId = Some "amb-icon-zoom-out" }
         { id = Undo; name = "Undo"
           keys = [ "Ctrl+Z"; "z" ]; keyScope = SelectionOrEditing

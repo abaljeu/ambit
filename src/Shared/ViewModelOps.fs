@@ -1003,6 +1003,18 @@ module ViewModel =
         getAllOccurrences graph nodeId
         |> List.find (fun (_, _, child) -> child.ref = Ownership.Owner)
 
+    /// Reframe zoom at the owner parent of nodeId. None at graph root or without owner parent.
+    let tryReframeZoomAtOwnerParent (graph: Graph) (nodeId: NodeId) (nextSiteId: SiteId)
+        : (NodeId * SiteMap * SiteId * Selection option) option =
+        if nodeId = graph.root then None
+        else
+            match Map.tryFind nodeId graph.ownerParentByChild with
+            | None -> None
+            | Some ownerParentId ->
+                let _, index, _ = getOwnerOccurrence graph nodeId
+                let siteMap, nextId = buildSiteMapFrom graph ownerParentId nextSiteId
+                Some (ownerParentId, siteMap, nextId, childSelectionAt siteMap ownerParentId index)
+
     /// True when the unique owner's ancestor chain includes TRASH between the node and ROOT.
     let isOwnerUnderTrash (graph: Graph) (nodeId: NodeId) : bool =
         let ownerParent, _, _ = getOwnerOccurrence graph nodeId

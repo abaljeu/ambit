@@ -4,13 +4,17 @@
 	r
 		-> ^19af7202-0550-4a6e-8fb9-c6d3f86524f4
 	-> //dd/ff^8f3e52d7-c9db-41a8-830e-0b04dfc0199e
-	//file5
-		{.redletter}//file5
+	^ff
+		-> //dd/ff^8f3e52d7-c9db-41a8-830e-0b04dfc0199e
+	
 	
 	
 	-> ^d698c568-4ad0-46d0-8fb3-763b61744e91
 	aaa = /nowe
-	u
+		/nowe
+		blue
+	!0
+		-> ^53d62dea-9d8f-4683-af17-f2c07849f089
 	[[.]]
 		[[AuthStore.fs]] 2026-05-16 11:26
 		[[bin/]] 2026-05-15 18:05
@@ -477,12 +481,12 @@
 			[[Gambol.Desktop.fsproj.nuget.g.targets]] 2026-05-15 18:05
 			[[project.assets.json]] 2026-05-17 09:44
 			[[project.nuget.cache]] 2026-05-17 09:44
-	later
+	^53d62dea-9d8f-4683-af17-f2c07849f089 later
 		
 		ambit
 		----
 	-> ^2414e65e-7f83-4a0a-a24a-5bea23b1b8b5
--> //dd/file5^f456d9ef-7bab-4fd6-b2fa-af19724c6141
+-> //dd/file5.ext^f456d9ef-7bab-4fd6-b2fa-af19724c6141
 Passion Projects
 	FSharp
 	
@@ -645,10 +649,10 @@ Third itemuu
 	Complexity Argument
 	Each major step in the proof must include a short justification explaining why the step is valid (e.g., why a constructed preference structure forces triangle formation).
 -> ^bd4cbe69-f7e9-4270-8ff4-657e0f7106a5
-//*/file5
+#
 	-> ^92d3d0ac-2a91-42e5-9e9a-530b0c0f1fd7
 	-> //dd/ff^8f3e52d7-c9db-41a8-830e-0b04dfc0199e
-	-> //dd/file5^f456d9ef-7bab-4fd6-b2fa-af19724c6141
+	-> //dd/file5.ext^f456d9ef-7bab-4fd6-b2fa-af19724c6141
 
 The roof must clearly separate the two parts of the coNP-completeness argument:u The roof must clearly separate the two parts of the coNP-completeness argument:u. 
 	fist

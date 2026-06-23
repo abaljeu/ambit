@@ -6,6 +6,10 @@ open System.Collections.Generic
 [<RequireQualifiedAccess>]
 module RefExprMatch =
 
+    let private parentChildren (parentId: NodeId) (graph: Graph) : Node list =
+        graph.nodes.[parentId].children
+        |> List.choose (fun child -> graph.nodes |> Map.tryFind child.id)
+
     let private ownerChildren (parentId: NodeId) (graph: Graph) : Node list =
         graph.nodes.[parentId].children
         |> List.choose (fun child ->
@@ -75,12 +79,11 @@ module RefExprMatch =
                 if pathStepMatches step node then
                     results.Add node |> ignore
 
-                if not (isStructuralBoundary node) then
-                    for child in ownerChildren node.id graph do
-                        visit child
+                for child in parentChildren node.id graph do
+                    visit child
 
         for baseNode in bases do
-            for child in ownerChildren baseNode.id graph do
+            for child in parentChildren baseNode.id graph do
                 visit child
 
             if pathStepMatches step baseNode then
@@ -123,30 +126,26 @@ module RefExprMatch =
         let results = ResizeArray<Node>()
         let seen = HashSet<NodeId>()
 
-        let rec visitNormal (node: Node) =
+        let rec visitTagged (node: Node) =
             if seen.Add node.id then
                 match node.kind, Filename.tryValue node.name with
                 | Normal, Some name when globMatch pattern name -> results.Add node |> ignore
                 | _ -> ()
 
-                if node.kind = Normal then
-                    for child in ownerChildren node.id graph do
-                        if child.kind = Normal then
-                            visitNormal child
+                for child in parentChildren node.id graph do
+                    visitTagged child
 
         for baseNode in bases do
             match baseNode.kind with
             | Normal ->
-                for child in ownerChildren baseNode.id graph do
-                    if child.kind = Normal then
-                        visitNormal child
+                for child in parentChildren baseNode.id graph do
+                    visitTagged child
             | _ ->
                 match contentOwner graph baseNode with
                 | None -> ()
                 | Some owner ->
-                    for child in ownerChildren owner.id graph do
-                        if child.kind = Normal then
-                            visitNormal child
+                    for child in parentChildren owner.id graph do
+                        visitTagged child
 
         results |> Seq.toList
 
@@ -221,26 +220,25 @@ module RefExprMatch =
         match Graph.tryFindParentAndIndex node.id graph with
         | None -> None
         | Some (parentId, index) ->
-            ownerChildren parentId graph
+            parentChildren parentId graph
             |> List.tryItem (index + offset)
 
     let private indexStepFrom (graph: Graph) (offset: int option) (bases: Node list) : Node list =
         match offset with
         | None -> bases
-        | Some 0 -> bases
         | Some n ->
             bases
             |> List.choose (fun node -> siblingAtOffset graph node n)
 
     let private childAtIndex (graph: Graph) (node: Node) (index: int) : Node option =
-        ownerChildren node.id graph
+        parentChildren node.id graph
         |> List.tryItem index
 
     let private childStepFrom (graph: Graph) (index: int option) (bases: Node list) : Node list =
         match index with
         | None ->
             bases
-            |> List.collect (fun node -> ownerChildren node.id graph)
+            |> List.collect (fun node -> parentChildren node.id graph)
         | Some n ->
             bases
             |> List.choose (fun node -> childAtIndex graph node n)

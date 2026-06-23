@@ -1943,6 +1943,39 @@ let ``searchPickSetRoot reframes outside prior zoom when hit is not under zoom r
         result.selectedNodes |> Option.map (focusedNodeId result.graph)
     Assert.Equal(Some a1, selectedId)
 
+let private buildSharedRefLink () : Graph * NodeId * NodeId * NodeId =
+    let graph0 = Graph.create ()
+    let graph1, ids = ModelBuilder.createNodes [ "ownerParent"; "refParent"; "shared" ] graph0
+    let ownerParent = ids.[0]
+    let refParent = ids.[1]
+    let shared = ids.[2]
+    let graph2 =
+        Graph.replace graph0.root 0 [] (owned [ ownerParent; refParent ]) graph1
+        |> ModelBuilder.requireOk "buildSharedRefLink.root"
+    let graph3 =
+        Graph.replace ownerParent 0 [] (owned [ shared ]) graph2
+        |> ModelBuilder.requireOk "buildSharedRefLink.owner"
+    let graph4 =
+        Graph.replace refParent 0 [] [ { ref = Ownership.Ref; id = shared } ] graph3
+        |> ModelBuilder.requireOk "buildSharedRefLink.ref"
+    graph4, ownerParent, refParent, shared
+
+[<Fact>]
+let ``tryReframeZoomAtOwnerParent follows focus owner not structural parent`` () =
+    let graph, ownerParent, refParent, shared = buildSharedRefLink ()
+    let model = modelWithSel graph refParent 0 1 0
+
+    Assert.Equal(refParent, model.zoomRoot)
+    Assert.Equal(shared, focusedNodeId graph model.selectedNodes.Value)
+
+    match tryReframeZoomAtOwnerParent graph shared model.nextSiteId with
+    | None -> Assert.True(false, "Expected Some")
+    | Some (zoomRoot, siteMap, _nextId, sel) ->
+        Assert.Equal(ownerParent, zoomRoot)
+        Assert.Equal(ownerParent, siteMap.entries.[siteMap.rootId].nodeId)
+        let selectedId = sel |> Option.map (focusedNodeId graph)
+        Assert.Equal(Some shared, selectedId)
+
 // ---------------------------------------------------------------------------
 // EditingCaretPreserve — sync-only updates must not reset contenteditable caret
 // ---------------------------------------------------------------------------

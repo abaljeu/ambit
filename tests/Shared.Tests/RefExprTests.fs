@@ -52,7 +52,7 @@ let ``parse rejects at-colon as name pattern only`` () =
     | _ -> Assert.Fail("expected file step and all-children step")
 
 [<Fact>]
-let ``match_ bare colon selects all owned children`` () =
+let ``match_ bare colon selects all children`` () =
     let t = tree.Value
     let nodes = RefExpr.match_ (ctx ()) t.graph (parseOk ":")
     Assert.Equal<Set<NodeId>>(Set [ t.blueChild; t.plainChild ], ids nodes)
@@ -277,7 +277,7 @@ let ``match_ index sibling offset on owned children`` () =
     Assert.Empty(prev)
 
 [<Fact>]
-let ``match_ child index selects owned child by position`` () =
+let ``match_ child index selects child by position`` () =
     let t = tree.Value
     let nodes0 = RefExpr.match_ (ctx ()) t.graph (parseOk ":0")
     Assert.Equal<Set<NodeId>>(Set [ t.blueChild ], ids nodes0)
@@ -286,8 +286,104 @@ let ``match_ child index selects owned child by position`` () =
     Assert.Empty(RefExpr.match_ (ctx ()) t.graph (parseOk ":2"))
 
 [<Fact>]
+let ``match_ child index counts ref children`` () =
+    let graph0 = Graph.create ()
+    let graph1, parentIds = ModelBuilder.createNodes [ "parent" ] graph0
+    let parent = parentIds.[0]
+    let graph2, childIds = ModelBuilder.createNodes [ "a"; "ref"; "c" ] graph1
+    let a, refNode, c = childIds.[0], childIds.[1], childIds.[2]
+    let graph3 =
+        match Graph.replace parent 0 [] (owned [ a; refNode; c ]) graph2 with
+        | Ok g -> g
+        | Error e -> failwith e
+    let graph4 =
+        let parentNode = graph3.nodes.[parent]
+        let children =
+            parentNode.children
+            |> List.map (fun link ->
+                if link.id = refNode then
+                    { link with ref = Ownership.Ref }
+                else
+                    link)
+        Graph.fromNodes graph3.root (graph3.nodes |> Map.add parent { parentNode with children = children })
+    let ctx = RefExpr.refContext parent graph4
+    Assert.Equal<Set<NodeId>>(Set [ a; refNode; c ], ids (RefExpr.match_ ctx graph4 (parseOk ":")))
+    Assert.Equal<Set<NodeId>>(Set [ refNode ], ids (RefExpr.match_ ctx graph4 (parseOk ":1")))
+    Assert.Equal<Set<NodeId>>(Set [ c ], ids (RefExpr.match_ ctx graph4 (parseOk ":2")))
+
+[<Fact>]
 let ``match_ index sibling between files`` () =
     let t = tree.Value
     let ctx = RefExpr.refContext t.libFs t.graph
     let nodes = RefExpr.match_ ctx t.graph (parseOk "!-1")
     Assert.Equal<Set<NodeId>>(Set [ t.appFs ], ids nodes)
+
+[<Fact>]
+let ``match_ index zero is self and skips ref siblings in order`` () =
+    let graph0 = Graph.create ()
+    let graph1, parentIds = ModelBuilder.createNodes [ "parent" ] graph0
+    let parent = parentIds.[0]
+    let graph2, childIds = ModelBuilder.createNodes [ "a"; "ref"; "c" ] graph1
+    let a, refNode, c = childIds.[0], childIds.[1], childIds.[2]
+    let graph3 =
+        match
+            Graph.replace parent 0 [] (owned [ a; refNode; c ]) graph2
+        with
+        | Ok g -> g
+        | Error e -> failwith e
+    let graph4 =
+        let parentNode = graph3.nodes.[parent]
+        let children =
+            parentNode.children
+            |> List.map (fun link ->
+                if link.id = refNode then
+                    { link with ref = Ownership.Ref }
+                else
+                    link)
+        Graph.fromNodes graph3.root (graph3.nodes |> Map.add parent { parentNode with children = children })
+    let ctx = RefExpr.refContext c graph4
+    Assert.Equal<Set<NodeId>>(Set [ c ], ids (RefExpr.match_ ctx graph4 (parseOk "!0")))
+    Assert.Equal<Set<NodeId>>(Set [ refNode ], ids (RefExpr.match_ ctx graph4 (parseOk "!-1")))
+    Assert.Empty(RefExpr.match_ ctx graph4 (parseOk "!1"))
+
+[<Fact>]
+let ``match_ path step follows ref children`` () =
+    let t = tree.Value
+    let graph =
+        let parent = t.appFs
+        let parentNode = t.graph.nodes.[parent]
+        let children =
+            parentNode.children @ [ { ref = Ownership.Ref; id = t.libFs } ]
+        Graph.fromNodes t.graph.root (t.graph.nodes |> Map.add parent { parentNode with children = children })
+    let ctx = RefExpr.refContext t.appFs graph
+    let nodes = RefExpr.match_ ctx graph (parseOk "lib.fs")
+    Assert.Equal<Set<NodeId>>(Set [ t.libFs ], ids nodes)
+
+[<Fact>]
+let ``match_ tag step follows ref children`` () =
+    let graph0 = Graph.create ()
+    let graph1, parentIds = ModelBuilder.createNodes [ "holder" ] graph0
+    let holder = parentIds.[0]
+    let graph2, tagIds = ModelBuilder.createNodes [ "tagged" ] graph1
+    let tagged = tagIds.[0]
+    let taggedNode =
+        { graph2.nodes.[tagged] with
+            name = Filename.create "findme" }
+    let graph3 =
+        graph2.nodes
+        |> Map.add tagged taggedNode
+        |> fun nodes -> Graph.fromNodes graph2.root nodes
+    let graph4 =
+        match Graph.replace holder 0 [] [ { ref = Ownership.Ref; id = tagged } ] graph3 with
+        | Ok g -> g
+        | Error e -> failwith e
+    let ctx = RefExpr.refContext holder graph4
+    let nodes = RefExpr.match_ ctx graph4 (parseOk "#findme")
+    Assert.Equal<Set<NodeId>>(Set [ tagged ], ids nodes)
+
+[<Fact>]
+let ``match_ multi wildcard does not cross workspace boundary`` () =
+    let t = tree.Value
+    let ctx = RefExpr.refContext t.readmeMd t.graph
+    let nodes = RefExpr.match_ ctx t.graph (parseOk "^/**/#blue")
+    Assert.Empty(nodes)
