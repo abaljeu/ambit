@@ -169,7 +169,7 @@ let commandRegistry : CommandEntry2 list =
     [
       cmd EditNode (keyAlways startEditOp)
       cmd Rename (keyAlways openRenamePromptOp)
-      cmd Run (keyAlways runAmbleOp)
+      cmd Exec (keyAlways runAmbleOp)
       cmd SplitAtCursor splitAtCursor
       cmd Delete (keyAlways deleteSelectionOp)
       cmd JoinWithPrevious handleBackspace

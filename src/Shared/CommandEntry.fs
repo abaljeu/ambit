@@ -57,7 +57,7 @@ type CommandId =
     | Save
     | InsertFile
     | Rename
-    | Run
+    | Exec
 
 type CommandEntry = {
     id: CommandId
@@ -217,7 +217,7 @@ let allCommands : CommandEntry list =
         { id = Rename; name = "Rename"
           keys = [ "F2" ]; keyScope = SelectionOnly
           category = EditText; iconId = None }
-        { id = Run; name = "Run"
+        { id = Exec; name = "Run"
           keys = [ "Ctrl+Enter" ]; keyScope = SelectionOrEditing
           category = Primary; iconId = None }
     ]
