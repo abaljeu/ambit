@@ -24,6 +24,8 @@ type DesktopFileStatus =
     | CreateFile
     | ExistingFile
     | ExistingFolder
+    | EvalError
+    | EvalOk
 
 type DesktopFileStatusResponse =
     { path: string
@@ -102,13 +104,15 @@ module DesktopCapabilities =
             { file = get.Required.Field "file" decodeFileCapabilities })
 
 [<RequireQualifiedAccess>]
-module DesktopFileStatus =
+module NodeStatus =
     let label =
         function
         | InvalidPath -> "invalid"
         | CreateFile -> "create"
         | ExistingFile -> "file"
         | ExistingFolder -> "folder"
+        | EvalError -> "error"
+        | EvalOk-> "OK"
 
     let tryParse (text: string) : DesktopFileStatus option =
         match text with

@@ -279,12 +279,12 @@ module Serialization =
         Decode.object (fun get -> { path = get.Required.Field "path" Decode.string })
 
     let private encodeDesktopFileStatus (status: DesktopFileStatus) : IEncodable =
-        status |> DesktopFileStatus.label |> Encode.string
+        status |> NodeStatus.label |> Encode.string
 
     let private decodeDesktopFileStatus: Decoder<DesktopFileStatus> =
         Decode.string
         |> Decode.andThen (fun text ->
-            match DesktopFileStatus.tryParse text with
+            match NodeStatus.tryParse text with
             | Some status -> Decode.succeed status
             | None -> Decode.fail $"Unknown desktop file status: {text}")
 

@@ -16,7 +16,6 @@
     <Compile Include="RefExpr.fs" />
     <Compile Include="AmbleTypes.fs" />
     <Compile Include="AmbleParse.fs" />
-    <Compile Include="Amble.fs" />
     <Compile Include="NodeKindPersistence.fs" />
     <Compile Include="GraphProjection.fs" />
     <Compile Include="History.fs" />
@@ -38,6 +37,9 @@
     <Compile Include="ViewModelFileSearch.fs" />
     <Compile Include="FileNodeOps.fs" />
     <Compile Include="DocumentPathMove.fs" />
+    <Compile Include="AmbleEval.fs" />
+    <Compile Include="AmbleRun.fs" />
+    <Compile Include="Amble.fs" />
     <Compile Include="AmbDocument.fs" />
     <Compile Include="DocumentAssembly.fs" />
     <Compile Include="Paste.fs" />

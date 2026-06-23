@@ -17,6 +17,7 @@ open Gambol.Client.UpdateExport
 open Gambol.Client.UpdateSave
 open Gambol.Client.UpdateFileSearch
 open Gambol.Client.UpdateRename
+open Gambol.Client.UpdateAmbleRun
 open Gambol.Shared.CommandDockLayout
 open Gambol.Shared.CommandEntry
 
@@ -168,6 +169,7 @@ let commandRegistry : CommandEntry2 list =
     [
       cmd EditNode (keyAlways startEditOp)
       cmd Rename (keyAlways openRenamePromptOp)
+      cmd Run (keyAlways runAmbleOp)
       cmd SplitAtCursor splitAtCursor
       cmd Delete (keyAlways deleteSelectionOp)
       cmd JoinWithPrevious handleBackspace

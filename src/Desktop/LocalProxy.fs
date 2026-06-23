@@ -281,7 +281,7 @@ module LocalProxy =
 
         let json =
             "{\"path\":" + quoteJson path
-            + ",\"status\":" + quoteJson (DesktopFileStatus.label status)
+            + ",\"status\":" + quoteJson (NodeStatus.label status)
             + sourceJson
             + "}"
 
