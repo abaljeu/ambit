@@ -203,6 +203,7 @@ let commandRegistry : CommandEntry2 list =
       cmd FoldUnfold (keyAlways toggleFoldSelectionOp)
       cmd ZoomIn (keyAlways zoomInOp)
       cmd ZoomOut (keyAlways zoomOutOp)
+      cmd ZoomOwner (keyAlways zoomOwnerOp)
       cmd Undo (keyAlways undoOp)
       cmd Redo (keyAlways redoOp)
       cmd CopyContent (keyAlways copyOp)

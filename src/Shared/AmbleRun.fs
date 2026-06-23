@@ -98,4 +98,8 @@ module AmbleRun =
             | Ok stmt ->
                 match AmbleEval.evalStatement focusNodeId graph stmt with
                 | Error _ -> Ok (planErrorTextNodes graph focusNodeId line)
-                | Ok result -> planEvalResult graph focusNodeId result
+                | Ok (nameOpt, specs) ->
+                    if specs.IsEmpty then
+                        Ok (planErrorTextNodes graph focusNodeId line)
+                    else
+                        planEvalResult graph focusNodeId (nameOpt, specs)

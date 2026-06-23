@@ -549,9 +549,11 @@ module Graph =
                                 Ok (fromNodes graph.root nodes)
                         elif
                             updatedChildren
-                            |> List.exists (fun c -> c.id = trashId || c.id = workspacesId)
+                            |> List.exists (fun c ->
+                                c.ref = Ownership.Owner
+                                && (c.id = trashId || c.id = workspacesId))
                         then
-                            Error "trash and workspaces may not be children of any non-root parent"
+                            Error "trash and workspaces may not be OWNED by a non-root parent"
                         else
                             let updatedParent =
                                 NodeUpdateTime.touch { parent with children = updatedChildren }

@@ -14,23 +14,66 @@ let private nameString (name: Filename) : string =
     | _ -> ""
 
 [<Fact>]
+let ``run TRASH ref replace succeeds under normal focus`` () =
+    let graph0 = Graph.create ()
+    let graph1, ids = ModelBuilder.createNodes [ "//TRASH/" ] graph0
+    let focusId = ids.[0]
+    let ops = requireOk "run" (AmbleRun.run focusId graph1 "//TRASH/")
+    match ops |> List.tryFind (function Op.Replace _ -> true | _ -> false) with
+    | Some (Op.Replace(parentId, 0, _, [ child ])) ->
+        Assert.Equal(focusId, parentId)
+        Assert.Equal(Graph.trashId, child.id)
+        Assert.Equal(Ownership.Ref, child.ref)
+    | _ -> failwith $"unexpected ops: {ops}"
+    let state = { graph = graph1; history = History.empty; revision = Revision.Zero }
+    match Change.apply { id = 0; changeId = System.Guid.NewGuid(); ops = ops } state with
+    | ApplyResult.Changed s ->
+        let children = s.graph.nodes.[focusId].children
+        Assert.Single(children) |> ignore
+        Assert.Equal(Ownership.Ref, children.[0].ref)
+        Assert.Equal(Graph.trashId, children.[0].id)
+    | other -> failwith $"expected Changed, got {other}"
+
+[<Fact>]
+let ``replace rejects trash owner under non-root parent`` () =
+    let graph0 = Graph.create ()
+    let graph1, ids = ModelBuilder.createNodes [ "a" ] graph0
+    let focusId = ids.[0]
+    match
+        Graph.replace focusId 0 [] [ { ref = Ownership.Owner; id = Graph.trashId } ] graph1
+    with
+    | Error msg -> Assert.Contains("OWNED by a non-root parent", msg)
+    | Ok _ -> Assert.Fail("expected Error")
+
+[<Fact>]
 let ``run assign renames focus node`` () =
     let t = RefExprTestTree.build ()
     let focusId = t.plainChild
-    let ops = requireOk "run" (AmbleRun.run focusId t.graph "todo = #rugby")
-    match ops with
-    | [ Op.SetName(nodeId, oldName, newName) ] ->
+    let ops = requireOk "run" (AmbleRun.run focusId t.graph "todo = ^/#blue")
+    match ops |> List.tryFind (function Op.SetName _ -> true | _ -> false) with
+    | Some (Op.SetName(nodeId, oldName, newName)) ->
         Assert.Equal(focusId, nodeId)
         Assert.Equal("plain", oldName)
         Assert.Equal("todo", newName)
-    | other -> failwith $"unexpected ops: {other}"
+    | _ -> Assert.Fail("expected SetName op")
+    match ops |> List.tryFind (function Op.Replace _ -> true | _ -> false) with
+    | Some (Op.Replace(parentId, _, _, newChildren)) ->
+        Assert.Equal(focusId, parentId)
+        Assert.Equal(2, newChildren.Length)
+    | _ -> Assert.Fail("expected Replace op")
 
 [<Fact>]
-let ``run assign unchanged name returns empty ops`` () =
+let ``run assign unchanged name replaces children`` () =
     let t = RefExprTestTree.build ()
     let focusId = t.blueChild
-    let ops = requireOk "run" (AmbleRun.run focusId t.graph "blue = #todo")
-    Assert.Empty(ops)
+    let ops = requireOk "run" (AmbleRun.run focusId t.graph "blue = ^/#blue")
+    let setNameOps = ops |> List.choose (function Op.SetName _ -> Some () | _ -> None)
+    Assert.Empty(setNameOps)
+    match ops |> List.tryFind (function Op.Replace _ -> true | _ -> false) with
+    | Some (Op.Replace(parentId, _, _, newChildren)) ->
+        Assert.Equal(focusId, parentId)
+        Assert.Equal(2, newChildren.Length)
+    | _ -> Assert.Fail("expected Replace op")
 
 [<Fact>]
 let ``run on special node is no-op`` () =
@@ -39,10 +82,24 @@ let ``run on special node is no-op`` () =
     Assert.Empty(ops)
 
 [<Fact>]
-let ``run expression statement with no nodes returns empty ops`` () =
+let ``run empty search creates error child`` () =
     let t = RefExprTestTree.build ()
-    let ops = requireOk "run" (AmbleRun.run t.plainChild t.graph "text #todo")
-    Assert.Empty(ops)
+    let focusId = t.plainChild
+    let line = "text #todo"
+    let ops = requireOk "run" (AmbleRun.run focusId t.graph line)
+    let newTexts =
+        ops |> List.choose (function Op.NewNode(_, text) -> Some text | _ -> None)
+    Assert.Equal<string list>([ line ], newTexts)
+    match ops |> List.tryFind (function Op.SetClasses _ -> true | _ -> false) with
+    | Some (Op.SetClasses(_, old, newClasses)) ->
+        Assert.Equal(CssClass.empty, old)
+        Assert.True(CssClass.contains "redletter" newClasses)
+    | _ -> Assert.Fail("expected SetClasses op")
+    match ops |> List.tryFind (function Op.Replace _ -> true | _ -> false) with
+    | Some (Op.Replace(parentId, _, _, newChildren)) ->
+        Assert.Equal(focusId, parentId)
+        Assert.Single(newChildren) |> ignore
+    | _ -> Assert.Fail("expected Replace op")
 
 [<Fact>]
 let ``run text named ref creates child from node text`` () =
@@ -105,7 +162,7 @@ let ``run parse error multiline replaces children`` () =
 let ``run assign updates graph name`` () =
     let t = RefExprTestTree.build ()
     let focusId = t.plainChild
-    let ops = requireOk "run" (AmbleRun.run focusId t.graph "todo = #rugby")
+    let ops = requireOk "run" (AmbleRun.run focusId t.graph "todo = ^/#blue")
     let state = { graph = t.graph; history = History.empty; revision = Revision.Zero }
     let graph2 =
         ops
