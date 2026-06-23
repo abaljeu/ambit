@@ -14,6 +14,8 @@ module RefExprParse =
         | Hash
         | Caret
         | MultiWildcard
+        | IndexOffset of int option
+        | ChildIndex of int option
         | NamePattern of string
 
     let private isNamePatternChar (c: char) =
@@ -26,7 +28,44 @@ module RefExprParse =
         || c = '*'
 
     let private isDelimiter (c: char) =
-        Char.IsWhiteSpace c || c = '/' || c = '#' || c = '^' || c = '[' || c = ']'
+        Char.IsWhiteSpace c
+        || c = '/'
+        || c = '#'
+        || c = '^'
+        || c = '!'
+        || c = ':'
+        || c = '['
+        || c = ']'
+
+    let private tryReadSignedInt (s: string) (start: int) : (int * int) option =
+        let rec readDigits i =
+            if i >= s.Length || not (Char.IsDigit s.[i]) then
+                i
+            else
+                readDigits (i + 1)
+
+        if start >= s.Length then
+            None
+        else
+            match s.[start] with
+            | '+' | '-' as _ ->
+                let digitsAt = start + 1
+
+                if digitsAt >= s.Length || not (Char.IsDigit s.[digitsAt]) then
+                    None
+                else
+                    let endAt = readDigits digitsAt
+
+                    match Int32.TryParse(s.Substring(start, endAt - start)) with
+                    | true, n -> Some(n, endAt)
+                    | _ -> None
+            | c when Char.IsDigit c ->
+                let endAt = readDigits start
+
+                match Int32.TryParse(s.Substring(start, endAt - start)) with
+                | true, n -> Some(n, endAt)
+                | _ -> None
+            | _ -> None
 
     let private readNamePattern (s: string) (start: int) =
         let rec loop i =
@@ -64,10 +103,17 @@ module RefExprParse =
                 | '/' -> loop (i + 1) (Slash :: acc)
                 | '#' -> loop (i + 1) (Hash :: acc)
                 | '^' -> loop (i + 1) (Caret :: acc)
+                | '!' ->
+                    match tryReadSignedInt input (i + 1) with
+                    | Some (n, next) -> loop next (IndexOffset(Some n) :: acc)
+                    | None -> loop (i + 1) (IndexOffset None :: acc)
                 | '"' -> Error "quoted path segments are not supported"
                 | '['
                 | ']' -> Error "postfix not supported yet"
-                | ':' -> Error "named workspace anchor syntax is not supported"
+                | ':' ->
+                    match tryReadSignedInt input (i + 1) with
+                    | Some (n, next) -> loop next (ChildIndex(Some n) :: acc)
+                    | None -> loop (i + 1) (ChildIndex None :: acc)
                 | '*' when isMultiWildcard input i -> loop (i + 2) (MultiWildcard :: acc)
                 | _ ->
                     readNamePattern input i
@@ -88,6 +134,8 @@ module RefExprParse =
     let private parseStep tokens : Result<ExprStep * Token list, string> =
         match tokens with
         | MultiWildcard :: rest -> Ok(MultiWild, rest)
+        | IndexOffset offset :: rest -> Ok(IndexStep offset, rest)
+        | ChildIndex index :: rest -> Ok(ChildStep index, rest)
         | Hash :: NamePattern name :: rest -> Ok(TagStep name, rest)
         | Hash :: _ -> Error "expected tag name after #"
         | NamePattern name :: Slash :: rest -> Ok(DirStep name, rest)
@@ -133,6 +181,10 @@ module RefExprParse =
             | FileStep name -> name
             | TagStep tag -> "#" + tag
             | MultiWild -> "**"
+            | IndexStep None -> "!"
+            | IndexStep (Some n) -> "!" + string n
+            | ChildStep None -> ":"
+            | ChildStep (Some n) -> ":" + string n
 
         let joinSteps (anchor: ExprAnchor) (steps: ExprStep list) =
             match steps with

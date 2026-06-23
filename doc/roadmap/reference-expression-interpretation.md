@@ -1,6 +1,6 @@
 # Reference expression interpretation
 
-Reference expressions resolve owned nodes from a context node. They are a small path language, not the full command or expression language. Surrounding language forms such as `text Ref` and `children Ref` are described in [[doc/roadmap/language-syntax.md]].
+Reference expressions resolve owned nodes from a context node. They are a small path language, not the full command or expression language. Surrounding language forms such as `text Ref` and `children Ref` are described in [[doc/roadmap/language-syntax-and-semantics.md]].
 
 ## Content
 
@@ -25,10 +25,18 @@ Step        ::= "**"
               | TagStep
               | DirStep
               | FileStep
+              | IndexStep
+              | ChildStep
 
 TagStep     ::= "#" NamePattern
 DirStep     ::= NamePattern "/"
 FileStep    ::= NamePattern
+IndexStep   ::= "!"
+              | "!" SignedInt
+ChildStep   ::= ":"
+              | ":" SignedInt
+
+SignedInt   ::= ["+" | "-"] Digit+
 
 NamePattern ::= NamePart+
 NamePart    ::= character except "/", "#", "^"
@@ -37,7 +45,7 @@ NamePart    ::= character except "/", "#", "^"
 
 `//` is tokenized before `/`. `**` is tokenized before `*` inside a name pattern.
 
-Quoted path segments are not part of reference-expression syntax. Postfix property access and filters are not part of reference-expression syntax.
+Quoted path segments are not part of reference-expression syntax. Bracket postfix (`[n]`) and filters are not part of reference-expression syntax.
 
 ## Interpretation
 
@@ -53,7 +61,6 @@ From the context node, walking **up the ownership chain** including self:
 - `.` resolves to the nearest `directory` or `workspace` ancestor, the current directory.
 - `^` resolves to the nearest `file`, `directory`, or `workspace` ancestor, the current structural container.
 - `#` resolves to the nearest named `normal` ancestor, the current tagged node.
-
 Other anchors:
 
 - `//` resolves to ROOT.
@@ -84,6 +91,20 @@ Composition uses the prior step's matches as the next base:
 - `x + "abc" + "#xyz"` search each x match for file `abc`; each match find normal node named xyz.
 - `x + "#def" + "#ghi"` find normal node #def in each node in x.  Find ghi under def.
 - `x + "#abc" + "/def"` searches each x for normal nodes named `abc`; each match searches for files named `def`.
+
+## Indexing
+
+From base `x`:
+
+- `x + "!"` resolves to `x`.
+- `x + "!nn"` resolves to the sibling of `x` that is `nn` steps away in parent child order. Positive `nn` moves toward later siblings; negative `nn` moves toward earlier siblings.
+- `x + ":"` resolves to all owned children of `x`.
+- `x + ":nn"` resolves to the owned child of `x` at zero-based index `nn` in parent child order.
+
+Out-of-range sibling offsets and child indices resolve to nothing for that base. If every base fails, the step yields an empty result; this is not a parse or resolution error.
+
+`!`, `!nn`, `:`, and `:nn` are path steps, not anchors.
+
 ## Wildcards
 
 In a path or tag name pattern, `*` matches zero or more characters in a single segment. Matching is case-insensitive.

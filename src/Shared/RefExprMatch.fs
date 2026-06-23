@@ -62,7 +62,9 @@ module RefExprMatch =
             |> Option.map (globMatch pattern)
             |> Option.defaultValue false
         | TagStep _
-        | MultiWild -> false
+        | MultiWild
+        | IndexStep _
+        | ChildStep _ -> false
 
     let private pathSearchFrom (graph: Graph) (step: ExprStep) (bases: Node list) : Node list =
         let results = ResizeArray<Node>()
@@ -215,10 +217,40 @@ module RefExprMatch =
         | Structural -> ctx.structural
         | Tagged -> ctx.tagged
 
+    let private siblingAtOffset (graph: Graph) (node: Node) (offset: int) : Node option =
+        match Graph.tryFindParentAndIndex node.id graph with
+        | None -> None
+        | Some (parentId, index) ->
+            ownerChildren parentId graph
+            |> List.tryItem (index + offset)
+
+    let private indexStepFrom (graph: Graph) (offset: int option) (bases: Node list) : Node list =
+        match offset with
+        | None -> bases
+        | Some 0 -> bases
+        | Some n ->
+            bases
+            |> List.choose (fun node -> siblingAtOffset graph node n)
+
+    let private childAtIndex (graph: Graph) (node: Node) (index: int) : Node option =
+        ownerChildren node.id graph
+        |> List.tryItem index
+
+    let private childStepFrom (graph: Graph) (index: int option) (bases: Node list) : Node list =
+        match index with
+        | None ->
+            bases
+            |> List.collect (fun node -> ownerChildren node.id graph)
+        | Some n ->
+            bases
+            |> List.choose (fun node -> childAtIndex graph node n)
+
     let private applyStep (graph: Graph) (step: ExprStep) (current: Node list) : Node list =
         match step with
         | MultiWild -> pathScopeDescendants graph current
         | TagStep pattern -> tagSearchFrom graph pattern current
+        | IndexStep offset -> indexStepFrom graph offset current
+        | ChildStep index -> childStepFrom graph index current
         | DirStep _
         | FileStep _ -> pathSearchFrom graph step current
 

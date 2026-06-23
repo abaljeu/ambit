@@ -13,6 +13,8 @@ type ExprStep =
     | FileStep of string
     | TagStep of string
     | MultiWild
+    | IndexStep of int option
+    | ChildStep of int option
 
 type PathExpr =
     | AnchorOnly of ExprAnchor
