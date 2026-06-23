@@ -24,7 +24,7 @@ This document no longer duplicates the active grammar. Current reference-express
 |------------|---------|
 | `//@workspaceName/src/utils.fs` | workspace `@workspaceName`, directory `src/`, file `utils.fs` |
 | `/proj/docs/` | workspace in context, directory `proj/`, directory `docs/` |
-| `.` | current directory anchor |
+| `.` | current directory (`.` alone or `./…`; not an anchor) |
 | `^` | current structural container (`file`, `directory`, or `workspace`) |
 | `#` | current tagged (`named`) normal ancestor |
 | `#todo` | tagged nodes named `todo` from context base |

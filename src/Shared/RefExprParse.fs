@@ -18,7 +18,7 @@ module RefExprParse =
         | ChildIndex of int option
         | NamePattern of string
 
-    let private isNamePatternChar (c: char) =
+    let isNameChar (c: char) =
         Char.IsLetterOrDigit c
         || c = '@'
         || c = '.'
@@ -26,6 +26,22 @@ module RefExprParse =
         || c = '_'
         || c = '?'
         || c = '*'
+
+    let readName (s: string) (start: int) (isDelimiter: char -> bool) : Result<string * int, string> =
+        let rec loop i =
+            if i >= s.Length || isDelimiter s.[i] then
+                i
+            elif isNameChar s.[i] then
+                loop (i + 1)
+            else
+                i
+
+        let endAt = loop start
+
+        if endAt = start then
+            Error $"unexpected character '{s.[start]}'"
+        else
+            Ok(s.Substring(start, endAt - start), endAt)
 
     let private isDelimiter (c: char) =
         Char.IsWhiteSpace c
@@ -68,22 +84,7 @@ module RefExprParse =
             | _ -> None
 
     let private readNamePattern (s: string) (start: int) =
-        let rec loop i =
-            if i >= s.Length || isDelimiter s.[i] then
-                i
-            elif isNamePatternChar s.[i] then
-                loop (i + 1)
-            elif s.[i] = ':' then
-                i
-            else
-                i
-
-        let endAt = loop start
-
-        if endAt = start then
-            Error $"unexpected character '{s.[start]}'"
-        else
-            Ok(s.Substring(start, endAt - start), endAt)
+        readName s start (fun c -> isDelimiter c || c = ':')
 
     let private isMultiWildcard (s: string) (start: int) =
         start + 1 < s.Length
@@ -115,6 +116,16 @@ module RefExprParse =
                     | Some (n, next) -> loop next (ChildIndex(Some n) :: acc)
                     | None -> loop (i + 1) (ChildIndex None :: acc)
                 | '*' when isMultiWildcard input i -> loop (i + 2) (MultiWildcard :: acc)
+                | '.' ->
+                    if
+                        i + 1 < input.Length
+                        && isNameChar input.[i + 1]
+                        && input.[i + 1] <> '/'
+                    then
+                        readNamePattern input i
+                        |> Result.bind (fun (name, next) -> loop next (NamePattern name :: acc))
+                    else
+                        loop (i + 1) (NamePattern "." :: acc)
                 | _ ->
                     readNamePattern input i
                     |> Result.bind (fun (name, next) -> loop next (NamePattern name :: acc))

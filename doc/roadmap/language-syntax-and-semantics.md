@@ -1,5 +1,8 @@
 # Syntax and Semantics
 
+This file descripts the mostly functional Amble language.  
+Refer to [[src/Shared/AmbleTypes.fs]]
+
 The language described below has 3 contextual uses:
 1) Interactive search queries to find nodes
 2) File persistence, to capture links to other nodes.
@@ -16,14 +19,30 @@ This is the draft syntax for the small functional language that hosts reference 
 Expressions are first-class expression values. They can be passed to functions directly.
 
 ```ebnf
-Expr        ::= RefExpr
+Expr        ::= ConcatExpr
+ConcatExpr  ::= AppExpr ("," AppExpr)*
+AppExpr     ::= Primary
+            | Function "of" Expr
+            | Function AppExpr+
+Primary     ::= Number
+            | RefExpr
             | String
-            | Number
-            | FunCall
             | "(" Expr ")"
-FunCall     ::= Function "of" Expr
-            | Function Expr+
+Number      ::= SignedInt | SignedFloat
+SignedInt   ::= ["+" | "-"] Digit+
+SignedFloat ::= SignedInt "." Digit+
+Name        ::= NameChar+
+NameChar    ::= letter | digit | "@" | "." | "-" | "_" | "?" | "*"
+Function    ::= Name | ","
 ```
+
+`Name` and `NameChar` match `RefExprParse.isNameChar` / `RefExpr.readName` (including `.`). Numbers are signed integers or floats with a single `.` fractional part; no `e` / `E` exponent notation.
+
+**Number vs RefExpr.** `Primary` tries `Number` before `RefExpr`. A valid number literal never parses as a reference expression: e.g. `123`, `-3`, and `1.5` are numbers, not bare file steps. If digits are followed immediately by ref continuation characters such as `/`, `#`, `:`, or `!`, the whole primary is parsed as `RefExpr` instead (e.g. `123/foo`). `.5` is not a float; lexically it is one ref name token (`.5`), not `CurrentDir`. `.amb` is likewise one name token, not `CurrentDir`.
+
+**Anchored references.** Only Amble requires every `RefExpr` to begin with an explicit anchor (`//`, `/`, `^`, `#`, `!`, or `!nn`) or a current-directory base (`.` alone or `./…`; see [[doc/roadmap/reference-expression-interpretation.md]]). Search and persistence do not mandate either; implicit context (e.g. `:0`, `.amb`, a bare name) is valid there and is a parse error in Amble.
+
+**Infix comma.** `ConcatExpr` is concrete syntax only. `a , b` and `a , b , c` parse as nested calls to the concatenation function: `FunCall(",", [a; b])` and `FunCall(",", [FunCall(",", [a; b]); c])`. Comma binds less tightly than juxtaposition (function application) and associates left.
 ### Statements
 
 ```ebnf
@@ -94,6 +113,7 @@ These functions operate on the node list resolved by a reference expression:
 - `text Ref` returns text from each resolved node.
 - `name Ref` returns names from resolved nodes that have names.
 - `children Ref` returns direct children, including refs, of each resolved node.
+- `,` concatenates two values (infix: `a , b`).
 
 `Function "of" Expr` is equivalent to applying the function on the left to the value of `Expr` on the right. E.g. `name of children ./folder/` applies `name` to the nodes returned by `children ./folder/`.
 

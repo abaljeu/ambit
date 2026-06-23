@@ -11,15 +11,22 @@ Named search follows **owned** children only; `Ref` edges are excluded.
 ## Grammar
 
 ```ebnf
-RefExpr     ::= (Anchor | ε) (Sep? Step)*
+RefExpr     ::= (RefBase | ε) (Sep? Step)*
+
+RefBase     ::= Anchor
+              | CurrentDir
 
 Sep         ::= "/"
 
 Anchor      ::= "//"
               | "/"
-              | "."
               | "^"
               | "#"
+              | "!"
+              | "!" SignedInt
+
+CurrentDir  ::= "."
+              | "." Sep
 
 Step        ::= "**"
               | TagStep
@@ -45,7 +52,11 @@ NamePart    ::= character except "/", "#", "^"
 
 `//` is tokenized before `/`. `**` is tokenized before `*` inside a name pattern.
 
+**Lexical `.`.** `./` is two tokens (`.` then `/`). `.amb` and `.5` are each one `NamePattern` token. A lone `.` is one `.` token. Only `.` followed immediately by `/` splits; a `.` followed by other name characters does not.
+
 Quoted path segments are not part of reference-expression syntax. Bracket postfix (`[n]`) and filters are not part of reference-expression syntax.
+
+**Anchoring.** `ε` (no anchor) defaults to the context node. An explicit anchor is never required for interactive search or file persistence. Only the Amble expression language mandates one; see [[doc/roadmap/language-syntax-and-semantics.md]].
 
 ## Interpretation
 
@@ -58,12 +69,17 @@ Each step may match multiple nodes. The result is the flat list of all combinati
 From the context node, walking **up the ownership chain** including self:
 
 - `/` resolves to the nearest `workspace` ancestor, or ROOT when no other `workspace` is in the chain.
-- `.` resolves to the nearest `directory` or `workspace` ancestor, the current directory.
 - `^` resolves to the nearest `file`, `directory`, or `workspace` ancestor, the current structural container.
 - `#` resolves to the nearest named `normal` ancestor, the current tagged node.
+- `!` resolves to the context node.
+- `!nn` resolves to the sibling of the context node that is `nn` steps away in parent child order (same as an index step applied to the context node).
 Other anchors:
 
 - `//` resolves to ROOT.
+
+## Current directory
+
+`.` is not an anchor character. Lexically, `./` is two tokens (`.` then `/`); `.amb` and `.5` are each one name token. A leading `.` alone or `.` followed immediately by `/` is a **current-directory** base (`CurrentDir`), not an `Anchor`. It resolves to the nearest `directory` or `workspace` ancestor. `./path` is current directory plus path steps.
 
 Named workspace access is ordinary ROOT-relative path lookup. A standard workspace node name starts with `@`, so `//@workspaceName/...` resolves beneath that workspace.
 
@@ -103,7 +119,7 @@ From base `x`:
 
 Out-of-range sibling offsets and child indices resolve to nothing for that base. If every base fails, the step yields an empty result; this is not a parse or resolution error.
 
-`!`, `!nn`, `:`, and `:nn` are path steps, not anchors.
+`!`, `!nn`, `:`, and `:nn` are path steps when they follow a base. A leading `!` or `!nn` is an anchor, not a step (same resolution as above for the context node).
 
 ## Wildcards
 

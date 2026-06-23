@@ -66,6 +66,18 @@ let ``parse accepts anchors only`` () =
     Assert.Equal(AnchorOnly Tagged, parseOk "#")
 
 [<Fact>]
+let ``parse lexes dot slash as two tokens`` () =
+    Assert.Equal(
+        Path(CurrentDir, [ DirStep "folder" ]),
+        parseOk "./folder/"
+    )
+
+[<Fact>]
+let ``parse lexes dot name as one token`` () =
+    Assert.Equal(Path(Context, [ FileStep ".amb" ]), parseOk ".amb")
+    Assert.Equal(Path(Context, [ FileStep ".5" ]), parseOk ".5")
+
+[<Fact>]
 let ``parse accepts named workspace as root-relative path`` () =
     Assert.Equal(
         Path(GlobalRoot, [ DirStep "@bobby"; DirStep "src" ]),
