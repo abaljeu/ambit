@@ -50,11 +50,24 @@ let ``parse parenthesized expr`` () =
     )
 
 [<Fact>]
-let ``parse infix comma left assoc`` () =
+let ``parse infix comma right assoc`` () =
     let a = aref "#a"
     let b = aref "#b"
     let c = aref "#c"
-    Assert.Equal(FunCall(",", [ FunCall(",", [ a; b ]); c ]), parseExpr "#a , #b , #c")
+    Assert.Equal(FunCall(",", [ a; FunCall(",", [ b; c ]) ]), parseExpr "#a , #b , #c")
+
+[<Fact>]
+let ``parse comma after juxtaposition groups rhs`` () =
+    let list = aref "#list"
+    let expected =
+        FunCall(",", [ list; FunCall("sort", [ list ]) ])
+    Assert.Equal(expected, parseExpr "#list , sort #list")
+
+[<Fact>]
+let ``parse sort with nested comma args`` () =
+    let expected =
+        FunCall("sort", [ FunCall(",", [ Num(Int 3L); FunCall(",", [ Num(Int 5L); Num(Int 2L) ]) ]) ])
+    Assert.Equal(expected, parseExpr "sort 3 , 5 , 2")
 
 // ---- assignment ----
 

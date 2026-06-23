@@ -39,18 +39,67 @@ let ``run on special node is no-op`` () =
     Assert.Empty(ops)
 
 [<Fact>]
-let ``run rejects expression statement`` () =
+let ``run expression statement with no nodes returns empty ops`` () =
     let t = RefExprTestTree.build ()
-    match AmbleRun.run t.plainChild t.graph "text #todo" with
-    | Error msg -> Assert.Contains("not yet supported", msg)
-    | Ok _ -> Assert.Fail("expected Error")
+    let ops = requireOk "run" (AmbleRun.run t.plainChild t.graph "text #todo")
+    Assert.Empty(ops)
 
 [<Fact>]
-let ``run propagates parse error`` () =
+let ``run text named ref creates child from node text`` () =
     let t = RefExprTestTree.build ()
-    match AmbleRun.run t.plainChild t.graph "#todo extra" with
-    | Error _ -> ()
-    | Ok _ -> Assert.Fail("expected Error")
+    let focusId = t.blueChild
+    let ops = requireOk "run" (AmbleRun.run focusId t.graph "text #blue")
+    let newTexts =
+        ops |> List.choose (function Op.NewNode(_, text) -> Some text | _ -> None)
+    Assert.Equal<string list>([ "beta" ], newTexts)
+    match ops |> List.tryFind (function Op.Replace _ -> true | _ -> false) with
+    | Some (Op.Replace(parentId, 0, _, newChildren)) ->
+        Assert.Equal(focusId, parentId)
+        Assert.Single(newChildren) |> ignore
+    | _ -> Assert.Fail("expected Replace op")
+
+[<Fact>]
+let ``run parse error replaces children from line`` () =
+    let t = RefExprTestTree.build ()
+    let focusId = t.plainChild
+    let ops = requireOk "run" (AmbleRun.run focusId t.graph "#todo extra")
+    let newNodeOps = ops |> List.choose (function Op.NewNode _ -> Some () | _ -> None)
+    let classOps =
+        ops
+        |> List.choose (function
+            | Op.SetClasses(_, old, newClasses) when
+                old = CssClass.empty && CssClass.contains "redletter" newClasses ->
+                Some ()
+            | _ -> None)
+    Assert.Single(newNodeOps) |> ignore
+    Assert.Single(classOps) |> ignore
+    match ops |> List.tryFind (function Op.Replace _ -> true | _ -> false) with
+    | Some (Op.Replace(parentId, 0, _, newChildren)) ->
+        Assert.Equal(focusId, parentId)
+        Assert.Single(newChildren) |> ignore
+    | _ -> Assert.Fail("expected Replace op")
+
+[<Fact>]
+let ``run parse error multiline replaces children`` () =
+    let t = RefExprTestTree.build ()
+    let focusId = t.plainChild
+    let line = "alpha" + System.Environment.NewLine + "beta"
+    let ops = requireOk "run" (AmbleRun.run focusId t.graph line)
+    let newNodes = ops |> List.choose (function Op.NewNode(_, _) -> Some () | _ -> None)
+    let classOps =
+        ops
+        |> List.choose (function
+            | Op.SetClasses(_, old, newClasses) when
+                old = CssClass.empty && CssClass.contains "redletter" newClasses ->
+                Some ()
+            | _ -> None)
+    Assert.Equal(2, newNodes.Length)
+    Assert.Equal(2, classOps.Length)
+    match ops |> List.tryFind (function Op.Replace _ -> true | _ -> false) with
+    | Some (Op.Replace(parentId, 0, _, newChildren)) ->
+        Assert.Equal(focusId, parentId)
+        Assert.Equal(2, newChildren.Length)
+    | _ -> Assert.Fail("expected Replace op")
 
 [<Fact>]
 let ``run assign updates graph name`` () =

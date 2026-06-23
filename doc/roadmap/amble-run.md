@@ -13,7 +13,9 @@ Add a **Run** command that reads the **focus line**, parses it as Amble, interpr
 flowchart LR
     focusLine[FocusLine] --> parse[Amble.parse]
     parse --> eval[AmbleEval.evalStatement]
-    eval --> ops[Op list]
+    eval --> pair["name option, Node list"]
+    pair --> run[AmbleRun.run]
+    run --> ops[Op list]
     ops --> apply[applyAndPost]
 ```
 
@@ -29,18 +31,30 @@ Orchestration entry:
 AmbleRun.run : focusNodeId: NodeId -> graph: Graph -> line: string -> Result<Op list, string>
 ```
 
-Pipeline: `Amble.parse line` then `AmbleEval.evalStatement focusNodeId graph stmt`.
+Pipeline: `Amble.parse line` → `AmbleEval.evalStatement` → `AmbleRun.run` maps eval result to ops.
 
 ### Shared: `AmbleEval.fs`
 
-Minimal interpreter. Match on `AmbleStatement`:
+Semantic evaluation only — no `Op` types.
 
-| Statement | Behaviour |
-|-----------|-----------|
-| `Assign(name, _expr)` | Rename focus node to `name` via `NodeRenameOps.planRenameNode`; return its ops (ignore RHS for now). |
-| `ExprStmt _` | `Error "not yet supported"` |
+```fsharp
+evalStatement : NodeId -> Graph -> AmbleStatement -> Result<string option * Node list, string>
+evalExpr : NodeId -> Graph -> AmbleExpr -> Result<Node list, string>  // placeholder: Ok []
+```
 
-Per [[doc/roadmap/language-syntax-and-semantics.md]], assignment also evaluates the RHS like an expression; that evaluation is deferred — slice 1 only sets the name.
+| Statement | Eval result |
+|-----------|-------------|
+| `Assign(name, expr)` | `Ok (Some name, nodes)` — `nodes` from `evalExpr` (placeholder `[]`) |
+| `ExprStmt expr` | `Ok (None, nodes)` — same placeholder |
+
+### Shared: `AmbleRun.run` op mapping
+
+| `name` | Ops |
+|--------|-----|
+| `None` | `Ok []` |
+| `Some name` | `NodeRenameOps.planRenameNode graph focusNodeId name` → ops |
+
+Evaluated `Node list` is ignored for now; later slices will derive ops from it.
 
 ### Special nodes: NoOp
 
@@ -77,7 +91,7 @@ Client: `UpdateAmbleRun.fs` in [[src/Client/Gambol.Client.fsproj]].
 - `Assign` on a normal node → `Op.SetName` with correct old/new names.
 - Assign when name unchanged → empty ops.
 - Special-node focus (e.g. file node from [[tests/Shared.Tests/RefExprTestTree.fs]]) → `Ok []` without parsing invalid empty line.
-- `ExprStmt` → error.
+- `ExprStmt` → `Ok []` (eval succeeds; node list placeholder unused).
 - Parse error propagates (e.g. trailing garbage).
 
 Update [[tests/Shared.Tests/CommandEntryTests.fs]] command count when `Run` is added.

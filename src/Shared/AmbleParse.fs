@@ -130,34 +130,33 @@ module AmbleParse =
     let private isArgStarter = function
         | [] -> false
         | TLParen :: _ | TStr _ :: _ | TRef _ :: _ | TNum _ :: _ -> true
-        | TWord _ :: _ | TComma :: _ -> true
+        | TWord _ :: _ -> true
         | _ -> false
 
-    let rec private parseConcatExpr tokens =
-        parseAppExpr tokens
-        |> Result.bind (fun (left, rest) -> parseCommaTail rest left)
-
-    and private parseCommaTail tokens left =
+    let rec private parseInfixExpr tokens =
         match tokens with
-        | TComma :: rest ->
-            parseAppExpr rest
-            |> Result.bind (fun (right, next) ->
-                parseCommaTail next (FunCall(",", [ left; right ])))
-        | _ -> Ok(left, tokens)
+        | TWord fn :: TWord "of" :: rest ->
+            parseInfixExpr rest
+            |> Result.map (fun (arg, next) -> FunCall(fn, [ arg ]), next)
+        | _ ->
+            parseJuxtapose tokens
+            |> Result.bind (fun (left, rest) ->
+                match rest with
+                | TComma :: r ->
+                    parseInfixExpr r
+                    |> Result.map (fun (right, next) -> FunCall(",", [ left; right ]), next)
+                | _ -> Ok(left, rest))
 
-    and private parseAppExpr tokens =
+    and private parseJuxtapose tokens =
         match tokens with
         | [] -> Error "expected expression"
-        | TWord fn :: TWord "of" :: rest ->
-            parseConcatExpr rest
-            |> Result.map (fun (arg, next) -> FunCall(fn, [ arg ]), next)
         | TWord fn :: rest when isArgStarter rest -> parseArgs fn rest []
         | TComma :: rest when isArgStarter rest -> parseArgs "," rest []
         | _ -> parsePrimary tokens
 
     and private parseArgs fn tokens acc =
         if isArgStarter tokens then
-            parseAppExpr tokens
+            parseInfixExpr tokens
             |> Result.bind (fun (arg, next) -> parseArgs fn next (arg :: acc))
         else
             Ok(FunCall(fn, List.rev acc), tokens)
@@ -168,7 +167,7 @@ module AmbleParse =
         | TNum num :: rest -> Ok(Num num, rest)
         | TRef expr :: rest -> Ok(Ref expr, rest)
         | TLParen :: rest ->
-            parseConcatExpr rest
+            parseExpr false rest
             |> Result.bind (fun (inner, next) ->
                 match next with
                 | TRParen :: after -> Ok(Paren inner, after)
@@ -177,12 +176,13 @@ module AmbleParse =
             Error "reference requires an explicit anchor"
         | _ -> Error "expected expression"
 
-    let private parseExpr tokens =
-        parseConcatExpr tokens
+    and private parseExpr atStatementStart tokens =
+        parseInfixExpr tokens
         |> Result.bind (fun (expr, rest) ->
-            match rest with
-            | [] -> Ok expr
-            | _ -> Error "unexpected trailing input")
+            match atStatementStart, rest with
+            | true, [] -> Ok(expr, [])
+            | true, _ -> Error "unexpected trailing input"
+            | false, _ -> Ok(expr, rest))
 
     let private numToBare = function
         | Int n -> string n
@@ -194,7 +194,7 @@ module AmbleParse =
         | TWord word :: rest -> Ok(WordBare word, rest)
         | TNum num :: rest -> Ok(WordBare(numToBare num), rest)
         | TLParen :: rest ->
-            parseConcatExpr rest
+            parseExpr false rest
             |> Result.bind (fun (expr, next) ->
                 match next with
                 | TRParen :: after -> Ok(WordExpr expr, after)
@@ -205,13 +205,13 @@ module AmbleParse =
         match tokens with
         | [] -> Ok(List.rev acc)
         | TLt :: rest ->
-            parseConcatExpr rest
+            parseExpr false rest
             |> Result.bind (fun (expr, next) -> parseStageParts (RedirIn expr :: acc) next)
         | TGtGt :: rest ->
-            parseConcatExpr rest
+            parseExpr false rest
             |> Result.bind (fun (expr, next) -> parseStageParts (RedirAppend expr :: acc) next)
         | TGt :: rest ->
-            parseConcatExpr rest
+            parseExpr false rest
             |> Result.bind (fun (expr, next) -> parseStageParts (RedirOut expr :: acc) next)
         | tokens ->
             parseShellWord tokens
@@ -239,8 +239,19 @@ module AmbleParse =
     let private parseAssignmentOrExpr tokens =
         match tokens with
         | TWord name :: TEquals :: rest ->
-            parseExpr rest |> Result.map (fun expr -> Assign(name, expr))
-        | _ -> parseExpr tokens |> Result.map ExprStmt
+            parseExpr false rest
+            |> Result.bind (fun (expr, next) ->
+                match next with
+                | [] -> Ok(Assign(name, expr))
+                | _ -> Error "unexpected trailing input")
+        | TGt :: rest ->
+            parseCmdLine rest |> Result.map ExprStmt
+        | _ ->
+            parseExpr true tokens
+            |> Result.bind (fun (expr, next) ->
+                match next with
+                | [] -> Ok(ExprStmt expr)
+                | _ -> Error "unexpected trailing input")
 
     let parseStatement (input: string) : Result<AmbleStatement, string> =
         if String.IsNullOrWhiteSpace input then
@@ -248,13 +259,6 @@ module AmbleParse =
         elif input.Length > maxInputLength then
             Error "statement too long"
         else
-            let trimmed = input.TrimStart()
-
-            if trimmed.StartsWith ">" then
-                tokenize (trimmed.Substring 1)
-                |> Result.bind parseCmdLine
-                |> Result.map ExprStmt
-            else
-                tokenize trimmed |> Result.bind parseAssignmentOrExpr
+            tokenize (input.TrimStart()) |> Result.bind parseAssignmentOrExpr
 
     let parse input = parseStatement input

@@ -19,15 +19,18 @@ This is the draft syntax for the small functional language that hosts reference 
 Expressions are first-class expression values. They can be passed to functions directly.
 
 ```ebnf
-Expr        ::= ConcatExpr
-ConcatExpr  ::= AppExpr ("," AppExpr)*
-AppExpr     ::= Primary
-            | Function "of" Expr
-            | Function AppExpr+
-Primary     ::= Number
-            | RefExpr
-            | String
-            | "(" Expr ")"
+Expr        ::= Number | RefExpr | String | "(" Expr ")" | FunCall | ">" CmdLine
+
+FunCall     ::= Function Juxtapose+
+            | Name "of" InfixExpr
+            | Juxtapose "," InfixExpr
+
+InfixExpr   ::= Name "of" InfixExpr
+            | Juxtapose
+            | Juxtapose "," InfixExpr
+
+Juxtapose   ::= Function Juxtapose+ | Primary
+Primary     ::= Number | RefExpr | String | "(" Expr ")"
 Number      ::= SignedInt | SignedFloat
 SignedInt   ::= ["+" | "-"] Digit+
 SignedFloat ::= SignedInt "." Digit+
@@ -42,16 +45,14 @@ Function    ::= Name | ","
 
 **Anchored references.** Only Amble requires every `RefExpr` to begin with an explicit anchor (`//`, `/`, `^`, `#`, `!`, or `!nn`) or a current-directory base (`.` alone or `./…`; see [[doc/roadmap/reference-expression-interpretation.md]]). Search and persistence do not mandate either; implicit context (e.g. `:0`, `.amb`, a bare name) is valid there and is a parse error in Amble.
 
-**Infix comma.** `ConcatExpr` is concrete syntax only. `a , b` and `a , b , c` parse as nested calls to the concatenation function: `FunCall(",", [a; b])` and `FunCall(",", [FunCall(",", [a; b]); c])`. Comma binds less tightly than juxtaposition (function application) and associates left.
+**Infix `of` and comma.** `of` and `,` have equal precedence, bind less tightly than juxtaposition, and associate right. `a , b , c` parses as `FunCall(",", [a; FunCall(",", [b; c])])`. `List , sort List` parses as `FunCall(",", [List; FunCall("sort", [List])])` — juxtaposition groups `sort List` before comma combines. Juxtaposition arguments are full `InfixExpr` values, so `sort 3 , 5 , 2` parses as `FunCall("sort", [FunCall(",", [3; FunCall(",", [5; 2])])])`.
+
 ### Statements
 
 ```ebnf
-Statement   ::= Assignment
-            | Expr
-            | Command
+Statement   ::= Assignment | Expr
 
-Assignment ::= Name "=" RefExpr
-Command ::= ">" CmdLine
+Assignment ::= Name "=" Expr
 ```
 
 ### Shell commands
@@ -106,7 +107,6 @@ When a ref resolves to multiple nodes, the command runs once per target (cartesi
 Parse and resolution errors follow the command result contract in [[doc/roadmap/reference-expressions.md]]: no silent empty success.
 
 ### Functions
-## Reference functions
 
 These functions operate on the node list resolved by a reference expression:
 
@@ -115,7 +115,7 @@ These functions operate on the node list resolved by a reference expression:
 - `children Ref` returns direct children, including refs, of each resolved node.
 - `,` concatenates two values (infix: `a , b`).
 
-`Function "of" Expr` is equivalent to applying the function on the left to the value of `Expr` on the right. E.g. `name of children ./folder/` applies `name` to the nodes returned by `children ./folder/`.
+Infix `of` and `,` desugar to `FunCall`. `name of children ./folder/` is `FunCall("name", [FunCall("children", […])])`. `name of children , other` is `FunCall("name", [FunCall(",", […; other])])`. `of` and `,` share precedence and associate right; juxtaposition binds tighter than both.
 
 `Ref` is any expression that resolves to nodes, usually a reference expression such as `#todo`, `^/notes.md`, or `//@workspaceName/src/`.
 
@@ -126,6 +126,8 @@ text #todo
 name ^/notes.md
 children //@workspaceName/src/
 name of children ./folder/
+#list , sort #list
+sort 3 , 5 , 2
 > python //@ws/rugby.py < #rugbydata
 > tool --data (text #rugbydata)
 > python ./rugby.py --verbose
