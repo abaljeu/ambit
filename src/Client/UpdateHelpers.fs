@@ -210,7 +210,7 @@ let splitNode (currentText: string) (cursorPos: int) (model: VM) : VM * Effect l
         let newId = newChild.id
 
         let focusedHasExpandedChildren =
-            SiteMap.nodeHasExpandedChildren model.siteMap (focusedInstanceId sel)
+            SiteMap.nodeIsExpanded model.siteMap (focusedInstanceId sel)
 
         let (newNodeOwner, insertIndex, newNodeText) =
             if clampedPos = 0 then

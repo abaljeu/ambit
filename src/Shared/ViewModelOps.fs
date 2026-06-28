@@ -224,6 +224,55 @@ module ViewModel =
                     entries = acc
                     parentByInstanceId = buildParentInstanceIndex acc }, endCount ()
 
+    /// Adjacent sibling of `me`'s parent, expanding that sibling first when it has children.
+    let parentSiblingTarget
+        (delta: int)
+        (me: SiteEntry)
+        (graph: Graph)
+        (siteMap: SiteMap)
+        (nextSiteId: SiteId)
+        (zoomRoot: NodeId)
+        : (SiteMap * SiteId * SiteEntry) option =
+        let siblingStep =
+            if delta = -1 then Some Site.prev
+            elif delta = 1 then Some Site.next
+            else None
+
+        match siblingStep, me.parentInstanceId with
+        | None, _ -> None
+        | _, None -> None
+        | Some step, Some parentId ->
+            match Map.tryFind parentId siteMap.entries with
+            | None -> None
+            | Some parentEntry ->
+                let isMeRoot = me.nodeId = zoomRoot
+                let isParentRoot = parentEntry.nodeId = zoomRoot
+
+                if isMeRoot || isParentRoot then
+                    None
+                else
+                    Site.at siteMap (Some parentEntry.instanceId)
+                    |> step
+                    |> Site.current
+                    |> Option.bind (fun siblingId ->
+                        match Map.tryFind siblingId siteMap.entries with
+                        | None -> None
+                        | Some sibling when sibling.expanded ->
+                            Some (siteMap, nextSiteId, sibling)
+                        | Some sibling ->
+                            let hasChildren =
+                                Map.tryFind sibling.nodeId graph.nodes
+                                |> Option.exists (fun node -> not node.children.IsEmpty)
+
+                            if not hasChildren then
+                                Some (siteMap, nextSiteId, sibling)
+                            else
+                                let siteMap, nextSiteId =
+                                    expandEntry siblingId graph siteMap nextSiteId
+
+                                Map.tryFind siblingId siteMap.entries
+                                |> Option.map (fun expanded -> siteMap, nextSiteId, expanded))
+
     /// Restore fold state from a saved set of expanded NodeIds.
     /// Walks the siteMap in BFS order, expanding each entry whose nodeId is in
     /// expandedNodeIds.  Parent-before-child ordering ensures that children only

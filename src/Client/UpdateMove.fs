@@ -3,42 +3,19 @@ module Gambol.Client.UpdateMove
 open Gambol.Client.UpdateHelpers
 open Gambol.Shared
 open Gambol.Shared.ViewModel
+open Gambol.Shared.ViewModelMoveOps
 
 
-/// Returns the adjacent sibling of me's parent (delta=-1 for previous, +1 for next) if it exists,
-/// is visible (neither me nor its parent is the VM root), and is expanded; otherwise None.
-let parentSiblingOpen (delta: int) (me: SiteEntry) (model: VM) : SiteEntry option =
-    let parentEntryOpt =
-        match me.parentInstanceId with
-        | None -> None
-        | Some parentId -> Map.tryFind parentId model.siteMap.entries
-
-    match parentEntryOpt with
-    | None -> None
-    | Some parentEntry ->
-        let isMeRoot = me.nodeId = model.zoomRoot
-        let isParentRoot = parentEntry.nodeId = model.zoomRoot
-
-        if isMeRoot || isParentRoot then
-            None
-        else
-            let grandparentOpt =
-                parentEntry.parentInstanceId
-                |> Option.bind (fun id -> Map.tryFind id model.siteMap.entries)
-            match grandparentOpt with
-            | None -> None
-            | Some grandparent ->
-                match grandparent.children |> List.tryFindIndex ((=) parentEntry.instanceId) with
-                | Some idx ->
-                    let sibIdx = idx + delta
-                    if sibIdx >= 0 && sibIdx < grandparent.children.Length then
-                        let sibInstId = grandparent.children.[sibIdx]
-                        match Map.tryFind sibInstId model.siteMap.entries with
-                        | Some sibEntry when sibEntry.expanded -> Some sibEntry
-                        | _ -> None
-                    else
-                        None
-                | None -> None
+let parentSiblingTarget (delta: int) (me: SiteEntry) (model: VM) : (VM * SiteEntry) option =
+    ViewModel.parentSiblingTarget
+        delta
+        me
+        model.graph
+        model.siteMap
+        model.nextSiteId
+        model.zoomRoot
+    |> Option.map (fun (siteMap, nextSiteId, sibling) ->
+        { model with siteMap = siteMap; nextSiteId = nextSiteId }, sibling)
 
 type private InlineEditContext =
     { originalText: string
@@ -180,6 +157,37 @@ let moveNodeFromTo (stayAtSource: bool) (too: NodeRange) (model: VM) : VM * Effe
             | None, None -> movedModel, effects
 
 /// Alt+Up/Down: swap the selected range with the adjacent sibling. Delegates to moveNodeFromTo.
+let private moveIntoOpenParentSibling (delta: int) (range: SiteNodeRange) (model: VM) =
+    let edgeChild =
+        if delta = -1 then SiteNodeRange.firstChild else SiteNodeRange.lastChild
+
+    edgeChild range model.siteMap
+    |> Option.bind (fun child -> parentSiblingTarget delta child model)
+    |> Option.map (fun (model, sibling) ->
+        let siblingId = sibling.nodeId
+        let target =
+            if delta = -1 then
+                let insertIdx = model.graph.nodes.[siblingId].children.Length
+                { pnode = siblingId; start = insertIdx; endd = insertIdx }
+            else
+                { pnode = siblingId; start = 0; endd = 0 }
+        model, target)
+
+let private moveBesideParent (delta: int) (range: SiteNodeRange) (model: VM) =
+    if range.parent.nodeId = model.zoomRoot then
+        None
+    else
+        range.parent.parentInstanceId
+        |> Option.bind (fun parentInstId ->
+            SiteMap.siteChildIndex
+                model.siteMap (Some parentInstId) (Some range.parent.instanceId)
+            |> Option.map (fun parentIdx -> parentInstId, parentIdx))
+        |> Option.bind (fun (parentInstId, parentIdx) ->
+            Map.tryFind parentInstId model.siteMap.entries
+            |> Option.map (fun parent ->
+                let insertIdx = parentIdx + (if delta = -1 then 0 else 1)
+                { pnode = parent.nodeId; start = insertIdx; endd = insertIdx }))
+
 let moveNodeDelta (delta: int) (model: VM) : VM * Effect list =
     match model.selectedNodes with
     | None -> model, []
@@ -187,43 +195,26 @@ let moveNodeDelta (delta: int) (model: VM) : VM * Effect list =
         let range = sel.range
         let parentId = range.parent.nodeId
         let parentLen = model.graph.nodes.[parentId].children.Length
-        let too: NodeRange option =
+        let moveTarget: (VM * NodeRange) option =
             if delta < 0 && range.start > 0 then
                 // Move to before sibling above: insert at range.start - 1 (after the range ending there)
                 let s = if range.start = 1 then 0 else range.start - 2
-                Some { pnode = parentId; start = s; endd = range.start - 1 }
+                Some
+                    (model, { pnode = parentId; start = s; endd = range.start - 1 })
             elif delta > 0 && range.endd < parentLen then
                 // Move to after sibling below
-                Some { pnode = parentId; start = range.endd; endd = range.endd + 1 }
+                Some
+                    (model, { pnode = parentId; start = range.endd; endd = range.endd + 1 })
             elif delta = -1 || delta = 1 then
-                let moveToSib =
-                    (if delta = -1 then SiteNodeRange.firstChild else SiteNodeRange.lastChild) range model.siteMap
-                    |> Option.bind (fun child -> parentSiblingOpen delta child model)
-                    |> Option.map (fun sibEntry ->
-                        let sibId = sibEntry.nodeId
-                        if delta = -1 then
-                            let insertIdx = model.graph.nodes.[sibId].children.Length
-                            { pnode = sibId; start = insertIdx; endd = insertIdx }
-                        else
-                            { pnode = sibId; start = 0; endd = 0 })
-                let moveToGrandparent =
-                    if range.parent.nodeId = model.zoomRoot then
-                        None
-                    else
-                        range.parent.parentInstanceId
-                        |> Option.bind (fun gpid -> Map.tryFind gpid model.siteMap.entries)
-                        |> Option.bind (fun gp ->
-                            model.graph.nodes.[gp.nodeId].children
-                            |> List.tryFindIndex (fun child -> child.id = range.parent.nodeId)
-                            |> Option.map (fun parentIdx ->
-                                let insertIdx = parentIdx + (if delta = -1 then 0 else 1)
-                                { pnode = gp.nodeId; start = insertIdx; endd = insertIdx }))
-                moveToSib |> Option.orElseWith (fun () -> moveToGrandparent)
+                moveIntoOpenParentSibling delta range model
+                |> Option.orElseWith (fun () ->
+                    moveBesideParent delta range model
+                    |> Option.map (fun target -> model, target))
             else
                 None
-        match too with
+        match moveTarget with
         | None -> model, []
-        | Some t -> moveNodeFromTo false t model
+        | Some (targetModel, target) -> moveNodeFromTo false target targetModel
 
 
 // ---------------------------------------------------------------------------
@@ -233,74 +224,51 @@ let moveNodeDelta (delta: int) (model: VM) : VM * Effect list =
 /// Tab: make selected nodes children of the sibling immediately before them.
 /// No-op if the selection starts at index 0 (no previous sibling).
 let indentSelection (model: VM) : VM * Effect list =
-    match model.selectedNodes with
+    match planIndentSelection model with
     | None -> model, []
-    | Some staleSel ->
-        match ViewModel.refreshSelection model.graph model.siteMap staleSel with
-        | None -> model, []
-        | Some sel when sel.range.start = 0 -> model, []  // no previous sibling — no-op
-        | Some sel ->
-            let prevInstId = sel.range.parent.children.[sel.range.start - 1]
-            match Map.tryFind prevInstId model.siteMap.entries with
-            | None -> model, []
-            | Some prevEntry ->
-                let siteMap, nextId =
-                    if prevEntry.expanded then model.siteMap, model.nextSiteId
-                    else ViewModel.expandEntry prevInstId model.graph model.siteMap model.nextSiteId
-                let model = { model with siteMap = siteMap; nextSiteId = nextId }
-                let parentId = sel.range.parent.nodeId
-                let prevSibId = model.graph.nodes.[parentId].children.[sel.range.start - 1].id
-                let insertIdx = model.graph.nodes.[prevSibId].children.Length
-                let too: NodeRange =
-                    { pnode = prevSibId; start = max 0 (insertIdx - 1); endd = insertIdx }
-                let result, effects = moveNodeFromTo false too model
-                let result = withSiteMap result
-                // Ensure the new parent is expanded so the indented items are visible after reconcile
-                match Map.tryFind prevInstId result.siteMap.entries with
-                | Some entry when not entry.expanded ->
-                    let sm, nid =
-                        ViewModel.expandEntry entry.instanceId
-                            result.graph
-                            result.siteMap
-                            result.nextSiteId
-                    { result with siteMap = sm; nextSiteId = nid }, effects
-                | _ -> result, effects
+    | Some plan ->
+        let result, effects = moveNodeFromTo false plan.target plan.model
+        let result = withSiteMap result
+        let result =
+            match Map.tryFind plan.parentInstanceId result.siteMap.entries with
+            | Some entry when not entry.expanded ->
+                let sm, nid =
+                    ViewModel.expandEntry entry.instanceId result.graph result.siteMap result.nextSiteId
+
+                { result with siteMap = sm; nextSiteId = nid }
+            | _ -> result
+
+        match selectionAfterIndent plan result.siteMap with
+        | Some sel -> { result with selectedNodes = Some sel }, effects
+        | None -> result, effects
 
 /// Shift+Tab: make selected nodes siblings of their current parent (under grandparent).
 /// When the parent is the siteMap root, the move still succeeds and the siteMap root is
 /// shifted up to the grandparent so the moved nodes remain visible.
 let outdentSelection (model: VM) : VM * Effect list =
-    match model.selectedNodes with
+    match planOutdentSelection model with
     | None -> model, []
-    | Some sel ->
-        match Graph.tryFindParentAndIndex sel.range.parent.nodeId model.graph with
-        | None -> model, []  // parent is graph root — no-op
-        | Some (grandparentId, parentIdx) ->
-            let too: NodeRange =
-                { pnode = grandparentId; start = parentIdx; endd = parentIdx + 1 }
-            let result, effects = moveNodeFromTo false too model
-            let grandparentInSiteMap =
-                model.siteMap.entries
-                |> Map.exists (fun _ e -> e.nodeId = grandparentId)
-            if grandparentInSiteMap then
-                withSiteMap result, effects
-            else
-                // parent was the siteMap root — zoom out to grandparent
-                let siteMap, nextId =
-                    ViewModel.buildSiteMapFrom result.graph grandparentId result.nextSiteId
-                let grandparentEntry = siteMap.entries.[siteMap.rootId]
-                let count = sel.range.endd - sel.range.start
-                let lo = sel.focus - sel.range.start
-                let insertIdx = parentIdx + 1
-                let newSel =
-                    { range =
-                        { parent = grandparentEntry
-                          start = insertIdx
-                          endd = insertIdx + count }
-                      focus = insertIdx + lo }
-                { result with
-                    zoomRoot = grandparentId
-                    siteMap = siteMap
-                    nextSiteId = nextId
-                    selectedNodes = Some newSel }, effects
+    | Some plan ->
+        let result, effects = moveNodeFromTo false plan.target plan.model
+
+        match plan.afterMove with
+        | ReconcileCurrentZoom -> withSiteMap result, effects
+        | ZoomOutToGrandparent (grandparentId, parentIdx, count, focusOffset) ->
+            let siteMap, nextId =
+                ViewModel.buildSiteMapFrom result.graph grandparentId result.nextSiteId
+
+            let grandparentEntry = siteMap.entries.[siteMap.rootId]
+            let insertIdx = parentIdx + 1
+            let newSel =
+                { range =
+                    { parent = grandparentEntry
+                      start = insertIdx
+                      endd = insertIdx + count }
+                  focus = insertIdx + focusOffset }
+
+            { result with
+                zoomRoot = grandparentId
+                siteMap = siteMap
+                nextSiteId = nextId
+                selectedNodes = Some newSel }, effects
 

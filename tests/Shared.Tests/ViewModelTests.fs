@@ -958,11 +958,62 @@ let ``nodeHasExpandedChildren false when collapsed or leaf`` () =
     let graph, cont, _ = buildNested ()
     let siteMap, nextId = buildSiteMapFrom graph cont (Sid 0)
     let aInstId = siteMap.entries.[siteMap.rootId].children.[0]
-    Assert.False(SiteMap.nodeHasExpandedChildren siteMap (Some aInstId))
+    Assert.False(SiteMap.nodeIsExpanded siteMap (Some aInstId))
     let sm2, _ = expandEntry aInstId graph siteMap nextId
-    Assert.True(SiteMap.nodeHasExpandedChildren sm2 (Some aInstId))
+    Assert.True(SiteMap.nodeIsExpanded sm2 (Some aInstId))
     let a1InstId = sm2.entries.[aInstId].children.[0]
-    Assert.False(SiteMap.nodeHasExpandedChildren sm2 (Some a1InstId))
+    Assert.False(SiteMap.nodeIsExpanded sm2 (Some a1InstId))
+
+[<Fact>]
+let ``parentSiblingTarget expands collapsed sibling with children`` () =
+    let graph, cont, _ = buildNested ()
+    let siteMap, nextId = buildSiteMapFrom graph cont (Sid 0)
+    let rootEntry = siteMap.entries.[siteMap.rootId]
+    let aInstId = rootEntry.children.[0]
+    let bInstId = rootEntry.children.[1]
+    let siteMap, nextId = expandEntry aInstId graph siteMap nextId
+    let a1InstId = siteMap.entries.[aInstId].children.[0]
+    let a1Entry = siteMap.entries.[a1InstId]
+
+    match parentSiblingTarget 1 a1Entry graph siteMap nextId cont with
+    | None -> Assert.True(false, "expected sibling target")
+    | Some (siteMap2, _, sibling) ->
+        Assert.Equal(bInstId, sibling.instanceId)
+        Assert.True(sibling.expanded)
+        Assert.Single(siteMap2.entries.[bInstId].children) |> ignore
+
+[<Fact>]
+let ``parentSiblingTarget accepts collapsed leaf sibling`` () =
+    let graph0 = Graph.create ()
+    let graph1, contIds = ModelBuilder.createNodes [ "container" ] graph0
+    let cont = contIds.[0]
+    let graph2, ids = ModelBuilder.createNodes [ "a"; "b"; "a1" ] graph1
+    let a = ids.[0]
+    let b = ids.[1]
+    let a1 = ids.[2]
+    let graph3 =
+        Graph.replace graph2.root 0 [] (owned [ cont ]) graph2
+        |> ModelBuilder.requireOk "leafSibling.root"
+    let graph4 =
+        Graph.replace cont 0 [] (owned [ a; b ]) graph3
+        |> ModelBuilder.requireOk "leafSibling.cont"
+    let graph =
+        Graph.replace a 0 [] (owned [ a1 ]) graph4
+        |> ModelBuilder.requireOk "leafSibling.a"
+    let siteMap, nextId = buildSiteMapFrom graph cont (Sid 0)
+    let rootEntry = siteMap.entries.[siteMap.rootId]
+    let aInstId = rootEntry.children.[0]
+    let bInstId = rootEntry.children.[1]
+    let siteMap, nextId = expandEntry aInstId graph siteMap nextId
+    let a1InstId = siteMap.entries.[aInstId].children.[0]
+    let a1Entry = siteMap.entries.[a1InstId]
+
+    match parentSiblingTarget 1 a1Entry graph siteMap nextId cont with
+    | None -> Assert.True(false, "expected sibling target")
+    | Some (_, nextId2, sibling) ->
+        Assert.Equal(bInstId, sibling.instanceId)
+        Assert.False(sibling.expanded)
+        Assert.Equal(nextId, nextId2)
 
 // ---------------------------------------------------------------------------
 // SiteMap.siteFirstChild / siteLastChild / siteNext / sitePrev

@@ -32,6 +32,8 @@
     <Compile Include="NodeDesktopPath.fs" />
     <Compile Include="DocumentPartition.fs" />
     <Compile Include="ViewModelOps.fs" />
+    <Compile Include="ViewModelJoinOps.fs" />
+    <Compile Include="ViewModelMoveOps.fs" />
     <Compile Include="ViewModelDeleteOps.fs" />
     <Compile Include="ViewModelSearch.fs" />
     <Compile Include="ViewModelFileSearch.fs" />
