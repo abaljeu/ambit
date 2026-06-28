@@ -201,7 +201,7 @@ let allCommands : CommandEntry list =
           keys = [ "/"; "Ctrl+f" ]; keyScope = SelectionOrEditing
           category = Primary; iconId = Some "amb-icon-find" }
         { id = EditClasses; name = "Edit classes"
-          keys = [ "Alt+C"; "." ]; keyScope = SelectionOrEditing
+          keys = [ "."; "Alt+." ]; keyScope = SelectionOrEditing
           category = Format; iconId = Some "amb-icon-edit-classes" }
         { id = JumpToTarget; name = "Jump to Target"
           keys = [ "Alt+j"; "j" ]; keyScope = SelectionOrEditing

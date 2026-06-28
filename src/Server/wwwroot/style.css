@@ -163,7 +163,7 @@ body {
     display: flex;
     position: relative;
     /*gap: 0.2rem;*/
-    background: #ccc;
+    background: #ddd;
     padding: 0.17em 0 0.17em 0;
 }
 .amb-file-indicator {
@@ -179,7 +179,7 @@ body {
 .amb-indent {
     width: 1.5rem;
     flex-shrink: 0;
-    background: #dddddd88;
+    background: #eeeeee44
 }
 .amb-fold-toggle {
     display: inline-block;
@@ -198,7 +198,7 @@ body {
     flex-shrink: 0;
     font-size:1em;
     font-weight:bolder;
-    color: #88f;
+    color: #d22;
     align-self: center;
 }
 .amb-view-root {
@@ -335,7 +335,7 @@ body {
 }
 .amb-dialog-results li:hover,
 .amb-dialog-results li.amb-dialog-selected {
-    background: #e8f0fe;
+    background: #a8d0fe;
 }
 
 /* Blocking sync-risk alert (above palette z-index) */
@@ -387,13 +387,13 @@ body {
     background: #e8e8e4;
 }
 .amb-row.amb-selected {
-    background: #e0e0ffcc;
+    background: #c8c6;
 }
 .amb-row.amb-focused {
-    background: #bbe;
+    background: #a8f6;
 }
 .amb-text {
-    background: #eeeeee80;
+    background: #eeeeee44;
     border: 1px transparent;
 }
 .amb-row-special-workspaces .amb-text {

@@ -82,6 +82,9 @@ module SiteMap =
 
     /// Previous sibling under the same parent. Root has no siblings.
     let sitePrev = siteSiblingOffset -1
+    let nodeHasExpandedChildren (siteMap: SiteMap) (instanceId: SiteId option) : bool =
+        withEntry siteMap instanceId (fun e -> if e.expanded then Some () else None)
+        |> Option.isSome
 
 /// Carries a fixed SiteMap and a current position. Every step is `SiteNav -> SiteNav`,
 /// so paths compose freely with `>>` without repeating `siteMap`.

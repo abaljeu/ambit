@@ -156,6 +156,9 @@ let private makeRowElement
         textDiv.addEventListener("mousedown", fun (ev: Event) ->
             ev.stopPropagation()
         )
+        textDiv.addEventListener("dblclick", fun (ev: Event) ->
+            ev.stopPropagation()
+        )
         textDiv.addEventListener("paste", fun ev -> onPaste ev dispatch)
         textDiv.addEventListener("copy", fun ev -> onCopyWhileEditing model ev dispatch)
         textDiv.addEventListener("cut", fun ev -> onCutWhileEditing model ev dispatch)

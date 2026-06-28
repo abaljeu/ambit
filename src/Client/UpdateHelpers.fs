@@ -190,6 +190,7 @@ let commitTextEdit
 /// Split the currently-edited node at the cursor position.
 ///
 /// cursor at 0   → blank sibling inserted above; current node keeps its text; focus moves to the new blank node.
+/// cursor > 0, expanded with children → text-after becomes first child; focus at start of new child.
 /// cursor > 0    → current node gets text-before; new sibling gets text-after; focus at start of new node.
 let splitNode (currentText: string) (cursorPos: int) (model: VM) : VM * Effect list =
     match model.mode, model.selectedNodes with
@@ -198,30 +199,37 @@ let splitNode (currentText: string) (cursorPos: int) (model: VM) : VM * Effect l
         commitTextEdit (viewRootNodeId model) originalText (readEditInputValue ()) model
     | Editing (originalText, _), Some sel ->
         // The node being edited is the focus node.
-        let selectedId  = focusedNodeId model.graph sel
-        let modelText = model.graph.nodes.[selectedId].text
+        let focusedId  = focusedNodeId model.graph sel
+        let modelText = model.graph.nodes.[focusedId].text
         let parentId    = sel.range.parent.nodeId
         let indexInParent = sel.focus
         let clampedPos = max 0 (min cursorPos currentText.Length)
         let textBefore = currentText.[..clampedPos - 1]
         let textAfter  = currentText.[clampedPos..]
         let newChild = ChildNode.New()
+        let newId = newChild.id
 
-        let (insertIndex, newNodeText, focusId, focusText) =
+        let focusedHasExpandedChildren =
+            SiteMap.nodeHasExpandedChildren model.siteMap (focusedInstanceId sel)
+
+        let (newNodeOwner, insertIndex, newNodeText) =
             if clampedPos = 0 then
                 // blank node above; focus moves to the new blank node
-                (indexInParent, "", newChild.id, "")
+                (parentId, indexInParent, textBefore)
+            elif focusedHasExpandedChildren then
+                // text-after becomes first child of expanded focused node
+                (focusedId, 0, textAfter)
             else
                 // new node after; focus moves to new node
-                (indexInParent + 1, textAfter, newChild.id, textAfter)
+                (parentId, indexInParent + 1, textAfter)
 
         let ops =
             [ yield Op.NewNode(newChild.id, newNodeText)
-              yield Op.Replace(parentId, insertIndex, [], [ newChild ])
+              yield Op.Replace(newNodeOwner, insertIndex, [], [ newChild ])
               // update current node's text only when it actually changes
               let updatedText = if clampedPos = 0 then currentText else textBefore
               if updatedText <> modelText then
-                  yield Op.SetText(selectedId, modelText, updatedText) ]
+                  yield Op.SetText(focusedId, modelText, updatedText) ]
 
         let change: Change =
             { id = model.revision.Value
@@ -235,19 +243,25 @@ let splitNode (currentText: string) (cursorPos: int) (model: VM) : VM * Effect l
             let m2 = { m with siteMap = siteMap; nextSiteId = nextId }
             let focusInstId =
                 if clampedPos = 0 then
-                    focusedInstanceId sel |> Option.defaultValue (Sid -1)
+                    focusedInstanceId sel
                 else
-                    match Map.tryFind sel.range.parent.instanceId m2.siteMap.entries with
-                    | Some p when insertIndex < p.children.Length ->
-                        p.children.[insertIndex]
-                    | _ -> Sid -1
+                    let ownerInstId =
+                        if newNodeOwner = focusedId then
+                            focusedInstanceId sel
+                        else
+                            Some sel.range.parent.instanceId
+                    ownerInstId
+                    |> Option.bind (fun id -> Map.tryFind id m2.siteMap.entries)
+                    |> Option.bind (fun p ->
+                        if insertIndex < p.children.Length then Some p.children.[insertIndex]
+                        else None)
             let newSel =
-                singleSelectionForInstance m2.siteMap focusInstId
-                |> Option.orElseWith
-                    (fun () -> singleSelection m2.graph m2.siteMap focusId)
+                focusInstId
+                |> Option.bind (singleSelectionForInstance m2.siteMap)
+                |> Option.orElseWith (fun () -> singleSelection m2.graph m2.siteMap newId)
             { m2 with
                 selectedNodes = newSel
-                mode = Editing (focusText, EditCaret.Utf16Index 0) }, effects
+                mode = Editing (newNodeText, EditCaret.Utf16Index 0) }, effects
         | None, _ -> model, []
     | _ -> model, []
 

@@ -953,6 +953,17 @@ let ``SiteMap parentByInstanceId matches entries after build and expand`` () =
     let sm2, _ = expandEntry aInstId graph siteMap nextId
     assertParentIndexMatchesEntries sm2
 
+[<Fact>]
+let ``nodeHasExpandedChildren false when collapsed or leaf`` () =
+    let graph, cont, _ = buildNested ()
+    let siteMap, nextId = buildSiteMapFrom graph cont (Sid 0)
+    let aInstId = siteMap.entries.[siteMap.rootId].children.[0]
+    Assert.False(SiteMap.nodeHasExpandedChildren siteMap (Some aInstId))
+    let sm2, _ = expandEntry aInstId graph siteMap nextId
+    Assert.True(SiteMap.nodeHasExpandedChildren sm2 (Some aInstId))
+    let a1InstId = sm2.entries.[aInstId].children.[0]
+    Assert.False(SiteMap.nodeHasExpandedChildren sm2 (Some a1InstId))
+
 // ---------------------------------------------------------------------------
 // SiteMap.siteFirstChild / siteLastChild / siteNext / sitePrev
 // ---------------------------------------------------------------------------
