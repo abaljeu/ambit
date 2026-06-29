@@ -27,13 +27,13 @@ let ``scopeInEditing includes editing scopes only`` () =
 
 [<Fact>]
 let ``allCommands has unique ids for every CommandId case`` () =
-    Assert.Equal(50, allCommands.Length)
-    let ids = allCommands |> List.map (fun e -> e.id)
-    Assert.Equal(allCommands.Length, List.distinct ids |> List.length)
     let unionCases =
         FSharpType.GetUnionCases typeof<CommandId>
         |> Array.map (fun c -> unbox<CommandId> (FSharpValue.MakeUnion(c, [||])))
         |> Set.ofArray
+    Assert.Equal(unionCases.Count, allCommands.Length)
+    let ids = allCommands |> List.map (fun e -> e.id)
+    Assert.Equal(allCommands.Length, List.distinct ids |> List.length)
     let tableIds = ids |> Set.ofList
     Assert.True((unionCases = tableIds))
 

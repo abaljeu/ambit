@@ -106,7 +106,7 @@ let private artifactMap (graph: Graph) : Map<string, string> =
         if DocumentPartition.isDocumentRootNode graph id then
             DocumentPartition.artifactFileRelative graph id
             |> Option.bind (fun rel ->
-                match AmbDocument.write graph id with
+                match DocumentFormat.writeArtifact graph id rel None with
                 | Ok text -> Some (rel, text)
                 | Error _ -> None)
         else

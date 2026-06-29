@@ -213,16 +213,28 @@ module DocumentPersistence =
                 if not (String.IsNullOrEmpty parent) then
                     Directory.CreateDirectory parent |> ignore
 
-                match AmbDocument.write graph documentRootId with
+                let relativePath =
+                    DocumentPartition.artifactFileRelative graph documentRootId
+                    |> function
+                        | None -> Error "no artifact path for document root"
+                        | Some rel -> Ok rel
+
+                match relativePath with
                 | Error msg -> Error msg
-                | Ok text ->
-                    try
-                        let tmpPath = fullPath + ".tmp"
-                        File.WriteAllText(tmpPath, text)
-                        File.Move(tmpPath, fullPath, true)
-                        Ok fullPath
-                    with ex ->
-                        Error ex.Message
+                | Ok rel ->
+                    let previousText =
+                        if File.Exists fullPath then Some(File.ReadAllText fullPath) else None
+
+                    match DocumentFormat.writeArtifact graph documentRootId rel previousText with
+                    | Error msg -> Error msg
+                    | Ok text ->
+                        try
+                            let tmpPath = fullPath + ".tmp"
+                            File.WriteAllText(tmpPath, text)
+                            File.Move(tmpPath, fullPath, true)
+                            Ok fullPath
+                        with ex ->
+                            Error ex.Message
 
     let writeAllDocuments (dataDir: string) (graph: Graph) : Result<string list, string> =
         let baseDir = dataDirBase dataDir

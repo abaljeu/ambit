@@ -97,7 +97,7 @@ Format rules:
 - Ref-only lines round-trip at the correct depth; inline refs stay plain text.
 - Reconciled import preserves user `cssClasses`; unsupported constructs produce diagnostics.
 
-Dispatch and persistence (assembly/persistence tests):
+Dispatch and persistence (assembly/persistence tests): see [[doc/roadmap/workspace-format-dispatch.md]].
 
 - `.amb` paths classify to Amb codec; non-`.amb`, non-`.md` file paths classify to Plain codec; `.md` remains unimplemented.
 - A `Special File` named `readme.txt` writes plain text, not `.amb` stable-id syntax; `readAllDocuments` reads it back through the plain codec.

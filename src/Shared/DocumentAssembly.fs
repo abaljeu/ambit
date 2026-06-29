@@ -142,44 +142,6 @@ module DocumentAssembly =
             let nodes = Map.add documentRootId (stubNode descriptor documentRootId) graph.nodes
             Graph.fromNodes graph.root nodes
 
-    let mergeReadResult (context: Graph) (readResult: AmbDocumentReadResult) : Result<Graph, string> =
-        let graphWithRead = { context with nodes = readResult.nodes }
-        let overlayIds =
-            DocumentPartition.memberNodeIds graphWithRead readResult.documentRootId
-            |> Set.filter (fun nodeId ->
-                nodeId = readResult.documentRootId
-                || not (
-                    DocumentPartition.isNestedDocumentRootBoundary
-                        graphWithRead
-                        readResult.documentRootId
-                        nodeId))
-
-        let conflict =
-            overlayIds
-            |> Seq.tryPick (fun nodeId ->
-                match Map.tryFind nodeId context.nodes, Map.tryFind nodeId readResult.nodes with
-                | Some existing, Some incoming when
-                    existing.text <> incoming.text
-                    || existing.name <> incoming.name
-                    || existing.kind <> incoming.kind
-                    ->
-                    Some ("conflicting node definition: " + AmbDocument.formatStableId nodeId)
-                | _ -> None)
-
-        match conflict with
-        | Some msg -> Error msg
-        | None ->
-            let mergedNodes =
-                overlayIds
-                |> Set.fold
-                    (fun nodes nodeId ->
-                        match Map.tryFind nodeId readResult.nodes with
-                        | Some node -> Map.add nodeId node nodes
-                        | None -> nodes)
-                    context.nodes
-
-            Ok (Graph.fromNodes context.root mergedNodes)
-
     let validateAssembledGraph (graph: Graph) : Result<Graph, string> =
         let missingChild =
             graph.nodes
@@ -219,11 +181,11 @@ module DocumentAssembly =
 
     let private readArtifact
         (graph: Graph)
+        (relativePath: string)
         (text: string)
         (docId: NodeId)
         : Result<Graph, string> =
-        AmbDocument.read text docId graph
-        |> Result.bind (mergeReadResult graph)
+        DocumentFormat.readArtifact relativePath text docId graph
 
     let private seedNestedRefStubs
         (graph: Graph)
@@ -267,7 +229,7 @@ module DocumentAssembly =
                             (graph, seen, rest)
                         |> Result.bind (fun (graph', seen', queue') ->
                             let graph'' = seedStub graph' descriptor docId
-                            readArtifact graph'' text docId
+                            readArtifact graph'' relativePath text docId
                             |> Result.bind (fun graphAfterRead ->
                                 assembleLoop artifacts seen' queue' graphAfterRead)))
 

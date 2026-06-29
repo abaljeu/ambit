@@ -70,9 +70,9 @@ When a Correction is described below, the meaning is that the item previous is d
 - `[x]` Correction: add command support for free-form special-node ownership (including under `normal` and `file` nodes) while keeping persistence ownership rules explicit.
 - `[x]` Stage 7: Step 1: server `DataDir` live-save of `.amb` document artifacts for workspace, directory, and file roots regardless of logical extension; path layout per [[doc/roadmap/workspace-file-persistence.md]].
 - `[x]` Stage 7: Step 2: unified filesystem moves from `DocumentPathMove` (rename, reparent, soft delete to TRASH).
-- `[ ]` Stage 7: Step 3: git persistence for per-document artifacts ([[doc/roadmap/git-sync-gateway.md]]).
-- `[ ]` Stage 7: Step 4: hard delete under TRASH removes on-disk artifacts.
-- `[ ]` Stage 7: Step 5: generic text read/write for `Special File` artifacts whose path is neither `.amb` nor `.md`; workspace and directory documents stay on `.amb`. Format spec: [[doc/roadmap/workspace-format-plain.md]]. Reconciliation contract: [[doc/roadmap/workspace-text-outline-conversion.md]] § Generic text reconciliation. Adds a document-format dispatch boundary in the read/write layer (`DocumentAssembly`, `DocumentPersistence`); DB/graph identity remains authoritative — no filesystem watcher.
+- `[x]` Stage 7: Step 3: git persistence for per-document artifacts ([[doc/roadmap/git-sync-gateway.md]]).
+- `[x]` Stage 7: Step 4: hard delete under TRASH removes on-disk artifacts.
+- `[x]` Stage 7: Step 5: generic text read/write for `Special File` artifacts whose path is neither `.amb` nor `.md`; workspace and directory documents stay on `.amb`. Format spec: [[doc/roadmap/workspace-format-plain.md]]. Reconciliation contract: [[doc/roadmap/workspace-text-outline-conversion.md]] § Generic text reconciliation. Dispatch plan: [[doc/roadmap/workspace-format-dispatch.md]]. Adds a document-format dispatch boundary in the read/write layer (`DocumentAssembly`, `DocumentPersistence`).
 - `[ ]` Deferred: Support markdown text file format.
 - 
 - `[x]` Stage 8: snapshot integration — existing write path (`Snapshot.write` / `FileAgent` / db backup) emits ROOT plus per-document artifacts; incremental persist skips unchanged documents.

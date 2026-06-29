@@ -186,6 +186,20 @@ module PlainTextDocument =
                     { node with cssClasses = contextNode.cssClasses }
                 | _ -> node)
 
+    let complementForWrite
+        (graph: Graph)
+        (documentRootId: NodeId)
+        (previousText: string option)
+        : PlainTextComplement =
+        let indentStyle =
+            match previousText with
+            | None -> PlainTextIndentStyle.Tabs
+            | Some text ->
+                let style, _ = parseOutlineLines text
+                style
+
+        buildComplement indentStyle graph documentRootId
+
     let private mergeOwnerNode
         (nodeId: NodeId)
         (text: string)
