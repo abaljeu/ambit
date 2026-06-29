@@ -1,0 +1,16 @@
+---
+alwaysApply: true
+---
+
+Windows 10. GIT Bash shell. Use it.
+
+Your working directory is the project root. Do not use `cd`. Do not change directories.
+Use relative paths such as ./src. Do not use absolute paths.
+
+Don't use git unless asked. Do not run VSCode Tasks.
+
+The linter is never able to handle project edits until the environment reloads. Don't let this stop you.
+
+Occasionally the first time you send a command, the tool will delete the first character of your command. If so, just send it again.
+
+When writing with Write, do not include explicit CRLF (`\r\n`) in the content; use normal newlines and let the tool/editor preserve CRLF.

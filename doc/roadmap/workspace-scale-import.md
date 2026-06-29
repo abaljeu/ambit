@@ -1,12 +1,12 @@
 # Workspace Scale Import
 
-See also: [[doc/roadmap/workspace-scale-file-and-db-management.md]]
+See also: [[doc/roadmap/workspace-scale-file-and-db-management.md]], [[doc/roadmap/git-sync-gateway.md]], [[doc/roadmap/workspace-format-amb.md]], [[doc/roadmap/workspace-format-md.md]], [[doc/roadmap/workspace-format-plain.md]], [[doc/roadmap/workspace-format-code.md]]
 
-A good first valuable slice would be:
+Sequencing: **Slice 1** (outliner ↔ files on one machine) then **Slice 2** (git pull/push to a desktop clone). Slice 2 is fully specified in [[doc/roadmap/git-sync-gateway.md]].
 
 # Slice 1: repo file-tree browsing + on-demand parse/edit for individual files
 
-Not full repo-scale querying, not stale reconciliation, not multi-client yet.
+Not full repo-scale querying, not stale reconciliation after pull, not multi-client graph merge yet.
 
 ## What it gives you
 
@@ -163,3 +163,18 @@ This slice is successful if you can:
 - and nothing surprising happens.
 
 That is a useful product even before repo-wide search or advanced sync exists.
+
+# Slice 2: git sync to desktop (git gateway)
+
+See [[doc/roadmap/git-sync-gateway.md]] for protocol, credentials, and server module boundaries.
+
+## What it adds to slice 1
+
+- Same repo at `{DataDir}/@{label}/` on the server and a local clone via desktop workspace mapping.
+- **Pull:** server JIT commit if dirty, then `git pull origin`; client merge; stale/reparse on changed files.
+- **Push:** `git push origin`; server accepts only fast-forward when its working tree is clean.
+- Stock git on desktop; dumb git gateway on the server — no server-side merge.
+
+## Prerequisite
+
+Slice 1 behaviors (tree, autosave, local commit, stale on expand). Stage 7 `DataDir` live-save is implemented ([[doc/current/workspace-stage-plan.md]] §7). Slice 2 does not replace HTTP graph sync; it is explicit coarse file sync between machines.

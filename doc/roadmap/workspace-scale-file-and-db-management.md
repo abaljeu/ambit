@@ -1,9 +1,19 @@
 # Workspace scale file and db management
 
-See also: [[doc/roadmap/workspace-scale-import.md]]
+See also: [[doc/roadmap/workspace-scale-import.md]], [[doc/roadmap/git-sync-gateway.md]], [[doc/roadmap/workspace-file-persistence.md]], [[doc/roadmap/workspace-file-model.md]]
 
-This document was created from discussions without looking at gambol sources.  Consequently terms and details may need to be adapted.  `Repo` maps directly onto this project's concept of `workspace`.
+This document is the **umbrella vision** for repo-scale outliner behavior (lazy materialization, residency, queries, identity). **Rollout** is sliced in [[doc/roadmap/workspace-scale-import.md]]; do not treat everything here as slice 1. This file was created from discussions without looking at gambol sources — terms and details may need adaptation. `Repo` maps directly onto this project's concept of `workspace`.
 
+## Rollout
+
+Committed sequencing (authoritative detail in linked docs):
+
+1. **Stage 7 `DataDir`** — `{DataDir}/@{label}/` live-save and path moves — **done** ([[doc/current/workspace-stage-plan.md]] §7).
+2. **Slice 1** — repo tree in outline, expand-to-parse, autosave, local `git commit`, stale on external change ([[doc/roadmap/workspace-scale-import.md]] § Slice 1).
+3. **Slice 2** — desktop clone sync via git gateway: pull (server JIT commit first), push (server clean, fast-forward only), client-side merge ([[doc/roadmap/git-sync-gateway.md]]).
+4. **Later** — sections below marked *deferred*: server lazy DB residency, client file LRU, query model, annotation migration, git object model in the outline.
+
+Slice 1 can use disk + graph path nodes without the full DB materialization model in this doc. Long-term, repo metadata and parsed nodes live in PostgreSQL as described here.
 
 ## Core goal
 
@@ -12,8 +22,8 @@ You want **transparent repo browsing/editing** inside the outliner:
 - Git repo appears as an outline tree.
 - Files can be expanded into parsed outline structure.
 - Editing outline nodes writes immediately back to source files.
-- Commit is manual, and also happens before import/export sync operations.
-- Git handles merging/conflict resolution.
+- Commit is manual at repo root; server **JIT commit** only before serving pull (slice 2).
+- Git handles merge and conflict resolution on the **client**; the server git gateway does not merge.
 - The outliner preserves node identity, links, annotations, and roundtripping as much as possible.
 
 ---
@@ -68,10 +78,10 @@ Under it:
 The repo boundary matters for:
 
 - Commit command.
-- Import/export sync.
+- Pull / push (git sync between server `DataDir` and desktop clone).
 - Gitignore scope.
-- Activation/residency.
-- Search/query scoping.
+- Activation/residency (*deferred* beyond slice 1).
+- Search/query scoping (*deferred*).
 
 The file boundary matters for:
 
@@ -106,7 +116,9 @@ So the design assumes:
 
 ---
 
-## Server-side residency
+## Server-side memory management
+
+*Deferred beyond slice 1 — policy target for repo-at-scale.*
 
 Current server loads the whole DB into memory.
 
@@ -125,7 +137,9 @@ So:
 
 ---
 
-## Client-side residency
+## Client-side residency memory management
+
+*Deferred beyond slice 1 — policy target for repo-at-scale.*
 
 Client has same logical data model as server, but stricter memory constraints.
 
@@ -164,21 +178,30 @@ This keeps repo use transparent:
 
 ## Commit and sync model
 
-Commit cadence:
+Authoritative wire protocol: [[doc/roadmap/git-sync-gateway.md]]. Summary:
 
-1. **Manual commit command** at repo root.
-2. **Automatic pre-commit step** before import/export network operations.
+**Commit cadence**
 
-Multi-client / automation coherence is handled optimistically:
+1. **Manual** `git commit` at repo root (desktop or server UI) — autosave is not commit.
+2. **Server JIT commit** before serving pull — flush graph to disk, then `git commit` if the work tree is dirty (`gambol: autosave before pull`).
+3. **Desktop commit** before push — user commits locally, then `git push origin`.
 
-1. Incoming changes arrive.
-2. Current local changes are committed first.
-3. Incoming changes are applied.
-4. Git performs merge.
-5. Conflicts are left to git.
-6. Changed files are marked stale for the outliner.
+**Pull (server → desktop)**
 
-So multi-client incoherence collapses into the existing “external file changed” problem.
+1. Gateway flushes `DocumentPersistence` for the workspace.
+2. JIT commit on server if needed.
+3. Desktop runs `git pull origin`; merge/rebase and conflicts are handled locally with git.
+4. Changed files are marked **stale** in the outliner; reparse on expand or explicit action.
+
+**Push (desktop → server)**
+
+1. Desktop pushes only after local commit.
+2. Server **rejects** if its work tree is dirty or the push is not **fast-forward**.
+3. No server-side merge — client must pull, merge locally, and push again.
+
+Multi-machine file coherence therefore collapses into the existing “external file changed” problem (stale flags), not graph merge at the server.
+
+HTTP change batches ([[doc/current/sync-mvp.md]]) remain for live editing; git pull/push is explicit coarse sync between machines (slice 2).
 
 ---
 
@@ -232,6 +255,8 @@ Serializer uses the parsed structure plus captured layout details to roundtrip t
 ---
 
 ## Query model
+
+*Deferred beyond slice 1.*
 
 Queries must return **node IDs**.
 
@@ -379,7 +404,13 @@ Editing:
 
 Commit:
   manual at repo root
-  automatic before import/export
+  server JIT commit before pull (slice 2)
+  desktop commit before push (slice 2)
+
+Sync (slice 2):
+  pull: server flush + JIT commit, client git pull, mark stale
+  push: FF only, server work tree must be clean
+  merge on client only
 
 External changes:
   mark files/subtrees stale
@@ -390,11 +421,7 @@ External changes:
 
 ## The next concrete decision
 
-If we continue, I think the next thing to nail down is:
-
-**What is the exact lifecycle of a file node?**
-
-For example:
+Slice 1 scope: nail the **file node lifecycle** ([[doc/roadmap/workspace-scale-import.md]]). For example:
 
 ```text
 discovered stub
@@ -407,4 +434,4 @@ discovered stub
   -> reparsed
 ```
 
-That lifecycle will tell you what metadata and commands you actually need first.
+That lifecycle defines metadata and commands for slice 1. Slice 2 adds pull/push on top once `DataDir` and slice 1 behaviors exist.

@@ -63,10 +63,9 @@ Data under `/home/data` persists across redeploys — the zip only overwrites `/
 | App | https://collaborative-systems.org/ambit |
 | Login | https://collaborative-systems.org/ambit/login |
 
-## Redirect from cPanel host
+## Custom domain (cPanel host)
 
-`/.htaccess` redirects `/ambit` (and subpaths) to Azure via proxy.php.
-Upload `.htaccess` to the cPanel host root after any changes.
+Production URL: `https://collaborative-systems.org/ambit`. The cPanel server transparently forwards `/ambit` to Azure; it does not run Gambol. Implementation: [[doc/reference/cpanel-transparent-proxy.md]].
 
 ## Troubleshooting
 

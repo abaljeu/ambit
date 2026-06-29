@@ -11,7 +11,7 @@ It is about shared identity and persistence shape, not source-level implementati
 Scope note: this is a target-scope design document.
 Current implemented behavior is summarized in [[doc/current/workspace-graph.md]].
 
-Stage implementation scope and sequencing are tracked in [[doc/roadmap/workspace-stage-plan.md]].  For each implementation stage, refer to this file for details.
+Stage implementation scope and sequencing are tracked in [[doc/current/workspace-stage-plan.md]].  For each implementation stage, refer to this file for details.
 
 ## Purpose
 
@@ -63,25 +63,24 @@ When a Correction is described below, the meaning is that the item previous is d
 - `[x]` Stage 4: desktop-local API resolves workspace label + relative path via readonly local mapping
   (interim `/_desktop/file` API — [[doc/current/desktop-local-files.md]]).
 - `[x]` Correction: align reference docs to namespace semantics (anchors, `DirStep`/`FileStep`, `^`) instead of path-only framing.
-- `[~]` Stage 5: client UI shows unresolved-reference indicators; file-status uses desktop query surface for locally mapped paths (primary server live-save not wired; full unresolved `@label:` UI not done). **Deferred** — bypassed for Stage 6; server file-status waits on Stage 7.
+- `[~]` Stage 5: client UI shows unresolved-reference indicators; file-status uses desktop query surface for locally mapped paths (server live-save wired — Stage 7; full unresolved `@label:` UI not done). **Deferred** — bypassed for Stage 6.
 - `[ ]` Correction: unresolved UI should cover namespace resolution failures across workspace, directory, and file scopes.
-- `[ ]` Correction: file-status queries server persistence when Stage 7 is wired; desktop query remains for secondary mapped paths until then.
+- `[ ]` Correction: file-status queries server persistence; desktop query remains for secondary mapped paths.
 - `[x]` Stage 6: **Insert…** and **Rename** (F2) for workspace, directory, and file structure; TRASH becomes `Special Directory` with `Node.name = TRASH`; shared `DocumentPathMove` planners (rename, reparent, move-to-TRASH) — graph ops and tests only, no server I/O.
 - `[x]` Correction: add command support for free-form special-node ownership (including under `normal` and `file` nodes) while keeping persistence ownership rules explicit.
-- `[ ]` Stage 7: Step 1: server `DataDir` live-save of `.amb` document artifacts for workspace, directory, and file roots regardless of logical extension; path layout per [[doc/roadmap/workspace-file-persistence.md]].
-- `[ ]` Stage 7: Step 2: unified filesystem moves from `DocumentPathMove` (rename, reparent, soft delete to TRASH).
-- `[ ]` Stage 7: Step 3: backup rotation (`.bak.{date}`) on `.amb` overwrites.
+- `[x]` Stage 7: Step 1: server `DataDir` live-save of `.amb` document artifacts for workspace, directory, and file roots regardless of logical extension; path layout per [[doc/roadmap/workspace-file-persistence.md]].
+- `[x]` Stage 7: Step 2: unified filesystem moves from `DocumentPathMove` (rename, reparent, soft delete to TRASH).
+- `[ ]` Stage 7: Step 3: git persistence for per-document artifacts ([[doc/roadmap/git-sync-gateway.md]]).
 - `[ ]` Stage 7: Step 4: hard delete under TRASH removes on-disk artifacts.
-- `[ ]` Deferred: Support generic text file format.
+- `[ ]` Stage 7: Step 5: generic text read/write for `Special File` artifacts whose path is neither `.amb` nor `.md`; workspace and directory documents stay on `.amb`. Format spec: [[doc/roadmap/workspace-format-plain.md]]. Reconciliation contract: [[doc/roadmap/workspace-text-outline-conversion.md]] § Generic text reconciliation. Adds a document-format dispatch boundary in the read/write layer (`DocumentAssembly`, `DocumentPersistence`); DB/graph identity remains authoritative — no filesystem watcher.
 - `[ ]` Deferred: Support markdown text file format.
 - 
-- `[ ]` Stage 8: snapshot integration — existing write path (`Snapshot.write` / `FileAgent` / db backup) emits ROOT plus per-document artifacts; incremental persist skips unchanged documents.
-- `[ ]` Stage 9: document membership in model — `docId` (or equivalent), derivation from document roots, client document load/unload and replication unit ([[doc/roadmap/postgres-roadmap.md]] §5–6).
+- `[x]` Stage 8: snapshot integration — existing write path (`Snapshot.write` / `FileAgent` / db backup) emits ROOT plus per-document artifacts; incremental persist skips unchanged documents.
 
 ## Current Implementation Snapshot
 
 Authority for implemented behavior: [[doc/current/workspace-graph.md]],
-[[doc/current/workspace-local-mapping.md]], [[doc/current/desktop-local-files.md]].
+[[doc/current/workspace-local-mapping.md]], [[doc/current/desktop-local-files.md]], [[doc/current/workspace-stage-plan.md]].
 
 - `[x]` `SpecialKind` includes `Workspace`, `Directory`, and `File` in the shared model.
 - `[x]` Correction: treat these as context-defining special nodes for traversal and resolution
@@ -98,13 +97,13 @@ Authority for implemented behavior: [[doc/current/workspace-graph.md]],
 - `[x]` Correction: align RefExpr semantics with directory-first member lookup (`DirStep`/`FileStep`) and `^` structural-container lookup.
 - `[ ]` Surrounding language functions (`text Ref`, `children Ref`, `name Ref`) and command/assignment syntax.
 - `[ ]` Whole graph still one document; no `docId` / document membership in model yet (Stage 9).
-- `[ ]` Snapshot write still monolithic; no per-document `DataDir` persist (Stages 7–8).
-- `[ ]` No incremental per-document persist on snapshot pass (Stage 8).
+- `[x]` Per-document `DataDir` live-save and snapshot persist are implemented (Stages 7–8).
+- `[x]` Incremental persist skips unchanged documents on snapshot pass (Stage 8).
 - `[ ]` Full unresolved-reference indicator for unknown workspace labels.
 - `[ ]` File-status uses desktop query only; server-side status not wired (Stage 5 correction / Stage 7).
-- `[~]` Workspace create/rename via graph ops; **Insert…** / **Rename** command surface not done (Stage 6).
-- `[ ]` TRASH as `Special Directory` with `Node.name = TRASH` (Stage 6 — today: `Special Directory`).
-- `[ ]` Correction: add command coverage for special-node hierarchy edits in free-form outlines.
+- `[x]` **Insert…** / **Rename** command surface is implemented for workspace, directory, and file structure (Stage 6).
+- `[x]` TRASH is `Special Directory` with `Node.name = TRASH` (Stage 6).
+- `[x]` Correction: command coverage supports special-node hierarchy edits in free-form outlines.
 
 ## Settled Decisions
 
@@ -346,7 +345,7 @@ Every directory document persists under its owning directory on disk. Root works
 
 #### File document
 
-A file document persists by writing the members of that document according to the file format.
+A file document persists by writing the members of that document according to the file format. **Today** every artifact is written through the `.amb` codec regardless of logical extension. **Planned (Stage 7 Step 5):** path classification selects the codec — `.amb` for workspace and directory documents and for `.amb` file paths; generic text ([[doc/roadmap/workspace-format-plain.md]]) for `Special File` paths that are neither `.amb` nor `.md`; `.md` remains deferred ([[doc/roadmap/workspace-format-md.md]]).
 
 **Stop at nested document root.** When serializing a document for persistence, descent stops at each child `workspace`, `directory`, or `file` node that is itself a document root:
 

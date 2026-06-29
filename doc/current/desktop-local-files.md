@@ -116,5 +116,5 @@ WebView2 user data: `%LocalAppData%/Gambol/WebView2`.
 - Open file or workspace root in system explorer.
 - Startup workspace registration (sync local config labels to cloud graph).
 - Full workspace filesystem API (`GET workspaces`, dir/file CRUD with `modifiedUtc` conflicts) —
-  see [[doc/roadmap/workspace-stage-plan.md]] §4.
+  see [[doc/current/workspace-stage-plan.md]] §4.
 - `open` capability (launch file with default application).

@@ -2,7 +2,7 @@
 
 Category: Graph model
 See also: [[doc/current/workspace-local-mapping.md]], [[doc/current/desktop-local-files.md]],
-[[doc/roadmap/workspace-file-model.md]], [[doc/roadmap/workspace-stage-plan.md]], [[doc/arch.md]]
+[[doc/roadmap/workspace-file-model.md]], [[doc/current/workspace-stage-plan.md]], [[doc/arch.md]]
 
 The shared graph model includes vocabulary and structural rules for workspace-related special
 nodes, enforced at the graph layer.

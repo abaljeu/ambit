@@ -10,7 +10,7 @@ Last write wins by arrival order on the server. No client-side merging required.
 
 1. Client sends a `ChangeBatch` to `POST /{pathname}/changes` (e.g. `POST /ambit/changes`).
 2. Server applies each change in order against authoritative state (revision must match `Change.id`).
-3. If changed, server increments `revision`, appends to durable log (file `.log` and/or PostgreSQL `changes`).
+3. If changed, server increments `revision`, appends to PostgreSQL `changes` table, and auto-persists affected document artifacts under `DataDir`.
 4. Server responds with `ChangeBatchAck` (`revision`, `ackedChangeIds`) — **not** the full graph.
 5. Client polls `GET /{pathname}/poll?rev=N` (e.g. every 5s or after activity) for remote changes and build stamps.
 6. When behind, poll returns a change tail in `c`; client applies it locally. Full graph via `GET /{pathname}/state` on initial load or resync.
@@ -87,17 +87,13 @@ Undo/redo remain **client-local**. The client applies inverses locally and posts
 
 ## Message log
 
-Append-only change log is **persisted**:
+Append-only change log is **persisted** in PostgreSQL (`changes` table; `payload` = full change JSON per accepted batch).
 
-- **File mode**: `data/{doc}.log` (one JSON change per line); snapshot + `.meta` revision.
-- **DB mode**: PostgreSQL `changes` table (same payload concept).
+On startup the server replays from the log after the stored revision checkpoint. In-process `History` mirrors applied changes for the running process but is not the durable store.
 
-On startup the server replays from the log after the last snapshot checkpoint. In-process `History` mirrors applied changes for the running process but is not the durable store.
+See [[doc/arch.md]] and [[doc/current/persistence-model.md]]. After each accepted change, the server commits to the DB and auto-persists correlated document artifacts under `DataDir`.
 
-Persistence mode: `Persistence:Mode` (`db` default, `file` rollback). See [[doc/arch.md]] and
-[[doc/current/persistence-model.md]].
-
-There is **no** `POST /save`; snapshots are written asynchronously by agents after accepted changes.
+There is **no** `POST /save`; persistence runs automatically after accepted changes.
 
 ## Migration path
 

@@ -1,0 +1,9 @@
+---
+globs: doc/**,**/*.plan.md,**/*roadmap*
+---
+
+We are working through [[doc/plan]].
+
+Put non-trivial plans in a markdown file in doc/ so they can be reviewed.
+
+Planning docs use [[wikilinks]], no hard wrap, one concern per section.

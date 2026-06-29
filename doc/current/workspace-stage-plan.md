@@ -1,15 +1,15 @@
 # Workspace Stage Plan
 
-Status: Draft
-Authority: Planning document for implementation sequencing.
+Status: Current
+Authority: Implemented workspace stage baseline through Stage 8.
 Stage status and terminology: [[doc/roadmap/workspace-file-model.md]] (Implementation Stages).
 See also: [[doc/roadmap/reference-expressions.md]], [[doc/current/persistence-model.md]]
 
 ## Scope Relationship
 
-This document expands the workspace-only slice of [[doc/roadmap/workspace-file-model.md]] with implementation detail, verification, and sequencing.
+This document records the implemented workspace-only slice of [[doc/roadmap/workspace-file-model.md]] with implementation detail, verification, and remaining follow-ups.
 
-The file-model document defines target end-state behavior across Stages 1–9 and tracks current status (`[x]` done, `[~]` partial, `[ ]` not started). Differences between this plan's workspace-only execution scope and the full file-model stages are intentional where noted.
+The file-model document defines target end-state behavior and tracks current status (`[x]` done, `[~]` partial, `[ ]` not started). Differences between this current baseline and the full file-model roadmap are intentional where noted.
 
 Status legend (from file-model):
 
@@ -26,31 +26,30 @@ Status legend (from file-model):
 | 3 — shared label → workspace-root mapping | §3 | `[x]` |
 | 4 — desktop `@label:relative` via local mapping | §4 | `[x]` |
 | 5 — unresolved UI; file-status | §5 | deferred |
-| 6 — user commands for structure | §2, §6 | `[ ]` |
-| 7 — server `DataDir` live-save + path moves | §7 | `[ ]` |
-| 8 — snapshot integration; incremental persist | §7 | `[ ]` |
-| 9 — document membership (`docId`) | §7 | `[ ]` |
+| 6 — user commands for structure | §2, §6 | `[x]` |
+| 7 — server `DataDir` live-save + path moves | §7 | `[x]` |
+| 8 — snapshot integration; incremental persist | §7 | `[x]` |
 
 Corrections tracked in the file-model (placement rules, persistence-split docs, RefExpr namespace semantics) are noted inline where they affect this stage's work.
 
-## Goal
+## Baseline
 
-Implement workspace and outline **structure commands** (Stage 6) without waiting on Stage 5 server file-status or full unresolved UI.
+Workspace and outline **structure commands** (Stage 6) are implemented without waiting on Stage 5 server file-status or full unresolved UI.
 
-Stage 5 (unresolved indicators; primary server file-status) is **deferred** — desktop file-status for locally mapped paths remains; server-side status waits on Stage 7.
+Stage 5 (unresolved indicators; primary server file-status) remains **deferred** — desktop file-status for locally mapped paths remains.
 
-For Stages 6–7, "structure support" means:
+For Stages 6–8, "structure support" means:
 
 - users can define workspaces and create owned `Special Directory` / `Special File` nodes via **Insert…**
 - users can rename workspace, directory, and file nodes via **Rename** (F2)
 - soft delete continues to reparent under **TRASH** (Stage 6 retires `Special Directory` in favor of `Special Directory` with `Node.name = TRASH`)
 - shared planners emit `DocumentPathMove` descriptors for rename, reparent, and move-to-TRASH (Stage 6 — computation and tests only; Stage 7 executes on disk)
 
-Stage 1 vocabulary for `Special Directory` and `Special File` already exists in the shared model; Stage 6 adds command surfaces. Server `DataDir` materialization and live path moves land in Stage 7.
+Stage 1 vocabulary for `Special Directory` and `Special File` exists in the shared model; Stage 6 adds command surfaces. Server `DataDir` materialization and live path moves are Stage 7; snapshot integration and incremental persist are Stage 8.
 
 ## Explicit Scope
 
-### In Scope (this stage)
+### In Scope (this baseline)
 
 - Workspace identity and uniqueness.
 - Workspace root nodes as first-class special nodes under `Workspaces`.
@@ -62,19 +61,19 @@ Stage 1 vocabulary for `Special Directory` and `Special File` already exists in 
 - A desktop-accessible workspace-node command for "open workspace in explorer".
 - No commands to set, update, clear, or list local mappings.
 - Unresolved-workspace indication when a label is unknown (Stage 5 — deferred; not blocking Stage 6).
-- Server-side persistence of directory and file **documents** under `DataDir/@label/...` (requirement documented; Stages 7–8 — not implemented).
+- Server-side persistence of directory and file **documents** under `DataDir/@label/...` (Stage 7 — implemented; see §7).
 
 ### Out Of Scope (follow-on stages)
 
 - Stage 5 corrections: full cross-scope unresolved UI; server file-status before Stage 7 is wired.
-- Server `DataDir` path materialization and filesystem moves for directory/file document roots (Stage 7).
-- Hard delete under TRASH (artifact removal — Stage 7 slice).
-- Document membership in the model (`docId`, load/unload — Stage 9).
+- Server `DataDir` path materialization and filesystem moves for directory/file document roots (Stage 7 — done).
+- Hard delete under TRASH (artifact removal — Stage 7 step 4, not done).
+- Document membership in the model (`docId`, load/unload) belongs to the broader persistence and replication plans.
 - Namespace wildcard resolution under workspaces.
 - Automatic filesystem sync/import/reconciliation (manual Import/Export via desktop continues).
 - Surrounding language functions (`text Ref`, `children Ref`, `name Ref`) and command/assignment syntax.
 
-Directory and file **node identity** is Stage 1 vocabulary; Stage 6 adds create/rename command surfaces and TRASH-as-directory model change. Stage 7 adds server `DataDir` persist and unified path moves.
+Directory and file **node identity** is Stage 1 vocabulary; Stage 6 adds create/rename command surfaces and TRASH-as-directory model change. Stage 7 server `DataDir` persist and unified path moves are implemented ([[src/Server/DocumentPersistence.fs]], [[src/Server/DbAgent.fs]]).
 
 ## Deliverables
 
@@ -121,7 +120,7 @@ Verification:
 
 ## 2. Shared Operations And Change Replay
 
-Status: Stage 2 `[x]`; Stage 6 structure commands `[ ]`.
+Status: Stage 2 `[x]`; Stage 6 structure commands `[x]`.
 
 - Add change operations for workspace lifecycle:
   - create workspace
@@ -148,7 +147,7 @@ Shared workspace-label → workspace-root mapping is stored in the graph project
 - change-log JSON (`Op.NewSpecialNode`, `Op.SetName`, `Op.Replace`)
 - `Snapshot.write` may emit `@label:` path text for workspace nodes (write-only hint); directory and file path bodies in snapshot text are not shared persistence authority
 
-Directory and file node identity (`kind`, `name`, owner link) may exist in the graph projection; no server `DataDir` path materialization for them yet (Stages 7–8).
+Directory and file node identity (`kind`, `name`, owner link) exists in the graph projection; server `DataDir` path materialization, live-save, snapshot integration, and incremental persist are implemented (Stages 7–8).
 
 Target persistence split (documented): workspace, directory, and file documents persist separately; serialization stops at nested document roots — see [[doc/roadmap/workspace-file-model.md]] Persistence Shape and [[doc/roadmap/workspace-file-persistence.md]].
 
@@ -232,13 +231,12 @@ Status: Stage 5 **deferred** (bypassed for Stage 6).
 Stage 5 is not blocking Stage 6 structure commands. Remaining Stage 5 work:
 
 - File-status uses the desktop query surface for locally mapped paths (unchanged).
-- Primary server live-save and server-side file-status are not wired (Stage 7).
-- Full unresolved `@label:` UI across workspace, directory, and file scopes is not done.
+- Primary server live-save is wired (Stage 7). Server-side file-status and full unresolved `@label:` UI are not done.
 
 Corrections (deferred):
 
 - Unresolved UI should cover namespace resolution failures across workspace, directory, and file scopes.
-- File-status should query server persistence when Stage 7 is wired; desktop query remains for secondary mapped paths until then.
+- File-status should query server persistence when wired (Stage 7 live-save exists; status endpoint not done); desktop query remains for secondary mapped paths.
 
 ### 5a. Search by namespace references
 
@@ -271,7 +269,7 @@ Verification:
 
 ## 6. User Commands (Structure)
 
-Status: Stage 6 `[ ]` — target design; next implementation slice.
+Status: Stage 6 `[x]` — implemented.
 
 ### TRASH model change
 
@@ -287,7 +285,7 @@ Status: Stage 6 `[ ]` — target design; next implementation slice.
 | Path resolution | `NodeDesktopPath` resolves TRASH as `@:/TRASH/` (under nameless ROOT workspace) |
 | Row styling | Map `trashId` to existing trash row class/symbol (by id, not kind) |
 
-On disk (Stage 7): TRASH is a persisted directory document — folder `TRASH/` with artifact `TRASH.amb` under the ROOT workspace path in `DataDir` — see [[doc/roadmap/workspace-file-persistence.md]].
+On disk (Stage 7): TRASH is a persisted directory document — folder `TRASH/` with artifact `.amb` under `DataDir` — see [[doc/roadmap/workspace-file-persistence.md]].
 
 ### Insert… command
 
@@ -312,11 +310,11 @@ Shared create ops: `planCreateWorkspace`, `planCreateOwnedFile`, `planCreateOwne
 
 Prompt on focused node. **Workspace / Directory / File:** `Op.SetName`. **Normal:** `Node.name` only (not `text`). Reject ROOT, Workspaces, and canonical TRASH node.
 
-Stage 6 applies graph op only; emits optional `DocumentPathMove` descriptor (consumed in Stage 7).
+Stage 6 applies graph op and emits `DocumentPathMove` descriptors; Stage 7 executes them on disk.
 
 Shared: extend `Graph.setName` for Normal nodes; `planRenameNode` → `Op.SetName` + `planPathMoveForSetName`.
 
-### DocumentPathMove (Stage 6 stub, Stage 7 consumer)
+### DocumentPathMove (Stage 6 planner, Stage 7 consumer)
 
 Replace narrow rename-only planning with a shared move descriptor:
 
@@ -328,12 +326,12 @@ type DocumentPathMove = {
 }
 ```
 
-Planners (Stage 6 — path computation and tests; no I/O):
+Planners (Stage 6 — path computation and tests):
 
 - `planPathMoveForSetName` — rename workspace/directory/file (`Op.SetName`)
 - `planPathMoveForReparent` — reparent (`Op.Replace` owner parent change); move-to-TRASH uses `planPathMoveForReparent graph nodeId trashId`
 
-For subtrees containing persisted document roots, Stage 7 may move multiple artifacts (directory tree move).
+Stage 7 server: `DocumentPersistence.persistGraphChange` executes moves then live-saves affected documents ([[tests/Server.Tests/DocumentPathMoveExecutionTests.fs]]).
 
 UI: Insert… dialog with three context-gated buttons (title **Insert…**); Rename prompt overlay.
 
@@ -344,44 +342,9 @@ Verification:
 - TRASH kind/placement/path; trash row styling by id.
 - `DocumentPathMove` computation for rename and MoveToTrash (no filesystem I/O).
 
-## 7. Server File Persistence And Document Membership
+### Stage 6 Exit Criteria
 
-Status: Stages 7–9 `[ ]` — documented requirements only.
-
-### Stage 7 — server `DataDir` live-save and unified path moves
-
-Not implemented. Full spec: [[doc/roadmap/workspace-file-persistence.md]], [[doc/roadmap/workspace-text-outline-conversion.md]].
-
-- **Path:** `{DataDir}/@{workspaceLabel}/{canonicalRelativePath}` (the `@` is part of the on-disk path segment).
-- **Write pattern:** live-save on accepted change — same snapshot-backup mechanics as outline snapshot backup (`writeStateBackup`, `ensureSnapshotBackup`).
-- **Stop at nested document root:** when serializing a parent document, do not recurse into nested workspace/directory/file document roots; persist them as separate artifacts.
-- **Unified path moves:** one handler for any graph change that alters canonical on-disk location of workspace/directory/file document roots. Triggers: **Rename** (`Op.SetName`), **Reparent** (`Op.Replace` owner parent), **Soft delete** (`MoveToTrash` → reparent under `trashId`, same handler as reparent into `@:/TRASH/...`). No separate delete persist path for soft delete. Hard delete under TRASH (subtree artifact removal) is a separate Stage 7 slice.
-- **TRASH on disk:** materialize `TRASH/TRASH.amb` under the ROOT workspace path in `DataDir`.
-- **Stage 6 handoff:** shared layer emits `DocumentPathMove` lists from planners; Stage 7 server executes filesystem moves with backup rotation. Cross-workspace reparent needs no special case — `oldPath` / `newPath` differ by workspace prefix and the same handler applies.
-
-### Stage 8 — snapshot integration
-
-- Existing write path (`Snapshot.write` / `FileAgent` / db backup) emits ROOT plus per-document artifacts.
-- Incremental persist skips unchanged documents.
-
-### Stage 9 — document membership
-
-- `docId` (or equivalent), derivation from document roots, client document load/unload and replication unit — [[doc/roadmap/postgres-roadmap.md]] §5–6.
-
-**Desktop secondary:** `@label:` local mapping supports Import (unchanged) and download/export via `/_desktop/file` ([[doc/current/workspace-local-mapping.md]], [[doc/current/desktop-local-files.md]]). Server `DataDir` is primary file authority.
-
-Verification (when implemented):
-
-- Directory and file documents write under `DataDir/@label/...` with correct relative paths.
-- Rename, reparent, and move-to-TRASH apply filesystem moves from `DocumentPathMove` descriptors; subtree moves cover nested document roots.
-- Prior file rotated to `.bak.{date}` on overwrite.
-- Path safety: no escape above `DataDir/@label/`.
-- TRASH directory document materialized (`TRASH/TRASH.amb`).
-- No regression to desktop `/_desktop/file` import/export or `@label:relative` resolution.
-
-## 8. Stage Exit Criteria
-
-This workspace stage is complete when all of the following are true:
+Stage 6 is complete when all of the following are true:
 
 - Workspace labels can be created, renamed, and listed.
 - Workspace root nodes exist and are uniquely mapped by label under `WORKSPACES`.
@@ -392,20 +355,75 @@ This workspace stage is complete when all of the following are true:
 - Local workspace root mappings can be read from and persisted to desktop config JSON.
 - No local-mapping edit/list command surface exists in this stage.
 - `//@workspace` resolves for known workspace nodes; Stage 5 unresolved UI corrections remain deferred.
-- Server `DataDir` document persist, path moves, and `docId` (Stages 7–9) are not required for Stage 6 exit.
+- Server `DataDir` document persist, path moves, and `docId` remain outside Stage 6.
 - All new behavior has Shared/Client tests where applicable.
+
+## 7. Server File Persistence
+
+Status: Stage 7 core `[x]`; Stage 8 `[x]`; Stage 7 follow-ups `[ ]`.
+
+### Stage 7 — server `DataDir` live-save and unified path moves
+
+**Implemented.** Code: [[src/Server/DocumentPersistence.fs]], [[src/Server/DbAgent.fs]] (`liveSaveDataDir`). Tests: [[tests/Server.Tests/DocumentPersistenceTests.fs]], [[tests/Server.Tests/DocumentPathMoveExecutionTests.fs]]. Full spec: [[doc/roadmap/workspace-file-persistence.md]], [[doc/roadmap/workspace-text-outline-conversion.md]].
+
+What is in place:
+
+- **Path:** `{DataDir}/@{workspaceLabel}/{canonicalRelativePath}` (the `@` is part of the on-disk path segment).
+- **Write pattern:** live-save on accepted change via `DocumentPersistence.persistGraphChange` after DB commit (`DbAgent` snapshot task).
+- **Stop at nested document root:** `AmbDocument.write` / `DocumentPartition` — nested workspace/directory/file document roots persist as separate artifacts.
+- **Unified path moves:** `executePathMoves` for rename, reparent, and soft delete (`MoveToTrash` → `@:/TRASH/...`). Path validation before accept; `Directory.Move` / `File.Move` on disk.
+- **TRASH on disk:** `TRASH/.amb` under `DataDir` (directory document for canonical `trashId`).
+- **Stage 6 handoff:** `DocumentPathMove.planPathMovesBetweenGraphs` → coalesce → execute on disk.
+
+Verification already covered:
+
+- Directory and file documents write under `DataDir/@label/...` with correct relative paths.
+- Rename, reparent, and move-to-TRASH apply filesystem moves from `DocumentPathMove` descriptors.
+- Path safety: no escape above `DataDir`.
+- TRASH directory document materialized (`TRASH/.amb`).
+- No regression to desktop `/_desktop/file` import/export or `@label:relative` resolution.
+
+Remaining Stage 7 follow-ups:
+
+- **Step 4:** hard delete under TRASH removes on-disk artifacts.
+
+### Stage 8 — snapshot integration
+
+Purpose: bring snapshot/export paths into the same per-document artifact shape as live-save.
+
+- Existing write path (`Snapshot.write` / `FileAgent` / db backup) emits ROOT plus per-document artifacts.
+- Incremental persist skips unchanged documents.
+
+Verification:
+
+- Snapshot output includes ROOT and per-document artifacts.
+- Incremental persist skips unchanged documents.
+
+### Desktop Local Mapping
+
+`@label:` local mapping supports Import (unchanged) and download/export via `/_desktop/file` ([[doc/current/workspace-local-mapping.md]], [[doc/current/desktop-local-files.md]]). Server `DataDir` remains the primary file authority.
+
+### Remaining Verification
+
+- Git persistence records per-document artifact changes.
+- Hard delete under TRASH removes artifacts.
 
 ## Suggested Order Of Implementation
 
-1. Shared model and invariants (Stages 1–4 — done).
-2. **TRASH → Directory** model change + tests.
-3. Shared create ops, rename, `DocumentPathMove` planners + tests.
-4. **Insert…** and **Rename** command/UI (Stage 6).
-5. Doc updates for Stage 6 (this pass).
-6. Desktop-local mapping and interim API (Stage 4 — done); desktop startup workspace registration (§4b).
-7. Stage 5 unresolved UI and server file-status (deferred — after Stage 7 or in parallel).
-8. Server file persistence, unified path moves, TRASH.amb (Stage 7).
-9. Snapshot integration and document membership (Stages 8–9).
+Completed:
+
+1. Shared model and invariants (Stages 1–4).
+2. Desktop-local mapping and interim API (Stage 4); desktop startup workspace registration (§4b).
+3. **TRASH → Directory** model change + tests.
+4. Shared create ops, rename, `DocumentPathMove` planners + tests.
+5. **Insert…** and **Rename** command/UI (Stage 6).
+6. Server file persistence, unified path moves, TRASH `.amb` (Stage 7 core).
+7. Snapshot integration and incremental persist (Stage 8).
+
+Remaining:
+
+1. Stage 5 unresolved UI and server file-status (deferred; can happen after Stage 7 or in parallel).
+2. Git persistence and hard delete under TRASH (Stage 7 follow-ups).
 
 ## Clarifications And Decisions
 
@@ -418,11 +436,10 @@ Aligned with [[doc/roadmap/workspace-file-model.md]] Settled Decisions:
 5. Root graph structure: no default workspace auto-created; `ROOT` contains `WORKSPACES`; workspace nodes are direct children of `Workspaces`.
 6. Persistence tiers: server `DataDir` primary; desktop mapping secondary and independent of server path shape.
 7. Unresolved behavior: commands that require resolution are blocked when reference cannot resolve; the client must show an explicit diagnostic; silent no-op is invalid.
-8. One graph, many documents (target): document membership follows Owner ancestry from document roots; Ref edges do not confer membership.
-9. **Rename** → F2; **Edit node** → Enter only.
-10. Soft delete → reparent under TRASH (`MoveToTrash`); no separate persist path — Stage 7 treats as reparent into `@:/TRASH/...`.
-11. Cross-workspace reparent — no extra logic; unified `DocumentPathMove` handles workspace prefix change.
+8. **Rename** → F2; **Edit node** → Enter only.
+9. Soft delete → reparent under TRASH (`MoveToTrash`); no separate persist path — Stage 7 treats as reparent into `@:/TRASH/...`.
+10. Cross-workspace reparent — no extra logic; unified `DocumentPathMove` handles workspace prefix change.
 
 ## Notes
 
-This plan tracks Stages 6–7 structure commands and path-move persistence. Stage 5 is deferred. Directory and file node kinds exist in the model (Stage 1); Stage 6 adds Insert…/Rename and TRASH-as-directory; Stage 7 adds server document persist and filesystem moves per the file-model stage list.
+This current baseline tracks the workspace structure command work and the staged persistence follow-through. Stage 5 remains deferred. Directory and file node kinds exist in the model (Stage 1); Stage 6 adds Insert…/Rename and TRASH-as-directory; Stage 7 adds server document persist and filesystem moves; Stage 8 adds snapshot integration and incremental persist.

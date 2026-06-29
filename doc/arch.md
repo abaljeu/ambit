@@ -62,7 +62,7 @@ tests/
 
   Server.Tests/    includes DbAgentTests when TEST_DB_CONNECTION_STRING is set
 
-data/              file-mode documents (outline, .meta, .log) — local dev default
+data/              correlated on-disk document artifacts under DataDir (local dev default)
 
 doc/               architecture, API notes, deployment, future plans
 
@@ -135,7 +135,7 @@ The server:
 
 - Exposes JSON API under `/ambit` (state, poll, changes)
 
-- Persists graph + append-only change log via **file** and/or **PostgreSQL** (see Storage)
+- Persists graph via **PostgreSQL**; correlated on-disk artifacts auto-persist from accepted DB state (see Storage)
 
 - Optional cookie auth (`Auth:Username` / `Auth:Password` in config → derived token cookie)
 
@@ -257,23 +257,12 @@ root : sitenode; selection : nodeview + span
 
 ## Storage (server)
 
-Two explicit **persistence modes** (`Persistence:Mode` in config; default **`db`**):
+**PostgreSQL** is always the source of truth. Startup initializes the schema and loads graph state from the DB only; correlated files under `DataDir` are not read to rebuild state.
 
-| Mode | Authority | Startup | Notes |
-
-|------|-----------|---------|--------|
-
-| **`db`** | PostgreSQL | Schema init; load from DB only — **no** silent import from files | Requires `DB_CONNECTION_STRING` |
-
-| **`file`** | On-disk outline + `.meta` + `.log` | `FileAgent` loads snapshot, replays log | Optional DB mirror when connection string set |
-
-**File artifacts** (under `DataDir`, default `data/` locally, `/home/data` on Azure):
-
-- outline snapshot (tab-indented text; `Snapshot.fs`)
-
-- `.meta` — server revision after snapshot + replay
-
-- `.log` — one JSON `Change` per line (same payload concept as SQL `changes`)
+| Layer | Role |
+|-------|------|
+| **PostgreSQL** | Authority: `changes` append-only log, `graph` singleton (root + revision), `nodes` + `node_children` relational projection |
+| **On-disk artifacts** | Projection keyed to document roots (workspace, directory, file nodes); written after each accepted DB commit |
 
 **PostgreSQL** (normalized projection; no outline blob as source of truth):
 
@@ -283,12 +272,17 @@ Two explicit **persistence modes** (`Persistence:Mode` in config; default **`db`
 
 - `nodes`, `node_children` — relational mirror of `Node` / child edges
 
-`db` mode periodically writes **disk backup** from DB state (export only, not read at startup). `file` mode may seed an empty DB from file state on startup.
+**On-disk** (under `DataDir`, default `data/` locally, `/home/data` on Azure):
 
-Full schema and mode rules: [[doc/current/persistence-model.md]]. Operations / environments:
-[[doc/reference/postgres-environments.md]].
+- document artifacts per graph node — outline or payload text under `DataDir/@label/...` (see [[doc/roadmap/workspace-file-persistence.md]])
 
-Implementation: `Database.fs`, `DbAgent.fs`, `FileAgent.fs`, `AgentHandle` in `Api.fs`.
+- tab-indented outline syntax via `Snapshot.fs` for serialization; not the SQL source of truth
+
+Requires `DB_CONNECTION_STRING`. After each accepted change, the server commits to PostgreSQL and auto-persists affected document artifacts.
+
+Full schema and rules: [[doc/current/persistence-model.md]]. Operations / environments: [[doc/reference/postgres-environments.md]].
+
+Implementation: `Database.fs`, `DbAgent.fs`, `AgentHandle` in `Api.fs`. Legacy `FileAgent.fs` / `Persistence:Mode` rollback hooks remain in code pending removal.
 
 ## Testing plan
 
@@ -318,9 +312,9 @@ Tooling: **xUnit** in `tests/Shared.Tests` and `tests/Server.Tests`.
 
 ### Persistence tests
 
-- File: snapshot + log replay (`FileAgent` / document loader tests)
-
 - DB: `DbAgentTests.fs` against real Postgres when `TEST_DB_CONNECTION_STRING` is set
+
+- Legacy file: snapshot + log replay (`FileAgent` / document loader tests — rollback path only)
 
 - Replay: load persisted state → apply changes → matches expected graph/revision
 
@@ -338,10 +332,10 @@ Tooling: **xUnit** in `tests/Shared.Tests` and `tests/Server.Tests`.
 
 | Doc | Role |
 |-----|------|
-| [[doc/arch.md]] | Architecture, layers, persistence modes |
+| [[doc/arch.md]] | Architecture, layers, persistence |
 | [[doc/api.md]] | HTTP contract (implemented + target) |
 | [[doc/current/sync-mvp.md]] | Current sync semantics (LWW, poll + changes) |
-| [[doc/current/persistence-model.md]] | DB schema and `file` / `db` mode rules |
+| [[doc/current/persistence-model.md]] | DB schema, correlated files, auto-persist |
 | [[doc/current/workspace-graph.md]] | Workspace special nodes and graph invariants |
 | [[doc/current/workspace-local-mapping.md]] | Desktop workspace label → local root config |
 | [[doc/current/desktop-local-files.md]] | Desktop proxy and `/_desktop/*` API |

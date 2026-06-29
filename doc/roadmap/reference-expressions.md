@@ -3,12 +3,12 @@
 Status: Partially superseded
 Authority: Reference **interpretation** semantics — [[doc/roadmap/reference-expression-interpretation.md]].
 See also: [[doc/roadmap/revising-workspace-file-model.md]], [[doc/roadmap/workspace-file-model.md]],
-[[doc/roadmap/workspace-stage-plan.md]], [[doc/reference/style.md]]
+[[doc/current/workspace-stage-plan.md]], [[doc/reference/style.md]]
 
 Expression/command language beyond reference resolution remains draft in [[doc/roadmap/language-syntax.md]].
 
 Scope note: current stage implementation scope is defined separately in
-[[doc/roadmap/workspace-stage-plan.md]].
+[[doc/current/workspace-stage-plan.md]].
 
 ## Interpretation
 

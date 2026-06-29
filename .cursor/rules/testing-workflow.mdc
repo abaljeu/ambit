@@ -1,0 +1,19 @@
+---
+globs: tests/**,**/*Tests.fs,**/*Test*.fs
+---
+
+Write tests for new functionality.
+
+Transform tasks into verifiable goals:
+- "Add validation" → write tests for invalid inputs, then make them pass
+- "Fix the bug" → write a test that reproduces it, then make it pass
+- "Refactor X" → ensure tests pass before and after
+
+Use Test Driven Development: write test, stop for review; make test pass, stop for review; refactor, stop for review.
+
+All logic should be in Shared/, if possible, based on library dependencies.
+Any complex logic should be testable purely where possible. (If it depends on ambiguous browser behavior, it isn't.)
+We are not testing to the browser.
+
+Run all tests as a background process because it takes a very long time.
+Run targeted tests related to your edit as a foreground process.

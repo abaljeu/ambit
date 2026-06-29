@@ -43,6 +43,7 @@
     <Compile Include="AmbleRun.fs" />
     <Compile Include="Amble.fs" />
     <Compile Include="AmbDocument.fs" />
+    <Compile Include="PlainTextDocument.fs" />
     <Compile Include="DocumentAssembly.fs" />
     <Compile Include="Paste.fs" />
     <Compile Include="ImportText.fs" />

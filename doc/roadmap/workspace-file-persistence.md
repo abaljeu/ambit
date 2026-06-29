@@ -2,7 +2,7 @@
 
 Status: Draft
 Authority: Target design for server-side workspace file storage.
-See also: [[doc/roadmap/workspace-file-model.md]], [[doc/roadmap/workspace-text-outline-conversion.md]], [[doc/roadmap/workspace-stage-plan.md]], [[doc/roadmap/postgres-roadmap.md]], [[doc/current/workspace-local-mapping.md]], [[doc/current/desktop-local-files.md]], [[doc/arch.md]]
+See also: [[doc/roadmap/workspace-file-model.md]], [[doc/roadmap/git-sync-gateway.md]], [[doc/roadmap/workspace-text-outline-conversion.md]], [[doc/current/workspace-stage-plan.md]], [[doc/roadmap/postgres-roadmap.md]], [[doc/current/workspace-local-mapping.md]], [[doc/current/desktop-local-files.md]], [[doc/arch.md]]
 
 This document details the server persistence system for workspace file data. It is intentionally separate from desktop-local workspace mapping and from the shared graph model that assigns identity to workspace, directory, and file nodes.
 
@@ -133,7 +133,7 @@ planPathMoveForReparent : graph -> nodeId -> newParentId -> DocumentPathMove opt
 // MoveToTrash: planPathMoveForReparent graph nodeId trashId
 ```
 
-Stage 6: shared planners compute `DocumentPathMove` values; tests prove path computation (no I/O). Stage 7: server executes filesystem moves under `DataDir/@label/...` with backup rotation on accepted change.
+Stage 6: shared planners compute `DocumentPathMove` values; tests prove path computation (no I/O). Stage 7: server executes filesystem moves under `DataDir/@label/...`; git persistence records per-document artifact history.
 
 | Layer | Stage 6 | Stage 7 |
 | --- | --- | --- |
@@ -148,6 +148,7 @@ Stage 6: shared planners compute `DocumentPathMove` values; tests prove path com
 PostgreSQL remains the authority for graph structure. Workspace file content under `DataDir` is written from accepted server state on each relevant change (live save).
 
 ### `file` mode
+DEPRECATED.
 
 The same path layout applies under `DataDir`. Read authority for this mode remains a follow-on implementation detail.
 

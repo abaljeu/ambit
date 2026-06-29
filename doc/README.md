@@ -1,7 +1,7 @@
 # Documentation
 
 Top level contains the front-door docs for the current system as a whole:
-[[doc/arch.md]], [[doc/spec.md]], and [[doc/api.md]].
+[[index.md]], [[arch.md]], [[spec.md]], and [[api.md]].
 
 New docs should normally go in a subfolder:
 
@@ -23,20 +23,23 @@ Document header rule:
 
 Start here:
 
-- [[doc/arch.md]]
-- [[doc/spec.md]]
-- [[doc/api.md]]
-- [[doc/roadmap/postgres-roadmap.md]] — roadmap index
+- [[arch.md]]
+- [[spec.md]]
+- [[api.md]]
+- [[index.md]] — global status and sequencing
+- [[roadmap/postgres-roadmap.md]] — persistence-focused roadmap index
 
 Current feature baselines (`current/`):
 
-- [[doc/current/sync-mvp.md]] — multi-client sync semantics
-- [[doc/current/persistence-model.md]] — PostgreSQL schema and `file` / `db` modes
-- [[doc/current/workspace-graph.md]] — workspace special nodes and graph invariants
-- [[doc/current/workspace-local-mapping.md]] — desktop workspace label → local root config
-- [[doc/current/desktop-local-files.md]] — desktop proxy and `/_desktop/*` API
+- [[current/sync-mvp.md]] — multi-client sync semantics
+- [[current/persistence-model.md]] — PostgreSQL schema, correlated on-disk artifacts, auto-persist from DB
+- [[current/workspace-graph.md]] — workspace special nodes and graph invariants
+- [[current/workspace-local-mapping.md]] — desktop workspace label → local root config
+- [[current/desktop-local-files.md]] — desktop proxy and `/_desktop/*` API
+- [[current/workspace-stage-plan.md]] — implemented workspace stages through Stage 8
 
 Reference (`reference/`):
 
-- [[doc/reference/postgres-environments.md]] — dev/prod PostgreSQL setup
-- [[doc/reference/deploy-azure.md]] — Azure App Service deploy
+- [[reference/postgres-environments.md]] — dev/prod PostgreSQL setup
+- [[reference/deploy-azure.md]] — Azure App Service deploy
+- [[reference/cpanel-transparent-proxy.md]] — custom domain forwarding via cPanel `.htaccess` and `proxy.php`

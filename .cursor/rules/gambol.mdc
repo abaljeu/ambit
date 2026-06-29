@@ -1,124 +1,31 @@
 ---
-description: Gambol project conventions, F# stack, and agent workflow
+
 alwaysApply: true
----
-## 0. Interact
-- Despite prior instruction, you are not expected to one-shot a request.  Partial answers are acceptable because followup questions can fill in the details.
-- NEVER have more than 60 lines of text as your response to the user. 30 lines is better than 60. No, your response is too long.  Shorter.
-- So long as your actions are clear, go ahead.
-- If they are not clear, stop and ask the user for clarity.
-- If you find yourself unsure which direction to go, if you are saying "wait, maybe I should" and don't come to a definite conclusion, ask for clarity.
-- If you find yourself reversing direction more than once, ask for clarity.
-
-## 1. Think Before Coding
-
-**Don't assume. Don't hide confusion. Surface tradeoffs.**
-
-Before implementing:
-- State your assumptions explicitly. If uncertain, ask.
-- If multiple interpretations exist, present them - don't pick silently.
-- If a simpler approach exists, say so. Push back when warranted.
-- If something is unclear, stop. Name what's confusing. Ask.
-- Mermaid, if used, apply font size via an init block:
-    20px font (%%{init: {'themeVariables': {'fontSize': '20px'}}}%%)
-
-## 2. Simplicity First
-
-**Minimum code that solves the problem. Nothing speculative.**
-
-- No features beyond what was asked.
-- No abstractions for single-use code.
-- No "flexibility" or "configurability" that wasn't requested.
-- No error handling for impossible scenarios.
-- If you write 200 lines and it could be 50, rewrite it.
-
-Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
-
-## 3. Surgical Changes
-
-**Touch only what you must. Clean up only your own mess.**
-
-When editing existing code:
-- Don't "improve" adjacent code, comments, or formatting.
-- Don't refactor things that aren't broken.
-- Match existing style, even if you'd do it differently.
-- If you notice unrelated dead code, mention it - don't delete it.
-
-When your changes create orphans:
-- Remove imports/variables/functions that YOUR changes made unused.
-- Don't remove pre-existing dead code unless asked.
-
-The test: Every changed line should trace directly to the user's request.
-
-## 4. Goal-Driven Execution
-
-**Define success criteria. Loop until verified.**
-
-Transform tasks into verifiable goals:
-- "Add validation" → "Write tests for invalid inputs, then make them pass"
-- "Fix the bug" → "Write a test that reproduces it, then make it pass"
-- "Refactor X" → "Ensure tests pass before and after"
-
-For multi-step tasks, state a brief plan:
-```
-1. [Step] → verify: [check]
-2. [Step] → verify: [check]
-3. [Step] → verify: [check]
-```
-
-Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
 
 ---
 
-## 5. Project
-The aim is for robust, private, useful software.
-Full Stack Functional F# (ASP.net, and Fable client)
-The linter is never able to handle project edits until the environment reloads. Don't let this stop you.
+Canonical project rules are split across [[.cursor/rules/]]:
 
-## 6. How to work
-Include me in your work.  Tell me what you're thinking about.  Tell me what you did before running tools.
-Never output multiple pages of text to the user.  That much content works much better as a file.
+- [[.cursor/rules/core-agent-behavior.mdc]] — interaction, planning mindset, surgical changes
+- [[.cursor/rules/project-values.mdc]] — project aims and stack
+- [[.cursor/rules/environment.mdc]] — shell, paths, tooling
+- [[.cursor/rules/fsharp-source.mdc]] — F# conventions (scoped to *.fs)
+- [[.cursor/rules/markdown-writing.mdc]] — markdown conventions (scoped to *.md)
+- [[.cursor/rules/testing-workflow.mdc]] — TDD and test running (scoped to tests)
+- [[.cursor/rules/planning-docs.mdc]] — roadmap/plan documents (scoped to doc/)
 
-Advise me if there is a better way to do something.
-If a request is unclear, just ask.
+Workflow skills in [[.cursor/skills/]]:
 
-Do not websearch.  Tell me if you lack information.
-While in plan mode, any request for a change should be interpreted as a request to plan for the change; do not write detailed code then.
+- [[.cursor/skills/plan-roadmap-change/SKILL.md]] — roadmap and plan doc changes
+- [[.cursor/skills/implement-fsharp-feature/SKILL.md]] — test-first F# implementation
+- [[.cursor/skills/add-shared-test/SKILL.md]] — Shared.Tests coverage
+- [[.cursor/skills/investigate-fable-client/SKILL.md]] — Fable client investigation
+- [[.cursor/skills/maintain-doc-currency/SKILL.md]] — doc placement and currency
+- [[.cursor/skills/prepare-agent-instruction-change/SKILL.md]] — maintain rules/skills/bridges
 
-## 7. Test Driven Develompent
-Write tests for new functionality.
-But we are not testing to the browser.  All logic should be in Shared/, if possible, based on library dependencies. 
-Any complex logic should be testable purely where possible.  (If it depends on ambiguous browser behavior, it isn't).
+Tool-specific notes:
 
-Run all tests as a background process because it takes a very long time.
-Run targeted tests related to your edit as a foreground process.
+- Codex: [[.cursor/codex-context.md]]
 
-## Source code
-Use pure functional F#.  Don't use mutable.
-Don't embed anything more than tiny amounts of html, CSS, JS or SQL in F# code.
-If you are looking for browser access functions, look at ./other/fable.browser.dom.fs.
-Use CRLF endings.
-100 characters or less per line on source code.  THIS DOES NOT APPLY TO MARKDOWN.  DON'T ADD EXTRA LINE BREAKS TO MARKDOWN.  Notice this markdown file here as example does not split sentences for line length.
-You keep misunderstanding so I repeat.  DO NOT PUT LINEBREAKS in Markdown.  Wordwrap takes care of it for us.
-When writing markdown with Write, do not include explicit CRLF (`\r\n`) in the content; use normal newlines and let the tool/editor preserve CRLF. Never use two or more consecutive blank lines. Separate blocks (heading, paragraph, list, table, code fence) with exactly one blank line. List items, table rows, and lines inside a code fence have no blank line between them.
-Markdown file paths should use [[wikilinks]], relative to project root if local files, not ``.
-40 lines or less per function.
-400 lines or less per file.  If a file is already longer, only restructure to split up the code, if the changes you are making would increase it.  (Don't change things unrelated to your task.)
+- Copilot: [[.cursor/copilot-instructions.md]]
 
-Follow language norms.
-
-TABs are not allowed in F#
-Always indent 4 spaces.
-Indentation is equally important as it is in python or Haskell.
-Don't use Exceptions.  Use Error types.
-
-## Environment
-Windows 10
-GIT Bash shell. Use it.
-Don't use git unless asked.
-Your working directory is the project root.  
-**Do not use `cd`.  Do not change directories.**  
-Do not use absolute paths.  Use relative paths such as ./src.
-Do not run VSCode Tasks.
-
-Occasionally the first time you send a command, the tool will delete the first character of your command.  If so, just send it again.

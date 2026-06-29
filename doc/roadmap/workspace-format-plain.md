@@ -36,7 +36,27 @@ A `name-token` follows [[src/Shared/Filename.fs]] `Ok` rules: letters, digits, `
 
 On export, named nodes append ` #name-token`. On import, trailing ` #name-token` (whitespace before `#` required) is stripped from node text and sets the created node's `name`. Ref targets use the same token form; position distinguishes suffix from target.
 
-Subtree reconciliation (`NodeId` matching, unnamed lines, deletion) is defined in [[doc/roadmap/workspace-text-outline-conversion.md]].
+Subtree reconciliation (`NodeId` matching, unnamed lines, deletion) follows [[doc/roadmap/workspace-text-outline-conversion.md]] § Generic text reconciliation.
+
+## Reconciliation
+
+Import reconciles **(previous file text, current graph document, edited/new file text)**. Export is operations-driven: only lines touched by an op change; untouched bytes — blank lines, line endings, indent style, and unmodified node lines — are preserved.
+
+| Change kind | Import behavior | Export behavior |
+| --- | --- | --- |
+| Unchanged imported text | No graph ops | Byte-identical write |
+| Unchanged exported outline | Graph-identical import for representable content; complement restores metadata plain text cannot encode | No file change |
+| Line text edit | Match by ` #name-token` / `NodeId`; update node text | Rewrite matched line only |
+| Line add | Mint new `NodeId`; insert Owner edge at inferred depth | Append or insert new line at correct depth |
+| Line delete | External deletion — reuse graph delete/ownership-migration semantics ([[doc/roadmap/workspace-text-outline-conversion.md]] § Deletion on import) | Remove matched line only |
+| External move (reorder/re-indent) | Default delete plus add unless id matching preserves identity | N/A — import-side |
+| Outline move (graph op) | N/A — graph-side | Preserve `NodeId`; rewrite moved node's line at new depth |
+
+Unnamed lines (no ` #name-token`) mint fresh `NodeId` on first import. Once exported with a suffix, subsequent reconciliation matches by stable id.
+
+## Move asymmetry
+
+External editors may reorder or re-indent lines without stable ids. Plain text has no durable move marker, so import treats ambiguous relocations as delete plus add unless trailing ` #name-token` matching is strong enough to preserve `NodeId`. Graph-driven moves (reparent, reorder via ops) preserve identity on export — the codec rewrites only the moved node's line at the new depth and indent.
 
 ## References
 
@@ -58,10 +78,28 @@ Use `.md` for markdown-readable references and `.amb` for metadata prefixes. Rec
 
 ## Verification Targets
 
+Test home: `tests/Shared.Tests/PlainTextDocumentTests.fs` (register after `AmbDocumentTests.fs` in `Gambol.Shared.Tests.fsproj`). Extend `DocumentAssemblyTests.fs` for path → Plain codec dispatch; extend `DocumentPersistenceTests.fs` for `readme.txt` round-trip on disk.
+
+Codec and reconciliation (`PlainTextDocumentTests`):
+
+- Arbitrary LF/CRLF text imports to the expected tree; unchanged import writes byte-identically.
+- Exported outline imports with the same `NodeId` values for representable content; complement restores `cssClasses`.
+- Line edit, add, and delete preserve identity for unaffected nodes; export leaves untouched bytes unchanged.
+- External text move defaults to delete plus add; outline move preserves `NodeId` on write.
+
+Format rules:
+
 - Untouched file bytes stay unchanged, including blanks, line endings, indent style, and untouched node lines.
 - Tab and space files infer correctly; export preserves the inferred style without silent tab/space conversion.
 - Mixed and skipped indentation are flagged; depth remains deterministic and skipped units round-trip as text spaces.
+- One non-blank line creates one node; blank lines create none.
 - ` #name-token` sets `name`; invalid or duplicate suffixes are flagged.
-- Ref lines round-trip at the correct depth; inline refs stay plain text.
+- Ref-only lines round-trip at the correct depth; inline refs stay plain text.
 - Reconciled import preserves user `cssClasses`; unsupported constructs produce diagnostics.
+
+Dispatch and persistence (assembly/persistence tests):
+
+- `.amb` paths classify to Amb codec; non-`.amb`, non-`.md` file paths classify to Plain codec; `.md` remains unimplemented.
+- A `Special File` named `readme.txt` writes plain text, not `.amb` stable-id syntax; `readAllDocuments` reads it back through the plain codec.
+- Workspace and directory `.amb` artifacts are unchanged by plain-format dispatch.
 
