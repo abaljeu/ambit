@@ -1807,6 +1807,30 @@ let ``startEditInstanceAtPos selects instance and enters Editing with node text`
     | _ -> Assert.True(false, "expected Editing mode")
 
 [<Fact>]
+let ``startEditInstanceAtPos from Editing switches row and caret`` () =
+    let graph, cont, ids = buildFlat [ "alpha"; "beta"; "gamma" ]
+    let rootEntry = emptyModelAt graph cont |> fun m -> m.siteMap.entries.[m.siteMap.rootId]
+    let alphaInst = rootEntry.children.[0]
+    let betaInst = rootEntry.children.[1]
+    let selectingModel = modelWithSel graph cont 0 0 0
+    let editingAlpha =
+        startEditInstanceAtPos alphaInst 2 selectingModel
+        |> Option.defaultWith (fun () -> Assert.True(false); selectingModel)
+    let result =
+        startEditInstanceAtPos betaInst 5 editingAlpha
+        |> Option.defaultWith (fun () -> Assert.True(false); editingAlpha)
+    match result.selectedNodes with
+    | Some sel ->
+        Assert.Equal(ids.[1], focusedNodeId graph sel)
+        Assert.Equal(1, sel.focus)
+    | None -> Assert.True(false, "expected selection")
+    match result.mode with
+    | Editing (text, EditCaret.Utf16Index pos) ->
+        Assert.Equal("beta", text)
+        Assert.Equal(5, pos)
+    | _ -> Assert.True(false, "expected Editing mode")
+
+[<Fact>]
 let ``startEditInstanceAtPos ignores graph root node`` () =
     let graph, _, _ = buildFlat [ "a" ]
     let model = emptyModel graph

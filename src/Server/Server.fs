@@ -12,48 +12,73 @@ open Gambol.Shared
 
 module Main =
 
+    type ServerLocation =
+        {
+            ContentRoot: string
+            OnAzure: bool
+            HomeDir: string
+        }
+
     let resolveDataDir (contentRoot: string) (config: IConfiguration) =
         let onAzure = Environment.GetEnvironmentVariable("WEBSITE_SITE_NAME") |> Option.ofObj |> Option.isSome
         let home = Environment.GetEnvironmentVariable("HOME") |> Option.ofObj |> Option.defaultValue "/home"
         let configured = config.["DataDir"] |> Option.ofObj
         DataDir.resolve contentRoot configured onAzure home
 
-    [<EntryPoint>]
-    let main args =
-        let port = Environment.GetEnvironmentVariable("PORT") |> Option.ofObj
-        let hasHead = HeadPresence.detectHasHead ()
-
+    let serverLocation () =
         // Dev: __SOURCE_DIRECTORY__ has wwwroot next to it (Fable output).
         // Published: wwwroot is copied into the publish output dir alongside the DLL.
+        let src = __SOURCE_DIRECTORY__
         let contentRoot =
-            let src = __SOURCE_DIRECTORY__
-            if Directory.Exists(Path.Combine(src, "wwwroot")) then src
-            else AppContext.BaseDirectory
+            if Directory.Exists(Path.Combine(src, "wwwroot")) then
+                src
+            else
+                AppContext.BaseDirectory
+        let onAzure =
+            Environment.GetEnvironmentVariable("WEBSITE_SITE_NAME")
+            |> Option.ofObj
+            |> Option.isSome
+        let homeDir =
+            Environment.GetEnvironmentVariable("HOME")
+            |> Option.ofObj
+            |> Option.defaultValue "/home"
+        { ContentRoot = contentRoot; OnAzure = onAzure; HomeDir = homeDir }
 
+    let createBuilder args location =
         let options = WebApplicationOptions(
                         Args = args,
-                        ContentRootPath = contentRoot,
-                        WebRootPath = Path.Combine(contentRoot, "wwwroot"))
-        let builder = WebApplication.CreateBuilder(options)
+                        ContentRootPath = location.ContentRoot,
+                        WebRootPath = Path.Combine(location.ContentRoot, "wwwroot"))
+        WebApplication.CreateBuilder(options)
+
+    let addAppSettings location (builder: WebApplicationBuilder) =
         // Env-specific appsettings.
         // In Azure, read from persistent /home (not the site wwwroot) so config can survive redeploys.
-        let onAzure = Environment.GetEnvironmentVariable("WEBSITE_SITE_NAME") |> Option.ofObj |> Option.isSome
-        let homeDir = Environment.GetEnvironmentVariable("HOME") |> Option.ofObj |> Option.defaultValue "/home"
-        if onAzure then
-            builder.Configuration.AddJsonFile(Path.Combine(homeDir, "appsettings.json"), optional = true)
+        if location.OnAzure then
+            let settingsPath = Path.Combine(location.HomeDir, "appsettings.json")
+            builder.Configuration.AddJsonFile(settingsPath, optional = true)
                 |> ignore
         let envFile = "appsettings." + builder.Environment.EnvironmentName + ".json"
-        let envFilePath = if onAzure then Path.Combine(homeDir, envFile) else envFile
+        let envFilePath =
+            if location.OnAzure then Path.Combine(location.HomeDir, envFile)
+            else envFile
         builder.Configuration.AddJsonFile(envFilePath, optional = true)
             |> ignore
-        let app = builder.Build()
-        port |> Option.iter (fun p -> app.Urls.Add(sprintf "http://0.0.0.0:%s" p))
-        eprintfn "Gambol: server hasHead=%b (Environment.UserInteractive=%b)." hasHead Environment.UserInteractive
 
+    let bindConfiguredPort port (app: WebApplication) =
+        port |> Option.iter (fun p -> app.Urls.Add(sprintf "http://0.0.0.0:%s" p))
+
+    let logHeadPresence hasHead =
+        eprintfn
+            "Gambol: server hasHead=%b (Environment.UserInteractive=%b)."
+            hasHead
+            Environment.UserInteractive
+
+    let registerProductionConfigGuard location (app: WebApplication) =
         // Production without appsettings.Production.json: start but show error to every request
         let expectedProductionConfigPath =
             let filename = "appsettings.Production.json"
-            if onAzure then Path.Combine(homeDir, filename)
+            if location.OnAzure then Path.Combine(location.HomeDir, filename)
             else Path.Combine(app.Environment.ContentRootPath, filename)
         let productionConfigMissing =
             app.Environment.EnvironmentName = "Production"
@@ -72,41 +97,8 @@ module Main =
                 ctx.Response.WriteAsync(html)
             ) |> ignore
 
-        let config = app.Configuration
-        let dataDirResult =
-            try Ok (resolveDataDir app.Environment.ContentRootPath config)
-            with ex -> Error ex
-
-        // ── Auth (stateless — token is derived from credentials, no in-memory state) ──
-        let expectedUser = config.["Auth:Username"] |> Option.ofObj |> Option.defaultValue ""
-        let expectedPass = config.["Auth:Password"] |> Option.ofObj |> Option.defaultValue ""
-        let validToken = AuthToken.deriveToken expectedUser expectedPass
-
-        let authDisabled = expectedUser = "" && expectedPass = ""
-        let isAuthenticated (req: HttpRequest) =
-            if authDisabled then true
-            else
-                match req.Cookies.TryGetValue(AuthToken.cookieName) with
-                | true, cookie -> cookie = validToken
-                | _ -> false
-
-        let setAuthCookie (resp: HttpResponse) =
-            let opts =
-                CookieOptions(
-                    HttpOnly = true,
-                    SameSite = SameSiteMode.Strict,
-                    Expires = Nullable(DateTimeOffset.UtcNow.AddYears(10)))
-            resp.Cookies.Append(AuthToken.cookieName, validToken, opts)
-
-        let clearAuthCookie (resp: HttpResponse) =
-            resp.Cookies.Delete(AuthToken.cookieName)
-
-        app.UseDefaultFiles() |> ignore
-        app.UseStaticFiles() |> ignore
-        // Absolute origin for CSS + Program.js when the app page is served from another host (PHP proxy, custom domain).
-        // Fable uses relative imports; they resolve against Program.js URL — if Program.js is same-origin as the page,
-        // fable_modules stays on that host. Rewriting the script (and CSS) to Azure fixes that.
-        // On Azure App Service Production, defaults to https://WEBSITE_HOSTNAME when PublicAssetBase is unset.
+    let resolvePublicAssetBase location (config: IConfiguration) (app: WebApplication) =
+        // Absolute origin for CSS + Program.js when the app page is served from another host.
         let publicAssetBaseOpt =
             let raw = config.["PublicAssetBase"] |> Option.ofObj |> Option.defaultValue ""
             let trimmed = raw.Trim().TrimEnd('/')
@@ -114,29 +106,50 @@ module Main =
             match fromConfig with
             | Some b -> Some b
             | None ->
-                if onAzure && app.Environment.EnvironmentName = "Production" then
+                if location.OnAzure && app.Environment.EnvironmentName = "Production" then
                     Environment.GetEnvironmentVariable("WEBSITE_HOSTNAME")
                     |> Option.ofObj
                     |> Option.map (fun h -> ("https://" + h.Trim()).TrimEnd('/'))
                 else None
 
+        publicAssetBaseOpt
+
+    let resolveJsModuleCorsOrigins (config: IConfiguration) publicAssetBaseOpt =
         // Comma-separated origins for Access-Control-Allow-Origin on /ambit/*.js (ES modules cross-origin).
         // If empty but PublicAssetBase is in effect, default to "*" so proxy + Azure works without extra config.
-        let jsModuleCorsOrigins =
-            let rawCors = config.["JsModuleCorsOrigins"] |> Option.ofObj |> Option.defaultValue ""
-            let parsed =
-                if String.IsNullOrWhiteSpace(rawCors) then
-                    [||]
-                else
-                    rawCors.Split(',')
-                    |> Array.map (fun s -> s.Trim())
-                    |> Array.filter (fun s -> s.Length > 0)
-            if parsed.Length > 0 then parsed
-            elif Option.isSome publicAssetBaseOpt then [| "*" |]
-            else [||]
-        // Serve wwwroot under /ambit/ so assets like /ambit/Program.js work. Use /ambit/ not /ambit
-        // so that GET /ambit (exact) falls through to MapGet rather than 404 from static files.
-        // JS and source maps: no-cache so Reload button (needed on iPad Safari) fetches fresh modules.
+        let rawCors = config.["JsModuleCorsOrigins"] |> Option.ofObj |> Option.defaultValue ""
+        let parsed =
+            if String.IsNullOrWhiteSpace(rawCors) then
+                [||]
+            else
+                rawCors.Split(',')
+                |> Array.map (fun s -> s.Trim())
+                |> Array.filter (fun s -> s.Length > 0)
+        if parsed.Length > 0 then parsed
+        elif Option.isSome publicAssetBaseOpt then [| "*" |]
+        else [||]
+
+    let applyNoCacheHeaders (resp: HttpResponse) =
+        resp.Headers.CacheControl <- "no-cache, no-store, must-revalidate"
+        resp.Headers.Pragma <- "no-cache"
+        resp.Headers.Expires <- "0"
+
+    let applyCorsHeaders (origins: string[]) (ctx: HttpContext) =
+        if origins.Length > 0 then
+            let allowAny = origins |> Array.exists (fun o -> o = "*")
+            if allowAny then
+                ctx.Response.Headers.Append("Access-Control-Allow-Origin", "*")
+            else
+                match ctx.Request.Headers.TryGetValue("Origin") with
+                | true, originVals ->
+                    let origin = originVals.ToString()
+                    if origins |> Array.contains origin then
+                        ctx.Response.Headers.Append("Access-Control-Allow-Origin", origin)
+                        ctx.Response.Headers.Append("Vary", "Origin")
+                | _ -> ()
+
+    let useAmbitStaticFiles (jsModuleCorsOrigins: string[]) (app: WebApplication) =
+        // Serve wwwroot under /ambit/ so assets like /ambit/Program.js work.
         let ambitOpts = StaticFileOptions(
             RequestPath = PathString("/ambit"),
             OnPrepareResponse = Action<StaticFileResponseContext>(fun ctx ->
@@ -144,23 +157,11 @@ module Main =
                 if path.EndsWith(".js", StringComparison.OrdinalIgnoreCase)
                     || path.EndsWith(".js.map", StringComparison.OrdinalIgnoreCase)
                     || path.EndsWith(".svg", StringComparison.OrdinalIgnoreCase) then
-                    ctx.Context.Response.Headers.CacheControl <- "no-cache, no-store, must-revalidate"
-                    ctx.Context.Response.Headers.Pragma <- "no-cache"
-                    ctx.Context.Response.Headers.Expires <- "0"
-                    if jsModuleCorsOrigins.Length > 0 then
-                        let allowAny = jsModuleCorsOrigins |> Array.exists (fun o -> o = "*")
-                        if allowAny then
-                            ctx.Context.Response.Headers.Append("Access-Control-Allow-Origin", "*")
-                        else
-                            match ctx.Context.Request.Headers.TryGetValue("Origin") with
-                            | true, originVals ->
-                                let origin = originVals.ToString()
-                                if jsModuleCorsOrigins |> Array.contains origin then
-                                    ctx.Context.Response.Headers.Append("Access-Control-Allow-Origin", origin)
-                                    ctx.Context.Response.Headers.Append("Vary", "Origin")
-                            | _ -> ()))
+                    applyNoCacheHeaders ctx.Context.Response
+                    applyCorsHeaders jsModuleCorsOrigins ctx.Context))
         app.UseStaticFiles(ambitOpts) |> ignore
 
+    let redirectAmbitSlash (app: WebApplication) =
         // Do not register both MapGet("/ambit") and MapGet("/ambit/") — routing treats them as ambiguous for the same request.
         // Normalize trailing slash to the canonical app URL.
         app.Use(fun (ctx: HttpContext) (next: RequestDelegate) ->
@@ -172,6 +173,7 @@ module Main =
         )
         |> ignore
 
+    let useDevelopmentLatency (app: WebApplication) =
         // Development only: add fixed response latency for sync/retry testing.
         if app.Environment.EnvironmentName = "Development" then
             app.Use(fun (ctx: HttpContext) (next: RequestDelegate) ->
@@ -180,6 +182,7 @@ module Main =
                     .Unwrap())
             |> ignore
 
+    let mapSourceFiles hasHead (app: WebApplication) =
         // Headed only: serve Client/Shared sources for browser source maps.
         if hasHead then
             let contentRoot = app.Environment.ContentRootPath
@@ -196,283 +199,49 @@ module Main =
             app.MapGet("/Client/{*path}", Func<string, IResult>(fun path -> serveSource clientDir path)) |> ignore
             app.MapGet("/Shared/{*path}", Func<string, IResult>(fun path -> serveSource sharedDir path)) |> ignore
 
-        let registerStartupError (message: string) =
-            let errorHtml =
-                sprintf """<!DOCTYPE html>
-<html><head><title>Server Error</title>
-<style>body{font-family:sans-serif;padding:2rem}pre{background:#f4f4f4;padding:1rem;overflow:auto}</style>
-</head><body>
-<h1>Server failed to start</h1>
-<pre>%s</pre>
-</body></html>""" message
-            app.Use(fun (ctx: HttpContext) (_next: RequestDelegate) ->
-                ctx.Response.StatusCode <- 500
-                ctx.Response.ContentType <- "text/html; charset=utf-8"
-                ctx.Response.WriteAsync(errorHtml)
-            ) |> ignore
-            app.MapFallback(fun (ctx: HttpContext) ->
-                ctx.Response.StatusCode <- 500
-                ctx.Response.ContentType <- "text/html; charset=utf-8"
-                ctx.Response.WriteAsync(errorHtml)
-            ) |> ignore
+    let configureStaticAssetsAndSources
+        hasHead
+        location
+        (config: IConfiguration)
+        (app: WebApplication)
+        =
+        app.UseDefaultFiles() |> ignore
+        app.UseStaticFiles() |> ignore
+        let publicAssetBaseOpt = resolvePublicAssetBase location config app
+        let jsModuleCorsOrigins = resolveJsModuleCorsOrigins config publicAssetBaseOpt
 
-        let persistenceModeResult =
-            config.["Persistence:Mode"]
-            |> Option.ofObj
-            |> Option.defaultValue ""
-            |> DatabaseSetup.resolvePersistenceMode
+        useAmbitStaticFiles jsModuleCorsOrigins app
+        redirectAmbitSlash app
+        useDevelopmentLatency app
+        mapSourceFiles hasHead app
 
-        match dataDirResult, persistenceModeResult with
-        | Error ex, _ ->
-            registerStartupError (ex.ToString())
+        publicAssetBaseOpt
 
-        | _, Error err ->
-            registerStartupError err
+    let configureApplication hasHead location (app: WebApplication) =
+        let config = app.Configuration
+        let dataDirResult =
+            try Ok (resolveDataDir app.Environment.ContentRootPath config)
+            with ex -> Error ex
+        let auth = RouteRegistration.createAuthentication config
+        let publicAssetBaseOpt =
+            configureStaticAssetsAndSources hasHead location config app
 
-        | Ok dataDir, Ok persistenceMode ->
+        RouteRegistration.registerPersistenceAndRoutes config auth publicAssetBaseOpt dataDirResult app
 
-            // ── Persistence backend: PostgreSQL authority, with file rollback mode ──
-            let mutable currentFileAgent: (string * FileAgent) option = None
-            let fileAgentLock = obj ()
+    [<EntryPoint>]
+    let main args =
+        let port = Environment.GetEnvironmentVariable("PORT") |> Option.ofObj
+        let hasHead = HeadPresence.detectHasHead ()
+        let location = serverLocation ()
+        let builder = createBuilder args location
 
-            let getOrCreateFileAgent (filename: string) : FileAgent =
-                lock fileAgentLock (fun () ->
-                    match currentFileAgent with
-                    | Some (name, agent) when name = filename -> agent
-                    | Some (_, agent) ->
-                        FileAgent.dispose agent
-                        let newAgent = FileAgent.create dataDir filename
-                        currentFileAgent <- Some (filename, newAgent)
-                        newAgent
-                    | None ->
-                        let newAgent = FileAgent.create dataDir filename
-                        currentFileAgent <- Some (filename, newAgent)
-                        newAgent
-                )
+        addAppSettings location builder
 
-            // DbStatus — Ok | Absent.
-            // Db mode requires a working DB.
-            // File mode uses file primary and mirrors to DB if present.
-            let dbConnString = config.["DB_CONNECTION_STRING"] |> Option.ofObj |> Option.defaultValue ""
-
-            let resolvedDbStatus : DatabaseSetup.DbStatus =
-                DatabaseSetup.resolveDbConnection persistenceMode dbConnString dataDir
-
-            let getHandle (filename: string) : AgentHandle =
-                match persistenceMode, resolvedDbStatus with
-                | DatabaseSetup.PersistenceMode.Db, DatabaseSetup.DbStatus.Ok ->
-                    AgentHandle.ofDb (DatabaseSetup.getOrCreateDbAgent dbConnString dataDir filename)
-                | DatabaseSetup.PersistenceMode.File, DatabaseSetup.DbStatus.Ok ->
-                    let fileAgent = getOrCreateFileAgent filename
-                    let dbAgent = DatabaseSetup.getOrCreateDbAgent dbConnString dataDir filename
-                    AgentHandle.ofFileWithDbMirror fileAgent (Some dbAgent)
-                | DatabaseSetup.PersistenceMode.File, _ ->
-                    AgentHandle.ofFile (getOrCreateFileAgent filename)
-                | DatabaseSetup.PersistenceMode.Db, _ ->
-                    AgentHandle.ofFile (getOrCreateFileAgent filename)
-
-            // GET /ambit/login → serve login.html
-            let loginHtml = Path.Combine(app.Environment.WebRootPath, "login.html")
-            app.MapGet("/ambit/login", Func<IResult>(fun () ->
-                Results.File(loginHtml, "text/html")
-            )) |> ignore
-
-            // POST /ambit/login → validate credentials, set permanent cookie, redirect
-            app.MapPost("/ambit/login", Func<HttpRequest, Task<IResult>>(fun req -> task {
-                let! form = req.ReadFormAsync()
-                let username = string form.["username"]
-                let password = string form.["password"]
-                if username = expectedUser && password = expectedPass && username <> "" then
-                    setAuthCookie req.HttpContext.Response
-                    return Results.Redirect("/ambit")
-                else
-                    return Results.Redirect("/ambit/login?error=1")
-            })) |> ignore
-
-            // GET /ambit/logout → clear session, redirect to login
-            app.MapGet("/ambit/logout", Func<HttpResponse, IResult>(fun resp ->
-                clearAuthCookie resp
-                Results.Redirect("/ambit/login")
-            )) |> ignore
-
-            // Build stamps for client to detect redeploy or refreshed client bundles (poll + gambol.html).
-            // Not named gambol.html — that path would be served as a raw static file under /ambit/ (no URL rewrites).
-            let gambolHtml = Path.Combine(app.Environment.WebRootPath, "gambol.template.html")
-            let programJs = Path.Combine(app.Environment.WebRootPath, "Program.js")
-            let updateJs = Path.Combine(app.Environment.WebRootPath, "Update.js")
-            let styleCss = Path.Combine(app.Environment.WebRootPath, "style.css")
-            let defaultUserCss = Path.Combine(app.Environment.WebRootPath, "user.css")
-            let commandDockSvg = Path.Combine(app.Environment.WebRootPath, "command-dock.svg")
-            let torontoTz = TimeZoneInfo.FindSystemTimeZoneById("America/Toronto")
-
-            let fileWriteUtc (path: string) =
-                if File.Exists path then File.GetLastWriteTimeUtc path else DateTime.MinValue
-
-            // Newest of shell template, Fable output, and CSS.
-            let pageArtifactUtc =
-                max (fileWriteUtc gambolHtml)
-                    (max (fileWriteUtc programJs)
-                            (max (fileWriteUtc updateJs)
-                                (max (fileWriteUtc styleCss)
-                                    (max (fileWriteUtc defaultUserCss) (fileWriteUtc commandDockSvg)))))
-
-            // Server assembly mtime (redeploy without touching wwwroot).
-            let serverAssemblyPath = System.Reflection.Assembly.GetExecutingAssembly().Location
-            if String.IsNullOrWhiteSpace serverAssemblyPath then
-                failwith "Could not determine server assembly path for build timestamp."
-            if not (File.Exists serverAssemblyPath) then
-                failwithf "Could not read server assembly timestamp: missing file at '%s'." serverAssemblyPath
-
-            let serverAssemblyUtc = File.GetLastWriteTimeUtc(serverAssemblyPath)
-            // Single "deployment" epoch for poll field `b` / __BUILD_TS__: assembly or client assets, whichever is newer.
-            let deployUtc = max serverAssemblyUtc pageArtifactUtc
-
-            let deployStamp () =
-                TimeZoneInfo.ConvertTimeFromUtc(deployUtc, torontoTz).ToString("yyyy-MM-dd HH:mm:ss") + " ET"
-            let pageBuildStamp () =
-                if pageArtifactUtc > DateTime.MinValue then
-                    TimeZoneInfo.ConvertTimeFromUtc(pageArtifactUtc, torontoTz).ToString("yyyy-MM-dd HH:mm:ss") + " ET"
-                else
-                    "unknown"
-            let pageBuildEpochSec () =
-                let u =
-                    if pageArtifactUtc > DateTime.MinValue then pageArtifactUtc
-                    else deployUtc
-                int (u.Subtract(DateTime.UnixEpoch).TotalSeconds)
-
-            let inlineCommandDockSprite () =
-                if not (File.Exists commandDockSvg) then ""
-                else
-                    let text = File.ReadAllText commandDockSvg
-                    if text.StartsWith("<?xml") then
-                        match text.IndexOf("?>") with
-                        | -1 -> text
-                        | i -> text.Substring(i + 2).TrimStart()
-                    else text
-
-            let deployEpochSec () =
-                int (deployUtc.Subtract(DateTime.UnixEpoch).TotalSeconds)
-
-            // GET /ambit/state → JSON { revision, graph } (full payload for initial load)
-            app.MapGet("/ambit/state", Func<HttpRequest, Task<IResult>>(fun req -> task {
-                if not (isAuthenticated req) then
-                    return Results.Unauthorized()
-                else
-                    let handle = getHandle "gambol"
-                    return! Api.getState handle |> Async.StartAsTask
-            })) |> ignore
-
-            // GET /ambit/poll → JSON { r, b, p, c } (revision, stamps, change tail)
-            // ?rev= client revision; server includes changes since that revision when behind.
-            app.MapGet("/ambit/poll", Func<HttpRequest, Task<IResult>>(fun req -> task {
-                if not (isAuthenticated req) then
-                    return Results.Unauthorized()
-                else
-                    let handle = getHandle "gambol"
-                    let pageEpoch = pageBuildEpochSec ()
-                    let clientRev =
-                        match req.Query.TryGetValue "rev" with
-                        | true, v ->
-                            match System.Int32.TryParse(string v) with
-                            | true, n -> n
-                            | _ -> 0
-                        | _ -> 0
-                    return!
-                        Api.getPoll handle (deployEpochSec ()) pageEpoch clientRev
-                        |> Async.StartAsTask
-            })) |> ignore
-
-            // POST /ambit/changes → JSON { revision, graph } or 400
-            app.MapPost("/ambit/changes", Func<HttpRequest, Task<IResult>>(fun req -> task {
-                if not (isAuthenticated req) then
-                    return Results.Unauthorized()
-                else
-                    use reader = new StreamReader(req.Body)
-                    let! body = reader.ReadToEndAsync()
-                    let handle = getHandle "gambol"
-                    return! Api.postChange handle body |> Async.StartAsTask
-            })) |> ignore
-
-            let prepareGitSave () = async {
-                let handle = getHandle "gambol"
-                let fileAgent = getOrCreateFileAgent "gambol"
-                return!
-                    SavePrep.syncDataDir
-                        persistenceMode
-                        resolvedDbStatus
-                        (fun () -> handle.getState ())
-                        (fun () -> FileAgent.flushSnapshot fileAgent)
-                        (fun () -> FileAgent.getRevision fileAgent)
-                        dataDir
-                        "gambol"
-            }
-
-            // GET /ambit/capabilities → JSON { gitSave }
-            app.MapGet("/ambit/capabilities", Func<HttpRequest, IResult>(fun req ->
-                if authDisabled || isAuthenticated req then Api.getCapabilities dataDir
-                else Results.Unauthorized()
-            )) |> ignore
-
-            // POST /ambit/save → git commit in dataDir
-            app.MapPost("/ambit/save", Func<HttpRequest, Task<IResult>>(fun req -> task {
-                if not (isAuthenticated req) then
-                    return Results.Unauthorized()
-                else
-                    return! Api.gitSave prepareGitSave dataDir |> Async.StartAsTask
-            })) |> ignore
-
-            // GET /ambit/user.css → serve dataDir/user.css, falling back to wwwroot/user.css
-            let serveUserCss () =
-                let userPath = Path.Combine(dataDir, "user.css")
-                let path = if File.Exists(userPath) then userPath else defaultUserCss
-                if File.Exists(path) then Results.File(path, "text/css")
-                else Results.NoContent()
-            app.MapGet("/ambit/user.css", Func<IResult>(fun () -> serveUserCss ())) |> ignore
-
-            // GET /ambit → serve gambol.html (protected) with startup stamp and page file stamp injected
-            let gambolHtmlWithStamp () =
-                let raw = File.ReadAllText(gambolHtml)
-                let pageStamp = pageBuildStamp ()
-                let pageEpoch = pageBuildEpochSec ()
-                let basePrefix = match publicAssetBaseOpt with None -> "" | Some u -> u
-                let styleHref = sprintf "%s/ambit/style.css?v=%d" basePrefix pageEpoch
-                let userHref = sprintf "%s/ambit/user.css?v=%d" basePrefix pageEpoch
-                let withAbsoluteAssets =
-                    raw
-                        .Replace("href=\"/ambit/style.css\"", sprintf "href=\"%s\"" styleHref)
-                        .Replace("href=\"/ambit/user.css\"", sprintf "href=\"%s\"" userHref)
-                let snippet =
-                    "    <script>window.__BUILD__ = \"" + deployStamp () + "\"; window.__PAGE_BUILD__ = \"" + pageStamp
-                    + "\"; window.__BUILD_TS__ = " + string (deployEpochSec ())
-                    + "; window.__PAGE_BUILD_TS__ = " + string pageEpoch
-                    + "; window.__DB_PRESENT__ = \"" +
-                        (match resolvedDbStatus with
-                         | DatabaseSetup.DbStatus.Ok -> "ok"
-                         | DatabaseSetup.DbStatus.Mismatch1 -> "mismatch1"
-                         | DatabaseSetup.DbStatus.Mismatch2 -> "mismatch2"
-                         | DatabaseSetup.DbStatus.Absent -> "absent")
-                        + "\";</script>\n</head>"
-                let withStamp = withAbsoluteAssets.Replace("</head>", snippet)
-                let withSprite =
-                    withStamp.Replace(
-                        "<!-- command-dock-sprite -->",
-                        inlineCommandDockSprite ())
-                // Cache-bust Program.js so reload gets fresh assets when server redeploys
-                let programSrc =
-                    match publicAssetBaseOpt with
-                    | None -> sprintf "/ambit/Program.js?v=%d" pageEpoch
-                    | Some baseUrl -> sprintf "%s/ambit/Program.js?v=%d" baseUrl pageEpoch
-                withSprite.Replace("src=\"/ambit/Program.js\"", sprintf "src=\"%s\"" programSrc)
-            let serveAmbitApp (ctx: HttpContext) : IResult =
-                if isAuthenticated ctx.Request then
-                    ctx.Response.Headers.CacheControl <- "no-cache, no-store, must-revalidate"
-                    ctx.Response.Headers.Pragma <- "no-cache"
-                    ctx.Response.Headers.Expires <- "0"
-                    Results.Content(gambolHtmlWithStamp (), "text/html")
-                else
-                    Results.Redirect("/ambit/login")
-            app.MapGet("/ambit", Func<HttpContext, IResult>(serveAmbitApp)) |> ignore
-
+        let app = builder.Build()
+        bindConfiguredPort port app
+        logHeadPresence hasHead
+        registerProductionConfigGuard location app
+        configureApplication hasHead location app
         app.Run()
 
         0 // Exit code

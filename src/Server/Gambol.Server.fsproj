@@ -30,6 +30,7 @@
     <Compile Include="Api.fs" />
     <Compile Include="HeadPresence.fs" />
     <Compile Include="AuthToken.fs" />
+    <Compile Include="RouteRegistration.fs" />
     <Compile Include="Server.fs" />
   </ItemGroup>
 

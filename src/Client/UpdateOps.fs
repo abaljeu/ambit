@@ -91,6 +91,22 @@ let selectRow (nodeId: NodeId) (model: VM) : VM * Effect list =
     if not (System.Object.ReferenceEquals(result.graph, model.graph)) then
         withSiteMap result, effects else result, effects
 
+/// Op: Commit current edit then enter edit on a view-line instance at cursor position.
+let commitAndStartEditInstanceAtPos (instanceId: SiteId) (cursorPos: int) (model: VM)
+    : VM * Effect list =
+    let committed, effs = commitIfEditing model
+    match ViewModel.startEditInstanceAtPos instanceId cursorPos committed with
+    | None -> committed, effs
+    | Some m ->
+        if not (System.Object.ReferenceEquals(m.graph, model.graph)) then
+            withSiteMap m, effs
+        else
+            m, effs
+
+/// Op: Commit in-progress edit to Selecting (background dismiss).
+let commitToSelectingOp (model: VM) : VM * Effect list =
+    commitIfEditing model
+
 /// Op: Select a specific view-line by instanceId, committing any in-progress edit first.
 /// Prefer this over selectRow when a nodeId may appear multiple times in the view.
 let selectInstance (instanceId: SiteId) (model: VM) : VM * Effect list =
@@ -107,6 +123,23 @@ let selectInstance (instanceId: SiteId) (model: VM) : VM * Effect list =
                 mode = Selecting }, []
     if not (System.Object.ReferenceEquals(result.graph, model.graph)) then
         withSiteMap result, effects else result, effects
+
+/// Op: Row pointer activation — edit→edit or select depending on mode.
+let pointerActivateRowAtPos (instanceId: SiteId) (cursorPos: int) (model: VM)
+    : VM * Effect list =
+    match model.mode with
+    | Editing _ -> commitAndStartEditInstanceAtPos instanceId cursorPos model
+    | Selecting -> selectInstance instanceId model
+    | CommandPalette _ | SearchDialog _ | FileSearchDialog _ | CssClassPrompt _ | RenamePrompt _ ->
+        model, []
+
+/// Op: Row double-click activation — enter edit at the double-click cursor position.
+let doubleClickRowAtPos (instanceId: SiteId) (cursorPos: int) (model: VM) : VM * Effect list =
+    match model.mode with
+    | Selecting -> startEditInstanceAtPos instanceId cursorPos model
+    | Editing _ -> commitAndStartEditInstanceAtPos instanceId cursorPos model
+    | CommandPalette _ | SearchDialog _ | FileSearchDialog _ | CssClassPrompt _ | RenamePrompt _ ->
+        model, []
 
 /// Op: Move selection up, committing any in-progress edit first.
 let moveSelectionUp (model: VM) : VM * Effect list =

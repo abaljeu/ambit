@@ -173,13 +173,18 @@ let private makeRowElement
     nameSpan.textContent <- ViewModel.rowNameDisplayText node.name
     row.appendChild nameSpan |> ignore
 
-    // Row click → select the exact view-line instance, not just the first occurrence of the nodeId
+    // Row click → select or edit-at-caret depending on mode
     row.addEventListener("mousedown", fun (ev: Event) ->
         ev.preventDefault()
+        let me = ev :?> MouseEvent
+        let textDiv = row.querySelector ".amb-text"
+        let offset =
+            if isNull textDiv then 0
+            else getCaretOffsetInRoot (textDiv :?> HTMLElement) me.clientX me.clientY
         deferSelectionScroll <- true
-        dispatch (ApplyOp (selectInstance siteEntry.instanceId))
+        dispatch (ApplyOp (pointerActivateRowAtPos siteEntry.instanceId offset))
     )
-    // Row double-click → enter edit mode with cursor at mouse position
+    // Row double-click → enter edit mode with cursor at mouse position.
     row.addEventListener("dblclick", fun (ev: Event) ->
         ev.preventDefault()
         cancelPendingSelectionScroll ()
@@ -189,7 +194,7 @@ let private makeRowElement
         let offset =
             if isNull textDiv then 0
             else getCaretOffsetInRoot (textDiv :?> HTMLElement) me.clientX me.clientY
-        dispatch (ApplyOp (startEditInstanceAtPos siteEntry.instanceId offset))
+        dispatch (ApplyOp (doubleClickRowAtPos siteEntry.instanceId offset))
     )
     row
 

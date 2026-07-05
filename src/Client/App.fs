@@ -322,6 +322,24 @@ let setupStaticDOM (dispatch: Msg -> unit) (getModel: unit -> VM) (_wakePolling:
     hiddenInput.addEventListener("copy",  fun ev -> onCopy  (getModel ()) ev dispatch)
     hiddenInput.addEventListener("cut",   fun ev -> onCut   (getModel ()) ev dispatch)
 
+    let dismissEditingOnBackground (ev: Event) : unit =
+        match (getModel ()).mode with
+        | Editing _ ->
+            let target = ev.target :?> HTMLElement
+            match target.closest(".amb-row") with
+            | Some _ -> ()
+            | None ->
+                match target.closest("button,input,a,.amb-dialog,#sync-status") with
+                | Some _ -> ()
+                | None -> dispatch (ApplyOp commitToSelectingOp)
+        | _ -> ()
+
+    let ambDoc = document.getElementById "amb-document"
+    if not (isNull ambDoc) then
+        ambDoc.addEventListener("mousedown", dismissEditingOnBackground)
+    if not (isNull app) then
+        app.addEventListener("mousedown", dismissEditingOnBackground)
+
     setupVisualViewportLayout ()
 
     let basePath =
