@@ -59,7 +59,7 @@ Might be next: Stage 5 unresolved UI and server file-status corrections.
 Status: **Partial**.
 Details: [[doc/roadmap/workspace-file-model.md]], [[doc/current/workspace-stage-plan.md]].
 Last implemented: Stage 8 snapshot integration and incremental persist on top of Stage 7 `DataDir` live-save and unified path moves.
-Might be next: Generic text read/write slice (Stage 7 Step 5 — [[doc/roadmap/workspace-format-plain.md]]); workspace scale import slice 1; git persistence; hard delete under TRASH.
+Might be next: XML read/write slice (Stage 7 Step 6 — [[doc/roadmap/workspace-format-xml.md]]); workspace scale import slice 1; Stage 5 unresolved UI corrections.
 
 ### **Workspace import and source formats**
 Status: **Planned**.

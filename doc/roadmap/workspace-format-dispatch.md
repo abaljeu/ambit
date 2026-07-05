@@ -1,18 +1,20 @@
 # Document Format Dispatch
 
-See also: [[doc/roadmap/workspace-file-model.md]] Stage 7 Step 5,
-[[doc/roadmap/workspace-format-plain.md]], [[doc/roadmap/workspace-text-outline-conversion.md]]
+See also: [[doc/roadmap/workspace-file-model.md]] Stage 7 Steps 5–6,
+[[doc/roadmap/workspace-format-plain.md]], [[doc/roadmap/workspace-format-xml.md]], [[doc/roadmap/workspace-text-outline-conversion.md]]
 
 ## What it gives you
 
 - `.amb` directory and workspace artifacts keep using `AmbDocument`.
-- Generic text file artifacts (neither `.amb` nor `.md`) use `PlainTextDocument`.
+- Generic text file artifacts (neither `.amb` nor `.md` nor XML-shaped) use `PlainTextDocument`.
+- XML file artifacts use `XmlDocument` ([[doc/roadmap/workspace-format-xml.md]]).
 - One shared dispatch boundary in `src/Shared/`; `DocumentPersistence` and `DocumentAssembly` call it instead of hard-coding `AmbDocument`.
 - Server read/write/discovery tests prove both codecs on disk.
 
 ## What it avoids for now
 
 - Markdown (`.md`) — classify distinctly, return error on read/write.
+- HTML — out of scope for the Xml codec even when XML-shaped.
 - Changing workspace or directory persistence away from `.amb`.
 - Persisting plain-text complement separately on disk.
 - Filesystem watcher or automatic external reconciliation.
@@ -25,8 +27,10 @@ Add `DocumentFormat.fs` (or extend `DocumentAssembly.fs` if it stays small):
 type DocumentCodec =
     | Amb
     | Plain
+    | Xml   // planned Stage 7 Step 6
 
 let classifyCodec (relativePath: string) : Result<DocumentCodec, string>
+let classifyCodecFromHeading (text: string) (relativePath: string) : Result<DocumentCodec, string>
 let readArtifact (text: string) (docId: NodeId) (graph: Graph) (codec: DocumentCodec) : Result<Graph, string>
 let writeArtifact (graph: Graph) (docId: NodeId) (codec: DocumentCodec) (previousText: string option) : Result<string, string>
 ```
@@ -37,18 +41,25 @@ Classification rules (reuse `classifyArtifactRelative`):
 |--------------|-------|
 | `.amb`, `*/.amb`, `@*/*/.amb` | Amb |
 | `*.md` | Error (deferred) |
-| Any other file path | Plain |
+| Any other file path | Plain (unless heading or graph rules below override) |
 | Plain file with nested document-root children | Amb on write (graph-aware) |
 | `.txt` file whose content has `->` or `^` lines | Amb on read (content-aware) |
+| Artifact heading is HTML-shaped | Plain on read/write ([[doc/roadmap/workspace-format-xml.md]] § Classification) |
+| Artifact heading is XML-shaped and parse succeeds | Xml on read/write |
+| Artifact heading is XML-shaped but parse fails | Plain on read/write (flagged) |
+
+`classifyCodec` uses path only (Amb vs default Plain). `classifyCodecFromHeading` consults artifact text on read/write; path extension is not authoritative for Xml.
 
 `readArtifact` for Amb: existing `AmbDocument.read` + `mergeReadResult`.
 For Plain: `PlainTextDocument.read` + parallel merge (same overlay/conflict rules).
+For Xml: `XmlDocument.read` + parallel merge (planned).
 
 `writeArtifact` for Amb: `AmbDocument.write` (no previous-text incremental path today).
 For Plain: `PlainTextDocument.write graph docId complement previousText` where complement is
 `buildComplement` from the current graph; `previousText` is the on-disk artifact when present.
+For Xml: `XmlDocument.write graph docId complement previousText` (planned).
 
-Nested doc refs in `.amb` parents still queue child artifacts; plain file children assemble through Plain codec.
+Nested doc refs in `.amb` parents still queue child artifacts; plain and XML file children assemble through their codecs.
 
 ## Wiring
 

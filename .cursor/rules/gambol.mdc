@@ -21,6 +21,7 @@ Workflow skills in [[.cursor/skills/]]:
 - [[.cursor/skills/add-shared-test/SKILL.md]] — Shared.Tests coverage
 - [[.cursor/skills/investigate-fable-client/SKILL.md]] — Fable client investigation
 - [[.cursor/skills/maintain-doc-currency/SKILL.md]] — doc placement and currency
+- [[.cursor/skills/co-edit-format-plan/SKILL.md]] — collaborative (interactive) document editing
 - [[.cursor/skills/prepare-agent-instruction-change/SKILL.md]] — maintain rules/skills/bridges
 
 Tool-specific notes:

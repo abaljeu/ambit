@@ -4,7 +4,7 @@ Status: Draft
 
 Authority: Target design for converting between document files and outline structure. Mixes settled commitments with open questions; each section marks which.
 
-See also: [[doc/roadmap/workspace-file-model.md]], [[doc/roadmap/workspace-file-persistence.md]], [[doc/current/workspace-stage-plan.md]], [[doc/roadmap/reference-expressions.md]], [[doc/roadmap/workspace-format-amb.md]], [[doc/roadmap/workspace-format-md.md]], [[doc/roadmap/workspace-format-plain.md]]
+See also: [[doc/roadmap/workspace-file-model.md]], [[doc/roadmap/workspace-file-persistence.md]], [[doc/current/workspace-stage-plan.md]], [[doc/roadmap/reference-expressions.md]], [[doc/roadmap/workspace-format-amb.md]], [[doc/roadmap/workspace-format-md.md]], [[doc/roadmap/workspace-format-plain.md]], [[doc/roadmap/workspace-format-xml.md]]
 
 This document defines the separate conversion step used by the main import and export process. The workflow itself stays in the main process docs; this file only defines how text content becomes outline structure and how outline structure becomes text content again.
 
@@ -52,7 +52,8 @@ These are committed.
 
 | `.amb` (native) | [[doc/roadmap/workspace-format-amb.md]] | [[src/Shared/Snapshot.fs]] is a pre-workspace baseline only; workspace `.amb` replaces its id scheme. |
 | `.md` | [[doc/roadmap/workspace-format-md.md]] | External-editor format; heading hierarchy maps to outline depth. |
-| other text | [[doc/roadmap/workspace-format-plain.md]] | Unrecognized text extensions; indent-only hierarchy; infer and preserve indent style. |
+| other text | [[doc/roadmap/workspace-format-plain.md]] | Non-XML text extensions; indent-only hierarchy; infer and preserve indent style. |
+| XML | [[doc/roadmap/workspace-format-xml.md]] | Well-formed XML element tree; HTML excluded; structure and content preservation per base XML spec. |
 
 ## Content Conversion
 
@@ -67,18 +68,15 @@ Each rule should name its counterpart in the other direction.
 
 ## Generic text reconciliation
 
-This section locks the round-trip contract for [[doc/roadmap/workspace-format-plain.md]] persistence. It applies to `Special File` artifacts whose path is neither `.amb` nor `.md`. Workspace and directory documents remain on `.amb`; markdown remains deferred.
+Authoritative spec: [[doc/roadmap/workspace-format-plain.md]]. That document defines line mapping, identity (` #name-token`), operations-driven export, reconciliation by change kind, move asymmetry, and verification targets for `Special File` artifacts whose path is neither `.amb` nor `.md`. Workspace and directory documents remain on `.amb`; markdown remains deferred.
 
-Reconciliation takes three inputs: **previous file text** (last known artifact bytes, or empty on first import), **current graph document** (authoritative subtree membership and node state), and **edited or newly supplied file text** (external edit or export target). The graph is authoritative for identity; the file is a projection reconciled against it.
+This conversion doc supplies the shared contract only: three reconciliation inputs and required outcomes in **Settled**; external deletion semantics in **Deletion on import**.
 
-Required outcomes:
+## Generic XML reconciliation
 
-- **Unchanged import → byte-identical export.** Text imported without structural or content edits writes back byte-for-byte, including blank lines, line endings, and inferred indent style stored in the artifact complement.
-- **Unchanged export → graph-identical import.** An outline exported without graph edits imports to the same `NodeId` values and Owner/Ref structure for representable content. Metadata plain text cannot encode (for example `cssClasses`) recovers from the artifact complement.
-- **Line edit, add, delete.** Changes that touch one or more lines match affected nodes by stable `NodeId` (via trailing ` #name-token` where present) and preserve identity for untouched nodes. Export rewrites only touched lines; all other bytes stay as they were (`file_next = f_out(file_prev, op)`).
-- **External text moves.** Reordering or re-indenting lines in an external edit default to delete plus add at the new location unless id matching is strong enough to treat the change as the same node moved. Graph-driven outline moves preserve `NodeId` on write.
+Authoritative spec: [[doc/roadmap/workspace-format-xml.md]]. That document defines tree mapping, structural classes (`xml-*`), operations-driven export, reconciliation by change kind, move asymmetry, references, and verification targets for `File` artifacts whose persisted body is well-formed XML. Classification uses a heading scan of artifact text; HTML-shaped headings are excluded. Workspace and directory documents remain on `.amb`; markdown remains deferred.
 
-Filesystem observation is not authoritative. This contract does not add background import, automatic repair, or concurrent merge behavior.
+This conversion doc supplies the shared contract only: three reconciliation inputs and required outcomes in **Settled**; external deletion semantics in **Deletion on import**.
 
 ## Later
 
@@ -117,4 +115,6 @@ Generic conversion (all formats):
 - editing file B does not require rewriting file A when A holds a cross-file reference to a node in B
 
 Generic text slice (Stage 7 Step 5) — see [[doc/roadmap/workspace-format-plain.md]] § Verification Targets for format-specific cases. Shared tests: `PlainTextDocumentTests` (codec parse/write/reconcile), extended `DocumentAssemblyTests` (path → codec dispatch). Server tests: extended `DocumentPersistenceTests` (`readme.txt` writes plain text, reads back through plain codec; `.amb` artifacts unchanged). Loader tests (`DocumentLoaderTests`) only if dispatch changes startup behavior.
+
+XML slice (Stage 7 Step 6) — see [[doc/roadmap/workspace-format-xml.md]] § Verification Targets. Shared tests: `XmlDocumentTests`, extended `DocumentAssemblyTests` (Xml dispatch). Server tests: extended `DocumentPersistenceTests` (XML file round-trip). Implementation plan: [[doc/reference/formats/xml-round-trip-plan.md]].
 

@@ -36,7 +36,7 @@ A `name-token` follows [[src/Shared/Filename.fs]] `Ok` rules: letters, digits, `
 
 On export, named nodes append ` #name-token`. On import, trailing ` #name-token` (whitespace before `#` required) is stripped from node text and sets the created node's `name`. Ref targets use the same token form; position distinguishes suffix from target.
 
-Subtree reconciliation (`NodeId` matching, unnamed lines, deletion) follows [[doc/roadmap/workspace-text-outline-conversion.md]] § Generic text reconciliation.
+Subtree reconciliation (`NodeId` matching, unnamed lines, deletion) follows **Reconciliation** below and [[doc/roadmap/workspace-text-outline-conversion.md]] § Deletion on import.
 
 ## Reconciliation
 

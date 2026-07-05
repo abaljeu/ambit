@@ -72,9 +72,9 @@ When a Correction is described below, the meaning is that the item previous is d
 - `[x]` Stage 7: Step 2: unified filesystem moves from `DocumentPathMove` (rename, reparent, soft delete to TRASH).
 - `[x]` Stage 7: Step 3: git persistence for per-document artifacts ([[doc/roadmap/git-sync-gateway.md]]).
 - `[x]` Stage 7: Step 4: hard delete under TRASH removes on-disk artifacts.
-- `[x]` Stage 7: Step 5: generic text read/write for `Special File` artifacts whose path is neither `.amb` nor `.md`; workspace and directory documents stay on `.amb`. Format spec: [[doc/roadmap/workspace-format-plain.md]]. Reconciliation contract: [[doc/roadmap/workspace-text-outline-conversion.md]] § Generic text reconciliation. Dispatch plan: [[doc/roadmap/workspace-format-dispatch.md]]. Adds a document-format dispatch boundary in the read/write layer (`DocumentAssembly`, `DocumentPersistence`).
+- `[x]` Stage 7: Step 5: generic text read/write for `Special File` artifacts whose path is neither `.amb` nor `.md`; workspace and directory documents stay on `.amb`. Format spec: [[doc/roadmap/workspace-format-plain.md]] (reconciliation: § Reconciliation). Generic contract: [[doc/roadmap/workspace-text-outline-conversion.md]] § Settled. Dispatch plan: [[doc/roadmap/workspace-format-dispatch.md]]. Adds a document-format dispatch boundary in the read/write layer (`DocumentAssembly`, `DocumentPersistence`).
+- `[ ]` Stage 7: Step 6: XML read/write for `File` artifacts whose persisted body is XML; plain text and `.amb` behavior unchanged. Format spec: [[doc/roadmap/workspace-format-xml.md]] (reconciliation: § Reconciliation). Generic contract: [[doc/roadmap/workspace-text-outline-conversion.md]] § Settled. Extends `DocumentFormat` dispatch with an `Xml` codec. Implementation plan: [[doc/reference/formats/xml-round-trip-plan.md]].
 - `[ ]` Deferred: Support markdown text file format.
-- 
 - `[x]` Stage 8: snapshot integration — existing write path (`Snapshot.write` / `FileAgent` / db backup) emits ROOT plus per-document artifacts; incremental persist skips unchanged documents.
 
 ## Current Implementation Snapshot
@@ -345,7 +345,7 @@ Every directory document persists under its owning directory on disk. Root works
 
 #### File document
 
-A file document persists by writing the members of that document according to the file format. **Today** every artifact is written through the `.amb` codec regardless of logical extension. **Planned (Stage 7 Step 5):** path classification selects the codec — `.amb` for workspace and directory documents and for `.amb` file paths; generic text ([[doc/roadmap/workspace-format-plain.md]]) for `Special File` paths that are neither `.amb` nor `.md`; `.md` remains deferred ([[doc/roadmap/workspace-format-md.md]]).
+A File node's tree persists by writing the members of to a document according to the file format. Path classification selects the codec — `.amb` for workspace and directory documents and for `.amb` file paths; generic text ([[doc/roadmap/workspace-format-plain.md]]) for non-XML `File` paths that are neither `.amb` nor `.md`; XML ([[doc/roadmap/workspace-format-xml.md]]) for XML-shaped `File` artifacts (planned Stage 7 Step 6); `.md` remains deferred ([[doc/roadmap/workspace-format-md.md]]).
 
 **Stop at nested document root.** When serializing a document for persistence, descent stops at each child `workspace`, `directory`, or `file` node that is itself a document root:
 
