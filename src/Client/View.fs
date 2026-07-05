@@ -105,24 +105,27 @@ let private makeRowElement
         row.appendChild indent |> ignore
 
     // Fold toggle indicator
-    if hasChildren then
-        let toggle = document.createElement "span"
-        toggle.classList.add "amb-fold-toggle"
-        toggle.textContent <- if siteEntry.expanded then "\u25BC" else "\u25B6"
-        toggle.addEventListener("mousedown", fun (ev: Event) ->
-            ev.preventDefault()
-            ev.stopPropagation()
-            let op =
-                if siteEntry.parentInstanceId = None then zoomOutOp
-                else toggleFoldOp siteEntry.instanceId
-            dispatch (ApplyOp op)
-        )
-        row.appendChild toggle |> ignore
-    else
-        let dot = document.createElement "span"
-        dot.classList.add "amb-fold-toggle"
-        dot.textContent <- "\u25CF"
-        row.appendChild dot |> ignore
+    let leafBullet =
+        if hasChildren then
+            let toggle = document.createElement "span"
+            toggle.classList.add "amb-fold-toggle"
+            toggle.textContent <- if siteEntry.expanded then "\u25BC" else "\u25B6"
+            toggle.addEventListener("mousedown", fun (ev: Event) ->
+                ev.preventDefault()
+                ev.stopPropagation()
+                let op =
+                    if siteEntry.parentInstanceId = None then zoomOutOp
+                    else toggleFoldOp siteEntry.instanceId
+                dispatch (ApplyOp op)
+            )
+            row.appendChild toggle |> ignore
+            None
+        else
+            let dot = document.createElement "span"
+            dot.classList.add "amb-fold-toggle"
+            dot.textContent <- "\u25CF"
+            row.appendChild dot |> ignore
+            Some dot
 
     // One `.amb-text` per row; new row ⇒ new div. Same node for view and edit (contentEditable).
     let textDiv = document.createElement "div"
@@ -168,34 +171,37 @@ let private makeRowElement
         textDiv.textContent <- ViewModel.outlineDisplayText node
     row.appendChild textDiv |> ignore
 
+    let rowTextOffset (ev: MouseEvent) : int =
+        getCaretOffsetInRoot textDiv ev.clientX ev.clientY
+
+    let activateRow (ev: Event) : unit =
+        ev.preventDefault()
+        ev.stopPropagation()
+        let me = ev :?> MouseEvent
+        deferSelectionScroll <- true
+        dispatch (ApplyOp (pointerActivateRowAtPos siteEntry.instanceId (rowTextOffset me)))
+
+    let doubleClickRow (ev: Event) : unit =
+        ev.preventDefault()
+        ev.stopPropagation()
+        let me = ev :?> MouseEvent
+        cancelPendingSelectionScroll ()
+        deferSelectionScroll <- false
+        dispatch (ApplyOp (doubleClickRowAtPos siteEntry.instanceId (rowTextOffset me)))
+
+    if not (isEditingEntry model siteEntry) then
+        textDiv.addEventListener("mousedown", activateRow)
+        textDiv.addEventListener("dblclick", doubleClickRow)
+
+    leafBullet
+    |> Option.iter (fun dot ->
+        dot.addEventListener("mousedown", activateRow)
+        dot.addEventListener("dblclick", doubleClickRow))
+
     let nameSpan = document.createElement "span"
     nameSpan.classList.add "amb-node-guid"
     nameSpan.textContent <- ViewModel.rowNameDisplayText node.name
     row.appendChild nameSpan |> ignore
-
-    // Row click → select or edit-at-caret depending on mode
-    row.addEventListener("mousedown", fun (ev: Event) ->
-        ev.preventDefault()
-        let me = ev :?> MouseEvent
-        let textDiv = row.querySelector ".amb-text"
-        let offset =
-            if isNull textDiv then 0
-            else getCaretOffsetInRoot (textDiv :?> HTMLElement) me.clientX me.clientY
-        deferSelectionScroll <- true
-        dispatch (ApplyOp (pointerActivateRowAtPos siteEntry.instanceId offset))
-    )
-    // Row double-click → enter edit mode with cursor at mouse position.
-    row.addEventListener("dblclick", fun (ev: Event) ->
-        ev.preventDefault()
-        cancelPendingSelectionScroll ()
-        deferSelectionScroll <- false
-        let me = ev :?> MouseEvent
-        let textDiv = row.querySelector ".amb-text"
-        let offset =
-            if isNull textDiv then 0
-            else getCaretOffsetInRoot (textDiv :?> HTMLElement) me.clientX me.clientY
-        dispatch (ApplyOp (doubleClickRowAtPos siteEntry.instanceId offset))
-    )
     row
 
 /// Apply in-place patches to an existing row DOM element.

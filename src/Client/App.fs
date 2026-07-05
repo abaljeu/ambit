@@ -326,12 +326,9 @@ let setupStaticDOM (dispatch: Msg -> unit) (getModel: unit -> VM) (_wakePolling:
         match (getModel ()).mode with
         | Editing _ ->
             let target = ev.target :?> HTMLElement
-            match target.closest(".amb-row") with
+            match target.closest("button,input,a,.amb-dialog,#sync-status") with
             | Some _ -> ()
-            | None ->
-                match target.closest("button,input,a,.amb-dialog,#sync-status") with
-                | Some _ -> ()
-                | None -> dispatch (ApplyOp commitToSelectingOp)
+            | None -> dispatch (ApplyOp commitToSelectingOp)
         | _ -> ()
 
     let ambDoc = document.getElementById "amb-document"
