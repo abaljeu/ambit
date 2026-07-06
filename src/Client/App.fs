@@ -322,10 +322,14 @@ let setupStaticDOM (dispatch: Msg -> unit) (getModel: unit -> VM) (_wakePolling:
     hiddenInput.addEventListener("copy",  fun ev -> onCopy  (getModel ()) ev dispatch)
     hiddenInput.addEventListener("cut",   fun ev -> onCut   (getModel ()) ev dispatch)
 
-    let dismissEditingOnBackground (ev: Event) : unit =
+    let dismissOnBackground (ev: Event) : unit =
+        let target = ev.target :?> HTMLElement
         match (getModel ()).mode with
+        | CommandPalette _ | SearchDialog _ | FileSearchDialog _ | CssClassPrompt _ | RenamePrompt _ ->
+            match target.closest("button,input,a,.amb-dialog,#sync-status") with
+            | Some _ -> ()
+            | None -> dispatch (ApplyOp closeActiveOverlayOp)
         | Editing _ ->
-            let target = ev.target :?> HTMLElement
             match target.closest("button,input,a,.amb-dialog,#sync-status") with
             | Some _ -> ()
             | None -> dispatch (ApplyOp commitToSelectingOp)
@@ -333,9 +337,9 @@ let setupStaticDOM (dispatch: Msg -> unit) (getModel: unit -> VM) (_wakePolling:
 
     let ambDoc = document.getElementById "amb-document"
     if not (isNull ambDoc) then
-        ambDoc.addEventListener("mousedown", dismissEditingOnBackground)
+        ambDoc.addEventListener("mousedown", dismissOnBackground)
     if not (isNull app) then
-        app.addEventListener("mousedown", dismissEditingOnBackground)
+        app.addEventListener("mousedown", dismissOnBackground)
 
     setupVisualViewportLayout ()
 

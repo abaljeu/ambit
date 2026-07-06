@@ -124,15 +124,6 @@ let selectInstance (instanceId: SiteId) (model: VM) : VM * Effect list =
     if not (System.Object.ReferenceEquals(result.graph, model.graph)) then
         withSiteMap result, effects else result, effects
 
-/// Op: Row pointer activation — edit→edit or select depending on mode.
-let pointerActivateRowAtPos (instanceId: SiteId) (cursorPos: int) (model: VM)
-    : VM * Effect list =
-    match model.mode with
-    | Editing _ -> commitAndStartEditInstanceAtPos instanceId cursorPos model
-    | Selecting -> selectInstance instanceId model
-    | CommandPalette _ | SearchDialog _ | FileSearchDialog _ | CssClassPrompt _ | RenamePrompt _ ->
-        model, []
-
 /// Op: Row double-click activation — enter edit at the double-click cursor position.
 let doubleClickRowAtPos (instanceId: SiteId) (cursorPos: int) (model: VM) : VM * Effect list =
     match model.mode with
@@ -514,6 +505,31 @@ let closeCssClassPromptOp (model: VM) : VM * Effect list =
     match model.mode with
     | CssClassPrompt (ret, _) -> { model with mode = ret }, []
     | _ -> model, []
+
+/// Op: Close the active overlay dialog/palette, restoring its return mode.
+let closeActiveOverlayOp (model: VM) : VM * Effect list =
+    match model.mode with
+    | CommandPalette _ -> closeCommandPaletteOp model
+    | SearchDialog _ -> Gambol.Client.SearchDialog.closeSearchDialogOp model
+    | FileSearchDialog _ -> Gambol.Client.FileSearchDialog.closeFileSearchDialogOp model
+    | CssClassPrompt _ -> closeCssClassPromptOp model
+    | RenamePrompt _ -> Gambol.Client.UpdateRename.closeRenamePromptOp model
+    | _ -> model, []
+
+/// Op: Row pointer activation — edit→edit or select depending on mode.
+let pointerActivateRowAtPos (instanceId: SiteId) (cursorPos: int) (model: VM)
+    : VM * Effect list =
+    match model.mode with
+    | CommandPalette _ | SearchDialog _ | FileSearchDialog _ | CssClassPrompt _ | RenamePrompt _ ->
+        let closed, closeEffs = closeActiveOverlayOp model
+        let result, actEffs =
+            match closed.mode with
+            | Editing _ -> commitAndStartEditInstanceAtPos instanceId cursorPos closed
+            | Selecting -> selectInstance instanceId closed
+            | _ -> closed, []
+        result, closeEffs @ actEffs
+    | Editing _ -> commitAndStartEditInstanceAtPos instanceId cursorPos model
+    | Selecting -> selectInstance instanceId model
 
 let private readCssClassPromptValue () : string =
     let el = document.getElementById "css-class-prompt-input"
