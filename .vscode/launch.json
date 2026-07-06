@@ -4,17 +4,17 @@
         {
             "name": "Full Stack",
             "configurations": [
-                "Launch Server (Full Stack)",
-                "Launch Client (Full Stack Chrome)"
+                "(Server for Full Stack)",
+                "(Client for Full Stack)"
             ],
             "preLaunchTask": "fullstack: Build",
             "stopAll": true
         },
         {
-            "name": "Desktop (local)",
+            "name": "Desktop App and Local Server",
             "configurations": [
-                "Launch Server (Full Stack)",
-                "Launch Desktop (local)"
+                "Local Server",
+                "(Desktop App for Local Server)"
             ],
             "preLaunchTask": "desktop: local: build",
             "stopAll": true
@@ -22,7 +22,7 @@
     ],
     "configurations": [
         {
-            "name": "Launch Desktop (cloud)",
+            "name": "Desktop App (Connect to Azure)",
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "desktop: Build",
@@ -34,7 +34,7 @@
             "justMyCode": false
         },
         {
-            "name": "Launch Desktop (local)",
+            "name": "(Desktop App for Local Server)",
             "type": "coreclr",
             "request": "launch",
             "program": "${workspaceFolder}/src/Desktop/bin/Debug/net10.0-windows/Gambol.Desktop.dll",
@@ -45,7 +45,7 @@
             "justMyCode": false
         },
         {
-            "name": "Launch Server",
+            "name": "Local Server",
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "server: Build",
@@ -60,7 +60,7 @@
             }
         },
         {
-            "name": "Launch Client (Edge)",
+            "name": "Local Client (Edge)",
             "type": "msedge",
             "request": "launch",
             "preLaunchTask": "fable: Build Client",
@@ -72,7 +72,7 @@
             }
         },
         {
-            "name": "Launch Client (Chrome)",
+            "name": "Local Client (Chrome)",
             "type": "chrome",
             "request": "launch",
             "preLaunchTask": "fable: Build Client",
@@ -84,7 +84,7 @@
             }
         },
         {
-            "name": "Launch Client (Chrome) — collaborative-systems.org",
+            "name": "Azure Client (Chrome)",
             "type": "chrome",
             "request": "launch",
             "url": "https://collaborative-systems.org/ambit",
@@ -98,7 +98,7 @@
             }
         },
         {
-            "name": "Launch Client (Edge) — collaborative-systems.org",
+            "name": "Azure Client (Edge)",
             "type": "msedge",
             "request": "launch",
             "url": "https://collaborative-systems.org/ambit",
@@ -112,7 +112,7 @@
             }
         },
         {
-            "name": "Launch Server (Full Stack)",
+            "name": "(Server for Full Stack)",
             "type": "coreclr",
             "request": "launch",
             "program": "${workspaceFolder}/src/Server/bin/Debug/net10.0/Gambol.Server.dll",
@@ -126,7 +126,7 @@
             }
         },
         {
-            "name": "Launch Client (Full Stack Chrome)",
+            "name": "(Client for Full Stack)",
             "type": "chrome",
             "request": "launch",
             "url": "http://localhost:5115/ambit",

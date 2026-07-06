@@ -208,7 +208,7 @@ let commandRegistry : CommandEntry2 list =
       cmd Redo (keyAlways redoOp)
       cmd CopyContent (keyAlways copyOp)
       cmd CopyAsLinks (keyAlways copySelectionAsLinks)
-      cmd DuplicateLink (keyAlways duplicateSelectionOp)
+      cmd DupNodes (keyAlways duplicateSelectionOp)
       cmd InsertFile (keyAlways openFileSearchDialogOp)
       cmd CommandPalette (keyAlways openCommandPaletteOp)
       cmd MoveSelected (keyAlways moveNodesOp)

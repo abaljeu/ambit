@@ -12,7 +12,6 @@ open Gambol.Client.Update
 open Gambol.Client.UpdateOps
 open Gambol.Shared.CommandDockLayout
 open Gambol.Shared.CommandCategory
-open Gambol.Shared.CommandIconLookup
 
 module CommandMeta = Gambol.Shared.CommandEntry
 
@@ -328,12 +327,7 @@ let manageFocus
 // Compact command dock
 // ---------------------------------------------------------------------------
 
-type private ActiveToolSurface =
-    | DockMoveTools
-    | DockSelectTools
-    | DockMoreTools
-
-let mutable private activeToolSurface : ActiveToolSurface option = None
+let mutable private activeToolSurface : DockTriggerEntry option = None
 let mutable private lastDockSnapshot : string option = None
 let private svgNs = "http://www.w3.org/2000/svg"
 
@@ -354,14 +348,9 @@ let private makeDockIcon (iconId: string) : HTMLElement =
 let private appendDockIcon (btn: HTMLButtonElement) (iconId: string) : unit =
     btn.appendChild (makeDockIcon iconId) |> ignore
 
-let private triggerLabel = function
-    | OpenMove -> "Move tools"
-    | OpenSelect -> "Select tools"
-    | OpenMore -> "More commands"
-
-let private makeDockRow (category: CommandCategory) : HTMLElement =
+let private makeDockRow (accentClass: string) : HTMLElement =
     let row = document.createElement "div"
-    row.className <- "amb-dock " + dockCssClass category
+    row.className <- "amb-dock " + accentClass
     row
 
 let private addGlyphClasses (btn: HTMLButtonElement) (classes: string list) : unit =
@@ -389,11 +378,6 @@ let private makeIconButton
     preventDockFocusSteal btn
     btn.addEventListener ("click", fun _ -> onClick ())
     btn
-
-let private triggerOpenClasses = function
-    | OpenMove -> [ "amb-dock-trigger-open"; "amb-dock-trigger-move" ]
-    | OpenSelect -> [ "amb-dock-trigger-open"; "amb-dock-trigger-select" ]
-    | OpenMore -> [ "amb-dock-trigger-open"; "amb-dock-trigger-more" ]
 
 let private makeCommandIconButton
         (cmd: CommandEntry2)
@@ -426,23 +410,14 @@ let private appendDockSlot
         (refresh: VM -> (Msg -> unit) -> unit)
         : unit =
     match slot with
-    | DockTrigger trigger ->
-        let isOpen =
-            match trigger with
-            | OpenMove -> activeToolSurface = Some DockMoveTools
-            | OpenSelect -> activeToolSurface = Some DockSelectTools
-            | OpenMore -> activeToolSurface = Some DockMoreTools
-        let extra = if isOpen then triggerOpenClasses trigger else []
+    | DockTrigger entry ->
+        let isOpen = activeToolSurface = Some entry
+        let extra =
+            if isOpen then [ "amb-dock-trigger-open"; triggerDockCssClass entry ] else []
         let toggle =
-            makeIconButton (triggerLabel trigger) (iconForTrigger trigger) extra
+            makeIconButton entry.name entry.iconId extra
                 (fun () ->
-                    match trigger with
-                    | OpenMove ->
-                        activeToolSurface <- Some DockMoveTools
-                    | OpenSelect ->
-                        activeToolSurface <- Some DockSelectTools
-                    | OpenMore ->
-                        activeToolSurface <- Some DockMoreTools
+                    activeToolSurface <- Some entry
                     refresh model dispatch)
         row.appendChild toggle |> ignore
     | DockCommand id ->
@@ -452,16 +427,24 @@ let private appendDockSlot
             row.appendChild (makeCommandIconButton cmd dispatch) |> ignore
 
 let private renderDockSlots
-        (category: CommandCategory)
+        (accentClass: string)
         (slots: DockSlot list)
         (model: VM)
         (dispatch: Msg -> unit)
         (refresh: VM -> (Msg -> unit) -> unit)
         : HTMLElement =
-    let row = makeDockRow category
+    let row = makeDockRow accentClass
     for slot in slots do
         appendDockSlot row model dispatch slot refresh
     row
+
+let private renderTriggerPanel
+        (trigger: DockTriggerEntry)
+        (model: VM)
+        (dispatch: Msg -> unit)
+        (refresh: VM -> (Msg -> unit) -> unit)
+        : HTMLElement =
+    renderDockSlots (triggerDockCssClass trigger) trigger.slots model dispatch refresh
 
 let rec renderCommandButtons (model: VM) (dispatch: Msg -> unit) : unit =
     let container = document.querySelector ".amb-command-buttons"
@@ -472,21 +455,12 @@ let rec renderCommandButtons (model: VM) (dispatch: Msg -> unit) : unit =
         container.innerHTML <- ""
 
         let refresh = renderCommandButtons
-        let baseRow = renderDockSlots Primary baseStripSlots model dispatch refresh
+        let baseRow = renderDockSlots (dockCssClass Primary) baseStripSlots model dispatch refresh
         container.appendChild baseRow |> ignore
 
         match activeToolSurface with
-        | Some DockMoveTools ->
-            let moveRow =
-                renderDockSlots MoveStructure moveToolsSlots model dispatch refresh
-            container.appendChild moveRow |> ignore
-        | Some DockSelectTools ->
-            let selectRow =
-                renderDockSlots Selection selectToolsSlots model dispatch refresh
-            container.appendChild selectRow |> ignore
-        | Some DockMoreTools ->
-            let row =
-                renderDockSlots More moreToolsSlots model dispatch refresh
+        | Some trigger ->
+            let row = renderTriggerPanel trigger model dispatch refresh
             container.appendChild row |> ignore
         | None -> ()
 

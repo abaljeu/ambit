@@ -124,18 +124,8 @@ body {
 }
 .amb-dock-glyph.amb-dock-trigger-open {
     font-weight: 700;
-}
-.amb-dock-glyph.amb-dock-trigger-move {
-    color: var(--dock-move);
-    box-shadow: inset 0 -3px 0 var(--dock-move);
-}
-.amb-dock-glyph.amb-dock-trigger-select {
-    color: var(--dock-select);
-    box-shadow: inset 0 -3px 0 var(--dock-select);
-}
-.amb-dock-glyph.amb-dock-trigger-more {
-    color: var(--dock-more);
-    box-shadow: inset 0 -3px 0 var(--dock-more);
+    color: var(--dock-accent);
+    box-shadow: inset 0 -3px 0 var(--dock-accent);
 }
 .amb-header-row2 {
     display: flex;

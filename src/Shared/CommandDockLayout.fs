@@ -1,49 +1,76 @@
 module Gambol.Shared.CommandDockLayout
 
 open Gambol.Shared.CommandEntry
+open Gambol.Shared.CommandCategory
 
-type DockTrigger =
-    | OpenMove
-    | OpenSelect
-    | OpenMore
+type DockTriggerEntry = {
+    category: CommandCategory
+    name: string
+    iconId: string
+    slots: DockSlot list
+}
 
-type DockSlot =
+and DockSlot =
     | DockCommand of CommandId
-    | DockTrigger of DockTrigger
+    | DockTrigger of DockTriggerEntry
 
-/// Base strip: undo, redo, zoom, move/select triggers, find, delete, more.
+let triggerDockCssClass (trigger: DockTriggerEntry) : string =
+    dockCssClass trigger.category
+
+let moveToolsTrigger : DockTriggerEntry =
+    { category = MoveStructure
+      name = "Move tools"
+      iconId = "amb-icon-move-tools"
+      slots =
+        [ DockCommand Outdent
+          DockCommand Indent
+          DockCommand MoveUp
+          DockCommand MoveDown
+          DockCommand MoveSelectionToStart
+          DockCommand MoveSelectionToEnd
+          DockCommand MoveSelected ] }
+
+let selectToolsTrigger : DockTriggerEntry =
+    { category = Selection
+      name = "Select tools"
+      iconId = "amb-icon-select-tools"
+      slots =
+        [ DockCommand SelectionUp
+          DockCommand SelectionDown
+          DockCommand SelectToStart
+          DockCommand SelectToEnd ] }
+
+let moreToolsTrigger : DockTriggerEntry =
+    { category = More
+      name = "More commands"
+      iconId = "amb-icon-more"
+      slots =
+        [ DockCommand Undo
+          DockCommand Redo
+          DockCommand ZoomOut
+          DockCommand ZoomIn
+          DockCommand CopyContent
+          DockCommand JumpToTarget ] }
+
+let allDockTriggers = [ moveToolsTrigger; selectToolsTrigger; moreToolsTrigger ]
+
+let triggerFor (category: CommandCategory) : DockTriggerEntry option =
+    allDockTriggers |> List.tryFind (fun t -> t.category = category)
+
+/// Backward-compat aliases for tests and callers.
+let moveToolsSlots = moveToolsTrigger.slots
+let selectToolsSlots = selectToolsTrigger.slots
+let moreToolsSlots = moreToolsTrigger.slots
+
 let baseStripSlots : DockSlot list =
-    [ DockCommand Undo
-      DockCommand Redo
-      DockCommand ZoomOut
-      DockCommand ZoomIn
-      DockTrigger OpenMove
-      DockTrigger OpenSelect
+    [ DockCommand CommandPalette
+      DockTrigger moveToolsTrigger
+      DockTrigger selectToolsTrigger
       DockCommand Find
       DockCommand Delete
-      DockTrigger OpenMore ]
-
-let moveToolsSlots : DockSlot list =
-    [ DockCommand Outdent
-      DockCommand Indent
-      DockCommand MoveUp
-      DockCommand MoveDown
-      DockCommand MoveSelectionToStart
-      DockCommand MoveSelectionToEnd
-      DockCommand MoveSelected ]
-
-let selectToolsSlots : DockSlot list =
-    [ DockCommand SelectionUp
-      DockCommand SelectionDown
-      DockCommand SelectToStart
-      DockCommand SelectToEnd ]
-
-let moreToolsSlots : DockSlot list =
-    [ DockCommand CommandPalette
-      DockCommand CopyContent
-      DockCommand DuplicateLink
+      DockCommand DupNodes
       DockCommand EditClasses
-      DockCommand JumpToTarget ]
+      DockTrigger moreToolsTrigger ]
 
 let commandIds (slots: DockSlot list) : CommandId list =
     slots

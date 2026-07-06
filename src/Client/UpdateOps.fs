@@ -433,7 +433,17 @@ let duplicateSelectionOp (model: VM) : VM * Effect list =
                   ops = [ insertOp ] }
             match applyAndPost change model with
             | None, _ -> model, []
-            | Some m, effects -> withSiteMap m, effects
+            | Some m, effects ->
+                let insertStart = sel.range.endd
+                let insertEnd = insertStart + duplicatedRefs.Length
+                let newSel =
+                    Some
+                        { range =
+                            { parent = sel.range.parent
+                              start = insertStart
+                              endd = insertEnd }
+                          focus = insertStart }
+                withSiteMap { m with selectedNodes = newSel }, effects
 
 /// Op: Delete the selected nodes, integrating TRASH semantics and ownership rules.
 let deleteSelectionOp (model: VM) : VM * Effect list =
