@@ -45,11 +45,21 @@ module LocalProxy =
         || String.Equals(name, "Content-Length", StringComparison.OrdinalIgnoreCase)
         || String.Equals(name, "Content-Encoding", StringComparison.OrdinalIgnoreCase)
 
+    let private isBrowserContextHeader name =
+        String.Equals(name, "Origin", StringComparison.OrdinalIgnoreCase)
+        || String.Equals(name, "Referer", StringComparison.OrdinalIgnoreCase)
+        || name.StartsWith("Sec-", StringComparison.OrdinalIgnoreCase)
+
+    let private cloudReferer (cloudAppUrl: Uri) =
+        let path = cloudAppUrl.GetLeftPart(UriPartial.Path)
+        if path.EndsWith("/", StringComparison.Ordinal) then path else path + "/"
+
     let private isForwardedRequestHeader name =
         not (String.Equals(name, "Host", StringComparison.OrdinalIgnoreCase))
         && not (String.Equals(name, "Cookie", StringComparison.OrdinalIgnoreCase))
         && not (isHopByHopHeader name)
         && not (isContentHeader name)
+        && not (isBrowserContextHeader name)
 
     let private isForwardedResponseHeader name =
         not (String.Equals(name, "Set-Cookie", StringComparison.OrdinalIgnoreCase))
@@ -77,6 +87,32 @@ module LocalProxy =
             if isForwardedRequestHeader header.Key then
                 tryAdd header.Key (header.Value |> Seq.toArray) |> ignore
 
+    let private copyRequestBody (request: HttpRequest) = task {
+        request.EnableBuffering() |> ignore
+        use ms = new MemoryStream()
+        do! request.Body.CopyToAsync(ms, request.HttpContext.RequestAborted)
+        return new ByteArrayContent(ms.ToArray()) :> HttpContent
+    }
+
+    let private ensureContentHeaders (request: HttpRequest) (content: HttpContent) =
+        let hasContentType =
+            match content.Headers.ContentType with
+            | null -> false
+            | ct -> not (String.IsNullOrEmpty ct.MediaType)
+
+        if not hasContentType then
+            match request.ContentType with
+            | null | "" -> ()
+            | contentType ->
+                content.Headers.TryAddWithoutValidation("Content-Type", contentType)
+                |> ignore
+
+    let private addCloudBrowserHeaders (cloudAppUrl: Uri) (proxyRequest: HttpRequestMessage) =
+        let origin = cloudAppUrl.GetLeftPart(UriPartial.Authority)
+        proxyRequest.Headers.TryAddWithoutValidation("Origin", origin) |> ignore
+        proxyRequest.Headers.TryAddWithoutValidation("Referer", cloudReferer cloudAppUrl)
+        |> ignore
+
     let private addAuthCookie
         (credentials: LoginForm.Credentials option)
         (tryAdd: string -> string array -> bool)
@@ -97,7 +133,6 @@ module LocalProxy =
 
         match bodyOverride with
         | Some content -> proxyRequest.Content <- content
-        | None when requestHasBody request -> proxyRequest.Content <- new StreamContent(request.Body)
         | None -> ()
 
         let addRequestHeader (key: string) (values: string array) =
@@ -105,12 +140,10 @@ module LocalProxy =
 
         addAuthCookie credentials addRequestHeader
         addHeaders addRequestHeader request.Headers
+        addCloudBrowserHeaders cloudAppUrl proxyRequest
 
         if not (isNull proxyRequest.Content) then
-            let addContentHeader (key: string) (values: string array) =
-                proxyRequest.Content.Headers.TryAddWithoutValidation(key, Seq.ofArray values)
-
-            addHeaders addContentHeader request.Headers
+            ensureContentHeaders request proxyRequest.Content
 
         proxyRequest
 
@@ -472,6 +505,11 @@ module LocalProxy =
 
                     let content = new StringContent(body, Encoding.UTF8, mediaType)
                     return Some(content :> HttpContent), parsed
+                }
+            elif requestHasBody context.Request then
+                task {
+                    let! content = copyRequestBody context.Request
+                    return Some content, None
                 }
             else
                 task { return None, None }
