@@ -326,6 +326,91 @@ module Serialization =
                   get.Optional.Field "sourceModifiedUtc" Decode.int64
                   |> Option.map (fun ticks -> System.DateTime(ticks, System.DateTimeKind.Utc)) })
 
+    let encodeDesktopPickFolderResponse (response: DesktopPickFolderResponse) : IEncodable =
+        Encode.object
+            [ "path", Encode.string response.path
+              "gitRoot", Encode.string response.gitRoot ]
+
+    let decodeDesktopPickFolderResponse: Decoder<DesktopPickFolderResponse> =
+        Decode.object (fun get ->
+            { path = get.Required.Field "path" Decode.string
+              gitRoot = get.Required.Field "gitRoot" Decode.string })
+
+    let encodeDesktopDetectGitResponse (response: DesktopDetectGitResponse) : IEncodable =
+        Encode.object [ "gitRoot", Encode.string response.gitRoot ]
+
+    let decodeDesktopDetectGitResponse: Decoder<DesktopDetectGitResponse> =
+        Decode.object (fun get -> { gitRoot = get.Required.Field "gitRoot" Decode.string })
+
+    let encodeDesktopGitLabelRequest (request: DesktopGitLabelRequest) : IEncodable =
+        Encode.object [ "label", Encode.string request.label ]
+
+    let decodeDesktopGitLabelRequest: Decoder<DesktopGitLabelRequest> =
+        Decode.object (fun get -> { label = get.Required.Field "label" Decode.string })
+
+    let encodeDesktopGitRemoteSetupRequest (request: DesktopGitRemoteSetupRequest) : IEncodable =
+        Encode.object
+            [ "label", Encode.string request.label
+              "url", Encode.string request.url ]
+
+    let decodeDesktopGitRemoteSetupRequest: Decoder<DesktopGitRemoteSetupRequest> =
+        Decode.object (fun get ->
+            { label = get.Required.Field "label" Decode.string
+              url = get.Required.Field "url" Decode.string })
+
+    let encodeDesktopGitOpResponse (response: DesktopGitOpResponse) : IEncodable =
+        let fields =
+            [ "ok", Encode.bool response.ok ]
+            @ (match response.detail with
+               | None -> []
+               | Some detail -> [ "detail", Encode.string detail ])
+
+        Encode.object fields
+
+    let decodeDesktopGitOpResponse: Decoder<DesktopGitOpResponse> =
+        Decode.object (fun get ->
+            { ok = get.Required.Field "ok" Decode.bool
+              detail = get.Optional.Field "detail" Decode.string })
+
+    let encodeDesktopGitPullResponse (response: DesktopGitPullResponse) : IEncodable =
+        let fields =
+            [ "ok", Encode.bool response.ok
+              "changedPaths", response.changedPaths |> List.map Encode.string |> Encode.list ]
+            @ (match response.detail with
+               | None -> []
+               | Some detail -> [ "detail", Encode.string detail ])
+
+        Encode.object fields
+
+    let decodeDesktopGitPullResponse: Decoder<DesktopGitPullResponse> =
+        Decode.object (fun get ->
+            { ok = get.Required.Field "ok" Decode.bool
+              changedPaths =
+                  get.Optional.Field "changedPaths" (Decode.list Decode.string)
+                  |> Option.defaultValue []
+              detail = get.Optional.Field "detail" Decode.string })
+
+    let private decodeWorkspaceMappingEntry: Decoder<WorkspaceMapping> =
+        Decode.object (fun get ->
+            { label = get.Required.Field "label" Decode.string
+              rootPath = get.Required.Field "path" Decode.string })
+
+    let decodeWorkspaceMappings: Decoder<WorkspaceMappings> =
+        Decode.object (fun get ->
+            { entries =
+                get.Optional.Field "workspaceMappings" (Decode.list decodeWorkspaceMappingEntry)
+                |> Option.defaultValue [] })
+
+    let encodeWorkspaceMappings (mappings: WorkspaceMappings) : IEncodable =
+        Encode.object
+            [ "workspaceMappings",
+              mappings.entries
+              |> List.map (fun entry ->
+                  Encode.object
+                      [ "label", Encode.string entry.label
+                        "path", Encode.string entry.rootPath ])
+              |> Encode.list ]
+
     // ---- Change ----
 
     let encodeChange (change: Change) : IEncodable =

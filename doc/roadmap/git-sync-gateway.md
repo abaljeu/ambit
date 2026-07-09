@@ -11,9 +11,9 @@ This doc records decisions that upcoming persistence and workspace work should r
 
 ## What it gives you
 
-- A desktop user maps a workspace label to a local directory that is a normal git clone with `origin` pointing at the server.
-- **Pull** brings server file state to the client (`git pull origin`). Merge and conflict resolution happen **on the client** with standard git tooling.
-- **Push** sends client commits to the server (`git push origin`). The server accepts only **fast-forward** updates when its working tree is **clean**.
+- A desktop user maps a workspace label to a local directory that is a normal git clone with remote **`ambit`** pointing at the server (not `origin` — preserves any existing upstream).
+- **Pull** brings server file state to the client (`git pull ambit`). Merge and conflict resolution happen **on the client** with standard git tooling.
+- **Push** sends client commits to the server (`git push ambit`). The server accepts only **fast-forward** updates when its working tree is **clean**.
 - A **standalone git gateway** on the server exposes native git wire protocol (smart HTTP or SSH). It does not read PostgreSQL or perform merge logic.
 - After pull, the outliner marks affected files **stale** and offers reparse (see [[doc/roadmap/workspace-scale-import.md]]).
 
@@ -31,9 +31,10 @@ This doc records decisions that upcoming persistence and workspace work should r
 | --- | --- |
 | Repo root | `{DataDir}/@{workspaceLabel}/` — same tree as [[doc/roadmap/workspace-file-persistence.md]] |
 | `.git` location | **Inside** `@label/` (e.g. `data/@home/.git`). Import and tree browse skip `.git` per [[doc/roadmap/workspace-scale-import.md]]. |
-| Pull (server → client) | **JIT commit on server first**, then client runs `git pull origin`. |
+| Pull (server → client) | **JIT commit on server first**, then client runs `git pull ambit`. |
 | Push (client → server) | **Reject unless server working tree is clean**; accept only **fast-forward** (`receive.denyNonFastForwards`). |
-| Desktop transport | Prefer stock **`git pull` / `git push origin`** against a real remote URL — not a bespoke pack POST API. |
+| Desktop remote | **`ambit`** — dedicated Gambol gateway remote; never overwrite user `origin`. |
+| Desktop transport | Prefer stock **`git pull ambit` / `git push ambit`** against a real remote URL — not a bespoke pack POST API. |
 | Module boundary | `DocumentPersistence` writes files; git gateway runs git. **Only coupling:** server JIT commit before serving fetch, and clean-tree check before receive. |
 | Path moves | Filesystem moves under `@label/` should be real renames where possible so git history stays coherent ([[doc/roadmap/workspace-file-persistence.md]] move handler). |
 
@@ -87,7 +88,7 @@ sequenceDiagram
   participant GW as Git gateway
   participant FS as DataDir/@label
 
-  Client->>GW: git push origin
+  Client->>GW: git push ambit
   GW->>FS: working tree clean?
   alt dirty
     GW->>Client: reject (non-fast-forward or hook error)
@@ -98,7 +99,7 @@ sequenceDiagram
 ```
 
 1. User commits locally on desktop (manual `git commit` — not automatic on every edit).
-2. `git push origin`. Gateway refuses if server working tree is **dirty** (uncommitted autosaves still on disk).
+2. `git push ambit`. Gateway refuses if server working tree is **dirty** (uncommitted autosaves still on disk).
 3. Gateway refuses **non-fast-forward** pushes. Client must pull (merge locally) and push again.
 4. No server merge: push only moves `HEAD` when it is a strict ancestor update and the tree was clean before receive.
 
@@ -161,7 +162,7 @@ or SSH:
 ssh://app@….azurewebsites.net/home/data/@home
 ```
 
-Desktop `git remote add origin …` uses this URL. Gambol UI Pull/Push may shell out to the same commands in the mapped local root.
+Desktop `git remote add ambit …` uses this URL. Gambol UI Download/Upload shell out to `git pull ambit` / `git push ambit` in the mapped local root.
 
 ## Credentials (GitHub CLI analogy)
 
@@ -170,11 +171,11 @@ GitHub CLI (`gh auth login`) stores credentials so **`git push` / `git pull` wor
 | Mechanism | Notes |
 | --- | --- |
 | **HTTPS + token** | Short-lived or revocable PAT scoped to git endpoints; passed via `git credential` helper. |
-| **SSH key** | Deploy key or user key in `~/.ssh`; `origin` uses `git@…` URL. Fits Azure App Service SSH. |
+| **SSH key** | Deploy key or user key in `~/.ssh`; `ambit` uses `git@…` URL. Fits Azure App Service SSH. |
 | **Credential helper** | Desktop host or OS store holds token; `git` invokes helper — same pattern as Git Credential Manager / `gh`. |
 | **Not sufficient** | Browser session cookie alone does not authenticate git smart HTTP; git needs its own credential path. |
 
-Initial setup slice: document one recommended path (likely HTTPS token or SSH) and a one-time "connect workspace remote" action in desktop that writes `origin` and stores credentials.
+Initial setup slice: document one recommended path (likely HTTPS token or SSH) and a one-time "connect workspace remote" action in desktop that writes `ambit` and stores credentials.
 
 Reuse existing app auth where practical (e.g. issue a git-scoped token after `/ambit/login`), but do not conflate graph API session with git wire auth in implementation.
 
@@ -205,7 +206,7 @@ Reuse existing app auth where practical (e.g. issue a git-scoped token after `/a
 1. **Stage 7 live-save** — `{DataDir}/@{label}/` on Azure `/home` — implemented; see [[doc/current/workspace-stage-plan.md]] §7.
 2. **Init repo** — on workspace creation or first persist, `git init` inside `@label/`; optional default `.gitignore` for local artifacts.
 3. **Gateway v0** — smart HTTP or SSH endpoint per workspace; FF-only; clean-tree check on push; JIT commit before upload-pack.
-4. **Desktop remote setup** — map label → local clone; `origin` URL; credential helper or SSH key docs.
+4. **Desktop remote setup** — map label → local clone; `ambit` URL; credential helper or SSH key docs.
 5. **JIT commit + flush hook** — gateway calls flush then commit; integration test with dirty tree → pull sees commit.
 6. **UI** — Pull / Push at workspace root; surface `behind` / `ahead` / `dirty` from `git status -sb`.
 7. **Stale after pull** — wire file nodes to reparse prompt when disk hash/mtime changes.

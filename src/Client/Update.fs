@@ -131,6 +131,12 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
     | SysMsg (ParseFileFailed (nodeId, detail)) ->
         applyParseFileFailed nodeId detail model
 
+    | SysMsg (WorkspaceConnectFinished (ok, detail)) ->
+        if ok then
+            { model with status = Some(StatusMessage.info detail) }, []
+        else
+            { model with status = Some(StatusMessage.error detail) }, []
+
     | SysMsg PollTick ->
         let si, effects = SyncPlanner.tryStartPoll model.revision model.syncInfo
         { model with syncInfo = si }, effects

@@ -143,6 +143,7 @@ let private makeRowElement
             | FileSearchDialog s -> s.returnTo
             | CssClassPrompt (ret, _) -> ret
             | RenamePrompt (ret, _) -> ret
+            | WorkspaceConnectWizard (ret, _) -> ret
             | m -> m
         let initialValue =
             match effectiveMode with
@@ -274,7 +275,8 @@ let manageFocus
         : unit =
     let preserveEditCaret = EditingCaretPreserve.shouldPreserveDomCaret previousModel model
     match model.mode with
-    | CommandPalette _ | SearchDialog _ | FileSearchDialog _ | CssClassPrompt _ | RenamePrompt _ ->
+    | CommandPalette _ | SearchDialog _ | FileSearchDialog _ | CssClassPrompt _ | RenamePrompt _
+    | WorkspaceConnectWizard _ ->
         () // focus is handled by overlay renderers after the element becomes visible
     | Editing _ ->
         cancelPendingSelectionScroll ()

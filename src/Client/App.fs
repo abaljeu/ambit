@@ -13,6 +13,7 @@ open Gambol.Client.Controller
 open Gambol.Client.View
 open Gambol.Client.SearchDialogView
 open Gambol.Client.FileSearchDialogView
+open Gambol.Client.WorkspaceConnectView
 open Gambol.Client.JsInterop
 open Gambol.Client.SessionState
 
@@ -131,6 +132,8 @@ let createRuntime (initialModel: VM) =
         | RequestDesktopFileStatus (nodeId, path) -> runDesktopFileStatus nodeId path
         | RequestSyncTreeListing nodeId -> runSyncTreeListing nodeId
         | RequestParseFile (nodeId, forceReparse) -> runParseFile nodeId forceReparse
+        | RequestWorkspaceConnect (gitRoot, label, _workspaceOps, initialSync, gatewayUrl) ->
+            runWorkspaceConnect gitRoot label initialSync gatewayUrl
 
     and runSubmitPendingBatch (baseRev: int) (changes: Change list) : unit =
         let reqId =
@@ -230,6 +233,112 @@ let createRuntime (initialModel: VM) =
             dispatch (SysMsg (SyncTreeListingFailed (nodeId, "request failed")))
         fetchTextNoCacheWithFail url onOk onFail
 
+    and runWorkspaceConnect
+        (gitRoot: string)
+        (label: string)
+        (initialSync: InitialSyncDirection)
+        (gatewayUrl: string)
+        : unit =
+        let fail detail =
+            dispatch (SysMsg (WorkspaceConnectFinished(false, detail)))
+
+        let status, mappingsText = getJsonSync "/_desktop/workspace-mappings"
+
+        if status < 200 || status >= 300 then
+            fail "Could not read workspace mappings"
+        else
+            match Thoth.Json.JavaScript.Decode.fromString Serialization.decodeWorkspaceMappings mappingsText with
+            | Error err -> fail ("Mappings decode: " + err)
+            | Ok mappings ->
+                let merged = WorkspaceLocalMapping.mergeMapping mappings label gitRoot
+
+                let putBody =
+                    Serialization.encodeWorkspaceMappings merged
+                    |> Thoth.Json.JavaScript.Encode.toString 0
+
+                let putStatus, putText = putJsonSync "/_desktop/workspace-mappings" putBody
+
+                if putStatus < 200 || putStatus >= 300 then
+                    fail ("Could not save mapping: " + LogText.truncateForLog 200 putText)
+                else
+                    let remoteBody =
+                        Serialization.encodeDesktopGitRemoteSetupRequest
+                            { label = label; url = gatewayUrl }
+                        |> Thoth.Json.JavaScript.Encode.toString 0
+
+                    let remoteStatus, remoteText =
+                        postJsonSync "/_desktop/git-remote-setup" remoteBody
+
+                    if remoteStatus < 200 || remoteStatus >= 300 then
+                        fail ("Remote setup failed: " + LogText.truncateForLog 200 remoteText)
+                    else
+                        match
+                            Thoth.Json.JavaScript.Decode.fromString
+                                Serialization.decodeDesktopGitOpResponse
+                                remoteText
+                        with
+                        | Ok { ok = false; detail = Some detail } -> fail detail
+                        | Ok { ok = false; detail = None } -> fail "Remote setup failed"
+                        | Error err -> fail ("Remote setup decode: " + err)
+                        | Ok { ok = true; detail = _ } ->
+                            match initialSync with
+                            | InitialSyncDirection.Skip ->
+                                dispatch (
+                                    SysMsg(
+                                        WorkspaceConnectFinished(
+                                            true,
+                                            sprintf "Connected workspace '%s'" label)))
+                            | InitialSyncDirection.Download ->
+                                let pullBody =
+                                    Serialization.encodeDesktopGitLabelRequest { label = label }
+                                    |> Thoth.Json.JavaScript.Encode.toString 0
+
+                                let pullStatus, pullText =
+                                    postJsonSync "/_desktop/git-pull" pullBody
+
+                                if pullStatus < 200 || pullStatus >= 300 then
+                                    fail ("Download failed: " + LogText.truncateForLog 200 pullText)
+                                else
+                                    match
+                                        Thoth.Json.JavaScript.Decode.fromString
+                                            Serialization.decodeDesktopGitPullResponse
+                                            pullText
+                                    with
+                                    | Ok { ok = false; detail = Some detail } -> fail detail
+                                    | Ok { ok = false; detail = None } -> fail "Download failed"
+                                    | Error err -> fail ("Download decode: " + err)
+                                    | Ok { ok = true; detail = _ } ->
+                                        dispatch (
+                                            SysMsg(
+                                                WorkspaceConnectFinished(
+                                                    true,
+                                                    sprintf "Connected and downloaded '%s'" label)))
+                            | InitialSyncDirection.Upload ->
+                                let pushBody =
+                                    Serialization.encodeDesktopGitLabelRequest { label = label }
+                                    |> Thoth.Json.JavaScript.Encode.toString 0
+
+                                let pushStatus, pushText =
+                                    postJsonSync "/_desktop/git-push" pushBody
+
+                                if pushStatus < 200 || pushStatus >= 300 then
+                                    fail ("Upload failed: " + LogText.truncateForLog 200 pushText)
+                                else
+                                    match
+                                        Thoth.Json.JavaScript.Decode.fromString
+                                            Serialization.decodeDesktopGitOpResponse
+                                            pushText
+                                    with
+                                    | Ok { ok = false; detail = Some detail } -> fail detail
+                                    | Ok { ok = false; detail = None } -> fail "Upload failed"
+                                    | Error err -> fail ("Upload decode: " + err)
+                                    | Ok { ok = true; detail = _ } ->
+                                        dispatch (
+                                            SysMsg(
+                                                WorkspaceConnectFinished(
+                                                    true,
+                                                    sprintf "Connected and uploaded '%s'" label)))
+
     and runParseFile (nodeId: NodeId) (forceReparse: bool) : unit =
         let url =
             sprintf "/%s/parse-file?nodeId=%s" currentFile (nodeId.Value.ToString())
@@ -281,6 +390,7 @@ let createRuntime (initialModel: VM) =
                 renderFileSearchDialog newModel dispatch
                 renderCssClassPrompt newModel dispatch
                 renderRenamePrompt newModel dispatch
+                renderWorkspaceConnectWizard newModel dispatch
             with ex ->
                 consoleLog (
                     "[Gambol dispatch] view/render exception: " + ex.Message)
@@ -355,7 +465,8 @@ let setupStaticDOM (dispatch: Msg -> unit) (getModel: unit -> VM) (_wakePolling:
     let dismissOnBackground (ev: Event) : unit =
         let target = ev.target :?> HTMLElement
         match (getModel ()).mode with
-        | CommandPalette _ | SearchDialog _ | FileSearchDialog _ | CssClassPrompt _ | RenamePrompt _ ->
+        | CommandPalette _ | SearchDialog _ | FileSearchDialog _ | CssClassPrompt _ | RenamePrompt _
+        | WorkspaceConnectWizard _ ->
             match target.closest("button,input,a,.amb-dialog,#sync-status") with
             | Some _ -> ()
             | None -> dispatch (ApplyOp closeActiveOverlayOp)

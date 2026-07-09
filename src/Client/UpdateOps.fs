@@ -23,7 +23,8 @@ let handleEsc (model: VM) : VM * Effect list =
     match model.mode with
     | Editing _ -> commitIfEditing model
     | Selecting -> collapseToFocus model, []
-    | CommandPalette _ | SearchDialog _ | FileSearchDialog _ | CssClassPrompt _ | RenamePrompt _ ->
+    | CommandPalette _ | SearchDialog _ | FileSearchDialog _ | CssClassPrompt _ | RenamePrompt _
+    | WorkspaceConnectWizard _ ->
         model, []  // handled by close modal operations
 
 /// Op: Copy the focused subtree to the internal clipboard.
@@ -130,7 +131,8 @@ let doubleClickRowAtPos (instanceId: SiteId) (cursorPos: int) (model: VM) : VM *
     match model.mode with
     | Selecting -> startEditInstanceAtPos instanceId cursorPos model
     | Editing _ -> commitAndStartEditInstanceAtPos instanceId cursorPos model
-    | CommandPalette _ | SearchDialog _ | FileSearchDialog _ | CssClassPrompt _ | RenamePrompt _ ->
+    | CommandPalette _ | SearchDialog _ | FileSearchDialog _ | CssClassPrompt _ | RenamePrompt _
+    | WorkspaceConnectWizard _ ->
         model, []
 
 /// Op: Move selection up, committing any in-progress edit first.
@@ -519,13 +521,15 @@ let closeActiveOverlayOp (model: VM) : VM * Effect list =
     | FileSearchDialog _ -> Gambol.Client.FileSearchDialog.closeFileSearchDialogOp model
     | CssClassPrompt _ -> closeCssClassPromptOp model
     | RenamePrompt _ -> Gambol.Client.UpdateRename.closeRenamePromptOp model
+    | WorkspaceConnectWizard _ -> Gambol.Client.UpdateWorkspaceConnect.closeWorkspaceConnectWizardOp model
     | _ -> model, []
 
 /// Op: Row pointer activation — edit→edit or select depending on mode.
 let pointerActivateRowAtPos (instanceId: SiteId) (cursorPos: int) (model: VM)
     : VM * Effect list =
     match model.mode with
-    | CommandPalette _ | SearchDialog _ | FileSearchDialog _ | CssClassPrompt _ | RenamePrompt _ ->
+    | CommandPalette _ | SearchDialog _ | FileSearchDialog _ | CssClassPrompt _ | RenamePrompt _
+    | WorkspaceConnectWizard _ ->
         let closed, closeEffs = closeActiveOverlayOp model
         let result, actEffs =
             match closed.mode with

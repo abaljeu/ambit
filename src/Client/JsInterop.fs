@@ -349,6 +349,16 @@ let encodeUriComponent (text: string) : string = jsNative
     "catch(e){return [0,''];}})($0,$1)")>]
 let postJsonSync (url: string) (body: string) : int * string = jsNative
 
+/// Blocking PUT with JSON body (synchronous XMLHttpRequest).
+[<Emit(
+    "(function(url, body){" +
+    "var xhr=new XMLHttpRequest();" +
+    "xhr.open('PUT',url,false);" +
+    "xhr.setRequestHeader('Content-Type','application/json');" +
+    "try{xhr.send(body);return [xhr.status,xhr.responseText||''];}" +
+    "catch(e){return [0,''];}})($0,$1)")>]
+let putJsonSync (url: string) (body: string) : int * string = jsNative
+
 [<Emit("fetch($0).then(r => r.text()).then($1)")>]
 let fetchText (url: string) (callback: string -> unit) : unit = jsNative
 

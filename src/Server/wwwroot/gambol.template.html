@@ -51,6 +51,27 @@
             <div class="amb-dialog-context amb-dock-base">Edit classes</div>
             <input id="css-class-prompt-input" class="amb-dialog-input" type="text" placeholder="Classes (space-separated)" autocomplete="off">
         </div>
+        <div id="workspace-connect-wizard" class="amb-dialog">
+            <div class="amb-dialog-context amb-dock-base">Connect workspace folder</div>
+            <p id="workspace-connect-path" class="amb-dialog-context"></p>
+            <label class="amb-dialog-context">Label
+                <input id="workspace-connect-label" class="amb-dialog-input" type="text" autocomplete="off">
+            </label>
+            <div class="amb-dialog-context">
+                <label><input id="workspace-connect-link-create" type="radio" name="workspace-connect-link" checked> Create new workspace</label>
+                <label><input id="workspace-connect-link-existing" type="radio" name="workspace-connect-link"> Link to existing</label>
+                <select id="workspace-connect-existing" class="amb-dialog-input" disabled>
+                    <option value="">Select workspace…</option>
+                </select>
+            </div>
+            <div class="amb-dialog-context">
+                <label><input id="workspace-connect-sync-download" type="radio" name="workspace-connect-sync" checked> Download from server</label>
+                <label><input id="workspace-connect-sync-upload" type="radio" name="workspace-connect-sync"> Upload to server</label>
+                <label><input id="workspace-connect-sync-skip" type="radio" name="workspace-connect-sync"> Skip initial sync</label>
+            </div>
+            <p id="workspace-connect-remote" class="amb-dialog-context"></p>
+            <button id="workspace-connect-submit" class="amb-dialog-new" type="button">Connect</button>
+        </div>
         <div id="blocking-alert" class="amb-blocking-alert" aria-modal="true" role="alertdialog" aria-labelledby="blocking-alert-title" aria-describedby="blocking-alert-message">
             <div class="amb-blocking-alert-panel">
                 <h2 id="blocking-alert-title" class="amb-blocking-alert-title"></h2>

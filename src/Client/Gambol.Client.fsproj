@@ -24,12 +24,14 @@
     <Compile Include="UpdateExport.fs" />
     <Compile Include="UpdateSave.fs" />
     <Compile Include="UpdateWorkspace.fs" />
+    <Compile Include="UpdateWorkspaceConnect.fs" />
     <Compile Include="UpdateOps.fs" />
     <Compile Include="Update.fs" />
     <Compile Include="Commands.fs" />
     <Compile Include="Controller.fs" />
     <Compile Include="SearchDialogView.fs" />
     <Compile Include="FileSearchDialogView.fs" />
+    <Compile Include="WorkspaceConnectView.fs" />
     <Compile Include="View.fs" />
     <Compile Include="SessionState.fs" />
     <Compile Include="App.fs" />

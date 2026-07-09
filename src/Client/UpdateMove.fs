@@ -51,6 +51,9 @@ let private trySaveContext (mode: Mode) : InlineEditContext option =
         | RenamePrompt (ret, iv) ->
             unwrapMode ret
             |> Option.map (mapRebuild (fun rebuild t c -> RenamePrompt (rebuild t c, iv)))
+        | WorkspaceConnectWizard (ret, wiz) ->
+            unwrapMode ret
+            |> Option.map (mapRebuild (fun rebuild t c -> WorkspaceConnectWizard (rebuild t c, wiz)))
         | Selecting ->
             None
     unwrapMode mode

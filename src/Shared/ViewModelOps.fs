@@ -750,6 +750,7 @@ module ViewModel =
             | FileSearchDialog s -> s.returnTo
             | CssClassPrompt (ret, _) -> ret
             | RenamePrompt (ret, _) -> ret
+            | WorkspaceConnectWizard (ret, _) -> ret
             | m -> m
         match effectiveMode, model.selectedNodes with
         | Editing _, None    -> entry.parentInstanceId = None

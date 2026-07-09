@@ -436,8 +436,176 @@ module LocalProxy =
                             do! writeBadRequest context ("write failed: " + ex.Message)
     }
 
-    let private handleDesktopRequest
+    let private handlePickFolder (context: HttpContext) = task {
+        match FolderPicker.pickFolder () with
+        | None -> do! writeBadRequest context "cancelled"
+        | Some selectedPath ->
+            match GitRepoDetect.detectRoot selectedPath with
+            | Error message -> do! writeBadRequest context message
+            | Ok gitRoot ->
+                let response =
+                    { path = selectedPath
+                      gitRoot = gitRoot }
+
+                let json =
+                    Encode.toString 0 (Serialization.encodeDesktopPickFolderResponse response)
+
+                do! writeJson context json
+    }
+
+    let private handleDetectGit (context: HttpContext) = task {
+        match context.Request.Query.TryGetValue "path" with
+        | false, _ -> do! writeBadRequest context "path required"
+        | true, value ->
+            let path = string value
+
+            match GitRepoDetect.detectRoot path with
+            | Error message -> do! writeBadRequest context message
+            | Ok gitRoot ->
+                let response = { gitRoot = gitRoot }
+
+                let json =
+                    Encode.toString 0 (Serialization.encodeDesktopDetectGitResponse response)
+
+                do! writeJson context json
+    }
+
+    let private handleGetWorkspaceMappings
+        (workspaceMap: ref<Map<string, WorkspaceMapping>>)
+        (context: HttpContext)
+        = task {
+        let mappings =
+            workspaceMap.Value
+            |> Map.toList
+            |> List.map snd
+            |> fun entries -> { entries = entries }
+
+        do! writeJson context (WorkspaceLocalMapping.encode mappings)
+    }
+
+    let private handlePutWorkspaceMappings
+        (configFile: string)
+        (workspaceMap: ref<Map<string, WorkspaceMapping>>)
+        (context: HttpContext)
+        = task {
+        let! body = readRequestBody context
+
+        match WorkspaceLocalMapping.decode body with
+        | Error message -> do! writeBadRequest context message
+        | Ok mappings ->
+            match WorkspaceLocalMapping.saveToFile configFile mappings with
+            | Error message -> do! writeBadRequest context message
+            | Ok () ->
+                workspaceMap.Value <- WorkspaceLocalMapping.toMap mappings
+                do! writeJson context (WorkspaceLocalMapping.encode mappings)
+    }
+
+    let private resolveMappedRoot
         (workspaceMap: Map<string, WorkspaceMapping>)
+        (label: string)
+        : Result<string, string>
+        =
+        let key = if isNull label then "" else label.Trim().ToLowerInvariant()
+
+        match Map.tryFind key workspaceMap with
+        | None -> Error "invalid_workspace"
+        | Some mapping -> Ok mapping.rootPath
+
+    let private handleGitRemoteSetup
+        (workspaceMap: Map<string, WorkspaceMapping>)
+        (context: HttpContext)
+        = task {
+        let! body = readRequestBody context
+
+        match Decode.fromString Serialization.decodeDesktopGitRemoteSetupRequest body with
+        | Error message -> do! writeBadRequest context message
+        | Ok request ->
+            match resolveMappedRoot workspaceMap request.label with
+            | Error message -> do! writeBadRequest context message
+            | Ok repoDir ->
+                match GitShell.setupRemote repoDir request.url with
+                | Error detail ->
+                    let response = { ok = false; detail = Some detail }
+
+                    let json =
+                        Encode.toString 0 (Serialization.encodeDesktopGitOpResponse response)
+
+                    do! writeJson context json
+                | Ok detail ->
+                    let response = { ok = true; detail = Some detail }
+                    let json =
+                        Encode.toString 0 (Serialization.encodeDesktopGitOpResponse response)
+
+                    do! writeJson context json
+    }
+
+    let private handleGitPull
+        (workspaceMap: Map<string, WorkspaceMapping>)
+        (context: HttpContext)
+        = task {
+        let! body = readRequestBody context
+
+        match Decode.fromString Serialization.decodeDesktopGitLabelRequest body with
+        | Error message -> do! writeBadRequest context message
+        | Ok request ->
+            match resolveMappedRoot workspaceMap request.label with
+            | Error message -> do! writeBadRequest context message
+            | Ok repoDir ->
+                match GitShell.pull repoDir with
+                | Error detail ->
+                    let response =
+                        { ok = false
+                          changedPaths = []
+                          detail = Some detail }
+
+                    let json =
+                        Encode.toString 0 (Serialization.encodeDesktopGitPullResponse response)
+
+                    do! writeJson context json
+                | Ok (changedPaths, detail) ->
+                    let response =
+                        { ok = true
+                          changedPaths = changedPaths
+                          detail = Some detail }
+
+                    let json =
+                        Encode.toString 0 (Serialization.encodeDesktopGitPullResponse response)
+
+                    do! writeJson context json
+    }
+
+    let private handleGitPush
+        (workspaceMap: Map<string, WorkspaceMapping>)
+        (context: HttpContext)
+        = task {
+        let! body = readRequestBody context
+
+        match Decode.fromString Serialization.decodeDesktopGitLabelRequest body with
+        | Error message -> do! writeBadRequest context message
+        | Ok request ->
+            match resolveMappedRoot workspaceMap request.label with
+            | Error message -> do! writeBadRequest context message
+            | Ok repoDir ->
+                match GitShell.push repoDir with
+                | Error detail ->
+                    let response = { ok = false; detail = Some detail }
+
+                    let json =
+                        Encode.toString 0 (Serialization.encodeDesktopGitOpResponse response)
+
+                    do! writeJson context json
+                | Ok detail ->
+                    let response = { ok = true; detail = Some detail }
+
+                    let json =
+                        Encode.toString 0 (Serialization.encodeDesktopGitOpResponse response)
+
+                    do! writeJson context json
+    }
+
+    let private handleDesktopRequest
+        (configFile: string)
+        (workspaceMap: ref<Map<string, WorkspaceMapping>>)
         (context: HttpContext)
         = task {
         if
@@ -446,20 +614,55 @@ module LocalProxy =
         then
             do! writeCapabilities context
         elif
+            HttpMethods.IsGet context.Request.Method
+            && context.Request.Path.Equals(PathString "/_desktop/workspace-mappings")
+        then
+            do! handleGetWorkspaceMappings workspaceMap context
+        elif
+            HttpMethods.IsPut context.Request.Method
+            && context.Request.Path.Equals(PathString "/_desktop/workspace-mappings")
+        then
+            do! handlePutWorkspaceMappings configFile workspaceMap context
+        elif
             HttpMethods.IsPost context.Request.Method
             && context.Request.Path.Equals(PathString "/_desktop/file-status")
         then
-            do! handleFileStatus workspaceMap context
+            do! handleFileStatus workspaceMap.Value context
         elif
             HttpMethods.IsGet context.Request.Method
             && context.Request.Path.Equals(PathString "/_desktop/file")
         then
-            do! handleImportGet workspaceMap context
+            do! handleImportGet workspaceMap.Value context
         elif
             HttpMethods.IsPost context.Request.Method
             && context.Request.Path.Equals(PathString "/_desktop/file")
         then
-            do! handleExport workspaceMap context
+            do! handleExport workspaceMap.Value context
+        elif
+            HttpMethods.IsPost context.Request.Method
+            && context.Request.Path.Equals(PathString "/_desktop/pick-folder")
+        then
+            do! handlePickFolder context
+        elif
+            HttpMethods.IsGet context.Request.Method
+            && context.Request.Path.Equals(PathString "/_desktop/detect-git")
+        then
+            do! handleDetectGit context
+        elif
+            HttpMethods.IsPost context.Request.Method
+            && context.Request.Path.Equals(PathString "/_desktop/git-remote-setup")
+        then
+            do! handleGitRemoteSetup workspaceMap.Value context
+        elif
+            HttpMethods.IsPost context.Request.Method
+            && context.Request.Path.Equals(PathString "/_desktop/git-pull")
+        then
+            do! handleGitPull workspaceMap.Value context
+        elif
+            HttpMethods.IsPost context.Request.Method
+            && context.Request.Path.Equals(PathString "/_desktop/git-push")
+        then
+            do! handleGitPush workspaceMap.Value context
         else
             context.Response.StatusCode <- StatusCodes.Status404NotFound
     }
@@ -542,9 +745,11 @@ module LocalProxy =
         let cloudUri = Uri cloudAppUrl
 
         let workspaceMap =
-            WorkspaceLocalMapping.loadFromFile configPath
-            |> Result.defaultWith (fun _ -> { entries = [] })
-            |> WorkspaceLocalMapping.toMap
+            ref (
+                WorkspaceLocalMapping.loadFromFile configPath
+                |> Result.defaultWith (fun _ -> { entries = [] })
+                |> WorkspaceLocalMapping.toMap
+            )
 
         let builder = WebApplication.CreateBuilder([||])
         builder.Services.Configure<HostOptions>(fun (options: HostOptions) ->
@@ -560,7 +765,7 @@ module LocalProxy =
 
         app.Run(RequestDelegate(fun context ->
             if isDesktopRequest context.Request.Path then
-                handleDesktopRequest workspaceMap context
+                handleDesktopRequest configPath workspaceMap context
             else
                 forward client cloudUri session context)) |> ignore
 

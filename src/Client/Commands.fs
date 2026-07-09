@@ -15,6 +15,7 @@ open Gambol.Client.UpdatePaste
 open Gambol.Client.UpdateImport
 open Gambol.Client.UpdateExport
 open Gambol.Client.UpdateWorkspace
+open Gambol.Client.UpdateWorkspaceConnect
 open Gambol.Client.UpdateSave
 open Gambol.Client.UpdateFileSearch
 open Gambol.Client.UpdateRename
@@ -211,6 +212,7 @@ let commandRegistry : CommandEntry2 list =
       cmd CopyAsLinks (keyAlways copySelectionAsLinks)
       cmd DupNodes (keyAlways duplicateSelectionOp)
       cmd InsertFile (keyAlways openFileSearchDialogOp)
+      cmd OpenWorkspaceFolder (keyAlways openWorkspaceFolderOp)
       cmd SyncTree (keyAlways syncTreeOp)
       cmd ReparseFile (keyAlways reparseFileOp)
       cmd CommandPalette (keyAlways openCommandPaletteOp)
@@ -236,6 +238,7 @@ let rec paletteWasSelecting (returnTo: Mode) : bool =
     | FileSearchDialog s -> paletteWasSelecting s.returnTo
     | CssClassPrompt (inner, _) -> paletteWasSelecting inner
     | RenamePrompt (inner, _) -> paletteWasSelecting inner
+    | WorkspaceConnectWizard (inner, _) -> paletteWasSelecting inner
 
 let commandContextMode (mode: Mode) : Mode =
     match mode with
@@ -244,6 +247,7 @@ let commandContextMode (mode: Mode) : Mode =
     | FileSearchDialog s -> s.returnTo
     | CssClassPrompt (inner, _) -> inner
     | RenamePrompt (inner, _) -> inner
+    | WorkspaceConnectWizard (inner, _) -> inner
     | m -> m
 
 let commandsForPalette (returnTo: Mode) : CommandEntry2 list =

@@ -123,10 +123,43 @@ module WorkspaceLocalMapping =
             | :? IOException -> Error "mapping_read_failed"
             | :? UnauthorizedAccessException -> Error "mapping_read_failed"
 
+    let encode (mappings: WorkspaceMappings) : string =
+        let entries =
+            mappings.entries
+            |> List.map (fun entry ->
+                JsonSerializer.Serialize(
+                    {| label = entry.label
+                       path = entry.rootPath |}))
+
+        let inner = String.concat "," entries
+        "{ \"workspaceMappings\": [" + inner + "] }"
+
+    let saveToFile (path: string) (mappings: WorkspaceMappings) : Result<unit, string> =
+        try
+            let dir = Path.GetDirectoryName path
+
+            if not (String.IsNullOrEmpty dir) && not (Directory.Exists dir) then
+                Directory.CreateDirectory dir |> ignore
+
+            File.WriteAllText(path, encode mappings)
+            Ok()
+        with
+        | :? IOException -> Error "mapping_write_failed"
+        | :? UnauthorizedAccessException -> Error "mapping_write_failed"
+
     let toMap (mappings: WorkspaceMappings) =
         mappings.entries
         |> List.map (fun entry -> entry.label.ToLowerInvariant(), entry)
         |> Map.ofList
+
+    let mergeMapping (mappings: WorkspaceMappings) (label: string) (rootPath: string) : WorkspaceMappings =
+        let key = label.ToLowerInvariant()
+
+        let rest =
+            mappings.entries
+            |> List.filter (fun entry -> entry.label.ToLowerInvariant() <> key)
+
+        { entries = rest @ [ { label = label; rootPath = rootPath } ] }
 
     let private invalidFileNameCharSet = Path.GetInvalidFileNameChars() |> Set.ofArray
     let private appReservedCharSet = Set.ofList [ '#'; '^' ]

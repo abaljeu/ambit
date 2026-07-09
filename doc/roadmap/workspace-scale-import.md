@@ -2,7 +2,7 @@
 
 See also: [[doc/roadmap/workspace-scale-import-slice1-plan]], [[doc/roadmap/workspace-scale-file-and-db-management]], [[doc/roadmap/git-sync-gateway]], [[doc/roadmap/workspace-format-amb]], [[doc/roadmap/workspace-format-md]], [[doc/roadmap/workspace-format-plain]], [[doc/roadmap/workspace-format-code]]
 
-Sequencing: **Slice 1** (outliner ↔ files on one machine) then **Slice 2** (git pull/push to a desktop clone). Slice 1 implementation lock: [[doc/roadmap/workspace-scale-import-slice1-plan]]. Slice 2 is fully specified in [[doc/roadmap/git-sync-gateway]].
+Sequencing: **Slice 1** (outliner ↔ files on one machine) then **Slice 2** (git pull/push to a desktop clone). Slice 1 implementation lock: [[doc/roadmap/workspace-scale-import-slice1-plan]]. Slice 2 implementation lock: [[doc/roadmap/workspace-scale-import-slice2-plan]]; protocol detail in [[doc/roadmap/git-sync-gateway]].
 
 # Slice 1: repo file-tree browsing + on-demand parse/edit for individual files
 

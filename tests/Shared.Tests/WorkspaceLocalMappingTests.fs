@@ -101,3 +101,39 @@ let ``resolvePath accepts valid relative path`` () =
     | Error err -> Assert.Fail($"Expected success, got: {err}")
     | Ok resolved -> Assert.StartsWith("C:\\repo", resolved)
 
+[<Fact>]
+let ``encode roundtrips through decode`` () =
+    let original =
+        { entries =
+            [ { label = "home"; rootPath = "D:\\dev\\myproject" }
+              { label = "docs"; rootPath = "C:\\Users\\me\\docs" } ] }
+
+    let json = WorkspaceLocalMapping.encode original
+    let decoded = decodeOrFail json
+    Assert.Equal(original.entries.Length, decoded.entries.Length)
+    Assert.Equal(original.entries.[0].label, decoded.entries.[0].label)
+    Assert.Equal(original.entries.[0].rootPath, decoded.entries.[0].rootPath)
+
+[<Fact>]
+let ``saveToFile writes readable mappings`` () =
+    let path =
+        System.IO.Path.Combine(
+            System.IO.Path.GetTempPath(),
+            "gambol-mapping-save-" + System.Guid.NewGuid().ToString("N") + ".json")
+
+    let mappings =
+        { entries = [ { label = "home"; rootPath = "C:\\repo" } ] }
+
+    try
+        match WorkspaceLocalMapping.saveToFile path mappings with
+        | Error err -> Assert.Fail err
+        | Ok () ->
+            match WorkspaceLocalMapping.loadFromFile path with
+            | Error err -> Assert.Fail err
+            | Ok loaded -> Assert.Equal(mappings.entries.[0].label, loaded.entries.[0].label)
+    finally
+        try
+            System.IO.File.Delete path
+        with
+        | :? System.IO.IOException -> ()
+

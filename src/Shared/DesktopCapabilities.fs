@@ -9,7 +9,31 @@ type DesktopFileCapabilities =
       canImport: bool
       canExport: bool
       canStatus: bool
-      canWorkspacePaths: bool }
+      canWorkspacePaths: bool
+      canPickFolder: bool }
+
+type DesktopPickFolderResponse =
+    { path: string
+      gitRoot: string }
+
+type DesktopDetectGitResponse =
+    { gitRoot: string }
+
+type DesktopGitLabelRequest =
+    { label: string }
+
+type DesktopGitRemoteSetupRequest =
+    { label: string
+      url: string }
+
+type DesktopGitOpResponse =
+    { ok: bool
+      detail: string option }
+
+type DesktopGitPullResponse =
+    { ok: bool
+      changedPaths: string list
+      detail: string option }
 
 type DesktopCapabilities =
     { file: DesktopFileCapabilities }
@@ -59,10 +83,10 @@ module FileReference =
 [<RequireQualifiedAccess>]
 module DesktopCapabilities =
     let disabledJson =
-        """{"file":{"open":false,"import":false,"export":false,"status":false,"workspacePaths":false}}"""
+        """{"file":{"open":false,"import":false,"export":false,"status":false,"workspacePaths":false,"pickFolder":false}}"""
 
     let desktopEnabledJson =
-        """{"file":{"open":false,"import":true,"export":true,"status":true,"workspacePaths":true}}"""
+        """{"file":{"open":false,"import":true,"export":true,"status":true,"workspacePaths":true,"pickFolder":true}}"""
 
     let disabled: DesktopCapabilities =
         { file =
@@ -70,7 +94,8 @@ module DesktopCapabilities =
               canImport = false
               canExport = false
               canStatus = false
-              canWorkspacePaths = false } }
+              canWorkspacePaths = false
+              canPickFolder = false } }
 
     let desktopEnabled: DesktopCapabilities =
         { file =
@@ -78,7 +103,8 @@ module DesktopCapabilities =
               canImport = true
               canExport = true
               canStatus = true
-              canWorkspacePaths = true } }
+              canWorkspacePaths = true
+              canPickFolder = true } }
 
     let private encodeFileCapabilities (capabilities: DesktopFileCapabilities) : IEncodable =
         Encode.object
@@ -86,7 +112,8 @@ module DesktopCapabilities =
               "import", Encode.bool capabilities.canImport
               "export", Encode.bool capabilities.canExport
               "status", Encode.bool capabilities.canStatus
-              "workspacePaths", Encode.bool capabilities.canWorkspacePaths ]
+              "workspacePaths", Encode.bool capabilities.canWorkspacePaths
+              "pickFolder", Encode.bool capabilities.canPickFolder ]
 
     let encode (capabilities: DesktopCapabilities) : IEncodable =
         Encode.object [ "file", encodeFileCapabilities capabilities.file ]
@@ -97,7 +124,10 @@ module DesktopCapabilities =
               canImport = get.Required.Field "import" Decode.bool
               canExport = get.Required.Field "export" Decode.bool
               canStatus = get.Required.Field "status" Decode.bool
-              canWorkspacePaths = get.Required.Field "workspacePaths" Decode.bool })
+              canWorkspacePaths = get.Required.Field "workspacePaths" Decode.bool
+              canPickFolder =
+                  get.Optional.Field "pickFolder" Decode.bool
+                  |> Option.defaultValue false })
 
     let decoder: Decoder<DesktopCapabilities> =
         Decode.object (fun get ->

@@ -170,6 +170,18 @@ Future improvement: preserve dangling intent more gracefully, such as converting
 7. **Stale** — mtime (or hash) compare on expand/reparse; indicator + reparse action; no auto-replace.
 8. **Workspace git** — init under `@label/` when needed; commit that repo only; desktop LocalProxy when mapped root is a git repo.
 
+Step	Status
+1 Picker + git detect
+Done
+2 Mapping CRUD
+Done
+3 Connect wizard
+Done
+4 Server git gateway
+Next
+5–8 Pull/Push UI, stale, §4b
+Pending
+
 ## Tests
 
 Prefer Shared.Tests for placement and planner logic; Server/Desktop only where I/O boundaries require it.

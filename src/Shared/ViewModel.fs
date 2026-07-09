@@ -250,6 +250,12 @@ type Effect =
     | RequestDesktopFileStatus of nodeId: NodeId * path: string
     | RequestSyncTreeListing of nodeId: NodeId
     | RequestParseFile of nodeId: NodeId * forceReparse: bool
+    | RequestWorkspaceConnect of
+        gitRoot: string *
+        label: string *
+        workspaceOps: Op list *
+        initialSync: InitialSyncDirection *
+        gatewayUrl: string
 
 type DesktopFileIndicator =
     | BlankFileIndicator
@@ -271,6 +277,17 @@ type Mode =
     | FileSearchDialog of FileSearchDialogState
     | CssClassPrompt of returnTo: Mode * initialValue: string
     | RenamePrompt of returnTo: Mode * initialValue: string
+    | WorkspaceConnectWizard of returnTo: Mode * WorkspaceConnectWizardState
+
+/// Connect-wizard overlay state after a git folder is picked.
+and WorkspaceConnectWizardState =
+    { selectedPath: string
+      gitRoot: string
+      label: string
+      linkMode: WorkspaceLinkMode
+      existingLabels: string list
+      initialSync: InitialSyncDirection
+      gatewayUrl: string }
 
 /// Node search overlay: query, selection, and `onPick` (mutually recursive with `Mode` / `VM`).
 and SearchDialogState =
@@ -331,6 +348,7 @@ type SystemMsg =
     | ParseFileContentReceived of
         nodeId: NodeId * relativePath: string * text: string * mtimeUtc: int64 * forceReparse: bool
     | ParseFileFailed of nodeId: NodeId * detail: string
+    | WorkspaceConnectFinished of ok: bool * detail: string
     | SetPollingActive of bool
     | PollTick            // polling timer fired; update decides whether to emit PollServer effect
     | PollDone of SyncState option * Change list   // poll GET response arrived
