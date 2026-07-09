@@ -14,9 +14,9 @@ On one machine, browsing and editing a workspace’s files is trustworthy:
 2. Expand an unparsed file → read disk → parse into children for that file only.
 3. Edits autosave to the source file (existing live-save / desktop write path).
 4. If disk changed outside Gambol, mark stale and offer reparse (no auto-replace).
-5. Manual git commit for that workspace only (`DataDir/@label/`, or the mapped desktop root when it is a git repo).
+5. Manual git commit for that workspace only (`DataDir/{workspaceLabel}/`, or the mapped desktop root when it is a git repo).
 
-Already done and not redesigned here: server live-save under `DataDir/@label/`, HTTP graph sync, desktop import/export with `@label:` mapping ([[doc/current/workspace-stage-plan]] §7–8).
+Already done and not redesigned here: server live-save under `DataDir/{workspaceLabel}/`, HTTP graph sync, desktop import/export with `@label:` mapping ([[doc/current/workspace-stage-plan]] §7–8).
 
 ## What it avoids for now
 
@@ -138,7 +138,7 @@ Directories need owned-name identity and stubs only; no parse/stale cycle in thi
 
 Command at workspace or directory root posts the shallow reconcile change set for that directory. No parsing.
 
-- Server: read immediate children under `DataDir/@label/...`.
+- Server: read immediate children under `DataDir/{workspaceLabel}/...`.
 - Optional same slice: desktop reads immediate children under the mapped `@label:` root with the same Shared planner.
 
 ### Expand to parse
@@ -157,7 +157,7 @@ Future improvement: preserve dangling intent more gracefully, such as converting
 
 ### Workspace git
 
-`git init` inside `DataDir/@label/` on first need. Commit that repo only (not whole `DataDir`). On desktop, if the mapped root is a git repo, same commit via LocalProxy.
+`git init` inside `DataDir/{workspaceLabel}/` on first need. Commit that repo only (not whole `DataDir`). On desktop, if the mapped root is a git repo, same commit via LocalProxy.
 
 ## Implementation steps
 
@@ -165,10 +165,10 @@ Future improvement: preserve dangling intent more gracefully, such as converting
 2. **Owned-name uniqueness (Shared / Server accept)** — reject duplicate owned Special File / Directory names with the same kind/path parent; reject same-name kind collisions under one Workspace / Directory.
 3. **Shallow sync planner (Shared)** — plan reconcile ops from one directory listing and that node’s owned special children; create missing stubs; reuse matching owned children; report kind conflicts; ignore refs.
 4. **Delete semantics (Shared / Client)** — special-owned delete removes the owned File / Directory and all refs to it; do not promote refs to owners; surface confirmation/diagnostic as needed.
-5. **Sync tree command** — workspace/directory command posts shallow reconcile ops; server reads `DataDir/@label/...`; optional desktop reads mapped roots with the same planner.
+5. **Sync tree command** — workspace/directory command posts shallow reconcile ops; server reads `DataDir/{workspaceLabel}/...`; optional desktop reads mapped roots with the same planner.
 6. **Expand to parse** — metadata fields; on-demand read/parse for one file; set `parsed`.
 7. **Stale** — mtime (or hash) compare on expand/reparse; indicator + reparse action; no auto-replace.
-8. **Workspace git** — init under `@label/` when needed; commit that repo only; desktop LocalProxy when mapped root is a git repo.
+8. **Workspace git** — init under `{workspaceLabel}/` when needed; commit that repo only; desktop LocalProxy when mapped root is a git repo.
 
 Step	Status
 1 Picker + git detect
@@ -178,7 +178,7 @@ Done
 3 Connect wizard
 Done
 4 Server git gateway
-Next
+Done
 5–8 Pull/Push UI, stale, §4b
 Pending
 
@@ -204,9 +204,9 @@ Prefer Shared.Tests for placement and planner logic; Server/Desktop only where I
 | Delete normal node with refs | Existing ref-promotion behavior is preserved for non-special nodes |
 | Expand unparsed | Children attached; `parsed = true` |
 | Stale on newer mtime | `stale = true`; no auto-reparse |
-| Workspace commit | Commit lands under `@label/` only, not whole `DataDir` |
+| Workspace commit | Commit lands under `{workspaceLabel}/` only, not whole `DataDir` |
 
-Manual check after wiring: medium repo shows folders/files; refs elsewhere stay refs; illegal ownership moves explain why they failed; restart still derives paths from ownership; edit → autosave → manual commit → `git log` under `@label/`.
+Manual check after wiring: medium repo shows folders/files; refs elsewhere stay refs; illegal ownership moves explain why they failed; restart still derives paths from ownership; edit → autosave → manual commit → `git log` under `{workspaceLabel}/`.
 
 ## Success criterion
 

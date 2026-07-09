@@ -274,7 +274,7 @@ root : sitenode; selection : nodeview + span
 
 **On-disk** (under `DataDir`, default `data/` locally, `/home/data` on Azure):
 
-- document artifacts per graph node — outline or payload text under `DataDir/@label/...` (see [[doc/roadmap/workspace-file-persistence.md]])
+- document artifacts per graph node — outline or payload text under `DataDir/{workspaceLabel}/...` (see [[doc/roadmap/workspace-file-persistence.md]])
 
 - tab-indented outline syntax via `Snapshot.fs` for serialization; not the SQL source of truth
 

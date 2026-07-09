@@ -6,11 +6,8 @@ open System.IO
 [<RequireQualifiedAccess>]
 module WorkspaceGit =
 
-    let private workspaceRelative (label: string) =
-        if label.StartsWith("@") then label else "@" + label
-
     let workspaceRepoDir (dataDir: string) (workspaceLabel: string) : string =
-        Path.Combine(dataDir, workspaceRelative workspaceLabel)
+        Path.Combine(dataDir, workspaceLabel)
 
     let ensureRepo (dataDir: string) (workspaceLabel: string) : Result<string, string> =
         let repoDir = workspaceRepoDir dataDir workspaceLabel

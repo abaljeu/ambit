@@ -5,7 +5,7 @@ See also: [[doc/roadmap/workspace-file-persistence.md]], [[doc/roadmap/workspace
 
 **Slice 2** of [[doc/roadmap/workspace-scale-import.md]] — follows slice 1 (outliner ↔ files on one machine).
 
-Target design for synchronizing a workspace repo between the server `DataDir` and a desktop local checkout. **Workspace == repo.** One workspace label maps to one git repository rooted at `{DataDir}/@{label}/`.
+Target design for synchronizing a workspace repo between the server `DataDir` and a desktop local checkout. **Workspace == repo.** One workspace label maps to one git repository rooted at `{DataDir}/{workspaceLabel}/`.
 
 This doc records decisions that upcoming persistence and workspace work should respect. It does not supersede [[doc/current/sync-mvp.md]] for live graph editing over HTTP; git sync is a coarse, explicit file-tree transport layered on top.
 
@@ -29,21 +29,21 @@ This doc records decisions that upcoming persistence and workspace work should r
 
 | Topic | Decision |
 | --- | --- |
-| Repo root | `{DataDir}/@{workspaceLabel}/` — same tree as [[doc/roadmap/workspace-file-persistence.md]] |
-| `.git` location | **Inside** `@label/` (e.g. `data/@home/.git`). Import and tree browse skip `.git` per [[doc/roadmap/workspace-scale-import.md]]. |
+| Repo root | `{DataDir}/{workspaceLabel}/` — same tree as [[doc/roadmap/workspace-file-persistence.md]] |
+| `.git` location | **Inside** the workspace folder (e.g. `data/home/.git`). Import and tree browse skip `.git` per [[doc/roadmap/workspace-scale-import.md]]. |
 | Pull (server → client) | **JIT commit on server first**, then client runs `git pull ambit`. |
 | Push (client → server) | **Reject unless server working tree is clean**; accept only **fast-forward** (`receive.denyNonFastForwards`). |
 | Desktop remote | **`ambit`** — dedicated Gambol gateway remote; never overwrite user `origin`. |
 | Desktop transport | Prefer stock **`git pull ambit` / `git push ambit`** against a real remote URL — not a bespoke pack POST API. |
 | Module boundary | `DocumentPersistence` writes files; git gateway runs git. **Only coupling:** server JIT commit before serving fetch, and clean-tree check before receive. |
-| Path moves | Filesystem moves under `@label/` should be real renames where possible so git history stays coherent ([[doc/roadmap/workspace-file-persistence.md]] move handler). |
+| Path moves | Filesystem moves under `{workspaceLabel}/` should be real renames where possible so git history stays coherent ([[doc/roadmap/workspace-file-persistence.md]] move handler). |
 
 ## On-disk layout
 
 ```text
 {DataDir}/
-  @home/                 ← workspace == repo work tree
-    .git/                ← inside @label/
+  home/                  ← workspace == repo work tree
+    .git/                ← inside workspace folder
     src/
       lib.fs
     docs/
@@ -62,7 +62,7 @@ Local desktop mapping ([[doc/current/workspace-local-mapping.md]]) points `@home
 sequenceDiagram
   participant Client as Desktop git
   participant GW as Git gateway
-  participant FS as DataDir/@label
+  participant FS as DataDir/{workspaceLabel}
   participant DP as DocumentPersistence
 
   Client->>GW: git fetch / pull
@@ -86,7 +86,7 @@ sequenceDiagram
 sequenceDiagram
   participant Client as Desktop git
   participant GW as Git gateway
-  participant FS as DataDir/@label
+  participant FS as DataDir/{workspaceLabel}
 
   Client->>GW: git push ambit
   GW->>FS: working tree clean?
@@ -109,10 +109,10 @@ sequenceDiagram
 
 The only intentional cross-layer action on the server before pull.
 
-When the gateway is about to serve `upload-pack` / respond to fetch for `@{label}`:
+When the gateway is about to serve `upload-pack` / respond to fetch for `{workspaceLabel}`:
 
 1. Confirm `DocumentPersistence` has flushed pending graph writes for that workspace.
-2. If `git status --porcelain` is non-empty under `{DataDir}/@{label}/`, run a commit, e.g. `git add -A` and `git commit -m "gambol: autosave before pull"`.
+2. If `git status --porcelain` is non-empty under `{DataDir}/{workspaceLabel}/`, run a commit, e.g. `git add -A` and `git commit -m "gambol: autosave before pull"`.
 3. Proceed with fetch.
 
 Properties:
@@ -129,7 +129,7 @@ Standalone concern — subprocess to `git` or thin wrapper around **`git http-ba
 
 | Responsibility | Owner |
 | --- | --- |
-| Resolve `{DataDir}/@{label}/`, auth, rate limits | Gateway |
+| Resolve `{DataDir}/{workspaceLabel}/`, auth, rate limits | Gateway |
 | `rev-parse`, `status --porcelain`, JIT commit, receive-pack, upload-pack | Gateway via `git -C …` |
 | Graph ops, revision, PostgreSQL | Existing `/ambit` stack |
 | Write `.amb` / source files from graph | `DocumentPersistence` |
@@ -153,13 +153,13 @@ Pre-receive hook may additionally verify `expectedBase` if the transport exposes
 Smart HTTP under the app (exact path TBD):
 
 ```text
-https://collaborative-systems.org/ambit/git/@home.git
+https://collaborative-systems.org/ambit/git/home.git
 ```
 
 or SSH:
 
 ```text
-ssh://app@….azurewebsites.net/home/data/@home
+ssh://app@….azurewebsites.net/home/data/home
 ```
 
 Desktop `git remote add ambit …` uses this URL. Gambol UI Download/Upload shell out to `git pull ambit` / `git push ambit` in the mapped local root.
@@ -183,7 +183,7 @@ Reuse existing app auth where practical (e.g. issue a git-scoped token after `/a
 
 ### [[doc/roadmap/workspace-file-persistence.md]] / Stage 7–8
 
-- Persist only under `{DataDir}/@{label}/…`; never write into `.git`.
+- Persist only under `{DataDir}/{workspaceLabel}/…`; never write into `.git`.
 - Flush semantics must be well-defined so JIT commit sees a consistent tree.
 - Path move handler: prefer rename syscalls so git tracks renames.
 
@@ -203,8 +203,8 @@ Reuse existing app auth where practical (e.g. issue a git-scoped token after `/a
 
 ## Implementation steps
 
-1. **Stage 7 live-save** — `{DataDir}/@{label}/` on Azure `/home` — implemented; see [[doc/current/workspace-stage-plan.md]] §7.
-2. **Init repo** — on workspace creation or first persist, `git init` inside `@label/`; optional default `.gitignore` for local artifacts.
+1. **Stage 7 live-save** — `{DataDir}/{workspaceLabel}/` on Azure `/home` — implemented; see [[doc/current/workspace-stage-plan.md]] §7.
+2. **Init repo** — on workspace creation or first persist, `git init` inside `{DataDir}/{workspaceLabel}/`; optional default `.gitignore` for local artifacts.
 3. **Gateway v0** — smart HTTP or SSH endpoint per workspace; FF-only; clean-tree check on push; JIT commit before upload-pack.
 4. **Desktop remote setup** — map label → local clone; `ambit` URL; credential helper or SSH key docs.
 5. **JIT commit + flush hook** — gateway calls flush then commit; integration test with dirty tree → pull sees commit.
@@ -213,7 +213,7 @@ Reuse existing app auth where practical (e.g. issue a git-scoped token after `/a
 
 ## Tests
 
-- **Shared / path**: canonical paths under `@label/` exclude `.git` from import walk (when import exists).
+- **Shared / path**: canonical paths under `{workspaceLabel}/` exclude `.git` from import walk (when import exists).
 - **Server integration** (later): push rejected when work tree dirty; push rejected on non-FF; JIT commit creates commit when porcelain non-empty before fetch; FF push updates `HEAD` and files on disk match commit.
 
 ## Non-goals

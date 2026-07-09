@@ -69,9 +69,13 @@ let private graphFileOwnsDirectory () : Graph * NodeId * NodeId * NodeId =
     let fileId = NodeId.New()
     let dirId = NodeId.New()
     let normalId = NodeId.New()
-    let fileNode = specialNode fileId File "container.txt" Graph.rootId
-    let dirNode = specialNode dirId Directory "inner" fileId
+    let dirNode =
+        { specialNode dirId Directory "inner" fileId with
+            children = [ { ref = Ownership.Owner; id = normalId } ] }
     let normalNode = normalNode normalId "nested" dirId
+    let fileNode =
+        { specialNode fileId File "container.txt" Graph.rootId with
+            children = [ { ref = Ownership.Owner; id = dirId } ] }
 
     let graph1 =
         graph0.nodes
@@ -85,15 +89,7 @@ let private graphFileOwnsDirectory () : Graph * NodeId * NodeId * NodeId =
         Graph.replace Graph.rootId idx [] (owned [ fileId ]) graph1
         |> requireOk "root->file"
 
-    let graph3 =
-        Graph.replace fileId 0 [] (owned [ dirId ]) graph2
-        |> requireOk "file->dir"
-
-    let graph4 =
-        Graph.replace dirId 0 [] (owned [ normalId ]) graph3
-        |> requireOk "dir->normal"
-
-    graph4, fileId, dirId, normalId
+    graph2, fileId, dirId, normalId
 
 let private graphWithRootFile () : Graph * NodeId =
     let graph0 = Graph.create ()
@@ -194,9 +190,9 @@ let ``writeAllDocuments nested workspace tree writes expected paths`` () =
     let dataDir = newTempDir ()
     let graph, _, dirId, fileId, _ = graphWithNestedDocs ()
     DocumentPersistence.writeAllDocuments dataDir graph |> requireOk "writeAllDocuments" |> ignore
-    Assert.True(File.Exists(Path.Combine(dataDir, "@home", ".amb")))
-    Assert.True(File.Exists(Path.Combine(dataDir, "@home", "docs", ".amb")))
-    Assert.True(File.Exists(Path.Combine(dataDir, "@home", "docs", "readme.txt")))
+    Assert.True(File.Exists(Path.Combine(dataDir, "home", ".amb")))
+    Assert.True(File.Exists(Path.Combine(dataDir, "home", "docs", ".amb")))
+    Assert.True(File.Exists(Path.Combine(dataDir, "home", "docs", "readme.txt")))
 
 [<Fact>]
 let ``writeAllDocuments ROOT file lands at dataDir root without amb suffix`` () =
@@ -397,7 +393,7 @@ let ``resolveArtifactPath plain file resolves to named extension path`` () =
     let dataDir = newTempDir ()
     let graph, _, _, fileId, _ = graphWithNestedDocs ()
     let path = artifactFullPath dataDir graph fileId
-    Assert.Equal(Path.Combine(dataDir, "@home", "docs", "readme.txt"), path)
+    Assert.Equal(Path.Combine(dataDir, "home", "docs", "readme.txt"), path)
 
 [<Fact>]
 let ``writeAllDocuments ref child in plain file writes target text only`` () =

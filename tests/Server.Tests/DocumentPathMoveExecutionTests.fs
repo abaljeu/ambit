@@ -70,8 +70,8 @@ let ``persistGraphChange moves renamed file artifact before writing`` () =
     |> requireOk "persistGraphChange"
     |> ignore
 
-    Assert.False(File.Exists(Path.Combine(dataDir, "@home", "docs", "readme.txt")))
-    Assert.True(File.Exists(Path.Combine(dataDir, "@home", "docs", "notes.txt")))
+    Assert.False(File.Exists(Path.Combine(dataDir, "home", "docs", "readme.txt")))
+    Assert.True(File.Exists(Path.Combine(dataDir, "home", "docs", "notes.txt")))
     DocumentPersistence.readAllDocuments dataDir |> requireOk "read" |> ignore
 
 [<Fact>]
@@ -85,9 +85,9 @@ let ``persistGraphChange moves renamed directory tree before writing`` () =
     |> requireOk "persistGraphChange"
     |> ignore
 
-    Assert.False(Directory.Exists(Path.Combine(dataDir, "@home", "docs")))
-    Assert.True(File.Exists(Path.Combine(dataDir, "@home", "archive", ".amb")))
-    Assert.True(File.Exists(Path.Combine(dataDir, "@home", "archive", "readme.txt")))
+    Assert.False(Directory.Exists(Path.Combine(dataDir, "home", "docs")))
+    Assert.True(File.Exists(Path.Combine(dataDir, "home", "archive", ".amb")))
+    Assert.True(File.Exists(Path.Combine(dataDir, "home", "archive", "readme.txt")))
 
 [<Fact>]
 let ``persistGraphChange rejects destination artifact conflict`` () =
@@ -95,11 +95,11 @@ let ``persistGraphChange rejects destination artifact conflict`` () =
     let graph, _, _, fileId, _ = graphWithNestedDocs ()
     DocumentPersistence.writeAllDocuments dataDir graph |> requireOk "write" |> ignore
     let postGraph = Graph.setName fileId "readme.txt" "notes.txt" graph |> requireOk "rename file"
-    File.WriteAllText(Path.Combine(dataDir, "@home", "docs", "notes.txt"), "occupied")
+    File.WriteAllText(Path.Combine(dataDir, "home", "docs", "notes.txt"), "occupied")
 
     match DocumentPersistence.persistGraphChange dataDir graph postGraph with
     | Ok _ -> Assert.Fail("expected destination conflict")
     | Error msg -> Assert.Contains("already exists", msg)
 
-    Assert.True(File.Exists(Path.Combine(dataDir, "@home", "docs", "readme.txt")))
-    Assert.True(File.Exists(Path.Combine(dataDir, "@home", "docs", "notes.txt")))
+    Assert.True(File.Exists(Path.Combine(dataDir, "home", "docs", "readme.txt")))
+    Assert.True(File.Exists(Path.Combine(dataDir, "home", "docs", "notes.txt")))

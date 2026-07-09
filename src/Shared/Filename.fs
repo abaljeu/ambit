@@ -15,7 +15,7 @@ module Filename =
     let maxLength = 255
 
     let private isValidChar (c: char) : bool =
-        Char.IsLetterOrDigit c || c = '.' || c = '-' || c = '_'
+        Char.IsLetterOrDigit c || c = '.' || c = '-' || c = '_' || c = '@'
 
     /// Maps a raw string to a Filename:
     ///   null / empty  → Empty

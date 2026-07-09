@@ -98,7 +98,7 @@ module DocumentPartition =
             | None -> None
             | Some node ->
                 match Filename.tryValue node.name with
-                | Some name -> Some ("@" + name + "/")
+                | Some name -> Some (name + "/")
                 | None -> None
 
     let rec private directoryDiskRelative (graph: Graph) (dirId: NodeId) : string option =
@@ -133,7 +133,7 @@ module DocumentPartition =
                 | Special File -> None
                 | Special Workspace ->
                     match Filename.tryValue node.name with
-                    | Some name -> Some ("@" + name + "/")
+                    | Some name -> Some (name + "/")
                     | None -> None
                 | Special Directory -> directoryDiskRelative graph documentRootId
                 | _ -> None
@@ -150,7 +150,7 @@ module DocumentPartition =
                 match node.kind with
                 | Special Workspace ->
                     match Filename.tryValue node.name with
-                    | Some name -> Some ("@" + name + "/.amb")
+                    | Some name -> Some (name + "/.amb")
                     | None -> None
                 | Special Directory ->
                     artifactDirectoryRelative graph documentRootId

@@ -8,7 +8,7 @@ the desktop layer supplies the config file path.
 
 ## Purpose
 
-A workspace label such as `home` is shared graph identity (`@home:`). Each desktop may map that
+A workspace label such as `home` is shared graph identity. Desktop local paths use the `@label:relative` form (see below). Each desktop may map that
 label to an absolute local directory root. Mapping is local-only and does not alter the cloud graph.
 
 ## Config file

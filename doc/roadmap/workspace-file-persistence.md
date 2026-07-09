@@ -28,22 +28,23 @@ Graph/DB identity remains authoritative. Desktop `@label:` mapping is secondary 
 
 The on-disk layout is:
 
-`{DataDir}/@{workspaceLabel}/{canonicalRelativePath}`
+`{DataDir}/{workspaceLabel}/{canonicalRelativePath}`
 
 Where:
 
 - `DataDir` is the server storage root.
-- `workspaceLabel` is the shared workspace label without the trailing `:`.
+- `workspaceLabel` is the shared workspace label verbatim (no automatic `@` prefix on disk).
 - `canonicalRelativePath` is the workspace-relative path in canonical form.
 
 Examples:
 
-- workspace `home`, file `src/lib.fs` -> `data/@home/src/lib.fs`
-- workspace `home`, directory `docs/specs` -> `data/@home/docs/specs/.amb`
-- nameless ROOT workspace, Special Directory document (directory persistence) -> `data/@/TRASH/.amb`
+- workspace `home`, file `src/lib.fs` -> `data/home/src/lib.fs`
+- workspace `home`, directory `docs/specs` -> `data/home/docs/specs/.amb`
+- workspace `@dd` (literal label) -> `data/@dd/...`
+- nameless ROOT workspace, Special Directory document (directory persistence) -> `data/TRASH/.amb`
   (Stage 7)
 
-The `@` prefix is part of the directory name on disk.
+~~The `@` prefix is part of the directory name on disk.~~ Disk folder names match workspace labels exactly.
 
 ## TRASH on disk
 
@@ -51,12 +52,12 @@ Canonical `trashId` remains **`Special Directory`** — not a distinct `Special 
 materializes it under the nameless ROOT workspace using **directory persistence semantics** (same
 folder and `.amb` artifact layout as `Special Directory` document roots):
 
-- **Folder:** `{DataDir}/@/TRASH/`
+- **Folder:** `{DataDir}/TRASH/`
 - **Artifact:** `.amb` (directory persisted data; same filename as other `Special Directory` roots)
 - **Graph:** same fixed `trashId`, `Special Directory` kind, permanent owner child of ROOT; soft delete
   still reparents owner under `trashId`
 
-Path resolution for TRASH is `@:/TRASH/` (`NodeDesktopPath`).
+Path resolution for TRASH is `//TRASH/` (`NodeDesktopPath`).
 
 ## Canonical Paths
 
@@ -90,8 +91,8 @@ Primary persistence extends the existing snapshot write path — `Snapshot.write
 
 **Target:** each snapshot pass still runs on that same trigger, but emits multiple persisted documents:
 
-- **ROOT** (`@:`) — serialized by the same pipeline, following workspace saving rules for members of the ROOT document that are not delegated to a nested workspace, directory, or file document.
-- **Workspace, directory, file roots** — each document also written to its `DataDir/@label/...` path when the pass runs. Serialization includes only nodes with document membership in that root (stop-at-nested-document-root applies).
+- **ROOT** (`//`) — serialized by the same pipeline, following workspace saving rules for members of the ROOT document that are not delegated to a nested workspace, directory, or file document.
+- **Workspace, directory, file roots** — each document also written to its `DataDir/{workspaceLabel}/...` path when the pass runs. Serialization includes only nodes with document membership in that root (stop-at-nested-document-root applies).
 
 This is not a separate persistence mechanism; it splits today's single `Snapshot.write` output into ROOT plus per-document files on disk.
 
@@ -111,7 +112,7 @@ Stage 7 extends live-save with a **single move handler** for any graph change th
 | --- | --- |
 | **Rename** (`Op.SetName` on workspace/directory/file) | Final path segment changes |
 | **Reparent / move** (`Op.Replace` changes owner parent) | Path prefix changes |
-| **Soft delete** (`MoveToTrash`) | Reparent owner under `trashId` → move into `@:/TRASH/...` — no separate delete persist path |
+| **Soft delete** (`MoveToTrash`) | Reparent owner under `trashId` → move into `TRASH/...` — no separate delete persist path |
 
 Hard delete under TRASH (subtree removal) is a separate Stage 7 slice (remove artifacts). Soft delete is covered by move-to-TRASH.
 
@@ -133,7 +134,7 @@ planPathMoveForReparent : graph -> nodeId -> newParentId -> DocumentPathMove opt
 // MoveToTrash: planPathMoveForReparent graph nodeId trashId
 ```
 
-Stage 6: shared planners compute `DocumentPathMove` values; tests prove path computation (no I/O). Stage 7: server executes filesystem moves under `DataDir/@label/...`; git persistence records per-document artifact history.
+Stage 6: shared planners compute `DocumentPathMove` values; tests prove path computation (no I/O). Stage 7: server executes filesystem moves under `DataDir/{workspaceLabel}/...`; git persistence records per-document artifact history.
 
 | Layer | Stage 6 | Stage 7 |
 | --- | --- | --- |
@@ -180,10 +181,10 @@ The text-to-outline conversion rules are documented separately in
 
 ## Verification Targets
 
-- workspace files are written under `DataDir/@label/...`
+- workspace files are written under `DataDir/{workspaceLabel}/...`
 - rename, reparent, and move-to-TRASH apply filesystem moves from `DocumentPathMove` descriptors
 - subtree moves cover nested workspace/directory/file document roots where needed
 - overwrites rotate prior files to `.bak.{date}`
-- path validation prevents escape above `DataDir/@label/`
-- Special Directory document materialized with directory layout (`@/TRASH/.amb`)
+- path validation prevents escape above `DataDir/{workspaceLabel}/`
+- Special Directory document materialized with directory layout (`TRASH/.amb`)
 - desktop local mapping behavior remains unchanged

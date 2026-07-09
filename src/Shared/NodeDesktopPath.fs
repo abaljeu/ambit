@@ -105,15 +105,8 @@ module NodeDesktopPath =
         if slash < 0 then rest, ""
         else rest.Substring(0, slash), rest.Substring(slash + 1)
 
-    let private workspaceLabel (segment: string) =
-        if segment.StartsWith("@") then segment.Substring 1 else segment
-
     let private isRootFileSegment (segment: string) =
         segment.Contains '.' && not (segment.EndsWith "/")
-
-    let private diskWorkspacePrefix (segment: string) =
-        if segment = "TRASH" || segment.StartsWith("@") then segment
-        else "@" + segment
 
     let private toDiskPath (rest: string) =
         if String.IsNullOrEmpty rest then
@@ -125,9 +118,9 @@ module NodeDesktopPath =
                 if isRootFileSegment segment then
                     Some segment
                 else
-                    Some (diskWorkspacePrefix segment)
+                    Some segment
             else
-                Some (diskWorkspacePrefix segment + "/" + tail)
+                Some (segment + "/" + tail)
 
     let private canonicalDirectoryInner (inner: string) =
         let rec strip (rest: string) =
@@ -188,7 +181,7 @@ module NodeDesktopPath =
                 if segment = "TRASH" || isRootFileSegment segment then
                     None
                 else
-                    Some (workspaceLabel segment, tail)
+                    Some (segment, tail)
 
     let artifactRelativeForReference (nodeReference: string) : Result<string, string> =
         let path = nodeReference.Trim()
@@ -214,7 +207,7 @@ module NodeDesktopPath =
             elif not (inner.Contains '/') && isRootFileSegment inner then
                 Ok inner
             elif not (inner.Contains '/') then
-                Ok (diskWorkspacePrefix inner + "/.amb")
+                Ok (inner + "/.amb")
             else
                 match toDiskPath inner with
                 | Some disk -> Ok disk

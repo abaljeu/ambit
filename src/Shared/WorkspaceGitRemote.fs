@@ -9,16 +9,14 @@ module WorkspaceGitRemote =
     let remoteName = "ambit"
 
     let private normalizeLabel (label: string) =
-        let trimmed = if isNull label then "" else label.Trim()
+        if isNull label then "" else label.Trim()
 
-        if trimmed.StartsWith("@") then trimmed.Substring 1 else trimmed
-
-    /// Smart HTTP gateway URL for a workspace label, e.g. `https://host/ambit/git/@home.git`
+    /// Smart HTTP gateway URL for a workspace label, e.g. `https://host/ambit/git/home.git`
     let gatewayUrl (appBaseUrl: string) (label: string) : string =
         let baseUri = Uri(appBaseUrl.TrimEnd('/'))
         let path = baseUri.AbsolutePath.TrimEnd('/')
-        let atLabel = "@" + normalizeLabel label
-        sprintf "%s://%s%s/git/%s.git" baseUri.Scheme baseUri.Authority path atLabel
+        let repoLabel = normalizeLabel label
+        sprintf "%s://%s%s/git/%s.git" baseUri.Scheme baseUri.Authority path repoLabel
 
     let findWorkspaceNodeId (graph: Graph) (label: string) : NodeId option =
         let want = normalizeLabel label |> fun s -> s.ToLowerInvariant()

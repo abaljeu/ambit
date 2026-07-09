@@ -310,7 +310,7 @@ module DocumentPersistence =
             paths
             |> List.exists (fun rel ->
                 rel <> ".amb"
-                && (rel.StartsWith("@") || rel.EndsWith("/.amb", StringComparison.Ordinal)))
+                && (rel.EndsWith("/.amb", StringComparison.Ordinal) || rel.Contains('/')))
 
     let readAllDocuments (dataDir: string) : Result<Graph, string> =
         match discoverArtifactRelatives dataDir with

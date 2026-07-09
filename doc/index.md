@@ -52,7 +52,7 @@ Might be next: Server-side merge/rebase for stale submissions, including orphan 
 ### **Desktop local files and workspace mapping**
 Status: **Partial**.
 Details: [[doc/current/desktop-local-files.md]], [[doc/current/workspace-stage-plan.md]].
-Last implemented: Desktop proxy capabilities cover local import, export, file status, and `@label:relative` workspace path resolution; workspace structure commands are implemented through Stage 8.
+Last implemented: Desktop proxy capabilities cover local import, export, file status, and `@label:relative` workspace path resolution; server document artifacts use verbatim workspace folder names under `DataDir/{workspaceLabel}/`; workspace structure commands are implemented through Stage 8.
 Might be next: Stage 5 unresolved UI and server file-status corrections.
 
 ### **Workspace file model and persistence**

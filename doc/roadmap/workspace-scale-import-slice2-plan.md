@@ -14,7 +14,7 @@ This document locks Slice 2: desktop folder open for git-backed workspaces, git 
 4. **Graph catch-up** — after push, sync-tree + existing poll delivers new File/Directory stubs.
 5. **Stale after pull** — changed local paths mark parsed file nodes stale for reparse.
 
-Prerequisite: Slice 1 (tree sync, autosave, per-workspace `.git` under `@label/`).
+Prerequisite: Slice 1 (tree sync, autosave, per-workspace `.git` under `{DataDir}/{workspaceLabel}/`).
 
 ## Two layers
 

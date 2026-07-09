@@ -126,11 +126,9 @@ module ViewModelDeleteOps =
     // Op planning
     // -----------------------------------------------------------------------
 
-    let private pathExprText (graph: Graph) (nodeId: NodeId) : string option =
-        NodeDesktopPath.pathForNodeId graph nodeId
-        |> Option.map (fun path -> "[[" + path + "]]")
-
-    let private buildPathExprReplacementOps
+    /// Remove ref occurrences elsewhere when deleting an owned Special File / Directory.
+    /// Hard-delete from TRASH uses `hardDeleteSubtreePlan`, which already drops all occurrences.
+    let private buildRemoveRefOps
         (graph: Graph)
         (classified: ClassifiedDelete list)
         : Op list
@@ -138,18 +136,41 @@ module ViewModelDeleteOps =
         classified
         |> List.choose (fun item ->
             match item.action with
-            | OwnedSpecialDeleteToTrash | OwnedSpecialDeleteHard -> Some item
+            | OwnedSpecialDeleteToTrash -> Some item
             | _ -> None)
         |> List.collect (fun item ->
-            match pathExprText graph item.child.id with
-            | None -> []
-            | Some pathText ->
-                item.otherOccurrences
-                |> List.filter (fun (_, _, c) -> c.ref = Ownership.Ref)
-                |> List.collect (fun (parentId, index, oldChild) ->
-                    let newId = NodeId.New()
-                    [ Op.NewNode(newId, pathText)
-                      Op.Replace(parentId, index, [ oldChild ], [ { ref = Ownership.Owner; id = newId } ]) ]))
+            item.otherOccurrences
+            |> List.filter (fun (_, _, c) -> c.ref = Ownership.Ref))
+        |> List.groupBy (fun (parentId, _, _) -> parentId)
+        |> List.map (fun (parentId, occs) ->
+            let indicesToRemove = occs |> List.map (fun (_, i, _) -> i) |> Set.ofList
+            let children = graph.nodes.[parentId].children
+            let remaining =
+                children
+                |> List.mapi (fun i c -> i, c)
+                |> List.filter (fun (i, _) -> not (Set.contains i indicesToRemove))
+                |> List.map snd
+            Op.Replace(parentId, 0, children, remaining))
+
+    /// Status when an owned special delete also removed ref occurrences (no promotion).
+    let statusForDelete (classified: ClassifiedDelete list) : StatusMessage option =
+        let refCount =
+            classified
+            |> List.sumBy (fun item ->
+                match item.action with
+                | OwnedSpecialDeleteToTrash | OwnedSpecialDeleteHard ->
+                    item.otherOccurrences
+                    |> List.filter (fun (_, _, c) -> c.ref = Ownership.Ref)
+                    |> List.length
+                | _ -> 0)
+        if refCount = 0 then None
+        else
+            Some(
+                StatusMessage.warn (
+                    if refCount = 1 then
+                        "Deleted owned file/directory and removed 1 ref"
+                    else
+                        sprintf "Deleted owned file/directory and removed %d refs" refCount))
 
     /// Build promote ops: one single-item Replace per LocalDeleteWithPromotion item.
     /// Promote ops must run before the span remove (they target outside the selection slice).
@@ -218,7 +239,7 @@ module ViewModelDeleteOps =
 
     /// Build the complete ordered op list for a classified delete gesture.
     /// Precondition: classified is non-empty (caller checks classifyDeleteForSelection <> []).
-    /// Op ordering: promote ops → span remove → TRASH append → hard-delete subtree ops.
+    /// Op ordering: remove ref ops → promote ops → span remove → TRASH append → hard-delete subtree ops.
     let planDeleteOps
         (graph: Graph)
         (range: SiteNodeRange)
@@ -229,9 +250,9 @@ module ViewModelDeleteOps =
         let parentChildren = graph.nodes.[parentId].children
         let selectedChildren =
             parentChildren |> List.skip range.start |> List.take (range.endd - range.start)
-        let pathExprOps = buildPathExprReplacementOps graph classified
+        let removeRefOps = buildRemoveRefOps graph classified
         let promoteOps = buildPromoteOps graph classified
         let spanRemove = Op.Replace(parentId, range.start, selectedChildren, [])
         let trashOps = buildTrashOp graph classified
         let hardDeleteOps = buildHardDeleteOps graph parentId classified
-        pathExprOps @ promoteOps @ [ spanRemove ] @ trashOps @ hardDeleteOps
+        removeRefOps @ promoteOps @ [ spanRemove ] @ trashOps @ hardDeleteOps

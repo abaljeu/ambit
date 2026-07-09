@@ -467,6 +467,10 @@ let deleteSelectionOp (model: VM) : VM * Effect list =
                 match applyAndPost change model with
                 | None, _ -> model, []
                 | Some m, effects ->
+                    let m =
+                        match ViewModelDeleteOps.statusForDelete classified with
+                        | None -> m
+                        | Some status -> { m with status = Some status }
                     let newChildren = m.graph.nodes.[sel.range.parent.nodeId].children
                     let newSel =
                         if sel.range.start < newChildren.Length then

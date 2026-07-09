@@ -34,7 +34,7 @@ Workspace, directory, and file special nodes are document roots. Each document i
 
 Workspace definitions and desktop `@label:` mappings remain part of the model, but file persistence is tiered:
 
-1. **Primary — server `DataDir`.** Edits sync through normal client/server graph operations; the server live-saves on the existing snapshot write path (`Snapshot.write` / `FileAgent` / db backup). Today that is one monolithic outline file (one document); target is ROOT plus separate persisted documents for each workspace/directory/file root under `DataDir/@label/...`, writing only documents whose serialization would change (Stages 7–8). Detail: [[doc/roadmap/workspace-file-persistence.md]].
+1. **Primary — server `DataDir`.** Edits sync through normal client/server graph operations; the server live-saves on the existing snapshot write path (`Snapshot.write` / `FileAgent` / db backup). Today that is one monolithic outline file (one document); target is ROOT plus separate persisted documents for each workspace/directory/file root under `DataDir/{workspaceLabel}/...`, writing only documents whose serialization would change (Stages 7–8). Detail: [[doc/roadmap/workspace-file-persistence.md]].
 2. **Secondary — desktop workspace-mapped files.** A client may download or export server file content to a locally mapped workspace root. This does not replace server authority.
 3. **Import — unchanged.** User reads a desktop-local file (via `/_desktop/file` Import); client edits apply to the graph and sync to the server; subsequent persistence follows the primary server path.
 
@@ -130,7 +130,7 @@ Authority for implemented behavior: [[doc/current/workspace-graph.md]],
 18. Server `DataDir` is the primary file-content persistence layer; graph/DB identity remains authoritative. Desktop-local absolute root mapping is secondary and independent of server path layout.
 19. One graph holds many **documents** (partitions by document root). Document membership follows Owner ancestry from a workspace, directory, or file root; it is not the same as Owner vs Ref.
 20. **Rename** is F2 on the focused node; **Edit node** is Enter only.
-21. Soft delete reparents a node's owner occurrence under canonical TRASH (`MoveToTrash`). TRASH is a permanent `Special Directory` with `Node.name = TRASH` (Stage 6); graph delete semantics are unchanged — only the kind and path resolution change. Stage 7 persists soft delete as a filesystem reparent into `@:/TRASH/...` via the same `DocumentPathMove` handler as rename and reparent.
+21. Soft delete reparents a node's owner occurrence under canonical TRASH (`MoveToTrash`). TRASH is a permanent `Special Directory` with `Node.name = TRASH` (Stage 6); graph delete semantics are unchanged — only the kind and path resolution change. Stage 7 persists soft delete as a filesystem reparent into `TRASH/...` via the same `DocumentPathMove` handler as rename and reparent.
 
 ## Structural Invariants
 
@@ -197,7 +197,7 @@ File nodes use `NodeKind = Special File`.
 | Permanence | Fixed `trashId`, permanent owner child of ROOT — not renamable or removable |
 | Soft delete | `MoveToTrash` appends owner under `trashId` (unchanged graph semantics) |
 | Snapshot / `.amb` | Stable sid `#TRASH`; owner line includes name token `TRASH` |
-| Path resolution | `@:/TRASH/` under nameless ROOT workspace (`NodeDesktopPath`) |
+| Path resolution | `//TRASH/` (`NodeDesktopPath`) |
 | UI styling | Trash row class/symbol by `trashId`, not by retired `Special Directory` kind |
 
 **On disk (Stage 7):** TRASH is a persisted directory document — `TRASH/` folder with `TRASH.amb` under the ROOT workspace path in `DataDir` — [[doc/roadmap/workspace-file-persistence.md]].
@@ -253,7 +253,7 @@ Workspace, directory, and file nodes are created, renamed, moved, or removed onl
 - explicit user commands (**Insert…**, **Rename**, delete/move-to-TRASH, etc.)
 - normal cross-client graph synchronization of those user commands
 
-Soft delete is reparent under TRASH, not a separate persist primitive — Stage 7 maps it to a filesystem reparent into `@:/TRASH/...` alongside rename and reparent moves.
+Soft delete is reparent under TRASH, not a separate persist primitive — Stage 7 maps it to a filesystem reparent into `TRASH/...` alongside rename and reparent moves.
 
 Slice 1 special case: deleting an owned `Directory` or `File` node does not promote another ref to owner. It removes the owned node and all refs to it, preserving the invariant that every node has exactly one owner and avoiding silent disk-path moves. Future improvement should preserve dangling user intent more gracefully, for example with explicit link/placeholder nodes or a retarget/restore-owner flow.
 
@@ -271,7 +271,7 @@ mutate the shared graph.
 ## Canonical Paths
 
 Persistence may use workspace-relative path text on disk. Reference expressions use namespace
-semantics — anchors (`//`, `/`, `.`, `^`, `#`), `DirStep` (`name/`), `FileStep` (`name`) — see [[doc/roadmap/reference-expressions.md]] and [[doc/roadmap/reference-expression-interpretation.md]]. Named workspace lookup uses ROOT-relative paths such as `//@label/...`.
+semantics — anchors (`//`, `/`, `.`, `^`, `#`), `DirStep` (`name/`), `FileStep` (`name`) — see [[doc/roadmap/reference-expressions.md]] and [[doc/roadmap/reference-expression-interpretation.md]]. Named workspace lookup uses ROOT-relative paths such as `//workspacename/...` (reference syntax) or `//workspacename` for the workspace root.
 Absolute machine-local paths are never part of shared identity.
 
 Path text does not replace node ownership identity. Where persistence or desktop mapping uses path
@@ -327,7 +327,7 @@ The graph projection (`GraphProjection`, change-log ops) stores ownership-tree i
 - **File** — node identity (`kind`, `name`, owner link). No server `DataDir` path materialization
   yet.
 
-`Snapshot.write` may emit `@label:` path text for workspace nodes (write-only hint). Directory and
+`Snapshot.write` may emit `//workspacename` path text for workspace nodes (write-only hint). Directory and
 file path bodies in snapshot text are not shared persistence authority; round-trip and server
 `DataDir` layout are Stages 7–8.
 

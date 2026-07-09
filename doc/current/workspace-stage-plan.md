@@ -61,7 +61,7 @@ Stage 1 vocabulary for `Special Directory` and `Special File` exists in the shar
 - A desktop-accessible workspace-node command for "open workspace in explorer".
 - No commands to set, update, clear, or list local mappings.
 - Unresolved-workspace indication when a label is unknown (Stage 5 — deferred; not blocking Stage 6).
-- Server-side persistence of directory and file **documents** under `DataDir/@label/...` (Stage 7 — implemented; see §7).
+- Server-side persistence of directory and file **documents** under `DataDir/{workspaceLabel}/...` (Stage 7 — implemented; see §7).
 
 ### Out Of Scope (follow-on stages)
 
@@ -145,7 +145,7 @@ Shared workspace-label → workspace-root mapping is stored in the graph project
 - `Special Workspace` nodes under `Workspaces` with `Node.name` = label
 - `nodes.kind` / `nodes.name` in PostgreSQL (`GraphProjection`)
 - change-log JSON (`Op.NewSpecialNode`, `Op.SetName`, `Op.Replace`)
-- `Snapshot.write` may emit `@label:` path text for workspace nodes (write-only hint); directory and file path bodies in snapshot text are not shared persistence authority
+- `Snapshot.write` may emit `//workspacename` path text for workspace nodes (write-only hint); directory and file path bodies in snapshot text are not shared persistence authority
 
 Directory and file node identity (`kind`, `name`, owner link) exists in the graph projection; server `DataDir` path materialization, live-save, snapshot integration, and incremental persist are implemented (Stages 7–8).
 
@@ -174,7 +174,7 @@ Resolves workspace label + relative path via readonly local mapping. Independent
 
 Not in file-model Stage 4 (Stage 4 is done at interim import/export resolution). This extended loopback API is still planned work for a follow-on slice.
 
-This loopback API resolves paths against the desktop's mapped absolute workspace roots. It is **separate** from server `DataDir/@label/...` persistence (§7), which writes under the server's configured `DataDir`.
+This loopback API resolves paths against the desktop's mapped absolute workspace roots. It is **separate** from server `DataDir/{workspaceLabel}/...` persistence (§7), which writes under the server's configured `DataDir`.
 
 - Expose desktop-local endpoints (loopback + local auth token required):
   - GET workspaces -> workspace labels only
@@ -282,7 +282,7 @@ Status: Stage 6 `[x]` — implemented.
 | Permanence | Same as today — fixed `trashId`, permanent owner child of ROOT, not renamable/removable |
 | Delete semantics | Unchanged at graph layer — `MoveToTrash` appends owner under `trashId` |
 | Snapshot / `.amb` | Keep stable sid `#TRASH`; owner line includes name token `TRASH` |
-| Path resolution | `NodeDesktopPath` resolves TRASH as `@:/TRASH/` (under nameless ROOT workspace) |
+| Path resolution | `NodeDesktopPath` resolves TRASH as `//TRASH/` |
 | Row styling | Map `trashId` to existing trash row class/symbol (by id, not kind) |
 
 On disk (Stage 7): TRASH is a persisted directory document — folder `TRASH/` with artifact `.amb` under `DataDir` — see [[doc/roadmap/workspace-file-persistence.md]].
@@ -368,16 +368,16 @@ Status: Stage 7 core `[x]`; Stage 8 `[x]`; Stage 7 follow-ups `[ ]`.
 
 What is in place:
 
-- **Path:** `{DataDir}/@{workspaceLabel}/{canonicalRelativePath}` (the `@` is part of the on-disk path segment).
+- **Path:** `{DataDir}/{workspaceLabel}/{canonicalRelativePath}` — folder name is the workspace label verbatim (`@` is an ordinary character when present in the label).
 - **Write pattern:** live-save on accepted change via `DocumentPersistence.persistGraphChange` after DB commit (`DbAgent` snapshot task).
 - **Stop at nested document root:** `AmbDocument.write` / `DocumentPartition` — nested workspace/directory/file document roots persist as separate artifacts.
-- **Unified path moves:** `executePathMoves` for rename, reparent, and soft delete (`MoveToTrash` → `@:/TRASH/...`). Path validation before accept; `Directory.Move` / `File.Move` on disk.
+- **Unified path moves:** `executePathMoves` for rename, reparent, and soft delete (`MoveToTrash` → `TRASH/...`). Path validation before accept; `Directory.Move` / `File.Move` on disk.
 - **TRASH on disk:** `TRASH/.amb` under `DataDir` (directory document for canonical `trashId`).
 - **Stage 6 handoff:** `DocumentPathMove.planPathMovesBetweenGraphs` → coalesce → execute on disk.
 
 Verification already covered:
 
-- Directory and file documents write under `DataDir/@label/...` with correct relative paths.
+- Directory and file documents write under `DataDir/{workspaceLabel}/...` with correct relative paths.
 - Rename, reparent, and move-to-TRASH apply filesystem moves from `DocumentPathMove` descriptors.
 - Path safety: no escape above `DataDir`.
 - TRASH directory document materialized (`TRASH/.amb`).
@@ -437,7 +437,7 @@ Aligned with [[doc/roadmap/workspace-file-model.md]] Settled Decisions:
 6. Persistence tiers: server `DataDir` primary; desktop mapping secondary and independent of server path shape.
 7. Unresolved behavior: commands that require resolution are blocked when reference cannot resolve; the client must show an explicit diagnostic; silent no-op is invalid.
 8. **Rename** → F2; **Edit node** → Enter only.
-9. Soft delete → reparent under TRASH (`MoveToTrash`); no separate persist path — Stage 7 treats as reparent into `@:/TRASH/...`.
+9. Soft delete → reparent under TRASH (`MoveToTrash`); no separate persist path — Stage 7 treats as reparent into `TRASH/...`.
 10. Cross-workspace reparent — no extra logic; unified `DocumentPathMove` handles workspace prefix change.
 
 ## Notes

@@ -139,6 +139,6 @@ Implementation: [[doc/roadmap/workspace-file-model.md]] Stage 9.
 - Startup workspace registration (sync local config labels to cloud graph).
 - Full workspace filesystem API (dir/file CRUD with `modifiedUtc` conflicts).
 
-**Server workspace files:** Documents rooted at workspace, directory, and file nodes persist on the server under `{DataDir}/@{label}/{path}`. Desktop `@label:` mapping and manual Import/Export are unchanged. See [[doc/roadmap/workspace-file-model.md]] § Documents and server file persistence.
+**Server workspace files:** Documents rooted at workspace, directory, and file nodes persist on the server under `{DataDir}/{label}/{path}`. Desktop `@label:` mapping and manual Import/Export are unchanged. See [[doc/roadmap/workspace-file-model.md]] § Documents and server file persistence.
 
 *Source:* [[doc/current/desktop-local-files.md]], [[doc/current/workspace-stage-plan.md]].

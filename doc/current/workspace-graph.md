@@ -26,7 +26,7 @@ Every graph built via `Graph.fromNodes` or `Graph.create` has:
 `Workspaces` and `Trash` cannot be edited (`setText`, `setClasses`) or removed from root
 (`replace` on root rejects their removal or duplication). TRASH cannot be renamed (`setName` rejects `trashId`).
 
-**Stage 6 target:** retire `SpecialKind.Trash`; TRASH becomes `Special Directory` with `Node.name = TRASH`. Same permanence and delete semantics (`MoveToTrash` reparents owner under `trashId`). Path: `@:/TRASH/`. UI trash styling maps by `trashId`, not kind. See [[doc/roadmap/workspace-file-model.md]] § TRASH.
+**Stage 6 target:** retire `SpecialKind.Trash`; TRASH becomes `Special Directory` with `Node.name = TRASH`. Same permanence and delete semantics (`MoveToTrash` reparents owner under `trashId`). Path: `//TRASH/`. UI trash styling maps by `trashId`, not kind. See [[doc/roadmap/workspace-file-model.md]] § TRASH.
 
 ## Context
 
@@ -118,8 +118,8 @@ Search dialog merges two result sources (`src/Shared/ViewModelSearch.fs`):
 1. **RefExpr matches** — namespace-style queries parsed and matched first.
 2. **Text search** — existing node text matching.
 
-Workspace nodes expose `@label:` as their desktop file path via `NodeDesktopPath` (used by the
-file-status indicator). See [[doc/current/desktop-local-files.md]].
+Workspace nodes expose `//workspacename` paths via `NodeDesktopPath` (used by the
+file-status indicator). See [[doc/current/desktop-local-files.md]] for desktop `@label:relative` mapping.
 
 ## Related desktop behavior
 

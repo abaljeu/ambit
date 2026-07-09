@@ -34,9 +34,9 @@ module WorkspaceGitRemoteTests =
     [<Fact>]
     let ``gatewayUrl builds smart http path`` () =
         let url = WorkspaceGitRemote.gatewayUrl "https://example.org/ambit" "home"
-        Assert.Equal("https://example.org/ambit/git/@home.git", url)
+        Assert.Equal("https://example.org/ambit/git/home.git", url)
 
     [<Fact>]
-    let ``gatewayUrl strips at prefix from label`` () =
+    let ``gatewayUrl preserves at prefix in label`` () =
         let url = WorkspaceGitRemote.gatewayUrl "http://localhost:5115/ambit" "@docs"
         Assert.Equal("http://localhost:5115/ambit/git/@docs.git", url)

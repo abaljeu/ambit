@@ -184,7 +184,7 @@ let ``classifyDeleteForSelection cancels whole selection when workspace is in ra
 // ---------------------------------------------------------------------------
 
 [<Fact>]
-let ``delete owned file with refs becomes path expr normal`` () =
+let ``delete owned file with refs removes owner and refs`` () =
     let ws = NodeId.New()
     let file = NodeId.New()
     let normal = NodeId.New()
@@ -213,18 +213,89 @@ let ``delete owned file with refs becomes path expr normal`` () =
         let result = History.applyChange { id = 1; changeId = System.Guid.NewGuid(); ops = ops } s
         match result with
         | ApplyResult.Changed s2 ->
-            let normalNode = s2.graph.nodes.[normal]
-            let child =
-                normalNode.children
-                |> List.exactlyOne
-                |> fun c -> s2.graph.nodes.[c.id]
-            Assert.Equal("[[//repo/a.txt]]", child.text)
-            Assert.Equal(Normal, child.kind)
-            Assert.Equal(Ownership.Owner, normalNode.children.[0].ref)
+            Assert.Empty(s2.graph.nodes.[normal].children)
             Assert.True(
                 s2.graph.nodes.[Graph.trashId].children
                 |> List.exists (fun c -> c.id = file && c.ref = Ownership.Owner))
+            Assert.True(Map.containsKey file s2.graph.nodes)
         | _ -> Assert.Fail("expected changed")
+    | _ -> Assert.Fail("setup failed")
+
+[<Fact>]
+let ``delete owned special from trash with refs hard-deletes owner and refs`` () =
+    let ws = NodeId.New()
+    let file = NodeId.New()
+    let normal = NodeId.New()
+    let g0 = Graph.create ()
+    let g1 =
+        History.applyChange
+            { id = 0
+              changeId = System.Guid.NewGuid()
+              ops =
+                [ Op.NewSpecialNode(ws, Workspace, "repo")
+                  Op.NewSpecialNode(file, File, "a.txt")
+                  Op.NewNode(normal, "note")
+                  Op.Replace(Graph.workspacesId, 0, [], owned [ ws ])
+                  Op.Replace(ws, 0, [], owned [ file; normal ])
+                  Op.Replace(normal, 0, [], [ ref_ file ]) ] }
+            (stateOf g0)
+    match g1 with
+    | ApplyResult.Changed s ->
+        let wsChildren = s.graph.nodes.[ws].children
+        let trashLen = s.graph.nodes.[Graph.trashId].children.Length
+        let g2 =
+            History.applyChange
+                { id = 1
+                  changeId = System.Guid.NewGuid()
+                  ops =
+                    [ Op.Replace(ws, 0, wsChildren, owned [ normal ])
+                      Op.Replace(Graph.trashId, trashLen, [], owned [ file ]) ] }
+                s
+        match g2 with
+        | ApplyResult.Changed s2 ->
+            let range = trashRange s2.graph trashLen 1
+            let classified = ViewModelDeleteOps.classifyDeleteForSelection s2.graph range
+            Assert.Equal(1, classified.Length)
+            Assert.Equal(ViewModelDeleteOps.OwnedSpecialDeleteHard, classified.[0].action)
+            let ops = ViewModelDeleteOps.planDeleteOps s2.graph range classified
+            let result = History.applyChange { id = 2; changeId = System.Guid.NewGuid(); ops = ops } s2
+            match result with
+            | ApplyResult.Changed s3 ->
+                Assert.Empty(s3.graph.nodes.[normal].children)
+                Assert.Empty(getAllOccurrences s3.graph file)
+            | _ -> Assert.Fail("expected changed")
+        | _ -> Assert.Fail("setup trash failed")
+    | _ -> Assert.Fail("setup failed")
+
+[<Fact>]
+let ``statusForDelete warns when owned special delete removed refs`` () =
+    let ws = NodeId.New()
+    let file = NodeId.New()
+    let normal = NodeId.New()
+    let g0 = Graph.create ()
+    let g1 =
+        History.applyChange
+            { id = 0
+              changeId = System.Guid.NewGuid()
+              ops =
+                [ Op.NewSpecialNode(ws, Workspace, "repo")
+                  Op.NewSpecialNode(file, File, "a.txt")
+                  Op.NewNode(normal, "note")
+                  Op.Replace(Graph.workspacesId, 0, [], owned [ ws ])
+                  Op.Replace(ws, 0, [], owned [ file; normal ])
+                  Op.Replace(normal, 0, [], [ ref_ file ]) ] }
+            (stateOf g0)
+    match g1 with
+    | ApplyResult.Changed s ->
+        let siteMap, _ = buildSiteMapFrom s.graph ws (Sid 0)
+        let wsEntry = siteMap.entries.[siteMap.rootId]
+        let range = { parent = wsEntry; start = 0; endd = 1 }
+        let classified = ViewModelDeleteOps.classifyDeleteForSelection s.graph range
+        match ViewModelDeleteOps.statusForDelete classified with
+        | None -> Assert.Fail("expected status")
+        | Some msg ->
+            Assert.Equal(StatusKind.StatusWarn, msg.kind)
+            Assert.Contains("1 ref", msg.text)
     | _ -> Assert.Fail("setup failed")
 
 [<Fact>]

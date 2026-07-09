@@ -104,17 +104,17 @@ let private artifactMap (graph: Graph) : Map<string, string> =
 [<Fact>]
 let ``classifyArtifactRelative recognizes canonical and nested paths`` () =
     let ws =
-        DocumentAssembly.classifyArtifactRelative "@home/.amb"
+        DocumentAssembly.classifyArtifactRelative "home/.amb"
         |> requireOk "workspace"
     Assert.Equal(DocumentAssembly.DocumentArtifactKind.Directory, ws.kind)
 
     let dir =
-        DocumentAssembly.classifyArtifactRelative "@home/docs/.amb"
+        DocumentAssembly.classifyArtifactRelative "home/docs/.amb"
         |> requireOk "directory"
     Assert.Equal(DocumentAssembly.DocumentArtifactKind.Directory, dir.kind)
 
     let file =
-        DocumentAssembly.classifyArtifactRelative "@home/docs/readme.txt"
+        DocumentAssembly.classifyArtifactRelative "home/docs/readme.txt"
         |> requireOk "file"
     Assert.Equal(DocumentAssembly.DocumentArtifactKind.File, file.kind)
 
@@ -149,17 +149,17 @@ let ``artifactRelativeForNodeReference maps workspace directory and file paths``
     let ws =
         DocumentAssembly.artifactRelativeForNodeReference "//home"
         |> requireOk "workspace"
-    Assert.Equal("@home/.amb", ws)
+    Assert.Equal("home/.amb", ws)
 
     let dir =
         DocumentAssembly.artifactRelativeForNodeReference "//home/docs/"
         |> requireOk "directory"
-    Assert.Equal("@home/docs/.amb", dir)
+    Assert.Equal("home/docs/.amb", dir)
 
     let file =
         DocumentAssembly.artifactRelativeForNodeReference "//home/docs/readme.txt"
         |> requireOk "file"
-    Assert.Equal("@home/docs/readme.txt", file)
+    Assert.Equal("home/docs/readme.txt", file)
 
 [<Fact>]
 let ``artifactRelativeForNodeReference maps root file and directory paths`` () =
@@ -273,3 +273,13 @@ let ``validateAssembledGraph catches overlapping document membership`` () =
     match DocumentAssembly.validateAssembledGraph graph4 with
     | Ok _ -> failwith "expected error"
     | Error msg -> Assert.Contains("member", msg)
+
+[<Fact>]
+let ``assembleFromArtifacts preserves at in workspace stub name`` () =
+    let wsId = NodeId.New()
+    let rootText = "-> //@dd^" + AmbDocument.formatStableId wsId + System.Environment.NewLine
+    let artifacts = Map.ofList [ ".amb", rootText; "@dd/.amb", "" ]
+    let graph = DocumentAssembly.assembleFromArtifacts artifacts |> requireOk "assemble"
+    let wsNode = graph.nodes.[wsId]
+    Assert.Equal("@dd", Filename.tryValue wsNode.name |> Option.get)
+    Assert.Equal("@dd/.amb", DocumentPartition.artifactFileRelative graph wsId |> Option.get)

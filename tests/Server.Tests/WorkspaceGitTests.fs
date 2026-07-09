@@ -29,7 +29,7 @@ let private newTempDir () =
 let ``workspaceRepoDir uses at-label under data dir`` () =
     let dataDir = newTempDir ()
     let repoDir = WorkspaceGit.workspaceRepoDir dataDir "home"
-    Assert.Equal(Path.Combine(dataDir, "@home"), repoDir)
+    Assert.Equal(Path.Combine(dataDir, "home"), repoDir)
 
 [<SkippableFact>]
 let ``ensureRepo initializes git only under workspace label dir`` () =

@@ -167,12 +167,12 @@ let ``artifactRelativeForReference maps workspace and root directory refs`` () =
     let ws =
         NodeDesktopPath.artifactRelativeForReference "//home"
         |> requireOk "workspace"
-    Assert.Equal("@home/.amb", ws)
+    Assert.Equal("home/.amb", ws)
 
     let dir =
         NodeDesktopPath.artifactRelativeForReference "//home/docs/"
         |> requireOk "workspace directory"
-    Assert.Equal("@home/docs/.amb", dir)
+    Assert.Equal("home/docs/.amb", dir)
 
     let rootDir =
         NodeDesktopPath.artifactRelativeForReference "//docs/"
@@ -190,3 +190,13 @@ let ``artifactRelativeForReference maps file owned directory to sibling amb`` ()
         NodeDesktopPath.artifactRelativeForReference "//inner/"
         |> requireOk "canonical root directory"
     Assert.Equal("inner/.amb", canonical)
+
+[<Fact>]
+let ``tryParseWorkspacePath preserves at in workspace name`` () =
+    match NodeDesktopPath.tryParseWorkspacePath "//@dd/docs/readme.txt" with
+    | Some ("@dd", "docs/readme.txt") -> ()
+    | other -> Assert.True(false, $"expected @dd workspace, got {other}")
+
+    match NodeDesktopPath.tryParseWorkspacePath "//dd/readme.txt" with
+    | Some ("dd", "readme.txt") -> ()
+    | other -> Assert.True(false, $"expected dd workspace, got {other}")

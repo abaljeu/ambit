@@ -14,7 +14,7 @@ module WorkspaceTreeSyncIo =
             match node.kind with
             | Special Workspace ->
                 match Filename.tryValue node.name with
-                | Some name when name <> "" -> Ok("@" + name)
+                | Some name when name <> "" -> Ok name
                 | _ -> Ok ""
             | Special Directory ->
                 DocumentPartition.artifactDirectoryRelative graph nodeId
