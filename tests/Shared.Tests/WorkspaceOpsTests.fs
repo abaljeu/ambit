@@ -50,13 +50,20 @@ let private appendOwned (parentId: NodeId) (childId: NodeId) (graph: Graph) : Gr
 [<Fact>]
 let ``SetName on special node updates name and text`` () =
     let nodeId = NodeId.New()
-    let op = Op.NewSpecialNode(nodeId, Workspace, "my-ws")
+    let op = Op.NewSpecialNode(nodeId, Directory, "my-dir")
     let state1 = Op.apply op (freshState ()) |> requireChanged
     let graph1 = state1.graph
-    let graph2 = Graph.setName nodeId "my-ws" "renamed" graph1 |> requireOk "setName"
+    let graph2 = Graph.setName nodeId "my-dir" "renamed" graph1 |> requireOk "setName"
     let node = graph2.nodes.[nodeId]
     Assert.Equal(Filename.Ok "renamed", node.name)
     Assert.Equal("renamed", node.text)
+
+[<Fact>]
+let ``SetName rejects renaming a workspace node`` () =
+    let nodeId = NodeId.New()
+    let op = Op.NewSpecialNode(nodeId, Workspace, "my-ws")
+    let graph = Op.apply op (freshState ()) |> requireChanged |> fun s -> s.graph
+    Assert.True(Result.isError (Graph.setName nodeId "my-ws" "renamed" graph))
 
 [<Fact>]
 let ``SetName on Normal updates name only not text`` () =

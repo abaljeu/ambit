@@ -79,16 +79,18 @@ graph JSON payload. Stage 6 retires the `trash` discriminator; TRASH persists as
 
 ## Workspace lifecycle (graph ops)
 
-Workspace nodes are created and renamed through the general change op surface:
+Workspace nodes are created through the general change op surface:
 
 - **Create** — `Op.NewSpecialNode(nodeId, Special Workspace, name)` then `Op.Replace` to attach
   under `Graph.workspacesId`.
-- **Rename** — `Op.SetName(nodeId, oldName, newName)` with `Graph.setName` validation (case-insensitive
-  sibling uniqueness, invalid filename chars rejected).
+
+**Workspace name is immutable after creation.** `Graph.setName` and F2 rename reject `Special Workspace`
+nodes (named workspaces under `Workspaces`; ROOT is blocked separately by id). The name is the stable
+identity for git labels and desktop `@label:` mapping.
 
 **Stage 6 implemented — Insert…:** create workspace under `Workspaces`, or `Special Directory` / `Special File` as owner child of focus; pick-existing insert via search unchanged. Slice 1 target changes owned `Directory` / `File` creation so those nodes can only be owned by `Workspace`, including ROOT, or `Directory`; inserts elsewhere should create or place refs instead of illegal owners.
 
-**Stage 6 implemented — Rename (F2):** same `Op.SetName` for workspace, directory, file; normal nodes rename `Node.name` only. Edit node keeps Enter only.
+**Stage 6 implemented — Rename (F2):** `Op.SetName` for directory and file; normal nodes rename `Node.name` only. Workspace nodes cannot be renamed. Edit node keeps Enter only.
 
 Canonical `Workspaces`, `Trash`, and `ROOT` ids cannot be renamed. No dedicated workspace-removal
 op in this stage. Soft delete reparents owner under `trashId` (`MoveToTrash`).

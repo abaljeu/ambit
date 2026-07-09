@@ -165,7 +165,7 @@ Future improvement: preserve dangling intent more gracefully, such as converting
 2. **Owned-name uniqueness (Shared / Server accept)** — reject duplicate owned Special File / Directory names with the same kind/path parent; reject same-name kind collisions under one Workspace / Directory.
 3. **Shallow sync planner (Shared)** — plan reconcile ops from one directory listing and that node’s owned special children; create missing stubs; reuse matching owned children; report kind conflicts; ignore refs.
 4. **Delete semantics (Shared / Client)** — special-owned delete removes the owned File / Directory and all refs to it; do not promote refs to owners; surface confirmation/diagnostic as needed.
-5. **Sync tree command** — workspace/directory command posts shallow reconcile ops; server reads `DataDir/{workspaceLabel}/...`; optional desktop reads mapped roots with the same planner.
+5. **Sync tree command** — workspace/directory command posts shallow reconcile ops; server reads `DataDir/{workspaceLabel}/...`; desktop reads mapped roots with the same planner.
 6. **Expand to parse** — metadata fields; on-demand read/parse for one file; set `parsed`.
 7. **Stale** — mtime (or hash) compare on expand/reparse; indicator + reparse action; no auto-replace.
 8. **Workspace git** — init under `{workspaceLabel}/` when needed; commit that repo only; desktop LocalProxy when mapped root is a git repo.

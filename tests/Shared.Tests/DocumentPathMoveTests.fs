@@ -148,6 +148,16 @@ let ``planRenameNode rejects canonical trash id`` () =
     Assert.True(Result.isError (NodeRenameOps.planRenameNode graph Graph.trashId "other"))
 
 [<Fact>]
+let ``isRenameAllowed is false for workspace node`` () =
+    let graph, wsId, _ = graphWithWorkspaceFile ()
+    Assert.False(NodeRenameOps.isRenameAllowed graph wsId)
+
+[<Fact>]
+let ``planRenameNode rejects workspace node`` () =
+    let graph, wsId, _ = graphWithWorkspaceFile ()
+    Assert.True(Result.isError (NodeRenameOps.planRenameNode graph wsId "renamed"))
+
+[<Fact>]
 let ``planRenameNode on Normal updates name not text`` () =
     let graph0 = Graph.create ()
     let graph1, nodeId = Graph.newNode "visible label" graph0

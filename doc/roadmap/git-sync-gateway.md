@@ -37,6 +37,7 @@ This doc records decisions that upcoming persistence and workspace work should r
 | Desktop transport | Prefer stock **`git pull ambit` / `git push ambit`** against a real remote URL — not a bespoke pack POST API. |
 | Module boundary | `DocumentPersistence` writes files; git gateway runs git. **Only coupling:** server JIT commit before serving fetch, and clean-tree check before receive. |
 | Path moves | Filesystem moves under `{workspaceLabel}/` should be real renames where possible so git history stays coherent ([[doc/roadmap/workspace-file-persistence.md]] move handler). |
+| Workspace label | **Immutable after creation** — git label and desktop mapping capture the name once; graph `SetName` rejects `Special Workspace` nodes ([[doc/current/workspace-graph.md]]). |
 
 ## On-disk layout
 
