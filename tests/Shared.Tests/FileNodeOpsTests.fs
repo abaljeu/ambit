@@ -34,6 +34,15 @@ let private outlineSetup () =
         | Error e -> failwith e
     focus, graph2
 
+let private workspaceParentSetup () =
+    let ws = NodeId.New()
+    let g0 = Graph.create ()
+    let g1 =
+        applyOps g0
+            [ Op.NewSpecialNode(ws, Workspace, "repo")
+              Op.Replace(Graph.workspacesId, 0, [], [ owned ws ]) ]
+    ws, g1
+
 [<Fact>]
 let ``planCreateWorkspace creates workspace under Workspaces`` () =
     let graph = Graph.create ()
@@ -47,19 +56,30 @@ let ``planCreateWorkspace creates workspace under Workspaces`` () =
         |> List.exists (fun c -> c.id = wsId && c.ref = Ownership.Owner))
 
 [<Fact>]
-let ``planCreateOwnedFile creates file under focus parent`` () =
-    let focus, graph = outlineSetup ()
-    let fileId, ops = FileNodeOps.planCreateOwnedFile graph focus ""
+let ``planCreateOwnedFile creates file under workspace parent`` () =
+    let ws, graph = workspaceParentSetup ()
+    let fileId, ops = FileNodeOps.planCreateOwnedFile graph ws ""
     let graph2 = applyOps graph ops
     let fileNode = graph2.nodes.[fileId]
     Assert.Equal(Special File, fileNode.kind)
     Assert.Equal(Filename.Ok "file.txt", fileNode.name)
-    Assert.Equal(focus, fileNode.owner)
+    Assert.Equal(ws, fileNode.owner)
 
 [<Fact>]
-let ``planCreateOwnedDirectory creates folder under focus parent`` () =
+let ``planCreateOwnedFileAtFocus from normal creates owner at root and ref at focus`` () =
     let focus, graph = outlineSetup ()
-    let dirId, ops = FileNodeOps.planCreateOwnedDirectory graph focus ""
+    let insert = { parentId = focus; index = 0 }
+    let fileId, ops = FileNodeOps.planCreateOwnedFileAtFocus graph insert ""
+    let graph2 = applyOps graph ops
+    Assert.Equal(Graph.rootId, graph2.nodes.[fileId].owner)
+    Assert.True(
+        graph2.nodes.[focus].children
+        |> List.exists (fun c -> c.id = fileId && c.ref = Ownership.Ref))
+
+[<Fact>]
+let ``planCreateOwnedDirectory creates folder under workspace parent`` () =
+    let ws, graph = workspaceParentSetup ()
+    let dirId, ops = FileNodeOps.planCreateOwnedDirectory graph ws ""
     let graph2 = applyOps graph ops
     let dirNode = graph2.nodes.[dirId]
     Assert.Equal(Special Directory, dirNode.kind)
@@ -67,8 +87,8 @@ let ``planCreateOwnedDirectory creates folder under focus parent`` () =
 
 [<Fact>]
 let ``planCreateOwnedDirectory uses query as name and text`` () =
-    let focus, graph = outlineSetup ()
-    let dirId, ops = FileNodeOps.planCreateOwnedDirectory graph focus "my-docs"
+    let ws, graph = workspaceParentSetup ()
+    let dirId, ops = FileNodeOps.planCreateOwnedDirectory graph ws "my-docs"
     let graph2 = applyOps graph ops
     let dirNode = graph2.nodes.[dirId]
     Assert.Equal(Special Directory, dirNode.kind)
@@ -77,13 +97,13 @@ let ``planCreateOwnedDirectory uses query as name and text`` () =
 
 [<Fact>]
 let ``planCreateOwnedFile picks unused sibling name`` () =
-    let focus, graph = outlineSetup ()
-    let _, ops1 = FileNodeOps.planCreateOwnedFile graph focus ""
+    let ws, graph = workspaceParentSetup ()
+    let _, ops1 = FileNodeOps.planCreateOwnedFile graph ws ""
     let graph2 = applyOps graph ops1
-    let _, ops2 = FileNodeOps.planCreateOwnedFile graph2 focus ""
+    let _, ops2 = FileNodeOps.planCreateOwnedFile graph2 ws ""
     let graph3 = applyOps graph2 ops2
     let names =
-        graph3.nodes.[focus].children
+        graph3.nodes.[ws].children
         |> List.choose (fun c ->
             if c.ref <> Ownership.Owner then None
             else

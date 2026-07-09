@@ -263,6 +263,7 @@ let private specialNode (id: NodeId) (kind: SpecialKind) (text: string) : Node =
       cssClasses = CssClass.empty
       owner = Graph.rootId
       kind = Special kind
+      fileState = FileState.defaultValue
       updateTime = NodeUpdateTime.missing }
 
 let private addSpecialNode (id: NodeId) (kind: SpecialKind) (text: string) (graph: Graph) : Graph =
@@ -325,7 +326,7 @@ let ``Graph.replace accepts Special Workspace under workspaces node`` () =
     | Error err -> Assert.True(false, $"Expected Ok, got Error: {err}")
 
 [<Fact>]
-let ``Graph.replace accepts Special Directory under normal parent`` () =
+let ``Graph.replace rejects Special Directory under normal parent`` () =
     let graph0 = Graph.create ()
     let graph1, ids = ModelBuilder.createNodes [ "parent" ] graph0
     let parent = ids.[0]
@@ -334,13 +335,11 @@ let ``Graph.replace accepts Special Directory under normal parent`` () =
     let dirId = NodeId.New()
     let graph3 = addSpecialNode dirId Directory "dir" graph2
     match Graph.replace parent 0 [] (owned [ dirId ]) graph3 with
-    | Ok graph4 ->
-        let children = graph4.nodes.[parent].children
-        Assert.Equal<NodeId list>([ dirId ], children |> List.map (fun c -> c.id))
-    | Error err -> Assert.True(false, $"Expected Ok, got Error: {err}")
+    | Ok _ -> Assert.Fail("expected placement error")
+    | Error err -> Assert.Contains("Workspace or Directory", err)
 
 [<Fact>]
-let ``Graph.replace accepts Special File under normal parent`` () =
+let ``Graph.replace rejects Special File under normal parent`` () =
     let graph0 = Graph.create ()
     let graph1, ids = ModelBuilder.createNodes [ "parent" ] graph0
     let parent = ids.[0]
@@ -349,10 +348,8 @@ let ``Graph.replace accepts Special File under normal parent`` () =
     let fileId = NodeId.New()
     let graph3 = addSpecialNode fileId File "file" graph2
     match Graph.replace parent 0 [] (owned [ fileId ]) graph3 with
-    | Ok graph4 ->
-        let children = graph4.nodes.[parent].children
-        Assert.Equal<NodeId list>([ fileId ], children |> List.map (fun c -> c.id))
-    | Error err -> Assert.True(false, $"Expected Ok, got Error: {err}")
+    | Ok _ -> Assert.Fail("expected placement error")
+    | Error err -> Assert.Contains("Workspace or Directory", err)
 
 [<Fact>]
 let ``Graph.replace accepts Special Directory under Special Workspace`` () =
@@ -411,7 +408,7 @@ let ``Graph.replace accepts Special File under Special Directory`` () =
     | Error err -> Assert.True(false, $"Expected Ok, got Error: {err}")
 
 [<Fact>]
-let ``Graph.replace accepts Special Directory under Special File`` () =
+let ``Graph.replace rejects Special Directory under Special File`` () =
     let graph0 = Graph.create ()
     let wsId = NodeId.New()
     let fileId = NodeId.New()
@@ -425,13 +422,11 @@ let ``Graph.replace accepts Special Directory under Special File`` () =
         Graph.replace wsId 0 [] (owned [ fileId ]) graph3 |> requireOk "ws->file"
     let graph5 = addSpecialNode dirId Directory "dir" graph4
     match Graph.replace fileId 0 [] (owned [ dirId ]) graph5 with
-    | Ok graph6 ->
-        let children = graph6.nodes.[fileId].children
-        Assert.Equal<NodeId list>([ dirId ], children |> List.map (fun c -> c.id))
-    | Error err -> Assert.True(false, $"Expected Ok, got Error: {err}")
+    | Ok _ -> Assert.Fail("expected placement error")
+    | Error err -> Assert.Contains("Workspace or Directory", err)
 
 [<Fact>]
-let ``Graph.replace accepts Special File under Special File`` () =
+let ``Graph.replace rejects Special File under Special File`` () =
     let graph0 = Graph.create ()
     let wsId = NodeId.New()
     let fileId = NodeId.New()
@@ -445,10 +440,8 @@ let ``Graph.replace accepts Special File under Special File`` () =
         Graph.replace wsId 0 [] (owned [ fileId ]) graph3 |> requireOk "ws->file"
     let graph5 = addSpecialNode nestedId File "nested" graph4
     match Graph.replace fileId 0 [] (owned [ nestedId ]) graph5 with
-    | Ok graph6 ->
-        let children = graph6.nodes.[fileId].children
-        Assert.Equal<NodeId list>([ nestedId ], children |> List.map (fun c -> c.id))
-    | Error err -> Assert.True(false, $"Expected Ok, got Error: {err}")
+    | Ok _ -> Assert.Fail("expected placement error")
+    | Error err -> Assert.Contains("Workspace or Directory", err)
 
 [<Fact>]
 let ``Graph.replace accepts Special Directory under ROOT`` () =

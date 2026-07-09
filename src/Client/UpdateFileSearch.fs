@@ -47,17 +47,19 @@ let fileSearchCreateWorkspace (query: string) (model: VM) : VM * Effect list =
     applyOpsChange ops model
 
 let fileSearchCreateFile (query: string) (model: VM) : VM * Effect list =
-    match focusParentId model with
+    match model.selectedNodes with
     | None -> model, []
-    | Some parentId ->
-        let _, ops = FileNodeOps.planCreateOwnedFile model.graph parentId query
+    | Some sel ->
+        let insert = focusInsertPoint sel
+        let _, ops = FileNodeOps.planCreateOwnedFileAtFocus model.graph insert query
         applyOpsChange ops model
 
 let fileSearchCreateFolder (query: string) (model: VM) : VM * Effect list =
-    match focusParentId model with
+    match model.selectedNodes with
     | None -> model, []
-    | Some parentId ->
-        let _, ops = FileNodeOps.planCreateOwnedDirectory model.graph parentId query
+    | Some sel ->
+        let insert = focusInsertPoint sel
+        let _, ops = FileNodeOps.planCreateOwnedDirectoryAtFocus model.graph insert query
         applyOpsChange ops model
 
 let runFileSearchSelectionOp (mode: Mode) (model: VM) : VM * Effect list =

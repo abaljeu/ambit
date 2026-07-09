@@ -23,6 +23,7 @@ let private specialNode (id: NodeId) (kind: SpecialKind) (name: string) (owner: 
       cssClasses = CssClass.empty
       owner = owner
       kind = Special kind
+      fileState = FileState.defaultValue
       updateTime = NodeUpdateTime.missing }
 
 let private normalNode (id: NodeId) (text: string) (owner: NodeId) : Node =
@@ -33,6 +34,7 @@ let private normalNode (id: NodeId) (text: string) (owner: NodeId) : Node =
       cssClasses = CssClass.empty
       owner = owner
       kind = Normal
+      fileState = FileState.defaultValue
       updateTime = NodeUpdateTime.missing }
 
 let private graphWithNestedDocs () : Graph * NodeId * NodeId * NodeId * NodeId =

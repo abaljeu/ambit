@@ -25,6 +25,7 @@ let initialModel: VM =
       serverCapabilities = None
       desktopFileIndicator = BlankFileIndicator
       syncInfo = SyncInfo.initial
+      status = None
       lastSuccessfulKey = ""
       lastSuccessfulOp = "" }
 

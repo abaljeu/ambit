@@ -83,7 +83,9 @@ let applyAndPost (change: Change) (model: VM) : VM option * Effect list =
                 graph = newState.graph
                 history = newState.history
                 syncInfo = nextSyncInfo }, effects
-    | _ -> None, []
+    | ApplyResult.Invalid(_, msg) ->
+        Some { model with status = Some(StatusMessage.error msg) }, []
+    | ApplyResult.Unchanged _ -> None, []
 
 /// Extract the child span covered by a SiteNodeRange.
 let rangeChildren (graph: Graph) (range: SiteNodeRange) =

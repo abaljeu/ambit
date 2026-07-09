@@ -42,7 +42,8 @@ let ``replace rejects trash owner under non-root parent`` () =
     match
         Graph.replace focusId 0 [] [ { ref = Ownership.Owner; id = Graph.trashId } ] graph1
     with
-    | Error msg -> Assert.Contains("OWNED by a non-root parent", msg)
+    | Error msg ->
+        Assert.Contains("File and Directory nodes may only be owned by Workspace or Directory", msg)
     | Ok _ -> Assert.Fail("expected Error")
 
 [<Fact>]

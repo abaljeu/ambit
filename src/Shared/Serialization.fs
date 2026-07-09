@@ -108,6 +108,7 @@ module Serialization =
               "children", node.children |> List.map encodeChildNode |> Encode.list
               "cssClasses", node.cssClasses |> CssClass.toList |> List.map Encode.string |> Encode.list
               "kind", encodeNodeKind node.kind
+              "fileState", Encode.lossyOption Encode.string (FileState.toPersistString node.fileState)
               "updateTime", Encode.int64 node.updateTime.Ticks ]
 
     let decodeNode: Decoder<Node> =
@@ -124,6 +125,9 @@ module Serialization =
               cssClasses = get.Optional.Field "cssClasses" (Decode.list Decode.string) |> Option.defaultValue [] |> CssClass.ofList
               owner = Graph.rootId
               kind = kind
+              fileState =
+                  get.Optional.Field "fileState" Decode.string
+                  |> FileState.fromPersistString
               updateTime =
                   get.Optional.Field "updateTime" Decode.int64
                   |> Option.map (fun ticks -> DateTime(ticks, DateTimeKind.Utc))
@@ -198,6 +202,12 @@ module Serialization =
                   "nodeId", encodeNodeId nodeId
                   "oldName", Encode.string oldName
                   "newName", Encode.string newName ]
+        | Op.SetFileState(nodeId, oldState, newState) ->
+            Encode.object
+                [ "type", Encode.string "SetFileState"
+                  "nodeId", encodeNodeId nodeId
+                  "oldState", Encode.lossyOption Encode.string (FileState.toPersistString oldState)
+                  "newState", Encode.lossyOption Encode.string (FileState.toPersistString newState) ]
 
     let decodeOp: Decoder<Op> =
         Decode.field "type" Decode.string
@@ -239,6 +249,12 @@ module Serialization =
                         get.Required.Field "nodeId" decodeNodeId,
                         get.Required.Field "oldName" Decode.string,
                         get.Required.Field "newName" Decode.string))
+            | "SetFileState" ->
+                Decode.object (fun get ->
+                    Op.SetFileState(
+                        get.Required.Field "nodeId" decodeNodeId,
+                        get.Optional.Field "oldState" Decode.string |> FileState.fromPersistString,
+                        get.Optional.Field "newState" Decode.string |> FileState.fromPersistString))
             | other ->
                 Decode.fail $"Unknown Op type: {other}")
 
@@ -371,3 +387,58 @@ module Serialization =
 
     let decodePollResponse (text: string) : Result<PollResponse, string> =
         Decode.fromString decodePollResponseDecoder text
+
+    // ---- Workspace tree sync / file parse ----
+
+    let private encodeSpecialKindForDisk (kind: SpecialKind) : IEncodable =
+        match kind with
+        | Directory -> Encode.string "directory"
+        | File -> Encode.string "file"
+        | Workspaces -> Encode.string "workspaces"
+        | Workspace -> Encode.string "workspace"
+
+    let private decodeSpecialKindForDisk: Decoder<SpecialKind> =
+        Decode.string
+        |> Decode.andThen (function
+            | "directory" -> Decode.succeed Directory
+            | "file" -> Decode.succeed File
+            | other -> Decode.fail $"unsupported disk entry kind: {other}")
+
+    let encodeDiskTreeEntry (entry: DiskTreeEntry) : IEncodable =
+        Encode.object
+            [ "name", Encode.string entry.name
+              "kind", encodeSpecialKindForDisk entry.kind
+              "mtimeUtc", Encode.int64 entry.mtimeUtc ]
+
+    let decodeDiskTreeEntry: Decoder<DiskTreeEntry> =
+        Decode.object (fun get ->
+            { name = get.Required.Field "name" Decode.string
+              kind = get.Required.Field "kind" decodeSpecialKindForDisk
+              mtimeUtc = get.Required.Field "mtimeUtc" Decode.int64 })
+
+    let encodeDiskTreeListing (entries: DiskTreeEntry list) : IEncodable =
+        entries |> List.map encodeDiskTreeEntry |> Encode.list
+
+    let decodeDiskTreeListing: Decoder<DiskTreeEntry list> =
+        Decode.list decodeDiskTreeEntry
+
+    let encodeParseFileResponse (relativePath: string) (text: string) (mtimeUtc: int64) : IEncodable =
+        Encode.object
+            [ "relativePath", Encode.string relativePath
+              "text", Encode.string text
+              "mtimeUtc", Encode.int64 mtimeUtc ]
+
+    let decodeParseFileResponseDecoder: Decoder<string * string * int64> =
+        Decode.object (fun get ->
+            get.Required.Field "relativePath" Decode.string,
+            get.Required.Field "text" Decode.string,
+            get.Required.Field "mtimeUtc" Decode.int64)
+
+    let decodeParseFileResponse (text: string) : Result<string * string * int64, string> =
+        Decode.fromString decodeParseFileResponseDecoder text
+
+    let decodeDiskTreeListingFromString (text: string) : Result<DiskTreeEntry list, string> =
+        Decode.fromString decodeDiskTreeListing text
+
+    let decodeGraphFromStateJson (text: string) : Result<Graph, string> =
+        Decode.fromString (Decode.field "graph" decodeGraph) text

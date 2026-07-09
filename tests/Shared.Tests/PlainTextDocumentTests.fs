@@ -23,6 +23,7 @@ let private graphWithDocument (childNodes: Node list) : Graph * NodeId =
           cssClasses = CssClass.empty
           owner = graph0.root
           kind = Special File
+          fileState = FileState.defaultValue
           updateTime = NodeUpdateTime.missing }
     let graph1 =
         graph0.nodes
@@ -48,6 +49,7 @@ let private normalNode (id: NodeId) (text: string) (owner: NodeId) : Node =
       cssClasses = CssClass.empty
       owner = owner
       kind = Normal
+      fileState = FileState.defaultValue
       updateTime = NodeUpdateTime.missing }
 
 let private childTexts (nodes: Map<NodeId, Node>) (parentId: NodeId) : string list =

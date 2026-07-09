@@ -179,6 +179,7 @@ let ``buildPasteOpsFromClipboard single node gets fresh id and same text`` () =
                     cssClasses = CssClass.empty
                     owner = Graph.rootId
                     kind = Normal
+                    fileState = FileState.defaultValue
                     updateTime = NodeUpdateTime.missing } ] }
     let newTopIds, ops = buildPasteOpsFromClipboard cb
     Assert.Equal(1, newTopIds.Length)
@@ -203,6 +204,7 @@ let ``buildPasteOpsFromClipboard remaps parent-child relationship`` () =
                 cssClasses = CssClass.empty
                 owner = Graph.rootId
                 kind = Normal
+                fileState = FileState.defaultValue
                 updateTime = NodeUpdateTime.missing }
               bId,
               { id = bId
@@ -212,6 +214,7 @@ let ``buildPasteOpsFromClipboard remaps parent-child relationship`` () =
                 cssClasses = CssClass.empty
                 owner = Graph.rootId
                 kind = Normal
+                fileState = FileState.defaultValue
                 updateTime = NodeUpdateTime.missing } ] }
     let newTopIds, ops = buildPasteOpsFromClipboard cb
     let graph = applyOps ops (Graph.create ())
@@ -240,6 +243,7 @@ let ``buildPasteOpsFromClipboard multiple top-level nodes`` () =
                 cssClasses = CssClass.empty
                 owner = Graph.rootId
                 kind = Normal
+                fileState = FileState.defaultValue
                 updateTime = NodeUpdateTime.missing }
               id2,
               { id = id2
@@ -249,6 +253,7 @@ let ``buildPasteOpsFromClipboard multiple top-level nodes`` () =
                 cssClasses = CssClass.empty
                 owner = Graph.rootId
                 kind = Normal
+                fileState = FileState.defaultValue
                 updateTime = NodeUpdateTime.missing } ] }
     let newTopIds, ops = buildPasteOpsFromClipboard cb
     Assert.Equal(2, newTopIds.Length)
@@ -273,6 +278,7 @@ let ``buildPasteOpsFromClipboard all old ids absent from new graph keys`` () =
                     cssClasses = CssClass.empty
                     owner = Graph.rootId
                     kind = Normal
+                    fileState = FileState.defaultValue
                     updateTime = NodeUpdateTime.missing } ] }
     let _, ops = buildPasteOpsFromClipboard cb
     let graph = applyOps ops (Graph.create ())

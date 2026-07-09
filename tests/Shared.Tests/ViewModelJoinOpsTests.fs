@@ -39,6 +39,7 @@ let private emptyModelAt (graph: Graph) (viewRoot: NodeId) : VM =
       serverCapabilities = None
       desktopFileIndicator = BlankFileIndicator
       syncInfo = SyncInfo.initial
+      status = None
       lastSuccessfulKey = ""
       lastSuccessfulOp = "" }
 

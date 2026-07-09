@@ -188,6 +188,7 @@ module Snapshot =
                   Special Directory
               else
                   Normal
+          fileState = FileState.defaultValue
           updateTime = NodeUpdateTime.missing }
 
     let private outlineStubNode (id: NodeId) : Node =

@@ -61,6 +61,7 @@ type Node =
       cssClasses : CssClasses
       owner      : NodeId
       kind       : NodeKind
+      fileState  : FileState
       updateTime : DateTime }
 
 
@@ -131,6 +132,7 @@ module Graph =
           cssClasses = CssClass.empty
           owner = rootId
           kind = Special Workspace
+          fileState = FileState.defaultValue
           updateTime = NodeUpdateTime.missing }
 
     let private addStructuralEdges (parentId: NodeId) (parent: Node) acc =
@@ -172,6 +174,7 @@ module Graph =
                       cssClasses = CssClass.empty
                       owner = rootId
                       kind = Special Directory
+                      fileState = FileState.defaultValue
                       updateTime = NodeUpdateTime.missing }
 
                 let trashChild: ChildNode =
@@ -234,6 +237,7 @@ module Graph =
                       cssClasses = CssClass.empty
                       owner = rootId
                       kind = Special Workspaces
+                      fileState = FileState.defaultValue
                       updateTime = NodeUpdateTime.missing }
 
                 let workspacesChild: ChildNode =
@@ -328,6 +332,7 @@ module Graph =
               cssClasses = CssClass.empty
               owner = rootId
               kind = Normal
+              fileState = FileState.defaultValue
               updateTime = NodeUpdateTime.now () }
         let nodes = graph.nodes |> Map.add nodeId node
         { graph with nodes = nodes }, nodeId
@@ -444,6 +449,20 @@ module Graph =
                                         { node with name = Filename.Ok validName; text = validName }
                             Ok { graph with nodes = graph.nodes |> Map.add nodeId updatedNode }
 
+    let setFileState
+        (nodeId: NodeId)
+        (oldState: FileState)
+        (newState: FileState)
+        (graph: Graph)
+        : Result<Graph, string>
+        =
+        match graph.nodes |> Map.tryFind nodeId with
+        | None -> Error "node not found"
+        | Some node when node.fileState <> oldState -> Error "file state does not match"
+        | Some node ->
+            let updatedNode = NodeUpdateTime.touch { node with fileState = newState }
+            Ok { graph with nodes = graph.nodes |> Map.add nodeId updatedNode }
+
     let replace
         (parentId: NodeId)
         (index: int)
@@ -479,6 +498,11 @@ module Graph =
                         match childNode.kind with
                         | Special Workspace when parentId <> workspacesId ->
                             Some "Workspace nodes may only be placed under Workspaces"
+                        | Special (Directory | File) when child.ref = Ownership.Owner ->
+                            match parent.kind with
+                            | Special (Workspace | Directory) -> None
+                            | _ ->
+                                Some "File and Directory nodes may only be owned by Workspace or Directory"
                         | _ -> None)
 
                 match placementError with

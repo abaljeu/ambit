@@ -7,9 +7,9 @@
 - The root is a `workspace` node.
 - The root owns `workspaces`.
 - `workspaces` owns `workspace` nodes.
-- `workspace` nodes can own `directory`, `file`, and `normal` nodes.
+- `workspace` nodes, including ROOT, can own `directory`, `file`, and `normal` nodes.
 - `directory` nodes can own `directory`, `file`, and `normal` nodes.
-- `normal` nodes can own `directory`, `file`, and `normal` nodes.
+- `normal` nodes can currently own `directory`, `file`, and `normal` nodes; Slice 1 will restrict owned `directory` / `file` placement while leaving refs unrestricted.
 
 ## Context
 
@@ -19,19 +19,21 @@
 
 ## Target Concept
 
-- The editor should be free-form.
-- Only `workspaces` and `workspace` nodes stay structurally restricted.
-- All other node types can be organized freely.
-- A `file` may own `file` or `directory` nodes for outline structure.
-- Disk placement is still based on nearest owning directory ancestor.
+- The editor should be free-form for normal outline content and refs.
+- Owned `file` and `directory` nodes mirror disk ownership: only `workspace` nodes, including ROOT, and `directory` nodes may own them.
+- `workspace`, `directory`, and `file` nodes may own `normal` nodes.
+- `normal` nodes may own `normal` nodes.
+- A `file` may own normal parsed/content children for document membership, but not owned `file` or `directory` nodes.
+- Refs to `file` and `directory` nodes may be placed freely, including under `normal` or `file` nodes.
+- Disk placement is the `workspace` owner chain, including ROOT, plus directory ownership; no path index table or nearest-directory-under-normal scan is part of the target.
 - Nested documents (child workspace/directory/file roots) persist as separate artifacts; members of a nested document are not inlined in the parent document's payload.
 
 ## Documents
 
-See [[doc/roadmap/postgres-roadmap.md]] §5 and [[doc/roadmap/workspace-file-model.md]] § Documents. Document membership — not "owned by a file" — determines which persisted artifact holds a node's serialized content.
+See [[doc/roadmap/postgres-roadmap]] §5 and [[doc/roadmap/workspace-file-model]] § Documents. Document membership — not "owned by a file" — determines which persisted artifact holds a node's serialized content.
 
 ## References
-See [[doc/roadmap/reference-expression-interpretation.md]].
+See [[doc/roadmap/reference-expression-interpretation]].
 
 ## Server File Persistence
 

@@ -40,23 +40,22 @@ Authority: [[doc/roadmap/revising-workspace-file-model]].
 
 Enforced in `Graph.replace` (not by a separate command layer).
 
-Placement restrictions apply only to canonical workspace structure:
+Current placement restrictions apply only to canonical workspace structure. Slice 1 of [[doc/roadmap/workspace-scale-import-slice1-plan]] changes the target for owned `Directory` / `File` nodes so disk paths are the Workspace owner chain, including ROOT, plus Directory ownership; refs remain unrestricted.
 
-| Node kind | Allowed owner parent |
-|-----------|----------------------|
-| `Workspaces` | root only (permanent, canonical) |
-| `Workspace` | `Workspaces` only |
-| `Directory` | anywhere |
-| `File` | anywhere |
-| `Normal` | anywhere |
+| Node kind | Current allowed owner parent | Slice 1 target owner parent |
+|-----------|------------------------------|-----------------------------|
+| `Workspaces` | root only (permanent, canonical) | root only (permanent, canonical) |
+| `Workspace` | `Workspaces` only | `Workspaces` only |
+| `Directory` | anywhere | `Workspace` (including ROOT) or `Directory` only |
+| `File` | anywhere | `Workspace` (including ROOT) or `Directory` only |
+| `Normal` | anywhere | `Workspace`, `Directory`, `File`, or `Normal` |
 
 **ROOT** is the implicit nameless workspace (`@:`): `Special Workspace` with no filename.
 Named `Workspace` nodes remain under `Workspaces` only. Ref links are unrestricted.
 
 `Workspaces` and `Trash` may not appear as children of any non-root parent.
 
-Below `Workspaces`/`Workspace` structural rules, the outline is free-form.
-`Directory`, `File`, and `Normal` nodes may be owned by any parent.
+Current code still allows free-form ownership below `Workspaces` / `Workspace`. The Slice 1 target keeps free-form refs and normal outline content, but owned `Directory` / `File` nodes mirror disk by living under `Workspace` owners, including ROOT, or `Directory` owners.
 
 Tests: `tests/Shared.Tests/ModelTests.fs` (workspaces bootstrap and placement cases).
 
@@ -87,9 +86,9 @@ Workspace nodes are created and renamed through the general change op surface:
 - **Rename** — `Op.SetName(nodeId, oldName, newName)` with `Graph.setName` validation (case-insensitive
   sibling uniqueness, invalid filename chars rejected).
 
-**Stage 6 target — Insert…:** create workspace under `Workspaces`, or `Special Directory` / `Special File` as owner child of focus; pick-existing insert via search unchanged.
+**Stage 6 implemented — Insert…:** create workspace under `Workspaces`, or `Special Directory` / `Special File` as owner child of focus; pick-existing insert via search unchanged. Slice 1 target changes owned `Directory` / `File` creation so those nodes can only be owned by `Workspace`, including ROOT, or `Directory`; inserts elsewhere should create or place refs instead of illegal owners.
 
-**Stage 6 target — Rename (F2):** same `Op.SetName` for workspace, directory, file; normal nodes rename `Node.name` only. Edit node keeps Enter only.
+**Stage 6 implemented — Rename (F2):** same `Op.SetName` for workspace, directory, file; normal nodes rename `Node.name` only. Edit node keeps Enter only.
 
 Canonical `Workspaces`, `Trash`, and `ROOT` ids cannot be renamed. No dedicated workspace-removal
 op in this stage. Soft delete reparents owner under `trashId` (`MoveToTrash`).

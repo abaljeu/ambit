@@ -9,6 +9,7 @@
     <Compile Include="CssClass.fs" />
     <Compile Include="ClientRectCaret.fs" />
     <Compile Include="Filename.fs" />
+    <Compile Include="FileState.fs" />
     <Compile Include="Model.fs" />
     <Compile Include="RefExprTypes.fs" />
     <Compile Include="RefExprParse.fs" />
@@ -27,6 +28,8 @@
     <Compile Include="LoginForm.fs" />
     <Compile Include="LoginRedirect.fs" />
     <Compile Include="RedirectRewrite.fs" />
+    <Compile Include="StatusMessage.fs" />
+    <Compile Include="WorkspaceTreeTypes.fs" />
     <Compile Include="ViewModel.fs" />
     <Compile Include="ModelOps.fs" />
     <Compile Include="NodeDesktopPath.fs" />
@@ -38,6 +41,7 @@
     <Compile Include="ViewModelSearch.fs" />
     <Compile Include="ViewModelFileSearch.fs" />
     <Compile Include="FileNodeOps.fs" />
+    <Compile Include="WorkspaceTreeSync.fs" />
     <Compile Include="DocumentPathMove.fs" />
     <Compile Include="AmbleEval.fs" />
     <Compile Include="AmbleRun.fs" />
@@ -45,6 +49,7 @@
     <Compile Include="AmbDocument.fs" />
     <Compile Include="PlainTextDocument.fs" />
     <Compile Include="DocumentFormat.fs" />
+    <Compile Include="FileExpand.fs" />
     <Compile Include="DocumentAssembly.fs" />
     <Compile Include="Paste.fs" />
     <Compile Include="ImportText.fs" />

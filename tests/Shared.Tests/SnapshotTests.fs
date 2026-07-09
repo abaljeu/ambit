@@ -211,6 +211,7 @@ let private specialNode (id: NodeId) (kind: SpecialKind) (name: string) (owner: 
       cssClasses = CssClass.empty
       owner = owner
       kind = Special kind
+      fileState = FileState.defaultValue
       updateTime = NodeUpdateTime.missing }
 
 let private graphWithWorkspaceTree () : Graph =

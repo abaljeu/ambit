@@ -133,6 +133,7 @@ module DocumentAssembly =
           cssClasses = CssClass.empty
           owner = Graph.rootId
           kind = stubKind descriptor
+          fileState = FileState.defaultValue
           updateTime = NodeUpdateTime.missing }
 
     let private seedStub (graph: Graph) (descriptor: ArtifactDescriptor) (documentRootId: NodeId) : Graph =

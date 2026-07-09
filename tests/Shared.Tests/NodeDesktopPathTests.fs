@@ -20,6 +20,7 @@ let private specialNode (id: NodeId) (kind: SpecialKind) (name: string) (owner: 
       cssClasses = CssClass.empty
       owner = owner
       kind = Special kind
+      fileState = FileState.defaultValue
       updateTime = NodeUpdateTime.missing }
 
 let private graphWithWorkspaceTree () : Graph * NodeId * NodeId * NodeId =
@@ -111,8 +112,10 @@ let private graphFileOwnsDirectory () : Graph * NodeId * NodeId =
     let graph0 = Graph.create ()
     let fileId = NodeId.New()
     let dirId = NodeId.New()
-    let fileNode = specialNode fileId File "container.txt" Graph.rootId
     let dirNode = specialNode dirId Directory "inner" fileId
+    let fileNode =
+        { specialNode fileId File "container.txt" Graph.rootId with
+            children = [ { ref = Ownership.Owner; id = dirId } ] }
 
     let graph1 =
         graph0.nodes
@@ -125,11 +128,7 @@ let private graphFileOwnsDirectory () : Graph * NodeId * NodeId =
         Graph.replace Graph.rootId idx [] (owned [ fileId ]) graph1
         |> requireOk "root->file"
 
-    let graph3 =
-        Graph.replace fileId 0 [] (owned [ dirId ]) graph2
-        |> requireOk "file->dir"
-
-    graph3, fileId, dirId
+    graph2, fileId, dirId
 
 [<Fact>]
 let ``pathForNodeId directory owned by file uses canonical root path`` () =

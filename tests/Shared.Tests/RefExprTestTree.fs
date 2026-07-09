@@ -26,6 +26,7 @@ let private specialNode (id: NodeId) (kind: SpecialKind) (name: string) (owner: 
       cssClasses = CssClass.empty
       owner = owner
       kind = Special kind
+      fileState = FileState.defaultValue
       updateTime = NodeUpdateTime.missing }
 
 let private addUnder (parentId: NodeId) (child: Node) (graph: Graph) : Graph =
@@ -45,6 +46,7 @@ let private namedNormalNode (text: string) (tagName: string) (owner: NodeId) : N
       cssClasses = CssClass.empty
       owner = owner
       kind = Normal
+      fileState = FileState.defaultValue
       updateTime = NodeUpdateTime.missing }
 
 /// Workspace tree under Workspaces plus a tagged outline under `app.fs`.

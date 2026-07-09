@@ -1,19 +1,19 @@
 # Workspace scale file and db management
 
-See also: [[doc/roadmap/workspace-scale-import.md]], [[doc/roadmap/git-sync-gateway.md]], [[doc/roadmap/workspace-file-persistence.md]], [[doc/roadmap/workspace-file-model.md]]
+See also: [[doc/roadmap/workspace-scale-import]], [[doc/roadmap/git-sync-gateway]], [[doc/roadmap/workspace-file-persistence]], [[doc/roadmap/workspace-file-model]]
 
-This document is the **umbrella vision** for repo-scale outliner behavior (lazy materialization, residency, queries, identity). **Rollout** is sliced in [[doc/roadmap/workspace-scale-import.md]]; do not treat everything here as slice 1. This file was created from discussions without looking at gambol sources — terms and details may need adaptation. `Repo` maps directly onto this project's concept of `workspace`.
+This document is the **umbrella vision** for repo-scale outliner behavior (lazy materialization, residency, queries, identity). **Rollout** is sliced in [[doc/roadmap/workspace-scale-import]]; do not treat everything here as slice 1. This file was created from discussions without looking at gambol sources — terms and details may need adaptation. `Repo` maps directly onto this project's concept of `workspace`.
 
 ## Rollout
 
 Committed sequencing (authoritative detail in linked docs):
 
-1. **Stage 7 `DataDir`** — `{DataDir}/@{label}/` live-save and path moves — **done** ([[doc/current/workspace-stage-plan.md]] §7).
-2. **Slice 1** — repo tree in outline, expand-to-parse, autosave, local `git commit`, stale on external change ([[doc/roadmap/workspace-scale-import.md]] § Slice 1).
-3. **Slice 2** — desktop clone sync via git gateway: pull (server JIT commit first), push (server clean, fast-forward only), client-side merge ([[doc/roadmap/git-sync-gateway.md]]).
+1. **Stage 7 `DataDir`** — `{DataDir}/@{label}/` live-save and path moves — **done** ([[doc/current/workspace-stage-plan]] §7).
+2. **Slice 1** — repo file tree imported into outline using ownership-derived paths; parse files and import when expanding; autosave; local `git commit`; stale on external change ([[doc/roadmap/workspace-scale-import]] § Slice 1; lock: [[doc/roadmap/workspace-scale-import-slice1-plan]]).
+3. **Slice 2** — desktop clone sync via git gateway: pull (server JIT commit first), push (server clean, fast-forward only), client-side merge ([[doc/roadmap/git-sync-gateway]]).
 4. **Later** — sections below marked *deferred*: server lazy DB residency, client file LRU, query model, annotation migration, git object model in the outline.
 
-Slice 1 can use disk + graph path nodes without the full DB materialization model in this doc. Long-term, repo metadata and parsed nodes live in PostgreSQL as described here.
+Slice 1 can use shallow disk sync plus owned Workspace/Directory/File graph nodes without the full DB materialization model in this doc. Long-term, repo metadata and parsed nodes live in PostgreSQL as described here.
 
 ## Core goal
 
@@ -178,7 +178,7 @@ This keeps repo use transparent:
 
 ## Commit and sync model
 
-Authoritative wire protocol: [[doc/roadmap/git-sync-gateway.md]]. Summary:
+Authoritative wire protocol: [[doc/roadmap/git-sync-gateway]]. Summary:
 
 **Commit cadence**
 
@@ -201,7 +201,7 @@ Authoritative wire protocol: [[doc/roadmap/git-sync-gateway.md]]. Summary:
 
 Multi-machine file coherence therefore collapses into the existing “external file changed” problem (stale flags), not graph merge at the server.
 
-HTTP change batches ([[doc/current/sync-mvp.md]]) remain for live editing; git pull/push is explicit coarse sync between machines (slice 2).
+HTTP change batches ([[doc/current/sync-mvp]]) remain for live editing; git pull/push is explicit coarse sync between machines (slice 2).
 
 ---
 
@@ -421,7 +421,7 @@ External changes:
 
 ## The next concrete decision
 
-Slice 1 scope: nail the **file node lifecycle** ([[doc/roadmap/workspace-scale-import.md]]). For example:
+Slice 1 scope: nail the **file node lifecycle** for ownership-derived paths and on-demand parsing ([[doc/roadmap/workspace-scale-import]]; lock: [[doc/roadmap/workspace-scale-import-slice1-plan]]). For example:
 
 ```text
 discovered stub

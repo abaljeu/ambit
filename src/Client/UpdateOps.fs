@@ -8,6 +8,7 @@ open Gambol.Client.UpdateEdit
 open Gambol.Client.UpdateHelpers
 open Gambol.Client.UpdateMove
 open Gambol.Client.UpdatePaste
+open Gambol.Client.UpdateWorkspace
 open Gambol.Shared
 open Gambol.Shared.Paste
 open Gambol.Shared.ViewModel
@@ -318,7 +319,9 @@ let toggleFoldOp (instanceId: SiteId) (model: VM) : VM * Effect list =
         else
             let siteMap, nextId =
                 ViewModel.expandEntry instanceId model.graph model.siteMap model.nextSiteId
-            { model with siteMap = siteMap; nextSiteId = nextId }, []
+            let expanded = { model with siteMap = siteMap; nextSiteId = nextId }
+            let m2, effs = maybeRequestParseOnExpand instanceId expanded
+            m2, effs
 
 /// Op: ArrowLeft in selection — fold if expanded, else move to parent.
 let arrowLeftSelectionOp (model: VM) : VM * Effect list =
@@ -369,7 +372,9 @@ let arrowRightSelectionOp (model: VM) : VM * Effect list =
                     let siteMap, nextId =
                         ViewModel.expandEntry
                             focusInstId model.graph model.siteMap model.nextSiteId
-                    { model with siteMap = siteMap; nextSiteId = nextId }, []
+                    let expanded = { model with siteMap = siteMap; nextSiteId = nextId }
+                    let m2, effs = maybeRequestParseOnExpand focusInstId expanded
+                    m2, effs
                 else
                     match entry.children with
                     | [] -> model, []

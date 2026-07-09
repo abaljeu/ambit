@@ -134,11 +134,25 @@ body {
     padding: 0;
     margin: 0;
 }
-.amb-last-key {
-    display: none;
+.amb-last-result {
+    display: block;
+    flex: 1 1 auto;
+    min-width: 0;
     font-size: 0.7rem;
     color: #849;
     font-family: monospace;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.amb-last-result.amb-status-info {
+    color: #849;
+}
+.amb-last-result.amb-status-warn {
+    color: #a60;
+}
+.amb-last-result.amb-status-error {
+    color: #a33;
 }
 @media (max-width: 480px) {
     body {

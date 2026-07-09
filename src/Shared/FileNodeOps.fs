@@ -55,6 +55,22 @@ module FileNodeOps =
         let index = Graph.fileTreeInsertIndex graph parentId
         Op.Replace(parentId, index, [], [ { ref = Ownership.Owner; id = childId } ])
 
+    let rec nearestValidOwnerParent (graph: Graph) (nodeId: NodeId) : NodeId =
+        if nodeId = Graph.rootId then
+            Graph.rootId
+        else
+            match Map.tryFind nodeId graph.nodes with
+            | None -> Graph.rootId
+            | Some node ->
+                match node.kind with
+                | Special (Workspace | Directory) -> nodeId
+                | _ -> nearestValidOwnerParent graph node.owner
+
+    let private isValidOwnedParent (graph: Graph) (parentId: NodeId) : bool =
+        match Map.tryFind parentId graph.nodes with
+        | Some { kind = Special (Workspace | Directory) } -> true
+        | _ -> false
+
     let private planCreateOwnedSpecial
         (graph: Graph)
         (parentId: NodeId)
@@ -96,3 +112,41 @@ module FileNodeOps =
                 []
             else
                 [ Op.Replace(insert.parentId, insert.index, [], [ newRef ]) ]
+
+    let planCreateOwnedFileAtFocus
+        (graph: Graph)
+        (insert: FocusInsertPoint)
+        (query: string)
+        : NodeId * Op list =
+        let ownerParent =
+            if isValidOwnedParent graph insert.parentId then
+                insert.parentId
+            else
+                nearestValidOwnerParent graph insert.parentId
+
+        let childId, createOps = planCreateOwnedFile graph ownerParent query
+
+        if ownerParent = insert.parentId then
+            childId, createOps
+        else
+            let refOps = planInsertFileRefAtFocus insert childId graph
+            childId, createOps @ refOps
+
+    let planCreateOwnedDirectoryAtFocus
+        (graph: Graph)
+        (insert: FocusInsertPoint)
+        (query: string)
+        : NodeId * Op list =
+        let ownerParent =
+            if isValidOwnedParent graph insert.parentId then
+                insert.parentId
+            else
+                nearestValidOwnerParent graph insert.parentId
+
+        let childId, createOps = planCreateOwnedDirectory graph ownerParent query
+
+        if ownerParent = insert.parentId then
+            childId, createOps
+        else
+            let refOps = planInsertFileRefAtFocus insert childId graph
+            childId, createOps @ refOps

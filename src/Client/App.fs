@@ -129,6 +129,8 @@ let createRuntime (initialModel: VM) =
         | ScheduleRetry delayMs -> runScheduleRetry delayMs
         | SavePendingQueue q -> runSavePendingQueue q
         | RequestDesktopFileStatus (nodeId, path) -> runDesktopFileStatus nodeId path
+        | RequestSyncTreeListing nodeId -> runSyncTreeListing nodeId
+        | RequestParseFile (nodeId, forceReparse) -> runParseFile nodeId forceReparse
 
     and runSubmitPendingBatch (baseRev: int) (changes: Change list) : unit =
         let reqId =
@@ -214,6 +216,34 @@ let createRuntime (initialModel: VM) =
         let onNetworkFail () : unit =
             consoleLog "[Gambol desktop] file-status request failed"
         postJson "/_desktop/file-status" body onOk onHttpError onNetworkFail
+
+    and runSyncTreeListing (nodeId: NodeId) : unit =
+        let url =
+            sprintf "/%s/sync-tree?nodeId=%s" currentFile (nodeId.Value.ToString())
+        let onOk (text: string) : unit =
+            match Serialization.decodeDiskTreeListingFromString text with
+            | Ok entries ->
+                dispatch (SysMsg (SyncTreeListingReceived (nodeId, entries)))
+            | Error err ->
+                dispatch (SysMsg (SyncTreeListingFailed (nodeId, err)))
+        let onFail () : unit =
+            dispatch (SysMsg (SyncTreeListingFailed (nodeId, "request failed")))
+        fetchTextNoCacheWithFail url onOk onFail
+
+    and runParseFile (nodeId: NodeId) (forceReparse: bool) : unit =
+        let url =
+            sprintf "/%s/parse-file?nodeId=%s" currentFile (nodeId.Value.ToString())
+        let onOk (text: string) : unit =
+            match Serialization.decodeParseFileResponse text with
+            | Ok (relativePath, fileText, mtimeUtc) ->
+                dispatch (
+                    SysMsg (
+                        ParseFileContentReceived (nodeId, relativePath, fileText, mtimeUtc, forceReparse)))
+            | Error err ->
+                dispatch (SysMsg (ParseFileFailed (nodeId, err)))
+        let onFail () : unit =
+            dispatch (SysMsg (ParseFileFailed (nodeId, "request failed")))
+        fetchTextNoCacheWithFail url onOk onFail
 
     and dispatch (msg: Msg) : unit =
         let prev = model

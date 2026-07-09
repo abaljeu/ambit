@@ -10,6 +10,13 @@ module ViewModelDeleteOps =
         | HardDeleteSubtreeInTrash
         | LocalDeleteWithPromotion
         | LocalDeleteRefOnly
+        | OwnedSpecialDeleteToTrash
+        | OwnedSpecialDeleteHard
+
+    let private isOwnedSpecialFileOrDir (graph: Graph) (nodeId: NodeId) : bool =
+        match graph.nodes.[nodeId].kind with
+        | Special (File | Directory) -> true
+        | _ -> false
 
     /// A single classified delete decision for an occurrence within a selection.
     type ClassifiedDelete =
@@ -53,23 +60,24 @@ module ViewModelDeleteOps =
             let others = occurrencesOutsideSelection graph range nodeId
 
             let action =
+                let isOwnedSpecial = isOwnedSpecialFileOrDir graph nodeId
+
                 match child.ref, isOwnerHere, ownerUnderTrash, others with
                 | Ownership.Ref, _, _, _ ->
                     DeleteAction.LocalDeleteRefOnly
                 | Ownership.Owner, false, _, _ ->
-                    // Non-owner occurrence inside span (should not happen); treat as ref-only.
                     DeleteAction.LocalDeleteRefOnly
                 | Ownership.Owner, true, true, [] ->
-                    // Unique owner is under TRASH, no refs outside → hard delete subtree.
                     DeleteAction.HardDeleteSubtreeInTrash
+                | Ownership.Owner, true, true, _::_ when isOwnedSpecial ->
+                    DeleteAction.OwnedSpecialDeleteHard
                 | Ownership.Owner, true, true, _::_ ->
-                    // Owner under TRASH, refs elsewhere → local ref-only removal.
                     DeleteAction.LocalDeleteRefOnly
                 | Ownership.Owner, true, false, [] ->
-                    // Last non-TRASH owner → move subtree to TRASH.
                     DeleteAction.MoveToTrash
+                | Ownership.Owner, true, false, _::_ when isOwnedSpecial ->
+                    DeleteAction.OwnedSpecialDeleteToTrash
                 | Ownership.Owner, true, false, _::_ ->
-                    // Owner with other occurrences outside → promote a ref first.
                     DeleteAction.LocalDeleteWithPromotion
 
             { parentId = parentId
@@ -118,6 +126,31 @@ module ViewModelDeleteOps =
     // Op planning
     // -----------------------------------------------------------------------
 
+    let private pathExprText (graph: Graph) (nodeId: NodeId) : string option =
+        NodeDesktopPath.pathForNodeId graph nodeId
+        |> Option.map (fun path -> "[[" + path + "]]")
+
+    let private buildPathExprReplacementOps
+        (graph: Graph)
+        (classified: ClassifiedDelete list)
+        : Op list
+        =
+        classified
+        |> List.choose (fun item ->
+            match item.action with
+            | OwnedSpecialDeleteToTrash | OwnedSpecialDeleteHard -> Some item
+            | _ -> None)
+        |> List.collect (fun item ->
+            match pathExprText graph item.child.id with
+            | None -> []
+            | Some pathText ->
+                item.otherOccurrences
+                |> List.filter (fun (_, _, c) -> c.ref = Ownership.Ref)
+                |> List.collect (fun (parentId, index, oldChild) ->
+                    let newId = NodeId.New()
+                    [ Op.NewNode(newId, pathText)
+                      Op.Replace(parentId, index, [ oldChild ], [ { ref = Ownership.Owner; id = newId } ]) ]))
+
     /// Build promote ops: one single-item Replace per LocalDeleteWithPromotion item.
     /// Promote ops must run before the span remove (they target outside the selection slice).
     let private buildPromoteOps
@@ -146,7 +179,8 @@ module ViewModelDeleteOps =
             classified
             |> List.choose (fun item ->
                 match item.action with
-                | MoveToTrash -> Some { ref = Ownership.Owner; id = item.child.id }
+                | MoveToTrash | OwnedSpecialDeleteToTrash ->
+                    Some { ref = Ownership.Owner; id = item.child.id }
                 | _ -> None)
         match newOwners with
         | [] -> []
@@ -165,7 +199,7 @@ module ViewModelDeleteOps =
         classified
         |> List.choose (fun item ->
             match item.action with
-            | HardDeleteSubtreeInTrash -> Some item.child.id
+            | HardDeleteSubtreeInTrash | OwnedSpecialDeleteHard -> Some item.child.id
             | _ -> None)
         |> List.distinct
         |> List.collect (fun rootId ->
@@ -195,8 +229,9 @@ module ViewModelDeleteOps =
         let parentChildren = graph.nodes.[parentId].children
         let selectedChildren =
             parentChildren |> List.skip range.start |> List.take (range.endd - range.start)
+        let pathExprOps = buildPathExprReplacementOps graph classified
         let promoteOps = buildPromoteOps graph classified
         let spanRemove = Op.Replace(parentId, range.start, selectedChildren, [])
         let trashOps = buildTrashOp graph classified
         let hardDeleteOps = buildHardDeleteOps graph parentId classified
-        promoteOps @ [ spanRemove ] @ trashOps @ hardDeleteOps
+        pathExprOps @ promoteOps @ [ spanRemove ] @ trashOps @ hardDeleteOps

@@ -6,6 +6,7 @@ open Gambol.Client.JsInterop
 open Gambol.Client.UpdateCodec
 open Gambol.Client.UpdateHelpers
 open Gambol.Client.UpdateOps
+open Gambol.Client.UpdateWorkspace
 
 type ChangeAck = UpdateCodec.ChangeAck
 
@@ -41,6 +42,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
           serverCapabilities = model.serverCapabilities
           desktopFileIndicator = BlankFileIndicator
           syncInfo = SyncInfo.initial
+          status = None
           lastSuccessfulKey = ""
           lastSuccessfulOp = "" }, []
 
@@ -113,6 +115,21 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
 
     | SysMsg (DesktopFileStatusReceived (nodeId, path, status, sourceModifiedUtc)) ->
         ViewModel.applyDesktopFileStatus nodeId path status sourceModifiedUtc model, []
+
+    | SysMsg (SyncTreeListingReceived (nodeId, entries)) ->
+        applySyncTreeListing nodeId entries model
+
+    | SysMsg (SyncTreeListingFailed (nodeId, detail)) ->
+        applySyncTreeListingFailed nodeId detail model
+
+    | SysMsg (ParseFileContentReceived (nodeId, relativePath, text, mtimeUtc, forceReparse)) ->
+        if forceReparse then
+            forceApplyParseFileContent nodeId relativePath text mtimeUtc model
+        else
+            applyParseFileContent nodeId relativePath text mtimeUtc model
+
+    | SysMsg (ParseFileFailed (nodeId, detail)) ->
+        applyParseFileFailed nodeId detail model
 
     | SysMsg PollTick ->
         let si, effects = SyncPlanner.tryStartPoll model.revision model.syncInfo

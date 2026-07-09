@@ -41,6 +41,7 @@ let private addNamedNode (name: string) (graph: Graph) : Graph * NodeId =
           cssClasses = CssClass.empty
           owner = Graph.rootId
           kind = Normal
+          fileState = FileState.defaultValue
           updateTime = NodeUpdateTime.missing }
     Graph.fromNodes graph.root (graph.nodes |> Map.add nodeId node), nodeId
 

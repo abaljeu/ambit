@@ -254,6 +254,36 @@ module RouteRegistration =
                 let handle = persistence.GetHandle "gambol"
                 return! Api.postChange handle body |> Async.StartAsTask
         })) |> ignore
+        app.MapGet("/ambit/sync-tree", Func<HttpRequest, Task<IResult>>(fun req -> task {
+            if not (auth.IsAuthenticated req) then
+                return Results.Unauthorized()
+            else
+                match req.Query.TryGetValue "nodeId" with
+                | false, _ -> return Results.BadRequest({| error = "nodeId required" |})
+                | true, value ->
+                    match System.Guid.TryParse(string value) with
+                    | false, _ -> return Results.BadRequest({| error = "invalid nodeId" |})
+                    | true, nodeId ->
+                        let handle = persistence.GetHandle "gambol"
+                        return!
+                            Api.getSyncTreeListing handle persistence.DataDir nodeId
+                            |> Async.StartAsTask
+        })) |> ignore
+        app.MapGet("/ambit/parse-file", Func<HttpRequest, Task<IResult>>(fun req -> task {
+            if not (auth.IsAuthenticated req) then
+                return Results.Unauthorized()
+            else
+                match req.Query.TryGetValue "nodeId" with
+                | false, _ -> return Results.BadRequest({| error = "nodeId required" |})
+                | true, value ->
+                    match System.Guid.TryParse(string value) with
+                    | false, _ -> return Results.BadRequest({| error = "invalid nodeId" |})
+                    | true, nodeId ->
+                        let handle = persistence.GetHandle "gambol"
+                        return!
+                            Api.getParseFileContent handle persistence.DataDir nodeId
+                            |> Async.StartAsTask
+        })) |> ignore
 
     let private prepareGitSave (persistence: PersistenceContext) () = async {
         let handle = persistence.GetHandle "gambol"
@@ -286,6 +316,20 @@ module RouteRegistration =
             else
                 let prepare = prepareGitSave persistence
                 return! Api.gitSave prepare persistence.DataDir |> Async.StartAsTask
+        })) |> ignore
+        app.MapPost("/ambit/workspace-git-commit", Func<HttpRequest, Task<IResult>>(fun req -> task {
+            if not (auth.IsAuthenticated req) then
+                return Results.Unauthorized()
+            else
+                match req.Query.TryGetValue "label" with
+                | false, _ -> return Results.BadRequest({| error = "label required" |})
+                | true, labelValue ->
+                    let label = string labelValue
+                    let message =
+                        match req.Query.TryGetValue "message" with
+                        | true, msgValue -> string msgValue
+                        | false, _ -> "workspace sync"
+                    return Api.workspaceGitCommit persistence.DataDir label message
         })) |> ignore
 
     let private dbStatusText (status: DatabaseSetup.DbStatus) =

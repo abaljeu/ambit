@@ -1,10 +1,12 @@
 # Workspace Scale Import
 
-See also: [[doc/roadmap/workspace-scale-file-and-db-management.md]], [[doc/roadmap/git-sync-gateway.md]], [[doc/roadmap/workspace-format-amb.md]], [[doc/roadmap/workspace-format-md.md]], [[doc/roadmap/workspace-format-plain.md]], [[doc/roadmap/workspace-format-code.md]]
+See also: [[doc/roadmap/workspace-scale-import-slice1-plan]], [[doc/roadmap/workspace-scale-file-and-db-management]], [[doc/roadmap/git-sync-gateway]], [[doc/roadmap/workspace-format-amb]], [[doc/roadmap/workspace-format-md]], [[doc/roadmap/workspace-format-plain]], [[doc/roadmap/workspace-format-code]]
 
-Sequencing: **Slice 1** (outliner ↔ files on one machine) then **Slice 2** (git pull/push to a desktop clone). Slice 2 is fully specified in [[doc/roadmap/git-sync-gateway.md]].
+Sequencing: **Slice 1** (outliner ↔ files on one machine) then **Slice 2** (git pull/push to a desktop clone). Slice 1 implementation lock: [[doc/roadmap/workspace-scale-import-slice1-plan]]. Slice 2 is fully specified in [[doc/roadmap/git-sync-gateway]].
 
 # Slice 1: repo file-tree browsing + on-demand parse/edit for individual files
+
+Authoritative detail for ownership-derived paths, shallow sync rules, metadata, commands, and tests: [[doc/roadmap/workspace-scale-import-slice1-plan]]. This section keeps the product overview.
 
 Not full repo-scale querying, not stale reconciliation after pull, not multi-client graph merge yet.
 
@@ -45,9 +47,9 @@ Defer:
 For this slice, you only need:
 
 ```text
-File node:
-  path
-  is_directory / is_file
+Special File / Directory node:
+  owner chain defines path
+  kind = file or directory
   repo_root_id
   mtime
   parsed: bool
@@ -69,7 +71,7 @@ But you can start without all of it if mtime is enough.
 
 ### Repo attach/import
 
-Create graph nodes for the **directory structure and file nodes only**.
+Create owned graph stubs for the **directory structure and file nodes only**, under Workspace owners, including ROOT, or Directory owners that mirror disk.
 
 Do not parse file contents.
 
@@ -82,7 +84,7 @@ repo root
   package.json
 ```
 
-At this point, files are just graph nodes pointing at paths.
+At this point, files are graph nodes whose path is derived from the Workspace owner chain, including ROOT, plus Directory ownership.
 
 ### Expand file
 

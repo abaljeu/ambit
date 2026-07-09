@@ -9,6 +9,7 @@ When writing markdown with Write, do not include explicit CRLF (`\r\n`) in the c
 
 Never use two or more consecutive blank lines. Separate blocks (heading, paragraph, list, table, code fence) with exactly one blank line. List items, table rows, and lines inside a code fence have no blank line between them.
 
-Markdown file paths should use [[wikilinks]].  Just the file name if same-directory; relative to project root if local files.  Do not use backticks.
+Markdown file paths should use [[wikilinks]].  Just the file name if same-directory; relative to project root if local files.  Do not include ".md" in the link text.  The .md extension is implicit.
+Do not use backticks.
 
 Mermaid, if used, apply font size via an init block: 20px font (%%{init: {'themeVariables': {'fontSize': '20px'}}}%%)  Screen width is usually limited, unless a diagram must be designed with a lot of real estate.

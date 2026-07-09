@@ -219,6 +219,7 @@ module PlainTextDocument =
                   cssClasses = CssClass.empty
                   owner = parentId
                   kind = Normal
+                  fileState = FileState.defaultValue
                   updateTime = NodeUpdateTime.now () }
 
         let merged = NodeUpdateTime.touch { baseNode with text = text; owner = parentId }

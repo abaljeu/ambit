@@ -24,6 +24,7 @@ let private emptyModel (graph: Graph) : VM =
       serverCapabilities = None
       desktopFileIndicator = BlankFileIndicator
       syncInfo = SyncInfo.initial
+      status = None
       lastSuccessfulKey = ""
       lastSuccessfulOp = "" }
 

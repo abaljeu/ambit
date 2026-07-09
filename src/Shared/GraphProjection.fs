@@ -11,6 +11,7 @@ module GraphProjection =
           name: string option
           kind: string
           cssClassNames: string list
+          fileState: string option
           updateTime: System.DateTime }
 
     type ChildPersistenceRow =
@@ -27,6 +28,7 @@ module GraphProjection =
         && a.text = b.text
         && a.name = b.name
         && a.kind = b.kind
+        && a.fileState = b.fileState
         && CssClass.toList a.cssClasses = CssClass.toList b.cssClasses
         && a.updateTime = b.updateTime
         && List.length a.children = List.length b.children
@@ -52,6 +54,7 @@ module GraphProjection =
               name = Filename.tryValue n.name
               kind = NodeKindPersistence.toPersistString n.kind
               cssClassNames = CssClass.toList n.cssClasses
+              fileState = FileState.toPersistString n.fileState
               updateTime = n.updateTime })
 
     let childRowsFromGraph (g: Graph) : ChildPersistenceRow list =
@@ -109,6 +112,7 @@ module GraphProjection =
                   cssClasses = CssClass.ofList r.cssClassNames
                   owner = Graph.rootId
                   kind = NodeKindPersistence.legacyKindForCanonical nid parsedKind
+                  fileState = FileState.fromPersistString r.fileState
                   updateTime = r.updateTime })
             |> Map.ofList
 

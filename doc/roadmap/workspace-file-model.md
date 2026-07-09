@@ -18,7 +18,7 @@ Stage implementation scope and sequencing are tracked in [[doc/current/workspace
 The existing graph model already defines node identity and owner/ref semantics.
 What it does not define is how **document membership** relates to workspace, directory, and file nodes, and how that maps to paths such as `@bobby:`.
 
-The goal is to add those concepts without changing the current graph ownership rules.
+The goal is to add those concepts while keeping refs and normal outline content flexible. Slice 1 of [[doc/roadmap/workspace-scale-import-slice1-plan]] tightens owned `Directory` / `File` placement so disk paths mirror `Workspace` ownership, including ROOT, and `Directory` ownership.
 
 ## Documents
 
@@ -57,7 +57,7 @@ When a Correction is described below, the meaning is that the item previous is d
    shared model.
 - `[~]` Stage 2: graph invariants and operations understand workspace, directory, and file nodes as
    distinct behavior-bearing concepts.
-- `[x]` Correction: update invariants so `directory`, `file`, and `normal` nodes may be placed anywhere; only `workspaces`/`workspace` stay structurally restricted.
+- `[x]` Correction: current invariants allow `directory`, `file`, and `normal` nodes to be placed anywhere; only `workspaces`/`workspace` stay structurally restricted.
 - `[x]` Stage 3: shared persistence stores canonical workspace-label -> workspace-root mapping only.
 - `[x]` Correction: document target persistence split (workspace/directory/file documents separately) and the stop-at-nested-document-root rule.
 - `[x]` Stage 4: desktop-local API resolves workspace label + relative path via readonly local mapping
@@ -67,7 +67,7 @@ When a Correction is described below, the meaning is that the item previous is d
 - `[ ]` Correction: unresolved UI should cover namespace resolution failures across workspace, directory, and file scopes.
 - `[ ]` Correction: file-status queries server persistence; desktop query remains for secondary mapped paths.
 - `[x]` Stage 6: **Insert…** and **Rename** (F2) for workspace, directory, and file structure; TRASH becomes `Special Directory` with `Node.name = TRASH`; shared `DocumentPathMove` planners (rename, reparent, move-to-TRASH) — graph ops and tests only, no server I/O.
-- `[x]` Correction: add command support for free-form special-node ownership (including under `normal` and `file` nodes) while keeping persistence ownership rules explicit.
+- `[ ]` Slice 1 correction: restrict owned `directory` / `file` placement to `workspace` owners, including ROOT, or `directory` owners; keep refs unrestricted and keep `normal` ownership free-form.
 - `[x]` Stage 7: Step 1: server `DataDir` live-save of `.amb` document artifacts for workspace, directory, and file roots regardless of logical extension; path layout per [[doc/roadmap/workspace-file-persistence.md]].
 - `[x]` Stage 7: Step 2: unified filesystem moves from `DocumentPathMove` (rename, reparent, soft delete to TRASH).
 - `[x]` Stage 7: Step 3: git persistence for per-document artifacts ([[doc/roadmap/git-sync-gateway.md]]).
@@ -88,9 +88,9 @@ Authority for implemented behavior: [[doc/current/workspace-graph.md]],
 - `[x]` `workspacesId` canonical node exists with `kind = Special Workspaces`.
 - `[ ]` Correction: clarify this is the only required top-level structural anchor.
 - `[x]` `Workspaces` is permanent under root (cannot be removed or edited, like Trash).
-- `[x]` Correction: document that restrictions apply to `workspaces`/`workspace`; below that, layout is free-form.
+- `[x]` Correction: document current behavior that restrictions apply to `workspaces`/`workspace`; below that, layout is free-form.
 - `[x]` Graph invariants enforce structural placement rules — [[doc/current/workspace-graph.md]].
-- `[x]` Correction: update placement rules so `directory` and `file` nodes may be placed anywhere.
+- `[ ]` Slice 1 correction: update placement rules so owned `directory` and `file` nodes may only be placed under `workspace` owners, including ROOT, or `directory` owners; refs remain free-form.
 - `[x]` Desktop-local workspace label → local root mapping and interim HTTP surface.
 - `[x]` Correction: document persistence tiers — server `DataDir` primary; desktop mapping secondary (download/export) plus Import entry; mapping independent of server path shape.
 - `[x]` RefExpr anchors, path steps, tag steps, and namespace search —  [[doc/current/workspace-graph.md]], [[doc/roadmap/reference-expression-interpretation.md]].
@@ -103,7 +103,7 @@ Authority for implemented behavior: [[doc/current/workspace-graph.md]],
 - `[ ]` File-status uses desktop query only; server-side status not wired (Stage 5 correction / Stage 7).
 - `[x]` **Insert…** / **Rename** command surface is implemented for workspace, directory, and file structure (Stage 6).
 - `[x]` TRASH is `Special Directory` with `Node.name = TRASH` (Stage 6).
-- `[x]` Correction: command coverage supports special-node hierarchy edits in free-form outlines.
+- `[x]` Correction: current command coverage supports special-node hierarchy edits in free-form outlines.
 
 ## Settled Decisions
 
@@ -113,49 +113,51 @@ Authority for implemented behavior: [[doc/current/workspace-graph.md]],
 4. Context traversal uses ancestry of special nodes (`workspace`, `directory`, `file`) only.
 5. `Directory` nodes are first-class nodes.
 6. `File` nodes are first-class nodes.
-7. Below `workspaces`/`workspace` structural rules, `directory`, `file`, and `normal` nodes may be owned by any parent.
-8. `normal` nodes may own `directory`, `file`, and `normal` nodes.
-9. `file` nodes may own `directory`, `file`, and `normal` nodes for outline structure.
-10. Workspace, directory, and file nodes change only through explicit user commands and normal
+7. Target owned `directory` and `file` placement mirrors disk: only `workspace` nodes, including ROOT, and `directory` nodes may own them.
+8. `workspace`, `directory`, `file`, and `normal` nodes may own `normal` nodes.
+9. `file` nodes may own normal parsed/content children for document membership, but not owned `directory` or `file` nodes.
+10. Refs to `directory` and `file` nodes may be placed freely, including under `normal` or `file` nodes.
+11. Workspace, directory, and file nodes change only through explicit user commands, explicit sync-tree commands, and normal
     cross-client graph synchronization.
-11. There is no automatic background alignment between the graph and any client's local filesystem.
-12. Workspace, directory, and file nodes are represented as `Special Workspace`,
+12. There is no automatic background alignment between the graph and any client's local filesystem.
+13. Workspace, directory, and file nodes are represented as `Special Workspace`,
     `Special Directory`, and `Special File`.
-13. Unresolved references are surfaced to the user with a visual indicator.
-14. Existing graphs do not require automatic migration to introduce this model.
-15. `Workspaces` is a permanent canonical node under root, identified by a fixed `NodeId`, with the
+14. Unresolved references are surfaced to the user with a visual indicator.
+15. Existing graphs do not require automatic migration to introduce this model.
+16. `Workspaces` is a permanent canonical node under root, identified by a fixed `NodeId`, with the
     same permanence semantics as `Trash`.
-16. `Workspace` nodes exist as direct children of `Workspaces`.
-17. Server `DataDir` is the primary file-content persistence layer; graph/DB identity remains authoritative. Desktop-local absolute root mapping is secondary and independent of server path layout.
-18. One graph holds many **documents** (partitions by document root). Document membership follows Owner ancestry from a workspace, directory, or file root; it is not the same as Owner vs Ref.
-19. **Rename** is F2 on the focused node; **Edit node** is Enter only.
-20. Soft delete reparents a node's owner occurrence under canonical TRASH (`MoveToTrash`). TRASH is a permanent `Special Directory` with `Node.name = TRASH` (Stage 6); graph delete semantics are unchanged — only the kind and path resolution change. Stage 7 persists soft delete as a filesystem reparent into `@:/TRASH/...` via the same `DocumentPathMove` handler as rename and reparent.
+17. `Workspace` nodes exist as direct children of `Workspaces`.
+18. Server `DataDir` is the primary file-content persistence layer; graph/DB identity remains authoritative. Desktop-local absolute root mapping is secondary and independent of server path layout.
+19. One graph holds many **documents** (partitions by document root). Document membership follows Owner ancestry from a workspace, directory, or file root; it is not the same as Owner vs Ref.
+20. **Rename** is F2 on the focused node; **Edit node** is Enter only.
+21. Soft delete reparents a node's owner occurrence under canonical TRASH (`MoveToTrash`). TRASH is a permanent `Special Directory` with `Node.name = TRASH` (Stage 6); graph delete semantics are unchanged — only the kind and path resolution change. Stage 7 persists soft delete as a filesystem reparent into `@:/TRASH/...` via the same `DocumentPathMove` handler as rename and reparent.
 
 ## Structural Invariants
 
 See [[doc/current/workspace-graph.md]] for enforced placement rules.
 
-Placement restrictions apply only to `Workspaces` and named `Workspace` nodes.
-`Directory`, `File`, and `Normal` nodes may be placed anywhere in the ownership tree.
+Current placement restrictions apply only to `Workspaces` and named `Workspace` nodes. Slice 1 target placement restricts owned `Directory` and `File` nodes to `Workspace` owners, including ROOT, or `Directory` owners; `Normal` ownership and refs remain free-form.
 
 **Context** (special-node ancestry used for reference resolution) is separate from placement.
 Context traversal uses only `workspace`, `directory`, and `file` nodes along the owner chain;
 `normal` nodes are ignored for context. See [[doc/roadmap/revising-workspace-file-model]].
 
-No full **Insert…** / **Rename** command surface exists yet (Stage 6). Workspace create/rename uses general graph ops today — [[doc/current/workspace-graph.md]].
+The full **Insert…** / **Rename** command surface exists (Stage 6). Slice 1 updates placement validation for owned `Directory` / `File` nodes — [[doc/current/workspace-graph.md]].
 
-**Stage 6 target — Insert…:** under `Workspaces` focus, create `Special Workspace`; elsewhere create `Special Directory` or `Special File` as owner child of focus. Pick-existing insert (search result) unchanged.
+**Stage 6 implemented — Insert…:** under `Workspaces` focus, create `Special Workspace`; elsewhere current code can create `Special Directory` or `Special File` as owner child of focus. Slice 1 target restricts those owned creates to `Workspace` owners, including ROOT, or `Directory` owners; elsewhere, use refs.
 
-**Stage 6 target — Rename (F2):** `Op.SetName` on workspace, directory, file; `Node.name` only on normal nodes. Reject ROOT, Workspaces, and canonical TRASH.
+**Stage 6 implemented — Rename (F2):** `Op.SetName` on workspace, directory, file; `Node.name` only on normal nodes. Reject ROOT, Workspaces, and canonical TRASH.
 
 **Delete:** soft delete moves owner under TRASH (`MoveToTrash`); hard delete under TRASH removes subtree (Stage 7 artifact removal).
 
-The target placement model is free-form below `workspaces`/`workspace` structural rules:
+The target placement model mirrors disk for owned file/directory specials while preserving free-form notes and refs:
 
-- `directory`, `file`, and `normal` nodes may be owned by any parent, including `normal` nodes
-- `normal` nodes may own `directory`, `file`, and `normal` nodes
-- `file` may own `directory`, `file`, and `normal` nodes for structural outlining
-- disk placement for special nodes is still determined by nearest owning `directory` ancestor
+- `workspace` nodes, including ROOT, and `directory` nodes may own `directory`, `file`, and `normal` nodes
+- `file` nodes may own `normal` parsed/content children
+- `normal` nodes may own `normal` children
+- `file` and `normal` nodes may not own `directory` or `file` nodes
+- refs to `directory` and `file` nodes may be placed freely
+- disk placement for owned `directory` and `file` nodes is the `workspace` owner chain, including ROOT, plus directory ownership
 
 ## Model Entities
 
@@ -181,7 +183,7 @@ Directory nodes use `NodeKind = Special Directory`.
 ### File Node
 
 A file node is a special structural node in the ownership tree.
-A file may own `directory`, `file`, and `normal` nodes for outline structure.
+A file may own normal parsed/content children for document membership. It does not own `directory` or `file` nodes in the Slice 1 target; use refs to place those specials under a file occurrence.
 File nodes use `NodeKind = Special File`.
 
 ### TRASH (canonical delete container)
@@ -206,7 +208,7 @@ An ordinary outline node is any non-workspace, non-directory, non-file node in t
 graph.
 
 Ordinary outline nodes belong to exactly one owner-chain location in the graph.
-A normal node may own `directory`, `file`, and other `normal` nodes.
+A normal node may own other `normal` nodes. It does not own `directory` or `file` nodes in the Slice 1 target; use refs to place those specials under a normal occurrence.
 Their nearest special-node ancestry defines context for resolution.
 Ref edges may point at the node from other places, but they do not change ownership.
 
@@ -252,6 +254,8 @@ Workspace, directory, and file nodes are created, renamed, moved, or removed onl
 - normal cross-client graph synchronization of those user commands
 
 Soft delete is reparent under TRASH, not a separate persist primitive — Stage 7 maps it to a filesystem reparent into `@:/TRASH/...` alongside rename and reparent moves.
+
+Slice 1 special case: deleting an owned `Directory` or `File` node does not promote another ref to owner. It removes the owned node and all refs to it, preserving the invariant that every node has exactly one owner and avoiding silent disk-path moves. Future improvement should preserve dangling user intent more gracefully, for example with explicit link/placeholder nodes or a retarget/restore-owner flow.
 
 The model is not reconciled automatically against any local filesystem view.
 In particular:

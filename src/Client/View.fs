@@ -658,6 +658,24 @@ let renderStatus (model: VM) : unit =
             dbEl.setAttribute("title", "PostgreSQL is not configured. Using file storage.")
             dbEl.className <- "amb-db-status amb-db-absent"
 
+    let resultEl = document.getElementById "key-last-key"
+    if not (isNull resultEl) then
+        let diagnostic = StatusMessage.fromDiagnostic model.lastSuccessfulKey model.lastSuccessfulOp
+        let display = StatusMessage.chooseDisplay model.status diagnostic
+        match display with
+        | None ->
+            resultEl.textContent <- ""
+            resultEl.removeAttribute("title")
+            resultEl.className <- "amb-last-result"
+        | Some msg ->
+            resultEl.textContent <- msg.text
+            resultEl.setAttribute("title", msg.text)
+            resultEl.className <-
+                match msg.kind with
+                | StatusKind.StatusInfo -> "amb-last-result amb-status-info"
+                | StatusKind.StatusWarn -> "amb-last-result amb-status-warn"
+                | StatusKind.StatusError -> "amb-last-result amb-status-error"
+
 let private syncRiskAlertWired = ref false
 
 /// Full-screen sync risk notice (ServerRejected / CodeOutdated / DataOutdated) until acknowledged.
@@ -707,8 +725,7 @@ let renderSyncRiskAlert (model: VM) (dispatch: Msg -> unit) : unit =
         root.classList.remove "amb-blocking-alert-open"
 
 /// Update the last-key diagnostic display from the model.
-let renderDiagnostics (model: VM) : unit =
-    setLastKeyDisplay model.lastSuccessfulKey model.lastSuccessfulOp
+let renderDiagnostics (_model: VM) : unit = ()
 
 /// Status pill plus sync-risk overlay.
 let renderSyncChrome (model: VM) (dispatch: Msg -> unit) : unit =

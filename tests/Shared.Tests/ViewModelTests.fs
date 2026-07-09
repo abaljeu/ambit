@@ -53,6 +53,7 @@ let emptyModel (graph: Graph) : VM =
       serverCapabilities = None
       desktopFileIndicator = BlankFileIndicator
       syncInfo = SyncInfo.initial
+      status = None
       lastSuccessfulKey = ""
       lastSuccessfulOp = "" }
 
@@ -73,6 +74,7 @@ let emptyModelAt (graph: Graph) (viewRoot: NodeId) : VM =
       serverCapabilities = None
       desktopFileIndicator = BlankFileIndicator
       syncInfo = SyncInfo.initial
+      status = None
       lastSuccessfulKey = ""
       lastSuccessfulOp = "" }
 
@@ -117,6 +119,7 @@ let private specialNode (id: NodeId) (kind: SpecialKind) (name: string) (owner: 
       cssClasses = CssClass.empty
       owner = owner
       kind = Special kind
+      fileState = FileState.defaultValue
       updateTime = NodeUpdateTime.missing }
 
 let private graphWithWorkspaceTree () : Graph * NodeId * NodeId * NodeId =
@@ -207,6 +210,7 @@ let ``refreshDesktopFileIndicator requests status for Special Workspace path`` (
           cssClasses = CssClass.empty
           owner = Graph.workspacesId
           kind = Special Workspace
+          fileState = FileState.defaultValue
           updateTime = NodeUpdateTime.missing }
 
     let graph1 =
@@ -1624,6 +1628,7 @@ let ``outlineDisplayText uses text for owned special directory when available`` 
           cssClasses = CssClass.empty
           owner = Graph.rootId
           kind = Special Directory
+          fileState = FileState.defaultValue
           updateTime = NodeUpdateTime.now () }
     Assert.Equal("folder", outlineDisplayText node)
 
@@ -1637,6 +1642,7 @@ let ``outlineDisplayText falls back to name for owned special directory when tex
           cssClasses = CssClass.empty
           owner = Graph.rootId
           kind = Special Directory
+          fileState = FileState.defaultValue
           updateTime = NodeUpdateTime.now () }
     Assert.Equal("my-docs", outlineDisplayText node)
 

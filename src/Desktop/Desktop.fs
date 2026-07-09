@@ -43,8 +43,13 @@ module Program =
             TextTrimming = TextTrimming.CharacterEllipsis,
             VerticalAlignment = VerticalAlignment.Center)
 
-    let private setStatus (statusText: TextBlock) state =
-        statusText.Text <- "Loading state: " + state
+    let private formatStatusLine url loadingState proxyTarget currentDirectory =
+        sprintf
+            "URL: %s  |  Loading state: %s  |  Proxy target: %s  |  Current directory: %s"
+            url
+            loadingState
+            proxyTarget
+            currentDirectory
 
     let private userDataFolder =
         Path.Combine(
@@ -53,21 +58,17 @@ module Program =
             "WebView2")
 
     let private createMainWindow (proxyTargetUrl: string) (localUrl: Uri) =
-        let urlText = createStatusText ("URL: " + string localUrl)
-        let statusText = createStatusText "Loading state: initializing WebView2"
-        let proxyText = createStatusText ("Proxy target: " + proxyTargetUrl)
-        let currentDirectoryText =
-            createStatusText ("Current directory: " + Environment.CurrentDirectory)
+        let mutable currentUrl = string localUrl
+        let mutable loadingState = "initializing WebView2"
+        let currentDirectory = Environment.CurrentDirectory
 
-        let statusPanel =
-            StackPanel(
-                Background = Brushes.WhiteSmoke,
-                Orientation = Orientation.Vertical)
+        let statusText = createStatusText ""
 
-        statusPanel.Children.Add urlText |> ignore
-        statusPanel.Children.Add statusText |> ignore
-        statusPanel.Children.Add proxyText |> ignore
-        statusPanel.Children.Add currentDirectoryText |> ignore
+        let refreshStatus () =
+            statusText.Text <-
+                formatStatusLine currentUrl loadingState proxyTargetUrl currentDirectory
+
+        refreshStatus ()
 
         let webView =
             new WebView2(
@@ -76,26 +77,35 @@ module Program =
                         UserDataFolder = userDataFolder))
 
         webView.CoreWebView2InitializationCompleted.Add(fun args ->
-            if args.IsSuccess then
-                setStatus statusText "initialized; loading"
-            else
-                setStatus statusText ("initialization failed: " + args.InitializationException.Message))
+            loadingState <-
+                if args.IsSuccess then
+                    "initialized; loading"
+                else
+                    "initialization failed: " + args.InitializationException.Message
+
+            refreshStatus ())
 
         webView.NavigationStarting.Add(fun args ->
-            urlText.Text <- "URL: " + args.Uri
-            setStatus statusText "loading")
+            currentUrl <- args.Uri
+            loadingState <- "loading"
+            refreshStatus ())
 
         webView.NavigationCompleted.Add(fun args ->
-            if args.IsSuccess then
-                setStatus statusText "complete"
-            else
-                setStatus statusText ("failed: " + string args.WebErrorStatus))
+            loadingState <-
+                if args.IsSuccess then
+                    "complete"
+                else
+                    "failed: " + string args.WebErrorStatus
+
+            refreshStatus ())
 
         webView.Source <- localUrl
 
+        statusText.Background <- Brushes.WhiteSmoke
+
         let layout = DockPanel()
-        DockPanel.SetDock(statusPanel, Dock.Top)
-        layout.Children.Add statusPanel |> ignore
+        DockPanel.SetDock(statusText, Dock.Top)
+        layout.Children.Add statusText |> ignore
         layout.Children.Add webView |> ignore
 
         new Window(

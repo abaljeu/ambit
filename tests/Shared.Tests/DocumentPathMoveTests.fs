@@ -33,6 +33,7 @@ let private graphWithWorkspaceFile () : Graph * NodeId * NodeId =
           cssClasses = CssClass.empty
           owner = Graph.workspacesId
           kind = Special Workspace
+          fileState = FileState.defaultValue
           updateTime = NodeUpdateTime.missing }
     let fileNode =
         { id = fileId
@@ -42,6 +43,7 @@ let private graphWithWorkspaceFile () : Graph * NodeId * NodeId =
           cssClasses = CssClass.empty
           owner = wsId
           kind = Special File
+          fileState = FileState.defaultValue
           updateTime = NodeUpdateTime.missing }
 
     let graph1 =
@@ -68,6 +70,7 @@ let private specialNode (id: NodeId) (kind: SpecialKind) (name: string) (owner: 
       cssClasses = CssClass.empty
       owner = owner
       kind = Special kind
+      fileState = FileState.defaultValue
       updateTime = NodeUpdateTime.missing }
 
 let private normalNode (id: NodeId) (text: string) (owner: NodeId) : Node =
@@ -78,6 +81,7 @@ let private normalNode (id: NodeId) (text: string) (owner: NodeId) : Node =
       cssClasses = CssClass.empty
       owner = owner
       kind = Normal
+      fileState = FileState.defaultValue
       updateTime = NodeUpdateTime.missing }
 
 let private graphWithNestedDocs () : Graph * NodeId * NodeId * NodeId * NodeId =
@@ -119,11 +123,19 @@ let private graphFileOwnsDirectory () : Graph * NodeId * NodeId * NodeId =
     let dirId = NodeId.New()
     let normalId = NodeId.New()
 
+    let dirNode =
+        { specialNode dirId Directory "inner" fileId with
+            children = [ { ref = Ownership.Owner; id = normalId } ] }
+    let normalNode = normalNode normalId "nested" dirId
+    let fileNode =
+        { specialNode fileId File "container.txt" Graph.rootId with
+            children = [ { ref = Ownership.Owner; id = dirId } ] }
+
     let graph1 =
         graph0.nodes
-        |> Map.add fileId (specialNode fileId File "container.txt" Graph.rootId)
-        |> Map.add dirId (specialNode dirId Directory "inner" fileId)
-        |> Map.add normalId (normalNode normalId "nested" dirId)
+        |> Map.add fileId fileNode
+        |> Map.add dirId dirNode
+        |> Map.add normalId normalNode
         |> fun nodes -> Graph.fromNodes graph0.root nodes
 
     let idx = Graph.fileTreeInsertIndex graph1 Graph.rootId
@@ -131,15 +143,7 @@ let private graphFileOwnsDirectory () : Graph * NodeId * NodeId * NodeId =
         Graph.replace Graph.rootId idx [] (owned [ fileId ]) graph1
         |> requireOk "root->file"
 
-    let graph3 =
-        Graph.replace fileId 0 [] (owned [ dirId ]) graph2
-        |> requireOk "file->dir"
-
-    let graph4 =
-        Graph.replace dirId 0 [] (owned [ normalId ]) graph3
-        |> requireOk "dir->normal"
-
-    graph4, fileId, dirId, normalId
+    graph2, fileId, dirId, normalId
 
 [<Fact>]
 let ``planPathMoveForSetName returns new path for workspace rename`` () =

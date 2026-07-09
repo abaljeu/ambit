@@ -36,6 +36,7 @@ let ``Node round-trip with Ok name`` () =
           cssClasses = CssClass.empty
           owner = Graph.rootId
           kind = Normal
+          fileState = FileState.defaultValue
           updateTime = System.DateTime(2024, 6, 1, 12, 0, 0, System.DateTimeKind.Utc) }
     let decoded = roundTrip Serialization.encodeNode Serialization.decodeNode node
     Assert.Equal(node, decoded)
@@ -50,6 +51,7 @@ let ``Node round-trip with Empty name`` () =
           cssClasses = CssClass.empty
           owner = Graph.rootId
           kind = Normal
+          fileState = FileState.defaultValue
           updateTime = NodeUpdateTime.missing }
     let decoded = roundTrip Serialization.encodeNode Serialization.decodeNode node
     Assert.Equal(node, decoded)

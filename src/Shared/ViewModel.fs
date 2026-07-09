@@ -248,6 +248,8 @@ type Effect =
     | ScheduleRetry of delayMs: int
     | SavePendingQueue of Change list
     | RequestDesktopFileStatus of nodeId: NodeId * path: string
+    | RequestSyncTreeListing of nodeId: NodeId
+    | RequestParseFile of nodeId: NodeId * forceReparse: bool
 
 type DesktopFileIndicator =
     | BlankFileIndicator
@@ -299,6 +301,7 @@ and VM = // the client state
       serverCapabilities: ServerCapabilities option
       desktopFileIndicator: DesktopFileIndicator
       syncInfo: SyncInfo
+      status: StatusMessage option
       lastSuccessfulKey: string   // key combo of the most recently handled command (e.g. "Ctrl+Z")
       lastSuccessfulOp: string }  // display name of the most recently handled command (e.g. "Undo")
 
@@ -323,6 +326,11 @@ type SystemMsg =
         path: string *
         status: DesktopFileStatus *
         sourceModifiedUtc: System.DateTime option
+    | SyncTreeListingReceived of nodeId: NodeId * entries: DiskTreeEntry list
+    | SyncTreeListingFailed of nodeId: NodeId * detail: string
+    | ParseFileContentReceived of
+        nodeId: NodeId * relativePath: string * text: string * mtimeUtc: int64 * forceReparse: bool
+    | ParseFileFailed of nodeId: NodeId * detail: string
     | SetPollingActive of bool
     | PollTick            // polling timer fired; update decides whether to emit PollServer effect
     | PollDone of SyncState option * Change list   // poll GET response arrived

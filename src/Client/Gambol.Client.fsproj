@@ -23,6 +23,7 @@
     <Compile Include="UpdateImport.fs" />
     <Compile Include="UpdateExport.fs" />
     <Compile Include="UpdateSave.fs" />
+    <Compile Include="UpdateWorkspace.fs" />
     <Compile Include="UpdateOps.fs" />
     <Compile Include="Update.fs" />
     <Compile Include="Commands.fs" />

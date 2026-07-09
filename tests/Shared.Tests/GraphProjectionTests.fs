@@ -174,12 +174,14 @@ let ``graphFromPersistence fails when ordinals not dense`` () =
             name = None
             kind = "normal"
             cssClassNames = []
+            fileState = None
             updateTime = NodeUpdateTime.missing }
           { id = cid
             text = "c"
             name = None
             kind = "normal"
             cssClassNames = []
+            fileState = None
             updateTime = NodeUpdateTime.missing } ]
 
     let cr: GraphProjection.ChildPersistenceRow list =
@@ -232,18 +234,21 @@ let ``graphFromPersistence legacy normal kind maps canonical trash to Directory`
             name = None
             kind = "workspace"
             cssClassNames = []
+            fileState = None
             updateTime = NodeUpdateTime.missing }
           { id = Graph.workspacesId.Value
             text = "Workspaces"
             name = None
             kind = "workspaces"
             cssClassNames = []
+            fileState = None
             updateTime = NodeUpdateTime.missing }
           { id = trash.Value
             text = "Trash"
             name = None
             kind = "normal"
             cssClassNames = []
+            fileState = None
             updateTime = NodeUpdateTime.missing } ]
 
     let cr: GraphProjection.ChildPersistenceRow list =

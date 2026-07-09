@@ -59,13 +59,13 @@ Might be next: Stage 5 unresolved UI and server file-status corrections.
 Status: **Partial**.
 Details: [[doc/roadmap/workspace-file-model.md]], [[doc/current/workspace-stage-plan.md]].
 Last implemented: Stage 8 snapshot integration and incremental persist on top of Stage 7 `DataDir` live-save and unified path moves.
-Might be next: XML read/write slice (Stage 7 Step 6 — [[doc/roadmap/workspace-format-xml.md]]); workspace scale import slice 1; Stage 5 unresolved UI corrections.
+Might be next: XML read/write slice (Stage 7 Step 6 — [[doc/roadmap/workspace-format-xml]]); workspace scale import slice 1 ([[doc/roadmap/workspace-scale-import-slice1-plan]]); Stage 5 unresolved UI corrections.
 
 ### **Workspace import and source formats**
 Status: **Planned**.
-Details: [[doc/roadmap/workspace-scale-import.md]].
+Details: [[doc/roadmap/workspace-scale-import]], [[doc/roadmap/workspace-scale-import-slice1-plan]].
 Last implemented: No current baseline is listed here.
-Might be next: Repo file-tree browsing with on-demand parse/edit for individual files.
+Might be next: Simplified Slice 1 import: ownership-derived paths, shallow sync of immediate disk children, and expand-to-parse (see [[doc/roadmap/workspace-scale-import-slice1-plan]]).
 
 ### **Git workspace sync (desktop pull/push)**
 Status: **Planned** (slice 2 of [[doc/roadmap/workspace-scale-import.md]]).

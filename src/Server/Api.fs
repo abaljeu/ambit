@@ -118,3 +118,58 @@ module Api =
                     let response = { ok = false; detail = ""; error = Some err }
                     return Results.BadRequest(Encode.toString 0 (GitSaveResponse.encode response))
     }
+
+    let getSyncTreeListing
+        (handle: AgentHandle)
+        (dataDir: string)
+        (nodeId: System.Guid)
+        : Async<IResult> = async {
+        let! stateJson = handle.getState ()
+
+        match Serialization.decodeGraphFromStateJson stateJson with
+        | Error err -> return Results.BadRequest({| error = err |})
+        | Ok graph ->
+            let targetId = NodeId nodeId
+
+            match WorkspaceTreeSyncIo.listImmediateChildren dataDir graph targetId with
+            | Error err -> return Results.BadRequest({| error = err |})
+            | Ok entries ->
+                let json =
+                    Encode.toString 0 (Serialization.encodeDiskTreeListing entries)
+                return jsonResult json
+    }
+
+    let getParseFileContent
+        (handle: AgentHandle)
+        (dataDir: string)
+        (nodeId: System.Guid)
+        : Async<IResult> = async {
+        let! stateJson = handle.getState ()
+
+        match Serialization.decodeGraphFromStateJson stateJson with
+        | Error err -> return Results.BadRequest({| error = err |})
+        | Ok graph ->
+            let targetId = NodeId nodeId
+
+            match WorkspaceTreeSyncIo.readFileArtifact dataDir graph targetId with
+            | Error err -> return Results.BadRequest({| error = err |})
+            | Ok (relativePath, text, mtimeUtc) ->
+                let json =
+                    Encode.toString
+                        0
+                        (Serialization.encodeParseFileResponse relativePath text mtimeUtc)
+                return jsonResult json
+    }
+
+    let workspaceGitCommit
+        (dataDir: string)
+        (workspaceLabel: string)
+        (message: string)
+        : IResult =
+        match WorkspaceGit.commit dataDir workspaceLabel message with
+        | Ok detail ->
+            let response = { ok = true; detail = detail; error = None }
+            jsonResult (Encode.toString 0 (GitSaveResponse.encode response))
+        | Error err ->
+            let response = { ok = false; detail = ""; error = Some err }
+            Results.BadRequest(Encode.toString 0 (GitSaveResponse.encode response))

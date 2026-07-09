@@ -57,6 +57,8 @@ type CommandId =
     | Export
     | Save
     | InsertFile
+    | SyncTree
+    | ReparseFile
     | Rename
     | Exec
 
@@ -219,6 +221,12 @@ let allCommands : CommandEntry list =
           iconId = None }
         { id = InsertFile; name = "Insert…"
           keys = [ "f" ]; keyScope = SelectionOrEditing
+          iconId = None }
+        { id = SyncTree; name = "Sync tree"
+          keys = []; keyScope = SelectionOrEditing
+          iconId = None }
+        { id = ReparseFile; name = "Reparse file"
+          keys = []; keyScope = SelectionOrEditing
           iconId = None }
         { id = Rename; name = "Rename"
           keys = [ "F2" ]; keyScope = SelectionOnly

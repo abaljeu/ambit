@@ -69,12 +69,8 @@ let withDiagnostic (key: string) (opName: string) (f: Updater) : Updater =
         let newModel, effects = f model
         { newModel with lastSuccessfulKey = key; lastSuccessfulOp = opName }, effects
 
-/// Render the last-key diagnostic element from a key/op pair. Pure DOM formatter; no state.
-let setLastKeyDisplay (key: string) (operation: string) : unit =
-    let el = document.getElementById "key-last-key"
-    if not (isNull el) then
-        let txt = "<"+key + "> \u2192 " + operation
-        el.textContent <- txt
+/// Render the last-key diagnostic element from a key/op pair. Deprecated: use model-driven renderStatus.
+let setLastKeyDisplay (_key: string) (_operation: string) : unit = ()
 
 /// Handle a paste event: extract plain text and optional node IDs, apply pasteNodesOp.
 let onPaste (ev: Event) (dispatch: Msg -> unit) : unit =

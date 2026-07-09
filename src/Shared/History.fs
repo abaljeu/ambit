@@ -12,6 +12,7 @@ type Op =
         newChildren: ChildNode list
     | NewSpecialNode of nodeId: NodeId * kind: SpecialKind * name: string
     | SetName of nodeId: NodeId * oldName: string * newName: string
+    | SetFileState of nodeId: NodeId * oldState: FileState * newState: FileState
 
 
 type Change =
@@ -65,6 +66,7 @@ module Op =
                       cssClasses = CssClass.empty
                       owner = Graph.rootId
                       kind = Normal
+                      fileState = FileState.defaultValue
                       updateTime = NodeUpdateTime.now () }
 
                 ApplyResult.Changed
@@ -100,6 +102,7 @@ module Op =
                           cssClasses = CssClass.empty
                           owner = Graph.rootId
                           kind = Special kind
+                          fileState = FileState.defaultValue
                           updateTime = NodeUpdateTime.now () }
                     ApplyResult.Changed
                         { state with
@@ -109,6 +112,9 @@ module Op =
                                       (state.graph.nodes |> Map.add nodeId node) }
         | Op.SetName(nodeId, oldName, newName) ->
             Graph.setName nodeId oldName newName state.graph
+            |> fromGraphResult state
+        | Op.SetFileState(nodeId, oldState, newState) ->
+            Graph.setFileState nodeId oldState newState state.graph
             |> fromGraphResult state
 
     let undo (op: Op) (state: State) : ApplyResult =
@@ -134,6 +140,9 @@ module Op =
         | Op.SetName(nodeId, oldName, newName) ->
             Graph.setName nodeId newName oldName state.graph
             |> fromGraphResult state
+        | Op.SetFileState(nodeId, oldState, newState) ->
+            Graph.setFileState nodeId newState oldState state.graph
+            |> fromGraphResult state
 
 
 [<RequireQualifiedAccess>]
@@ -154,6 +163,7 @@ module Change =
             | Op.Replace(pid, i, olds, news)         -> Op.Replace(pid, i, news, olds)
             | Op.NewSpecialNode(id, kind, name)      -> Op.NewSpecialNode(id, kind, name)
             | Op.SetName(id, old, new_)              -> Op.SetName(id, new_, old)
+            | Op.SetFileState(id, old, new_)        -> Op.SetFileState(id, new_, old)
         { change with
             changeId = System.Guid.NewGuid()
             ops = change.ops |> List.rev |> List.map invertOp }

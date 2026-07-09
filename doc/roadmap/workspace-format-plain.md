@@ -2,13 +2,13 @@
 
 Status: Draft
 Authority: Target design for text workspace files that are not `.amb` or `.md`.
-See also: [[doc/roadmap/workspace-text-outline-conversion.md]], [[doc/roadmap/reference-expressions.md]], [[doc/roadmap/workspace-format-amb.md]]
+See also: [[doc/roadmap/workspace-text-outline-conversion]], [[doc/roadmap/reference-expressions]], [[doc/roadmap/workspace-format-amb]]
 
-Import/export workflow and the generic conversion contract live in [[doc/roadmap/workspace-text-outline-conversion.md]]. This format applies to plain text files that are not `.amb` or `.md`.
+Import/export workflow and the generic conversion contract live in [[doc/roadmap/workspace-text-outline-conversion]]. This format applies to plain text files that are not `.amb` or `.md`.
 
 ## Export
 
-Export is **operations-driven**, not whole-cloth: `file_next = f_out(file_prev, op)` ([[doc/roadmap/workspace-text-outline-conversion.md]]). An op rewrites only the lines it touches; all other bytes stay as they were, including blank lines, line endings, indent style, and untouched node lines.
+Export is **operations-driven**, not whole-cloth: `file_next = f_out(file_prev, op)` ([[doc/roadmap/workspace-text-outline-conversion]]). An op rewrites only the lines it touches; all other bytes stay as they were, including blank lines, line endings, indent style, and untouched node lines.
 
 The rules below define one node's line projection. They do not imply full-file regeneration.
 
@@ -36,7 +36,7 @@ A `name-token` follows [[src/Shared/Filename.fs]] `Ok` rules: letters, digits, `
 
 On export, named nodes append ` #name-token`. On import, trailing ` #name-token` (whitespace before `#` required) is stripped from node text and sets the created node's `name`. Ref targets use the same token form; position distinguishes suffix from target.
 
-Subtree reconciliation (`NodeId` matching, unnamed lines, deletion) follows **Reconciliation** below and [[doc/roadmap/workspace-text-outline-conversion.md]] § Deletion on import.
+Subtree reconciliation (`NodeId` matching, unnamed lines, deletion) follows **Reconciliation** below and [[doc/roadmap/workspace-text-outline-conversion]] § Deletion on import.
 
 ## Reconciliation
 
@@ -48,7 +48,7 @@ Import reconciles **(previous file text, current graph document, edited/new file
 | Unchanged exported outline | Graph-identical import for representable content; complement restores metadata plain text cannot encode | No file change |
 | Line text edit | Match by ` #name-token` / `NodeId`; update node text | Rewrite matched line only |
 | Line add | Mint new `NodeId`; insert Owner edge at inferred depth | Append or insert new line at correct depth |
-| Line delete | External deletion — reuse graph delete/ownership-migration semantics ([[doc/roadmap/workspace-text-outline-conversion.md]] § Deletion on import) | Remove matched line only |
+| Line delete | External deletion — reuse graph delete/ownership-migration semantics ([[doc/roadmap/workspace-text-outline-conversion]] § Deletion on import) | Remove matched line only |
 | External move (reorder/re-indent) | Default delete plus add unless id matching preserves identity | N/A — import-side |
 | Outline move (graph op) | N/A — graph-side | Preserve `NodeId`; rewrite moved node's line at new depth |
 
@@ -70,7 +70,7 @@ Plain text has no native embed or wikilink syntax. **Ref lines** use `.amb` gram
 
 Import resolves `ref-target` to `NodeId` and emits a Ref edge under the current parent. Export projects a Ref edge as `-> …` at the correct depth. Inline refs are plain text; use a ref-only child line instead.
 
-Use `.md` for markdown-readable references and `.amb` for metadata prefixes. Reconcile paths with [[doc/roadmap/reference-expressions.md]] where applicable.
+Use `.md` for markdown-readable references and `.amb` for metadata prefixes. Reconcile paths with [[doc/roadmap/reference-expressions]] where applicable.
 
 ## Metadata
 
@@ -97,7 +97,7 @@ Format rules:
 - Ref-only lines round-trip at the correct depth; inline refs stay plain text.
 - Reconciled import preserves user `cssClasses`; unsupported constructs produce diagnostics.
 
-Dispatch and persistence (assembly/persistence tests): see [[doc/roadmap/workspace-format-dispatch.md]].
+Dispatch and persistence (assembly/persistence tests): see [[doc/roadmap/workspace-format-dispatch]].
 
 - `.amb` paths classify to Amb codec; non-`.amb`, non-`.md` file paths classify to Plain codec; `.md` remains unimplemented.
 - A `Special File` named `readme.txt` writes plain text, not `.amb` stable-id syntax; `readAllDocuments` reads it back through the plain codec.

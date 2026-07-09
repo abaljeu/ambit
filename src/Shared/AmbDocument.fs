@@ -219,6 +219,7 @@ module AmbDocument =
               cssClasses = CssClass.empty
               owner = Graph.rootId
               kind = Normal
+              fileState = FileState.defaultValue
               updateTime = NodeUpdateTime.missing }
 
     let private ensureNode
@@ -280,6 +281,7 @@ module AmbDocument =
                       cssClasses = classes
                       owner = Graph.rootId
                       kind = Normal
+                      fileState = FileState.defaultValue
                       updateTime = NodeUpdateTime.now () }
 
             let merged =
@@ -356,6 +358,7 @@ module AmbDocument =
                       cssClasses = classes
                       owner = parentId
                       kind = Normal
+                      fileState = FileState.defaultValue
                       updateTime = NodeUpdateTime.now () }
 
             let merged =
@@ -372,6 +375,7 @@ module AmbDocument =
                   cssClasses = classes
                   owner = parentId
                   kind = Normal
+                  fileState = FileState.defaultValue
                   updateTime = NodeUpdateTime.now () }
 
             nodeId, Map.add nodeId node nodes, claimed
