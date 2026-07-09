@@ -28,6 +28,9 @@ let private dirGraph () =
               Op.Replace(ws, 0, [], owned [ dir ]) ]
     g1, dir
 
+let private branch (entry: DiskTreeEntry) (children: DiskTreeBranch list) : DiskTreeBranch =
+    { entry = entry; children = children }
+
 [<Fact>]
 let ``sync creates missing disk stub`` () =
     let g, dir = dirGraph ()
@@ -73,3 +76,32 @@ let ``sync kind collision renames graph node`` () =
     | Ok plan ->
         Assert.Equal(1, plan.summary.renamed)
         Assert.Equal(1, plan.summary.created)
+
+[<Fact>]
+let ``sync recursively creates nested directory stubs`` () =
+    let g, dir = dirGraph ()
+    let disk =
+        [ branch { name = "sub"; kind = Directory; mtimeUtc = 1L }
+              [ branch { name = "deep.txt"; kind = File; mtimeUtc = 2L } [] ] ]
+    match WorkspaceTreeSync.planRecursiveSync g dir disk with
+    | Error e -> Assert.Fail(e)
+    | Ok plan ->
+        Assert.Equal(2, plan.summary.created)
+        let g2 = applyOps g plan.ops
+        let subId =
+            g2.nodes.[dir].children
+            |> List.pick (fun c ->
+                if c.ref = Ownership.Owner then
+                    let n = g2.nodes.[c.id]
+                    match n.name with
+                    | Filename.Ok "sub" -> Some c.id
+                    | _ -> None
+                else None)
+        let deepExists =
+            g2.nodes.[subId].children
+            |> List.exists (fun c ->
+                c.ref = Ownership.Owner
+                && match g2.nodes.[c.id].name with
+                   | Filename.Ok "deep.txt" -> true
+                   | _ -> false)
+        Assert.True(deepExists)

@@ -116,8 +116,8 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
     | SysMsg (DesktopFileStatusReceived (nodeId, path, status, sourceModifiedUtc)) ->
         ViewModel.applyDesktopFileStatus nodeId path status sourceModifiedUtc model, []
 
-    | SysMsg (SyncTreeListingReceived (nodeId, entries)) ->
-        applySyncTreeListing nodeId entries model
+    | SysMsg (SyncTreeListingReceived (nodeId, branches)) ->
+        applySyncTreeListing nodeId branches model
 
     | SysMsg (SyncTreeListingFailed (nodeId, detail)) ->
         applySyncTreeListingFailed nodeId detail model

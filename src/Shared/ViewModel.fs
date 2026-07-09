@@ -326,7 +326,7 @@ type SystemMsg =
         path: string *
         status: DesktopFileStatus *
         sourceModifiedUtc: System.DateTime option
-    | SyncTreeListingReceived of nodeId: NodeId * entries: DiskTreeEntry list
+    | SyncTreeListingReceived of nodeId: NodeId * branches: DiskTreeBranch list
     | SyncTreeListingFailed of nodeId: NodeId * detail: string
     | ParseFileContentReceived of
         nodeId: NodeId * relativePath: string * text: string * mtimeUtc: int64 * forceReparse: bool

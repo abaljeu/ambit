@@ -16,15 +16,11 @@ let private graphWithDocument (childNodes: Node list) : Graph * NodeId =
     let graph0 = Graph.create ()
     let docId = NodeId.New()
     let docNode =
-        { id = docId
-          text = "doc"
-          name = Filename.Ok "notes"
-          children = []
-          cssClasses = CssClass.empty
-          owner = graph0.root
-          kind = Special File
-          fileState = FileState.defaultValue
-          updateTime = NodeUpdateTime.missing }
+        { Node.create docId with
+            text = "doc"
+            name = Filename.Ok "notes"
+            owner = graph0.root
+            kind = Special File }
     let graph1 =
         graph0.nodes
         |> Map.add docId docNode
@@ -42,15 +38,9 @@ let private graphWithDocument (childNodes: Node list) : Graph * NodeId =
         | Error msg -> failwith msg
 
 let private normalNode (id: NodeId) (text: string) (owner: NodeId) : Node =
-    { id = id
-      text = text
-      name = Filename.Empty
-      children = []
-      cssClasses = CssClass.empty
-      owner = owner
-      kind = Normal
-      fileState = FileState.defaultValue
-      updateTime = NodeUpdateTime.missing }
+    { Node.create id with
+        text = text
+        owner = owner }
 
 let private childTexts (nodes: Map<NodeId, Node>) (parentId: NodeId) : string list =
     nodes.[parentId].children

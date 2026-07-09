@@ -23,6 +23,49 @@ module WorkspaceTreeSyncIo =
                     | None -> Error "directory has no disk path"
             | _ -> Error "sync target must be a Workspace or Directory"
 
+    let private listImmediateChildrenAt (fullDir: string) : DiskTreeEntry list =
+        if not (Directory.Exists fullDir) then
+            []
+        else
+            let files =
+                Directory.EnumerateFiles(fullDir)
+                |> Seq.choose (fun path ->
+                    let name = Path.GetFileName path
+                    if WorkspaceTreeSync.shouldSkipEntry name then
+                        None
+                    else
+                        let info = FileInfo(path)
+                        Some
+                            { name = name
+                              kind = File
+                              mtimeUtc = info.LastWriteTimeUtc.Ticks })
+
+            let dirs =
+                Directory.EnumerateDirectories(fullDir)
+                |> Seq.choose (fun path ->
+                    let name = Path.GetFileName path
+                    if WorkspaceTreeSync.shouldSkipEntry name then
+                        None
+                    else
+                        let info = DirectoryInfo(path)
+                        Some
+                            { name = name
+                              kind = Directory
+                              mtimeUtc = info.LastWriteTimeUtc.Ticks })
+
+            List.ofSeq (Seq.append dirs files)
+
+    let rec private buildBranches (fullDir: string) : DiskTreeBranch list =
+        listImmediateChildrenAt fullDir
+        |> List.map (fun entry ->
+            let children =
+                if entry.kind = Directory then
+                    buildBranches (Path.Combine(fullDir, entry.name))
+                else
+                    []
+
+            { entry = entry; children = children })
+
     let listImmediateChildren (dataDir: string) (graph: Graph) (nodeId: NodeId) : Result<DiskTreeEntry list, string> =
         match directoryRelative graph nodeId with
         | Error msg -> Error msg
@@ -33,39 +76,25 @@ module WorkspaceTreeSyncIo =
                 else
                     Path.Combine(dataDir, relative.Replace('/', Path.DirectorySeparatorChar))
 
-            if not (Directory.Exists fullDir) then
-                Ok []
-            else
-                try
-                    let files =
-                        Directory.EnumerateFiles(fullDir)
-                        |> Seq.choose (fun path ->
-                            let name = Path.GetFileName path
-                            if WorkspaceTreeSync.shouldSkipEntry name then
-                                None
-                            else
-                                let info = FileInfo(path)
-                                Some
-                                    { name = name
-                                      kind = File
-                                      mtimeUtc = info.LastWriteTimeUtc.Ticks })
+            try
+                Ok(listImmediateChildrenAt fullDir)
+            with ex ->
+                Error ex.Message
 
-                    let dirs =
-                        Directory.EnumerateDirectories(fullDir)
-                        |> Seq.choose (fun path ->
-                            let name = Path.GetFileName path
-                            if WorkspaceTreeSync.shouldSkipEntry name then
-                                None
-                            else
-                                let info = DirectoryInfo(path)
-                                Some
-                                    { name = name
-                                      kind = Directory
-                                      mtimeUtc = info.LastWriteTimeUtc.Ticks })
+    let listRecursiveTree (dataDir: string) (graph: Graph) (nodeId: NodeId) : Result<DiskTreeBranch list, string> =
+        match directoryRelative graph nodeId with
+        | Error msg -> Error msg
+        | Ok relative ->
+            let fullDir =
+                if String.IsNullOrEmpty relative then
+                    dataDir
+                else
+                    Path.Combine(dataDir, relative.Replace('/', Path.DirectorySeparatorChar))
 
-                    Ok(List.ofSeq (Seq.append dirs files))
-                with ex ->
-                    Error ex.Message
+            try
+                Ok(buildBranches fullDir)
+            with ex ->
+                Error ex.Message
 
     let readFileArtifact
         (dataDir: string)

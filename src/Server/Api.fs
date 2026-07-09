@@ -131,11 +131,11 @@ module Api =
         | Ok graph ->
             let targetId = NodeId nodeId
 
-            match WorkspaceTreeSyncIo.listImmediateChildren dataDir graph targetId with
+            match WorkspaceTreeSyncIo.listRecursiveTree dataDir graph targetId with
             | Error err -> return Results.BadRequest({| error = err |})
-            | Ok entries ->
+            | Ok branches ->
                 let json =
-                    Encode.toString 0 (Serialization.encodeDiskTreeListing entries)
+                    Encode.toString 0 (Serialization.encodeDiskTreeListing branches)
                 return jsonResult json
     }
 

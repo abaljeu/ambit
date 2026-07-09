@@ -19,15 +19,11 @@ type Tree =
       taggedAncestor: NodeId }
 
 let private specialNode (id: NodeId) (kind: SpecialKind) (name: string) (owner: NodeId) : Node =
-    { id = id
-      text = name
-      name = Filename.Ok name
-      children = []
-      cssClasses = CssClass.empty
-      owner = owner
-      kind = Special kind
-      fileState = FileState.defaultValue
-      updateTime = NodeUpdateTime.missing }
+    { Node.create id with
+        text = name
+        name = Filename.Ok name
+        owner = owner
+        kind = Special kind }
 
 let private addUnder (parentId: NodeId) (child: Node) (graph: Graph) : Graph =
     let parent = graph.nodes.[parentId]
@@ -39,15 +35,10 @@ let private addUnder (parentId: NodeId) (child: Node) (graph: Graph) : Graph =
     Graph.fromNodes graph.root nodes
 
 let private namedNormalNode (text: string) (tagName: string) (owner: NodeId) : Node =
-    { id = NodeId.New()
-      text = text
-      name = Filename.create tagName
-      children = []
-      cssClasses = CssClass.empty
-      owner = owner
-      kind = Normal
-      fileState = FileState.defaultValue
-      updateTime = NodeUpdateTime.missing }
+    { Node.create (NodeId.New()) with
+        text = text
+        name = Filename.create tagName
+        owner = owner }
 
 /// Workspace tree under Workspaces plus a tagged outline under `app.fs`.
 let build () : Tree =

@@ -123,17 +123,22 @@ module Graph =
     /// Canonical workspaces node id; stable across snapshot load and replay.
     let workspacesId: NodeId = NodeId(Guid.Parse "00000000-0000-0000-0000-000000000002")
 
-    /// Initial root node: fixed label, no user-editable fields on root.
-    let rootPlaceholder: Node =
+    /// Canonical field defaults for a fresh node. Single source of truth: new `Node`
+    /// fields are added here (and, if needed, in `Node.create`) rather than at every call site.
+    let baseNode: Node =
         { id = rootId
-          text = "ROOT"
+          text = ""
           name = Filename.Empty
           children = []
           cssClasses = CssClass.empty
           owner = rootId
-          kind = Special Workspace
+          kind = Normal
           fileState = FileState.defaultValue
           updateTime = NodeUpdateTime.missing }
+
+    /// Initial root node: fixed label, no user-editable fields on root.
+    let rootPlaceholder: Node =
+        { baseNode with text = "ROOT"; kind = Special Workspace }
 
     let private addStructuralEdges (parentId: NodeId) (parent: Node) acc =
         parent.children
@@ -167,15 +172,11 @@ module Graph =
             else
                 let rootNode = nodes.[rootId]
                 let trashNode: Node =
-                    { id = trashId
-                      text = "Trash"
-                      name = Filename.Ok "TRASH"
-                      children = []
-                      cssClasses = CssClass.empty
-                      owner = rootId
-                      kind = Special Directory
-                      fileState = FileState.defaultValue
-                      updateTime = NodeUpdateTime.missing }
+                    { baseNode with
+                        id = trashId
+                        text = "Trash"
+                        name = Filename.Ok "TRASH"
+                        kind = Special Directory }
 
                 let trashChild: ChildNode =
                     { ref = Ownership.Owner
@@ -230,15 +231,10 @@ module Graph =
                 let rootNode = nodes.[rootId]
 
                 let workspacesNode: Node =
-                    { id = workspacesId
-                      text = "Workspaces"
-                      name = Filename.Empty
-                      children = []
-                      cssClasses = CssClass.empty
-                      owner = rootId
-                      kind = Special Workspaces
-                      fileState = FileState.defaultValue
-                      updateTime = NodeUpdateTime.missing }
+                    { baseNode with
+                        id = workspacesId
+                        text = "Workspaces"
+                        kind = Special Workspaces }
 
                 let workspacesChild: ChildNode =
                     { ref = Ownership.Owner
@@ -325,15 +321,10 @@ module Graph =
     let newNode (text: string) (graph: Graph) : Graph * NodeId =
         let nodeId = NodeId.New()
         let node: Node =
-            { id = nodeId
-              text = text
-              name = Filename.Empty
-              children = []
-              cssClasses = CssClass.empty
-              owner = rootId
-              kind = Normal
-              fileState = FileState.defaultValue
-              updateTime = NodeUpdateTime.now () }
+            { baseNode with
+                id = nodeId
+                text = text
+                updateTime = NodeUpdateTime.now () }
         let nodes = graph.nodes |> Map.add nodeId node
         { graph with nodes = nodes }, nodeId
 
@@ -622,6 +613,9 @@ type NodeNav = NodeNav of Graph * NodeId option
 
 [<RequireQualifiedAccess>]
 module Node =
+    /// A fresh node with canonical defaults (see `Graph.baseNode`); override fields with `{ ... with }`.
+    let create (id: NodeId) : Node = { Graph.baseNode with id = id }
+
     let at (graph: Graph) (id: NodeId option) : NodeNav = NodeNav(graph, id)
     let current (NodeNav(_, id)) : NodeId option = id
 

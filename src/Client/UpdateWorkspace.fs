@@ -36,8 +36,8 @@ let syncTreeOp (model: VM) : VM * Effect list =
         | _ ->
             { model with status = Some(StatusMessage.error "Sync tree requires a workspace or directory") }, []
 
-let applySyncTreeListing (nodeId: NodeId) (entries: DiskTreeEntry list) (model: VM) : VM * Effect list =
-    match WorkspaceTreeSync.planShallowSync model.graph nodeId entries with
+let applySyncTreeListing (nodeId: NodeId) (branches: DiskTreeBranch list) (model: VM) : VM * Effect list =
+    match WorkspaceTreeSync.planRecursiveSync model.graph nodeId branches with
     | Error err ->
         { model with status = Some(StatusMessage.error err) }, []
     | Ok plan ->

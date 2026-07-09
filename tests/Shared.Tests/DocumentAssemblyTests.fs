@@ -12,26 +12,16 @@ let private owned (ids: NodeId list) : ChildNode list =
     ids |> List.map (fun id -> { ref = Ownership.Owner; id = id })
 
 let private specialNode (id: NodeId) (kind: SpecialKind) (name: string) (owner: NodeId) : Node =
-    { id = id
-      text = name
-      name = Filename.create name
-      children = []
-      cssClasses = CssClass.empty
-      owner = owner
-      kind = Special kind
-      fileState = FileState.defaultValue
-      updateTime = NodeUpdateTime.missing }
+    { Node.create id with
+        text = name
+        name = Filename.create name
+        owner = owner
+        kind = Special kind }
 
 let private normalNode (id: NodeId) (text: string) (owner: NodeId) : Node =
-    { id = id
-      text = text
-      name = Filename.Empty
-      children = []
-      cssClasses = CssClass.empty
-      owner = owner
-      kind = Normal
-      fileState = FileState.defaultValue
-      updateTime = NodeUpdateTime.missing }
+    { Node.create id with
+        text = text
+        owner = owner }
 
 let private graphWithNestedDocs () : Graph * NodeId * NodeId * NodeId * NodeId =
     let graph0 = Graph.create ()
@@ -248,15 +238,9 @@ let ``validateAssembledGraph catches missing ref target`` () =
     let parentId = NodeId.New()
     let missingId = NodeId.New()
     let parent =
-        { id = parentId
-          text = "parent"
-          name = Filename.Empty
-          children = [ { ref = Ownership.Ref; id = missingId } ]
-          cssClasses = CssClass.empty
-          owner = Graph.rootId
-          kind = Normal
-          fileState = FileState.defaultValue
-          updateTime = NodeUpdateTime.missing }
+        { Node.create parentId with
+            text = "parent"
+            children = [ { ref = Ownership.Ref; id = missingId } ] }
     let graph =
         graph0.nodes
         |> Map.add parentId parent

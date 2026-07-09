@@ -256,15 +256,9 @@ let ``Graph replace parent missing error ends with last 8 hex of parent id`` () 
 // replace: supports delete (new ids empty) at index
 
 let private specialNode (id: NodeId) (kind: SpecialKind) (text: string) : Node =
-    { id = id
-      text = text
-      name = Filename.Empty
-      children = []
-      cssClasses = CssClass.empty
-      owner = Graph.rootId
-      kind = Special kind
-      fileState = FileState.defaultValue
-      updateTime = NodeUpdateTime.missing }
+    { Node.create id with
+        text = text
+        kind = Special kind }
 
 let private addSpecialNode (id: NodeId) (kind: SpecialKind) (text: string) (graph: Graph) : Graph =
     graph.nodes

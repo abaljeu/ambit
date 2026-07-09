@@ -126,15 +126,9 @@ module DocumentAssembly =
         | DocumentArtifactKind.File -> NodeKind.Special SpecialKind.File
 
     let private stubNode (descriptor: ArtifactDescriptor) (documentRootId: NodeId) : Node =
-        { id = documentRootId
-          text = ""
-          name = stubName descriptor
-          children = []
-          cssClasses = CssClass.empty
-          owner = Graph.rootId
-          kind = stubKind descriptor
-          fileState = FileState.defaultValue
-          updateTime = NodeUpdateTime.missing }
+        { Node.create documentRootId with
+            name = stubName descriptor
+            kind = stubKind descriptor }
 
     let private seedStub (graph: Graph) (descriptor: ArtifactDescriptor) (documentRootId: NodeId) : Graph =
         if documentRootId = Graph.rootId || documentRootId = Graph.trashId then

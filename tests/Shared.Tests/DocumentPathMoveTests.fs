@@ -26,25 +26,17 @@ let private graphWithWorkspaceFile () : Graph * NodeId * NodeId =
     let wsId = NodeId.New()
     let fileId = NodeId.New()
     let wsNode =
-        { id = wsId
-          text = "home"
-          name = Filename.Ok "home"
-          children = []
-          cssClasses = CssClass.empty
-          owner = Graph.workspacesId
-          kind = Special Workspace
-          fileState = FileState.defaultValue
-          updateTime = NodeUpdateTime.missing }
+        { Node.create wsId with
+            text = "home"
+            name = Filename.Ok "home"
+            owner = Graph.workspacesId
+            kind = Special Workspace }
     let fileNode =
-        { id = fileId
-          text = "readme.txt"
-          name = Filename.Ok "readme.txt"
-          children = []
-          cssClasses = CssClass.empty
-          owner = wsId
-          kind = Special File
-          fileState = FileState.defaultValue
-          updateTime = NodeUpdateTime.missing }
+        { Node.create fileId with
+            text = "readme.txt"
+            name = Filename.Ok "readme.txt"
+            owner = wsId
+            kind = Special File }
 
     let graph1 =
         graph0.nodes
@@ -63,26 +55,16 @@ let private graphWithWorkspaceFile () : Graph * NodeId * NodeId =
     graph3, wsId, fileId
 
 let private specialNode (id: NodeId) (kind: SpecialKind) (name: string) (owner: NodeId) : Node =
-    { id = id
-      text = name
-      name = Filename.create name
-      children = []
-      cssClasses = CssClass.empty
-      owner = owner
-      kind = Special kind
-      fileState = FileState.defaultValue
-      updateTime = NodeUpdateTime.missing }
+    { Node.create id with
+        text = name
+        name = Filename.create name
+        owner = owner
+        kind = Special kind }
 
 let private normalNode (id: NodeId) (text: string) (owner: NodeId) : Node =
-    { id = id
-      text = text
-      name = Filename.Empty
-      children = []
-      cssClasses = CssClass.empty
-      owner = owner
-      kind = Normal
-      fileState = FileState.defaultValue
-      updateTime = NodeUpdateTime.missing }
+    { Node.create id with
+        text = text
+        owner = owner }
 
 let private graphWithNestedDocs () : Graph * NodeId * NodeId * NodeId * NodeId =
     let graph0 = Graph.create ()

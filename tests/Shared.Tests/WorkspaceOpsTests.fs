@@ -34,15 +34,9 @@ let private asRef id = { ref = Ownership.Ref; id = id }
 let private addNamedNode (name: string) (graph: Graph) : Graph * NodeId =
     let nodeId = NodeId.New()
     let node =
-        { id = nodeId
-          text = name
-          name = Filename.Ok name
-          children = []
-          cssClasses = CssClass.empty
-          owner = Graph.rootId
-          kind = Normal
-          fileState = FileState.defaultValue
-          updateTime = NodeUpdateTime.missing }
+        { Node.create nodeId with
+            text = name
+            name = Filename.Ok name }
     Graph.fromNodes graph.root (graph.nodes |> Map.add nodeId node), nodeId
 
 /// Insert a new owner child at the end of a node's child list.

@@ -416,11 +416,33 @@ module Serialization =
               kind = get.Required.Field "kind" decodeSpecialKindForDisk
               mtimeUtc = get.Required.Field "mtimeUtc" Decode.int64 })
 
-    let encodeDiskTreeListing (entries: DiskTreeEntry list) : IEncodable =
-        entries |> List.map encodeDiskTreeEntry |> Encode.list
+    let rec private encodeDiskTreeBranch (branch: DiskTreeBranch) : IEncodable =
+        Encode.object
+            [ "name", Encode.string branch.entry.name
+              "kind", encodeSpecialKindForDisk branch.entry.kind
+              "mtimeUtc", Encode.int64 branch.entry.mtimeUtc
+              "children", branch.children |> List.map encodeDiskTreeBranch |> Encode.list ]
 
-    let decodeDiskTreeListing: Decoder<DiskTreeEntry list> =
-        Decode.list decodeDiskTreeEntry
+    let decodeDiskTreeBranch : Decoder<DiskTreeBranch> =
+        let rec mk () =
+            Decode.object (fun get ->
+                { entry =
+                    { name = get.Required.Field "name" Decode.string
+                      kind = get.Required.Field "kind" decodeSpecialKindForDisk
+                      mtimeUtc = get.Required.Field "mtimeUtc" Decode.int64 }
+                  children =
+                    get.Optional.Field "children" (Decode.list (mk ()))
+                    |> Option.defaultValue [] })
+        mk ()
+
+    let encodeDiskTreeListing (branches: DiskTreeBranch list) : IEncodable =
+        branches |> List.map encodeDiskTreeBranch |> Encode.list
+
+    let decodeDiskTreeListing: Decoder<DiskTreeBranch list> =
+        Decode.list decodeDiskTreeBranch
+
+    let encodeDiskTreeEntries (entries: DiskTreeEntry list) : IEncodable =
+        entries |> List.map encodeDiskTreeEntry |> Encode.list
 
     let encodeParseFileResponse (relativePath: string) (text: string) (mtimeUtc: int64) : IEncodable =
         Encode.object
@@ -437,7 +459,7 @@ module Serialization =
     let decodeParseFileResponse (text: string) : Result<string * string * int64, string> =
         Decode.fromString decodeParseFileResponseDecoder text
 
-    let decodeDiskTreeListingFromString (text: string) : Result<DiskTreeEntry list, string> =
+    let decodeDiskTreeListingFromString (text: string) : Result<DiskTreeBranch list, string> =
         Decode.fromString decodeDiskTreeListing text
 
     let decodeGraphFromStateJson (text: string) : Result<Graph, string> =

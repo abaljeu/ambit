@@ -59,15 +59,9 @@ module Op =
                 ApplyResult.Invalid(state, "cannot NewNode with canonical root id")
             else
                 let node: Node =
-                    { id = nodeId
-                      text = text
-                      name = Filename.Empty
-                      children = []
-                      cssClasses = CssClass.empty
-                      owner = Graph.rootId
-                      kind = Normal
-                      fileState = FileState.defaultValue
-                      updateTime = NodeUpdateTime.now () }
+                    { Node.create nodeId with
+                        text = text
+                        updateTime = NodeUpdateTime.now () }
 
                 ApplyResult.Changed
                     { state with
@@ -95,15 +89,11 @@ module Op =
                     ApplyResult.Invalid(state, "invalid filename for NewSpecialNode")
                 | Filename.Ok _ ->
                     let node: Node =
-                        { id = nodeId
-                          text = name
-                          name = Filename.Ok name
-                          children = []
-                          cssClasses = CssClass.empty
-                          owner = Graph.rootId
-                          kind = Special kind
-                          fileState = FileState.defaultValue
-                          updateTime = NodeUpdateTime.now () }
+                        { Node.create nodeId with
+                            text = name
+                            name = Filename.Ok name
+                            kind = Special kind
+                            updateTime = NodeUpdateTime.now () }
                     ApplyResult.Changed
                         { state with
                               graph =
