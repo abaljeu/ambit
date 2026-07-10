@@ -95,6 +95,7 @@ module Api =
     let gitSave
         (prepare: unit -> Async<Result<int, string>>)
         (dataDir: string)
+        (clientHint: string option)
         : Async<IResult> = async {
         if not (GitSave.isRepo dataDir) then
             let response =
@@ -109,7 +110,10 @@ module Api =
                 let response = { ok = false; detail = ""; error = Some err }
                 return Results.BadRequest(Encode.toString 0 (GitSaveResponse.encode response))
             | Ok rev ->
-                let message = sprintf "rev %d" rev
+                let message =
+                    ClientIdentity.formatCommitMessage
+                        (sprintf "rev %d" rev)
+                        clientHint
                 match GitSave.commitAll dataDir message with
                 | Ok detail ->
                     let response = { ok = true; detail = detail; error = None }

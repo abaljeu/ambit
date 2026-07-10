@@ -161,6 +161,7 @@ let createRuntime (initialModel: VM) =
             (SubmitChangeCallbacks.onPostOk timeoutId reqId dispatch)
             (SubmitChangeCallbacks.onPostHttp timeoutId reqId dispatch)
             (SubmitChangeCallbacks.onPostFetchFail timeoutId reqId baseRev changes dispatch)
+            (jsonMutatingPostHeaders ())
 
     and runPollServer () : unit =
         let url =
@@ -213,7 +214,13 @@ let createRuntime (initialModel: VM) =
                 + string status + ": " + LogText.truncateForLog 200 text)
         let onNetworkFail () : unit =
             consoleLog "[Gambol desktop] file-status request failed"
-        postJson "/_desktop/file-status" body onOk onHttpError onNetworkFail
+        postJson
+            "/_desktop/file-status"
+            body
+            onOk
+            onHttpError
+            onNetworkFail
+            (jsonMutatingPostHeaders ())
 
     and dispatch (msg: Msg) : unit =
         let prev = model

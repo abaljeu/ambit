@@ -38,6 +38,7 @@ This doc records decisions that upcoming persistence and workspace work should r
 | Desktop transport | Prefer stock **`git pull` / `git push ambit`** against a real remote URL — not a bespoke pack POST API. |
 | Git substrate | **Option A locked:** all git I/O (init, porcelain, JIT commit, gateway upload/receive) via **subprocess to stock `git`**, not LibGit2Sharp or a custom pack implementation. |
 | Module shape | New `WorkspaceGit` (per `DataDir/{label}/`) reuses [[src/Server/GitSave.fs]] subprocess patterns; **no new `DataDir/.git`**; legacy `GitSave` stays ops-only until retired. |
+| Commit message | Server commits use `{base} | client: {X-Gambol-Client hint}` (e.g. `rev 42 | client: Win32; Mozilla/5.0…`); omit client segment when hint absent. Locked G2. |
 | Gateway | Thin ASP.NET routes that authenticate, flush persistence, optionally JIT-commit, then **delegate wire protocol to `git`** (`http-backend` or pack helpers) — not a REST-shaped git API. |
 | Desktop + Shared | Desktop shells stock `git`; Shared holds only pure helpers (status parse, URL shape) — **no git subprocess in Shared**. |
 | Module boundary | `DocumentPersistence` writes files; git gateway runs git. **Only coupling:** server JIT commit before serving fetch, and clean-tree check before receive. |
@@ -117,13 +118,13 @@ The only intentional cross-layer action on the server before pull. Push never JI
 When the gateway is about to serve `upload-pack` / respond to fetch for `{label}`:
 
 1. Confirm `DocumentPersistence` has flushed pending graph writes for that workspace.
-2. If `git status --porcelain` is non-empty under `DataDir/{label}/`, run a commit, e.g. `git add -A` and `git commit -m "gambol: autosave before pull"`.
+2. If `git status --porcelain` is non-empty under `DataDir/{label}/`, run a commit, e.g. `git add -A` and `git commit` with message from `ClientIdentity.formatCommitMessage` (base e.g. `gambol: autosave before pull`, plus `| client: …` when a hint is available).
 3. Proceed with fetch.
 
 Properties:
 
 - Pull always sees **committed** server state plus whatever was just autosaved to disk.
-- Commit message is machine-generated; user-facing commit remains a separate manual action on desktop before push.
+- Commit message is machine-generated and includes the weak client hint when known; user-facing commit remains a separate manual action on desktop before push.
 - `.git` and gitignored paths follow normal git rules; graph import still skips `.git` in the outline.
 
 ## Git gateway module

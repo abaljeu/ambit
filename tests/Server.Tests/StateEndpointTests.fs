@@ -163,6 +163,24 @@ let ``GET state returns valid graph with root node`` (backend: BackendKind) =
 
 // ---- POST /ambit/changes tests (parameterised) ----
 
+[<Fact>]
+let ``POST changes accepts X-Gambol-Client header`` () = task {
+    use client = createFileClient ()
+    let! json0 = getStateJson client testFile
+    let rootId = (decodeGraph json0).root
+    let change, _ = changeAddChild rootId 0 "hinted"
+    let body = encodeChangeBatchBody [ change ]
+    use content = new StringContent(body, Encoding.UTF8, "application/json")
+    use req = new HttpRequestMessage(HttpMethod.Post, "/ambit/changes")
+    req.Content <- content
+    req.Headers.TryAddWithoutValidation(
+        ClientIdentity.HeaderName,
+        "Win32; Mozilla/5.0 (test)")
+    |> ignore
+    let! resp = client.SendAsync(req)
+    Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
+}
+
 [<Theory; MemberData(nameof backends)>]
 let ``POST changes SetText changes child text and bumps revision`` (backend: BackendKind) =
     withClient backend (fun client -> task {

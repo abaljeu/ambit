@@ -221,6 +221,18 @@ module RouteRegistration =
             | _ -> 0
         | _ -> 0
 
+    /// Read X-Gambol-Client, store on HttpContext.Items, log when present.
+    let private bindClientHint (req: HttpRequest) : string option =
+        match req.Headers.TryGetValue(ClientIdentity.HeaderName) with
+        | true, values ->
+            match ClientIdentity.tryFromValues values with
+            | Some hint ->
+                req.HttpContext.Items[ClientIdentity.HeaderName] <- hint
+                eprintfn "[Gambol] %s client=%s" (string req.Path) hint
+                Some hint
+            | None -> None
+        | _ -> None
+
     let private registerStateRoutes
         (app: WebApplication)
         (auth: Authentication)
@@ -249,6 +261,7 @@ module RouteRegistration =
             if not (auth.IsAuthenticated req) then
                 return Results.Unauthorized()
             else
+                bindClientHint req |> ignore
                 use reader = new StreamReader(req.Body)
                 let! body = reader.ReadToEndAsync()
                 let handle = persistence.GetHandle "gambol"
@@ -284,8 +297,11 @@ module RouteRegistration =
             if not (auth.IsAuthenticated req) then
                 return Results.Unauthorized()
             else
+                let clientHint = bindClientHint req
                 let prepare = prepareGitSave persistence
-                return! Api.gitSave prepare persistence.DataDir |> Async.StartAsTask
+                return!
+                    Api.gitSave prepare persistence.DataDir clientHint
+                    |> Async.StartAsTask
         })) |> ignore
 
     let private dbStatusText (status: DatabaseSetup.DbStatus) =

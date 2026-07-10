@@ -54,3 +54,24 @@ let ``POST save commits file changes in data dir`` () = task {
     | Ok text -> Assert.False(System.String.IsNullOrWhiteSpace text)
     | Error err -> Assert.Fail(err)
 }
+
+[<SkippableFact>]
+let ``POST save commit message includes X-Gambol-Client`` () = task {
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let tempDir = newTempDir ()
+    initRepo tempDir
+    File.WriteAllText(Path.Combine(tempDir, "gambol.meta"), "0")
+    use client = createClientForDir tempDir
+    use req = new HttpRequestMessage(HttpMethod.Post, "/ambit/save")
+    req.Headers.TryAddWithoutValidation(
+        Gambol.Shared.ClientIdentity.HeaderName,
+        "Win32; Mozilla/5.0")
+    |> ignore
+    let! resp = client.SendAsync(req)
+    Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
+    match GitSave.runGit tempDir "log -1 --pretty=%s" with
+    | Ok subject ->
+        Assert.Contains("client: Win32; Mozilla/5.0", subject)
+        Assert.Contains("rev ", subject)
+    | Error err -> Assert.Fail(err)
+}

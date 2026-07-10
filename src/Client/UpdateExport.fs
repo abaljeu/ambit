@@ -2,6 +2,7 @@ module Gambol.Client.UpdateExport
 
 open Gambol.Client.JsInterop
 open Gambol.Client.UpdateCodec
+open Gambol.Client.UpdateHelpers
 open Gambol.Shared
 open Gambol.Shared.ViewModel
 
@@ -41,7 +42,9 @@ let exportLocalOp (model: VM) : VM * Effect list =
                     model, []
                 | Ok content ->
                     let body = encodeDesktopExportRequest { path = path; content = content }
-                    let status, responseText = postJsonSync "/_desktop/file" body
+                    let status, responseText =
+                        postJsonSync "/_desktop/file" body (jsonMutatingPostHeaders ())
+
 
                     if status < 200 || status >= 300 then
                         consoleLog (

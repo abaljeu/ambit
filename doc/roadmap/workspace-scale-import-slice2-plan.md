@@ -1,7 +1,7 @@
 # Workspace Git sync — implementation plan (Slice 2)
 
 Category: Sync
-Status: In progress (G0 done; substrate Option A locked; G1 done)
+Status: In progress (G0–G2 done; substrate Option A locked)
 See also: [[workspaces-checklist]], [[git-sync-gateway]], [[workspace-scale-import]], [[doc/current/workspace-local-mapping]], [[doc/current/desktop-local-files]], [[doc/current/workspace-stage-plan]], [[doc/current/sync-mvp]], [[future-merge-sync]], [[workspace-name-verbatim]]
 
 Concrete rollout for the **Git** section of [[workspaces-checklist]]. Protocol and locked product decisions live in [[git-sync-gateway]]; this doc owns **ordered shippable slices**, checklist mapping, and sequencing. Do not treat history plans under [[doc/history/workspaces/plans]] as current truth.
@@ -102,12 +102,14 @@ commands                git clone/pull/push/status   Git HTTPS gateway (http-bac
 - Success: creating workspace `home` yields `DataDir/home/.git`; no requirement that `DataDir/.git` exists.
 - Tests: Server.Tests `WorkspaceGitTests` — init idempotence, path under label, denyNonFastForwards, writeDocument wire-up.
 
-### G2 — Workspace-scoped git helpers
+### G2 — Workspace-scoped git helpers ✅
 
-- Server module (e.g. `WorkspaceGit`) for `isRepo`, `status --porcelain`, `commitAll` under `{label}/` via `git -C`.
-- Reuse patterns from [[src/Server/GitSave.fs]] but **scoped**; do not expand GitSave to mean whole DataDir for new work.
+- **Done:** `WorkspaceGit.statusPorcelain` / `isDirty` / `commitAll` under `{label}/` via subprocess (reuses `GitSave.runGit` / `commitAll`).
+- **Done:** Commit message format locked: `{base} | client: {hint}` via `ClientIdentity.formatCommitMessage` (e.g. `rev 42 | client: Win32; Mozilla/5.0…`). Omit `| client: …` when hint absent.
+- **Done:** Legacy `/ambit/save` still commits whole `DataDir` via `GitSave` (deferred per-label save); passes `X-Gambol-Client` into the message.
 - Success: dirty tree under one label can be committed without touching sibling workspaces.
-- Shared-first: only if a pure status DTO/parser is useful to both Desktop and Server; otherwise keep I/O in Server/Desktop.
+- Tests: Server.Tests `WorkspaceGitTests` — porcelain dirty, scoped commit + client hint, sibling isolation; Shared.Tests message format; endpoint save includes client hint.
+- Shared-first: pure `ClientIdentity.formatCommitMessage`; I/O stays in Server.
 
 ### G3 — Smart HTTPS gateway v0 (local/dev)
 

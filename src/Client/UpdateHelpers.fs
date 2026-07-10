@@ -1,6 +1,7 @@
 module Gambol.Client.UpdateHelpers
 
 open Browser.Dom
+open Fable.Core.JsInterop
 open Gambol.Client.JsInterop
 open Gambol.Shared
 open Gambol.Shared.ViewModel
@@ -13,6 +14,20 @@ open Thoth.Json.Core
 let currentFile =
     let path = Browser.Dom.window.location.pathname
     if path.StartsWith("/") then path.Substring(1) else path
+
+// ---------------------------------------------------------------------------
+// Mutating POST headers (X-Gambol-Client from getClientHint)
+// ---------------------------------------------------------------------------
+
+let private withClientIdentity (extra: (string * obj) list) : obj =
+    let hint = ClientIdentity.normalize (getClientHint ())
+    createObj ((ClientIdentity.HeaderName ==> hint) :: extra)
+
+let emptyMutatingPostHeaders () : obj =
+    withClientIdentity []
+
+let jsonMutatingPostHeaders () : obj =
+    withClientIdentity [ "Content-Type" ==> "application/json" ]
 
 // ---------------------------------------------------------------------------
 // Pending-queue localStorage persistence

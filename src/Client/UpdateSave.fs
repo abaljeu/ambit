@@ -6,6 +6,7 @@ open Gambol.Client.UpdateHelpers
 open Gambol.Shared
 open Gambol.Shared.ViewModel
 
+
 let private canGitSave (model: VM) =
     match model.serverCapabilities with
     | Some { canGitSave = true } -> true
@@ -35,4 +36,5 @@ let gitSaveOp (model: VM) : VM * Effect list =
                     + ": "
                     + LogText.truncateForLog 200 text))
             (fun () -> consoleLog "[Gambol] git save network error")
+            (emptyMutatingPostHeaders ())
         model, []

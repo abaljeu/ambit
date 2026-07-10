@@ -95,3 +95,78 @@ let ``writeDocument for Workspace inits repo under label`` () =
     |> ignore
     Assert.True(WorkspaceGit.isRepo (Path.Combine(dataDir, "home")))
     Assert.False(WorkspaceGit.isRepo dataDir)
+
+[<SkippableFact>]
+let ``isDirty is false on clean repo and true after edit`` () =
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let home = Path.Combine(newTempDir (), "home")
+    requireOk "ensureInit" (WorkspaceGit.ensureInit home)
+    File.WriteAllText(Path.Combine(home, "a.txt"), "one")
+    requireOk "commit"
+        (WorkspaceGit.commitAll home "rev 1" (Some "test-client"))
+    |> ignore
+    match WorkspaceGit.isDirty home with
+    | Ok dirty -> Assert.False(dirty)
+    | Error err -> Assert.Fail(err)
+    File.WriteAllText(Path.Combine(home, "a.txt"), "two")
+    match WorkspaceGit.isDirty home with
+    | Ok dirty -> Assert.True(dirty)
+    | Error err -> Assert.Fail(err)
+
+[<SkippableFact>]
+let ``commitAll message includes client hint`` () =
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let home = Path.Combine(newTempDir (), "home")
+    requireOk "ensureInit" (WorkspaceGit.ensureInit home)
+    File.WriteAllText(Path.Combine(home, "note.txt"), "x")
+    let hint = "Win32; Mozilla/5.0"
+    requireOk "commit"
+        (WorkspaceGit.commitAll home "rev 3" (Some hint))
+    |> ignore
+    match GitSave.runGit home "log -1 --pretty=%s" with
+    | Ok subject ->
+        Assert.Equal("rev 3 | client: Win32; Mozilla/5.0", subject)
+    | Error err -> Assert.Fail(err)
+
+[<SkippableFact>]
+let ``commitAll does not touch sibling workspace`` () =
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let dataDir = newTempDir ()
+    let home = Path.Combine(dataDir, "home")
+    let other = Path.Combine(dataDir, "other")
+    requireOk "init home" (WorkspaceGit.ensureInit home)
+    requireOk "init other" (WorkspaceGit.ensureInit other)
+    File.WriteAllText(Path.Combine(home, "h.txt"), "h1")
+    File.WriteAllText(Path.Combine(other, "o.txt"), "o1")
+    requireOk "seed home"
+        (WorkspaceGit.commitAll home "seed" None)
+    |> ignore
+    requireOk "seed other"
+        (WorkspaceGit.commitAll other "seed" None)
+    |> ignore
+    File.WriteAllText(Path.Combine(home, "h.txt"), "h2")
+    File.WriteAllText(Path.Combine(other, "o.txt"), "o2")
+    requireOk "commit home"
+        (WorkspaceGit.commitAll home "rev 9" (Some "client-a"))
+    |> ignore
+    match WorkspaceGit.isDirty home with
+    | Ok dirty -> Assert.False(dirty)
+    | Error err -> Assert.Fail(err)
+    match WorkspaceGit.isDirty other with
+    | Ok dirty -> Assert.True(dirty)
+    | Error err -> Assert.Fail(err)
+    match GitSave.runGit other "log -1 --pretty=%s" with
+    | Ok subject -> Assert.Equal("seed", subject)
+    | Error err -> Assert.Fail(err)
+
+[<SkippableFact>]
+let ``statusPorcelain reports untracked file`` () =
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let home = Path.Combine(newTempDir (), "home")
+    requireOk "ensureInit" (WorkspaceGit.ensureInit home)
+    File.WriteAllText(Path.Combine(home, "new.txt"), "n")
+    match WorkspaceGit.statusPorcelain home with
+    | Ok text ->
+        Assert.False(String.IsNullOrWhiteSpace text)
+        Assert.Contains("new.txt", text)
+    | Error err -> Assert.Fail(err)

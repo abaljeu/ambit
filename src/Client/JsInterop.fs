@@ -3,7 +3,6 @@ module Gambol.Client.JsInterop
 open Browser.Dom
 open Browser.Types
 open Fable.Core
-open Gambol.Shared
 
 /// Outline model re-exports `Node` / `Selection`; keep DOM names explicit here.
 type private DomNode = Browser.Types.Node
@@ -307,24 +306,30 @@ let setEditorCarentToFirstLineAtX (root: HTMLElement) (clientX: float) :
         if not (selectionApplyIfInRoot root sel r) then
             setEditorCaret root 0
 
-[<Emit("fetch($0,{method:'POST',credentials:'same-origin'})" +
+/// Platform + short UA snippet for client identity (normalize in F#).
+[<Emit("(typeof navigator!=='undefined'?navigator.platform+'; '+(navigator.userAgent||'').substring(0,80):'n/a')")>]
+let getClientHint () : string = jsNative
+
+[<Emit("fetch($0,{method:'POST',credentials:'same-origin',headers:$4})" +
        ".then(function(r){return r.text().then(function(t){" +
        "if(r.ok){$1(t);}else{$2(r.status,t);}});})" +
        ".catch(function(){$3()})")>]
 let postEmpty
     (url: string) (onSuccess: string -> unit)
     (onHttpError: int -> string -> unit) (onNetworkFail: unit -> unit)
+    (headers: obj)
     : unit = jsNative
 
 /// POST JSON: onSuccess (2xx body), onHttpError (4xx/5xx status + body text),
 /// onNetworkFail (fetch failure). Error bodies are logged in App.fs batch submit.
-[<Emit("fetch($0,{method:'POST',headers:{'Content-Type':'application/json'},body:$1})" +
+[<Emit("fetch($0,{method:'POST',headers:$5,body:$1})" +
        ".then(function(r){return r.text().then(function(t){" +
        "if(r.ok){$2(t);}else{$3(r.status,t);}});})" +
        ".catch(function(){$4()})")>]
 let postJson
     (url: string) (body: string) (onSuccess: string -> unit)
     (onHttpError: int -> string -> unit) (onNetworkFail: unit -> unit)
+    (headers: obj)
     : unit = jsNative
 
 /// Blocking GET for desktop file read (synchronous XMLHttpRequest).
@@ -341,13 +346,14 @@ let encodeUriComponent (text: string) : string = jsNative
 
 /// Blocking POST for desktop file write (synchronous XMLHttpRequest).
 [<Emit(
-    "(function(url, body){" +
+    "(function(url, body, headers){" +
     "var xhr=new XMLHttpRequest();" +
     "xhr.open('POST',url,false);" +
-    "xhr.setRequestHeader('Content-Type','application/json');" +
+    "if(headers){Object.keys(headers).forEach(function(k){" +
+    "xhr.setRequestHeader(k,headers[k]);});}" +
     "try{xhr.send(body);return [xhr.status,xhr.responseText||''];}" +
-    "catch(e){return [0,''];}})($0,$1)")>]
-let postJsonSync (url: string) (body: string) : int * string = jsNative
+    "catch(e){return [0,''];}})($0,$1,$2)")>]
+let postJsonSync (url: string) (body: string) (headers: obj) : int * string = jsNative
 
 [<Emit("fetch($0).then(r => r.text()).then($1)")>]
 let fetchText (url: string) (callback: string -> unit) : unit = jsNative

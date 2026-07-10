@@ -32,6 +32,8 @@
     <Compile Include="LoginRedirectTests.fs" />
     <Compile Include="RedirectRewriteTests.fs" />
     <Compile Include="FileSyncIndicatorTests.fs" />
+    <Compile Include="ClientIdentityTests.fs" />
+
     <Compile Include="ImportTextTests.fs" />
     <Compile Include="ExportTextTests.fs" />
     <Compile Include="NodeDesktopPathTests.fs" />

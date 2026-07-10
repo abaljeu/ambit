@@ -68,11 +68,11 @@ Last implemented: No current baseline is listed here.
 Might be next: Repo file-tree browsing with on-demand parse/edit for individual files.
 
 ### **Git workspace sync (desktop pull/push)**
-Status: **In progress** (G0 + substrate Option A + G1 done).
+Status: **In progress** (G0–G2 done; substrate Option A locked).
 Details: [[git-sync-gateway]], [[workspace-scale-import-slice2-plan]].
-Last implemented: Per-label `git init` + `receive.denyNonFastForwards` via subprocess (`WorkspaceGit`); wired on Workspace document write.
+Last implemented: Per-label `WorkspaceGit` init/status/commit; commit messages include `X-Gambol-Client` hint (`rev N | client: …`).
 Depends on: Workspace scale import slice 1 (Stage 7 `DataDir` live-save is done).
-Might be next: G2 workspace-scoped status/commit helpers.
+Might be next: G3 smart HTTPS gateway v0.
 
 ### **Amble run**
 Status: **Evolving**.
