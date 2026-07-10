@@ -12,9 +12,8 @@ Living checklist for implementing workspaces.  Mark done an item when it is done
 
 ## Graph model
 
-Workspace as a first-class graph node type and structural rules around it.
-
-- [ ] Files and Directories are only allowed to be in Directories or Workspaces. (Root is a workspace.)
+- [x] Workspace as a first-class graph node type and structural rules around it.
+- [x] Files and Directories are only allowed to be in Directories or Workspaces. (Root is a workspace.) — plan: [[workspace-file-directory-placement]] (Slice A done; Slice B create/move UX pending)
 
 ## Server DataDir
 One workspace folder per name under DataDir; ownership and on-disk layout.

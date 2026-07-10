@@ -64,8 +64,12 @@ let private graphFileOwnsDirectory () : Graph * NodeId * NodeId * NodeId =
     let fileId = NodeId.New()
     let dirId = NodeId.New()
     let normalId = NodeId.New()
-    let fileNode = specialNode fileId File "container.txt" Graph.rootId
-    let dirNode = specialNode dirId Directory "inner" fileId
+    let fileNode =
+        { specialNode fileId File "container.txt" Graph.rootId with
+            children = owned [ dirId ] }
+    let dirNode =
+        { specialNode dirId Directory "inner" fileId with
+            children = owned [ normalId ] }
     let normalNode = normalNode normalId "nested" dirId
 
     let graph1 =
@@ -80,15 +84,7 @@ let private graphFileOwnsDirectory () : Graph * NodeId * NodeId * NodeId =
         Graph.replace Graph.rootId idx [] (owned [ fileId ]) graph1
         |> requireOk "root->file"
 
-    let graph3 =
-        Graph.replace fileId 0 [] (owned [ dirId ]) graph2
-        |> requireOk "file->dir"
-
-    let graph4 =
-        Graph.replace dirId 0 [] (owned [ normalId ]) graph3
-        |> requireOk "dir->normal"
-
-    graph4, fileId, dirId, normalId
+    graph2, fileId, dirId, normalId
 
 [<Fact>]
 let ``documentRootForNode on normal resolves to file document root`` () =

@@ -482,9 +482,16 @@ module Graph =
                     |> List.tryPick (fun child ->
                         let childNode = graph.nodes.[child.id]
 
-                        match childNode.kind with
-                        | Special Workspace when parentId <> workspacesId ->
+                        match child.ref, childNode.kind with
+                        | _, Special Workspace when parentId <> workspacesId ->
                             Some "Workspace nodes may only be placed under Workspaces"
+                        | Ownership.Owner, (Special File | Special Directory) ->
+                            match parent.kind with
+                            | Special Workspace
+                            | Special Directory -> None
+                            | _ ->
+                                Some
+                                    "File and Directory nodes may only be placed under a Workspace or Directory"
                         | _ -> None)
 
                 match placementError with

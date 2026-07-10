@@ -109,7 +109,9 @@ let private graphFileOwnsDirectory () : Graph * NodeId * NodeId =
     let graph0 = Graph.create ()
     let fileId = NodeId.New()
     let dirId = NodeId.New()
-    let fileNode = specialNode fileId File "container.txt" Graph.rootId
+    let fileNode =
+        { specialNode fileId File "container.txt" Graph.rootId with
+            children = owned [ dirId ] }
     let dirNode = specialNode dirId Directory "inner" fileId
 
     let graph1 =
@@ -123,11 +125,7 @@ let private graphFileOwnsDirectory () : Graph * NodeId * NodeId =
         Graph.replace Graph.rootId idx [] (owned [ fileId ]) graph1
         |> requireOk "root->file"
 
-    let graph3 =
-        Graph.replace fileId 0 [] (owned [ dirId ]) graph2
-        |> requireOk "file->dir"
-
-    graph3, fileId, dirId
+    graph2, fileId, dirId
 
 [<Fact>]
 let ``pathForNodeId directory owned by file uses canonical root path`` () =

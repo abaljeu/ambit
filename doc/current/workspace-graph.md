@@ -40,14 +40,14 @@ Authority: [[doc/roadmap/revising-workspace-file-model]].
 
 Enforced in `Graph.replace` (not by a separate command layer).
 
-Placement restrictions apply only to canonical workspace structure:
+Placement restrictions for owned children:
 
 | Node kind | Allowed owner parent |
 |-----------|----------------------|
 | `Workspaces` | root only (permanent, canonical) |
 | `Workspace` | `Workspaces` only |
-| `Directory` | anywhere |
-| `File` | anywhere |
+| `Directory` | `Workspace` (ROOT or named) or `Directory` (including TRASH) |
+| `File` | same as `Directory` |
 | `Normal` | anywhere |
 
 **ROOT** is the implicit nameless workspace: `Special Workspace` with no filename.
@@ -55,8 +55,7 @@ Named `Workspace` nodes remain under `Workspaces` only. Ref links are unrestrict
 
 `Workspaces` and `Trash` may not appear as children of any non-root parent.
 
-Below `Workspaces`/`Workspace` structural rules, the outline is free-form.
-`Directory`, `File`, and `Normal` nodes may be owned by any parent.
+Owned `File` / `Directory` may not sit under `Normal`, `File`, or the `Workspaces` container. See [[doc/roadmap/workspace-file-directory-placement]].
 
 Tests: `tests/Shared.Tests/ModelTests.fs` (workspaces bootstrap and placement cases).
 

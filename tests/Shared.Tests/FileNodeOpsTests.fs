@@ -26,13 +26,23 @@ let private asRef id = { ref = Ownership.Ref; id = id }
 
 let private outlineSetup () =
     let graph0 = Graph.create ()
-    let graph1, ids = ModelBuilder.createNodes [ "focus" ] graph0
-    let focus = ids.[0]
+    let dirId = NodeId.New()
+    let dirNode =
+        Node.Create(
+            dirId,
+            text = "docs",
+            name = Filename.create "docs",
+            kind = Special Directory)
+    let graph1 =
+        graph0.nodes
+        |> Map.add dirId dirNode
+        |> fun nodes -> Graph.fromNodes graph0.root nodes
+    let idx = Graph.fileTreeInsertIndex graph1 Graph.rootId
     let graph2 =
-        match Graph.replace graph1.root 0 [] [ owned focus ] graph1 with
+        match Graph.replace Graph.rootId idx [] [ owned dirId ] graph1 with
         | Ok g -> g
         | Error e -> failwith e
-    focus, graph2
+    dirId, graph2
 
 [<Fact>]
 let ``planCreateWorkspace creates workspace under Workspaces`` () =

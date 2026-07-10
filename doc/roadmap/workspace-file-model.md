@@ -135,8 +135,7 @@ Authority for implemented behavior: [[doc/current/workspace-graph.md]],
 
 See [[doc/current/workspace-graph.md]] for enforced placement rules.
 
-Placement restrictions apply only to `Workspaces` and named `Workspace` nodes.
-`Directory`, `File`, and `Normal` nodes may be placed anywhere in the ownership tree.
+Placement restrictions: named `Workspace` only under `Workspaces`; owned `File` / `Directory` only under `Workspace` (ROOT or named) or `Directory` (including TRASH). `Normal` may be placed anywhere. Refs are unrestricted. Supersedes older free-form ownership claims for owned File/Directory — see [[doc/roadmap/workspace-file-directory-placement]].
 
 **Context** (special-node ancestry used for reference resolution) is separate from placement.
 Context traversal uses only `workspace`, `directory`, and `file` nodes along the owner chain;
@@ -150,11 +149,11 @@ No full **Insert…** / **Rename** command surface exists yet (Stage 6). Workspa
 
 **Delete:** soft delete moves owner under TRASH (`MoveToTrash`); hard delete under TRASH removes subtree (Stage 7 artifact removal).
 
-The target placement model is free-form below `workspaces`/`workspace` structural rules:
+Owned File/Directory placement (Slice A): under Workspace or Directory only — [[doc/roadmap/workspace-file-directory-placement]]. Older free-form bullets below are superseded for **owned** File/Directory; create/move UX at invalid focus is Slice B.
 
-- `directory`, `file`, and `normal` nodes may be owned by any parent, including `normal` nodes
-- `normal` nodes may own `directory`, `file`, and `normal` nodes
-- `file` may own `directory`, `file`, and `normal` nodes for structural outlining
+- `directory` and `file` owner children: only under `workspace` or `directory` (including TRASH); not under `normal`, `file`, or `workspaces`
+- `normal` nodes may be owned by any parent
+- `file` may own `normal` (and refs) for outline content; not owned File/Directory
 - disk placement for special nodes is still determined by nearest owning `directory` ancestor
 
 ## Model Entities

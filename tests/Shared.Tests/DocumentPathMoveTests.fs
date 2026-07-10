@@ -108,8 +108,14 @@ let private graphFileOwnsDirectory () : Graph * NodeId * NodeId * NodeId =
 
     let graph1 =
         graph0.nodes
-        |> Map.add fileId (specialNode fileId File "container.txt" Graph.rootId)
-        |> Map.add dirId (specialNode dirId Directory "inner" fileId)
+        |> Map.add
+            fileId
+            { specialNode fileId File "container.txt" Graph.rootId with
+                children = owned [ dirId ] }
+        |> Map.add
+            dirId
+            { specialNode dirId Directory "inner" fileId with
+                children = owned [ normalId ] }
         |> Map.add normalId (normalNode normalId "nested" dirId)
         |> fun nodes -> Graph.fromNodes graph0.root nodes
 
@@ -118,15 +124,7 @@ let private graphFileOwnsDirectory () : Graph * NodeId * NodeId * NodeId =
         Graph.replace Graph.rootId idx [] (owned [ fileId ]) graph1
         |> requireOk "root->file"
 
-    let graph3 =
-        Graph.replace fileId 0 [] (owned [ dirId ]) graph2
-        |> requireOk "file->dir"
-
-    let graph4 =
-        Graph.replace dirId 0 [] (owned [ normalId ]) graph3
-        |> requireOk "dir->normal"
-
-    graph4, fileId, dirId, normalId
+    graph2, fileId, dirId, normalId
 
 [<Fact>]
 let ``planPathMoveForSetName returns new path for workspace rename`` () =
