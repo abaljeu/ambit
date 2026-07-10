@@ -201,7 +201,13 @@ module DocumentPersistence =
                     | Ok dirFull ->
                         try
                             Directory.CreateDirectory dirFull |> ignore
-                            Ok ()
+                            match Map.tryFind documentRootId graph.nodes with
+                            | Some node ->
+                                match node.kind with
+                                | Special Workspace ->
+                                    WorkspaceGit.ensureInit dirFull
+                                | _ -> Ok ()
+                            | None -> Ok ()
                         with ex ->
                             Error ex.Message
 

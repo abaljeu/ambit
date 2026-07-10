@@ -36,6 +36,10 @@ This doc records decisions that upcoming persistence and workspace work should r
 | Dirty push policy | **reject-dirty** — reject push when server working tree is dirty; do **not** JIT-commit on push. JIT commit is only before fetch/pull. Locked G0 ([[workspace-scale-import-slice2-plan]]). |
 | Push (client → server) | **Reject unless server working tree is clean**; accept only **fast-forward** (`receive.denyNonFastForwards`). |
 | Desktop transport | Prefer stock **`git pull` / `git push ambit`** against a real remote URL — not a bespoke pack POST API. |
+| Git substrate | **Option A locked:** all git I/O (init, porcelain, JIT commit, gateway upload/receive) via **subprocess to stock `git`**, not LibGit2Sharp or a custom pack implementation. |
+| Module shape | New `WorkspaceGit` (per `DataDir/{label}/`) reuses [[src/Server/GitSave.fs]] subprocess patterns; **no new `DataDir/.git`**; legacy `GitSave` stays ops-only until retired. |
+| Gateway | Thin ASP.NET routes that authenticate, flush persistence, optionally JIT-commit, then **delegate wire protocol to `git`** (`http-backend` or pack helpers) — not a REST-shaped git API. |
+| Desktop + Shared | Desktop shells stock `git`; Shared holds only pure helpers (status parse, URL shape) — **no git subprocess in Shared**. |
 | Module boundary | `DocumentPersistence` writes files; git gateway runs git. **Only coupling:** server JIT commit before serving fetch, and clean-tree check before receive. |
 | Path moves | Filesystem moves under `{label}/` should be real renames where possible so git history stays coherent ([[doc/roadmap/workspace-file-persistence.md]] move handler). |
 

@@ -23,7 +23,7 @@ One workspace folder per name under DataDir; ownership and on-disk layout.
 ## Git
 Each workspace directory is its own git repository (server and mapped local roots). Protocol and locked decisions: [[git-sync-gateway]]. Ordered slices: [[workspace-scale-import-slice2-plan]]. Desktop remote name is **`ambit`**.
 
-- [ ] Init empty repo in a new server directory
+- [x] Init empty repo in a new server directory
 - [x] Commit all files to repo on server
 - [ ] Add smart HTTPS git endpoints so the server can accept push/pull for each workspace repo
 - [ ] Push endpoint has special semantics: reject if sender is not current (non-FF); **reject-dirty** if server working tree is uncommitted (no JIT commit on push — JIT only before pull). Locked in [[git-sync-gateway]].

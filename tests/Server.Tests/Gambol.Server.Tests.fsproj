@@ -18,6 +18,7 @@
     <Compile Include="DocumentPathMoveExecutionTests.fs" />
     <Compile Include="DocumentLoaderTests.fs" />
     <Compile Include="GitSaveTests.fs" />
+    <Compile Include="WorkspaceGitTests.fs" />
     <Compile Include="GitSaveEndpointTests.fs" />
     <Compile Include="DbAgentTests.fs" />
     <Compile Include="StateEndpointTests.fs" />

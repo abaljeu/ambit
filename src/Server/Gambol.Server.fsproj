@@ -19,13 +19,14 @@
     <Compile Include="DataDir.fs" />
     <Compile Include="Types.fs" />
     <Compile Include="ChangeLog.fs" />
+    <Compile Include="GitSave.fs" />
+    <Compile Include="WorkspaceGit.fs" />
     <Compile Include="DocumentPersistence.fs" />
     <Compile Include="DocumentLoader.fs" />
     <Compile Include="FileAgent.fs" />
     <Compile Include="Database.fs" />
     <Compile Include="DbAgent.fs" />
     <Compile Include="DatabaseSetup.fs" />
-    <Compile Include="GitSave.fs" />
     <Compile Include="SavePrep.fs" />
     <Compile Include="Api.fs" />
     <Compile Include="HeadPresence.fs" />

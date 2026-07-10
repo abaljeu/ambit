@@ -136,3 +136,94 @@ let ``planOutdentSelection uses visible ref parent instance`` () =
     Assert.Equal(2, plan.target.endd)
     Assert.Equal(sharedId, plan.model.selectedNodes.Value.range.parent.nodeId)
     Assert.Equal(ReconcileCurrentZoom, plan.afterMove)
+
+let private addSpecialNode id kind name (graph: Graph) =
+    let node =
+        Node.Create(
+            id,
+            text = name,
+            name = Filename.create name,
+            kind = Special kind)
+
+    graph.nodes
+    |> Map.add id node
+    |> fun nodes -> Graph.fromNodes graph.root nodes
+
+/// Normal sibling then owned Directory under ROOT — Tab would indent the
+/// directory under the normal node (illegal Owner placement).
+let private folderBesideNormalGraph () =
+    let graph0 = Graph.create ()
+    let graph1, ids = ModelBuilder.createNodes [ "note" ] graph0
+    let normalId = ids.[0]
+    let dirId = NodeId.New()
+    let graph2 = addSpecialNode dirId Directory "folder" graph1
+    let idx = Graph.fileTreeInsertIndex graph2 Graph.rootId
+    let graph =
+        Graph.replace Graph.rootId idx [] (owned [ normalId; dirId ]) graph2
+        |> ModelBuilder.requireOk "root children"
+    graph, normalId, dirId
+
+[<Fact>]
+let ``completeIndent rejected keeps selection and sets invalid target message`` () =
+    let graph, _normalId, dirId = folderBesideNormalGraph ()
+    let model = emptyModelAt graph Graph.rootId
+    let rootEntry = model.siteMap.entries.[model.siteMap.rootId]
+    let dirIdx =
+        rootEntry.children
+        |> List.findIndex (fun sid -> model.siteMap.entries.[sid].nodeId = dirId)
+    let original =
+        { model with
+            selectedNodes =
+                Some
+                    { range =
+                        { parent = rootEntry
+                          start = dirIdx
+                          endd = dirIdx + 1 }
+                      focus = dirIdx } }
+    let plan = planIndentSelection original |> Option.get
+    let result = completeIndent original plan None
+
+    Assert.Equal(original.selectedNodes, result.selectedNodes)
+    Assert.Equal(original.siteMap.rootId, result.siteMap.rootId)
+    Assert.Equal(original.nextSiteId, result.nextSiteId)
+    Assert.Equal(dirId, focusedNodeId result.graph result.selectedNodes.Value)
+    Assert.Equal(
+        Some(CmdLastResult.Error invalidMoveTargetMessage),
+        result.lastCmdResult)
+    Assert.Equal("target is not a valid location", invalidMoveTargetMessage)
+
+[<Fact>]
+let ``indent under normal sibling is rejected by History.applyChange`` () =
+    let graph, normalId, dirId = folderBesideNormalGraph ()
+    let model = emptyModelAt graph Graph.rootId
+    let rootEntry = model.siteMap.entries.[model.siteMap.rootId]
+    let dirIdx =
+        rootEntry.children
+        |> List.findIndex (fun sid -> model.siteMap.entries.[sid].nodeId = dirId)
+    let selected =
+        { model with
+            selectedNodes =
+                Some
+                    { range =
+                        { parent = rootEntry
+                          start = dirIdx
+                          endd = dirIdx + 1 }
+                      focus = dirIdx } }
+    let plan = planIndentSelection selected |> Option.get
+    Assert.Equal(normalId, plan.target.pnode)
+    let dirChild = graph.nodes.[Graph.rootId].children.[dirIdx]
+    let ops =
+        [ Op.Replace(Graph.rootId, dirIdx, [ dirChild ], [])
+          Op.Replace(normalId, plan.target.endd, [], [ dirChild ]) ]
+    let change =
+        { id = selected.revision.Value
+          changeId = System.Guid.NewGuid()
+          ops = ops }
+    let state =
+        { graph = graph
+          history = History.empty
+          revision = selected.revision }
+    match History.applyChange change state with
+    | ApplyResult.Invalid(_, msg) ->
+        Assert.Contains("File and Directory", msg)
+    | _ -> Assert.True(false, "expected Invalid for indent under normal")

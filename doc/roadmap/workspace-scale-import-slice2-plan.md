@@ -1,7 +1,7 @@
 # Workspace Git sync — implementation plan (Slice 2)
 
 Category: Sync
-Status: In progress (G0 done)
+Status: In progress (G0 done; substrate Option A locked; G1 done)
 See also: [[workspaces-checklist]], [[git-sync-gateway]], [[workspace-scale-import]], [[doc/current/workspace-local-mapping]], [[doc/current/desktop-local-files]], [[doc/current/workspace-stage-plan]], [[doc/current/sync-mvp]], [[future-merge-sync]], [[workspace-name-verbatim]]
 
 Concrete rollout for the **Git** section of [[workspaces-checklist]]. Protocol and locked product decisions live in [[git-sync-gateway]]; this doc owns **ordered shippable slices**, checklist mapping, and sequencing. Do not treat history plans under [[doc/history/workspaces/plans]] as current truth.
@@ -70,7 +70,7 @@ commands                git clone/pull/push/status   Git HTTPS gateway (http-bac
 ## Blockers needing user decision
 
 1. **Push when server working tree is dirty (FF-eligible client)** — **Locked (G0): reject-dirty.** Reject push when server working tree is dirty; do **not** JIT-commit on push. JIT commit remains only before fetch/pull. Recorded in [[git-sync-gateway]]. (Checklist previously said JIT-then-accept; that wording is cleared.)
-2. **Legacy `GitSave` (whole-DataDir repo)** — retire, ignore, or keep as optional ops-only tool once per-workspace repos exist? Recommendation: do not init `DataDir/.git` going forward; leave existing capability until per-workspace save/JIT replaces the UX need.
+2. **Legacy `GitSave` (whole-DataDir repo)** — retire, ignore, or keep as optional ops-only tool once per-workspace repos exist? Recommendation: do not init `DataDir/.git` going forward; leave existing capability until per-workspace save/JIT replaces the UX need. (Substrate Option A locked; this is retire-vs-ops-only only.)
 3. **Auth v0** — HTTPS PAT via credential helper vs SSH-first on Azure? Recommendation: HTTPS token first (matches “smart HTTPS” checklist item); SSH as follow-up.
 
 ## Dependencies / sequencing
@@ -93,12 +93,14 @@ commands                git clone/pull/push/status   Git HTTPS gateway (http-bac
 - **Done:** Struck legacy label-prefixed disk paths in gateway + [[workspace-scale-import]] Slice 2 blurb; use `DataDir/{label}/`.
 - **Done:** Remote name **`ambit`** in those docs.
 - **Done:** Checklist Git section links here + gateway; push bullet no longer contradicts reject-dirty.
+- **Done (substrate):** Locked **Option A** — subprocess stock `git` everywhere; `WorkspaceGit` reuses GitSave patterns; gateway delegates wire to `git`; Shared = pure only. Recorded in [[git-sync-gateway]] Locked decisions.
 
-### G1 — Per-workspace `git init`
+### G1 — Per-workspace `git init` ✅
 
-- On new workspace directory creation (or ensure-on-first-write), `git init` in `DataDir/{label}/`; set denyNonFastForwards; skip if `.git` already present.
+- **Done:** `WorkspaceGit.ensureInit` — `git init` in workspace root; set `receive.denyNonFastForwards`; skip if `.git` present.
+- **Done:** Called from `DocumentPersistence.writeDocument` when creating a Workspace document directory.
 - Success: creating workspace `home` yields `DataDir/home/.git`; no requirement that `DataDir/.git` exists.
-- Tests: Server.Tests around init idempotence and path under label (not whole DataDir).
+- Tests: Server.Tests `WorkspaceGitTests` — init idempotence, path under label, denyNonFastForwards, writeDocument wire-up.
 
 ### G2 — Workspace-scoped git helpers
 

@@ -116,7 +116,8 @@ let private restoreInlineMode
 /// Move the selected nodes to after `too`. May remove from old parent and add to new
 /// (two Op.Replace ops), or reorder within the same parent.
 /// Inline edit: `tryTextCommitOps` + move in one change; stay in edit mode with clamped caret.
-let moveNodeFromTo (stayAtSource: bool) (too: NodeRange) (model: VM) : VM * Effect list =
+/// None when inputs are missing or History rejects the change.
+let tryMoveNodeFromTo (stayAtSource: bool) (too: NodeRange) (model: VM) : (VM * Effect list) option =
     let oldMode = trySaveContext model.mode
     let live = readEditInputValue ()
     let caret = readEditInputCursor ()
@@ -127,12 +128,12 @@ let moveNodeFromTo (stayAtSource: bool) (too: NodeRange) (model: VM) : VM * Effe
             tryTextCommitOps editingId ctx.originalText live model.graph
         | _ -> []
     match tryBuildMoveInputs too model with
-    | None -> model, []
+    | None -> None
     | Some (sel, from, selectedChildren, count, sameParent, insertIdx) ->
         let replaceOps = replaceOpsForMove too from selectedChildren sameParent insertIdx
         let ops = textOps @ replaceOps
         match tryApplyOps ops model with
-        | None -> model, []
+        | None -> None
         | Some (movedModel, effects) ->
             let newParent =
                 if sameParent then from.parent else
@@ -151,10 +152,17 @@ let moveNodeFromTo (stayAtSource: bool) (too: NodeRange) (model: VM) : VM * Effe
                     count
                     (sel.focus - from.start)
             let movedModel = { movedModel with selectedNodes = newSelOpt }
-            match newSelOpt, oldMode with
-            | Some newSel, _ -> restoreInlineMode oldMode caret newSel movedModel, effects
-            | None, Some _ -> { movedModel with mode = Selecting }, effects
-            | None, None -> movedModel, effects
+            let finalModel =
+                match newSelOpt, oldMode with
+                | Some newSel, _ -> restoreInlineMode oldMode caret newSel movedModel
+                | None, Some _ -> { movedModel with mode = Selecting }
+                | None, None -> movedModel
+            Some (finalModel, effects)
+
+let moveNodeFromTo (stayAtSource: bool) (too: NodeRange) (model: VM) : VM * Effect list =
+    match tryMoveNodeFromTo stayAtSource too model with
+    | Some result -> result
+    | None -> model, []
 
 /// Alt+Up/Down: swap the selected range with the adjacent sibling. Delegates to moveNodeFromTo.
 let private moveIntoOpenParentSibling (delta: int) (range: SiteNodeRange) (model: VM) =
@@ -223,24 +231,15 @@ let moveNodeDelta (delta: int) (model: VM) : VM * Effect list =
 
 /// Tab: make selected nodes children of the sibling immediately before them.
 /// No-op if the selection starts at index 0 (no previous sibling).
+/// Rejected apply: original selection/focus unchanged + invalid-target lastCmdResult.
 let indentSelection (model: VM) : VM * Effect list =
     match planIndentSelection model with
     | None -> model, []
     | Some plan ->
-        let result, effects = moveNodeFromTo false plan.target plan.model
-        let result = withSiteMap result
-        let result =
-            match Map.tryFind plan.parentInstanceId result.siteMap.entries with
-            | Some entry when not entry.expanded ->
-                let sm, nid =
-                    ViewModel.expandEntry entry.instanceId result.graph result.siteMap result.nextSiteId
-
-                { result with siteMap = sm; nextSiteId = nid }
-            | _ -> result
-
-        match selectionAfterIndent plan result.siteMap with
-        | Some sel -> { result with selectedNodes = Some sel }, effects
-        | None -> result, effects
+        match tryMoveNodeFromTo false plan.target plan.model with
+        | None -> completeIndent model plan None, []
+        | Some (result, effects) ->
+            completeIndent model plan (Some (withSiteMap result)), effects
 
 /// Shift+Tab: make selected nodes siblings of their current parent (under grandparent).
 /// When the parent is the siteMap root, the move still succeeds and the siteMap root is
@@ -249,26 +248,27 @@ let outdentSelection (model: VM) : VM * Effect list =
     match planOutdentSelection model with
     | None -> model, []
     | Some plan ->
-        let result, effects = moveNodeFromTo false plan.target plan.model
+        match tryMoveNodeFromTo false plan.target plan.model with
+        | None -> withInvalidMoveTarget model, []
+        | Some (result, effects) ->
+            match plan.afterMove with
+            | ReconcileCurrentZoom -> withSiteMap result, effects
+            | ZoomOutToGrandparent (grandparentId, parentIdx, count, focusOffset) ->
+                let siteMap, nextId =
+                    ViewModel.buildSiteMapFrom result.graph grandparentId result.nextSiteId
 
-        match plan.afterMove with
-        | ReconcileCurrentZoom -> withSiteMap result, effects
-        | ZoomOutToGrandparent (grandparentId, parentIdx, count, focusOffset) ->
-            let siteMap, nextId =
-                ViewModel.buildSiteMapFrom result.graph grandparentId result.nextSiteId
+                let grandparentEntry = siteMap.entries.[siteMap.rootId]
+                let insertIdx = parentIdx + 1
+                let newSel =
+                    { range =
+                        { parent = grandparentEntry
+                          start = insertIdx
+                          endd = insertIdx + count }
+                      focus = insertIdx + focusOffset }
 
-            let grandparentEntry = siteMap.entries.[siteMap.rootId]
-            let insertIdx = parentIdx + 1
-            let newSel =
-                { range =
-                    { parent = grandparentEntry
-                      start = insertIdx
-                      endd = insertIdx + count }
-                  focus = insertIdx + focusOffset }
-
-            { result with
-                zoomRoot = grandparentId
-                siteMap = siteMap
-                nextSiteId = nextId
-                selectedNodes = Some newSel }, effects
+                { result with
+                    zoomRoot = grandparentId
+                    siteMap = siteMap
+                    nextSiteId = nextId
+                    selectedNodes = Some newSel }, effects
 
