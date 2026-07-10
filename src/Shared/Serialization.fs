@@ -115,19 +115,26 @@ module Serialization =
             let kind =
                 get.Optional.Field "kind" decodeNodeKind
                 |> Option.defaultValue Normal
-            { id = get.Required.Field "id" decodeNodeId
-              text = get.Required.Field "text" Decode.string
-              name = get.Optional.Field "name" Decode.string
-                       |> Option.map Filename.create
-                       |> Option.defaultValue Filename.Empty
-              children = get.Required.Field "children" (Decode.list decodeChildNode)
-              cssClasses = get.Optional.Field "cssClasses" (Decode.list Decode.string) |> Option.defaultValue [] |> CssClass.ofList
-              owner = Graph.rootId
-              kind = kind
-              updateTime =
-                  get.Optional.Field "updateTime" Decode.int64
-                  |> Option.map (fun ticks -> DateTime(ticks, DateTimeKind.Utc))
-                  |> Option.defaultValue NodeUpdateTime.missing })
+            let name =
+                get.Optional.Field "name" Decode.string
+                |> Option.map Filename.create
+                |> Option.defaultValue Filename.Empty
+            let cssClasses =
+                get.Optional.Field "cssClasses" (Decode.list Decode.string)
+                |> Option.defaultValue []
+                |> CssClass.ofList
+            let updateTime =
+                get.Optional.Field "updateTime" Decode.int64
+                |> Option.map (fun ticks -> DateTime(ticks, DateTimeKind.Utc))
+                |> Option.defaultValue NodeUpdateTime.missing
+            Node.Create(
+                get.Required.Field "id" decodeNodeId,
+                text = get.Required.Field "text" Decode.string,
+                name = name,
+                children = get.Required.Field "children" (Decode.list decodeChildNode),
+                cssClasses = cssClasses,
+                kind = kind,
+                updateTime = updateTime))
 
     // ---- Graph ----
 

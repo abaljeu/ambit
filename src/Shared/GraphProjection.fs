@@ -98,18 +98,18 @@ module GraphProjection =
                     | Ok k -> k
                     | Error _ -> Normal
 
+                let name =
+                    r.name
+                    |> Option.map Filename.create
+                    |> Option.defaultValue Filename.Empty
                 nid,
-                { id = nid
-                  text = r.text
-                  name =
-                      r.name
-                      |> Option.map Filename.create
-                      |> Option.defaultValue Filename.Empty
-                  children = []
-                  cssClasses = CssClass.ofList r.cssClassNames
-                  owner = Graph.rootId
-                  kind = NodeKindPersistence.legacyKindForCanonical nid parsedKind
-                  updateTime = r.updateTime })
+                Node.Create(
+                    nid,
+                    text = r.text,
+                    name = name,
+                    cssClasses = CssClass.ofList r.cssClassNames,
+                    kind = NodeKindPersistence.legacyKindForCanonical nid parsedKind,
+                    updateTime = r.updateTime))
             |> Map.ofList
 
         let badRef (g: ChildPersistenceRow) =

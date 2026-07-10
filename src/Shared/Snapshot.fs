@@ -173,22 +173,16 @@ module Snapshot =
                 Filename.Ok "TRASH"
             else
                 Filename.Empty
-        { id = id
-          text = nodeText
-          name = name
-          children = []
-          cssClasses = classes
-          owner = Graph.rootId
-          kind =
-              if id = Graph.rootId then
-                  Special Workspace
-              elif id = Graph.workspacesId then
-                  Special Workspaces
-              elif id = Graph.trashId then
-                  Special Directory
-              else
-                  Normal
-          updateTime = NodeUpdateTime.missing }
+        let kind =
+            if id = Graph.rootId then
+                Special Workspace
+            elif id = Graph.workspacesId then
+                Special Workspaces
+            elif id = Graph.trashId then
+                Special Directory
+            else
+                Normal
+        Node.Create(id, text = nodeText, name = name, cssClasses = classes, kind = kind)
 
     let private outlineStubNode (id: NodeId) : Node =
         outlineTextNode id "" CssClass.empty

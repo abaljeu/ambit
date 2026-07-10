@@ -130,24 +130,15 @@ let private directoryPackage (text: string) =
     |> fun p -> { p with isDirectory = true }
 
 let private normalNode (id: NodeId) text children =
-    { id = id
-      text = text
-      name = Filename.Empty
-      children = children
-      cssClasses = CssClass.empty
-      owner = Graph.rootId
-      kind = Normal
-      updateTime = NodeUpdateTime.missing }
+    Node.Create(id, text = text, children = children)
 
 let private specialFileNode (id: NodeId) (name: string) (owner: NodeId) =
-    { id = id
-      text = name
-      name = Filename.Ok name
-      children = []
-      cssClasses = CssClass.empty
-      owner = owner
-      kind = Special File
-      updateTime = NodeUpdateTime.missing }
+    Node.Create(
+        id,
+        text = name,
+        name = Filename.Ok name,
+        owner = owner,
+        kind = Special File)
 
 let private graphWithFocus (focusId: NodeId) (focusChildren: ChildNode list) (extraNodes: Node list) =
     let graph0 = Graph.create ()

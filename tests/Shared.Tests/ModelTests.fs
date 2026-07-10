@@ -256,19 +256,25 @@ let ``Graph replace parent missing error ends with last 8 hex of parent id`` () 
 // replace: supports delete (new ids empty) at index
 
 let private specialNode (id: NodeId) (kind: SpecialKind) (text: string) : Node =
-    { id = id
-      text = text
-      name = Filename.Empty
-      children = []
-      cssClasses = CssClass.empty
-      owner = Graph.rootId
-      kind = Special kind
-      updateTime = NodeUpdateTime.missing }
+    Node.Create(id, text = text, kind = Special kind)
 
 let private addSpecialNode (id: NodeId) (kind: SpecialKind) (text: string) (graph: Graph) : Graph =
     graph.nodes
     |> Map.add id (specialNode id kind text)
     |> fun nodes -> Graph.fromNodes graph.root nodes
+
+[<Fact>]
+let ``Node.Create applies defaults for omitted fields`` () =
+    let id = NodeId.New()
+    let node = Node.Create(id, text = "hello")
+    Assert.Equal(id, node.id)
+    Assert.Equal("hello", node.text)
+    Assert.Equal(Filename.Empty, node.name)
+    Assert.Equal<ChildNode list>([], node.children)
+    Assert.Equal(CssClass.empty, node.cssClasses)
+    Assert.Equal(Graph.rootId, node.owner)
+    Assert.Equal(Normal, node.kind)
+    Assert.Equal(NodeUpdateTime.missing, node.updateTime)
 
 [<Fact>]
 let ``Graph.create bootstraps WORKSPACES under root with special kind`` () =

@@ -27,30 +27,21 @@ let ``Revision round-trip`` () =
 [<Fact>]
 let ``Node round-trip with Ok name`` () =
     let node =
-        { id = NodeId.New()
-          text = "hello world"
-          name = Filename.create "myname"
-          children =
-            [ ChildNode.New()
-              ChildNode.New()]
-          cssClasses = CssClass.empty
-          owner = Graph.rootId
-          kind = Normal
-          updateTime = System.DateTime(2024, 6, 1, 12, 0, 0, System.DateTimeKind.Utc) }
+        Node.Create(
+            NodeId.New(),
+            text = "hello world",
+            name = Filename.create "myname",
+            children =
+              [ ChildNode.New()
+                ChildNode.New()],
+            updateTime = System.DateTime(2024, 6, 1, 12, 0, 0, System.DateTimeKind.Utc))
     let decoded = roundTrip Serialization.encodeNode Serialization.decodeNode node
     Assert.Equal(node, decoded)
 
 [<Fact>]
 let ``Node round-trip with Empty name`` () =
     let node =
-        { id = NodeId.New()
-          text = "hello"
-          name = Filename.Empty
-          children = []
-          cssClasses = CssClass.empty
-          owner = Graph.rootId
-          kind = Normal
-          updateTime = NodeUpdateTime.missing }
+        Node.Create(NodeId.New(), text = "hello")
     let decoded = roundTrip Serialization.encodeNode Serialization.decodeNode node
     Assert.Equal(node, decoded)
 

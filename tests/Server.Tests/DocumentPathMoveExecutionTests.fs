@@ -15,24 +15,15 @@ let private owned (ids: NodeId list) : ChildNode list =
     ids |> List.map (fun id -> { ref = Ownership.Owner; id = id })
 
 let private specialNode (id: NodeId) (kind: SpecialKind) (name: string) (owner: NodeId) : Node =
-    { id = id
-      text = name
-      name = Filename.create name
-      children = []
-      cssClasses = CssClass.empty
-      owner = owner
-      kind = Special kind
-      updateTime = NodeUpdateTime.missing }
+    Node.Create(
+        id,
+        text = name,
+        name = Filename.create name,
+        owner = owner,
+        kind = Special kind)
 
 let private normalNode (id: NodeId) (text: string) (owner: NodeId) : Node =
-    { id = id
-      text = text
-      name = Filename.Empty
-      children = []
-      cssClasses = CssClass.empty
-      owner = owner
-      kind = Normal
-      updateTime = NodeUpdateTime.missing }
+    Node.Create(id, text = text, owner = owner)
 
 let private graphWithNestedDocs () : Graph * NodeId * NodeId * NodeId * NodeId =
     let graph0 = Graph.create ()

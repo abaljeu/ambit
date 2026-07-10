@@ -212,14 +212,11 @@ module PlainTextDocument =
             | Some node, _ -> node
             | None, Some node -> node
             | None, None ->
-                { id = nodeId
-                  text = text
-                  name = Filename.Empty
-                  children = []
-                  cssClasses = CssClass.empty
-                  owner = parentId
-                  kind = Normal
-                  updateTime = NodeUpdateTime.now () }
+                Node.Create(
+                    nodeId,
+                    text = text,
+                    owner = parentId,
+                    updateTime = NodeUpdateTime.now ())
 
         let merged = NodeUpdateTime.touch { baseNode with text = text; owner = parentId }
         Map.add nodeId merged nodes

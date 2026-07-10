@@ -212,14 +212,7 @@ module AmbDocument =
         match Map.tryFind nodeId contextGraph.nodes with
         | Some node -> { node with children = [] }
         | None ->
-            { id = nodeId
-              text = ""
-              name = Filename.Empty
-              children = []
-              cssClasses = CssClass.empty
-              owner = Graph.rootId
-              kind = Normal
-              updateTime = NodeUpdateTime.missing }
+            Node.Create(nodeId)
 
     let private ensureNode
         (nodeId: NodeId)
@@ -273,14 +266,12 @@ module AmbDocument =
                 | Some node, _ -> node
                 | None, Some node -> node
                 | None, None ->
-                    { id = nodeId
-                      text = nodeText
-                      name = name
-                      children = []
-                      cssClasses = classes
-                      owner = Graph.rootId
-                      kind = Normal
-                      updateTime = NodeUpdateTime.now () }
+                    Node.Create(
+                        nodeId,
+                        text = nodeText,
+                        name = name,
+                        cssClasses = classes,
+                        updateTime = NodeUpdateTime.now ())
 
             let merged =
                 NodeUpdateTime.touch
@@ -349,14 +340,12 @@ module AmbDocument =
                 | Some node, _ -> node
                 | None, Some node -> node
                 | None, None ->
-                    { id = nodeId
-                      text = nodeText
-                      name = Filename.Empty
-                      children = []
-                      cssClasses = classes
-                      owner = parentId
-                      kind = Normal
-                      updateTime = NodeUpdateTime.now () }
+                    Node.Create(
+                        nodeId,
+                        text = nodeText,
+                        cssClasses = classes,
+                        owner = parentId,
+                        updateTime = NodeUpdateTime.now ())
 
             let merged =
                 NodeUpdateTime.touch { baseNode with text = nodeText; cssClasses = classes }
@@ -365,14 +354,12 @@ module AmbDocument =
         | None ->
             let nodeId = NodeId.New()
             let node =
-                { id = nodeId
-                  text = nodeText
-                  name = Filename.Empty
-                  children = []
-                  cssClasses = classes
-                  owner = parentId
-                  kind = Normal
-                  updateTime = NodeUpdateTime.now () }
+                Node.Create(
+                    nodeId,
+                    text = nodeText,
+                    cssClasses = classes,
+                    owner = parentId,
+                    updateTime = NodeUpdateTime.now ())
 
             nodeId, Map.add nodeId node nodes, claimed
 

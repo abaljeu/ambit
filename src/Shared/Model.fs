@@ -89,6 +89,30 @@ module NodeUpdateTime =
     let touch (node: Node) : Node = { node with updateTime = now () }
 
 
+type Node with
+    /// Build a node; omit fields to use defaults (empty text/name/children/classes,
+    /// owner = root Guid.Empty, kind = Normal, updateTime = missing).
+    static member Create
+        (
+            id: NodeId,
+            ?text: string,
+            ?name: Filename,
+            ?children: ChildNode list,
+            ?cssClasses: CssClasses,
+            ?owner: NodeId,
+            ?kind: NodeKind,
+            ?updateTime: DateTime
+        ) : Node =
+        { id = id
+          text = defaultArg text ""
+          name = defaultArg name Filename.Empty
+          children = defaultArg children []
+          cssClasses = defaultArg cssClasses CssClass.empty
+          owner = defaultArg owner (NodeId Guid.Empty)
+          kind = defaultArg kind Normal
+          updateTime = defaultArg updateTime NodeUpdateTime.missing }
+
+
 // Span of child indices [start, endd) under graph node `pnode` (parent NodeId).
 type NodeRange =
     { pnode: NodeId
@@ -124,14 +148,7 @@ module Graph =
 
     /// Initial root node: fixed label, no user-editable fields on root.
     let rootPlaceholder: Node =
-        { id = rootId
-          text = "ROOT"
-          name = Filename.Empty
-          children = []
-          cssClasses = CssClass.empty
-          owner = rootId
-          kind = Special Workspace
-          updateTime = NodeUpdateTime.missing }
+        Node.Create(rootId, text = "ROOT", kind = Special Workspace)
 
     let private addStructuralEdges (parentId: NodeId) (parent: Node) acc =
         parent.children
@@ -165,14 +182,11 @@ module Graph =
             else
                 let rootNode = nodes.[rootId]
                 let trashNode: Node =
-                    { id = trashId
-                      text = "Trash"
-                      name = Filename.Ok "TRASH"
-                      children = []
-                      cssClasses = CssClass.empty
-                      owner = rootId
-                      kind = Special Directory
-                      updateTime = NodeUpdateTime.missing }
+                    Node.Create(
+                        trashId,
+                        text = "Trash",
+                        name = Filename.Ok "TRASH",
+                        kind = Special Directory)
 
                 let trashChild: ChildNode =
                     { ref = Ownership.Owner
@@ -227,14 +241,10 @@ module Graph =
                 let rootNode = nodes.[rootId]
 
                 let workspacesNode: Node =
-                    { id = workspacesId
-                      text = "Workspaces"
-                      name = Filename.Empty
-                      children = []
-                      cssClasses = CssClass.empty
-                      owner = rootId
-                      kind = Special Workspaces
-                      updateTime = NodeUpdateTime.missing }
+                    Node.Create(
+                        workspacesId,
+                        text = "Workspaces",
+                        kind = Special Workspaces)
 
                 let workspacesChild: ChildNode =
                     { ref = Ownership.Owner
@@ -320,15 +330,8 @@ module Graph =
 
     let newNode (text: string) (graph: Graph) : Graph * NodeId =
         let nodeId = NodeId.New()
-        let node: Node =
-            { id = nodeId
-              text = text
-              name = Filename.Empty
-              children = []
-              cssClasses = CssClass.empty
-              owner = rootId
-              kind = Normal
-              updateTime = NodeUpdateTime.now () }
+        let node =
+            Node.Create(nodeId, text = text, updateTime = NodeUpdateTime.now ())
         let nodes = graph.nodes |> Map.add nodeId node
         { graph with nodes = nodes }, nodeId
 

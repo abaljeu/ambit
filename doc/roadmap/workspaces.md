@@ -15,6 +15,7 @@ Current documents remain authoritative for implemented behavior. This index orga
 
 ## Active roadmaps
 
+- [[doc/roadmap/workspaces-checklist]] — living implementation checklist (outline of program parts)
 - [[doc/roadmap/workspace-name-verbatim]] — drop `@` disk marker; `//name` references (no `@name:`)
 - [[doc/roadmap/workspace-name-immutable]] — rename refuses for workspace nodes
 - [[doc/roadmap/workspace-file-model]]

@@ -108,14 +108,12 @@ let private withNodeUpdateTime (model: VM) (nodeId: NodeId) (time: DateTime) : V
                 nodes = model.graph.nodes |> Map.add nodeId { node with updateTime = time } } }
 
 let private specialNode (id: NodeId) (kind: SpecialKind) (name: string) (owner: NodeId) : Node =
-    { id = id
-      text = name
-      name = Filename.create name
-      children = []
-      cssClasses = CssClass.empty
-      owner = owner
-      kind = Special kind
-      updateTime = NodeUpdateTime.missing }
+    Node.Create(
+        id,
+        text = name,
+        name = Filename.create name,
+        owner = owner,
+        kind = Special kind)
 
 let private graphWithWorkspaceTree () : Graph * NodeId * NodeId * NodeId =
     let graph0 = Graph.create ()
@@ -198,14 +196,12 @@ let ``refreshDesktopFileIndicator requests status for Special Workspace path`` (
     let graph0 = Graph.create ()
     let wsId = NodeId.New()
     let wsNode =
-        { id = wsId
-          text = "home"
-          name = Filename.Ok "home"
-          children = []
-          cssClasses = CssClass.empty
-          owner = Graph.workspacesId
-          kind = Special Workspace
-          updateTime = NodeUpdateTime.missing }
+        Node.Create(
+            wsId,
+            text = "home",
+            name = Filename.Ok "home",
+            owner = Graph.workspacesId,
+            kind = Special Workspace)
 
     let graph1 =
         graph0.nodes
@@ -1615,27 +1611,22 @@ let ``SiteMap getVisibleRowIds shows children of expanded node`` () =
 [<Fact>]
 let ``outlineDisplayText uses text for owned special directory when available`` () =
     let node =
-        { id = NodeId.New()
-          text = "folder"
-          name = Filename.Ok "my-docs"
-          children = []
-          cssClasses = CssClass.empty
-          owner = Graph.rootId
-          kind = Special Directory
-          updateTime = NodeUpdateTime.now () }
+        Node.Create(
+            NodeId.New(),
+            text = "folder",
+            name = Filename.Ok "my-docs",
+            kind = Special Directory,
+            updateTime = NodeUpdateTime.now ())
     Assert.Equal("folder", outlineDisplayText node)
 
 [<Fact>]
 let ``outlineDisplayText falls back to name for owned special directory when text empty`` () =
     let node =
-        { id = NodeId.New()
-          text = ""
-          name = Filename.Ok "my-docs"
-          children = []
-          cssClasses = CssClass.empty
-          owner = Graph.rootId
-          kind = Special Directory
-          updateTime = NodeUpdateTime.now () }
+        Node.Create(
+            NodeId.New(),
+            name = Filename.Ok "my-docs",
+            kind = Special Directory,
+            updateTime = NodeUpdateTime.now ())
     Assert.Equal("my-docs", outlineDisplayText node)
 
 [<Fact>]

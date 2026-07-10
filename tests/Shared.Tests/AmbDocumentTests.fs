@@ -11,14 +11,12 @@ let private graphWithDocument (childNodes: Node list) : Graph * NodeId =
     let graph0 = Graph.create ()
     let docId = NodeId.New()
     let docNode =
-        { id = docId
-          text = "doc"
-          name = Filename.Ok "notes"
-          children = []
-          cssClasses = CssClass.empty
-          owner = graph0.root
-          kind = Special File
-          updateTime = NodeUpdateTime.missing }
+        Node.Create(
+            docId,
+            text = "doc",
+            name = Filename.Ok "notes",
+            owner = graph0.root,
+            kind = Special File)
     let graph1 =
         graph0.nodes
         |> Map.add docId docNode
@@ -43,14 +41,7 @@ let private childTexts (graph: Graph) (docId: NodeId) : string list =
 let ``write unreferenced node uses plain line without stable id`` () =
     let nodeId = NodeId.New()
     let node =
-        { id = nodeId
-          text = "hello"
-          name = Filename.Empty
-          children = []
-          cssClasses = CssClass.empty
-          owner = Graph.rootId
-          kind = Normal
-          updateTime = NodeUpdateTime.missing }
+        Node.Create(nodeId, text = "hello")
     let graph, docId = graphWithDocument [ node ]
     let text =
         AmbDocument.write graph docId
@@ -65,23 +56,12 @@ let ``write referenced node uses caret stable id on ref line`` () =
     let sharedId = NodeId.New()
     let parentId = NodeId.New()
     let parent =
-        { id = parentId
-          text = "holder"
-          name = Filename.Empty
-          children = [ { ref = Ownership.Ref; id = sharedId } ]
-          cssClasses = CssClass.empty
-          owner = Graph.rootId
-          kind = Normal
-          updateTime = NodeUpdateTime.missing }
+        Node.Create(
+            parentId,
+            text = "holder",
+            children = [ { ref = Ownership.Ref; id = sharedId } ])
     let shared =
-        { id = sharedId
-          text = "hello"
-          name = Filename.Empty
-          children = []
-          cssClasses = CssClass.empty
-          owner = Graph.rootId
-          kind = Normal
-          updateTime = NodeUpdateTime.missing }
+        Node.Create(sharedId, text = "hello")
     let graph, docId = graphWithDocument [ parent; shared ]
     let text =
         AmbDocument.write graph docId
@@ -97,14 +77,7 @@ let ``write referenced node uses caret stable id on ref line`` () =
 let ``write unreferenced named node uses plain body only`` () =
     let nodeId = NodeId.New()
     let node =
-        { id = nodeId
-          text = "body text"
-          name = Filename.Ok "anchor"
-          children = []
-          cssClasses = CssClass.empty
-          owner = Graph.rootId
-          kind = Normal
-          updateTime = NodeUpdateTime.missing }
+        Node.Create(nodeId, text = "body text", name = Filename.Ok "anchor")
     let graph, docId = graphWithDocument [ node ]
     let text =
         AmbDocument.write graph docId
@@ -120,23 +93,12 @@ let ``write referenced named node uses caret stable id and tab before body`` () 
     let sharedId = NodeId.New()
     let parentId = NodeId.New()
     let parent =
-        { id = parentId
-          text = "holder"
-          name = Filename.Empty
-          children = [ { ref = Ownership.Ref; id = sharedId } ]
-          cssClasses = CssClass.empty
-          owner = Graph.rootId
-          kind = Normal
-          updateTime = NodeUpdateTime.missing }
+        Node.Create(
+            parentId,
+            text = "holder",
+            children = [ { ref = Ownership.Ref; id = sharedId } ])
     let shared =
-        { id = sharedId
-          text = "body text"
-          name = Filename.Ok "anchor"
-          children = []
-          cssClasses = CssClass.empty
-          owner = Graph.rootId
-          kind = Normal
-          updateTime = NodeUpdateTime.missing }
+        Node.Create(sharedId, text = "body text", name = Filename.Ok "anchor")
     let graph, docId = graphWithDocument [ parent; shared ]
     let text =
         AmbDocument.write graph docId
@@ -152,23 +114,9 @@ let ``read same-document ref resolves stable id`` () =
     let sharedId = NodeId.New()
     let parentId = NodeId.New()
     let parent =
-        { id = parentId
-          text = "parent"
-          name = Filename.Empty
-          children = []
-          cssClasses = CssClass.empty
-          owner = Graph.rootId
-          kind = Normal
-          updateTime = NodeUpdateTime.missing }
+        Node.Create(parentId, text = "parent")
     let shared =
-        { id = sharedId
-          text = "shared"
-          name = Filename.Empty
-          children = []
-          cssClasses = CssClass.empty
-          owner = Graph.rootId
-          kind = Normal
-          updateTime = NodeUpdateTime.missing }
+        Node.Create(sharedId, text = "shared")
     let graph, docId = graphWithDocument [ parent ]
     let graph =
         graph.nodes |> Map.add sharedId shared |> fun nodes -> { graph with nodes = nodes }
@@ -192,23 +140,9 @@ let ``read cross-document ref resolves against context graph`` () =
     let localId = NodeId.New()
     let externalId = NodeId.New()
     let local =
-        { id = localId
-          text = "local"
-          name = Filename.Empty
-          children = []
-          cssClasses = CssClass.empty
-          owner = Graph.rootId
-          kind = Normal
-          updateTime = NodeUpdateTime.missing }
+        Node.Create(localId, text = "local")
     let external =
-        { id = externalId
-          text = "external"
-          name = Filename.Ok "target"
-          children = []
-          cssClasses = CssClass.empty
-          owner = Graph.rootId
-          kind = Normal
-          updateTime = NodeUpdateTime.missing }
+        Node.Create(externalId, text = "external", name = Filename.Ok "target")
     let graph, docId = graphWithDocument [ local ]
     let graph =
         graph.nodes |> Map.add externalId external |> fun nodes -> { graph with nodes = nodes }
@@ -245,23 +179,9 @@ let ``round-trip preserves stable ids and tree shape`` () =
     let aId = NodeId.New()
     let bId = NodeId.New()
     let a =
-        { id = aId
-          text = "alpha"
-          name = Filename.Empty
-          children = []
-          cssClasses = CssClass.empty
-          owner = Graph.rootId
-          kind = Normal
-          updateTime = NodeUpdateTime.missing }
+        Node.Create(aId, text = "alpha")
     let b =
-        { id = bId
-          text = "beta"
-          name = Filename.Empty
-          children = []
-          cssClasses = CssClass.empty
-          owner = aId
-          kind = Normal
-          updateTime = NodeUpdateTime.missing }
+        Node.Create(bId, text = "beta", owner = aId)
     let graph, docId = graphWithDocument [ { a with children = owned [ bId ] }; b ]
     let written =
         AmbDocument.write graph docId

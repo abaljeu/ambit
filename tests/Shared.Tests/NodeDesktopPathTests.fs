@@ -13,14 +13,12 @@ let private requireOk label r =
     | Error e -> failwith $"{label}: {e}"
 
 let private specialNode (id: NodeId) (kind: SpecialKind) (name: string) (owner: NodeId) : Node =
-    { id = id
-      text = name
-      name = Filename.create name
-      children = []
-      cssClasses = CssClass.empty
-      owner = owner
-      kind = Special kind
-      updateTime = NodeUpdateTime.missing }
+    Node.Create(
+        id,
+        text = name,
+        name = Filename.create name,
+        owner = owner,
+        kind = Special kind)
 
 let private graphWithWorkspaceTree () : Graph * NodeId * NodeId * NodeId =
     let graph0 = Graph.create ()

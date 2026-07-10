@@ -172,14 +172,7 @@ let ``buildPasteOpsFromClipboard single node gets fresh id and same text`` () =
           nodes =
             Map.ofList
                 [ oldId,
-                  { id = oldId
-                    text = "hello"
-                    name = Filename.Empty
-                    children = []
-                    cssClasses = CssClass.empty
-                    owner = Graph.rootId
-                    kind = Normal
-                    updateTime = NodeUpdateTime.missing } ] }
+                  Node.Create(oldId, text = "hello") ] }
     let newTopIds, ops = buildPasteOpsFromClipboard cb
     Assert.Equal(1, newTopIds.Length)
     Assert.NotEqual(oldId, newTopIds.[0])
@@ -196,23 +189,12 @@ let ``buildPasteOpsFromClipboard remaps parent-child relationship`` () =
         { topLevelIds = [aId]
           nodes = Map.ofList
             [ aId,
-              { id = aId
-                text = "a"
-                name = Filename.Empty
-                children = owned [ bId ]
-                cssClasses = CssClass.empty
-                owner = Graph.rootId
-                kind = Normal
-                updateTime = NodeUpdateTime.missing }
+              Node.Create(
+                aId,
+                text = "a",
+                children = owned [ bId ])
               bId,
-              { id = bId
-                text = "b"
-                name = Filename.Empty
-                children = []
-                cssClasses = CssClass.empty
-                owner = Graph.rootId
-                kind = Normal
-                updateTime = NodeUpdateTime.missing } ] }
+              Node.Create(bId, text = "b") ] }
     let newTopIds, ops = buildPasteOpsFromClipboard cb
     let graph = applyOps ops (Graph.create ())
     let newAId = newTopIds.[0]
@@ -233,23 +215,9 @@ let ``buildPasteOpsFromClipboard multiple top-level nodes`` () =
         { topLevelIds = [id1; id2]
           nodes = Map.ofList
             [ id1,
-              { id = id1
-                text = "x"
-                name = Filename.Empty
-                children = []
-                cssClasses = CssClass.empty
-                owner = Graph.rootId
-                kind = Normal
-                updateTime = NodeUpdateTime.missing }
+              Node.Create(id1, text = "x")
               id2,
-              { id = id2
-                text = "y"
-                name = Filename.Empty
-                children = []
-                cssClasses = CssClass.empty
-                owner = Graph.rootId
-                kind = Normal
-                updateTime = NodeUpdateTime.missing } ] }
+              Node.Create(id2, text = "y") ] }
     let newTopIds, ops = buildPasteOpsFromClipboard cb
     Assert.Equal(2, newTopIds.Length)
     Assert.NotEqual(id1, newTopIds.[0])
@@ -266,14 +234,7 @@ let ``buildPasteOpsFromClipboard all old ids absent from new graph keys`` () =
           nodes =
             Map.ofList
                 [ oldId,
-                  { id = oldId
-                    text = "z"
-                    name = Filename.Empty
-                    children = []
-                    cssClasses = CssClass.empty
-                    owner = Graph.rootId
-                    kind = Normal
-                    updateTime = NodeUpdateTime.missing } ] }
+                  Node.Create(oldId, text = "z") ] }
     let _, ops = buildPasteOpsFromClipboard cb
     let graph = applyOps ops (Graph.create ())
     Assert.False(graph.nodes.ContainsKey oldId)
