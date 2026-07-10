@@ -49,7 +49,7 @@ Replaces the reconciliation-heavy draft. Aligns with the locked doc [workspace-s
 - **"Nearest valid owner" never fails.** ROOT is always a `Special Workspace` ancestor, so the walk-up in the create flow always terminates at a valid owner — no error path needed.
 - **File state is one typed value** (`FileState`), not four loose fields; no hash/size/format-hint in Slice 1.
 - **No "conflict reporting" dead-end in sync.** Disk is authoritative; a same-name/different-kind collision auto-resolves (rename the graph node that has no disk backing, create the disk stub). This removes the need for a conflict-resolution UI.
-- **General-purpose status reporter added** (repurposes the unused `#key-last-key` element) so sync results, placement rejections, and stale notices have somewhere to surface.
+- **General-purpose status reporter added** (repurposes the unused `#cmd-last-result` element) so sync results, placement rejections, and stale notices have somewhere to surface.
 
 ## The ownership rule (unchanged intent)
 
@@ -57,11 +57,11 @@ Owned `Special File` / `Special Directory` may be owned only by `Special Workspa
 
 ## 0. Status reporter (foundation)
 
-We currently have no result/status reporting surface. Repurpose the unused `#key-last-key` element ([gambol.template.html](src/Server/wwwroot/gambol.template.html) L19, class `.amb-last-result`, today `display:none`) into a general one-line status/result line. Longer detail text is acceptable occasionally.
+We currently have no result/status reporting surface. Repurpose the unused `#cmd-last-result` element ([gambol.template.html](src/Server/wwwroot/gambol.template.html) L19, class `.amb-last-result`, today `display:none`) into a general one-line status/result line. Longer detail text is acceptable occasionally.
 
 - **CSS** ([style.css](src/Server/wwwroot/style.css) L137): make `.amb-last-result` fill the row width (`flex: 1 1 auto`, `display:block`, ellipsis/wrap for overflow) and stay legible; keep it subtle.
-- **Model-driven, MVU convention.** Add a `status` field to the VM (e.g. `status: StatusMessage option` where `StatusMessage = { text: string; kind: Info | Warn | Error }`). Render it in `renderStatus` ([View.fs](src/Client/View.fs) L611), the same place `#sync-status`/`#db-status` and the last-key line are already written from model fields.
-- **Subsumes the last-key diagnostic.** The imperative `setLastKeyDisplay` write (View.fs L711, Controller.fs L73) becomes one low-priority message source routed through `status`; errors/results take precedence.
+- **Model-driven, MVU convention.** Add a `status` field to the VM (e.g. `status: StatusMessage option` where `StatusMessage = { text: string; kind: Info | Warn | Error }`). Render it in `renderStatus` ([View.fs](src/Client/View.fs) L611), the same place `#sync-status`/`#db-status` and the last-result line are already written from model fields.
+- **Subsumes the last-result diagnostic.** The imperative `setLastKeyDisplay` write (View.fs L711, Controller.fs L73) becomes one low-priority message source routed through `status`; errors/results take precedence.
 - **Consumers this slice:** placement rejection from `Graph.replace`, sync summary (created N stubs, resolved M collisions), and stale notice all set `status`.
 
 ## 1. Placement invariant (Shared)

@@ -147,8 +147,8 @@ let ``artifact paths for named workspace blue`` () =
     let graph2 =
         Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) graph1
         |> requireOk "workspaces->blue"
-    Assert.Equal(Some "@blue/", DocumentPartition.artifactDirectoryRelative graph2 wsId)
-    Assert.Equal(Some "@blue/.amb", DocumentPartition.artifactFileRelative graph2 wsId)
+    Assert.Equal(Some "blue/", DocumentPartition.artifactDirectoryRelative graph2 wsId)
+    Assert.Equal(Some "blue/.amb", DocumentPartition.artifactFileRelative graph2 wsId)
 
 [<Fact>]
 let ``artifact paths for TRASH`` () =
@@ -159,14 +159,14 @@ let ``artifact paths for TRASH`` () =
 [<Fact>]
 let ``artifact paths for directory under workspace`` () =
     let graph, _, dirId, _, _ = graphWithNestedDocs ()
-    Assert.Equal(Some "@home/docs/", DocumentPartition.artifactDirectoryRelative graph dirId)
-    Assert.Equal(Some "@home/docs/.amb", DocumentPartition.artifactFileRelative graph dirId)
+    Assert.Equal(Some "home/docs/", DocumentPartition.artifactDirectoryRelative graph dirId)
+    Assert.Equal(Some "home/docs/.amb", DocumentPartition.artifactFileRelative graph dirId)
 
 [<Fact>]
 let ``artifact paths for file under workspace`` () =
     let graph, _, _, fileId, _ = graphWithNestedDocs ()
     Assert.Equal(None, DocumentPartition.artifactDirectoryRelative graph fileId)
-    Assert.Equal(Some "@home/docs/readme.txt", DocumentPartition.artifactFileRelative graph fileId)
+    Assert.Equal(Some "home/docs/readme.txt", DocumentPartition.artifactFileRelative graph fileId)
 
 [<Fact>]
 let ``artifact paths for file under ROOT`` () =

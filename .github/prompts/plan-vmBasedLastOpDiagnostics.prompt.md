@@ -23,7 +23,7 @@ Palette/search run handlers wrap their ops the same way, using `""` or `"Palette
 `setLastKeyDisplay` then becomes:
 ```fsharp
 let setLastKeyDisplay (key: string) (operation: string) : unit =
-    let el = document.getElementById "key-last-key"
+    let el = document.getElementById "cmd-last-result"
     if not (isNull el) then
         el.textContent <- " | Last key: " + key + " → " + operation
 ```
@@ -51,7 +51,7 @@ It is called from render/patch with `model.lastSuccessfulOp` — never from key 
 18. Call `setLastKeyDisplay model.lastKey model.lastSuccessfulOp` (or equivalent) from `renderStatus` / a new `renderDiagnostics` function in `View.fs`, driven by the model — not by event handlers.
 19. Phase 5: Consistency + verification (*parallel with 4 once compile succeeds*)
 20. Run build/tests and fix exhaustive-record errors from VM field addition.
-21. Sanity-check diagnostic UI (`#key-last-key`) in selection/editing/palette/search flows to confirm:
+21. Sanity-check diagnostic UI (`#cmd-last-result`) in selection/editing/palette/search flows to confirm:
 22. successful commands update display,
 23. unbound keys do not overwrite display,
 24. initial value is correct after state load.
@@ -64,7 +64,7 @@ It is called from render/patch with `model.lastSuccessfulOp` — never from key 
 - `d:/dev/amble/gambol/src/Client/SearchDialogView.fs` - replace direct `setLastKeyDisplay` calls with `withDiagnostic`-wrapped dispatch; drop unhandled-key display calls.
 - `d:/dev/amble/gambol/tests/Shared.Tests/ViewModelTests.fs` - update VM helper constructors.
 - `d:/dev/amble/gambol/tests/Shared.Tests/SyncLogicTests.fs` - update VM helper constructor.
-- `d:/dev/amble/gambol/src/Server/wwwroot/gambol.template.html` - verify existing `#key-last-key` target remains valid (no structural changes expected).
+- `d:/dev/amble/gambol/src/Server/wwwroot/gambol.template.html` - verify existing `#cmd-last-result` target remains valid (no structural changes expected).
 
 **Verification**
 1. Build client/server solution (`dotnet build src/Server -c Debug` and/or fullstack build task) and resolve compile breaks from new VM field and call signature changes.

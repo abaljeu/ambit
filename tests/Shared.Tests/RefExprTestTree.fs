@@ -21,7 +21,7 @@ type Tree =
 let private specialNode (id: NodeId) (kind: SpecialKind) (name: string) (owner: NodeId) : Node =
     { id = id
       text = name
-      name = Filename.Ok name
+      name = Filename.create name
       children = []
       cssClasses = CssClass.empty
       owner = owner
@@ -61,8 +61,8 @@ let build () : Tree =
 
     let graph1 =
         graph0
-        |> addUnder Graph.workspacesId (specialNode bobbyId Workspace "@bobby" Graph.workspacesId)
-        |> addUnder Graph.workspacesId (specialNode otherId Workspace "@other" Graph.workspacesId)
+        |> addUnder Graph.workspacesId (specialNode bobbyId Workspace "bobby" Graph.workspacesId)
+        |> addUnder Graph.workspacesId (specialNode otherId Workspace "other" Graph.workspacesId)
 
     let graph2 =
         graph1

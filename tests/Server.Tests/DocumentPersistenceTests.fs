@@ -202,9 +202,9 @@ let ``writeAllDocuments nested workspace tree writes expected paths`` () =
     let dataDir = newTempDir ()
     let graph, _, dirId, fileId, _ = graphWithNestedDocs ()
     DocumentPersistence.writeAllDocuments dataDir graph |> requireOk "writeAllDocuments" |> ignore
-    Assert.True(File.Exists(Path.Combine(dataDir, "@home", ".amb")))
-    Assert.True(File.Exists(Path.Combine(dataDir, "@home", "docs", ".amb")))
-    Assert.True(File.Exists(Path.Combine(dataDir, "@home", "docs", "readme.txt")))
+    Assert.True(File.Exists(Path.Combine(dataDir, "home", ".amb")))
+    Assert.True(File.Exists(Path.Combine(dataDir, "home", "docs", ".amb")))
+    Assert.True(File.Exists(Path.Combine(dataDir, "home", "docs", "readme.txt")))
 
 [<Fact>]
 let ``writeAllDocuments ROOT file lands at dataDir root without amb suffix`` () =
@@ -405,7 +405,7 @@ let ``resolveArtifactPath plain file resolves to named extension path`` () =
     let dataDir = newTempDir ()
     let graph, _, _, fileId, _ = graphWithNestedDocs ()
     let path = artifactFullPath dataDir graph fileId
-    Assert.Equal(Path.Combine(dataDir, "@home", "docs", "readme.txt"), path)
+    Assert.Equal(Path.Combine(dataDir, "home", "docs", "readme.txt"), path)
 
 [<Fact>]
 let ``writeAllDocuments ref child in plain file writes target text only`` () =

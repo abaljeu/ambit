@@ -34,10 +34,6 @@ let ``parse rejects quoted path segment`` () =
 [<Fact>]
 let ``parse accepts bare colon as all children step`` () =
     Assert.Equal(Path(Context, [ ChildStep None ]), parseOk ":")
-    Assert.Equal(
-        Path(Context, [ FileStep "@bobby"; ChildStep None ]),
-        parseOk "@bobby:"
-    )
 
 [<Fact>]
 let ``parse rejects postfix`` () =
@@ -80,8 +76,8 @@ let ``parse lexes dot name as one token`` () =
 [<Fact>]
 let ``parse accepts named workspace as root-relative path`` () =
     Assert.Equal(
-        Path(GlobalRoot, [ DirStep "@bobby"; DirStep "src" ]),
-        parseOk "//@bobby/src/"
+        Path(GlobalRoot, [ DirStep "bobby"; DirStep "src" ]),
+        parseOk "//bobby/src/"
     )
 
 [<Fact>]
@@ -106,10 +102,10 @@ let ``parse round-trips all step kinds`` () =
           "^"
           "."
           "#"
-          "//@bobby/src/lib.fs"
+          "//bobby/src/lib.fs"
           "/docs/readme.md"
           "^/**/#blue"
-          "//@ws/src/*.fs" ]
+          "//ws/src/*.fs" ]
 
     for sample in samples do
         let expr = parseOk sample
@@ -213,27 +209,27 @@ let ``match_ workspace root from outline context resolves to ROOT`` () =
 [<Fact>]
 let ``match_ resolves exact path under root-relative workspace`` () =
     let t = tree.Value
-    let expr = parseOk "//@bobby/src/app.fs"
+    let expr = parseOk "//bobby/src/app.fs"
     let nodes = RefExpr.match_ (ctx ()) t.graph expr
     Assert.Equal<Set<NodeId>>(Set [ t.appFs ], ids nodes)
 
 [<Fact>]
 let ``match_ path miss returns empty`` () =
     let t = tree.Value
-    let expr = parseOk "//@bobby/src/missing.fs"
+    let expr = parseOk "//bobby/src/missing.fs"
     Assert.Empty(RefExpr.match_ (ctx ()) t.graph expr)
 
 [<Fact>]
 let ``match_ glob file step under directory`` () =
     let t = tree.Value
-    let expr = parseOk "//@bobby/src/*"
+    let expr = parseOk "//bobby/src/*"
     let nodes = RefExpr.match_ (ctx ()) t.graph expr
     Assert.Equal<Set<NodeId>>(Set [ t.appFs; t.libFs; t.embeddedMd ], ids nodes)
 
 [<Fact>]
 let ``match_ glob pattern on file names`` () =
     let t = tree.Value
-    let expr = parseOk "//@bobby/src/*.fs"
+    let expr = parseOk "//bobby/src/*.fs"
     let nodes = RefExpr.match_ (ctx ()) t.graph expr
     Assert.Equal<Set<NodeId>>(Set [ t.appFs; t.libFs ], ids nodes)
 

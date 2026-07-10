@@ -188,7 +188,7 @@ let ``trySearchResultAtDisplayIndex empty results is None`` () =
 let ``searchNodes path word matches RefExpr under root`` () =
     let t = build ()
     let got =
-        ViewModelSearch.searchNodes "//@bobby/src/" t.graph.root t.graph
+        ViewModelSearch.searchNodes "//bobby/src/" t.graph.root t.graph
         |> List.map (fun r -> r.nodeId)
     Assert.Equal<NodeId>([ t.bobbySrc ], got)
 
@@ -196,6 +196,6 @@ let ``searchNodes path word matches RefExpr under root`` () =
 let ``searchNodes mixed text and path words require same node`` () =
     let t = build ()
     let got =
-        ViewModelSearch.searchNodes "readme //@bobby/docs/readme.md" t.graph.root t.graph
+        ViewModelSearch.searchNodes "readme //bobby/docs/readme.md" t.graph.root t.graph
         |> List.map (fun r -> r.nodeId)
     Assert.Equal<NodeId>([ t.readmeMd ], got)

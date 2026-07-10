@@ -13,7 +13,7 @@ Stable `NodeId` values (see `Graph` in `src/Shared/Model.fs`):
 
 | Node | `NodeId` suffix | Text | Kind |
 |------|-----------------|------|------|
-| Root | `00000000-0000-0000-0000-000000000000` | `ROOT` | `Special Workspace` (nameless, `@:`) |
+| Root | `00000000-0000-0000-0000-000000000000` | `ROOT` | `Special Workspace` (nameless) |
 | Trash | `…000000000001` | `Trash` | `Special Directory` *(today)* → `Special Directory` with `Node.name = TRASH` *(Stage 6 target)* |
 | Workspaces | `…000000000002` | `Workspaces` | `Special Workspaces` |
 
@@ -26,7 +26,7 @@ Every graph built via `Graph.fromNodes` or `Graph.create` has:
 `Workspaces` and `Trash` cannot be edited (`setText`, `setClasses`) or removed from root
 (`replace` on root rejects their removal or duplication). TRASH cannot be renamed (`setName` rejects `trashId`).
 
-**Stage 6 target:** retire `SpecialKind.Trash`; TRASH becomes `Special Directory` with `Node.name = TRASH`. Same permanence and delete semantics (`MoveToTrash` reparents owner under `trashId`). Path: `@:/TRASH/`. UI trash styling maps by `trashId`, not kind. See [[doc/roadmap/workspace-file-model.md]] § TRASH.
+**Stage 6 target:** retire `SpecialKind.Trash`; TRASH becomes `Special Directory` with `Node.name = TRASH`. Same permanence and delete semantics (`MoveToTrash` reparents owner under `trashId`). Path: `//TRASH/`. UI trash styling maps by `trashId`, not kind. See [[doc/roadmap/workspace-file-model.md]] § TRASH.
 
 ## Context
 
@@ -50,7 +50,7 @@ Placement restrictions apply only to canonical workspace structure:
 | `File` | anywhere |
 | `Normal` | anywhere |
 
-**ROOT** is the implicit nameless workspace (`@:`): `Special Workspace` with no filename.
+**ROOT** is the implicit nameless workspace: `Special Workspace` with no filename.
 Named `Workspace` nodes remain under `Workspaces` only. Ref links are unrestricted.
 
 `Workspaces` and `Trash` may not appear as children of any non-root parent.
@@ -103,7 +103,7 @@ Target grammar: [[doc/roadmap/reference-expression-interpretation.md]].
 
 Implemented now:
 
-- Anchors: context (no prefix), `/`, `//`, `.`, `^`, `#`, `@label:`.
+- Anchors: context (no prefix), `/`, `//`, `.`, `^`, `#`.
 - Path steps: `DirStep` (`name/`), `FileStep` (`name`), `**`, glob patterns in names.
 - Tag steps: `#name` matches named `normal` nodes by `Node.name` within content scope.
 - `refContext` walks the owner chain for workspace root, current directory, structural container,
@@ -119,11 +119,11 @@ Search dialog merges two result sources (`src/Shared/ViewModelSearch.fs`):
 1. **RefExpr matches** — namespace-style queries parsed and matched first.
 2. **Text search** — existing node text matching.
 
-Workspace nodes expose `@label:` as their desktop file path via `NodeDesktopPath` (used by the
+Workspace nodes expose `//label` as their desktop file path via `NodeDesktopPath` (used by the
 file-status indicator). See [[doc/current/desktop-local-files.md]].
 
 ## Related desktop behavior
 
-Local filesystem mapping for `@label:relative` paths:
+Local filesystem mapping for `//label/relative` paths:
 [[doc/current/workspace-local-mapping.md]].
 

@@ -8,7 +8,7 @@ the desktop layer supplies the config file path.
 
 ## Purpose
 
-A workspace label such as `home` is shared graph identity (`@home:`). Each desktop may map that
+A workspace label such as `home` is shared graph identity (`//home`). Each desktop may map that
 label to an absolute local directory root. Mapping is local-only and does not alter the cloud graph.
 
 ## Config file
@@ -49,8 +49,8 @@ Rejected when path is empty or not `Path.IsPathFullyQualified`.
 
 ## Relative path resolution
 
-`WorkspaceLocalMapping.resolvePath` maps `@label:relative` to an absolute path under the mapped
-root.
+`WorkspaceLocalMapping.resolvePath` maps a workspace label plus relative path to an absolute path under the mapped
+root. Callers obtain the label and relative path from `NodeDesktopPath.tryParseWorkspacePath` on a `//label/relative` reference.
 
 Rules:
 
@@ -61,7 +61,7 @@ Rules:
 - No `:`, `#`, `^`, or other invalid filename chars in segments
 - Resolved path must stay under mapped root (`path_escape` if not)
 
-Plain paths (no `@label:`) are resolved relative to `Environment.CurrentDirectory` in
+Plain paths (not `//label/...` workspace form) are resolved relative to `Environment.CurrentDirectory` in
 `LocalProxy` — see [[doc/current/desktop-local-files.md]].
 
 ## Runtime use
@@ -72,7 +72,7 @@ Plain paths (no `@label:`) are resolved relative to `Environment.CurrentDirector
 - `GET /_desktop/file` (import)
 - `POST /_desktop/file` (export)
 
-Requires `workspacePaths` capability when using `@label:` form.
+Requires `workspacePaths` capability when using `//label/...` form.
 
 ## Tests
 

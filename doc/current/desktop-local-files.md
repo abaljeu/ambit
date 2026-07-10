@@ -40,7 +40,7 @@ Desktop host enabled shape:
 | `import` | Read local file into graph via import command |
 | `export` | Write owned children to local file |
 | `status` | Query path status for file-reference indicator |
-| `workspacePaths` | Resolve `@label:relative` paths via local workspace mapping |
+| `workspacePaths` | Resolve `//label/relative` paths via local workspace mapping |
 
 Web client (no desktop host): capabilities request fails; all flags treated as disabled.
 
@@ -90,7 +90,7 @@ Resolved by `LocalProxy` using process current directory and workspace mapping
 |------|---------|
 | Wikilink relative | `note.txt` from `[[note.txt]]` |
 | Absolute | `D:\projects\doc.md` |
-| Workspace-relative | `@home:src/lib.fs` |
+| Workspace-relative | `//home/src/lib.fs` |
 
 ## Client commands
 

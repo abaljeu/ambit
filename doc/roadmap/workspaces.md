@@ -15,6 +15,8 @@ Current documents remain authoritative for implemented behavior. This index orga
 
 ## Active roadmaps
 
+- [[doc/roadmap/workspace-name-verbatim]] — drop `@` disk marker; `//name` references (no `@name:`)
+- [[doc/roadmap/workspace-name-immutable]] — rename refuses for workspace nodes
 - [[doc/roadmap/workspace-file-model]]
 - [[doc/roadmap/workspace-file-persistence]]
 - [[doc/roadmap/workspace-scale-file-and-db-management]]
@@ -30,10 +32,13 @@ Current documents remain authoritative for implemented behavior. This index orga
 
 The following are retained direction only and are not currently implemented after the restart:
 
-- Named workspace folders use verbatim DataDir/{workspaceLabel} names. A leading @ is ordinary workspace-name content, not an added disk marker.
-- Workspace names are immutable after creation so graph identity, disk paths, git identity, and desktop mapping cannot diverge.
+- Named workspace folders use verbatim DataDir/{workspaceLabel} names. Code does not add or strip an `@` disk marker; references use `//name`, not `@name:`.
 
-These decisions must remain marked Planned until implementation and current-document reconciliation are complete.
+Implementation plan: [[doc/roadmap/workspace-name-verbatim]]. Slice A + B done; immutable names and Filename `@` charset remain out of scope.
+
+- Workspace names are immutable after creation; rename refuses for `Special Workspace` nodes.
+
+Implementation plan: [[doc/roadmap/workspace-name-immutable]]. Remains Planned until Shared rename guards and tests land. Git/desktop remapping is out of scope for that plan.
 
 ## Restart boundary
 

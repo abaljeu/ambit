@@ -106,14 +106,14 @@ module DocumentAssembly =
         path.Substring(0, path.Length - "/.amb".Length)
 
     let private isWorkspaceArtifact (descriptor: ArtifactDescriptor) =
+        let basePath = withoutAmbFile descriptor.relativePath
         descriptor.kind = DocumentArtifactKind.Directory
-        && descriptor.relativePath.StartsWith("@")
-        && not ((withoutAmbFile descriptor.relativePath).Contains("/"))
+        && not (String.IsNullOrEmpty basePath)
+        && not (basePath.Contains("/"))
+        && not (String.Equals(basePath, "TRASH", StringComparison.Ordinal))
 
     let private stubName (descriptor: ArtifactDescriptor) : Filename =
         match splitSegments descriptor.relativePath |> List.rev with
-        | ".amb" :: name :: _ when isWorkspaceArtifact descriptor ->
-            Filename.create (name.TrimStart '@')
         | ".amb" :: name :: _ -> Filename.create name
         | name :: _ -> Filename.create name
         | [] -> Filename.Empty

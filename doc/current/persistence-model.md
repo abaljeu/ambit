@@ -51,7 +51,7 @@ Disk files are **projections** of DB state, keyed to document roots in the graph
 
 | Concern | Role |
 |---------|------|
-| **Document artifacts** | Outline or payload text per workspace, directory, or file document root, under `DataDir/@label/...`. Path layout, membership, incremental writes, and path moves: [[doc/roadmap/workspace-file-persistence.md]]. |
+| **Document artifacts** | Outline or payload text per workspace, directory, or file document root, under `DataDir/{label}/...`. Path layout, membership, incremental writes, and path moves: [[doc/roadmap/workspace-file-persistence.md]]. |
 | **Outline syntax** | Tab-indented lines (optional `{...}` class meta) via `Snapshot.read` / `Snapshot.write` in [[src/Shared/Snapshot.fs]]. Serialization stops at nested document roots. |
 
 Parity between disk and DB is defined on **`Graph`** and **revision**, not on matching raw outline text byte-for-byte to SQL rows.

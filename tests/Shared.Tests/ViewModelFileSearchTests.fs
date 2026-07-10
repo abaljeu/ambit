@@ -32,7 +32,7 @@ let ``searchFiles ranks file directory before other workspace directories`` () =
 let ``searchFiles path word matches RefExpr file hits`` () =
     let t = tree.Value
     let hits =
-        ViewModelFileSearch.searchFiles "//@bobby/src/*.fs" t.graph.root t.graph
+        ViewModelFileSearch.searchFiles "//bobby/src/*.fs" t.graph.root t.graph
         |> fileIds
     Assert.Equal<NodeId>([ t.appFs; t.libFs ], hits)
 
@@ -40,7 +40,7 @@ let ``searchFiles path word matches RefExpr file hits`` () =
 let ``searchFiles mixed words require same file node`` () =
     let t = tree.Value
     let hits =
-        ViewModelFileSearch.searchFiles "readme //@bobby/docs/readme.md" t.graph.root t.graph
+        ViewModelFileSearch.searchFiles "readme //bobby/docs/readme.md" t.graph.root t.graph
         |> fileIds
     Assert.Equal<NodeId>([ t.readmeMd ], hits)
 
@@ -51,4 +51,4 @@ let ``searchFiles pathLabel uses desktop path syntax`` () =
         ViewModelFileSearch.searchFiles "app.fs" t.contentFile t.graph
         |> List.tryFind (fun r -> r.nodeId = t.appFs)
         |> Option.defaultWith (fun () -> failwith "missing app.fs hit")
-    Assert.Equal("//@bobby/src/app.fs", hit.pathLabel)
+    Assert.Equal("//bobby/src/app.fs", hit.pathLabel)

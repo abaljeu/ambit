@@ -706,7 +706,7 @@ let renderSyncRiskAlert (model: VM) (dispatch: Msg -> unit) : unit =
     else
         root.classList.remove "amb-blocking-alert-open"
 
-/// Update the last-key diagnostic display from the model.
+/// Update the last-result diagnostic display from the model.
 let renderDiagnostics (model: VM) : unit =
     setLastKeyDisplay model.lastSuccessfulKey model.lastSuccessfulOp
 

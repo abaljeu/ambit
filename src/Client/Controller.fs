@@ -69,9 +69,9 @@ let withDiagnostic (key: string) (opName: string) (f: Updater) : Updater =
         let newModel, effects = f model
         { newModel with lastSuccessfulKey = key; lastSuccessfulOp = opName }, effects
 
-/// Render the last-key diagnostic element from a key/op pair. Pure DOM formatter; no state.
+/// Render the last-result diagnostic element from a key/op pair. Pure DOM formatter; no state.
 let setLastKeyDisplay (key: string) (operation: string) : unit =
-    let el = document.getElementById "key-last-key"
+    let el = document.getElementById "cmd-last-result"
     if not (isNull el) then
         let txt = "<"+key + "> \u2192 " + operation
         el.textContent <- txt
@@ -232,7 +232,7 @@ let formatKeyCombo (ke: KeyboardEvent) : string =
             // Multi-char keys (Tab, ArrowUp, etc.): browser never includes Shift in key; preserve it.
             if ke.key.Length > 1 && ke.shiftKey then "Shift+" + ke.key else ke.key
 
-/// Single function to set the last-key diagnostic. Never appends; always replaces.
+/// Single function to set the last-result diagnostic. Never appends; always replaces.
 /// key: the key combo (if any); operation: the command/operation name (if any).
 
 /// Key table entry: key string, resolver, and command name for diagnostic.

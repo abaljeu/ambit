@@ -172,12 +172,12 @@ let ``artifactRelativeForReference maps workspace and root directory refs`` () =
     let ws =
         NodeDesktopPath.artifactRelativeForReference "//home"
         |> requireOk "workspace"
-    Assert.Equal("@home/.amb", ws)
+    Assert.Equal("home/.amb", ws)
 
     let dir =
         NodeDesktopPath.artifactRelativeForReference "//home/docs/"
         |> requireOk "workspace directory"
-    Assert.Equal("@home/docs/.amb", dir)
+    Assert.Equal("home/docs/.amb", dir)
 
     let rootDir =
         NodeDesktopPath.artifactRelativeForReference "//docs/"

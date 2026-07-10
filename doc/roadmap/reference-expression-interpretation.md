@@ -81,7 +81,7 @@ Other anchors:
 
 `.` is not an anchor character. Lexically, `./` is two tokens (`.` then `/`); `.amb` and `.5` are each one name token. A leading `.` alone or `.` followed immediately by `/` is a **current-directory** base (`CurrentDir`), not an `Anchor`. It resolves to the nearest `directory` or `workspace` ancestor. `./path` is current directory plus path steps.
 
-Named workspace access is ordinary ROOT-relative path lookup. A standard workspace node name starts with `@`, so `//@workspaceName/...` resolves beneath that workspace.
+Named workspace access is ordinary ROOT-relative path lookup. Workspace node names are ordinary filenames, so `//workspaceName/...` resolves beneath that workspace.
 
 The current view root is not represented in `PathExpr`. If the client needs a view-root-relative reference, it is an external interpretation concern supplied outside this parser.
 
