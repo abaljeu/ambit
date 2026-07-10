@@ -80,16 +80,19 @@ graph JSON payload. Stage 6 retires the `trash` discriminator; TRASH persists as
 
 ## Workspace lifecycle (graph ops)
 
-Workspace nodes are created and renamed through the general change op surface:
+Workspace nodes are created through the general change op surface; names are fixed at creation:
 
 - **Create** — `Op.NewSpecialNode(nodeId, Special Workspace, name)` then `Op.Replace` to attach
   under `Graph.workspacesId`.
-- **Rename** — `Op.SetName(nodeId, oldName, newName)` with `Graph.setName` validation (case-insensitive
-  sibling uniqueness, invalid filename chars rejected).
+- **Rename** — workspace names are immutable after creation. `Graph.setName` rejects
+  `Special Workspace` (`"cannot rename a workspace"`); `NodeRenameOps.isRenameAllowed` is false
+  so F2 / Rename does not open a prompt. Directory, File, and Normal nodes still rename via
+  `Op.SetName` with `Graph.setName` validation (case-insensitive sibling uniqueness, invalid
+  filename chars rejected).
 
 **Stage 6 target — Insert…:** create workspace under `Workspaces`, or `Special Directory` / `Special File` as owner child of focus; pick-existing insert via search unchanged.
 
-**Stage 6 target — Rename (F2):** same `Op.SetName` for workspace, directory, file; normal nodes rename `Node.name` only. Edit node keeps Enter only.
+**Stage 6 target — Rename (F2):** `Op.SetName` for directory, file; normal nodes rename `Node.name` only. Workspace rename remains refused. Edit node keeps Enter only.
 
 Canonical `Workspaces`, `Trash`, and `ROOT` ids cannot be renamed. No dedicated workspace-removal
 op in this stage. Soft delete reparents owner under `trashId` (`MoveToTrash`).

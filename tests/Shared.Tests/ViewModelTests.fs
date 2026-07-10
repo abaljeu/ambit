@@ -53,8 +53,7 @@ let emptyModel (graph: Graph) : VM =
       serverCapabilities = None
       desktopFileIndicator = BlankFileIndicator
       syncInfo = SyncInfo.initial
-      lastSuccessfulKey = ""
-      lastSuccessfulOp = "" }
+      lastCmdResult = None }
 
 /// VM scoped to viewRoot as the display root (siteMap built from viewRoot).
 let emptyModelAt (graph: Graph) (viewRoot: NodeId) : VM =
@@ -73,8 +72,7 @@ let emptyModelAt (graph: Graph) (viewRoot: NodeId) : VM =
       serverCapabilities = None
       desktopFileIndicator = BlankFileIndicator
       syncInfo = SyncInfo.initial
-      lastSuccessfulKey = ""
-      lastSuccessfulOp = "" }
+      lastCmdResult = None }
 
 /// VM with a selection covering [start, endd) in parentNodeId's children, focus at focusIdx.
 let modelWithSel (graph: Graph) (parentNodeId: NodeId) (start: int) (endd: int) (focusIdx: int) : VM =

@@ -259,6 +259,17 @@ type DesktopFileIndicator =
         status: DesktopFileStatus *
         sourceModifiedUtc: System.DateTime option
 
+/// Result of the most recent command, shown in `#cmd-last-result`.
+[<RequireQualifiedAccess>]
+type CmdLastResult =
+    | Ok
+    | Error of string
+
+module CmdLastResult =
+    let toDisplay = function
+        | CmdLastResult.Ok -> "OK"
+        | CmdLastResult.Error msg -> msg
+
 /// UI mode; `SearchDialog.onPick` closes over model updates (mutually recursive with `VM`).
 type Mode =
     | Selecting
@@ -299,8 +310,7 @@ and VM = // the client state
       serverCapabilities: ServerCapabilities option
       desktopFileIndicator: DesktopFileIndicator
       syncInfo: SyncInfo
-      lastSuccessfulKey: string   // key combo of the most recently handled command (e.g. "Ctrl+Z")
-      lastSuccessfulOp: string }  // display name of the most recently handled command (e.g. "Undo")
+      lastCmdResult: CmdLastResult option }
 
 /// Self-contained pure model transformation for the client update loop (see `Msg.ApplyOp`).
 type Updater = VM -> VM * Effect list

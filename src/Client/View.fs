@@ -533,7 +533,7 @@ let renderCommandPalette (model: VM) (dispatch: Msg -> unit) : unit =
                                 | None ->
                                     { m with mode = ret }, []
                                 | Some op ->
-                                    withDiagnostic "" (CommandMeta.displayName cmd.id) op { m with mode = ret }
+                                    withDiagnostic op { m with mode = ret }
                         | _ -> m, [])))
 
     | _ ->
@@ -706,9 +706,9 @@ let renderSyncRiskAlert (model: VM) (dispatch: Msg -> unit) : unit =
     else
         root.classList.remove "amb-blocking-alert-open"
 
-/// Update the last-result diagnostic display from the model.
+/// Update the last-result display from the model.
 let renderDiagnostics (model: VM) : unit =
-    setLastKeyDisplay model.lastSuccessfulKey model.lastSuccessfulOp
+    setCmdLastResultDisplay model.lastCmdResult
 
 /// Status pill plus sync-risk overlay.
 let renderSyncChrome (model: VM) (dispatch: Msg -> unit) : unit =

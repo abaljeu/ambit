@@ -41,8 +41,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
           serverCapabilities = model.serverCapabilities
           desktopFileIndicator = BlankFileIndicator
           syncInfo = SyncInfo.initial
-          lastSuccessfulKey = ""
-          lastSuccessfulOp = "" }, []
+          lastCmdResult = None }, []
 
     | AckSyncRisk ->
         { model with syncInfo = { model.syncInfo with syncRiskAcknowledged = true } }, []

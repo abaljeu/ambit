@@ -25,8 +25,7 @@ let initialModel: VM =
       serverCapabilities = None
       desktopFileIndicator = BlankFileIndicator
       syncInfo = SyncInfo.initial
-      lastSuccessfulKey = ""
-      lastSuccessfulOp = "" }
+      lastCmdResult = None }
 
 let dispatch, getModel, wakePolling, pollForRemoteChanges, recordActivity =
     createRuntime initialModel

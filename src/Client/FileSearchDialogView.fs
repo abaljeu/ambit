@@ -45,16 +45,16 @@ let private renderFileSearchResults
 
 let private handleFileSearchKey (ke: KeyboardEvent) (dispatch: Msg -> unit) : unit =
     let keyStr = formatKeyCombo ke
-    let named label op =
+    let named op =
         ke.preventDefault()
-        dispatch (ApplyOp (withDiagnostic keyStr label op))
+        dispatch (ApplyOp (withDiagnostic op))
     match keyStr with
-    | "Escape"    -> named "Close file search" Gambol.Client.FileSearchDialog.closeFileSearchDialogOp
-    | "ArrowUp"   -> named "Select previous result" Gambol.Client.FileSearchDialog.fileSearchSelectUpOp
-    | "ArrowDown" -> named "Select next result" Gambol.Client.FileSearchDialog.fileSearchSelectDownOp
+    | "Escape"    -> named Gambol.Client.FileSearchDialog.closeFileSearchDialogOp
+    | "ArrowUp"   -> named Gambol.Client.FileSearchDialog.fileSearchSelectUpOp
+    | "ArrowDown" -> named Gambol.Client.FileSearchDialog.fileSearchSelectDownOp
     | "Enter"     ->
         ke.preventDefault()
-        dispatch (ApplyOp (withDiagnostic keyStr "Choose file" (fun m ->
+        dispatch (ApplyOp (withDiagnostic (fun m ->
             runFileSearchSelectionOp m.mode m)))
     | _           -> ()
 
@@ -131,12 +131,12 @@ let renderFileSearchDialog (model: VM) (dispatch: Msg -> unit) : unit =
                         | _ -> m, [])))
 
             wsBtn.addEventListener("click", fun _ ->
-                dispatch (ApplyOp (withDiagnostic "" "New workspace" runFileSearchNewWorkspaceOp)))
+                dispatch (ApplyOp (withDiagnostic runFileSearchNewWorkspaceOp)))
 
             fileBtn.addEventListener("click", fun _ ->
-                dispatch (ApplyOp (withDiagnostic "" "New file" runFileSearchNewFileOp)))
+                dispatch (ApplyOp (withDiagnostic runFileSearchNewFileOp)))
 
             folderBtn.addEventListener("click", fun _ ->
-                dispatch (ApplyOp (withDiagnostic "" "New folder" runFileSearchNewFolderOp)))
+                dispatch (ApplyOp (withDiagnostic runFileSearchNewFolderOp)))
     | _ ->
         container.classList.remove "amb-dialog-open"

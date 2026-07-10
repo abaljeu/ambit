@@ -1,7 +1,7 @@
 # Immutable workspace names
 
 Category: Workspace scale
-Status: Planned
+Status: Done
 See also: [[doc/roadmap/workspaces]], [[doc/current/workspace-graph]], [[doc/history/workspaces/plans/lock_workspace_name_immutable_ea821a05.plan]], [[doc/roadmap/workspace-name-verbatim]]
 
 ## What it gives you

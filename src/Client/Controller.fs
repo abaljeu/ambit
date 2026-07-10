@@ -62,19 +62,26 @@ let setClipboardData (ev: Event) (format: string) (data: string) : unit =
     let e = ev :?> ClipboardEvent
     e.clipboardData.setData (format, data) |> ignore
 
-/// Wrap an op with diagnostic state: sets `lastSuccessfulKey` and `lastSuccessfulOp` on the
-/// returned VM. Call sites pass the key combo and command name; the VM update is automatic.
-let withDiagnostic (key: string) (opName: string) (f: Updater) : Updater =
+/// Wrap an op with diagnostic state: defaults `lastCmdResult` to Ok when the op did not
+/// already set a result (so a future refusal can set Error and keep it).
+let withDiagnostic (f: Updater) : Updater =
     fun model ->
         let newModel, effects = f model
-        { newModel with lastSuccessfulKey = key; lastSuccessfulOp = opName }, effects
+        let result =
+            if newModel.lastCmdResult <> model.lastCmdResult then
+                newModel.lastCmdResult
+            else
+                Some CmdLastResult.Ok
+        { newModel with lastCmdResult = result }, effects
 
-/// Render the last-result diagnostic element from a key/op pair. Pure DOM formatter; no state.
-let setLastKeyDisplay (key: string) (operation: string) : unit =
+/// Render `#cmd-last-result` from the last command result. Pure DOM formatter; no state.
+let setCmdLastResultDisplay (result: CmdLastResult option) : unit =
     let el = document.getElementById "cmd-last-result"
     if not (isNull el) then
-        let txt = "<"+key + "> \u2192 " + operation
-        el.textContent <- txt
+        el.textContent <-
+            match result with
+            | None -> ""
+            | Some r -> CmdLastResult.toDisplay r
 
 /// Handle a paste event: extract plain text and optional node IDs, apply pasteNodesOp.
 let onPaste (ev: Event) (dispatch: Msg -> unit) : unit =
@@ -88,7 +95,7 @@ let onPaste (ev: Event) (dispatch: Msg -> unit) : unit =
         | _ -> text
     ev.preventDefault()
     if pastedText <> "" then
-        dispatch (ApplyOp (withDiagnostic "Ctrl+V" "Paste" (pasteNodesOp pastedText nodeIds)))
+        dispatch (ApplyOp (withDiagnostic (pasteNodesOp pastedText nodeIds)))
 
 let private onCopyOrCut (model: VM) (ev: Event) (dispatch: Msg -> unit) (updater: Updater) (includeNodeIds: bool) : unit =
     match model.selectedNodes with
@@ -110,9 +117,7 @@ let private onCopyOrCut (model: VM) (ev: Event) (dispatch: Msg -> unit) (updater
                 |> List.map (fun (NodeId guid) -> guid.ToString())
                 |> String.concat "\n"
             setClipboardData ev nodeIdsFormat idsText
-        let keyLabel = if includeNodeIds then "Ctrl+X" else "Ctrl+C"
-        let opLabel  = if includeNodeIds then "Cut" else "Copy"
-        dispatch (ApplyOp (withDiagnostic keyLabel opLabel updater))
+        dispatch (ApplyOp (withDiagnostic updater))
 
 /// Handle a copy event: serialize the selected subtree to the clipboard.
 let onCopy (model: VM) (ev: Event) (dispatch: Msg -> unit) : unit =
@@ -232,9 +237,6 @@ let formatKeyCombo (ke: KeyboardEvent) : string =
             // Multi-char keys (Tab, ArrowUp, etc.): browser never includes Shift in key; preserve it.
             if ke.key.Length > 1 && ke.shiftKey then "Shift+" + ke.key else ke.key
 
-/// Single function to set the last-result diagnostic. Never appends; always replaces.
-/// key: the key combo (if any); operation: the command/operation name (if any).
-
 /// Key table entry: key string, resolver, and command name for diagnostic.
 type KeyBinding = {
     key: string
@@ -273,7 +275,7 @@ let paletteRunOp =
             | None ->
                 { model with mode = ret }, []
             | Some op ->
-                withDiagnostic "" (CommandMeta.displayName cmd.id) op { model with mode = ret })
+                withDiagnostic op { model with mode = ret })
 
 let paletteSetQueryOp (q: string) =
     onPalette (fun _ _ ret model -> { model with mode = Mode.CommandPalette (q, 0, ret) }, [])
@@ -382,7 +384,6 @@ let private tryResolveFromNamed
         | Some e -> Ok { handler = e.handler; commandName = e.commandName }
 
 let private dispatchResolvedKey
-    (keyStr: string)
     (resolved: ResolvedKeyBinding)
     (keyEvent: KeyboardEvent)
     (dispatch: Msg -> unit)
@@ -390,9 +391,9 @@ let private dispatchResolvedKey
     match resolved.handler () with
     | Some op ->
         keyEvent.preventDefault()
-        dispatch (ApplyOp (withDiagnostic keyStr resolved.commandName op))
+        dispatch (ApplyOp (withDiagnostic op))
     | None ->
-        setLastKeyDisplay keyStr "(no-op)"
+        ()
 
 /// Route keyboard handling by mode: palette overlay, CSS class prompt, editing field, or selection (hidden input).
 let handleKey (mode: Mode) (ke: KeyboardEvent) (dispatch: Msg -> unit) : unit =
@@ -402,7 +403,6 @@ let handleKey (mode: Mode) (ke: KeyboardEvent) (dispatch: Msg -> unit) : unit =
             not hasNonShiftModifier && ke.key.Length = 1 ->
             () // Let the visible edit input receive the character; skip hidden-input bindings.
     | _ ->
-        let keyStr = formatKeyCombo ke
         let table =
             match mode with
             | CommandPalette _ -> paletteKeyBindings
@@ -413,30 +413,26 @@ let handleKey (mode: Mode) (ke: KeyboardEvent) (dispatch: Msg -> unit) : unit =
             | Editing _ -> editingKeyBindings
             | Selecting -> selectionKeyBindings
         match tryResolveFromNamed table ke with
-        | Error (KeyNotBound k) when k <> "" -> setLastKeyDisplay k "(unbound)"
         | Error _ -> ()
         | Ok resolved ->
-            dispatchResolvedKey keyStr resolved ke dispatch
+            dispatchResolvedKey resolved ke dispatch
 
 /// Command palette input: fixed binding list (listener wired once; no Mode value in closure).
 let handlePaletteKey (keyEvent: KeyboardEvent) (dispatch: Msg -> unit) : unit =
-    let keyStr = formatKeyCombo keyEvent
     match tryResolveFromNamed paletteKeyBindings keyEvent with
     | Error _ -> ()
     | Ok resolved ->
-        dispatchResolvedKey keyStr resolved keyEvent dispatch
+        dispatchResolvedKey resolved keyEvent dispatch
 
 /// CSS class prompt input: Escape to cancel, Enter to submit.
 let handleCssClassPromptKey (keyEvent: KeyboardEvent) (dispatch: Msg -> unit) : unit =
-    let keyStr = formatKeyCombo keyEvent
     match tryResolveFromNamed cssClassPromptKeyBindings keyEvent with
     | Error _ -> ()
-    | Ok resolved -> dispatchResolvedKey keyStr resolved keyEvent dispatch
+    | Ok resolved -> dispatchResolvedKey resolved keyEvent dispatch
 
 /// Rename prompt input: Escape to cancel, Enter to submit.
 let handleRenamePromptKey (keyEvent: KeyboardEvent) (dispatch: Msg -> unit) : unit =
-    let keyStr = formatKeyCombo keyEvent
     match tryResolveFromNamed renamePromptKeyBindings keyEvent with
     | Error _ -> ()
-    | Ok resolved -> dispatchResolvedKey keyStr resolved keyEvent dispatch
+    | Ok resolved -> dispatchResolvedKey resolved keyEvent dispatch
 

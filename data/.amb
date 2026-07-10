@@ -4,18 +4,18 @@
 	r
 		-> ^19af7202-0550-4a6e-8fb9-c6d3f86524f4
 	-> //dd/ff^8f3e52d7-c9db-41a8-830e-0b04dfc0199e
+	^ff
+		-> //dd/ff^8f3e52d7-c9db-41a8-830e-0b04dfc0199e
 	
 	
-		
-			aaa = /nowe
-				/nowe
-				blue
+	
+		aaa = /nowe
+			/nowe
+			blue
 	-> ^d698c568-4ad0-46d0-8fb3-763b61744e91
-	^e119d7bc-37fe-4352-8b74-c5e443b8fe92 !0
+	!0
 		-> ^53d62dea-9d8f-4683-af17-f2c07849f089
 		
-	-> ^d698c568-4ad0-46d0-8fb3-763b61744e91
-	-> ^e119d7bc-37fe-4352-8b74-c5e443b8fe92
 	[[.]]
 		[[AuthStore.fs]] 2026-05-16 11:26
 		[[bin/]] 2026-05-15 18:05
@@ -664,5 +664,5 @@ The roof must clearly separate the two parts of the coNP-completeness argument:u
 -> //dd/^a9f330b1-e63f-467b-b555-463b133e75dd
 Workspaces
 	-> //folder/^f17ba66c-da70-4f00-ac16-393b0e2f19e1
-	-> //workspace^009f00aa-2602-429d-9ef2-9a445f343e76
+	-> //d^009f00aa-2602-429d-9ef2-9a445f343e76
 -> //TRASH/^TRASH

@@ -24,8 +24,7 @@ let private emptyModelAt (graph: Graph) (viewRoot: NodeId) : VM =
       serverCapabilities = None
       desktopFileIndicator = BlankFileIndicator
       syncInfo = SyncInfo.initial
-      lastSuccessfulKey = ""
-      lastSuccessfulOp = "" }
+      lastCmdResult = None }
 
 let private modelWithSelection graph viewRoot parentInstId start endd focus : VM =
     let model = emptyModelAt graph viewRoot

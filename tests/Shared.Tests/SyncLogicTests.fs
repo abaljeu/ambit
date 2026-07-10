@@ -24,8 +24,7 @@ let private emptyModel (graph: Graph) : VM =
       serverCapabilities = None
       desktopFileIndicator = BlankFileIndicator
       syncInfo = SyncInfo.initial
-      lastSuccessfulKey = ""
-      lastSuccessfulOp = "" }
+      lastCmdResult = None }
 
 let private mkChange id = { id = id; changeId = System.Guid.NewGuid(); ops = [] }
 

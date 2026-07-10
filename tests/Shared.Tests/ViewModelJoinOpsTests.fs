@@ -39,8 +39,7 @@ let private emptyModelAt (graph: Graph) (viewRoot: NodeId) : VM =
       serverCapabilities = None
       desktopFileIndicator = BlankFileIndicator
       syncInfo = SyncInfo.initial
-      lastSuccessfulKey = ""
-      lastSuccessfulOp = "" }
+      lastCmdResult = None }
 
 let private modelWithSel graph parentNodeId start endd focusIdx : VM =
     let model = emptyModelAt graph parentNodeId

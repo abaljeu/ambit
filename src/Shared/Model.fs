@@ -408,7 +408,10 @@ module Graph =
             match graph.nodes |> Map.tryFind nodeId with
             | None -> Error "node not found"
             | Some node ->
-                if node.name <> Filename.create oldName then
+                // ROOT is Special Workspace but blocked by rootId above.
+                if node.kind = Special Workspace then
+                    Error "cannot rename a workspace"
+                elif node.name <> Filename.create oldName then
                     Error "old name does not match"
                 else
                     match Filename.create newName with

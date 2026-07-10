@@ -24,7 +24,12 @@ let openRenamePromptOp (model: VM) : VM * Effect list =
     | Some sel ->
         let nodeId = focusedNodeId model.graph sel
         if not (NodeRenameOps.isRenameAllowed model.graph nodeId) then
-            model, []
+            let msg =
+                match model.graph.nodes |> Map.tryFind nodeId with
+                | Some { kind = Special Workspace } ->
+                    "cannot rename a workspace"
+                | _ -> "cannot rename this node"
+            { model with lastCmdResult = Some (CmdLastResult.Error msg) }, []
         else
             { model with mode = RenamePrompt (model.mode, initialRenameValue model) }, []
 

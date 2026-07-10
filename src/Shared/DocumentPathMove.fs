@@ -171,7 +171,10 @@ module NodeRenameOps =
         nodeId <> Graph.rootId
         && nodeId <> Graph.trashId
         && nodeId <> Graph.workspacesId
-        && Map.containsKey nodeId graph.nodes
+        && match graph.nodes |> Map.tryFind nodeId with
+           | Some { kind = Special Workspace } -> false
+           | Some _ -> true
+           | None -> false
 
     let planRenameNode
         (graph: Graph)
