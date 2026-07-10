@@ -39,7 +39,7 @@ Classification rules (reuse `classifyArtifactRelative`):
 
 | Path pattern | Codec |
 |--------------|-------|
-| `.amb`, `*/.amb`, `@*/*/.amb` | Amb |
+| `.amb`, `*/.amb`, `*/*/.amb` | Amb |
 | `*.md` | Error (deferred) |
 | Any other file path | Plain (unless heading or graph rules below override) |
 | Plain file with nested document-root children | Amb on write (graph-aware) |

@@ -17,7 +17,7 @@ Current documents remain authoritative for implemented behavior. This index orga
 
 - [[doc/roadmap/workspaces-checklist]] — living implementation checklist (outline of program parts)
 - [[doc/roadmap/workspace-file-directory-placement]] — owned File/Directory only under Workspace or Directory
-- [[doc/roadmap/workspace-name-verbatim]] — drop `@` disk marker; `//name` references (no `@name:`)
+- [[doc/roadmap/workspace-name-verbatim]] — drop disk-marker prefix; `//name` references (no colon address form)
 - [[doc/roadmap/workspace-name-immutable]] — rename refuses for workspace nodes
 - [[doc/roadmap/workspace-file-model]]
 - [[doc/roadmap/workspace-file-persistence]]
@@ -34,7 +34,7 @@ Current documents remain authoritative for implemented behavior. This index orga
 
 The following are retained direction only and are not currently implemented after the restart:
 
-- Named workspace folders use verbatim DataDir/{workspaceLabel} names. Code does not add or strip an `@` disk marker; references use `//name`, not `@name:`.
+- Named workspace folders use verbatim DataDir/{workspaceLabel} names. Code does not add or strip a disk-marker prefix; references use `//name`, not a colon address form.
 
 Implementation plan: [[doc/roadmap/workspace-name-verbatim]]. Slice A + B done; immutable names and Filename `@` charset remain out of scope.
 

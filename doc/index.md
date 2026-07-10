@@ -52,7 +52,7 @@ Might be next: Server-side merge/rebase for stale submissions, including orphan 
 ### **Desktop local files and workspace mapping**
 Status: **Partial**.
 Details: [[doc/current/desktop-local-files.md]], [[doc/current/workspace-stage-plan.md]].
-Last implemented: Desktop proxy capabilities cover local import, export, file status, and `@label:relative` workspace path resolution; workspace structure commands are implemented through Stage 8.
+Last implemented: Desktop proxy capabilities cover local import, export, file status, and `//label/relative` workspace path resolution; workspace structure commands are implemented through Stage 8.
 Might be next: Stage 5 unresolved UI and server file-status corrections.
 
 ### **Workspace file model and persistence**
@@ -68,11 +68,11 @@ Last implemented: No current baseline is listed here.
 Might be next: Repo file-tree browsing with on-demand parse/edit for individual files.
 
 ### **Git workspace sync (desktop pull/push)**
-Status: **Planned** (slice 2 of [[doc/roadmap/workspace-scale-import.md]]).
-Details: [[doc/roadmap/git-sync-gateway.md]].
+Status: **In progress** (G0 doc lock done; implementation from G1).
+Details: [[git-sync-gateway]], [[workspace-scale-import-slice2-plan]].
 Last implemented: No current baseline is listed here.
 Depends on: Workspace scale import slice 1 (Stage 7 `DataDir` live-save is done).
-Might be next: Lock path layout and gateway boundaries while implementing workspace file persistence.
+Might be next: G1 per-workspace `git init` under `DataDir/{label}/`.
 
 ### **Amble run**
 Status: **Evolving**.

@@ -1,7 +1,7 @@
 # Workspace Git sync — implementation plan (Slice 2)
 
 Category: Sync
-Status: Planned
+Status: In progress (G0 done)
 See also: [[workspaces-checklist]], [[git-sync-gateway]], [[workspace-scale-import]], [[doc/current/workspace-local-mapping]], [[doc/current/desktop-local-files]], [[doc/current/workspace-stage-plan]], [[doc/current/sync-mvp]], [[future-merge-sync]], [[workspace-name-verbatim]]
 
 Concrete rollout for the **Git** section of [[workspaces-checklist]]. Protocol and locked product decisions live in [[git-sync-gateway]]; this doc owns **ordered shippable slices**, checklist mapping, and sequencing. Do not treat history plans under [[doc/history/workspaces/plans]] as current truth.
@@ -30,7 +30,7 @@ Concrete rollout for the **Git** section of [[workspaces-checklist]]. Protocol a
 | Init empty repo in a new server directory | On workspace create (or first persist under that label), `git init` inside `DataDir/{label}/`; set `receive.denyNonFastForwards=true`; optional default `.gitignore` | Server |
 | Commit all files to repo on server **[checked today]** | **Reinterpret:** today’s [[src/Server/GitSave.fs]] commits the **whole** `DataDir` if `DataDir/.git` exists. Target is **per-workspace** commit (JIT before fetch; optional explicit save scoped to `{label}/`). Treat the checkmark as legacy monolithic save, not Slice 2 done. | Server |
 | Smart HTTPS git endpoints | Native smart HTTP (`info/refs`, `git-upload-pack`, `git-receive-pack`) per workspace repo; not a custom pack REST API | Server gateway |
-| Push special semantics | Accept only when client is **current** (fast-forward). **Dirty-tree policy is a blocker** — see below. | Server gateway |
+| Push special semantics | Accept only when client is **current** (fast-forward). **Dirty-tree = reject-dirty** (locked G0). | Server gateway |
 | Desktop: Clone / Pull / Push | Shell `git clone` / `git pull ambit` / `git push ambit` in mapped (or chosen) local root | Desktop |
 | Client: Connect workspace remote | One-time: write/update mapping + `git remote add/set-url ambit <gateway-url>` + credentials path | Client + Desktop |
 | Client: Clone into local folder | UI → desktop clone into picked folder → mapping | Client + Desktop |
@@ -53,7 +53,7 @@ commands                git clone/pull/push/status   Git HTTPS gateway (http-bac
 
 | Concern | Where | Notes |
 | --- | --- | --- |
-| Repo root on server | `DataDir/{label}/` with `.git` inside | Verbatim label ([[workspace-name-verbatim]], [[doc/current/workspace-stage-plan]] §7). **Stale `@label` paths in [[git-sync-gateway]] / [[workspace-scale-import]] must be corrected when implementing.** |
+| Repo root on server | `DataDir/{label}/` with `.git` inside | Verbatim label ([[workspace-name-verbatim]], [[doc/current/workspace-stage-plan]] §7). |
 | Desktop map | label → absolute local path | [[doc/current/workspace-local-mapping]] — load exists; picker + Get/Put API still open on checklist |
 | Remote name | `ambit` | Not `origin` — preserves user’s existing upstream. Align gateway doc wording. |
 | HTTPS gateway | Server only | Auth separate from browser cookie; token or SSH later |
@@ -69,10 +69,7 @@ commands                git clone/pull/push/status   Git HTTPS gateway (http-bac
 
 ## Blockers needing user decision
 
-1. **Push when server working tree is dirty (FF-eligible client)**
-   - **Checklist:** if sender is current and server is uncommitted → **JIT commit on server, then accept push**.
-   - **[[git-sync-gateway]]:** **reject** dirty push; JIT commit only before **fetch/pull**.
-   - **Recommendation:** keep gateway reject-dirty (safer race story; matches history sync-semantics notes). Update checklist wording after lock.
+1. **Push when server working tree is dirty (FF-eligible client)** — **Locked (G0): reject-dirty.** Reject push when server working tree is dirty; do **not** JIT-commit on push. JIT commit remains only before fetch/pull. Recorded in [[git-sync-gateway]]. (Checklist previously said JIT-then-accept; that wording is cleared.)
 2. **Legacy `GitSave` (whole-DataDir repo)** — retire, ignore, or keep as optional ops-only tool once per-workspace repos exist? Recommendation: do not init `DataDir/.git` going forward; leave existing capability until per-workspace save/JIT replaces the UX need.
 3. **Auth v0** — HTTPS PAT via credential helper vs SSH-first on Azure? Recommendation: HTTPS token first (matches “smart HTTPS” checklist item); SSH as follow-up.
 
@@ -81,7 +78,7 @@ commands                git clone/pull/push/status   Git HTTPS gateway (http-bac
 | Prerequisite | Status | Needed by |
 | --- | --- | --- |
 | `DataDir/{label}/` live-save | Done (Stage 7) | G1+ |
-| Verbatim workspace folder names (no `@`) | Done (name-verbatim A+B) | G1+ (docs still lag) |
+| Verbatim workspace folder names (no `@`) | Done (name-verbatim A+B); G0 corrected gateway + scale-import docs | G1+ |
 | Desktop mapping load + resolve | Done | G5–G7 |
 | Folder picker + mapping Get/Put API | Open (Desktop mapping checklist) | G6 connect/clone UX (G5 can use pre-edited config) |
 | App login / session | Done | G4 issues git-scoped credential |
@@ -90,12 +87,12 @@ commands                git clone/pull/push/status   Git HTTPS gateway (http-bac
 
 ## Ordered slices
 
-### G0 — Doc lock (no code)
+### G0 — Doc lock (no code) ✅
 
-- Resolve blocker 1 (dirty push) and record in [[git-sync-gateway]].
-- Strike `@label` disk paths in gateway + [[workspace-scale-import]] Slice 2 blurb; use `DataDir/{label}/`.
-- Remote name: `ambit` everywhere in those docs.
-- Verify: checklist Git bullets link here; no contradictory push rule left unmarked.
+- **Done:** Locked dirty push = **reject-dirty** in [[git-sync-gateway]] (no JIT on push; JIT only before fetch/pull).
+- **Done:** Struck legacy label-prefixed disk paths in gateway + [[workspace-scale-import]] Slice 2 blurb; use `DataDir/{label}/`.
+- **Done:** Remote name **`ambit`** in those docs.
+- **Done:** Checklist Git section links here + gateway; push bullet no longer contradicts reject-dirty.
 
 ### G1 — Per-workspace `git init`
 
@@ -171,14 +168,14 @@ commands                git clone/pull/push/status   Git HTTPS gateway (http-bac
 - Server merge for files; conflict marker nodes for git.
 - Replacing [[doc/current/sync-mvp]] HTTP sync.
 - Creating missing Slice 1 plan file or claiming Slice 1 fully done without a separate audit.
-- Migrating leftover local `data/@…` folders ([[workspace-name-verbatim]] non-goal).
+- Migrating leftover local legacy marker-prefixed folders under `data/` ([[workspace-name-verbatim]] non-goal).
 
 ## Doc placement
 
 | Doc | Role |
 | --- | --- |
 | **This file** | Implementation plan and slice tracking for Git checklist items |
-| [[git-sync-gateway]] | Protocol, flows, locked decisions (update paths/`ambit`/dirty-push when G0 locks) |
+| [[git-sync-gateway]] | Protocol, flows, locked decisions (paths / `ambit` / reject-dirty locked in G0) |
 | [[workspaces-checklist]] | Living checkboxes; Git section links here + gateway |
 | [[workspace-scale-import]] | Parent Slice 2 blurb; points at gateway + this plan |
 | [[doc/index]] | Status line for Git workspace sync |

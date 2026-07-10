@@ -1,6 +1,6 @@
 ---
 name: Drop @ marker from workspace disk paths
-overview: Remove the `@`-prefix auto-add/strip convention from on-disk workspace folder naming and the git gateway/repo naming, so a folder name is always exactly the workspace name (verbatim, including a literal leading `@` if that's genuinely part of the name). Correct docs that describe a `@label:` colon address syntax that was never implemented — the real, locked reference syntax is `//&lt;name&gt;/relative`.
+overview: Remove the `@`-prefix auto-add/strip convention from on-disk workspace folder naming and the git gateway/repo naming, so a folder name is always exactly the workspace name (verbatim, including a literal leading `@` if that's genuinely part of the name). Correct docs that describe a colon address syntax that was never implemented — the real, locked reference syntax is `//&lt;name&gt;/relative`.
 todos:
   - id: code-nodedesktoppath
     content: Remove @ add/strip in NodeDesktopPath (diskWorkspacePrefix, workspaceLabel)
@@ -24,13 +24,13 @@ todos:
     content: Remove @ prepend in WorkspaceTreeSyncIo.directoryRelative
     status: pending
   - id: tests-update
-    content: Update existing tests' @home expectations to home
+    content: Update existing tests' marker-prefixed home expectations to home
     status: pending
   - id: tests-new
     content: Add tests for verbatim @-in-name workspace (@dd) and //@dd/ vs //dd/ distinctness
     status: pending
   - id: docs-update
-    content: "Correct docs: strike @label: syntax, describe //<name>/ and verbatim disk folder naming"
+    content: "Correct docs: strike colon address syntax, describe //<name>/ and verbatim disk folder naming"
     status: pending
 isProject: false
 ---
@@ -51,12 +51,12 @@ Each site below currently either prepends `@` to a name for disk/URL use, or str
 - [src/Shared/DocumentAssembly.fs](src/Shared/DocumentAssembly.fs) — `isWorkspaceArtifact` drops the `relativePath.StartsWith("@")` condition, becoming purely structural (directory artifact with no nested slash before `.amb`, i.e. a top-level `DataDir` child). `stubName` drops `TrimStart '@'`; the folder name becomes the node name verbatim.
 - [src/Server/DocumentPersistence.fs](src/Server/DocumentPersistence.fs) — `hasArtifactSet`'s `rel.StartsWith("@")` disjunct is removed/replaced with the equivalent structural check now that `@` carries no meaning.
 - [src/Server/WorkspaceGit.fs](src/Server/WorkspaceGit.fs) — `workspaceRelative` stops conditionally prepending `@`; the repo directory is `dataDir/<label>` verbatim.
-- [src/Shared/WorkspaceGitRemote.fs](src/Shared/WorkspaceGitRemote.fs) — `normalizeLabel` no longer strips `@`; `gatewayUrl` no longer prepends `@` (`.../git/<label>.git`, not `.../git/@<label>.git`).
+- [src/Shared/WorkspaceGitRemote.fs](src/Shared/WorkspaceGitRemote.fs) — `normalizeLabel` no longer strips `@`; `gatewayUrl` no longer prepends `@` (`.../git/<label>.git`, not a marker-prefixed label segment).
 - [src/Server/WorkspaceTreeSyncIo.fs](src/Server/WorkspaceTreeSyncIo.fs) — `directoryRelative`'s `Ok("@" + name)` for a workspace root becomes `Ok(name)`.
 
 ## Tests
 
-Update existing expectations from `@home` to `home` (folder-name convention changed, not behavior):
+Update existing expectations from marker-prefixed `home` to bare `home` (folder-name convention changed, not behavior):
 
 - [tests/Shared.Tests/DocumentAssemblyTests.fs](tests/Shared.Tests/DocumentAssemblyTests.fs)
 - [tests/Shared.Tests/DocumentPartitionTests.fs](tests/Shared.Tests/DocumentPartitionTests.fs)
@@ -64,7 +64,7 @@ Update existing expectations from `@home` to `home` (folder-name convention chan
 - [tests/Server.Tests/DocumentPersistenceTests.fs](tests/Server.Tests/DocumentPersistenceTests.fs)
 - [tests/Server.Tests/WorkspaceGitTests.fs](tests/Server.Tests/WorkspaceGitTests.fs)
 - [tests/Server.Tests/DocumentPathMoveExecutionTests.fs](tests/Server.Tests/DocumentPathMoveExecutionTests.fs)
-- [tests/Shared.Tests/WorkspaceConnectTests.fs](tests/Shared.Tests/WorkspaceConnectTests.fs) — `gatewayUrl` expectation `@home.git` → `home.git`
+- [tests/Shared.Tests/WorkspaceConnectTests.fs](tests/Shared.Tests/WorkspaceConnectTests.fs) — `gatewayUrl` expectation marker-prefixed `home.git` → `home.git`
 
 Add new coverage proving verbatim `@`-in-name behavior:
 
@@ -73,7 +73,7 @@ Add new coverage proving verbatim `@`-in-name behavior:
 
 ## Docs
 
-Strike every `@label:` colon-syntax mention and every "auto-prepend `@`" disk-convention description; replace with the locked design above.
+Strike every colon-address / legacy label-prefixed path mention and every "auto-prepend `@`" disk-convention description; replace with the locked design above.
 
 - [doc/current/workspace-local-mapping.md](doc/current/workspace-local-mapping.md)
 - [doc/current/desktop-local-files.md](doc/current/desktop-local-files.md)

@@ -22,7 +22,7 @@ This document no longer duplicates the active grammar. Current reference-express
 
 | Expression | Meaning |
 |------------|---------|
-| `//@workspaceName/src/utils.fs` | workspace `@workspaceName`, directory `src/`, file `utils.fs` |
+| `//workspaceName/src/utils.fs` | workspace `workspaceName`, directory `src/`, file `utils.fs` |
 | `/proj/docs/` | workspace in context, directory `proj/`, directory `docs/` |
 | `.` | current directory (`.` alone or `./…`; not an anchor) |
 | `^` | current structural container (`file`, `directory`, or `workspace`) |
@@ -82,7 +82,7 @@ If parsing succeeds but any required reference cannot be resolved:
 
 Examples:
 
-- unknown workspace node in `//@workspaceName`
+- unknown workspace node in `//workspaceName`
 - missing member under a resolved namespace base
 - unresolved tag or member selector in a context where at least one target is required
 

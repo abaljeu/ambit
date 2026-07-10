@@ -8,7 +8,7 @@ This document is the **umbrella vision** for repo-scale outliner behavior (lazy 
 
 Committed sequencing (authoritative detail in linked docs):
 
-1. **Stage 7 `DataDir`** — `{DataDir}/@{label}/` live-save and path moves — **done** ([[doc/current/workspace-stage-plan.md]] §7).
+1. **Stage 7 `DataDir`** — `{DataDir}/{label}/` live-save and path moves — **done** ([[doc/current/workspace-stage-plan.md]] §7).
 2. **Slice 1** — repo tree in outline, expand-to-parse, autosave, local `git commit`, stale on external change ([[doc/roadmap/workspace-scale-import.md]] § Slice 1).
 3. **Slice 2** — desktop clone sync via git gateway: pull (server JIT commit first), push (server clean, fast-forward only), client-side merge ([[doc/roadmap/git-sync-gateway.md]]).
 4. **Later** — sections below marked *deferred*: server lazy DB residency, client file LRU, query model, annotation migration, git object model in the outline.

@@ -13,7 +13,7 @@ Living checklist for implementing workspaces.  Mark done an item when it is done
 ## Graph model
 
 - [x] Workspace as a first-class graph node type and structural rules around it.
-- [ ] Files and Directories are only allowed to be in Directories or Workspaces. (Root is a workspace.) — plan: [[workspace-file-directory-placement]] (Slice A done; Slice B create/move UX pending; Slice C legacy reconcile cancelled)
+- [x] Files and Directories are only allowed to be in Directories or Workspaces. (Root is a workspace.) — plan: [[workspace-file-directory-placement]] (Slice A done; Slice B create/move cancelled; Slice C legacy reconcile cancelled)
 
 ## Server DataDir
 One workspace folder per name under DataDir; ownership and on-disk layout.
@@ -21,18 +21,18 @@ One workspace folder per name under DataDir; ownership and on-disk layout.
 - [x] Name collision prevention on new workspace/directory/file, and on rename or move directory/file, needs to account for the root folder structure.
 
 ## Git
-Each workspace directory is its own git repository (server and mapped local roots). Server features below (see [[git-sync-gateway]]); desktop `ambit` remote depends on the gateway URL.
+Each workspace directory is its own git repository (server and mapped local roots). Protocol and locked decisions: [[git-sync-gateway]]. Ordered slices: [[workspace-scale-import-slice2-plan]]. Desktop remote name is **`ambit`**.
 
 - [ ] Init empty repo in a new server directory
 - [x] Commit all files to repo on server
 - [ ] Add smart HTTPS git endpoints so the server can accept push/pull for each workspace repo
-- [ ] Push endpoint has special semantics: reject if sender is not current; if sender is current and the server repo is not committed, commit; then accept the incoming changes
+- [ ] Push endpoint has special semantics: reject if sender is not current (non-FF); **reject-dirty** if server working tree is uncommitted (no JIT commit on push — JIT only before pull). Locked in [[git-sync-gateway]].
 - [ ] Desktop: Clone the server repo to a directory
 - [ ] Desktop: Pull server repo
 - [ ] Desktop: Push server repo
 
 Client (user-facing commands for the above; Download / Upload live here rather than under Client UX):
-- [ ] Connect workspace remote (point a local folder at the server)
+- [ ] Connect workspace remote (point a local folder at the server; remote name `ambit`)
 - [ ] Clone server workspace into a local folder
 - [ ] Pull from server
 - [ ] Push to server

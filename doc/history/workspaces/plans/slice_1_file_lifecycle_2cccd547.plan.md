@@ -21,7 +21,7 @@ todos:
     content: Mtime check on expand; stale indicator + Reparse
     status: pending
   - id: workspace-git
-    content: git init + commit under DataDir/@label; desktop git when mapped root is a repo
+    content: git init + commit under DataDir/{label}; desktop git when mapped root is a repo
     status: pending
 isProject: false
 ---
@@ -32,7 +32,7 @@ isProject: false
 
 Make browsing and editing a workspace’s files trustworthy on one machine. Desktop git pull/push against the server (Slice 2) comes after that.
 
-Already done: server live-save under `DataDir/@label/`, HTTP graph sync, desktop import/export with `@label:` mapping.
+Already done: server live-save under `DataDir/{label}/`, HTTP graph sync, desktop import/export with label mapping.
 
 Still needed (this slice):
 
@@ -40,7 +40,7 @@ Still needed (this slice):
 2. Expand a file → read disk → parse into children.
 3. Edits autosave to the source file.
 4. If disk changed outside Gambol, mark stale and offer reparse.
-5. Manual git commit for that workspace only (`DataDir/@label/`).
+5. Manual git commit for that workspace only (`DataDir/{label}/`).
 
 Docs: [workspace-scale-import.md](doc/roadmap/workspace-scale-import.md), [revising-workspace-file-model.md](doc/roadmap/revising-workspace-file-model.md), [workspace-scale-file-and-db-management.md](doc/roadmap/workspace-scale-file-and-db-management.md). Slice 2 later: [git-sync-gateway.md](doc/roadmap/git-sync-gateway.md).
 [[doc\roadmap\workspace-scale-import-slice1-plan.md
@@ -154,7 +154,7 @@ Empty workspace: every path is new → create stubs only. That is the simple cas
 - Directory import builds wikilink normal nodes, not Special File/Directory stubs, and does not reconcile by path.
 - Expanding a file does not read/parse on demand.
 - No `parsed` / `stale` / `mtime` on file nodes.
-- Git save commits the whole `DataDir`, not one `@label/` workspace.
+- Git save commits the whole `DataDir`, not one `{label}/` workspace.
 
 ## Steps
 
@@ -175,8 +175,8 @@ Tests: backfill conflict; file owned under another file is reused and linked und
 
 Command at workspace root posts the reconcile change. No parsing.
 
-- Server: walk `DataDir/@label/`.
-- Optional same slice: desktop walks the mapped `@label:` root with the same planner.
+- Server: walk `DataDir/{label}/`.
+- Optional same slice: desktop walks the mapped label root with the same planner.
 
 Check: medium repo shows folders/files; `.git` hidden; relocated files reused; rename keeps the table honest; restart still coherent.
 
@@ -199,9 +199,9 @@ On expand (or Reparse): if parsed and disk is newer than stored mtime → mark s
 
 ### 5. Workspace git
 
-`git init` inside `DataDir/@label/` on first need. Commit that repo only (not whole `DataDir`). On desktop, if the mapped root is a git repo, same commit via LocalProxy.
+`git init` inside `DataDir/{label}/` on first need. Commit that repo only (not whole `DataDir`). On desktop, if the mapped root is a git repo, same commit via LocalProxy.
 
-Check: edit → autosave → manual commit → `git log` under `@label/`.
+Check: edit → autosave → manual commit → `git log` under `{label}/`.
 
 ## Out of scope
 

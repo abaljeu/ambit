@@ -2,7 +2,7 @@
 
 See also: [[doc/roadmap/workspace-scale-file-and-db-management.md]], [[doc/roadmap/git-sync-gateway.md]], [[doc/roadmap/workspace-format-amb.md]], [[doc/roadmap/workspace-format-md.md]], [[doc/roadmap/workspace-format-plain.md]], [[doc/roadmap/workspace-format-code.md]]
 
-Sequencing: **Slice 1** (outliner ↔ files on one machine) then **Slice 2** (git pull/push to a desktop clone). Slice 2 is fully specified in [[doc/roadmap/git-sync-gateway.md]].
+Sequencing: **Slice 1** (outliner ↔ files on one machine) then **Slice 2** (git pull/push to a desktop clone). Slice 2 protocol: [[git-sync-gateway]]; ordered slices: [[workspace-scale-import-slice2-plan]].
 
 # Slice 1: repo file-tree browsing + on-demand parse/edit for individual files
 
@@ -166,14 +166,14 @@ That is a useful product even before repo-wide search or advanced sync exists.
 
 # Slice 2: git sync to desktop (git gateway)
 
-See [[doc/roadmap/git-sync-gateway.md]] for protocol, credentials, and server module boundaries.
+See [[git-sync-gateway]] for protocol, credentials, and locked decisions (including **reject-dirty** push). Ordered shippable slices: [[workspace-scale-import-slice2-plan]].
 
 ## What it adds to slice 1
 
-- Same repo at `{DataDir}/@{label}/` on the server and a local clone via desktop workspace mapping.
-- **Pull:** server JIT commit if dirty, then `git pull origin`; client merge; stale/reparse on changed files.
-- **Push:** `git push origin`; server accepts only fast-forward when its working tree is clean.
-- Stock git on desktop; dumb git gateway on the server — no server-side merge.
+- Same repo at `DataDir/{label}/` on the server and a local clone via desktop workspace mapping.
+- **Pull:** server JIT commit if dirty, then `git pull ambit`; client merge; stale/reparse on changed files.
+- **Push:** `git push ambit`; server accepts only fast-forward when its working tree is clean (**reject-dirty** — no JIT commit on push).
+- Stock git on desktop; smart HTTPS git gateway on the server — no server-side merge. Remote name is **`ambit`**.
 
 ## Prerequisite
 

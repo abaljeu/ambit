@@ -43,7 +43,7 @@ See [[doc/roadmap/reference-expression-interpretation.md]].
 ### Workspace Persistence
 
 - A workspace persists like a special directory.
-- Workspace `wsname` persists as `@wsname` under the server data directory.
+- Workspace `wsname` persists as `DataDir/{wsname}/` under the server data directory.
 
 ### Directory Persistence
 

@@ -58,9 +58,9 @@ No auto-delete of owned children missing on disk.
 
 ## 5. Sync tree command + I/O
 
-- Server: read immediate children under `DataDir/@label/...`, feed the planner, post the ops.
+- Server: read immediate children under `DataDir/{label}/...`, feed the planner, post the ops.
 - Client: workspace/directory "Sync tree" command submits planned ops; surface conflicts via existing status/error UI.
-- Optional same slice: desktop lists the mapped `@label:` root through the same planner.
+- Optional same slice: desktop lists the mapped label root through the same planner.
 
 ## 6. Expand to parse
 
@@ -76,7 +76,7 @@ Deleting an owned File/Directory removes the owner and all refs to it; never pro
 
 ## 9. Workspace git
 
-`git init` under `DataDir/@label/` on first need; `status`/`commit` scoped to that repo only. Desktop: same via LocalProxy when the mapped root is a git repo. No pull/push (Slice 2).
+`git init` under `DataDir/{label}/` on first need; `status`/`commit` scoped to that repo only. Desktop: same via LocalProxy when the mapped root is a git repo. No pull/push (Slice 2).
 
 ## Tests (trimmed)
 
@@ -89,7 +89,7 @@ Deleting an owned File/Directory removes the owner and all refs to it; never pro
 - Delete owned file with refs → owner+refs gone, no promotion; normal-node promotion preserved
 - Expand unparsed → children attached, `Parsed`
 - Stale on newer mtime → stale, no auto-reparse
-- Commit scoped to `@label/` only
+- Commit scoped to `{label}/` only
 
 ## Verify
 

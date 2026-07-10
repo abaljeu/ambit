@@ -74,9 +74,9 @@ Workspace create/rename survives replay through the normal change pipeline.
 
 | Location | Role |
 |----------|------|
-| [src/Shared/RefExpr.fs](src/Shared/RefExpr.fs) | `namedWorkspacesFromGraph` (lines ~318–337): scans `Workspaces` owner children, builds `Map<string, NodeId>`; `resolveBase` resolves `@label:` via `ctx.namedWorkspaces` |
+| [src/Shared/RefExpr.fs](src/Shared/RefExpr.fs) | `namedWorkspacesFromGraph` (lines ~318–337): scans `Workspaces` owner children, builds `Map<string, NodeId>`; `resolveBase` resolves label via `ctx.namedWorkspaces` |
 | [src/Shared/FilePathResolve.fs](src/Shared/FilePathResolve.fs) | `findOwnerChild` + `resolveNamedWorkspaceChain` (lines ~72–124): same lookup for path resolution |
-| [src/Shared/NodeDesktopPath.fs](src/Shared/NodeDesktopPath.fs) | Exposes `@label:` string from workspace node `name` for UI/desktop |
+| [src/Shared/NodeDesktopPath.fs](src/Shared/NodeDesktopPath.fs) | Exposes label string from workspace node `name` for UI/desktop |
 
 Tests: [tests/Shared.Tests/RefExprTests.fs](tests/Shared.Tests/RefExprTests.fs), [tests/Shared.Tests/WorkspaceOpsTests.fs](tests/Shared.Tests/WorkspaceOpsTests.fs), [tests/Shared.Tests/ModelTests.fs](tests/Shared.Tests/ModelTests.fs) (placement + bootstrap).
 
@@ -119,7 +119,7 @@ From [doc/roadmap/workspace-file-model.md](doc/roadmap/workspace-file-model.md) 
 
 > No directory/file path mapping is persisted in shared graph yet.
 
-Directory/file nodes may exist in the graph and round-trip through SQL ([GraphProjectionTests.fs](tests/Shared.Tests/GraphProjectionTests.fs)), but **path mapping** and server `DataDir/@label/...` are later stages (Stage 7).
+Directory/file nodes may exist in the graph and round-trip through SQL ([GraphProjectionTests.fs](tests/Shared.Tests/GraphProjectionTests.fs)), but **path mapping** and server `DataDir/{label}/...` are later stages (Stage 7).
 
 ### F. Doc mismatch to note
 
@@ -135,6 +135,6 @@ Directory/file nodes may exist in the graph and round-trip through SQL ([GraphPr
 | Mapping persisted to PostgreSQL | [src/Shared/GraphProjection.fs](src/Shared/GraphProjection.fs), [src/Server/Database.fs](src/Server/Database.fs) |
 | Mapping persisted in change log | [src/Shared/Serialization.fs](src/Shared/Serialization.fs) |
 | Mapping looked up at runtime | [src/Shared/RefExpr.fs](src/Shared/RefExpr.fs), [src/Shared/FilePathResolve.fs](src/Shared/FilePathResolve.fs) |
-| Mapping exposed as `@label:` | [src/Shared/NodeDesktopPath.fs](src/Shared/NodeDesktopPath.fs) |
+| Mapping exposed as label | [src/Shared/NodeDesktopPath.fs](src/Shared/NodeDesktopPath.fs) |
 | Tests | [tests/Shared.Tests/GraphProjectionTests.fs](tests/Shared.Tests/GraphProjectionTests.fs), [tests/Shared.Tests/WorkspaceOpsTests.fs](tests/Shared.Tests/WorkspaceOpsTests.fs), [tests/Shared.Tests/ModelTests.fs](tests/Shared.Tests/ModelTests.fs) |
 | **Not** Stage 3 (local roots) | [src/Shared/WorkspaceLocalMapping.fs](src/Shared/WorkspaceLocalMapping.fs) — desktop-only, Stage 4 |

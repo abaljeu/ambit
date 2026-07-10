@@ -110,7 +110,7 @@ Behavior:
 ## 6. Server And Desktop I/O
 
 Server side:
-- Add or extend a route/handler that reads immediate children under `DataDir/@label/...` and passes them to the Shared planner.
+- Add or extend a route/handler that reads immediate children under `DataDir/{label}/...` and passes them to the Shared planner.
 - Reuse existing Stage 7/8 `DataDir` path helpers and `DocumentPathMove` behavior where possible.
 - Keep PostgreSQL authoritative for graph identity; disk is observed only for this explicit sync command.
 
@@ -149,7 +149,7 @@ Autosave:
 - Verify that reconciliation changes path ownership before persistence moves run, so `DocumentPathMove` sees the intended disk path.
 
 Git:
-- Add minimal workspace git commands for `status` and `commit` scoped to `DataDir/@label/` or the desktop mapped root when it is a git repo.
+- Add minimal workspace git commands for `status` and `commit` scoped to `DataDir/{label}/` or the desktop mapped root when it is a git repo.
 - Initialize a repo only on first need if documented behavior requires it.
 - Do not implement pull/push, JIT commit, or gateway protocol in this slice.
 

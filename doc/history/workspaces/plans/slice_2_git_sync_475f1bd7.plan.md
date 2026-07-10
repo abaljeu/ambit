@@ -41,7 +41,7 @@ isProject: false
 | **Git pull/push** (recommended) | Git gateway + auth + two hooks | Folder picker, `ambit` remote setup, shell `git` | High — matches locked design in [git-sync-gateway.md](doc/roadmap/git-sync-gateway.md) |
 | **Bulk transfer** (zip/rsync API) | Custom archive endpoints, no history | Extract/upload UI, custom conflict rules | Low — second sync paradigm alongside HTTP graph sync and git |
 
-**Why pull/push wins:** Slice 1 already treats **workspace == git repo** at `{DataDir}/@{label}/`. [WorkspaceGit.fs](src/Server/WorkspaceGit.fs) already runs `git init` / `status` / `commit` via subprocess. The folder-open dialog explicitly selects folders with `.git`. Bulk transfer would re-solve incremental sync, conflicts, and stale detection without git's answers.
+**Why pull/push wins:** Slice 1 already treats **workspace == git repo** at `{DataDir}/{label}/`. [WorkspaceGit.fs](src/Server/WorkspaceGit.fs) already runs `git init` / `status` / `commit` via subprocess. The folder-open dialog explicitly selects folders with `.git`. Bulk transfer would re-solve incremental sync, conflicts, and stale detection without git's answers.
 
 **Upload/download naming:** In UI, map cleanly to git verbs:
 - **Download workspace** → Pull (server → desktop)
@@ -81,14 +81,14 @@ sequenceDiagram
 
 **New server pieces (~4 concerns):**
 
-1. **Route** — smart HTTP per workspace, e.g. `GET/POST /ambit/git/@home.git/info/refs` and `.../git-upload-pack` / `.../git-receive-pack` (exact path TBD). Subprocess to `git http-backend` or direct `upload-pack`/`receive-pack`.
+1. **Route** — smart HTTP per workspace, e.g. `GET/POST /ambit/git/home.git/info/refs` and `.../git-upload-pack` / `.../git-receive-pack` (exact path TBD). Subprocess to `git http-backend` or direct `upload-pack`/`receive-pack`.
 2. **JIT commit** — before serving fetch: flush `DocumentPersistence`, then `git add -A && git commit -m "gambol: autosave before pull"` if porcelain non-empty. Reuses [WorkspaceGit.fs](src/Server/WorkspaceGit.fs).
 3. **Push guards** — `receive.denyNonFastForwards = true`; pre-receive hook rejects if work tree dirty.
 4. **Auth** — git-scoped token (HTTPS) or SSH key. Separate from browser session cookie; one-time desktop setup stores credentials via OS/git credential helper.
 
 **Not needed on server:** merge, rebase, conflict resolution, branch UI, custom pack format.
 
-**Prerequisite:** Slice 1 complete (tree sync, autosave to `@label/`, per-workspace `.git` inside `@label/`).
+**Prerequisite:** Slice 1 complete (tree sync, autosave to `{label}/`, per-workspace `.git` inside `{label}/`).
 
 ---
 
@@ -104,7 +104,7 @@ sequenceDiagram
    - Selected path **contains** `.git/` → root = selected path
    - Otherwise → error: "Select a git repository root"
 3. **User definition dialog** (client overlay, not OS dialog):
-   - **Label** — e.g. `home` → `@home:` graph identity
+   - **Label** — e.g. `home` → `home` graph identity
    - **Server action** — create new cloud workspace node, or link to existing label
    - **Initial sync** (first connect only):
      - *Download* — clone/pull server content into local folder (server empty or authoritative)
@@ -123,7 +123,7 @@ Git sync and graph sync are **separate**. This is the main correction to the men
 
 | Layer | What moves | Mechanism |
 | --- | --- | --- |
-| **Files** | Disk trees under `@label/` | `git pull ambit` / `git push ambit` via gateway |
+| **Files** | Disk trees under `{label}/` | `git pull ambit` / `git push ambit` via gateway |
 | **Graph** | PostgreSQL nodes/ops | Existing `POST /ambit/changes` + `GET /ambit/poll` ([sync-mvp.md](doc/current/sync-mvp.md)) |
 
 **Git push does not create graph nodes by itself.** It runs **`receive-pack`** on the server (not upload-pack — upload-pack is server→client during pull). After push, server **disk** matches the client commit; the **graph** may still be stale until **sync-tree** reconciles disk → owned File/Directory stubs.

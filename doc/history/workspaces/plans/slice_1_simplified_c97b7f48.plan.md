@@ -18,7 +18,7 @@ todos:
     content: Add pure shallow sync planner (reuse/create/ignore-refs/skip .git and .amb; kind collision auto-renames graph node, disk wins) returning a summary for status
     status: completed
   - id: sync-command
-    content: Wire Sync tree command + server DataDir/@label listing; optional desktop mapped-root listing via same planner
+    content: Wire Sync tree command + server DataDir/{label} listing; optional desktop mapped-root listing via same planner
     status: completed
   - id: expand-parse
     content: "Implement expand-to-parse: read one file, run existing format read, attach children, set Parsed(mtime)"
@@ -30,7 +30,7 @@ todos:
     content: Owned-special delete removes owner and replaces each ref with a Normal node containing [[pathexpr]] (derived via NodeDesktopPath before removal); no ref promotion; ViewModelDeleteOps
     status: completed
   - id: git
-    content: Add workspace-scoped git init/status/commit under @label/ (server) and desktop mapped root
+    content: Add workspace-scoped git init/status/commit under {label}/ (server) and desktop mapped root
     status: completed
   - id: tests
     content: Add trimmed Shared tests for placement, create-flow, sync, delete, expand, stale, and git scope
@@ -102,9 +102,9 @@ No auto-delete of owned children missing on disk. The planner returns a small su
 
 ## 5. Sync tree command + I/O
 
-- Server: read immediate children under `DataDir/@label/...`, feed the planner, post the ops.
+- Server: read immediate children under `DataDir/{label}/...`, feed the planner, post the ops.
 - Client: workspace/directory "Sync tree" command submits planned ops; surface the summary/errors via the status reporter (§0).
-- Optional same slice: desktop lists the mapped `@label:` root through the same planner.
+- Optional same slice: desktop lists the mapped label root through the same planner.
 
 ## 6. Expand to parse
 
@@ -122,7 +122,7 @@ The existing file-status/missing-target indicator already flags that the path no
 
 ## 9. Workspace git
 
-`git init` under `DataDir/@label/` on first need; `status`/`commit` scoped to that repo only. Desktop: same via LocalProxy when the mapped root is a git repo. No pull/push (Slice 2).
+`git init` under `DataDir/{label}/` on first need; `status`/`commit` scoped to that repo only. Desktop: same via LocalProxy when the mapped root is a git repo. No pull/push (Slice 2).
 
 ## Tests (trimmed)
 
@@ -136,7 +136,7 @@ The existing file-status/missing-target indicator already flags that the path no
 - Delete owned file with refs → owner removed; each ref becomes a Normal node with `[[pathexpr]]`; no promotion; normal-node promotion preserved
 - Expand unparsed → children attached, `Parsed`
 - Stale on newer mtime → stale, no auto-reparse
-- Commit scoped to `@label/` only
+- Commit scoped to `{label}/` only
 
 ## Verify
 

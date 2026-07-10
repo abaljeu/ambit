@@ -117,18 +117,18 @@ These functions operate on the node list resolved by a reference expression:
 
 Infix `of` and `,` desugar to `FunCall`. `name of children ./folder/` is `FunCall("name", [FunCall("children", […])])`. `name of children , other` is `FunCall("name", [FunCall(",", […; other])])`. `of` and `,` share precedence and associate right; juxtaposition binds tighter than both.
 
-`Ref` is any expression that resolves to nodes, usually a reference expression such as `#todo`, `^/notes.md`, or `//@workspaceName/src/`.
+`Ref` is any expression that resolves to nodes, usually a reference expression such as `#todo`, `^/notes.md`, or `//workspaceName/src/`.
 
 ## Examples
 
 ```text
 text #todo
 name ^/notes.md
-children //@workspaceName/src/
+children //workspaceName/src/
 name of children ./folder/
 #list , sort #list
 sort 3 , 5 , 2
-> python //@ws/rugby.py < #rugbydata
+> python //ws/rugby.py < #rugbydata
 > tool --data (text #rugbydata)
 > python ./rugby.py --verbose
 > tool "/arg=x" --option p > ^/out.log

@@ -1,21 +1,21 @@
 # Git sync gateway
 
 Category: Sync
-See also: [[doc/roadmap/workspace-file-persistence.md]], [[doc/roadmap/workspace-file-model.md]], [[doc/roadmap/workspace-scale-import.md]], [[doc/current/desktop-local-files.md]], [[doc/current/workspace-local-mapping.md]], [[doc/current/persistence-model.md]], [[doc/roadmap/future-merge-sync.md]]
+See also: [[workspace-scale-import-slice2-plan]], [[workspace-scale-import]], [[workspaces-checklist]], [[doc/roadmap/workspace-file-persistence.md]], [[doc/roadmap/workspace-file-model.md]], [[doc/current/desktop-local-files.md]], [[doc/current/workspace-local-mapping.md]], [[doc/current/persistence-model.md]], [[doc/roadmap/future-merge-sync.md]]
 
-**Slice 2** of [[doc/roadmap/workspace-scale-import.md]] — follows slice 1 (outliner ↔ files on one machine).
+**Slice 2** of [[workspace-scale-import]] — follows slice 1 (outliner ↔ files on one machine). Ordered shippable slices: [[workspace-scale-import-slice2-plan]].
 
-Target design for synchronizing a workspace repo between the server `DataDir` and a desktop local checkout. **Workspace == repo.** One workspace label maps to one git repository rooted at `{DataDir}/@{label}/`.
+Target design for synchronizing a workspace repo between the server `DataDir` and a desktop local checkout. **Workspace == repo.** One workspace label maps to one git repository rooted at `DataDir/{label}/` (verbatim label; no `@` prefix on disk — [[workspace-name-verbatim]]).
 
 This doc records decisions that upcoming persistence and workspace work should respect. It does not supersede [[doc/current/sync-mvp.md]] for live graph editing over HTTP; git sync is a coarse, explicit file-tree transport layered on top.
 
 ## What it gives you
 
-- A desktop user maps a workspace label to a local directory that is a normal git clone with `origin` pointing at the server.
-- **Pull** brings server file state to the client (`git pull origin`). Merge and conflict resolution happen **on the client** with standard git tooling.
-- **Push** sends client commits to the server (`git push origin`). The server accepts only **fast-forward** updates when its working tree is **clean**.
+- A desktop user maps a workspace label to a local directory that is a normal git clone with remote name **`ambit`** pointing at the server (not `origin` — preserves the user’s existing upstream).
+- **Pull** brings server file state to the client (`git pull ambit`). Merge and conflict resolution happen **on the client** with standard git tooling.
+- **Push** sends client commits to the server (`git push ambit`). The server accepts only **fast-forward** updates when its working tree is **clean** (**reject-dirty** — no JIT commit on push).
 - A **standalone git gateway** on the server exposes native git wire protocol (smart HTTP or SSH). It does not read PostgreSQL or perform merge logic.
-- After pull, the outliner marks affected files **stale** and offers reparse (see [[doc/roadmap/workspace-scale-import.md]]).
+- After pull, the outliner marks affected files **stale** and offers reparse (see [[workspace-scale-import]]).
 
 ## What it avoids for now
 
@@ -29,20 +29,22 @@ This doc records decisions that upcoming persistence and workspace work should r
 
 | Topic | Decision |
 | --- | --- |
-| Repo root | `{DataDir}/@{workspaceLabel}/` — same tree as [[doc/roadmap/workspace-file-persistence.md]] |
-| `.git` location | **Inside** `@label/` (e.g. `data/@home/.git`). Import and tree browse skip `.git` per [[doc/roadmap/workspace-scale-import.md]]. |
-| Pull (server → client) | **JIT commit on server first**, then client runs `git pull origin`. |
+| Repo root | `DataDir/{workspaceLabel}/` — same tree as live-save / [[doc/roadmap/workspace-file-persistence.md]] (verbatim label) |
+| `.git` location | **Inside** `{label}/` (e.g. `DataDir/home/.git`). Import and tree browse skip `.git` per [[workspace-scale-import]]. |
+| Remote name | **`ambit`** (not `origin`) |
+| Pull (server → client) | **JIT commit on server first**, then client runs `git pull ambit`. |
+| Dirty push policy | **reject-dirty** — reject push when server working tree is dirty; do **not** JIT-commit on push. JIT commit is only before fetch/pull. Locked G0 ([[workspace-scale-import-slice2-plan]]). |
 | Push (client → server) | **Reject unless server working tree is clean**; accept only **fast-forward** (`receive.denyNonFastForwards`). |
-| Desktop transport | Prefer stock **`git pull` / `git push origin`** against a real remote URL — not a bespoke pack POST API. |
+| Desktop transport | Prefer stock **`git pull` / `git push ambit`** against a real remote URL — not a bespoke pack POST API. |
 | Module boundary | `DocumentPersistence` writes files; git gateway runs git. **Only coupling:** server JIT commit before serving fetch, and clean-tree check before receive. |
-| Path moves | Filesystem moves under `@label/` should be real renames where possible so git history stays coherent ([[doc/roadmap/workspace-file-persistence.md]] move handler). |
+| Path moves | Filesystem moves under `{label}/` should be real renames where possible so git history stays coherent ([[doc/roadmap/workspace-file-persistence.md]] move handler). |
 
 ## On-disk layout
 
 ```text
 {DataDir}/
-  @home/                 ← workspace == repo work tree
-    .git/                ← inside @label/
+  home/                  ← workspace == repo work tree (verbatim label)
+    .git/                ← inside {label}/
     src/
       lib.fs
     docs/
@@ -50,7 +52,7 @@ This doc records decisions that upcoming persistence and workspace work should r
         .amb
 ```
 
-Local desktop mapping ([[doc/current/workspace-local-mapping.md]]) points `@home:` at a separate directory that is a **clone** of the server repo, not the server path itself.
+Local desktop mapping ([[doc/current/workspace-local-mapping.md]]) points label `home` at a separate directory that is a **clone** of the server repo, not the server path itself.
 
 ## Protocol flows
 
@@ -61,7 +63,7 @@ Local desktop mapping ([[doc/current/workspace-local-mapping.md]]) points `@home
 sequenceDiagram
   participant Client as Desktop git
   participant GW as Git gateway
-  participant FS as DataDir/@label
+  participant FS as DataDir/{label}
   participant DP as DocumentPersistence
 
   Client->>GW: git fetch / pull
@@ -72,7 +74,7 @@ sequenceDiagram
   Client->>Client: mark stale files in outliner
 ```
 
-1. User triggers Pull in Gambol (or runs `git pull` in the mapped directory).
+1. User triggers Pull in Gambol (or runs `git pull ambit` in the mapped directory).
 2. Gateway ensures graph edits for that workspace are **persisted to disk** (flush).
 3. Gateway runs **JIT commit** on the server repo if the working tree has uncommitted changes (autosaved files).
 4. Client fetches/merges with normal git. User resolves conflicts locally if any.
@@ -85,12 +87,12 @@ sequenceDiagram
 sequenceDiagram
   participant Client as Desktop git
   participant GW as Git gateway
-  participant FS as DataDir/@label
+  participant FS as DataDir/{label}
 
-  Client->>GW: git push origin
+  Client->>GW: git push ambit
   GW->>FS: working tree clean?
   alt dirty
-    GW->>Client: reject (non-fast-forward or hook error)
+    GW->>Client: reject (dirty tree — reject-dirty)
   else clean
     GW->>FS: receive-pack (FF only)
     GW->>Client: ok
@@ -98,7 +100,7 @@ sequenceDiagram
 ```
 
 1. User commits locally on desktop (manual `git commit` — not automatic on every edit).
-2. `git push origin`. Gateway refuses if server working tree is **dirty** (uncommitted autosaves still on disk).
+2. `git push ambit`. Gateway refuses if server working tree is **dirty** (**reject-dirty**; uncommitted autosaves still on disk — no JIT commit on push).
 3. Gateway refuses **non-fast-forward** pushes. Client must pull (merge locally) and push again.
 4. No server merge: push only moves `HEAD` when it is a strict ancestor update and the tree was clean before receive.
 
@@ -106,12 +108,12 @@ sequenceDiagram
 
 ## JIT commit (server)
 
-The only intentional cross-layer action on the server before pull.
+The only intentional cross-layer action on the server before pull. Push never JIT-commits (**reject-dirty**).
 
-When the gateway is about to serve `upload-pack` / respond to fetch for `@{label}`:
+When the gateway is about to serve `upload-pack` / respond to fetch for `{label}`:
 
 1. Confirm `DocumentPersistence` has flushed pending graph writes for that workspace.
-2. If `git status --porcelain` is non-empty under `{DataDir}/@{label}/`, run a commit, e.g. `git add -A` and `git commit -m "gambol: autosave before pull"`.
+2. If `git status --porcelain` is non-empty under `DataDir/{label}/`, run a commit, e.g. `git add -A` and `git commit -m "gambol: autosave before pull"`.
 3. Proceed with fetch.
 
 Properties:
@@ -128,7 +130,7 @@ Standalone concern — subprocess to `git` or thin wrapper around **`git http-ba
 
 | Responsibility | Owner |
 | --- | --- |
-| Resolve `{DataDir}/@{label}/`, auth, rate limits | Gateway |
+| Resolve `DataDir/{label}/`, auth, rate limits | Gateway |
 | `rev-parse`, `status --porcelain`, JIT commit, receive-pack, upload-pack | Gateway via `git -C …` |
 | Graph ops, revision, PostgreSQL | Existing `/ambit` stack |
 | Write `.amb` / source files from graph | `DocumentPersistence` |
@@ -152,16 +154,16 @@ Pre-receive hook may additionally verify `expectedBase` if the transport exposes
 Smart HTTP under the app (exact path TBD):
 
 ```text
-https://collaborative-systems.org/ambit/git/@home.git
+https://collaborative-systems.org/ambit/git/home.git
 ```
 
 or SSH:
 
 ```text
-ssh://app@….azurewebsites.net/home/data/@home
+ssh://app@….azurewebsites.net/home/data/home
 ```
 
-Desktop `git remote add origin …` uses this URL. Gambol UI Pull/Push may shell out to the same commands in the mapped local root.
+Desktop `git remote add ambit …` uses this URL. Gambol UI Pull/Push may shell out to the same commands in the mapped local root.
 
 ## Credentials (GitHub CLI analogy)
 
@@ -170,11 +172,11 @@ GitHub CLI (`gh auth login`) stores credentials so **`git push` / `git pull` wor
 | Mechanism | Notes |
 | --- | --- |
 | **HTTPS + token** | Short-lived or revocable PAT scoped to git endpoints; passed via `git credential` helper. |
-| **SSH key** | Deploy key or user key in `~/.ssh`; `origin` uses `git@…` URL. Fits Azure App Service SSH. |
+| **SSH key** | Deploy key or user key in `~/.ssh`; `ambit` uses `git@…` URL. Fits Azure App Service SSH. |
 | **Credential helper** | Desktop host or OS store holds token; `git` invokes helper — same pattern as Git Credential Manager / `gh`. |
 | **Not sufficient** | Browser session cookie alone does not authenticate git smart HTTP; git needs its own credential path. |
 
-Initial setup slice: document one recommended path (likely HTTPS token or SSH) and a one-time "connect workspace remote" action in desktop that writes `origin` and stores credentials.
+Initial setup slice: document one recommended path (likely HTTPS token or SSH) and a one-time "connect workspace remote" action in desktop that writes remote `ambit` and stores credentials.
 
 Reuse existing app auth where practical (e.g. issue a git-scoped token after `/ambit/login`), but do not conflate graph API session with git wire auth in implementation.
 
@@ -182,11 +184,11 @@ Reuse existing app auth where practical (e.g. issue a git-scoped token after `/a
 
 ### [[doc/roadmap/workspace-file-persistence.md]] / Stage 7–8
 
-- Persist only under `{DataDir}/@{label}/…`; never write into `.git`.
+- Persist only under `DataDir/{label}/…`; never write into `.git`.
 - Flush semantics must be well-defined so JIT commit sees a consistent tree.
 - Path move handler: prefer rename syscalls so git tracks renames.
 
-### [[doc/roadmap/workspace-scale-import.md]]
+### [[workspace-scale-import]]
 
 - Skip `.git` in outline tree; gitignored files not auto-imported (unchanged).
 - Stale marking after client pull is required for correctness.
@@ -202,18 +204,20 @@ Reuse existing app auth where practical (e.g. issue a git-scoped token after `/a
 
 ## Implementation steps
 
-1. **Stage 7 live-save** — `{DataDir}/@{label}/` on Azure `/home` — implemented; see [[doc/current/workspace-stage-plan.md]] §7.
-2. **Init repo** — on workspace creation or first persist, `git init` inside `@label/`; optional default `.gitignore` for local artifacts.
-3. **Gateway v0** — smart HTTP or SSH endpoint per workspace; FF-only; clean-tree check on push; JIT commit before upload-pack.
-4. **Desktop remote setup** — map label → local clone; `origin` URL; credential helper or SSH key docs.
-5. **JIT commit + flush hook** — gateway calls flush then commit; integration test with dirty tree → pull sees commit.
+Ordered slices and checklist mapping: [[workspace-scale-import-slice2-plan]].
+
+1. **Stage 7 live-save** — `DataDir/{label}/` on Azure `/home` — implemented; see [[doc/current/workspace-stage-plan.md]] §7.
+2. **Init repo** — on workspace creation or first persist, `git init` inside `{label}/`; optional default `.gitignore` for local artifacts.
+3. **Gateway v0** — smart HTTP or SSH endpoint per workspace; FF-only; **reject-dirty** on push; JIT commit before upload-pack only.
+4. **Desktop remote setup** — map label → local clone; `ambit` URL; credential helper or SSH key docs.
+5. **JIT commit + flush hook** — gateway calls flush then commit before fetch; integration test with dirty tree → pull sees commit.
 6. **UI** — Pull / Push at workspace root; surface `behind` / `ahead` / `dirty` from `git status -sb`.
 7. **Stale after pull** — wire file nodes to reparse prompt when disk hash/mtime changes.
 
 ## Tests
 
-- **Shared / path**: canonical paths under `@label/` exclude `.git` from import walk (when import exists).
-- **Server integration** (later): push rejected when work tree dirty; push rejected on non-FF; JIT commit creates commit when porcelain non-empty before fetch; FF push updates `HEAD` and files on disk match commit.
+- **Shared / path**: canonical paths under `{label}/` exclude `.git` from import walk (when import exists).
+- **Server integration** (later): push rejected when work tree dirty (reject-dirty); push rejected on non-FF; JIT commit creates commit when porcelain non-empty before fetch; FF push updates `HEAD` and files on disk match commit.
 
 ## Non-goals
 

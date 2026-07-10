@@ -116,7 +116,7 @@ Optional host for users who need local filesystem access while using the same we
 
 - **Capabilities** (`src/Shared/DesktopCapabilities.fs`): `GET /_desktop/capabilities` — what file open/import/export/status and workspace-path resolution the host allows
 
-- **File status**: `POST /_desktop/file-status` with `{ "path": "..." }` returns whether the path is invalid, creatable, an existing file, or an existing folder (supports `@label:relative` workspace paths when mapped)
+- **File status**: `POST /_desktop/file-status` with `{ "path": "..." }` returns whether the path is invalid, creatable, an existing file, or an existing folder (supports `//label/relative` workspace paths when mapped)
 
 - **File read (import)**: `GET /_desktop/file?path=...` reads a local file or directory listing and returns ops/text for the client to apply via normal cloud sync
 
@@ -274,7 +274,7 @@ root : sitenode; selection : nodeview + span
 
 **On-disk** (under `DataDir`, default `data/` locally, `/home/data` on Azure):
 
-- document artifacts per graph node — outline or payload text under `DataDir/@label/...` (see [[doc/roadmap/workspace-file-persistence.md]])
+- document artifacts per graph node — outline or payload text under `DataDir/{label}/...` (see [[doc/roadmap/workspace-file-persistence.md]])
 
 - tab-indented outline syntax via `Snapshot.fs` for serialization; not the SQL source of truth
 
