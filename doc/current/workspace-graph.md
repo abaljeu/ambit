@@ -87,7 +87,10 @@ Workspace nodes are created through the general change op surface; names are fix
   `Special Workspace` (`"cannot rename a workspace"`); `NodeRenameOps.isRenameAllowed` is false
   so F2 / Rename does not open a prompt. Directory, File, and Normal nodes still rename via
   `Op.SetName` with `Graph.setName` validation (case-insensitive sibling uniqueness, invalid
-  filename chars rejected).
+  filename chars rejected). Named workspaces and Root-owned Files/Directories also share one
+  case-insensitive DataDir top-level namespace (`Graph.replace` / `Graph.setName` reject;
+  create planners auto-rename via `Graph.takenOwnedNamesLower`). Nested File/Directory names
+  are not in that namespace.
 
 **Stage 6 target — Insert…:** create workspace under `Workspaces`, or `Special Directory` / `Special File` as owner child of focus; pick-existing insert via search unchanged.
 

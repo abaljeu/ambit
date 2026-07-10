@@ -159,7 +159,7 @@ let ``classifyDeleteForSelection returns empty for workspace delete`` () =
 [<Fact>]
 let ``classifyDeleteForSelection cancels whole selection when workspace is in range`` () =
     let ws = NodeId.New()
-    let dir = NodeId.New()
+    let other = NodeId.New()
     let g0 = Graph.create ()
     let g1 =
         History.applyChange
@@ -167,8 +167,8 @@ let ``classifyDeleteForSelection cancels whole selection when workspace is in ra
               changeId = System.Guid.NewGuid()
               ops =
                 [ Op.NewSpecialNode(ws, Workspace, "home")
-                  Op.NewSpecialNode(dir, Directory, "docs")
-                  Op.Replace(Graph.workspacesId, 0, [], owned [ ws; dir ]) ] }
+                  Op.NewNode(other, "docs")
+                  Op.Replace(Graph.workspacesId, 0, [], owned [ ws; other ]) ] }
             (stateOf g0)
     match g1 with
     | ApplyResult.Changed s ->

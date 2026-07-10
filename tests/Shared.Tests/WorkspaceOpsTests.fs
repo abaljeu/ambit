@@ -119,6 +119,42 @@ let ``SetName same name as self is not a conflict`` () =
     let graph1, nodeId = addNamedNode "alpha" graph0
     Assert.True(Result.isOk (Graph.setName nodeId "alpha" "alpha" graph1))
 
+[<Fact>]
+let ``SetName rejects root file rename colliding with workspace`` () =
+    let graph0 = Graph.create ()
+    let wsId = NodeId.New()
+    let state1 =
+        Op.apply (Op.NewSpecialNode(wsId, Workspace, "shared")) (freshState ())
+        |> requireChanged
+    let graph1 =
+        appendOwned Graph.workspacesId wsId state1.graph
+    let fileId = NodeId.New()
+    let state2 =
+        Op.apply (Op.NewSpecialNode(fileId, File, "other")) (makeState graph1)
+        |> requireChanged
+    let graph2 = appendOwned Graph.rootId fileId state2.graph
+    Assert.True(Result.isError (Graph.setName fileId "other" "shared" graph2))
+
+[<Fact>]
+let ``SetName allows nested file rename matching workspace`` () =
+    let graph0 = Graph.create ()
+    let wsId = NodeId.New()
+    let state1 =
+        Op.apply (Op.NewSpecialNode(wsId, Workspace, "shared")) (freshState ())
+        |> requireChanged
+    let graph1 = appendOwned Graph.workspacesId wsId state1.graph
+    let dirId = NodeId.New()
+    let state2 =
+        Op.apply (Op.NewSpecialNode(dirId, Directory, "folder")) (makeState graph1)
+        |> requireChanged
+    let graph2 = appendOwned Graph.rootId dirId state2.graph
+    let fileId = NodeId.New()
+    let state3 =
+        Op.apply (Op.NewSpecialNode(fileId, File, "other")) (makeState graph2)
+        |> requireChanged
+    let graph3 = appendOwned dirId fileId state3.graph
+    Assert.True(Result.isOk (Graph.setName fileId "other" "shared" graph3))
+
 // ─── Graph.replace name uniqueness ─────────────────────────────────────────
 
 [<Fact>]
@@ -160,6 +196,63 @@ let ``Replace allows owner children whose names are Empty`` () =
     let graph4 = appendOwned Graph.rootId contId graph3
     let result = Graph.replace contId 0 [] [ owned nodeIdA; owned nodeIdB ] graph4
     Assert.True(Result.isOk result)
+
+[<Fact>]
+let ``Replace rejects root file colliding with workspace name`` () =
+    let graph0 = Graph.create ()
+    let wsId = NodeId.New()
+    let state1 =
+        Op.apply (Op.NewSpecialNode(wsId, Workspace, "shared")) (freshState ())
+        |> requireChanged
+    let graph1 = appendOwned Graph.workspacesId wsId state1.graph
+    let fileId = NodeId.New()
+    let state2 =
+        Op.apply (Op.NewSpecialNode(fileId, File, "shared")) (makeState graph1)
+        |> requireChanged
+    let idx = Graph.fileTreeInsertIndex state2.graph Graph.rootId
+    let result = Graph.replace Graph.rootId idx [] [ owned fileId ] state2.graph
+    Assert.True(Result.isError result)
+
+[<Fact>]
+let ``Replace rejects workspace colliding with root file name`` () =
+    let graph0 = Graph.create ()
+    let fileId = NodeId.New()
+    let state1 =
+        Op.apply (Op.NewSpecialNode(fileId, File, "shared")) (freshState ())
+        |> requireChanged
+    let graph1 = appendOwned Graph.rootId fileId state1.graph
+    let wsId = NodeId.New()
+    let state2 =
+        Op.apply (Op.NewSpecialNode(wsId, Workspace, "shared")) (makeState graph1)
+        |> requireChanged
+    let idx = state2.graph.nodes.[Graph.workspacesId].children.Length
+    let result =
+        Graph.replace Graph.workspacesId idx [] [ owned wsId ] state2.graph
+    Assert.True(Result.isError result)
+
+[<Fact>]
+let ``Replace rejects move of nested file onto root when workspace name conflicts`` () =
+    let graph0 = Graph.create ()
+    let wsId = NodeId.New()
+    let state1 =
+        Op.apply (Op.NewSpecialNode(wsId, Workspace, "shared")) (freshState ())
+        |> requireChanged
+    let graph1 = appendOwned Graph.workspacesId wsId state1.graph
+    let dirId = NodeId.New()
+    let state2 =
+        Op.apply (Op.NewSpecialNode(dirId, Directory, "folder")) (makeState graph1)
+        |> requireChanged
+    let graph2 = appendOwned Graph.rootId dirId state2.graph
+    let fileId = NodeId.New()
+    let state3 =
+        Op.apply (Op.NewSpecialNode(fileId, File, "shared")) (makeState graph2)
+        |> requireChanged
+    let graph3 = appendOwned dirId fileId state3.graph
+    let remove =
+        Graph.replace dirId 0 [ owned fileId ] [] graph3 |> requireOk "detach"
+    let idx = Graph.fileTreeInsertIndex remove Graph.rootId
+    let result = Graph.replace Graph.rootId idx [] [ owned fileId ] remove
+    Assert.True(Result.isError result)
 
 // ─── Op apply / undo ───────────────────────────────────────────────────────
 

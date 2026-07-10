@@ -346,6 +346,47 @@ module Graph =
             |> List.tryFindIndex (fun c -> c.id = workspacesId || c.id = trashId)
             |> Option.defaultValue (graph.nodes.[parentId].children.Length)
 
+    let private nameLowerOk (node: Node) : string option =
+        match node.name with
+        | Filename.Ok n -> Some(n.ToLowerInvariant())
+        | _ -> None
+
+    let private childrenOf (graph: Graph) (parentId: NodeId) : ChildNode list =
+        match graph.nodes |> Map.tryFind parentId with
+        | Some p -> p.children
+        | None -> []
+
+    let private ownedNameLowers
+        (graph: Graph)
+        (children: ChildNode list)
+        (excludeId: NodeId option)
+        : string list
+        =
+        children
+        |> List.choose (fun c ->
+            if c.ref <> Ownership.Owner then None
+            elif excludeId = Some c.id then None
+            else
+                graph.nodes
+                |> Map.tryFind c.id
+                |> Option.bind nameLowerOk)
+
+    /// DataDir top (ROOT/Workspaces): flat ROOT∪Workspaces owned names; else siblings.
+    let ownedNameTaken
+        (graph: Graph)
+        (parentId: NodeId)
+        (excludeId: NodeId option)
+        (nameLower: string)
+        : bool
+        =
+        let kids =
+            if parentId = rootId || parentId = workspacesId then
+                childrenOf graph rootId @ childrenOf graph workspacesId
+            else
+                childrenOf graph parentId
+        ownedNameLowers graph kids excludeId
+        |> List.exists (fun n -> n = nameLower)
+
     let setText
         (nodeId: NodeId)
         (oldText: string)
@@ -426,18 +467,7 @@ module Graph =
                             match graph.ownerParentByChild |> Map.tryFind nodeId with
                             | None -> false
                             | Some parentId ->
-                                graph.nodes.[parentId].children
-                                |> List.exists (fun c ->
-                                    c.ref = Ownership.Owner
-                                    && c.id <> nodeId
-                                    && (graph.nodes
-                                        |> Map.tryFind c.id
-                                        |> Option.bind (fun s ->
-                                            match s.name with
-                                            | Filename.Ok n -> Some(n.ToLowerInvariant())
-                                            | _ -> None)
-                                        |> Option.map (fun n -> n = newNameLower)
-                                        |> Option.defaultValue false))
+                                ownedNameTaken graph parentId (Some nodeId) newNameLower
                         if hasConflict then
                             Error "sibling name conflict"
                         else
@@ -485,7 +515,8 @@ module Graph =
                         match child.ref, childNode.kind with
                         | _, Special Workspace when parentId <> workspacesId ->
                             Some "Workspace nodes may only be placed under Workspaces"
-                        | Ownership.Owner, (Special File | Special Directory) ->
+                        | Ownership.Owner, (Special File | Special Directory)
+                            when child.id <> trashId ->
                             match parent.kind with
                             | Special Workspace
                             | Special Directory -> None
@@ -509,19 +540,19 @@ module Graph =
                         let suffix = children |> List.skip (index + oldCount)
                         let updatedChildren = prefix @ newChildren @ suffix
 
-                        let ownerNames =
-                            updatedChildren
-                            |> List.choose (fun c ->
-                                if c.ref = Ownership.Owner then
-                                    graph.nodes
-                                    |> Map.tryFind c.id
-                                    |> Option.bind (fun n ->
-                                        match n.name with
-                                        | Filename.Ok s -> Some(s.ToLowerInvariant())
-                                        | _ -> None)
-                                else None)
+                        let conflictNames =
+                            if parentId = rootId || parentId = workspacesId then
+                                let rootCh =
+                                    if parentId = rootId then updatedChildren
+                                    else childrenOf graph rootId
+                                let wsCh =
+                                    if parentId = workspacesId then updatedChildren
+                                    else childrenOf graph workspacesId
+                                ownedNameLowers graph (rootCh @ wsCh) None
+                            else
+                                ownedNameLowers graph updatedChildren None
 
-                        if ownerNames.Length <> (ownerNames |> List.distinct).Length then
+                        if conflictNames.Length <> (conflictNames |> List.distinct).Length then
                             Error "sibling name conflict"
                         elif parentId = rootId then
                             let hadTrashOwner =

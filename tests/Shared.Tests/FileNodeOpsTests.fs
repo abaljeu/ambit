@@ -100,7 +100,37 @@ let ``planCreateOwnedFile picks unused sibling name`` () =
                 match graph3.nodes.[c.id].name with
                 | Filename.Ok n -> Some n
                 | _ -> None)
-    Assert.Equal< string list >([ "file.txt"; "file.txt1" ], names)
+    Assert.Equal< string list >([ "file.txt"; "file1.txt" ], names)
+
+[<Fact>]
+let ``planCreateWorkspace avoids root-owned file name`` () =
+    let graph0 = Graph.create ()
+    let fileId, opsFile = FileNodeOps.planCreateOwnedFile graph0 Graph.rootId "shared"
+    let graph1 = applyOps graph0 opsFile
+    Assert.Equal(Filename.Ok "shared", graph1.nodes.[fileId].name)
+    let wsId, opsWs = FileNodeOps.planCreateWorkspace graph1 "shared"
+    let graph2 = applyOps graph1 opsWs
+    Assert.Equal(Filename.Ok "shared1", graph2.nodes.[wsId].name)
+
+[<Fact>]
+let ``planCreateOwnedFile under root avoids workspace name`` () =
+    let graph0 = Graph.create ()
+    let wsId, opsWs = FileNodeOps.planCreateWorkspace graph0 "shared"
+    let graph1 = applyOps graph0 opsWs
+    Assert.Equal(Filename.Ok "shared", graph1.nodes.[wsId].name)
+    let fileId, opsFile = FileNodeOps.planCreateOwnedFile graph1 Graph.rootId "shared"
+    let graph2 = applyOps graph1 opsFile
+    Assert.Equal(Filename.Ok "shared1", graph2.nodes.[fileId].name)
+
+[<Fact>]
+let ``planCreateOwnedDirectory under nested parent ignores workspace name`` () =
+    let focus, graph0 = outlineSetup ()
+    let wsId, opsWs = FileNodeOps.planCreateWorkspace graph0 "shared"
+    let graph1 = applyOps graph0 opsWs
+    Assert.Equal(Filename.Ok "shared", graph1.nodes.[wsId].name)
+    let dirId, opsDir = FileNodeOps.planCreateOwnedDirectory graph1 focus "shared"
+    let graph2 = applyOps graph1 opsDir
+    Assert.Equal(Filename.Ok "shared", graph2.nodes.[dirId].name)
 
 [<Fact>]
 let ``planInsertFileRefAtFocus inserts ref at index`` () =

@@ -15,27 +15,20 @@ module FileNodeOps =
         | ApplyResult.Unchanged s -> s.graph
         | ApplyResult.Invalid(_, msg) -> failwith msg
 
-    let private siblingOwnerNamesLower (graph: Graph) (parentId: NodeId) : Set<string> =
-        graph.nodes.[parentId].children
-        |> List.choose (fun child ->
-            if child.ref <> Ownership.Owner then
-                None
+    let private numberedSiblingName (baseName: string) (i: int) : string =
+        if i = 0 then
+            baseName
+        else
+            let lastDot = baseName.LastIndexOf('.')
+            if lastDot <= 0 then
+                sprintf "%s%d" baseName i
             else
-                graph.nodes
-                |> Map.tryFind child.id
-                |> Option.bind (fun node ->
-                    match node.name with
-                    | Filename.Ok n -> Some(n.ToLowerInvariant())
-                    | _ -> None))
-        |> Set.ofList
+                sprintf "%s%d%s" (baseName.Substring(0, lastDot)) i (baseName.Substring(lastDot))
 
     let private unusedOwnedName (graph: Graph) (parentId: NodeId) (baseName: string) : string =
-        let taken = siblingOwnerNamesLower graph parentId
-
         let rec loop (i: int) =
-            let candidate =
-                if i = 0 then baseName else sprintf "%s%d" baseName i
-            if Set.contains (candidate.ToLowerInvariant()) taken then
+            let candidate = numberedSiblingName baseName i
+            if Graph.ownedNameTaken graph parentId None (candidate.ToLowerInvariant()) then
                 loop (i + 1)
             else
                 candidate
