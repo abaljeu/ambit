@@ -320,6 +320,14 @@ module RouteRegistration =
             else
                 Results.Unauthorized()
         )) |> ignore
+        app.MapPost("/ambit/file-status", Func<HttpRequest, Task<IResult>>(fun req -> task {
+            if not (auth.IsAuthenticated req) then
+                return Results.Unauthorized()
+            else
+                use reader = new StreamReader(req.Body)
+                let! body = reader.ReadToEndAsync()
+                return Api.postFileStatus persistence.DataDir body
+        })) |> ignore
         app.MapPost("/ambit/save", Func<HttpRequest, Task<IResult>>(fun req -> task {
             if not (auth.IsAuthenticated req) then
                 return Results.Unauthorized()

@@ -90,6 +90,9 @@ let modelWithSel (graph: Graph) (parentNodeId: NodeId) (start: int) (endd: int) 
 let private withDesktop (model: VM) : VM =
     { model with desktopCapabilities = Some (DesktopCapabilities.desktopEnabled true) }
 
+let private withServerStatus (model: VM) : VM =
+    { model with serverCapabilities = Some { canGitSave = false; canFileStatus = true } }
+
 let private selectedModelWithText (text: string) : VM =
     let graph, cont, _ = buildFlat [ text ]
     modelWithSel graph cont 0 1 0
@@ -213,11 +216,19 @@ let ``refreshDesktopFileIndicator requests status for Special Workspace path`` (
         Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) graph1
         |> ModelBuilder.requireOk "workspaces->ws"
 
-    let model = modelWithSel graph2 Graph.workspacesId 0 1 0 |> withDesktop
+    let model = modelWithSel graph2 Graph.workspacesId 0 1 0 |> withServerStatus
     let refreshed, effects = refreshDesktopFileIndicator model
 
     Assert.Equal(CheckingFileStatus (wsId, "//home"), refreshed.desktopFileIndicator)
-    Assert.Equal<Effect list>([ RequestDesktopFileStatus (wsId, "//home") ], effects)
+    Assert.Equal<Effect list>([ RequestServerFileStatus (wsId, "//home") ], effects)
+
+[<Fact>]
+let ``refreshDesktopFileIndicator leaves workspace path blank until server status is known`` () =
+    let model = selectedModelWithText "load [[//home/readme.txt]]" |> withDesktop
+    let refreshed, effects = refreshDesktopFileIndicator model
+
+    Assert.Equal(BlankFileIndicator, refreshed.desktopFileIndicator)
+    Assert.Empty(effects)
 
 [<Fact>]
 let ``refreshDesktopFileIndicator does not repeat matching status request`` () =
@@ -348,6 +359,25 @@ let ``rowFileIndicatorText shows sync label on active special file node`` () =
     let fileNode = checkedModel.graph.nodes.[fileId]
 
     Assert.Equal("old", rowFileIndicatorText checkedModel fileEntry fileNode)
+
+[<Fact>]
+let ``rowFileIndicatorText shows missing and absent class for active server status`` () =
+    let model =
+        selectedModelWithText "load [[//home/missing.txt]]"
+        |> withServerStatus
+    let checking, _ = refreshDesktopFileIndicator model
+    let nodeId = focusedNodeId checking.graph checking.selectedNodes.Value
+
+    let checkedModel =
+        applyDesktopFileStatus nodeId "//home/missing.txt" MissingArtifact None checking
+
+    let activeEntry =
+        checkedModel.siteMap.entries.[checkedModel.selectedNodes.Value.range.parent.children.[0]]
+
+    let activeNode = checkedModel.graph.nodes.[activeEntry.nodeId]
+
+    Assert.Equal("missing", rowFileIndicatorText checkedModel activeEntry activeNode)
+    Assert.True(rowArtifactAbsentClassEligible checkedModel activeEntry activeNode)
 
 // ---------------------------------------------------------------------------
 // singleSelection

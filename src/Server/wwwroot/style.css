@@ -409,6 +409,9 @@ body {
 .amb-row-special-trash .amb-text {
     border-left: 3px solid #888;
 }
+.amb-row-artifact-absent .amb-text {
+    border-left-color: #b22;
+}
 .amb-row-file-unparsed .amb-text {
     background: #f4df9a66;
 }

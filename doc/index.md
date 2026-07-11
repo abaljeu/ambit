@@ -52,14 +52,14 @@ Might be next: Server-side merge/rebase for stale submissions, including orphan 
 ### **Desktop local files and workspace mapping**
 Status: **Partial**.
 Details: [[doc/current/desktop-local-files.md]], [[doc/current/workspace-stage-plan.md]].
-Last implemented: Desktop proxy capabilities cover local import, export, file status, and `//label/relative` workspace path resolution; workspace structure commands are implemented through Stage 8.
-Might be next: Stage 5 unresolved UI and server file-status corrections.
+Last implemented: Desktop proxy capabilities cover local import, export, local file status, and `//label/relative` workspace path resolution; workspace namespace file-status now queries server `DataDir`.
+Might be next: Local mapping command surface or richer freshness metadata.
 
 ### **Workspace file model and persistence**
 Status: **Partial**.
 Details: [[doc/roadmap/workspace-file-model.md]], [[doc/current/workspace-stage-plan.md]].
-Last implemented: Per-document snapshot integration and incremental persist on top of `DataDir` live-save and unified path moves.
-Might be next: XML read/write ([[doc/roadmap/workspace-format-xml.md]]); expand-to-parse and richer freshness metadata/UI; unresolved-reference UI and server file-status corrections.
+Last implemented: Per-document snapshot integration, incremental persist, server file-status, and unresolved-reference UI on top of `DataDir` live-save and unified path moves.
+Might be next: XML read/write ([[doc/roadmap/workspace-format-xml.md]]); expand-to-parse and richer freshness metadata/UI.
 
 ### **Lazy Load and workspace source formats**
 Status: **Partial**.

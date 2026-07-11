@@ -34,5 +34,6 @@ let ``indicatorTextForStatus maps non-file statuses`` () =
     let t = utc 2024 6 1 12 0 0
 
     Assert.Equal("create", FileSyncIndicator.indicatorTextForStatus t CreateFile None)
+    Assert.Equal("missing", FileSyncIndicator.indicatorTextForStatus t MissingArtifact None)
     Assert.Equal("invalid", FileSyncIndicator.indicatorTextForStatus t InvalidPath None)
     Assert.Equal("folder", FileSyncIndicator.indicatorTextForStatus t ExistingFolder None)

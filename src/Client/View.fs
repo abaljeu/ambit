@@ -68,6 +68,8 @@ let private makeRowElement
     row.classList.add (ViewModel.rowOwnershipClass model siteEntry)
     if ViewModel.rowFileUnparsedClassEligible model siteEntry then
         row.classList.add "amb-row-file-unparsed"
+    if ViewModel.rowArtifactAbsentClassEligible model siteEntry node then
+        row.classList.add "amb-row-artifact-absent"
     row.setAttribute("data-node-id", node.id.Value.ToString())
 
     if siteEntry.parentInstanceId = None then row.classList.add "amb-view-root"

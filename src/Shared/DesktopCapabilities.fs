@@ -27,6 +27,7 @@ type FileReference =
 type DesktopFileStatus =
     | InvalidPath
     | CreateFile
+    | MissingArtifact
     | ExistingFile
     | ExistingFolder
     | EvalError
@@ -129,6 +130,7 @@ module NodeStatus =
         function
         | InvalidPath -> "invalid"
         | CreateFile -> "create"
+        | MissingArtifact -> "missing"
         | ExistingFile -> "file"
         | ExistingFolder -> "folder"
         | EvalError -> "error"
@@ -138,6 +140,7 @@ module NodeStatus =
         match text with
         | "invalid" -> Some InvalidPath
         | "create" -> Some CreateFile
+        | "missing" -> Some MissingArtifact
         | "file" -> Some ExistingFile
         | "folder" -> Some ExistingFolder
         | _ -> None

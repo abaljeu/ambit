@@ -38,6 +38,23 @@ let private expandNode nodeId (model: VM) =
         expandEntry entry.instanceId model.graph model.siteMap model.nextSiteId
     { model with siteMap = siteMap; nextSiteId = nextId }
 
+let private modelFromGraph graph =
+    let siteMap, nextSiteId = buildSiteMapFrom graph Graph.rootId (Sid 0)
+    { graph = graph
+      revision = Revision.Zero
+      history = History.empty
+      selectedNodes = None
+      mode = Selecting
+      siteMap = siteMap
+      nextSiteId = nextSiteId
+      zoomRoot = Graph.rootId
+      clipboard = None
+      desktopCapabilities = None
+      serverCapabilities = None
+      desktopFileIndicator = BlankFileIndicator
+      syncInfo = SyncInfo.initial
+      lastCmdResult = None }
+
 let private modelWithUnparsedFile () =
     let graph0 = Graph.create ()
     let fileId = NodeId.New()
@@ -142,3 +159,63 @@ let ``document state change patches all visible owned File member rows`` () =
     Assert.Contains("amb-row-file-unparsed", classFor childId grandchildId |> Option.get)
     Assert.Equal(None, classFor refParentId childId)
     Assert.Equal(None, classFor Graph.rootId siblingFileId)
+
+[<Fact>]
+let ``desktop file indicator states map to row text`` () =
+    Assert.Equal(
+        "missing",
+        DesktopFileIndicator.textByState.[AbsentArtifactIndicator])
+    Assert.Equal(
+        "invalid",
+        DesktopFileIndicator.textByState.[InvalidFileReferenceIndicator])
+    Assert.Equal("...", DesktopFileIndicator.toText (CheckingFileStatus (NodeId.New(), "x")))
+
+[<Fact>]
+let ``special row with absent artifact uses missing indicator and absent class`` () =
+    let graph0 = Graph.create ()
+    let wsId = NodeId.New()
+    let workspace =
+        Node.Create(
+            wsId,
+            text = "bad workspace",
+            name = Filename.Invalid "",
+            owner = Graph.workspacesId,
+            kind = Special Workspace)
+    let workspaces =
+        { graph0.nodes.[Graph.workspacesId] with
+            children = [ owned wsId ] }
+    let graph =
+        graph0.nodes
+        |> Map.add Graph.workspacesId workspaces
+        |> Map.add wsId workspace
+        |> Graph.fromNodes graph0.root
+    let model = modelFromGraph graph |> expandNode Graph.workspacesId
+    let entry = entryUnderParentNode Graph.workspacesId wsId model
+    let node = model.graph.nodes.[wsId]
+
+    Assert.Equal(Some AbsentArtifactIndicator, rowArtifactIndicatorState model entry node)
+    Assert.Equal("missing", rowFileIndicatorText model entry node)
+    Assert.True(rowArtifactAbsentClassEligible model entry node)
+
+[<Fact>]
+let ``missing workspace path reference uses missing text indicator`` () =
+    let graph0 = Graph.create ()
+    let refId = NodeId.New()
+    let refNode = Node.Create(refId, text = "see [[//missing/file.md]]")
+    let root =
+        { graph0.nodes.[Graph.rootId] with
+            children = graph0.nodes.[Graph.rootId].children @ [ owned refId ] }
+    let graph =
+        graph0.nodes
+        |> Map.add Graph.rootId root
+        |> Map.add refId refNode
+        |> Graph.fromNodes graph0.root
+    let model = modelFromGraph graph
+    let entry = entryUnderParentNode Graph.rootId refId model
+    let node = model.graph.nodes.[refId]
+
+    Assert.Equal(
+        Some AbsentArtifactIndicator,
+        rowArtifactIndicatorState model entry node)
+    Assert.Equal("missing", rowFileIndicatorText model entry node)
+    Assert.False(rowArtifactAbsentClassEligible model entry node)

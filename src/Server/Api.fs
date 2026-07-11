@@ -77,6 +77,10 @@ module Api =
     let private jsonResult (json: string) : IResult =
         Results.Content(json, "application/json")
 
+    let private decodeFileStatusRequest =
+        Thoth.Json.Core.Decode.object (fun get ->
+            get.Required.Field "path" Thoth.Json.Core.Decode.string)
+
     let getPoll
         (handle: AgentHandle)
         (buildEpochSec: int)
@@ -111,10 +115,23 @@ module Api =
 
     let getCapabilities (dataDir: string) : IResult =
         let capabilities =
-            { canGitSave = GitSave.isRepo dataDir }
+            { canGitSave = GitSave.isRepo dataDir
+              canFileStatus = true }
         let json =
             Encode.toString 0 (ServerCapabilities.encode capabilities)
         jsonResult json
+
+    let postFileStatus (dataDir: string) (body: string) : IResult =
+        match Decode.fromString decodeFileStatusRequest body with
+        | Error err -> Results.BadRequest({| error = err |})
+        | Ok path ->
+            match DocumentPersistence.fileStatusForReference dataDir path with
+            | Error err -> Results.BadRequest({| error = err |})
+            | Ok response ->
+                response
+                |> Serialization.encodeDesktopFileStatusResponse
+                |> Encode.toString 0
+                |> jsonResult
 
     let gitSave
         (prepare: unit -> Async<Result<int, string>>)

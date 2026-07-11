@@ -194,6 +194,25 @@ let ``writeAllDocuments nested workspace tree writes expected paths`` () =
     Assert.True(File.Exists(Path.Combine(dataDir, "home", "docs", "readme.txt")))
 
 [<Fact>]
+let ``fileStatusForReference reports existing and missing server artifacts`` () =
+    let dataDir = newTempDir ()
+    let graph, _, _, _, _ = graphWithNestedDocs ()
+    DocumentPersistence.writeAllDocuments dataDir graph |> requireOk "writeAllDocuments" |> ignore
+
+    let existing =
+        DocumentPersistence.fileStatusForReference dataDir "//home/docs/readme.txt"
+        |> requireOk "existing status"
+
+    let missing =
+        DocumentPersistence.fileStatusForReference dataDir "//home/docs/missing.txt"
+        |> requireOk "missing status"
+
+    Assert.Equal(ExistingFile, existing.status)
+    Assert.True(existing.sourceModifiedUtc.IsSome)
+    Assert.Equal(MissingArtifact, missing.status)
+    Assert.Equal(None, missing.sourceModifiedUtc)
+
+[<Fact>]
 let ``writeAllDocuments ROOT file lands at dataDir root without amb suffix`` () =
     let dataDir = newTempDir ()
     let graph, fileId = graphWithRootFile ()

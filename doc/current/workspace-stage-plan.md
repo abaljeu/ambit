@@ -25,7 +25,7 @@ Status legend (from file-model):
 | 2 — invariants/ops as behavior-bearing | §1, §2 | `[x]` |
 | 3 — shared label → workspace-root mapping | §3 | `[x]` |
 | 4 — desktop `//label/relative` via local mapping | §4 | `[x]` |
-| 5 — unresolved UI; file-status | §5 | deferred |
+| 5 — unresolved UI; file-status | §5 | `[x]` |
 | 6 — user commands for structure | §2, §6 | `[x]` |
 | 7 — server `DataDir` live-save + path moves | §7 | `[x]` |
 | 8 — snapshot integration; incremental persist | §7 | `[x]` |
@@ -34,9 +34,9 @@ Corrections tracked in the file-model (placement rules, persistence-split docs, 
 
 ## Baseline
 
-Workspace and outline **structure commands** (Stage 6) are implemented without waiting on Stage 5 server file-status or full unresolved UI.
+Workspace and outline **structure commands** (Stage 6) are implemented, and Stage 5 unresolved indicators now use server file-status for workspace namespace paths.
 
-Stage 5 (unresolved indicators; primary server file-status) remains **deferred** — desktop file-status for locally mapped paths remains.
+Desktop file-status remains for secondary locally mapped paths.
 
 For Stages 6–8, "structure support" means:
 
@@ -60,12 +60,11 @@ Stage 1 vocabulary for `Special Directory` and `Special File` exists in the shar
 - User-visible desktop app configuration JSON containing workspace mappings.
 - A desktop-accessible workspace-node command for "open workspace in explorer".
 - No commands to set, update, clear, or list local mappings.
-- Unresolved-workspace indication when a label is unknown (Stage 5 — deferred; not blocking Stage 6).
+- Unresolved-workspace and path indication when a namespace reference cannot resolve (Stage 5 — done).
 - Server-side persistence of directory and file **documents** under `DataDir/{label}/...` (Stage 7 — implemented; see §7).
 
 ### Out Of Scope (follow-on stages)
 
-- Stage 5 corrections: full cross-scope unresolved UI; server file-status before Stage 7 is wired.
 - Server `DataDir` path materialization and filesystem moves for directory/file document roots (Stage 7 — done).
 - Hard delete under TRASH (artifact removal — Stage 7 step 4, not done).
 - Document membership in the model (`docId`, load/unload) belongs to the broader persistence and replication plans.
@@ -226,17 +225,18 @@ Verification:
 
 ## 5. Client UI And Unresolved References
 
-Status: Stage 5 **deferred** (bypassed for Stage 6).
+Status: Stage 5 `[x]`.
 
-Stage 5 is not blocking Stage 6 structure commands. Remaining Stage 5 work:
+Stage 5 behavior:
 
-- File-status uses the desktop query surface for locally mapped paths (unchanged).
-- Primary server live-save is wired (Stage 7). Server-side file-status and full unresolved `//label` UI are not done.
+- Workspace namespace file-status uses server `DataDir` through `/ambit/file-status`.
+- Desktop file-status uses the desktop query surface for secondary locally mapped paths.
+- Missing or invalid references surface through the shared row/active file indicator vocabulary.
 
-Corrections (deferred):
+Corrections:
 
-- Unresolved UI should cover namespace resolution failures across workspace, directory, and file scopes.
-- File-status should query server persistence when wired (Stage 7 live-save exists; status endpoint not done); desktop query remains for secondary mapped paths.
+- Unresolved UI covers namespace resolution failures across workspace, directory, and file scopes.
+- File-status queries server persistence for workspace namespace paths; desktop query remains for secondary mapped paths.
 
 ### 5a. Search by namespace references
 
@@ -422,8 +422,7 @@ Completed:
 
 Remaining:
 
-1. Stage 5 unresolved UI and server file-status (deferred; can happen after Stage 7 or in parallel).
-2. Git persistence and hard delete under TRASH (Stage 7 follow-ups).
+1. Git persistence and hard delete under TRASH (Stage 7 follow-ups).
 
 ## Clarifications And Decisions
 

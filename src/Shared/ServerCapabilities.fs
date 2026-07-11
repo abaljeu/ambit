@@ -3,7 +3,8 @@ namespace Gambol.Shared
 open Thoth.Json.Core
 
 type ServerCapabilities =
-    { canGitSave: bool }
+    { canGitSave: bool
+      canFileStatus: bool }
 
 type GitSaveResponse =
     { ok: bool
@@ -28,11 +29,16 @@ type DesktopPickFolderResponse =
 [<RequireQualifiedAccess>]
 module ServerCapabilities =
     let encode (capabilities: ServerCapabilities) : IEncodable =
-        Encode.object [ "gitSave", Encode.bool capabilities.canGitSave ]
+        Encode.object
+            [ "gitSave", Encode.bool capabilities.canGitSave
+              "fileStatus", Encode.bool capabilities.canFileStatus ]
 
     let decoder: Decoder<ServerCapabilities> =
         Decode.object (fun get ->
-            { canGitSave = get.Required.Field "gitSave" Decode.bool })
+            { canGitSave = get.Required.Field "gitSave" Decode.bool
+              canFileStatus =
+                get.Optional.Field "fileStatus" Decode.bool
+                |> Option.defaultValue false })
 
 [<RequireQualifiedAccess>]
 module GitSaveResponse =

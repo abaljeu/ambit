@@ -56,6 +56,40 @@ module DocumentPersistence =
         | None -> Error "no artifact path for document root"
         | Some relativePath -> resolveUnderDataDir dataDir relativePath
 
+    let fileStatusForReference
+        (dataDir: string)
+        (nodeReference: string)
+        : Result<DesktopFileStatusResponse, string> =
+        match NodeDesktopPath.artifactRelativeForReference nodeReference with
+        | Error _ ->
+            Ok
+                { path = nodeReference
+                  status = InvalidPath
+                  sourceModifiedUtc = None }
+        | Ok relativePath ->
+            match resolveUnderDataDir dataDir relativePath with
+            | Error _ ->
+                Ok
+                    { path = nodeReference
+                      status = InvalidPath
+                      sourceModifiedUtc = None }
+            | Ok fullPath ->
+                if File.Exists fullPath then
+                    Ok
+                        { path = nodeReference
+                          status = ExistingFile
+                          sourceModifiedUtc = Some (File.GetLastWriteTimeUtc fullPath) }
+                elif Directory.Exists fullPath then
+                    Ok
+                        { path = nodeReference
+                          status = ExistingFolder
+                          sourceModifiedUtc = None }
+                else
+                    Ok
+                        { path = nodeReference
+                          status = MissingArtifact
+                          sourceModifiedUtc = None }
+
     let private resolveArtifactDirectoryPath
         (dataDir: string)
         (graph: Graph)

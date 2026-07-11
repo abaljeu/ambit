@@ -62,9 +62,9 @@ How users create, open, navigate, and work in workspaces in the UI (commands / k
 
 
 - [x] Navigate: Find, Zoom in / out / owner, Jump to Target
-- [ ] Prevent Workspace nodes from moving outside Workspaces. [[workspace-file-directory-placement]]
+- [x] Prevent Workspace nodes from moving outside Workspaces. [[workspace-file-directory-placement]]
 - [x] Parse file / Reparse from disk (on-demand hydrate of owned File) — via **Parse / Upload** (`Ctrl+Shift+>`)
-- [ ] **Broken / unresolved references in the UI** — show when a workspace label or path reference cannot resolve; server-side file-status (not only desktop-mapped). Deferred Stage 5. See [[workspace-file-model]], [[doc/current/workspace-stage-plan]].
+- [x] **Broken / unresolved references in the UI** — show when a workspace label or path reference cannot resolve; server-side file-status (not only desktop-mapped). See [[workspace-file-model]], [[doc/current/workspace-stage-plan]].
 - [ ] **Multi-client graph merge** — eventual consistency and conflict markers across clients (separate from git push/pull). See [[future-merge-sync]], [[git-sync-gateway]], [[postgres-roadmap]].  STILL needed for non-desktop clients and direct in-app edits. git merge is not available on client side; we could employ server-side git merge.
 
 ## Lazy Load

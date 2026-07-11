@@ -24,6 +24,7 @@ module FileSyncIndicator =
         match status with
         | InvalidPath -> "invalid"
         | CreateFile -> "create"
+        | MissingArtifact -> "missing"
         | ExistingFolder -> NodeStatus.label status
         | ExistingFile ->
             match sourceModifiedUtc with

@@ -813,6 +813,29 @@ module ViewModel =
             indicatorNodeId = nodeId && indicatorPath = path
         | _ -> false
 
+    let private refreshDesktopMappedFileIndicator nodeId path model =
+        match model.desktopCapabilities with
+        | None -> { model with desktopFileIndicator = BlankFileIndicator }, []
+        | Some { file = { canStatus = false } } ->
+            { model with desktopFileIndicator = BlankFileIndicator }, []
+        | Some _ when indicatorMatches nodeId path model.desktopFileIndicator -> model, []
+        | Some { file = { canStatus = true } } ->
+            { model with desktopFileIndicator = CheckingFileStatus (nodeId, path) },
+            [ RequestDesktopFileStatus (nodeId, path) ]
+
+    let private refreshWorkspaceFileIndicator nodeId path model =
+        match model.serverCapabilities with
+        | Some { canFileStatus = true } ->
+            if indicatorMatches nodeId path model.desktopFileIndicator then
+                model, []
+            else
+                { model with desktopFileIndicator = CheckingFileStatus (nodeId, path) },
+                [ RequestServerFileStatus (nodeId, path) ]
+        | Some { canFileStatus = false } ->
+            refreshDesktopMappedFileIndicator nodeId path model
+        | None ->
+            { model with desktopFileIndicator = BlankFileIndicator }, []
+
     let refreshDesktopFileIndicator (model: VM) : VM * Effect list =
         match activeFileReference model with
         | None
@@ -821,14 +844,10 @@ module ViewModel =
         | Some (_, InvalidFileReference) ->
             { model with desktopFileIndicator = InvalidFileReferenceIndicator }, []
         | Some (nodeId, FileReference path) ->
-            match model.desktopCapabilities with
-            | None -> { model with desktopFileIndicator = BlankFileIndicator }, []
-            | Some { file = { canStatus = false } } ->
-                { model with desktopFileIndicator = BlankFileIndicator }, []
-            | Some _ when indicatorMatches nodeId path model.desktopFileIndicator -> model, []
-            | Some { file = { canStatus = true } } ->
-                { model with desktopFileIndicator = CheckingFileStatus (nodeId, path) },
-                [ RequestDesktopFileStatus (nodeId, path) ]
+            if path.StartsWith(NodeDesktopPath.rootPrefix, System.StringComparison.Ordinal) then
+                refreshWorkspaceFileIndicator nodeId path model
+            else
+                refreshDesktopMappedFileIndicator nodeId path model
 
     let applyDesktopFileStatus
         (nodeId: NodeId)
@@ -849,11 +868,47 @@ module ViewModel =
         if not (isActiveEntry model entry) then ""
         else
             match model.desktopFileIndicator with
-            | BlankFileIndicator -> ""
-            | CheckingFileStatus _ -> "..."
-            | InvalidFileReferenceIndicator -> "invalid"
             | FileStatusIndicator (_, _, status, sourceModifiedUtc) ->
                 FileSyncIndicator.indicatorTextForStatus node.updateTime status sourceModifiedUtc
+            | other -> DesktopFileIndicator.toText other
+
+    let private isSpecialArtifactNode (node: Node) : bool =
+        match node.kind with
+        | Special (Workspace | Directory | File) when node.id <> Graph.trashId -> true
+        | _ -> false
+
+    let private graphContainsArtifactPath (graph: Graph) (path: string) : bool =
+        match NodeDesktopPath.canonicalDesktopPath path with
+        | None -> false
+        | Some canonicalPath ->
+            graph.nodes
+            |> Map.toSeq
+            |> Seq.map snd
+            |> Seq.filter (fun n ->
+                match n.kind with
+                | Special (Workspace | Directory | File) -> true
+                | _ -> false)
+            |> Seq.choose (fun n -> NodeDesktopPath.pathForNodeId graph n.id)
+            |> Seq.choose NodeDesktopPath.canonicalDesktopPath
+            |> Seq.exists ((=) canonicalPath)
+
+    /// Graph-derived indicator when the row's artifact cannot resolve (same DU as desktop).
+    let rowArtifactIndicatorState
+        (model: VM)
+        (_entry: SiteEntry)
+        (node: Node)
+        : DesktopFileIndicator option =
+        if isSpecialArtifactNode node
+           && Option.isNone (NodeDesktopPath.pathForNodeId model.graph node.id) then
+            Some AbsentArtifactIndicator
+        else
+            match FileReference.parseFirst node.text with
+            | InvalidFileReference -> Some InvalidFileReferenceIndicator
+            | FileReference path
+                when path.StartsWith(NodeDesktopPath.rootPrefix)
+                     && not (graphContainsArtifactPath model.graph path) ->
+                Some AbsentArtifactIndicator
+            | _ -> None
 
     /// Outline row label: Special nodes prefer `text`, then `name`; canonical nodes keep `text`.
     let outlineDisplayText (node: Node) : string =
@@ -898,10 +953,21 @@ module ViewModel =
             | Special Directory -> Some "\u25A4"
             | Special File -> Some "\u2261"
 
+    let rowArtifactAbsentClassEligible (model: VM) (entry: SiteEntry) (node: Node) : bool =
+        isSpecialArtifactNode node
+        && rowArtifactIndicatorState model entry node = Some AbsentArtifactIndicator
+        || isActiveEntry model entry
+           && match model.desktopFileIndicator with
+              | FileStatusIndicator (_, _, MissingArtifact, _) -> true
+              | _ -> false
+
     let rowFileIndicatorText (model: VM) (entry: SiteEntry) (node: Node) : string =
-        let desktop = desktopFileIndicatorText model entry node
-        if desktop <> "" then desktop
-        else specialKindSymbol node.id node.kind |> Option.defaultValue ""
+        match rowArtifactIndicatorState model entry node with
+        | Some state -> DesktopFileIndicator.toText state
+        | None ->
+            let desktop = desktopFileIndicatorText model entry node
+            if desktop <> "" then desktop
+            else specialKindSymbol node.id node.kind |> Option.defaultValue ""
 
     let private rowOwnership (model: VM) (entry: SiteEntry) : Ownership =
         entry.parentInstanceId
@@ -996,6 +1062,9 @@ module ViewModel =
                                 |> CssClass.addIf
                                     (rowFileUnparsedClassEligible newModel entry)
                                     "amb-row-file-unparsed"
+                                |> CssClass.addIf
+                                    (rowArtifactAbsentClassEligible newModel entry newNode)
+                                    "amb-row-artifact-absent"
                                 |> CssClass.addIf isRoot "amb-view-root"
                                 |> CssClass.addIf sel "amb-selected"
                                 |> CssClass.addIf foc "amb-focused"
@@ -1015,6 +1084,11 @@ module ViewModel =
                                     (oldEntry
                                      |> Option.exists (rowFileUnparsedClassEligible oldModel))
                                     "amb-row-file-unparsed"
+                                |> CssClass.addIf
+                                    (match oldEntry, oldNode with
+                                     | Some e, Some n -> rowArtifactAbsentClassEligible oldModel e n
+                                     | _ -> false)
+                                    "amb-row-artifact-absent"
                                 |> CssClass.addIf isRoot "amb-view-root"
                                 |> CssClass.addIf oldSel "amb-selected"
                                 |> CssClass.addIf oldFoc "amb-focused"

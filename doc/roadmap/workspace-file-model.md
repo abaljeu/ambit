@@ -63,9 +63,9 @@ When a Correction is described below, the meaning is that the item previous is d
 - `[x]` Stage 4: desktop-local API resolves workspace label + relative path via readonly local mapping
   (interim `/_desktop/file` API — [[doc/current/desktop-local-files.md]]).
 - `[x]` Correction: align reference docs to namespace semantics (anchors, `DirStep`/`FileStep`, `^`) instead of path-only framing.
-- `[~]` Stage 5: client UI shows unresolved-reference indicators; file-status uses desktop query surface for locally mapped paths (server live-save wired — Stage 7; full unresolved-label UI not done). **Deferred** — bypassed for Stage 6.
-- `[ ]` Correction: unresolved UI should cover namespace resolution failures across workspace, directory, and file scopes.
-- `[ ]` Correction: file-status queries server persistence; desktop query remains for secondary mapped paths.
+- `[x]` Stage 5: client UI shows unresolved-reference indicators; workspace namespace file-status queries server persistence, while desktop file-status remains for secondary locally mapped paths.
+- `[x]` Correction: unresolved UI covers namespace resolution failures across workspace, directory, and file scopes.
+- `[x]` Correction: file-status queries server persistence; desktop query remains for secondary mapped paths.
 - `[x]` Stage 6: **Insert…** and **Rename** (F2) for workspace, directory, and file structure; TRASH becomes `Special Directory` with `Node.name = TRASH`; shared `DocumentPathMove` planners (rename, reparent, move-to-TRASH) — graph ops and tests only, no server I/O.
 - `[x]` Correction: add command support for free-form special-node ownership (including under `normal` and `file` nodes) while keeping persistence ownership rules explicit.
 - `[x]` Stage 7: Step 1: server `DataDir` live-save of `.amb` document artifacts for workspace, directory, and file roots regardless of logical extension; path layout per [[doc/roadmap/workspace-file-persistence.md]].
@@ -99,8 +99,8 @@ Authority for implemented behavior: [[doc/current/workspace-graph.md]],
 - `[ ]` **Document load units:** whole graph still one document; no `docId` / document membership in model yet.
 - `[x]` Per-document `DataDir` live-save and snapshot persist are implemented (Stages 7–8).
 - `[x]` Incremental persist skips unchanged documents on snapshot pass (Stage 8).
-- `[ ]` Full unresolved-reference indicator for unknown workspace labels.
-- `[ ]` File-status uses desktop query only; server-side status not wired (Stage 5 correction / Stage 7).
+- `[x]` Full unresolved-reference indicator for unknown workspace labels and paths.
+- `[x]` Workspace namespace file-status uses server `DataDir`; desktop status remains for secondary mapped paths.
 - `[x]` **Insert…** / **Rename** command surface is implemented for workspace, directory, and file structure (Stage 6).
 - `[x]` TRASH is `Special Directory` with `Node.name = TRASH` (Stage 6).
 - `[x]` Correction: command coverage supports special-node hierarchy edits in free-form outlines.

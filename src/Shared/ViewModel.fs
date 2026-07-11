@@ -248,16 +248,34 @@ type Effect =
     | ScheduleRetry of delayMs: int
     | SavePendingQueue of Change list
     | RequestDesktopFileStatus of nodeId: NodeId * path: string
+    | RequestServerFileStatus of nodeId: NodeId * path: string
 
+/// Row / active-file indicator vocabulary (desktop status + absent artifacts).
 type DesktopFileIndicator =
     | BlankFileIndicator
     | CheckingFileStatus of nodeId: NodeId * path: string
     | InvalidFileReferenceIndicator
+    | AbsentArtifactIndicator
     | FileStatusIndicator of
         nodeId: NodeId *
         path: string *
         status: DesktopFileStatus *
         sourceModifiedUtc: System.DateTime option
+
+[<RequireQualifiedAccess>]
+module DesktopFileIndicator =
+    /// Fixed labels for payload-free cases (status text uses FileSyncIndicator).
+    let textByState : Map<DesktopFileIndicator, string> =
+        [ BlankFileIndicator, ""
+          InvalidFileReferenceIndicator, "invalid"
+          AbsentArtifactIndicator, "missing" ]
+        |> Map.ofList
+
+    let toText (state: DesktopFileIndicator) : string =
+        match state with
+        | CheckingFileStatus _ -> "..."
+        | FileStatusIndicator _ -> ""
+        | other -> Map.find other textByState
 
 /// Result of the most recent command, shown in `#cmd-last-result`.
 [<RequireQualifiedAccess>]

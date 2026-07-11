@@ -129,6 +129,7 @@ let createRuntime (initialModel: VM) =
         | ScheduleRetry delayMs -> runScheduleRetry delayMs
         | SavePendingQueue q -> runSavePendingQueue q
         | RequestDesktopFileStatus (nodeId, path) -> runDesktopFileStatus nodeId path
+        | RequestServerFileStatus (nodeId, path) -> runServerFileStatus nodeId path
 
     and runSubmitPendingBatch (baseRev: int) (changes: Change list) : unit =
         let reqId =
@@ -195,6 +196,17 @@ let createRuntime (initialModel: VM) =
         savePendingQueue q
 
     and runDesktopFileStatus (nodeId: NodeId) (path: string) : unit =
+        runFileStatusEndpoint "/_desktop/file-status" "desktop" nodeId path
+
+    and runServerFileStatus (nodeId: NodeId) (path: string) : unit =
+        runFileStatusEndpoint ($"/{currentFile}/file-status") "server" nodeId path
+
+    and runFileStatusEndpoint
+        (url: string)
+        (source: string)
+        (nodeId: NodeId)
+        (path: string)
+        : unit =
         let body = encodeDesktopFileStatusRequest path
         let onOk (text: string) : unit =
             match decodeDesktopFileStatusResponse text with
@@ -207,15 +219,15 @@ let createRuntime (initialModel: VM) =
                             response.status,
                             response.sourceModifiedUtc)))
             | Error err ->
-                consoleLog ("[Gambol desktop] file-status decode failed: " + err)
+                consoleLog ("[Gambol " + source + "] file-status decode failed: " + err)
         let onHttpError (status: int) (text: string) : unit =
             consoleLog (
-                "[Gambol desktop] file-status HTTP "
+                "[Gambol " + source + "] file-status HTTP "
                 + string status + ": " + LogText.truncateForLog 200 text)
         let onNetworkFail () : unit =
-            consoleLog "[Gambol desktop] file-status request failed"
+            consoleLog ("[Gambol " + source + "] file-status request failed")
         postJson
-            "/_desktop/file-status"
+            url
             body
             onOk
             onHttpError
