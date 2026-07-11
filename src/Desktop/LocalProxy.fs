@@ -431,11 +431,12 @@ module LocalProxy =
     }
 
     let private handleDesktopRequest
-        (workspaceMap: Map<string, WorkspaceMapping>)
+        (workspaceMap: Map<string, WorkspaceMapping> ref)
         (ambitBase: string)
         (canGit: bool)
         (context: HttpContext)
         = task {
+        let map = workspaceMap.Value
         if
             HttpMethods.IsGet context.Request.Method
             && context.Request.Path.Equals(PathString "/_desktop/capabilities")
@@ -445,22 +446,27 @@ module LocalProxy =
             HttpMethods.IsPost context.Request.Method
             && context.Request.Path.Equals(PathString "/_desktop/file-status")
         then
-            do! handleFileStatus workspaceMap context
+            do! handleFileStatus map context
         elif
             HttpMethods.IsGet context.Request.Method
             && context.Request.Path.Equals(PathString "/_desktop/file")
         then
-            do! handleImportGet workspaceMap context
+            do! handleImportGet map context
         elif
             HttpMethods.IsPost context.Request.Method
             && context.Request.Path.Equals(PathString "/_desktop/file")
         then
-            do! handleExport workspaceMap context
+            do! handleExport map context
         else
-            let! handled =
-                DesktopGitEndpoints.tryHandle workspaceMap ambitBase context
-            if not handled then
-                context.Response.StatusCode <- StatusCodes.Status404NotFound
+            let! handledMapping =
+                WorkspaceMappingEndpoints.tryHandle configPath workspaceMap context
+            if handledMapping then
+                ()
+            else
+                let! handled =
+                    DesktopGitEndpoints.tryHandle map ambitBase context
+                if not handled then
+                    context.Response.StatusCode <- StatusCodes.Status404NotFound
     }
 
     let private isAmbitLoginPost (request: HttpRequest) =
@@ -544,6 +550,7 @@ module LocalProxy =
             WorkspaceLocalMapping.loadFromFile configPath
             |> Result.defaultWith (fun _ -> { entries = [] })
             |> WorkspaceLocalMapping.toMap
+            |> ref
 
         let ambitBase = cloudUri.GetLeftPart(UriPartial.Path).TrimEnd('/')
         let canGit = DesktopGit.isAvailable()

@@ -4,7 +4,7 @@ Category: Desktop
 See also: [[doc/current/desktop-local-files.md]], [[doc/current/workspace-graph.md]]
 
 Implemented baseline for desktop-local workspace label → filesystem root bindings. Shared module;
-the desktop layer supplies the config file path.
+the desktop layer supplies the config file path and Get/Put / folder-picker HTTP endpoints.
 
 ## Purpose
 
@@ -66,21 +66,30 @@ Plain paths (not `//label/...` workspace form) are resolved relative to `Environ
 
 ## Runtime use
 
-`LocalProxy` holds the decoded map in memory for the process lifetime. Used by:
+`LocalProxy` holds the decoded map in memory for the process lifetime (mutable; updated on Put). Used by:
 
 - `POST /_desktop/file-status`
 - `GET /_desktop/file` (import)
 - `POST /_desktop/file` (export)
+- `GET` / `PUT /_desktop/workspace-mappings`
+- Desktop git endpoints that resolve a mapped label
 
 Requires `workspacePaths` capability when using `//label/...` form.
 
+## API (G6)
+
+| Method | Path | Body / notes |
+| --- | --- | --- |
+| `GET` | `/_desktop/workspace-mappings` | Returns `{ "workspaceMappings": [ { "label", "path" }, … ] }` |
+| `PUT` | `/_desktop/workspace-mappings` | Upsert one `{ "label", "path" }`, **or** full replace with the same document shape as the config file. Persists to disk and updates the in-memory map. |
+| `POST` | `/_desktop/pick-folder` | Optional `{ "requireGit": true }`. OS folder dialog. `{ "cancelled": true }` or `{ "cancelled": false, "path", "gitRoot" }` (`gitRoot` may be `null` unless `requireGit`). |
+| `POST` | `/_desktop/detect-git` | `{ "path" }` → `{ "gitRoot" }` or error `not_a_git_repo` / `invalid_path`. |
+
 ## Tests
 
-`tests/Shared.Tests/WorkspaceLocalMappingTests.fs` — decode, duplicate labels, path escape,
-segment validation, happy-path resolution.
+`tests/Shared.Tests/WorkspaceLocalMappingTests.fs` — decode, duplicate labels, path escape, segment validation, happy-path resolution, encode round-trip, upsert, `tryGitRoot`.
 
 ## Not implemented
 
-- Commands or UI to edit, list, or clear local mappings (stage plan: config file edited manually).
-- `GET /_desktop/workspaces` endpoint.
+- Client Connect / Clone commands and outliner chrome (G7).
 - Startup sync of local labels to cloud workspace nodes (§4b in stage plan).

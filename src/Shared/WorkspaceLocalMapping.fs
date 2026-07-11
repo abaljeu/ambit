@@ -112,6 +112,13 @@ module WorkspaceLocalMapping =
         with
         | :? JsonException -> Error "malformed_json"
 
+    let encode (mappings: WorkspaceMappings) : string =
+        let entries =
+            mappings.entries
+            |> List.map (fun e -> {| label = e.label; path = e.rootPath |})
+            |> List.toArray
+        JsonSerializer.Serialize({| workspaceMappings = entries |})
+
     let loadFromFile (path: string) : Result<WorkspaceMappings, string> =
         if not (File.Exists(path)) then
             Ok { entries = [] }
@@ -123,10 +130,67 @@ module WorkspaceLocalMapping =
             | :? IOException -> Error "mapping_read_failed"
             | :? UnauthorizedAccessException -> Error "mapping_read_failed"
 
+    let saveToFile (path: string) (mappings: WorkspaceMappings) : Result<unit, string> =
+        try
+            let dir = Path.GetDirectoryName(path)
+            if not (String.IsNullOrEmpty dir) then
+                Directory.CreateDirectory(dir) |> ignore
+            File.WriteAllText(path, encode mappings)
+            Ok ()
+        with
+        | :? IOException -> Error "mapping_write_failed"
+        | :? UnauthorizedAccessException -> Error "mapping_write_failed"
+
+    /// Insert or replace a label → root path entry (case-insensitive label key).
+    let upsert
+        (mappings: WorkspaceMappings)
+        (label: string)
+        (rootPath: string)
+        : Result<WorkspaceMappings, string> =
+        match validateLabel label, validateRootPath rootPath with
+        | Error e, _ -> Error e
+        | _, Error e -> Error e
+        | Ok validLabel, Ok validPath ->
+            let key = validLabel.ToLowerInvariant()
+            let rest =
+                mappings.entries
+                |> List.filter (fun e -> e.label.ToLowerInvariant() <> key)
+            Ok
+                { entries =
+                    rest
+                    @ [ { label = validLabel; rootPath = validPath } ] }
+
     let toMap (mappings: WorkspaceMappings) =
         mappings.entries
         |> List.map (fun entry -> entry.label.ToLowerInvariant(), entry)
         |> Map.ofList
+
+    /// Resolve a selected path to a git work-tree root (`.git` dir or parent of `.git`).
+    let tryGitRoot (selectedPath: string) : Result<string, string> =
+        let trimmed = if isNull selectedPath then "" else selectedPath.Trim()
+
+        if trimmed = "" then
+            Error "invalid_path"
+        elif not (Path.IsPathFullyQualified(trimmed)) then
+            Error "invalid_path"
+        else
+            try
+                let full = Path.GetFullPath(trimmed)
+                let name = Path.GetFileName(full)
+
+                if String.Equals(name, ".git", StringComparison.OrdinalIgnoreCase) then
+                    match Path.GetDirectoryName(full) with
+                    | null
+                    | "" -> Error "not_a_git_repo"
+                    | parent -> Ok parent
+                elif Directory.Exists(Path.Combine(full, ".git")) then
+                    Ok full
+                else
+                    Error "not_a_git_repo"
+            with
+            | :? ArgumentException -> Error "invalid_path"
+            | :? NotSupportedException -> Error "invalid_path"
+            | :? PathTooLongException -> Error "invalid_path"
 
     let private invalidFileNameCharSet = Path.GetInvalidFileNameChars() |> Set.ofArray
     let private appReservedCharSet = Set.ofList [ '#'; '^' ]

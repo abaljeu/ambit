@@ -1,5 +1,7 @@
 module Gambol.Shared.Tests.WorkspaceLocalMappingTests
 
+open System
+open System.IO
 open Gambol.Shared
 open Xunit
 
@@ -100,4 +102,67 @@ let ``resolvePath accepts valid relative path`` () =
     match WorkspaceLocalMapping.resolvePath mappings "main" "src/lib/helpers.fs" with
     | Error err -> Assert.Fail($"Expected success, got: {err}")
     | Ok resolved -> Assert.StartsWith("C:\\repo", resolved)
+
+[<Fact>]
+let ``encode round-trips through decode`` () =
+    let original =
+        { entries =
+            [ { label = "home"; rootPath = "C:\\dev\\home" }
+              { label = "docs"; rootPath = "D:\\docs" } ] }
+    let decoded = decodeOrFail (WorkspaceLocalMapping.encode original)
+    Assert.Equal(2, decoded.entries.Length)
+    Assert.Equal("home", decoded.entries.[0].label)
+    Assert.Equal("C:\\dev\\home", decoded.entries.[0].rootPath)
+
+[<Fact>]
+let ``upsert replaces existing label case-insensitively`` () =
+    let start =
+        { entries = [ { label = "Home"; rootPath = "C:\\old" } ] }
+    match WorkspaceLocalMapping.upsert start "home" "D:\\new" with
+    | Error err -> Assert.Fail(err)
+    | Ok next ->
+        Assert.Equal(1, next.entries.Length)
+        Assert.Equal("home", next.entries.[0].label)
+        Assert.Equal("D:\\new", next.entries.[0].rootPath)
+
+[<Fact>]
+let ``upsert rejects relative path`` () =
+    match WorkspaceLocalMapping.upsert { entries = [] } "home" "relative" with
+    | Ok _ -> Assert.Fail("Expected invalid_path")
+    | Error err -> Assert.Equal("invalid_path", err)
+
+[<Fact>]
+let ``tryGitRoot finds repo when path contains .git`` () =
+    let dir =
+        Path.Combine(
+            Path.GetTempPath(),
+            $"gambol-map-git-{Guid.NewGuid()}")
+    Directory.CreateDirectory(dir) |> ignore
+    Directory.CreateDirectory(Path.Combine(dir, ".git")) |> ignore
+    match WorkspaceLocalMapping.tryGitRoot dir with
+    | Error err -> Assert.Fail(err)
+    | Ok root -> Assert.Equal(Path.GetFullPath(dir), root)
+
+[<Fact>]
+let ``tryGitRoot accepts .git directory itself`` () =
+    let dir =
+        Path.Combine(
+            Path.GetTempPath(),
+            $"gambol-map-gitdir-{Guid.NewGuid()}")
+    let gitDir = Path.Combine(dir, ".git")
+    Directory.CreateDirectory(gitDir) |> ignore
+    match WorkspaceLocalMapping.tryGitRoot gitDir with
+    | Error err -> Assert.Fail(err)
+    | Ok root -> Assert.Equal(Path.GetFullPath(dir), root)
+
+[<Fact>]
+let ``tryGitRoot rejects non-repo folder`` () =
+    let dir =
+        Path.Combine(
+            Path.GetTempPath(),
+            $"gambol-map-nogit-{Guid.NewGuid()}")
+    Directory.CreateDirectory(dir) |> ignore
+    match WorkspaceLocalMapping.tryGitRoot dir with
+    | Ok _ -> Assert.Fail("Expected not_a_git_repo")
+    | Error err -> Assert.Equal("not_a_git_repo", err)
 

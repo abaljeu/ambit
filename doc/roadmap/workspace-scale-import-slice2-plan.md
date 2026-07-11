@@ -1,7 +1,7 @@
 # Workspace Git sync — implementation plan (Slice 2)
 
 Category: Sync
-Status: In progress (G0–G5 done; G6 connect/clone UX next)
+Status: In progress (G0–G5 done; G6 desktop mapping API done; client connect UX deferred to G7)
 See also: [[workspaces-checklist]], [[git-sync-gateway]], [[workspace-scale-import]], [[doc/current/workspace-local-mapping]], [[doc/current/desktop-local-files]], [[doc/current/workspace-stage-plan]], [[doc/current/sync-mvp]], [[future-merge-sync]], [[workspace-name-verbatim]]
 
 Concrete rollout for the **Git** section of [[workspaces-checklist]]. Protocol and locked product decisions live in [[git-sync-gateway]]; this doc owns **ordered shippable slices**, checklist mapping, and sequencing. Do not treat history plans under [[doc/history/workspaces/plans]] as current truth.
@@ -54,7 +54,7 @@ commands                git clone/pull/push/status   Git HTTPS gateway (http-bac
 | Concern | Where | Notes |
 | --- | --- | --- |
 | Repo root on server | `DataDir/{label}/` with `.git` inside | Verbatim label ([[workspace-name-verbatim]], [[doc/current/workspace-stage-plan]] §7). |
-| Desktop map | label → absolute local path | [[doc/current/workspace-local-mapping]] — load exists; picker + Get/Put API still open on checklist |
+| Desktop map | label → absolute local path | [[doc/current/workspace-local-mapping]] — load + Get/Put + folder picker (G6); client connect UX is G7 |
 | Remote name | `ambit` | Not `origin` — preserves user’s existing upstream. Align gateway doc wording. |
 | HTTPS gateway | Server only | Auth separate from browser cookie; token or SSH later |
 | Graph HTTP sync | Existing `/ambit/changes` + poll | Unchanged |
@@ -80,7 +80,7 @@ commands                git clone/pull/push/status   Git HTTPS gateway (http-bac
 | `DataDir/{label}/` live-save | Done (Stage 7) | G1+ |
 | Verbatim workspace folder names (no `@`) | Done (name-verbatim A+B); G0 corrected gateway + scale-import docs | G1+ |
 | Desktop mapping load + resolve | Done | G5–G7 |
-| Folder picker + mapping Get/Put API | Open (Desktop mapping checklist) | G6 connect/clone UX (G5 can use pre-edited config) |
+| Folder picker + mapping Get/Put API | Done (G6 desktop) | G7 connect/clone client UX |
 | App login / session | Done | G4 issues git-scoped credential |
 | Slice 1 tree browse / stale / reparse | Partial / planned | G8 post-pull parse invalidation; gateway itself does not require full Slice 1 |
 | Placement Slice B | Parallel | **Do not block Git**; do not edit those docs/code from this track |
@@ -134,24 +134,27 @@ commands                git clone/pull/push/status   Git HTTPS gateway (http-bac
 - **Done:** Stock `git` against gateway URLs — **no** service-name rewrite / path-mapping helper.
 - **Done:** Desktop endpoints: `POST /_desktop/git-remote|git-pull|git-push|git-status|git-clone|git-credential`.
 - **Done:** Capability `git.git` (`canGit`) when host has `git` on PATH.
-- **Done:** PAT store via `git credential approve` (`/_desktop/git-credential`); connect UX remains G6.
+- **Done:** PAT store via `git credential approve` (`/_desktop/git-credential`); client connect UX deferred to G7.
 - Success: with mapping + remote preconfigured, desktop pull/push/status round-trip through G3 gateway.
 - Does **not** require folder picker yet (clone takes an explicit `path`).
 - Placement: pure URL/status parse in Shared; subprocess ops in `Gambol.Shared.DotNet` (`DesktopGit`); HTTP wiring in Desktop.
 - Tests: Shared.Tests `DesktopGitTests` + `WorkspaceGitRemoteTests` (status parse / remote URL).
 
-### G6 — Connect / clone UX + mapping API
+### G6 — Mapping API + folder picker ✅
 
-- Folder picker; Get/Put workspace mappings (checklist Desktop mapping items).
-- Connect: set `ambit` URL, credentials, optional initial pull or push.
-- Clone: pick empty/new folder, clone from gateway, write mapping.
-- Success: user can go from zero mapping to a working `ambit` remote without editing `config.json` by hand.
+- **Done:** Folder picker `POST /_desktop/pick-folder` (optional `requireGit`); `POST /_desktop/detect-git`.
+- **Done:** `GET` / `PUT /_desktop/workspace-mappings` (full replace or single `{label,path}` upsert); persists `%LocalAppData%/Gambol/config.json` and updates in-memory map.
+- **Done:** Shared `WorkspaceLocalMapping.encode` / `saveToFile` / `upsert` / `tryGitRoot`.
+- **Deferred to G7:** Client Connect/Clone commands, credential issue+store wiring, initial pull/push UX, outliner chrome.
+- Success (desktop): mapping and folder browse work without hand-editing `config.json`.
+- Tests: Shared.Tests `WorkspaceLocalMappingTests` — encode round-trip, upsert, tryGitRoot.
 
 ### G7 — Client commands + sync status
 
 - Commands: Connect, Clone, Pull (Download), Push (Upload), status line/indicator.
-- Wire to desktop endpoints; clear errors for non-FF / dirty server / auth failure.
-- Success: checklist Client Git bullets satisfied for happy path + main reject paths.
+- Wire to desktop endpoints (G5 git ops + G6 picker/mappings); clear errors for non-FF / dirty server / auth failure.
+- Connect/Clone UX deferred from G6: set `ambit` URL, credentials, optional initial pull/push; clone into picked folder + write mapping.
+- Success: checklist Client Git bullets satisfied for happy path + main reject paths; user can go from zero mapping to a working `ambit` remote without editing `config.json` by hand.
 
 ### G8 — Post-push / post-pull graph follow-up (thin)
 
@@ -171,7 +174,8 @@ commands                git clone/pull/push/status   Git HTTPS gateway (http-bac
 | G1–G2 | Server.Tests — init, scoped commit, porcelain |
 | G3–G4 | Server integration — gateway FF/dirty/auth |
 | G5 | Shared.Tests — `DesktopGitTests` (temp repos), status/URL contract; Desktop endpoints in `DesktopGitEndpoints` |
-| G6–G7 | Prefer thin Shared DTOs + manual/desktop smoke; avoid heavy UI automation unless already present |
+| G6 | Shared.Tests — mapping encode/upsert/`tryGitRoot`; Desktop `WorkspaceMappingEndpoints` + `FolderPicker` (manual smoke for dialog) |
+| G7 | Prefer thin Shared DTOs + manual/desktop smoke; avoid heavy UI automation unless already present |
 | G8 | Shared planner tests if reconcile is pure; else Server.Tests |
 
 ## Out of scope / non-goals

@@ -57,8 +57,12 @@ Web client (no desktop host): capabilities request fails; all flags treated as d
 | `POST` | `/_desktop/git-pull` | `git pull ambit <branch>` in mapped root (`{label}`) |
 | `POST` | `/_desktop/git-push` | `git push ambit <branch>` in mapped root (`{label}`) |
 | `POST` | `/_desktop/git-status` | `git status -sb` → ahead/behind/dirty (`{label}`) |
-| `POST` | `/_desktop/git-clone` | `git clone` gateway URL into `{label,path}` (path required; no picker yet) |
+| `POST` | `/_desktop/git-clone` | `git clone` gateway URL into `{label,path}` (path required) |
 | `POST` | `/_desktop/git-credential` | Store HTTPS PAT via `git credential approve` (`{username,token}`) |
+| `GET` | `/_desktop/workspace-mappings` | List label → path bindings |
+| `PUT` | `/_desktop/workspace-mappings` | Upsert `{label,path}` or replace full `workspaceMappings` array; persists config |
+| `POST` | `/_desktop/pick-folder` | Native folder browse; optional `requireGit` |
+| `POST` | `/_desktop/detect-git` | Resolve git work-tree root from a path |
 
 Legacy `/_desktop/import` and `/_desktop/export` are removed; clients use `/_desktop/file`.
 
@@ -114,7 +118,7 @@ palette, search dialog, and CSS-class prompt modes.
 ## Config
 
 Workspace label → local root mappings: `%LocalAppData%/Gambol/config.json`.
-Loaded at proxy startup. See [[doc/current/workspace-local-mapping.md]].
+Loaded at proxy startup; readable/writable via `/_desktop/workspace-mappings`. See [[doc/current/workspace-local-mapping.md]].
 
 WebView2 user data: `%LocalAppData%/Gambol/WebView2`.
 

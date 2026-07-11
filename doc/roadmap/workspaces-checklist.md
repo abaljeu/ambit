@@ -48,9 +48,9 @@ Partial `workspaceName` → absolute local path bindings on the desktop (see [[d
 - [x] Resolve `//label/relative` under mapped root
 - [x] File-status / import / export via mapped paths
 
-- [ ] Folder picker for local root
+- [x] Folder picker for local root
 
-- [ ] API Get/Put mapping on workspace.
+- [x] API Get/Put mapping on workspace.
 
 ## Client UX
 How users create, open, navigate, and work in workspaces in the UI (commands / keybound ops). Desktop mapping API and folder picker stay under Desktop mapping; git Download / Upload / connect commands live under Git.
