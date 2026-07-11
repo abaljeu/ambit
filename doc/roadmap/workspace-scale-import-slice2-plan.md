@@ -1,7 +1,7 @@
 # Workspace Git sync — implementation plan (Slice 2)
 
 Category: Sync
-Status: In progress (G0–G2 done; substrate Option A locked)
+Status: In progress (G0–G4 done; G5 desktop git ops next)
 See also: [[workspaces-checklist]], [[git-sync-gateway]], [[workspace-scale-import]], [[doc/current/workspace-local-mapping]], [[doc/current/desktop-local-files]], [[doc/current/workspace-stage-plan]], [[doc/current/sync-mvp]], [[future-merge-sync]], [[workspace-name-verbatim]]
 
 Concrete rollout for the **Git** section of [[workspaces-checklist]]. Protocol and locked product decisions live in [[git-sync-gateway]]; this doc owns **ordered shippable slices**, checklist mapping, and sequencing. Do not treat history plans under [[doc/history/workspaces/plans]] as current truth.
@@ -9,9 +9,9 @@ Concrete rollout for the **Git** section of [[workspaces-checklist]]. Protocol a
 ## What it gives you
 
 - Each server workspace folder `DataDir/{label}/` is its own git repo; desktop mapped roots are clones that push/pull against the server.
-- Smart HTTPS git gateway on the server; desktop shells stock `git` with remote name `ambit`.
-- Client commands: connect remote, clone, pull, push, sync status (ahead / behind / dirty).
-- Explicit file-tree transport only — live graph editing stays on HTTP change batches ([[doc/current/sync-mvp]]).
+- Smart HTTPS git gateway on the server with **stock** `git-upload-pack` / `git-receive-pack` wire paths; remote name `ambit`.
+- Client commands: connect remote, clone, pull/push via desktop (stock `git pull`/`git push` against gateway URLs); sync status (ahead / behind / dirty).
+- Explicit file-tree transport only — live graph editing stays on HTTP change batches ([[doc/current/sync-mvp]]). No single-file GET on the git gateway.
 
 ## What it avoids for now
 
@@ -29,12 +29,12 @@ Concrete rollout for the **Git** section of [[workspaces-checklist]]. Protocol a
 | --- | --- | --- |
 | Init empty repo in a new server directory | On workspace create (or first persist under that label), `git init` inside `DataDir/{label}/`; set `receive.denyNonFastForwards=true`; optional default `.gitignore` | Server |
 | Commit all files to repo on server **[checked today]** | **Reinterpret:** today’s [[src/Server/GitSave.fs]] commits the **whole** `DataDir` if `DataDir/.git` exists. Target is **per-workspace** commit (JIT before fetch; optional explicit save scoped to `{label}/`). Treat the checkmark as legacy monolithic save, not Slice 2 done. | Server |
-| Smart HTTPS git endpoints | Native smart HTTP (`info/refs`, `git-upload-pack`, `git-receive-pack`) per workspace repo; not a custom pack REST API | Server gateway |
-| Push special semantics | Accept only when client is **current** (fast-forward). **Dirty-tree = reject-dirty** (locked G0). | Server gateway |
-| Desktop: Clone / Pull / Push | Shell `git clone` / `git pull ambit` / `git push ambit` in mapped (or chosen) local root | Desktop |
+| Smart HTTPS git endpoints | Smart HTTP at **`/ambit/git/{label}.git`** with stock service paths **`git-upload-pack`** / **`git-receive-pack`**; custom policy (JIT / reject-dirty) is server middleware; no single-file GET | Server gateway |
+| Push special semantics | **workspace-push (prose):** accept only when client is **current** (fast-forward). **Dirty-tree = reject-dirty** (locked G0). Wire path = `git-receive-pack`. | Server gateway |
+| Desktop: Clone / pull / push | Stock `git` against gateway URLs — **no path-mapping helper**; auth still G4 | Desktop |
 | Client: Connect workspace remote | One-time: write/update mapping + `git remote add/set-url ambit <gateway-url>` + credentials path | Client + Desktop |
 | Client: Clone into local folder | UI → desktop clone into picked folder → mapping | Client + Desktop |
-| Client: Pull / Push | UI → desktop git; surface errors (non-FF, dirty server, auth) | Client + Desktop |
+| Client: Pull / Push | UI → desktop `git pull`/`git push` on `ambit`; surface errors (non-FF, dirty server, auth) | Client + Desktop |
 | Client: Show sync status | `git status -sb` (or equivalent) → ahead / behind / local changes; capability flags | Desktop → Client |
 | Maybe allow any fast-forward merge | Soft: if locked, document that any FF update is accepted (already implied by denyNonFastForwards); no non-FF merge on server | Deferred |
 
@@ -71,7 +71,7 @@ commands                git clone/pull/push/status   Git HTTPS gateway (http-bac
 
 1. **Push when server working tree is dirty (FF-eligible client)** — **Locked (G0): reject-dirty.** Reject push when server working tree is dirty; do **not** JIT-commit on push. JIT commit remains only before fetch/pull. Recorded in [[git-sync-gateway]]. (Checklist previously said JIT-then-accept; that wording is cleared.)
 2. **Legacy `GitSave` (whole-DataDir repo)** — retire, ignore, or keep as optional ops-only tool once per-workspace repos exist? Recommendation: do not init `DataDir/.git` going forward; leave existing capability until per-workspace save/JIT replaces the UX need. (Substrate Option A locked; this is retire-vs-ops-only only.)
-3. **Auth v0** — HTTPS PAT via credential helper vs SSH-first on Azure? Recommendation: HTTPS token first (matches “smart HTTPS” checklist item); SSH as follow-up.
+3. **Auth v0** — **Locked (G4): HTTPS PAT** via HTTP Basic on the gateway; issue after cookie login at `GET /ambit/git-token`. SSH deferred.
 
 ## Dependencies / sequencing
 
@@ -111,25 +111,29 @@ commands                git clone/pull/push/status   Git HTTPS gateway (http-bac
 - Tests: Server.Tests `WorkspaceGitTests` — porcelain dirty, scoped commit + client hint, sibling isolation; Shared.Tests message format; endpoint save includes client hint.
 - Shared-first: pure `ClientIdentity.formatCommitMessage`; I/O stays in Server.
 
-### G3 — Smart HTTPS gateway v0 (local/dev)
+### G3 — Smart HTTPS gateway v0 (local/dev) ✅
 
-- Routes under `/ambit/git/{label}.git/…` (exact path TBD; one shape only).
-- Before upload-pack: flush DocumentPersistence for that workspace → JIT commit if porcelain non-empty.
-- Before/during receive-pack: enforce FF + **locked** dirty-tree policy (hook or pre-check).
-- Success: from a machine with `git`, clone/pull/push against a running local server for one label (auth may be temporarily open or basic in G3, tightened in G4).
-- Tests: integration — dirty reject or JIT-then-accept per lock; non-FF reject; FF push updates files on disk.
+- **Done — Locked URL:** `/ambit/git/{label}.git/…` with stock service paths **`git-upload-pack`** / **`git-receive-pack`**. No single-file GET.
+- **Done — Stock git wire:** vanilla `git pull`/`git push` against the gateway URL hit these paths natively. Custom policy is server middleware (not custom path names). Subprocess = `git upload-pack` / `git receive-pack`.
+- **Done:** Before upload-pack (workspace-pull): flush → JIT if dirty. Before receive-pack (workspace-push): reject-dirty; FF + `updateInstead`.
+- **Done:** Auth stub was cookie (or open when Auth empty); replaced by G4 PAT. Legacy `/ambit/save` unchanged.
+- **Done tests:** `GitGatewayTests` — stock service names, reject unknown custom name, dirty reject, JIT on pull advertise. Full pack round-trip deferred with G5 desktop ops.
 
-### G4 — Git auth
+### G4 — Git auth ✅
 
-- Issue git-scoped token (or document SSH) after normal login; desktop stores via credential helper.
-- Gateway rejects unauthenticated smart HTTP.
-- Success: push/pull works with stored credential; browser cookie alone is insufficient (as designed).
+- **Done — Locked:** HTTPS PAT (not SSH). Derived via `AuthToken.deriveGitToken` (distinct from browser cookie).
+- **Done:** `GET /ambit/git-token` after cookie login returns `{ username, token }`; when Auth empty, reports disabled (gateway open).
+- **Done:** Gateway uses `IsGitAuthenticated` — HTTP Basic with username + PAT only; browser cookie alone → 401 + `WWW-Authenticate: Basic realm="Gambol Git"`.
+- **Done:** Desktop store path documented in [[git-sync-gateway]] (credential helper / GCM); wiring into connect UX is G5–G6.
+- Success: push/pull works with stored Basic credential; cookie alone is insufficient when Auth is enabled.
+- Tests: `AuthTokenTests` (derive/parse); `GitGatewayTests` — unauthenticated / cookie-only / wrong PAT reject; Basic PAT accept; git-token issue.
 
 ### G5 — Desktop git operations
 
+- Stock `git` against gateway URLs — **no** service-name rewrite / path-mapping helper.
 - Endpoints (names illustrative): pull / push / status / clone against mapped root and `ambit`.
 - Capability flags (extend [[src/Shared/DesktopCapabilities.fs]]): e.g. `canGit`, `remoteConfigured` when host has git + mapping.
-- Success: with mapping + remote preconfigured by hand, desktop pull/push/status round-trip through G3 gateway.
+- Success: with mapping + remote preconfigured, desktop pull/push/status round-trip through G3 gateway.
 - Does **not** require folder picker yet.
 
 ### G6 — Connect / clone UX + mapping API

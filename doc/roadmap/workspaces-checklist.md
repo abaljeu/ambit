@@ -25,17 +25,18 @@ Each workspace directory is its own git repository (server and mapped local root
 
 - [x] Init empty repo in a new server directory
 - [x] Commit all files to repo on server
-- [ ] Add smart HTTPS git endpoints so the server can accept push/pull for each workspace repo
-- [ ] Push endpoint has special semantics: reject if sender is not current (non-FF); **reject-dirty** if server working tree is uncommitted (no JIT commit on push — JIT only before pull). Locked in [[git-sync-gateway]].
-- [ ] Desktop: Clone the server repo to a directory
-- [ ] Desktop: Pull server repo
-- [ ] Desktop: Push server repo
+- [x] Add smart HTTPS git endpoints at `/ambit/git/{label}.git` with stock service paths **`git-upload-pack`** / **`git-receive-pack`** (custom policy is middleware; no single-file GET)
+- [x] workspace-push semantics: reject if sender is not current (non-FF); **reject-dirty** if server working tree is uncommitted (no JIT on push — JIT only before workspace-pull / upload-pack). Locked in [[git-sync-gateway]].
+- [x] Git auth: HTTPS PAT via HTTP Basic; issue at `/ambit/git-token` after login; cookie alone insufficient ([[git-sync-gateway]])
+- [ ] Desktop: Clone the server repo to a directory (stock `git clone` against gateway URL)
+- [ ] Desktop: workspace-pull against gateway (`git pull` / fetch)
+- [ ] Desktop: workspace-push against gateway (`git push`)
 
 Client (user-facing commands for the above; Download / Upload live here rather than under Client UX):
 - [ ] Connect workspace remote (point a local folder at the server; remote name `ambit`)
 - [ ] Clone server workspace into a local folder
-- [ ] Pull from server
-- [ ] Push to server
+- [ ] workspace-pull from server
+- [ ] workspace-push to server
 - [ ] Show sync status (ahead / behind / local changes)
 
 - [ ] Maybe allow any fast-forward merge.

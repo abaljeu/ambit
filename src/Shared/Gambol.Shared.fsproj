@@ -22,6 +22,7 @@
     <Compile Include="LogText.fs" />
     <Compile Include="DesktopCapabilities.fs" />
     <Compile Include="ClientIdentity.fs" />
+    <Compile Include="WorkspaceGitRemote.fs" />
     <Compile Include="ServerCapabilities.fs" />
 
     <Compile Include="FileSyncIndicator.fs" />

@@ -11,11 +11,12 @@ This doc records decisions that upcoming persistence and workspace work should r
 
 ## What it gives you
 
-- A desktop user maps a workspace label to a local directory that is a normal git clone with remote name **`ambit`** pointing at the server (not `origin` — preserves the user’s existing upstream).
-- **Pull** brings server file state to the client (`git pull ambit`). Merge and conflict resolution happen **on the client** with standard git tooling.
-- **Push** sends client commits to the server (`git push ambit`). The server accepts only **fast-forward** updates when its working tree is **clean** (**reject-dirty** — no JIT commit on push).
-- A **standalone git gateway** on the server exposes native git wire protocol (smart HTTP or SSH). It does not read PostgreSQL or perform merge logic.
-- After pull, the outliner marks affected files **stale** and offers reparse (see [[workspace-scale-import]]).
+- A desktop user maps a workspace label to a local directory that is a git checkout with remote name **`ambit`** pointing at the server gateway (not `origin`).
+- Gateway smart HTTP uses **stock** service paths **`git-upload-pack`** (fetch / workspace-pull) and **`git-receive-pack`** (push / workspace-push). Pack wire protocol and URL/service names are stock; **custom policy is server middleware**.
+- **Stock `git pull`/`git push` can target gateway URLs** — no desktop path-mapping helper. Auth: HTTPS PAT via HTTP Basic (G4); cookie alone is not enough.
+- **workspace-push** (prose) accepts only **fast-forward** updates when the server working tree is **clean** (**reject-dirty** — no JIT on push).
+- Gateway does not read PostgreSQL, merge, or serve single-file GET — sync trees via pack protocol; file reads stay app/desktop APIs.
+- After a successful pull into the local tree, the outliner marks affected files **stale** and offers reparse (see [[workspace-scale-import]]).
 
 ## What it avoids for now
 
@@ -32,17 +33,21 @@ This doc records decisions that upcoming persistence and workspace work should r
 | Repo root | `DataDir/{workspaceLabel}/` — same tree as live-save / [[doc/roadmap/workspace-file-persistence.md]] (verbatim label) |
 | `.git` location | **Inside** `{label}/` (e.g. `DataDir/home/.git`). Import and tree browse skip `.git` per [[workspace-scale-import]]. |
 | Remote name | **`ambit`** (not `origin`) |
-| Pull (server → client) | **JIT commit on server first**, then client runs `git pull ambit`. |
-| Dirty push policy | **reject-dirty** — reject push when server working tree is dirty; do **not** JIT-commit on push. JIT commit is only before fetch/pull. Locked G0 ([[workspace-scale-import-slice2-plan]]). |
-| Push (client → server) | **Reject unless server working tree is clean**; accept only **fast-forward** (`receive.denyNonFastForwards`). |
-| Desktop transport | Prefer stock **`git pull` / `git push ambit`** against a real remote URL — not a bespoke pack POST API. |
-| Git substrate | **Option A locked:** all git I/O (init, porcelain, JIT commit, gateway upload/receive) via **subprocess to stock `git`**, not LibGit2Sharp or a custom pack implementation. |
-| Module shape | New `WorkspaceGit` (per `DataDir/{label}/`) reuses [[src/Server/GitSave.fs]] subprocess patterns; **no new `DataDir/.git`**; legacy `GitSave` stays ops-only until retired. |
-| Commit message | Server commits use `{base} | client: {X-Gambol-Client hint}` (e.g. `rev 42 | client: Win32; Mozilla/5.0…`); omit client segment when hint absent. Locked G2. |
-| Gateway | Thin ASP.NET routes that authenticate, flush persistence, optionally JIT-commit, then **delegate wire protocol to `git`** (`http-backend` or pack helpers) — not a REST-shaped git API. |
-| Desktop + Shared | Desktop shells stock `git`; Shared holds only pure helpers (status parse, URL shape) — **no git subprocess in Shared**. |
-| Module boundary | `DocumentPersistence` writes files; git gateway runs git. **Only coupling:** server JIT commit before serving fetch, and clean-tree check before receive. |
-| Path moves | Filesystem moves under `{label}/` should be real renames where possible so git history stays coherent ([[doc/roadmap/workspace-file-persistence.md]] move handler). |
+| Service path names | **Locked G3:** URL / `?service=` use stock **`git-upload-pack`** / **`git-receive-pack`**. Custom policy (JIT / reject-dirty) is middleware; subprocesses are stock `git upload-pack` / `git receive-pack`. |
+| Stock git CLI | **Can target gateway URLs natively** for pull/push (auth still G4). No desktop path-mapping helper. |
+| Pull (server → client) | On `git-upload-pack` (workspace-pull): **JIT commit on server first**, then serve upload-pack. |
+| Dirty push policy | **reject-dirty** on `git-receive-pack` (workspace-push); no JIT on push. JIT only before upload-pack. Locked G0. |
+| Push (client → server) | `git-receive-pack`: reject unless server working tree is clean; FF only (`receive.denyNonFastForwards`). |
+| Desktop transport | Pack protocol over smart HTTP to stock service paths — **not** a bespoke JSON pack API. |
+| Git substrate | **Option A locked:** subprocess to stock `git` for pack I/O. |
+| Module shape | `WorkspaceGit` + `GitGateway`; legacy `GitSave` / `/ambit/save` stays ops-only until retired. |
+| Commit message | `{base} | client: {X-Gambol-Client hint}`; omit client segment when hint absent. Locked G2. |
+| Gateway URL | **`/ambit/git/{label}.git`** — `info/refs?service=git-upload-pack\|git-receive-pack`, POST `…/git-upload-pack`, `…/git-receive-pack`. **No** single-file GET. |
+| Gateway | Thin ASP.NET: auth, flush, optional JIT, then delegate wire to `git upload-pack` / `git receive-pack`. |
+| Auth (G3 vs G4) | **Locked G4:** HTTPS PAT via HTTP Basic (`username` + `deriveGitToken`). Issue at `GET /ambit/git-token` after cookie login. Cookie alone does **not** authenticate smart HTTP. When Auth empty, gateway open. SSH deferred. |
+| Desktop + Shared | Desktop runs stock `git` against gateway; Shared = pure URL/service helpers only. |
+| Module boundary | `DocumentPersistence` writes files; git gateway runs git. **Only coupling:** JIT before pull, clean-tree check before push. |
+| Path moves | Filesystem moves under `{label}/` should be real renames where possible so git history stays coherent. |
 
 ## On-disk layout
 
@@ -61,7 +66,7 @@ Local desktop mapping ([[doc/current/workspace-local-mapping.md]]) points label 
 
 ## Protocol flows
 
-### Pull (server → client)
+### workspace-pull via git-upload-pack (server → client)
 
 ```mermaid
 %%{init: {'themeVariables': {'fontSize': '20px'}}}%%
@@ -79,13 +84,13 @@ sequenceDiagram
   Client->>Client: mark stale files in outliner
 ```
 
-1. User triggers Pull in Gambol (or runs `git pull ambit` in the mapped directory).
+1. User triggers pull in Gambol (desktop runs stock `git pull` / fetch against `ambit`).
 2. Gateway ensures graph edits for that workspace are **persisted to disk** (flush).
 3. Gateway runs **JIT commit** on the server repo if the working tree has uncommitted changes (autosaved files).
-4. Client fetches/merges with normal git. User resolves conflicts locally if any.
+4. Client receives pack / merges locally. User resolves conflicts locally if any.
 5. Client marks changed paths stale for reparse.
 
-### Push (client → server)
+### workspace-push via git-receive-pack (client → server)
 
 ```mermaid
 %%{init: {'themeVariables': {'fontSize': '20px'}}}%%
@@ -105,7 +110,7 @@ sequenceDiagram
 ```
 
 1. User commits locally on desktop (manual `git commit` — not automatic on every edit).
-2. `git push ambit`. Gateway refuses if server working tree is **dirty** (**reject-dirty**; uncommitted autosaves still on disk — no JIT commit on push).
+2. Desktop POSTs pack to **`git-receive-pack`**. Gateway refuses if server working tree is **dirty** (**reject-dirty**; no JIT commit on push).
 3. Gateway refuses **non-fast-forward** pushes. Client must pull (merge locally) and push again.
 4. No server merge: push only moves `HEAD` when it is a strict ancestor update and the tree was clean before receive.
 
@@ -118,7 +123,7 @@ The only intentional cross-layer action on the server before pull. Push never JI
 When the gateway is about to serve `upload-pack` / respond to fetch for `{label}`:
 
 1. Confirm `DocumentPersistence` has flushed pending graph writes for that workspace.
-2. If `git status --porcelain` is non-empty under `DataDir/{label}/`, run a commit, e.g. `git add -A` and `git commit` with message from `ClientIdentity.formatCommitMessage` (base e.g. `gambol: autosave before pull`, plus `| client: …` when a hint is available).
+2. If `git status --porcelain` is non-empty under `DataDir/{label}/`, run a commit, e.g. `git add -A` and `git commit` with message from `ClientIdentity.formatCommitMessage` (base e.g. `gambol: autosave before workspace-pull`, plus `| client: …` when a hint is available).
 3. Proceed with fetch.
 
 Properties:
@@ -152,38 +157,41 @@ Pre-receive hook may additionally verify `expectedBase` if the transport exposes
 
 ### Clean-tree enforcement (push)
 
-`pre-receive` or `update` hook: if `git status --porcelain` is non-empty in the work tree, exit non-zero with a clear message (`server working tree dirty; pull or wait for autosave flush`). Ensures push does not race uncommitted server autosaves.
+Pre-check (or hook): if `git status --porcelain` is non-empty in the work tree, reject with a clear message (`server working tree dirty; workspace-pull or wait for autosave flush`). Ensures workspace-push does not race uncommitted server autosaves.
 
-### URL shape (illustrative)
-
-Smart HTTP under the app (exact path TBD):
+### URL shape (locked G3)
 
 ```text
-https://collaborative-systems.org/ambit/git/home.git
+https://collaborative-systems.org/ambit/git/home.git/info/refs?service=git-upload-pack
+https://collaborative-systems.org/ambit/git/home.git/info/refs?service=git-receive-pack
+https://collaborative-systems.org/ambit/git/home.git/git-upload-pack
+https://collaborative-systems.org/ambit/git/home.git/git-receive-pack
 ```
 
-or SSH:
+Advertisement `# service=` lines and Content-Types use stock names (`application/x-git-upload-pack-advertisement`, etc.). Server subprocesses remain `git upload-pack` / `git receive-pack`.
 
-```text
-ssh://app@….azurewebsites.net/home/data/home
-```
+**Compatibility:** stock `git pull`/`git push` against this URL layout work for wire paths. Auth: HTTP Basic with the git PAT from `/ambit/git-token` (not the browser cookie). No desktop helper is required for path mapping.
 
-Desktop `git remote add ambit …` uses this URL. Gambol UI Pull/Push may shell out to the same commands in the mapped local root.
+## Credentials (HTTPS PAT — locked G4)
 
-## Credentials (GitHub CLI analogy)
-
-GitHub CLI (`gh auth login`) stores credentials so **`git push` / `git pull` work without re-prompting**. Aim for the same ergonomics on desktop:
+GitHub CLI (`gh auth login`) stores credentials so **`git push` / `git pull` work without re-prompting**. Gambol uses the same ergonomics with an HTTPS PAT:
 
 | Mechanism | Notes |
 | --- | --- |
-| **HTTPS + token** | Short-lived or revocable PAT scoped to git endpoints; passed via `git credential` helper. |
-| **SSH key** | Deploy key or user key in `~/.ssh`; `ambit` uses `git@…` URL. Fits Azure App Service SSH. |
-| **Credential helper** | Desktop host or OS store holds token; `git` invokes helper — same pattern as Git Credential Manager / `gh`. |
-| **Not sufficient** | Browser session cookie alone does not authenticate git smart HTTP; git needs its own credential path. |
+| **HTTPS + PAT** | Deterministic git-scoped token from `Auth:Username` / `Auth:Password` via `AuthToken.deriveGitToken` (HMAC over `git:{username}` — **not** the browser cookie value). |
+| **Issue** | After normal login (cookie session): `GET /ambit/git-token` → JSON `{ "username", "token" }`. When Auth is empty, response reports `disabled` and the gateway is open. |
+| **Wire auth** | Smart HTTP expects `Authorization: Basic` with that username and PAT. Cookie alone → 401 + `WWW-Authenticate: Basic realm="Gambol Git"`. |
+| **Credential helper** | Store username + PAT in Git Credential Manager / `git credential` for the gateway host (desktop connect UX wires this in G5–G6). |
+| **SSH** | Deferred. |
+| **Not sufficient** | Browser session cookie alone does not authenticate git smart HTTP. |
 
-Initial setup slice: document one recommended path (likely HTTPS token or SSH) and a one-time "connect workspace remote" action in desktop that writes remote `ambit` and stores credentials.
+Example store (manual until desktop connect UX):
 
-Reuse existing app auth where practical (e.g. issue a git-scoped token after `/ambit/login`), but do not conflate graph API session with git wire auth in implementation.
+```text
+printf "protocol=https\nhost=collaborative-systems.org\nusername=alice\npassword=<token-from-git-token>\n\n" | git credential approve
+```
+
+Reuse existing app auth to **issue** the PAT after `/ambit/login`, but do not conflate graph API session with git wire auth.
 
 ## Implications for upcoming implementation
 

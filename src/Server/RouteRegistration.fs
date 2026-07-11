@@ -16,7 +16,10 @@ module RouteRegistration =
             ExpectedUser: string
             ExpectedPass: string
             Disabled: bool
+            GitToken: string
             IsAuthenticated: HttpRequest -> bool
+            /// Smart HTTP only: Basic username + git PAT (not browser cookie).
+            IsGitAuthenticated: HttpRequest -> bool
             SetCookie: HttpResponse -> unit
             ClearCookie: HttpResponse -> unit
         }
@@ -50,12 +53,23 @@ module RouteRegistration =
         let expectedUser = config.["Auth:Username"] |> Option.ofObj |> Option.defaultValue ""
         let expectedPass = config.["Auth:Password"] |> Option.ofObj |> Option.defaultValue ""
         let validToken = AuthToken.deriveToken expectedUser expectedPass
+        let gitToken = AuthToken.deriveGitToken expectedUser expectedPass
         let authDisabled = expectedUser = "" && expectedPass = ""
         let isAuthenticated (req: HttpRequest) =
             if authDisabled then true
             else
                 match req.Cookies.TryGetValue(AuthToken.cookieName) with
                 | true, cookie -> cookie = validToken
+                | _ -> false
+        let isGitAuthenticated (req: HttpRequest) =
+            if authDisabled then true
+            else
+                match req.Headers.TryGetValue("Authorization") with
+                | true, values ->
+                    match AuthToken.tryParseBasicAuth (string values.[0]) with
+                    | Some(user, pass) ->
+                        user = expectedUser && pass = gitToken
+                    | None -> false
                 | _ -> false
         let setAuthCookie (resp: HttpResponse) =
             let opts =
@@ -70,7 +84,9 @@ module RouteRegistration =
             ExpectedUser = expectedUser
             ExpectedPass = expectedPass
             Disabled = authDisabled
+            GitToken = gitToken
             IsAuthenticated = isAuthenticated
+            IsGitAuthenticated = isGitAuthenticated
             SetCookie = setAuthCookie
             ClearCookie = clearAuthCookie
         }
@@ -211,6 +227,17 @@ module RouteRegistration =
         app.MapGet("/ambit/logout", Func<HttpResponse, IResult>(fun resp ->
             auth.ClearCookie resp
             Results.Redirect("/ambit/login")
+        )) |> ignore
+        // Git PAT for smart HTTP (cookie session required; not the cookie itself).
+        app.MapGet("/ambit/git-token", Func<HttpRequest, IResult>(fun req ->
+            if auth.Disabled then
+                Results.Json(
+                    {| disabled = true; message = "Auth disabled; git gateway is open" |})
+            elif not (auth.IsAuthenticated req) then
+                Results.Unauthorized()
+            else
+                Results.Json(
+                    {| username = auth.ExpectedUser; token = auth.GitToken |})
         )) |> ignore
 
     let private parseClientRev (req: HttpRequest) =
@@ -402,4 +429,14 @@ module RouteRegistration =
             registerAuthRoutes app auth
             registerStateRoutes app auth persistence stamps
             registerSaveRoutes app auth persistence
+            let flushForGit () = async {
+                match! prepareGitSave persistence () with
+                | Ok _ -> return Ok ()
+                | Error err -> return Error err
+            }
+            GitGateway.registerRoutes
+                app
+                auth.IsGitAuthenticated
+                persistence.DataDir
+                flushForGit
             registerCssAndShellRoutes app auth publicAssetBaseOpt assets stamps persistence

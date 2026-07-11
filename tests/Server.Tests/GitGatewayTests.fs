@@ -1,0 +1,251 @@
+module Gambol.Server.Tests.GitGatewayTests
+
+open System
+open System.Diagnostics
+open System.IO
+open System.Net
+open System.Net.Http
+open System.Text
+open System.Threading.Tasks
+open Xunit
+open Gambol.Server
+open Gambol.Shared
+open Gambol.Server.Tests.TestBackend
+
+let private gitOnPath () =
+    try
+        let psi =
+            ProcessStartInfo(
+                FileName = "git",
+                Arguments = "--version",
+                RedirectStandardOutput = true,
+                UseShellExecute = false)
+        use proc = Process.Start(psi)
+        proc.WaitForExit()
+        proc.ExitCode = 0
+    with _ ->
+        false
+
+let private requireOk label r =
+    match r with
+    | Ok v -> v
+    | Error e -> failwith $"{label}: {e}"
+
+let private seedWorkspace (dataDir: string) (label: string) =
+    let home = Path.Combine(dataDir, label)
+    requireOk "ensureInit" (WorkspaceGit.ensureInit home)
+    File.WriteAllText(Path.Combine(home, "a.txt"), "one")
+    requireOk "commit"
+        (WorkspaceGit.commitAll home "seed" None)
+    |> ignore
+    home
+
+[<Fact>]
+let ``urlServiceName uses stock git-*-pack`` () =
+    Assert.Equal(
+        "git-upload-pack",
+        GitGateway.urlServiceName GitGateway.WorkspacePull)
+    Assert.Equal(
+        "git-receive-pack",
+        GitGateway.urlServiceName GitGateway.WorkspacePush)
+
+[<SkippableFact>]
+let ``advertiseRefs prefixes stock service name`` () =
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let home = seedWorkspace (newTempDir ()) "home"
+    match GitGateway.advertiseRefs home GitGateway.WorkspacePull with
+    | Error err -> Assert.Fail(err)
+    | Ok bytes ->
+        let text = Encoding.UTF8.GetString(bytes)
+        Assert.Contains("# service=git-upload-pack", text)
+
+[<SkippableFact>]
+let ``jitCommitIfDirty commits before pull path`` () =
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let home = seedWorkspace (newTempDir ()) "home"
+    File.WriteAllText(Path.Combine(home, "a.txt"), "two")
+    match WorkspaceGit.isDirty home with
+    | Ok dirty -> Assert.True(dirty)
+    | Error err -> Assert.Fail(err)
+    requireOk "jit"
+        (WorkspaceGit.jitCommitIfDirty home (Some "test-client"))
+    |> ignore
+    match WorkspaceGit.isDirty home with
+    | Ok dirty -> Assert.False(dirty)
+    | Error err -> Assert.Fail(err)
+    match GitSave.runGit home "log -1 --pretty=%s" with
+    | Ok subject ->
+        Assert.Contains("workspace-pull", subject)
+        Assert.Contains("client: test-client", subject)
+    | Error err -> Assert.Fail(err)
+
+[<SkippableFact>]
+let ``assertCleanForWorkspacePush rejects dirty tree`` () =
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let home = seedWorkspace (newTempDir ()) "home"
+    File.WriteAllText(Path.Combine(home, "a.txt"), "dirty")
+    match WorkspaceGit.assertCleanForWorkspacePush home with
+    | Ok () -> Assert.Fail("expected dirty reject")
+    | Error msg -> Assert.Contains("workspace-pull", msg)
+
+[<SkippableFact>]
+let ``GET info refs git-upload-pack returns advertisement`` () = task {
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let dataDir = newTempDir ()
+    seedWorkspace dataDir "home" |> ignore
+    use client = createClientForDir dataDir
+    let url =
+        "/ambit/git/home.git/info/refs?service=git-upload-pack"
+    let! resp = client.GetAsync(url)
+    Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
+    Assert.Equal(
+        "application/x-git-upload-pack-advertisement",
+        resp.Content.Headers.ContentType.MediaType)
+    let! body = resp.Content.ReadAsStringAsync()
+    Assert.Contains("# service=git-upload-pack", body)
+}
+
+[<SkippableFact>]
+let ``GET info refs git-receive-pack rejects when dirty`` () = task {
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let dataDir = newTempDir ()
+    let home = seedWorkspace dataDir "home"
+    File.WriteAllText(Path.Combine(home, "a.txt"), "dirty")
+    use client = createClientForDir dataDir
+    let url =
+        "/ambit/git/home.git/info/refs?service=git-receive-pack"
+    let! resp = client.GetAsync(url)
+    Assert.Equal(HttpStatusCode.Forbidden, resp.StatusCode)
+    let! body = resp.Content.ReadAsStringAsync()
+    Assert.Contains("dirty", body)
+}
+
+[<SkippableFact>]
+let ``GET info refs rejects unknown custom service name`` () = task {
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let dataDir = newTempDir ()
+    seedWorkspace dataDir "home" |> ignore
+    use client = createClientForDir dataDir
+    let url =
+        "/ambit/git/home.git/info/refs?service=workspace-pull"
+    let! resp = client.GetAsync(url)
+    Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode)
+}
+
+[<SkippableFact>]
+let ``GET info refs git-upload-pack JITs dirty tree`` () = task {
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let dataDir = newTempDir ()
+    let home = seedWorkspace dataDir "home"
+    File.WriteAllText(Path.Combine(home, "a.txt"), "autosaved")
+    use client = createClientForDir dataDir
+    let url =
+        "/ambit/git/home.git/info/refs?service=git-upload-pack"
+    let! resp = client.GetAsync(url)
+    Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
+    match WorkspaceGit.isDirty home with
+    | Ok dirty -> Assert.False(dirty)
+    | Error err -> Assert.Fail(err)
+    match GitSave.runGit home "log -1 --pretty=%s" with
+    | Ok subject -> Assert.Contains("workspace-pull", subject)
+    | Error err -> Assert.Fail(err)
+}
+
+[<SkippableFact>]
+let ``ensureInit sets denyCurrentBranch updateInstead`` () =
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let home = Path.Combine(newTempDir (), "home")
+    requireOk "ensureInit" (WorkspaceGit.ensureInit home)
+    match GitSave.runGit home "config --get receive.denyCurrentBranch" with
+    | Ok value -> Assert.Equal("updateInstead", value)
+    | Error err -> Assert.Fail(err)
+
+let private pullInfoRefsUrl =
+    "/ambit/git/home.git/info/refs?service=git-upload-pack"
+
+[<SkippableFact>]
+let ``gateway rejects unauthenticated when Auth enabled`` () = task {
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let dataDir = newTempDir ()
+    seedWorkspace dataDir "home" |> ignore
+    use client = createClientForDirWithAuth dataDir "alice" "secret"
+    let! resp = client.GetAsync(pullInfoRefsUrl)
+    Assert.Equal(HttpStatusCode.Unauthorized, resp.StatusCode)
+    let www = resp.Headers.WwwAuthenticate.ToString()
+    Assert.Contains("Basic", www)
+    Assert.Contains(AuthToken.gitBasicRealm, www)
+}
+
+[<SkippableFact>]
+let ``gateway rejects browser cookie alone`` () = task {
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let dataDir = newTempDir ()
+    seedWorkspace dataDir "home" |> ignore
+    use client = createClientForDirWithAuth dataDir "alice" "secret"
+    client.DefaultRequestHeaders.Add(
+        "Cookie",
+        AuthToken.cookieHeaderValue "alice" "secret")
+    let! resp = client.GetAsync(pullInfoRefsUrl)
+    Assert.Equal(HttpStatusCode.Unauthorized, resp.StatusCode)
+}
+
+[<SkippableFact>]
+let ``gateway accepts Basic auth with git PAT`` () = task {
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let dataDir = newTempDir ()
+    seedWorkspace dataDir "home" |> ignore
+    use client = createClientForDirWithAuth dataDir "alice" "secret"
+    let pat = AuthToken.deriveGitToken "alice" "secret"
+    client.DefaultRequestHeaders.Add(
+        "Authorization",
+        AuthToken.basicAuthHeaderValue "alice" pat)
+    let! resp = client.GetAsync(pullInfoRefsUrl)
+    Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
+    let! body = resp.Content.ReadAsStringAsync()
+    Assert.Contains("# service=git-upload-pack", body)
+}
+
+[<SkippableFact>]
+let ``gateway rejects wrong git PAT`` () = task {
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let dataDir = newTempDir ()
+    seedWorkspace dataDir "home" |> ignore
+    use client = createClientForDirWithAuth dataDir "alice" "secret"
+    client.DefaultRequestHeaders.Add(
+        "Authorization",
+        AuthToken.basicAuthHeaderValue "alice" "not-the-pat")
+    let! resp = client.GetAsync(pullInfoRefsUrl)
+    Assert.Equal(HttpStatusCode.Unauthorized, resp.StatusCode)
+}
+
+[<Fact>]
+let ``git-token requires cookie when Auth enabled`` () = task {
+    let dataDir = newTempDir ()
+    use client = createClientForDirWithAuth dataDir "alice" "secret"
+    let! resp = client.GetAsync("/ambit/git-token")
+    Assert.Equal(HttpStatusCode.Unauthorized, resp.StatusCode)
+}
+
+[<Fact>]
+let ``git-token issues PAT after cookie login`` () = task {
+    let dataDir = newTempDir ()
+    use client = createClientForDirWithAuth dataDir "alice" "secret"
+    client.DefaultRequestHeaders.Add(
+        "Cookie",
+        AuthToken.cookieHeaderValue "alice" "secret")
+    let! resp = client.GetAsync("/ambit/git-token")
+    Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
+    let! json = resp.Content.ReadAsStringAsync()
+    Assert.Contains("alice", json)
+    Assert.Contains(AuthToken.deriveGitToken "alice" "secret", json)
+}
+
+[<Fact>]
+let ``git-token reports disabled when Auth empty`` () = task {
+    let dataDir = newTempDir ()
+    use client = createClientForDir dataDir
+    let! resp = client.GetAsync("/ambit/git-token")
+    Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
+    let! json = resp.Content.ReadAsStringAsync()
+    Assert.Contains("disabled", json)
+}

@@ -275,6 +275,13 @@ module DocumentPersistence =
         || fileName.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase)
         || fileName.Contains(".bak.", StringComparison.OrdinalIgnoreCase)
 
+    /// Skip git metadata under any workspace (or DataDir) `.git` tree.
+    let private shouldSkipDiscoveryRel (rel: string) =
+        let n = rel.Replace('\\', '/')
+        n = ".git"
+        || n.StartsWith(".git/", StringComparison.Ordinal)
+        || n.Contains("/.git/", StringComparison.Ordinal)
+
     let private relativePathFromDataDir (dataDir: string) (fullPath: string) =
         let basePrefix = dataDirBase dataDir + string Path.DirectorySeparatorChar
         let full = Path.GetFullPath fullPath
@@ -292,7 +299,10 @@ module DocumentPersistence =
         else
             try
                 Directory.EnumerateFiles(baseDir, "*", SearchOption.AllDirectories)
-                |> Seq.filter (fun fullPath -> not (shouldSkipDiscoveryFile (Path.GetFileName fullPath)))
+                |> Seq.filter (fun fullPath ->
+                    let rel = relativePathFromDataDir dataDir fullPath
+                    not (shouldSkipDiscoveryFile (Path.GetFileName fullPath))
+                    && not (shouldSkipDiscoveryRel rel))
                 |> Seq.map (fun fullPath ->
                     relativePathFromDataDir dataDir fullPath,
                     resolveUnderDataDir dataDir (relativePathFromDataDir dataDir fullPath))

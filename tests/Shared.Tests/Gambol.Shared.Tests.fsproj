@@ -33,6 +33,7 @@
     <Compile Include="RedirectRewriteTests.fs" />
     <Compile Include="FileSyncIndicatorTests.fs" />
     <Compile Include="ClientIdentityTests.fs" />
+    <Compile Include="WorkspaceGitRemoteTests.fs" />
 
     <Compile Include="ImportTextTests.fs" />
     <Compile Include="ExportTextTests.fs" />

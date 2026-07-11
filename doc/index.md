@@ -67,12 +67,12 @@ Details: [[doc/roadmap/workspace-scale-import.md]].
 Last implemented: No current baseline is listed here.
 Might be next: Repo file-tree browsing with on-demand parse/edit for individual files.
 
-### **Git workspace sync (desktop pull/push)**
-Status: **In progress** (G0–G2 done; substrate Option A locked).
+### **Git workspace sync (desktop pull/push via gateway)**
+Status: **In progress** (G0–G4 done; G5 desktop git ops next).
 Details: [[git-sync-gateway]], [[workspace-scale-import-slice2-plan]].
-Last implemented: Per-label `WorkspaceGit` init/status/commit; commit messages include `X-Gambol-Client` hint (`rev N | client: …`).
+Last implemented: Smart HTTP gateway + HTTPS PAT (`GET /ambit/git-token`; Basic on `/ambit/git/…`; cookie alone rejected).
 Depends on: Workspace scale import slice 1 (Stage 7 `DataDir` live-save is done).
-Might be next: G3 smart HTTPS gateway v0.
+Might be next: G5 desktop clone/pull/push/status against `ambit`.
 
 ### **Amble run**
 Status: **Evolving**.

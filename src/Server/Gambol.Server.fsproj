@@ -19,8 +19,10 @@
     <Compile Include="DataDir.fs" />
     <Compile Include="Types.fs" />
     <Compile Include="ChangeLog.fs" />
+    <Compile Include="AuthToken.fs" />
     <Compile Include="GitSave.fs" />
     <Compile Include="WorkspaceGit.fs" />
+    <Compile Include="GitGateway.fs" />
     <Compile Include="DocumentPersistence.fs" />
     <Compile Include="DocumentLoader.fs" />
     <Compile Include="FileAgent.fs" />
@@ -30,7 +32,6 @@
     <Compile Include="SavePrep.fs" />
     <Compile Include="Api.fs" />
     <Compile Include="HeadPresence.fs" />
-    <Compile Include="AuthToken.fs" />
     <Compile Include="RouteRegistration.fs" />
     <Compile Include="Server.fs" />
   </ItemGroup>

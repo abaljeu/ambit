@@ -177,6 +177,10 @@ Canonical contract evolution: [[api]]. Running server uses `/ambit` prefix.
 
 | `GET` | `/ambit/login`, `POST /ambit/login`, `GET /ambit/logout` | optional auth |
 
+| `GET` | `/ambit/git-token` | git PAT JSON after cookie login (`{ username, token }`; or `disabled` when Auth empty) |
+
+| `GET`/`POST` | `/ambit/git/{label}.git/…` | smart HTTP (`git-upload-pack` / `git-receive-pack`); Basic PAT when Auth enabled |
+
 Deferred vs older docs: `POST /undo`, `POST /redo`, `GET /ops?since=…` as separate endpoints — not exposed; undo is client-side.
 
 ## Domain model
