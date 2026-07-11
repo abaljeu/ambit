@@ -63,7 +63,7 @@ commands                git clone/pull/push/status   Git HTTPS gateway (http-bac
 
 ### What is NOT Git’s job
 
-- Authoritative graph merge across clients ([[future-merge-sync]], checklist “Multi-client graph merge”).
+- Multi-client graph merge across clients (out of workspace Git transport scope; checklist marks it cancelled for try-out).
 - Creating/updating outline nodes by itself — after push, disk is current; **graph** needs a separate reconcile (sync-tree / lazy load — checklist Lazy Load).
 - Replacing live collaborative editing over HTTP.
 - File/Directory create/move placement rules under Workspace.

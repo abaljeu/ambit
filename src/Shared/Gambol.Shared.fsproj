@@ -34,6 +34,11 @@
     <Compile Include="RedirectRewrite.fs" />
     <Compile Include="ViewModel.fs" />
     <Compile Include="ModelOps.fs" />
+    <Compile Include="ViewModelSiteMap.fs" />
+    <Compile Include="ViewModelOccurrence.fs" />
+    <Compile Include="ViewModelSelection.fs" />
+    <Compile Include="ViewModelRowState.fs" />
+    <Compile Include="ViewModelDomPlan.fs" />
     <Compile Include="ViewModelOps.fs" />
     <Compile Include="ViewModelJoinOps.fs" />
     <Compile Include="ViewModelMoveOps.fs" />

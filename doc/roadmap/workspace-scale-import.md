@@ -6,7 +6,7 @@ Worksets: **disk-to-graph stub reconciliation**, **expand-to-parse and freshness
 
 ## Repo file-tree browsing + on-demand parse/edit for individual files
 
-Not full repo-scale querying, not advanced freshness reconciliation, not multi-client graph merge yet.
+Not full repo-scale querying, not advanced freshness reconciliation, and not multi-client graph merge. Workspace Git concurrency is handled by fast-forward-only push: a non-current client is rejected and must pull/merge locally before retrying.
 
 ## What it gives you
 
@@ -35,7 +35,7 @@ Defer:
 - annotation migration,
 - client LRU,
 - partial hydration,
-- multi-client merge handling,
+- multi-client graph merge (out of scope; Git push rejects stale/non-FF clients),
 - branch switching,
 - git object model,
 - server-wide memory management beyond not parsing everything.

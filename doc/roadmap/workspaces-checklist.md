@@ -39,7 +39,7 @@ Client (user-facing commands for the above; Download / Upload live here rather t
 - [x] workspace-push to server
 - [x] Show sync status (ahead / behind / local changes)
 
-- [ ] Maybe allow any fast-forward merge.
+- [x] Fast-forward-only workspace-push; non-current clients are rejected and must pull/merge locally before retrying.
 
 ## Desktop mapping
 Partial `workspaceName` → absolute local path bindings on the desktop (see [[doc/current/workspace-local-mapping]]); `ambit` remote setup depends on the server git gateway (see [[git-sync-gateway]]).
@@ -65,7 +65,7 @@ How users create, open, navigate, and work in workspaces in the UI (commands / k
 - [x] Prevent Workspace nodes from moving outside Workspaces. [[workspace-file-directory-placement]]
 - [x] Parse file / Reparse from disk (on-demand hydrate of owned File) — via **Parse / Upload** (`Ctrl+Shift+>`)
 - [x] **Broken / unresolved references in the UI** — show when a workspace label or path reference cannot resolve; server-side file-status (not only desktop-mapped). See [[workspace-file-model]], [[doc/current/workspace-stage-plan]].
-- [ ] **Multi-client graph merge** — eventual consistency and conflict markers across clients (separate from git push/pull). See [[future-merge-sync]], [[git-sync-gateway]], [[postgres-roadmap]].  STILL needed for non-desktop clients and direct in-app edits. git merge is not available on client side; we could employ server-side git merge.
+- [x] **Multi-client graph merge** — cancelled/out of scope for workspace try-out. Current concurrency model: workspace-push rejects non-current clients (non-FF) and dirty server trees; users pull/merge locally before retrying. See [[git-sync-gateway]].
 
 ## Lazy Load
 Bringing existing trees or repos into the workspace model and responding after Git changes. Canonical project and decisions: [[lazy-load]].

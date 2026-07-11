@@ -214,7 +214,7 @@ Reuse existing app auth to **issue** the PAT after `/ambit/login`, but do not co
 
 ### [[doc/roadmap/future-merge-sync.md]]
 
-- Graph merge at the server remains a separate track. **File repos** use git on the client; do not add server-side file merge to `DbAgent`.
+- Multi-client graph merge is out of scope for workspace Git transport. **File repos** use fast-forward-only push; a non-current client is rejected and must pull/merge locally before retrying. Do not add server-side file merge to `DbAgent`.
 
 ## Implementation steps
 
