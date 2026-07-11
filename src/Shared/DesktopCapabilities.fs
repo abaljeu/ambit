@@ -11,8 +11,13 @@ type DesktopFileCapabilities =
       canStatus: bool
       canWorkspacePaths: bool }
 
+/// Git endpoints under `/_desktop/git-*` when the host has `git` on PATH.
+type DesktopGitCapabilities =
+    { canGit: bool }
+
 type DesktopCapabilities =
-    { file: DesktopFileCapabilities }
+    { file: DesktopFileCapabilities
+      git: DesktopGitCapabilities }
 
 type FileReference =
     | NoFileReference
@@ -59,10 +64,13 @@ module FileReference =
 [<RequireQualifiedAccess>]
 module DesktopCapabilities =
     let disabledJson =
-        """{"file":{"open":false,"import":false,"export":false,"status":false,"workspacePaths":false}}"""
+        """{"file":{"open":false,"import":false,"export":false,"status":false,"workspacePaths":false},"git":{"git":false}}"""
 
-    let desktopEnabledJson =
-        """{"file":{"open":false,"import":true,"export":true,"status":true,"workspacePaths":true}}"""
+    let desktopEnabledJson (canGit: bool) =
+        let git = if canGit then "true" else "false"
+        """{"file":{"open":false,"import":true,"export":true,"status":true,"workspacePaths":true},"git":{"git":"""
+        + git
+        + "}}"
 
     let disabled: DesktopCapabilities =
         { file =
@@ -70,15 +78,17 @@ module DesktopCapabilities =
               canImport = false
               canExport = false
               canStatus = false
-              canWorkspacePaths = false } }
+              canWorkspacePaths = false }
+          git = { canGit = false } }
 
-    let desktopEnabled: DesktopCapabilities =
+    let desktopEnabled (canGit: bool) : DesktopCapabilities =
         { file =
             { canOpen = false
               canImport = true
               canExport = true
               canStatus = true
-              canWorkspacePaths = true } }
+              canWorkspacePaths = true }
+          git = { canGit = canGit } }
 
     let private encodeFileCapabilities (capabilities: DesktopFileCapabilities) : IEncodable =
         Encode.object
@@ -88,8 +98,13 @@ module DesktopCapabilities =
               "status", Encode.bool capabilities.canStatus
               "workspacePaths", Encode.bool capabilities.canWorkspacePaths ]
 
+    let private encodeGitCapabilities (capabilities: DesktopGitCapabilities) : IEncodable =
+        Encode.object [ "git", Encode.bool capabilities.canGit ]
+
     let encode (capabilities: DesktopCapabilities) : IEncodable =
-        Encode.object [ "file", encodeFileCapabilities capabilities.file ]
+        Encode.object
+            [ "file", encodeFileCapabilities capabilities.file
+              "git", encodeGitCapabilities capabilities.git ]
 
     let private decodeFileCapabilities: Decoder<DesktopFileCapabilities> =
         Decode.object (fun get ->
@@ -99,9 +114,14 @@ module DesktopCapabilities =
               canStatus = get.Required.Field "status" Decode.bool
               canWorkspacePaths = get.Required.Field "workspacePaths" Decode.bool })
 
+    let private decodeGitCapabilities: Decoder<DesktopGitCapabilities> =
+        Decode.object (fun get ->
+            { canGit = get.Required.Field "git" Decode.bool })
+
     let decoder: Decoder<DesktopCapabilities> =
         Decode.object (fun get ->
-            { file = get.Required.Field "file" decodeFileCapabilities })
+            { file = get.Required.Field "file" decodeFileCapabilities
+              git = get.Required.Field "git" decodeGitCapabilities })
 
 [<RequireQualifiedAccess>]
 module NodeStatus =

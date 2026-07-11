@@ -8,6 +8,12 @@ let ``repoPath uses locked gateway shape`` () =
     Assert.Equal("/ambit/git/home.git", WorkspaceGitRemote.repoPath "home")
 
 [<Fact>]
+let ``remoteUrl joins ambit base and label`` () =
+    Assert.Equal(
+        "http://localhost:5115/ambit/git/home.git",
+        WorkspaceGitRemote.remoteUrl "http://localhost:5115/ambit" "home")
+
+[<Fact>]
 let ``tryLabelFromRepoName accepts label.git`` () =
     Assert.Equal(Some "home", WorkspaceGitRemote.tryLabelFromRepoName "home.git")
 

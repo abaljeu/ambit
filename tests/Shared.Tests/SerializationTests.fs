@@ -80,19 +80,21 @@ let ``Desktop capabilities disabled use stable file keys`` () =
 
 [<Fact>]
 let ``Desktop capabilities enabled round-trip`` () =
+    let enabled = DesktopCapabilities.desktopEnabled true
     let decoded =
         roundTrip
             DesktopCapabilities.encode
             DesktopCapabilities.decoder
-            DesktopCapabilities.desktopEnabled
+            enabled
 
-    Assert.Equal(DesktopCapabilities.desktopEnabled, decoded)
+    Assert.Equal(enabled, decoded)
 
 [<Fact>]
 let ``Desktop capabilities enabled use stable file keys`` () =
-    let json = Enc.toString 0 (DesktopCapabilities.encode DesktopCapabilities.desktopEnabled)
+    let enabled = DesktopCapabilities.desktopEnabled true
+    let json = Enc.toString 0 (DesktopCapabilities.encode enabled)
 
-    Assert.Equal(DesktopCapabilities.desktopEnabledJson, json)
+    Assert.Equal(DesktopCapabilities.desktopEnabledJson true, json)
 
 [<Fact>]
 let ``Op.NewNode round-trip`` () =

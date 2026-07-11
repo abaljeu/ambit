@@ -88,7 +88,7 @@ let modelWithSel (graph: Graph) (parentNodeId: NodeId) (start: int) (endd: int) 
                   focus = focusIdx } }
 
 let private withDesktop (model: VM) : VM =
-    { model with desktopCapabilities = Some DesktopCapabilities.desktopEnabled }
+    { model with desktopCapabilities = Some (DesktopCapabilities.desktopEnabled true) }
 
 let private selectedModelWithText (text: string) : VM =
     let graph, cont, _ = buildFlat [ text ]
@@ -159,10 +159,11 @@ let ``refreshDesktopFileIndicator leaves blank when active node has no reference
 
 [<Fact>]
 let ``refreshDesktopFileIndicator leaves blank when status capability is disabled`` () =
+    let enabled = DesktopCapabilities.desktopEnabled true
     let caps =
-        { DesktopCapabilities.desktopEnabled with
+        { enabled with
             file =
-                { DesktopCapabilities.desktopEnabled.file with
+                { enabled.file with
                     canStatus = false } }
 
     let model =

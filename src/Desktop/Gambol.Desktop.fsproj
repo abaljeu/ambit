@@ -9,6 +9,7 @@
   <ItemGroup>
     <Compile Include="..\Server\AuthToken.fs" Link="AuthToken.fs" />
     <Compile Include="AuthStore.fs" />
+    <Compile Include="DesktopGitEndpoints.fs" />
     <Compile Include="LocalProxy.fs" />
     <Compile Include="Desktop.fs" />
   </ItemGroup>
@@ -24,6 +25,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Shared\Gambol.Shared.fsproj" />
+    <ProjectReference Include="..\Shared\dotnet\Gambol.Shared.DotNet.fsproj" />
   </ItemGroup>
 
 </Project>

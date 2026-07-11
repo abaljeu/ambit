@@ -34,6 +34,7 @@
     <Compile Include="FileSyncIndicatorTests.fs" />
     <Compile Include="ClientIdentityTests.fs" />
     <Compile Include="WorkspaceGitRemoteTests.fs" />
+    <Compile Include="DesktopGitTests.fs" />
 
     <Compile Include="ImportTextTests.fs" />
     <Compile Include="ExportTextTests.fs" />
@@ -63,10 +64,12 @@
     <PackageReference Include="Thoth.Json.Newtonsoft" Version="0.3.3" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+    <PackageReference Include="Xunit.SkippableFact" Version="1.5.23" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Shared\Gambol.Shared.fsproj" />
+    <ProjectReference Include="..\..\src\Shared\dotnet\Gambol.Shared.DotNet.fsproj" />
   </ItemGroup>
 
 </Project>

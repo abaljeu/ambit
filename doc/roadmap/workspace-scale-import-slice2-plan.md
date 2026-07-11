@@ -1,7 +1,7 @@
 # Workspace Git sync — implementation plan (Slice 2)
 
 Category: Sync
-Status: In progress (G0–G4 done; G5 desktop git ops next)
+Status: In progress (G0–G5 done; G6 connect/clone UX next)
 See also: [[workspaces-checklist]], [[git-sync-gateway]], [[workspace-scale-import]], [[doc/current/workspace-local-mapping]], [[doc/current/desktop-local-files]], [[doc/current/workspace-stage-plan]], [[doc/current/sync-mvp]], [[future-merge-sync]], [[workspace-name-verbatim]]
 
 Concrete rollout for the **Git** section of [[workspaces-checklist]]. Protocol and locked product decisions live in [[git-sync-gateway]]; this doc owns **ordered shippable slices**, checklist mapping, and sequencing. Do not treat history plans under [[doc/history/workspaces/plans]] as current truth.
@@ -128,13 +128,17 @@ commands                git clone/pull/push/status   Git HTTPS gateway (http-bac
 - Success: push/pull works with stored Basic credential; cookie alone is insufficient when Auth is enabled.
 - Tests: `AuthTokenTests` (derive/parse); `GitGatewayTests` — unauthenticated / cookie-only / wrong PAT reject; Basic PAT accept; git-token issue.
 
-### G5 — Desktop git operations
+### G5 — Desktop git operations ✅
 
-- Stock `git` against gateway URLs — **no** service-name rewrite / path-mapping helper.
-- Endpoints (names illustrative): pull / push / status / clone against mapped root and `ambit`.
-- Capability flags (extend [[src/Shared/DesktopCapabilities.fs]]): e.g. `canGit`, `remoteConfigured` when host has git + mapping.
+- **Done:** `DesktopGit.setAmbitRemote` / `setAmbitRemoteForLabel` (local path + workspace label → remote `ambit`).
+- **Done:** Stock `git` against gateway URLs — **no** service-name rewrite / path-mapping helper.
+- **Done:** Desktop endpoints: `POST /_desktop/git-remote|git-pull|git-push|git-status|git-clone|git-credential`.
+- **Done:** Capability `git.git` (`canGit`) when host has `git` on PATH.
+- **Done:** PAT store via `git credential approve` (`/_desktop/git-credential`); connect UX remains G6.
 - Success: with mapping + remote preconfigured, desktop pull/push/status round-trip through G3 gateway.
-- Does **not** require folder picker yet.
+- Does **not** require folder picker yet (clone takes an explicit `path`).
+- Placement: pure URL/status parse in Shared; subprocess ops in `Gambol.Shared.DotNet` (`DesktopGit`); HTTP wiring in Desktop.
+- Tests: Shared.Tests `DesktopGitTests` + `WorkspaceGitRemoteTests` (status parse / remote URL).
 
 ### G6 — Connect / clone UX + mapping API
 
@@ -166,7 +170,7 @@ commands                git clone/pull/push/status   Git HTTPS gateway (http-bac
 | --- | --- |
 | G1–G2 | Server.Tests — init, scoped commit, porcelain |
 | G3–G4 | Server integration — gateway FF/dirty/auth |
-| G5 | Desktop or Server.Tests with temp repos; contract JSON for status |
+| G5 | Shared.Tests — `DesktopGitTests` (temp repos), status/URL contract; Desktop endpoints in `DesktopGitEndpoints` |
 | G6–G7 | Prefer thin Shared DTOs + manual/desktop smoke; avoid heavy UI automation unless already present |
 | G8 | Shared planner tests if reconcile is pure; else Server.Tests |
 

@@ -28,9 +28,9 @@ Each workspace directory is its own git repository (server and mapped local root
 - [x] Add smart HTTPS git endpoints at `/ambit/git/{label}.git` with stock service paths **`git-upload-pack`** / **`git-receive-pack`** (custom policy is middleware; no single-file GET)
 - [x] workspace-push semantics: reject if sender is not current (non-FF); **reject-dirty** if server working tree is uncommitted (no JIT on push — JIT only before workspace-pull / upload-pack). Locked in [[git-sync-gateway]].
 - [x] Git auth: HTTPS PAT via HTTP Basic; issue at `/ambit/git-token` after login; cookie alone insufficient ([[git-sync-gateway]])
-- [ ] Desktop: Clone the server repo to a directory (stock `git clone` against gateway URL)
-- [ ] Desktop: workspace-pull against gateway (`git pull` / fetch)
-- [ ] Desktop: workspace-push against gateway (`git push`)
+- [x] Desktop: Clone the server repo to a directory (stock `git clone` against gateway URL)
+- [x] Desktop: workspace-pull against gateway (`git pull` / fetch)
+- [x] Desktop: workspace-push against gateway (`git push`)
 
 Client (user-facing commands for the above; Download / Upload live here rather than under Client UX):
 - [ ] Connect workspace remote (point a local folder at the server; remote name `ambit`)

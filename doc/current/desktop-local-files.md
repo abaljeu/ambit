@@ -31,7 +31,7 @@ Target URL resolution: `--local`, `--cloud`, `--target <url>`, or `GAMBOL_TARGET
 Desktop host enabled shape:
 
 ```json
-{"file":{"open":false,"import":true,"export":true,"status":true,"workspacePaths":true}}
+{"file":{"open":false,"import":true,"export":true,"status":true,"workspacePaths":true},"git":{"git":true}}
 ```
 
 | Key | Meaning |
@@ -41,6 +41,7 @@ Desktop host enabled shape:
 | `export` | Write owned children to local file |
 | `status` | Query path status for file-reference indicator |
 | `workspacePaths` | Resolve `//label/relative` paths via local workspace mapping |
+| `git.git` | Host has `git` on PATH; `/_desktop/git-*` endpoints available |
 
 Web client (no desktop host): capabilities request fails; all flags treated as disabled.
 
@@ -52,6 +53,12 @@ Web client (no desktop host): capabilities request fails; all flags treated as d
 | `POST` | `/_desktop/file-status` | Path status for active-row indicator |
 | `GET` | `/_desktop/file?path=...` | Read local file or directory listing (import) |
 | `POST` | `/_desktop/file` | Write content to local file (export) |
+| `POST` | `/_desktop/git-remote` | Set/update remote `ambit` for a mapped label (`{label}` or `{label,path}`) |
+| `POST` | `/_desktop/git-pull` | `git pull ambit <branch>` in mapped root (`{label}`) |
+| `POST` | `/_desktop/git-push` | `git push ambit <branch>` in mapped root (`{label}`) |
+| `POST` | `/_desktop/git-status` | `git status -sb` → ahead/behind/dirty (`{label}`) |
+| `POST` | `/_desktop/git-clone` | `git clone` gateway URL into `{label,path}` (path required; no picker yet) |
+| `POST` | `/_desktop/git-credential` | Store HTTPS PAT via `git credential approve` (`{username,token}`) |
 
 Legacy `/_desktop/import` and `/_desktop/export` are removed; clients use `/_desktop/file`.
 

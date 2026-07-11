@@ -38,6 +38,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Shared\Gambol.Shared.fsproj" />
+    <ProjectReference Include="..\Shared\dotnet\Gambol.Shared.DotNet.fsproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -68,11 +68,11 @@ Last implemented: No current baseline is listed here.
 Might be next: Repo file-tree browsing with on-demand parse/edit for individual files.
 
 ### **Git workspace sync (desktop pull/push via gateway)**
-Status: **In progress** (G0–G4 done; G5 desktop git ops next).
+Status: **In progress** (G0–G5 done; G6 connect/clone UX next).
 Details: [[git-sync-gateway]], [[workspace-scale-import-slice2-plan]].
-Last implemented: Smart HTTP gateway + HTTPS PAT (`GET /ambit/git-token`; Basic on `/ambit/git/…`; cookie alone rejected).
+Last implemented: Desktop stock git ops (`/_desktop/git-*`) + `canGit` capability; gateway + HTTPS PAT already in place.
 Depends on: Workspace scale import slice 1 (Stage 7 `DataDir` live-save is done).
-Might be next: G5 desktop clone/pull/push/status against `ambit`.
+Might be next: G6 folder picker, mapping Get/Put, connect UX (credentials + initial pull/push).
 
 ### **Amble run**
 Status: **Evolving**.

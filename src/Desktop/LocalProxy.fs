@@ -188,14 +188,8 @@ module LocalProxy =
             "Gambol",
             "config.json")
 
-    let private writeCapabilities (context: HttpContext) = task {
-        context.Response.StatusCode <- StatusCodes.Status200OK
-        context.Response.ContentType <- "application/json; charset=utf-8"
-
-        do!
-            context.Response.WriteAsync(
-                DesktopCapabilities.desktopEnabledJson,
-                context.RequestAborted)
+    let private writeCapabilities (canGit: bool) (context: HttpContext) = task {
+        do! DesktopGitEndpoints.writeCapabilities canGit context
     }
 
     let private quoteJson (text: string) =
@@ -438,13 +432,15 @@ module LocalProxy =
 
     let private handleDesktopRequest
         (workspaceMap: Map<string, WorkspaceMapping>)
+        (ambitBase: string)
+        (canGit: bool)
         (context: HttpContext)
         = task {
         if
             HttpMethods.IsGet context.Request.Method
             && context.Request.Path.Equals(PathString "/_desktop/capabilities")
         then
-            do! writeCapabilities context
+            do! writeCapabilities canGit context
         elif
             HttpMethods.IsPost context.Request.Method
             && context.Request.Path.Equals(PathString "/_desktop/file-status")
@@ -461,7 +457,10 @@ module LocalProxy =
         then
             do! handleExport workspaceMap context
         else
-            context.Response.StatusCode <- StatusCodes.Status404NotFound
+            let! handled =
+                DesktopGitEndpoints.tryHandle workspaceMap ambitBase context
+            if not handled then
+                context.Response.StatusCode <- StatusCodes.Status404NotFound
     }
 
     let private isAmbitLoginPost (request: HttpRequest) =
@@ -546,6 +545,9 @@ module LocalProxy =
             |> Result.defaultWith (fun _ -> { entries = [] })
             |> WorkspaceLocalMapping.toMap
 
+        let ambitBase = cloudUri.GetLeftPart(UriPartial.Path).TrimEnd('/')
+        let canGit = DesktopGit.isAvailable()
+
         let builder = WebApplication.CreateBuilder([||])
         builder.Services.Configure<HostOptions>(fun (options: HostOptions) ->
             options.ShutdownTimeout <- TimeSpan.FromSeconds 1.0)
@@ -560,7 +562,7 @@ module LocalProxy =
 
         app.Run(RequestDelegate(fun context ->
             if isDesktopRequest context.Request.Path then
-                handleDesktopRequest workspaceMap context
+                handleDesktopRequest workspaceMap ambitBase canGit context
             else
                 forward client cloudUri session context)) |> ignore
 
