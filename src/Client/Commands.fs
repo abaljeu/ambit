@@ -13,7 +13,6 @@ open Gambol.Client.UpdateHelpers
 open Gambol.Client.UpdateOps
 open Gambol.Client.UpdatePaste
 open Gambol.Client.UpdateImport
-open Gambol.Client.UpdateExport
 open Gambol.Client.UpdateSave
 open Gambol.Client.UpdateWorkspaceGit
 open Gambol.Client.UpdateFileSearch
@@ -162,6 +161,35 @@ let copyOp (model: VM) : VM * Effect list =
         writeClipboardText serialized ignore
         copySelectionOp model
 
+let private contextualTargetForModel (model: VM) =
+    model.selectedNodes
+    |> Option.bind (fun selection ->
+        contextualTarget
+            model.graph
+            selection.range.parent.nodeId
+            selection.focus)
+
+let parseOrPushOp (model: VM) : VM * Effect list =
+    match contextualTargetForModel model with
+    | Some(ParseFile fileId) -> parseUnparsedFileOp fileId model
+    | Some(PushWorkspace _) -> gitPushOp model
+    | None -> model, []
+
+let pullWorkspaceOp (model: VM) : VM * Effect list =
+    match contextualTargetForModel model with
+    | Some(PushWorkspace _) -> gitPullOp model
+    | _ -> model, []
+
+let private contextualCommandAvailable (model: VM) =
+    match contextualTargetForModel model with
+    | Some(ParseFile _) ->
+        match model.desktopCapabilities with
+        | Some { file = { canImport = true } } -> true
+        | _ -> false
+    | Some(PushWorkspace _) ->
+        WorkspaceGitRemote.canDesktopGit model.desktopCapabilities
+    | None -> false
+
 // ---------------------------------------------------------------------------
 // Command registry
 // ---------------------------------------------------------------------------
@@ -216,12 +244,11 @@ let commandRegistry : CommandEntry2 list =
       cmd Find (keyAlways findRootOp)
       cmd EditClasses (keyAlways openCssClassPromptOp)
       cmd JumpToTarget (keyAlways jumpTargetOp)
-      cmd Import (keyAlways importLocalOp)
-      cmd Export (keyAlways exportLocalOp)
+      cmd ParseOrPush (keyAlways parseOrPushOp)
       cmd Save (keyAlways gitSaveOp)
       cmd GitConnect (keyAlways gitConnectOp)
       cmd GitClone (keyAlways gitCloneOp)
-      cmd GitPull (keyAlways gitPullOp)
+      cmd GitPull (keyAlways pullWorkspaceOp)
       cmd GitPush (keyAlways gitPushOp)
       cmd GitStatus (keyAlways gitStatusOp)
     ]
@@ -263,7 +290,13 @@ let commandsForPalette (model: VM) (returnTo: Mode) : CommandEntry2 list =
         | None -> false
         | Some e ->
             inKeyScope sel e.keyScope
-            && (canGit || not (isDesktopGitCommand c.id)))
+            && (canGit || not (isDesktopGitCommand c.id))
+            && (c.id <> ParseOrPush || contextualCommandAvailable model)
+            && (c.id <> GitPull
+                || (canGit
+                    && match contextualTargetForModel model with
+                       | Some(PushWorkspace _) -> true
+                       | _ -> false)))
 
 let filteredCommands (model: VM) (returnTo: Mode) (query: string) : CommandEntry2 list =
     let baseList = commandsForPalette model returnTo

@@ -140,7 +140,7 @@ let ``server reconciler applies planner ops through active agent`` () =
     FileAgent.dispose fileAgent
 
 [<Fact>]
-let ``post receive rename changes graph without moving disk twice`` () =
+let ``post receive rename of unparsed stub is rejected without moving disk twice`` () =
     let tempDir = newTempDir ()
     let fileAgent = FileAgent.create tempDir "gambol"
     let handle = AgentHandle.ofFile fileAgent
@@ -165,12 +165,15 @@ let ``post receive rename changes graph without moving disk twice`` () =
     |> Async.RunSynchronously
     |> requireOk "add stub"
     File.Move(oldPath, newPath)
-    LazyLoadReconciliationServer.reconcileChangedPaths
-        handle
-        "home"
-        [ LazyLoadReconciliation.Renamed("old.txt", "new.txt") ]
-    |> Async.RunSynchronously
-    |> requireOk "rename stub"
+    let renameResult =
+        LazyLoadReconciliationServer.reconcileChangedPaths
+            handle
+            "home"
+            [ LazyLoadReconciliation.Renamed("old.txt", "new.txt") ]
+        |> Async.RunSynchronously
+    match renameResult with
+    | Ok _ -> Assert.Fail("expected unparsed document rejection")
+    | Error error -> Assert.Contains("unparsed document", error)
     FileAgent.flushSnapshot fileAgent
     |> Async.RunSynchronously
     |> requireOk "flush"
@@ -182,7 +185,7 @@ let ``post receive rename changes graph without moving disk twice`` () =
     let fileId =
         graph.nodes.[workspaceId].children
         |> List.find (fun child ->
-            Filename.tryValue graph.nodes.[child.id].name = Some "new.txt")
+            Filename.tryValue graph.nodes.[child.id].name = Some "old.txt")
         |> fun child -> child.id
     Assert.Equal(
         Special SpecialKind.File,

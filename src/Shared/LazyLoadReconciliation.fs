@@ -11,26 +11,8 @@ module LazyLoadReconciliation =
         | Renamed of oldPath: string * newPath: string
         | Modified of path: string
 
-    let private applyOps (graph: Graph) (ops: Op list) : Result<Graph, string> =
-        let initial =
-            { graph = graph
-              history = History.empty
-              revision = Revision.Zero }
-        ops
-        |> List.fold (fun result op ->
-            match result with
-            | Error err -> Error err
-            | Ok state ->
-                match Op.apply op state with
-                | ApplyResult.Changed next
-                | ApplyResult.Unchanged next -> Ok next
-                | ApplyResult.Invalid(_, err) -> Error err) (Ok initial)
-        |> Result.map (fun state -> state.graph)
-
-    let private markUnparsed (graph: Graph) nodeId =
-        match graph.nodes.[nodeId].documentState with
-        | Unparsed -> []
-        | Current -> [ Op.SetDocumentState(nodeId, Current, Unparsed) ]
+    let private applyOps = LazyLoadReconciliationApply.applyOps
+    let private markUnparsed = LazyLoadReconciliationApply.markUnparsed
 
     let private createChild graph parentId kind name =
         match kind with
@@ -49,10 +31,9 @@ module LazyLoadReconciliation =
             match createChild graph parentId kind name with
             | Error err -> Error err
             | Ok(childId, ops) ->
-                let allOps = ops @ [ Op.SetDocumentState(childId, Current, Unparsed) ]
-                match applyOps graph allOps with
+                match applyOps graph ops with
                 | Error err -> Error err
-                | Ok next -> Ok(childId, next, allOps)
+                | Ok next -> Ok(childId, next, ops)
 
     let private planPath (graph: Graph) workspaceId finalKind (parts: string list) =
         let lastIndex = parts.Length - 1
@@ -68,11 +49,7 @@ module LazyLoadReconciliation =
                 | Ok(childId, next, ops) ->
                     Ok(childId, next, planned @ ops)) (Ok(workspaceId, graph, []))
 
-    let resolveOwnedPath
-        (graph: Graph)
-        (workspaceLabel: string)
-        (path: string)
-        : Result<(NodeId * SpecialKind) option, string> =
+    let resolveOwnedPath (graph: Graph) (workspaceLabel: string) (path: string) =
         Path.workspaceByLabel graph workspaceLabel
         |> Result.bind (fun workspaceId ->
             Path.classifyValidated path
@@ -82,15 +59,10 @@ module LazyLoadReconciliation =
 
     let private planAddedInfo (graph: Graph) workspaceId (info: Path.PathInfo) =
         if info.parts.IsEmpty then
-            let ops = markUnparsed graph workspaceId
-            applyOps graph ops |> Result.map (fun next -> next, ops)
+            Ok(graph, [])
         else
             planPath graph workspaceId info.kind info.parts
-            |> Result.bind (fun (nodeId, next, createOps) ->
-                let stateOps = markUnparsed next nodeId
-                applyOps next stateOps
-                |> Result.map (fun finalGraph ->
-                    finalGraph, createOps @ stateOps))
+            |> Result.map (fun (_, next, createOps) -> next, createOps)
 
     let private pathChildIds (graph: Graph) parentId =
         graph.nodes.[parentId].children
@@ -136,8 +108,10 @@ module LazyLoadReconciliation =
                     Op.Replace(Graph.trashId, trashIndex, [], [ ownerChild ]) ]
             applyOps graph ops |> Result.map (fun next -> next, ops)
 
-    let rec private cleanupEmptyDirectories (graph: Graph) parentId =
-        if parentId = Graph.rootId || parentId = Graph.workspacesId then
+    let rec private cleanupEmptyDirectories protectedIds (graph: Graph) parentId =
+        if parentId = Graph.rootId
+           || parentId = Graph.workspacesId
+           || Set.contains parentId protectedIds then
             Ok(graph, [])
         else
             match Map.tryFind parentId graph.nodes with
@@ -149,12 +123,13 @@ module LazyLoadReconciliation =
                     |> Option.defaultValue Graph.rootId
                 planTrashNode graph parentId
                 |> Result.bind (fun (next, ops) ->
-                    cleanupEmptyDirectories next nextParent
+                    cleanupEmptyDirectories protectedIds next nextParent
                     |> Result.map (fun (finalGraph, cleanupOps) ->
                         finalGraph, ops @ cleanupOps))
             | _ -> Ok(graph, [])
 
-    let private planDeletedInfo (graph: Graph) workspaceId (info: Path.PathInfo) =
+    let private planDeletedInfo protectedIds
+        (graph: Graph) workspaceId (info: Path.PathInfo) =
         if info.isMarker then
             Ok(graph, [])
         else
@@ -165,7 +140,7 @@ module LazyLoadReconciliation =
                     let parentId = graph.ownerParentByChild.[nodeId]
                     planTrashNode graph nodeId
                     |> Result.bind (fun (next, ops) ->
-                        cleanupEmptyDirectories next parentId
+                        cleanupEmptyDirectories protectedIds next parentId
                         |> Result.map (fun (finalGraph, cleanupOps) ->
                             finalGraph, ops @ cleanupOps)))
 
@@ -217,7 +192,7 @@ module LazyLoadReconciliation =
                                       [ ownerChild ]) ]
                         applyOps renamed reparentOps
                         |> Result.bind (fun moved ->
-                            cleanupEmptyDirectories moved oldParentId
+                            cleanupEmptyDirectories Set.empty moved oldParentId
                             |> Result.map (fun (finalGraph, cleanupOps) ->
                                 finalGraph,
                                 parentOps @ renameOps @ reparentOps @ cleanupOps)))))
@@ -333,6 +308,16 @@ module LazyLoadReconciliation =
                 | Some err -> Error err
                 | None ->
                     let markers = markerMoves renames
+                    let protectedDirectoryIds =
+                        renames
+                        |> List.choose (fun (oldInfo, newInfo) ->
+                            if oldInfo.isMarker && newInfo.isMarker then
+                                match Path.resolveInfo graph workspaceId oldInfo with
+                                | Ok(Some(nodeId, _)) -> Some nodeId
+                                | _ -> None
+                            else
+                                None)
+                        |> Set.ofList
                     let orderedRenames =
                         renames
                         |> List.sortBy (fun (oldInfo, _) ->
@@ -345,7 +330,11 @@ module LazyLoadReconciliation =
                         |> List.sortByDescending (fun info -> info.parts.Length)
                     foldPlans
                         (fun current info ->
-                            planDeletedInfo current workspaceId info)
+                            planDeletedInfo
+                                protectedDirectoryIds
+                                current
+                                workspaceId
+                                info)
                         (graph, [])
                         deletedDeepest
                     |> Result.bind (fun afterDeletes ->
@@ -376,13 +365,15 @@ module LazyLoadReconciliation =
                                         |> Result.map (fun next -> next, ops)))
                             afterAdds
                             modified)
-                    |> Result.map snd)
+                    |> Result.bind (fun (finalGraph, planned) ->
+                        LazyLoadReconciliationApply.markAddedDocumentsUnparsed
+                            finalGraph
+                            workspaceId
+                            added
+                            planned
+                        |> Result.map snd))
 
-    let planAddedPaths
-        (graph: Graph)
-        (workspaceLabel: string)
-        (addedPaths: string list)
-        : Result<Op list, string> =
+    let planAddedPaths (graph: Graph) (workspaceLabel: string) (addedPaths: string list) =
         addedPaths
         |> List.map Added
         |> planChangedPaths graph workspaceLabel

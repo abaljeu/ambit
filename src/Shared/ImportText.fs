@@ -40,6 +40,14 @@ module ImportText =
     let private ownedChildren (ids: NodeId list) : ChildNode list =
         ids |> List.map (fun id -> { ref = Ownership.Owner; id = id })
 
+    let private markDocumentCurrentBeforeParse (graph: Graph) (focusId: NodeId) : Op list =
+        match Map.tryFind focusId graph.nodes with
+        | Some node
+            when DocumentPartition.isDocumentRootNode graph focusId
+                 && node.documentState = Unparsed ->
+            [ Op.SetDocumentState(focusId, Unparsed, Current) ]
+        | _ -> []
+
     let private normalizeEntryName (path: string) = path.TrimEnd('/')
 
     let private entryNameFromText (text: string) =
@@ -61,6 +69,7 @@ module ImportText =
 
     /// One change: package paste ops plus replace-all-children on the focus node.
     let buildImportChange
+        (graph: Graph)
         (focusId: NodeId)
         (existingChildren: ChildNode list)
         (package: DesktopImportPackage)
@@ -69,10 +78,11 @@ module ImportText =
         : Change =
         let attach =
             Op.Replace(focusId, 0, existingChildren, ownedChildren package.topLevelIds)
+        let markCurrent = markDocumentCurrentBeforeParse graph focusId
 
         { id = revision
           changeId = changeId
-          ops = package.ops @ [ attach ] }
+          ops = markCurrent @ package.ops @ [ attach ] }
 
     /// Directory import: add only top-level entries whose names are not already children.
     let buildDirectoryMergeChange
@@ -87,6 +97,7 @@ module ImportText =
             existingChildren
             |> List.choose (existingChildName graph)
             |> Set.ofList
+        let markCurrent = markDocumentCurrentBeforeParse graph focusId
 
         let idToText =
             package.ops
@@ -106,7 +117,7 @@ module ImportText =
                     | Some name -> not (Set.contains name existingNames))
 
         if filteredIds.IsEmpty then
-            { id = revision; changeId = changeId; ops = [] }
+            { id = revision; changeId = changeId; ops = markCurrent }
         else
             let filteredIdSet = Set.ofList filteredIds
 
@@ -120,4 +131,6 @@ module ImportText =
             let attach =
                 Op.Replace(focusId, existingChildren.Length, [], ownedChildren filteredIds)
 
-            { id = revision; changeId = changeId; ops = filteredOps @ [ attach ] }
+            { id = revision
+              changeId = changeId
+              ops = markCurrent @ filteredOps @ [ attach ] }

@@ -44,6 +44,16 @@ let private childNamed graph parentId name =
 let private createPaths graph paths =
     requirePlan graph "home" paths |> applyOps graph
 
+let private markDocumentsCurrent graph =
+    graph.nodes
+    |> Map.toList
+    |> List.choose (fun (nodeId, node) ->
+        match node.kind, node.documentState with
+        | Special (Workspace | Directory | File), Unparsed ->
+            Some(Op.SetDocumentState(nodeId, Unparsed, Current))
+        | _ -> None)
+    |> applyOps graph
+
 [<Fact>]
 let ``one added file creates a file stub`` () =
     let workspaceId, graph = Graph.create () |> addWorkspace "home"
@@ -71,6 +81,22 @@ let ``repeated reconciliation reuses matching stubs`` () =
     let graph2 = requirePlan graph "home" [ "src/core.fs" ] |> applyOps graph
     let second = requirePlan graph2 "home" [ "src/core.fs"; "src/core.fs" ]
     Assert.Empty(second)
+
+[<Fact>]
+let ``structural reconciliation rejects an already unparsed document`` () =
+    let _, graph = Graph.create () |> addWorkspace "home"
+    let graph2 = createPaths graph [ "note.txt" ]
+    match
+        LazyLoadReconciliation.planChangedPaths
+            graph2
+            "home"
+            [ LazyLoadReconciliation.Deleted "note.txt" ]
+    with
+    | Ok _ -> Assert.Fail("expected unparsed document rejection")
+    | Error error ->
+        Assert.Equal(
+            "operation cannot modify an unparsed document; parse it first",
+            error)
 
 [<Fact>]
 let ``amb suffixes are ordinary file names`` () =
@@ -118,7 +144,7 @@ let ``kind conflict at an existing path returns error`` () =
 [<Fact>]
 let ``deleted file is moved to trash with parsed descendants`` () =
     let _, graph = Graph.create () |> addWorkspace "home"
-    let graph2 = createPaths graph [ "docs/readme.txt" ]
+    let graph2 = createPaths graph [ "docs/readme.txt" ] |> markDocumentsCurrent
     let docs = childNamed graph2 (childNamed graph2 Graph.workspacesId "home").id "docs"
     let file = childNamed graph2 docs.id "readme.txt"
     let parsedId = NodeId.New()
@@ -137,7 +163,7 @@ let ``deleted file is moved to trash with parsed descendants`` () =
 [<Fact>]
 let ``deleted file refs become path expressions without promotion`` () =
     let workspaceId, graph = Graph.create () |> addWorkspace "home"
-    let graph2 = createPaths graph [ "note.txt" ]
+    let graph2 = createPaths graph [ "note.txt" ] |> markDocumentsCurrent
     let file = childNamed graph2 workspaceId "note.txt"
     let holderId = NodeId.New()
     let graph3 =
@@ -156,7 +182,9 @@ let ``deleted file refs become path expressions without promotion`` () =
 [<Fact>]
 let ``rename and cross-directory move preserve identity and children`` () =
     let workspaceId, graph = Graph.create () |> addWorkspace "home"
-    let graph2 = createPaths graph [ "docs/a.txt"; "archive/.amb" ]
+    let graph2 =
+        createPaths graph [ "docs/a.txt"; "archive/.amb" ]
+        |> markDocumentsCurrent
     let docs = childNamed graph2 workspaceId "docs"
     let archive = childNamed graph2 workspaceId "archive"
     let file = childNamed graph2 docs.id "a.txt"
@@ -186,7 +214,9 @@ let ``rename and cross-directory move preserve identity and children`` () =
 [<Fact>]
 let ``directory marker rename coalesces nested renames`` () =
     let workspaceId, graph = Graph.create () |> addWorkspace "home"
-    let graph2 = createPaths graph [ "docs/.amb"; "docs/nested/a.txt" ]
+    let graph2 =
+        createPaths graph [ "docs/.amb"; "docs/nested/a.txt" ]
+        |> markDocumentsCurrent
     let docs = childNamed graph2 workspaceId "docs"
     let nested = childNamed graph2 docs.id "nested"
     let file = childNamed graph2 nested.id "a.txt"
@@ -201,6 +231,19 @@ let ``directory marker rename coalesces nested renames`` () =
     Assert.Equal(docs.id, archive.id)
     Assert.Equal(nested.id, nestedAfter.id)
     Assert.Equal(file.id, (childNamed graph3 nestedAfter.id "a.txt").id)
+
+[<Fact>]
+let ``directory rename survives deletion of its last old child`` () =
+    let workspaceId, graph = Graph.create () |> addWorkspace "home"
+    let graph2 =
+        createPaths graph [ "docs/.amb"; "docs/old.txt" ]
+        |> markDocumentsCurrent
+    let docsId = (childNamed graph2 workspaceId "docs").id
+    let changes =
+        [ LazyLoadReconciliation.Deleted "docs/old.txt"
+          LazyLoadReconciliation.Renamed("docs/.amb", "archive/.amb") ]
+    let graph3 = requireChangedPlan graph2 "home" changes |> applyOps graph2
+    Assert.Equal(docsId, (childNamed graph3 workspaceId "archive").id)
 
 [<Fact>]
 let ``exact marker modification invalidates containing documents`` () =
@@ -239,7 +282,7 @@ let ``modified file becomes unparsed without losing identity or placement`` () =
 [<Fact>]
 let ``x amb remains an ordinary file for rename and delete`` () =
     let workspaceId, graph = Graph.create () |> addWorkspace "home"
-    let graph2 = createPaths graph [ "x.amb" ]
+    let graph2 = createPaths graph [ "x.amb" ] |> markDocumentsCurrent
     let original = childNamed graph2 workspaceId "x.amb"
     let graph3 =
         requireChangedPlan
@@ -256,7 +299,7 @@ let ``x amb remains an ordinary file for rename and delete`` () =
 [<Fact>]
 let ``delete and add without rename use a new identity`` () =
     let workspaceId, graph = Graph.create () |> addWorkspace "home"
-    let graph2 = createPaths graph [ "old.txt" ]
+    let graph2 = createPaths graph [ "old.txt" ] |> markDocumentsCurrent
     let oldId = (childNamed graph2 workspaceId "old.txt").id
     let changes =
         [ LazyLoadReconciliation.Deleted "old.txt"
@@ -269,7 +312,7 @@ let ``delete and add without rename use a new identity`` () =
 [<Fact>]
 let ``repeated full reconciliation is idempotent`` () =
     let _, graph = Graph.create () |> addWorkspace "home"
-    let graph2 = createPaths graph [ "old.txt" ]
+    let graph2 = createPaths graph [ "old.txt" ] |> markDocumentsCurrent
     let changes =
         [ LazyLoadReconciliation.Renamed("old.txt", "new.txt")
           LazyLoadReconciliation.Modified "new.txt" ]

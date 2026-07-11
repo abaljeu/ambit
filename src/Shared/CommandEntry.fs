@@ -53,8 +53,7 @@ type CommandId =
     | Find
     | EditClasses
     | JumpToTarget
-    | Import
-    | Export
+    | ParseOrPush
     | Save
     | GitConnect
     | GitClone
@@ -72,6 +71,32 @@ type CommandEntry = {
     keyScope: CommandKeyScope
     iconId: string option
 }
+
+type ContextualTarget =
+    | ParseFile of NodeId
+    | PushWorkspace of NodeId
+
+let contextualTarget (graph: Graph) (parentId: NodeId) (index: int) : ContextualTarget option =
+    match Map.tryFind parentId graph.nodes with
+    | None -> None
+    | Some parent when index < 0 || index >= parent.children.Length -> None
+    | Some parent ->
+        let occurrence = parent.children.[index]
+        match Map.tryFind occurrence.id graph.nodes with
+        | Some { kind = Special Workspace } as workspace
+            when workspace
+                 |> Option.bind (fun node ->
+                     NodeDesktopPath.tryWorkspaceGitLabel graph node.id)
+                 |> Option.isSome ->
+            Some(PushWorkspace occurrence.id)
+        | _ when occurrence.ref = Ownership.Owner ->
+            DocumentPartition.documentRootForNode graph occurrence.id
+            |> Option.bind (fun rootId ->
+                match Map.tryFind rootId graph.nodes with
+                | Some { kind = Special File; documentState = Unparsed } ->
+                    Some(ParseFile rootId)
+                | _ -> None)
+        | _ -> None
 
 let allCommands : CommandEntry list =
     [
@@ -213,11 +238,8 @@ let allCommands : CommandEntry list =
         { id = JumpToTarget; name = "Jump to Target"
           keys = [ "Alt+j"; "j" ]; keyScope = SelectionOrEditing
           iconId = Some "amb-icon-jump" }
-        { id = Import; name = "Import"
-          keys = [ "Ctrl+Shift+>" ]; keyScope = SelectionOrEditing
-          iconId = None }
-        { id = Export; name = "Export"
-          keys = [ "Ctrl+Shift+<" ]; keyScope = SelectionOrEditing
+        { id = ParseOrPush; name = "Parse / Upload"
+          keys = [ "Ctrl+Shift+>" ]; keyScope = SelectionOnly
           iconId = None }
         { id = Save; name = "Save"
           keys = [ "Ctrl+S" ]; keyScope = SelectionOrEditing
@@ -228,8 +250,8 @@ let allCommands : CommandEntry list =
         { id = GitClone; name = "Clone workspace"
           keys = []; keyScope = SelectionOrEditing
           iconId = None }
-        { id = GitPull; name = "Download"
-          keys = []; keyScope = SelectionOrEditing
+        { id = GitPull; name = "Pull to Desktop"
+          keys = [ "Ctrl+Shift+<" ]; keyScope = SelectionOnly
           iconId = None }
         { id = GitPush; name = "Upload"
           keys = []; keyScope = SelectionOrEditing

@@ -409,6 +409,9 @@ body {
 .amb-row-special-trash .amb-text {
     border-left: 3px solid #888;
 }
+.amb-row-file-unparsed .amb-text {
+    background: #f4df9a66;
+}
 
 /* user */
 .h1 { font-size: 1.brem }

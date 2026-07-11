@@ -57,13 +57,13 @@ How users create, open, navigate, and work in workspaces in the UI (commands / k
 - [x] **Insert…** (`f`): New Workspace (focus on Workspaces); New File / New Folder (elsewhere); pick existing file → insert Ref
 - [x] **Rename** (`F2`) for Directory / File / Normal; workspace rename refused (immutable names)
 - [x] **Delete** (move to TRASH), **Move Selected** (`m`), Indent / Outdent, Duplicate (link)
-- [x] **Import** / **Export** via desktop-mapped `//label/...` paths
+- [x] **Parse / Upload** (`Ctrl+Shift+>`) — parse focused Unparsed File, or push focused Workspace; **Pull** (`Ctrl+Shift+<`) for focused Workspace (desktop Git). See [[lazy-load]].
 - [x] **Save** (`Ctrl+S`)
 
 
 - [x] Navigate: Find, Zoom in / out / owner, Jump to Target
 - [ ] Prevent Workspace nodes from moving outside Workspaces. [[workspace-file-directory-placement]]
-- [ ] Parse file / Reparse from disk (on-demand hydrate of owned File)
+- [x] Parse file / Reparse from disk (on-demand hydrate of owned File) — via **Parse / Upload** (`Ctrl+Shift+>`)
 - [ ] **Broken / unresolved references in the UI** — show when a workspace label or path reference cannot resolve; server-side file-status (not only desktop-mapped). Deferred Stage 5. See [[workspace-file-model]], [[doc/current/workspace-stage-plan]].
 - [ ] **Multi-client graph merge** — eventual consistency and conflict markers across clients (separate from git push/pull). See [[future-merge-sync]], [[git-sync-gateway]], [[postgres-roadmap]].  STILL needed for non-desktop clients and direct in-app edits. git merge is not available on client side; we could employ server-side git merge.
 

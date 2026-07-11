@@ -9,6 +9,7 @@ Lazy Load turns workspace files delivered by Git into a browsable graph without 
 ## User-visible behavior
 
 - A successful workspace push makes newly added source paths appear as Directory and File stubs under the matching named Workspace. File contents are not parsed, so a new File stub has no parsed child nodes.
+- `Ctrl+Shift+>` parses the focused Unparsed File, or the Unparsed File that owns the focused owner occurrence, in place. On a named Workspace it instead pushes that Workspace to the server. `Ctrl+Shift+<` pulls the focused named Workspace to the desktop. Both Workspace branches require desktop Git capability.
 - Expanding an unparsed File will later read and parse that file, merge the parsed result into its existing graph identity, and expose editable child nodes.
 - Freshness will distinguish **current**, **unparsed**, **client older**, and **client newer**. A successful desktop pull means client and server files match and are current; it does not make unchanged graph content unparsed.
 - A git-deleted workspace file trashes its graph node under `//TRASH/`; the workspace disk path is gone and the UI shows a missing target. The user can recover from TRASH in the graph or from Git history on disk. Moving out of TRASH may recreate disk content if the user chooses.
@@ -40,6 +41,14 @@ After a successful `git-receive-pack`, the server compares the old and new `HEAD
 The server submits the planned ops through the active graph agent using a graph-only post-receive path. This preserves revision/change-log behavior and existing polling while advancing the live-save baseline without moving or rewriting workspace files that Git already changed. No file content is read or parsed.
 
 Post-receive reconciliation is best effort after transport success. Diff, planning, kind-conflict, or graph-apply failures are logged, while the already-completed Git response is returned unchanged. A failed receive does not run reconciliation. This policy avoids reporting a completed push as failed and leaves a later reconciliation capability to repair the graph explicitly.
+
+### Unparsed operation invariant
+
+Shared operation application rejects any edit, rename, or structural operation involving an Unparsed document. This applies to File, Directory, and Workspace document roots and to owner-contained nodes within the nearest document boundary, so client, server, replay, and history paths share the same rule. A structural `Replace` involves its parent and Owner children; a Ref child identity does not make the target document involved, because the occurrence belongs to the parent document. Direct mutation of the target is still governed by the target's owning document.
+
+`SetDocumentState` is the explicit transition exception. A valid parse batch starts with `SetDocumentState(fileId, Unparsed, Current)` and only then replaces the File tree; the reverse order is rejected. The desktop parser behind `Ctrl+Shift+>` follows this ordering and parses the existing File identity rather than creating an arbitrary import target. Marking a Current document Unparsed remains legal for reconciliation.
+
+New reconciliation stubs are built while Current and marked Unparsed only after their structure is complete. Structural reconciliation of a document that was already Unparsed is rejected under the absolute invariant; it is not silently bypassed. Content-only invalidation can still mark Current documents Unparsed and repeated invalidation is a no-op.
 
 ## Implemented structural reconciliation details
 
@@ -129,6 +138,7 @@ Server integration: git commit with rename/delete → `completeWorkspacePush` pr
 - The server owns post-receive reconciliation because it owns the graph. Clients observe resulting Changes through polling.
 - Reconciliation uses changed paths rather than a full workspace walk and flows only from server disk to graph.
 - Structural reconciliation does not parse source contents.
+- Unparsed documents are immutable until an ordered parse transition marks them Current; this can make a later structural reconciliation best-effort failure.
 - There is no manual “Sync tree” command.
 - Pull/freshness UI, expand-to-parse, document load units, and residency/search are independent follow-on capabilities.
 - Parsing is a merge into existing nodes; it does not delete the existing File identity first.

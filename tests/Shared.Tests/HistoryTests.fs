@@ -212,3 +212,179 @@ let ``Move with correct old span is rejected when target is owned-descendant`` (
 
     Assert.Equal<ChildNode>(originalRootChildren, rootAfter.children)
     Assert.Equal<ChildNode>(originalBChildren, bAfter.children)
+
+let private unparsedFileState () =
+    let graph0 = Graph.create ()
+    let fileId = NodeId.New()
+    let childId = NodeId.New()
+    let otherId = NodeId.New()
+    let holderId = NodeId.New()
+    let file =
+        Node.Create(
+            fileId,
+            text = "file.txt",
+            name = Filename.create "file.txt",
+            children = [ { ref = Ownership.Owner; id = childId } ],
+            kind = Special File,
+            documentState = Unparsed)
+    let child = Node.Create(childId, text = "body", owner = fileId)
+    let other =
+        Node.Create(
+            otherId,
+            text = "other.txt",
+            name = Filename.create "other.txt",
+            kind = Special File)
+    let holder =
+        Node.Create(
+            holderId,
+            text = "holder",
+            children = [ { ref = Ownership.Ref; id = fileId } ])
+    let root = graph0.nodes.[Graph.rootId]
+    let additions =
+        [ { ref = Ownership.Owner; id = fileId }
+          { ref = Ownership.Owner; id = otherId }
+          { ref = Ownership.Owner; id = holderId } ]
+    let nodes =
+        graph0.nodes
+        |> Map.add Graph.rootId { root with children = root.children @ additions }
+        |> Map.add fileId file
+        |> Map.add childId child
+        |> Map.add otherId other
+        |> Map.add holderId holder
+    let graph = Graph.fromNodes graph0.root nodes
+    { graph = graph; history = History.empty; revision = Revision.Zero },
+    fileId,
+    childId,
+    otherId,
+    holderId
+
+let private unparsedError = "operation cannot modify an unparsed document; parse it first"
+
+let private assertUnparsedInvalid state op =
+    let unchanged, error = Op.apply op state |> expectInvalid
+    Assert.Equal(unparsedError, error)
+    Assert.Equal(state.graph, unchanged.graph)
+
+[<Fact>]
+let ``edit rename move or delete of unparsed file root is rejected`` () =
+    let state, fileId, _, _, _ = unparsedFileState ()
+    let root = state.graph.nodes.[Graph.rootId]
+    let index = root.children |> List.findIndex (fun child -> child.id = fileId)
+    let occurrence = root.children.[index]
+    assertUnparsedInvalid state (Op.SetText(fileId, "file.txt", "changed"))
+    assertUnparsedInvalid state (Op.SetName(fileId, "file.txt", "renamed.txt"))
+    assertUnparsedInvalid state (Op.Replace(Graph.rootId, index, [ occurrence ], []))
+
+[<Fact>]
+let ``edit rename move or delete of unparsed file descendant is rejected`` () =
+    let state, fileId, childId, _, _ = unparsedFileState ()
+    let occurrence = state.graph.nodes.[fileId].children.Head
+    assertUnparsedInvalid state (Op.SetText(childId, "body", "changed"))
+    assertUnparsedInvalid state (Op.SetName(childId, "", "renamed"))
+    assertUnparsedInvalid state (Op.Replace(fileId, 0, [ occurrence ], []))
+
+[<Fact>]
+let ``operation in unrelated current document remains valid`` () =
+    let state, _, _, otherId, _ = unparsedFileState ()
+    let changed =
+        Op.apply (Op.SetText(otherId, "other.txt", "changed")) state
+        |> expectChanged
+    Assert.Equal("changed", changed.graph.nodes.[otherId].text)
+
+[<Fact>]
+let ``ref occurrence is governed by occurrence document not target document`` () =
+    let state, fileId, _, _, holderId = unparsedFileState ()
+    let oldRef = state.graph.nodes.[holderId].children.Head
+    let replacementId = NodeId.New()
+    let withReplacement =
+        Op.apply (Op.NewNode(replacementId, "replacement")) state
+        |> expectChanged
+    let replacement = { ref = Ownership.Owner; id = replacementId }
+    let changed =
+        Op.apply (Op.Replace(holderId, 0, [ oldRef ], [ replacement ])) withReplacement
+        |> expectChanged
+    Assert.Equal(replacementId, changed.graph.nodes.[holderId].children.Head.id)
+    assertUnparsedInvalid state (Op.SetText(fileId, "file.txt", "changed"))
+
+[<Fact>]
+let ``parse state transition before tree mutation succeeds and reverse order fails`` () =
+    let state, fileId, _, _, _ = unparsedFileState ()
+    let parsedId = NodeId.New()
+    let attach = { ref = Ownership.Owner; id = parsedId }
+    let parseChange =
+        { id = 0
+          changeId = System.Guid.NewGuid()
+          ops =
+            [ Op.SetDocumentState(fileId, Unparsed, Current)
+              Op.NewNode(parsedId, "parsed")
+              Op.Replace(fileId, 1, [], [ attach ]) ] }
+    let parsed = History.applyChange parseChange state |> expectChanged
+    Assert.Equal(Current, parsed.graph.nodes.[fileId].documentState)
+    Assert.Equal(parsedId, parsed.graph.nodes.[fileId].children.[1].id)
+
+    let reverse =
+        { parseChange with
+            changeId = System.Guid.NewGuid()
+            ops =
+                [ Op.NewNode(parsedId, "parsed")
+                  Op.Replace(fileId, 1, [], [ attach ])
+                  Op.SetDocumentState(fileId, Unparsed, Current) ] }
+    let rejected, error = History.applyChange reverse state |> expectInvalid
+    Assert.Equal(unparsedError, error)
+    Assert.Equal(state.graph, rejected.graph)
+
+[<Fact>]
+let ``marking document unparsed remains legal`` () =
+    let state, _, _, otherId, _ = unparsedFileState ()
+    let changed =
+        Op.apply (Op.SetDocumentState(otherId, Current, Unparsed)) state
+        |> expectChanged
+    Assert.Equal(Unparsed, changed.graph.nodes.[otherId].documentState)
+
+[<Fact>]
+let ``valid parse batch can replay undo and redo`` () =
+    let state, fileId, childId, _, _ = unparsedFileState ()
+    let change =
+        { id = 0
+          changeId = System.Guid.NewGuid()
+          ops =
+            [ Op.SetDocumentState(fileId, Unparsed, Current)
+              Op.SetText(childId, "body", "parsed") ] }
+    let applied = History.applyChange change state |> expectChanged
+    let undone = History.undo applied |> expectChanged
+    Assert.Equal(Unparsed, undone.graph.nodes.[fileId].documentState)
+    Assert.Equal("body", undone.graph.nodes.[childId].text)
+    let redone = History.redo undone |> expectChanged
+    Assert.Equal(Current, redone.graph.nodes.[fileId].documentState)
+    Assert.Equal("parsed", redone.graph.nodes.[childId].text)
+
+[<Fact>]
+let ``unparsed invariant also applies to directory and workspace documents`` () =
+    let graph0 = Graph.create ()
+    let workspaceId, workspaceOps =
+        FileNodeOps.planCreateWorkspace graph0 "home"
+    let state0 =
+        workspaceOps
+        |> List.fold (fun state op -> Op.apply op state |> expectChanged)
+            { graph = graph0; history = History.empty; revision = Revision.Zero }
+    let directoryId, directoryOps =
+        FileNodeOps.planCreateOwnedDirectory state0.graph workspaceId "docs"
+    let state1 =
+        directoryOps
+        |> List.fold (fun state op -> Op.apply op state |> expectChanged) state0
+    let directoryUnparsed =
+        Op.apply
+            (Op.SetDocumentState(directoryId, Current, Unparsed))
+            state1
+        |> expectChanged
+    assertUnparsedInvalid
+        directoryUnparsed
+        (Op.SetName(directoryId, "docs", "renamed"))
+    let workspaceUnparsed =
+        Op.apply
+            (Op.SetDocumentState(workspaceId, Current, Unparsed))
+            state1
+        |> expectChanged
+    assertUnparsedInvalid
+        workspaceUnparsed
+        (Op.SetName(directoryId, "docs", "renamed"))

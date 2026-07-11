@@ -57,6 +57,32 @@ module DocumentPartition =
 
         collect documentRootId Set.empty
 
+    let private containingDocumentRootIds (graph: Graph) (nodeId: NodeId) : NodeId list =
+        let primary = documentRootForNode graph nodeId |> Option.toList
+        let enclosing =
+            if isDocumentRootNode graph nodeId then
+                graph.ownerParentByChild
+                |> Map.tryFind nodeId
+                |> Option.bind (documentRootForNode graph)
+                |> Option.toList
+            else
+                []
+        primary @ enclosing |> List.distinct
+
+    let isMemberOfUnparsedDocument (graph: Graph) (nodeId: NodeId) : bool =
+        containingDocumentRootIds graph nodeId
+        |> List.exists (fun rootId ->
+            match Map.tryFind rootId graph.nodes with
+            | Some node -> node.documentState = Unparsed
+            | None -> false)
+
+    let isMemberOfUnparsedFile (graph: Graph) (nodeId: NodeId) : bool =
+        containingDocumentRootIds graph nodeId
+        |> List.exists (fun rootId ->
+            match Map.tryFind rootId graph.nodes with
+            | Some node -> node.kind = Special File && node.documentState = Unparsed
+            | None -> false)
+
     let private nearestDirectoryAncestor (graph: Graph) (nodeId: NodeId) : NodeId option =
         let rec walk (current: NodeId) =
             match Map.tryFind current graph.ownerParentByChild with

@@ -18,9 +18,11 @@
     <Compile Include="AmbleParse.fs" />
     <Compile Include="NodeKindPersistence.fs" />
     <Compile Include="GraphProjection.fs" />
+    <Compile Include="DesktopCapabilities.fs" />
+    <Compile Include="NodeDesktopPath.fs" />
+    <Compile Include="DocumentPartition.fs" />
     <Compile Include="History.fs" />
     <Compile Include="LogText.fs" />
-    <Compile Include="DesktopCapabilities.fs" />
     <Compile Include="ClientIdentity.fs" />
     <Compile Include="WorkspaceGitRemote.fs" />
     <Compile Include="ServerCapabilities.fs" />
@@ -32,8 +34,6 @@
     <Compile Include="RedirectRewrite.fs" />
     <Compile Include="ViewModel.fs" />
     <Compile Include="ModelOps.fs" />
-    <Compile Include="NodeDesktopPath.fs" />
-    <Compile Include="DocumentPartition.fs" />
     <Compile Include="ViewModelOps.fs" />
     <Compile Include="ViewModelJoinOps.fs" />
     <Compile Include="ViewModelMoveOps.fs" />
@@ -43,6 +43,7 @@
     <Compile Include="FileNodeOps.fs" />
     <Compile Include="LazyLoadReconciliationPath.fs" />
     <Compile Include="DocumentPathMove.fs" />
+    <Compile Include="LazyLoadReconciliationApply.fs" />
     <Compile Include="LazyLoadReconciliation.fs" />
     <Compile Include="AmbleEval.fs" />
     <Compile Include="AmbleRun.fs" />

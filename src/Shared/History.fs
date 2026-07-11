@@ -45,6 +45,10 @@ type ApplyResult =
 
 [<RequireQualifiedAccess>]
 module Op =
+    [<Literal>]
+    let private unparsedDocumentError =
+        "operation cannot modify an unparsed document; parse it first"
+
     let private fromGraphResult (state: State) (result: Result<Graph, string>) : ApplyResult =
         match result with
         | Ok graph -> ApplyResult.Changed { state with graph = graph }
@@ -55,7 +59,27 @@ module Op =
         | Ok graph -> ApplyResult.Changed { state with graph = graph }
         | Error msg -> ApplyResult.Invalid(state, msg)
 
-    let apply (op: Op) (state: State) : ApplyResult =
+    let private involvedNodeIds (graph: Graph) (op: Op) : NodeId list =
+        match op with
+        | Op.NewNode(nodeId, _)
+        | Op.NewSpecialNode(nodeId, _, _) ->
+            if Map.containsKey nodeId graph.nodes then [ nodeId ] else []
+        | Op.SetText(nodeId, _, _)
+        | Op.SetClasses(nodeId, _, _)
+        | Op.SetName(nodeId, _, _) -> [ nodeId ]
+        | Op.Replace(parentId, _, oldChildren, newChildren) ->
+            parentId
+            :: ((oldChildren @ newChildren)
+                |> List.choose (fun child ->
+                    if child.ref = Ownership.Owner then Some child.id else None))
+        | Op.SetDocumentState _ -> []
+
+    let private isBlockedByUnparsedDocument (op: Op) (graph: Graph) : bool =
+        involvedNodeIds graph op
+        |> List.distinct
+        |> List.exists (DocumentPartition.isMemberOfUnparsedDocument graph)
+
+    let private applyAllowed (op: Op) (state: State) : ApplyResult =
         match op with
         | Op.NewNode(nodeId, text) ->
             if nodeId = Graph.rootId then
@@ -109,7 +133,13 @@ module Op =
             Graph.setDocumentState nodeId oldState newState state.graph
             |> fromGraphResult state
 
-    let undo (op: Op) (state: State) : ApplyResult =
+    let apply (op: Op) (state: State) : ApplyResult =
+        if isBlockedByUnparsedDocument op state.graph then
+            ApplyResult.Invalid(state, unparsedDocumentError)
+        else
+            applyAllowed op state
+
+    let private undoAllowed (op: Op) (state: State) : ApplyResult =
         match op with
         | Op.NewNode(nodeId, _) ->
             let nodes = state.graph.nodes |> Map.remove nodeId
@@ -135,6 +165,12 @@ module Op =
         | Op.SetDocumentState(nodeId, oldState, newState) ->
             Graph.setDocumentState nodeId newState oldState state.graph
             |> fromGraphResult state
+
+    let undo (op: Op) (state: State) : ApplyResult =
+        if isBlockedByUnparsedDocument op state.graph then
+            ApplyResult.Invalid(state, unparsedDocumentError)
+        else
+            undoAllowed op state
 
 
 [<RequireQualifiedAccess>]
@@ -177,6 +213,8 @@ module Change =
                 (Ok(state, false))
 
         match result with
+        | Error (ApplyResult.Invalid(_, message)) ->
+            ApplyResult.Invalid(state, message)
         | Error err -> err
         | Ok (s, false) -> ApplyResult.Unchanged s
         | Ok (s, true) -> ApplyResult.Changed s
@@ -199,6 +237,8 @@ module Change =
                 (Ok(state, false))
 
         match result with
+        | Error (ApplyResult.Invalid(_, message)) ->
+            ApplyResult.Invalid(state, message)
         | Error err -> err
         | Ok (s, false) -> ApplyResult.Unchanged s
         | Ok (s, true) -> ApplyResult.Changed s

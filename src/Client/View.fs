@@ -63,26 +63,11 @@ let private makeRowElement
     let nodeId = siteEntry.nodeId
     let node = model.graph.nodes.[nodeId]
     let hasChildren = not node.children.IsEmpty
-    let ownershipClass =
-        match siteEntry.parentInstanceId with
-        | None -> "amb-row-owned"
-        | Some parentInstId ->
-            match Map.tryFind parentInstId model.siteMap.entries with
-            | None -> "amb-row-owned"
-            | Some parentEntry ->
-                let childIndex =
-                    parentEntry.children
-                    |> List.tryFindIndex (fun childInstId -> childInstId = siteEntry.instanceId)
-                match childIndex with
-                | None -> "amb-row-owned"
-                | Some idx ->
-                    let parentNode = model.graph.nodes.[parentEntry.nodeId]
-                    match parentNode.children |> List.tryItem idx with
-                    | Some child when child.ref = Ownership.Ref -> "amb-row-ref"
-                    | _ -> "amb-row-owned"
     let row = document.createElement "div"
     row.classList.add "amb-row"
-    row.classList.add ownershipClass
+    row.classList.add (ViewModel.rowOwnershipClass model siteEntry)
+    if ViewModel.rowFileUnparsedClassEligible model siteEntry then
+        row.classList.add "amb-row-file-unparsed"
     row.setAttribute("data-node-id", node.id.Value.ToString())
 
     if siteEntry.parentInstanceId = None then row.classList.add "amb-view-root"

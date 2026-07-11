@@ -11,8 +11,6 @@ open Gambol.Client.Update
 open Gambol.Client.UpdateEdit
 open Gambol.Client.UpdateHelpers
 open Gambol.Client.UpdateOps
-open Gambol.Client.UpdateImport
-open Gambol.Client.UpdateExport
 open Gambol.Client.UpdateRename
 open Gambol.Client.SearchDialog
 open Gambol.Client.Commands

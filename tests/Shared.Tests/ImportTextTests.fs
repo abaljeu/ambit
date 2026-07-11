@@ -88,7 +88,13 @@ let ``buildImportChange single line attaches to focus`` () =
     let focusId = NodeId.New()
     let existing = owned [ NodeId.New() ]
     let change =
-        ImportText.buildImportChange focusId existing package 1 (System.Guid.NewGuid())
+        ImportText.buildImportChange
+            (Graph.create ())
+            focusId
+            existing
+            package
+            1
+            (System.Guid.NewGuid())
 
     Assert.Equal(1, change.id)
     Assert.Equal<Op list>(
@@ -101,7 +107,13 @@ let ``buildImportChange nested package attaches top level only`` () =
     let package = ImportText.buildPackage "note.txt" "parent\n\tchild" |> requirePackage
     let focusId = NodeId.New()
     let change =
-        ImportText.buildImportChange focusId [] package 2 (System.Guid.NewGuid())
+        ImportText.buildImportChange
+            (Graph.create ())
+            focusId
+            []
+            package
+            2
+            (System.Guid.NewGuid())
 
     Assert.Equal<Op list>(
         package.ops @ [ Op.Replace(focusId, 0, [], owned package.topLevelIds) ],
@@ -150,6 +162,34 @@ let private graphWithFocus (focusId: NodeId) (focusChildren: ChildNode list) (ex
         |> Map.add focusId focus
 
     Graph.fromNodes graph0.root nodes
+
+[<Fact>]
+let ``build import marks unparsed file current before tree operations`` () =
+    let package = ImportText.buildPackage "note.txt" "alpha" |> requirePackage
+    let focusId = NodeId.New()
+    let file =
+        Node.Create(
+            focusId,
+            text = "note.txt",
+            name = Filename.create "note.txt",
+            kind = Special File,
+            documentState = Unparsed)
+    let graph0 = Graph.create ()
+    let root = graph0.nodes.[Graph.rootId]
+    let fileOccurrence = { ref = Ownership.Owner; id = focusId }
+    let graph =
+        graph0.nodes
+        |> Map.add Graph.rootId { root with children = root.children @ [ fileOccurrence ] }
+        |> Map.add focusId file
+        |> Graph.fromNodes graph0.root
+    let change =
+        ImportText.buildImportChange graph focusId [] package 1 (System.Guid.NewGuid())
+    Assert.Equal(
+        Op.SetDocumentState(focusId, Unparsed, Current),
+        change.ops.Head)
+    Assert.Equal(
+        Op.Replace(focusId, 0, [], owned package.topLevelIds),
+        change.ops |> List.last)
 
 [<Fact>]
 let ``buildDirectoryMergeChange with empty existing adds all entries`` () =

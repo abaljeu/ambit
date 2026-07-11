@@ -903,6 +903,28 @@ module ViewModel =
         if desktop <> "" then desktop
         else specialKindSymbol node.id node.kind |> Option.defaultValue ""
 
+    let private rowOwnership (model: VM) (entry: SiteEntry) : Ownership =
+        entry.parentInstanceId
+        |> Option.bind (fun parentId -> Map.tryFind parentId model.siteMap.entries)
+        |> Option.bind (fun parent ->
+            parent.children
+            |> List.tryFindIndex ((=) entry.instanceId)
+            |> Option.bind (fun index ->
+                model.graph.nodes
+                |> Map.tryFind parent.nodeId
+                |> Option.bind (fun node -> List.tryItem index node.children)))
+        |> Option.map (fun child -> child.ref)
+        |> Option.defaultValue Ownership.Owner
+
+    let rowOwnershipClass (model: VM) (entry: SiteEntry) : string =
+        match rowOwnership model entry with
+        | Ownership.Owner -> "amb-row-owned"
+        | Ownership.Ref -> "amb-row-ref"
+
+    let rowFileUnparsedClassEligible (model: VM) (entry: SiteEntry) : bool =
+        rowOwnership model entry = Ownership.Owner
+        && DocumentPartition.isMemberOfUnparsedFile model.graph entry.nodeId
+
     let private addSpecialKindRowClass (nodeId: NodeId) (kind: NodeKind) (className: string) : string =
         match specialKindRowClass nodeId kind with
         | Some sk -> CssClass.add sk className
@@ -930,24 +952,6 @@ module ViewModel =
     /// cachedInstIds is the set of instanceIds currently held in the element cache.
     /// Returns removals followed by visible-row operations in preorder display order.
     let planPatchDOM (oldModel: VM) (newModel: VM) (cachedInstIds: Set<SiteId>) : RowMutation list =
-        let ownershipClass (model: VM) (entry: SiteEntry) =
-            match entry.parentInstanceId with
-            | None -> "amb-row-owned"
-            | Some parentInstId ->
-                match Map.tryFind parentInstId model.siteMap.entries with
-                | None -> "amb-row-owned"
-                | Some parentEntry ->
-                    let childIndex =
-                        parentEntry.children
-                        |> List.tryFindIndex (fun childInstId -> childInstId = entry.instanceId)
-                    match childIndex with
-                    | None -> "amb-row-owned"
-                    | Some idx ->
-                        let parentNode = model.graph.nodes.[parentEntry.nodeId]
-                        match parentNode.children |> List.tryItem idx with
-                        | Some child when child.ref = Ownership.Ref -> "amb-row-ref"
-                        | _ -> "amb-row-owned"
-
         let newVisible = getVisibleInstanceIds newModel.siteMap
         let newVisibleSet = Set.ofList newVisible
 
@@ -987,8 +991,11 @@ module ViewModel =
                             let oldNode = oldModel.graph.nodes |> Map.tryFind entry.nodeId
                             let newClass =
                                 "amb-row"
-                                |> CssClass.add (ownershipClass newModel entry)
+                                |> CssClass.add (rowOwnershipClass newModel entry)
                                 |> addSpecialKindRowClass newNode.id newNode.kind
+                                |> CssClass.addIf
+                                    (rowFileUnparsedClassEligible newModel entry)
+                                    "amb-row-file-unparsed"
                                 |> CssClass.addIf isRoot "amb-view-root"
                                 |> CssClass.addIf sel "amb-selected"
                                 |> CssClass.addIf foc "amb-focused"
@@ -996,11 +1003,18 @@ module ViewModel =
                             let oldFoc = oldEntry |> Option.map (isEntryFocused oldModel) |> Option.defaultValue false
                             let oldClass =
                                 "amb-row"
-                                |> CssClass.add (oldEntry |> Option.map (ownershipClass oldModel) |> Option.defaultValue "amb-row-owned")
+                                |> CssClass.add (
+                                    oldEntry
+                                    |> Option.map (rowOwnershipClass oldModel)
+                                    |> Option.defaultValue "amb-row-owned")
                                 |> (fun s ->
                                     match oldNode with
                                     | Some n -> addSpecialKindRowClass n.id n.kind s
                                     | None -> s)
+                                |> CssClass.addIf
+                                    (oldEntry
+                                     |> Option.exists (rowFileUnparsedClassEligible oldModel))
+                                    "amb-row-file-unparsed"
                                 |> CssClass.addIf isRoot "amb-view-root"
                                 |> CssClass.addIf oldSel "amb-selected"
                                 |> CssClass.addIf oldFoc "amb-focused"

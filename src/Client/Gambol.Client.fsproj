@@ -21,7 +21,6 @@
     <Compile Include="UpdateAmbleRun.fs" />
     <Compile Include="UpdatePaste.fs" />
     <Compile Include="UpdateImport.fs" />
-    <Compile Include="UpdateExport.fs" />
     <Compile Include="UpdateSave.fs" />
     <Compile Include="UpdateWorkspaceGit.fs" />
     <Compile Include="UpdateOps.fs" />
