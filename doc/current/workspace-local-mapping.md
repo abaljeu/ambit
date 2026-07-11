@@ -91,5 +91,6 @@ Requires `workspacePaths` capability when using `//label/...` form.
 
 ## Not implemented
 
-- Client Connect / Clone commands and outliner chrome (G7).
 - Startup sync of local labels to cloud workspace nodes (§4b in stage plan).
+- Automatic initial pull after Connect (user runs Download).
+- Persistent status chrome beyond `#cmd-last-result` / console.

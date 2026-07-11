@@ -180,6 +180,13 @@ module NodeDesktopPath =
                 else
                     Some (segment, tail)
 
+    /// Named workspace label for git connect/clone/pull/push (not ROOT / empty).
+    let tryWorkspaceGitLabel (graph: Graph) (nodeId: NodeId) : string option =
+        pathForNodeId graph nodeId
+        |> Option.bind tryParseWorkspacePath
+        |> Option.bind (fun (label, _) ->
+            if String.IsNullOrEmpty label then None else Some label)
+
     let artifactRelativeForReference (nodeReference: string) : Result<string, string> =
         let path = nodeReference.Trim()
 

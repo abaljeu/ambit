@@ -68,11 +68,11 @@ Last implemented: No current baseline is listed here.
 Might be next: Repo file-tree browsing with on-demand parse/edit for individual files.
 
 ### **Git workspace sync (desktop pull/push via gateway)**
-Status: **In progress** (G0–G6 desktop done; G7 client connect/commands next).
+Status: **In progress** (G0–G7 done; G8 graph follow-up next).
 Details: [[git-sync-gateway]], [[workspace-scale-import-slice2-plan]].
-Last implemented: Desktop folder picker + workspace-mappings Get/Put; G5 git ops + gateway + PAT already in place.
+Last implemented: Client Connect/Clone/Download/Upload/Git status (gated on desktop `canGit`); G5–G6 desktop APIs + gateway + PAT.
 Depends on: Workspace scale import slice 1 (Stage 7 `DataDir` live-save is done).
-Might be next: G7 Connect/Clone/Pull/Push client commands + sync status.
+Might be next: G8 post-push/post-pull graph reconcile.
 
 ### **Amble run**
 Status: **Evolving**.

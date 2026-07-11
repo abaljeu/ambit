@@ -33,11 +33,11 @@ Each workspace directory is its own git repository (server and mapped local root
 - [x] Desktop: workspace-push against gateway (`git push`)
 
 Client (user-facing commands for the above; Download / Upload live here rather than under Client UX):
-- [ ] Connect workspace remote (point a local folder at the server; remote name `ambit`)
-- [ ] Clone server workspace into a local folder
-- [ ] workspace-pull from server
-- [ ] workspace-push to server
-- [ ] Show sync status (ahead / behind / local changes)
+- [x] Connect workspace remote (point a local folder at the server; remote name `ambit`)
+- [x] Clone server workspace into a local folder
+- [x] workspace-pull from server
+- [x] workspace-push to server
+- [x] Show sync status (ahead / behind / local changes)
 
 - [ ] Maybe allow any fast-forward merge.
 

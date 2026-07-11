@@ -61,6 +61,32 @@ let ``parseShortStatus clean tracking branch`` () =
     Assert.False(status.dirty)
 
 [<Fact>]
+let ``formatStatusLine shows ahead behind dirty`` () =
+    let line =
+        WorkspaceGitRemote.formatStatusLine
+            { branch = Some "main"; ahead = 2; behind = 1; dirty = true }
+    Assert.Equal("main ↑2 ↓1 *", line)
+
+[<Fact>]
+let ``formatStatusLine clean branch`` () =
+    let line =
+        WorkspaceGitRemote.formatStatusLine
+            { branch = Some "main"; ahead = 0; behind = 0; dirty = false }
+    Assert.Equal("main", line)
+
+[<Fact>]
+let ``canDesktopGit requires git capability`` () =
+    Assert.False(WorkspaceGitRemote.canDesktopGit None)
+    Assert.False(
+        WorkspaceGitRemote.canDesktopGit (Some DesktopCapabilities.disabled))
+    Assert.True(
+        WorkspaceGitRemote.canDesktopGit
+            (Some (DesktopCapabilities.desktopEnabled true)))
+    Assert.False(
+        WorkspaceGitRemote.canDesktopGit
+            (Some (DesktopCapabilities.desktopEnabled false)))
+
+[<Fact>]
 let ``hostFromAmbitBase extracts host`` () =
     match DesktopGit.hostFromAmbitBase "https://example.org/ambit" with
     | Ok host -> Assert.Equal("example.org", host)

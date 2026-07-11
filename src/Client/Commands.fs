@@ -15,6 +15,7 @@ open Gambol.Client.UpdatePaste
 open Gambol.Client.UpdateImport
 open Gambol.Client.UpdateExport
 open Gambol.Client.UpdateSave
+open Gambol.Client.UpdateWorkspaceGit
 open Gambol.Client.UpdateFileSearch
 open Gambol.Client.UpdateRename
 open Gambol.Client.UpdateAmbleRun
@@ -218,6 +219,11 @@ let commandRegistry : CommandEntry2 list =
       cmd Import (keyAlways importLocalOp)
       cmd Export (keyAlways exportLocalOp)
       cmd Save (keyAlways gitSaveOp)
+      cmd GitConnect (keyAlways gitConnectOp)
+      cmd GitClone (keyAlways gitCloneOp)
+      cmd GitPull (keyAlways gitPullOp)
+      cmd GitPush (keyAlways gitPushOp)
+      cmd GitStatus (keyAlways gitStatusOp)
     ]
 
 // ---------------------------------------------------------------------------
@@ -243,16 +249,24 @@ let commandContextMode (mode: Mode) : Mode =
     | RenamePrompt (inner, _) -> inner
     | m -> m
 
-let commandsForPalette (returnTo: Mode) : CommandEntry2 list =
+let private isDesktopGitCommand (id: CommandId) =
+    match id with
+    | GitConnect | GitClone | GitPull | GitPush | GitStatus -> true
+    | _ -> false
+
+let commandsForPalette (model: VM) (returnTo: Mode) : CommandEntry2 list =
     let sel = paletteWasSelecting returnTo
+    let canGit = WorkspaceGitRemote.canDesktopGit model.desktopCapabilities
     commandRegistry
     |> List.filter (fun c ->
         match commandFor c.id with
         | None -> false
-        | Some e -> inKeyScope sel e.keyScope)
+        | Some e ->
+            inKeyScope sel e.keyScope
+            && (canGit || not (isDesktopGitCommand c.id)))
 
-let filteredCommands (returnTo: Mode) (query: string) : CommandEntry2 list =
-    let baseList = commandsForPalette returnTo
+let filteredCommands (model: VM) (returnTo: Mode) (query: string) : CommandEntry2 list =
+    let baseList = commandsForPalette model returnTo
     if query = "" then baseList
     else
         let q = query.ToLowerInvariant()

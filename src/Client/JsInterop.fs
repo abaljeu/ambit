@@ -3,6 +3,7 @@ module Gambol.Client.JsInterop
 open Browser.Dom
 open Browser.Types
 open Fable.Core
+open Gambol.Shared
 
 /// Outline model re-exports `Node` / `Selection`; keep DOM names explicit here.
 type private DomNode = Browser.Types.Node
@@ -340,6 +341,17 @@ let postJson
     "try{xhr.send();return [xhr.status,xhr.responseText||''];}" +
     "catch(e){return [0,''];}})($0)")>]
 let getJsonSync (url: string) : int * string = jsNative
+
+/// Blocking PUT for desktop mapping write (synchronous XMLHttpRequest).
+[<Emit(
+    "(function(url, body, headers){" +
+    "var xhr=new XMLHttpRequest();" +
+    "xhr.open('PUT',url,false);" +
+    "if(headers){Object.keys(headers).forEach(function(k){" +
+    "xhr.setRequestHeader(k,headers[k]);});}" +
+    "try{xhr.send(body);return [xhr.status,xhr.responseText||''];}" +
+    "catch(e){return [0,''];}})($0,$1,$2)")>]
+let putJsonSync (url: string) (body: string) (headers: obj) : int * string = jsNative
 
 [<Emit("encodeURIComponent($0)")>]
 let encodeUriComponent (text: string) : string = jsNative

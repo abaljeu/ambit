@@ -268,7 +268,7 @@ let private onPalette (f: string -> int -> Mode -> VM -> VM * Effect list) (mode
 
 let paletteRunOp =
     onPalette (fun q selectedCommand ret model ->
-        match List.tryItem selectedCommand (filteredCommands ret q) with
+        match List.tryItem selectedCommand (filteredCommands model ret q) with
         | None -> { model with mode = ret }, []
         | Some cmd ->
             match cmd.run () with

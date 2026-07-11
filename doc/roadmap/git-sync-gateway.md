@@ -181,11 +181,11 @@ GitHub CLI (`gh auth login`) stores credentials so **`git push` / `git pull` wor
 | **HTTPS + PAT** | Deterministic git-scoped token from `Auth:Username` / `Auth:Password` via `AuthToken.deriveGitToken` (HMAC over `git:{username}` — **not** the browser cookie value). |
 | **Issue** | After normal login (cookie session): `GET /ambit/git-token` → JSON `{ "username", "token" }`. When Auth is empty, response reports `disabled` and the gateway is open. |
 | **Wire auth** | Smart HTTP expects `Authorization: Basic` with that username and PAT. Cookie alone → 401 + `WWW-Authenticate: Basic realm="Gambol Git"`. |
-| **Credential helper** | Store username + PAT in Git Credential Manager / `git credential` for the gateway host. Desktop: `POST /_desktop/git-credential` (G5); client connect UX wires issue+store in G7. |
+| **Credential helper** | Store username + PAT in Git Credential Manager / `git credential` for the gateway host. Desktop: `POST /_desktop/git-credential` (G5); client Connect/Clone issues token and stores it (G7). |
 | **SSH** | Deferred. |
 | **Not sufficient** | Browser session cookie alone does not authenticate git smart HTTP. |
 
-Example store (manual until desktop connect UX):
+Example store (manual; Connect/Clone also do this via desktop):
 
 ```text
 printf "protocol=https\nhost=collaborative-systems.org\nusername=alice\npassword=<token-from-git-token>\n\n" | git credential approve
@@ -224,7 +224,7 @@ Ordered slices and checklist mapping: [[workspace-scale-import-slice2-plan]].
 3. **Gateway v0** — smart HTTP or SSH endpoint per workspace; FF-only; **reject-dirty** on push; JIT commit before upload-pack only.
 4. **Desktop remote setup** — map label → local clone; `ambit` URL; credential helper or SSH key docs.
 5. **JIT commit + flush hook** — gateway calls flush then commit before fetch; integration test with dirty tree → pull sees commit.
-6. **UI** — Pull / Push at workspace root; surface `behind` / `ahead` / `dirty` from `git status -sb`.
+6. **UI** — Pull / Push at workspace root via command palette (Download / Upload); surface `behind` / `ahead` / `dirty` from `git status -sb` (Git status). Gated on desktop `canGit`.
 7. **Stale after pull** — wire file nodes to reparse prompt when disk hash/mtime changes.
 
 ## Tests

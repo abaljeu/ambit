@@ -30,6 +30,22 @@ let decodeServerCapabilities (text: string) : Result<ServerCapabilities, string>
 let decodeGitSaveResponse (text: string) : Result<GitSaveResponse, string> =
     Thoth.Json.JavaScript.Decode.fromString GitSaveResponse.decoder text
 
+/// Decode GET /ambit/git-token.
+let decodeGitTokenIssue (text: string) : Result<GitTokenIssue, string> =
+    Thoth.Json.JavaScript.Decode.fromString GitTokenIssue.decoder text
+
+/// Decode desktop `{ok,detail}` / error body.
+let decodeDesktopGitOk (text: string) : Result<DesktopGitOkResponse, string> =
+    Thoth.Json.JavaScript.Decode.fromString DesktopGitOkResponse.decoder text
+
+/// Decode POST /_desktop/pick-folder.
+let decodeDesktopPickFolder (text: string) : Result<DesktopPickFolderResponse, string> =
+    Thoth.Json.JavaScript.Decode.fromString DesktopPickFolderResponse.decoder text
+
+/// Decode POST /_desktop/git-status success body.
+let decodeWorkspaceGitStatus (text: string) : Result<WorkspaceGitStatus, string> =
+    Thoth.Json.JavaScript.Decode.fromString WorkspaceGitStatusJson.decoder text
+
 /// Decode the response from GET /_desktop/capabilities.
 let decodeDesktopCapabilities (text: string) : Result<DesktopCapabilities, string> =
     Thoth.Json.JavaScript.Decode.fromString DesktopCapabilities.decoder text

@@ -85,6 +85,16 @@ let ``pathForNodeId Workspace returns slash path`` () =
     Assert.Equal(Some "//home", NodeDesktopPath.pathForNodeId graph wsId)
 
 [<Fact>]
+let ``tryWorkspaceGitLabel reads named workspace from focus`` () =
+    let graph, wsId, dirId, fileId = graphWithWorkspaceTree ()
+    Assert.Equal(Some "home", NodeDesktopPath.tryWorkspaceGitLabel graph wsId)
+    Assert.Equal(Some "home", NodeDesktopPath.tryWorkspaceGitLabel graph dirId)
+    Assert.Equal(Some "home", NodeDesktopPath.tryWorkspaceGitLabel graph fileId)
+    Assert.Equal(None, NodeDesktopPath.tryWorkspaceGitLabel graph Graph.rootId)
+    Assert.Equal(
+        None, NodeDesktopPath.tryWorkspaceGitLabel graph Graph.workspacesId)
+
+[<Fact>]
 let ``pathForNodeId Directory and File append owner path and name`` () =
     let graph, _, dirId, fileId = graphWithWorkspaceTree ()
     Assert.Equal(Some "//home/docs/", NodeDesktopPath.pathForNodeId graph dirId)

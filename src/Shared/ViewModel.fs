@@ -263,11 +263,13 @@ type DesktopFileIndicator =
 [<RequireQualifiedAccess>]
 type CmdLastResult =
     | Ok
+    | Detail of string
     | Error of string
 
 module CmdLastResult =
     let toDisplay = function
         | CmdLastResult.Ok -> "OK"
+        | CmdLastResult.Detail msg -> msg
         | CmdLastResult.Error msg -> msg
 
 /// UI mode; `SearchDialog.onPick` closes over model updates (mutually recursive with `VM`).

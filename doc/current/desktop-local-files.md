@@ -105,15 +105,20 @@ Resolved by `LocalProxy` using process current directory and workspace mapping
 
 ## Client commands
 
-Registered in `src/Client/Controller.fs`:
+Registered in the command palette (`src/Client/Commands.fs`):
 
 - **Import** — reads local file at the focus row's first file reference; replaces that node's
   children (via `UpdateImport.fs`, `GET /_desktop/file`).
 - **Export** — serializes owned children of the focus row to the local file at its file reference
   (via `UpdateExport.fs`, `POST /_desktop/file`).
+- **Connect remote** / **Clone workspace** / **Download** / **Upload** / **Git status** — workspace
+  git sync (via `UpdateWorkspaceGit.fs`). Require desktop `git.git` (`canGit`); hidden from the
+  palette otherwise. Focus must be under a named workspace. Connect/Clone pick a folder, upsert
+  mapping, issue `GET /ambit/git-token` + store credential, set remote `ambit`. Download/Upload/
+  Git status call `/_desktop/git-pull|git-push|git-status`. Results in `#cmd-last-result`.
 
-Both require matching desktop capabilities (`import` / `export`) and are blocked during command
-palette, search dialog, and CSS-class prompt modes.
+Import/Export require matching desktop capabilities (`import` / `export`) and are blocked during
+command palette, search dialog, and CSS-class prompt modes.
 
 ## Config
 
@@ -129,3 +134,4 @@ WebView2 user data: `%LocalAppData%/Gambol/WebView2`.
 - Full workspace filesystem API (`GET workspaces`, dir/file CRUD with `modifiedUtc` conflicts) —
   see [[doc/current/workspace-stage-plan.md]] §4.
 - `open` capability (launch file with default application).
+- Persistent git sync chrome beyond `#cmd-last-result` (G8 graph follow-up is separate).

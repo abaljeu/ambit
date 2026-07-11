@@ -112,3 +112,19 @@ module WorkspaceGitRemote =
           ahead = ahead
           behind = behind
           dirty = dirty }
+
+    /// Compact status for cmd-last-result / logs (e.g. `main ↑2 ↓1 *`).
+    let formatStatusLine (status: WorkspaceGitStatus) : string =
+        let branch = status.branch |> Option.defaultValue "?"
+        let ahead =
+            if status.ahead > 0 then sprintf " ↑%d" status.ahead else ""
+        let behind =
+            if status.behind > 0 then sprintf " ↓%d" status.behind else ""
+        let dirty = if status.dirty then " *" else ""
+        branch + ahead + behind + dirty
+
+    /// True when desktop host reported `git.git` (G5 `/_desktop/git-*`).
+    let canDesktopGit (caps: DesktopCapabilities option) : bool =
+        match caps with
+        | Some { git = { canGit = true } } -> true
+        | _ -> false

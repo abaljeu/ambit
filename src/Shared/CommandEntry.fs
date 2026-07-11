@@ -56,6 +56,11 @@ type CommandId =
     | Import
     | Export
     | Save
+    | GitConnect
+    | GitClone
+    | GitPull
+    | GitPush
+    | GitStatus
     | InsertFile
     | Rename
     | Exec
@@ -216,6 +221,21 @@ let allCommands : CommandEntry list =
           iconId = None }
         { id = Save; name = "Save"
           keys = [ "Ctrl+S" ]; keyScope = SelectionOrEditing
+          iconId = None }
+        { id = GitConnect; name = "Connect remote"
+          keys = []; keyScope = SelectionOrEditing
+          iconId = None }
+        { id = GitClone; name = "Clone workspace"
+          keys = []; keyScope = SelectionOrEditing
+          iconId = None }
+        { id = GitPull; name = "Download"
+          keys = []; keyScope = SelectionOrEditing
+          iconId = None }
+        { id = GitPush; name = "Upload"
+          keys = []; keyScope = SelectionOrEditing
+          iconId = None }
+        { id = GitStatus; name = "Git status"
+          keys = []; keyScope = SelectionOrEditing
           iconId = None }
         { id = InsertFile; name = "Insert…"
           keys = [ "f" ]; keyScope = SelectionOrEditing

@@ -498,7 +498,7 @@ let renderCommandPalette (model: VM) (dispatch: Msg -> unit) : unit =
         container.classList.add "amb-dialog-open"
         let input = document.getElementById "command-palette-input" :?> HTMLInputElement
         window.setTimeout((fun _ -> focusPreventScroll input), 0) |> ignore
-        let items = filteredCommands ret q |> List.map (fun c -> CommandMeta.displayName c.id)
+        let items = filteredCommands model ret q |> List.map (fun c -> CommandMeta.displayName c.id)
         renderPalette container items selectedCommand
 
         if not paletteWired.Value then
@@ -526,7 +526,7 @@ let renderCommandPalette (model: VM) (dispatch: Msg -> unit) : unit =
                     dispatch (ApplyOp (fun m ->
                         match m.mode with
                         | CommandPalette (q, _, ret) ->
-                            match List.tryItem idx (filteredCommands ret q) with
+                            match List.tryItem idx (filteredCommands m ret q) with
                             | None -> { m with mode = ret }, []
                             | Some cmd ->
                                 match cmd.run () with
