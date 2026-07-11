@@ -128,23 +128,38 @@ module DbAgent =
             let preGraph = persistedGraph.Value
             let postGraph = snapshotState.graph
             Task.Run(fun () ->
-                try
-                    match liveSaveDataDir with
-                    | Some dataDir ->
-                        match DocumentPersistence.persistGraphChange dataDir preGraph postGraph with
-                        | Error err ->
-                            eprintfn "DbAgent: failed to write live documents: %s" err
-                        | Ok _ ->
-                            persistedGraph.Value <- postGraph
-                    | None -> ()
-
-                    writeBackup snapshotState
-                with ex ->
-                    eprintfn "DbAgent: failed to write disk backup: %s" ex.Message
-                inbox.Post(SnapshotDone)
+                let persisted =
+                    try
+                        let liveSaveOk =
+                            match liveSaveDataDir with
+                            | Some dataDir ->
+                                match
+                                    DocumentPersistence.persistGraphChange
+                                        dataDir
+                                        preGraph
+                                        postGraph
+                                with
+                                | Error err ->
+                                    eprintfn
+                                        "DbAgent: failed to write live documents: %s"
+                                        err
+                                    false
+                                | Ok _ -> true
+                            | None -> true
+                        writeBackup snapshotState
+                        if liveSaveOk then Some postGraph else None
+                    with ex ->
+                        eprintfn "DbAgent: failed to write disk backup: %s" ex.Message
+                        None
+                inbox.Post(SnapshotDone persisted)
             ) |> ignore
 
-        let handlePostChange body (reply: AsyncReplyChannel<Result<string, string>>) inbox =
+        let handlePostChange
+            body
+            graphOnly
+            (reply: AsyncReplyChannel<Result<string, string>>)
+            inbox
+            =
             match Decode.fromString Serialization.decodeChangeBatch body with
             | Error err ->
                 reply.Reply(Error $"Invalid JSON: {err}")
@@ -154,9 +169,10 @@ module DbAgent =
                 | Ok (newState, ackedChangeIds, logEntries) ->
                     let preGraph = state.Value.graph
                     let pathValidation =
-                        match liveSaveDataDir with
-                        | None -> Ok ()
-                        | Some dataDir ->
+                        match graphOnly, liveSaveDataDir with
+                        | true, _ -> Ok ()
+                        | false, None -> Ok ()
+                        | false, Some dataDir ->
                             DocumentPersistence.validatePathMoves dataDir preGraph newState.graph
 
                     match pathValidation with
@@ -167,7 +183,9 @@ module DbAgent =
                         | Ok () ->
                             state.Value <- newState
                             reply.Reply(Ok (encodeChangeAckJson ackedChangeIds))
-                            if not (List.isEmpty logEntries) then
+                            if graphOnly then
+                                persistedGraph.Value <- newState.graph
+                            elif not (List.isEmpty logEntries) then
                                 if snapshotInProgress.Value then snapshotNeeded.Value <- true
                                 else startSnapshot inbox
 
@@ -193,7 +211,9 @@ module DbAgent =
                                 | Error _ -> None)
                         reply.Reply(changes)
                     | PostChange (body, reply) ->
-                        handlePostChange body reply inbox
+                        handlePostChange body false reply inbox
+                    | PostGraphOnlyChange (body, reply) ->
+                        handlePostChange body true reply inbox
                     | FlushSnapshot reply ->
                         if snapshotInProgress.Value || snapshotNeeded.Value then
                             snapshotWaiters.Value <- reply :: snapshotWaiters.Value
@@ -201,7 +221,13 @@ module DbAgent =
                                 startSnapshot inbox
                         else
                             reply.Reply(Ok ())
-                    | SnapshotDone ->
+                    | SnapshotDone (Some snapshotGraph) ->
+                        if GraphProjection.graphEquals state.Value.graph snapshotGraph then
+                            persistedGraph.Value <- snapshotGraph
+                        snapshotInProgress.Value <- false
+                        if snapshotNeeded.Value then startSnapshot inbox
+                        else notifySnapshotWaiters ()
+                    | SnapshotDone None ->
                         snapshotInProgress.Value <- false
                         if snapshotNeeded.Value then startSnapshot inbox
                         else notifySnapshotWaiters ()
@@ -235,3 +261,10 @@ module DbAgent =
 
     let postChange (agent: DbAgent) (body: string) : Async<Result<string, string>> =
         agent.mailbox.PostAndAsyncReply(fun reply -> PostChange(body, reply))
+
+    let postGraphOnlyChange
+        (agent: DbAgent)
+        (body: string)
+        : Async<Result<string, string>> =
+        agent.mailbox.PostAndAsyncReply(fun reply ->
+            PostGraphOnlyChange(body, reply))

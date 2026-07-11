@@ -12,6 +12,10 @@ type Op =
         newChildren: ChildNode list
     | NewSpecialNode of nodeId: NodeId * kind: SpecialKind * name: string
     | SetName of nodeId: NodeId * oldName: string * newName: string
+    | SetDocumentState of
+        nodeId: NodeId *
+        oldState: DocumentState *
+        newState: DocumentState
 
 
 type Change =
@@ -101,6 +105,9 @@ module Op =
         | Op.SetName(nodeId, oldName, newName) ->
             Graph.setName nodeId oldName newName state.graph
             |> fromGraphResult state
+        | Op.SetDocumentState(nodeId, oldState, newState) ->
+            Graph.setDocumentState nodeId oldState newState state.graph
+            |> fromGraphResult state
 
     let undo (op: Op) (state: State) : ApplyResult =
         match op with
@@ -125,6 +132,9 @@ module Op =
         | Op.SetName(nodeId, oldName, newName) ->
             Graph.setName nodeId newName oldName state.graph
             |> fromGraphResult state
+        | Op.SetDocumentState(nodeId, oldState, newState) ->
+            Graph.setDocumentState nodeId newState oldState state.graph
+            |> fromGraphResult state
 
 
 [<RequireQualifiedAccess>]
@@ -145,6 +155,7 @@ module Change =
             | Op.Replace(pid, i, olds, news)         -> Op.Replace(pid, i, news, olds)
             | Op.NewSpecialNode(id, kind, name)      -> Op.NewSpecialNode(id, kind, name)
             | Op.SetName(id, old, new_)              -> Op.SetName(id, new_, old)
+            | Op.SetDocumentState(id, old, new_)     -> Op.SetDocumentState(id, new_, old)
         { change with
             changeId = System.Guid.NewGuid()
             ops = change.ops |> List.rev |> List.map invertOp }

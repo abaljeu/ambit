@@ -56,6 +56,26 @@ let ``Node decode without updateTime uses missing sentinel`` () =
     | Ok decoded -> Assert.Equal(NodeUpdateTime.missing, decoded.updateTime)
 
 [<Fact>]
+let ``Node decode without documentState defaults to current`` () =
+    let nodeId = NodeId.New()
+    let json =
+        $"""{{"id":"{nodeId.Value}","text":"legacy","children":[],"cssClasses":[],"kind":"normal"}}"""
+    match Dec.fromString Serialization.decodeNode json with
+    | Error err -> failwith $"Decode failed: {err}"
+    | Ok decoded -> Assert.Equal(Current, decoded.documentState)
+
+[<Fact>]
+let ``Unparsed node round-trip`` () =
+    let node =
+        Node.Create(
+            NodeId.New(),
+            text = "file",
+            kind = Special File,
+            documentState = Unparsed)
+    let decoded = roundTrip Serialization.encodeNode Serialization.decodeNode node
+    Assert.Equal(Unparsed, decoded.documentState)
+
+[<Fact>]
 let ``Graph round-trip`` () =
     let graph = ModelBuilder.createDag12 ()
     let decoded = roundTrip Serialization.encodeGraph Serialization.decodeGraph graph
@@ -124,6 +144,12 @@ let ``Op.Replace round-trip preserves child ownership`` () =
             [],
             [ { ref = Ownership.Owner; id = shared }
               { ref = Ownership.Ref; id = shared } ])
+    let decoded = roundTrip Serialization.encodeOp Serialization.decodeOp op
+    Assert.Equal(op, decoded)
+
+[<Fact>]
+let ``Op.SetDocumentState round-trip`` () =
+    let op = Op.SetDocumentState(NodeId.New(), Current, Unparsed)
     let decoded = roundTrip Serialization.encodeOp Serialization.decodeOp op
     Assert.Equal(op, decoded)
 

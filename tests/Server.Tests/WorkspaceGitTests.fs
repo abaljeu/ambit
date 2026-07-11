@@ -170,3 +170,46 @@ let ``statusPorcelain reports untracked file`` () =
         Assert.False(String.IsNullOrWhiteSpace text)
         Assert.Contains("new.txt", text)
     | Error err -> Assert.Fail(err)
+
+[<Fact>]
+let ``parseChangedPaths handles NUL separated A D R and M rows`` () =
+    let raw =
+        "A\000added.txt\000"
+        + "D\000deleted.txt\000"
+        + "R087\000old name.txt\000new name.txt\000"
+        + "M\000modified.txt\000"
+    let parsed = WorkspaceGit.parseChangedPaths raw |> requireOk "parse"
+    let expected =
+        [ LazyLoadReconciliation.Added "added.txt"
+          LazyLoadReconciliation.Deleted "deleted.txt"
+          LazyLoadReconciliation.Renamed("old name.txt", "new name.txt")
+          LazyLoadReconciliation.Modified "modified.txt" ]
+    Assert.Equal<LazyLoadReconciliation.ChangedPath list>(expected, parsed)
+
+[<SkippableFact>]
+let ``changedPathsBetween extracts rename delete add and modify`` () =
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let root = Path.Combine(newTempDir (), "home")
+    requireOk "init" (WorkspaceGit.ensureInit root)
+    File.WriteAllText(Path.Combine(root, "rename.txt"), "rename")
+    File.WriteAllText(Path.Combine(root, "delete.txt"), "delete")
+    File.WriteAllText(Path.Combine(root, "modify.txt"), "before")
+    requireOk "seed" (WorkspaceGit.commitAll root "seed" None) |> ignore
+    let oldHead = WorkspaceGit.tryHead root |> requireOk "old head" |> Option.get
+    File.Move(
+        Path.Combine(root, "rename.txt"),
+        Path.Combine(root, "renamed.txt"))
+    File.Delete(Path.Combine(root, "delete.txt"))
+    File.WriteAllText(Path.Combine(root, "modify.txt"), "after")
+    File.WriteAllText(Path.Combine(root, "added.txt"), "added")
+    requireOk "change" (WorkspaceGit.commitAll root "change" None) |> ignore
+    let newHead = WorkspaceGit.tryHead root |> requireOk "new head" |> Option.get
+    let changes =
+        WorkspaceGit.changedPathsBetween root (Some oldHead) newHead
+        |> requireOk "changed paths"
+    Assert.Contains(LazyLoadReconciliation.Added "added.txt", changes)
+    Assert.Contains(LazyLoadReconciliation.Deleted "delete.txt", changes)
+    Assert.Contains(LazyLoadReconciliation.Modified "modify.txt", changes)
+    Assert.Contains(
+        LazyLoadReconciliation.Renamed("rename.txt", "renamed.txt"),
+        changes)

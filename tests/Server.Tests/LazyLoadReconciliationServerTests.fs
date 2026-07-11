@@ -68,7 +68,8 @@ let ``successful receive triggers reconciliation with added paths`` () =
     writeAndCommit root "existing.txt" "one" "seed"
     let oldHead = WorkspaceGit.tryHead root
     writeAndCommit root "new.txt" "two" "push"
-    let observed = TaskCompletionSource<string * string list>()
+    let observed =
+        TaskCompletionSource<string * LazyLoadReconciliation.ChangedPath list>()
     let reconcile label paths = async {
         observed.SetResult(label, paths)
         return Ok ()
@@ -78,7 +79,9 @@ let ``successful receive triggers reconciliation with added paths`` () =
         GitGateway.completeWorkspacePush root "home" oldHead (Ok response) reconcile
         |> Async.RunSynchronously
     Assert.Equal<byte[]>(response, requireOk "receive" result)
-    Assert.Equal(("home", [ "new.txt" ]), observed.Task.Result)
+    Assert.Equal(
+        ("home", [ LazyLoadReconciliation.Added "new.txt" ]),
+        observed.Task.Result)
 
 [<Fact>]
 let ``failed receive does not reconcile`` () =
@@ -134,4 +137,56 @@ let ``server reconciler applies planner ops through active agent`` () =
     Assert.Equal(Special SpecialKind.File, graph.nodes.[fileId].kind)
     Assert.Empty(graph.nodes.[fileId].children)
     Assert.Equal("module Main", File.ReadAllText(sourcePath))
+    FileAgent.dispose fileAgent
+
+[<Fact>]
+let ``post receive rename changes graph without moving disk twice`` () =
+    let tempDir = newTempDir ()
+    let fileAgent = FileAgent.create tempDir "gambol"
+    let handle = AgentHandle.ofFile fileAgent
+    let workspaceId, ops =
+        FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
+    let change = { id = 0; changeId = Guid.NewGuid(); ops = ops }
+    let body =
+        Thoth.Json.Newtonsoft.Encode.toString 0
+            (Serialization.encodeChangeBatch { changes = [ change ] })
+    FileAgent.postChange fileAgent body
+    |> Async.RunSynchronously
+    |> requireOk "workspace"
+    |> ignore
+    let oldPath = Path.Combine(tempDir, "home", "old.txt")
+    let newPath = Path.Combine(tempDir, "home", "new.txt")
+    Directory.CreateDirectory(Path.GetDirectoryName(oldPath)) |> ignore
+    File.WriteAllText(oldPath, "received content")
+    LazyLoadReconciliationServer.reconcileChangedPaths
+        handle
+        "home"
+        [ LazyLoadReconciliation.Added "old.txt" ]
+    |> Async.RunSynchronously
+    |> requireOk "add stub"
+    File.Move(oldPath, newPath)
+    LazyLoadReconciliationServer.reconcileChangedPaths
+        handle
+        "home"
+        [ LazyLoadReconciliation.Renamed("old.txt", "new.txt") ]
+    |> Async.RunSynchronously
+    |> requireOk "rename stub"
+    FileAgent.flushSnapshot fileAgent
+    |> Async.RunSynchronously
+    |> requireOk "flush"
+    let stateJson = FileAgent.getState fileAgent |> Async.RunSynchronously
+    let graph =
+        LazyLoadReconciliationServer.decodeGraphState stateJson
+        |> requireOk "state"
+        |> snd
+    let fileId =
+        graph.nodes.[workspaceId].children
+        |> List.find (fun child ->
+            Filename.tryValue graph.nodes.[child.id].name = Some "new.txt")
+        |> fun child -> child.id
+    Assert.Equal(
+        Special SpecialKind.File,
+        graph.nodes.[fileId].kind)
+    Assert.False(File.Exists(oldPath))
+    Assert.Equal("received content", File.ReadAllText(newPath))
     FileAgent.dispose fileAgent

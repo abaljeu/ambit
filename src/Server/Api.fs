@@ -9,7 +9,8 @@ type AgentHandle =
     { getState        : unit -> Async<string>
       getRevision     : unit -> Async<int>
       getChangesSince : int -> Async<Change list>
-      postChange      : string -> Async<Result<string, string>> }
+      postChange      : string -> Async<Result<string, string>>
+      postGraphOnlyChange : string -> Async<Result<string, string>> }
 
 [<RequireQualifiedAccess>]
 module AgentHandle =
@@ -17,13 +18,17 @@ module AgentHandle =
         { getState        = fun () -> FileAgent.getState agent
           getRevision     = fun () -> FileAgent.getRevision agent
           getChangesSince = fun after -> FileAgent.getChangesSince agent after
-          postChange      = fun body -> FileAgent.postChange agent body }
+          postChange      = fun body -> FileAgent.postChange agent body
+          postGraphOnlyChange =
+            fun body -> FileAgent.postGraphOnlyChange agent body }
 
     let ofDb (agent: DbAgent) : AgentHandle =
         { getState        = fun () -> DbAgent.getState agent
           getRevision     = fun () -> DbAgent.getRevision agent
           getChangesSince = fun after -> DbAgent.getChangesSince agent after
-          postChange      = fun body -> DbAgent.postChange agent body }
+          postChange      = fun body -> DbAgent.postChange agent body
+          postGraphOnlyChange =
+            fun body -> DbAgent.postGraphOnlyChange agent body }
 
     /// On-disk document is authoritative; when `db` is present, each successful file `postChange`
     /// is mirrored to PostgreSQL (best-effort log on DB failure; response still reflects file ack).
@@ -41,6 +46,25 @@ module AgentHandle =
 
                     match dbResult with
                     | Error err -> eprintfn "[Api] Secondary DB write failed after file persist: %s" err
+                    | Ok _ -> ()
+
+                    return Ok ackJson
+                | Ok ackJson, None -> return Ok ackJson
+                | Error err, _ -> return Error err
+            }
+          postGraphOnlyChange =
+            fun body -> async {
+                let! fileResult = FileAgent.postGraphOnlyChange file body
+
+                match fileResult, db with
+                | Ok ackJson, Some dbAgent ->
+                    let! dbResult = DbAgent.postGraphOnlyChange dbAgent body
+
+                    match dbResult with
+                    | Error err ->
+                        eprintfn
+                            "[Api] Secondary DB graph-only write failed: %s"
+                            err
                     | Ok _ -> ()
 
                     return Ok ackJson

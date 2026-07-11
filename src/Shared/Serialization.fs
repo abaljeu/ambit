@@ -22,6 +22,18 @@ type ChangeBatchAck =
 
 [<RequireQualifiedAccess>]
 module Serialization =
+    let private encodeDocumentState (state: DocumentState) : IEncodable =
+        match state with
+        | Current -> Encode.string "current"
+        | Unparsed -> Encode.string "unparsed"
+
+    let private decodeDocumentState: Decoder<DocumentState> =
+        Decode.string
+        |> Decode.andThen (function
+            | "current" -> Decode.succeed Current
+            | "unparsed" -> Decode.succeed Unparsed
+            | other -> Decode.fail $"Unknown document state: {other}")
+
     let private encodeSpecialKind (kind: SpecialKind) : IEncodable =
         match kind with
         | Workspaces -> Encode.string "workspaces"
@@ -108,6 +120,7 @@ module Serialization =
               "children", node.children |> List.map encodeChildNode |> Encode.list
               "cssClasses", node.cssClasses |> CssClass.toList |> List.map Encode.string |> Encode.list
               "kind", encodeNodeKind node.kind
+              "documentState", encodeDocumentState node.documentState
               "updateTime", Encode.int64 node.updateTime.Ticks ]
 
     let decodeNode: Decoder<Node> =
@@ -127,6 +140,9 @@ module Serialization =
                 get.Optional.Field "updateTime" Decode.int64
                 |> Option.map (fun ticks -> DateTime(ticks, DateTimeKind.Utc))
                 |> Option.defaultValue NodeUpdateTime.missing
+            let documentState =
+                get.Optional.Field "documentState" decodeDocumentState
+                |> Option.defaultValue Current
             Node.Create(
                 get.Required.Field "id" decodeNodeId,
                 text = get.Required.Field "text" Decode.string,
@@ -134,6 +150,7 @@ module Serialization =
                 children = get.Required.Field "children" (Decode.list decodeChildNode),
                 cssClasses = cssClasses,
                 kind = kind,
+                documentState = documentState,
                 updateTime = updateTime))
 
     // ---- Graph ----
@@ -205,6 +222,12 @@ module Serialization =
                   "nodeId", encodeNodeId nodeId
                   "oldName", Encode.string oldName
                   "newName", Encode.string newName ]
+        | Op.SetDocumentState(nodeId, oldState, newState) ->
+            Encode.object
+                [ "type", Encode.string "SetDocumentState"
+                  "nodeId", encodeNodeId nodeId
+                  "oldState", encodeDocumentState oldState
+                  "newState", encodeDocumentState newState ]
 
     let decodeOp: Decoder<Op> =
         Decode.field "type" Decode.string
@@ -246,6 +269,12 @@ module Serialization =
                         get.Required.Field "nodeId" decodeNodeId,
                         get.Required.Field "oldName" Decode.string,
                         get.Required.Field "newName" Decode.string))
+            | "SetDocumentState" ->
+                Decode.object (fun get ->
+                    Op.SetDocumentState(
+                        get.Required.Field "nodeId" decodeNodeId,
+                        get.Required.Field "oldState" decodeDocumentState,
+                        get.Required.Field "newState" decodeDocumentState))
             | other ->
                 Decode.fail $"Unknown Op type: {other}")
 

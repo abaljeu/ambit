@@ -53,6 +53,11 @@ type NodeKind =
     | Special of SpecialKind
 
 
+type DocumentState =
+    | Current
+    | Unparsed
+
+
 type Node =
     { id         : NodeId
       text       : string
@@ -61,6 +66,7 @@ type Node =
       cssClasses : CssClasses
       owner      : NodeId
       kind       : NodeKind
+      documentState : DocumentState
       updateTime : DateTime }
 
 
@@ -101,6 +107,7 @@ type Node with
             ?cssClasses: CssClasses,
             ?owner: NodeId,
             ?kind: NodeKind,
+            ?documentState: DocumentState,
             ?updateTime: DateTime
         ) : Node =
         { id = id
@@ -110,6 +117,7 @@ type Node with
           cssClasses = defaultArg cssClasses CssClass.empty
           owner = defaultArg owner (NodeId Guid.Empty)
           kind = defaultArg kind Normal
+          documentState = defaultArg documentState Current
           updateTime = defaultArg updateTime NodeUpdateTime.missing }
 
 
@@ -479,6 +487,27 @@ module Graph =
                                     NodeUpdateTime.touch
                                         { node with name = Filename.Ok validName; text = validName }
                             Ok { graph with nodes = graph.nodes |> Map.add nodeId updatedNode }
+
+    let setDocumentState
+        (nodeId: NodeId)
+        (oldState: DocumentState)
+        (newState: DocumentState)
+        (graph: Graph)
+        : Result<Graph, string>
+        =
+        match graph.nodes |> Map.tryFind nodeId with
+        | None -> Error "node not found"
+        | Some node when node.kind = Special Workspaces ->
+            Error "workspaces is not a graph document"
+        | Some node when node.kind = Normal ->
+            Error "normal nodes do not have document state"
+        | Some node when node.documentState <> oldState ->
+            Error "old document state does not match"
+        | Some node when oldState = newState ->
+            Ok graph
+        | Some node ->
+            let updated = NodeUpdateTime.touch { node with documentState = newState }
+            Ok { graph with nodes = graph.nodes |> Map.add nodeId updated }
 
     let replace
         (parentId: NodeId)

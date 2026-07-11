@@ -247,6 +247,8 @@ module DocumentPersistence =
         Directory.CreateDirectory baseDir |> ignore
 
         enumerateDocumentRoots graph
+        |> List.filter (fun documentRootId ->
+            graph.nodes.[documentRootId].documentState = Current)
         |> List.fold
             (fun acc documentRootId ->
                 match acc with

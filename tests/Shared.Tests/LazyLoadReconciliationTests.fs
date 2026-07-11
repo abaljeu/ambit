@@ -31,6 +31,19 @@ let private requirePlan graph label paths =
     | Ok ops -> ops
     | Error err -> failwith err
 
+let private requireChangedPlan graph label changes =
+    match LazyLoadReconciliation.planChangedPaths graph label changes with
+    | Ok ops -> ops
+    | Error err -> failwith err
+
+let private childNamed graph parentId name =
+    ownedNamedChildren graph parentId
+    |> List.find (fst >> (=) name)
+    |> snd
+
+let private createPaths graph paths =
+    requirePlan graph "home" paths |> applyOps graph
+
 [<Fact>]
 let ``one added file creates a file stub`` () =
     let workspaceId, graph = Graph.create () |> addWorkspace "home"
@@ -101,3 +114,188 @@ let ``kind conflict at an existing path returns error`` () =
     | Error err ->
         Assert.Contains("src", err)
         Assert.Contains("kind conflict", err)
+
+[<Fact>]
+let ``deleted file is moved to trash with parsed descendants`` () =
+    let _, graph = Graph.create () |> addWorkspace "home"
+    let graph2 = createPaths graph [ "docs/readme.txt" ]
+    let docs = childNamed graph2 (childNamed graph2 Graph.workspacesId "home").id "docs"
+    let file = childNamed graph2 docs.id "readme.txt"
+    let parsedId = NodeId.New()
+    let graph3 =
+        [ Op.NewNode(parsedId, "parsed")
+          Op.Replace(file.id, 0, [], [ { ref = Ownership.Owner; id = parsedId } ]) ]
+        |> applyOps graph2
+    let graph4 =
+        requireChangedPlan graph3 "home" [ LazyLoadReconciliation.Deleted "docs/readme.txt" ]
+        |> applyOps graph3
+    Assert.Contains(
+        graph4.nodes.[Graph.trashId].children,
+        fun child -> child.id = docs.id && child.ref = Ownership.Owner)
+    Assert.Equal(parsedId, graph4.nodes.[file.id].children.Head.id)
+
+[<Fact>]
+let ``deleted file refs become path expressions without promotion`` () =
+    let workspaceId, graph = Graph.create () |> addWorkspace "home"
+    let graph2 = createPaths graph [ "note.txt" ]
+    let file = childNamed graph2 workspaceId "note.txt"
+    let holderId = NodeId.New()
+    let graph3 =
+        [ Op.NewNode(holderId, "holder")
+          Op.Replace(Graph.rootId, 0, [], [ { ref = Ownership.Owner; id = holderId } ])
+          Op.Replace(holderId, 0, [], [ { ref = Ownership.Ref; id = file.id } ]) ]
+        |> applyOps graph2
+    let graph4 =
+        requireChangedPlan graph3 "home" [ LazyLoadReconciliation.Deleted "note.txt" ]
+        |> applyOps graph3
+    let replacement = graph4.nodes.[holderId].children |> List.exactlyOne
+    Assert.Equal(Ownership.Owner, replacement.ref)
+    Assert.Equal("[[//home/note.txt]]", graph4.nodes.[replacement.id].text)
+    Assert.Contains(graph4.nodes.[Graph.trashId].children, fun child -> child.id = file.id)
+
+[<Fact>]
+let ``rename and cross-directory move preserve identity and children`` () =
+    let workspaceId, graph = Graph.create () |> addWorkspace "home"
+    let graph2 = createPaths graph [ "docs/a.txt"; "archive/.amb" ]
+    let docs = childNamed graph2 workspaceId "docs"
+    let archive = childNamed graph2 workspaceId "archive"
+    let file = childNamed graph2 docs.id "a.txt"
+    let parsedId = NodeId.New()
+    let graph3 =
+        [ Op.NewNode(parsedId, "parsed")
+          Op.Replace(file.id, 0, [], [ { ref = Ownership.Owner; id = parsedId } ]) ]
+        |> applyOps graph2
+    let renamed =
+        requireChangedPlan
+            graph3
+            "home"
+            [ LazyLoadReconciliation.Renamed("docs/a.txt", "docs/b.txt") ]
+        |> applyOps graph3
+    let renamedFile = childNamed renamed docs.id "b.txt"
+    Assert.Equal(file.id, renamedFile.id)
+    let moved =
+        requireChangedPlan
+            renamed
+            "home"
+            [ LazyLoadReconciliation.Renamed("docs/b.txt", "archive/b.txt") ]
+        |> applyOps renamed
+    let movedFile = childNamed moved archive.id "b.txt"
+    Assert.Equal(file.id, movedFile.id)
+    Assert.Equal(parsedId, movedFile.children.Head.id)
+
+[<Fact>]
+let ``directory marker rename coalesces nested renames`` () =
+    let workspaceId, graph = Graph.create () |> addWorkspace "home"
+    let graph2 = createPaths graph [ "docs/.amb"; "docs/nested/a.txt" ]
+    let docs = childNamed graph2 workspaceId "docs"
+    let nested = childNamed graph2 docs.id "nested"
+    let file = childNamed graph2 nested.id "a.txt"
+    let changes =
+        [ LazyLoadReconciliation.Renamed("docs/.amb", "archive/.amb")
+          LazyLoadReconciliation.Renamed(
+              "docs/nested/a.txt",
+              "archive/nested/a.txt") ]
+    let graph3 = requireChangedPlan graph2 "home" changes |> applyOps graph2
+    let archive = childNamed graph3 workspaceId "archive"
+    let nestedAfter = childNamed graph3 archive.id "nested"
+    Assert.Equal(docs.id, archive.id)
+    Assert.Equal(nested.id, nestedAfter.id)
+    Assert.Equal(file.id, (childNamed graph3 nestedAfter.id "a.txt").id)
+
+[<Fact>]
+let ``exact marker modification invalidates containing documents`` () =
+    let workspaceId, graph = Graph.create () |> addWorkspace "home"
+    let graph2 = createPaths graph [ "docs/.amb" ]
+    let docs = childNamed graph2 workspaceId "docs"
+    let current =
+        [ Op.SetDocumentState(docs.id, Unparsed, Current) ]
+        |> applyOps graph2
+    let graph3 =
+        requireChangedPlan
+            current
+            "home"
+            [ LazyLoadReconciliation.Modified ".amb"
+              LazyLoadReconciliation.Modified "docs/.amb" ]
+        |> applyOps current
+    Assert.Equal(Unparsed, graph3.nodes.[workspaceId].documentState)
+    Assert.Equal(Unparsed, graph3.nodes.[docs.id].documentState)
+
+[<Fact>]
+let ``modified file becomes unparsed without losing identity or placement`` () =
+    let workspaceId, graph = Graph.create () |> addWorkspace "home"
+    let graph2 = createPaths graph [ "note.txt" ]
+    let file = childNamed graph2 workspaceId "note.txt"
+    let current =
+        Op.SetDocumentState(file.id, Unparsed, Current)
+        |> List.singleton
+        |> applyOps graph2
+    let graph3 =
+        requireChangedPlan current "home" [ LazyLoadReconciliation.Modified "note.txt" ]
+        |> applyOps current
+    let after = childNamed graph3 workspaceId "note.txt"
+    Assert.Equal(file.id, after.id)
+    Assert.Equal(Unparsed, after.documentState)
+
+[<Fact>]
+let ``x amb remains an ordinary file for rename and delete`` () =
+    let workspaceId, graph = Graph.create () |> addWorkspace "home"
+    let graph2 = createPaths graph [ "x.amb" ]
+    let original = childNamed graph2 workspaceId "x.amb"
+    let graph3 =
+        requireChangedPlan
+            graph2
+            "home"
+            [ LazyLoadReconciliation.Renamed("x.amb", "y.amb") ]
+        |> applyOps graph2
+    Assert.Equal(original.id, (childNamed graph3 workspaceId "y.amb").id)
+    let graph4 =
+        requireChangedPlan graph3 "home" [ LazyLoadReconciliation.Deleted "y.amb" ]
+        |> applyOps graph3
+    Assert.Contains(graph4.nodes.[Graph.trashId].children, fun child -> child.id = original.id)
+
+[<Fact>]
+let ``delete and add without rename use a new identity`` () =
+    let workspaceId, graph = Graph.create () |> addWorkspace "home"
+    let graph2 = createPaths graph [ "old.txt" ]
+    let oldId = (childNamed graph2 workspaceId "old.txt").id
+    let changes =
+        [ LazyLoadReconciliation.Deleted "old.txt"
+          LazyLoadReconciliation.Added "new.txt" ]
+    let graph3 = requireChangedPlan graph2 "home" changes |> applyOps graph2
+    let newId = (childNamed graph3 workspaceId "new.txt").id
+    Assert.NotEqual(oldId, newId)
+    Assert.Contains(graph3.nodes.[Graph.trashId].children, fun child -> child.id = oldId)
+
+[<Fact>]
+let ``repeated full reconciliation is idempotent`` () =
+    let _, graph = Graph.create () |> addWorkspace "home"
+    let graph2 = createPaths graph [ "old.txt" ]
+    let changes =
+        [ LazyLoadReconciliation.Renamed("old.txt", "new.txt")
+          LazyLoadReconciliation.Modified "new.txt" ]
+    let graph3 = requireChangedPlan graph2 "home" changes |> applyOps graph2
+    Assert.Empty(requireChangedPlan graph3 "home" changes)
+
+[<Fact>]
+let ``deleting exact marker alone keeps containing directory`` () =
+    let workspaceId, graph = Graph.create () |> addWorkspace "home"
+    let graph2 = createPaths graph [ "docs/.amb"; "docs/keep.txt" ]
+    let docsId = (childNamed graph2 workspaceId "docs").id
+    let ops =
+        requireChangedPlan
+            graph2
+            "home"
+            [ LazyLoadReconciliation.Deleted "docs/.amb" ]
+    Assert.Empty(ops)
+    Assert.Equal(docsId, (childNamed graph2 workspaceId "docs").id)
+
+[<Fact>]
+let ``delete file plus add directory at same path is a kind conflict`` () =
+    let _, graph = Graph.create () |> addWorkspace "home"
+    let graph2 = createPaths graph [ "item" ]
+    let changes =
+        [ LazyLoadReconciliation.Deleted "item"
+          LazyLoadReconciliation.Added "item/.amb" ]
+    match LazyLoadReconciliation.planChangedPaths graph2 "home" changes with
+    | Ok _ -> Assert.Fail("expected kind conflict")
+    | Error err -> Assert.Contains("kind conflict", err)

@@ -31,10 +31,10 @@ module LazyLoadReconciliationServer =
         JsonEncode.toString 0 (
             Serialization.encodeChangeBatch { changes = [ change ] })
 
-    let reconcileAddedPaths
+    let reconcileChangedPaths
         (handle: AgentHandle)
         (workspaceLabel: string)
-        (addedPaths: string list)
+        (changedPaths: LazyLoadReconciliation.ChangedPath list)
         : Async<Result<unit, string>> =
         async {
             let! stateJson = handle.getState ()
@@ -42,14 +42,24 @@ module LazyLoadReconciliationServer =
             | Error err -> return Error err
             | Ok(revision, graph) ->
                 match
-                    LazyLoadReconciliation.planAddedPaths
+                    LazyLoadReconciliation.planChangedPaths
                         graph
                         workspaceLabel
-                        addedPaths
+                        changedPaths
                 with
                 | Error err -> return Error err
                 | Ok [] -> return Ok ()
                 | Ok ops ->
-                    let! result = handle.postChange (encodeChange revision ops)
+                    let! result =
+                        handle.postGraphOnlyChange (encodeChange revision ops)
                     return result |> Result.map (fun _ -> ())
         }
+
+    let reconcileAddedPaths
+        (handle: AgentHandle)
+        (workspaceLabel: string)
+        (addedPaths: string list)
+        : Async<Result<unit, string>> =
+        addedPaths
+        |> List.map LazyLoadReconciliation.Added
+        |> reconcileChangedPaths handle workspaceLabel

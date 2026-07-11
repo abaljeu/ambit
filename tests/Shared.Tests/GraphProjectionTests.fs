@@ -173,12 +173,14 @@ let ``graphFromPersistence fails when ordinals not dense`` () =
             text = "ROOT"
             name = None
             kind = "normal"
+            documentState = "current"
             cssClassNames = []
             updateTime = NodeUpdateTime.missing }
           { id = cid
             text = "c"
             name = None
             kind = "normal"
+            documentState = "current"
             cssClassNames = []
             updateTime = NodeUpdateTime.missing } ]
 
@@ -215,6 +217,21 @@ let ``graphRoundTrip preserves Special Workspace and Directory`` () =
         Assert.Equal(Filename.create "subdir", g2.nodes.[dirId].name)
 
 [<Fact>]
+let ``graphRoundTrip preserves unparsed document state`` () =
+    let original, fileId = specialFileUnderRoot ()
+    let unparsed =
+        { original with
+              nodes =
+                  original.nodes
+                  |> Map.add
+                      fileId
+                      { original.nodes.[fileId] with
+                          documentState = Unparsed } }
+    match GraphProjection.graphRoundTrip unparsed with
+    | Error err -> Assert.Fail(err)
+    | Ok graph -> Assert.Equal(Unparsed, graph.nodes.[fileId].documentState)
+
+[<Fact>]
 let ``graphEquals is false when kind differs`` () =
     let g0, fileId = specialFileUnderRoot ()
     let normalNode = { g0.nodes.[fileId] with kind = Normal }
@@ -231,18 +248,21 @@ let ``graphFromPersistence legacy normal kind maps canonical trash to Directory`
             text = "ROOT"
             name = None
             kind = "workspace"
+            documentState = "current"
             cssClassNames = []
             updateTime = NodeUpdateTime.missing }
           { id = Graph.workspacesId.Value
             text = "Workspaces"
             name = None
             kind = "workspaces"
+            documentState = "current"
             cssClassNames = []
             updateTime = NodeUpdateTime.missing }
           { id = trash.Value
             text = "Trash"
             name = None
             kind = "normal"
+            documentState = "current"
             cssClassNames = []
             updateTime = NodeUpdateTime.missing } ]
 

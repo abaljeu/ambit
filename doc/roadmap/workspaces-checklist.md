@@ -71,8 +71,8 @@ How users create, open, navigate, and work in workspaces in the UI (commands / k
 Bringing existing trees or repos into the workspace model and responding after Git changes. Canonical project and decisions: [[lazy-load]].
 - [x] **Create-only post-receive reconciliation** — after successful server receive, added paths create or reuse matching Directory and File stubs under the named Workspace through standard server Change lists; initial push is supported.
 - [x] **Structural stubs only** — current reconciliation does not parse file contents or create parsed child nodes.
-- [ ] **Complete disk-to-graph reconciliation** — add moves, renames, standard deletes, and repair/retry after a best-effort reconciliation failure.
+- [x] **Complete disk-to-graph reconciliation** — added/deleted/renamed/moved paths reconcile through graph-only post-receive Changes; Git `M` marks the corresponding document Unparsed; exact `.amb`, refs/TRASH, identity, and idempotency semantics are covered. Best-effort failure remains observable without speculative repair/retry.
 - [ ] **Expand-to-parse** — when a file is expanded, parse it and merge the result into existing nodes.
-- [ ] **Freshness UI** — show whether the local file is current, unparsed, older than the server file, or newer than the server file.
+- [ ] **Richer freshness metadata/UI** — planned after reconciliation with expand-to-parse; show whether the local file is current, unparsed, older than the server file, or newer than the server file.
 - [ ] **Documents as load units** — one graph, many documents (`docId` / membership); load and unload whole documents rather than one giant snapshot. See [[workspace-file-model]], [[revising-workspace-file-model]], [[postgres-roadmap]] §5.
 - [ ] **Later residency/search work** — server lazy residency, client unload/LRU, repo-wide query, and annotation migration when files change. See [[workspace-scale-file-and-db-management]], [[workspace-scale-import]].

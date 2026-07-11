@@ -1,54 +1,15 @@
 namespace Gambol.Shared
 
-open System
-
 [<RequireQualifiedAccess>]
 module LazyLoadReconciliation =
 
-    let private pathParts (path: string) : string list =
-        path.Replace('\\', '/').Split(
-            '/',
-            StringSplitOptions.RemoveEmptyEntries)
-        |> Array.toList
+    module Path = LazyLoadReconciliationPath
 
-    let private classifyAddedPath (parts: string list) : (string list * SpecialKind) option =
-        if parts.IsEmpty || (parts |> List.exists (fun part -> part = ".git")) then
-            None
-        elif List.last parts = ".amb" then
-            match List.take (parts.Length - 1) parts with
-            | [] -> None
-            | directoryParts -> Some(directoryParts, Directory)
-        else
-            Some(parts, File)
-
-    let private validateParts (parts: string list) : Result<unit, string> =
-        match
-            parts
-            |> List.tryFind (fun part ->
-                match Filename.create part with
-                | Filename.Ok _ -> false
-                | _ -> true)
-        with
-        | Some part -> Error $"invalid source path component '{part}'"
-        | None -> Ok ()
-
-    let private ownedChildNamed (graph: Graph) parentId name : Node option =
-        graph.nodes.[parentId].children
-        |> List.tryPick (fun child ->
-            if child.ref <> Ownership.Owner then None
-            else
-                let node = graph.nodes.[child.id]
-                match Filename.tryValue node.name with
-                | Some candidate when
-                    String.Equals(candidate, name, StringComparison.OrdinalIgnoreCase) ->
-                    Some node
-                | _ -> None)
-
-    let private workspaceByLabel (graph: Graph) label : Result<NodeId, string> =
-        match ownedChildNamed graph Graph.workspacesId label with
-        | Some node when node.kind = Special Workspace -> Ok node.id
-        | Some _ -> Error $"kind conflict at workspace '{label}'"
-        | None -> Error $"workspace '{label}' not found"
+    type ChangedPath =
+        | Added of path: string
+        | Deleted of path: string
+        | Renamed of oldPath: string * newPath: string
+        | Modified of path: string
 
     let private applyOps (graph: Graph) (ops: Op list) : Result<Graph, string> =
         let initial =
@@ -66,6 +27,11 @@ module LazyLoadReconciliation =
                 | ApplyResult.Invalid(_, err) -> Error err) (Ok initial)
         |> Result.map (fun state -> state.graph)
 
+    let private markUnparsed (graph: Graph) nodeId =
+        match graph.nodes.[nodeId].documentState with
+        | Unparsed -> []
+        | Current -> [ Op.SetDocumentState(nodeId, Current, Unparsed) ]
+
     let private createChild graph parentId kind name =
         match kind with
         | Directory ->
@@ -75,7 +41,7 @@ module LazyLoadReconciliation =
         | _ -> Error "reconciliation can create only directory and file stubs"
 
     let private ensureChild graph parentId kind name =
-        match ownedChildNamed graph parentId name with
+        match Path.ownedChildNamed graph parentId name with
         | Some node when node.kind = Special kind -> Ok(node.id, graph, [])
         | Some node ->
             Error $"kind conflict at '{name}': expected {kind}, found {node.kind}"
@@ -83,9 +49,10 @@ module LazyLoadReconciliation =
             match createChild graph parentId kind name with
             | Error err -> Error err
             | Ok(childId, ops) ->
-                match applyOps graph ops with
+                let allOps = ops @ [ Op.SetDocumentState(childId, Current, Unparsed) ]
+                match applyOps graph allOps with
                 | Error err -> Error err
-                | Ok next -> Ok(childId, next, ops)
+                | Ok next -> Ok(childId, next, allOps)
 
     let private planPath (graph: Graph) workspaceId finalKind (parts: string list) =
         let lastIndex = parts.Length - 1
@@ -101,23 +68,321 @@ module LazyLoadReconciliation =
                 | Ok(childId, next, ops) ->
                     Ok(childId, next, planned @ ops)) (Ok(workspaceId, graph, []))
 
+    let resolveOwnedPath
+        (graph: Graph)
+        (workspaceLabel: string)
+        (path: string)
+        : Result<(NodeId * SpecialKind) option, string> =
+        Path.workspaceByLabel graph workspaceLabel
+        |> Result.bind (fun workspaceId ->
+            Path.classifyValidated path
+            |> Result.bind (function
+                | None -> Ok None
+                | Some info -> Path.resolveInfo graph workspaceId info))
+
+    let private planAddedInfo (graph: Graph) workspaceId (info: Path.PathInfo) =
+        if info.parts.IsEmpty then
+            let ops = markUnparsed graph workspaceId
+            applyOps graph ops |> Result.map (fun next -> next, ops)
+        else
+            planPath graph workspaceId info.kind info.parts
+            |> Result.bind (fun (nodeId, next, createOps) ->
+                let stateOps = markUnparsed next nodeId
+                applyOps next stateOps
+                |> Result.map (fun finalGraph ->
+                    finalGraph, createOps @ stateOps))
+
+    let private pathChildIds (graph: Graph) parentId =
+        graph.nodes.[parentId].children
+        |> List.choose (fun child ->
+            if child.ref <> Ownership.Owner then
+                None
+            else
+                match graph.nodes.[child.id].kind with
+                | Special (Directory | File) -> Some child.id
+                | _ -> None)
+
+    let private refReplacementOps (graph: Graph) nodeId path =
+        ViewModel.getAllOccurrences graph nodeId
+        |> List.filter (fun (_, _, child) -> child.ref = Ownership.Ref)
+        |> List.collect (fun (parentId, index, oldChild) ->
+            let replacementId = NodeId.New()
+            [ Op.NewNode(replacementId, $"[[{path}]]")
+              Op.Replace(
+                  parentId,
+                  index,
+                  [ oldChild ],
+                  [ { ref = Ownership.Owner; id = replacementId } ]) ])
+
+    let private planTrashNode (graph: Graph) nodeId =
+        match Map.tryFind nodeId graph.ownerParentByChild with
+        | None -> Ok(graph, [])
+        | Some parentId when parentId = Graph.trashId -> Ok(graph, [])
+        | Some parentId ->
+            let parent = graph.nodes.[parentId]
+            let index =
+                parent.children
+                |> List.findIndex (fun child ->
+                    child.id = nodeId && child.ref = Ownership.Owner)
+            let ownerChild = parent.children.[index]
+            let path =
+                NodeDesktopPath.pathForNodeId graph nodeId
+                |> Option.defaultValue ""
+            let refOps = refReplacementOps graph nodeId path
+            let trashIndex = graph.nodes.[Graph.trashId].children.Length
+            let ops =
+                refOps
+                @ [ Op.Replace(parentId, index, [ ownerChild ], [])
+                    Op.Replace(Graph.trashId, trashIndex, [], [ ownerChild ]) ]
+            applyOps graph ops |> Result.map (fun next -> next, ops)
+
+    let rec private cleanupEmptyDirectories (graph: Graph) parentId =
+        if parentId = Graph.rootId || parentId = Graph.workspacesId then
+            Ok(graph, [])
+        else
+            match Map.tryFind parentId graph.nodes with
+            | Some { kind = Special Directory }
+                when pathChildIds graph parentId |> List.isEmpty ->
+                let nextParent =
+                    graph.ownerParentByChild
+                    |> Map.tryFind parentId
+                    |> Option.defaultValue Graph.rootId
+                planTrashNode graph parentId
+                |> Result.bind (fun (next, ops) ->
+                    cleanupEmptyDirectories next nextParent
+                    |> Result.map (fun (finalGraph, cleanupOps) ->
+                        finalGraph, ops @ cleanupOps))
+            | _ -> Ok(graph, [])
+
+    let private planDeletedInfo (graph: Graph) workspaceId (info: Path.PathInfo) =
+        if info.isMarker then
+            Ok(graph, [])
+        else
+            Path.resolveInfo graph workspaceId info
+            |> Result.bind (function
+                | None -> Ok(graph, [])
+                | Some(nodeId, _) ->
+                    let parentId = graph.ownerParentByChild.[nodeId]
+                    planTrashNode graph nodeId
+                    |> Result.bind (fun (next, ops) ->
+                        cleanupEmptyDirectories next parentId
+                        |> Result.map (fun (finalGraph, cleanupOps) ->
+                            finalGraph, ops @ cleanupOps)))
+
+    let private ensureDirectoryPath (graph: Graph) workspaceId parts =
+        match parts with
+        | [] -> Ok(workspaceId, graph, [])
+        | _ -> planPath graph workspaceId Directory parts
+
+    let private planMoveNode (graph: Graph) workspaceId nodeId (newInfo: Path.PathInfo) =
+        match List.rev newInfo.parts with
+        | [] -> Ok(graph, [])
+        | newName :: reversedParent ->
+            let parentParts = List.rev reversedParent
+            ensureDirectoryPath graph workspaceId parentParts
+            |> Result.bind (fun (newParentId, withParents, parentOps) ->
+                match Path.ownedChildNamed withParents newParentId newName with
+                | Some target when target.id <> nodeId ->
+                    Error $"kind conflict at rename target '{newName}'"
+                | _ ->
+                    let node = withParents.nodes.[nodeId]
+                    NodeRenameOps.planRenameNode withParents nodeId newName
+                    |> Result.map fst
+                    |> Result.bind (fun renameOps ->
+                        applyOps withParents renameOps
+                        |> Result.bind (fun renamed ->
+                        let oldParentId = renamed.ownerParentByChild.[nodeId]
+                        let reparentOps =
+                            if oldParentId = newParentId then
+                                []
+                            else
+                                let oldParent = renamed.nodes.[oldParentId]
+                                let oldIndex =
+                                    oldParent.children
+                                    |> List.findIndex (fun child ->
+                                        child.id = nodeId
+                                        && child.ref = Ownership.Owner)
+                                let ownerChild = oldParent.children.[oldIndex]
+                                let newIndex =
+                                    Graph.fileTreeInsertIndex renamed newParentId
+                                [ Op.Replace(
+                                      oldParentId,
+                                      oldIndex,
+                                      [ ownerChild ],
+                                      [])
+                                  Op.Replace(
+                                      newParentId,
+                                      newIndex,
+                                      [],
+                                      [ ownerChild ]) ]
+                        applyOps renamed reparentOps
+                        |> Result.bind (fun moved ->
+                            cleanupEmptyDirectories moved oldParentId
+                            |> Result.map (fun (finalGraph, cleanupOps) ->
+                                finalGraph,
+                                parentOps @ renameOps @ reparentOps @ cleanupOps)))))
+
+    let private planRenamedInfo (graph: Graph) workspaceId
+        (oldInfo: Path.PathInfo) (newInfo: Path.PathInfo) =
+        if oldInfo.kind <> newInfo.kind then
+            Error "kind conflict between rename source and target"
+        else
+            Path.resolveInfo graph workspaceId oldInfo
+            |> Result.bind (function
+                | Some(nodeId, _) ->
+                    planMoveNode graph workspaceId nodeId newInfo
+                | None ->
+                    Path.resolveInfo graph workspaceId newInfo
+                    |> Result.map (fun _ -> graph, []))
+
+    let private startsWithParts (prefix: string list) (parts: string list) =
+        prefix.Length < parts.Length
+        && List.forall2 (=) prefix (List.take prefix.Length parts)
+
+    let private markerMoves (renames: (Path.PathInfo * Path.PathInfo) list) =
+        renames
+        |> List.choose (fun (oldInfo, newInfo) ->
+            if oldInfo.isMarker && newInfo.isMarker
+               && not oldInfo.parts.IsEmpty
+               && not newInfo.parts.IsEmpty then
+                Some(oldInfo.parts, newInfo.parts)
+            else
+                None)
+
+    let private coveredByMarkerMove markerPairs
+        (oldInfo: Path.PathInfo) (newInfo: Path.PathInfo) =
+        markerPairs
+        |> List.exists (fun (oldPrefix, newPrefix) ->
+            startsWithParts oldPrefix oldInfo.parts
+            && startsWithParts newPrefix newInfo.parts
+            && List.skip oldPrefix.Length oldInfo.parts
+               = List.skip newPrefix.Length newInfo.parts)
+
+    let private foldPlans planner initial items =
+        items
+        |> List.fold (fun result item ->
+            result
+            |> Result.bind (fun (graph, planned) ->
+                planner graph item
+                |> Result.map (fun (next, ops) -> next, planned @ ops))) (Ok initial)
+
+    let private conflictFromDeleteAdd
+        (deleted: Path.PathInfo list) (added: Path.PathInfo list) =
+        deleted
+        |> List.tryPick (fun oldInfo ->
+            added
+            |> List.tryPick (fun newInfo ->
+                if oldInfo.parts = newInfo.parts
+                   && oldInfo.kind <> newInfo.kind then
+                    Some "kind conflict between deleted and added path"
+                else
+                    None))
+
+    let planChangedPaths
+        (graph: Graph)
+        (workspaceLabel: string)
+        (changes: ChangedPath list)
+        : Result<Op list, string> =
+        Path.workspaceByLabel graph workspaceLabel
+        |> Result.bind (fun workspaceId ->
+            let classifyMany paths =
+                paths
+                |> List.fold (fun result path ->
+                    result
+                    |> Result.bind (fun infos ->
+                        Path.classifyValidated path
+                        |> Result.map (function
+                            | None -> infos
+                            | Some info -> infos @ [ info ]))) (Ok [])
+            let deletedPaths =
+                changes |> List.choose (function Deleted path -> Some path | _ -> None)
+            let addedPaths =
+                changes |> List.choose (function Added path -> Some path | _ -> None)
+            let modifiedPaths =
+                changes |> List.choose (function Modified path -> Some path | _ -> None)
+            let renamePaths =
+                changes
+                |> List.choose (function
+                    | Renamed(oldPath, newPath) -> Some(oldPath, newPath)
+                    | _ -> None)
+            let renameResult =
+                renamePaths
+                |> List.fold (fun result (oldPath, newPath) ->
+                    result
+                    |> Result.bind (fun pairs ->
+                        Path.classifyValidated oldPath
+                        |> Result.bind (fun oldOpt ->
+                            Path.classifyValidated newPath
+                            |> Result.map (fun newOpt ->
+                                match oldOpt, newOpt with
+                                | Some oldInfo, Some newInfo ->
+                                    pairs @ [ oldInfo, newInfo ]
+                                | _ -> pairs)))) (Ok [])
+            match
+                classifyMany deletedPaths,
+                classifyMany addedPaths,
+                classifyMany modifiedPaths,
+                renameResult
+            with
+            | Error err, _, _, _
+            | _, Error err, _, _
+            | _, _, Error err, _
+            | _, _, _, Error err -> Error err
+            | Ok deleted, Ok added, Ok modified, Ok renames ->
+                match conflictFromDeleteAdd deleted added with
+                | Some err -> Error err
+                | None ->
+                    let markers = markerMoves renames
+                    let orderedRenames =
+                        renames
+                        |> List.sortBy (fun (oldInfo, _) ->
+                            if oldInfo.isMarker then 0 else 1)
+                        |> List.filter (fun (oldInfo, newInfo) ->
+                            oldInfo.isMarker
+                            || not (coveredByMarkerMove markers oldInfo newInfo))
+                    let deletedDeepest =
+                        deleted
+                        |> List.sortByDescending (fun info -> info.parts.Length)
+                    foldPlans
+                        (fun current info ->
+                            planDeletedInfo current workspaceId info)
+                        (graph, [])
+                        deletedDeepest
+                    |> Result.bind (fun afterDeletes ->
+                        foldPlans
+                            (fun current pair ->
+                                planRenamedInfo
+                                    current
+                                    workspaceId
+                                    (fst pair)
+                                    (snd pair))
+                            afterDeletes
+                            orderedRenames)
+                    |> Result.bind (fun afterRenames ->
+                        foldPlans
+                            (fun current info ->
+                                planAddedInfo current workspaceId info)
+                            afterRenames
+                            added)
+                    |> Result.bind (fun afterAdds ->
+                        foldPlans
+                            (fun current info ->
+                                Path.resolveInfo current workspaceId info
+                                |> Result.bind (function
+                                    | None -> Ok(current, [])
+                                    | Some(nodeId, _) ->
+                                        let ops = markUnparsed current nodeId
+                                        applyOps current ops
+                                        |> Result.map (fun next -> next, ops)))
+                            afterAdds
+                            modified)
+                    |> Result.map snd)
+
     let planAddedPaths
         (graph: Graph)
         (workspaceLabel: string)
         (addedPaths: string list)
         : Result<Op list, string> =
-        match workspaceByLabel graph workspaceLabel with
-        | Error err -> Error err
-        | Ok workspaceId ->
-            addedPaths
-            |> List.map pathParts
-            |> List.choose classifyAddedPath
-            |> List.fold (fun result (parts, finalKind) ->
-                match result, validateParts parts with
-                | Error err, _ -> Error err
-                | _, Error err -> Error err
-                | Ok(current, planned), Ok () ->
-                    match planPath current workspaceId finalKind parts with
-                    | Error err -> Error err
-                    | Ok(_, next, ops) -> Ok(next, planned @ ops)) (Ok(graph, []))
-            |> Result.map snd
+        addedPaths
+        |> List.map Added
+        |> planChangedPaths graph workspaceLabel

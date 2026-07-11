@@ -135,7 +135,7 @@ module GitGateway =
 
     type FlushFn = unit -> Async<Result<unit, string>>
     type ReconcileFn =
-        string -> string list -> Async<Result<unit, string>>
+        string -> LazyLoadReconciliation.ChangedPath list -> Async<Result<unit, string>>
 
     let private logReconcileError label err =
         eprintfn
@@ -161,12 +161,12 @@ module GitGateway =
                     | Ok oldOid, Ok None ->
                         Error "successful receive left repository without HEAD"
                     | Ok oldOid, Ok(Some newOid) ->
-                        WorkspaceGit.addedPathsBetween workspaceRoot oldOid newOid
+                        WorkspaceGit.changedPathsBetween workspaceRoot oldOid newOid
                 match diffResult with
                 | Error err -> logReconcileError workspaceLabel err
                 | Ok [] -> ()
-                | Ok addedPaths ->
-                    match! reconcile workspaceLabel addedPaths with
+                | Ok changedPaths ->
+                    match! reconcile workspaceLabel changedPaths with
                     | Ok () -> ()
                     | Error err -> logReconcileError workspaceLabel err
                 return Ok response

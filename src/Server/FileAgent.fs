@@ -13,8 +13,9 @@ type FileAgentMsg =
     | GetRevision of AsyncReplyChannel<int>
     | GetChangesSince of after: int * AsyncReplyChannel<Change list>
     | PostChange of body: string * AsyncReplyChannel<Result<string, string>>
+    | PostGraphOnlyChange of body: string * AsyncReplyChannel<Result<string, string>>
     | FlushSnapshot of AsyncReplyChannel<Result<unit, string>>
-    | SnapshotDone
+    | SnapshotDone of graph: Graph option
 
 // FileAgent — serialises all reads/writes for a single file
 type FileAgent = {
@@ -77,18 +78,19 @@ module FileAgent =
             let preGraph = persistedGraph.Value
             let postGraph = state.Value.graph
             Task.Run(fun () ->
-                try
-                    match DocumentPersistence.persistGraphChange dataDir preGraph postGraph with
-                    | Error _ -> ()
-                    | Ok _ ->
-                        persistedGraph.Value <- postGraph
-                        let metaTmpPath = metaPath + ".tmp"
-                        File.WriteAllText(metaTmpPath, string rev)
-                        // Rename meta last — documents are written first; log retains changes.
-                        File.Move(metaTmpPath, metaPath, true)
-                with _ ->
-                    () // snapshot failure is non-fatal; log has the data
-                inbox.Post(SnapshotDone)
+                let persisted =
+                    try
+                        match DocumentPersistence.persistGraphChange dataDir preGraph postGraph with
+                        | Error _ -> None
+                        | Ok _ ->
+                            let metaTmpPath = metaPath + ".tmp"
+                            File.WriteAllText(metaTmpPath, string rev)
+                            // Rename meta last — documents are written first; log retains changes.
+                            File.Move(metaTmpPath, metaPath, true)
+                            Some postGraph
+                    with _ ->
+                        None // snapshot failure is non-fatal; log has the data
+                inbox.Post(SnapshotDone persisted)
             ) |> ignore
 
         let applyBatch (changes: Change list) =
@@ -128,7 +130,12 @@ module FileAgent =
                 logStream.Seek(0L, SeekOrigin.End) |> ignore
                 Error $"Log error: {ex.Message}"
 
-        let handlePostChange body (reply: AsyncReplyChannel<Result<string, string>>) inbox =
+        let handlePostChange
+            body
+            graphOnly
+            (reply: AsyncReplyChannel<Result<string, string>>)
+            inbox
+            =
             match Decode.fromString Serialization.decodeChangeBatch body with
             | Error err ->
                 reply.Reply(Error $"Invalid JSON: {err}")
@@ -137,7 +144,10 @@ module FileAgent =
                 | Error err -> reply.Reply(Error err)
                 | Ok (newState, ackedChangeIds, logEntries, changed) ->
                     let preGraph = state.Value.graph
-                    match DocumentPersistence.validatePathMoves dataDir preGraph newState.graph with
+                    let validation =
+                        if graphOnly then Ok ()
+                        else DocumentPersistence.validatePathMoves dataDir preGraph newState.graph
+                    match validation with
                     | Error err -> reply.Reply(Error err)
                     | Ok () ->
                         match persistLogEntries logEntries with
@@ -146,7 +156,9 @@ module FileAgent =
                             offsets |> List.iter offsetIndex.Add
                             state.Value <- newState
                             reply.Reply(Ok (encodeChangeAckJson ackedChangeIds))
-                            if changed then
+                            if graphOnly then
+                                persistedGraph.Value <- newState.graph
+                            elif changed then
                                 if snapshotInProgress.Value then snapshotNeeded.Value <- true
                                 else startSnapshot inbox
 
@@ -168,7 +180,9 @@ module FileAgent =
                             | Error _ -> None)
                     reply.Reply(changes)
                 | PostChange (body, reply) ->
-                    handlePostChange body reply inbox
+                    handlePostChange body false reply inbox
+                | PostGraphOnlyChange (body, reply) ->
+                    handlePostChange body true reply inbox
                 | FlushSnapshot reply ->
                     if snapshotInProgress.Value || snapshotNeeded.Value then
                         snapshotWaiters.Value <- reply :: snapshotWaiters.Value
@@ -176,7 +190,13 @@ module FileAgent =
                             startSnapshot inbox
                     else
                         reply.Reply(Ok ())
-                | SnapshotDone ->
+                | SnapshotDone (Some snapshotGraph) ->
+                    if GraphProjection.graphEquals state.Value.graph snapshotGraph then
+                        persistedGraph.Value <- snapshotGraph
+                    snapshotInProgress.Value <- false
+                    if snapshotNeeded.Value then startSnapshot inbox
+                    else notifySnapshotWaiters ()
+                | SnapshotDone None ->
                     snapshotInProgress.Value <- false
                     if snapshotNeeded.Value then startSnapshot inbox
                     else notifySnapshotWaiters ()
@@ -198,6 +218,13 @@ module FileAgent =
 
     let postChange (agent: FileAgent) (body: string) : Async<Result<string, string>> =
         agent.mailbox.PostAndAsyncReply(fun reply -> PostChange(body, reply))
+
+    let postGraphOnlyChange
+        (agent: FileAgent)
+        (body: string)
+        : Async<Result<string, string>> =
+        agent.mailbox.PostAndAsyncReply(fun reply ->
+            PostGraphOnlyChange(body, reply))
 
     let flushSnapshot (agent: FileAgent) : Async<Result<unit, string>> =
         agent.mailbox.PostAndAsyncReply FlushSnapshot

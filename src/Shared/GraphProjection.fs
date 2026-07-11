@@ -10,6 +10,7 @@ module GraphProjection =
           text: string
           name: string option
           kind: string
+          documentState: string
           cssClassNames: string list
           updateTime: System.DateTime }
 
@@ -27,6 +28,7 @@ module GraphProjection =
         && a.text = b.text
         && a.name = b.name
         && a.kind = b.kind
+        && a.documentState = b.documentState
         && CssClass.toList a.cssClasses = CssClass.toList b.cssClasses
         && a.updateTime = b.updateTime
         && List.length a.children = List.length b.children
@@ -51,6 +53,10 @@ module GraphProjection =
               text = n.text
               name = Filename.tryValue n.name
               kind = NodeKindPersistence.toPersistString n.kind
+              documentState =
+                match n.documentState with
+                | Current -> "current"
+                | Unparsed -> "unparsed"
               cssClassNames = CssClass.toList n.cssClasses
               updateTime = n.updateTime })
 
@@ -102,6 +108,10 @@ module GraphProjection =
                     r.name
                     |> Option.map Filename.create
                     |> Option.defaultValue Filename.Empty
+                let documentState =
+                    match r.documentState with
+                    | "unparsed" -> Unparsed
+                    | _ -> Current
                 nid,
                 Node.Create(
                     nid,
@@ -109,6 +119,7 @@ module GraphProjection =
                     name = name,
                     cssClasses = CssClass.ofList r.cssClassNames,
                     kind = NodeKindPersistence.legacyKindForCanonical nid parsedKind,
+                    documentState = documentState,
                     updateTime = r.updateTime))
             |> Map.ofList
 

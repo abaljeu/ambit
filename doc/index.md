@@ -59,19 +59,19 @@ Might be next: Stage 5 unresolved UI and server file-status corrections.
 Status: **Partial**.
 Details: [[doc/roadmap/workspace-file-model.md]], [[doc/current/workspace-stage-plan.md]].
 Last implemented: Per-document snapshot integration and incremental persist on top of `DataDir` live-save and unified path moves.
-Might be next: XML read/write ([[doc/roadmap/workspace-format-xml.md]]); disk-to-graph stub reconciliation and expand-to-parse / freshness UI; unresolved-reference UI and server file-status corrections.
+Might be next: XML read/write ([[doc/roadmap/workspace-format-xml.md]]); expand-to-parse and richer freshness metadata/UI; unresolved-reference UI and server file-status corrections.
 
 ### **Lazy Load and workspace source formats**
 Status: **Partial**.
 Details: [[doc/roadmap/lazy-load.md]], [[doc/roadmap/workspace-scale-import.md]].
-Last implemented: Successful server receives reconcile added source paths into unparsed Directory/File stubs under the named Workspace; initial pushes and best-effort failure policy are covered.
-Might be next: Implement move/rename/delete reconciliation (decisions locked in [[lazy-load]]), then expand-to-parse and freshness metadata/UI.
+Last implemented: Successful server receives reconcile added, deleted, renamed/moved, and modified source paths under the named Workspace. Identity-preserving Git renames, TRASH/ref semantics, exact `.amb` handling, `M` → Unparsed, graph-only persistence, initial pushes, idempotency, and the best-effort failure policy are covered.
+Might be next: Expand-to-parse and richer current/unparsed/older/newer freshness metadata/UI (Lazy Load step 3).
 
 ### **Git workspace transport (desktop pull/push via gateway)**
 Status: **Implemented** (G0–G7).
 Details: [[git-sync-gateway]], [[workspace-scale-import-slice2-plan]], [[lazy-load]].
 Last implemented: Client Connect/Clone/Download/Upload/Git status (gated on desktop `canGit`); G5–G6 desktop APIs + gateway + PAT.
-Handoff: Git transport ends after G7. Create-only post-receive reconciliation is implemented under [[lazy-load]]; expand-to-parse and freshness remain separate.
+Handoff: Git transport ends after G7. Complete post-receive disk-to-graph reconciliation is implemented under [[lazy-load]]; expand-to-parse and richer freshness metadata/UI remain planned follow-on work.
 
 ### **Amble run**
 Status: **Evolving**.

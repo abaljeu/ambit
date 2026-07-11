@@ -124,18 +124,56 @@ module WorkspaceGit =
         text.Split('\000', StringSplitOptions.RemoveEmptyEntries)
         |> Array.toList
 
+    let parseChangedPaths
+        (text: string)
+        : Result<LazyLoadReconciliation.ChangedPath list, string> =
+        let rec parse tokens changes =
+            match tokens with
+            | [] -> Ok(List.rev changes)
+            | status :: path :: rest when status = "A" ->
+                parse rest (LazyLoadReconciliation.Added path :: changes)
+            | status :: path :: rest when status = "D" ->
+                parse rest (LazyLoadReconciliation.Deleted path :: changes)
+            | status :: path :: rest when status = "M" ->
+                parse rest (LazyLoadReconciliation.Modified path :: changes)
+            | status :: oldPath :: newPath :: rest when status.StartsWith("R") ->
+                parse
+                    rest
+                    (LazyLoadReconciliation.Renamed(oldPath, newPath) :: changes)
+            | status :: _ ->
+                Error $"invalid or unsupported git name-status row '{status}'"
+
+        text |> splitNulPaths |> fun tokens -> parse tokens []
+
+    let changedPathsBetween
+        (workspaceRoot: string)
+        (oldHead: string option)
+        (newHead: string)
+        : Result<LazyLoadReconciliation.ChangedPath list, string> =
+        let arguments =
+            match oldHead with
+            | None -> $"ls-tree -r --name-only -z {newHead}"
+            | Some old when old = newHead -> ""
+            | Some old -> $"diff --name-status -z -M --diff-filter=ADRM {old} {newHead}"
+        if arguments = "" then
+            Ok []
+        else
+            GitSave.runGit workspaceRoot arguments
+            |> Result.bind (fun output ->
+                match oldHead with
+                | None ->
+                    output
+                    |> splitNulPaths
+                    |> List.map LazyLoadReconciliation.Added
+                    |> Ok
+                | Some _ -> parseChangedPaths output)
+
     let addedPathsBetween
         (workspaceRoot: string)
         (oldHead: string option)
         (newHead: string)
         : Result<string list, string> =
-        let arguments =
-            match oldHead with
-            | None -> $"ls-tree -r --name-only -z {newHead}"
-            | Some old when old = newHead -> ""
-            | Some old -> $"diff --name-only --diff-filter=A -z {old} {newHead}"
-        if arguments = "" then
-            Ok []
-        else
-            GitSave.runGit workspaceRoot arguments
-            |> Result.map splitNulPaths
+        changedPathsBetween workspaceRoot oldHead newHead
+        |> Result.map (List.choose (function
+            | LazyLoadReconciliation.Added path -> Some path
+            | _ -> None))
