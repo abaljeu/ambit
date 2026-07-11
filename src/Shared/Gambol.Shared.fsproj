@@ -41,6 +41,7 @@
     <Compile Include="ViewModelSearch.fs" />
     <Compile Include="ViewModelFileSearch.fs" />
     <Compile Include="FileNodeOps.fs" />
+    <Compile Include="LazyLoadReconciliation.fs" />
     <Compile Include="DocumentPathMove.fs" />
     <Compile Include="AmbleEval.fs" />
     <Compile Include="AmbleRun.fs" />

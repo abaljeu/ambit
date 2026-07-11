@@ -434,9 +434,15 @@ module RouteRegistration =
                 | Ok _ -> return Ok ()
                 | Error err -> return Error err
             }
+            let reconcileGitPush label addedPaths =
+                LazyLoadReconciliationServer.reconcileAddedPaths
+                    (persistence.GetHandle "gambol")
+                    label
+                    addedPaths
             GitGateway.registerRoutes
                 app
                 auth.IsGitAuthenticated
                 persistence.DataDir
                 flushForGit
+                reconcileGitPush
             registerCssAndShellRoutes app auth publicAssetBaseOpt assets stamps persistence

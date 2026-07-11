@@ -13,6 +13,8 @@ How Gambol persists the graph: PostgreSQL is always the source of truth; on-disk
 
 3. **DB-to-disk auto-persist** — Each accepted change commits to PostgreSQL first. The server then writes or updates the correlated on-disk artifacts for affected documents. Disk is a projection of DB state, not a separate authority or startup input.
 
+   **Explicit post-receive exception:** after a successful Git receive, the server may inspect added paths and submit ordinary graph Changes that create missing Directory/File stubs. It does not parse file contents or import disk state at startup; the accepted graph Change remains authoritative. See [[doc/roadmap/lazy-load.md]].
+
 4. **No outline blobs in PostgreSQL** — Do not store the file snapshot's **line-oriented outline syntax** as the graph source of truth in SQL (no monolithic `Snapshot.write` text as the projection). That syntax exists only in the **file** layer (`src/Shared/Snapshot.fs`).
 
 5. **Relational schema mirrors `Model.fs` fields** — Tables and columns reflect domain records (`Node`, child lists, `Ownership`, etc.). They do **not** mirror outline indentation or line grammar. **`Graph.parentByChild`** and **`Graph.ownerParentByChild`** are **derived** in code from nodes and child rows (same as `Graph.fromNodes` in `Model.fs`); they need not be stored as separate tables if the node and child-edge data are complete.

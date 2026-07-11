@@ -98,7 +98,7 @@ module Api =
         (clientHint: string option)
         : Async<IResult> = async {
         if not (GitSave.isRepo dataDir) then
-            let response =
+            let response: GitSaveResponse =
                 { ok = false
                   detail = ""
                   error = Some "Git save is not enabled." }
@@ -107,7 +107,8 @@ module Api =
             let! prepResult = prepare ()
             match prepResult with
             | Error err ->
-                let response = { ok = false; detail = ""; error = Some err }
+                let response: GitSaveResponse =
+                    { ok = false; detail = ""; error = Some err }
                 return Results.BadRequest(Encode.toString 0 (GitSaveResponse.encode response))
             | Ok rev ->
                 let message =
@@ -116,9 +117,11 @@ module Api =
                         clientHint
                 match GitSave.commitAll dataDir message with
                 | Ok detail ->
-                    let response = { ok = true; detail = detail; error = None }
+                    let response: GitSaveResponse =
+                        { ok = true; detail = detail; error = None }
                     return jsonResult (Encode.toString 0 (GitSaveResponse.encode response))
                 | Error err ->
-                    let response = { ok = false; detail = ""; error = Some err }
+                    let response: GitSaveResponse =
+                        { ok = false; detail = ""; error = Some err }
                     return Results.BadRequest(Encode.toString 0 (GitSaveResponse.encode response))
     }

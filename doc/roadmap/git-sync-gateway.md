@@ -3,7 +3,7 @@
 Category: Sync
 See also: [[workspace-scale-import-slice2-plan]], [[workspace-scale-import]], [[workspaces-checklist]], [[doc/roadmap/workspace-file-persistence.md]], [[doc/roadmap/workspace-file-model.md]], [[doc/current/desktop-local-files.md]], [[doc/current/workspace-local-mapping.md]], [[doc/current/persistence-model.md]], [[doc/roadmap/future-merge-sync.md]]
 
-**Slice 2** of [[workspace-scale-import]] — follows slice 1 (outliner ↔ files on one machine). Ordered shippable slices: [[workspace-scale-import-slice2-plan]].
+Git transport design for [[workspace-scale-import]]. Completed G0–G7 implementation record: [[workspace-scale-import-slice2-plan]]. Response after Git changes belongs to Lazy Load: [[lazy-load]].
 
 Target design for synchronizing a workspace repo between the server `DataDir` and a desktop local checkout. **Workspace == repo.** One workspace label maps to one git repository rooted at `DataDir/{label}/` (verbatim label; no `@` prefix on disk — [[workspace-name-verbatim]]).
 
@@ -16,7 +16,7 @@ This doc records decisions that upcoming persistence and workspace work should r
 - **Stock `git pull`/`git push` can target gateway URLs** — no desktop path-mapping helper. Auth: HTTPS PAT via HTTP Basic (G4); cookie alone is not enough.
 - **workspace-push** (prose) accepts only **fast-forward** updates when the server working tree is **clean** (**reject-dirty** — no JIT on push).
 - Gateway does not read PostgreSQL, merge, or serve single-file GET — sync trees via pack protocol; file reads stay app/desktop APIs.
-- After a successful pull into the local tree, the outliner marks affected files **stale** and offers reparse (see [[workspace-scale-import]]).
+- Git transport stops after a successful receive or local merge. Disk-to-graph reconciliation and local freshness display respond afterward under [[lazy-load]]; they do not participate in the Git operation.
 
 ## What it avoids for now
 
@@ -81,14 +81,14 @@ sequenceDiagram
   GW->>FS: JIT commit if dirty
   GW->>Client: upload-pack (smart HTTP or SSH)
   Client->>Client: git merge (local)
-  Client->>Client: mark stale files in outliner
+  Client->>Client: report successful local merge
 ```
 
 1. User triggers pull in Gambol (desktop runs stock `git pull` / fetch against `ambit`).
 2. Gateway ensures graph edits for that workspace are **persisted to disk** (flush).
 3. Gateway runs **JIT commit** on the server repo if the working tree has uncommitted changes (autosaved files).
 4. Client receives pack / merges locally. User resolves conflicts locally if any.
-5. Client marks changed paths stale for reparse.
+5. After Git completes, Lazy Load freshness behavior may compare changed local paths with server state. A successful pull means the client and server files are current, not stale.
 
 ### workspace-push via git-receive-pack (client → server)
 
@@ -201,10 +201,11 @@ Reuse existing app auth to **issue** the PAT after `/ambit/login`, but do not co
 - Flush semantics must be well-defined so JIT commit sees a consistent tree.
 - Path move handler: prefer rename syscalls so git tracks renames.
 
-### [[workspace-scale-import]]
+### [[lazy-load]]
 
 - Skip `.git` in outline tree; gitignored files not auto-imported (unchanged).
-- Stale marking after client pull is required for correctness.
+- Create-only disk-to-graph stub reconciliation now responds after successful server receive through normal graph changes; the transport result is preserved if best-effort reconciliation fails.
+- Expand-to-parse and freshness UI own local current / unparsed / older / newer display after pull.
 
 ### [[doc/current/desktop-local-files.md]]
 
@@ -217,7 +218,7 @@ Reuse existing app auth to **issue** the PAT after `/ambit/login`, but do not co
 
 ## Implementation steps
 
-Ordered slices and checklist mapping: [[workspace-scale-import-slice2-plan]].
+Completed Git work items and checklist mapping: [[workspace-scale-import-slice2-plan]].
 
 1. **Stage 7 live-save** — `DataDir/{label}/` on Azure `/home` — implemented; see [[doc/current/workspace-stage-plan.md]] §7.
 2. **Init repo** — on workspace creation or first persist, `git init` inside `{label}/`; optional default `.gitignore` for local artifacts.
@@ -225,7 +226,7 @@ Ordered slices and checklist mapping: [[workspace-scale-import-slice2-plan]].
 4. **Desktop remote setup** — map label → local clone; `ambit` URL; credential helper or SSH key docs.
 5. **JIT commit + flush hook** — gateway calls flush then commit before fetch; integration test with dirty tree → pull sees commit.
 6. **UI** — Pull / Push at workspace root via command palette (Download / Upload); surface `behind` / `ahead` / `dirty` from `git status -sb` (Git status). Gated on desktop `canGit`.
-7. **Stale after pull** — wire file nodes to reparse prompt when disk hash/mtime changes.
+7. **Lazy Load handoff** — create-only reconciliation is implemented; remaining reconciliation and freshness capabilities are tracked in [[lazy-load]], outside Git transport.
 
 ## Tests
 

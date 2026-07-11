@@ -134,6 +134,43 @@ module GitGateway =
         sprintf "application/x-%s-result" (urlServiceName service)
 
     type FlushFn = unit -> Async<Result<unit, string>>
+    type ReconcileFn =
+        string -> string list -> Async<Result<unit, string>>
+
+    let private logReconcileError label err =
+        eprintfn
+            "[GitGateway] Post-receive reconciliation failed for '%s': %s"
+            label
+            err
+
+    let completeWorkspacePush
+        (workspaceRoot: string)
+        (workspaceLabel: string)
+        (oldHead: Result<string option, string>)
+        (receiveResult: Result<byte[], string>)
+        (reconcile: ReconcileFn)
+        : Async<Result<byte[], string>> =
+        async {
+            match receiveResult with
+            | Error err -> return Error err
+            | Ok response ->
+                let diffResult =
+                    match oldHead, WorkspaceGit.tryHead workspaceRoot with
+                    | Error err, _ -> Error err
+                    | _, Error err -> Error err
+                    | Ok oldOid, Ok None ->
+                        Error "successful receive left repository without HEAD"
+                    | Ok oldOid, Ok(Some newOid) ->
+                        WorkspaceGit.addedPathsBetween workspaceRoot oldOid newOid
+                match diffResult with
+                | Error err -> logReconcileError workspaceLabel err
+                | Ok [] -> ()
+                | Ok addedPaths ->
+                    match! reconcile workspaceLabel addedPaths with
+                    | Ok () -> ()
+                    | Error err -> logReconcileError workspaceLabel err
+                return Ok response
+        }
 
     let private prepareWorkspacePull
         (flush: FlushFn)
@@ -256,6 +293,7 @@ module GitGateway =
         (isAuthenticated: HttpRequest -> bool)
         (dataDir: string)
         (flush: FlushFn)
+        (reconcile: ReconcileFn)
         (service: Service)
         (ctx: HttpContext)
         (repoName: string)
@@ -267,7 +305,7 @@ module GitGateway =
                 match resolveWorkspaceRoot dataDir repoName with
                 | Error err ->
                     do! writeTextError ctx.Response 404 err
-                | Ok(_, root) ->
+                | Ok(label, root) ->
                     match service with
                     | WorkspacePush ->
                         match WorkspaceGit.assertCleanForWorkspacePush root with
@@ -275,8 +313,15 @@ module GitGateway =
                             do! writeTextError ctx.Response 403 err
                         | Ok () ->
                             let! body = readBody ctx.Request
-                            match
-                                statelessRpc root WorkspacePush body with
+                            let oldHead = WorkspaceGit.tryHead root
+                            let! completed =
+                                completeWorkspacePush
+                                    root
+                                    label
+                                    oldHead
+                                    (statelessRpc root WorkspacePush body)
+                                    reconcile
+                            match completed with
                             | Error err ->
                                 do! writeTextError ctx.Response 500 err
                             | Ok result ->
@@ -313,6 +358,7 @@ module GitGateway =
         (isAuthenticated: HttpRequest -> bool)
         (dataDir: string)
         (flush: FlushFn)
+        (reconcile: ReconcileFn)
         =
         app.MapGet(
             "/ambit/git/{repoName}/info/refs",
@@ -327,6 +373,7 @@ module GitGateway =
                     isAuthenticated
                     dataDir
                     flush
+                    reconcile
                     WorkspacePull
                     ctx
                     repoName)
@@ -339,6 +386,7 @@ module GitGateway =
                     isAuthenticated
                     dataDir
                     flush
+                    reconcile
                     WorkspacePush
                     ctx
                     repoName)

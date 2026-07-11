@@ -20,6 +20,7 @@
     <Compile Include="GitSaveTests.fs" />
     <Compile Include="WorkspaceGitTests.fs" />
     <Compile Include="GitGatewayTests.fs" />
+    <Compile Include="LazyLoadReconciliationServerTests.fs" />
     <Compile Include="GitSaveEndpointTests.fs" />
     <Compile Include="DbAgentTests.fs" />
     <Compile Include="StateEndpointTests.fs" />

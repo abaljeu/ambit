@@ -19,6 +19,7 @@
     <Compile Include="AmbleRunTests.fs" />
     <Compile Include="ViewModelFileSearchTests.fs" />
     <Compile Include="FileNodeOpsTests.fs" />
+    <Compile Include="LazyLoadReconciliationTests.fs" />
     <Compile Include="DocumentPathMoveTests.fs" />
     <Compile Include="DocumentPartitionTests.fs" />
     <Compile Include="DocumentAssemblyTests.fs" />

@@ -2,18 +2,19 @@
 
 See also: [[doc/roadmap/workspace-scale-import.md]], [[doc/roadmap/git-sync-gateway.md]], [[doc/roadmap/workspace-file-persistence.md]], [[doc/roadmap/workspace-file-model.md]]
 
-This document is the **umbrella vision** for repo-scale outliner behavior (lazy materialization, residency, queries, identity). **Rollout** is sliced in [[doc/roadmap/workspace-scale-import.md]]; do not treat everything here as slice 1. This file was created from discussions without looking at gambol sources — terms and details may need adaptation. `Repo` maps directly onto this project's concept of `workspace`.
+This document is the **umbrella vision** for repo-scale outliner behavior (lazy materialization, residency, queries, identity). **Rollout** is divided into concrete worksets in [[doc/roadmap/workspace-scale-import.md]]; do not treat everything here as part of expand-to-parse and freshness UI. This file was created from discussions without looking at gambol sources — terms and details may need adaptation. `Repo` maps directly onto this project's concept of `workspace`.
 
 ## Rollout
 
 Committed sequencing (authoritative detail in linked docs):
 
-1. **Stage 7 `DataDir`** — `{DataDir}/{label}/` live-save and path moves — **done** ([[doc/current/workspace-stage-plan.md]] §7).
-2. **Slice 1** — repo tree in outline, expand-to-parse, autosave, local `git commit`, stale on external change ([[doc/roadmap/workspace-scale-import.md]] § Slice 1).
-3. **Slice 2** — desktop clone sync via git gateway: pull (server JIT commit first), push (server clean, fast-forward only), client-side merge ([[doc/roadmap/git-sync-gateway.md]]).
-4. **Later** — sections below marked *deferred*: server lazy DB residency, client file LRU, query model, annotation migration, git object model in the outline.
+1. **`DataDir` live-save and path moves** — **done** ([[doc/current/workspace-stage-plan.md]] §7).
+2. **Git workspace transport** — **done**: desktop clone sync via git gateway, pull with server JIT commit first, push with a clean server and fast-forward only, and client-side merge ([[doc/roadmap/git-sync-gateway.md]]).
+3. **Disk-to-graph stub reconciliation** — create-only added-path handling after successful server receive is implemented; moves, renames, and deletes remain. Contents are not parsed ([[lazy-load]]).
+4. **Expand-to-parse and freshness UI** — parse files on demand and report current / unparsed / older / newer state ([[doc/roadmap/workspace-scale-import.md]]).
+5. **Document load units, then later residency/search work** — document membership and load/unload before server lazy DB residency, client file LRU, query model, annotation migration, and git object model in the outline.
 
-Slice 1 can use disk + graph path nodes without the full DB materialization model in this doc. Long-term, repo metadata and parsed nodes live in PostgreSQL as described here.
+Disk-to-graph reconciliation and expand-to-parse can use disk + graph path nodes without the full DB materialization model in this doc. Long-term, repo metadata and parsed nodes live in PostgreSQL as described here.
 
 ## Core goal
 
@@ -22,7 +23,7 @@ You want **transparent repo browsing/editing** inside the outliner:
 - Git repo appears as an outline tree.
 - Files can be expanded into parsed outline structure.
 - Editing outline nodes writes immediately back to source files.
-- Commit is manual at repo root; server **JIT commit** only before serving pull (slice 2).
+- Commit is manual at repo root; server **JIT commit** only before serving pull through Git workspace transport.
 - Git handles merge and conflict resolution on the **client**; the server git gateway does not merge.
 - The outliner preserves node identity, links, annotations, and roundtripping as much as possible.
 
@@ -80,7 +81,7 @@ The repo boundary matters for:
 - Commit command.
 - Pull / push (git sync between server `DataDir` and desktop clone).
 - Gitignore scope.
-- Activation/residency (*deferred* beyond slice 1).
+- Activation/residency (*deferred* until document load units and later residency/search work).
 - Search/query scoping (*deferred*).
 
 The file boundary matters for:
@@ -118,7 +119,7 @@ So the design assumes:
 
 ## Server-side memory management
 
-*Deferred beyond slice 1 — policy target for repo-at-scale.*
+*Deferred to later residency/search work — policy target for repo-at-scale.*
 
 Current server loads the whole DB into memory.
 
@@ -139,7 +140,7 @@ So:
 
 ## Client-side residency memory management
 
-*Deferred beyond slice 1 — policy target for repo-at-scale.*
+*Deferred to later residency/search work — policy target for repo-at-scale.*
 
 Client has same logical data model as server, but stricter memory constraints.
 
@@ -191,7 +192,7 @@ Authoritative wire protocol: [[doc/roadmap/git-sync-gateway.md]]. Summary:
 1. Gateway flushes `DocumentPersistence` for the workspace.
 2. JIT commit on server if needed.
 3. Desktop runs `git pull origin`; merge/rebase and conflicts are handled locally with git.
-4. Changed files are marked **stale** in the outliner; reparse on expand or explicit action.
+4. After Git completes, freshness UI compares local and server state. Matching files are **current**; unparsed, client older, and client newer are distinct states.
 
 **Push (desktop → server)**
 
@@ -199,9 +200,9 @@ Authoritative wire protocol: [[doc/roadmap/git-sync-gateway.md]]. Summary:
 2. Server **rejects** if its work tree is dirty or the push is not **fast-forward**.
 3. No server-side merge — client must pull, merge locally, and push again.
 
-Multi-machine file coherence therefore collapses into the existing “external file changed” problem (stale flags), not graph merge at the server.
+Multi-machine file coherence is handled by the Lazy Load freshness states and merge-on-parse behavior, not graph merge inside Git transport.
 
-HTTP change batches ([[doc/current/sync-mvp.md]]) remain for live editing; git pull/push is explicit coarse sync between machines (slice 2).
+HTTP change batches ([[doc/current/sync-mvp.md]]) remain for live editing; git pull/push is explicit coarse sync between machines.
 
 ---
 
@@ -215,7 +216,7 @@ Sources of staleness:
 
 - external editor changes a file,
 - import operation changes files,
-- git merge/pull/sync changes files,
+- external git operations outside the coordinated workspace pull/push flow change files,
 - branch operations someday,
 - automation writes files.
 
@@ -256,7 +257,7 @@ Serializer uses the parsed structure plus captured layout details to roundtrip t
 
 ## Query model
 
-*Deferred beyond slice 1.*
+*Deferred to later residency/search work.*
 
 Queries must return **node IDs**.
 
@@ -404,13 +405,17 @@ Editing:
 
 Commit:
   manual at repo root
-  server JIT commit before pull (slice 2)
-  desktop commit before push (slice 2)
+  server JIT commit before pull
+  desktop commit before push
 
-Sync (slice 2):
-  pull: server flush + JIT commit, client git pull, mark stale
+Git transport:
+  pull: server flush + JIT commit, client git pull
   push: FF only, server work tree must be clean
   merge on client only
+
+Lazy Load response:
+  server receive: reconcile changed paths to structural stubs
+  local pull: report current / unparsed / older / newer freshness
 
 External changes:
   mark files/subtrees stale
@@ -421,7 +426,7 @@ External changes:
 
 ## The next concrete decision
 
-Slice 1 scope: nail the **file node lifecycle** ([[doc/roadmap/workspace-scale-import.md]]). For example:
+Expand-to-parse and freshness UI must nail the **file node lifecycle** ([[doc/roadmap/workspace-scale-import.md]]). For example:
 
 ```text
 discovered stub
@@ -434,4 +439,4 @@ discovered stub
   -> reparsed
 ```
 
-That lifecycle defines metadata and commands for slice 1. Slice 2 adds pull/push on top once `DataDir` and slice 1 behaviors exist.
+That lifecycle defines metadata and commands for expand-to-parse and freshness UI. Git transport is already implemented independently; disk-to-graph stub reconciliation is the bridge from changed server files into structural graph nodes.

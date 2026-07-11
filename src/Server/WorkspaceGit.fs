@@ -98,3 +98,44 @@ module WorkspaceGit =
             Error
                 "server working tree dirty; workspace-pull or wait for autosave flush"
         | Ok false -> Ok ()
+
+    let tryHead (workspaceRoot: string) : Result<string option, string> =
+        match GitSave.runGit workspaceRoot "rev-parse --verify HEAD" with
+        | Ok oid -> Ok(Some oid)
+        | Error headError ->
+            match
+                GitSave.runGit
+                    workspaceRoot
+                    "for-each-ref --format=%(objectname) refs/heads"
+            with
+            | Ok text ->
+                match
+                    text.Split(
+                        [| '\r'; '\n' |],
+                        StringSplitOptions.RemoveEmptyEntries)
+                    |> Array.toList
+                with
+                | [] -> Ok None
+                | [ oid ] -> Ok(Some oid)
+                | _ -> Error headError
+            | Error err -> Error err
+
+    let private splitNulPaths (text: string) : string list =
+        text.Split('\000', StringSplitOptions.RemoveEmptyEntries)
+        |> Array.toList
+
+    let addedPathsBetween
+        (workspaceRoot: string)
+        (oldHead: string option)
+        (newHead: string)
+        : Result<string list, string> =
+        let arguments =
+            match oldHead with
+            | None -> $"ls-tree -r --name-only -z {newHead}"
+            | Some old when old = newHead -> ""
+            | Some old -> $"diff --name-only --diff-filter=A -z {old} {newHead}"
+        if arguments = "" then
+            Ok []
+        else
+            GitSave.runGit workspaceRoot arguments
+            |> Result.map splitNulPaths

@@ -2,11 +2,11 @@
 
 See also: [[doc/roadmap/workspace-scale-file-and-db-management.md]], [[doc/roadmap/git-sync-gateway.md]], [[doc/roadmap/workspace-format-amb.md]], [[doc/roadmap/workspace-format-md.md]], [[doc/roadmap/workspace-format-plain.md]], [[doc/roadmap/workspace-format-code.md]]
 
-Sequencing: **Slice 1** (outliner ↔ files on one machine) then **Slice 2** (git pull/push to a desktop clone). Slice 2 protocol: [[git-sync-gateway]]; ordered slices: [[workspace-scale-import-slice2-plan]].
+Worksets: **disk-to-graph stub reconciliation**, **expand-to-parse and freshness UI**, and **Git workspace transport**. Git protocol: [[git-sync-gateway]]; completed transport record: [[workspace-scale-import-slice2-plan]]; canonical Lazy Load project: [[lazy-load]].
 
-# Slice 1: repo file-tree browsing + on-demand parse/edit for individual files
+## Repo file-tree browsing + on-demand parse/edit for individual files
 
-Not full repo-scale querying, not stale reconciliation after pull, not multi-client graph merge yet.
+Not full repo-scale querying, not advanced freshness reconciliation, not multi-client graph merge yet.
 
 ## What it gives you
 
@@ -31,7 +31,7 @@ Defer:
 
 - full content indexing,
 - repo-wide graph queries,
-- stale reparse sophistication,
+- advanced freshness/reparse handling,
 - annotation migration,
 - client LRU,
 - partial hydration,
@@ -42,7 +42,7 @@ Defer:
 
 ## Minimal state model
 
-For this slice, you only need:
+For repo browsing and on-demand parse, you only need:
 
 ```text
 File node:
@@ -51,7 +51,7 @@ File node:
   repo_root_id
   mtime
   parsed: bool
-  stale: bool
+  freshness: current | unparsed | client_older | client_newer
 ```
 
 Maybe also:
@@ -94,7 +94,7 @@ if parsed == false:
     parse file
     create child nodes
     parsed = true
-    stale = false
+    freshness = current
 ```
 
 Then normal outliner behavior takes over.
@@ -107,7 +107,7 @@ When a parsed child changes:
 serialize containing file node
 write file to disk
 update file mtime/hash
-stale = false
+freshness = current
 ```
 
 ### Repo commit
@@ -134,15 +134,15 @@ It tests the highest-risk assumptions early:
 
 Those are more important than query/indexing at first.
 
-## I would include one small stale feature
+## Include a minimal freshness check
 
-Even in slice 1, add this:
+Include this in expand-to-parse and freshness UI:
 
-On file expansion, compare current disk mtime/hash to stored mtime/hash.
+On file expansion, compare current disk mtime/hash to the server metadata.
 
 ```text
-if parsed && disk newer:
-    mark stale
+if parsed && disk differs:
+    show client_older or client_newer
     prompt or button: "Reparse from disk"
 ```
 
@@ -152,7 +152,7 @@ That gives you safety if someone edits the file outside the outliner.
 
 ## Success criterion
 
-This slice is successful if you can:
+This workset is successful if you can:
 
 - attach a medium repo,
 - browse the tree,
@@ -164,17 +164,17 @@ This slice is successful if you can:
 
 That is a useful product even before repo-wide search or advanced sync exists.
 
-# Slice 2: git sync to desktop (git gateway)
+## Git workspace transport to desktop
 
-See [[git-sync-gateway]] for protocol, credentials, and locked decisions (including **reject-dirty** push). Ordered shippable slices: [[workspace-scale-import-slice2-plan]].
+See [[git-sync-gateway]] for protocol, credentials, and locked decisions (including **reject-dirty** push). Completed G0–G7 implementation record: [[workspace-scale-import-slice2-plan]].
 
-## What it adds to slice 1
+## What Git transport adds
 
 - Same repo at `DataDir/{label}/` on the server and a local clone via desktop workspace mapping.
-- **Pull:** server JIT commit if dirty, then `git pull ambit`; client merge; stale/reparse on changed files.
+- **Pull:** server JIT commit if dirty, then `git pull ambit`; client merge. Freshness display responds afterward under [[lazy-load]] and treats matching client/server files as current.
 - **Push:** `git push ambit`; server accepts only fast-forward when its working tree is clean (**reject-dirty** — no JIT commit on push).
 - Stock git on desktop; smart HTTPS git gateway on the server — no server-side merge. Remote name is **`ambit`**.
 
-## Prerequisite
+## Boundary
 
-Slice 1 behaviors (tree, autosave, local commit, stale on expand). Stage 7 `DataDir` live-save is implemented ([[doc/current/workspace-stage-plan.md]] §7). Slice 2 does not replace HTTP graph sync; it is explicit coarse file sync between machines.
+`DataDir` live-save is implemented ([[doc/current/workspace-stage-plan.md]] §7). Git transport does not require disk-to-graph reconciliation or expand-to-parse / freshness UI, and it does not replace HTTP graph sync; it is explicit coarse file sync between machines. Create-only response after successful receive is implemented by Lazy Load ([[lazy-load]]).

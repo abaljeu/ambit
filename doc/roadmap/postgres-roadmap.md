@@ -91,7 +91,7 @@ A record of actions taken shall be maintained in [[doc/legacy/Commands executed 
 
 There is always exactly one graph on the server. A *document* is a named partition of that graph: a **document root** assigns a `docId` to every node with **document membership** in that partition (Owner-tree ancestry from the root; Ref edges do not confer membership). The graph is not split into separate stores; document membership is a property of each node within the single graph.
 
-In the workspace file model, document roots are `Special Workspace`, `Directory`, and `File` nodes (including implicit ROOT). See [[doc/roadmap/workspace-file-model.md]] § Documents. Persistence, client load/unload, and replication all use the same document boundary. Implementation: [[doc/roadmap/workspace-file-model.md]] Stage 9 (membership); Stages 7–8 (server persist).
+In the workspace file model, document roots are `Special Workspace`, `Directory`, and `File` nodes (including implicit ROOT). See [[doc/roadmap/workspace-file-model.md]] § Documents. Persistence, client load/unload, and replication all use the same document boundary. Per-document server persistence is implemented; **document load units** will add membership and client load/unload.
 
 **How it begins:**
 
@@ -116,7 +116,7 @@ Topology (edges) is small enough to keep fully in memory across all documents. P
 
 **Decision:** The unit of replication between server and client is a *whole document* — the full set of nodes with a given `docId` within the single server graph. Edits are node-level, but sync and caching deal in complete documents. Cross-document references are allowed; cross-document edits are logged as a single operation with enough payload for per-document projections to update independently.
 
-Implementation: [[doc/roadmap/workspace-file-model.md]] Stage 9.
+Implementation workset: **document load units** in [[doc/roadmap/workspace-file-model.md]].
 
 *Source:* [[doc/roadmap/future-merge-sync.md]].
 

@@ -1,10 +1,11 @@
-# Workspace Git sync — implementation plan (Slice 2)
+# Workspace Git transport — implementation record
+(File is misnamed.  It is correctely characterized as implementation of [[workspaces-checklist.md]], Git section.)
 
 Category: Sync
-Status: In progress (G0–G7 done; G8 graph follow-up next)
+Status: Complete (G0–G7)
 See also: [[workspaces-checklist]], [[git-sync-gateway]], [[workspace-scale-import]], [[doc/current/workspace-local-mapping]], [[doc/current/desktop-local-files]], [[doc/current/workspace-stage-plan]], [[doc/current/sync-mvp]], [[future-merge-sync]], [[workspace-name-verbatim]]
 
-Concrete rollout for the **Git** section of [[workspaces-checklist]]. Protocol and locked product decisions live in [[git-sync-gateway]]; this doc owns **ordered shippable slices**, checklist mapping, and sequencing. Do not treat history plans under [[doc/history/workspaces/plans]] as current truth.
+Implementation record for the **Git** section of [[workspaces-checklist]]. Protocol and locked product decisions live in [[git-sync-gateway]]; this doc owns the ordered G0–G7 Git transport work, checklist mapping, and the handoff to Lazy Load. Do not treat history plans under [[doc/history/workspaces/plans]] as current truth.
 
 ## What it gives you
 
@@ -20,15 +21,15 @@ Concrete rollout for the **Git** section of [[workspaces-checklist]]. Protocol a
 - Browser-only git (no desktop host).
 - Branch switching UI; git object model in the outline.
 - Bulk zip/rsync workspace transfer.
-- File/directory placement Slice B ([[workspace-file-directory-placement]]) — parallel, out of scope here.
-- Lazy-load / sync-tree completeness beyond the minimum needed after push (see slice G8).
+- File/directory create/move placement work ([[workspace-file-directory-placement]]) — parallel, out of scope here.
+- Disk-to-graph stub reconciliation, expand-to-parse, and freshness UI; these respond after Git changes and belong to Lazy Load ([[lazy-load]]).
 
 ## Requirements inventory (checklist → requirement)
 
 | Checklist item | Requirement | Primary owner |
 | --- | --- | --- |
 | Init empty repo in a new server directory | On workspace create (or first persist under that label), `git init` inside `DataDir/{label}/`; set `receive.denyNonFastForwards=true`; optional default `.gitignore` | Server |
-| Commit all files to repo on server **[checked today]** | **Reinterpret:** today’s [[src/Server/GitSave.fs]] commits the **whole** `DataDir` if `DataDir/.git` exists. Target is **per-workspace** commit (JIT before fetch; optional explicit save scoped to `{label}/`). Treat the checkmark as legacy monolithic save, not Slice 2 done. | Server |
+| Commit all files to repo on server **[checked today]** | **Reinterpret:** today’s [[src/Server/GitSave.fs]] commits the **whole** `DataDir` if `DataDir/.git` exists. Target is **per-workspace** commit (JIT before fetch; optional explicit save scoped to `{label}/`). Treat the checkmark as legacy monolithic save, not proof that per-workspace Git transport was done. | Server |
 | Smart HTTPS git endpoints | Smart HTTP at **`/ambit/git/{label}.git`** with stock service paths **`git-upload-pack`** / **`git-receive-pack`**; custom policy (JIT / reject-dirty) is server middleware; no single-file GET | Server gateway |
 | Push special semantics | **workspace-push (prose):** accept only when client is **current** (fast-forward). **Dirty-tree = reject-dirty** (locked G0). Wire path = `git-receive-pack`. | Server gateway |
 | Desktop: Clone / pull / push | Stock `git` against gateway URLs — **no path-mapping helper**; auth still G4 | Desktop |
@@ -65,9 +66,9 @@ commands                git clone/pull/push/status   Git HTTPS gateway (http-bac
 - Authoritative graph merge across clients ([[future-merge-sync]], checklist “Multi-client graph merge”).
 - Creating/updating outline nodes by itself — after push, disk is current; **graph** needs a separate reconcile (sync-tree / lazy load — checklist Lazy Load).
 - Replacing live collaborative editing over HTTP.
-- Placement rules for File/Directory under Workspace (Slice B).
+- File/Directory create/move placement rules under Workspace.
 
-## Blockers needing user decision
+## Recorded decisions and deferred question
 
 1. **Push when server working tree is dirty (FF-eligible client)** — **Locked (G0): reject-dirty.** Reject push when server working tree is dirty; do **not** JIT-commit on push. JIT commit remains only before fetch/pull. Recorded in [[git-sync-gateway]]. (Checklist previously said JIT-then-accept; that wording is cleared.)
 2. **Legacy `GitSave` (whole-DataDir repo)** — retire, ignore, or keep as optional ops-only tool once per-workspace repos exist? Recommendation: do not init `DataDir/.git` going forward; leave existing capability until per-workspace save/JIT replaces the UX need. (Substrate Option A locked; this is retire-vs-ops-only only.)
@@ -82,15 +83,15 @@ commands                git clone/pull/push/status   Git HTTPS gateway (http-bac
 | Desktop mapping load + resolve | Done | G5–G7 |
 | Folder picker + mapping Get/Put API | Done (G6 desktop) | G7 (done) |
 | App login / session | Done | G4 issues git-scoped credential |
-| Slice 1 tree browse / stale / reparse | Partial / planned | G8 post-pull parse invalidation; gateway itself does not require full Slice 1 |
-| Placement Slice B | Parallel | **Do not block Git**; do not edit those docs/code from this track |
+| Disk-to-graph reconciliation and expand-to-parse / freshness UI | Planned under Lazy Load | Not required by the Git gateway or G0–G7 transport |
+| File/directory create/move placement work | Parallel | **Do not block Git**; do not edit those docs/code from this track |
 
-## Ordered slices
+## Ordered work items
 
 ### G0 — Doc lock (no code) ✅
 
 - **Done:** Locked dirty push = **reject-dirty** in [[git-sync-gateway]] (no JIT on push; JIT only before fetch/pull).
-- **Done:** Struck legacy label-prefixed disk paths in gateway + [[workspace-scale-import]] Slice 2 blurb; use `DataDir/{label}/`.
+- **Done:** Struck legacy label-prefixed disk paths in the gateway and Git transport summary in [[workspace-scale-import]]; use `DataDir/{label}/`.
 - **Done:** Remote name **`ambit`** in those docs.
 - **Done:** Checklist Git section links here + gateway; push bullet no longer contradicts reject-dirty.
 - **Done (substrate):** Locked **Option A** — subprocess stock `git` everywhere; `WorkspaceGit` reuses GitSave patterns; gateway delegates wire to `git`; Shared = pure only. Recorded in [[git-sync-gateway]] Locked decisions.
@@ -158,47 +159,49 @@ commands                git clone/pull/push/status   Git HTTPS gateway (http-bac
 - Success: checklist Client Git bullets satisfied for happy path + main reject paths; user can go from zero mapping to a working `ambit` remote without editing `config.json` by hand.
 - Tests: Shared.Tests — `formatStatusLine`, `canDesktopGit`, `tryWorkspaceGitLabel`; manual desktop smoke for dialogs.
 
-### G8 — Post-push / post-pull graph follow-up (thin)
+### Handoff — response after Git changes
 
-- After successful push: trigger minimal disk→graph reconcile for that workspace (sync-tree or agreed stub) so poll delivers new File/Directory nodes — ties checklist Lazy Load “on successful push…”.
-- After pull: all file nodes are marked current.  No other changes to nodes.  (history note: pull makes disk **current**, not “stale” in the Slice 1 external-edit sense). Full lazy-load program stays under Lazy Load checklist.
-- Success: push of a new file eventually visible as a graph stub; pull of changed content does not leave silently wrong parse children.
+The former G8 is not a Git transport step. [[lazy-load]] is the canonical project document and records the decision, implemented create-only increment, and remaining capabilities.
 
-### G9 — Optional “any fast-forward” (soft)
+- After successful server receive, **create-only disk-to-graph stub reconciliation is implemented** for added paths through standard server graph changes. Moves, renames, and deletes remain.
+- After desktop pull, **expand-to-parse and freshness UI** reports the local file as current, unparsed, older, or newer without making pull itself a graph operation.
+- G7 is therefore the end of this implementation sequence. Remaining work is tracked under [[workspaces-checklist]] § Lazy Load, not as unfinished Git work.
+
+### Deferred policy option — “any fast-forward”
 
 - Only if product wants explicit confirmation beyond denyNonFastForwards.
 - Otherwise mark checklist item cancelled or absorbed into G3.
 
-## Tests (by slice)
+## Tests (by work item)
 
-| Slice | Where |
+| Work item | Where |
 | --- | --- |
 | G1–G2 | Server.Tests — init, scoped commit, porcelain |
 | G3–G4 | Server integration — gateway FF/dirty/auth |
 | G5 | Shared.Tests — `DesktopGitTests` (temp repos), status/URL contract; Desktop endpoints in `DesktopGitEndpoints` |
 | G6 | Shared.Tests — mapping encode/upsert/`tryGitRoot`; Desktop `WorkspaceMappingEndpoints` + `FolderPicker` (manual smoke for dialog) |
 | G7 | Shared.Tests — status format / label / capability gate; Client `UpdateWorkspaceGit` (manual desktop smoke for picker) |
-| G8 | Shared planner tests if reconcile is pure; else Server.Tests |
 
 ## Out of scope / non-goals
 
-- Implementing FileNodeOps / placement or flipping Slice B checklist items.
+- Implementing FileNodeOps / file-directory create/move placement or flipping those checklist items.
 - Server merge for files; conflict marker nodes for git.
 - Replacing [[doc/current/sync-mvp]] HTTP sync.
-- Creating missing Slice 1 plan file or claiming Slice 1 fully done without a separate audit.
+- Implementing disk-to-graph reconciliation, expand-to-parse, or freshness UI from this Git transport plan.
 - Migrating leftover local legacy marker-prefixed folders under `data/` ([[workspace-name-verbatim]] non-goal).
 
 ## Doc placement
 
 | Doc | Role |
 | --- | --- |
-| **This file** | Implementation plan and slice tracking for Git checklist items |
+| **This file** | Completed implementation record for Git transport checklist items G0–G7 |
 | [[git-sync-gateway]] | Protocol, flows, locked decisions (paths / `ambit` / reject-dirty locked in G0) |
 | [[workspaces-checklist]] | Living checkboxes; Git section links here + gateway |
-| [[workspace-scale-import]] | Parent Slice 2 blurb; points at gateway + this plan |
+| [[lazy-load]] | Canonical Lazy Load project, Git boundary, current status, and remaining capabilities |
+| [[workspace-scale-import]] | Parent workspace-scale summary; points at gateway + this record |
 | [[doc/index]] | Status line for Git workspace sync |
 
-When a slice ships, mark checklist boxes and move durable behavior into [[doc/current/]] (or extend desktop/mapping current docs); do not leave implemented behavior only in roadmap.
+When a work item ships, mark checklist boxes and move durable behavior into [[doc/current/]] (or extend desktop/mapping current docs); do not leave implemented behavior only in roadmap.
 
 ## Assumptions
 

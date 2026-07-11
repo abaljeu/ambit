@@ -21,7 +21,7 @@ One workspace folder per name under DataDir; ownership and on-disk layout.
 - [x] Name collision prevention on new workspace/directory/file, and on rename or move directory/file, needs to account for the root folder structure.
 
 ## Git
-Each workspace directory is its own git repository (server and mapped local roots). Protocol and locked decisions: [[git-sync-gateway]]. Ordered slices: [[workspace-scale-import-slice2-plan]]. Desktop remote name is **`ambit`**.
+Each workspace directory is its own git repository (server and mapped local roots). Protocol and locked decisions: [[git-sync-gateway]]. Completed G0–G7 implementation record: [[workspace-scale-import-slice2-plan]]. Desktop remote name is **`ambit`**. Git transport ends after the client commands and sync status below; response to changed files belongs to Lazy Load.
 
 - [x] Init empty repo in a new server directory
 - [x] Commit all files to repo on server
@@ -68,10 +68,11 @@ How users create, open, navigate, and work in workspaces in the UI (commands / k
 - [ ] **Multi-client graph merge** — eventual consistency and conflict markers across clients (separate from git push/pull). See [[future-merge-sync]], [[git-sync-gateway]], [[postgres-roadmap]].  STILL needed for non-desktop clients and direct in-app edits. git merge is not available on client side; we could employ server-side git merge.
 
 ## Lazy Load
-Bringing existing trees or repos into the workspace model.
-- [ ] On (successful) push, all file and directory nodes must exist in graph.
-- [ ] All files, directory workspace contents are not automatically converted into graph.
-- [ ] When one of these is expanded, then the file is parsed and nodes updated
-- [ ] Client shows nodes are stale if file is newer than node, or not parsed.
-- [ ] **Documents as load units** — one graph, many documents (`docId` / membership); load and unload whole documents rather than one giant snapshot. Stage 9 still open. See [[workspace-file-model]], [[revising-workspace-file-model]], [[postgres-roadmap]] §5.
-- [ ] **Later scale (residency / memory / search / annotations)** — server lazy residency, client unload of parsed files, repo-wide query, annotation migration when files change. Explicitly deferred after Slice 1–2. See [[workspace-scale-file-and-db-management]], [[workspace-scale-import]].
+Bringing existing trees or repos into the workspace model and responding after Git changes. Canonical project and decisions: [[lazy-load]].
+- [x] **Create-only post-receive reconciliation** — after successful server receive, added paths create or reuse matching Directory and File stubs under the named Workspace through standard server Change lists; initial push is supported.
+- [x] **Structural stubs only** — current reconciliation does not parse file contents or create parsed child nodes.
+- [ ] **Complete disk-to-graph reconciliation** — add moves, renames, standard deletes, and repair/retry after a best-effort reconciliation failure.
+- [ ] **Expand-to-parse** — when a file is expanded, parse it and merge the result into existing nodes.
+- [ ] **Freshness UI** — show whether the local file is current, unparsed, older than the server file, or newer than the server file.
+- [ ] **Documents as load units** — one graph, many documents (`docId` / membership); load and unload whole documents rather than one giant snapshot. See [[workspace-file-model]], [[revising-workspace-file-model]], [[postgres-roadmap]] §5.
+- [ ] **Later residency/search work** — server lazy residency, client unload/LRU, repo-wide query, and annotation migration when files change. See [[workspace-scale-file-and-db-management]], [[workspace-scale-import]].

@@ -58,21 +58,20 @@ Might be next: Stage 5 unresolved UI and server file-status corrections.
 ### **Workspace file model and persistence**
 Status: **Partial**.
 Details: [[doc/roadmap/workspace-file-model.md]], [[doc/current/workspace-stage-plan.md]].
-Last implemented: Stage 8 snapshot integration and incremental persist on top of Stage 7 `DataDir` live-save and unified path moves.
-Might be next: XML read/write slice (Stage 7 Step 6 — [[doc/roadmap/workspace-format-xml.md]]); workspace scale import slice 1; Stage 5 unresolved UI corrections.
+Last implemented: Per-document snapshot integration and incremental persist on top of `DataDir` live-save and unified path moves.
+Might be next: XML read/write ([[doc/roadmap/workspace-format-xml.md]]); disk-to-graph stub reconciliation and expand-to-parse / freshness UI; unresolved-reference UI and server file-status corrections.
 
-### **Workspace import and source formats**
-Status: **Planned**.
-Details: [[doc/roadmap/workspace-scale-import.md]].
-Last implemented: No current baseline is listed here.
-Might be next: Repo file-tree browsing with on-demand parse/edit for individual files.
+### **Lazy Load and workspace source formats**
+Status: **Partial**.
+Details: [[doc/roadmap/lazy-load.md]], [[doc/roadmap/workspace-scale-import.md]].
+Last implemented: Successful server receives reconcile added source paths into unparsed Directory/File stubs under the named Workspace; initial pushes and best-effort failure policy are covered.
+Might be next: Implement move/rename/delete reconciliation (decisions locked in [[lazy-load]]), then expand-to-parse and freshness metadata/UI.
 
-### **Git workspace sync (desktop pull/push via gateway)**
-Status: **In progress** (G0–G7 done; G8 graph follow-up next).
-Details: [[git-sync-gateway]], [[workspace-scale-import-slice2-plan]].
+### **Git workspace transport (desktop pull/push via gateway)**
+Status: **Implemented** (G0–G7).
+Details: [[git-sync-gateway]], [[workspace-scale-import-slice2-plan]], [[lazy-load]].
 Last implemented: Client Connect/Clone/Download/Upload/Git status (gated on desktop `canGit`); G5–G6 desktop APIs + gateway + PAT.
-Depends on: Workspace scale import slice 1 (Stage 7 `DataDir` live-save is done).
-Might be next: G8 post-push/post-pull graph reconcile.
+Handoff: Git transport ends after G7. Create-only post-receive reconciliation is implemented under [[lazy-load]]; expand-to-parse and freshness remain separate.
 
 ### **Amble run**
 Status: **Evolving**.
