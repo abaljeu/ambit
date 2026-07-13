@@ -248,4 +248,8 @@ module WorkspaceLocalMapping =
                     | :? ArgumentException -> Error "invalid_path"
                     | :? NotSupportedException -> Error "invalid_path"
                     | :? PathTooLongException -> Error "invalid_path"
+
+    /// User-facing error when label has no desktop mapping.
+    let missingMappingMessage (label: string) : string =
+        sprintf "no local mapping for workspace '%s'" label
 #endif

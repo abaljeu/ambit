@@ -8,6 +8,8 @@ open Gambol.Shared
 open Microsoft.AspNetCore.Http
 
 /// `/_desktop/git-*` handlers (G5). Mapping must already exist in config.
+/// Push/pull/clone take optional Ambit `{username,token}` from `/ambit/git-token`
+/// and inject Basic auth for that git invocation (no GCM store).
 [<RequireQualifiedAccess>]
 module DesktopGitEndpoints =
 
@@ -44,37 +46,33 @@ module DesktopGitEndpoints =
             | s when s.Trim().Length = 0 -> None
             | s -> Some (s.Trim())
 
-    let private decodeLabel (body: string) : Result<string, string> =
-        try
-            use document = JsonDocument.Parse body
-            match tryGetString document.RootElement "label" with
-            | None -> Error "label is required"
-            | Some label -> Ok label
-        with
-        | :? JsonException -> Error "invalid JSON"
+    let private tryGetAuth (root: JsonElement) : (string * string) option =
+        match tryGetString root "username", tryGetString root "token" with
+        | Some user, Some token -> Some(user, token)
+        | _ -> None
 
-    let private decodeLabelAndPath
+    let private decodeLabelAuth
         (body: string)
-        : Result<string * string option, string> =
+        : Result<string * (string * string) option, string> =
         try
             use document = JsonDocument.Parse body
             let root = document.RootElement
             match tryGetString root "label" with
             | None -> Error "label is required"
-            | Some label -> Ok(label, tryGetString root "path")
+            | Some label -> Ok(label, tryGetAuth root)
         with
         | :? JsonException -> Error "invalid JSON"
 
-    let private decodeCredential
+    let private decodeLabelAndPath
         (body: string)
-        : Result<string * string, string> =
+        : Result<string * string option * (string * string) option, string> =
         try
             use document = JsonDocument.Parse body
             let root = document.RootElement
-            match tryGetString root "username", tryGetString root "token" with
-            | Some user, Some token -> Ok(user, token)
-            | None, _ -> Error "username is required"
-            | _, None -> Error "token is required"
+            match tryGetString root "label" with
+            | None -> Error "label is required"
+            | Some label ->
+                Ok(label, tryGetString root "path", tryGetAuth root)
         with
         | :? JsonException -> Error "invalid JSON"
 
@@ -84,7 +82,8 @@ module DesktopGitEndpoints =
         : Result<string, string> =
         match WorkspaceLocalMapping.resolvePath workspaceMap label "" with
         | Ok path -> Ok path
-        | Error _ -> Error "workspace mapping not found"
+        | Error _ ->
+            Error(WorkspaceLocalMapping.missingMappingMessage label)
 
     let private okDetail (detail: string) =
         "{\"ok\":true,\"detail\":" + quoteJson detail + "}"
@@ -113,7 +112,7 @@ module DesktopGitEndpoints =
         let! body = readBody context
         match decodeLabelAndPath body with
         | Error message -> do! writeBadRequest context message
-        | Ok (label, pathOpt) ->
+        | Ok (label, pathOpt, _) ->
             let rootResult =
                 match pathOpt with
                 | Some path -> Ok path
@@ -133,15 +132,15 @@ module DesktopGitEndpoints =
         (context: HttpContext)
         = task {
         let! body = readBody context
-        match decodeLabel body with
+        match decodeLabelAuth body with
         | Error message -> do! writeBadRequest context message
-        | Ok label ->
+        | Ok (label, auth) ->
             match resolveMappedRoot workspaceMap label with
             | Error message -> do! writeBadRequest context message
             | Ok localPath ->
-                match DesktopGit.pull localPath with
+                match DesktopGit.pull localPath auth with
                 | Error err -> do! writeBadRequest context err
-                | Ok detail -> do! writeJson context (okDetail detail)
+                | Ok _ -> do! writeJson context (okDetail localPath)
     }
 
     let private handlePush
@@ -149,13 +148,13 @@ module DesktopGitEndpoints =
         (context: HttpContext)
         = task {
         let! body = readBody context
-        match decodeLabel body with
+        match decodeLabelAuth body with
         | Error message -> do! writeBadRequest context message
-        | Ok label ->
+        | Ok (label, auth) ->
             match resolveMappedRoot workspaceMap label with
             | Error message -> do! writeBadRequest context message
             | Ok localPath ->
-                match DesktopGit.push localPath with
+                match DesktopGit.push localPath auth with
                 | Error err -> do! writeBadRequest context err
                 | Ok detail -> do! writeJson context (okDetail detail)
     }
@@ -165,9 +164,9 @@ module DesktopGitEndpoints =
         (context: HttpContext)
         = task {
         let! body = readBody context
-        match decodeLabel body with
+        match decodeLabelAuth body with
         | Error message -> do! writeBadRequest context message
-        | Ok label ->
+        | Ok (label, _) ->
             match resolveMappedRoot workspaceMap label with
             | Error message -> do! writeBadRequest context message
             | Ok localPath ->
@@ -183,34 +182,12 @@ module DesktopGitEndpoints =
         let! body = readBody context
         match decodeLabelAndPath body with
         | Error message -> do! writeBadRequest context message
-        | Ok (_, None) -> do! writeBadRequest context "path is required"
-        | Ok (label, Some localPath) ->
+        | Ok (_, None, _) -> do! writeBadRequest context "path is required"
+        | Ok (label, Some localPath, auth) ->
             let url = WorkspaceGitRemote.remoteUrl ambitBase label
-            match DesktopGit.clone url localPath with
+            match DesktopGit.clone url localPath auth with
             | Error err -> do! writeBadRequest context err
             | Ok detail -> do! writeJson context (okDetail detail)
-    }
-
-    let private handleCredential
-        (ambitBase: string)
-        (context: HttpContext)
-        = task {
-        let! body = readBody context
-        match decodeCredential body with
-        | Error message -> do! writeBadRequest context message
-        | Ok (username, token) ->
-            match DesktopGit.hostFromAmbitBase ambitBase with
-            | Error err -> do! writeBadRequest context err
-            | Ok host ->
-                let protocol =
-                    try
-                        let uri = Uri(ambitBase)
-                        uri.Scheme
-                    with _ ->
-                        "https"
-                match DesktopGit.storeCredential protocol host username token with
-                | Error err -> do! writeBadRequest context err
-                | Ok () -> do! writeJson context "{\"ok\":true}"
     }
 
     let tryHandle
@@ -237,9 +214,6 @@ module DesktopGitEndpoints =
                     return true
                 elif path.Equals(PathString "/_desktop/git-clone") then
                     do! handleClone ambitBase context
-                    return true
-                elif path.Equals(PathString "/_desktop/git-credential") then
-                    do! handleCredential ambitBase context
                     return true
                 else
                     return false

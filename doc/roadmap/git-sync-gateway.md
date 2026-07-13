@@ -181,7 +181,7 @@ GitHub CLI (`gh auth login`) stores credentials so **`git push` / `git pull` wor
 | **HTTPS + PAT** | Deterministic git-scoped token from `Auth:Username` / `Auth:Password` via `AuthToken.deriveGitToken` (HMAC over `git:{username}` — **not** the browser cookie value). |
 | **Issue** | After normal login (cookie session): `GET /ambit/git-token` → JSON `{ "username", "token" }`. When Auth is empty, response reports `disabled` and the gateway is open. |
 | **Wire auth** | Smart HTTP expects `Authorization: Basic` with that username and PAT. Cookie alone → 401 + `WWW-Authenticate: Basic realm="Gambol Git"`. |
-| **Credential helper** | Store username + PAT in Git Credential Manager / `git credential` for the gateway host. Desktop: `POST /_desktop/git-credential` (G5); client Connect/Clone issues token and stores it (G7). |
+| **Credential helper** | Desktop-invoked git only: client issues PAT at `GET /ambit/git-token` after Ambit login, passes `{username,token}` on `/_desktop/git-pull|git-push|git-clone`; Desktop injects `Authorization: Basic` via `GIT_CONFIG_*` / `http.extraHeader` and clears `credential.helper` for that invocation (no GCM store). |
 | **SSH** | Deferred. |
 | **Not sufficient** | Browser session cookie alone does not authenticate git smart HTTP. |
 

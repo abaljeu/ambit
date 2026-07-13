@@ -175,11 +175,6 @@ let parseOrPushOp (model: VM) : VM * Effect list =
     | Some(PushWorkspace _) -> gitPushOp model
     | None -> model, []
 
-let pullWorkspaceOp (model: VM) : VM * Effect list =
-    match contextualTargetForModel model with
-    | Some(PushWorkspace _) -> gitPullOp model
-    | _ -> model, []
-
 let private contextualCommandAvailable (model: VM) =
     match contextualTargetForModel model with
     | Some(ParseFile _) ->
@@ -248,7 +243,7 @@ let commandRegistry : CommandEntry2 list =
       cmd Save (keyAlways gitSaveOp)
       cmd GitConnect (keyAlways gitConnectOp)
       cmd GitClone (keyAlways gitCloneOp)
-      cmd GitPull (keyAlways pullWorkspaceOp)
+      cmd GitPull (keyAlways gitPullOp)
       cmd GitPush (keyAlways gitPushOp)
       cmd GitStatus (keyAlways gitStatusOp)
     ]

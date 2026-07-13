@@ -48,11 +48,34 @@ let private encodeLabelPath (label: string) (path: string) : string =
           "path", Encode.string path ]
     |> Thoth.Json.JavaScript.Encode.toString 0
 
-let private encodeCredential (username: string) (token: string) : string =
-    Encode.object
-        [ "username", Encode.string username
-          "token", Encode.string token ]
-    |> Thoth.Json.JavaScript.Encode.toString 0
+/// Label (+ optional Ambit git PAT) for desktop push/pull/clone.
+let private encodeLabelAuth
+    (label: string)
+    (auth: (string * string) option)
+    : string =
+    match auth with
+    | None -> encodeLabel label
+    | Some(user, token) ->
+        Encode.object
+            [ "label", Encode.string label
+              "username", Encode.string user
+              "token", Encode.string token ]
+        |> Thoth.Json.JavaScript.Encode.toString 0
+
+let private encodeLabelPathAuth
+    (label: string)
+    (path: string)
+    (auth: (string * string) option)
+    : string =
+    match auth with
+    | None -> encodeLabelPath label path
+    | Some(user, token) ->
+        Encode.object
+            [ "label", Encode.string label
+              "path", Encode.string path
+              "username", Encode.string user
+              "token", Encode.string token ]
+        |> Thoth.Json.JavaScript.Encode.toString 0
 
 let private postDesktop (url: string) (body: string) : Result<string, string> =
     let status, text = postJsonSync url body (jsonHeaders ())
@@ -86,24 +109,18 @@ let private upsertMapping (label: string) (path: string) : Result<unit, string> 
     | Error e -> Error e
     | Ok _ -> Ok ()
 
-let private ensureCredential () : Result<unit, string> =
+/// Ambit session → git PAT (or None when gateway auth disabled).
+let private fetchGitAuth () : Result<(string * string) option, string> =
     let status, text = getJsonSync "/ambit/git-token"
     if status = 401 then
-        Error "login required for git credentials"
+        Error "login required for git"
     elif status < 200 || status >= 300 then
         Error(httpError status text)
     else
         match decodeGitTokenIssue text with
         | Error e -> Error e
-        | Ok GitAuthDisabled -> Ok ()
-        | Ok (GitToken (user, token)) ->
-            match
-                postDesktop
-                    "/_desktop/git-credential"
-                    (encodeCredential user token)
-            with
-            | Error e -> Error e
-            | Ok _ -> Ok ()
+        | Ok GitAuthDisabled -> Ok None
+        | Ok (GitToken (user, token)) -> Ok (Some(user, token))
 
 let private setRemote (label: string) (path: string) : Result<string, string> =
     match postDesktop "/_desktop/git-remote" (encodeLabelPath label path) with
@@ -126,17 +143,22 @@ let private runLabeled
         match requireLabel model with
         | Error msg -> fail model msg
         | Ok label ->
-            match postDesktop url (encodeLabel label) with
+            match fetchGitAuth () with
             | Error e -> fail model e
-            | Ok text ->
-                match decodeDesktopGitOk text with
-                | Ok { ok = true; detail = d } -> okDetail model (onOk d)
-                | Ok { error = Some e } -> fail model e
-                | Ok _ -> fail model "request failed"
+            | Ok auth ->
+                match postDesktop url (encodeLabelAuth label auth) with
                 | Error e -> fail model e
+                | Ok text ->
+                    match decodeDesktopGitOk text with
+                    | Ok { ok = true; detail = d } ->
+                        okDetail model (onOk d)
+                    | Ok { error = Some e } -> fail model e
+                    | Ok _ -> fail model "request failed"
+                    | Error e -> fail model e
 
 let gitPullOp (model: VM) : VM * Effect list =
-    runLabeled model "/_desktop/git-pull" (fun d -> "pulled: " + d)
+    // Detail body is the mapped local path (from desktop ok.detail).
+    runLabeled model "/_desktop/git-pull" (fun path -> path)
 
 let gitPushOp (model: VM) : VM * Effect list =
     runLabeled model "/_desktop/git-push" (fun d -> "pushed: " + d)
@@ -160,12 +182,9 @@ let private connectAtPath (model: VM) (label: string) (path: string) =
     match upsertMapping label path with
     | Error e -> fail model e
     | Ok () ->
-        match ensureCredential () with
+        match setRemote label path with
         | Error e -> fail model e
-        | Ok () ->
-            match setRemote label path with
-            | Error e -> fail model e
-            | Ok url -> okDetail model ("connected " + label + " → " + url)
+        | Ok url -> okDetail model ("connected " + label + " → " + url)
 
 let gitConnectOp (model: VM) : VM * Effect list =
     if not (WorkspaceGitRemote.canDesktopGit model.desktopCapabilities) then
@@ -180,13 +199,17 @@ let gitConnectOp (model: VM) : VM * Effect list =
             | Ok path -> connectAtPath model label path
 
 let private cloneAtPath (model: VM) (label: string) (path: string) =
-    match postDesktop "/_desktop/git-clone" (encodeLabelPath label path) with
+    match fetchGitAuth () with
     | Error e -> fail model e
-    | Ok _ ->
-        match upsertMapping label path with
+    | Ok auth ->
+        match
+            postDesktop
+                "/_desktop/git-clone"
+                (encodeLabelPathAuth label path auth)
+        with
         | Error e -> fail model e
-        | Ok () ->
-            match ensureCredential () with
+        | Ok _ ->
+            match upsertMapping label path with
             | Error e -> fail model e
             | Ok () ->
                 match setRemote label path with

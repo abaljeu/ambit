@@ -141,9 +141,8 @@ body {
     display: block;
     flex: 1 1 auto;
     min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    white-space: normal;
+    overflow-wrap: anywhere;
     font-size: 0.7rem;
     color: #849;
     font-family: monospace;

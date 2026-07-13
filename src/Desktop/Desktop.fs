@@ -60,9 +60,9 @@ module Program =
             createStatusText ("Current directory: " + Environment.CurrentDirectory)
 
         let statusPanel =
-            StackPanel(
+            WrapPanel(
                 Background = Brushes.WhiteSmoke,
-                Orientation = Orientation.Vertical)
+                Orientation = Orientation.Horizontal)
 
         statusPanel.Children.Add urlText |> ignore
         statusPanel.Children.Add statusText |> ignore

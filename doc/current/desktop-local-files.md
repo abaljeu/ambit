@@ -54,11 +54,10 @@ Web client (no desktop host): capabilities request fails; all flags treated as d
 | `GET` | `/_desktop/file?path=...` | Read local file or directory listing (import) |
 | `POST` | `/_desktop/file` | Write content to local file (export) |
 | `POST` | `/_desktop/git-remote` | Set/update remote `ambit` for a mapped label (`{label}` or `{label,path}`) |
-| `POST` | `/_desktop/git-pull` | `git pull ambit <branch>` in mapped root (`{label}`) |
-| `POST` | `/_desktop/git-push` | `git push ambit <branch>` in mapped root (`{label}`) |
+| `POST` | `/_desktop/git-pull` | `git pull ambit <branch>` in mapped root (`{label}` + optional Ambit `{username,token}`) |
+| `POST` | `/_desktop/git-push` | `git push ambit <branch>` in mapped root (`{label}` + optional Ambit `{username,token}`) |
 | `POST` | `/_desktop/git-status` | `git status -sb` → ahead/behind/dirty (`{label}`) |
-| `POST` | `/_desktop/git-clone` | `git clone` gateway URL into `{label,path}` (path required) |
-| `POST` | `/_desktop/git-credential` | Store HTTPS PAT via `git credential approve` (`{username,token}`) |
+| `POST` | `/_desktop/git-clone` | `git clone` gateway URL into `{label,path}` (path required; optional Ambit `{username,token}`) |
 | `GET` | `/_desktop/workspace-mappings` | List label → path bindings |
 | `PUT` | `/_desktop/workspace-mappings` | Upsert `{label,path}` or replace full `workspaceMappings` array; persists config |
 | `POST` | `/_desktop/pick-folder` | Native folder browse; optional `requireGit` |
@@ -113,9 +112,11 @@ Registered in the command palette (`src/Client/Commands.fs`):
   (via `UpdateExport.fs`, `POST /_desktop/file`).
 - **Connect remote** / **Clone workspace** / **Download** / **Upload** / **Git status** — workspace
   git sync (via `UpdateWorkspaceGit.fs`). Require desktop `git.git` (`canGit`); hidden from the
-  palette otherwise. Focus must be under a named workspace. Connect/Clone pick a folder, upsert
-  mapping, issue `GET /ambit/git-token` + store credential, set remote `ambit`. Download/Upload/
-  Git status call `/_desktop/git-pull|git-push|git-status`. Results in `#cmd-last-result`.
+  palette otherwise. Focus must be under a named workspace. Connect picks a folder, upserts
+  mapping, sets remote `ambit`. Clone/Download/Upload call `GET /ambit/git-token` (Ambit login)
+  and pass the PAT on `/_desktop/git-clone|git-pull|git-push` (Desktop injects Basic auth for
+  that git invocation; no GCM store). Git status calls `/_desktop/git-status`. Results in
+  `#cmd-last-result`.
 
 Import/Export require matching desktop capabilities (`import` / `export`) and are blocked during
 command palette, search dialog, and CSS-class prompt modes.

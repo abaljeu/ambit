@@ -104,6 +104,21 @@ let ``resolvePath accepts valid relative path`` () =
     | Ok resolved -> Assert.StartsWith("C:\\repo", resolved)
 
 [<Fact>]
+let ``resolvePath missing label is invalid_workspace`` () =
+    let mappings =
+        { entries = [] }
+        |> WorkspaceLocalMapping.toMap
+    match WorkspaceLocalMapping.resolvePath mappings "home" "" with
+    | Ok _ -> Assert.Fail("expected missing mapping")
+    | Error err -> Assert.Equal("invalid_workspace", err)
+
+[<Fact>]
+let ``missingMappingMessage names the workspace label`` () =
+    Assert.Equal(
+        "no local mapping for workspace 'home'",
+        WorkspaceLocalMapping.missingMappingMessage "home")
+
+[<Fact>]
 let ``encode round-trips through decode`` () =
     let original =
         { entries =

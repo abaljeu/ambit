@@ -87,10 +87,50 @@ let ``canDesktopGit requires git capability`` () =
             (Some (DesktopCapabilities.desktopEnabled false)))
 
 [<Fact>]
-let ``hostFromAmbitBase extracts host`` () =
-    match DesktopGit.hostFromAmbitBase "https://example.org/ambit" with
-    | Ok host -> Assert.Equal("example.org", host)
-    | Error err -> Assert.Fail(err)
+let ``basicAuthHeaderValue encodes user and token`` () =
+    let header = DesktopGit.basicAuthHeaderValue "alice" "pat"
+    Assert.StartsWith("Basic ", header)
+    let b64 = header.Substring(6)
+    let decoded =
+        Text.Encoding.UTF8.GetString(Convert.FromBase64String(b64))
+    Assert.Equal("alice:pat", decoded)
+
+[<Fact>]
+let ``gitAuthConfigPairs clears credential helper without auth`` () =
+    let pairs = DesktopGit.gitAuthConfigPairs None
+    Assert.Equal(1, pairs.Length)
+    Assert.Equal(("credential.helper", ""), pairs.[0])
+
+[<Fact>]
+let ``gitAuthConfigPairs adds Authorization header with auth`` () =
+    let pairs = DesktopGit.gitAuthConfigPairs (Some("alice", "pat"))
+    Assert.Equal(2, pairs.Length)
+    Assert.Equal(("credential.helper", ""), pairs.[0])
+    let key, value = pairs.[1]
+    Assert.Equal("http.extraHeader", key)
+    Assert.Equal(
+        "Authorization: " + DesktopGit.basicAuthHeaderValue "alice" "pat",
+        value)
+
+[<Fact>]
+let ``filterGitErrorDetail strips unencrypted HTTP warning`` () =
+    let raw =
+        "warning: use of unencrypted HTTP remote URLs is not recommended; "
+        + "see https://aka.ms/gcm/http\n"
+        + "fatal: Authentication failed for "
+        + "'http://localhost:5115/ambit/git/d.git/'"
+    let filtered = DesktopGit.filterGitErrorDetail raw
+    Assert.False(
+        filtered.Contains("unencrypted HTTP"),
+        "GCM HTTP warning should be stripped")
+    Assert.True(
+        filtered.Contains("Authentication failed"),
+        "fatal auth message should remain")
+
+[<Fact>]
+let ``filterGitErrorDetail leaves unrelated stderr intact`` () =
+    let raw = "fatal: not a git repository"
+    Assert.Equal(raw, DesktopGit.filterGitErrorDetail raw)
 
 [<SkippableFact>]
 let ``setAmbitRemoteForLabel adds ambit remote`` () =
@@ -158,7 +198,7 @@ let ``clone copies a local bare-ish repo path via file url`` () =
         | Error err -> failwith err
     let dest = Path.Combine(newTempDir (), "clone")
     let uri = Uri(src + Path.DirectorySeparatorChar.ToString()).AbsoluteUri
-    match DesktopGit.clone uri dest with
+    match DesktopGit.clone uri dest None with
     | Error err -> Assert.Fail(err)
     | Ok _ ->
         Assert.True(File.Exists(Path.Combine(dest, "note.txt")))

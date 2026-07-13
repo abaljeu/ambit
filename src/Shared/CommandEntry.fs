@@ -244,16 +244,16 @@ let allCommands : CommandEntry list =
         { id = Save; name = "Save"
           keys = [ "Ctrl+S" ]; keyScope = SelectionOrEditing
           iconId = None }
-        { id = GitConnect; name = "Connect remote"
+        { id = GitConnect; name = "Git Push to New Remote"
           keys = []; keyScope = SelectionOrEditing
           iconId = None }
-        { id = GitClone; name = "Clone workspace"
+        { id = GitClone; name = "Git Clone workspace"
           keys = []; keyScope = SelectionOrEditing
           iconId = None }
-        { id = GitPull; name = "Pull to Desktop"
+        { id = GitPull; name = "Git Pull to Desktop"
           keys = [ "Ctrl+Shift+<" ]; keyScope = SelectionOnly
           iconId = None }
-        { id = GitPush; name = "Upload"
+        { id = GitPush; name = "Git Push to Server"
           keys = []; keyScope = SelectionOrEditing
           iconId = None }
         { id = GitStatus; name = "Git status"
