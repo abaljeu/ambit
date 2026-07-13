@@ -40,13 +40,13 @@ Subtree reconciliation (`NodeId` matching, unnamed lines, deletion) follows **Re
 
 ## Reconciliation
 
-Import reconciles **(previous file text, current graph document, edited/new file text)** via shared outline LCS in Shared/DotNet ([[doc/roadmap/workspace-text-outline-conversion.md]] § Shared outline LCS reconcile). Match key is **line text only** (not depth). Edited depth always wins for matched lines, so external block re-indent keeps `NodeId`s when text LCS-matches. Export is operations-driven: only lines touched by an op change; untouched bytes — blank lines, line endings, indent style, and unmodified node lines — are preserved.
+Import reconciles **(previous file text, current graph document, edited/new file text)** via Shared/DotNet `DocumentFormat.readArtifact` → `PlainTextReconcile` / shared outline LCS ([[doc/roadmap/workspace-text-outline-conversion.md]] § Shared outline LCS reconcile). Match key is **line text only** (not depth). Edited depth always wins for matched lines, so external block re-indent keeps `NodeId`s when text LCS-matches. Export is operations-driven: only lines touched by an op change; untouched bytes — blank lines, line endings, indent style, and unmodified node lines — are preserved.
 
 | Change kind | Import behavior | Export behavior |
 | --- | --- | --- |
 | Unchanged imported text | No graph ops | Byte-identical write |
 | Unchanged exported outline | Graph-identical import for representable content; complement restores metadata plain text cannot encode | No file change |
-| Line text edit | LCS match (optional later hard-match on ` #name-token`); update node text; keep `NodeId` | Rewrite matched line only |
+| Line text edit | Text LCS match; update node text; keep `NodeId` (`hardKey` unset by design — no Plain hard-match) | Rewrite matched line only |
 | Line add | Mint new `NodeId`; insert Owner edge at inferred depth | Append or insert new line at correct depth |
 | Line delete | External deletion — reuse graph delete/ownership-migration semantics ([[doc/roadmap/workspace-text-outline-conversion.md]] § Deletion on import) | Remove matched line only |
 | External re-indent / reorder | Text LCS-match keeps `NodeId`; edited depth wins; ambiguous duplicate/blank runs use positional tie-break between unique anchors | N/A — import-side |
@@ -94,7 +94,7 @@ Format rules:
 - Tab and space files infer correctly; export preserves the inferred style without silent tab/space conversion.
 - Mixed and skipped indentation are flagged; depth remains deterministic and skipped units round-trip as text spaces.
 - Every file line (including blank) is one node; empty text projects as a blank line.
-- ` #name-token` sets `name`; invalid or duplicate suffixes are flagged (hard-match on import deferred).
+- ` #name-token` sets `name`; invalid or duplicate suffixes are flagged. Plain does not hard-match on that suffix (`hardKey` stays unset).
 - Ref-only lines round-trip at the correct depth; inline refs stay plain text.
 - Reconciled import preserves user `cssClasses`; unsupported constructs produce diagnostics.
 

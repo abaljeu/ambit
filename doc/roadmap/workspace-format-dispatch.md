@@ -54,7 +54,7 @@ Classification rules (reuse `classifyArtifactRelative`):
 For Plain: `PlainTextDocument.read` + parallel merge (same overlay/conflict rules).
 For Xml: `XmlDocument.read` + parallel merge (planned).
 
-`writeArtifact` for Amb: `AmbDocument.write` (no previous-text incremental path today).
+`writeArtifact` for Amb: `AmbDocument.write` (full-cloth; incremental write optional for git diffs only, not required for reconcile).
 For Plain: `PlainTextDocument.write graph docId complement previousText` where complement is
 `buildComplement` from the current graph; `previousText` is the on-disk artifact when present.
 For Xml: `XmlDocument.write graph docId complement previousText` (planned).

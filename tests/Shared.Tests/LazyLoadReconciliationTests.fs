@@ -163,6 +163,39 @@ let ``exact amb modify with text reparses instead of leaving unparsed`` () =
     Assert.Equal("fresh", graph3.nodes.[graph3.nodes.[docs.id].children.Head.id].text)
 
 [<Fact>]
+let ``exact amb modify warm keeps node id on text edit`` () =
+    let workspaceId, graph = Graph.create () |> addWorkspace "home"
+    let initial = Map.ofList [ "docs/.amb", "alpha" + System.Environment.NewLine ]
+    let ops1 =
+        match
+            LazyLoadReconciliation.planAddedPathsWithArtifacts
+                graph
+                "home"
+                [ "docs/.amb" ]
+                initial
+        with
+        | Ok o -> o
+        | Error err -> failwith err
+    let graph2 = applyOps graph ops1
+    let docs = childNamed graph2 workspaceId "docs"
+    let childId = docs.children.Head.id
+    Assert.Equal("alpha", graph2.nodes.[childId].text)
+    let edited = Map.ofList [ "docs/.amb", "ALPHA" + System.Environment.NewLine ]
+    let ops2 =
+        match
+            LazyLoadReconciliation.planChangedPathsWithArtifacts
+                graph2
+                "home"
+                [ LazyLoadReconciliation.Modified "docs/.amb" ]
+                edited
+        with
+        | Ok o -> o
+        | Error err -> failwith err
+    let graph3 = applyOps graph2 ops2
+    Assert.Equal(childId, graph3.nodes.[docs.id].children.Head.id)
+    Assert.Equal("ALPHA", graph3.nodes.[childId].text)
+
+[<Fact>]
 let ``repeated reconciliation reuses matching stubs`` () =
     let _, graph = Graph.create () |> addWorkspace "home"
     let graph2 = requirePlan graph "home" [ "src/core.fs" ] |> applyOps graph

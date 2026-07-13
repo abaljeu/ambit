@@ -51,7 +51,7 @@ Line breaks: `\n` or `\r\n`; normalize on read.
 
 ## Warm reconcile
 
-Warm import uses Shared/DotNet `AmbReconcile`: unique Owner/Ref durable keys hard-match first (`^<stable-id>`, `->^<stable-id>`), then shared outline LCS for plain rows and unmatched lines ([[doc/roadmap/workspace-text-outline-conversion.md]] § Shared outline LCS reconcile). Export for this slice remains full-cloth `AmbDocument.write` (no ops/`previousText` incremental write yet).
+Warm import uses Shared/DotNet `DocumentFormat.readArtifact` with `previousText` (routes to `AmbReconcile`: unique Owner/Ref durable keys hard-match first (`^<stable-id>`, `->^<stable-id>`), then shared outline LCS for plain rows and unmatched lines) ([[doc/roadmap/workspace-text-outline-conversion.md]] § Shared outline LCS reconcile). Lazy-load modify of an already-projected `.amb` exports the current graph as `previousText` (cold `None` only on first empty load). Export is full-cloth `AmbDocument.write`; that is sufficient for identity/reconcile. Ops-driven incremental write is optional only for quieter git diffs, not an open reconcile gap.
 
 ## Text to outline
 
@@ -95,13 +95,12 @@ Stable anchor is `^<stable-id>`. Cross-file form is `<workspace-relative-path>^<
 - Stable file-scoped and cross-file identity as above.
 - Subtree scope — workspace export projects one file subtree only.
 - Unsupported-structure reporting — workspace import reports what cannot round-trip.
-- Delta export (`file_next = f_out(file_prev, op)`) on top of this grammar.
+- Full-cloth export of one file subtree (canonical rewrite is fine; ops-driven delta write is optional for git-diff niceties only).
 
 ## Open Questions
 
 - Whether unknown stable id on import is an error or triggers mint-with-warning.
 - Exact cross-file path encoding when the target workspace label differs from the current file's workspace.
-- Delta export rules on top of this grammar (minimal diff vs full rewrite).
 
 ## Verification Targets
 

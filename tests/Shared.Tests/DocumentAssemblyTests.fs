@@ -382,3 +382,85 @@ let ``validateAssembledGraph catches overlapping document membership`` () =
     match DocumentAssembly.validateAssembledGraph graph4 with
     | Ok _ -> failwith "expected error"
     | Error msg -> Assert.Contains("member", msg)
+
+[<Fact>]
+let ``readArtifact warm Amb keeps stable id on text edit`` () =
+    let graph0 = Graph.create ()
+    let docId = NodeId.New()
+    let aId = NodeId.New()
+    let docNode =
+        Node.Create(
+            docId,
+            text = "notes.amb",
+            name = Filename.Ok "notes.amb",
+            owner = graph0.root,
+            kind = Special File,
+            children = owned [ aId ])
+    let aNode = Node.Create(aId, text = "alpha", owner = docId)
+    let graph =
+        graph0.nodes
+        |> Map.add docId docNode
+        |> Map.add aId aNode
+        |> fun nodes -> Graph.fromNodes graph0.root nodes
+    let previous =
+        "^" + AmbDocument.formatStableId aId + " alpha\n"
+    let edited =
+        "^" + AmbDocument.formatStableId aId + " ALPHA\n"
+    let after =
+        DocumentFormat.readArtifact "notes.amb" edited docId graph (Some previous)
+        |> requireOk "warm amb read"
+    Assert.Equal(aId, after.nodes.[docId].children.Head.id)
+    Assert.Equal("ALPHA", after.nodes.[aId].text)
+
+[<Fact>]
+let ``readArtifact warm Plain keeps id on line text edit`` () =
+    let graph0 = Graph.create ()
+    let docId = NodeId.New()
+    let aId = NodeId.New()
+    let bId = NodeId.New()
+    let docNode =
+        Node.Create(
+            docId,
+            text = "readme.txt",
+            name = Filename.Ok "readme.txt",
+            owner = graph0.root,
+            kind = Special File,
+            children = owned [ aId; bId ])
+    let aNode = Node.Create(aId, text = "alpha", owner = docId)
+    let bNode = Node.Create(bId, text = "beta", owner = docId)
+    let graph =
+        graph0.nodes
+        |> Map.add docId docNode
+        |> Map.add aId aNode
+        |> Map.add bId bNode
+        |> fun nodes -> Graph.fromNodes graph0.root nodes
+    let previous = "alpha\nbeta\n"
+    let edited = "ALPHA\nbeta\n"
+    let after =
+        DocumentFormat.readArtifact "readme.txt" edited docId graph (Some previous)
+        |> requireOk "warm plain read"
+    Assert.Equal(aId, after.nodes.[docId].children.Head.id)
+    Assert.Equal("ALPHA", after.nodes.[aId].text)
+    Assert.Equal(bId, after.nodes.[docId].children.[1].id)
+
+[<Fact>]
+let ``readArtifact cold Amb ignores previous when None`` () =
+    let graph0 = Graph.create ()
+    let docId = NodeId.New()
+    let docNode =
+        Node.Create(
+            docId,
+            text = "notes.amb",
+            name = Filename.Ok "notes.amb",
+            owner = graph0.root,
+            kind = Special File)
+    let graph =
+        graph0.nodes
+        |> Map.add docId docNode
+        |> fun nodes -> Graph.fromNodes graph0.root nodes
+    let text = "hello\n"
+    let after =
+        DocumentFormat.readArtifact "notes.amb" text docId graph None
+        |> requireOk "cold amb read"
+    Assert.Equal(1, after.nodes.[docId].children.Length)
+    Assert.Equal("hello", after.nodes.[after.nodes.[docId].children.Head.id].text)

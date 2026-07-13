@@ -11,6 +11,12 @@
     <Compile Include="OutlineReconcile.fs" />
     <Compile Include="PlainTextReconcile.fs" />
     <Compile Include="AmbReconcile.fs" />
+    <Compile Include="DocumentFormat.fs" />
+    <Compile Include="DocumentParseOps.fs" />
+    <Compile Include="DocumentAssembly.fs" />
+    <Compile Include="LazyLoadReconciliationPath.fs" />
+    <Compile Include="LazyLoadReconciliationApply.fs" />
+    <Compile Include="LazyLoadReconciliation.fs" />
   </ItemGroup>
 
   <ItemGroup>

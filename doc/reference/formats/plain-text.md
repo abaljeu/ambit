@@ -6,7 +6,7 @@
 - Every file line (including blank) is an outline node with `text = ""` for blanks; empty nodes project as blank lines both ways.
 - Match key for warm reconcile is line text only; edited depth wins for LCS-matched lines (block re-indent keeps `NodeId`). Export remains operations-driven with `previousText` byte preservation for untouched lines.
 - Tests drive the work. Filesystem integration stays in `src/Server/`.
-- Plain text must not gain Ambit-only syntax for hidden graph identity. No `NodeId`, `#name-token`, or ref target is emitted into arbitrary text just to preserve graph round trips. Hard-match on ` #name-token` for Plain is deferred.
+- Plain text must not gain Ambit-only syntax for hidden graph identity. No `NodeId`, `#name-token`, or ref target is emitted into arbitrary text just to preserve graph round trips. Plain leaves `hardKey` unset by design; no ` #name-token` hard-match is planned.
 - A Ref occurrence inside a plain text document exports as the target node's visible `text` line. Reimport from text alone loses that it was a Ref and creates/reconciles ordinary content unless an out-of-band current graph context preserves it.
 
 ## Scope

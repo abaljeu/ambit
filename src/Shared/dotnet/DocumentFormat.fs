@@ -22,7 +22,11 @@ module DocumentFormat =
         else
             Ok DocumentCodec.Plain
 
-    let mergeReadResult (context: Graph) (readResult: AmbDocumentReadResult) : Result<Graph, string> =
+    let mergeReadResult
+        (allowContentUpdate: bool)
+        (context: Graph)
+        (readResult: AmbDocumentReadResult)
+        : Result<Graph, string> =
         let graphWithRead = { context with nodes = readResult.nodes }
         let overlayIds =
             DocumentPartition.memberNodeIds graphWithRead readResult.documentRootId
@@ -35,16 +39,19 @@ module DocumentFormat =
                         nodeId))
 
         let conflict =
-            overlayIds
-            |> Seq.tryPick (fun nodeId ->
-                match Map.tryFind nodeId context.nodes, Map.tryFind nodeId readResult.nodes with
-                | Some existing, Some incoming when
-                    existing.text <> incoming.text
-                    || existing.name <> incoming.name
-                    || existing.kind <> incoming.kind
-                    ->
-                    Some ("conflicting node definition: " + AmbDocument.formatStableId nodeId)
-                | _ -> None)
+            if allowContentUpdate then
+                None
+            else
+                overlayIds
+                |> Seq.tryPick (fun nodeId ->
+                    match Map.tryFind nodeId context.nodes, Map.tryFind nodeId readResult.nodes with
+                    | Some existing, Some incoming when
+                        existing.text <> incoming.text
+                        || existing.name <> incoming.name
+                        || existing.kind <> incoming.kind
+                        ->
+                        Some ("conflicting node definition: " + AmbDocument.formatStableId nodeId)
+                    | _ -> None)
 
         match conflict with
         | Some msg -> Error msg
@@ -106,19 +113,34 @@ module DocumentFormat =
         (text: string)
         (documentRootId: NodeId)
         (context: Graph)
+        (previousText: string option)
         : Result<Graph, string> =
+        let allowContentUpdate = Option.isSome previousText
         classifyCodecForRead context documentRootId relativePath text
         |> Result.bind (function
             | DocumentCodec.Amb ->
-                AmbDocument.read text documentRootId context
-                |> Result.bind (mergeReadResult context)
+                match previousText with
+                | Some prev ->
+                    AmbReconcile.reconcile prev context documentRootId text
+                | None -> AmbDocument.read text documentRootId context
+                |> Result.bind (mergeReadResult allowContentUpdate context)
             | DocumentCodec.Plain ->
-                PlainTextDocument.read text documentRootId context
-                |> Result.bind (fun readResult ->
-                    mergeReadResult
+                match previousText with
+                | Some prev ->
+                    PlainTextReconcile.reconcile
+                        prev
                         context
+                        documentRootId
+                        text
+                    |> Result.map (fun readResult ->
                         { documentRootId = readResult.documentRootId
-                          nodes = readResult.nodes }))
+                          nodes = readResult.nodes })
+                | None ->
+                    PlainTextDocument.read text documentRootId context
+                    |> Result.map (fun readResult ->
+                        { documentRootId = readResult.documentRootId
+                          nodes = readResult.nodes })
+                |> Result.bind (mergeReadResult allowContentUpdate context))
 
     let writeArtifact
         (graph: Graph)

@@ -60,6 +60,13 @@ module internal LazyLoadReconciliationApply =
         =
         Map.tryFind (markerRelativePath info) artifacts
 
+    /// Prior artifact bytes for warm reconcile: export current graph when it
+    /// already projects outline text. Empty/missing → cold None (first load).
+    let previousArtifactText (graph: Graph) (nodeId: NodeId) (relativePath: string) =
+        match DocumentFormat.writeArtifact graph nodeId relativePath None with
+        | Ok prev when prev.Length > 0 -> Some prev
+        | _ -> None
+
     let parseDirInfoIfPresent
         graph
         workspaceId
@@ -76,11 +83,15 @@ module internal LazyLoadReconciliationApply =
                 |> Result.bind (function
                     | None -> Ok(graph, [])
                     | Some(nodeId, _) ->
+                        let relativePath = markerRelativePath info
+                        let previousText =
+                            previousArtifactText graph nodeId relativePath
                         DocumentParseOps.planApplyArtifact
                             graph
                             nodeId
-                            (markerRelativePath info)
+                            relativePath
                             text
+                            previousText
                         |> Result.bind (fun parseOps ->
                             applyOps graph parseOps
                             |> Result.map (fun next -> next, parseOps)))

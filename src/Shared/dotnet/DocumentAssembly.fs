@@ -194,7 +194,7 @@ module DocumentAssembly =
         (text: string)
         (docId: NodeId)
         : Result<Graph, string> =
-        DocumentFormat.readArtifact relativePath text docId graph
+        DocumentFormat.readArtifact relativePath text docId graph None
 
     let private seedNestedRefStubs
         (graph: Graph)

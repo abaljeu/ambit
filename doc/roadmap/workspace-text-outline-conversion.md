@@ -71,12 +71,12 @@ Each rule should name its counterpart in the other direction.
 Import/warm reconcile for outline-backed text formats uses a shared mechanism in `src/Shared/dotnet/` (`OutlineLcs` + `OutlineReconcile`, DiffPlex-backed). Format codecs flatten to / project from `{ depth; text; nodeId option }` lines; sequence diff + disposition policy are format-agnostic.
 
 - Match key is **text only** (not depth). DiffPlex equal → keep with edited depth/text; insert → mint; delete → external deletion semantics below.
-- **Hard-match pre-pass (optional):** unique durable keys on `OutlineLine.hardKey` (Amb Owner `^id`, Ref `->^id`) pair before LCS; duplicates fall through to LCS. Plain leaves `hardKey` unset.
-- Duplicates / blank runs: after DiffPlex, pair identical keys in order between neighboring unique anchors (positional tie-break). Plain ` #name-token` hard-match remains deferred.
+- **Hard-match pre-pass (optional):** unique durable keys on `OutlineLine.hardKey` (Amb Owner `^id`, Ref `->^id`) pair before LCS; duplicates fall through to LCS. Plain leaves `hardKey` unset by design — plain text has no hard-match elements.
+- Duplicates / blank runs: after DiffPlex, pair identical keys in order between neighboring unique anchors (positional tie-break).
 - Minimal in-place edit pass: among unmatched adjacent slots, pair one delete+insert as keep with new text when depths match.
-- Export stays operations-driven / previous-text byte preservation; LCS is the import/warm story only.
+- Export stays operations-driven / previous-text byte preservation where a format uses it; LCS is the import/warm story only.
 
-Consumers: Plain (`PlainTextReconcile`) and Amb (`AmbReconcile`) in Shared/DotNet. XML remains deferred. `DocumentFormat.readArtifact` stays cold — warm entry is the DotNet reconcile modules (DiffPlex is not Fable-safe).
+Consumers: Plain (`PlainTextReconcile`) and Amb (`AmbReconcile`) via Shared/DotNet `DocumentFormat.readArtifact` when `previousText` is present; cold `AmbDocument.read` / `PlainTextDocument.read` when absent. Lazy-load dir-info apply (`LazyLoadReconciliationApply.parseDirInfoIfPresent`) supplies `Some previousText` by exporting the current graph document when that export is non-empty; first load / empty stub stays cold `None`. `DocumentAssembly` cold bootstrap still passes `None` (no prior graph projection). XML-shaped files may continue via the Plain path for now; a separate Xml OutlineReconcile consumer is not a near-term requirement. Amb export is full-cloth `AmbDocument.write` by design for identity/reconcile; ops-driven incremental write is optional only for quieter git diffs, not a reconcile gap.
 
 ## Generic text reconciliation
 
@@ -86,7 +86,7 @@ This conversion doc supplies the shared contract: three reconciliation inputs an
 
 ## Generic XML reconciliation
 
-Authoritative spec: [[doc/roadmap/workspace-format-xml.md]]. That document defines tree mapping, structural classes (`xml-*`), operations-driven export, reconciliation by change kind, move asymmetry, references, and verification targets for `File` artifacts whose persisted body is well-formed XML. Classification uses a heading scan of artifact text; HTML-shaped headings are excluded. Workspace and directory documents remain on `.amb`; markdown remains deferred.
+Authoritative target design: [[doc/roadmap/workspace-format-xml.md]]. Until a dedicated Xml codec is in use, XML-shaped files may continue via the Plain path; a separate Xml OutlineReconcile consumer is not required near-term. The XML format doc defines tree mapping, structural classes (`xml-*`), operations-driven export, reconciliation by change kind, move asymmetry, references, and verification targets for when that codec is pursued. Classification uses a heading scan of artifact text; HTML-shaped headings are excluded. Workspace and directory documents remain on `.amb`; markdown remains deferred.
 
 This conversion doc supplies the shared contract only: three reconciliation inputs and required outcomes in **Settled**; external deletion semantics in **Deletion on import**.
 

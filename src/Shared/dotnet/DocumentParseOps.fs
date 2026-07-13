@@ -97,13 +97,20 @@ module DocumentParseOps =
             [ Op.Replace(nodeId, 0, oldChildren, newChildren) ]
 
     /// Parse one `.amb` (or plain) artifact into ops. Document stays Current.
+    /// When `previousText` is present, warm-reconcile via DiffPlex helpers.
     let planApplyArtifact
         (graph: Graph)
         (documentRootId: NodeId)
         (relativePath: string)
         (text: string)
+        (previousText: string option)
         : Result<Op list, string> =
-        DocumentFormat.readArtifact relativePath text documentRootId graph
+        DocumentFormat.readArtifact
+            relativePath
+            text
+            documentRootId
+            graph
+            previousText
         |> Result.map (fun after ->
             let overlay =
                 overlayMemberIds after documentRootId
