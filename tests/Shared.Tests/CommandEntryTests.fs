@@ -61,7 +61,7 @@ let ``parse or upload owns Ctrl Shift greater-than`` () =
 [<Fact>]
 let ``pull to desktop owns Ctrl Shift less-than`` () =
     let entry = commandFor GitPull |> Option.get
-    Assert.Equal("Pull to Desktop", entry.name)
+    Assert.Equal("Git Pull to Desktop", entry.name)
     Assert.Equal<string list>([ "Ctrl+Shift+<" ], entry.keys)
     Assert.DoesNotContain(allCommands, fun command -> command.name = "Export")
 

@@ -48,8 +48,13 @@ module NodeDesktopPath =
         if ownerId = Graph.workspacesId then
             Some rootPrefix
         else
-            Map.tryFind ownerId graph.nodes
-            |> Option.bind (pathForNode graph visited)
+            match Map.tryFind ownerId graph.nodes with
+            | Some ({ kind = Normal } as owner) ->
+                if Set.contains ownerId visited then
+                    None
+                else
+                    parentPrefix graph (Set.add ownerId visited) owner.owner
+            | ownerOpt -> ownerOpt |> Option.bind (pathForNode graph visited)
 
     let rec private expandedPathForNode (graph: Graph) (visited: Set<NodeId>) (node: Node) : string option =
         if Set.contains node.id visited then
@@ -78,8 +83,13 @@ module NodeDesktopPath =
         if ownerId = Graph.workspacesId then
             Some rootPrefix
         else
-            Map.tryFind ownerId graph.nodes
-            |> Option.bind (expandedPathForNode graph visited)
+            match Map.tryFind ownerId graph.nodes with
+            | Some ({ kind = Normal } as owner) ->
+                if Set.contains ownerId visited then
+                    None
+                else
+                    expandedParentPrefix graph (Set.add ownerId visited) owner.owner
+            | ownerOpt -> ownerOpt |> Option.bind (expandedPathForNode graph visited)
 
     let pathForNodeId (graph: Graph) (nodeId: NodeId) : string option =
         Map.tryFind nodeId graph.nodes

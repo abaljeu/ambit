@@ -238,14 +238,35 @@ let ``writeAllDocuments nested file directory boundary writes separate artifacts
     Assert.Contains("nested", dirText)
 
 [<Fact>]
-let ``resolveArtifactPath unknown document root returns error`` () =
+let ``resolveArtifactPath malformed document root identifies node`` () =
+    let dataDir = newTempDir ()
+    let graph0 = Graph.create ()
+    let malformedId = NodeId.New()
+    let malformedNode = specialNode malformedId Directory "orphan" Graph.rootId
+    let graph =
+        graph0.nodes
+        |> Map.add malformedId malformedNode
+        |> fun nodes -> Graph.fromNodes graph0.root nodes
+
+    let expected =
+        $"no artifact path for document root: id={malformedId.Value}; "
+        + $"kind=Special Directory; name=orphan; owner={Graph.rootId.Value}"
+
+    match DocumentPersistence.resolveArtifactPath dataDir graph malformedId with
+    | Ok _ -> failwith "expected error"
+    | Error error -> Assert.Equal(expected, error)
+
+[<Fact>]
+let ``resolveArtifactPath unknown document root identifies missing node`` () =
     let dataDir = newTempDir ()
     let graph = Graph.create ()
     let unknownId = NodeId.New()
+    let expected =
+        $"no artifact path for document root: id={unknownId.Value}; node=missing"
 
     match DocumentPersistence.resolveArtifactPath dataDir graph unknownId with
     | Ok _ -> failwith "expected error"
-    | Error _ -> ()
+    | Error error -> Assert.Equal(expected, error)
 
     Assert.False(Directory.EnumerateFiles(dataDir, "*", SearchOption.AllDirectories) |> Seq.exists (fun _ -> true))
 

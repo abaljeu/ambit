@@ -20,6 +20,9 @@ let private specialNode (id: NodeId) (kind: SpecialKind) (name: string) (owner: 
         owner = owner,
         kind = Special kind)
 
+let private normalNode (id: NodeId) (text: string) (owner: NodeId) : Node =
+    Node.Create(id, text = text, owner = owner)
+
 let private graphWithWorkspaceTree () : Graph * NodeId * NodeId * NodeId =
     let graph0 = Graph.create ()
     let wsId = NodeId.New()
@@ -114,6 +117,60 @@ let ``pathForNodeId Directory and File append owner path and name`` () =
     let graph, _, dirId, fileId = graphWithWorkspaceTree ()
     Assert.Equal(Some "//home/docs/", NodeDesktopPath.pathForNodeId graph dirId)
     Assert.Equal(Some "//home/docs/readme.txt", NodeDesktopPath.pathForNodeId graph fileId)
+
+[<Fact>]
+let ``pathForNodeId skips consecutive Normal owners without changing ownership`` () =
+    let graph0 = Graph.create ()
+    let dirId = NodeId.New()
+    let outerNormalId = NodeId.New()
+    let innerNormalId = NodeId.New()
+    let fileId = NodeId.New()
+    let dirNode =
+        { specialNode dirId Directory "dir1" Graph.rootId with
+            children = owned [ outerNormalId ] }
+    let outerNormal =
+        { normalNode outerNormalId "Tasks [[ignored.txt]]" dirId with
+            children = owned [ innerNormalId ] }
+    let innerNormal =
+        { normalNode innerNormalId "Nested tasks" outerNormalId with
+            children = owned [ fileId ] }
+    let fileNode = specialNode fileId File "file2" innerNormalId
+    let nodes =
+        graph0.nodes
+        |> Map.add dirId dirNode
+        |> Map.add outerNormalId outerNormal
+        |> Map.add innerNormalId innerNormal
+        |> Map.add fileId fileNode
+    let graph = Graph.fromNodes graph0.root nodes
+
+    Assert.Equal(Some "//dir1/file2", NodeDesktopPath.pathForNodeId graph fileId)
+    Assert.Equal(Some "//dir1/file2", NodeDesktopPath.expandedPathForNodeId graph fileId)
+    Assert.Equal(Some "dir1/file2", DocumentPartition.artifactFileRelative graph fileId)
+    Assert.Equal(innerNormalId, graph.nodes.[fileId].owner)
+    Assert.Equal(outerNormalId, graph.nodes.[innerNormalId].owner)
+
+[<Fact>]
+let ``pathForNodeId detects cycles through Normal owners`` () =
+    let graph0 = Graph.create ()
+    let firstNormalId = NodeId.New()
+    let secondNormalId = NodeId.New()
+    let fileId = NodeId.New()
+    let firstNormal =
+        { normalNode firstNormalId "[[ignored.txt]]" secondNormalId with
+            children = owned [ secondNormalId; fileId ] }
+    let secondNormal =
+        { normalNode secondNormalId "Tasks" firstNormalId with
+            children = owned [ firstNormalId ] }
+    let fileNode = specialNode fileId File "file2" firstNormalId
+    let nodes =
+        graph0.nodes
+        |> Map.add firstNormalId firstNormal
+        |> Map.add secondNormalId secondNormal
+        |> Map.add fileId fileNode
+    let graph = Graph.fromNodes graph0.root nodes
+
+    Assert.Equal(None, NodeDesktopPath.pathForNodeId graph fileId)
+    Assert.Equal(None, NodeDesktopPath.expandedPathForNodeId graph fileId)
 
 [<Fact>]
 let ``pathForNodeId File under ROOT returns root slash path`` () =

@@ -47,13 +47,23 @@ module DocumentPersistence =
             -depth, id.Value)
         |> Seq.toList
 
+    let private noArtifactPathError (graph: Graph) (documentRootId: NodeId) =
+        let prefix = $"no artifact path for document root: id={documentRootId.Value}"
+
+        match Map.tryFind documentRootId graph.nodes with
+        | None -> $"{prefix}; node=missing"
+        | Some node ->
+            let kind = sprintf "%A" node.kind
+            let name = Filename.tryValue node.name |> Option.defaultValue "<none>"
+            $"{prefix}; kind={kind}; name={name}; owner={node.owner.Value}"
+
     let resolveArtifactPath
         (dataDir: string)
         (graph: Graph)
         (documentRootId: NodeId)
         : Result<string, string> =
         match DocumentPartition.artifactFileRelative graph documentRootId with
-        | None -> Error "no artifact path for document root"
+        | None -> Error (noArtifactPathError graph documentRootId)
         | Some relativePath -> resolveUnderDataDir dataDir relativePath
 
     let fileStatusForReference
@@ -256,7 +266,7 @@ module DocumentPersistence =
                 let relativePath =
                     DocumentPartition.artifactFileRelative graph documentRootId
                     |> function
-                        | None -> Error "no artifact path for document root"
+                        | None -> Error "no file relative artifact path for document root"
                         | Some rel -> Ok rel
 
                 match relativePath with
