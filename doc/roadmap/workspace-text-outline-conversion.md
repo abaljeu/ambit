@@ -71,11 +71,12 @@ Each rule should name its counterpart in the other direction.
 Import/warm reconcile for outline-backed text formats uses a shared mechanism in `src/Shared/dotnet/` (`OutlineLcs` + `OutlineReconcile`, DiffPlex-backed). Format codecs flatten to / project from `{ depth; text; nodeId option }` lines; sequence diff + disposition policy are format-agnostic.
 
 - Match key is **text only** (not depth). DiffPlex equal → keep with edited depth/text; insert → mint; delete → external deletion semantics below.
-- Duplicates / blank runs: after DiffPlex, pair identical keys in order between neighboring unique anchors (positional tie-break). Optional hard-match anchors (e.g. Plain ` #name-token`) are deferred.
+- **Hard-match pre-pass (optional):** unique durable keys on `OutlineLine.hardKey` (Amb Owner `^id`, Ref `->^id`) pair before LCS; duplicates fall through to LCS. Plain leaves `hardKey` unset.
+- Duplicates / blank runs: after DiffPlex, pair identical keys in order between neighboring unique anchors (positional tie-break). Plain ` #name-token` hard-match remains deferred.
 - Minimal in-place edit pass: among unmatched adjacent slots, pair one delete+insert as keep with new text when depths match.
 - Export stays operations-driven / previous-text byte preservation; LCS is the import/warm story only.
 
-Amb/XML calling this API is deferred; Plain warm path is the first consumer.
+Consumers: Plain (`PlainTextReconcile`) and Amb (`AmbReconcile`) in Shared/DotNet. XML remains deferred. `DocumentFormat.readArtifact` stays cold — warm entry is the DotNet reconcile modules (DiffPlex is not Fable-safe).
 
 ## Generic text reconciliation
 

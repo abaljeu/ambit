@@ -136,69 +136,178 @@ module AmbDocument =
         else
             "-> ^" + sid
 
-    /// Serialize one document subtree. The document root is implicit; its children are depth 0.
-    let write (graph: Graph) (documentRootId: NodeId) : Result<string, string> =
+    type SerializedLine = {
+        depth: int
+        content: string
+        nodeId: NodeId option
+    }
+
+    let tryHardKey (content: string) : string option =
+        if content.StartsWith("-> ") then
+            match parseRefTarget (content.Substring(3).Trim()) with
+            | Some(_, token) -> Some("->^" + token)
+            | None -> None
+        elif content.StartsWith("^") then
+            match splitStableIdPrefix (content.Substring(1)) with
+            | Some(token, _) -> Some("^" + token)
+            | None -> None
+        else
+            None
+
+    let flattenText (text: string) : (int * string * string option) list =
+        outlineSourceLines text
+        |> Array.toList
+        |> List.map (fun line ->
+            let depth = line |> Seq.takeWhile ((=) '\t') |> Seq.length
+            let content = line.Substring depth
+            depth, content, tryHardKey content)
+
+    let serializeLines
+        (graph: Graph)
+        (documentRootId: NodeId)
+        : Result<SerializedLine list, string> =
         match Map.tryFind documentRootId graph.nodes with
         | None -> Error "document root not found"
         | Some rootNode ->
-            let documentMembers = DocumentPartition.memberNodeIds graph documentRootId
+            let documentMembers =
+                DocumentPartition.memberNodeIds graph documentRootId
             let refTargets = refTargetIds graph
             let occurrenceCount =
                 graph.nodes
                 |> Map.toSeq
-                |> Seq.collect (fun (_, node) -> node.children |> Seq.map (fun child -> child.id))
+                |> Seq.collect (fun (_, node) ->
+                    node.children |> Seq.map (fun child -> child.id))
                 |> Seq.groupBy id
                 |> Seq.map (fun (nodeId, xs) -> nodeId, Seq.length xs)
                 |> Map.ofSeq
 
-            let sb = Text.StringBuilder()
-
-            let rec writeChild (depth: int) (emittedOwners: Set<NodeId>) (child: ChildNode) : Set<NodeId> =
-                let indent = String.replicate depth "\t"
+            let rec writeChild
+                (depth: int)
+                (emittedOwners: Set<NodeId>)
+                (acc: SerializedLine list)
+                (child: ChildNode)
+                : Set<NodeId> * SerializedLine list =
                 let nodeId = child.id
                 let isShared =
-                    (occurrenceCount |> Map.tryFind nodeId |> Option.defaultValue 0) > 1
+                    (occurrenceCount
+                     |> Map.tryFind nodeId
+                     |> Option.defaultValue 0) > 1
 
                 match child.ref with
                 | Ownership.Ref ->
-                    sb.Append(indent).Append(refLineContent graph documentRootId documentMembers nodeId).Append(nl)
-                    |> ignore
-                    emittedOwners
+                    let content =
+                        refLineContent
+                            graph documentRootId documentMembers nodeId
+                    let line = {
+                        depth = depth
+                        content = content
+                        nodeId = Some nodeId
+                    }
+                    emittedOwners, line :: acc
                 | Ownership.Owner ->
                     let node = graph.nodes.[nodeId]
-                    if DocumentPartition.isNestedDocumentRootBoundary graph documentRootId nodeId then
-                        sb.Append(indent).Append(refLineContent graph documentRootId documentMembers nodeId).Append(nl)
-                        |> ignore
-                        emittedOwners
+                    if DocumentPartition.isNestedDocumentRootBoundary
+                        graph documentRootId nodeId then
+                        let content =
+                            refLineContent
+                                graph documentRootId documentMembers nodeId
+                        let line = {
+                            depth = depth
+                            content = content
+                            nodeId = Some nodeId
+                        }
+                        emittedOwners, line :: acc
                     else
                         let body = node.text
                         if isShared && Set.contains nodeId emittedOwners then
-                            sb.Append(indent).Append(refLineContent graph documentRootId documentMembers nodeId).Append(nl)
-                            |> ignore
-                            emittedOwners
+                            let content =
+                                refLineContent
+                                    graph documentRootId documentMembers nodeId
+                            let line = {
+                                depth = depth
+                                content = content
+                                nodeId = Some nodeId
+                            }
+                            emittedOwners, line :: acc
                         else
                             let plain = plainLineContent node body
                             let ambiguousPlain =
-                                plain.StartsWith("^") || plain.StartsWith("-> ")
-                            let line =
+                                plain.StartsWith("^")
+                                || plain.StartsWith("-> ")
+                            let content =
                                 if isShared
                                    || Set.contains nodeId refTargets
                                    || ambiguousPlain then
                                     ownerLineContent nodeId node body
                                 else
                                     plain
-
-                            sb.Append(indent).Append(line).Append(nl)
-                            |> ignore
+                            let line = {
+                                depth = depth
+                                content = content
+                                nodeId = Some nodeId
+                            }
                             let emitted' = Set.add nodeId emittedOwners
-                            node.children
-                            |> List.fold (fun emitted c -> writeChild (depth + 1) emitted c) emitted'
+                            let emitted'', acc' =
+                                node.children
+                                |> List.fold
+                                    (fun (em, a) c ->
+                                        writeChild (depth + 1) em a c)
+                                    (emitted', line :: acc)
+                            emitted'', acc'
 
-            rootNode.children
-            |> List.fold (fun emitted child -> writeChild 0 emitted child) Set.empty
+            let _, lines =
+                rootNode.children
+                |> List.fold
+                    (fun (emitted, acc) child ->
+                        writeChild 0 emitted acc child)
+                    (Set.empty, [])
+
+            Ok(List.rev lines)
+
+    /// Serialize one document subtree. The document root is implicit; its children are depth 0.
+    let write (graph: Graph) (documentRootId: NodeId) : Result<string, string> =
+        serializeLines graph documentRootId
+        |> Result.map (fun lines ->
+            let sb = Text.StringBuilder()
+            for line in lines do
+                sb.Append(String.replicate line.depth "\t")
+                    .Append(line.content)
+                    .Append(nl)
+                |> ignore
+            sb.ToString())
+
+    /// Previous file lines paired with node ids from the current graph projection.
+    let mappedPrevious
+        (previousText: string)
+        (graph: Graph)
+        (documentRootId: NodeId)
+        : Result<(int * string * NodeId option * string option) list, string> =
+        serializeLines graph documentRootId
+        |> Result.map (fun serialized ->
+            flattenText previousText
+            |> List.mapi (fun i (depth, content, hardKey) ->
+                let nodeId =
+                    match List.tryItem i serialized with
+                    | Some s -> s.nodeId
+                    | None -> None
+                depth, content, nodeId, hardKey))
+
+    /// Inject owner stable ids so cold read recovers LCS-kept plain rows.
+    let projectAligned
+        (aligned: (int * string * NodeId option) list)
+        : string =
+        let sb = Text.StringBuilder()
+        for depth, content, nodeIdOpt in aligned do
+            let body =
+                match nodeIdOpt, tryHardKey content with
+                | Some id, None when not (content.StartsWith("-> ")) ->
+                    "^" + formatStableId id + " " + content
+                | _ -> content
+            sb.Append(String.replicate depth "\t")
+                .Append(body)
+                .Append(nl)
             |> ignore
-
-            Ok (sb.ToString())
+        sb.ToString()
 
     let private prependChild
         (parentId: NodeId)

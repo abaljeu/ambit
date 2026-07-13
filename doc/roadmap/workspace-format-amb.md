@@ -45,7 +45,13 @@ Line breaks: `\n` or `\r\n`; normalize on read.
 
 **Plain line.** Content without a stable id. Import mints a new `NodeId`. Export uses owner lines for all persisted subtree nodes; plain lines appear only from external edits before reconciliation.
 
+**Blank lines.** Empty line bodies are ordinary plain rows (`text = ""`). Amb does not use Plain's blank-both-ways complement policy.
+
 **Metadata prefix.** Unchanged from baseline: `{.class1 .class2}rest` on line bodies maps to `cssClasses` + text.
+
+## Warm reconcile
+
+Warm import uses Shared/DotNet `AmbReconcile`: unique Owner/Ref durable keys hard-match first (`^<stable-id>`, `->^<stable-id>`), then shared outline LCS for plain rows and unmatched lines ([[doc/roadmap/workspace-text-outline-conversion.md]] § Shared outline LCS reconcile). Export for this slice remains full-cloth `AmbDocument.write` (no ops/`previousText` incremental write yet).
 
 ## Text to outline
 
@@ -102,4 +108,5 @@ Stable anchor is `^<stable-id>`. Cross-file form is `<workspace-relative-path>^<
 - Tab depth, Owner/Ref line kinds, and metadata prefix round-trip under workspace rules.
 - `read` then `write` is stable when the outline is unchanged (modulo readable ref projection choices).
 - Reorder and text edit preserve identity via stable ids on import.
+- Warm reconcile: owner text edit and reindent keep `^` ids; plain add/delete LCS-align; ref reorder keeps `->^` targets (`AmbDocumentTests` / `AmbReconcile`).
 - Cross-file reference in file A stays valid without rewriting A when file B is edited elsewhere.

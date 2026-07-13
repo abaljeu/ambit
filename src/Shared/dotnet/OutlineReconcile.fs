@@ -7,6 +7,8 @@ module OutlineReconcile =
         depth: int
         text: string
         nodeId: NodeId option
+        /// Durable format key (e.g. Amb `^id` / `->^id`). None → LCS only.
+        hardKey: string option
     }
 
     type LineDisposition =
@@ -23,6 +25,31 @@ module OutlineReconcile =
         match prev.nodeId with
         | Some id -> Some(Delete id)
         | None -> None
+
+    /// Unique hardKey → index; duplicates are excluded (fall through to LCS).
+    let private uniqueHardIndex (lines: OutlineLine list) =
+        lines
+        |> List.mapi (fun i line -> line.hardKey, i)
+        |> List.choose (fun (key, i) -> key |> Option.map (fun k -> k, i))
+        |> List.groupBy fst
+        |> List.choose (function
+            | key, [ (_, i) ] -> Some(key, i)
+            | _ -> None)
+        |> Map.ofList
+
+    let private hardMatchPairs
+        (previous: OutlineLine list)
+        (edited: OutlineLine list)
+        : (int * int) list =
+        let prevByKey = uniqueHardIndex previous
+        let editByKey = uniqueHardIndex edited
+
+        prevByKey
+        |> Map.toList
+        |> List.choose (fun (key, pi) ->
+            match Map.tryFind key editByKey with
+            | Some ei -> Some(pi, ei)
+            | None -> None)
 
     /// Pair identical delete/insert keys in order (moves / blank runs).
     let private pairIdenticalMoves
@@ -90,7 +117,7 @@ module OutlineReconcile =
 
         loop [] disps
 
-    let align
+    let private alignLcs
         (previous: OutlineLine list)
         (edited: OutlineLine list)
         : LineDisposition list =
@@ -102,3 +129,61 @@ module OutlineReconcile =
         ops
         |> pairIdenticalMoves previous edited
         |> pairInPlaceEdits
+
+    /// Hard-match unique keys first; LCS on the remainder (Plain: all hardKey=None).
+    let align
+        (previous: OutlineLine list)
+        (edited: OutlineLine list)
+        : LineDisposition list =
+        let pairs = hardMatchPairs previous edited
+
+        if pairs.IsEmpty then
+            alignLcs previous edited
+        else
+            let hardPrev = pairs |> List.map fst |> Set.ofList
+            let hardEdit = pairs |> List.map snd |> Set.ofList
+
+            let hardByEdit =
+                pairs
+                |> List.map (fun (pi, ei) ->
+                    ei, keepOrInsert previous.[pi] edited.[ei])
+                |> Map.ofList
+
+            let prevRest =
+                previous
+                |> List.mapi (fun i line -> i, line)
+                |> List.filter (fun (i, _) -> not (Set.contains i hardPrev))
+                |> List.map snd
+
+            let editRest =
+                edited
+                |> List.mapi (fun i line -> i, line)
+                |> List.filter (fun (i, _) -> not (Set.contains i hardEdit))
+                |> List.map snd
+
+            let restDisps = alignLcs prevRest editRest
+
+            let restKeepInsert =
+                restDisps
+                |> List.choose (function
+                    | Delete _ -> None
+                    | d -> Some d)
+
+            let restDeletes =
+                restDisps
+                |> List.choose (function
+                    | Delete id -> Some(Delete id)
+                    | _ -> None)
+
+            let keepInsert, _ =
+                edited
+                |> List.mapi (fun ei _ -> ei)
+                |> List.fold
+                    (fun (acc, restIdx) ei ->
+                        match Map.tryFind ei hardByEdit with
+                        | Some d -> d :: acc, restIdx
+                        | None ->
+                            restKeepInsert.[restIdx] :: acc, restIdx + 1)
+                    ([], 0)
+
+            List.rev keepInsert @ restDeletes

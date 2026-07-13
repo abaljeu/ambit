@@ -7,6 +7,14 @@ let private line depth text nodeId : OutlineReconcile.OutlineLine = {
     depth = depth
     text = text
     nodeId = nodeId
+    hardKey = None
+}
+
+let private hardLine depth text nodeId hardKey : OutlineReconcile.OutlineLine = {
+    depth = depth
+    text = text
+    nodeId = nodeId
+    hardKey = Some hardKey
 }
 
 let private id () = NodeId.New()
@@ -110,4 +118,74 @@ let ``align unique line swap keeps ids via move pairing`` () =
         OutlineReconcile.Keep(ka, 0, "alpha") ] ->
         Assert.Equal(b, kb)
         Assert.Equal(a, ka)
+    | other -> failwithf "unexpected: %A" other
+
+[<Fact>]
+let ``align hard-match keeps id across text edit`` () =
+    let a = id ()
+    let b = id ()
+    let previous = [
+        hardLine 0 "^A old" (Some a) "^A"
+        line 0 "plain" (Some b)
+    ]
+    let edited = [
+        hardLine 0 "^A NEW" None "^A"
+        line 0 "plain" None
+    ]
+    let result = OutlineReconcile.align previous edited
+    match result with
+    | [ OutlineReconcile.Keep(ka, 0, "^A NEW")
+        OutlineReconcile.Keep(kb, 0, "plain") ] ->
+        Assert.Equal(a, ka)
+        Assert.Equal(b, kb)
+    | other -> failwithf "unexpected: %A" other
+
+[<Fact>]
+let ``align hard-match keeps id across reindent`` () =
+    let a = id ()
+    let previous = [ hardLine 0 "^A body" (Some a) "^A" ]
+    let edited = [ hardLine 1 "^A body" None "^A" ]
+    let result = OutlineReconcile.align previous edited
+    match result with
+    | [ OutlineReconcile.Keep(ka, 1, "^A body") ] -> Assert.Equal(a, ka)
+    | other -> failwithf "unexpected: %A" other
+
+[<Fact>]
+let ``align hard-match keeps ids across reorder`` () =
+    let a = id ()
+    let b = id ()
+    let previous = [
+        hardLine 0 "^A x" (Some a) "^A"
+        hardLine 0 "^B y" (Some b) "^B"
+    ]
+    let edited = [
+        hardLine 0 "^B y" None "^B"
+        hardLine 0 "^A x" None "^A"
+    ]
+    let result = OutlineReconcile.align previous edited
+    match result with
+    | [ OutlineReconcile.Keep(kb, 0, "^B y")
+        OutlineReconcile.Keep(ka, 0, "^A x") ] ->
+        Assert.Equal(b, kb)
+        Assert.Equal(a, ka)
+    | other -> failwithf "unexpected: %A" other
+
+[<Fact>]
+let ``align duplicate hard keys fall through to LCS`` () =
+    let a = id ()
+    let b = id ()
+    let previous = [
+        hardLine 0 "^A one" (Some a) "^A"
+        hardLine 0 "^A two" (Some b) "^A"
+    ]
+    let edited = [
+        hardLine 0 "^A one" None "^A"
+        hardLine 0 "^A two" None "^A"
+    ]
+    let result = OutlineReconcile.align previous edited
+    match result with
+    | [ OutlineReconcile.Keep(ka, 0, "^A one")
+        OutlineReconcile.Keep(kb, 0, "^A two") ] ->
+        Assert.Equal(a, ka)
+        Assert.Equal(b, kb)
     | other -> failwithf "unexpected: %A" other

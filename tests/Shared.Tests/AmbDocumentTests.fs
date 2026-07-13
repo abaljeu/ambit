@@ -37,6 +37,19 @@ let private childTexts (graph: Graph) (docId: NodeId) : string list =
     graph.nodes.[docId].children
     |> List.map (fun c -> graph.nodes.[c.id].text)
 
+let private requireOk label r =
+    match r with
+    | Ok v -> v
+    | Error e -> failwith $"{label}: {e}"
+
+let private nl = Environment.NewLine
+
+let private ownerLine (nodeId: NodeId) (body: string) =
+    "^" + AmbDocument.formatStableId nodeId + " " + body + nl
+
+let private refLine (nodeId: NodeId) =
+    "-> ^" + AmbDocument.formatStableId nodeId + nl
+
 [<Fact>]
 let ``write unreferenced node uses plain line without stable id`` () =
     let nodeId = NodeId.New()
@@ -270,3 +283,93 @@ let ``round-trip preserves stable ids and tree shape`` () =
         AmbDocument.normalizeForCompare written,
         AmbDocument.normalizeForCompare rewritten
     )
+
+[<Fact>]
+let ``reconcile owner text edit keeps stable id`` () =
+    let aId = NodeId.New()
+    let a = Node.Create(aId, text = "alpha")
+    let graph, docId = graphWithDocument [ a ]
+    let previous = ownerLine aId "alpha"
+    let edited = ownerLine aId "ALPHA"
+    let result =
+        AmbReconcile.reconcile previous graph docId edited
+        |> requireOk "reconcile"
+    Assert.Equal(aId, result.nodes.[docId].children.Head.id)
+    Assert.Equal("ALPHA", result.nodes.[aId].text)
+
+[<Fact>]
+let ``reconcile external tab reindent keeps owner id`` () =
+    let aId = NodeId.New()
+    let bId = NodeId.New()
+    let a = Node.Create(aId, text = "parent")
+    let b = Node.Create(bId, text = "child")
+    let graph, docId = graphWithDocument [ a; b ]
+    let previous = ownerLine aId "parent" + ownerLine bId "child"
+    let edited = ownerLine aId "parent" + "\t" + ownerLine bId "child"
+    let result =
+        AmbReconcile.reconcile previous graph docId edited
+        |> requireOk "reconcile"
+    Assert.Equal(aId, result.nodes.[docId].children.Head.id)
+    Assert.Equal(bId, result.nodes.[aId].children.Head.id)
+    Assert.Equal("child", result.nodes.[bId].text)
+
+[<Fact>]
+let ``reconcile plain line add mints new id`` () =
+    let aId = NodeId.New()
+    let a = Node.Create(aId, text = "alpha")
+    let graph, docId = graphWithDocument [ a ]
+    let previous = "alpha" + nl
+    let edited = "alpha" + nl + "gamma" + nl
+    let result =
+        AmbReconcile.reconcile previous graph docId edited
+        |> requireOk "reconcile"
+    Assert.Equal(2, result.nodes.[docId].children.Length)
+    Assert.Equal(aId, result.nodes.[docId].children.Head.id)
+    let gammaId = result.nodes.[docId].children.[1].id
+    Assert.NotEqual(aId, gammaId)
+    Assert.Equal("gamma", result.nodes.[gammaId].text)
+
+[<Fact>]
+let ``reconcile plain line delete drops node`` () =
+    let aId = NodeId.New()
+    let bId = NodeId.New()
+    let a = Node.Create(aId, text = "alpha")
+    let b = Node.Create(bId, text = "beta")
+    let graph, docId = graphWithDocument [ a; b ]
+    let previous = "alpha" + nl + "beta" + nl
+    let edited = "alpha" + nl
+    let result =
+        AmbReconcile.reconcile previous graph docId edited
+        |> requireOk "reconcile"
+    Assert.Equal(1, result.nodes.[docId].children.Length)
+    Assert.Equal(aId, result.nodes.[docId].children.Head.id)
+
+[<Fact>]
+let ``reconcile ref line stable across reorder`` () =
+    let aId = NodeId.New()
+    let bId = NodeId.New()
+    let a = Node.Create(aId, text = "alpha")
+    let b = Node.Create(bId, text = "beta")
+    let graph0, docId = graphWithDocument [ a; b ]
+    let graph =
+        Graph.replace
+            docId
+            0
+            []
+            [ { ref = Ownership.Ref; id = aId }
+              { ref = Ownership.Ref; id = bId } ]
+            graph0
+        |> requireOk "replace refs"
+    let previous =
+        AmbDocument.write graph docId |> requireOk "write previous"
+    let edited =
+        refLine bId + refLine aId
+    let result =
+        AmbReconcile.reconcile previous graph docId edited
+        |> requireOk "reconcile"
+    let kids = result.nodes.[docId].children
+    Assert.Equal(2, kids.Length)
+    Assert.Equal(Ownership.Ref, kids.[0].ref)
+    Assert.Equal(Ownership.Ref, kids.[1].ref)
+    Assert.Equal(bId, kids.[0].id)
+    Assert.Equal(aId, kids.[1].id)

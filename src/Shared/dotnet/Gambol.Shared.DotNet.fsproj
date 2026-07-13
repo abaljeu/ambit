@@ -10,6 +10,7 @@
     <Compile Include="OutlineLcs.fs" />
     <Compile Include="OutlineReconcile.fs" />
     <Compile Include="PlainTextReconcile.fs" />
+    <Compile Include="AmbReconcile.fs" />
   </ItemGroup>
 
   <ItemGroup>

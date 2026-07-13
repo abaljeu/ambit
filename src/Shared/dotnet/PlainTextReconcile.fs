@@ -8,6 +8,7 @@ module PlainTextReconcile =
         depth = depth
         text = text
         nodeId = nodeId
+        hardKey = None
     }
 
     let private fromDispositions
