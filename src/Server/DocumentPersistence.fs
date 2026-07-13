@@ -183,6 +183,13 @@ module DocumentPersistence =
                         validateDestinationAvailable oldFullPath newFullPath)
             (Ok ())
 
+    let validateGraphDiskEffects
+        (dataDir: string)
+        (preGraph: Graph)
+        (postGraph: Graph)
+        : Result<unit, string> =
+        IgnoredDestination.validateGraphDiskEffects dataDir preGraph postGraph
+
     let private executePathMove
         ((oldIsDirectory, oldFullPath): bool * string)
         ((newIsDirectory, newFullPath): bool * string)

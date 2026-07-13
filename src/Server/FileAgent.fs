@@ -145,8 +145,18 @@ module FileAgent =
                 | Ok (newState, ackedChangeIds, logEntries, changed) ->
                     let preGraph = state.Value.graph
                     let validation =
-                        if graphOnly then Ok ()
-                        else DocumentPersistence.validatePathMoves dataDir preGraph newState.graph
+                        if graphOnly then
+                            Ok ()
+                        else
+                            DocumentPersistence.validatePathMoves
+                                dataDir
+                                preGraph
+                                newState.graph
+                            |> Result.bind (fun () ->
+                                DocumentPersistence.validateGraphDiskEffects
+                                    dataDir
+                                    preGraph
+                                    newState.graph)
                     match validation with
                     | Error err -> reply.Reply(Error err)
                     | Ok () ->

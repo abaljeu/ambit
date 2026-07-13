@@ -173,7 +173,15 @@ module DbAgent =
                         | true, _ -> Ok ()
                         | false, None -> Ok ()
                         | false, Some dataDir ->
-                            DocumentPersistence.validatePathMoves dataDir preGraph newState.graph
+                            DocumentPersistence.validatePathMoves
+                                dataDir
+                                preGraph
+                                newState.graph
+                            |> Result.bind (fun () ->
+                                DocumentPersistence.validateGraphDiskEffects
+                                    dataDir
+                                    preGraph
+                                    newState.graph)
 
                     match pathValidation with
                     | Error err -> reply.Reply(Error err)

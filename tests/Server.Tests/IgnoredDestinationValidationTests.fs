@@ -64,7 +64,7 @@ let private reparent id newParentId (graph: Graph) =
             { newParent with children = newParent.children @ [ ownedChild id ] }
     Graph.fromNodes graph.root nodes
 
-let private writeIgnore root text =
+let private writeIgnore root (text: string) =
     Directory.CreateDirectory(root) |> ignore
     File.WriteAllText(Path.Combine(root, ".gitignore"), text)
 
