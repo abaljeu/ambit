@@ -1,12 +1,12 @@
 # Plain Text Round Trip Plan
 
 ## Assumptions:
-- This conversation is still planning only; implementation code is out of scope until explicitly requested.
 - Generic text means the existing `other text` / plain format path, not `.amb` or `.md`.
-- The main implementation work is adding a second persisted file type beside `.amb` in the document read/write layer.
-- Tests drive the work. Pure format and reconciliation behavior should live in `src/Shared/` where possible; filesystem integration stays in `src/Server/`.
-- Standard diff/LCS-style algorithms may be used internally, but the spec and tests should name required outcomes.
-- Plain text must not gain Ambit-only syntax for hidden graph identity. No `NodeId`, `#name-token`, or ref target is emitted into arbitrary text just to preserve graph round trips.
+- Cold read/write and flatten/project live in [[src/Shared/PlainTextDocument.fs]]. Import/warm reconcile uses shared outline LCS in Shared/DotNet (`OutlineLcs` / `OutlineReconcile` via DiffPlex); Client does not own file reconcile.
+- Every file line (including blank) is an outline node with `text = ""` for blanks; empty nodes project as blank lines both ways.
+- Match key for warm reconcile is line text only; edited depth wins for LCS-matched lines (block re-indent keeps `NodeId`). Export remains operations-driven with `previousText` byte preservation for untouched lines.
+- Tests drive the work. Filesystem integration stays in `src/Server/`.
+- Plain text must not gain Ambit-only syntax for hidden graph identity. No `NodeId`, `#name-token`, or ref target is emitted into arbitrary text just to preserve graph round trips. Hard-match on ` #name-token` for Plain is deferred.
 - A Ref occurrence inside a plain text document exports as the target node's visible `text` line. Reimport from text alone loses that it was a Ref and creates/reconciles ordinary content unless an out-of-band current graph context preserves it.
 
 ## Scope
@@ -27,16 +27,16 @@ Fit according to [[code-shape.md]].
 
 1. In `[doc/roadmap/workspace-file-model.md](doc/roadmap/workspace-file-model.md)`, promote the generic text bullet from deferred to a planned/read-write-layer slice and link to `[doc/roadmap/workspace-format-plain.md](doc/roadmap/workspace-format-plain.md)` plus `[doc/roadmap/workspace-text-outline-conversion.md](doc/roadmap/workspace-text-outline-conversion.md)`.
 
-2. In `[doc/roadmap/workspace-text-outline-conversion.md](doc/roadmap/workspace-text-outline-conversion.md)`, clarify that generic text persistence is reconciled as `(previous file text, current graph document, edited/new file text)`:
+2. In [[doc/roadmap/workspace-text-outline-conversion.md]], record shared outline LCS reconcile (Shared/DotNet) and that generic text persistence is reconciled as `(previous file text, current graph document, edited/new file text)`:
 
 - unchanged imported text exports byte-identically;
 - unchanged exported outline imports graph-identically for representable content, with complement-backed recovery for metadata plain text cannot encode;
 - line edit/add/delete preserve unaffected node identity and untouched file bytes;
-- external text moves default to delete plus add unless matching is strong enough to preserve identity.
+- external re-indent keeps id when text LCS-matches; duplicate/blank runs use positional tie-break.
 
-3. In `[doc/roadmap/workspace-format-plain.md](doc/roadmap/workspace-format-plain.md)`, revise the plain-format specifics:
+3. In [[doc/roadmap/workspace-format-plain.md]], revise the plain-format specifics:
 
-- Keep indentation inference, one node per non-blank line, byte preservation expectations, and move asymmetry.
+- Keep indentation inference, blanks both ways, byte preservation expectations, and LCS reconcile outcomes.
 - Remove or sharply qualify ` #name-token` and ref-only line syntax; those make an Ambit-flavored text format, not arbitrary text.
 - State that a Ref child projects as its visible `Node.text` line only. The text file does not encode the target edge.
 - State the consequence: cold rebuild from plain text alone cannot recover refs, ids, classes, or other graph-only metadata. Live reconciliation may preserve graph-only facts only from the current graph/complement, not from the text file.
@@ -48,7 +48,7 @@ Fit according to [[code-shape.md]].
 1. Add pure Shared tests for a new plain text codec.
    - Suggested file: `tests/Shared.Tests/PlainTextDocumentTests.fs`.
    - Register it after `AmbDocumentTests.fs` or near `DocumentAssemblyTests.fs` in `tests/Shared.Tests/Gambol.Shared.Tests.fsproj`.
-   - Initial cases: arbitrary LF/CRLF text imports to expected tree; unchanged import writes byte-identically; exported outline imports with same node identity when reconciliation has current graph context; edit/add/delete; external move as delete/add; outline move preserves node id on write.
+   - Initial cases: arbitrary LF/CRLF text imports to expected tree; unchanged import writes byte-identically; exported outline imports with same node identity when reconciliation has current graph context; mid insert / block re-indent / blank round-trip; edit/add/delete; external unique-line swap may keep ids via LCS; outline move preserves node id on write. Also `OutlineReconcileTests` for DiffPlex disposition policy.
    - Ref cases: exporting a Ref child writes the referred node's visible text with no target marker; cold reimport treats that line as ordinary content; live reconciliation may preserve the Ref edge only if the current graph/complement still supplies that identity.
 
 2. Add Shared tests for format classification and assembly dispatch.

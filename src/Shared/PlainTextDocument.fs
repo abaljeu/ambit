@@ -148,10 +148,13 @@ module PlainTextDocument =
 
         let outline =
             parsed
-            |> List.filter (fun line -> not line.isBlank)
             |> List.map (fun line ->
                 { depth = depthOf line.body indentStyle
-                  text = strippedBody line.body })
+                  text =
+                    if line.isBlank then
+                        ""
+                    else
+                        strippedBody line.body })
 
         indentStyle, outline
 
@@ -247,7 +250,8 @@ module PlainTextDocument =
                 | None -> acc
                 | Some content ->
                     let acc' =
-                        { nodeId = Some child.id; depth = depth; content = content } :: acc
+                        { nodeId = Some child.id; depth = depth; content = content }
+                        :: acc
 
                     match child.ref, Map.tryFind child.id graph.nodes with
                     | Ownership.Owner, Some node ->
@@ -294,60 +298,56 @@ module PlainTextDocument =
 
             { depth = line.depth; text = line.text; nodeId = nodeId })
 
-    let private isRelocated (previous: MappedLine list) (index: int) (line: OutlineLine) =
-        previous
-        |> List.indexed
-        |> List.exists (fun (j, prev) -> j <> index && prev.text = line.text)
+    /// Flatten file text to outline lines (blanks → text "").
+    let flattenText (text: string) : PlainTextIndentStyle * (int * string) list =
+        let style, outline = parseOutlineLines text
+        style, outline |> List.map (fun line -> line.depth, line.text)
 
-    let private resolveNodeId
-        (previous: MappedLine list)
-        (index: int)
-        (line: OutlineLine)
-        =
-        if isRelocated previous index line then
-            None
-        else
-            match List.tryItem index previous with
-            | Some prev when prev.nodeId.IsSome && prev.text = line.text -> prev.nodeId
-            | Some prev when prev.nodeId.IsSome && prev.depth = line.depth -> prev.nodeId
-            | _ -> None
-
-    let private parseReconcile
-        (editedText: string)
+    /// Previous file lines paired with node ids from the current graph projection.
+    let mappedPrevious
         (previousText: string)
+        (graph: Graph)
+        (documentRootId: NodeId)
+        : (int * string * NodeId option) list =
+        mapPreviousLines previousText graph documentRootId
+        |> List.map (fun line -> line.depth, line.text, line.nodeId)
+
+    /// Rebuild document members from aligned (depth, text, nodeId) rows.
+    let rebuildFromAligned
         (documentRootId: NodeId)
         (contextGraph: Graph)
-        : Result<Map<NodeId, Node> * PlainTextIndentStyle, string> =
+        (aligned: (int * string * NodeId option) list)
+        : Result<Map<NodeId, Node>, string> =
         match Map.tryFind documentRootId contextGraph.nodes with
         | None -> Error "document root not found in context graph"
         | Some _ ->
-            let indentStyle, outline = parseOutlineLines editedText
-            let previous = mapPreviousLines previousText contextGraph documentRootId
-
             let folder
-                (nodes: Map<NodeId, Node>, stack: (int * NodeId) list, lineIndex: int)
-                (line: OutlineLine)
+                (nodes: Map<NodeId, Node>, stack: (int * NodeId) list)
+                (depth, text, nodeIdOpt)
                 =
-                let stack' = popStack line.depth stack
+                let stack' = popStack depth stack
                 let parentId = snd stack'.Head
 
                 let nodeId =
-                    match resolveNodeId previous lineIndex line with
+                    match nodeIdOpt with
                     | Some id -> id
                     | None -> NodeId.New()
 
-                let nodes' = mergeOwnerNode nodeId line.text parentId nodes contextGraph
+                let nodes' = mergeOwnerNode nodeId text parentId nodes contextGraph
                 let edge = { ref = Ownership.Owner; id = nodeId }
                 let nodes'' = prependChild parentId edge nodes'
-                nodes'', (line.depth, nodeId) :: stack', lineIndex + 1
+                nodes'', (depth, nodeId) :: stack'
 
-            let nodes, _, _ =
-                outline
-                |> List.fold folder (contextGraph.nodes |> Map.map (fun _ n -> { n with children = [] }), [ (-1, documentRootId) ], 0)
+            let nodes, _ =
+                aligned
+                |> List.fold
+                    folder
+                    (contextGraph.nodes |> Map.map (fun _ n -> { n with children = [] }),
+                     [ (-1, documentRootId) ])
 
-            Ok(finalizeDocument nodes, indentStyle)
+            Ok(finalizeDocument nodes)
 
-    let private documentFromGraph (contextGraph: Graph) (documentRootId: NodeId) =
+    let copyDocumentFromGraph (contextGraph: Graph) (documentRootId: NodeId) =
         let rec copySubtree nodeId acc =
             match Map.tryFind nodeId contextGraph.nodes with
             | None -> acc
@@ -355,17 +355,34 @@ module PlainTextDocument =
                 let acc' = Map.add nodeId { node with children = [] } acc
 
                 node.children
-                |> List.fold (fun a child ->
-                    let a' = copySubtree child.id a
+                |> List.fold
+                    (fun a child ->
+                        let a' = copySubtree child.id a
 
-                    match Map.tryFind child.id contextGraph.nodes with
-                    | None -> a'
-                    | Some _ ->
-                        let parent = a'.[nodeId]
-                        Map.add nodeId { parent with children = child :: parent.children } a')
+                        match Map.tryFind child.id contextGraph.nodes with
+                        | None -> a'
+                        | Some _ ->
+                            let parent = a'.[nodeId]
+
+                            Map.add
+                                nodeId
+                                { parent with children = child :: parent.children }
+                                a')
                     acc'
 
         copySubtree documentRootId Map.empty |> finalizeDocument
+
+    let finishRead
+        (documentRootId: NodeId)
+        (contextGraph: Graph)
+        (nodes: Map<NodeId, Node>)
+        (indentStyle: PlainTextIndentStyle)
+        : PlainTextReadResult =
+        let complement = buildComplement indentStyle contextGraph documentRootId
+
+        { documentRootId = documentRootId
+          nodes = applyCssClasses complement nodes contextGraph
+          complement = complement }
 
     let read
         (text: string)
@@ -375,12 +392,7 @@ module PlainTextDocument =
         match parseCold text documentRootId contextGraph with
         | Error msg -> Error msg
         | Ok(nodes, indentStyle) ->
-            let complement = buildComplement indentStyle contextGraph documentRootId
-
-            Ok
-                { documentRootId = documentRootId
-                  nodes = applyCssClasses complement nodes contextGraph
-                  complement = complement }
+            Ok(finishRead documentRootId contextGraph nodes indentStyle)
 
     let private indentForDepth (depth: int) (style: PlainTextIndentStyle) : string =
         match style with
@@ -405,6 +417,7 @@ module PlainTextDocument =
         =
         let rawLines = splitRawLines previousText
         let expected = serializeLines graph documentRootId
+
         let expectedById =
             expected
             |> List.choose (fun line -> line.nodeId |> Option.map (fun id -> id, line))
@@ -418,51 +431,35 @@ module PlainTextDocument =
             |> List.choose (fun (i, nodeId) -> nodeId |> Option.map (fun id -> i, id))
             |> Map.ofList
 
-        let nonBlankIndexByRawIndex =
-            rawLines
-            |> List.indexed
-            |> List.fold
-                (fun (nonBlankIdx, acc) (rawIdx, raw) ->
-                    if String.IsNullOrWhiteSpace raw.content then
-                        nonBlankIdx, acc
-                    else
-                        nonBlankIdx + 1, Map.add rawIdx nonBlankIdx acc)
-                (0, Map.empty)
-            |> snd
-
         let sb = StringBuilder()
         let mutable emitted = Set.empty<NodeId>
 
         for i in 0 .. rawLines.Length - 1 do
             let raw = rawLines.[i]
 
-            if String.IsNullOrWhiteSpace raw.content then
-                sb.Append(raw.raw) |> ignore
-            else
-                match Map.tryFind i nonBlankIndexByRawIndex with
-                | None -> sb.Append(raw.raw) |> ignore
-                | Some nonBlankIdx ->
-                    match Map.tryFind nonBlankIdx nodeIdAtLineIndex with
-                    | None -> sb.Append(raw.raw) |> ignore
-                    | Some nodeId ->
-                        match Map.tryFind nodeId expectedById with
-                        | None -> ()
-                        | Some expectedLine ->
-                            let newContent =
-                                indentForDepth expectedLine.depth complement.indentStyle
-                                + expectedLine.content
+            match Map.tryFind i nodeIdAtLineIndex with
+            | None -> sb.Append(raw.raw) |> ignore
+            | Some nodeId ->
+                match Map.tryFind nodeId expectedById with
+                | None -> ()
+                | Some expectedLine ->
+                    let newContent =
+                        indentForDepth expectedLine.depth complement.indentStyle
+                        + expectedLine.content
 
-                            if newContent = raw.content then
-                                sb.Append(raw.raw) |> ignore
-                            else
-                                sb.Append(newContent).Append(raw.ending) |> ignore
+                    if newContent = raw.content then
+                        sb.Append(raw.raw) |> ignore
+                    else
+                        sb.Append(newContent).Append(raw.ending) |> ignore
 
-                            emitted <- Set.add nodeId emitted
+                    emitted <- Set.add nodeId emitted
 
         for line in expected do
             match line.nodeId with
             | Some nodeId when not (Set.contains nodeId emitted) ->
-                sb.Append(indentForDepth line.depth complement.indentStyle).Append(line.content).Append(nl)
+                sb.Append(indentForDepth line.depth complement.indentStyle)
+                    .Append(line.content)
+                    .Append(nl)
                 |> ignore
             | _ -> ()
 
@@ -481,29 +478,3 @@ module PlainTextDocument =
             match previousText with
             | None -> writeFresh graph documentRootId complement
             | Some previous -> writeIncremental graph documentRootId complement previous
-
-    let reconcile
-        (previousText: string)
-        (contextGraph: Graph)
-        (documentRootId: NodeId)
-        (editedText: string)
-        : Result<PlainTextReadResult, string> =
-        if editedText = previousText then
-            let indentStyle, _ = parseOutlineLines previousText
-            let complement = buildComplement indentStyle contextGraph documentRootId
-            let nodes = documentFromGraph contextGraph documentRootId
-
-            Ok
-                { documentRootId = documentRootId
-                  nodes = applyCssClasses complement nodes contextGraph
-                  complement = complement }
-        else
-            match parseReconcile editedText previousText documentRootId contextGraph with
-            | Error msg -> Error msg
-            | Ok(nodes, indentStyle) ->
-                let complement = buildComplement indentStyle contextGraph documentRootId
-
-                Ok
-                    { documentRootId = documentRootId
-                      nodes = applyCssClasses complement nodes contextGraph
-                      complement = complement }

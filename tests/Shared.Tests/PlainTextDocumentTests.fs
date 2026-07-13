@@ -87,11 +87,12 @@ let ``read space indent infers spaces per level`` () =
     | other -> failwith $"expected Spaces 2, got {other}"
 
 [<Fact>]
-let ``read blank lines create no nodes`` () =
+let ``read blank lines create empty nodes`` () =
     let graph, docId = graphWithDocument []
     let text = "only" + Environment.NewLine + Environment.NewLine + "also" + Environment.NewLine
     let result = PlainTextDocument.read text docId graph |> requireOk "read"
-    Assert.Equal(2, result.nodes.[docId].children.Length)
+    Assert.Equal(3, result.nodes.[docId].children.Length)
+    Assert.Equal<string list>([ "only"; ""; "also" ], childTexts result.nodes docId)
 
 [<Fact>]
 let ``read uses line body literally as node text`` () =
@@ -190,7 +191,7 @@ let ``unchanged export reconciles with same node ids`` () =
         PlainTextDocument.write graph docId emptyComplement None
         |> requireOk "write"
     let result =
-        PlainTextDocument.reconcile written graph docId written
+        PlainTextReconcile.reconcile written graph docId written
         |> requireOk "reconcile"
     Assert.Equal(aId, result.nodes.[docId].children.Head.id)
     Assert.Equal(bId, result.nodes.[docId].children.[1].id)
@@ -221,7 +222,7 @@ let ``reconcile line text edit updates node and preserves other ids`` () =
         |> requireOk "write previous"
     let edited = previous.Replace("alpha", "ALPHA")
     let result =
-        PlainTextDocument.reconcile previous graph docId edited
+        PlainTextReconcile.reconcile previous graph docId edited
         |> requireOk "reconcile"
     Assert.Equal("ALPHA", result.nodes.[aId].text)
     Assert.Equal("beta", result.nodes.[bId].text)
@@ -237,7 +238,7 @@ let ``reconcile line add mints new node id`` () =
         |> requireOk "write previous"
     let edited = previous + ("gamma" + Environment.NewLine)
     let result =
-        PlainTextDocument.reconcile previous graph docId edited
+        PlainTextReconcile.reconcile previous graph docId edited
         |> requireOk "reconcile"
     Assert.Equal(2, result.nodes.[docId].children.Length)
     let newId =
@@ -258,13 +259,13 @@ let ``reconcile line delete removes node from document`` () =
         |> requireOk "write previous"
     let edited = previous.Replace("beta" + Environment.NewLine, "")
     let result =
-        PlainTextDocument.reconcile previous graph docId edited
+        PlainTextReconcile.reconcile previous graph docId edited
         |> requireOk "reconcile"
     Assert.Equal(1, result.nodes.[docId].children.Length)
     Assert.Equal(aId, result.nodes.[docId].children.Head.id)
 
 [<Fact>]
-let ``reconcile external move is delete plus add`` () =
+let ``reconcile external swap of unique lines keeps ids`` () =
     let aId = NodeId.New()
     let bId = NodeId.New()
     let a = normalNode aId "alpha" Graph.rootId
@@ -273,13 +274,53 @@ let ``reconcile external move is delete plus add`` () =
     let previous = "alpha" + Environment.NewLine + "beta" + Environment.NewLine
     let edited = "beta" + Environment.NewLine + "alpha" + Environment.NewLine
     let result =
-        PlainTextDocument.reconcile previous graph docId edited
+        PlainTextReconcile.reconcile previous graph docId edited
         |> requireOk "reconcile"
-    let childIds =
-        result.nodes.[docId].children |> List.map (fun c -> c.id) |> Set.ofList
-    Assert.Equal(2, childIds.Count)
-    Assert.True(not (Set.contains aId childIds))
-    Assert.True(not (Set.contains bId childIds))
+    Assert.Equal(bId, result.nodes.[docId].children.[0].id)
+    Assert.Equal(aId, result.nodes.[docId].children.[1].id)
+    Assert.Equal("beta", result.nodes.[bId].text)
+    Assert.Equal("alpha", result.nodes.[aId].text)
+
+[<Fact>]
+let ``reconcile mid insert keeps neighbor ids`` () =
+    let aId = NodeId.New()
+    let bId = NodeId.New()
+    let a = normalNode aId "alpha" Graph.rootId
+    let b = normalNode bId "beta" Graph.rootId
+    let graph, docId = graphWithDocument [ a; b ]
+    let previous = "alpha" + Environment.NewLine + "beta" + Environment.NewLine
+    let edited =
+        "alpha"
+        + Environment.NewLine
+        + "blat"
+        + Environment.NewLine
+        + "beta"
+        + Environment.NewLine
+    let result =
+        PlainTextReconcile.reconcile previous graph docId edited
+        |> requireOk "reconcile"
+    let children = result.nodes.[docId].children
+    Assert.Equal(3, children.Length)
+    Assert.Equal(aId, children.[0].id)
+    Assert.Equal(bId, children.[2].id)
+    Assert.Equal("blat", result.nodes.[children.[1].id].text)
+    Assert.True(children.[1].id <> aId && children.[1].id <> bId)
+
+[<Fact>]
+let ``reconcile block reindent keeps ids with new depths`` () =
+    let aId = NodeId.New()
+    let bId = NodeId.New()
+    let a = normalNode aId "parent" Graph.rootId
+    let b = normalNode bId "child" Graph.rootId
+    let graph, docId = graphWithDocument [ a; b ]
+    let previous = "parent" + Environment.NewLine + "child" + Environment.NewLine
+    let edited = "parent" + Environment.NewLine + "\tchild" + Environment.NewLine
+    let result =
+        PlainTextReconcile.reconcile previous graph docId edited
+        |> requireOk "reconcile"
+    Assert.Equal(aId, result.nodes.[docId].children.Head.id)
+    Assert.Equal(bId, result.nodes.[aId].children.Head.id)
+    Assert.Equal("child", result.nodes.[bId].text)
 
 [<Fact>]
 let ``write after reparent preserves node id at new depth`` () =
@@ -304,7 +345,7 @@ let ``write after reparent preserves node id at new depth`` () =
     Assert.Contains("child" + Environment.NewLine, text)
     Assert.DoesNotContain("\tchild", text)
     let result =
-        PlainTextDocument.reconcile nested graph docId text
+        PlainTextReconcile.reconcile nested graph docId text
         |> requireOk "reconcile"
     Assert.True(
         result.nodes.[docId].children
@@ -327,7 +368,7 @@ let ``reconcile preserves cssClasses from complement`` () =
         PlainTextDocument.write graph docId complement None
         |> requireOk "write previous"
     let result =
-        PlainTextDocument.reconcile previous graph docId previous
+        PlainTextReconcile.reconcile previous graph docId previous
         |> requireOk "reconcile"
     Assert.Equal(classes, result.nodes.[nodeId].cssClasses)
 
@@ -368,9 +409,61 @@ let ``reconcile preserves ref edge from graph context`` () =
         PlainTextDocument.write graph docId emptyComplement None
         |> requireOk "write"
     let result =
-        PlainTextDocument.reconcile previous graph docId previous
+        PlainTextReconcile.reconcile previous graph docId previous
         |> requireOk "reconcile"
     let holderId = result.nodes.[docId].children.Head.id
     Assert.Equal(1, result.nodes.[holderId].children.Length)
     Assert.Equal(sharedId, result.nodes.[holderId].children.Head.id)
     Assert.Equal(Ownership.Ref, result.nodes.[holderId].children.Head.ref)
+
+[<Fact>]
+let ``write incremental preserves blank run when two content lines edit`` () =
+    let graph0, docId = graphWithDocument []
+    let previous =
+        "alpha"
+        + Environment.NewLine
+        + Environment.NewLine
+        + Environment.NewLine
+        + "beta"
+        + Environment.NewLine
+        + "gamma"
+        + Environment.NewLine
+    let readResult = PlainTextDocument.read previous docId graph0 |> requireOk "read"
+    let graph = { graph0 with nodes = readResult.nodes }
+    let children = graph.nodes.[docId].children
+    let bId = children.[3].id
+    let cId = children.[4].id
+    let graph =
+        graph.nodes
+        |> Map.add bId { graph.nodes.[bId] with text = "BETA" }
+        |> Map.add cId { graph.nodes.[cId] with text = "GAMMA" }
+        |> fun nodes -> { graph with nodes = nodes }
+    let output =
+        PlainTextDocument.write graph docId readResult.complement (Some previous)
+        |> requireOk "write"
+    let expected =
+        "alpha"
+        + Environment.NewLine
+        + Environment.NewLine
+        + Environment.NewLine
+        + "BETA"
+        + Environment.NewLine
+        + "GAMMA"
+        + Environment.NewLine
+    Assert.Equal(expected, output)
+
+[<Fact>]
+let ``write projects empty nodes as blank lines`` () =
+    let aId = NodeId.New()
+    let blankId = NodeId.New()
+    let bId = NodeId.New()
+    let a = normalNode aId "alpha" Graph.rootId
+    let blank = normalNode blankId "" Graph.rootId
+    let b = normalNode bId "beta" Graph.rootId
+    let graph, docId = graphWithDocument [ a; blank; b ]
+    let text =
+        PlainTextDocument.write graph docId emptyComplement None
+        |> requireOk "write"
+    Assert.Equal(
+        "alpha" + Environment.NewLine + Environment.NewLine + "beta" + Environment.NewLine,
+        text)

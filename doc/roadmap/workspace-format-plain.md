@@ -14,7 +14,7 @@ The rules below define one node's line projection. They do not imply full-file r
 
 ## Lines and indentation
 
-One non-blank line creates one node; blank lines create none and are never projected. Node text never contains embedded newlines. Line endings on touched lines follow the replaced line.
+Every file line (including blank) is one outline node with node text equal to the line body after stripping structural indent (`""` for blanks). Empty nodes project as blank lines both ways. Node text never contains embedded newlines. Line endings on touched lines follow the replaced line.
 
 Depth comes only from leading whitespace. There are no headings, list markers, or other structural prefixes. Node text is the line after stripping structural indent and any identity suffix.
 
@@ -40,23 +40,23 @@ Subtree reconciliation (`NodeId` matching, unnamed lines, deletion) follows **Re
 
 ## Reconciliation
 
-Import reconciles **(previous file text, current graph document, edited/new file text)**. Export is operations-driven: only lines touched by an op change; untouched bytes — blank lines, line endings, indent style, and unmodified node lines — are preserved.
+Import reconciles **(previous file text, current graph document, edited/new file text)** via shared outline LCS in Shared/DotNet ([[doc/roadmap/workspace-text-outline-conversion.md]] § Shared outline LCS reconcile). Match key is **line text only** (not depth). Edited depth always wins for matched lines, so external block re-indent keeps `NodeId`s when text LCS-matches. Export is operations-driven: only lines touched by an op change; untouched bytes — blank lines, line endings, indent style, and unmodified node lines — are preserved.
 
 | Change kind | Import behavior | Export behavior |
 | --- | --- | --- |
 | Unchanged imported text | No graph ops | Byte-identical write |
 | Unchanged exported outline | Graph-identical import for representable content; complement restores metadata plain text cannot encode | No file change |
-| Line text edit | Match by ` #name-token` / `NodeId`; update node text | Rewrite matched line only |
+| Line text edit | LCS match (optional later hard-match on ` #name-token`); update node text; keep `NodeId` | Rewrite matched line only |
 | Line add | Mint new `NodeId`; insert Owner edge at inferred depth | Append or insert new line at correct depth |
 | Line delete | External deletion — reuse graph delete/ownership-migration semantics ([[doc/roadmap/workspace-text-outline-conversion.md]] § Deletion on import) | Remove matched line only |
-| External move (reorder/re-indent) | Default delete plus add unless id matching preserves identity | N/A — import-side |
+| External re-indent / reorder | Text LCS-match keeps `NodeId`; edited depth wins; ambiguous duplicate/blank runs use positional tie-break between unique anchors | N/A — import-side |
 | Outline move (graph op) | N/A — graph-side | Preserve `NodeId`; rewrite moved node's line at new depth |
 
-Unnamed lines (no ` #name-token`) mint fresh `NodeId` on first import. Once exported with a suffix, subsequent reconciliation matches by stable id.
+Unnamed lines mint fresh `NodeId` on first (cold) import. Warm reconcile recovers identity via outline LCS against the previous file + current graph mapping.
 
-## Move asymmetry
+## External edit vs graph move
 
-External editors may reorder or re-indent lines without stable ids. Plain text has no durable move marker, so import treats ambiguous relocations as delete plus add unless trailing ` #name-token` matching is strong enough to preserve `NodeId`. Graph-driven moves (reparent, reorder via ops) preserve identity on export — the codec rewrites only the moved node's line at the new depth and indent.
+External editors may reorder or re-indent without durable ids in the file. Import uses text-only LCS: when line text matches, `NodeId` is kept and edited depth wins (block re-indent preserves identity). Graph-driven moves (reparent, reorder via ops) preserve identity on export — the codec rewrites only the moved node's line at the new depth and indent.
 
 ## References
 
@@ -80,20 +80,21 @@ Use `.md` for markdown-readable references and `.amb` for metadata prefixes. Rec
 
 Test home: `tests/Shared.Tests/PlainTextDocumentTests.fs` (register after `AmbDocumentTests.fs` in `Gambol.Shared.Tests.fsproj`). Extend `DocumentAssemblyTests.fs` for path → Plain codec dispatch; extend `DocumentPersistenceTests.fs` for `readme.txt` round-trip on disk.
 
-Codec and reconciliation (`PlainTextDocumentTests`):
+Codec and reconciliation (`PlainTextDocumentTests`, `OutlineReconcileTests`):
 
 - Arbitrary LF/CRLF text imports to the expected tree; unchanged import writes byte-identically.
 - Exported outline imports with the same `NodeId` values for representable content; complement restores `cssClasses`.
-- Line edit, add, and delete preserve identity for unaffected nodes; export leaves untouched bytes unchanged.
-- External text move defaults to delete plus add; outline move preserves `NodeId` on write.
+- Mid-line insert mints one new id; neighbors keep ids. Block re-indent keeps ids with new depths. Append / in-place edit / delete preserve unaffected identity; export leaves untouched bytes unchanged.
+- Blank round-trip: N file blanks ↔ N empty nodes; write projects them. LICENSE-like blank runs stay byte-stable when only content lines change.
+- External swap of unique lines may keep ids via LCS; outline move preserves `NodeId` on write.
 
 Format rules:
 
 - Untouched file bytes stay unchanged, including blanks, line endings, indent style, and untouched node lines.
 - Tab and space files infer correctly; export preserves the inferred style without silent tab/space conversion.
 - Mixed and skipped indentation are flagged; depth remains deterministic and skipped units round-trip as text spaces.
-- One non-blank line creates one node; blank lines create none.
-- ` #name-token` sets `name`; invalid or duplicate suffixes are flagged.
+- Every file line (including blank) is one node; empty text projects as a blank line.
+- ` #name-token` sets `name`; invalid or duplicate suffixes are flagged (hard-match on import deferred).
 - Ref-only lines round-trip at the correct depth; inline refs stay plain text.
 - Reconciled import preserves user `cssClasses`; unsupported constructs produce diagnostics.
 

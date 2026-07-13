@@ -7,10 +7,17 @@
 
   <ItemGroup>
     <Compile Include="DesktopGit.fs" />
+    <Compile Include="OutlineLcs.fs" />
+    <Compile Include="OutlineReconcile.fs" />
+    <Compile Include="PlainTextReconcile.fs" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Gambol.Shared.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="DiffPlex" Version="1.7.2" />
   </ItemGroup>
 
 </Project>

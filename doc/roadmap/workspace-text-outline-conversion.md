@@ -66,11 +66,22 @@ Each format document defines:
 
 Each rule should name its counterpart in the other direction.
 
+## Shared outline LCS reconcile
+
+Import/warm reconcile for outline-backed text formats uses a shared mechanism in `src/Shared/dotnet/` (`OutlineLcs` + `OutlineReconcile`, DiffPlex-backed). Format codecs flatten to / project from `{ depth; text; nodeId option }` lines; sequence diff + disposition policy are format-agnostic.
+
+- Match key is **text only** (not depth). DiffPlex equal → keep with edited depth/text; insert → mint; delete → external deletion semantics below.
+- Duplicates / blank runs: after DiffPlex, pair identical keys in order between neighboring unique anchors (positional tie-break). Optional hard-match anchors (e.g. Plain ` #name-token`) are deferred.
+- Minimal in-place edit pass: among unmatched adjacent slots, pair one delete+insert as keep with new text when depths match.
+- Export stays operations-driven / previous-text byte preservation; LCS is the import/warm story only.
+
+Amb/XML calling this API is deferred; Plain warm path is the first consumer.
+
 ## Generic text reconciliation
 
-Authoritative spec: [[doc/roadmap/workspace-format-plain.md]]. That document defines line mapping, identity (` #name-token`), operations-driven export, reconciliation by change kind, move asymmetry, and verification targets for `Special File` artifacts whose path is neither `.amb` nor `.md`. Workspace and directory documents remain on `.amb`; markdown remains deferred.
+Authoritative spec: [[doc/roadmap/workspace-format-plain.md]]. That document defines line mapping (blanks both ways), identity, operations-driven export, LCS-based reconciliation outcomes, and verification targets for `Special File` artifacts whose path is neither `.amb` nor `.md`. Workspace and directory documents remain on `.amb`; markdown remains deferred.
 
-This conversion doc supplies the shared contract only: three reconciliation inputs and required outcomes in **Settled**; external deletion semantics in **Deletion on import**.
+This conversion doc supplies the shared contract: three reconciliation inputs and required outcomes in **Settled**; external deletion semantics in **Deletion on import**; shared outline LCS above.
 
 ## Generic XML reconciliation
 
