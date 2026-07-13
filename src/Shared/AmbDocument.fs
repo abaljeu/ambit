@@ -177,11 +177,16 @@ module AmbDocument =
                             |> ignore
                             emittedOwners
                         else
+                            let plain = plainLineContent node body
+                            let ambiguousPlain =
+                                plain.StartsWith("^") || plain.StartsWith("-> ")
                             let line =
-                                if isShared || Set.contains nodeId refTargets then
+                                if isShared
+                                   || Set.contains nodeId refTargets
+                                   || ambiguousPlain then
                                     ownerLineContent nodeId node body
                                 else
-                                    plainLineContent node body
+                                    plain
 
                             sb.Append(indent).Append(line).Append(nl)
                             |> ignore
@@ -208,11 +213,10 @@ module AmbDocument =
         | (d, _) :: tail when d >= depth -> popStack depth tail
         | _ -> stack
 
-    let private stubNode (nodeId: NodeId) (contextGraph: Graph) : Node =
-        match Map.tryFind nodeId contextGraph.nodes with
-        | Some node -> { node with children = [] }
-        | None ->
-            Node.Create(nodeId)
+    let private brokenLinkText = "Broken link."
+
+    let private stubBrokenLink (nodeId: NodeId) : Node =
+        Node.Create(nodeId, text = brokenLinkText)
 
     let private ensureNode
         (nodeId: NodeId)
@@ -223,8 +227,12 @@ module AmbDocument =
             nodes
         else
             match Map.tryFind nodeId contextGraph.nodes with
-            | Some node -> Map.add nodeId { node with children = [] } nodes
-            | None -> Map.add nodeId (stubNode nodeId contextGraph) nodes
+            | Some node when not (String.IsNullOrWhiteSpace node.text) ->
+                Map.add nodeId { node with children = [] } nodes
+            | Some node ->
+                Map.add nodeId { node with children = []; text = brokenLinkText } nodes
+            | None ->
+                Map.add nodeId (stubBrokenLink nodeId) nodes
 
     let private resolveRefTarget
         (path: string option)
@@ -238,17 +246,12 @@ module AmbDocument =
             match path with
             | None ->
                 Ok (nodeId, ensureNode nodeId localNodes contextGraph)
-            | Some crossPath ->
+            | Some _crossPath ->
                 match Map.tryFind nodeId contextGraph.nodes with
-                | None -> Error ("cross-file ref target not found: " + stableToken)
+                | None ->
+                    Ok (nodeId, ensureNode nodeId localNodes contextGraph)
                 | Some _ ->
-                    match NodeDesktopPath.pathForNodeId contextGraph nodeId with
-                    | None -> Ok (nodeId, localNodes)
-                    | Some actualPath when
-                        String.Equals(actualPath, crossPath, StringComparison.OrdinalIgnoreCase)
-                        ->
-                        Ok (nodeId, localNodes)
-                    | Some _ -> Ok (nodeId, localNodes)
+                    Ok (nodeId, localNodes)
 
     let private resolveOwnerLine
         (stableToken: string)
@@ -388,7 +391,6 @@ module AmbDocument =
 
         elif content.StartsWith("^") then
             match splitStableIdPrefix (content.Substring(1)) with
-            | None -> nodes, stack, idMap, claimed, Error ("invalid owner line: " + content)
             | Some (stableToken, rest) ->
                 let name, bodyRest = parseOwnerRest rest
                 let classes, nodeText = parseOutlineMeta bodyRest
@@ -400,6 +402,14 @@ module AmbDocument =
                     let edge = { ref = Ownership.Owner; id = nodeId }
                     let nodes'' = prependChild parentId edge nodes'
                     nodes'', (depth, nodeId) :: stack, idMap', claimed', Ok ()
+            | None ->
+                // Body text may start with '^' without a stable id (legacy plain write).
+                let classes, nodeText = parseOutlineMeta content
+                let nodeId, nodes', claimed' =
+                    resolvePlainLine parentId classes nodeText nodes contextGraph claimed
+                let edge = { ref = Ownership.Owner; id = nodeId }
+                let nodes'' = prependChild parentId edge nodes'
+                nodes'', (depth, nodeId) :: stack, idMap, claimed', Ok ()
 
         else
             let classes, nodeText = parseOutlineMeta content

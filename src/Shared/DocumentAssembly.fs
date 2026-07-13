@@ -48,10 +48,10 @@ module DocumentAssembly =
     let classifyArtifactRelative (relativePath: string) : Result<ArtifactDescriptor, string> =
         let path = normalizeRelative relativePath
 
+        // Only `.amb` / `*/.amb` are directory markers; any other path is File
+        // (including names that happen to end in `.amb`, e.g. `d/bob/cea.amb`).
         if path = ".amb" || path.EndsWith("/.amb") then
             Ok { relativePath = path; kind = DocumentArtifactKind.Directory }
-        elif path.EndsWith(".amb") then
-            Error ("unrecognized artifact path: " + path)
         else
             Ok { relativePath = path; kind = DocumentArtifactKind.File }
 
@@ -135,12 +135,31 @@ module DocumentAssembly =
             let nodes = Map.add documentRootId (stubNode descriptor documentRootId) graph.nodes
             Graph.fromNodes graph.root nodes
 
-    let validateAssembledGraph (graph: Graph) : Result<Graph, string> =
-        let missingChild =
+    let private brokenLinkText = "Broken link."
+
+    let private stubMissingRefTargets (graph: Graph) : Graph =
+        let missingIds =
             graph.nodes
             |> Map.toSeq
             |> Seq.collect (fun (_, node) -> node.children)
-            |> Seq.tryFind (fun child -> not (Map.containsKey child.id graph.nodes))
+            |> Seq.map (fun child -> child.id)
+            |> Seq.distinct
+            |> Seq.filter (fun id -> not (Map.containsKey id graph.nodes))
+            |> Seq.toList
+
+        match missingIds with
+        | [] -> graph
+        | ids ->
+            let nodes =
+                ids
+                |> List.fold
+                    (fun nodes id ->
+                        Map.add id (Node.Create(id, text = brokenLinkText)) nodes)
+                    graph.nodes
+            Graph.fromNodes graph.root nodes
+
+    let validateAssembledGraph (graph: Graph) : Result<Graph, string> =
+        let graph = stubMissingRefTargets graph
 
         let documentRoots =
             graph.nodes
@@ -161,16 +180,13 @@ module DocumentAssembly =
                         + " belongs to multiple documents")
             | Some _ -> Ok index
 
-        match missingChild with
-        | Some child -> Error ("missing ref target: " + AmbDocument.formatStableId child.id)
-        | None ->
-            documentRoots
-            |> Seq.collect (fun docId ->
-                DocumentPartition.memberNodeIds graph docId
-                |> Set.toSeq
-                |> Seq.map (fun memberId -> memberId, docId))
-            |> resultFold addMembership Map.empty<NodeId, NodeId>
-            |> Result.map (fun _ -> graph)
+        documentRoots
+        |> Seq.collect (fun docId ->
+            DocumentPartition.memberNodeIds graph docId
+            |> Set.toSeq
+            |> Seq.map (fun memberId -> memberId, docId))
+        |> resultFold addMembership Map.empty<NodeId, NodeId>
+        |> Result.map (fun _ -> graph)
 
     let private readArtifact
         (graph: Graph)

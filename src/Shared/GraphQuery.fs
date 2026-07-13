@@ -80,6 +80,34 @@ module GraphQuery =
     let owner (graph: Graph) (id: NodeId option) : NodeId option =
         id |> Option.bind (fun nid -> Map.tryFind nid graph.ownerParentByChild)
 
+    /// First node on the owner chain (including `nodeId`) matching `predicate`.
+    let enclosing
+        (graph: Graph)
+        (predicate: Node -> bool)
+        (nodeId: NodeId)
+        : NodeId option =
+        let rec walk (current: NodeId) =
+            match Map.tryFind current graph.nodes with
+            | None -> None
+            | Some node when predicate node -> Some current
+            | Some _ ->
+                match Map.tryFind current graph.ownerParentByChild with
+                | None -> None
+                | Some parentId -> walk parentId
+
+        walk nodeId
+
+    let private isEnclosingWorkspaceNode (node: Node) : bool =
+        node.id = GraphBuild.rootId
+        || node.id = GraphBuild.trashId
+        || match node.kind with
+           | Special Workspace when node.id <> GraphBuild.workspacesId -> true
+           | _ -> false
+
+    /// Enclosing workspace on the owner chain (named Workspace, ROOT, or TRASH).
+    let enclosingWorkspace (graph: Graph) (nodeId: NodeId) : NodeId option =
+        enclosing graph isEnclosingWorkspaceNode nodeId
+
     let nodeFirstChild (graph: Graph) (id: NodeId option) : NodeId option =
         id
         |> Option.bind (fun nid ->

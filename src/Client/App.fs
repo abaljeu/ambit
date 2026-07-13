@@ -341,15 +341,18 @@ let setupStaticDOM (dispatch: Msg -> unit) (getModel: unit -> VM) (_wakePolling:
     hiddenInput.addEventListener("copy",  fun ev -> onCopy  (getModel ()) ev dispatch)
     hiddenInput.addEventListener("cut",   fun ev -> onCut   (getModel ()) ev dispatch)
 
+    let interactiveChromeSelector =
+        "button,input,a,.amb-dialog,#sync-status,#cmd-last-result"
+
     let dismissOnBackground (ev: Event) : unit =
         let target = ev.target :?> HTMLElement
         match (getModel ()).mode with
         | CommandPalette _ | SearchDialog _ | FileSearchDialog _ | CssClassPrompt _ | RenamePrompt _ ->
-            match target.closest("button,input,a,.amb-dialog,#sync-status") with
+            match target.closest interactiveChromeSelector with
             | Some _ -> ()
             | None -> dispatch (ApplyOp closeActiveOverlayOp)
         | Editing _ ->
-            match target.closest("button,input,a,.amb-dialog,#sync-status") with
+            match target.closest interactiveChromeSelector with
             | Some _ -> ()
             | None -> dispatch (ApplyOp commitToSelectingOp)
         | _ -> ()
@@ -376,6 +379,13 @@ let setupStaticDOM (dispatch: Msg -> unit) (getModel: unit -> VM) (_wakePolling:
             window.location.assign(path + "?bust=" + string (nowMs ()))
         | _ -> ()
     )
+
+    let cmdLastResult = document.getElementById "cmd-last-result"
+    if not (isNull cmdLastResult) then
+        cmdLastResult.setAttribute("title", "Copy command result")
+        cmdLastResult.addEventListener(
+            "click",
+            fun _ -> copyCmdLastResult (getModel ()).lastCmdResult)
 
 // ---------------------------------------------------------------------------
 // Polling

@@ -289,9 +289,10 @@ let commandsForPalette (model: VM) (returnTo: Mode) : CommandEntry2 list =
             && (c.id <> ParseOrPush || contextualCommandAvailable model)
             && (c.id <> GitPull
                 || (canGit
-                    && match contextualTargetForModel model with
-                       | Some(PushWorkspace _) -> true
-                       | _ -> false)))
+                    && model.selectedNodes
+                       |> Option.map (focusedNodeId model.graph)
+                       |> Option.bind (NodeDesktopPath.tryWorkspaceGitLabel model.graph)
+                       |> Option.isSome)))
 
 let filteredCommands (model: VM) (returnTo: Mode) (query: string) : CommandEntry2 list =
     let baseList = commandsForPalette model returnTo

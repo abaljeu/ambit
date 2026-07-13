@@ -36,7 +36,7 @@ let private focusLabel (model: VM) : string option =
 let private requireLabel (model: VM) : Result<string, string> =
     match focusLabel model with
     | Some label -> Ok label
-    | None -> Error "focus a named workspace (not ROOT)"
+    | None -> Error "focus a node under a named workspace"
 
 let private encodeLabel (label: string) : string =
     Encode.object [ "label", Encode.string label ]

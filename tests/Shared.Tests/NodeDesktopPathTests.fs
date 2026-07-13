@@ -95,6 +95,21 @@ let ``tryWorkspaceGitLabel reads named workspace from focus`` () =
         None, NodeDesktopPath.tryWorkspaceGitLabel graph Graph.workspacesId)
 
 [<Fact>]
+let ``tryWorkspaceGitLabel resolves named workspace from owned Normal descendant`` () =
+    let graph0, wsId, _, _ = graphWithWorkspaceTree ()
+    let noteId = NodeId.New()
+    let note = Node.Create(noteId, text = "notes", owner = wsId)
+    let graph1 =
+        graph0.nodes
+        |> Map.add noteId note
+        |> fun nodes -> Graph.fromNodes graph0.root nodes
+    let graph =
+        Graph.replace wsId 0 [] (owned [ noteId ]) graph1
+        |> requireOk "ws->note"
+    Assert.Equal(Some "home", NodeDesktopPath.tryWorkspaceGitLabel graph noteId)
+    Assert.Equal(None, NodeDesktopPath.tryWorkspaceGitLabel graph Graph.rootId)
+
+[<Fact>]
 let ``pathForNodeId Directory and File append owner path and name`` () =
     let graph, _, dirId, fileId = graphWithWorkspaceTree ()
     Assert.Equal(Some "//home/docs/", NodeDesktopPath.pathForNodeId graph dirId)

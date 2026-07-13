@@ -382,6 +382,11 @@ let fetchTextNoCacheWithFail (url: string) (callback: string -> unit) (onFail: u
 [<Emit("window.open($0, '_blank', 'noopener,noreferrer')")>]
 let openUrlInNewTab (url: string) : unit = jsNative
 
+[<Emit(
+    "if(navigator.clipboard&&navigator.clipboard.writeText){" +
+    "navigator.clipboard.writeText($0).catch(function(){});}")>]
+let writeClipboardText (text: string) : unit = jsNative
+
 [<Emit("Date.now()")>]
 let nowMs () : int = jsNative
 

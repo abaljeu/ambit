@@ -161,6 +161,39 @@ let ``read cross-document ref resolves against context graph`` () =
     Assert.Equal(Ownership.Ref, localNode.children.[0].ref)
 
 [<Fact>]
+let ``read missing cross-document ref creates Broken link stub`` () =
+    let localId = NodeId.New()
+    let missingId = NodeId.New()
+    let local = Node.Create(localId, text = "local")
+    let graph, docId = graphWithDocument [ local ]
+    let sid = AmbDocument.formatStableId missingId
+    let outline =
+        "^" + AmbDocument.formatStableId localId + " local" + Environment.NewLine
+        + "\t-> //gone.txt^" + sid + Environment.NewLine
+    let result =
+        AmbDocument.read outline docId graph
+        |> function
+            | Ok r -> r
+            | Error msg -> failwith msg
+    Assert.Equal(missingId, result.nodes.[localId].children.[0].id)
+    Assert.Equal(Ownership.Ref, result.nodes.[localId].children.[0].ref)
+    Assert.Equal("Broken link.", result.nodes.[missingId].text)
+
+[<Fact>]
+let ``read same-document dangling ref creates Broken link stub`` () =
+    let missingId = NodeId.New()
+    let graph, docId = graphWithDocument []
+    let sid = AmbDocument.formatStableId missingId
+    let outline = "-> ^" + sid + Environment.NewLine
+    let result =
+        AmbDocument.read outline docId graph
+        |> function
+            | Ok r -> r
+            | Error msg -> failwith msg
+    Assert.Equal(missingId, result.nodes.[docId].children.[0].id)
+    Assert.Equal("Broken link.", result.nodes.[missingId].text)
+
+[<Fact>]
 let ``read owner line with caret stable id`` () =
     let nodeId = NodeId.New()
     let sid = AmbDocument.formatStableId nodeId
@@ -173,6 +206,37 @@ let ``read owner line with caret stable id`` () =
             | Error msg -> failwith msg
     Assert.Equal("plain body", result.nodes.[nodeId].text)
     Assert.Equal(1, result.nodes.[docId].children.Length)
+
+[<Fact>]
+let ``read caret text without stable id as plain line`` () =
+    let graph, docId = graphWithDocument []
+    let outline = "^ff" + Environment.NewLine
+    let result =
+        AmbDocument.read outline docId graph
+        |> function
+            | Ok r -> r
+            | Error msg -> failwith msg
+    Assert.Equal("^ff", result.nodes.[result.nodes.[docId].children.[0].id].text)
+    Assert.Equal(1, result.nodes.[docId].children.Length)
+
+[<Fact>]
+let ``round-trip preserves caret-prefixed plain text`` () =
+    let nodeId = NodeId.New()
+    let node = Node.Create(nodeId, text = "^ff")
+    let graph, docId = graphWithDocument [ node ]
+    let written =
+        AmbDocument.write graph docId
+        |> function
+            | Ok s -> s
+            | Error msg -> failwith msg
+    Assert.Contains("^" + AmbDocument.formatStableId nodeId, written)
+    let result =
+        AmbDocument.read written docId graph
+        |> function
+            | Ok r -> r
+            | Error msg -> failwith msg
+    Assert.Equal(nodeId, result.nodes.[docId].children.[0].id)
+    Assert.Equal("^ff", result.nodes.[nodeId].text)
 
 [<Fact>]
 let ``round-trip preserves stable ids and tree shape`` () =

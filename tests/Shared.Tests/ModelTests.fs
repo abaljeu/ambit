@@ -504,6 +504,49 @@ let ``Graph.replace accepts Ref Special File under normal parent`` () =
     | Error err -> Assert.True(false, $"Expected Ok, got Error: {err}")
 
 [<Fact>]
+let ``Graph.replace accepts Ref Special Workspace under normal parent`` () =
+    let graph0 = Graph.create ()
+    let graph1, ids = ModelBuilder.createNodes [ "parent" ] graph0
+    let parent = ids.[0]
+    let graph2 =
+        Graph.replace graph1.root 0 [] (owned [ parent ]) graph1 |> requireOk "root->parent"
+    let wsId = NodeId.New()
+    let graph3 = addSpecialNode wsId Workspace "ws" graph2
+    let graph4 =
+        Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) graph3
+        |> requireOk "workspaces->ws"
+    match Graph.replace parent 0 [] [ { ref = Ownership.Ref; id = wsId } ] graph4 with
+    | Ok graph5 ->
+        let children = graph5.nodes.[parent].children
+        Assert.Equal(Ownership.Ref, children.Head.ref)
+        Assert.Equal(wsId, children.Head.id)
+    | Error err -> Assert.True(false, $"Expected Ok, got Error: {err}")
+
+[<Fact>]
+let ``Graph.replace moves Ref Special Workspace between normal parents`` () =
+    let graph0 = Graph.create ()
+    let graph1, ids = ModelBuilder.createNodes [ "a"; "b" ] graph0
+    let aId, bId = ids.[0], ids.[1]
+    let graph2 =
+        Graph.replace graph1.root 0 [] (owned [ aId; bId ]) graph1
+        |> requireOk "root->a,b"
+    let wsId = NodeId.New()
+    let graph3 = addSpecialNode wsId Workspace "ws" graph2
+    let graph4 =
+        Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) graph3
+        |> requireOk "workspaces->ws"
+    let wsRef = { ref = Ownership.Ref; id = wsId }
+    let graph5 =
+        Graph.replace aId 0 [] [ wsRef ] graph4 |> requireOk "a->ref"
+    let graph6 =
+        Graph.replace aId 0 [ wsRef ] [] graph5 |> requireOk "a remove ref"
+    match Graph.replace bId 0 [] [ wsRef ] graph6 with
+    | Ok graph7 ->
+        Assert.Equal<ChildNode list>([], graph7.nodes.[aId].children)
+        Assert.Equal<ChildNode list>([ wsRef ], graph7.nodes.[bId].children)
+    | Error err -> Assert.True(false, $"Expected Ok, got Error: {err}")
+
+[<Fact>]
 let ``Graph.replace accepts Special Directory under ROOT`` () =
     let graph0 = Graph.create ()
     let dirId = NodeId.New()

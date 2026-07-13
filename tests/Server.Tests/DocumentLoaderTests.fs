@@ -85,16 +85,18 @@ let ``tryLoadState reads amb network and replays log`` () =
     Assert.True(loaded.graph.nodes.Values |> Seq.exists (fun n -> n.text = "logged-child"))
 
 [<Fact>]
-let ``tryLoadState corrupt amb returns error not legacy fallback`` () =
+let ``tryLoadState missing amb ref creates stub without legacy fallback`` () =
     let dataDir = newTempDir ()
     let state = stateWithRootChild "good"
     writeAmbFiles dataDir state
     writeLegacyFiles dataDir (Graph.create ()) 0 ""
+    let missingId = NodeId.New()
     let ambPath = Path.Combine(dataDir, ".amb")
-    File.WriteAllText(ambPath, File.ReadAllText ambPath + "^deadbeef corrupt")
-    match DocumentLoader.tryLoadState dataDir testFile with
-    | Ok _ -> failwith "expected error"
-    | Error _ -> ()
+    let missingRef = "-> ^" + AmbDocument.formatStableId missingId + Environment.NewLine
+    File.WriteAllText(ambPath, File.ReadAllText ambPath + missingRef)
+    let loaded = DocumentLoader.tryLoadState dataDir testFile |> requireOk "load"
+    Assert.Equal("Broken link.", loaded.graph.nodes.[missingId].text)
+    Assert.True(loaded.graph.nodes.Values |> Seq.exists (fun n -> n.text = "good"))
 
 [<Fact>]
 let ``tryLoadState amb takes precedence over stale monolithic gambol`` () =

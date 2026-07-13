@@ -138,10 +138,35 @@ let ``classifyArtifactRelative recognizes canonical and nested paths`` () =
     Assert.Equal(DocumentAssembly.DocumentArtifactKind.Directory, rootDir.kind)
 
 [<Fact>]
-let ``classifyArtifactRelative rejects stray amb files`` () =
-    match DocumentAssembly.classifyArtifactRelative "foo.amb" with
-    | Ok _ -> failwith "expected error"
-    | Error _ -> ()
+let ``classifyArtifactRelative recognizes named amb files as File`` () =
+    let rootFile =
+        DocumentAssembly.classifyArtifactRelative "foo.amb"
+        |> requireOk "root named amb file"
+    Assert.Equal(DocumentAssembly.DocumentArtifactKind.File, rootFile.kind)
+
+    let nested =
+        DocumentAssembly.classifyArtifactRelative "d/bob/cea.amb"
+        |> requireOk "nested named amb file"
+    Assert.Equal(DocumentAssembly.DocumentArtifactKind.File, nested.kind)
+    Assert.Equal("d/bob/cea.amb", nested.relativePath)
+
+[<Fact>]
+let ``classifyCodec uses Amb for marker and named amb paths`` () =
+    let marker =
+        DocumentFormat.classifyCodec ".amb" |> requireOk "root marker"
+    Assert.Equal(DocumentCodec.Amb, marker)
+
+    let nestedMarker =
+        DocumentFormat.classifyCodec "d/bob/.amb" |> requireOk "nested marker"
+    Assert.Equal(DocumentCodec.Amb, nestedMarker)
+
+    let named =
+        DocumentFormat.classifyCodec "d/bob/cea.amb" |> requireOk "named amb"
+    Assert.Equal(DocumentCodec.Amb, named)
+
+    let plain =
+        DocumentFormat.classifyCodec "d/bob/readme.txt" |> requireOk "plain"
+    Assert.Equal(DocumentCodec.Plain, plain)
 
 [<Fact>]
 let ``artifactRelativeForNodeReference maps workspace directory and file paths`` () =
@@ -183,6 +208,51 @@ let ``artifactRelativeForNodeReference maps file owns directory to sibling amb``
         DocumentAssembly.artifactRelativeForNodeReference "//inner/"
         |> requireOk "canonical root directory"
     Assert.Equal("inner/.amb", canonical)
+
+[<Fact>]
+let ``assembleFromArtifacts round trips nested named amb file`` () =
+    let graph0 = Graph.create ()
+    let wsId = NodeId.New()
+    let dirId = NodeId.New()
+    let fileId = NodeId.New()
+    let normalId = NodeId.New()
+    let wsNode = specialNode wsId Workspace "d" Graph.workspacesId
+    let dirNode = specialNode dirId Directory "bob" wsId
+    let fileNode = specialNode fileId File "cea.amb" dirId
+    let body = normalNode normalId "ready" fileId
+
+    let graph1 =
+        graph0.nodes
+        |> Map.add wsId wsNode
+        |> Map.add dirId dirNode
+        |> Map.add fileId fileNode
+        |> Map.add normalId body
+        |> fun nodes -> Graph.fromNodes graph0.root nodes
+
+    let expected =
+        Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) graph1
+        |> requireOk "workspaces->ws"
+        |> fun g -> Graph.replace wsId 0 [] (owned [ dirId ]) g
+        |> requireOk "ws->dir"
+        |> fun g -> Graph.replace dirId 0 [] (owned [ fileId ]) g
+        |> requireOk "dir->file"
+        |> fun g -> Graph.replace fileId 0 [] (owned [ normalId ]) g
+        |> requireOk "file->normal"
+
+    let artifacts = artifactMap expected
+    Assert.True(Map.containsKey "d/bob/cea.amb" artifacts)
+    Assert.Equal(
+        DocumentCodec.Amb,
+        DocumentFormat.classifyCodec "d/bob/cea.amb" |> requireOk "cea codec")
+    let viaFormat =
+        DocumentFormat.writeArtifact expected fileId "d/bob/cea.amb" None
+        |> requireOk "format write"
+    let viaAmb = AmbDocument.write expected fileId |> requireOk "amb write"
+    Assert.Equal(viaAmb, viaFormat)
+    let actual = DocumentAssembly.assembleFromArtifacts artifacts |> requireOk "assemble"
+    let actualNormalId = actual.nodes.[fileId].children.Head.id
+    Assert.Equal("ready", actual.nodes.[actualNormalId].text)
+    Assert.Equal(fileId, actual.nodes.[dirId].children.Head.id)
 
 [<Fact>]
 let ``assembleFromArtifacts ignores stray amb in artifact map`` () =
@@ -232,7 +302,7 @@ let ``assembleFromArtifacts round trips file owns directory boundary`` () =
     Assert.True(actual.nodes.[dirId].children |> List.exists (fun c -> c.id = actualNormalId))
 
 [<Fact>]
-let ``validateAssembledGraph catches missing ref target`` () =
+let ``validateAssembledGraph stubs missing ref target with Broken link`` () =
     let graph0 = Graph.create ()
     let parentId = NodeId.New()
     let missingId = NodeId.New()
@@ -245,9 +315,48 @@ let ``validateAssembledGraph catches missing ref target`` () =
         graph0.nodes
         |> Map.add parentId parent
         |> fun nodes -> Graph.fromNodes graph0.root nodes
-    match DocumentAssembly.validateAssembledGraph graph with
-    | Ok _ -> failwith "expected error"
-    | Error msg -> Assert.Contains("ref", msg)
+    let actual =
+        DocumentAssembly.validateAssembledGraph graph |> requireOk "validate"
+    Assert.True(Map.containsKey missingId actual.nodes)
+    Assert.Equal("Broken link.", actual.nodes.[missingId].text)
+    Assert.Equal(missingId, actual.nodes.[parentId].children.Head.id)
+    Assert.Equal(Ownership.Ref, actual.nodes.[parentId].children.Head.ref)
+
+[<Fact>]
+let ``validateAssembledGraph preserves existing text on missing-target stub`` () =
+    let graph0 = Graph.create ()
+    let parentId = NodeId.New()
+    let targetId = NodeId.New()
+    let parent =
+        Node.Create(
+            parentId,
+            text = "parent",
+            children = [ { ref = Ownership.Ref; id = targetId } ])
+    let stub =
+        Node.Create(targetId, text = "kept annotation")
+    let graph =
+        graph0.nodes
+        |> Map.add parentId parent
+        |> Map.add targetId stub
+        |> fun nodes -> Graph.fromNodes graph0.root nodes
+    let actual =
+        DocumentAssembly.validateAssembledGraph graph |> requireOk "validate"
+    Assert.Equal("kept annotation", actual.nodes.[targetId].text)
+
+[<Fact>]
+let ``assembleFromArtifacts stubs dangling same-doc ref with Broken link`` () =
+    let missingId = NodeId.New()
+    let sid = AmbDocument.formatStableId missingId
+    let artifacts =
+        Map.ofList
+            [ ".amb", "-> ^" + sid + System.Environment.NewLine ]
+    let actual =
+        DocumentAssembly.assembleFromArtifacts artifacts |> requireOk "assemble"
+    Assert.True(Map.containsKey missingId actual.nodes)
+    Assert.Equal("Broken link.", actual.nodes.[missingId].text)
+    Assert.True(
+        actual.nodes.[Graph.rootId].children
+        |> List.exists (fun c -> c.id = missingId && c.ref = Ownership.Ref))
 
 [<Fact>]
 let ``validateAssembledGraph catches overlapping document membership`` () =

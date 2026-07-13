@@ -146,6 +146,7 @@ body {
     font-size: 0.7rem;
     color: #849;
     font-family: monospace;
+    cursor: pointer;
 }
 @media (max-width: 480px) {
     body {
@@ -222,7 +223,11 @@ body {
     left: -9999px;
 }
 .amb-sync-status {
+    box-sizing: border-box;
     width: 10rem;
+    min-width: 10rem;
+    max-width: 10rem;
+    flex-shrink: 0;
     padding: 0.2rem 0.4rem;
     border-radius: 0.2rem;
     cursor: pointer;

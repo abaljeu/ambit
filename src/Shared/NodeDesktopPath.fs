@@ -180,12 +180,24 @@ module NodeDesktopPath =
                 else
                     Some (segment, tail)
 
+    let private isNamedWorkspaceGitNode (node: Node) : bool =
+        node.id <> Graph.rootId
+        && node.id <> Graph.trashId
+        && node.id <> Graph.workspacesId
+        && match node.kind with
+           | Special Workspace ->
+               match Filename.tryValue node.name with
+               | Some label -> not (String.IsNullOrEmpty label)
+               | None -> false
+           | _ -> false
+
     /// Named workspace label for git connect/clone/pull/push (not ROOT / empty).
+    /// Resolves from the node or any owner ancestor (File/Directory/Normal under a workspace).
     let tryWorkspaceGitLabel (graph: Graph) (nodeId: NodeId) : string option =
-        pathForNodeId graph nodeId
-        |> Option.bind tryParseWorkspacePath
-        |> Option.bind (fun (label, _) ->
-            if String.IsNullOrEmpty label then None else Some label)
+        GraphQuery.enclosing graph isNamedWorkspaceGitNode nodeId
+        |> Option.bind (fun wsId ->
+            Map.tryFind wsId graph.nodes
+            |> Option.bind (fun n -> Filename.tryValue n.name))
 
     let artifactRelativeForReference (nodeReference: string) : Result<string, string> =
         let path = nodeReference.Trim()

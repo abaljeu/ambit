@@ -16,6 +16,7 @@ module DocumentFormat =
     let classifyCodec (relativePath: string) : Result<DocumentCodec, string> =
         let path = normalizeRelative relativePath
 
+        // Any path ending in `.amb` (marker or named file) uses Amb codec.
         if path.EndsWith(".amb") then
             Ok DocumentCodec.Amb
         else

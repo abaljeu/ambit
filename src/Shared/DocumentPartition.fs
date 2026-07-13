@@ -17,15 +17,7 @@ module DocumentPartition =
                 | _ -> false
 
     let documentRootForNode (graph: Graph) (nodeId: NodeId) : NodeId option =
-        let rec walk (current: NodeId) =
-            if isDocumentRootNode graph current then
-                Some current
-            else
-                match Map.tryFind current graph.ownerParentByChild with
-                | None -> None
-                | Some parentId -> walk parentId
-
-        walk nodeId
+        GraphQuery.enclosing graph (fun node -> isDocumentRootNode graph node.id) nodeId
 
     let isNestedDocumentRootBoundary
         (graph: Graph)
@@ -83,36 +75,14 @@ module DocumentPartition =
             | Some node -> node.kind = Special File && node.documentState = Unparsed
             | None -> false)
 
+    let private isDirectoryNode (node: Node) : bool =
+        match node.kind with
+        | Special Directory -> true
+        | _ -> false
+
     let private nearestDirectoryAncestor (graph: Graph) (nodeId: NodeId) : NodeId option =
-        let rec walk (current: NodeId) =
-            match Map.tryFind current graph.ownerParentByChild with
-            | None -> None
-            | Some parentId ->
-                match Map.tryFind parentId graph.nodes with
-                | None -> None
-                | Some parent ->
-                    match parent.kind with
-                    | Special Directory -> Some parentId
-                    | _ -> walk parentId
-
-        walk nodeId
-
-    let private enclosingWorkspace (graph: Graph) (nodeId: NodeId) : NodeId option =
-        let rec walk (current: NodeId) =
-            if current = Graph.rootId || current = Graph.trashId then
-                Some current
-            else
-                match Map.tryFind current graph.nodes with
-                | None -> None
-                | Some node ->
-                    match node.kind with
-                    | Special Workspace when current <> Graph.workspacesId -> Some current
-                    | _ ->
-                        match Map.tryFind current graph.ownerParentByChild with
-                        | None -> None
-                        | Some parentId -> walk parentId
-
-        walk nodeId
+        Map.tryFind nodeId graph.ownerParentByChild
+        |> Option.bind (GraphQuery.enclosing graph isDirectoryNode)
 
     let private workspaceDiskPrefix (graph: Graph) (workspaceId: NodeId) : string option =
         if workspaceId = Graph.rootId then
@@ -141,7 +111,7 @@ module DocumentPartition =
                         directoryDiskRelative graph ancestorId
                         |> Option.map (fun ancestorPath -> ancestorPath + dirName + "/")
                     | None ->
-                        enclosingWorkspace graph dirId
+                        GraphQuery.enclosingWorkspace graph dirId
                         |> Option.bind (workspaceDiskPrefix graph)
                         |> Option.map (fun prefix -> prefix + dirName + "/")
                 | _ -> None

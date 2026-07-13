@@ -80,6 +80,14 @@ let setCmdLastResultDisplay (result: CmdLastResult option) : unit =
     if not (isNull el) then
         el.textContent <- CmdLastResult.formatDisplay result
 
+/// Copy the complete current command result; no result is a no-op.
+let copyCmdLastResult (result: CmdLastResult option) : unit =
+    match result with
+    | None -> ()
+    | Some value ->
+        let text = CmdLastResult.toDisplay value
+        if text <> "" then writeClipboardText text
+
 /// Handle a paste event: extract plain text and optional node IDs, apply pasteNodesOp.
 let onPaste (ev: Event) (dispatch: Msg -> unit) : unit =
     let plain = getClipboardData ev "text/plain"

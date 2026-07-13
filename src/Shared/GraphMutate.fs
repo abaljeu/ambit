@@ -150,7 +150,8 @@ module GraphMutate =
                         let childNode = graph.nodes.[child.id]
 
                         match child.ref, childNode.kind with
-                        | _, Special Workspace when parentId <> GraphBuild.workspacesId ->
+                        | Ownership.Owner, Special Workspace
+                            when parentId <> GraphBuild.workspacesId ->
                             Some "Workspace nodes may only be placed under Workspaces"
                         | Ownership.Owner, (Special File | Special Directory)
                             when child.id <> GraphBuild.trashId ->
