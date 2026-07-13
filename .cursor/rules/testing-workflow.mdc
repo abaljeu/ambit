@@ -15,5 +15,9 @@ All logic should be in Shared/, if possible, based on library dependencies.
 Any complex logic should be testable purely where possible. (If it depends on ambiguous browser behavior, it isn't.)
 We are not testing to the browser.
 
-Run all tests as a background process because it takes a very long time.
 Run targeted tests related to your edit as a foreground process.
+
+# Running all tests (including all tests of any one project) 
+Subagents should never run all tests, because it takes a very long time.
+The main agent may run all tests as a background process.  If the main agent does, it should filter all output except errors.
+

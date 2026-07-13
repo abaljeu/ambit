@@ -10,6 +10,10 @@
     <Compile Include="ClientRectCaret.fs" />
     <Compile Include="Filename.fs" />
     <Compile Include="Model.fs" />
+    <Compile Include="GraphBuild.fs" />
+    <Compile Include="GraphQuery.fs" />
+    <Compile Include="GraphMutate.fs" />
+    <Compile Include="GraphOps.fs" />
     <Compile Include="RefExprTypes.fs" />
     <Compile Include="RefExprParse.fs" />
     <Compile Include="RefExprMatch.fs" />
@@ -33,7 +37,6 @@
     <Compile Include="LoginRedirect.fs" />
     <Compile Include="RedirectRewrite.fs" />
     <Compile Include="ViewModel.fs" />
-    <Compile Include="ModelOps.fs" />
     <Compile Include="ViewModelSiteMap.fs" />
     <Compile Include="ViewModelOccurrence.fs" />
     <Compile Include="ViewModelSelection.fs" />

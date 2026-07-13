@@ -132,6 +132,44 @@ let ``planCreateOwnedDirectory under nested parent ignores workspace name`` () =
     let graph2 = applyOps graph1 opsDir
     Assert.Equal(Filename.Ok "shared", graph2.nodes.[dirId].name)
 
+let private normalUnderRoot () =
+    let graph0 = Graph.create ()
+    let graph1, normalId = Graph.newNode "note" graph0
+    let idx = Graph.fileTreeInsertIndex graph1 Graph.rootId
+    let graph2 =
+        match Graph.replace Graph.rootId idx [] [ owned normalId ] graph1 with
+        | Ok g -> g
+        | Error e -> failwith e
+    normalId, graph2
+
+[<Fact>]
+let ``planCreateOwnedFile under invalid focus inserts beside under parent`` () =
+    let focus, graph = normalUnderRoot ()
+    let fileId, ops = FileNodeOps.planCreateOwnedFile graph focus ""
+    Assert.True(ops.Length > 0)
+    let graph2 = applyOps graph ops
+    let fileNode = graph2.nodes.[fileId]
+    Assert.Equal(Special File, fileNode.kind)
+    Assert.Equal(Graph.rootId, fileNode.owner)
+    let rootChildren = graph2.nodes.[Graph.rootId].children
+    let focusIdx =
+        rootChildren |> List.findIndex (fun c -> c.id = focus)
+    Assert.Equal(focus, rootChildren.[focusIdx].id)
+    Assert.Equal(fileId, rootChildren.[focusIdx + 1].id)
+    Assert.Equal(Ownership.Owner, rootChildren.[focusIdx + 1].ref)
+
+[<Fact>]
+let ``planCreateOwnedDirectory under invalid focus inserts beside under parent`` () =
+    let focus, graph = normalUnderRoot ()
+    let dirId, ops = FileNodeOps.planCreateOwnedDirectory graph focus ""
+    Assert.True(ops.Length > 0)
+    let graph2 = applyOps graph ops
+    Assert.Equal(Graph.rootId, graph2.nodes.[dirId].owner)
+    let rootChildren = graph2.nodes.[Graph.rootId].children
+    let focusIdx =
+        rootChildren |> List.findIndex (fun c -> c.id = focus)
+    Assert.Equal(dirId, rootChildren.[focusIdx + 1].id)
+
 [<Fact>]
 let ``planInsertFileRefAtFocus inserts ref at index`` () =
     let t = tree.Value
