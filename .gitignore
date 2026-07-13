@@ -75,6 +75,9 @@ project.lock.json
 project.fragment.lock.json
 artifacts/
 
+# Ad-hoc agent/local build outputs (dotnet -o ./tmp-*-build)
+tmp-*-build/
+
 # ASP.NET Scaffolding
 ScaffoldingReadMe.txt
 
