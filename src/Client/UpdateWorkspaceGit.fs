@@ -14,11 +14,11 @@ let private withResult (model: VM) (result: CmdLastResult) : VM * Effect list =
 
 let private fail (model: VM) (msg: string) : VM * Effect list =
     consoleLog ("[Gambol git] " + msg)
-    withResult model (CmdLastResult.Error msg)
+    withResult model (CmdLastResult.Error (None, msg))
 
 let private okDetail (model: VM) (msg: string) : VM * Effect list =
     consoleLog ("[Gambol git] " + msg)
-    withResult model (CmdLastResult.Detail msg)
+    withResult model (CmdLastResult.Detail (None, msg))
 
 let private httpError (status: int) (body: string) : string =
     match decodePostChangeError body with

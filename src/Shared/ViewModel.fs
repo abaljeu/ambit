@@ -278,17 +278,32 @@ module DesktopFileIndicator =
         | other -> Map.find other textByState
 
 /// Result of the most recent command, shown in `#cmd-last-result`.
+/// Optional `commandName` is the registry display name (`None` = anonymous / no prefix).
 [<RequireQualifiedAccess>]
 type CmdLastResult =
-    | Ok
-    | Detail of string
-    | Error of string
+    | Ok of commandName: string option
+    | Detail of commandName: string option * message: string
+    | Error of commandName: string option * message: string
 
 module CmdLastResult =
+    let withCommandName (name: string option) = function
+        | CmdLastResult.Ok _ -> CmdLastResult.Ok name
+        | CmdLastResult.Detail (_, msg) -> CmdLastResult.Detail (name, msg)
+        | CmdLastResult.Error (_, msg) -> CmdLastResult.Error (name, msg)
+
+    let private formatNamed (name: string option) (body: string) : string =
+        match name with
+        | None -> body
+        | Some n -> sprintf "%s: %s" n body
+
     let toDisplay = function
-        | CmdLastResult.Ok -> "OK"
-        | CmdLastResult.Detail msg -> msg
-        | CmdLastResult.Error msg -> msg
+        | CmdLastResult.Ok name -> formatNamed name "OK"
+        | CmdLastResult.Detail (name, msg) -> formatNamed name msg
+        | CmdLastResult.Error (name, msg) -> formatNamed name msg
+
+    let formatDisplay = function
+        | None -> ""
+        | Some r -> toDisplay r
 
 /// UI mode; `SearchDialog.onPick` closes over model updates (mutually recursive with `VM`).
 type Mode =

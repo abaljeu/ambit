@@ -36,17 +36,22 @@ let private renderSearchResults
 
 let private handleSearchKey (ke: KeyboardEvent) (dispatch: Msg -> unit) : unit =
     let keyStr = formatKeyCombo ke
-    let named op =
+    let overlay op =
         ke.preventDefault()
-        dispatch (ApplyOp (withDiagnostic op))
+        dispatch (ApplyOp op)
     match keyStr with
-    | "Escape"    -> named Gambol.Client.SearchDialog.closeSearchDialogOp
-    | "ArrowUp"   -> named Gambol.Client.SearchDialog.searchSelectUpOp
-    | "ArrowDown" -> named Gambol.Client.SearchDialog.searchSelectDownOp
+    | "Escape"    -> overlay Gambol.Client.SearchDialog.closeSearchDialogOp
+    | "ArrowUp"   -> overlay Gambol.Client.SearchDialog.searchSelectUpOp
+    | "ArrowDown" -> overlay Gambol.Client.SearchDialog.searchSelectDownOp
     | "Enter"     ->
         ke.preventDefault()
-        dispatch (ApplyOp (withDiagnostic (fun m ->
-            Gambol.Client.SearchDialog.runSearchSelectionOp m.mode m)))
+        dispatch (ApplyOp (fun m ->
+            let name =
+                match m.mode with
+                | SearchDialog s -> Some s.invokedCommand
+                | _ -> None
+            withDiagnostic name (fun m ->
+                Gambol.Client.SearchDialog.runSearchSelectionOp m.mode m) m))
     | _           -> ()
 
 let private dockAccentClasses =

@@ -3,28 +3,11 @@ module ViewModelMoveOpsTests
 open Gambol.Shared
 open Gambol.Shared.ViewModel
 open Gambol.Shared.ViewModelMoveOps
+open VmTestHelpers
 open Xunit
 
 let private owned (ids: NodeId list) : ChildNode list =
     ids |> List.map (fun id -> { ref = Ownership.Owner; id = id })
-
-let private emptyModelAt (graph: Graph) (viewRoot: NodeId) : VM =
-    let siteMap, nextId = buildSiteMapFrom graph viewRoot (Sid 0)
-
-    { graph = graph
-      revision = Revision.Zero
-      history = History.empty
-      selectedNodes = None
-      mode = Selecting
-      siteMap = siteMap
-      nextSiteId = nextId
-      zoomRoot = viewRoot
-      clipboard = None
-      desktopCapabilities = None
-      serverCapabilities = None
-      desktopFileIndicator = BlankFileIndicator
-      syncInfo = SyncInfo.initial
-      lastCmdResult = None }
 
 let private modelWithSelection graph viewRoot parentInstId start endd focus : VM =
     let model = emptyModelAt graph viewRoot
@@ -188,7 +171,7 @@ let ``completeIndent rejected keeps selection and sets invalid target message`` 
     Assert.Equal(original.nextSiteId, result.nextSiteId)
     Assert.Equal(dirId, focusedNodeId result.graph result.selectedNodes.Value)
     Assert.Equal(
-        Some(CmdLastResult.Error invalidMoveTargetMessage),
+        Some(CmdLastResult.Error (None, invalidMoveTargetMessage)),
         result.lastCmdResult)
     Assert.Equal("target is not a valid location", invalidMoveTargetMessage)
 

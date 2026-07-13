@@ -9,6 +9,9 @@ open Gambol.Client.JsInterop
 open Gambol.Client.Update
 open Gambol.Client.UpdateFileSearch
 open Gambol.Shared.CommandCategory
+open Gambol.Shared.CommandEntry
+
+let private insertCommandName = Some (displayName InsertFile)
 
 let private scrollIntoViewNearest (el: HTMLElement) : unit =
     let o = Fable.Core.JsInterop.createEmpty<ScrollIntoViewOptions>
@@ -45,16 +48,16 @@ let private renderFileSearchResults
 
 let private handleFileSearchKey (ke: KeyboardEvent) (dispatch: Msg -> unit) : unit =
     let keyStr = formatKeyCombo ke
-    let named op =
+    let overlay op =
         ke.preventDefault()
-        dispatch (ApplyOp (withDiagnostic op))
+        dispatch (ApplyOp op)
     match keyStr with
-    | "Escape"    -> named Gambol.Client.FileSearchDialog.closeFileSearchDialogOp
-    | "ArrowUp"   -> named Gambol.Client.FileSearchDialog.fileSearchSelectUpOp
-    | "ArrowDown" -> named Gambol.Client.FileSearchDialog.fileSearchSelectDownOp
+    | "Escape"    -> overlay Gambol.Client.FileSearchDialog.closeFileSearchDialogOp
+    | "ArrowUp"   -> overlay Gambol.Client.FileSearchDialog.fileSearchSelectUpOp
+    | "ArrowDown" -> overlay Gambol.Client.FileSearchDialog.fileSearchSelectDownOp
     | "Enter"     ->
         ke.preventDefault()
-        dispatch (ApplyOp (withDiagnostic (fun m ->
+        dispatch (ApplyOp (withDiagnostic insertCommandName (fun m ->
             runFileSearchSelectionOp m.mode m)))
     | _           -> ()
 
@@ -131,12 +134,12 @@ let renderFileSearchDialog (model: VM) (dispatch: Msg -> unit) : unit =
                         | _ -> m, [])))
 
             wsBtn.addEventListener("click", fun _ ->
-                dispatch (ApplyOp (withDiagnostic runFileSearchNewWorkspaceOp)))
+                dispatch (ApplyOp (withDiagnostic insertCommandName runFileSearchNewWorkspaceOp)))
 
             fileBtn.addEventListener("click", fun _ ->
-                dispatch (ApplyOp (withDiagnostic runFileSearchNewFileOp)))
+                dispatch (ApplyOp (withDiagnostic insertCommandName runFileSearchNewFileOp)))
 
             folderBtn.addEventListener("click", fun _ ->
-                dispatch (ApplyOp (withDiagnostic runFileSearchNewFolderOp)))
+                dispatch (ApplyOp (withDiagnostic insertCommandName runFileSearchNewFolderOp)))
     | _ ->
         container.classList.remove "amb-dialog-open"

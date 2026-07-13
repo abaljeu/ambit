@@ -520,7 +520,10 @@ let renderCommandPalette (model: VM) (dispatch: Msg -> unit) : unit =
                                 | None ->
                                     { m with mode = ret }, []
                                 | Some op ->
-                                    withDiagnostic op { m with mode = ret }
+                                    withDiagnostic
+                                        (Some (CommandMeta.displayName cmd.id))
+                                        op
+                                        { m with mode = ret }
                         | _ -> m, [])))
 
     | _ ->

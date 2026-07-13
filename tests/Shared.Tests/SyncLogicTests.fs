@@ -8,23 +8,7 @@ open Xunit
 // Test helpers
 // ---------------------------------------------------------------------------
 
-let private emptyModel (graph: Graph) : VM =
-    let siteMap, nextId = buildSiteMap graph
-
-    { graph = graph
-      revision = Revision.Zero
-      history = History.empty
-      selectedNodes = None
-      mode = Selecting
-      siteMap = siteMap
-      nextSiteId = nextId
-      zoomRoot = graph.root
-      clipboard = None
-      desktopCapabilities = None
-      serverCapabilities = None
-      desktopFileIndicator = BlankFileIndicator
-      syncInfo = SyncInfo.initial
-      lastCmdResult = None }
+let private emptyModel = VmTestHelpers.emptyModel
 
 let private mkChange id = { id = id; changeId = System.Guid.NewGuid(); ops = [] }
 

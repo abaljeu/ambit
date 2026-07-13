@@ -7,6 +7,7 @@
 
   <ItemGroup>
     <Compile Include="SpecialNodeTestHelpers.fs" />
+    <Compile Include="VmTestHelpers.fs" />
     <Compile Include="OpenTargetTests.fs" />
     <Compile Include="ModelTests.fs" />
     <Compile Include="GraphProjectionTests.fs" />
@@ -46,6 +47,7 @@
     <Compile Include="ViewModelJoinOpsTests.fs" />
     <Compile Include="ViewModelMoveOpsTests.fs" />
     <Compile Include="ViewModelRowStateTests.fs" />
+    <Compile Include="ViewModelCmdLastResultTests.fs" />
     <Compile Include="ViewModelTests.fs" />
     <Compile Include="DeleteOpsTests.fs" />
     <Compile Include="SyncLogicTests.fs" />

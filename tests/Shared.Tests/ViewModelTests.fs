@@ -4,6 +4,7 @@ open System
 open Gambol.Shared
 open Gambol.Shared.ViewModel
 open SpecialNodeTestHelpers
+open VmTestHelpers
 open Xunit
 
 let private owned (ids: NodeId list) : ChildNode list =
@@ -35,44 +36,6 @@ let buildFlat (texts: string list) : Graph * NodeId * NodeId list =
         Graph.replace cont 0 [] (owned ids) graph3
         |> ModelBuilder.requireOk "buildFlat.cont"
     graph4, cont, ids
-
-/// Minimal VM helper — no selection, Selecting mode.
-let emptyModel (graph: Graph) : VM =
-    let siteMap, nextId = buildSiteMap graph
-
-    { graph = graph
-      revision = Revision.Zero
-      history = History.empty
-      selectedNodes = None
-      mode = Selecting
-      siteMap = siteMap
-      nextSiteId = nextId
-      zoomRoot = graph.root
-      clipboard = None
-      desktopCapabilities = None
-      serverCapabilities = None
-      desktopFileIndicator = BlankFileIndicator
-      syncInfo = SyncInfo.initial
-      lastCmdResult = None }
-
-/// VM scoped to viewRoot as the display root (siteMap built from viewRoot).
-let emptyModelAt (graph: Graph) (viewRoot: NodeId) : VM =
-    let siteMap, nextId = buildSiteMapFrom graph viewRoot (Sid 0)
-
-    { graph = graph
-      revision = Revision.Zero
-      history = History.empty
-      selectedNodes = None
-      mode = Selecting
-      siteMap = siteMap
-      nextSiteId = nextId
-      zoomRoot = viewRoot
-      clipboard = None
-      desktopCapabilities = None
-      serverCapabilities = None
-      desktopFileIndicator = BlankFileIndicator
-      syncInfo = SyncInfo.initial
-      lastCmdResult = None }
 
 /// VM with a selection covering [start, endd) in parentNodeId's children, focus at focusIdx.
 let modelWithSel (graph: Graph) (parentNodeId: NodeId) (start: int) (endd: int) (focusIdx: int) : VM =

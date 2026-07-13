@@ -2,6 +2,7 @@ module ViewModelRowStateTests
 
 open Gambol.Shared
 open Gambol.Shared.ViewModel
+open VmTestHelpers
 open Xunit
 
 let private owned id =
@@ -39,21 +40,7 @@ let private expandNode nodeId (model: VM) =
     { model with siteMap = siteMap; nextSiteId = nextId }
 
 let private modelFromGraph graph =
-    let siteMap, nextSiteId = buildSiteMapFrom graph Graph.rootId (Sid 0)
-    { graph = graph
-      revision = Revision.Zero
-      history = History.empty
-      selectedNodes = None
-      mode = Selecting
-      siteMap = siteMap
-      nextSiteId = nextSiteId
-      zoomRoot = Graph.rootId
-      clipboard = None
-      desktopCapabilities = None
-      serverCapabilities = None
-      desktopFileIndicator = BlankFileIndicator
-      syncInfo = SyncInfo.initial
-      lastCmdResult = None }
+    emptyModelAt graph Graph.rootId
 
 let private modelWithUnparsedFile () =
     let graph0 = Graph.create ()
@@ -91,22 +78,8 @@ let private modelWithUnparsedFile () =
         Graph.replace refParentId 0 [] [ reference childId ] graph5
         |> requireOk "add reference"
     let graph7 = addChild Graph.rootId siblingFileId graph6
-    let siteMap, nextSiteId = buildSiteMapFrom graph7 Graph.rootId (Sid 0)
     let model =
-        { graph = graph7
-          revision = Revision.Zero
-          history = History.empty
-          selectedNodes = None
-          mode = Selecting
-          siteMap = siteMap
-          nextSiteId = nextSiteId
-          zoomRoot = Graph.rootId
-          clipboard = None
-          desktopCapabilities = None
-          serverCapabilities = None
-          desktopFileIndicator = BlankFileIndicator
-          syncInfo = SyncInfo.initial
-          lastCmdResult = None }
+        emptyModelAt graph7 Graph.rootId
         |> expandNode fileId
         |> expandNode childId
         |> expandNode refParentId

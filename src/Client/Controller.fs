@@ -62,24 +62,23 @@ let setClipboardData (ev: Event) (format: string) (data: string) : unit =
 
 /// Wrap an op with diagnostic state: defaults `lastCmdResult` to Ok when the op did not
 /// already set a result (so a future refusal can set Error and keep it).
-let withDiagnostic (f: Updater) : Updater =
+/// `commandName` is stamped onto the result (`None` = anonymous / no name prefix).
+let withDiagnostic (commandName: string option) (f: Updater) : Updater =
     fun model ->
         let newModel, effects = f model
         let result =
             if newModel.lastCmdResult <> model.lastCmdResult then
                 newModel.lastCmdResult
+                |> Option.map (CmdLastResult.withCommandName commandName)
             else
-                Some CmdLastResult.Ok
+                Some (CmdLastResult.Ok commandName)
         { newModel with lastCmdResult = result }, effects
 
-/// Render `#cmd-last-result` from the last command result. Pure DOM formatter; no state.
+/// Render `#cmd-last-result` from the last command result. Pure DOM formatter.
 let setCmdLastResultDisplay (result: CmdLastResult option) : unit =
     let el = document.getElementById "cmd-last-result"
     if not (isNull el) then
-        el.textContent <-
-            match result with
-            | None -> ""
-            | Some r -> CmdLastResult.toDisplay r
+        el.textContent <- CmdLastResult.formatDisplay result
 
 /// Handle a paste event: extract plain text and optional node IDs, apply pasteNodesOp.
 let onPaste (ev: Event) (dispatch: Msg -> unit) : unit =
@@ -93,7 +92,7 @@ let onPaste (ev: Event) (dispatch: Msg -> unit) : unit =
         | _ -> text
     ev.preventDefault()
     if pastedText <> "" then
-        dispatch (ApplyOp (withDiagnostic (pasteNodesOp pastedText nodeIds)))
+        dispatch (ApplyOp (withDiagnostic None (pasteNodesOp pastedText nodeIds)))
 
 let private onCopyOrCut (model: VM) (ev: Event) (dispatch: Msg -> unit) (updater: Updater) (includeNodeIds: bool) : unit =
     match model.selectedNodes with
@@ -115,7 +114,7 @@ let private onCopyOrCut (model: VM) (ev: Event) (dispatch: Msg -> unit) (updater
                 |> List.map (fun (NodeId guid) -> guid.ToString())
                 |> String.concat "\n"
             setClipboardData ev nodeIdsFormat idsText
-        dispatch (ApplyOp (withDiagnostic updater))
+        dispatch (ApplyOp (withDiagnostic None updater))
 
 /// Handle a copy event: serialize the selected subtree to the clipboard.
 let onCopy (model: VM) (ev: Event) (dispatch: Msg -> unit) : unit =
@@ -235,17 +234,20 @@ let formatKeyCombo (ke: KeyboardEvent) : string =
             // Multi-char keys (Tab, ArrowUp, etc.): browser never includes Shift in key; preserve it.
             if ke.key.Length > 1 && ke.shiftKey then "Shift+" + ke.key else ke.key
 
-/// Key table entry: key string, resolver, and command name for diagnostic.
+/// Key table entry: key, handler, display name, and whether this is command-bar chrome.
+/// Command-bar-only bindings keep a name but do not update `#cmd-last-result`.
 type KeyBinding = {
     key: string
     handler: CommandOp
     commandName: string
+    commandBarOnly: bool
 }
 
 /// A key binding that matched a key event, ready to dispatch.
 type ResolvedKeyBinding = {
     handler: CommandOp
     commandName: string
+    commandBarOnly: bool
 }
 
 /// Key was not bound in the table.
@@ -273,7 +275,10 @@ let paletteRunOp =
             | None ->
                 { model with mode = ret }, []
             | Some op ->
-                withDiagnostic op { model with mode = ret })
+                withDiagnostic
+                    (Some (CommandMeta.displayName cmd.id))
+                    op
+                    { model with mode = ret })
 
 let paletteSetQueryOp (q: string) =
     onPalette (fun _ _ ret model -> { model with mode = Mode.CommandPalette (q, 0, ret) }, [])
@@ -303,6 +308,7 @@ let private selectionKeyBindings : KeyBinding list =
                                     key = nk
                                     handler = rowHandler
                                     commandName = meta.name
+                                    commandBarOnly = false
                                 })
                     let seen' = bindings |> List.fold (fun s e -> Set.add e.key s) seen
                     collect seen' (acc @ bindings) rest
@@ -330,43 +336,53 @@ let private editingKeyBindings : KeyBinding list =
                                     key = nk
                                     handler = rowHandler
                                     commandName = meta.name
+                                    commandBarOnly = false
                                 })
                     let seen' = bindings |> List.fold (fun s e -> Set.add e.key s) seen
                     collect seen' (acc @ bindings) rest
     collect Set.empty [] commandRegistry
 
 /// Literal palette key bindings (Escape, ArrowUp, ArrowDown, Enter). Not derived from registry.
+/// `commandBarOnly = true`: names are kept, but `#cmd-last-result` is not updated.
 let private paletteKeyBindings : KeyBinding list =
     [ { key = "Escape"
         handler = keyAlways closeCommandPaletteOp
-        commandName = "Close palette" }
+        commandName = "Close palette"
+        commandBarOnly = true }
       { key = "ArrowUp"
         handler = keyAlways moveSelectionUp
-        commandName = "Select previous" }
+        commandName = "Select previous"
+        commandBarOnly = true }
       { key = "ArrowDown"
         handler = keyAlways moveSelectionDown
-        commandName = "Select next" }
+        commandName = "Select next"
+        commandBarOnly = true }
       { key = "Enter"
         handler = keyAlways paletteRunOp
-        commandName = "Run command" } ]
+        commandName = "Run command"
+        commandBarOnly = true } ]
 
 /// Key bindings for the CSS class prompt overlay (Escape to cancel, Enter to submit).
 let private cssClassPromptKeyBindings : KeyBinding list =
     [ { key = "Escape"
         handler = keyAlways closeCssClassPromptOp
-        commandName = "Cancel" }
+        commandName = "Cancel"
+        commandBarOnly = true }
       { key = "Enter"
         handler = keyAlways submitCssClassPromptOp
-        commandName = "Apply class" } ]
+        commandName = "Apply class"
+        commandBarOnly = true } ]
 
 /// Key bindings for the rename prompt overlay (Escape to cancel, Enter to submit).
 let private renamePromptKeyBindings : KeyBinding list =
     [ { key = "Escape"
         handler = keyAlways closeRenamePromptOp
-        commandName = "Cancel" }
+        commandName = "Cancel"
+        commandBarOnly = true }
       { key = "Enter"
         handler = keyAlways submitRenamePromptOp
-        commandName = "Rename" } ]
+        commandName = "Rename"
+        commandBarOnly = true } ]
 
 
 let private tryResolveFromNamed
@@ -379,7 +395,12 @@ let private tryResolveFromNamed
         let keyStr = formatKeyCombo ke
         match table |> List.tryFind (fun e -> e.key = keyStr) with
         | None -> Error (KeyNotBound keyStr)
-        | Some e -> Ok { handler = e.handler; commandName = e.commandName }
+        | Some e ->
+            Ok {
+                handler = e.handler
+                commandName = e.commandName
+                commandBarOnly = e.commandBarOnly
+            }
 
 let private dispatchResolvedKey
     (resolved: ResolvedKeyBinding)
@@ -389,7 +410,11 @@ let private dispatchResolvedKey
     match resolved.handler () with
     | Some op ->
         keyEvent.preventDefault()
-        dispatch (ApplyOp (withDiagnostic op))
+        if resolved.commandBarOnly then
+            // Command-bar chrome: run the op, leave `#cmd-last-result` alone.
+            dispatch (ApplyOp op)
+        else
+            dispatch (ApplyOp (withDiagnostic (Some resolved.commandName) op))
     | None ->
         ()
 

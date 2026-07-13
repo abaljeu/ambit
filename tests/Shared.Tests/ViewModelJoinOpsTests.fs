@@ -3,6 +3,7 @@ module ViewModelJoinOpsTests
 open Gambol.Shared
 open Gambol.Shared.ViewModel
 open Gambol.Shared.ViewModelJoinOps
+open VmTestHelpers
 open Xunit
 
 let private owned (ids: NodeId list) : ChildNode list =
@@ -22,24 +23,6 @@ let private buildFlat (texts: string list) : Graph * NodeId * NodeId list =
         |> ModelBuilder.requireOk "buildFlat.cont"
 
     graph4, cont, ids
-
-let private emptyModelAt (graph: Graph) (viewRoot: NodeId) : VM =
-    let siteMap, nextId = buildSiteMapFrom graph viewRoot (Sid 0)
-
-    { graph = graph
-      revision = Revision.Zero
-      history = History.empty
-      selectedNodes = None
-      mode = Selecting
-      siteMap = siteMap
-      nextSiteId = nextId
-      zoomRoot = viewRoot
-      clipboard = None
-      desktopCapabilities = None
-      serverCapabilities = None
-      desktopFileIndicator = BlankFileIndicator
-      syncInfo = SyncInfo.initial
-      lastCmdResult = None }
 
 let private modelWithSel graph parentNodeId start endd focusIdx : VM =
     let model = emptyModelAt graph parentNodeId

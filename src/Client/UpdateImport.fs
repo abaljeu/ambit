@@ -12,7 +12,7 @@ let private canImportDesktop (model: VM) =
 
 let private fail (model: VM) (message: string) : VM * Effect list =
     consoleLog ("[Gambol desktop] parse failed: " + message)
-    { model with lastCmdResult = Some(CmdLastResult.Error message) }, []
+    { model with lastCmdResult = Some(CmdLastResult.Error (None, message)) }, []
 
 let private commitParsedFile
     (model: VM)
@@ -34,7 +34,7 @@ let private commitParsedFile
                 (System.Guid.NewGuid())
         match applyAndPost change model with
         | Some parsed, effects ->
-            let result = Some(CmdLastResult.Detail("parsed: " + path))
+            let result = Some(CmdLastResult.Detail(None, "parsed: " + path))
             { withSiteMap parsed with lastCmdResult = result }, effects
         | None, _ -> fail model "parse change was rejected"
 

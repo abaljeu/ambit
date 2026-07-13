@@ -72,7 +72,7 @@ module ViewModelMoveOps =
 
     let withInvalidMoveTarget (model: VM) : VM =
         { model with
-            lastCmdResult = Some(CmdLastResult.Error invalidMoveTargetMessage) }
+            lastCmdResult = Some(CmdLastResult.Error (None, invalidMoveTargetMessage)) }
 
     /// After a successful indent move (siteMap already reconciled), expand the
     /// previous-sibling parent if needed and select the moved nodes under it.

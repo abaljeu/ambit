@@ -29,7 +29,7 @@ let openRenamePromptOp (model: VM) : VM * Effect list =
                 | Some { kind = Special Workspace } ->
                     "cannot rename a workspace"
                 | _ -> "cannot rename this node"
-            { model with lastCmdResult = Some (CmdLastResult.Error msg) }, []
+            { model with lastCmdResult = Some (CmdLastResult.Error (None, msg)) }, []
         else
             { model with mode = RenamePrompt (model.mode, initialRenameValue model) }, []
 
