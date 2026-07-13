@@ -73,6 +73,13 @@ module GraphMutate =
                     Error "cannot rename a workspace"
                 elif node.name <> Filename.create oldName then
                     Error "old name does not match"
+                elif
+                    match node.kind with
+                    | Special (Workspace | Directory | File) ->
+                        Filename.isReservedSystemName newName
+                    | _ -> false
+                then
+                    Error "new name is a reserved system name"
                 else
                     match Filename.create newName with
                     | Filename.Invalid _ | Filename.Empty ->

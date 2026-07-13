@@ -14,6 +14,11 @@ module Filename =
 
     let maxLength = 255
 
+    /// System bookkeeping files use the case-insensitive `gambol.*` namespace.
+    /// The dot is required; the legacy artifact named exactly `gambol` is not reserved.
+    let isReservedSystemName (name: string) : bool =
+        name.StartsWith("gambol.", StringComparison.OrdinalIgnoreCase)
+
     let private isValidChar (c: char) : bool =
         Char.IsLetterOrDigit c || c = '.' || c = '-' || c = '_'
 

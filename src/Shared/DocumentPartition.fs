@@ -155,3 +155,25 @@ module DocumentPartition =
                     NodeDesktopPath.pathForNodeId graph documentRootId
                     |> Option.bind NodeDesktopPath.desktopFileToDisk
                 | _ -> None
+
+    let rec ownedSubtreeHasReservedArtifactPath graph visited nodeId =
+        if Set.contains nodeId visited then
+            false
+        else
+            match Map.tryFind nodeId graph.nodes with
+            | None -> false
+            | Some node ->
+                let invalidHere =
+                    match node.kind with
+                    | Special (Workspace | Directory | File) ->
+                        artifactFileRelative graph nodeId
+                        |> Option.exists (fun path ->
+                            path.Split('/')
+                            |> Array.exists Filename.isReservedSystemName)
+                    | _ -> false
+                invalidHere
+                || (node.children
+                    |> List.exists (fun child ->
+                        child.ref = Ownership.Owner
+                        && ownedSubtreeHasReservedArtifactPath
+                            graph (Set.add nodeId visited) child.id))

@@ -138,7 +138,7 @@ module DesktopGitEndpoints =
             match resolveMappedRoot workspaceMap label with
             | Error message -> do! writeBadRequest context message
             | Ok localPath ->
-                match DesktopGit.pull localPath auth with
+                match DesktopGit.gitPull localPath auth with
                 | Error err -> do! writeBadRequest context err
                 | Ok _ -> do! writeJson context (okDetail localPath)
     }

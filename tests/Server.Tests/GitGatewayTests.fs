@@ -60,6 +60,24 @@ let ``advertiseRefs prefixes stock service name`` () =
         Assert.Contains("# service=git-upload-pack", text)
 
 [<SkippableFact>]
+let ``advertiseRefs symrefs actual checked out branch`` () =
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let home = Path.Combine(newTempDir (), "home")
+    Directory.CreateDirectory(home) |> ignore
+    requireOk "init" (GitSave.runGit home "init -b master") |> ignore
+    File.WriteAllText(Path.Combine(home, "a.txt"), "one")
+    requireOk "commit" (WorkspaceGit.commitAll home "seed" None) |> ignore
+    requireOk "push config" (WorkspaceGit.ensurePushConfig home)
+    match WorkspaceGit.currentBranch home with
+    | Ok branch -> Assert.Equal("master", branch)
+    | Error err -> Assert.Fail(err)
+    match GitGateway.advertiseRefs home GitGateway.WorkspacePull with
+    | Error err -> Assert.Fail(err)
+    | Ok bytes ->
+        let text = Encoding.UTF8.GetString(bytes)
+        Assert.Contains("symref=HEAD:refs/heads/master", text)
+
+[<SkippableFact>]
 let ``jitCommitIfDirty commits before pull path`` () =
     Skip.IfNot(gitOnPath(), "git not on PATH")
     let home = seedWorkspace (newTempDir ()) "home"

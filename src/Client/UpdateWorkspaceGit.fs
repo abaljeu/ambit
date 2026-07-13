@@ -26,52 +26,52 @@ let private httpError (status: int) (body: string) : string =
     | None ->
         "HTTP " + string status + ": " + LogText.truncateForLog 200 body
 
-let private focusLabel (model: VM) : string option =
+let private workspaceFromFocus (model: VM) : string option =
     let nodeId =
         match model.selectedNodes with
         | Some sel -> focusedNodeId model.graph sel
         | None -> viewRootNodeId model
-    NodeDesktopPath.tryWorkspaceGitLabel model.graph nodeId
+    NodeDesktopPath.enclosingWorkspaceName model.graph nodeId
 
-let private requireLabel (model: VM) : Result<string, string> =
-    match focusLabel model with
-    | Some label -> Ok label
+let private requireNamedWorkspace (model: VM) : Result<string, string> =
+    match workspaceFromFocus model with
+    | Some workspace -> Ok workspace
     | None -> Error "focus a node under a named workspace"
 
-let private encodeLabel (label: string) : string =
-    Encode.object [ "label", Encode.string label ]
+let private encodeWorkspace (workspace: string) : string =
+    Encode.object [ "label", Encode.string workspace ]
     |> Thoth.Json.JavaScript.Encode.toString 0
 
-let private encodeLabelPath (label: string) (path: string) : string =
+let private encodeWorkspacePath (workspace: string) (path: string) : string =
     Encode.object
-        [ "label", Encode.string label
+        [ "label", Encode.string workspace
           "path", Encode.string path ]
     |> Thoth.Json.JavaScript.Encode.toString 0
 
-/// Label (+ optional Ambit git PAT) for desktop push/pull/clone.
-let private encodeLabelAuth
-    (label: string)
+/// Workspace (+ optional Ambit git PAT) for desktop push/pull/clone.
+let private encodeWorkspaceAuth
+    (workspace: string)
     (auth: (string * string) option)
     : string =
     match auth with
-    | None -> encodeLabel label
+    | None -> encodeWorkspace workspace
     | Some(user, token) ->
         Encode.object
-            [ "label", Encode.string label
+            [ "label", Encode.string workspace
               "username", Encode.string user
               "token", Encode.string token ]
         |> Thoth.Json.JavaScript.Encode.toString 0
 
-let private encodeLabelPathAuth
-    (label: string)
+let private encodeWorkspacePathAuth
+    (workspace: string)
     (path: string)
     (auth: (string * string) option)
     : string =
     match auth with
-    | None -> encodeLabelPath label path
+    | None -> encodeWorkspacePath workspace path
     | Some(user, token) ->
         Encode.object
-            [ "label", Encode.string label
+            [ "label", Encode.string workspace
               "path", Encode.string path
               "username", Encode.string user
               "token", Encode.string token ]
@@ -104,8 +104,8 @@ let private pickFolder (requireGit: bool) : Result<string, string> =
         | Ok { path = Some path } -> Ok path
         | Ok _ -> Error "no folder selected"
 
-let private upsertMapping (label: string) (path: string) : Result<unit, string> =
-    match putDesktop "/_desktop/workspace-mappings" (encodeLabelPath label path) with
+let private upsertMapping (workspace: string) (path: string) : Result<unit, string> =
+    match putDesktop "/_desktop/workspace-mappings" (encodeWorkspacePath workspace path) with
     | Error e -> Error e
     | Ok _ -> Ok ()
 
@@ -122,8 +122,8 @@ let private fetchGitAuth () : Result<(string * string) option, string> =
         | Ok GitAuthDisabled -> Ok None
         | Ok (GitToken (user, token)) -> Ok (Some(user, token))
 
-let private setRemote (label: string) (path: string) : Result<string, string> =
-    match postDesktop "/_desktop/git-remote" (encodeLabelPath label path) with
+let private setRemote (workspace: string) (path: string) : Result<string, string> =
+    match postDesktop "/_desktop/git-remote" (encodeWorkspacePath workspace path) with
     | Error e -> Error e
     | Ok text ->
         match decodeDesktopGitOk text with
@@ -132,45 +132,55 @@ let private setRemote (label: string) (path: string) : Result<string, string> =
         | Ok _ -> Error "git-remote failed"
         | Error e -> Error e
 
-let private runLabeled
-    (model: VM)
-    (url: string)
-    (onOk: string -> string)
-    : VM * Effect list =
+let gitPullOp (model: VM) : VM * Effect list =
     if not (WorkspaceGitRemote.canDesktopGit model.desktopCapabilities) then
         model, []
     else
-        match requireLabel model with
+        match requireNamedWorkspace model with
         | Error msg -> fail model msg
-        | Ok label ->
+        | Ok workspace ->
             match fetchGitAuth () with
             | Error e -> fail model e
             | Ok auth ->
-                match postDesktop url (encodeLabelAuth label auth) with
+                match postDesktop "/_desktop/git-pull" (encodeWorkspaceAuth workspace auth) with
                 | Error e -> fail model e
                 | Ok text ->
                     match decodeDesktopGitOk text with
-                    | Ok { ok = true; detail = d } ->
-                        okDetail model (onOk d)
+                    | Ok { ok = true; detail = path } ->
+                        okDetail model (workspace + " → " + path)
                     | Ok { error = Some e } -> fail model e
                     | Ok _ -> fail model "request failed"
                     | Error e -> fail model e
 
-let gitPullOp (model: VM) : VM * Effect list =
-    // Detail body is the mapped local path (from desktop ok.detail).
-    runLabeled model "/_desktop/git-pull" (fun path -> path)
-
 let gitPushOp (model: VM) : VM * Effect list =
-    runLabeled model "/_desktop/git-push" (fun d -> "pushed: " + d)
+    if not (WorkspaceGitRemote.canDesktopGit model.desktopCapabilities) then
+        model, []
+    else
+        match requireNamedWorkspace model with
+        | Error msg -> fail model msg
+        | Ok workspace ->
+            match fetchGitAuth () with
+            | Error e -> fail model e
+            | Ok auth ->
+                match postDesktop "/_desktop/git-push" (encodeWorkspaceAuth workspace auth) with
+                | Error e -> fail model e
+                | Ok text ->
+                    match decodeDesktopGitOk text with
+                    | Ok { ok = true; detail = d } ->
+                        okDetail model ("pushed: " + d)
+                    | Ok { error = Some e } -> fail model e
+                    | Ok _ -> fail model "request failed"
+                    | Error e -> fail model e
+
 
 let gitStatusOp (model: VM) : VM * Effect list =
     if not (WorkspaceGitRemote.canDesktopGit model.desktopCapabilities) then
         model, []
     else
-        match requireLabel model with
+        match requireNamedWorkspace model with
         | Error msg -> fail model msg
-        | Ok label ->
-            match postDesktop "/_desktop/git-status" (encodeLabel label) with
+        | Ok workspace ->
+            match postDesktop "/_desktop/git-status" (encodeWorkspace workspace) with
             | Error e -> fail model e
             | Ok text ->
                 match decodeWorkspaceGitStatus text with
@@ -178,53 +188,53 @@ let gitStatusOp (model: VM) : VM * Effect list =
                     okDetail model (WorkspaceGitRemote.formatStatusLine status)
                 | Error e -> fail model e
 
-let private connectAtPath (model: VM) (label: string) (path: string) =
-    match upsertMapping label path with
+let private connectAtPath (model: VM) (workspace: string) (path: string) =
+    match upsertMapping workspace path with
     | Error e -> fail model e
     | Ok () ->
-        match setRemote label path with
+        match setRemote workspace path with
         | Error e -> fail model e
-        | Ok url -> okDetail model ("connected " + label + " → " + url)
+        | Ok url -> okDetail model ("connected " + workspace + " → " + url)
 
 let gitConnectOp (model: VM) : VM * Effect list =
     if not (WorkspaceGitRemote.canDesktopGit model.desktopCapabilities) then
         model, []
     else
-        match requireLabel model with
+        match requireNamedWorkspace model with
         | Error msg -> fail model msg
-        | Ok label ->
+        | Ok workspace ->
             match pickFolder true with
             | Error "cancelled" -> model, []
             | Error e -> fail model e
-            | Ok path -> connectAtPath model label path
+            | Ok path -> connectAtPath model workspace path
 
-let private cloneAtPath (model: VM) (label: string) (path: string) =
+let private cloneAtPath (model: VM) (workspace: string) (path: string) =
     match fetchGitAuth () with
     | Error e -> fail model e
     | Ok auth ->
         match
             postDesktop
                 "/_desktop/git-clone"
-                (encodeLabelPathAuth label path auth)
+                (encodeWorkspacePathAuth workspace path auth)
         with
         | Error e -> fail model e
         | Ok _ ->
-            match upsertMapping label path with
+            match upsertMapping workspace path with
             | Error e -> fail model e
             | Ok () ->
-                match setRemote label path with
+                match setRemote workspace path with
                 | Error e -> fail model e
                 | Ok url ->
-                    okDetail model ("cloned " + label + " → " + url)
+                    okDetail model ("cloned " + workspace + " → " + url)
 
 let gitCloneOp (model: VM) : VM * Effect list =
     if not (WorkspaceGitRemote.canDesktopGit model.desktopCapabilities) then
         model, []
     else
-        match requireLabel model with
+        match requireNamedWorkspace model with
         | Error msg -> fail model msg
-        | Ok label ->
+        | Ok workspace ->
             match pickFolder false with
             | Error "cancelled" -> model, []
             | Error e -> fail model e
-            | Ok path -> cloneAtPath model label path
+            | Ok path -> cloneAtPath model workspace path

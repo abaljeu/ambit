@@ -122,22 +122,88 @@ module DesktopGit =
         let url = WorkspaceGitRemote.remoteUrl ambitBase label
         setAmbitRemote localPath url
 
-    let private currentBranch (localPath: string) : Result<string, string> =
-        runGit localPath "rev-parse --abbrev-ref HEAD"
+    let parseRemoteHeadBranch (text: string) : Result<string, string> =
+        let prefix = "ref: refs/heads/"
+        let branch =
+            text.Split([| '\r'; '\n' |], StringSplitOptions.RemoveEmptyEntries)
+            |> Array.tryPick (fun line ->
+                let fields = line.Split('\t')
+                if fields.Length = 2
+                   && fields.[1] = "HEAD"
+                   && fields.[0].StartsWith(prefix, StringComparison.Ordinal) then
+                    Some(fields.[0].Substring(prefix.Length))
+                else
+                    None)
+        match branch with
+        | Some value when value.Length > 0 -> Ok value
+        | _ -> Error "Ambit remote HEAD does not identify a branch."
 
-    let pull
+    let private requireAttachedHead (localPath: string) : Result<unit, string> =
+        match runGit localPath "symbolic-ref --quiet --short HEAD" with
+        | Ok branch when not (String.IsNullOrWhiteSpace branch) -> Ok ()
+        | _ -> Error "Cannot push or pull from detached HEAD."
+
+    let pullArguments (branch: string) : string =
+        sprintf
+            "pull %s refs/heads/%s"
+            WorkspaceGitRemote.RemoteName
+            branch
+
+    let pushArguments (branch: string) : string =
+        sprintf
+            "push %s HEAD:refs/heads/%s"
+            WorkspaceGitRemote.RemoteName
+            branch
+
+    /// Well-known empty tree. `-c attr.tree=<this>` ignores worktree
+    /// gitattributes for one invocation — clears false dirt when index
+    /// blobs have CRLF but `* text eol=lf` marks the WT modified.
+    [<Literal>]
+    let emptyAttrTree = "4b825dc642cb6eb9a060e54bf8d0927e237e9347"
+
+    let isOverwrittenByMergeError (detail: string) : bool =
+        detail.IndexOf(
+            "would be overwritten by merge",
+            StringComparison.OrdinalIgnoreCase)
+        >= 0
+
+    let pullArgumentsIgnoringAttrs (branch: string) : string =
+        sprintf "-c attr.tree=%s %s" emptyAttrTree (pullArguments branch)
+
+    let private remoteHeadBranch
+        (localPath: string)
+        (auth: (string * string) option)
+        : Result<string, string> =
+        let name = WorkspaceGitRemote.RemoteName
+        let args = sprintf "ls-remote --symref %s HEAD" name
+        match runGitCore localPath args auth with
+        | Error err -> Error err
+        | Ok text -> parseRemoteHeadBranch text
+
+    let gitPull
         (localPath: string)
         (auth: (string * string) option)
         : Result<string, string> =
         if not (isRepo localPath) then
             Error "No git repository at local path."
         else
-            match currentBranch localPath with
+            match requireAttachedHead localPath with
             | Error err -> Error err
-            | Ok branch ->
-                let args =
-                    sprintf "pull %s %s" WorkspaceGitRemote.RemoteName branch
-                runGitCore localPath args auth
+            | Ok () ->
+                match remoteHeadBranch localPath auth with
+                | Error err -> Error err
+                | Ok branch ->
+                    match runGitCore localPath (pullArguments branch) auth with
+                    | Ok out -> Ok out
+                    | Error err when isOverwrittenByMergeError err ->
+                        // Retry without gitattributes so eol=lf false dirt
+                        // (CRLF blobs vs LF attribute) does not block merge.
+                        // Real content edits still abort on the retry.
+                        runGitCore
+                            localPath
+                            (pullArgumentsIgnoringAttrs branch)
+                            auth
+                    | Error err -> Error err
 
     let push
         (localPath: string)
@@ -146,12 +212,13 @@ module DesktopGit =
         if not (isRepo localPath) then
             Error "No git repository at local path."
         else
-            match currentBranch localPath with
+            match requireAttachedHead localPath with
             | Error err -> Error err
-            | Ok branch ->
-                let args =
-                    sprintf "push %s %s" WorkspaceGitRemote.RemoteName branch
-                runGitCore localPath args auth
+            | Ok () ->
+                match remoteHeadBranch localPath auth with
+                | Error err -> Error err
+                | Ok branch ->
+                    runGitCore localPath (pushArguments branch) auth
 
     let status (localPath: string) : Result<WorkspaceGitStatus, string> =
         if not (isRepo localPath) then

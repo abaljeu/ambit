@@ -62,7 +62,34 @@ let ``one added file creates a file stub`` () =
     Assert.Equal(1, children.Length)
     Assert.Equal("README.md", fst children.Head)
     Assert.Equal(Special File, (snd children.Head).kind)
+    Assert.Equal(Unparsed, (snd children.Head).documentState)
     Assert.Empty((snd children.Head).children)
+
+[<Fact>]
+let ``nested file parse after upload tree build is accepted`` () =
+    let workspaceId, graph = Graph.create () |> addWorkspace "home"
+    let graph2 = requirePlan graph "home" [ "src/note.txt" ] |> applyOps graph
+    let src = childNamed graph2 workspaceId "src"
+    let file = childNamed graph2 src.id "note.txt"
+    Assert.Equal(Current, src.documentState)
+    Assert.Equal(Unparsed, file.documentState)
+    let parsedId = NodeId.New()
+    let attach = { ref = Ownership.Owner; id = parsedId }
+    let state =
+        { graph = graph2; history = History.empty; revision = Revision.Zero }
+    let parseChange =
+        { id = 0
+          changeId = System.Guid.NewGuid()
+          ops =
+            [ Op.SetDocumentState(file.id, Unparsed, Current)
+              Op.NewNode(parsedId, "parsed")
+              Op.Replace(file.id, 0, [], [ attach ]) ] }
+    match History.applyChange parseChange state with
+    | ApplyResult.Changed next ->
+        Assert.Equal(Current, next.graph.nodes.[file.id].documentState)
+        Assert.Equal(Current, next.graph.nodes.[src.id].documentState)
+        Assert.Equal(parsedId, next.graph.nodes.[file.id].children.Head.id)
+    | other -> Assert.Fail($"expected Changed, got {other}")
 
 [<Fact>]
 let ``nested added path creates missing directory stubs`` () =
@@ -74,6 +101,66 @@ let ``nested added path creates missing directory stubs`` () =
     Assert.Equal(Special Directory, src.kind)
     Assert.Equal(Special Directory, lib.kind)
     Assert.Equal(Special File, file.kind)
+
+[<Fact>]
+let ``upload-built directories stay current; only files become unparsed`` () =
+    let workspaceId, graph = Graph.create () |> addWorkspace "home"
+    let graph2 = requirePlan graph "home" [ "src/lib/core.fs" ] |> applyOps graph
+    let src = childNamed graph2 workspaceId "src"
+    let lib = childNamed graph2 src.id "lib"
+    let file = childNamed graph2 lib.id "core.fs"
+    Assert.Equal(Current, src.documentState)
+    Assert.Equal(Current, lib.documentState)
+    Assert.Equal(Unparsed, file.documentState)
+    Assert.Equal(Current, graph2.nodes.[workspaceId].documentState)
+
+[<Fact>]
+let ``exact amb add ensures directory without marking it unparsed`` () =
+    let workspaceId, graph = Graph.create () |> addWorkspace "home"
+    let graph2 = requirePlan graph "home" [ "docs/.amb" ] |> applyOps graph
+    let docs = childNamed graph2 workspaceId "docs"
+    Assert.Equal(Special Directory, docs.kind)
+    Assert.Equal(Current, docs.documentState)
+
+[<Fact>]
+let ``exact amb add with text parses outline immediately`` () =
+    let workspaceId, graph = Graph.create () |> addWorkspace "home"
+    let artifacts = Map.ofList [ "docs/.amb", "outline body" + System.Environment.NewLine ]
+    let ops =
+        match
+            LazyLoadReconciliation.planAddedPathsWithArtifacts
+                graph
+                "home"
+                [ "docs/.amb" ]
+                artifacts
+        with
+        | Ok o -> o
+        | Error err -> failwith err
+    let graph2 = applyOps graph ops
+    let docs = childNamed graph2 workspaceId "docs"
+    Assert.Equal(Current, docs.documentState)
+    Assert.Equal(1, docs.children.Length)
+    Assert.Equal("outline body", graph2.nodes.[docs.children.Head.id].text)
+
+[<Fact>]
+let ``exact amb modify with text reparses instead of leaving unparsed`` () =
+    let workspaceId, graph = Graph.create () |> addWorkspace "home"
+    let graph2 = createPaths graph [ "docs/.amb" ]
+    let docs = childNamed graph2 workspaceId "docs"
+    let artifacts = Map.ofList [ "docs/.amb", "fresh" + System.Environment.NewLine ]
+    let ops =
+        match
+            LazyLoadReconciliation.planChangedPathsWithArtifacts
+                graph2
+                "home"
+                [ LazyLoadReconciliation.Modified "docs/.amb" ]
+                artifacts
+        with
+        | Ok o -> o
+        | Error err -> failwith err
+    let graph3 = applyOps graph2 ops
+    Assert.Equal(Current, graph3.nodes.[docs.id].documentState)
+    Assert.Equal("fresh", graph3.nodes.[graph3.nodes.[docs.id].children.Head.id].text)
 
 [<Fact>]
 let ``repeated reconciliation reuses matching stubs`` () =
@@ -121,6 +208,16 @@ let ``exact amb marker represents its containing directory`` () =
     Assert.DoesNotContain(
         ownedNamedChildren graph2 docs.id,
         fun (name, _) -> name = ".amb")
+
+[<Fact>]
+let ``reserved gambol dot files are excluded from reconciliation`` () =
+    let workspaceId, graph = Graph.create () |> addWorkspace "home"
+    let paths = [ "gambol.log"; "nested/GAMBOL.meta"; "gambol" ]
+    let graph2 = requirePlan graph "home" paths |> applyOps graph
+    let children = ownedNamedChildren graph2 workspaceId
+    Assert.DoesNotContain(children, fun (name, _) -> name = "gambol.log")
+    Assert.DoesNotContain(children, fun (name, _) -> name = "nested")
+    Assert.Contains(children, fun (name, _) -> name = "gambol")
 
 [<Fact>]
 let ``workspace label scopes reconciliation`` () =
@@ -250,16 +347,14 @@ let ``exact marker modification invalidates containing documents`` () =
     let workspaceId, graph = Graph.create () |> addWorkspace "home"
     let graph2 = createPaths graph [ "docs/.amb" ]
     let docs = childNamed graph2 workspaceId "docs"
-    let current =
-        [ Op.SetDocumentState(docs.id, Unparsed, Current) ]
-        |> applyOps graph2
+    Assert.Equal(Current, docs.documentState)
     let graph3 =
         requireChangedPlan
-            current
+            graph2
             "home"
             [ LazyLoadReconciliation.Modified ".amb"
               LazyLoadReconciliation.Modified "docs/.amb" ]
-        |> applyOps current
+        |> applyOps graph2
     Assert.Equal(Unparsed, graph3.nodes.[workspaceId].documentState)
     Assert.Equal(Unparsed, graph3.nodes.[docs.id].documentState)
 

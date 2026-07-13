@@ -125,7 +125,7 @@ let ``server reconciler applies planner ops through active agent`` () =
     let sourcePath = Path.Combine(tempDir, "home", "src", "main.fs")
     Directory.CreateDirectory(Path.GetDirectoryName(sourcePath)) |> ignore
     File.WriteAllText(sourcePath, "module Main")
-    LazyLoadReconciliationServer.reconcileAddedPaths handle "home" [ "src/main.fs" ]
+    LazyLoadReconciliationServer.reconcileAddedPaths handle tempDir "home" [ "src/main.fs" ]
     |> Async.RunSynchronously
     |> requireOk "reconcile"
     FileAgent.flushSnapshot fileAgent |> Async.RunSynchronously |> requireOk "reconcile persist"
@@ -160,6 +160,7 @@ let ``post receive rename of unparsed stub is rejected without moving disk twice
     File.WriteAllText(oldPath, "received content")
     LazyLoadReconciliationServer.reconcileChangedPaths
         handle
+        tempDir
         "home"
         [ LazyLoadReconciliation.Added "old.txt" ]
     |> Async.RunSynchronously
@@ -168,6 +169,7 @@ let ``post receive rename of unparsed stub is rejected without moving disk twice
     let renameResult =
         LazyLoadReconciliationServer.reconcileChangedPaths
             handle
+            tempDir
             "home"
             [ LazyLoadReconciliation.Renamed("old.txt", "new.txt") ]
         |> Async.RunSynchronously

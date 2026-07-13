@@ -8,7 +8,7 @@ module internal LazyLoadReconciliationPath =
     type PathInfo =
         { parts: string list
           kind: SpecialKind
-          isMarker: bool }
+          isDirInfo: bool }
 
     let private pathParts (path: string) : string list =
         path.Replace('\\', '/').Split(
@@ -19,14 +19,16 @@ module internal LazyLoadReconciliationPath =
     let private classifyPath (parts: string list) : PathInfo option =
         if parts.IsEmpty || (parts |> List.exists (fun part -> part = ".git")) then
             None
+        elif parts |> List.last |> Filename.isReservedSystemName then
+            None
         elif List.last parts = ".amb" then
             let ownerParts = List.take (parts.Length - 1) parts
             Some
                 { parts = ownerParts
                   kind = if ownerParts.IsEmpty then Workspace else Directory
-                  isMarker = true }
+                  isDirInfo = true }
         else
-            Some { parts = parts; kind = File; isMarker = false }
+            Some { parts = parts; kind = File; isDirInfo = false }
 
     let private validateParts (parts: string list) : Result<unit, string> =
         parts

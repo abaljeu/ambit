@@ -49,6 +49,10 @@ module Op =
     let private unparsedDocumentError =
         "operation cannot modify an unparsed document; parse it first"
 
+    [<Literal>]
+    let private reservedPathError =
+        "owned artifact path contains a reserved system name"
+
     let private fromGraphResult (state: State) (result: Result<Graph, string>) : ApplyResult =
         match result with
         | Ok graph -> ApplyResult.Changed { state with graph = graph }
@@ -74,10 +78,37 @@ module Op =
                     if child.ref = Ownership.Owner then Some child.id else None))
         | Op.SetDocumentState _ -> []
 
+    let private isCurrentDocumentRoot (graph: Graph) (nodeId: NodeId) : bool =
+        match Map.tryFind nodeId graph.nodes with
+        | Some node ->
+            DocumentPartition.isDocumentRootNode graph nodeId
+            && node.documentState = Current
+        | None -> false
+
+    /// Unparsed membership blocks edits. Exception: Replace whose parent is already a
+    /// Current document root — needed when parsing a nested File while an enclosing
+    /// Directory/Workspace is Unparsed (e.g. after `.amb` modification). Upload-built
+    /// directories stay Current; this is not a substitute for that invariant.
+    /// Only Owner children are re-checked, so removing an Unparsed stub from a Current
+    /// parent remains blocked.
     let private isBlockedByUnparsedDocument (op: Op) (graph: Graph) : bool =
-        involvedNodeIds graph op
-        |> List.distinct
-        |> List.exists (DocumentPartition.isMemberOfUnparsedDocument graph)
+        let nodeBlocked nodeId =
+            DocumentPartition.isMemberOfUnparsedDocument graph nodeId
+
+        match op with
+        | Op.Replace(parentId, _, oldChildren, newChildren) ->
+            let parentBlocked =
+                if isCurrentDocumentRoot graph parentId then false
+                else nodeBlocked parentId
+            let childBlocked =
+                (oldChildren @ newChildren)
+                |> List.exists (fun child ->
+                    child.ref = Ownership.Owner && nodeBlocked child.id)
+            parentBlocked || childBlocked
+        | _ ->
+            involvedNodeIds graph op
+            |> List.distinct
+            |> List.exists nodeBlocked
 
     let private applyAllowed (op: Op) (state: State) : ApplyResult =
         match op with
@@ -101,13 +132,24 @@ module Op =
             Graph.setClasses nodeId oldClasses newClasses state.graph
             |> fromGraphResult state
         | Op.Replace(parentId, index, oldChildren, newChildren) ->
-            Graph.replace parentId index oldChildren newChildren state.graph
-            |> fromGraphResult state
+            match Graph.replace parentId index oldChildren newChildren state.graph with
+            | Error msg -> ApplyResult.Invalid(state, msg)
+            | Ok graph ->
+                let isInvalidOwner child =
+                    child.ref = Ownership.Owner
+                    && DocumentPartition.ownedSubtreeHasReservedArtifactPath
+                        graph Set.empty child.id
+                if List.exists isInvalidOwner newChildren then
+                    ApplyResult.Invalid(state, reservedPathError)
+                else
+                    ApplyResult.Changed { state with graph = graph }
         | Op.NewSpecialNode(nodeId, kind, name) ->
             if nodeId = Graph.rootId || nodeId = Graph.trashId || nodeId = Graph.workspacesId then
                 ApplyResult.Invalid(state, "cannot NewSpecialNode with canonical id")
             elif kind = Workspaces then
                 ApplyResult.Invalid(state, "cannot NewSpecialNode with system-only kind")
+            elif Filename.isReservedSystemName name then
+                ApplyResult.Invalid(state, "reserved system name for NewSpecialNode")
             else
                 match Filename.create name with
                 | Filename.Empty | Filename.Invalid _ ->

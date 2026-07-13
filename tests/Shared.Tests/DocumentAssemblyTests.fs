@@ -156,9 +156,9 @@ let ``classifyCodec uses Amb for marker and named amb paths`` () =
         DocumentFormat.classifyCodec ".amb" |> requireOk "root marker"
     Assert.Equal(DocumentCodec.Amb, marker)
 
-    let nestedMarker =
+    let nestedDirInfo =
         DocumentFormat.classifyCodec "d/bob/.amb" |> requireOk "nested marker"
-    Assert.Equal(DocumentCodec.Amb, nestedMarker)
+    Assert.Equal(DocumentCodec.Amb, nestedDirInfo)
 
     let named =
         DocumentFormat.classifyCodec "d/bob/cea.amb" |> requireOk "named amb"

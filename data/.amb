@@ -2,7 +2,7 @@
 	uuuuuuuuuuu
 		d
 	r
-		-> ^19af7202-0550-4a6e-8fb9-c6d3f86524f4
+		-> //folder/^19af7202-0550-4a6e-8fb9-c6d3f86524f4
 	-> //dd/ff^8f3e52d7-c9db-41a8-830e-0b04dfc0199e
 	^9ddb0535-455d-4500-b7f2-5ec9f0e1a964 m	^ff
 	-> //dd/ff^8f3e52d7-c9db-41a8-830e-0b04dfc0199e
@@ -12,7 +12,7 @@
 		aaa = /nowe
 			/nowe
 			blue
-	-> ^d698c568-4ad0-46d0-8fb3-763b61744e91
+	-> //dir1/^d698c568-4ad0-46d0-8fb3-763b61744e91
 	!0
 		-> ^53d62dea-9d8f-4683-af17-f2c07849f089
 		
@@ -653,7 +653,7 @@ Third itemuu
 	Each major step in the proof must include a short justification explaining why the step is valid (e.g., why a constructed preference structure forces triangle formation).
 -> ^bd4cbe69-f7e9-4270-8ff4-657e0f7106a5
 #
-	-> ^92d3d0ac-2a91-42e5-9e9a-530b0c0f1fd7
+	-> //dir1/file2^92d3d0ac-2a91-42e5-9e9a-530b0c0f1fd7
 	-> //dd/ff^8f3e52d7-c9db-41a8-830e-0b04dfc0199e
 	-> //dd/file5.ext^f456d9ef-7bab-4fd6-b2fa-af19724c6141
 

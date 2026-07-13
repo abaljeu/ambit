@@ -90,12 +90,12 @@ let ``pathForNodeId Workspace returns slash path`` () =
 [<Fact>]
 let ``tryWorkspaceGitLabel reads named workspace from focus`` () =
     let graph, wsId, dirId, fileId = graphWithWorkspaceTree ()
-    Assert.Equal(Some "home", NodeDesktopPath.tryWorkspaceGitLabel graph wsId)
-    Assert.Equal(Some "home", NodeDesktopPath.tryWorkspaceGitLabel graph dirId)
-    Assert.Equal(Some "home", NodeDesktopPath.tryWorkspaceGitLabel graph fileId)
-    Assert.Equal(None, NodeDesktopPath.tryWorkspaceGitLabel graph Graph.rootId)
+    Assert.Equal(Some "home", NodeDesktopPath.enclosingWorkspaceName graph wsId)
+    Assert.Equal(Some "home", NodeDesktopPath.enclosingWorkspaceName graph dirId)
+    Assert.Equal(Some "home", NodeDesktopPath.enclosingWorkspaceName graph fileId)
+    Assert.Equal(None, NodeDesktopPath.enclosingWorkspaceName graph Graph.rootId)
     Assert.Equal(
-        None, NodeDesktopPath.tryWorkspaceGitLabel graph Graph.workspacesId)
+        None, NodeDesktopPath.enclosingWorkspaceName graph Graph.workspacesId)
 
 [<Fact>]
 let ``tryWorkspaceGitLabel resolves named workspace from owned Normal descendant`` () =
@@ -109,8 +109,8 @@ let ``tryWorkspaceGitLabel resolves named workspace from owned Normal descendant
     let graph =
         Graph.replace wsId 0 [] (owned [ noteId ]) graph1
         |> requireOk "ws->note"
-    Assert.Equal(Some "home", NodeDesktopPath.tryWorkspaceGitLabel graph noteId)
-    Assert.Equal(None, NodeDesktopPath.tryWorkspaceGitLabel graph Graph.rootId)
+    Assert.Equal(Some "home", NodeDesktopPath.enclosingWorkspaceName graph noteId)
+    Assert.Equal(None, NodeDesktopPath.enclosingWorkspaceName graph Graph.rootId)
 
 [<Fact>]
 let ``pathForNodeId Directory and File append owner path and name`` () =

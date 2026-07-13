@@ -203,7 +203,7 @@ module NodeDesktopPath =
 
     /// Named workspace label for git connect/clone/pull/push (not ROOT / empty).
     /// Resolves from the node or any owner ancestor (File/Directory/Normal under a workspace).
-    let tryWorkspaceGitLabel (graph: Graph) (nodeId: NodeId) : string option =
+    let enclosingWorkspaceName (graph: Graph) (nodeId: NodeId) : string option =
         GraphQuery.enclosing graph isNamedWorkspaceGitNode nodeId
         |> Option.bind (fun wsId ->
             Map.tryFind wsId graph.nodes

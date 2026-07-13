@@ -42,3 +42,33 @@ module SavePrep =
                     let! rev = getFileRevision ()
                     return Ok rev
         }
+
+    let syncGitArtifacts
+        (persistenceMode: DatabaseSetup.PersistenceMode)
+        (dbStatus: DatabaseSetup.DbStatus)
+        (getStateJson: unit -> Async<string>)
+        (flushFileSnapshot: unit -> Async<Result<unit, string>>)
+        (getFileRevision: unit -> Async<int>)
+        (dataDir: string)
+        : Async<Result<int, string>> =
+        async {
+            match persistenceMode, dbStatus with
+            | DatabaseSetup.PersistenceMode.Db, DatabaseSetup.DbStatus.Ok ->
+                let! json = getStateJson ()
+                match decodeStateJson json with
+                | Error err -> return Error err
+                | Ok state ->
+                    try
+                        match DocumentPersistence.writeAllDocuments dataDir state.graph with
+                        | Error err -> return Error err
+                        | Ok _ -> return Ok state.revision.Value
+                    with ex ->
+                        return Error ex.Message
+            | _ ->
+                let! flushResult = flushFileSnapshot ()
+                match flushResult with
+                | Error err -> return Error err
+                | Ok () ->
+                    let! rev = getFileRevision ()
+                    return Ok rev
+        }

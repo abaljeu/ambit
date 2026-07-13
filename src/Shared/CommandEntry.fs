@@ -86,7 +86,7 @@ let contextualTarget (graph: Graph) (parentId: NodeId) (index: int) : Contextual
         | Some { kind = Special Workspace } as workspace
             when workspace
                  |> Option.bind (fun node ->
-                     NodeDesktopPath.tryWorkspaceGitLabel graph node.id)
+                     NodeDesktopPath.enclosingWorkspaceName graph node.id)
                  |> Option.isSome ->
             Some(PushWorkspace occurrence.id)
         | _ when occurrence.ref = Ownership.Owner ->

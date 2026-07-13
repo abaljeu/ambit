@@ -291,7 +291,7 @@ let commandsForPalette (model: VM) (returnTo: Mode) : CommandEntry2 list =
                 || (canGit
                     && model.selectedNodes
                        |> Option.map (focusedNodeId model.graph)
-                       |> Option.bind (NodeDesktopPath.tryWorkspaceGitLabel model.graph)
+                       |> Option.bind (NodeDesktopPath.enclosingWorkspaceName model.graph)
                        |> Option.isSome)))
 
 let filteredCommands (model: VM) (returnTo: Mode) (query: string) : CommandEntry2 list =

@@ -130,7 +130,7 @@ module LazyLoadReconciliation =
 
     let private planDeletedInfo protectedIds
         (graph: Graph) workspaceId (info: Path.PathInfo) =
-        if info.isMarker then
+        if info.isDirInfo then
             Ok(graph, [])
         else
             Path.resolveInfo graph workspaceId info
@@ -217,14 +217,14 @@ module LazyLoadReconciliation =
     let private markerMoves (renames: (Path.PathInfo * Path.PathInfo) list) =
         renames
         |> List.choose (fun (oldInfo, newInfo) ->
-            if oldInfo.isMarker && newInfo.isMarker
+            if oldInfo.isDirInfo && newInfo.isDirInfo
                && not oldInfo.parts.IsEmpty
                && not newInfo.parts.IsEmpty then
                 Some(oldInfo.parts, newInfo.parts)
             else
                 None)
 
-    let private coveredByMarkerMove markerPairs
+    let private coveredByDirInfoMove markerPairs
         (oldInfo: Path.PathInfo) (newInfo: Path.PathInfo) =
         markerPairs
         |> List.exists (fun (oldPrefix, newPrefix) ->
@@ -253,10 +253,34 @@ module LazyLoadReconciliation =
                 else
                     None))
 
-    let planChangedPaths
+    let private invalidateOrParseModified
+        (artifacts: Map<string, string>)
+        workspaceId
+        (current: Graph)
+        (info: Path.PathInfo)
+        =
+        if info.isDirInfo
+           && LazyLoadReconciliationApply.tryArtifactText artifacts info
+              |> Option.isSome then
+            LazyLoadReconciliationApply.parseDirInfoIfPresent
+                current
+                workspaceId
+                artifacts
+                info
+        else
+            Path.resolveInfo current workspaceId info
+            |> Result.bind (function
+                | None -> Ok(current, [])
+                | Some(nodeId, _) ->
+                    let ops = markUnparsed current nodeId
+                    applyOps current ops
+                    |> Result.map (fun next -> next, ops))
+
+    let planChangedPathsWithArtifacts
         (graph: Graph)
         (workspaceLabel: string)
         (changes: ChangedPath list)
+        (artifacts: Map<string, string>)
         : Result<Op list, string> =
         Path.workspaceByLabel graph workspaceLabel
         |> Result.bind (fun workspaceId ->
@@ -311,7 +335,7 @@ module LazyLoadReconciliation =
                     let protectedDirectoryIds =
                         renames
                         |> List.choose (fun (oldInfo, newInfo) ->
-                            if oldInfo.isMarker && newInfo.isMarker then
+                            if oldInfo.isDirInfo && newInfo.isDirInfo then
                                 match Path.resolveInfo graph workspaceId oldInfo with
                                 | Ok(Some(nodeId, _)) -> Some nodeId
                                 | _ -> None
@@ -321,10 +345,10 @@ module LazyLoadReconciliation =
                     let orderedRenames =
                         renames
                         |> List.sortBy (fun (oldInfo, _) ->
-                            if oldInfo.isMarker then 0 else 1)
+                            if oldInfo.isDirInfo then 0 else 1)
                         |> List.filter (fun (oldInfo, newInfo) ->
-                            oldInfo.isMarker
-                            || not (coveredByMarkerMove markers oldInfo newInfo))
+                            oldInfo.isDirInfo
+                            || not (coveredByDirInfoMove markers oldInfo newInfo))
                     let deletedDeepest =
                         deleted
                         |> List.sortByDescending (fun info -> info.parts.Length)
@@ -355,14 +379,7 @@ module LazyLoadReconciliation =
                             added)
                     |> Result.bind (fun afterAdds ->
                         foldPlans
-                            (fun current info ->
-                                Path.resolveInfo current workspaceId info
-                                |> Result.bind (function
-                                    | None -> Ok(current, [])
-                                    | Some(nodeId, _) ->
-                                        let ops = markUnparsed current nodeId
-                                        applyOps current ops
-                                        |> Result.map (fun next -> next, ops)))
+                            (invalidateOrParseModified artifacts workspaceId)
                             afterAdds
                             modified)
                     |> Result.bind (fun (finalGraph, planned) ->
@@ -371,9 +388,34 @@ module LazyLoadReconciliation =
                             workspaceId
                             added
                             planned
-                        |> Result.map snd))
+                        |> Result.bind (fun (withFiles, fileOps) ->
+                            LazyLoadReconciliationApply.parseDirInfoInfos
+                                withFiles
+                                workspaceId
+                                artifacts
+                                added
+                            |> Result.map (fun (_, parseOps) ->
+                                fileOps @ parseOps))))
+
+    let planChangedPaths
+        (graph: Graph)
+        (workspaceLabel: string)
+        (changes: ChangedPath list)
+        : Result<Op list, string> =
+        planChangedPathsWithArtifacts graph workspaceLabel changes Map.empty
 
     let planAddedPaths (graph: Graph) (workspaceLabel: string) (addedPaths: string list) =
         addedPaths
         |> List.map Added
         |> planChangedPaths graph workspaceLabel
+
+    let planAddedPathsWithArtifacts
+        (graph: Graph)
+        (workspaceLabel: string)
+        (addedPaths: string list)
+        (artifacts: Map<string, string>)
+        =
+        addedPaths
+        |> List.map Added
+        |> fun changes ->
+            planChangedPathsWithArtifacts graph workspaceLabel changes artifacts

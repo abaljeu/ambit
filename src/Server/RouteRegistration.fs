@@ -438,13 +438,27 @@ module RouteRegistration =
             registerStateRoutes app auth persistence stamps
             registerSaveRoutes app auth persistence
             let flushForGit () = async {
-                match! prepareGitSave persistence () with
+                let handle = persistence.GetHandle "gambol"
+                let! flushResult =
+                    SavePrep.syncGitArtifacts
+                        persistence.Mode
+                        persistence.DbStatus
+                        (fun () -> handle.getState ())
+                        (fun () ->
+                            persistence.GetOrCreateFileAgent "gambol"
+                            |> FileAgent.flushSnapshot)
+                        (fun () ->
+                            persistence.GetOrCreateFileAgent "gambol"
+                            |> FileAgent.getRevision)
+                        persistence.DataDir
+                match flushResult with
                 | Ok _ -> return Ok ()
                 | Error err -> return Error err
             }
             let reconcileGitPush label changedPaths =
                 LazyLoadReconciliationServer.reconcileChangedPaths
                     (persistence.GetHandle "gambol")
+                    persistence.DataDir
                     label
                     changedPaths
             GitGateway.registerRoutes

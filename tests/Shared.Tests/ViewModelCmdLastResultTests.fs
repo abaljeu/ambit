@@ -34,12 +34,12 @@ let ``toDisplay Error with name prefixes message`` () =
                 (Some "Move Selected", "target is not a valid location")))
 
 [<Fact>]
-let ``pull success Detail names local path`` () =
+let ``pull success Detail shows label and local path`` () =
     Assert.Equal(
-        "Git Pull to Desktop: C:\\dev\\home",
+        "Git Pull to Desktop: home → C:\\dev\\home",
         CmdLastResult.toDisplay
             (CmdLastResult.Detail
-                (Some "Git Pull to Desktop", @"C:\dev\home")))
+                (Some "Git Pull to Desktop", "home → C:\\dev\\home")))
 
 [<Fact>]
 let ``pull missing mapping Error names workspace`` () =

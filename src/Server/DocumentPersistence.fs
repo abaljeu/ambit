@@ -315,7 +315,8 @@ module DocumentPersistence =
         | Ok () -> writeAllDocuments dataDir postGraph
 
     let private shouldSkipDiscoveryFile (fileName: string) =
-        fileName = "gambol"
+        Filename.isReservedSystemName fileName
+        || fileName = "gambol"
         || fileName.EndsWith(".meta", StringComparison.OrdinalIgnoreCase)
         || fileName.EndsWith(".log", StringComparison.OrdinalIgnoreCase)
         || fileName.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase)

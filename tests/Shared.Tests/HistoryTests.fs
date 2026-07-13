@@ -27,6 +27,64 @@ let private findNodeByText (text: string) (state: State) : Node =
     |> Seq.map snd
     |> Seq.find (fun n -> n.text = text)
 
+let private stateWithNodes (nodes: Node list) =
+    let graph0 = Graph.create ()
+    let allNodes =
+        nodes
+        |> List.fold (fun acc node -> Map.add node.id node acc) graph0.nodes
+    { graph = Graph.fromNodes graph0.root allNodes
+      history = History.empty
+      revision = Revision.Zero }
+
+let private specialNode kind name =
+    let id = NodeId.New()
+    id,
+    Node.Create(
+        id,
+        text = name,
+        name = Filename.create name,
+        kind = Special kind)
+
+[<Fact>]
+let ``NewSpecialNode rejects reserved system names case-insensitively`` () =
+    let state = ModelBuilder.createState12 ()
+    [ Workspace, "gambol.workspace"
+      Directory, "GAMBOL.Directory"
+      File, "GaMbOl.file" ]
+    |> List.iter (fun (kind, name) ->
+        let _, message =
+            Op.apply (Op.NewSpecialNode(NodeId.New(), kind, name)) state
+            |> expectInvalid
+        Assert.Contains("reserved", message))
+    Op.apply (Op.NewSpecialNode(NodeId.New(), File, ".gitignore")) state
+    |> expectChanged
+    |> ignore
+
+[<Fact>]
+let ``SetName rejects a reserved system name case-insensitively`` () =
+    let fileId, file = specialNode File "notes.txt"
+    let state = stateWithNodes [ file ]
+    let _, message =
+        Op.apply (Op.SetName(fileId, "notes.txt", "GAMBOL.Metadata")) state
+        |> expectInvalid
+    Assert.Contains("reserved", message)
+
+[<Fact>]
+let ``Replace rejects Special path under reserved ancestor but allows Normal child`` () =
+    let directoryId, directory = specialNode Directory "Gambol.cache"
+    let fileId, file = specialNode File "notes.txt"
+    let normalId = NodeId.New()
+    let normal = Node.Create(normalId, text = "ordinary")
+    let state = stateWithNodes [ directory; file; normal ]
+    let owner id = { ref = Ownership.Owner; id = id }
+    let _, message =
+        Op.apply (Op.Replace(directoryId, 0, [], [ owner fileId ])) state
+        |> expectInvalid
+    Assert.Contains("reserved", message)
+    Op.apply (Op.Replace(directoryId, 0, [], [ owner normalId ])) state
+    |> expectChanged
+    |> ignore
+
 [<Fact>]
 let ``CreateState12 has empty history`` () =
     let state = ModelBuilder.createState12 ()
@@ -357,6 +415,81 @@ let ``valid parse batch can replay undo and redo`` () =
     let redone = History.redo undone |> expectChanged
     Assert.Equal(Current, redone.graph.nodes.[fileId].documentState)
     Assert.Equal("parsed", redone.graph.nodes.[childId].text)
+
+[<Fact>]
+let ``nested file parse under current directory replaces file tree`` () =
+    let graph0 = Graph.create ()
+    let workspaceId, workspaceOps =
+        FileNodeOps.planCreateWorkspace graph0 "home"
+    let state0 =
+        workspaceOps
+        |> List.fold (fun state op -> Op.apply op state |> expectChanged)
+            { graph = graph0; history = History.empty; revision = Revision.Zero }
+    let directoryId, directoryOps =
+        FileNodeOps.planCreateOwnedDirectory state0.graph workspaceId "docs"
+    let state1 =
+        directoryOps
+        |> List.fold (fun state op -> Op.apply op state |> expectChanged) state0
+    let fileId, fileOps =
+        FileNodeOps.planCreateOwnedFile state1.graph directoryId "note.txt"
+    let state2 =
+        fileOps
+        |> List.fold (fun state op -> Op.apply op state |> expectChanged) state1
+    let fileUnparsed =
+        Op.apply (Op.SetDocumentState(fileId, Current, Unparsed)) state2
+        |> expectChanged
+    Assert.Equal(Current, fileUnparsed.graph.nodes.[directoryId].documentState)
+    let parsedId = NodeId.New()
+    let attach = { ref = Ownership.Owner; id = parsedId }
+    let parseChange =
+        { id = 0
+          changeId = System.Guid.NewGuid()
+          ops =
+            [ Op.SetDocumentState(fileId, Unparsed, Current)
+              Op.NewNode(parsedId, "parsed")
+              Op.Replace(fileId, 0, [], [ attach ]) ] }
+    let parsed = History.applyChange parseChange fileUnparsed |> expectChanged
+    Assert.Equal(Current, parsed.graph.nodes.[fileId].documentState)
+    Assert.Equal(Current, parsed.graph.nodes.[directoryId].documentState)
+    Assert.Equal(parsedId, parsed.graph.nodes.[fileId].children.Head.id)
+
+[<Fact>]
+let ``nested file parse still allowed when enclosing directory is unparsed`` () =
+    let graph0 = Graph.create ()
+    let workspaceId, workspaceOps =
+        FileNodeOps.planCreateWorkspace graph0 "home"
+    let state0 =
+        workspaceOps
+        |> List.fold (fun state op -> Op.apply op state |> expectChanged)
+            { graph = graph0; history = History.empty; revision = Revision.Zero }
+    let directoryId, directoryOps =
+        FileNodeOps.planCreateOwnedDirectory state0.graph workspaceId "docs"
+    let state1 =
+        directoryOps
+        |> List.fold (fun state op -> Op.apply op state |> expectChanged) state0
+    let fileId, fileOps =
+        FileNodeOps.planCreateOwnedFile state1.graph directoryId "note.txt"
+    let state2 =
+        fileOps
+        |> List.fold (fun state op -> Op.apply op state |> expectChanged) state1
+    // Legitimate Directory Unparsed (e.g. `.amb` modified), not upload stubs.
+    let bothUnparsed =
+        [ Op.SetDocumentState(directoryId, Current, Unparsed)
+          Op.SetDocumentState(fileId, Current, Unparsed) ]
+        |> List.fold (fun state op -> Op.apply op state |> expectChanged) state2
+    let parsedId = NodeId.New()
+    let attach = { ref = Ownership.Owner; id = parsedId }
+    let parseChange =
+        { id = 0
+          changeId = System.Guid.NewGuid()
+          ops =
+            [ Op.SetDocumentState(fileId, Unparsed, Current)
+              Op.NewNode(parsedId, "parsed")
+              Op.Replace(fileId, 0, [], [ attach ]) ] }
+    let parsed = History.applyChange parseChange bothUnparsed |> expectChanged
+    Assert.Equal(Current, parsed.graph.nodes.[fileId].documentState)
+    Assert.Equal(Unparsed, parsed.graph.nodes.[directoryId].documentState)
+    Assert.Equal(parsedId, parsed.graph.nodes.[fileId].children.Head.id)
 
 [<Fact>]
 let ``unparsed invariant also applies to directory and workspace documents`` () =

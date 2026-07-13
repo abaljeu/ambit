@@ -113,6 +113,57 @@ let ``gitAuthConfigPairs adds Authorization header with auth`` () =
         value)
 
 [<Fact>]
+let ``pullArguments targets server branch on ambit remote`` () =
+    Assert.Equal("pull ambit refs/heads/master", DesktopGit.pullArguments "master")
+
+[<Fact>]
+let ``pullArgumentsIgnoringAttrs disables gitattributes via empty tree`` () =
+    Assert.Equal(
+        "-c attr.tree="
+        + DesktopGit.emptyAttrTree
+        + " pull ambit refs/heads/master",
+        DesktopGit.pullArgumentsIgnoringAttrs "master")
+
+[<Fact>]
+let ``isOverwrittenByMergeError detects stock git abort`` () =
+    Assert.True(
+        DesktopGit.isOverwrittenByMergeError
+            "error: Your local changes to the following files would be overwritten by merge:\n\t.amb")
+    Assert.False(
+        DesktopGit.isOverwrittenByMergeError
+            "refusing to merge unrelated histories")
+
+[<Fact>]
+let ``pushArguments maps HEAD to server branch on ambit`` () =
+    Assert.Equal(
+        "push ambit HEAD:refs/heads/master",
+        DesktopGit.pushArguments "master")
+
+[<Fact>]
+let ``parseRemoteHeadBranch reads advertised server branch`` () =
+    let text =
+        "ref: refs/heads/master\tHEAD\n"
+        + "0123456789abcdef\tHEAD\n"
+    match DesktopGit.parseRemoteHeadBranch text with
+    | Ok branch -> Assert.Equal("master", branch)
+    | Error err -> Assert.Fail(err)
+
+[<Fact>]
+let ``parseRemoteHeadBranch preserves nested server branch`` () =
+    let text = "ref: refs/heads/server/live\tHEAD\n"
+    match DesktopGit.parseRemoteHeadBranch text with
+    | Ok branch -> Assert.Equal("server/live", branch)
+    | Error err -> Assert.Fail(err)
+
+[<Fact>]
+let ``parseRemoteHeadBranch rejects HEAD without branch symref`` () =
+    let text = "0123456789abcdef\tHEAD\n"
+    match DesktopGit.parseRemoteHeadBranch text with
+    | Ok branch -> Assert.Fail($"expected missing branch error, got {branch}")
+    | Error err ->
+        Assert.Equal("Ambit remote HEAD does not identify a branch.", err)
+
+[<Fact>]
 let ``filterGitErrorDetail strips unencrypted HTTP warning`` () =
     let raw =
         "warning: use of unencrypted HTTP remote URLs is not recommended; "
@@ -131,6 +182,47 @@ let ``filterGitErrorDetail strips unencrypted HTTP warning`` () =
 let ``filterGitErrorDetail leaves unrelated stderr intact`` () =
     let raw = "fatal: not a git repository"
     Assert.Equal(raw, DesktopGit.filterGitErrorDetail raw)
+
+[<SkippableFact>]
+let ``gitPull returns Error for unrelated histories`` () =
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let server = newTempDir ()
+    initRepo server
+    File.WriteAllText(Path.Combine(server, "server.txt"), "server")
+    DesktopGit.runGit
+        server
+        "-c user.email=t@test -c user.name=test add -A"
+    |> ignore
+    DesktopGit.runGit
+        server
+        "-c user.email=t@test -c user.name=test commit -m server"
+    |> function
+        | Ok _ -> ()
+        | Error err -> failwith err
+    let desktop = newTempDir ()
+    initRepo desktop
+    File.WriteAllText(Path.Combine(desktop, "desktop.txt"), "desktop")
+    DesktopGit.runGit
+        desktop
+        "-c user.email=t@test -c user.name=test add -A"
+    |> ignore
+    DesktopGit.runGit
+        desktop
+        "-c user.email=t@test -c user.name=test commit -m desktop"
+    |> function
+        | Ok _ -> ()
+        | Error err -> failwith err
+    let uri = Uri(server + Path.DirectorySeparatorChar.ToString()).AbsoluteUri
+    DesktopGit.setAmbitRemote desktop uri |> ignore
+    match DesktopGit.gitPull desktop None with
+    | Ok _ -> Assert.Fail("expected unrelated histories Error")
+    | Error err ->
+        Assert.True(
+            err.IndexOf(
+                "refusing to merge unrelated histories",
+                StringComparison.OrdinalIgnoreCase)
+            >= 0,
+            err)
 
 [<SkippableFact>]
 let ``setAmbitRemoteForLabel adds ambit remote`` () =
@@ -202,3 +294,111 @@ let ``clone copies a local bare-ish repo path via file url`` () =
     | Error err -> Assert.Fail(err)
     | Ok _ ->
         Assert.True(File.Exists(Path.Combine(dest, "note.txt")))
+
+let private commitAll (dir: string) (message: string) =
+    DesktopGit.runGit
+        dir
+        "-c user.email=t@test -c user.name=test add -A"
+    |> ignore
+    DesktopGit.runGit
+        dir
+        $"-c user.email=t@test -c user.name=test commit -m {message}"
+    |> function
+        | Ok _ -> ()
+        | Error err -> failwith err
+
+let private plantCrlfBlob (dir: string) (relPath: string) (content: string) =
+    let abs = Path.Combine(dir, relPath)
+    let bytes = Text.Encoding.UTF8.GetBytes(content)
+    File.WriteAllBytes(abs, bytes)
+    // Path form of hash-object may normalize CRLF on Windows; stdin +
+    // --no-filters keeps the CRLF blob that triggers eol=lf false dirt.
+    let psi =
+        ProcessStartInfo(
+            FileName = "git",
+            Arguments = "hash-object -w --stdin --no-filters",
+            WorkingDirectory = dir,
+            RedirectStandardInput = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false)
+    use proc = Process.Start(psi)
+    proc.StandardInput.BaseStream.Write(bytes, 0, bytes.Length)
+    proc.StandardInput.Close()
+    let hash = proc.StandardOutput.ReadToEnd().Trim()
+    let stderr = proc.StandardError.ReadToEnd()
+    proc.WaitForExit()
+    if proc.ExitCode <> 0 || hash.Length = 0 then
+        failwith $"hash-object failed: {stderr}"
+    DesktopGit.runGit
+        dir
+        $"update-index --add --cacheinfo 100644,{hash},{relPath}"
+    |> function
+        | Ok _ -> ()
+        | Error err -> failwith err
+
+[<SkippableFact>]
+let ``gitPull retries past eol=lf false dirt on CRLF-indexed files`` () =
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let server = newTempDir ()
+    initRepo server
+    File.WriteAllText(Path.Combine(server, ".gitattributes"), "* text eol=lf\n")
+    commitAll server "attrs"
+    plantCrlfBlob server ".amb" "tp\r\n-> x\r\n"
+    DesktopGit.runGit
+        server
+        "-c user.email=t@test -c user.name=test commit -m crlf-amb"
+    |> function
+        | Ok _ -> ()
+        | Error err -> failwith err
+    File.WriteAllText(Path.Combine(server, ".amb"), "tp\n-> y\n")
+    commitAll server "server-update"
+    let desktop = newTempDir ()
+    let uri = Uri(server + Path.DirectorySeparatorChar.ToString()).AbsoluteUri
+    match DesktopGit.clone uri desktop None with
+    | Error err -> Assert.Fail(err)
+    | Ok _ -> ()
+    DesktopGit.runGit desktop "reset --hard HEAD~1"
+    |> function
+        | Ok _ -> ()
+        | Error err -> failwith err
+    DesktopGit.runGit desktop "remote rename origin ambit"
+    |> function
+        | Ok _ -> ()
+        | Error err -> failwith err
+    match DesktopGit.status desktop with
+    | Ok status -> Assert.True(status.dirty, "expected eol=lf false dirt before pull")
+    | Error err -> Assert.Fail(err)
+    match DesktopGit.gitPull desktop None with
+    | Error err -> Assert.Fail(err)
+    | Ok _ ->
+        let text = File.ReadAllText(Path.Combine(desktop, ".amb"))
+        Assert.Contains("-> y", text.Replace("\r", ""))
+
+[<SkippableFact>]
+let ``gitPull still fails when real local edits would be overwritten`` () =
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let server = newTempDir ()
+    initRepo server
+    File.WriteAllText(Path.Combine(server, "file.txt"), "base")
+    commitAll server "base"
+    File.WriteAllText(Path.Combine(server, "file.txt"), "server")
+    commitAll server "server"
+    let desktop = newTempDir ()
+    let uri = Uri(server + Path.DirectorySeparatorChar.ToString()).AbsoluteUri
+    match DesktopGit.clone uri desktop None with
+    | Error err -> Assert.Fail(err)
+    | Ok _ -> ()
+    DesktopGit.runGit desktop "reset --hard HEAD~1"
+    |> function
+        | Ok _ -> ()
+        | Error err -> failwith err
+    DesktopGit.runGit desktop "remote rename origin ambit"
+    |> function
+        | Ok _ -> ()
+        | Error err -> failwith err
+    File.WriteAllText(Path.Combine(desktop, "file.txt"), "local real edit")
+    match DesktopGit.gitPull desktop None with
+    | Ok _ -> Assert.Fail("expected overwrite Error for real local edits")
+    | Error err ->
+        Assert.True(DesktopGit.isOverwrittenByMergeError err, err)

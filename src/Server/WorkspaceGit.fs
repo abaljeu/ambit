@@ -7,8 +7,74 @@ open Gambol.Shared
 [<RequireQualifiedAccess>]
 module WorkspaceGit =
 
+    [<Literal>]
+    let private reservedSystemFileExclude = "[gG][aA][mM][bB][oO][lL].*"
+
     let isRepo (workspaceRoot: string) : bool =
         Directory.Exists(Path.Combine(workspaceRoot, ".git"))
+
+    [<Literal>]
+    let private canonicalBranch = "master"
+
+    /// Attached branch from `.git/HEAD` (e.g. `master`, not hard-coded `main`).
+    let currentBranch (workspaceRoot: string) : Result<string, string> =
+        if not (isRepo workspaceRoot) then
+            Error "No git repository in workspace."
+        else
+            let headPath = Path.Combine(workspaceRoot, ".git", "HEAD")
+            try
+                if File.Exists headPath then
+                    WorkspaceGitRemote.parseHeadRef (File.ReadAllText headPath)
+                else
+                    GitSave.runGit workspaceRoot "symbolic-ref --short HEAD"
+            with ex ->
+                Error ex.Message
+
+    let private masterBranchExists (workspaceRoot: string) : bool =
+        match
+            GitSave.runGit
+                workspaceRoot
+                $"show-ref --verify --quiet refs/heads/{canonicalBranch}"
+        with
+        | Ok _ -> true
+        | Error _ -> false
+
+    /// Lone `main` from stock `git init` → `master`; skip when `master` exists.
+    let private ensureCanonicalBranch (workspaceRoot: string) : Result<unit, string> =
+        if not (isRepo workspaceRoot) then
+            Ok ()
+        else
+            match currentBranch workspaceRoot with
+            | Error _ -> Ok ()
+            | Ok "main" ->
+                if masterBranchExists workspaceRoot then
+                    Ok ()
+                else
+                    GitSave.runGit workspaceRoot "branch -m main master"
+                    |> Result.map ignore
+            | Ok _ -> Ok ()
+
+    let private ensureManagedExcludes (workspaceRoot: string) : Result<unit, string> =
+        try
+            let excludePath = Path.Combine(workspaceRoot, ".git", "info", "exclude")
+            let text = if File.Exists excludePath then File.ReadAllText excludePath else ""
+            let lines =
+                text.Split([| '\r'; '\n' |], StringSplitOptions.RemoveEmptyEntries)
+
+            if lines |> Array.contains reservedSystemFileExclude then
+                Ok ()
+            else
+                Directory.CreateDirectory(Path.GetDirectoryName excludePath) |> ignore
+                let separator =
+                    if String.IsNullOrEmpty text
+                       || text.EndsWith("\n", StringComparison.Ordinal) then ""
+                    else Environment.NewLine
+                File.AppendAllText(
+                    excludePath,
+                    separator + reservedSystemFileExclude + Environment.NewLine)
+                Ok ()
+        with ex ->
+            Error ex.Message
 
     /// FF-only + allow push into non-bare checked-out branch.
     let ensurePushConfig (workspaceRoot: string) : Result<unit, string> =
@@ -40,12 +106,19 @@ module WorkspaceGit =
                 if isRepo workspaceRoot then
                     Ok ()
                 else
-                    match GitSave.runGit workspaceRoot "init" with
+                    match
+                        GitSave.runGit
+                            workspaceRoot
+                            $"init -b {canonicalBranch}"
+                    with
                     | Error err -> Error err
                     | Ok _ -> Ok ()
             match initResult with
             | Error err -> Error err
-            | Ok () -> ensurePushConfig workspaceRoot
+            | Ok () ->
+                ensureCanonicalBranch workspaceRoot
+                |> Result.bind (fun () -> ensureManagedExcludes workspaceRoot)
+                |> Result.bind (fun () -> ensurePushConfig workspaceRoot)
 
     /// `git status --porcelain` under the workspace root.
     let statusPorcelain

@@ -31,6 +31,15 @@ let private requireOk label r =
     | Ok v -> v
     | Error e -> failwith $"{label}: {e}"
 
+let private git root arguments =
+    GitSave.runGit root arguments |> requireOk arguments
+
+let private currentBranch root =
+    git root "symbolic-ref --short HEAD"
+
+let private branchOid root branch =
+    git root $"rev-parse refs/heads/{branch}"
+
 let private owned (ids: NodeId list) : ChildNode list =
     ids |> List.map (fun id -> { ref = Ownership.Owner; id = id })
 
@@ -67,6 +76,84 @@ let ``ensureInit creates .git under workspace root not parent`` () =
     Assert.True(WorkspaceGit.isRepo home)
     Assert.False(WorkspaceGit.isRepo dataDir)
     Assert.True(Directory.Exists(Path.Combine(home, ".git")))
+    match GitSave.runGit home "symbolic-ref --short HEAD" with
+    | Ok branch when not (String.IsNullOrWhiteSpace branch) -> ()
+    | _ -> Assert.Fail("expected a checked-out branch after init")
+
+[<SkippableFact>]
+let ``ensureInit creates master as default branch`` () =
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let home = Path.Combine(newTempDir (), "home")
+    requireOk "ensureInit" (WorkspaceGit.ensureInit home)
+    Assert.Equal("master", currentBranch home)
+
+[<SkippableFact>]
+let ``ensureInit renames lone main branch to master`` () =
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let home = Path.Combine(newTempDir (), "home")
+    Directory.CreateDirectory(home) |> ignore
+    git home "init -b main" |> ignore
+    File.WriteAllText(Path.Combine(home, "note.txt"), "main")
+    git home "add -A" |> ignore
+    git home "-c user.email=test@gambol -c user.name=test commit -m seed"
+    |> ignore
+    let mainOid = branchOid home "main"
+
+    requireOk "ensureInit" (WorkspaceGit.ensureInit home)
+
+    Assert.Equal("master", currentBranch home)
+    Assert.Equal(mainOid, branchOid home "master")
+
+[<SkippableFact>]
+let ``ensureInit preserves master branch without renaming`` () =
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let home = Path.Combine(newTempDir (), "home")
+    Directory.CreateDirectory(home) |> ignore
+    git home "init -b master" |> ignore
+    File.WriteAllText(Path.Combine(home, "note.txt"), "existing")
+    git home "add -A" |> ignore
+    git home "-c user.email=test@gambol -c user.name=test commit -m seed"
+    |> ignore
+    let originalOid = branchOid home "master"
+
+    requireOk "ensureInit" (WorkspaceGit.ensureInit home)
+
+    Assert.Equal("master", currentBranch home)
+    Assert.Equal(originalOid, branchOid home "master")
+
+[<SkippableFact>]
+let ``currentBranch reads attached branch from HEAD file`` () =
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let home = Path.Combine(newTempDir (), "home")
+    Directory.CreateDirectory(home) |> ignore
+    git home "init -b master" |> ignore
+    match WorkspaceGit.currentBranch home with
+    | Ok branch -> Assert.Equal("master", branch)
+    | Error err -> Assert.Fail(err)
+
+[<SkippableFact>]
+let ``ensureInit does not switch away from existing checked out branch`` () =
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let home = Path.Combine(newTempDir (), "home")
+    requireOk "initial ensureInit" (WorkspaceGit.ensureInit home)
+    git home "branch -m main" |> ignore
+    File.WriteAllText(Path.Combine(home, "note.txt"), "main")
+    WorkspaceGit.commitAll home "main commit" None
+    |> requireOk "main commit"
+    |> ignore
+    let mainOid = branchOid home "main"
+    git home "checkout -b master" |> ignore
+    File.WriteAllText(Path.Combine(home, "note.txt"), "master")
+    WorkspaceGit.commitAll home "master commit" None
+    |> requireOk "master commit"
+    |> ignore
+    let masterOid = branchOid home "master"
+
+    requireOk "ensureInit" (WorkspaceGit.ensureInit home)
+
+    Assert.Equal("master", currentBranch home)
+    Assert.Equal(mainOid, branchOid home "main")
+    Assert.Equal(masterOid, branchOid home "master")
 
 [<SkippableFact>]
 let ``ensureInit is idempotent when .git already present`` () =
@@ -75,6 +162,19 @@ let ``ensureInit is idempotent when .git already present`` () =
     requireOk "first" (WorkspaceGit.ensureInit home)
     requireOk "second" (WorkspaceGit.ensureInit home)
     Assert.True(WorkspaceGit.isRepo home)
+
+[<SkippableFact>]
+let ``ensureInit excludes reserved gambol dot files from tracking`` () =
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let home = Path.Combine(newTempDir (), "home")
+    requireOk "ensureInit" (WorkspaceGit.ensureInit home)
+    File.WriteAllText(Path.Combine(home, "gambol.log"), "bookkeeping")
+    File.WriteAllText(Path.Combine(home, "GAMBOL.meta"), "bookkeeping")
+    File.WriteAllText(Path.Combine(home, "gambol"), "ordinary")
+    let status = WorkspaceGit.statusPorcelain home |> requireOk "status"
+    Assert.DoesNotContain("gambol.log", status)
+    Assert.DoesNotContain("GAMBOL.meta", status)
+    Assert.Contains("gambol", status)
 
 [<SkippableFact>]
 let ``ensureInit sets receive.denyNonFastForwards`` () =

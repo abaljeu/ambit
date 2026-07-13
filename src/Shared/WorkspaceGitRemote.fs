@@ -34,6 +34,19 @@ module WorkspaceGitRemote =
     [<Literal>]
     let WorkspacePush = "git-receive-pack"
 
+    /// Parse attached `.git/HEAD` content (`ref: refs/heads/<branch>`).
+    let parseHeadRef (text: string) : Result<string, string> =
+        let trimmed =
+            if isNull text then ""
+            else text.Trim()
+        let prefix = "ref: refs/heads/"
+        if trimmed.StartsWith(prefix, StringComparison.Ordinal) then
+            let branch = trimmed.Substring(prefix.Length).Trim()
+            if branch.Length > 0 then Ok branch
+            else Error "HEAD ref does not name a branch."
+        else
+            Error "Cannot use detached HEAD for workspace git."
+
     /// Parse route segment `home.git` → `home`.
     let tryLabelFromRepoName (repoName: string) : string option =
         if isNull repoName then

@@ -16,7 +16,9 @@
     <Compile Include="TestBackend.fs" />
     <Compile Include="DocumentPersistenceTests.fs" />
     <Compile Include="DocumentPathMoveExecutionTests.fs" />
+    <Compile Include="IgnoredDestinationValidationTests.fs" />
     <Compile Include="DocumentLoaderTests.fs" />
+    <Compile Include="SavePrepTests.fs" />
     <Compile Include="GitSaveTests.fs" />
     <Compile Include="WorkspaceGitTests.fs" />
     <Compile Include="GitGatewayTests.fs" />

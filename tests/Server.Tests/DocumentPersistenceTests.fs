@@ -350,6 +350,21 @@ let ``discoverArtifactRelatives lists stray amb file`` () =
     Assert.Contains("foo.amb", relatives)
 
 [<Fact>]
+let ``discoverArtifactRelatives excludes reserved gambol dot files`` () =
+    let dataDir = newTempDir ()
+    let nested = Path.Combine(dataDir, "nested")
+    Directory.CreateDirectory(nested) |> ignore
+    File.WriteAllText(Path.Combine(dataDir, "gambol.log"), "bookkeeping")
+    File.WriteAllText(Path.Combine(nested, "GAMBOL.meta"), "bookkeeping")
+    File.WriteAllText(Path.Combine(dataDir, "gambolish"), "ordinary artifact")
+    let relatives =
+        DocumentPersistence.discoverArtifactRelatives dataDir
+        |> requireOk "discover"
+    Assert.DoesNotContain("gambol.log", relatives)
+    Assert.DoesNotContain("nested/GAMBOL.meta", relatives)
+    Assert.Contains("gambolish", relatives)
+
+[<Fact>]
 let ``readAllDocuments ignores stray amb file`` () =
     let dataDir = newTempDir ()
     let graph, _, _, _, _ = graphWithNestedDocs ()
