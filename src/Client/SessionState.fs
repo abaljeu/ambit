@@ -72,5 +72,6 @@ let restoreSessionState (model: VM) : VM =
                 { model with
                     zoomRoot = zoomRoot
                     siteMap = siteMap1
-                    nextSiteId = nextId1 }
+                    nextSiteId = nextId1
+                    zoomIngress = [] }
         with _ -> model

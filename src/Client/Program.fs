@@ -20,6 +20,7 @@ let initialModel: VM =
       siteMap = ViewModel.emptySiteMap
       nextSiteId = Sid 1
       zoomRoot = initialGraph.root
+      zoomIngress = []
       clipboard = None
       desktopCapabilities = None
       serverCapabilities = None

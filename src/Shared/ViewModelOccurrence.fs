@@ -69,3 +69,85 @@ module ViewModelOccurrence =
                 true
             else
                 index < range.start || index >= range.endd)
+
+    /// Push ingress when zoom root changes; otherwise leave the stack unchanged.
+    let pushZoomIngress
+        (oldZoomRoot: NodeId)
+        (newZoomRoot: NodeId)
+        (ingress: NodeId * int)
+        (stack: (NodeId * int) list)
+        : (NodeId * int) list =
+        if oldZoomRoot = newZoomRoot then stack
+        else ingress :: stack
+
+    /// Owner-parent ingress for nodeId, or [] when there is no owner parent.
+    let ownerIngress (graph: Graph) (nodeId: NodeId) : (NodeId * int) list =
+        match Map.tryFind nodeId graph.ownerParentByChild with
+        | None -> []
+        | Some ownerParentId ->
+            let _, index, _ = getOwnerOccurrence graph nodeId
+            [ ownerParentId, index ]
+
+    /// Site-map parent (nodeId, childIndex) of an occurrence of childNodeId, if any.
+    let trySiteMapParentOccurrence
+        (siteMap: SiteMap)
+        (childNodeId: NodeId)
+        : (NodeId * int) option =
+        siteMap.entries
+        |> Map.toList
+        |> List.tryPick (fun (_, e) ->
+            if e.nodeId <> childNodeId then None
+            else
+                match e.parentInstanceId with
+                | None -> None
+                | Some pid ->
+                    Map.tryFind pid siteMap.entries
+                    |> Option.bind (fun parent ->
+                        List.tryFindIndex ((=) e.instanceId) parent.children
+                        |> Option.map (fun i -> parent.nodeId, i)))
+
+    /// Ingress entry for a zoom-in: selection parent for non-leaves; site-map
+    /// parent of the new zoom root for leaf zoom-in.
+    let tryZoomInIngress
+        (isLeaf: bool)
+        (sel: Selection)
+        (siteMap: SiteMap)
+        (newZoomRoot: NodeId)
+        : (NodeId * int) option =
+        if isLeaf then
+            trySiteMapParentOccurrence siteMap newZoomRoot
+        else
+            Some (sel.range.parent.nodeId, sel.focus)
+
+    let private childIndexOf (parent: Node) (childId: NodeId) (stored: int) : int option =
+        let live =
+            parent.children
+            |> List.tryFindIndex (fun c -> c.id = childId)
+        match live with
+        | None -> None
+        | Some idx ->
+            match List.tryItem stored parent.children with
+            | Some c when c.id = childId -> Some stored
+            | _ -> Some idx
+
+    /// Prefer validated stack top for zoom-out; else parentByChild. Returns
+    /// (parentId, childIndex, remainingStack).
+    let resolveZoomOutParent
+        (graph: Graph)
+        (currentZoomRoot: NodeId)
+        (stack: (NodeId * int) list)
+        : (NodeId * int * (NodeId * int) list) option =
+        let rec loop remaining =
+            match remaining with
+            | (parentId, storedIndex) :: rest ->
+                match Map.tryFind parentId graph.nodes with
+                | None -> loop rest
+                | Some parent ->
+                    match childIndexOf parent currentZoomRoot storedIndex with
+                    | Some index -> Some (parentId, index, rest)
+                    | None -> loop rest
+            | [] ->
+                Graph.tryFindParentAndIndex currentZoomRoot graph
+                |> Option.map (fun (p, i) -> p, i, [])
+
+        loop stack

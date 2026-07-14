@@ -19,7 +19,7 @@ body {
     padding: 0.5rem;
     overflow: hidden;
     color: #222;
-    background: #ccc;
+    background: #ddd;
 }
 #app {
     font-size: 1rem;
@@ -38,14 +38,14 @@ body {
 }
 .amb-sticky-header {
     z-index: 100;
-    background: #ccc;
+    background: #ddd;
     border-bottom: none;
     flex-shrink: 0;
     padding: 0;
     margin: 0;
 }
 .amb-sticky-footer {
-    background: #ccc;
+    background: #ddd;
     border-top: solid 1 black;
     flex-shrink: 0;
     margin: 0;
@@ -133,20 +133,12 @@ body {
     gap: 0.35rem;
     padding: 0;
     margin: 0;
-    border-width: 1px 0;
-    border-style: solid;
-    border-color: black;
 }
-.amb-last-result {
-    display: block;
-    flex: 1 1 auto;
-    min-width: 0;
-    white-space: normal;
-    overflow-wrap: anywhere;
+.amb-last-key {
+    display: none;
     font-size: 0.7rem;
     color: #849;
     font-family: monospace;
-    cursor: pointer;
 }
 @media (max-width: 480px) {
     body {
@@ -161,8 +153,8 @@ body {
     display: flex;
     position: relative;
     /*gap: 0.2rem;*/
-    background: #ddd;
-    padding: 0.17em 0 0.17em 0;
+    background: transparent;
+    padding: 0.0em 0 0.0em 0;
 }
 .amb-file-indicator {
     position: absolute;
@@ -177,14 +169,18 @@ body {
 .amb-indent {
     width: 1.5rem;
     flex-shrink: 0;
-    background: #eeeeee44
+    background: transparent;
+    border-left: 1px black solid;
 }
 .amb-fold-toggle {
-    display: inline-block;
+    display: flex;
+    align-items: top;
+    justify-content: center;
     width: 1.5rem;
     flex-shrink: 0;
-    text-align: center;
-    align-self: center;
+    background: transparent;
+    border-top: 1px solid black;
+    border-left: 1px solid black;
 }
 .amb-row-owned .amb-fold-toggle {
     color: #000;
@@ -223,11 +219,7 @@ body {
     left: -9999px;
 }
 .amb-sync-status {
-    box-sizing: border-box;
     width: 10rem;
-    min-width: 10rem;
-    max-width: 10rem;
-    flex-shrink: 0;
     padding: 0.2rem 0.4rem;
     border-radius: 0.2rem;
     cursor: pointer;
@@ -389,14 +381,15 @@ body {
     background: #e8e8e4;
 }
 .amb-row.amb-selected {
-    background: #c8c6;
+    background: #eaa9;
 }
 .amb-row.amb-focused {
-    background: #a8f6;
+    background: #aac9;
 }
 .amb-text {
-    background: #eeeeee44;
+    background: transparent;
     border: 1px transparent;
+    border-top:  1px black solid;
 }
 .amb-row-special-workspaces .amb-text {
     border-left: 3px solid #85a;
@@ -413,12 +406,6 @@ body {
 .amb-row-special-trash .amb-text {
     border-left: 3px solid #888;
 }
-.amb-row-artifact-absent .amb-text {
-    border-left-color: #b22;
-}
-.amb-row-file-unparsed .amb-text {
-    background: #f4df9a66;
-}
 
 /* user */
 .h1 { font-size: 1.brem }
@@ -429,21 +416,21 @@ body {
 .redletter { color: #f00; }
 .blueletter { color:#00f; }
 .check { text-decoration: line-through; }
-.blue { background-color: #aaf6; }
-.dblue { background-color: #55f8; }
+.blue { background-color: #0af8; }
+.dblue { background-color: #88fc; }
 .green { background-color: #7f76; }
 .dgreen { background-color: #7f76; }
-.red { background-color: #f776; }
+.pink { background-color: #f996; }
+.red { background-color: #f88c; }
 .dred { background-color: #f448; }
 .dorange { background-color: #fb68; }
 .orange { background-color: #fb66; }
 .purple { background-color: #a6f6; }
 .dpurple { background-color: #a4f8; }
-.cyan { background-color: #bff6; }
-.dcyan { background-color: #0ff8; }
+.cyan {background-color: #0ffc;}
+.dcyan { background-color: #2ee8; }
 .yellow { background-color: #ff48; }
 .dyellow { background-color: #ff0a; }
-.pink { background-color: #f996; }
 .grey, .gray { background-color: #8886; }
 
 .center { text-align: center; }

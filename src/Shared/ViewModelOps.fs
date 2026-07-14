@@ -47,6 +47,11 @@ module ViewModel =
     let tryReframeZoomAtOwnerParent = ViewModelOccurrence.tryReframeZoomAtOwnerParent
     let isOwnerUnderTrash = ViewModelOccurrence.isOwnerUnderTrash
     let occurrencesOutsideSelection = ViewModelOccurrence.occurrencesOutsideSelection
+    let pushZoomIngress = ViewModelOccurrence.pushZoomIngress
+    let ownerIngress = ViewModelOccurrence.ownerIngress
+    let trySiteMapParentOccurrence = ViewModelOccurrence.trySiteMapParentOccurrence
+    let tryZoomInIngress = ViewModelOccurrence.tryZoomInIngress
+    let resolveZoomOutParent = ViewModelOccurrence.resolveZoomOutParent
 
     let singleSelection = ViewModelSelection.singleSelection
     let singleSelectionForInstance = ViewModelSelection.singleSelectionForInstance

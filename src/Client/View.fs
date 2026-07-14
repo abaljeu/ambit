@@ -105,13 +105,15 @@ let private makeRowElement
                 dispatch (ApplyOp op)
             )
             row.appendChild toggle |> ignore
-            None
+            toggle
         else
             let dot = document.createElement "span"
             dot.classList.add "amb-fold-toggle"
             dot.textContent <- "\u25CF"
             row.appendChild dot |> ignore
-            Some dot
+            dot
+    for cls in CssClass.toList node.cssClasses do
+        leafBullet.classList.add cls
 
     // One `.amb-text` per row; new row ⇒ new div. Same node for view and edit (contentEditable).
     let textDiv = document.createElement "div"
@@ -179,10 +181,8 @@ let private makeRowElement
         textDiv.addEventListener("mousedown", activateRow)
         textDiv.addEventListener("dblclick", doubleClickRow)
 
-    leafBullet
-    |> Option.iter (fun dot ->
-        dot.addEventListener("mousedown", activateRow)
-        dot.addEventListener("dblclick", doubleClickRow))
+    leafBullet.addEventListener("mousedown", activateRow)
+    leafBullet.addEventListener("dblclick", doubleClickRow)
 
     let nameSpan = document.createElement "span"
     nameSpan.classList.add "amb-node-guid"

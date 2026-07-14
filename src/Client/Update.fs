@@ -36,6 +36,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
           siteMap = siteMap
           nextSiteId = nextId
           zoomRoot = zoomRoot
+          zoomIngress = []
           clipboard = None
           desktopCapabilities = model.desktopCapabilities
           serverCapabilities = model.serverCapabilities

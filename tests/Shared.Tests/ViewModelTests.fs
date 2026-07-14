@@ -2045,6 +2045,61 @@ let ``tryReframeZoomAtOwnerParent follows focus owner not structural parent`` ()
         let selectedId = sel |> Option.map (focusedNodeId graph)
         Assert.Equal(Some shared, selectedId)
 
+let private buildSharedRefLinkNonLeaf () : Graph * NodeId * NodeId * NodeId =
+    let graph0, ownerParent, refParent, shared = buildSharedRefLink ()
+    let graph1, childIds = ModelBuilder.createNodes [ "under" ] graph0
+    let under = childIds.[0]
+    let graph2 =
+        Graph.replace shared 0 [] (owned [ under ]) graph1
+        |> ModelBuilder.requireOk "buildSharedRefLinkNonLeaf.under"
+    graph2, ownerParent, refParent, shared
+
+[<Fact>]
+let ``zoom ingress round-trip returns to Ref parent for shared node`` () =
+    let graph, ownerParent, refParent, shared = buildSharedRefLinkNonLeaf ()
+    let model0 = modelWithSel graph refParent 0 1 0
+    let sel = model0.selectedNodes.Value
+    Assert.Equal(shared, focusedNodeId graph sel)
+    Assert.False(graph.nodes.[shared].children.IsEmpty)
+
+    let ingress =
+        tryZoomInIngress false sel model0.siteMap shared |> Option.get
+    Assert.Equal((refParent, 0), ingress)
+    let stack =
+        pushZoomIngress model0.zoomRoot shared ingress model0.zoomIngress
+    Assert.Equal<(NodeId * int) list>([ (refParent, 0) ], stack)
+
+    match resolveZoomOutParent graph shared stack with
+    | None -> Assert.True(false, "Expected Some")
+    | Some (parentId, index, rest) ->
+        Assert.Equal(refParent, parentId)
+        Assert.Equal(0, index)
+        Assert.Equal<(NodeId * int) list>([], rest)
+        // When parentByChild prefers Owner, ingress still restores Ref.
+        match Graph.tryFindParentAndIndex shared graph with
+        | Some (canonical, _) when canonical = ownerParent ->
+            Assert.NotEqual(canonical, parentId)
+        | _ -> ()
+
+[<Fact>]
+let ``searchPickSetRoot seeds owner ingress for shared zoom-out`` () =
+    let graph, ownerParent, _refParent, shared = buildSharedRefLinkNonLeaf ()
+    let model = emptyModelAt graph graph.root
+    let result =
+        ViewModelSearch.searchPickSetRoot (searchHit graph shared) model |> fst
+
+    Assert.Equal(shared, result.zoomRoot)
+    Assert.Equal<(NodeId * int) list>(
+        ownerIngress graph shared, result.zoomIngress)
+
+    match resolveZoomOutParent result.graph result.zoomRoot result.zoomIngress with
+    | None -> Assert.True(false, "Expected Some")
+    | Some (parentId, index, rest) ->
+        Assert.Equal(ownerParent, parentId)
+        Assert.Equal<(NodeId * int) list>([], rest)
+        let _, ownerIndex, _ = getOwnerOccurrence graph shared
+        Assert.Equal(ownerIndex, index)
+
 // ---------------------------------------------------------------------------
 // EditingCaretPreserve — sync-only updates must not reset contenteditable caret
 // ---------------------------------------------------------------------------

@@ -340,6 +340,8 @@ and VM = // the client state
       siteMap: SiteMap
       nextSiteId: SiteId
       zoomRoot: NodeId // display starting from here
+      /// Stack of (parentId, childIndex) ingress occurrences for zoom-out.
+      zoomIngress: (NodeId * int) list
       clipboard: ClipboardContent option
       desktopCapabilities: DesktopCapabilities option
       serverCapabilities: ServerCapabilities option

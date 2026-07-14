@@ -578,17 +578,24 @@ let zoomInOp (model: VM) : VM * Effect list =
     | Some sel ->
         let firstId = firstSelectedNodeId model'.graph sel
         let firstNode = model'.graph.nodes.[firstId]
+        let isLeaf = firstNode.children.IsEmpty
         let zoomId =
-            if firstNode.children.IsEmpty
-            then
+            if isLeaf then
                 match Graph.tryFindParentAndIndex firstId model'.graph with
                 | Some (parentId, _) -> parentId
                 | None -> firstId
             else firstId
         let siteMap, nextId =
             ViewModel.buildSiteMapFrom model'.graph zoomId model'.nextSiteId
+        let stack =
+            match ViewModel.tryZoomInIngress isLeaf sel model'.siteMap zoomId with
+            | None -> model'.zoomIngress
+            | Some ingress ->
+                ViewModel.pushZoomIngress
+                    model'.zoomRoot zoomId ingress model'.zoomIngress
         { model' with
             zoomRoot = zoomId
+            zoomIngress = stack
             siteMap = siteMap
             nextSiteId = nextId
             selectedNodes = ViewModel.firstChildSelection siteMap zoomId
@@ -600,15 +607,19 @@ let zoomOutOp (model: VM) : VM * Effect list =
     let model', effs = commitIfEditing model
     let currentZoomRoot = model'.zoomRoot
     if currentZoomRoot = model'.graph.root then model', effs
-    else 
-        match Graph.tryFindParentAndIndex currentZoomRoot model'.graph with
+    else
+        match
+            ViewModel.resolveZoomOutParent
+                model'.graph currentZoomRoot model'.zoomIngress
+        with
         | None -> model, effs
-        | Some (parentId, index) -> 
+        | Some (parentId, index, stack) ->
             let newZoomRoot = parentId
             let siteMap, nextId =
                 ViewModel.buildSiteMapFrom model'.graph newZoomRoot model'.nextSiteId
             { model' with
                 zoomRoot = newZoomRoot
+                zoomIngress = stack
                 siteMap = siteMap
                 nextSiteId = nextId
                 selectedNodes = ViewModel.childSelectionAt siteMap newZoomRoot index
@@ -627,6 +638,7 @@ let zoomOwnerOp (model: VM) : VM * Effect list =
     | Some (newZoomRoot, siteMap, nextId, sel) ->
         { model' with
             zoomRoot = newZoomRoot
+            zoomIngress = []
             siteMap = siteMap
             nextSiteId = nextId
             selectedNodes = sel
