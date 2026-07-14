@@ -109,16 +109,17 @@ let private makeRowElement
         else
             let dot = document.createElement "span"
             dot.classList.add "amb-fold-toggle"
-            dot.textContent <- "\u25CF"
+            dot.classList.add "amb-leaf-dot"
             row.appendChild dot |> ignore
             dot
-    for cls in CssClass.toList node.cssClasses do
+    let cssClasses = CssClass.toList node.cssClasses
+    for cls in cssClasses do
         leafBullet.classList.add cls
 
     // One `.amb-text` per row; new row ⇒ new div. Same node for view and edit (contentEditable).
     let textDiv = document.createElement "div"
     textDiv.classList.add "amb-text"
-    for cls in CssClass.toList node.cssClasses do
+    for cls in cssClasses do
         textDiv.classList.add cls
     if isEditingEntry model siteEntry then
         textDiv.id <- "edit-input"
@@ -190,6 +191,17 @@ let private makeRowElement
     row.appendChild nameSpan |> ignore
     row
 
+/// Replace user classes on `el`: keep `amb-*`, drop everything else, add `cssClasses`.
+let private syncUserCssClasses (el: HTMLElement) (classes: CssClasses) : unit =
+    let stale =
+        [ for i in 0 .. int el.classList.length - 1 do
+            let c = el.classList.[i]
+            if not (isNull c) && not (c.StartsWith "amb-") then yield c ]
+    for c in stale do
+        el.classList.remove c
+    for cls in CssClass.toList classes do
+        el.classList.add cls
+
 /// Apply in-place patches to an existing row DOM element.
 let private applyRowPatches (el: HTMLElement) (patches: RowPatch list) : unit =
     let ensureFileIndicator () =
@@ -214,11 +226,10 @@ let private applyRowPatches (el: HTMLElement) (patches: RowPatch list) : unit =
         | SetTextClasses classes ->
             let textDiv = el.querySelector ".amb-text"
             if not (isNull textDiv) then
-                let td = textDiv :?> HTMLElement
-                td.className <- "amb-text"
-                if td.id = "edit-input" then td.classList.add "amb-edit-input"
-                for cls in CssClass.toList classes do
-                    td.classList.add cls
+                syncUserCssClasses (textDiv :?> HTMLElement) classes
+            let ft = el.querySelector ".amb-fold-toggle"
+            if not (isNull ft) then
+                syncUserCssClasses (ft :?> HTMLElement) classes
         | SetFoldArrow arrow ->
             let ft = el.querySelector ".amb-fold-toggle"
             if not (isNull ft) then (ft :?> HTMLElement).textContent <- arrow

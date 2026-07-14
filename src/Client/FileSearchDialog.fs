@@ -23,16 +23,29 @@ let insertDialogShowsFileFolder (model: VM) : bool =
     | Some focus -> focus <> Graph.workspacesId
     | None -> false
 
+let private withCmdError (msg: string) (model: VM) : VM * Effect list =
+    { model with lastCmdResult = Some (CmdLastResult.Error (None, msg)) }, []
+
 let openFileSearchDialogOp (model: VM) : VM * Effect list =
     match focusNodeIdOpt model with
-    | None -> model, []
-    | Some _ ->
+    | None -> withCmdError "no selection" model
+    | Some focus when focus = Graph.workspacesId ->
         { model with
             mode =
                 FileSearchDialog
                     { query = lastFileSearchQuery
                       selectedIndex = 0
                       returnTo = model.mode } }, []
+    | Some focus ->
+        match Graph.resolveOwnedFileDirectoryInsert model.graph focus with
+        | None -> withCmdError "cannot insert here" model
+        | Some _ ->
+            { model with
+                mode =
+                    FileSearchDialog
+                        { query = lastFileSearchQuery
+                          selectedIndex = 0
+                          returnTo = model.mode } }, []
 
 let closeFileSearchDialogOp (model: VM) : VM * Effect list =
     match model.mode with

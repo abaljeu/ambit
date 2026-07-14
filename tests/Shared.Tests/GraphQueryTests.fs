@@ -72,3 +72,19 @@ let ``enclosingWorkspace resolves named workspace ROOT and TRASH`` () =
     Assert.Equal(
         Some Graph.rootId,
         GraphQuery.enclosingWorkspace graph Graph.workspacesId)
+
+[<Fact>]
+let ``resolveOwnedFileDirectoryInsert returns None for nested normal`` () =
+    let graph0 = Graph.create ()
+    let graph1, parentId = Graph.newNode "parent" graph0
+    let idx = Graph.fileTreeInsertIndex graph1 Graph.rootId
+    let graph2 =
+        Graph.replace Graph.rootId idx [] (owned [ parentId ]) graph1
+        |> requireOk "root->parent"
+    let graph3, focusId = Graph.newNode "nested" graph2
+    let graph4 =
+        Graph.replace parentId 0 [] (owned [ focusId ]) graph3
+        |> requireOk "parent->nested"
+    Assert.Equal(
+        None,
+        GraphQuery.resolveOwnedFileDirectoryInsert graph4 focusId)

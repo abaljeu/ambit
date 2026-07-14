@@ -16,6 +16,9 @@ let private focusInsertPoint (sel: Selection) : FocusInsertPoint =
     { parentId = sel.range.parent.nodeId
       index = sel.range.endd }
 
+let private withCmdError (msg: string) (model: VM) : VM * Effect list =
+    { model with lastCmdResult = Some (CmdLastResult.Error (None, msg)) }, []
+
 let private applyOpsChange (ops: Op list) (model: VM) : VM * Effect list =
     if ops.IsEmpty then
         model, []
@@ -25,7 +28,7 @@ let private applyOpsChange (ops: Op list) (model: VM) : VM * Effect list =
               changeId = System.Guid.NewGuid()
               ops = ops }
         match applyAndPost change model with
-        | None, _ -> model, []
+        | None, _ -> withCmdError "could not apply" model
         | Some m, effects -> withSiteMap m, effects
 
 let private focusParentId (model: VM) : NodeId option =
@@ -48,17 +51,19 @@ let fileSearchCreateWorkspace (query: string) (model: VM) : VM * Effect list =
 
 let fileSearchCreateFile (query: string) (model: VM) : VM * Effect list =
     match focusParentId model with
-    | None -> model, []
+    | None -> withCmdError "no selection" model
     | Some parentId ->
         let _, ops = FileNodeOps.planCreateOwnedFile model.graph parentId query
-        applyOpsChange ops model
+        if ops.IsEmpty then withCmdError "cannot create file here" model
+        else applyOpsChange ops model
 
 let fileSearchCreateFolder (query: string) (model: VM) : VM * Effect list =
     match focusParentId model with
-    | None -> model, []
+    | None -> withCmdError "no selection" model
     | Some parentId ->
         let _, ops = FileNodeOps.planCreateOwnedDirectory model.graph parentId query
-        applyOpsChange ops model
+        if ops.IsEmpty then withCmdError "cannot create folder here" model
+        else applyOpsChange ops model
 
 let runFileSearchSelectionOp (mode: Mode) (model: VM) : VM * Effect list =
     match mode with

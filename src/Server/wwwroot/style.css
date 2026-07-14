@@ -182,6 +182,15 @@ body {
     border-top: 1px solid #666;
     border-left: 1px solid #666;
 }
+.amb-leaf-dot::before {
+    content: "";
+    display: block;
+    width: 0.4em;
+    height: 0.4em;
+    margin-top: 0.45em;
+    border-radius: 50%;
+    background: currentColor;
+}
 .amb-row-owned .amb-fold-toggle {
     color: #000;
 }
@@ -408,7 +417,7 @@ body {
 }
 
 /* user */
-.h1 { font-size: 1.brem }
+.h1 { font-size: 1.8rem }
 .h2 { font-size: 1.5rem }
 .h3 { font-size: 1.2rem }
 .b { font-weight: bold; }

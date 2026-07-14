@@ -170,6 +170,27 @@ let ``planCreateOwnedDirectory under invalid focus inserts beside under parent``
         rootChildren |> List.findIndex (fun c -> c.id = focus)
     Assert.Equal(dirId, rootChildren.[focusIdx + 1].id)
 
+let private normalOwnedByNormal () =
+    let parentId, graph0 = normalUnderRoot ()
+    let graph1, childId = Graph.newNode "nested" graph0
+    let graph2 =
+        match Graph.replace parentId 0 [] [ owned childId ] graph1 with
+        | Ok g -> g
+        | Error e -> failwith e
+    childId, graph2
+
+[<Fact>]
+let ``planCreateOwnedFile under normal owned by normal returns empty ops`` () =
+    let focus, graph = normalOwnedByNormal ()
+    let _, ops = FileNodeOps.planCreateOwnedFile graph focus ""
+    Assert.Empty(ops)
+
+[<Fact>]
+let ``planCreateOwnedDirectory under normal owned by normal returns empty ops`` () =
+    let focus, graph = normalOwnedByNormal ()
+    let _, ops = FileNodeOps.planCreateOwnedDirectory graph focus ""
+    Assert.Empty(ops)
+
 [<Fact>]
 let ``planInsertFileRefAtFocus inserts ref at index`` () =
     let t = tree.Value
