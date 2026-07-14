@@ -227,6 +227,9 @@ module GitGateway =
                     sprintf "Basic realm=\"%s\"" AuthToken.gitBasicRealm)
         }
 
+    // Release builds treat FS3511 as error (TreatWarningsAsErrors). Deeply
+    // nested `task` CEs with many `do!` branches fail static reduction; keep
+    // these handlers in `async` and surface Task only at the ASP.NET boundary.
     let private handleInfoRefs
         (isAuthenticated: HttpRequest -> bool)
         (dataDir: string)
@@ -234,13 +237,13 @@ module GitGateway =
         (ctx: HttpContext)
         (repoName: string)
         : Task =
-        task {
+        async {
             if not (isAuthenticated ctx.Request) then
-                do! rejectUnauthorized ctx.Response
+                do! rejectUnauthorized ctx.Response |> Async.AwaitTask
             else
                 match resolveWorkspaceRoot dataDir repoName with
                 | Error err ->
-                    do! writeTextError ctx.Response 404 err
+                    do! writeTextError ctx.Response 404 err |> Async.AwaitTask
                 | Ok(_, root) ->
                     let serviceOpt =
                         match ctx.Request.Query.TryGetValue("service") with
@@ -254,14 +257,19 @@ module GitGateway =
                                 ctx.Response
                                 400
                                 "missing or unknown service (want git-upload-pack|git-receive-pack)"
+                            |> Async.AwaitTask
                     | Some WorkspacePush ->
                         match WorkspaceGit.assertCleanForWorkspacePush root with
                         | Error err ->
-                            do! writeTextError ctx.Response 403 err
+                            do!
+                                writeTextError ctx.Response 403 err
+                                |> Async.AwaitTask
                         | Ok () ->
                             match advertiseRefs root WorkspacePush with
                             | Error err ->
-                                do! writeTextError ctx.Response 500 err
+                                do!
+                                    writeTextError ctx.Response 500 err
+                                    |> Async.AwaitTask
                             | Ok body ->
                                 do!
                                     writeBytes
@@ -269,17 +277,21 @@ module GitGateway =
                                         200
                                         (contentTypeAdvertise WorkspacePush)
                                         body
+                                    |> Async.AwaitTask
                     | Some WorkspacePull ->
                         let hint = clientHintOf ctx.Request
-                        let! prep =
-                            prepareWorkspacePull flush root hint
+                        let! prep = prepareWorkspacePull flush root hint
                         match prep with
                         | Error err ->
-                            do! writeTextError ctx.Response 500 err
+                            do!
+                                writeTextError ctx.Response 500 err
+                                |> Async.AwaitTask
                         | Ok () ->
                             match advertiseRefs root WorkspacePull with
                             | Error err ->
-                                do! writeTextError ctx.Response 500 err
+                                do!
+                                    writeTextError ctx.Response 500 err
+                                    |> Async.AwaitTask
                             | Ok body ->
                                 do!
                                     writeBytes
@@ -287,7 +299,10 @@ module GitGateway =
                                         200
                                         (contentTypeAdvertise WorkspacePull)
                                         body
+                                    |> Async.AwaitTask
         }
+        |> Async.StartAsTask
+        :> Task
 
     let private handlePackPost
         (isAuthenticated: HttpRequest -> bool)
@@ -298,21 +313,23 @@ module GitGateway =
         (ctx: HttpContext)
         (repoName: string)
         : Task =
-        task {
+        async {
             if not (isAuthenticated ctx.Request) then
-                do! rejectUnauthorized ctx.Response
+                do! rejectUnauthorized ctx.Response |> Async.AwaitTask
             else
                 match resolveWorkspaceRoot dataDir repoName with
                 | Error err ->
-                    do! writeTextError ctx.Response 404 err
+                    do! writeTextError ctx.Response 404 err |> Async.AwaitTask
                 | Ok(label, root) ->
                     match service with
                     | WorkspacePush ->
                         match WorkspaceGit.assertCleanForWorkspacePush root with
                         | Error err ->
-                            do! writeTextError ctx.Response 403 err
+                            do!
+                                writeTextError ctx.Response 403 err
+                                |> Async.AwaitTask
                         | Ok () ->
-                            let! body = readBody ctx.Request
+                            let! body = readBody ctx.Request |> Async.AwaitTask
                             let oldHead = WorkspaceGit.tryHead root
                             let! completed =
                                 completeWorkspacePush
@@ -323,7 +340,9 @@ module GitGateway =
                                     reconcile
                             match completed with
                             | Error err ->
-                                do! writeTextError ctx.Response 500 err
+                                do!
+                                    writeTextError ctx.Response 500 err
+                                    |> Async.AwaitTask
                             | Ok result ->
                                 do!
                                     writeBytes
@@ -331,19 +350,23 @@ module GitGateway =
                                         200
                                         (contentTypeResult WorkspacePush)
                                         result
+                                    |> Async.AwaitTask
                     | WorkspacePull ->
                         let hint = clientHintOf ctx.Request
-                        let! prep =
-                            prepareWorkspacePull flush root hint
+                        let! prep = prepareWorkspacePull flush root hint
                         match prep with
                         | Error err ->
-                            do! writeTextError ctx.Response 500 err
+                            do!
+                                writeTextError ctx.Response 500 err
+                                |> Async.AwaitTask
                         | Ok () ->
-                            let! body = readBody ctx.Request
+                            let! body = readBody ctx.Request |> Async.AwaitTask
                             match
                                 statelessRpc root WorkspacePull body with
                             | Error err ->
-                                do! writeTextError ctx.Response 500 err
+                                do!
+                                    writeTextError ctx.Response 500 err
+                                    |> Async.AwaitTask
                             | Ok result ->
                                 do!
                                     writeBytes
@@ -351,7 +374,10 @@ module GitGateway =
                                         200
                                         (contentTypeResult WorkspacePull)
                                         result
+                                    |> Async.AwaitTask
         }
+        |> Async.StartAsTask
+        :> Task
 
     let registerRoutes
         (app: WebApplication)
