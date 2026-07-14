@@ -179,8 +179,8 @@ body {
     width: 1.5rem;
     flex-shrink: 0;
     background: transparent;
-    border-top: 1px solid black;
-    border-left: 1px solid black;
+    border-top: 1px solid #666;
+    border-left: 1px solid #666;
 }
 .amb-row-owned .amb-fold-toggle {
     color: #000;
