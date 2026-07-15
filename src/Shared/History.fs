@@ -360,6 +360,9 @@ module History =
           changeId = System.Guid.NewGuid()
           ops = [] }
 
+    let validateOwnership (graph: Graph) : Result<unit, string> =
+        validateOwnershipSemantics graph
+
     let addChange (change: Change) (history: History) : History =
         let nextId = max history.nextId (change.id + 1)
         // Emacs stack model: instead of discarding the future on a new change, fold it back
@@ -371,16 +374,24 @@ module History =
               future = []
               nextId = nextId }
 
-    let applyChange (change: Change) (state: State) : ApplyResult =
+    /// Apply a server-trusted change: ops + history, no per-step ownership check.
+    /// Callers replaying validated tails must run validateOwnership once on the final graph.
+    let applyChangeTrusted (change: Change) (state: State) : ApplyResult =
         match Change.apply change state with
         | ApplyResult.Invalid _ as err -> err
         | ApplyResult.Unchanged s -> ApplyResult.Unchanged s
         | ApplyResult.Changed s ->
-            match validateOwnershipSemantics s.graph with
+            let history' = addChange change s.history
+            ApplyResult.Changed { s with history = history' }
+
+    let applyChange (change: Change) (state: State) : ApplyResult =
+        match applyChangeTrusted change state with
+        | ApplyResult.Invalid _ as err -> err
+        | ApplyResult.Unchanged s -> ApplyResult.Unchanged s
+        | ApplyResult.Changed s ->
+            match validateOwnership s.graph with
             | Error msg -> ApplyResult.Invalid(state, msg)
-            | Ok () ->
-                let history' = addChange change s.history
-                ApplyResult.Changed { s with history = history' }
+            | Ok () -> ApplyResult.Changed s
 
     let undo (state: State) : ApplyResult =
         match state.history.past with

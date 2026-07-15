@@ -173,3 +173,54 @@ let ``applyServerTail short-circuits: state unchanged after invalid change`` () 
     | Ok _ -> failwith "Expected Error but got Ok"
     | Error _ ->
         Assert.Equal("original", st.graph.nodes.[nodeId].text)
+
+[<Fact>]
+let ``applyServerTail multi-change tail advances revision and graph`` () =
+    let state0 =
+        { ModelBuilder.createState12 () with revision = Revision 10 }
+    let root = state0.graph.nodes.[state0.graph.root]
+    let nodeA = state0.graph.nodes.[root.children.[0].id]
+    let nodeB = state0.graph.nodes.[root.children.[1].id]
+    let change1 =
+        { id = 1
+          changeId = System.Guid.NewGuid()
+          ops = [ Op.SetText(nodeA.id, nodeA.text, nodeA.text + "1") ] }
+    let change2 =
+        { id = 2
+          changeId = System.Guid.NewGuid()
+          ops = [ Op.SetText(nodeB.id, nodeB.text, nodeB.text + "2") ] }
+    match SyncLogic.applyServerTail [ change1; change2 ] state0 with
+    | Error msg -> failwith $"Expected Ok, got Error: {msg}"
+    | Ok result ->
+        Assert.Equal(Revision 12, result.revision)
+        Assert.Equal(nodeA.text + "1", result.graph.nodes.[nodeA.id].text)
+        Assert.Equal(nodeB.text + "2", result.graph.nodes.[nodeB.id].text)
+
+[<Fact>]
+let ``applyServerTail returns Error when final ownership validation fails`` () =
+    let state0 = ModelBuilder.createState12 ()
+    let rootId = state0.graph.root
+    let root = state0.graph.nodes.[rootId]
+    let childA = root.children.[0]
+    let nodeA = state0.graph.nodes.[childA.id]
+    let childB = nodeA.children.[0]
+    let originalRootChildren = root.children
+    let originalBChildren = state0.graph.nodes.[childB.id].children
+    let nodeC = state0.graph.nodes.[root.children.[1].id]
+    let goodChange =
+        { id = 1
+          changeId = System.Guid.NewGuid()
+          ops = [ Op.SetText(nodeC.id, nodeC.text, "ok") ] }
+    let badChange =
+        { id = 2
+          changeId = System.Guid.NewGuid()
+          ops =
+            [ Op.Replace(rootId, 0, [ childA ], [])
+              Op.Replace(childB.id, originalBChildren.Length, [], [ childA ]) ] }
+    match SyncLogic.applyServerTail [ goodChange; badChange ] state0 with
+    | Ok _ -> failwith "Expected Error but got Ok"
+    | Error msg ->
+        Assert.Contains("ownership", msg)
+        Assert.Equal<ChildNode>(originalRootChildren, state0.graph.nodes.[rootId].children)
+        Assert.Equal<ChildNode>(originalBChildren, state0.graph.nodes.[childB.id].children)
+        Assert.Equal(nodeC.text, state0.graph.nodes.[nodeC.id].text)
