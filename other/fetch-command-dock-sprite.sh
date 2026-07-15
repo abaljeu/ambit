@@ -24,6 +24,8 @@ icons=(
     "amb-icon-duplicate:copy-plus"
     "amb-icon-edit-classes:tags"
     "amb-icon-move-selected:move"
+    "amb-icon-rename:pencil"
+    "amb-icon-run:play"
 )
 {
     echo '<?xml version="1.0" encoding="UTF-8"?>'

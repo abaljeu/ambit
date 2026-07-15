@@ -264,10 +264,10 @@ let allCommands : CommandEntry list =
           iconId = None }
         { id = Rename; name = "Rename"
           keys = [ "F2" ]; keyScope = SelectionOnly
-          iconId = None }
+          iconId = Some "amb-icon-rename" }
         { id = Exec; name = "Run"
           keys = [ "Ctrl+Enter" ]; keyScope = SelectionOrEditing
-          iconId = None }
+          iconId = Some "amb-icon-run" }
     ]
 
 let commandFor (id: CommandId) : CommandEntry option =

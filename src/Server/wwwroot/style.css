@@ -36,6 +36,26 @@ body {
     overflow-y: auto;
     scroll-padding-bottom: env(keyboard-inset-height, 0px);
 }
+.amb-zoom-path {
+    font-size: 0.85rem;
+    color: #666;
+    padding: 0.35rem 0.4rem 0.15rem;
+    white-space: wrap;
+    overflow: visible;
+    text-overflow: none;
+}
+.amb-zoom-path-seg {
+    cursor: pointer;
+    text-decoration: underline;
+    text-decoration-color: transparent;
+}
+.amb-zoom-path-seg:hover {
+    color: #333;
+    text-decoration-color: currentColor;
+}
+.amb-zoom-path-current {
+    color: #444;
+}
 .amb-sticky-header {
     z-index: 100;
     background: #ddd;
@@ -401,19 +421,19 @@ body {
     border-top:  1px black solid;
 }
 .amb-row-special-workspaces .amb-text {
-    border-left: 3px solid #85a;
+    border-left: 6px solid #85a;
 }
 .amb-row-special-workspace .amb-text {
-    border-left: 3px solid #5a8;
+    border-left: 6px solid #5a8;
 }
 .amb-row-special-directory .amb-text {
-    border-left: 3px solid #a80;
+    border-left: 6px solid #a80;
 }
 .amb-row-special-file .amb-text {
-    border-left: 3px solid #58a;
+    border-left: 6px solid #58a;
 }
 .amb-row-special-trash .amb-text {
-    border-left: 3px solid #888;
+    border-left: 6px solid #888;
 }
 
 /* user */

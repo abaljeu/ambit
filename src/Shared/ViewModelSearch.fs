@@ -180,7 +180,7 @@ module ViewModelSearch =
             ViewModel.buildSiteMapFrom model.graph zoomId model.nextSiteId
         { model with
             zoomRoot = zoomId
-            zoomIngress = ViewModel.ownerIngress model.graph zoomId
+            zoomIngress = ViewModel.ownerPathIngress model.graph zoomId
             siteMap = siteMap
             nextSiteId = nextId
             selectedNodes = ViewModel.firstChildSelection siteMap zoomId

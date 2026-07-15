@@ -33,5 +33,7 @@ Lucide package: `lucide-static` (see [[other/fetch-lucide.sh]]). Browse original
 | `duplicate` | `amb-icon-duplicate` | `copy-plus` | Duplicate (link) |
 | `editClasses` | `amb-icon-edit-classes` | `tags` | Edit classes |
 | `moveSelected` | `amb-icon-move-selected` | `move` | Move Selected |
+| `rename` | `amb-icon-rename` | `pencil` | Rename |
+| `run` | `amb-icon-run` | `play` | Run |
 
 To swap a Lucide icon: pick a name from `other/lucide/icons/{name}.svg`, update the pair in `other/fetch-command-dock-sprite.sh`, run the script, then merge custom symbols from [[doc/preview/command-dock-demo/index.html]] and update this table. Direction prototypes (hollow = select, solid = move) and tool triggers are custom throughout.

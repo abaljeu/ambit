@@ -47,8 +47,8 @@ let moreToolsTrigger : DockTriggerEntry =
       slots =
         [ DockCommand Undo
           DockCommand Redo
-          DockCommand ZoomOut
-          DockCommand ZoomIn
+          DockCommand Rename
+          DockCommand Exec
           DockCommand CopyContent
           DockCommand JumpToTarget ] }
 

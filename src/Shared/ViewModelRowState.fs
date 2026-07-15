@@ -243,6 +243,16 @@ module ViewModelRowState =
                     | _ -> ""
             | _ -> node.text
 
+    /// Display labels for the zoom ingress path (root → … → zoomRoot).
+    let zoomIngressPathTexts
+        (graph: Graph)
+        (zoomRoot: NodeId)
+        (stack: (NodeId * int) list)
+        : string list =
+        ViewModelOccurrence.zoomIngressPathIds zoomRoot stack
+        |> List.choose (fun id -> Map.tryFind id graph.nodes)
+        |> List.map outlineDisplayText
+
     /// Right-hand row label from `Node.name` (Empty → blank).
     let rowNameDisplayText (name: Filename) : string =
         match name with

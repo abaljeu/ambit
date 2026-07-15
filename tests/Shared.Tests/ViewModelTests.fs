@@ -2082,6 +2082,107 @@ let ``zoom ingress round-trip returns to Ref parent for shared node`` () =
         | _ -> ()
 
 [<Fact>]
+let ``pushZoomIngress collapses when zooming into an ancestor via Ref`` () =
+    // cont -owns-> a -owns-> b -refs-> a
+    let graph0 = Graph.create ()
+    let graph1, ids = ModelBuilder.createNodes [ "container"; "a"; "b" ] graph0
+    let cont = ids.[0]
+    let a = ids.[1]
+    let b = ids.[2]
+    let graph2 =
+        Graph.replace graph0.root 0 [] (owned [ cont ]) graph1
+        |> ModelBuilder.requireOk "root->cont"
+    let graph3 =
+        Graph.replace cont 0 [] (owned [ a ]) graph2
+        |> ModelBuilder.requireOk "cont->a"
+    let graph4 =
+        Graph.replace a 0 [] (owned [ b ]) graph3
+        |> ModelBuilder.requireOk "a->b"
+    let graph5 =
+        Graph.replace b 0 [] [ { ref = Ownership.Ref; id = a } ] graph4
+        |> ModelBuilder.requireOk "b-ref->a"
+
+    let stackAtA = pushZoomIngress cont a (cont, 0) []
+    Assert.Equal<(NodeId * int) list>([ (cont, 0) ], stackAtA)
+
+    let stackAtB = pushZoomIngress a b (a, 0) stackAtA
+    Assert.Equal<(NodeId * int) list>([ (a, 0); (cont, 0) ], stackAtB)
+
+    // Zoom into ancestor `a` via the Ref under `b` — must not push (b,_) or cycle.
+    let stackBackAtA = pushZoomIngress b a (b, 0) stackAtB
+    Assert.Equal<(NodeId * int) list>([ (cont, 0) ], stackBackAtA)
+
+    match resolveZoomOutParent graph5 a stackBackAtA with
+    | None -> Assert.True(false, "Expected Some")
+    | Some (parentId, _, rest) ->
+        Assert.Equal(cont, parentId)
+        Assert.Equal<(NodeId * int) list>([], rest)
+
+[<Fact>]
+let ``ownerPathIngress walks owner chain to root`` () =
+    let graph, cont, ids = buildNested ()
+    let a = ids.[0]
+    let a1 = ids.[2]
+    let path = ownerPathIngress graph a1
+    Assert.Equal(a, fst path.[0])
+    Assert.Equal(0, snd path.[0])
+    Assert.Equal(cont, fst path.[1])
+    Assert.Equal(0, snd path.[1])
+    Assert.Equal(graph.root, fst path.[2])
+    Assert.Equal<string list>(
+        [ "ROOT"; "container"; "a"; "a1" ],
+        zoomIngressPathTexts graph a1 path)
+
+[<Fact>]
+let ``tryZoomToIngressPathNode jumps to middle ancestor`` () =
+    let graph, cont, ids = buildNested ()
+    let a = ids.[0]
+    let a1 = ids.[2]
+    let stack = ownerPathIngress graph a1
+    match tryZoomToIngressPathNode graph a1 stack cont with
+    | None -> Assert.True(false, "Expected Some")
+    | Some (zoomRoot, index, rest) ->
+        Assert.Equal(cont, zoomRoot)
+        Assert.Equal(0, index)
+        Assert.Equal(graph.root, fst rest.[0])
+        match tryZoomToIngressPathNode graph a1 stack a with
+        | None -> Assert.True(false, "Expected Some for a")
+        | Some (zoomRoot2, index2, rest2) ->
+            Assert.Equal(a, zoomRoot2)
+            Assert.Equal(0, index2)
+            Assert.Equal(cont, fst rest2.[0])
+
+[<Fact>]
+let ``tryZoomToIngressPathNode None for current zoom root`` () =
+    let graph, cont, ids = buildNested ()
+    let a1 = ids.[2]
+    let stack = ownerPathIngress graph a1
+    Assert.True(tryZoomToIngressPathNode graph a1 stack a1 |> Option.isNone)
+
+[<Fact>]
+let ``zoomIngressPathTexts follows ingress then zoom root`` () =
+    let graph0 = Graph.create ()
+    let graph1, ids = ModelBuilder.createNodes [ "container"; "a"; "b" ] graph0
+    let cont = ids.[0]
+    let a = ids.[1]
+    let b = ids.[2]
+    let graph2 =
+        Graph.replace graph0.root 0 [] (owned [ cont ]) graph1
+        |> ModelBuilder.requireOk "root->cont"
+    let graph3 =
+        Graph.replace cont 0 [] (owned [ a ]) graph2
+        |> ModelBuilder.requireOk "cont->a"
+    let graph4 =
+        Graph.replace a 0 [] (owned [ b ]) graph3
+        |> ModelBuilder.requireOk "a->b"
+
+    let stack = [ (a, 0); (cont, 0) ]
+    Assert.Equal<NodeId list>([ cont; a; b ], zoomIngressPathIds b stack)
+    Assert.Equal<string list>(
+        [ "container"; "a"; "b" ],
+        zoomIngressPathTexts graph4 b stack)
+
+[<Fact>]
 let ``searchPickSetRoot seeds owner ingress for shared zoom-out`` () =
     let graph, ownerParent, _refParent, shared = buildSharedRefLinkNonLeaf ()
     let model = emptyModelAt graph graph.root
@@ -2090,13 +2191,14 @@ let ``searchPickSetRoot seeds owner ingress for shared zoom-out`` () =
 
     Assert.Equal(shared, result.zoomRoot)
     Assert.Equal<(NodeId * int) list>(
-        ownerIngress graph shared, result.zoomIngress)
+        ownerPathIngress graph shared, result.zoomIngress)
 
     match resolveZoomOutParent result.graph result.zoomRoot result.zoomIngress with
     | None -> Assert.True(false, "Expected Some")
     | Some (parentId, index, rest) ->
         Assert.Equal(ownerParent, parentId)
-        Assert.Equal<(NodeId * int) list>([], rest)
+        Assert.Equal<(NodeId * int) list>(
+            ownerPathIngress graph ownerParent, rest)
         let _, ownerIndex, _ = getOwnerOccurrence graph shared
         Assert.Equal(ownerIndex, index)
 

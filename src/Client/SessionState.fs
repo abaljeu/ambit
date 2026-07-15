@@ -73,5 +73,5 @@ let restoreSessionState (model: VM) : VM =
                     zoomRoot = zoomRoot
                     siteMap = siteMap1
                     nextSiteId = nextId1
-                    zoomIngress = [] }
+                    zoomIngress = ViewModel.ownerPathIngress model.graph zoomRoot }
         with _ -> model

@@ -625,6 +625,26 @@ let zoomOutOp (model: VM) : VM * Effect list =
                 selectedNodes = ViewModel.childSelectionAt siteMap newZoomRoot index
                 mode = Selecting }, effs
 
+/// Op: Zoom to an ingress path ancestor (breadcrumb click). No-op when target
+/// is the current zoom root or missing from the stack.
+let zoomToIngressPathOp (targetId: NodeId) (model: VM) : VM * Effect list =
+    let model', effs = commitIfEditing model
+    match
+        ViewModel.tryZoomToIngressPathNode
+            model'.graph model'.zoomRoot model'.zoomIngress targetId
+    with
+    | None -> model', effs
+    | Some (newZoomRoot, index, stack) ->
+        let siteMap, nextId =
+            ViewModel.buildSiteMapFrom model'.graph newZoomRoot model'.nextSiteId
+        { model' with
+            zoomRoot = newZoomRoot
+            zoomIngress = stack
+            siteMap = siteMap
+            nextSiteId = nextId
+            selectedNodes = ViewModel.childSelectionAt siteMap newZoomRoot index
+            mode = Selecting }, effs
+
 /// Op: Zoom owner — move the view root to the owner parent (Ctrl+Shift+[).
 /// Like zoom out, but follows the canonical Owner edge from the focused node.
 let zoomOwnerOp (model: VM) : VM * Effect list =
@@ -638,7 +658,7 @@ let zoomOwnerOp (model: VM) : VM * Effect list =
     | Some (newZoomRoot, siteMap, nextId, sel) ->
         { model' with
             zoomRoot = newZoomRoot
-            zoomIngress = []
+            zoomIngress = ViewModel.ownerPathIngress model'.graph newZoomRoot
             siteMap = siteMap
             nextSiteId = nextId
             selectedNodes = sel

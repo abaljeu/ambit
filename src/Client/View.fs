@@ -12,16 +12,24 @@ open Gambol.Client.Update
 open Gambol.Client.UpdateOps
 open Gambol.Shared.CommandDockLayout
 open Gambol.Shared.CommandCategory
+open Gambol.Shared.LogText
 
 module CommandMeta = Gambol.Shared.CommandEntry
 
 let private doubleTapScrollDeferMs = 400
 let mutable private deferSelectionScroll = false
 let mutable private pendingSelectionScrollTimer : float option = None
+let mutable private pendingFoldToggleTimer : float option = None
+let mutable private pendingFoldToggleInst : SiteId option = None
 
 let private cancelPendingSelectionScroll () : unit =
     pendingSelectionScrollTimer |> Option.iter clearTimeout
     pendingSelectionScrollTimer <- None
+
+let private cancelPendingFoldToggle () : unit =
+    pendingFoldToggleTimer |> Option.iter clearTimeout
+    pendingFoldToggleTimer <- None
+    pendingFoldToggleInst <- None
 
 let private scheduleDeferredSelectionScroll (el: HTMLElement) : unit =
     cancelPendingSelectionScroll ()
@@ -52,6 +60,63 @@ let private computeDepth (siteMap: SiteMap) (entry: SiteEntry) : int =
             | None -> acc
             | Some pe -> go pe.parentInstanceId (acc + 1)
     go entry.parentInstanceId 0
+
+// ---------------------------------------------------------------------------
+// Zoom ingress path (clickable ancestors, above view-root row)
+// ---------------------------------------------------------------------------
+
+let private zoomPathEl (rowRoot: HTMLElement) : HTMLElement option =
+    let el = rowRoot.querySelector ":scope > .amb-zoom-path"
+    if isNull el then None else Some (el :?> HTMLElement)
+
+/// Sync the breadcrumb above the zoom-root row. Hidden when path length < 2.
+let private syncZoomPath (vm: VM) (dispatch: Msg -> unit) (rowRoot: HTMLElement) : HTMLElement option =
+    let ids = ViewModel.zoomIngressPathIds vm.zoomRoot vm.zoomIngress
+    let texts = ViewModel.zoomIngressPathTexts vm.graph vm.zoomRoot vm.zoomIngress
+    match ids, texts with
+    | [], _ | [ _ ], _ | _, [] | _, [ _ ] ->
+        zoomPathEl rowRoot |> Option.iter (fun e -> e.remove())
+        None
+    | _ ->
+        let el =
+            match zoomPathEl rowRoot with
+            | Some e -> e
+            | None ->
+                let e = document.createElement "div"
+                e.className <- "amb-zoom-path"
+                rowRoot.insertBefore (e, rowRoot.firstChild) |> ignore
+                e
+        while not (isNull el.firstChild) do
+            el.removeChild el.firstChild |> ignore
+        for i in 0 .. ids.Length - 1 do
+            if i > 0 then
+                let sep = document.createElement "span"
+                sep.className <- "amb-zoom-path-sep"
+                sep.textContent <- " \u203A "
+                el.appendChild sep |> ignore
+            let label = truncateForDisplay 10 texts.[i]
+            let seg = document.createElement "span"
+            if i = ids.Length - 1 then
+                seg.className <- "amb-zoom-path-current"
+                seg.textContent <- label
+            else
+                let targetId = ids.[i]
+                seg.className <- "amb-zoom-path-seg"
+                seg.textContent <- label
+                seg.addEventListener("click", fun (ev: Event) ->
+                    ev.preventDefault()
+                    ev.stopPropagation()
+                    dispatch (ApplyOp (zoomToIngressPathOp targetId)))
+            el.appendChild seg |> ignore
+        if not (isNull rowRoot.firstChild)
+           && not (System.Object.ReferenceEquals(rowRoot.firstChild, el)) then
+            rowRoot.insertBefore (el, rowRoot.firstChild) |> ignore
+        Some el
+
+let private firstRowAnchor (rowRoot: HTMLElement) : Browser.Types.Node =
+    match zoomPathEl rowRoot with
+    | Some zp -> zp.nextSibling
+    | None -> rowRoot.firstChild
 
 // ---------------------------------------------------------------------------
 // Row element creation
@@ -99,10 +164,28 @@ let private makeRowElement
             toggle.addEventListener("mousedown", fun (ev: Event) ->
                 ev.preventDefault()
                 ev.stopPropagation()
-                let op =
-                    if siteEntry.parentInstanceId = None then zoomOutOp
-                    else toggleFoldOp siteEntry.instanceId
-                dispatch (ApplyOp op)
+                let instId = siteEntry.instanceId
+                match pendingFoldToggleInst with
+                | Some prev when prev = instId ->
+                    cancelPendingFoldToggle ()
+                    dispatch (ApplyOp (fun model ->
+                        let m, effs = selectInstance instId model
+                        let m2, effs2 = zoomInOp m
+                        m2, effs @ effs2))
+                | _ ->
+                    cancelPendingFoldToggle ()
+                    pendingFoldToggleInst <- Some instId
+                    pendingFoldToggleTimer <-
+                        Some (
+                            setTimeout
+                                (fun () ->
+                                    pendingFoldToggleTimer <- None
+                                    pendingFoldToggleInst <- None
+                                    let op =
+                                        if siteEntry.parentInstanceId = None then zoomOutOp
+                                        else toggleFoldOp instId
+                                    dispatch (ApplyOp op))
+                                doubleTapScrollDeferMs)
             )
             row.appendChild toggle |> ignore
             toggle
@@ -182,8 +265,9 @@ let private makeRowElement
         textDiv.addEventListener("mousedown", activateRow)
         textDiv.addEventListener("dblclick", doubleClickRow)
 
-    leafBullet.addEventListener("mousedown", activateRow)
-    leafBullet.addEventListener("dblclick", doubleClickRow)
+    if not hasChildren then
+        leafBullet.addEventListener("mousedown", activateRow)
+        leafBullet.addEventListener("dblclick", doubleClickRow)
 
     let nameSpan = document.createElement "span"
     nameSpan.classList.add "amb-node-guid"
@@ -493,9 +577,14 @@ let renderCommandPalette (model: VM) (dispatch: Msg -> unit) : unit =
 
     match model.mode with
     | CommandPalette (q, selectedCommand, ret) ->
+        let wasOpen = container.classList.contains "amb-dialog-open"
         container.classList.add "amb-dialog-open"
         let input = document.getElementById "command-palette-input" :?> HTMLInputElement
-        window.setTimeout((fun _ -> focusPreventScroll input), 0) |> ignore
+        if input.value <> q then input.value <- q
+        if not wasOpen then
+            window.setTimeout((fun _ ->
+                focusPreventScroll input
+                input.select()), 0) |> ignore
         let items = filteredCommands model ret q |> List.map (fun c -> CommandMeta.displayName c.id)
         renderPalette container items selectedCommand
 
@@ -539,6 +628,8 @@ let renderCommandPalette (model: VM) (dispatch: Msg -> unit) : unit =
 
     | _ ->
         container.classList.remove "amb-dialog-open"
+        let input = document.getElementById "command-palette-input" :?> HTMLInputElement
+        if not (isNull input) then input.value <- ""
 
 let private cssClassPromptWired = ref false
 let private cssClassPromptFilled = ref false
@@ -584,12 +675,14 @@ let renderRenamePrompt (model: VM) (dispatch: Msg -> unit) : unit =
         container.classList.add "amb-dialog-open"
         let input = document.getElementById "rename-prompt-input" :?> HTMLInputElement
         if not (isNull input) then
+            // Fill + focus/select only on open. Poll/sync re-renders must not call
+            // input.select() or they reset the caret while the user is typing.
             if not renamePromptFilled.Value then
                 renamePromptFilled.Value <- true
                 input.value <- initialValue
-            window.setTimeout((fun _ ->
-                focusPreventScroll input
-                input.select()), 0) |> ignore
+                window.setTimeout((fun _ ->
+                    focusPreventScroll input
+                    input.select()), 0) |> ignore
             if not renamePromptWired.Value then
                 renamePromptWired.Value <- true
                 input.addEventListener("keydown", fun (ev: Event) ->
@@ -740,6 +833,7 @@ let render (vm: VM) (dispatch: Msg -> unit) : Map<SiteId, HTMLElement> =
 
     let mutable cache = Map.empty<SiteId, HTMLElement>
     let visible = ViewModel.getVisibleInstanceIds vm.siteMap
+    syncZoomPath vm dispatch rowRoot |> ignore
     for instId in visible do
         let entry = vm.siteMap.entries.[instId]
         let depth = computeDepth vm.siteMap entry
@@ -792,6 +886,8 @@ let patchDOM
     let rowRoot =
         if isNull ambDocument then app else ambDocument
 
+    syncZoomPath newModel dispatch rowRoot |> ignore
+
     // Apply upserts in preorder, correcting DOM position as we go
     let mutable prevNode: Browser.Types.Node option = None
 
@@ -806,7 +902,7 @@ let patchDOM
         let atCorrectPos =
             match prevNode with
             | None ->
-                let first = rowRoot.firstChild
+                let first = firstRowAnchor rowRoot
                 not (isNull first) && System.Object.ReferenceEquals(first, row)
             | Some pe ->
                 let ns = pe.nextSibling
@@ -815,7 +911,7 @@ let patchDOM
         if not atCorrectPos then
             let anchor =
                 match prevNode with
-                | None -> rowRoot.firstChild
+                | None -> firstRowAnchor rowRoot
                 | Some pe -> pe.nextSibling
             rowRoot.insertBefore(row, anchor) |> ignore
 

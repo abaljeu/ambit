@@ -77,7 +77,7 @@ let renderSearchDialog (model: VM) (dispatch: Msg -> unit) : unit =
             ctx.textContent <- s.invokedCommand
             setDockAccent ctx (searchDialogDockCssClass s.invokedCommand)
         let input = document.getElementById "search-dialog-input" :?> HTMLInputElement
-        if input.value <> s.query then input.value <- s.query
+        if not wasOpen || input.value <> s.query then input.value <- s.query
         if not wasOpen then
             window.setTimeout((fun _ ->
                 focusPreventScroll input

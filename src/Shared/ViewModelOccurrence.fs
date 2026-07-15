@@ -71,6 +71,8 @@ module ViewModelOccurrence =
                 index < range.start || index >= range.endd)
 
     /// Push ingress when zoom root changes; otherwise leave the stack unchanged.
+    /// If newZoomRoot already appears as a parent on the path (e.g. zooming into an
+    /// ancestor via a Ref back-edge), collapse to that prefix so zoom-out stays acyclic.
     let pushZoomIngress
         (oldZoomRoot: NodeId)
         (newZoomRoot: NodeId)
@@ -78,7 +80,10 @@ module ViewModelOccurrence =
         (stack: (NodeId * int) list)
         : (NodeId * int) list =
         if oldZoomRoot = newZoomRoot then stack
-        else ingress :: stack
+        else
+            match List.tryFindIndex (fun (pid, _) -> pid = newZoomRoot) stack with
+            | Some i -> List.skip (i + 1) stack
+            | None -> ingress :: stack
 
     /// Owner-parent ingress for nodeId, or [] when there is no owner parent.
     let ownerIngress (graph: Graph) (nodeId: NodeId) : (NodeId * int) list =
@@ -87,6 +92,21 @@ module ViewModelOccurrence =
         | Some ownerParentId ->
             let _, index, _ = getOwnerOccurrence graph nodeId
             [ ownerParentId, index ]
+
+    /// Full owner-chain ingress from nodeId up to (but not including) graph root.
+    /// Head is the immediate owner parent — same shape as a zoom-in stack.
+    let ownerPathIngress (graph: Graph) (nodeId: NodeId) : (NodeId * int) list =
+        let rec loop (current: NodeId) (visited: Set<NodeId>) =
+            if current = graph.root || Set.contains current visited then
+                []
+            else
+                match Map.tryFind current graph.ownerParentByChild with
+                | None -> []
+                | Some parentId ->
+                    let _, index, _ = getOwnerOccurrence graph current
+                    (parentId, index) :: loop parentId (Set.add current visited)
+
+        loop nodeId Set.empty
 
     /// Site-map parent (nodeId, childIndex) of an occurrence of childNodeId, if any.
     let trySiteMapParentOccurrence
@@ -151,3 +171,28 @@ module ViewModelOccurrence =
                 |> Option.map (fun (p, i) -> p, i, [])
 
         loop stack
+
+    /// Node ids from ingress root toward zoomRoot (stack is parent-nearest-first).
+    let zoomIngressPathIds
+        (zoomRoot: NodeId)
+        (stack: (NodeId * int) list)
+        : NodeId list =
+        (List.rev stack |> List.map fst) @ [ zoomRoot ]
+
+    /// Jump zoom to an ancestor on the ingress path. Returns
+    /// (newZoomRoot, childIndex for selection, truncated stack).
+    let tryZoomToIngressPathNode
+        (graph: Graph)
+        (zoomRoot: NodeId)
+        (stack: (NodeId * int) list)
+        (targetId: NodeId)
+        : (NodeId * int * (NodeId * int) list) option =
+        if targetId = zoomRoot then None
+        else
+            match List.tryFindIndex (fun (parentId, _) -> parentId = targetId) stack with
+            | None -> None
+            | Some i ->
+                let _, childIndex = stack.[i]
+                if Map.containsKey targetId graph.nodes then
+                    Some (targetId, childIndex, List.skip (i + 1) stack)
+                else None
