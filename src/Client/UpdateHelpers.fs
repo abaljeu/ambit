@@ -76,11 +76,11 @@ let readEditInputSelectionEnd () : int =
     else getContentEditableSelectionEnd el
 
 /// Apply a change to the local model, enqueue it for posting to the server,
-/// and return the updated VM (or None if the change was rejected locally) plus effects.
+/// and return the updated VM plus effects, or an error if rejected locally.
 /// Fires SubmitPendingBatch only when the queue was empty and no request is in-flight.
 /// Blocked states (ServerRejected / CodeOutdated / DataOutdated / WaitingToRetry) queue
 /// changes locally but do not fire a POST.
-let applyAndPost (change: Change) (model: VM) : VM option * Effect list =
+let applyAndPost (change: Change) (model: VM) : Result<VM * Effect list, string> =
     let state: State = { graph = model.graph; revision = model.revision; history = model.history }
     match History.applyChange change state with
     | ApplyResult.Changed newState ->
@@ -93,12 +93,13 @@ let applyAndPost (change: Change) (model: VM) : VM option * Effect list =
                 "[Gambol sync] applyAndPost fireFirst modelRev=" + string model.revision.Value
                 + " qLen=" + string pending.Length)
         let effects = (SavePendingQueue pending) :: submitEffects
-        Some
-            { model with
+        Ok
+            ({ model with
                 graph = newState.graph
                 history = newState.history
-                syncInfo = nextSyncInfo }, effects
-    | _ -> None, []
+                syncInfo = nextSyncInfo }, effects)
+    | ApplyResult.Invalid (_, msg) -> Error msg
+    | ApplyResult.Unchanged _ -> Error "change not applied"
 
 /// Extract the child span covered by a SiteNodeRange.
 let rangeChildren (graph: Graph) (range: SiteNodeRange) =
@@ -199,8 +200,8 @@ let commitTextEdit
               changeId = System.Guid.NewGuid()
               ops = ops }
         match applyAndPost change model with
-        | Some m, effects -> { m with mode = Selecting }, effects
-        | None, _         -> { model with mode = Selecting }, []
+        | Ok (m, effects) -> { m with mode = Selecting }, effects
+        | Error _         -> { model with mode = Selecting }, []
 
 /// Split the currently-edited node at the cursor position.
 ///
@@ -251,7 +252,7 @@ let splitNode (currentText: string) (cursorPos: int) (model: VM) : VM * Effect l
               changeId = System.Guid.NewGuid()
               ops = ops }
         match applyAndPost change model with
-        | Some m, effects ->
+        | Ok (m, effects) ->
             let effRoot = m.zoomRoot
             let siteMap, nextId =
                 ViewModel.reconcileSiteMapFrom m.graph effRoot m.siteMap m.nextSiteId
@@ -277,7 +278,7 @@ let splitNode (currentText: string) (cursorPos: int) (model: VM) : VM * Effect l
             { m2 with
                 selectedNodes = newSel
                 mode = Editing (newNodeText, EditCaret.Utf16Index 0) }, effects
-        | None, _ -> model, []
+        | Error _ -> model, []
     | _ -> model, []
 
 /// If currently editing, commit the edit and return Selecting model; otherwise return model as-is.

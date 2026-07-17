@@ -177,13 +177,13 @@ module RefExprMatch =
                     | _ -> workspaceRoot
 
                 let currentDir2 =
-                    match currentDir, node.kind with
-                    | None, Special (Directory | Workspace) -> Some id
+                    match currentDir with
+                    | None when NodeKind.container node.kind -> Some id
                     | _ -> currentDir
 
                 let structural2 =
-                    match structural, node.kind with
-                    | None, Special (File | Directory | Workspace) -> Some id
+                    match structural with
+                    | None when NodeKind.artifact node.kind -> Some id
                     | _ -> structural
 
                 let tagged2 =

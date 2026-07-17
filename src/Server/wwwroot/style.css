@@ -5,6 +5,11 @@
     --dock-more: #0f766e;
     --dock-close: #b91c1c;
     --dock-file: #5588aa;
+    --node-workspaces: #85a;
+    --node-workspace: #5a8;
+    --node-directory: #a80;
+    --node-file: #58a;
+    --node-trash: #888;
 }
 
 html {
@@ -421,19 +426,34 @@ body {
     border-top:  1px black solid;
 }
 .amb-row-special-workspaces .amb-text {
-    border-left: 6px solid #85a;
+    border-left: 6px solid var(--node-workspaces);
+}
+.amb-row-special-workspaces .amb-node-guid {
+    color: var(--node-workspaces);
 }
 .amb-row-special-workspace .amb-text {
-    border-left: 6px solid #5a8;
+    border-left: 6px solid var(--node-workspace);
+}
+.amb-row-special-workspace .amb-node-guid {
+    color: var(--node-workspace);
 }
 .amb-row-special-directory .amb-text {
-    border-left: 6px solid #a80;
+    border-left: 6px solid var(--node-directory);
+}
+.amb-row-special-directory .amb-node-guid {
+    color: var(--node-directory);
 }
 .amb-row-special-file .amb-text {
-    border-left: 6px solid #58a;
+    border-left: 6px solid var(--node-file);
+}
+.amb-row-special-file .amb-node-guid {
+    color: var(--node-file);
 }
 .amb-row-special-trash .amb-text {
-    border-left: 6px solid #888;
+    border-left: 6px solid var(--node-trash);
+}
+.amb-row-special-trash .amb-node-guid {
+    color: var(--node-trash);
 }
 
 /* user */

@@ -22,8 +22,6 @@ module GraphOps =
 
         static member fileTreeInsertIndex graph parentId =
             GraphQuery.fileTreeInsertIndex graph parentId
-        static member canOwn graph ownerId childId =
-            GraphQuery.canOwn graph ownerId childId
         static member isValidOwnedFileDirectoryParent graph parentId =
             GraphQuery.isValidOwnedFileDirectoryParent graph parentId
         static member ownedNameTaken graph parentId excludeId nameLower =

@@ -62,8 +62,8 @@ let private tryApplyOps (ops: Op list) (model: VM) : (VM * Effect list) option =
           changeId = System.Guid.NewGuid()
           ops = ops }
     match applyAndPost change model with
-    | Some m, effects -> Some (m, effects)
-    | None, _ -> None
+    | Ok (m, effects) -> Some (m, effects)
+    | Error _ -> None
 
 let private tryBuildMoveInputs
     (too: NodeRange)

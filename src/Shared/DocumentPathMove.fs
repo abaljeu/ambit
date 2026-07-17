@@ -41,7 +41,7 @@ module DocumentPathMove =
             | Special File ->
                 DocumentPartition.artifactFileRelative graph move.nodeId
                 |> Option.map (fun path -> false, path)
-            | Special (Workspace | Directory) ->
+            | kind when NodeKind.container kind ->
                 DocumentPartition.artifactDirectoryRelative graph move.nodeId
                 |> Option.map (fun path -> true, path)
             | _ -> None

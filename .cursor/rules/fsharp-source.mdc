@@ -18,3 +18,5 @@ TABs are not allowed in F#. Always indent 4 spaces.
 Indentation is equally important as it is in python or Haskell.
 
 Follow language norms. Match existing style.
+
+Graphs may be millions of nodes. In hot paths, avoid O(nodes) full-graph scans (e.g. `Map.toList graph.nodes`). Prefer owner-subtree or other local walks (see `GraphQuery.ownedArtifactsInDirectory`).

@@ -22,8 +22,8 @@ let private applyJoin ops text caret instanceId (model: VM) =
           ops = ops }
 
     match applyAndPost change model with
-    | None, _ -> model, []
-    | Some m, effects ->
+    | Error _ -> model, []
+    | Ok (m, effects) ->
         let result = withSiteMap m
 
         { result with

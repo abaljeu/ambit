@@ -63,7 +63,7 @@ module Op =
         | Ok graph -> ApplyResult.Changed { state with graph = graph }
         | Error msg -> ApplyResult.Invalid(state, msg)
 
-    let private involvedNodeIds (graph: Graph) (op: Op) : NodeId list =
+    let involvedNodeIds (graph: Graph) (op: Op) : NodeId list =
         match op with
         | Op.NewNode(nodeId, _)
         | Op.NewSpecialNode(nodeId, _, _) ->
@@ -289,7 +289,10 @@ module Change =
 
 [<RequireQualifiedAccess>]
 module History =
-    let private validateOwnershipSemantics (graph: Graph) : Result<unit, string> =
+    let private validateOwnershipSemantics
+        (graph: Graph)
+        (childIdsScope: Set<NodeId> option)
+        : Result<unit, string> =
         let allChildren =
             graph.nodes
             |> Map.toList
@@ -309,8 +312,13 @@ module History =
             |> List.map (fun (childId, pairs) -> childId, (pairs |> List.map snd))
             |> Map.ofList
 
+        let childIdsToCheck =
+            match childIdsScope with
+            | None -> allChildIds
+            | Some ids -> Set.intersect ids allChildIds
+
         let childIdsMissingOwner =
-            allChildIds
+            childIdsToCheck
             |> Seq.filter (fun childId -> not (Map.containsKey childId ownerByChildId))
             |> Seq.toList
 
@@ -318,9 +326,11 @@ module History =
             Error "invalid ownership semantics: missing owner occurrence"
         else
             let childIdsWithMultipleOwners =
-                ownerByChildId
-                |> Map.toSeq
-                |> Seq.filter (fun (_, owners) -> owners.Length <> 1)
+                childIdsToCheck
+                |> Seq.filter (fun childId ->
+                    match Map.tryFind childId ownerByChildId with
+                    | None -> false
+                    | Some owners -> owners.Length <> 1)
                 |> Seq.toList
 
             if not childIdsWithMultipleOwners.IsEmpty then
@@ -340,7 +350,7 @@ module History =
                         false
 
                 let hasBrokenOwnerChain =
-                    allChildIds
+                    childIdsToCheck
                     |> Seq.exists (fun childId ->
                         let ownerParent = ownerParentOf childId
                         not (reachesRootWithoutCycle ownerParent Set.empty))
@@ -348,23 +358,26 @@ module History =
                 if hasBrokenOwnerChain then
                     Error "invalid ownership semantics: owner chain does not reach root"
                 else
-                    let hasInvalidFileDirectoryPlacement =
-                        allChildren
-                        |> Seq.exists (fun (parentId, child) ->
-                            match child.ref, Map.tryFind child.id graph.nodes with
-                            | Ownership.Owner, Some { kind = Special (File | Directory) }
-                                when child.id <> Graph.trashId ->
-                                not (GraphQuery.canOwn graph parentId child.id)
-                            | _ -> false)
+                    match childIdsScope with
+                    | Some _ -> Ok ()
+                    | None ->
+                        let hasInvalidFileDirectoryPlacement =
+                            allChildren
+                            |> Seq.exists (fun (parentId, child) ->
+                                match child.ref, Map.tryFind child.id graph.nodes with
+                                | Ownership.Owner, Some { kind = Special (File | Directory) }
+                                    when child.id <> Graph.trashId ->
+                                    not (GraphQuery.containerOrDescendant graph parentId)
+                                | _ -> false)
 
-                    if hasInvalidFileDirectoryPlacement then
-                        Error
-                            "invalid ownership semantics: File and Directory nodes must have a Workspace or Directory owner ancestor (not under a File)"
-                    elif GraphQuery.hasArtifactNameDuplicates graph then
-                        Error
-                            "invalid ownership semantics: duplicate name in artifact directory"
-                    else
-                        Ok ()
+                        if hasInvalidFileDirectoryPlacement then
+                            Error
+                                "invalid ownership semantics: File and Directory nodes must have a Workspace or Directory owner ancestor (not under a File)"
+                        elif GraphQuery.hasArtifactNameDuplicates graph then
+                            Error
+                                "invalid ownership semantics: duplicate name in artifact directory"
+                        else
+                            Ok ()
 
     let empty: History =
         { past = []
@@ -377,7 +390,56 @@ module History =
           ops = [] }
 
     let validateOwnership (graph: Graph) : Result<unit, string> =
-        validateOwnershipSemantics graph
+        validateOwnershipSemantics graph None
+
+    let private opChangesGraphShape =
+        function
+        | Op.Replace _ | Op.NewNode _ | Op.NewSpecialNode _ -> true
+        | Op.SetText _ | Op.SetClasses _ | Op.SetName _ | Op.SetDocumentState _ -> false
+
+    let private invalidOwnedFileDirectoryPlacement
+        (graph: Graph)
+        (parentId: NodeId)
+        (newChildren: ChildNode list)
+        : bool
+        =
+        newChildren
+        |> List.exists (fun child ->
+            match child.ref, Map.tryFind child.id graph.nodes with
+            | Ownership.Owner, Some { kind = Special (File | Directory) }
+                when child.id <> Graph.trashId ->
+                not (GraphQuery.containerOrDescendant graph parentId)
+            | _ -> false)
+
+    let private validateOwnershipForChange (graph: Graph) (change: Change) : Result<unit, string> =
+        let shapeOps = change.ops |> List.filter opChangesGraphShape
+
+        if List.isEmpty shapeOps then
+            Ok ()
+        else
+            let childIds =
+                shapeOps
+                |> List.collect (Op.involvedNodeIds graph)
+                |> Set.ofList
+
+            match validateOwnershipSemantics graph (Some childIds) with
+            | Error msg -> Error msg
+            | Ok () ->
+                shapeOps
+                |> List.tryPick (fun op ->
+                    match op with
+                    | Op.Replace(parentId, _, _, newChildren) ->
+                        if invalidOwnedFileDirectoryPlacement graph parentId newChildren then
+                            Some
+                                "invalid ownership semantics: File and Directory nodes must have a Workspace or Directory owner ancestor (not under a File)"
+                        elif GraphQuery.artifactNameConflict graph parentId newChildren then
+                            Some
+                                "invalid ownership semantics: duplicate name in artifact directory"
+                        else
+                            None
+                    | _ -> None)
+                |> Option.map Error
+                |> Option.defaultValue (Ok ())
 
     let addChange (change: Change) (history: History) : History =
         let nextId = max history.nextId (change.id + 1)
@@ -405,7 +467,7 @@ module History =
         | ApplyResult.Invalid _ as err -> err
         | ApplyResult.Unchanged s -> ApplyResult.Unchanged s
         | ApplyResult.Changed s ->
-            match validateOwnership s.graph with
+            match validateOwnershipForChange s.graph change with
             | Error msg -> ApplyResult.Invalid(state, msg)
             | Ok () -> ApplyResult.Changed s
 

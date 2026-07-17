@@ -52,6 +52,20 @@ type NodeKind =
     | Normal
     | Special of SpecialKind
 
+[<RequireQualifiedAccess>]
+module NodeKind =
+    /// File, Directory, or named Workspace (artifact on disk).
+    let artifact (kind: NodeKind) : bool =
+        match kind with
+        | Special (File | Directory | Workspace) -> true
+        | _ -> false
+
+    /// Workspace or Directory (can own nested artifacts).
+    let container (kind: NodeKind) : bool =
+        match kind with
+        | Special (Workspace | Directory) -> true
+        | _ -> false
+
 
 type DocumentState =
     | Current

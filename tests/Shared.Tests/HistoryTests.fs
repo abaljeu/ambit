@@ -521,3 +521,50 @@ let ``unparsed invariant also applies to directory and workspace documents`` () 
     assertUnparsedInvalid
         workspaceUnparsed
         (Op.SetName(directoryId, "docs", "renamed"))
+
+let private graphWithDistantFileUnderFileViolation () =
+    let graph0 = Graph.create ()
+    let fileAId, fileA = specialNode File "outer.txt"
+    let fileBId, fileB = specialNode File "inner.txt"
+    let owner id = { ref = Ownership.Owner; id = id }
+    let root = graph0.nodes.[Graph.rootId]
+    let nodes =
+        graph0.nodes
+        |> Map.add Graph.rootId { root with children = root.children @ [ owner fileAId ] }
+        |> Map.add fileAId { fileA with children = [ owner fileBId ] }
+        |> Map.add fileBId fileB
+    let graph = Graph.fromNodes graph0.root nodes
+    graph, fileAId, fileBId
+
+[<Fact>]
+let ``SetClasses via applyChange succeeds despite distant ownership violation`` () =
+    let graph, fileAId, fileBId = graphWithDistantFileUnderFileViolation ()
+    match History.validateOwnership graph with
+    | Ok () -> failwith "expected global ownership validation to fail"
+    | Error _ -> ()
+    let state =
+        { graph = graph; history = History.empty; revision = Revision.Zero }
+    let fileB = state.graph.nodes.[fileBId]
+    let change =
+        History.newChange History.empty
+        |> Change.addOp (Op.SetClasses(fileBId, fileB.cssClasses, CssClass.ofList [ "edited" ]))
+    let result = History.applyChange change state |> expectChanged
+    Assert.Equal(CssClass.ofList [ "edited" ], result.graph.nodes.[fileBId].cssClasses)
+    Assert.Equal(fileAId, result.graph.nodes.[fileAId].id)
+
+[<Fact>]
+let ``local shape op succeeds despite distant ownership violation`` () =
+    let graph, _, _ = graphWithDistantFileUnderFileViolation ()
+    let state =
+        { graph = graph; history = History.empty; revision = Revision.Zero }
+    let newId = NodeId.New()
+    let change =
+        History.newChange History.empty
+        |> Change.addOp (Op.NewNode(newId, "sibling"))
+        |> Change.addOp (
+            Op.Replace(
+                Graph.rootId,
+                state.graph.nodes.[Graph.rootId].children.Length,
+                [],
+                [ { ref = Ownership.Owner; id = newId } ]))
+    History.applyChange change state |> expectChanged |> ignore

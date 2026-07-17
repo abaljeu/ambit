@@ -33,10 +33,10 @@ let private commitParsedFile
                 model.revision.Value
                 (System.Guid.NewGuid())
         match applyAndPost change model with
-        | Some parsed, effects ->
+        | Ok (parsed, effects) ->
             let result = Some(CmdLastResult.Detail(None, "parsed: " + path))
             { withSiteMap parsed with lastCmdResult = result }, effects
-        | None, _ -> fail model "parse change was rejected"
+        | Error _ -> fail model "parse change was rejected"
 
 let private handleImportHttpResponse
     (model: VM) (fileId: NodeId) (path: string) (responseText: string)

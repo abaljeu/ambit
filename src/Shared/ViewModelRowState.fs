@@ -233,15 +233,15 @@ module ViewModelRowState =
         if node.id = Graph.rootId || node.id = Graph.trashId || node.id = Graph.workspacesId then
             node.text
         else
-            match node.kind with
-            | Special (File | Directory | Workspace) ->
+            if NodeKind.artifact node.kind then
                 if node.text <> "" then
                     node.text
                 else
                     match node.name with
                     | Filename.Ok n -> n
                     | _ -> ""
-            | _ -> node.text
+            else
+                node.text
 
     /// Display labels for the zoom ingress path (root → … → zoomRoot).
     let zoomIngressPathTexts

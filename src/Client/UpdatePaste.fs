@@ -76,13 +76,13 @@ let private pasteNodesSelecting
             )
         let change = newChange model (pasteOps @ [replaceOp])
         match applyAndPost change model with
-        | Some m, effects ->
+        | Ok (m, effects) ->
             let newEnd = range.start + topLevelIds.Length
             let newSel =
                 { range = { parent = range.parent; start = range.start; endd = newEnd }
                   focus = range.start }
             { m with selectedNodes = Some newSel }, effects
-        | None, _ -> model, []
+        | Error _ -> model, []
 
 let private pasteEditingLink
     (model: VM) (originalText: string) (currentText: string) (cursorPos: int) (focusId: NodeId)
@@ -95,8 +95,8 @@ let private pasteEditingLink
         Op.Replace(parentId, focusIdx + 1, [], childrenForPaste model.graph refIds)
     let change = newChange model (setTextOps @ [insertOp])
     match applyAndPost change model with
-    | Some m, effects -> editingModeAfterPaste m focusId cursorPos, effects
-    | None, _ -> model, []
+    | Ok (m, effects) -> editingModeAfterPaste m focusId cursorPos, effects
+    | Error _ -> model, []
 
 let private pasteEditingSingleLine
     (model: VM) (originalText: string) (currentText: string) (cursorPos: int) (focusId: NodeId)
@@ -109,8 +109,8 @@ let private pasteEditingSingleLine
         let ops = [ Op.SetText(focusId, originalText, newText) ]
         let afterCaret = cursorPos + firstText.Length
         match applyAndPost (newChange model ops) model with
-        | Some m, effects -> editingModeAfterPaste m focusId afterCaret, effects
-        | None, _ -> model, []
+        | Ok (m, effects) -> editingModeAfterPaste m focusId afterCaret, effects
+        | Error _ -> model, []
 
 let private pasteEditingMultiline
     (model: VM) (originalText: string) (currentText: string) (cursorPos: int) (focusId: NodeId)
@@ -130,8 +130,8 @@ let private pasteEditingMultiline
         editingUnchangedAtCaret model originalText cursorPos, []
     else
         match applyAndPost (newChange model allOps) model with
-        | Some m, effects -> editingModeAfterPaste m focusId afterCaret, effects
-        | None, _ -> model, []
+        | Ok (m, effects) -> editingModeAfterPaste m focusId afterCaret, effects
+        | Error _ -> model, []
 
 let private pasteEditingPlainEntries
     (model: VM) (originalText: string) (currentText: string) (cursorPos: int) (focusId: NodeId)
@@ -198,7 +198,7 @@ let cutSelection (model: VM) : VM * Effect list =
               changeId = System.Guid.NewGuid()
               ops = [removeOp] }
         match applyAndPost change model with
-        | Some m, effects ->
+        | Ok (m, effects) ->
             let newChildren = m.graph.nodes.[sel.range.parent.nodeId].children
             let newSel =
                 if sel.range.start < newChildren.Length then
@@ -212,4 +212,4 @@ let cutSelection (model: VM) : VM * Effect list =
                 else
                     singleSelection m.graph m.siteMap sel.range.parent.nodeId
             { m with clipboard = Some cb; selectedNodes = newSel }, effects
-        | None, _ -> model, []
+        | Error _ -> model, []

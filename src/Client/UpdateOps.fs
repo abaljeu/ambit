@@ -423,8 +423,8 @@ let duplicateSelectionOp (model: VM) : VM * Effect list =
                   changeId = System.Guid.NewGuid()
                   ops = [ insertOp ] }
             match applyAndPost change model with
-            | None, _ -> model, []
-            | Some m, effects ->
+            | Error _ -> model, []
+            | Ok (m, effects) ->
                 let insertStart = sel.range.endd
                 let insertEnd = insertStart + duplicatedRefs.Length
                 let newSel =
@@ -458,8 +458,8 @@ let deleteSelectionOp (model: VM) : VM * Effect list =
                       ops = allOps }
 
                 match applyAndPost change model with
-                | None, _ -> model, []
-                | Some m, effects ->
+                | Error _ -> model, []
+                | Ok (m, effects) ->
                     let newChildren = m.graph.nodes.[sel.range.parent.nodeId].children
                     let newSel =
                         if sel.range.start < newChildren.Length then
@@ -565,8 +565,10 @@ let submitCssClassPromptOp (model: VM) : VM * Effect list =
                   changeId = System.Guid.NewGuid()
                   ops = ops }
             match applyAndPost change result with
-            | Some m, effects -> m, effects
-            | None, _ -> result, []
+            | Ok (m, effects) -> m, effects
+            | Error msg ->
+                consoleLog msg
+                { result with lastCmdResult = Some (CmdLastResult.Error (None, msg)) }, []
     | _ -> model, []
 
 /// Op: Zoom in — set the view root to the first selected node (Ctrl+]).

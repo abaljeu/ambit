@@ -171,7 +171,7 @@ module GraphMutate =
                             Some "Workspace nodes may only be placed under Workspaces"
                         | Ownership.Owner, (Special File | Special Directory)
                             when child.id <> GraphBuild.trashId ->
-                            if GraphQuery.canOwn graph parentId child.id then
+                            if GraphQuery.containerOrDescendant graph parentId then
                                 None
                             else
                                 Some

@@ -26,5 +26,5 @@ let runAmbleOp (model: VM) : VM * Effect list =
                       changeId = System.Guid.NewGuid()
                       ops = ops }
                 match applyAndPost change model with
-                | Some m, effects -> withSiteMap m, effects
-                | None, _ -> model, []
+                | Ok (m, effects) -> withSiteMap m, effects
+                | Error _ -> model, []

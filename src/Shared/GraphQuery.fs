@@ -14,33 +14,46 @@ module GraphQuery =
 
     /// File, Directory, or named Workspace node (artifact on disk).
     let isArtifact (node: Node) : bool =
-        match node.kind with
-        | Special (File | Directory | Workspace) -> true
-        | _ -> false
+        NodeKind.artifact node.kind
 
-    /// Nearest Workspace|Directory on owner chain from nodeId (inclusive).
-    /// File → None; Normal|Workspaces → continue.
-    let owningArtifact (graph: Graph) (nodeId: NodeId) : NodeId option =
-        let rec walk currentId =
-            match Map.tryFind currentId graph.nodes with
-            | Some { kind = Special (Workspace | Directory) } -> Some currentId
-            | Some { kind = Special File } -> None
-            | Some { kind = Normal | Special Workspaces } ->
-                match Map.tryFind currentId graph.ownerParentByChild with
-                | Some p -> walk p
+    /// First node on the owner chain (including `nodeId`) matching `predicate`.
+    let enclosing
+        (graph: Graph)
+        (predicate: Node -> bool)
+        (nodeId: NodeId)
+        : NodeId option =
+        let rec walk (current: NodeId) =
+            match Map.tryFind current graph.nodes with
+            | None -> None
+            | Some node when predicate node -> Some current
+            | Some _ ->
+                match Map.tryFind current graph.ownerParentByChild with
                 | None -> None
-            | _ -> None
+                | Some parentId -> walk parentId
 
         walk nodeId
 
+    /// Nearest Workspace|Directory on owner chain from nodeId (inclusive).
+    /// File before a container → None (same walk; File is not skipped).
+    let enclosingContainer (graph: Graph) (nodeId: NodeId) : NodeId option =
+        enclosing graph (fun node ->
+            NodeKind.container node.kind
+            || match node.kind with
+               | Special File -> true
+               | _ -> false) nodeId
+        |> Option.bind (fun id ->
+            match Map.tryFind id graph.nodes with
+            | Some node when NodeKind.container node.kind -> Some id
+            | _ -> None)
+
     /// Placement valid for owned File/Directory: owner chain from ownerId
     /// reaches Workspace|Directory before File.
-    let canOwn (graph: Graph) (ownerId: NodeId) (_childId: NodeId) : bool =
-        owningArtifact graph ownerId |> Option.isSome
+    let containerOrDescendant (graph: Graph) (ownerId: NodeId) : bool =
+        enclosingContainer graph ownerId |> Option.isSome
 
     /// Prefer canOwn when childId is known.
     let isValidOwnedFileDirectoryParent (graph: Graph) (parentId: NodeId) : bool =
-        canOwn graph parentId parentId
+        containerOrDescendant graph parentId 
 
     let private nameLowerOk (node: Node) : string option =
         match node.name with
@@ -68,6 +81,9 @@ module GraphQuery =
                 |> Option.bind nameLowerOk)
 
     /// Owned File/Directory/Workspace nodes in an artifact directory.
+    /// Owner-subtree walk: recurse Normal|Workspaces; include artifacts;
+    /// do not descend into nested Directory|Workspace containers.
+    /// Do not replace with Map.toList over graph.nodes — graphs may be huge.
     let ownedArtifactsInDirectory
         (graph: Graph)
         (artifactDir: NodeId)
@@ -75,19 +91,33 @@ module GraphQuery =
         (excludeId: NodeId option)
         : NodeId list
         =
-        graph.nodes
-        |> Map.toList
-        |> List.choose (fun (id, node) ->
-            if excludeId = Some id then None
-            elif not (isArtifact node) then None
+        let rec walk (parentId: NodeId) (visited: Set<NodeId>) (acc: NodeId list) =
+            if Set.contains parentId visited then
+                acc
             else
-                match Map.tryFind id graph.ownerParentByChild with
-                | Some p when excludeParentId = Some p -> None
-                | Some p ->
-                    match owningArtifact graph p with
-                    | Some d when d = artifactDir -> Some id
-                    | _ -> None
-                | None -> None)
+                let visited = Set.add parentId visited
+                match Map.tryFind parentId graph.nodes with
+                | None -> acc
+                | Some parent ->
+                    parent.children
+                    |> List.fold
+                        (fun acc child ->
+                            if child.ref <> Ownership.Owner then
+                                acc
+                            elif Set.contains child.id visited then
+                                acc
+                            else
+                                match Map.tryFind child.id graph.nodes with
+                                | None -> acc
+                                | Some node when isArtifact node ->
+                                    if excludeId = Some child.id then acc
+                                    elif excludeParentId = Some parentId then acc
+                                    else child.id :: acc
+                                | Some _ ->
+                                    walk child.id visited acc)
+                        acc
+
+        walk artifactDir Set.empty []
 
     let artifactNameLowers
         (graph: Graph)
@@ -108,7 +138,7 @@ module GraphQuery =
         (nameLower: string)
         : bool
         =
-        match owningArtifact graph parentId with
+        match enclosingContainer graph parentId with
         | None -> false
         | Some artifactDir ->
             artifactNameLowers graph artifactDir None excludeId
@@ -122,7 +152,7 @@ module GraphQuery =
         (updatedChildren: ChildNode list)
         : bool
         =
-        match owningArtifact graph parentId with
+        match enclosingContainer graph parentId with
         | None -> false
         | Some artifactDir ->
             let fromOthers =
@@ -157,7 +187,7 @@ module GraphQuery =
                 match Map.tryFind id graph.ownerParentByChild with
                 | None -> None
                 | Some parentId ->
-                    match owningArtifact graph parentId, nameLowerOk node with
+                    match enclosingContainer graph parentId, nameLowerOk node with
                     | Some artifactDir, Some nameLower -> Some(artifactDir, nameLower)
                     | _ -> None)
         |> List.groupBy fst
@@ -173,34 +203,17 @@ module GraphQuery =
         (graph: Graph)
         (focusId: NodeId)
         : (NodeId * int) option =
-        if canOwn graph focusId focusId then
+        if containerOrDescendant graph focusId then
             Some(focusId, fileTreeInsertIndex graph focusId)
         else
             match tryFindParentAndIndex focusId graph with
-            | Some(parentId, index) when canOwn graph parentId focusId ->
+            | Some(parentId, index) when containerOrDescendant graph parentId ->
                 Some(parentId, index + 1)
             | _ -> None
 
     /// Parent along the canonical `Ownership.Owner` edge. `None` id -> `None`.
     let owner (graph: Graph) (id: NodeId option) : NodeId option =
         id |> Option.bind (fun nid -> Map.tryFind nid graph.ownerParentByChild)
-
-    /// First node on the owner chain (including `nodeId`) matching `predicate`.
-    let enclosing
-        (graph: Graph)
-        (predicate: Node -> bool)
-        (nodeId: NodeId)
-        : NodeId option =
-        let rec walk (current: NodeId) =
-            match Map.tryFind current graph.nodes with
-            | None -> None
-            | Some node when predicate node -> Some current
-            | Some _ ->
-                match Map.tryFind current graph.ownerParentByChild with
-                | None -> None
-                | Some parentId -> walk parentId
-
-        walk nodeId
 
     let private isEnclosingWorkspaceNode (node: Node) : bool =
         node.id = GraphBuild.rootId

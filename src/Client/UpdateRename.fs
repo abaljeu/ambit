@@ -60,6 +60,6 @@ let submitRenamePromptOp (model: VM) : VM * Effect list =
                       changeId = System.Guid.NewGuid()
                       ops = ops }
                 match applyAndPost change result with
-                | Some m, effects -> withSiteMap m, effects
-                | None, _ -> result, []
+                | Ok (m, effects) -> withSiteMap m, effects
+                | Error _ -> result, []
     | _ -> model, []

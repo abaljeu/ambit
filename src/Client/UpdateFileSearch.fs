@@ -28,8 +28,8 @@ let private applyOpsChange (ops: Op list) (model: VM) : VM * Effect list =
               changeId = System.Guid.NewGuid()
               ops = ops }
         match applyAndPost change model with
-        | None, _ -> withCmdError "could not apply" model
-        | Some m, effects -> withSiteMap m, effects
+        | Error _ -> withCmdError "could not apply" model
+        | Ok (m, effects) -> withSiteMap m, effects
 
 let private focusParentId (model: VM) : NodeId option =
     match model.selectedNodes with
