@@ -331,7 +331,7 @@ let ``Graph.replace accepts Special Workspace under workspaces node`` () =
     | Error err -> Assert.True(false, $"Expected Ok, got Error: {err}")
 
 [<Fact>]
-let ``Graph.replace rejects Special Directory under normal parent`` () =
+let ``Graph.replace accepts Special Directory under normal parent`` () =
     let graph0 = Graph.create ()
     let graph1, ids = ModelBuilder.createNodes [ "parent" ] graph0
     let parent = ids.[0]
@@ -340,14 +340,13 @@ let ``Graph.replace rejects Special Directory under normal parent`` () =
     let dirId = NodeId.New()
     let graph3 = addSpecialNode dirId Directory "dir" graph2
     match Graph.replace parent 0 [] (owned [ dirId ]) graph3 with
-    | Ok _ -> Assert.True(false, "expected Error")
-    | Error msg ->
-        Assert.Contains(
-            "File and Directory nodes may only be placed under a Workspace or Directory",
-            msg)
+    | Ok graph4 ->
+        let children = graph4.nodes.[parent].children
+        Assert.Equal<NodeId list>([ dirId ], children |> List.map (fun c -> c.id))
+    | Error err -> Assert.True(false, $"Expected Ok, got Error: {err}")
 
 [<Fact>]
-let ``Graph.replace rejects Special File under normal parent`` () =
+let ``Graph.replace accepts Special File under normal parent`` () =
     let graph0 = Graph.create ()
     let graph1, ids = ModelBuilder.createNodes [ "parent" ] graph0
     let parent = ids.[0]
@@ -356,11 +355,10 @@ let ``Graph.replace rejects Special File under normal parent`` () =
     let fileId = NodeId.New()
     let graph3 = addSpecialNode fileId File "file" graph2
     match Graph.replace parent 0 [] (owned [ fileId ]) graph3 with
-    | Ok _ -> Assert.True(false, "expected Error")
-    | Error msg ->
-        Assert.Contains(
-            "File and Directory nodes may only be placed under a Workspace or Directory",
-            msg)
+    | Ok graph4 ->
+        let children = graph4.nodes.[parent].children
+        Assert.Equal<NodeId list>([ fileId ], children |> List.map (fun c -> c.id))
+    | Error err -> Assert.True(false, $"Expected Ok, got Error: {err}")
 
 [<Fact>]
 let ``Graph.replace accepts Special Directory under Special Workspace`` () =
@@ -436,7 +434,7 @@ let ``Graph.replace rejects Special Directory under Special File`` () =
     | Ok _ -> Assert.True(false, "expected Error")
     | Error msg ->
         Assert.Contains(
-            "File and Directory nodes may only be placed under a Workspace or Directory",
+            "File and Directory nodes must have a Workspace or Directory owner ancestor",
             msg)
 
 [<Fact>]
@@ -457,20 +455,19 @@ let ``Graph.replace rejects Special File under Special File`` () =
     | Ok _ -> Assert.True(false, "expected Error")
     | Error msg ->
         Assert.Contains(
-            "File and Directory nodes may only be placed under a Workspace or Directory",
+            "File and Directory nodes must have a Workspace or Directory owner ancestor",
             msg)
 
 [<Fact>]
-let ``Graph.replace rejects Special File under Workspaces`` () =
+let ``Graph.replace accepts Special File under Workspaces`` () =
     let graph0 = Graph.create ()
     let fileId = NodeId.New()
     let graph1 = addSpecialNode fileId File "file" graph0
     match Graph.replace Graph.workspacesId 0 [] (owned [ fileId ]) graph1 with
-    | Ok _ -> Assert.True(false, "expected Error")
-    | Error msg ->
-        Assert.Contains(
-            "File and Directory nodes may only be placed under a Workspace or Directory",
-            msg)
+    | Ok graph2 ->
+        let children = graph2.nodes.[Graph.workspacesId].children
+        Assert.Equal<NodeId list>([ fileId ], children |> List.map (fun c -> c.id))
+    | Error err -> Assert.True(false, $"Expected Ok, got Error: {err}")
 
 [<Fact>]
 let ``Graph.replace accepts Special File under TRASH`` () =
@@ -583,6 +580,94 @@ let ``Graph.replace accepts Normal node under any parent`` () =
         let children = graph3.nodes.[parent].children
         Assert.Equal<NodeId list>([ child ], children |> List.map (fun c -> c.id))
     | Error err -> Assert.True(false, $"Expected Ok, got Error: {err}")
+
+[<Fact>]
+let ``Graph.replace rejects same-named Files under different Normals of one Directory`` () =
+    let graph0 = Graph.create ()
+    let dirId = NodeId.New()
+    let graph1 =
+        graph0.nodes
+        |> Map.add
+            dirId
+            (Node.Create(
+                dirId,
+                text = "docs",
+                name = Filename.create "docs",
+                kind = Special Directory))
+        |> fun nodes -> Graph.fromNodes graph0.root nodes
+    let idx = Graph.fileTreeInsertIndex graph1 Graph.rootId
+    let graph2 =
+        Graph.replace Graph.rootId idx [] (owned [ dirId ]) graph1
+        |> requireOk "root->dir"
+    let graph3, normals = ModelBuilder.createNodes [ "n1"; "n2" ] graph2
+    let n1, n2 = normals.[0], normals.[1]
+    let graph4 =
+        Graph.replace dirId 0 [] (owned [ n1; n2 ]) graph3 |> requireOk "dir->normals"
+    let fileA = NodeId.New()
+    let fileB = NodeId.New()
+    let graph5 =
+        graph4.nodes
+        |> Map.add
+            fileA
+            (Node.Create(
+                fileA,
+                text = "a.txt",
+                name = Filename.create "a.txt",
+                kind = Special File))
+        |> Map.add
+            fileB
+            (Node.Create(
+                fileB,
+                text = "a.txt",
+                name = Filename.create "a.txt",
+                kind = Special File))
+        |> fun nodes -> Graph.fromNodes graph4.root nodes
+    let graph6 =
+        Graph.replace n1 0 [] (owned [ fileA ]) graph5 |> requireOk "n1->fileA"
+    match Graph.replace n2 0 [] (owned [ fileB ]) graph6 with
+    | Ok _ -> Assert.True(false, "expected name conflict")
+    | Error msg -> Assert.Contains("name conflict", msg)
+
+[<Fact>]
+let ``History.applyChange rejects Normal-owning-File moved under File`` () =
+    let graph0 = Graph.create ()
+    let outerFile = NodeId.New()
+    let graph1 = addSpecialNode outerFile File "outer.txt" graph0
+    let idx = Graph.fileTreeInsertIndex graph1 Graph.rootId
+    let graph2 =
+        Graph.replace Graph.rootId idx [] (owned [ outerFile ]) graph1
+        |> requireOk "root->outer"
+    let graph3, normals = ModelBuilder.createNodes [ "note" ] graph2
+    let normalId = normals.[0]
+    let rootIdx = Graph.fileTreeInsertIndex graph3 Graph.rootId
+    let graph4 =
+        Graph.replace Graph.rootId rootIdx [] (owned [ normalId ]) graph3
+        |> requireOk "root->normal"
+    let innerFile = NodeId.New()
+    let graph5 = addSpecialNode innerFile File "inner.txt" graph4
+    let graph6 =
+        Graph.replace normalId 0 [] (owned [ innerFile ]) graph5
+        |> requireOk "normal->inner"
+    let normalChild =
+        graph6.nodes.[Graph.rootId].children
+        |> List.find (fun c -> c.id = normalId)
+    let normalIdx =
+        graph6.nodes.[Graph.rootId].children
+        |> List.findIndex (fun c -> c.id = normalId)
+    let change =
+        { id = 0
+          changeId = System.Guid.NewGuid()
+          ops =
+            [ Op.Replace(Graph.rootId, normalIdx, [ normalChild ], [])
+              Op.Replace(outerFile, 0, [], [ normalChild ]) ] }
+    let state =
+        { graph = graph6
+          history = History.empty
+          revision = Revision.Zero }
+    match History.applyChange change state with
+    | ApplyResult.Invalid(_, msg) ->
+        Assert.Contains("File and Directory", msg)
+    | _ -> Assert.True(false, "expected Invalid when Normal-owning-File moves under File")
 
 // ---------------------------------------------------------------------------
 // Filename.create

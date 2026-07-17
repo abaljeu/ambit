@@ -143,32 +143,66 @@ let private normalUnderRoot () =
     normalId, graph2
 
 [<Fact>]
-let ``planCreateOwnedFile under invalid focus inserts beside under parent`` () =
+let ``planCreateOwnedFile under Normal under ROOT creates Owner under focus`` () =
     let focus, graph = normalUnderRoot ()
     let fileId, ops = FileNodeOps.planCreateOwnedFile graph focus ""
     Assert.True(ops.Length > 0)
     let graph2 = applyOps graph ops
     let fileNode = graph2.nodes.[fileId]
     Assert.Equal(Special File, fileNode.kind)
-    Assert.Equal(Graph.rootId, fileNode.owner)
-    let rootChildren = graph2.nodes.[Graph.rootId].children
-    let focusIdx =
-        rootChildren |> List.findIndex (fun c -> c.id = focus)
-    Assert.Equal(focus, rootChildren.[focusIdx].id)
-    Assert.Equal(fileId, rootChildren.[focusIdx + 1].id)
-    Assert.Equal(Ownership.Owner, rootChildren.[focusIdx + 1].ref)
+    Assert.Equal(focus, fileNode.owner)
+    Assert.True(
+        graph2.nodes.[focus].children
+        |> List.exists (fun c -> c.id = fileId && c.ref = Ownership.Owner))
 
 [<Fact>]
-let ``planCreateOwnedDirectory under invalid focus inserts beside under parent`` () =
+let ``planCreateOwnedDirectory under Normal under ROOT creates Owner under focus`` () =
     let focus, graph = normalUnderRoot ()
     let dirId, ops = FileNodeOps.planCreateOwnedDirectory graph focus ""
     Assert.True(ops.Length > 0)
     let graph2 = applyOps graph ops
-    Assert.Equal(Graph.rootId, graph2.nodes.[dirId].owner)
-    let rootChildren = graph2.nodes.[Graph.rootId].children
-    let focusIdx =
-        rootChildren |> List.findIndex (fun c -> c.id = focus)
-    Assert.Equal(dirId, rootChildren.[focusIdx + 1].id)
+    Assert.Equal(focus, graph2.nodes.[dirId].owner)
+
+let private normalOwnedByDirectory () =
+    let dirId, graph0 = outlineSetup ()
+    let graph1, childId = Graph.newNode "nested" graph0
+    let graph2 =
+        match Graph.replace dirId 0 [] [ owned childId ] graph1 with
+        | Ok g -> g
+        | Error e -> failwith e
+    childId, graph2
+
+[<Fact>]
+let ``planCreateOwnedFile under Normal owned by Directory yields Owner ops`` () =
+    let focus, graph = normalOwnedByDirectory ()
+    let fileId, ops = FileNodeOps.planCreateOwnedFile graph focus ""
+    Assert.True(ops.Length > 0)
+    let graph2 = applyOps graph ops
+    Assert.Equal(focus, graph2.nodes.[fileId].owner)
+
+[<Fact>]
+let ``planCreateOwnedDirectory under Normal owned by Directory yields Owner ops`` () =
+    let focus, graph = normalOwnedByDirectory ()
+    let dirId, ops = FileNodeOps.planCreateOwnedDirectory graph focus ""
+    Assert.True(ops.Length > 0)
+    let graph2 = applyOps graph ops
+    Assert.Equal(focus, graph2.nodes.[dirId].owner)
+
+[<Fact>]
+let ``planCreateOwnedFile unused name skips names under sibling Normal branches`` () =
+    let dirId, graph0 = outlineSetup ()
+    let graph1, n1 = Graph.newNode "n1" graph0
+    let graph2, n2 = Graph.newNode "n2" graph1
+    let graph3 =
+        match Graph.replace dirId 0 [] [ owned n1; owned n2 ] graph2 with
+        | Ok g -> g
+        | Error e -> failwith e
+    let fileId, ops1 = FileNodeOps.planCreateOwnedFile graph3 n1 ""
+    let graph4 = applyOps graph3 ops1
+    Assert.Equal(Filename.Ok "file.txt", graph4.nodes.[fileId].name)
+    let fileId2, ops2 = FileNodeOps.planCreateOwnedFile graph4 n2 ""
+    let graph5 = applyOps graph4 ops2
+    Assert.Equal(Filename.Ok "file1.txt", graph5.nodes.[fileId2].name)
 
 let private normalOwnedByNormal () =
     let parentId, graph0 = normalUnderRoot ()
@@ -180,15 +214,38 @@ let private normalOwnedByNormal () =
     childId, graph2
 
 [<Fact>]
-let ``planCreateOwnedFile under normal owned by normal returns empty ops`` () =
+let ``planCreateOwnedFile under nested Normal under ROOT creates Owner under focus`` () =
     let focus, graph = normalOwnedByNormal ()
-    let _, ops = FileNodeOps.planCreateOwnedFile graph focus ""
-    Assert.Empty(ops)
+    let fileId, ops = FileNodeOps.planCreateOwnedFile graph focus ""
+    Assert.True(ops.Length > 0)
+    let graph2 = applyOps graph ops
+    Assert.Equal(focus, graph2.nodes.[fileId].owner)
 
 [<Fact>]
-let ``planCreateOwnedDirectory under normal owned by normal returns empty ops`` () =
-    let focus, graph = normalOwnedByNormal ()
-    let _, ops = FileNodeOps.planCreateOwnedDirectory graph focus ""
+let ``planCreateOwnedFile under Normal under File returns empty ops`` () =
+    let graph0 = Graph.create ()
+    let fileId = NodeId.New()
+    let fileNode =
+        Node.Create(
+            fileId,
+            text = "note.txt",
+            name = Filename.create "note.txt",
+            kind = Special File)
+    let graph1 =
+        graph0.nodes
+        |> Map.add fileId fileNode
+        |> fun nodes -> Graph.fromNodes graph0.root nodes
+    let idx = Graph.fileTreeInsertIndex graph1 Graph.rootId
+    let graph2 =
+        match Graph.replace Graph.rootId idx [] [ owned fileId ] graph1 with
+        | Ok g -> g
+        | Error e -> failwith e
+    let graph3, focusId = Graph.newNode "nested" graph2
+    let graph4 =
+        match Graph.replace fileId 0 [] [ owned focusId ] graph3 with
+        | Ok g -> g
+        | Error e -> failwith e
+    let _, ops = FileNodeOps.planCreateOwnedFile graph4 focusId ""
     Assert.Empty(ops)
 
 [<Fact>]

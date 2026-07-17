@@ -132,8 +132,8 @@ let private addSpecialNode id kind name (graph: Graph) =
     |> Map.add id node
     |> fun nodes -> Graph.fromNodes graph.root nodes
 
-/// Normal sibling then owned Directory under ROOT — Tab would indent the
-/// directory under the normal node (illegal Owner placement).
+/// Normal sibling then owned Directory under ROOT — Tab indents the
+/// directory under the normal node (valid Owner placement via owner chain).
 let private folderBesideNormalGraph () =
     let graph0 = Graph.create ()
     let graph1, ids = ModelBuilder.createNodes [ "note" ] graph0
@@ -146,9 +146,23 @@ let private folderBesideNormalGraph () =
         |> ModelBuilder.requireOk "root children"
     graph, normalId, dirId
 
+/// File sibling then owned Directory under ROOT — Tab would indent under File
+/// (illegal Owner placement).
+let private folderBesideFileGraph () =
+    let graph0 = Graph.create ()
+    let fileId = NodeId.New()
+    let dirId = NodeId.New()
+    let graph1 = addSpecialNode fileId File "note.txt" graph0
+    let graph2 = addSpecialNode dirId Directory "folder" graph1
+    let idx = Graph.fileTreeInsertIndex graph2 Graph.rootId
+    let graph =
+        Graph.replace Graph.rootId idx [] (owned [ fileId; dirId ]) graph2
+        |> ModelBuilder.requireOk "root children"
+    graph, fileId, dirId
+
 [<Fact>]
 let ``completeIndent rejected keeps selection and sets invalid target message`` () =
-    let graph, _normalId, dirId = folderBesideNormalGraph ()
+    let graph, _fileId, dirId = folderBesideFileGraph ()
     let model = emptyModelAt graph Graph.rootId
     let rootEntry = model.siteMap.entries.[model.siteMap.rootId]
     let dirIdx =
@@ -176,7 +190,7 @@ let ``completeIndent rejected keeps selection and sets invalid target message`` 
     Assert.Equal("target is not a valid location", invalidMoveTargetMessage)
 
 [<Fact>]
-let ``indent under normal sibling is rejected by History.applyChange`` () =
+let ``indent Directory under Normal sibling is accepted by History.applyChange`` () =
     let graph, normalId, dirId = folderBesideNormalGraph ()
     let model = emptyModelAt graph Graph.rootId
     let rootEntry = model.siteMap.entries.[model.siteMap.rootId]
@@ -207,6 +221,8 @@ let ``indent under normal sibling is rejected by History.applyChange`` () =
           history = History.empty
           revision = selected.revision }
     match History.applyChange change state with
-    | ApplyResult.Invalid(_, msg) ->
-        Assert.Contains("File and Directory", msg)
-    | _ -> Assert.True(false, "expected Invalid for indent under normal")
+    | ApplyResult.Changed s ->
+        Assert.True(
+            s.graph.nodes.[normalId].children
+            |> List.exists (fun c -> c.id = dirId && c.ref = Ownership.Owner))
+    | _ -> Assert.True(false, "expected Changed for indent under normal")

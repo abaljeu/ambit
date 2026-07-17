@@ -9,7 +9,7 @@
 - `workspaces` owns `workspace` nodes.
 - `workspace` nodes can own `directory`, `file`, and `normal` nodes.
 - `directory` nodes can own `directory`, `file`, and `normal` nodes.
-- Owned `file` / `directory` may not sit under `normal` (or under `file` / `workspaces`); see [[workspace-file-directory-placement]].
+- Owned `file` / `directory` may sit under `normal` or `workspaces` when a `workspace` / `directory` ancestor terminates the owner chain; a `file` ancestor is illegal — [[workspace-file-directory-placement]].
 
 ## Context
 
@@ -20,8 +20,8 @@
 ## Target Concept
 
 - Outline editing stays flexible for `normal` nodes and refs.
-- Structural restrictions: `workspaces` / named `workspace`, plus owned `file` / `directory` only under `workspace` or `directory` (including TRASH) — [[workspace-file-directory-placement]].
-- A `file` may own `normal` content (and refs); it does not own other `file` / `directory` specials.
+- Structural restrictions: `workspaces` / named `workspace`, plus owned `file` / `directory` owner-chain placement (Workspace/Directory valid; File invalid; Normal/Workspaces continue) and persistence-directory name uniqueness — [[workspace-file-directory-placement]].
+- A `file` may own `normal` content (and refs); it does not own other `file` / `directory` specials (directly or via Normal/Workspaces).
 - Disk placement is still based on nearest owning directory ancestor.
 - Nested documents (child workspace/directory/file roots) persist as separate artifacts; members of a nested document are not inlined in the parent document's payload.
 

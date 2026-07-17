@@ -90,9 +90,18 @@ module GraphMutate =
                             match graph.ownerParentByChild |> Map.tryFind nodeId with
                             | None -> false
                             | Some parentId ->
-                                GraphQuery.ownedNameTaken graph parentId (Some nodeId) newNameLower
+                                match node.kind with
+                                | Special (File | Directory) ->
+                                    GraphQuery.ownedNameTaken
+                                        graph parentId (Some nodeId) newNameLower
+                                | _ ->
+                                    GraphQuery.ownedNameLowers
+                                        graph
+                                        (GraphQuery.childrenOf graph parentId)
+                                        (Some nodeId)
+                                    |> List.exists (fun n -> n = newNameLower)
                         if hasConflict then
-                            Error "sibling name conflict"
+                            Error "name conflict"
                         else
                             let updatedNode =
                                 match node.kind with
@@ -162,12 +171,11 @@ module GraphMutate =
                             Some "Workspace nodes may only be placed under Workspaces"
                         | Ownership.Owner, (Special File | Special Directory)
                             when child.id <> GraphBuild.trashId ->
-                            match parent.kind with
-                            | Special Workspace
-                            | Special Directory -> None
-                            | _ ->
+                            if GraphQuery.canOwn graph parentId child.id then
+                                None
+                            else
                                 Some
-                                    "File and Directory nodes may only be placed under a Workspace or Directory"
+                                    "File and Directory nodes must have a Workspace or Directory owner ancestor (not under a File)"
                         | _ -> None)
 
                 match placementError with
@@ -185,20 +193,12 @@ module GraphMutate =
                         let suffix = children |> List.skip (index + oldCount)
                         let updatedChildren = prefix @ newChildren @ suffix
 
-                        let conflictNames =
-                            if parentId = GraphBuild.rootId || parentId = GraphBuild.workspacesId then
-                                let rootCh =
-                                    if parentId = GraphBuild.rootId then updatedChildren
-                                    else GraphQuery.childrenOf graph GraphBuild.rootId
-                                let wsCh =
-                                    if parentId = GraphBuild.workspacesId then updatedChildren
-                                    else GraphQuery.childrenOf graph GraphBuild.workspacesId
-                                GraphQuery.ownedNameLowers graph (rootCh @ wsCh) None
-                            else
-                                GraphQuery.ownedNameLowers graph updatedChildren None
+                        let hasNameConflict =
+                            GraphQuery.siblingOwnedNameConflict graph updatedChildren
+                            || GraphQuery.artifactNameConflict graph parentId updatedChildren
 
-                        if conflictNames.Length <> (conflictNames |> List.distinct).Length then
-                            Error "sibling name conflict"
+                        if hasNameConflict then
+                            Error "name conflict"
                         elif parentId = GraphBuild.rootId then
                             let hadTrashOwner =
                                 children

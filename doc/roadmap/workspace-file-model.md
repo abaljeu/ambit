@@ -135,7 +135,7 @@ Authority for implemented behavior: [[doc/current/workspace-graph.md]],
 
 See [[doc/current/workspace-graph.md]] for enforced placement rules.
 
-Placement restrictions: named `Workspace` only under `Workspaces`; owned `File` / `Directory` only under `Workspace` (ROOT or named) or `Directory` (including TRASH). `Normal` may be placed anywhere. Refs are unrestricted. Supersedes older free-form ownership claims for owned File/Directory — see [[doc/roadmap/workspace-file-directory-placement]].
+Placement restrictions: named `Workspace` only under `Workspaces`; owned `File` / `Directory` require a `Workspace` or `Directory` on the owner chain before any `File` (`Normal` / `Workspaces` may intervene). Persistence-directory name uniqueness among owned File/Directory/named Workspace. `Normal` may be placed anywhere. Refs are unrestricted. See [[doc/roadmap/workspace-file-directory-placement]].
 
 **Context** (special-node ancestry used for reference resolution) is separate from placement.
 Context traversal uses only `workspace`, `directory`, and `file` nodes along the owner chain;
@@ -149,12 +149,12 @@ No full **Insert…** / **Rename** command surface exists yet (Stage 6). Workspa
 
 **Delete:** soft delete moves owner under TRASH (`MoveToTrash`); hard delete under TRASH removes subtree (Stage 7 artifact removal).
 
-Owned File/Directory placement (Slice A): under Workspace or Directory only — [[doc/roadmap/workspace-file-directory-placement]]. Older free-form bullets below are superseded for **owned** File/Directory; create/move UX at invalid focus is Slice B.
+Owned File/Directory placement: owner-chain walk (Workspace/Directory valid; File invalid; Normal/Workspaces continue) plus directory-scoped name uniqueness — [[doc/roadmap/workspace-file-directory-placement]]. Slice B create/move UX cancelled.
 
-- `directory` and `file` owner children: only under `workspace` or `directory` (including TRASH); not under `normal`, `file`, or `workspaces`
+- `directory` and `file` owner children: chain must reach `workspace` or `directory` (including TRASH) before any `file`; `normal` / `workspaces` may sit on the chain
 - `normal` nodes may be owned by any parent
-- `file` may own `normal` (and refs) for outline content; not owned File/Directory
-- disk placement for special nodes is still determined by nearest owning `directory` ancestor
+- `file` may own `normal` (and refs) for outline content; not owned File/Directory (directly or via Normal/Workspaces)
+- disk placement for special nodes is still determined by nearest owning `directory` / `workspace` ancestor
 
 ## Model Entities
 

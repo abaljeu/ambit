@@ -74,17 +74,73 @@ let ``enclosingWorkspace resolves named workspace ROOT and TRASH`` () =
         GraphQuery.enclosingWorkspace graph Graph.workspacesId)
 
 [<Fact>]
-let ``resolveOwnedFileDirectoryInsert returns None for nested normal`` () =
+let ``resolveOwnedFileDirectoryInsert returns Some focus for nested normal under Directory`` () =
     let graph0 = Graph.create ()
-    let graph1, parentId = Graph.newNode "parent" graph0
+    let dirId = NodeId.New()
+    let dirNode = specialNode dirId Directory "docs" Graph.rootId
+    let graph1 =
+        graph0.nodes
+        |> Map.add dirId dirNode
+        |> fun nodes -> Graph.fromNodes graph0.root nodes
     let idx = Graph.fileTreeInsertIndex graph1 Graph.rootId
     let graph2 =
-        Graph.replace Graph.rootId idx [] (owned [ parentId ]) graph1
-        |> requireOk "root->parent"
+        Graph.replace Graph.rootId idx [] (owned [ dirId ]) graph1
+        |> requireOk "root->dir"
     let graph3, focusId = Graph.newNode "nested" graph2
     let graph4 =
-        Graph.replace parentId 0 [] (owned [ focusId ]) graph3
-        |> requireOk "parent->nested"
+        Graph.replace dirId 0 [] (owned [ focusId ]) graph3
+        |> requireOk "dir->nested"
+    match GraphQuery.resolveOwnedFileDirectoryInsert graph4 focusId with
+    | Some(parentId, _) -> Assert.Equal(focusId, parentId)
+    | None -> Assert.True(false, "expected Some(focus)")
+
+[<Fact>]
+let ``resolveOwnedFileDirectoryInsert returns None for nested normal under File`` () =
+    let graph0 = Graph.create ()
+    let fileId = NodeId.New()
+    let fileNode = specialNode fileId File "note.txt" Graph.rootId
+    let graph1 =
+        graph0.nodes
+        |> Map.add fileId fileNode
+        |> fun nodes -> Graph.fromNodes graph0.root nodes
+    let idx = Graph.fileTreeInsertIndex graph1 Graph.rootId
+    let graph2 =
+        Graph.replace Graph.rootId idx [] (owned [ fileId ]) graph1
+        |> requireOk "root->file"
+    let graph3, focusId = Graph.newNode "nested" graph2
+    let graph4 =
+        Graph.replace fileId 0 [] (owned [ focusId ]) graph3
+        |> requireOk "file->nested"
     Assert.Equal(
         None,
         GraphQuery.resolveOwnedFileDirectoryInsert graph4 focusId)
+
+[<Fact>]
+let ``ownedNameTaken is true across Normal branches in same Directory`` () =
+    let graph0 = Graph.create ()
+    let dirId = NodeId.New()
+    let dirNode = specialNode dirId Directory "docs" Graph.rootId
+    let graph1 =
+        graph0.nodes
+        |> Map.add dirId dirNode
+        |> fun nodes -> Graph.fromNodes graph0.root nodes
+    let idx = Graph.fileTreeInsertIndex graph1 Graph.rootId
+    let graph2 =
+        Graph.replace Graph.rootId idx [] (owned [ dirId ]) graph1
+        |> requireOk "root->dir"
+    let graph3, n1 = Graph.newNode "n1" graph2
+    let graph4, n2 = Graph.newNode "n2" graph3
+    let graph5 =
+        Graph.replace dirId 0 [] (owned [ n1; n2 ]) graph4
+        |> requireOk "dir->normals"
+    let fileId = NodeId.New()
+    let fileNode = specialNode fileId File "a.txt" n1
+    let graph6 =
+        graph5.nodes
+        |> Map.add fileId fileNode
+        |> fun nodes -> Graph.fromNodes graph5.root nodes
+    let graph7 =
+        Graph.replace n1 0 [] (owned [ fileId ]) graph6
+        |> requireOk "n1->file"
+    Assert.True(GraphQuery.ownedNameTaken graph7 n2 None "a.txt")
+    Assert.False(GraphQuery.ownedNameTaken graph7 n2 None "other.txt")

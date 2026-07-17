@@ -42,11 +42,11 @@ Enforced in `Graph.replace` (not by a separate command layer).
 
 Placement restrictions for owned children:
 
-| Node kind | Allowed owner parent |
+| Node kind | Allowed owner ancestry |
 |-----------|----------------------|
 | `Workspaces` | root only (permanent, canonical) |
 | `Workspace` | `Workspaces` only |
-| `Directory` | `Workspace` (ROOT or named) or `Directory` (including TRASH) |
+| `Directory` | owner chain must reach `Workspace` (ROOT or named) or `Directory` (including TRASH) before any `File`; `Normal` and `Workspaces` are skipped |
 | `File` | same as `Directory` |
 | `Normal` | anywhere |
 
@@ -55,7 +55,7 @@ Named `Workspace` nodes remain under `Workspaces` only. Ref links are unrestrict
 
 `Workspaces` and `Trash` may not appear as children of any non-root parent.
 
-Owned `File` / `Directory` may not sit under `Normal`, `File`, or the `Workspaces` container. See [[doc/roadmap/workspace-file-directory-placement]].
+Owned `File` / `Directory` may sit under `Normal` or `Workspaces` when a Workspace/Directory ancestor terminates the owner chain; a `File` ancestor is illegal. Names that persist into the same system directory must be unique among owned File/Directory/named Workspace nodes in that artifact directory. See [[doc/roadmap/workspace-file-directory-placement]].
 
 Tests: `tests/Shared.Tests/ModelTests.fs` (workspaces bootstrap and placement cases).
 
@@ -86,11 +86,11 @@ Workspace nodes are created through the general change op surface; names are fix
 - **Rename** — workspace names are immutable after creation. `Graph.setName` rejects
   `Special Workspace` (`"cannot rename a workspace"`); `NodeRenameOps.isRenameAllowed` is false
   so F2 / Rename does not open a prompt. Directory, File, and Normal nodes still rename via
-  `Op.SetName` with `Graph.setName` validation (case-insensitive sibling uniqueness, invalid
+  `Op.SetName` with `Graph.setName` validation (case-insensitive artifact-directory uniqueness, invalid
   filename chars rejected). Named workspaces and Root-owned Files/Directories also share one
   case-insensitive DataDir top-level namespace (`Graph.replace` / `Graph.setName` reject;
-  create planners auto-rename via `Graph.takenOwnedNamesLower`). Nested File/Directory names
-  are not in that namespace.
+  create planners auto-rename via unused-name helpers). Nested File/Directory names collide only
+  within the same artifact directory (nearest Workspace/Directory on the owner chain).
 
 **Stage 6 target — Insert…:** create workspace under `Workspaces`, or `Special Directory` / `Special File` as owner child of focus; pick-existing insert via search unchanged.
 

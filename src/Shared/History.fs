@@ -348,7 +348,23 @@ module History =
                 if hasBrokenOwnerChain then
                     Error "invalid ownership semantics: owner chain does not reach root"
                 else
-                    Ok ()
+                    let hasInvalidFileDirectoryPlacement =
+                        allChildren
+                        |> Seq.exists (fun (parentId, child) ->
+                            match child.ref, Map.tryFind child.id graph.nodes with
+                            | Ownership.Owner, Some { kind = Special (File | Directory) }
+                                when child.id <> Graph.trashId ->
+                                not (GraphQuery.canOwn graph parentId child.id)
+                            | _ -> false)
+
+                    if hasInvalidFileDirectoryPlacement then
+                        Error
+                            "invalid ownership semantics: File and Directory nodes must have a Workspace or Directory owner ancestor (not under a File)"
+                    elif GraphQuery.hasArtifactNameDuplicates graph then
+                        Error
+                            "invalid ownership semantics: duplicate name in artifact directory"
+                    else
+                        Ok ()
 
     let empty: History =
         { past = []
