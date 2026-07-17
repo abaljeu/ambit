@@ -70,9 +70,12 @@ module ViewModelMoveOps =
     /// Shown in `#cmd-last-result` when a move/indent target is illegal.
     let invalidMoveTargetMessage = "target is not a valid location"
 
-    let withInvalidMoveTarget (model: VM) : VM =
+    let withMoveError (message: string) (model: VM) : VM =
         { model with
-            lastCmdResult = Some(CmdLastResult.Error (None, invalidMoveTargetMessage)) }
+            lastCmdResult = Some(CmdLastResult.Error (None, message)) }
+
+    let withInvalidMoveTarget (model: VM) : VM =
+        withMoveError invalidMoveTargetMessage model
 
     /// After a successful indent move (siteMap already reconciled), expand the
     /// previous-sibling parent if needed and select the moved nodes under it.
@@ -94,16 +97,16 @@ module ViewModelMoveOps =
         | Some sel -> { result with selectedNodes = Some sel }
         | None -> result
 
-    /// Tab-indent completion. `moved = None` when apply rejected the replace —
-    /// keep the caller's original selection/focus and report invalid target.
+    /// Tab-indent completion. `Error` keeps the caller's original selection/focus
+    /// and reports the apply/reject message in `lastCmdResult`.
     let completeIndent
         (original: VM)
         (plan: IndentPlan)
-        (moved: VM option)
+        (moved: Result<VM, string>)
         : VM =
         match moved with
-        | None -> withInvalidMoveTarget original
-        | Some result -> selectionModelAfterIndent plan result
+        | Error msg -> withMoveError msg original
+        | Ok result -> selectionModelAfterIndent plan result
 
     let private planOutdentWithinSiteMap model sel parentInstId =
         Map.tryFind parentInstId model.siteMap.entries

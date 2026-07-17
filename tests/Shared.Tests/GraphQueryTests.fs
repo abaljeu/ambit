@@ -144,3 +144,41 @@ let ``ownedNameTaken is true across Normal branches in same Directory`` () =
         |> requireOk "n1->file"
     Assert.True(GraphQuery.ownedNameTaken graph7 n2 None "a.txt")
     Assert.False(GraphQuery.ownedNameTaken graph7 n2 None "other.txt")
+
+/// Two same-named Directories under ROOT via fromNodes (illegal load), plus a
+/// Normal and a Ref to one Directory — local Ref attach must not consult foreign dups.
+let private graphWithForeignDuplicateDirsAndRef () =
+    let graph0 = Graph.create ()
+    let d1Id, d2Id, normalId = NodeId.New(), NodeId.New(), NodeId.New()
+    let d1 = specialNode d1Id Directory "dup" Graph.rootId
+    let d2 = specialNode d2Id Directory "dup" Graph.rootId
+    let normal =
+        Node.Create(normalId, text = "note", name = Filename.Empty, owner = Graph.rootId)
+    let root = graph0.nodes.[Graph.rootId]
+    let nodes =
+        graph0.nodes
+        |> Map.add Graph.rootId
+            { root with
+                children =
+                    root.children
+                    @ owned [ d1Id; d2Id; normalId ] }
+        |> Map.add d1Id d1
+        |> Map.add d2Id d2
+        |> Map.add normalId normal
+    let graph = Graph.fromNodes graph0.root nodes
+    graph, normalId, d1Id
+
+[<Fact>]
+let ``artifactNameConflict ignores foreign-only duplicate names`` () =
+    let graph, normalId, _d1Id = graphWithForeignDuplicateDirsAndRef ()
+    Assert.False(GraphQuery.artifactNameConflict graph normalId [])
+    Assert.True(GraphQuery.hasArtifactNameDuplicates graph)
+
+[<Fact>]
+let ``Graph.replace accepts Ref attach despite foreign duplicate artifact names`` () =
+    let graph, normalId, d1Id = graphWithForeignDuplicateDirsAndRef ()
+    let dirRef = { ref = Ownership.Ref; id = d1Id }
+    match Graph.replace normalId 0 [] [ dirRef ] graph with
+    | Ok graph2 ->
+        Assert.Equal<ChildNode list>([ dirRef ], graph2.nodes.[normalId].children)
+    | Error err -> Assert.True(false, $"Expected Ok, got Error: {err}")

@@ -20,3 +20,5 @@ Indentation is equally important as it is in python or Haskell.
 Follow language norms. Match existing style.
 
 Graphs may be millions of nodes. In hot paths, avoid O(nodes) full-graph scans (e.g. `Map.toList graph.nodes`). Prefer owner-subtree or other local walks (see `GraphQuery.ownedArtifactsInDirectory`).
+
+Before adding a custom graph walk in Shared, check `GraphQuery` helpers first: `enclosing` walks **up** the owner chain; `ownedArtifactsInDirectory` walks **down** through Owner children (recurse Normal|Workspaces; stop at artifacts). A new `walk` is rarely needed — e.g. `ownsFileOrDirectoryThroughSkippables` is just a File|Directory filter over that downward walk, not a separate traversal.

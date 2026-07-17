@@ -53,32 +53,7 @@ module GraphQuery =
 
     /// Prefer canOwn when childId is known.
     let isValidOwnedFileDirectoryParent (graph: Graph) (parentId: NodeId) : bool =
-        containerOrDescendant graph parentId 
-
-    let private nameLowerOk (node: Node) : string option =
-        match node.name with
-        | Filename.Ok n -> Some(n.ToLowerInvariant())
-        | _ -> None
-
-    let childrenOf (graph: Graph) (parentId: NodeId) : ChildNode list =
-        match graph.nodes |> Map.tryFind parentId with
-        | Some p -> p.children
-        | None -> []
-
-    let ownedNameLowers
-        (graph: Graph)
-        (children: ChildNode list)
-        (excludeId: NodeId option)
-        : string list
-        =
-        children
-        |> List.choose (fun c ->
-            if c.ref <> Ownership.Owner then None
-            elif excludeId = Some c.id then None
-            else
-                graph.nodes
-                |> Map.tryFind c.id
-                |> Option.bind nameLowerOk)
+        containerOrDescendant graph parentId
 
     /// Owned File/Directory/Workspace nodes in an artifact directory.
     /// Owner-subtree walk: recurse Normal|Workspaces; include artifacts;
@@ -119,6 +94,64 @@ module GraphQuery =
 
         walk artifactDir Set.empty []
 
+    /// File|Directory among artifacts reachable via `ownedArtifactsInDirectory`
+    /// walk from nodeId (not `enclosing` — that walks up, not down).
+    let ownsFileOrDirectoryThroughSkippables (graph: Graph) (nodeId: NodeId) : bool =
+        ownedArtifactsInDirectory graph nodeId None None
+        |> List.exists (fun id ->
+            if id = GraphBuild.trashId then
+                false
+            else
+                match Map.tryFind id graph.nodes with
+                | Some { kind = Special (File | Directory) } -> true
+                | _ -> false)
+
+    /// True when attaching these Owner children under parentId would place a
+    /// File/Directory without a Workspace|Directory ancestor (Refs ignored).
+    let invalidOwnedFileDirectoryPlacement
+        (graph: Graph)
+        (parentId: NodeId)
+        (newChildren: ChildNode list)
+        : bool
+        =
+        if containerOrDescendant graph parentId then
+            false
+        else
+            newChildren
+            |> List.exists (fun child ->
+                match child.ref, Map.tryFind child.id graph.nodes with
+                | Ownership.Owner, Some { kind = Special (File | Directory) }
+                    when child.id <> GraphBuild.trashId ->
+                    true
+                | Ownership.Owner, Some { kind = Normal | Special Workspaces } ->
+                    ownsFileOrDirectoryThroughSkippables graph child.id
+                | _ -> false)
+
+    let private nameLowerOk (node: Node) : string option =
+        match node.name with
+        | Filename.Ok n -> Some(n.ToLowerInvariant())
+        | _ -> None
+
+    let childrenOf (graph: Graph) (parentId: NodeId) : ChildNode list =
+        match graph.nodes |> Map.tryFind parentId with
+        | Some p -> p.children
+        | None -> []
+
+    let ownedNameLowers
+        (graph: Graph)
+        (children: ChildNode list)
+        (excludeId: NodeId option)
+        : string list
+        =
+        children
+        |> List.choose (fun c ->
+            if c.ref <> Ownership.Owner then None
+            elif excludeId = Some c.id then None
+            else
+                graph.nodes
+                |> Map.tryFind c.id
+                |> Option.bind nameLowerOk)
+
     let artifactNameLowers
         (graph: Graph)
         (artifactDir: NodeId)
@@ -144,38 +177,88 @@ module GraphQuery =
             artifactNameLowers graph artifactDir None excludeId
             |> List.exists (fun n -> n = nameLower)
 
-    /// True when updatedChildren would duplicate a File/Directory/Workspace name
-    /// in parentId's artifact directory (other parents' specials included).
+    /// True when owned artifacts in `introduced` duplicate a File/Directory/Workspace
+    /// name in parentId's artifact directory. Only names from `introduced` are gated;
+    /// pre-existing foreign or sibling duplicates alone do not fail the op.
     let artifactNameConflict
         (graph: Graph)
         (parentId: NodeId)
-        (updatedChildren: ChildNode list)
+        (introduced: ChildNode list)
         : bool
         =
         match enclosingContainer graph parentId with
         | None -> false
         | Some artifactDir ->
-            let fromOthers =
-                artifactNameLowers graph artifactDir (Some parentId) None
-            let fromParent =
-                updatedChildren
+            let introducedArtifacts =
+                introduced
                 |> List.choose (fun c ->
                     if c.ref <> Ownership.Owner then None
                     else
                         match Map.tryFind c.id graph.nodes with
-                        | Some node when isArtifact node -> nameLowerOk node
+                        | Some node when isArtifact node ->
+                            nameLowerOk node |> Option.map (fun n -> c.id, n)
                         | _ -> None)
-            let all = fromOthers @ fromParent
-            all.Length <> (all |> List.distinct).Length
 
-    /// Sibling owned-name uniqueness (all kinds with Filename.Ok), including Normals.
+            if List.isEmpty introducedArtifacts then
+                false
+            else
+                let names = introducedArtifacts |> List.map snd
+
+                if names.Length <> (names |> List.distinct).Length then
+                    true
+                else
+                    let introducedIds =
+                        introducedArtifacts |> List.map fst |> Set.ofList
+
+                    let otherNames =
+                        ownedArtifactsInDirectory graph artifactDir None None
+                        |> List.filter (fun id -> not (Set.contains id introducedIds))
+                        |> List.choose (fun id ->
+                            graph.nodes |> Map.tryFind id |> Option.bind nameLowerOk)
+                        |> Set.ofList
+
+                    names |> List.exists (fun n -> Set.contains n otherNames)
+
+    /// Sibling owned-name uniqueness for names introduced by `introduced`.
+    /// Pre-existing sibling dups among non-introduced children do not fail the op.
     let siblingOwnedNameConflict
         (graph: Graph)
         (updatedChildren: ChildNode list)
+        (introduced: ChildNode list)
         : bool
         =
-        let names = ownedNameLowers graph updatedChildren None
-        names.Length <> (names |> List.distinct).Length
+        let introducedNamed =
+            introduced
+            |> List.choose (fun c ->
+                if c.ref <> Ownership.Owner then None
+                else
+                    graph.nodes
+                    |> Map.tryFind c.id
+                    |> Option.bind nameLowerOk
+                    |> Option.map (fun n -> c.id, n))
+
+        if List.isEmpty introducedNamed then
+            false
+        else
+            let names = introducedNamed |> List.map snd
+
+            if names.Length <> (names |> List.distinct).Length then
+                true
+            else
+                let introducedIds = introducedNamed |> List.map fst |> Set.ofList
+
+                let otherNames =
+                    updatedChildren
+                    |> List.choose (fun c ->
+                        if c.ref <> Ownership.Owner then None
+                        elif Set.contains c.id introducedIds then None
+                        else
+                            graph.nodes
+                            |> Map.tryFind c.id
+                            |> Option.bind nameLowerOk)
+                    |> Set.ofList
+
+                names |> List.exists (fun n -> Set.contains n otherNames)
 
     /// Full-graph: duplicate File/Directory/Workspace names in any artifact dir.
     let hasArtifactNameDuplicates (graph: Graph) : bool =

@@ -56,14 +56,14 @@ let private trySaveContext (mode: Mode) : InlineEditContext option =
     unwrapMode mode
 
 
-let private tryApplyOps (ops: Op list) (model: VM) : (VM * Effect list) option =
+let private tryApplyOps (ops: Op list) (model: VM) =
     let change =
         { id = model.revision.Value
           changeId = System.Guid.NewGuid()
           ops = ops }
     match applyAndPost change model with
-    | Ok (m, effects) -> Some (m, effects)
-    | Error _ -> None
+    | Ok (m, effects) -> Ok (m, effects)
+    | Error err -> Error err
 
 let private tryBuildMoveInputs
     (too: NodeRange)
@@ -116,8 +116,8 @@ let private restoreInlineMode
 /// Move the selected nodes to after `too`. May remove from old parent and add to new
 /// (two Op.Replace ops), or reorder within the same parent.
 /// Inline edit: `tryTextCommitOps` + move in one change; stay in edit mode with clamped caret.
-/// None when inputs are missing or History rejects the change.
-let tryMoveNodeFromTo (stayAtSource: bool) (too: NodeRange) (model: VM) : (VM * Effect list) option =
+/// Error when inputs are missing or History rejects the change (message for `#cmd-last-result`).
+let tryMoveNodeFromTo (stayAtSource: bool) (too: NodeRange) (model: VM) : Result<VM * Effect list, string> =
     let oldMode = trySaveContext model.mode
     let live = readEditInputValue ()
     let caret = readEditInputCursor ()
@@ -128,13 +128,13 @@ let tryMoveNodeFromTo (stayAtSource: bool) (too: NodeRange) (model: VM) : (VM * 
             tryTextCommitOps editingId ctx.originalText live model.graph
         | _ -> []
     match tryBuildMoveInputs too model with
-    | None -> None
+    | None -> Error invalidMoveTargetMessage
     | Some (sel, from, selectedChildren, count, sameParent, insertIdx) ->
         let replaceOps = replaceOpsForMove too from selectedChildren sameParent insertIdx
         let ops = textOps @ replaceOps
         match tryApplyOps ops model with
-        | None -> None
-        | Some (movedModel, effects) ->
+        | Error e -> Error e
+        | Ok (movedModel, effects) ->
             let newParent =
                 if sameParent then from.parent else
                     movedModel.siteMap.entries
@@ -157,12 +157,12 @@ let tryMoveNodeFromTo (stayAtSource: bool) (too: NodeRange) (model: VM) : (VM * 
                 | Some newSel, _ -> restoreInlineMode oldMode caret newSel movedModel
                 | None, Some _ -> { movedModel with mode = Selecting }
                 | None, None -> movedModel
-            Some (finalModel, effects)
+            Ok (finalModel, effects)
 
 let moveNodeFromTo (stayAtSource: bool) (too: NodeRange) (model: VM) : VM * Effect list =
     match tryMoveNodeFromTo stayAtSource too model with
-    | Some result -> result
-    | None -> model, []
+    | Ok result -> result
+    | Error msg -> withMoveError msg model, []
 
 /// Alt+Up/Down: swap the selected range with the adjacent sibling. Delegates to moveNodeFromTo.
 let private moveIntoOpenParentSibling (delta: int) (range: SiteNodeRange) (model: VM) =
@@ -231,15 +231,15 @@ let moveNodeDelta (delta: int) (model: VM) : VM * Effect list =
 
 /// Tab: make selected nodes children of the sibling immediately before them.
 /// No-op if the selection starts at index 0 (no previous sibling).
-/// Rejected apply: original selection/focus unchanged + invalid-target lastCmdResult.
+/// Rejected apply: original selection/focus unchanged + error in lastCmdResult.
 let indentSelection (model: VM) : VM * Effect list =
     match planIndentSelection model with
     | None -> model, []
     | Some plan ->
         match tryMoveNodeFromTo false plan.target plan.model with
-        | None -> completeIndent model plan None, []
-        | Some (result, effects) ->
-            completeIndent model plan (Some (withSiteMap result)), effects
+        | Error msg -> completeIndent model plan (Error msg), []
+        | Ok (result, effects) ->
+            completeIndent model plan (Ok (withSiteMap result)), effects
 
 /// Shift+Tab: make selected nodes siblings of their current parent (under grandparent).
 /// When the parent is the siteMap root, the move still succeeds and the siteMap root is
@@ -249,8 +249,8 @@ let outdentSelection (model: VM) : VM * Effect list =
     | None -> model, []
     | Some plan ->
         match tryMoveNodeFromTo false plan.target plan.model with
-        | None -> withInvalidMoveTarget model, []
-        | Some (result, effects) ->
+        | Error msg -> withMoveError msg model, []
+        | Ok (result, effects) ->
             match plan.afterMove with
             | ReconcileCurrentZoom -> withSiteMap result, effects
             | ZoomOutToGrandparent (grandparentId, parentIdx, count, focusOffset) ->

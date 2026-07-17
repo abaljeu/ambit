@@ -169,13 +169,13 @@ module GraphMutate =
                         | Ownership.Owner, Special Workspace
                             when parentId <> GraphBuild.workspacesId ->
                             Some "Workspace nodes may only be placed under Workspaces"
-                        | Ownership.Owner, (Special File | Special Directory)
-                            when child.id <> GraphBuild.trashId ->
-                            if GraphQuery.containerOrDescendant graph parentId then
-                                None
-                            else
-                                Some
-                                    "File and Directory nodes must have a Workspace or Directory owner ancestor (not under a File)"
+                        | Ownership.Owner, _
+                            when GraphQuery.invalidOwnedFileDirectoryPlacement
+                                     graph
+                                     parentId
+                                     [ child ] ->
+                            Some
+                                "File and Directory nodes must have a Workspace or Directory owner ancestor (not under a File)"
                         | _ -> None)
 
                 match placementError with
@@ -194,8 +194,11 @@ module GraphMutate =
                         let updatedChildren = prefix @ newChildren @ suffix
 
                         let hasNameConflict =
-                            GraphQuery.siblingOwnedNameConflict graph updatedChildren
-                            || GraphQuery.artifactNameConflict graph parentId updatedChildren
+                            // Refs never participate in name uniqueness.
+                            newChildren
+                            |> List.exists (fun c -> c.ref = Ownership.Owner)
+                            && (GraphQuery.siblingOwnedNameConflict graph updatedChildren newChildren
+                                || GraphQuery.artifactNameConflict graph parentId newChildren)
 
                         if hasNameConflict then
                             Error "name conflict"

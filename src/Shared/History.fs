@@ -403,13 +403,7 @@ module History =
         (newChildren: ChildNode list)
         : bool
         =
-        newChildren
-        |> List.exists (fun child ->
-            match child.ref, Map.tryFind child.id graph.nodes with
-            | Ownership.Owner, Some { kind = Special (File | Directory) }
-                when child.id <> Graph.trashId ->
-                not (GraphQuery.containerOrDescendant graph parentId)
-            | _ -> false)
+        GraphQuery.invalidOwnedFileDirectoryPlacement graph parentId newChildren
 
     let private validateOwnershipForChange (graph: Graph) (change: Change) : Result<unit, string> =
         let shapeOps = change.ops |> List.filter opChangesGraphShape
@@ -432,7 +426,10 @@ module History =
                         if invalidOwnedFileDirectoryPlacement graph parentId newChildren then
                             Some
                                 "invalid ownership semantics: File and Directory nodes must have a Workspace or Directory owner ancestor (not under a File)"
-                        elif GraphQuery.artifactNameConflict graph parentId newChildren then
+                        elif
+                            newChildren |> List.exists (fun c -> c.ref = Ownership.Owner)
+                            && GraphQuery.artifactNameConflict graph parentId newChildren
+                        then
                             Some
                                 "invalid ownership semantics: duplicate name in artifact directory"
                         else

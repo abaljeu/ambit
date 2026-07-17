@@ -501,6 +501,46 @@ let ``Graph.replace accepts Ref Special File under normal parent`` () =
     | Error err -> Assert.True(false, $"Expected Ok, got Error: {err}")
 
 [<Fact>]
+let ``Graph.replace accepts Ref beside Owner sibling with the same name`` () =
+    let graph0 = Graph.create ()
+    let graph1, ids = ModelBuilder.createNodes [ "parent" ] graph0
+    let parent = ids.[0]
+    let ownedDirId, refTargetId = NodeId.New(), NodeId.New()
+    let root = graph1.nodes.[Graph.rootId]
+    let parentNode = graph1.nodes.[parent]
+    let ownedDir =
+        Node.Create(
+            ownedDirId,
+            text = "same",
+            name = Filename.create "same",
+            owner = parent,
+            kind = Special Directory)
+    let refTarget =
+        Node.Create(
+            refTargetId,
+            text = "same",
+            name = Filename.create "same",
+            owner = Graph.rootId,
+            kind = Special Directory)
+    let nodes =
+        graph1.nodes
+        |> Map.add Graph.rootId
+            { root with children = root.children @ owned [ parent; refTargetId ] }
+        |> Map.add parent { parentNode with children = owned [ ownedDirId ] }
+        |> Map.add ownedDirId ownedDir
+        |> Map.add refTargetId refTarget
+    let graph = Graph.fromNodes graph1.root nodes
+    match Graph.replace parent 1 [] [ { ref = Ownership.Ref; id = refTargetId } ] graph with
+    | Ok graph2 ->
+        let children = graph2.nodes.[parent].children
+        Assert.Equal(2, children.Length)
+        Assert.Equal(Ownership.Owner, children.[0].ref)
+        Assert.Equal(ownedDirId, children.[0].id)
+        Assert.Equal(Ownership.Ref, children.[1].ref)
+        Assert.Equal(refTargetId, children.[1].id)
+    | Error err -> Assert.True(false, $"Expected Ok, got Error: {err}")
+
+[<Fact>]
 let ``Graph.replace accepts Ref Special Workspace under normal parent`` () =
     let graph0 = Graph.create ()
     let graph1, ids = ModelBuilder.createNodes [ "parent" ] graph0

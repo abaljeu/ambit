@@ -178,7 +178,7 @@ let ``completeIndent rejected keeps selection and sets invalid target message`` 
                           endd = dirIdx + 1 }
                       focus = dirIdx } }
     let plan = planIndentSelection original |> Option.get
-    let result = completeIndent original plan None
+    let result = completeIndent original plan (Error invalidMoveTargetMessage)
 
     Assert.Equal(original.selectedNodes, result.selectedNodes)
     Assert.Equal(original.siteMap.rootId, result.siteMap.rootId)
@@ -188,6 +188,29 @@ let ``completeIndent rejected keeps selection and sets invalid target message`` 
         Some(CmdLastResult.Error (None, invalidMoveTargetMessage)),
         result.lastCmdResult)
     Assert.Equal("target is not a valid location", invalidMoveTargetMessage)
+
+[<Fact>]
+let ``completeIndent surfaces apply error message`` () =
+    let graph, _fileId, dirId = folderBesideFileGraph ()
+    let model = emptyModelAt graph Graph.rootId
+    let rootEntry = model.siteMap.entries.[model.siteMap.rootId]
+    let dirIdx =
+        rootEntry.children
+        |> List.findIndex (fun sid -> model.siteMap.entries.[sid].nodeId = dirId)
+    let original =
+        { model with
+            selectedNodes =
+                Some
+                    { range =
+                        { parent = rootEntry
+                          start = dirIdx
+                          endd = dirIdx + 1 }
+                      focus = dirIdx } }
+    let plan = planIndentSelection original |> Option.get
+    let applyMsg = "name conflict"
+    let result = completeIndent original plan (Error applyMsg)
+    Assert.Equal(original.selectedNodes, result.selectedNodes)
+    Assert.Equal(Some(CmdLastResult.Error (None, applyMsg)), result.lastCmdResult)
 
 [<Fact>]
 let ``indent Directory under Normal sibling is accepted by History.applyChange`` () =
@@ -226,3 +249,66 @@ let ``indent Directory under Normal sibling is accepted by History.applyChange``
             s.graph.nodes.[normalId].children
             |> List.exists (fun c -> c.id = dirId && c.ref = Ownership.Owner))
     | _ -> Assert.True(false, "expected Changed for indent under normal")
+
+/// ROOT owns two same-named Directories (illegal load) and a Normal; a Ref to
+/// one Directory sits beside the Normal. Indenting the Ref under Normal must
+/// succeed — Refs are not placement/name-checked, and foreign dups stay foreign.
+let private refBesideNormalWithForeignDupDirs () =
+    let graph0 = Graph.create ()
+    let d1Id, d2Id = NodeId.New(), NodeId.New()
+    let graph1, ids = ModelBuilder.createNodes [ "note" ] graph0
+    let normalId = ids.[0]
+    let graph2 = addSpecialNode d1Id Directory "dup" graph1
+    let graph3 = addSpecialNode d2Id Directory "dup" graph2
+    let root = graph3.nodes.[Graph.rootId]
+    let idx = Graph.fileTreeInsertIndex graph3 Graph.rootId
+    let dirRef = { ref = Ownership.Ref; id = d1Id }
+    let nodes =
+        graph3.nodes
+        |> Map.add Graph.rootId
+            { root with
+                children =
+                    root.children.[0 .. idx - 1]
+                    @ owned [ d1Id; d2Id; normalId ]
+                      @ [ dirRef ]
+                      @ root.children.[idx..] }
+    let graph = Graph.fromNodes graph3.root nodes
+    graph, normalId, d1Id, dirRef
+
+[<Fact>]
+let ``indent Ref Directory under Normal succeeds despite foreign name duplicates`` () =
+    let graph, normalId, _d1Id, dirRef = refBesideNormalWithForeignDupDirs ()
+    let model = emptyModelAt graph Graph.rootId
+    let rootEntry = model.siteMap.entries.[model.siteMap.rootId]
+    let refIdx =
+        graph.nodes.[Graph.rootId].children
+        |> List.findIndex (fun c -> c.id = dirRef.id && c.ref = Ownership.Ref)
+    let selected =
+        { model with
+            selectedNodes =
+                Some
+                    { range =
+                        { parent = rootEntry
+                          start = refIdx
+                          endd = refIdx + 1 }
+                      focus = refIdx } }
+    let plan = planIndentSelection selected |> Option.get
+    Assert.Equal(normalId, plan.target.pnode)
+    let ops =
+        [ Op.Replace(Graph.rootId, refIdx, [ dirRef ], [])
+          Op.Replace(normalId, plan.target.endd, [], [ dirRef ]) ]
+    let change =
+        { id = selected.revision.Value
+          changeId = System.Guid.NewGuid()
+          ops = ops }
+    let state =
+        { graph = graph
+          history = History.empty
+          revision = selected.revision }
+    match History.applyChange change state with
+    | ApplyResult.Changed s ->
+        Assert.True(
+            s.graph.nodes.[normalId].children
+            |> List.exists (fun c -> c.id = dirRef.id && c.ref = Ownership.Ref))
+    | ApplyResult.Invalid (_, msg) -> Assert.True(false, $"expected Changed, got Invalid: {msg}")
+    | ApplyResult.Unchanged _ -> Assert.True(false, "expected Changed, got Unchanged")
