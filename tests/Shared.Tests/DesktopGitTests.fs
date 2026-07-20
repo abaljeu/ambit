@@ -307,6 +307,35 @@ let private commitAll (dir: string) (message: string) =
         | Ok _ -> ()
         | Error err -> failwith err
 
+[<SkippableFact>]
+let ``push targets local branch name not remote HEAD`` () =
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let server = newTempDir ()
+    match DesktopGit.runGit server "init -b master" with
+    | Ok _ -> ()
+    | Error err -> failwith err
+    let desktop = newTempDir ()
+    initRepo desktop
+    File.WriteAllText(Path.Combine(desktop, "seed.txt"), "from client")
+    commitAll desktop "seed"
+    let uri = Uri(server + Path.DirectorySeparatorChar.ToString()).AbsoluteUri
+    match DesktopGit.setAmbitRemote desktop uri with
+    | Error err -> Assert.Fail(err)
+    | Ok () -> ()
+    match DesktopGit.push desktop None with
+    | Error err -> Assert.Fail(err)
+    | Ok _ ->
+        match DesktopGit.runGit server "show-ref --verify refs/heads/main" with
+        | Ok _ -> ()
+        | Error err -> Assert.Fail($"expected main on server: {err}")
+        match
+            DesktopGit.runGit server "show-ref --verify refs/heads/master"
+        with
+        | Ok _ ->
+            Assert.Fail(
+                "push must use local branch, not remote HEAD (master)")
+        | Error _ -> ()
+
 let private plantCrlfBlob (dir: string) (relPath: string) (content: string) =
     let abs = Path.Combine(dir, relPath)
     let bytes = Text.Encoding.UTF8.GetBytes(content)

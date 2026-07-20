@@ -3,6 +3,7 @@ module ViewModelTests
 open System
 open Gambol.Shared
 open Gambol.Shared.ViewModel
+open Gambol.Shared.ViewModelSelection
 open SpecialNodeTestHelpers
 open VmTestHelpers
 open Xunit

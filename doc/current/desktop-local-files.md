@@ -115,8 +115,15 @@ Registered in the command palette (`src/Client/Commands.fs`):
   palette otherwise. Focus must be under a named workspace. Connect picks a folder, upserts
   mapping, sets remote `ambit`. Clone/Download/Upload call `GET /ambit/git-token` (Ambit login)
   and pass the PAT on `/_desktop/git-clone|git-pull|git-push` (Desktop injects Basic auth for
-  that git invocation; no GCM store). Git status calls `/_desktop/git-status`. Results in
-  `#cmd-last-result`.
+  that git invocation; no GCM store). **Upload** pushes the local attached branch
+  (`HEAD:refs/heads/{branch}`) — no remote `ls-remote` probe. **Insert → Connect → Upload**
+  seeds an empty (unborn) server repo from that client branch; JIT commit remains pull-only.
+  Remote URL form `/ambit/git/{label}.git` is Smart HTTP convention; on disk the server uses
+  `DataDir/{label}/` (work tree + `.git` inside), not a bare `label.git` directory. If that
+  work tree was deleted, gateway `ensureInit` recreates an unborn repo on the next git request
+  so Upload can seed again without re-Insert. When the server already has history, non-FF still
+  requires Download + local merge before retrying Upload. Git status calls `/_desktop/git-status`.
+  Results in `#cmd-last-result`.
 
 Import/Export require matching desktop capabilities (`import` / `export`) and are blocked during
 command palette, search dialog, and CSS-class prompt modes.

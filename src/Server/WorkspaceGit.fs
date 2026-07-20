@@ -193,6 +193,31 @@ module WorkspaceGit =
                 | _ -> Error headError
             | Error err -> Error err
 
+    /// After first receive into an unborn repo, point symbolic HEAD at the
+    /// sole refs/heads/* branch (client may push main while init used master).
+    let alignHeadAfterUnbornReceive
+        (workspaceRoot: string)
+        : Result<unit, string> =
+        match
+            GitSave.runGit
+                workspaceRoot
+                "for-each-ref --format=%(refname:short) refs/heads"
+        with
+        | Error err -> Error err
+        | Ok text ->
+            match
+                text.Split(
+                    [| '\r'; '\n' |],
+                    StringSplitOptions.RemoveEmptyEntries)
+                |> Array.toList
+            with
+            | [ branch ] ->
+                GitSave.runGit
+                    workspaceRoot
+                    $"symbolic-ref HEAD refs/heads/{branch}"
+                |> Result.map ignore
+            | _ -> Ok ()
+
     let private splitNulPaths (text: string) : string list =
         text.Split('\000', StringSplitOptions.RemoveEmptyEntries)
         |> Array.toList

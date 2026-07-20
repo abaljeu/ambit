@@ -9,6 +9,19 @@ open Xunit
 let private owned (ids: NodeId list) : ChildNode list =
     ids |> List.map (fun id -> { ref = Ownership.Owner; id = id })
 
+let private buildFlat (texts: string list) : Graph * NodeId * NodeId list =
+    let graph0 = Graph.create ()
+    let graph1, contIds = ModelBuilder.createNodes [ "container" ] graph0
+    let cont = contIds.[0]
+    let graph2, ids = ModelBuilder.createNodes texts graph1
+    let graph3 =
+        Graph.replace graph2.root 0 [] (owned [ cont ]) graph2
+        |> ModelBuilder.requireOk "buildFlat.root"
+    let graph4 =
+        Graph.replace cont 0 [] (owned ids) graph3
+        |> ModelBuilder.requireOk "buildFlat.cont"
+    graph4, cont, ids
+
 let private modelWithSelection graph viewRoot parentInstId start endd focus : VM =
     let model = emptyModelAt graph viewRoot
     let parent = model.siteMap.entries.[parentInstId]
@@ -159,6 +172,67 @@ let private folderBesideFileGraph () =
         Graph.replace Graph.rootId idx [] (owned [ fileId; dirId ]) graph2
         |> ModelBuilder.requireOk "root children"
     graph, fileId, dirId
+
+[<Fact>]
+let ``selectionModelAfterStructuralMove expands visible collapsed destination`` () =
+    let graphPre, cont, ids = buildFlat [ "a"; "b"; "c" ]
+    let a = ids.[0]
+    let b = ids.[1]
+    let bChild = graphPre.nodes.[cont].children.[1]
+    let gMid =
+        Graph.replace cont 1 [ bChild ] [] graphPre |> ModelBuilder.requireOk "rm b"
+    let gPost =
+        Graph.replace a 0 [] [ bChild ] gMid |> ModelBuilder.requireOk "add b under a"
+    let mPre = emptyModelAt graphPre cont
+    let rootPre = mPre.siteMap.entries.[mPre.siteMap.rootId]
+    let aInst = rootPre.children.[0]
+    Assert.False(mPre.siteMap.entries.[aInst].expanded)
+    let postModel = { mPre with graph = gPost }
+    let result =
+        selectionModelAfterStructuralMove
+            graphPre
+            { parent = rootPre; start = 1; endd = 2 }
+            false
+            a
+            0
+            1
+            0
+            rootPre
+            postModel
+
+    Assert.True(result.siteMap.entries.[aInst].expanded)
+    match result.selectedNodes with
+    | None -> Assert.True(false, "expected selection on moved node")
+    | Some sel ->
+        Assert.Equal(aInst, sel.range.parent.instanceId)
+        Assert.Equal(b, focusedNodeId gPost sel)
+
+[<Fact>]
+let ``selectionModelAfterStructuralMove stayAtSource does not expand destination`` () =
+    let graphPre, cont, ids = buildFlat [ "a"; "b"; "c" ]
+    let a = ids.[0]
+    let bChild = graphPre.nodes.[cont].children.[1]
+    let gMid =
+        Graph.replace cont 1 [ bChild ] [] graphPre |> ModelBuilder.requireOk "rm b"
+    let gPost =
+        Graph.replace a 0 [] [ bChild ] gMid |> ModelBuilder.requireOk "add b under a"
+    let mPre = emptyModelAt graphPre cont
+    let rootPre = mPre.siteMap.entries.[mPre.siteMap.rootId]
+    let aInst = rootPre.children.[0]
+    let postModel = { mPre with graph = gPost }
+    let result =
+        selectionModelAfterStructuralMove
+            graphPre
+            { parent = rootPre; start = 1; endd = 2 }
+            true
+            a
+            0
+            1
+            0
+            rootPre
+            postModel
+
+    Assert.False(result.siteMap.entries.[aInst].expanded)
 
 [<Fact>]
 let ``completeIndent rejected keeps selection and sets invalid target message`` () =

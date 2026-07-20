@@ -301,6 +301,45 @@ let ``Graph.replace rejects removing workspaces owner from root`` () =
     | Error msg -> Assert.Contains("cannot remove workspaces owner child from root", msg)
 
 [<Fact>]
+let ``Graph.replace can reorder Workspaces and TRASH under ROOT`` () =
+    let graph0 = Graph.create ()
+    let graph1, ids = ModelBuilder.createNodes [ "a" ] graph0
+    let a = ids.[0]
+    let graph2 =
+        Graph.replace graph1.root 0 [] (owned [ a ]) graph1
+        |> requireOk "root->a"
+    let rootId = graph2.root
+    let oldChildren = graph2.nodes.[rootId].children
+    let child id = oldChildren |> List.find (fun c -> c.id = id)
+    // Default order: a, Workspaces, TRASH → move TRASH before Workspaces.
+    let reordered =
+        [ child a; child Graph.trashId; child Graph.workspacesId ]
+    match Graph.replace rootId 0 oldChildren reordered graph2 with
+    | Error msg -> Assert.True(false, $"expected Ok: {msg}")
+    | Ok graph3 ->
+        let children =
+            graph3.nodes.[rootId].children |> List.map (fun c -> c.id)
+        Assert.Equal<NodeId list>(
+            [ a; Graph.trashId; Graph.workspacesId ],
+            children)
+
+[<Fact>]
+let ``Graph.replace rejects Workspaces owned under non-root`` () =
+    let graph0 = Graph.create ()
+    let graph1, ids = ModelBuilder.createNodes [ "parent" ] graph0
+    let parent = ids.[0]
+    let graph2 =
+        Graph.replace graph1.root 0 [] (owned [ parent ]) graph1
+        |> requireOk "root->parent"
+    let wsChild =
+        graph2.nodes.[graph2.root].children
+        |> List.find (fun c -> c.id = Graph.workspacesId)
+    match Graph.replace parent 0 [] [ wsChild ] graph2 with
+    | Ok _ -> Assert.True(false, "expected Error")
+    | Error msg ->
+        Assert.Contains("trash and workspaces may not be OWNED by a non-root parent", msg)
+
+[<Fact>]
 let ``Graph.setText on workspaces node is rejected`` () =
     let graph = Graph.create ()
     let result = Graph.setText Graph.workspacesId "Workspaces" "Other" graph

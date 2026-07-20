@@ -94,7 +94,7 @@ let private syncZoomPath (vm: VM) (dispatch: Msg -> unit) (rowRoot: HTMLElement)
                 sep.className <- "amb-zoom-path-sep"
                 sep.textContent <- " \u203A "
                 el.appendChild sep |> ignore
-            let label = truncateForDisplay 10 texts.[i]
+            let label = truncateForDisplay 13 texts.[i]
             let seg = document.createElement "span"
             if i = ids.Length - 1 then
                 seg.className <- "amb-zoom-path-current"

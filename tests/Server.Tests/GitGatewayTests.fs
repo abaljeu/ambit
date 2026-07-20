@@ -49,6 +49,49 @@ let ``urlServiceName uses stock git-*-pack`` () =
         "git-receive-pack",
         GitGateway.urlServiceName GitGateway.WorkspacePush)
 
+[<Fact>]
+let ``resolveWorkspaceRoot rejects invalid repo name`` () =
+    match GitGateway.resolveWorkspaceRoot (newTempDir ()) "not-a-repo" with
+    | Error msg -> Assert.Equal("invalid workspace git repo name", msg)
+    | Ok _ -> Assert.Fail("expected invalid repo name")
+
+[<SkippableFact>]
+let ``resolveWorkspaceRoot inits missing repo under label`` () =
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let dataDir = newTempDir ()
+    let root = Path.Combine(dataDir, "life")
+    Assert.False(WorkspaceGit.isRepo root)
+    match GitGateway.resolveWorkspaceRoot dataDir "life.git" with
+    | Error err -> Assert.Fail(err)
+    | Ok(label, resolved) ->
+        Assert.Equal("life", label)
+        Assert.Equal(root, resolved)
+        Assert.True(WorkspaceGit.isRepo root)
+        match WorkspaceGit.tryHead root with
+        | Ok None -> ()
+        | Ok(Some _) -> Assert.Fail("expected unborn HEAD")
+        | Error err -> Assert.Fail(err)
+
+[<SkippableFact>]
+let ``resolveWorkspaceRoot inits when label folder exists without dot git`` () =
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let dataDir = newTempDir ()
+    let root = Path.Combine(dataDir, "life")
+    Directory.CreateDirectory(root) |> ignore
+    File.WriteAllText(Path.Combine(root, "kept.txt"), "worktree")
+    Assert.False(WorkspaceGit.isRepo root)
+    match GitGateway.resolveWorkspaceRoot dataDir "life.git" with
+    | Error err -> Assert.Fail(err)
+    | Ok(label, resolved) ->
+        Assert.Equal("life", label)
+        Assert.Equal(root, resolved)
+        Assert.True(WorkspaceGit.isRepo root)
+        Assert.True(File.Exists(Path.Combine(root, "kept.txt")))
+        match WorkspaceGit.tryHead root with
+        | Ok None -> ()
+        | Ok(Some _) -> Assert.Fail("expected unborn HEAD")
+        | Error err -> Assert.Fail(err)
+
 [<SkippableFact>]
 let ``advertiseRefs prefixes stock service name`` () =
     Skip.IfNot(gitOnPath(), "git not on PATH")
@@ -137,6 +180,67 @@ let ``GET info refs git-receive-pack rejects when dirty`` () = task {
     let! body = resp.Content.ReadAsStringAsync()
     Assert.Contains("dirty", body)
 }
+
+[<SkippableFact>]
+let ``GET info refs git-receive-pack allows dirty when unborn`` () = task {
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let dataDir = newTempDir ()
+    let home = Path.Combine(dataDir, "home")
+    requireOk "ensureInit" (WorkspaceGit.ensureInit home)
+    File.WriteAllText(Path.Combine(home, "insert.txt"), "from Insert")
+    match WorkspaceGit.tryHead home with
+    | Ok None -> ()
+    | other -> Assert.Fail($"expected unborn HEAD, got {other}")
+    use client = createClientForDir dataDir
+    let url =
+        "/ambit/git/home.git/info/refs?service=git-receive-pack"
+    let! resp = client.GetAsync(url)
+    Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
+}
+
+let private plantOrphanBranch
+    (root: string)
+    (branch: string)
+    (fileName: string)
+    (content: string)
+    =
+    File.WriteAllText(Path.Combine(root, fileName), content)
+    requireOk "add" (GitSave.runGit root "add -A") |> ignore
+    let tree = requireOk "write-tree" (GitSave.runGit root "write-tree")
+    let commit =
+        requireOk
+            "commit-tree"
+            (GitSave.runGit
+                root
+                $"-c user.email=t@test -c user.name=test commit-tree {tree} -m seed")
+    requireOk
+        "update-ref"
+        (GitSave.runGit root $"update-ref refs/heads/{branch} {commit}")
+    |> ignore
+
+[<SkippableFact>]
+let ``completeWorkspacePush points HEAD at seeded non-master branch`` () =
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let root = Path.Combine(newTempDir (), "home")
+    requireOk "ensureInit" (WorkspaceGit.ensureInit root)
+    plantOrphanBranch root "main" "seed.txt" "from client"
+    match WorkspaceGit.currentBranch root with
+    | Ok "master" -> ()
+    | other -> Assert.Fail($"expected unborn master symref, got {other}")
+    let reconcile _ _ = async { return Ok () }
+    let response = [| 1uy; 2uy |]
+    let result =
+        GitGateway.completeWorkspacePush
+            root
+            "home"
+            (Ok None)
+            (Ok response)
+            reconcile
+        |> Async.RunSynchronously
+    Assert.Equal(Ok response, result)
+    match WorkspaceGit.currentBranch root with
+    | Ok branch -> Assert.Equal("main", branch)
+    | Error err -> Assert.Fail(err)
 
 [<SkippableFact>]
 let ``GET info refs rejects unknown custom service name`` () = task {

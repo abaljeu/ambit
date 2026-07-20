@@ -11,8 +11,9 @@ open Microsoft.Extensions.Primitives
 open Gambol.Shared
 
 /// Smart HTTP gateway. Wire paths use stock `git-upload-pack` /
-/// `git-receive-pack`; custom policy (JIT pull, reject-dirty push)
-/// is middleware before stock pack subprocesses.
+/// `git-receive-pack`; custom policy (JIT pull, reject-dirty push when
+/// born, allow dirty unborn seed) is middleware before stock pack
+/// subprocesses.
 [<RequireQualifiedAccess>]
 module GitGateway =
 
@@ -46,12 +47,10 @@ module GitGateway =
         | None -> Error "invalid workspace git repo name"
         | Some label ->
             let root = Path.Combine(dataDir, label)
-            if not (WorkspaceGit.isRepo root) then
-                Error "workspace git repository not found"
-            else
-                match WorkspaceGit.ensurePushConfig root with
-                | Error err -> Error err
-                | Ok () -> Ok(label, root)
+            // Recreate after DataDir/{label} wipe so seed Upload can proceed.
+            match WorkspaceGit.ensureInit root with
+            | Error err -> Error err
+            | Ok () -> Ok(label, root)
 
     let private pktLine (payload: string) : byte[] =
         let body = Encoding.UTF8.GetBytes(payload)
@@ -143,6 +142,22 @@ module GitGateway =
             label
             err
 
+    let private logAlignHeadError label err =
+        eprintfn
+            "[GitGateway] Align HEAD after unborn receive failed for '%s': %s"
+            label
+            err
+
+    /// Reject dirty push only when HEAD already exists (born).
+    /// Unborn repos allow Insert dirt so the first seed push can land.
+    let private assertPushAllowed
+        (workspaceRoot: string)
+        : Result<unit, string> =
+        match WorkspaceGit.tryHead workspaceRoot with
+        | Error err -> Error err
+        | Ok None -> Ok ()
+        | Ok(Some _) -> WorkspaceGit.assertCleanForWorkspacePush workspaceRoot
+
     let completeWorkspacePush
         (workspaceRoot: string)
         (workspaceLabel: string)
@@ -154,6 +169,14 @@ module GitGateway =
             match receiveResult with
             | Error err -> return Error err
             | Ok response ->
+                match oldHead with
+                | Ok None ->
+                    match
+                        WorkspaceGit.alignHeadAfterUnbornReceive workspaceRoot
+                    with
+                    | Error err -> logAlignHeadError workspaceLabel err
+                    | Ok () -> ()
+                | _ -> ()
                 let diffResult =
                     match oldHead, WorkspaceGit.tryHead workspaceRoot with
                     | Error err, _ -> Error err
@@ -259,7 +282,7 @@ module GitGateway =
                                 "missing or unknown service (want git-upload-pack|git-receive-pack)"
                             |> Async.AwaitTask
                     | Some WorkspacePush ->
-                        match WorkspaceGit.assertCleanForWorkspacePush root with
+                        match assertPushAllowed root with
                         | Error err ->
                             do!
                                 writeTextError ctx.Response 403 err
@@ -323,7 +346,7 @@ module GitGateway =
                 | Ok(label, root) ->
                     match service with
                     | WorkspacePush ->
-                        match WorkspaceGit.assertCleanForWorkspacePush root with
+                        match assertPushAllowed root with
                         | Error err ->
                             do!
                                 writeTextError ctx.Response 403 err

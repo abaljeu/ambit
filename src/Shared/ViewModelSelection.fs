@@ -98,6 +98,8 @@ module ViewModelSelection =
     /// Selection after a structural move. `stayAtSource` (Move Selected): sibling or parent at
     /// the old location, else None at view root with no sibling. Otherwise selection follows
     /// the moved block when `newParent` is expanded, or a bordering sibling / parent.
+    /// Callers that follow the move should expand a visible collapsed destination first
+    /// (see `selectionModelAfterStructuralMove`).
     let selectionAfterStructuralMove
             (preGraph: Graph)
             (postGraph: Graph)

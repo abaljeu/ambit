@@ -70,25 +70,22 @@ module GraphBuild =
                 |> Map.add rootId { rootNode with children = rootChildren }
                 |> Map.add trashId trashNode
 
-        // If a Trash node exists but is not an Owner child of ROOT, fix it up.
         let rootNode = nodesWithTrash.[rootId]
-
-        let rootChildrenWithoutTrash, trashOccurrences =
+        let hasTrashOwner =
             rootNode.children
-            |> List.partition (fun c -> c.id <> trashId)
-
-        let trashChild =
-            match trashOccurrences |> List.tryFind (fun c -> c.ref = Ownership.Owner) with
-            | Some ownerChild -> ownerChild
-            | None ->
-                { ref = Ownership.Owner
-                  id = trashId }
-
-        let fixedRootChildren = rootChildrenWithoutTrash @ [ trashChild ]
+            |> List.exists (fun c -> c.id = trashId && c.ref = Ownership.Owner)
 
         let nodesFixed =
-            nodesWithTrash
-            |> Map.add rootId { rootNode with children = fixedRootChildren }
+            if hasTrashOwner then
+                nodesWithTrash
+            else
+                // Missing Owner under ROOT — append (repair load / partial graphs).
+                let trashChild = { ref = Ownership.Owner; id = trashId }
+                let withoutTrash =
+                    rootNode.children |> List.filter (fun c -> c.id <> trashId)
+                nodesWithTrash
+                |> Map.add rootId
+                    { rootNode with children = withoutTrash @ [ trashChild ] }
 
         match Map.tryFind trashId nodesFixed with
         | None -> nodesFixed
@@ -129,29 +126,29 @@ module GraphBuild =
                 |> Map.add workspacesId workspacesNode
 
         let rootNode = nodesWithWorkspaces.[rootId]
+        let hasWorkspacesOwner =
+            rootNode.children
+            |> List.exists (fun c ->
+                c.id = workspacesId && c.ref = Ownership.Owner)
 
-        let withoutWorkspaces, workspacesOccurrences =
-            rootNode.children |> List.partition (fun c -> c.id <> workspacesId)
-
-        let workspacesChild =
-            match workspacesOccurrences |> List.tryFind (fun c -> c.ref = Ownership.Owner) with
-            | Some ownerChild -> ownerChild
-            | None ->
-                { ref = Ownership.Owner
-                  id = workspacesId }
-
-        let beforeTrash, afterTrashStart =
-            match withoutWorkspaces |> List.tryFindIndex (fun c -> c.id = trashId) with
-            | Some i ->
-                withoutWorkspaces |> List.take i,
-                withoutWorkspaces |> List.skip i
-            | None ->
-                withoutWorkspaces, []
-
-        let fixedRootChildren = beforeTrash @ [ workspacesChild ] @ afterTrashStart
-
-        nodesWithWorkspaces
-        |> Map.add rootId { rootNode with children = fixedRootChildren }
+        if hasWorkspacesOwner then
+            nodesWithWorkspaces
+        else
+            // Missing Owner under ROOT — insert before TRASH when present.
+            let workspacesChild = { ref = Ownership.Owner; id = workspacesId }
+            let withoutWorkspaces =
+                rootNode.children |> List.filter (fun c -> c.id <> workspacesId)
+            let beforeTrash, afterTrashStart =
+                match withoutWorkspaces |> List.tryFindIndex (fun c -> c.id = trashId) with
+                | Some i ->
+                    withoutWorkspaces |> List.take i,
+                    withoutWorkspaces |> List.skip i
+                | None ->
+                    withoutWorkspaces, []
+            let fixedRootChildren =
+                beforeTrash @ [ workspacesChild ] @ afterTrashStart
+            nodesWithWorkspaces
+            |> Map.add rootId { rootNode with children = fixedRootChildren }
 
     let private ensureRootKind (nodes: Map<NodeId, Node>) : Map<NodeId, Node> =
         match Map.tryFind rootId nodes with

@@ -92,10 +92,22 @@ let private replaceOpsForMove
     (selectedChildren: ChildNode list)
     (sameParent: bool)
     (insertIdx: int)
+    (graph: Graph)
     : Op list =
     if sameParent then
-        [ Op.Replace(from.parent.nodeId, from.start, selectedChildren, [])
-          Op.Replace(from.parent.nodeId, insertIdx, [], selectedChildren) ]
+        // One Replace so ROOT can reorder Workspaces/TRASH without a
+        // temporary "removed from root" intermediate state.
+        let parentId = from.parent.nodeId
+        let oldChildren = graph.nodes.[parentId].children
+        let without =
+            oldChildren
+            |> List.indexed
+            |> List.filter (fun (i, _) -> i < from.start || i >= from.endd)
+            |> List.map snd
+        let before = List.take insertIdx without
+        let after = List.skip insertIdx without
+        let newChildren = before @ selectedChildren @ after
+        [ Op.Replace(parentId, 0, oldChildren, newChildren) ]
     else
         [ Op.Replace(from.parent.nodeId, from.start, selectedChildren, [])
           Op.Replace(too.pnode, too.endd, [], selectedChildren) ]
@@ -130,30 +142,26 @@ let tryMoveNodeFromTo (stayAtSource: bool) (too: NodeRange) (model: VM) : Result
     match tryBuildMoveInputs too model with
     | None -> Error invalidMoveTargetMessage
     | Some (sel, from, selectedChildren, count, sameParent, insertIdx) ->
-        let replaceOps = replaceOpsForMove too from selectedChildren sameParent insertIdx
+        let replaceOps =
+            replaceOpsForMove too from selectedChildren sameParent insertIdx model.graph
         let ops = textOps @ replaceOps
         match tryApplyOps ops model with
         | Error e -> Error e
         | Ok (movedModel, effects) ->
-            let newParent =
-                if sameParent then from.parent else
-                    movedModel.siteMap.entries
-                    |> Map.tryPick (fun _ e -> if e.nodeId = too.pnode then Some e else None)
-                    |> Option.defaultValue from.parent
-            let newSelOpt =
-                ViewModel.selectionAfterStructuralMove
+            let destParentId = if sameParent then from.parent.nodeId else too.pnode
+            let movedModel =
+                selectionModelAfterStructuralMove
                     model.graph
-                    movedModel.graph
-                    movedModel.siteMap
                     from
                     stayAtSource
-                    newParent
+                    destParentId
                     insertIdx
                     count
                     (sel.focus - from.start)
-            let movedModel = { movedModel with selectedNodes = newSelOpt }
+                    from.parent
+                    movedModel
             let finalModel =
-                match newSelOpt, oldMode with
+                match movedModel.selectedNodes, oldMode with
                 | Some newSel, _ -> restoreInlineMode oldMode caret newSel movedModel
                 | None, Some _ -> { movedModel with mode = Selecting }
                 | None, None -> movedModel

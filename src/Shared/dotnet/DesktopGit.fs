@@ -138,9 +138,11 @@ module DesktopGit =
         | Some value when value.Length > 0 -> Ok value
         | _ -> Error "Ambit remote HEAD does not identify a branch."
 
-    let private requireAttachedHead (localPath: string) : Result<unit, string> =
+    let private requireAttachedHead
+        (localPath: string)
+        : Result<string, string> =
         match runGit localPath "symbolic-ref --quiet --short HEAD" with
-        | Ok branch when not (String.IsNullOrWhiteSpace branch) -> Ok ()
+        | Ok branch when not (String.IsNullOrWhiteSpace branch) -> Ok branch
         | _ -> Error "Cannot push or pull from detached HEAD."
 
     let pullArguments (branch: string) : string =
@@ -189,7 +191,7 @@ module DesktopGit =
         else
             match requireAttachedHead localPath with
             | Error err -> Error err
-            | Ok () ->
+            | Ok _ ->
                 match remoteHeadBranch localPath auth with
                 | Error err -> Error err
                 | Ok branch ->
@@ -214,11 +216,8 @@ module DesktopGit =
         else
             match requireAttachedHead localPath with
             | Error err -> Error err
-            | Ok () ->
-                match remoteHeadBranch localPath auth with
-                | Error err -> Error err
-                | Ok branch ->
-                    runGitCore localPath (pushArguments branch) auth
+            | Ok branch ->
+                runGitCore localPath (pushArguments branch) auth
 
     let status (localPath: string) : Result<WorkspaceGitStatus, string> =
         if not (isRepo localPath) then

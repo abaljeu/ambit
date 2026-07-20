@@ -14,7 +14,8 @@ This doc records decisions that upcoming persistence and workspace work should r
 - A desktop user maps a workspace label to a local directory that is a git checkout with remote name **`ambit`** pointing at the server gateway (not `origin`).
 - Gateway smart HTTP uses **stock** service paths **`git-upload-pack`** (fetch / workspace-pull) and **`git-receive-pack`** (push / workspace-push). Pack wire protocol and URL/service names are stock; **custom policy is server middleware**.
 - **Stock `git pull`/`git push` can target gateway URLs** — no desktop path-mapping helper. Auth: HTTPS PAT via HTTP Basic (G4); cookie alone is not enough.
-- **workspace-push** (prose) accepts only **fast-forward** updates when the server working tree is **clean** (**reject-dirty** — no JIT on push).
+- **workspace-push** (prose) accepts only **fast-forward** updates when the server working tree is **clean** (**reject-dirty** — no JIT on push). **Exception:** unborn server repos (no commits yet) allow dirty trees so **Insert → Connect → Upload** can seed from the client.
+- Desktop **Upload** (`DesktopGit.push`) pushes the client's attached branch (`HEAD:refs/heads/{local}`) — it does **not** probe remote HEAD via `ls-remote`. Pull still uses `ls-remote` + server JIT.
 - Gateway does not read PostgreSQL, merge, or serve single-file GET — sync trees via pack protocol; file reads stay app/desktop APIs.
 - Git transport stops after a successful receive or local merge. Disk-to-graph reconciliation and local freshness display respond afterward under [[lazy-load]]; they do not participate in the Git operation.
 
@@ -36,8 +37,9 @@ This doc records decisions that upcoming persistence and workspace work should r
 | Service path names | **Locked G3:** URL / `?service=` use stock **`git-upload-pack`** / **`git-receive-pack`**. Custom policy (JIT / reject-dirty) is middleware; subprocesses are stock `git upload-pack` / `git receive-pack`. |
 | Stock git CLI | **Can target gateway URLs natively** for pull/push (auth still G4). No desktop path-mapping helper. |
 | Pull (server → client) | On `git-upload-pack` (workspace-pull): **JIT commit on server first**, then serve upload-pack. |
-| Dirty push policy | **reject-dirty** on `git-receive-pack` (workspace-push); no JIT on push. JIT only before upload-pack. Locked G0. |
-| Push (client → server) | `git-receive-pack`: reject unless server working tree is clean; FF only (`receive.denyNonFastForwards`). |
+| Dirty push policy | **reject-dirty** on `git-receive-pack` when server `HEAD` exists (born); **skip** clean check when unborn so Insert dirt does not block the seed push. No JIT on push. JIT only before upload-pack. Locked G0 + seed exception. |
+| Missing server repo | Gateway `resolveWorkspaceRoot` calls `WorkspaceGit.ensureInit` (idempotent) so a wiped `DataDir/{label}` is recreated as an unborn repo for Connect→Upload; Insert still creates the graph node. |
+| Push (client → server) | `git-receive-pack`: reject dirty when born; FF only (`receive.denyNonFastForwards`). Desktop push targets the **local** branch name (no upload-pack / `ls-remote` probe). After first seed into unborn, server symbolic HEAD is pointed at the pushed branch (init may have been `master` while client pushes `main`). |
 | Desktop transport | Pack protocol over smart HTTP to stock service paths — **not** a bespoke JSON pack API. |
 | Git substrate | **Option A locked:** subprocess to stock `git` for pack I/O. |
 | Module shape | `WorkspaceGit` + `GitGateway`; legacy `GitSave` / `/ambit/save` stays ops-only until retired. |
@@ -99,20 +101,21 @@ sequenceDiagram
   participant GW as Git gateway
   participant FS as DataDir/{label}
 
-  Client->>GW: git push ambit
-  GW->>FS: working tree clean?
-  alt dirty
+  Client->>GW: git push ambit (local branch)
+  GW->>FS: born and dirty?
+  alt born and dirty
     GW->>Client: reject (dirty tree — reject-dirty)
-  else clean
-    GW->>FS: receive-pack (FF only)
+  else unborn or clean
+    GW->>FS: receive-pack (FF only; unborn seed OK)
+    GW->>FS: if was unborn, point HEAD at pushed branch
     GW->>Client: ok
   end
 ```
 
 1. User commits locally on desktop (manual `git commit` — not automatic on every edit).
-2. Desktop POSTs pack to **`git-receive-pack`**. Gateway refuses if server working tree is **dirty** (**reject-dirty**; no JIT commit on push).
-3. Gateway refuses **non-fast-forward** pushes. Client must pull (merge locally) and push again.
-4. No server merge: push only moves `HEAD` when it is a strict ancestor update and the tree was clean before receive.
+2. Desktop POSTs pack to **`git-receive-pack`**, targeting the **client's attached branch** (not remote HEAD from `ls-remote`). Gateway refuses if the server already has history **and** the working tree is **dirty** (**reject-dirty**; no JIT commit on push). Unborn server trees (Insert artifacts, no commits yet) are allowed so the first Upload can seed.
+3. Gateway refuses **non-fast-forward** pushes once the server has history. Client must pull (merge locally) and push again — Connect/Upload never force-push or auto-pull.
+4. After a successful first push into an unborn repo, the gateway points server symbolic HEAD at the branch that was actually pushed (so init's `master` does not leave HEAD dangling when the client seeded `main`).
 
 **Client should be current:** non-FF push is rejected; user merges on desktop first.
 
@@ -157,7 +160,7 @@ Pre-receive hook may additionally verify `expectedBase` if the transport exposes
 
 ### Clean-tree enforcement (push)
 
-Pre-check (or hook): if `git status --porcelain` is non-empty in the work tree, reject with a clear message (`server working tree dirty; workspace-pull or wait for autosave flush`). Ensures workspace-push does not race uncommitted server autosaves.
+Pre-check (or hook): when server `HEAD` already exists, if `git status --porcelain` is non-empty in the work tree, reject with a clear message (`server working tree dirty; workspace-pull or wait for autosave flush`). Ensures workspace-push does not race uncommitted server autosaves on a born repo. When `HEAD` is unborn (no commits), the clean check is skipped so **Insert → Connect → Upload** can seed the server from the client's branch.
 
 ### URL shape (locked G3)
 
@@ -168,9 +171,13 @@ https://collaborative-systems.org/ambit/git/home.git/git-upload-pack
 https://collaborative-systems.org/ambit/git/home.git/git-receive-pack
 ```
 
+The `{label}.git` URL segment is **stock Smart HTTP naming**, not a bare repo path on disk. Gateway strips `.git` → label, then uses work tree `DataDir/{label}/` with `.git` **inside** that directory (`DataDir/home/.git`). It never looks for a directory named `home.git`.
+
 Advertisement `# service=` lines and Content-Types use stock names (`application/x-git-upload-pack-advertisement`, etc.). Server subprocesses remain `git upload-pack` / `git receive-pack`.
 
 **Compatibility:** stock `git pull`/`git push` against this URL layout work for wire paths. Auth: HTTP Basic with the git PAT from `/ambit/git-token` (not the browser cookie). No desktop helper is required for path mapping.
+
+**Missing work tree:** `resolveWorkspaceRoot` calls `WorkspaceGit.ensureInit` on `DataDir/{label}/`, so a wiped label is recreated as an unborn repo and first Upload can seed without re-Insert.
 
 ## Credentials (HTTPS PAT — locked G4)
 

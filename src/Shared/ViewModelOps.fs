@@ -59,7 +59,6 @@ module ViewModel =
     let singleSelection = ViewModelSelection.singleSelection
     let singleSelectionForInstance = ViewModelSelection.singleSelectionForInstance
     let refreshSelection = ViewModelSelection.refreshSelection
-    let selectionAfterStructuralMove = ViewModelSelection.selectionAfterStructuralMove
     let firstSelectedNodeId = ViewModelSelection.firstSelectedNodeId
     let focusedNodeId = ViewModelSelection.focusedNodeId
     let tryFocusedNodeId = ViewModelSelection.tryFocusedNodeId

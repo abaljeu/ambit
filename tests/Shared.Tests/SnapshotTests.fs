@@ -172,7 +172,13 @@ let private createSharedNodeGraphRefParentFirst () : Graph =
     let g = ModelBuilder.createSharedNodeGraph ()
     let root = g.nodes.[g.root]
     let ch = root.children
-    Graph.replace g.root 0 ch (List.rev ch) g |> ModelBuilder.requireOk "reorder root children"
+    let users, specials =
+        ch
+        |> List.partition (fun c ->
+            c.id <> Graph.workspacesId && c.id <> Graph.trashId)
+    let reordered = List.rev users @ specials
+    Graph.replace g.root 0 ch reordered g
+    |> ModelBuilder.requireOk "reorder root children"
 
 // ---- shared-node round-trip ----
 

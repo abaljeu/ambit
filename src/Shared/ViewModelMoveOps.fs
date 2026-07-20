@@ -77,6 +77,58 @@ module ViewModelMoveOps =
     let withInvalidMoveTarget (model: VM) : VM =
         withMoveError invalidMoveTargetMessage model
 
+    let private findSiteEntryByNodeId (siteMap: SiteMap) (nodeId: NodeId) =
+        siteMap.entries
+        |> Map.tryPick (fun _ e -> if e.nodeId = nodeId then Some e else None)
+
+    let private expandIfCollapsed (model: VM) (parent: SiteEntry) : VM * SiteEntry =
+        if parent.expanded then
+            model, parent
+        else
+            let sm, nid =
+                expandEntry
+                    parent.instanceId
+                    model.graph
+                    model.siteMap
+                    model.nextSiteId
+            let model' = { model with siteMap = sm; nextSiteId = nid }
+            model', model'.siteMap.entries.[parent.instanceId]
+
+    /// After a structural move that follows the selection: if the destination
+    /// parent is visible (in siteMap) and collapsed, expand it so the moved
+    /// nodes can remain selected. `stayAtSource` skips expansion.
+    let selectionModelAfterStructuralMove
+        (preGraph: Graph)
+        (fromRange: SiteNodeRange)
+        (stayAtSource: bool)
+        (destParentNodeId: NodeId)
+        (insertIdx: int)
+        (count: int)
+        (focusOffset: int)
+        (fallbackParent: SiteEntry)
+        (model: VM)
+        : VM =
+        let destOpt = findSiteEntryByNodeId model.siteMap destParentNodeId
+        let model, newParent =
+            match stayAtSource, destOpt with
+            | _, None -> model, fallbackParent
+            | true, Some parent -> model, parent
+            | false, Some parent -> expandIfCollapsed model parent
+
+        let newSel =
+            ViewModelSelection.selectionAfterStructuralMove
+                preGraph
+                model.graph
+                model.siteMap
+                fromRange
+                stayAtSource
+                newParent
+                insertIdx
+                count
+                focusOffset
+
+        { model with selectedNodes = newSel }
+
     /// After a successful indent move (siteMap already reconciled), expand the
     /// previous-sibling parent if needed and select the moved nodes under it.
     let selectionModelAfterIndent (plan: IndentPlan) (result: VM) : VM =
