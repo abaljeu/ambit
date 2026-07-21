@@ -57,7 +57,7 @@ module LazyLoadReconciliation =
                 | None -> Ok None
                 | Some info -> Path.resolveInfo graph workspaceId info))
 
-    let private planAddedInfo (graph: Graph) workspaceId (info: Path.PathInfo) =
+    let internal planAddedInfo (graph: Graph) workspaceId (info: Path.PathInfo) =
         if info.parts.IsEmpty then
             Ok(graph, [])
         else
@@ -125,7 +125,7 @@ module LazyLoadReconciliation =
                         finalGraph, ops @ cleanupOps))
             | _ -> Ok(graph, [])
 
-    let private planDeletedInfo protectedIds
+    let internal planDeletedInfo protectedIds
         (graph: Graph) workspaceId (info: Path.PathInfo) =
         if info.isDirInfo then
             Ok(graph, [])
@@ -194,7 +194,7 @@ module LazyLoadReconciliation =
                                 finalGraph,
                                 parentOps @ renameOps @ reparentOps @ cleanupOps)))))
 
-    let private planRenamedInfo (graph: Graph) workspaceId
+    let internal planRenamedInfo (graph: Graph) workspaceId
         (oldInfo: Path.PathInfo) (newInfo: Path.PathInfo) =
         if oldInfo.kind <> newInfo.kind then
             Error "kind conflict between rename source and target"
@@ -211,7 +211,7 @@ module LazyLoadReconciliation =
         prefix.Length < parts.Length
         && List.forall2 (=) prefix (List.take prefix.Length parts)
 
-    let private markerMoves (renames: (Path.PathInfo * Path.PathInfo) list) =
+    let internal markerMoves (renames: (Path.PathInfo * Path.PathInfo) list) =
         renames
         |> List.choose (fun (oldInfo, newInfo) ->
             if oldInfo.isDirInfo && newInfo.isDirInfo
@@ -221,7 +221,7 @@ module LazyLoadReconciliation =
             else
                 None)
 
-    let private coveredByDirInfoMove markerPairs
+    let internal coveredByDirInfoMove markerPairs
         (oldInfo: Path.PathInfo) (newInfo: Path.PathInfo) =
         markerPairs
         |> List.exists (fun (oldPrefix, newPrefix) ->
@@ -250,7 +250,7 @@ module LazyLoadReconciliation =
                 else
                     None))
 
-    let private invalidateOrParseModified
+    let internal invalidateOrParseModified
         (artifacts: Map<string, string>)
         workspaceId
         (current: Graph)

@@ -43,6 +43,24 @@ module RefExprParse =
         else
             Ok(s.Substring(start, endAt - start), endAt)
 
+    /// Double quotes protect spaces and RefExpr delimiters within a segment.
+    /// `/` still splits steps inside quotes (shell path semantics).
+    /// `"` itself is not a legal Filename char, so no escapes are needed.
+    let private needsQuote (name: string) =
+        if String.IsNullOrEmpty name then
+            true
+        else
+            let rec allName i =
+                if i >= name.Length then true
+                elif isNameChar name.[i] then allName (i + 1)
+                else false
+
+            not (allName 0)
+
+    let private formatName (name: string) =
+        if needsQuote name then "\"" + name + "\""
+        else name
+
     let private isDelimiter (c: char) =
         Char.IsWhiteSpace c
         || c = '/'
@@ -108,7 +126,7 @@ module RefExprParse =
                     match tryReadSignedInt input (i + 1) with
                     | Some (n, next) -> loop next (IndexOffset(Some n) :: acc)
                     | None -> loop (i + 1) (IndexOffset None :: acc)
-                | '"' -> Error "quoted path segments are not supported"
+                | '"' -> quoteLoop (i + 1) acc (i + 1)
                 | '['
                 | ']' -> Error "postfix not supported yet"
                 | ':' ->
@@ -129,6 +147,29 @@ module RefExprParse =
                 | _ ->
                     readNamePattern input i
                     |> Result.bind (fun (name, next) -> loop next (NamePattern name :: acc))
+
+        and quoteLoop i acc nameStart =
+            if i >= input.Length then
+                Error "unclosed quoted name"
+            else
+                match input.[i] with
+                | '/' ->
+                    let acc =
+                        if i > nameStart then
+                            Slash :: NamePattern(input.Substring(nameStart, i - nameStart)) :: acc
+                        else
+                            Slash :: acc
+
+                    quoteLoop (i + 1) acc (i + 1)
+                | '"' ->
+                    let acc =
+                        if i > nameStart then
+                            NamePattern(input.Substring(nameStart, i - nameStart)) :: acc
+                        else
+                            acc
+
+                    loop (i + 1) acc
+                | _ -> quoteLoop (i + 1) acc nameStart
 
         loop 0 []
 
@@ -188,9 +229,9 @@ module RefExprParse =
 
         let formatStep =
             function
-            | DirStep name -> name + "/"
-            | FileStep name -> name
-            | TagStep tag -> "#" + tag
+            | DirStep name -> formatName name + "/"
+            | FileStep name -> formatName name
+            | TagStep tag -> "#" + formatName tag
             | MultiWild -> "**"
             | IndexStep None -> "!"
             | IndexStep (Some n) -> "!" + string n

@@ -17,6 +17,7 @@
     <Compile Include="LazyLoadReconciliationPath.fs" />
     <Compile Include="LazyLoadReconciliationApply.fs" />
     <Compile Include="LazyLoadReconciliation.fs" />
+    <Compile Include="LazyLoadReconciliationReport.fs" />
   </ItemGroup>
 
   <ItemGroup>

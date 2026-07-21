@@ -26,10 +26,35 @@ let ``parse rejects empty input`` () =
     | Ok _ -> Assert.Fail("expected Error")
 
 [<Fact>]
-let ``parse rejects quoted path segment`` () =
-    match RefExpr.parse "/ \"open" with
-    | Error msg -> Assert.Contains("quoted", msg)
-    | Ok _ -> Assert.Fail("expected Error")
+let ``parse accepts quoted path segments`` () =
+    Assert.Equal(
+        Path(WorkspaceRoot, [ DirStep "open #1"; FileStep "todo!" ]),
+        parseOk "/\"open #1\"/\"todo!\""
+    )
+
+[<Fact>]
+let ``parse splits slash inside quotes like shell paths`` () =
+    Assert.Equal(parseOk "blue/red", parseOk "\"blue/red\"")
+    Assert.Equal(parseOk "blue/red", parseOk "\"blue\"/\"red\"")
+    Assert.Equal(
+        Path(Context, [ DirStep "blue"; FileStep "red" ]),
+        parseOk "\"blue/red\""
+    )
+
+[<Fact>]
+let ``parse splits slash inside quotes with protected delimiters`` () =
+    Assert.Equal(
+        parseOk "\"open #1\"/\"todo!\"",
+        parseOk "\"open #1/todo!\""
+    )
+    Assert.Equal(
+        Path(Context, [ DirStep "open #1"; FileStep "todo!" ]),
+        parseOk "\"open #1/todo!\""
+    )
+
+[<Fact>]
+let ``parse accepts quoted tag names`` () =
+    Assert.Equal(Path(Context, [ TagStep "on hold" ]), parseOk "#\"on hold\"")
 
 [<Fact>]
 let ``parse accepts bare colon as all children step`` () =
@@ -111,6 +136,14 @@ let ``parse round-trips all step kinds`` () =
         let expr = parseOk sample
         let again = parseOk (RefExpr.format expr)
         Assert.Equal(expr, again)
+
+[<Fact>]
+let ``format quotes names that cannot be parsed bare`` () =
+    let expr =
+        Path(WorkspaceRoot, [ DirStep "open #1"; FileStep "todo!" ])
+
+    Assert.Equal("/\"open #1\"/\"todo!\"", RefExpr.format expr)
+    Assert.Equal(expr, parseOk (RefExpr.format expr))
 
 [<Fact>]
 let ``parse accepts child index steps`` () =
