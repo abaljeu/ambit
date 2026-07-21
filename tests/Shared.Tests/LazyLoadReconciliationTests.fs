@@ -522,3 +522,72 @@ let ``delete file plus add directory at same path is a kind conflict`` () =
     match LazyLoadReconciliation.planChangedPaths graph2 "home" changes with
     | Ok _ -> Assert.Fail("expected kind conflict")
     | Error err -> Assert.Contains("kind conflict", err)
+
+[<Fact>]
+let ``report planner keeps sibling ops when one path fails`` () =
+    let workspaceId, graph = Graph.create () |> addWorkspace "home"
+    let graph2 = createPaths graph [ "bad.txt" ]
+    match
+        LazyLoadReconciliationReport.planChangedPathsWithArtifacts
+            graph2
+            "home"
+            [ LazyLoadReconciliation.Deleted "bad.txt"
+              LazyLoadReconciliation.Added "good.txt" ]
+            Map.empty
+    with
+    | Error err -> Assert.Fail(err)
+    | Ok report ->
+        Assert.NotEmpty(report.failures)
+        Assert.Contains(
+            report.failures,
+            fun f ->
+                f.path = "bad.txt"
+                && f.message.Contains("unparsed document"))
+        Assert.NotEmpty(report.ops)
+        let graph3 = applyOps graph2 report.ops
+        let names =
+            ownedNamedChildren graph3 workspaceId
+            |> List.map fst
+            |> List.sort
+        Assert.Equal<string list>([ "bad.txt"; "good.txt" ], names)
+
+[<Fact>]
+let ``directory amb ref to existing owned child keeps owner occurrence`` () =
+    let workspaceId, graph0 = Graph.create () |> addWorkspace "home"
+    let graph1 = createPaths graph0 [ "tasks/active/.amb" ]
+    let tasks = childNamed graph1 workspaceId "tasks"
+    let active = childNamed graph1 tasks.id "active"
+    let sid = AmbDocument.formatStableId active.id
+    let artifacts =
+        Map.ofList
+            [ "tasks/.amb", $"-> //home/tasks/active/^{sid}\n" ]
+    match
+        LazyLoadReconciliationReport.planChangedPathsWithArtifacts
+            graph1
+            "home"
+            [ LazyLoadReconciliation.Added "tasks/.amb"
+              LazyLoadReconciliation.Added "tasks/inbox.txt" ]
+            artifacts
+    with
+    | Error err -> Assert.Fail(err)
+    | Ok report ->
+        Assert.Empty(report.failures)
+        Assert.NotEmpty(report.ops)
+        let change =
+            { id = 0
+              changeId = System.Guid.NewGuid()
+              ops = report.ops }
+        let state =
+            { graph = graph1
+              history = History.empty
+              revision = Revision.Zero }
+        match History.applyChange change state with
+        | ApplyResult.Invalid(_, msg) ->
+            Assert.Fail($"ownership/apply failed: {msg}")
+        | ApplyResult.Unchanged _ -> Assert.Fail("expected Changed")
+        | ApplyResult.Changed next ->
+            let occurrences =
+                next.graph.nodes.[tasks.id].children
+                |> List.filter (fun c -> c.id = active.id)
+            Assert.Equal(1, occurrences.Length)
+            Assert.Equal(Ownership.Owner, occurrences.Head.ref)

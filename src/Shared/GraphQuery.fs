@@ -260,8 +260,9 @@ module GraphQuery =
 
                 names |> List.exists (fun n -> Set.contains n otherNames)
 
-    /// Full-graph: duplicate File/Directory/Workspace names in any artifact dir.
-    let hasArtifactNameDuplicates (graph: Graph) : bool =
+    /// Full-graph: first File/Directory/Workspace that duplicates a sibling
+    /// artifact name in its artifact directory.
+    let tryFindArtifactNameDuplicate (graph: Graph) : NodeId option =
         graph.nodes
         |> Map.toList
         |> List.choose (fun (id, node) ->
@@ -271,12 +272,23 @@ module GraphQuery =
                 | None -> None
                 | Some parentId ->
                     match enclosingContainer graph parentId, nameLowerOk node with
-                    | Some artifactDir, Some nameLower -> Some(artifactDir, nameLower)
+                    | Some artifactDir, Some nameLower ->
+                        Some(artifactDir, nameLower, id)
                     | _ -> None)
-        |> List.groupBy fst
-        |> List.exists (fun (_, pairs) ->
-            let names = pairs |> List.map snd
-            names.Length <> (names |> List.distinct).Length)
+        |> List.groupBy (fun (dir, _, _) -> dir)
+        |> List.tryPick (fun (_, triples) ->
+            triples
+            |> List.groupBy (fun (_, name, _) -> name)
+            |> List.tryPick (fun (_, sameName) ->
+                if sameName.Length > 1 then
+                    let _, _, id = List.head sameName
+                    Some id
+                else
+                    None))
+
+    /// Full-graph: duplicate File/Directory/Workspace names in any artifact dir.
+    let hasArtifactNameDuplicates (graph: Graph) : bool =
+        tryFindArtifactNameDuplicate graph |> Option.isSome
 
     let tryFindParentAndIndex (targetId: NodeId) (graph: Graph) : (NodeId * int) option =
         Map.tryFind targetId graph.parentByChild

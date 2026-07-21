@@ -116,10 +116,10 @@ let ``context command parses owning unparsed file from focused owner occurrence`
         contextualTarget graph fileId 0)
 
 [<Fact>]
-let ``context command pushes workspace and ignores ref occurrence`` () =
+let ``context command reconciles named workspace and ignores ref occurrence`` () =
     let graph, fileId, workspaceId, refHolderId = contextualGraph ()
     Assert.Equal(
-        Some(PushWorkspace workspaceId),
+        Some(ReconcileWorkspace workspaceId),
         contextualTarget graph Graph.rootId
             (graph.nodes.[Graph.rootId].children
              |> List.findIndex (fun child -> child.id = workspaceId)))
@@ -131,3 +131,43 @@ let ``context command pushes workspace and ignores ref occurrence`` () =
                 |> Map.add fileId
                     { graph.nodes.[fileId] with documentState = Current } }
     Assert.Equal(None, contextualTarget currentGraph fileId 0)
+
+[<Fact>]
+let ``context command reconciles owned directory under named workspace`` () =
+    let applyOps (graph: Graph) (ops: Op list) =
+        let state = { graph = graph; history = History.empty; revision = Revision.Zero }
+        ops
+        |> List.fold (fun s op ->
+            match Op.apply op s with
+            | ApplyResult.Changed next
+            | ApplyResult.Unchanged next -> next
+            | ApplyResult.Invalid(_, msg) -> failwith msg) state
+        |> fun s -> s.graph
+    let workspaceId, wsOps = FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
+    let graph1 = applyOps (Graph.create ()) wsOps
+    let dirId, dirOps = FileNodeOps.planCreateOwnedDirectory graph1 workspaceId "docs"
+    let graph2 = applyOps graph1 dirOps
+    let dirIndex =
+        graph2.nodes.[workspaceId].children
+        |> List.findIndex (fun child -> child.id = dirId)
+    Assert.Equal(
+        Some(ReconcileDirectory dirId),
+        contextualTarget graph2 workspaceId dirIndex)
+    let refHolderId = NodeId.New()
+    let holder =
+        Node.Create(
+            refHolderId,
+            children = [ { ref = Ownership.Ref; id = dirId } ])
+    let ws = graph2.nodes.[workspaceId]
+    let graph3 =
+        graph2.nodes
+        |> Map.add workspaceId
+            { ws with
+                children =
+                    ws.children @ [ { ref = Ownership.Owner; id = refHolderId } ] }
+        |> Map.add refHolderId holder
+        |> Graph.fromNodes graph2.root
+    let refIndex =
+        graph3.nodes.[workspaceId].children
+        |> List.findIndex (fun child -> child.id = refHolderId)
+    Assert.Equal(None, contextualTarget graph3 workspaceId refIndex)

@@ -58,22 +58,40 @@ module DocumentParseOps =
            | Some { kind = Special (File | Directory) } -> true
            | _ -> false
 
-    /// Keep path stubs that the outline did not already reference.
+    /// Keep owned File/Directory stubs unless the outline already owns them.
+    /// Outline may Ref a nested document root without an Owner edge; dropping the
+    /// prior Owner occurrence then fails History ownership validation. When that
+    /// Owner already covers the artifact, drop the outline Ref — Owned suffices.
     let private withPreservedSpecials
         (before: Graph)
         (documentRootId: NodeId)
         (outlineChildren: ChildNode list)
         =
-        let outlined = outlineChildren |> List.map (fun c -> c.id) |> Set.ofList
-        let preserved =
+        let existingOwnedSpecials =
             match Map.tryFind documentRootId before.nodes with
             | None -> []
             | Some root ->
-                root.children
-                |> List.filter (fun child ->
-                    isOwnedSpecial before child
-                    && not (Set.contains child.id outlined))
-        outlineChildren @ preserved
+                root.children |> List.filter (isOwnedSpecial before)
+        let existingOwnedIds =
+            existingOwnedSpecials
+            |> List.map (fun child -> child.id)
+            |> Set.ofList
+        let outlinedOwners =
+            outlineChildren
+            |> List.choose (fun child ->
+                if child.ref = Ownership.Owner then Some child.id else None)
+            |> Set.ofList
+        let outlineWithoutDupRefs =
+            outlineChildren
+            |> List.filter (fun child ->
+                not (
+                    child.ref = Ownership.Ref
+                    && Set.contains child.id existingOwnedIds))
+        let preserved =
+            existingOwnedSpecials
+            |> List.filter (fun child ->
+                not (Set.contains child.id outlinedOwners))
+        outlineWithoutDupRefs @ preserved
 
     let private replaceOps
         (before: Graph)

@@ -38,6 +38,19 @@ module ViewModelOccurrence =
                 let siteMap, nextId = buildSiteMapFrom graph ownerParentId nextSiteId
                 Some (ownerParentId, siteMap, nextId, childSelectionAt siteMap ownerParentId index)
 
+    /// Prefer owner occurrence; else any occurrence. None at root or with no parent edge.
+    let tryFocusNodeOccurrence (graph: Graph) (nodeId: NodeId) (nextSiteId: SiteId)
+        : (NodeId * SiteMap * SiteId * Selection option) option =
+        match tryReframeZoomAtOwnerParent graph nodeId nextSiteId with
+        | Some _ as found -> found
+        | None when nodeId = graph.root -> None
+        | None ->
+            match getAllOccurrences graph nodeId |> List.tryHead with
+            | None -> None
+            | Some (parentId, index, _) ->
+                let siteMap, nextId = buildSiteMapFrom graph parentId nextSiteId
+                Some (parentId, siteMap, nextId, childSelectionAt siteMap parentId index)
+
     /// True when the unique owner's ancestor chain includes TRASH between the node and ROOT.
     let isOwnerUnderTrash (graph: Graph) (nodeId: NodeId) : bool =
         let ownerParent, _, _ = getOwnerOccurrence graph nodeId
@@ -107,6 +120,19 @@ module ViewModelOccurrence =
                     (parentId, index) :: loop parentId (Set.add current visited)
 
         loop nodeId Set.empty
+
+    /// Zoom to a parent occurrence of nodeId and select it. Unchanged when no occurrence.
+    let focusNode (nodeId: NodeId) (model: VM) : VM =
+        match tryFocusNodeOccurrence model.graph nodeId model.nextSiteId with
+        | None -> model
+        | Some (zoomRoot, siteMap, nextId, sel) ->
+            { model with
+                zoomRoot = zoomRoot
+                zoomIngress = ownerPathIngress model.graph zoomRoot
+                siteMap = siteMap
+                nextSiteId = nextId
+                selectedNodes = sel
+                mode = Selecting }
 
     /// Site-map parent (nodeId, childIndex) of an occurrence of childNodeId, if any.
     let trySiteMapParentOccurrence

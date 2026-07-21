@@ -2,6 +2,8 @@ namespace Gambol.Server
 
 open System
 open System.IO
+open Microsoft.AspNetCore.Builder
+open Microsoft.AspNetCore.Http
 open Gambol.Shared
 
 [<RequireQualifiedAccess>]
@@ -67,49 +69,190 @@ module LazyLoadReconciliationServer =
                 None)
         |> Map.ofList
 
-    let private discoveredAddedPaths dataDir workspaceLabel =
-        Path.Combine(dataDir, workspaceLabel)
-        |> DocumentPersistence.discoverArtifactRelatives
-        |> Result.map (List.map LazyLoadReconciliation.Added)
+    /// Normalize a workspace-relative directory prefix (no leading/trailing slash).
+    let private normalizeDirRel (dirRel: string) =
+        dirRel.Replace('\\', '/').Trim('/')
 
-    let reconcileChangedPaths
+    /// Discover under DataDir/{label} or DataDir/{label}/{dirRel}; map to workspace-relative Added.
+    let private discoveredAddedPaths
+        (dataDir: string)
+        (workspaceLabel: string)
+        (discoveryDirRel: string option)
+        =
+        let prefix =
+            discoveryDirRel
+            |> Option.map normalizeDirRel
+            |> Option.filter (fun p -> not (String.IsNullOrEmpty p))
+        let discoveryRoot =
+            match prefix with
+            | None -> Path.Combine(dataDir, workspaceLabel)
+            | Some dirRel ->
+                Path.Combine(
+                    dataDir,
+                    workspaceLabel,
+                    dirRel.Replace('/', Path.DirectorySeparatorChar))
+        discoveryRoot
+        |> DocumentPersistence.discoverArtifactRelatives
+        |> Result.map (fun relatives ->
+            relatives
+            |> List.map (fun rel ->
+                let workspaceRel =
+                    match prefix with
+                    | None -> rel
+                    | Some dirRel when String.IsNullOrEmpty rel -> dirRel
+                    | Some dirRel -> dirRel + "/" + rel
+                LazyLoadReconciliation.Added workspaceRel))
+
+    let private logFailures
+        (workspaceLabel: string)
+        (failures: LazyLoadReconciliationReport.Failure list)
+        =
+        for failure in failures do
+            eprintfn
+                "[LazyLoadReconciliation] '%s' path '%s': %s"
+                workspaceLabel
+                failure.path
+                failure.message
+
+    /// Shared pipeline: discover on chosen root → union with changedPaths → plan → log → post.
+    /// `discoveryDirRel` None = workspace root; Some dir = DataDir/{label}/{dir}.
+    let reconcileChangedPathsWithDiscovery
         (handle: AgentHandle)
         (dataDir: string)
         (workspaceLabel: string)
+        (discoveryDirRel: string option)
         (changedPaths: LazyLoadReconciliation.ChangedPath list)
-        : Async<Result<unit, string>> =
+        : Async<Result<LazyLoadReconciliationReport.Failure list, string>> =
         async {
             let! stateJson = handle.getState ()
             match decodeGraphState stateJson with
             | Error err -> return Error err
             | Ok(revision, graph) ->
-                match discoveredAddedPaths dataDir workspaceLabel with
+                match discoveredAddedPaths dataDir workspaceLabel discoveryDirRel with
                 | Error err -> return Error err
                 | Ok discovered ->
                     let allChanges = changedPaths @ discovered
                     let artifacts =
                         readDirInfoArtifacts dataDir workspaceLabel allChanges
                     match
-                        LazyLoadReconciliation.planChangedPathsWithArtifacts
+                        LazyLoadReconciliationReport.planChangedPathsWithArtifacts
                             graph
                             workspaceLabel
                             allChanges
                             artifacts
                     with
                     | Error err -> return Error err
-                    | Ok [] -> return Ok ()
-                    | Ok ops ->
-                        let! result =
-                            handle.postGraphOnlyChange (encodeChange revision ops)
-                        return result |> Result.map (fun _ -> ())
+                    | Ok report ->
+                        logFailures workspaceLabel report.failures
+                        match report.ops with
+                        | [] -> return Ok report.failures
+                        | ops ->
+                            let! result =
+                                handle.postGraphOnlyChange (encodeChange revision ops)
+                            return result |> Result.map (fun _ -> report.failures)
         }
+
+    let reconcileChangedPaths
+        (handle: AgentHandle)
+        (dataDir: string)
+        (workspaceLabel: string)
+        (changedPaths: LazyLoadReconciliation.ChangedPath list)
+        : Async<Result<LazyLoadReconciliationReport.Failure list, string>> =
+        reconcileChangedPathsWithDiscovery
+            handle
+            dataDir
+            workspaceLabel
+            None
+            changedPaths
+
+    let reconcileDirectory
+        (handle: AgentHandle)
+        (dataDir: string)
+        (workspaceLabel: string)
+        (dirRel: string)
+        : Async<Result<LazyLoadReconciliationReport.Failure list, string>> =
+        reconcileChangedPathsWithDiscovery
+            handle
+            dataDir
+            workspaceLabel
+            (Some dirRel)
+            []
+
+    /// Discover under DataDir/{label} (workspace root) with no git delta.
+    let reconcileWorkspace
+        (handle: AgentHandle)
+        (dataDir: string)
+        (workspaceLabel: string)
+        : Async<Result<LazyLoadReconciliationReport.Failure list, string>> =
+        reconcileChangedPathsWithDiscovery
+            handle
+            dataDir
+            workspaceLabel
+            None
+            []
 
     let reconcileAddedPaths
         (handle: AgentHandle)
         (dataDir: string)
         (workspaceLabel: string)
         (addedPaths: string list)
-        : Async<Result<unit, string>> =
+        : Async<Result<LazyLoadReconciliationReport.Failure list, string>> =
         addedPaths
         |> List.map LazyLoadReconciliation.Added
         |> reconcileChangedPaths handle dataDir workspaceLabel
+
+    type private DirectoryBody =
+        { workspace: string
+          path: string }
+
+    let private decodeDirectoryBody (json: string) : Result<DirectoryBody, string> =
+        let decoder =
+            Thoth.Json.Core.Decode.object (fun get ->
+                { workspace = get.Required.Field "workspace" Thoth.Json.Core.Decode.string
+                  path = get.Required.Field "path" Thoth.Json.Core.Decode.string })
+        JsonDecode.fromString decoder json
+
+    let registerDirectoryRoute
+        (app: WebApplication)
+        (isAuthenticated: HttpRequest -> bool)
+        (dataDir: string)
+        (getHandle: unit -> AgentHandle)
+        =
+        app.MapPost(
+            "/ambit/git/reconciliation/directory",
+            Func<HttpRequest, System.Threading.Tasks.Task<IResult>>(fun req ->
+                task {
+                    if not (isAuthenticated req) then
+                        return Results.Unauthorized()
+                    else
+                        use reader = new StreamReader(req.Body)
+                        let! body = reader.ReadToEndAsync()
+                        match decodeDirectoryBody body with
+                        | Error err ->
+                            return Results.BadRequest("invalid body: " + err)
+                        | Ok payload when String.IsNullOrWhiteSpace payload.workspace ->
+                            return Results.BadRequest("missing workspace")
+                        | Ok payload ->
+                            let! result =
+                                if String.IsNullOrWhiteSpace payload.path then
+                                    reconcileWorkspace
+                                        (getHandle ())
+                                        dataDir
+                                        payload.workspace
+                                else
+                                    reconcileDirectory
+                                        (getHandle ())
+                                        dataDir
+                                        payload.workspace
+                                        payload.path
+                            match result with
+                            | Error err -> return Results.BadRequest(err)
+                            | Ok failures ->
+                                return
+                                    Results.Content(
+                                        LazyLoadReconciliationDiagnostics.encodeFailures
+                                            failures,
+                                        "application/json")
+                })
+        )
+        |> ignore

@@ -324,22 +324,34 @@ let private assertUnparsedInvalid state op =
     Assert.Equal(state.graph, unchanged.graph)
 
 [<Fact>]
-let ``edit rename move or delete of unparsed file root is rejected`` () =
+let ``edit or rename of unparsed file root is rejected`` () =
     let state, fileId, _, _, _ = unparsedFileState ()
-    let root = state.graph.nodes.[Graph.rootId]
-    let index = root.children |> List.findIndex (fun child -> child.id = fileId)
-    let occurrence = root.children.[index]
     assertUnparsedInvalid state (Op.SetText(fileId, "file.txt", "changed"))
     assertUnparsedInvalid state (Op.SetName(fileId, "file.txt", "renamed.txt"))
-    assertUnparsedInvalid state (Op.Replace(Graph.rootId, index, [ occurrence ], []))
 
 [<Fact>]
-let ``edit rename move or delete of unparsed file descendant is rejected`` () =
-    let state, fileId, childId, _, _ = unparsedFileState ()
-    let occurrence = state.graph.nodes.[fileId].children.Head
+let ``edit or rename of unparsed file descendant is rejected`` () =
+    let state, _, childId, _, _ = unparsedFileState ()
     assertUnparsedInvalid state (Op.SetText(childId, "body", "changed"))
     assertUnparsedInvalid state (Op.SetName(childId, "", "renamed"))
-    assertUnparsedInvalid state (Op.Replace(fileId, 0, [ occurrence ], []))
+
+[<Fact>]
+let ``structural relocate of unparsed file to start among siblings succeeds`` () =
+    let state, fileId, _, _, _ = unparsedFileState ()
+    let oldChildren = state.graph.nodes.[Graph.rootId].children
+    let index = oldChildren |> List.findIndex (fun child -> child.id = fileId)
+    let occurrence = oldChildren.[index]
+    let without =
+        oldChildren
+        |> List.indexed
+        |> List.filter (fun (i, _) -> i <> index)
+        |> List.map snd
+    let newChildren = occurrence :: without
+    let changed =
+        Op.apply (Op.Replace(Graph.rootId, 0, oldChildren, newChildren)) state
+        |> expectChanged
+    Assert.Equal(fileId, changed.graph.nodes.[Graph.rootId].children.Head.id)
+    Assert.Equal(Unparsed, changed.graph.nodes.[fileId].documentState)
 
 [<Fact>]
 let ``operation in unrelated current document remains valid`` () =
@@ -542,6 +554,11 @@ let ``SetClasses via applyChange succeeds despite distant ownership violation`` 
     match History.validateOwnership graph with
     | Ok () -> failwith "expected global ownership validation to fail"
     | Error _ -> ()
+    match History.validateOwnershipLocated graph with
+    | Ok () -> failwith "expected located ownership validation to fail"
+    | Error (msg, nodeId) ->
+        Assert.Contains("File and Directory", msg)
+        Assert.Equal(fileBId, nodeId)
     let state =
         { graph = graph; history = History.empty; revision = Revision.Zero }
     let fileB = state.graph.nodes.[fileBId]
@@ -551,6 +568,46 @@ let ``SetClasses via applyChange succeeds despite distant ownership violation`` 
     let result = History.applyChange change state |> expectChanged
     Assert.Equal(CssClass.ofList [ "edited" ], result.graph.nodes.[fileBId].cssClasses)
     Assert.Equal(fileAId, result.graph.nodes.[fileAId].id)
+
+[<Fact>]
+let ``validateOwnershipLocated reports missing owner node`` () =
+    let graph0 = Graph.create ()
+    let childId = NodeId.New()
+    let child = Node.Create(childId, text = "orphan-ref")
+    let root = graph0.nodes.[Graph.rootId]
+    let nodes =
+        graph0.nodes
+        |> Map.add Graph.rootId
+            { root with
+                children =
+                    root.children @ [ { ref = Ownership.Ref; id = childId } ] }
+        |> Map.add childId child
+    let graph = Graph.fromNodes graph0.root nodes
+    match History.validateOwnershipLocated graph with
+    | Ok () -> Assert.True(false, "expected Error")
+    | Error (msg, nodeId) ->
+        Assert.Contains("missing owner", msg)
+        Assert.Equal(childId, nodeId)
+
+[<Fact>]
+let ``validateOwnershipLocated reports duplicate artifact name`` () =
+    let graph0 = Graph.create ()
+    let d1Id, d1 = specialNode Directory "dup"
+    let d2Id, d2 = specialNode Directory "dup"
+    let owner id = { ref = Ownership.Owner; id = id }
+    let root = graph0.nodes.[Graph.rootId]
+    let nodes =
+        graph0.nodes
+        |> Map.add Graph.rootId
+            { root with children = root.children @ [ owner d1Id; owner d2Id ] }
+        |> Map.add d1Id d1
+        |> Map.add d2Id d2
+    let graph = Graph.fromNodes graph0.root nodes
+    match History.validateOwnershipLocated graph with
+    | Ok () -> Assert.True(false, "expected Error")
+    | Error (msg, nodeId) ->
+        Assert.Contains("duplicate name", msg)
+        Assert.True(nodeId = d1Id || nodeId = d2Id)
 
 [<Fact>]
 let ``local shape op succeeds despite distant ownership violation`` () =

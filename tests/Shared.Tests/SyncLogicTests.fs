@@ -197,30 +197,31 @@ let ``applyServerTail multi-change tail advances revision and graph`` () =
         Assert.Equal(nodeB.text + "2", result.graph.nodes.[nodeB.id].text)
 
 [<Fact>]
-let ``applyServerTail returns Error when final ownership validation fails`` () =
+let ``applyServerTail returns Ok even when final graph would fail ownership`` () =
+    // Server-accepted tails are trusted: poll apply must not reject on ownership.
     let state0 = ModelBuilder.createState12 ()
     let rootId = state0.graph.root
     let root = state0.graph.nodes.[rootId]
     let childA = root.children.[0]
     let nodeA = state0.graph.nodes.[childA.id]
     let childB = nodeA.children.[0]
-    let originalRootChildren = root.children
     let originalBChildren = state0.graph.nodes.[childB.id].children
     let nodeC = state0.graph.nodes.[root.children.[1].id]
     let goodChange =
         { id = 1
           changeId = System.Guid.NewGuid()
           ops = [ Op.SetText(nodeC.id, nodeC.text, "ok") ] }
-    let badChange =
+    let ownershipBreakingChange =
         { id = 2
           changeId = System.Guid.NewGuid()
           ops =
             [ Op.Replace(rootId, 0, [ childA ], [])
               Op.Replace(childB.id, originalBChildren.Length, [], [ childA ]) ] }
-    match SyncLogic.applyServerTail [ goodChange; badChange ] state0 with
-    | Ok _ -> failwith "Expected Error but got Ok"
-    | Error msg ->
-        Assert.Contains("ownership", msg)
-        Assert.Equal<ChildNode>(originalRootChildren, state0.graph.nodes.[rootId].children)
-        Assert.Equal<ChildNode>(originalBChildren, state0.graph.nodes.[childB.id].children)
-        Assert.Equal(nodeC.text, state0.graph.nodes.[nodeC.id].text)
+    match SyncLogic.applyServerTail [ goodChange; ownershipBreakingChange ] state0 with
+    | Error msg -> failwith $"Expected Ok (no ownership re-check), got Error: {msg}"
+    | Ok result ->
+        Assert.Equal(Revision (state0.revision.Value + 2), result.revision)
+        Assert.Equal("ok", result.graph.nodes.[nodeC.id].text)
+        match History.validateOwnership result.graph with
+        | Ok () -> failwith "Expected ownership to fail on result (proves check was skipped)"
+        | Error msg -> Assert.Contains("ownership", msg)

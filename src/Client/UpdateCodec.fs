@@ -34,6 +34,30 @@ let decodeGitSaveResponse (text: string) : Result<GitSaveResponse, string> =
 let decodeGitTokenIssue (text: string) : Result<GitTokenIssue, string> =
     Thoth.Json.JavaScript.Decode.fromString GitTokenIssue.decoder text
 
+/// Decode GET /ambit/git/reconciliation/latest → failure count.
+let decodeReconciliationLatest (text: string) : Result<int, string> =
+    let failureDecoder =
+        Decode.object (fun get ->
+            get.Required.Field
+                "failures"
+                (Decode.list (
+                    Decode.object (fun g ->
+                        g.Required.Field "path" Decode.string,
+                        g.Required.Field "message" Decode.string))))
+    match Thoth.Json.JavaScript.Decode.fromString failureDecoder text with
+    | Ok failures -> Ok failures.Length
+    | Error e -> Error e
+
+/// Decode POST /ambit/git/reconciliation/directory → failure count.
+let decodeReconciliationDirectory (text: string) : Result<int, string> =
+    decodeReconciliationLatest text
+
+let encodeReconciliationDirectoryRequest (workspace: string) (path: string) : string =
+    Encode.object
+        [ "workspace", Encode.string workspace
+          "path", Encode.string path ]
+    |> Thoth.Json.JavaScript.Encode.toString 0
+
 /// Decode desktop `{ok,detail}` / error body.
 let decodeDesktopGitOk (text: string) : Result<DesktopGitOkResponse, string> =
     Thoth.Json.JavaScript.Decode.fromString DesktopGitOkResponse.decoder text

@@ -50,7 +50,8 @@ let submitRenamePromptOp (model: VM) : VM * Effect list =
         let newName = readRenamePromptValue ()
         let result = { model with mode = ret }
         match NodeRenameOps.planRenameNode model.graph nodeId newName with
-        | Error _ -> result, []
+        | Error msg ->
+            { result with lastCmdResult = Some (CmdLastResult.Error (None, msg)) }, []
         | Ok (ops, _) ->
             if ops.IsEmpty then
                 result, []
@@ -61,5 +62,6 @@ let submitRenamePromptOp (model: VM) : VM * Effect list =
                       ops = ops }
                 match applyAndPost change result with
                 | Ok (m, effects) -> withSiteMap m, effects
-                | Error _ -> result, []
+                | Error msg ->
+                    { result with lastCmdResult = Some (CmdLastResult.Error (None, msg)) }, []
     | _ -> model, []

@@ -133,6 +133,15 @@ module Api =
                 |> Encode.toString 0
                 |> jsonResult
 
+    let getImportFile (dataDir: string) (path: string) : IResult =
+        match DocumentPersistence.importPackageForReference dataDir path with
+        | Error err -> Results.BadRequest({| error = err |})
+        | Ok package ->
+            package
+            |> Serialization.encodeDesktopImportPackage
+            |> Encode.toString 0
+            |> jsonResult
+
     let gitSave
         (prepare: unit -> Async<Result<int, string>>)
         (dataDir: string)

@@ -241,7 +241,7 @@ let ``completeWorkspacePush points HEAD at seeded non-master branch`` () =
     match WorkspaceGit.currentBranch root with
     | Ok "master" -> ()
     | other -> Assert.Fail($"expected unborn master symref, got {other}")
-    let reconcile _ _ = async { return Ok () }
+    let reconcile _ _ = async { return Ok [] }
     let response = [| 1uy; 2uy |]
     let result =
         GitGateway.completeWorkspacePush

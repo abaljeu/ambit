@@ -328,6 +328,15 @@ module RouteRegistration =
                 let! body = reader.ReadToEndAsync()
                 return Api.postFileStatus persistence.DataDir body
         })) |> ignore
+        app.MapGet("/ambit/file", Func<HttpRequest, IResult>(fun req ->
+            if not (auth.IsAuthenticated req) then
+                Results.Unauthorized()
+            else
+                match req.Query.TryGetValue("path") with
+                | false, _ -> Results.BadRequest({| error = "path is required" |})
+                | true, value ->
+                    Api.getImportFile persistence.DataDir (string value)
+        )) |> ignore
         app.MapPost("/ambit/save", Func<HttpRequest, Task<IResult>>(fun req -> task {
             if not (auth.IsAuthenticated req) then
                 return Results.Unauthorized()
@@ -467,4 +476,12 @@ module RouteRegistration =
                 persistence.DataDir
                 flushForGit
                 reconcileGitPush
+            LazyLoadReconciliationDiagnostics.registerRoute
+                app
+                auth.IsAuthenticated
+            LazyLoadReconciliationServer.registerDirectoryRoute
+                app
+                auth.IsAuthenticated
+                persistence.DataDir
+                (fun () -> persistence.GetHandle "gambol")
             registerCssAndShellRoutes app auth publicAssetBaseOpt assets stamps persistence

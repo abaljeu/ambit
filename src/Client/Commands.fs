@@ -18,6 +18,7 @@ open Gambol.Client.UpdateWorkspaceGit
 open Gambol.Client.UpdateFileSearch
 open Gambol.Client.UpdateRename
 open Gambol.Client.UpdateAmbleRun
+open Gambol.Client.UpdateValidateGraph
 open Gambol.Shared.CommandDockLayout
 open Gambol.Shared.CommandEntry
 
@@ -172,7 +173,8 @@ let private contextualTargetForModel (model: VM) =
 let parseOrPushOp (model: VM) : VM * Effect list =
     match contextualTargetForModel model with
     | Some(ParseFile fileId) -> parseUnparsedFileOp fileId model
-    | Some(PushWorkspace _) -> gitPushOp model
+    | Some(ReconcileWorkspace _) -> reconcileWorkspaceOp model
+    | Some(ReconcileDirectory dirId) -> reconcileDirectoryOp dirId model
     | None -> model, []
 
 let private contextualCommandAvailable (model: VM) =
@@ -181,8 +183,8 @@ let private contextualCommandAvailable (model: VM) =
         match model.desktopCapabilities with
         | Some { file = { canImport = true } } -> true
         | _ -> false
-    | Some(PushWorkspace _) ->
-        WorkspaceGitRemote.canDesktopGit model.desktopCapabilities
+    | Some(ReconcileWorkspace _)
+    | Some(ReconcileDirectory _) -> true
     | None -> false
 
 // ---------------------------------------------------------------------------
@@ -246,6 +248,7 @@ let commandRegistry : CommandEntry2 list =
       cmd GitPull (keyAlways gitPullOp)
       cmd GitPush (keyAlways gitPushOp)
       cmd GitStatus (keyAlways gitStatusOp)
+      cmd CheckGraph (keyAlways validateGraphOp)
     ]
 
 // ---------------------------------------------------------------------------

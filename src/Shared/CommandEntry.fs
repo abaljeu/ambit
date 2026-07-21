@@ -63,6 +63,7 @@ type CommandId =
     | InsertFile
     | Rename
     | Exec
+    | CheckGraph
 
 type CommandEntry = {
     id: CommandId
@@ -74,7 +75,8 @@ type CommandEntry = {
 
 type ContextualTarget =
     | ParseFile of NodeId
-    | PushWorkspace of NodeId
+    | ReconcileWorkspace of NodeId
+    | ReconcileDirectory of NodeId
 
 let contextualTarget (graph: Graph) (parentId: NodeId) (index: int) : ContextualTarget option =
     match Map.tryFind parentId graph.nodes with
@@ -88,7 +90,12 @@ let contextualTarget (graph: Graph) (parentId: NodeId) (index: int) : Contextual
                  |> Option.bind (fun node ->
                      NodeDesktopPath.enclosingWorkspaceName graph node.id)
                  |> Option.isSome ->
-            Some(PushWorkspace occurrence.id)
+            Some(ReconcileWorkspace occurrence.id)
+        | Some { kind = Special Directory }
+            when occurrence.ref = Ownership.Owner
+                 && NodeDesktopPath.enclosingWorkspaceName graph occurrence.id
+                    |> Option.isSome ->
+            Some(ReconcileDirectory occurrence.id)
         | _ when occurrence.ref = Ownership.Owner ->
             DocumentPartition.documentRootForNode graph occurrence.id
             |> Option.bind (fun rootId ->
@@ -268,6 +275,9 @@ let allCommands : CommandEntry list =
         { id = Exec; name = "Run"
           keys = [ "Ctrl+Enter" ]; keyScope = SelectionOrEditing
           iconId = Some "amb-icon-run" }
+        { id = CheckGraph; name = "Check graph"
+          keys = []; keyScope = SelectionOrEditing
+          iconId = None }
     ]
 
 let commandFor (id: CommandId) : CommandEntry option =

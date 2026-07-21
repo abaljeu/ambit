@@ -26,6 +26,28 @@ let private httpError (status: int) (body: string) : string =
     | None ->
         "HTTP " + string status + ": " + LogText.truncateForLog 200 body
 
+let private fetchReconciliationWarningCount (workspace: string) : Result<int, string> =
+    let url =
+        "/ambit/git/reconciliation/latest?workspace="
+        + encodeUriComponent workspace
+    let status, text = getJsonSync url
+    if status < 200 || status >= 300 then
+        Error(httpError status text)
+    else
+        decodeReconciliationLatest text
+
+let private pushDetailAfterReconcile
+    (model: VM)
+    (workspace: string)
+    (okDetailText: string)
+    : VM * Effect list =
+    match fetchReconciliationWarningCount workspace with
+    | Ok n when n > 0 ->
+        okDetail model $"pushed with reconciliation warnings ({n})"
+    | Ok _ -> okDetail model okDetailText
+    | Error note ->
+        okDetail model (okDetailText + "; reconciliation diagnostics unavailable: " + note)
+
 let private workspaceFromFocus (model: VM) : string option =
     let nodeId =
         match model.selectedNodes with
@@ -167,10 +189,69 @@ let gitPushOp (model: VM) : VM * Effect list =
                 | Ok text ->
                     match decodeDesktopGitOk text with
                     | Ok { ok = true; detail = d } ->
-                        okDetail model ("pushed: " + d)
+                        pushDetailAfterReconcile model workspace ("pushed: " + d)
                     | Ok { error = Some e } -> fail model e
                     | Ok _ -> fail model "request failed"
                     | Error e -> fail model e
+
+let private directoryWorkspaceRel
+    (graph: Graph)
+    (dirId: NodeId)
+    : Result<string * string, string> =
+    match NodeDesktopPath.pathForNodeId graph dirId with
+    | None -> Error "selected Directory has no path"
+    | Some path ->
+        match NodeDesktopPath.tryParseWorkspacePath path with
+        | Some(label, tail) when not (System.String.IsNullOrWhiteSpace label) ->
+            let dirRel = tail.Trim().TrimEnd('/').TrimStart('/')
+            if System.String.IsNullOrWhiteSpace dirRel then
+                Error "directory path is empty"
+            else
+                Ok(label, dirRel)
+        | _ -> Error "directory is not under a named workspace"
+
+let private postDirectoryReconcile
+    (model: VM)
+    (workspace: string)
+    (path: string)
+    (okDetailText: string)
+    : VM * Effect list =
+    let body = encodeReconciliationDirectoryRequest workspace path
+    let status, text =
+        postJsonSync
+            "/ambit/git/reconciliation/directory"
+            body
+            (jsonHeaders ())
+    if status < 200 || status >= 300 then
+        fail model (httpError status text)
+    else
+        match decodeReconciliationDirectory text with
+        | Ok n when n > 0 ->
+            okDetail model $"reconciled with warnings ({n})"
+        | Ok _ -> okDetail model okDetailText
+        | Error e -> fail model e
+
+/// Parse / Upload on a Workspace: create missing disk stubs under DataDir/{label}.
+let reconcileWorkspaceOp (model: VM) : VM * Effect list =
+    match requireNamedWorkspace model with
+    | Error msg -> fail model msg
+    | Ok workspace ->
+        postDirectoryReconcile
+            model
+            workspace
+            ""
+            ("workspace reconciled: " + workspace)
+
+/// Parse / Upload on a Directory: create missing disk stubs under that folder (server DataDir).
+let reconcileDirectoryOp (dirId: NodeId) (model: VM) : VM * Effect list =
+    match directoryWorkspaceRel model.graph dirId with
+    | Error msg -> fail model msg
+    | Ok(workspace, dirRel) ->
+        postDirectoryReconcile
+            model
+            workspace
+            dirRel
+            ("directory reconciled: " + dirRel)
 
 
 let gitStatusOp (model: VM) : VM * Effect list =

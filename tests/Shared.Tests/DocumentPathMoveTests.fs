@@ -144,13 +144,40 @@ let ``planPathMoveForReparent returns none for workspace move to trash`` () =
 [<Fact>]
 let ``planRenameNode rejects canonical trash id`` () =
     let graph = Graph.create ()
-    Assert.True(Result.isError (NodeRenameOps.planRenameNode graph Graph.trashId "other"))
+    match NodeRenameOps.planRenameNode graph Graph.trashId "other" with
+    | Ok _ -> Assert.Fail "expected Error"
+    | Error msg -> Assert.Equal("cannot rename this node", msg)
 
 [<Fact>]
 let ``isRenameAllowed false and planRenameNode Error for workspace`` () =
     let graph, wsId, _ = graphWithWorkspaceFile ()
     Assert.False(NodeRenameOps.isRenameAllowed graph wsId)
-    Assert.True(Result.isError (NodeRenameOps.planRenameNode graph wsId "renamed"))
+    match NodeRenameOps.planRenameNode graph wsId "renamed" with
+    | Ok _ -> Assert.Fail "expected Error"
+    | Error msg -> Assert.Equal("cannot rename this node", msg)
+
+[<Fact>]
+let ``planRenameNode Error name conflict when sibling name taken`` () =
+    let graph, _, fileId = graphWithWorkspaceFile ()
+    let otherId = NodeId.New()
+    let wsId = graph.ownerParentByChild.[fileId]
+    let graph1 =
+        graph.nodes
+        |> Map.add otherId (specialNode otherId File "notes.txt" wsId)
+        |> fun nodes -> Graph.fromNodes graph.root nodes
+    let graph2 =
+        Graph.replace wsId 0 (owned [ fileId ]) (owned [ fileId; otherId ]) graph1
+        |> requireOk "ws->two files"
+    match NodeRenameOps.planRenameNode graph2 fileId "notes.txt" with
+    | Ok _ -> Assert.Fail "expected Error"
+    | Error msg -> Assert.Equal("name conflict", msg)
+
+[<Fact>]
+let ``planRenameNode Error when new name is invalid filename`` () =
+    let graph, _, fileId = graphWithWorkspaceFile ()
+    match NodeRenameOps.planRenameNode graph fileId "bad/name" with
+    | Ok _ -> Assert.Fail "expected Error"
+    | Error msg -> Assert.Equal("new name is not a valid filename", msg)
 
 [<Fact>]
 let ``planRenameNode on Normal updates name not text`` () =

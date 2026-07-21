@@ -30,36 +30,29 @@ module SyncLogic =
         else None
 
     /// Apply a server-supplied change tail onto local state.
-    /// Trusted apply (no per-change ownership check), then one final ownership
-    /// validation. Ok increments revision by one per change; Error if any change
-    /// is invalid or the final graph fails ownership. Empty list is a no-op.
+    /// Trusted apply only (no ownership re-check): the server already accepted
+    /// the log. Ok increments revision by one per change; Error if any change
+    /// is structurally invalid. Empty list is a no-op.
     let applyServerTail (changes: Change list) (state: State) : Result<State, string> =
         if List.isEmpty changes then
             Ok state
         else
-            let folded =
-                changes
-                |> List.fold
-                    (fun acc change ->
-                        match acc with
-                        | Error _ -> acc
-                        | Ok st ->
-                            match History.applyChangeTrusted change st with
-                            | ApplyResult.Changed newSt ->
-                                Ok
-                                    { newSt with
-                                          revision =
-                                              Revision (st.revision.Value + 1) }
-                            | ApplyResult.Unchanged newSt ->
-                                Ok
-                                    { newSt with
-                                          revision =
-                                              Revision (st.revision.Value + 1) }
-                            | ApplyResult.Invalid (_, msg) -> Error msg)
-                    (Ok state)
-            match folded with
-            | Error _ -> folded
-            | Ok finalSt ->
-                match History.validateOwnership finalSt.graph with
-                | Error msg -> Error msg
-                | Ok () -> Ok finalSt
+            changes
+            |> List.fold
+                (fun acc change ->
+                    match acc with
+                    | Error _ -> acc
+                    | Ok st ->
+                        match History.applyChangeTrusted change st with
+                        | ApplyResult.Changed newSt ->
+                            Ok
+                                { newSt with
+                                      revision =
+                                          Revision (st.revision.Value + 1) }
+                        | ApplyResult.Unchanged newSt ->
+                            Ok
+                                { newSt with
+                                      revision =
+                                          Revision (st.revision.Value + 1) }
+                        | ApplyResult.Invalid (_, msg) -> Error msg)
+                (Ok state)

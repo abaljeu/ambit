@@ -84,26 +84,30 @@ module LazyLoadReconciliation =
                   [ { ref = Ownership.Owner; id = replacementId } ]) ])
 
     let private planTrashNode (graph: Graph) nodeId =
-        match Map.tryFind nodeId graph.ownerParentByChild with
-        | None -> Ok(graph, [])
-        | Some parentId when parentId = Graph.trashId -> Ok(graph, [])
-        | Some parentId ->
-            let parent = graph.nodes.[parentId]
-            let index =
-                parent.children
-                |> List.findIndex (fun child ->
-                    child.id = nodeId && child.ref = Ownership.Owner)
-            let ownerChild = parent.children.[index]
-            let path =
-                NodeDesktopPath.pathForNodeId graph nodeId
-                |> Option.defaultValue ""
-            let refOps = refReplacementOps graph nodeId path
-            let trashIndex = graph.nodes.[Graph.trashId].children.Length
-            let ops =
-                refOps
-                @ [ Op.Replace(parentId, index, [ ownerChild ], [])
-                    Op.Replace(Graph.trashId, trashIndex, [], [ ownerChild ]) ]
-            applyOps graph ops |> Result.map (fun next -> next, ops)
+        if DocumentPartition.isMemberOfUnparsedDocument graph nodeId then
+            Error
+                "operation cannot modify an unparsed document; parse it first"
+        else
+            match Map.tryFind nodeId graph.ownerParentByChild with
+            | None -> Ok(graph, [])
+            | Some parentId when parentId = Graph.trashId -> Ok(graph, [])
+            | Some parentId ->
+                let parent = graph.nodes.[parentId]
+                let index =
+                    parent.children
+                    |> List.findIndex (fun child ->
+                        child.id = nodeId && child.ref = Ownership.Owner)
+                let ownerChild = parent.children.[index]
+                let path =
+                    NodeDesktopPath.pathForNodeId graph nodeId
+                    |> Option.defaultValue ""
+                let refOps = refReplacementOps graph nodeId path
+                let trashIndex = graph.nodes.[Graph.trashId].children.Length
+                let ops =
+                    refOps
+                    @ [ Op.Replace(parentId, index, [ ownerChild ], [])
+                        Op.Replace(Graph.trashId, trashIndex, [], [ ownerChild ]) ]
+                applyOps graph ops |> Result.map (fun next -> next, ops)
 
     let rec private cleanupEmptyDirectories protectedIds (graph: Graph) parentId =
         if parentId = Graph.rootId

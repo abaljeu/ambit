@@ -22,6 +22,7 @@
     <Compile Include="AuthToken.fs" />
     <Compile Include="GitSave.fs" />
     <Compile Include="WorkspaceGit.fs" />
+    <Compile Include="LazyLoadReconciliationDiagnostics.fs" />
     <Compile Include="GitGateway.fs" />
     <Compile Include="IgnoredDestination.fs" />
     <Compile Include="DocumentPersistence.fs" />

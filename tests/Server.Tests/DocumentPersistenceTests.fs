@@ -213,6 +213,52 @@ let ``fileStatusForReference reports existing and missing server artifacts`` () 
     Assert.Equal(None, missing.sourceModifiedUtc)
 
 [<Fact>]
+let ``importPackageForReference builds package from DataDir file`` () =
+    let dataDir = newTempDir ()
+    let relDir = Path.Combine(dataDir, "life", "memory")
+    Directory.CreateDirectory relDir |> ignore
+    File.WriteAllText(Path.Combine(relDir, "goal.md"), "hello goal")
+
+    let package =
+        DocumentPersistence.importPackageForReference
+            dataDir
+            "//life/memory/goal.md"
+        |> requireOk "import package"
+
+    Assert.Equal("//life/memory/goal.md", package.sourcePath)
+    Assert.False(package.isDirectory)
+    Assert.False(List.isEmpty package.topLevelIds)
+    Assert.False(List.isEmpty package.ops)
+
+[<Fact>]
+let ``importPackageForReference reports missing DataDir file`` () =
+    let dataDir = newTempDir ()
+
+    match
+        DocumentPersistence.importPackageForReference
+            dataDir
+            "//life/memory/goal.md"
+    with
+    | Error msg -> Assert.Equal("file not found", msg)
+    | Ok _ -> Assert.Fail("expected file not found")
+
+[<Fact>]
+let ``GET /ambit/file returns import package for DataDir file`` () = task {
+    let dataDir = newTempDir ()
+    let relDir = Path.Combine(dataDir, "life", "memory")
+    Directory.CreateDirectory relDir |> ignore
+    File.WriteAllText(Path.Combine(relDir, "goal.md"), "alpha")
+    use client = createClientForDir dataDir
+    let path = Uri.EscapeDataString("//life/memory/goal.md")
+    let! resp = client.GetAsync("/ambit/file?path=" + path)
+    Assert.Equal(System.Net.HttpStatusCode.OK, resp.StatusCode)
+    let! body = resp.Content.ReadAsStringAsync()
+    Assert.Contains("\"sourcePath\"", body)
+    Assert.Contains("goal.md", body)
+    Assert.Contains("\"ops\"", body)
+}
+
+[<Fact>]
 let ``writeAllDocuments ROOT file lands at dataDir root without amb suffix`` () =
     let dataDir = newTempDir ()
     let graph, fileId = graphWithRootFile ()

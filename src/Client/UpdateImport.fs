@@ -45,20 +45,37 @@ let private handleImportHttpResponse
     | Error err -> fail model ("could not decode parsed file: " + err)
     | Ok package -> commitParsedFile model fileId path package
 
+let private isDesktopFileMissing (status: int) (responseText: string) =
+    status = 400 && responseText.Contains("\"error\":\"file not found\"")
+
 let private requestImportAtPath
     (model: VM) (fileId: NodeId) (path: string)
     : VM * Effect list =
-    let url = "/_desktop/file?path=" + encodeUriComponent path
-    let status, responseText = getJsonSync url
+    let desktopUrl = "/_desktop/file?path=" + encodeUriComponent path
+    let status, responseText = getJsonSync desktopUrl
 
-    if status < 200 || status >= 300 then
+    if status >= 200 && status < 300 then
+        handleImportHttpResponse model fileId path responseText
+    elif isDesktopFileMissing status responseText then
+        // Directory reconcile can add Unparsed stubs from server DataDir
+        // before the desktop clone has the file; fall back to server read.
+        let serverUrl = "/ambit/file?path=" + encodeUriComponent path
+        let serverStatus, serverText = getJsonSync serverUrl
+
+        if serverStatus < 200 || serverStatus >= 300 then
+            fail model (
+                "HTTP "
+                + string serverStatus
+                + ": "
+                + LogText.truncateForLog 200 serverText)
+        else
+            handleImportHttpResponse model fileId path serverText
+    else
         fail model (
             "HTTP "
             + string status
             + ": "
             + LogText.truncateForLog 200 responseText)
-    else
-        handleImportHttpResponse model fileId path responseText
 
 /// Parse one existing Unparsed File document in place from its desktop path.
 let parseUnparsedFileOp (fileId: NodeId) (model: VM) : VM * Effect list =

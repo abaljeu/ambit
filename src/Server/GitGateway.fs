@@ -134,13 +134,29 @@ module GitGateway =
 
     type FlushFn = unit -> Async<Result<unit, string>>
     type ReconcileFn =
-        string -> LazyLoadReconciliation.ChangedPath list -> Async<Result<unit, string>>
+        string
+            -> LazyLoadReconciliation.ChangedPath list
+            -> Async<Result<LazyLoadReconciliationReport.Failure list, string>>
 
     let private logReconcileError label err =
         eprintfn
             "[GitGateway] Post-receive reconciliation failed for '%s': %s"
             label
             err
+
+    let private storeReconcileResult
+        (workspaceLabel: string)
+        (result: Result<LazyLoadReconciliationReport.Failure list, string>)
+        =
+        match result with
+        | Ok failures ->
+            LazyLoadReconciliationDiagnostics.set workspaceLabel failures
+        | Error err ->
+            logReconcileError workspaceLabel err
+            LazyLoadReconciliationDiagnostics.set
+                workspaceLabel
+                [ { path = ""
+                    message = err } ]
 
     let private logAlignHeadError label err =
         eprintfn
@@ -199,11 +215,15 @@ module GitGateway =
                     | Ok oldOid, Ok(Some newOid) ->
                         WorkspaceGit.changedPathsBetween workspaceRoot oldOid newOid
                 match diffResult with
-                | Error err -> logReconcileError workspaceLabel err
+                | Error err ->
+                    logReconcileError workspaceLabel err
+                    LazyLoadReconciliationDiagnostics.set
+                        workspaceLabel
+                        [ { path = ""
+                            message = err } ]
                 | Ok changedPaths ->
-                    match! reconcile workspaceLabel changedPaths with
-                    | Ok () -> ()
-                    | Error err -> logReconcileError workspaceLabel err
+                    let! reconcileResult = reconcile workspaceLabel changedPaths
+                    storeReconcileResult workspaceLabel reconcileResult
                 return Ok response
         }
 

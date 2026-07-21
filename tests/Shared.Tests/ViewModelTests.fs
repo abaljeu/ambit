@@ -2046,6 +2046,37 @@ let ``tryReframeZoomAtOwnerParent follows focus owner not structural parent`` ()
         let selectedId = sel |> Option.map (focusedNodeId graph)
         Assert.Equal(Some shared, selectedId)
 
+[<Fact>]
+let ``focusNode prefers owner parent over ref parent`` () =
+    let graph, ownerParent, refParent, shared = buildSharedRefLink ()
+    let model = emptyModelAt graph refParent
+    let result = focusNode shared model
+    Assert.Equal(ownerParent, result.zoomRoot)
+    let selectedId =
+        result.selectedNodes |> Option.map (focusedNodeId result.graph)
+    Assert.Equal(Some shared, selectedId)
+
+[<Fact>]
+let ``tryFocusNodeOccurrence falls back to ref occurrence without owner`` () =
+    let graph0 = Graph.create ()
+    let childId = NodeId.New()
+    let child = Node.Create(childId, text = "ref-only")
+    let root = graph0.nodes.[Graph.rootId]
+    let nodes =
+        graph0.nodes
+        |> Map.add Graph.rootId
+            { root with
+                children =
+                    root.children @ [ { ref = Ownership.Ref; id = childId } ] }
+        |> Map.add childId child
+    let graph = Graph.fromNodes graph0.root nodes
+    match tryFocusNodeOccurrence graph childId (Sid 0) with
+    | None -> Assert.True(false, "Expected Some")
+    | Some (zoomRoot, _siteMap, _nextId, sel) ->
+        Assert.Equal(Graph.rootId, zoomRoot)
+        let selectedId = sel |> Option.map (focusedNodeId graph)
+        Assert.Equal(Some childId, selectedId)
+
 let private buildSharedRefLinkNonLeaf () : Graph * NodeId * NodeId * NodeId =
     let graph0, ownerParent, refParent, shared = buildSharedRefLink ()
     let graph1, childIds = ModelBuilder.createNodes [ "under" ] graph0

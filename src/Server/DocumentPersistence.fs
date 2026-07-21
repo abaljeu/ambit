@@ -100,6 +100,28 @@ module DocumentPersistence =
                           status = MissingArtifact
                           sourceModifiedUtc = None }
 
+    /// Read a workspace file under DataDir and build a desktop-compatible import package.
+    let importPackageForReference
+        (dataDir: string)
+        (nodeReference: string)
+        : Result<DesktopImportPackage, string> =
+        match NodeDesktopPath.artifactRelativeForReference nodeReference with
+        | Error err -> Error err
+        | Ok relativePath ->
+            match resolveUnderDataDir dataDir relativePath with
+            | Error err -> Error err
+            | Ok fullPath when Directory.Exists fullPath ->
+                Error "path is a directory"
+            | Ok fullPath when not (File.Exists fullPath) ->
+                Error "file not found"
+            | Ok fullPath ->
+                try
+                    let text = File.ReadAllText fullPath
+                    ImportText.buildPackage nodeReference text
+                with
+                | :? IOException as ex ->
+                    Error ("read failed: " + ex.Message)
+
     let private resolveArtifactDirectoryPath
         (dataDir: string)
         (graph: Graph)

@@ -175,6 +175,16 @@ let ``artifactNameConflict ignores foreign-only duplicate names`` () =
     Assert.True(GraphQuery.hasArtifactNameDuplicates graph)
 
 [<Fact>]
+let ``tryFindArtifactNameDuplicate returns a duplicate artifact id`` () =
+    let graph, _normalId, d1Id = graphWithForeignDuplicateDirsAndRef ()
+    match GraphQuery.tryFindArtifactNameDuplicate graph with
+    | None -> Assert.True(false, "expected a duplicate id")
+    | Some id ->
+        let name = graph.nodes.[id].name
+        Assert.Equal(Filename.create "dup", name)
+        Assert.True(id = d1Id || graph.nodes.[id].name = graph.nodes.[d1Id].name)
+
+[<Fact>]
 let ``Graph.replace accepts Ref attach despite foreign duplicate artifact names`` () =
     let graph, normalId, d1Id = graphWithForeignDuplicateDirsAndRef ()
     let dirRef = { ref = Ownership.Ref; id = d1Id }

@@ -85,12 +85,12 @@ module Op =
             && node.documentState = Current
         | None -> false
 
-    /// Unparsed membership blocks edits. Exception: Replace whose parent is already a
-    /// Current document root — needed when parsing a nested File while an enclosing
-    /// Directory/Workspace is Unparsed (e.g. after `.amb` modification). Upload-built
-    /// directories stay Current; this is not a substitute for that invariant.
-    /// Only Owner children are re-checked, so removing an Unparsed stub from a Current
-    /// parent remains blocked.
+    /// Unparsed membership blocks content edits. Structural Replace is allowed
+    /// when relocating an Unparsed document root as an opaque unit under a
+    /// Current parent (Move Up/Down, Move Selection to Start/End, indent).
+    /// Replace that mutates inside an Unparsed document remains blocked, with
+    /// the existing exception for Replace under a Current document root (nested
+    /// parse while an enclosing Directory/Workspace is Unparsed).
     let private isBlockedByUnparsedDocument (op: Op) (graph: Graph) : bool =
         let nodeBlocked nodeId =
             DocumentPartition.isMemberOfUnparsedDocument graph nodeId
@@ -100,10 +100,14 @@ module Op =
             let parentBlocked =
                 if isCurrentDocumentRoot graph parentId then false
                 else nodeBlocked parentId
+            // Document roots may move as opaque units; their Unparsed state
+            // must not block sibling reorder / reparent under a Current parent.
             let childBlocked =
                 (oldChildren @ newChildren)
                 |> List.exists (fun child ->
-                    child.ref = Ownership.Owner && nodeBlocked child.id)
+                    child.ref = Ownership.Owner
+                    && nodeBlocked child.id
+                    && not (DocumentPartition.isDocumentRootNode graph child.id))
             parentBlocked || childBlocked
         | _ ->
             involvedNodeIds graph op
@@ -292,7 +296,7 @@ module History =
     let private validateOwnershipSemantics
         (graph: Graph)
         (childIdsScope: Set<NodeId> option)
-        : Result<unit, string> =
+        : Result<unit, string * NodeId> =
         let allChildren =
             graph.nodes
             |> Map.toList
@@ -323,7 +327,9 @@ module History =
             |> Seq.toList
 
         if not childIdsMissingOwner.IsEmpty then
-            Error "invalid ownership semantics: missing owner occurrence"
+            Error (
+                "invalid ownership semantics: missing owner occurrence",
+                List.head childIdsMissingOwner)
         else
             let childIdsWithMultipleOwners =
                 childIdsToCheck
@@ -334,7 +340,9 @@ module History =
                 |> Seq.toList
 
             if not childIdsWithMultipleOwners.IsEmpty then
-                Error "invalid ownership semantics: expected exactly one owner occurrence"
+                Error (
+                    "invalid ownership semantics: expected exactly one owner occurrence",
+                    List.head childIdsWithMultipleOwners)
             else
                 let ownerParentOf childId = ownerByChildId.[childId] |> List.head
 
@@ -349,35 +357,47 @@ module History =
                     else
                         false
 
-                let hasBrokenOwnerChain =
+                let brokenOwnerChainChild =
                     childIdsToCheck
-                    |> Seq.exists (fun childId ->
+                    |> Seq.tryFind (fun childId ->
                         let ownerParent = ownerParentOf childId
                         not (reachesRootWithoutCycle ownerParent Set.empty))
 
-                if hasBrokenOwnerChain then
-                    Error "invalid ownership semantics: owner chain does not reach root"
-                else
+                match brokenOwnerChainChild with
+                | Some childId ->
+                    Error (
+                        "invalid ownership semantics: owner chain does not reach root",
+                        childId)
+                | None ->
                     match childIdsScope with
                     | Some _ -> Ok ()
                     | None ->
-                        let hasInvalidFileDirectoryPlacement =
+                        let invalidPlacementChild =
                             allChildren
-                            |> Seq.exists (fun (parentId, child) ->
+                            |> Seq.tryPick (fun (parentId, child) ->
                                 match child.ref, Map.tryFind child.id graph.nodes with
-                                | Ownership.Owner, Some { kind = Special (File | Directory) }
+                                | Ownership.Owner,
+                                  Some { kind = Special (File | Directory) }
                                     when child.id <> Graph.trashId ->
-                                    not (GraphQuery.containerOrDescendant graph parentId)
-                                | _ -> false)
+                                    if not (
+                                        GraphQuery.containerOrDescendant graph parentId) then
+                                        Some child.id
+                                    else
+                                        None
+                                | _ -> None)
 
-                        if hasInvalidFileDirectoryPlacement then
-                            Error
-                                "invalid ownership semantics: File and Directory nodes must have a Workspace or Directory owner ancestor (not under a File)"
-                        elif GraphQuery.hasArtifactNameDuplicates graph then
-                            Error
-                                "invalid ownership semantics: duplicate name in artifact directory"
-                        else
-                            Ok ()
+                        match invalidPlacementChild with
+                        | Some childId ->
+                            Error (
+                                "invalid ownership semantics: File and Directory nodes must have a Workspace or Directory owner ancestor (not under a File)",
+                                childId)
+                        | None ->
+                            match GraphQuery.tryFindArtifactNameDuplicate graph with
+                            | Some dupId ->
+                                Error (
+                                    "invalid ownership semantics: duplicate name in artifact directory",
+                                    dupId)
+                            | None -> Ok ()
 
     let empty: History =
         { past = []
@@ -389,8 +409,13 @@ module History =
           changeId = System.Guid.NewGuid()
           ops = [] }
 
-    let validateOwnership (graph: Graph) : Result<unit, string> =
+    let validateOwnershipLocated (graph: Graph) : Result<unit, string * NodeId> =
         validateOwnershipSemantics graph None
+
+    let validateOwnership (graph: Graph) : Result<unit, string> =
+        match validateOwnershipLocated graph with
+        | Ok () -> Ok ()
+        | Error (msg, _) -> Error msg
 
     let private opChangesGraphShape =
         function
@@ -417,7 +442,7 @@ module History =
                 |> Set.ofList
 
             match validateOwnershipSemantics graph (Some childIds) with
-            | Error msg -> Error msg
+            | Error (msg, _) -> Error msg
             | Ok () ->
                 shapeOps
                 |> List.tryPick (fun op ->
@@ -449,8 +474,8 @@ module History =
               future = []
               nextId = nextId }
 
-    /// Apply a server-trusted change: ops + history, no per-step ownership check.
-    /// Callers replaying validated tails must run validateOwnership once on the final graph.
+    /// Apply a server-trusted change: ops + history, no ownership check.
+    /// Poll/tail replay trusts the server log; local edits use applyChange instead.
     let applyChangeTrusted (change: Change) (state: State) : ApplyResult =
         match Change.apply change state with
         | ApplyResult.Invalid _ as err -> err
