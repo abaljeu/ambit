@@ -1,7 +1,7 @@
 namespace Gambol.Shared
 
 /// Shared outline helpers: nest flat lines into SpanNode trees (cold / Fable-safe).
-/// Warm LCS helpers live in DotNet OutlineDocumentWarm.
+/// Warm LCS helpers live in OutlineDocumentWarm (Diff injected).
 [<RequireQualifiedAccess>]
 module OutlineDocument =
 

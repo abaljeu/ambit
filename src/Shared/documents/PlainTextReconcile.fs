@@ -51,14 +51,16 @@ module PlainTextReconcile =
                 )
     }
 
-    let handler: DocumentHandler =
+    let handler (diffTexts: OutlineDiffTexts) : DocumentHandler =
         OutlineDocumentWarm.makeOutlineHandler
+            diffTexts
             toSpanTree
             readColdImpl
             hooks
             PlainTextDocument.writeArtifact
 
     let reconcile
+        (diffTexts: OutlineDiffTexts)
         (previousText: string)
         (contextGraph: Graph)
         (documentRootId: NodeId)
@@ -72,7 +74,11 @@ module PlainTextReconcile =
                     editedText
             )
 
-        handler.readWarm editedText contextGraph documentRootId previousText
+        (handler diffTexts).readWarm
+            editedText
+            contextGraph
+            documentRootId
+            previousText
         |> Result.map (fun r ->
             PlainTextDocument.finishRead
                 documentRootId

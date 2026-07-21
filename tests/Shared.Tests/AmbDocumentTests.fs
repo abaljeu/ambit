@@ -292,7 +292,7 @@ let ``reconcile owner text edit keeps stable id`` () =
     let previous = ownerLine aId "alpha"
     let edited = ownerLine aId "ALPHA"
     let result =
-        AmbReconcile.reconcile previous graph docId edited
+        AmbReconcile.reconcile OutlineLcs.diffTexts previous graph docId edited
         |> requireOk "reconcile"
     Assert.Equal(aId, result.nodes.[docId].children.Head.id)
     Assert.Equal("ALPHA", result.nodes.[aId].text)
@@ -307,7 +307,7 @@ let ``reconcile external tab reindent keeps owner id`` () =
     let previous = ownerLine aId "parent" + ownerLine bId "child"
     let edited = ownerLine aId "parent" + "\t" + ownerLine bId "child"
     let result =
-        AmbReconcile.reconcile previous graph docId edited
+        AmbReconcile.reconcile OutlineLcs.diffTexts previous graph docId edited
         |> requireOk "reconcile"
     Assert.Equal(aId, result.nodes.[docId].children.Head.id)
     Assert.Equal(bId, result.nodes.[aId].children.Head.id)
@@ -321,7 +321,7 @@ let ``reconcile plain line add mints new id`` () =
     let previous = "alpha" + nl
     let edited = "alpha" + nl + "gamma" + nl
     let result =
-        AmbReconcile.reconcile previous graph docId edited
+        AmbReconcile.reconcile OutlineLcs.diffTexts previous graph docId edited
         |> requireOk "reconcile"
     Assert.Equal(2, result.nodes.[docId].children.Length)
     Assert.Equal(aId, result.nodes.[docId].children.Head.id)
@@ -339,7 +339,7 @@ let ``reconcile plain line delete drops node`` () =
     let previous = "alpha" + nl + "beta" + nl
     let edited = "alpha" + nl
     let result =
-        AmbReconcile.reconcile previous graph docId edited
+        AmbReconcile.reconcile OutlineLcs.diffTexts previous graph docId edited
         |> requireOk "reconcile"
     Assert.Equal(1, result.nodes.[docId].children.Length)
     Assert.Equal(aId, result.nodes.[docId].children.Head.id)
@@ -365,7 +365,7 @@ let ``reconcile ref line stable across reorder`` () =
     let edited =
         refLine bId + refLine aId
     let result =
-        AmbReconcile.reconcile previous graph docId edited
+        AmbReconcile.reconcile OutlineLcs.diffTexts previous graph docId edited
         |> requireOk "reconcile"
     let kids = result.nodes.[docId].children
     Assert.Equal(2, kids.Length)

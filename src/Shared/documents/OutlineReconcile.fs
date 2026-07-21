@@ -1,5 +1,13 @@
 namespace Gambol.Shared
 
+/// LCS-style ops over text keys. DiffPlex lives in DotNet OutlineLcs.
+type OutlineDiffOp =
+    | Equal of prevIndex: int * editedIndex: int
+    | Insert of editedIndex: int
+    | Delete of prevIndex: int
+
+type OutlineDiffTexts = string list -> string list -> OutlineDiffOp list
+
 [<RequireQualifiedAccess>]
 module OutlineReconcile =
 
@@ -118,11 +126,12 @@ module OutlineReconcile =
         loop [] disps
 
     let private alignLcs
+        (diffTexts: OutlineDiffTexts)
         (previous: OutlineLine list)
         (edited: OutlineLine list)
         : LineDisposition list =
         let ops =
-            OutlineLcs.diffTexts
+            diffTexts
                 (previous |> List.map (fun l -> l.text))
                 (edited |> List.map (fun l -> l.text))
 
@@ -132,13 +141,14 @@ module OutlineReconcile =
 
     /// Hard-match unique keys first; LCS on the remainder (Plain: all hardKey=None).
     let align
+        (diffTexts: OutlineDiffTexts)
         (previous: OutlineLine list)
         (edited: OutlineLine list)
         : LineDisposition list =
         let pairs = hardMatchPairs previous edited
 
         if pairs.IsEmpty then
-            alignLcs previous edited
+            alignLcs diffTexts previous edited
         else
             let hardPrev = pairs |> List.map fst |> Set.ofList
             let hardEdit = pairs |> List.map snd |> Set.ofList
@@ -161,7 +171,7 @@ module OutlineReconcile =
                 |> List.filter (fun (i, _) -> not (Set.contains i hardEdit))
                 |> List.map snd
 
-            let restDisps = alignLcs prevRest editRest
+            let restDisps = alignLcs diffTexts prevRest editRest
 
             let restKeepInsert =
                 restDisps

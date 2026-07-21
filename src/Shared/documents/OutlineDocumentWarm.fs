@@ -1,6 +1,6 @@
 namespace Gambol.Shared
 
-/// DotNet-only outline warm helpers (DiffPlex LCS). Cold nest helpers stay in Documents.
+/// Outline warm helpers. Diff implementation is injected (DotNet: OutlineLcs).
 [<RequireQualifiedAccess>]
 module OutlineDocumentWarm =
 
@@ -20,10 +20,12 @@ module OutlineDocumentWarm =
 
     /// Outline LCS dispositions over preorder bound lines.
     let warmByLcs
+        (diffTexts: OutlineDiffTexts)
         (previous: SpanNode)
         (edited: SpanNode)
         : OutlineReconcile.LineDisposition list =
         OutlineReconcile.align
+            diffTexts
             (flattenBoundLines previous)
             (flattenBoundLines edited)
 
@@ -40,6 +42,7 @@ module OutlineDocumentWarm =
 
     /// Build prev/edit trees and map LCS dispositions to aligned rows.
     let alignWarmEdit
+        (diffTexts: OutlineDiffTexts)
         (toSpanTree: string -> NodeId option list -> SpanNode)
         (previousText: string)
         (editedText: string)
@@ -47,7 +50,7 @@ module OutlineDocumentWarm =
         : (int * string * NodeId option) list =
         let prevTree = toSpanTree previousText previousNodeIds
         let editTree = toSpanTree editedText []
-        warmByLcs prevTree editTree |> alignedRows
+        warmByLcs diffTexts prevTree editTree |> alignedRows
 
     /// Format-specific hooks for outline warm import.
     /// whenUnchanged None → readCold (Amb); Some → format-specific (Plain).
@@ -66,6 +69,7 @@ module OutlineDocumentWarm =
     }
 
     let readWarmByLcs
+        (diffTexts: OutlineDiffTexts)
         (toSpanTree: string -> NodeId option list -> SpanNode)
         (readCold: string -> Graph -> NodeId -> Result<DocumentNodesRead, string>)
         (hooks: OutlineWarmHooks)
@@ -83,6 +87,7 @@ module OutlineDocumentWarm =
             |> Result.bind (fun prevIds ->
                 let aligned =
                     alignWarmEdit
+                        diffTexts
                         toSpanTree
                         previousText
                         editedText
@@ -95,6 +100,7 @@ module OutlineDocumentWarm =
                     aligned)
 
     let makeOutlineHandler
+        (diffTexts: OutlineDiffTexts)
         (toSpanTree: string -> NodeId option list -> SpanNode)
         (readCold: string -> Graph -> NodeId -> Result<DocumentNodesRead, string>)
         (hooks: OutlineWarmHooks)
@@ -104,6 +110,7 @@ module OutlineDocumentWarm =
             DocumentHandler.parse =
                 fun text _graph _documentRootId -> Ok(toSpanTree text [])
             DocumentHandler.readCold = readCold
-            DocumentHandler.readWarm = readWarmByLcs toSpanTree readCold hooks
+            DocumentHandler.readWarm =
+                readWarmByLcs diffTexts toSpanTree readCold hooks
             DocumentHandler.write = write
         }

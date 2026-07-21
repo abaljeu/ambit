@@ -13,6 +13,12 @@
     <Compile Include="OutlineDocument.fs" />
     <Compile Include="DocumentFormat.fs" />
     <Compile Include="DocumentColdParse.fs" />
+    <Compile Include="OutlineReconcile.fs" />
+    <Compile Include="OutlineDocumentWarm.fs" />
+    <Compile Include="PlainTextReconcile.fs" />
+    <Compile Include="MdReconcile.fs" />
+    <Compile Include="AmbReconcile.fs" />
+    <Compile Include="DocumentWarm.fs" />
   </ItemGroup>
 
   <ItemGroup>

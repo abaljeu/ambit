@@ -119,7 +119,7 @@ let ``read blank lines do not create nodes`` () =
 let ``parse span tree absorbs blank into preceding node`` () =
     let text = "a\n\nb\n"
     let tree =
-        MdReconcile.handler.parse text (Graph.create ()) Graph.rootId
+        (MdReconcile.handler OutlineLcs.diffTexts).parse text (Graph.create ()) Graph.rootId
         |> requireOk "parse"
     let child = tree.children.Head
     Assert.Equal("a", child.text)
@@ -173,6 +173,62 @@ let ``write without class at same depth emits plain line`` () =
     Assert.False(text.StartsWith("#"))
 
 [<Fact>]
+let ``write cold separates plain siblings with one blank`` () =
+    let aId = NodeId.New()
+    let bId = NodeId.New()
+    let headId = NodeId.New()
+    let a = normalNode aId "Read this." Graph.rootId
+    let b = normalNode bId "hello" Graph.rootId
+    let head =
+        { normalNode headId "Next" Graph.rootId with
+            cssClasses = CssClass.ofList [ "md-head" ] }
+    let graph, docId = graphWithDocument [ a; b; head ]
+    let text =
+        MdDocument.write graph docId emptyComplement None
+        |> requireOk "write"
+    let nl = Environment.NewLine
+    Assert.Equal(
+        "Read this." + nl + nl + "hello" + nl + nl + "# Next" + nl,
+        text)
+
+[<Fact>]
+let ``write cold skips empty nodes and does not multiply blanks`` () =
+    let aId = NodeId.New()
+    let emptyId = NodeId.New()
+    let bId = NodeId.New()
+    let a = normalNode aId "alpha" Graph.rootId
+    let empty = normalNode emptyId "" Graph.rootId
+    let b = normalNode bId "beta" Graph.rootId
+    let graph, docId = graphWithDocument [ a; empty; b ]
+    let text =
+        MdDocument.write graph docId emptyComplement None
+        |> requireOk "write"
+    let nl = Environment.NewLine
+    Assert.Equal("alpha" + nl + nl + "beta" + nl, text)
+    Assert.DoesNotContain(nl + nl + nl, text)
+
+[<Fact>]
+let ``write incremental does not append blank for empty new node`` () =
+    let graph, docId = graphWithDocument []
+    let previous = "alpha" + Environment.NewLine + Environment.NewLine + "beta" + Environment.NewLine
+    let readResult = MdDocument.read previous docId graph |> requireOk "read"
+    let emptyId = NodeId.New()
+    let alphaId = readResult.nodes.[docId].children.Head.id
+    let betaId = readResult.nodes.[docId].children.[1].id
+    let empty = normalNode emptyId "" docId
+    let graph' =
+        { graph with nodes = readResult.nodes }
+        |> fun g ->
+            g.nodes
+            |> Map.add emptyId empty
+            |> Map.add docId { g.nodes.[docId] with children = owned [ alphaId; emptyId; betaId ] }
+            |> fun nodes -> { g with nodes = nodes }
+    let text =
+        MdDocument.write graph' docId readResult.complement (Some previous)
+        |> requireOk "write"
+    Assert.Equal(previous, text)
+
+[<Fact>]
 let ``round trip preserves blank lines in previous text`` () =
     let graph, docId = graphWithDocument []
     let input = "# head" + Environment.NewLine + Environment.NewLine + "body" + Environment.NewLine
@@ -195,7 +251,7 @@ let ``unchanged export reconciles with same node ids`` () =
     let titleId = readResult.nodes.[docId].children.Head.id
     let bodyId = readResult.nodes.[titleId].children.Head.id
     let result =
-        MdReconcile.reconcile previous graph' docId previous
+        MdReconcile.reconcile OutlineLcs.diffTexts previous graph' docId previous
         |> requireOk "reconcile"
     Assert.Equal(titleId, result.nodes.[docId].children.Head.id)
     Assert.Equal(bodyId, result.nodes.[titleId].children.Head.id)
@@ -210,8 +266,74 @@ let ``reconcile line text edit keeps ids`` () =
     let bodyId = readResult.nodes.[titleId].children.Head.id
     let edited = "# TITLE" + Environment.NewLine + "body" + Environment.NewLine
     let result =
-        MdReconcile.reconcile previous graph' docId edited
+        MdReconcile.reconcile OutlineLcs.diffTexts previous graph' docId edited
         |> requireOk "reconcile"
     Assert.Equal("TITLE", result.nodes.[titleId].text)
     Assert.Equal(titleId, result.nodes.[docId].children.Head.id)
     Assert.Equal(bodyId, result.nodes.[titleId].children.Head.id)
+
+[<Fact>]
+let ``reconcile sibling reorder updates child order`` () =
+    let graph, docId = graphWithDocument []
+    let nl = Environment.NewLine
+    let orderA = "# Title" + nl + "alpha" + nl + "beta" + nl
+    let orderB = "# Title" + nl + "beta" + nl + "alpha" + nl
+    let readResult = MdDocument.read orderA docId graph |> requireOk "read"
+    let graph' = { graph with nodes = readResult.nodes }
+    let titleId = readResult.nodes.[docId].children.Head.id
+    let alphaId = readResult.nodes.[titleId].children.[0].id
+    let betaId = readResult.nodes.[titleId].children.[1].id
+    let previous =
+        MdDocument.write graph' docId readResult.complement None
+        |> requireOk "write"
+    let result =
+        MdReconcile.reconcile OutlineLcs.diffTexts previous graph' docId orderB
+        |> requireOk "reconcile"
+    Assert.Equal<string list>([ "beta"; "alpha" ], childTexts result.nodes titleId)
+    Assert.Equal(betaId, result.nodes.[titleId].children.[0].id)
+    Assert.Equal(alphaId, result.nodes.[titleId].children.[1].id)
+
+[<Fact>]
+let ``reconcile section reorder updates outline under h1`` () =
+    let graph, docId = graphWithDocument []
+    let nl = Environment.NewLine
+    let orderA =
+        "# Session Start" + nl
+        + "## First" + nl
+        + "Read this after AGENTS.md." + nl
+        + "## Second" + nl
+        + "body" + nl
+    let orderB =
+        "# Session Start" + nl
+        + "## Second" + nl
+        + "body" + nl
+        + "## First" + nl
+        + "Read this after AGENTS.md." + nl
+    let readResult = MdDocument.read orderA docId graph |> requireOk "read"
+    let graph' = { graph with nodes = readResult.nodes }
+    let h1 = readResult.nodes.[docId].children.Head.id
+    Assert.Equal<string list>([ "First"; "Second" ], childTexts readResult.nodes h1)
+    let previous =
+        MdDocument.write graph' docId readResult.complement None
+        |> requireOk "write"
+    let result =
+        MdReconcile.reconcile OutlineLcs.diffTexts previous graph' docId orderB
+        |> requireOk "reconcile"
+    Assert.Equal<string list>([ "Second"; "First" ], childTexts result.nodes h1)
+
+[<Fact>]
+let ``unchanged bytes still rebuild outline from file not graph copy`` () =
+    let graph, docId = graphWithDocument []
+    let nl = Environment.NewLine
+    let text = "# Title" + nl + "alpha" + nl + "beta" + nl
+    let readResult = MdDocument.read text docId graph |> requireOk "read"
+    let graph' = { graph with nodes = readResult.nodes }
+    let titleId = readResult.nodes.[docId].children.Head.id
+    let previous =
+        MdDocument.write graph' docId readResult.complement None
+        |> requireOk "write"
+    let result =
+        MdReconcile.reconcile OutlineLcs.diffTexts previous graph' docId previous
+        |> requireOk "reconcile"
+    Assert.Equal(titleId, result.nodes.[docId].children.Head.id)
+    Assert.Equal<string list>([ "alpha"; "beta" ], childTexts result.nodes titleId)

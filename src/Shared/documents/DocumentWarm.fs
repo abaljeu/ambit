@@ -1,16 +1,18 @@
 namespace Gambol.Shared
 
-/// DotNet warm artifact read (DiffPlex). Cold path delegates to DocumentFormat.readArtifactCold.
+/// Warm artifact read. Pass Diff (DotNet: OutlineLcs.diffTexts). Cold path uses
+/// DocumentFormat.readArtifactCold.
 [<RequireQualifiedAccess>]
 module DocumentWarm =
 
-    let private handlerFor =
+    let private handlerFor (diffTexts: OutlineDiffTexts) =
         function
-        | DocumentCodec.Amb -> AmbReconcile.handler
-        | DocumentCodec.Plain -> PlainTextReconcile.handler
-        | DocumentCodec.Md -> MdReconcile.handler
+        | DocumentCodec.Amb -> AmbReconcile.handler diffTexts
+        | DocumentCodec.Plain -> PlainTextReconcile.handler diffTexts
+        | DocumentCodec.Md -> MdReconcile.handler diffTexts
 
     let readArtifact
+        (diffTexts: OutlineDiffTexts)
         (relativePath: string)
         (text: string)
         (documentRootId: NodeId)
@@ -33,7 +35,7 @@ module DocumentWarm =
                 relativePath
                 text
             |> Result.bind (fun codec ->
-                handlerFor codec
+                handlerFor diffTexts codec
                 |> fun h -> h.readWarm text context documentRootId prev
                 |> Result.bind (
                     DocumentFormat.mergeReadResult allowContentUpdate context

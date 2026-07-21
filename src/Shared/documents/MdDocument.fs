@@ -501,13 +501,29 @@ module MdDocument =
             String.replicate (indentSteps * 2) " " + "- " + line.content
         | Plain | Blank -> line.content
 
+    /// Md blanks are not nodes; empty graph rows must not project as blank lines.
+    let private isSubstantive (line: SerializedLine) =
+        not (String.IsNullOrWhiteSpace line.content)
+
+    /// One blank between block lines; keep heading→list and list→list tight.
+    let private needsBlankSeparator (prev: SerializedLine) (curr: SerializedLine) =
+        match prev.kind, curr.kind with
+        | ListItem, ListItem -> false
+        | Head, ListItem -> false
+        | _ -> true
+
     let private writeFresh (graph: Graph) (documentRootId: NodeId) =
-        let lines = serializeLines graph documentRootId
+        let allLines = serializeLines graph documentRootId
+        let lines = allLines |> List.filter isSubstantive
         let sb = StringBuilder()
 
         lines
         |> List.iteri (fun i line ->
-            sb.Append(formatLine line lines i).Append(nl) |> ignore)
+            if i > 0 && needsBlankSeparator lines.[i - 1] line then
+                sb.Append(nl) |> ignore
+
+            let idx = List.findIndex (fun l -> l.nodeId = line.nodeId) allLines
+            sb.Append(formatLine line allLines idx).Append(nl) |> ignore)
 
         Ok(sb.ToString())
 
@@ -517,7 +533,8 @@ module MdDocument =
         (previousText: string)
         =
         let rawLines = splitRawLines previousText
-        let expected = serializeLines graph documentRootId
+        let allExpected = serializeLines graph documentRootId
+        let expected = allExpected |> List.filter isSubstantive
 
         let expectedById =
             expected
@@ -539,7 +556,7 @@ module MdDocument =
             |> Map.ofList
 
         let expectedIndexById =
-            expected
+            allExpected
             |> List.mapi (fun i line -> line.nodeId |> Option.map (fun id -> id, i))
             |> List.choose id
             |> Map.ofList
@@ -554,7 +571,7 @@ module MdDocument =
                 | None -> sb, emitted
                 | Some expectedLine ->
                     let idx = Map.find nodeId expectedIndexById
-                    let newContent = formatLine expectedLine expected idx
+                    let newContent = formatLine expectedLine allExpected idx
 
                     if newContent = raw.content then
                         sb.Append(raw.raw) |> ignore
@@ -571,7 +588,7 @@ module MdDocument =
             match line.nodeId with
             | Some nodeId when not (Set.contains nodeId emitted) ->
                 let idx = Map.find nodeId expectedIndexById
-                sb.Append(formatLine line expected idx).Append(nl) |> ignore
+                sb.Append(formatLine line allExpected idx).Append(nl) |> ignore
             | _ -> ()
 
         Ok(sb.ToString())

@@ -59,7 +59,14 @@ let private postParseFile
     else
         match decodeParseFileOk responseText with
         | Error err -> fail model err
-        | Ok () -> okDetail model (detailPrefix + path)
+        | Ok () ->
+            // Server may have applied graph-only ops; poll immediately so the outline updates.
+            let model' =
+                { model with
+                    lastCmdResult = Some(CmdLastResult.Detail(None, detailPrefix + path)) }
+            let si, pollEffs =
+                SyncPlanner.tryStartPoll model'.revision model'.syncInfo
+            { model' with syncInfo = si }, pollEffs
 
 /// Parse / Upload: client posts fileId (+ optional desktop text); server applies.
 let parseFileOp (fileId: NodeId) (model: VM) : VM * Effect list =

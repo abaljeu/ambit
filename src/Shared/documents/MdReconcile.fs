@@ -87,37 +87,80 @@ module MdReconcile =
         MdDocument.read text documentRootId graph
         |> Result.map toNodesRead
 
-    let private hooks: OutlineDocumentWarm.OutlineWarmHooks = {
-        OutlineDocumentWarm.OutlineWarmHooks.previousNodeIds =
-            MdDocument.previousOutlineIds
-        whenUnchanged =
-            Some(fun _previousText contextGraph documentRootId ->
-                MdDocument.copyDocumentFromGraph contextGraph documentRootId
-                |> finishNodes documentRootId contextGraph
-                |> Ok)
-        fromAligned =
-            fun editedText contextGraph documentRootId aligned ->
-                MdDocument.rebuildFromAligned
-                    editedText
-                    documentRootId
-                    contextGraph
-                    aligned
-                |> Result.map (finishNodes documentRootId contextGraph)
+    let private fromAligned
+        editedText
+        contextGraph
+        documentRootId
+        aligned
+        =
+        MdDocument.rebuildFromAligned
+            editedText
+            documentRootId
+            contextGraph
+            aligned
+        |> Result.map (finishNodes documentRootId contextGraph)
+
+    /// Positional id reuse when outline matches. Always re-parse — never
+    /// copyDocumentFromGraph (ParseFile no-op when graph drifted from file).
+    let private rebuildUnchanged previousText contextGraph documentRootId =
+        MdDocument.previousOutlineIds previousText contextGraph documentRootId
+        |> Result.bind (fun prevIds ->
+            let flats = MdDocument.flattenText previousText
+
+            if List.length flats <> List.length prevIds then
+                Error "previous outline id count does not match flatten"
+            else
+                let aligned =
+                    List.map2
+                        (fun (depth, text, _) idOpt -> depth, text, idOpt)
+                        flats
+                        prevIds
+
+                fromAligned previousText contextGraph documentRootId aligned)
+
+    let private readWarm
+        (diffTexts: OutlineDiffTexts)
+        (editedText: string)
+        (contextGraph: Graph)
+        (documentRootId: NodeId)
+        (previousText: string)
+        =
+        // Compare outlines (blanks omitted), not raw bytes. writeFresh may insert
+        // blank separators so export≠disk even when the outline matches. Outline
+        // inequality always takes LCS so a disk reorder cannot no-op.
+        let prevFlat = MdDocument.flattenText previousText
+        let editFlat = MdDocument.flattenText editedText
+
+        if prevFlat = editFlat then
+            rebuildUnchanged previousText contextGraph documentRootId
+        else
+            MdDocument.previousOutlineIds previousText contextGraph documentRootId
+            |> Result.bind (fun prevIds ->
+                let aligned =
+                    OutlineDocumentWarm.alignWarmEdit
+                        diffTexts
+                        toSpanTree
+                        previousText
+                        editedText
+                        prevIds
+
+                fromAligned editedText contextGraph documentRootId aligned)
+
+    let handler (diffTexts: OutlineDiffTexts) : DocumentHandler = {
+        DocumentHandler.parse =
+            fun text _graph _documentRootId -> Ok(toSpanTree text [])
+        DocumentHandler.readCold = readColdImpl
+        DocumentHandler.readWarm = readWarm diffTexts
+        DocumentHandler.write = MdDocument.writeArtifact
     }
 
-    let handler: DocumentHandler =
-        OutlineDocumentWarm.makeOutlineHandler
-            toSpanTree
-            readColdImpl
-            hooks
-            MdDocument.writeArtifact
-
     let reconcile
+        (diffTexts: OutlineDiffTexts)
         (previousText: string)
         (contextGraph: Graph)
         (documentRootId: NodeId)
         (editedText: string)
         : Result<MdReadResult, string> =
-        handler.readWarm editedText contextGraph documentRootId previousText
+        readWarm diffTexts editedText contextGraph documentRootId previousText
         |> Result.map (fun r ->
             MdDocument.finishRead documentRootId contextGraph r.nodes)

@@ -27,8 +27,9 @@ module AmbReconcile =
                 |> Result.map toNodesRead
     }
 
-    let handler: DocumentHandler =
+    let handler (diffTexts: OutlineDiffTexts) : DocumentHandler =
         OutlineDocumentWarm.makeOutlineHandler
+            diffTexts
             toSpanTree
             readColdImpl
             hooks
@@ -36,12 +37,17 @@ module AmbReconcile =
                 AmbDocument.write graph documentRootId)
 
     let reconcile
+        (diffTexts: OutlineDiffTexts)
         (previousText: string)
         (contextGraph: Graph)
         (documentRootId: NodeId)
         (editedText: string)
         : Result<AmbDocumentReadResult, string> =
-        handler.readWarm editedText contextGraph documentRootId previousText
+        (handler diffTexts).readWarm
+            editedText
+            contextGraph
+            documentRootId
+            previousText
         |> Result.map (fun r -> {
             AmbDocumentReadResult.documentRootId = r.documentRootId
             AmbDocumentReadResult.nodes = r.nodes

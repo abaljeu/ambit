@@ -217,6 +217,63 @@ let ``buildTextPackage Plain indent nesting under paste path`` () =
         Assert.Equal(1, children.Length)
 
 [<Fact>]
+let ``planParseFile md reorder updates child order`` () =
+    let graph0 = Graph.create ()
+    let fileId = NodeId.New()
+    let nl = Environment.NewLine
+    let orderA = "# Title" + nl + "alpha" + nl + "beta" + nl
+    let orderB = "# Title" + nl + "beta" + nl + "alpha" + nl
+    let file =
+        Node.Create(
+            fileId,
+            text = "notes.md",
+            name = Filename.create "notes.md",
+            owner = graph0.root,
+            kind = Special File,
+            documentState = Current)
+    let graph1 =
+        graph0.nodes
+        |> Map.add fileId file
+        |> fun nodes -> Graph.fromNodes graph0.root nodes
+    let idx = Graph.fileTreeInsertIndex graph1 Graph.rootId
+    let graph2 =
+        Graph.replace Graph.rootId idx [] [ { ref = Ownership.Owner; id = fileId } ] graph1
+        |> requireOk "root->file"
+    let cold =
+        MdDocument.read orderA fileId graph2
+        |> requireOk "cold"
+    let graph =
+        DocumentFormat.mergeReadResult
+            true
+            graph2
+            { documentRootId = fileId; nodes = cold.nodes }
+        |> requireOk "merge cold"
+    let titleId = graph.nodes.[fileId].children.Head.id
+    let alphaId = graph.nodes.[titleId].children.[0].id
+    let betaId = graph.nodes.[titleId].children.[1].id
+
+    let ops =
+        ImportDocument.planParseFile graph fileId orderB
+        |> requireOk "planParseFile"
+
+    Assert.False(List.isEmpty ops, "reorder must produce ops")
+
+    let state0 =
+        { graph = graph; history = History.empty; revision = Revision.Zero }
+    let after =
+        match History.applyChange { id = 0; changeId = Guid.NewGuid(); ops = ops } state0 with
+        | ApplyResult.Changed s -> s.graph
+        | ApplyResult.Unchanged _ -> failwith "expected Changed"
+        | ApplyResult.Invalid(_, err) -> failwith err
+
+    Assert.Equal<string list>(
+        [ "beta"; "alpha" ],
+        after.nodes.[titleId].children
+        |> List.map (fun c -> after.nodes.[c.id].text))
+    Assert.Equal(betaId, after.nodes.[titleId].children.[0].id)
+    Assert.Equal(alphaId, after.nodes.[titleId].children.[1].id)
+
+[<Fact>]
 let ``planParseFile plain keeps id on line text edit`` () =
     let graph0 = Graph.create ()
     let fileId = NodeId.New()

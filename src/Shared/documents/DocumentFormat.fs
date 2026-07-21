@@ -28,9 +28,9 @@ module DocumentFormat =
         OutlineDocument.nodesRead documentRootId nodes
 
     let private warmUnavailable _ _ _ _ =
-        Error "warm reconcile requires DotNet DocumentWarm"
+        Error "warm reconcile requires DocumentWarm with Diff"
 
-    /// Fable-safe cold handlers (no DiffPlex). Warm handlers live in DotNet *Reconcile.
+    /// Fable-safe cold handlers (no Diff). Warm handlers need injected Diff.
     let private coldHandlerFor =
         function
         | DocumentCodec.Amb ->

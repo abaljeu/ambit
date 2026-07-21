@@ -5,7 +5,7 @@ namespace Gambol.Shared
 module DocumentParseOps =
 
     /// Parse one `.amb` (or plain) artifact into ops. Document stays Current.
-    /// When `previousText` is present, warm-reconcile via DiffPlex helpers.
+    /// When `previousText` is present, warm-reconcile via OutlineLcs (DiffPlex).
     /// Cold (`None`) delegates to DocumentColdParse.planApplyCold.
     let planApplyArtifact
         (graph: Graph)
@@ -23,6 +23,7 @@ module DocumentParseOps =
                 text
         | Some _ ->
             DocumentWarm.readArtifact
+                OutlineLcs.diffTexts
                 relativePath
                 text
                 documentRootId

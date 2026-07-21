@@ -191,7 +191,7 @@ let ``unchanged export reconciles with same node ids`` () =
         PlainTextDocument.write graph docId emptyComplement None
         |> requireOk "write"
     let result =
-        PlainTextReconcile.reconcile written graph docId written
+        PlainTextReconcile.reconcile OutlineLcs.diffTexts written graph docId written
         |> requireOk "reconcile"
     Assert.Equal(aId, result.nodes.[docId].children.Head.id)
     Assert.Equal(bId, result.nodes.[docId].children.[1].id)
@@ -222,7 +222,7 @@ let ``reconcile line text edit updates node and preserves other ids`` () =
         |> requireOk "write previous"
     let edited = previous.Replace("alpha", "ALPHA")
     let result =
-        PlainTextReconcile.reconcile previous graph docId edited
+        PlainTextReconcile.reconcile OutlineLcs.diffTexts previous graph docId edited
         |> requireOk "reconcile"
     Assert.Equal("ALPHA", result.nodes.[aId].text)
     Assert.Equal("beta", result.nodes.[bId].text)
@@ -238,7 +238,7 @@ let ``reconcile line add mints new node id`` () =
         |> requireOk "write previous"
     let edited = previous + ("gamma" + Environment.NewLine)
     let result =
-        PlainTextReconcile.reconcile previous graph docId edited
+        PlainTextReconcile.reconcile OutlineLcs.diffTexts previous graph docId edited
         |> requireOk "reconcile"
     Assert.Equal(2, result.nodes.[docId].children.Length)
     let newId =
@@ -259,7 +259,7 @@ let ``reconcile line delete removes node from document`` () =
         |> requireOk "write previous"
     let edited = previous.Replace("beta" + Environment.NewLine, "")
     let result =
-        PlainTextReconcile.reconcile previous graph docId edited
+        PlainTextReconcile.reconcile OutlineLcs.diffTexts previous graph docId edited
         |> requireOk "reconcile"
     Assert.Equal(1, result.nodes.[docId].children.Length)
     Assert.Equal(aId, result.nodes.[docId].children.Head.id)
@@ -274,7 +274,7 @@ let ``reconcile external swap of unique lines keeps ids`` () =
     let previous = "alpha" + Environment.NewLine + "beta" + Environment.NewLine
     let edited = "beta" + Environment.NewLine + "alpha" + Environment.NewLine
     let result =
-        PlainTextReconcile.reconcile previous graph docId edited
+        PlainTextReconcile.reconcile OutlineLcs.diffTexts previous graph docId edited
         |> requireOk "reconcile"
     Assert.Equal(bId, result.nodes.[docId].children.[0].id)
     Assert.Equal(aId, result.nodes.[docId].children.[1].id)
@@ -297,7 +297,7 @@ let ``reconcile mid insert keeps neighbor ids`` () =
         + "beta"
         + Environment.NewLine
     let result =
-        PlainTextReconcile.reconcile previous graph docId edited
+        PlainTextReconcile.reconcile OutlineLcs.diffTexts previous graph docId edited
         |> requireOk "reconcile"
     let children = result.nodes.[docId].children
     Assert.Equal(3, children.Length)
@@ -316,7 +316,7 @@ let ``reconcile block reindent keeps ids with new depths`` () =
     let previous = "parent" + Environment.NewLine + "child" + Environment.NewLine
     let edited = "parent" + Environment.NewLine + "\tchild" + Environment.NewLine
     let result =
-        PlainTextReconcile.reconcile previous graph docId edited
+        PlainTextReconcile.reconcile OutlineLcs.diffTexts previous graph docId edited
         |> requireOk "reconcile"
     Assert.Equal(aId, result.nodes.[docId].children.Head.id)
     Assert.Equal(bId, result.nodes.[aId].children.Head.id)
@@ -345,7 +345,7 @@ let ``write after reparent preserves node id at new depth`` () =
     Assert.Contains("child" + Environment.NewLine, text)
     Assert.DoesNotContain("\tchild", text)
     let result =
-        PlainTextReconcile.reconcile nested graph docId text
+        PlainTextReconcile.reconcile OutlineLcs.diffTexts nested graph docId text
         |> requireOk "reconcile"
     Assert.True(
         result.nodes.[docId].children
@@ -368,7 +368,7 @@ let ``reconcile preserves cssClasses from complement`` () =
         PlainTextDocument.write graph docId complement None
         |> requireOk "write previous"
     let result =
-        PlainTextReconcile.reconcile previous graph docId previous
+        PlainTextReconcile.reconcile OutlineLcs.diffTexts previous graph docId previous
         |> requireOk "reconcile"
     Assert.Equal(classes, result.nodes.[nodeId].cssClasses)
 
@@ -409,7 +409,7 @@ let ``reconcile preserves ref edge from graph context`` () =
         PlainTextDocument.write graph docId emptyComplement None
         |> requireOk "write"
     let result =
-        PlainTextReconcile.reconcile previous graph docId previous
+        PlainTextReconcile.reconcile OutlineLcs.diffTexts previous graph docId previous
         |> requireOk "reconcile"
     let holderId = result.nodes.[docId].children.Head.id
     Assert.Equal(1, result.nodes.[holderId].children.Length)
