@@ -314,6 +314,15 @@ module PlainTextDocument =
         mapPreviousLines previousText graph documentRootId
         |> List.map (fun line -> line.depth, line.text, line.nodeId)
 
+    let previousOutlineIds
+        (previousText: string)
+        (graph: Graph)
+        (documentRootId: NodeId)
+        : Result<NodeId option list, string> =
+        mappedPrevious previousText graph documentRootId
+        |> List.map (fun (_, _, id) -> id)
+        |> Ok
+
     /// Rebuild document members from aligned (depth, text, nodeId) rows.
     let rebuildFromAligned
         (documentRootId: NodeId)
@@ -482,3 +491,14 @@ module PlainTextDocument =
             match previousText with
             | None -> writeFresh graph documentRootId complement
             | Some previous -> writeIncremental graph documentRootId complement previous
+
+    let writeArtifact
+        (graph: Graph)
+        (documentRootId: NodeId)
+        (previousText: string option)
+        : Result<string, string> =
+        write
+            graph
+            documentRootId
+            (complementForWrite graph documentRootId previousText)
+            previousText

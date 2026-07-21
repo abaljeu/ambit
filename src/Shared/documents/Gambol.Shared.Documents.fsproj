@@ -6,10 +6,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="DocumentHandler.fs" />
     <Compile Include="AmbDocument.fs" />
     <Compile Include="PlainTextDocument.fs" />
     <Compile Include="OutlineLcs.fs" />
     <Compile Include="OutlineReconcile.fs" />
+    <Compile Include="OutlineDocument.fs" />
     <Compile Include="PlainTextReconcile.fs" />
     <Compile Include="AmbReconcile.fs" />
     <Compile Include="DocumentFormat.fs" />

@@ -294,6 +294,14 @@ module AmbDocument =
                     | None -> None
                 depth, content, nodeId, hardKey))
 
+    let previousOutlineIds
+        (previousText: string)
+        (graph: Graph)
+        (documentRootId: NodeId)
+        : Result<NodeId option list, string> =
+        mappedPrevious previousText graph documentRootId
+        |> Result.map (List.map (fun (_, _, nodeId, _) -> nodeId))
+
     /// Inject owner stable ids so cold read recovers LCS-kept plain rows.
     let projectAligned
         (aligned: (int * string * NodeId option) list)

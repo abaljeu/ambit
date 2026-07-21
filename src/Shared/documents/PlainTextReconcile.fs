@@ -1,24 +1,62 @@
 namespace Gambol.Shared
 
-/// Plain warm import: outline LCS reconcile (Shared/DotNet only).
+/// Plain warm import via nested SpanNode + shared outline LCS.
+/// Blank lines remain bound empty nodes (each blank is its own SpanNode).
 [<RequireQualifiedAccess>]
 module PlainTextReconcile =
 
-    let private toOutline (depth, text, nodeId) : OutlineReconcile.OutlineLine = {
-        depth = depth
-        text = text
-        nodeId = nodeId
-        hardKey = None
+    let private toNodesRead (r: PlainTextReadResult) =
+        OutlineDocument.nodesRead r.documentRootId r.nodes
+
+    let private toSpanTree text nodeIds =
+        let _, flat = PlainTextDocument.flattenText text
+
+        OutlineDocument.nestOutlineRows
+            (flat |> List.map (fun (depth, body) -> depth, body, None))
+            nodeIds
+
+    let private finishNodes text documentRootId contextGraph nodes =
+        let indentStyle, _ = PlainTextDocument.flattenText text
+
+        toNodesRead (
+            PlainTextDocument.finishRead
+                documentRootId
+                contextGraph
+                nodes
+                indentStyle
+        )
+
+    let private readColdImpl text graph documentRootId =
+        PlainTextDocument.read text documentRootId graph
+        |> Result.map toNodesRead
+
+    let private hooks: OutlineDocument.OutlineWarmHooks = {
+        OutlineDocument.OutlineWarmHooks.previousNodeIds =
+            PlainTextDocument.previousOutlineIds
+        whenUnchanged =
+            Some(fun previousText contextGraph documentRootId ->
+                PlainTextDocument.copyDocumentFromGraph
+                    contextGraph
+                    documentRootId
+                |> finishNodes previousText documentRootId contextGraph
+                |> Ok)
+        fromAligned =
+            fun editedText contextGraph documentRootId aligned ->
+                PlainTextDocument.rebuildFromAligned
+                    documentRootId
+                    contextGraph
+                    aligned
+                |> Result.map (
+                    finishNodes editedText documentRootId contextGraph
+                )
     }
 
-    let private fromDispositions
-        (disps: OutlineReconcile.LineDisposition list)
-        : (int * string * NodeId option) list =
-        disps
-        |> List.choose (function
-            | OutlineReconcile.Keep(id, depth, text) -> Some(depth, text, Some id)
-            | OutlineReconcile.Insert(depth, text) -> Some(depth, text, None)
-            | OutlineReconcile.Delete _ -> None)
+    let handler: DocumentHandler =
+        OutlineDocument.makeOutlineHandler
+            toSpanTree
+            readColdImpl
+            hooks
+            PlainTextDocument.writeArtifact
 
     let reconcile
         (previousText: string)
@@ -26,29 +64,18 @@ module PlainTextReconcile =
         (documentRootId: NodeId)
         (editedText: string)
         : Result<PlainTextReadResult, string> =
-        if editedText = previousText then
-            let indentStyle, _ = PlainTextDocument.flattenText previousText
-            let nodes =
-                PlainTextDocument.copyDocumentFromGraph contextGraph documentRootId
+        let indentStyle, _ =
+            PlainTextDocument.flattenText (
+                if editedText = previousText then
+                    previousText
+                else
+                    editedText
+            )
 
-            Ok(PlainTextDocument.finishRead documentRootId contextGraph nodes indentStyle)
-        else
-            let indentStyle, editedFlat = PlainTextDocument.flattenText editedText
-
-            let previous =
-                PlainTextDocument.mappedPrevious previousText contextGraph documentRootId
-
-            let prevLines = previous |> List.map toOutline
-
-            let editLines =
-                editedFlat
-                |> List.map (fun (depth, text) -> toOutline (depth, text, None))
-
-            let aligned =
-                OutlineReconcile.align prevLines editLines
-                |> fromDispositions
-
-            match PlainTextDocument.rebuildFromAligned documentRootId contextGraph aligned with
-            | Error msg -> Error msg
-            | Ok nodes ->
-                Ok(PlainTextDocument.finishRead documentRootId contextGraph nodes indentStyle)
+        handler.readWarm editedText contextGraph documentRootId previousText
+        |> Result.map (fun r ->
+            PlainTextDocument.finishRead
+                documentRootId
+                contextGraph
+                r.nodes
+                indentStyle)

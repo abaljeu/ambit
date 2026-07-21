@@ -1,29 +1,39 @@
 namespace Gambol.Shared
 
-/// Amb warm import: hard-match stable ids, then outline LCS (Shared/DotNet).
+/// Amb warm import via nested SpanNode + shared outline LCS.
 [<RequireQualifiedAccess>]
 module AmbReconcile =
 
-    let private toOutline
-        (depth, text, nodeId, hardKey)
-        : OutlineReconcile.OutlineLine =
-        {
-            depth = depth
-            text = text
-            nodeId = nodeId
-            hardKey = hardKey
-        }
+    let private toNodesRead (r: AmbDocumentReadResult) =
+        OutlineDocument.nodesRead r.documentRootId r.nodes
 
-    let private fromDispositions
-        (disps: OutlineReconcile.LineDisposition list)
-        : (int * string * NodeId option) list =
-        disps
-        |> List.choose (function
-            | OutlineReconcile.Keep(id, depth, text) ->
-                Some(depth, text, Some id)
-            | OutlineReconcile.Insert(depth, text) ->
-                Some(depth, text, None)
-            | OutlineReconcile.Delete _ -> None)
+    let private toSpanTree text nodeIds =
+        OutlineDocument.nestOutlineRows (AmbDocument.flattenText text) nodeIds
+
+    let private readColdImpl text graph documentRootId =
+        AmbDocument.read text documentRootId graph
+        |> Result.map toNodesRead
+
+    let private hooks: OutlineDocument.OutlineWarmHooks = {
+        OutlineDocument.OutlineWarmHooks.previousNodeIds =
+            AmbDocument.previousOutlineIds
+        whenUnchanged = None
+        fromAligned =
+            fun _editedText graph documentRootId aligned ->
+                AmbDocument.read
+                    (AmbDocument.projectAligned aligned)
+                    documentRootId
+                    graph
+                |> Result.map toNodesRead
+    }
+
+    let handler: DocumentHandler =
+        OutlineDocument.makeOutlineHandler
+            toSpanTree
+            readColdImpl
+            hooks
+            (fun graph documentRootId _previousText ->
+                AmbDocument.write graph documentRootId)
 
     let reconcile
         (previousText: string)
@@ -31,19 +41,8 @@ module AmbReconcile =
         (documentRootId: NodeId)
         (editedText: string)
         : Result<AmbDocumentReadResult, string> =
-        if editedText = previousText then
-            AmbDocument.read previousText documentRootId contextGraph
-        else
-            AmbDocument.mappedPrevious
-                previousText contextGraph documentRootId
-            |> Result.bind (fun previous ->
-                let prevLines = previous |> List.map toOutline
-                let editLines =
-                    AmbDocument.flattenText editedText
-                    |> List.map (fun (depth, text, hardKey) ->
-                        toOutline (depth, text, None, hardKey))
-                let aligned =
-                    OutlineReconcile.align prevLines editLines
-                    |> fromDispositions
-                let projected = AmbDocument.projectAligned aligned
-                AmbDocument.read projected documentRootId contextGraph)
+        handler.readWarm editedText contextGraph documentRootId previousText
+        |> Result.map (fun r -> {
+            AmbDocumentReadResult.documentRootId = r.documentRootId
+            AmbDocumentReadResult.nodes = r.nodes
+        })

@@ -9,6 +9,8 @@ Use relative paths such as ./src. Do not use absolute paths.
 
 Don't use git unless asked. Do not run VSCode Tasks.
 
+Never override OutputPath/BaseIntermediateOutputPath (e.g. bin-verify/obj-verify); use normal Debug bin/obj. If outputs are locked, report and stop — do not redirect build output.
+
 The linter is never able to handle project edits until the environment reloads. Don't let this stop you.
 
 Occasionally the first time you send a command, the tool will delete the first character of your command. If so, just send it again.

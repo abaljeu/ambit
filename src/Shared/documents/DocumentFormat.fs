@@ -17,15 +17,22 @@ module DocumentFormat =
         let path = normalizeRelative relativePath
 
         // Any path ending in `.amb` (marker or named file) uses Amb codec.
+        // All other paths (including .md / XML-shaped) fall through to Plain
+        // until dedicated handlers exist.
         if path.EndsWith(".amb") then
             Ok DocumentCodec.Amb
         else
             Ok DocumentCodec.Plain
 
+    let private handlerFor =
+        function
+        | DocumentCodec.Amb -> AmbReconcile.handler
+        | DocumentCodec.Plain -> PlainTextReconcile.handler
+
     let mergeReadResult
         (allowContentUpdate: bool)
         (context: Graph)
-        (readResult: AmbDocumentReadResult)
+        (readResult: DocumentNodesRead)
         : Result<Graph, string> =
         let graphWithRead = { context with nodes = readResult.nodes }
         let overlayIds =
@@ -117,34 +124,18 @@ module DocumentFormat =
         : Result<Graph, string> =
         let allowContentUpdate = Option.isSome previousText
         classifyCodecForRead context documentRootId relativePath text
-        |> Result.bind (function
-            | DocumentCodec.Amb ->
+        |> Result.bind (fun codec ->
+            let handler = handlerFor codec
+
+            let readResult =
                 match previousText with
                 | Some prev ->
-                    AmbReconcile.reconcile prev context documentRootId text
-                | None -> AmbDocument.read text documentRootId context
-                |> Result.bind (mergeReadResult allowContentUpdate context)
-            | DocumentCodec.Plain ->
-                match previousText with
-                | Some prev ->
-                    PlainTextReconcile.reconcile
-                        prev
-                        context
-                        documentRootId
-                        text
-                    |> Result.map (fun readResult ->
-                        {
-                            AmbDocumentReadResult.documentRootId = readResult.documentRootId
-                            AmbDocumentReadResult.nodes = readResult.nodes
-                        })
+                    handler.readWarm text context documentRootId prev
                 | None ->
-                    PlainTextDocument.read text documentRootId context
-                    |> Result.map (fun readResult ->
-                        {
-                            AmbDocumentReadResult.documentRootId = readResult.documentRootId
-                            AmbDocumentReadResult.nodes = readResult.nodes
-                        })
-                |> Result.bind (mergeReadResult allowContentUpdate context))
+                    handler.readCold text context documentRootId
+
+            readResult
+            |> Result.bind (mergeReadResult allowContentUpdate context))
 
     let writeArtifact
         (graph: Graph)
@@ -153,10 +144,5 @@ module DocumentFormat =
         (previousText: string option)
         : Result<string, string> =
         classifyCodecForWrite graph documentRootId relativePath
-        |> Result.bind (function
-            | DocumentCodec.Amb -> AmbDocument.write graph documentRootId
-            | DocumentCodec.Plain ->
-                let complement =
-                    PlainTextDocument.complementForWrite graph documentRootId previousText
-
-                PlainTextDocument.write graph documentRootId complement previousText)
+        |> Result.bind (fun codec ->
+            handlerFor codec |> fun h -> h.write graph documentRootId previousText)
