@@ -158,7 +158,7 @@ module DocumentFormat =
                 let trimmed = line.TrimStart('\t')
                 trimmed.StartsWith("-> ") || trimmed.StartsWith("^"))
 
-    let private classifyCodecForWrite
+    let classifyCodecForWrite
         (graph: Graph)
         (documentRootId: NodeId)
         (relativePath: string)
@@ -213,7 +213,11 @@ module DocumentFormat =
         (relativePath: string)
         (previousText: string option)
         : Result<string, string> =
-        classifyCodecForWrite graph documentRootId relativePath
-        |> Result.bind (fun codec ->
-            coldHandlerFor codec
-            |> fun h -> h.write graph documentRootId previousText)
+        match previousText with
+        | Some _ ->
+            Error "warm artifact write requires DocumentWarm.writeArtifact"
+        | None ->
+            classifyCodecForWrite graph documentRootId relativePath
+            |> Result.bind (fun codec ->
+                coldHandlerFor codec
+                |> fun h -> h.write graph documentRootId None)

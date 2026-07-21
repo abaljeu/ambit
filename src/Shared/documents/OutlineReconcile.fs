@@ -24,6 +24,38 @@ module OutlineReconcile =
         | Insert of depth: int * text: string
         | Delete of nodeId: NodeId
 
+    /// NodeId string for warm-write hard matching.
+    let outlineHardKey (nodeId: NodeId option) =
+        nodeId |> Option.map (fun id -> id.Value.ToString())
+
+    let writeLine depth text nodeId : OutlineLine = {
+        depth = depth
+        text = text
+        nodeId = nodeId
+        hardKey = outlineHardKey nodeId
+    }
+
+    /// Assign hard keys to previous lines when text uniquely identifies a graph node.
+    let assignPrevHardKeys
+        (graphLines: OutlineLine list)
+        (prevLines: OutlineLine list)
+        : OutlineLine list =
+        let uniqueText =
+            graphLines
+            |> List.choose (fun l ->
+                l.nodeId |> Option.map (fun id -> l.text, id))
+            |> List.groupBy fst
+            |> List.choose (function
+                | text, [ (_, id) ] -> Some(text, id)
+                | _ -> None)
+            |> Map.ofList
+
+        prevLines
+        |> List.map (fun line ->
+            match Map.tryFind line.text uniqueText with
+            | Some id -> writeLine line.depth line.text (Some id)
+            | None -> line)
+
     let private keepOrInsert (prev: OutlineLine) (ed: OutlineLine) =
         match prev.nodeId with
         | Some id -> Keep(id, ed.depth, ed.text)
@@ -35,7 +67,7 @@ module OutlineReconcile =
         | None -> None
 
     /// Unique hardKey → index; duplicates are excluded (fall through to LCS).
-    let private uniqueHardIndex (lines: OutlineLine list) =
+    let uniqueHardIndex (lines: OutlineLine list) =
         lines
         |> List.mapi (fun i line -> line.hardKey, i)
         |> List.choose (fun (key, i) -> key |> Option.map (fun k -> k, i))
@@ -45,7 +77,7 @@ module OutlineReconcile =
             | _ -> None)
         |> Map.ofList
 
-    let private hardMatchPairs
+    let hardMatchPairs
         (previous: OutlineLine list)
         (edited: OutlineLine list)
         : (int * int) list =

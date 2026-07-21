@@ -34,6 +34,11 @@ let private decodeAckChangeIds json =
         get.Required.Field "ackedChangeIds" (Thoth.Json.Core.Decode.list Thoth.Json.Core.Decode.guid))
     |> decode <| json
 
+let private decodeErrorField json =
+    Thoth.Json.Core.Decode.object (fun get ->
+        get.Required.Field "error" Thoth.Json.Core.Decode.string)
+    |> decode <| json
+
 let private decodeGraph json =
     Thoth.Json.Core.Decode.object (fun get ->
         get.Required.Field "graph" Serialization.decodeGraph)
@@ -248,6 +253,9 @@ let ``POST changes with bad op returns 400`` (backend: BackendKind) =
         let change = { id = 0; changeId = Guid.NewGuid(); ops = [ Op.SetText(bogusId, "wrong", "new") ] }
         let! resp = postChange client testFile change
         Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode)
+        let! body = resp.Content.ReadAsStringAsync()
+        let err = decodeErrorField body
+        Assert.False(String.IsNullOrWhiteSpace err)
     })
 
 [<Theory; MemberData(nameof backends)>]

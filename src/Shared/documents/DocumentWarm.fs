@@ -1,7 +1,7 @@
 namespace Gambol.Shared
 
-/// Warm artifact read. Pass Diff (DotNet: OutlineLcs.diffTexts). Cold path uses
-/// DocumentFormat.readArtifactCold.
+/// Warm artifact read/write. Pass Diff (DotNet: OutlineLcs.diffTexts). Cold path uses
+/// DocumentFormat.readArtifactCold / writeArtifact.
 [<RequireQualifiedAccess>]
 module DocumentWarm =
 
@@ -40,3 +40,19 @@ module DocumentWarm =
                 |> Result.bind (
                     DocumentFormat.mergeReadResult allowContentUpdate context
                 ))
+
+    let writeArtifact
+        (diffTexts: OutlineDiffTexts)
+        (graph: Graph)
+        (documentRootId: NodeId)
+        (relativePath: string)
+        (previousText: string option)
+        : Result<string, string> =
+        match previousText with
+        | None ->
+            DocumentFormat.writeArtifact graph documentRootId relativePath None
+        | Some _ ->
+            DocumentFormat.classifyCodecForWrite graph documentRootId relativePath
+            |> Result.bind (fun codec ->
+                handlerFor diffTexts codec
+                |> fun h -> h.write graph documentRootId previousText)

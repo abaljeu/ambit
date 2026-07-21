@@ -57,7 +57,16 @@ module PlainTextReconcile =
             toSpanTree
             readColdImpl
             hooks
-            PlainTextDocument.writeArtifact
+            (fun graph documentRootId previousText ->
+                match previousText with
+                | None ->
+                    PlainTextDocument.writeArtifact graph documentRootId None
+                | Some prev ->
+                    PlainTextDocument.writeArtifactWarm
+                        diffTexts
+                        graph
+                        documentRootId
+                        prev)
 
     let reconcile
         (diffTexts: OutlineDiffTexts)

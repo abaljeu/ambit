@@ -27,12 +27,6 @@ module MdDocument =
         | ListItem
         | Plain
 
-    type private RawLine = {
-        raw: string
-        content: string
-        ending: string
-    }
-
     type private OutlineLine = {
         depth: int
         text: string
@@ -49,43 +43,8 @@ module MdDocument =
     let private hasCssClasses (classes: CssClasses) =
         not (List.isEmpty (CssClass.toList classes))
 
-    let private splitRawLines (text: string) : RawLine list =
-        if String.IsNullOrEmpty text then
-            []
-        else
-            let rec findEnding (idx: int) =
-                if idx >= text.Length then None
-                elif idx + 1 < text.Length && text.[idx] = '\r' && text.[idx + 1] = '\n' then
-                    Some("\r\n", idx + 2)
-                elif text.[idx] = '\n' then Some("\n", idx + 1)
-                elif text.[idx] = '\r' then Some("\r", idx + 1)
-                else findEnding (idx + 1)
-
-            let rec loop (idx: int) (acc: RawLine list) =
-                if idx >= text.Length then
-                    List.rev acc
-                else
-                    match findEnding idx with
-                    | None ->
-                        let content = text.Substring idx
-                        List.rev ({ raw = content; content = content; ending = "" } :: acc)
-                    | Some(ending, next) ->
-                        let content = text.Substring(idx, next - idx - ending.Length)
-
-                        loop next (
-                            { raw = content + ending
-                              content = content
-                              ending = ending }
-                            :: acc
-                        )
-
-            loop 0 []
-
-    let private leadingWhitespace (line: string) : string =
-        line |> Seq.takeWhile (fun c -> c = ' ' || c = '\t') |> String.Concat
-
     let private listIndentSteps (line: string) : int =
-        let ws = leadingWhitespace line
+        let ws = DocumentOutlineOps.leadingWhitespace line
         let tabs = ws |> Seq.filter ((=) '\t') |> Seq.length
         let spaces = ws |> Seq.filter ((=) ' ') |> Seq.length
         tabs + spaces / 2
@@ -112,7 +71,7 @@ module MdDocument =
             Some(hashCount, content.Substring bodyStart)
 
     let private parseListItem (content: string) : (int * string) option =
-        let wsLen = leadingWhitespace content |> String.length
+        let wsLen = DocumentOutlineOps.leadingWhitespace content |> String.length
         let rest = content.Substring wsLen
 
         if rest.StartsWith("- ") then
@@ -159,7 +118,7 @@ module MdDocument =
                     }
 
     let private parseOutlineLines (text: string) : OutlineLine list =
-        splitRawLines text
+        DocumentOutlineOps.splitRawLines text
         |> List.map (fun line -> line.content)
         |> List.fold
             (fun (active, acc) content ->
@@ -226,20 +185,6 @@ module MdDocument =
 
     let complementForWrite (graph: Graph) (documentRootId: NodeId) : MdComplement =
         buildComplement graph documentRootId
-
-    let private popStack depth stack =
-        let rec loop acc = function
-            | (d, _) :: tail when d >= depth -> loop acc tail
-            | rest -> List.rev acc @ rest
-
-        loop [] stack
-
-    let private prependChild (parentId: NodeId) (edge: ChildNode) (nodes: Map<NodeId, Node>) =
-        let parent = nodes.[parentId]
-        nodes |> Map.add parentId { parent with children = edge :: parent.children }
-
-    let private finalizeDocument (nodes: Map<NodeId, Node>) =
-        nodes |> Map.map (fun _ node -> { node with children = List.rev node.children })
 
     let private mergeOwnerNode
         (nodeId: NodeId)
@@ -379,58 +324,18 @@ module MdDocument =
                         outline
                         aligned
 
-                let folder
-                    (nodes: Map<NodeId, Node>, stack: (int * NodeId) list)
-                    (depth, text, kind, nodeIdOpt)
-                    =
-                    let stack' = popStack depth stack
-                    let parentId = snd stack'.Head
-
-                    let nodeId =
-                        match nodeIdOpt with
-                        | Some id -> id
-                        | None -> NodeId.New()
-
-                    let nodes' =
-                        mergeOwnerNode nodeId text kind parentId nodes contextGraph
-
-                    let edge = { ref = Ownership.Owner; id = nodeId }
-                    let nodes'' = prependChild parentId edge nodes'
-                    nodes'', (depth, nodeId) :: stack'
-
-                let nodes, _ =
-                    rows
-                    |> List.fold
-                        folder
-                        (contextGraph.nodes |> Map.map (fun _ n -> { n with children = [] }),
-                         [ (-1, documentRootId) ])
-
-                Ok(finalizeDocument nodes)
-
-    let copyDocumentFromGraph (contextGraph: Graph) (documentRootId: NodeId) =
-        let rec copySubtree nodeId acc =
-            match Map.tryFind nodeId contextGraph.nodes with
-            | None -> acc
-            | Some node ->
-                let acc' = Map.add nodeId { node with children = [] } acc
-
-                node.children
-                |> List.fold
-                    (fun a child ->
-                        let a' = copySubtree child.id a
-
-                        match Map.tryFind child.id contextGraph.nodes with
-                        | None -> a'
-                        | Some _ ->
-                            let parent = a'.[nodeId]
-
-                            Map.add
-                                nodeId
-                                { parent with children = child :: parent.children }
-                                a')
-                    acc'
-
-        copySubtree documentRootId Map.empty |> finalizeDocument
+                Ok(
+                    DocumentOutlineOps.foldRowsIntoTree
+                        documentRootId
+                        contextGraph
+                        rows
+                        (fun (depth, _, _, _) -> depth)
+                        (fun (_, _, _, nodeIdOpt) ->
+                            match nodeIdOpt with
+                            | Some id -> id
+                            | None -> NodeId.New())
+                        (fun nodeId (_, text, kind, _) parentId nodes ctx ->
+                            mergeOwnerNode nodeId text kind parentId nodes ctx))
 
     let finishRead
         (documentRootId: NodeId)
@@ -455,26 +360,15 @@ module MdDocument =
         | Some _ ->
             let outline = parseOutlineLines text
 
-            let folder (nodes: Map<NodeId, Node>, stack: (int * NodeId) list) (line: OutlineLine) =
-                let stack' = popStack line.depth stack
-                let parentId = snd stack'.Head
-                let nodeId = NodeId.New()
-
-                let nodes' =
-                    mergeOwnerNode nodeId line.text line.kind parentId nodes contextGraph
-
-                let edge = { ref = Ownership.Owner; id = nodeId }
-                let nodes'' = prependChild parentId edge nodes'
-                nodes'', (line.depth, nodeId) :: stack'
-
-            let nodes, _ =
-                outline
-                |> List.fold
-                    folder
-                    (contextGraph.nodes |> Map.map (fun _ n -> { n with children = [] }),
-                     [ (-1, documentRootId) ])
-
-            Ok(finalizeDocument nodes)
+            Ok(
+                DocumentOutlineOps.foldRowsIntoTree
+                    documentRootId
+                    contextGraph
+                    outline
+                    (fun line -> line.depth)
+                    (fun _ -> NodeId.New())
+                    (fun nodeId line parentId nodes ctx ->
+                        mergeOwnerNode nodeId line.text line.kind parentId nodes ctx))
 
     let read
         (text: string)
@@ -505,12 +399,52 @@ module MdDocument =
     let private isSubstantive (line: SerializedLine) =
         not (String.IsNullOrWhiteSpace line.content)
 
-    /// One blank between block lines; keep heading→list and list→list tight.
-    let private needsBlankSeparator (prev: SerializedLine) (curr: SerializedLine) =
-        match prev.kind, curr.kind with
-        | ListItem, ListItem -> false
-        | Head, ListItem -> false
-        | _ -> true
+    let private needsPreBlank (prevKind: LineKind option) (kind: LineKind) =
+        match kind with
+        | Head -> prevKind.IsSome
+        | ListItem ->
+            match prevKind with
+            | Some ListItem -> false
+            | Some _ -> true
+            | None -> false
+        | Plain | Blank -> false
+
+    type private PrevEntity = {
+        line: OutlineReconcile.OutlineLine
+        substantive: DocumentOutlineOps.RawLine
+        trailing: DocumentOutlineOps.RawLine list
+        kind: LineKind
+    }
+
+    let private buildPrevEntities (previousText: string) : PrevEntity list =
+        let rawLines = DocumentOutlineOps.splitRawLines previousText
+        let outline = parseOutlineLines previousText
+
+        let substantiveRaw =
+            rawLines
+            |> List.mapi (fun i raw -> i, raw)
+            |> List.choose (fun (i, raw) ->
+                if String.IsNullOrWhiteSpace raw.content then None
+                else Some i)
+
+        substantiveRaw
+        |> List.mapi (fun flatIdx rawIdx ->
+            let line = outline.[flatIdx]
+            let trailing =
+                let nextSub =
+                    substantiveRaw
+                    |> List.tryItem (flatIdx + 1)
+                    |> Option.defaultValue rawLines.Length
+
+                [ rawIdx + 1 .. nextSub - 1 ]
+                |> List.map (fun i -> rawLines.[i])
+
+            {
+                line = OutlineReconcile.writeLine line.depth line.text None
+                substantive = rawLines.[rawIdx]
+                trailing = trailing
+                kind = line.kind
+            })
 
     let private writeFresh (graph: Graph) (documentRootId: NodeId) =
         let allLines = serializeLines graph documentRootId
@@ -518,82 +452,122 @@ module MdDocument =
         let sb = StringBuilder()
 
         lines
-        |> List.iteri (fun i line ->
-            if i > 0 && needsBlankSeparator lines.[i - 1] line then
-                sb.Append(nl) |> ignore
+        |> List.fold
+            (fun prevKind line ->
+                if needsPreBlank prevKind line.kind then
+                    sb.Append(nl) |> ignore
 
-            let idx = List.findIndex (fun l -> l.nodeId = line.nodeId) allLines
-            sb.Append(formatLine line allLines idx).Append(nl) |> ignore)
+                let idx =
+                    List.findIndex (fun l -> l.nodeId = line.nodeId) allLines
+
+                sb.Append(formatLine line allLines idx).Append(nl) |> ignore
+                Some line.kind)
+            None
+        |> ignore
 
         Ok(sb.ToString())
 
-    let private writeIncremental
+    let private writeWarmImpl
+        (diffTexts: OutlineDiffTexts)
         (graph: Graph)
         (documentRootId: NodeId)
         (previousText: string)
         =
-        let rawLines = splitRawLines previousText
-        let allExpected = serializeLines graph documentRootId
-        let expected = allExpected |> List.filter isSubstantive
+        let allLines = serializeLines graph documentRootId
+        let expected = allLines |> List.filter isSubstantive
 
-        let expectedById =
+        let edited =
             expected
-            |> List.choose (fun line -> line.nodeId |> Option.map (fun id -> id, line))
+            |> List.map (fun line ->
+                OutlineReconcile.writeLine line.depth line.content line.nodeId)
+
+        let prevEntities =
+            buildPrevEntities previousText
+            |> fun entities ->
+                let prevLines = entities |> List.map (fun e -> e.line)
+
+                let keyed =
+                    OutlineReconcile.assignPrevHardKeys edited prevLines
+
+                List.zip entities keyed
+                |> List.map (fun (e, line) -> { e with line = line })
+
+        let previous = prevEntities |> List.map (fun e -> e.line)
+
+        let serializedById =
+            expected
+            |> List.choose (fun line ->
+                line.nodeId
+                |> Option.map (fun id ->
+                    let idx =
+                        List.findIndex
+                            (fun l -> l.nodeId = line.nodeId)
+                            allLines
+
+                    id, (line, idx)))
             |> Map.ofList
 
-        let previousMapped = mapPreviousLines previousText graph documentRootId
+        let formatEdit (edit: OutlineReconcile.OutlineLine) =
+            match edit.nodeId with
+            | Some id ->
+                match Map.tryFind id serializedById with
+                | Some(line, idx) -> formatLine line allLines idx
+                | None -> edit.text
+            | None ->
+                match
+                    expected
+                    |> List.tryFind (fun l ->
+                        l.content = edit.text && l.depth = edit.depth)
+                with
+                | Some line ->
+                    let idx =
+                        List.findIndex
+                            (fun l -> l.nodeId = line.nodeId)
+                            allLines
 
-        let substantiveRawIndices =
-            rawLines
-            |> List.mapi (fun i raw -> i, raw)
-            |> List.choose (fun (i, raw) ->
-                if String.IsNullOrWhiteSpace raw.content then None else Some i)
+                    formatLine line allLines idx
+                | None -> edit.text
 
-        let nodeIdAtRawIndex =
-            List.zip substantiveRawIndices previousMapped
-            |> List.choose (fun (rawIdx, (_, nodeId)) ->
-                nodeId |> Option.map (fun id -> rawIdx, id))
-            |> Map.ofList
+        let kindOfEdit (edit: OutlineReconcile.OutlineLine) =
+            match edit.nodeId with
+            | Some id ->
+                match Map.tryFind id serializedById with
+                | Some(line, _) -> line.kind
+                | None -> Plain
+            | None ->
+                expected
+                |> List.tryFind (fun l ->
+                    l.content = edit.text && l.depth = edit.depth)
+                |> Option.map (fun l -> l.kind)
+                |> Option.defaultValue Plain
 
-        let expectedIndexById =
-            allExpected
-            |> List.mapi (fun i line -> line.nodeId |> Option.map (fun id -> id, i))
-            |> List.choose id
-            |> Map.ofList
+        let plan = OutlineDocumentWarm.writePlan diffTexts previous edited
 
-        let folder (sb: StringBuilder, emitted: Set<NodeId>) (i: int) =
-            let raw = rawLines.[i]
+        let emitStep (prevKind: LineKind option) step =
+            match step with
+            | OutlineDocumentWarm.EmitKeep(pi, edit) ->
+                let ent = prevEntities.[pi]
+                let formatted = formatEdit edit
 
-            match Map.tryFind i nodeIdAtRawIndex with
-            | None -> sb.Append(raw.raw) |> ignore; sb, emitted
-            | Some nodeId ->
-                match Map.tryFind nodeId expectedById with
-                | None -> sb, emitted
-                | Some expectedLine ->
-                    let idx = Map.find nodeId expectedIndexById
-                    let newContent = formatLine expectedLine allExpected idx
-
-                    if newContent = raw.content then
-                        sb.Append(raw.raw) |> ignore
+                let chunk =
+                    if formatted = ent.substantive.content then
+                        ent.substantive.raw
                     else
-                        sb.Append(newContent).Append(raw.ending) |> ignore
+                        formatted + ent.substantive.ending
 
-                    sb, Set.add nodeId emitted
+                let chunk' =
+                    chunk
+                    + (ent.trailing |> List.map (fun b -> b.raw) |> String.concat "")
 
-        let sb, emitted =
-            [ 0 .. rawLines.Length - 1 ]
-            |> List.fold folder (StringBuilder(), Set.empty)
+                Some(kindOfEdit edit), chunk'
+            | OutlineDocumentWarm.EmitInsert edit ->
+                let kind = kindOfEdit edit
+                let prefix = if needsPreBlank prevKind kind then nl else ""
+                Some kind, prefix + formatEdit edit + nl
 
-        for line in expected do
-            match line.nodeId with
-            | Some nodeId when not (Set.contains nodeId emitted) ->
-                let idx = Map.find nodeId expectedIndexById
-                sb.Append(formatLine line allExpected idx).Append(nl) |> ignore
-            | _ -> ()
+        Ok(OutlineDocumentWarm.executeWritePlan plan emitStep None)
 
-        Ok(sb.ToString())
-
-    /// When previousText is Some, untouched bytes from that artifact are preserved.
+    /// When previousText is Some, LCS warm write requires writeWarm.
     let write
         (graph: Graph)
         (documentRootId: NodeId)
@@ -605,11 +579,40 @@ module MdDocument =
         | Some _ ->
             match previousText with
             | None -> writeFresh graph documentRootId
-            | Some previous -> writeIncremental graph documentRootId previous
+            | Some _ ->
+                Error "warm artifact write requires MdDocument.writeWarm"
+
+    let writeWarm
+        (diffTexts: OutlineDiffTexts)
+        (graph: Graph)
+        (documentRootId: NodeId)
+        (_complement: MdComplement)
+        (previousText: string)
+        : Result<string, string> =
+        match Map.tryFind documentRootId graph.nodes with
+        | None -> Error "document root not found"
+        | Some _ -> writeWarmImpl diffTexts graph documentRootId previousText
 
     let writeArtifact
         (graph: Graph)
         (documentRootId: NodeId)
         (previousText: string option)
         : Result<string, string> =
-        write graph documentRootId (complementForWrite graph documentRootId) previousText
+        write
+            graph
+            documentRootId
+            (complementForWrite graph documentRootId)
+            previousText
+
+    let writeArtifactWarm
+        (diffTexts: OutlineDiffTexts)
+        (graph: Graph)
+        (documentRootId: NodeId)
+        (previousText: string)
+        : Result<string, string> =
+        writeWarm
+            diffTexts
+            graph
+            documentRootId
+            (complementForWrite graph documentRootId)
+            previousText

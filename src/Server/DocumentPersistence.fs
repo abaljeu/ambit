@@ -139,8 +139,30 @@ module DocumentPersistence =
             | :? IOException as ex ->
                 Error ("read failed: " + ex.Message)
 
-    /// Plan ParseFile ops on the live graph. `textOpt` from desktop upload;
-    /// otherwise read artifact text from DataDir.
+    let private writeArtifactText
+        (dataDir: string)
+        (graph: Graph)
+        (fileId: NodeId)
+        (text: string)
+        : Result<unit, string> =
+        match resolveArtifactPath dataDir graph fileId with
+        | Error msg -> Error msg
+        | Ok fullPath ->
+            try
+                let parent = Path.GetDirectoryName fullPath
+
+                if not (String.IsNullOrEmpty parent) then
+                    Directory.CreateDirectory parent |> ignore
+
+                let tmpPath = fullPath + ".tmp"
+                File.WriteAllText(tmpPath, text)
+                File.Move(tmpPath, fullPath, true)
+                Ok ()
+            with ex ->
+                Error ex.Message
+
+    /// Plan ParseFile ops on the live graph. `textOpt` from desktop upload
+    /// (writes artifact to DataDir first); otherwise read artifact text from DataDir.
     let planParseFile
         (dataDir: string)
         (graph: Graph)
@@ -151,7 +173,9 @@ module DocumentPersistence =
         | Some { kind = Special File } ->
             let textResult =
                 match textOpt with
-                | Some text -> Ok text
+                | Some text ->
+                    writeArtifactText dataDir graph fileId text
+                    |> Result.map (fun () -> text)
                 | None ->
                     match DocumentPartition.artifactFileRelative graph fileId with
                     | None -> Error "selected File has no occurrence on the server"
@@ -344,7 +368,14 @@ module DocumentPersistence =
                     let previousText =
                         if File.Exists fullPath then Some(File.ReadAllText fullPath) else None
 
-                    match DocumentFormat.writeArtifact graph documentRootId rel previousText with
+                    match
+                        DocumentWarm.writeArtifact
+                            OutlineLcs.diffTexts
+                            graph
+                            documentRootId
+                            rel
+                            previousText
+                    with
                     | Error msg -> Error msg
                     | Ok text ->
                         try

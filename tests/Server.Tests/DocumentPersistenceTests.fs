@@ -282,6 +282,41 @@ let ``planParseFile DataDir warm keeps line NodeId on text edit`` () =
     Assert.Equal(Current, after.graph.nodes.[fileId].documentState)
 
 [<Fact>]
+let ``planParseFile with body text writes artifact to DataDir`` () =
+    let dataDir = newTempDir ()
+    let graph, _, _, fileId, _ = graphWithNestedDocs ()
+    let diskPath = Path.Combine(dataDir, "home", "docs", "readme.txt")
+
+    DocumentPersistence.planParseFile
+        dataDir
+        graph
+        fileId
+        (Some "UPLOADED\n")
+    |> requireOk "planParseFile"
+    |> ignore
+
+    Assert.True(File.Exists diskPath)
+    Assert.Equal("UPLOADED\n", File.ReadAllText diskPath)
+
+[<Fact>]
+let ``planParseFile with body text overwrites stale DataDir content`` () =
+    let dataDir = newTempDir ()
+    let graph, _, _, fileId, _ = graphWithNestedDocs ()
+    let diskPath = Path.Combine(dataDir, "home", "docs", "readme.txt")
+    Directory.CreateDirectory(Path.GetDirectoryName diskPath) |> ignore
+    File.WriteAllText(diskPath, "STALE")
+
+    DocumentPersistence.planParseFile
+        dataDir
+        graph
+        fileId
+        (Some "FRESH\n")
+    |> requireOk "planParseFile"
+    |> ignore
+
+    Assert.Equal("FRESH\n", File.ReadAllText diskPath)
+
+[<Fact>]
 let ``planParseFile uses body text over DataDir`` () =
     let dataDir = newTempDir ()
     let graph, _, _, fileId, normalId = graphWithNestedDocs ()

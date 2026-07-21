@@ -4,6 +4,7 @@ open Gambol.Client.UpdateHelpers
 open Gambol.Shared
 open Gambol.Shared.ViewModel
 open Gambol.Shared.ViewModelJoinOps
+open Gambol.Shared.ViewModelMoveOps
 
 
 let moveEdit (delta: int) (cursorPos: int) (model: VM) : VM * Effect list =
@@ -22,7 +23,7 @@ let private applyJoin ops text caret instanceId (model: VM) =
           ops = ops }
 
     match applyAndPost change model with
-    | Error _ -> model, []
+    | Error msg -> withMoveError msg model, []
     | Ok (m, effects) ->
         let result = withSiteMap m
 

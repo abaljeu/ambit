@@ -71,6 +71,20 @@ module FileAgent =
         let isDuplicateSubmission (change: Change) (history: History) =
             history.past |> List.exists (fun c -> c.id = change.id && c.changeId = change.changeId)
 
+        let writeMetaRevision (rev: int) =
+            try
+                let metaTmpPath = metaPath + ".tmp"
+                File.WriteAllText(metaTmpPath, string rev)
+                File.Move(metaTmpPath, metaPath, true)
+                Ok ()
+            with ex ->
+                Error ex.Message
+
+        let syncPersistChange (rev: int) (preGraph: Graph) (postGraph: Graph) =
+            match DocumentPersistence.persistGraphChange dataDir preGraph postGraph with
+            | Error err -> Error err
+            | Ok _ -> writeMetaRevision rev
+
         let startSnapshot (inbox: MailboxProcessor<FileAgentMsg>) =
             snapshotInProgress.Value <- true
             snapshotNeeded.Value <- false
@@ -160,17 +174,21 @@ module FileAgent =
                     match validation with
                     | Error err -> reply.Reply(Error err)
                     | Ok () ->
-                        match persistLogEntries logEntries with
+                        let diskPersist =
+                            if changed && not graphOnly then
+                                syncPersistChange newState.revision.Value preGraph newState.graph
+                            else Ok ()
+                        match diskPersist with
                         | Error err -> reply.Reply(Error err)
-                        | Ok offsets ->
-                            offsets |> List.iter offsetIndex.Add
-                            state.Value <- newState
-                            reply.Reply(Ok (encodeChangeAckJson ackedChangeIds))
-                            if graphOnly then
-                                persistedGraph.Value <- newState.graph
-                            elif changed then
-                                if snapshotInProgress.Value then snapshotNeeded.Value <- true
-                                else startSnapshot inbox
+                        | Ok () ->
+                            match persistLogEntries logEntries with
+                            | Error err -> reply.Reply(Error err)
+                            | Ok offsets ->
+                                offsets |> List.iter offsetIndex.Add
+                                state.Value <- newState
+                                reply.Reply(Ok (encodeChangeAckJson ackedChangeIds))
+                                if graphOnly || changed then
+                                    persistedGraph.Value <- newState.graph
 
         let mailbox = MailboxProcessor<FileAgentMsg>.Start(fun inbox ->
             let rec loop () = async {

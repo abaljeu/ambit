@@ -147,7 +147,9 @@ let ``write cold emits headings and lists`` () =
     let text =
         MdDocument.write graph' docId emptyComplement None
         |> requireOk "write"
-    Assert.Equal("# section" + Environment.NewLine + "- item" + Environment.NewLine, text)
+    Assert.Equal(
+        "# section" + Environment.NewLine + Environment.NewLine + "- item" + Environment.NewLine,
+        text)
 
 [<Fact>]
 let ``write with md-head emits hash line`` () =
@@ -173,7 +175,7 @@ let ``write without class at same depth emits plain line`` () =
     Assert.False(text.StartsWith("#"))
 
 [<Fact>]
-let ``write cold separates plain siblings with one blank`` () =
+let ``write cold keeps plain siblings tight and pre-blanks heading`` () =
     let aId = NodeId.New()
     let bId = NodeId.New()
     let headId = NodeId.New()
@@ -188,8 +190,27 @@ let ``write cold separates plain siblings with one blank`` () =
         |> requireOk "write"
     let nl = Environment.NewLine
     Assert.Equal(
-        "Read this." + nl + nl + "hello" + nl + nl + "# Next" + nl,
+        "Read this." + nl + "hello" + nl + nl + "# Next" + nl,
         text)
+
+[<Fact>]
+let ``write cold pre-blanks first list item of a run`` () =
+    let plainId = NodeId.New()
+    let aId = NodeId.New()
+    let bId = NodeId.New()
+    let plain = normalNode plainId "intro" Graph.rootId
+    let a =
+        { normalNode aId "one" Graph.rootId with
+            cssClasses = CssClass.ofList [ "md-list" ] }
+    let b =
+        { normalNode bId "two" Graph.rootId with
+            cssClasses = CssClass.ofList [ "md-list" ] }
+    let graph, docId = graphWithDocument [ plain; a; b ]
+    let text =
+        MdDocument.write graph docId emptyComplement None
+        |> requireOk "write"
+    let nl = Environment.NewLine
+    Assert.Equal("intro" + nl + nl + "- one" + nl + "- two" + nl, text)
 
 [<Fact>]
 let ``write cold skips empty nodes and does not multiply blanks`` () =
@@ -204,11 +225,10 @@ let ``write cold skips empty nodes and does not multiply blanks`` () =
         MdDocument.write graph docId emptyComplement None
         |> requireOk "write"
     let nl = Environment.NewLine
-    Assert.Equal("alpha" + nl + nl + "beta" + nl, text)
-    Assert.DoesNotContain(nl + nl + nl, text)
+    Assert.Equal("alpha" + nl + "beta" + nl, text)
 
 [<Fact>]
-let ``write incremental does not append blank for empty new node`` () =
+let ``write warm does not append blank for empty new node`` () =
     let graph, docId = graphWithDocument []
     let previous = "alpha" + Environment.NewLine + Environment.NewLine + "beta" + Environment.NewLine
     let readResult = MdDocument.read previous docId graph |> requireOk "read"
@@ -224,9 +244,39 @@ let ``write incremental does not append blank for empty new node`` () =
             |> Map.add docId { g.nodes.[docId] with children = owned [ alphaId; emptyId; betaId ] }
             |> fun nodes -> { g with nodes = nodes }
     let text =
-        MdDocument.write graph' docId readResult.complement (Some previous)
+        MdDocument.writeWarm
+            OutlineLcs.diffTexts
+            graph'
+            docId
+            readResult.complement
+            previous
         |> requireOk "write"
     Assert.Equal(previous, text)
+
+[<Fact>]
+let ``write warm delete drops absorbed trailing blanks`` () =
+    let graph0, docId = graphWithDocument []
+    let nl = Environment.NewLine
+    let previous = "alpha" + nl + nl + nl + "beta" + nl
+    let readResult = MdDocument.read previous docId graph0 |> requireOk "read"
+    let alphaId = readResult.nodes.[docId].children.Head.id
+    let betaId = readResult.nodes.[docId].children.[1].id
+    let graph =
+        { graph0 with nodes = readResult.nodes }
+        |> fun g ->
+            g.nodes
+            |> Map.remove alphaId
+            |> Map.add docId { g.nodes.[docId] with children = owned [ betaId ] }
+            |> fun nodes -> { g with nodes = nodes }
+    let text =
+        MdDocument.writeWarm
+            OutlineLcs.diffTexts
+            graph
+            docId
+            readResult.complement
+            previous
+        |> requireOk "write"
+    Assert.Equal("beta" + nl, text)
 
 [<Fact>]
 let ``round trip preserves blank lines in previous text`` () =
@@ -234,11 +284,12 @@ let ``round trip preserves blank lines in previous text`` () =
     let input = "# head" + Environment.NewLine + Environment.NewLine + "body" + Environment.NewLine
     let readResult = MdDocument.read input docId graph |> requireOk "read"
     let output =
-        MdDocument.write
+        MdDocument.writeWarm
+            OutlineLcs.diffTexts
             { graph with nodes = readResult.nodes }
             docId
             readResult.complement
-            (Some input)
+            input
         |> requireOk "write"
     Assert.Equal(input, output)
 

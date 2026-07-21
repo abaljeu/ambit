@@ -5,6 +5,7 @@ open Fable.Core.JsInterop
 open Gambol.Client.JsInterop
 open Gambol.Shared
 open Gambol.Shared.ViewModel
+open Gambol.Shared.ViewModelMoveOps
 open Thoth.Json.Core
 
 // ---------------------------------------------------------------------------
@@ -201,7 +202,7 @@ let commitTextEdit
               ops = ops }
         match applyAndPost change model with
         | Ok (m, effects) -> { m with mode = Selecting }, effects
-        | Error _         -> { model with mode = Selecting }, []
+        | Error msg -> withMoveError msg { model with mode = Selecting }, []
 
 /// Split the currently-edited node at the cursor position.
 ///
@@ -278,7 +279,7 @@ let splitNode (currentText: string) (cursorPos: int) (model: VM) : VM * Effect l
             { m2 with
                 selectedNodes = newSel
                 mode = Editing (newNodeText, EditCaret.Utf16Index 0) }, effects
-        | Error _ -> model, []
+        | Error msg -> withMoveError msg model, []
     | _ -> model, []
 
 /// If currently editing, commit the edit and return Selecting model; otherwise return model as-is.

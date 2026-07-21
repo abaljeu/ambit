@@ -151,7 +151,12 @@ module MdReconcile =
             fun text _graph _documentRootId -> Ok(toSpanTree text [])
         DocumentHandler.readCold = readColdImpl
         DocumentHandler.readWarm = readWarm diffTexts
-        DocumentHandler.write = MdDocument.writeArtifact
+        DocumentHandler.write =
+            fun graph documentRootId previousText ->
+                match previousText with
+                | None -> MdDocument.writeArtifact graph documentRootId None
+                | Some prev ->
+                    MdDocument.writeArtifactWarm diffTexts graph documentRootId prev
     }
 
     let reconcile

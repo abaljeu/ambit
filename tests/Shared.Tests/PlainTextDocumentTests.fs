@@ -172,11 +172,12 @@ let ``unchanged import writes byte identically`` () =
     let input = "alpha\r\n" + Environment.NewLine + "\tchild\r\n"
     let readResult = PlainTextDocument.read input docId graph |> requireOk "read"
     let output =
-        PlainTextDocument.write
+        PlainTextDocument.writeWarm
+            OutlineLcs.diffTexts
             { graph with nodes = readResult.nodes }
             docId
             readResult.complement
-            (Some input)
+            input
         |> requireOk "write"
     Assert.Equal(input, output)
 
@@ -202,11 +203,12 @@ let ``round trip preserves blank lines in previous text`` () =
     let input = "line" + Environment.NewLine + Environment.NewLine + "next" + Environment.NewLine
     let readResult = PlainTextDocument.read input docId graph |> requireOk "read"
     let output =
-        PlainTextDocument.write
+        PlainTextDocument.writeWarm
+            OutlineLcs.diffTexts
             { graph with nodes = readResult.nodes }
             docId
             readResult.complement
-            (Some input)
+            input
         |> requireOk "write"
     Assert.Equal(input, output)
 
@@ -340,7 +342,12 @@ let ``write after reparent preserves node id at new depth`` () =
         Graph.replace docId 0 (owned [ aId ]) (owned [ aId; bId ]) graph
         |> requireOk "reparent child to doc root"
     let text =
-        PlainTextDocument.write graph docId nestedRead.complement (Some nested)
+        PlainTextDocument.writeWarm
+            OutlineLcs.diffTexts
+            graph
+            docId
+            nestedRead.complement
+            nested
         |> requireOk "write"
     Assert.Contains("child" + Environment.NewLine, text)
     Assert.DoesNotContain("\tchild", text)
@@ -417,7 +424,7 @@ let ``reconcile preserves ref edge from graph context`` () =
     Assert.Equal(Ownership.Ref, result.nodes.[holderId].children.Head.ref)
 
 [<Fact>]
-let ``write incremental preserves blank run when two content lines edit`` () =
+let ``write warm preserves blank run when two content lines edit`` () =
     let graph0, docId = graphWithDocument []
     let previous =
         "alpha"
@@ -439,7 +446,12 @@ let ``write incremental preserves blank run when two content lines edit`` () =
         |> Map.add cId { graph.nodes.[cId] with text = "GAMMA" }
         |> fun nodes -> { graph with nodes = nodes }
     let output =
-        PlainTextDocument.write graph docId readResult.complement (Some previous)
+        PlainTextDocument.writeWarm
+            OutlineLcs.diffTexts
+            graph
+            docId
+            readResult.complement
+            previous
         |> requireOk "write"
     let expected =
         "alpha"
@@ -451,6 +463,54 @@ let ``write incremental preserves blank run when two content lines edit`` () =
         + "GAMMA"
         + Environment.NewLine
     Assert.Equal(expected, output)
+
+[<Fact>]
+let ``write warm delete omits content line graph wins`` () =
+    let graph0, docId = graphWithDocument []
+    let nl = Environment.NewLine
+    let previous = "alpha" + nl + "beta" + nl + "gamma" + nl
+    let readResult = PlainTextDocument.read previous docId graph0 |> requireOk "read"
+    let children = readResult.nodes.[docId].children
+    let aId = children.[0].id
+    let cId = children.[2].id
+    let graph =
+        { graph0 with nodes = readResult.nodes }
+        |> fun g ->
+            g.nodes
+            |> Map.remove children.[1].id
+            |> Map.add docId { g.nodes.[docId] with children = owned [ aId; cId ] }
+            |> fun nodes -> { g with nodes = nodes }
+    let text =
+        PlainTextDocument.writeWarm
+            OutlineLcs.diffTexts
+            graph
+            docId
+            readResult.complement
+            previous
+        |> requireOk "write"
+    Assert.Equal("alpha" + nl + "gamma" + nl, text)
+
+[<Fact>]
+let ``write warm keep preserves crlf endings`` () =
+    let graph0, docId = graphWithDocument []
+    let previous = "alpha\r\nbeta\r\n"
+    let readResult = PlainTextDocument.read previous docId graph0 |> requireOk "read"
+    let aId = readResult.nodes.[docId].children.Head.id
+    let graph =
+        { graph0 with nodes = readResult.nodes }
+        |> fun g ->
+            g.nodes
+            |> Map.add aId { g.nodes.[aId] with text = "ALPHA" }
+            |> fun nodes -> { g with nodes = nodes }
+    let text =
+        PlainTextDocument.writeWarm
+            OutlineLcs.diffTexts
+            graph
+            docId
+            readResult.complement
+            previous
+        |> requireOk "write"
+    Assert.Equal("ALPHA\r\nbeta\r\n", text)
 
 [<Fact>]
 let ``write projects empty nodes as blank lines`` () =

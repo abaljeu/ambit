@@ -186,16 +186,29 @@ module DbAgent =
                     match pathValidation with
                     | Error err -> reply.Reply(Error err)
                     | Ok () ->
-                        match persistBatch newState logEntries with
+                        let livePersist =
+                            match graphOnly, liveSaveDataDir, logEntries with
+                            | false, Some dataDir, _::_ ->
+                                DocumentPersistence.persistGraphChange
+                                    dataDir
+                                    preGraph
+                                    newState.graph
+                                |> Result.map (fun _ -> ())
+                            | _ -> Ok ()
+                        match livePersist with
                         | Error err -> reply.Reply(Error err)
                         | Ok () ->
-                            state.Value <- newState
-                            reply.Reply(Ok (encodeChangeAckJson ackedChangeIds))
-                            if graphOnly then
-                                persistedGraph.Value <- newState.graph
-                            elif not (List.isEmpty logEntries) then
-                                if snapshotInProgress.Value then snapshotNeeded.Value <- true
-                                else startSnapshot inbox
+                            match persistBatch newState logEntries with
+                            | Error err -> reply.Reply(Error err)
+                            | Ok () ->
+                                state.Value <- newState
+                                reply.Reply(Ok (encodeChangeAckJson ackedChangeIds))
+                                if graphOnly then
+                                    persistedGraph.Value <- newState.graph
+                                elif not (List.isEmpty logEntries) then
+                                    persistedGraph.Value <- newState.graph
+                                    if snapshotInProgress.Value then snapshotNeeded.Value <- true
+                                    else startSnapshot inbox
 
         let mailbox =
             MailboxProcessor<FileAgentMsg>.Start(fun inbox ->
