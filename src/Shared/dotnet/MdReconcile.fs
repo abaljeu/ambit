@@ -87,8 +87,8 @@ module MdReconcile =
         MdDocument.read text documentRootId graph
         |> Result.map toNodesRead
 
-    let private hooks: OutlineDocument.OutlineWarmHooks = {
-        OutlineDocument.OutlineWarmHooks.previousNodeIds =
+    let private hooks: OutlineDocumentWarm.OutlineWarmHooks = {
+        OutlineDocumentWarm.OutlineWarmHooks.previousNodeIds =
             MdDocument.previousOutlineIds
         whenUnchanged =
             Some(fun _previousText contextGraph documentRootId ->
@@ -106,7 +106,7 @@ module MdReconcile =
     }
 
     let handler: DocumentHandler =
-        OutlineDocument.makeOutlineHandler
+        OutlineDocumentWarm.makeOutlineHandler
             toSpanTree
             readColdImpl
             hooks

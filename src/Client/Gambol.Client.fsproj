@@ -47,6 +47,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Shared\Gambol.Shared.fsproj" />
+    <ProjectReference Include="..\Shared\documents\Gambol.Shared.Documents.fsproj" />
   </ItemGroup>
 
 </Project>

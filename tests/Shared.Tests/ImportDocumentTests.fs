@@ -131,3 +131,28 @@ let ``buildFilePackage rejects blank input`` () =
     match ImportDocument.buildFilePackage "//life/empty.md" "  \n" with
     | Ok _ -> failwith "expected blank import to fail"
     | Error err -> Assert.Equal("import text is empty", err)
+
+[<Fact>]
+let ``buildTextPackage Plain indent nesting under paste path`` () =
+    let text = "alpha" + Environment.NewLine + "\tbeta" + Environment.NewLine
+
+    let package =
+        ImportDocument.buildTextPackage "//paste" text None
+        |> requireOk "buildTextPackage"
+
+    Assert.False(package.isDirectory)
+    Assert.Equal(1, package.topLevelIds.Length)
+
+    let alphaId = package.topLevelIds.Head
+    let betaChildren =
+        package.ops
+        |> List.tryPick (function
+            | Op.Replace(parentId, _, _, children) when parentId = alphaId ->
+                Some children
+            | _ -> None)
+
+    match betaChildren with
+    | None -> failwith "expected nested child under alpha"
+    | Some children ->
+        Assert.Equal(1, children.Length)
+

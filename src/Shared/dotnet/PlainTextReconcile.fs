@@ -30,8 +30,8 @@ module PlainTextReconcile =
         PlainTextDocument.read text documentRootId graph
         |> Result.map toNodesRead
 
-    let private hooks: OutlineDocument.OutlineWarmHooks = {
-        OutlineDocument.OutlineWarmHooks.previousNodeIds =
+    let private hooks: OutlineDocumentWarm.OutlineWarmHooks = {
+        OutlineDocumentWarm.OutlineWarmHooks.previousNodeIds =
             PlainTextDocument.previousOutlineIds
         whenUnchanged =
             Some(fun previousText contextGraph documentRootId ->
@@ -52,7 +52,7 @@ module PlainTextReconcile =
     }
 
     let handler: DocumentHandler =
-        OutlineDocument.makeOutlineHandler
+        OutlineDocumentWarm.makeOutlineHandler
             toSpanTree
             readColdImpl
             hooks

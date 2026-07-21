@@ -10,21 +10,13 @@
     <Compile Include="AmbDocument.fs" />
     <Compile Include="PlainTextDocument.fs" />
     <Compile Include="MdDocument.fs" />
-    <Compile Include="OutlineLcs.fs" />
-    <Compile Include="OutlineReconcile.fs" />
     <Compile Include="OutlineDocument.fs" />
-    <Compile Include="PlainTextReconcile.fs" />
-    <Compile Include="MdReconcile.fs" />
-    <Compile Include="AmbReconcile.fs" />
     <Compile Include="DocumentFormat.fs" />
+    <Compile Include="DocumentColdParse.fs" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Gambol.Shared.fsproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="DiffPlex" Version="1.7.2" />
   </ItemGroup>
 
 </Project>

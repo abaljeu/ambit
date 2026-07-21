@@ -55,13 +55,41 @@ let private editingUnchangedAtCaret (model: VM) (line: string) (caret: int) : VM
 let private newChange (model: VM) (ops: Op list) : Change =
     { id = model.revision.Value; changeId = System.Guid.NewGuid(); ops = ops }
 
+let private normalizePasteLines (pastedText: string) : string list =
+    pastedText.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n')
+    |> Array.toList
+
+let private planColdPaste
+    (graph: Graph)
+    (documentRootId: NodeId)
+    (text: string)
+    : (NodeId list * Op list) option =
+    match
+        DocumentColdParse.planApplyCold
+            graph
+            documentRootId
+            DocumentColdParse.PasteRelativePath
+            text
+    with
+    | Error _ -> None
+    | Ok ops ->
+        let topLevelIds, nested =
+            DocumentColdParse.peelDocumentRootOps documentRootId ops
+
+        if topLevelIds.IsEmpty then None else Some(topLevelIds, nested)
+
 let private pasteNodesSelecting
-    (model: VM) (sel: Selection) (entries: (string * int) list) (preferredNodeIds: string option)
+    (model: VM) (sel: Selection) (entries: (string * int) list)
+    (preferredNodeIds: string option) (pastedText: string)
     : VM * Effect list =
     let topLevelIds, pasteOps =
         match tryPasteLinkIds model.graph preferredNodeIds entries with
         | Some existingIds -> existingIds, []
-        | None -> buildPasteOps entries
+        | None ->
+            match planColdPaste model.graph sel.range.parent.nodeId pastedText with
+            | Some result -> result
+            | None -> [], []
+
     if topLevelIds.IsEmpty then
         model, []
     else
@@ -114,13 +142,16 @@ let private pasteEditingSingleLine
 
 let private pasteEditingMultiline
     (model: VM) (originalText: string) (currentText: string) (cursorPos: int) (focusId: NodeId)
-    (parentId: NodeId) (focusIdx: int) (firstText: string) (rest: (string * int) list)
+    (parentId: NodeId) (focusIdx: int) (firstText: string) (restText: string)
     : VM * Effect list =
     let newText = spliceTextAtCaret currentText cursorPos firstText
     let setTextOps =
         if newText <> originalText then [ Op.SetText(focusId, originalText, newText) ]
         else []
-    let remainingTopIds, remainingOps = buildPasteOps rest
+    let remainingTopIds, remainingOps =
+        match planColdPaste model.graph parentId restText with
+        | Some result -> result
+        | None -> [], []
     let insertOps =
         if remainingTopIds.IsEmpty then []
         else [ Op.Replace(parentId, focusIdx + 1, [], childrenForPaste model.graph remainingTopIds) ]
@@ -133,21 +164,26 @@ let private pasteEditingMultiline
         | Ok (m, effects) -> editingModeAfterPaste m focusId afterCaret, effects
         | Error _ -> model, []
 
-let private pasteEditingPlainEntries
+let private pasteEditingPlainText
     (model: VM) (originalText: string) (currentText: string) (cursorPos: int) (focusId: NodeId)
-    (parentId: NodeId) (focusIdx: int) (entries: (string * int) list)
+    (parentId: NodeId) (focusIdx: int) (pastedText: string)
     : VM * Effect list =
-    match entries with
+    match normalizePasteLines pastedText with
     | [] -> model, []
-    | [(firstText, _)] ->
+    | [ firstLine ] ->
+        let depth = firstLine |> Seq.takeWhile ((=) '\t') |> Seq.length
+        let firstText = firstLine.Substring(depth)
         pasteEditingSingleLine model originalText currentText cursorPos focusId firstText
-    | (firstText, _) :: rest ->
+    | firstLine :: rest ->
+        let depth = firstLine |> Seq.takeWhile ((=) '\t') |> Seq.length
+        let firstText = firstLine.Substring(depth)
+        let restText = String.concat "\n" rest
         pasteEditingMultiline
-            model originalText currentText cursorPos focusId parentId focusIdx firstText rest
+            model originalText currentText cursorPos focusId parentId focusIdx firstText restText
 
 let private pasteNodesEditing
     (model: VM) (sel: Selection) (entries: (string * int) list) (preferredNodeIds: string option)
-    (originalText: string)
+    (originalText: string) (pastedText: string)
     : VM * Effect list =
     let currentText = readEditInputValue ()
     let cursorPos = readEditInputCursor ()
@@ -159,15 +195,15 @@ let private pasteNodesEditing
         pasteEditingLink
             model originalText currentText cursorPos focusId parentId focusIdx refIds
     | None ->
-        pasteEditingPlainEntries
-            model originalText currentText cursorPos focusId parentId focusIdx entries
+        pasteEditingPlainText
+            model originalText currentText cursorPos focusId parentId focusIdx pastedText
 
 /// When preferredNodeIds is Some (from cut/copy-as-links clipboard format), resolve
 /// to existing nodes and insert as links (Op.Replace only, no NewNode).
 /// Select mode: replaces selection with resolved nodes.
 /// Edit mode: commits current text then inserts resolved nodes as siblings below; stays Editing.
 ///
-/// Otherwise (normal deep-copy paste):
+/// Otherwise (external plain text): DocumentColdParse Plain via `__paste__.txt`.
 /// Select mode: replaces selection with pasted subtree.
 /// Edit mode: splices first line into node at cursor; remaining lines become siblings; stays Editing.
 let pasteNodes (pastedText: string) (preferredNodeIds: string option) (model: VM)
@@ -180,9 +216,10 @@ let pasteNodes (pastedText: string) (preferredNodeIds: string option) (model: VM
         else
             match model.mode with
             | CommandPalette _ | SearchDialog _ | FileSearchDialog _ | CssClassPrompt _ | RenamePrompt _ -> model, []
-            | Selecting -> pasteNodesSelecting model sel entries preferredNodeIds
+            | Selecting ->
+                pasteNodesSelecting model sel entries preferredNodeIds pastedText
             | Editing (originalText, _) ->
-                pasteNodesEditing model sel entries preferredNodeIds originalText
+                pasteNodesEditing model sel entries preferredNodeIds originalText pastedText
 
 /// CutSelection: store clipboard content, remove selected nodes, update selection.
 /// Post-cut priority: sibling after > sibling before > parent.

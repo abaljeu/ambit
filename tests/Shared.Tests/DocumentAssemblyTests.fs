@@ -411,7 +411,7 @@ let ``readArtifact warm Amb keeps stable id on text edit`` () =
     let edited =
         "^" + AmbDocument.formatStableId aId + " ALPHA\n"
     let after =
-        DocumentFormat.readArtifact "notes.amb" edited docId graph (Some previous)
+        DocumentWarm.readArtifact "notes.amb" edited docId graph (Some previous)
         |> requireOk "warm amb read"
     Assert.Equal(aId, after.nodes.[docId].children.Head.id)
     Assert.Equal("ALPHA", after.nodes.[aId].text)
@@ -441,7 +441,7 @@ let ``readArtifact warm Plain keeps id on line text edit`` () =
     let previous = "alpha\nbeta\n"
     let edited = "ALPHA\nbeta\n"
     let after =
-        DocumentFormat.readArtifact "readme.txt" edited docId graph (Some previous)
+        DocumentWarm.readArtifact "readme.txt" edited docId graph (Some previous)
         |> requireOk "warm plain read"
     Assert.Equal(aId, after.nodes.[docId].children.Head.id)
     Assert.Equal("ALPHA", after.nodes.[aId].text)

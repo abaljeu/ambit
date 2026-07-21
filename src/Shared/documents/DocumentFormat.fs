@@ -24,11 +24,76 @@ module DocumentFormat =
         else
             Ok DocumentCodec.Plain
 
-    let private handlerFor =
+    let private toNodesRead (documentRootId: NodeId) (nodes: Map<NodeId, Node>) =
+        OutlineDocument.nodesRead documentRootId nodes
+
+    let private warmUnavailable _ _ _ _ =
+        Error "warm reconcile requires DotNet DocumentWarm"
+
+    /// Fable-safe cold handlers (no DiffPlex). Warm handlers live in DotNet *Reconcile.
+    let private coldHandlerFor =
         function
-        | DocumentCodec.Amb -> AmbReconcile.handler
-        | DocumentCodec.Plain -> PlainTextReconcile.handler
-        | DocumentCodec.Md -> MdReconcile.handler
+        | DocumentCodec.Amb ->
+            {
+                DocumentHandler.parse =
+                    fun text _graph _documentRootId ->
+                        Ok(
+                            OutlineDocument.nestOutlineRows
+                                (AmbDocument.flattenText text)
+                                [])
+                DocumentHandler.readCold =
+                    fun text graph documentRootId ->
+                        AmbDocument.read text documentRootId graph
+                        |> Result.map (fun r ->
+                            toNodesRead r.documentRootId r.nodes)
+                DocumentHandler.readWarm = warmUnavailable
+                DocumentHandler.write =
+                    fun graph documentRootId _previousText ->
+                        AmbDocument.write graph documentRootId
+            }
+        | DocumentCodec.Plain ->
+            {
+                DocumentHandler.parse =
+                    fun text _graph _documentRootId ->
+                        let _, flat = PlainTextDocument.flattenText text
+
+                        Ok(
+                            OutlineDocument.nestOutlineRows
+                                (flat
+                                 |> List.map (fun (depth, body) ->
+                                     depth, body, None))
+                                [])
+                DocumentHandler.readCold =
+                    fun text graph documentRootId ->
+                        PlainTextDocument.read text documentRootId graph
+                        |> Result.map (fun r ->
+                            toNodesRead r.documentRootId r.nodes)
+                DocumentHandler.readWarm = warmUnavailable
+                DocumentHandler.write = PlainTextDocument.writeArtifact
+            }
+        | DocumentCodec.Md ->
+            {
+                DocumentHandler.parse =
+                    fun text _graph _documentRootId ->
+                        let normalized =
+                            text.Replace("\r\n", "\n").Replace("\r", "\n")
+
+                        let flats = MdDocument.flattenText normalized
+
+                        Ok(
+                            OutlineDocument.nestOutlineRows
+                                (flats
+                                 |> List.map (fun (depth, body, _) ->
+                                     depth, body, None))
+                                [])
+                DocumentHandler.readCold =
+                    fun text graph documentRootId ->
+                        MdDocument.read text documentRootId graph
+                        |> Result.map (fun r ->
+                            toNodesRead r.documentRootId r.nodes)
+                DocumentHandler.readWarm = warmUnavailable
+                DocumentHandler.write = MdDocument.writeArtifact
+            }
 
     let mergeReadResult
         (allowContentUpdate: bool)
@@ -104,7 +169,7 @@ module DocumentFormat =
                 Ok DocumentCodec.Amb
             | codec -> Ok codec)
 
-    let private classifyCodecForRead
+    let classifyCodecForRead
         (graph: Graph)
         (documentRootId: NodeId)
         (relativePath: string)
@@ -116,6 +181,20 @@ module DocumentFormat =
             | DocumentCodec.Plain when looksLikeAmbContent text -> Ok DocumentCodec.Amb
             | codec -> Ok codec)
 
+    /// Cold codec read only — never DiffPlex / readWarm.
+    let readArtifactCold
+        (relativePath: string)
+        (text: string)
+        (documentRootId: NodeId)
+        (context: Graph)
+        : Result<Graph, string> =
+        classifyCodecForRead context documentRootId relativePath text
+        |> Result.bind (fun codec ->
+            coldHandlerFor codec
+            |> fun h -> h.readCold text context documentRootId
+            |> Result.bind (mergeReadResult false context))
+
+    /// Cold path when previousText is None. Warm (Some _) → DocumentWarm.readArtifact.
     let readArtifact
         (relativePath: string)
         (text: string)
@@ -123,20 +202,10 @@ module DocumentFormat =
         (context: Graph)
         (previousText: string option)
         : Result<Graph, string> =
-        let allowContentUpdate = Option.isSome previousText
-        classifyCodecForRead context documentRootId relativePath text
-        |> Result.bind (fun codec ->
-            let handler = handlerFor codec
-
-            let readResult =
-                match previousText with
-                | Some prev ->
-                    handler.readWarm text context documentRootId prev
-                | None ->
-                    handler.readCold text context documentRootId
-
-            readResult
-            |> Result.bind (mergeReadResult allowContentUpdate context))
+        match previousText with
+        | None -> readArtifactCold relativePath text documentRootId context
+        | Some _ ->
+            Error "warm artifact read requires DocumentWarm.readArtifact"
 
     let writeArtifact
         (graph: Graph)
@@ -146,4 +215,5 @@ module DocumentFormat =
         : Result<string, string> =
         classifyCodecForWrite graph documentRootId relativePath
         |> Result.bind (fun codec ->
-            handlerFor codec |> fun h -> h.write graph documentRootId previousText)
+            coldHandlerFor codec
+            |> fun h -> h.write graph documentRootId previousText)

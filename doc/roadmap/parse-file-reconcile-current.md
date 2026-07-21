@@ -4,7 +4,7 @@ Status: Draft plan (no implementation yet)
 
 See also: [[doc/roadmap/workspace-file-model.md]], [[doc/reference/formats/code-shape.md]], [[doc/roadmap/workspace-text-outline-conversion.md]], [[src/Shared/CommandEntry.fs]], [[src/Client/UpdateImport.fs]], [[src/Server/DocumentPersistence.fs]], [[src/Shared/dotnet/LazyLoadReconciliationApply.fs]], [[src/Shared/dotnet/DocumentParseOps.fs]], [[src/Shared/dotnet/ImportDocument.fs]]
 
-Parallel work: **ParseFile→codec** ([[doc/roadmap/parsefile-document-codec-import.md]]) — desktop/server file import already routes through `ImportDocument.buildFilePackage`; client `UpdateImport` still applies packages via `ImportText.buildImportChange`. **Paste→codec** ([[doc/roadmap/paste-document-codec-import.md]]) shares cold `planApplyArtifact` plumbing; coordinate cold-planner extraction with reconcile and paste slices.
+Split with [[doc/roadmap/parsefile-document-codec-import.md]]: that plan wires Parse / Upload through the **document reader**; this plan is the **Current** warm slice (live graph + `previousText`). Paste is separate: [[doc/roadmap/paste-document-codec-import.md]].
 
 ## What it gives you
 
