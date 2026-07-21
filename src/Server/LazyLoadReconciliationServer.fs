@@ -67,6 +67,11 @@ module LazyLoadReconciliationServer =
                 None)
         |> Map.ofList
 
+    let private discoveredAddedPaths dataDir workspaceLabel =
+        Path.Combine(dataDir, workspaceLabel)
+        |> DocumentPersistence.discoverArtifactRelatives
+        |> Result.map (List.map LazyLoadReconciliation.Added)
+
     let reconcileChangedPaths
         (handle: AgentHandle)
         (dataDir: string)
@@ -78,20 +83,25 @@ module LazyLoadReconciliationServer =
             match decodeGraphState stateJson with
             | Error err -> return Error err
             | Ok(revision, graph) ->
-                let artifacts = readDirInfoArtifacts dataDir workspaceLabel changedPaths
-                match
-                    LazyLoadReconciliation.planChangedPathsWithArtifacts
-                        graph
-                        workspaceLabel
-                        changedPaths
-                        artifacts
-                with
+                match discoveredAddedPaths dataDir workspaceLabel with
                 | Error err -> return Error err
-                | Ok [] -> return Ok ()
-                | Ok ops ->
-                    let! result =
-                        handle.postGraphOnlyChange (encodeChange revision ops)
-                    return result |> Result.map (fun _ -> ())
+                | Ok discovered ->
+                    let allChanges = changedPaths @ discovered
+                    let artifacts =
+                        readDirInfoArtifacts dataDir workspaceLabel allChanges
+                    match
+                        LazyLoadReconciliation.planChangedPathsWithArtifacts
+                            graph
+                            workspaceLabel
+                            allChanges
+                            artifacts
+                    with
+                    | Error err -> return Error err
+                    | Ok [] -> return Ok ()
+                    | Ok ops ->
+                        let! result =
+                            handle.postGraphOnlyChange (encodeChange revision ops)
+                        return result |> Result.map (fun _ -> ())
         }
 
     let reconcileAddedPaths

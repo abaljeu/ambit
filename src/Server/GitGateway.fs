@@ -200,7 +200,6 @@ module GitGateway =
                         WorkspaceGit.changedPathsBetween workspaceRoot oldOid newOid
                 match diffResult with
                 | Error err -> logReconcileError workspaceLabel err
-                | Ok [] -> ()
                 | Ok changedPaths ->
                     match! reconcile workspaceLabel changedPaths with
                     | Ok () -> ()
@@ -295,27 +294,19 @@ module GitGateway =
                                 "missing or unknown service (want git-upload-pack|git-receive-pack)"
                             |> Async.AwaitTask
                     | Some WorkspacePush ->
-                        let hint = clientHintOf ctx.Request
-                        let! prep = prepareWorkspacePush flush root hint
-                        match prep with
+                        match advertiseRefs root WorkspacePush with
                         | Error err ->
                             do!
-                                writeTextError ctx.Response 403 err
+                                writeTextError ctx.Response 500 err
                                 |> Async.AwaitTask
-                        | Ok () ->
-                            match advertiseRefs root WorkspacePush with
-                            | Error err ->
-                                do!
-                                    writeTextError ctx.Response 500 err
-                                    |> Async.AwaitTask
-                            | Ok body ->
-                                do!
-                                    writeBytes
-                                        ctx.Response
-                                        200
-                                        (contentTypeAdvertise WorkspacePush)
-                                        body
-                                    |> Async.AwaitTask
+                        | Ok body ->
+                            do!
+                                writeBytes
+                                    ctx.Response
+                                    200
+                                    (contentTypeAdvertise WorkspacePush)
+                                    body
+                                |> Async.AwaitTask
                     | Some WorkspacePull ->
                         let hint = clientHintOf ctx.Request
                         let! prep = prepareWorkspacePull flush root hint

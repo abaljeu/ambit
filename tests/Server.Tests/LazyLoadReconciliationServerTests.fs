@@ -83,6 +83,25 @@ let ``successful receive triggers reconciliation with added paths`` () =
         ("home", [ LazyLoadReconciliation.Added "new.txt" ]),
         observed.Task.Result)
 
+[<SkippableFact>]
+let ``successful no-op receive still triggers reconciliation`` () =
+    Skip.IfNot(gitOnPath (), "git unavailable")
+    let root = newRepo ()
+    writeAndCommit root "existing.txt" "one" "seed"
+    let head = WorkspaceGit.tryHead root
+    let observed =
+        TaskCompletionSource<string * LazyLoadReconciliation.ChangedPath list>()
+    let reconcile label paths = async {
+        observed.SetResult(label, paths)
+        return Ok ()
+    }
+    let response = [| 1uy; 2uy; 3uy |]
+    let result =
+        GitGateway.completeWorkspacePush root "home" head (Ok response) reconcile
+        |> Async.RunSynchronously
+    Assert.Equal<byte[]>(response, requireOk "receive" result)
+    Assert.Equal(("home", []), observed.Task.Result)
+
 [<Fact>]
 let ``failed receive does not reconcile`` () =
     let called = TaskCompletionSource<bool>()
@@ -137,6 +156,78 @@ let ``server reconciler applies planner ops through active agent`` () =
     Assert.Equal(Special SpecialKind.File, graph.nodes.[fileId].kind)
     Assert.Empty(graph.nodes.[fileId].children)
     Assert.Equal("module Main", File.ReadAllText(sourcePath))
+    FileAgent.dispose fileAgent
+
+[<Fact>]
+let ``server reconciler adds disk files outside the changed path list`` () =
+    let tempDir = newTempDir ()
+    let fileAgent = FileAgent.create tempDir "gambol"
+    let handle = AgentHandle.ofFile fileAgent
+    let workspaceId, ops = FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
+    let change = { id = 0; changeId = Guid.NewGuid(); ops = ops }
+    let body =
+        Thoth.Json.Newtonsoft.Encode.toString 0
+            (Serialization.encodeChangeBatch { changes = [ change ] })
+    FileAgent.postChange fileAgent body |> Async.RunSynchronously |> requireOk "workspace" |> ignore
+    let existingPath = Path.Combine(tempDir, "home", "existing.txt")
+    let updatedPath = Path.Combine(tempDir, "home", "updated.txt")
+    Directory.CreateDirectory(Path.GetDirectoryName(existingPath)) |> ignore
+    File.WriteAllText(existingPath, "already on disk")
+    File.WriteAllText(updatedPath, "in the delta")
+    LazyLoadReconciliationServer.reconcileChangedPaths
+        handle
+        tempDir
+        "home"
+        [ LazyLoadReconciliation.Added "updated.txt" ]
+    |> Async.RunSynchronously
+    |> requireOk "reconcile"
+    let stateJson = FileAgent.getState fileAgent |> Async.RunSynchronously
+    let graph = LazyLoadReconciliationServer.decodeGraphState stateJson |> requireOk "state" |> snd
+    let childNames =
+        graph.nodes.[workspaceId].children
+        |> List.choose (fun child -> Filename.tryValue graph.nodes.[child.id].name)
+        |> List.sort
+    Assert.Equal<string list>([ "existing.txt"; "updated.txt" ], childNames)
+    FileAgent.dispose fileAgent
+
+[<Fact>]
+let ``server reconciler adds missing directory and file nodes from discovered paths`` () =
+    let tempDir = newTempDir ()
+    let fileAgent = FileAgent.create tempDir "gambol"
+    let handle = AgentHandle.ofFile fileAgent
+    let workspaceId, ops = FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
+    let change = { id = 0; changeId = Guid.NewGuid(); ops = ops }
+    let body =
+        Thoth.Json.Newtonsoft.Encode.toString 0
+            (Serialization.encodeChangeBatch { changes = [ change ] })
+    FileAgent.postChange fileAgent body |> Async.RunSynchronously |> requireOk "workspace" |> ignore
+    let nestedPath = Path.Combine(tempDir, "home", "docs", "notes.txt")
+    Directory.CreateDirectory(Path.GetDirectoryName(nestedPath)) |> ignore
+    File.WriteAllText(nestedPath, "hello")
+    LazyLoadReconciliationServer.reconcileChangedPaths
+        handle
+        tempDir
+        "home"
+        []
+    |> Async.RunSynchronously
+    |> requireOk "reconcile"
+    let stateJson = FileAgent.getState fileAgent |> Async.RunSynchronously
+    let graph =
+        LazyLoadReconciliationServer.decodeGraphState stateJson
+        |> requireOk "state"
+        |> snd
+    let docsId =
+        graph.nodes.[workspaceId].children
+        |> List.find (fun child ->
+            Filename.tryValue graph.nodes.[child.id].name = Some "docs")
+        |> fun child -> child.id
+    let notesId =
+        graph.nodes.[docsId].children
+        |> List.find (fun child ->
+            Filename.tryValue graph.nodes.[child.id].name = Some "notes.txt")
+        |> fun child -> child.id
+    Assert.Equal(Special SpecialKind.Directory, graph.nodes.[docsId].kind)
+    Assert.Equal(Special SpecialKind.File, graph.nodes.[notesId].kind)
     FileAgent.dispose fileAgent
 
 [<Fact>]

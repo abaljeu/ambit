@@ -56,6 +56,21 @@ module internal LazyLoadReconciliationPath =
                     Some node
                 | _ -> None)
 
+    let ownedArtifactNamed (graph: Graph) parentId name : Node option =
+        GraphQuery.ownedArtifactsInDirectory graph parentId None None
+        |> List.tryPick (fun nodeId ->
+            match Map.tryFind nodeId graph.nodes with
+            | Some node ->
+                match Filename.tryValue node.name with
+                | Some candidate when
+                    String.Equals(
+                        candidate,
+                        name,
+                        StringComparison.OrdinalIgnoreCase) ->
+                    Some node
+                | _ -> None
+            | None -> None)
+
     let workspaceByLabel (graph: Graph) label : Result<NodeId, string> =
         match ownedChildNamed graph Graph.workspacesId label with
         | Some node when node.kind = Special Workspace -> Ok node.id
@@ -88,7 +103,7 @@ module internal LazyLoadReconciliationPath =
                 | Error err -> Error err
                 | Ok None -> Ok None
                 | Ok(Some(parentId, _)) ->
-                    match ownedChildNamed graph parentId name with
+                    match ownedArtifactNamed graph parentId name with
                     | None -> Ok None
                     | Some node ->
                         let expected =

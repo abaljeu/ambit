@@ -20,7 +20,16 @@ module Filename =
         name.StartsWith("gambol.", StringComparison.OrdinalIgnoreCase)
 
     let private isValidChar (c: char) : bool =
-        Char.IsLetterOrDigit c || c = '.' || c = '-' || c = '_'
+        not (Char.IsControl c)
+        && c <> '/'
+        && c <> '\\'
+        && c <> ':'
+        && c <> '*'
+        && c <> '?'
+        && c <> '"'
+        && c <> '<'
+        && c <> '>'
+        && c <> '|'
 
     /// Maps a raw string to a Filename:
     ///   null / empty  → Empty

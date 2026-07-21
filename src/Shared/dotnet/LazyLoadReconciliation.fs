@@ -23,7 +23,7 @@ module LazyLoadReconciliation =
         | _ -> Error "reconciliation can create only directory and file stubs"
 
     let private ensureChild graph parentId kind name =
-        match Path.ownedChildNamed graph parentId name with
+        match Path.ownedArtifactNamed graph parentId name with
         | Some node when node.kind = Special kind -> Ok(node.id, graph, [])
         | Some node ->
             Error $"kind conflict at '{name}': expected {kind}, found {node.kind}"
@@ -65,14 +65,11 @@ module LazyLoadReconciliation =
             |> Result.map (fun (_, next, createOps) -> next, createOps)
 
     let private pathChildIds (graph: Graph) parentId =
-        graph.nodes.[parentId].children
-        |> List.choose (fun child ->
-            if child.ref <> Ownership.Owner then
-                None
-            else
-                match graph.nodes.[child.id].kind with
-                | Special (Directory | File) -> Some child.id
-                | _ -> None)
+        GraphQuery.ownedArtifactsInDirectory graph parentId None None
+        |> List.choose (fun childId ->
+            match graph.nodes.[childId].kind with
+            | Special (Directory | File) -> Some childId
+            | _ -> None)
 
     let private refReplacementOps (graph: Graph) nodeId path =
         ViewModel.getAllOccurrences graph nodeId
@@ -156,7 +153,7 @@ module LazyLoadReconciliation =
             let parentParts = List.rev reversedParent
             ensureDirectoryPath graph workspaceId parentParts
             |> Result.bind (fun (newParentId, withParents, parentOps) ->
-                match Path.ownedChildNamed withParents newParentId newName with
+                match Path.ownedArtifactNamed withParents newParentId newName with
                 | Some target when target.id <> nodeId ->
                     Error $"kind conflict at rename target '{newName}'"
                 | _ ->

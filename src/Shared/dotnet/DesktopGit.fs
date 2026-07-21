@@ -172,6 +172,11 @@ module DesktopGit =
             StringComparison.OrdinalIgnoreCase)
         >= 0
 
+    let isNonFastForwardPushError (detail: string) : bool =
+        detail.IndexOf("non-fast-forward", StringComparison.OrdinalIgnoreCase) >= 0
+        || detail.IndexOf("fetch first", StringComparison.OrdinalIgnoreCase) >= 0
+        || detail.IndexOf("failed to push some refs", StringComparison.OrdinalIgnoreCase) >= 0
+
     let pullArgumentsIgnoringAttrs (branch: string) : string =
         sprintf "-c attr.tree=%s %s" emptyAttrTree (pullArguments branch)
 
@@ -221,7 +226,18 @@ module DesktopGit =
             match requireAttachedHead localPath with
             | Error err -> Error err
             | Ok branch ->
-                runGitCore localPath (pushArguments branch) auth
+                match runGitCore localPath (pushArguments branch) auth with
+                | Ok out -> Ok out
+                | Error pushErr when isNonFastForwardPushError pushErr ->
+                    match gitPull localPath auth with
+                    | Error pullErr ->
+                        Error(
+                            pushErr
+                            + Environment.NewLine
+                            + "auto-pull before retry failed: "
+                            + pullErr)
+                    | Ok _ -> runGitCore localPath (pushArguments branch) auth
+                | Error pushErr -> Error pushErr
 
     let status (localPath: string) : Result<WorkspaceGitStatus, string> =
         if not (isRepo localPath) then

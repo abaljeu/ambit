@@ -774,8 +774,10 @@ let ``Filename.create returns Invalid for strings over 255 chars`` () =
     Assert.Equal(Filename.Invalid long, Filename.create long)
 
 [<Fact>]
-let ``Filename.create returns Invalid for space`` () =
-    Assert.Equal(Filename.Invalid "bad name", Filename.create "bad name")
+let ``Filename.create accepts filesystem-safe spaces and punctuation`` () =
+    Assert.Equal(Filename.Ok "bad name", Filename.create "bad name")
+    Assert.Equal(Filename.Ok "Document (2).doc", Filename.create "Document (2).doc")
+    Assert.Equal(Filename.Ok "Alan Baljeu - Siemens Letter.md", Filename.create "Alan Baljeu - Siemens Letter.md")
 
 [<Fact>]
 let ``Filename.create returns Invalid for path separators`` () =
@@ -783,7 +785,12 @@ let ``Filename.create returns Invalid for path separators`` () =
     Assert.Equal(Filename.Invalid "a\\b", Filename.create "a\\b")
 
 [<Fact>]
+let ``Filename.create returns Invalid for Windows-forbidden characters`` () =
+    Assert.Equal(Filename.Invalid "a:b", Filename.create "a:b")
+    Assert.Equal(Filename.Invalid "a*b", Filename.create "a*b")
+
+[<Fact>]
 let ``Filename.tryValue returns Some for Ok and None otherwise`` () =
     Assert.Equal(Some "my-file.txt", Filename.tryValue (Filename.create "my-file.txt"))
     Assert.Equal(None, Filename.tryValue (Filename.create ""))
-    Assert.Equal(None, Filename.tryValue (Filename.create "bad name"))
+    Assert.Equal(None, Filename.tryValue (Filename.create "a/b"))

@@ -103,6 +103,28 @@ let ``nested added path creates missing directory stubs`` () =
     Assert.Equal(Special File, file.kind)
 
 [<Fact>]
+let ``nested added path with spaces creates missing stubs`` () =
+    let workspaceId, graph = Graph.create () |> addWorkspace "home"
+    let graph2 =
+        requirePlan graph "home" [ "employment/business/Engineering AI.pdf" ]
+        |> applyOps graph
+    let employment =
+        ownedNamedChildren graph2 workspaceId
+        |> List.find (fst >> (=) "employment")
+        |> snd
+    let business =
+        ownedNamedChildren graph2 employment.id
+        |> List.find (fst >> (=) "business")
+        |> snd
+    let file =
+        ownedNamedChildren graph2 business.id
+        |> List.find (fst >> (=) "Engineering AI.pdf")
+        |> snd
+    Assert.Equal(Special Directory, employment.kind)
+    Assert.Equal(Special Directory, business.kind)
+    Assert.Equal(Special File, file.kind)
+
+[<Fact>]
 let ``upload-built directories stay current; only files become unparsed`` () =
     let workspaceId, graph = Graph.create () |> addWorkspace "home"
     let graph2 = requirePlan graph "home" [ "src/lib/core.fs" ] |> applyOps graph
@@ -201,6 +223,36 @@ let ``repeated reconciliation reuses matching stubs`` () =
     let graph2 = requirePlan graph "home" [ "src/core.fs" ] |> applyOps graph
     let second = requirePlan graph2 "home" [ "src/core.fs"; "src/core.fs" ]
     Assert.Empty(second)
+
+[<Fact>]
+let ``reconciliation finds artifacts through normal organizers`` () =
+    let workspaceId, graph0 = Graph.create () |> addWorkspace "home"
+    let graph1, workspaceOrganizerId = Graph.newNode "organizer" graph0
+    let graph2 =
+        [ Op.Replace(
+              workspaceId,
+              0,
+              [],
+              [ { ref = Ownership.Owner; id = workspaceOrganizerId } ]) ]
+        |> applyOps graph1
+    let srcId, srcOps =
+        FileNodeOps.planCreateOwnedDirectory graph2 workspaceOrganizerId "src"
+    let graph3 = applyOps graph2 srcOps
+    let graph4, srcOrganizerId = Graph.newNode "nested organizer" graph3
+    let graph5 =
+        [ Op.Replace(
+              srcId,
+              0,
+              [],
+              [ { ref = Ownership.Owner; id = srcOrganizerId } ]) ]
+        |> applyOps graph4
+    let fileId, fileOps =
+        FileNodeOps.planCreateOwnedFile graph5 srcOrganizerId "main.fs"
+    let graph6 = applyOps graph5 fileOps
+    let graph7 = requirePlan graph6 "home" [ "src/main.fs" ] |> applyOps graph6
+    match LazyLoadReconciliation.resolveOwnedPath graph7 "home" "src/main.fs" with
+    | Ok(Some(resolvedId, File)) -> Assert.Equal(fileId, resolvedId)
+    | other -> Assert.Fail($"expected existing file through organizers, got {other}")
 
 [<Fact>]
 let ``structural reconciliation rejects an already unparsed document`` () =

@@ -35,6 +35,16 @@ let private initRepo (dir: string) =
     |> function
         | Ok _ | Error _ -> ()
 
+let private configureCheckedOutPushPolicy (dir: string) =
+    DesktopGit.runGit dir "config receive.denyCurrentBranch updateInstead"
+    |> function
+        | Ok _ -> ()
+        | Error err -> failwith err
+    DesktopGit.runGit dir "config receive.denyNonFastForwards true"
+    |> function
+        | Ok _ -> ()
+        | Error err -> failwith err
+
 [<Fact>]
 let ``remoteUrl appends locked gateway path to ambit base`` () =
     Assert.Equal(
@@ -132,6 +142,13 @@ let ``isOverwrittenByMergeError detects stock git abort`` () =
     Assert.False(
         DesktopGit.isOverwrittenByMergeError
             "refusing to merge unrelated histories")
+
+[<Fact>]
+let ``isNonFastForwardPushError detects stock push rejects`` () =
+    Assert.True(DesktopGit.isNonFastForwardPushError "! [rejected] HEAD -> master (fetch first)")
+    Assert.True(DesktopGit.isNonFastForwardPushError "failed to push some refs")
+    Assert.True(DesktopGit.isNonFastForwardPushError "non-fast-forward")
+    Assert.False(DesktopGit.isNonFastForwardPushError "authentication failed")
 
 [<Fact>]
 let ``pushArguments maps HEAD to server branch on ambit`` () =
@@ -431,3 +448,60 @@ let ``gitPull still fails when real local edits would be overwritten`` () =
     | Ok _ -> Assert.Fail("expected overwrite Error for real local edits")
     | Error err ->
         Assert.True(DesktopGit.isOverwrittenByMergeError err, err)
+
+[<SkippableFact>]
+let ``push auto-pulls and retries when non-fast-forward is non-conflicting`` () =
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let server = newTempDir ()
+    initRepo server
+    configureCheckedOutPushPolicy server
+    File.WriteAllText(Path.Combine(server, "base.txt"), "base")
+    commitAll server "base"
+    let desktop = newTempDir ()
+    let uri = Uri(server + Path.DirectorySeparatorChar.ToString()).AbsoluteUri
+    match DesktopGit.clone uri desktop None with
+    | Error err -> Assert.Fail(err)
+    | Ok _ -> ()
+    DesktopGit.runGit desktop "remote rename origin ambit"
+    |> function
+        | Ok _ -> ()
+        | Error err -> failwith err
+    File.WriteAllText(Path.Combine(desktop, "client.txt"), "client")
+    commitAll desktop "client"
+    File.WriteAllText(Path.Combine(server, "server.txt"), "server")
+    commitAll server "server"
+    match DesktopGit.push desktop None with
+    | Error err -> Assert.Fail(err)
+    | Ok _ ->
+        match DesktopGit.runGit server "show HEAD:client.txt" with
+        | Ok text -> Assert.Equal("client", text)
+        | Error err -> Assert.Fail(err)
+        match DesktopGit.runGit server "show HEAD:server.txt" with
+        | Ok text -> Assert.Equal("server", text)
+        | Error err -> Assert.Fail(err)
+
+[<SkippableFact>]
+let ``push returns error when auto-pull retry hits real conflict`` () =
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let server = newTempDir ()
+    initRepo server
+    configureCheckedOutPushPolicy server
+    File.WriteAllText(Path.Combine(server, "same.txt"), "base")
+    commitAll server "base"
+    let desktop = newTempDir ()
+    let uri = Uri(server + Path.DirectorySeparatorChar.ToString()).AbsoluteUri
+    match DesktopGit.clone uri desktop None with
+    | Error err -> Assert.Fail(err)
+    | Ok _ -> ()
+    DesktopGit.runGit desktop "remote rename origin ambit"
+    |> function
+        | Ok _ -> ()
+        | Error err -> failwith err
+    File.WriteAllText(Path.Combine(desktop, "same.txt"), "client")
+    commitAll desktop "client"
+    File.WriteAllText(Path.Combine(server, "same.txt"), "server")
+    commitAll server "server"
+    match DesktopGit.push desktop None with
+    | Ok _ -> Assert.Fail("expected push failure after auto-pull conflict")
+    | Error err ->
+        Assert.Contains("auto-pull before retry failed", err)

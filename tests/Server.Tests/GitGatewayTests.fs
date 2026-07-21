@@ -178,7 +178,7 @@ let ``GET info refs git-upload-pack returns advertisement`` () = task {
 }
 
 [<SkippableFact>]
-let ``GET info refs git-receive-pack JITs dirty tree`` () = task {
+let ``GET info refs git-receive-pack does not JIT dirty tree`` () = task {
     Skip.IfNot(gitOnPath(), "git not on PATH")
     let dataDir = newTempDir ()
     let home = seedWorkspace dataDir "home"
@@ -191,10 +191,7 @@ let ``GET info refs git-receive-pack JITs dirty tree`` () = task {
     let! body = resp.Content.ReadAsStringAsync()
     Assert.Contains("# service=git-receive-pack", body)
     match WorkspaceGit.isDirty home with
-    | Ok dirty -> Assert.False(dirty)
-    | Error err -> Assert.Fail(err)
-    match GitSave.runGit home "log -1 --pretty=%s" with
-    | Ok subject -> Assert.Contains("workspace-push", subject)
+    | Ok dirty -> Assert.True(dirty)
     | Error err -> Assert.Fail(err)
 }
 
