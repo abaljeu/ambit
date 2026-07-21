@@ -12,6 +12,8 @@ type PlainTextComplement = {
     cssClassesByNodeId: Map<NodeId, CssClasses>
 }
 
+/// RQA: keeps `nodes` off the unqualified field pool so it does not clash with `Graph.nodes` across assemblies.
+[<RequireQualifiedAccess>]
 type PlainTextReadResult = {
     documentRootId: NodeId
     nodes: Map<NodeId, Node>
@@ -380,9 +382,11 @@ module PlainTextDocument =
         : PlainTextReadResult =
         let complement = buildComplement indentStyle contextGraph documentRootId
 
-        { documentRootId = documentRootId
-          nodes = applyCssClasses complement nodes contextGraph
-          complement = complement }
+        {
+            PlainTextReadResult.documentRootId = documentRootId
+            PlainTextReadResult.nodes = applyCssClasses complement nodes contextGraph
+            PlainTextReadResult.complement = complement
+        }
 
     let read
         (text: string)

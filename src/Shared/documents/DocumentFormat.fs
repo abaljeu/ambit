@@ -133,13 +133,17 @@ module DocumentFormat =
                         documentRootId
                         text
                     |> Result.map (fun readResult ->
-                        { documentRootId = readResult.documentRootId
-                          nodes = readResult.nodes })
+                        {
+                            AmbDocumentReadResult.documentRootId = readResult.documentRootId
+                            AmbDocumentReadResult.nodes = readResult.nodes
+                        })
                 | None ->
                     PlainTextDocument.read text documentRootId context
                     |> Result.map (fun readResult ->
-                        { documentRootId = readResult.documentRootId
-                          nodes = readResult.nodes })
+                        {
+                            AmbDocumentReadResult.documentRootId = readResult.documentRootId
+                            AmbDocumentReadResult.nodes = readResult.nodes
+                        })
                 |> Result.bind (mergeReadResult allowContentUpdate context))
 
     let writeArtifact

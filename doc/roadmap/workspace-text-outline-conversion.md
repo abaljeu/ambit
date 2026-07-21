@@ -68,7 +68,7 @@ Each rule should name its counterpart in the other direction.
 
 ## Shared outline LCS reconcile
 
-Import/warm reconcile for outline-backed text formats uses a shared mechanism in `src/Shared/dotnet/` (`OutlineLcs` + `OutlineReconcile`, DiffPlex-backed). Format codecs flatten to / project from `{ depth; text; nodeId option }` lines; sequence diff + disposition policy are format-agnostic.
+Import/warm reconcile for outline-backed text formats uses a shared mechanism in `src/Shared/documents/` (`OutlineLcs` + `OutlineReconcile`, DiffPlex-backed). Format codecs flatten to / project from `{ depth; text; nodeId option }` lines; sequence diff + disposition policy are format-agnostic.
 
 - Match key is **text only** (not depth). DiffPlex equal → keep with edited depth/text; insert → mint; delete → external deletion semantics below.
 - **Hard-match pre-pass (optional):** unique durable keys on `OutlineLine.hardKey` (Amb Owner `^id`, Ref `->^id`) pair before LCS; duplicates fall through to LCS. Plain leaves `hardKey` unset by design — plain text has no hard-match elements.
@@ -76,7 +76,7 @@ Import/warm reconcile for outline-backed text formats uses a shared mechanism in
 - Minimal in-place edit pass: among unmatched adjacent slots, pair one delete+insert as keep with new text when depths match.
 - Export stays operations-driven / previous-text byte preservation where a format uses it; LCS is the import/warm story only.
 
-Consumers: Plain (`PlainTextReconcile`) and Amb (`AmbReconcile`) via Shared/DotNet `DocumentFormat.readArtifact` when `previousText` is present; cold `AmbDocument.read` / `PlainTextDocument.read` when absent. Lazy-load dir-info apply (`LazyLoadReconciliationApply.parseDirInfoIfPresent`) supplies `Some previousText` by exporting the current graph document when that export is non-empty; first load / empty stub stays cold `None`. `DocumentAssembly` cold bootstrap still passes `None` (no prior graph projection). XML-shaped files may continue via the Plain path for now; a separate Xml OutlineReconcile consumer is not a near-term requirement. Amb export is full-cloth `AmbDocument.write` by design for identity/reconcile; ops-driven incremental write is optional only for quieter git diffs, not a reconcile gap.
+Consumers: Plain (`PlainTextReconcile`) and Amb (`AmbReconcile`) via Shared/Documents `DocumentFormat.readArtifact` when `previousText` is present; cold `AmbDocument.read` / `PlainTextDocument.read` when absent. Lazy-load dir-info apply (`LazyLoadReconciliationApply.parseDirInfoIfPresent`) supplies `Some previousText` by exporting the current graph document when that export is non-empty; first load / empty stub stays cold `None`. `DocumentAssembly` cold bootstrap still passes `None` (no prior graph projection). XML-shaped files may continue via the Plain path for now; a separate Xml OutlineReconcile consumer is not a near-term requirement. Amb export is full-cloth `AmbDocument.write` by design for identity/reconcile; ops-driven incremental write is optional only for quieter git diffs, not a reconcile gap.
 
 ## Generic text reconciliation
 

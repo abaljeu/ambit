@@ -40,7 +40,7 @@ Subtree reconciliation (`NodeId` matching, unnamed lines, deletion) follows **Re
 
 ## Reconciliation
 
-Import reconciles **(previous file text, current graph document, edited/new file text)** via Shared/DotNet `DocumentFormat.readArtifact` → `PlainTextReconcile` / shared outline LCS ([[doc/roadmap/workspace-text-outline-conversion.md]] § Shared outline LCS reconcile). Match key is **line text only** (not depth). Edited depth always wins for matched lines, so external block re-indent keeps `NodeId`s when text LCS-matches. Export is operations-driven: only lines touched by an op change; untouched bytes — blank lines, line endings, indent style, and unmodified node lines — are preserved.
+Import reconciles **(previous file text, current graph document, edited/new file text)** via Shared/Documents `DocumentFormat.readArtifact` → `PlainTextReconcile` / shared outline LCS ([[doc/roadmap/workspace-text-outline-conversion.md]] § Shared outline LCS reconcile). Match key is **line text only** (not depth). Edited depth always wins for matched lines, so external block re-indent keeps `NodeId`s when text LCS-matches. Export is operations-driven: only lines touched by an op change; untouched bytes — blank lines, line endings, indent style, and unmodified node lines — are preserved.
 
 | Change kind | Import behavior | Export behavior |
 | --- | --- | --- |

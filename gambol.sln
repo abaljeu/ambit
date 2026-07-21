@@ -31,6 +31,8 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Gambol.Desktop", "src\Deskt
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Gambol.Shared.DotNet", "src\Shared\dotnet\Gambol.Shared.DotNet.fsproj", "{F27EB1EF-90E0-421D-8737-E56AE06CF989}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Gambol.Shared.Documents", "src\Shared\documents\Gambol.Shared.Documents.fsproj", "{B8C4E2A1-3F57-4D9E-A612-9C0E5D7B4A18}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -125,6 +127,18 @@ Global
 		{F27EB1EF-90E0-421D-8737-E56AE06CF989}.Release|x64.Build.0 = Release|Any CPU
 		{F27EB1EF-90E0-421D-8737-E56AE06CF989}.Release|x86.ActiveCfg = Release|Any CPU
 		{F27EB1EF-90E0-421D-8737-E56AE06CF989}.Release|x86.Build.0 = Release|Any CPU
+		{B8C4E2A1-3F57-4D9E-A612-9C0E5D7B4A18}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B8C4E2A1-3F57-4D9E-A612-9C0E5D7B4A18}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B8C4E2A1-3F57-4D9E-A612-9C0E5D7B4A18}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{B8C4E2A1-3F57-4D9E-A612-9C0E5D7B4A18}.Debug|x64.Build.0 = Debug|Any CPU
+		{B8C4E2A1-3F57-4D9E-A612-9C0E5D7B4A18}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{B8C4E2A1-3F57-4D9E-A612-9C0E5D7B4A18}.Debug|x86.Build.0 = Debug|Any CPU
+		{B8C4E2A1-3F57-4D9E-A612-9C0E5D7B4A18}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B8C4E2A1-3F57-4D9E-A612-9C0E5D7B4A18}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B8C4E2A1-3F57-4D9E-A612-9C0E5D7B4A18}.Release|x64.ActiveCfg = Release|Any CPU
+		{B8C4E2A1-3F57-4D9E-A612-9C0E5D7B4A18}.Release|x64.Build.0 = Release|Any CPU
+		{B8C4E2A1-3F57-4D9E-A612-9C0E5D7B4A18}.Release|x86.ActiveCfg = Release|Any CPU
+		{B8C4E2A1-3F57-4D9E-A612-9C0E5D7B4A18}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -139,5 +153,6 @@ Global
 		{2951E765-5F77-95BA-3D85-F41283DA5914} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{03D823DC-7C4D-4AEB-932E-09176BF6404E} = {2951E765-5F77-95BA-3D85-F41283DA5914}
 		{F27EB1EF-90E0-421D-8737-E56AE06CF989} = {C8E42992-5E42-0C2B-DBFE-AA848D06431C}
+		{B8C4E2A1-3F57-4D9E-A612-9C0E5D7B4A18} = {C8E42992-5E42-0C2B-DBFE-AA848D06431C}
 	EndGlobalSection
 EndGlobal

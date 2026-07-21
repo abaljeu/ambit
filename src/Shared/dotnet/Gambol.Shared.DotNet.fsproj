@@ -7,11 +7,6 @@
 
   <ItemGroup>
     <Compile Include="DesktopGit.fs" />
-    <Compile Include="OutlineLcs.fs" />
-    <Compile Include="OutlineReconcile.fs" />
-    <Compile Include="PlainTextReconcile.fs" />
-    <Compile Include="AmbReconcile.fs" />
-    <Compile Include="DocumentFormat.fs" />
     <Compile Include="DocumentParseOps.fs" />
     <Compile Include="DocumentAssembly.fs" />
     <Compile Include="LazyLoadReconciliationPath.fs" />
@@ -22,10 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Gambol.Shared.fsproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="DiffPlex" Version="1.7.2" />
+    <ProjectReference Include="..\documents\Gambol.Shared.Documents.fsproj" />
   </ItemGroup>
 
 </Project>

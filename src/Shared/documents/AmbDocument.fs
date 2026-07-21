@@ -2,6 +2,8 @@ namespace Gambol.Shared
 
 open System
 
+/// RQA: keeps `nodes` off the unqualified field pool so it does not clash with `Graph.nodes` across assemblies.
+[<RequireQualifiedAccess>]
 type AmbDocumentReadResult = {
     documentRootId: NodeId
     nodes: Map<NodeId, Node>
@@ -566,7 +568,10 @@ module AmbDocument =
             | Error msg -> Error msg
             | Ok (nodes, _, _, _) ->
                 let finalized = finalizeDocument nodes
-                Ok { documentRootId = documentRootId; nodes = finalized }
+                Ok {
+                    AmbDocumentReadResult.documentRootId = documentRootId
+                    AmbDocumentReadResult.nodes = finalized
+                }
 
     let normalizeForCompare (text: string) : string =
         text.Replace("\r\n", "\n").Replace("\r", "\n")

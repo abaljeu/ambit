@@ -53,8 +53,6 @@
     <Compile Include="AmbleEval.fs" />
     <Compile Include="AmbleRun.fs" />
     <Compile Include="Amble.fs" />
-    <Compile Include="AmbDocument.fs" />
-    <Compile Include="PlainTextDocument.fs" />
     <Compile Include="Paste.fs" />
     <Compile Include="ImportText.fs" />
     <Compile Include="ExportText.fs" />

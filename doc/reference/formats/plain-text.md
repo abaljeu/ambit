@@ -2,7 +2,7 @@
 
 ## Assumptions:
 - Generic text means the existing `other text` / plain format path, not `.amb` or `.md`.
-- Cold read/write and flatten/project live in [[src/Shared/PlainTextDocument.fs]]. Import/warm reconcile uses shared outline LCS in Shared/DotNet (`OutlineLcs` / `OutlineReconcile` via DiffPlex); Client does not own file reconcile.
+- Cold read/write and flatten/project live in [[src/Shared/documents/PlainTextDocument.fs]]. Import/warm reconcile uses shared outline LCS in Shared/Documents (`OutlineLcs` / `OutlineReconcile` via DiffPlex); Client does not own file reconcile.
 - Every file line (including blank) is an outline node with `text = ""` for blanks; empty nodes project as blank lines both ways.
 - Match key for warm reconcile is line text only; edited depth wins for LCS-matched lines (block re-indent keeps `NodeId`). Export remains operations-driven with `previousText` byte preservation for untouched lines.
 - Tests drive the work. Filesystem integration stays in `src/Server/`.
@@ -27,7 +27,7 @@ Fit according to [[code-shape.md]].
 
 1. In `[doc/roadmap/workspace-file-model.md](doc/roadmap/workspace-file-model.md)`, promote the generic text bullet from deferred to a planned/read-write-layer slice and link to `[doc/roadmap/workspace-format-plain.md](doc/roadmap/workspace-format-plain.md)` plus `[doc/roadmap/workspace-text-outline-conversion.md](doc/roadmap/workspace-text-outline-conversion.md)`.
 
-2. In [[doc/roadmap/workspace-text-outline-conversion.md]], record shared outline LCS reconcile (Shared/DotNet) and that generic text persistence is reconciled as `(previous file text, current graph document, edited/new file text)`:
+2. In [[doc/roadmap/workspace-text-outline-conversion.md]], record shared outline LCS reconcile (Shared/Documents) and that generic text persistence is reconciled as `(previous file text, current graph document, edited/new file text)`:
 
 - unchanged imported text exports byte-identically;
 - unchanged exported outline imports graph-identically for representable content, with complement-backed recovery for metadata plain text cannot encode;
@@ -65,7 +65,7 @@ Fit according to [[code-shape.md]].
    - Keep legacy monolithic `gambol` fallback behavior unchanged.
 
 5. Implement in smallest slices after tests exist:
-   - Add `src/Shared/PlainTextDocument.fs` for pure parse/write/reconcile helpers.
+   - Add `src/Shared/documents/PlainTextDocument.fs` for pure parse/write/reconcile helpers.
    - Add a shared `DocumentFormat`/codec dispatch in `src/Shared/DocumentAssembly.fs` or a small adjacent module.
    - Route `DocumentAssembly.readArtifact` through dispatch.
    - Route `DocumentPersistence.writeDocument` through dispatch.

@@ -31,6 +31,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Server\Gambol.Server.fsproj" />
     <ProjectReference Include="..\..\src\Shared\Gambol.Shared.fsproj" />
+    <ProjectReference Include="..\..\src\Shared\documents\Gambol.Shared.Documents.fsproj" />
   </ItemGroup>
 
   <ItemGroup>

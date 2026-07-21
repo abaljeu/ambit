@@ -51,7 +51,7 @@ Line breaks: `\n` or `\r\n`; normalize on read.
 
 ## Warm reconcile
 
-Warm import uses Shared/DotNet `DocumentFormat.readArtifact` with `previousText` (routes to `AmbReconcile`: unique Owner/Ref durable keys hard-match first (`^<stable-id>`, `->^<stable-id>`), then shared outline LCS for plain rows and unmatched lines) ([[doc/roadmap/workspace-text-outline-conversion.md]] § Shared outline LCS reconcile). Lazy-load modify of an already-projected `.amb` exports the current graph as `previousText` (cold `None` only on first empty load). Export is full-cloth `AmbDocument.write`; that is sufficient for identity/reconcile. Ops-driven incremental write is optional only for quieter git diffs, not an open reconcile gap.
+Warm import uses Shared/Documents `DocumentFormat.readArtifact` with `previousText` (routes to `AmbReconcile`: unique Owner/Ref durable keys hard-match first (`^<stable-id>`, `->^<stable-id>`), then shared outline LCS for plain rows and unmatched lines) ([[doc/roadmap/workspace-text-outline-conversion.md]] § Shared outline LCS reconcile). Lazy-load modify of an already-projected `.amb` exports the current graph as `previousText` (cold `None` only on first empty load). Export is full-cloth `AmbDocument.write`; that is sufficient for identity/reconcile. Ops-driven incremental write is optional only for quieter git diffs, not an open reconcile gap.
 
 ## Text to outline
 
