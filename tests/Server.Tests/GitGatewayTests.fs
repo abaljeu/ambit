@@ -141,13 +141,24 @@ let ``jitCommitIfDirty commits before pull path`` () =
     | Error err -> Assert.Fail(err)
 
 [<SkippableFact>]
-let ``assertCleanForWorkspacePush rejects dirty tree`` () =
+let ``jitCommitBeforeWorkspacePush commits dirty tree`` () =
     Skip.IfNot(gitOnPath(), "git not on PATH")
     let home = seedWorkspace (newTempDir ()) "home"
     File.WriteAllText(Path.Combine(home, "a.txt"), "dirty")
-    match WorkspaceGit.assertCleanForWorkspacePush home with
-    | Ok () -> Assert.Fail("expected dirty reject")
-    | Error msg -> Assert.Contains("workspace-pull", msg)
+    match WorkspaceGit.isDirty home with
+    | Ok dirty -> Assert.True(dirty)
+    | Error err -> Assert.Fail(err)
+    match WorkspaceGit.jitCommitBeforeWorkspacePush home (Some "test-client") with
+    | Ok () -> ()
+    | Error err -> Assert.Fail(err)
+    match WorkspaceGit.isDirty home with
+    | Ok dirty -> Assert.False(dirty)
+    | Error err -> Assert.Fail(err)
+    match GitSave.runGit home "log -1 --pretty=%s" with
+    | Ok subject ->
+        Assert.Contains("workspace-push", subject)
+        Assert.Contains("client: test-client", subject)
+    | Error err -> Assert.Fail(err)
 
 [<SkippableFact>]
 let ``GET info refs git-upload-pack returns advertisement`` () = task {
@@ -167,7 +178,7 @@ let ``GET info refs git-upload-pack returns advertisement`` () = task {
 }
 
 [<SkippableFact>]
-let ``GET info refs git-receive-pack rejects when dirty`` () = task {
+let ``GET info refs git-receive-pack JITs dirty tree`` () = task {
     Skip.IfNot(gitOnPath(), "git not on PATH")
     let dataDir = newTempDir ()
     let home = seedWorkspace dataDir "home"
@@ -176,9 +187,15 @@ let ``GET info refs git-receive-pack rejects when dirty`` () = task {
     let url =
         "/ambit/git/home.git/info/refs?service=git-receive-pack"
     let! resp = client.GetAsync(url)
-    Assert.Equal(HttpStatusCode.Forbidden, resp.StatusCode)
+    Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
     let! body = resp.Content.ReadAsStringAsync()
-    Assert.Contains("dirty", body)
+    Assert.Contains("# service=git-receive-pack", body)
+    match WorkspaceGit.isDirty home with
+    | Ok dirty -> Assert.False(dirty)
+    | Error err -> Assert.Fail(err)
+    match GitSave.runGit home "log -1 --pretty=%s" with
+    | Ok subject -> Assert.Contains("workspace-push", subject)
+    | Error err -> Assert.Fail(err)
 }
 
 [<SkippableFact>]

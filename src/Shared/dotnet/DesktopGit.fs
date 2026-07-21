@@ -94,13 +94,16 @@ module DesktopGit =
     let isRepo (localPath: string) : bool =
         Directory.Exists(Path.Combine(localPath, ".git"))
 
+    let noRepoError localPath =
+        Error ("No git repository at " + localPath)
+
     /// Set or update remote `ambit` to `remoteUrl` in `localPath`.
     let setAmbitRemote
         (localPath: string)
         (remoteUrl: string)
         : Result<unit, string> =
         if not (isRepo localPath) then
-            Error "No git repository at local path."
+            noRepoError localPath
         else
             let name = WorkspaceGitRemote.RemoteName
             let addArgs = sprintf "remote add %s \"%s\"" name remoteUrl
@@ -187,7 +190,7 @@ module DesktopGit =
         (auth: (string * string) option)
         : Result<string, string> =
         if not (isRepo localPath) then
-            Error "No git repository at local path."
+            noRepoError localPath
         else
             match requireAttachedHead localPath with
             | Error err -> Error err
@@ -207,12 +210,13 @@ module DesktopGit =
                             auth
                     | Error err -> Error err
 
+    
     let push
         (localPath: string)
         (auth: (string * string) option)
         : Result<string, string> =
         if not (isRepo localPath) then
-            Error "No git repository at local path."
+            noRepoError localPath
         else
             match requireAttachedHead localPath with
             | Error err -> Error err
@@ -221,7 +225,7 @@ module DesktopGit =
 
     let status (localPath: string) : Result<WorkspaceGitStatus, string> =
         if not (isRepo localPath) then
-            Error "No git repository at local path."
+            noRepoError localPath
         else
             match runGit localPath "status -sb" with
             | Error err -> Error err

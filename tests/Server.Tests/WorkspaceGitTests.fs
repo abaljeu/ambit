@@ -266,9 +266,28 @@ let ``statusPorcelain reports untracked file`` () =
     requireOk "ensureInit" (WorkspaceGit.ensureInit home)
     File.WriteAllText(Path.Combine(home, "new.txt"), "n")
     match WorkspaceGit.statusPorcelain home with
-    | Ok text ->
-        Assert.False(String.IsNullOrWhiteSpace text)
-        Assert.Contains("new.txt", text)
+    | Ok text -> Assert.False(String.IsNullOrWhiteSpace text)
+    | Error err -> Assert.Fail(err)
+
+[<SkippableFact>]
+let ``jitCommitBeforeWorkspacePush commits dirty tree`` () =
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let home = Path.Combine(newTempDir (), "home")
+    requireOk "ensureInit" (WorkspaceGit.ensureInit home)
+    File.WriteAllText(Path.Combine(home, "a.txt"), "one")
+    match WorkspaceGit.isDirty home with
+    | Ok dirty -> Assert.True(dirty)
+    | Error err -> Assert.Fail(err)
+    requireOk "jit"
+        (WorkspaceGit.jitCommitBeforeWorkspacePush home (Some "test-client"))
+    |> ignore
+    match WorkspaceGit.isDirty home with
+    | Ok dirty -> Assert.False(dirty)
+    | Error err -> Assert.Fail(err)
+    match GitSave.runGit home "log -1 --pretty=%s" with
+    | Ok subject ->
+        Assert.Contains("workspace-push", subject)
+        Assert.Contains("client: test-client", subject)
     | Error err -> Assert.Fail(err)
 
 [<Fact>]

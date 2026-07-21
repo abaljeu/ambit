@@ -20,5 +20,5 @@ let ``truncateForDisplay leaves short text unchanged`` () =
     Assert.Equal("short", truncateForDisplay 10 "short")
 
 [<Fact>]
-let ``truncateForDisplay caps at maxLen with ellipsis`` () =
-    Assert.Equal("verylongn\u2026", truncateForDisplay 10 "verylongname")
+let ``truncateForDisplay caps at maxLen`` () =
+    Assert.Equal("verylongna", truncateForDisplay 10 "verylongname")

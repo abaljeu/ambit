@@ -148,15 +148,28 @@ module GitGateway =
             label
             err
 
-    /// Reject dirty push only when HEAD already exists (born).
-    /// Unborn repos allow Insert dirt so the first seed push can land.
-    let private assertPushAllowed
+    let private prepareWorkspacePush
+        (flush: FlushFn)
         (workspaceRoot: string)
-        : Result<unit, string> =
-        match WorkspaceGit.tryHead workspaceRoot with
-        | Error err -> Error err
-        | Ok None -> Ok ()
-        | Ok(Some _) -> WorkspaceGit.assertCleanForWorkspacePush workspaceRoot
+        (clientHint: string option)
+        : Async<Result<unit, string>> =
+        async {
+            let! flushResult = flush ()
+            match flushResult with
+            | Error err -> return Error err
+            | Ok () ->
+                match WorkspaceGit.tryHead workspaceRoot with
+                | Error err -> return Error err
+                | Ok None -> return Ok ()
+                | Ok(Some _) ->
+                    match
+                        WorkspaceGit.jitCommitBeforeWorkspacePush
+                            workspaceRoot
+                            clientHint
+                    with
+                    | Error err -> return Error err
+                    | Ok _ -> return Ok ()
+        }
 
     let completeWorkspacePush
         (workspaceRoot: string)
@@ -282,7 +295,9 @@ module GitGateway =
                                 "missing or unknown service (want git-upload-pack|git-receive-pack)"
                             |> Async.AwaitTask
                     | Some WorkspacePush ->
-                        match assertPushAllowed root with
+                        let hint = clientHintOf ctx.Request
+                        let! prep = prepareWorkspacePush flush root hint
+                        match prep with
                         | Error err ->
                             do!
                                 writeTextError ctx.Response 403 err
@@ -346,7 +361,9 @@ module GitGateway =
                 | Ok(label, root) ->
                     match service with
                     | WorkspacePush ->
-                        match assertPushAllowed root with
+                        let hint = clientHintOf ctx.Request
+                        let! prep = prepareWorkspacePush flush root hint
+                        match prep with
                         | Error err ->
                             do!
                                 writeTextError ctx.Response 403 err

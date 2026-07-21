@@ -147,30 +147,37 @@ module WorkspaceGit =
             ClientIdentity.formatCommitMessage baseMsg clientHint
         GitSave.commitAll workspaceRoot message
 
-    /// JIT commit when dirty (workspace-pull path only).
-    let jitCommitIfDirty
+    let private jitCommitIfDirtyWithBaseMsg
         (workspaceRoot: string)
+        (baseMsg: string)
         (clientHint: string option)
         : Result<string, string> =
         match isDirty workspaceRoot with
         | Error err -> Error err
         | Ok false -> Ok "clean"
         | Ok true ->
-            commitAll
-                workspaceRoot
-                "gambol: autosave before workspace-pull"
-                clientHint
+            commitAll workspaceRoot baseMsg clientHint
 
-    /// Reject workspace-push when the server work tree is dirty.
-    let assertCleanForWorkspacePush
+    /// JIT commit when dirty (workspace-pull path only).
+    let jitCommitIfDirty
         (workspaceRoot: string)
+        (clientHint: string option)
+        : Result<string, string> =
+        jitCommitIfDirtyWithBaseMsg
+            workspaceRoot
+            "gambol: autosave before workspace-pull"
+            clientHint
+
+    /// JIT commit when dirty before workspace-push.
+    let jitCommitBeforeWorkspacePush
+        (workspaceRoot: string)
+        (clientHint: string option)
         : Result<unit, string> =
-        match isDirty workspaceRoot with
-        | Error err -> Error err
-        | Ok true ->
-            Error
-                "server working tree dirty; workspace-pull or wait for autosave flush"
-        | Ok false -> Ok ()
+        jitCommitIfDirtyWithBaseMsg
+            workspaceRoot
+            "gambol: autosave before workspace-push"
+            clientHint
+        |> Result.map ignore
 
     let tryHead (workspaceRoot: string) : Result<string option, string> =
         match GitSave.runGit workspaceRoot "rev-parse --verify HEAD" with
