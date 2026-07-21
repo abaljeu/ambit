@@ -150,6 +150,29 @@ let ``write cold emits headings and lists`` () =
     Assert.Equal("# section" + Environment.NewLine + "- item" + Environment.NewLine, text)
 
 [<Fact>]
+let ``write with md-head emits hash line`` () =
+    let headId = NodeId.New()
+    let head =
+        { normalNode headId "Title" Graph.rootId with
+            cssClasses = CssClass.ofList [ "md-head" ] }
+    let graph, docId = graphWithDocument [ head ]
+    let text =
+        MdDocument.write graph docId emptyComplement None
+        |> requireOk "write"
+    Assert.Equal("# Title" + Environment.NewLine, text)
+
+[<Fact>]
+let ``write without class at same depth emits plain line`` () =
+    let plainId = NodeId.New()
+    let plain = normalNode plainId "Title" Graph.rootId
+    let graph, docId = graphWithDocument [ plain ]
+    let text =
+        MdDocument.write graph docId emptyComplement None
+        |> requireOk "write"
+    Assert.Equal("Title" + Environment.NewLine, text)
+    Assert.False(text.StartsWith("#"))
+
+[<Fact>]
 let ``round trip preserves blank lines in previous text`` () =
     let graph, docId = graphWithDocument []
     let input = "# head" + Environment.NewLine + Environment.NewLine + "body" + Environment.NewLine

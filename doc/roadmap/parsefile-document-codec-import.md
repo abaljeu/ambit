@@ -34,10 +34,10 @@ flowchart LR
 |------|----------|
 | Client | Trigger only: resolve path, GET package, `ImportText.buildImportChange`, apply |
 | Server / Desktop | Read file bytes; route files through [[src/Shared/dotnet/ImportDocument.fs]] |
-| Document reader | Classify by path → handler read → ops. Unparsed uses stub graph (cold). Current uses live graph + `previousText` (warm) — [[doc/roadmap/parse-file-reconcile-current.md]] |
+| Document reader | Classify by path → handler read → ops. Unparsed: stub graph, cold. Current: live graph + `previousText`, warm — [[doc/roadmap/parse-file-reconcile-current.md]] |
 | Directories | Still `ImportText.buildPackage` (listing lines, not a document artifact) |
 
-Unparsed today: `ImportDocument.buildFilePackage` → `DocumentColdParse.planApplyCold` → peel → `DesktopImportPackage`. Current warm is the same reader entry with previous text; do not re-litigate warm mechanics here.
+Unparsed today: `ImportDocument.buildFilePackage` → cold read → peel → `DesktopImportPackage`. Current warm is the same reader entry with previous text; warm availability and live-graph wiring live in [[doc/roadmap/parse-file-reconcile-current.md]].
 
 ## Implementation status
 
@@ -53,7 +53,7 @@ Unparsed today: `ImportDocument.buildFilePackage` → `DocumentColdParse.planApp
 
 1. **Verify tests** — ImportDocument / ImportText Shared.Tests; Server `importPackageForReference` if present.
 2. **Manual check** — Unparsed `AGENTS.md`: nested headings in outline, not flat siblings; desktop-missing → server fallback.
-3. **Current warm** — availability + server live-graph branch: [[doc/roadmap/parse-file-reconcile-current.md]] (not blocked on DiffPlex framing; reader already supports warm when `previousText` is supplied).
+3. **Current warm** — command availability + server live-graph branch: [[doc/roadmap/parse-file-reconcile-current.md]].
 4. **Optional** — Server fixture assert Md nesting; arch / workspace-scale-import cross-links.
 
 ## Tests / verification

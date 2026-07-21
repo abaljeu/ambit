@@ -243,6 +243,103 @@ let ``importPackageForReference reports missing DataDir file`` () =
     | Ok _ -> Assert.Fail("expected file not found")
 
 [<Fact>]
+let ``planParseFile DataDir warm keeps line NodeId on text edit`` () =
+    let dataDir = newTempDir ()
+    let graph, _, _, fileId, normalId = graphWithNestedDocs ()
+
+    DocumentPersistence.writeAllDocuments dataDir graph
+    |> requireOk "writeAllDocuments"
+    |> ignore
+
+    File.WriteAllText(
+        Path.Combine(dataDir, "home", "docs", "readme.txt"),
+        "BODY\n")
+
+    let ops =
+        DocumentPersistence.planParseFile
+            dataDir
+            graph
+            fileId
+            None
+        |> requireOk "planParseFile"
+
+    Assert.False(List.isEmpty ops)
+
+    let state0 =
+        { graph = graph; history = History.empty; revision = Revision.Zero }
+    let after =
+        ops
+        |> List.fold
+            (fun state op ->
+                match Op.apply op state with
+                | ApplyResult.Changed next
+                | ApplyResult.Unchanged next -> next
+                | ApplyResult.Invalid(_, error) -> failwith error)
+            state0
+
+    Assert.Equal(normalId, after.graph.nodes.[fileId].children.Head.id)
+    Assert.Equal("BODY", after.graph.nodes.[normalId].text)
+    Assert.Equal(Current, after.graph.nodes.[fileId].documentState)
+
+[<Fact>]
+let ``planParseFile uses body text over DataDir`` () =
+    let dataDir = newTempDir ()
+    let graph, _, _, fileId, normalId = graphWithNestedDocs ()
+
+    DocumentPersistence.writeAllDocuments dataDir graph
+    |> requireOk "writeAllDocuments"
+    |> ignore
+
+    let ops =
+        DocumentPersistence.planParseFile
+            dataDir
+            graph
+            fileId
+            (Some "FROMBODY\n")
+        |> requireOk "planParseFile body"
+
+    let state0 =
+        { graph = graph; history = History.empty; revision = Revision.Zero }
+    let after =
+        ops
+        |> List.fold
+            (fun state op ->
+                match Op.apply op state with
+                | ApplyResult.Changed next
+                | ApplyResult.Unchanged next -> next
+                | ApplyResult.Invalid(_, error) -> failwith error)
+            state0
+
+    Assert.Equal(normalId, after.graph.nodes.[fileId].children.Head.id)
+    Assert.Equal("FROMBODY", after.graph.nodes.[normalId].text)
+
+[<Fact>]
+let ``planParseFile without text rejects File with no server occurrence`` () =
+    let dataDir = newTempDir ()
+    let graph0 = Graph.create ()
+    let fileId = NodeId.New()
+    let fileNode =
+        Node.Create(
+            fileId,
+            text = "",
+            name = Filename.Empty,
+            owner = Graph.rootId,
+            kind = Special File,
+            documentState = Unparsed)
+    let graph1 =
+        graph0.nodes
+        |> Map.add fileId fileNode
+        |> fun nodes -> Graph.fromNodes graph0.root nodes
+    let graph =
+        Graph.replace Graph.rootId 0 [] (owned [ fileId ]) graph1
+        |> requireOk "root->file"
+
+    match DocumentPersistence.planParseFile dataDir graph fileId None with
+    | Error msg ->
+        Assert.Equal("selected File has no occurrence on the server", msg)
+    | Ok _ -> Assert.Fail("expected no-occurrence error")
+
+[<Fact>]
 let ``GET /ambit/file returns import package for DataDir file`` () = task {
     let dataDir = newTempDir ()
     let relDir = Path.Combine(dataDir, "life", "memory")

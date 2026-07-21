@@ -172,7 +172,7 @@ let private contextualTargetForModel (model: VM) =
 
 let parseOrPushOp (model: VM) : VM * Effect list =
     match contextualTargetForModel model with
-    | Some(ParseFile fileId) -> parseUnparsedFileOp fileId model
+    | Some(ParseFile fileId) -> parseFileOp fileId model
     | Some(ReconcileWorkspace _) -> reconcileWorkspaceOp model
     | Some(ReconcileDirectory dirId) -> reconcileDirectoryOp dirId model
     | None -> model, []

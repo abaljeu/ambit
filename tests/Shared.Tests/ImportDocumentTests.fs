@@ -127,6 +127,66 @@ let ``buildFilePackage integrates with buildImportChange for md`` () =
     Assert.Equal("item", after.nodes.[after.nodes.[sectionId].children.Head.id].text)
 
 [<Fact>]
+let ``buildFilePackage md heading applies md-head and md-list classes`` () =
+    let text = "# section" + Environment.NewLine + "- item" + Environment.NewLine
+    let package =
+        ImportDocument.buildFilePackage "//life/notes.md" text
+        |> requireOk "build package"
+
+    let hasMdHead =
+        package.ops
+        |> List.exists (function
+            | Op.SetClasses(_, _, classes) ->
+                CssClass.toList classes |> List.contains "md-head"
+            | _ -> false)
+
+    let hasMdList =
+        package.ops
+        |> List.exists (function
+            | Op.SetClasses(_, _, classes) ->
+                CssClass.toList classes |> List.contains "md-list"
+            | _ -> false)
+
+    Assert.True(hasMdHead, "expected SetClasses with md-head")
+    Assert.True(hasMdList, "expected SetClasses with md-list")
+
+    let focusId = NodeId.New()
+    let graph0 = Graph.create ()
+    let file =
+        Node.Create(
+            focusId,
+            text = "notes.md",
+            name = Filename.create "notes.md",
+            owner = graph0.root,
+            kind = Special File,
+            documentState = Unparsed)
+
+    let graph =
+        graph0.nodes
+        |> Map.add focusId file
+        |> fun nodes -> Graph.fromNodes graph0.root nodes
+
+    let change =
+        ImportText.buildImportChange graph focusId [] package 1 (Guid.NewGuid())
+
+    let after = applyChange graph change
+    let sectionId = after.nodes.[focusId].children.Head.id
+    let itemId = after.nodes.[sectionId].children.Head.id
+
+    Assert.True(
+        CssClass.toList after.nodes.[sectionId].cssClasses
+        |> List.contains "md-head")
+    Assert.True(
+        CssClass.toList after.nodes.[itemId].cssClasses
+        |> List.contains "md-list")
+
+    let written =
+        DocumentFormat.writeArtifact after focusId "notes.md" None
+        |> requireOk "writeArtifact"
+
+    Assert.Equal("# section" + Environment.NewLine + "- item" + Environment.NewLine, written)
+
+[<Fact>]
 let ``buildFilePackage rejects blank input`` () =
     match ImportDocument.buildFilePackage "//life/empty.md" "  \n" with
     | Ok _ -> failwith "expected blank import to fail"
@@ -155,4 +215,141 @@ let ``buildTextPackage Plain indent nesting under paste path`` () =
     | None -> failwith "expected nested child under alpha"
     | Some children ->
         Assert.Equal(1, children.Length)
+
+[<Fact>]
+let ``planParseFile plain keeps id on line text edit`` () =
+    let graph0 = Graph.create ()
+    let fileId = NodeId.New()
+    let aId = NodeId.New()
+    let bId = NodeId.New()
+    let file =
+        Node.Create(
+            fileId,
+            text = "readme.txt",
+            name = Filename.create "readme.txt",
+            owner = graph0.root,
+            kind = Special File,
+            documentState = Current,
+            children =
+                [ { ref = Ownership.Owner; id = aId }
+                  { ref = Ownership.Owner; id = bId } ])
+    let aNode = Node.Create(aId, text = "alpha", owner = fileId)
+    let bNode = Node.Create(bId, text = "beta", owner = fileId)
+    let graph =
+        graph0.nodes
+        |> Map.add fileId file
+        |> Map.add aId aNode
+        |> Map.add bId bNode
+        |> fun nodes -> Graph.fromNodes graph0.root nodes
+
+    let ops =
+        ImportDocument.planParseFile
+            graph
+            fileId
+            ("ALPHA" + Environment.NewLine + "beta" + Environment.NewLine)
+        |> requireOk "planParseFile"
+
+    Assert.False(List.isEmpty ops)
+
+    let after = applyChange graph {
+        id = 1
+        changeId = Guid.NewGuid()
+        ops = ops
+    }
+
+    Assert.Equal(aId, after.nodes.[fileId].children.Head.id)
+    Assert.Equal("ALPHA", after.nodes.[aId].text)
+    Assert.Equal(bId, after.nodes.[fileId].children.[1].id)
+    Assert.Equal(Current, after.nodes.[fileId].documentState)
+
+[<Fact>]
+let ``planParseFile rejects blank input`` () =
+    let graph0 = Graph.create ()
+    let fileId = NodeId.New()
+    let file =
+        Node.Create(
+            fileId,
+            text = "readme.txt",
+            name = Filename.create "readme.txt",
+            owner = graph0.root,
+            kind = Special File,
+            documentState = Current)
+
+    let graph =
+        graph0.nodes
+        |> Map.add fileId file
+        |> fun nodes -> Graph.fromNodes graph0.root nodes
+
+    match ImportDocument.planParseFile graph fileId "  \n" with
+    | Ok _ -> failwith "expected blank parse to fail"
+    | Error err -> Assert.Equal("import text is empty", err)
+
+[<Fact>]
+let ``planParseFile unparsed marks Current`` () =
+    let graph0 = Graph.create ()
+    let fileId = NodeId.New()
+    let file =
+        Node.Create(
+            fileId,
+            text = "readme.txt",
+            name = Filename.create "readme.txt",
+            owner = graph0.root,
+            kind = Special File,
+            documentState = Unparsed)
+
+    let graph =
+        graph0.nodes
+        |> Map.add fileId file
+        |> fun nodes -> Graph.fromNodes graph0.root nodes
+
+    let ops =
+        ImportDocument.planParseFile
+            graph
+            fileId
+            ("alpha" + Environment.NewLine)
+        |> requireOk "planParseFile"
+
+    Assert.True(
+        ops
+        |> List.exists (function
+            | Op.SetDocumentState(id, Unparsed, Current) when id = fileId -> true
+            | _ -> false))
+
+    let after = applyChange graph {
+        id = 1
+        changeId = Guid.NewGuid()
+        ops = ops
+    }
+
+    Assert.Equal(Current, after.nodes.[fileId].documentState)
+    Assert.False(List.isEmpty after.nodes.[fileId].children)
+
+[<Fact>]
+let ``buildReconcilePackage rejects unparsed file`` () =
+    let graph0 = Graph.create ()
+    let fileId = NodeId.New()
+    let file =
+        Node.Create(
+            fileId,
+            text = "readme.txt",
+            name = Filename.create "readme.txt",
+            owner = graph0.root,
+            kind = Special File,
+            documentState = Unparsed)
+
+    let graph =
+        graph0.nodes
+        |> Map.add fileId file
+        |> fun nodes -> Graph.fromNodes graph0.root nodes
+
+    match
+        ImportDocument.buildReconcilePackage
+            graph
+            fileId
+            "//life/readme.txt"
+            "alpha\n"
+    with
+    | Ok _ -> failwith "expected unparsed reconcile to fail"
+    | Error err ->
+        Assert.Equal("file is unparsed; use cold import", err)
 

@@ -100,7 +100,7 @@ let contextualTarget (graph: Graph) (parentId: NodeId) (index: int) : Contextual
             DocumentPartition.documentRootForNode graph occurrence.id
             |> Option.bind (fun rootId ->
                 match Map.tryFind rootId graph.nodes with
-                | Some { kind = Special File; documentState = Unparsed } ->
+                | Some { kind = Special File } ->
                     Some(ParseFile rootId)
                 | _ -> None)
         | _ -> None

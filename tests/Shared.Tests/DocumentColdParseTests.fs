@@ -82,3 +82,37 @@ let ``planApplyCold on empty string yields no top-level peel`` () =
         DocumentColdParse.peelDocumentRootOps rootId ops
 
     Assert.True(List.isEmpty topLevelIds)
+
+[<Fact>]
+let ``planApplyCold md heading emits SetClasses md-head`` () =
+    let text = "# Title" + Environment.NewLine + "body" + Environment.NewLine
+    let rootId, graph = stubRoot "notes.md"
+
+    let after =
+        DocumentColdParse.readArtifactCold "notes.md" text rootId graph
+        |> requireOk "readArtifactCold"
+
+    let headId = after.nodes.[rootId].children.Head.id
+    Assert.True(
+        CssClass.toList after.nodes.[headId].cssClasses
+        |> List.contains "md-head")
+
+    let ops =
+        DocumentColdParse.planOpsFromGraphs graph rootId after
+
+    let topLevelIds, nested =
+        DocumentColdParse.peelDocumentRootOps rootId ops
+
+    Assert.Equal(1, topLevelIds.Length)
+    Assert.Equal(headId, topLevelIds.Head)
+
+    let headClasses =
+        nested
+        |> List.tryPick (function
+            | Op.SetClasses(id, _, classes) when id = headId ->
+                Some(CssClass.toList classes)
+            | _ -> None)
+
+    match headClasses with
+    | None -> failwith "expected SetClasses for heading node"
+    | Some classes -> Assert.Contains("md-head", classes)

@@ -1,5 +1,6 @@
 namespace Gambol.Server
 
+open System
 open Microsoft.AspNetCore.Http
 open Gambol.Shared
 open Thoth.Json.Newtonsoft
@@ -141,6 +142,83 @@ module Api =
             |> Serialization.encodeDesktopImportPackage
             |> Encode.toString 0
             |> jsonResult
+
+    let private tryParseFileId (raw: string) : NodeId option =
+        match Guid.TryParse raw with
+        | true, guid -> Some(NodeId guid)
+        | false, _ -> None
+
+    let private decodeGraphState (json: string) : Result<int * Graph, string> =
+        let decoder =
+            Thoth.Json.Core.Decode.object (fun get ->
+                let revision =
+                    get.Required.Field
+                        "revision"
+                        Serialization.decodeRevision
+                let graph =
+                    get.Required.Field "graph" Serialization.decodeGraph
+                revision.Value, graph)
+        Decode.fromString decoder json
+
+    let private encodeGraphOnlyChange revision ops =
+        let change =
+            { id = revision
+              changeId = Guid.NewGuid()
+              ops = ops }
+        Encode.toString 0 (
+            Serialization.encodeChangeBatch { changes = [ change ] })
+
+    type private ParseFileBody =
+        { fileId: string
+          text: string option }
+
+    let private decodeParseFileBody (json: string) : Result<ParseFileBody, string> =
+        let decoder =
+            Thoth.Json.Core.Decode.object (fun get ->
+                { fileId = get.Required.Field "fileId" Thoth.Json.Core.Decode.string
+                  text = get.Optional.Field "text" Thoth.Json.Core.Decode.string })
+        Decode.fromString decoder json
+
+    /// ParseFile command: optional body text or DataDir read → apply on agent graph.
+    let postParseFile
+        (handle: AgentHandle)
+        (dataDir: string)
+        (body: string)
+        : Async<IResult> =
+        async {
+            match decodeParseFileBody body with
+            | Error err ->
+                return Results.BadRequest({| error = err |})
+            | Ok payload ->
+                match tryParseFileId payload.fileId with
+                | None ->
+                    return Results.BadRequest({| error = "fileId is invalid" |})
+                | Some fileId ->
+                    let! stateJson = handle.getState ()
+                    match decodeGraphState stateJson with
+                    | Error err ->
+                        return Results.BadRequest({| error = err |})
+                    | Ok(revision, graph) ->
+                        match
+                            DocumentPersistence.planParseFile
+                                dataDir
+                                graph
+                                fileId
+                                payload.text
+                        with
+                        | Error err ->
+                            return Results.BadRequest({| error = err |})
+                        | Ok [] ->
+                            return jsonResult """{"ok":true}"""
+                        | Ok ops ->
+                            let! result =
+                                handle.postGraphOnlyChange (
+                                    encodeGraphOnlyChange revision ops)
+                            match result with
+                            | Ok _ -> return jsonResult """{"ok":true}"""
+                            | Error err ->
+                                return Results.BadRequest({| error = err |})
+        }
 
     let gitSave
         (prepare: unit -> Async<Result<int, string>>)

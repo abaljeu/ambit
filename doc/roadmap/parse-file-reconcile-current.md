@@ -1,231 +1,125 @@
 # Parse / Upload for Current Files (Warm Reconcile)
 
-Status: Draft plan (no implementation yet)
+Status: Server-apply ParseFile landed (Shared/Client/Desktop verified); Server.Tests rebuild blocked while debugger locks Server bin.
 
-See also: [[doc/roadmap/workspace-file-model.md]], [[doc/reference/formats/code-shape.md]], [[doc/roadmap/workspace-text-outline-conversion.md]], [[src/Shared/CommandEntry.fs]], [[src/Client/UpdateImport.fs]], [[src/Server/DocumentPersistence.fs]], [[src/Shared/dotnet/LazyLoadReconciliationApply.fs]], [[src/Shared/dotnet/DocumentParseOps.fs]], [[src/Shared/dotnet/ImportDocument.fs]]
+See also: [[doc/roadmap/parsefile-document-codec-import.md]], [[doc/roadmap/paste-document-codec-import.md]], [[doc/roadmap/workspace-file-model.md]], [[doc/reference/formats/code-shape.md]], [[src/Shared/CommandEntry.fs]], [[src/Client/UpdateImport.fs]], [[src/Server/DocumentPersistence.fs]], [[src/Shared/dotnet/LazyLoadReconciliationApply.fs]], [[src/Shared/dotnet/DocumentParseOps.fs]], [[src/Shared/dotnet/ImportDocument.fs]], [[src/Server/LazyLoadReconciliationServer.fs]]
 
-Split with [[doc/roadmap/parsefile-document-codec-import.md]]: that plan wires Parse / Upload through the **document reader**; this plan is the **Current** warm slice (live graph + `previousText`). Paste is separate: [[doc/roadmap/paste-document-codec-import.md]].
+Split with [[doc/roadmap/parsefile-document-codec-import.md]]: that plan wires Parse / Upload through the **document reader**. This plan is the **Current** warm slice and the shared **server-apply** command path for Unparsed + Current. Paste is separate: [[doc/roadmap/paste-document-codec-import.md]].
 
 ## What it gives you
 
-- **Unparsed** owned `Special File` under a document root: unchanged — Parse / Upload (`Ctrl+Shift+>`) cold-imports disk text into the graph (parse).
-- **Current** (parsed) owned file: same command and shortcut, but execution **warm-reconciles** disk text against existing nodes (stable `NodeId` where line/content matches), instead of being unavailable.
+- **Unparsed** owned `Special File`: Parse / Upload (`Ctrl+Shift+>`) cold-imports disk text into the graph on the **server**.
+- **Current** (parsed) owned file: same command, warm-reconciles disk text against existing nodes (stable `NodeId` where line/content matches).
 - One user-facing action: “sync this file from disk into the outline.”
+- Desktop may attach **file content** with the command; it never sends a subgraph or reconcile package for client apply.
 
 ## What it avoids for now
 
 - A separate palette command or `ReconcileFile` `ContextualTarget` case.
-- **Client-side** warm reconcile (raw disk text on client, `DocumentParseOps` on client with live graph).
+- Client applying import/reconcile packages for ParseFile (no peel/attach for this command).
+- GET `/ambit/file?fileId=` returning a package for client apply.
 - Changing workspace/directory reconcile (stub creation under DataDir).
 - Markdown/XML format work beyond existing codec dispatch.
 
-## Architecture: server-side reconcile
+## Architecture: command → server graph update
 
-File and graph live on the **server**. Warm reconcile runs where both are available — same boundary as lazy-load dir-info apply.
+File content may come from the client (desktop upload) or from server DataDir. The **graph** always lives and mutates on the server — same boundary as directory reconcile (`postGraphOnlyChange`).
 
 ```mermaid
 %%{init: {'themeVariables': {'fontSize': '20px'}}}%%
 flowchart LR
-  Cmd["Parse / Upload"] --> Client["UpdateImport.parseFileOp"]
-  Client --> HTTP["/_desktop/file or /ambit/file"]
-  HTTP --> Read["Read disk text"]
-  Read --> Graph["Load live graph + resolve fileId"]
-  Graph --> Prev["previousArtifactText from graph export"]
-  Prev --> Plan["DocumentParseOps.planApplyArtifact"]
-  Plan --> Out["Return ops package or apply on server"]
-  Out --> ClientApply["Client applyAndPost if package returned"]
+  Cmd["Parse / Upload"] --> Client["fileId + optional text"]
+  Client --> POST["POST /ambit/file/parse"]
+  POST --> Text["text from body or DataDir"]
+  Text --> Plan["DocumentParseOps on live graph"]
+  Plan --> Apply["postGraphOnlyChange"]
+  Apply --> Sync["Client poll / existing sync"]
 ```
 
-**Client role:** trigger `ParseFile` for both Unparsed and Current files; same HTTP import path as today. No codec parsing, no warm planning, no raw-text fetch for reconcile on the client.
+**Client role:** resolve contextual `ParseFile fileId`; optionally read **raw file text** from desktop; POST command `{ fileId, text? }`; show result; receive graph updates via existing sync. No codec planning, no package apply.
 
-**Server/desktop role:** read artifact from disk; resolve document root on the **live graph**; project `previousText` via `LazyLoadReconciliationApply.previousArtifactText` (graph export through `DocumentFormat.writeArtifact`, not disk bytes); run `DocumentFormat.readArtifact` warm path through `DocumentParseOps.planApplyArtifact`; return a client-applicable package **or** apply ops server-side and sync.
+**Desktop role (optional):** supply file **bytes/text** only when the file lives on the desktop machine (`GET /_desktop/file?…&content=1`). Not a subgraph.
 
-Reference pattern — lazy-load dir-info reconcile ([[src/Shared/dotnet/LazyLoadReconciliationApply.fs]] `parseDirInfoIfPresent`):
+**Server role:** load live graph; resolve artifact path from `fileId`; take body text or read DataDir; run document reader (cold Unparsed / warm Current); apply ops via `postGraphOnlyChange`.
 
-1. Read new artifact text (from dir-info payload; Parse / Upload reads from disk instead).
-2. `previousText = previousArtifactText graph nodeId relativePath`.
-3. `DocumentParseOps.planApplyArtifact graph nodeId relativePath text previousText`.
-4. Apply ops (lazy-load applies on server; Parse / Upload may return ops to client — pick one and keep consistent).
-
-Cold import today ([[src/Server/DocumentPersistence.fs]] `importPackageForReference`) reads disk but builds package from a **stub** graph with `previousText = None`. Warm Current import must pass the **real** graph and `Some previousText`.
+Reference pattern — [[src/Server/LazyLoadReconciliationServer.fs]] directory reconcile: plan ops on server graph → `postGraphOnlyChange` → client syncs.
 
 ## Design decision: same command, branched execution
 
-**Keep `ParseFile` + `ParseOrPush`.** Branch on `documentState` at the **server import boundary** (client may pass `fileId` / state hint on the request).
+**Keep `ParseFile` + `ParseOrPush`.** Branch on `documentState` inside the server planner.
 
 | | Unparsed | Current |
 |---|----------|---------|
-| `contextualTarget` | `Some (ParseFile rootId)` | `Some (ParseFile rootId)` *(extend)* |
-| Disk read | `/_desktop/file` / `/ambit/file` | same |
-| Graph context | stub graph (cold) | **live server graph** at `fileId` |
-| Merge | cold — `ImportDocument.buildFilePackage` → client `buildImportChange` | warm — `planApplyArtifact` with `previousText = Some _` on live graph |
-| `documentState` after | `Unparsed → Current` | stays `Current` |
+| `contextualTarget` | `Some (ParseFile rootId)` | `Some (ParseFile rootId)` |
+| Content | body text or DataDir | same |
+| Graph context | live graph at `fileId` | live graph at `fileId` |
+| Merge | cold `previousText = None` + `SetDocumentState` → Current | warm `previousText` from graph export |
+| Apply | server `postGraphOnlyChange` | same |
 
-**Why not `ReconcileFile`?** `ParseOrPush` already multiplexes workspace, directory, and file targets. Parsed files are the same user intent (pull disk into outline). A new `ContextualTarget` would duplicate palette filtering without clearer UX. Internal helpers may be named `buildReconcilePackage` / `reconcileFileForReference`.
+**Why not return a package?** Client apply of peel/attach packages duplicates authority the server already has. Directory reconcile already proved server-apply + poll sync.
 
-## Current codebase (baseline)
+**Why optional text?** Desktop-local files may not exist under server DataDir yet; uploading content with the command keeps one parse path without a package round-trip.
 
-### Availability — `CommandEntry.contextualTarget`
+## Current codebase (baseline / what to remove)
 
-```99:105:src/Shared/CommandEntry.fs
-        | _ when occurrence.ref = Ownership.Owner ->
-            DocumentPartition.documentRootForNode graph occurrence.id
-            |> Option.bind (fun rootId ->
-                match Map.tryFind rootId graph.nodes with
-                | Some { kind = Special File; documentState = Unparsed } ->
-                    Some(ParseFile rootId)
-                | _ -> None)
-```
+### Keep
 
-Parsed (`Current`) files return `None` → Parse / Upload hidden. Test locked in: `CommandEntryTests` “ignores ref occurrence” sets file to `Current` and expects `None`.
+- `CommandEntry.contextualTarget` — `ParseFile` for owned File (Unparsed and Current).
+- `DocumentParseOps.planApplyArtifact` / warm + cold reader.
+- `GET /ambit/file?path=` cold **package** only if still needed for non-ParseFile consumers (desktop directory listing stays on `/_desktop/file` package). Not used for Current ParseFile.
 
-### Execution — client (trigger only)
+### Remove / stop using for ParseFile
 
-- `Commands.parseOrPushOp` → `parseUnparsedFileOp` on `ParseFile`.
-- `UpdateImport.parseUnparsedFileOp` guards `documentState = Unparsed`; otherwise no-op.
-- HTTP GET → `decodeDesktopImportPackage` → `ImportText.buildImportChange` → `applyAndPost`.
-- Success detail: `"parsed: " + path`.
-
-Client changes for Current: extend availability guard removal on client **or** keep client guard until server warm path exists; HTTP request must carry enough context (`fileId`, and optionally `documentState`) for server to branch.
-
-### Disk → package — server/desktop (codec path, cold only today)
-
-- `LocalProxy.handleImport` (files): `ImportDocument.buildFilePackage path text`.
-- `DocumentPersistence.importPackageForReference`: same — **no graph**, cold stub only.
-- `ImportDocument.buildFilePackage`: stub graph, `DocumentParseOps.planApplyArtifact` with **`previousText = None`**.
-
-### Warm reconcile already exists (server/dotnet)
-
-- `DocumentFormat.readArtifact` — `Some previousText` → handler `readWarm`.
-- `DocumentParseOps.planApplyArtifact` — turns warm/cold read into `Op list` on a graph.
-- `LazyLoadReconciliationApply.previousArtifactText` — exports current graph outline via `DocumentFormat.writeArtifact` for warm input (not disk file contents).
-- `LazyLoadReconciliationApply.parseDirInfoIfPresent` — end-to-end warm apply on server graph during lazy-load.
-
-### `DocumentState`
-
-```70:72:src/Shared/Model.fs
-type DocumentState =
-    | Current
-    | Unparsed
-```
-
-`Current` = parsed / loaded document. `Unparsed` = stub awaiting first import.
-
-## Gap
-
-`importPackageForReference` builds cold packages **without** the live graph. Warm reconcile needs:
-
-1. Raw file text from disk (server already reads this).
-2. Existing graph at `fileId` (server holds authoritative graph).
-3. `previousText` projected from graph export (`previousArtifactText`), matching lazy-load reconcile.
-
-Today neither the server import endpoint nor the client runs warm `planApplyArtifact` for manual Parse / Upload on Current files.
+- `Api.getImportFileWithGraph` and optional `fileId` on `GET /ambit/file`.
+- `DocumentPersistence.importPackageForFile` package return for client apply.
+- Client `commitParsedFile` / `commitReconciledFile` / `applyAndPost` of import packages for this command.
 
 ## Implementation steps
 
-Numbered slices; each should be reviewable alone.
+### 1. Shared planner (ops, not package)
 
-### 1. Extend command availability (Shared)
+**File:** [[src/Shared/dotnet/ImportDocument.fs]]
 
-**File:** `src/Shared/CommandEntry.fs`
+- `planParseFile graph fileId text : Result<Op list, string>`
+- Unparsed: cold plan + leading `SetDocumentState(Unparsed, Current)`.
+- Current: warm plan with `previousArtifactText`.
+- Keep `buildFilePackage` for paste-compatible / desktop package consumers unrelated to this command path.
 
-- Match `Some { kind = Special File }` (drop `documentState = Unparsed` guard).
-- Keep owner-occurrence and `DocumentPartition.documentRootForNode` rules.
+**Verify:** Shared.Tests — id stability on Current edit; Unparsed marks Current; blank reject.
 
-**Verify:** `tests/Shared.Tests/CommandEntryTests.fs` — Current file at owned child returns `Some(ParseFile fileId)`; ref occurrence still `None`.
+### 2. Server plan + apply
 
-### 2. Server warm import planner (Server + Shared/dotnet)
+**Files:** [[src/Server/DocumentPersistence.fs]], [[src/Server/Api.fs]], [[src/Server/RouteRegistration.fs]]
 
-**Files:** `src/Server/DocumentPersistence.fs`, `src/Shared/dotnet/ImportDocument.fs` (or dedicated helper)
+- `planParseFile dataDir graph fileId textOpt` — text from body or DataDir read.
+- `POST /ambit/file/parse` body `{ fileId, text? }` → plan → `postGraphOnlyChange`.
+- Strip `fileId` from `GET /ambit/file`; remove `getImportFileWithGraph`.
 
-Add something like:
+**Verify:** Server.Tests — warm id retention; POST parse updates state when seeded.
 
-```fsharp
-let buildReconcilePackage
-    (graph: Graph)
-    (fileId: NodeId)
-    (sourcePath: string)
-    (text: string)
-    : Result<DesktopImportPackage, string>
-```
+### 3. Client command (trigger + optional content)
 
-Behavior:
+**Files:** [[src/Client/UpdateImport.fs]], [[src/Desktop/LocalProxy.fs]], [[src/Client/UpdateCodec.fs]]
 
-1. Resolve `relativePath` from `NodeDesktopPath.artifactRelativeForReference sourcePath` (or `DocumentPartition.artifactFileRelative graph fileId`).
-2. Guard `graph.nodes.[fileId].documentState = Current`.
-3. `previousText = LazyLoadReconciliationApply.previousArtifactText graph fileId relativePath`.
-4. `DocumentParseOps.planApplyArtifact graph fileId relativePath text previousText`.
-5. Package ops for client apply (peel/attach only if needed for transport shape) **or** apply via `LazyLoadReconciliationApply.applyOps` on server and return sync — mirror existing lazy-load apply semantics.
+- Desktop: `GET /_desktop/file?path=&content=1` → `{ content }` (raw text).
+- `parseFileOp`: optional desktop content → `POST /ambit/file/parse` → detail string; no package decode/apply.
+- Missing desktop file → POST without text (server DataDir).
 
-Extend `importPackageForReference` (or sibling endpoint) to accept `fileId` + live graph, branch Unparsed → `buildFilePackage` / Current → `buildReconcilePackage`.
-
-**Verify:** `tests/Server.Tests/DocumentPersistenceTests.fs` — warm case: graph with one line node, edited disk text changes line body but **same** `NodeId` (pattern from `DocumentAssemblyTests` `readArtifact warm Plain keeps id on line text edit`).
-
-### 3. Client execution branch (minimal)
-
-**Files:** `src/Client/UpdateImport.fs`, `src/Client/Commands.fs`
-
-- Rename or wrap `parseUnparsedFileOp` → `parseFileOp fileId model`:
-  - `Unparsed` → existing `requestImportAtPath` + `commitParsedFile` (pass `fileId` on request if server needs it).
-  - `Current` → same HTTP path with warm server branch; detail `"reconciled: " + path`.
-- **No** client-side `buildReconcileChange`, **no** raw-text-only fetch, **no** `DocumentParseOps` on client graph.
-
-**Verify:** manual — select owned child of parsed `.md`/`.txt` file, `Ctrl+Shift+>`, confirm nodes update with stable ids.
-
-### 4. Unparsed path alignment with codec work (dependency)
-
-Parallel **ParseFile→codec** work should ensure Unparsed imports use **codec** ops (`ImportDocument.buildFilePackage`), not paste flattening (`ImportText.buildPackage`). Current tree: desktop/server already use `ImportDocument`; client still accepts any valid package.
-
-This slice does **not** require rewriting Unparsed flow if codec work lands first. If implementing reconcile first, avoid regressing Unparsed: keep cold `buildFilePackage` path until codec client path merges.
-
-**Files likely touched by codec agent:** `UpdateImport.fs`, `LocalProxy.fs`, `DocumentPersistence.fs`, `ImportDocument.fs`, `Serialization.fs`.
-
-**Merge rule:** reconcile planner uses same `DocumentParseOps` path as `buildFilePackage`; Unparsed cold = stub graph + `previousText = None`; Current warm = live graph + `Some previousText` from `previousArtifactText`.
+**Verify:** manual — Unparsed and Current Parse / Upload; desktop and web-only.
 
 ## Tests
 
 | Area | File | Cases |
 |------|------|-------|
-| Availability | `CommandEntryTests.fs` | Current file → `ParseFile`; ref → `None` |
-| Warm planner | `DocumentPersistenceTests.fs` or `ImportDocumentTests.fs` | Id stability on edit; empty/invalid text errors |
-| Regression | `ImportDocumentTests.fs` | Cold `buildFilePackage` unchanged |
-| Optional | `HistoryTests.fs` | Current file reconcile does not flip `documentState` |
-
-Run:
-
-```bash
-dotnet build tests/Shared.Tests -c Debug
-dotnet test tests/Shared.Tests -c Debug --no-build --filter "FullyQualifiedName~CommandEntryTests|FullyQualifiedName~ImportDocumentTests"
-dotnet build tests/Server.Tests -c Debug
-dotnet test tests/Server.Tests -c Debug --no-build --filter "FullyQualifiedName~importPackage|FullyQualifiedName~reconcile"
-```
-
-Client/browser verification is manual: select owned child of parsed `.md`/`.txt` file, `Ctrl+Shift+>`, confirm nodes update with stable ids.
-
-## Coordination checklist (with e1a2c144)
-
-- [ ] Confirm server import endpoint shape for warm branch (`fileId` query/body, graph access).
-- [ ] Confirm Unparsed client path switches to codec package before or with this work.
-- [ ] Avoid duplicate cold/warm logic — both call `DocumentParseOps.planApplyArtifact`; only graph + `previousText` differ.
-- [ ] Do not edit the same lines in `UpdateImport.fs` without syncing both agents.
-
-## Files expected to change (implementation)
-
-| File | Change |
-|------|--------|
-| `src/Shared/CommandEntry.fs` | Availability for `Current` files |
-| `src/Server/DocumentPersistence.fs` | Warm branch in file import; graph + disk read |
-| `src/Shared/dotnet/ImportDocument.fs` | `buildReconcilePackage` (or equivalent) |
-| `src/Shared/dotnet/LazyLoadReconciliationApply.fs` | Expose `previousArtifactText` if still internal |
-| `src/Client/UpdateImport.fs` | Branch Unparsed vs Current; pass `fileId` to server |
-| `src/Client/Commands.fs` | Wire `parseFileOp` |
-| `src/Server/Api.fs` | Endpoint params for warm import (if needed) |
-| `tests/Shared.Tests/CommandEntryTests.fs` | Update Current-file expectation |
-| `tests/Server.Tests/DocumentPersistenceTests.fs` | Warm reconcile import tests |
+| Planner | `ImportDocumentTests.fs` | `planParseFile` warm id keep; Unparsed → Current; blank |
+| Persistence | `DocumentPersistenceTests.fs` | DataDir text + live graph ops; drop package-for-fileId cases |
+| HTTP | `DocumentPersistenceTests.fs` | `POST /ambit/file/parse`; `GET /ambit/file` without fileId |
+| Availability | `CommandEntryTests.fs` | unchanged Current → `ParseFile` |
 
 ## Success criteria
 
-1. Parse / Upload available on owned children of both Unparsed and Current file documents (with desktop path).
-2. Unparsed: behavior unchanged (cold parse, state → Current).
-3. Current: disk edit reconciles into graph with warm id retention where format allows; planning runs **server-side** with live graph.
-4. No new command id; palette still filters via `contextualCommandAvailable` on `ParseFile`.
+1. Parse / Upload available on owned children of Unparsed and Current files.
+2. Client never applies an import/reconcile package for ParseFile.
+3. Server mutates agent graph; client updates via existing sync.
+4. Desktop may send file text only; server may read DataDir when text omitted.
+5. No new command id.

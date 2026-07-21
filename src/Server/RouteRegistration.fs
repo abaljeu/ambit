@@ -328,15 +328,26 @@ module RouteRegistration =
                 let! body = reader.ReadToEndAsync()
                 return Api.postFileStatus persistence.DataDir body
         })) |> ignore
-        app.MapGet("/ambit/file", Func<HttpRequest, IResult>(fun req ->
+        app.MapGet("/ambit/file", Func<HttpRequest, Task<IResult>>(fun req -> task {
             if not (auth.IsAuthenticated req) then
-                Results.Unauthorized()
+                return Results.Unauthorized()
             else
                 match req.Query.TryGetValue("path") with
-                | false, _ -> Results.BadRequest({| error = "path is required" |})
+                | false, _ -> return Results.BadRequest({| error = "path is required" |})
                 | true, value ->
-                    Api.getImportFile persistence.DataDir (string value)
-        )) |> ignore
+                    return Api.getImportFile persistence.DataDir (string value)
+        })) |> ignore
+        app.MapPost("/ambit/file/parse", Func<HttpRequest, Task<IResult>>(fun req -> task {
+            if not (auth.IsAuthenticated req) then
+                return Results.Unauthorized()
+            else
+                use reader = new StreamReader(req.Body)
+                let! body = reader.ReadToEndAsync()
+                let handle = persistence.GetHandle "gambol"
+                return!
+                    Api.postParseFile handle persistence.DataDir body
+                    |> Async.StartAsTask
+        })) |> ignore
         app.MapPost("/ambit/save", Func<HttpRequest, Task<IResult>>(fun req -> task {
             if not (auth.IsAuthenticated req) then
                 return Results.Unauthorized()

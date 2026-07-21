@@ -390,9 +390,34 @@ module LocalProxy =
         | false, _ -> do! writeBadRequest context "path is required"
         | true, value ->
             let path = string value
+            let wantContent =
+                match context.Request.Query.TryGetValue("content") with
+                | true, c -> string c = "1"
+                | false, _ -> false
 
             match decodePathRequest ("{\"path\":" + quoteJson path + "}") with
             | Error message -> do! writeBadRequest context message
+            | Ok validPath when wantContent ->
+                match resolveLocalPath workspaceMap validPath with
+                | Error message -> do! writeBadRequest context message
+                | Ok fullPath when Directory.Exists fullPath ->
+                    do! writeBadRequest context "path is a directory"
+                | Ok fullPath when not (File.Exists fullPath) ->
+                    do! writeBadRequest context "file not found"
+                | Ok fullPath ->
+                    try
+                        let! text =
+                            File.ReadAllTextAsync(fullPath, context.RequestAborted)
+                        let json =
+                            "{\"path\":"
+                            + quoteJson validPath
+                            + ",\"content\":"
+                            + quoteJson text
+                            + "}"
+                        do! writeJson context json
+                    with
+                    | :? IOException as ex ->
+                        do! writeBadRequest context ("read failed: " + ex.Message)
             | Ok validPath ->
                 let body = "{\"path\":" + quoteJson validPath + "}"
                 context.Request.Body <- new MemoryStream(Encoding.UTF8.GetBytes(body))

@@ -4,7 +4,7 @@ Status: Draft plan (no implementation yet)
 
 See also: [[doc/roadmap/parsefile-document-codec-import.md]], [[doc/roadmap/parse-file-reconcile-current.md]], [[doc/roadmap/workspace-text-outline-conversion.md]], [[doc/roadmap/workspace-format-plain.md]], [[doc/reference/formats/code-shape.md]], [[src/Shared/ImportText.fs]], [[src/Shared/Paste.fs]], [[src/Client/UpdatePaste.fs]], [[src/Shared/dotnet/ImportDocument.fs]], [[src/Shared/documents/DocumentFormat.fs]], [[src/Shared/dotnet/DocumentParseOps.fs]]
 
-Third import slice in the codec trilogy: **ParseFile → codec** (file read at Server/Desktop), **ParseFile for Current → warm reconcile** (server-side disk sync on parsed files — [[doc/roadmap/parse-file-reconcile-current.md]]), **paste → codec** (clipboard and text import into the live outline). This plan covers the third item only.
+Third import slice: **ParseFile → document reader** (file read at Server/Desktop — [[doc/roadmap/parsefile-document-codec-import.md]]), **ParseFile for Current → warm reconcile** (same reader, live graph — [[doc/roadmap/parse-file-reconcile-current.md]]), **paste → document reader** (clipboard and text import into the live outline). This plan covers the third item only.
 
 ## What it gives you
 
@@ -17,7 +17,7 @@ Third import slice in the codec trilogy: **ParseFile → codec** (file read at S
 
 - **Format selection gate** — no UI, no content sniff beyond existing `looksLikeAmbContent` on read, no “paste as Markdown” toggle. Default path only: synthetic artifact name → `DocumentFormat.classifyCodec` → **Plain**.
 - **Warm reconcile on paste** — paste is always cold (`previousText = None`); no id-stable merge against existing pasted subtree; no DiffPlex on Client.
-- **Directory listing import** — `[[name]] timestamp` lines from desktop directory read stay on `Paste.parsePasteText` ([[doc/roadmap/parsefile-document-codec-import.md]] § directory reconcile).
+- **Directory listing import** — `[[name]] timestamp` lines from desktop directory read stay on `Paste.parsePasteText` (ParseFile plan keeps directories on paste: [[doc/roadmap/parsefile-document-codec-import.md]]).
 - **Internal clipboard deep-copy** — `buildPasteOpsFromClipboard` remaps graph nodes; not text parsing; unchanged.
 - **Link-paste** — `tryPasteLinkIds` / `application/x-gambol-nodeids`; unchanged.
 - **Replacing copy/cut serialization** — `serializeSubtree` stays tab-indented Gambol snapshot format.
@@ -153,9 +153,9 @@ No implementation in this slice. Document where a gate **might** live later:
 
 ## Relation to ParseFile codec and reconcile work
 
-### ParseFile → codec ([[doc/roadmap/parsefile-document-codec-import.md]])
+### ParseFile → document reader ([[doc/roadmap/parsefile-document-codec-import.md]])
 
-- **Shared machinery:** both use cold read + `DocumentColdParse` op planning + peel root ops + `ImportText.buildImportChange` attach pattern.
+- **Shared machinery:** both use the document reader (cold read + op planning + peel root ops + `ImportText.buildImportChange` attach pattern).
 - **Difference:** ParseFile reads disk at Server/Desktop (`buildFilePackage` with real path → Md/Plain/Amb from extension); paste uses **`PasteRelativePath`** and runs on the **client graph** without HTTP.
 - **Do not regress:** file import stays on `ImportDocument.buildFilePackage`; directory import stays on paste parser.
 

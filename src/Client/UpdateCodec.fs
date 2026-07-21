@@ -84,6 +84,30 @@ let decodeDesktopFileStatusResponse (text: string) : Result<DesktopFileStatusRes
 let decodeDesktopImportPackage (text: string) : Result<DesktopImportPackage, string> =
     Thoth.Json.JavaScript.Decode.fromString Serialization.decodeDesktopImportPackage text
 
+let decodeDesktopFileContent (text: string) : Result<string, string> =
+    let decoder =
+        Decode.object (fun get ->
+            get.Required.Field "content" Decode.string)
+    Thoth.Json.JavaScript.Decode.fromString decoder text
+
+let encodeParseFileRequest (fileId: NodeId) (text: string option) : string =
+    let fields =
+        [ "fileId", Encode.guid fileId.Value ]
+        @ match text with
+          | Some t -> [ "text", Encode.string t ]
+          | None -> []
+    Encode.object fields
+    |> Thoth.Json.JavaScript.Encode.toString 0
+
+let decodeParseFileOk (text: string) : Result<unit, string> =
+    let decoder =
+        Decode.object (fun get ->
+            get.Required.Field "ok" Decode.bool)
+    match Thoth.Json.JavaScript.Decode.fromString decoder text with
+    | Ok true -> Ok ()
+    | Ok false -> Error "parse was not acknowledged"
+    | Error err -> Error err
+
 let encodeDesktopExportRequest (request: DesktopExportRequest) : string =
     Serialization.encodeDesktopExportRequest request
     |> Thoth.Json.JavaScript.Encode.toString 0

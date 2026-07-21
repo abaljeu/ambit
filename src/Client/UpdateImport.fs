@@ -14,82 +14,72 @@ let private fail (model: VM) (message: string) : VM * Effect list =
     consoleLog ("[Gambol desktop] parse failed: " + message)
     { model with lastCmdResult = Some(CmdLastResult.Error (None, message)) }, []
 
-let private commitParsedFile
-    (model: VM)
-    (fileId: NodeId)
-    (path: string)
-    (package: DesktopImportPackage)
-    : VM * Effect list =
-    if package.isDirectory || package.sourcePath <> path then
-        fail model "desktop response did not match the selected File"
-    else
-        let existing = model.graph.nodes.[fileId].children
-        let change =
-            ImportText.buildImportChange
-                model.graph
-                fileId
-                existing
-                package
-                model.revision.Value
-                (System.Guid.NewGuid())
-        match applyAndPost change model with
-        | Ok (parsed, effects) ->
-            let result = Some(CmdLastResult.Detail(None, "parsed: " + path))
-            { withSiteMap parsed with lastCmdResult = result }, effects
-        | Error _ -> fail model "parse change was rejected"
+let private okDetail (model: VM) (message: string) : VM * Effect list =
+    { model with lastCmdResult = Some(CmdLastResult.Detail (None, message)) }, []
 
-let private handleImportHttpResponse
-    (model: VM) (fileId: NodeId) (path: string) (responseText: string)
-    : VM * Effect list =
-    match decodeDesktopImportPackage responseText with
-    | Error err -> fail model ("could not decode parsed file: " + err)
-    | Ok package -> commitParsedFile model fileId path package
+let private httpError (status: int) (responseText: string) =
+    "HTTP "
+    + string status
+    + ": "
+    + LogText.truncateForLog 200 responseText
 
 let private isDesktopFileMissing (status: int) (responseText: string) =
     status = 400 && responseText.Contains("\"error\":\"file not found\"")
 
-let private importFromServer
-    (model: VM) (fileId: NodeId) (path: string)
-    : VM * Effect list =
-    let serverUrl = "/ambit/file?path=" + encodeUriComponent path
-    let serverStatus, serverText = getJsonSync serverUrl
+/// Desktop raw file text for ParseFile upload (not a subgraph).
+let private tryReadDesktopContent (path: string) : Result<string option, string> =
+    let url =
+        "/_desktop/file?path="
+        + encodeUriComponent path
+        + "&content=1"
+    let status, responseText = getJsonSync url
 
-    if serverStatus < 200 || serverStatus >= 300 then
-        fail model (
-            "HTTP "
-            + string serverStatus
-            + ": "
-            + LogText.truncateForLog 200 serverText)
+    if status >= 200 && status < 300 then
+        match decodeDesktopFileContent responseText with
+        | Ok content -> Ok(Some content)
+        | Error err -> Error err
+    elif isDesktopFileMissing status responseText then
+        Ok None
     else
-        handleImportHttpResponse model fileId path serverText
+        Error(httpError status responseText)
 
-let private requestImportAtPath
-    (model: VM) (fileId: NodeId) (path: string)
+let private postParseFile
+    (model: VM)
+    (fileId: NodeId)
+    (textOpt: string option)
+    (detailPrefix: string)
+    (path: string)
     : VM * Effect list =
-    if canImportDesktop model then
-        let desktopUrl = "/_desktop/file?path=" + encodeUriComponent path
-        let status, responseText = getJsonSync desktopUrl
+    let body = encodeParseFileRequest fileId textOpt
+    let status, responseText =
+        postJsonSync "/ambit/file/parse" body (jsonMutatingPostHeaders ())
 
-        if status >= 200 && status < 300 then
-            handleImportHttpResponse model fileId path responseText
-        elif isDesktopFileMissing status responseText then
-            // Directory reconcile can add Unparsed stubs from server DataDir
-            // before the desktop clone has the file; fall back to server read.
-            importFromServer model fileId path
-        else
-            fail model (
-                "HTTP "
-                + string status
-                + ": "
-                + LogText.truncateForLog 200 responseText)
+    if status < 200 || status >= 300 then
+        fail model (httpError status responseText)
     else
-        importFromServer model fileId path
+        match decodeParseFileOk responseText with
+        | Error err -> fail model err
+        | Ok () -> okDetail model (detailPrefix + path)
 
-/// Parse one existing Unparsed File document in place from its desktop path.
-let parseUnparsedFileOp (fileId: NodeId) (model: VM) : VM * Effect list =
+/// Parse / Upload: client posts fileId (+ optional desktop text); server applies.
+let parseFileOp (fileId: NodeId) (model: VM) : VM * Effect list =
     match Map.tryFind fileId model.graph.nodes with
-    | Some { kind = Special File; documentState = Unparsed } ->
-        match NodeDesktopPath.pathForNodeId model.graph fileId with
-        | Some path -> requestImportAtPath model fileId path
-        | None -> fail model "selected File has no desktop path"
+    | Some { kind = Special File; documentState = state } ->
+        let pathOpt = NodeDesktopPath.pathForNodeId model.graph fileId
+        let detailPrefix =
+            match state with
+            | Unparsed -> "parsed: "
+            | Current -> "reconciled: "
+
+        let textResult =
+            match pathOpt with
+            | Some path when canImportDesktop model ->
+                tryReadDesktopContent path
+            | _ -> Ok None
+
+        match textResult with
+        | Error err -> fail model err
+        | Ok textOpt ->
+            let detailPath = pathOpt |> Option.defaultValue ""
+            postParseFile model fileId textOpt detailPrefix detailPath
     | _ -> model, []

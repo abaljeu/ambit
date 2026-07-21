@@ -459,7 +459,12 @@ body {
 /* user */
 .h1 { font-size: 1.8rem }
 .h2 { font-size: 1.5rem }
-.h3 { font-size: 1.2rem }
+.h3, .md-head { font-size: 1.2rem }
+.md-head { font-weight:600 }
+.amb-text.md-head::before {
+    content: "#";
+}
+
 .b { font-weight: bold; }
 .i { font-style: italic; }
 .redletter { color: #f00; }

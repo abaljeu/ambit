@@ -122,6 +122,46 @@ module DocumentPersistence =
                 | :? IOException as ex ->
                     Error ("read failed: " + ex.Message)
 
+    let private readFileTextAtRelative
+        (dataDir: string)
+        (relativePath: string)
+        : Result<string, string> =
+        match resolveUnderDataDir dataDir relativePath with
+        | Error err -> Error err
+        | Ok fullPath when Directory.Exists fullPath ->
+            Error "path is a directory"
+        | Ok fullPath when not (File.Exists fullPath) ->
+            Error "file not found"
+        | Ok fullPath ->
+            try
+                Ok(File.ReadAllText fullPath)
+            with
+            | :? IOException as ex ->
+                Error ("read failed: " + ex.Message)
+
+    /// Plan ParseFile ops on the live graph. `textOpt` from desktop upload;
+    /// otherwise read artifact text from DataDir.
+    let planParseFile
+        (dataDir: string)
+        (graph: Graph)
+        (fileId: NodeId)
+        (textOpt: string option)
+        : Result<Op list, string> =
+        match Map.tryFind fileId graph.nodes with
+        | Some { kind = Special File } ->
+            let textResult =
+                match textOpt with
+                | Some text -> Ok text
+                | None ->
+                    match DocumentPartition.artifactFileRelative graph fileId with
+                    | None -> Error "selected File has no occurrence on the server"
+                    | Some relativePath ->
+                        readFileTextAtRelative dataDir relativePath
+
+            textResult
+            |> Result.bind (ImportDocument.planParseFile graph fileId)
+        | _ -> Error "file not found or not a File document"
+
     let private resolveArtifactDirectoryPath
         (dataDir: string)
         (graph: Graph)

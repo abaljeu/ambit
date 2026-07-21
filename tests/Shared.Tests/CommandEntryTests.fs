@@ -130,7 +130,9 @@ let ``context command reconciles named workspace and ignores ref occurrence`` ()
                 graph.nodes
                 |> Map.add fileId
                     { graph.nodes.[fileId] with documentState = Current } }
-    Assert.Equal(None, contextualTarget currentGraph fileId 0)
+    Assert.Equal(
+        Some(ParseFile fileId),
+        contextualTarget currentGraph fileId 0)
 
 [<Fact>]
 let ``context command reconciles owned directory under named workspace`` () =

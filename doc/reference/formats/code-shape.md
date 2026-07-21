@@ -24,6 +24,7 @@ Blank / prologue rules:
 - `src/Shared/documents/OutlineLcs.fs` / `OutlineReconcile.fs` / `OutlineDocument.fs` — DiffPlex LCS, disposition policy, `nestFlatLines` / `readWarmByLcs` / `makeOutlineHandler`. Amb/Plain reconcile files are thin format knobs. **Fable/paste target:** DiffPlex/warm LCS moves DotNet-only; Documents stays cold + Fable-safe — see [[doc/roadmap/paste-document-codec-import.md]] (`DocumentColdParse`).
 - `src/Shared/dotnet/DocumentAssembly.fs` — path classify, nested refs, `DocumentFormat.readArtifact`.
 - `src/Shared/dotnet/DocumentParseOps.fs` — warm+cold artifact → ops (DotNet); cold-only Shared entry is planned `DocumentColdParse.planApplyCold` for Client paste.
+- `src/Shared/dotnet/ImportDocument.fs` — Parse / Upload file import via document reader (`buildFilePackage`); see [[doc/roadmap/parsefile-document-codec-import.md]]. Current warm: [[doc/roadmap/parse-file-reconcile-current.md]].
 - `src/Server/DocumentPersistence.fs` / `DocumentLoader.fs` — path resolve, write, load.
 
 Closest tests: `tests/Shared.Tests/AmbDocumentTests.fs`, `PlainTextDocumentTests.fs`, `MdDocumentTests.fs`, `DocumentAssemblyTests.fs`, `OutlineReconcileTests.fs`; `tests/Server.Tests/DocumentPersistenceTests.fs`, `DocumentLoaderTests.fs`.
