@@ -1,5 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
+<!--only files that are exclusively for dotnet and not fable -->
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
@@ -8,6 +8,7 @@
   <ItemGroup>
     <Compile Include="DesktopGit.fs" />
     <Compile Include="DocumentParseOps.fs" />
+    <Compile Include="ImportDocument.fs" />
     <Compile Include="DocumentAssembly.fs" />
     <Compile Include="LazyLoadReconciliationPath.fs" />
     <Compile Include="LazyLoadReconciliationApply.fs" />

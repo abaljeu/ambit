@@ -168,6 +168,10 @@ let ``classifyCodec uses Amb for marker and named amb paths`` () =
         DocumentFormat.classifyCodec "d/bob/readme.txt" |> requireOk "plain"
     Assert.Equal(DocumentCodec.Plain, plain)
 
+    let md =
+        DocumentFormat.classifyCodec "d/bob/readme.md" |> requireOk "md"
+    Assert.Equal(DocumentCodec.Md, md)
+
 [<Fact>]
 let ``artifactRelativeForNodeReference maps workspace directory and file paths`` () =
     let ws =

@@ -179,10 +179,7 @@ let parseOrPushOp (model: VM) : VM * Effect list =
 
 let private contextualCommandAvailable (model: VM) =
     match contextualTargetForModel model with
-    | Some(ParseFile _) ->
-        match model.desktopCapabilities with
-        | Some { file = { canImport = true } } -> true
-        | _ -> false
+    | Some(ParseFile _) -> true
     | Some(ReconcileWorkspace _)
     | Some(ReconcileDirectory _) -> true
     | None -> false

@@ -117,7 +117,7 @@ module DocumentPersistence =
             | Ok fullPath ->
                 try
                     let text = File.ReadAllText fullPath
-                    ImportText.buildPackage nodeReference text
+                    ImportDocument.buildFilePackage nodeReference text
                 with
                 | :? IOException as ex ->
                     Error ("read failed: " + ex.Message)

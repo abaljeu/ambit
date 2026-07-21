@@ -29,6 +29,7 @@
     <Compile Include="SnapshotTests.fs" />
     <Compile Include="AmbDocumentTests.fs" />
     <Compile Include="PlainTextDocumentTests.fs" />
+    <Compile Include="MdDocumentTests.fs" />
     <Compile Include="OutlineReconcileTests.fs" />
     <Compile Include="SerializationTests.fs" />
     <Compile Include="WorkspaceLocalMappingTests.fs" />
@@ -41,6 +42,7 @@
     <Compile Include="DesktopGitTests.fs" />
 
     <Compile Include="ImportTextTests.fs" />
+    <Compile Include="ImportDocumentTests.fs" />
     <Compile Include="ExportTextTests.fs" />
     <Compile Include="NodeDesktopPathTests.fs" />
     <Compile Include="SearchTests.fs" />

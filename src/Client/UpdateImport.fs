@@ -48,42 +48,48 @@ let private handleImportHttpResponse
 let private isDesktopFileMissing (status: int) (responseText: string) =
     status = 400 && responseText.Contains("\"error\":\"file not found\"")
 
+let private importFromServer
+    (model: VM) (fileId: NodeId) (path: string)
+    : VM * Effect list =
+    let serverUrl = "/ambit/file?path=" + encodeUriComponent path
+    let serverStatus, serverText = getJsonSync serverUrl
+
+    if serverStatus < 200 || serverStatus >= 300 then
+        fail model (
+            "HTTP "
+            + string serverStatus
+            + ": "
+            + LogText.truncateForLog 200 serverText)
+    else
+        handleImportHttpResponse model fileId path serverText
+
 let private requestImportAtPath
     (model: VM) (fileId: NodeId) (path: string)
     : VM * Effect list =
-    let desktopUrl = "/_desktop/file?path=" + encodeUriComponent path
-    let status, responseText = getJsonSync desktopUrl
+    if canImportDesktop model then
+        let desktopUrl = "/_desktop/file?path=" + encodeUriComponent path
+        let status, responseText = getJsonSync desktopUrl
 
-    if status >= 200 && status < 300 then
-        handleImportHttpResponse model fileId path responseText
-    elif isDesktopFileMissing status responseText then
-        // Directory reconcile can add Unparsed stubs from server DataDir
-        // before the desktop clone has the file; fall back to server read.
-        let serverUrl = "/ambit/file?path=" + encodeUriComponent path
-        let serverStatus, serverText = getJsonSync serverUrl
-
-        if serverStatus < 200 || serverStatus >= 300 then
+        if status >= 200 && status < 300 then
+            handleImportHttpResponse model fileId path responseText
+        elif isDesktopFileMissing status responseText then
+            // Directory reconcile can add Unparsed stubs from server DataDir
+            // before the desktop clone has the file; fall back to server read.
+            importFromServer model fileId path
+        else
             fail model (
                 "HTTP "
-                + string serverStatus
+                + string status
                 + ": "
-                + LogText.truncateForLog 200 serverText)
-        else
-            handleImportHttpResponse model fileId path serverText
+                + LogText.truncateForLog 200 responseText)
     else
-        fail model (
-            "HTTP "
-            + string status
-            + ": "
-            + LogText.truncateForLog 200 responseText)
+        importFromServer model fileId path
 
 /// Parse one existing Unparsed File document in place from its desktop path.
 let parseUnparsedFileOp (fileId: NodeId) (model: VM) : VM * Effect list =
-    if not (canImportDesktop model) then model, []
-    else
-        match Map.tryFind fileId model.graph.nodes with
-        | Some { kind = Special File; documentState = Unparsed } ->
-            match NodeDesktopPath.pathForNodeId model.graph fileId with
-            | Some path -> requestImportAtPath model fileId path
-            | None -> fail model "selected File has no desktop path"
-        | _ -> model, []
+    match Map.tryFind fileId model.graph.nodes with
+    | Some { kind = Special File; documentState = Unparsed } ->
+        match NodeDesktopPath.pathForNodeId model.graph fileId with
+        | Some path -> requestImportAtPath model fileId path
+        | None -> fail model "selected File has no desktop path"
+    | _ -> model, []

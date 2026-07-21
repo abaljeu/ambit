@@ -362,13 +362,17 @@ module LocalProxy =
                             else
                                 File.ReadAllTextAsync(fullPath, context.RequestAborted)
 
-                        match ImportText.buildPackage path text with
+                        let packageResult =
+                            if Directory.Exists fullPath then
+                                ImportText.buildPackage path text
+                                |> Result.map (fun package ->
+                                    { package with isDirectory = true })
+                            else
+                                ImportDocument.buildFilePackage path text
+
+                        match packageResult with
                         | Error message -> do! writeBadRequest context message
                         | Ok package ->
-                            let package =
-                                { package with
-                                    isDirectory = Directory.Exists fullPath }
-
                             let json =
                                 Encode.toString 0 (Serialization.encodeDesktopImportPackage package)
 

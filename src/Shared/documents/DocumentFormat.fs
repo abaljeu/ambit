@@ -6,6 +6,7 @@ open System
 type DocumentCodec =
     | Amb
     | Plain
+    | Md
 
 [<RequireQualifiedAccess>]
 module DocumentFormat =
@@ -16,11 +17,10 @@ module DocumentFormat =
     let classifyCodec (relativePath: string) : Result<DocumentCodec, string> =
         let path = normalizeRelative relativePath
 
-        // Any path ending in `.amb` (marker or named file) uses Amb codec.
-        // All other paths (including .md / XML-shaped) fall through to Plain
-        // until dedicated handlers exist.
         if path.EndsWith(".amb") then
             Ok DocumentCodec.Amb
+        elif path.EndsWith(".md") then
+            Ok DocumentCodec.Md
         else
             Ok DocumentCodec.Plain
 
@@ -28,6 +28,7 @@ module DocumentFormat =
         function
         | DocumentCodec.Amb -> AmbReconcile.handler
         | DocumentCodec.Plain -> PlainTextReconcile.handler
+        | DocumentCodec.Md -> MdReconcile.handler
 
     let mergeReadResult
         (allowContentUpdate: bool)
