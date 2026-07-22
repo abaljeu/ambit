@@ -145,13 +145,24 @@ module WorkspaceGitRemote =
         let dirty = if status.dirty then " *" else ""
         branch + ahead + behind + dirty
 
-    /// True when desktop host reported `git.git` (G5 `/_desktop/git-*`).
+    /// True when desktop host reported `git.git` (binary on PATH).
     let canDesktopGit (caps: DesktopCapabilities option) : bool =
         match caps with
         | Some { git = { canGit = true } } -> true
         | _ -> false
 
-    /// Desktop file import works but git is unavailable — workspace Parse / Upload cannot push.
+    /// Map / Pull: workspacePaths + file import/export (not git pack).
+    let canDesktopWorkspaceSync (caps: DesktopCapabilities option) : bool =
+        match caps with
+        | Some { file = f } ->
+            f.canWorkspacePaths && f.canImport && f.canExport
+        | _ -> false
+
+    /// Push also needs git on PATH for check-ignore.
+    let canDesktopWorkspacePush (caps: DesktopCapabilities option) : bool =
+        canDesktopWorkspaceSync caps && canDesktopGit caps
+
+    /// Desktop file import works but git is unavailable — Upload cannot push.
     let desktopMappedWithoutGit (caps: DesktopCapabilities option) : bool =
         match caps with
         | Some { file = { canImport = true }; git = { canGit = false } } -> true

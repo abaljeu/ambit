@@ -53,13 +53,9 @@ type CommandId =
     | Find
     | EditClasses
     | JumpToTarget
-    | ParseOrPush
+    | Upload
     | Save
-    | GitConnect
-    | GitClone
-    | GitPull
-    | GitPush
-    | GitStatus
+    | Download
     | InsertFile
     | Rename
     | Exec
@@ -245,26 +241,14 @@ let allCommands : CommandEntry list =
         { id = JumpToTarget; name = "Jump to Target"
           keys = [ "Alt+j"; "j" ]; keyScope = SelectionOrEditing
           iconId = Some "amb-icon-jump" }
-        { id = ParseOrPush; name = "Parse / Upload"
+        { id = Upload; name = "Upload"
           keys = [ "Ctrl+Shift+>" ]; keyScope = SelectionOnly
           iconId = None }
         { id = Save; name = "Save"
           keys = [ "Ctrl+S" ]; keyScope = SelectionOrEditing
           iconId = None }
-        { id = GitConnect; name = "Git Push to New Remote"
-          keys = []; keyScope = SelectionOrEditing
-          iconId = None }
-        { id = GitClone; name = "Git Clone workspace"
-          keys = []; keyScope = SelectionOrEditing
-          iconId = None }
-        { id = GitPull; name = "Git Pull to Desktop"
+        { id = Download; name = "Download"
           keys = [ "Ctrl+Shift+<" ]; keyScope = SelectionOnly
-          iconId = None }
-        { id = GitPush; name = "Git Push to Server"
-          keys = []; keyScope = SelectionOrEditing
-          iconId = None }
-        { id = GitStatus; name = "Git status"
-          keys = []; keyScope = SelectionOrEditing
           iconId = None }
         { id = InsertFile; name = "Insert…"
           keys = [ "f" ]; keyScope = SelectionOrEditing

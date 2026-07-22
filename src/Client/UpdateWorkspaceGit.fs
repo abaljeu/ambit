@@ -3,6 +3,7 @@ module Gambol.Client.UpdateWorkspaceGit
 open Gambol.Client.JsInterop
 open Gambol.Client.UpdateCodec
 open Gambol.Client.UpdateHelpers
+open Gambol.Client.UpdateImport
 open Gambol.Shared
 open Gambol.Shared.ViewModel
 open Thoth.Json.Core
@@ -13,11 +14,11 @@ let private withResult (model: VM) (result: CmdLastResult) : VM * Effect list =
     { model with lastCmdResult = Some result }, []
 
 let private fail (model: VM) (msg: string) : VM * Effect list =
-    consoleLog ("[Gambol git] " + msg)
+    consoleLog ("[Gambol sync] " + msg)
     withResult model (CmdLastResult.Error (None, msg))
 
 let private okDetail (model: VM) (msg: string) : VM * Effect list =
-    consoleLog ("[Gambol git] " + msg)
+    consoleLog ("[Gambol sync] " + msg)
     withResult model (CmdLastResult.Detail (None, msg))
 
 /// Success detail plus immediate sync poll (server applied graph-only ops).
@@ -32,113 +33,23 @@ let private httpError (status: int) (body: string) : string =
     | None ->
         "HTTP " + string status + ": " + LogText.truncateForLog 200 body
 
-let private fetchReconciliationWarningCount (workspace: string) : Result<int, string> =
-    let url =
-        "/ambit/git/reconciliation/latest?workspace="
-        + encodeUriComponent workspace
-    let status, text = getJsonSync url
-    if status < 200 || status >= 300 then
-        Error(httpError status text)
-    else
-        decodeReconciliationLatest text
-
-let private fetchGatewayErrorDetail (workspace: string) : string option =
-    let url =
-        "/ambit/git/gateway-error?workspace=" + encodeUriComponent workspace
-    let status, text = getJsonSync url
-    if status < 200 || status >= 300 then
-        None
-    else
-        match decodeGatewayError text with
-        | Ok (Some detail) when not (System.String.IsNullOrWhiteSpace detail) ->
-            Some detail
-        | _ -> None
-
-let private gatewayErrorHint (msg: string) : string option =
-    if msg.IndexOf("HTTP 406", System.StringComparison.OrdinalIgnoreCase) >= 0 then
-        Some
-            "not recorded locally; HTTP 406 is usually a remote proxy/WAF rejecting the git pack request"
-    elif
-        msg.IndexOf("RPC failed", System.StringComparison.OrdinalIgnoreCase) >= 0
-        || msg.IndexOf("curl 22", System.StringComparison.OrdinalIgnoreCase) >= 0
-        || msg.IndexOf("HTTP 4", System.StringComparison.OrdinalIgnoreCase) >= 0
-        || msg.IndexOf("HTTP 5", System.StringComparison.OrdinalIgnoreCase) >= 0
-    then
-        Some
-            "not recorded locally; failure likely at remote proxy or before the Gambol pack handler"
-    else
-        None
-
-let private enrichGitFailure (workspace: string) (msg: string) : string =
-    match fetchGatewayErrorDetail workspace with
-    | Some detail -> msg + System.Environment.NewLine + "server: " + detail
-    | None ->
-        match gatewayErrorHint msg with
-        | Some hint -> msg + System.Environment.NewLine + "server: (" + hint + ")"
-        | None -> msg
-
-let private pushDetailAfterReconcile
-    (model: VM)
-    (workspace: string)
-    (okDetailText: string)
-    : VM * Effect list =
-    match fetchReconciliationWarningCount workspace with
-    | Ok n when n > 0 ->
-        okDetailWithPoll model $"pushed with reconciliation warnings ({n})"
-    | Ok _ -> okDetailWithPoll model okDetailText
-    | Error note ->
-        okDetailWithPoll model (okDetailText + "; reconciliation diagnostics unavailable: " + note)
-
-let private workspaceFromFocus (model: VM) : string option =
-    let nodeId =
-        match model.selectedNodes with
-        | Some sel -> focusedNodeId model.graph sel
-        | None -> viewRootNodeId model
-    NodeDesktopPath.enclosingWorkspaceName model.graph nodeId
-
-let private requireNamedWorkspace (model: VM) : Result<string, string> =
-    match workspaceFromFocus model with
-    | Some workspace -> Ok workspace
-    | None -> Error "focus a node under a named workspace"
-
-let private encodeWorkspace (workspace: string) : string =
-    Encode.object [ "label", Encode.string workspace ]
-    |> Thoth.Json.JavaScript.Encode.toString 0
-
 let private encodeWorkspacePath (workspace: string) (path: string) : string =
     Encode.object
         [ "label", Encode.string workspace
           "path", Encode.string path ]
     |> Thoth.Json.JavaScript.Encode.toString 0
 
-/// Workspace (+ optional Ambit git PAT) for desktop push/pull/clone.
-let private encodeWorkspaceAuth
-    (workspace: string)
-    (auth: (string * string) option)
-    : string =
-    match auth with
-    | None -> encodeWorkspace workspace
-    | Some(user, token) ->
-        Encode.object
-            [ "label", Encode.string workspace
-              "username", Encode.string user
-              "token", Encode.string token ]
-        |> Thoth.Json.JavaScript.Encode.toString 0
-
-let private encodeWorkspacePathAuth
-    (workspace: string)
-    (path: string)
-    (auth: (string * string) option)
-    : string =
-    match auth with
-    | None -> encodeWorkspacePath workspace path
-    | Some(user, token) ->
-        Encode.object
-            [ "label", Encode.string workspace
-              "path", Encode.string path
-              "username", Encode.string user
-              "token", Encode.string token ]
-        |> Thoth.Json.JavaScript.Encode.toString 0
+let private encodeSyncScope (scope: WorkspaceSyncScope) : string =
+    let kind =
+        match scope.kind with
+        | SyncScopeKind.Workspace -> "workspace"
+        | SyncScopeKind.Directory -> "directory"
+        | SyncScopeKind.File -> "file"
+    Encode.object
+        [ "label", Encode.string scope.label
+          "relative", Encode.string scope.relative
+          "kind", Encode.string kind ]
+    |> Thoth.Json.JavaScript.Encode.toString 0
 
 let private postDesktop (url: string) (body: string) : Result<string, string> =
     let status, text = postJsonSync url body (jsonHeaders ())
@@ -172,99 +83,57 @@ let private upsertMapping (workspace: string) (path: string) : Result<unit, stri
     | Error e -> Error e
     | Ok _ -> Ok ()
 
-/// Ambit session → git PAT (or None when gateway auth disabled).
-let private fetchGitAuth () : Result<(string * string) option, string> =
-    let status, text = getJsonSync "/ambit/git-token"
-    if status = 401 then
-        Error "login required for git"
-    elif status < 200 || status >= 300 then
+let private folderBasename (path: string) : string =
+    let trimmed = path.TrimEnd('\\', '/')
+    let i =
+        max (trimmed.LastIndexOf('\\')) (trimmed.LastIndexOf('/'))
+    if i < 0 then trimmed
+    else trimmed.Substring(i + 1)
+
+let private lookupMappedPath (label: string) : Result<string option, string> =
+    let status, text = getJsonSync "/_desktop/workspace-mappings"
+    if status < 200 || status >= 300 then
         Error(httpError status text)
     else
-        match decodeGitTokenIssue text with
+        match decodeMappedRootPath text label with
         | Error e -> Error e
-        | Ok GitAuthDisabled -> Ok None
-        | Ok (GitToken (user, token)) -> Ok (Some(user, token))
+        | Ok pathOpt -> Ok pathOpt
 
-let private setRemote (workspace: string) (path: string) : Result<string, string> =
-    match postDesktop "/_desktop/git-remote" (encodeWorkspacePath workspace path) with
+/// GET mappings; pick-folder + PUT when label has no mapping.
+let private ensureMapped (label: string) : Result<string, string> =
+    if System.String.IsNullOrWhiteSpace label then
+        Error "ROOT and Workspaces cannot be mapped"
+    else
+        match lookupMappedPath label with
+        | Error e -> Error e
+        | Ok(Some path) -> Ok path
+        | Ok None ->
+            match pickFolder false with
+            | Error e -> Error e
+            | Ok path ->
+                match upsertMapping label path with
+                | Error e -> Error e
+                | Ok () -> Ok path
+
+let private syncScopeFromFocus (model: VM) : Result<WorkspaceSyncScope, string> =
+    match model.selectedNodes with
+    | None -> Error "select a workspace, directory, or file"
+    | Some sel ->
+        let nodeId = focusedNodeId model.graph sel
+        WorkspaceSyncScope.tryFromFocus model.graph nodeId
+
+let private postWorkspaceSync
+    (url: string)
+    (scope: WorkspaceSyncScope)
+    : Result<DesktopWorkspaceSyncResponse, string> =
+    match postDesktop url (encodeSyncScope scope) with
     | Error e -> Error e
     | Ok text ->
-        match decodeDesktopGitOk text with
-        | Ok { ok = true; detail = d } -> Ok d
-        | Ok { error = Some e } -> Error e
-        | Ok _ -> Error "git-remote failed"
+        match decodeDesktopWorkspaceSync text with
         | Error e -> Error e
-
-let gitPullOp (model: VM) : VM * Effect list =
-    if not (WorkspaceGitRemote.canDesktopGit model.desktopCapabilities) then
-        model, []
-    else
-        match requireNamedWorkspace model with
-        | Error msg -> fail model msg
-        | Ok workspace ->
-            match fetchGitAuth () with
-            | Error e -> fail model e
-            | Ok auth ->
-                match postDesktop "/_desktop/git-pull" (encodeWorkspaceAuth workspace auth) with
-                | Error e -> fail model (enrichGitFailure workspace e)
-                | Ok text ->
-                    match decodeDesktopGitOk text with
-                    | Ok { ok = true; detail = path } ->
-                        okDetail model (workspace + " → " + path)
-                    | Ok { error = Some e } ->
-                        fail model (enrichGitFailure workspace e)
-                    | Ok _ -> fail model "request failed"
-                    | Error e -> fail model (enrichGitFailure workspace e)
-
-let gitPushOp (model: VM) : VM * Effect list =
-    if not (WorkspaceGitRemote.canDesktopGit model.desktopCapabilities) then
-        model, []
-    else
-        match requireNamedWorkspace model with
-        | Error msg -> fail model msg
-        | Ok workspace ->
-            match fetchGitAuth () with
-            | Error e -> fail model e
-            | Ok auth ->
-                match postDesktop "/_desktop/git-push" (encodeWorkspaceAuth workspace auth) with
-                | Error e -> fail model (enrichGitFailure workspace e)
-                | Ok text ->
-                    match decodeDesktopGitOk text with
-                    | Ok { ok = true; detail = d } ->
-                        let detailText =
-                            if
-                                d.IndexOf(
-                                    "Everything up-to-date",
-                                    System.StringComparison.OrdinalIgnoreCase)
-                                >= 0
-                            then
-                                "remote already has latest commits (nothing new to push)"
-                            else
-                                d
-                        pushDetailAfterReconcile
-                            model
-                            workspace
-                            ("pushed: " + detailText)
-                    | Ok { error = Some e } ->
-                        fail model (enrichGitFailure workspace e)
-                    | Ok _ -> fail model "request failed"
-                    | Error e -> fail model (enrichGitFailure workspace e)
-
-let private directoryWorkspaceRel
-    (graph: Graph)
-    (dirId: NodeId)
-    : Result<string * string, string> =
-    match NodeDesktopPath.pathForNodeId graph dirId with
-    | None -> Error "selected Directory has no path"
-    | Some path ->
-        match NodeDesktopPath.tryParseWorkspacePath path with
-        | Some(label, tail) when not (System.String.IsNullOrWhiteSpace label) ->
-            let dirRel = tail.Trim().TrimEnd('/').TrimStart('/')
-            if System.String.IsNullOrWhiteSpace dirRel then
-                Error "directory path is empty"
-            else
-                Ok(label, dirRel)
-        | _ -> Error "directory is not under a named workspace"
+        | Ok resp when resp.ok -> Ok resp
+        | Ok { error = Some e } -> Error e
+        | Ok _ -> Error "request failed"
 
 let private postDirectoryReconcile
     (model: VM)
@@ -287,100 +156,145 @@ let private postDirectoryReconcile
         | Ok _ -> okDetailWithPoll model okDetailText
         | Error e -> fail model e
 
-/// Parse / Upload on a Workspace: desktop git push (local mapping → server), else
-/// discover artifacts under server DataDir/{label} (web-only).
-let reconcileWorkspaceOp (model: VM) : VM * Effect list =
-    if WorkspaceGitRemote.canDesktopGit model.desktopCapabilities then
-        gitPushOp model
+let private applyOpsChange (ops: Op list) (model: VM) : Result<VM * Effect list, string> =
+    if ops.IsEmpty then
+        Error "could not create workspace"
     else
-        if WorkspaceGitRemote.desktopMappedWithoutGit model.desktopCapabilities then
-            fail
-                model
-                "Parse / Upload on a workspace uploads the mapped folder via git; install git, run Git Connect, then retry (or parse individual files)"
+        let change =
+            { id = model.revision.Value
+              changeId = System.Guid.NewGuid()
+              ops = ops }
+        match applyAndPost change model with
+        | Error e -> Error e
+        | Ok (m, effects) -> Ok(withSiteMap m, effects)
+
+let private needsGitForPush (model: VM) : bool =
+    WorkspaceGitRemote.desktopMappedWithoutGit model.desktopCapabilities
+
+let private pushScoped
+    (scope: WorkspaceSyncScope)
+    : Result<DesktopWorkspaceSyncResponse, string> =
+    match ensureMapped scope.label with
+    | Error e -> Error e
+    | Ok _ ->
+        postWorkspaceSync "/_desktop/workspace-push" scope
+
+let private pullScoped
+    (scope: WorkspaceSyncScope)
+    : Result<DesktopWorkspaceSyncResponse, string> =
+    match ensureMapped scope.label with
+    | Error e -> Error e
+    | Ok _ ->
+        postWorkspaceSync "/_desktop/workspace-pull" scope
+
+let focusIsWorkspaces (model: VM) : bool =
+    match model.selectedNodes with
+    | None -> false
+    | Some sel ->
+        focusedNodeId model.graph sel = Graph.workspacesId
+
+/// Workspaces + Upload: pick folder → create WS → map → push → reconcile.
+let uploadCreateWorkspaceOp (model: VM) : VM * Effect list =
+    if not (WorkspaceGitRemote.canDesktopWorkspacePush model.desktopCapabilities) then
+        if needsGitForPush model then
+            fail model "Upload needs git on PATH for .gitignore filtering"
         else
-            match requireNamedWorkspace model with
+            model, []
+    else
+        match pickFolder false with
+        | Error "cancelled" -> model, []
+        | Error e -> fail model e
+        | Ok path ->
+            let basename = folderBasename path
+            if System.String.IsNullOrWhiteSpace basename then
+                fail model "folder name is empty"
+            else
+                let wsId, ops =
+                    FileNodeOps.planCreateWorkspace model.graph basename
+                match applyOpsChange ops model with
+                | Error e -> fail model e
+                | Ok(model', createEffs) ->
+                    let label =
+                        match Map.tryFind wsId model'.graph.nodes with
+                        | Some node ->
+                            Filename.tryValue node.name
+                            |> Option.defaultValue basename
+                        | None -> basename
+                    match upsertMapping label path with
+                    | Error e -> fail model' e
+                    | Ok () ->
+                        let scope =
+                            { label = label
+                              relative = ""
+                              kind = SyncScopeKind.Workspace }
+                        match
+                            postWorkspaceSync
+                                "/_desktop/workspace-push"
+                                scope
+                        with
+                        | Error e -> fail model' e
+                        | Ok sync ->
+                            let model'', reconEffs =
+                                postDirectoryReconcile
+                                    model'
+                                    label
+                                    ""
+                                    sync.detail
+                            model'', createEffs @ reconEffs
+
+let uploadNamedScope (model: VM) : VM * Effect list =
+    if not (WorkspaceGitRemote.canDesktopWorkspacePush model.desktopCapabilities) then
+        if needsGitForPush model then
+            fail model "Upload needs git on PATH for .gitignore filtering"
+        elif WorkspaceGitRemote.canDesktopWorkspaceSync model.desktopCapabilities
+        then
+            model, []
+        else
+            match syncScopeFromFocus model with
             | Error msg -> fail model msg
-            | Ok workspace ->
+            | Ok scope ->
                 postDirectoryReconcile
                     model
-                    workspace
-                    ""
-                    ("workspace reconciled from server disk: " + workspace)
-
-/// Parse / Upload on a Directory: create missing disk stubs under that folder (server DataDir).
-let reconcileDirectoryOp (dirId: NodeId) (model: VM) : VM * Effect list =
-    match directoryWorkspaceRel model.graph dirId with
-    | Error msg -> fail model msg
-    | Ok(workspace, dirRel) ->
-        postDirectoryReconcile
-            model
-            workspace
-            dirRel
-            ("directory reconciled: " + dirRel)
-
-
-let gitStatusOp (model: VM) : VM * Effect list =
-    if not (WorkspaceGitRemote.canDesktopGit model.desktopCapabilities) then
-        model, []
+                    scope.label
+                    scope.relative
+                    ("workspace reconciled from server disk: " + scope.label)
     else
-        match requireNamedWorkspace model with
+        match syncScopeFromFocus model with
         | Error msg -> fail model msg
-        | Ok workspace ->
-            match postDesktop "/_desktop/git-status" (encodeWorkspace workspace) with
-            | Error e -> fail model e
-            | Ok text ->
-                match decodeWorkspaceGitStatus text with
-                | Ok status ->
-                    okDetail model (WorkspaceGitRemote.formatStatusLine status)
-                | Error e -> fail model e
-
-let private connectAtPath (model: VM) (workspace: string) (path: string) =
-    match upsertMapping workspace path with
-    | Error e -> fail model e
-    | Ok () ->
-        match setRemote workspace path with
-        | Error e -> fail model e
-        | Ok url -> okDetail model ("connected " + workspace + " → " + url)
-
-let gitConnectOp (model: VM) : VM * Effect list =
-    if not (WorkspaceGitRemote.canDesktopGit model.desktopCapabilities) then
-        model, []
-    else
-        match requireNamedWorkspace model with
-        | Error msg -> fail model msg
-        | Ok workspace ->
-            match pickFolder true with
+        | Ok scope ->
+            match pushScoped scope with
             | Error "cancelled" -> model, []
             | Error e -> fail model e
-            | Ok path -> connectAtPath model workspace path
+            | Ok sync ->
+                postDirectoryReconcile
+                    model
+                    scope.label
+                    scope.relative
+                    sync.detail
 
-let private cloneAtPath (model: VM) (workspace: string) (path: string) =
-    match fetchGitAuth () with
-    | Error e -> fail model e
-    | Ok auth ->
-        match
-            postDesktop
-                "/_desktop/git-clone"
-                (encodeWorkspacePathAuth workspace path auth)
-        with
-        | Error e -> fail model e
-        | Ok _ ->
-            match upsertMapping workspace path with
-            | Error e -> fail model e
-            | Ok () ->
-                match setRemote workspace path with
-                | Error e -> fail model e
-                | Ok url ->
-                    okDetail model ("cloned " + workspace + " → " + url)
-
-let gitCloneOp (model: VM) : VM * Effect list =
-    if not (WorkspaceGitRemote.canDesktopGit model.desktopCapabilities) then
-        model, []
-    else
-        match requireNamedWorkspace model with
+/// File Upload: ensure map → push file scope → Parse.
+let uploadFileOp (fileId: NodeId) (model: VM) : VM * Effect list =
+    if WorkspaceGitRemote.canDesktopWorkspacePush model.desktopCapabilities then
+        match syncScopeFromFocus model with
         | Error msg -> fail model msg
-        | Ok workspace ->
-            match pickFolder false with
+        | Ok scope ->
+            match pushScoped scope with
             | Error "cancelled" -> model, []
             | Error e -> fail model e
-            | Ok path -> cloneAtPath model workspace path
+            | Ok _ -> parseFileOp fileId model
+    elif needsGitForPush model then
+        fail model "Upload needs git on PATH for .gitignore filtering"
+    else
+        parseFileOp fileId model
+
+let downloadOp (model: VM) : VM * Effect list =
+    if not (WorkspaceGitRemote.canDesktopWorkspaceSync model.desktopCapabilities) then
+        model, []
+    else
+        match syncScopeFromFocus model with
+        | Error msg -> fail model msg
+        | Ok scope ->
+            match pullScoped scope with
+            | Error "cancelled" -> model, []
+            | Error e -> fail model e
+            | Ok sync -> okDetail model sync.detail

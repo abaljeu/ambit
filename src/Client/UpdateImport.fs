@@ -13,7 +13,7 @@ let private canImportDesktop (model: VM) =
 let private fail (model: VM) (message: string) : VM * Effect list =
     consoleLog ("[Gambol desktop] parse failed: " + message)
     { model with
-        lastCmdResult = Some(CmdLastResult.Error (Some "Parse / Upload", message)) },
+        lastCmdResult = Some(CmdLastResult.Error (Some "Upload", message)) },
     []
 
 let private okDetail (model: VM) (message: string) : VM * Effect list =
@@ -70,7 +70,7 @@ let private postParseFile
                 SyncPlanner.tryStartPoll model'.revision model'.syncInfo
             { model' with syncInfo = si }, pollEffs
 
-/// Parse / Upload: client posts fileId (+ optional desktop text); server applies.
+/// Parse: client posts fileId (+ optional desktop text); server applies.
 let parseFileOp (fileId: NodeId) (model: VM) : VM * Effect list =
     match Map.tryFind fileId model.graph.nodes with
     | Some { kind = Special File; documentState = state } ->

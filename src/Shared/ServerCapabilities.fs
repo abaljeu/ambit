@@ -16,8 +16,10 @@ type GitTokenIssue =
     | GitAuthDisabled
     | GitToken of username: string * token: string
 
-type DesktopGitOkResponse =
+type DesktopWorkspaceSyncResponse =
     { ok: bool
+      uploaded: int
+      downloaded: int
       detail: string
       error: string option }
 
@@ -70,11 +72,21 @@ module GitTokenIssue =
                 GitToken(user, token))
 
 [<RequireQualifiedAccess>]
-module DesktopGitOkResponse =
-    let decoder: Decoder<DesktopGitOkResponse> =
+module DesktopWorkspaceSyncResponse =
+    let decoder: Decoder<DesktopWorkspaceSyncResponse> =
         Decode.object (fun get ->
-            { ok = get.Optional.Field "ok" Decode.bool |> Option.defaultValue false
-              detail = get.Optional.Field "detail" Decode.string |> Option.defaultValue ""
+            { ok =
+                get.Optional.Field "ok" Decode.bool
+                |> Option.defaultValue false
+              uploaded =
+                get.Optional.Field "uploaded" Decode.int
+                |> Option.defaultValue 0
+              downloaded =
+                get.Optional.Field "downloaded" Decode.int
+                |> Option.defaultValue 0
+              detail =
+                get.Optional.Field "detail" Decode.string
+                |> Option.defaultValue ""
               error = get.Optional.Field "error" Decode.string })
 
 [<RequireQualifiedAccess>]
@@ -86,14 +98,3 @@ module DesktopPickFolderResponse =
                 |> Option.defaultValue false
               path = get.Optional.Field "path" Decode.string
               gitRoot = get.Optional.Field "gitRoot" Decode.string })
-
-[<RequireQualifiedAccess>]
-module WorkspaceGitStatusJson =
-    let decoder: Decoder<WorkspaceGitStatus> =
-        Decode.object (fun get ->
-            { branch = get.Optional.Field "branch" Decode.string
-              ahead = get.Optional.Field "ahead" Decode.int |> Option.defaultValue 0
-              behind = get.Optional.Field "behind" Decode.int |> Option.defaultValue 0
-              dirty =
-                get.Optional.Field "dirty" Decode.bool
-                |> Option.defaultValue false })

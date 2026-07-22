@@ -4,16 +4,16 @@ Category: Sync
 Status: Planned
 See also: [[workspace-webdav]], [[doc/current/workspace-local-mapping]], [[doc/current/desktop-local-files]], [[workspace-scale-import]], [[workspaces-checklist]], [[lazy-load]], [[doc/roadmap/workspace-file-persistence]], [[src/Server/IgnoredDestination.fs]], [[src/Server/WorkspaceGit.fs]], [[src/Server/GitSave.fs]]
 
-Committed direction for synchronizing a desktop mapped folder with server `DataDir/{label}/`. **Client Map / Push / Pull do not use git remotes or smart-HTTP pack transport.** Transport is WebDAV Class 1. The server still keeps a per-workspace git repo for ignore rules and post-push commits.
+Committed direction for synchronizing a desktop mapped folder with server `DataDir/{label}/`. **Client Upload / Download do not use git remotes or smart-HTTP pack transport.** Transport is WebDAV Class 1. The server still keeps a per-workspace git repo for ignore rules, pre-push JIT, and post-push commits.
 
 This does not supersede [[doc/current/sync-mvp]] for live graph editing over HTTP; file sync is coarse, explicit tree sync layered on top.
 
 ## What it gives you
 
-1. **Map workspace** — bind a local folder to a workspace label (pick-folder + mapping Put). No `requireGit`, no `ambit` remote.
-2. **Push (post)** — scoped local directory or file under the mapped workspace: walk/select that path, **apply `.gitignore`**, send via WebDAV (`PUT` / `MKCOL`), then server finish-commit and Lazy Load stub reconcile. (WebDAV server may still be in progress.)
-3. **Pull (get)** — obtain **server-side inventory** for that scope (`PROPFIND`), **apply `.gitignore` to that inventory** to produce the file list, then `GET` those files into the mapped root (listings include **getlastmodified** / mtime — [[workspace-webdav]]).
-4. Never transfer `.git/` or gitignored paths (for example `.venv`).
+1. **Upload** — ensure a local folder mapping for the focused named workspace (pick-folder + Put when unmapped), then scoped WebDAV push (`PUT` / `MKCOL`), server JIT-commit of dirty DataDir before the batch, finish-commit after, and Lazy Load stub reconcile. On **Workspaces** focus: pick folder → create named workspace from folder basename → map → push whole tree. On **File** focus: push file scope then Parse.
+2. **Download** — ensure mapping, then scoped WebDAV pull (`PROPFIND` inventory → `GET` into mapped root; listings include **getlastmodified** / mtime — [[workspace-webdav]]). Named Workspace / Directory / File only (not ROOT or Workspaces).
+3. Never transfer `.git/` or gitignored paths (for example `.venv`).
+4. **Removed from command surface:** standalone Map workspace, Git Connect, Clone, Git Push (pack), Git Status.
 
 ## Inventory (defined)
 
@@ -30,8 +30,8 @@ So ignore reduces candidates on **both** directions. For Pull, the inventory sou
 
 The desktop layer’s two main sync functions:
 
-1. **Post (Push)** — local scope → GitCheckIgnore → WebDAV `PUT` / `MKCOL` → finish-commit.
-2. **Get (Pull)** — server `PROPFIND` inventory → GitCheckIgnore → `GET`.
+1. **Post (Upload)** — JIT prepare-push → local scope → GitCheckIgnore → WebDAV `PUT` / `MKCOL` → finish-commit.
+2. **Get (Download)** — server `PROPFIND` inventory → GitCheckIgnore → `GET`.
 
 ## What it avoids for now
 
@@ -97,12 +97,11 @@ Nothing WebDAV-related is in the repo today. Server library spike and fallback: 
 
 | Intent | Target |
 | --- | --- |
-| Map folder ↔ workspace | **Map workspace** — pick-folder + Put mapping only |
-| Push scope | **Push** — local inventory → check-ignore → WebDAV up + server finish-commit + reconcile |
-| Pull scope | **Pull** — server PROPFIND inventory → check-ignore (DataDir SoT) → GET |
-| Clone / status / push-to-remote | Not required for map/push/pull; may deprecate later |
+| Upload (`Ctrl+Shift+>`) | Ensure map (pick-folder if needed) → WebDAV push + JIT + finish-commit + reconcile; Workspaces focus creates workspace from folder; File focus then Parses |
+| Download (`Ctrl+Shift+<`) | Ensure map → WebDAV pull for named Workspace / Directory / File |
+| Map / Connect / Clone / Git Push / Status | **Removed** from palette and desktop pack routes |
 
-Focus determines scope: workspace → whole tree; directory → relative prefix; file → one path.
+ROOT and Workspaces cannot acquire a mapping. Focus determines scope: workspace → whole tree; directory → relative prefix; file → one path.
 
 ## Minimal API / ops
 
@@ -114,8 +113,10 @@ sequenceDiagram
   participant Dav as Server_WebDAV
   participant Git as Server_WorkspaceGit
 
-  UI->>Desk: Map pick-folder + PUT mapping
-  UI->>Desk: Push local scope
+  UI->>Desk: Ensure map (pick-folder + PUT if needed)
+  Desk->>Dav: POST prepare-push (JIT dirty DataDir)
+  Dav->>Git: jitCommitBeforeWorkspacePush
+  UI->>Desk: Upload local scope
   Desk->>Desk: walk scope skip .git check-ignore
   loop each remaining path
     Desk->>Dav: MKCOL and PUT /ambit/dav/label/rel
@@ -123,7 +124,7 @@ sequenceDiagram
   Desk->>Dav: POST finish commit
   Dav->>Git: ensureInit add commit
   UI->>Dav: POST reconciliation/directory
-  UI->>Desk: Pull scoped get
+  UI->>Desk: Download scoped get
   Desk->>Dav: PROPFIND scope
   Dav->>Dav: check-ignore DataDir filter listing
   Dav-->>Desk: inventory minus ignored
@@ -133,8 +134,9 @@ sequenceDiagram
   end
 ```
 
+- **Pre-push JIT:** `_prepare-push` commits dirty DataDir before the WebDAV batch (`jitCommitBeforeWorkspacePush`).
 - **End-of-push commit:** explicit finish endpoint after the batch.
-- **Capabilities:** Map / Push / Pull need `workspacePaths` plus file import/export, **not** `git.git` for transport. Push still needs the git binary for local ignore.
+- **Capabilities:** Upload / Download need `workspacePaths` plus file import/export, **not** `git.git` for transport. Upload still needs the git binary for local ignore.
 - **Lazy Load:** stub reconcile runs after WebDAV push + finish-commit (not after receive-pack). See [[lazy-load]].
 
 ## On-disk layout
@@ -158,7 +160,7 @@ Desktop mapping ([[doc/current/workspace-local-mapping]]) points label `home` at
 2. Share check-ignore helper — extract / reuse IgnoredDestination-style API for desktop Push inventory and server WebDAV `PROPFIND` / `PUT`.
 3. Server WebDAV — NWebDav spike or hand-roll; **PROPFIND applies DataDir check-ignore**; finish-commit; Server.Tests including ignore omission / rejection.
 4. Desktop — Push: local walk + required check-ignore + HttpClient WebDAV; Pull: PROPFIND then GET (optional local re-filter).
-5. Client commands — Map / Push / Pull; keep file Parse branch; ungated from git-pack transport.
+5. Client commands — Upload / Download with ensure-map; Workspaces create-from-folder; file Parse after Upload; ungated from git-pack transport.
 6. Post-push reconcile wiring + current-doc refresh when behavior lands.
 
 ## Tests
@@ -174,4 +176,4 @@ Desktop mapping ([[doc/current/workspace-local-mapping]]) points label `home` at
 - Push: local scope → check-ignore → PUT/MKCOL → finish-commit; `.venv` never uploaded.
 - Pull: server PROPFIND inventory → DataDir check-ignore → GET; listings never leak ignored trees.
 - After Push + finish, server repo has a new commit.
-- Map / Push / Pull do not call `/_desktop/git-push` or `/ambit/git/…`.
+- Upload / Download do not call `/_desktop/git-push|pull|clone|remote|status` or `/ambit/git/…` pack transport.

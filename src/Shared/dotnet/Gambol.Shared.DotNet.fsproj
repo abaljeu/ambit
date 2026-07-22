@@ -8,6 +8,9 @@
   <ItemGroup>
     <Compile Include="DesktopGit.fs" />
     <Compile Include="GitCheckIgnore.fs" />
+    <Compile Include="WorkspaceLocalInventory.fs" />
+    <Compile Include="WorkspaceDavClient.fs" />
+    <Compile Include="WorkspaceFileSync.fs" />
     <Compile Include="OutlineLcs.fs" />
     <Compile Include="DocumentParseOps.fs" />
     <Compile Include="ImportDocument.fs" />

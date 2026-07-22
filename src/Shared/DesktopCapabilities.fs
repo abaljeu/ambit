@@ -11,7 +11,7 @@ type DesktopFileCapabilities =
       canStatus: bool
       canWorkspacePaths: bool }
 
-/// Git endpoints under `/_desktop/git-*` when the host has `git` on PATH.
+/// `git` on PATH (ignore filtering / capability); not pack transport routes.
 type DesktopGitCapabilities =
     { canGit: bool }
 

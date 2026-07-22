@@ -11,7 +11,7 @@
     <Compile Include="AuthStore.fs" />
     <Compile Include="FolderPicker.fs" />
     <Compile Include="WorkspaceMappingEndpoints.fs" />
-    <Compile Include="DesktopGitEndpoints.fs" />
+    <Compile Include="WorkspaceSyncEndpoints.fs" />
     <Compile Include="LocalProxy.fs" />
     <Compile Include="Desktop.fs" />
   </ItemGroup>

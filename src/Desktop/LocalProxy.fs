@@ -188,10 +188,6 @@ module LocalProxy =
             "Gambol",
             "config.json")
 
-    let private writeCapabilities (canGit: bool) (context: HttpContext) = task {
-        do! DesktopGitEndpoints.writeCapabilities canGit context
-    }
-
     let private quoteJson (text: string) =
         JsonSerializer.Serialize text
 
@@ -199,6 +195,10 @@ module LocalProxy =
         context.Response.StatusCode <- StatusCodes.Status200OK
         context.Response.ContentType <- "application/json; charset=utf-8"
         do! context.Response.WriteAsync(json, context.RequestAborted)
+    }
+
+    let private writeCapabilities (canGit: bool) (context: HttpContext) = task {
+        do! writeJson context (DesktopCapabilities.desktopEnabledJson canGit)
     }
 
     let private writeJsonWithStatus (context: HttpContext) (status: int) (json: string) = task {
@@ -461,8 +461,10 @@ module LocalProxy =
 
     let private handleDesktopRequest
         (workspaceMap: Map<string, WorkspaceMapping> ref)
+        (client: HttpClient)
         (ambitBase: string)
         (canGit: bool)
+        (session: ref<LoginForm.Credentials option>)
         (context: HttpContext)
         = task {
         let map = workspaceMap.Value
@@ -492,9 +494,16 @@ module LocalProxy =
             if handledMapping then
                 ()
             else
-                let! handled =
-                    DesktopGitEndpoints.tryHandle map ambitBase context
-                if not handled then
+                let! handledSync =
+                    WorkspaceSyncEndpoints.tryHandle
+                        map
+                        client
+                        ambitBase
+                        session.Value
+                        context
+                if handledSync then
+                    ()
+                else
                     context.Response.StatusCode <- StatusCodes.Status404NotFound
     }
 
@@ -598,7 +607,13 @@ module LocalProxy =
 
         app.Run(RequestDelegate(fun context ->
             if isDesktopRequest context.Request.Path then
-                handleDesktopRequest workspaceMap ambitBase canGit context
+                handleDesktopRequest
+                    workspaceMap
+                    client
+                    ambitBase
+                    canGit
+                    session
+                    context
             else
                 forward client cloudUri session context)) |> ignore
 

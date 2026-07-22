@@ -173,3 +173,27 @@ let ``finish-commit advances HEAD after PUT`` () = task {
     | Ok None -> Assert.Fail("expected HEAD after finish-commit")
     | Error err -> Assert.Fail(err)
 }
+
+[<SkippableFact>]
+let ``prepare-push JIT commits dirty DataDir`` () = task {
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let dataDir = newTempDir ()
+    let home = Path.Combine(dataDir, "home")
+    Directory.CreateDirectory home |> ignore
+    match WorkspaceGit.ensureInit home with
+    | Error err -> Assert.Fail(err)
+    | Ok () ->
+        File.WriteAllText(Path.Combine(home, "dirty.txt"), "before")
+        use client = createClientForDir dataDir
+        let! prep =
+            client.PostAsync("/ambit/dav/home/_prepare-push", null)
+        Assert.Equal(HttpStatusCode.OK, prep.StatusCode)
+        match WorkspaceGit.tryHead home with
+        | Ok(Some oid) -> Assert.False(String.IsNullOrWhiteSpace oid)
+        | Ok None -> Assert.Fail("expected HEAD after prepare-push")
+        | Error err -> Assert.Fail(err)
+        match WorkspaceGit.isDirty home with
+        | Ok false -> ()
+        | Ok true -> Assert.Fail("expected clean after JIT")
+        | Error err -> Assert.Fail(err)
+}

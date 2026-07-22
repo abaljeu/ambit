@@ -380,6 +380,26 @@ module WorkspaceWebDav =
             with ex ->
                 Results.Problem(detail = ex.Message, statusCode = 500)
 
+    let private handlePrepare
+        (dataDir: string)
+        (labelRaw: string)
+        (clientHint: string option)
+        =
+        match parseLabel labelRaw with
+        | Error e -> Results.BadRequest(e)
+        | Ok label ->
+            let root = Path.GetFullPath(Path.Combine(dataDir, label))
+            match WorkspaceGit.ensureInit root with
+            | Error e -> Results.Problem(detail = e, statusCode = 500)
+            | Ok () ->
+                match
+                    WorkspaceGit.jitCommitBeforeWorkspacePush
+                        root
+                        clientHint
+                with
+                | Error e -> Results.Problem(detail = e, statusCode = 500)
+                | Ok () -> Results.Json {| result = "ok" |}
+
     let private handleFinish
         (dataDir: string)
         (labelRaw: string)
@@ -439,6 +459,18 @@ module WorkspaceWebDav =
             match req.Headers.TryGetValue(ClientIdentity.HeaderName) with
             | true, values -> ClientIdentity.tryFromValues values
             | _ -> None
+
+        app.MapPost(
+            "/ambit/dav/{label}/_prepare-push",
+            Func<HttpRequest, string, Task<IResult>>(fun req label ->
+                task {
+                    if not (isAuthenticated req) then
+                        return Results.Unauthorized()
+                    else
+                        return handlePrepare dataDir label (clientHint req)
+                })
+        )
+        |> ignore
 
         app.MapPost(
             "/ambit/dav/{label}/_finish-commit",

@@ -53,17 +53,20 @@ let ``displayName matches metadata name`` () =
         Assert.Equal(e.name, name)
 
 [<Fact>]
-let ``parse or upload owns Ctrl Shift greater-than`` () =
-    let entry = commandFor ParseOrPush |> Option.get
+let ``upload owns Ctrl Shift greater-than`` () =
+    let entry = commandFor Upload |> Option.get
+    Assert.Equal("Upload", entry.name)
     Assert.Equal<string list>([ "Ctrl+Shift+>" ], entry.keys)
     Assert.DoesNotContain(allCommands, fun command -> command.name = "Import")
+    Assert.DoesNotContain(allCommands, fun command -> command.name = "Map workspace")
 
 [<Fact>]
-let ``pull to desktop owns Ctrl Shift less-than`` () =
-    let entry = commandFor GitPull |> Option.get
-    Assert.Equal("Git Pull to Desktop", entry.name)
+let ``download owns Ctrl Shift less-than`` () =
+    let entry = commandFor Download |> Option.get
+    Assert.Equal("Download", entry.name)
     Assert.Equal<string list>([ "Ctrl+Shift+<" ], entry.keys)
     Assert.DoesNotContain(allCommands, fun command -> command.name = "Export")
+    Assert.DoesNotContain(allCommands, fun command -> command.name = "Git status")
 
 let private contextualGraph () =
     let graph0 = Graph.create ()

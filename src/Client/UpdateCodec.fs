@@ -64,17 +64,44 @@ let encodeReconciliationDirectoryRequest (workspace: string) (path: string) : st
           "path", Encode.string path ]
     |> Thoth.Json.JavaScript.Encode.toString 0
 
-/// Decode desktop `{ok,detail}` / error body.
-let decodeDesktopGitOk (text: string) : Result<DesktopGitOkResponse, string> =
-    Thoth.Json.JavaScript.Decode.fromString DesktopGitOkResponse.decoder text
+/// Decode POST /_desktop/workspace-push|pull.
+let decodeDesktopWorkspaceSync
+    (text: string)
+    : Result<DesktopWorkspaceSyncResponse, string> =
+    Thoth.Json.JavaScript.Decode.fromString
+        DesktopWorkspaceSyncResponse.decoder
+        text
 
 /// Decode POST /_desktop/pick-folder.
 let decodeDesktopPickFolder (text: string) : Result<DesktopPickFolderResponse, string> =
     Thoth.Json.JavaScript.Decode.fromString DesktopPickFolderResponse.decoder text
 
-/// Decode POST /_desktop/git-status success body.
-let decodeWorkspaceGitStatus (text: string) : Result<WorkspaceGitStatus, string> =
-    Thoth.Json.JavaScript.Decode.fromString WorkspaceGitStatusJson.decoder text
+/// GET /_desktop/workspace-mappings → optional root for label.
+let decodeMappedRootPath
+    (text: string)
+    (label: string)
+    : Result<string option, string> =
+    let entryDecoder =
+        Decode.object (fun get ->
+            get.Required.Field "label" Decode.string,
+            get.Required.Field "rootPath" Decode.string)
+    let decoder =
+        Decode.object (fun get ->
+            get.Optional.Field
+                "workspaceMappings"
+                (Decode.list entryDecoder)
+            |> Option.defaultValue [])
+    match Thoth.Json.JavaScript.Decode.fromString decoder text with
+    | Error e -> Error e
+    | Ok entries ->
+        entries
+        |> List.tryFind (fun (l, _) ->
+            System.String.Equals(
+                l,
+                label,
+                System.StringComparison.OrdinalIgnoreCase))
+        |> Option.map snd
+        |> Ok
 
 /// Decode the response from GET /_desktop/capabilities.
 let decodeDesktopCapabilities (text: string) : Result<DesktopCapabilities, string> =
