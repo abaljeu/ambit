@@ -5,6 +5,7 @@ open System.Diagnostics
 open System.IO
 open System.Net
 open System.Net.Http
+open System.Net.Http.Headers
 open System.Text
 open System.Threading.Tasks
 open Xunit
@@ -384,4 +385,45 @@ let ``git-token reports disabled when Auth empty`` () = task {
     Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
     let! json = resp.Content.ReadAsStringAsync()
     Assert.Contains("disabled", json)
+}
+
+[<Fact>]
+let ``gateway-error slot take returns once`` () =
+    GitGatewayDiagnostics.set
+        "home"
+        { status = 500
+          message = "receive-pack failed" }
+    match GitGatewayDiagnostics.take "home" with
+    | Some err ->
+        Assert.Equal(500, err.status)
+        Assert.Equal("receive-pack failed", err.message)
+    | None -> Assert.Fail("expected stored gateway error")
+    Assert.Equal(None, GitGatewayDiagnostics.take "home")
+
+[<SkippableFact>]
+let ``receive-pack failure stores gateway error for GET`` () = task {
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let dataDir = newTempDir ()
+    seedWorkspace dataDir "home" |> ignore
+    use client = createClientForDir dataDir
+    use content = new ByteArrayContent([| 0uy; 1uy; 2uy |])
+    content.Headers.ContentType <-
+        MediaTypeHeaderValue("application/x-git-receive-pack-request")
+    let! resp =
+        client.PostAsync(
+            "/ambit/git/home.git/git-receive-pack",
+            content)
+    Assert.Equal(HttpStatusCode.InternalServerError, resp.StatusCode)
+    let! errBody = resp.Content.ReadAsStringAsync()
+    Assert.False(String.IsNullOrWhiteSpace errBody)
+    let! diagResp =
+        client.GetAsync("/ambit/git/gateway-error?workspace=home")
+    Assert.Equal(HttpStatusCode.OK, diagResp.StatusCode)
+    let! diagJson = diagResp.Content.ReadAsStringAsync()
+    Assert.Contains("\"status\":500", diagJson)
+    Assert.Contains(errBody, diagJson)
+    let! emptyResp =
+        client.GetAsync("/ambit/git/gateway-error?workspace=home")
+    let! emptyJson = emptyResp.Content.ReadAsStringAsync()
+    Assert.Equal("{}", emptyJson.Trim())
 }

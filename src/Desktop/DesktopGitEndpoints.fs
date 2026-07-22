@@ -129,6 +129,7 @@ module DesktopGitEndpoints =
 
     let private handlePull
         (workspaceMap: Map<string, WorkspaceMapping>)
+        (ambitBase: string)
         (context: HttpContext)
         = task {
         let! body = readBody context
@@ -138,13 +139,19 @@ module DesktopGitEndpoints =
             match resolveMappedRoot workspaceMap label with
             | Error message -> do! writeBadRequest context message
             | Ok localPath ->
-                match DesktopGit.gitPull localPath auth with
+                match DesktopGit.ensureAmbitRemoteForLabel localPath label ambitBase with
                 | Error err -> do! writeBadRequest context err
-                | Ok _ -> do! writeJson context (okDetail localPath)
+                | Ok () ->
+                    match DesktopGit.gitPull localPath auth with
+                    | Error err ->
+                        eprintfn "[Desktop git-pull] '%s': %s" label err
+                        do! writeBadRequest context err
+                    | Ok _ -> do! writeJson context (okDetail localPath)
     }
 
     let private handlePush
         (workspaceMap: Map<string, WorkspaceMapping>)
+        (ambitBase: string)
         (context: HttpContext)
         = task {
         let! body = readBody context
@@ -154,9 +161,14 @@ module DesktopGitEndpoints =
             match resolveMappedRoot workspaceMap label with
             | Error message -> do! writeBadRequest context message
             | Ok localPath ->
-                match DesktopGit.push localPath auth with
+                match DesktopGit.ensureAmbitRemoteForLabel localPath label ambitBase with
                 | Error err -> do! writeBadRequest context err
-                | Ok detail -> do! writeJson context (okDetail detail)
+                | Ok () ->
+                    match DesktopGit.push localPath auth with
+                    | Error err ->
+                        eprintfn "[Desktop git-push] '%s': %s" label err
+                        do! writeBadRequest context err
+                    | Ok detail -> do! writeJson context (okDetail detail)
     }
 
     let private handleStatus
@@ -204,10 +216,10 @@ module DesktopGitEndpoints =
                     do! handleRemote workspaceMap ambitBase context
                     return true
                 elif path.Equals(PathString "/_desktop/git-pull") then
-                    do! handlePull workspaceMap context
+                    do! handlePull workspaceMap ambitBase context
                     return true
                 elif path.Equals(PathString "/_desktop/git-push") then
-                    do! handlePush workspaceMap context
+                    do! handlePush workspaceMap ambitBase context
                     return true
                 elif path.Equals(PathString "/_desktop/git-status") then
                     do! handleStatus workspaceMap context

@@ -175,7 +175,14 @@ let parseOrPushOp (model: VM) : VM * Effect list =
     | Some(ParseFile fileId) -> parseFileOp fileId model
     | Some(ReconcileWorkspace _) -> reconcileWorkspaceOp model
     | Some(ReconcileDirectory dirId) -> reconcileDirectoryOp dirId model
-    | None -> model, []
+    | None ->
+        { model with
+            lastCmdResult =
+                Some(
+                    CmdLastResult.Error(
+                        Some(displayName ParseOrPush),
+                        "focus a File, Directory, or named Workspace")) },
+        []
 
 let private contextualCommandAvailable (model: VM) =
     match contextualTargetForModel model with

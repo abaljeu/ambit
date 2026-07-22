@@ -22,7 +22,10 @@ if (!empty($_GET)) {
 }
 
 // Headers to forward (skip Host - backend needs its own)
-$forwardHeaders = ['Accept', 'Accept-Language', 'Accept-Encoding', 'Content-Type', 'Cookie', 'Authorization', 'X-Requested-With'];
+$forwardHeaders = [
+    'Accept', 'Accept-Language', 'Accept-Encoding', 'Content-Type', 'Content-Length',
+    'Cookie', 'Authorization', 'X-Requested-With', 'User-Agent', 'Git-Protocol',
+];
 $headers = [];
 foreach ($forwardHeaders as $h) {
     $key = 'HTTP_' . strtoupper(str_replace('-', '_', $h));
@@ -31,12 +34,18 @@ foreach ($forwardHeaders as $h) {
     }
 }
 
+// Git pack exchanges can be large and slow; allow longer than normal API calls.
+$isGitSmartHttp =
+    preg_match('#/git-(upload|receive)-pack$#', $path)
+    || (strpos($path, '/info/refs') !== false && isset($_GET['service']));
+$timeoutSec = $isGitSmartHttp ? 600 : 60;
+
 $ch = curl_init($backendUrl);
 curl_setopt_array($ch, [
     CURLOPT_RETURNTRANSFER => true,
     CURLOPT_HEADER => true,
     CURLOPT_FOLLOWLOCATION => false,  // We'll rewrite Location headers
-    CURLOPT_TIMEOUT => 60,
+    CURLOPT_TIMEOUT => $timeoutSec,
     CURLOPT_CUSTOMREQUEST => $_SERVER['REQUEST_METHOD'],
     CURLOPT_HTTPHEADER => $headers,
 ]);

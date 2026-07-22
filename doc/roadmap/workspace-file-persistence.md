@@ -2,7 +2,7 @@
 
 Status: Draft
 Authority: Target design for server-side workspace file storage.
-See also: [[doc/roadmap/workspace-file-model.md]], [[doc/roadmap/git-sync-gateway.md]], [[doc/roadmap/workspace-text-outline-conversion.md]], [[doc/current/workspace-stage-plan.md]], [[doc/roadmap/postgres-roadmap.md]], [[doc/current/workspace-local-mapping.md]], [[doc/current/desktop-local-files.md]], [[doc/arch.md]]
+See also: [[doc/roadmap/workspace-file-model.md]], [[workspace-file-sync]], [[doc/roadmap/workspace-text-outline-conversion.md]], [[doc/current/workspace-stage-plan.md]], [[doc/roadmap/postgres-roadmap.md]], [[doc/current/workspace-local-mapping.md]], [[doc/current/desktop-local-files.md]], [[doc/arch.md]]
 
 This document details the server persistence system for workspace file data. It is intentionally separate from desktop-local workspace mapping and from the shared graph model that assigns identity to workspace, directory, and file nodes.
 

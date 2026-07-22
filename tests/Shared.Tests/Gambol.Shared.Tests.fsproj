@@ -33,6 +33,8 @@
     <Compile Include="OutlineReconcileTests.fs" />
     <Compile Include="SerializationTests.fs" />
     <Compile Include="WorkspaceLocalMappingTests.fs" />
+    <Compile Include="WorkspaceSyncScopeTests.fs" />
+    <Compile Include="GitCheckIgnoreTests.fs" />
     <Compile Include="LoginFormTests.fs" />
     <Compile Include="LoginRedirectTests.fs" />
     <Compile Include="RedirectRewriteTests.fs" />

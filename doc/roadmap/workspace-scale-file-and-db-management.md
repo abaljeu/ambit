@@ -1,6 +1,6 @@
 # Workspace scale file and db management
 
-See also: [[doc/roadmap/workspace-scale-import.md]], [[doc/roadmap/git-sync-gateway.md]], [[doc/roadmap/workspace-file-persistence.md]], [[doc/roadmap/workspace-file-model.md]]
+See also: [[doc/roadmap/workspace-scale-import.md]], [[workspace-file-sync]], [[doc/roadmap/workspace-file-persistence.md]], [[doc/roadmap/workspace-file-model.md]]
 
 This document is the **umbrella vision** for repo-scale outliner behavior (lazy materialization, residency, queries, identity). **Rollout** is divided into concrete worksets in [[doc/roadmap/workspace-scale-import.md]]; do not treat everything here as part of expand-to-parse and freshness UI. This file was created from discussions without looking at gambol sources — terms and details may need adaptation. `Repo` maps directly onto this project's concept of `workspace`.
 
@@ -9,8 +9,8 @@ This document is the **umbrella vision** for repo-scale outliner behavior (lazy 
 Committed sequencing (authoritative detail in linked docs):
 
 1. **`DataDir` live-save and path moves** — **done** ([[doc/current/workspace-stage-plan.md]] §7).
-2. **Git workspace transport** — **done**: desktop clone sync via git gateway, pull with server JIT commit first, push with a clean server and fast-forward only, and client-side merge ([[doc/roadmap/git-sync-gateway.md]]).
-3. **Disk-to-graph stub reconciliation** — create-only added-path handling after successful server receive is implemented; moves, renames, and deletes remain. Contents are not parsed ([[lazy-load]]).
+2. **Workspace file sync** — **planned**: WebDAV Class 1 Map / Push / Pull, server finish-commit, `git check-ignore` for `.gitignore` ([[workspace-file-sync]]).
+3. **Disk-to-graph stub reconciliation** — add/delete/rename/move/`M`→Unparsed after server tree commit is implemented; target trigger is WebDAV push + finish-commit. Contents are not parsed ([[lazy-load]]).
 4. **Expand-to-parse and freshness UI** — parse files on demand and report current / unparsed / older / newer state ([[doc/roadmap/workspace-scale-import.md]]).
 5. **Document load units, then later residency/search work** — document membership and load/unload before server lazy DB residency, client file LRU, query model, annotation migration, and git object model in the outline.
 
@@ -20,11 +20,11 @@ Disk-to-graph reconciliation and expand-to-parse can use disk + graph path nodes
 
 You want **transparent repo browsing/editing** inside the outliner:
 
-- Git repo appears as an outline tree.
+- Workspace file tree appears as an outline tree.
 - Files can be expanded into parsed outline structure.
 - Editing outline nodes writes immediately back to source files.
-- Commit is manual at repo root; server **JIT commit** only before serving pull through Git workspace transport.
-- Git handles merge and conflict resolution on the **client**; the server git gateway does not merge.
+- Coarse sync is WebDAV Map / Push / Pull; server finish-commit after Push ([[workspace-file-sync]]).
+- Server git tracks the tree for ignore rules and commits; it is not the client transport.
 - The outliner preserves node identity, links, annotations, and roundtripping as much as possible.
 
 ---
@@ -179,30 +179,29 @@ This keeps repo use transparent:
 
 ## Commit and sync model
 
-Authoritative wire protocol: [[doc/roadmap/git-sync-gateway.md]]. Summary:
+Authoritative file-tree sync: [[workspace-file-sync]]. Summary:
 
 **Commit cadence**
 
-1. **Manual** `git commit` at repo root (desktop or server UI) — autosave is not commit.
-2. **Server JIT commit** before serving pull — flush graph to disk, then `git commit` if the work tree is dirty (`gambol: autosave before pull`).
-3. **Desktop commit** before push — user commits locally, then `git push origin`.
+1. **Server finish-commit** after a WebDAV Push batch — WorkspaceGit / GitSave scoped to `{label}/`.
+2. **Autosave** writes files under `DataDir` / mapped roots and is not itself a sync commit.
+3. Desktop mapped folders need not be git repos; Push uses `git check-ignore` only.
 
 **Pull (server → desktop)**
 
-1. Gateway flushes `DocumentPersistence` for the workspace.
-2. JIT commit on server if needed.
-3. Desktop runs `git pull origin`; merge/rebase and conflicts are handled locally with git.
-4. After Git completes, freshness UI compares local and server state. Matching files are **current**; unparsed, client older, and client newer are distinct states.
+1. Desktop PROPFIND under scope on `/ambit/dav/{label}/…`.
+2. GET each file into the mapped root.
+3. After Pull completes, freshness UI compares local and server state. Matching files are **current**; unparsed, client older, and client newer are distinct states.
 
 **Push (desktop → server)**
 
-1. Desktop pushes only after local commit.
-2. Server **rejects** if its work tree is dirty or the push is not **fast-forward**.
-3. No server-side merge — client must pull, merge locally, and push again.
+1. Desktop inventories scoped paths, skipping `.git/` and ignored paths (required check-ignore).
+2. MKCOL / PUT via WebDAV; last-write-wins in scope (no FF, no mirror-delete in v1).
+3. Finish-commit on server; Lazy Load reconciles stubs.
 
-Multi-machine file coherence is handled by the Lazy Load freshness states and merge-on-parse behavior, not graph merge inside Git transport.
+Multi-machine file coherence is handled by the Lazy Load freshness states and merge-on-parse behavior, not graph merge inside file sync.
 
-HTTP change batches ([[doc/current/sync-mvp.md]]) remain for live editing; git pull/push is explicit coarse sync between machines.
+HTTP change batches ([[doc/current/sync-mvp.md]]) remain for live editing; WebDAV Push/Pull is explicit coarse sync between machines.
 
 ---
 
@@ -216,7 +215,7 @@ Sources of staleness:
 
 - external editor changes a file,
 - import operation changes files,
-- external git operations outside the coordinated workspace pull/push flow change files,
+- external filesystem operations outside the coordinated Push/Pull flow change files,
 - branch operations someday,
 - automation writes files.
 
@@ -404,17 +403,16 @@ Editing:
   autosave to source file immediately
 
 Commit:
-  manual at repo root
-  server JIT commit before pull
-  desktop commit before push
+  server finish-commit after WebDAV Push batch
+  autosave writes files; not a sync commit
 
-Git transport:
-  pull: server flush + JIT commit, client git pull
-  push: FF only, server work tree must be clean
-  merge on client only
+File sync:
+  pull: PROPFIND + GET under scope
+  push: MKCOL/PUT under scope + finish-commit; last-write-wins
+  ignore: git check-ignore on desktop + server
 
 Lazy Load response:
-  server receive: reconcile changed paths to structural stubs
+  after finish-commit: reconcile changed paths to structural stubs
   local pull: report current / unparsed / older / newer freshness
 
 External changes:
@@ -439,4 +437,4 @@ discovered stub
   -> reparsed
 ```
 
-That lifecycle defines metadata and commands for expand-to-parse and freshness UI. Git transport is already implemented independently; disk-to-graph stub reconciliation is the bridge from changed server files into structural graph nodes.
+That lifecycle defines metadata and commands for expand-to-parse and freshness UI. Workspace file sync is planned independently ([[workspace-file-sync]]); disk-to-graph stub reconciliation is the bridge from changed server files into structural graph nodes.

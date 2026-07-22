@@ -26,6 +26,15 @@ module WorkspaceGitRemote =
             if isNull ambitBase then "" else ambitBase.TrimEnd('/')
         sprintf "%s/git/%s.git" baseUrl label
 
+    /// True when `currentUrl` is the gateway URL for `label` at `ambitBase`.
+    let remoteUrlMatches (ambitBase: string) (label: string) (currentUrl: string) : bool =
+        if isNull currentUrl then false
+        else
+            String.Equals(
+                remoteUrl ambitBase label,
+                currentUrl.Trim(),
+                StringComparison.OrdinalIgnoreCase)
+
     /// Stock smart HTTP service path / ?service= value (fetch / workspace-pull).
     [<Literal>]
     let WorkspacePull = "git-upload-pack"
@@ -140,4 +149,10 @@ module WorkspaceGitRemote =
     let canDesktopGit (caps: DesktopCapabilities option) : bool =
         match caps with
         | Some { git = { canGit = true } } -> true
+        | _ -> false
+
+    /// Desktop file import works but git is unavailable — workspace Parse / Upload cannot push.
+    let desktopMappedWithoutGit (caps: DesktopCapabilities option) : bool =
+        match caps with
+        | Some { file = { canImport = true }; git = { canGit = false } } -> true
         | _ -> false

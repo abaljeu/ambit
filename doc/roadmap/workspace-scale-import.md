@@ -1,29 +1,29 @@
 # Workspace Scale Import
 
-See also: [[doc/roadmap/workspace-scale-file-and-db-management.md]], [[doc/roadmap/git-sync-gateway.md]], [[doc/roadmap/workspace-format-amb.md]], [[doc/roadmap/workspace-format-md.md]], [[doc/roadmap/workspace-format-plain.md]], [[doc/roadmap/workspace-format-code.md]]
+See also: [[doc/roadmap/workspace-scale-file-and-db-management.md]], [[workspace-file-sync]], [[doc/roadmap/workspace-format-amb.md]], [[doc/roadmap/workspace-format-md.md]], [[doc/roadmap/workspace-format-plain.md]], [[doc/roadmap/workspace-format-code.md]]
 
-Worksets: **disk-to-graph stub reconciliation**, **expand-to-parse and freshness UI**, and **Git workspace transport**. Git protocol: [[git-sync-gateway]]; completed transport record: [[workspace-scale-import-slice2-plan]]; canonical Lazy Load project: [[lazy-load]].
+Worksets: **disk-to-graph stub reconciliation**, **expand-to-parse and freshness UI**, and **workspace file sync**. Transport direction: [[workspace-file-sync]]; canonical Lazy Load project: [[lazy-load]].
 
 ## Repo file-tree browsing + on-demand parse/edit for individual files
 
-Not full repo-scale querying, not advanced freshness reconciliation, and not multi-client graph merge. Workspace Git concurrency is handled by fast-forward-only push: a non-current client is rejected and must pull/merge locally before retrying.
+Not full repo-scale querying, not advanced freshness reconciliation, and not multi-client graph merge. Coarse tree sync uses last-write-wins WebDAV in scope ([[workspace-file-sync]]); live graph editing stays on HTTP change batches.
 
 ## What it gives you
 
 The user can:
 
-1. Attach/import a git repo root.
-2. See the repo’s directory/file tree in the outline.
-3. Ignore `.git` and gitignored files.
+1. Map a local folder to a workspace label (and/or browse server `DataDir` tree stubs).
+2. See the directory/file tree in the outline.
+3. Ignore `.git` and gitignored files (via `git check-ignore` on sync).
 4. Expand a file node.
 5. On expansion, parse that one file into child nodes.
 6. Edit those children.
 7. Autosave writes the source file.
-8. Run manual `git status` / `commit` from the repo root.
+8. Push / Pull scoped trees between desktop and server when needed.
 
 That already delivers the core promise:
 
-> “I can browse and edit a real repo through the outliner.”
+> “I can browse and edit a real file tree through the outliner.”
 
 ## What it avoids for now
 
@@ -35,9 +35,9 @@ Defer:
 - annotation migration,
 - client LRU,
 - partial hydration,
-- multi-client graph merge (out of scope; Git push rejects stale/non-FF clients),
-- branch switching,
-- git object model,
+- multi-client graph merge (out of scope),
+- mirror-delete / conflict UI on file sync,
+- git object model in the outline,
 - server-wide memory management beyond not parsing everything.
 
 ## Minimal state model
@@ -164,17 +164,17 @@ This workset is successful if you can:
 
 That is a useful product even before repo-wide search or advanced sync exists.
 
-## Git workspace transport to desktop
+## Workspace file sync to desktop
 
-See [[git-sync-gateway]] for protocol, credentials, and locked decisions (including **reject-dirty** push). Completed G0–G7 implementation record: [[workspace-scale-import-slice2-plan]].
+See [[workspace-file-sync]] for WebDAV Class 1, server finish-commit, and `git check-ignore` for `.gitignore`.
 
-## What Git transport adds
+## What file sync adds
 
-- Same repo at `DataDir/{label}/` on the server and a local clone via desktop workspace mapping.
-- **Pull:** server JIT commit if dirty, then `git pull ambit`; client merge. Freshness display responds afterward under [[lazy-load]] and treats matching client/server files as current.
-- **Push:** `git push ambit`; server accepts only fast-forward when its working tree is clean (**reject-dirty** — no JIT commit on push).
-- Stock git on desktop; smart HTTPS git gateway on the server — no server-side merge. Remote name is **`ambit`**.
+- Same tree at `DataDir/{label}/` on the server and a mapped local folder (need not be a git clone).
+- **Pull:** PROPFIND + GET under scope into the mapped root. Freshness display responds afterward under [[lazy-load]] and treats matching client/server files as current.
+- **Push:** WebDAV PUT/MKCOL under scope; server finish-commit via WorkspaceGit; then Lazy Load stub reconcile.
+- Desktop uses `git` only for ignore on Push; transport is not pack protocol.
 
 ## Boundary
 
-`DataDir` live-save is implemented ([[doc/current/workspace-stage-plan.md]] §7). Git transport does not require disk-to-graph reconciliation or expand-to-parse / freshness UI, and it does not replace HTTP graph sync; it is explicit coarse file sync between machines. Create-only response after successful receive is implemented by Lazy Load ([[lazy-load]]).
+`DataDir` live-save is implemented ([[doc/current/workspace-stage-plan.md]] §7). File sync does not require expand-to-parse / freshness UI, and it does not replace HTTP graph sync; it is explicit coarse file sync between machines. Stub reconciliation after server tree commit is implemented by Lazy Load ([[lazy-load]]); the target trigger is WebDAV push + finish-commit.

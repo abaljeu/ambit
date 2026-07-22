@@ -20,6 +20,12 @@ let private okDetail (model: VM) (msg: string) : VM * Effect list =
     consoleLog ("[Gambol git] " + msg)
     withResult model (CmdLastResult.Detail (None, msg))
 
+/// Success detail plus immediate sync poll (server applied graph-only ops).
+let private okDetailWithPoll (model: VM) (msg: string) : VM * Effect list =
+    let model', effs = okDetail model msg
+    let si, pollEffs = SyncPlanner.tryStartPoll model'.revision model'.syncInfo
+    { model' with syncInfo = si }, effs @ pollEffs
+
 let private httpError (status: int) (body: string) : string =
     match decodePostChangeError body with
     | Some err -> err
@@ -36,6 +42,41 @@ let private fetchReconciliationWarningCount (workspace: string) : Result<int, st
     else
         decodeReconciliationLatest text
 
+let private fetchGatewayErrorDetail (workspace: string) : string option =
+    let url =
+        "/ambit/git/gateway-error?workspace=" + encodeUriComponent workspace
+    let status, text = getJsonSync url
+    if status < 200 || status >= 300 then
+        None
+    else
+        match decodeGatewayError text with
+        | Ok (Some detail) when not (System.String.IsNullOrWhiteSpace detail) ->
+            Some detail
+        | _ -> None
+
+let private gatewayErrorHint (msg: string) : string option =
+    if msg.IndexOf("HTTP 406", System.StringComparison.OrdinalIgnoreCase) >= 0 then
+        Some
+            "not recorded locally; HTTP 406 is usually a remote proxy/WAF rejecting the git pack request"
+    elif
+        msg.IndexOf("RPC failed", System.StringComparison.OrdinalIgnoreCase) >= 0
+        || msg.IndexOf("curl 22", System.StringComparison.OrdinalIgnoreCase) >= 0
+        || msg.IndexOf("HTTP 4", System.StringComparison.OrdinalIgnoreCase) >= 0
+        || msg.IndexOf("HTTP 5", System.StringComparison.OrdinalIgnoreCase) >= 0
+    then
+        Some
+            "not recorded locally; failure likely at remote proxy or before the Gambol pack handler"
+    else
+        None
+
+let private enrichGitFailure (workspace: string) (msg: string) : string =
+    match fetchGatewayErrorDetail workspace with
+    | Some detail -> msg + System.Environment.NewLine + "server: " + detail
+    | None ->
+        match gatewayErrorHint msg with
+        | Some hint -> msg + System.Environment.NewLine + "server: (" + hint + ")"
+        | None -> msg
+
 let private pushDetailAfterReconcile
     (model: VM)
     (workspace: string)
@@ -43,10 +84,10 @@ let private pushDetailAfterReconcile
     : VM * Effect list =
     match fetchReconciliationWarningCount workspace with
     | Ok n when n > 0 ->
-        okDetail model $"pushed with reconciliation warnings ({n})"
-    | Ok _ -> okDetail model okDetailText
+        okDetailWithPoll model $"pushed with reconciliation warnings ({n})"
+    | Ok _ -> okDetailWithPoll model okDetailText
     | Error note ->
-        okDetail model (okDetailText + "; reconciliation diagnostics unavailable: " + note)
+        okDetailWithPoll model (okDetailText + "; reconciliation diagnostics unavailable: " + note)
 
 let private workspaceFromFocus (model: VM) : string option =
     let nodeId =
@@ -165,14 +206,15 @@ let gitPullOp (model: VM) : VM * Effect list =
             | Error e -> fail model e
             | Ok auth ->
                 match postDesktop "/_desktop/git-pull" (encodeWorkspaceAuth workspace auth) with
-                | Error e -> fail model e
+                | Error e -> fail model (enrichGitFailure workspace e)
                 | Ok text ->
                     match decodeDesktopGitOk text with
                     | Ok { ok = true; detail = path } ->
                         okDetail model (workspace + " → " + path)
-                    | Ok { error = Some e } -> fail model e
+                    | Ok { error = Some e } ->
+                        fail model (enrichGitFailure workspace e)
                     | Ok _ -> fail model "request failed"
-                    | Error e -> fail model e
+                    | Error e -> fail model (enrichGitFailure workspace e)
 
 let gitPushOp (model: VM) : VM * Effect list =
     if not (WorkspaceGitRemote.canDesktopGit model.desktopCapabilities) then
@@ -185,14 +227,28 @@ let gitPushOp (model: VM) : VM * Effect list =
             | Error e -> fail model e
             | Ok auth ->
                 match postDesktop "/_desktop/git-push" (encodeWorkspaceAuth workspace auth) with
-                | Error e -> fail model e
+                | Error e -> fail model (enrichGitFailure workspace e)
                 | Ok text ->
                     match decodeDesktopGitOk text with
                     | Ok { ok = true; detail = d } ->
-                        pushDetailAfterReconcile model workspace ("pushed: " + d)
-                    | Ok { error = Some e } -> fail model e
+                        let detailText =
+                            if
+                                d.IndexOf(
+                                    "Everything up-to-date",
+                                    System.StringComparison.OrdinalIgnoreCase)
+                                >= 0
+                            then
+                                "remote already has latest commits (nothing new to push)"
+                            else
+                                d
+                        pushDetailAfterReconcile
+                            model
+                            workspace
+                            ("pushed: " + detailText)
+                    | Ok { error = Some e } ->
+                        fail model (enrichGitFailure workspace e)
                     | Ok _ -> fail model "request failed"
-                    | Error e -> fail model e
+                    | Error e -> fail model (enrichGitFailure workspace e)
 
 let private directoryWorkspaceRel
     (graph: Graph)
@@ -227,20 +283,29 @@ let private postDirectoryReconcile
     else
         match decodeReconciliationDirectory text with
         | Ok n when n > 0 ->
-            okDetail model $"reconciled with warnings ({n})"
-        | Ok _ -> okDetail model okDetailText
+            okDetailWithPoll model $"reconciled with warnings ({n})"
+        | Ok _ -> okDetailWithPoll model okDetailText
         | Error e -> fail model e
 
-/// Parse / Upload on a Workspace: create missing disk stubs under DataDir/{label}.
+/// Parse / Upload on a Workspace: desktop git push (local mapping → server), else
+/// discover artifacts under server DataDir/{label} (web-only).
 let reconcileWorkspaceOp (model: VM) : VM * Effect list =
-    match requireNamedWorkspace model with
-    | Error msg -> fail model msg
-    | Ok workspace ->
-        postDirectoryReconcile
-            model
-            workspace
-            ""
-            ("workspace reconciled: " + workspace)
+    if WorkspaceGitRemote.canDesktopGit model.desktopCapabilities then
+        gitPushOp model
+    else
+        if WorkspaceGitRemote.desktopMappedWithoutGit model.desktopCapabilities then
+            fail
+                model
+                "Parse / Upload on a workspace uploads the mapped folder via git; install git, run Git Connect, then retry (or parse individual files)"
+        else
+            match requireNamedWorkspace model with
+            | Error msg -> fail model msg
+            | Ok workspace ->
+                postDirectoryReconcile
+                    model
+                    workspace
+                    ""
+                    ("workspace reconciled from server disk: " + workspace)
 
 /// Parse / Upload on a Directory: create missing disk stubs under that folder (server DataDir).
 let reconcileDirectoryOp (dirId: NodeId) (model: VM) : VM * Effect list =

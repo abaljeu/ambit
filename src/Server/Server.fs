@@ -5,8 +5,10 @@ open System.IO
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Http
+open Microsoft.AspNetCore.Server.Kestrel.Core
 open Microsoft.AspNetCore.StaticFiles
 open Microsoft.Extensions.Configuration
+open Microsoft.Extensions.DependencyInjection
 open Gambol.Shared
 
 
@@ -50,6 +52,12 @@ module Main =
                         ContentRootPath = location.ContentRoot,
                         WebRootPath = Path.Combine(location.ContentRoot, "wwwroot"))
         WebApplication.CreateBuilder(options)
+
+    /// Git smart HTTP receive-pack can exceed Kestrel's default 30 MB body limit.
+    let configureKestrelLimits (builder: WebApplicationBuilder) =
+        builder.Services.Configure<KestrelServerOptions>(fun (options: KestrelServerOptions) ->
+            options.Limits.MaxRequestBodySize <- Nullable(100L * 1024L * 1024L))
+        |> ignore
 
     let addAppSettings location (builder: WebApplicationBuilder) =
         // Env-specific appsettings.
@@ -236,6 +244,7 @@ module Main =
         let builder = createBuilder args location
 
         addAppSettings location builder
+        configureKestrelLimits builder
 
         let app = builder.Build()
         bindConfiguredPort port app

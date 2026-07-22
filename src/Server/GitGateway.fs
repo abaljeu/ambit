@@ -269,6 +269,30 @@ module GitGateway =
         let bytes = Encoding.UTF8.GetBytes(message)
         writeBytes resp status "text/plain; charset=utf-8" bytes
 
+    let private labelOptFromRepoName (repoName: string) =
+        WorkspaceGitRemote.tryLabelFromRepoName repoName
+
+    let private writeGatewayError
+        (labelOpt: string option)
+        (resp: HttpResponse)
+        (status: int)
+        (message: string)
+        : Task =
+        match labelOpt with
+        | Some label ->
+            GitGatewayDiagnostics.set
+                label
+                { status = status
+                  message = message }
+            eprintfn
+                "[GitGateway] HTTP %d for '%s': %s"
+                status
+                label
+                message
+        | None ->
+            eprintfn "[GitGateway] HTTP %d: %s" status message
+        writeTextError resp status message
+
     let private clientHintOf (req: HttpRequest) : string option =
         match req.Headers.TryGetValue(ClientIdentity.HeaderName) with
         | true, values -> ClientIdentity.tryFromValues values
@@ -298,8 +322,14 @@ module GitGateway =
             else
                 match resolveWorkspaceRoot dataDir repoName with
                 | Error err ->
-                    do! writeTextError ctx.Response 404 err |> Async.AwaitTask
-                | Ok(_, root) ->
+                    do!
+                        writeGatewayError
+                            (labelOptFromRepoName repoName)
+                            ctx.Response
+                            404
+                            err
+                        |> Async.AwaitTask
+                | Ok(label, root) ->
                     let serviceOpt =
                         match ctx.Request.Query.TryGetValue("service") with
                         | true, values ->
@@ -308,7 +338,8 @@ module GitGateway =
                     match serviceOpt with
                     | None ->
                         do!
-                            writeTextError
+                            writeGatewayError
+                                (Some label)
                                 ctx.Response
                                 400
                                 "missing or unknown service (want git-upload-pack|git-receive-pack)"
@@ -317,7 +348,7 @@ module GitGateway =
                         match advertiseRefs root WorkspacePush with
                         | Error err ->
                             do!
-                                writeTextError ctx.Response 500 err
+                                writeGatewayError (Some label) ctx.Response 500 err
                                 |> Async.AwaitTask
                         | Ok body ->
                             do!
@@ -333,13 +364,13 @@ module GitGateway =
                         match prep with
                         | Error err ->
                             do!
-                                writeTextError ctx.Response 500 err
+                                writeGatewayError (Some label) ctx.Response 500 err
                                 |> Async.AwaitTask
                         | Ok () ->
                             match advertiseRefs root WorkspacePull with
                             | Error err ->
                                 do!
-                                    writeTextError ctx.Response 500 err
+                                    writeGatewayError (Some label) ctx.Response 500 err
                                     |> Async.AwaitTask
                             | Ok body ->
                                 do!
@@ -368,7 +399,13 @@ module GitGateway =
             else
                 match resolveWorkspaceRoot dataDir repoName with
                 | Error err ->
-                    do! writeTextError ctx.Response 404 err |> Async.AwaitTask
+                    do!
+                        writeGatewayError
+                            (labelOptFromRepoName repoName)
+                            ctx.Response
+                            404
+                            err
+                        |> Async.AwaitTask
                 | Ok(label, root) ->
                     match service with
                     | WorkspacePush ->
@@ -377,7 +414,7 @@ module GitGateway =
                         match prep with
                         | Error err ->
                             do!
-                                writeTextError ctx.Response 403 err
+                                writeGatewayError (Some label) ctx.Response 403 err
                                 |> Async.AwaitTask
                         | Ok () ->
                             let! body = readBody ctx.Request |> Async.AwaitTask
@@ -392,7 +429,7 @@ module GitGateway =
                             match completed with
                             | Error err ->
                                 do!
-                                    writeTextError ctx.Response 500 err
+                                    writeGatewayError (Some label) ctx.Response 500 err
                                     |> Async.AwaitTask
                             | Ok result ->
                                 do!
@@ -408,7 +445,7 @@ module GitGateway =
                         match prep with
                         | Error err ->
                             do!
-                                writeTextError ctx.Response 500 err
+                                writeGatewayError (Some label) ctx.Response 500 err
                                 |> Async.AwaitTask
                         | Ok () ->
                             let! body = readBody ctx.Request |> Async.AwaitTask
@@ -416,7 +453,7 @@ module GitGateway =
                                 statelessRpc root WorkspacePull body with
                             | Error err ->
                                 do!
-                                    writeTextError ctx.Response 500 err
+                                    writeGatewayError (Some label) ctx.Response 500 err
                                     |> Async.AwaitTask
                             | Ok result ->
                                 do!

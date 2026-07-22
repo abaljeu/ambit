@@ -23,9 +23,8 @@ Current documents remain authoritative for implemented behavior. This index orga
 - [[doc/roadmap/workspace-file-persistence]]
 - [[doc/roadmap/workspace-scale-file-and-db-management]]
 - [[doc/roadmap/workspace-scale-import]]
-- [[doc/roadmap/workspace-scale-import-slice1-plan]]
-- [[doc/roadmap/workspace-scale-import-slice2-plan]]
-- [[doc/roadmap/git-sync-gateway]]
+- [[doc/roadmap/workspace-file-sync]]
+- [[doc/roadmap/workspace-webdav]] — server WebDAV Class 1 mount and PROPFIND datestamps
 - [[doc/roadmap/revising-workspace-file-model]]
 - Formats: [[doc/roadmap/workspace-format-amb]], [[doc/roadmap/workspace-format-md]], [[doc/roadmap/workspace-format-plain]], [[doc/roadmap/workspace-format-code]], [[doc/roadmap/workspace-format-xml]], [[doc/roadmap/workspace-format-dispatch]]
 - Conversion: [[doc/roadmap/workspace-text-outline-conversion]]
@@ -40,7 +39,7 @@ Implementation plan: [[doc/roadmap/workspace-name-verbatim]]. Slice A + B done; 
 
 - Workspace names are immutable after creation; rename refuses for `Special Workspace` nodes.
 
-Implementation plan: [[doc/roadmap/workspace-name-immutable]]. Remains Planned until Shared rename guards and tests land. Git/desktop remapping is out of scope for that plan.
+Implementation plan: [[doc/roadmap/workspace-name-immutable]]. Remains Planned until Shared rename guards and tests land. Desktop remapping is out of scope for that plan.
 
 ## Restart boundary
 
@@ -53,13 +52,12 @@ The range 35f2976..22e28ca changed 20 documentation paths.
 ### New plans to carry
 
 - [[doc/roadmap/workspace-scale-import-slice1-plan]] — carry with Planned status and without claims that discarded implementation is current.
-- [[doc/roadmap/workspace-scale-import-slice2-plan]] — carry with Planned status and proposed endpoints and flows clearly marked as such.
 
 ### Roadmap edits to reconcile or carry
 
 - [[doc/roadmap/workspace-scale-import]]
 - [[doc/roadmap/workspace-scale-file-and-db-management]]
-- [[doc/roadmap/git-sync-gateway]]
+- [[doc/roadmap/workspace-file-sync]]
 - [[doc/roadmap/workspace-file-model]]
 - [[doc/roadmap/revising-workspace-file-model]]
 - [[doc/roadmap/workspace-file-persistence]]
@@ -67,7 +65,7 @@ The range 35f2976..22e28ca changed 20 documentation paths.
 - [[doc/roadmap/workspace-text-outline-conversion]]
 - [[doc/roadmap/postgres-roadmap]]
 
-Reconcile these against the restart baseline before carrying claims about path layout, ownership, parse behavior, remote naming, or implementation status.
+Reconcile these against the restart baseline before carrying claims about path layout, ownership, parse behavior, or implementation status.
 
 ### Current and index edits reset to truthful pre-implementation status
 
@@ -82,7 +80,6 @@ The restart versions remain authoritative. Any useful clarification from the dis
 
 ### Accidental empty files excluded
 
-- git-sync-gateway.md.md
 - reference-expressions.md.md
 - workspace-scale-import.md.md
 

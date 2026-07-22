@@ -1,79 +1,12 @@
 namespace Gambol.Server
 
 open System
-open System.Diagnostics
 open System.IO
 open Gambol.Shared
 
 /// Reject graph disk effects whose destination is ignored by `.gitignore`.
 [<RequireQualifiedAccess>]
 module IgnoredDestination =
-
-    let private normalizeRel (path: string) =
-        path.Replace('\\', '/').TrimStart('/')
-
-    let private isGitignorePath (relativePath: string) =
-        let n = normalizeRel(relativePath).TrimEnd('/')
-        n = ".gitignore" || n.EndsWith("/.gitignore")
-
-    let private emptyGitDir =
-        lazy (
-            let dir =
-                Path.Combine(Path.GetTempPath(), "gambol-check-ignore-git")
-            Directory.CreateDirectory dir |> ignore
-            let gitDir = Path.Combine(dir, ".git")
-
-            if not (Directory.Exists gitDir) then
-                match GitSave.runGit dir "init -q" with
-                | Ok _ -> ()
-                | Error _ -> ()
-
-            gitDir)
-
-    let private checkIgnored
-        (workTree: string)
-        (relativePath: string)
-        : Result<bool, string> =
-        if String.IsNullOrWhiteSpace relativePath then
-            Ok false
-        else
-            try
-                Directory.CreateDirectory workTree |> ignore
-                let psi =
-                    ProcessStartInfo(
-                        FileName = "git",
-                        WorkingDirectory = workTree,
-                        RedirectStandardOutput = true,
-                        RedirectStandardError = true,
-                        UseShellExecute = false)
-                psi.ArgumentList.Add("check-ignore")
-                psi.ArgumentList.Add("-q")
-                psi.ArgumentList.Add("--no-index")
-                psi.ArgumentList.Add("--")
-                psi.ArgumentList.Add(relativePath)
-                psi.Environment["GIT_DIR"] <- emptyGitDir.Value
-                psi.Environment["GIT_WORK_TREE"] <- workTree
-                use proc = Process.Start(psi)
-                proc.WaitForExit()
-
-                match proc.ExitCode with
-                | 0 -> Ok true
-                | 1 -> Ok false
-                | _ ->
-                    let detail =
-                        let stderr = proc.StandardError.ReadToEnd().Trim()
-                        let stdout = proc.StandardOutput.ReadToEnd().Trim()
-
-                        if String.IsNullOrWhiteSpace stderr then stdout
-                        else stderr
-
-                    Error (
-                        if String.IsNullOrWhiteSpace detail then
-                            "git check-ignore failed"
-                        else
-                            detail)
-            with ex ->
-                Error ex.Message
 
     let private artifactRelative (graph: Graph) (nodeId: NodeId) =
         match Map.tryFind nodeId graph.nodes with
@@ -92,7 +25,7 @@ module IgnoredDestination =
         (nodeId: NodeId)
         (artifactRel: string)
         : (string * string) option =
-        let rel = normalizeRel artifactRel
+        let rel = GitCheckIgnore.normalizeRel artifactRel
         let dataRoot = DataDir.normalize dataDir
 
         match GraphQuery.enclosingWorkspace graph nodeId with
@@ -132,7 +65,10 @@ module IgnoredDestination =
                     let oldPath = artifactRelative preGraph nodeId
 
                     match oldPath with
-                    | Some old when normalizeRel old = normalizeRel newPath ->
+                    | Some old when
+                        GitCheckIgnore.normalizeRel old
+                        = GitCheckIgnore.normalizeRel newPath
+                        ->
                         None
                     | _ -> Some(nodeId, newPath))
         |> Seq.toList
@@ -144,20 +80,20 @@ module IgnoredDestination =
         (nodeId: NodeId)
         (artifactRel: string)
         : Result<unit, string> =
-        if isGitignorePath artifactRel then
+        if GitCheckIgnore.isGitignorePath artifactRel then
             Ok ()
         else
             match ignoreScope dataDir graph nodeId artifactRel with
             | None -> Ok ()
             | Some(_, "") -> Ok ()
             | Some(workTree, relativePath) ->
-                match checkIgnored workTree relativePath with
+                match GitCheckIgnore.isIgnored workTree relativePath with
                 | Error err -> Error err
                 | Ok false -> Ok ()
                 | Ok true ->
                     Error (
                         "destination path ignored by .gitignore: "
-                        + normalizeRel artifactRel)
+                        + GitCheckIgnore.normalizeRel artifactRel)
 
     let validateGraphDiskEffects
         (dataDir: string)

@@ -14,6 +14,14 @@ let ``remoteUrl joins ambit base and label`` () =
         WorkspaceGitRemote.remoteUrl "http://localhost:5115/ambit" "home")
 
 [<Fact>]
+let ``remoteUrlMatches accepts case-insensitive gateway URL`` () =
+    Assert.True(
+        WorkspaceGitRemote.remoteUrlMatches
+            "http://localhost:5115/ambit"
+            "home"
+            "HTTP://LOCALHOST:5115/ambit/git/home.git")
+
+[<Fact>]
 let ``tryLabelFromRepoName accepts label.git`` () =
     Assert.Equal(Some "home", WorkspaceGitRemote.tryLabelFromRepoName "home.git")
 

@@ -24,11 +24,21 @@ module DesktopGit =
             |> String.concat "\n"
             |> fun s -> s.Trim()
 
+    let private combineGitOutput (stdout: string) (stderr: string) : string =
+        let out = if isNull stdout then "" else stdout.Trim()
+        let err = if isNull stderr then "" else stderr.Trim()
+        if err = "" then out
+        elif out = "" then err
+        elif err.IndexOf(out, StringComparison.OrdinalIgnoreCase) >= 0 then err
+        elif out.IndexOf(err, StringComparison.OrdinalIgnoreCase) >= 0 then out
+        else out + Environment.NewLine + err
+
     let private errorDetail (stdout: string) (stderr: string) : string =
-        let raw =
-            if String.IsNullOrWhiteSpace stderr then stdout.Trim()
-            else stderr.Trim()
-        filterGitErrorDetail raw
+        combineGitOutput stdout stderr |> filterGitErrorDetail
+
+    /// Combined stdout/stderr for a failed git invocation (tests and diagnostics).
+    let formatCommandFailure (stdout: string) (stderr: string) : string =
+        errorDetail stdout stderr
 
     /// HTTP Basic value (`Basic <b64>`) for Ambit git PAT.
     let basicAuthHeaderValue (username: string) (password: string) =
@@ -124,6 +134,34 @@ module DesktopGit =
         : Result<unit, string> =
         let url = WorkspaceGitRemote.remoteUrl ambitBase label
         setAmbitRemote localPath url
+
+    let private tryGetAmbitRemoteUrl (localPath: string) : Result<string option, string> =
+        if not (isRepo localPath) then
+            noRepoError localPath
+        else
+            let name = WorkspaceGitRemote.RemoteName
+            let args = sprintf "remote get-url %s" name
+            match runGit localPath args with
+            | Ok url when not (String.IsNullOrWhiteSpace url) -> Ok(Some(url.Trim()))
+            | Ok _ -> Ok None
+            | Error err
+                when err.IndexOf("No such remote", StringComparison.OrdinalIgnoreCase)
+                     >= 0 ->
+                Ok None
+            | Error err -> Error err
+
+    /// Set `ambit` when missing or pointing at a different gateway URL.
+    let ensureAmbitRemoteForLabel
+        (localPath: string)
+        (label: string)
+        (ambitBase: string)
+        : Result<unit, string> =
+        match tryGetAmbitRemoteUrl localPath with
+        | Error err -> Error err
+        | Ok (Some current)
+            when WorkspaceGitRemote.remoteUrlMatches ambitBase label current ->
+            Ok ()
+        | Ok _ -> setAmbitRemoteForLabel localPath label ambitBase
 
     let parseRemoteHeadBranch (text: string) : Result<string, string> =
         let prefix = "ref: refs/heads/"

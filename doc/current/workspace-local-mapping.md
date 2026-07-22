@@ -1,22 +1,19 @@
 # Workspace local mapping
 
 Category: Desktop
-See also: [[doc/current/desktop-local-files.md]], [[doc/current/workspace-graph.md]]
+See also: [[doc/current/desktop-local-files.md]], [[doc/current/workspace-graph.md]], [[doc/roadmap/workspace-file-sync]]
 
-Implemented baseline for desktop-local workspace label → filesystem root bindings. Shared module;
-the desktop layer supplies the config file path and Get/Put / folder-picker HTTP endpoints.
+Implemented baseline for desktop-local workspace label → filesystem root bindings. Shared module; the desktop layer supplies the config file path and Get/Put / folder-picker HTTP endpoints.
 
 ## Purpose
 
-A workspace label such as `home` is shared graph identity (`//home`). Each desktop may map that
-label to an absolute local directory root. Mapping is local-only and does not alter the cloud graph.
+A workspace label such as `home` is shared graph identity (`//home`). Each desktop may map that label to an absolute local directory root. Mapping is local-only and does not alter the cloud graph. The mapped folder need not be a git clone; tree sync direction is WebDAV ([[doc/roadmap/workspace-file-sync]]).
 
 ## Config file
 
 Path (desktop): `%LocalAppData%/Gambol/config.json`
 
-Loaded at `LocalProxy` startup via `WorkspaceLocalMapping.loadFromFile`. Missing file → empty
-mapping set.
+Loaded at `LocalProxy` startup via `WorkspaceLocalMapping.loadFromFile`. Missing file → empty mapping set.
 
 ## JSON format
 
@@ -33,8 +30,7 @@ mapping set.
 - `label` — non-empty, trimmed; case-insensitive uniqueness enforced at decode.
 - `path` — non-empty, **fully qualified** absolute path.
 
-Decode errors: `malformed_json`, `duplicate_workspace`, `invalid_workspace`, `invalid_path`,
-`mapping_read_failed`.
+Decode errors: `malformed_json`, `duplicate_workspace`, `invalid_workspace`, `invalid_path`, `mapping_read_failed`.
 
 ## Label validation
 
@@ -49,8 +45,7 @@ Rejected when path is empty or not `Path.IsPathFullyQualified`.
 
 ## Relative path resolution
 
-`WorkspaceLocalMapping.resolvePath` maps a workspace label plus relative path to an absolute path under the mapped
-root. Callers obtain the label and relative path from `NodeDesktopPath.tryParseWorkspacePath` on a `//label/relative` reference.
+`WorkspaceLocalMapping.resolvePath` maps a workspace label plus relative path to an absolute path under the mapped root. Callers obtain the label and relative path from `NodeDesktopPath.tryParseWorkspacePath` on a `//label/relative` reference.
 
 Rules:
 
@@ -61,8 +56,7 @@ Rules:
 - No `:`, `#`, `^`, or other invalid filename chars in segments
 - Resolved path must stay under mapped root (`path_escape` if not)
 
-Plain paths (not `//label/...` workspace form) are resolved relative to `Environment.CurrentDirectory` in
-`LocalProxy` — see [[doc/current/desktop-local-files.md]].
+Plain paths (not `//label/...` workspace form) are resolved relative to `Environment.CurrentDirectory` in `LocalProxy` — see [[doc/current/desktop-local-files.md]].
 
 ## Runtime use
 
@@ -72,18 +66,17 @@ Plain paths (not `//label/...` workspace form) are resolved relative to `Environ
 - `GET /_desktop/file` (import)
 - `POST /_desktop/file` (export)
 - `GET` / `PUT /_desktop/workspace-mappings`
-- Desktop git endpoints that resolve a mapped label
+- Planned WebDAV Push / Pull inventory and write-back under the mapped root
 
 Requires `workspacePaths` capability when using `//label/...` form.
 
-## API (G6)
+## API
 
 | Method | Path | Body / notes |
 | --- | --- | --- |
 | `GET` | `/_desktop/workspace-mappings` | Returns `{ "workspaceMappings": [ { "label", "path" }, … ] }` |
 | `PUT` | `/_desktop/workspace-mappings` | Upsert one `{ "label", "path" }`, **or** full replace with the same document shape as the config file. Persists to disk and updates the in-memory map. |
-| `POST` | `/_desktop/pick-folder` | Optional `{ "requireGit": true }`. OS folder dialog. `{ "cancelled": true }` or `{ "cancelled": false, "path", "gitRoot" }` (`gitRoot` may be `null` unless `requireGit`). |
-| `POST` | `/_desktop/detect-git` | `{ "path" }` → `{ "gitRoot" }` or error `not_a_git_repo` / `invalid_path`. |
+| `POST` | `/_desktop/pick-folder` | Optional `{ "requireGit": true }`. OS folder dialog. `{ "cancelled": true }` or `{ "cancelled": false, "path", "gitRoot" }` (`gitRoot` may be `null` unless `requireGit`). Map workspace should not require git. |
 
 ## Tests
 
@@ -92,5 +85,5 @@ Requires `workspacePaths` capability when using `//label/...` form.
 ## Not implemented
 
 - Startup sync of local labels to cloud workspace nodes (§4b in stage plan).
-- Automatic initial pull after Connect (user runs Download).
+- Automatic initial Pull after Map (user runs Pull).
 - Persistent status chrome beyond `#cmd-last-result` / console.

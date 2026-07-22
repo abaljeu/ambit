@@ -97,6 +97,18 @@ let ``canDesktopGit requires git capability`` () =
             (Some (DesktopCapabilities.desktopEnabled false)))
 
 [<Fact>]
+let ``desktopMappedWithoutGit when import works but git does not`` () =
+    Assert.False(WorkspaceGitRemote.desktopMappedWithoutGit None)
+    Assert.False(
+        WorkspaceGitRemote.desktopMappedWithoutGit (Some DesktopCapabilities.disabled))
+    Assert.False(
+        WorkspaceGitRemote.desktopMappedWithoutGit
+            (Some (DesktopCapabilities.desktopEnabled true)))
+    Assert.True(
+        WorkspaceGitRemote.desktopMappedWithoutGit
+            (Some (DesktopCapabilities.desktopEnabled false)))
+
+[<Fact>]
 let ``basicAuthHeaderValue encodes user and token`` () =
     let header = DesktopGit.basicAuthHeaderValue "alice" "pat"
     Assert.StartsWith("Basic ", header)
@@ -200,6 +212,15 @@ let ``filterGitErrorDetail leaves unrelated stderr intact`` () =
     let raw = "fatal: not a git repository"
     Assert.Equal(raw, DesktopGit.filterGitErrorDetail raw)
 
+[<Fact>]
+let ``formatCommandFailure merges stdout and stderr`` () =
+    let combined =
+        DesktopGit.formatCommandFailure
+            "Everything up-to-date"
+            "error: RPC failed; HTTP 406 curl 22 The requested URL returned error: 406"
+    Assert.Contains("Everything up-to-date", combined)
+    Assert.Contains("HTTP 406", combined)
+
 [<SkippableFact>]
 let ``gitPull returns Error for unrelated histories`` () =
     Skip.IfNot(gitOnPath(), "git not on PATH")
@@ -277,6 +298,58 @@ let ``setAmbitRemoteForLabel updates existing ambit remote`` () =
         match DesktopGit.runGit dir "remote get-url ambit" with
         | Ok url ->
             Assert.Equal("https://new.example/ambit/git/home.git", url)
+        | Error err -> Assert.Fail(err)
+
+[<SkippableFact>]
+let ``ensureAmbitRemoteForLabel adds missing ambit remote`` () =
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let dir = newTempDir ()
+    initRepo dir
+    match
+        DesktopGit.ensureAmbitRemoteForLabel
+            dir
+            "home"
+            "https://example.org/ambit"
+    with
+    | Error err -> Assert.Fail(err)
+    | Ok () ->
+        match DesktopGit.runGit dir "remote get-url ambit" with
+        | Ok url ->
+            Assert.Equal("https://example.org/ambit/git/home.git", url)
+        | Error err -> Assert.Fail(err)
+
+[<SkippableFact>]
+let ``ensureAmbitRemoteForLabel updates wrong ambit remote`` () =
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let dir = newTempDir ()
+    initRepo dir
+    DesktopGit.setAmbitRemote dir "https://old.example/ambit/git/home.git"
+    |> ignore
+    match
+        DesktopGit.ensureAmbitRemoteForLabel
+            dir
+            "home"
+            "https://new.example/ambit"
+    with
+    | Error err -> Assert.Fail(err)
+    | Ok () ->
+        match DesktopGit.runGit dir "remote get-url ambit" with
+        | Ok url ->
+            Assert.Equal("https://new.example/ambit/git/home.git", url)
+        | Error err -> Assert.Fail(err)
+
+[<SkippableFact>]
+let ``ensureAmbitRemoteForLabel skips correct ambit remote`` () =
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let dir = newTempDir ()
+    initRepo dir
+    let url = "https://example.org/ambit/git/home.git"
+    DesktopGit.setAmbitRemote dir url |> ignore
+    match DesktopGit.ensureAmbitRemoteForLabel dir "home" "https://example.org/ambit" with
+    | Error err -> Assert.Fail(err)
+    | Ok () ->
+        match DesktopGit.runGit dir "remote get-url ambit" with
+        | Ok got -> Assert.Equal(url, got)
         | Error err -> Assert.Fail(err)
 
 [<SkippableFact>]

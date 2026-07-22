@@ -24,6 +24,7 @@
     <Compile Include="GitGatewayTests.fs" />
     <Compile Include="LazyLoadReconciliationServerTests.fs" />
     <Compile Include="GitSaveEndpointTests.fs" />
+    <Compile Include="WorkspaceWebDavTests.fs" />
     <Compile Include="DbAgentTests.fs" />
     <Compile Include="StateEndpointTests.fs" />
   </ItemGroup>

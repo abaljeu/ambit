@@ -64,14 +64,14 @@ Might be next: XML read/write ([[doc/roadmap/workspace-format-xml.md]]); expand-
 ### **Lazy Load and workspace source formats**
 Status: **Partial**.
 Details: [[doc/roadmap/lazy-load.md]], [[doc/roadmap/workspace-scale-import.md]].
-Last implemented: Successful server receives reconcile added, deleted, renamed/moved, and modified source paths under the named Workspace. Identity-preserving Git renames, TRASH/ref semantics, exact `.amb` handling, `M` → Unparsed, graph-only persistence, initial pushes, idempotency, and the best-effort failure policy are covered.
-Might be next: Expand-to-parse and richer current/unparsed/older/newer freshness metadata/UI (Lazy Load step 3).
+Last implemented: Disk-to-graph reconciliation for added, deleted, renamed/moved, and modified source paths under the named Workspace (historically after server receive; target trigger is WebDAV push + finish-commit — [[workspace-file-sync]]). Identity-preserving renames, TRASH/ref semantics, exact `.amb` handling, `M` → Unparsed, graph-only persistence, idempotency, and best-effort failure policy are covered.
+Might be next: Reconcile after WebDAV push+commit; expand-to-parse and richer freshness metadata/UI (Lazy Load step 3).
 
-### **Git workspace transport (desktop pull/push via gateway)**
-Status: **Implemented** (G0–G7).
-Details: [[git-sync-gateway]], [[workspace-scale-import-slice2-plan]], [[lazy-load]].
-Last implemented: Client Connect/Clone/Download/Upload/Git status (gated on desktop `canGit`); G5–G6 desktop APIs + gateway + PAT.
-Handoff: Git transport ends after G7. Complete post-receive disk-to-graph reconciliation is implemented under [[lazy-load]]; expand-to-parse and richer freshness metadata/UI remain planned follow-on work.
+### **Workspace file sync (WebDAV + server git)**
+Status: **Planned**.
+Details: [[workspace-file-sync]], [[workspace-webdav]], [[lazy-load]], [[doc/current/workspace-local-mapping]], [[doc/current/desktop-local-files]].
+Direction: Map / Push / Pull over WebDAV Class 1 under `/ambit/dav/{label}/…`. Push: local scope → check-ignore (mapped tree) → PUT/MKCOL → finish-commit. Pull: server PROPFIND inventory → check-ignore (DataDir SoT on server) → GET. PROPFIND exposes getlastmodified ([[workspace-webdav]]). Not git remotes / pack transport.
+Might be next: Shared scope helpers, server WebDAV with DataDir-filtered PROPFIND + finish-commit, desktop Push walk / Pull GET, Map/Push/Pull commands; Lazy Load reconcile after push+commit.
 
 ### **Amble run**
 Status: **Evolving**.

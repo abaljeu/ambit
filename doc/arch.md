@@ -177,11 +177,7 @@ Canonical contract evolution: [[api]]. Running server uses `/ambit` prefix.
 
 | `GET` | `/ambit/login`, `POST /ambit/login`, `GET /ambit/logout` | optional auth |
 
-| `GET` | `/ambit/git-token` | git PAT JSON after cookie login (`{ username, token }`; or `disabled` when Auth empty) |
-
-| `GET`/`POST` | `/ambit/git/{label}.git/…` | smart HTTP (`git-upload-pack` / `git-receive-pack`); Basic PAT when Auth enabled |
-
-Deferred vs older docs: `POST /undo`, `POST /redo`, `GET /ops?since=…` as separate endpoints — not exposed; undo is client-side.
+Deferred vs older docs: `POST /undo`, `POST /redo`, `GET /ops?since=…` as separate endpoints — not exposed; undo is client-side. Workspace Map / Push / Pull transport is planned as WebDAV under `/ambit/dav/{label}/…` ([[doc/roadmap/workspace-file-sync]], server surface [[doc/roadmap/workspace-webdav]]); not listed here until implemented.
 
 ## Domain model
 
@@ -345,3 +341,5 @@ Tooling: **xUnit** in `tests/Shared.Tests` and `tests/Server.Tests`.
 | [[doc/current/desktop-local-files.md]] | Desktop proxy and `/_desktop/*` API |
 | [[doc/reference/postgres-environments.md]] | Dev/prod Postgres setup |
 | [[doc/roadmap/postgres-roadmap.md]] | Roadmap index (Postgres, sync, desktop) |
+| [[doc/roadmap/workspace-file-sync.md]] | Planned Map / Push / Pull (WebDAV + server git) |
+| [[doc/roadmap/workspace-webdav.md]] | Server WebDAV Class 1 mount; PROPFIND datestamps |

@@ -7,6 +7,7 @@
 
   <ItemGroup>
     <Compile Include="DesktopGit.fs" />
+    <Compile Include="GitCheckIgnore.fs" />
     <Compile Include="OutlineLcs.fs" />
     <Compile Include="DocumentParseOps.fs" />
     <Compile Include="ImportDocument.fs" />

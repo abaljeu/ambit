@@ -490,9 +490,16 @@ module RouteRegistration =
             LazyLoadReconciliationDiagnostics.registerRoute
                 app
                 auth.IsAuthenticated
+            GitGatewayDiagnostics.registerRoute
+                app
+                auth.IsAuthenticated
             LazyLoadReconciliationServer.registerDirectoryRoute
                 app
                 auth.IsAuthenticated
                 persistence.DataDir
                 (fun () -> persistence.GetHandle "gambol")
+            WorkspaceWebDav.registerRoutes
+                app
+                auth.IsAuthenticated
+                persistence.DataDir
             registerCssAndShellRoutes app auth publicAssetBaseOpt assets stamps persistence
