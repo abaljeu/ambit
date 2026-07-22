@@ -21,7 +21,16 @@ type DesktopWorkspaceSyncResponse =
       uploaded: int
       downloaded: int
       detail: string
-      error: string option }
+      error: string option
+      jobId: string option
+      state: string option }
+
+type DesktopWorkspaceDownloadJob =
+    { id: string
+      state: string
+      detail: string
+      started: string option
+      finished: string option }
 
 type DesktopPickFolderResponse =
     { cancelled: bool
@@ -86,7 +95,21 @@ module DesktopWorkspaceSyncResponse =
               detail =
                 get.Optional.Field "detail" Decode.string
                 |> Option.defaultValue ""
-              error = get.Optional.Field "error" Decode.string })
+              error = get.Optional.Field "error" Decode.string
+              jobId = get.Optional.Field "jobId" Decode.string
+              state = get.Optional.Field "state" Decode.string })
+
+[<RequireQualifiedAccess>]
+module DesktopWorkspaceDownloadJob =
+    let decoder: Decoder<DesktopWorkspaceDownloadJob> =
+        Decode.object (fun get ->
+            { id = get.Required.Field "id" Decode.string
+              state = get.Required.Field "state" Decode.string
+              detail =
+                get.Optional.Field "detail" Decode.string
+                |> Option.defaultValue ""
+              started = get.Optional.Field "started" Decode.string
+              finished = get.Optional.Field "finished" Decode.string })
 
 [<RequireQualifiedAccess>]
 module DesktopPickFolderResponse =

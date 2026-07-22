@@ -94,6 +94,18 @@ let ``PUT ignored path is rejected`` () = task {
     Assert.False(File.Exists(Path.Combine(home, "noise.log")))
 }
 
+let private putBytesWithMtime (client: HttpClient) (url: string) (bytes: byte[]) (mtime: DateTime) =
+    task {
+        use content = new ByteArrayContent(bytes)
+        use req = new HttpRequestMessage(HttpMethod.Put, url)
+        req.Content <- content
+        req.Headers.TryAddWithoutValidation(
+            WorkspaceDavClient.SourceMtimeHeaderName,
+            mtime.ToString("O"))
+        |> ignore
+        return! client.SendAsync(req)
+    }
+
 [<SkippableFact>]
 let ``GET after PUT round-trips bytes`` () = task {
     Skip.IfNot(gitOnPath(), "git not on PATH")
@@ -109,6 +121,28 @@ let ``GET after PUT round-trips bytes`` () = task {
     Assert.Equal(HttpStatusCode.OK, getResp.StatusCode)
     let! got = getResp.Content.ReadAsByteArrayAsync()
     Assert.Equal<byte>(payload, got)
+}
+
+[<SkippableFact>]
+let ``PUT honors X-Gambol-Source-Mtime on disk`` () = task {
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let dataDir = newTempDir ()
+    let home = Path.Combine(dataDir, "home")
+    Directory.CreateDirectory home |> ignore
+    use client = createClientForDir dataDir
+    let source = DateTime(2024, 6, 15, 10, 30, 0, DateTimeKind.Utc)
+    let! putResp =
+        putBytesWithMtime
+            client
+            "/ambit/dav/home/m.txt"
+            (Encoding.UTF8.GetBytes "mtime")
+            source
+    Assert.True(
+        putResp.StatusCode = HttpStatusCode.Created
+        || putResp.StatusCode = HttpStatusCode.NoContent)
+    let full = Path.Combine(home, "m.txt")
+    let onDisk = File.GetLastWriteTimeUtc full
+    Assert.Equal(source, onDisk)
 }
 
 [<SkippableFact>]

@@ -29,21 +29,22 @@ module internal LazyLoadReconciliationApply =
         else
             String.concat "/" info.parts + "/.amb"
 
-    /// Only File stubs need deferred parse. Directory/Workspace tree stubs stay
-    /// Current; `.amb` owners are parsed immediately when text is supplied.
+    /// File and Directory stubs need deferred parse; `.amb` owners parse when text supplied.
     let markAddedDocumentsUnparsed graph workspaceId added planned =
-        let createdFileIds =
+        let createdStubIds kind =
             planned
             |> List.choose (function
-                | Op.NewSpecialNode(nodeId, File, _) -> Some nodeId
+                | Op.NewSpecialNode(nodeId, k, _) when k = kind -> Some nodeId
                 | _ -> None)
-        let addedFileIds =
+        let addedStubIds kind =
             added
             |> List.choose (fun info ->
                 match LazyLoadReconciliationPath.resolveInfo graph workspaceId info with
-                | Ok(Some(nodeId, File)) -> Some nodeId
+                | Ok(Some(nodeId, k)) when k = kind -> Some nodeId
                 | _ -> None)
-        createdFileIds @ addedFileIds
+        [ File; Directory ]
+        |> List.collect (fun kind ->
+            createdStubIds kind @ addedStubIds kind)
         |> List.distinct
         |> List.fold (fun result nodeId ->
             result
@@ -84,8 +85,17 @@ module internal LazyLoadReconciliationApply =
                     | None -> Ok(graph, [])
                     | Some(nodeId, _) ->
                         let relativePath = markerRelativePath info
+                        let docState = graph.nodes.[nodeId].documentState
                         let previousText =
-                            previousArtifactText graph nodeId relativePath
+                            match docState with
+                            | Unparsed -> None
+                            | Current ->
+                                previousArtifactText graph nodeId relativePath
+                        let markCurrent =
+                            match docState with
+                            | Unparsed ->
+                                [ Op.SetDocumentState(nodeId, Unparsed, Current) ]
+                            | Current -> []
                         DocumentParseOps.planApplyArtifact
                             graph
                             nodeId
@@ -93,8 +103,9 @@ module internal LazyLoadReconciliationApply =
                             text
                             previousText
                         |> Result.bind (fun parseOps ->
-                            applyOps graph parseOps
-                            |> Result.map (fun next -> next, parseOps)))
+                            let ops = markCurrent @ parseOps
+                            applyOps graph ops
+                            |> Result.map (fun next -> next, ops)))
 
     let parseDirInfoInfos
         graph

@@ -11,7 +11,7 @@ This does not supersede [[doc/current/sync-mvp]] for live graph editing over HTT
 ## What it gives you
 
 1. **Upload** — ensure a local folder mapping for the focused named workspace (pick-folder + Put when unmapped), then scoped WebDAV push (`PUT` / `MKCOL`), server JIT-commit of dirty DataDir before the batch, finish-commit after, and Lazy Load stub reconcile. On **Workspaces** focus: pick folder → create named workspace from folder basename → map → push whole tree. On **File** focus: push file scope then Parse.
-2. **Download** — ensure mapping, then scoped WebDAV pull (`PROPFIND` inventory → `GET` into mapped root; listings include **getlastmodified** / mtime — [[workspace-webdav]]). Named Workspace / Directory / File only (not ROOT or Workspaces).
+2. **Download** — ensure mapping, then enqueue a desktop download job (`POST /_desktop/workspace-download`); the manager runs scoped WebDAV pull with volume ladder, stages under `.gambol-dl-tmp/`, promotes atomically, and preserves file mtimes from PROPFIND. Named Workspace / Directory / File only (not ROOT or Workspaces). Client does not wait or reconcile.
 3. Never transfer `.git/` or ignored paths (for example `.venv`).
 4. **Removed from command surface:** standalone Map workspace, Connect, Clone, pack Push, Status.
 
@@ -30,8 +30,8 @@ So ignore reduces candidates on **both** directions. For Download, the inventory
 
 The desktop layer’s two main sync functions:
 
-1. **Post (Upload)** — JIT prepare-push → local scope → GitCheckIgnore → WebDAV `PUT` / `MKCOL` → finish-commit.
-2. **Get (Download)** — server `PROPFIND` inventory → GitCheckIgnore → `GET`.
+1. **Post (Upload)** — JIT prepare-push → local scope → GitCheckIgnore → classify/plan (Full / TreeStructure / TopLevel) → WebDAV `PUT` / `MKCOL` (empty PUT for Unparsed placeholders; file mtime via `X-Gambol-Source-Mtime`) → finish-commit.
+2. **Get (Download)** — server `PROPFIND` inventory → same ladder → stage under `.gambol-dl-tmp/{jobId}` → GET bodies or empty placeholders → promote dirs atomically → set local file mtime from `getlastmodified`. Used by the desktop download manager (not blocking client pull).
 
 ## What it avoids for now
 
@@ -93,7 +93,29 @@ Server mount, Class 1 methods, and **PROPFIND properties** (including required `
 | Intent | Target |
 | --- | --- |
 | Upload (`Ctrl+Shift+>`) | Ensure map (pick-folder if needed) → WebDAV push + JIT + finish-commit + reconcile; Workspaces focus creates workspace from folder; File focus then Parses |
-| Download (`Ctrl+Shift+<`) | Ensure map → WebDAV pull for named Workspace / Directory / File |
+| Download (`Ctrl+Shift+<`) | Ensure map → `POST /_desktop/workspace-download` (returns immediately; manager runs pull) |
+
+## Volume ladder (locked)
+
+| Trigger | Mode |
+| --- | --- |
+| ≤ **200** names and ≤ **16 MiB** transfer bytes | **Full** |
+| Above that | **TreeStructure** — Unparsed dir/file shells (empty PUT / MKCOL) |
+| \> **1500** structure paths | **TopLevel** — immediate children only |
+| Any file \> **4 MiB** | That path = empty placeholder; siblings unchanged |
+
+Transfer-byte sum excludes \>4 MiB bodies and TreeStructure empty placeholders. Upload sends local file mtime on PUT; server sets `LastWriteTimeUtc`. Download sets local file mtime from PROPFIND `getlastmodified` (not dirs).
+
+## Download manager (locked)
+
+- One **Running** + at most one **Queued** job; further enqueue → refuse (retry later).
+- Endpoints: `POST /_desktop/workspace-download` (enqueue), `GET /_desktop/workspace-download?id=…` (status).
+- Client Download: ensure map → POST → `okDetail`; no wait, no reconcile, no progress UI.
+
+## Deferred: sync ledger + selective delete
+
+Per-path ledger in `%LocalAppData%/Gambol/` beside mappings; seeded on first scoped Upload/Download. Upload delete only with ledger signal; Download delete per-path watermark. Until built: **no mirror-delete** either direction (retain extras).
+
 | Map / Connect / Clone / pack Push / Status | **Removed** from palette and desktop pack UX |
 
 ROOT and Workspaces cannot acquire a mapping. Focus determines scope: workspace → whole tree; directory → relative prefix; file → one path.
@@ -156,7 +178,7 @@ Shipped:
 - [x] Shared scope / path helpers + Shared.Tests.
 - [x] Shared `GitCheckIgnore` for desktop Upload inventory and server WebDAV `PROPFIND` / `PUT`.
 - [x] Server WebDAV Class 1 + DataDir check-ignore on `PROPFIND` + `_prepare-push` / `_finish-commit` ([[workspace-webdav]]).
-- [x] Desktop `/_desktop/workspace-push` / `workspace-pull` (HttpClient WebDAV).
+- [x] Desktop `/_desktop/workspace-push` / `workspace-pull` / `workspace-download` (HttpClient WebDAV + download manager).
 - [x] Client Upload / Download with ensure-map; Workspaces create-from-folder; file Parse after Upload; ungated from pack transport.
 - [x] Post-push reconcile via `/ambit/workspace/reconciliation/directory`.
 

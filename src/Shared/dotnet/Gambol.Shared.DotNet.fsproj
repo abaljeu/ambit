@@ -11,6 +11,8 @@
     <Compile Include="DesktopGit.fs" />
     <Compile Include="GitCheckIgnore.fs" />
     <Compile Include="WorkspaceLocalInventory.fs" />
+    <Compile Include="WorkspaceSyncLimits.fs" />
+    <Compile Include="WorkspaceDownloadQueue.fs" />
     <Compile Include="WorkspaceDavClient.fs" />
     <Compile Include="WorkspaceFileSync.fs" />
     <Compile Include="OutlineLcs.fs" />

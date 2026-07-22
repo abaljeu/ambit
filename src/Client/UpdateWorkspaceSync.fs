@@ -169,13 +169,24 @@ let private pushScoped
     | Ok _ ->
         postWorkspaceSync "/_desktop/workspace-push" scope
 
-let private pullScoped
+let private postWorkspaceDownload
+    (scope: WorkspaceSyncScope)
+    : Result<DesktopWorkspaceSyncResponse, string> =
+    match postDesktop "/_desktop/workspace-download" (encodeSyncScope scope) with
+    | Error e -> Error e
+    | Ok text ->
+        match decodeDesktopWorkspaceSync text with
+        | Error e -> Error e
+        | Ok resp when resp.ok -> Ok resp
+        | Ok { error = Some e } -> Error e
+        | Ok _ -> Error "request failed"
+
+let private downloadScoped
     (scope: WorkspaceSyncScope)
     : Result<DesktopWorkspaceSyncResponse, string> =
     match ensureMapped scope.label with
     | Error e -> Error e
-    | Ok _ ->
-        postWorkspaceSync "/_desktop/workspace-pull" scope
+    | Ok _ -> postWorkspaceDownload scope
 
 let focusIsWorkspaces (model: VM) : bool =
     match model.selectedNodes with
@@ -273,7 +284,12 @@ let downloadOp (model: VM) : VM * Effect list =
         match syncScopeFromFocus model with
         | Error msg -> fail model msg
         | Ok scope ->
-            match pullScoped scope with
+            match downloadScoped scope with
             | Error "cancelled" -> model, []
             | Error e -> fail model e
-            | Ok sync -> okDetail model sync.detail
+            | Ok sync ->
+                let detail =
+                    match sync.state with
+                    | Some state -> sprintf "download %s: %s" state sync.detail
+                    | None -> sync.detail
+                okDetail model detail

@@ -71,7 +71,7 @@ let ``nested file parse after upload tree build is accepted`` () =
     let graph2 = requirePlan graph "home" [ "src/note.txt" ] |> applyOps graph
     let src = childNamed graph2 workspaceId "src"
     let file = childNamed graph2 src.id "note.txt"
-    Assert.Equal(Current, src.documentState)
+    Assert.Equal(Unparsed, src.documentState)
     Assert.Equal(Unparsed, file.documentState)
     let parsedId = NodeId.New()
     let attach = { ref = Ownership.Owner; id = parsedId }
@@ -87,7 +87,7 @@ let ``nested file parse after upload tree build is accepted`` () =
     match History.applyChange parseChange state with
     | ApplyResult.Changed next ->
         Assert.Equal(Current, next.graph.nodes.[file.id].documentState)
-        Assert.Equal(Current, next.graph.nodes.[src.id].documentState)
+        Assert.Equal(Unparsed, next.graph.nodes.[src.id].documentState)
         Assert.Equal(parsedId, next.graph.nodes.[file.id].children.Head.id)
     | other -> Assert.Fail($"expected Changed, got {other}")
 
@@ -125,24 +125,24 @@ let ``nested added path with spaces creates missing stubs`` () =
     Assert.Equal(Special File, file.kind)
 
 [<Fact>]
-let ``upload-built directories stay current; only files become unparsed`` () =
+let ``upload-built directory stubs become unparsed with files`` () =
     let workspaceId, graph = Graph.create () |> addWorkspace "home"
     let graph2 = requirePlan graph "home" [ "src/lib/core.fs" ] |> applyOps graph
     let src = childNamed graph2 workspaceId "src"
     let lib = childNamed graph2 src.id "lib"
     let file = childNamed graph2 lib.id "core.fs"
-    Assert.Equal(Current, src.documentState)
-    Assert.Equal(Current, lib.documentState)
+    Assert.Equal(Unparsed, src.documentState)
+    Assert.Equal(Unparsed, lib.documentState)
     Assert.Equal(Unparsed, file.documentState)
     Assert.Equal(Current, graph2.nodes.[workspaceId].documentState)
 
 [<Fact>]
-let ``exact amb add ensures directory without marking it unparsed`` () =
+let ``exact amb add marks directory stub unparsed`` () =
     let workspaceId, graph = Graph.create () |> addWorkspace "home"
     let graph2 = requirePlan graph "home" [ "docs/.amb" ] |> applyOps graph
     let docs = childNamed graph2 workspaceId "docs"
     Assert.Equal(Special Directory, docs.kind)
-    Assert.Equal(Current, docs.documentState)
+    Assert.Equal(Unparsed, docs.documentState)
 
 [<Fact>]
 let ``exact amb add with text parses outline immediately`` () =
@@ -430,7 +430,7 @@ let ``directory rename survives deletion of its last old child`` () =
 [<Fact>]
 let ``exact marker modification invalidates containing documents`` () =
     let workspaceId, graph = Graph.create () |> addWorkspace "home"
-    let graph2 = createPaths graph [ "docs/.amb" ]
+    let graph2 = createPaths graph [ "docs/.amb" ] |> markDocumentsCurrent
     let docs = childNamed graph2 workspaceId "docs"
     Assert.Equal(Current, docs.documentState)
     let graph3 =

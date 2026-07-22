@@ -465,6 +465,7 @@ module LocalProxy =
         (ambitBase: string)
         (canGit: bool)
         (session: ref<LoginForm.Credentials option>)
+        (downloadManager: WorkspaceDownloadManager.Manager)
         (context: HttpContext)
         = task {
         let map = workspaceMap.Value
@@ -500,6 +501,7 @@ module LocalProxy =
                         client
                         ambitBase
                         session.Value
+                        downloadManager
                         context
                 if handledSync then
                     ()
@@ -604,6 +606,18 @@ module LocalProxy =
         let app = builder.Build()
         let client = createHttpClient ()
         let session = ref (AuthStore.load())
+        let downloadManager =
+            WorkspaceDownloadManager.create
+                client
+                ambitBase
+                (session.Value
+                 |> Option.map (fun c ->
+                     AuthToken.cookieHeaderValue c.Username c.Password))
+                (fun label ->
+                    match WorkspaceLocalMapping.resolvePath workspaceMap.Value label "" with
+                    | Ok path -> Ok path
+                    | Error _ ->
+                        Error(WorkspaceLocalMapping.missingMappingMessage label))
 
         app.Run(RequestDelegate(fun context ->
             if isDesktopRequest context.Request.Path then
@@ -613,6 +627,7 @@ module LocalProxy =
                     ambitBase
                     canGit
                     session
+                    downloadManager
                     context
             else
                 forward client cloudUri session context)) |> ignore

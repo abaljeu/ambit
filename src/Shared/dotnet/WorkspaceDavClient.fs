@@ -11,11 +11,16 @@ open System.Xml.Linq
 type DavInventoryEntry =
     { relative: string
       isCollection: bool
-      lastModifiedUtc: DateTime option }
+      lastModifiedUtc: DateTime option
+      contentLength: int64 }
 
 /// HttpClient WebDAV Class 1 against `/ambit/dav/{label}/…`.
 [<RequireQualifiedAccess>]
 module WorkspaceDavClient =
+
+    /// Client-supplied file mtime on PUT (UTC ISO-8601).
+    [<Literal>]
+    let SourceMtimeHeaderName = "X-Gambol-Source-Mtime"
 
     let private davNs = XNamespace.Get "DAV:"
 
@@ -93,6 +98,17 @@ module WorkspaceDavClient =
                 |> Option.ofObj
                 |> Option.map (fun e -> e.Value)
                 |> Option.bind tryParseDate)
+        let length =
+            prop
+            |> Option.bind (fun p ->
+                p.Element(davNs + "getcontentlength")
+                |> Option.ofObj
+                |> Option.map (fun e -> e.Value)
+                |> Option.bind (fun text ->
+                    match Int64.TryParse text with
+                    | true, n -> Some n
+                    | _ -> None))
+            |> Option.defaultValue 0L
         match decodeHref label href with
         | Error e -> Error e
         | Ok relative when relative = "_finish-commit" -> Ok None
@@ -102,7 +118,8 @@ module WorkspaceDavClient =
                 Some
                     { relative = relative
                       isCollection = isColl
-                      lastModifiedUtc = mtime })
+                      lastModifiedUtc = mtime
+                      contentLength = length })
 
     /// Parse Class 1 multistatus XML into inventory rows.
     let parsePropfindXml
@@ -200,6 +217,7 @@ module WorkspaceDavClient =
         (bytes: byte[])
         (cookieHeader: string option)
         (clientHint: string option)
+        (sourceMtimeUtc: DateTime option)
         : Result<unit, string> =
         try
             let url = resourceUrl ambitBase label relative
@@ -208,6 +226,13 @@ module WorkspaceDavClient =
             req.Content <- content
             addCookie req cookieHeader
             addClientHint req clientHint
+            match sourceMtimeUtc with
+            | Some utc ->
+                req.Headers.TryAddWithoutValidation(
+                    SourceMtimeHeaderName,
+                    utc.ToString("O"))
+                |> ignore
+            | None -> ()
             use resp = client.Send(req)
             let code = int resp.StatusCode
             if code = 201 || code = 204 || code = 200 then Ok ()

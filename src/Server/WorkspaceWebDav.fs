@@ -314,6 +314,17 @@ module WorkspaceWebDav =
             | Some(false, _, _) ->
                 Results.File(resolved.fullPath, "application/octet-stream")
 
+    let private trySourceMtime (req: HttpRequest) =
+        match req.Headers.TryGetValue(WorkspaceDavClient.SourceMtimeHeaderName) with
+        | true, values ->
+            values
+            |> Seq.tryHead
+            |> Option.bind (fun text ->
+                match DateTimeOffset.TryParse text with
+                | true, dto -> Some dto.UtcDateTime
+                | _ -> None)
+        | _ -> None
+
     let private handlePut (resolved: Resolved) (req: HttpRequest) =
         task {
             match rejectIfIgnored resolved with
@@ -332,23 +343,32 @@ module WorkspaceWebDav =
                     return Results.Problem(detail = e, statusCode = 500)
                 | Ok () ->
                     let existed = File.Exists resolved.fullPath
-                    try
-                        use fs =
-                            new FileStream(
-                                resolved.fullPath,
-                                FileMode.Create,
-                                FileAccess.Write)
-                        do! req.Body.CopyToAsync(fs)
+                    let! writeResult =
+                        task {
+                            try
+                                use fs =
+                                    new FileStream(
+                                        resolved.fullPath,
+                                        FileMode.Create,
+                                        FileAccess.Write)
+                                do! req.Body.CopyToAsync(fs)
+                                return Ok()
+                            with ex ->
+                                return Error ex.Message
+                        }
+                    match writeResult with
+                    | Error msg ->
+                        return Results.Problem(detail = msg, statusCode = 500)
+                    | Ok () ->
+                        match trySourceMtime req with
+                        | Some utc ->
+                            File.SetLastWriteTimeUtc(resolved.fullPath, utc)
+                        | None -> ()
                         let href =
                             hrefOf resolved.label resolved.relative false
                         return
                             if existed then Results.NoContent()
                             else Results.Created(href, null)
-                    with ex ->
-                        return
-                            Results.Problem(
-                                detail = ex.Message,
-                                statusCode = 500)
         }
 
     let private handleMkcol (resolved: Resolved) =

@@ -89,16 +89,34 @@ module Op =
     /// when relocating an Unparsed document root as an opaque unit under a
     /// Current parent (Move Up/Down, Move Selection to Start/End, indent).
     /// Replace that mutates inside an Unparsed document remains blocked, with
-    /// the existing exception for Replace under a Current document root (nested
-    /// parse while an enclosing Directory/Workspace is Unparsed).
+    /// two exceptions: Replace under a Current document root (nested parse while
+    /// an enclosing Directory/Workspace is Unparsed), and attaching/detaching
+    /// document-root stubs under an Unparsed Directory/Workspace shell.
     let private isBlockedByUnparsedDocument (op: Op) (graph: Graph) : bool =
         let nodeBlocked nodeId =
             DocumentPartition.isMemberOfUnparsedDocument graph nodeId
 
+        let isUnparsedTreeShell nodeId =
+            match Map.tryFind nodeId graph.nodes with
+            | Some { kind = Special(Directory | Workspace)
+                     documentState = Unparsed } -> true
+            | _ -> false
+
+        let ownedAreDocumentRoots children =
+            children
+            |> List.filter (fun child -> child.ref = Ownership.Owner)
+            |> List.forall (fun child ->
+                DocumentPartition.isDocumentRootNode graph child.id)
+
         match op with
         | Op.Replace(parentId, _, oldChildren, newChildren) ->
+            let stubAttachUnderShell =
+                isUnparsedTreeShell parentId
+                && ownedAreDocumentRoots oldChildren
+                && ownedAreDocumentRoots newChildren
             let parentBlocked =
                 if isCurrentDocumentRoot graph parentId then false
+                elif stubAttachUnderShell then false
                 else nodeBlocked parentId
             // Document roots may move as opaque units; their Unparsed state
             // must not block sibling reorder / reparent under a Current parent.

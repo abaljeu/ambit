@@ -36,6 +36,8 @@
     <Compile Include="WorkspaceSyncScopeTests.fs" />
     <Compile Include="GitCheckIgnoreTests.fs" />
     <Compile Include="WorkspaceLocalInventoryTests.fs" />
+    <Compile Include="WorkspaceSyncLimitsTests.fs" />
+    <Compile Include="WorkspaceDownloadQueueTests.fs" />
     <Compile Include="WorkspaceDavClientTests.fs" />
     <Compile Include="LoginFormTests.fs" />
     <Compile Include="LoginRedirectTests.fs" />

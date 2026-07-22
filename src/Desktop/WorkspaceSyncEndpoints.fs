@@ -9,7 +9,7 @@ open Gambol.Server
 open Gambol.Shared
 open Microsoft.AspNetCore.Http
 
-/// `/_desktop/workspace-push` and `/_desktop/workspace-pull` (WebDAV).
+/// `/_desktop/workspace-push`, `workspace-pull`, and `workspace-download`.
 [<RequireQualifiedAccess>]
 module WorkspaceSyncEndpoints =
 
@@ -116,6 +116,42 @@ module WorkspaceSyncEndpoints =
             r.downloaded
             (quoteJson r.detail)
 
+    let private okDownload (job: WorkspaceDownloadQueue.DownloadJob) =
+        let state =
+            match job.state with
+            | WorkspaceDownloadQueue.JobState.Queued -> "queued"
+            | WorkspaceDownloadQueue.JobState.Running -> "running"
+            | WorkspaceDownloadQueue.JobState.Completed -> "completed"
+            | WorkspaceDownloadQueue.JobState.Failed -> "failed"
+        sprintf
+            "{\"ok\":true,\"jobId\":%s,\"state\":%s,\"detail\":%s}"
+            (quoteJson (job.id.ToString()))
+            (quoteJson state)
+            (quoteJson job.detail)
+
+    let private jobJson (job: WorkspaceDownloadQueue.DownloadJob) =
+        let state =
+            match job.state with
+            | WorkspaceDownloadQueue.JobState.Queued -> "queued"
+            | WorkspaceDownloadQueue.JobState.Running -> "running"
+            | WorkspaceDownloadQueue.JobState.Completed -> "completed"
+            | WorkspaceDownloadQueue.JobState.Failed -> "failed"
+        let started =
+            job.started
+            |> Option.map (fun dt -> dt.ToString("O"))
+            |> Option.defaultValue ""
+        let finished =
+            job.finished
+            |> Option.map (fun dt -> dt.ToString("O"))
+            |> Option.defaultValue ""
+        sprintf
+            "{\"id\":%s,\"state\":%s,\"detail\":%s,\"started\":%s,\"finished\":%s}"
+            (quoteJson (job.id.ToString()))
+            (quoteJson state)
+            (quoteJson job.detail)
+            (quoteJson started)
+            (quoteJson finished)
+
     let private clientHint (context: HttpContext) =
         match
             context.Request.Headers.TryGetValue(
@@ -188,36 +224,87 @@ module WorkspaceSyncEndpoints =
                 | Ok result -> do! writeJson context (okSync result)
     }
 
+    let private handleDownloadPost
+        (workspaceMap: Map<string, WorkspaceMapping>)
+        (manager: WorkspaceDownloadManager.Manager)
+        (context: HttpContext)
+        = task {
+        let! body = readBody context
+        match decodeScope body with
+        | Error message -> do! writeBadRequest context message
+        | Ok scope ->
+            match resolveMappedRoot workspaceMap scope.label with
+            | Error message -> do! writeBadRequest context message
+            | Ok _ ->
+                match WorkspaceDownloadManager.tryEnqueue manager scope with
+                | WorkspaceDownloadQueue.EnqueueResult.Refused reason ->
+                    do! writeBadRequest context reason
+                | WorkspaceDownloadQueue.EnqueueResult.Started job
+                | WorkspaceDownloadQueue.EnqueueResult.Queued job ->
+                    do! writeJson context (okDownload job)
+    }
+
+    let private handleDownloadGet
+        (manager: WorkspaceDownloadManager.Manager)
+        (context: HttpContext)
+        = task {
+        match context.Request.Query.TryGetValue "id" with
+        | true, values ->
+            match values |> Seq.tryHead with
+            | None -> do! writeBadRequest context "id is required"
+            | Some text ->
+                match Guid.TryParse text with
+                | false, _ -> do! writeBadRequest context "invalid job id"
+                | true, jobId ->
+                    match WorkspaceDownloadManager.tryGetJob manager jobId with
+                    | None -> do! writeBadRequest context "job not found"
+                    | Some job -> do! writeJson context (jobJson job)
+        | _ -> do! writeBadRequest context "id is required"
+    }
+
     let tryHandle
         (workspaceMap: Map<string, WorkspaceMapping>)
         (client: HttpClient)
         (ambitBase: string)
         (creds: LoginForm.Credentials option)
+        (manager: WorkspaceDownloadManager.Manager)
         (context: HttpContext)
         : Task<bool> =
         task {
-            if not (HttpMethods.IsPost context.Request.Method) then
-                return false
-            else
-                let path = context.Request.Path
-                if path.Equals(PathString "/_desktop/workspace-push") then
+            let path = context.Request.Path
+            if path.Equals(PathString "/_desktop/workspace-download") then
+                if HttpMethods.IsPost context.Request.Method then
                     do!
-                        handlePush
+                        handleDownloadPost
                             workspaceMap
-                            client
-                            ambitBase
-                            creds
+                            manager
                             context
                     return true
-                elif path.Equals(PathString "/_desktop/workspace-pull") then
-                    do!
-                        handlePull
-                            workspaceMap
-                            client
-                            ambitBase
-                            creds
-                            context
+                elif HttpMethods.IsGet context.Request.Method then
+                    do! handleDownloadGet manager context
                     return true
                 else
                     return false
+            elif not (HttpMethods.IsPost context.Request.Method) then
+                return false
+            elif path.Equals(PathString "/_desktop/workspace-push") then
+                do!
+                    handlePush
+                        workspaceMap
+                        client
+                        ambitBase
+                        creds
+                        context
+                return true
+            elif path.Equals(PathString "/_desktop/workspace-pull") then
+                do!
+                    handlePull
+                        workspaceMap
+                        client
+                        ambitBase
+                        creds
+                        context
+                return true
+            else
+                return false
         }

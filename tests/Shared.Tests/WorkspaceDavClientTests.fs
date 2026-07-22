@@ -70,3 +70,4 @@ let ``parsePropfindXml reads href collection and mtime`` () =
             entries |> List.find (fun e -> e.relative = "docs/a.txt")
         Assert.False(file.isCollection)
         Assert.True(file.lastModifiedUtc.IsSome)
+        Assert.Equal(2L, file.contentLength)
