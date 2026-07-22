@@ -27,6 +27,14 @@ let private okDetailWithPoll (model: VM) (msg: string) : VM * Effect list =
     let si, pollEffs = SyncPlanner.tryStartPoll model'.revision model'.syncInfo
     { model' with syncInfo = si }, effs @ pollEffs
 
+let private okWithPoll (model: VM) : VM * Effect list =
+    consoleLog "[Gambol sync] ok"
+    let si, pollEffs = SyncPlanner.tryStartPoll model.revision model.syncInfo
+    { model with
+        syncInfo = si
+        lastCmdResult = Some (CmdLastResult.Ok None) },
+    pollEffs
+
 let private httpError (status: int) (body: string) : string =
     match decodePostChangeError body with
     | Some err -> err
@@ -128,11 +136,24 @@ let private postWorkspaceSync
         | Ok { error = Some e } -> Error e
         | Ok _ -> Error "request failed"
 
+let private postReconcileResponse
+    (model: VM)
+    (status: int)
+    (text: string)
+    : VM * Effect list =
+    if status < 200 || status >= 300 then
+        fail model (httpError status text)
+    else
+        match decodeReconciliationDirectory text with
+        | Ok n when n > 0 ->
+            okDetailWithPoll model $"reconciled with warnings ({n})"
+        | Ok _ -> okWithPoll model
+        | Error e -> fail model e
+
 let private postDirectoryReconcile
     (model: VM)
     (workspace: string)
     (path: string)
-    (okDetailText: string)
     : VM * Effect list =
     let body = encodeReconciliationDirectoryRequest workspace path
     let status, text =
@@ -140,16 +161,68 @@ let private postDirectoryReconcile
             "/ambit/workspace/reconciliation/directory"
             body
             (jsonHeaders ())
-    if status < 200 || status >= 300 then
-        fail model (httpError status text)
-    else
-        match decodeReconciliationDirectory text with
-        | Ok n when n > 0 ->
-            okDetailWithPoll model $"reconciled with warnings ({n})"
-        | Ok _ -> okDetailWithPoll model okDetailText
-        | Error e -> fail model e
+    postReconcileResponse model status text
 
-let private applyOpsChange (ops: Op list) (model: VM) : Result<VM * Effect list, string> =
+let private inventoryToAddedPaths
+    (items: DesktopInventoryItem list)
+    : string list =
+    items
+    |> List.map (fun i ->
+        if i.isDirectory then i.relative + "/.amb"
+        else i.relative)
+
+let private fetchImmediateInventory
+    (label: string)
+    : Result<DesktopInventoryItem list, string> =
+    let body = encodeWorkspaceInventoryRequest label ""
+    match postDesktop "/_desktop/workspace-inventory" body with
+    | Error e -> Error e
+    | Ok text -> decodeDesktopInventory text
+
+let private postAddedReconcile
+    (model: VM)
+    (workspace: string)
+    (paths: string list)
+    : VM * Effect list =
+    if paths.IsEmpty then
+        okWithPoll model
+    else
+        let body = encodeReconciliationAddedRequest workspace paths
+        let status, text =
+            postJsonSync
+                "/ambit/workspace/reconciliation/added"
+                body
+                (jsonHeaders ())
+        postReconcileResponse model status text
+
+/// Apply + synchronous POST so server graph has the workspace before push/reconcile.
+let private applyAndPostSync (change: Change) (model: VM) : Result<VM, string> =
+    let state: State =
+        { graph = model.graph
+          revision = model.revision
+          history = model.history }
+    match History.applyChange change state with
+    | ApplyResult.Invalid (_, msg) -> Error msg
+    | ApplyResult.Unchanged _ -> Error "change not applied"
+    | ApplyResult.Changed newState ->
+        let body =
+            SyncBatch.toDeltaChain model.revision.Value [ change ]
+            |> encodePendingBatchBody
+        let url = sprintf "/%s/changes" currentFile
+        let status, text = postJsonSync url body (jsonHeaders ())
+        if status < 200 || status >= 300 then
+            Error(httpError status text)
+        else
+            match decodeChangeAckResponse text with
+            | Error e -> Error e
+            | Ok ack ->
+                Ok
+                    { model with
+                        graph = newState.graph
+                        history = newState.history
+                        revision = ack.revision }
+
+let private createWorkspaceOnServer (ops: Op list) (model: VM) : Result<VM, string> =
     if ops.IsEmpty then
         Error "could not create workspace"
     else
@@ -157,9 +230,7 @@ let private applyOpsChange (ops: Op list) (model: VM) : Result<VM * Effect list,
             { id = model.revision.Value
               changeId = System.Guid.NewGuid()
               ops = ops }
-        match applyAndPost change model with
-        | Error e -> Error e
-        | Ok (m, effects) -> Ok(withSiteMap m, effects)
+        applyAndPostSync change model |> Result.map withSiteMap
 
 let private pushScoped
     (scope: WorkspaceSyncScope)
@@ -188,16 +259,31 @@ let private downloadScoped
     | Error e -> Error e
     | Ok _ -> postWorkspaceDownload scope
 
-let focusIsWorkspaces (model: VM) : bool =
+/// Empty selection means the view root is the focus (same as edit/jump).
+let private effectiveFocusId (model: VM) : NodeId =
     match model.selectedNodes with
-    | None -> false
-    | Some sel ->
-        focusedNodeId model.graph sel = Graph.workspacesId
+    | None -> viewRootNodeId model
+    | Some sel -> focusedNodeId model.graph sel
 
-/// Workspaces + Upload: pick folder → create WS → map → push → reconcile.
+let focusIsWorkspaces (model: VM) : bool =
+    effectiveFocusId model = Graph.workspacesId
+
+/// Background: full WebDAV push + deep directory reconcile.
+let continueWorkspacePush
+    (scope: WorkspaceSyncScope)
+    (model: VM)
+    : VM * Effect list =
+    match pushScoped scope with
+    | Error "cancelled" -> model, []
+    | Error e -> fail model e
+    | Ok sync ->
+        consoleLog ("[Gambol sync] " + sync.detail)
+        postDirectoryReconcile model scope.label scope.relative
+
+/// Workspaces + Upload: pick → create → map → top-level stubs → defer push.
 let uploadCreateWorkspaceOp (model: VM) : VM * Effect list =
     if not (DesktopCapabilities.canWorkspacePush model.desktopCapabilities) then
-        model, []
+        fail model "desktop unavailable: cannot create workspace from folder"
     else
         match pickFolder () with
         | Error "cancelled" -> model, []
@@ -209,9 +295,9 @@ let uploadCreateWorkspaceOp (model: VM) : VM * Effect list =
             else
                 let wsId, ops =
                     FileNodeOps.planCreateWorkspace model.graph basename
-                match applyOpsChange ops model with
+                match createWorkspaceOnServer ops model with
                 | Error e -> fail model e
-                | Ok(model', createEffs) ->
+                | Ok model' ->
                     let label =
                         match Map.tryFind wsId model'.graph.nodes with
                         | Some node ->
@@ -225,31 +311,24 @@ let uploadCreateWorkspaceOp (model: VM) : VM * Effect list =
                             { label = label
                               relative = ""
                               kind = SyncScopeKind.Workspace }
-                        match
-                            postWorkspaceSync
-                                "/_desktop/workspace-push"
-                                scope
-                        with
+                        match fetchImmediateInventory label with
                         | Error e -> fail model' e
-                        | Ok sync ->
+                        | Ok items ->
                             let model'', reconEffs =
-                                postDirectoryReconcile
+                                postAddedReconcile
                                     model'
                                     label
-                                    ""
-                                    sync.detail
-                            model'', createEffs @ reconEffs
+                                    (inventoryToAddedPaths items)
+                            model'',
+                            reconEffs
+                            @ [ Effect.ContinueWorkspacePush scope ]
 
 let uploadNamedScope (model: VM) : VM * Effect list =
     if not (DesktopCapabilities.canWorkspacePush model.desktopCapabilities) then
         match syncScopeFromFocus model with
         | Error msg -> fail model msg
         | Ok scope ->
-            postDirectoryReconcile
-                model
-                scope.label
-                scope.relative
-                ("workspace reconciled from server disk: " + scope.label)
+            postDirectoryReconcile model scope.label scope.relative
     else
         match syncScopeFromFocus model with
         | Error msg -> fail model msg
@@ -258,11 +337,11 @@ let uploadNamedScope (model: VM) : VM * Effect list =
             | Error "cancelled" -> model, []
             | Error e -> fail model e
             | Ok sync ->
+                consoleLog ("[Gambol sync] " + sync.detail)
                 postDirectoryReconcile
                     model
                     scope.label
                     scope.relative
-                    sync.detail
 
 /// File Upload: ensure map → push file scope → Parse.
 let uploadFileOp (fileId: NodeId) (model: VM) : VM * Effect list =
@@ -273,7 +352,9 @@ let uploadFileOp (fileId: NodeId) (model: VM) : VM * Effect list =
             match pushScoped scope with
             | Error "cancelled" -> model, []
             | Error e -> fail model e
-            | Ok _ -> parseFileOp fileId model
+            | Ok sync ->
+                consoleLog ("[Gambol sync] " + sync.detail)
+                parseFileOp fileId model
     else
         parseFileOp fileId model
 

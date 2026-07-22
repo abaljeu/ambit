@@ -202,14 +202,12 @@ module WorkspaceFileSync =
                             clientHint
                     with
                     | Error e -> Error e
-                    | Ok body ->
+                    | Ok _ ->
                         let baseDetail =
                             sprintf
-                                "uploaded %d (%s); finish-commit ok"
+                                "uploaded %d (%s)"
                                 uploaded
                                 (modeLabel mode)
-                            + if body = "" then ""
-                              else " (" + body + ")"
 
                         let detail =
                             if DesktopGit.isAvailable() then

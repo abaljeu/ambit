@@ -9,6 +9,7 @@ open Gambol.Client.Update
 open Gambol.Client.UpdateCodec
 open Gambol.Client.UpdateHelpers
 open Gambol.Client.UpdateOps
+open Gambol.Client.UpdateWorkspaceSync
 open Gambol.Client.Controller
 open Gambol.Client.View
 open Gambol.Client.SearchDialogView
@@ -130,6 +131,13 @@ let createRuntime (initialModel: VM) =
         | SavePendingQueue q -> runSavePendingQueue q
         | RequestDesktopFileStatus (nodeId, path) -> runDesktopFileStatus nodeId path
         | RequestServerFileStatus (nodeId, path) -> runServerFileStatus nodeId path
+        | ContinueWorkspacePush scope ->
+            setTimeout
+                (fun () ->
+                    dispatch (
+                        ApplyOp (continueWorkspacePush scope)))
+                0
+            |> ignore
 
     and runSubmitPendingBatch (baseRev: int) (changes: Change list) : unit =
         let reqId =

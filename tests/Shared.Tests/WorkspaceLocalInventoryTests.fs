@@ -114,3 +114,27 @@ let ``listForPush without git still returns walk`` () =
         Assert.True(Set.contains "skip.tmp" rels)
         Assert.False(Set.contains ".git" rels)
         Assert.False(Set.contains ".git/config" rels)
+
+[<Fact>]
+let ``listImmediateChildren returns only depth-1`` () =
+    let root = newTempDir ()
+    Directory.CreateDirectory(Path.Combine(root, "docs")) |> ignore
+    Directory.CreateDirectory(Path.Combine(root, "docs", "nested")) |> ignore
+    File.WriteAllText(Path.Combine(root, "top.txt"), "ok")
+    File.WriteAllText(Path.Combine(root, "docs", "a.txt"), "a")
+
+    match WorkspaceLocalInventory.listImmediateChildren root "" with
+    | Error e -> Assert.Fail(e)
+    | Ok items ->
+        let rels =
+            items |> List.map (fun i -> i.relative) |> Set.ofList
+        Assert.True(Set.contains "docs" rels)
+        Assert.True(Set.contains "top.txt" rels)
+        Assert.False(Set.contains "docs/a.txt" rels)
+        Assert.False(Set.contains "docs/nested" rels)
+        let docs =
+            items |> List.find (fun i -> i.relative = "docs")
+        Assert.True(docs.isDirectory)
+        let top =
+            items |> List.find (fun i -> i.relative = "top.txt")
+        Assert.False(top.isDirectory)

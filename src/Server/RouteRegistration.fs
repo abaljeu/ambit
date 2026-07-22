@@ -498,6 +498,11 @@ module RouteRegistration =
                 auth.IsAuthenticated
                 persistence.DataDir
                 (fun () -> persistence.GetHandle "gambol")
+            LazyLoadReconciliationServer.registerAddedRoute
+                app
+                auth.IsAuthenticated
+                persistence.DataDir
+                (fun () -> persistence.GetHandle "gambol")
             WorkspaceWebDav.registerRoutes
                 app
                 auth.IsAuthenticated

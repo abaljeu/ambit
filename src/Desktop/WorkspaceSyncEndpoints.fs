@@ -9,7 +9,8 @@ open Gambol.Server
 open Gambol.Shared
 open Microsoft.AspNetCore.Http
 
-/// `/_desktop/workspace-push`, `workspace-pull`, and `workspace-download`.
+/// `/_desktop/workspace-push`, `workspace-pull`, `workspace-download`,
+/// and `workspace-inventory`.
 [<RequireQualifiedAccess>]
 module WorkspaceSyncEndpoints =
 
@@ -262,6 +263,51 @@ module WorkspaceSyncEndpoints =
         | _ -> do! writeBadRequest context "id is required"
     }
 
+    let private handleInventory
+        (workspaceMap: Map<string, WorkspaceMapping>)
+        (context: HttpContext)
+        = task {
+        let! body = readBody context
+        match
+            try
+                use document = JsonDocument.Parse body
+                let root = document.RootElement
+                match tryGetString root "label" with
+                | None -> Error "label is required"
+                | Some label ->
+                    let relative =
+                        tryGetString root "relative"
+                        |> Option.defaultValue ""
+                    match WorkspaceSyncScope.normalizeRelative relative with
+                    | Error e -> Error e
+                    | Ok rel -> Ok(label, rel)
+            with
+            | :? JsonException -> Error "invalid JSON"
+        with
+        | Error message -> do! writeBadRequest context message
+        | Ok(label, relative) ->
+            match resolveMappedRoot workspaceMap label with
+            | Error message -> do! writeBadRequest context message
+            | Ok mappedRoot ->
+                match
+                    WorkspaceLocalInventory.listImmediateChildren
+                        mappedRoot
+                        relative
+                with
+                | Error err -> do! writeBadRequest context err
+                | Ok items ->
+                    let itemJson (i: LocalSyncItem) =
+                        sprintf
+                            "{\"relative\":%s,\"isDirectory\":%b}"
+                            (quoteJson i.relative)
+                            i.isDirectory
+                    let json =
+                        "["
+                        + String.concat "," (List.map itemJson items)
+                        + "]"
+                    do! writeJson context json
+    }
+
     let tryHandle
         (workspaceMap: Map<string, WorkspaceMapping>)
         (client: HttpClient)
@@ -304,6 +350,9 @@ module WorkspaceSyncEndpoints =
                         ambitBase
                         creds
                         context
+                return true
+            elif path.Equals(PathString "/_desktop/workspace-inventory") then
+                do! handleInventory workspaceMap context
                 return true
             else
                 return false

@@ -54,6 +54,38 @@ let encodeReconciliationDirectoryRequest (workspace: string) (path: string) : st
           "path", Encode.string path ]
     |> Thoth.Json.JavaScript.Encode.toString 0
 
+let encodeReconciliationAddedRequest
+    (workspace: string)
+    (paths: string list)
+    : string =
+    Encode.object
+        [ "workspace", Encode.string workspace
+          "paths", Encode.list (List.map Encode.string paths) ]
+    |> Thoth.Json.JavaScript.Encode.toString 0
+
+let encodeWorkspaceInventoryRequest
+    (label: string)
+    (relative: string)
+    : string =
+    Encode.object
+        [ "label", Encode.string label
+          "relative", Encode.string relative ]
+    |> Thoth.Json.JavaScript.Encode.toString 0
+
+type DesktopInventoryItem =
+    { relative: string
+      isDirectory: bool }
+
+/// Decode POST /_desktop/workspace-inventory → depth-1 items.
+let decodeDesktopInventory
+    (text: string)
+    : Result<DesktopInventoryItem list, string> =
+    let itemDecoder =
+        Decode.object (fun get ->
+            { relative = get.Required.Field "relative" Decode.string
+              isDirectory = get.Required.Field "isDirectory" Decode.bool })
+    Thoth.Json.JavaScript.Decode.fromString (Decode.list itemDecoder) text
+
 /// Decode POST /_desktop/workspace-push|pull.
 let decodeDesktopWorkspaceSync
     (text: string)
@@ -74,7 +106,7 @@ let decodeMappedRootPath
     let entryDecoder =
         Decode.object (fun get ->
             get.Required.Field "label" Decode.string,
-            get.Required.Field "rootPath" Decode.string)
+            get.Required.Field "path" Decode.string)
     let decoder =
         Decode.object (fun get ->
             get.Optional.Field

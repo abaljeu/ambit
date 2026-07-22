@@ -180,7 +180,10 @@ module LocalProxy =
         new HttpClient(handler, disposeHandler = true)
 
     let private isDesktopRequest (path: PathString) =
-        path.StartsWithSegments(PathString "/_desktop")
+        if path.Value = "/ambit/poll" then 
+            true
+        else
+            path.StartsWithSegments(PathString "/_desktop")
 
     let private configPath =
         Path.Combine(

@@ -249,6 +249,7 @@ type Effect =
     | SavePendingQueue of Change list
     | RequestDesktopFileStatus of nodeId: NodeId * path: string
     | RequestServerFileStatus of nodeId: NodeId * path: string
+    | ContinueWorkspacePush of WorkspaceSyncScope
 
 /// Row / active-file indicator vocabulary (desktop status + absent artifacts).
 type DesktopFileIndicator =

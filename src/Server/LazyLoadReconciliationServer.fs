@@ -212,6 +212,34 @@ module LazyLoadReconciliationServer =
                   path = get.Required.Field "path" Thoth.Json.Core.Decode.string })
         JsonDecode.fromString decoder json
 
+    type private AddedBody =
+        { workspace: string
+          paths: string list }
+
+    let private decodeAddedBody (json: string) : Result<AddedBody, string> =
+        let decoder =
+            Thoth.Json.Core.Decode.object (fun get ->
+                { workspace =
+                    get.Required.Field
+                        "workspace"
+                        Thoth.Json.Core.Decode.string
+                  paths =
+                    get.Required.Field
+                        "paths"
+                        (Thoth.Json.Core.Decode.list
+                            Thoth.Json.Core.Decode.string) })
+        JsonDecode.fromString decoder json
+
+    let private failuresResult
+        (result: Result<LazyLoadReconciliationReport.Failure list, string>)
+        =
+        match result with
+        | Error err -> Results.BadRequest(err)
+        | Ok failures ->
+            Results.Content(
+                LazyLoadReconciliationDiagnostics.encodeFailures failures,
+                "application/json")
+
     let registerDirectoryRoute
         (app: WebApplication)
         (isAuthenticated: HttpRequest -> bool)
@@ -245,14 +273,39 @@ module LazyLoadReconciliationServer =
                                         dataDir
                                         payload.workspace
                                         payload.path
-                            match result with
-                            | Error err -> return Results.BadRequest(err)
-                            | Ok failures ->
-                                return
-                                    Results.Content(
-                                        LazyLoadReconciliationDiagnostics.encodeFailures
-                                            failures,
-                                        "application/json")
+                            return failuresResult result
+                })
+        )
+        |> ignore
+
+    let registerAddedRoute
+        (app: WebApplication)
+        (isAuthenticated: HttpRequest -> bool)
+        (dataDir: string)
+        (getHandle: unit -> AgentHandle)
+        =
+        app.MapPost(
+            "/ambit/workspace/reconciliation/added",
+            Func<HttpRequest, System.Threading.Tasks.Task<IResult>>(fun req ->
+                task {
+                    if not (isAuthenticated req) then
+                        return Results.Unauthorized()
+                    else
+                        use reader = new StreamReader(req.Body)
+                        let! body = reader.ReadToEndAsync()
+                        match decodeAddedBody body with
+                        | Error err ->
+                            return Results.BadRequest("invalid body: " + err)
+                        | Ok payload when String.IsNullOrWhiteSpace payload.workspace ->
+                            return Results.BadRequest("missing workspace")
+                        | Ok payload ->
+                            let! result =
+                                reconcileAddedPaths
+                                    (getHandle ())
+                                    dataDir
+                                    payload.workspace
+                                    payload.paths
+                            return failuresResult result
                 })
         )
         |> ignore

@@ -137,6 +137,38 @@ module WorkspaceLocalInventory =
             if not (DesktopGit.isAvailable()) then Ok raw
             else applyIgnoreFilter root raw
 
+    /// Immediate children only under `relative` (empty = mapped root).
+    /// Same ignore rules as listForPush; does not include the scope dir itself.
+    let listImmediateChildren
+        (mappedRoot: string)
+        (relative: string)
+        : Result<LocalSyncItem list, string> =
+        let root = Path.GetFullPath mappedRoot
+
+        try
+            let scopeFull =
+                if relative = "" then root
+                else
+                    let parts =
+                        relative.Split(
+                            [| '/' |],
+                            StringSplitOptions.RemoveEmptyEntries)
+                    Path.GetFullPath(
+                        Path.Combine(Array.append [| root |] parts))
+
+            match tryInfo scopeFull with
+            | None -> Error "scope path not found"
+            | Some false -> Error "scope path is a file"
+            | Some true ->
+                let raw =
+                    listDirChildren relative scopeFull
+                    |> List.map (fun (child, _, isDir) ->
+                        { relative = child; isDirectory = isDir })
+                if not (DesktopGit.isAvailable()) then Ok raw
+                else applyIgnoreFilter root raw
+        with ex ->
+            Error ex.Message
+
     /// Directories first by depth, then files (stable for MKCOL then PUT).
     let orderForUpload (items: LocalSyncItem list) : LocalSyncItem list =
         let depth (rel: string) =
