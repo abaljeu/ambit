@@ -97,15 +97,26 @@ module PlainTextDocument =
 
         let indentStyle = inferIndentStyle parsed
 
-        let outline =
-            parsed
-            |> List.map (fun line ->
-                { depth = depthOf line.body indentStyle
-                  text =
+        // Whitespace-only lines inherit predecessor depth so they stay indented
+        // with neighboring content lines.
+        let outline, _ =
+            (0, parsed)
+            ||> List.mapFold (fun prevDepth line ->
+                let depth =
                     if line.isBlank then
-                        ""
+                        prevDepth
                     else
-                        strippedBody line.body })
+                        depthOf line.body indentStyle
+
+                let outlineLine =
+                    { depth = depth
+                      text =
+                        if line.isBlank then
+                            ""
+                        else
+                            strippedBody line.body }
+
+                outlineLine, depth)
 
         indentStyle, outline
 

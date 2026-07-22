@@ -719,6 +719,9 @@ let renderStatus (model: VM) : unit =
         | Polling ->
             el.textContent <- "Checking\u2026"
             el.className <- "amb-sync-status amb-synced"
+        | Uploading ->
+            el.textContent <- "Uploading\u2026"
+            el.className <- "amb-sync-status amb-syncing"
         | WaitingToRetry (n, _, _) ->
             el.textContent <- $"Unsaved \u2014 (try {n})"
             el.className <- "amb-sync-status amb-pending"

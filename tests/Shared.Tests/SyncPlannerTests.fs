@@ -108,3 +108,21 @@ let ``tryStartPoll returns no effects when already sending`` () =
     let si, effects = SyncPlanner.tryStartPoll (Revision 5) syncInfo
     Assert.Equal(Sending 1, si.syncState)
     Assert.Empty(effects)
+
+[<Fact>]
+let ``tryStartPoll returns no effects when uploading`` () =
+    let syncInfo =
+        { SyncInfo.initial with syncState = Uploading }
+    let si, effects = SyncPlanner.tryStartPoll (Revision 5) syncInfo
+    Assert.Equal(Uploading, si.syncState)
+    Assert.Empty(effects)
+
+[<Fact>]
+let ``tryStartSubmit returns no effects when uploading`` () =
+    let syncInfo =
+        { SyncInfo.initial with
+            pendingChanges = [ mkChange 1 ]
+            syncState = Uploading }
+    let nextInfo, effects = SyncPlanner.tryStartSubmit (Revision 1) syncInfo
+    Assert.Equal(Uploading, nextInfo.syncState)
+    Assert.Empty(effects)

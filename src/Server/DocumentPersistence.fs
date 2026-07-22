@@ -115,12 +115,15 @@ module DocumentPersistence =
             | Ok fullPath when not (File.Exists fullPath) ->
                 Error "file not found"
             | Ok fullPath ->
-                try
-                    let text = File.ReadAllText fullPath
-                    ImportDocument.buildFilePackage nodeReference text
-                with
-                | :? IOException as ex ->
-                    Error ("read failed: " + ex.Message)
+                if DocumentBinary.isBinaryExtension relativePath then
+                    Error DocumentBinary.parseError
+                else
+                    try
+                        let text = File.ReadAllText fullPath
+                        ImportDocument.buildFilePackage nodeReference text
+                    with
+                    | :? IOException as ex ->
+                        Error ("read failed: " + ex.Message)
 
     let private readFileTextAtRelative
         (dataDir: string)
@@ -171,19 +174,27 @@ module DocumentPersistence =
         : Result<Op list, string> =
         match Map.tryFind fileId graph.nodes with
         | Some { kind = Special File } ->
-            let textResult =
-                match textOpt with
-                | Some text ->
-                    writeArtifactText dataDir graph fileId text
-                    |> Result.map (fun () -> text)
-                | None ->
-                    match DocumentPartition.artifactFileRelative graph fileId with
-                    | None -> Error "selected File has no occurrence on the server"
-                    | Some relativePath ->
-                        readFileTextAtRelative dataDir relativePath
+            match DocumentPartition.artifactFileRelative graph fileId with
+            | None -> Error "selected File has no occurrence on the server"
+            | Some relativePath ->
+                let textResult =
+                    match textOpt with
+                    | Some text ->
+                        DocumentBinary.refuseParse relativePath text
+                        |> Result.bind (fun () ->
+                            writeArtifactText dataDir graph fileId text
+                            |> Result.map (fun () -> text))
+                    | None ->
+                        if DocumentBinary.isBinaryExtension relativePath then
+                            Error DocumentBinary.parseError
+                        else
+                            readFileTextAtRelative dataDir relativePath
+                            |> Result.bind (fun text ->
+                                DocumentBinary.refuseParse relativePath text
+                                |> Result.map (fun () -> text))
 
-            textResult
-            |> Result.bind (ImportDocument.planParseFile graph fileId)
+                textResult
+                |> Result.bind (ImportDocument.planParseFile graph fileId)
         | _ -> Error "file not found or not a File document"
 
     let private resolveArtifactDirectoryPath

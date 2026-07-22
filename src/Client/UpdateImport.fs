@@ -73,22 +73,37 @@ let private postParseFile
 /// Parse: client posts fileId (+ optional desktop text); server applies.
 let parseFileOp (fileId: NodeId) (model: VM) : VM * Effect list =
     match Map.tryFind fileId model.graph.nodes with
-    | Some { kind = Special File; documentState = state } ->
+    | Some { kind = Special File; documentState = state; name = name; text = text } ->
         let pathOpt = NodeDesktopPath.pathForNodeId model.graph fileId
-        let detailPrefix =
-            match state with
-            | Unparsed -> "parsed: "
-            | Current -> "reconciled: "
+        let nameHint =
+            Filename.tryValue name |> Option.defaultValue text
 
-        let textResult =
-            match pathOpt with
-            | Some path when canImportDesktop model ->
-                tryReadDesktopContent path
-            | _ -> Ok None
+        let binaryPath =
+            pathOpt
+            |> Option.orElse (Some nameHint)
+            |> Option.exists DocumentBinary.isBinaryExtension
 
-        match textResult with
-        | Error err -> fail model err
-        | Ok textOpt ->
-            let detailPath = pathOpt |> Option.defaultValue ""
-            postParseFile model fileId textOpt detailPrefix detailPath
+        if binaryPath then
+            fail model DocumentBinary.parseError
+        else
+            let detailPrefix =
+                match state with
+                | Unparsed -> "parsed: "
+                | Current -> "reconciled: "
+
+            let textResult =
+                match pathOpt with
+                | Some path when canImportDesktop model ->
+                    tryReadDesktopContent path
+                | _ -> Ok None
+
+            match textResult with
+            | Error err -> fail model err
+            | Ok textOpt ->
+                match textOpt with
+                | Some content when DocumentBinary.looksLikeBinaryContent content ->
+                    fail model DocumentBinary.parseError
+                | _ ->
+                    let detailPath = pathOpt |> Option.defaultValue ""
+                    postParseFile model fileId textOpt detailPrefix detailPath
     | _ -> model, []

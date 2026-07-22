@@ -35,26 +35,28 @@ module ImportDocument =
         if String.IsNullOrWhiteSpace text then
             Error "import text is empty"
         else
-            let documentRootId = NodeId.New()
-            let graph = stubGraph documentRootId relativePath
+            DocumentBinary.refuseParse relativePath text
+            |> Result.bind (fun () ->
+                let documentRootId = NodeId.New()
+                let graph = stubGraph documentRootId relativePath
 
-            DocumentColdParse.planApplyCold
-                graph
-                documentRootId
-                relativePath
-                text
-            |> Result.bind (fun ops ->
-                let topLevelIds, ops =
-                    DocumentColdParse.peelDocumentRootOps documentRootId ops
+                DocumentColdParse.planApplyCold
+                    graph
+                    documentRootId
+                    relativePath
+                    text
+                |> Result.bind (fun ops ->
+                    let topLevelIds, ops =
+                        DocumentColdParse.peelDocumentRootOps documentRootId ops
 
-                if List.isEmpty topLevelIds && List.isEmpty ops then
-                    Error "import text is empty"
-                else
-                    Ok
-                        { sourcePath = sourcePath
-                          isDirectory = false
-                          topLevelIds = topLevelIds
-                          ops = ops })
+                    if List.isEmpty topLevelIds && List.isEmpty ops then
+                        Error "import text is empty"
+                    else
+                        Ok
+                            { sourcePath = sourcePath
+                              isDirectory = false
+                              topLevelIds = topLevelIds
+                              ops = ops }))
 
     /// Parse file text through DocumentFormat and return a paste-compatible package.
     let buildFilePackage (sourcePath: string) (text: string) : Result<DesktopImportPackage, string> =
@@ -102,26 +104,31 @@ module ImportDocument =
                 match DocumentPartition.artifactFileRelative graph fileId with
                 | None -> Error "no artifact path for file"
                 | Some relativePath ->
-                    let previousText =
-                        match state with
-                        | Current ->
-                            previousArtifactText graph fileId relativePath
-                        | Unparsed -> None
-
-                    DocumentParseOps.planApplyArtifact
-                        graph
-                        fileId
-                        relativePath
-                        text
-                        previousText
-                    |> Result.map (fun parseOps ->
-                        let markCurrent =
+                    DocumentBinary.refuseParse relativePath text
+                    |> Result.bind (fun () ->
+                        let previousText =
                             match state with
-                            | Unparsed ->
-                                [ Op.SetDocumentState(fileId, Unparsed, Current) ]
-                            | Current -> []
+                            | Current ->
+                                previousArtifactText graph fileId relativePath
+                            | Unparsed -> None
 
-                        markCurrent @ parseOps)
+                        DocumentParseOps.planApplyArtifact
+                            graph
+                            fileId
+                            relativePath
+                            text
+                            previousText
+                        |> Result.map (fun parseOps ->
+                            let markCurrent =
+                                match state with
+                                | Unparsed ->
+                                    [ Op.SetDocumentState(
+                                        fileId,
+                                        Unparsed,
+                                        Current) ]
+                                | Current -> []
+
+                            markCurrent @ parseOps))
             | _ -> Error "file not found or not a File document"
 
     /// Warm reconcile package (legacy shape). Prefer planParseFile for apply.

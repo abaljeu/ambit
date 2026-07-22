@@ -95,6 +95,24 @@ let ``read blank lines create empty nodes`` () =
     Assert.Equal<string list>([ "only"; ""; "also" ], childTexts result.nodes docId)
 
 [<Fact>]
+let ``flattenText whitespace-only blank inherits predecessor depth`` () =
+    let text =
+        "    Ladder"
+        + Environment.NewLine
+        + Environment.NewLine
+        + "  "
+        + Environment.NewLine
+        + "    Add"
+        + Environment.NewLine
+    let style, lines = PlainTextDocument.flattenText text
+    match style with
+    | PlainTextIndentStyle.Spaces 4 -> ()
+    | other -> failwith $"expected Spaces 4, got {other}"
+    Assert.Equal<(int * string) list>(
+        [ (1, "Ladder"); (1, ""); (1, ""); (1, "Add") ],
+        lines)
+
+[<Fact>]
 let ``read uses line body literally as node text`` () =
     let graph, docId = graphWithDocument []
     let text = "hello #anchor" + Environment.NewLine

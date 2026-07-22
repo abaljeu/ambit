@@ -14,6 +14,7 @@
     <Compile Include="AmbDocument.fs" />
     <Compile Include="PlainTextDocument.fs" />
     <Compile Include="MdDocument.fs" />
+    <Compile Include="DocumentBinary.fs" />
     <Compile Include="DocumentFormat.fs" />
     <Compile Include="DocumentColdParse.fs" />
     <Compile Include="PlainTextReconcile.fs" />

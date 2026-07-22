@@ -209,6 +209,7 @@ type SyncState =
     | Idle                       // all confirmed, nothing pending
     | Sending of attempt: int    // POST in-flight; attempt = 1-based send count
     | Polling                    // GET poll in-flight
+    | Uploading                  // workspace push in progress (blocks poll)
     | WaitingToRetry of attempt: int * baseRevision: int * changes: Change list
     | ServerRejected  // server returned 400 — change cannot be applied; reload required
     | CodeOutdated    // server has newer code (build stamp changed) — reload required
@@ -249,7 +250,10 @@ type Effect =
     | SavePendingQueue of Change list
     | RequestDesktopFileStatus of nodeId: NodeId * path: string
     | RequestServerFileStatus of nodeId: NodeId * path: string
-    | ContinueWorkspacePush of WorkspaceSyncScope
+    /// After create: inventory + top-level stubs, then ContinueWorkspacePush.
+    | ContinueWorkspaceStubsThenPush of WorkspaceSyncScope
+    /// Deferred workspace push; Some fileId → parse that file after push.
+    | ContinueWorkspacePush of WorkspaceSyncScope * parseFileId: NodeId option
 
 /// Row / active-file indicator vocabulary (desktop status + absent artifacts).
 type DesktopFileIndicator =

@@ -131,12 +131,20 @@ let createRuntime (initialModel: VM) =
         | SavePendingQueue q -> runSavePendingQueue q
         | RequestDesktopFileStatus (nodeId, path) -> runDesktopFileStatus nodeId path
         | RequestServerFileStatus (nodeId, path) -> runServerFileStatus nodeId path
-        | ContinueWorkspacePush scope ->
+        | ContinueWorkspaceStubsThenPush scope ->
+            // Delay past the current frame so Uploading + workspace node can paint.
             setTimeout
                 (fun () ->
                     dispatch (
-                        ApplyOp (continueWorkspacePush scope)))
-                0
+                        ApplyOp (continueWorkspaceStubsThenPush scope)))
+                50
+            |> ignore
+        | ContinueWorkspacePush (scope, parseFileId) ->
+            setTimeout
+                (fun () ->
+                    dispatch (
+                        ApplyOp (continueWorkspacePush scope parseFileId)))
+                50
             |> ignore
 
     and runSubmitPendingBatch (baseRev: int) (changes: Change list) : unit =

@@ -268,19 +268,101 @@ let private effectiveFocusId (model: VM) : NodeId =
 let focusIsWorkspaces (model: VM) : bool =
     effectiveFocusId model = Graph.workspacesId
 
-/// Background: full WebDAV push + deep directory reconcile.
-let continueWorkspacePush
+let private clearUploading (m: VM) =
+    { m with
+        syncInfo = SyncInfo.withSyncState Idle m.syncInfo }
+
+let private keepUploading (m: VM) =
+    { m with
+        syncInfo = SyncInfo.withSyncState Uploading m.syncInfo }
+
+/// Blocking poll so stub nodes appear before the heavy file push (keeps Uploading).
+let private applyPollSyncKeepUpload (model: VM) : VM =
+    let url =
+        sprintf "/%s/poll?_=%d&rev=%d" currentFile (int (nowMs ())) model.revision.Value
+    let status, text = getJsonSync url
+    if status < 200 || status >= 300 then
+        keepUploading model
+    else
+        match Serialization.decodePollResponse text with
+        | Error _ -> keepUploading model
+        | Ok poll when poll.changes.IsEmpty -> keepUploading model
+        | Ok poll ->
+            let state: State =
+                { graph = model.graph
+                  history = model.history
+                  revision = model.revision }
+            match SyncLogic.applyServerTail poll.changes state with
+            | Error _ -> keepUploading model
+            | Ok newState ->
+                { model with
+                    graph = newState.graph
+                    history = newState.history
+                    revision = newState.revision }
+                |> withSiteMap
+                |> keepUploading
+
+/// Background: inventory + top-level stubs, then defer file push.
+let continueWorkspaceStubsThenPush
     (scope: WorkspaceSyncScope)
     (model: VM)
     : VM * Effect list =
+    match fetchImmediateInventory scope.label with
+    | Error e -> fail (clearUploading model) e
+    | Ok items ->
+        let paths = inventoryToAddedPaths items
+        if paths.IsEmpty then
+            keepUploading model, [ Effect.ContinueWorkspacePush (scope, None) ]
+        else
+            let body = encodeReconciliationAddedRequest scope.label paths
+            let status, text =
+                postJsonSync
+                    "/ambit/workspace/reconciliation/added"
+                    body
+                    (jsonHeaders ())
+            if status < 200 || status >= 300 then
+                fail (clearUploading model) (httpError status text)
+            else
+                match decodeReconciliationDirectory text with
+                | Error e -> fail (clearUploading model) e
+                | Ok n ->
+                    let model' = applyPollSyncKeepUpload model
+                    let model'' =
+                        if n > 0 then
+                            { model' with
+                                lastCmdResult =
+                                    Some (
+                                        CmdLastResult.Detail (
+                                            None, $"reconciled with warnings ({n})")) }
+                        else
+                            model'
+                    keepUploading model'',
+                    [ Effect.ContinueWorkspacePush (scope, None) ]
+
+/// Background: full WebDAV push, then directory reconcile or file parse.
+let continueWorkspacePush
+    (scope: WorkspaceSyncScope)
+    (parseFileId: NodeId option)
+    (model: VM)
+    : VM * Effect list =
     match pushScoped scope with
-    | Error "cancelled" -> model, []
-    | Error e -> fail model e
+    | Error "cancelled" -> clearUploading model, []
+    | Error e -> fail (clearUploading model) e
     | Ok sync ->
         consoleLog ("[Gambol sync] " + sync.detail)
-        postDirectoryReconcile model scope.label scope.relative
+        let model' = clearUploading model
+        match parseFileId with
+        | Some fileId -> parseFileOp fileId model'
+        | None -> postDirectoryReconcile model' scope.label scope.relative
 
-/// Workspaces + Upload: pick → create → map → top-level stubs → defer push.
+let private beginDeferredPush
+    (scope: WorkspaceSyncScope)
+    (parseFileId: NodeId option)
+    (model: VM)
+    : VM * Effect list =
+    keepUploading model, [ Effect.ContinueWorkspacePush (scope, parseFileId) ]
+
+/// Workspaces + Upload: pick → create → map → paint Uploading → stubs → push.
 let uploadCreateWorkspaceOp (model: VM) : VM * Effect list =
     if not (DesktopCapabilities.canWorkspacePush model.desktopCapabilities) then
         fail model "desktop unavailable: cannot create workspace from folder"
@@ -311,17 +393,8 @@ let uploadCreateWorkspaceOp (model: VM) : VM * Effect list =
                             { label = label
                               relative = ""
                               kind = SyncScopeKind.Workspace }
-                        match fetchImmediateInventory label with
-                        | Error e -> fail model' e
-                        | Ok items ->
-                            let model'', reconEffs =
-                                postAddedReconcile
-                                    model'
-                                    label
-                                    (inventoryToAddedPaths items)
-                            model'',
-                            reconEffs
-                            @ [ Effect.ContinueWorkspacePush scope ]
+                        keepUploading model',
+                        [ Effect.ContinueWorkspaceStubsThenPush scope ]
 
 let uploadNamedScope (model: VM) : VM * Effect list =
     if not (DesktopCapabilities.canWorkspacePush model.desktopCapabilities) then
@@ -332,29 +405,14 @@ let uploadNamedScope (model: VM) : VM * Effect list =
     else
         match syncScopeFromFocus model with
         | Error msg -> fail model msg
-        | Ok scope ->
-            match pushScoped scope with
-            | Error "cancelled" -> model, []
-            | Error e -> fail model e
-            | Ok sync ->
-                consoleLog ("[Gambol sync] " + sync.detail)
-                postDirectoryReconcile
-                    model
-                    scope.label
-                    scope.relative
+        | Ok scope -> beginDeferredPush scope None model
 
-/// File Upload: ensure map → push file scope → Parse.
+/// File Upload: ensure map → defer push → Parse.
 let uploadFileOp (fileId: NodeId) (model: VM) : VM * Effect list =
     if DesktopCapabilities.canWorkspacePush model.desktopCapabilities then
         match syncScopeFromFocus model with
         | Error msg -> fail model msg
-        | Ok scope ->
-            match pushScoped scope with
-            | Error "cancelled" -> model, []
-            | Error e -> fail model e
-            | Ok sync ->
-                consoleLog ("[Gambol sync] " + sync.detail)
-                parseFileOp fileId model
+        | Ok scope -> beginDeferredPush scope (Some fileId) model
     else
         parseFileOp fileId model
 

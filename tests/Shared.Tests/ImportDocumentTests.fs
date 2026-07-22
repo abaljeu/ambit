@@ -342,6 +342,52 @@ let ``planParseFile rejects blank input`` () =
     | Error err -> Assert.Equal("import text is empty", err)
 
 [<Fact>]
+let ``planParseFile rejects binary image extension`` () =
+    let graph0 = Graph.create ()
+    let fileId = NodeId.New()
+    let file =
+        Node.Create(
+            fileId,
+            text = "cat.jpg",
+            name = Filename.create "cat.jpg",
+            owner = graph0.root,
+            kind = Special File,
+            documentState = Unparsed)
+
+    let graph =
+        graph0.nodes
+        |> Map.add fileId file
+        |> fun nodes -> Graph.fromNodes graph0.root nodes
+
+    match ImportDocument.planParseFile graph fileId "not an image" with
+    | Ok _ -> failwith "expected binary parse to fail"
+    | Error err -> Assert.Equal(DocumentBinary.parseError, err)
+
+[<Fact>]
+let ``planParseFile rejects NUL content on unknown extension`` () =
+    let graph0 = Graph.create ()
+    let fileId = NodeId.New()
+    let file =
+        Node.Create(
+            fileId,
+            text = "mystery.bin",
+            name = Filename.create "mystery.bin",
+            owner = graph0.root,
+            kind = Special File,
+            documentState = Unparsed)
+
+    let graph =
+        graph0.nodes
+        |> Map.add fileId file
+        |> fun nodes -> Graph.fromNodes graph0.root nodes
+
+    let text = "hdr" + string '\000' + "tail"
+
+    match ImportDocument.planParseFile graph fileId text with
+    | Ok _ -> failwith "expected binary parse to fail"
+    | Error err -> Assert.Equal(DocumentBinary.parseError, err)
+
+[<Fact>]
 let ``planParseFile unparsed marks Current`` () =
     let graph0 = Graph.create ()
     let fileId = NodeId.New()

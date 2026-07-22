@@ -17,7 +17,9 @@ module DocumentFormat =
     let classifyCodec (relativePath: string) : Result<DocumentCodec, string> =
         let path = normalizeRelative relativePath
 
-        if path.EndsWith(".amb") then
+        if DocumentBinary.isBinaryExtension path then
+            Error DocumentBinary.parseError
+        elif path.EndsWith(".amb") then
             Ok DocumentCodec.Amb
         elif path.EndsWith(".md") then
             Ok DocumentCodec.Md

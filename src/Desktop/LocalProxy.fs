@@ -180,10 +180,7 @@ module LocalProxy =
         new HttpClient(handler, disposeHandler = true)
 
     let private isDesktopRequest (path: PathString) =
-        if path.Value = "/ambit/poll" then 
-            true
-        else
-            path.StartsWithSegments(PathString "/_desktop")
+        path.StartsWithSegments(PathString "/_desktop")
 
     let private configPath =
         Path.Combine(
@@ -359,27 +356,39 @@ module LocalProxy =
                     do! writeBadRequest context "file not found"
                 else
                     try
-                        let! text =
-                            if Directory.Exists fullPath then
-                                Task.FromResult(readDirectoryAsText fullPath)
-                            else
-                                File.ReadAllTextAsync(fullPath, context.RequestAborted)
+                        if
+                            not (Directory.Exists fullPath)
+                            && DocumentBinary.isBinaryExtension path
+                        then
+                            do! writeBadRequest context DocumentBinary.parseError
+                        else
+                            let! text =
+                                if Directory.Exists fullPath then
+                                    Task.FromResult(readDirectoryAsText fullPath)
+                                else
+                                    File.ReadAllTextAsync(
+                                        fullPath,
+                                        context.RequestAborted)
 
-                        let packageResult =
-                            if Directory.Exists fullPath then
-                                ImportText.buildPackage path text
-                                |> Result.map (fun package ->
-                                    { package with isDirectory = true })
-                            else
-                                ImportDocument.buildFilePackage path text
+                            let packageResult =
+                                if Directory.Exists fullPath then
+                                    ImportText.buildPackage path text
+                                    |> Result.map (fun package ->
+                                        { package with isDirectory = true })
+                                else
+                                    ImportDocument.buildFilePackage path text
 
-                        match packageResult with
-                        | Error message -> do! writeBadRequest context message
-                        | Ok package ->
-                            let json =
-                                Encode.toString 0 (Serialization.encodeDesktopImportPackage package)
+                            match packageResult with
+                            | Error message ->
+                                do! writeBadRequest context message
+                            | Ok package ->
+                                let json =
+                                    Encode.toString
+                                        0
+                                        (Serialization.encodeDesktopImportPackage
+                                            package)
 
-                            do! writeJson context json
+                                do! writeJson context json
                     with
                     | :? IOException as ex ->
                         do! writeBadRequest context ("read failed: " + ex.Message)
@@ -409,15 +418,27 @@ module LocalProxy =
                     do! writeBadRequest context "file not found"
                 | Ok fullPath ->
                     try
-                        let! text =
-                            File.ReadAllTextAsync(fullPath, context.RequestAborted)
-                        let json =
-                            "{\"path\":"
-                            + quoteJson validPath
-                            + ",\"content\":"
-                            + quoteJson text
-                            + "}"
-                        do! writeJson context json
+                        if DocumentBinary.isBinaryExtension validPath then
+                            do! writeBadRequest context DocumentBinary.parseError
+                        else
+                            let! text =
+                                File.ReadAllTextAsync(
+                                    fullPath,
+                                    context.RequestAborted)
+
+                            if DocumentBinary.looksLikeBinaryContent text then
+                                do!
+                                    writeBadRequest
+                                        context
+                                        DocumentBinary.parseError
+                            else
+                                let json =
+                                    "{\"path\":"
+                                    + quoteJson validPath
+                                    + ",\"content\":"
+                                    + quoteJson text
+                                    + "}"
+                                do! writeJson context json
                     with
                     | :? IOException as ex ->
                         do! writeBadRequest context ("read failed: " + ex.Message)
