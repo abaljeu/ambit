@@ -7,6 +7,7 @@ type DocumentCodec =
     | Amb
     | Plain
     | Md
+    | CStyle
 
 [<RequireQualifiedAccess>]
 module DocumentFormat =
@@ -23,6 +24,8 @@ module DocumentFormat =
             Ok DocumentCodec.Amb
         elif path.EndsWith(".md") then
             Ok DocumentCodec.Md
+        elif path.EndsWith(".cs") then
+            Ok DocumentCodec.CStyle
         else
             Ok DocumentCodec.Plain
 
@@ -95,6 +98,26 @@ module DocumentFormat =
                             toNodesRead r.documentRootId r.nodes)
                 DocumentHandler.readWarm = warmUnavailable
                 DocumentHandler.write = MdDocument.writeArtifact
+            }
+        | DocumentCodec.CStyle ->
+            {
+                DocumentHandler.parse =
+                    fun text _graph _documentRootId ->
+                        let _, flat = CStyleDocument.flattenText text
+
+                        Ok(
+                            OutlineDocument.nestOutlineRows
+                                (flat
+                                 |> List.map (fun (depth, body, _) ->
+                                     depth, body, None))
+                                [])
+                DocumentHandler.readCold =
+                    fun text graph documentRootId ->
+                        CStyleDocument.read text documentRootId graph
+                        |> Result.map (fun r ->
+                            toNodesRead r.documentRootId r.nodes)
+                DocumentHandler.readWarm = warmUnavailable
+                DocumentHandler.write = CStyleDocument.writeArtifact
             }
 
     let mergeReadResult

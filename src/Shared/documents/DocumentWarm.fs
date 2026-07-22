@@ -10,6 +10,7 @@ module DocumentWarm =
         | DocumentCodec.Amb -> AmbReconcile.handler diffTexts
         | DocumentCodec.Plain -> PlainTextReconcile.handler diffTexts
         | DocumentCodec.Md -> MdReconcile.handler diffTexts
+        | DocumentCodec.CStyle -> CStyleReconcile.handler diffTexts
 
     let readArtifact
         (diffTexts: OutlineDiffTexts)

@@ -13,11 +13,14 @@
     <Compile Include="OutlineDocumentWarm.fs" />
     <Compile Include="AmbDocument.fs" />
     <Compile Include="PlainTextDocument.fs" />
+    <Compile Include="CStyleBrace.fs" />
+    <Compile Include="CStyleDocument.fs" />
     <Compile Include="MdDocument.fs" />
     <Compile Include="DocumentBinary.fs" />
     <Compile Include="DocumentFormat.fs" />
     <Compile Include="DocumentColdParse.fs" />
     <Compile Include="PlainTextReconcile.fs" />
+    <Compile Include="CStyleReconcile.fs" />
     <Compile Include="MdReconcile.fs" />
     <Compile Include="AmbReconcile.fs" />
     <Compile Include="DocumentWarm.fs" />

@@ -29,6 +29,7 @@
     <Compile Include="SnapshotTests.fs" />
     <Compile Include="AmbDocumentTests.fs" />
     <Compile Include="PlainTextDocumentTests.fs" />
+    <Compile Include="CStyleDocumentTests.fs" />
     <Compile Include="DocumentBinaryTests.fs" />
     <Compile Include="MdDocumentTests.fs" />
     <Compile Include="OutlineReconcileTests.fs" />
