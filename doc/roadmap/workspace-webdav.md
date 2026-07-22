@@ -1,10 +1,10 @@
 # Server WebDAV (workspace file sync transport)
 
 Category: Sync
-Status: Planned
+Status: Partial
 See also: [[workspace-file-sync]], [[workspaces-checklist]], [[doc/arch]], [[doc/current/workspace-local-mapping]], [[src/Server/IgnoredDestination.fs]], [[src/Server/WorkspaceGit.fs]], [[src/Server/GitSave.fs]]
 
-Server-side WebDAV Class 1 that maps `/ambit/dav/{label}/…` onto `DataDir/{label}/`. This is the **only** Map / Push / Pull transport. Product flow, desktop Push/Pull functions, and command surface live in [[workspace-file-sync]]; this doc owns the server HTTP surface, listing properties, and **server-side Pull inventory filtering**.
+Server-side WebDAV Class 1 that maps `/ambit/dav/{label}/…` onto `DataDir/{label}/`. This is the **only** Upload / Download transport. Product flow, desktop push/pull functions, and command surface live in [[workspace-file-sync]]; this doc owns the server HTTP surface, listing properties, and **server-side Download inventory filtering**.
 
 ## What it gives you
 
@@ -19,9 +19,9 @@ Server-side WebDAV Class 1 that maps `/ambit/dav/{label}/…` onto `DataDir/{lab
 
 Per [[workspace-file-sync]]:
 
-- **Pull inventory source** = this mount’s `PROPFIND` under scope.
-- **Pull ignore SoT** = server `DataDir/{label}/` ignore rules. Prefer applying check-ignore **when building/filtering `PROPFIND` results** so the multistatus is already the download candidate list.
-- **Push ignore SoT** remains the desktop mapped tree (local walk → check-ignore → `PUT` / `MKCOL`); server still rejects ignored PUT as belt-and-suspenders.
+- **Download inventory source** = this mount’s `PROPFIND` under scope.
+- **Download ignore SoT** = server `DataDir/{label}/` ignore rules. Prefer applying check-ignore **when building/filtering `PROPFIND` results** so the multistatus is already the download candidate list.
+- **Upload ignore SoT** remains the desktop mapped tree (local walk → check-ignore → `PUT` / `MKCOL`); server still rejects ignored PUT as belt-and-suspenders.
 
 Never expose `.git/` under the DAV mount. Omit ignored paths from `PROPFIND`; reject `PUT` to an ignored destination (same exception for `.gitignore` files themselves as IgnoredDestination).
 
@@ -29,7 +29,7 @@ Never expose `.git/` under the DAV mount. Omit ignored paths from `PROPFIND`; re
 
 - WebDAV Class 2, locks, DeltaV, COPY/MOVE, Windows drive mapping.
 - `DELETE` (no mirror-delete in v1).
-- Client git pack transport (`/ambit/git/…` remotes) as the Map / Push / Pull path.
+- Client pack transport (`/ambit/git/…` remotes) as the Upload / Download path.
 - Serving `.git/` or gitignored paths in listings or downloads.
 - A separate auth scheme; use the same `/ambit` session auth as other app routes.
 - Redefining Pull ignore from the client’s mapped tree (desktop may optionally re-filter; DataDir rules remain authoritative for Pull).
@@ -49,7 +49,7 @@ Never expose `.git/` under the DAV mount. Omit ignored paths from `PROPFIND`; re
 
 ## PROPFIND properties (required for clients)
 
-Every `PROPFIND` multistatus response (and any equivalent list response the server may add) **must** expose datestamps for files and collections — not path/size alone. Clients need this for Pull inventory and later freshness UI. Entries that fail DataDir check-ignore (or live under `.git/`) must not appear.
+Every `PROPFIND` multistatus response (and any equivalent list response the server may add) **must** expose datestamps for files and collections — not path/size alone. Clients need this for Download inventory and later freshness UI. Entries that fail DataDir check-ignore (or live under `.git/`) must not appear.
 
 | Property | Required | Meaning |
 | --- | --- | --- |
@@ -100,5 +100,5 @@ Either path must emit the required `PROPFIND` properties above and apply DataDir
 ## Success criteria
 
 - Desktop Pull can treat scoped `PROPFIND` as the ignore-reduced inventory (path, type, mtime) and `GET` from that list alone.
-- Map / Push / Pull never require `/ambit/git/…` pack transport.
+- Upload / Download never require `/ambit/git/…` pack transport.
 - Server listings never leak `.git` or gitignored trees.

@@ -25,22 +25,22 @@ Each server workspace directory is its own git repository under `DataDir/{label}
 
 - [x] Init empty repo in a new server directory
 - [x] Commit all files to repo on server (WorkspaceGit / GitSave)
-- [ ] Finish-commit after WebDAV push batch
-- [x] Ignore via `git check-ignore` (IgnoredDestination pattern) — keep essential for Push / PROPFIND / PUT
+- [x] Finish-commit after WebDAV push batch
+- [x] Ignore via `git check-ignore` (IgnoredDestination pattern) — keep essential for Upload / PROPFIND / PUT
 
 ## Workspace file sync (WebDAV)
-Client Map / Push / Pull. Product authority: [[workspace-file-sync]]. Server DAV surface + PROPFIND datestamps: [[workspace-webdav]].
+Client Upload / Download (ensure-map built in). Product authority: [[workspace-file-sync]]. Server DAV surface + PROPFIND datestamps: [[workspace-webdav]].
 
-- [ ] Server WebDAV Class 1 under `/ambit/dav/{label}/…` (PROPFIND with getlastmodified / GET / PUT / MKCOL) — [[workspace-webdav]]
-- [ ] PROPFIND exposes href/path, collection vs file, **getlastmodified** (mtime); optional getcontentlength
-- [ ] Desktop push inventory with required check-ignore (fail if `git` missing)
-- [ ] Client **Map workspace** (pick-folder + mapping Put; no remote setup)
-- [ ] Client **Push** scoped to workspace / subdirectory / file → WebDAV + finish-commit + reconcile
-- [ ] Client **Pull** scoped to workspace / subdirectory / file → WebDAV down (inventory uses listing mtimes)
-- [ ] Ungate Map/Push/Pull from git-pack / `git.git` transport capability (Push still needs git binary for ignore)
+- [x] Server WebDAV Class 1 under `/ambit/dav/{label}/…` (PROPFIND with getlastmodified / GET / PUT / MKCOL) — [[workspace-webdav]]
+- [x] PROPFIND exposes href/path, collection vs file, **getlastmodified** (mtime); optional getcontentlength
+- [x] Desktop push inventory with required check-ignore (fail if ignore filter unavailable)
+- [x] Client **ensure-map** on Upload/Download (pick-folder + mapping Put when unmapped; no standalone Map command)
+- [x] Client **Upload** scoped to workspace / subdirectory / file → WebDAV + finish-commit + reconcile; Workspaces focus creates from folder
+- [x] Client **Download** scoped to workspace / subdirectory / file → WebDAV down (inventory uses listing mtimes)
+- [x] Ungate Upload/Download from pack / `git.git` transport capability (Upload still needs ignore-filter binary)
 
 ## Desktop mapping
-Partial `workspaceName` → absolute local path bindings on the desktop (see [[doc/current/workspace-local-mapping]]). Mapping does not require the local folder to be a git clone.
+Partial `workspaceName` → absolute local path bindings on the desktop (see [[doc/current/workspace-local-mapping]]). Mapping does not require the local folder to be a clone.
 - [x] Config file load at desktop startup
 - [x] Label / absolute-path validation
 - [x] Resolve `//label/relative` under mapped root
@@ -49,11 +49,11 @@ Partial `workspaceName` → absolute local path bindings on the desktop (see [[d
 - [x] API Get/Put mapping on workspace
 
 ## Client UX
-How users create, open, navigate, and work in workspaces in the UI (commands / keybound ops). Desktop mapping API and folder picker stay under Desktop mapping; Map / Push / Pull live under Workspace file sync.
+How users create, open, navigate, and work in workspaces in the UI (commands / keybound ops). Desktop mapping API and folder picker stay under Desktop mapping; Upload / Download live under Workspace file sync.
 - [x] **Insert…** (`f`): New Workspace (focus on Workspaces); New File / New Folder (elsewhere); pick existing file → insert Ref
 - [x] **Rename** (`F2`) for Directory / File / Normal; workspace rename refused (immutable names)
 - [x] **Delete** (move to TRASH), **Move Selected** (`m`), Indent / Outdent, Duplicate (link)
-- [ ] **Parse / Push** (`Ctrl+Shift+>`) — parse focused Unparsed File, or push focused Workspace / scope via WebDAV ([[workspace-file-sync]]); **Pull** (`Ctrl+Shift+<`) for focused scope. See [[lazy-load]].
+- [x] **Upload** (`Ctrl+Shift+>`) — parse focused Unparsed File, or upload focused Workspace / scope via WebDAV ([[workspace-file-sync]]); **Download** (`Ctrl+Shift+<`) for focused scope. See [[lazy-load]].
 - [x] **Save** (`Ctrl+S`)
 - [x] Navigate: Find, Zoom in / out / owner, Jump to Target
 - [x] Prevent Workspace nodes from moving outside Workspaces. [[workspace-file-directory-placement]]
@@ -66,7 +66,7 @@ Bringing existing trees into the workspace model and responding after file-tree 
 - [x] **Create-only stub reconciliation** — added paths create or reuse matching Directory and File stubs under the named Workspace through standard server Change lists.
 - [x] **Structural stubs only** — current reconciliation does not parse file contents or create parsed child nodes.
 - [x] **Complete disk-to-graph reconciliation** — added/deleted/renamed/moved paths reconcile through graph-only Changes; Git `M` marks the corresponding document Unparsed; exact `.amb`, refs/TRASH, identity, and idempotency semantics are covered. Best-effort failure remains observable without speculative repair/retry.
-- [ ] **Wire reconcile after WebDAV push + finish-commit** (replace receive-pack-only trigger)
+- [x] **Wire reconcile after WebDAV push + finish-commit** (via `/ambit/workspace/reconciliation/directory`)
 - [ ] **Expand-to-parse** — when a file is expanded, parse it and merge the result into existing nodes.
 - [ ] **Richer freshness metadata/UI** — planned after reconciliation with expand-to-parse; show whether the local file is current, unparsed, older than the server file, or newer than the server file.
 - [ ] **Documents as load units** — one graph, many documents (`docId` / membership); load and unload whole documents rather than one giant snapshot. See [[workspace-file-model]], [[revising-workspace-file-model]], [[postgres-roadmap]] §5.

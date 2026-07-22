@@ -5,7 +5,7 @@ See also: [[doc/current/workspace-local-mapping.md]], [[doc/current/workspace-gr
 
 Implemented baseline for the Gambol desktop host: WPF WebView2 + local HTTP proxy in front of the cloud API. The cloud server remains authoritative for the graph; the desktop adds loopback-only filesystem access.
 
-Committed tree-sync direction (Map / Push / Pull over WebDAV) is [[doc/roadmap/workspace-file-sync]] — not client git remotes.
+Tree sync (Upload / Download over WebDAV, with ensure-map) is [[doc/roadmap/workspace-file-sync]] — not client remotes.
 
 ## Architecture
 
@@ -39,7 +39,7 @@ Desktop host enabled shape:
 | `export` | Write owned children to local file |
 | `status` | Query path status for file-reference indicator |
 | `workspacePaths` | Resolve `//label/relative` paths via local workspace mapping |
-| `git.git` | Host has `git` on PATH (needed for Push ignore via `check-ignore`; not for pack transport) |
+| `git.git` | Host has ignore-filter binary on PATH (needed for Upload ignore via `check-ignore`; not for pack transport) |
 
 Web client (no desktop host): capabilities request fails; all flags treated as disabled.
 
@@ -53,9 +53,11 @@ Web client (no desktop host): capabilities request fails; all flags treated as d
 | `POST` | `/_desktop/file` | Write content to local file (export) |
 | `GET` | `/_desktop/workspace-mappings` | List label → path bindings |
 | `PUT` | `/_desktop/workspace-mappings` | Upsert `{label,path}` or replace full `workspaceMappings` array; persists config |
-| `POST` | `/_desktop/pick-folder` | Native folder browse; optional `requireGit` (Map should not require git) |
+| `POST` | `/_desktop/pick-folder` | Native folder browse; `{cancelled,path}` |
+| `POST` | `/_desktop/workspace-push` | Scoped Upload (WebDAV) for mapped label |
+| `POST` | `/_desktop/workspace-pull` | Scoped Download (WebDAV) for mapped label |
 
-Legacy `/_desktop/import` and `/_desktop/export` are removed; clients use `/_desktop/file`.
+Legacy `/_desktop/import` and `/_desktop/export` are removed; clients use `/_desktop/file`. `/_desktop/detect-git` is removed (unused).
 
 ### File status
 
@@ -96,7 +98,10 @@ Registered in the command palette (`src/Client/Commands.fs`):
 
 - **Import** — reads local file at the focus row's first file reference; replaces that node's children (via `UpdateImport.fs`, `GET /_desktop/file`).
 - **Export** — serializes owned children of the focus row to the local file at its file reference (via `UpdateExport.fs`, `POST /_desktop/file`).
-- **Map / Push / Pull** — planned workspace file sync via WebDAV ([[doc/roadmap/workspace-file-sync]]). Map is pick-folder + mapping Put. Push/Pull are scoped to workspace, subdirectory, or file. Push requires `git` for `check-ignore` only. Results surface in `#cmd-last-result`.
+- **Upload** (`Ctrl+Shift+>`) — ensure-map (pick-folder + mapping Put when needed) then scoped WebDAV push; Workspaces focus creates a named workspace from the folder basename; File focus then Parses. Requires `git.git` capability for ignore filtering only ([[doc/roadmap/workspace-file-sync]]).
+- **Download** (`Ctrl+Shift+<`) — ensure-map then scoped WebDAV pull for named Workspace / Directory / File.
+
+Results surface in `#cmd-last-result`. Standalone Map / Connect / Clone / pack Push / Status commands are removed.
 
 Import/Export require matching desktop capabilities (`import` / `export`) and are blocked during command palette, search dialog, and CSS-class prompt modes.
 
@@ -112,5 +117,4 @@ WebView2 user data: `%LocalAppData%/Gambol/WebView2`.
 - Startup workspace registration (sync local config labels to cloud graph).
 - Full workspace filesystem API (`GET workspaces`, dir/file CRUD with `modifiedUtc` conflicts) — see [[doc/current/workspace-stage-plan.md]] §4.
 - `open` capability (launch file with default application).
-- WebDAV Map / Push / Pull client commands and `/ambit/dav/{label}/…` (see [[doc/roadmap/workspace-file-sync]]).
 - Persistent sync chrome beyond `#cmd-last-result`.

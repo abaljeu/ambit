@@ -347,7 +347,7 @@ let ``latest diagnostics GET returns failures once then empty`` () =
     let tempDir = newTempDir ()
     use client = createClientForDir tempDir
     let first =
-        client.GetAsync("/ambit/git/reconciliation/latest?workspace=home")
+        client.GetAsync("/ambit/workspace/reconciliation/latest?workspace=home")
         |> Async.AwaitTask
         |> Async.RunSynchronously
     Assert.Equal(System.Net.HttpStatusCode.OK, first.StatusCode)
@@ -358,7 +358,7 @@ let ``latest diagnostics GET returns failures once then empty`` () =
     Assert.Contains("bad.txt", firstBody)
     Assert.Contains("boom", firstBody)
     let second =
-        client.GetAsync("/ambit/git/reconciliation/latest?workspace=home")
+        client.GetAsync("/ambit/workspace/reconciliation/latest?workspace=home")
         |> Async.AwaitTask
         |> Async.RunSynchronously
     Assert.Equal(System.Net.HttpStatusCode.OK, second.StatusCode)
@@ -666,7 +666,7 @@ let ``directory reconciliation POST returns failures JSON`` () =
     let body = """{"workspace":"home","path":"docs"}"""
     use content = new StringContent(body, Text.Encoding.UTF8, "application/json")
     let response =
-        client.PostAsync("/ambit/git/reconciliation/directory", content)
+        client.PostAsync("/ambit/workspace/reconciliation/directory", content)
         |> Async.AwaitTask
         |> Async.RunSynchronously
     let responseBody =
@@ -699,7 +699,7 @@ let ``workspace reconciliation POST with empty path discovers root`` () =
     let body = """{"workspace":"home","path":""}"""
     use content = new StringContent(body, Text.Encoding.UTF8, "application/json")
     let response =
-        client.PostAsync("/ambit/git/reconciliation/directory", content)
+        client.PostAsync("/ambit/workspace/reconciliation/directory", content)
         |> Async.AwaitTask
         |> Async.RunSynchronously
     let responseBody =

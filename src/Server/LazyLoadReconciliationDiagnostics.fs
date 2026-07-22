@@ -42,7 +42,7 @@ module LazyLoadReconciliationDiagnostics =
         (isAuthenticated: HttpRequest -> bool)
         =
         app.MapGet(
-            "/ambit/git/reconciliation/latest",
+            "/ambit/workspace/reconciliation/latest",
             Func<HttpRequest, IResult>(fun req ->
                 if not (isAuthenticated req) then
                     Results.Unauthorized()

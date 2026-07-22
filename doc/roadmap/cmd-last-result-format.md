@@ -6,7 +6,7 @@ See also: [[doc/arch]], [[src/Shared/ViewModel.fs]], [[src/Client/Controller.fs]
 
 ## What it gives you
 
-Every run of a named command updates `#cmd-last-result` as `Commandname: result description` (for example `Move down: OK` or `Git status: main ↑0 ↓0`).
+Every run of a named command updates `#cmd-last-result` as `Commandname: result description` (for example `Move down: OK` or `Upload: uploaded 3`).
 
 Today the bar usually shows only `OK` (or a bare detail/error string) with no command name.
 
@@ -59,9 +59,9 @@ Success: named key/palette commands no longer show bare `OK`.
 
 ### Slice 2 — Async / explicit result setters
 
-1. Ensure git (and other async) command entry points set `lastCmdName` when they start, so later `Detail`/`Error` updates still format with the name.
-2. Touch only call sites that already write `lastCmdResult` and lack a name (git, import, rename, invalid move) if Slice 1 does not cover them via the shared field.
-3. Verify: Git status / Connect failure and an invalid-move refusal show `Commandname: …`.
+1. Ensure async command entry points set `lastCmdName` when they start, so later `Detail`/`Error` updates still format with the name.
+2. Touch only call sites that already write `lastCmdResult` and lack a name (Upload/Download, import, rename, invalid move) if Slice 1 does not cover them via the shared field.
+3. Verify: Upload/Download failure and an invalid-move refusal show `Commandname: …`.
 
 Success: every intentional `lastCmdResult` write surfaces with a command name prefix when a command initiated it.
 

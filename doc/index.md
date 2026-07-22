@@ -64,14 +64,14 @@ Might be next: XML read/write ([[doc/roadmap/workspace-format-xml.md]]); expand-
 ### **Lazy Load and workspace source formats**
 Status: **Partial**.
 Details: [[doc/roadmap/lazy-load.md]], [[doc/roadmap/workspace-scale-import.md]].
-Last implemented: Disk-to-graph reconciliation for added, deleted, renamed/moved, and modified source paths under the named Workspace (historically after server receive; target trigger is WebDAV push + finish-commit — [[workspace-file-sync]]). Identity-preserving renames, TRASH/ref semantics, exact `.amb` handling, `M` → Unparsed, graph-only persistence, idempotency, and best-effort failure policy are covered.
-Might be next: Reconcile after WebDAV push+commit; expand-to-parse and richer freshness metadata/UI (Lazy Load step 3).
+Last implemented: Disk-to-graph reconciliation for added, deleted, renamed/moved, and modified source paths under the named Workspace (triggered after WebDAV upload + finish-commit — [[workspace-file-sync]]). Identity-preserving renames, TRASH/ref semantics, exact `.amb` handling, `M` → Unparsed, graph-only persistence, idempotency, and best-effort failure policy are covered.
+Might be next: Expand-to-parse and richer freshness metadata/UI (Lazy Load step 3).
 
 ### **Workspace file sync (WebDAV + server git)**
-Status: **Planned**.
+Status: **Partial**.
 Details: [[workspace-file-sync]], [[workspace-webdav]], [[lazy-load]], [[doc/current/workspace-local-mapping]], [[doc/current/desktop-local-files]].
-Direction: Map / Push / Pull over WebDAV Class 1 under `/ambit/dav/{label}/…`. Push: local scope → check-ignore (mapped tree) → PUT/MKCOL → finish-commit. Pull: server PROPFIND inventory → check-ignore (DataDir SoT on server) → GET. PROPFIND exposes getlastmodified ([[workspace-webdav]]). Not git remotes / pack transport.
-Might be next: Shared scope helpers, server WebDAV with DataDir-filtered PROPFIND + finish-commit, desktop Push walk / Pull GET, Map/Push/Pull commands; Lazy Load reconcile after push+commit.
+Last implemented: Upload / Download over WebDAV Class 1 under `/ambit/dav/{label}/…` with ensure-map (pick-folder + Put), Workspaces create-from-folder, desktop check-ignore on Upload, server DataDir check-ignore on `PROPFIND`, `_prepare-push` / `_finish-commit`, and post-upload reconcile via `/ambit/workspace/reconciliation/directory`. Not remotes / pack transport.
+Might be next: Overwrite / freshness UI; expand-to-parse; mirror-delete / Class 2.
 
 ### **Amble run**
 Status: **Evolving**.

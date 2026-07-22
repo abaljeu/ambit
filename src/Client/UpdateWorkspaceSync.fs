@@ -137,7 +137,7 @@ let private postDirectoryReconcile
     let body = encodeReconciliationDirectoryRequest workspace path
     let status, text =
         postJsonSync
-            "/ambit/git/reconciliation/directory"
+            "/ambit/workspace/reconciliation/directory"
             body
             (jsonHeaders ())
     if status < 200 || status >= 300 then
@@ -160,9 +160,6 @@ let private applyOpsChange (ops: Op list) (model: VM) : Result<VM * Effect list,
         match applyAndPost change model with
         | Error e -> Error e
         | Ok (m, effects) -> Ok(withSiteMap m, effects)
-
-let private needsGitForPush (model: VM) : bool =
-    DesktopCapabilities.mappedWithoutGit model.desktopCapabilities
 
 let private pushScoped
     (scope: WorkspaceSyncScope)
@@ -189,10 +186,7 @@ let focusIsWorkspaces (model: VM) : bool =
 /// Workspaces + Upload: pick folder → create WS → map → push → reconcile.
 let uploadCreateWorkspaceOp (model: VM) : VM * Effect list =
     if not (DesktopCapabilities.canWorkspacePush model.desktopCapabilities) then
-        if needsGitForPush model then
-            fail model "Upload needs git on PATH for .gitignore filtering"
-        else
-            model, []
+        model, []
     else
         match pickFolder () with
         | Error "cancelled" -> model, []
@@ -237,20 +231,14 @@ let uploadCreateWorkspaceOp (model: VM) : VM * Effect list =
 
 let uploadNamedScope (model: VM) : VM * Effect list =
     if not (DesktopCapabilities.canWorkspacePush model.desktopCapabilities) then
-        if needsGitForPush model then
-            fail model "Upload needs git on PATH for .gitignore filtering"
-        elif DesktopCapabilities.canWorkspaceSync model.desktopCapabilities
-        then
-            model, []
-        else
-            match syncScopeFromFocus model with
-            | Error msg -> fail model msg
-            | Ok scope ->
-                postDirectoryReconcile
-                    model
-                    scope.label
-                    scope.relative
-                    ("workspace reconciled from server disk: " + scope.label)
+        match syncScopeFromFocus model with
+        | Error msg -> fail model msg
+        | Ok scope ->
+            postDirectoryReconcile
+                model
+                scope.label
+                scope.relative
+                ("workspace reconciled from server disk: " + scope.label)
     else
         match syncScopeFromFocus model with
         | Error msg -> fail model msg
@@ -275,8 +263,6 @@ let uploadFileOp (fileId: NodeId) (model: VM) : VM * Effect list =
             | Error "cancelled" -> model, []
             | Error e -> fail model e
             | Ok _ -> parseFileOp fileId model
-    elif needsGitForPush model then
-        fail model "Upload needs git on PATH for .gitignore filtering"
     else
         parseFileOp fileId model
 

@@ -80,8 +80,11 @@ let ``canWorkspaceSync needs file path caps`` () =
             (Some (DesktopCapabilities.desktopEnabled true)))
 
 [<Fact>]
-let ``canWorkspacePush needs sync caps and git`` () =
+let ``canWorkspacePush needs sync caps not git`` () =
     Assert.False(
+        DesktopCapabilities.canWorkspacePush
+            (Some DesktopCapabilities.disabled))
+    Assert.True(
         DesktopCapabilities.canWorkspacePush
             (Some (DesktopCapabilities.desktopEnabled false)))
     Assert.True(

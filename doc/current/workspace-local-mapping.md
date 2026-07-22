@@ -76,7 +76,7 @@ Requires `workspacePaths` capability when using `//label/...` form.
 | --- | --- | --- |
 | `GET` | `/_desktop/workspace-mappings` | Returns `{ "workspaceMappings": [ { "label", "path" }, … ] }` |
 | `PUT` | `/_desktop/workspace-mappings` | Upsert one `{ "label", "path" }`, **or** full replace with the same document shape as the config file. Persists to disk and updates the in-memory map. |
-| `POST` | `/_desktop/pick-folder` | Optional `{ "requireGit": true }`. OS folder dialog. `{ "cancelled": true }` or `{ "cancelled": false, "path", "gitRoot" }` (`gitRoot` may be `null` unless `requireGit`). Map workspace should not require git. |
+| `POST` | `/_desktop/pick-folder` | OS folder dialog. `{ "cancelled": true }` or `{ "cancelled": false, "path": "..." }`. |
 
 ## Tests
 
@@ -85,5 +85,5 @@ Requires `workspacePaths` capability when using `//label/...` form.
 ## Not implemented
 
 - Startup sync of local labels to cloud workspace nodes (§4b in stage plan).
-- Automatic initial Pull after Map (user runs Pull).
+- Automatic initial Download after first map (user runs Download).
 - Persistent status chrome beyond `#cmd-last-result` / console.

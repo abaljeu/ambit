@@ -219,7 +219,7 @@ module LazyLoadReconciliationServer =
         (getHandle: unit -> AgentHandle)
         =
         app.MapPost(
-            "/ambit/git/reconciliation/directory",
+            "/ambit/workspace/reconciliation/directory",
             Func<HttpRequest, System.Threading.Tasks.Task<IResult>>(fun req ->
                 task {
                     if not (isAuthenticated req) then

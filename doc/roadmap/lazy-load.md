@@ -1,18 +1,18 @@
 # Lazy Load
 
 Category: Workspace scale
-Status: Partial — disk-to-graph reconciliation implemented; expand-to-parse planned next; reconcile trigger moving to WebDAV push+commit
+Status: Partial — disk-to-graph reconciliation implemented; expand-to-parse planned next; reconcile wired after WebDAV upload+finish-commit
 See also: [[workspaces-checklist]], [[workspace-file-sync]], [[workspace-file-model]], [[workspace-scale-import]], [[workspace-scale-file-and-db-management]], [[doc/current/persistence-model]], [[doc/roadmap/reference-expressions.md]]
 
-Lazy Load turns workspace files on server disk into a browsable graph without eagerly parsing every file. File-tree sync ([[workspace-file-sync]]) is a separate capability: Lazy Load reacts after a successful WebDAV push + finish-commit and publishes ordinary graph changes for existing polling clients.
+Lazy Load turns workspace files on server disk into a browsable graph without eagerly parsing every file. File-tree sync ([[workspace-file-sync]]) is a separate capability: Lazy Load reacts after a successful WebDAV upload + finish-commit and publishes ordinary graph changes for existing polling clients.
 
 ## User-visible behavior
 
-- A successful workspace Push makes newly added source paths appear as Directory and File stubs under the matching named Workspace. File contents are not parsed, so a new File stub has no parsed child nodes.
-- `Ctrl+Shift+>` parses the focused Unparsed File, or the Unparsed File that owns the focused owner occurrence, in place. On a named Workspace (or scoped focus) it instead pushes that scope to the server via WebDAV. `Ctrl+Shift+<` pulls the focused scope to the desktop. Map / Push / Pull direction: [[workspace-file-sync]].
+- A successful workspace Upload makes newly added source paths appear as Directory and File stubs under the matching named Workspace. File contents are not parsed, so a new File stub has no parsed child nodes.
+- `Ctrl+Shift+>` parses the focused Unparsed File, or the Unparsed File that owns the focused owner occurrence, in place. On a named Workspace (or scoped focus) it instead uploads that scope via WebDAV. `Ctrl+Shift+<` downloads the focused scope to the desktop. Upload / Download direction: [[workspace-file-sync]].
 - Expanding an unparsed File will later read and parse that file, merge the parsed result into its existing graph identity, and expose editable child nodes.
-- Freshness will distinguish **current**, **unparsed**, **client older**, and **client newer**. A successful desktop Pull means client and server files match and are current; it does not make unchanged graph content unparsed.
-- A deleted workspace file trashes its graph node under `//TRASH/`; the workspace disk path is gone and the UI shows a missing target. The user can recover from TRASH in the graph or from server git history on disk. Moving out of TRASH may recreate disk content if the user chooses.
+- Freshness will distinguish **current**, **unparsed**, **client older**, and **client newer**. A successful desktop Download means client and server files match and are current; it does not make unchanged graph content unparsed.
+- A deleted workspace file trashes its graph node under `//TRASH/`; the workspace disk path is gone and the UI shows a missing target. The user can recover from TRASH in the graph or from server history on disk. Moving out of TRASH may recreate disk content if the user chooses.
 - Document load units will later load and unload whole graph documents independently of path reconciliation.
 - Server residency, client unload/LRU, repo-wide search, and annotation migration remain later scale work.
 
@@ -126,15 +126,15 @@ Server integration: server commit with rename/delete → reconcile produces corr
 
 ## Capability sequence
 
-1. **Workspace file sync** — planned: WebDAV Class 1 Map / Push / Pull, server finish-commit, `git check-ignore` for `.gitignore`. Authority: [[workspace-file-sync]].
-2. **Disk-to-graph stub reconciliation** — implemented for add, delete, rename/move, and `M` → **Unparsed**, with exact `.amb` semantics and graph-only persistence; re-wire trigger to finish-commit.
+1. **Workspace file sync** — Partial: WebDAV Class 1 Upload / Download, server finish-commit, `git check-ignore` for `.gitignore`. Authority: [[workspace-file-sync]].
+2. **Disk-to-graph stub reconciliation** — implemented for add, delete, rename/move, and `M` → **Unparsed**, with exact `.amb` semantics and graph-only persistence; wired after finish-commit via `/ambit/workspace/reconciliation/directory`.
 3. **Expand-to-parse and freshness** — planned next: parse one File on expansion, merge into its existing identity, and add richer current/unparsed/older/newer metadata and UI.
 4. **Document load units** — define membership and whole-document loading/unloading for one graph with many documents.
 5. **Residency and search** — bound server/client working sets, add repo-wide query, and address annotation migration.
 
 ## Locked decisions and boundaries
 
-- File-tree sync ends at successful finish-commit or client Pull. Lazy Load is not part of WebDAV transfer.
+- File-tree sync ends at successful finish-commit or client Download. Lazy Load is not part of WebDAV transfer.
 - The server owns post-commit reconciliation because it owns the graph. Clients observe resulting Changes through polling.
 - Reconciliation uses changed paths rather than a full workspace walk and flows only from server disk to graph.
 - Structural reconciliation does not parse source contents.

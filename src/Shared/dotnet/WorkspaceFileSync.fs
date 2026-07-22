@@ -123,15 +123,24 @@ module WorkspaceFileSync =
                     with
                     | Error e -> Error e
                     | Ok body ->
+                        let baseDetail =
+                            sprintf
+                                "uploaded %d; finish-commit ok"
+                                uploaded
+                            + if body = "" then ""
+                              else " (" + body + ")"
+
+                        let detail =
+                            if DesktopGit.isAvailable() then
+                                baseDetail
+                            else
+                                baseDetail
+                                + "; .gitignore filter skipped (git unavailable)"
+
                         Ok
                             { uploaded = uploaded
                               downloaded = 0
-                              detail =
-                                sprintf
-                                    "uploaded %d; finish-commit ok"
-                                    uploaded
-                                + if body = "" then ""
-                                  else " (" + body + ")" }
+                              detail = detail }
 
     let private downloadFiles
         (client: HttpClient)

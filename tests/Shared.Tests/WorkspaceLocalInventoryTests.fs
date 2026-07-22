@@ -88,3 +88,29 @@ let ``listForPush directory scope is prefix-limited`` () =
         Assert.True(Set.contains "docs/a.txt" rels)
         Assert.False(Set.contains "other" rels)
         Assert.False(Set.contains "other/b.txt" rels)
+
+[<SkippableFact>]
+let ``listForPush without git still returns walk`` () =
+    Skip.If(gitOnPath (), "git present — soft-skip path not exercised")
+    let root = newTempDir ()
+    writeIgnore root "*.tmp\n"
+    Directory.CreateDirectory(Path.Combine(root, ".git")) |> ignore
+    File.WriteAllText(Path.Combine(root, "keep.txt"), "ok")
+    File.WriteAllText(Path.Combine(root, "skip.tmp"), "no")
+    File.WriteAllText(Path.Combine(root, ".git", "config"), "no")
+
+    let scope =
+        { label = "home"
+          relative = ""
+          kind = SyncScopeKind.Workspace }
+
+    match WorkspaceLocalInventory.listForPush root scope with
+    | Error e -> Assert.Fail(e)
+    | Ok items ->
+        let rels =
+            items |> List.map (fun i -> i.relative) |> Set.ofList
+        Assert.True(Set.contains "keep.txt" rels)
+        // Without git, ignore filter is skipped — .tmp is kept.
+        Assert.True(Set.contains "skip.tmp" rels)
+        Assert.False(Set.contains ".git" rels)
+        Assert.False(Set.contains ".git/config" rels)

@@ -7,7 +7,7 @@ open System.Threading.Tasks
 open Gambol.Shared
 open Microsoft.AspNetCore.Http
 
-/// `/_desktop/workspace-mappings`, `/_desktop/pick-folder`, `/_desktop/detect-git`.
+/// `/_desktop/workspace-mappings`, `/_desktop/pick-folder`.
 [<RequireQualifiedAccess>]
 module WorkspaceMappingEndpoints =
 
@@ -119,22 +119,6 @@ module WorkspaceMappingEndpoints =
             do! writeJson context json
     }
 
-    let private handleDetectGit (context: HttpContext) = task {
-        let! body = readBody context
-        try
-            use document = JsonDocument.Parse body
-            match tryGetString document.RootElement "path" with
-            | None -> do! writeBadRequest context "path is required"
-            | Some path ->
-                match WorkspaceLocalMapping.tryGitRoot path with
-                | Error err -> do! writeBadRequest context err
-                | Ok gitRoot ->
-                    let json = "{\"gitRoot\":" + quoteJson gitRoot + "}"
-                    do! writeJson context json
-        with
-        | :? JsonException -> do! writeBadRequest context "invalid JSON"
-    }
-
     let tryHandle
         (configPath: string)
         (workspaceMap: Map<string, WorkspaceMapping> ref)
@@ -159,12 +143,6 @@ module WorkspaceMappingEndpoints =
                 && path.Equals(PathString "/_desktop/pick-folder")
             then
                 do! handlePickFolder context
-                return true
-            elif
-                HttpMethods.IsPost context.Request.Method
-                && path.Equals(PathString "/_desktop/detect-git")
-            then
-                do! handleDetectGit context
                 return true
             else
                 return false

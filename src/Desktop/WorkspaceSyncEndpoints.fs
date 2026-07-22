@@ -138,29 +138,23 @@ module WorkspaceSyncEndpoints =
             match resolveMappedRoot workspaceMap scope.label with
             | Error message -> do! writeBadRequest context message
             | Ok mappedRoot ->
-                if not (DesktopGit.isAvailable()) then
-                    do!
-                        writeBadRequest
-                            context
-                            "git is required on PATH for Push ignore filtering"
-                else
-                    match
-                        WorkspaceFileSync.post
-                            client
-                            ambitBase
-                            mappedRoot
-                            scope
-                            (cookieHeader creds)
-                            (clientHint context)
-                    with
-                    | Error err ->
-                        eprintfn
-                            "[Desktop workspace-push] '%s': %s"
-                            scope.label
-                            err
-                        do! writeBadRequest context err
-                    | Ok result ->
-                        do! writeJson context (okSync result)
+                match
+                    WorkspaceFileSync.post
+                        client
+                        ambitBase
+                        mappedRoot
+                        scope
+                        (cookieHeader creds)
+                        (clientHint context)
+                with
+                | Error err ->
+                    eprintfn
+                        "[Desktop workspace-push] '%s': %s"
+                        scope.label
+                        err
+                    do! writeBadRequest context err
+                | Ok result ->
+                    do! writeJson context (okSync result)
     }
 
     let private handlePull

@@ -194,13 +194,8 @@ let private uploadAvailable (model: VM) =
         | Some(ParseFile _) -> true
         | Some(ReconcileWorkspace _)
         | Some(ReconcileDirectory _) ->
-            let canSync =
-                DesktopCapabilities.canWorkspaceSync
-                    model.desktopCapabilities
-            let canPush =
-                DesktopCapabilities.canWorkspacePush
-                    model.desktopCapabilities
-            canPush || not canSync
+            // Push when desktop sync caps exist; else server-disk reconcile.
+            true
         | None -> false
 
 let private downloadAvailable (model: VM) =

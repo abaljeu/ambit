@@ -11,7 +11,7 @@ type DesktopFileCapabilities =
       canStatus: bool
       canWorkspacePaths: bool }
 
-/// `git` on PATH (ignore filtering / capability); not pack transport routes.
+/// Host has ignore-filter binary on PATH (check-ignore); not pack transport.
 type DesktopGitCapabilities =
     { canGit: bool }
 
@@ -124,24 +124,24 @@ module DesktopCapabilities =
             { file = get.Required.Field "file" decodeFileCapabilities
               git = get.Required.Field "git" decodeGitCapabilities })
 
-    /// True when desktop host reported git binary on PATH.
+    /// True when desktop host reported ignore-filter binary on PATH.
     let canGit (caps: DesktopCapabilities option) : bool =
         match caps with
         | Some { git = { canGit = true } } -> true
         | _ -> false
 
-    /// Map / Pull: workspacePaths + file import/export (not pack transport).
+    /// Download / ensure-map: workspacePaths + file import/export (not pack transport).
     let canWorkspaceSync (caps: DesktopCapabilities option) : bool =
         match caps with
         | Some { file = f } ->
             f.canWorkspacePaths && f.canImport && f.canExport
         | _ -> false
 
-    /// Push also needs git on PATH for check-ignore.
+    /// Upload/push: same file sync caps as Download (ignore filter optional).
     let canWorkspacePush (caps: DesktopCapabilities option) : bool =
-        canWorkspaceSync caps && canGit caps
+        canWorkspaceSync caps
 
-    /// Desktop file import works but git is unavailable — Upload cannot push.
+    /// Desktop sync works but ignore-filter binary is unavailable.
     let mappedWithoutGit (caps: DesktopCapabilities option) : bool =
         match caps with
         | Some { file = { canImport = true }; git = { canGit = false } } ->

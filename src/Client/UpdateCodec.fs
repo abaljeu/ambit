@@ -30,17 +30,7 @@ let decodeServerCapabilities (text: string) : Result<ServerCapabilities, string>
 let decodeGitSaveResponse (text: string) : Result<GitSaveResponse, string> =
     Thoth.Json.JavaScript.Decode.fromString GitSaveResponse.decoder text
 
-/// Decode GET /ambit/git-token.
-let decodeGitTokenIssue (text: string) : Result<GitTokenIssue, string> =
-    Thoth.Json.JavaScript.Decode.fromString GitTokenIssue.decoder text
-
-/// Decode GET /ambit/git/gateway-error → optional server message.
-let decodeGatewayError (text: string) : Result<string option, string> =
-    let decoder =
-        Decode.object (fun get -> get.Optional.Field "message" Decode.string)
-    Thoth.Json.JavaScript.Decode.fromString decoder text
-
-/// Decode GET /ambit/git/reconciliation/latest → failure count.
+/// Decode GET /ambit/workspace/reconciliation/latest → failure count.
 let decodeReconciliationLatest (text: string) : Result<int, string> =
     let failureDecoder =
         Decode.object (fun get ->
@@ -54,7 +44,7 @@ let decodeReconciliationLatest (text: string) : Result<int, string> =
     | Ok failures -> Ok failures.Length
     | Error e -> Error e
 
-/// Decode POST /ambit/git/reconciliation/directory → failure count.
+/// Decode POST /ambit/workspace/reconciliation/directory → failure count.
 let decodeReconciliationDirectory (text: string) : Result<int, string> =
     decodeReconciliationLatest text
 

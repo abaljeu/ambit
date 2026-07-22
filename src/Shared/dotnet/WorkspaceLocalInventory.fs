@@ -96,7 +96,35 @@ module WorkspaceLocalInventory =
         with ex ->
             Error ex.Message
 
+    let private applyIgnoreFilter
+        (root: string)
+        (raw: LocalSyncItem list)
+        : Result<LocalSyncItem list, string> =
+        let paths = raw |> List.map (fun i -> i.relative)
+
+        match GitCheckIgnore.classify root paths with
+        | Error e -> Error e
+        | Ok classified ->
+            let ignored =
+                classified
+                |> List.choose (fun (p, ign) ->
+                    if
+                        ign
+                        && not (GitCheckIgnore.isGitignorePath p)
+                    then
+                        Some p
+                    else
+                        None)
+                |> Set.ofList
+
+            raw
+            |> List.filter (fun i ->
+                not (Set.contains i.relative ignored))
+            |> Ok
+
     /// Local candidates under scope, minus effectively ignored paths.
+    /// If git/check-ignore is unavailable, returns the unfiltered walk
+    /// (still skips `.git/`).
     let listForPush
         (mappedRoot: string)
         (scope: WorkspaceSyncScope)
@@ -106,27 +134,8 @@ module WorkspaceLocalInventory =
         match collectRaw root scope with
         | Error e -> Error e
         | Ok raw ->
-            let paths = raw |> List.map (fun i -> i.relative)
-
-            match GitCheckIgnore.classify root paths with
-            | Error e -> Error e
-            | Ok classified ->
-                let ignored =
-                    classified
-                    |> List.choose (fun (p, ign) ->
-                        if
-                            ign
-                            && not (GitCheckIgnore.isGitignorePath p)
-                        then
-                            Some p
-                        else
-                            None)
-                    |> Set.ofList
-
-                raw
-                |> List.filter (fun i ->
-                    not (Set.contains i.relative ignored))
-                |> Ok
+            if not (DesktopGit.isAvailable()) then Ok raw
+            else applyIgnoreFilter root raw
 
     /// Directories first by depth, then files (stable for MKCOL then PUT).
     let orderForUpload (items: LocalSyncItem list) : LocalSyncItem list =
