@@ -1,27 +1,15 @@
 module Gambol.Server.Tests.GitSaveEndpointTests
 
-open System.Diagnostics
 open System.IO
 open System.Net
 open System.Net.Http
 open System.Threading.Tasks
 open Xunit
 open Gambol.Server
+open Gambol.Shared
 open Gambol.Server.Tests.TestBackend
 
-let private gitOnPath () =
-    try
-        let psi =
-            ProcessStartInfo(
-                FileName = "git",
-                Arguments = "--version",
-                RedirectStandardOutput = true,
-                UseShellExecute = false)
-        use proc = Process.Start(psi)
-        proc.WaitForExit()
-        proc.ExitCode = 0
-    with _ ->
-        false
+let private gitOnPath () = DesktopGit.isAvailable()
 
 let private initRepo (dir: string) =
     GitSave.runGit dir "-c user.email=t@test -c user.name=test init"

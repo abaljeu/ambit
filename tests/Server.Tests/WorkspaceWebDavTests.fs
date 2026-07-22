@@ -1,7 +1,6 @@
 module Gambol.Server.Tests.WorkspaceWebDavTests
 
 open System
-open System.Diagnostics
 open System.IO
 open System.Net
 open System.Net.Http
@@ -9,21 +8,10 @@ open System.Text
 open System.Threading.Tasks
 open Xunit
 open Gambol.Server
+open Gambol.Shared
 open Gambol.Server.Tests.TestBackend
 
-let private gitOnPath () =
-    try
-        let psi =
-            ProcessStartInfo(
-                FileName = "git",
-                Arguments = "--version",
-                RedirectStandardOutput = true,
-                UseShellExecute = false)
-        use proc = Process.Start(psi)
-        proc.WaitForExit()
-        proc.ExitCode = 0
-    with _ ->
-        false
+let private gitOnPath () = DesktopGit.isAvailable()
 
 let private propfind (client: HttpClient) (url: string) (depth: string) =
     task {

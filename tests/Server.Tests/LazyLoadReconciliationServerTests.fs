@@ -1,7 +1,6 @@
 module Gambol.Server.Tests.LazyLoadReconciliationServerTests
 
 open System
-open System.Diagnostics
 open System.IO
 open System.Net
 open System.Net.Http
@@ -16,19 +15,7 @@ let private requireOk label result =
     | Ok value -> value
     | Error err -> failwith $"{label}: {err}"
 
-let private gitOnPath () =
-    try
-        let start =
-            ProcessStartInfo(
-                FileName = "git",
-                Arguments = "--version",
-                RedirectStandardOutput = true,
-                UseShellExecute = false)
-        use proc = Process.Start(start)
-        proc.WaitForExit()
-        proc.ExitCode = 0
-    with _ ->
-        false
+let private gitOnPath () = DesktopGit.isAvailable()
 
 let private writeAndCommit
     (root: string)

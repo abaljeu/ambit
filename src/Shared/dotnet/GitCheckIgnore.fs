@@ -26,49 +26,26 @@ module GitCheckIgnore =
             let gitDir = Path.Combine(dir, ".git")
 
             if not (Directory.Exists gitDir) then
-                match DesktopGit.runGit dir "init -q" with
+                match GitRun.gitExec dir "init -q" with
                 | Ok _ -> ()
                 | Error _ -> ()
 
             gitDir)
 
-    let private readTrim (reader: StreamReader) =
-        reader.ReadToEnd().Trim()
-
     let private failureDetail (stdout: string) (stderr: string) =
         if String.IsNullOrWhiteSpace stderr then stdout
         else stderr
 
-    let private basePsi (workTree: string) (redirectStdin: bool) =
-        let psi =
-            ProcessStartInfo(
-                FileName = "git",
-                WorkingDirectory = workTree,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                RedirectStandardInput = redirectStdin,
-                UseShellExecute = false)
+    let private baseConfigure
+        (workTree: string)
+        (redirectStdin: bool)
+        (psi: ProcessStartInfo)
+        =
+        psi.WorkingDirectory <- workTree
+        if redirectStdin then
+            psi.RedirectStandardInput <- true
         psi.Environment["GIT_DIR"] <- emptyGitDir.Value
         psi.Environment["GIT_WORK_TREE"] <- workTree
-        psi
-
-    let private runExit
-        (psi: ProcessStartInfo)
-        (writeStdin: (StreamWriter -> unit) option)
-        : Result<int * string * string, string> =
-        try
-            use proc = Process.Start(psi)
-            match writeStdin with
-            | Some write ->
-                write proc.StandardInput
-                proc.StandardInput.Close()
-            | None -> ()
-            let stdout = readTrim proc.StandardOutput
-            let stderr = readTrim proc.StandardError
-            proc.WaitForExit()
-            Ok(proc.ExitCode, stdout, stderr)
-        with ex ->
-            Error ex.Message
 
     let private ignoreError (stdout: string) (stderr: string) =
         let detail = failureDetail stdout stderr
@@ -88,14 +65,15 @@ module GitCheckIgnore =
             Ok false
         else
             Directory.CreateDirectory workTree |> ignore
-            let psi = basePsi workTree false
-            psi.ArgumentList.Add("check-ignore")
-            psi.ArgumentList.Add("-q")
-            psi.ArgumentList.Add("--no-index")
-            psi.ArgumentList.Add("--")
-            psi.ArgumentList.Add(rel)
+            let configure (psi: ProcessStartInfo) =
+                baseConfigure workTree false psi
+                psi.ArgumentList.Add("check-ignore")
+                psi.ArgumentList.Add("-q")
+                psi.ArgumentList.Add("--no-index")
+                psi.ArgumentList.Add("--")
+                psi.ArgumentList.Add(rel)
 
-            match runExit psi None with
+            match GitRun.gitCapture configure None with
             | Error e -> Error e
             | Ok(0, _, _) -> Ok true
             | Ok(1, _, _) -> Ok false
@@ -132,18 +110,19 @@ module GitCheckIgnore =
             Ok []
         else
             Directory.CreateDirectory workTree |> ignore
-            let psi = basePsi workTree true
-            psi.ArgumentList.Add("check-ignore")
-            psi.ArgumentList.Add("--no-index")
-            psi.ArgumentList.Add("--stdin")
-            psi.ArgumentList.Add("-z")
+            let configure (psi: ProcessStartInfo) =
+                baseConfigure workTree true psi
+                psi.ArgumentList.Add("check-ignore")
+                psi.ArgumentList.Add("--no-index")
+                psi.ArgumentList.Add("--stdin")
+                psi.ArgumentList.Add("-z")
 
             let write (stdin: StreamWriter) =
                 for path in paths do
                     stdin.Write(path)
                     stdin.Write('\u0000')
 
-            match runExit psi (Some write) with
+            match GitRun.gitCapture configure (Some write) with
             | Error e -> Error e
             | Ok(code, stdout, stderr) when code = 0 || code = 1 ->
                 let ignored = ignoredSetFromStdout stdout

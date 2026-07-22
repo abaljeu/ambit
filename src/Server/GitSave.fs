@@ -1,8 +1,8 @@
 namespace Gambol.Server
 
 open System
-open System.Diagnostics
 open System.IO
+open Gambol.Shared
 
 [<RequireQualifiedAccess>]
 module GitSave =
@@ -11,27 +11,7 @@ module GitSave =
         Directory.Exists(Path.Combine(dataDir, ".git"))
 
     let runGit (dataDir: string) (arguments: string) : Result<string, string> =
-        try
-            let psi =
-                ProcessStartInfo(
-                    FileName = "git",
-                    Arguments = arguments,
-                    WorkingDirectory = dataDir,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false)
-            use proc = Process.Start(psi)
-            let stdout = proc.StandardOutput.ReadToEnd()
-            let stderr = proc.StandardError.ReadToEnd()
-            proc.WaitForExit()
-            if proc.ExitCode = 0 then Ok(stdout.Trim())
-            else
-                let detail =
-                    if String.IsNullOrWhiteSpace stderr then stdout.Trim()
-                    else stderr.Trim()
-                Error detail
-        with ex ->
-            Error ex.Message
+        GitRun.gitExec dataDir arguments
 
     let commitAll (dataDir: string) (message: string) : Result<string, string> =
         if not (isRepo dataDir) then

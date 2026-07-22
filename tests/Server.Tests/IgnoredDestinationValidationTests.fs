@@ -1,7 +1,6 @@
 module Gambol.Server.Tests.IgnoredDestinationValidationTests
 
 open System
-open System.Diagnostics
 open System.IO
 open Gambol.Server
 open Gambol.Server.Tests.TestBackend
@@ -10,19 +9,7 @@ open Xunit
 
 module Encode = Thoth.Json.Newtonsoft.Encode
 
-let private gitOnPath () =
-    try
-        let start =
-            ProcessStartInfo(
-                FileName = "git",
-                Arguments = "--version",
-                RedirectStandardOutput = true,
-                UseShellExecute = false)
-        use proc = Process.Start(start)
-        proc.WaitForExit()
-        proc.ExitCode = 0
-    with _ ->
-        false
+let private gitOnPath () = DesktopGit.isAvailable()
 
 let private ownedChild id = { ref = Ownership.Owner; id = id }
 

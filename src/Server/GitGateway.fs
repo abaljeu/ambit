@@ -1,7 +1,6 @@
 namespace Gambol.Server
 
 open System
-open System.Diagnostics
 open System.IO
 open System.Text
 open System.Threading.Tasks
@@ -63,46 +62,6 @@ module GitGateway =
             sprintf "# service=%s\n" (urlServiceName service)
         Array.append (pktLine line) (Encoding.ASCII.GetBytes("0000"))
 
-    let private runGitExchange
-        (workDir: string)
-        (arguments: string)
-        (input: byte[])
-        : Result<byte[], string> =
-        try
-            let psi =
-                ProcessStartInfo(
-                    FileName = "git",
-                    Arguments = arguments,
-                    WorkingDirectory = workDir,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    RedirectStandardInput = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true)
-            use proc = Process.Start(psi)
-            if isNull proc then
-                Error "failed to start git"
-            else
-                if input.Length > 0 then
-                    proc.StandardInput.BaseStream.Write(
-                        input, 0, input.Length)
-                proc.StandardInput.Close()
-                use ms = new MemoryStream()
-                proc.StandardOutput.BaseStream.CopyTo(ms)
-                let stderr = proc.StandardError.ReadToEnd()
-                proc.WaitForExit()
-                if proc.ExitCode = 0 then
-                    Ok(ms.ToArray())
-                else
-                    let detail =
-                        if String.IsNullOrWhiteSpace stderr then
-                            "git failed"
-                        else
-                            stderr.Trim()
-                    Error detail
-        with ex ->
-            Error ex.Message
-
     let advertiseRefs
         (workspaceRoot: string)
         (service: Service)
@@ -111,7 +70,7 @@ module GitGateway =
             sprintf
                 "%s --advertise-refs --stateless-rpc ."
                 (gitPackCommand service)
-        match runGitExchange workspaceRoot args [||] with
+        match GitRun.gitExchange workspaceRoot args [||] with
         | Error err -> Error err
         | Ok refs -> Ok(Array.append (advertisePrefix service) refs)
 
@@ -122,7 +81,7 @@ module GitGateway =
         : Result<byte[], string> =
         let args =
             sprintf "%s --stateless-rpc ." (gitPackCommand service)
-        runGitExchange workspaceRoot args requestBody
+        GitRun.gitExchange workspaceRoot args requestBody
 
     let private contentTypeAdvertise (service: Service) =
         sprintf

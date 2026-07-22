@@ -6,6 +6,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="ProcessExec.fs" />
+    <Compile Include="GitRun.fs" />
     <Compile Include="DesktopGit.fs" />
     <Compile Include="GitCheckIgnore.fs" />
     <Compile Include="WorkspaceLocalInventory.fs" />
