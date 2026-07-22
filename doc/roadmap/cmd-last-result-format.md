@@ -25,7 +25,7 @@ Today the bar usually shows only `OK` (or a bare detail/error string) with no co
 | [[src/Shared/ViewModel.fs]] `CmdLastResult.toDisplay` | `Ok` → `"OK"`; `Detail` / `Error` → message only. No command name. |
 | [[src/Client/Controller.fs]] `dispatchResolvedKey` | Resolves `commandName` on `ResolvedKeyBinding` but does not pass it into `withDiagnostic` or display. |
 | Palette run ([[src/Client/Controller.fs]] `paletteRunOp`, [[src/Client/View.fs]] palette click) | Has `cmd` / registry id → `CommandEntry` name, but wraps with nameless `withDiagnostic`. |
-| Explicit setters | [[src/Client/UpdateWorkspaceGit.fs]], [[src/Client/UpdateImport.fs]], [[src/Client/UpdateRename.fs]], [[src/Shared/ViewModelMoveOps.fs]] set `Detail` / `Error` strings without a command-name prefix. |
+| Explicit setters | [[src/Client/UpdateWorkspaceSync.fs]], [[src/Client/UpdateImport.fs]], [[src/Client/UpdateRename.fs]], [[src/Shared/ViewModelMoveOps.fs]] set `Detail` / `Error` strings without a command-name prefix. |
 | [[src/Client/View.fs]] | Calls `setCmdLastResultDisplay model.lastCmdResult` on render. |
 
 ## Assumptions

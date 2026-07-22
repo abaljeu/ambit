@@ -25,8 +25,7 @@ type DesktopWorkspaceSyncResponse =
 
 type DesktopPickFolderResponse =
     { cancelled: bool
-      path: string option
-      gitRoot: string option }
+      path: string option }
 
 [<RequireQualifiedAccess>]
 module ServerCapabilities =
@@ -96,5 +95,4 @@ module DesktopPickFolderResponse =
             { cancelled =
                 get.Optional.Field "cancelled" Decode.bool
                 |> Option.defaultValue false
-              path = get.Optional.Field "path" Decode.string
-              gitRoot = get.Optional.Field "gitRoot" Decode.string })
+              path = get.Optional.Field "path" Decode.string })

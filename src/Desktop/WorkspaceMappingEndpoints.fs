@@ -44,17 +44,6 @@ module WorkspaceMappingEndpoints =
             | s when s.Trim().Length = 0 -> None
             | s -> Some (s.Trim())
 
-    let private tryGetBool (root: JsonElement) (name: string) =
-        let mutable value = Unchecked.defaultof<JsonElement>
-        if not (root.TryGetProperty(name, &value)) then
-            None
-        elif value.ValueKind = JsonValueKind.True then
-            Some true
-        elif value.ValueKind = JsonValueKind.False then
-            Some false
-        else
-            None
-
     let private currentMappings
         (workspaceMap: Map<string, WorkspaceMapping> ref)
         : WorkspaceMappings =
@@ -122,45 +111,12 @@ module WorkspaceMappingEndpoints =
     }
 
     let private handlePickFolder (context: HttpContext) = task {
-        let! body = readBody context
-        let requireGit =
-            if String.IsNullOrWhiteSpace body then
-                false
-            else
-                try
-                    use document = JsonDocument.Parse body
-                    tryGetBool document.RootElement "requireGit"
-                    |> Option.defaultValue false
-                with
-                | :? JsonException -> false
-
         match FolderPicker.pickFolder () with
         | None -> do! writeJson context "{\"cancelled\":true}"
         | Some path ->
-            match requireGit, WorkspaceLocalMapping.tryGitRoot path with
-            | true, Error err -> do! writeBadRequest context err
-            | true, Ok gitRoot ->
-                let json =
-                    "{\"cancelled\":false,\"path\":"
-                    + quoteJson path
-                    + ",\"gitRoot\":"
-                    + quoteJson gitRoot
-                    + "}"
-                do! writeJson context json
-            | false, Ok gitRoot ->
-                let json =
-                    "{\"cancelled\":false,\"path\":"
-                    + quoteJson path
-                    + ",\"gitRoot\":"
-                    + quoteJson gitRoot
-                    + "}"
-                do! writeJson context json
-            | false, Error _ ->
-                let json =
-                    "{\"cancelled\":false,\"path\":"
-                    + quoteJson path
-                    + ",\"gitRoot\":null}"
-                do! writeJson context json
+            let json =
+                "{\"cancelled\":false,\"path\":" + quoteJson path + "}"
+            do! writeJson context json
     }
 
     let private handleDetectGit (context: HttpContext) = task {

@@ -124,6 +124,30 @@ module DesktopCapabilities =
             { file = get.Required.Field "file" decodeFileCapabilities
               git = get.Required.Field "git" decodeGitCapabilities })
 
+    /// True when desktop host reported git binary on PATH.
+    let canGit (caps: DesktopCapabilities option) : bool =
+        match caps with
+        | Some { git = { canGit = true } } -> true
+        | _ -> false
+
+    /// Map / Pull: workspacePaths + file import/export (not pack transport).
+    let canWorkspaceSync (caps: DesktopCapabilities option) : bool =
+        match caps with
+        | Some { file = f } ->
+            f.canWorkspacePaths && f.canImport && f.canExport
+        | _ -> false
+
+    /// Push also needs git on PATH for check-ignore.
+    let canWorkspacePush (caps: DesktopCapabilities option) : bool =
+        canWorkspaceSync caps && canGit caps
+
+    /// Desktop file import works but git is unavailable — Upload cannot push.
+    let mappedWithoutGit (caps: DesktopCapabilities option) : bool =
+        match caps with
+        | Some { file = { canImport = true }; git = { canGit = false } } ->
+            true
+        | _ -> false
+
 [<RequireQualifiedAccess>]
 module NodeStatus =
     let label =

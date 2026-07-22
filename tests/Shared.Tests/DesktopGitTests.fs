@@ -43,47 +43,47 @@ let ``formatStatusLine clean branch`` () =
     Assert.Equal("main", line)
 
 [<Fact>]
-let ``canDesktopGit requires git capability`` () =
-    Assert.False(WorkspaceGitRemote.canDesktopGit None)
+let ``canGit requires git capability`` () =
+    Assert.False(DesktopCapabilities.canGit None)
     Assert.False(
-        WorkspaceGitRemote.canDesktopGit (Some DesktopCapabilities.disabled))
+        DesktopCapabilities.canGit (Some DesktopCapabilities.disabled))
     Assert.True(
-        WorkspaceGitRemote.canDesktopGit
+        DesktopCapabilities.canGit
             (Some (DesktopCapabilities.desktopEnabled true)))
     Assert.False(
-        WorkspaceGitRemote.canDesktopGit
+        DesktopCapabilities.canGit
             (Some (DesktopCapabilities.desktopEnabled false)))
 
 [<Fact>]
-let ``desktopMappedWithoutGit when import works but git does not`` () =
-    Assert.False(WorkspaceGitRemote.desktopMappedWithoutGit None)
+let ``mappedWithoutGit when import works but git does not`` () =
+    Assert.False(DesktopCapabilities.mappedWithoutGit None)
     Assert.False(
-        WorkspaceGitRemote.desktopMappedWithoutGit (Some DesktopCapabilities.disabled))
+        DesktopCapabilities.mappedWithoutGit (Some DesktopCapabilities.disabled))
     Assert.False(
-        WorkspaceGitRemote.desktopMappedWithoutGit
+        DesktopCapabilities.mappedWithoutGit
             (Some (DesktopCapabilities.desktopEnabled true)))
     Assert.True(
-        WorkspaceGitRemote.desktopMappedWithoutGit
+        DesktopCapabilities.mappedWithoutGit
             (Some (DesktopCapabilities.desktopEnabled false)))
 
 [<Fact>]
-let ``canDesktopWorkspaceSync needs file path caps`` () =
-    Assert.False(WorkspaceGitRemote.canDesktopWorkspaceSync None)
+let ``canWorkspaceSync needs file path caps`` () =
+    Assert.False(DesktopCapabilities.canWorkspaceSync None)
     Assert.False(
-        WorkspaceGitRemote.canDesktopWorkspaceSync
+        DesktopCapabilities.canWorkspaceSync
             (Some DesktopCapabilities.disabled))
     Assert.True(
-        WorkspaceGitRemote.canDesktopWorkspaceSync
+        DesktopCapabilities.canWorkspaceSync
             (Some (DesktopCapabilities.desktopEnabled false)))
     Assert.True(
-        WorkspaceGitRemote.canDesktopWorkspaceSync
+        DesktopCapabilities.canWorkspaceSync
             (Some (DesktopCapabilities.desktopEnabled true)))
 
 [<Fact>]
-let ``canDesktopWorkspacePush needs sync caps and git`` () =
+let ``canWorkspacePush needs sync caps and git`` () =
     Assert.False(
-        WorkspaceGitRemote.canDesktopWorkspacePush
+        DesktopCapabilities.canWorkspacePush
             (Some (DesktopCapabilities.desktopEnabled false)))
     Assert.True(
-        WorkspaceGitRemote.canDesktopWorkspacePush
+        DesktopCapabilities.canWorkspacePush
             (Some (DesktopCapabilities.desktopEnabled true)))

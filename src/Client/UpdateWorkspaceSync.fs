@@ -1,4 +1,4 @@
-module Gambol.Client.UpdateWorkspaceGit
+module Gambol.Client.UpdateWorkspaceSync
 
 open Gambol.Client.JsInterop
 open Gambol.Client.UpdateCodec
@@ -61,20 +61,13 @@ let private putDesktop (url: string) (body: string) : Result<string, string> =
     if status < 200 || status >= 300 then Error(httpError status text)
     else Ok text
 
-let private pickFolder (requireGit: bool) : Result<string, string> =
-    let body =
-        Encode.object [ "requireGit", Encode.bool requireGit ]
-        |> Thoth.Json.JavaScript.Encode.toString 0
-    match postDesktop "/_desktop/pick-folder" body with
+let private pickFolder () : Result<string, string> =
+    match postDesktop "/_desktop/pick-folder" "{}" with
     | Error e -> Error e
     | Ok text ->
         match decodeDesktopPickFolder text with
         | Error e -> Error e
         | Ok { cancelled = true } -> Error "cancelled"
-        | Ok { path = Some path; gitRoot = gitRoot } when requireGit ->
-            match gitRoot with
-            | Some root -> Ok root
-            | None -> Ok path
         | Ok { path = Some path } -> Ok path
         | Ok _ -> Error "no folder selected"
 
@@ -108,7 +101,7 @@ let private ensureMapped (label: string) : Result<string, string> =
         | Error e -> Error e
         | Ok(Some path) -> Ok path
         | Ok None ->
-            match pickFolder false with
+            match pickFolder () with
             | Error e -> Error e
             | Ok path ->
                 match upsertMapping label path with
@@ -169,7 +162,7 @@ let private applyOpsChange (ops: Op list) (model: VM) : Result<VM * Effect list,
         | Ok (m, effects) -> Ok(withSiteMap m, effects)
 
 let private needsGitForPush (model: VM) : bool =
-    WorkspaceGitRemote.desktopMappedWithoutGit model.desktopCapabilities
+    DesktopCapabilities.mappedWithoutGit model.desktopCapabilities
 
 let private pushScoped
     (scope: WorkspaceSyncScope)
@@ -195,13 +188,13 @@ let focusIsWorkspaces (model: VM) : bool =
 
 /// Workspaces + Upload: pick folder → create WS → map → push → reconcile.
 let uploadCreateWorkspaceOp (model: VM) : VM * Effect list =
-    if not (WorkspaceGitRemote.canDesktopWorkspacePush model.desktopCapabilities) then
+    if not (DesktopCapabilities.canWorkspacePush model.desktopCapabilities) then
         if needsGitForPush model then
             fail model "Upload needs git on PATH for .gitignore filtering"
         else
             model, []
     else
-        match pickFolder false with
+        match pickFolder () with
         | Error "cancelled" -> model, []
         | Error e -> fail model e
         | Ok path ->
@@ -243,10 +236,10 @@ let uploadCreateWorkspaceOp (model: VM) : VM * Effect list =
                             model'', createEffs @ reconEffs
 
 let uploadNamedScope (model: VM) : VM * Effect list =
-    if not (WorkspaceGitRemote.canDesktopWorkspacePush model.desktopCapabilities) then
+    if not (DesktopCapabilities.canWorkspacePush model.desktopCapabilities) then
         if needsGitForPush model then
             fail model "Upload needs git on PATH for .gitignore filtering"
-        elif WorkspaceGitRemote.canDesktopWorkspaceSync model.desktopCapabilities
+        elif DesktopCapabilities.canWorkspaceSync model.desktopCapabilities
         then
             model, []
         else
@@ -274,7 +267,7 @@ let uploadNamedScope (model: VM) : VM * Effect list =
 
 /// File Upload: ensure map → push file scope → Parse.
 let uploadFileOp (fileId: NodeId) (model: VM) : VM * Effect list =
-    if WorkspaceGitRemote.canDesktopWorkspacePush model.desktopCapabilities then
+    if DesktopCapabilities.canWorkspacePush model.desktopCapabilities then
         match syncScopeFromFocus model with
         | Error msg -> fail model msg
         | Ok scope ->
@@ -288,7 +281,7 @@ let uploadFileOp (fileId: NodeId) (model: VM) : VM * Effect list =
         parseFileOp fileId model
 
 let downloadOp (model: VM) : VM * Effect list =
-    if not (WorkspaceGitRemote.canDesktopWorkspaceSync model.desktopCapabilities) then
+    if not (DesktopCapabilities.canWorkspaceSync model.desktopCapabilities) then
         model, []
     else
         match syncScopeFromFocus model with

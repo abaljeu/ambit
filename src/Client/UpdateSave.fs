@@ -7,14 +7,14 @@ open Gambol.Shared
 open Gambol.Shared.ViewModel
 
 
-let private canGitSave (model: VM) =
+let private canSave (model: VM) =
     match model.serverCapabilities with
     | Some { canGitSave = true } -> true
     | _ -> false
 
-/// Commit persisted data files to git in the server data directory.
-let gitSaveOp (model: VM) : VM * Effect list =
-    if not (canGitSave model) then
+/// Persist data-dir snapshot via the server Save endpoint.
+let saveOp (model: VM) : VM * Effect list =
+    if not (canSave model) then
         model, []
     else
         postEmpty
@@ -22,19 +22,19 @@ let gitSaveOp (model: VM) : VM * Effect list =
             (fun text ->
                 match decodeGitSaveResponse text with
                 | Ok { ok = true; detail = detail } ->
-                    consoleLog ("[Gambol] git save: " + detail)
+                    consoleLog ("[Gambol] save: " + detail)
                 | Ok { error = Some err } ->
-                    consoleLog ("[Gambol] git save failed: " + err)
+                    consoleLog ("[Gambol] save failed: " + err)
                 | Ok _ ->
-                    consoleLog "[Gambol] git save failed: unknown response"
+                    consoleLog "[Gambol] save failed: unknown response"
                 | Error err ->
-                    consoleLog ("[Gambol] git save decode failed: " + err))
+                    consoleLog ("[Gambol] save decode failed: " + err))
             (fun status text ->
                 consoleLog (
-                    "[Gambol] git save HTTP "
+                    "[Gambol] save HTTP "
                     + string status
                     + ": "
                     + LogText.truncateForLog 200 text))
-            (fun () -> consoleLog "[Gambol] git save network error")
+            (fun () -> consoleLog "[Gambol] save network error")
             (emptyMutatingPostHeaders ())
         model, []

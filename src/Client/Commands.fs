@@ -13,7 +13,7 @@ open Gambol.Client.UpdateHelpers
 open Gambol.Client.UpdateOps
 open Gambol.Client.UpdatePaste
 open Gambol.Client.UpdateSave
-open Gambol.Client.UpdateWorkspaceGit
+open Gambol.Client.UpdateWorkspaceSync
 open Gambol.Client.UpdateFileSearch
 open Gambol.Client.UpdateRename
 open Gambol.Client.UpdateAmbleRun
@@ -188,23 +188,23 @@ let uploadOp (model: VM) : VM * Effect list =
 
 let private uploadAvailable (model: VM) =
     if focusIsWorkspaces model then
-        WorkspaceGitRemote.canDesktopWorkspacePush model.desktopCapabilities
+        DesktopCapabilities.canWorkspacePush model.desktopCapabilities
     else
         match contextualTargetForModel model with
         | Some(ParseFile _) -> true
         | Some(ReconcileWorkspace _)
         | Some(ReconcileDirectory _) ->
             let canSync =
-                WorkspaceGitRemote.canDesktopWorkspaceSync
+                DesktopCapabilities.canWorkspaceSync
                     model.desktopCapabilities
             let canPush =
-                WorkspaceGitRemote.canDesktopWorkspacePush
+                DesktopCapabilities.canWorkspacePush
                     model.desktopCapabilities
             canPush || not canSync
         | None -> false
 
 let private downloadAvailable (model: VM) =
-    WorkspaceGitRemote.canDesktopWorkspaceSync model.desktopCapabilities
+    DesktopCapabilities.canWorkspaceSync model.desktopCapabilities
     && not (focusIsWorkspaces model)
     && (model.selectedNodes
         |> Option.map (focusedNodeId model.graph)
@@ -266,7 +266,7 @@ let commandRegistry : CommandEntry2 list =
       cmd EditClasses (keyAlways openCssClassPromptOp)
       cmd JumpToTarget (keyAlways jumpTargetOp)
       cmd Upload (keyAlways uploadOp)
-      cmd Save (keyAlways gitSaveOp)
+      cmd Save (keyAlways saveOp)
       cmd Download (keyAlways downloadOp)
       cmd CheckGraph (keyAlways validateGraphOp)
     ]
