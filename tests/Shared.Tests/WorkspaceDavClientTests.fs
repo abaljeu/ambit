@@ -31,6 +31,23 @@ let ``preparePushUrl targets _prepare-push`` () =
         url)
 
 [<Fact>]
+let ``interpretPropfindResponse treats 404 as empty inventory`` () =
+    match WorkspaceDavClient.interpretPropfindResponse "ws" 404 "" with
+    | Ok [] -> ()
+    | Ok entries ->
+        Assert.Fail("expected empty, got " + string entries.Length)
+    | Error e -> Assert.Fail(e)
+
+[<Fact>]
+let ``interpretPropfindResponse still errors on non-404 failures`` () =
+    match
+        WorkspaceDavClient.interpretPropfindResponse "ws" 500 "boom"
+    with
+    | Error msg ->
+        Assert.Contains("PROPFIND HTTP 500", msg)
+    | Ok _ -> Assert.Fail("expected error")
+
+[<Fact>]
 let ``parsePropfindXml reads href collection and mtime`` () =
     let xml =
         """<?xml version="1.0" encoding="utf-8"?>

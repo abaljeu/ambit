@@ -30,7 +30,7 @@ So ignore reduces candidates on **both** directions. For Download, the inventory
 
 The desktop layer’s two main sync functions:
 
-1. **Post (Upload)** — JIT prepare-push → local scope → GitCheckIgnore → classify/plan (Full / TreeStructure / TopLevel) → WebDAV `PUT` / `MKCOL` (empty PUT for Unparsed placeholders; file mtime via `X-Gambol-Source-Mtime`) → finish-commit.
+1. **Post (Upload)** — JIT prepare-push → local scope → GitCheckIgnore → classify/plan (Full / TreeStructure / TopLevel) → concurrent WebDAV `PUT` / `MKCOL` in depth waves (empty PUT for Unparsed placeholders; file mtime via `X-Gambol-Source-Mtime`) → finish-commit.
 2. **Get (Download)** — server `PROPFIND` inventory → same ladder → stage under `.gambol-dl-tmp/{jobId}` → GET bodies or empty placeholders → promote dirs atomically → set local file mtime from `getlastmodified`. Used by the desktop download manager (not blocking client pull).
 
 ## What it avoids for now
@@ -54,6 +54,7 @@ The desktop layer’s two main sync functions:
 | Scope | Focus determines workspace whole tree, directory relative prefix, or single file |
 | Overwrite | Last-write-wins in scope; no FF; no delete of extras on either side in v1 |
 | Auth | Same as other `/ambit` routes (no separate PAT for Upload/Download) |
+| Upload concurrency | Pipelined `PUT`/`MKCOL` in depth waves (dirs by depth, then files); cap ~12 in flight — not zip/tar batching |
 
 ## How `.gitignore` is followed
 
@@ -112,9 +113,15 @@ Transfer-byte sum excludes \>4 MiB bodies and TreeStructure empty placeholders. 
 - Endpoints: `POST /_desktop/workspace-download` (enqueue), `GET /_desktop/workspace-download?id=…` (status).
 - Client Download: ensure map → POST → `okDetail`; no wait, no reconcile, no progress UI.
 
-## Deferred: sync ledger + selective delete
+## Sync ledger + mtime skip (shipped)
 
-Per-path ledger in `%LocalAppData%/Gambol/` beside mappings; seeded on first scoped Upload/Download. Upload delete only with ledger signal; Download delete per-path watermark. Until built: **no mirror-delete** either direction (retain extras).
+Per-path ledger in `%LocalAppData%/Gambol/sync-ledger-{label}.json` beside mappings (`config.json`). Seeded on first scoped Upload/Download from full-workspace PROPFIND + local inventory. Later scoped syncs update only touched rows.
+
+**Skip-if-newer (UTC):** For each file in scope, skip transfer when target mtime is same or newer than source — Upload skips PUT when server ≥ local; Download skips GET when local ≥ server. Directories: MKCOL remains idempotent (405 ok); dir mtime not tracked.
+
+After successful transfer, ledger row gets current local/server mtimes and `lastServerHead` when finish-commit returns it. Rows include `presence` and `lastOp` for future selective delete propagation.
+
+**Deferred:** selective delete propagation — no mirror-delete either direction (retain extras).
 
 | Map / Connect / Clone / pack Push / Status | **Removed** from palette and desktop pack UX |
 
@@ -181,6 +188,7 @@ Shipped:
 - [x] Desktop `/_desktop/workspace-push` / `workspace-pull` / `workspace-download` (HttpClient WebDAV + download manager).
 - [x] Client Upload / Download with ensure-map; Workspaces create-from-folder; file Parse after Upload; ungated from pack transport.
 - [x] Post-push reconcile via `/ambit/workspace/reconciliation/directory`.
+- [x] Sync ledger + mtime skip (Upload/Download); selective delete still deferred.
 
 Still open (see [[workspaces-checklist]], [[lazy-load]]):
 

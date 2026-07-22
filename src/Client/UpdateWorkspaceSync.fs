@@ -123,19 +123,6 @@ let private syncScopeFromFocus (model: VM) : Result<WorkspaceSyncScope, string> 
         let nodeId = focusedNodeId model.graph sel
         WorkspaceSyncScope.tryFromFocus model.graph nodeId
 
-let private postWorkspaceSync
-    (url: string)
-    (scope: WorkspaceSyncScope)
-    : Result<DesktopWorkspaceSyncResponse, string> =
-    match postDesktop url (encodeSyncScope scope) with
-    | Error e -> Error e
-    | Ok text ->
-        match decodeDesktopWorkspaceSync text with
-        | Error e -> Error e
-        | Ok resp when resp.ok -> Ok resp
-        | Ok { error = Some e } -> Error e
-        | Ok _ -> Error "request failed"
-
 let private postReconcileResponse
     (model: VM)
     (status: int)
@@ -232,14 +219,6 @@ let private createWorkspaceOnServer (ops: Op list) (model: VM) : Result<VM, stri
               ops = ops }
         applyAndPostSync change model |> Result.map withSiteMap
 
-let private pushScoped
-    (scope: WorkspaceSyncScope)
-    : Result<DesktopWorkspaceSyncResponse, string> =
-    match ensureMapped scope.label with
-    | Error e -> Error e
-    | Ok _ ->
-        postWorkspaceSync "/_desktop/workspace-push" scope
-
 let private postWorkspaceDownload
     (scope: WorkspaceSyncScope)
     : Result<DesktopWorkspaceSyncResponse, string> =
@@ -275,6 +254,45 @@ let private clearUploading (m: VM) =
 let private keepUploading (m: VM) =
     { m with
         syncInfo = SyncInfo.withSyncState Uploading m.syncInfo }
+
+/// Ensure map (may pick-folder), then JSON body for async `/_desktop/workspace-push`.
+let tryPrepareWorkspacePushBody
+    (scope: WorkspaceSyncScope)
+    : Result<string, string> =
+    match ensureMapped scope.label with
+    | Error e -> Error e
+    | Ok _ -> Ok (encodeSyncScope scope)
+
+let cancelWorkspacePush (model: VM) : VM * Effect list =
+    clearUploading model, []
+
+let failWorkspacePush (msg: string) (model: VM) : VM * Effect list =
+    fail (clearUploading model) msg
+
+let failWorkspacePushHttp
+    (status: int)
+    (body: string)
+    (model: VM)
+    : VM * Effect list =
+    failWorkspacePush (httpError status body) model
+
+/// After async workspace-push success body: clear Uploading, then reconcile or parse.
+let completeWorkspacePush
+    (scope: WorkspaceSyncScope)
+    (parseFileId: NodeId option)
+    (text: string)
+    (model: VM)
+    : VM * Effect list =
+    match decodeDesktopWorkspaceSync text with
+    | Error e -> failWorkspacePush e model
+    | Ok sync when sync.ok ->
+        consoleLog ("[Gambol sync] " + sync.detail)
+        let model' = clearUploading model
+        match parseFileId with
+        | Some fileId -> parseFileOp fileId model'
+        | None -> postDirectoryReconcile model' scope.label scope.relative
+    | Ok { error = Some e } -> failWorkspacePush e model
+    | Ok _ -> failWorkspacePush "request failed" model
 
 /// Blocking poll so stub nodes appear before the heavy file push (keeps Uploading).
 let private applyPollSyncKeepUpload (model: VM) : VM =
@@ -338,22 +356,6 @@ let continueWorkspaceStubsThenPush
                             model'
                     keepUploading model'',
                     [ Effect.ContinueWorkspacePush (scope, None) ]
-
-/// Background: full WebDAV push, then directory reconcile or file parse.
-let continueWorkspacePush
-    (scope: WorkspaceSyncScope)
-    (parseFileId: NodeId option)
-    (model: VM)
-    : VM * Effect list =
-    match pushScoped scope with
-    | Error "cancelled" -> clearUploading model, []
-    | Error e -> fail (clearUploading model) e
-    | Ok sync ->
-        consoleLog ("[Gambol sync] " + sync.detail)
-        let model' = clearUploading model
-        match parseFileId with
-        | Some fileId -> parseFileOp fileId model'
-        | None -> postDirectoryReconcile model' scope.label scope.relative
 
 let private beginDeferredPush
     (scope: WorkspaceSyncScope)

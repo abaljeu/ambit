@@ -41,6 +41,9 @@
     <Compile Include="WorkspaceSyncLimitsTests.fs" />
     <Compile Include="WorkspaceDownloadQueueTests.fs" />
     <Compile Include="WorkspaceDavClientTests.fs" />
+    <Compile Include="WorkspaceFileSyncPromoteTests.fs" />
+    <Compile Include="WorkspaceFileSyncUploadWavesTests.fs" />
+    <Compile Include="WorkspaceSyncLedgerTests.fs" />
     <Compile Include="LoginFormTests.fs" />
     <Compile Include="LoginRedirectTests.fs" />
     <Compile Include="RedirectRewriteTests.fs" />

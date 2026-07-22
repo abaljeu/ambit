@@ -165,6 +165,16 @@ module WorkspaceDavClient =
             |> ignore
         | _ -> ()
 
+    /// Missing remote path (first push) → empty inventory; 207 → parse.
+    let interpretPropfindResponse
+        (label: string)
+        (code: int)
+        (body: string)
+        : Result<DavInventoryEntry list, string> =
+        if code = 404 then Ok []
+        elif code = 207 then parsePropfindXml label body
+        else Error("PROPFIND HTTP " + string code + ": " + body)
+
     let propfind
         (client: HttpClient)
         (ambitBase: string)
@@ -180,11 +190,7 @@ module WorkspaceDavClient =
             addCookie req cookieHeader
             use resp = client.Send(req)
             let body = resp.Content.ReadAsStringAsync().Result
-            let code = int resp.StatusCode
-            if code <> 207 then
-                Error("PROPFIND HTTP " + string code + ": " + body)
-            else
-                parsePropfindXml label body
+            interpretPropfindResponse label (int resp.StatusCode) body
         with ex ->
             Error ex.Message
 

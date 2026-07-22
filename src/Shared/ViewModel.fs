@@ -252,7 +252,7 @@ type Effect =
     | RequestServerFileStatus of nodeId: NodeId * path: string
     /// After create: inventory + top-level stubs, then ContinueWorkspacePush.
     | ContinueWorkspaceStubsThenPush of WorkspaceSyncScope
-    /// Deferred workspace push; Some fileId → parse that file after push.
+    /// Deferred async workspace-push (`postJson`); Some fileId → parse after push.
     | ContinueWorkspacePush of WorkspaceSyncScope * parseFileId: NodeId option
 
 /// Row / active-file indicator vocabulary (desktop status + absent artifacts).

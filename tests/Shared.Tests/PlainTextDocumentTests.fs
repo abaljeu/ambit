@@ -531,6 +531,30 @@ let ``write warm keep preserves crlf endings`` () =
     Assert.Equal("ALPHA\r\nbeta\r\n", text)
 
 [<Fact>]
+let ``write warm sibling reorder follows graph not previous disk order`` () =
+    let graph0, docId = graphWithDocument []
+    let nl = Environment.NewLine
+    let previous = "alpha" + nl + "beta" + nl
+    let readResult =
+        PlainTextDocument.read previous docId graph0 |> requireOk "read"
+    let graph = { graph0 with nodes = readResult.nodes }
+    let children = graph.nodes.[docId].children
+    let aId = children.[0].id
+    let bId = children.[1].id
+    let graph =
+        Graph.replace docId 0 children (owned [ bId; aId ]) graph
+        |> requireOk "reorder"
+    let output =
+        PlainTextDocument.writeWarm
+            OutlineLcs.diffTexts
+            graph
+            docId
+            readResult.complement
+            previous
+        |> requireOk "write"
+    Assert.Equal("beta" + nl + "alpha" + nl, output)
+
+[<Fact>]
 let ``write projects empty nodes as blank lines`` () =
     let aId = NodeId.New()
     let blankId = NodeId.New()

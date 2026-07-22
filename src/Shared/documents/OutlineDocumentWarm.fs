@@ -117,9 +117,10 @@ module OutlineDocumentWarm =
             DocumentHandler.write = write
         }
 
+    /// Keep/Insert carry editedIndex so LCS diff-order can be rebuilt in graph order.
     type private WriteStep =
-        | WKeep of prevIndex: int * edit: OutlineReconcile.OutlineLine
-        | WInsert of edit: OutlineReconcile.OutlineLine
+        | WKeep of prevIndex: int * editedIndex: int * edit: OutlineReconcile.OutlineLine
+        | WInsert of editedIndex: int * edit: OutlineReconcile.OutlineLine
         | WDelete of prevIndex: int
 
     let private pairIdenticalMovesWrite
@@ -164,11 +165,12 @@ module OutlineDocumentWarm =
         ops
         |> List.choose (fun op ->
             match op with
-            | OutlineDiffOp.Equal(pi, ei) -> Some(WKeep(pi, edited.[ei]))
+            | OutlineDiffOp.Equal(pi, ei) ->
+                Some(WKeep(pi, ei, edited.[ei]))
             | OutlineDiffOp.Insert ei ->
                 match Map.tryFind ei moveByEdit with
-                | Some pi -> Some(WKeep(pi, edited.[ei]))
-                | None -> Some(WInsert edited.[ei])
+                | Some pi -> Some(WKeep(pi, ei, edited.[ei]))
+                | None -> Some(WInsert(ei, edited.[ei]))
             | OutlineDiffOp.Delete pi ->
                 if Set.contains pi pairedDel then None
                 else Some(WDelete pi))
@@ -177,13 +179,14 @@ module OutlineDocumentWarm =
         let rec loop acc =
             function
             | [] -> List.rev acc
-            | WDelete pi :: WInsert edit :: rest ->
-                loop (WKeep(pi, edit) :: acc) rest
+            | WDelete pi :: WInsert(ei, edit) :: rest ->
+                loop (WKeep(pi, ei, edit) :: acc) rest
             | WDelete _ :: rest -> loop acc rest
             | x :: rest -> loop (x :: acc) rest
 
         loop [] steps
 
+    /// LCS ops are diff-order; reindex Keep/Insert into graph (edited) order.
     let private writeStepsLcs
         (diffTexts: OutlineDiffTexts)
         (previous: OutlineReconcile.OutlineLine list)
@@ -194,9 +197,21 @@ module OutlineDocumentWarm =
                 (previous |> List.map (fun l -> l.text))
                 (edited |> List.map (fun l -> l.text))
 
-        ops
-        |> pairIdenticalMovesWrite previous edited
-        |> pairInPlaceWrite
+        let byEditedIndex =
+            ops
+            |> pairIdenticalMovesWrite previous edited
+            |> pairInPlaceWrite
+            |> List.choose (function
+                | WKeep(pi, ei, e) -> Some(ei, WKeep(pi, ei, e))
+                | WInsert(ei, e) -> Some(ei, WInsert(ei, e))
+                | WDelete _ -> None)
+            |> Map.ofList
+
+        edited
+        |> List.mapi (fun ei edit ->
+            match Map.tryFind ei byEditedIndex with
+            | Some step -> step
+            | None -> WInsert(ei, edit))
 
     let private writeSteps
         (diffTexts: OutlineDiffTexts)
@@ -213,7 +228,8 @@ module OutlineDocumentWarm =
 
             let hardByEdit =
                 pairs
-                |> List.map (fun (pi, ei) -> ei, WKeep(pi, edited.[ei]))
+                |> List.map (fun (pi, ei) ->
+                    ei, WKeep(pi, ei, edited.[ei]))
                 |> Map.ofList
 
             let prevRest =
@@ -236,15 +252,13 @@ module OutlineDocumentWarm =
                 |> List.filter (fun i -> not (Set.contains i hardPrev))
 
             let remap = function
-                | WKeep(localPi, edit) -> WKeep(prevRestIndex.[localPi], edit)
-                | WInsert e -> WInsert e
+                | WKeep(localPi, ei, edit) ->
+                    WKeep(prevRestIndex.[localPi], ei, edit)
+                | WInsert(ei, e) -> WInsert(ei, e)
                 | WDelete localPi -> WDelete prevRestIndex.[localPi]
 
-            let restKeepInsert =
-                restSteps
-                |> List.choose (function
-                    | WDelete _ -> None
-                    | s -> Some(remap s))
+            // writeStepsLcs is already editRest order (Keep/Insert only).
+            let restKeepInsert = restSteps |> List.map remap
 
             let merged, _ =
                 edited
@@ -259,7 +273,8 @@ module OutlineDocumentWarm =
 
             List.rev merged
 
-    /// Graph-wins emit plan: Delete omitted; Keep/Insert in graph order.
+    /// Graph-wins emit plan: Delete omitted; Keep/Insert in graph (edited) order.
+    /// DiffPlex ops are reindexed so file/parse order cannot override document children.
     type WriteEmit =
         | EmitKeep of prevIndex: int * edit: OutlineReconcile.OutlineLine
         | EmitInsert of edit: OutlineReconcile.OutlineLine
@@ -271,8 +286,8 @@ module OutlineDocumentWarm =
         : WriteEmit list =
         writeSteps diffTexts previous edited
         |> List.choose (function
-            | WKeep(pi, e) -> Some(EmitKeep(pi, e))
-            | WInsert e -> Some(EmitInsert e)
+            | WKeep(pi, _, e) -> Some(EmitKeep(pi, e))
+            | WInsert(_, e) -> Some(EmitInsert e)
             | WDelete _ -> None)
 
     /// Stateful fold over a write plan; `stepEmit` returns next state and chunk text.

@@ -182,12 +182,14 @@ module Main =
         |> ignore
 
     let useDevelopmentLatency (app: WebApplication) =
-        // Development only: add fixed response latency for sync/retry testing.
+        // Development only: handle first, then delay before completing the response.
+        // Simulates RTT after work so concurrent uploads overlap delays.
         if app.Environment.EnvironmentName = "Development" then
             app.Use(fun (ctx: HttpContext) (next: RequestDelegate) ->
-                Task.Delay(1000)
-                    .ContinueWith(fun (_: Task) -> next.Invoke(ctx))
-                    .Unwrap())
+                task {
+                    do! next.Invoke(ctx)
+                    do! Task.Delay(1000)
+                } :> Task)
             |> ignore
 
     let mapSourceFiles hasHead (app: WebApplication) =

@@ -140,10 +140,35 @@ let createRuntime (initialModel: VM) =
                 50
             |> ignore
         | ContinueWorkspacePush (scope, parseFileId) ->
+            // Ensure-map may sync-dialog; heavy WebDAV push must use async fetch.
             setTimeout
                 (fun () ->
-                    dispatch (
-                        ApplyOp (continueWorkspacePush scope parseFileId)))
+                    match tryPrepareWorkspacePushBody scope with
+                    | Error "cancelled" ->
+                        dispatch (ApplyOp cancelWorkspacePush)
+                    | Error e ->
+                        dispatch (ApplyOp (failWorkspacePush e))
+                    | Ok body ->
+                        postJson
+                            "/_desktop/workspace-push"
+                            body
+                            (fun text ->
+                                dispatch (
+                                    ApplyOp (
+                                        completeWorkspacePush
+                                            scope
+                                            parseFileId
+                                            text)))
+                            (fun status text ->
+                                dispatch (
+                                    ApplyOp (
+                                        failWorkspacePushHttp status text)))
+                            (fun () ->
+                                dispatch (
+                                    ApplyOp (
+                                        failWorkspacePush
+                                            "workspace-push request failed")))
+                            (jsonMutatingPostHeaders ()))
                 50
             |> ignore
 

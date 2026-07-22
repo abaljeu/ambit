@@ -3,6 +3,8 @@ namespace Gambol.Shared
 open System
 open System.IO
 open System.Net.Http
+open System.Threading
+open System.Threading.Tasks
 
 /// Desktop Post (Push) / Get (Pull) over WebDAV with volume ladder.
 [<RequireQualifiedAccess>]
@@ -85,19 +87,35 @@ module WorkspaceFileSync =
                byteSize = if e.isCollection then 0L else e.contentLength }
              : WorkspaceSyncLimits.SizedItem))
 
-    let private orderPlanned (planned: WorkspaceSyncLimits.PlannedPath list) =
-        let depth (rel: string) =
-            if rel = "" then 0
-            else rel.Split('/').Length
-        let dirs =
+    /// Max overlapping WebDAV PUT/MKCOL requests within one wave.
+    let private uploadConcurrency = 12
+
+    let private pathDepth (rel: string) =
+        if rel = "" then 0
+        else rel.Split('/').Length
+
+    /// Dependency-safe waves: directory depth groups, then all files.
+    let partitionUploadWaves
+        (planned: WorkspaceSyncLimits.PlannedPath list)
+        : WorkspaceSyncLimits.PlannedPath list list =
+        let dirWaves =
             planned
             |> List.filter (fun p -> p.isDirectory)
-            |> List.sortBy (fun p -> depth p.relative, p.relative)
+            |> List.groupBy (fun p -> pathDepth p.relative)
+            |> List.sortBy fst
+            |> List.map (fun (_, items) ->
+                items |> List.sortBy (fun p -> p.relative))
+
         let files =
             planned
             |> List.filter (fun p -> not p.isDirectory)
             |> List.sortBy (fun p -> p.relative)
-        dirs @ files
+
+        if files.IsEmpty then dirWaves
+        else dirWaves @ [ files ]
+
+    let private orderPlanned (planned: WorkspaceSyncLimits.PlannedPath list) =
+        partitionUploadWaves planned |> List.concat
 
     let private uploadOne
         (client: HttpClient)
@@ -140,11 +158,197 @@ module WorkspaceFileSync =
                         hint
                         mtime
 
+    let private runUploadWave
+        (client: HttpClient)
+        (ambitBase: string)
+        (label: string)
+        (mappedRoot: string)
+        (cookie: string option)
+        (hint: string option)
+        (wave: WorkspaceSyncLimits.PlannedPath list)
+        : Result<WorkspaceSyncLimits.PlannedPath list, string> =
+        if wave.IsEmpty then Ok []
+        else
+            use gate = new SemaphoreSlim(uploadConcurrency)
+
+            let tasks =
+                wave
+                |> List.map (fun item ->
+                    Task.Run(fun () ->
+                        gate.Wait()
+
+                        try
+                            match
+                                uploadOne
+                                    client
+                                    ambitBase
+                                    label
+                                    mappedRoot
+                                    cookie
+                                    hint
+                                    item
+                            with
+                            | Error e ->
+                                Error(item.relative + ": " + e)
+                            | Ok () -> Ok item
+                        finally
+                            gate.Release() |> ignore))
+                |> Array.ofList
+
+            Task.WaitAll(tasks |> Array.map (fun t -> t :> Task))
+
+            let results =
+                tasks
+                |> Array.map (fun t -> t.Result)
+                |> Array.toList
+
+            match
+                results
+                |> List.tryPick (function
+                    | Error e -> Some e
+                    | Ok _ -> None)
+            with
+            | Some e -> Error e
+            | None ->
+                results
+                |> List.choose (function
+                    | Ok item -> Some item
+                    | Error _ -> None)
+                |> Ok
+
     let private modeLabel mode =
         match mode with
         | WorkspaceSyncLimits.Mode.Full -> "Full"
         | WorkspaceSyncLimits.Mode.TreeStructure -> "TreeStructure"
         | WorkspaceSyncLimits.Mode.TopLevel -> "TopLevel"
+
+    let private fullWorkspaceScope (label: string) : WorkspaceSyncScope =
+        { label = label
+          relative = ""
+          kind = SyncScopeKind.Workspace }
+
+    let private propfindDepth (scope: WorkspaceSyncScope) =
+        match scope.kind with
+        | SyncScopeKind.File -> "0"
+        | SyncScopeKind.Workspace
+        | SyncScopeKind.Directory -> "infinity"
+
+    let private serverMtimeMap (entries: DavInventoryEntry list) =
+        entries
+        |> List.filter (fun e -> not e.isCollection)
+        |> List.map (fun e -> e.relative, e.lastModifiedUtc)
+        |> Map.ofList
+
+    let private ensureLedgerSeeded
+        (client: HttpClient)
+        (ambitBase: string)
+        (mappedRoot: string)
+        (label: string)
+        (cookie: string option)
+        =
+        match WorkspaceSyncLedger.loadForLabel label with
+        | Error e -> Error e
+        | Ok ledger ->
+            if not (WorkspaceSyncLedger.needsSeed ledger) then Ok ledger
+            else
+                match
+                    WorkspaceDavClient.propfind
+                        client
+                        ambitBase
+                        label
+                        ""
+                        "infinity"
+                        cookie
+                with
+                | Error e -> Error e
+                | Ok serverEntries ->
+                    match
+                        WorkspaceLocalInventory.listForPush
+                            mappedRoot
+                            (fullWorkspaceScope label)
+                    with
+                    | Error e -> Error e
+                    | Ok localItems ->
+                        let seeded =
+                            WorkspaceSyncLedger.seed
+                                label
+                                mappedRoot
+                                serverEntries
+                                localItems
+                        match WorkspaceSyncLedger.saveForLabel seeded with
+                        | Error e -> Error e
+                        | Ok () -> Ok seeded
+
+    let private needsScopePropfind
+        (ledger: WorkspaceSyncLedger)
+        (planned: WorkspaceSyncLimits.PlannedPath list)
+        =
+        planned
+        |> List.exists (fun p ->
+            not p.isDirectory
+            && WorkspaceSyncLedger.tryServerMtime ledger p.relative
+               |> Option.isNone)
+
+    let private fetchScopeServerMtimes
+        (client: HttpClient)
+        (ambitBase: string)
+        (scope: WorkspaceSyncScope)
+        (cookie: string option)
+        =
+        match
+            WorkspaceDavClient.propfind
+                client
+                ambitBase
+                scope.label
+                scope.relative
+                (propfindDepth scope)
+                cookie
+        with
+        | Error e -> Error e
+        | Ok entries ->
+            Ok(
+                entries
+                |> List.filter (fun e ->
+                    WorkspaceSyncScope.isUnderScope scope e.relative)
+                |> serverMtimeMap)
+
+    let private shouldSkipUploadFile
+        (ledger: WorkspaceSyncLedger)
+        (scopeServer: Map<string, DateTime option>)
+        (mappedRoot: string)
+        (planned: WorkspaceSyncLimits.PlannedPath)
+        =
+        if planned.isDirectory then false
+        else
+            let full = localFull mappedRoot planned.relative
+
+            match tryFileMtime full with
+            | None -> false
+            | Some localM ->
+                let serverM =
+                    WorkspaceSyncLedger.tryServerMtime ledger planned.relative
+                    |> Option.orElseWith (fun () ->
+                        Map.tryFind planned.relative scopeServer
+                        |> Option.flatten)
+                WorkspaceSyncLedger.shouldSkipUpload localM serverM
+
+    let private shouldSkipDownloadFile
+        (mappedRoot: string)
+        (entryMap: Map<string, DavInventoryEntry>)
+        (planned: WorkspaceSyncLimits.PlannedPath)
+        =
+        if planned.isDirectory then false
+        else
+            match
+                entryMap
+                |> Map.tryFind planned.relative
+                |> Option.bind (fun e -> e.lastModifiedUtc)
+            with
+            | None -> false
+            | Some serverM ->
+                let localM =
+                    tryFileMtime (localFull mappedRoot planned.relative)
+                WorkspaceSyncLedger.shouldSkipDownload serverM localM
 
     /// Push: local inventory → classify/plan → MKCOL/PUT → finish-commit.
     let post
@@ -173,54 +377,161 @@ module WorkspaceFileSync =
                     WorkspaceSyncLimits.plan scope.relative sized
                 let ordered = orderPlanned planned
 
-                let rec upload remaining count =
-                    match remaining with
-                    | [] -> Ok count
-                    | item :: rest ->
-                        match
-                            uploadOne
-                                client
-                                ambitBase
-                                scope.label
-                                mappedRoot
-                                cookieHeader
-                                clientHint
-                                item
-                        with
-                        | Error e -> Error(item.relative + ": " + e)
-                        | Ok () -> upload rest (count + 1)
-
-                match upload ordered 0 with
+                match
+                    ensureLedgerSeeded
+                        client
+                        ambitBase
+                        mappedRoot
+                        scope.label
+                        cookieHeader
+                with
                 | Error e -> Error e
-                | Ok uploaded ->
-                    match
-                        WorkspaceDavClient.finishCommit
-                            client
-                            ambitBase
-                            scope.label
-                            cookieHeader
-                            clientHint
-                    with
+                | Ok ledger0 ->
+                    let scopeServer =
+                        if needsScopePropfind ledger0 ordered then
+                            match
+                                fetchScopeServerMtimes
+                                    client
+                                    ambitBase
+                                    scope
+                                    cookieHeader
+                            with
+                            | Error e -> Error e
+                            | Ok m -> Ok m
+                        else Ok Map.empty
+
+                    match scopeServer with
                     | Error e -> Error e
-                    | Ok _ ->
-                        let baseDetail =
-                            sprintf
-                                "uploaded %d (%s)"
-                                uploaded
-                                (modeLabel mode)
+                    | Ok scopeServerMap ->
+                        let mutable ledger = ledger0
+                        let mutable skipped = 0
 
-                        let detail =
-                            if DesktopGit.isAvailable() then
-                                baseDetail
-                            else
-                                baseDetail
-                                + "; .gitignore filter skipped (git unavailable)"
+                        let recordUploaded
+                            (item: WorkspaceSyncLimits.PlannedPath)
+                            =
+                            if item.isDirectory then
+                                ledger <-
+                                    WorkspaceSyncLedger.recordUpload
+                                        ledger
+                                        item.relative
+                                        true
+                                        DateTime.UtcNow
+                                        DateTime.UtcNow
+                                        None
+                            elif
+                                item.file.IsSome
+                                && not item.isDirectory
+                            then
+                                let full =
+                                    localFull mappedRoot item.relative
 
-                        Ok
-                            { uploaded = uploaded
-                              downloaded = 0
-                              detail = detail
-                              mode = Some mode }
+                                match tryFileMtime full with
+                                | None -> ()
+                                | Some localM ->
+                                    ledger <-
+                                        WorkspaceSyncLedger.recordUpload
+                                            ledger
+                                            item.relative
+                                            false
+                                            localM
+                                            localM
+                                            None
+
+                        let toUpload =
+                            ordered
+                            |> List.filter (fun item ->
+                                if
+                                    shouldSkipUploadFile
+                                        ledger
+                                        scopeServerMap
+                                        mappedRoot
+                                        item
+                                then
+                                    skipped <- skipped + 1
+                                    false
+                                else
+                                    true)
+
+                        let rec uploadWaves remaining count =
+                            match remaining with
+                            | [] -> Ok count
+                            | wave :: rest ->
+                                match
+                                    runUploadWave
+                                        client
+                                        ambitBase
+                                        scope.label
+                                        mappedRoot
+                                        cookieHeader
+                                        clientHint
+                                        wave
+                                with
+                                | Error e -> Error e
+                                | Ok uploadedItems ->
+                                    for item in uploadedItems do
+                                        recordUploaded item
+
+                                    uploadWaves
+                                        rest
+                                        (count + List.length uploadedItems)
+
+                        match
+                            uploadWaves
+                                (partitionUploadWaves toUpload)
+                                0
+                        with
+                        | Error e -> Error e
+                        | Ok uploaded ->
+                            match
+                                WorkspaceDavClient.finishCommit
+                                    client
+                                    ambitBase
+                                    scope.label
+                                    cookieHeader
+                                    clientHint
+                            with
+                            | Error e -> Error e
+                            | Ok finishBody ->
+                                let head =
+                                    WorkspaceSyncLedger.tryParseFinishHead finishBody
+
+                                if head.IsSome then
+                                    ledger <-
+                                        { ledger with
+                                            rows =
+                                                ledger.rows
+                                                |> List.map (fun r ->
+                                                    { r with
+                                                        lastServerHead = head }) }
+
+                                match WorkspaceSyncLedger.saveForLabel ledger with
+                                | Error e -> Error e
+                                | Ok () ->
+                                    let baseDetail =
+                                        if skipped > 0 then
+                                            sprintf
+                                                "uploaded %d, skipped %d (%s)"
+                                                uploaded
+                                                skipped
+                                                (modeLabel mode)
+                                        else
+                                            sprintf
+                                                "uploaded %d (%s)"
+                                                uploaded
+                                                (modeLabel mode)
+
+                                    let detail =
+                                        if DesktopGit.isAvailable() then
+                                            baseDetail
+                                        else
+                                            baseDetail
+                                            + "; .gitignore filter skipped (git unavailable)"
+
+                                    Ok
+                                        { uploaded = uploaded
+                                          downloaded = 0
+                                          detail = detail
+                                          mode = Some mode }
 
     let private stagingRoot (mappedRoot: string) (jobId: Guid) =
         Path.Combine(mappedRoot, ".gambol-dl-tmp", jobId.ToString("N"))
@@ -254,7 +565,9 @@ module WorkspaceFileSync =
         with ex ->
             Error ex.Message
 
-    let private promoteAllPlanned
+    /// Promote staged paths into the mapped root.
+    /// Nested File-scope plans have no directory rows — must move those files too.
+    let promotePlanned
         (mappedRoot: string)
         (stageRoot: string)
         (planned: WorkspaceSyncLimits.PlannedPath list)
@@ -266,10 +579,9 @@ module WorkspaceFileSync =
                 if p.relative = "" then 0
                 else p.relative.Split('/').Length)
 
-        let rootFiles =
+        let files =
             planned
-            |> List.filter (fun p ->
-                not p.isDirectory && p.relative.IndexOf('/') < 0)
+            |> List.filter (fun p -> not p.isDirectory)
 
         let promoteDirs =
             dirs
@@ -282,7 +594,7 @@ module WorkspaceFileSync =
                             (localFull mappedRoot p.relative)))
                 (Ok ())
 
-        rootFiles
+        files
         |> List.fold
             (fun acc p ->
                 acc
@@ -377,62 +689,108 @@ module WorkspaceFileSync =
                 |> List.map (fun e -> e.relative, e)
                 |> Map.ofList
 
-            let sized = inventoryFromDav scoped
-            let mode, planned = WorkspaceSyncLimits.plan scope.relative sized
-            let ordered = orderPlanned planned
-            let stage = stagingRoot mappedRoot jobId
-
             match
-                try
-                    discardStaging stage
-                    Directory.CreateDirectory stage |> ignore
-                    Ok ()
-                with ex ->
-                    Error ex.Message
+                ensureLedgerSeeded
+                    client
+                    ambitBase
+                    mappedRoot
+                    scope.label
+                    cookieHeader
             with
             | Error e -> Error e
-            | Ok () ->
-                let rec download remaining count =
-                    match remaining with
-                    | [] -> Ok count
-                    | item :: rest ->
-                        match
-                            downloadPlannedFile
-                                client
-                                ambitBase
-                                scope.label
-                                stage
-                                cookieHeader
-                                entryMap
-                                item
-                        with
-                        | Error e -> Error(item.relative + ": " + e)
-                        | Ok () ->
-                            match item.file with
-                            | Some _ when not item.isDirectory ->
-                                download rest (count + 1)
-                            | _ -> download rest count
+            | Ok ledger0 ->
+                let sized = inventoryFromDav scoped
+                let mode, planned = WorkspaceSyncLimits.plan scope.relative sized
+                let ordered = orderPlanned planned
+                let stage = stagingRoot mappedRoot jobId
+                let mutable ledger = ledger0
+                let mutable skipped = 0
+                let downloadedPaths = ResizeArray<string>()
 
-                match download ordered 0 with
-                | Error e ->
-                    discardStaging stage
-                    Error e
-                | Ok downloaded ->
-                    match promoteAllPlanned mappedRoot stage planned with
+                match
+                    try
+                        discardStaging stage
+                        Directory.CreateDirectory stage |> ignore
+                        Ok ()
+                    with ex ->
+                        Error ex.Message
+                with
+                | Error e -> Error e
+                | Ok () ->
+                    let rec download remaining count =
+                        match remaining with
+                        | [] -> Ok count
+                        | item :: rest ->
+                            if shouldSkipDownloadFile mappedRoot entryMap item then
+                                skipped <- skipped + 1
+                                download rest count
+                            else
+                                match
+                                    downloadPlannedFile
+                                        client
+                                        ambitBase
+                                        scope.label
+                                        stage
+                                        cookieHeader
+                                        entryMap
+                                        item
+                                with
+                                | Error e -> Error(item.relative + ": " + e)
+                                | Ok () ->
+                                    match item.file with
+                                    | Some _ when not item.isDirectory ->
+                                        downloadedPaths.Add item.relative
+                                        download rest (count + 1)
+                                    | _ -> download rest count
+
+                    match download ordered 0 with
                     | Error e ->
                         discardStaging stage
                         Error e
-                    | Ok () ->
-                        discardStaging stage
-                        Ok
-                            { uploaded = 0
-                              downloaded = downloaded
-                              detail =
-                                sprintf
-                                    "downloaded %d files (%s)"
-                                    downloaded
-                                    (modeLabel mode)
-                              mode = Some mode }
+                    | Ok downloaded ->
+                        match promotePlanned mappedRoot stage planned with
+                        | Error e ->
+                            discardStaging stage
+                            Error e
+                        | Ok () ->
+                            discardStaging stage
+
+                            for rel in downloadedPaths do
+                                match
+                                    entryMap
+                                    |> Map.tryFind rel
+                                    |> Option.bind (fun e -> e.lastModifiedUtc)
+                                with
+                                | None -> ()
+                                | Some serverM ->
+                                    ledger <-
+                                        WorkspaceSyncLedger.recordDownload
+                                            ledger
+                                            rel
+                                            serverM
+                                            serverM
+
+                            match WorkspaceSyncLedger.saveForLabel ledger with
+                            | Error e -> Error e
+                            | Ok () ->
+                                let detail =
+                                    if skipped > 0 then
+                                        sprintf
+                                            "downloaded %d files, skipped %d (%s)"
+                                            downloaded
+                                            skipped
+                                            (modeLabel mode)
+                                    else
+                                        sprintf
+                                            "downloaded %d files (%s)"
+                                            downloaded
+                                            (modeLabel mode)
+
+                                Ok
+                                    { uploaded = 0
+                                      downloaded = downloaded
+                                      detail = detail
+                                      mode = Some mode }
 
     /// Pull: PROPFIND inventory → limited GET under mapped root (blocking; manager preferred).
     let get

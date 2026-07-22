@@ -210,6 +210,110 @@ module CStyleBrace =
         if endIdx <= startIdx then ""
         else text.Substring(startIdx, endIdx - startIdx)
 
+    let private closeRawSlice (text: string) (ci: int) : string * int =
+        let start =
+            let rec back i =
+                if i <= 0 then 0
+                else
+                    match text.[i - 1] with
+                    | ' '
+                    | '\t' -> back (i - 1)
+                    | '\n'
+                    | '\r' -> i
+                    | _ -> ci
+
+            back ci
+
+        let endExcl =
+            let i = ci + 1
+
+            if i >= text.Length then i
+            elif i + 1 < text.Length && text.[i] = '\r' && text.[i + 1] = '\n' then
+                i + 2
+            elif text.[i] = '\n' || text.[i] = '\r' then i + 1
+            else i
+
+        slice text start endExcl, endExcl
+
+    let private consumeNewline (text: string) (i: int) =
+        if i + 1 < text.Length && text.[i] = '\r' && text.[i + 1] = '\n' then
+            i + 2
+        elif i < text.Length && (text.[i] = '\n' || text.[i] = '\r') then
+            i + 1
+        else
+            i
+
+    /// End index after `{` plus its trailing newline when braced.
+    let private headerOpenEnd (text: string) (stmt: Statement) =
+        match stmt.openIndex with
+        | Some oi -> consumeNewline text (oi + 1)
+        | None -> stmt.otherStart + stmt.otherText.Length
+
+    /// Raw lines of otherText from cursor, with prepareLines filtering.
+    let private preparedOpenLines
+        (text: string)
+        (cursor: int)
+        (stmt: Statement)
+        =
+        let otherEnd = stmt.otherStart + stmt.otherText.Length
+        let rawLines =
+            DocumentOutlineOps.splitRawLines (slice text cursor otherEnd)
+
+        let dropLeading =
+            rawLines |> List.skipWhile (fun l -> l.content = "")
+
+        let preparedRaw =
+            match List.rev dropLeading with
+            | ws :: rest when String.IsNullOrWhiteSpace ws.content ->
+                List.rev rest
+            | _ -> dropLeading
+
+        let prefixLen = rawLines.Length - dropLeading.Length
+
+        let ends =
+            (cursor, rawLines)
+            ||> List.mapFold (fun pos line ->
+                let next = pos + line.raw.Length
+                next, next)
+            |> fst
+
+        prefixLen, preparedRaw, ends
+
+    /// Per-outline-row openRaw slices (no sibling overlap).
+    let private openRawSlices
+        (text: string)
+        (cursor: int)
+        (stmt: Statement)
+        (n: int)
+        : string list * int =
+        let prefixLen, preparedRaw, ends =
+            preparedOpenLines text cursor stmt
+
+        let openEnd =
+            match stmt.openIndex with
+            | Some _ -> headerOpenEnd text stmt
+            | None ->
+                if n = 0 || preparedRaw.IsEmpty then cursor
+                else
+                    let lastIdx = prefixLen + n - 1
+
+                    if lastIdx < ends.Length then ends.[lastIdx]
+                    else stmt.otherStart + stmt.otherText.Length
+
+        let startOf i =
+            if i = 0 then cursor
+            else ends.[prefixLen + i - 1]
+
+        let opens =
+            [ 0 .. n - 1 ]
+            |> List.map (fun i ->
+                let stop =
+                    if i < n - 1 then startOf (i + 1) else openEnd
+
+                slice text (startOf i) stop)
+
+        opens, openEnd
+
     /// Warm Keep units in the same preorder as toOutlineRows.
     let toWarmUnits (text: string) : WarmUnit list =
         let style, _ = PlainTextDocument.flattenText text
@@ -241,38 +345,27 @@ module CStyleBrace =
                     let depths = rowDepths style parentDepth ownerDepth lines
                     let n = lines.Length
                     let texts = lines |> List.map lineBody
-
-                    let openEnd =
-                        match stmt.openIndex with
-                        | Some oi -> oi + 1
-                        | None ->
-                            stmt.otherStart + stmt.otherText.Length
-
                     let bracedDepth = depths.[n - 1]
 
-                    let leading =
-                        if n > 1 then
-                            [ 0 .. n - 2 ]
-                            |> List.map (fun i -> {
-                                depth = depths.[i]
-                                text = texts.[i]
-                                braced = false
-                                openRaw = ""
-                                closeRaw = ""
-                            })
-                        else
-                            []
+                    let openRaws, openEnd =
+                        openRawSlices text cursor stmt n
 
-                    let owner = {
-                        depth = bracedDepth
-                        text = texts.[n - 1]
-                        braced = braced
-                        openRaw = slice text cursor openEnd
-                        closeRaw =
-                            match stmt.closeIndex with
-                            | Some ci -> string text.[ci]
-                            | None -> ""
-                    }
+                    let closeRaw, afterCloseBrace =
+                        match stmt.closeIndex with
+                        | Some ci -> closeRawSlice text ci
+                        | None -> "", openEnd
+
+                    let units =
+                        [ 0 .. n - 1 ]
+                        |> List.map (fun i -> {
+                            depth = depths.[i]
+                            text = texts.[i]
+                            braced = braced && i = n - 1
+                            openRaw = openRaws.[i]
+                            closeRaw =
+                                if braced && i = n - 1 then closeRaw
+                                else ""
+                        })
 
                     let children, afterChildren =
                         match stmt.block with
@@ -281,16 +374,18 @@ module CStyleBrace =
                             body
                             |> List.fold
                                 (fun (acc, c) child ->
-                                    let u, c' = walk (Some bracedDepth) child c
+                                    let u, c' =
+                                        walk (Some bracedDepth) child c
+
                                     acc @ u, c')
                                 ([], openEnd)
 
                     let afterClose =
                         match stmt.closeIndex with
-                        | Some ci -> ci + 1
+                        | Some _ -> afterCloseBrace
                         | None -> afterChildren
 
-                    leading @ [ owner ] @ children, afterClose
+                    units @ children, afterClose
 
         let units, cursor =
             parseDocument text

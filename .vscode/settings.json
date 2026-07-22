@@ -10,6 +10,7 @@
     "git.mergeEditor" : false,
     "workbench.editorAssociations": {
             "*.svg": "default"
-    }
+    },
+    "dotnet.defaultSolution": "disable"
 }
 

@@ -14,6 +14,7 @@
     <Compile Include="WorkspaceSyncLimits.fs" />
     <Compile Include="WorkspaceDownloadQueue.fs" />
     <Compile Include="WorkspaceDavClient.fs" />
+    <Compile Include="WorkspaceSyncLedger.fs" />
     <Compile Include="WorkspaceFileSync.fs" />
     <Compile Include="OutlineLcs.fs" />
     <Compile Include="DocumentParseOps.fs" />

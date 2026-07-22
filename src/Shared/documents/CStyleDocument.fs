@@ -379,6 +379,18 @@ module CStyleDocument =
                 |> Option.map (fun l -> l.braced)
                 |> Option.defaultValue false
 
+        let canKeepRaw (u: CStyleBrace.WarmUnit) =
+            if u.openRaw = "" then
+                false
+            elif u.braced then
+                true
+            else
+                DocumentOutlineOps.splitRawLines u.openRaw
+                |> List.filter (fun l ->
+                    not (String.IsNullOrWhiteSpace l.content))
+                |> List.length
+                <= 1
+
         let emitStep (stack: (int * string) list) step =
             let flushTo depth accStack =
                 let rec loop acc =
@@ -390,16 +402,18 @@ module CStyleDocument =
 
                 loop "" accStack
 
+            // Graph-wins content. Keep openRaw only for a single-unit slice.
             match step with
             | OutlineDocumentWarm.EmitKeep(pi, edit) ->
                 let u, prevLine = prevEntities.[pi]
+                let braced = bracedOf edit
                 let flushed, stack' = flushTo edit.depth stack
 
                 let openChunk, closeChunk =
-                    if edit.text = prevLine.text then
+                    if edit.text = prevLine.text && canKeepRaw u then
                         u.openRaw, u.closeRaw
                     else
-                        formatFresh complement edit (bracedOf edit)
+                        formatFresh complement edit braced
 
                 (edit.depth, closeChunk) :: stack', flushed + openChunk
             | OutlineDocumentWarm.EmitInsert edit ->
