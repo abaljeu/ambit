@@ -82,6 +82,7 @@ module WorkspacePathSyncStatus =
         | other -> other
 
     /// Host-aware resolve: comparison only when desktop + mapped; else Unparsed only.
+    /// Mapped with no live/ledger fact → OnlyOnServer (no local FS row for this path).
     let resolve
         (canCompareDesktopMapped: bool)
         (fact: WorkspaceSyncPathFact option)
@@ -95,7 +96,7 @@ module WorkspacePathSyncStatus =
                 |> Some
             | None ->
                 if isUnparsed then Some WorkspacePathSyncStatus.Unparsed
-                else None
+                else Some WorkspacePathSyncStatus.OnlyOnServer
         elif isUnparsed then
             Some WorkspacePathSyncStatus.Unparsed
         else

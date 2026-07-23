@@ -183,6 +183,7 @@ let ``writeAllDocuments bootstrap graph writes ROOT and TRASH artifacts`` () =
     DocumentPersistence.writeAllDocuments dataDir graph |> requireOk "writeAllDocuments" |> ignore
     Assert.True(File.Exists(Path.Combine(dataDir, ".amb")))
     Assert.True(File.Exists(Path.Combine(dataDir, "TRASH", ".amb")))
+    Assert.True(File.Exists(Path.Combine(dataDir, "SYSTEM", ".amb")))
 
 [<Fact>]
 let ``writeAllDocuments nested workspace tree writes expected paths`` () =
@@ -567,7 +568,7 @@ let ``discoverArtifactRelatives finds all written artifacts`` () =
         |> requireOk "discover"
         |> Set.ofList
     let expected =
-        [ Graph.rootId; Graph.trashId; wsId; dirId; fileId ]
+        [ Graph.rootId; Graph.systemId; Graph.trashId; wsId; dirId; fileId ]
         |> List.choose (DocumentPartition.artifactFileRelative graph)
         |> Set.ofList
     Assert.Equal<Set<string>>(expected, relatives)

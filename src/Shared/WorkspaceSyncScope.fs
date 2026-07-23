@@ -128,7 +128,7 @@ module WorkspaceSyncScope =
                 | Some label when
                     label <> ""
                     && nodeId <> Graph.rootId
-                    && nodeId <> Graph.trashId
+                    && not (Graph.isSystemFolderNode nodeId)
                     ->
                     Ok
                         { label = label

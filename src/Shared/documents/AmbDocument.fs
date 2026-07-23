@@ -17,6 +17,8 @@ module AmbDocument =
     let formatStableId (nodeId: NodeId) : string =
         if nodeId = Graph.workspacesId then
             "WORKSPACES"
+        elif nodeId = Graph.systemId then
+            "SYSTEM"
         elif nodeId = Graph.trashId then
             "TRASH"
         else
@@ -25,6 +27,7 @@ module AmbDocument =
     let tryParseStableId (token: string) : NodeId option =
         match token with
         | "WORKSPACES" -> Some Graph.workspacesId
+        | "SYSTEM" -> Some Graph.systemId
         | "TRASH" -> Some Graph.trashId
         | _ ->
             match Guid.TryParse token with
@@ -53,6 +56,8 @@ module AmbDocument =
     let private splitStableIdPrefix (text: string) : (string * string) option =
         if text.StartsWith("WORKSPACES") then
             Some ("WORKSPACES", text.Substring("WORKSPACES".Length).TrimStart())
+        elif text.StartsWith("SYSTEM") then
+            Some ("SYSTEM", text.Substring("SYSTEM".Length).TrimStart())
         elif text.StartsWith("TRASH") then
             Some ("TRASH", text.Substring("TRASH".Length).TrimStart())
         else

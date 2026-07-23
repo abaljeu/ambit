@@ -31,7 +31,7 @@ module NodeKindPersistence =
             Special Workspace
         elif nid = Graph.workspacesId then
             Special Workspaces
-        elif nid = Graph.trashId then
+        elif Graph.isSystemDirectoryNode nid then
             Special Directory
         else
             Normal

@@ -29,7 +29,7 @@ module IgnoredDestination =
         let dataRoot = DataDir.normalize dataDir
 
         match GraphQuery.enclosingWorkspace graph nodeId with
-        | Some wsId when wsId = Graph.rootId || wsId = Graph.trashId ->
+        | Some wsId when Graph.isCanonicalDataRoot wsId ->
             Some(dataRoot, rel)
         | Some wsId ->
             match Map.tryFind wsId graph.nodes with

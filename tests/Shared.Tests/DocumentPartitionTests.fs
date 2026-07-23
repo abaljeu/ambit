@@ -144,6 +144,12 @@ let ``artifact paths for TRASH`` () =
     Assert.Equal(Some "TRASH/.amb", DocumentPartition.artifactFileRelative graph Graph.trashId)
 
 [<Fact>]
+let ``artifact paths for SYSTEM`` () =
+    let graph = Graph.create ()
+    Assert.Equal(Some "SYSTEM/", DocumentPartition.artifactDirectoryRelative graph Graph.systemId)
+    Assert.Equal(Some "SYSTEM/.amb", DocumentPartition.artifactFileRelative graph Graph.systemId)
+
+[<Fact>]
 let ``artifact paths for directory under workspace`` () =
     let graph, _, dirId, _, _ = graphWithNestedDocs ()
     Assert.Equal(Some "home/docs/", DocumentPartition.artifactDirectoryRelative graph dirId)

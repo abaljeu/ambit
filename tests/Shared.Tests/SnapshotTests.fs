@@ -175,7 +175,9 @@ let private createSharedNodeGraphRefParentFirst () : Graph =
     let users, specials =
         ch
         |> List.partition (fun c ->
-            c.id <> Graph.workspacesId && c.id <> Graph.trashId)
+            c.id <> Graph.workspacesId
+            && c.id <> Graph.systemId
+            && c.id <> Graph.trashId)
     let reordered = List.rev users @ specials
     Graph.replace g.root 0 ch reordered g
     |> ModelBuilder.requireOk "reorder root children"

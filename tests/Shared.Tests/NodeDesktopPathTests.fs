@@ -81,6 +81,7 @@ let ``pathForNodeId Workspaces returns None and trash returns TRASH path`` () =
     let graph = Graph.create ()
     Assert.Equal(None, NodeDesktopPath.pathForNodeId graph Graph.workspacesId)
     Assert.Equal(Some "//TRASH/", NodeDesktopPath.pathForNodeId graph Graph.trashId)
+    Assert.Equal(Some "//SYSTEM/", NodeDesktopPath.pathForNodeId graph Graph.systemId)
 
 [<Fact>]
 let ``pathForNodeId Workspace returns slash path`` () =

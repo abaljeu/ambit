@@ -32,9 +32,9 @@ module ViewModelDeleteOps =
             |> List.mapi (fun i child -> i, child)
             |> List.filter (fun (i, _) -> i >= range.start && i < range.endd)
 
-        // All-or-nothing: system TRASH and workspace roots are not deleted in Stage 6.
+        // All-or-nothing: system folders and workspace roots are not deleted.
         let isBlockedDeleteChild (child: ChildNode) =
-            child.id = Graph.trashId
+            Graph.isSystemFolderNode child.id
             || (match graph.nodes.[child.id].kind with
                 | Special Workspace -> true
                 | _ -> false)

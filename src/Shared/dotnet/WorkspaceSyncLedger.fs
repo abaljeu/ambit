@@ -69,6 +69,26 @@ module WorkspaceSyncLedger =
             with _ ->
                 None
 
+    /// Live FS mtime for status UI (files and directories). Does not change sync skip rules.
+    let tryLiveLocalMtime
+        (mappedRoot: string)
+        (relative: string)
+        (isDirectory: bool)
+        : DateTime option =
+        try
+            let full = localFull mappedRoot relative
+            if isDirectory then
+                if Directory.Exists full then
+                    Some(Directory.GetLastWriteTimeUtc full)
+                else
+                    None
+            elif File.Exists full then
+                Some(File.GetLastWriteTimeUtc full)
+            else
+                None
+        with _ ->
+            None
+
     /// Upload: skip PUT when server mtime is same or newer than local (UTC).
     let shouldSkipUpload (localMtimeUtc: DateTime) (serverMtimeUtc: DateTime option) =
         match serverMtimeUtc with
@@ -278,6 +298,52 @@ module WorkspaceSyncLedger =
 
     let rowMap (ledger: WorkspaceSyncLedger) =
         ledger.rows |> List.map (fun r -> r.relative, r) |> Map.ofList
+
+    /// Live status rows for UI: local inventory mtimes + ledger server-only paths.
+    /// Does not write the ledger. Local paths use presence=both so the client can
+    /// overlay graph `updateTime` as the server stamp.
+    let liveStatusRows
+        (mappedRoot: string)
+        (ledger: WorkspaceSyncLedger)
+        : SyncLedgerRow list =
+        let scope =
+            { label = ledger.label
+              relative = ""
+              kind = SyncScopeKind.Workspace }
+        let ledgerBy = rowMap ledger
+        let localItems =
+            match WorkspaceLocalInventory.listForPush mappedRoot scope with
+            | Ok items ->
+                { relative = ""; isDirectory = true } :: items
+            | Error _ ->
+                match tryLiveLocalMtime mappedRoot "" true with
+                | Some _ -> [ { relative = ""; isDirectory = true } ]
+                | None -> []
+        let fromLocal =
+            localItems
+            |> List.map (fun item ->
+                let prior = Map.tryFind item.relative ledgerBy
+                { relative = item.relative
+                  isDirectory = item.isDirectory
+                  localMtimeUtc =
+                      tryLiveLocalMtime
+                          mappedRoot
+                          item.relative
+                          item.isDirectory
+                  serverMtimeUtc =
+                      prior |> Option.bind (fun r -> r.serverMtimeUtc)
+                  lastServerHead =
+                      prior |> Option.bind (fun r -> r.lastServerHead)
+                  presence = PresenceBoth
+                  lastOp = prior |> Option.bind (fun r -> r.lastOp) })
+        let localSet =
+            fromLocal |> List.map (fun r -> r.relative) |> Set.ofList
+        let serverOnly =
+            ledger.rows
+            |> List.filter (fun r ->
+                r.presence = PresenceServerOnly
+                && not (Set.contains r.relative localSet))
+        fromLocal @ serverOnly
 
     let tryServerMtime (ledger: WorkspaceSyncLedger) (relative: string) =
         ledger.rows

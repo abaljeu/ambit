@@ -105,7 +105,7 @@ let ``resolve with compare uses ledger and Unparsed overlay`` () =
         Some WorkspacePathSyncStatus.Unparsed,
         WorkspacePathSyncStatus.resolve true None true)
     Assert.Equal(
-        None,
+        Some WorkspacePathSyncStatus.OnlyOnServer,
         WorkspacePathSyncStatus.resolve true None false)
 
 [<Fact>]

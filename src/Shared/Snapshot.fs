@@ -56,6 +56,8 @@ module Snapshot =
         let ensureCanonicalSid (nodeId: NodeId) : string option =
             if nodeId = Graph.workspacesId then
                 Some "WORKSPACES"
+            elif nodeId = Graph.systemId then
+                Some "SYSTEM"
             elif nodeId = Graph.trashId then
                 Some "TRASH"
             else
@@ -171,6 +173,8 @@ module Snapshot =
         let name =
             if id = Graph.trashId then
                 Filename.Ok "TRASH"
+            elif id = Graph.systemId then
+                Filename.Ok "SYSTEM"
             else
                 Filename.Empty
         let kind =
@@ -178,7 +182,7 @@ module Snapshot =
                 Special Workspace
             elif id = Graph.workspacesId then
                 Special Workspaces
-            elif id = Graph.trashId then
+            elif Graph.isSystemDirectoryNode id then
                 Special Directory
             else
                 Normal
@@ -204,6 +208,7 @@ module Snapshot =
     let private canonicalNodeIdForSid (sid: string) : NodeId option =
         match sid with
         | "WORKSPACES" -> Some Graph.workspacesId
+        | "SYSTEM" -> Some Graph.systemId
         | "TRASH" -> Some Graph.trashId
         | _ -> None
 

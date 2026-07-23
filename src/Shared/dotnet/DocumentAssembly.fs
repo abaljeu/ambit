@@ -111,6 +111,7 @@ module DocumentAssembly =
         && not (String.IsNullOrEmpty basePath)
         && not (basePath.Contains("/"))
         && not (String.Equals(basePath, "TRASH", StringComparison.Ordinal))
+        && not (String.Equals(basePath, "SYSTEM", StringComparison.Ordinal))
 
     let private stubName (descriptor: ArtifactDescriptor) : Filename =
         match splitSegments descriptor.relativePath |> List.rev with
@@ -129,7 +130,7 @@ module DocumentAssembly =
         Node.Create(documentRootId, name = stubName descriptor, kind = stubKind descriptor)
 
     let private seedStub (graph: Graph) (descriptor: ArtifactDescriptor) (documentRootId: NodeId) : Graph =
-        if documentRootId = Graph.rootId || documentRootId = Graph.trashId then
+        if Graph.isCanonicalDataRoot documentRootId then
             graph
         else
             let nodes = Map.add documentRootId (stubNode descriptor documentRootId) graph.nodes

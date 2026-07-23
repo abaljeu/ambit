@@ -185,15 +185,16 @@ module NodeDesktopPath =
             else
                 let segment, tail = firstSegment (rest.TrimStart('/'))
 
-                if segment = "TRASH" || isRootFileSegment segment then
+                if segment = "TRASH"
+                   || segment = "SYSTEM"
+                   || isRootFileSegment segment then
                     None
                 else
                     Some (segment, tail)
 
     let private isNamedWorkspaceGitNode (node: Node) : bool =
         node.id <> Graph.rootId
-        && node.id <> Graph.trashId
-        && node.id <> Graph.workspacesId
+        && not (Graph.isSystemFolderNode node.id)
         && match node.kind with
            | Special Workspace ->
                match Filename.tryValue node.name with
@@ -223,6 +224,8 @@ module NodeDesktopPath =
                 Error ("invalid node reference: " + nodeReference)
             elif inner = "TRASH" then
                 Ok "TRASH/.amb"
+            elif inner = "SYSTEM" then
+                Ok "SYSTEM/.amb"
             else
                 directoryArtifactRelative inner
         else

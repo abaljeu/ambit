@@ -6,7 +6,7 @@ module DocumentPartition =
     let isDocumentRootNode (graph: Graph) (nodeId: NodeId) : bool =
         if nodeId = Graph.workspacesId then
             false
-        elif nodeId = Graph.rootId || nodeId = Graph.trashId then
+        elif Graph.isCanonicalDataRoot nodeId then
             true
         else
             match Map.tryFind nodeId graph.nodes with
@@ -87,8 +87,6 @@ module DocumentPartition =
     let private workspaceDiskPrefix (graph: Graph) (workspaceId: NodeId) : string option =
         if workspaceId = Graph.rootId then
             Some ""
-        elif workspaceId = Graph.trashId then
-            Some "TRASH/"
         else
             match Map.tryFind workspaceId graph.nodes with
             | None -> None
@@ -98,63 +96,56 @@ module DocumentPartition =
                 | None -> None
 
     let rec private directoryDiskRelative (graph: Graph) (dirId: NodeId) : string option =
-        if dirId = Graph.trashId then
-            Some "TRASH/"
-        else
-            match Map.tryFind dirId graph.nodes with
-            | None -> None
-            | Some node ->
-                match node.kind, Filename.tryValue node.name with
-                | Special Directory, Some dirName ->
-                    match nearestDirectoryAncestor graph dirId with
-                    | Some ancestorId ->
-                        directoryDiskRelative graph ancestorId
-                        |> Option.map (fun ancestorPath -> ancestorPath + dirName + "/")
-                    | None ->
-                        GraphQuery.enclosingWorkspace graph dirId
-                        |> Option.bind (workspaceDiskPrefix graph)
-                        |> Option.map (fun prefix -> prefix + dirName + "/")
-                | _ -> None
+        match Map.tryFind dirId graph.nodes with
+        | None -> None
+        | Some node ->
+            match node.kind, Filename.tryValue node.name with
+            | Special Directory, Some dirName ->
+                match nearestDirectoryAncestor graph dirId with
+                | Some ancestorId ->
+                    directoryDiskRelative graph ancestorId
+                    |> Option.map (fun ancestorPath -> ancestorPath + dirName + "/")
+                | None ->
+                    GraphQuery.enclosingWorkspace graph dirId
+                    |> Option.bind (workspaceDiskPrefix graph)
+                    |> Option.map (fun prefix -> prefix + dirName + "/")
+            | _ -> None
 
     let artifactDirectoryRelative (graph: Graph) (documentRootId: NodeId) : string option =
         if documentRootId = Graph.rootId then
             None
-        elif documentRootId = Graph.trashId then
-            Some "TRASH/"
         else
-            match Map.tryFind documentRootId graph.nodes with
-            | None -> None
-            | Some node ->
-                match node.kind with
-                | Special File -> None
-                | Special Workspace ->
-                    match Filename.tryValue node.name with
-                    | Some name -> Some (name + "/")
-                    | None -> None
-                | Special Directory -> directoryDiskRelative graph documentRootId
-                | _ -> None
+                match Map.tryFind documentRootId graph.nodes with
+                | None -> None
+                | Some node ->
+                    match node.kind with
+                    | Special File -> None
+                    | Special Workspace ->
+                        match Filename.tryValue node.name with
+                        | Some name -> Some (name + "/")
+                        | None -> None
+                    | Special Directory -> directoryDiskRelative graph documentRootId
+                    | _ -> None
 
     let artifactFileRelative (graph: Graph) (documentRootId: NodeId) : string option =
         if documentRootId = Graph.rootId then
             Some ".amb"
-        elif documentRootId = Graph.trashId then
-            Some "TRASH/.amb"
         else
-            match Map.tryFind documentRootId graph.nodes with
-            | None -> None
-            | Some node ->
-                match node.kind with
-                | Special Workspace ->
-                    match Filename.tryValue node.name with
-                    | Some name -> Some (name + "/.amb")
-                    | None -> None
-                | Special Directory ->
-                    artifactDirectoryRelative graph documentRootId
-                    |> Option.map (fun dir -> dir + ".amb")
-                | Special File ->
-                    NodeDesktopPath.pathForNodeId graph documentRootId
-                    |> Option.bind NodeDesktopPath.desktopFileToDisk
-                | _ -> None
+                match Map.tryFind documentRootId graph.nodes with
+                | None -> None
+                | Some node ->
+                    match node.kind with
+                    | Special Workspace ->
+                        match Filename.tryValue node.name with
+                        | Some name -> Some (name + "/.amb")
+                        | None -> None
+                    | Special Directory ->
+                        artifactDirectoryRelative graph documentRootId
+                        |> Option.map (fun dir -> dir + ".amb")
+                    | Special File ->
+                        NodeDesktopPath.pathForNodeId graph documentRootId
+                        |> Option.bind NodeDesktopPath.desktopFileToDisk
+                    | _ -> None
 
     let rec ownedSubtreeHasReservedArtifactPath graph visited nodeId =
         if Set.contains nodeId visited then

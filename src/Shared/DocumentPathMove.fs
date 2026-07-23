@@ -169,8 +169,7 @@ module NodeRenameOps =
 
     let isRenameAllowed (graph: Graph) (nodeId: NodeId) : bool =
         nodeId <> Graph.rootId
-        && nodeId <> Graph.trashId
-        && nodeId <> Graph.workspacesId
+        && not (Graph.isSystemFolderNode nodeId)
         && match graph.nodes |> Map.tryFind nodeId with
            | Some { kind = Special Workspace } -> false
            | Some _ -> true

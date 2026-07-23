@@ -192,7 +192,8 @@ module ViewModelRowState =
 
     let private isSpecialArtifactNode (node: Node) : bool =
         match node.kind with
-        | Special (Workspace | Directory | File) when node.id <> Graph.trashId -> true
+        | Special (Workspace | Directory | File)
+            when not (Graph.isSystemDirectoryNode node.id) -> true
         | _ -> false
 
     let private graphContainsArtifactPath (graph: Graph) (path: string) : bool =
@@ -230,7 +231,7 @@ module ViewModelRowState =
 
     /// Outline row label: Special nodes prefer `text`, then `name`; canonical nodes keep `text`.
     let outlineDisplayText (node: Node) : string =
-        if node.id = Graph.rootId || node.id = Graph.trashId || node.id = Graph.workspacesId then
+        if Graph.isCanonicalNode node.id then
             node.text
         else
             if NodeKind.artifact node.kind then
@@ -262,6 +263,8 @@ module ViewModelRowState =
     let specialKindRowClass (nodeId: NodeId) (kind: NodeKind) : string option =
         if nodeId = Graph.trashId then
             Some "amb-row-special-trash"
+        elif nodeId = Graph.systemId then
+            Some "amb-row-special-system"
         else
             match kind with
             | Normal -> None
@@ -273,6 +276,8 @@ module ViewModelRowState =
     let specialKindSymbol (nodeId: NodeId) (kind: NodeKind) : string option =
         if nodeId = Graph.trashId then
             Some "\u00D7"
+        elif nodeId = Graph.systemId then
+            Some "\u2699"
         else
             match kind with
             | Normal -> None
@@ -320,9 +325,15 @@ module ViewModelRowState =
                    true
                | _ -> false)
 
+    let private normalizeWorkspaceLabel (label: string) =
+        if isNull label then ""
+        else label.Trim().ToLowerInvariant()
+
     let canCompareWorkspacePathSync (model: VM) (label: string) : bool =
         DesktopCapabilities.canWorkspaceSync model.desktopCapabilities
-        && Set.contains label model.workspaceMappedLabels
+        && Set.contains
+            (normalizeWorkspaceLabel label)
+            model.workspaceMappedLabels
 
     let private tryParseLabelRelative (model: VM) (nodeId: NodeId) =
         NodeDesktopPath.pathForNodeId model.graph nodeId
@@ -339,11 +350,28 @@ module ViewModelRowState =
         tryParseLabelRelative model nodeId
         |> Option.bind (fun (label, relative) ->
             model.workspaceSyncFacts
-            |> Map.tryFind label
+            |> Map.tryFind (normalizeWorkspaceLabel label)
             |> Option.bind (Map.tryFind relative)
             |> Option.map (fun fact -> label, fact))
 
-    /// Host-aware path sync status for File/Directory rows (and Unparsed elsewhere).
+    let applyWorkspacePathSyncSnapshot
+        (mappedLabels: Set<string>)
+        (factsByLabel: Map<string, Map<string, WorkspaceSyncPathFact>>)
+        (model: VM)
+        : VM =
+        let labels =
+            mappedLabels
+            |> Set.map normalizeWorkspaceLabel
+        let facts =
+            factsByLabel
+            |> Map.toList
+            |> List.map (fun (k, v) -> normalizeWorkspaceLabel k, v)
+            |> Map.ofList
+        { model with
+            workspaceMappedLabels = labels
+            workspaceSyncFacts = facts }
+
+    /// Host-aware path sync status for Workspace/File/Directory rows (and Unparsed elsewhere).
     let rowWorkspacePathSyncStatus
         (model: VM)
         (entry: SiteEntry)
@@ -351,7 +379,7 @@ module ViewModelRowState =
         : WorkspacePathSyncStatus option =
         let unparsed = rowUnparsedObservationEligible model entry
         match node.kind with
-        | Special (File | Directory) ->
+        | Special (Workspace | File | Directory) ->
             match tryWorkspaceSyncFact model entry.nodeId with
             | Some(label, fact) ->
                 WorkspacePathSyncStatus.resolveWithNodeStamp
@@ -388,19 +416,12 @@ module ViewModelRowState =
         rowWorkspacePathSyncStatus model entry node
         |> Option.map WorkspacePathSyncStatus.rowClass
 
-    let applyWorkspacePathSyncSnapshot
-        (mappedLabels: Set<string>)
-        (factsByLabel: Map<string, Map<string, WorkspaceSyncPathFact>>)
-        (model: VM)
-        : VM =
-        { model with
-            workspaceMappedLabels = mappedLabels
-            workspaceSyncFacts = factsByLabel }
-
-    /// Workspaces and Trash only — other kinds use sync glyphs or blank.
+    /// Workspaces, System, and Trash only — other kinds use sync glyphs or blank.
     let rowFileIndicatorKindSymbol (nodeId: NodeId) (kind: NodeKind) : string option =
         if nodeId = Graph.trashId then
             Some "\u00D7"
+        elif nodeId = Graph.systemId then
+            Some "\u2699"
         else
             match kind with
             | Special Workspaces -> Some "\u229E"

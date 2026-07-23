@@ -130,7 +130,7 @@ let ``classifyDeleteForSelection returns empty when TRASH is in range`` () =
     let g2 =
         Graph.replace g1.root 0 [] (owned [ a ]) g1
         |> ModelBuilder.requireOk "root->[a, ...TRASH]"
-    // root.children = [a(Owner), WORKSPACES(special), TRASH(special)]; range covers all
+    // root.children = [a(Owner), WORKSPACES, SYSTEM, TRASH]; range covers all
     let range = rootRange g2 0 3
     let classified = ViewModelDeleteOps.classifyDeleteForSelection g2 range
     // TRASH in range must cancel entire classification (all-or-nothing)

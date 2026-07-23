@@ -12,10 +12,8 @@ module GraphMutate =
         =
         if nodeId = GraphBuild.rootId then
             Error "cannot modify canonical root text"
-        elif nodeId = GraphBuild.trashId then
-            Error "cannot modify trash node text"
-        elif nodeId = GraphBuild.workspacesId then
-            Error "cannot modify workspaces node text"
+        elif GraphBuild.isSystemFolderNode nodeId then
+            Error "cannot modify system folder node text"
         else
             match graph.nodes |> Map.tryFind nodeId with
             | None -> Error "node not found"
@@ -36,10 +34,8 @@ module GraphMutate =
         =
         if nodeId = GraphBuild.rootId then
             Error "cannot set classes on canonical root"
-        elif nodeId = GraphBuild.trashId then
-            Error "cannot set classes on trash node"
-        elif nodeId = GraphBuild.workspacesId then
-            Error "cannot set classes on workspaces node"
+        elif GraphBuild.isSystemFolderNode nodeId then
+            Error "cannot set classes on system folder node"
         else
             match graph.nodes |> Map.tryFind nodeId with
             | None -> Error "node not found"
@@ -60,10 +56,8 @@ module GraphMutate =
         =
         if nodeId = GraphBuild.rootId then
             Error "cannot modify canonical root name"
-        elif nodeId = GraphBuild.trashId then
-            Error "cannot modify trash node name"
-        elif nodeId = GraphBuild.workspacesId then
-            Error "cannot modify workspaces node name"
+        elif GraphBuild.isSystemFolderNode nodeId then
+            Error "cannot modify system folder node name"
         else
             match graph.nodes |> Map.tryFind nodeId with
             | None -> Error "node not found"
@@ -203,44 +197,29 @@ module GraphMutate =
                         if hasNameConflict then
                             Error "name conflict"
                         elif parentId = GraphBuild.rootId then
-                            let hadTrashOwner =
-                                children
+                            let isOwnerChild (fid: NodeId) (kids: ChildNode list) =
+                                kids
                                 |> List.exists (fun c ->
-                                    c.id = GraphBuild.trashId && c.ref = Ownership.Owner)
-                            let hasTrashOwnerAfter =
-                                updatedChildren
-                                |> List.exists (fun c ->
-                                    c.id = GraphBuild.trashId && c.ref = Ownership.Owner)
-                            let hadWorkspacesOwner =
-                                children
-                                |> List.exists (fun c ->
-                                    c.id = GraphBuild.workspacesId && c.ref = Ownership.Owner)
-                            let hasWorkspacesOwnerAfter =
-                                updatedChildren
-                                |> List.exists (fun c ->
-                                    c.id = GraphBuild.workspacesId && c.ref = Ownership.Owner)
-
-                            if hadTrashOwner && not hasTrashOwnerAfter then
-                                Error "cannot remove trash owner child from root"
-                            elif hadWorkspacesOwner && not hasWorkspacesOwnerAfter then
-                                Error "cannot remove workspaces owner child from root"
-                            elif
-                                updatedChildren
+                                    c.id = fid && c.ref = Ownership.Owner)
+                            let ownerCount (fid: NodeId) (kids: ChildNode list) =
+                                kids
                                 |> List.filter (fun c ->
-                                    c.id = GraphBuild.trashId && c.ref = Ownership.Owner)
+                                    c.id = fid && c.ref = Ownership.Owner)
                                 |> List.length
-                                <> 1
-                            then
-                                Error "trash must appear exactly once as an Owner child of root"
-                            elif
-                                updatedChildren
-                                |> List.filter (fun c ->
-                                    c.id = GraphBuild.workspacesId && c.ref = Ownership.Owner)
-                                |> List.length
-                                <> 1
-                            then
-                                Error "workspaces must appear exactly once as an Owner child of root"
-                            else
+                            let folderError =
+                                GraphBuild.systemFolderNodes
+                                |> List.tryPick (fun (fid, label) ->
+                                    if isOwnerChild fid children
+                                       && not (isOwnerChild fid updatedChildren) then
+                                        Some $"cannot remove {label} owner child from root"
+                                    elif ownerCount fid updatedChildren <> 1 then
+                                        Some
+                                            $"{label} must appear exactly once as an Owner child of root"
+                                    else
+                                        None)
+                            match folderError with
+                            | Some msg -> Error msg
+                            | None ->
                                 let updatedParent =
                                     NodeUpdateTime.touch { parent with children = updatedChildren }
                                 let nodes = graph.nodes |> Map.add parentId updatedParent
@@ -249,9 +228,9 @@ module GraphMutate =
                             updatedChildren
                             |> List.exists (fun c ->
                                 c.ref = Ownership.Owner
-                                && (c.id = GraphBuild.trashId || c.id = GraphBuild.workspacesId))
+                                && GraphBuild.isSystemFolderNode c.id)
                         then
-                            Error "trash and workspaces may not be OWNED by a non-root parent"
+                            Error "trash, workspaces, and system may not be OWNED by a non-root parent"
                         else
                             let updatedParent =
                                 NodeUpdateTime.touch { parent with children = updatedChildren }

@@ -338,3 +338,22 @@ module ViewModelSelection =
         | None -> model
         | Some root when root.children.IsEmpty -> model
         | Some root -> selectChildIndexUnderParent model root (root.children.Length - 1)
+
+/// When Client should run `manageFocus` after patch/render.
+/// True on full render (`None`), mode physical change, or focused site change.
+/// False for poll/path-sync/graph stamps that leave mode ref and focus site alone.
+[<RequireQualifiedAccess>]
+module ManageFocus =
+    let focusedSiteId (model: VM) : SiteId =
+        match model.selectedNodes with
+        | None -> model.siteMap.rootId
+        | Some sel ->
+            ViewModelSelection.focusedInstanceId sel
+            |> Option.defaultValue model.siteMap.rootId
+
+    let shouldInvoke (previousModel: VM option) (model: VM) : bool =
+        match previousModel with
+        | None -> true
+        | Some prev ->
+            not (LanguagePrimitives.PhysicalEquality prev.mode model.mode)
+            || focusedSiteId prev <> focusedSiteId model

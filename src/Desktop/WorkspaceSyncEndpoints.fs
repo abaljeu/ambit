@@ -347,17 +347,22 @@ module WorkspaceSyncEndpoints =
         with
         | Error message -> do! writeBadRequest context message
         | Ok label ->
-            match Map.tryFind label workspaceMap with
+            // Map keys are lowercased; request label keeps graph/config casing.
+            match WorkspaceLocalMapping.tryFindMapping workspaceMap label with
             | None ->
                 let json =
                     "{\"label\":"
                     + quoteJson label
                     + ",\"mapped\":false,\"rows\":[]}"
                 do! writeJson context json
-            | Some _ ->
+            | Some mapping ->
                 match WorkspaceSyncLedger.loadForLabel label with
                 | Error err -> do! writeBadRequest context err
                 | Ok ledger ->
+                    let statusRows =
+                        WorkspaceSyncLedger.liveStatusRows
+                            mapping.rootPath
+                            ledger
                     let rowJson (r: SyncLedgerRow) =
                         "{\"relative\":"
                         + quoteJson r.relative
@@ -369,7 +374,7 @@ module WorkspaceSyncEndpoints =
                         + mtimeField "serverMtimeUtc" r.serverMtimeUtc
                         + "}"
                     let rows =
-                        ledger.rows
+                        statusRows
                         |> List.map rowJson
                         |> String.concat ","
                     let json =

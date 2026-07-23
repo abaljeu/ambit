@@ -45,6 +45,9 @@ let stripSpecialLinesFromOutline (text: string) : string =
             not (
                 trimmed = "#WORKSPACES Workspaces"
                 || trimmed = "-> #WORKSPACES"
+                || trimmed = "#SYSTEM System"
+                || trimmed = "#SYSTEM SYSTEM"
+                || trimmed = "-> #SYSTEM"
                 || trimmed = "#TRASH Trash"
                 || trimmed = "#TRASH TRASH"
                 || trimmed = "-> #TRASH"

@@ -228,3 +228,29 @@ let ``recordUpload updates row mtimes and head`` () =
     Assert.Equal(Some "abc", row.lastServerHead)
     Assert.Equal("both", row.presence)
     Assert.Equal(Some "upload", row.lastOp)
+
+[<Fact>]
+let ``liveStatusRows includes workspace root and file mtimes without writing ledger`` () =
+    let root =
+        Path.Combine(
+            Path.GetTempPath(),
+            $"gambol-live-status-{Guid.NewGuid()}")
+    Directory.CreateDirectory(root) |> ignore
+    let filePath = Path.Combine(root, "note.md")
+    File.WriteAllText(filePath, "hi")
+    let fileMtime = File.GetLastWriteTimeUtc filePath
+    let ledger =
+        { label = "home"
+          rows =
+            [ row "gone.txt" false None (Some(utc 2026 1 1 0)) "serverOnly" None ] }
+    let rows = WorkspaceSyncLedger.liveStatusRows root ledger
+    let byRel = rows |> List.map (fun r -> r.relative, r) |> Map.ofList
+    Assert.True(Map.containsKey "" byRel)
+    Assert.Equal("both", byRel.[""].presence)
+    Assert.True(byRel.[""].localMtimeUtc.IsSome)
+    Assert.True(Map.containsKey "note.md" byRel)
+    Assert.Equal("both", byRel.["note.md"].presence)
+    Assert.Equal(Some fileMtime, byRel.["note.md"].localMtimeUtc)
+    Assert.True(Map.containsKey "gone.txt" byRel)
+    Assert.Equal("serverOnly", byRel.["gone.txt"].presence)
+    try Directory.Delete(root, true) with _ -> ()

@@ -111,7 +111,12 @@ module ViewModelDomPlan =
                             if newClass <> oldClass then yield SetClassName newClass
                             let newIndicator, newTitle =
                                 rowFileIndicator newModel entry newNode
-                            yield SetFileIndicator (newIndicator, newTitle)
+                            let oldIndicator, oldTitle =
+                                match oldEntry, oldNode with
+                                | Some e, Some n -> rowFileIndicator oldModel e n
+                                | _ -> "", None
+                            if newIndicator <> oldIndicator || newTitle <> oldTitle then
+                                yield SetFileIndicator (newIndicator, newTitle)
                             // Sync row text on graph or filename changes (editing row included — e.g. paste).
                             let newText = outlineDisplayText newNode
                             let oldText =

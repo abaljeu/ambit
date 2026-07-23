@@ -4,13 +4,7 @@ namespace Gambol.Shared
 module GraphQuery =
 
     let fileTreeInsertIndex (graph: Graph) (parentId: NodeId) : int =
-        if parentId <> GraphBuild.rootId then
-            graph.nodes.[parentId].children.Length
-        else
-            graph.nodes.[parentId].children
-            |> List.tryFindIndex (fun c ->
-                c.id = GraphBuild.workspacesId || c.id = GraphBuild.trashId)
-            |> Option.defaultValue (graph.nodes.[parentId].children.Length)
+        graph.nodes.[parentId].children.Length
 
     /// File, Directory, or named Workspace node (artifact on disk).
     let isArtifact (node: Node) : bool =
@@ -99,12 +93,9 @@ module GraphQuery =
     let ownsFileOrDirectoryThroughSkippables (graph: Graph) (nodeId: NodeId) : bool =
         ownedArtifactsInDirectory graph nodeId None None
         |> List.exists (fun id ->
-            if id = GraphBuild.trashId then
-                false
-            else
-                match Map.tryFind id graph.nodes with
-                | Some { kind = Special (File | Directory) } -> true
-                | _ -> false)
+            match Map.tryFind id graph.nodes with
+            | Some { kind = Special (File | Directory) } -> true
+            | _ -> false)
 
     /// True when attaching these Owner children under parentId would place a
     /// File/Directory without a Workspace|Directory ancestor (Refs ignored).
@@ -121,7 +112,7 @@ module GraphQuery =
             |> List.exists (fun child ->
                 match child.ref, Map.tryFind child.id graph.nodes with
                 | Ownership.Owner, Some { kind = Special (File | Directory) }
-                    when child.id <> GraphBuild.trashId ->
+                    when not (GraphBuild.isSystemDirectoryNode child.id) ->
                     true
                 | Ownership.Owner, Some { kind = Normal | Special Workspaces } ->
                     ownsFileOrDirectoryThroughSkippables graph child.id
@@ -311,13 +302,11 @@ module GraphQuery =
         id |> Option.bind (fun nid -> Map.tryFind nid graph.ownerParentByChild)
 
     let private isEnclosingWorkspaceNode (node: Node) : bool =
-        node.id = GraphBuild.rootId
-        || node.id = GraphBuild.trashId
-        || match node.kind with
-           | Special Workspace when node.id <> GraphBuild.workspacesId -> true
+        match node.kind with
+           | Special Workspace -> true
            | _ -> false
 
-    /// Enclosing workspace on the owner chain (named Workspace, ROOT, or TRASH).
+    /// Enclosing workspace on the owner chain (A named Workspace, or ROOT).
     let enclosingWorkspace (graph: Graph) (nodeId: NodeId) : NodeId option =
         enclosing graph isEnclosingWorkspaceNode nodeId
 

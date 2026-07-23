@@ -14,6 +14,32 @@ module GraphBuild =
     /// Canonical workspaces node id; stable across snapshot load and replay.
     let workspacesId: NodeId = NodeId(Guid.Parse "00000000-0000-0000-0000-000000000002")
 
+    /// Canonical system node id; stable across snapshot load and replay.
+    let systemId: NodeId = NodeId(Guid.Parse "00000000-0000-0000-0000-000000000003")
+
+    /// Workspaces, SYSTEM, and TRASH — fixed system folder nodes under ROOT (id, error label).
+    let systemFolderNodes: (NodeId * string) list =
+        [ trashId, "trash"
+          workspacesId, "workspaces"
+          systemId, "system" ]
+
+    /// True for Workspaces, SYSTEM, or TRASH.
+    let isSystemFolderNode (nodeId: NodeId) : bool =
+        systemFolderNodes |> List.exists (fun (id, _) -> id = nodeId)
+
+    /// TRASH and SYSTEM — Directory-kind system folders (excludes the Workspaces container).
+    let isSystemDirectoryNode (nodeId: NodeId) : bool =
+        nodeId = trashId || nodeId = systemId
+
+    /// ROOT, TRASH, and SYSTEM — fixed document roots under the shared data directory
+    /// (not named-workspace folders; Workspaces is excluded).
+    let isCanonicalDataRoot (nodeId: NodeId) : bool =
+        nodeId = rootId || isSystemDirectoryNode nodeId
+
+    /// Any fixed bootstrap id: ROOT or a system folder node.
+    let isCanonicalNode (nodeId: NodeId) : bool =
+        nodeId = rootId || isSystemFolderNode nodeId
+
     /// Initial root node: fixed label, no user-editable fields on root.
     let rootPlaceholder: Node =
         Node.Create(rootId, text = "ROOT", kind = Special Workspace)
@@ -150,6 +176,68 @@ module GraphBuild =
             nodesWithWorkspaces
             |> Map.add rootId { rootNode with children = fixedRootChildren }
 
+    let private ensureSystemNode (nodes: Map<NodeId, Node>) : Map<NodeId, Node> =
+        let hasSystem = Map.containsKey systemId nodes
+        let nodesWithSystem =
+            if hasSystem then
+                nodes
+            else
+                let rootNode = nodes.[rootId]
+                let systemNode: Node =
+                    Node.Create(
+                        systemId,
+                        text = "System",
+                        name = Filename.Ok "SYSTEM",
+                        kind = Special Directory)
+
+                let systemChild: ChildNode =
+                    { ref = Ownership.Owner
+                      id = systemId }
+
+                let rootChildren =
+                    if rootNode.children |> List.exists (fun c -> c.id = systemId) then
+                        rootNode.children
+                    else
+                        rootNode.children @ [ systemChild ]
+
+                nodes
+                |> Map.add rootId { rootNode with children = rootChildren }
+                |> Map.add systemId systemNode
+
+        let rootNode = nodesWithSystem.[rootId]
+        let hasSystemOwner =
+            rootNode.children
+            |> List.exists (fun c -> c.id = systemId && c.ref = Ownership.Owner)
+
+        let nodesFixed =
+            if hasSystemOwner then
+                nodesWithSystem
+            else
+                // Missing Owner under ROOT — insert before TRASH when present.
+                let systemChild = { ref = Ownership.Owner; id = systemId }
+                let withoutSystem =
+                    rootNode.children |> List.filter (fun c -> c.id <> systemId)
+                let beforeTrash, afterTrashStart =
+                    match withoutSystem |> List.tryFindIndex (fun c -> c.id = trashId) with
+                    | Some i ->
+                        withoutSystem |> List.take i,
+                        withoutSystem |> List.skip i
+                    | None ->
+                        withoutSystem, []
+                let fixedRootChildren =
+                    beforeTrash @ [ systemChild ] @ afterTrashStart
+                nodesWithSystem
+                |> Map.add rootId { rootNode with children = fixedRootChildren }
+
+        match Map.tryFind systemId nodesFixed with
+        | None -> nodesFixed
+        | Some system ->
+            nodesFixed
+            |> Map.add systemId
+                { system with
+                    kind = Special Directory
+                    name = Filename.Ok "SYSTEM" }
+
     let private ensureRootKind (nodes: Map<NodeId, Node>) : Map<NodeId, Node> =
         match Map.tryFind rootId nodes with
         | None -> nodes
@@ -179,7 +267,8 @@ module GraphBuild =
     let fromNodes (root: NodeId) (nodes: Map<NodeId, Node>) : Graph =
         let nodesWithRoot = ensureRootKind nodes
         let nodesWithWorkspaces = ensureWorkspacesNode nodesWithRoot
-        let nodesWithTrash = ensureTrashNode nodesWithWorkspaces
+        let nodesWithSystem = ensureSystemNode nodesWithWorkspaces
+        let nodesWithTrash = ensureTrashNode nodesWithSystem
         let pbc, opc = buildParentMaps nodesWithTrash
         let nodesWithOwner = applyOwnerField root opc nodesWithTrash
         { root = root

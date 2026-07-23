@@ -31,6 +31,7 @@ Minimum code that solves the problem. Nothing speculative.
 - No "flexibility" or "configurability" that wasn't requested.
 - No error handling for impossible scenarios.
 - If you write 200 lines and it could be 50, rewrite it.
+- Consider removing code to achieve a goal.
 
 Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
 
@@ -76,3 +77,5 @@ If a requested course of action seems inefficient, stop and propose a more effic
 Do not websearch. Tell me if you lack information.
 
 While in plan mode, any request for a change should be interpreted as a request to plan for the change; do not write detailed code then.
+
+When a subagent completes, summarize its conclusion for the user.

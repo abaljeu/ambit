@@ -269,6 +269,7 @@ let ``specialKindRowClass maps each SpecialKind to amb-row-special class`` () =
     Assert.Equal(Some "amb-row-special-directory", specialKindRowClass otherId (Special Directory))
     Assert.Equal(Some "amb-row-special-file", specialKindRowClass otherId (Special File))
     Assert.Equal(Some "amb-row-special-trash", specialKindRowClass Graph.trashId (Special Directory))
+    Assert.Equal(Some "amb-row-special-system", specialKindRowClass Graph.systemId (Special Directory))
     Assert.Equal(None, specialKindRowClass otherId Normal)
 
 [<Fact>]
@@ -2235,7 +2236,7 @@ let ``searchPickSetRoot seeds owner ingress for shared zoom-out`` () =
         Assert.Equal(ownerIndex, index)
 
 // ---------------------------------------------------------------------------
-// EditingCaretPreserve — sync-only updates must not reset contenteditable caret
+// EditingCaretPreserve — same Editing mode ref: restore live caret after patches
 // ---------------------------------------------------------------------------
 
 [<Fact>]
@@ -2275,13 +2276,86 @@ let ``EditingCaretPreserve false when EditCaret in model changes`` () =
     Assert.False(EditingCaretPreserve.shouldPreserveDomCaret (Some prev) next)
 
 [<Fact>]
-let ``EditingCaretPreserve false when graph reference changes`` () =
+let ``EditingCaretPreserve true when graph changes but Editing mode ref unchanged`` () =
+    // Poll SetUpdateTime / path-sync must not reset caret from stale EditCaret while typing.
+    let graph, _, _ = buildFlat [ "hi" ]
+    let prev =
+        { emptyModel graph with mode = Editing ("hi", EditCaret.Utf16Index 0) }
+    let g2 = Graph.fromNodes graph.root graph.nodes
+    let next = { prev with graph = g2 }
+    Assert.True(EditingCaretPreserve.shouldPreserveDomCaret (Some prev) next)
+
+[<Fact>]
+let ``EditingCaretPreserve true when selection changes but Editing mode ref unchanged`` () =
+    let graph, cont, ids = buildFlat [ "a"; "b" ]
+    let prev =
+        { modelWithSel graph cont 0 1 0 with
+            mode = Editing ("a", EditCaret.Utf16Index 0) }
+    let next =
+        { prev with selectedNodes = singleSelection prev.graph prev.siteMap ids.[1] }
+    Assert.True(EditingCaretPreserve.shouldPreserveDomCaret (Some prev) next)
+
+// ---------------------------------------------------------------------------
+// ManageFocus — gate manageFocus to mode / focused-site transitions
+// ---------------------------------------------------------------------------
+
+[<Fact>]
+let ``ManageFocus None means invoke`` () =
+    let graph, _, _ = buildFlat [ "hi" ]
+    let m = emptyModel graph
+    Assert.True(ManageFocus.shouldInvoke None m)
+
+[<Fact>]
+let ``ManageFocus false when only sync fields change while Editing`` () =
     let graph, _, _ = buildFlat [ "hi" ]
     let prev =
         { emptyModel graph with mode = Editing ("hi", EditCaret.Utf16Index 1) }
+    let next =
+        { prev with
+            syncInfo =
+                { prev.syncInfo with
+                    isPollingActive = true
+                    syncState = Polling } }
+    Assert.False(ManageFocus.shouldInvoke (Some prev) next)
+
+[<Fact>]
+let ``ManageFocus false when graph changes but mode and focus site unchanged`` () =
+    let graph, _, _ = buildFlat [ "hi" ]
+    let prev =
+        { emptyModel graph with mode = Editing ("hi", EditCaret.Utf16Index 0) }
     let g2 = Graph.fromNodes graph.root graph.nodes
     let next = { prev with graph = g2 }
-    Assert.False(EditingCaretPreserve.shouldPreserveDomCaret (Some prev) next)
+    Assert.False(ManageFocus.shouldInvoke (Some prev) next)
+
+[<Fact>]
+let ``ManageFocus true when EditCaret in model changes`` () =
+    let graph, _, _ = buildFlat [ "hi" ]
+    let prev =
+        { emptyModel graph with mode = Editing ("hi", EditCaret.Utf16Index 1) }
+    let next = { prev with mode = Editing ("hi", EditCaret.Utf16Index 2) }
+    Assert.True(ManageFocus.shouldInvoke (Some prev) next)
+
+[<Fact>]
+let ``ManageFocus true when entering Editing`` () =
+    let graph, _, _ = buildFlat [ "hi" ]
+    let prev = emptyModel graph
+    let next = { prev with mode = Editing ("hi", EditCaret.EndOfText) }
+    Assert.True(ManageFocus.shouldInvoke (Some prev) next)
+
+[<Fact>]
+let ``ManageFocus true when focused site changes`` () =
+    let graph, cont, ids = buildFlat [ "a"; "b" ]
+    let prev = modelWithSel graph cont 0 1 0
+    let next =
+        { prev with selectedNodes = singleSelection prev.graph prev.siteMap ids.[1] }
+    Assert.True(ManageFocus.shouldInvoke (Some prev) next)
+
+[<Fact>]
+let ``ManageFocus false when Selecting and only sync fields change`` () =
+    let graph, _, _ = buildFlat [ "hi" ]
+    let prev = emptyModel graph
+    let next = { prev with syncInfo = { prev.syncInfo with isPollingActive = true } }
+    Assert.False(ManageFocus.shouldInvoke (Some prev) next)
 
 // ---------------------------------------------------------------------------
 // TRASH semantics – bootstrap, delete classification, and behaviour
@@ -2299,6 +2373,19 @@ let ``Graph.create bootstraps TRASH under root as Directory with TRASH name`` ()
     match trashNode.kind with
     | Special Directory -> Assert.Equal(Filename.Ok "TRASH", trashNode.name)
     | _ -> Assert.True(false, "Trash node must have kind = Special Directory")
+
+[<Fact>]
+let ``Graph.create bootstraps SYSTEM under root as Directory with SYSTEM name`` () =
+    let graph = Graph.create ()
+    let rootNode = graph.nodes.[graph.root]
+    let systemChildOpt =
+        rootNode.children
+        |> List.tryFind (fun c -> c.id = Graph.systemId && c.ref = Ownership.Owner)
+    Assert.True(systemChildOpt.IsSome)
+    let systemNode = graph.nodes.[Graph.systemId]
+    match systemNode.kind with
+    | Special Directory -> Assert.Equal(Filename.Ok "SYSTEM", systemNode.name)
+    | _ -> Assert.True(false, "System node must have kind = Special Directory")
 
 [<Fact>]
 let ``Graph.replace rejects wiping all root children and leaves root unchanged`` () =

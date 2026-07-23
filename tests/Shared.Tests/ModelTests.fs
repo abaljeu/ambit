@@ -290,6 +290,54 @@ let ``Graph.create bootstraps WORKSPACES under root with special kind`` () =
     Assert.True(workspacesChildOpt.IsSome)
 
 [<Fact>]
+let ``isSystemFolderNode covers Workspaces SYSTEM and TRASH only`` () =
+    Assert.True(Graph.isSystemFolderNode Graph.workspacesId)
+    Assert.True(Graph.isSystemFolderNode Graph.systemId)
+    Assert.True(Graph.isSystemFolderNode Graph.trashId)
+    Assert.False(Graph.isSystemFolderNode Graph.rootId)
+    Assert.False(Graph.isSystemFolderNode (NodeId.New()))
+
+[<Fact>]
+let ``isCanonicalDataRoot covers ROOT TRASH and SYSTEM only`` () =
+    Assert.True(Graph.isCanonicalDataRoot Graph.rootId)
+    Assert.True(Graph.isCanonicalDataRoot Graph.trashId)
+    Assert.True(Graph.isCanonicalDataRoot Graph.systemId)
+    Assert.False(Graph.isCanonicalDataRoot Graph.workspacesId)
+    Assert.False(Graph.isCanonicalDataRoot (NodeId.New()))
+
+[<Fact>]
+let ``isSystemDirectoryNode covers TRASH and SYSTEM only`` () =
+    Assert.True(Graph.isSystemDirectoryNode Graph.trashId)
+    Assert.True(Graph.isSystemDirectoryNode Graph.systemId)
+    Assert.False(Graph.isSystemDirectoryNode Graph.workspacesId)
+    Assert.False(Graph.isSystemDirectoryNode Graph.rootId)
+
+[<Fact>]
+let ``isCanonicalNode covers ROOT and all system folder nodes`` () =
+    Assert.True(Graph.isCanonicalNode Graph.rootId)
+    Assert.True(Graph.isCanonicalNode Graph.workspacesId)
+    Assert.True(Graph.isCanonicalNode Graph.systemId)
+    Assert.True(Graph.isCanonicalNode Graph.trashId)
+    Assert.False(Graph.isCanonicalNode (NodeId.New()))
+
+[<Fact>]
+let ``Graph.create bootstraps SYSTEM under root as Directory with SYSTEM name`` () =
+    let graph = Graph.create ()
+    let systemNode = graph.nodes.[Graph.systemId]
+    match systemNode.kind with
+    | Special Directory -> Assert.Equal(Filename.Ok "SYSTEM", systemNode.name)
+    | _ -> Assert.True(false, "System node must have kind = Special Directory")
+    Assert.Equal("System", systemNode.text)
+    let rootNode = graph.nodes.[graph.root]
+    let systemChildOpt =
+        rootNode.children
+        |> List.tryFind (fun c -> c.id = Graph.systemId && c.ref = Ownership.Owner)
+    Assert.True(systemChildOpt.IsSome)
+    Assert.Equal<NodeId list>(
+        [ Graph.workspacesId; Graph.systemId; Graph.trashId ],
+        rootNode.children |> List.map (fun c -> c.id))
+
+[<Fact>]
 let ``Graph.replace rejects removing workspaces owner from root`` () =
     let graph = Graph.create ()
     let rootId = graph.root
@@ -299,6 +347,17 @@ let ``Graph.replace rejects removing workspaces owner from root`` () =
     match Graph.replace rootId 0 rootChildren withoutWorkspaces graph with
     | Ok _ -> Assert.True(false, "expected Error")
     | Error msg -> Assert.Contains("cannot remove workspaces owner child from root", msg)
+
+[<Fact>]
+let ``Graph.replace rejects removing system owner from root`` () =
+    let graph = Graph.create ()
+    let rootId = graph.root
+    let rootChildren = graph.nodes.[rootId].children
+    let withoutSystem =
+        rootChildren |> List.filter (fun c -> c.id <> Graph.systemId)
+    match Graph.replace rootId 0 rootChildren withoutSystem graph with
+    | Ok _ -> Assert.True(false, "expected Error")
+    | Error msg -> Assert.Contains("cannot remove system owner child from root", msg)
 
 [<Fact>]
 let ``Graph.replace can reorder Workspaces and TRASH under ROOT`` () =
@@ -311,16 +370,19 @@ let ``Graph.replace can reorder Workspaces and TRASH under ROOT`` () =
     let rootId = graph2.root
     let oldChildren = graph2.nodes.[rootId].children
     let child id = oldChildren |> List.find (fun c -> c.id = id)
-    // Default order: a, Workspaces, TRASH → move TRASH before Workspaces.
+    // Default order: a, Workspaces, SYSTEM, TRASH → move TRASH before Workspaces.
     let reordered =
-        [ child a; child Graph.trashId; child Graph.workspacesId ]
+        [ child a
+          child Graph.trashId
+          child Graph.workspacesId
+          child Graph.systemId ]
     match Graph.replace rootId 0 oldChildren reordered graph2 with
     | Error msg -> Assert.True(false, $"expected Ok: {msg}")
     | Ok graph3 ->
         let children =
             graph3.nodes.[rootId].children |> List.map (fun c -> c.id)
         Assert.Equal<NodeId list>(
-            [ a; Graph.trashId; Graph.workspacesId ],
+            [ a; Graph.trashId; Graph.workspacesId; Graph.systemId ],
             children)
 
 [<Fact>]
@@ -337,7 +399,27 @@ let ``Graph.replace rejects Workspaces owned under non-root`` () =
     match Graph.replace parent 0 [] [ wsChild ] graph2 with
     | Ok _ -> Assert.True(false, "expected Error")
     | Error msg ->
-        Assert.Contains("trash and workspaces may not be OWNED by a non-root parent", msg)
+        Assert.Contains(
+            "trash, workspaces, and system may not be OWNED by a non-root parent",
+            msg)
+
+[<Fact>]
+let ``Graph.replace rejects SYSTEM owned under non-root`` () =
+    let graph0 = Graph.create ()
+    let graph1, ids = ModelBuilder.createNodes [ "parent" ] graph0
+    let parent = ids.[0]
+    let graph2 =
+        Graph.replace graph1.root 0 [] (owned [ parent ]) graph1
+        |> requireOk "root->parent"
+    let systemChild =
+        graph2.nodes.[graph2.root].children
+        |> List.find (fun c -> c.id = Graph.systemId)
+    match Graph.replace parent 0 [] [ systemChild ] graph2 with
+    | Ok _ -> Assert.True(false, "expected Error")
+    | Error msg ->
+        Assert.Contains(
+            "trash, workspaces, and system may not be OWNED by a non-root parent",
+            msg)
 
 [<Fact>]
 let ``Graph.setText on workspaces node is rejected`` () =

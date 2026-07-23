@@ -169,7 +169,7 @@ module Op =
                 else
                     ApplyResult.Changed { state with graph = graph }
         | Op.NewSpecialNode(nodeId, kind, name) ->
-            if nodeId = Graph.rootId || nodeId = Graph.trashId || nodeId = Graph.workspacesId then
+            if Graph.isCanonicalNode nodeId then
                 ApplyResult.Invalid(state, "cannot NewSpecialNode with canonical id")
             elif kind = Workspaces then
                 ApplyResult.Invalid(state, "cannot NewSpecialNode with system-only kind")
@@ -426,7 +426,7 @@ module History =
                                 match child.ref, Map.tryFind child.id graph.nodes with
                                 | Ownership.Owner,
                                   Some { kind = Special (File | Directory) }
-                                    when child.id <> Graph.trashId ->
+                                    when not (Graph.isSystemDirectoryNode child.id) ->
                                     if not (
                                         GraphQuery.containerOrDescendant graph parentId) then
                                         Some child.id

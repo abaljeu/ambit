@@ -10,6 +10,7 @@
     --node-directory: #a80;
     --node-file: #58a;
     --node-trash: #888;
+    --node-system: #668;
 }
 
 html {
@@ -469,6 +470,12 @@ body {
 }
 .amb-row-special-trash .amb-node-guid {
     color: var(--node-trash);
+}
+.amb-row-special-system .amb-text {
+    border-left: 6px solid var(--node-system);
+}
+.amb-row-special-system .amb-node-guid {
+    color: var(--node-system);
 }
 
 /* user */

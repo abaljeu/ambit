@@ -165,6 +165,16 @@ module WorkspaceLocalMapping =
         |> List.map (fun entry -> entry.label.ToLowerInvariant(), entry)
         |> Map.ofList
 
+    /// Lookup by label; map keys are lowercased (`toMap`).
+    let tryFindMapping
+        (workspaceToRoot: Map<string, WorkspaceMapping>)
+        (workspaceLabel: string)
+        : WorkspaceMapping option =
+        let key =
+            if isNull workspaceLabel then ""
+            else workspaceLabel.Trim().ToLowerInvariant()
+        Map.tryFind key workspaceToRoot
+
     /// Resolve a selected path to a git work-tree root (`.git` dir or parent of `.git`).
     let tryGitRoot (selectedPath: string) : Result<string, string> =
         let trimmed = if isNull selectedPath then "" else selectedPath.Trim()
@@ -218,9 +228,7 @@ module WorkspaceLocalMapping =
         (relativePath: string)
         : Result<string, string>
         =
-        let normalizedLabel = if isNull workspaceLabel then "" else workspaceLabel.Trim().ToLowerInvariant()
-
-        match Map.tryFind normalizedLabel workspaceToRoot with
+        match tryFindMapping workspaceToRoot workspaceLabel with
         | None -> Error "invalid_workspace"
         | Some mapping ->
             // Directory desktop paths parse as "doc/"; trim trailing slash only.

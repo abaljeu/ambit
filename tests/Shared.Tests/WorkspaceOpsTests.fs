@@ -91,6 +91,11 @@ let ``SetName rejects canonical workspaces id`` () =
     Assert.True(Result.isError (Graph.setName Graph.workspacesId "Workspaces" "other" graph))
 
 [<Fact>]
+let ``SetName rejects canonical system id`` () =
+    let graph = Graph.create ()
+    Assert.True(Result.isError (Graph.setName Graph.systemId "System" "other" graph))
+
+[<Fact>]
 let ``SetName rejects old name mismatch`` () =
     let graph0 = Graph.create ()
     let graph1, nodeId = addNamedNode "actual-name" graph0

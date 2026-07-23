@@ -293,6 +293,30 @@ let ``mapped desktop uses ledger comparison and Unparsed overlay`` () =
             parsedModel.graph.nodes.[fileId])
 
 [<Fact>]
+let ``applyWorkspacePathSyncSnapshot matches mapping labels case-insensitively`` () =
+    let baseModel, wsId, fileId = modelWithWorkspaceFile Current
+    let entry = entryUnderParentNode wsId fileId baseModel
+    let t = System.DateTime(2026, 1, 1, 0, 0, 0, System.DateTimeKind.Utc)
+    let fact =
+        { relative = "note.md"
+          isDirectory = false
+          presence = WorkspacePathPresence.Both
+          localMtimeUtc = Some t
+          serverMtimeUtc = Some t }
+    let model =
+        applyWorkspacePathSyncSnapshot
+            (Set.singleton "Home")
+            (Map.ofList [ "Home", Map.ofList [ "note.md", fact ] ])
+            { baseModel with desktopCapabilities = Some desktopCaps }
+    Assert.True(canCompareWorkspacePathSync model "home")
+    Assert.Equal(
+        Some WorkspacePathSyncStatus.Synced,
+        rowWorkspacePathSyncStatus
+            model
+            entry
+            model.graph.nodes.[fileId])
+
+[<Fact>]
 let ``desktop without mapping ignores ledger comparison`` () =
     let baseModel, wsId, fileId = modelWithWorkspaceFile Current
     let entry = entryUnderParentNode wsId fileId baseModel
@@ -313,6 +337,61 @@ let ``desktop without mapping ignores ledger comparison`` () =
     Assert.Equal(
         None,
         rowWorkspacePathSyncStatus model entry node)
+
+[<Fact>]
+let ``mapped without live fact defaults to OnlyOnServer`` () =
+    let baseModel, wsId, fileId = modelWithWorkspaceFile Current
+    let fileEntry = entryUnderParentNode wsId fileId baseModel
+    let wsEntry = entryUnderParentNode Graph.workspacesId wsId baseModel
+    let model =
+        applyWorkspacePathSyncSnapshot
+            (Set.singleton "home")
+            Map.empty
+            { baseModel with desktopCapabilities = Some desktopCaps }
+    Assert.True(canCompareWorkspacePathSync model "home")
+    Assert.Equal(
+        Some WorkspacePathSyncStatus.OnlyOnServer,
+        rowWorkspacePathSyncStatus
+            model
+            fileEntry
+            model.graph.nodes.[fileId])
+    Assert.Equal(
+        Some WorkspacePathSyncStatus.OnlyOnServer,
+        rowWorkspacePathSyncStatus
+            model
+            wsEntry
+            model.graph.nodes.[wsId])
+
+[<Fact>]
+let ``mapped live local fact compares against node server stamp`` () =
+    let baseModel, wsId, fileId = modelWithWorkspaceFile Current
+    let entry = entryUnderParentNode wsId fileId baseModel
+    let local = System.DateTime(2026, 1, 3, 0, 0, 0, System.DateTimeKind.Utc)
+    let server = System.DateTime(2026, 1, 1, 0, 0, 0, System.DateTimeKind.Utc)
+    let fact =
+        { relative = "note.md"
+          isDirectory = false
+          presence = WorkspacePathPresence.Both
+          localMtimeUtc = Some local
+          serverMtimeUtc = None }
+    let stamped =
+        { baseModel.graph.nodes.[fileId] with updateTime = server }
+    let model =
+        applyWorkspacePathSyncSnapshot
+            (Set.singleton "home")
+            (Map.ofList [ "home", Map.ofList [ "note.md", fact ] ])
+            { baseModel with
+                desktopCapabilities = Some desktopCaps
+                graph =
+                    Graph.fromNodes
+                        baseModel.graph.root
+                        (Map.add fileId stamped baseModel.graph.nodes) }
+    Assert.Equal(
+        Some WorkspacePathSyncStatus.NewerOnDesktop,
+        rowWorkspacePathSyncStatus
+            model
+            entry
+            model.graph.nodes.[fileId])
 
 [<Fact>]
 let ``mapped desktop NewerOnServer when ledger server ahead of local`` () =

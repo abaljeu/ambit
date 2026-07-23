@@ -408,15 +408,14 @@ type Msg =
     | AckSyncRisk
     | ApplyOp of Updater
 
-/// Client `manageFocus`: when this is true, the live DOM caret in `#edit-input` must not be
-/// overwritten from `model.mode` — e.g. contenteditable typing with only `syncInfo` changed.
+/// After row patches (and if `ManageFocus` still runs without a mode change): keep the live
+/// `#edit-input` caret. Keystrokes update only the contenteditable; `Editing` text/caret stay
+/// stale until commit. True when still `Editing` with the same mode ref — restore saved offset
+/// if patches cleared the selection; do not apply stale `EditCaret` from the model.
 [<RequireQualifiedAccess>]
 module EditingCaretPreserve =
     let shouldPreserveDomCaret (previousModel: VM option) (model: VM) : bool =
         match previousModel, model.mode with
         | Some prev, Editing _ ->
             LanguagePrimitives.PhysicalEquality prev.mode model.mode
-            && LanguagePrimitives.PhysicalEquality prev.graph model.graph
-            && LanguagePrimitives.PhysicalEquality prev.siteMap model.siteMap
-            && LanguagePrimitives.PhysicalEquality prev.selectedNodes model.selectedNodes
         | _ -> false

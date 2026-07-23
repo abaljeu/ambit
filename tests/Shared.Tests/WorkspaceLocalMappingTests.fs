@@ -127,6 +127,22 @@ let ``resolvePath missing label is invalid_workspace`` () =
     | Error err -> Assert.Equal("invalid_workspace", err)
 
 [<Fact>]
+let ``tryFindMapping matches label case-insensitively`` () =
+    let mappings =
+        { entries =
+            [ { label = "Alibre"; rootPath = "D:\\dev\\Alibre" } ] }
+        |> WorkspaceLocalMapping.toMap
+    match WorkspaceLocalMapping.tryFindMapping mappings "Alibre" with
+    | None -> Assert.Fail("expected mapping for Alibre")
+    | Some m -> Assert.Equal("D:\\dev\\Alibre", m.rootPath)
+    match WorkspaceLocalMapping.tryFindMapping mappings "alibre" with
+    | None -> Assert.Fail("expected mapping for alibre")
+    | Some m -> Assert.Equal("Alibre", m.label)
+    Assert.True(
+        WorkspaceLocalMapping.tryFindMapping mappings "other"
+        |> Option.isNone)
+
+[<Fact>]
 let ``missingMappingMessage names the workspace label`` () =
     Assert.Equal(
         "no local mapping for workspace 'home'",

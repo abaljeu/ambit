@@ -362,7 +362,7 @@ let private resolveRow
 // Focus management
 // ---------------------------------------------------------------------------
 
-/// Focus the correct element after each dispatch.
+/// Focus the correct element after a focus-relevant transition (`ManageFocus.shouldInvoke`).
 /// `previousModel` = model before this dispatch; None on full `render` (always apply caret).
 let manageFocus
         (previousModel: VM option) (model: VM) (rowByInstanceId: Map<SiteId, HTMLElement>)
@@ -377,7 +377,13 @@ let manageFocus
         let editEl = document.getElementById "edit-input"
         if not (isNull editEl) then
             let root = editEl
-            focusPreventScroll root
+            let alreadyFocused =
+                not (isNull document.activeElement)
+                && System.Object.ReferenceEquals(document.activeElement, root)
+            // Re-focusing an unfocused contenteditable places the caret at start. When preserving
+            // the live caret (same Editing mode ref), skip focus if we already own it.
+            if not (preserveEditCaret && alreadyFocused) then
+                focusPreventScroll root
             if not preserveEditCaret then
                 match model.mode with
                 | Editing (_, caret) ->
@@ -397,23 +403,13 @@ let manageFocus
         let hiddenInput = document.getElementById "hidden-input"
         if not (isNull hiddenInput) then
             focusPreventScroll (hiddenInput :?> HTMLInputElement)
-        let focusedInstId =
-            match model.selectedNodes with
-            | None -> model.siteMap.rootId
-            | Some sel ->
-                ViewModel.focusedInstanceId sel
-                |> Option.defaultValue model.siteMap.rootId
+        let focusedInstId = ManageFocus.focusedSiteId model
         // Only scroll when the focused row changed (navigation) or on a full render.
         // This prevents the wheel-scroll snap-back caused by non-navigation dispatches.
         let prevFocusedInstId =
             match previousModel with
             | None -> None  // full render — always scroll
-            | Some prev ->
-                match prev.selectedNodes with
-                | None -> Some prev.siteMap.rootId
-                | Some sel ->
-                    ViewModel.focusedInstanceId sel
-                    |> Option.orElse (Some prev.siteMap.rootId)
+            | Some prev -> Some (ManageFocus.focusedSiteId prev)
         if prevFocusedInstId <> Some focusedInstId then
             Map.tryFind focusedInstId rowByInstanceId
             |> Option.iter scrollFocusedRow
@@ -874,6 +870,17 @@ let patchDOM
         (oldModel: VM) (newModel: VM) (dispatch: Msg -> unit)
         (cache: Map<SiteId, HTMLElement>)
         : Map<SiteId, HTMLElement> =
+    let preserveEditCaret =
+        EditingCaretPreserve.shouldPreserveDomCaret (Some oldModel) newModel
+    // Capture live caret before row patches; class/indicator writes can clear selection.
+    // Restored below when preserveEditCaret (manageFocus may be skipped entirely).
+    let savedEditCaret =
+        if not preserveEditCaret then None
+        else
+            let el = document.getElementById "edit-input"
+            if isNull el then None
+            else Some (getContentEditableCaretOffset el)
+
     let cachedInstIds = cache |> Map.toSeq |> Seq.map fst |> Set.ofSeq
     let mutations = ViewModel.planPatchDOM oldModel newModel cachedInstIds
 
@@ -933,6 +940,15 @@ let patchDOM
 
         prevNode <- Some (row :> Browser.Types.Node)
 
-    manageFocus (Some oldModel) newModel cache'
+    if ManageFocus.shouldInvoke (Some oldModel) newModel then
+    //if false then
+        manageFocus (Some oldModel) newModel cache'
+    //if preserveEditCaret then
+    if false then
+        match savedEditCaret with
+        | Some pos ->
+            let el = document.getElementById "edit-input"
+            if not (isNull el) then setEditorCaret el pos
+        | None -> ()
     renderSyncChrome newModel dispatch
     cache'
