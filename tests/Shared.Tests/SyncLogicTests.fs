@@ -147,6 +147,24 @@ let ``applyServerTail applies graph mutations`` () =
         Assert.Equal(Revision 4, result.revision)
 
 [<Fact>]
+let ``applyServerTail carries SetUpdateTime after SetText as poll stamp path`` () =
+    let st, nodeId = stateWithNode "before"
+    let stamp = System.DateTime(2026, 7, 22, 18, 0, 0, System.DateTimeKind.Utc)
+    let change =
+        { id = 3
+          changeId = System.Guid.NewGuid()
+          ops =
+              [ Op.SetText(nodeId, "before", "after")
+                Op.SetUpdateTime(nodeId, NodeUpdateTime.missing, stamp) ] }
+    match SyncLogic.applyServerTail [ change ] st with
+    | Error msg -> failwith $"Expected Ok, got Error: {msg}"
+    | Ok result ->
+        Assert.Equal("after", result.graph.nodes.[nodeId].text)
+        Assert.Equal(
+            NodeUpdateTime.toDbPrecision stamp,
+            result.graph.nodes.[nodeId].updateTime)
+
+[<Fact>]
 let ``applyServerTail returns Error on first invalid change`` () =
     let st = emptyState ()
     let badChange =

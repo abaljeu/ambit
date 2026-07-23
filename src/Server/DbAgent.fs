@@ -45,11 +45,12 @@ module DbAgent =
                     [ "revision", Serialization.encodeRevision state.Value.revision
                       "graph", Serialization.encodeGraph state.Value.graph ])
 
-        let encodeChangeAckJson (ackedChangeIds: Guid list) =
+        let encodeChangeAckJson (ackedChangeIds: Guid list) (stampOps: Op list) =
             Encode.toString 0 (
                 Serialization.encodeChangeBatchAck
                     { revision = state.Value.revision
-                      ackedChangeIds = ackedChangeIds })
+                      ackedChangeIds = ackedChangeIds
+                      stampOps = stampOps })
 
         let isDuplicateSubmission (change: Change) (history: History) =
             history.past |> List.exists (fun c -> c.id = change.id && c.changeId = change.changeId)
@@ -77,7 +78,7 @@ module DbAgent =
                     | ApplyResult.Changed s' ->
                         let nextRev = s.revision.Value + 1
                         let nextState = { s' with revision = Revision nextRev }
-                        let logEntry = nextRev, change, ChangeLog.encodeChange change
+                        let logEntry = nextRev, change
                         Ok(nextState, acked @ [ change.changeId ], logEntries @ [ logEntry ])
 
             changes
@@ -88,20 +89,20 @@ module DbAgent =
                     | Ok stateAndLog -> step stateAndLog change)
                 (Ok(state.Value, [], []))
 
-        let persistBatch (newState: State) (logEntries: (int * Change * string) list) =
+        let persistBatch (newState: State) (logEntries: (int * Change) list) =
             try
                 use conn = Database.getConnection connectionString
                 conn.Open()
                 use tx = conn.BeginTransaction()
 
                 logEntries
-                |> List.iter (fun (serverRevAfter, change, json) ->
+                |> List.iter (fun (serverRevAfter, change) ->
                     (Database.appendChangeWithTx
                         tx
                         serverRevAfter
                         change.id
                         change.changeId
-                        json)
+                        (ChangeLog.encodeChange change))
                         .GetAwaiter()
                         .GetResult())
 
@@ -200,16 +201,24 @@ module DbAgent =
                         match livePersist with
                         | Error err -> reply.Reply(Error err)
                         | Ok stampedOpt ->
-                            let stateToStore =
+                            let stampOps, stateToStore =
                                 match stampedOpt with
                                 | Some stamped ->
+                                    PersistStamp.opsBetween newState.graph stamped,
                                     { newState with graph = stamped }
-                                | None -> newState
-                            match persistBatch stateToStore logEntries with
+                                | None -> [], newState
+                            let logEntries' =
+                                logEntries
+                                |> List.map (fun (rev, change) -> rev, change)
+                                |> fun entries ->
+                                    let changes = entries |> List.map snd
+                                    let enriched = PersistStamp.appendToLast changes stampOps
+                                    List.zip (entries |> List.map fst) enriched
+                            match persistBatch stateToStore logEntries' with
                             | Error err -> reply.Reply(Error err)
                             | Ok () ->
                                 state.Value <- stateToStore
-                                reply.Reply(Ok (encodeChangeAckJson ackedChangeIds))
+                                reply.Reply(Ok (encodeChangeAckJson ackedChangeIds stampOps))
                                 if graphOnly then
                                     persistedGraph.Value <- stateToStore.graph
                                 elif not (List.isEmpty logEntries) then

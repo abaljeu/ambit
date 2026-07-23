@@ -249,12 +249,14 @@ let decodePostChangeError (text: string) : string option =
 
 type ChangeAck =
     { ackedChangeIds: System.Guid list
-      revision: Revision }
+      revision: Revision
+      stampOps: Op list }
 
 /// Decode POST /{file}/changes success body.
 let decodeChangeAckResponse (text: string) : Result<ChangeAck, string> =
     Thoth.Json.JavaScript.Decode.fromString Serialization.decodeChangeBatchAck text
     |> Result.map (fun ack ->
         { ackedChangeIds = ack.ackedChangeIds
-          revision = ack.revision })
+          revision = ack.revision
+          stampOps = ack.stampOps })
 

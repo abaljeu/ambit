@@ -217,6 +217,28 @@ let ``writeAllDocuments stamps artifact updateTime from disk mtime`` () =
         stamped.nodes.[fileId].updateTime)
 
 [<Fact>]
+let ``readAllDocuments cold load stamps artifact roots from disk mtime`` () =
+    let dataDir = newTempDir ()
+    let graph, wsId, dirId, fileId, _ = graphWithNestedDocs ()
+    DocumentPersistence.writeAllDocuments dataDir graph
+    |> requireOk "writeAllDocuments"
+    |> ignore
+    let filePath = artifactFullPath dataDir graph fileId
+    let dirPath = artifactFullPath dataDir graph dirId
+    let wsPath = artifactFullPath dataDir graph wsId
+    let fileMtime =
+        File.GetLastWriteTimeUtc filePath |> NodeUpdateTime.toDbPrecision
+    let dirMtime =
+        File.GetLastWriteTimeUtc dirPath |> NodeUpdateTime.toDbPrecision
+    let wsMtime =
+        File.GetLastWriteTimeUtc wsPath |> NodeUpdateTime.toDbPrecision
+    let loaded =
+        DocumentPersistence.readAllDocuments dataDir |> requireOk "read"
+    Assert.Equal(fileMtime, loaded.nodes.[fileId].updateTime)
+    Assert.Equal(dirMtime, loaded.nodes.[dirId].updateTime)
+    Assert.Equal(wsMtime, loaded.nodes.[wsId].updateTime)
+
+[<Fact>]
 let ``fileStatusForReference reports existing and missing server artifacts`` () =
     let dataDir = newTempDir ()
     let graph, _, _, _, _ = graphWithNestedDocs ()

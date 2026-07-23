@@ -370,7 +370,10 @@ type SubmitNetworkErrorKind =
 /// Messages dispatched by async server callbacks (not directly caused by user input).
 type SystemMsg =
     | StateLoaded of Graph * Revision
-    | SubmitResponse of ackedChangeIds: System.Guid list * revision: Revision
+    | SubmitResponse of
+        ackedChangeIds: System.Guid list *
+        revision: Revision *
+        stampOps: Op list
     | SubmitRejected of detail: string // server HTTP error (decoded `error` or short body snippet)
     | SubmitNetworkError of
         baseRevision: int * changes: Change list * kind: SubmitNetworkErrorKind

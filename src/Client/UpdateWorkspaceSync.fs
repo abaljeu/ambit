@@ -206,7 +206,7 @@ let private applyAndPostSync (change: Change) (model: VM) : Result<VM, string> =
             | Ok ack ->
                 Ok
                     { model with
-                        graph = newState.graph
+                        graph = PersistStamp.applyToGraph ack.stampOps newState.graph
                         history = newState.history
                         revision = ack.revision }
 

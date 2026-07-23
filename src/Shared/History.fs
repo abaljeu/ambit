@@ -16,6 +16,8 @@ type Op =
         nodeId: NodeId *
         oldState: DocumentState *
         newState: DocumentState
+    /// Server disk mtime after persist. `oldTime` is for undo; apply ignores mismatch.
+    | SetUpdateTime of nodeId: NodeId * oldTime: System.DateTime * newTime: System.DateTime
 
 
 type Change =
@@ -70,7 +72,8 @@ module Op =
             if Map.containsKey nodeId graph.nodes then [ nodeId ] else []
         | Op.SetText(nodeId, _, _)
         | Op.SetClasses(nodeId, _, _)
-        | Op.SetName(nodeId, _, _) -> [ nodeId ]
+        | Op.SetName(nodeId, _, _)
+        | Op.SetUpdateTime(nodeId, _, _) -> [ nodeId ]
         | Op.Replace(parentId, _, oldChildren, newChildren) ->
             parentId
             :: ((oldChildren @ newChildren)
@@ -196,6 +199,19 @@ module Op =
         | Op.SetDocumentState(nodeId, oldState, newState) ->
             Graph.setDocumentState nodeId oldState newState state.graph
             |> fromGraphResult state
+        | Op.SetUpdateTime(nodeId, _oldTime, newTime) ->
+            match Map.tryFind nodeId state.graph.nodes with
+            | None -> ApplyResult.Invalid(state, "node not found")
+            | Some node ->
+                let stamped = NodeUpdateTime.withStamp newTime node
+                if stamped.updateTime = node.updateTime then
+                    ApplyResult.Unchanged state
+                else
+                    ApplyResult.Changed
+                        { state with
+                            graph =
+                                { state.graph with
+                                    nodes = Map.add nodeId stamped state.graph.nodes } }
 
     let apply (op: Op) (state: State) : ApplyResult =
         if isBlockedByUnparsedDocument op state.graph then
@@ -229,6 +245,19 @@ module Op =
         | Op.SetDocumentState(nodeId, oldState, newState) ->
             Graph.setDocumentState nodeId newState oldState state.graph
             |> fromGraphResult state
+        | Op.SetUpdateTime(nodeId, oldTime, _newTime) ->
+            match Map.tryFind nodeId state.graph.nodes with
+            | None -> ApplyResult.Invalid(state, "node not found")
+            | Some node ->
+                let restored = NodeUpdateTime.withStamp oldTime node
+                if restored.updateTime = node.updateTime then
+                    ApplyResult.Unchanged state
+                else
+                    ApplyResult.Changed
+                        { state with
+                            graph =
+                                { state.graph with
+                                    nodes = Map.add nodeId restored state.graph.nodes } }
 
     let undo (op: Op) (state: State) : ApplyResult =
         if isBlockedByUnparsedDocument op state.graph then
@@ -256,6 +285,7 @@ module Change =
             | Op.NewSpecialNode(id, kind, name)      -> Op.NewSpecialNode(id, kind, name)
             | Op.SetName(id, old, new_)              -> Op.SetName(id, new_, old)
             | Op.SetDocumentState(id, old, new_)     -> Op.SetDocumentState(id, new_, old)
+            | Op.SetUpdateTime(id, old, new_)        -> Op.SetUpdateTime(id, new_, old)
         { change with
             changeId = System.Guid.NewGuid()
             ops = change.ops |> List.rev |> List.map invertOp }
@@ -438,7 +468,8 @@ module History =
     let private opChangesGraphShape =
         function
         | Op.Replace _ | Op.NewNode _ | Op.NewSpecialNode _ -> true
-        | Op.SetText _ | Op.SetClasses _ | Op.SetName _ | Op.SetDocumentState _ -> false
+        | Op.SetText _ | Op.SetClasses _ | Op.SetName _ | Op.SetDocumentState _
+        | Op.SetUpdateTime _ -> false
 
     let private invalidOwnedFileDirectoryPlacement
         (graph: Graph)
@@ -540,4 +571,59 @@ module History =
                         future = restFuture }
 
                 ApplyResult.Changed { s with history = history' }
+
+/// After DocumentPersistence stamps artifact roots, emit ops for the change log / poll tail.
+[<RequireQualifiedAccess>]
+module PersistStamp =
+
+    let opsBetween (before: Graph) (after: Graph) : Op list =
+        after.nodes
+        |> Map.toList
+        |> List.choose (fun (id, afterNode) ->
+            let newTime = NodeUpdateTime.toDbPrecision afterNode.updateTime
+            match Map.tryFind id before.nodes with
+            | Some beforeNode ->
+                let oldTime = NodeUpdateTime.toDbPrecision beforeNode.updateTime
+                if oldTime = newTime then
+                    None
+                else
+                    Some(Op.SetUpdateTime(id, oldTime, newTime))
+            | None ->
+                if newTime = NodeUpdateTime.missing then
+                    None
+                else
+                    Some(Op.SetUpdateTime(id, NodeUpdateTime.missing, newTime)))
+
+    let appendToChange (change: Change) (stampOps: Op list) : Change =
+        if stampOps.IsEmpty then
+            change
+        else
+            { change with ops = change.ops @ stampOps }
+
+    let appendToLast (changes: Change list) (stampOps: Op list) : Change list =
+        if stampOps.IsEmpty || changes.IsEmpty then
+            changes
+        else
+            match List.rev changes with
+            | [] -> changes
+            | last :: rest ->
+                List.rev (appendToChange last stampOps :: rest)
+
+    /// Apply stamp ops to a graph (submitter ack path; ignores history).
+    let applyToGraph (stampOps: Op list) (graph: Graph) : Graph =
+        if stampOps.IsEmpty then
+            graph
+        else
+            let state =
+                { graph = graph
+                  history = History.empty
+                  revision = Revision.Zero }
+            let change =
+                { id = 0
+                  changeId = System.Guid.Empty
+                  ops = stampOps }
+            match Change.apply change state with
+            | ApplyResult.Changed s
+            | ApplyResult.Unchanged s -> s.graph
+            | ApplyResult.Invalid _ -> graph
 

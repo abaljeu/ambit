@@ -154,6 +154,17 @@ let ``Op.SetDocumentState round-trip`` () =
     Assert.Equal(op, decoded)
 
 [<Fact>]
+let ``Op.SetUpdateTime round-trip`` () =
+    let stamp = System.DateTime(2026, 7, 22, 12, 0, 0, System.DateTimeKind.Utc)
+    let op =
+        Op.SetUpdateTime(
+            NodeId.New(),
+            NodeUpdateTime.missing,
+            NodeUpdateTime.toDbPrecision stamp)
+    let decoded = roundTrip Serialization.encodeOp Serialization.decodeOp op
+    Assert.Equal(op, decoded)
+
+[<Fact>]
 let ``Change round-trip`` () =
     let change =
         { id = 5
@@ -185,12 +196,28 @@ let ``ChangeBatch decoder rejects empty changes`` () =
 
 [<Fact>]
 let ``ChangeBatchAck round-trip`` () =
+    let stamp = System.DateTime(2026, 7, 22, 12, 0, 0, System.DateTimeKind.Utc)
     let ack =
         { revision = Revision 7
-          ackedChangeIds = [ System.Guid.NewGuid(); System.Guid.NewGuid() ] }
+          ackedChangeIds = [ System.Guid.NewGuid(); System.Guid.NewGuid() ]
+          stampOps =
+              [ Op.SetUpdateTime(
+                    NodeId.New(),
+                    NodeUpdateTime.missing,
+                    NodeUpdateTime.toDbPrecision stamp) ] }
     let decoded = roundTrip Serialization.encodeChangeBatchAck Serialization.decodeChangeBatchAck ack
     Assert.Equal(ack.revision, decoded.revision)
     Assert.Equal<System.Guid list>(ack.ackedChangeIds, decoded.ackedChangeIds)
+    Assert.Equal<Op list>(ack.stampOps, decoded.stampOps)
+
+[<Fact>]
+let ``ChangeBatchAck omits stampOps when decoding legacy JSON`` () =
+    let json = """{"revision":3,"ackedChangeIds":[]}"""
+    match Dec.fromString Serialization.decodeChangeBatchAck json with
+    | Error e -> failwith e
+    | Ok ack ->
+        Assert.Equal(Revision 3, ack.revision)
+        Assert.True(ack.stampOps.IsEmpty)
 
 [<Fact>]
 let ``PollResponse round-trip with non-empty changes`` () =

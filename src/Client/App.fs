@@ -36,7 +36,7 @@ module private SubmitChangeCallbacks =
                 "[Gambol sync] POST 200 req=" + reqId
                 + " ackRev=" + string ack.revision.Value
                 + " bodyLen=" + string n)
-            dispatch (SysMsg (SubmitResponse (ack.ackedChangeIds, ack.revision)))
+            dispatch (SysMsg (SubmitResponse (ack.ackedChangeIds, ack.revision, ack.stampOps)))
         | Error err ->
             consoleLog (
                 "[Gambol sync] POST 200 bad ACK JSON req=" + reqId

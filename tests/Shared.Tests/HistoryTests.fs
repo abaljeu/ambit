@@ -1,5 +1,6 @@
 module HistoryTests
 
+open System
 open Gambol.Shared
 open Xunit
 
@@ -194,6 +195,46 @@ let ``Apply SetText updates node text`` () =
     let state2 = Op.apply op state |> expectChanged
     let node = state2.graph.nodes |> Map.find nodeId
     Assert.Equal(oldText + "!", node.text)
+
+[<Fact>]
+let ``Apply SetUpdateTime stamps without requiring old match`` () =
+    let state = ModelBuilder.createState12 ()
+    let rootNode = state.graph.nodes.[state.graph.root]
+    let nodeId = rootNode.children.[0].id
+    let stamp = DateTime(2026, 7, 22, 12, 0, 0, DateTimeKind.Utc)
+    let op =
+        Op.SetUpdateTime(nodeId, NodeUpdateTime.missing, stamp)
+    let state2 = Op.apply op state |> expectChanged
+    Assert.Equal(
+        NodeUpdateTime.toDbPrecision stamp,
+        state2.graph.nodes.[nodeId].updateTime)
+    let undone = Op.undo op state2 |> expectChanged
+    Assert.Equal(
+        NodeUpdateTime.missing,
+        undone.graph.nodes.[nodeId].updateTime)
+
+[<Fact>]
+let ``PersistStamp opsBetween emits SetUpdateTime for changed stamps`` () =
+    let state = ModelBuilder.createState12 ()
+    let rootNode = state.graph.nodes.[state.graph.root]
+    let nodeId = rootNode.children.[0].id
+    let stamp = DateTime(2026, 7, 22, 15, 30, 0, DateTimeKind.Utc)
+    let before = state.graph
+    let oldTime = NodeUpdateTime.toDbPrecision before.nodes.[nodeId].updateTime
+    let after =
+        { before with
+            nodes =
+                Map.add
+                    nodeId
+                    (NodeUpdateTime.withStamp stamp before.nodes.[nodeId])
+                    before.nodes }
+    match PersistStamp.opsBetween before after with
+    | [ Op.SetUpdateTime(id, oldT, newT) ] ->
+        Assert.Equal(nodeId, id)
+        Assert.Equal(oldTime, oldT)
+        Assert.Equal(NodeUpdateTime.toDbPrecision stamp, newT)
+    | other ->
+        failwith $"expected one SetUpdateTime, got {other}"
 
 [<Fact>]
 let ``Apply SetText on canonical root is invalid`` () =

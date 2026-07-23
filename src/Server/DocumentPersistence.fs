@@ -543,19 +543,92 @@ module DocumentPersistence =
         match discoverArtifactRelatives dataDir with
         | Error msg -> Error msg
         | Ok relatives ->
-            relatives
-            |> List.fold
-                (fun acc rel ->
-                    match acc with
-                    | Error msg -> Error msg
-                    | Ok artifacts ->
-                        match resolveUnderDataDir dataDir rel with
+            let resolved =
+                relatives
+                |> List.fold
+                    (fun acc rel ->
+                        match acc with
                         | Error msg -> Error msg
-                        | Ok fullPath ->
+                        | Ok paths ->
+                            match resolveUnderDataDir dataDir rel with
+                            | Error msg -> Error msg
+                            | Ok fullPath ->
+                                Ok(Map.add (rel.Replace('\\', '/')) fullPath paths))
+                    (Ok Map.empty)
+
+            match resolved with
+            | Error msg -> Error msg
+            | Ok pathByRel ->
+                pathByRel
+                |> Map.fold
+                    (fun acc rel fullPath ->
+                        match acc with
+                        | Error msg -> Error msg
+                        | Ok artifacts ->
                             try
                                 let text = File.ReadAllText fullPath
-                                Ok (Map.add rel text artifacts)
+                                Ok(Map.add rel text artifacts)
                             with ex ->
                                 Error ex.Message)
-                (Ok Map.empty)
-            |> Result.bind DocumentAssembly.assembleFromArtifacts
+                    (Ok Map.empty)
+                |> Result.bind DocumentAssembly.assembleFromArtifacts
+                |> Result.map (fun graph ->
+                    let tryMtime (rel: string) =
+                        let norm = rel.Replace('\\', '/')
+                        match Map.tryFind norm pathByRel with
+                        | Some full -> Some(File.GetLastWriteTimeUtc full)
+                        | None ->
+                            pathByRel
+                            |> Map.toList
+                            |> List.choose (fun (discovered, full) ->
+                                if discovered = norm
+                                   || discovered.EndsWith("/" + norm, StringComparison.Ordinal)
+                                then
+                                    Some full
+                                else
+                                    None)
+                            |> function
+                                | [ full ] -> Some(File.GetLastWriteTimeUtc full)
+                                | _ -> None
+
+                    let tryMtimeByNameSuffix (name: string) (suffix: string) =
+                        let needle = name + suffix
+                        pathByRel
+                        |> Map.toList
+                        |> List.choose (fun (discovered, full) ->
+                            if discovered = needle
+                               || discovered.EndsWith("/" + needle, StringComparison.Ordinal)
+                            then
+                                Some full
+                            else
+                                None)
+                        |> function
+                            | [ full ] -> Some(File.GetLastWriteTimeUtc full)
+                            | _ -> None
+
+                    let stamps =
+                        enumerateDocumentRoots graph
+                        |> List.fold
+                            (fun acc documentRootId ->
+                                match DocumentPartition.artifactFileRelative graph documentRootId with
+                                | Some rel ->
+                                    match tryMtime rel with
+                                    | Some mtime -> Map.add documentRootId mtime acc
+                                    | None -> acc
+                                | None ->
+                                    match Map.tryFind documentRootId graph.nodes with
+                                    | Some node ->
+                                        match node.kind, Filename.tryValue node.name with
+                                        | Special Directory, Some name ->
+                                            match tryMtimeByNameSuffix name "/.amb" with
+                                            | Some mtime -> Map.add documentRootId mtime acc
+                                            | None -> acc
+                                        | Special File, Some name ->
+                                            match tryMtimeByNameSuffix name "" with
+                                            | Some mtime -> Map.add documentRootId mtime acc
+                                            | None -> acc
+                                        | _ -> acc
+                                    | None -> acc)
+                            Map.empty
+
+                    stampNodes stamps graph)

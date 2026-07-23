@@ -18,7 +18,9 @@ type ChangeBatch =
 
 type ChangeBatchAck =
     { revision: Revision
-      ackedChangeIds: System.Guid list }
+      ackedChangeIds: System.Guid list
+      /// Disk mtime stamps after persist; empty when graph-only / no disk write.
+      stampOps: Op list }
 
 [<RequireQualifiedAccess>]
 module Serialization =
@@ -228,6 +230,12 @@ module Serialization =
                   "nodeId", encodeNodeId nodeId
                   "oldState", encodeDocumentState oldState
                   "newState", encodeDocumentState newState ]
+        | Op.SetUpdateTime(nodeId, oldTime, newTime) ->
+            Encode.object
+                [ "type", Encode.string "SetUpdateTime"
+                  "nodeId", encodeNodeId nodeId
+                  "oldTime", Encode.int64 oldTime.Ticks
+                  "newTime", Encode.int64 newTime.Ticks ]
 
     let decodeOp: Decoder<Op> =
         Decode.field "type" Decode.string
@@ -275,6 +283,16 @@ module Serialization =
                         get.Required.Field "nodeId" decodeNodeId,
                         get.Required.Field "oldState" decodeDocumentState,
                         get.Required.Field "newState" decodeDocumentState))
+            | "SetUpdateTime" ->
+                Decode.object (fun get ->
+                    Op.SetUpdateTime(
+                        get.Required.Field "nodeId" decodeNodeId,
+                        DateTime(
+                            get.Required.Field "oldTime" Decode.int64,
+                            DateTimeKind.Utc),
+                        DateTime(
+                            get.Required.Field "newTime" Decode.int64,
+                            DateTimeKind.Utc)))
             | other ->
                 Decode.fail $"Unknown Op type: {other}")
 
@@ -377,12 +395,16 @@ module Serialization =
     let encodeChangeBatchAck (ack: ChangeBatchAck) : IEncodable =
         Encode.object
             [ "revision", encodeRevision ack.revision
-              "ackedChangeIds", ack.ackedChangeIds |> List.map Encode.guid |> Encode.list ]
+              "ackedChangeIds", ack.ackedChangeIds |> List.map Encode.guid |> Encode.list
+              "stampOps", ack.stampOps |> List.map encodeOp |> Encode.list ]
 
     let decodeChangeBatchAck: Decoder<ChangeBatchAck> =
         Decode.object (fun get ->
             { revision = get.Required.Field "revision" decodeRevision
-              ackedChangeIds = get.Required.Field "ackedChangeIds" (Decode.list Decode.guid) })
+              ackedChangeIds = get.Required.Field "ackedChangeIds" (Decode.list Decode.guid)
+              stampOps =
+                get.Optional.Field "stampOps" (Decode.list decodeOp)
+                |> Option.defaultValue [] })
 
     // ---- PollResponse ----
     // Defined after Change encode/decode because the response now includes a change tail.

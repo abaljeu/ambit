@@ -49,7 +49,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
     | AckSyncRisk ->
         { model with syncInfo = { model.syncInfo with syncRiskAcknowledged = true } }, []
 
-    | SysMsg (SubmitResponse (ackedChangeIds, revision)) ->
+    | SysMsg (SubmitResponse (ackedChangeIds, revision, stampOps)) ->
         match model.syncInfo.syncState with
         | ServerRejected | CodeOutdated | DataOutdated ->
             consoleLog (
@@ -61,11 +61,14 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
             let nextSyncInfo, pending, submitEffects =
                 SyncPlanner.ackBatch ackedChangeIds revision model.syncInfo
             let effects = (SavePendingQueue pending) :: submitEffects
+            let graph' = PersistStamp.applyToGraph stampOps model.graph
             consoleLog (
                 "[Gambol sync] SubmitResponse apply prevRev=" + string model.revision.Value
                 + " serverAck=" + string revision.Value + " pendingWas=" + string pendingWas
-                + " pendingNext=" + string pending.Length)
+                + " pendingNext=" + string pending.Length
+                + " stampOps=" + string stampOps.Length)
             { model with
+                graph = graph'
                 revision = revision
                 history =
                     { model.history with nextId = max model.history.nextId revision.Value }

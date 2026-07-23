@@ -62,11 +62,12 @@ module FileAgent =
                     [ "revision", Serialization.encodeRevision state.Value.revision
                       "graph", Serialization.encodeGraph state.Value.graph ])
 
-        let encodeChangeAckJson (ackedChangeIds: Guid list) =
+        let encodeChangeAckJson (ackedChangeIds: Guid list) (stampOps: Op list) =
             Encode.toString 0 (
                 Serialization.encodeChangeBatchAck
                     { revision = state.Value.revision
-                      ackedChangeIds = ackedChangeIds })
+                      ackedChangeIds = ackedChangeIds
+                      stampOps = stampOps })
 
         let isDuplicateSubmission (change: Change) (history: History) =
             history.past |> List.exists (fun c -> c.id = change.id && c.changeId = change.changeId)
@@ -125,7 +126,7 @@ module FileAgent =
                     | ApplyResult.Changed s' ->
                         let nextRev = s.revision.Value + 1
                         let nextState = { s' with revision = Revision nextRev }
-                        let logEntry = change.id, ChangeLog.encodeChange change
+                        let logEntry = change.id, change
                         Ok(nextState, acked @ [ change.changeId ], logEntries @ [ logEntry ], true)
 
             changes
@@ -189,17 +190,29 @@ module FileAgent =
                         match diskPersist with
                         | Error err -> reply.Reply(Error err)
                         | Ok stampedOpt ->
-                            match persistLogEntries logEntries with
+                            let stampOps, stampedGraph =
+                                match stampedOpt with
+                                | Some stamped ->
+                                    PersistStamp.opsBetween newState.graph stamped, stamped
+                                | None -> [], newState.graph
+                            let encodedLog =
+                                logEntries
+                                |> List.map snd
+                                |> fun changes ->
+                                    PersistStamp.appendToLast changes stampOps
+                                |> List.map (fun change ->
+                                    change.id, ChangeLog.encodeChange change)
+                            match persistLogEntries encodedLog with
                             | Error err -> reply.Reply(Error err)
                             | Ok offsets ->
                                 offsets |> List.iter offsetIndex.Add
                                 let finalState =
                                     match stampedOpt with
-                                    | Some stamped ->
-                                        { newState with graph = stamped }
+                                    | Some _ ->
+                                        { newState with graph = stampedGraph }
                                     | None -> newState
                                 state.Value <- finalState
-                                reply.Reply(Ok (encodeChangeAckJson ackedChangeIds))
+                                reply.Reply(Ok (encodeChangeAckJson ackedChangeIds stampOps))
                                 if graphOnly || changed then
                                     persistedGraph.Value <- finalState.graph
 
