@@ -104,6 +104,20 @@ let ``resolvePath accepts valid relative path`` () =
     | Ok resolved -> Assert.StartsWith("C:\\repo", resolved)
 
 [<Fact>]
+let ``resolvePath accepts directory relative with trailing slash`` () =
+    let mappings =
+        { entries = [ { label = "fambit"; rootPath = "D:\\dev\\amble\\fambit" } ] }
+        |> WorkspaceLocalMapping.toMap
+
+    // Desktop paths for directories are "//fambit/doc/" → relative "doc/".
+    match WorkspaceLocalMapping.resolvePath mappings "fambit" "doc/" with
+    | Error err -> Assert.Fail($"Expected success, got: {err}")
+    | Ok resolved ->
+        Assert.Equal(
+            Path.GetFullPath("D:\\dev\\amble\\fambit\\doc"),
+            resolved)
+
+[<Fact>]
 let ``resolvePath missing label is invalid_workspace`` () =
     let mappings =
         { entries = [] }

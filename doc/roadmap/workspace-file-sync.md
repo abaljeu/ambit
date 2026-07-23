@@ -2,7 +2,7 @@
 
 Category: Sync
 Status: Partial
-See also: [[workspace-webdav]], [[doc/current/workspace-local-mapping]], [[doc/current/desktop-local-files]], [[workspace-scale-import]], [[workspaces-checklist]], [[lazy-load]], [[doc/roadmap/workspace-file-persistence]], [[src/Server/IgnoredDestination.fs]], [[src/Server/WorkspaceGit.fs]], [[src/Server/GitSave.fs]]
+See also: [[workspace-webdav]], [[doc/current/workspace-local-mapping]], [[doc/current/desktop-local-files]], [[workspace-scale-import]], [[workspaces-checklist]], [[lazy-load]], [[workspace-upload-client-structure]], [[doc/roadmap/workspace-file-persistence]], [[src/Server/IgnoredDestination.fs]], [[src/Server/WorkspaceGit.fs]], [[src/Server/GitSave.fs]]
 
 Committed direction for synchronizing a desktop mapped folder with server `DataDir/{label}/`. **Client Upload / Download do not use remotes or smart-HTTP pack transport.** Transport is WebDAV Class 1. The server still keeps a per-workspace git repo for ignore rules, pre-push JIT, and post-push commits.
 
@@ -10,7 +10,7 @@ This does not supersede [[doc/current/sync-mvp]] for live graph editing over HTT
 
 ## What it gives you
 
-1. **Upload** — ensure a local folder mapping for the focused named workspace (pick-folder + Put when unmapped), then scoped WebDAV push (`PUT` / `MKCOL`), server JIT-commit of dirty DataDir before the batch, finish-commit after, and Lazy Load stub reconcile. On **Workspaces** focus: pick folder → create named workspace from folder basename → map → push whole tree. On **File** focus: push file scope then Parse.
+1. **Upload** — ensure a local folder mapping for the focused named workspace (pick-folder + Put when unmapped), then scoped WebDAV push (`PUT` / `MKCOL`), server JIT-commit of dirty DataDir before the batch, finish-commit after. **Today:** Lazy Load stub reconcile after finish. **Planned (Desktop):** client-first Directory/File stubs then body PUTs only — no post-upload reconcile ([[workspace-upload-client-structure]]); disk→graph reconcile remains for web / repair. On **Workspaces** focus: pick folder → create named workspace from folder basename → map → push whole tree. On **File** focus: push file scope then Parse.
 2. **Download** — ensure mapping, then enqueue a desktop download job (`POST /_desktop/workspace-download`); the manager runs scoped WebDAV pull with volume ladder, stages under `.gambol-dl-tmp/`, promotes atomically, and preserves file mtimes from PROPFIND. Named Workspace / Directory / File only (not ROOT or Workspaces). Client does not wait or reconcile.
 3. Never transfer `.git/` or ignored paths (for example `.venv`).
 4. **Removed from command surface:** standalone Map workspace, Connect, Clone, pack Push, Status.
@@ -55,6 +55,8 @@ The desktop layer’s two main sync functions:
 | Overwrite | Last-write-wins in scope; no FF; no delete of extras on either side in v1 |
 | Auth | Same as other `/ambit` routes (no separate PAT for Upload/Download) |
 | Upload concurrency | Pipelined `PUT`/`MKCOL` in depth waves (dirs by depth, then files); cap ~12 in flight — not zip/tar batching |
+| Desktop Upload structure | **Planned:** client builds Directory/File stubs from inventory (TopLevel-capped; start Unparsed); no post-upload reconcile; no TreeStructure empty-PUT placeholders — [[workspace-upload-client-structure]] |
+| Web / repair stubs | Disk→graph reconcile from DataDir remains ([[lazy-load]]) |
 
 ## How `.gitignore` is followed
 
@@ -93,7 +95,7 @@ Server mount, Class 1 methods, and **PROPFIND properties** (including required `
 
 | Intent | Target |
 | --- | --- |
-| Upload (`Ctrl+Shift+>`) | Ensure map (pick-folder if needed) → WebDAV push + JIT + finish-commit + reconcile; Workspaces focus creates workspace from folder; File focus then Parses |
+| Upload (`Ctrl+Shift+>`) | Ensure map (pick-folder if needed) → WebDAV push + JIT + finish-commit; **today** + reconcile; **planned Desktop** client stubs then bodies only ([[workspace-upload-client-structure]]); Workspaces focus creates workspace from folder; File focus then Parses |
 | Download (`Ctrl+Shift+<`) | Ensure map → `POST /_desktop/workspace-download` (returns immediately; manager runs pull) |
 
 ## Volume ladder (locked)
@@ -106,6 +108,8 @@ Server mount, Class 1 methods, and **PROPFIND properties** (including required `
 | Any file \> **4 MiB** | That path = empty placeholder; siblings unchanged |
 
 Transfer-byte sum excludes \>4 MiB bodies and TreeStructure empty placeholders. Upload sends local file mtime on PUT; server sets `LastWriteTimeUtc`. Download sets local file mtime from PROPFIND `getlastmodified` (not dirs).
+
+**Planned Desktop Upload:** TreeStructure empty-PUT shells go away; client creates Directory/File stubs instead, still TopLevel-capped — [[workspace-upload-client-structure]]. Download ladder unchanged for now.
 
 ## Download manager (locked)
 
@@ -161,7 +165,8 @@ sequenceDiagram
 - **Pre-push JIT:** `_prepare-push` commits dirty DataDir before the WebDAV batch (`jitCommitBeforeWorkspacePush`).
 - **End-of-push commit:** explicit finish endpoint after the batch.
 - **Capabilities:** Upload / Download need `workspacePaths` plus file import/export, **not** `git.git` for pack transport. Upload still needs the ignore-filter binary for local ignore.
-- **Lazy Load:** stub reconcile runs after WebDAV push + finish-commit via `/ambit/workspace/reconciliation/directory` (not after receive-pack). See [[lazy-load]].
+- **Lazy Load (today):** stub reconcile runs after WebDAV push + finish-commit via `/ambit/workspace/reconciliation/directory` (not after receive-pack). See [[lazy-load]].
+- **Desktop Upload structure (planned):** client stubs replace that post-upload reconcile on the Desktop path; reconcile stays for web / repair — [[workspace-upload-client-structure]].
 
 ## On-disk layout
 
@@ -190,8 +195,9 @@ Shipped:
 - [x] Post-push reconcile via `/ambit/workspace/reconciliation/directory`.
 - [x] Sync ledger + mtime skip (Upload/Download); selective delete still deferred.
 
-Still open (see [[workspaces-checklist]], [[lazy-load]]):
+Still open (see [[workspaces-checklist]], [[lazy-load]], [[workspace-upload-client-structure]]):
 
+- [ ] Client-first Desktop Upload structure (stubs from inventory; drop post-upload reconcile on that path).
 - [ ] Overwrite / freshness UI beyond `#cmd-last-result`.
 - [ ] Expand-to-parse and richer freshness metadata.
 - [ ] Mirror-delete / Class 2.

@@ -127,9 +127,9 @@ let ``document state change patches all visible owned File member rows`` () =
         let entry = entryUnderParentNode parentId nodeId newModel
         Map.tryFind entry.instanceId patchedClasses
 
-    Assert.Contains("amb-row-file-unparsed", classFor Graph.rootId fileId |> Option.get)
-    Assert.Contains("amb-row-file-unparsed", classFor fileId childId |> Option.get)
-    Assert.Contains("amb-row-file-unparsed", classFor childId grandchildId |> Option.get)
+    Assert.Contains("amb-row-sync-unparsed", classFor Graph.rootId fileId |> Option.get)
+    Assert.Contains("amb-row-sync-unparsed", classFor fileId childId |> Option.get)
+    Assert.Contains("amb-row-sync-unparsed", classFor childId grandchildId |> Option.get)
     Assert.Equal(None, classFor refParentId childId)
     Assert.Equal(None, classFor Graph.rootId siblingFileId)
 
@@ -192,3 +192,155 @@ let ``missing workspace path reference uses missing text indicator`` () =
         rowArtifactIndicatorState model entry node)
     Assert.Equal("missing", rowFileIndicatorText model entry node)
     Assert.False(rowArtifactAbsentClassEligible model entry node)
+
+let private desktopCaps : DesktopCapabilities =
+    { file =
+        { canOpen = false
+          canImport = true
+          canExport = true
+          canStatus = true
+          canWorkspacePaths = true }
+      git = { canGit = true } }
+
+let private modelWithWorkspaceFile
+    (documentState: DocumentState)
+    =
+    let graph0 = Graph.create ()
+    let wsId = NodeId.New()
+    let fileId = NodeId.New()
+    let workspace =
+        Node.Create(
+            wsId,
+            text = "home",
+            name = Filename.Ok "home",
+            owner = Graph.workspacesId,
+            kind = Special Workspace)
+    let file =
+        Node.Create(
+            fileId,
+            text = "note",
+            name = Filename.Ok "note.md",
+            owner = wsId,
+            kind = Special File,
+            documentState = documentState)
+    let graph1 =
+        graph0.nodes
+        |> Map.add wsId workspace
+        |> Map.add fileId file
+        |> Graph.fromNodes graph0.root
+    let graph2 =
+        Graph.replace Graph.workspacesId 0 [] [ owned wsId ] graph1
+        |> requireOk "workspaces->ws"
+    let graph3 =
+        Graph.replace wsId 0 [] [ owned fileId ] graph2
+        |> requireOk "ws->file"
+    let model =
+        modelFromGraph graph3
+        |> expandNode Graph.workspacesId
+        |> expandNode wsId
+    model, wsId, fileId
+
+[<Fact>]
+let ``web or unmapped desktop only surfaces Unparsed`` () =
+    let model, wsId, fileId = modelWithWorkspaceFile Unparsed
+    let entry = entryUnderParentNode wsId fileId model
+    let node = model.graph.nodes.[fileId]
+    Assert.Equal(
+        Some WorkspacePathSyncStatus.Unparsed,
+        rowWorkspacePathSyncStatus model entry node)
+    Assert.Equal("unparsed", rowFileIndicatorText model entry node)
+    Assert.Equal(
+        Some "amb-row-sync-unparsed",
+        rowWorkspacePathSyncClass model entry node)
+
+[<Fact>]
+let ``mapped desktop uses ledger comparison and Unparsed overlay`` () =
+    let baseModel, wsId, fileId = modelWithWorkspaceFile Unparsed
+    let entry = entryUnderParentNode wsId fileId baseModel
+    let node = baseModel.graph.nodes.[fileId]
+    let t = System.DateTime(2026, 1, 1, 0, 0, 0, System.DateTimeKind.Utc)
+    let fact =
+        { relative = "note.md"
+          isDirectory = false
+          presence = WorkspacePathPresence.Both
+          localMtimeUtc = Some t
+          serverMtimeUtc = Some t }
+    let model =
+        { baseModel with
+            desktopCapabilities = Some desktopCaps
+            workspaceMappedLabels = Set.singleton "home"
+            workspaceSyncFacts =
+                Map.ofList [ "home", Map.ofList [ "note.md", fact ] ] }
+    Assert.True(canCompareWorkspacePathSync model "home")
+    Assert.Equal(
+        Some WorkspacePathSyncStatus.Unparsed,
+        rowWorkspacePathSyncStatus model entry node)
+    let parsedNode = { node with documentState = Current }
+    let parsedModel =
+        { model with
+            graph =
+                Graph.fromNodes
+                    model.graph.root
+                    (Map.add fileId parsedNode model.graph.nodes) }
+    Assert.Equal(
+        Some WorkspacePathSyncStatus.Synced,
+        rowWorkspacePathSyncStatus
+            parsedModel
+            entry
+            parsedModel.graph.nodes.[fileId])
+
+[<Fact>]
+let ``desktop without mapping ignores ledger comparison`` () =
+    let baseModel, wsId, fileId = modelWithWorkspaceFile Current
+    let entry = entryUnderParentNode wsId fileId baseModel
+    let node = baseModel.graph.nodes.[fileId]
+    let fact =
+        { relative = "note.md"
+          isDirectory = false
+          presence = WorkspacePathPresence.LocalOnly
+          localMtimeUtc = None
+          serverMtimeUtc = None }
+    let model =
+        { baseModel with
+            desktopCapabilities = Some desktopCaps
+            workspaceMappedLabels = Set.empty
+            workspaceSyncFacts =
+                Map.ofList [ "home", Map.ofList [ "note.md", fact ] ] }
+    Assert.False(canCompareWorkspacePathSync model "home")
+    Assert.Equal(
+        None,
+        rowWorkspacePathSyncStatus model entry node)
+
+[<Fact>]
+let ``mapped desktop prefers node updateTime as server stamp`` () =
+    let baseModel, wsId, fileId = modelWithWorkspaceFile Current
+    let entry = entryUnderParentNode wsId fileId baseModel
+    let local = System.DateTime(2026, 1, 1, 0, 0, 0, System.DateTimeKind.Utc)
+    let ledgerServer =
+        System.DateTime(2026, 1, 1, 0, 0, 0, System.DateTimeKind.Utc)
+    let nodeServer =
+        System.DateTime(2026, 1, 2, 0, 0, 0, System.DateTimeKind.Utc)
+    let fact =
+        { relative = "note.md"
+          isDirectory = false
+          presence = WorkspacePathPresence.Both
+          localMtimeUtc = Some local
+          serverMtimeUtc = Some ledgerServer }
+    let stamped =
+        { baseModel.graph.nodes.[fileId] with updateTime = nodeServer }
+    let model =
+        { baseModel with
+            desktopCapabilities = Some desktopCaps
+            workspaceMappedLabels = Set.singleton "home"
+            workspaceSyncFacts =
+                Map.ofList [ "home", Map.ofList [ "note.md", fact ] ]
+            graph =
+                Graph.fromNodes
+                    baseModel.graph.root
+                    (Map.add fileId stamped baseModel.graph.nodes) }
+    Assert.Equal(
+        Some WorkspacePathSyncStatus.NewerOnServer,
+        rowWorkspacePathSyncStatus
+            model
+            entry
+            model.graph.nodes.[fileId])

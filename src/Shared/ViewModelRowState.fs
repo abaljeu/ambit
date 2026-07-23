@@ -289,14 +289,6 @@ module ViewModelRowState =
                | FileStatusIndicator (_, _, MissingArtifact, _) -> true
                | _ -> false)
 
-    let rowFileIndicatorText (model: VM) (entry: SiteEntry) (node: Node) : string =
-        match rowArtifactIndicatorState model entry node with
-        | Some state -> DesktopFileIndicator.toText state
-        | None ->
-            let desktop = desktopFileIndicatorText model entry node
-            if desktop <> "" then desktop
-            else specialKindSymbol node.id node.kind |> Option.defaultValue ""
-
     let private rowOwnership (model: VM) (entry: SiteEntry) : Ownership =
         entry.parentInstanceId
         |> Option.bind (fun parentId -> Map.tryFind parentId model.siteMap.entries)
@@ -318,6 +310,105 @@ module ViewModelRowState =
     let rowFileUnparsedClassEligible (model: VM) (entry: SiteEntry) : bool =
         rowOwnership model entry = Ownership.Owner
         && DocumentPartition.isMemberOfUnparsedFile model.graph entry.nodeId
+
+    /// Unparsed observation: owned File membership, or Unparsed Directory root.
+    let rowUnparsedObservationEligible (model: VM) (entry: SiteEntry) : bool =
+        rowFileUnparsedClassEligible model entry
+        || (rowOwnership model entry = Ownership.Owner
+            && match Map.tryFind entry.nodeId model.graph.nodes with
+               | Some { kind = Special Directory; documentState = Unparsed } ->
+                   true
+               | _ -> false)
+
+    let canCompareWorkspacePathSync (model: VM) (label: string) : bool =
+        DesktopCapabilities.canWorkspaceSync model.desktopCapabilities
+        && Set.contains label model.workspaceMappedLabels
+
+    let private tryParseLabelRelative (model: VM) (nodeId: NodeId) =
+        NodeDesktopPath.pathForNodeId model.graph nodeId
+        |> Option.bind NodeDesktopPath.tryParseWorkspacePath
+        |> Option.bind (fun (label, tail) ->
+            match WorkspaceSyncScope.normalizeRelative (tail.TrimEnd('/')) with
+            | Error _ -> None
+            | Ok relative -> Some(label, relative))
+
+    let tryWorkspaceSyncFact
+        (model: VM)
+        (nodeId: NodeId)
+        : (string * WorkspaceSyncPathFact) option =
+        tryParseLabelRelative model nodeId
+        |> Option.bind (fun (label, relative) ->
+            model.workspaceSyncFacts
+            |> Map.tryFind label
+            |> Option.bind (Map.tryFind relative)
+            |> Option.map (fun fact -> label, fact))
+
+    /// Host-aware path sync status for File/Directory rows (and Unparsed elsewhere).
+    let rowWorkspacePathSyncStatus
+        (model: VM)
+        (entry: SiteEntry)
+        (node: Node)
+        : WorkspacePathSyncStatus option =
+        let unparsed = rowUnparsedObservationEligible model entry
+        match node.kind with
+        | Special (File | Directory) ->
+            match tryWorkspaceSyncFact model entry.nodeId with
+            | Some(label, fact) ->
+                WorkspacePathSyncStatus.resolveWithNodeStamp
+                    (canCompareWorkspacePathSync model label)
+                    (Some fact)
+                    node.updateTime
+                    unparsed
+            | None ->
+                match tryParseLabelRelative model entry.nodeId with
+                | Some(label, _) ->
+                    WorkspacePathSyncStatus.resolveWithNodeStamp
+                        (canCompareWorkspacePathSync model label)
+                        None
+                        node.updateTime
+                        unparsed
+                | None ->
+                    WorkspacePathSyncStatus.resolveWithNodeStamp
+                        false
+                        None
+                        node.updateTime
+                        unparsed
+        | _ ->
+            WorkspacePathSyncStatus.resolveWithNodeStamp
+                false
+                None
+                node.updateTime
+                unparsed
+
+    let rowWorkspacePathSyncClass
+        (model: VM)
+        (entry: SiteEntry)
+        (node: Node)
+        : string option =
+        rowWorkspacePathSyncStatus model entry node
+        |> Option.map WorkspacePathSyncStatus.rowClass
+
+    let applyWorkspacePathSyncSnapshot
+        (mappedLabels: Set<string>)
+        (factsByLabel: Map<string, Map<string, WorkspaceSyncPathFact>>)
+        (model: VM)
+        : VM =
+        { model with
+            workspaceMappedLabels = mappedLabels
+            workspaceSyncFacts = factsByLabel }
+
+    let rowFileIndicatorText (model: VM) (entry: SiteEntry) (node: Node) : string =
+        match rowWorkspacePathSyncStatus model entry node with
+        | Some status -> WorkspacePathSyncStatus.shortLabel status
+        | None ->
+            match rowArtifactIndicatorState model entry node with
+            | Some state -> DesktopFileIndicator.toText state
+            | None ->
+                let desktop = desktopFileIndicatorText model entry node
+                if desktop <> "" then desktop
+                else
+                    specialKindSymbol node.id node.kind
+                    |> Option.defaultValue ""
 
     let addSpecialKindRowClass (nodeId: NodeId) (kind: NodeKind) (className: string) : string =
         match specialKindRowClass nodeId kind with

@@ -48,6 +48,7 @@
     <Compile Include="LoginRedirectTests.fs" />
     <Compile Include="RedirectRewriteTests.fs" />
     <Compile Include="FileSyncIndicatorTests.fs" />
+    <Compile Include="WorkspacePathSyncStatusTests.fs" />
     <Compile Include="ClientIdentityTests.fs" />
     <Compile Include="WorkspaceGitRemoteTests.fs" />
     <Compile Include="DesktopGitTests.fs" />
@@ -75,6 +76,7 @@
     <Compile Include="CommandDockLayoutTests.fs" />
     <Compile Include="CommandCategoryTests.fs" />
     <Compile Include="CommandEntryTests.fs" />
+    <Compile Include="WorkspaceUploadTests.fs" />
     <Compile Include="CommandIconsTests.fs" />
   </ItemGroup>
 

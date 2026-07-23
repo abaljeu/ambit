@@ -222,11 +222,6 @@ module WorkspaceFileSync =
         | WorkspaceSyncLimits.Mode.TreeStructure -> "TreeStructure"
         | WorkspaceSyncLimits.Mode.TopLevel -> "TopLevel"
 
-    let private fullWorkspaceScope (label: string) : WorkspaceSyncScope =
-        { label = label
-          relative = ""
-          kind = SyncScopeKind.Workspace }
-
     let private propfindDepth (scope: WorkspaceSyncScope) =
         match scope.kind with
         | SyncScopeKind.File -> "0"
@@ -239,14 +234,16 @@ module WorkspaceFileSync =
         |> List.map (fun e -> e.relative, e.lastModifiedUtc)
         |> Map.ofList
 
+    /// Seed ledger from the push/pull scope only — never walk the whole mapped
+    /// tree (e.g. node_modules) when uploading a subdirectory.
     let private ensureLedgerSeeded
         (client: HttpClient)
         (ambitBase: string)
         (mappedRoot: string)
-        (label: string)
+        (scope: WorkspaceSyncScope)
         (cookie: string option)
         =
-        match WorkspaceSyncLedger.loadForLabel label with
+        match WorkspaceSyncLedger.loadForLabel scope.label with
         | Error e -> Error e
         | Ok ledger ->
             if not (WorkspaceSyncLedger.needsSeed ledger) then Ok ledger
@@ -255,25 +252,28 @@ module WorkspaceFileSync =
                     WorkspaceDavClient.propfind
                         client
                         ambitBase
-                        label
-                        ""
-                        "infinity"
+                        scope.label
+                        scope.relative
+                        (propfindDepth scope)
                         cookie
                 with
                 | Error e -> Error e
                 | Ok serverEntries ->
+                    let scopedServer =
+                        serverEntries
+                        |> List.filter (fun e ->
+                            WorkspaceSyncScope.isUnderScope scope e.relative)
+
                     match
-                        WorkspaceLocalInventory.listForPush
-                            mappedRoot
-                            (fullWorkspaceScope label)
+                        WorkspaceLocalInventory.listForPush mappedRoot scope
                     with
                     | Error e -> Error e
                     | Ok localItems ->
                         let seeded =
                             WorkspaceSyncLedger.seed
-                                label
+                                scope.label
                                 mappedRoot
-                                serverEntries
+                                scopedServer
                                 localItems
                         match WorkspaceSyncLedger.saveForLabel seeded with
                         | Error e -> Error e
@@ -382,7 +382,7 @@ module WorkspaceFileSync =
                         client
                         ambitBase
                         mappedRoot
-                        scope.label
+                        scope
                         cookieHeader
                 with
                 | Error e -> Error e
@@ -694,7 +694,7 @@ module WorkspaceFileSync =
                     client
                     ambitBase
                     mappedRoot
-                    scope.label
+                    scope
                     cookieHeader
             with
             | Error e -> Error e

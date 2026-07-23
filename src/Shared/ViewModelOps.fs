@@ -99,5 +99,10 @@ module ViewModel =
     let rowFileIndicatorText = ViewModelRowState.rowFileIndicatorText
     let rowOwnershipClass = ViewModelRowState.rowOwnershipClass
     let rowFileUnparsedClassEligible = ViewModelRowState.rowFileUnparsedClassEligible
+    let rowUnparsedObservationEligible = ViewModelRowState.rowUnparsedObservationEligible
+    let canCompareWorkspacePathSync = ViewModelRowState.canCompareWorkspacePathSync
+    let rowWorkspacePathSyncStatus = ViewModelRowState.rowWorkspacePathSyncStatus
+    let rowWorkspacePathSyncClass = ViewModelRowState.rowWorkspacePathSyncClass
+    let applyWorkspacePathSyncSnapshot = ViewModelRowState.applyWorkspacePathSyncSnapshot
 
     let planPatchDOM = ViewModelDomPlan.planPatchDOM

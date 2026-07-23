@@ -25,6 +25,8 @@ let initialModel: VM =
       desktopCapabilities = None
       serverCapabilities = None
       desktopFileIndicator = BlankFileIndicator
+      workspaceMappedLabels = Set.empty
+      workspaceSyncFacts = Map.empty
       syncInfo = SyncInfo.initial
       lastCmdResult = None }
 

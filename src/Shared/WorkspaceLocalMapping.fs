@@ -223,7 +223,10 @@ module WorkspaceLocalMapping =
         match Map.tryFind normalizedLabel workspaceToRoot with
         | None -> Error "invalid_workspace"
         | Some mapping ->
-            let rel = if isNull relativePath then "" else relativePath.Trim()
+            // Directory desktop paths parse as "doc/"; trim trailing slash only.
+            let rel =
+                if isNull relativePath then ""
+                else relativePath.Trim().TrimEnd('/')
 
             if rel = "" then
                 Ok mapping.rootPath

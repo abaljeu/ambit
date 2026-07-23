@@ -33,6 +33,7 @@
     <Compile Include="ServerCapabilities.fs" />
 
     <Compile Include="FileSyncIndicator.fs" />
+    <Compile Include="WorkspacePathSyncStatus.fs" />
     <Compile Include="WorkspaceLocalMapping.fs" />
     <Compile Include="LoginForm.fs" />
     <Compile Include="LoginRedirect.fs" />
@@ -67,6 +68,7 @@
     <Compile Include="OpenTarget.fs" />
     <Compile Include="CommandCategory.fs" />
     <Compile Include="CommandEntry.fs" />
+    <Compile Include="WorkspaceUpload.fs" />
     <Compile Include="CommandDockLayout.fs" />
     <Compile Include="CommandIconLookup.fs" />
   </ItemGroup>

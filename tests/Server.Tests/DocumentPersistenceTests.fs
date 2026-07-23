@@ -194,6 +194,29 @@ let ``writeAllDocuments nested workspace tree writes expected paths`` () =
     Assert.True(File.Exists(Path.Combine(dataDir, "home", "docs", "readme.txt")))
 
 [<Fact>]
+let ``writeAllDocuments stamps artifact updateTime from disk mtime`` () =
+    let dataDir = newTempDir ()
+    let graph, wsId, dirId, fileId, _ = graphWithNestedDocs ()
+    let stamped =
+        DocumentPersistence.writeAllDocuments dataDir graph
+        |> requireOk "writeAllDocuments"
+    let filePath = artifactFullPath dataDir graph fileId
+    let dirPath = artifactFullPath dataDir graph dirId
+    let wsPath = artifactFullPath dataDir graph wsId
+    let fileMtime =
+        File.GetLastWriteTimeUtc filePath |> NodeUpdateTime.toDbPrecision
+    let dirMtime =
+        File.GetLastWriteTimeUtc dirPath |> NodeUpdateTime.toDbPrecision
+    let wsMtime =
+        File.GetLastWriteTimeUtc wsPath |> NodeUpdateTime.toDbPrecision
+    Assert.Equal(fileMtime, stamped.nodes.[fileId].updateTime)
+    Assert.Equal(dirMtime, stamped.nodes.[dirId].updateTime)
+    Assert.Equal(wsMtime, stamped.nodes.[wsId].updateTime)
+    Assert.NotEqual(
+        NodeUpdateTime.missing,
+        stamped.nodes.[fileId].updateTime)
+
+[<Fact>]
 let ``fileStatusForReference reports existing and missing server artifacts`` () =
     let dataDir = newTempDir ()
     let graph, _, _, _, _ = graphWithNestedDocs ()
@@ -211,6 +234,55 @@ let ``fileStatusForReference reports existing and missing server artifacts`` () 
     Assert.True(existing.sourceModifiedUtc.IsSome)
     Assert.Equal(MissingArtifact, missing.status)
     Assert.Equal(None, missing.sourceModifiedUtc)
+
+[<Fact>]
+let ``fileStatusForReference reports workspace and directory as folder not file`` () =
+    let dataDir = newTempDir ()
+    let graph, _, _, _, _ = graphWithNestedDocs ()
+    DocumentPersistence.writeAllDocuments dataDir graph |> requireOk "writeAllDocuments" |> ignore
+
+    let ws =
+        DocumentPersistence.fileStatusForReference dataDir "//home"
+        |> requireOk "workspace status"
+    let dir =
+        DocumentPersistence.fileStatusForReference dataDir "//home/docs/"
+        |> requireOk "directory status"
+
+    Assert.Equal(ExistingFolder, ws.status)
+    Assert.Equal(ExistingFolder, dir.status)
+
+[<Fact>]
+let ``fileStatusForReference directory is folder when dir exists without amb`` () =
+    let dataDir = newTempDir ()
+    let dirPath = Path.Combine(dataDir, "fambit", "elm")
+    Directory.CreateDirectory dirPath |> ignore
+
+    let status =
+        DocumentPersistence.fileStatusForReference dataDir "//fambit/elm/"
+        |> requireOk "mkcol-only directory"
+
+    Assert.Equal(ExistingFolder, status.status)
+
+[<Fact>]
+let ``fileStatusForReference directory missing when neither dir nor amb exists`` () =
+    let dataDir = newTempDir ()
+    Directory.CreateDirectory(Path.Combine(dataDir, "fambit")) |> ignore
+
+    let status =
+        DocumentPersistence.fileStatusForReference dataDir "//fambit/doc/"
+        |> requireOk "absent directory"
+
+    Assert.Equal(MissingArtifact, status.status)
+
+[<Fact>]
+let ``fileStatusForReference missing when neither amb nor folder exist`` () =
+    let dataDir = newTempDir ()
+
+    let status =
+        DocumentPersistence.fileStatusForReference dataDir "//fambit/doc/"
+        |> requireOk "missing folder"
+
+    Assert.Equal(MissingArtifact, status.status)
 
 [<Fact>]
 let ``importPackageForReference builds package from DataDir file`` () =

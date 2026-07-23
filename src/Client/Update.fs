@@ -41,6 +41,8 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
           desktopCapabilities = model.desktopCapabilities
           serverCapabilities = model.serverCapabilities
           desktopFileIndicator = BlankFileIndicator
+          workspaceMappedLabels = model.workspaceMappedLabels
+          workspaceSyncFacts = model.workspaceSyncFacts
           syncInfo = SyncInfo.initial
           lastCmdResult = None }, []
 
@@ -109,13 +111,23 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
         { model with syncInfo = { model.syncInfo with isPollingActive = active } }, []
 
     | SysMsg (DesktopCapabilitiesDetected capabilities) ->
-        { model with desktopCapabilities = capabilities }, []
+        let model' = { model with desktopCapabilities = capabilities }
+        if DesktopCapabilities.canWorkspaceSync capabilities then
+            model', [ RequestWorkspacePathSyncSnapshot ]
+        else
+            { model' with
+                workspaceMappedLabels = Set.empty
+                workspaceSyncFacts = Map.empty },
+            []
 
     | SysMsg (ServerCapabilitiesDetected capabilities) ->
         { model with serverCapabilities = capabilities }, []
 
     | SysMsg (DesktopFileStatusReceived (nodeId, path, status, sourceModifiedUtc)) ->
         ViewModel.applyDesktopFileStatus nodeId path status sourceModifiedUtc model, []
+
+    | SysMsg (WorkspacePathSyncSnapshotReceived (mappedLabels, factsByLabel)) ->
+        ViewModel.applyWorkspacePathSyncSnapshot mappedLabels factsByLabel model, []
 
     | SysMsg PollTick ->
         let si, effects = SyncPlanner.tryStartPoll model.revision model.syncInfo

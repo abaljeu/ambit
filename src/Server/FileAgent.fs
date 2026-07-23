@@ -83,7 +83,10 @@ module FileAgent =
         let syncPersistChange (rev: int) (preGraph: Graph) (postGraph: Graph) =
             match DocumentPersistence.persistGraphChange dataDir preGraph postGraph with
             | Error err -> Error err
-            | Ok _ -> writeMetaRevision rev
+            | Ok stamped ->
+                match writeMetaRevision rev with
+                | Error err -> Error err
+                | Ok () -> Ok stamped
 
         let startSnapshot (inbox: MailboxProcessor<FileAgentMsg>) =
             snapshotInProgress.Value <- true
@@ -96,12 +99,12 @@ module FileAgent =
                     try
                         match DocumentPersistence.persistGraphChange dataDir preGraph postGraph with
                         | Error _ -> None
-                        | Ok _ ->
+                        | Ok stamped ->
                             let metaTmpPath = metaPath + ".tmp"
                             File.WriteAllText(metaTmpPath, string rev)
                             // Rename meta last — documents are written first; log retains changes.
                             File.Move(metaTmpPath, metaPath, true)
-                            Some postGraph
+                            Some stamped
                     with _ ->
                         None // snapshot failure is non-fatal; log has the data
                 inbox.Post(SnapshotDone persisted)
@@ -176,19 +179,29 @@ module FileAgent =
                     | Ok () ->
                         let diskPersist =
                             if changed && not graphOnly then
-                                syncPersistChange newState.revision.Value preGraph newState.graph
-                            else Ok ()
+                                syncPersistChange
+                                    newState.revision.Value
+                                    preGraph
+                                    newState.graph
+                                |> Result.map Some
+                            else
+                                Ok None
                         match diskPersist with
                         | Error err -> reply.Reply(Error err)
-                        | Ok () ->
+                        | Ok stampedOpt ->
                             match persistLogEntries logEntries with
                             | Error err -> reply.Reply(Error err)
                             | Ok offsets ->
                                 offsets |> List.iter offsetIndex.Add
-                                state.Value <- newState
+                                let finalState =
+                                    match stampedOpt with
+                                    | Some stamped ->
+                                        { newState with graph = stamped }
+                                    | None -> newState
+                                state.Value <- finalState
                                 reply.Reply(Ok (encodeChangeAckJson ackedChangeIds))
                                 if graphOnly || changed then
-                                    persistedGraph.Value <- newState.graph
+                                    persistedGraph.Value <- finalState.graph
 
         let mailbox = MailboxProcessor<FileAgentMsg>.Start(fun inbox ->
             let rec loop () = async {

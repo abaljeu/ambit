@@ -131,6 +131,7 @@ let createRuntime (initialModel: VM) =
         | SavePendingQueue q -> runSavePendingQueue q
         | RequestDesktopFileStatus (nodeId, path) -> runDesktopFileStatus nodeId path
         | RequestServerFileStatus (nodeId, path) -> runServerFileStatus nodeId path
+        | RequestWorkspacePathSyncSnapshot -> runWorkspacePathSyncSnapshot ()
         | ContinueWorkspaceStubsThenPush scope ->
             // Delay past the current frame so Uploading + workspace node can paint.
             setTimeout
@@ -241,6 +242,48 @@ let createRuntime (initialModel: VM) =
 
     and runServerFileStatus (nodeId: NodeId) (path: string) : unit =
         runFileStatusEndpoint ($"/{currentFile}/file-status") "server" nodeId path
+
+    and runWorkspacePathSyncSnapshot () : unit =
+        let status, text = getJsonSync "/_desktop/workspace-mappings"
+        if status < 200 || status >= 300 then
+            consoleLog (
+                "[Gambol sync] workspace-mappings HTTP "
+                + string status)
+        else
+            match decodeMappedWorkspaceLabels text with
+            | Error err ->
+                consoleLog (
+                    "[Gambol sync] workspace-mappings decode: " + err)
+            | Ok labels ->
+                let factsByLabel =
+                    labels
+                    |> Set.toList
+                    |> List.fold
+                        (fun acc label ->
+                            let body =
+                                encodeWorkspaceSyncLedgerRequest label
+                            let st, bodyText =
+                                postJsonSync
+                                    "/_desktop/workspace-sync-ledger"
+                                    body
+                                    (jsonMutatingPostHeaders ())
+                            if st < 200 || st >= 300 then acc
+                            else
+                                match
+                                    decodeWorkspaceSyncLedgerResponse bodyText
+                                with
+                                | Ok resp when resp.mapped ->
+                                    let byRel =
+                                        resp.rows
+                                        |> List.map (fun r -> r.relative, r)
+                                        |> Map.ofList
+                                    Map.add label byRel acc
+                                | _ -> acc)
+                        Map.empty
+                dispatch (
+                    SysMsg (
+                        WorkspacePathSyncSnapshotReceived (
+                            labels, factsByLabel)))
 
     and runFileStatusEndpoint
         (url: string)

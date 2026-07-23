@@ -130,7 +130,7 @@ module DbAgent =
             Task.Run(fun () ->
                 let persisted =
                     try
-                        let liveSaveOk =
+                        let liveSave =
                             match liveSaveDataDir with
                             | Some dataDir ->
                                 match
@@ -143,11 +143,13 @@ module DbAgent =
                                     eprintfn
                                         "DbAgent: failed to write live documents: %s"
                                         err
-                                    false
-                                | Ok _ -> true
-                            | None -> true
+                                    Error ()
+                                | Ok stamped -> Ok stamped
+                            | None -> Ok postGraph
                         writeBackup snapshotState
-                        if liveSaveOk then Some postGraph else None
+                        match liveSave with
+                        | Ok graph -> Some graph
+                        | Error () -> None
                     with ex ->
                         eprintfn "DbAgent: failed to write disk backup: %s" ex.Message
                         None
@@ -193,20 +195,25 @@ module DbAgent =
                                     dataDir
                                     preGraph
                                     newState.graph
-                                |> Result.map (fun _ -> ())
-                            | _ -> Ok ()
+                                |> Result.map Some
+                            | _ -> Ok None
                         match livePersist with
                         | Error err -> reply.Reply(Error err)
-                        | Ok () ->
-                            match persistBatch newState logEntries with
+                        | Ok stampedOpt ->
+                            let stateToStore =
+                                match stampedOpt with
+                                | Some stamped ->
+                                    { newState with graph = stamped }
+                                | None -> newState
+                            match persistBatch stateToStore logEntries with
                             | Error err -> reply.Reply(Error err)
                             | Ok () ->
-                                state.Value <- newState
+                                state.Value <- stateToStore
                                 reply.Reply(Ok (encodeChangeAckJson ackedChangeIds))
                                 if graphOnly then
-                                    persistedGraph.Value <- newState.graph
+                                    persistedGraph.Value <- stateToStore.graph
                                 elif not (List.isEmpty logEntries) then
-                                    persistedGraph.Value <- newState.graph
+                                    persistedGraph.Value <- stateToStore.graph
                                     if snapshotInProgress.Value then snapshotNeeded.Value <- true
                                     else startSnapshot inbox
 

@@ -3,6 +3,8 @@ namespace Gambol.Shared
 open System
 
 /// Compare node `updateTime` to filesystem mtime for file-indicator labels.
+/// After persist, artifact `updateTime` is disk mtime ("current"); edits `touch`
+/// it so the node is newer than disk ("edited").
 [<RequireQualifiedAccess>]
 module FileSyncIndicator =
     let labelForExistingFile (nodeUpdateTime: DateTime) (sourceModifiedUtc: DateTime) : string =

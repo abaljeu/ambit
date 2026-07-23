@@ -191,6 +191,23 @@ body {
     color: #555;
     pointer-events: none;
 }
+.amb-row-sync-unparsed .amb-text {
+    color: #886600;
+}
+.amb-row-sync-server-only .amb-file-indicator,
+.amb-row-sync-server-newer .amb-file-indicator {
+    color: #2266aa;
+}
+.amb-row-sync-desktop-only .amb-file-indicator,
+.amb-row-sync-desktop-newer .amb-file-indicator {
+    color: #aa6622;
+}
+.amb-row-sync-synced .amb-file-indicator {
+    color: #668866;
+}
+.amb-row-artifact-absent .amb-text {
+    color: #aa2222;
+}
 .amb-indent {
     width: 1.5rem;
     flex-shrink: 0;

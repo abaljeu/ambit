@@ -161,43 +161,6 @@ let copyOp (model: VM) : VM * Effect list =
         writeClipboardText serialized ignore
         copySelectionOp model
 
-let private contextualTargetForModel (model: VM) =
-    model.selectedNodes
-    |> Option.bind (fun selection ->
-        contextualTarget
-            model.graph
-            selection.range.parent.nodeId
-            selection.focus)
-
-let uploadOp (model: VM) : VM * Effect list =
-    if focusIsWorkspaces model then
-        uploadCreateWorkspaceOp model
-    else
-        match contextualTargetForModel model with
-        | Some(ParseFile fileId) -> uploadFileOp fileId model
-        | Some(ReconcileWorkspace _)
-        | Some(ReconcileDirectory _) -> uploadNamedScope model
-        | None ->
-            { model with
-                lastCmdResult =
-                    Some(
-                        CmdLastResult.Error(
-                            Some(displayName Upload),
-                            "focus Workspaces, a File, Directory, or named Workspace")) },
-            []
-
-let private uploadAvailable (model: VM) =
-    if focusIsWorkspaces model then
-        DesktopCapabilities.canWorkspacePush model.desktopCapabilities
-    else
-        match contextualTargetForModel model with
-        | Some(ParseFile _) -> true
-        | Some(ReconcileWorkspace _)
-        | Some(ReconcileDirectory _) ->
-            // Push when desktop sync caps exist; else server-disk reconcile.
-            true
-        | None -> false
-
 let private downloadAvailable (model: VM) =
     DesktopCapabilities.canWorkspaceSync model.desktopCapabilities
     && not (focusIsWorkspaces model)

@@ -250,6 +250,8 @@ type Effect =
     | SavePendingQueue of Change list
     | RequestDesktopFileStatus of nodeId: NodeId * path: string
     | RequestServerFileStatus of nodeId: NodeId * path: string
+    /// Desktop: refresh mapped labels + sync-ledger facts for path-status UI.
+    | RequestWorkspacePathSyncSnapshot
     /// After create: inventory + top-level stubs, then ContinueWorkspacePush.
     | ContinueWorkspaceStubsThenPush of WorkspaceSyncScope
     /// Deferred async workspace-push (`postJson`); Some fileId → parse after push.
@@ -351,6 +353,10 @@ and VM = // the client state
       desktopCapabilities: DesktopCapabilities option
       serverCapabilities: ServerCapabilities option
       desktopFileIndicator: DesktopFileIndicator
+      /// Labels with a desktop local folder mapping (comparison statuses gated).
+      workspaceMappedLabels: Set<string>
+      /// label → relative → ledger fact for File/Directory row sync status.
+      workspaceSyncFacts: Map<string, Map<string, WorkspaceSyncPathFact>>
       syncInfo: SyncInfo
       lastCmdResult: CmdLastResult option }
 
@@ -375,6 +381,9 @@ type SystemMsg =
         path: string *
         status: DesktopFileStatus *
         sourceModifiedUtc: System.DateTime option
+    | WorkspacePathSyncSnapshotReceived of
+        mappedLabels: Set<string> *
+        factsByLabel: Map<string, Map<string, WorkspaceSyncPathFact>>
     | SetPollingActive of bool
     | PollTick            // polling timer fired; update decides whether to emit PollServer effect
     | PollDone of SyncState option * Change list   // poll GET response arrived

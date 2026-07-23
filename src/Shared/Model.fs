@@ -81,6 +81,7 @@ type Node =
       owner      : NodeId
       kind       : NodeKind
       documentState : DocumentState
+      /// Mutation time via `touch`; after server persist, artifact disk mtime.
       updateTime : DateTime }
 
 
@@ -107,6 +108,11 @@ module NodeUpdateTime =
     let now () = DateTime.UtcNow |> toDbPrecision
 
     let touch (node: Node) : Node = { node with updateTime = now () }
+
+    /// After server persist, artifact `updateTime` is the DataDir file mtime.
+    /// Between edits, `touch` sets mutation time (FileSyncIndicator "edited").
+    let withStamp (time: DateTime) (node: Node) : Node =
+        { node with updateTime = toDbPrecision time }
 
 
 type Node with

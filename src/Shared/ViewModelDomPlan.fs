@@ -64,13 +64,16 @@ module ViewModelDomPlan =
                             let isRoot = entry.instanceId = newModel.siteMap.rootId
                             let newNode = newModel.graph.nodes.[entry.nodeId]
                             let oldNode = oldModel.graph.nodes |> Map.tryFind entry.nodeId
+                            let newSyncClass =
+                                rowWorkspacePathSyncClass newModel entry newNode
                             let newClass =
                                 "amb-row"
                                 |> CssClass.add (rowOwnershipClass newModel entry)
                                 |> addSpecialKindRowClass newNode.id newNode.kind
-                                |> CssClass.addIf
-                                    (rowFileUnparsedClassEligible newModel entry)
-                                    "amb-row-file-unparsed"
+                                |> (fun s ->
+                                    match newSyncClass with
+                                    | Some c -> CssClass.add c s
+                                    | None -> s)
                                 |> CssClass.addIf
                                     (rowArtifactAbsentClassEligible newModel entry newNode)
                                     "amb-row-artifact-absent"
@@ -79,6 +82,10 @@ module ViewModelDomPlan =
                                 |> CssClass.addIf foc "amb-focused"
                             let oldSel = oldEntry |> Option.map (isEntrySelected oldModel) |> Option.defaultValue false
                             let oldFoc = oldEntry |> Option.map (isEntryFocused oldModel) |> Option.defaultValue false
+                            let oldSyncClass =
+                                match oldEntry, oldNode with
+                                | Some e, Some n -> rowWorkspacePathSyncClass oldModel e n
+                                | _ -> None
                             let oldClass =
                                 "amb-row"
                                 |> CssClass.add (
@@ -89,10 +96,10 @@ module ViewModelDomPlan =
                                     match oldNode with
                                     | Some n -> addSpecialKindRowClass n.id n.kind s
                                     | None -> s)
-                                |> CssClass.addIf
-                                    (oldEntry
-                                     |> Option.exists (rowFileUnparsedClassEligible oldModel))
-                                    "amb-row-file-unparsed"
+                                |> (fun s ->
+                                    match oldSyncClass with
+                                    | Some c -> CssClass.add c s
+                                    | None -> s)
                                 |> CssClass.addIf
                                     (match oldEntry, oldNode with
                                      | Some e, Some n -> rowArtifactAbsentClassEligible oldModel e n

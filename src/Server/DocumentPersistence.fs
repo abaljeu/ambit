@@ -84,7 +84,39 @@ module DocumentPersistence =
                       status = InvalidPath
                       sourceModifiedUtc = None }
             | Ok fullPath ->
-                if File.Exists fullPath then
+                // Workspace/directory refs resolve to `…/.amb`. Treat marker paths as
+                // folders (not "file"), including when only the parent dir exists
+                // after WebDAV MKCOL without an `.amb` body yet.
+                let markerName = Path.GetFileName fullPath
+                let parentDir = Path.GetDirectoryName fullPath
+                let isAmbMarker =
+                    String.Equals(
+                        markerName,
+                        ".amb",
+                        StringComparison.OrdinalIgnoreCase)
+
+                if isAmbMarker then
+                    if
+                        not (isNull parentDir)
+                        && Directory.Exists parentDir
+                    then
+                        Ok
+                            { path = nodeReference
+                              status = ExistingFolder
+                              sourceModifiedUtc =
+                                  Some (Directory.GetLastWriteTimeUtc parentDir) }
+                    elif File.Exists fullPath then
+                        Ok
+                            { path = nodeReference
+                              status = ExistingFolder
+                              sourceModifiedUtc =
+                                  Some (File.GetLastWriteTimeUtc fullPath) }
+                    else
+                        Ok
+                            { path = nodeReference
+                              status = MissingArtifact
+                              sourceModifiedUtc = None }
+                elif File.Exists fullPath then
                     Ok
                         { path = nodeReference
                           status = ExistingFile
@@ -397,7 +429,25 @@ module DocumentPersistence =
                         with ex ->
                             Error ex.Message
 
-    let writeAllDocuments (dataDir: string) (graph: Graph) : Result<string list, string> =
+    let private stampNodes
+        (stamps: Map<NodeId, DateTime>)
+        (graph: Graph)
+        : Graph =
+        stamps
+        |> Map.fold
+            (fun g id time ->
+                match Map.tryFind id g.nodes with
+                | None -> g
+                | Some node ->
+                    { g with
+                        nodes =
+                            Map.add
+                                id
+                                (NodeUpdateTime.withStamp time node)
+                                g.nodes })
+            graph
+
+    let writeAllDocuments (dataDir: string) (graph: Graph) : Result<Graph, string> =
         let baseDir = dataDirBase dataDir
         Directory.CreateDirectory baseDir |> ignore
 
@@ -408,17 +458,20 @@ module DocumentPersistence =
             (fun acc documentRootId ->
                 match acc with
                 | Error msg -> Error msg
-                | Ok paths ->
+                | Ok stamps ->
                     match writeDocument dataDir graph documentRootId with
                     | Error msg -> Error msg
-                    | Ok path -> Ok (paths @ [ path ]))
-            (Ok [])
+                    | Ok path ->
+                        let mtime = File.GetLastWriteTimeUtc path
+                        Ok(Map.add documentRootId mtime stamps))
+            (Ok Map.empty)
+        |> Result.map (fun stamps -> stampNodes stamps graph)
 
     let persistGraphChange
         (dataDir: string)
         (preGraph: Graph)
         (postGraph: Graph)
-        : Result<string list, string> =
+        : Result<Graph, string> =
         let moves = DocumentPathMove.planPathMovesBetweenGraphs preGraph postGraph
 
         match executePathMoves dataDir preGraph postGraph moves with

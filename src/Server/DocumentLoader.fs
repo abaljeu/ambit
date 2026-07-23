@@ -102,7 +102,7 @@ module DocumentLoader =
             else
                 match DocumentPersistence.writeAllDocuments dataDir afterReplay.graph with
                 | Error msg -> Error msg
-                | Ok _ -> Ok afterReplay
+                | Ok stamped -> Ok { afterReplay with graph = stamped }
 
     /// Fail-fast wrapper around `tryLoadState`.
     let loadState (dataDir: string) (filename: string) : State =

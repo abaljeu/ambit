@@ -20,6 +20,8 @@ let emptyModel (graph: Graph) : VM =
       desktopCapabilities = None
       serverCapabilities = None
       desktopFileIndicator = BlankFileIndicator
+      workspaceMappedLabels = Set.empty
+      workspaceSyncFacts = Map.empty
       syncInfo = SyncInfo.initial
       lastCmdResult = None }
 
@@ -40,5 +42,7 @@ let emptyModelAt (graph: Graph) (viewRoot: NodeId) : VM =
       desktopCapabilities = None
       serverCapabilities = None
       desktopFileIndicator = BlankFileIndicator
+      workspaceMappedLabels = Set.empty
+      workspaceSyncFacts = Map.empty
       syncInfo = SyncInfo.initial
       lastCmdResult = None }

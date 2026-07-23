@@ -1,14 +1,14 @@
 # Lazy Load
 
 Category: Workspace scale
-Status: Partial — disk-to-graph reconciliation implemented; expand-to-parse planned next; reconcile wired after WebDAV upload+finish-commit
-See also: [[workspaces-checklist]], [[workspace-file-sync]], [[workspace-file-model]], [[workspace-scale-import]], [[workspace-scale-file-and-db-management]], [[doc/current/persistence-model]], [[doc/roadmap/reference-expressions.md]]
+Status: Partial — disk-to-graph reconciliation implemented; expand-to-parse planned next; reconcile wired after WebDAV upload+finish-commit (Desktop Upload structure moving client-side — [[workspace-upload-client-structure]])
+See also: [[workspaces-checklist]], [[workspace-file-sync]], [[workspace-upload-client-structure]], [[workspace-file-model]], [[workspace-scale-import]], [[workspace-scale-file-and-db-management]], [[doc/current/persistence-model]], [[doc/roadmap/reference-expressions.md]]
 
-Lazy Load turns workspace files on server disk into a browsable graph without eagerly parsing every file. File-tree sync ([[workspace-file-sync]]) is a separate capability: Lazy Load reacts after a successful WebDAV upload + finish-commit and publishes ordinary graph changes for existing polling clients.
+Lazy Load turns workspace files on server disk into a browsable graph without eagerly parsing every file. File-tree sync ([[workspace-file-sync]]) is a separate capability. **Today:** Lazy Load reacts after a successful WebDAV upload + finish-commit and publishes ordinary graph changes for existing polling clients. **Planned:** Desktop Upload builds Directory/File stubs on the client and drops that post-upload reconcile; disk→graph reconcile remains for web Upload without Desktop and for repair ([[workspace-upload-client-structure]]).
 
 ## User-visible behavior
 
-- A successful workspace Upload makes newly added source paths appear as Directory and File stubs under the matching named Workspace. File contents are not parsed, so a new File stub has no parsed child nodes.
+- A successful workspace Upload makes newly added source paths appear as Directory and File stubs under the matching named Workspace (today via post-upload reconcile; planned Desktop path via client stubs — [[workspace-upload-client-structure]]). File contents are not parsed, so a new File stub has no parsed child nodes.
 - `Ctrl+Shift+>` parses the focused Unparsed File, or the Unparsed File that owns the focused owner occurrence, in place. On a named Workspace (or scoped focus) it instead uploads that scope via WebDAV. `Ctrl+Shift+<` downloads the focused scope to the desktop. Upload / Download direction: [[workspace-file-sync]].
 - Expanding an unparsed File will later read and parse that file, merge the parsed result into its existing graph identity, and expose editable child nodes.
 - Freshness will distinguish **current**, **unparsed**, **client older**, and **client newer**. A successful desktop Download means client and server files match and are current; it does not make unchanged graph content unparsed.
@@ -135,7 +135,8 @@ Server integration: server commit with rename/delete → reconcile produces corr
 ## Locked decisions and boundaries
 
 - File-tree sync ends at successful finish-commit or client Download. Lazy Load is not part of WebDAV transfer.
-- The server owns post-commit reconciliation because it owns the graph. Clients observe resulting Changes through polling.
+- **Desktop Upload structure (planned):** client owns stub creation; no post-upload directory reconcile on that path ([[workspace-upload-client-structure]]). Disk→graph reconcile remains for web / repair.
+- The server owns disk→graph reconciliation when used, because it owns authoritative disk and graph. Clients observe resulting Changes through polling.
 - Reconciliation uses changed paths rather than a full workspace walk and flows only from server disk to graph.
 - Structural reconciliation does not parse source contents.
 - Unparsed documents are immutable until an ordered parse transition marks them Current; this can make a later structural reconciliation best-effort failure.
@@ -147,6 +148,6 @@ Server integration: server commit with rename/delete → reconcile produces corr
 
 ## Planned next work
 
-- Wire reconcile to WebDAV finish-commit ([[workspace-file-sync]]).
+- Desktop Upload: move structure to client stubs; drop post-upload reconcile on that path ([[workspace-upload-client-structure]]); keep reconcile for web / repair.
 - Add richer source metadata and current/unparsed/older/newer freshness UI.
 - Add lazy server residency, client LRU/unload, repo-wide search, and annotation migration.

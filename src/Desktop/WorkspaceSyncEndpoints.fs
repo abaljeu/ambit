@@ -10,7 +10,7 @@ open Gambol.Shared
 open Microsoft.AspNetCore.Http
 
 /// `/_desktop/workspace-push`, `workspace-pull`, `workspace-download`,
-/// and `workspace-inventory`.
+/// `workspace-inventory`, and `workspace-sync-ledger`.
 [<RequireQualifiedAccess>]
 module WorkspaceSyncEndpoints =
 
@@ -308,6 +308,65 @@ module WorkspaceSyncEndpoints =
                     do! writeJson context json
     }
 
+    let private mtimeField (name: string) (dt: DateTime option) =
+        match dt with
+        | None -> ""
+        | Some t ->
+            ",\""
+            + name
+            + "\":"
+            + quoteJson (t.ToUniversalTime().ToString("o"))
+
+    let private handleSyncLedger
+        (workspaceMap: Map<string, WorkspaceMapping>)
+        (context: HttpContext)
+        = task {
+        let! body = readBody context
+        match
+            try
+                use document = JsonDocument.Parse body
+                match tryGetString document.RootElement "label" with
+                | None -> Error "label is required"
+                | Some label -> Ok label
+            with
+            | :? JsonException -> Error "invalid JSON"
+        with
+        | Error message -> do! writeBadRequest context message
+        | Ok label ->
+            match Map.tryFind label workspaceMap with
+            | None ->
+                let json =
+                    "{\"label\":"
+                    + quoteJson label
+                    + ",\"mapped\":false,\"rows\":[]}"
+                do! writeJson context json
+            | Some _ ->
+                match WorkspaceSyncLedger.loadForLabel label with
+                | Error err -> do! writeBadRequest context err
+                | Ok ledger ->
+                    let rowJson (r: SyncLedgerRow) =
+                        "{\"relative\":"
+                        + quoteJson r.relative
+                        + ",\"isDirectory\":"
+                        + (if r.isDirectory then "true" else "false")
+                        + ",\"presence\":"
+                        + quoteJson r.presence
+                        + mtimeField "localMtimeUtc" r.localMtimeUtc
+                        + mtimeField "serverMtimeUtc" r.serverMtimeUtc
+                        + "}"
+                    let rows =
+                        ledger.rows
+                        |> List.map rowJson
+                        |> String.concat ","
+                    let json =
+                        "{\"label\":"
+                        + quoteJson label
+                        + ",\"mapped\":true,\"rows\":["
+                        + rows
+                        + "]}"
+                    do! writeJson context json
+    }
+
     let tryHandle
         (workspaceMap: Map<string, WorkspaceMapping>)
         (client: HttpClient)
@@ -353,6 +412,9 @@ module WorkspaceSyncEndpoints =
                 return true
             elif path.Equals(PathString "/_desktop/workspace-inventory") then
                 do! handleInventory workspaceMap context
+                return true
+            elif path.Equals(PathString "/_desktop/workspace-sync-ledger") then
+                do! handleSyncLedger workspaceMap context
                 return true
             else
                 return false

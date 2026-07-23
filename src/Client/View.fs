@@ -131,8 +131,9 @@ let private makeRowElement
     let row = document.createElement "div"
     row.classList.add "amb-row"
     row.classList.add (ViewModel.rowOwnershipClass model siteEntry)
-    if ViewModel.rowFileUnparsedClassEligible model siteEntry then
-        row.classList.add "amb-row-file-unparsed"
+    match ViewModel.rowWorkspacePathSyncClass model siteEntry node with
+    | Some cls -> row.classList.add cls
+    | None -> ()
     if ViewModel.rowArtifactAbsentClassEligible model siteEntry node then
         row.classList.add "amb-row-artifact-absent"
     row.setAttribute("data-node-id", node.id.Value.ToString())

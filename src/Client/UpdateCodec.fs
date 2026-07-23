@@ -125,6 +125,74 @@ let decodeMappedRootPath
         |> Option.map snd
         |> Ok
 
+/// GET /_desktop/workspace-mappings → all mapped labels.
+let decodeMappedWorkspaceLabels (text: string) : Result<Set<string>, string> =
+    let entryDecoder =
+        Decode.object (fun get ->
+            get.Required.Field "label" Decode.string)
+    let decoder =
+        Decode.object (fun get ->
+            get.Optional.Field
+                "workspaceMappings"
+                (Decode.list entryDecoder)
+            |> Option.defaultValue [])
+    match Thoth.Json.JavaScript.Decode.fromString decoder text with
+    | Error e -> Error e
+    | Ok labels -> Ok(Set.ofList labels)
+
+let encodeWorkspaceSyncLedgerRequest (label: string) : string =
+    Encode.object [ "label", Encode.string label ]
+    |> Thoth.Json.JavaScript.Encode.toString 0
+
+let private parseUtcOption (text: string option) =
+    match text with
+    | None -> Ok None
+    | Some s ->
+        match System.DateTime.TryParse s with
+        | true, dt -> Ok(Some(dt.ToUniversalTime()))
+        | _ -> Error("invalid datetime: " + s)
+
+let private decodeSyncPathFact : Decoder<WorkspaceSyncPathFact> =
+    Decode.object (fun get ->
+        let relative = get.Required.Field "relative" Decode.string
+        let isDirectory = get.Required.Field "isDirectory" Decode.bool
+        let presenceText = get.Required.Field "presence" Decode.string
+        let localText = get.Optional.Field "localMtimeUtc" Decode.string
+        let serverText = get.Optional.Field "serverMtimeUtc" Decode.string
+        relative, isDirectory, presenceText, localText, serverText)
+    |> Decode.andThen (fun (relative, isDirectory, presenceText, localText, serverText) ->
+        match WorkspacePathPresence.ofLedgerString presenceText with
+        | None -> Decode.fail ("unknown presence: " + presenceText)
+        | Some presence ->
+            match parseUtcOption localText, parseUtcOption serverText with
+            | Error e, _
+            | _, Error e -> Decode.fail e
+            | Ok localM, Ok serverM ->
+                Decode.succeed
+                    { relative = relative
+                      isDirectory = isDirectory
+                      presence = presence
+                      localMtimeUtc = localM
+                      serverMtimeUtc = serverM })
+
+type WorkspaceSyncLedgerResponse =
+    { label: string
+      mapped: bool
+      rows: WorkspaceSyncPathFact list }
+
+let decodeWorkspaceSyncLedgerResponse
+    (text: string)
+    : Result<WorkspaceSyncLedgerResponse, string> =
+    let decoder =
+        Decode.object (fun get ->
+            { label = get.Required.Field "label" Decode.string
+              mapped = get.Required.Field "mapped" Decode.bool
+              rows =
+                  get.Required.Field
+                      "rows"
+                      (Decode.list decodeSyncPathFact) })
+    Thoth.Json.JavaScript.Decode.fromString decoder text
+
 /// Decode the response from GET /_desktop/capabilities.
 let decodeDesktopCapabilities (text: string) : Result<DesktopCapabilities, string> =
     Thoth.Json.JavaScript.Decode.fromString DesktopCapabilities.decoder text

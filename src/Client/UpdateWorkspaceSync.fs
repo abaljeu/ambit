@@ -5,6 +5,7 @@ open Gambol.Client.UpdateCodec
 open Gambol.Client.UpdateHelpers
 open Gambol.Client.UpdateImport
 open Gambol.Shared
+open Gambol.Shared.CommandEntry
 open Gambol.Shared.ViewModel
 open Thoth.Json.Core
 
@@ -276,7 +277,13 @@ let failWorkspacePushHttp
     : VM * Effect list =
     failWorkspacePush (httpError status body) model
 
+let private withPathSyncRefresh
+    (model: VM, effs: Effect list)
+    : VM * Effect list =
+    model, RequestWorkspacePathSyncSnapshot :: effs
+
 /// After async workspace-push success body: clear Uploading, then reconcile or parse.
+/// Prefer push `detail` in lastCmdResult so Upload does not look like a raw file-status JSON.
 let completeWorkspacePush
     (scope: WorkspaceSyncScope)
     (parseFileId: NodeId option)
@@ -289,8 +296,26 @@ let completeWorkspacePush
         consoleLog ("[Gambol sync] " + sync.detail)
         let model' = clearUploading model
         match parseFileId with
-        | Some fileId -> parseFileOp fileId model'
-        | None -> postDirectoryReconcile model' scope.label scope.relative
+        | Some fileId ->
+            parseFileOp fileId model' |> withPathSyncRefresh
+        | None ->
+            let modelR, effs =
+                postDirectoryReconcile model' scope.label scope.relative
+            match modelR.lastCmdResult with
+            | Some (CmdLastResult.Error _) ->
+                modelR, RequestWorkspacePathSyncSnapshot :: effs
+            | Some (CmdLastResult.Detail (_, warn)) ->
+                { modelR with
+                    lastCmdResult =
+                        Some (
+                            CmdLastResult.Detail (
+                                None, sync.detail + "; " + warn)) },
+                RequestWorkspacePathSyncSnapshot :: effs
+            | _ ->
+                { modelR with
+                    lastCmdResult =
+                        Some (CmdLastResult.Detail (None, sync.detail)) },
+                RequestWorkspacePathSyncSnapshot :: effs
     | Ok { error = Some e } -> failWorkspacePush e model
     | Ok _ -> failWorkspacePush "request failed" model
 
@@ -398,25 +423,43 @@ let uploadCreateWorkspaceOp (model: VM) : VM * Effect list =
                         keepUploading model',
                         [ Effect.ContinueWorkspaceStubsThenPush scope ]
 
-let uploadNamedScope (model: VM) : VM * Effect list =
-    if not (DesktopCapabilities.canWorkspacePush model.desktopCapabilities) then
+let private contextualTargetForModel (model: VM) =
+    model.selectedNodes
+    |> Option.bind (fun selection ->
+        contextualTarget
+            model.graph
+            selection.range.parent.nodeId
+            selection.focus)
+
+/// Upload: desktop push when mapped; else graph-only from DataDir (web).
+let uploadOp (model: VM) : VM * Effect list =
+    let canPush =
+        DesktopCapabilities.canWorkspacePush model.desktopCapabilities
+    let target = contextualTargetForModel model
+    match WorkspaceUpload.plan canPush (focusIsWorkspaces model) target with
+    | WorkspaceUploadAction.CreateWorkspaceFromFolder ->
+        uploadCreateWorkspaceOp model
+    | WorkspaceUploadAction.DesktopPush parseFileId ->
+        match syncScopeFromFocus model with
+        | Error msg -> fail model msg
+        | Ok scope -> beginDeferredPush scope parseFileId model
+    | WorkspaceUploadAction.ReconcileServerDisk ->
         match syncScopeFromFocus model with
         | Error msg -> fail model msg
         | Ok scope ->
             postDirectoryReconcile model scope.label scope.relative
-    else
-        match syncScopeFromFocus model with
-        | Error msg -> fail model msg
-        | Ok scope -> beginDeferredPush scope None model
-
-/// File Upload: ensure map → defer push → Parse.
-let uploadFileOp (fileId: NodeId) (model: VM) : VM * Effect list =
-    if DesktopCapabilities.canWorkspacePush model.desktopCapabilities then
-        match syncScopeFromFocus model with
-        | Error msg -> fail model msg
-        | Ok scope -> beginDeferredPush scope (Some fileId) model
-    else
+    | WorkspaceUploadAction.ParseServerDisk fileId ->
         parseFileOp fileId model
+    | WorkspaceUploadAction.Unavailable msg ->
+        withResult
+            model
+            (CmdLastResult.Error(Some(displayName Upload), msg))
+
+let uploadAvailable (model: VM) =
+    WorkspaceUpload.isAvailable
+        (DesktopCapabilities.canWorkspacePush model.desktopCapabilities)
+        (focusIsWorkspaces model)
+        (contextualTargetForModel model)
 
 let downloadOp (model: VM) : VM * Effect list =
     if not (DesktopCapabilities.canWorkspaceSync model.desktopCapabilities) then
@@ -433,4 +476,4 @@ let downloadOp (model: VM) : VM * Effect list =
                     match sync.state with
                     | Some state -> sprintf "download %s: %s" state sync.detail
                     | None -> sync.detail
-                okDetail model detail
+                okDetail model detail |> withPathSyncRefresh
