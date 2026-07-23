@@ -15,7 +15,7 @@ module ViewModelDomPlan =
         | SetTextClasses of classes: CssClasses
         | SetFoldArrow of arrow: string   // "▼" or "▶" (has children); "●" (no children, no behavior)
         | SetNodeName of name: string
-        | SetFileIndicator of text: string
+        | SetFileIndicator of text: string * title: string option
 
     type RowMutation =
         | RemoveRow of instId: SiteId
@@ -109,8 +109,9 @@ module ViewModelDomPlan =
                                 |> CssClass.addIf oldSel "amb-selected"
                                 |> CssClass.addIf oldFoc "amb-focused"
                             if newClass <> oldClass then yield SetClassName newClass
-                            let newIndicator = rowFileIndicatorText newModel entry newNode
-                            yield SetFileIndicator newIndicator
+                            let newIndicator, newTitle =
+                                rowFileIndicator newModel entry newNode
+                            yield SetFileIndicator (newIndicator, newTitle)
                             // Sync row text on graph or filename changes (editing row included — e.g. paste).
                             let newText = outlineDisplayText newNode
                             let oldText =

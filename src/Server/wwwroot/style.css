@@ -182,14 +182,12 @@ body {
     padding: 0.0em 0 0.0em 0;
 }
 .amb-file-indicator {
-    position: absolute;
-    left: -3.8rem;
-    width: 3.4rem;
-    text-align: right;
-    font-size: 0.65rem;
-    line-height: 1rem;
+    flex-shrink: 0;
+    margin-left: 0.35rem;
+    font-size: 1rem;
+    line-height: 1;
     color: #555;
-    pointer-events: none;
+    align-self: center;
 }
 .amb-row-sync-unparsed .amb-text {
     color: #886600;

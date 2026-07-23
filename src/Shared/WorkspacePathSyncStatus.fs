@@ -101,7 +101,8 @@ module WorkspacePathSyncStatus =
         else
             None
 
-    /// Like `resolve`, but prefer `nodeUpdateTime` as server stamp when set.
+    /// Like `resolve`, but prefer `nodeUpdateTime` as server stamp when Current.
+    /// Unparsed stubs keep ledger stamps: creation `updateTime` is not DataDir mtime.
     let resolveWithNodeStamp
         (canCompareDesktopMapped: bool)
         (fact: WorkspaceSyncPathFact option)
@@ -109,13 +110,16 @@ module WorkspacePathSyncStatus =
         (isUnparsed: bool)
         : WorkspacePathSyncStatus option =
         let fact' =
-            fact
-            |> Option.map (fun f ->
-                { f with
-                    serverMtimeUtc =
-                        effectiveServerMtime
-                            nodeUpdateTime
-                            f.serverMtimeUtc })
+            if isUnparsed then
+                fact
+            else
+                fact
+                |> Option.map (fun f ->
+                    { f with
+                        serverMtimeUtc =
+                            effectiveServerMtime
+                                nodeUpdateTime
+                                f.serverMtimeUtc })
         resolve canCompareDesktopMapped fact' isUnparsed
 
     let shortLabel =
@@ -126,6 +130,15 @@ module WorkspacePathSyncStatus =
         | WorkspacePathSyncStatus.OnlyOnDesktop -> "desk only"
         | WorkspacePathSyncStatus.Synced -> "synced"
         | WorkspacePathSyncStatus.Unparsed -> "unparsed"
+
+    let glyph =
+        function
+        | WorkspacePathSyncStatus.Synced -> "\u2713" // check mark
+        | WorkspacePathSyncStatus.OnlyOnServer -> "\u2601" // cloud
+        | WorkspacePathSyncStatus.NewerOnServer -> "\u2193" // down arrow
+        | WorkspacePathSyncStatus.OnlyOnDesktop -> "\u25A2" // white square with rounded corners
+        | WorkspacePathSyncStatus.NewerOnDesktop -> "\u2191" // up arrow
+        | WorkspacePathSyncStatus.Unparsed -> "\u2026" // horizontal ellipsis
 
     let rowClass =
         function

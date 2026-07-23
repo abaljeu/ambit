@@ -282,6 +282,14 @@ let private withPathSyncRefresh
     : VM * Effect list =
     model, RequestWorkspacePathSyncSnapshot :: effs
 
+let private contextualTargetForModel (model: VM) =
+    model.selectedNodes
+    |> Option.bind (fun selection ->
+        contextualTarget
+            model.graph
+            selection.range.parent.nodeId
+            selection.focus)
+
 /// After async workspace-push success body: clear Uploading, then reconcile or parse.
 /// Prefer push `detail` in lastCmdResult so Upload does not look like a raw file-status JSON.
 let completeWorkspacePush
@@ -299,23 +307,23 @@ let completeWorkspacePush
         | Some fileId ->
             parseFileOp fileId model' |> withPathSyncRefresh
         | None ->
-            let modelR, effs =
+            let modelR, reconcileEffs =
                 postDirectoryReconcile model' scope.label scope.relative
             match modelR.lastCmdResult with
             | Some (CmdLastResult.Error _) ->
-                modelR, RequestWorkspacePathSyncSnapshot :: effs
+                modelR, RequestWorkspacePathSyncSnapshot :: reconcileEffs
             | Some (CmdLastResult.Detail (_, warn)) ->
                 { modelR with
                     lastCmdResult =
                         Some (
                             CmdLastResult.Detail (
                                 None, sync.detail + "; " + warn)) },
-                RequestWorkspacePathSyncSnapshot :: effs
+                RequestWorkspacePathSyncSnapshot :: reconcileEffs
             | _ ->
                 { modelR with
                     lastCmdResult =
                         Some (CmdLastResult.Detail (None, sync.detail)) },
-                RequestWorkspacePathSyncSnapshot :: effs
+                RequestWorkspacePathSyncSnapshot :: reconcileEffs
     | Ok { error = Some e } -> failWorkspacePush e model
     | Ok _ -> failWorkspacePush "request failed" model
 
@@ -423,14 +431,6 @@ let uploadCreateWorkspaceOp (model: VM) : VM * Effect list =
                         keepUploading model',
                         [ Effect.ContinueWorkspaceStubsThenPush scope ]
 
-let private contextualTargetForModel (model: VM) =
-    model.selectedNodes
-    |> Option.bind (fun selection ->
-        contextualTarget
-            model.graph
-            selection.range.parent.nodeId
-            selection.focus)
-
 /// Upload: desktop push when mapped; else graph-only from DataDir (web).
 let uploadOp (model: VM) : VM * Effect list =
     let canPush =
@@ -448,6 +448,7 @@ let uploadOp (model: VM) : VM * Effect list =
         | Error msg -> fail model msg
         | Ok scope ->
             postDirectoryReconcile model scope.label scope.relative
+            |> withPathSyncRefresh
     | WorkspaceUploadAction.ParseServerDisk fileId ->
         parseFileOp fileId model
     | WorkspaceUploadAction.Unavailable msg ->

@@ -145,11 +145,6 @@ let private makeRowElement
     | Some cls -> row.classList.add cls
     | None -> ()
 
-    let fileIndicator = document.createElement "span"
-    fileIndicator.classList.add "amb-file-indicator"
-    fileIndicator.textContent <- ViewModel.rowFileIndicatorText model siteEntry node
-    row.appendChild fileIndicator |> ignore
-
     // Indentation
     for _ in 1 .. depth do
         let indent = document.createElement "div"
@@ -274,6 +269,15 @@ let private makeRowElement
     nameSpan.classList.add "amb-node-guid"
     nameSpan.textContent <- ViewModel.rowNameDisplayText node.name
     row.appendChild nameSpan |> ignore
+
+    let fileIndicator = document.createElement "span"
+    fileIndicator.classList.add "amb-file-indicator"
+    let display, title = ViewModel.rowFileIndicator model siteEntry node
+    fileIndicator.textContent <- display
+    match title with
+    | Some t -> fileIndicator.setAttribute("title", t)
+    | None -> fileIndicator.removeAttribute "title"
+    row.appendChild fileIndicator |> ignore
     row
 
 /// Replace user classes on `el`: keep `amb-*`, drop everything else, add `cssClasses`.
@@ -294,9 +298,13 @@ let private applyRowPatches (el: HTMLElement) (patches: RowPatch list) : unit =
         if isNull indicator then
             let created = document.createElement "span"
             created.classList.add "amb-file-indicator"
-            let first = el.firstChild
-            if isNull first then el.appendChild created |> ignore
-            else el.insertBefore(created, first) |> ignore
+            let guid = el.querySelector ".amb-node-guid"
+            if isNull guid then
+                el.appendChild created |> ignore
+            else
+                let parent = guid.parentNode
+                if isNull parent then el.appendChild created |> ignore
+                else parent.insertBefore(created, guid.nextSibling) |> ignore
             created
         else
             indicator :?> HTMLElement
@@ -321,8 +329,12 @@ let private applyRowPatches (el: HTMLElement) (patches: RowPatch list) : unit =
         | SetNodeName name ->
             let g = el.querySelector ".amb-node-guid"
             if not (isNull g) then (g :?> HTMLElement).textContent <- name
-        | SetFileIndicator text ->
-            (ensureFileIndicator ()).textContent <- text
+        | SetFileIndicator (text, title) ->
+            let indicator = ensureFileIndicator ()
+            indicator.textContent <- text
+            match title with
+            | Some t -> indicator.setAttribute("title", t)
+            | None -> indicator.removeAttribute "title"
 
 /// Resolve the row element for an instance: create, recreate, or patch as dictated by the upsert index.
 /// Returns the row element and the updated cache.

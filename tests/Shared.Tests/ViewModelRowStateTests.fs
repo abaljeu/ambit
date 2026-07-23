@@ -167,7 +167,7 @@ let ``special row with absent artifact uses missing indicator and absent class``
     let node = model.graph.nodes.[wsId]
 
     Assert.Equal(Some AbsentArtifactIndicator, rowArtifactIndicatorState model entry node)
-    Assert.Equal("missing", rowFileIndicatorText model entry node)
+    Assert.Equal("", rowFileIndicatorText model entry node)
     Assert.True(rowArtifactAbsentClassEligible model entry node)
 
 [<Fact>]
@@ -190,7 +190,7 @@ let ``missing workspace path reference uses missing text indicator`` () =
     Assert.Equal(
         Some AbsentArtifactIndicator,
         rowArtifactIndicatorState model entry node)
-    Assert.Equal("missing", rowFileIndicatorText model entry node)
+    Assert.Equal("", rowFileIndicatorText model entry node)
     Assert.False(rowArtifactAbsentClassEligible model entry node)
 
 let private desktopCaps : DesktopCapabilities =
@@ -248,7 +248,10 @@ let ``web or unmapped desktop only surfaces Unparsed`` () =
     Assert.Equal(
         Some WorkspacePathSyncStatus.Unparsed,
         rowWorkspacePathSyncStatus model entry node)
-    Assert.Equal("unparsed", rowFileIndicatorText model entry node)
+    Assert.Equal("\u2026", rowFileIndicatorText model entry node)
+    Assert.Equal(
+        Some "unparsed",
+        rowFileIndicator model entry node |> snd)
     Assert.Equal(
         Some "amb-row-sync-unparsed",
         rowWorkspacePathSyncClass model entry node)
@@ -340,6 +343,38 @@ let ``mapped desktop prefers node updateTime as server stamp`` () =
                     (Map.add fileId stamped baseModel.graph.nodes) }
     Assert.Equal(
         Some WorkspacePathSyncStatus.NewerOnServer,
+        rowWorkspacePathSyncStatus
+            model
+            entry
+            model.graph.nodes.[fileId])
+
+[<Fact>]
+let ``mapped Unparsed file keeps ledger stamps despite newer node updateTime`` () =
+    let baseModel, wsId, fileId = modelWithWorkspaceFile Unparsed
+    let entry = entryUnderParentNode wsId fileId baseModel
+    let local = System.DateTime(2026, 1, 1, 0, 0, 0, System.DateTimeKind.Utc)
+    let nodeServer =
+        System.DateTime(2026, 1, 2, 0, 0, 0, System.DateTimeKind.Utc)
+    let fact =
+        { relative = "note.md"
+          isDirectory = false
+          presence = WorkspacePathPresence.Both
+          localMtimeUtc = Some local
+          serverMtimeUtc = Some local }
+    let stamped =
+        { baseModel.graph.nodes.[fileId] with updateTime = nodeServer }
+    let model =
+        { baseModel with
+            desktopCapabilities = Some desktopCaps
+            workspaceMappedLabels = Set.singleton "home"
+            workspaceSyncFacts =
+                Map.ofList [ "home", Map.ofList [ "note.md", fact ] ]
+            graph =
+                Graph.fromNodes
+                    baseModel.graph.root
+                    (Map.add fileId stamped baseModel.graph.nodes) }
+    Assert.Equal(
+        Some WorkspacePathSyncStatus.Unparsed,
         rowWorkspacePathSyncStatus
             model
             entry

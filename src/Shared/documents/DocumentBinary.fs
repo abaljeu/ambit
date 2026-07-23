@@ -31,7 +31,7 @@ module DocumentBinary =
     let private normalizeRelative (relativePath: string) =
         relativePath.Replace('\\', '/').TrimStart('/')
 
-    let private extensionOf (relativePath: string) =
+    let extensionOf (relativePath: string) =
         let name =
             normalizeRelative relativePath
             |> fun path -> path.Split('/')

@@ -131,18 +131,6 @@
 				"isDefault": true
 			},
 			"problemMatcher": []
-		},
-		{
-			"label": "server: Build",
-			"type": "shell",
-			"command": "dotnet build src/Server -c Debug",
-			"group": "build"
-		},
-		{
-			"label": "fable: Build Client",
-			"type": "shell",
-			"command": "dotnet fable src/Client --outDir src/Server/wwwroot --sourceMaps",
-			"group": "build"
 		}
 	]
 }

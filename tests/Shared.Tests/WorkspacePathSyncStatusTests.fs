@@ -127,3 +127,36 @@ let ``effectiveServerMtime prefers node stamp over ledger`` () =
         WorkspacePathSyncStatus.effectiveServerMtime
             NodeUpdateTime.missing
             None)
+
+[<Fact>]
+let ``resolveWithNodeStamp ignores node stamp when Unparsed`` () =
+    let local = utc 2026 1 1 0
+    let synced =
+        fact
+            WorkspacePathPresence.Both
+            (Some local)
+            (Some local)
+    let nodeNewer = utc 2026 1 3 0
+    Assert.Equal(
+        Some WorkspacePathSyncStatus.Unparsed,
+        WorkspacePathSyncStatus.resolveWithNodeStamp
+            true (Some synced) nodeNewer true)
+    Assert.Equal(
+        Some WorkspacePathSyncStatus.NewerOnServer,
+        WorkspacePathSyncStatus.resolveWithNodeStamp
+            true (Some synced) nodeNewer false)
+
+[<Fact>]
+let ``glyph and shortLabel cover every sync status`` () =
+    Assert.Equal("synced", WorkspacePathSyncStatus.shortLabel WorkspacePathSyncStatus.Synced)
+    Assert.Equal("\u2713", WorkspacePathSyncStatus.glyph WorkspacePathSyncStatus.Synced)
+    Assert.Equal("srv only", WorkspacePathSyncStatus.shortLabel WorkspacePathSyncStatus.OnlyOnServer)
+    Assert.Equal("\u2601", WorkspacePathSyncStatus.glyph WorkspacePathSyncStatus.OnlyOnServer)
+    Assert.Equal("srv new", WorkspacePathSyncStatus.shortLabel WorkspacePathSyncStatus.NewerOnServer)
+    Assert.Equal("\u2193", WorkspacePathSyncStatus.glyph WorkspacePathSyncStatus.NewerOnServer)
+    Assert.Equal("desk only", WorkspacePathSyncStatus.shortLabel WorkspacePathSyncStatus.OnlyOnDesktop)
+    Assert.Equal("\u25A2", WorkspacePathSyncStatus.glyph WorkspacePathSyncStatus.OnlyOnDesktop)
+    Assert.Equal("desk new", WorkspacePathSyncStatus.shortLabel WorkspacePathSyncStatus.NewerOnDesktop)
+    Assert.Equal("\u2191", WorkspacePathSyncStatus.glyph WorkspacePathSyncStatus.NewerOnDesktop)
+    Assert.Equal("unparsed", WorkspacePathSyncStatus.shortLabel WorkspacePathSyncStatus.Unparsed)
+    Assert.Equal("\u2026", WorkspacePathSyncStatus.glyph WorkspacePathSyncStatus.Unparsed)

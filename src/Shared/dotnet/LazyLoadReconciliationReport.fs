@@ -95,7 +95,8 @@ module LazyLoadReconciliationReport =
         |> List.fold (fun ((graph, ops, failures), accepted) item ->
             match LazyLoadReconciliation.planAddedInfo graph workspaceId item.info with
             | Ok(next, nextOps) ->
-                (next, ops @ nextOps, failures), accepted @ [ item ]
+                (next, ops @ nextOps, failures),
+                accepted @ [ item, nextOps ]
             | Error message ->
                 (graph, ops, failures @ [ { path = item.path; message = message } ]),
                 accepted) (state, [])
@@ -124,12 +125,12 @@ module LazyLoadReconciliationReport =
                     item.oldInfo
                     item.newInfo))
 
-    let private finalizeAdded artifacts workspaceId graph item =
+    let private finalizeAdded artifacts workspaceId graph (item, createOps) =
         LazyLoadReconciliationApply.markAddedDocumentsUnparsed
             graph
             workspaceId
             [ item.info ]
-            []
+            createOps
         |> Result.bind (fun (withFiles, fileOps) ->
             LazyLoadReconciliationApply.parseDirInfoIfPresent
                 withFiles
@@ -146,7 +147,7 @@ module LazyLoadReconciliationReport =
         (artifacts: Map<string, string>)
         : Result<Report, string> =
         Path.workspaceByLabel graph workspaceLabel
-        |> Result.map (fun workspaceId ->
+        |> Result.bind (fun workspaceId ->
             let deleted, deletedFailures =
                 changes
                 |> List.choose (function
@@ -219,7 +220,7 @@ module LazyLoadReconciliationReport =
             let _, ops, failures =
                 acceptedAdds
                 |> foldItems
-                    (fun item -> item.path)
+                    (fun (item, _) -> item.path)
                     (finalizeAdded artifacts workspaceId)
                     afterModified
-            { ops = ops; failures = failures })
+            Ok { ops = ops; failures = failures })

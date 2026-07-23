@@ -23,20 +23,30 @@ module internal LazyLoadReconciliationApply =
         | Unparsed -> []
         | Current -> [ Op.SetDocumentState(nodeId, Current, Unparsed) ]
 
-    let markerRelativePath (info: LazyLoadReconciliationPath.PathInfo) =
-        if info.parts.IsEmpty then
-            ".amb"
-        else
-            String.concat "/" info.parts + "/.amb"
+    let private markParentCurrent (graph: Graph) nodeId =
+        match Map.tryFind nodeId graph.nodes with
+        | Some { kind = Special (Directory | Workspace)
+                 documentState = Unparsed } ->
+            [ Op.SetDocumentState(nodeId, Unparsed, Current) ]
+        | _ -> []
 
-    /// File and Directory stubs need deferred parse; `.amb` owners parse when text supplied.
-    let markAddedDocumentsUnparsed graph workspaceId added planned =
+    let private foldDocumentStateOps markFn graph nodeIds =
+        nodeIds
+        |> List.fold (fun result nodeId ->
+            result
+            |> Result.bind (fun (current, ops) ->
+                let stateOps = markFn current nodeId
+                applyOps current stateOps
+                |> Result.map (fun next -> next, ops @ stateOps)))
+            (Ok(graph, []))
+
+    let private addedStubIds graph workspaceId added planned =
         let createdStubIds kind =
             planned
             |> List.choose (function
                 | Op.NewSpecialNode(nodeId, k, _) when k = kind -> Some nodeId
                 | _ -> None)
-        let addedStubIds kind =
+        let resolvedStubIds kind =
             added
             |> List.choose (fun info ->
                 match LazyLoadReconciliationPath.resolveInfo graph workspaceId info with
@@ -44,16 +54,29 @@ module internal LazyLoadReconciliationApply =
                 | _ -> None)
         [ File; Directory ]
         |> List.collect (fun kind ->
-            createdStubIds kind @ addedStubIds kind)
+            createdStubIds kind @ resolvedStubIds kind)
         |> List.distinct
-        |> List.fold (fun result nodeId ->
-            result
-            |> Result.bind (fun (current, ops) ->
-                let stateOps = markUnparsed current nodeId
-                applyOps current stateOps
-                |> Result.map (fun next -> next, ops @ stateOps))) (Ok(graph, []))
-        |> Result.map (fun (finalGraph, stateOps) ->
-            finalGraph, planned @ stateOps)
+
+    let markerRelativePath (info: LazyLoadReconciliationPath.PathInfo) =
+        if info.parts.IsEmpty then
+            ".amb"
+        else
+            String.concat "/" info.parts + "/.amb"
+
+    /// File/Directory stubs → Unparsed; parents that gained those members → Current.
+    /// `planned` is only for stub discovery (NewSpecialNode ids); not re-emitted.
+    let markAddedDocumentsUnparsed graph workspaceId added planned =
+        let stubIds = addedStubIds graph workspaceId added planned
+        foldDocumentStateOps markUnparsed graph stubIds
+        |> Result.bind (fun (withStubs, stubOps) ->
+            let parentIds =
+                stubIds
+                |> List.choose (fun id ->
+                    Map.tryFind id withStubs.ownerParentByChild)
+                |> List.distinct
+            foldDocumentStateOps markParentCurrent withStubs parentIds
+            |> Result.map (fun (finalGraph, parentOps) ->
+                finalGraph, stubOps @ parentOps))
 
     let tryArtifactText
         (artifacts: Map<string, string>)

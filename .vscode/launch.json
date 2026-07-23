@@ -2,18 +2,18 @@
     "version": "0.2.0",
     "compounds": [
         {
-            "name": "Full Stack",
+            "name": "Local Server and Web Client",
             "configurations": [
                 "(Server for Full Stack)",
                 "(Client for Full Stack)"
             ],
-            "preLaunchTask": "fullstack: Build",
+            "preLaunchTask": "server: Build",
             "stopAll": true
         },
         {
             "name": "Desktop App and Local Server",
             "configurations": [
-                "Local Server",
+                "(Local Server)",
                 "(Desktop App for Local Server)"
             ],
             "preLaunchTask": "desktop: local: build",
@@ -45,7 +45,7 @@
             "justMyCode": false
         },
         {
-            "name": "Local Server",
+            "name": "(Local Server)",
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "server: Build",
@@ -60,7 +60,7 @@
             }
         },
         {
-            "name": "Local Client (Edge)",
+            "name": "(Local Client Edge)",
             "type": "msedge",
             "request": "launch",
             "preLaunchTask": "fable: Build Client",
@@ -72,10 +72,21 @@
             }
         },
         {
-            "name": "Local Client (Chrome)",
+            "name": "(Local Client Chrome)",
             "type": "chrome",
             "request": "launch",
             "preLaunchTask": "fable: Build Client",
+            "url": "http://localhost:5115/ambit",
+            "webRoot": "${workspaceFolder}/src/Server/wwwroot",
+            "sourceMapPathOverrides": {
+                "../../Client/*": "${workspaceFolder}/src/Client/*",
+                "../../../Shared/*": "${workspaceFolder}/src/Shared/*"
+            }
+        },
+        {
+            "name": "(Client for Full Stack)",
+            "type": "chrome",
+            "request": "launch",
             "url": "http://localhost:5115/ambit",
             "webRoot": "${workspaceFolder}/src/Server/wwwroot",
             "sourceMapPathOverrides": {
@@ -123,17 +134,6 @@
             "env": {
                 "ASPNETCORE_ENVIRONMENT": "Development",
                 "ASPNETCORE_URLS": "http://localhost:5115"
-            }
-        },
-        {
-            "name": "(Client for Full Stack)",
-            "type": "chrome",
-            "request": "launch",
-            "url": "http://localhost:5115/ambit",
-            "webRoot": "${workspaceFolder}/src/Server/wwwroot",
-            "sourceMapPathOverrides": {
-                "../../Client/*": "${workspaceFolder}/src/Client/*",
-                "../../../Shared/*": "${workspaceFolder}/src/Shared/*"
             }
         }
     ]

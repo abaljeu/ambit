@@ -3,6 +3,7 @@ namespace Gambol.Shared
 
 open System
 
+[<RequireQualifiedAccess>]
 type DocumentCodec =
     | Amb
     | Plain
@@ -12,19 +13,16 @@ type DocumentCodec =
 [<RequireQualifiedAccess>]
 module DocumentFormat =
 
-    let private normalizeRelative (relativePath: string) =
-        relativePath.Replace('\\', '/').TrimStart('/')
-
     let classifyCodec (relativePath: string) : Result<DocumentCodec, string> =
-        let path = normalizeRelative relativePath
+        let ext = DocumentBinary.extensionOf relativePath
 
-        if DocumentBinary.isBinaryExtension path then
+        if DocumentBinary.isBinaryExtension relativePath then
             Error DocumentBinary.parseError
-        elif path.EndsWith(".amb") then
+        elif (ext = ".amb") then
             Ok DocumentCodec.Amb
-        elif path.EndsWith(".md") then
+        elif (ext = ".md") then
             Ok DocumentCodec.Md
-        elif path.EndsWith(".cs") then
+        elif (ext = ".cs") || (ext = ".css") then
             Ok DocumentCodec.CStyle
         else
             Ok DocumentCodec.Plain

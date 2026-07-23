@@ -28,6 +28,13 @@ Move **Desktop Upload** stub creation from post-push disk→graph reconcile onto
 | 2 | Volume ladder | **Still TopLevel-cap** nodes. Do **not** always create a full stub tree when the ladder caps scope. |
 | 3 | Unparsed timing | **Things start Unparsed.** Directories become Current/parsed if/when member nodes are generated under them. |
 | 4 | TreeStructure / empty PUT placeholders | **No longer a concern.** Simply make Directory nodes and File nodes — no empty-PUT Unparsed placeholder shell for structure transfer. |
+| 5 | Stub ↔ inventory 1:1 | Every Directory/File stub from the Desktop Upload planner corresponds **1:1** with a volume-capped inventory path. TopLevel-cap limits which paths get stubs + transfers. |
+| 6 | Body PUT vs stub-only | A File stub gets a body PUT only when the transfer plan says **Body** (Full/TopLevel and ≤4 MiB / not oversized). Directories never get file bodies. TreeStructure / oversized Files are stubs without body upload. User framing: except files above the auto-upload size threshold, File nodes from this plan correspond 1:1 with uploaded files; Directory nodes are stubs without body. |
+| 7 | Datestamp postcondition | After upload: **client file, server file, and graph node have identical datestamp**. Same after download. |
+| 8 | No delayed persist after parse | **Must not** time-delay persist after a file is parsed. |
+| 9 | Transfer skip (directory scope) | **Upload directory:** skip PUT when server mtime is newer or same. **Download directory:** skip GET when desktop mtime is newer or same. |
+| 10 | Transfer skip (single file) | **Upload single file:** **allow** PUT even if server is newer/same. **Download single file:** **allow** GET even if desktop is newer/same. |
+| 11 | Reparse when skipped | Even when a file is not uploaded (skip), **reparse** that file. |
 
 ## Core flow
 
@@ -101,3 +108,6 @@ Prefer Shared-first; keep Server/Client checks thin.
 - Same browsing outcomes as pre-change stub reconcile tests, different mechanism.
 - No safety-net reconcile after Desktop Upload.
 - Web Upload without Desktop still gets stubs via disk→graph reconcile.
+- Stub set matches volume-capped inventory 1:1; body PUTs only for Body-planned Files (not dirs / TreeStructure / oversized).
+- After Upload or Download, client file, server file, and graph node datestamps match.
+- Directory-scope skip-if-same-or-newer holds; single-file scope always transfers; skipped uploads still reparse.

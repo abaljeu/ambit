@@ -389,14 +389,14 @@ module LazyLoadReconciliation =
                             workspaceId
                             added
                             planned
-                        |> Result.bind (fun (withFiles, fileOps) ->
+                        |> Result.bind (fun (withFiles, stateOps) ->
                             LazyLoadReconciliationApply.parseDirInfoInfos
                                 withFiles
                                 workspaceId
                                 artifacts
                                 added
                             |> Result.map (fun (_, parseOps) ->
-                                fileOps @ parseOps))))
+                                planned @ stateOps @ parseOps))))
 
     let planChangedPaths
         (graph: Graph)

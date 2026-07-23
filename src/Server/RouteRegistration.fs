@@ -180,18 +180,20 @@ module RouteRegistration =
     let private createBuildStamps (app: WebApplication) : RouteAssets * BuildStamps =
         let webRoot = app.Environment.WebRootPath
         let assets = createRouteAssets webRoot
-        let pageArtifactUtc = pageArtifactUtc webRoot assets
+        let readPageArtifactUtc () = pageArtifactUtc webRoot assets
         let serverAssemblyPath = System.Reflection.Assembly.GetExecutingAssembly().Location
         if String.IsNullOrWhiteSpace serverAssemblyPath then
             failwith "Could not determine server assembly path for build timestamp."
         if not (File.Exists serverAssemblyPath) then
             failwithf "Could not read server assembly timestamp: missing file at '%s'." serverAssemblyPath
-        let deployUtc = max (File.GetLastWriteTimeUtc(serverAssemblyPath)) pageArtifactUtc
+        // Deploy stamps freeze at startup; page stamps re-read wwwroot mtimes (Fable watch).
+        let deployUtc = max (File.GetLastWriteTimeUtc(serverAssemblyPath)) (readPageArtifactUtc ())
         let torontoTz = TimeZoneInfo.FindSystemTimeZoneById("America/Toronto")
         let formatStamp (utc: DateTime) =
             TimeZoneInfo.ConvertTimeFromUtc(utc, torontoTz).ToString("yyyy-MM-dd HH:mm:ss") + " ET"
         let pageUtc () =
-            if pageArtifactUtc > DateTime.MinValue then pageArtifactUtc else deployUtc
+            let artifactUtc = readPageArtifactUtc ()
+            if artifactUtc > DateTime.MinValue then artifactUtc else deployUtc
         let epochSec (utc: DateTime) =
             int (utc.Subtract(DateTime.UnixEpoch).TotalSeconds)
         let inlineCommandDockSprite () =
@@ -202,7 +204,8 @@ module RouteRegistration =
             DeployStamp = fun () -> formatStamp deployUtc
             PageBuildStamp =
                 fun () ->
-                    if pageArtifactUtc > DateTime.MinValue then formatStamp pageArtifactUtc
+                    let artifactUtc = readPageArtifactUtc ()
+                    if artifactUtc > DateTime.MinValue then formatStamp artifactUtc
                     else "unknown"
             PageBuildEpochSec = fun () -> pageUtc () |> epochSec
             DeployEpochSec = fun () -> epochSec deployUtc

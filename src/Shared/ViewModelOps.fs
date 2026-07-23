@@ -16,7 +16,8 @@ module ViewModel =
         | ViewModelDomPlan.SetTextClasses classes -> SetTextClasses classes
         | ViewModelDomPlan.SetFoldArrow arrow -> SetFoldArrow arrow
         | ViewModelDomPlan.SetNodeName name -> SetNodeName name
-        | ViewModelDomPlan.SetFileIndicator text -> SetFileIndicator text
+        | ViewModelDomPlan.SetFileIndicator (text, title) ->
+            SetFileIndicator (text, title)
 
     let (|RemoveRow|CreateRow|RecreateRow|PatchRow|) mutation =
         match mutation with
@@ -96,6 +97,8 @@ module ViewModel =
     let specialKindRowClass = ViewModelRowState.specialKindRowClass
     let specialKindSymbol = ViewModelRowState.specialKindSymbol
     let rowArtifactAbsentClassEligible = ViewModelRowState.rowArtifactAbsentClassEligible
+    let rowFileIndicatorKindSymbol = ViewModelRowState.rowFileIndicatorKindSymbol
+    let rowFileIndicator = ViewModelRowState.rowFileIndicator
     let rowFileIndicatorText = ViewModelRowState.rowFileIndicatorText
     let rowOwnershipClass = ViewModelRowState.rowOwnershipClass
     let rowFileUnparsedClassEligible = ViewModelRowState.rowFileUnparsedClassEligible

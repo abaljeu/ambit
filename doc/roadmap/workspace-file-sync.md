@@ -121,7 +121,7 @@ Transfer-byte sum excludes \>4 MiB bodies and TreeStructure empty placeholders. 
 
 Per-path ledger in `%LocalAppData%/Gambol/sync-ledger-{label}.json` beside mappings (`config.json`). Seeded on first scoped Upload/Download from full-workspace PROPFIND + local inventory. Later scoped syncs update only touched rows.
 
-**Skip-if-newer (UTC):** For each file in scope, skip transfer when target mtime is same or newer than source — Upload skips PUT when server ≥ local; Download skips GET when local ≥ server. Directories: MKCOL remains idempotent (405 ok); dir mtime not tracked.
+**Skip-if-newer (UTC), directory scope:** Upload skips PUT when server ≥ local; Download skips GET when local ≥ server. **Single-file scope:** always allow transfer (do not skip for newer/same target). Skipped Upload still reparses. Locked detail: [[workspace-upload-client-structure]]. Directories: MKCOL remains idempotent (405 ok); dir mtime not tracked. After successful Upload or Download, client file, server file, and graph node share the same datestamp.
 
 After successful transfer, ledger row gets current local/server mtimes and `lastServerHead` when finish-commit returns it. Rows include `presence` and `lastOp` for future selective delete propagation.
 

@@ -136,6 +136,7 @@ Server integration: server commit with rename/delete → reconcile produces corr
 
 - File-tree sync ends at successful finish-commit or client Download. Lazy Load is not part of WebDAV transfer.
 - **Desktop Upload structure (planned):** client owns stub creation; no post-upload directory reconcile on that path ([[workspace-upload-client-structure]]). Disk→graph reconcile remains for web / repair.
+- **No delayed persist after parse:** parse must not schedule a time-delayed persist (locked on [[workspace-upload-client-structure]]).
 - The server owns disk→graph reconciliation when used, because it owns authoritative disk and graph. Clients observe resulting Changes through polling.
 - Reconciliation uses changed paths rather than a full workspace walk and flows only from server disk to graph.
 - Structural reconciliation does not parse source contents.

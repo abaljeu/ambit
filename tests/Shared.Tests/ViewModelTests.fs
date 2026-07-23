@@ -272,7 +272,7 @@ let ``specialKindRowClass maps each SpecialKind to amb-row-special class`` () =
     Assert.Equal(None, specialKindRowClass otherId Normal)
 
 [<Fact>]
-let ``rowFileIndicatorText shows kind symbol and desktop status wins on active row`` () =
+let ``rowFileIndicatorText shows Workspaces symbol only without sync status`` () =
     let graph = Graph.create ()
     let wsNode = graph.nodes.[Graph.workspacesId]
     let siteMap, _ = buildSiteMap graph
@@ -300,10 +300,10 @@ let ``rowFileIndicatorText shows kind symbol and desktop status wins on active r
 
     let activeNode = checkedModel.graph.nodes.[activeEntry.nodeId]
 
-    Assert.Equal("old", rowFileIndicatorText checkedModel activeEntry activeNode)
+    Assert.Equal("", rowFileIndicatorText checkedModel activeEntry activeNode)
 
 [<Fact>]
-let ``rowFileIndicatorText shows sync label on active special file node`` () =
+let ``rowFileIndicatorText is blank on active special file without sync status`` () =
     let graph, wsId, _, fileId = graphWithWorkspaceTree ()
     let parentId = graph.nodes.[fileId].owner
     let parent = graph.nodes.[parentId]
@@ -322,10 +322,10 @@ let ``rowFileIndicatorText shows sync label on active special file node`` () =
 
     let fileNode = checkedModel.graph.nodes.[fileId]
 
-    Assert.Equal("old", rowFileIndicatorText checkedModel fileEntry fileNode)
+    Assert.Equal("", rowFileIndicatorText checkedModel fileEntry fileNode)
 
 [<Fact>]
-let ``rowFileIndicatorText shows missing and absent class for active server status`` () =
+let ``rowFileIndicatorText is blank for active server missing artifact`` () =
     let model =
         selectedModelWithText "load [[//home/missing.txt]]"
         |> withServerStatus
@@ -340,7 +340,7 @@ let ``rowFileIndicatorText shows missing and absent class for active server stat
 
     let activeNode = checkedModel.graph.nodes.[activeEntry.nodeId]
 
-    Assert.Equal("missing", rowFileIndicatorText checkedModel activeEntry activeNode)
+    Assert.Equal("", rowFileIndicatorText checkedModel activeEntry activeNode)
     Assert.True(rowArtifactAbsentClassEligible checkedModel activeEntry activeNode)
 
 // ---------------------------------------------------------------------------

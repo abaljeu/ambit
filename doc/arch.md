@@ -70,7 +70,7 @@ scripts/           desktop.sh, fullstack-build.sh, azure helpers
 
 ```
 
-VS Code: default build runs Fable watch + server (`dev: Watch + Run`). Desktop: `desktop: Run` → `scripts/desktop.sh run`.
+VS Code: default build runs Fable watch + server (`dev: Watch + Run`). Watch-task Server and F5 (`Local Server` / `Full Stack`) are alternate starters on `:5115` — see [[reference/dev-debug-workflow.md]]. Desktop: `desktop: Run` → `scripts/desktop.sh run`.
 
 ## Client
 

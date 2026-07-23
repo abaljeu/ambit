@@ -397,18 +397,25 @@ module ViewModelRowState =
             workspaceMappedLabels = mappedLabels
             workspaceSyncFacts = factsByLabel }
 
-    let rowFileIndicatorText (model: VM) (entry: SiteEntry) (node: Node) : string =
+    /// Workspaces and Trash only — other kinds use sync glyphs or blank.
+    let rowFileIndicatorKindSymbol (nodeId: NodeId) (kind: NodeKind) : string option =
+        if nodeId = Graph.trashId then
+            Some "\u00D7"
+        else
+            match kind with
+            | Special Workspaces -> Some "\u229E"
+            | _ -> None
+
+    let rowFileIndicator (model: VM) (entry: SiteEntry) (node: Node) : string * string option =
         match rowWorkspacePathSyncStatus model entry node with
-        | Some status -> WorkspacePathSyncStatus.shortLabel status
+        | Some status ->
+            WorkspacePathSyncStatus.glyph status,
+            Some(WorkspacePathSyncStatus.shortLabel status)
         | None ->
-            match rowArtifactIndicatorState model entry node with
-            | Some state -> DesktopFileIndicator.toText state
-            | None ->
-                let desktop = desktopFileIndicatorText model entry node
-                if desktop <> "" then desktop
-                else
-                    specialKindSymbol node.id node.kind
-                    |> Option.defaultValue ""
+            rowFileIndicatorKindSymbol node.id node.kind |> Option.defaultValue "", None
+
+    let rowFileIndicatorText (model: VM) (entry: SiteEntry) (node: Node) : string =
+        rowFileIndicator model entry node |> fst
 
     let addSpecialKindRowClass (nodeId: NodeId) (kind: NodeKind) (className: string) : string =
         match specialKindRowClass nodeId kind with
