@@ -252,8 +252,11 @@ type Effect =
     | RequestServerFileStatus of nodeId: NodeId * path: string
     /// Desktop: refresh mapped labels + sync-ledger facts for path-status UI.
     | RequestWorkspacePathSyncSnapshot
-    /// After create or Upload: client structure Change, then ContinueWorkspacePush.
+    /// After create or Upload: async inventory, then local stubs + structure POST.
     | ContinueWorkspaceStubsThenPush of WorkspaceSyncScope * parseFileId: NodeId option
+    /// After local stubs painted: async structure Change POST, then workspace-push.
+    | ContinuePostUploadStructure of
+        Change * WorkspaceSyncScope * parseFileId: NodeId option
     /// Deferred async workspace-push (`postJson`); Some fileId → parse after push.
     | ContinueWorkspacePush of WorkspaceSyncScope * parseFileId: NodeId option
     /// Poll `GET /_desktop/workspace-download?id=` until job completes or fails.

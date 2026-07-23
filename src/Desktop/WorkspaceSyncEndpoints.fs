@@ -155,13 +155,24 @@ module WorkspaceSyncEndpoints =
             job.finished
             |> Option.map (fun dt -> dt.ToString("O"))
             |> Option.defaultValue ""
+        let stampsJson =
+            job.pathStamps
+            |> List.map (fun (rel, mtime) ->
+                "{\"relative\":"
+                + quoteJson rel
+                + ",\"mtimeUtc\":"
+                + quoteJson (mtime.ToUniversalTime().ToString("o"))
+                + "}")
+            |> String.concat ","
         sprintf
-            "{\"id\":%s,\"state\":%s,\"detail\":%s,\"started\":%s,\"finished\":%s}"
+            "{\"id\":%s,\"state\":%s,\"detail\":%s,\"started\":%s,\"finished\":%s,\"label\":%s,\"pathStamps\":[%s]}"
             (quoteJson (job.id.ToString()))
             (quoteJson state)
             (quoteJson job.detail)
             (quoteJson started)
             (quoteJson finished)
+            (quoteJson job.scope.label)
+            stampsJson
 
     let private clientHint (context: HttpContext) =
         match

@@ -341,19 +341,21 @@ let ``mapped desktop NewerOnServer when ledger server ahead of local`` () =
             model.graph.nodes.[fileId])
 
 [<Fact>]
-let ``mapped desktop Synced when ledger aligned after upload despite node touch`` () =
+let ``mapped desktop NewerOnDesktop when node stamp lags download-aligned ledger`` () =
     let baseModel, wsId, fileId = modelWithWorkspaceFile Current
     let entry = entryUnderParentNode wsId fileId baseModel
-    let t = System.DateTime(2026, 1, 1, 0, 0, 0, System.DateTimeKind.Utc)
+    let local =
+        System.DateTime(2026, 1, 2, 0, 0, 0, System.DateTimeKind.Utc)
+    let nodeOlder =
+        System.DateTime(2026, 1, 1, 0, 0, 0, System.DateTimeKind.Utc)
     let fact =
         { relative = "note.md"
           isDirectory = false
           presence = WorkspacePathPresence.Both
-          localMtimeUtc = Some t
-          serverMtimeUtc = Some t }
-    let touched =
-        { baseModel.graph.nodes.[fileId] with
-            updateTime = System.DateTime(2026, 1, 3, 0, 0, 0, System.DateTimeKind.Utc) }
+          localMtimeUtc = Some local
+          serverMtimeUtc = Some local }
+    let stamped =
+        { baseModel.graph.nodes.[fileId] with updateTime = nodeOlder }
     let model =
         { baseModel with
             desktopCapabilities = Some desktopCaps
@@ -363,9 +365,71 @@ let ``mapped desktop Synced when ledger aligned after upload despite node touch`
             graph =
                 Graph.fromNodes
                     baseModel.graph.root
-                    (Map.add fileId touched baseModel.graph.nodes) }
+                    (Map.add fileId stamped baseModel.graph.nodes) }
+    Assert.Equal(
+        Some WorkspacePathSyncStatus.NewerOnDesktop,
+        rowWorkspacePathSyncStatus
+            model
+            entry
+            model.graph.nodes.[fileId])
+
+[<Fact>]
+let ``mapped desktop Synced when node stamp equals aligned ledger`` () =
+    let baseModel, wsId, fileId = modelWithWorkspaceFile Current
+    let entry = entryUnderParentNode wsId fileId baseModel
+    let t = System.DateTime(2026, 1, 1, 0, 0, 0, System.DateTimeKind.Utc)
+    let fact =
+        { relative = "note.md"
+          isDirectory = false
+          presence = WorkspacePathPresence.Both
+          localMtimeUtc = Some t
+          serverMtimeUtc = Some t }
+    let stamped =
+        { baseModel.graph.nodes.[fileId] with updateTime = t }
+    let model =
+        { baseModel with
+            desktopCapabilities = Some desktopCaps
+            workspaceMappedLabels = Set.singleton "home"
+            workspaceSyncFacts =
+                Map.ofList [ "home", Map.ofList [ "note.md", fact ] ]
+            graph =
+                Graph.fromNodes
+                    baseModel.graph.root
+                    (Map.add fileId stamped baseModel.graph.nodes) }
     Assert.Equal(
         Some WorkspacePathSyncStatus.Synced,
+        rowWorkspacePathSyncStatus
+            model
+            entry
+            model.graph.nodes.[fileId])
+
+[<Fact>]
+let ``mapped desktop NewerOnServer when persist stamp newer than aligned local`` () =
+    let baseModel, wsId, fileId = modelWithWorkspaceFile Current
+    let entry = entryUnderParentNode wsId fileId baseModel
+    let local = System.DateTime(2026, 1, 1, 0, 0, 0, System.DateTimeKind.Utc)
+    let stamp =
+        System.DateTime(2026, 1, 3, 0, 0, 0, System.DateTimeKind.Utc)
+    let fact =
+        { relative = "note.md"
+          isDirectory = false
+          presence = WorkspacePathPresence.Both
+          localMtimeUtc = Some local
+          serverMtimeUtc = Some local }
+    let stamped =
+        { baseModel.graph.nodes.[fileId] with updateTime = stamp }
+    let model =
+        { baseModel with
+            desktopCapabilities = Some desktopCaps
+            workspaceMappedLabels = Set.singleton "home"
+            workspaceSyncFacts =
+                Map.ofList [ "home", Map.ofList [ "note.md", fact ] ]
+            graph =
+                Graph.fromNodes
+                    baseModel.graph.root
+                    (Map.add fileId stamped baseModel.graph.nodes) }
+    Assert.Equal(
+        Some WorkspacePathSyncStatus.NewerOnServer,
         rowWorkspacePathSyncStatus
             model
             entry

@@ -30,11 +30,20 @@ module WorkspaceDownloadManager =
           queue = WorkspaceDownloadQueue.empty
           lockObj = obj() }
 
-    let rec finishJob (mgr: Manager) (success: bool) (detail: string) =
+    let rec finishJob
+        (mgr: Manager)
+        (success: bool)
+        (detail: string)
+        (pathStamps: (string * DateTime) list)
+        =
         let nextJob =
             lock mgr.lockObj (fun () ->
                 mgr.queue <-
-                    WorkspaceDownloadQueue.finishRunning mgr.queue success detail
+                    WorkspaceDownloadQueue.finishRunning
+                        mgr.queue
+                        success
+                        detail
+                        pathStamps
                 mgr.queue.running)
         match nextJob with
         | Some job ->
@@ -43,7 +52,7 @@ module WorkspaceDownloadManager =
 
     and runJob (mgr: Manager) (job: WorkspaceDownloadQueue.DownloadJob) =
         match mgr.resolveMappedRoot job.scope.label with
-        | Error e -> finishJob mgr false e
+        | Error e -> finishJob mgr false e []
         | Ok mappedRoot ->
             let result =
                 WorkspaceFileSync.getStaged
@@ -54,8 +63,8 @@ module WorkspaceDownloadManager =
                     mgr.cookieHeader
                     job.id
             match result with
-            | Ok r -> finishJob mgr true r.detail
-            | Error err -> finishJob mgr false err
+            | Ok r -> finishJob mgr true r.detail r.pathStamps
+            | Error err -> finishJob mgr false err []
 
     let tryEnqueue (mgr: Manager) (scope: WorkspaceSyncScope) =
         lock mgr.lockObj (fun () ->

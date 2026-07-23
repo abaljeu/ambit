@@ -17,7 +17,15 @@ type CStyleReadResult = {
 
 [<RequireQualifiedAccess>]
 module CStyleDocument =
-
+    let public extensions = [
+        ".c"
+        ".css"
+        ".js"
+        ".ts"
+        ".json"
+        ".cpp"
+        ".h"
+        ]
     let private nl = Environment.NewLine
     let private structuralName = "code-brace"
     let private structuralNames = set [ structuralName ]

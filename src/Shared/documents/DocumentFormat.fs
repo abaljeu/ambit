@@ -22,7 +22,7 @@ module DocumentFormat =
             Ok DocumentCodec.Amb
         elif (ext = ".md") then
             Ok DocumentCodec.Md
-        elif (ext = ".cs") || (ext = ".css") then
+        elif (List.contains ext CStyleDocument.extensions ) then
             Ok DocumentCodec.CStyle
         else
             Ok DocumentCodec.Plain

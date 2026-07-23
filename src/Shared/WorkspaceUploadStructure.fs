@@ -285,6 +285,25 @@ module WorkspaceUploadStructure =
                     | Some { kind = Special File } -> Some nodeId
                     | _ -> None)
 
+    /// After download: SetUpdateTime so graph matches local/server mtime (Locked #7).
+    let planAlignFileStampOps
+        (graph: Graph)
+        (workspaceLabel: string)
+        (stamps: (string * DateTime) list)
+        : Op list =
+        stamps
+        |> List.choose (fun (relative, mtimeUtc) ->
+            match tryResolveFileNode graph workspaceLabel relative with
+            | None -> None
+            | Some fileId ->
+                let node = graph.nodes.[fileId]
+                let stamp = NodeUpdateTime.toDbPrecision mtimeUtc
+
+                if node.updateTime = stamp then
+                    None
+                else
+                    Some(Op.SetUpdateTime(fileId, node.updateTime, stamp)))
+
     /// Ops for one Change: Directory/File stubs, reuse owned paths, Unparsed.
     /// `items` must already be the volume-capped path set (1:1).
     let planStubOps

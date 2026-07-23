@@ -134,13 +134,58 @@ let createRuntime (initialModel: VM) =
         | RequestServerFileStatus (nodeId, path) -> runServerFileStatus nodeId path
         | RequestWorkspacePathSyncSnapshot -> runWorkspacePathSyncSnapshot ()
         | ContinueWorkspaceStubsThenPush (scope, parseFileId) ->
-            // Delay past the current frame so Uploading + workspace node can paint.
+            // Delay past the current frame so Uploading can paint, then async inventory.
             setTimeout
                 (fun () ->
-                    dispatch (
-                        ApplyOp (continueWorkspaceStubsThenPush scope parseFileId)))
+                    let body = encodeWorkspaceInventoryBody scope
+                    postJson
+                        "/_desktop/workspace-inventory"
+                        body
+                        (fun text ->
+                            dispatch (
+                                ApplyOp (
+                                    completeUploadInventory
+                                        scope
+                                        parseFileId
+                                        text)))
+                        (fun status text ->
+                            dispatch (
+                                ApplyOp (
+                                    failWorkspacePushHttp status text)))
+                        (fun () ->
+                            dispatch (
+                                ApplyOp (
+                                    failWorkspacePush
+                                        "workspace-inventory request failed")))
+                        (jsonMutatingPostHeaders ()))
                 50
             |> ignore
+        | ContinuePostUploadStructure (change, scope, parseFileId) ->
+            // Stubs already in the model (DOM patched before effects). Async POST.
+            let body =
+                SyncBatch.toDeltaChain model.revision.Value [ change ]
+                |> encodePendingBatchBody
+            let url = sprintf "/%s/changes" currentFile
+            postJson
+                url
+                body
+                (fun text ->
+                    dispatch (
+                        ApplyOp (
+                            completeUploadStructurePost
+                                scope
+                                parseFileId
+                                text)))
+                (fun status text ->
+                    dispatch (
+                        ApplyOp (
+                            failUploadStructurePostHttp status text)))
+                (fun () ->
+                    dispatch (
+                        ApplyOp (
+                            failUploadStructurePost
+                                "structure post failed")))
+                (jsonMutatingPostHeaders ())
         | ContinueWorkspacePush (scope, parseFileId) ->
             // Ensure-map may sync-dialog; heavy WebDAV push must use async fetch.
             setTimeout

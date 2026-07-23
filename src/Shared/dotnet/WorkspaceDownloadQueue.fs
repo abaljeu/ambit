@@ -18,7 +18,8 @@ module WorkspaceDownloadQueue =
           state: JobState
           detail: string
           started: DateTime option
-          finished: DateTime option }
+          finished: DateTime option
+          pathStamps: (string * DateTime) list }
 
     type EnqueueResult =
         | Started of DownloadJob
@@ -41,7 +42,8 @@ module WorkspaceDownloadQueue =
           state = JobState.Queued
           detail = ""
           started = None
-          finished = None }
+          finished = None
+          pathStamps = [] }
 
     let tryEnqueue (state: QueueState) (scope: WorkspaceSyncScope) : EnqueueResult * QueueState =
         match state.running, state.queued with
@@ -75,7 +77,12 @@ module WorkspaceDownloadQueue =
         (active @ state.history)
         |> List.tryFind (fun j -> j.id = jobId)
 
-    let finishRunning (state: QueueState) (success: bool) (detail: string) : QueueState =
+    let finishRunning
+        (state: QueueState)
+        (success: bool)
+        (detail: string)
+        (pathStamps: (string * DateTime) list)
+        : QueueState =
         match state.running with
         | None -> state
         | Some running ->
@@ -83,7 +90,8 @@ module WorkspaceDownloadQueue =
                 { running with
                     state = if success then JobState.Completed else JobState.Failed
                     detail = detail
-                    finished = Some DateTime.UtcNow }
+                    finished = Some DateTime.UtcNow
+                    pathStamps = if success then pathStamps else [] }
             let nextRunning =
                 state.queued
                 |> Option.map (fun q ->

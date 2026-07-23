@@ -246,3 +246,43 @@ let ``tryResolveFileNode finds owned file by relative path`` () =
             "home"
             "docs"
         |> Option.isNone)
+
+[<Fact>]
+let ``planAlignFileStampOps SetUpdateTime when node lags download mtime`` () =
+    let _, graph0 = Graph.create () |> addWorkspace "home"
+    let graph1 =
+        requirePlan
+            graph0
+            "home"
+            [ item "note.txt" false ]
+        |> applyOps graph0
+    let fileId =
+        WorkspaceUploadStructure.tryResolveFileNode graph1 "home" "note.txt"
+        |> Option.get
+    let oldStamp =
+        System.DateTime(2026, 1, 1, 0, 0, 0, System.DateTimeKind.Utc)
+    let newStamp =
+        System.DateTime(2026, 1, 2, 0, 0, 0, System.DateTimeKind.Utc)
+    let stamped =
+        { graph1.nodes.[fileId] with updateTime = oldStamp }
+    let graph2 =
+        Graph.fromNodes
+            graph1.root
+            (Map.add fileId stamped graph1.nodes)
+    match
+        WorkspaceUploadStructure.planAlignFileStampOps
+            graph2
+            "home"
+            [ "note.txt", newStamp ]
+    with
+    | [ Op.SetUpdateTime(id, oldT, newT) ] ->
+        Assert.Equal(fileId, id)
+        Assert.Equal(oldStamp, oldT)
+        Assert.Equal(NodeUpdateTime.toDbPrecision newStamp, newT)
+    | other -> Assert.Fail($"expected one SetUpdateTime, got {other}")
+    Assert.True(
+        WorkspaceUploadStructure.planAlignFileStampOps
+            graph2
+            "home"
+            [ "note.txt", oldStamp ]
+        |> List.isEmpty)

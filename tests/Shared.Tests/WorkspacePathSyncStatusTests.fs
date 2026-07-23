@@ -129,7 +129,7 @@ let ``effectiveServerMtime prefers node stamp over ledger`` () =
             None)
 
 [<Fact>]
-let ``resolveWithNodeStamp prefers aligned ledger over node touch stamp`` () =
+let ``resolveWithNodeStamp NewerOnServer when node stamp newer than aligned local`` () =
     let local = utc 2026 1 1 0
     let synced =
         fact
@@ -138,9 +138,37 @@ let ``resolveWithNodeStamp prefers aligned ledger over node touch stamp`` () =
             (Some local)
     let nodeNewer = utc 2026 1 3 0
     Assert.Equal(
-        Some WorkspacePathSyncStatus.Synced,
+        Some WorkspacePathSyncStatus.NewerOnServer,
         WorkspacePathSyncStatus.resolveWithNodeStamp
             true (Some synced) nodeNewer false)
+
+[<Fact>]
+let ``resolveWithNodeStamp Synced when node stamp equals aligned local`` () =
+    let t = utc 2026 1 1 0
+    let synced =
+        fact
+            WorkspacePathPresence.Both
+            (Some t)
+            (Some t)
+    Assert.Equal(
+        Some WorkspacePathSyncStatus.Synced,
+        WorkspacePathSyncStatus.resolveWithNodeStamp
+            true (Some synced) t false)
+
+/// Download sets local+ledger to server mtime but leaves node.updateTime old → desk new.
+[<Fact>]
+let ``resolveWithNodeStamp NewerOnDesktop when node stamp lags aligned local`` () =
+    let local = utc 2026 1 2 0
+    let nodeOlder = utc 2026 1 1 0
+    let aligned =
+        fact
+            WorkspacePathPresence.Both
+            (Some local)
+            (Some local)
+    Assert.Equal(
+        Some WorkspacePathSyncStatus.NewerOnDesktop,
+        WorkspacePathSyncStatus.resolveWithNodeStamp
+            true (Some aligned) nodeOlder false)
 
 [<Fact>]
 let ``resolveWithNodeStamp classifies NewerOnServer when ledger server ahead`` () =
@@ -170,7 +198,7 @@ let ``resolveWithNodeStamp ignores node stamp when Unparsed`` () =
         WorkspacePathSyncStatus.resolveWithNodeStamp
             true (Some synced) nodeNewer true)
     Assert.Equal(
-        Some WorkspacePathSyncStatus.Synced,
+        Some WorkspacePathSyncStatus.NewerOnServer,
         WorkspacePathSyncStatus.resolveWithNodeStamp
             true (Some synced) nodeNewer false)
 

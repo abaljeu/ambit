@@ -16,7 +16,9 @@ module WorkspaceFileSync =
           detail: string
           mode: WorkspaceSyncLimits.Mode option
           skippedPaths: string list
-          uploadedPaths: string list }
+          uploadedPaths: string list
+          /// Relative path + PROPFIND/server mtime after transfer (download align).
+          pathStamps: (string * DateTime) list }
 
     let private localFull (mappedRoot: string) (relative: string) =
         if relative = "" then mappedRoot
@@ -517,7 +519,8 @@ module WorkspaceFileSync =
                                           detail = detail
                                           mode = Some mode
                                           skippedPaths = skippedPaths |> Seq.toList
-                                          uploadedPaths = uploadedPaths |> Seq.toList }
+                                          uploadedPaths = uploadedPaths |> Seq.toList
+                                          pathStamps = [] }
 
     let private stagingRoot (mappedRoot: string) (jobId: Guid) =
         Path.Combine(mappedRoot, ".gambol-dl-tmp", jobId.ToString("N"))
@@ -747,6 +750,8 @@ module WorkspaceFileSync =
                         | Ok () ->
                             discardStaging stage
 
+                            let pathStamps = ResizeArray<string * DateTime>()
+
                             for rel in downloadedPaths do
                                 match
                                     entryMap
@@ -755,6 +760,7 @@ module WorkspaceFileSync =
                                 with
                                 | None -> ()
                                 | Some serverM ->
+                                    pathStamps.Add(rel, serverM)
                                     ledger <-
                                         WorkspaceSyncLedger.recordDownload
                                             ledger
@@ -784,7 +790,8 @@ module WorkspaceFileSync =
                                       detail = detail
                                       mode = Some mode
                                       skippedPaths = []
-                                      uploadedPaths = downloadedPaths |> Seq.toList }
+                                      uploadedPaths = downloadedPaths |> Seq.toList
+                                      pathStamps = pathStamps |> Seq.toList }
 
     /// Pull: PROPFIND inventory → limited GET under mapped root (blocking; manager preferred).
     let get

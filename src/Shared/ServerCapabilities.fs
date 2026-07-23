@@ -32,7 +32,9 @@ type DesktopWorkspaceDownloadJob =
       state: string
       detail: string
       started: string option
-      finished: string option }
+      finished: string option
+      label: string
+      pathStamps: (string * System.DateTime) list }
 
 type DesktopPickFolderResponse =
     { cancelled: bool
@@ -107,6 +109,16 @@ module DesktopWorkspaceSyncResponse =
 
 [<RequireQualifiedAccess>]
 module DesktopWorkspaceDownloadJob =
+    let private decodePathStamp : Decoder<string * System.DateTime> =
+        Decode.object (fun get ->
+            get.Required.Field "relative" Decode.string,
+            get.Required.Field "mtimeUtc" Decode.string)
+        |> Decode.andThen (fun (relative, mtimeText) ->
+            match System.DateTime.TryParse mtimeText with
+            | true, dt ->
+                Decode.succeed (relative, dt.ToUniversalTime())
+            | _ -> Decode.fail ("invalid mtimeUtc: " + mtimeText))
+
     let decoder: Decoder<DesktopWorkspaceDownloadJob> =
         Decode.object (fun get ->
             { id = get.Required.Field "id" Decode.string
@@ -115,7 +127,15 @@ module DesktopWorkspaceDownloadJob =
                 get.Optional.Field "detail" Decode.string
                 |> Option.defaultValue ""
               started = get.Optional.Field "started" Decode.string
-              finished = get.Optional.Field "finished" Decode.string })
+              finished = get.Optional.Field "finished" Decode.string
+              label =
+                get.Optional.Field "label" Decode.string
+                |> Option.defaultValue ""
+              pathStamps =
+                get.Optional.Field
+                    "pathStamps"
+                    (Decode.list decodePathStamp)
+                |> Option.defaultValue [] })
 
 [<RequireQualifiedAccess>]
 module DesktopPickFolderResponse =

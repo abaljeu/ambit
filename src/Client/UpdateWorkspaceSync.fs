@@ -157,11 +157,6 @@ let private inventoryToStubItems (items: DesktopInventoryItem list) : WorkspaceU
         { relative = i.relative
           isDirectory = i.isDirectory })
 
-let private fetchUploadInventory (scope: WorkspaceSyncScope) =
-    match postDesktop "/_desktop/workspace-inventory" (encodeSyncScope scope) with
-    | Error e -> Error e
-    | Ok text -> decodeDesktopUploadInventory text
-
 /// Apply + synchronous POST so server graph has the workspace before push/reconcile.
 let private applyAndPostSync (change: Change) (model: VM) : Result<VM, string> =
     let state: State =
@@ -189,21 +184,20 @@ let private applyAndPostSync (change: Change) (model: VM) : Result<VM, string> =
                         history = newState.history
                         revision = ack.revision }
 
-let private postStructureChange
-    (model: VM)
-    (workspace: string)
-    (items: DesktopInventoryItem list)
-    : Result<VM, string> =
-    let stubItems = inventoryToStubItems items
-    match WorkspaceUploadStructure.planStubOps model.graph workspace stubItems with
-    | Error e -> Error e
-    | Ok ops when ops.IsEmpty -> Ok model
-    | Ok ops ->
-        let change =
-            { id = model.revision.Value
-              changeId = System.Guid.NewGuid()
-              ops = ops }
-        applyAndPostSync change model
+/// Local graph only — stubs paint before structure POST / body push.
+let private applyStructureLocally (change: Change) (model: VM) : Result<VM, string> =
+    let state: State =
+        { graph = model.graph
+          revision = model.revision
+          history = model.history }
+    match History.applyChange change state with
+    | ApplyResult.Invalid (_, msg) -> Error msg
+    | ApplyResult.Unchanged _ -> Error "change not applied"
+    | ApplyResult.Changed newState ->
+        Ok
+            { model with
+                graph = newState.graph
+                history = newState.history }
 
 let private reparseSkippedUploadFiles
     (model: VM)
@@ -340,7 +334,7 @@ let completeWorkspacePush
     | Ok { error = Some e } -> failWorkspacePush e model
     | Ok _ -> failWorkspacePush "request failed" model
 
-/// Poll async download job; refresh path sync when desktop ledger is updated.
+/// Poll async download job; stamp graph nodes then refresh path sync.
 let pollWorkspaceDownloadJob (jobId: string) (text: string) (model: VM) : VM * Effect list =
     match decodeDesktopWorkspaceDownloadJob text with
     | Error e -> failWorkspaceDownload e model
@@ -348,7 +342,24 @@ let pollWorkspaceDownloadJob (jobId: string) (text: string) (model: VM) : VM * E
         match job.state with
         | "completed" ->
             consoleLog ("[Gambol sync] download completed: " + job.detail)
-            okDetail model job.detail |> withPathSyncRefresh
+            let stampOps =
+                WorkspaceUploadStructure.planAlignFileStampOps
+                    model.graph
+                    job.label
+                    job.pathStamps
+            match stampOps with
+            | [] ->
+                okDetail model job.detail |> withPathSyncRefresh
+            | ops ->
+                let change =
+                    { id = model.revision.Value
+                      changeId = System.Guid.NewGuid()
+                      ops = ops }
+                match applyAndPostSync change model with
+                | Error e -> failWorkspaceDownload e model
+                | Ok model' ->
+                    okDetail (withSiteMap model') job.detail
+                    |> withPathSyncRefresh
         | "failed" -> failWorkspaceDownload job.detail model
         | "running" | "queued" ->
             let detail = sprintf "download %s: %s" job.state job.detail
@@ -356,47 +367,78 @@ let pollWorkspaceDownloadJob (jobId: string) (text: string) (model: VM) : VM * E
             model', [ Effect.ContinueWorkspaceDownload jobId ]
         | _ -> failWorkspaceDownload ("unknown download state: " + job.state) model
 
-/// Blocking poll so stub nodes appear before the heavy file push (keeps Uploading).
-let private applyPollSyncKeepUpload (model: VM) : VM =
-    let url =
-        sprintf "/%s/poll?_=%d&rev=%d" currentFile (int (nowMs ())) model.revision.Value
-    let status, text = getJsonSync url
-    if status < 200 || status >= 300 then
-        keepUploading model
-    else
-        match Serialization.decodePollResponse text with
-        | Error _ -> keepUploading model
-        | Ok poll when poll.changes.IsEmpty -> keepUploading model
-        | Ok poll ->
-            let state: State =
-                { graph = model.graph
-                  history = model.history
-                  revision = model.revision }
-            match SyncLogic.applyServerTail poll.changes state with
-            | Error _ -> keepUploading model
-            | Ok newState ->
-                { model with
-                    graph = newState.graph
-                    history = newState.history
-                    revision = newState.revision }
-                |> withSiteMap
-                |> keepUploading
+/// Body for async POST `/_desktop/workspace-inventory`.
+let encodeWorkspaceInventoryBody (scope: WorkspaceSyncScope) : string =
+    encodeSyncScope scope
 
-/// Background: scoped inventory → client structure Change, then defer body push.
-let continueWorkspaceStubsThenPush
-    (scope: WorkspaceSyncScope)
-    (parseFileId: NodeId option)
+/// Undo local stubs if structure POST fails after optimistic apply.
+let private undoLocalStructure (model: VM) : VM =
+    let state: State =
+        { graph = model.graph
+          history = model.history
+          revision = model.revision }
+    match History.undo state with
+    | ApplyResult.Changed s ->
+        { model with
+            graph = s.graph
+            history = s.history }
+        |> withSiteMap
+    | _ -> model
+
+let failUploadStructurePost (msg: string) (model: VM) : VM * Effect list =
+    fail (clearUploading (undoLocalStructure model)) msg
+
+let failUploadStructurePostHttp
+    (status: int)
+    (body: string)
     (model: VM)
     : VM * Effect list =
-    match fetchUploadInventory scope with
+    failUploadStructurePost (httpError status body) model
+
+/// Inventory arrived: plan + apply stubs locally, then async structure POST.
+let completeUploadInventory
+    (scope: WorkspaceSyncScope)
+    (parseFileId: NodeId option)
+    (text: string)
+    (model: VM)
+    : VM * Effect list =
+    match decodeDesktopUploadInventory text with
     | Error e -> fail (clearUploading model) e
     | Ok { items = items } ->
-        match postStructureChange model scope.label items with
+        let stubItems = inventoryToStubItems items
+        match WorkspaceUploadStructure.planStubOps model.graph scope.label stubItems with
         | Error e -> fail (clearUploading model) e
-        | Ok model' ->
-            let model'' = applyPollSyncKeepUpload model' |> withSiteMap
-            keepUploading model'',
+        | Ok ops when ops.IsEmpty ->
+            keepUploading model,
             [ Effect.ContinueWorkspacePush (scope, parseFileId) ]
+        | Ok ops ->
+            let change =
+                { id = model.revision.Value
+                  changeId = System.Guid.NewGuid()
+                  ops = ops }
+            match applyStructureLocally change model with
+            | Error e -> fail (clearUploading model) e
+            | Ok model' ->
+                keepUploading (withSiteMap model'),
+                [ Effect.ContinuePostUploadStructure (change, scope, parseFileId) ]
+
+/// Structure Change ACK: stamp + revision, then body push.
+let completeUploadStructurePost
+    (scope: WorkspaceSyncScope)
+    (parseFileId: NodeId option)
+    (text: string)
+    (model: VM)
+    : VM * Effect list =
+    match decodeChangeAckResponse text with
+    | Error e -> failUploadStructurePost e model
+    | Ok ack ->
+        let model' =
+            { model with
+                graph = PersistStamp.applyToGraph ack.stampOps model.graph
+                revision = ack.revision }
+            |> withSiteMap
+            |> keepUploading
+        model', [ Effect.ContinueWorkspacePush (scope, parseFileId) ]
 
 /// Workspaces + Upload: pick → create → map → paint Uploading → stubs → push.
 let uploadCreateWorkspaceOp (model: VM) : VM * Effect list =

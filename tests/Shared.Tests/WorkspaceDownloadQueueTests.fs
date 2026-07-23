@@ -45,10 +45,28 @@ let ``third enqueue is refused when queue full`` () =
 let ``finishRunning promotes queued to running`` () =
     let _, s1 = WorkspaceDownloadQueue.tryEnqueue WorkspaceDownloadQueue.empty (scope "a")
     let _, s2 = WorkspaceDownloadQueue.tryEnqueue s1 (scope "b")
-    let s3 = WorkspaceDownloadQueue.finishRunning s2 true "done"
+    let s3 = WorkspaceDownloadQueue.finishRunning s2 true "done" []
     match s3.running with
     | Some job ->
         Assert.Equal(WorkspaceDownloadQueue.JobState.Running, job.state)
         Assert.Equal("b", job.scope.label)
     | None -> Assert.Fail("expected promoted running job")
     Assert.True(s3.queued.IsNone)
+
+[<Fact>]
+let ``finishRunning stores pathStamps on completed job`` () =
+    let t = DateTime(2026, 1, 2, 0, 0, 0, DateTimeKind.Utc)
+    let _, s1 = WorkspaceDownloadQueue.tryEnqueue WorkspaceDownloadQueue.empty (scope "home")
+    let s2 =
+        WorkspaceDownloadQueue.finishRunning
+            s1
+            true
+            "downloaded 1"
+            [ "note.txt", t ]
+    match s2.history with
+    | job :: _ ->
+        Assert.Equal(WorkspaceDownloadQueue.JobState.Completed, job.state)
+        Assert.Equal<(string * DateTime) list>(
+            [ "note.txt", t ],
+            job.pathStamps)
+    | [] -> Assert.Fail("expected history entry")
