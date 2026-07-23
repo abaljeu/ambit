@@ -252,6 +252,60 @@ let ``round-trip preserves caret-prefixed plain text`` () =
     Assert.Equal("^ff", result.nodes.[nodeId].text)
 
 [<Fact>]
+let ``write owned nested File uses owner line not ref`` () =
+    let graph0 = Graph.create ()
+    let dirId = NodeId.New()
+    let organizerId = NodeId.New()
+    let fileId = NodeId.New()
+    let dir =
+        Node.Create(
+            dirId,
+            text = "docs",
+            name = Filename.Ok "docs",
+            owner = graph0.root,
+            kind = Special Directory)
+    let organizer =
+        Node.Create(organizerId, text = "organizer", owner = dirId)
+    let file =
+        Node.Create(
+            fileId,
+            text = "already owned",
+            name = Filename.Ok "present.txt",
+            owner = organizerId,
+            kind = Special File,
+            children = owned [ NodeId.New() ])
+    let nodes =
+        graph0.nodes
+        |> Map.add dirId dir
+        |> Map.add organizerId organizer
+        |> Map.add fileId file
+    let graph1 = Graph.fromNodes graph0.root nodes
+    let graph2 =
+        Graph.replace Graph.rootId 0 [] (owned [ dirId ]) graph1
+        |> requireOk "place dir"
+    let graph3 =
+        Graph.replace dirId 0 [] (owned [ organizerId ]) graph2
+        |> requireOk "place organizer"
+    let graph =
+        Graph.replace organizerId 0 [] (owned [ fileId ]) graph3
+        |> requireOk "place file"
+    let written =
+        AmbDocument.write graph dirId
+        |> requireOk "write"
+    let sid = AmbDocument.formatStableId fileId
+    Assert.Contains("^" + sid + " present.txt\talready owned", written)
+    Assert.DoesNotContain("-> ", written)
+    let result =
+        AmbDocument.read written dirId graph
+        |> requireOk "read"
+    let underOrganizer = result.nodes.[organizerId].children
+    Assert.Equal(1, underOrganizer.Length)
+    Assert.Equal(Ownership.Owner, underOrganizer.[0].ref)
+    Assert.Equal(fileId, underOrganizer.[0].id)
+    Assert.Equal(Special File, result.nodes.[fileId].kind)
+    Assert.Equal(0, result.nodes.[fileId].children.Length)
+
+[<Fact>]
 let ``round-trip preserves stable ids and tree shape`` () =
     let aId = NodeId.New()
     let bId = NodeId.New()

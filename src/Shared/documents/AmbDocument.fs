@@ -14,22 +14,23 @@ module AmbDocument =
 
     let private nl = Environment.NewLine
 
+    let private stableIdTokens =
+        [
+            "WORKSPACES", Graph.workspacesId
+            "SYSTEM", Graph.systemId
+            "TRASH", Graph.trashId
+        ]
+
     let formatStableId (nodeId: NodeId) : string =
-        if nodeId = Graph.workspacesId then
-            "WORKSPACES"
-        elif nodeId = Graph.systemId then
-            "SYSTEM"
-        elif nodeId = Graph.trashId then
-            "TRASH"
-        else
-            nodeId.Value.ToString()
+        stableIdTokens
+        |> List.tryFind (fun (_, id) -> id = nodeId)
+        |> Option.map fst
+        |> Option.defaultWith (fun () -> nodeId.Value.ToString())
 
     let tryParseStableId (token: string) : NodeId option =
-        match token with
-        | "WORKSPACES" -> Some Graph.workspacesId
-        | "SYSTEM" -> Some Graph.systemId
-        | "TRASH" -> Some Graph.trashId
-        | _ ->
+        match stableIdTokens |> List.tryFind (fun (t, _) -> t = token) with
+        | Some (_, nodeId) -> Some nodeId
+        | None ->
             match Guid.TryParse token with
             | true, guid -> Some (NodeId guid)
             | false, _ -> None
@@ -54,13 +55,13 @@ module AmbDocument =
                 CssClass.ofList classList, nodeText
 
     let private splitStableIdPrefix (text: string) : (string * string) option =
-        if text.StartsWith("WORKSPACES") then
-            Some ("WORKSPACES", text.Substring("WORKSPACES".Length).TrimStart())
-        elif text.StartsWith("SYSTEM") then
-            Some ("SYSTEM", text.Substring("SYSTEM".Length).TrimStart())
-        elif text.StartsWith("TRASH") then
-            Some ("TRASH", text.Substring("TRASH".Length).TrimStart())
-        else
+        match
+            stableIdTokens
+            |> List.tryFind (fun (token, _) -> text.StartsWith(token))
+        with
+        | Some (token, _) ->
+            Some (token, text.Substring(token.Length).TrimStart())
+        | None ->
             let spaceIdx = text.IndexOf(' ')
             let token =
                 if spaceIdx < 0 then text
@@ -213,8 +214,11 @@ module AmbDocument =
                     emittedOwners, line :: acc
                 | Ownership.Owner ->
                     let node = graph.nodes.[nodeId]
-                    if DocumentPartition.isNestedDocumentRootBoundary
-                        graph documentRootId nodeId then
+                    let isBoundary =
+                        DocumentPartition.isNestedDocumentRootBoundary
+                            graph documentRootId nodeId
+                    let body = node.text
+                    if isShared && Set.contains nodeId emittedOwners then
                         let content =
                             refLineContent
                                 graph documentRootId documentMembers nodeId
@@ -225,35 +229,29 @@ module AmbDocument =
                         }
                         emittedOwners, line :: acc
                     else
-                        let body = node.text
-                        if isShared && Set.contains nodeId emittedOwners then
-                            let content =
-                                refLineContent
-                                    graph documentRootId documentMembers nodeId
-                            let line = {
-                                depth = depth
-                                content = content
-                                nodeId = Some nodeId
-                            }
-                            emittedOwners, line :: acc
+                        let plain = plainLineContent node body
+                        let ambiguousPlain =
+                            plain.StartsWith("^")
+                            || plain.StartsWith("-> ")
+                        let content =
+                            if isBoundary
+                               || isShared
+                               || Set.contains nodeId refTargets
+                               || ambiguousPlain then
+                                ownerLineContent nodeId node body
+                            else
+                                plain
+                        let line = {
+                            depth = depth
+                            content = content
+                            nodeId = Some nodeId
+                        }
+                        let emitted' = Set.add nodeId emittedOwners
+                        // Nested document roots persist as their own artifacts;
+                        // parent outline stops at the boundary without recursing.
+                        if isBoundary then
+                            emitted', line :: acc
                         else
-                            let plain = plainLineContent node body
-                            let ambiguousPlain =
-                                plain.StartsWith("^")
-                                || plain.StartsWith("-> ")
-                            let content =
-                                if isShared
-                                   || Set.contains nodeId refTargets
-                                   || ambiguousPlain then
-                                    ownerLineContent nodeId node body
-                                else
-                                    plain
-                            let line = {
-                                depth = depth
-                                content = content
-                                nodeId = Some nodeId
-                            }
-                            let emitted' = Set.add nodeId emittedOwners
                             let emitted'', acc' =
                                 node.children
                                 |> List.fold

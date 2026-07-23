@@ -30,7 +30,7 @@ One line per outline row. Tab depth sets parentage; the file root is implicit.
 <plain-line>::= <body>
 <body>      ::= [<meta>] <text>
 <meta>      ::= "{" <class-list> "}"
-<stable-id> ::= <guid> | "WORKSPACES" | "TRASH"
+<stable-id> ::= <guid> | "WORKSPACES" | "TRASH" | "SYSTEM"
 <name-token>::= identifier satisfying [[src/Shared/Filename.fs]] Ok rules (without leading ^)
 <ref-target>::= "^" <stable-id>
               | <workspace-relative-path> "^" <stable-id>
