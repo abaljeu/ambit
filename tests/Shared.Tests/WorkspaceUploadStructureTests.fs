@@ -1,0 +1,248 @@
+module Gambol.Shared.Tests.WorkspaceUploadStructureTests
+
+open Gambol.Shared
+open Xunit
+
+let private applyOps (graph: Graph) (ops: Op list) : Graph =
+    let state =
+        { graph = graph
+          history = History.empty
+          revision = Revision.Zero }
+
+    ops
+    |> List.fold
+        (fun s op ->
+            match Op.apply op s with
+            | ApplyResult.Changed next
+            | ApplyResult.Unchanged next -> next
+            | ApplyResult.Invalid(_, msg) -> failwith msg)
+        state
+    |> fun s -> s.graph
+
+let private addWorkspace label graph =
+    let id, ops = FileNodeOps.planCreateWorkspace graph label
+    id, applyOps graph ops
+
+let private ownedNamedChildren graph parentId =
+    graph.nodes.[parentId].children
+    |> List.choose (fun child ->
+        if child.ref <> Ownership.Owner then
+            None
+        else
+            let node = graph.nodes.[child.id]
+
+            Filename.tryValue node.name
+            |> Option.map (fun name -> name, node))
+
+let private childNamed graph parentId name =
+    ownedNamedChildren graph parentId
+    |> List.find (fst >> (=) name)
+    |> snd
+
+let private item rel isDir : WorkspaceUploadStructure.InventoryItem =
+    { relative = rel; isDirectory = isDir }
+
+let private requirePlan graph label items =
+    match WorkspaceUploadStructure.planStubOps graph label items with
+    | Ok ops -> ops
+    | Error err -> failwith err
+
+[<Fact>]
+let ``plan creates directory then file stubs under workspace`` () =
+    let workspaceId, graph = Graph.create () |> addWorkspace "home"
+
+    let items =
+        [ item "docs" true
+          item "docs/note.txt" false ]
+
+    let graph2 =
+        requirePlan graph "home" items |> applyOps graph
+
+    let docs = childNamed graph2 workspaceId "docs"
+    let file = childNamed graph2 docs.id "note.txt"
+    Assert.Equal(Special Directory, docs.kind)
+    Assert.Equal(Special File, file.kind)
+    Assert.Empty(file.children)
+
+[<Fact>]
+let ``new stubs start Unparsed; parent becomes Current`` () =
+    let workspaceId, graph = Graph.create () |> addWorkspace "home"
+
+    let items =
+        [ item "docs" true
+          item "docs/note.txt" false ]
+
+    let graph2 =
+        requirePlan graph "home" items |> applyOps graph
+
+    let docs = childNamed graph2 workspaceId "docs"
+    let file = childNamed graph2 docs.id "note.txt"
+    Assert.Equal(Current, docs.documentState)
+    Assert.Equal(Unparsed, file.documentState)
+
+[<Fact>]
+let ``reuses existing owned path without duplicating`` () =
+    let workspaceId, graph0 = Graph.create () |> addWorkspace "home"
+    let _, dirOps =
+        FileNodeOps.planCreateOwnedDirectory graph0 workspaceId "docs"
+
+    let graph1 = applyOps graph0 dirOps
+    let docsBefore = childNamed graph1 workspaceId "docs"
+
+    let items =
+        [ item "docs" true
+          item "docs/note.txt" false ]
+
+    let ops = requirePlan graph1 "home" items
+    let newDirs =
+        ops
+        |> List.choose (function
+            | Op.NewSpecialNode(_, Directory, _) -> Some()
+            | _ -> None)
+
+    Assert.Empty(newDirs)
+    let graph2 = applyOps graph1 ops
+    let docsAfter = childNamed graph2 workspaceId "docs"
+    Assert.Equal(docsBefore.id, docsAfter.id)
+    let file = childNamed graph2 docsAfter.id "note.txt"
+    Assert.Equal(Special File, file.kind)
+    Assert.Equal(Unparsed, file.documentState)
+
+[<Fact>]
+let ``TopLevel cap keeps only immediate children under scope`` () =
+    let items =
+        [ item "docs" true
+          item "docs/a.txt" false
+          item "docs/sub" true
+          item "docs/sub/deep.txt" false
+          item "root.txt" false ]
+
+    let capped =
+        WorkspaceUploadStructure.capPaths
+            ""
+            WorkspaceUploadStructure.StructureCap.TopLevelOnly
+            items
+
+    let rels =
+        capped |> List.map (fun i -> i.relative) |> Set.ofList
+
+    Assert.True((set [ "docs"; "root.txt" ]) = rels)
+
+[<Fact>]
+let ``Full cap keeps nested inventory paths`` () =
+    let items =
+        [ item "docs" true
+          item "docs/a.txt" false ]
+
+    let capped =
+        WorkspaceUploadStructure.capPaths
+            ""
+            WorkspaceUploadStructure.StructureCap.FullPaths
+            items
+
+    Assert.Equal(2, capped.Length)
+
+[<Fact>]
+let ``plan is 1:1 with capped inventory paths`` () =
+    let workspaceId, graph = Graph.create () |> addWorkspace "home"
+
+    let inventory =
+        [ item "docs" true
+          item "docs/a.txt" false
+          item "docs/sub" true
+          item "root.txt" false ]
+
+    let capped =
+        WorkspaceUploadStructure.capPaths
+            ""
+            WorkspaceUploadStructure.StructureCap.TopLevelOnly
+            inventory
+
+    let ops = requirePlan graph "home" capped
+    let graph2 = applyOps graph ops
+    let names =
+        ownedNamedChildren graph2 workspaceId
+        |> List.map fst
+        |> Set.ofList
+
+    Assert.True((set [ "docs"; "root.txt" ]) = names)
+    let docs = childNamed graph2 workspaceId "docs"
+    Assert.Empty(ownedNamedChildren graph2 docs.id)
+
+[<Fact>]
+let ``no content children on new file stubs`` () =
+    let workspaceId, graph = Graph.create () |> addWorkspace "home"
+
+    let graph2 =
+        requirePlan graph "home" [ item "only.txt" false ]
+        |> applyOps graph
+
+    let file = childNamed graph2 workspaceId "only.txt"
+    Assert.Empty(file.children)
+
+[<Fact>]
+let ``reused Unparsed directory with owned child becomes Current`` () =
+    let workspaceId, graph0 = Graph.create () |> addWorkspace "home"
+    let _, dirOps = FileNodeOps.planCreateOwnedDirectory graph0 workspaceId "docs"
+    let graph1 = applyOps graph0 dirOps
+    let docsId = (childNamed graph1 workspaceId "docs").id
+
+    let graph1' =
+        applyOps
+            graph1
+            [ Op.SetDocumentState(docsId, Current, Unparsed) ]
+
+    let _, fileOps = FileNodeOps.planCreateOwnedFile graph1' docsId "note.txt"
+    let graph2 = applyOps graph1' fileOps
+
+    let graph3 =
+        requirePlan graph2 "home" [ item "docs" true ] |> applyOps graph2
+
+    let docs = childNamed graph3 workspaceId "docs"
+    Assert.Equal(Current, docs.documentState)
+
+[<Fact>]
+let ``plan promotes ancestor directories when nested file stub added`` () =
+    let workspaceId, graph = Graph.create () |> addWorkspace "home"
+
+    let items =
+        [ item "audio" true
+          item "audio/clip.wav" false
+          item "cs" true
+          item "cs/Block.cs" false ]
+
+    let graph2 =
+        requirePlan graph "home" items |> applyOps graph
+
+    let audio = childNamed graph2 workspaceId "audio"
+    let cs = childNamed graph2 workspaceId "cs"
+    Assert.Equal(Current, audio.documentState)
+    Assert.Equal(Current, cs.documentState)
+
+[<Fact>]
+let ``tryResolveFileNode finds owned file by relative path`` () =
+    let _, graph0 = Graph.create () |> addWorkspace "home"
+
+    let graph1 =
+        requirePlan
+            graph0
+            "home"
+            [ item "docs" true; item "docs/note.txt" false ]
+        |> applyOps graph0
+
+    match
+        WorkspaceUploadStructure.tryResolveFileNode
+            graph1
+            "home"
+            "docs/note.txt"
+    with
+    | None -> Assert.Fail("expected file node")
+    | Some id ->
+        Assert.Equal(Special File, graph1.nodes.[id].kind)
+
+    Assert.True(
+        WorkspaceUploadStructure.tryResolveFileNode
+            graph1
+            "home"
+            "docs"
+        |> Option.isNone)

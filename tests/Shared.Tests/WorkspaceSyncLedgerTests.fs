@@ -60,6 +60,81 @@ let ``shouldSkipDownload transfers when local file missing`` () =
     Assert.False(WorkspaceSyncLedger.shouldSkipDownload (utc 2026 1 1 0) None)
 
 [<Fact>]
+let ``directory scope skips upload when server is newer`` () =
+    let local = utc 2026 1 2 12
+    let server = utc 2026 1 3 12
+    Assert.True(
+        WorkspaceSyncLedger.shouldSkipUploadScoped
+            SyncScopeKind.Directory
+            local
+            (Some server))
+
+[<Fact>]
+let ``workspace scope skips download when local equals server`` () =
+    let t = utc 2026 1 2 12
+    Assert.True(
+        WorkspaceSyncLedger.shouldSkipDownloadScoped
+            SyncScopeKind.Workspace
+            t
+            (Some t))
+
+[<Fact>]
+let ``file scope never skips upload for mtime`` () =
+    let local = utc 2026 1 2 12
+    let server = utc 2026 1 3 12
+    Assert.False(
+        WorkspaceSyncLedger.shouldSkipUploadScoped
+            SyncScopeKind.File
+            local
+            (Some server))
+
+[<Fact>]
+let ``file scope never skips download for mtime`` () =
+    let server = utc 2026 1 2 12
+    let local = utc 2026 1 3 12
+    Assert.False(
+        WorkspaceSyncLedger.shouldSkipDownloadScoped
+            SyncScopeKind.File
+            server
+            (Some local))
+
+[<Fact>]
+let ``transferDatestampsMatch requires identical client server node`` () =
+    let t = utc 2026 4 1 9
+    Assert.True(WorkspaceSyncLedger.transferDatestampsMatch t t t)
+    Assert.False(
+        WorkspaceSyncLedger.transferDatestampsMatch
+            t
+            t
+            (utc 2026 4 1 10))
+
+[<Fact>]
+let ``recordUpload aligns ledger local and server mtimes`` () =
+    let t = utc 2026 3 1 10
+    let ledger =
+        { label = "home"
+          rows = [ row "f.txt" false None None "localOnly" None ] }
+    let next =
+        WorkspaceSyncLedger.recordUpload ledger "f.txt" false t t None
+    let r = next.rows |> List.find (fun x -> x.relative = "f.txt")
+    Assert.True(WorkspaceSyncLedger.ledgerRowDatestampsAligned r)
+    Assert.True(
+        WorkspaceSyncLedger.transferDatestampsMatch
+            r.localMtimeUtc.Value
+            r.serverMtimeUtc.Value
+            t)
+
+[<Fact>]
+let ``recordDownload aligns ledger local and server mtimes`` () =
+    let t = utc 2026 5 1 8
+    let ledger =
+        { label = "home"
+          rows = [ row "f.txt" false None None "serverOnly" None ] }
+    let next = WorkspaceSyncLedger.recordDownload ledger "f.txt" t t
+    let r = next.rows |> List.find (fun x -> x.relative = "f.txt")
+    Assert.True(WorkspaceSyncLedger.ledgerRowDatestampsAligned r)
+
+[<Fact>]
 let ``encode round-trips through decode`` () =
     let original =
         { label = "home"

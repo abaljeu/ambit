@@ -1,7 +1,7 @@
 # Workspace Upload — client-first structure
 
 Category: Sync
-Status: Planned
+Status: Done
 See also: [[workspace-file-sync]], [[lazy-load]], [[doc/current/desktop-local-files]], [[workspace-scale-import]]
 
 Move **Desktop Upload** stub creation from post-push disk→graph reconcile onto the **client**. Desktop inventory drives Directory/File stubs in one Change; WebDAV then transfers file bodies only. Disk→graph reconcile remains for web / repair paths that never ran client structure.

@@ -315,22 +315,45 @@ let ``desktop without mapping ignores ledger comparison`` () =
         rowWorkspacePathSyncStatus model entry node)
 
 [<Fact>]
-let ``mapped desktop prefers node updateTime as server stamp`` () =
+let ``mapped desktop NewerOnServer when ledger server ahead of local`` () =
     let baseModel, wsId, fileId = modelWithWorkspaceFile Current
     let entry = entryUnderParentNode wsId fileId baseModel
     let local = System.DateTime(2026, 1, 1, 0, 0, 0, System.DateTimeKind.Utc)
-    let ledgerServer =
-        System.DateTime(2026, 1, 1, 0, 0, 0, System.DateTimeKind.Utc)
-    let nodeServer =
+    let server =
         System.DateTime(2026, 1, 2, 0, 0, 0, System.DateTimeKind.Utc)
     let fact =
         { relative = "note.md"
           isDirectory = false
           presence = WorkspacePathPresence.Both
           localMtimeUtc = Some local
-          serverMtimeUtc = Some ledgerServer }
-    let stamped =
-        { baseModel.graph.nodes.[fileId] with updateTime = nodeServer }
+          serverMtimeUtc = Some server }
+    let model =
+        { baseModel with
+            desktopCapabilities = Some desktopCaps
+            workspaceMappedLabels = Set.singleton "home"
+            workspaceSyncFacts =
+                Map.ofList [ "home", Map.ofList [ "note.md", fact ] ] }
+    Assert.Equal(
+        Some WorkspacePathSyncStatus.NewerOnServer,
+        rowWorkspacePathSyncStatus
+            model
+            entry
+            model.graph.nodes.[fileId])
+
+[<Fact>]
+let ``mapped desktop Synced when ledger aligned after upload despite node touch`` () =
+    let baseModel, wsId, fileId = modelWithWorkspaceFile Current
+    let entry = entryUnderParentNode wsId fileId baseModel
+    let t = System.DateTime(2026, 1, 1, 0, 0, 0, System.DateTimeKind.Utc)
+    let fact =
+        { relative = "note.md"
+          isDirectory = false
+          presence = WorkspacePathPresence.Both
+          localMtimeUtc = Some t
+          serverMtimeUtc = Some t }
+    let touched =
+        { baseModel.graph.nodes.[fileId] with
+            updateTime = System.DateTime(2026, 1, 3, 0, 0, 0, System.DateTimeKind.Utc) }
     let model =
         { baseModel with
             desktopCapabilities = Some desktopCaps
@@ -340,9 +363,9 @@ let ``mapped desktop prefers node updateTime as server stamp`` () =
             graph =
                 Graph.fromNodes
                     baseModel.graph.root
-                    (Map.add fileId stamped baseModel.graph.nodes) }
+                    (Map.add fileId touched baseModel.graph.nodes) }
     Assert.Equal(
-        Some WorkspacePathSyncStatus.NewerOnServer,
+        Some WorkspacePathSyncStatus.Synced,
         rowWorkspacePathSyncStatus
             model
             entry

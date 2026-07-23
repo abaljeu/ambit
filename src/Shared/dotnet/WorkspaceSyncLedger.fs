@@ -79,7 +79,47 @@ module WorkspaceSyncLedger =
     let shouldSkipDownload (serverMtimeUtc: DateTime) (localMtimeUtc: DateTime option) =
         match localMtimeUtc with
         | None -> false
-        | Some local -> false//local >= serverMtimeUtc
+        | Some local -> local >= serverMtimeUtc
+
+    /// Directory / workspace scopes may mtime-skip; single-file never skips.
+    let allowsMtimeSkip (kind: SyncScopeKind) =
+        match kind with
+        | SyncScopeKind.File -> false
+        | SyncScopeKind.Directory
+        | SyncScopeKind.Workspace -> true
+
+    let shouldSkipUploadScoped
+        (kind: SyncScopeKind)
+        (localMtimeUtc: DateTime)
+        (serverMtimeUtc: DateTime option)
+        =
+        if allowsMtimeSkip kind then
+            shouldSkipUpload localMtimeUtc serverMtimeUtc
+        else
+            false
+
+    let shouldSkipDownloadScoped
+        (kind: SyncScopeKind)
+        (serverMtimeUtc: DateTime)
+        (localMtimeUtc: DateTime option)
+        =
+        if allowsMtimeSkip kind then
+            shouldSkipDownload serverMtimeUtc localMtimeUtc
+        else
+            false
+
+    /// Locked #7: client file, server file, and graph node share one stamp.
+    let transferDatestampsMatch
+        (clientFileUtc: DateTime)
+        (serverFileUtc: DateTime)
+        (graphNodeUtc: DateTime)
+        =
+        clientFileUtc = serverFileUtc && serverFileUtc = graphNodeUtc
+
+    let ledgerRowDatestampsAligned (row: SyncLedgerRow) =
+        match row.localMtimeUtc, row.serverMtimeUtc with
+        | Some local, Some server -> local = server
+        | _ -> false
 
     let needsSeed (ledger: WorkspaceSyncLedger) = ledger.rows.IsEmpty
 

@@ -77,6 +77,7 @@
     <Compile Include="CommandCategoryTests.fs" />
     <Compile Include="CommandEntryTests.fs" />
     <Compile Include="WorkspaceUploadTests.fs" />
+    <Compile Include="WorkspaceUploadStructureTests.fs" />
     <Compile Include="CommandIconsTests.fs" />
   </ItemGroup>
 

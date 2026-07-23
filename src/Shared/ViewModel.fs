@@ -252,10 +252,18 @@ type Effect =
     | RequestServerFileStatus of nodeId: NodeId * path: string
     /// Desktop: refresh mapped labels + sync-ledger facts for path-status UI.
     | RequestWorkspacePathSyncSnapshot
-    /// After create: inventory + top-level stubs, then ContinueWorkspacePush.
-    | ContinueWorkspaceStubsThenPush of WorkspaceSyncScope
+    /// After create or Upload: client structure Change, then ContinueWorkspacePush.
+    | ContinueWorkspaceStubsThenPush of WorkspaceSyncScope * parseFileId: NodeId option
     /// Deferred async workspace-push (`postJson`); Some fileId → parse after push.
     | ContinueWorkspacePush of WorkspaceSyncScope * parseFileId: NodeId option
+    /// Poll `GET /_desktop/workspace-download?id=` until job completes or fails.
+    | ContinueWorkspaceDownload of jobId: string
+    /// Deferred async file parse (`fetchGet` desktop text when needed, then `postJson`).
+    | ContinueParseFile of
+        fileId: NodeId *
+        desktopReadPath: string option *
+        detailPrefix: string *
+        detailPath: string
 
 /// Row / active-file indicator vocabulary (desktop status + absent artifacts).
 type DesktopFileIndicator =

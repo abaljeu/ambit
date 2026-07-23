@@ -16,9 +16,6 @@ let private fail (model: VM) (message: string) : VM * Effect list =
         lastCmdResult = Some(CmdLastResult.Error (Some "Upload", message)) },
     []
 
-let private okDetail (model: VM) (message: string) : VM * Effect list =
-    { model with lastCmdResult = Some(CmdLastResult.Detail (None, message)) }, []
-
 let private httpError (status: int) (responseText: string) =
     "HTTP "
     + string status
@@ -28,14 +25,7 @@ let private httpError (status: int) (responseText: string) =
 let private isDesktopFileMissing (status: int) (responseText: string) =
     status = 400 && responseText.Contains("\"error\":\"file not found\"")
 
-/// Desktop raw file text for ParseFile upload (not a subgraph).
-let private tryReadDesktopContent (path: string) : Result<string option, string> =
-    let url =
-        "/_desktop/file?path="
-        + encodeUriComponent path
-        + "&content=1"
-    let status, responseText = getJsonSync url
-
+let decodeDesktopReadForParse (status: int) (responseText: string) : Result<string option, string> =
     if status >= 200 && status < 300 then
         match decodeDesktopFileContent responseText with
         | Ok content -> Ok(Some content)
@@ -45,32 +35,36 @@ let private tryReadDesktopContent (path: string) : Result<string option, string>
     else
         Error(httpError status responseText)
 
-let private postParseFile
-    (model: VM)
-    (fileId: NodeId)
-    (textOpt: string option)
+let validateParseTextOpt (textOpt: string option) : Result<string option, string> =
+    match textOpt with
+    | Some content when DocumentBinary.looksLikeBinaryContent content ->
+        Error DocumentBinary.parseError
+    | _ -> Ok textOpt
+
+let failParseFile (message: string) (model: VM) : VM * Effect list =
+    fail model message
+
+let failParseFileHttp (status: int) (responseText: string) (model: VM) : VM * Effect list =
+    failParseFile (httpError status responseText) model
+
+let completeParseFilePost
     (detailPrefix: string)
-    (path: string)
+    (detailPath: string)
+    (responseText: string)
+    (model: VM)
     : VM * Effect list =
-    let body = encodeParseFileRequest fileId textOpt
-    let status, responseText =
-        postJsonSync "/ambit/file/parse" body (jsonMutatingPostHeaders ())
+    match decodeParseFileOk responseText with
+    | Error err -> fail model err
+    | Ok () ->
+        // Server may have applied graph-only ops; poll immediately so the outline updates.
+        let model' =
+            { model with
+                lastCmdResult = Some(CmdLastResult.Detail(None, detailPrefix + detailPath)) }
+        let si, pollEffs =
+            SyncPlanner.tryStartPoll model'.revision model'.syncInfo
+        { model' with syncInfo = si }, pollEffs
 
-    if status < 200 || status >= 300 then
-        fail model (httpError status responseText)
-    else
-        match decodeParseFileOk responseText with
-        | Error err -> fail model err
-        | Ok () ->
-            // Server may have applied graph-only ops; poll immediately so the outline updates.
-            let model' =
-                { model with
-                    lastCmdResult = Some(CmdLastResult.Detail(None, detailPrefix + path)) }
-            let si, pollEffs =
-                SyncPlanner.tryStartPoll model'.revision model'.syncInfo
-            { model' with syncInfo = si }, pollEffs
-
-/// Parse: client posts fileId (+ optional desktop text); server applies.
+/// Parse: validate synchronously, then ContinueParseFile for async desktop read + POST.
 let parseFileOp (fileId: NodeId) (model: VM) : VM * Effect list =
     match Map.tryFind fileId model.graph.nodes with
     | Some { kind = Special File; documentState = state; name = name; text = text } ->
@@ -91,19 +85,17 @@ let parseFileOp (fileId: NodeId) (model: VM) : VM * Effect list =
                 | Unparsed -> "parsed: "
                 | Current -> "reconciled: "
 
-            let textResult =
+            let detailPath = pathOpt |> Option.defaultValue ""
+            let desktopReadPath =
                 match pathOpt with
-                | Some path when canImportDesktop model ->
-                    tryReadDesktopContent path
-                | _ -> Ok None
+                | Some path when canImportDesktop model -> Some path
+                | _ -> None
 
-            match textResult with
-            | Error err -> fail model err
-            | Ok textOpt ->
-                match textOpt with
-                | Some content when DocumentBinary.looksLikeBinaryContent content ->
-                    fail model DocumentBinary.parseError
-                | _ ->
-                    let detailPath = pathOpt |> Option.defaultValue ""
-                    postParseFile model fileId textOpt detailPrefix detailPath
+            let model' =
+                { model with
+                    lastCmdResult =
+                        Some(CmdLastResult.Detail(None, "parsing: " + detailPath)) }
+
+            model',
+            [ Effect.ContinueParseFile(fileId, desktopReadPath, detailPrefix, detailPath) ]
     | _ -> model, []

@@ -10,6 +10,7 @@ open Gambol.Client.UpdateCodec
 open Gambol.Client.UpdateHelpers
 open Gambol.Client.UpdateOps
 open Gambol.Client.UpdateWorkspaceSync
+open Gambol.Client.UpdateImport
 open Gambol.Client.Controller
 open Gambol.Client.View
 open Gambol.Client.SearchDialogView
@@ -132,12 +133,12 @@ let createRuntime (initialModel: VM) =
         | RequestDesktopFileStatus (nodeId, path) -> runDesktopFileStatus nodeId path
         | RequestServerFileStatus (nodeId, path) -> runServerFileStatus nodeId path
         | RequestWorkspacePathSyncSnapshot -> runWorkspacePathSyncSnapshot ()
-        | ContinueWorkspaceStubsThenPush scope ->
+        | ContinueWorkspaceStubsThenPush (scope, parseFileId) ->
             // Delay past the current frame so Uploading + workspace node can paint.
             setTimeout
                 (fun () ->
                     dispatch (
-                        ApplyOp (continueWorkspaceStubsThenPush scope)))
+                        ApplyOp (continueWorkspaceStubsThenPush scope parseFileId)))
                 50
             |> ignore
         | ContinueWorkspacePush (scope, parseFileId) ->
@@ -170,6 +171,70 @@ let createRuntime (initialModel: VM) =
                                         failWorkspacePush
                                             "workspace-push request failed")))
                             (jsonMutatingPostHeaders ()))
+                50
+            |> ignore
+        | ContinueWorkspaceDownload jobId ->
+            setTimeout
+                (fun () ->
+                    let url =
+                        "/_desktop/workspace-download?id="
+                        + encodeUriComponent jobId
+                    fetchTextNoCacheWithFail
+                        url
+                        (fun text ->
+                            dispatch (
+                                ApplyOp (pollWorkspaceDownloadJob jobId text)))
+                        (fun () ->
+                            dispatch (
+                                ApplyOp (
+                                    failWorkspaceDownload
+                                        "workspace-download poll failed"))))
+                200
+            |> ignore
+        | ContinueParseFile (fileId, desktopReadPath, detailPrefix, detailPath) ->
+            let runPost (textOpt: string option) =
+                let body = encodeParseFileRequest fileId textOpt
+                postJson
+                    "/ambit/file/parse"
+                    body
+                    (fun text ->
+                        dispatch (
+                            ApplyOp (
+                                completeParseFilePost detailPrefix detailPath text)))
+                    (fun status text ->
+                        dispatch (
+                            ApplyOp (failParseFileHttp status text)))
+                    (fun () ->
+                        dispatch (
+                            ApplyOp (failParseFile "parse request failed")))
+                    (jsonMutatingPostHeaders ())
+
+            let proceedAfterDesktopRead status responseText =
+                match decodeDesktopReadForParse status responseText with
+                | Error err -> dispatch (ApplyOp (failParseFile err))
+                | Ok textOpt ->
+                    match validateParseTextOpt textOpt with
+                    | Error err -> dispatch (ApplyOp (failParseFile err))
+                    | Ok textOpt' -> runPost textOpt'
+
+            // Delay past the current frame so "parsing:" can paint.
+            setTimeout
+                (fun () ->
+                    match desktopReadPath with
+                    | Some path ->
+                        let url =
+                            "/_desktop/file?path="
+                            + encodeUriComponent path
+                            + "&content=1"
+                        fetchGet
+                            url
+                            (fun text -> proceedAfterDesktopRead 200 text)
+                            proceedAfterDesktopRead
+                            (fun () ->
+                                dispatch (
+                                    ApplyOp (
+                                        failParseFile "desktop file read failed")))
+                    | None -> runPost None)
                 50
             |> ignore
 

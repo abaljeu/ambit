@@ -23,7 +23,9 @@ type DesktopWorkspaceSyncResponse =
       detail: string
       error: string option
       jobId: string option
-      state: string option }
+      state: string option
+      skippedPaths: string list option
+      uploadedPaths: string list option }
 
 type DesktopWorkspaceDownloadJob =
     { id: string
@@ -97,7 +99,11 @@ module DesktopWorkspaceSyncResponse =
                 |> Option.defaultValue ""
               error = get.Optional.Field "error" Decode.string
               jobId = get.Optional.Field "jobId" Decode.string
-              state = get.Optional.Field "state" Decode.string })
+              state = get.Optional.Field "state" Decode.string
+              skippedPaths =
+                get.Optional.Field "skippedPaths" (Decode.list Decode.string)
+              uploadedPaths =
+                get.Optional.Field "uploadedPaths" (Decode.list Decode.string) })
 
 [<RequireQualifiedAccess>]
 module DesktopWorkspaceDownloadJob =

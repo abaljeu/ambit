@@ -367,6 +367,18 @@ let encodeUriComponent (text: string) : string = jsNative
     "catch(e){return [0,''];}})($0,$1,$2)")>]
 let postJsonSync (url: string) (body: string) (headers: obj) : int * string = jsNative
 
+/// GET: onSuccess (2xx body), onHttpError (non-2xx status + body text), onNetworkFail.
+[<Emit("fetch($0, {cache: 'no-store', credentials: 'same-origin'})" +
+       ".then(function(r){return r.text().then(function(t){" +
+       "if(r.ok){$1(t);}else{$2(r.status,t);}});})" +
+       ".catch(function(){$3()})")>]
+let fetchGet
+    (url: string)
+    (onSuccess: string -> unit)
+    (onHttpError: int -> string -> unit)
+    (onNetworkFail: unit -> unit)
+    : unit = jsNative
+
 [<Emit("fetch($0).then(r => r.text()).then($1)")>]
 let fetchText (url: string) (callback: string -> unit) : unit = jsNative
 

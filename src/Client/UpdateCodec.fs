@@ -76,15 +76,27 @@ type DesktopInventoryItem =
     { relative: string
       isDirectory: bool }
 
-/// Decode POST /_desktop/workspace-inventory → depth-1 items.
-let decodeDesktopInventory
+type DesktopUploadInventory =
+    { mode: string
+      items: DesktopInventoryItem list }
+
+/// Decode POST /_desktop/workspace-inventory → ladder-capped scoped items.
+let decodeDesktopUploadInventory
     (text: string)
-    : Result<DesktopInventoryItem list, string> =
+    : Result<DesktopUploadInventory, string> =
     let itemDecoder =
         Decode.object (fun get ->
             { relative = get.Required.Field "relative" Decode.string
               isDirectory = get.Required.Field "isDirectory" Decode.bool })
-    Thoth.Json.JavaScript.Decode.fromString (Decode.list itemDecoder) text
+    let decoder =
+        Decode.object (fun get ->
+            { mode =
+                get.Optional.Field "mode" Decode.string
+                |> Option.defaultValue "Full"
+              items =
+                get.Optional.Field "items" (Decode.list itemDecoder)
+                |> Option.defaultValue [] })
+    Thoth.Json.JavaScript.Decode.fromString decoder text
 
 /// Decode POST /_desktop/workspace-push|pull.
 let decodeDesktopWorkspaceSync
@@ -92,6 +104,14 @@ let decodeDesktopWorkspaceSync
     : Result<DesktopWorkspaceSyncResponse, string> =
     Thoth.Json.JavaScript.Decode.fromString
         DesktopWorkspaceSyncResponse.decoder
+        text
+
+/// Decode GET /_desktop/workspace-download?id=.
+let decodeDesktopWorkspaceDownloadJob
+    (text: string)
+    : Result<DesktopWorkspaceDownloadJob, string> =
+    Thoth.Json.JavaScript.Decode.fromString
+        DesktopWorkspaceDownloadJob.decoder
         text
 
 /// Decode POST /_desktop/pick-folder.

@@ -92,7 +92,7 @@ let ``classify at exactly 1500 names stays TreeStructure when over soft name cap
         WorkspaceSyncLimits.classify items)
 
 [<Fact>]
-let ``Full plan keeps sibling files and marks oversized as empty placeholder`` () =
+let ``Full plan keeps sibling files and marks oversized as stub-only`` () =
     let items =
         [ dir "d"
           file "d/small.txt" 10L
@@ -108,15 +108,19 @@ let ``Full plan keeps sibling files and marks oversized as empty placeholder`` (
     | Some(WorkspaceSyncLimits.FilePlan.Body 10L) -> ()
     | other -> Assert.Fail($"expected Body 10, got {other}")
     match byRel.["d/big.bin"].file with
-    | Some WorkspaceSyncLimits.FilePlan.EmptyPlaceholder -> ()
-    | other -> Assert.Fail($"expected EmptyPlaceholder, got {other}")
+    | Some WorkspaceSyncLimits.FilePlan.StubOnly -> ()
+    | other -> Assert.Fail($"expected StubOnly, got {other}")
     match byRel.["d/other.txt"].file with
     | Some(WorkspaceSyncLimits.FilePlan.Body 20L) -> ()
     | other -> Assert.Fail($"expected Body 20, got {other}")
     Assert.True(byRel.["d"].isDirectory)
+    let bodies = WorkspaceSyncLimits.bodyTransfers planned
+    Assert.Equal(2, List.length bodies)
+    Assert.False(
+        bodies |> List.exists (fun p -> p.relative = "d/big.bin"))
 
 [<Fact>]
-let ``TreeStructure plan uses empty placeholders for every file`` () =
+let ``TreeStructure plan is stub-only with no body transfers`` () =
     let items =
         [ 1..201 ]
         |> List.map (fun i -> file $"f{i}.txt" 50L)
@@ -127,8 +131,9 @@ let ``TreeStructure plan uses empty placeholders for every file`` () =
         fun p ->
             Assert.False(p.isDirectory)
             Assert.Equal(
-                Some WorkspaceSyncLimits.FilePlan.EmptyPlaceholder,
+                Some WorkspaceSyncLimits.FilePlan.StubOnly,
                 p.file))
+    Assert.Empty(WorkspaceSyncLimits.bodyTransfers planned)
 
 [<Fact>]
 let ``TopLevel plan only immediate children under scope`` () =
@@ -154,7 +159,40 @@ let ``TopLevel plan only immediate children under scope`` () =
     Assert.False(Set.contains "docs/sub/deep.txt" rels)
 
 [<Fact>]
-let ``TopLevel top-level file over 4 MiB is empty placeholder`` () =
+let ``selectForVolume TopLevel matches plan path set`` () =
+    let nested =
+        [ dir "docs"
+          file "docs/a.txt" 1L
+          dir "docs/sub"
+          file "root.txt" 1L ]
+    let pad =
+        [ 1..1500 ]
+        |> List.map (fun i -> file $"pad{i}.txt" 1L)
+    let items = nested @ pad
+    let mode, selected = WorkspaceSyncLimits.selectForVolume "" items
+    Assert.Equal(WorkspaceSyncLimits.Mode.TopLevel, mode)
+    let selectedRels =
+        selected |> List.map (fun i -> i.relative) |> Set.ofList
+    let _, planned = WorkspaceSyncLimits.plan "" items
+    let plannedRels =
+        planned |> List.map (fun p -> p.relative) |> Set.ofList
+    Assert.True((plannedRels = selectedRels))
+
+[<Fact>]
+let ``selectForVolume TreeStructure keeps full path set for stubs`` () =
+    let pad =
+        [ 1..250 ]
+        |> List.map (fun i -> file $"pad{i}.txt" 1L)
+    let items = dir "docs" :: file "docs/a.txt" 1L :: pad
+    let mode, selected = WorkspaceSyncLimits.selectForVolume "" items
+    Assert.Equal(WorkspaceSyncLimits.Mode.TreeStructure, mode)
+    let rels =
+        selected |> List.map (fun i -> i.relative) |> Set.ofList
+    Assert.True(Set.contains "docs" rels)
+    Assert.True(Set.contains "docs/a.txt" rels)
+
+[<Fact>]
+let ``TopLevel top-level file over 4 MiB is stub-only`` () =
     let pad =
         [ 1..1500 ]
         |> List.map (fun i -> file $"pad{i}.txt" 1L)
@@ -163,8 +201,11 @@ let ``TopLevel top-level file over 4 MiB is empty placeholder`` () =
     Assert.Equal(WorkspaceSyncLimits.Mode.TopLevel, mode)
     let huge = planned |> List.find (fun p -> p.relative = "huge.bin")
     Assert.Equal(
-        Some WorkspaceSyncLimits.FilePlan.EmptyPlaceholder,
+        Some WorkspaceSyncLimits.FilePlan.StubOnly,
         huge.file)
+    Assert.False(
+        WorkspaceSyncLimits.bodyTransfers planned
+        |> List.exists (fun p -> p.relative = "huge.bin"))
 
 [<Fact>]
 let ``plan is directory-complete for Full sibling sets`` () =

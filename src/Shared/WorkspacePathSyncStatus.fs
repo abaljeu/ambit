@@ -101,8 +101,14 @@ module WorkspacePathSyncStatus =
         else
             None
 
+    let private ledgerDatestampsAligned (f: WorkspaceSyncPathFact) =
+        match f.localMtimeUtc, f.serverMtimeUtc with
+        | Some local, Some server -> local = server
+        | _ -> false
+
     /// Like `resolve`, but prefer `nodeUpdateTime` as server stamp when Current.
     /// Unparsed stubs keep ledger stamps: creation `updateTime` is not DataDir mtime.
+    /// Post-transfer rows with aligned ledger stamps stay authoritative (Locked #7).
     let resolveWithNodeStamp
         (canCompareDesktopMapped: bool)
         (fact: WorkspaceSyncPathFact option)
@@ -115,11 +121,14 @@ module WorkspacePathSyncStatus =
             else
                 fact
                 |> Option.map (fun f ->
-                    { f with
-                        serverMtimeUtc =
+                    let serverMtimeUtc =
+                        if ledgerDatestampsAligned f then
+                            f.serverMtimeUtc
+                        else
                             effectiveServerMtime
                                 nodeUpdateTime
-                                f.serverMtimeUtc })
+                                f.serverMtimeUtc
+                    { f with serverMtimeUtc = serverMtimeUtc })
         resolve canCompareDesktopMapped fact' isUnparsed
 
     let shortLabel =

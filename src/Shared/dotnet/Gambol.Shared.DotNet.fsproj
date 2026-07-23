@@ -10,8 +10,8 @@
     <Compile Include="GitRun.fs" />
     <Compile Include="DesktopGit.fs" />
     <Compile Include="GitCheckIgnore.fs" />
-    <Compile Include="WorkspaceLocalInventory.fs" />
     <Compile Include="WorkspaceSyncLimits.fs" />
+    <Compile Include="WorkspaceLocalInventory.fs" />
     <Compile Include="WorkspaceDownloadQueue.fs" />
     <Compile Include="WorkspaceDavClient.fs" />
     <Compile Include="WorkspaceSyncLedger.fs" />

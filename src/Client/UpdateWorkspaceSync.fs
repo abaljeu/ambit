@@ -151,37 +151,16 @@ let private postDirectoryReconcile
             (jsonHeaders ())
     postReconcileResponse model status text
 
-let private inventoryToAddedPaths
-    (items: DesktopInventoryItem list)
-    : string list =
+let private inventoryToStubItems (items: DesktopInventoryItem list) : WorkspaceUploadStructure.InventoryItem list =
     items
     |> List.map (fun i ->
-        if i.isDirectory then i.relative + "/.amb"
-        else i.relative)
+        { relative = i.relative
+          isDirectory = i.isDirectory })
 
-let private fetchImmediateInventory
-    (label: string)
-    : Result<DesktopInventoryItem list, string> =
-    let body = encodeWorkspaceInventoryRequest label ""
-    match postDesktop "/_desktop/workspace-inventory" body with
+let private fetchUploadInventory (scope: WorkspaceSyncScope) =
+    match postDesktop "/_desktop/workspace-inventory" (encodeSyncScope scope) with
     | Error e -> Error e
-    | Ok text -> decodeDesktopInventory text
-
-let private postAddedReconcile
-    (model: VM)
-    (workspace: string)
-    (paths: string list)
-    : VM * Effect list =
-    if paths.IsEmpty then
-        okWithPoll model
-    else
-        let body = encodeReconciliationAddedRequest workspace paths
-        let status, text =
-            postJsonSync
-                "/ambit/workspace/reconciliation/added"
-                body
-                (jsonHeaders ())
-        postReconcileResponse model status text
+    | Ok text -> decodeDesktopUploadInventory text
 
 /// Apply + synchronous POST so server graph has the workspace before push/reconcile.
 let private applyAndPostSync (change: Change) (model: VM) : Result<VM, string> =
@@ -209,6 +188,37 @@ let private applyAndPostSync (change: Change) (model: VM) : Result<VM, string> =
                         graph = PersistStamp.applyToGraph ack.stampOps newState.graph
                         history = newState.history
                         revision = ack.revision }
+
+let private postStructureChange
+    (model: VM)
+    (workspace: string)
+    (items: DesktopInventoryItem list)
+    : Result<VM, string> =
+    let stubItems = inventoryToStubItems items
+    match WorkspaceUploadStructure.planStubOps model.graph workspace stubItems with
+    | Error e -> Error e
+    | Ok ops when ops.IsEmpty -> Ok model
+    | Ok ops ->
+        let change =
+            { id = model.revision.Value
+              changeId = System.Guid.NewGuid()
+              ops = ops }
+        applyAndPostSync change model
+
+let private reparseSkippedUploadFiles
+    (model: VM)
+    (workspace: string)
+    (paths: string list)
+    : VM * Effect list =
+    paths
+    |> List.fold
+        (fun (current, effs) rel ->
+            match WorkspaceUploadStructure.tryResolveFileNode current.graph workspace rel with
+            | None -> current, effs
+            | Some fileId ->
+                let next, parseEffs = parseFileOp fileId current
+                next, effs @ parseEffs)
+        (model, [])
 
 let private createWorkspaceOnServer (ops: Op list) (model: VM) : Result<VM, string> =
     if ops.IsEmpty then
@@ -277,6 +287,16 @@ let failWorkspacePushHttp
     : VM * Effect list =
     failWorkspacePush (httpError status body) model
 
+let failWorkspaceDownload (msg: string) (model: VM) : VM * Effect list =
+    fail model msg
+
+let failWorkspaceDownloadHttp
+    (status: int)
+    (body: string)
+    (model: VM)
+    : VM * Effect list =
+    failWorkspaceDownload (httpError status body) model
+
 let private withPathSyncRefresh
     (model: VM, effs: Effect list)
     : VM * Effect list =
@@ -290,8 +310,7 @@ let private contextualTargetForModel (model: VM) =
             selection.range.parent.nodeId
             selection.focus)
 
-/// After async workspace-push success body: clear Uploading, then reconcile or parse.
-/// Prefer push `detail` in lastCmdResult so Upload does not look like a raw file-status JSON.
+/// After async workspace-push success: clear Uploading, reparse skipped or file focus.
 let completeWorkspacePush
     (scope: WorkspaceSyncScope)
     (parseFileId: NodeId option)
@@ -303,29 +322,39 @@ let completeWorkspacePush
     | Ok sync when sync.ok ->
         consoleLog ("[Gambol sync] " + sync.detail)
         let model' = clearUploading model
+        let skipped =
+            sync.skippedPaths |> Option.defaultValue []
         match parseFileId with
         | Some fileId ->
             parseFileOp fileId model' |> withPathSyncRefresh
+        | None when not skipped.IsEmpty ->
+            let modelR, parseEffs = reparseSkippedUploadFiles model' scope.label skipped
+            let detail =
+                sync.detail
+                + sprintf "; reparsed %d skipped file(s)" skipped.Length
+            { modelR with
+                lastCmdResult = Some (CmdLastResult.Detail (None, detail)) },
+            RequestWorkspacePathSyncSnapshot :: parseEffs
         | None ->
-            let modelR, reconcileEffs =
-                postDirectoryReconcile model' scope.label scope.relative
-            match modelR.lastCmdResult with
-            | Some (CmdLastResult.Error _) ->
-                modelR, RequestWorkspacePathSyncSnapshot :: reconcileEffs
-            | Some (CmdLastResult.Detail (_, warn)) ->
-                { modelR with
-                    lastCmdResult =
-                        Some (
-                            CmdLastResult.Detail (
-                                None, sync.detail + "; " + warn)) },
-                RequestWorkspacePathSyncSnapshot :: reconcileEffs
-            | _ ->
-                { modelR with
-                    lastCmdResult =
-                        Some (CmdLastResult.Detail (None, sync.detail)) },
-                RequestWorkspacePathSyncSnapshot :: reconcileEffs
+            okDetail model' sync.detail |> withPathSyncRefresh
     | Ok { error = Some e } -> failWorkspacePush e model
     | Ok _ -> failWorkspacePush "request failed" model
+
+/// Poll async download job; refresh path sync when desktop ledger is updated.
+let pollWorkspaceDownloadJob (jobId: string) (text: string) (model: VM) : VM * Effect list =
+    match decodeDesktopWorkspaceDownloadJob text with
+    | Error e -> failWorkspaceDownload e model
+    | Ok job ->
+        match job.state with
+        | "completed" ->
+            consoleLog ("[Gambol sync] download completed: " + job.detail)
+            okDetail model job.detail |> withPathSyncRefresh
+        | "failed" -> failWorkspaceDownload job.detail model
+        | "running" | "queued" ->
+            let detail = sprintf "download %s: %s" job.state job.detail
+            let model', _ = okDetail model detail
+            model', [ Effect.ContinueWorkspaceDownload jobId ]
+        | _ -> failWorkspaceDownload ("unknown download state: " + job.state) model
 
 /// Blocking poll so stub nodes appear before the heavy file push (keeps Uploading).
 let private applyPollSyncKeepUpload (model: VM) : VM =
@@ -353,49 +382,21 @@ let private applyPollSyncKeepUpload (model: VM) : VM =
                 |> withSiteMap
                 |> keepUploading
 
-/// Background: inventory + top-level stubs, then defer file push.
+/// Background: scoped inventory → client structure Change, then defer body push.
 let continueWorkspaceStubsThenPush
-    (scope: WorkspaceSyncScope)
-    (model: VM)
-    : VM * Effect list =
-    match fetchImmediateInventory scope.label with
-    | Error e -> fail (clearUploading model) e
-    | Ok items ->
-        let paths = inventoryToAddedPaths items
-        if paths.IsEmpty then
-            keepUploading model, [ Effect.ContinueWorkspacePush (scope, None) ]
-        else
-            let body = encodeReconciliationAddedRequest scope.label paths
-            let status, text =
-                postJsonSync
-                    "/ambit/workspace/reconciliation/added"
-                    body
-                    (jsonHeaders ())
-            if status < 200 || status >= 300 then
-                fail (clearUploading model) (httpError status text)
-            else
-                match decodeReconciliationDirectory text with
-                | Error e -> fail (clearUploading model) e
-                | Ok n ->
-                    let model' = applyPollSyncKeepUpload model
-                    let model'' =
-                        if n > 0 then
-                            { model' with
-                                lastCmdResult =
-                                    Some (
-                                        CmdLastResult.Detail (
-                                            None, $"reconciled with warnings ({n})")) }
-                        else
-                            model'
-                    keepUploading model'',
-                    [ Effect.ContinueWorkspacePush (scope, None) ]
-
-let private beginDeferredPush
     (scope: WorkspaceSyncScope)
     (parseFileId: NodeId option)
     (model: VM)
     : VM * Effect list =
-    keepUploading model, [ Effect.ContinueWorkspacePush (scope, parseFileId) ]
+    match fetchUploadInventory scope with
+    | Error e -> fail (clearUploading model) e
+    | Ok { items = items } ->
+        match postStructureChange model scope.label items with
+        | Error e -> fail (clearUploading model) e
+        | Ok model' ->
+            let model'' = applyPollSyncKeepUpload model' |> withSiteMap
+            keepUploading model'',
+            [ Effect.ContinueWorkspacePush (scope, parseFileId) ]
 
 /// Workspaces + Upload: pick → create → map → paint Uploading → stubs → push.
 let uploadCreateWorkspaceOp (model: VM) : VM * Effect list =
@@ -429,7 +430,7 @@ let uploadCreateWorkspaceOp (model: VM) : VM * Effect list =
                               relative = ""
                               kind = SyncScopeKind.Workspace }
                         keepUploading model',
-                        [ Effect.ContinueWorkspaceStubsThenPush scope ]
+                        [ Effect.ContinueWorkspaceStubsThenPush (scope, None) ]
 
 /// Upload: desktop push when mapped; else graph-only from DataDir (web).
 let uploadOp (model: VM) : VM * Effect list =
@@ -442,7 +443,9 @@ let uploadOp (model: VM) : VM * Effect list =
     | WorkspaceUploadAction.DesktopPush parseFileId ->
         match syncScopeFromFocus model with
         | Error msg -> fail model msg
-        | Ok scope -> beginDeferredPush scope parseFileId model
+        | Ok scope ->
+            keepUploading model,
+            [ Effect.ContinueWorkspaceStubsThenPush (scope, parseFileId) ]
     | WorkspaceUploadAction.ReconcileServerDisk ->
         match syncScopeFromFocus model with
         | Error msg -> fail model msg
@@ -473,8 +476,17 @@ let downloadOp (model: VM) : VM * Effect list =
             | Error "cancelled" -> model, []
             | Error e -> fail model e
             | Ok sync ->
-                let detail =
-                    match sync.state with
-                    | Some state -> sprintf "download %s: %s" state sync.detail
-                    | None -> sync.detail
-                okDetail model detail |> withPathSyncRefresh
+                match sync.jobId with
+                | Some jobId ->
+                    let detail =
+                        match sync.state with
+                        | Some state -> sprintf "download %s: %s" state sync.detail
+                        | None -> sync.detail
+                    let model', _ = okDetail model detail
+                    model', [ Effect.ContinueWorkspaceDownload jobId ]
+                | None ->
+                    let detail =
+                        match sync.state with
+                        | Some state -> sprintf "download %s: %s" state sync.detail
+                        | None -> sync.detail
+                    okDetail model detail |> withPathSyncRefresh

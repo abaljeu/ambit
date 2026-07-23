@@ -69,6 +69,7 @@
     <Compile Include="CommandCategory.fs" />
     <Compile Include="CommandEntry.fs" />
     <Compile Include="WorkspaceUpload.fs" />
+    <Compile Include="WorkspaceUploadStructure.fs" />
     <Compile Include="CommandDockLayout.fs" />
     <Compile Include="CommandIconLookup.fs" />
   </ItemGroup>

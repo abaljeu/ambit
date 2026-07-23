@@ -24,7 +24,8 @@ module WorkspaceSyncLimits =
 
     type FilePlan =
         | Body of byteSize: int64
-        | EmptyPlaceholder
+        /// No WebDAV body transfer (TreeStructure / oversized); graph stub only.
+        | StubOnly
 
     type PlannedPath =
         { relative: string
@@ -32,6 +33,15 @@ module WorkspaceSyncLimits =
           file: FilePlan option }
 
     let nameCount (items: SizedItem list) = List.length items
+
+    let isBodyTransfer (path: PlannedPath) =
+        match path.file with
+        | Some(Body _) -> true
+        | _ -> false
+
+    /// File paths that get a body PUT/GET (excludes dirs and StubOnly).
+    let bodyTransfers (planned: PlannedPath list) =
+        planned |> List.filter isBodyTransfer
 
     /// Soft-limit sum: bytes Full would transfer (exclude >4 MiB bodies).
     let transferByteSum (items: SizedItem list) =
@@ -74,11 +84,11 @@ module WorkspaceSyncLimits =
 
     let private filePlanFor (mode: Mode) (byteSize: int64) =
         match mode with
-        | TreeStructure -> EmptyPlaceholder
+        | TreeStructure -> StubOnly
         | Full
         | TopLevel ->
             if byteSize > maxFileBytes then
-                EmptyPlaceholder
+                StubOnly
             else
                 Body byteSize
 
@@ -92,11 +102,15 @@ module WorkspaceSyncLimits =
               isDirectory = false
               file = Some(filePlanFor mode item.byteSize) }
 
+    /// Files that receive a WebDAV body PUT/GET (no dirs, no StubOnly).
+    let bodyUploadPaths (planned: PlannedPath list) = bodyTransfers planned
+
     /// Directory-complete plan for the classified mode under scope.
-    let plan
+    /// Path set: Full/TreeStructure keep all; TopLevel = immediate children.
+    let selectForVolume
         (scopeRelative: string)
         (items: SizedItem list)
-        : Mode * PlannedPath list =
+        : Mode * SizedItem list =
         let mode = classify items
 
         let selected =
@@ -108,6 +122,14 @@ module WorkspaceSyncLimits =
                 |> List.filter (fun i ->
                     isImmediateChild scopeRelative i.relative)
 
+        mode, selected
+
+    /// Directory-complete plan for the classified mode under scope.
+    let plan
+        (scopeRelative: string)
+        (items: SizedItem list)
+        : Mode * PlannedPath list =
+        let mode, selected = selectForVolume scopeRelative items
         mode, selected |> List.map (toPlanned mode)
 
     let filesByParent (paths: PlannedPath list) : Map<string, Set<string>> =

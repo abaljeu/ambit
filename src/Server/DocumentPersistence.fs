@@ -189,9 +189,20 @@ module DocumentPersistence =
                 if not (String.IsNullOrEmpty parent) then
                     Directory.CreateDirectory parent |> ignore
 
+                let preservedMtime =
+                    if File.Exists fullPath then
+                        Some(File.GetLastWriteTimeUtc fullPath)
+                    else
+                        None
+
                 let tmpPath = fullPath + ".tmp"
                 File.WriteAllText(tmpPath, text)
                 File.Move(tmpPath, fullPath, true)
+
+                match preservedMtime with
+                | Some utc -> File.SetLastWriteTimeUtc(fullPath, utc)
+                | None -> ()
+
                 Ok ()
             with ex ->
                 Error ex.Message
@@ -226,7 +237,25 @@ module DocumentPersistence =
                                 |> Result.map (fun () -> text))
 
                 textResult
-                |> Result.bind (ImportDocument.planParseFile graph fileId)
+                |> Result.bind (fun text ->
+                    ImportDocument.planParseFile graph fileId text
+                    |> Result.map (fun parseOps ->
+                        match resolveArtifactPath dataDir graph fileId with
+                        | Ok fullPath when File.Exists fullPath ->
+                            let mtime =
+                                NodeUpdateTime.toDbPrecision(
+                                    File.GetLastWriteTimeUtc fullPath)
+                            let node = graph.nodes.[fileId]
+
+                            if node.updateTime = mtime then
+                                parseOps
+                            else
+                                parseOps
+                                @ [ Op.SetUpdateTime(
+                                        fileId,
+                                        node.updateTime,
+                                        mtime) ]
+                        | _ -> parseOps))
         | _ -> Error "file not found or not a File document"
 
     let private resolveArtifactDirectoryPath

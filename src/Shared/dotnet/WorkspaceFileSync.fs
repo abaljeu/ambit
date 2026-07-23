@@ -14,7 +14,9 @@ module WorkspaceFileSync =
         { uploaded: int
           downloaded: int
           detail: string
-          mode: WorkspaceSyncLimits.Mode option }
+          mode: WorkspaceSyncLimits.Mode option
+          skippedPaths: string list
+          uploadedPaths: string list }
 
     let private localFull (mappedRoot: string) (relative: string) =
         if relative = "" then mappedRoot
@@ -134,16 +136,8 @@ module WorkspaceFileSync =
             let mtime = tryFileMtime full
             match planned.file with
             | None -> Error "missing file plan"
-            | Some WorkspaceSyncLimits.FilePlan.EmptyPlaceholder ->
-                WorkspaceDavClient.putBytes
-                    client
-                    ambitBase
-                    label
-                    planned.relative
-                    Array.empty
-                    cookie
-                    hint
-                    mtime
+            | Some WorkspaceSyncLimits.FilePlan.StubOnly ->
+                Ok ()
             | Some(WorkspaceSyncLimits.FilePlan.Body _) ->
                 match readFile full with
                 | Error e -> Error e
@@ -285,7 +279,7 @@ module WorkspaceFileSync =
         =
         planned
         |> List.exists (fun p ->
-            not p.isDirectory
+            WorkspaceSyncLimits.isBodyTransfer p
             && WorkspaceSyncLedger.tryServerMtime ledger p.relative
                |> Option.isNone)
 
@@ -313,12 +307,14 @@ module WorkspaceFileSync =
                 |> serverMtimeMap)
 
     let private shouldSkipUploadFile
+        (scopeKind: SyncScopeKind)
         (ledger: WorkspaceSyncLedger)
         (scopeServer: Map<string, DateTime option>)
         (mappedRoot: string)
         (planned: WorkspaceSyncLimits.PlannedPath)
         =
         if planned.isDirectory then false
+        elif not (WorkspaceSyncLimits.isBodyTransfer planned) then false
         else
             let full = localFull mappedRoot planned.relative
 
@@ -330,14 +326,19 @@ module WorkspaceFileSync =
                     |> Option.orElseWith (fun () ->
                         Map.tryFind planned.relative scopeServer
                         |> Option.flatten)
-                WorkspaceSyncLedger.shouldSkipUpload localM serverM
+                WorkspaceSyncLedger.shouldSkipUploadScoped
+                    scopeKind
+                    localM
+                    serverM
 
     let private shouldSkipDownloadFile
+        (scopeKind: SyncScopeKind)
         (mappedRoot: string)
         (entryMap: Map<string, DavInventoryEntry>)
         (planned: WorkspaceSyncLimits.PlannedPath)
         =
         if planned.isDirectory then false
+        elif not (WorkspaceSyncLimits.isBodyTransfer planned) then false
         else
             match
                 entryMap
@@ -348,7 +349,10 @@ module WorkspaceFileSync =
             | Some serverM ->
                 let localM =
                     tryFileMtime (localFull mappedRoot planned.relative)
-                WorkspaceSyncLedger.shouldSkipDownload serverM localM
+                WorkspaceSyncLedger.shouldSkipDownloadScoped
+                    scopeKind
+                    serverM
+                    localM
 
     /// Push: local inventory → classify/plan → MKCOL/PUT → finish-commit.
     let post
@@ -375,7 +379,9 @@ module WorkspaceFileSync =
                 let sized = toSizedItems mappedRoot items
                 let mode, planned =
                     WorkspaceSyncLimits.plan scope.relative sized
-                let ordered = orderPlanned planned
+                let bodyFiles =
+                    WorkspaceSyncLimits.bodyTransfers planned
+                    |> List.sortBy (fun p -> p.relative)
 
                 match
                     ensureLedgerSeeded
@@ -388,7 +394,7 @@ module WorkspaceFileSync =
                 | Error e -> Error e
                 | Ok ledger0 ->
                     let scopeServer =
-                        if needsScopePropfind ledger0 ordered then
+                        if needsScopePropfind ledger0 bodyFiles then
                             match
                                 fetchScopeServerMtimes
                                     client
@@ -405,83 +411,61 @@ module WorkspaceFileSync =
                     | Ok scopeServerMap ->
                         let mutable ledger = ledger0
                         let mutable skipped = 0
+                        let skippedPaths = ResizeArray<string>()
+                        let uploadedPaths = ResizeArray<string>()
 
                         let recordUploaded
                             (item: WorkspaceSyncLimits.PlannedPath)
                             =
-                            if item.isDirectory then
+                            let full =
+                                localFull mappedRoot item.relative
+
+                            match tryFileMtime full with
+                            | None -> ()
+                            | Some localM ->
+                                uploadedPaths.Add item.relative
                                 ledger <-
                                     WorkspaceSyncLedger.recordUpload
                                         ledger
                                         item.relative
-                                        true
-                                        DateTime.UtcNow
-                                        DateTime.UtcNow
+                                        false
+                                        localM
+                                        localM
                                         None
-                            elif
-                                item.file.IsSome
-                                && not item.isDirectory
-                            then
-                                let full =
-                                    localFull mappedRoot item.relative
-
-                                match tryFileMtime full with
-                                | None -> ()
-                                | Some localM ->
-                                    ledger <-
-                                        WorkspaceSyncLedger.recordUpload
-                                            ledger
-                                            item.relative
-                                            false
-                                            localM
-                                            localM
-                                            None
 
                         let toUpload =
-                            ordered
+                            bodyFiles
                             |> List.filter (fun item ->
                                 if
                                     shouldSkipUploadFile
+                                        scope.kind
                                         ledger
                                         scopeServerMap
                                         mappedRoot
                                         item
                                 then
                                     skipped <- skipped + 1
+                                    skippedPaths.Add item.relative
                                     false
                                 else
                                     true)
 
-                        let rec uploadWaves remaining count =
-                            match remaining with
-                            | [] -> Ok count
-                            | wave :: rest ->
-                                match
-                                    runUploadWave
-                                        client
-                                        ambitBase
-                                        scope.label
-                                        mappedRoot
-                                        cookieHeader
-                                        clientHint
-                                        wave
-                                with
-                                | Error e -> Error e
-                                | Ok uploadedItems ->
-                                    for item in uploadedItems do
-                                        recordUploaded item
-
-                                    uploadWaves
-                                        rest
-                                        (count + List.length uploadedItems)
-
                         match
-                            uploadWaves
-                                (partitionUploadWaves toUpload)
-                                0
+                            runUploadWave
+                                client
+                                ambitBase
+                                scope.label
+                                mappedRoot
+                                cookieHeader
+                                clientHint
+                                toUpload
                         with
                         | Error e -> Error e
-                        | Ok uploaded ->
+                        | Ok uploadedItems ->
+                            for item in uploadedItems do
+                                recordUploaded item
+
+                            let uploaded = List.length uploadedItems
                             match
                                 WorkspaceDavClient.finishCommit
                                     client
@@ -531,7 +515,9 @@ module WorkspaceFileSync =
                                         { uploaded = uploaded
                                           downloaded = 0
                                           detail = detail
-                                          mode = Some mode }
+                                          mode = Some mode
+                                          skippedPaths = skippedPaths |> Seq.toList
+                                          uploadedPaths = uploadedPaths |> Seq.toList }
 
     let private stagingRoot (mappedRoot: string) (jobId: Guid) =
         Path.Combine(mappedRoot, ".gambol-dl-tmp", jobId.ToString("N"))
@@ -633,11 +619,8 @@ module WorkspaceFileSync =
                 |> Option.bind (fun e -> e.lastModifiedUtc)
             match planned.file with
             | None -> Error "missing file plan"
-            | Some WorkspaceSyncLimits.FilePlan.EmptyPlaceholder ->
-                writeFile
-                    (localFull stageRoot planned.relative)
-                    Array.empty
-                    mtime
+            | Some WorkspaceSyncLimits.FilePlan.StubOnly ->
+                Ok ()
             | Some(WorkspaceSyncLimits.FilePlan.Body _) ->
                 match
                     WorkspaceDavClient.getBytes
@@ -721,7 +704,16 @@ module WorkspaceFileSync =
                         match remaining with
                         | [] -> Ok count
                         | item :: rest ->
-                            if shouldSkipDownloadFile mappedRoot entryMap item then
+                            if not (WorkspaceSyncLimits.isBodyTransfer item)
+                               && not item.isDirectory then
+                                download rest count
+                            elif
+                                shouldSkipDownloadFile
+                                    scope.kind
+                                    mappedRoot
+                                    entryMap
+                                    item
+                            then
                                 skipped <- skipped + 1
                                 download rest count
                             else
@@ -790,7 +782,9 @@ module WorkspaceFileSync =
                                     { uploaded = 0
                                       downloaded = downloaded
                                       detail = detail
-                                      mode = Some mode }
+                                      mode = Some mode
+                                      skippedPaths = []
+                                      uploadedPaths = downloadedPaths |> Seq.toList }
 
     /// Pull: PROPFIND inventory → limited GET under mapped root (blocking; manager preferred).
     let get

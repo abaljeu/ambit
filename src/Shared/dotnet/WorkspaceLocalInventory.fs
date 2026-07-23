@@ -169,6 +169,55 @@ module WorkspaceLocalInventory =
         with ex ->
             Error ex.Message
 
+    let private tryItemByteSize (mappedRoot: string) (item: LocalSyncItem) =
+        if item.isDirectory then 0L
+        else
+            let root = Path.GetFullPath mappedRoot
+            let parts =
+                item.relative.Split(
+                    [| '/' |],
+                    StringSplitOptions.RemoveEmptyEntries)
+            let full =
+                Path.GetFullPath(
+                    Path.Combine(Array.append [| root |] parts))
+            try
+                if File.Exists full then FileInfo(full).Length
+                else 0L
+            with _ ->
+                0L
+
+    let toSizedItems (mappedRoot: string) (items: LocalSyncItem list) =
+        items
+        |> List.map (fun item ->
+            ({ relative = item.relative
+               isDirectory = item.isDirectory
+               byteSize = tryItemByteSize mappedRoot item }
+             : WorkspaceSyncLimits.SizedItem))
+
+    /// Scoped ignore-filtered inventory, volume-capped for stubs and PUTs.
+    /// Full/TreeStructure → all paths; TopLevel → immediate children only.
+    let listForUpload
+        (mappedRoot: string)
+        (scope: WorkspaceSyncScope)
+        : Result<WorkspaceSyncLimits.Mode * LocalSyncItem list, string> =
+        match listForPush mappedRoot scope with
+        | Error e -> Error e
+        | Ok raw ->
+            let sized = toSizedItems mappedRoot raw
+            let mode, selected =
+                WorkspaceSyncLimits.selectForVolume scope.relative sized
+
+            let capped =
+                selected
+                |> List.map (fun s ->
+                    { relative = s.relative
+                      isDirectory = s.isDirectory })
+
+            Ok(mode, capped)
+
+    /// Alias used by Desktop inventory endpoint.
+    let planUploadInventory = listForUpload
+
     /// Directories first by depth, then files (stable for MKCOL then PUT).
     let orderForUpload (items: LocalSyncItem list) : LocalSyncItem list =
         let depth (rel: string) =

@@ -111,11 +111,21 @@ module WorkspaceSyncEndpoints =
             AuthToken.cookieHeaderValue c.Username c.Password)
 
     let private okSync (r: WorkspaceFileSync.SyncResult) =
+        let skippedJson =
+            r.skippedPaths
+            |> List.map quoteJson
+            |> String.concat ","
+        let uploadedJson =
+            r.uploadedPaths
+            |> List.map quoteJson
+            |> String.concat ","
         sprintf
-            "{\"ok\":true,\"uploaded\":%d,\"downloaded\":%d,\"detail\":%s}"
+            "{\"ok\":true,\"uploaded\":%d,\"downloaded\":%d,\"detail\":%s,\"skippedPaths\":[%s],\"uploadedPaths\":[%s]}"
             r.uploaded
             r.downloaded
             (quoteJson r.detail)
+            skippedJson
+            uploadedJson
 
     let private okDownload (job: WorkspaceDownloadQueue.DownloadJob) =
         let state =
@@ -268,43 +278,36 @@ module WorkspaceSyncEndpoints =
         (context: HttpContext)
         = task {
         let! body = readBody context
-        match
-            try
-                use document = JsonDocument.Parse body
-                let root = document.RootElement
-                match tryGetString root "label" with
-                | None -> Error "label is required"
-                | Some label ->
-                    let relative =
-                        tryGetString root "relative"
-                        |> Option.defaultValue ""
-                    match WorkspaceSyncScope.normalizeRelative relative with
-                    | Error e -> Error e
-                    | Ok rel -> Ok(label, rel)
-            with
-            | :? JsonException -> Error "invalid JSON"
-        with
+        match decodeScope body with
         | Error message -> do! writeBadRequest context message
-        | Ok(label, relative) ->
-            match resolveMappedRoot workspaceMap label with
+        | Ok scope ->
+            match resolveMappedRoot workspaceMap scope.label with
             | Error message -> do! writeBadRequest context message
             | Ok mappedRoot ->
                 match
-                    WorkspaceLocalInventory.listImmediateChildren
-                        mappedRoot
-                        relative
+                    WorkspaceLocalInventory.listForUpload mappedRoot scope
                 with
                 | Error err -> do! writeBadRequest context err
-                | Ok items ->
+                | Ok(mode, items) ->
+                    let modeText =
+                        match mode with
+                        | WorkspaceSyncLimits.Mode.Full -> "Full"
+                        | WorkspaceSyncLimits.Mode.TreeStructure -> "TreeStructure"
+                        | WorkspaceSyncLimits.Mode.TopLevel -> "TopLevel"
                     let itemJson (i: LocalSyncItem) =
                         sprintf
                             "{\"relative\":%s,\"isDirectory\":%b}"
                             (quoteJson i.relative)
                             i.isDirectory
+                    let itemsJson =
+                        items
+                        |> List.map itemJson
+                        |> String.concat ","
                     let json =
-                        "["
-                        + String.concat "," (List.map itemJson items)
-                        + "]"
+                        sprintf
+                            "{\"mode\":%s,\"items\":[%s]}"
+                            (quoteJson modeText)
+                            itemsJson
                     do! writeJson context json
     }
 

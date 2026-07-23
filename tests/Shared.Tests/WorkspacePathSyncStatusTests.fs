@@ -129,6 +129,34 @@ let ``effectiveServerMtime prefers node stamp over ledger`` () =
             None)
 
 [<Fact>]
+let ``resolveWithNodeStamp prefers aligned ledger over node touch stamp`` () =
+    let local = utc 2026 1 1 0
+    let synced =
+        fact
+            WorkspacePathPresence.Both
+            (Some local)
+            (Some local)
+    let nodeNewer = utc 2026 1 3 0
+    Assert.Equal(
+        Some WorkspacePathSyncStatus.Synced,
+        WorkspacePathSyncStatus.resolveWithNodeStamp
+            true (Some synced) nodeNewer false)
+
+[<Fact>]
+let ``resolveWithNodeStamp classifies NewerOnServer when ledger server ahead`` () =
+    let local = utc 2026 1 1 0
+    let server = utc 2026 1 2 0
+    let fact' =
+        fact
+            WorkspacePathPresence.Both
+            (Some local)
+            (Some server)
+    Assert.Equal(
+        Some WorkspacePathSyncStatus.NewerOnServer,
+        WorkspacePathSyncStatus.resolveWithNodeStamp
+            true (Some fact') server false)
+
+[<Fact>]
 let ``resolveWithNodeStamp ignores node stamp when Unparsed`` () =
     let local = utc 2026 1 1 0
     let synced =
@@ -142,7 +170,7 @@ let ``resolveWithNodeStamp ignores node stamp when Unparsed`` () =
         WorkspacePathSyncStatus.resolveWithNodeStamp
             true (Some synced) nodeNewer true)
     Assert.Equal(
-        Some WorkspacePathSyncStatus.NewerOnServer,
+        Some WorkspacePathSyncStatus.Synced,
         WorkspacePathSyncStatus.resolveWithNodeStamp
             true (Some synced) nodeNewer false)
 
