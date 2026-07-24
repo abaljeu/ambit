@@ -101,56 +101,6 @@ let private artifactMap (graph: Graph) : Map<string, string> =
     |> Map.ofSeq
 
 [<Fact>]
-let ``classifyArtifactRelative recognizes canonical and nested paths`` () =
-    let ws =
-        DocumentAssembly.classifyArtifactRelative "home/.amb"
-        |> requireOk "workspace"
-    Assert.Equal(DocumentAssembly.DocumentArtifactKind.Directory, ws.kind)
-
-    let dir =
-        DocumentAssembly.classifyArtifactRelative "home/docs/.amb"
-        |> requireOk "directory"
-    Assert.Equal(DocumentAssembly.DocumentArtifactKind.Directory, dir.kind)
-
-    let file =
-        DocumentAssembly.classifyArtifactRelative "home/docs/readme.txt"
-        |> requireOk "file"
-    Assert.Equal(DocumentAssembly.DocumentArtifactKind.File, file.kind)
-
-    let root =
-        DocumentAssembly.classifyArtifactRelative ".amb"
-        |> requireOk "root"
-    Assert.Equal(DocumentAssembly.DocumentArtifactKind.Directory, root.kind)
-
-    let trash =
-        DocumentAssembly.classifyArtifactRelative "TRASH/.amb"
-        |> requireOk "trash"
-    Assert.Equal(DocumentAssembly.DocumentArtifactKind.Directory, trash.kind)
-
-    let rootFile =
-        DocumentAssembly.classifyArtifactRelative "name.ext"
-        |> requireOk "root file"
-    Assert.Equal(DocumentAssembly.DocumentArtifactKind.File, rootFile.kind)
-
-    let rootDir =
-        DocumentAssembly.classifyArtifactRelative "inner/.amb"
-        |> requireOk "root dir"
-    Assert.Equal(DocumentAssembly.DocumentArtifactKind.Directory, rootDir.kind)
-
-[<Fact>]
-let ``classifyArtifactRelative recognizes named amb files as File`` () =
-    let rootFile =
-        DocumentAssembly.classifyArtifactRelative "foo.amb"
-        |> requireOk "root named amb file"
-    Assert.Equal(DocumentAssembly.DocumentArtifactKind.File, rootFile.kind)
-
-    let nested =
-        DocumentAssembly.classifyArtifactRelative "d/bob/cea.amb"
-        |> requireOk "nested named amb file"
-    Assert.Equal(DocumentAssembly.DocumentArtifactKind.File, nested.kind)
-    Assert.Equal("d/bob/cea.amb", nested.relativePath)
-
-[<Fact>]
 let ``classifyCodec uses Amb for marker and named amb paths`` () =
     let marker =
         DocumentFormat.classifyCodec ".amb" |> requireOk "root marker"
@@ -257,6 +207,7 @@ let ``assembleFromArtifacts round trips nested named amb file`` () =
     let actualNormalId = actual.nodes.[fileId].children.Head.id
     Assert.Equal("ready", actual.nodes.[actualNormalId].text)
     Assert.Equal(fileId, actual.nodes.[dirId].children.Head.id)
+    Assert.Equal(Special File, actual.nodes.[fileId].kind)
 
 [<Fact>]
 let ``assembleFromArtifacts ignores stray amb in artifact map`` () =
@@ -295,6 +246,8 @@ let ``assembleFromArtifacts round trips nested workspace tree`` () =
     Assert.Equal(wsId, actual.nodes.[Graph.workspacesId].children.Head.id)
     Assert.Equal(dirId, actual.nodes.[wsId].children.Head.id)
     Assert.Equal(fileId, actual.nodes.[dirId].children.Head.id)
+    Assert.Equal(Special Directory, actual.nodes.[dirId].kind)
+    Assert.Equal(Special File, actual.nodes.[fileId].kind)
 
 [<Fact>]
 let ``assembleFromArtifacts round trips file owns directory boundary`` () =
