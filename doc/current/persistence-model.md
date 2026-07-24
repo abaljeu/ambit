@@ -24,6 +24,13 @@ How Gambol persists the graph: PostgreSQL is always the source of truth; on-disk
 ## Running against PostgreSQL
 
 [[src/Server/Database.fs]] maintains append-only `changes` and a normalized projection: singleton `graph`, `nodes`, `node_children`. The legacy `snapshots` SQL table is dropped on `initSchema` (outline blob checkpoints are not used in PostgreSQL).
+Ordinary accepted batches update the normalized projection incrementally through typed `ProjectionPatch` commands in [[src/Server/DatabaseProjection.fs]]. The planner derives distinct touched node IDs and replaced parent IDs from the accepted, persistence-enriched changes, then reads complete final node and ordered child rows from the applied graph. The transaction upserts only those nodes, deletes and reinserts children only for replaced parents, and advances the singleton revision alongside the appended change log. Duplicate and unchanged submissions issue no projection writes. There is no persistent node deletion command because the submitted operation vocabulary has no delete-node operation.
+
+When the graph singleton is absent, the first accepted batch uses the full projection replacement to establish all canonical rows. Explicit document-file rebuilds also retain the full truncate-and-replace path; initialized ordinary writes do not truncate projection tables.
+
+At `DbAgent` startup, projection maintenance performs a SQL mark-and-sweep over the complete persisted projection. A recursive `UNION` traversal starts at `graph.root_id`, follows every `node_children` edge cycle-safely, and deletes unreachable `nodes` with `DELETE ... RETURNING`; foreign-key cascades remove incident child rows. ROOT and the other canonical IDs are protected defensively. The returned IDs trim any corresponding nodes present in the loaded immutable graph and live-save baseline. The sweep does not append `changes`, advance `graph.revision`, or collect `DataDir` artifacts. An absent graph singleton and a graph with no unreachable rows are no-ops.
+
+The mailbox is available while startup maintenance runs. During that startup mode it selectively serves `GetState`, `GetRevision`, and `GetChangesSince` against the frozen loaded state while ordinary mutations remain buffered in FIFO order. After successful deletion and in-memory trimming, the agent publishes readiness and enters its normal serialized receive loop. On sweep failure, safe reads remain available while queued and new mutations fail closed with the startup error. State and poll responses carry this readiness value; the browser displays `Starting up…` until a successful poll or state response reports that normal queue processing is active. Client mutation controls remain enabled because the server buffers those requests safely.
 
 - **`DB_CONNECTION_STRING`** is required.
 - Startup loads from the DB only; correlated files are not read to rebuild graph state.
@@ -146,7 +153,9 @@ Foreign keys `parent_id` → `nodes(id)` and `child_id` → `nodes(id)` are reco
 ([[src/Server/DatabaseSetup.fs]], [[src/Server/Server.fs]], [[src/Server/DbAgent.fs]]):
 
 - **`Database.initSchema`** — creates **`changes`**, **`graph`**, **`nodes`**, **`node_children`**; drops legacy **`snapshots`** if present.
-- **`DbAgent`** — loads projection + replays `changes` tail; each accepted change appends a row and updates projection in one transaction.
+- **`DbAgent`** — loads projection + replays `changes` tail; each accepted change appends a row and applies a typed incremental projection patch in one transaction.
+- **Startup projection GC** — typed maintenance SQL marks from persisted `graph.root_id`, deletes unreachable rows, trims returned IDs from loaded state, then enables normal mutation processing.
+- **Projection bootstrap and rebuild** — an absent singleton and explicit document-file rebuilds use the full replacement path; ordinary initialized writes touch only selected node and parent-child rows.
 - **Auto-persist to correlated files** — after a successful DB commit, write or update document artifacts under `DataDir` for affected document roots (see [[doc/roadmap/workspace-file-persistence.md]]). Incremental writes skip unchanged documents.
 
 ## Not implemented (see roadmap)

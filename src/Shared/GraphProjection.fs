@@ -45,34 +45,35 @@ module GraphProjection =
                 | None -> false
                 | Some nb -> nodeEquals na nb)
 
+    let nodeRowFromNode (node: Node) : NodePersistenceRow =
+        { id = node.id.Value
+          text = node.text
+          name = Filename.tryValue node.name
+          kind = NodeKindPersistence.toPersistString node.kind
+          documentState =
+            match node.documentState with
+            | Current -> "current"
+            | Unparsed -> "unparsed"
+          cssClassNames = CssClass.toList node.cssClasses
+          updateTime = node.updateTime }
+
     let nodeRowsFromGraph (g: Graph) : NodePersistenceRow list =
         g.nodes
         |> Map.toList
-        |> List.map (fun (_, n) ->
-            { id = n.id.Value
-              text = n.text
-              name = Filename.tryValue n.name
-              kind = NodeKindPersistence.toPersistString n.kind
-              documentState =
-                match n.documentState with
-                | Current -> "current"
-                | Unparsed -> "unparsed"
-              cssClassNames = CssClass.toList n.cssClasses
-              updateTime = n.updateTime })
+        |> List.map (snd >> nodeRowFromNode)
+
+    let childRowsFromNode (node: Node) : ChildPersistenceRow list =
+        node.children
+        |> List.mapi (fun ordinal child ->
+            { parentId = node.id.Value
+              ordinal = ordinal
+              childId = child.id.Value
+              ownership = child.ref })
 
     let childRowsFromGraph (g: Graph) : ChildPersistenceRow list =
         g.nodes
         |> Map.toList
-        |> List.collect (fun (pId, node) ->
-            node.children
-            |> List.mapi (fun i c ->
-                { parentId = pId.Value
-                  ordinal = i
-                  childId = c.id.Value
-                  ownership =
-                    match c.ref with
-                    | Ownership.Owner -> Ownership.Owner
-                    | Ownership.Ref -> Ownership.Ref }))
+        |> List.collect (snd >> childRowsFromNode)
 
     let graphFromPersistence
         (rootId: NodeId)

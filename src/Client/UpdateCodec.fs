@@ -14,13 +14,8 @@ let encodePendingBatchBody (changes: Change list) : string =
 
 
 /// Decode the response from GET /{file}/state
-let decodeStateResponse (text: string) : Result<Graph * Revision, string> =
-    let decoder =
-        Decode.object (fun get ->
-            let g = get.Required.Field "graph" Serialization.decodeGraph
-            let r = get.Required.Field "revision" Serialization.decodeRevision
-            g, r)
-    Thoth.Json.JavaScript.Decode.fromString decoder text
+let decodeStateResponse (text: string) : Result<StateResponse, string> =
+    ApiResponseSerialization.decodeStateResponse text
 
 /// Decode the response from GET /{file}/capabilities.
 let decodeServerCapabilities (text: string) : Result<ServerCapabilities, string> =

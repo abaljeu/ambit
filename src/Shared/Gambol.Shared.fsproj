@@ -28,6 +28,7 @@
     <Compile Include="WorkspaceSyncScope.fs" />
     <Compile Include="DocumentPartition.fs" />
     <Compile Include="History.fs" />
+    <Compile Include="ApiResponses.fs" />
     <Compile Include="LogText.fs" />
     <Compile Include="ClientIdentity.fs" />
     <Compile Include="WorkspaceGitRemote.fs" />
@@ -61,6 +62,7 @@
     <Compile Include="ExportText.fs" />
     <Compile Include="Snapshot.fs" />
     <Compile Include="Serialization.fs" />
+    <Compile Include="ApiResponseSerialization.fs" />
     <Compile Include="SyncBatch.fs" />
     <Compile Include="SyncPlanner.fs" />
     <Compile Include="SyncRetry.fs" />

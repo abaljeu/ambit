@@ -219,6 +219,7 @@ type SyncInfo =
     { syncState: SyncState
       pendingChanges: Change list
       isPollingActive: bool
+      isServerReady: bool
       syncRiskAcknowledged: bool }
 
 [<RequireQualifiedAccess>]
@@ -227,10 +228,14 @@ module SyncInfo =
         { syncState = Idle
           pendingChanges = []
           isPollingActive = false
+          isServerReady = false
           syncRiskAcknowledged = false }
 
     let withPendingChanges (pending: Change list) (si: SyncInfo) : SyncInfo =
         { si with pendingChanges = pending }
+
+    let withServerReady ready (si: SyncInfo) : SyncInfo =
+        { si with isServerReady = ready }
 
     /// Updates sync state. Clears risk acknowledgment when crossing the risk boundary.
     let withSyncState (newState: SyncState) (si: SyncInfo) : SyncInfo =
@@ -382,7 +387,7 @@ type SubmitNetworkErrorKind =
 
 /// Messages dispatched by async server callbacks (not directly caused by user input).
 type SystemMsg =
-    | StateLoaded of Graph * Revision
+    | StateLoaded of StateResponse
     | SubmitResponse of
         ackedChangeIds: System.Guid list *
         revision: Revision *
@@ -402,7 +407,7 @@ type SystemMsg =
         factsByLabel: Map<string, Map<string, WorkspaceSyncPathFact>>
     | SetPollingActive of bool
     | PollTick            // polling timer fired; update decides whether to emit PollServer effect
-    | PollDone of SyncState option * Change list   // poll GET response arrived
+    | PollDone of SyncState option * Change list * isReady: bool option
     | RetrySubmit         // retry timer fired; update resends the stored batch snapshot
 
 type Msg =

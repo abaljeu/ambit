@@ -59,8 +59,8 @@ fetchTextNoCacheWithFail
 
 fetchText $"/{currentFile}/state" (fun text ->
     match decodeStateResponse text with
-    | Ok (graph, revision) ->
-        dispatch (SysMsg (StateLoaded (graph, revision)))
+    | Ok response ->
+        dispatch (SysMsg (StateLoaded response))
         startPolling pollForRemoteChanges recordActivity
     | Error err ->
         app.textContent <- $"Error: {err}"

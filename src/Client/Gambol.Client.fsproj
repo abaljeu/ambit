@@ -30,6 +30,7 @@
     <Compile Include="Controller.fs" />
     <Compile Include="SearchDialogView.fs" />
     <Compile Include="FileSearchDialogView.fs" />
+    <Compile Include="StatusView.fs" />
     <Compile Include="View.fs" />
     <Compile Include="SessionState.fs" />
     <Compile Include="App.fs" />

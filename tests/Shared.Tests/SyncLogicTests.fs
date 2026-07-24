@@ -17,7 +17,11 @@ let private mkContext build page =
       pageBuildEpochSec = page }
 
 let private mkPoll rev build page =
-    { revision = rev; buildEpochSec = build; pageBuildEpochSec = page; changes = [] }
+    { revision = rev
+      buildEpochSec = build
+      pageBuildEpochSec = page
+      isReady = true
+      changes = [] }
 
 // ---------------------------------------------------------------------------
 // getPollOutcome — data outdated
@@ -70,6 +74,16 @@ let ``getPollOutcome returns CodeOutdated when both code and data are outdated``
 // ---------------------------------------------------------------------------
 // SyncInfo helpers
 // ---------------------------------------------------------------------------
+
+[<Fact>]
+let ``SyncInfo readiness follows state and poll responses`` () =
+    let starting = SyncInfo.initial
+    let ready = starting |> SyncInfo.withServerReady true
+    let startingAgain = ready |> SyncInfo.withServerReady false
+
+    Assert.False(starting.isServerReady)
+    Assert.True(ready.isServerReady)
+    Assert.False(startingAgain.isServerReady)
 
 [<Fact>]
 let ``SyncInfo withPendingChanges replaces pending list`` () =

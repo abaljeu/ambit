@@ -5,14 +5,6 @@ open Thoth.Json.Core
 open Thoth.Json.JavaScript
 
 
-/// Response from GET /{file}/poll — { r, b, p, c }.
-/// `changes` is empty when client is up-to-date; populated with the tail when client is behind.
-type PollResponse =
-    { revision: int
-      buildEpochSec: int
-      pageBuildEpochSec: int
-      changes: Change list }
-
 type ChangeBatch =
     { changes: Change list }
 
@@ -406,26 +398,3 @@ module Serialization =
                 get.Optional.Field "stampOps" (Decode.list decodeOp)
                 |> Option.defaultValue [] })
 
-    // ---- PollResponse ----
-    // Defined after Change encode/decode because the response now includes a change tail.
-
-    let encodePollResponse (r: PollResponse) : IEncodable =
-        Encode.object
-            [ "r", Encode.int r.revision
-              "b", Encode.int r.buildEpochSec
-              "p", Encode.int r.pageBuildEpochSec
-              "c", r.changes |> List.map encodeChange |> Encode.list ]
-
-    /// Decoder usable with any Thoth backend (Newtonsoft in tests, JavaScript in Fable).
-    let decodePollResponseDecoder: Decoder<PollResponse> =
-        Decode.object (fun get ->
-            { revision = get.Required.Field "r" Decode.int
-              buildEpochSec = get.Required.Field "b" Decode.int
-              pageBuildEpochSec = get.Required.Field "p" Decode.int
-              // Optional for backward-compat: old server responses omit "c".
-              changes =
-                get.Optional.Field "c" (Decode.list decodeChange)
-                |> Option.defaultValue [] })
-
-    let decodePollResponse (text: string) : Result<PollResponse, string> =
-        Decode.fromString decodePollResponseDecoder text

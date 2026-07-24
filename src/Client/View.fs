@@ -10,6 +10,7 @@ open Gambol.Client.Commands
 open Gambol.Client.JsInterop
 open Gambol.Client.Update
 open Gambol.Client.UpdateOps
+open Gambol.Client.StatusView
 open Gambol.Shared.CommandDockLayout
 open Gambol.Shared.CommandCategory
 open Gambol.Shared.LogText
@@ -705,64 +706,6 @@ let renderRenamePrompt (model: VM) (dispatch: Msg -> unit) : unit =
         let input = document.getElementById "rename-prompt-input" :?> HTMLInputElement
         if not (isNull input) && input.value <> "" then
             input.value <- ""
-
-// ---------------------------------------------------------------------------
-// status indicators
-// ---------------------------------------------------------------------------
-
-/// Update the persistent status element text and style.
-let renderStatus (model: VM) : unit =
-    let el = document.getElementById "sync-status"
-    if not (isNull el) then
-        match model.syncInfo.syncState with
-        | Idle ->
-            let txt = if model.syncInfo.isPollingActive then "synced" else "idle"
-            el.textContent <- txt
-            el.className <- "amb-sync-status amb-synced"
-        | Sending 1 ->
-            el.textContent <- "Saving\u2026"
-            el.className <- "amb-sync-status amb-syncing"
-        | Sending n ->
-            el.textContent <- $"Saving\u2026 (try {n})"
-            el.className <- "amb-sync-status amb-syncing"
-        | Polling ->
-            el.textContent <- "Checking\u2026"
-            el.className <- "amb-sync-status amb-synced"
-        | Uploading ->
-            el.textContent <- "Uploading\u2026"
-            el.className <- "amb-sync-status amb-syncing"
-        | WaitingToRetry (n, _, _) ->
-            el.textContent <- $"Unsaved \u2014 (try {n})"
-            el.className <- "amb-sync-status amb-pending"
-        | ServerRejected ->
-            el.textContent <- "Server rejected change \u2014 reload required"
-            el.className <- "amb-sync-status amb-stale"
-        | CodeOutdated ->
-            el.textContent <- "New version available \u2014 click to reload"
-            el.className <- "amb-sync-status amb-stale"
-        | DataOutdated ->
-            el.textContent <- "Data changed on server \u2014 click to reload"
-            el.className <- "amb-sync-status amb-stale"
-
-    let dbEl = document.getElementById "db-status"
-    if not (isNull dbEl) then
-        match readDbPresent () with
-        | "ok" ->
-            dbEl.textContent <- "DB synced"
-            dbEl.setAttribute("title", "PostgreSQL is configured and matches the file state.")
-            dbEl.className <- "amb-db-status amb-db-present"
-        | "mismatch1" ->
-            dbEl.textContent <- "DB mismatch1"
-            dbEl.setAttribute("title", "PostgreSQL mismatched the file state, was rebuilt, and now matches.")
-            dbEl.className <- "amb-db-status amb-db-mismatch"
-        | "mismatch2" ->
-            dbEl.textContent <- "DB mismatch2"
-            dbEl.setAttribute("title", "PostgreSQL still mismatches the file state after rebuild. Using file storage.")
-            dbEl.className <- "amb-db-status amb-db-mismatch"
-        | _ ->
-            dbEl.textContent <- "Files only"
-            dbEl.setAttribute("title", "PostgreSQL is not configured. Using file storage.")
-            dbEl.className <- "amb-db-status amb-db-absent"
 
 let private syncRiskAlertWired = ref false
 

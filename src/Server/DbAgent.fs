@@ -8,7 +8,9 @@ module Encode = Thoth.Json.Newtonsoft.Encode
 module Decode = Thoth.Json.Newtonsoft.Decode
 
 /// PostgreSQL-backed agent. Same message type as `FileAgent`.
-type DbAgent = { mailbox: MailboxProcessor<FileAgentMsg> }
+type DbAgent =
+    { mailbox: MailboxProcessor<FileAgentMsg>
+      isReady: unit -> bool }
 
 [<RequireQualifiedAccess>]
 module DbAgent =
@@ -19,19 +21,27 @@ module DbAgent =
     let private loadInitialState (connectionString: string) : Async<State> =
         Database.loadPersistedState connectionString decodeChangePayload |> Async.AwaitTask
 
-    let private createWithLiveSave
+    let private createLoaded
+        (initialState: State)
         (connectionString: string)
         (liveSaveDataDir: string option)
         (writeBackup: State -> unit)
+        (runStartupSweep: Graph -> Result<Guid list, string>)
         : DbAgent =
-        let initialState =
-            loadInitialState connectionString |> Async.RunSynchronously
-
         let state = ref initialState
         let persistedGraph = ref initialState.graph
         let snapshotInProgress = ref false
         let snapshotNeeded = ref false
         let snapshotWaiters = ref<AsyncReplyChannel<Result<unit, string>> list> []
+        let ready =
+            TaskCompletionSource<unit>(
+                TaskCreationOptions.RunContinuationsAsynchronously)
+
+        let trimDeletedIds deletedIds =
+            let deletedNodeIds = deletedIds |> List.map NodeId
+            let trim = DatabaseProjection.trimDeletedNodes deletedNodeIds
+            state.Value <- { state.Value with graph = trim state.Value.graph }
+            persistedGraph.Value <- trim persistedGraph.Value
 
         let notifySnapshotWaiters () =
             if not snapshotInProgress.Value && not snapshotNeeded.Value then
@@ -40,10 +50,11 @@ module DbAgent =
                 snapshotWaiters.Value <- []
 
         let encodeStateJson () =
-            Encode.toString 0 (
-                Thoth.Json.Core.Encode.object
-                    [ "revision", Serialization.encodeRevision state.Value.revision
-                      "graph", Serialization.encodeGraph state.Value.graph ])
+            ApiResponseSerialization.encodeStateResponse
+                { graph = state.Value.graph
+                  revision = state.Value.revision
+                  isReady = ready.Task.IsCompletedSuccessfully }
+            |> Encode.toString 0
 
         let encodeChangeAckJson (ackedChangeIds: Guid list) (stampOps: Op list) =
             Encode.toString 0 (
@@ -109,10 +120,14 @@ module DbAgent =
                 match logEntries with
                 | [] -> ()
                 | _ ->
-                    (Database.replaceGraphProjectionWithTx
-                        tx
-                        newState.graph
-                        newState.revision.Value)
+                    let patch =
+                        logEntries
+                        |> List.map snd
+                        |> DatabaseProjection.plan
+                            newState.graph
+                            newState.revision.Value
+
+                    (DatabaseProjection.persistWithTx tx newState.graph patch)
                         .GetAwaiter()
                         .GetResult()
 
@@ -226,53 +241,122 @@ module DbAgent =
                                     if snapshotInProgress.Value then snapshotNeeded.Value <- true
                                     else startSnapshot inbox
 
+        let tryHandleRead msg =
+            match msg with
+            | GetState reply ->
+                Some(async { reply.Reply(encodeStateJson ()) })
+            | GetRevision reply ->
+                Some(async { reply.Reply(state.Value.revision.Value) })
+            | GetChangesSince (after, reply) ->
+                Some(async {
+                    let rows =
+                        Database.getChangesAfterCheckpointRevision
+                            connectionString
+                            after
+                        |> Async.AwaitTask
+                        |> Async.RunSynchronously
+                    let changes =
+                        rows
+                        |> List.choose (fun row ->
+                            decodeChangePayload row.payload |> Result.toOption)
+                    reply.Reply(changes)
+                })
+            | _ -> None
+
         let mailbox =
             MailboxProcessor<FileAgentMsg>.Start(fun inbox ->
                 let rec loop () = async {
                     let! msg = inbox.Receive()
-                    match msg with
-                    | GetState reply ->
-                        reply.Reply(encodeStateJson ())
-                    | GetRevision reply ->
-                        reply.Reply(state.Value.revision.Value)
-                    | GetChangesSince (after, reply) ->
-                        let rows =
-                            Database.getChangesAfterCheckpointRevision connectionString after
-                            |> Async.AwaitTask
-                            |> Async.RunSynchronously
-                        let changes =
-                            rows
-                            |> List.choose (fun row ->
-                                match decodeChangePayload row.payload with
-                                | Ok change -> Some change
-                                | Error _ -> None)
-                        reply.Reply(changes)
-                    | PostChange (body, reply) ->
-                        handlePostChange body false reply inbox
-                    | PostGraphOnlyChange (body, reply) ->
-                        handlePostChange body true reply inbox
-                    | FlushSnapshot reply ->
-                        if snapshotInProgress.Value || snapshotNeeded.Value then
-                            snapshotWaiters.Value <- reply :: snapshotWaiters.Value
-                            if not snapshotInProgress.Value && snapshotNeeded.Value then
-                                startSnapshot inbox
-                        else
-                            reply.Reply(Ok ())
-                    | SnapshotDone (Some snapshotGraph) ->
-                        if GraphProjection.graphEquals state.Value.graph snapshotGraph then
-                            persistedGraph.Value <- snapshotGraph
-                        snapshotInProgress.Value <- false
-                        if snapshotNeeded.Value then startSnapshot inbox
-                        else notifySnapshotWaiters ()
-                    | SnapshotDone None ->
-                        snapshotInProgress.Value <- false
-                        if snapshotNeeded.Value then startSnapshot inbox
-                        else notifySnapshotWaiters ()
+                    match tryHandleRead msg with
+                    | Some read -> do! read
+                    | None ->
+                        match msg with
+                        | PostChange (body, reply) ->
+                            handlePostChange body false reply inbox
+                        | PostGraphOnlyChange (body, reply) ->
+                            handlePostChange body true reply inbox
+                        | FlushSnapshot reply ->
+                            if snapshotInProgress.Value || snapshotNeeded.Value then
+                                snapshotWaiters.Value <- reply :: snapshotWaiters.Value
+                                if
+                                    not snapshotInProgress.Value
+                                    && snapshotNeeded.Value
+                                then
+                                    startSnapshot inbox
+                            else
+                                reply.Reply(Ok ())
+                        | SnapshotDone persisted ->
+                            match persisted with
+                            | Some graph
+                                when GraphProjection.graphEquals
+                                    state.Value.graph
+                                    graph ->
+                                persistedGraph.Value <- graph
+                            | _ -> ()
+                            snapshotInProgress.Value <- false
+                            if snapshotNeeded.Value then startSnapshot inbox
+                            else notifySnapshotWaiters ()
+                        | _ -> ()
                     return! loop ()
                 }
-                loop ())
+                let rec failedLoop error = async {
+                    let! msg = inbox.Receive()
+                    match tryHandleRead msg with
+                    | Some read -> do! read
+                    | None ->
+                        match msg with
+                        | PostChange (_, reply)
+                        | PostGraphOnlyChange (_, reply) ->
+                            reply.Reply(Error error)
+                        | FlushSnapshot reply -> reply.Reply(Error error)
+                        | SnapshotDone _ -> ()
+                        | _ -> ()
+                    return! failedLoop error
+                }
 
-        { mailbox = mailbox }
+                DbAgentStartup.run
+                    (fun () -> runStartupSweep initialState.graph)
+                    trimDeletedIds
+                    (fun () -> ready.TrySetResult() |> ignore)
+                    tryHandleRead
+                    loop
+                    failedLoop
+                    inbox)
+
+        { mailbox = mailbox
+          isReady = fun () -> ready.Task.IsCompletedSuccessfully }
+
+    let private createWithLiveSave
+        (connectionString: string)
+        (liveSaveDataDir: string option)
+        (writeBackup: State -> unit)
+        : DbAgent =
+        let initialState =
+            loadInitialState connectionString |> Async.RunSynchronously
+
+        let runStartupSweep (_: Graph) =
+            try
+                DatabaseProjection.startupSweepPatch
+                |> DatabaseProjection.maintenanceCommand
+                |> DatabaseProjection.executeMaintenance connectionString
+                |> Async.AwaitTask
+                |> Async.RunSynchronously
+                |> Ok
+            with ex ->
+                Error $"Startup projection sweep failed: {ex.Message}"
+
+        createLoaded
+            initialState
+            connectionString
+            liveSaveDataDir
+            writeBackup
+            runStartupSweep
+
+    let createForTest
+        (initialState: State)
+        (runStartupSweep: Graph -> Result<Guid list, string>)
+        : DbAgent =
+        createLoaded initialState "" None ignore runStartupSweep
 
     let createWithBackup (connectionString: string) (writeBackup: State -> unit) : DbAgent =
         createWithLiveSave connectionString None writeBackup
@@ -286,6 +370,9 @@ module DbAgent =
 
     let create (connectionString: string) : DbAgent =
         createWithBackup connectionString (fun _ -> ())
+
+    let isReady (agent: DbAgent) =
+        agent.isReady ()
 
     let getState (agent: DbAgent) : Async<string> =
         agent.mailbox.PostAndAsyncReply(GetState)

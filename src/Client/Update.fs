@@ -24,12 +24,13 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
     match msg with
     | ApplyOp op -> op model
 
-    | SysMsg (StateLoaded (graph, revision)) ->
+    | SysMsg (StateLoaded response) ->
+        let graph = response.graph
         let zoomRoot = firstGraphChild graph
         let siteMap, nextId =
             ViewModel.buildSiteMapFrom graph zoomRoot (Sid 0)
         { graph = graph
-          revision = revision
+          revision = response.revision
           history = History.empty
           selectedNodes = None
           mode = Selecting
@@ -43,7 +44,9 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
           desktopFileIndicator = BlankFileIndicator
           workspaceMappedLabels = model.workspaceMappedLabels
           workspaceSyncFacts = model.workspaceSyncFacts
-          syncInfo = SyncInfo.initial
+          syncInfo =
+            SyncInfo.initial
+            |> SyncInfo.withServerReady response.isReady
           lastCmdResult = None }, []
 
     | AckSyncRisk ->
@@ -136,56 +139,75 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
         let si, effects = SyncPlanner.tryStartPoll model.revision model.syncInfo
         { model with syncInfo = si }, effects
 
-    | SysMsg (PollDone (stateOpt, changes)) ->
+    | SysMsg (PollDone (stateOpt, changes, readyOpt)) ->
+        let readyModel =
+            match readyOpt with
+            | Some ready ->
+                { model with
+                    syncInfo =
+                        model.syncInfo
+                        |> SyncInfo.withServerReady ready }
+            | None -> model
         // While Uploading: apply graph deltas but keep the Uploading indicator.
-        match model.syncInfo.syncState with
+        match readyModel.syncInfo.syncState with
         | Uploading ->
             match stateOpt with
-            | Some DataOutdated when not changes.IsEmpty && not (isAutoSyncBlocked model) ->
+            | Some DataOutdated
+                when not changes.IsEmpty
+                    && not (isAutoSyncBlocked readyModel) ->
                 let state: State =
-                    { graph = model.graph; history = model.history; revision = model.revision }
+                    { graph = readyModel.graph
+                      history = readyModel.history
+                      revision = readyModel.revision }
                 match SyncLogic.applyServerTail changes state with
-                | Error _ -> model, []
+                | Error _ -> readyModel, []
                 | Ok newState ->
                     let kept =
-                        { model with
+                        { readyModel with
                             graph = newState.graph
                             history = newState.history
                             revision = newState.revision }
                         |> withSiteMap
-                        |> adjustModeAfterServerApply model.graph
+                        |> adjustModeAfterServerApply readyModel.graph
                     { kept with
                         syncInfo = SyncInfo.withSyncState Uploading kept.syncInfo },
                     []
-            | _ -> model, []
+            | _ -> readyModel, []
         | _ ->
-            let si = SyncInfo.withSyncState Idle model.syncInfo
+            let si = SyncInfo.withSyncState Idle readyModel.syncInfo
             match stateOpt with
-            | None -> { model with syncInfo = si }, []
+            | None -> { readyModel with syncInfo = si }, []
             | Some CodeOutdated ->
-                { model with syncInfo = SyncInfo.withSyncState CodeOutdated si }, []
-            | Some DataOutdated when changes.IsEmpty || isAutoSyncBlocked model ->
-                { model with syncInfo = SyncInfo.withSyncState DataOutdated si }, []
+                { readyModel with
+                    syncInfo = SyncInfo.withSyncState CodeOutdated si }, []
+            | Some DataOutdated
+                when changes.IsEmpty || isAutoSyncBlocked readyModel ->
+                { readyModel with
+                    syncInfo = SyncInfo.withSyncState DataOutdated si }, []
             | Some DataOutdated ->
                 let state: State =
-                    { graph = model.graph; history = model.history; revision = model.revision }
+                    { graph = readyModel.graph
+                      history = readyModel.history
+                      revision = readyModel.revision }
                 match SyncLogic.applyServerTail changes state with
                 | Error _ ->
-                    { model with syncInfo = SyncInfo.withSyncState DataOutdated si }, []
+                    { readyModel with
+                        syncInfo = SyncInfo.withSyncState DataOutdated si }, []
                 | Ok newState ->
                     consoleLog (
                         "[Gambol sync] PollDone autoSync applied="
                         + string changes.Length + " newRev=" + string newState.revision.Value)
                     let synced =
-                        { model with
+                        { readyModel with
                             graph = newState.graph
                             history = newState.history
                             revision = newState.revision
                             syncInfo = si }
                         |> withSiteMap
-                        |> adjustModeAfterServerApply model.graph
+                        |> adjustModeAfterServerApply readyModel.graph
                     synced, []
-            | Some s -> { model with syncInfo = SyncInfo.withSyncState s si }, []
+            | Some s ->
+                { readyModel with syncInfo = SyncInfo.withSyncState s si }, []
 
     | SysMsg RetrySubmit ->
         let m, effs = UpdateOps.retryPendingOp false model

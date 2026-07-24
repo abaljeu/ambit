@@ -2,6 +2,7 @@ module Gambol.Server.Tests.DbAgentTests
 
 open System
 open System.IO
+open System.Threading
 open System.Threading.Tasks
 open Xunit
 open Gambol.Server
@@ -34,6 +35,19 @@ let private waitUntil (timeoutMs: int) (predicate: unit -> bool) : Task<bool> = 
     return predicate ()
 }
 
+let private stateWithDetachedNode () =
+    let orphanId = NodeId.New()
+    let graph0 = Graph.create ()
+    let graph =
+        graph0.nodes
+        |> Map.add orphanId (Node.Create(orphanId, text = "orphan"))
+        |> Graph.fromNodes Graph.rootId
+
+    { graph = graph
+      history = History.empty
+      revision = Revision 4 },
+    orphanId
+
 [<Fact>]
 let ``DbAgent empty test DB has revision 0 and canonical ROOT`` () = task {
     let connStr = requireDbConnStr ()
@@ -53,6 +67,109 @@ let ``DbAgent empty test DB has revision 0 and canonical ROOT`` () = task {
     Assert.Equal("System", graph.nodes.[Graph.systemId].text)
     Assert.Equal(Graph.trashId, root.children.[2].id)
     Assert.Equal("Trash", graph.nodes.[Graph.trashId].text)
+}
+
+[<Fact>]
+let ``DbAgent startup sweeps and trims unreachable persisted nodes before ready`` () = task {
+    let connStr = requireDbConnStr ()
+    do! resetTestDatabase connStr
+    let orphanId = NodeId.New()
+    let graph0 = Graph.create ()
+    let orphan = Node.Create(orphanId, text = "orphan")
+    let graph =
+        graph0.nodes
+        |> Map.add orphanId orphan
+        |> Graph.fromNodes Graph.rootId
+
+    use conn = Database.getConnection connStr
+    do! conn.OpenAsync()
+    use tx = conn.BeginTransaction()
+    do! Database.replaceGraphProjectionWithTx tx graph 9 |> Async.AwaitTask
+    tx.Commit()
+
+    let agent = DbAgent.create connStr
+    let! ready = waitUntil 2000 (fun () -> DbAgent.isReady agent)
+    Assert.True(ready, "Expected startup sweep to enable normal queue processing.")
+    let! json = DbAgent.getState agent |> Async.StartAsTask
+    let! revision = DbAgent.getRevision agent |> Async.StartAsTask
+    let loaded = decodeGraph json
+
+    Assert.Equal(9, revision)
+    Assert.False(loaded.nodes.ContainsKey orphanId)
+
+    use checkConn = Database.getConnection connStr
+    do! checkConn.OpenAsync()
+    use command = checkConn.CreateCommand()
+    command.CommandText <- "SELECT EXISTS (SELECT 1 FROM nodes WHERE id = @id)"
+    command.Parameters.AddWithValue("id", orphanId.Value) |> ignore
+    let! exists = command.ExecuteScalarAsync()
+    Assert.False(unbox<bool> exists)
+}
+
+[<Fact>]
+let ``DbAgent serves reads while sweep buffers FIFO mutations then trims`` () = task {
+    let initialState, orphanId = stateWithDetachedNode ()
+    use entered = new ManualResetEventSlim(false)
+    use release = new ManualResetEventSlim(false)
+    let sweep (_: Graph) =
+        entered.Set()
+        release.Wait()
+        Ok [ orphanId.Value ]
+    let agent = DbAgent.createForTest initialState sweep
+    Assert.True(entered.Wait(1000), "Expected startup sweep to begin.")
+    Assert.False(DbAgent.isReady agent)
+
+    let stateTask = DbAgent.getState agent |> Async.StartAsTask
+    let revisionTask = DbAgent.getRevision agent |> Async.StartAsTask
+    let firstPost = DbAgent.postChange agent "invalid-first" |> Async.StartAsTask
+    let secondPost = DbAgent.postChange agent "invalid-second" |> Async.StartAsTask
+    do! Task.Delay(100)
+    Assert.True(stateTask.IsCompleted)
+    Assert.True(revisionTask.IsCompleted)
+    Assert.False(firstPost.IsCompleted)
+    Assert.False(secondPost.IsCompleted)
+    let! beforeJson = stateTask
+    let! beforeRevision = revisionTask
+    Assert.Contains("\"ready\":false", beforeJson)
+    Assert.True((decodeGraph beforeJson).nodes.ContainsKey orphanId)
+    Assert.Equal(4, beforeRevision)
+    release.Set()
+
+    let! secondResult = secondPost
+    Assert.True(firstPost.IsCompleted, "Expected first queued mutation to complete first.")
+    let! firstResult = firstPost
+    match firstResult with
+    | Error error -> Assert.Contains("Invalid JSON:", error)
+    | Ok _ -> Assert.Fail("Expected invalid first mutation to fail.")
+    match secondResult with
+    | Error error -> Assert.Contains("Invalid JSON:", error)
+    | Ok _ -> Assert.Fail("Expected invalid buffered mutation to fail.")
+    let! afterJson = DbAgent.getState agent |> Async.StartAsTask
+    Assert.Contains("\"ready\":true", afterJson)
+    Assert.False((decodeGraph afterJson).nodes.ContainsKey orphanId)
+    Assert.True(DbAgent.isReady agent)
+}
+
+[<Fact>]
+let ``DbAgent startup sweep failure preserves reads and fails mutations closed`` () = task {
+    let initialState, orphanId = stateWithDetachedNode ()
+    let agent =
+        DbAgent.createForTest initialState (fun _ ->
+            Error "Startup projection sweep failed: blocked")
+    do! Task.Delay(50)
+    Assert.False(DbAgent.isReady agent)
+
+    let! postResult =
+        DbAgent.postChange agent "invalid" |> Async.StartAsTask
+
+    match postResult with
+    | Error error -> Assert.Contains("Startup projection sweep failed: blocked", error)
+    | Ok _ -> Assert.Fail("Expected mutation rejection after startup sweep failure.")
+
+    let! json = DbAgent.getState agent |> Async.StartAsTask
+    let! revision = DbAgent.getRevision agent |> Async.StartAsTask
+    Assert.True((decodeGraph json).nodes.ContainsKey orphanId)
+    Assert.Equal(4, revision)
 }
 
 [<Fact>]

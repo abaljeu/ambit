@@ -30,6 +30,8 @@
     <Compile Include="DocumentLoader.fs" />
     <Compile Include="FileAgent.fs" />
     <Compile Include="Database.fs" />
+    <Compile Include="DatabaseProjection.fs" />
+    <Compile Include="DbAgentStartup.fs" />
     <Compile Include="DbAgent.fs" />
     <Compile Include="DatabaseSetup.fs" />
     <Compile Include="SavePrep.fs" />

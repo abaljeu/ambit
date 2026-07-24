@@ -340,18 +340,18 @@ let createRuntime (initialModel: VM) =
         let url =
             $"/{currentFile}/poll?_={nowMs ()}&rev={model.revision.Value}"
         let onPollOk (text: string) : unit =
-            match Serialization.decodePollResponse text with
+            match ApiResponseSerialization.decodePollResponse text with
             | Ok poll ->
                 let context =
                     { ClientPollContext.buildEpochSec = readBuildEpochSec ()
                       pageBuildEpochSec = readPageBuildEpochSec () }
                 let outcome =
                     SyncLogic.getPollOutcome poll model.revision.Value context
-                dispatch (SysMsg (PollDone (outcome, poll.changes)))
+                dispatch (SysMsg (PollDone (outcome, poll.changes, Some poll.isReady)))
             | Error _ ->
-                dispatch (SysMsg (PollDone (None, [])))
+                dispatch (SysMsg (PollDone (None, [], None)))
         let onPollFail () : unit =
-            dispatch (SysMsg (PollDone (None, [])))
+            dispatch (SysMsg (PollDone (None, [], None)))
         fetchTextNoCacheWithFail url onPollOk onPollFail
 
     and runScheduleRetry (delayMs: int) : unit =

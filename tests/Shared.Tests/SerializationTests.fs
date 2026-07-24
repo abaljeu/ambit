@@ -229,12 +229,17 @@ let ``PollResponse round-trip with non-empty changes`` () =
         { revision = 7
           buildEpochSec = 100
           pageBuildEpochSec = 200
+          isReady = false
           changes = [ change ] }
     let decoded =
-        roundTrip Serialization.encodePollResponse Serialization.decodePollResponseDecoder poll
+        roundTrip
+            ApiResponseSerialization.encodePollResponse
+            ApiResponseSerialization.decodePollResponseDecoder
+            poll
     Assert.Equal(poll.revision, decoded.revision)
     Assert.Equal(poll.buildEpochSec, decoded.buildEpochSec)
     Assert.Equal(poll.pageBuildEpochSec, decoded.pageBuildEpochSec)
+    Assert.False(decoded.isReady)
     Assert.Equal(1, decoded.changes.Length)
     Assert.Equal(change.id, decoded.changes.[0].id)
     Assert.Equal<Op list>(change.ops, decoded.changes.[0].ops)
@@ -245,17 +250,39 @@ let ``PollResponse round-trip with empty changes`` () =
         { revision = 5
           buildEpochSec = 0
           pageBuildEpochSec = 0
+          isReady = true
           changes = [] }
     let decoded =
-        roundTrip Serialization.encodePollResponse Serialization.decodePollResponseDecoder poll
+        roundTrip
+            ApiResponseSerialization.encodePollResponse
+            ApiResponseSerialization.decodePollResponseDecoder
+            poll
     Assert.Equal(poll.revision, decoded.revision)
     Assert.Equal<Change list>([], decoded.changes)
 
 [<Fact>]
 let ``PollResponse decoder tolerates missing changes field`` () =
     let json = """{"r":4,"b":100,"p":200}"""
-    match Dec.fromString Serialization.decodePollResponseDecoder json with
+    match Dec.fromString ApiResponseSerialization.decodePollResponseDecoder json with
     | Error err -> failwith $"Decode failed: {err}"
     | Ok decoded ->
         Assert.Equal(4, decoded.revision)
+        Assert.True(decoded.isReady)
         Assert.Equal<Change list>([], decoded.changes)
+
+[<Fact>]
+let ``StateResponse round-trip preserves startup readiness`` () =
+    let response =
+        { graph = Graph.create ()
+          revision = Revision 3
+          isReady = false }
+        : StateResponse
+    let decoded =
+        roundTrip
+            ApiResponseSerialization.encodeStateResponse
+            ApiResponseSerialization.decodeStateResponseDecoder
+            response
+
+    Assert.Equal(response.revision, decoded.revision)
+    Assert.False(decoded.isReady)
+    Assert.True(GraphProjection.graphEquals response.graph decoded.graph)

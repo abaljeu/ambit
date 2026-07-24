@@ -10,6 +10,7 @@ type AgentHandle =
     { getState        : unit -> Async<string>
       getRevision     : unit -> Async<int>
       getChangesSince : int -> Async<Change list>
+      isReady         : unit -> bool
       postChange      : string -> Async<Result<string, string>>
       postGraphOnlyChange : string -> Async<Result<string, string>> }
 
@@ -19,6 +20,7 @@ module AgentHandle =
         { getState        = fun () -> FileAgent.getState agent
           getRevision     = fun () -> FileAgent.getRevision agent
           getChangesSince = fun after -> FileAgent.getChangesSince agent after
+          isReady         = fun () -> true
           postChange      = fun body -> FileAgent.postChange agent body
           postGraphOnlyChange =
             fun body -> FileAgent.postGraphOnlyChange agent body }
@@ -27,6 +29,7 @@ module AgentHandle =
         { getState        = fun () -> DbAgent.getState agent
           getRevision     = fun () -> DbAgent.getRevision agent
           getChangesSince = fun after -> DbAgent.getChangesSince agent after
+          isReady         = fun () -> DbAgent.isReady agent
           postChange      = fun body -> DbAgent.postChange agent body
           postGraphOnlyChange =
             fun body -> DbAgent.postGraphOnlyChange agent body }
@@ -45,6 +48,7 @@ module AgentHandle =
         { getState        = fun () -> FileAgent.getState file
           getRevision     = fun () -> FileAgent.getRevision file
           getChangesSince = fun after -> FileAgent.getChangesSince file after
+          isReady         = fun () -> true
           postChange      =
             fun body -> async {
                 let! fileResult = FileAgent.postChange file body
@@ -104,8 +108,10 @@ module Api =
             { revision = rev
               buildEpochSec = buildEpochSec
               pageBuildEpochSec = pageBuildEpochSec
+              isReady = handle.isReady ()
               changes = changes }
-        let json = Encode.toString 0 (Serialization.encodePollResponse poll)
+        let json =
+            Encode.toString 0 (ApiResponseSerialization.encodePollResponse poll)
         return jsonResult json
     }
 

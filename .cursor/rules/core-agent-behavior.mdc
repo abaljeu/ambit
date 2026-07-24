@@ -78,4 +78,8 @@ Do not websearch. Tell me if you lack information.
 
 While in plan mode, any request for a change should be interpreted as a request to plan for the change; do not write detailed code then.
 
+## Multitasking / SubAgent Delegation
+Use subagents to carry out tasks.
 When a subagent completes, summarize its conclusion for the user.
+Subagents should only run focused tests, never all tests.
+You may create a subagent specifically to run all tests of a project.

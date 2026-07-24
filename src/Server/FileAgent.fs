@@ -57,10 +57,11 @@ module FileAgent =
                 snapshotWaiters.Value <- []
 
         let encodeStateJson () =
-            Encode.toString 0 (
-                Thoth.Json.Core.Encode.object
-                    [ "revision", Serialization.encodeRevision state.Value.revision
-                      "graph", Serialization.encodeGraph state.Value.graph ])
+            ApiResponseSerialization.encodeStateResponse
+                { graph = state.Value.graph
+                  revision = state.Value.revision
+                  isReady = true }
+            |> Encode.toString 0
 
         let encodeChangeAckJson (ackedChangeIds: Guid list) (stampOps: Op list) =
             Encode.toString 0 (
