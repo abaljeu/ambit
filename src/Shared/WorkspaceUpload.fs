@@ -18,6 +18,14 @@ type WorkspaceUploadAction =
 [<RequireQualifiedAccess>]
 module WorkspaceUpload =
 
+    /// A multi-phase Upload must start from an authoritative, settled revision.
+    let canStart (syncInfo: SyncInfo) =
+        syncInfo.syncState = Idle && syncInfo.pendingChanges.IsEmpty
+
+    /// Keep parse/materialization requests from one Upload strictly ordered.
+    let sequenceParseEffects (effects: Effect list) =
+        if effects.IsEmpty then [] else [ ContinueUploadParses effects ]
+
     /// Palette / key: Upload when Workspaces+desktop, or File/Dir/Workspace focus.
     let isAvailable
         (canPush: bool)

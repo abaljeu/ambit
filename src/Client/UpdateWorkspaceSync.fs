@@ -204,15 +204,17 @@ let private reparseSkippedUploadFiles
     (workspace: string)
     (paths: string list)
     : VM * Effect list =
-    paths
-    |> List.fold
-        (fun (current, effs) rel ->
-            match WorkspaceUploadStructure.tryResolveFileNode current.graph workspace rel with
-            | None -> current, effs
-            | Some fileId ->
-                let next, parseEffs = parseFileOp fileId current
-                next, effs @ parseEffs)
-        (model, [])
+    let next, parseEffects =
+        paths
+        |> List.fold
+            (fun ((current: VM), (effs: Effect list)) rel ->
+                match WorkspaceUploadStructure.tryResolveFileNode current.graph workspace rel with
+                | None -> current, effs
+                | Some fileId ->
+                    let afterParse, parseEffs = parseFileOp fileId current
+                    afterParse, effs @ parseEffs)
+            (model, [])
+    next, WorkspaceUpload.sequenceParseEffects parseEffects
 
 let private createWorkspaceOnServer (ops: Op list) (model: VM) : Result<VM, string> =
     if ops.IsEmpty then
@@ -476,33 +478,37 @@ let uploadCreateWorkspaceOp (model: VM) : VM * Effect list =
 
 /// Upload: desktop push when mapped; else graph-only from DataDir (web).
 let uploadOp (model: VM) : VM * Effect list =
-    let canPush =
-        DesktopCapabilities.canWorkspacePush model.desktopCapabilities
-    let target = contextualTargetForModel model
-    match WorkspaceUpload.plan canPush (focusIsWorkspaces model) target with
-    | WorkspaceUploadAction.CreateWorkspaceFromFolder ->
-        uploadCreateWorkspaceOp model
-    | WorkspaceUploadAction.DesktopPush parseFileId ->
-        match syncScopeFromFocus model with
-        | Error msg -> fail model msg
-        | Ok scope ->
-            keepUploading model,
-            [ Effect.ContinueWorkspaceStubsThenPush (scope, parseFileId) ]
-    | WorkspaceUploadAction.ReconcileServerDisk ->
-        match syncScopeFromFocus model with
-        | Error msg -> fail model msg
-        | Ok scope ->
-            postDirectoryReconcile model scope.label scope.relative
-            |> withPathSyncRefresh
-    | WorkspaceUploadAction.ParseServerDisk fileId ->
-        parseFileOp fileId model
-    | WorkspaceUploadAction.Unavailable msg ->
-        withResult
-            model
-            (CmdLastResult.Error(Some(displayName Upload), msg))
+    if not (WorkspaceUpload.canStart model.syncInfo) then
+        fail model "wait for pending synchronization to finish"
+    else
+        let canPush =
+            DesktopCapabilities.canWorkspacePush model.desktopCapabilities
+        let target = contextualTargetForModel model
+        match WorkspaceUpload.plan canPush (focusIsWorkspaces model) target with
+        | WorkspaceUploadAction.CreateWorkspaceFromFolder ->
+            uploadCreateWorkspaceOp model
+        | WorkspaceUploadAction.DesktopPush parseFileId ->
+            match syncScopeFromFocus model with
+            | Error msg -> fail model msg
+            | Ok scope ->
+                keepUploading model,
+                [ Effect.ContinueWorkspaceStubsThenPush (scope, parseFileId) ]
+        | WorkspaceUploadAction.ReconcileServerDisk ->
+            match syncScopeFromFocus model with
+            | Error msg -> fail model msg
+            | Ok scope ->
+                postDirectoryReconcile model scope.label scope.relative
+                |> withPathSyncRefresh
+        | WorkspaceUploadAction.ParseServerDisk fileId ->
+            parseFileOp fileId model
+        | WorkspaceUploadAction.Unavailable msg ->
+            withResult
+                model
+                (CmdLastResult.Error(Some(displayName Upload), msg))
 
 let uploadAvailable (model: VM) =
-    WorkspaceUpload.isAvailable
+    WorkspaceUpload.canStart model.syncInfo
+    && WorkspaceUpload.isAvailable
         (DesktopCapabilities.canWorkspacePush model.desktopCapabilities)
         (focusIsWorkspaces model)
         (contextualTargetForModel model)

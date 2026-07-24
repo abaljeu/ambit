@@ -514,4 +514,6 @@ module RouteRegistration =
                 app
                 auth.IsAuthenticated
                 persistence.DataDir
+                auth.ExpectedUser
+                auth.ExpectedPass
             registerCssAndShellRoutes app auth publicAssetBaseOpt assets stamps persistence

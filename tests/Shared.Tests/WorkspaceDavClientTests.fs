@@ -1,7 +1,41 @@
 module WorkspaceDavClientTests
 
+open System
+open System.Net
+open System.Net.Http
+open System.Text
+open System.Threading
+open System.Threading.Tasks
 open Gambol.Shared
 open Xunit
+
+type private DirectUploadHandler() as this =
+    inherit HttpMessageHandler()
+
+    let requests = ResizeArray<string * string * byte[]>()
+
+    member _.Requests = requests |> Seq.toList
+
+    member private _.Handle(req: HttpRequestMessage) =
+        let text = req.Content.ReadAsStringAsync().Result
+        let bytes = req.Content.ReadAsByteArrayAsync().Result
+        requests.Add(string req.RequestUri, text, bytes)
+        if requests.Count = 1 then
+            new HttpResponseMessage(
+                HttpStatusCode.OK,
+                Content =
+                    new StringContent(
+                        """{"uploadUrl":"https://direct.azure/ambit/direct-upload","capability":"secret-cap"}"""))
+        else
+            Assert.Equal("https://direct.azure/ambit/direct-upload", string req.RequestUri)
+            Assert.Equal("GambolUpload secret-cap", string req.Headers.Authorization)
+            new HttpResponseMessage(HttpStatusCode.Created)
+
+    override _.Send(req, _cancellationToken: CancellationToken) =
+        this.Handle req
+
+    override _.SendAsync(req, _cancellationToken: CancellationToken) =
+        Task.FromResult(this.Handle req)
 
 [<Fact>]
 let ``resourceUrl keeps exact workspace path opaque`` () =
@@ -32,6 +66,33 @@ let ``resource token round trips URL-significant and Unicode characters`` () =
     Assert.Equal(
         Ok("my workspace", relative),
         WorkspaceDavClient.decodeResourceToken token)
+
+[<Fact>]
+let ``putBytes grants through proxy then uploads exact bytes directly`` () =
+    let handler = new DirectUploadHandler()
+    use client = new HttpClient(handler)
+    let relative = "employment/research/targets/priorities.md"
+    let payload =
+        Array.concat
+            [ Encoding.UTF8.GetBytes("<script>ModSecurity</script> café")
+              [| 0uy; 255uy |] ]
+    let result =
+        WorkspaceDavClient.putBytes
+            client
+            "https://proxy.example/ambit"
+            "home"
+            relative
+            payload
+            (Some "gambol_auth=cookie")
+            None
+            None
+    Assert.Equal(Ok (), result)
+    let grantUrl, grantBody, _ = handler.Requests.[0]
+    Assert.Equal(
+        "https://proxy.example/ambit/upload-capability",
+        grantUrl)
+    Assert.DoesNotContain("employment", grantBody)
+    Assert.Equal<byte>(payload, handler.Requests.[1] |> fun (_, _, bytes) -> bytes)
 
 [<Fact>]
 let ``finishCommitUrl targets _finish-commit`` () =

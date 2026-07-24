@@ -4,7 +4,9 @@ open System
 open System.IO
 open System.Net
 open System.Net.Http
+open System.Security.Cryptography
 open System.Text
+open System.Text.Json
 open System.Xml.Linq
 
 /// One PROPFIND inventory row (server-filtered).
@@ -24,32 +26,50 @@ module WorkspaceDavClient =
 
     let private davNs = XNamespace.Get "DAV:"
 
-    let encodeResourceToken (label: string) (relative: string) =
-        Encoding.UTF8.GetBytes(label + "\u0000" + relative)
+    let private encodeBase64Url (bytes: byte[]) =
+        bytes
         |> Convert.ToBase64String
         |> fun text ->
             text.TrimEnd('=').Replace('+', '-').Replace('/', '_')
 
-    let decodeResourceToken (token: string) : Result<string * string, string> =
+    let private decodeBase64Url (text: string) =
         try
-            let base64 = token.Replace('-', '+').Replace('_', '/')
-            let padded =
-                match base64.Length % 4 with
-                | 0 -> base64
-                | 2 -> base64 + "=="
-                | 3 -> base64 + "="
-                | _ -> ""
-            let text =
-                Convert.FromBase64String padded |> Encoding.UTF8.GetString
-            let separator = text.IndexOf('\u0000')
-            if separator <= 0 then
-                Error "invalid_resource_token"
+            let valid c =
+                Char.IsAsciiLetterOrDigit c || c = '-' || c = '_'
+            if text |> Seq.exists (valid >> not) then
+                Error ()
             else
-                Ok(
-                    text.Substring(0, separator),
-                    text.Substring(separator + 1))
+                let base64 = text.Replace('-', '+').Replace('_', '/')
+                let padded =
+                    match base64.Length % 4 with
+                    | 0 -> base64
+                    | 2 -> base64 + "=="
+                    | 3 -> base64 + "="
+                    | _ -> ""
+                let bytes = Convert.FromBase64String padded
+                if encodeBase64Url bytes = text then Ok bytes else Error ()
         with _ ->
-            Error "invalid_resource_token"
+            Error ()
+
+    let encodeResourceToken (label: string) (relative: string) =
+        Encoding.UTF8.GetBytes(label + "\u0000" + relative)
+        |> encodeBase64Url
+
+    let decodeResourceToken (token: string) : Result<string * string, string> =
+        if token.Length > 8192 then
+            Error "resource_token_too_large"
+        else
+            match decodeBase64Url token with
+            | Error () -> Error "invalid_resource_token"
+            | Ok bytes ->
+                let text = Encoding.UTF8.GetString bytes
+                let separator = text.IndexOf('\u0000')
+                if separator <= 0 then
+                    Error "invalid_resource_token"
+                else
+                    Ok(
+                        text.Substring(0, separator),
+                        text.Substring(separator + 1))
 
     let resourceUrl (ambitBase: string) (label: string) (relative: string) =
         let root = ambitBase.TrimEnd('/')
@@ -239,6 +259,41 @@ module WorkspaceDavClient =
         with ex ->
             Error ex.Message
 
+    let private uploadGrant
+        (client: HttpClient)
+        (ambitBase: string)
+        (resourceToken: string)
+        (bytes: byte[])
+        (cookieHeader: string option)
+        (sourceMtimeUtc: DateTime option)
+        =
+        let digest = SHA256.HashData bytes |> Convert.ToHexString
+        let ticks = sourceMtimeUtc |> Option.map _.Ticks |> Option.defaultValue 0L
+        let body =
+            JsonSerializer.Serialize(
+                {| resource = resourceToken
+                   size = bytes.LongLength
+                   sha256 = digest
+                   sourceMtimeTicks = ticks |})
+        use req =
+            new HttpRequestMessage(
+                HttpMethod.Post,
+                ambitBase.TrimEnd('/') + "/upload-capability")
+        req.Content <- new StringContent(body, Encoding.UTF8, "application/json")
+        addCookie req cookieHeader
+        use resp = client.Send req
+        let text = resp.Content.ReadAsStringAsync().Result
+        if not resp.IsSuccessStatusCode then
+            Error("upload grant HTTP " + string (int resp.StatusCode))
+        else
+            try
+                use json = JsonDocument.Parse text
+                Ok(
+                    json.RootElement.GetProperty("uploadUrl").GetString(),
+                    json.RootElement.GetProperty("capability").GetString())
+            with _ ->
+                Error "invalid upload grant response"
+
     let putBytes
         (client: HttpClient)
         (ambitBase: string)
@@ -250,30 +305,28 @@ module WorkspaceDavClient =
         (sourceMtimeUtc: DateTime option)
         : Result<unit, string> =
         try
-            let url = resourceUrl ambitBase label relative
-            use content = new ByteArrayContent(bytes)
-            // POST avoids shared-host Apache rules that reject PUT before proxy.php.
-            use req = new HttpRequestMessage(HttpMethod.Post, url)
-            req.Content <- content
-            addCookie req cookieHeader
-            addClientHint req clientHint
-            match sourceMtimeUtc with
-            | Some utc ->
+            match
+                uploadGrant
+                    client
+                    ambitBase
+                    (encodeResourceToken label relative)
+                    bytes
+                    cookieHeader
+                    sourceMtimeUtc
+            with
+            | Error e -> Error e
+            | Ok(uploadUrl, capability) ->
+                use req = new HttpRequestMessage(HttpMethod.Post, uploadUrl)
+                req.Content <- new ByteArrayContent(bytes)
                 req.Headers.TryAddWithoutValidation(
-                    SourceMtimeHeaderName,
-                    utc.ToString("O"))
+                    "Authorization",
+                    "GambolUpload " + capability)
                 |> ignore
-            | None -> ()
-            use resp = client.Send(req)
-            let code = int resp.StatusCode
-            if code = 201 || code = 204 || code = 200 then Ok ()
-            else
-                let body = resp.Content.ReadAsStringAsync().Result
-                Error(
-                    "upload HTTP "
-                    + string code
-                    + ": "
-                    + LogText.truncateForLog 200 body)
+                addClientHint req clientHint
+                use resp = client.Send req
+                let code = int resp.StatusCode
+                if code = 200 || code = 201 || code = 204 then Ok ()
+                else Error("direct upload HTTP " + string code)
         with ex ->
             Error ex.Message
 

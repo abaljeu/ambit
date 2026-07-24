@@ -267,6 +267,8 @@ type Effect =
         desktopReadPath: string option *
         detailPrefix: string *
         detailPath: string
+    /// Same Upload may reparse several skipped files; run these requests in order.
+    | ContinueUploadParses of parseRequests: Effect list
 
 /// Row / active-file indicator vocabulary (desktop status + absent artifacts).
 type DesktopFileIndicator =

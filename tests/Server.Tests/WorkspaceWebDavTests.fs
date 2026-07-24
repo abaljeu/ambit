@@ -4,7 +4,9 @@ open System
 open System.IO
 open System.Net
 open System.Net.Http
+open System.Security.Cryptography
 open System.Text
+open System.Text.Json
 open System.Threading.Tasks
 open Xunit
 open Gambol.Server
@@ -124,31 +126,80 @@ let ``GET after PUT round-trips bytes`` () = task {
 }
 
 [<SkippableFact>]
-let ``opaque POST uploads exact WAF-sensitive workspace path`` () = task {
+let ``direct capability uploads exact WAF-sensitive path and body idempotently`` () = task {
     Skip.IfNot(gitOnPath(), "git not on PATH")
     let dataDir = newTempDir ()
     Directory.CreateDirectory(Path.Combine(dataDir, "home")) |> ignore
     use client = createClientForDir dataDir
-    let relative =
-        "employment/research/companies/upwork/Rule-Based-Kitchen-Layout/"
-        + "kitchen-layout-engine-posting.md"
-    let url =
-        WorkspaceDavClient.resourceUrl
-            "http://localhost/ambit"
-            "home"
-            relative
-        |> Uri
-        |> fun uri -> uri.PathAndQuery
-    let payload = Encoding.UTF8.GetBytes "posting"
-    use content = new ByteArrayContent(payload)
-    let! response = client.PostAsync(url, content)
-    Assert.Equal(HttpStatusCode.Created, response.StatusCode)
+    let relative = "employment/research/targets/priorities.md"
+    let payload =
+        Array.concat
+            [ Encoding.UTF8.GetBytes(
+                "<script>alert('ModSecurity')</script> ../ café %00")
+              [| 0uy; 255uy; 13uy; 10uy |] ]
+    let resource = WorkspaceDavClient.encodeResourceToken "home" relative
+    let digest = SHA256.HashData payload |> Convert.ToHexString
+    let grantJson =
+        JsonSerializer.Serialize(
+            {| resource = resource
+               size = payload.LongLength
+               sha256 = digest
+               sourceMtimeTicks = 0L |})
+    use grantContent =
+        new StringContent(grantJson, Encoding.UTF8, "application/json")
+    let! grantResponse =
+        client.PostAsync("/ambit/upload-capability", grantContent)
+    Assert.Equal(HttpStatusCode.OK, grantResponse.StatusCode)
+    let! grantBody = grantResponse.Content.ReadAsStringAsync()
+    use grant = JsonDocument.Parse grantBody
+    let capability =
+        grant.RootElement.GetProperty("capability").GetString()
+    let uploadAddress =
+        grant.RootElement.GetProperty("uploadUrl").GetString()
+    Assert.Equal("http://localhost/ambit/direct-upload", uploadAddress)
+    let uploadUrl = Uri(uploadAddress).PathAndQuery
+    Assert.Equal("/ambit/direct-upload", uploadUrl)
+    let upload bytes = task {
+        use content = new ByteArrayContent(bytes)
+        use req = new HttpRequestMessage(HttpMethod.Post, uploadUrl)
+        req.Content <- content
+        req.Headers.TryAddWithoutValidation(
+            "Authorization",
+            "GambolUpload " + capability)
+        |> ignore
+        return! client.SendAsync req
+    }
+    use! first = upload payload
+    use! replay = upload payload
+    let changed = payload |> Array.map (fun value -> value ^^^ 1uy)
+    use! changedBody = upload changed
+    Assert.Equal(HttpStatusCode.Created, first.StatusCode)
+    Assert.Equal(HttpStatusCode.NoContent, replay.StatusCode)
+    Assert.Equal(HttpStatusCode.BadRequest, changedBody.StatusCode)
     let full =
         relative.Split('/')
         |> Array.fold
             (fun path segment -> Path.Combine(path, segment))
             (Path.Combine(dataDir, "home"))
     Assert.Equal<byte>(payload, File.ReadAllBytes full)
+}
+
+[<Fact>]
+let ``direct upload rejects a tampered capability`` () = task {
+    let dataDir = newTempDir ()
+    Directory.CreateDirectory(Path.Combine(dataDir, "home")) |> ignore
+    use client = createClientForDir dataDir
+    use content = new ByteArrayContent([| 1uy |])
+    use req = new HttpRequestMessage(HttpMethod.Post, "/ambit/direct-upload")
+    req.Content <- content
+    req.Headers.TryAddWithoutValidation(
+        "Authorization",
+        "GambolUpload tampered")
+    |> ignore
+    let! response = client.SendAsync req
+    Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode)
+    let! body = response.Content.ReadAsStringAsync()
+    Assert.Contains("invalid_upload_capability", body)
 }
 
 [<SkippableFact>]

@@ -53,3 +53,100 @@ module AuthToken =
                             decoded.Substring(idx + 1))
                 with _ ->
                     None
+
+[<RequireQualifiedAccess>]
+module UploadCapability =
+
+    type Claim =
+        { user: string
+          label: string
+          relative: string
+          size: int64
+          sha256: string
+          sourceMtimeTicks: int64
+          expiresUnix: int64
+          nonce: Guid }
+
+    let private base64Url (bytes: byte[]) =
+        Convert.ToBase64String(bytes)
+            .TrimEnd('=')
+            .Replace('+', '-')
+            .Replace('/', '_')
+
+    let private decodeBase64Url (text: string) =
+        let base64 = text.Replace('-', '+').Replace('_', '/')
+        let padded =
+            match base64.Length % 4 with
+            | 0 -> base64
+            | 2 -> base64 + "=="
+            | 3 -> base64 + "="
+            | _ -> ""
+        Convert.FromBase64String padded
+
+    let private encodeText (text: string) =
+        Encoding.UTF8.GetBytes text |> base64Url
+
+    let private payload (claim: Claim) =
+        String.concat
+            "|"
+            [ "1"
+              string claim.expiresUnix
+              string claim.size
+              string claim.sourceMtimeTicks
+              claim.nonce.ToString("N")
+              encodeText claim.user
+              encodeText claim.label
+              encodeText claim.relative
+              claim.sha256.ToLowerInvariant() ]
+
+    let private signature (secret: string) (text: string) =
+        let key = Encoding.UTF8.GetBytes("gambol-upload:" + secret)
+        use hmac = new HMACSHA256(key)
+        hmac.ComputeHash(Encoding.UTF8.GetBytes text)
+
+    let issue (secret: string) (claim: Claim) =
+        let encodedPayload =
+            payload claim |> Encoding.UTF8.GetBytes |> base64Url
+        encodedPayload + "." + base64Url (signature secret encodedPayload)
+
+    let private tryParsePayload (encoded: string) =
+        try
+            match Encoding.UTF8.GetString(decodeBase64Url encoded).Split('|') with
+            | [| "1"; expires; size; ticks; nonce; user; label; relative; sha |] ->
+                Some
+                    { user = Encoding.UTF8.GetString(decodeBase64Url user)
+                      label = Encoding.UTF8.GetString(decodeBase64Url label)
+                      relative = Encoding.UTF8.GetString(decodeBase64Url relative)
+                      size = Int64.Parse size
+                      sha256 = sha
+                      sourceMtimeTicks = Int64.Parse ticks
+                      expiresUnix = Int64.Parse expires
+                      nonce = Guid.ParseExact(nonce, "N") }
+            | _ -> None
+        with _ ->
+            None
+
+    let validate
+        (secret: string)
+        (expectedUser: string)
+        (now: DateTimeOffset)
+        (token: string)
+        =
+        try
+            match token.Split('.') with
+            | [| encoded; supplied |] ->
+                let expected = signature secret encoded
+                let actual = decodeBase64Url supplied
+                if not (CryptographicOperations.FixedTimeEquals(expected, actual)) then
+                    Error "invalid_upload_capability"
+                else
+                    match tryParsePayload encoded with
+                    | Some claim when claim.user <> expectedUser ->
+                        Error "invalid_upload_capability"
+                    | Some claim when now.ToUnixTimeSeconds() >= claim.expiresUnix ->
+                        Error "expired_upload_capability"
+                    | Some claim -> Ok claim
+                    | None -> Error "invalid_upload_capability"
+            | _ -> Error "invalid_upload_capability"
+        with _ ->
+            Error "invalid_upload_capability"

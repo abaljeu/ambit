@@ -243,52 +243,65 @@ let createRuntime (initialModel: VM) =
                                         "workspace-download poll failed"))))
                 200
             |> ignore
-        | ContinueParseFile (fileId, desktopReadPath, detailPrefix, detailPath) ->
-            let runPost (textOpt: string option) =
-                let body = encodeParseFileRequest fileId textOpt
-                postJson
-                    "/ambit/file/parse"
-                    body
-                    (fun text ->
-                        dispatch (
-                            ApplyOp (
-                                completeParseFilePost detailPrefix detailPath text)))
-                    (fun status text ->
-                        dispatch (
-                            ApplyOp (failParseFileHttp status text)))
-                    (fun () ->
-                        dispatch (
-                            ApplyOp (failParseFile "parse request failed")))
-                    (jsonMutatingPostHeaders ())
+        | ContinueParseFile (fileId, path, prefix, detail) ->
+            runParseFile (fileId, path, prefix, detail) ignore
+        | ContinueUploadParses requests ->
+            let rec runNext = function
+                | [] -> ()
+                | ContinueParseFile (fileId, path, prefix, detail) :: rest ->
+                    runParseFile
+                        (fileId, path, prefix, detail)
+                        (fun () -> runNext rest)
+                | _ :: rest -> runNext rest
+            runNext requests
 
-            let proceedAfterDesktopRead status responseText =
-                match decodeDesktopReadForParse status responseText with
-                | Error err -> dispatch (ApplyOp (failParseFile err))
-                | Ok textOpt ->
-                    match validateParseTextOpt textOpt with
-                    | Error err -> dispatch (ApplyOp (failParseFile err))
-                    | Ok textOpt' -> runPost textOpt'
-
-            // Delay past the current frame so "parsing:" can paint.
-            setTimeout
+    and runParseFile
+        (fileId, desktopReadPath, detailPrefix, detailPath)
+        (afterSuccess: unit -> unit)
+        =
+        let runPost textOpt =
+            let body = encodeParseFileRequest fileId textOpt
+            postJson
+                "/ambit/file/parse"
+                body
+                (fun text ->
+                    dispatch (
+                        ApplyOp (
+                            completeParseFilePost detailPrefix detailPath text))
+                    afterSuccess ())
+                (fun status text ->
+                    dispatch (ApplyOp (failParseFileHttp status text)))
                 (fun () ->
-                    match desktopReadPath with
-                    | Some path ->
-                        let url =
-                            "/_desktop/file?path="
-                            + encodeUriComponent path
-                            + "&content=1"
-                        fetchGet
-                            url
-                            (fun text -> proceedAfterDesktopRead 200 text)
-                            proceedAfterDesktopRead
-                            (fun () ->
-                                dispatch (
-                                    ApplyOp (
-                                        failParseFile "desktop file read failed")))
-                    | None -> runPost None)
-                50
-            |> ignore
+                    dispatch (ApplyOp (failParseFile "parse request failed")))
+                (jsonMutatingPostHeaders ())
+
+        let proceedAfterDesktopRead status responseText =
+            match decodeDesktopReadForParse status responseText with
+            | Error err -> dispatch (ApplyOp (failParseFile err))
+            | Ok textOpt ->
+                match validateParseTextOpt textOpt with
+                | Error err -> dispatch (ApplyOp (failParseFile err))
+                | Ok valid -> runPost valid
+
+        setTimeout
+            (fun () ->
+                match desktopReadPath with
+                | Some path ->
+                    let url =
+                        "/_desktop/file?path="
+                        + encodeUriComponent path
+                        + "&content=1"
+                    fetchGet
+                        url
+                        (fun text -> proceedAfterDesktopRead 200 text)
+                        proceedAfterDesktopRead
+                        (fun () ->
+                            dispatch (
+                                ApplyOp (
+                                    failParseFile "desktop file read failed")))
+                | None -> runPost None)
+            50
+        |> ignore
 
     and runSubmitPendingBatch (baseRev: int) (changes: Change list) : unit =
         let reqId =

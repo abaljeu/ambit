@@ -2,6 +2,9 @@ namespace Gambol.Server
 
 open System
 open System.IO
+open System.Security.Cryptography
+open System.Text
+open System.Text.Json
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Http
@@ -479,21 +482,142 @@ module WorkspaceWebDav =
             match WorkspaceDavClient.decodeResourceToken token with
             | Error e -> return Results.BadRequest(e)
             | Ok(label, relative) ->
-                if HttpMethods.IsPost ctx.Request.Method then
-                    ctx.Request.Method <- HttpMethods.Put
                 return! dispatch isAuthenticated dataDir ctx label relative
         }
+
+    let private decodeGrantRequest (req: HttpRequest) = task {
+        try
+            use! json = JsonDocument.ParseAsync(req.Body)
+            let root = json.RootElement
+            return
+                Ok(
+                    root.GetProperty("resource").GetString(),
+                    root.GetProperty("size").GetInt64(),
+                    root.GetProperty("sha256").GetString(),
+                    root.GetProperty("sourceMtimeTicks").GetInt64())
+        with _ ->
+            return Error "invalid_upload_grant_request"
+    }
+
+    let private issueGrant dataDir user secret (req: HttpRequest) = task {
+        let! decoded = decodeGrantRequest req
+        match decoded with
+        | Error e -> return Results.BadRequest(e)
+        | Ok(resource, size, sha256, ticks) ->
+            let decodedResource =
+                if String.IsNullOrEmpty resource then
+                    Error "invalid_resource_token"
+                else
+                    WorkspaceDavClient.decodeResourceToken resource
+            match decodedResource with
+            | Error e -> return Results.BadRequest(e)
+            | Ok(label, relative) ->
+                let validSize =
+                    size >= 0L && size <= WorkspaceSyncLimits.maxFileBytes
+                let validHash =
+                    not (String.IsNullOrEmpty sha256)
+                    && sha256.Length = 64
+                    && sha256 |> Seq.forall Uri.IsHexDigit
+                let validTicks =
+                    ticks = 0L || ticks <= DateTime.MaxValue.Ticks
+                match
+                    resolve dataDir label relative,
+                    validSize,
+                    validHash,
+                    validTicks
+                with
+                | Error e, _, _, _ -> return Results.BadRequest(e)
+                | _, false, _, _ ->
+                    return Results.Json({| error = "upload_body_too_large" |}, statusCode = 413)
+                | _, _, false, _ -> return Results.BadRequest("invalid_upload_digest")
+                | _, _, _, false -> return Results.BadRequest("invalid_upload_mtime")
+                | Ok _, true, true, true ->
+                    let claim: UploadCapability.Claim =
+                        { user = user
+                          label = label
+                          relative = relative
+                          size = size
+                          sha256 = sha256.ToLowerInvariant()
+                          sourceMtimeTicks = ticks
+                          expiresUnix =
+                            DateTimeOffset.UtcNow.AddMinutes(2).ToUnixTimeSeconds()
+                          nonce = Guid.NewGuid() }
+                    let capability = UploadCapability.issue secret claim
+                    let uploadUrl =
+                        string req.Scheme
+                        + "://"
+                        + string req.Host
+                        + "/ambit/direct-upload"
+                    return Results.Json {| uploadUrl = uploadUrl; capability = capability |}
+    }
+
+    let private directCapability (secret: string) user (req: HttpRequest) =
+        match req.Headers.TryGetValue("Authorization") with
+        | true, values when (string values.[0]).StartsWith("GambolUpload ") ->
+            let token = (string values.[0]).Substring("GambolUpload ".Length)
+            UploadCapability.validate secret user DateTimeOffset.UtcNow token
+        | _ -> Error "invalid_upload_capability"
+
+    let private directUpload dataDir user secret (ctx: HttpContext) = task {
+        match directCapability secret user ctx.Request with
+        | Error e -> return Results.Json({| error = e |}, statusCode = 401)
+        | Ok claim when
+            not ctx.Request.ContentLength.HasValue
+            || ctx.Request.ContentLength.Value <> claim.size
+            ->
+            return Results.BadRequest("upload_size_mismatch")
+        | Ok claim ->
+            use body = new MemoryStream()
+            do! ctx.Request.Body.CopyToAsync(body)
+            let bytes = body.ToArray()
+            let digest = SHA256.HashData bytes |> Convert.ToHexString
+            if not (digest.Equals(claim.sha256, StringComparison.OrdinalIgnoreCase)) then
+                return Results.BadRequest("upload_digest_mismatch")
+            else
+                ctx.Request.Body <- new MemoryStream(bytes)
+                ctx.Request.Method <- HttpMethods.Put
+                if claim.sourceMtimeTicks > 0L then
+                    let mtime = DateTime(claim.sourceMtimeTicks, DateTimeKind.Utc)
+                    ctx.Request.Headers[WorkspaceDavClient.SourceMtimeHeaderName] <-
+                        mtime.ToString("O")
+                return!
+                    dispatch
+                        (fun _ -> true)
+                        dataDir
+                        ctx
+                        claim.label
+                        claim.relative
+    }
 
     let registerRoutes
         (app: WebApplication)
         (isAuthenticated: HttpRequest -> bool)
         (dataDir: string)
+        (user: string)
+        (capabilitySecret: string)
         =
         let methods = [| "PROPFIND"; "GET"; "PUT"; "MKCOL" |]
         let clientHint (req: HttpRequest) =
             match req.Headers.TryGetValue(ClientIdentity.HeaderName) with
             | true, values -> ClientIdentity.tryFromValues values
             | _ -> None
+
+        app.MapPost(
+            "/ambit/upload-capability",
+            Func<HttpRequest, Task<IResult>>(fun req ->
+                if isAuthenticated req then
+                    issueGrant dataDir user capabilitySecret req
+                else
+                    Task.FromResult<IResult>(Results.Unauthorized()))
+        )
+        |> ignore
+
+        app.MapPost(
+            "/ambit/direct-upload",
+            Func<HttpContext, Task<IResult>>(fun ctx ->
+                directUpload dataDir user capabilitySecret ctx)
+        )
+        |> ignore
 
         app.MapPost(
             "/ambit/dav/{label}/_prepare-push",
@@ -521,7 +645,7 @@ module WorkspaceWebDav =
 
         app.MapMethods(
             "/ambit/dav-resource/{token}",
-            [| "PROPFIND"; "GET"; "POST"; "PUT"; "MKCOL" |],
+            [| "PROPFIND"; "GET"; "MKCOL" |],
             Func<HttpContext, string, Task<IResult>>(
                 fun ctx token ->
                     dispatchOpaque isAuthenticated dataDir ctx token)

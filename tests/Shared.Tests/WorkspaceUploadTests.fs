@@ -58,3 +58,28 @@ let ``Upload available on web for file and directory`` () =
             (Some(ReconcileDirectory dirId)))
     Assert.False(WorkspaceUpload.isAvailable false true None)
     Assert.True(WorkspaceUpload.isAvailable true true None)
+
+[<Fact>]
+let ``Upload cannot start from revision 14706 while its prior submit is in flight`` () =
+    let pending =
+        { id = 14706
+          changeId = System.Guid.NewGuid()
+          ops = [] }
+    let syncInfo =
+        { SyncInfo.initial with
+            syncState = Sending 1
+            pendingChanges = [ pending ] }
+    Assert.False(WorkspaceUpload.canStart syncInfo)
+    Assert.True(WorkspaceUpload.canStart SyncInfo.initial)
+
+[<Fact>]
+let ``one Upload sequences all parse phases instead of racing revision 14706`` () =
+    let request id =
+        Effect.ContinueParseFile(id, None, "parsed: ", "file.md")
+    let first = request (NodeId.New())
+    let second = request (NodeId.New())
+    match WorkspaceUpload.sequenceParseEffects [ first; second ] with
+    | [ Effect.ContinueUploadParses [ queuedFirst; queuedSecond ] ] ->
+        Assert.Equal(first, queuedFirst)
+        Assert.Equal(second, queuedSecond)
+    | other -> Assert.Fail($"expected one sequential parse queue, got {other}")
