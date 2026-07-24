@@ -4,15 +4,34 @@ open Gambol.Shared
 open Xunit
 
 [<Fact>]
-let ``resourceUrl encodes label and path segments`` () =
+let ``resourceUrl keeps exact workspace path opaque`` () =
+    let relative =
+        "employment/research/companies/upwork/Rule-Based-Kitchen-Layout/"
+        + "kitchen-layout-engine-posting.md"
     let url =
         WorkspaceDavClient.resourceUrl
             "http://localhost:5000/ambit"
             "home"
-            "docs/a b.txt"
-    Assert.Equal(
-        "http://localhost:5000/ambit/dav/home/docs/a%20b.txt",
+            relative
+    Assert.StartsWith(
+        "http://localhost:5000/ambit/dav-resource/",
         url)
+    Assert.DoesNotContain("employment", url)
+    Assert.DoesNotContain("Rule-Based-Kitchen-Layout", url)
+    let token = url.Substring(url.LastIndexOf('/') + 1)
+    Assert.Matches("^[A-Za-z0-9_-]+$", token)
+    Assert.Equal(
+        Ok("home", relative),
+        WorkspaceDavClient.decodeResourceToken token)
+
+[<Fact>]
+let ``resource token round trips URL-significant and Unicode characters`` () =
+    let relative = "docs/a b#100%-café.md"
+    let token = WorkspaceDavClient.encodeResourceToken "my workspace" relative
+    Assert.Matches("^[A-Za-z0-9_-]+$", token)
+    Assert.Equal(
+        Ok("my workspace", relative),
+        WorkspaceDavClient.decodeResourceToken token)
 
 [<Fact>]
 let ``finishCommitUrl targets _finish-commit`` () =

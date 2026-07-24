@@ -4,6 +4,14 @@ open Gambol.Shared
 open Xunit
 
 [<Fact>]
+let ``process launcher redirects without creating a window`` () =
+    let psi = ProcessExec.startInfo "git" "--version"
+    Assert.False(psi.UseShellExecute)
+    Assert.True(psi.RedirectStandardOutput)
+    Assert.True(psi.RedirectStandardError)
+    Assert.True(psi.CreateNoWindow)
+
+[<Fact>]
 let ``remoteUrl appends locked gateway path to ambit base`` () =
     Assert.Equal(
         "https://host/ambit/git/home.git",

@@ -6,6 +6,9 @@ open System
 [<RequireQualifiedAccess>]
 module WorkspaceUploadStructure =
 
+    let private prependReversed items acc =
+        items |> List.fold (fun state item -> item :: state) acc
+
     /// Inventory row for structure planning (no byte sizes).
     type InventoryItem =
         { relative: string
@@ -147,8 +150,10 @@ module WorkspaceUploadStructure =
                     match ensureChild current parentId kind name with
                     | Error err -> Error err
                     | Ok(childId, next, ops) ->
-                        Ok(childId, next, planned @ ops))
+                        Ok(childId, next, prependReversed ops planned))
             (Ok(workspaceId, graph, []))
+        |> Result.map (fun (nodeId, graph, reversed) ->
+            nodeId, graph, List.rev reversed)
 
     let private markUnparsed (graph: Graph) nodeId =
         match graph.nodes.[nodeId].documentState with
@@ -176,8 +181,10 @@ module WorkspaceUploadStructure =
                     let stateOps = markFn current nodeId
 
                     applyOps current stateOps
-                    |> Result.map (fun next -> next, ops @ stateOps)))
+                    |> Result.map (fun next ->
+                        next, prependReversed stateOps ops)))
             (Ok(graph, []))
+        |> Result.map (fun (graph, reversed) -> graph, List.rev reversed)
 
     /// Unparsed Directory/Workspace stubs that already have owned members → Current.
     let private promoteUnparsedDirsWithMembers (graph: Graph) =
@@ -322,8 +329,9 @@ module WorkspaceUploadStructure =
                     |> Result.bind (fun (current, planned) ->
                         planOne current workspaceId item
                         |> Result.map (fun (next, ops) ->
-                            next, planned @ ops)))
+                            next, prependReversed ops planned)))
                 (Ok(graph, []))
-            |> Result.bind (fun (afterCreates, createOps) ->
+            |> Result.bind (fun (afterCreates, createOpsReversed) ->
+                let createOps = List.rev createOpsReversed
                 markNewStubsUnparsed afterCreates createOps
                 |> Result.map (fun stateOps -> createOps @ stateOps)))

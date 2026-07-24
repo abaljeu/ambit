@@ -24,25 +24,49 @@ module WorkspaceDavClient =
 
     let private davNs = XNamespace.Get "DAV:"
 
-    let private escapeSegments (relative: string) =
-        if relative = "" then ""
-        else
-            relative.Split('/')
-            |> Array.map Uri.EscapeDataString
-            |> String.concat "/"
+    let encodeResourceToken (label: string) (relative: string) =
+        Encoding.UTF8.GetBytes(label + "\u0000" + relative)
+        |> Convert.ToBase64String
+        |> fun text ->
+            text.TrimEnd('=').Replace('+', '-').Replace('/', '_')
+
+    let decodeResourceToken (token: string) : Result<string * string, string> =
+        try
+            let base64 = token.Replace('-', '+').Replace('_', '/')
+            let padded =
+                match base64.Length % 4 with
+                | 0 -> base64
+                | 2 -> base64 + "=="
+                | 3 -> base64 + "="
+                | _ -> ""
+            let text =
+                Convert.FromBase64String padded |> Encoding.UTF8.GetString
+            let separator = text.IndexOf('\u0000')
+            if separator <= 0 then
+                Error "invalid_resource_token"
+            else
+                Ok(
+                    text.Substring(0, separator),
+                    text.Substring(separator + 1))
+        with _ ->
+            Error "invalid_resource_token"
 
     let resourceUrl (ambitBase: string) (label: string) (relative: string) =
         let root = ambitBase.TrimEnd('/')
-        // ambitBase already ends with /ambit (same as WorkspaceGitRemote).
-        let basePath = root + "/dav/" + Uri.EscapeDataString label
-        if relative = "" then basePath
-        else basePath + "/" + escapeSegments relative
+        root + "/dav-resource/" + encodeResourceToken label relative
+
+    let private controlUrl (ambitBase: string) (label: string) (action: string) =
+        ambitBase.TrimEnd('/')
+        + "/dav/"
+        + Uri.EscapeDataString label
+        + "/"
+        + action
 
     let finishCommitUrl (ambitBase: string) (label: string) =
-        resourceUrl ambitBase label "_finish-commit"
+        controlUrl ambitBase label "_finish-commit"
 
     let preparePushUrl (ambitBase: string) (label: string) =
-        resourceUrl ambitBase label "_prepare-push"
+        controlUrl ambitBase label "_prepare-push"
 
     let private decodeHref
         (label: string)
@@ -228,7 +252,8 @@ module WorkspaceDavClient =
         try
             let url = resourceUrl ambitBase label relative
             use content = new ByteArrayContent(bytes)
-            use req = new HttpRequestMessage(HttpMethod.Put, url)
+            // POST avoids shared-host Apache rules that reject PUT before proxy.php.
+            use req = new HttpRequestMessage(HttpMethod.Post, url)
             req.Content <- content
             addCookie req cookieHeader
             addClientHint req clientHint
@@ -244,7 +269,11 @@ module WorkspaceDavClient =
             if code = 201 || code = 204 || code = 200 then Ok ()
             else
                 let body = resp.Content.ReadAsStringAsync().Result
-                Error("PUT HTTP " + string code + ": " + body)
+                Error(
+                    "upload HTTP "
+                    + string code
+                    + ": "
+                    + LogText.truncateForLog 200 body)
         with ex ->
             Error ex.Message
 

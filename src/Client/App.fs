@@ -166,26 +166,33 @@ let createRuntime (initialModel: VM) =
                 SyncBatch.toDeltaChain model.revision.Value [ change ]
                 |> encodePendingBatchBody
             let url = sprintf "/%s/changes" currentFile
-            postJson
-                url
-                body
-                (fun text ->
-                    dispatch (
-                        ApplyOp (
-                            completeUploadStructurePost
-                                scope
-                                parseFileId
-                                text)))
-                (fun status text ->
-                    dispatch (
-                        ApplyOp (
-                            failUploadStructurePostHttp status text)))
-                (fun () ->
-                    dispatch (
-                        ApplyOp (
-                            failUploadStructurePost
-                                "structure post failed")))
-                (jsonMutatingPostHeaders ())
+            let rec post () =
+                let retry () =
+                    setTimeout post 1000 |> ignore
+
+                postJson
+                    url
+                    body
+                    (fun text ->
+                        dispatch (
+                            ApplyOp (
+                                completeUploadStructurePost
+                                    scope
+                                    parseFileId
+                                    text)))
+                    (fun status text ->
+                        if status = 408 || status = 502 || status = 504 then
+                            retry ()
+                        else
+                            dispatch (
+                                ApplyOp (
+                                    failUploadStructurePostHttp status text)))
+                    retry
+                    (jsonMutatingPostHeaders ())
+
+            // A timed-out POST may still commit. Retrying the same changeId is
+            // idempotent and recovers its authoritative ACK.
+            post ()
         | ContinueWorkspacePush (scope, parseFileId) ->
             // Ensure-map may sync-dialog; heavy WebDAV push must use async fetch.
             setTimeout

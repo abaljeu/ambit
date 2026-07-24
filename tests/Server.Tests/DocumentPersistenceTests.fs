@@ -218,6 +218,42 @@ let ``writeAllDocuments stamps artifact updateTime from disk mtime`` () =
         stamped.nodes.[fileId].updateTime)
 
 [<Fact>]
+let ``upload structure persistence preserves existing file mtime`` () =
+    let dataDir = newTempDir ()
+    let graph0, _, _, fileId, _ = graphWithNestedDocs ()
+    let graph =
+        DocumentPersistence.writeAllDocuments dataDir graph0
+        |> requireOk "initial write"
+    let uploadOps =
+        WorkspaceUploadStructure.planStubOps
+            graph
+            "home"
+            [ { relative = "docs/uploaded.txt"; isDirectory = false } ]
+        |> requireOk "upload structure"
+    let afterUpload =
+        uploadOps
+        |> List.fold
+            (fun state op ->
+                match Op.apply op state with
+                | ApplyResult.Changed next
+                | ApplyResult.Unchanged next -> next
+                | ApplyResult.Invalid(_, error) -> failwith error)
+            { graph = graph; history = History.empty; revision = Revision.Zero }
+        |> fun state -> state.graph
+    let filePath = artifactFullPath dataDir graph fileId
+    let original = DateTime(2024, 1, 2, 3, 4, 5, DateTimeKind.Utc)
+    File.SetLastWriteTimeUtc(filePath, original)
+
+    let stamped =
+        DocumentPersistence.persistGraphChange dataDir graph afterUpload
+        |> requireOk "persist upload structure"
+
+    Assert.Equal(original, File.GetLastWriteTimeUtc filePath)
+    Assert.Equal(
+        NodeUpdateTime.toDbPrecision original,
+        stamped.nodes.[fileId].updateTime)
+
+[<Fact>]
 let ``readAllDocuments cold load stamps artifact roots from disk mtime`` () =
     let dataDir = newTempDir ()
     let graph, wsId, dirId, fileId, _ = graphWithNestedDocs ()
@@ -400,6 +436,8 @@ let ``planParseFile with body text overwrites stale DataDir content`` () =
     let diskPath = Path.Combine(dataDir, "home", "docs", "readme.txt")
     Directory.CreateDirectory(Path.GetDirectoryName diskPath) |> ignore
     File.WriteAllText(diskPath, "STALE")
+    let original = DateTime(2024, 2, 3, 4, 5, 6, DateTimeKind.Utc)
+    File.SetLastWriteTimeUtc(diskPath, original)
 
     DocumentPersistence.planParseFile
         dataDir
@@ -410,6 +448,7 @@ let ``planParseFile with body text overwrites stale DataDir content`` () =
     |> ignore
 
     Assert.Equal("FRESH\n", File.ReadAllText diskPath)
+    Assert.Equal(original, File.GetLastWriteTimeUtc diskPath)
 
 [<Fact>]
 let ``planParseFile uses body text over DataDir`` () =

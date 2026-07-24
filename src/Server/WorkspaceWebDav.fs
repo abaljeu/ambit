@@ -469,6 +469,21 @@ module WorkspaceWebDav =
                     | _ -> return Results.StatusCode(405)
         }
 
+    let private dispatchOpaque
+        (isAuthenticated: HttpRequest -> bool)
+        (dataDir: string)
+        (ctx: HttpContext)
+        (token: string)
+        : Task<IResult> =
+        task {
+            match WorkspaceDavClient.decodeResourceToken token with
+            | Error e -> return Results.BadRequest(e)
+            | Ok(label, relative) ->
+                if HttpMethods.IsPost ctx.Request.Method then
+                    ctx.Request.Method <- HttpMethods.Put
+                return! dispatch isAuthenticated dataDir ctx label relative
+        }
+
     let registerRoutes
         (app: WebApplication)
         (isAuthenticated: HttpRequest -> bool)
@@ -501,6 +516,15 @@ module WorkspaceWebDav =
                     else
                         return handleFinish dataDir label (clientHint req)
                 })
+        )
+        |> ignore
+
+        app.MapMethods(
+            "/ambit/dav-resource/{token}",
+            [| "PROPFIND"; "GET"; "POST"; "PUT"; "MKCOL" |],
+            Func<HttpContext, string, Task<IResult>>(
+                fun ctx token ->
+                    dispatchOpaque isAuthenticated dataDir ctx token)
         )
         |> ignore
 

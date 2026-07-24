@@ -5,4 +5,6 @@ namespace Gambol.Shared
 [<RequireQualifiedAccess>]
 module DesktopGit =
 
-    let isAvailable () : bool = GitRun.isAvailable ()
+    let private available = lazy (GitRun.isAvailable ())
+
+    let isAvailable () : bool = available.Value

@@ -449,6 +449,8 @@ module DocumentPersistence =
                             previousText
                     with
                     | Error msg -> Error msg
+                    | Ok text when previousText = Some text ->
+                        Ok fullPath
                     | Ok text ->
                         try
                             let tmpPath = fullPath + ".tmp"

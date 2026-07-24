@@ -124,6 +124,34 @@ let ``GET after PUT round-trips bytes`` () = task {
 }
 
 [<SkippableFact>]
+let ``opaque POST uploads exact WAF-sensitive workspace path`` () = task {
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let dataDir = newTempDir ()
+    Directory.CreateDirectory(Path.Combine(dataDir, "home")) |> ignore
+    use client = createClientForDir dataDir
+    let relative =
+        "employment/research/companies/upwork/Rule-Based-Kitchen-Layout/"
+        + "kitchen-layout-engine-posting.md"
+    let url =
+        WorkspaceDavClient.resourceUrl
+            "http://localhost/ambit"
+            "home"
+            relative
+        |> Uri
+        |> fun uri -> uri.PathAndQuery
+    let payload = Encoding.UTF8.GetBytes "posting"
+    use content = new ByteArrayContent(payload)
+    let! response = client.PostAsync(url, content)
+    Assert.Equal(HttpStatusCode.Created, response.StatusCode)
+    let full =
+        relative.Split('/')
+        |> Array.fold
+            (fun path segment -> Path.Combine(path, segment))
+            (Path.Combine(dataDir, "home"))
+    Assert.Equal<byte>(payload, File.ReadAllBytes full)
+}
+
+[<SkippableFact>]
 let ``PUT honors X-Gambol-Source-Mtime on disk`` () = task {
     Skip.IfNot(gitOnPath(), "git not on PATH")
     let dataDir = newTempDir ()

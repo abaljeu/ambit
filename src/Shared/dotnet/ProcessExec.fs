@@ -20,18 +20,21 @@ module ProcessExec =
         psi.Environment[key] <- value
 
     /// Builds a no-shell redirected ProcessStartInfo and calls Process.Start.
+    let startInfo (fileName: string) (arguments: string) =
+        ProcessStartInfo(
+            FileName = fileName,
+            Arguments = arguments,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true)
+
     let start
         (fileName: string)
         (arguments: string)
         (configure: ProcessStartInfo -> unit)
         : Process =
-        let psi =
-            ProcessStartInfo(
-                FileName = fileName,
-                Arguments = arguments,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false)
+        let psi = startInfo fileName arguments
         configure psi
         Process.Start(psi)
 

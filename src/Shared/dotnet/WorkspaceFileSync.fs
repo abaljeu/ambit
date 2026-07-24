@@ -3,7 +3,6 @@ namespace Gambol.Shared
 open System
 open System.IO
 open System.Net.Http
-open System.Threading
 open System.Threading.Tasks
 
 /// Desktop Post (Push) / Get (Pull) over WebDAV with volume ladder.
@@ -163,41 +162,27 @@ module WorkspaceFileSync =
         (hint: string option)
         (wave: WorkspaceSyncLimits.PlannedPath list)
         : Result<WorkspaceSyncLimits.PlannedPath list, string> =
-        if wave.IsEmpty then Ok []
-        else
-            use gate = new SemaphoreSlim(uploadConcurrency)
-
+        let runBatch batch =
             let tasks =
-                wave
+                batch
                 |> List.map (fun item ->
                     Task.Run(fun () ->
-                        gate.Wait()
-
-                        try
-                            match
-                                uploadOne
-                                    client
-                                    ambitBase
-                                    label
-                                    mappedRoot
-                                    cookie
-                                    hint
-                                    item
-                            with
-                            | Error e ->
-                                Error(item.relative + ": " + e)
-                            | Ok () -> Ok item
-                        finally
-                            gate.Release() |> ignore))
+                        match
+                            uploadOne
+                                client
+                                ambitBase
+                                label
+                                mappedRoot
+                                cookie
+                                hint
+                                item
+                        with
+                        | Error e -> Error(item.relative + ": " + e)
+                        | Ok () -> Ok item))
                 |> Array.ofList
 
             Task.WaitAll(tasks |> Array.map (fun t -> t :> Task))
-
-            let results =
-                tasks
-                |> Array.map (fun t -> t.Result)
-                |> Array.toList
-
+            let results = tasks |> Array.map (fun t -> t.Result) |> Array.toList
             match
                 results
                 |> List.tryPick (function
@@ -207,10 +192,20 @@ module WorkspaceFileSync =
             | Some e -> Error e
             | None ->
                 results
-                |> List.choose (function
-                    | Ok item -> Some item
-                    | Error _ -> None)
+                |> List.choose Result.toOption
                 |> Ok
+
+        wave
+        |> List.chunkBySize uploadConcurrency
+        |> List.fold
+            (fun acc batch ->
+                acc
+                |> Result.bind (fun completed ->
+                    runBatch batch
+                    |> Result.map (fun uploaded ->
+                        (List.rev uploaded) @ completed)))
+            (Ok [])
+        |> Result.map List.rev
 
     let private modeLabel mode =
         match mode with
@@ -237,6 +232,7 @@ module WorkspaceFileSync =
         (ambitBase: string)
         (mappedRoot: string)
         (scope: WorkspaceSyncScope)
+        (knownLocalItems: LocalSyncItem list option)
         (cookie: string option)
         =
         match WorkspaceSyncLedger.loadForLabel scope.label with
@@ -260,17 +256,20 @@ module WorkspaceFileSync =
                         |> List.filter (fun e ->
                             WorkspaceSyncScope.isUnderScope scope e.relative)
 
-                    match
-                        WorkspaceLocalInventory.listForPush mappedRoot scope
-                    with
+                    let localItems =
+                        knownLocalItems
+                        |> Option.map Ok
+                        |> Option.defaultWith (fun () ->
+                            WorkspaceLocalInventory.listForPush mappedRoot scope)
+                    match localItems with
                     | Error e -> Error e
-                    | Ok localItems ->
+                    | Ok items ->
                         let seeded =
                             WorkspaceSyncLedger.seed
                                 scope.label
                                 mappedRoot
                                 scopedServer
-                                localItems
+                                items
                         match WorkspaceSyncLedger.saveForLabel seeded with
                         | Error e -> Error e
                         | Ok () -> Ok seeded
@@ -391,6 +390,7 @@ module WorkspaceFileSync =
                         ambitBase
                         mappedRoot
                         scope
+                        (Some items)
                         cookieHeader
                 with
                 | Error e -> Error e
@@ -681,6 +681,7 @@ module WorkspaceFileSync =
                     ambitBase
                     mappedRoot
                     scope
+                    None
                     cookieHeader
             with
             | Error e -> Error e
