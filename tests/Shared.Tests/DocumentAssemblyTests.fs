@@ -267,15 +267,16 @@ let ``assembleFromArtifacts ignores stray amb in artifact map`` () =
     DocumentAssembly.assembleFromArtifacts artifacts |> requireOk "assemble" |> ignore
 
 [<Fact>]
-let ``assembleFromArtifacts stubs missing referenced artifact`` () =
+let ``assembleFromArtifacts preserves owner handle when artifact is missing`` () =
     let expected, fileId, dirId, _ = graphFileOwnsDirectory ()
     let artifacts = artifactMap expected |> Map.remove "inner/.amb"
     let actual = DocumentAssembly.assembleFromArtifacts artifacts |> requireOk "assemble"
     let dirNode = actual.nodes.[dirId]
-    Assert.Equal(NodeKind.Special SpecialKind.Workspace, dirNode.kind)
+    Assert.Equal(NodeKind.Normal, dirNode.kind)
     Assert.Equal("inner", Filename.tryValue dirNode.name |> Option.get)
     Assert.Empty(dirNode.children)
     Assert.Equal(dirId, actual.nodes.[fileId].children.Head.id)
+    Assert.Equal(Ownership.Owner, actual.nodes.[fileId].children.Head.ref)
 
 [<Fact>]
 let ``scanRefIndex extracts workspace ref from ROOT text`` () =

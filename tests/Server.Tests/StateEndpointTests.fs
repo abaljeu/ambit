@@ -126,7 +126,7 @@ let private withClient (backend: BackendKind) (f: HttpClient -> Task<unit>) = ta
 }
 
 [<Fact>]
-let ``DB mode without connection falls back to file mode at startup`` () = task {
+let ``DB mode without connection serves read-only file fallback`` () = task {
     let tempDir = newTempDir ()
     use client = createDbModeWithoutConnectionClientForDir tempDir
     let! resp = client.GetAsync("/ambit/state")
@@ -138,11 +138,12 @@ let ``DB mode without connection falls back to file mode at startup`` () = task 
     let rootId = (decodeGraph body).root
     let change, _ = changeAddChild rootId 0 "startup-file-fallback"
     let! postResp = postChange client testFile change
-    Assert.Equal(HttpStatusCode.OK, postResp.StatusCode)
-    do! Task.Delay(500)
+    Assert.Equal(HttpStatusCode.BadRequest, postResp.StatusCode)
+    let! errorBody = postResp.Content.ReadAsStringAsync()
+    Assert.Contains("read-only", decodeErrorField errorBody)
 
     let ambPath = Path.Combine(tempDir, ".amb")
-    Assert.Contains("startup-file-fallback", File.ReadAllText ambPath)
+    Assert.DoesNotContain("startup-file-fallback", File.ReadAllText ambPath)
 }
 
 // ---- GET /ambit/state tests (parameterised) ----

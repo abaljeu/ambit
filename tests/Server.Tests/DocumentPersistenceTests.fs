@@ -600,7 +600,7 @@ let ``readAllDocuments round trips file owns directory boundary`` () =
     assertFileOwnsDirectoryLoad expected actual
 
 [<Fact>]
-let ``readAllDocuments stubs missing referenced artifact`` () =
+let ``readAllDocuments preserves owner handle when artifact is missing`` () =
     let dataDir = newTempDir ()
     let graph, _, dirId, fileId, _ = graphWithNestedDocs ()
     DocumentPersistence.writeAllDocuments dataDir graph |> requireOk "write" |> ignore
@@ -608,10 +608,11 @@ let ``readAllDocuments stubs missing referenced artifact`` () =
     File.Delete filePath
     let actual = DocumentPersistence.readAllDocuments dataDir |> requireOk "read"
     let fileNode = actual.nodes.[fileId]
-    Assert.Equal(NodeKind.Special SpecialKind.File, fileNode.kind)
+    Assert.Equal(NodeKind.Normal, fileNode.kind)
     Assert.Equal("readme.txt", Filename.tryValue fileNode.name |> Option.get)
     Assert.Empty(fileNode.children)
     Assert.Equal(fileId, actual.nodes.[dirId].children.Head.id)
+    Assert.Equal(Ownership.Owner, actual.nodes.[dirId].children.Head.ref)
 
 [<Fact>]
 let ``discoverArtifactRelatives lists stray amb file`` () =

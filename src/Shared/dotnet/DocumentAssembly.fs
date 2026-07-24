@@ -1,3 +1,4 @@
+// assemble a graph from files as source..
 namespace Gambol.Shared
 
 open System
@@ -78,18 +79,6 @@ module DocumentAssembly =
         else
             Ok None
 
-    let private parseNestedDocRefs (text: string) : Result<(string * NodeId) list, string> =
-        sourceLines text
-        |> resultFold
-            (fun refs line ->
-                parseRefLine line
-                |> Result.map (function
-                    | None -> refs
-                    | Some (Some path, nodeId) -> (path, nodeId) :: refs
-                    | Some (None, _) -> refs))
-            []
-        |> Result.map List.rev
-
     let scanRefIndex (texts: string seq) : Result<Map<string, NodeId>, string> =
         let addLine index (line: string) =
             parseRefLine line
@@ -102,38 +91,44 @@ module DocumentAssembly =
         |> Seq.collect sourceLines
         |> resultFold addLine Map.empty<string, NodeId>
 
-    let private withoutAmbFile (path: string) =
-        path.Substring(0, path.Length - "/.amb".Length)
-
-    let private isWorkspaceArtifact (descriptor: ArtifactDescriptor) =
-        let basePath = withoutAmbFile descriptor.relativePath
-        descriptor.kind = DocumentArtifactKind.Directory
-        && not (String.IsNullOrEmpty basePath)
-        && not (basePath.Contains("/"))
-        && not (String.Equals(basePath, "TRASH", StringComparison.Ordinal))
-        && not (String.Equals(basePath, "SYSTEM", StringComparison.Ordinal))
+    let private isWorkspaceArtifact (graph: Graph) (documentRootId: NodeId) =
+        Map.tryFind documentRootId graph.ownerParentByChild = Some Graph.workspacesId
 
     let private stubName (descriptor: ArtifactDescriptor) : Filename =
         match splitSegments descriptor.relativePath |> List.rev with
         | ".amb" :: name :: _ -> Filename.create name
+        | [ ".amb" ] -> Filename.Empty
         | name :: _ -> Filename.create name
         | [] -> Filename.Empty
 
-    let private stubKind (descriptor: ArtifactDescriptor) : NodeKind =
+    let private stubKind
+        (graph: Graph)
+        (descriptor: ArtifactDescriptor)
+        (documentRootId: NodeId)
+        : NodeKind =
         match descriptor.kind with
-        | DocumentArtifactKind.Directory when isWorkspaceArtifact descriptor ->
+        | DocumentArtifactKind.Directory when isWorkspaceArtifact graph documentRootId ->
             NodeKind.Special SpecialKind.Workspace
         | DocumentArtifactKind.Directory -> NodeKind.Special SpecialKind.Directory
         | DocumentArtifactKind.File -> NodeKind.Special SpecialKind.File
 
-    let private stubNode (descriptor: ArtifactDescriptor) (documentRootId: NodeId) : Node =
-        Node.Create(documentRootId, name = stubName descriptor, kind = stubKind descriptor)
+    let private stubNode
+        (graph: Graph)
+        (descriptor: ArtifactDescriptor)
+        (documentRootId: NodeId)
+        : Node =
+        let kind = stubKind graph descriptor documentRootId
+        match Map.tryFind documentRootId graph.nodes with
+        | Some node -> { node with kind = kind }
+        | None -> Node.Create(documentRootId, name = stubName descriptor, kind = kind)
 
     let private seedStub (graph: Graph) (descriptor: ArtifactDescriptor) (documentRootId: NodeId) : Graph =
-        if Graph.isCanonicalDataRoot documentRootId then
+        // Root `.amb` is already present via Graph.create / GraphBuild.ensure; do not replace it.
+        if descriptor.relativePath = ".amb" then
             graph
         else
-            let nodes = Map.add documentRootId (stubNode descriptor documentRootId) graph.nodes
+            let node = stubNode graph descriptor documentRootId
+            let nodes = Map.add documentRootId node graph.nodes
             Graph.fromNodes graph.root nodes
 
     let private brokenLinkText = "Broken link."
@@ -197,21 +192,61 @@ module DocumentAssembly =
         : Result<Graph, string> =
         DocumentFormat.readArtifactCold relativePath text docId graph
 
-    let private seedNestedRefStubs
+    let private artifactDirectory (relativePath: string) =
+        let slash = relativePath.LastIndexOf('/')
+        if slash < 0 then "" else relativePath.Substring(0, slash + 1)
+
+    let private tryChildArtifact
+        (artifacts: Map<string, string>)
+        (baseDirectory: string)
+        (node: Node)
+        : string option =
+        match Filename.tryValue node.name with
+        | None -> None
+        | Some name ->
+            [ baseDirectory + name + "/.amb"; baseDirectory + name ]
+            |> List.tryFind (fun relativePath -> Map.containsKey relativePath artifacts)
+
+    let private resolveChildArtifact
+        (artifacts: Map<string, string>)
+        (baseDirectory: string)
         (graph: Graph)
         (seen: Set<string>)
         (queue: (string * NodeId) list)
-        (path: string, childId: NodeId)
+        (childId: NodeId)
         : Result<Graph * Set<string> * (string * NodeId) list, string> =
-        artifactRelativeForNodeReference path
-        |> Result.bind (fun childRel ->
-            classifyArtifactRelative childRel
-            |> Result.map (fun childDescriptor ->
-                let graph' = seedStub graph childDescriptor childId
-                if Set.contains childRel seen then
-                    graph', seen, queue
-                else
-                    graph', Set.add childRel seen, queue @ [ childRel, childId ]))
+        match Map.tryFind childId graph.nodes with
+        | None -> Ok (graph, seen, queue)
+        | Some node ->
+            match tryChildArtifact artifacts baseDirectory node with
+            | None -> Ok (graph, seen, queue)
+            | Some childRel when Set.contains childRel seen -> Ok (graph, seen, queue)
+            | Some childRel ->
+                classifyArtifactRelative childRel
+                |> Result.map (fun descriptor ->
+                    let graph' = seedStub graph descriptor childId
+                    graph', Set.add childRel seen, (childRel, childId) :: queue)
+
+    let private resolveChildArtifacts
+        (artifacts: Map<string, string>)
+        (relativePath: string)
+        (documentRootId: NodeId)
+        (graph: Graph)
+        (seen: Set<string>)
+        (queue: (string * NodeId) list)
+        =
+        DocumentPartition.memberNodeIds graph documentRootId
+        |> Set.remove documentRootId
+        |> resultFold
+            (fun (graph', seen', queue') childId ->
+                resolveChildArtifact
+                    artifacts
+                    (artifactDirectory relativePath)
+                    graph'
+                    seen'
+                    queue'
+                    childId)
+            (graph, seen, queue)
 
     let rec private assembleLoop
         (artifacts: Map<string, string>)
@@ -230,18 +265,13 @@ module DocumentAssembly =
                     let graph' = seedStub graph descriptor docId
                     assembleLoop artifacts seen rest graph'
                 | Some text ->
-                    parseNestedDocRefs text
+                    let graph' = seedStub graph descriptor docId
+                    readArtifact graph' relativePath text docId
                     |> Result.bind (fun refs ->
-                        refs
-                        |> resultFold
-                            (fun (graph', seen', queue') ref ->
-                                seedNestedRefStubs graph' seen' queue' ref)
-                            (graph, seen, rest)
-                        |> Result.bind (fun (graph', seen', queue') ->
-                            let graph'' = seedStub graph' descriptor docId
-                            readArtifact graph'' relativePath text docId
-                            |> Result.bind (fun graphAfterRead ->
-                                assembleLoop artifacts seen' queue' graphAfterRead)))
+                        resolveChildArtifacts
+                            artifacts relativePath docId refs seen rest
+                        |> Result.bind (fun (graph'', seen', queue') ->
+                            assembleLoop artifacts seen' queue' graph''))
 
     let assembleFromArtifacts (artifacts: Map<string, string>) : Result<Graph, string> =
         assembleLoop artifacts (Set.ofList [ ".amb" ]) [ ".amb", Graph.rootId ] (Graph.create ())

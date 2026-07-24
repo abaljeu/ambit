@@ -4,17 +4,12 @@ namespace Gambol.Shared
 module DocumentPartition =
 
     let isDocumentRootNode (graph: Graph) (nodeId: NodeId) : bool =
-        if nodeId = Graph.workspacesId then
-            false
-        elif Graph.isCanonicalDataRoot nodeId then
-            true
-        else
-            match Map.tryFind nodeId graph.nodes with
-            | None -> false
-            | Some node ->
-                match node.kind with
-                | Special (Workspace | Directory | File) -> true
-                | _ -> false
+        match Map.tryFind nodeId graph.nodes with
+        | None -> false
+        | Some node ->
+            match node.kind with
+            | Special (Workspace | Directory | File) -> true
+            | _ -> false
 
     let documentRootForNode (graph: Graph) (nodeId: NodeId) : NodeId option =
         GraphQuery.enclosing graph (fun node -> isDocumentRootNode graph node.id) nodeId

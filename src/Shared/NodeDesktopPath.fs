@@ -222,10 +222,6 @@ module NodeDesktopPath =
 
             if String.IsNullOrEmpty inner then
                 Error ("invalid node reference: " + nodeReference)
-            elif inner = "TRASH" then
-                Ok "TRASH/.amb"
-            elif inner = "SYSTEM" then
-                Ok "SYSTEM/.amb"
             else
                 directoryArtifactRelative inner
         else
