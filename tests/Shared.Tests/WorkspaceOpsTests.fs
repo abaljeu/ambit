@@ -105,7 +105,7 @@ let ``SetName rejects old name mismatch`` () =
 let ``SetName rejects invalid new name`` () =
     let graph0 = Graph.create ()
     let graph1, nodeId = addNamedNode "old-name" graph0
-    Assert.True(Result.isError (Graph.setName nodeId "old-name" "has spaces!" graph1))
+    Assert.True(Result.isError (Graph.setName nodeId "old-name" "has/slash" graph1))
 
 [<Fact>]
 let ``SetName rejects sibling name collision case-insensitive`` () =
@@ -292,7 +292,7 @@ let ``NewSpecialNode Directory kind is allowed`` () =
 
 [<Fact>]
 let ``NewSpecialNode invalid name is rejected`` () =
-    let op = Op.NewSpecialNode(NodeId.New(), Workspace, "has spaces!")
+    let op = Op.NewSpecialNode(NodeId.New(), Workspace, "has/slash")
     requireInvalid (Op.apply op (freshState ())) |> ignore
 
 [<Fact>]

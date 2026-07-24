@@ -186,7 +186,7 @@ let ``artifact paths for directory owned by file use nearest directory ancestor`
     Assert.Equal(Some "inner/.amb", DocumentPartition.artifactFileRelative graph dirId)
 
 [<Fact>]
-let ``write nested file directory emits ref not directory children`` () =
+let ``write nested file directory emits owner handle not directory children`` () =
     let graph, fileId, dirId, normalId = graphFileOwnsDirectory ()
     let text =
         AmbDocument.write graph fileId
@@ -195,6 +195,5 @@ let ``write nested file directory emits ref not directory children`` () =
             | Error msg -> failwith msg
     let dirSid = AmbDocument.formatStableId dirId
     let normalSid = AmbDocument.formatStableId normalId
-    let dirPath = NodeDesktopPath.pathForNodeId graph dirId |> Option.get
-    Assert.Contains("-> " + dirPath + "^" + dirSid, text)
+    Assert.Contains("^" + dirSid + " inner\tinner", text)
     Assert.DoesNotContain("^" + normalSid, text)

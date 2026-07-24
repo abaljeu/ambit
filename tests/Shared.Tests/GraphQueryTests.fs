@@ -62,13 +62,13 @@ let ``enclosing finds first owner-chain match including start`` () =
     Assert.Equal(None, GraphQuery.enclosing graph isDirectory wsId)
 
 [<Fact>]
-let ``enclosingWorkspace resolves named workspace ROOT and TRASH`` () =
+let ``enclosingWorkspace resolves named workspace and canonical roots`` () =
     let graph, wsId, dirId, fileId = graphWithWorkspaceTree ()
     Assert.Equal(Some wsId, GraphQuery.enclosingWorkspace graph wsId)
     Assert.Equal(Some wsId, GraphQuery.enclosingWorkspace graph dirId)
     Assert.Equal(Some wsId, GraphQuery.enclosingWorkspace graph fileId)
     Assert.Equal(Some Graph.rootId, GraphQuery.enclosingWorkspace graph Graph.rootId)
-    Assert.Equal(Some Graph.trashId, GraphQuery.enclosingWorkspace graph Graph.trashId)
+    Assert.Equal(Some Graph.rootId, GraphQuery.enclosingWorkspace graph Graph.trashId)
     Assert.Equal(
         Some Graph.rootId,
         GraphQuery.enclosingWorkspace graph Graph.workspacesId)

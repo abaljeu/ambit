@@ -19,6 +19,7 @@ type CStyleReadResult = {
 module CStyleDocument =
     let public extensions = [
         ".c"
+        ".cs"
         ".css"
         ".js"
         ".ts"

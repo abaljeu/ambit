@@ -184,7 +184,13 @@ let ``buildFilePackage md heading applies md-head and md-list classes`` () =
         DocumentFormat.writeArtifact after focusId "notes.md" None
         |> requireOk "writeArtifact"
 
-    Assert.Equal("# section" + Environment.NewLine + "- item" + Environment.NewLine, written)
+    Assert.Equal(
+        "# section"
+        + Environment.NewLine
+        + Environment.NewLine
+        + "- item"
+        + Environment.NewLine,
+        written)
 
 [<Fact>]
 let ``buildFilePackage rejects blank input`` () =
