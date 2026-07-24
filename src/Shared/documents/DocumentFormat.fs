@@ -127,12 +127,16 @@ module DocumentFormat =
         let overlayIds =
             DocumentPartition.memberNodeIds graphWithRead readResult.documentRootId
             |> Set.filter (fun nodeId ->
-                nodeId = readResult.documentRootId
-                || not (
+                let incomingBoundary =
                     DocumentPartition.isNestedDocumentRootBoundary
                         graphWithRead
                         readResult.documentRootId
-                        nodeId))
+                        nodeId
+                let existingRoot =
+                    DocumentPartition.isDocumentRootNode context nodeId
+                nodeId = readResult.documentRootId
+                || not incomingBoundary
+                || not existingRoot)
 
         let conflict =
             if allowContentUpdate then

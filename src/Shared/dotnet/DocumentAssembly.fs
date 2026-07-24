@@ -91,9 +91,6 @@ module DocumentAssembly =
         |> Seq.collect sourceLines
         |> resultFold addLine Map.empty<string, NodeId>
 
-    let private isWorkspaceArtifact (graph: Graph) (documentRootId: NodeId) =
-        Map.tryFind documentRootId graph.ownerParentByChild = Some Graph.workspacesId
-
     let private stubName (descriptor: ArtifactDescriptor) : Filename =
         match splitSegments descriptor.relativePath |> List.rev with
         | ".amb" :: name :: _ -> Filename.create name
@@ -106,11 +103,15 @@ module DocumentAssembly =
         (descriptor: ArtifactDescriptor)
         (documentRootId: NodeId)
         : NodeKind =
-        match descriptor.kind with
-        | DocumentArtifactKind.Directory when isWorkspaceArtifact graph documentRootId ->
-            NodeKind.Special SpecialKind.Workspace
-        | DocumentArtifactKind.Directory -> NodeKind.Special SpecialKind.Directory
-        | DocumentArtifactKind.File -> NodeKind.Special SpecialKind.File
+        match Map.tryFind documentRootId graph.nodes with
+        | Some node when node.kind = NodeKind.Special SpecialKind.Workspace ->
+            node.kind
+        | _ ->
+            match descriptor.kind with
+            | DocumentArtifactKind.Directory ->
+                NodeKind.Special SpecialKind.Directory
+            | DocumentArtifactKind.File ->
+                NodeKind.Special SpecialKind.File
 
     let private stubNode
         (graph: Graph)

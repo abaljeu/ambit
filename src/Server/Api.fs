@@ -31,6 +31,14 @@ module AgentHandle =
           postGraphOnlyChange =
             fun body -> DbAgent.postGraphOnlyChange agent body }
 
+    let readOnly (handle: AgentHandle) : AgentHandle =
+        let rejectWrite (_: string) : Async<Result<string, string>> =
+            async.Return(Error "Database persistence is unavailable; file fallback is read-only.")
+
+        { handle with
+            postChange = rejectWrite
+            postGraphOnlyChange = rejectWrite }
+
     /// On-disk document is authoritative; when `db` is present, each successful file `postChange`
     /// is mirrored to PostgreSQL (best-effort log on DB failure; response still reflects file ack).
     let ofFileWithDbMirror (file: FileAgent) (db: DbAgent option) : AgentHandle =

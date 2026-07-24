@@ -85,6 +85,12 @@ module AmbDocument =
         else
             Filename.Empty, rest
 
+    let private parseOwnerKindMarker (rest: string) : NodeKind option * string =
+        if rest.StartsWith("!W ") then
+            Some (Special Workspace), rest.Substring(3)
+        else
+            None, rest
+
     let private parseRefTarget (target: string) : (string option * string) option =
         let caretIdx = target.LastIndexOf('^')
         if caretIdx < 0 then
@@ -123,9 +129,12 @@ module AmbDocument =
     let private ownerLineContent (nodeId: NodeId) (node: Node) (bodyText: string) : string =
         let sid = formatStableId nodeId
         let body = lineBodyFor node bodyText
+        let kindMarker =
+            if node.kind = Special Workspace then "!W "
+            else ""
         match Filename.tryValue node.name with
-        | None -> "^" + sid + " " + body
-        | Some name -> "^" + sid + " " + name + "\t" + body
+        | None -> "^" + sid + " " + kindMarker + body
+        | Some name -> "^" + sid + " " + kindMarker + name + "\t" + body
 
     let private refLineContent
         (graph: Graph)
@@ -377,6 +386,7 @@ module AmbDocument =
 
     let private resolveOwnerLine
         (stableToken: string)
+        (markedKind: NodeKind option)
         (name: Filename)
         (classes: CssClasses)
         (nodeText: string)
@@ -403,7 +413,8 @@ module AmbDocument =
                     { baseNode with
                         text = nodeText
                         name = name
-                        cssClasses = classes }
+                        cssClasses = classes
+                        kind = markedKind |> Option.defaultValue baseNode.kind }
 
             Ok (nodeId, Map.add nodeId merged nodes)
 
@@ -514,9 +525,19 @@ module AmbDocument =
         elif content.StartsWith("^") then
             match splitStableIdPrefix (content.Substring(1)) with
             | Some (stableToken, rest) ->
-                let name, bodyRest = parseOwnerRest rest
+                let markedKind, ownerRest = parseOwnerKindMarker rest
+                let name, bodyRest = parseOwnerRest ownerRest
                 let classes, nodeText = parseOutlineMeta bodyRest
-                match resolveOwnerLine stableToken name classes nodeText nodes contextGraph with
+                match
+                    resolveOwnerLine
+                        stableToken
+                        markedKind
+                        name
+                        classes
+                        nodeText
+                        nodes
+                        contextGraph
+                with
                 | Error msg -> nodes, stack, idMap, claimed, Error msg
                 | Ok (nodeId, nodes') ->
                     let idMap' = idMap |> Map.add stableToken nodeId

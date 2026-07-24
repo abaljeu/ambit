@@ -139,7 +139,11 @@ module RouteRegistration =
                 let fileAgent = getOrCreateFileAgent filename
                 let dbAgent = DatabaseSetup.getOrCreateDbAgent dbConnString dataDir filename
                 AgentHandle.ofFileWithDbMirror fileAgent (Some dbAgent)
-            | _ ->
+            | DatabaseSetup.PersistenceMode.Db, _ ->
+                getOrCreateFileAgent filename
+                |> AgentHandle.ofFile
+                |> AgentHandle.readOnly
+            | DatabaseSetup.PersistenceMode.File, _ ->
                 AgentHandle.ofFile (getOrCreateFileAgent filename)
         {
             DataDir = dataDir

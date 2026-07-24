@@ -185,16 +185,13 @@ module NodeDesktopPath =
             else
                 let segment, tail = firstSegment (rest.TrimStart('/'))
 
-                if segment = "TRASH"
-                   || segment = "SYSTEM"
-                   || isRootFileSegment segment then
+                if isRootFileSegment segment then
                     None
                 else
                     Some (segment, tail)
 
-    let private isNamedWorkspaceGitNode (node: Node) : bool =
+    let private isNamedWorkspaceNode (node: Node) : bool =
         node.id <> Graph.rootId
-        && not (Graph.isSystemFolderNode node.id)
         && match node.kind with
            | Special Workspace ->
                match Filename.tryValue node.name with
@@ -205,7 +202,7 @@ module NodeDesktopPath =
     /// Named workspace label for git connect/clone/pull/push (not ROOT / empty).
     /// Resolves from the node or any owner ancestor (File/Directory/Normal under a workspace).
     let enclosingWorkspaceName (graph: Graph) (nodeId: NodeId) : string option =
-        GraphQuery.enclosing graph isNamedWorkspaceGitNode nodeId
+        GraphQuery.enclosing graph isNamedWorkspaceNode nodeId
         |> Option.bind (fun wsId ->
             Map.tryFind wsId graph.nodes
             |> Option.bind (fun n -> Filename.tryValue n.name))
