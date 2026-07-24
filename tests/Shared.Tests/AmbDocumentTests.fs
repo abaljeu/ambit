@@ -233,6 +233,25 @@ let ``read caret text without stable id as plain line`` () =
     Assert.Equal(1, result.nodes.[docId].children.Length)
 
 [<Fact>]
+let ``read ambiguous owner-link candidates keeps map order`` () =
+    let graph, docId = graphWithDocument []
+    let lowId = NodeId(Guid.Parse "00000000-0000-0000-0000-000000000001")
+    let highId = NodeId(Guid.Parse "00000000-0000-0000-0000-000000000002")
+    let low = Node.Create(lowId, text = "same", owner = docId)
+    let high = Node.Create(highId, text = "same", owner = docId)
+    let graph =
+        graph.nodes
+        |> Map.add highId high
+        |> Map.add lowId low
+        |> fun nodes -> { graph with nodes = nodes }
+
+    let result =
+        AmbDocument.read ("same" + Environment.NewLine) docId graph
+        |> requireOk "read"
+
+    Assert.Equal(lowId, result.nodes.[docId].children.Head.id)
+
+[<Fact>]
 let ``round-trip preserves caret-prefixed plain text`` () =
     let nodeId = NodeId.New()
     let node = Node.Create(nodeId, text = "^ff")

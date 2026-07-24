@@ -223,7 +223,9 @@ module DocumentPersistence =
                 let textResult =
                     match textOpt with
                     | Some text ->
-                        DocumentBinary.refuseParse relativePath text
+                        DocumentParseLimits.refuseText text
+                        |> Result.bind (fun () ->
+                            DocumentBinary.refuseParse relativePath text)
                         |> Result.bind (fun () ->
                             writeArtifactText dataDir graph fileId text
                             |> Result.map (fun () -> text))

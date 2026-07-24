@@ -244,13 +244,13 @@ module PlainTextDocument =
                 indentStyle)
 
     let private mapPreviousLines (previousText: string) (graph: Graph) (documentRootId: NodeId) =
-        let serialized = serializeLines graph documentRootId
+        let serialized = serializeLines graph documentRootId |> List.toArray
         let _, prevOutline = parseOutlineLines previousText
 
         prevOutline
         |> List.mapi (fun i line ->
             let nodeId =
-                match List.tryItem i serialized with
+                match Array.tryItem i serialized with
                 | Some s -> s.nodeId
                 | None -> None
 

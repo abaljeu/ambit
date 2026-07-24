@@ -374,6 +374,22 @@ let ``importPackageForReference reports missing DataDir file`` () =
     | Ok _ -> Assert.Fail("expected file not found")
 
 [<Fact>]
+let ``planParseFile refuses oversized body before writing artifact`` () =
+    let dataDir = newTempDir ()
+    let graph, _, _, fileId, _ = graphWithNestedDocs ()
+    let diskPath = Path.Combine(dataDir, "home", "docs", "readme.txt")
+    let actualCodeUnits = DocumentParseLimits.maxInputCodeUnits + 1
+    let text = String('x', actualCodeUnits)
+
+    match DocumentPersistence.planParseFile dataDir graph fileId (Some text) with
+    | Error msg ->
+        Assert.Equal(
+            DocumentParseLimits.errorForCodeUnits actualCodeUnits,
+            msg)
+        Assert.False(File.Exists diskPath)
+    | Ok _ -> Assert.Fail("expected oversized parse to fail")
+
+[<Fact>]
 let ``planParseFile DataDir warm keeps line NodeId on text edit`` () =
     let dataDir = newTempDir ()
     let graph, _, _, fileId, normalId = graphWithNestedDocs ()

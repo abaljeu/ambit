@@ -156,18 +156,19 @@ module OutlineDocument =
         (flats: (int * string * string option) list)
         (nodeIds: NodeId option list)
         : SpanNode =
-        let spanned = lineSpans artifactForSpans
+        let spanned = lineSpans artifactForSpans |> List.toArray
+        let nodeIds = nodeIds |> List.toArray
 
         let lines =
             flats
             |> List.mapi (fun i (depth, content, hardKey) ->
                 let span =
-                    match List.tryItem i spanned with
+                    match Array.tryItem i spanned with
                     | Some(s, _) -> s
                     | None -> emptySpan
 
                 let nodeId =
-                    match List.tryItem i nodeIds with
+                    match Array.tryItem i nodeIds with
                     | Some id -> id
                     | None -> None
 

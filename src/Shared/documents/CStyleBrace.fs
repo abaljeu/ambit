@@ -322,9 +322,10 @@ module CStyleBrace =
             (parentDepth: int option)
             (stmt: Statement)
             (cursor: int)
+            (acc: WarmUnit list)
             : WarmUnit list * int =
             if stmt.block.IsNone && String.IsNullOrWhiteSpace stmt.otherText then
-                [], cursor
+                acc, cursor
             else
                 let braced = stmt.block.IsSome
                 let lines = prepareLines (splitOtherLines stmt.otherText) braced
@@ -333,14 +334,13 @@ module CStyleBrace =
                 match lines with
                 | [] ->
                     match stmt.block with
-                    | None -> [], cursor
+                    | None -> acc, cursor
                     | Some body ->
                         body
                         |> List.fold
                             (fun (acc, c) child ->
-                                let u, c' = walk parentDepth child c
-                                acc @ u, c')
-                            ([], cursor)
+                                walk parentDepth child c acc)
+                            (acc, cursor)
                 | _ ->
                     let depths = rowDepths style parentDepth ownerDepth lines
                     let n = lines.Length
@@ -367,33 +367,34 @@ module CStyleBrace =
                                 else ""
                         })
 
-                    let children, afterChildren =
+                    let acc' =
+                        units |> List.fold (fun a unit -> unit :: a) acc
+
+                    let acc'', afterChildren =
                         match stmt.block with
-                        | None -> [], openEnd
+                        | None -> acc', openEnd
                         | Some body ->
                             body
                             |> List.fold
                                 (fun (acc, c) child ->
-                                    let u, c' =
-                                        walk (Some bracedDepth) child c
-
-                                    acc @ u, c')
-                                ([], openEnd)
+                                    walk (Some bracedDepth) child c acc)
+                                (acc', openEnd)
 
                     let afterClose =
                         match stmt.closeIndex with
                         | Some _ -> afterCloseBrace
                         | None -> afterChildren
 
-                    units @ children, afterClose
+                    acc'', afterClose
 
-        let units, cursor =
+        let unitsRev, cursor =
             parseDocument text
             |> List.fold
                 (fun (acc, c) stmt ->
-                    let u, c' = walk None stmt c
-                    acc @ u, c')
+                    walk None stmt c acc)
                 ([], 0)
+
+        let units = List.rev unitsRev
 
         if cursor < text.Length && units <> [] then
             let attachIdx =

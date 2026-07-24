@@ -176,12 +176,12 @@ module CStyleDocument =
         (graph: Graph)
         (documentRootId: NodeId)
         : Result<NodeId option list, string> =
-        let serialized = serializeLines graph documentRootId
+        let serialized = serializeLines graph documentRootId |> List.toArray
         let _, rows = CStyleBrace.toOutlineRows previousText
 
         rows
         |> List.mapi (fun i _ ->
-            match List.tryItem i serialized with
+            match Array.tryItem i serialized with
             | Some s -> s.nodeId
             | None -> None)
         |> Ok
@@ -376,6 +376,7 @@ module CStyleDocument =
 
         let previous = prevEntities |> List.map snd
         let plan = OutlineDocumentWarm.writePlan diffTexts previous edited
+        let output = StringBuilder()
 
         let bracedOf (edit: OutlineReconcile.OutlineLine) =
             match edit.nodeId with
@@ -400,22 +401,26 @@ module CStyleDocument =
                 <= 1
 
         let emitStep (stack: (int * string) list) step =
-            let flushTo depth accStack =
-                let rec loop acc =
-                    function
-                    | [] -> acc, []
+            let flushTo
+                (depth: int)
+                (accStack: (int * string) list)
+                =
+                let rec loop (remaining: (int * string) list) =
+                    match remaining with
+                    | [] -> []
                     | (d, closeRaw) :: rest when d >= depth ->
-                        loop (acc + closeRaw) rest
-                    | rest -> acc, rest
+                        output.Append(closeRaw) |> ignore
+                        loop rest
+                    | rest -> rest
 
-                loop "" accStack
+                loop accStack
 
             // Graph-wins content. Keep openRaw only for a single-unit slice.
             match step with
             | OutlineDocumentWarm.EmitKeep(pi, edit) ->
                 let u, prevLine = prevEntities.[pi]
                 let braced = bracedOf edit
-                let flushed, stack' = flushTo edit.depth stack
+                let stack' = flushTo edit.depth stack
 
                 let openChunk, closeChunk =
                     if edit.text = prevLine.text && canKeepRaw u then
@@ -423,22 +428,23 @@ module CStyleDocument =
                     else
                         formatFresh complement edit braced
 
-                (edit.depth, closeChunk) :: stack', flushed + openChunk
+                output.Append(openChunk) |> ignore
+                (edit.depth, closeChunk) :: stack'
             | OutlineDocumentWarm.EmitInsert edit ->
                 let braced = bracedOf edit
-                let flushed, stack' = flushTo edit.depth stack
+                let stack' = flushTo edit.depth stack
                 let openChunk, closeChunk = formatFresh complement edit braced
-                (edit.depth, closeChunk) :: stack', flushed + openChunk
 
-        let body, finalStack =
-            plan
-            |> List.fold
-                (fun (acc, stack) step ->
-                    let stack', chunk = emitStep stack step
-                    acc + chunk, stack')
-                ("", [])
+                output.Append(openChunk) |> ignore
+                (edit.depth, closeChunk) :: stack'
 
-        Ok(body + (finalStack |> List.map snd |> String.concat ""))
+        let finalStack = plan |> List.fold emitStep []
+
+        finalStack
+        |> List.iter (fun (_, closeRaw) ->
+            output.Append(closeRaw) |> ignore)
+
+        Ok(output.ToString())
 
     let write
         (graph: Graph)

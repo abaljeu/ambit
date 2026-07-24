@@ -11,7 +11,7 @@ module MdReconcile =
         OutlineDocument.nodesRead r.documentRootId r.nodes
 
     let private lineEndInArtifact
-        (spanned: (TextSpan * string) list)
+        (spanned: (TextSpan * string) array)
         (normalized: string)
         (lineIndex: int)
         =
@@ -21,9 +21,9 @@ module MdReconcile =
             normalized.Length
 
     let private absorbedSpan
-        (spanned: (TextSpan * string) list)
+        (spanned: (TextSpan * string) array)
         (normalized: string)
-        (substantiveFileIndices: int list)
+        (substantiveFileIndices: int array)
         (flatIndex: int)
         : TextSpan =
         let fileIndex = substantiveFileIndices.[flatIndex]
@@ -50,15 +50,18 @@ module MdReconcile =
 
     let private toSpanTree (text: string) (nodeIds: NodeId option list) : SpanNode =
         let normalized = text.Replace("\r\n", "\n").Replace("\r", "\n")
-        let spanned = OutlineDocument.lineSpans normalized
+        let spanned =
+            OutlineDocument.lineSpans normalized |> List.toArray
         let flats: (int * string * MdDocument.LineKind) list =
             MdDocument.flattenText normalized
 
         let substantiveFileIndices =
             spanned
-            |> List.indexed
-            |> List.choose (fun (i, (_, content)) ->
+            |> Array.indexed
+            |> Array.choose (fun (i, (_, content)) ->
                 if String.IsNullOrWhiteSpace content then None else Some i)
+
+        let nodeIds = nodeIds |> List.toArray
 
         let lines =
             flats
@@ -67,7 +70,7 @@ module MdReconcile =
                     absorbedSpan spanned normalized substantiveFileIndices i
 
                 let nodeId =
-                    match List.tryItem i nodeIds with
+                    match Array.tryItem i nodeIds with
                     | Some id -> id
                     | None -> None
 

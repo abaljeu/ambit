@@ -215,11 +215,13 @@ module DocumentFormat =
         (documentRootId: NodeId)
         (context: Graph)
         : Result<Graph, string> =
-        classifyCodecForRead context documentRootId relativePath text
-        |> Result.bind (fun codec ->
-            coldHandlerFor codec
-            |> fun h -> h.readCold text context documentRootId
-            |> Result.bind (mergeReadResult false context))
+        DocumentParseLimits.refuseText text
+        |> Result.bind (fun () ->
+            classifyCodecForRead context documentRootId relativePath text
+            |> Result.bind (fun codec ->
+                coldHandlerFor codec
+                |> fun h -> h.readCold text context documentRootId
+                |> Result.bind (mergeReadResult false context)))
 
     /// Cold path when previousText is None. Warm (Some _) → DocumentWarm.readArtifact.
     let readArtifact

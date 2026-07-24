@@ -193,6 +193,18 @@ let ``buildFilePackage rejects blank input`` () =
     | Error err -> Assert.Equal("import text is empty", err)
 
 [<Fact>]
+let ``buildFilePackage rejects oversized text before graph materialization`` () =
+    let actualCodeUnits = DocumentParseLimits.maxInputCodeUnits + 1
+    let text = String('x', actualCodeUnits)
+
+    match ImportDocument.buildFilePackage "//life/large.csv" text with
+    | Ok _ -> failwith "expected oversized import to fail"
+    | Error err ->
+        Assert.Equal(
+            DocumentParseLimits.errorForCodeUnits actualCodeUnits,
+            err)
+
+[<Fact>]
 let ``buildTextPackage Plain indent nesting under paste path`` () =
     let text = "alpha" + Environment.NewLine + "\tbeta" + Environment.NewLine
 

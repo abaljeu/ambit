@@ -128,6 +128,29 @@ let ``parse span tree absorbs blank into preceding node`` () =
         "blank bytes should fold into preceding node span")
 
 [<Fact>]
+let ``parse span tree preserves order and trailing blank bounds`` () =
+    let text = "a\n\n\nb\n\n"
+    let tree =
+        (MdReconcile.handler OutlineLcs.diffTexts).parse text (Graph.create ()) Graph.rootId
+        |> requireOk "parse"
+
+    Assert.Equal<string list>(
+        [ "a"; "b" ],
+        tree.children |> List.map (fun child -> child.text))
+    Assert.Equal(text.IndexOf("b"), tree.children.[0].span.end_)
+    Assert.Equal(text.Length, tree.children.[1].span.end_)
+
+[<Fact>]
+let ``parse empty markdown produces empty bounded tree`` () =
+    let tree =
+        (MdReconcile.handler OutlineLcs.diffTexts).parse "" (Graph.create ()) Graph.rootId
+        |> requireOk "parse"
+
+    Assert.Empty(tree.children)
+    Assert.Equal(0, tree.span.start)
+    Assert.Equal(0, tree.span.end_)
+
+[<Fact>]
 let ``write cold emits headings and lists`` () =
     let headId = NodeId.New()
     let listId = NodeId.New()

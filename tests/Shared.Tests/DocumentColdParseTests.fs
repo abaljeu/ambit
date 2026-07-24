@@ -84,6 +84,25 @@ let ``planApplyCold on empty string yields no top-level peel`` () =
     Assert.True(List.isEmpty topLevelIds)
 
 [<Fact>]
+let ``planApplyCold rejects oversized text before graph materialization`` () =
+    let rootId, graph = stubRoot "large.csv"
+    let actualCodeUnits = DocumentParseLimits.maxInputCodeUnits + 1
+    let text = String('x', actualCodeUnits)
+
+    match
+        DocumentColdParse.planApplyCold
+            graph
+            rootId
+            "large.csv"
+            text
+    with
+    | Ok _ -> Assert.Fail("expected oversized parse to fail")
+    | Error err ->
+        Assert.Equal(
+            DocumentParseLimits.errorForCodeUnits actualCodeUnits,
+            err)
+
+[<Fact>]
 let ``planApplyCold md heading emits SetClasses md-head`` () =
     let text = "# Title" + Environment.NewLine + "body" + Environment.NewLine
     let rootId, graph = stubRoot "notes.md"

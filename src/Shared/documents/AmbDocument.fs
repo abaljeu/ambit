@@ -298,10 +298,12 @@ module AmbDocument =
         : Result<(int * string * NodeId option * string option) list, string> =
         serializeLines graph documentRootId
         |> Result.map (fun serialized ->
+            let serialized = serialized |> List.toArray
+
             flattenText previousText
             |> List.mapi (fun i (depth, content, hardKey) ->
                 let nodeId =
-                    match List.tryItem i serialized with
+                    match Array.tryItem i serialized with
                     | Some s -> s.nodeId
                     | None -> None
                 depth, content, nodeId, hardKey))
@@ -418,12 +420,25 @@ module AmbDocument =
 
             Ok (nodeId, Map.add nodeId merged nodes)
 
+    let private ownerCandidatesByParent
+        (nodes: Map<NodeId, Node>)
+        : Map<NodeId, NodeId list> =
+        nodes
+        |> Map.fold (fun byParent nodeId node ->
+            let candidates =
+                Map.tryFind node.owner byParent
+                |> Option.defaultValue []
+
+            Map.add node.owner (nodeId :: candidates) byParent) Map.empty
+        |> Map.map (fun _ candidates -> List.rev candidates)
+
     let private tryMatchPlainOwnerChild
         (parentId: NodeId)
         (classes: CssClasses)
         (nodeText: string)
         (nodes: Map<NodeId, Node>)
         (contextGraph: Graph)
+        (ownerCandidates: Map<NodeId, NodeId list>)
         (claimed: Set<NodeId>)
         : NodeId option =
         let matchesNode (nodeId: NodeId) (node: Node) =
@@ -443,11 +458,10 @@ module AmbDocument =
                 else fromOwnerChild nodeSources child.id)
 
         let fromOwnerLinks (nodeSources: Map<NodeId, Node>) =
-            nodeSources
-            |> Map.toSeq
-            |> Seq.tryPick (fun (nodeId, node) ->
-                if node.owner = parentId then fromOwnerChild nodeSources nodeId
-                else None)
+            ownerCandidates
+            |> Map.tryFind parentId
+            |> Option.defaultValue []
+            |> List.tryPick (fromOwnerChild nodeSources)
 
         let trySources nodeSources =
             match Map.tryFind parentId nodeSources with
@@ -467,9 +481,13 @@ module AmbDocument =
         (nodeText: string)
         (nodes: Map<NodeId, Node>)
         (contextGraph: Graph)
+        (ownerCandidates: Map<NodeId, NodeId list>)
         (claimed: Set<NodeId>)
         : NodeId * Map<NodeId, Node> * Set<NodeId> =
-        match tryMatchPlainOwnerChild parentId classes nodeText nodes contextGraph claimed with
+        match
+            tryMatchPlainOwnerChild
+                parentId classes nodeText nodes contextGraph ownerCandidates claimed
+        with
         | Some nodeId ->
             let baseNode =
                 match Map.tryFind nodeId nodes, Map.tryFind nodeId contextGraph.nodes with
@@ -502,6 +520,7 @@ module AmbDocument =
     let private foldOutlineLine
         (documentRootId: NodeId)
         (contextGraph: Graph)
+        (ownerCandidates: Map<NodeId, NodeId list>)
         (nodes, stack, idMap: Map<string, NodeId>, claimed: Set<NodeId>)
         (line: string)
         =
@@ -549,7 +568,8 @@ module AmbDocument =
                 // Body text may start with '^' without a stable id (legacy plain write).
                 let classes, nodeText = parseOutlineMeta content
                 let nodeId, nodes', claimed' =
-                    resolvePlainLine parentId classes nodeText nodes contextGraph claimed
+                    resolvePlainLine
+                        parentId classes nodeText nodes contextGraph ownerCandidates claimed
                 let edge = { ref = Ownership.Owner; id = nodeId }
                 let nodes'' = prependChild parentId edge nodes'
                 nodes'', (depth, nodeId) :: stack, idMap, claimed', Ok ()
@@ -557,7 +577,8 @@ module AmbDocument =
         else
             let classes, nodeText = parseOutlineMeta content
             let nodeId, nodes', claimed' =
-                resolvePlainLine parentId classes nodeText nodes contextGraph claimed
+                resolvePlainLine
+                    parentId classes nodeText nodes contextGraph ownerCandidates claimed
 
             let edge = { ref = Ownership.Owner; id = nodeId }
             let nodes'' = prependChild parentId edge nodes'
@@ -576,6 +597,9 @@ module AmbDocument =
         match Map.tryFind documentRootId contextGraph.nodes with
         | None -> Error "document root not found in context graph"
         | Some rootNode ->
+            let ownerCandidates =
+                ownerCandidatesByParent contextGraph.nodes
+
             let seedNodes =
                 contextGraph.nodes
                 |> Map.map (fun _ node -> { node with children = [] })
@@ -591,7 +615,12 @@ module AmbDocument =
                 | Error msg -> Error msg
                 | Ok (nodes, stack, idMap, claimed) ->
                     let nodes', stack', idMap', claimed', result =
-                        foldOutlineLine documentRootId contextGraph (nodes, stack, idMap, claimed) line
+                        foldOutlineLine
+                            documentRootId
+                            contextGraph
+                            ownerCandidates
+                            (nodes, stack, idMap, claimed)
+                            line
                     match result with
                     | Ok () -> Ok (nodes', stack', idMap', claimed')
                     | Error msg -> Error msg

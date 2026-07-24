@@ -34,6 +34,7 @@
     <Compile Include="CStyleDocumentTests.fs" />
     <Compile Include="DocumentBinaryTests.fs" />
     <Compile Include="MdDocumentTests.fs" />
+    <Compile Include="OutlineDocumentTests.fs" />
     <Compile Include="OutlineReconcileTests.fs" />
     <Compile Include="SerializationTests.fs" />
     <Compile Include="WorkspaceLocalMappingTests.fs" />
@@ -41,6 +42,7 @@
     <Compile Include="GitCheckIgnoreTests.fs" />
     <Compile Include="WorkspaceLocalInventoryTests.fs" />
     <Compile Include="WorkspaceSyncLimitsTests.fs" />
+    <Compile Include="DocumentParseLimitsTests.fs" />
     <Compile Include="WorkspaceDownloadQueueTests.fs" />
     <Compile Include="WorkspaceDavClientTests.fs" />
     <Compile Include="WorkspaceFileSyncPromoteTests.fs" />

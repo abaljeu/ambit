@@ -432,13 +432,17 @@ module LocalProxy =
                                         context
                                         DocumentBinary.parseError
                             else
-                                let json =
-                                    "{\"path\":"
-                                    + quoteJson validPath
-                                    + ",\"content\":"
-                                    + quoteJson text
-                                    + "}"
-                                do! writeJson context json
+                                match DocumentParseLimits.refuseText text with
+                                | Error message ->
+                                    do! writeBadRequest context message
+                                | Ok () ->
+                                    let json =
+                                        "{\"path\":"
+                                        + quoteJson validPath
+                                        + ",\"content\":"
+                                        + quoteJson text
+                                        + "}"
+                                    do! writeJson context json
                     with
                     | :? IOException as ex ->
                         do! writeBadRequest context ("read failed: " + ex.Message)

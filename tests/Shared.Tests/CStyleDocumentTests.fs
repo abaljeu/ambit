@@ -78,6 +78,19 @@ let private allmanSwitchFixture =
     + "Sees(Tile t)"
     + Environment.NewLine
 
+let private nestedWarmFixture =
+    let nl = Environment.NewLine
+
+    "outer" + nl
+    + "{" + nl
+    + "    inner" + nl
+    + "    {" + nl
+    + "        leaf" + nl
+    + "    }" + nl
+    + "    tail" + nl
+    + "}" + nl
+    + "after" + nl
+
 [<Fact>]
 let ``same-line close-open brace split attaches braces to statements`` () =
     let graph, docId = graphWithDocument []
@@ -142,6 +155,58 @@ let ``Allman switch has no brace-only nodes and marks code-brace`` () =
 
     Assert.False(List.contains "{" texts)
     Assert.False(List.contains "}" texts)
+
+[<Fact>]
+let ``warm units preserve nested preorder`` () =
+    let units = CStyleBrace.toWarmUnits nestedWarmFixture
+
+    Assert.Equal<string list>(
+        [ "outer"; "inner"; "leaf"; "tail"; "after" ],
+        units |> List.map (fun unit -> unit.text))
+    Assert.Equal<bool list>(
+        [ true; true; false; false; false ],
+        units |> List.map (fun unit -> unit.braced))
+
+[<Fact>]
+let ``warm units omit empty brace-only structure`` () =
+    let units = CStyleBrace.toWarmUnits ("{}" + Environment.NewLine)
+    Assert.Empty(units)
+
+[<Fact>]
+let ``warm write preserves nested input byte for byte`` () =
+    let graph, docId = graphWithDocument []
+    let readResult =
+        CStyleDocument.read nestedWarmFixture docId graph
+        |> requireOk "read"
+
+    let output =
+        CStyleDocument.writeWarm
+            OutlineLcs.diffTexts
+            { graph with nodes = readResult.nodes }
+            docId
+            readResult.complement
+            nestedWarmFixture
+        |> requireOk "write"
+
+    Assert.Equal(nestedWarmFixture, output)
+
+[<Fact>]
+let ``warm write empty brace-only structure remains empty output`` () =
+    let graph, docId = graphWithDocument []
+    let previous = "{}" + Environment.NewLine
+    let readResult =
+        CStyleDocument.read previous docId graph |> requireOk "read"
+
+    let output =
+        CStyleDocument.writeWarm
+            OutlineLcs.diffTexts
+            { graph with nodes = readResult.nodes }
+            docId
+            readResult.complement
+            previous
+        |> requireOk "write"
+
+    Assert.Equal("", output)
 
 [<Fact>]
 let ``warm Keep preserves surrounding brace layout when inner statement edits`` () =

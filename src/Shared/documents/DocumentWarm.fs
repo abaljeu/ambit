@@ -28,19 +28,21 @@ module DocumentWarm =
                 documentRootId
                 context
         | Some prev ->
-            let allowContentUpdate = true
+            DocumentParseLimits.refuseText text
+            |> Result.bind (fun () ->
+                let allowContentUpdate = true
 
-            DocumentFormat.classifyCodecForRead
-                context
-                documentRootId
-                relativePath
-                text
-            |> Result.bind (fun codec ->
-                handlerFor diffTexts codec
-                |> fun h -> h.readWarm text context documentRootId prev
-                |> Result.bind (
-                    DocumentFormat.mergeReadResult allowContentUpdate context
-                ))
+                DocumentFormat.classifyCodecForRead
+                    context
+                    documentRootId
+                    relativePath
+                    text
+                |> Result.bind (fun codec ->
+                    handlerFor diffTexts codec
+                    |> fun h -> h.readWarm text context documentRootId prev
+                    |> Result.bind (
+                        DocumentFormat.mergeReadResult allowContentUpdate context
+                    )))
 
     let writeArtifact
         (diffTexts: OutlineDiffTexts)
