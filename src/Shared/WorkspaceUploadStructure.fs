@@ -337,6 +337,15 @@ module WorkspaceUploadStructure =
                 | Current
                 | Unparsed -> None))
 
+    /// Locked #11: reparse after mtime-skip applies to Unparsed only.
+    /// Current files are already loaded; reparsing them rewrites DataDir and
+    /// advances graph stamps past the untouched desktop mtime.
+    let shouldReparseAfterMtimeSkip =
+        function
+        | Unparsed -> true
+        | Current
+        | NoServerFile -> false
+
     /// After download: SetUpdateTime so graph matches local/server mtime (Locked #7).
     let planAlignFileStampOps
         (graph: Graph)

@@ -332,3 +332,10 @@ let ``planAlignFileStampOps SetUpdateTime when node lags download mtime`` () =
             "home"
             [ "note.txt", oldStamp ]
         |> List.isEmpty)
+
+[<Fact>]
+let ``shouldReparseAfterMtimeSkip only Unparsed`` () =
+    Assert.True(WorkspaceUploadStructure.shouldReparseAfterMtimeSkip Unparsed)
+    Assert.False(WorkspaceUploadStructure.shouldReparseAfterMtimeSkip Current)
+    Assert.False(
+        WorkspaceUploadStructure.shouldReparseAfterMtimeSkip NoServerFile)

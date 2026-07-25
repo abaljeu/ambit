@@ -68,3 +68,28 @@ let ``partitionUploadWaves dirs only has no file wave`` () =
     Assert.Equal(2, waves.Length)
     Assert.Equal<string list>([ "a" ], waveRels waves.[0])
     Assert.Equal<string list>([ "a/b" ], waveRels waves.[1])
+
+[<Fact>]
+let ``partitionUploadBatchResults keeps successes when one fails`` () =
+    let plannedA = bodyFile "a.txt"
+    let plannedB = bodyFile "b.txt"
+    let plannedC = bodyFile "c.txt"
+    let uploaded, errors =
+        WorkspaceFileSync.partitionUploadBatchResults
+            [ Ok plannedA
+              Error "b.txt: direct upload HTTP 500"
+              Ok plannedC ]
+
+    Assert.Equal<string list>([ "a.txt"; "c.txt" ], waveRels uploaded)
+    Assert.Equal<string list>(
+        [ "b.txt: direct upload HTTP 500" ],
+        errors)
+
+[<Fact>]
+let ``partitionUploadBatchResults all ok has empty errors`` () =
+    let uploaded, errors =
+        WorkspaceFileSync.partitionUploadBatchResults
+            [ Ok(bodyFile "x.txt") ]
+
+    Assert.Equal(1, uploaded.Length)
+    Assert.Empty(errors)

@@ -26,6 +26,7 @@
     <Compile Include="LazyLoadReconciliationServerTests.fs" />
     <Compile Include="GitSaveEndpointTests.fs" />
     <Compile Include="WorkspaceWebDavTests.fs" />
+    <Compile Include="HttpResponseLogTests.fs" />
     <Compile Include="DatabaseProjectionTests.fs" />
     <Compile Include="DatabaseProjectionContractTests.fs" />
     <Compile Include="DbAgentTests.fs" />

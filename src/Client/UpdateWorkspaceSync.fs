@@ -199,6 +199,8 @@ let private applyStructureLocally (change: Change) (model: VM) : Result<VM, stri
                 graph = newState.graph
                 history = newState.history }
 
+/// Locked #11: reparse after mtime-skip. Only Unparsed — Current Synced files
+/// must not reparse (persist would bump DataDir mtime → false server-newer).
 let private reparseSkippedUploadFiles
     (model: VM)
     (workspace: string)
@@ -211,8 +213,13 @@ let private reparseSkippedUploadFiles
                 match WorkspaceUploadStructure.tryResolveFileNode current.graph workspace rel with
                 | None -> current, effs
                 | Some fileId ->
-                    let afterParse, parseEffs = parseFileOp fileId current
-                    afterParse, effs @ parseEffs)
+                    match Map.tryFind fileId current.graph.nodes with
+                    | Some node when
+                        WorkspaceUploadStructure.shouldReparseAfterMtimeSkip
+                            node.documentState ->
+                        let afterParse, parseEffs = parseFileOp fileId current
+                        afterParse, effs @ parseEffs
+                    | _ -> current, effs)
             (model, [])
     next, WorkspaceUpload.sequenceParseEffects parseEffects
 

@@ -100,6 +100,8 @@ module WorkspacePathSyncStatus =
             ledgerServerMtimeUtc
 
     /// Classify from presence + mtimes. Equal / missing mtimes → Synced.
+    /// Compare at DB microsecond precision so FS vs graph stamps do not
+    /// spuriously disagree on sub-microsecond noise.
     let classifyComparison
         (presence: WorkspacePathPresence)
         (localMtimeUtc: DateTime option)
@@ -112,10 +114,15 @@ module WorkspacePathSyncStatus =
             WorkspacePathSyncStatus.OnlyOnServer
         | WorkspacePathPresence.Both ->
             match localMtimeUtc, serverMtimeUtc with
-            | Some local, Some server when local > server ->
-                WorkspacePathSyncStatus.NewerOnDesktop
-            | Some local, Some server when server > local ->
-                WorkspacePathSyncStatus.NewerOnServer
+            | Some local, Some server ->
+                let local' = NodeUpdateTime.toDbPrecision local
+                let server' = NodeUpdateTime.toDbPrecision server
+                if local' > server' then
+                    WorkspacePathSyncStatus.NewerOnDesktop
+                elif server' > local' then
+                    WorkspacePathSyncStatus.NewerOnServer
+                else
+                    WorkspacePathSyncStatus.Synced
             | _ -> WorkspacePathSyncStatus.Synced
 
     let withUnparsed (isUnparsed: bool) (status: WorkspacePathSyncStatus) =

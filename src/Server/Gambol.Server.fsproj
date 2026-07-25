@@ -19,6 +19,7 @@
     <Compile Include="Types.fs" />
     <Compile Include="ChangeLog.fs" />
     <Compile Include="AuthToken.fs" />
+    <Compile Include="HttpResponseLog.fs" />
     <Compile Include="GitSave.fs" />
     <Compile Include="WorkspaceGit.fs" />
     <Compile Include="WorkspaceWebDav.fs" />

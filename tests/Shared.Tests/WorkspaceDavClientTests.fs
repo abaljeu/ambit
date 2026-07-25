@@ -94,6 +94,75 @@ let ``putBytes grants through proxy then uploads exact bytes directly`` () =
     Assert.DoesNotContain("employment", grantBody)
     Assert.Equal<byte>(payload, handler.Requests.[1] |> fun (_, _, bytes) -> bytes)
 
+type private BlockedDirectUploadHandler() as this =
+    inherit HttpMessageHandler()
+
+    let requests = ResizeArray<string * string>()
+
+    member _.Requests = requests |> Seq.toList
+
+    member private _.Handle(req: HttpRequestMessage) =
+        let url = string req.RequestUri
+        let text =
+            if isNull req.Content then ""
+            else req.Content.ReadAsStringAsync().Result
+        requests.Add(url, text)
+        if url.Contains("upload-capability", StringComparison.Ordinal) then
+            new HttpResponseMessage(
+                HttpStatusCode.OK,
+                Content =
+                    new StringContent(
+                        """{"uploadUrl":"https://direct.azure/ambit/direct-upload","capability":"secret-cap"}"""))
+        elif url.Contains("direct-upload", StringComparison.Ordinal) then
+            new HttpResponseMessage(
+                HttpStatusCode.Forbidden,
+                Content = new StringContent("blocked by edge"))
+        elif url.Contains("upload-error-report", StringComparison.Ordinal) then
+            new HttpResponseMessage(HttpStatusCode.NoContent)
+        else
+            new HttpResponseMessage(HttpStatusCode.NotFound)
+
+    override _.Send(req, _cancellationToken: CancellationToken) =
+        this.Handle req
+
+    override _.SendAsync(req, _cancellationToken: CancellationToken) =
+        Task.FromResult(this.Handle req)
+
+[<Fact>]
+let ``putBytes reports blocked direct upload to ambit error log`` () =
+    let handler = new BlockedDirectUploadHandler()
+    use client = new HttpClient(handler)
+    let relative = "docs/blocked.txt"
+    let result =
+        WorkspaceDavClient.putBytes
+            client
+            "https://proxy.example/ambit"
+            "home"
+            relative
+            (Encoding.UTF8.GetBytes "payload")
+            (Some "gambol_auth=cookie")
+            None
+            None
+    match result with
+    | Error msg -> Assert.Contains("direct upload HTTP 403", msg)
+    | Ok () -> Assert.Fail("expected blocked upload")
+    Assert.Equal(3, handler.Requests.Length)
+    let reportUrl, reportBody = handler.Requests.[2]
+    Assert.Equal(
+        "https://proxy.example/ambit/upload-error-report",
+        reportUrl)
+    Assert.Contains("\"relative\":\"docs/blocked.txt\"", reportBody)
+    Assert.Contains("\"status\":403", reportBody)
+    Assert.Contains("blocked by edge", reportBody)
+    Assert.DoesNotContain("gambol_auth", reportBody)
+    Assert.DoesNotContain("secret-cap", reportBody)
+
+[<Fact>]
+let ``uploadErrorReportUrl targets upload-error-report`` () =
+    Assert.Equal(
+        "http://host/ambit/upload-error-report",
+        WorkspaceDavClient.uploadErrorReportUrl "http://host/ambit")
+
 [<Fact>]
 let ``finishCommitUrl targets _finish-commit`` () =
     let url =

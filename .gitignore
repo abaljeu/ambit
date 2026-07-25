@@ -422,6 +422,9 @@ dist/
 # Lucide vendored package: tarball committed; icons/ extracted locally
 other/lucide/icons/
 
+# Server HTTP response diagnostic log (recreated each run)
+src/Server/logs/
+
 # Runtime data (own nested git repo)
 /data/
 **/.SageFs/

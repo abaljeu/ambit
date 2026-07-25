@@ -133,29 +133,48 @@ module WorkspaceFileSync =
         (hint: string option)
         (planned: WorkspaceSyncLimits.PlannedPath)
         : Result<unit, string> =
-        if planned.isDirectory then
-            WorkspaceDavClient.mkcol
-                client ambitBase label planned.relative cookie hint
-        else
-            let full = localFull mappedRoot planned.relative
-            let mtime = tryFileMtime full
-            match planned.file with
-            | None -> Error "missing file plan"
-            | Some WorkspaceSyncLimits.FilePlan.StubOnly ->
-                Ok ()
-            | Some(WorkspaceSyncLimits.FilePlan.Body _) ->
-                match readFile full with
-                | Error e -> Error e
-                | Ok bytes ->
-                    WorkspaceDavClient.putBytes
-                        client
-                        ambitBase
-                        label
-                        planned.relative
-                        bytes
-                        cookie
-                        hint
-                        mtime
+        try
+            if planned.isDirectory then
+                WorkspaceDavClient.mkcol
+                    client ambitBase label planned.relative cookie hint
+            else
+                let full = localFull mappedRoot planned.relative
+                let mtime = tryFileMtime full
+                match planned.file with
+                | None -> Error "missing file plan"
+                | Some WorkspaceSyncLimits.FilePlan.StubOnly ->
+                    Ok ()
+                | Some(WorkspaceSyncLimits.FilePlan.Body _) ->
+                    match readFile full with
+                    | Error e -> Error e
+                    | Ok bytes ->
+                        WorkspaceDavClient.putBytes
+                            client
+                            ambitBase
+                            label
+                            planned.relative
+                            bytes
+                            cookie
+                            hint
+                            mtime
+        with ex ->
+            Error ex.Message
+
+    /// Keep successes when some PUTs fail so one 500 does not drop the batch.
+    let partitionUploadBatchResults
+        (results: Result<'a, string> list)
+        : 'a list * string list =
+        let uploaded =
+            results
+            |> List.choose (function
+                | Ok item -> Some item
+                | Error _ -> None)
+        let errors =
+            results
+            |> List.choose (function
+                | Error e -> Some e
+                | Ok _ -> None)
+        uploaded, errors
 
     let private runUploadWave
         (client: HttpClient)
@@ -165,51 +184,57 @@ module WorkspaceFileSync =
         (cookie: string option)
         (hint: string option)
         (wave: WorkspaceSyncLimits.PlannedPath list)
-        : Result<WorkspaceSyncLimits.PlannedPath list, string> =
+        : WorkspaceSyncLimits.PlannedPath list * string list =
         let runBatch batch =
             let tasks =
                 batch
                 |> List.map (fun item ->
                     Task.Run(fun () ->
-                        match
-                            uploadOne
-                                client
-                                ambitBase
-                                label
-                                mappedRoot
-                                cookie
-                                hint
-                                item
-                        with
-                        | Error e -> Error(item.relative + ": " + e)
-                        | Ok () -> Ok item))
+                        try
+                            match
+                                uploadOne
+                                    client
+                                    ambitBase
+                                    label
+                                    mappedRoot
+                                    cookie
+                                    hint
+                                    item
+                            with
+                            | Error e -> Error(item.relative + ": " + e)
+                            | Ok () -> Ok item
+                        with ex ->
+                            Error(item.relative + ": " + ex.Message)))
                 |> Array.ofList
 
-            Task.WaitAll(tasks |> Array.map (fun t -> t :> Task))
-            let results = tasks |> Array.map (fun t -> t.Result) |> Array.toList
-            match
-                results
-                |> List.tryPick (function
-                    | Error e -> Some e
-                    | Ok _ -> None)
-            with
-            | Some e -> Error e
-            | None ->
-                results
-                |> List.choose Result.toOption
-                |> Ok
+            try
+                Task.WaitAll(tasks |> Array.map (fun t -> t :> Task))
+            with _ ->
+                ()
+
+            tasks
+            |> Array.map (fun t ->
+                if t.IsFaulted then
+                    let msg =
+                        match t.Exception with
+                        | null -> "upload task faulted"
+                        | agg ->
+                            agg.GetBaseException().Message
+                    Error msg
+                elif t.IsCompletedSuccessfully then
+                    t.Result
+                else
+                    Error "upload task incomplete")
+            |> Array.toList
+            |> partitionUploadBatchResults
 
         wave
         |> List.chunkBySize uploadConcurrency
         |> List.fold
-            (fun acc batch ->
-                acc
-                |> Result.bind (fun completed ->
-                    runBatch batch
-                    |> Result.map (fun uploaded ->
-                        (List.rev uploaded) @ completed)))
-            (Ok [])
-        |> Result.map List.rev
+            (fun (uploadedAcc, errorAcc) batch ->
+                let uploaded, errors = runBatch batch
+                uploadedAcc @ uploaded, errorAcc @ errors)
+            ([], [])
 
     let private modeLabel mode =
         match mode with
@@ -463,7 +488,7 @@ module WorkspaceFileSync =
                                 else
                                     true)
 
-                        match
+                        let uploadedItems, uploadErrors =
                             runUploadWave
                                 client
                                 ambitBase
@@ -472,9 +497,13 @@ module WorkspaceFileSync =
                                 cookieHeader
                                 clientHint
                                 toUpload
-                        with
-                        | Error e -> Error e
-                        | Ok uploadedItems ->
+
+                        if
+                            uploadedItems.IsEmpty
+                            && not uploadErrors.IsEmpty
+                        then
+                            Error(String.concat "; " uploadErrors)
+                        else
                             for item in uploadedItems do
                                 recordUploaded item
 
@@ -517,12 +546,22 @@ module WorkspaceFileSync =
                                                 uploaded
                                                 (modeLabel mode)
 
-                                    let detail =
+                                    let withGit =
                                         if DesktopGit.isAvailable() then
                                             baseDetail
                                         else
                                             baseDetail
                                             + "; .gitignore filter skipped (git unavailable)"
+
+                                    let detail =
+                                        if uploadErrors.IsEmpty then
+                                            withGit
+                                        else
+                                            withGit
+                                            + "; failed "
+                                            + string uploadErrors.Length
+                                            + ": "
+                                            + String.concat "; " uploadErrors
 
                                     Ok
                                         { uploaded = uploaded

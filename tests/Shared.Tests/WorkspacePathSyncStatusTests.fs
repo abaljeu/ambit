@@ -59,6 +59,27 @@ let ``classifyComparison covers presence and mtime cases`` () =
         WorkspacePathSyncStatus.Synced,
         WorkspacePathSyncStatus.classifyComparison
             WorkspacePathPresence.Both None None)
+    Assert.Equal(
+        WorkspacePathSyncStatus.Synced,
+        WorkspacePathSyncStatus.classifyComparison
+            WorkspacePathPresence.Both
+            None
+            (Some(utc 2026 1 1 0)))
+
+[<Fact>]
+let ``classifyComparison treats sub-microsecond FS noise as equal`` () =
+    let baseTicks =
+        DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc).Ticks
+    let local =
+        DateTime(baseTicks + 5L, DateTimeKind.Utc)
+    let server =
+        DateTime(baseTicks, DateTimeKind.Utc)
+    Assert.Equal(
+        WorkspacePathSyncStatus.Synced,
+        WorkspacePathSyncStatus.classifyComparison
+            WorkspacePathPresence.Both
+            (Some local)
+            (Some server))
 
 [<Fact>]
 let ``withUnparsed only overlays Synced`` () =
@@ -213,6 +234,20 @@ let ``resolveWithNodeStamp ignores node stamp when Unparsed`` () =
         Some WorkspacePathSyncStatus.NewerOnServer,
         WorkspacePathSyncStatus.resolveWithNodeStamp
             true (Some synced) nodeNewer false)
+
+[<Fact>]
+let ``resolveWithNodeStamp Synced for directory without local amb stamp`` () =
+    let server = utc 2026 1 1 0
+    let fact' =
+        { relative = "docs"
+          isDirectory = true
+          presence = WorkspacePathPresence.Both
+          localMtimeUtc = None
+          serverMtimeUtc = Some server }
+    Assert.Equal(
+        Some WorkspacePathSyncStatus.Synced,
+        WorkspacePathSyncStatus.resolveWithNodeStamp
+            true (Some fact') server false)
 
 [<Fact>]
 let ``glyph and shortLabel cover every sync status`` () =

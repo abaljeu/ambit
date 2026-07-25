@@ -247,10 +247,46 @@ let ``liveStatusRows includes workspace root and file mtimes without writing led
     let byRel = rows |> List.map (fun r -> r.relative, r) |> Map.ofList
     Assert.True(Map.containsKey "" byRel)
     Assert.Equal("both", byRel.[""].presence)
-    Assert.True(byRel.[""].localMtimeUtc.IsSome)
+    // No local `.amb` → directory row has no live local mtime (dir FS bump ignored).
+    Assert.True(byRel.[""].localMtimeUtc.IsNone)
     Assert.True(Map.containsKey "note.md" byRel)
     Assert.Equal("both", byRel.["note.md"].presence)
     Assert.Equal(Some fileMtime, byRel.["note.md"].localMtimeUtc)
     Assert.True(Map.containsKey "gone.txt" byRel)
     Assert.Equal("serverOnly", byRel.["gone.txt"].presence)
+    try Directory.Delete(root, true) with _ -> ()
+
+[<Fact>]
+let ``tryLiveLocalMtime directory ignores child-bump without amb`` () =
+    let root =
+        Path.Combine(
+            Path.GetTempPath(),
+            $"gambol-dir-mtime-{Guid.NewGuid()}")
+    let dir = Path.Combine(root, "docs")
+    Directory.CreateDirectory(dir) |> ignore
+    let oldDir = utc 2020 1 1 0
+    Directory.SetLastWriteTimeUtc(dir, oldDir)
+    File.WriteAllText(Path.Combine(dir, "a.txt"), "x")
+    Assert.True(Directory.GetLastWriteTimeUtc dir > oldDir)
+    Assert.Equal(
+        None,
+        WorkspaceSyncLedger.tryLiveLocalMtime root "docs" true)
+    try Directory.Delete(root, true) with _ -> ()
+
+[<Fact>]
+let ``tryLiveLocalMtime directory uses amb when present`` () =
+    let root =
+        Path.Combine(
+            Path.GetTempPath(),
+            $"gambol-dir-amb-{Guid.NewGuid()}")
+    let dir = Path.Combine(root, "docs")
+    Directory.CreateDirectory(dir) |> ignore
+    let ambPath = Path.Combine(dir, ".amb")
+    File.WriteAllText(ambPath, "marker")
+    let ambMtime = utc 2026 6 1 12
+    File.SetLastWriteTimeUtc(ambPath, ambMtime)
+    File.WriteAllText(Path.Combine(dir, "a.txt"), "x")
+    Assert.Equal(
+        Some ambMtime,
+        WorkspaceSyncLedger.tryLiveLocalMtime root "docs" true)
     try Directory.Delete(root, true) with _ -> ()

@@ -70,6 +70,9 @@ module WorkspaceSyncLedger =
                 None
 
     /// Live FS mtime for status UI (files and directories). Does not change sync skip rules.
+    /// Directories: prefer `.amb` (graph/server authority). Plain directory
+    /// LastWriteTime is not used — child file writes bump it and falsely show
+    /// desk-newer after Download.
     let tryLiveLocalMtime
         (mappedRoot: string)
         (relative: string)
@@ -78,10 +81,13 @@ module WorkspaceSyncLedger =
         try
             let full = localFull mappedRoot relative
             if isDirectory then
-                if Directory.Exists full then
-                    Some(Directory.GetLastWriteTimeUtc full)
+                if not (Directory.Exists full) then None
                 else
-                    None
+                    let amb = Path.Combine(full, ".amb")
+                    if File.Exists amb then
+                        Some(File.GetLastWriteTimeUtc amb)
+                    else
+                        None
             elif File.Exists full then
                 Some(File.GetLastWriteTimeUtc full)
             else

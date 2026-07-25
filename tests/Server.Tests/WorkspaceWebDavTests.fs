@@ -254,6 +254,59 @@ let ``path escape via request does not succeed`` () = task {
 }
 
 [<SkippableFact>]
+let ``concurrent direct uploads keep siblings when one path is ignored`` () = task {
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let dataDir = newTempDir ()
+    let home = Path.Combine(dataDir, "home")
+    Directory.CreateDirectory home |> ignore
+    File.WriteAllText(Path.Combine(home, ".gitignore"), "bad.cache\n")
+    use client = createClientForDir dataDir
+    let uploadOne (relative: string) (text: string) = task {
+        let payload = Encoding.UTF8.GetBytes text
+        let resource = WorkspaceDavClient.encodeResourceToken "home" relative
+        let digest = SHA256.HashData payload |> Convert.ToHexString
+        let grantJson =
+            JsonSerializer.Serialize(
+                {| resource = resource
+                   size = payload.LongLength
+                   sha256 = digest
+                   sourceMtimeTicks = 0L |})
+        use grantContent =
+            new StringContent(grantJson, Encoding.UTF8, "application/json")
+        let! grantResponse =
+            client.PostAsync("/ambit/upload-capability", grantContent)
+        Assert.Equal(HttpStatusCode.OK, grantResponse.StatusCode)
+        let! grantBody = grantResponse.Content.ReadAsStringAsync()
+        use grant = JsonDocument.Parse grantBody
+        let capability =
+            grant.RootElement.GetProperty("capability").GetString()
+        use content = new ByteArrayContent(payload)
+        use req =
+            new HttpRequestMessage(HttpMethod.Post, "/ambit/direct-upload")
+        req.Content <- content
+        req.Headers.TryAddWithoutValidation(
+            "Authorization",
+            "GambolUpload " + capability)
+        |> ignore
+        return! client.SendAsync req
+    }
+    let! results =
+        Task.WhenAll(
+            [| uploadOne "ok1.txt" "one"
+               uploadOne "bad.cache" "nope"
+               uploadOne "ok2.txt" "two"
+               uploadOne "nested/ok3.txt" "three" |])
+    Assert.Equal(HttpStatusCode.Created, results.[0].StatusCode)
+    Assert.Equal(HttpStatusCode.Forbidden, results.[1].StatusCode)
+    Assert.Equal(HttpStatusCode.Created, results.[2].StatusCode)
+    Assert.Equal(HttpStatusCode.Created, results.[3].StatusCode)
+    Assert.True(File.Exists(Path.Combine(home, "ok1.txt")))
+    Assert.False(File.Exists(Path.Combine(home, "bad.cache")))
+    Assert.True(File.Exists(Path.Combine(home, "ok2.txt")))
+    Assert.True(File.Exists(Path.Combine(home, "nested", "ok3.txt")))
+}
+
+[<SkippableFact>]
 let ``finish-commit advances HEAD after PUT`` () = task {
     Skip.IfNot(gitOnPath(), "git not on PATH")
     let dataDir = newTempDir ()
@@ -276,6 +329,7 @@ let ``finish-commit advances HEAD after PUT`` () = task {
     | Ok None -> Assert.Fail("expected HEAD after finish-commit")
     | Error err -> Assert.Fail(err)
 }
+
 
 [<SkippableFact>]
 let ``prepare-push JIT commits dirty DataDir`` () = task {

@@ -88,6 +88,9 @@ module WorkspaceDavClient =
     let preparePushUrl (ambitBase: string) (label: string) =
         controlUrl ambitBase label "_prepare-push"
 
+    let uploadErrorReportUrl (ambitBase: string) =
+        ambitBase.TrimEnd('/') + "/upload-error-report"
+
     let private decodeHref
         (label: string)
         (href: string)
@@ -209,6 +212,35 @@ module WorkspaceDavClient =
             |> ignore
         | _ -> ()
 
+    /// Best-effort: log blocked/failed upload identity on the server logfile.
+    let private reportUploadError
+        (client: HttpClient)
+        (ambitBase: string)
+        (relative: string)
+        (status: int)
+        (message: string)
+        (cookieHeader: string option)
+        =
+        try
+            let body =
+                JsonSerializer.Serialize(
+                    {| relative = relative
+                       status = status
+                       message =
+                        if isNull message then ""
+                        else message |})
+            use req =
+                new HttpRequestMessage(
+                    HttpMethod.Post,
+                    uploadErrorReportUrl ambitBase)
+            req.Content <-
+                new StringContent(body, Encoding.UTF8, "application/json")
+            addCookie req cookieHeader
+            use resp = client.Send req
+            ignore (int resp.StatusCode)
+        with _ ->
+            ()
+
     /// Missing remote path (first push) → empty inventory; 207 → parse.
     let interpretPropfindResponse
         (label: string)
@@ -263,6 +295,7 @@ module WorkspaceDavClient =
         (client: HttpClient)
         (ambitBase: string)
         (resourceToken: string)
+        (relative: string)
         (bytes: byte[])
         (cookieHeader: string option)
         (sourceMtimeUtc: DateTime option)
@@ -283,8 +316,11 @@ module WorkspaceDavClient =
         addCookie req cookieHeader
         use resp = client.Send req
         let text = resp.Content.ReadAsStringAsync().Result
+        let code = int resp.StatusCode
         if not resp.IsSuccessStatusCode then
-            Error("upload grant HTTP " + string (int resp.StatusCode))
+            reportUploadError
+                client ambitBase relative code text cookieHeader
+            Error("upload grant HTTP " + string code)
         else
             try
                 use json = JsonDocument.Parse text
@@ -310,6 +346,7 @@ module WorkspaceDavClient =
                     client
                     ambitBase
                     (encodeResourceToken label relative)
+                    relative
                     bytes
                     cookieHeader
                     sourceMtimeUtc
@@ -326,8 +363,17 @@ module WorkspaceDavClient =
                 use resp = client.Send req
                 let code = int resp.StatusCode
                 if code = 200 || code = 201 || code = 204 then Ok ()
-                else Error("direct upload HTTP " + string code)
+                else
+                    let body = resp.Content.ReadAsStringAsync().Result
+                    reportUploadError
+                        client ambitBase relative code body cookieHeader
+                    let suffix =
+                        if String.IsNullOrWhiteSpace body then ""
+                        else ": " + body
+                    Error("direct upload HTTP " + string code + suffix)
         with ex ->
+            reportUploadError
+                client ambitBase relative 0 ex.Message cookieHeader
             Error ex.Message
 
     let mkcol

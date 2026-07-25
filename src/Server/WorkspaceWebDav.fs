@@ -365,7 +365,15 @@ module WorkspaceWebDav =
                     | Ok () ->
                         match trySourceMtime req with
                         | Some utc ->
-                            File.SetLastWriteTimeUtc(resolved.fullPath, utc)
+                            // AV / indexer may briefly lock the new file; mtime
+                            // is best-effort — must not turn a successful write
+                            // into an unhandled 500.
+                            try
+                                File.SetLastWriteTimeUtc(
+                                    resolved.fullPath,
+                                    utc)
+                            with _ ->
+                                ()
                         | None -> ()
                         let href =
                             hrefOf resolved.label resolved.relative false
@@ -457,6 +465,8 @@ module WorkspaceWebDav =
         (pathTail: string)
         : Task<IResult> =
         task {
+            if not (String.IsNullOrEmpty pathTail) then
+                HttpResponseLog.noteTargetRelative ctx pathTail
             if not (isAuthenticated ctx.Request) then
                 return Results.Unauthorized()
             else
@@ -565,8 +575,10 @@ module WorkspaceWebDav =
             not ctx.Request.ContentLength.HasValue
             || ctx.Request.ContentLength.Value <> claim.size
             ->
+            HttpResponseLog.noteTargetRelative ctx claim.relative
             return Results.BadRequest("upload_size_mismatch")
         | Ok claim ->
+            HttpResponseLog.noteTargetRelative ctx claim.relative
             use body = new MemoryStream()
             do! ctx.Request.Body.CopyToAsync(body)
             let bytes = body.ToArray()

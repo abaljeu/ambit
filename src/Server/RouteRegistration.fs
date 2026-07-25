@@ -441,6 +441,7 @@ module RouteRegistration =
         (publicAssetBaseOpt: string option)
         (dataDirResult: Result<string, exn>)
         (app: WebApplication)
+        (httpResponseLogFile: string)
         =
         let persistenceModeResult =
             config.["Persistence:Mode"]
@@ -458,6 +459,10 @@ module RouteRegistration =
             registerAuthRoutes app auth
             registerStateRoutes app auth persistence stamps
             registerSaveRoutes app auth persistence
+            HttpResponseLog.registerErrorReportRoute
+                app
+                auth.IsAuthenticated
+                httpResponseLogFile
             let flushForGit () = async {
                 let handle = persistence.GetHandle ()
                 let! flushResult =
