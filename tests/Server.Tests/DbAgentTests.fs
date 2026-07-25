@@ -286,8 +286,9 @@ let ``rebuildFromDocumentFiles aligns DB with on-disk document`` () = task {
 
     try
         Directory.CreateDirectory(tempRoot) |> ignore
-        File.WriteAllText(Path.Combine(tempRoot, "gambol.meta"), "0")
-        File.WriteAllText(Path.Combine(tempRoot, "gambol.log"), "")
+        Directory.CreateDirectory(Bookkeeping.systemDir tempRoot) |> ignore
+        File.WriteAllText(Bookkeeping.metaPath tempRoot, "0")
+        File.WriteAllText(Bookkeeping.logPath tempRoot, "")
 
         do! resetTestDatabase connStr
         let agent = DbAgent.create connStr

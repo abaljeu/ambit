@@ -20,7 +20,7 @@ let private httpError (status: int) (responseText: string) =
     "HTTP "
     + string status
     + ": "
-    + LogText.truncateForLog 200 responseText
+    + LogText.summarizeHttpBody 200 responseText
 
 let private isDesktopFileMissing (status: int) (responseText: string) =
     status = 400 && responseText.Contains("\"error\":\"file not found\"")

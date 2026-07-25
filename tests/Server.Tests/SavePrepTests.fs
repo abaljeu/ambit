@@ -40,6 +40,7 @@ let private requireOk label result =
 let ``Git DB flush returns revision without rewriting disk`` () =
     let dataDir = newTempDir ()
     let state = stateWithRootChild "git-artifact"
+    Directory.CreateDirectory(Bookkeeping.systemDir dataDir) |> ignore
     File.WriteAllText(Bookkeeping.logPath dataDir, "pending")
     File.WriteAllText(Bookkeeping.metaPath dataDir, "sentinel")
 
@@ -70,6 +71,7 @@ let ``Git DB flush returns revision without rewriting disk`` () =
 let ``Full DB sync returns revision without rewriting disk`` () =
     let dataDir = newTempDir ()
     let state = stateWithRootChild "full-backup"
+    Directory.CreateDirectory(Bookkeeping.systemDir dataDir) |> ignore
     File.WriteAllText(Bookkeeping.logPath dataDir, "pending")
     File.WriteAllText(Bookkeeping.metaPath dataDir, "sentinel")
 

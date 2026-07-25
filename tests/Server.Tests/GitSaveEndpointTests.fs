@@ -34,7 +34,8 @@ let ``POST save commits file changes in data dir`` () = task {
     Skip.IfNot(gitOnPath(), "git not on PATH")
     let tempDir = newTempDir ()
     initRepo tempDir
-    File.WriteAllText(Path.Combine(tempDir, "gambol.meta"), "0")
+    Directory.CreateDirectory(Bookkeeping.systemDir tempDir) |> ignore
+    File.WriteAllText(Bookkeeping.metaPath tempDir, "0")
     use client = createClientForDir tempDir
     let! resp = client.PostAsync("/ambit/save", null)
     Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
@@ -48,7 +49,8 @@ let ``POST save commit message includes X-Gambol-Client`` () = task {
     Skip.IfNot(gitOnPath(), "git not on PATH")
     let tempDir = newTempDir ()
     initRepo tempDir
-    File.WriteAllText(Path.Combine(tempDir, "gambol.meta"), "0")
+    Directory.CreateDirectory(Bookkeeping.systemDir tempDir) |> ignore
+    File.WriteAllText(Bookkeeping.metaPath tempDir, "0")
     use client = createClientForDir tempDir
     use req = new HttpRequestMessage(HttpMethod.Post, "/ambit/save")
     req.Headers.TryAddWithoutValidation(

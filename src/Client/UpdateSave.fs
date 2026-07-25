@@ -34,7 +34,7 @@ let saveOp (model: VM) : VM * Effect list =
                     "[Gambol] save HTTP "
                     + string status
                     + ": "
-                    + LogText.truncateForLog 200 text))
+                    + LogText.summarizeHttpBody 200 text))
             (fun () -> consoleLog "[Gambol] save network error")
             (emptyMutatingPostHeaders ())
         model, []

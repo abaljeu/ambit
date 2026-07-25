@@ -93,3 +93,50 @@ let ``partitionUploadBatchResults all ok has empty errors`` () =
 
     Assert.Equal(1, uploaded.Length)
     Assert.Empty(errors)
+
+[<Fact>]
+let ``accumulateUploadWaveBatches keeps later batches after a failed batch`` () =
+    let batch1 =
+        WorkspaceFileSync.partitionUploadBatchResults
+            [ Ok(bodyFile "a.txt"); Ok(bodyFile "b.txt") ]
+    let batch2 =
+        WorkspaceFileSync.partitionUploadBatchResults
+            [ Error "c.txt: direct upload HTTP 500" ]
+    let batch3 =
+        WorkspaceFileSync.partitionUploadBatchResults
+            [ Ok(bodyFile "d.txt"); Error "e.txt: timeout" ]
+    let uploaded, errors =
+        WorkspaceFileSync.accumulateUploadWaveBatches
+            [ batch1; batch2; batch3 ]
+
+    Assert.Equal<string list>(
+        [ "a.txt"; "b.txt"; "d.txt" ],
+        waveRels uploaded)
+    Assert.Equal<string list>(
+        [ "c.txt: direct upload HTTP 500"; "e.txt: timeout" ],
+        errors)
+
+[<Fact>]
+let ``accumulateUploadWaveBatches all-fail still folds every batch`` () =
+    let batches =
+        [ WorkspaceFileSync.partitionUploadBatchResults
+              [ Error "a.txt: 500" ]
+          WorkspaceFileSync.partitionUploadBatchResults
+              [ Error "b.txt: 500"; Error "c.txt: 500" ] ]
+    let uploaded, errors =
+        WorkspaceFileSync.accumulateUploadWaveBatches batches
+
+    Assert.Empty(uploaded)
+    Assert.Equal(3, errors.Length)
+    Assert.True(WorkspaceFileSync.uploadWaveAllFailed uploaded errors)
+
+[<Fact>]
+let ``uploadWaveAllFailed is false when any upload succeeded`` () =
+    Assert.False(
+        WorkspaceFileSync.uploadWaveAllFailed
+            [ bodyFile "a.txt" ]
+            [ "b.txt: failed" ])
+
+[<Fact>]
+let ``uploadWaveAllFailed is false when there were no errors`` () =
+    Assert.False(WorkspaceFileSync.uploadWaveAllFailed [] [])

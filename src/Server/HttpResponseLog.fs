@@ -20,8 +20,8 @@ module HttpResponseLog =
     [<Literal>]
     let RelativeItemKey = "gambol.upload.relative"
 
-    let logPath (contentRoot: string) =
-        Path.Combine(contentRoot, "logs", "http-responses.log")
+    let logPath (dataDir: string) =
+        Path.Combine(dataDir, "SYSTEM", "gambol.http-responses.log")
 
     /// Delete/recreate empty log so each server run starts fresh.
     let prepareFresh (logFile: string) =
@@ -272,8 +272,8 @@ module HttpResponseLog =
 
     /// Wipe previous log, print path, install middleware (early in pipeline).
     /// Returns the log file path for error-report registration.
-    let register (contentRoot: string) (app: WebApplication) =
-        let path = logPath contentRoot
+    let register (dataDir: string) (app: WebApplication) =
+        let path = logPath dataDir
         prepareFresh path
         eprintfn "Gambol: HTTP response log (fresh) at %s" path
         useMiddleware path app

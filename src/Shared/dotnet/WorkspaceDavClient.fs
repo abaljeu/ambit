@@ -369,7 +369,7 @@ module WorkspaceDavClient =
                         client ambitBase relative code body cookieHeader
                     let suffix =
                         if String.IsNullOrWhiteSpace body then ""
-                        else ": " + body
+                        else ": " + LogText.summarizeHttpBody 200 body
                     Error("direct upload HTTP " + string code + suffix)
         with ex ->
             reportUploadError
@@ -395,7 +395,11 @@ module WorkspaceDavClient =
             if code = 201 || code = 405 then Ok ()
             else
                 let body = resp.Content.ReadAsStringAsync().Result
-                Error("MKCOL HTTP " + string code + ": " + body)
+                Error(
+                    "MKCOL HTTP "
+                    + string code
+                    + ": "
+                    + LogText.summarizeHttpBody 200 body)
         with ex ->
             Error ex.Message
 

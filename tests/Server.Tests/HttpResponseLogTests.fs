@@ -6,10 +6,8 @@ open System.Net
 open System.Net.Http
 open System.Text
 open System.Threading.Tasks
-open Microsoft.AspNetCore.Hosting
 open Microsoft.AspNetCore.Mvc.Testing
 open Microsoft.Extensions.Configuration
-open Microsoft.Extensions.DependencyInjection
 open Xunit
 open Gambol.Server
 open Gambol.Server.Tests.TestBackend
@@ -46,7 +44,7 @@ let ``formatErrorReport is one-line identity plus status`` () =
     Assert.Contains("body=blocked\\nby WAF", line)
 
 [<Fact>]
-let ``upload-error-report appends ERROR-REPORT to http-responses.log`` () = task {
+let ``upload-error-report appends ERROR-REPORT to SYSTEM gambol.http-responses.log`` () = task {
     let dataDir = newTempDir ()
     Directory.CreateDirectory(Path.Combine(dataDir, "home")) |> ignore
     use factory =
@@ -67,8 +65,7 @@ let ``upload-error-report appends ERROR-REPORT to http-responses.log`` () = task
                 |> ignore
             )
     use client = factory.CreateClient()
-    let env = factory.Services.GetRequiredService<IWebHostEnvironment>()
-    let logPath = HttpResponseLog.logPath env.ContentRootPath
+    let logPath = HttpResponseLog.logPath dataDir
     use content =
         new StringContent(
             """{"relative":"docs/x.txt","status":403,"message":"WAF block"}""",

@@ -229,13 +229,15 @@ module Main =
 
     let configureApplication hasHead location (app: WebApplication) =
         let config = app.Configuration
-        // Early: capture status + body for errors / mutating / DAV / git.
-        // Log file is wiped fresh on each process start.
-        let httpLogFile =
-            HttpResponseLog.register app.Environment.ContentRootPath app
         let dataDirResult =
             try Ok (resolveDataDir app.Environment.ContentRootPath config)
             with ex -> Error ex
+        // Early: capture status + body for errors / mutating / DAV / git.
+        // Log file is wiped fresh on each process start; lives under dataDir/SYSTEM/.
+        let httpLogFile =
+            match dataDirResult with
+            | Ok dataDir -> HttpResponseLog.register dataDir app
+            | Error _ -> ""
         let auth = RouteRegistration.createAuthentication config
         let publicAssetBaseOpt =
             configureStaticAssetsAndSources hasHead location config app

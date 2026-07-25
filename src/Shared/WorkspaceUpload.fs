@@ -7,7 +7,7 @@ open Gambol.Shared.CommandEntry
 type WorkspaceUploadAction =
     /// Workspaces focus: pick folder, create named workspace, map, push.
     | CreateWorkspaceFromFolder
-    /// Desktop WebDAV push; optional ParseFile after for a file focus.
+    /// Desktop WebDAV push; Some fileId → Parse that file after push (single-file only).
     | DesktopPush of parseFileId: NodeId option
     /// Web (no desktop): stub-reconcile DataDir children under focus.
     | ReconcileServerDisk

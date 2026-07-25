@@ -130,7 +130,7 @@ let ``server reconciler applies planner ops through active agent`` () =
             (Serialization.encodeChangeBatch { changes = [ change ] })
     FileAgent.postChange fileAgent body |> Async.RunSynchronously |> requireOk "workspace" |> ignore
     Assert.True(File.Exists(Path.Combine(tempDir, "home", ".amb")))
-    Assert.Equal("1", File.ReadAllText(Path.Combine(tempDir, "gambol.meta")))
+    Assert.Equal("1", File.ReadAllText(Bookkeeping.metaPath tempDir))
     FileAgent.flushSnapshot fileAgent |> Async.RunSynchronously |> requireOk "workspace persist"
     let sourcePath = Path.Combine(tempDir, "home", "src", "main.fs")
     Directory.CreateDirectory(Path.GetDirectoryName(sourcePath)) |> ignore

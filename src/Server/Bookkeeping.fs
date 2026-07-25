@@ -3,13 +3,18 @@ namespace Gambol.Server
 open System.IO
 open Gambol.Shared
 
-/// Paths and I/O for `gambol.meta` and `gambol.log`.
+/// Paths and I/O for `SYSTEM/gambol.meta` and `SYSTEM/gambol.log`.
 [<RequireQualifiedAccess>]
 module Bookkeeping =
 
-    let metaPath (dataDir: string) = Path.Combine(dataDir, "gambol.meta")
+    let systemDir (dataDir: string) = Path.Combine(dataDir, "SYSTEM")
 
-    let logPath (dataDir: string) = Path.Combine(dataDir, "gambol.log")
+    let metaPath (dataDir: string) = Path.Combine(systemDir dataDir, "gambol.meta")
+
+    let logPath (dataDir: string) = Path.Combine(systemDir dataDir, "gambol.log")
+
+    let private ensureSystemDir (dataDir: string) =
+        Directory.CreateDirectory(systemDir dataDir) |> ignore
 
     let readRevision (dataDir: string) : Revision =
         let path = metaPath dataDir
@@ -28,6 +33,7 @@ module Bookkeeping =
         let path = metaPath dataDir
 
         try
+            ensureSystemDir dataDir
             let tmpPath = path + ".tmp"
             File.WriteAllText(tmpPath, string rev)
             File.Move(tmpPath, path, true)
@@ -36,6 +42,7 @@ module Bookkeeping =
             Error ex.Message
 
     let openLogStream (dataDir: string) : FileStream =
+        ensureSystemDir dataDir
         new FileStream(
             logPath dataDir,
             FileMode.OpenOrCreate,

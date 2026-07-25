@@ -38,9 +38,9 @@ let private okWithPoll (model: VM) : VM * Effect list =
 
 let private httpError (status: int) (body: string) : string =
     match decodePostChangeError body with
-    | Some err -> err
+    | Some err -> LogText.summarizeHttpBody 200 err
     | None ->
-        "HTTP " + string status + ": " + LogText.truncateForLog 200 body
+        "HTTP " + string status + ": " + LogText.summarizeHttpBody 200 body
 
 let private encodeWorkspacePath (workspace: string) (path: string) : string =
     Encode.object
@@ -199,30 +199,6 @@ let private applyStructureLocally (change: Change) (model: VM) : Result<VM, stri
                 graph = newState.graph
                 history = newState.history }
 
-/// Locked #11: reparse after mtime-skip. Only Unparsed — Current Synced files
-/// must not reparse (persist would bump DataDir mtime → false server-newer).
-let private reparseSkippedUploadFiles
-    (model: VM)
-    (workspace: string)
-    (paths: string list)
-    : VM * Effect list =
-    let next, parseEffects =
-        paths
-        |> List.fold
-            (fun ((current: VM), (effs: Effect list)) rel ->
-                match WorkspaceUploadStructure.tryResolveFileNode current.graph workspace rel with
-                | None -> current, effs
-                | Some fileId ->
-                    match Map.tryFind fileId current.graph.nodes with
-                    | Some node when
-                        WorkspaceUploadStructure.shouldReparseAfterMtimeSkip
-                            node.documentState ->
-                        let afterParse, parseEffs = parseFileOp fileId current
-                        afterParse, effs @ parseEffs
-                    | _ -> current, effs)
-            (model, [])
-    next, WorkspaceUpload.sequenceParseEffects parseEffects
-
 let private markServerFilesPresent
     (scope: WorkspaceSyncScope)
     (paths: string list)
@@ -352,7 +328,7 @@ let private contextualTargetForModel (model: VM) =
             selection.range.parent.nodeId
             selection.focus)
 
-/// After async workspace-push success: clear Uploading, reparse skipped or file focus.
+/// After async workspace-push success: clear Uploading; parse only for single-file Upload.
 let completeWorkspacePush
     (scope: WorkspaceSyncScope)
     (parseFileId: NodeId option)
@@ -374,18 +350,6 @@ let completeWorkspacePush
             match parseFileId with
             | Some fileId ->
                 parseFileOp fileId presentModel |> withPathSyncRefresh
-            | None when not skipped.IsEmpty ->
-                let modelR, parseEffs =
-                    reparseSkippedUploadFiles
-                        presentModel
-                        scope.label
-                        skipped
-                let detail =
-                    sync.detail
-                    + sprintf "; reparsed %d skipped file(s)" skipped.Length
-                { modelR with
-                    lastCmdResult = Some (CmdLastResult.Detail (None, detail)) },
-                RequestWorkspacePathSyncSnapshot :: parseEffs
             | None ->
                 okDetail presentModel sync.detail |> withPathSyncRefresh
     | Ok { error = Some e } -> failWorkspacePush e model

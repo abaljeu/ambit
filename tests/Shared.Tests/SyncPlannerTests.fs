@@ -136,13 +136,12 @@ let ``queued Upload waits while a change submit is in flight`` () =
 [<Fact>]
 let ``queued file Upload preserves its scope until the change queue drains`` () =
     let c = mkChange 14706
-    let fileId = NodeId.New()
     let request =
         QueuedWorkspacePush(
             { label = "home"
               relative = "notes/today.md"
               kind = SyncScopeKind.File },
-            Some fileId)
+            Some(NodeId.New()))
     let queued =
         { SyncInfo.initial with
             pendingChanges = [ c ]

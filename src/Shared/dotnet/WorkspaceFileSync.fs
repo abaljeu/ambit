@@ -176,6 +176,23 @@ module WorkspaceFileSync =
                 | Ok _ -> None)
         uploaded, errors
 
+    /// Fold concurrent batch partitions: always continue; never skip later batches.
+    let accumulateUploadWaveBatches
+        (batchPartitions: ('a list * string list) list)
+        : 'a list * string list =
+        batchPartitions
+        |> List.fold
+            (fun (uploadedAcc, errorAcc) (uploaded, errors) ->
+                uploadedAcc @ uploaded, errorAcc @ errors)
+            ([], [])
+
+    /// True when every attempted upload failed (all were still attempted).
+    let uploadWaveAllFailed
+        (uploaded: 'a list)
+        (errors: string list)
+        =
+        uploaded.IsEmpty && not errors.IsEmpty
+
     let private runUploadWave
         (client: HttpClient)
         (ambitBase: string)
@@ -230,11 +247,8 @@ module WorkspaceFileSync =
 
         wave
         |> List.chunkBySize uploadConcurrency
-        |> List.fold
-            (fun (uploadedAcc, errorAcc) batch ->
-                let uploaded, errors = runBatch batch
-                uploadedAcc @ uploaded, errorAcc @ errors)
-            ([], [])
+        |> List.map runBatch
+        |> accumulateUploadWaveBatches
 
     let private modeLabel mode =
         match mode with
@@ -498,10 +512,7 @@ module WorkspaceFileSync =
                                 clientHint
                                 toUpload
 
-                        if
-                            uploadedItems.IsEmpty
-                            && not uploadErrors.IsEmpty
-                        then
+                        if uploadWaveAllFailed uploadedItems uploadErrors then
                             Error(String.concat "; " uploadErrors)
                         else
                             for item in uploadedItems do

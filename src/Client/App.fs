@@ -46,13 +46,14 @@ module private SubmitChangeCallbacks =
 
     let onPostHttp (timeoutId: float) (reqId: string) (dispatch: Msg -> unit) (httpStatus: int) (bodyText: string) : unit =
         clearTimeout timeoutId
-        let snippet = truncateForLog 400 bodyText
+        let snippet = summarizeHttpBody 400 bodyText
         consoleLog (
             "[Gambol sync] GAMBOL_HTTP_ERR POST fail req=" + reqId
             + " http=" + string httpStatus + " body=" + snippet)
         let detail =
             decodePostChangeError bodyText
-            |> Option.defaultValue (truncateForLog 400 bodyText)
+            |> Option.map (summarizeHttpBody 400)
+            |> Option.defaultValue (summarizeHttpBody 400 bodyText)
         dispatch (SysMsg (SubmitRejected detail))
 
     let onPostFetchFail
@@ -440,7 +441,7 @@ let createRuntime (initialModel: VM) =
         let onHttpError (status: int) (text: string) : unit =
             consoleLog (
                 "[Gambol " + source + "] file-status HTTP "
-                + string status + ": " + LogText.truncateForLog 200 text)
+                + string status + ": " + LogText.summarizeHttpBody 200 text)
         let onNetworkFail () : unit =
             consoleLog ("[Gambol " + source + "] file-status request failed")
         postJson
