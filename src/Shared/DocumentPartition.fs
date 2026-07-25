@@ -63,6 +63,20 @@ module DocumentPartition =
                 []
         primary @ enclosing |> List.distinct
 
+    let private childNodeContentEquals (a: ChildNode) (b: ChildNode) : bool =
+        a.ref = b.ref && a.id = b.id
+
+    /// Persisted artifact content; ignores `updateTime` (stamp-only ops must not rewrite disk).
+    let private nodeContentEquals (a: Node) (b: Node) : bool =
+        a.text = b.text
+        && a.name = b.name
+        && a.kind = b.kind
+        && a.documentState = b.documentState
+        && a.owner = b.owner
+        && CssClass.toList a.cssClasses = CssClass.toList b.cssClasses
+        && List.length a.children = List.length b.children
+        && List.forall2 childNodeContentEquals a.children b.children
+
     /// Current document roots on `postGraph` dirtied by pre→post node diffs and/or path moves.
     let documentRootsAffectedByGraphChange
         (preGraph: Graph)
@@ -78,7 +92,7 @@ module DocumentPartition =
             allIds
             |> Set.filter (fun id ->
                 match Map.tryFind id preGraph.nodes, Map.tryFind id postGraph.nodes with
-                | Some a, Some b -> a <> b
+                | Some a, Some b -> not (nodeContentEquals a b)
                 | _ -> true)
 
         let fromNodes =

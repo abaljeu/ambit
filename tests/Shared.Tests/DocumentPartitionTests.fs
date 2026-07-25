@@ -1,5 +1,6 @@
 module DocumentPartitionTests
 
+open System
 open Gambol.Shared
 open Xunit
 
@@ -308,3 +309,44 @@ let ``documentRootsAffectedByGraphChange includes path-move roots when passed`` 
     Assert.False(Set.contains fileId withoutMoves)
     Assert.True(Set.contains fileId withMoves)
     Assert.True(Set.contains dirId withMoves)
+
+[<Fact>]
+let ``documentRootsAffectedByGraphChange ignores updateTime-only node change`` () =
+    let graph, fileAId, fileBId, _, _ = graphWithTwoSiblingFiles ()
+    let node = graph.nodes.[fileAId]
+    let post =
+        { graph with
+            nodes =
+                Map.add
+                    fileAId
+                    (NodeUpdateTime.withStamp (DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc)) node)
+                    graph.nodes }
+    let affected =
+        DocumentPartition.documentRootsAffectedByGraphChange graph post []
+    Assert.True(Set.isEmpty affected)
+    Assert.False(Set.contains fileAId affected)
+    Assert.False(Set.contains fileBId affected)
+
+[<Fact>]
+let ``documentRootsAffectedByGraphChange upload sibling does not dirty existing file root`` () =
+    let graph, _, dirId, fileId, _ = graphWithNestedDocs ()
+    let uploadOps =
+        WorkspaceUploadStructure.planStubOps
+            graph
+            "home"
+            [ { relative = "docs/uploaded.txt"; isDirectory = false } ]
+        |> requireOk "upload structure"
+    let afterUpload =
+        uploadOps
+        |> List.fold
+            (fun state op ->
+                match Op.apply op state with
+                | ApplyResult.Changed next
+                | ApplyResult.Unchanged next -> next
+                | ApplyResult.Invalid(_, error) -> failwith error)
+            { graph = graph; history = History.empty; revision = Revision.Zero }
+        |> fun state -> state.graph
+    let affected =
+        DocumentPartition.documentRootsAffectedByGraphChange graph afterUpload []
+    Assert.False(Set.contains fileId affected, "existing readme file root")
+    Assert.True(Set.contains dirId affected, "parent dir package")

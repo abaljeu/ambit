@@ -421,61 +421,64 @@ module DocumentPersistence =
             match resolveArtifactPath dataDir graph documentRootId with
             | Error msg -> Error msg
             | Ok fullPath ->
-                let createDirResult =
-                    match DocumentPartition.artifactDirectoryRelative graph documentRootId with
-                    | None -> Ok ()
-                    | Some dirRel ->
-                        match resolveUnderDataDir dataDir dirRel with
-                        | Error msg -> Error msg
-                        | Ok dirFull ->
-                            try
-                                Directory.CreateDirectory dirFull |> ignore
-                                match Map.tryFind documentRootId graph.nodes with
-                                | Some node ->
-                                    match node.kind with
-                                    | Special Workspace ->
-                                        WorkspaceGit.ensureInit dirFull
-                                    | _ -> Ok ()
-                                | None -> Ok ()
-                            with ex ->
-                                Error ex.Message
+                let relativePath =
+                    DocumentPartition.artifactFileRelative graph documentRootId
+                    |> function
+                        | None ->
+                            Error "no file relative artifact path for document root"
+                        | Some rel -> Ok rel
 
-                match createDirResult with
+                match relativePath with
                 | Error msg -> Error msg
-                | Ok () ->
-                    let parent = Path.GetDirectoryName fullPath
+                | Ok rel ->
+                    let previousText =
+                        if File.Exists fullPath then
+                            Some(File.ReadAllText fullPath)
+                        else
+                            None
 
-                    if not (String.IsNullOrEmpty parent) then
-                        Directory.CreateDirectory parent |> ignore
-
-                    let relativePath =
-                        DocumentPartition.artifactFileRelative graph documentRootId
-                        |> function
-                            | None ->
-                                Error "no file relative artifact path for document root"
-                            | Some rel -> Ok rel
-
-                    match relativePath with
+                    match
+                        DocumentWarm.writeArtifact
+                            OutlineLcs.diffTexts
+                            graph
+                            documentRootId
+                            rel
+                            previousText
+                    with
                     | Error msg -> Error msg
-                    | Ok rel ->
-                        let previousText =
-                            if File.Exists fullPath then
-                                Some(File.ReadAllText fullPath)
-                            else
-                                None
+                    | Ok text when previousText = Some text ->
+                        Ok fullPath
+                    | Ok text ->
+                        let createDirResult =
+                            match DocumentPartition.artifactDirectoryRelative graph documentRootId with
+                            | None -> Ok ()
+                            | Some dirRel ->
+                                match resolveUnderDataDir dataDir dirRel with
+                                | Error msg -> Error msg
+                                | Ok dirFull ->
+                                    try
+                                        Directory.CreateDirectory dirFull |> ignore
+                                        match Map.tryFind documentRootId graph.nodes with
+                                        | Some node ->
+                                            match node.kind with
+                                            | Special Workspace ->
+                                                if WorkspaceGit.isRepo dirFull then
+                                                    Ok ()
+                                                else
+                                                    WorkspaceGit.ensureInit dirFull
+                                            | _ -> Ok ()
+                                        | None -> Ok ()
+                                    with ex ->
+                                        Error ex.Message
 
-                        match
-                            DocumentWarm.writeArtifact
-                                OutlineLcs.diffTexts
-                                graph
-                                documentRootId
-                                rel
-                                previousText
-                        with
+                        match createDirResult with
                         | Error msg -> Error msg
-                        | Ok text when previousText = Some text ->
-                            Ok fullPath
-                        | Ok text ->
+                        | Ok () ->
+                            let parent = Path.GetDirectoryName fullPath
+
+                            if not (String.IsNullOrEmpty parent) then
+                                Directory.CreateDirectory parent |> ignore
+
                             try
                                 let tmpPath = fullPath + ".tmp"
                                 File.WriteAllText(tmpPath, text)
@@ -501,6 +504,17 @@ module DocumentPersistence =
                                 (NodeUpdateTime.withStamp time node)
                                 g.nodes })
             graph
+
+    let private stampExistingDocuments (dataDir: string) (graph: Graph) : Graph =
+        enumerateDocumentRoots graph
+        |> List.fold
+            (fun stamps documentRootId ->
+                match resolveArtifactPath dataDir graph documentRootId with
+                | Ok path when File.Exists path ->
+                    Map.add documentRootId (File.GetLastWriteTimeUtc path) stamps
+                | _ -> stamps)
+            Map.empty
+        |> fun stamps -> stampNodes stamps graph
 
     // avoid making new tests for writeAllDocuments unless this changed directly.
     let private writeDocuments
@@ -551,6 +565,7 @@ module DocumentPersistence =
             enumerateDocumentRoots postGraph
             |> List.filter (fun id -> Set.contains id affected)
             |> writeDocuments dataDir postGraph
+            |> Result.map (stampExistingDocuments dataDir)
 
     let private shouldSkipDiscoveryFile (fileName: string) =
         Filename.isReservedSystemName fileName
