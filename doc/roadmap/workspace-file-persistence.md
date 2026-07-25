@@ -82,11 +82,11 @@ The implementation should favor the smallest possible storage mechanism that pre
 
 ## Snapshot integration
 
-Primary persistence extends the existing snapshot write path — `Snapshot.write` in [[src/Shared/Snapshot.fs]], triggered after accepted changes by `FileAgent` (file mode) and `startDbBackupIfNeeded` (db mode). See [[doc/current/persistence-model.md]].
+Primary persistence uses the existing snapshot-writing primitives in [[src/Shared/Snapshot.fs]]. `FileAgent` synchronously persists affected documents before acknowledging an accepted material change; `DbAgent` also starts an asynchronous backup snapshot after such a change. See [[doc/current/persistence-model.md]].
 
 **Today:** one monolithic outline snapshot serializes the whole graph (one document).
 
-**Target:** each snapshot pass still runs on that same trigger, but emits multiple persisted documents:
+**Target:** each persistence pass runs on those triggers, but emits multiple persisted documents:
 
 - **ROOT** (nameless) — serialized by the same pipeline, following workspace saving rules for members of the ROOT document that are not delegated to a nested workspace, directory, or file document.
 - **Workspace, directory, file roots** — each document also written to its `DataDir/{label}/...` path when the pass runs. Serialization includes only nodes with document membership in that root (stop-at-nested-document-root applies).

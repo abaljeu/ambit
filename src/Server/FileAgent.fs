@@ -2,7 +2,6 @@ namespace Gambol.Server
 
 open System
 open System.IO
-open System.Threading.Tasks
 open Gambol.Shared
 
 module Encode = Thoth.Json.Newtonsoft.Encode
@@ -14,7 +13,6 @@ type FileAgentMsg =
     | GetChangesSince of after: int * AsyncReplyChannel<Change list>
     | PostChange of body: string * AsyncReplyChannel<Result<string, string>>
     | PostGraphOnlyChange of body: string * AsyncReplyChannel<Result<string, string>>
-    | FlushSnapshot of AsyncReplyChannel<Result<unit, string>>
     | SnapshotDone of graph: Graph option
 
 // FileAgent — serialises all reads/writes for a single file
@@ -41,20 +39,10 @@ module FileAgent =
 
         let offsetIndex = ChangeLog.buildIndex logStream
         let state = ref initialState
-        let persistedGraph = ref initialState.graph
-        let snapshotInProgress = ref false
-        let snapshotNeeded = ref false
-        let snapshotWaiters = ref<AsyncReplyChannel<Result<unit, string>> list> []
 
         let capturedInitialState = state.Value
 
         logStream.Seek(0L, SeekOrigin.End) |> ignore
-
-        let notifySnapshotWaiters () =
-            if not snapshotInProgress.Value && not snapshotNeeded.Value then
-                snapshotWaiters.Value
-                |> List.iter (fun reply -> reply.Reply(Ok ()))
-                snapshotWaiters.Value <- []
 
         let encodeStateJson () =
             ApiResponseSerialization.encodeStateResponse
@@ -94,28 +82,6 @@ module FileAgent =
                 match writeMetaRevision rev with
                 | Error err -> Error err
                 | Ok () -> Ok stamped
-
-        let startSnapshot (inbox: MailboxProcessor<FileAgentMsg>) =
-            snapshotInProgress.Value <- true
-            snapshotNeeded.Value <- false
-            let rev = state.Value.revision.Value
-            let preGraph = persistedGraph.Value
-            let postGraph = state.Value.graph
-            Task.Run(fun () ->
-                let persisted =
-                    try
-                        match DocumentPersistence.persistGraphChange dataDir preGraph postGraph with
-                        | Error _ -> None
-                        | Ok stamped ->
-                            let metaTmpPath = metaPath + ".tmp"
-                            File.WriteAllText(metaTmpPath, string rev)
-                            // Rename meta last — documents are written first; log retains changes.
-                            File.Move(metaTmpPath, metaPath, true)
-                            Some stamped
-                    with _ ->
-                        None // snapshot failure is non-fatal; log has the data
-                inbox.Post(SnapshotDone persisted)
-            ) |> ignore
 
         let applyBatch (changes: Change list) =
             let step (s, acked, logEntries, changed) (change: Change) =
@@ -158,7 +124,6 @@ module FileAgent =
             body
             graphOnly
             (reply: AsyncReplyChannel<Result<string, string>>)
-            inbox
             =
             match Decode.fromString Serialization.decodeChangeBatch body with
             | Error err ->
@@ -223,8 +188,6 @@ module FileAgent =
                                     | None -> newState
                                 state.Value <- finalState
                                 reply.Reply(Ok (encodeChangeAckJson ackedChangeIds stampOps))
-                                if graphOnly || changed then
-                                    persistedGraph.Value <- finalState.graph
 
         let mailbox = MailboxProcessor<FileAgentMsg>.Start(fun inbox ->
             let rec loop () = async {
@@ -244,26 +207,10 @@ module FileAgent =
                             | Error _ -> None)
                     reply.Reply(changes)
                 | PostChange (body, reply) ->
-                    handlePostChange body false reply inbox
+                    handlePostChange body false reply
                 | PostGraphOnlyChange (body, reply) ->
-                    handlePostChange body true reply inbox
-                | FlushSnapshot reply ->
-                    if snapshotInProgress.Value || snapshotNeeded.Value then
-                        snapshotWaiters.Value <- reply :: snapshotWaiters.Value
-                        if not snapshotInProgress.Value && snapshotNeeded.Value then
-                            startSnapshot inbox
-                    else
-                        reply.Reply(Ok ())
-                | SnapshotDone (Some snapshotGraph) ->
-                    if GraphProjection.graphEquals state.Value.graph snapshotGraph then
-                        persistedGraph.Value <- snapshotGraph
-                    snapshotInProgress.Value <- false
-                    if snapshotNeeded.Value then startSnapshot inbox
-                    else notifySnapshotWaiters ()
-                | SnapshotDone None ->
-                    snapshotInProgress.Value <- false
-                    if snapshotNeeded.Value then startSnapshot inbox
-                    else notifySnapshotWaiters ()
+                    handlePostChange body true reply
+                | _ -> ()
                 return! loop ()
             }
             loop ()
@@ -290,8 +237,8 @@ module FileAgent =
         agent.mailbox.PostAndAsyncReply(fun reply ->
             PostGraphOnlyChange(body, reply))
 
-    let flushSnapshot (agent: FileAgent) : Async<Result<unit, string>> =
-        agent.mailbox.PostAndAsyncReply FlushSnapshot
+    let flushSnapshot (_: FileAgent) : Async<Result<unit, string>> =
+        async { return Ok () }
 
     let dispose (agent: FileAgent) =
         agent.logStream.Flush()

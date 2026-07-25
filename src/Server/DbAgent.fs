@@ -32,7 +32,6 @@ module DbAgent =
         let persistedGraph = ref initialState.graph
         let snapshotInProgress = ref false
         let snapshotNeeded = ref false
-        let snapshotWaiters = ref<AsyncReplyChannel<Result<unit, string>> list> []
         let ready =
             TaskCompletionSource<unit>(
                 TaskCreationOptions.RunContinuationsAsynchronously)
@@ -42,12 +41,6 @@ module DbAgent =
             let trim = DatabaseProjection.trimDeletedNodes deletedNodeIds
             state.Value <- { state.Value with graph = trim state.Value.graph }
             persistedGraph.Value <- trim persistedGraph.Value
-
-        let notifySnapshotWaiters () =
-            if not snapshotInProgress.Value && not snapshotNeeded.Value then
-                snapshotWaiters.Value
-                |> List.iter (fun reply -> reply.Reply(Ok ()))
-                snapshotWaiters.Value <- []
 
         let encodeStateJson () =
             ApiResponseSerialization.encodeStateResponse
@@ -279,16 +272,6 @@ module DbAgent =
                             handlePostChange body false reply inbox
                         | PostGraphOnlyChange (body, reply) ->
                             handlePostChange body true reply inbox
-                        | FlushSnapshot reply ->
-                            if snapshotInProgress.Value || snapshotNeeded.Value then
-                                snapshotWaiters.Value <- reply :: snapshotWaiters.Value
-                                if
-                                    not snapshotInProgress.Value
-                                    && snapshotNeeded.Value
-                                then
-                                    startSnapshot inbox
-                            else
-                                reply.Reply(Ok ())
                         | SnapshotDone persisted ->
                             match persisted with
                             | Some graph
@@ -299,7 +282,6 @@ module DbAgent =
                             | _ -> ()
                             snapshotInProgress.Value <- false
                             if snapshotNeeded.Value then startSnapshot inbox
-                            else notifySnapshotWaiters ()
                         | _ -> ()
                     return! loop ()
                 }
@@ -312,7 +294,6 @@ module DbAgent =
                         | PostChange (_, reply)
                         | PostGraphOnlyChange (_, reply) ->
                             reply.Reply(Error error)
-                        | FlushSnapshot reply -> reply.Reply(Error error)
                         | SnapshotDone _ -> ()
                         | _ -> ()
                     return! failedLoop error
