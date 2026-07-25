@@ -34,7 +34,7 @@ Workspace, directory, and file special nodes are document roots. Per-document `D
 
 Workspace definitions and desktop label mappings remain part of the model, but file persistence is tiered:
 
-1. **Primary — server `DataDir`.** Edits sync through normal client/server graph operations; the server live-saves on the existing snapshot write path (`Snapshot.write` / `FileAgent` / db backup). Today that is one monolithic outline file (one document); target is ROOT plus separate persisted documents for each workspace/directory/file root under `DataDir/{label}/...`, writing only documents whose serialization would change (Stages 7–8). Detail: [[doc/roadmap/workspace-file-persistence.md]].
+1. **Primary — server `DataDir`.** Edits sync through normal client/server graph operations; the server live-saves affected documents via `persistGraphOps` / `persistGraphChange` under `DataDir/{label}/...` (ROOT plus workspace/directory/file roots; unchanged documents skipped). Detail: [[doc/roadmap/workspace-file-persistence.md]].
 2. **Secondary — desktop workspace-mapped files.** A client may download or export server file content to a locally mapped workspace root. This does not replace server authority.
 3. **Import — unchanged.** User reads a desktop-local file (via `/_desktop/file` Import); client edits apply to the graph and sync to the server; subsequent persistence follows the primary server path.
 
@@ -75,7 +75,7 @@ When a Correction is described below, the meaning is that the item previous is d
 - `[x]` Stage 7: Step 5: generic text read/write for `Special File` artifacts whose path is neither `.amb` nor `.md`; workspace and directory documents stay on `.amb`. Format spec: [[doc/roadmap/workspace-format-plain.md]] (reconciliation: § Reconciliation). Generic contract: [[doc/roadmap/workspace-text-outline-conversion.md]] § Settled. Dispatch plan: [[doc/roadmap/workspace-format-dispatch.md]]. Adds a document-format dispatch boundary in the read/write layer (`DocumentAssembly`, `DocumentPersistence`).
 - `[ ]` Stage 7: Step 6: XML read/write for `File` artifacts whose persisted body is XML; plain text and `.amb` behavior unchanged. Format spec: [[doc/roadmap/workspace-format-xml.md]] (reconciliation: § Reconciliation). Generic contract: [[doc/roadmap/workspace-text-outline-conversion.md]] § Settled. Extends `DocumentFormat` dispatch with an `Xml` codec. Implementation plan: [[doc/reference/formats/xml-round-trip-plan.md]].
 - `[ ]` Deferred: Support markdown text file format.
-- `[x]` Stage 8: snapshot integration — existing write path (`Snapshot.write` / `FileAgent` / db backup) emits ROOT plus per-document artifacts; incremental persist skips unchanged documents.
+- `[x]` Stage 8: snapshot integration — `persistGraphOps` / `persistGraphChange` emit ROOT plus per-document artifacts; incremental persist skips unchanged documents.
 
 ## Current Implementation Snapshot
 

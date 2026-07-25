@@ -32,7 +32,7 @@ Authority for document-scoped server/client residency, bootstrap/load APIs, per-
 - `Graph.fromNodes` in [[src/Shared/GraphBuild.fs]] remains the full rebuild path for parent indexes: it walks every node in the map to recompute `parentByChild` and `ownerParentByChild`, then stamps derived `Node.owner` via `applyOwnerField`. Non-append `Replace` in [[src/Shared/GraphMutate.fs]] and undo of `NewNode` / `NewSpecialNode` in [[src/Shared/History.fs]] still call that rebuild; only append-child and fresh detached-insert maintain those maps in place.
 - Rebuild cost scales with the in-memory node map and becomes quadratic under edit/undo churn that repeatedly rebuilds. Under partial residency, rebuilding over a loaded-only map indexes only edges present in that closure—it does not invent parent links into unloaded documents—so the open issue is cost and index completeness relative to what is loaded, not child-list residency correctness (`Unknown` children / `NeedsDocuments`).
 - Residency may rebuild those indexes over a bounded loaded document closure initially; true incremental in-memory maintenance stays deferred (see What it avoids and Separate follow-up tracks).
-- Immediate accepted-change live-save derives affected writable roots from operations plus path moves via [[src/Shared/DocumentOpImpact.fs]], making impact discovery O(touched operations × owner depth) and avoiding the post-impact document-root scan. Snapshot/catch-up paths without operations retain the pre→post graph-diff fallback. `writeAllDocuments` remains for migration/backup/git flush.
+- Immediate accepted-change live-save derives affected writable roots from operations plus path moves via [[src/Shared/DocumentOpImpact.fs]] (`persistGraphOps`), making impact discovery O(touched operations × owner depth) and avoiding the post-impact document-root scan. Snapshot/catch-up paths without operations retain the pre→post graph-diff fallback (`persistGraphChange`). Production SavePrep / DbAgent paths no longer full-rewrite via `writeAllDocuments` (test/bootstrap helper only).
 
 
 
@@ -116,6 +116,6 @@ Authority for document-scoped server/client residency, bootstrap/load APIs, per-
 
 ## Separate follow-up tracks
 
-- Operation-derived immediate live-save and graph-diff snapshot fallback are done in [[src/Server/DocumentPersistence.fs]]. Remaining work is eliminating `writeAllDocuments` bulk flushes (SavePrep / backup) and guaranteeing the loaded owner/dependency closure before partial-residency persistence. Optimize full `readAllDocuments` only if file bootstrap remains a supported authority path.
+- Operation-derived immediate live-save and graph-diff snapshot fallback are done in [[src/Server/DocumentPersistence.fs]]; production bulk `writeAllDocuments` flushes are gone. Remaining work is guaranteeing the loaded owner/dependency closure before partial-residency persistence. Optimize full `readAllDocuments` only if file bootstrap remains a supported authority path.
 - Incrementally maintain `parentByChild`, `ownerParentByChild`, and derived owner fields if loaded-closure rebuild cost becomes material.
 

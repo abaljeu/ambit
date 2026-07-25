@@ -60,8 +60,8 @@ Fit according to [[code-shape.md]].
    - Cases: a `Special File` named `readme.txt` writes plain text, not `.amb` stable-id syntax; `readAllDocuments` reads that artifact back through the plain codec; workspace/directory `.amb` artifacts are unchanged; discovery still rejects/ignores stray `foo.amb` as today.
    - Ref regression: a file document containing a Ref occurrence persists the target text in `readme.txt`, with no in-band edge target. A file-only rebuild cannot recover that Ref edge.
 
-4. Add loader/backup regression tests only if dispatch changes startup behavior.
-   - Extend `tests/Server.Tests/DocumentLoaderTests.fs` if `DocumentLoader.tryLoadState` or `writeStateBackup` needs new coverage.
+4. Add loader regression tests only if dispatch changes startup behavior.
+   - Extend `tests/Server.Tests/DocumentLoaderTests.fs` if `DocumentLoader.tryLoadState` needs new coverage.
 
 5. Implement in smallest slices after tests exist:
    - Add `src/Shared/documents/PlainTextDocument.fs` for pure parse/write/reconcile helpers.

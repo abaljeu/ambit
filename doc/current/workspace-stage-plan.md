@@ -331,7 +331,7 @@ Planners (Stage 6 — path computation and tests):
 - `planPathMoveForSetName` — rename workspace/directory/file (`Op.SetName`)
 - `planPathMoveForReparent` — reparent (`Op.Replace` owner parent change); move-to-TRASH uses `planPathMoveForReparent graph nodeId trashId`
 
-Stage 7 server: `DocumentPersistence.persistGraphChange` executes moves then live-saves affected documents ([[tests/Server.Tests/DocumentPathMoveExecutionTests.fs]]).
+Stage 7 server: `DocumentPersistence.persistGraphOps` / `persistGraphChange` execute moves then live-save affected documents ([[tests/Server.Tests/DocumentPathMoveExecutionTests.fs]], [[tests/Server.Tests/DocumentOpPersistenceTests.fs]]).
 
 UI: Insert… dialog with three context-gated buttons (title **Insert…**); Rename prompt overlay.
 
@@ -369,7 +369,7 @@ Status: Stage 7 core `[x]`; Stage 8 `[x]`; Stage 7 follow-ups `[ ]`.
 What is in place:
 
 - **Path:** `{DataDir}/{workspaceLabel}/{canonicalRelativePath}` (folder name equals workspace label, verbatim).
-- **Write pattern:** live-save on accepted change via `DocumentPersistence.persistGraphChange` after DB commit (`DbAgent` snapshot task); writes only affected Current document roots (pre→post + path moves), not a full Current-root walk.
+- **Write pattern:** sync live-save on accepted change via `DocumentPersistence.persistGraphOps` (ops + path moves); async catch-up via `persistGraphChange` (pre→post graph-diff) when needed. Writes only affected Current document roots, not a full Current-root walk.
 - **Stop at nested document root:** `AmbDocument.write` / `DocumentPartition` — nested workspace/directory/file document roots persist as separate artifacts.
 - **Unified path moves:** `executePathMoves` for rename, reparent, and soft delete (`MoveToTrash` → `//TRASH/...`). Path validation before accept; `Directory.Move` / `File.Move` on disk.
 - **TRASH on disk:** `TRASH/.amb` under `DataDir` (directory document for canonical `trashId`).
@@ -391,7 +391,7 @@ Remaining Stage 7 follow-ups:
 
 Purpose: bring snapshot/export paths into the same per-document artifact shape as live-save.
 
-- Existing write path (`Snapshot.write` / `FileAgent` / db backup) emits ROOT plus per-document artifacts.
+- Existing write path (`persistGraphOps` / `persistGraphChange` via FileAgent and DbAgent) emits ROOT plus per-document artifacts.
 - Incremental persist skips unchanged documents.
 
 Verification:

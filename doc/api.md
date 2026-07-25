@@ -287,7 +287,7 @@ Undo/redo: client-local via inverted ops in batches; server undo/redo endpoints 
 - GUIDs: lowercase strings without braces.
 - Revision starts at `0` for a fresh document.
 - Empty arrays are `[]`, not omitted, in requests.
-- `POST /save` existed in early MVP docs only; `FileAgent` persists accepted changes synchronously, while `DbAgent` also maintains an asynchronous backup snapshot. Neither uses an HTTP save call.
+- `POST /save` existed in early MVP docs only; `FileAgent` and `DbAgent` live-save accepted changes via `persistGraphOps` (DbAgent may also run async `persistGraphChange` catch-up). Neither uses an HTTP save call for ordinary edits.
 
 ---
 
