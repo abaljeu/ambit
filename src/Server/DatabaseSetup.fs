@@ -49,9 +49,7 @@ module DatabaseSetup =
             match !dbAgentCache with
             | Some (dir, name, agent) when dir = dataDir && name = filename -> agent
             | _ ->
-                let writeBackup state =
-                    DocumentLoader.writeStateBackup dataDir filename state
-                let agent = DbAgent.createWithDataDir connStr dataDir writeBackup
+                let agent = DbAgent.createWithDataDir connStr dataDir
                 dbAgentCache.Value <- Some (dataDir, filename, agent)
                 agent
         )

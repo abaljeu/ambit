@@ -520,7 +520,6 @@ module DocumentPersistence =
             Map.empty
         |> fun stamps -> stampNodes stamps graph
 
-    // avoid making new tests for writeAllDocuments unless this changed directly.
     let private writeDocuments
         (dataDir: string)
         (graph: Graph)
@@ -543,6 +542,9 @@ module DocumentPersistence =
             (Ok Map.empty)
         |> Result.map (fun stamps -> stampNodes stamps graph)
 
+    /// Test/bootstrap helper that materializes a complete file layout from a generated graph.
+    /// Normal accepted graph changes use persistGraphOps/JIT live-save; this intentionally
+    /// bypasses normal production persistence.
     let writeAllDocuments (dataDir: string) (graph: Graph) : Result<Graph, string> =
         enumerateDocumentRoots graph
         |> List.filter (fun documentRootId ->

@@ -20,7 +20,6 @@ module SavePrep =
         (flushFileSnapshot: unit -> Async<Result<unit, string>>)
         (getFileRevision: unit -> Async<int>)
         (dataDir: string)
-        (filename: string)
         : Async<Result<int, string>> =
         async {
             match persistenceMode, dbStatus with
@@ -29,11 +28,8 @@ module SavePrep =
                 match decodeStateJson json with
                 | Error err -> return Error err
                 | Ok state ->
-                    try
-                        DocumentLoader.writeStateBackup dataDir filename state
-                        return Ok state.revision.Value
-                    with ex ->
-                        return Error ex.Message
+                    // Live-save already materialized artifacts; sync only needs revision.
+                    return Ok state.revision.Value
             | _ ->
                 let! flushResult = flushFileSnapshot ()
                 match flushResult with

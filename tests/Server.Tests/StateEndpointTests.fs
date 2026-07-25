@@ -437,20 +437,6 @@ let ``Snapshot writes amb artifacts asynchronously after change`` () = task {
 }
 
 [<Fact>]
-let ``DB mode backup helper writes amb artifacts`` () =
-    let tempDir = newTempDir ()
-    let state = stateWithChild "db-backup"
-
-    DocumentLoader.writeStateBackup tempDir testFile state
-
-    Assert.True(DocumentPersistence.hasArtifactSet tempDir)
-    Assert.True(File.Exists(Path.Combine(tempDir, ".amb")))
-    let ambText = File.ReadAllText(Path.Combine(tempDir, ".amb"))
-    Assert.Contains("db-backup", ambText)
-    Assert.False(File.Exists(Path.Combine(tempDir, testFile + ".meta")))
-    Assert.False(File.Exists(Path.Combine(tempDir, testFile + ".log")))
-
-[<Fact>]
 let ``Log contains valid change data after POST`` () = task {
     let tempDir = newTempDir ()
     use client = createClientForDir tempDir

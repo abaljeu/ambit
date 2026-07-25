@@ -25,7 +25,6 @@ module DbAgent =
         (initialState: State)
         (connectionString: string)
         (liveSaveDataDir: string option)
-        (writeBackup: State -> unit)
         (runStartupSweep: Graph -> Result<Guid list, string>)
         : DbAgent =
         let state = ref initialState
@@ -139,28 +138,25 @@ module DbAgent =
             Task.Run(fun () ->
                 let persisted =
                     try
-                        let liveSave =
-                            match liveSaveDataDir with
-                            | Some dataDir ->
-                                match
-                                    DocumentPersistence.persistGraphChange
-                                        dataDir
-                                        preGraph
-                                        postGraph
-                                with
-                                | Error err ->
-                                    eprintfn
-                                        "DbAgent: failed to write live documents: %s"
-                                        err
-                                    Error ()
-                                | Ok stamped -> Ok stamped
-                            | None -> Ok postGraph
-                        writeBackup snapshotState
-                        match liveSave with
-                        | Ok graph -> Some graph
-                        | Error () -> None
+                        match liveSaveDataDir with
+                        | Some dataDir ->
+                            match
+                                DocumentPersistence.persistGraphChange
+                                    dataDir
+                                    preGraph
+                                    postGraph
+                            with
+                            | Error err ->
+                                eprintfn
+                                    "DbAgent: failed to write live documents: %s"
+                                    err
+                                None
+                            | Ok stamped -> Some stamped
+                        | None -> Some postGraph
                     with ex ->
-                        eprintfn "DbAgent: failed to write disk backup: %s" ex.Message
+                        eprintfn
+                            "DbAgent: failed to write live documents: %s"
+                            ex.Message
                         None
                 inbox.Post(SnapshotDone persisted)
             ) |> ignore
@@ -314,7 +310,6 @@ module DbAgent =
     let private createWithLiveSave
         (connectionString: string)
         (liveSaveDataDir: string option)
-        (writeBackup: State -> unit)
         : DbAgent =
         let initialState =
             loadInitialState connectionString |> Async.RunSynchronously
@@ -334,27 +329,22 @@ module DbAgent =
             initialState
             connectionString
             liveSaveDataDir
-            writeBackup
             runStartupSweep
 
     let createForTest
         (initialState: State)
         (runStartupSweep: Graph -> Result<Guid list, string>)
         : DbAgent =
-        createLoaded initialState "" None ignore runStartupSweep
-
-    let createWithBackup (connectionString: string) (writeBackup: State -> unit) : DbAgent =
-        createWithLiveSave connectionString None writeBackup
+        createLoaded initialState "" None runStartupSweep
 
     let createWithDataDir
         (connectionString: string)
         (dataDir: string)
-        (writeBackup: State -> unit)
         : DbAgent =
-        createWithLiveSave connectionString (Some dataDir) writeBackup
+        createWithLiveSave connectionString (Some dataDir)
 
     let create (connectionString: string) : DbAgent =
-        createWithBackup connectionString (fun _ -> ())
+        createWithLiveSave connectionString None
 
     let isReady (agent: DbAgent) =
         agent.isReady ()

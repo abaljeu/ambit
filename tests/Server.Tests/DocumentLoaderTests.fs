@@ -97,16 +97,6 @@ let ``tryLoadState amb takes precedence over stale monolithic gambol`` () =
     Assert.Equal(expected, actual)
 
 [<Fact>]
-let ``writeStateBackup emits amb artifacts`` () =
-    let dataDir = newTempDir ()
-    let state = stateWithRootChild "db-backup"
-    DocumentLoader.writeStateBackup dataDir testFile state
-    Assert.True(DocumentPersistence.hasArtifactSet dataDir)
-    Assert.True(File.Exists(Path.Combine(dataDir, ".amb")))
-    Assert.False(File.Exists(Path.Combine(dataDir, testFile + ".meta")))
-    Assert.False(File.Exists(Path.Combine(dataDir, testFile + ".log")))
-
-[<Fact>]
 let ``resolveDbConnection file mode matching amb network returns Ok`` () = task {
     let connStr = requireDbConnStr ()
     let dataDir = newTempDir ()

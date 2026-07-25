@@ -45,30 +45,13 @@ module DocumentLoader =
     /// Read `.amb` network or legacy snapshot (materializing `.amb` when needed).
     let tryLoadState (dataDir: string) (filename: string) : Result<State, string> =
         let snapshotPath = Path.Combine(dataDir, filename)
-        let hadArtifacts = DocumentPersistence.hasArtifactSet dataDir
-
-        if not hadArtifacts && File.Exists(snapshotPath) then
-            ensureSnapshotBackup snapshotPath
 
         match loadGraphFromDisk dataDir snapshotPath with
         | Error msg -> Error msg
-        | Ok initialGraph ->
-            if hadArtifacts then
-                Ok (stateFromGraph initialGraph)
-            else
-                match DocumentPersistence.writeAllDocuments dataDir initialGraph with
-                | Error msg -> Error msg
-                | Ok stamped -> Ok (stateFromGraph stamped)
+        | Ok initialGraph -> Ok (stateFromGraph initialGraph)
 
     /// Fail-fast wrapper around `tryLoadState`.
     let loadState (dataDir: string) (filename: string) : State =
         match tryLoadState dataDir filename with
         | Ok state -> state
         | Error msg -> failwith msg
-
-    /// Write a file-format backup from DB state without reading existing document files.
-    let writeStateBackup (dataDir: string) (_filename: string) (state: State) : unit =
-        Directory.CreateDirectory(dataDir) |> ignore
-        match DocumentPersistence.writeAllDocuments dataDir state.graph with
-        | Error msg -> failwith msg
-        | Ok _ -> ()

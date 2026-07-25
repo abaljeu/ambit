@@ -313,7 +313,6 @@ module RouteRegistration =
                 (fun () -> FileAgent.flushSnapshot fileAgent)
                 (fun () -> FileAgent.getRevision fileAgent)
                 persistence.DataDir
-                "gambol"
     }
 
     let private registerSaveRoutes

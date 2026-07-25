@@ -65,9 +65,16 @@ let ``Git DB flush returns revision without rewriting disk`` () =
     Assert.Equal(int64 "pending".Length, lockedLog.Length)
 
 [<Fact>]
-let ``Full DB sync writes amb artifacts`` () =
+let ``Full DB sync returns revision without rewriting disk`` () =
     let dataDir = newTempDir ()
     let state = stateWithRootChild "full-backup"
+    let logPath = Path.Combine(dataDir, "gambol.log")
+    let metaPath = Path.Combine(dataDir, "gambol.meta")
+    File.WriteAllText(logPath, "pending")
+    File.WriteAllText(metaPath, "sentinel")
+
+    use lockedLog =
+        new FileStream(logPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None)
 
     let revision =
         SavePrep.syncDataDir
@@ -77,12 +84,10 @@ let ``Full DB sync writes amb artifacts`` () =
             (fun () -> async { return failwith "file flush should not run" })
             (fun () -> async { return failwith "file revision should not be read" })
             dataDir
-            "gambol"
         |> Async.RunSynchronously
         |> requireOk "full sync"
 
     Assert.Equal(state.revision.Value, revision)
-    Assert.True(DocumentPersistence.hasArtifactSet dataDir)
-    Assert.True(File.Exists(Path.Combine(dataDir, ".amb")))
-    Assert.False(File.Exists(Path.Combine(dataDir, "gambol.meta")))
-    Assert.False(File.Exists(Path.Combine(dataDir, "gambol.log")))
+    Assert.False(File.Exists(Path.Combine(dataDir, ".amb")))
+    Assert.Equal("sentinel", File.ReadAllText(metaPath))
+    Assert.Equal(int64 "pending".Length, lockedLog.Length)

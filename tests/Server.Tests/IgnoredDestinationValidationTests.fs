@@ -156,7 +156,7 @@ let ``DbAgent rejects ignored graph state before acceptance`` () = task {
     do! resetTestDatabase connectionString
     let dataDir = newTempDir ()
     writeIgnore dataDir "blocked.txt\n"
-    let agent = DbAgent.createWithDataDir connectionString dataDir ignore
+    let agent = DbAgent.createWithDataDir connectionString dataDir
     let body = encodeChange (Graph.create ()) Graph.rootId "blocked.txt"
     let! result = DbAgent.postChange agent body |> Async.StartAsTask
     Assert.True(Result.isError result)
