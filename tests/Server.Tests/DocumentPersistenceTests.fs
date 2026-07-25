@@ -783,14 +783,6 @@ let ``readAllDocuments duplicate id corruption returns error`` () =
         Assert.True(msg.Contains("conflicting") || msg.Contains("member"))
 
 [<Fact>]
-let ``hasArtifactSet false on empty dir true after write`` () =
-    let dataDir = newTempDir ()
-    Assert.False(DocumentPersistence.hasArtifactSet dataDir)
-    let graph, _, _, _, _ = graphWithNestedDocs ()
-    DocumentPersistence.writeAllDocuments dataDir graph |> requireOk "write" |> ignore
-    Assert.True(DocumentPersistence.hasArtifactSet dataDir)
-
-[<Fact>]
 let ``writeAllDocuments plain file writes outline without stable id syntax`` () =
     let dataDir = newTempDir ()
     let graph, _, _, fileId, normalId = graphWithNestedDocs ()

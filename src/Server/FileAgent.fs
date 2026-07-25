@@ -24,18 +24,13 @@ type FileAgent = {
 
 module FileAgent =
 
-    let create (dataDir: string) (filename: string) : FileAgent =
-        let snapshotPath = Path.Combine(dataDir, filename)
-        let metaPath = snapshotPath + ".meta"
-        let logPath = snapshotPath + ".log"
-
+    let create (dataDir: string) : FileAgent =
         let initialState =
-            match DocumentLoader.tryLoadState dataDir filename with
+            match DocumentLoader.tryLoadState dataDir with
             | Ok state -> state
             | Error msg -> failwith msg
 
-        let logStream =
-            new FileStream(logPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite)
+        let logStream = Bookkeeping.openLogStream dataDir
 
         let offsetIndex = ChangeLog.buildIndex logStream
         let state = ref initialState
@@ -61,15 +56,6 @@ module FileAgent =
         let isDuplicateSubmission (change: Change) (history: History) =
             history.past |> List.exists (fun c -> c.id = change.id && c.changeId = change.changeId)
 
-        let writeMetaRevision (rev: int) =
-            try
-                let metaTmpPath = metaPath + ".tmp"
-                File.WriteAllText(metaTmpPath, string rev)
-                File.Move(metaTmpPath, metaPath, true)
-                Ok ()
-            with ex ->
-                Error ex.Message
-
         let syncPersistChange
             (rev: int)
             (preGraph: Graph)
@@ -79,7 +65,7 @@ module FileAgent =
             match DocumentPersistence.persistGraphOps dataDir preGraph postGraph ops with
             | Error err -> Error err
             | Ok stamped ->
-                match writeMetaRevision rev with
+                match Bookkeeping.writeRevision dataDir rev with
                 | Error err -> Error err
                 | Ok () -> Ok stamped
 

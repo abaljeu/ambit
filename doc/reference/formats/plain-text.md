@@ -62,7 +62,6 @@ Fit according to [[code-shape.md]].
 
 4. Add loader/backup regression tests only if dispatch changes startup behavior.
    - Extend `tests/Server.Tests/DocumentLoaderTests.fs` if `DocumentLoader.tryLoadState` or `writeStateBackup` needs new coverage.
-   - Keep legacy monolithic `gambol` fallback behavior unchanged.
 
 5. Implement in smallest slices after tests exist:
    - Add `src/Shared/documents/PlainTextDocument.fs` for pure parse/write/reconcile helpers.

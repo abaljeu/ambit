@@ -52,7 +52,7 @@ Seed the on-disk document (first deploy or migration):
 1. Portal → your Web App → **Advanced Tools** → Go (opens Kudu)
 2. **Debug console → CMD**
 3. Navigate to `/home/data/` (server `DataDir` on Azure)
-4. Drag and drop `gambol`, `gambol.log`, `gambol.meta` from your local `data/` folder
+4. Drag and drop the `.amb` network, `gambol.log`, and `gambol.meta` from your local `data/` folder
 
 Data under `/home/data` persists across redeploys — the zip only overwrites `/home/site/wwwroot/`.
 

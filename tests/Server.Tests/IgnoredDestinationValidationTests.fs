@@ -142,7 +142,7 @@ let ``FileAgent rejects ignored graph state before acceptance`` () =
     Skip.IfNot(gitOnPath (), "git unavailable")
     let dataDir = newTempDir ()
     writeIgnore dataDir "blocked.txt\n"
-    let agent = FileAgent.create dataDir "gambol"
+    let agent = FileAgent.create dataDir
     let body = encodeChange (Graph.create ()) Graph.rootId "blocked.txt"
     let result = FileAgent.postChange agent body |> Async.RunSynchronously
     Assert.True(Result.isError result)

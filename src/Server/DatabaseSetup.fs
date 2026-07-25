@@ -40,17 +40,17 @@ module DatabaseSetup =
     let private decodeChangePayload (s: string) =
         Thoth.Json.Newtonsoft.Decode.fromString Serialization.decodeChange s
 
-    // DB agent is a single shared instance (one database, one handle name).
-    let private dbAgentCache: (string * string * DbAgent) option ref = ref None
+    // DB agent is a single shared instance (one database per dataDir).
+    let private dbAgentCache: (string * DbAgent) option ref = ref None
     let private dbAgentLock = obj ()
 
-    let getOrCreateDbAgent (connStr: string) (dataDir: string) (filename: string) : DbAgent =
+    let getOrCreateDbAgent (connStr: string) (dataDir: string) : DbAgent =
         lock dbAgentLock (fun () ->
             match !dbAgentCache with
-            | Some (dir, name, agent) when dir = dataDir && name = filename -> agent
+            | Some (dir, agent) when dir = dataDir -> agent
             | _ ->
                 let agent = DbAgent.createWithDataDir connStr dataDir
-                dbAgentCache.Value <- Some (dataDir, filename, agent)
+                dbAgentCache.Value <- Some (dataDir, agent)
                 agent
         )
 
@@ -84,18 +84,14 @@ module DatabaseSetup =
         else
             true
 
-    let private bootstrapFromFileIfEmpty
-        (connStr: string)
-        (dataDir: string)
-        (filename: string)
-        : unit =
+    let private bootstrapFromFileIfEmpty (connStr: string) (dataDir: string) : unit =
         let empty =
             Database.isEmpty connStr
             |> Async.AwaitTask
             |> Async.RunSynchronously
 
         if empty then
-            let fileState = DocumentLoader.loadState dataDir filename
+            let fileState = DocumentLoader.loadState dataDir
             Database.rebuildFromDocumentFiles connStr fileState
             |> Async.AwaitTask
             |> Async.RunSynchronously
@@ -105,13 +101,9 @@ module DatabaseSetup =
         |> Async.AwaitTask
         |> Async.RunSynchronously
 
-    let private validateAmbNetworkAgainstDb
-        (connStr: string)
-        (dataDir: string)
-        (filename: string)
-        : DbStatus =
+    let private validateAmbNetworkAgainstDb (connStr: string) (dataDir: string) : DbStatus =
         let fileState =
-            match DocumentLoader.tryLoadState dataDir filename with
+            match DocumentLoader.tryLoadState dataDir with
             | Microsoft.FSharp.Core.Ok state -> state
             | Microsoft.FSharp.Core.Error msg -> failwith msg
 
@@ -139,7 +131,6 @@ module DatabaseSetup =
             try
                 Database.initSchema connStr |> Async.AwaitTask |> Async.RunSynchronously
 
-                let filename = Filename.legacyArtifactName
                 let status =
                     if persistenceMode = PersistenceMode.File then
                         let dbEmpty =
@@ -148,16 +139,14 @@ module DatabaseSetup =
                             |> Async.RunSynchronously
 
                         if dbEmpty then
-                            bootstrapFromFileIfEmpty connStr dataDir filename
+                            bootstrapFromFileIfEmpty connStr dataDir
                             DbStatus.Ok
-                        elif DocumentPersistence.hasArtifactSet dataDir then
-                            validateAmbNetworkAgainstDb connStr dataDir filename
                         else
-                            DbStatus.Ok
+                            validateAmbNetworkAgainstDb connStr dataDir
                     else
                         DbStatus.Ok
 
-                getOrCreateDbAgent connStr dataDir filename |> ignore
+                getOrCreateDbAgent connStr dataDir |> ignore
                 status
             with ex ->
                 eprintfn "Gambol: DB connection failed - falling back to file store. %s" ex.Message

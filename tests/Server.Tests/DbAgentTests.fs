@@ -2,6 +2,7 @@ module Gambol.Server.Tests.DbAgentTests
 
 open System
 open System.IO
+open System.Threading
 open System.Threading.Tasks
 open Xunit
 open Gambol.Server
@@ -285,7 +286,6 @@ let ``rebuildFromDocumentFiles aligns DB with on-disk document`` () = task {
 
     try
         Directory.CreateDirectory(tempRoot) |> ignore
-        File.WriteAllText(Path.Combine(tempRoot, "gambol"), Snapshot.write (Graph.create ()))
         File.WriteAllText(Path.Combine(tempRoot, "gambol.meta"), "0")
         File.WriteAllText(Path.Combine(tempRoot, "gambol.log"), "")
 
@@ -307,7 +307,7 @@ let ``rebuildFromDocumentFiles aligns DB with on-disk document`` () = task {
         | Error e -> Assert.Fail($"postChange: {e}")
         | Ok _ -> ()
 
-        let fileSt = DocumentLoader.loadState tempRoot "gambol"
+        let fileSt = DocumentLoader.loadState tempRoot
         let! dbBefore = Database.loadPersistedState connStr decodeChange |> Async.AwaitTask
 
         let differs =
@@ -420,7 +420,6 @@ let ``DbAgent postChange live-saves artifacts before ack returns`` () = task {
     | Error e -> Assert.Fail($"postChange: {e}")
     | Ok _ -> ()
 
-    Assert.True(DocumentPersistence.hasArtifactSet tempRoot)
     let ambPath = Path.Combine(tempRoot, ".amb")
     Assert.True(File.Exists ambPath)
     Assert.Contains("live-save-check", File.ReadAllText ambPath)

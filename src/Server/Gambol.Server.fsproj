@@ -27,6 +27,7 @@
     <Compile Include="GitGateway.fs" />
     <Compile Include="IgnoredDestination.fs" />
     <Compile Include="DocumentPersistence.fs" />
+    <Compile Include="Bookkeeping.fs" />
     <Compile Include="DocumentLoader.fs" />
     <Compile Include="FileAgent.fs" />
     <Compile Include="Database.fs" />

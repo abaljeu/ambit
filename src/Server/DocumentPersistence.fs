@@ -601,7 +601,6 @@ module DocumentPersistence =
 
     let private shouldSkipDiscoveryFile (fileName: string) =
         Filename.isReservedSystemName fileName
-        || fileName = Filename.legacyArtifactName
         || fileName.EndsWith(".meta", StringComparison.OrdinalIgnoreCase)
         || fileName.EndsWith(".log", StringComparison.OrdinalIgnoreCase)
         || fileName.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase)
@@ -650,15 +649,6 @@ module DocumentPersistence =
                 |> Result.map List.rev
             with ex ->
                 Error ex.Message
-
-    let hasArtifactSet (dataDir: string) : bool =
-        match discoverArtifactRelatives dataDir with
-        | Error _ -> false
-        | Ok paths ->
-            paths
-            |> List.exists (fun rel ->
-                rel <> ".amb"
-                && rel.EndsWith("/.amb", StringComparison.Ordinal))
 
     let readAllDocuments (dataDir: string) : Result<Graph, string> =
         match discoverArtifactRelatives dataDir with

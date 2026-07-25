@@ -114,31 +114,25 @@ module RouteRegistration =
         (dataDir: string)
         (persistenceMode: DatabaseSetup.PersistenceMode)
         =
-        let mutable currentFileAgent: (string * FileAgent) option = None
+        let mutable currentFileAgent: FileAgent option = None
         let fileAgentLock = obj ()
-        let filename = Filename.legacyArtifactName
         let getOrCreateFileAgent () : FileAgent =
             lock fileAgentLock (fun () ->
                 match currentFileAgent with
-                | Some (name, agent) when name = filename -> agent
-                | Some (_, agent) ->
-                    FileAgent.dispose agent
-                    let newAgent = FileAgent.create dataDir filename
-                    currentFileAgent <- Some (filename, newAgent)
-                    newAgent
+                | Some agent -> agent
                 | None ->
-                    let newAgent = FileAgent.create dataDir filename
-                    currentFileAgent <- Some (filename, newAgent)
+                    let newAgent = FileAgent.create dataDir
+                    currentFileAgent <- Some newAgent
                     newAgent)
         let dbConnString = config.["DB_CONNECTION_STRING"] |> Option.ofObj |> Option.defaultValue ""
         let dbStatus = DatabaseSetup.resolveDbConnection persistenceMode dbConnString dataDir
         let getHandle () : AgentHandle =
             match persistenceMode, dbStatus with
             | DatabaseSetup.PersistenceMode.Db, DatabaseSetup.DbStatus.Ok ->
-                AgentHandle.ofDb (DatabaseSetup.getOrCreateDbAgent dbConnString dataDir filename)
+                AgentHandle.ofDb (DatabaseSetup.getOrCreateDbAgent dbConnString dataDir)
             | DatabaseSetup.PersistenceMode.File, DatabaseSetup.DbStatus.Ok ->
                 let fileAgent = getOrCreateFileAgent ()
-                let dbAgent = DatabaseSetup.getOrCreateDbAgent dbConnString dataDir filename
+                let dbAgent = DatabaseSetup.getOrCreateDbAgent dbConnString dataDir
                 AgentHandle.ofFileWithDbMirror fileAgent (Some dbAgent)
             | DatabaseSetup.PersistenceMode.Db, _ ->
                 getOrCreateFileAgent ()

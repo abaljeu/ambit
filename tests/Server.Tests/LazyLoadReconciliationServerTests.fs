@@ -121,7 +121,7 @@ let ``reconciliation failure preserves successful receive response`` () =
 [<Fact>]
 let ``server reconciler applies planner ops through active agent`` () =
     let tempDir = newTempDir ()
-    let fileAgent = FileAgent.create tempDir "gambol"
+    let fileAgent = FileAgent.create tempDir
     let handle = AgentHandle.ofFile fileAgent
     let workspaceId, ops = FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
     let change = { id = 0; changeId = Guid.NewGuid(); ops = ops }
@@ -153,7 +153,7 @@ let ``server reconciler applies planner ops through active agent`` () =
 [<Fact>]
 let ``server reconciler adds disk files outside the changed path list`` () =
     let tempDir = newTempDir ()
-    let fileAgent = FileAgent.create tempDir "gambol"
+    let fileAgent = FileAgent.create tempDir
     let handle = AgentHandle.ofFile fileAgent
     let workspaceId, ops = FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
     let change = { id = 0; changeId = Guid.NewGuid(); ops = ops }
@@ -186,7 +186,7 @@ let ``server reconciler adds disk files outside the changed path list`` () =
 [<Fact>]
 let ``server reconciler adds missing directory and file nodes from discovered paths`` () =
     let tempDir = newTempDir ()
-    let fileAgent = FileAgent.create tempDir "gambol"
+    let fileAgent = FileAgent.create tempDir
     let handle = AgentHandle.ofFile fileAgent
     let workspaceId, ops = FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
     let change = { id = 0; changeId = Guid.NewGuid(); ops = ops }
@@ -227,7 +227,7 @@ let ``server reconciler adds missing directory and file nodes from discovered pa
 [<Fact>]
 let ``post receive rename of unparsed stub is rejected without moving disk twice`` () =
     let tempDir = newTempDir ()
-    let fileAgent = FileAgent.create tempDir "gambol"
+    let fileAgent = FileAgent.create tempDir
     let handle = AgentHandle.ofFile fileAgent
     let workspaceId, ops =
         FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
@@ -289,7 +289,7 @@ let ``post receive rename of unparsed stub is rejected without moving disk twice
 [<Fact>]
 let ``server reconciler posts good sibling when one path fails`` () =
     let tempDir = newTempDir ()
-    let fileAgent = FileAgent.create tempDir "gambol"
+    let fileAgent = FileAgent.create tempDir
     let handle = AgentHandle.ofFile fileAgent
     let workspaceId, ops =
         FileNodeOps.planCreateWorkspace (Graph.create ()) "home"
@@ -401,7 +401,7 @@ let private readGraph (fileAgent: FileAgent) =
 [<Fact>]
 let ``directory reconcile discovers only under directory prefix`` () =
     let tempDir = newTempDir ()
-    let fileAgent = FileAgent.create tempDir "gambol"
+    let fileAgent = FileAgent.create tempDir
     let handle = AgentHandle.ofFile fileAgent
     let workspaceId = postWorkspace fileAgent "home"
     let graph1 = readGraph fileAgent
@@ -433,7 +433,7 @@ let ``directory reconcile discovers only under directory prefix`` () =
 [<Fact>]
 let ``workspace reconcile discovers under workspace root`` () =
     let tempDir = newTempDir ()
-    let fileAgent = FileAgent.create tempDir "gambol"
+    let fileAgent = FileAgent.create tempDir
     let handle = AgentHandle.ofFile fileAgent
     let workspaceId = postWorkspace fileAgent "home"
     let outsidePath = Path.Combine(tempDir, "home", "outside.txt")
@@ -467,7 +467,7 @@ let ``workspace reconcile discovers under workspace root`` () =
 [<Fact>]
 let ``directory reconcile does not duplicate Normal-owned present file`` () =
     let tempDir = newTempDir ()
-    let fileAgent = FileAgent.create tempDir "gambol"
+    let fileAgent = FileAgent.create tempDir
     let handle = AgentHandle.ofFile fileAgent
     let workspaceId = postWorkspace fileAgent "home"
     let graph1 = readGraph fileAgent
@@ -509,7 +509,7 @@ let ``directory reconcile does not duplicate Normal-owned present file`` () =
 [<Fact>]
 let ``directory reconcile creates missing sibling under directory`` () =
     let tempDir = newTempDir ()
-    let fileAgent = FileAgent.create tempDir "gambol"
+    let fileAgent = FileAgent.create tempDir
     let handle = AgentHandle.ofFile fileAgent
     let workspaceId = postWorkspace fileAgent "home"
     let graph1 = readGraph fileAgent
@@ -534,7 +534,7 @@ let ``directory reconcile creates missing sibling under directory`` () =
 [<Fact>]
 let ``directory reconcile with amb outline and missing file posts without ownership error`` () =
     let tempDir = newTempDir ()
-    let fileAgent = FileAgent.create tempDir "gambol"
+    let fileAgent = FileAgent.create tempDir
     let handle = AgentHandle.ofFile fileAgent
     let workspaceId = postWorkspace fileAgent "home"
     let graph1 = readGraph fileAgent
@@ -579,7 +579,7 @@ let ``directory reconcile with amb outline and missing file posts without owners
 [<Fact>]
 let ``directory reconcile returns resilient failures and posts good sibling`` () =
     let tempDir = newTempDir ()
-    let fileAgent = FileAgent.create tempDir "gambol"
+    let fileAgent = FileAgent.create tempDir
     let handle = AgentHandle.ofFile fileAgent
     let workspaceId = postWorkspace fileAgent "home"
     let graph1 = readGraph fileAgent

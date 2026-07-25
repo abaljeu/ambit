@@ -40,13 +40,15 @@ let private requireOk label result =
 let ``Git DB flush returns revision without rewriting disk`` () =
     let dataDir = newTempDir ()
     let state = stateWithRootChild "git-artifact"
-    let logPath = Path.Combine(dataDir, "gambol.log")
-    let metaPath = Path.Combine(dataDir, "gambol.meta")
-    File.WriteAllText(logPath, "pending")
-    File.WriteAllText(metaPath, "sentinel")
+    File.WriteAllText(Bookkeeping.logPath dataDir, "pending")
+    File.WriteAllText(Bookkeeping.metaPath dataDir, "sentinel")
 
     use lockedLog =
-        new FileStream(logPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None)
+        new FileStream(
+            Bookkeeping.logPath dataDir,
+            FileMode.Open,
+            FileAccess.ReadWrite,
+            FileShare.None)
 
     let revision =
         SavePrep.syncGitArtifacts
@@ -61,20 +63,22 @@ let ``Git DB flush returns revision without rewriting disk`` () =
 
     Assert.Equal(state.revision.Value, revision)
     Assert.False(File.Exists(Path.Combine(dataDir, ".amb")))
-    Assert.Equal("sentinel", File.ReadAllText(metaPath))
+    Assert.Equal("sentinel", File.ReadAllText(Bookkeeping.metaPath dataDir))
     Assert.Equal(int64 "pending".Length, lockedLog.Length)
 
 [<Fact>]
 let ``Full DB sync returns revision without rewriting disk`` () =
     let dataDir = newTempDir ()
     let state = stateWithRootChild "full-backup"
-    let logPath = Path.Combine(dataDir, "gambol.log")
-    let metaPath = Path.Combine(dataDir, "gambol.meta")
-    File.WriteAllText(logPath, "pending")
-    File.WriteAllText(metaPath, "sentinel")
+    File.WriteAllText(Bookkeeping.logPath dataDir, "pending")
+    File.WriteAllText(Bookkeeping.metaPath dataDir, "sentinel")
 
     use lockedLog =
-        new FileStream(logPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None)
+        new FileStream(
+            Bookkeeping.logPath dataDir,
+            FileMode.Open,
+            FileAccess.ReadWrite,
+            FileShare.None)
 
     let revision =
         SavePrep.syncDataDir
@@ -89,5 +93,5 @@ let ``Full DB sync returns revision without rewriting disk`` () =
 
     Assert.Equal(state.revision.Value, revision)
     Assert.False(File.Exists(Path.Combine(dataDir, ".amb")))
-    Assert.Equal("sentinel", File.ReadAllText(metaPath))
+    Assert.Equal("sentinel", File.ReadAllText(Bookkeeping.metaPath dataDir))
     Assert.Equal(int64 "pending".Length, lockedLog.Length)

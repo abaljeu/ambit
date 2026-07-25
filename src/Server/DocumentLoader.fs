@@ -1,38 +1,26 @@
 namespace Gambol.Server
 
-open System.IO
 open Gambol.Shared
 
 /// Load canonical document state from disk (same semantics as `FileAgent` startup).
 [<RequireQualifiedAccess>]
 module DocumentLoader =
 
-    let private loadGraphFromDisk (dataDir: string) (snapshotPath: string) : Result<Graph, string> =
-        if DocumentPersistence.hasArtifactSet dataDir then
-            DocumentPersistence.readAllDocuments dataDir
-        else
-            let graph =
-                if File.Exists(snapshotPath) then
-                    Snapshot.read (File.ReadAllText(snapshotPath))
-                else
-                    Graph.create ()
-            Ok graph
+    let private loadGraphFromDisk (dataDir: string) : Result<Graph, string> =
+        DocumentPersistence.readAllDocuments dataDir
 
-    let private stateFromGraph (graph: Graph) : State =
+    let private stateFromGraph (dataDir: string) (graph: Graph) : State =
         { graph = graph
           history = History.empty
-          revision = Revision 0 }
+          revision = Bookkeeping.readRevision dataDir }
 
-    /// Read `.amb` network or legacy snapshot (materializing `.amb` when needed).
-    let tryLoadState (dataDir: string) (filename: string) : Result<State, string> =
-        let snapshotPath = Path.Combine(dataDir, filename)
-
-        match loadGraphFromDisk dataDir snapshotPath with
-        | Error msg -> Error msg
-        | Ok initialGraph -> Ok (stateFromGraph initialGraph)
+    /// Read `.amb` network from disk (empty graph when no artifacts exist).
+    let tryLoadState (dataDir: string) : Result<State, string> =
+        loadGraphFromDisk dataDir
+        |> Result.map (stateFromGraph dataDir)
 
     /// Fail-fast wrapper around `tryLoadState`.
-    let loadState (dataDir: string) (filename: string) : State =
-        match tryLoadState dataDir filename with
+    let loadState (dataDir: string) : State =
+        match tryLoadState dataDir with
         | Ok state -> state
         | Error msg -> failwith msg
