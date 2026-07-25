@@ -35,7 +35,7 @@ module ImportDocument =
         DocumentParseLimits.refuseText text
         |> Result.bind (fun () ->
             if String.IsNullOrWhiteSpace text then
-                Error "import text is empty"
+                Error "cold import parser: text is empty"
             else
                 DocumentBinary.refuseParse relativePath text
                 |> Result.bind (fun () ->
@@ -52,7 +52,7 @@ module ImportDocument =
                             DocumentColdParse.peelDocumentRootOps documentRootId ops
 
                         if List.isEmpty topLevelIds && List.isEmpty ops then
-                            Error "import text is empty"
+                            Error "cold import parser: produced no nodes"
                         else
                             Ok
                                 { sourcePath = sourcePath
@@ -97,44 +97,41 @@ module ImportDocument =
         : Result<Op list, string> =
         DocumentParseLimits.refuseText text
         |> Result.bind (fun () ->
-            if String.IsNullOrWhiteSpace text then
-                Error "import text is empty"
-            else
-                match Map.tryFind fileId graph.nodes with
-                | Some { kind = Special File; documentState = NoServerFile } ->
-                    Error "no file on server"
-                | Some { kind = Special File; documentState = state } ->
-                    match DocumentPartition.artifactFileRelative graph fileId with
-                    | None -> Error "no artifact path for file"
-                    | Some relativePath ->
-                        DocumentBinary.refuseParse relativePath text
-                        |> Result.bind (fun () ->
-                            let previousText =
+            match Map.tryFind fileId graph.nodes with
+            | Some { kind = Special File; documentState = NoServerFile } ->
+                Error "no file on server"
+            | Some { kind = Special File; documentState = state } ->
+                match DocumentPartition.artifactFileRelative graph fileId with
+                | None -> Error "no artifact path for file"
+                | Some relativePath ->
+                    DocumentBinary.refuseParse relativePath text
+                    |> Result.bind (fun () ->
+                        let previousText =
+                            match state with
+                            | Current ->
+                                previousArtifactText graph fileId relativePath
+                            | Unparsed -> None
+                            | NoServerFile -> None
+
+                        DocumentParseOps.planApplyArtifact
+                            graph
+                            fileId
+                            relativePath
+                            text
+                            previousText
+                        |> Result.map (fun parseOps ->
+                            let markCurrent =
                                 match state with
-                                | Current ->
-                                    previousArtifactText graph fileId relativePath
-                                | Unparsed -> None
-                                | NoServerFile -> None
+                                | Unparsed ->
+                                    [ Op.SetDocumentState(
+                                        fileId,
+                                        Unparsed,
+                                        Current) ]
+                                | Current -> []
+                                | NoServerFile -> []
 
-                            DocumentParseOps.planApplyArtifact
-                                graph
-                                fileId
-                                relativePath
-                                text
-                                previousText
-                            |> Result.map (fun parseOps ->
-                                let markCurrent =
-                                    match state with
-                                    | Unparsed ->
-                                        [ Op.SetDocumentState(
-                                            fileId,
-                                            Unparsed,
-                                            Current) ]
-                                    | Current -> []
-                                    | NoServerFile -> []
-
-                                markCurrent @ parseOps))
-                | _ -> Error "file not found or not a File document")
+                            markCurrent @ parseOps))
+            | _ -> Error "file not found or not a File document")
 
     /// Warm reconcile package (legacy shape). Prefer planParseFile for apply.
     let buildReconcilePackage

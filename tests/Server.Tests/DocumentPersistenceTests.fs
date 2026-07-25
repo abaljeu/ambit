@@ -452,18 +452,30 @@ let ``planParseFile refuses oversized body before writing artifact`` () =
     | Ok _ -> Assert.Fail("expected oversized parse to fail")
 
 [<Fact>]
-let ``planParseFile refuses blank body before overwriting artifact`` () =
+let ``planParseFile blank body overwrites artifact and returns ops`` () =
     let dataDir = newTempDir ()
     let graph, _, _, fileId, _ = graphWithNestedDocs ()
     let diskPath = Path.Combine(dataDir, "home", "docs", "readme.txt")
     Directory.CreateDirectory(Path.GetDirectoryName diskPath) |> ignore
     File.WriteAllText(diskPath, "EXISTING")
 
-    match DocumentPersistence.planParseFile dataDir graph fileId (Some " \r\n\t") with
-    | Error msg ->
-        Assert.Equal("import text is empty", msg)
-        Assert.Equal("EXISTING", File.ReadAllText diskPath)
-    | Ok _ -> Assert.Fail("expected blank parse to fail")
+    DocumentPersistence.planParseFile dataDir graph fileId (Some " \r\n\t")
+    |> requireOk "blank body parse"
+    |> ignore
+
+    Assert.Equal(" \r\n\t", File.ReadAllText diskPath)
+
+[<Fact>]
+let ``planParseFile blank DataDir artifact without request text succeeds`` () =
+    let dataDir = newTempDir ()
+    let graph, _, _, fileId, _ = graphWithNestedDocs ()
+    let diskPath = Path.Combine(dataDir, "home", "docs", "readme.txt")
+    Directory.CreateDirectory(Path.GetDirectoryName diskPath) |> ignore
+    File.WriteAllText(diskPath, " \r\n\t")
+
+    DocumentPersistence.planParseFile dataDir graph fileId None
+    |> requireOk "blank artifact parse"
+    |> ignore
 
 [<Fact>]
 let ``planParseFile DataDir warm keeps line NodeId on text edit`` () =

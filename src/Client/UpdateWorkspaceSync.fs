@@ -524,6 +524,12 @@ let uploadCreateWorkspaceOp (model: VM) : VM * Effect list =
                         keepUploading model',
                         [ Effect.ContinueWorkspaceStubsThenPush (scope, None) ]
 
+let private queueUploadRequest (model: VM) : VM * Effect list =
+    okDetail
+        { model with
+            syncInfo = SyncInfo.queueRequest QueuedUpload model.syncInfo }
+        (WorkspaceUpload.queueBlockedDetail model.syncInfo)
+
 /// Upload: desktop push when mapped; else graph-only from DataDir (web).
 let uploadOp (model: VM) : VM * Effect list =
     let canPush =
@@ -537,22 +543,24 @@ let uploadOp (model: VM) : VM * Effect list =
             startWorkspacePush scope parseFileId model
         | Ok scope ->
             queueWorkspacePush scope parseFileId model
-    | _ when not (WorkspaceUpload.canStart model.syncInfo) ->
-        // Non-desktop Upload needs a settled revision too.
-        okDetail
-            { model with
-                syncInfo = SyncInfo.queueRequest QueuedUpload model.syncInfo }
-            "upload queued behind pending changes"
-    | WorkspaceUploadAction.CreateWorkspaceFromFolder ->
+    | WorkspaceUploadAction.CreateWorkspaceFromFolder when
+        WorkspaceUpload.canStart model.syncInfo ->
         uploadCreateWorkspaceOp model
-    | WorkspaceUploadAction.ReconcileServerDisk ->
+    | WorkspaceUploadAction.CreateWorkspaceFromFolder ->
+        queueUploadRequest model
+    | WorkspaceUploadAction.ReconcileServerDisk when
+        WorkspaceUpload.canStartWeb model.syncInfo ->
         match syncScopeFromFocus model with
         | Error msg -> fail model msg
         | Ok scope ->
             postDirectoryReconcile model scope.label scope.relative
             |> withPathSyncRefresh
-    | WorkspaceUploadAction.ParseServerDisk fileId ->
+    | WorkspaceUploadAction.ParseServerDisk fileId when
+        WorkspaceUpload.canStartWeb model.syncInfo ->
         parseFileOp fileId model
+    | WorkspaceUploadAction.ReconcileServerDisk
+    | WorkspaceUploadAction.ParseServerDisk _ ->
+        queueUploadRequest model
     | WorkspaceUploadAction.Unavailable msg ->
         withResult
             model

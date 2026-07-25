@@ -28,6 +28,6 @@ module DocumentParseLimits =
 
     let refuseEmptyText (text: string) : Result<unit, string> =
         if System.String.IsNullOrWhiteSpace text then
-            Error "import text is empty"
+            Error "parse limits: text is empty"
         else
             Ok ()

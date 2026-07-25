@@ -18,9 +18,28 @@ type WorkspaceUploadAction =
 [<RequireQualifiedAccess>]
 module WorkspaceUpload =
 
-    /// A multi-phase Upload must start from an authoritative, settled revision.
+    /// Desktop multi-phase Upload must start from Idle with no pending ops.
     let canStart (syncInfo: SyncInfo) =
         syncInfo.syncState = Idle && syncInfo.pendingChanges.IsEmpty
+
+    /// Web parse/reconcile: empty pending is enough; Polling must not block.
+    let canStartWeb (syncInfo: SyncInfo) =
+        syncInfo.pendingChanges.IsEmpty
+        && match syncInfo.syncState with
+           | Idle | Polling -> true
+           | _ -> false
+
+    /// Detail when Upload is parked; distinguish pending ops from sync busy.
+    let queueBlockedDetail (syncInfo: SyncInfo) =
+        if not syncInfo.pendingChanges.IsEmpty then
+            "upload queued behind pending changes"
+        else
+            match syncInfo.syncState with
+            | Polling -> "upload queued until poll completes"
+            | Sending _ -> "upload queued until submit completes"
+            | Uploading -> "upload queued until current upload completes"
+            | WaitingToRetry _ -> "upload queued until retry completes"
+            | _ -> "upload queued until sync settles"
 
     /// Keep parse/materialization requests from one Upload strictly ordered.
     let sequenceParseEffects (effects: Effect list) =

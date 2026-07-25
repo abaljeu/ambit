@@ -26,7 +26,7 @@ module ImportText =
                   topLevelIds = topLevelIds
                   ops = ops }
         else
-            Error "import text is empty"
+            Error "directory import parser: text is empty"
 
     let parseFirstFileReference (text: string) : FileReference =
         FileReference.parseFirst text

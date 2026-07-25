@@ -196,7 +196,7 @@ let ``buildFilePackage md heading applies md-head and md-list classes`` () =
 let ``buildFilePackage rejects blank input`` () =
     match ImportDocument.buildFilePackage "//life/empty.md" "  \n" with
     | Ok _ -> failwith "expected blank import to fail"
-    | Error err -> Assert.Equal("import text is empty", err)
+    | Error err -> Assert.Equal("cold import parser: text is empty", err)
 
 [<Fact>]
 let ``buildFilePackage rejects oversized text before graph materialization`` () =
@@ -338,7 +338,7 @@ let ``planParseFile plain keeps id on line text edit`` () =
     Assert.Equal(Current, after.nodes.[fileId].documentState)
 
 [<Fact>]
-let ``planParseFile rejects blank input`` () =
+let ``planParseFile blank input marks Unparsed file Current`` () =
     let graph0 = Graph.create ()
     let fileId = NodeId.New()
     let file =
@@ -348,16 +348,31 @@ let ``planParseFile rejects blank input`` () =
             name = Filename.create "readme.txt",
             owner = graph0.root,
             kind = Special File,
-            documentState = Current)
+            documentState = Unparsed)
 
     let graph =
         graph0.nodes
         |> Map.add fileId file
         |> fun nodes -> Graph.fromNodes graph0.root nodes
 
-    match ImportDocument.planParseFile graph fileId "  \n" with
-    | Ok _ -> failwith "expected blank parse to fail"
-    | Error err -> Assert.Equal("import text is empty", err)
+    let ops =
+        ImportDocument.planParseFile graph fileId "  \n"
+        |> requireOk "planParseFile blank"
+
+    Assert.True(
+        ops
+        |> List.exists (function
+            | Op.SetDocumentState(id, Unparsed, Current) when id = fileId ->
+                true
+            | _ -> false))
+
+    let after = applyChange graph {
+        id = 1
+        changeId = Guid.NewGuid()
+        ops = ops
+    }
+
+    Assert.Equal(Current, after.nodes.[fileId].documentState)
 
 [<Fact>]
 let ``planParseFile rejects binary image extension`` () =

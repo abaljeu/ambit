@@ -225,8 +225,6 @@ module DocumentPersistence =
                     | Some text ->
                         DocumentParseLimits.refuseText text
                         |> Result.bind (fun () ->
-                            DocumentParseLimits.refuseEmptyText text)
-                        |> Result.bind (fun () ->
                             DocumentBinary.refuseParse relativePath text)
                         |> Result.bind (fun () ->
                             writeArtifactText dataDir graph fileId text
@@ -237,7 +235,9 @@ module DocumentPersistence =
                         else
                             readFileTextAtRelative dataDir relativePath
                             |> Result.bind (fun text ->
-                                DocumentBinary.refuseParse relativePath text
+                                DocumentParseLimits.refuseText text
+                                |> Result.bind (fun () ->
+                                    DocumentBinary.refuseParse relativePath text)
                                 |> Result.map (fun () -> text))
 
                 textResult

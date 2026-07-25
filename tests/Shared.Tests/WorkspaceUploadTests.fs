@@ -73,6 +73,53 @@ let ``Upload cannot start from revision 14706 while its prior submit is in fligh
     Assert.True(WorkspaceUpload.canStart SyncInfo.initial)
 
 [<Fact>]
+let ``canStart is true only when Idle with empty pending`` () =
+    Assert.True(WorkspaceUpload.canStart SyncInfo.initial)
+    Assert.False(
+        WorkspaceUpload.canStart
+            { SyncInfo.initial with syncState = Polling })
+    Assert.False(
+        WorkspaceUpload.canStart
+            { SyncInfo.initial with
+                pendingChanges =
+                    [ { id = 1
+                        changeId = System.Guid.NewGuid()
+                        ops = [] } ] })
+
+[<Fact>]
+let ``canStartWeb allows Polling when pending is empty`` () =
+    Assert.True(WorkspaceUpload.canStartWeb SyncInfo.initial)
+    Assert.True(
+        WorkspaceUpload.canStartWeb
+            { SyncInfo.initial with syncState = Polling })
+    Assert.False(
+        WorkspaceUpload.canStartWeb
+            { SyncInfo.initial with syncState = Sending 1 })
+    Assert.False(
+        WorkspaceUpload.canStartWeb
+            { SyncInfo.initial with
+                syncState = Polling
+                pendingChanges =
+                    [ { id = 1
+                        changeId = System.Guid.NewGuid()
+                        ops = [] } ] })
+
+[<Fact>]
+let ``queueBlockedDetail distinguishes pending from poll`` () =
+    Assert.Equal(
+        "upload queued until poll completes",
+        WorkspaceUpload.queueBlockedDetail
+            { SyncInfo.initial with syncState = Polling })
+    Assert.Equal(
+        "upload queued behind pending changes",
+        WorkspaceUpload.queueBlockedDetail
+            { SyncInfo.initial with
+                pendingChanges =
+                    [ { id = 1
+                        changeId = System.Guid.NewGuid()
+                        ops = [] } ] })
+
+[<Fact>]
 let ``one Upload sequences all parse phases instead of racing revision 14706`` () =
     let request id =
         Effect.ContinueParseFile(id, None, "parsed: ", "file.md")

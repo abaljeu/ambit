@@ -62,7 +62,7 @@ let ``buildPackage imports tab-indented child`` () =
 let ``buildPackage rejects blank input`` () =
     match ImportText.buildPackage "blank.txt" "\r\n  \n" with
     | Ok _ -> failwith "Expected blank import to fail"
-    | Error err -> Assert.Equal("import text is empty", err)
+    | Error err -> Assert.Equal("directory import parser: text is empty", err)
 
 [<Fact>]
 let ``parseFirstFileReference extracts first trimmed reference`` () =

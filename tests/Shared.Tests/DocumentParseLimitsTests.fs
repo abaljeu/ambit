@@ -18,7 +18,7 @@ let ``parse text accepts exactly 50000 ASCII code units`` () =
 [<Fact>]
 let ``parse text rejects blank import input`` () =
     Assert.Equal(
-        Error "import text is empty",
+        Error "parse limits: text is empty",
         DocumentParseLimits.refuseEmptyText " \r\n\t")
 
 [<Fact>]
