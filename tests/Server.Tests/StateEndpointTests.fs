@@ -437,7 +437,7 @@ let ``Snapshot writes amb artifacts asynchronously after change`` () = task {
 }
 
 [<Fact>]
-let ``DB mode backup helper writes amb meta and empty log`` () =
+let ``DB mode backup helper writes amb artifacts`` () =
     let tempDir = newTempDir ()
     let state = stateWithChild "db-backup"
 
@@ -447,8 +447,8 @@ let ``DB mode backup helper writes amb meta and empty log`` () =
     Assert.True(File.Exists(Path.Combine(tempDir, ".amb")))
     let ambText = File.ReadAllText(Path.Combine(tempDir, ".amb"))
     Assert.Contains("db-backup", ambText)
-    Assert.Equal("1", File.ReadAllText(Path.Combine(tempDir, testFile + ".meta")))
-    Assert.Equal("", File.ReadAllText(Path.Combine(tempDir, testFile + ".log")))
+    Assert.False(File.Exists(Path.Combine(tempDir, testFile + ".meta")))
+    Assert.False(File.Exists(Path.Combine(tempDir, testFile + ".log")))
 
 [<Fact>]
 let ``Log contains valid change data after POST`` () = task {

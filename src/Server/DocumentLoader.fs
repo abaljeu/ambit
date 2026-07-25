@@ -26,36 +26,6 @@ module DocumentLoader =
             if excess > 0 then
                 backups |> List.take excess |> List.iter File.Delete
 
-    /// Replay log entries from `startEntryIndex` through end of index (inclusive range).
-    let replayLogFromIndex
-        (logStream: FileStream)
-        (offsetIndex: int64 ResizeArray)
-        (startEntryIndex: int)
-        (initial: State)
-        : State =
-        if offsetIndex.Count = 0 || startEntryIndex > offsetIndex.Count - 1 then
-            initial
-        else
-            [ startEntryIndex .. offsetIndex.Count - 1 ]
-            |> List.fold
-                (fun st i ->
-                    let _, json = ChangeLog.readEntryAt logStream offsetIndex.[i]
-
-                    match ChangeLog.decodeChange json with
-                    | Error _ -> st
-                    | Ok change ->
-                        match History.applyChange change st with
-                        | ApplyResult.Changed newState ->
-                            { newState with revision = Revision (st.revision.Value + 1) }
-                        | _ -> st)
-                initial
-
-    let private readMetaRevision (metaPath: string) : Revision =
-        if File.Exists(metaPath) then
-            Revision(System.Int32.Parse(File.ReadAllText(metaPath).Trim()))
-        else
-            Revision 0
-
     let private loadGraphFromDisk (dataDir: string) (snapshotPath: string) : Result<Graph, string> =
         if DocumentPersistence.hasArtifactSet dataDir then
             DocumentPersistence.readAllDocuments dataDir
@@ -67,26 +37,14 @@ module DocumentLoader =
                     Graph.create ()
             Ok graph
 
-    let private replayFromMetaAndLog (metaPath: string) (logPath: string) (initialGraph: Graph) : State =
-        let initialRevision = readMetaRevision metaPath
+    let private stateFromGraph (graph: Graph) : State =
+        { graph = graph
+          history = History.empty
+          revision = Revision 0 }
 
-        use logStream =
-            new FileStream(logPath, FileMode.OpenOrCreate, FileAccess.Read, FileShare.ReadWrite)
-
-        let offsetIndex = ChangeLog.buildIndex logStream
-
-        let st0 =
-            { graph = initialGraph
-              history = History.empty
-              revision = initialRevision }
-
-        replayLogFromIndex logStream offsetIndex initialRevision.Value st0
-
-    /// Read `.amb` network or legacy snapshot + meta + replay `.log`.
+    /// Read `.amb` network or legacy snapshot (materializing `.amb` when needed).
     let tryLoadState (dataDir: string) (filename: string) : Result<State, string> =
         let snapshotPath = Path.Combine(dataDir, filename)
-        let metaPath = snapshotPath + ".meta"
-        let logPath = snapshotPath + ".log"
         let hadArtifacts = DocumentPersistence.hasArtifactSet dataDir
 
         if not hadArtifacts && File.Exists(snapshotPath) then
@@ -95,14 +53,12 @@ module DocumentLoader =
         match loadGraphFromDisk dataDir snapshotPath with
         | Error msg -> Error msg
         | Ok initialGraph ->
-            let afterReplay = replayFromMetaAndLog metaPath logPath initialGraph
-
             if hadArtifacts then
-                Ok afterReplay
+                Ok (stateFromGraph initialGraph)
             else
-                match DocumentPersistence.writeAllDocuments dataDir afterReplay.graph with
+                match DocumentPersistence.writeAllDocuments dataDir initialGraph with
                 | Error msg -> Error msg
-                | Ok stamped -> Ok { afterReplay with graph = stamped }
+                | Ok stamped -> Ok (stateFromGraph stamped)
 
     /// Fail-fast wrapper around `tryLoadState`.
     let loadState (dataDir: string) (filename: string) : State =
@@ -111,15 +67,8 @@ module DocumentLoader =
         | Error msg -> failwith msg
 
     /// Write a file-format backup from DB state without reading existing document files.
-    let writeStateBackup (dataDir: string) (filename: string) (state: State) : unit =
+    let writeStateBackup (dataDir: string) (_filename: string) (state: State) : unit =
         Directory.CreateDirectory(dataDir) |> ignore
-        let snapshotPath = Path.Combine(dataDir, filename)
-        let metaPath = snapshotPath + ".meta"
-        let logPath = snapshotPath + ".log"
-
         match DocumentPersistence.writeAllDocuments dataDir state.graph with
         | Error msg -> failwith msg
         | Ok _ -> ()
-
-        File.WriteAllText(metaPath, string state.revision.Value)
-        File.WriteAllText(logPath, "")

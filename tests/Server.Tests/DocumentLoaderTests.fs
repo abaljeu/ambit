@@ -15,16 +15,14 @@ let private requireOk label r =
     | Ok v -> v
     | Error e -> failwith $"{label}: {e}"
 
-let private writeLegacyFiles (dataDir: string) (graph: Graph) (revision: int) (logText: string) =
+let private writeLegacyFiles (dataDir: string) (graph: Graph) =
     let snapshotPath = Path.Combine(dataDir, testFile)
     File.WriteAllText(snapshotPath, Snapshot.write graph)
-    File.WriteAllText(snapshotPath + ".meta", string revision)
-    File.WriteAllText(snapshotPath + ".log", logText)
 
 let private writeAmbFiles (dataDir: string) (state: State) =
-    DocumentPersistence.writeAllDocuments dataDir state.graph |> requireOk "writeAllDocuments" |> ignore
-    File.WriteAllText(Path.Combine(dataDir, testFile + ".meta"), string state.revision.Value)
-    File.WriteAllText(Path.Combine(dataDir, testFile + ".log"), "")
+    DocumentPersistence.writeAllDocuments dataDir state.graph
+    |> requireOk "writeAllDocuments"
+    |> ignore
 
 let private stateWithRootChild (text: string) : State =
     let childId = NodeId.New()
@@ -48,12 +46,12 @@ let private stateWithRootChild (text: string) : State =
 let ``tryLoadState legacy gambol materializes amb artifacts`` () =
     let dataDir = newTempDir ()
     let state = stateWithRootChild "legacy-child"
-    writeLegacyFiles dataDir state.graph state.revision.Value ""
+    writeLegacyFiles dataDir state.graph
     Assert.False(DocumentPersistence.hasArtifactSet dataDir)
     let loaded = DocumentLoader.tryLoadState dataDir testFile |> requireOk "load"
     Assert.True(DocumentPersistence.hasArtifactSet dataDir)
     Assert.True(File.Exists(Path.Combine(dataDir, ".amb")))
-    Assert.Equal(state.revision.Value, loaded.revision.Value)
+    Assert.Equal(0, loaded.revision.Value)
     let outline =
         Snapshot.normalizeOutlineForCompare (Snapshot.write state.graph)
     let loadedOutline =
@@ -61,35 +59,20 @@ let ``tryLoadState legacy gambol materializes amb artifacts`` () =
     Assert.Equal(outline, loadedOutline)
 
 [<Fact>]
-let ``tryLoadState reads amb network and replays log`` () =
+let ``tryLoadState reads amb network`` () =
     let dataDir = newTempDir ()
-    let baseState =
-        { graph = Graph.create ()
-          history = History.empty
-          revision = Revision 0 }
-    writeAmbFiles dataDir baseState
-    let childId = NodeId.New()
-    let change =
-        { id = 0
-          changeId = Guid.NewGuid()
-          ops =
-            [ Op.NewNode(childId, "logged-child")
-              Op.Replace(Graph.rootId, 0, [], [ { ref = Ownership.Owner; id = childId } ]) ] }
-
-    let logPath = Path.Combine(dataDir, testFile + ".log")
-    let line = sprintf "%08d%s%s" change.id (ChangeLog.encodeChange change) Environment.NewLine
-    File.AppendAllText(logPath, line)
-
+    let state = stateWithRootChild "from-amb"
+    writeAmbFiles dataDir state
     let loaded = DocumentLoader.tryLoadState dataDir testFile |> requireOk "load"
-    Assert.Equal(1, loaded.revision.Value)
-    Assert.True(loaded.graph.nodes.Values |> Seq.exists (fun n -> n.text = "logged-child"))
+    Assert.Equal(0, loaded.revision.Value)
+    Assert.True(loaded.graph.nodes.Values |> Seq.exists (fun n -> n.text = "from-amb"))
 
 [<Fact>]
 let ``tryLoadState missing amb ref creates stub without legacy fallback`` () =
     let dataDir = newTempDir ()
     let state = stateWithRootChild "good"
     writeAmbFiles dataDir state
-    writeLegacyFiles dataDir (Graph.create ()) 0 ""
+    writeLegacyFiles dataDir (Graph.create ())
     let missingId = NodeId.New()
     let ambPath = Path.Combine(dataDir, ".amb")
     let missingRef = "-> ^" + AmbDocument.formatStableId missingId + Environment.NewLine
@@ -106,7 +89,7 @@ let ``tryLoadState amb takes precedence over stale monolithic gambol`` () =
     let stale = Graph.create ()
     File.WriteAllText(Path.Combine(dataDir, testFile), Snapshot.write stale)
     let loaded = DocumentLoader.tryLoadState dataDir testFile |> requireOk "load"
-    Assert.Equal(ambState.revision.Value, loaded.revision.Value)
+    Assert.Equal(0, loaded.revision.Value)
     let expected =
         Snapshot.normalizeOutlineForCompare (Snapshot.write ambState.graph)
     let actual =
@@ -114,14 +97,14 @@ let ``tryLoadState amb takes precedence over stale monolithic gambol`` () =
     Assert.Equal(expected, actual)
 
 [<Fact>]
-let ``writeStateBackup emits amb meta and empty log`` () =
+let ``writeStateBackup emits amb artifacts`` () =
     let dataDir = newTempDir ()
     let state = stateWithRootChild "db-backup"
     DocumentLoader.writeStateBackup dataDir testFile state
     Assert.True(DocumentPersistence.hasArtifactSet dataDir)
     Assert.True(File.Exists(Path.Combine(dataDir, ".amb")))
-    Assert.Equal(string state.revision.Value, File.ReadAllText(Path.Combine(dataDir, testFile + ".meta")).Trim())
-    Assert.Equal("", File.ReadAllText(Path.Combine(dataDir, testFile + ".log")))
+    Assert.False(File.Exists(Path.Combine(dataDir, testFile + ".meta")))
+    Assert.False(File.Exists(Path.Combine(dataDir, testFile + ".log")))
 
 [<Fact>]
 let ``resolveDbConnection file mode matching amb network returns Ok`` () = task {
@@ -131,7 +114,8 @@ let ``resolveDbConnection file mode matching amb network returns Ok`` () = task 
     DatabaseSetup.resetAgentCacheForTest ()
     let state = stateWithRootChild "aligned"
     writeAmbFiles dataDir state
-    do! Database.rebuildFromDocumentFiles connStr state |> Async.AwaitTask
+    do! Database.rebuildFromDocumentFiles connStr { state with revision = Revision 0 }
+        |> Async.AwaitTask
     let status = DatabaseSetup.resolveDbConnection DatabaseSetup.PersistenceMode.File connStr dataDir
     Assert.Equal(DatabaseSetup.DbStatus.Ok, status)
 }
@@ -161,7 +145,7 @@ let ``resolveDbConnection legacy gambol only skips compare when db nonempty`` ()
     DatabaseSetup.resetAgentCacheForTest ()
     let dbState = stateWithRootChild "db-only"
     do! Database.rebuildFromDocumentFiles connStr dbState |> Async.AwaitTask
-    writeLegacyFiles dataDir (Graph.create ()) 0 ""
+    writeLegacyFiles dataDir (Graph.create ())
     let status = DatabaseSetup.resolveDbConnection DatabaseSetup.PersistenceMode.File connStr dataDir
     Assert.Equal(DatabaseSetup.DbStatus.Ok, status)
     let! dbAfter = Database.loadPersistedState connStr decodeChange |> Async.AwaitTask

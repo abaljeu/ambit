@@ -65,13 +65,9 @@ let ``Git DB flush returns revision without rewriting disk`` () =
     Assert.Equal(int64 "pending".Length, lockedLog.Length)
 
 [<Fact>]
-let ``Full DB sync still updates meta and clears log`` () =
+let ``Full DB sync writes amb artifacts`` () =
     let dataDir = newTempDir ()
     let state = stateWithRootChild "full-backup"
-    let logPath = Path.Combine(dataDir, "gambol.log")
-    let metaPath = Path.Combine(dataDir, "gambol.meta")
-    File.WriteAllText(logPath, "pending")
-    File.WriteAllText(metaPath, "stale")
 
     let revision =
         SavePrep.syncDataDir
@@ -86,5 +82,7 @@ let ``Full DB sync still updates meta and clears log`` () =
         |> requireOk "full sync"
 
     Assert.Equal(state.revision.Value, revision)
-    Assert.Equal(string state.revision.Value, File.ReadAllText(metaPath))
-    Assert.Equal("", File.ReadAllText(logPath))
+    Assert.True(DocumentPersistence.hasArtifactSet dataDir)
+    Assert.True(File.Exists(Path.Combine(dataDir, ".amb")))
+    Assert.False(File.Exists(Path.Combine(dataDir, "gambol.meta")))
+    Assert.False(File.Exists(Path.Combine(dataDir, "gambol.log")))
