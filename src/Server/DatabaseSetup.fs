@@ -139,6 +139,7 @@ module DatabaseSetup =
             try
                 Database.initSchema connStr |> Async.AwaitTask |> Async.RunSynchronously
 
+                let filename = Filename.legacyArtifactName
                 let status =
                     if persistenceMode = PersistenceMode.File then
                         let dbEmpty =
@@ -147,16 +148,16 @@ module DatabaseSetup =
                             |> Async.RunSynchronously
 
                         if dbEmpty then
-                            bootstrapFromFileIfEmpty connStr dataDir "gambol"
+                            bootstrapFromFileIfEmpty connStr dataDir filename
                             DbStatus.Ok
                         elif DocumentPersistence.hasArtifactSet dataDir then
-                            validateAmbNetworkAgainstDb connStr dataDir "gambol"
+                            validateAmbNetworkAgainstDb connStr dataDir filename
                         else
                             DbStatus.Ok
                     else
                         DbStatus.Ok
 
-                getOrCreateDbAgent connStr dataDir "gambol" |> ignore
+                getOrCreateDbAgent connStr dataDir filename |> ignore
                 status
             with ex ->
                 eprintfn "Gambol: DB connection failed - falling back to file store. %s" ex.Message

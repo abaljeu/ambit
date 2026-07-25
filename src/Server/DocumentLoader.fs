@@ -7,25 +7,6 @@ open Gambol.Shared
 [<RequireQualifiedAccess>]
 module DocumentLoader =
 
-    /// Daily `.bak.yyyyMMdd` copy and prune (same policy as `FileAgent`).
-    let ensureSnapshotBackup (snapshotPath: string) =
-        if File.Exists(snapshotPath) then
-            let dateStamp = System.DateTime.Today.ToString("yyyyMMdd")
-            let backupPath = snapshotPath + ".bak." + dateStamp
-            if not (File.Exists(backupPath)) then
-                File.Copy(snapshotPath, backupPath)
-            let dir = Path.GetDirectoryName(snapshotPath)
-            let prefix = Path.GetFileName(snapshotPath) + ".bak."
-
-            let backups =
-                Directory.GetFiles(dir, prefix + "*")
-                |> Array.sort
-                |> Array.toList
-
-            let excess = backups.Length - 30
-            if excess > 0 then
-                backups |> List.take excess |> List.iter File.Delete
-
     let private loadGraphFromDisk (dataDir: string) (snapshotPath: string) : Result<Graph, string> =
         if DocumentPersistence.hasArtifactSet dataDir then
             DocumentPersistence.readAllDocuments dataDir

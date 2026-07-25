@@ -29,8 +29,8 @@ module RouteRegistration =
             DataDir: string
             Mode: DatabaseSetup.PersistenceMode
             DbStatus: DatabaseSetup.DbStatus
-            GetHandle: string -> AgentHandle
-            GetOrCreateFileAgent: string -> FileAgent
+            GetHandle: unit -> AgentHandle
+            GetOrCreateFileAgent: unit -> FileAgent
         }
 
     type RouteAssets =
@@ -116,7 +116,8 @@ module RouteRegistration =
         =
         let mutable currentFileAgent: (string * FileAgent) option = None
         let fileAgentLock = obj ()
-        let getOrCreateFileAgent (filename: string) : FileAgent =
+        let filename = Filename.legacyArtifactName
+        let getOrCreateFileAgent () : FileAgent =
             lock fileAgentLock (fun () ->
                 match currentFileAgent with
                 | Some (name, agent) when name = filename -> agent
@@ -131,20 +132,20 @@ module RouteRegistration =
                     newAgent)
         let dbConnString = config.["DB_CONNECTION_STRING"] |> Option.ofObj |> Option.defaultValue ""
         let dbStatus = DatabaseSetup.resolveDbConnection persistenceMode dbConnString dataDir
-        let getHandle (filename: string) : AgentHandle =
+        let getHandle () : AgentHandle =
             match persistenceMode, dbStatus with
             | DatabaseSetup.PersistenceMode.Db, DatabaseSetup.DbStatus.Ok ->
                 AgentHandle.ofDb (DatabaseSetup.getOrCreateDbAgent dbConnString dataDir filename)
             | DatabaseSetup.PersistenceMode.File, DatabaseSetup.DbStatus.Ok ->
-                let fileAgent = getOrCreateFileAgent filename
+                let fileAgent = getOrCreateFileAgent ()
                 let dbAgent = DatabaseSetup.getOrCreateDbAgent dbConnString dataDir filename
                 AgentHandle.ofFileWithDbMirror fileAgent (Some dbAgent)
             | DatabaseSetup.PersistenceMode.Db, _ ->
-                getOrCreateFileAgent filename
+                getOrCreateFileAgent ()
                 |> AgentHandle.ofFile
                 |> AgentHandle.readOnly
             | DatabaseSetup.PersistenceMode.File, _ ->
-                AgentHandle.ofFile (getOrCreateFileAgent filename)
+                AgentHandle.ofFile (getOrCreateFileAgent ())
         {
             DataDir = dataDir
             Mode = persistenceMode
@@ -277,14 +278,14 @@ module RouteRegistration =
             if not (auth.IsAuthenticated req) then
                 return Results.Unauthorized()
             else
-                let handle = persistence.GetHandle "gambol"
+                let handle = persistence.GetHandle ()
                 return! Api.getState handle |> Async.StartAsTask
         })) |> ignore
         app.MapGet("/ambit/poll", Func<HttpRequest, Task<IResult>>(fun req -> task {
             if not (auth.IsAuthenticated req) then
                 return Results.Unauthorized()
             else
-                let handle = persistence.GetHandle "gambol"
+                let handle = persistence.GetHandle ()
                 let pageEpoch = stamps.PageBuildEpochSec ()
                 let clientRev = parseClientRev req
                 return!
@@ -298,13 +299,13 @@ module RouteRegistration =
                 bindClientHint req |> ignore
                 use reader = new StreamReader(req.Body)
                 let! body = reader.ReadToEndAsync()
-                let handle = persistence.GetHandle "gambol"
+                let handle = persistence.GetHandle ()
                 return! Api.postChange handle body |> Async.StartAsTask
         })) |> ignore
 
     let private prepareGitSave (persistence: PersistenceContext) () = async {
-        let handle = persistence.GetHandle "gambol"
-        let fileAgent = persistence.GetOrCreateFileAgent "gambol"
+        let handle = persistence.GetHandle ()
+        let fileAgent = persistence.GetOrCreateFileAgent ()
         return!
             SavePrep.syncDataDir
                 persistence.Mode
@@ -349,7 +350,7 @@ module RouteRegistration =
             else
                 use reader = new StreamReader(req.Body)
                 let! body = reader.ReadToEndAsync()
-                let handle = persistence.GetHandle "gambol"
+                let handle = persistence.GetHandle ()
                 return!
                     Api.postParseFile handle persistence.DataDir body
                     |> Async.StartAsTask
@@ -464,17 +465,17 @@ module RouteRegistration =
             registerStateRoutes app auth persistence stamps
             registerSaveRoutes app auth persistence
             let flushForGit () = async {
-                let handle = persistence.GetHandle "gambol"
+                let handle = persistence.GetHandle ()
                 let! flushResult =
                     SavePrep.syncGitArtifacts
                         persistence.Mode
                         persistence.DbStatus
                         (fun () -> handle.getState ())
                         (fun () ->
-                            persistence.GetOrCreateFileAgent "gambol"
+                            persistence.GetOrCreateFileAgent ()
                             |> FileAgent.flushSnapshot)
                         (fun () ->
-                            persistence.GetOrCreateFileAgent "gambol"
+                            persistence.GetOrCreateFileAgent ()
                             |> FileAgent.getRevision)
                         persistence.DataDir
                 match flushResult with
@@ -483,7 +484,7 @@ module RouteRegistration =
             }
             let reconcileGitPush label changedPaths =
                 LazyLoadReconciliationServer.reconcileChangedPaths
-                    (persistence.GetHandle "gambol")
+                    (persistence.GetHandle ())
                     persistence.DataDir
                     label
                     changedPaths
@@ -503,12 +504,12 @@ module RouteRegistration =
                 app
                 auth.IsAuthenticated
                 persistence.DataDir
-                (fun () -> persistence.GetHandle "gambol")
+                persistence.GetHandle
             LazyLoadReconciliationServer.registerAddedRoute
                 app
                 auth.IsAuthenticated
                 persistence.DataDir
-                (fun () -> persistence.GetHandle "gambol")
+                persistence.GetHandle
             WorkspaceWebDav.registerRoutes
                 app
                 auth.IsAuthenticated

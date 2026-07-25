@@ -601,7 +601,7 @@ module DocumentPersistence =
 
     let private shouldSkipDiscoveryFile (fileName: string) =
         Filename.isReservedSystemName fileName
-        || fileName = "gambol"
+        || fileName = Filename.legacyArtifactName
         || fileName.EndsWith(".meta", StringComparison.OrdinalIgnoreCase)
         || fileName.EndsWith(".log", StringComparison.OrdinalIgnoreCase)
         || fileName.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase)

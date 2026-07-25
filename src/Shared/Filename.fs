@@ -14,10 +14,13 @@ module Filename =
 
     let maxLength = 255
 
+    /// Exact basename of the legacy monolithic snapshot artifact.
+    let legacyArtifactName = "gambol"
+
     /// System bookkeeping files use the case-insensitive `gambol.*` namespace.
-    /// The dot is required; the legacy artifact named exactly `gambol` is not reserved.
+    /// The dot is required; `legacyArtifactName` itself is not reserved.
     let isReservedSystemName (name: string) : bool =
-        name.StartsWith("gambol.", StringComparison.OrdinalIgnoreCase)
+        name.StartsWith(legacyArtifactName + ".", StringComparison.OrdinalIgnoreCase)
 
     /// Exact `.amb` basename is the directory/workspace proxy artifact, never a graph node name.
     let isAmbMarkerName (name: string) : bool =
