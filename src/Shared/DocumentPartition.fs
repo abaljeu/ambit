@@ -77,6 +77,28 @@ module DocumentPartition =
         && List.length a.children = List.length b.children
         && List.forall2 childNodeContentEquals a.children b.children
 
+    /// Writable post-graph roots containing touched nodes, plus known moved roots.
+    let documentRootsAffectedByNodeIds
+        (preGraph: Graph)
+        (postGraph: Graph)
+        (touchedNodeIds: NodeId list)
+        (pathMoveNodeIds: NodeId list)
+        : Set<NodeId> =
+        let fromTouchedNodes =
+            touchedNodeIds
+            |> List.collect (fun id ->
+                containingDocumentRootIds preGraph id
+                @ containingDocumentRootIds postGraph id)
+
+        fromTouchedNodes @ pathMoveNodeIds
+        |> Set.ofList
+        |> Set.filter (fun rootId ->
+            match Map.tryFind rootId postGraph.nodes with
+            | Some node ->
+                isDocumentRootNode postGraph rootId
+                && shouldWriteDocumentRoot node
+            | None -> false)
+
     /// Current document roots on `postGraph` dirtied by pre→post node diffs and/or path moves.
     let documentRootsAffectedByGraphChange
         (preGraph: Graph)
@@ -95,21 +117,11 @@ module DocumentPartition =
                 | Some a, Some b -> not (nodeContentEquals a b)
                 | _ -> true)
 
-        let fromNodes =
-            changedIds
-            |> Set.toList
-            |> List.collect (fun id ->
-                containingDocumentRootIds preGraph id
-                @ containingDocumentRootIds postGraph id)
-
-        fromNodes @ pathMoveNodeIds
-        |> Set.ofList
-        |> Set.filter (fun rootId ->
-            match Map.tryFind rootId postGraph.nodes with
-            | Some node ->
-                isDocumentRootNode postGraph rootId
-                && shouldWriteDocumentRoot node
-            | None -> false)
+        documentRootsAffectedByNodeIds
+            preGraph
+            postGraph
+            (Set.toList changedIds)
+            pathMoveNodeIds
 
     let private isMemberOfDocumentState state (graph: Graph) (nodeId: NodeId) =
         containingDocumentRootIds graph nodeId

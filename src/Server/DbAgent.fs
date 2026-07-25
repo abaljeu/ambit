@@ -207,10 +207,14 @@ module DbAgent =
                         let livePersist =
                             match graphOnly, liveSaveDataDir, logEntries with
                             | false, Some dataDir, _::_ ->
-                                DocumentPersistence.persistGraphChange
+                                let ops =
+                                    logEntries
+                                    |> List.collect (fun (_, change) -> change.ops)
+                                DocumentPersistence.persistGraphOps
                                     dataDir
                                     preGraph
                                     newState.graph
+                                    ops
                                 |> Result.map Some
                             | _ -> Ok None
                         match livePersist with

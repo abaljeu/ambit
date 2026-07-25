@@ -82,8 +82,13 @@ module FileAgent =
             with ex ->
                 Error ex.Message
 
-        let syncPersistChange (rev: int) (preGraph: Graph) (postGraph: Graph) =
-            match DocumentPersistence.persistGraphChange dataDir preGraph postGraph with
+        let syncPersistChange
+            (rev: int)
+            (preGraph: Graph)
+            (postGraph: Graph)
+            (ops: Op list)
+            =
+            match DocumentPersistence.persistGraphOps dataDir preGraph postGraph ops with
             | Error err -> Error err
             | Ok stamped ->
                 match writeMetaRevision rev with
@@ -181,10 +186,14 @@ module FileAgent =
                     | Ok () ->
                         let diskPersist =
                             if changed && not graphOnly then
+                                let ops =
+                                    logEntries
+                                    |> List.collect (fun (_, change) -> change.ops)
                                 syncPersistChange
                                     newState.revision.Value
                                     preGraph
                                     newState.graph
+                                    ops
                                 |> Result.map Some
                             else
                                 Ok None

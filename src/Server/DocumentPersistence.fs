@@ -505,8 +505,12 @@ module DocumentPersistence =
                                 g.nodes })
             graph
 
-    let private stampExistingDocuments (dataDir: string) (graph: Graph) : Graph =
-        enumerateDocumentRoots graph
+    let private stampExistingDocuments
+        (dataDir: string)
+        (documentRootIds: NodeId list)
+        (graph: Graph)
+        : Graph =
+        documentRootIds
         |> List.fold
             (fun stamps documentRootId ->
                 match resolveArtifactPath dataDir graph documentRootId with
@@ -545,7 +549,9 @@ module DocumentPersistence =
             DocumentPartition.shouldWriteDocumentRoot graph.nodes.[documentRootId])
         |> writeDocuments dataDir graph
 
-    let persistGraphChange
+    let private persistGraphChangeWith
+        (affectedRoots: NodeId list -> Set<NodeId>)
+        (existingStampRoots: NodeId list -> NodeId list)
         (dataDir: string)
         (preGraph: Graph)
         (postGraph: Graph)
@@ -556,16 +562,40 @@ module DocumentPersistence =
         | Error msg -> Error msg
         | Ok () ->
             let moveIds = moves |> List.map (fun m -> m.nodeId)
-            let affected =
-                DocumentPartition.documentRootsAffectedByGraphChange
-                    preGraph
-                    postGraph
-                    moveIds
+            let affected = affectedRoots moveIds
 
-            enumerateDocumentRoots postGraph
-            |> List.filter (fun id -> Set.contains id affected)
+            affected
+            |> Set.toList
             |> writeDocuments dataDir postGraph
-            |> Result.map (stampExistingDocuments dataDir)
+            |> Result.map (
+                stampExistingDocuments dataDir (existingStampRoots moveIds))
+
+    /// Snapshot fallback when no accepted operation batch is available.
+    let persistGraphChange
+        (dataDir: string)
+        (preGraph: Graph)
+        (postGraph: Graph)
+        : Result<Graph, string> =
+        persistGraphChangeWith
+            (DocumentPartition.documentRootsAffectedByGraphChange preGraph postGraph)
+            (fun _ -> enumerateDocumentRoots postGraph)
+            dataDir
+            preGraph
+            postGraph
+
+    /// Immediate live-save using accepted operations instead of a full graph diff.
+    let persistGraphOps
+        (dataDir: string)
+        (preGraph: Graph)
+        (postGraph: Graph)
+        (ops: Op list)
+        : Result<Graph, string> =
+        persistGraphChangeWith
+            (DocumentOpImpact.documentRootsAffectedByOps preGraph postGraph ops)
+            id
+            dataDir
+            preGraph
+            postGraph
 
     let private shouldSkipDiscoveryFile (fileName: string) =
         Filename.isReservedSystemName fileName

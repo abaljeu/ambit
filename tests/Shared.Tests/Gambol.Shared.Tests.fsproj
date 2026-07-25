@@ -25,6 +25,7 @@
     <Compile Include="LazyLoadReconciliationTests.fs" />
     <Compile Include="DocumentPathMoveTests.fs" />
     <Compile Include="DocumentPartitionTests.fs" />
+    <Compile Include="DocumentOpImpactTests.fs" />
     <Compile Include="DocumentAssemblyTests.fs" />
     <Compile Include="DocumentAssemblyWorkspaceMarkerTests.fs" />
     <Compile Include="LogTextTests.fs" />

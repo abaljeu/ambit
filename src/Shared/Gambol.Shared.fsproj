@@ -29,6 +29,7 @@
     <Compile Include="DocumentArtifactPath.fs" />
     <Compile Include="DocumentPartition.fs" />
     <Compile Include="History.fs" />
+    <Compile Include="DocumentOpImpact.fs" />
     <Compile Include="ApiResponses.fs" />
     <Compile Include="LogText.fs" />
     <Compile Include="ClientIdentity.fs" />
