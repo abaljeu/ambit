@@ -37,9 +37,14 @@ let decodeDesktopReadForParse (status: int) (responseText: string) : Result<stri
 
 let validateParseTextOpt (textOpt: string option) : Result<string option, string> =
     match textOpt with
-    | Some content when DocumentBinary.looksLikeBinaryContent content ->
-        Error DocumentBinary.parseError
-    | _ -> Ok textOpt
+    | Some content ->
+        DocumentParseLimits.refuseEmptyText content
+        |> Result.bind (fun () ->
+            if DocumentBinary.looksLikeBinaryContent content then
+                Error DocumentBinary.parseError
+            else
+                Ok textOpt)
+    | None -> Ok None
 
 let failParseFile (message: string) (model: VM) : VM * Effect list =
     fail model message

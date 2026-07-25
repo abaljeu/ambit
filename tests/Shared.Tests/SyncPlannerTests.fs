@@ -119,45 +119,91 @@ let ``tryStartPoll returns no effects when uploading`` () =
 
 [<Fact>]
 let ``queued Upload waits while a change submit is in flight`` () =
+    let scope =
+        { label = "home"
+          relative = "notes/today.md"
+          kind = SyncScopeKind.File }
+    let request = QueuedWorkspacePush(scope, Some(NodeId.New()))
     let syncInfo =
         { SyncInfo.initial with
             pendingChanges = [ mkChange 14706 ]
             syncState = Sending 1 }
-        |> SyncInfo.queueRequest QueuedUpload
+        |> SyncInfo.queueRequest request
     let si, effects = SyncPlanner.tryReleaseQueued syncInfo
-    Assert.Equal<QueuedRequest list>([ QueuedUpload ], si.queuedRequests)
+    Assert.Equal<QueuedRequest list>([ request ], si.queuedRequests)
     Assert.Empty(effects)
 
 [<Fact>]
-let ``queued Upload is released once the change queue drains`` () =
+let ``queued file Upload preserves its scope until the change queue drains`` () =
     let c = mkChange 14706
+    let fileId = NodeId.New()
+    let request =
+        QueuedWorkspacePush(
+            { label = "home"
+              relative = "notes/today.md"
+              kind = SyncScopeKind.File },
+            Some fileId)
     let queued =
         { SyncInfo.initial with
             pendingChanges = [ c ]
             syncState = Sending 1 }
-        |> SyncInfo.queueRequest QueuedUpload
+        |> SyncInfo.queueRequest request
     let acked, _, _ = SyncPlanner.ackBatch [ c.changeId ] (Revision 14707) queued
     let si, effects = SyncPlanner.tryReleaseQueued acked
     Assert.Empty(si.queuedRequests)
-    Assert.Equal<Effect list>([ RunQueuedRequest QueuedUpload ], effects)
+    Assert.Equal<Effect list>([ RunQueuedRequest request ], effects)
+
+[<Fact>]
+let ``queued Uploads release one request at a time`` () =
+    let first =
+        QueuedWorkspacePush(
+            { label = "home"
+              relative = "first.md"
+              kind = SyncScopeKind.File },
+            Some(NodeId.New()))
+    let second =
+        QueuedWorkspacePush(
+            { label = "home"
+              relative = "second.md"
+              kind = SyncScopeKind.File },
+            Some(NodeId.New()))
+    let queued =
+        SyncInfo.initial
+        |> SyncInfo.queueRequest first
+        |> SyncInfo.queueRequest second
+    let si, effects = SyncPlanner.tryReleaseQueued queued
+    Assert.Equal<QueuedRequest list>([ second ], si.queuedRequests)
+    Assert.Equal<Effect list>([ RunQueuedRequest first ], effects)
 
 [<Fact>]
 let ``queued Upload is released after a poll settles`` () =
+    let request =
+        QueuedWorkspacePush(
+            { label = "home"
+              relative = ""
+              kind = SyncScopeKind.Workspace },
+            None)
     let syncInfo =
         { SyncInfo.initial with syncState = Polling }
-        |> SyncInfo.queueRequest QueuedUpload
+        |> SyncInfo.queueRequest request
     Assert.Empty(snd (SyncPlanner.tryReleaseQueued syncInfo))
     let settled =
         { syncInfo with syncState = Idle } |> SyncPlanner.tryReleaseQueued
-    Assert.Equal<Effect list>([ RunQueuedRequest QueuedUpload ], snd settled)
+    Assert.Equal<Effect list>([ RunQueuedRequest request ], snd settled)
 
 [<Fact>]
 let ``pressing Upload twice while it waits queues one request`` () =
+    let request =
+        QueuedWorkspacePush(
+            { label = "home"
+              relative = ""
+              kind = SyncScopeKind.Workspace },
+            None)
     let syncInfo =
         { SyncInfo.initial with syncState = Polling }
-        |> SyncInfo.queueRequest QueuedUpload
-        |> SyncInfo.queueRequest QueuedUpload
-    Assert.Equal<QueuedRequest list>([ QueuedUpload ], syncInfo.queuedRequests)
+        |> SyncInfo.queueRequest request
+        |> SyncInfo.queueRequest request
+    Assert.Equal<QueuedRequest list>([ request ], syncInfo.queuedRequests)
 
 [<Fact>]
 let ``tryReleaseQueued is inert with nothing queued`` () =

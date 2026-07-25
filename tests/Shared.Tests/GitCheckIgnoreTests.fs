@@ -57,18 +57,18 @@ let ``isEffectivelyIgnored never blocks gitignore file`` () =
 let ``classify batches ignored and not ignored`` () =
     Skip.IfNot(gitOnPath (), "git unavailable")
     let root = newTempDir ()
-    writeIgnore root "ignored/\n*.log\n"
+    writeIgnore root "ignored/\n*.cache\n"
     match
         GitCheckIgnore.classify
             root
-            [ "ok.txt"; "ignored/a.txt"; "x.log"; "keep.md" ]
+            [ "ok.txt"; "ignored/a.txt"; "x.cache"; "keep.md" ]
     with
     | Error e -> Assert.Fail(e)
     | Ok rows ->
         let map = Map.ofList rows
         Assert.False(map.["ok.txt"])
         Assert.True(map.["ignored/a.txt"])
-        Assert.True(map.["x.log"])
+        Assert.True(map.["x.cache"])
         Assert.False(map.["keep.md"])
 
 /// Repro: stdin write before draining stdout deadlocks once ignored output

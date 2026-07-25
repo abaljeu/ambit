@@ -219,6 +219,8 @@ type SyncState =
 /// change-ops queue instead of running while a submit or poll is in flight.
 type QueuedRequest =
     | QueuedUpload
+    /// Preserve a desktop target while another workspace push is in flight.
+    | QueuedWorkspacePush of WorkspaceSyncScope * parseFileId: NodeId option
 
 type SyncInfo =
     { syncState: SyncState

@@ -281,6 +281,26 @@ let private keepUploading (m: VM) =
     { m with
         syncInfo = SyncInfo.withSyncState Uploading m.syncInfo }
 
+/// Start the inventory, stub, and push phases for an already-selected scope.
+let startWorkspacePush
+    (scope: WorkspaceSyncScope)
+    (parseFileId: NodeId option)
+    (model: VM)
+    : VM * Effect list =
+    keepUploading model,
+    [ Effect.ContinueWorkspaceStubsThenPush(scope, parseFileId) ]
+
+let private queueWorkspacePush
+    (scope: WorkspaceSyncScope)
+    (parseFileId: NodeId option)
+    (model: VM)
+    : VM * Effect list =
+    let request = QueuedWorkspacePush(scope, parseFileId)
+    okDetail
+        { model with
+            syncInfo = SyncInfo.queueRequest request model.syncInfo }
+        "upload queued until current sync completes"
+
 /// Ensure map (may pick-folder), then JSON body for async `/_desktop/workspace-push`.
 let tryPrepareWorkspacePushBody
     (scope: WorkspaceSyncScope)
@@ -506,37 +526,37 @@ let uploadCreateWorkspaceOp (model: VM) : VM * Effect list =
 
 /// Upload: desktop push when mapped; else graph-only from DataDir (web).
 let uploadOp (model: VM) : VM * Effect list =
-    if not (WorkspaceUpload.canStart model.syncInfo) then
-        // Upload needs a settled revision, so it rides the change-ops queue.
+    let canPush =
+        DesktopCapabilities.canWorkspacePush model.desktopCapabilities
+    let target = contextualTargetForModel model
+    match WorkspaceUpload.plan canPush (focusIsWorkspaces model) target with
+    | WorkspaceUploadAction.DesktopPush parseFileId ->
+        match syncScopeFromFocus model with
+        | Error msg -> fail model msg
+        | Ok scope when WorkspaceUpload.canStart model.syncInfo ->
+            startWorkspacePush scope parseFileId model
+        | Ok scope ->
+            queueWorkspacePush scope parseFileId model
+    | _ when not (WorkspaceUpload.canStart model.syncInfo) ->
+        // Non-desktop Upload needs a settled revision too.
         okDetail
             { model with
                 syncInfo = SyncInfo.queueRequest QueuedUpload model.syncInfo }
             "upload queued behind pending changes"
-    else
-        let canPush =
-            DesktopCapabilities.canWorkspacePush model.desktopCapabilities
-        let target = contextualTargetForModel model
-        match WorkspaceUpload.plan canPush (focusIsWorkspaces model) target with
-        | WorkspaceUploadAction.CreateWorkspaceFromFolder ->
-            uploadCreateWorkspaceOp model
-        | WorkspaceUploadAction.DesktopPush parseFileId ->
-            match syncScopeFromFocus model with
-            | Error msg -> fail model msg
-            | Ok scope ->
-                keepUploading model,
-                [ Effect.ContinueWorkspaceStubsThenPush (scope, parseFileId) ]
-        | WorkspaceUploadAction.ReconcileServerDisk ->
-            match syncScopeFromFocus model with
-            | Error msg -> fail model msg
-            | Ok scope ->
-                postDirectoryReconcile model scope.label scope.relative
-                |> withPathSyncRefresh
-        | WorkspaceUploadAction.ParseServerDisk fileId ->
-            parseFileOp fileId model
-        | WorkspaceUploadAction.Unavailable msg ->
-            withResult
-                model
-                (CmdLastResult.Error(Some(displayName Upload), msg))
+    | WorkspaceUploadAction.CreateWorkspaceFromFolder ->
+        uploadCreateWorkspaceOp model
+    | WorkspaceUploadAction.ReconcileServerDisk ->
+        match syncScopeFromFocus model with
+        | Error msg -> fail model msg
+        | Ok scope ->
+            postDirectoryReconcile model scope.label scope.relative
+            |> withPathSyncRefresh
+    | WorkspaceUploadAction.ParseServerDisk fileId ->
+        parseFileOp fileId model
+    | WorkspaceUploadAction.Unavailable msg ->
+        withResult
+            model
+            (CmdLastResult.Error(Some(displayName Upload), msg))
 
 let uploadAvailable (model: VM) =
     WorkspaceUpload.isAvailable

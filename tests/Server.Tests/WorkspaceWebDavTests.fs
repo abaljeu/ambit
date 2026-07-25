@@ -90,12 +90,12 @@ let ``PUT ignored path is rejected`` () = task {
     let dataDir = newTempDir ()
     let home = Path.Combine(dataDir, "home")
     Directory.CreateDirectory home |> ignore
-    File.WriteAllText(Path.Combine(home, ".gitignore"), "*.log\n")
+    File.WriteAllText(Path.Combine(home, ".gitignore"), "*.cache\n")
     use client = createClientForDir dataDir
     let! resp =
-        putBytes client "/ambit/dav/home/noise.log" (Encoding.UTF8.GetBytes "x")
+        putBytes client "/ambit/dav/home/noise.cache" (Encoding.UTF8.GetBytes "x")
     Assert.Equal(HttpStatusCode.Forbidden, resp.StatusCode)
-    Assert.False(File.Exists(Path.Combine(home, "noise.log")))
+    Assert.False(File.Exists(Path.Combine(home, "noise.cache")))
 }
 
 let private putBytesWithMtime (client: HttpClient) (url: string) (bytes: byte[]) (mtime: DateTime) =

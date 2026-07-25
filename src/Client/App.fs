@@ -130,6 +130,8 @@ let createRuntime (initialModel: VM) =
         | PollServer _ -> runPollServer ()
         | ScheduleRetry delayMs -> runScheduleRetry delayMs
         | RunQueuedRequest QueuedUpload -> dispatch (ApplyOp uploadOp)
+        | RunQueuedRequest (QueuedWorkspacePush (scope, parseFileId)) ->
+            dispatch (ApplyOp (startWorkspacePush scope parseFileId))
         | SavePendingQueue q -> runSavePendingQueue q
         | RequestDesktopFileStatus (nodeId, path) -> runDesktopFileStatus nodeId path
         | RequestServerFileStatus (nodeId, path) -> runServerFileStatus nodeId path

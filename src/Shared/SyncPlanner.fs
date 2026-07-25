@@ -47,10 +47,10 @@ module SyncPlanner =
     let tryReleaseQueued (syncInfo: SyncInfo) : SyncInfo * Effect list =
         match syncInfo.queuedRequests with
         | [] -> syncInfo, []
-        | requests when
+        | request :: remaining when
             syncInfo.pendingChanges.IsEmpty && syncInfo.syncState = Idle ->
-            { syncInfo with queuedRequests = [] },
-            requests |> List.map RunQueuedRequest
+            { syncInfo with queuedRequests = remaining },
+            [ RunQueuedRequest request ]
         | _ -> syncInfo, []
 
     /// Emit a PollServer effect when idle with an empty queue and not already polling.

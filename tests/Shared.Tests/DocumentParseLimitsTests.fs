@@ -16,6 +16,12 @@ let ``parse text accepts exactly 50000 ASCII code units`` () =
     Assert.Equal(Ok (), DocumentParseLimits.refuseText text)
 
 [<Fact>]
+let ``parse text rejects blank import input`` () =
+    Assert.Equal(
+        Error "import text is empty",
+        DocumentParseLimits.refuseEmptyText " \r\n\t")
+
+[<Fact>]
 let ``parse text rejects one code unit over with actual and limit`` () =
     let text = String.replicate 50_001 "a"
     let actualCodeUnits = 50_001

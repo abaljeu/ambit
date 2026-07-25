@@ -452,6 +452,20 @@ let ``planParseFile refuses oversized body before writing artifact`` () =
     | Ok _ -> Assert.Fail("expected oversized parse to fail")
 
 [<Fact>]
+let ``planParseFile refuses blank body before overwriting artifact`` () =
+    let dataDir = newTempDir ()
+    let graph, _, _, fileId, _ = graphWithNestedDocs ()
+    let diskPath = Path.Combine(dataDir, "home", "docs", "readme.txt")
+    Directory.CreateDirectory(Path.GetDirectoryName diskPath) |> ignore
+    File.WriteAllText(diskPath, "EXISTING")
+
+    match DocumentPersistence.planParseFile dataDir graph fileId (Some " \r\n\t") with
+    | Error msg ->
+        Assert.Equal("import text is empty", msg)
+        Assert.Equal("EXISTING", File.ReadAllText diskPath)
+    | Ok _ -> Assert.Fail("expected blank parse to fail")
+
+[<Fact>]
 let ``planParseFile DataDir warm keeps line NodeId on text edit`` () =
     let dataDir = newTempDir ()
     let graph, _, _, fileId, normalId = graphWithNestedDocs ()
@@ -749,6 +763,7 @@ let ``discoverArtifactRelatives excludes reserved gambol dot files`` () =
     let nested = Path.Combine(dataDir, "nested")
     Directory.CreateDirectory(nested) |> ignore
     File.WriteAllText(Path.Combine(dataDir, "gambol.log"), "bookkeeping")
+    File.WriteAllText(Path.Combine(dataDir, "fetch.log"), "ordinary artifact")
     File.WriteAllText(Path.Combine(nested, "GAMBOL.meta"), "bookkeeping")
     File.WriteAllText(Path.Combine(dataDir, "gambolish"), "ordinary artifact")
     let relatives =
@@ -756,6 +771,7 @@ let ``discoverArtifactRelatives excludes reserved gambol dot files`` () =
         |> requireOk "discover"
     Assert.DoesNotContain("gambol.log", relatives)
     Assert.DoesNotContain("nested/GAMBOL.meta", relatives)
+    Assert.Contains("fetch.log", relatives)
     Assert.Contains("gambolish", relatives)
 
 [<Fact>]
