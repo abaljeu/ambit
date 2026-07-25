@@ -583,8 +583,8 @@ module WorkspaceFileSync =
                                           uploadedPaths = uploadedPaths |> Seq.toList
                                           pathStamps = [] }
 
-    let private stagingRoot (mappedRoot: string) (jobId: Guid) =
-        Path.Combine(mappedRoot, ".gambol-dl-tmp", jobId.ToString("N"))
+    let private stagingRoot (jobId: Guid) =
+        Path.Combine(Path.GetTempPath(), "gambol-dl-tmp", jobId.ToString("N"))
 
     let private discardStaging (path: string) =
         try
@@ -701,7 +701,7 @@ module WorkspaceFileSync =
                         bytes
                         mtime
 
-    /// Pull every inventory path; stage under `.gambol-dl-tmp/{jobId}` then promote.
+    /// Pull every inventory path; stage under temp `gambol-dl-tmp/{jobId}` then promote.
     let getStaged
         (client: HttpClient)
         (ambitBase: string)
@@ -750,7 +750,7 @@ module WorkspaceFileSync =
                 let sized = inventoryFromDav scoped
                 let mode, planned = WorkspaceSyncLimits.planDownload sized
                 let ordered = orderPlanned planned
-                let stage = stagingRoot mappedRoot jobId
+                let stage = stagingRoot jobId
                 let mutable ledger = ledger0
                 let mutable skipped = 0
                 let downloadedPaths = ResizeArray<string>()

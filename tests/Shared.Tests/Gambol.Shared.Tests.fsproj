@@ -45,7 +45,9 @@
     <Compile Include="WorkspaceLocalInventoryTests.fs" />
     <Compile Include="WorkspaceSyncLimitsTests.fs" />
     <Compile Include="DocumentParseLimitsTests.fs" />
+    <Compile Include="SystemDirectoryPersistTests.fs" />
     <Compile Include="WorkspaceDownloadQueueTests.fs" />
+
     <Compile Include="WorkspaceDavClientTests.fs" />
     <Compile Include="WorkspaceFileSyncPromoteTests.fs" />
     <Compile Include="WorkspaceFileSyncUploadWavesTests.fs" />

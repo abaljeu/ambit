@@ -93,6 +93,50 @@ let ``tryFromFocus directory and file use relative prefix`` () =
         Assert.Equal(SyncScopeKind.File, scope.kind)
 
 [<Fact>]
+let ``tryFromFocus SYSTEM directory is workspace-kind empty relative`` () =
+    let graph = Graph.create ()
+    match WorkspaceSyncScope.tryFromFocus graph Graph.systemId with
+    | Error e -> Assert.Fail(e)
+    | Ok scope ->
+        Assert.Equal("SYSTEM", scope.label)
+        Assert.Equal("", scope.relative)
+        Assert.Equal(SyncScopeKind.Workspace, scope.kind)
+
+[<Fact>]
+let ``tryFromFocus TRASH directory is workspace-kind empty relative`` () =
+    let graph = Graph.create ()
+    match WorkspaceSyncScope.tryFromFocus graph Graph.trashId with
+    | Error e -> Assert.Fail(e)
+    | Ok scope ->
+        Assert.Equal("TRASH", scope.label)
+        Assert.Equal("", scope.relative)
+        Assert.Equal(SyncScopeKind.Workspace, scope.kind)
+
+[<Fact>]
+let ``tryFromFocus file under SYSTEM uses SYSTEM label`` () =
+    let graph0 = Graph.create ()
+    let fileId, ops =
+        FileNodeOps.planCreateOwnedFile graph0 Graph.systemId "user.css"
+    let graph =
+        ops
+        |> List.fold
+            (fun s op ->
+                match Op.apply op s with
+                | ApplyResult.Changed next
+                | ApplyResult.Unchanged next -> next
+                | ApplyResult.Invalid(_, msg) -> failwith msg)
+            { graph = graph0
+              history = History.empty
+              revision = Revision.Zero }
+        |> fun s -> s.graph
+    match WorkspaceSyncScope.tryFromFocus graph fileId with
+    | Error e -> Assert.Fail(e)
+    | Ok scope ->
+        Assert.Equal("SYSTEM", scope.label)
+        Assert.Equal("user.css", scope.relative)
+        Assert.Equal(SyncScopeKind.File, scope.kind)
+
+[<Fact>]
 let ``filterUnderScope directory prefix does not match sibling`` () =
     let scope =
         { label = "home"

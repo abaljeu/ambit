@@ -58,6 +58,8 @@ module GraphMutate =
             Error "cannot modify canonical root name"
         elif GraphBuild.isSystemFolderNode nodeId then
             Error "cannot modify system folder node name"
+        elif GraphBuild.isSystemDirectoryMember graph nodeId then
+            Error "cannot modify SYSTEM member name"
         else
             match graph.nodes |> Map.tryFind nodeId with
             | None -> Error "node not found"
@@ -233,6 +235,28 @@ module GraphMutate =
                             match folderError with
                             | Some msg -> Error msg
                             | None -> Ok (commit updatedChildren)
+                        elif parentId = GraphBuild.systemId then
+                            let ownedIds (kids: ChildNode list) =
+                                kids
+                                |> List.choose (fun c ->
+                                    if c.ref = Ownership.Owner then Some c.id
+                                    else None)
+                                |> Set.ofList
+                            let before = ownedIds children
+                            let after = ownedIds updatedChildren
+                            let removed = Set.difference before after
+                            let added = Set.difference after before
+                            // Add OK (new / detached). Refuse remove and move-in.
+                            let isMoveIn id =
+                                match Map.tryFind id graph.ownerParentByChild with
+                                | Some p when p <> GraphBuild.systemId -> true
+                                | _ -> false
+                            if not (Set.isEmpty removed) then
+                                Error "cannot remove owned children under SYSTEM"
+                            elif added |> Seq.exists isMoveIn then
+                                Error "cannot move existing nodes under SYSTEM"
+                            else
+                                Ok (commit updatedChildren)
                         elif
                             updatedChildren
                             |> List.exists (fun c ->
@@ -240,5 +264,13 @@ module GraphMutate =
                                 && GraphBuild.isSystemFolderNode c.id)
                         then
                             Error "trash, workspaces, and system may not be OWNED by a non-root parent"
+                        elif
+                            updatedChildren
+                            |> List.exists (fun c ->
+                                c.ref = Ownership.Owner
+                                && GraphBuild.isSystemDirectoryMember graph c.id)
+                        then
+                            Error
+                                "SYSTEM members may not be OWNED by a non-SYSTEM parent"
                         else
                             Ok (commit updatedChildren)

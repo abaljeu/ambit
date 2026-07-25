@@ -501,12 +501,27 @@ let private queueUploadRequest (model: VM) : VM * Effect list =
             syncInfo = SyncInfo.queueRequest QueuedUpload model.syncInfo }
         (WorkspaceUpload.queueBlockedDetail model.syncInfo)
 
-/// Upload: desktop push when mapped; else graph-only from DataDir (web).
+let private labelHasLocalMapping (label: string) : bool =
+    match lookupMappedPath label with
+    | Ok(Some _) -> true
+    | _ -> false
+
+/// Upload: desktop push when mapped; else graph-only from DataDir (web / unmapped).
 let uploadOp (model: VM) : VM * Effect list =
     let canPush =
         DesktopCapabilities.canWorkspacePush model.desktopCapabilities
     let target = contextualTargetForModel model
-    match WorkspaceUpload.plan canPush (focusIsWorkspaces model) target with
+    let hasMapping =
+        match syncScopeFromFocus model with
+        | Ok scope -> labelHasLocalMapping scope.label
+        | Error _ -> false
+    match
+        WorkspaceUpload.plan
+            canPush
+            hasMapping
+            (focusIsWorkspaces model)
+            target
+    with
     | WorkspaceUploadAction.DesktopPush parseFileId ->
         match syncScopeFromFocus model with
         | Error msg -> fail model msg

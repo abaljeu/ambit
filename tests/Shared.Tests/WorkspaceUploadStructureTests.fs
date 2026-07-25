@@ -339,3 +339,16 @@ let ``shouldReparseAfterMtimeSkip only Unparsed`` () =
     Assert.False(WorkspaceUploadStructure.shouldReparseAfterMtimeSkip Current)
     Assert.False(
         WorkspaceUploadStructure.shouldReparseAfterMtimeSkip NoServerFile)
+
+[<Fact>]
+let ``planStubOps creates File under SYSTEM label`` () =
+    let graph0 = Graph.create ()
+    let graph2 =
+        requirePlan graph0 "SYSTEM" [ item "user.css" false ]
+        |> applyOps graph0
+    let file = childNamed graph2 Graph.systemId "user.css"
+    Assert.Equal(Special File, file.kind)
+    Assert.True(Graph.isSystemDirectoryMember graph2 file.id)
+    Assert.Equal(
+        Some file.id,
+        WorkspaceUploadStructure.tryResolveFileNode graph2 "SYSTEM" "user.css")

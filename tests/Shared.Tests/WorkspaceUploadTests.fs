@@ -12,38 +12,50 @@ let private dirId = NodeId.New()
 let ``web Upload on file plans ParseServerDisk`` () =
     Assert.Equal(
         WorkspaceUploadAction.ParseServerDisk fileId,
-        WorkspaceUpload.plan false false (Some(ParseFile fileId)))
+        WorkspaceUpload.plan false false false (Some(ParseFile fileId)))
 
 [<Fact>]
 let ``web Upload on directory plans ReconcileServerDisk`` () =
     Assert.Equal(
         WorkspaceUploadAction.ReconcileServerDisk,
-        WorkspaceUpload.plan false false (Some(ReconcileDirectory dirId)))
+        WorkspaceUpload.plan false false false (Some(ReconcileDirectory dirId)))
 
 [<Fact>]
 let ``web Upload on named workspace plans ReconcileServerDisk`` () =
     Assert.Equal(
         WorkspaceUploadAction.ReconcileServerDisk,
-        WorkspaceUpload.plan false false (Some(ReconcileWorkspace wsId)))
+        WorkspaceUpload.plan false false false (Some(ReconcileWorkspace wsId)))
 
 [<Fact>]
-let ``desktop Upload on file plans DesktopPush with parse`` () =
+let ``desktop Upload on mapped file plans DesktopPush with parse`` () =
     Assert.Equal(
         WorkspaceUploadAction.DesktopPush(Some fileId),
-        WorkspaceUpload.plan true false (Some(ParseFile fileId)))
+        WorkspaceUpload.plan true true false (Some(ParseFile fileId)))
 
 [<Fact>]
-let ``desktop Upload on directory plans DesktopPush without parse`` () =
+let ``desktop Upload on unmapped file plans ParseServerDisk`` () =
+    Assert.Equal(
+        WorkspaceUploadAction.ParseServerDisk fileId,
+        WorkspaceUpload.plan true false false (Some(ParseFile fileId)))
+
+[<Fact>]
+let ``desktop Upload on mapped directory plans DesktopPush without parse`` () =
     Assert.Equal(
         WorkspaceUploadAction.DesktopPush None,
-        WorkspaceUpload.plan true false (Some(ReconcileDirectory dirId)))
+        WorkspaceUpload.plan true true false (Some(ReconcileDirectory dirId)))
+
+[<Fact>]
+let ``desktop Upload on unmapped directory plans ReconcileServerDisk`` () =
+    Assert.Equal(
+        WorkspaceUploadAction.ReconcileServerDisk,
+        WorkspaceUpload.plan true false false (Some(ReconcileDirectory dirId)))
 
 [<Fact>]
 let ``Workspaces Upload requires desktop`` () =
     Assert.Equal(
         WorkspaceUploadAction.CreateWorkspaceFromFolder,
-        WorkspaceUpload.plan true true None)
-    match WorkspaceUpload.plan false true None with
+        WorkspaceUpload.plan true false true None)
+    match WorkspaceUpload.plan false false true None with
     | WorkspaceUploadAction.Unavailable _ -> ()
     | other -> Assert.Fail($"expected Unavailable, got {other}")
 

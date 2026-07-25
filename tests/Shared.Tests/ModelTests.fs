@@ -421,6 +421,172 @@ let ``Graph.replace rejects SYSTEM owned under non-root`` () =
             "trash, workspaces, and system may not be OWNED by a non-root parent",
             msg)
 
+/// Seed owned File children under SYSTEM via fromNodes (bypasses replace guards).
+let private graphWithSystemMembers (names: string list) : Graph * NodeId list =
+    let graph0 = Graph.create ()
+    let ids = names |> List.map (fun _ -> NodeId.New())
+    let memberNodes =
+        List.zip ids names
+        |> List.map (fun (id, name) ->
+            id,
+            Node.Create(
+                id,
+                text = name,
+                name = Filename.Ok name,
+                kind = Special File,
+                owner = Graph.systemId))
+    let system = graph0.nodes.[Graph.systemId]
+    let system' =
+        { system with children = owned ids }
+    let nodes =
+        memberNodes
+        |> List.fold (fun m (id, n) -> Map.add id n m) graph0.nodes
+        |> Map.add Graph.systemId system'
+    Graph.fromNodes graph0.root nodes, ids
+
+[<Fact>]
+let ``isSystemDirectoryMember is true only for owned children of SYSTEM`` () =
+    let graph, ids = graphWithSystemMembers [ "a.amb"; "b.amb" ]
+    let a, b = ids.[0], ids.[1]
+    Assert.True(Graph.isSystemDirectoryMember graph a)
+    Assert.True(Graph.isSystemDirectoryMember graph b)
+    Assert.False(Graph.isSystemDirectoryMember graph Graph.systemId)
+    Assert.False(Graph.isSystemDirectoryMember graph Graph.trashId)
+    Assert.False(Graph.isSystemDirectoryMember graph Graph.rootId)
+
+[<Fact>]
+let ``Graph.replace allows Upload-style File stub under SYSTEM`` () =
+    let graph0 = Graph.create ()
+    let fileId, ops = FileNodeOps.planCreateOwnedFile graph0 Graph.systemId "x.amb"
+    let state0 =
+        { graph = graph0
+          history = History.empty
+          revision = Revision.Zero }
+    let state1 =
+        ops
+        |> List.fold
+            (fun s op ->
+                match Op.apply op s with
+                | ApplyResult.Changed next
+                | ApplyResult.Unchanged next -> next
+                | ApplyResult.Invalid(_, msg) -> failwith msg)
+            state0
+    Assert.True(Graph.isSystemDirectoryMember state1.graph fileId)
+    Assert.Contains(
+        state1.graph.nodes.[Graph.systemId].children,
+        fun c -> c.id = fileId && c.ref = Ownership.Owner)
+
+[<Fact>]
+let ``Graph.replace allows Upload-style Directory stub under SYSTEM`` () =
+    let graph0 = Graph.create ()
+    let dirId, ops =
+        FileNodeOps.planCreateOwnedDirectory graph0 Graph.systemId "cfg"
+    let state0 =
+        { graph = graph0
+          history = History.empty
+          revision = Revision.Zero }
+    let state1 =
+        ops
+        |> List.fold
+            (fun s op ->
+                match Op.apply op s with
+                | ApplyResult.Changed next
+                | ApplyResult.Unchanged next -> next
+                | ApplyResult.Invalid(_, msg) -> failwith msg)
+            state0
+    Assert.True(Graph.isSystemDirectoryMember state1.graph dirId)
+
+[<Fact>]
+let ``Graph.replace allows attaching stub with owner already SYSTEM`` () =
+    let graph0 = Graph.create ()
+    let fileId = NodeId.New()
+    let node =
+        Node.Create(
+            fileId,
+            text = "pre.amb",
+            name = Filename.Ok "pre.amb",
+            kind = Special File,
+            owner = Graph.systemId)
+    let graph1 = Graph.addDetachedNode node graph0
+    match Graph.replace Graph.systemId 0 [] (owned [ fileId ]) graph1 with
+    | Error msg -> Assert.True(false, $"expected Ok: {msg}")
+    | Ok graph2 -> Assert.True(Graph.isSystemDirectoryMember graph2 fileId)
+
+[<Fact>]
+let ``Graph.replace rejects moving existing owned node under SYSTEM`` () =
+    let graph0 = Graph.create ()
+    let graph1, parentIds = ModelBuilder.createNodes [ "parent" ] graph0
+    let parent = parentIds.[0]
+    let graph2 =
+        Graph.replace graph1.root 0 [] (owned [ parent ]) graph1
+        |> requireOk "root->parent"
+    let fileId, ops = FileNodeOps.planCreateOwnedFile graph2 parent "x.amb"
+    let state0 =
+        { graph = graph2
+          history = History.empty
+          revision = Revision.Zero }
+    let state1 =
+        ops
+        |> List.fold
+            (fun s op ->
+                match Op.apply op s with
+                | ApplyResult.Changed next
+                | ApplyResult.Unchanged next -> next
+                | ApplyResult.Invalid(_, msg) -> failwith msg)
+            state0
+    match
+        Graph.replace Graph.systemId 0 [] (owned [ fileId ]) state1.graph
+    with
+    | Ok _ -> Assert.True(false, "expected Error")
+    | Error msg ->
+        Assert.Contains("cannot move existing nodes under SYSTEM", msg)
+
+[<Fact>]
+let ``Graph.replace rejects removing owned child under SYSTEM`` () =
+    let graph, _ids = graphWithSystemMembers [ "a.amb"; "b.amb" ]
+    let oldChildren = graph.nodes.[Graph.systemId].children
+    match Graph.replace Graph.systemId 0 oldChildren [] graph with
+    | Ok _ -> Assert.True(false, "expected Error")
+    | Error msg ->
+        Assert.Contains("cannot remove owned children under SYSTEM", msg)
+
+[<Fact>]
+let ``Graph.replace rejects moving SYSTEM member out to non-SYSTEM parent`` () =
+    let graph0, ids = graphWithSystemMembers [ "a.amb" ]
+    let memberId = ids.[0]
+    let graph1, parentIds = ModelBuilder.createNodes [ "parent" ] graph0
+    let parent = parentIds.[0]
+    let graph2 =
+        Graph.replace graph1.root 0 [] (owned [ parent ]) graph1
+        |> requireOk "root->parent"
+    match Graph.replace parent 0 [] (owned [ memberId ]) graph2 with
+    | Ok _ -> Assert.True(false, "expected Error")
+    | Error msg ->
+        Assert.Contains(
+            "SYSTEM members may not be OWNED by a non-SYSTEM parent",
+            msg)
+
+[<Fact>]
+let ``Graph.replace can reorder owned children under SYSTEM`` () =
+    let graph, ids = graphWithSystemMembers [ "a.amb"; "b.amb" ]
+    let a, b = ids.[0], ids.[1]
+    let oldChildren = graph.nodes.[Graph.systemId].children
+    let reordered = [ oldChildren.[1]; oldChildren.[0] ]
+    match Graph.replace Graph.systemId 0 oldChildren reordered graph with
+    | Error msg -> Assert.True(false, $"expected Ok: {msg}")
+    | Ok graph2 ->
+        let children =
+            graph2.nodes.[Graph.systemId].children |> List.map (fun c -> c.id)
+        Assert.Equal<NodeId list>([ b; a ], children)
+
+[<Fact>]
+let ``Graph.setName rejects SYSTEM member`` () =
+    let graph, ids = graphWithSystemMembers [ "a.amb" ]
+    let memberId = ids.[0]
+    match Graph.setName memberId "a.amb" "b.amb" graph with
+    | Ok _ -> Assert.True(false, "expected Error")
+    | Error msg -> Assert.Contains("cannot modify SYSTEM member name", msg)
+
 [<Fact>]
 let ``Graph.setText on workspaces node is rejected`` () =
     let graph = Graph.create ()

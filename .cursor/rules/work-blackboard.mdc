@@ -1,0 +1,27 @@
+---
+alwaysApply: true
+---
+
+## Work blackboard
+
+[[WORK.md]] is the shared task board for all actionable pending work.
+
+### Read
+
+Every agent reads [[WORK.md]] before planning or starting work.
+
+### Write ownership
+
+Each top-level/root agent is the sole board writer for its delegation hierarchy. Delegated workers are read-only on the board and return explicit mutations (`add`, `move`, `block`, `remove`) through their immediate parent until the root applies them.
+
+### Root responsibilities
+
+Root agents add newly discovered actionable work and delegated tasks before handoff, move claimed work into Active, record blockers in Blocked, and delete an entry only after completion is verified.
+
+Every board edit must link to a durable artifact (plan, doc, source file, issue). Preserve parent links for delegated subtasks.
+
+Re-read [[WORK.md]] immediately before each surgical edit.
+
+### Limits
+
+Independent root chats may still race. Re-read-before-write reduces but does not eliminate that risk. Do not duplicate board policy in bridge files; [[WORK.md]] holds format guidance.

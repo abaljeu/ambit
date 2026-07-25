@@ -10,7 +10,9 @@
     <Compile Include="ClientRectCaret.fs" />
     <Compile Include="Filename.fs" />
     <Compile Include="DocumentParseLimits.fs" />
+    <Compile Include="SystemDirectoryPersist.fs" />
     <Compile Include="Model.fs" />
+
     <Compile Include="GraphBuild.fs" />
     <Compile Include="GraphQuery.fs" />
     <Compile Include="GraphMutate.fs" />

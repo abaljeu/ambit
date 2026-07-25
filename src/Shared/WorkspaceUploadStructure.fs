@@ -77,25 +77,7 @@ module WorkspaceUploadStructure =
             | None -> None)
 
     let private workspaceByLabel (graph: Graph) label : Result<NodeId, string> =
-        match
-            graph.nodes.[Graph.workspacesId].children
-            |> List.tryPick (fun child ->
-                if child.ref <> Ownership.Owner then
-                    None
-                else
-                    let node = graph.nodes.[child.id]
-
-                    match node.kind, Filename.tryValue node.name with
-                    | Special Workspace, Some n when
-                        String.Equals(
-                            n,
-                            label,
-                            StringComparison.OrdinalIgnoreCase) ->
-                        Some node
-                    | _ -> None)
-        with
-        | Some node -> Ok node.id
-        | None -> Error $"workspace '{label}' not found"
+        GraphQuery.trySyncRootByLabel graph label
 
     let private pathParts (relative: string) =
         relative.Replace('\\', '/').Split(

@@ -50,7 +50,7 @@ module LazyLoadReconciliation =
                     Ok(childId, next, planned @ ops)) (Ok(workspaceId, graph, []))
 
     let resolveOwnedPath (graph: Graph) (workspaceLabel: string) (path: string) =
-        Path.workspaceByLabel graph workspaceLabel
+        GraphQuery.trySyncRootByLabel graph workspaceLabel
         |> Result.bind (fun workspaceId ->
             Path.classifyValidated path
             |> Result.bind (function
@@ -283,7 +283,7 @@ module LazyLoadReconciliation =
         (changes: ChangedPath list)
         (artifacts: Map<string, string>)
         : Result<Op list, string> =
-        Path.workspaceByLabel graph workspaceLabel
+        GraphQuery.trySyncRootByLabel graph workspaceLabel
         |> Result.bind (fun workspaceId ->
             let classifyMany paths =
                 paths

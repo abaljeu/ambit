@@ -591,3 +591,12 @@ let ``directory amb ref to existing owned child keeps owner occurrence`` () =
                 |> List.filter (fun c -> c.id = active.id)
             Assert.Equal(1, occurrences.Length)
             Assert.Equal(Ownership.Owner, occurrences.Head.ref)
+
+[<Fact>]
+let ``planAddedPaths creates File under SYSTEM`` () =
+    let graph0 = Graph.create ()
+    let graph1 =
+        requirePlan graph0 "SYSTEM" [ "user.css" ] |> applyOps graph0
+    let file = childNamed graph1 Graph.systemId "user.css"
+    Assert.Equal(Special File, file.kind)
+    Assert.True(Graph.isSystemDirectoryMember graph1 file.id)

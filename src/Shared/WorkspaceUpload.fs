@@ -60,9 +60,11 @@ module WorkspaceUpload =
             | Some(ReconcileDirectory _) -> true
             | None -> false
 
-    /// Desktop push when caps exist; else graph-only from server DataDir.
+    /// Desktop push when caps + mapping exist; else graph-only from server DataDir.
+    /// Unmapped labels still Parse / Reconcile — do not fail Upload on missing mapping.
     let plan
         (canPush: bool)
+        (hasLocalMapping: bool)
         (focusIsWorkspaces: bool)
         (target: ContextualTarget option)
         : WorkspaceUploadAction =
@@ -75,13 +77,13 @@ module WorkspaceUpload =
         else
             match target with
             | Some(ParseFile fileId) ->
-                if canPush then
+                if canPush && hasLocalMapping then
                     WorkspaceUploadAction.DesktopPush(Some fileId)
                 else
                     WorkspaceUploadAction.ParseServerDisk fileId
             | Some(ReconcileWorkspace _)
             | Some(ReconcileDirectory _) ->
-                if canPush then
+                if canPush && hasLocalMapping then
                     WorkspaceUploadAction.DesktopPush None
                 else
                     WorkspaceUploadAction.ReconcileServerDisk

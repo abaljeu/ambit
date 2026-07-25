@@ -940,6 +940,96 @@ let ``refuseAmbMarkerNamedDocument allows legitimate workspace name`` () =
     |> requireOk "refuseAmbMarkerNamedDocument"
     |> ignore
 
+let private graphWithSystemFile (fileName: string) : Graph * NodeId =
+    let graph0 = Graph.create ()
+    let fileId = NodeId.New()
+    let fileNode = specialNode fileId File fileName Graph.systemId
+    let graph1 =
+        graph0.nodes
+        |> Map.add fileId fileNode
+        |> fun nodes -> Graph.fromNodes graph0.root nodes
+    let graph2 =
+        Graph.replace Graph.systemId 0 [] (owned [ fileId ]) graph1
+        |> requireOk "system->file"
+    graph2, fileId
+
+[<Fact>]
+let ``writeDocument allows SYSTEM amb marker`` () =
+    let dataDir = newTempDir ()
+    let graph = Graph.create ()
+    DocumentPersistence.writeDocument dataDir graph Graph.systemId
+    |> requireOk "write SYSTEM/.amb"
+    |> ignore
+    Assert.True(File.Exists(Path.Combine(dataDir, "SYSTEM", ".amb")))
+
+[<Fact>]
+let ``writeDocument allows SYSTEM user css`` () =
+    let dataDir = newTempDir ()
+    let graph, fileId = graphWithSystemFile "user.css"
+    DocumentPersistence.writeDocument dataDir graph fileId
+    |> requireOk "write SYSTEM/user.css"
+    |> ignore
+    Assert.True(File.Exists(Path.Combine(dataDir, "SYSTEM", "user.css")))
+
+[<Fact>]
+let ``writeDocument refuses illicit SYSTEM file and leaves DataDir untouched`` () =
+    let dataDir = newTempDir ()
+    let graph, fileId = graphWithSystemFile "secret.txt"
+    let systemDir = Path.Combine(dataDir, "SYSTEM")
+    Directory.CreateDirectory systemDir |> ignore
+    let path = Path.Combine(systemDir, "secret.txt")
+    File.WriteAllText(path, "SECRET")
+    match DocumentPersistence.writeDocument dataDir graph fileId with
+    | Ok _ -> failwith "expected writeDocument to refuse SYSTEM file"
+    | Error msg ->
+        Assert.Contains(
+            "system directory write refused",
+            msg,
+            StringComparison.OrdinalIgnoreCase)
+    Assert.Equal("SECRET", File.ReadAllText path)
+
+[<Fact>]
+let ``planParseFile refuses illicit SYSTEM body write`` () =
+    let dataDir = newTempDir ()
+    let graph, fileId = graphWithSystemFile "secret.txt"
+    let systemDir = Path.Combine(dataDir, "SYSTEM")
+    Directory.CreateDirectory systemDir |> ignore
+    let path = Path.Combine(systemDir, "secret.txt")
+    File.WriteAllText(path, "SECRET")
+    match DocumentPersistence.planParseFile dataDir graph fileId (Some "new") with
+    | Ok _ -> failwith "expected planParseFile to refuse SYSTEM write"
+    | Error msg ->
+        Assert.Contains(
+            "system directory write refused",
+            msg,
+            StringComparison.OrdinalIgnoreCase)
+    Assert.Equal("SECRET", File.ReadAllText path)
+
+[<Fact>]
+let ``validatePathMoves refuses rename of non-allowlisted SYSTEM file`` () =
+    let dataDir = newTempDir ()
+    let pre, fileId = graphWithSystemFile "secret.txt"
+    let systemDir = Path.Combine(dataDir, "SYSTEM")
+    Directory.CreateDirectory systemDir |> ignore
+    File.WriteAllText(Path.Combine(systemDir, "secret.txt"), "SECRET")
+    let post =
+        let node = pre.nodes.[fileId]
+        Graph.fromNodes
+            pre.root
+            (Map.add
+                fileId
+                { node with
+                    name = Filename.Ok "other.txt"
+                    text = "other.txt" }
+                pre.nodes)
+    match DocumentPersistence.validatePathMoves dataDir pre post with
+    | Ok () -> failwith "expected validatePathMoves to refuse SYSTEM path"
+    | Error msg ->
+        Assert.Contains(
+            "system directory write refused",
+            msg,
+            StringComparison.OrdinalIgnoreCase)
+
 [<Fact>]
 let ``writeDocument refuses illicit amb-named file and leaves DataDir untouched`` () =
     let dataDir = newTempDir ()

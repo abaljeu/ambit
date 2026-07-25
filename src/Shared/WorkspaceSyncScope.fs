@@ -135,6 +135,14 @@ module WorkspaceSyncScope =
                           relative = ""
                           kind = SyncScopeKind.Workspace }
                 | _ -> Error "focus is not a named workspace"
+            | Special Directory when Graph.isSystemDirectoryNode nodeId ->
+                match Filename.tryValue node.name with
+                | Some label when label <> "" ->
+                    Ok
+                        { label = label
+                          relative = ""
+                          kind = SyncScopeKind.Workspace }
+                | _ -> Error "system directory has no label"
             | Special Directory ->
                 match NodeDesktopPath.pathForNodeId graph nodeId with
                 | None -> Error "directory has no path"

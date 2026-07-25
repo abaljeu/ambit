@@ -21,7 +21,7 @@ module HttpResponseLog =
     let RelativeItemKey = "gambol.upload.relative"
 
     let logPath (dataDir: string) =
-        Path.Combine(dataDir, "SYSTEM", "gambol.http-responses.log")
+        Path.Combine(dataDir, "SYSTEM", "http-responses.log")
 
     /// Delete/recreate empty log so each server run starts fresh.
     let prepareFresh (logFile: string) =

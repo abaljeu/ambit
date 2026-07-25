@@ -74,12 +74,6 @@ module internal LazyLoadReconciliationPath =
                 | _ -> None
             | None -> None)
 
-    let workspaceByLabel (graph: Graph) label : Result<NodeId, string> =
-        match ownedChildNamed graph Graph.workspacesId label with
-        | Some node when node.kind = Special Workspace -> Ok node.id
-        | Some _ -> Error $"kind conflict at workspace '{label}'"
-        | None -> Error $"workspace '{label}' not found"
-
     let classifyValidated
         (path: string)
         : Result<PathInfo option, string>

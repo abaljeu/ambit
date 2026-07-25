@@ -13,6 +13,11 @@ Canonical project rules are split across [[.cursor/rules/]]:
 - [[.cursor/rules/markdown-writing.mdc]] — markdown conventions (scoped to *.md)
 - [[.cursor/rules/testing-workflow.mdc]] — TDD and test running (scoped to tests)
 - [[.cursor/rules/planning-docs.mdc]] — roadmap/plan documents (scoped to doc/)
+- [[.cursor/rules/work-blackboard.mdc]] — shared task board protocol
+
+Shared runtime state:
+
+- [[WORK.md]] — live actionable work (Active, Pending, Blocked)
 
 Workflow skills in [[.cursor/skills/]]:
 

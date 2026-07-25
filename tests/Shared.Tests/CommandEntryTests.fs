@@ -176,3 +176,43 @@ let ``context command reconciles owned directory under named workspace`` () =
         graph3.nodes.[workspaceId].children
         |> List.findIndex (fun child -> child.id = refHolderId)
     Assert.Equal(None, contextualTarget graph3 workspaceId refIndex)
+
+[<Fact>]
+let ``context command reconciles SYSTEM directory`` () =
+    let graph = Graph.create ()
+    let systemIndex =
+        graph.nodes.[Graph.rootId].children
+        |> List.findIndex (fun child -> child.id = Graph.systemId)
+    Assert.Equal(
+        Some(ReconcileDirectory Graph.systemId),
+        contextualTarget graph Graph.rootId systemIndex)
+    Assert.Equal(
+        WorkspaceUploadAction.ReconcileServerDisk,
+        WorkspaceUpload.plan false false false (Some(ReconcileDirectory Graph.systemId)))
+    Assert.True(
+        WorkspaceUpload.isAvailable
+            false
+            false
+            (Some(ReconcileDirectory Graph.systemId)))
+
+[<Fact>]
+let ``context command reconciles owned directory under SYSTEM`` () =
+    let applyOps (graph: Graph) (ops: Op list) =
+        let state = { graph = graph; history = History.empty; revision = Revision.Zero }
+        ops
+        |> List.fold (fun s op ->
+            match Op.apply op s with
+            | ApplyResult.Changed next
+            | ApplyResult.Unchanged next -> next
+            | ApplyResult.Invalid(_, msg) -> failwith msg) state
+        |> fun s -> s.graph
+    let graph0 = Graph.create ()
+    let dirId, dirOps =
+        FileNodeOps.planCreateOwnedDirectory graph0 Graph.systemId "cfg"
+    let graph1 = applyOps graph0 dirOps
+    let dirIndex =
+        graph1.nodes.[Graph.systemId].children
+        |> List.findIndex (fun child -> child.id = dirId)
+    Assert.Equal(
+        Some(ReconcileDirectory dirId),
+        contextualTarget graph1 Graph.systemId dirIndex)

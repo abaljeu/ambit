@@ -465,6 +465,42 @@ let ``workspace reconcile discovers under workspace root`` () =
     FileAgent.dispose fileAgent
 
 [<Fact>]
+let ``SYSTEM workspace reconcile creates File stubs under systemId`` () =
+    let tempDir = newTempDir ()
+    let fileAgent = FileAgent.create tempDir
+    let handle = AgentHandle.ofFile fileAgent
+    let systemDir = Path.Combine(tempDir, "SYSTEM")
+    Directory.CreateDirectory(systemDir) |> ignore
+    File.WriteAllText(Path.Combine(systemDir, "user.css"), "body{}")
+    File.WriteAllText(Path.Combine(systemDir, "http-responses.log"), "log")
+    File.WriteAllText(Path.Combine(systemDir, "gambol.meta"), "1")
+    LazyLoadReconciliationServer.reconcileWorkspace handle tempDir "SYSTEM"
+    |> Async.RunSynchronously
+    |> requireOk "SYSTEM reconcile"
+    |> ignore
+    let graph = readGraph fileAgent
+    let names =
+        graph.nodes.[Graph.systemId].children
+        |> List.choose (fun child ->
+            if child.ref <> Ownership.Owner then
+                None
+            else
+                Filename.tryValue graph.nodes.[child.id].name)
+        |> List.sort
+    Assert.Contains("user.css", names)
+    Assert.Contains("http-responses.log", names)
+    Assert.DoesNotContain("gambol.meta", names)
+    Assert.True(
+        names
+        |> List.forall (fun name ->
+            graph.nodes.[Graph.systemId].children
+            |> List.exists (fun c ->
+                c.ref = Ownership.Owner
+                && Filename.tryValue graph.nodes.[c.id].name = Some name
+                && Graph.isSystemDirectoryMember graph c.id)))
+    FileAgent.dispose fileAgent
+
+[<Fact>]
 let ``directory reconcile does not duplicate Normal-owned present file`` () =
     let tempDir = newTempDir ()
     let fileAgent = FileAgent.create tempDir

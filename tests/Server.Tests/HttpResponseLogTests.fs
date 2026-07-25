@@ -44,7 +44,7 @@ let ``formatErrorReport is one-line identity plus status`` () =
     Assert.Contains("body=blocked\\nby WAF", line)
 
 [<Fact>]
-let ``upload-error-report appends ERROR-REPORT to SYSTEM gambol.http-responses.log`` () = task {
+let ``upload-error-report appends ERROR-REPORT to SYSTEM http-responses.log`` () = task {
     let dataDir = newTempDir ()
     Directory.CreateDirectory(Path.Combine(dataDir, "home")) |> ignore
     use factory =

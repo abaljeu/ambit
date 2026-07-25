@@ -146,7 +146,7 @@ module LazyLoadReconciliationReport =
         (changes: LazyLoadReconciliation.ChangedPath list)
         (artifacts: Map<string, string>)
         : Result<Report, string> =
-        Path.workspaceByLabel graph workspaceLabel
+        GraphQuery.trySyncRootByLabel graph workspaceLabel
         |> Result.bind (fun workspaceId ->
             let deleted, deletedFailures =
                 changes

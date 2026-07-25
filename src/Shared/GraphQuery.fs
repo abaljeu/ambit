@@ -1,5 +1,7 @@
 namespace Gambol.Shared
 
+open System
+
 /// Graph queries: name conflicts, insert placement, parent/child navigation.
 module GraphQuery =
 
@@ -309,6 +311,35 @@ module GraphQuery =
     /// Enclosing workspace on the owner chain (A named Workspace, or ROOT).
     let enclosingWorkspace (graph: Graph) (nodeId: NodeId) : NodeId option =
         enclosing graph isEnclosingWorkspaceNode nodeId
+
+    /// Upload / reconcile root by DataDir label: named Workspace, or SYSTEM / TRASH.
+    let trySyncRootByLabel (graph: Graph) (label: string) : Result<NodeId, string> =
+        if String.IsNullOrWhiteSpace label then
+            Error "workspace label is empty"
+        elif String.Equals(label, "SYSTEM", StringComparison.OrdinalIgnoreCase) then
+            Ok GraphBuild.systemId
+        elif String.Equals(label, "TRASH", StringComparison.OrdinalIgnoreCase) then
+            Ok GraphBuild.trashId
+        else
+            match
+                graph.nodes.[GraphBuild.workspacesId].children
+                |> List.tryPick (fun child ->
+                    if child.ref <> Ownership.Owner then
+                        None
+                    else
+                        let node = graph.nodes.[child.id]
+
+                        match node.kind, Filename.tryValue node.name with
+                        | Special Workspace, Some n when
+                            String.Equals(
+                                n,
+                                label,
+                                StringComparison.OrdinalIgnoreCase) ->
+                            Some node.id
+                        | _ -> None)
+            with
+            | Some id -> Ok id
+            | None -> Error $"workspace '{label}' not found"
 
     let nodeFirstChild (graph: Graph) (id: NodeId option) : NodeId option =
         id
