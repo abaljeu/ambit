@@ -348,7 +348,7 @@ let ``planStubOps creates File under SYSTEM label`` () =
         |> applyOps graph0
     let file = childNamed graph2 Graph.systemId "user.css"
     Assert.Equal(Special File, file.kind)
-    Assert.True(Graph.isSystemDirectoryMember graph2 file.id)
+    Assert.True(Graph.isSpecialSystemDirectoryMember graph2 file.id)
     Assert.Equal(
         Some file.id,
         WorkspaceUploadStructure.tryResolveFileNode graph2 "SYSTEM" "user.css")

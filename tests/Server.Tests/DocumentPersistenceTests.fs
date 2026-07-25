@@ -638,6 +638,18 @@ let ``writeAllDocuments ROOT file lands at dataDir root without amb suffix`` () 
     Assert.True(File.Exists path)
 
 [<Fact>]
+let ``planParseFile ROOT file reads artifact directly from DataDir`` () =
+    let dataDir = newTempDir ()
+    let graph, fileId = graphWithRootFile ()
+    File.WriteAllText(Path.Combine(dataDir, "name.ext"), "FROM ROOT\n")
+
+    let ops =
+        DocumentPersistence.planParseFile dataDir graph fileId None
+        |> requireOk "planParseFile ROOT"
+
+    Assert.False(List.isEmpty ops)
+
+[<Fact>]
 let ``writeAllDocuments nested file directory boundary writes separate artifacts`` () =
     let dataDir = newTempDir ()
     let graph, fileId, dirId, normalId = graphFileOwnsDirectory ()

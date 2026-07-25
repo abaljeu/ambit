@@ -172,6 +172,21 @@ let ``GET state returns valid graph with root node`` (backend: BackendKind) =
         Assert.Empty(userRootChildren graph)
     })
 
+[<Fact>]
+let ``user css is served from canonical SYSTEM path`` () = task {
+    let tempDir = newTempDir ()
+    let systemDir = Path.Combine(tempDir, "SYSTEM")
+    Directory.CreateDirectory(systemDir) |> ignore
+    File.WriteAllText(Path.Combine(tempDir, "user.css"), "legacy")
+    File.WriteAllText(Path.Combine(systemDir, "user.css"), "canonical")
+    use client = createClientForDir tempDir
+
+    let! response = client.GetAsync("/ambit/user.css")
+    Assert.Equal(HttpStatusCode.OK, response.StatusCode)
+    let! css = response.Content.ReadAsStringAsync()
+    Assert.Equal("canonical", css)
+}
+
 // ---- POST /ambit/changes tests (parameterised) ----
 
 [<Fact>]

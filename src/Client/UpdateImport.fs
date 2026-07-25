@@ -67,8 +67,12 @@ let completeParseFilePost
             SyncPlanner.tryStartPoll model'.revision model'.syncInfo
         { model' with syncInfo = si }, pollEffs
 
-/// Parse: validate synchronously, then ContinueParseFile for async desktop read + POST.
-let parseFileOp (fileId: NodeId) (model: VM) : VM * Effect list =
+/// Parse: validate synchronously, then ContinueParseFile for optional desktop read + POST.
+let parseFileOp
+    (uploadAction: WorkspaceUploadAction)
+    (fileId: NodeId)
+    (model: VM)
+    : VM * Effect list =
     match Map.tryFind fileId model.graph.nodes with
     | Some { kind = Special File; documentState = NoServerFile } ->
         fail model "no file on server"
@@ -93,9 +97,10 @@ let parseFileOp (fileId: NodeId) (model: VM) : VM * Effect list =
 
             let detailPath = pathOpt |> Option.defaultValue ""
             let desktopReadPath =
-                match pathOpt with
-                | Some path when canImportDesktop model -> Some path
-                | _ -> None
+                WorkspaceUpload.desktopReadPath
+                    uploadAction
+                    (canImportDesktop model)
+                    pathOpt
 
             let model' =
                 { model with

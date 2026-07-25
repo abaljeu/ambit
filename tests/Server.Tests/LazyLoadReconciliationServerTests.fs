@@ -497,7 +497,7 @@ let ``SYSTEM workspace reconcile creates File stubs under systemId`` () =
             |> List.exists (fun c ->
                 c.ref = Ownership.Owner
                 && Filename.tryValue graph.nodes.[c.id].name = Some name
-                && Graph.isSystemDirectoryMember graph c.id)))
+                && Graph.isSpecialSystemDirectoryMember graph c.id)))
     FileAgent.dispose fileAgent
 
 [<Fact>]

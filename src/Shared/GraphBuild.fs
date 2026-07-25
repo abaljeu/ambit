@@ -31,9 +31,12 @@ module GraphBuild =
     let isSystemDirectoryNode (nodeId: NodeId) : bool =
         nodeId = trashId || nodeId = systemId
 
-    /// True when node is an owned child of SYSTEM (not SYSTEM itself).
-    let isSystemDirectoryMember (graph: Graph) (nodeId: NodeId) : bool =
+    /// True when a Special node is an owned child of SYSTEM (not SYSTEM itself).
+    let isSpecialSystemDirectoryMember (graph: Graph) (nodeId: NodeId) : bool =
         Map.tryFind nodeId graph.ownerParentByChild = Some systemId
+        && match Map.tryFind nodeId graph.nodes with
+           | Some { kind = Special _ } -> true
+           | _ -> false
 
     /// ROOT, TRASH, and SYSTEM — fixed document roots under the shared data directory
     /// (not named-workspace folders; Workspaces is excluded).

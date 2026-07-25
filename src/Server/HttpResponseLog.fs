@@ -1,6 +1,7 @@
 namespace Gambol.Server
 
 open System
+open System.Diagnostics
 open System.IO
 open System.Text
 open System.Text.Json
@@ -33,26 +34,23 @@ module HttpResponseLog =
     let private isMutating (method: string) =
         not (HttpMethods.IsGet(method) || HttpMethods.IsHead(method))
 
-    let private isUploadRelated (path: string) =
-        path.IndexOf("/dav/", StringComparison.OrdinalIgnoreCase) >= 0
-        || path.IndexOf("/git/", StringComparison.OrdinalIgnoreCase) >= 0
-        || path.IndexOf("/changes", StringComparison.OrdinalIgnoreCase) >= 0
-
-    let private shouldLog (ctx: HttpContext) =
-        let status = ctx.Response.StatusCode
-        let path =
-            match ctx.Request.Path.Value with
-            | null -> ""
-            | p -> p
-        status < 200
-        || status >= 300
-        || isMutating ctx.Request.Method
-        || isUploadRelated path
+    let private bodyCapturePaths =
+        set [
+            "/ambit/changes"
+            "/ambit/file/parse"
+            "/ambit/file-status"
+            "/ambit/save"
+            "/ambit/workspace/reconciliation/directory"
+            "/ambit/workspace/reconciliation/added"
+        ]
 
     let private requestPath (ctx: HttpContext) =
         match ctx.Request.Path.Value with
         | null -> ""
         | p -> p
+
+    let private requestTarget (ctx: HttpContext) =
+        requestPath ctx + string ctx.Request.QueryString
 
     let private oneLine (text: string) =
         if isNull text then ""
@@ -64,6 +62,11 @@ module HttpResponseLog =
         if t.Length <= maxBodyBytes then t
         else t.Substring(0, maxBodyBytes)
 
+    let private summarize (text: string) =
+        let t = if isNull text then "" else text
+        let suffix = if t.Length > maxBodyBytes then " [TRUNCATED]" else ""
+        oneLine (clip t) + suffix
+
     let noteTargetRelative (ctx: HttpContext) (relative: string) =
         if not (String.IsNullOrEmpty relative) then
             ctx.Items[RelativeItemKey] <- relative
@@ -72,31 +75,6 @@ module HttpResponseLog =
         match ctx.Items.TryGetValue(RelativeItemKey) with
         | true, (:? string as r) when not (String.IsNullOrEmpty r) -> Some r
         | _ -> None
-
-    let formatEntry
-        (utc: DateTime)
-        (method: string)
-        (path: string)
-        (status: int)
-        (body: string)
-        (truncated: bool)
-        (relative: string option)
-        =
-        let note = if truncated then " truncated" else ""
-        let rel =
-            match relative with
-            | Some r when not (String.IsNullOrEmpty r) ->
-                " relative=" + oneLine (clip r)
-            | _ -> ""
-        sprintf
-            "%s %s %s%s -> %d%s body=%s"
-            (utc.ToString("o"))
-            method
-            path
-            rel
-            status
-            note
-            (oneLine (clip body))
 
     let formatErrorReport
         (utc: DateTime)
@@ -113,7 +91,49 @@ module HttpResponseLog =
 
     let private appendLine (logFile: string) (line: string) =
         lock writeGate (fun () ->
-            File.AppendAllText(logFile, line + Environment.NewLine))
+            use stream =
+                new FileStream(logFile, FileMode.Append, FileAccess.Write, FileShare.Read)
+            use writer = new StreamWriter(stream, UTF8Encoding(false), 1024, true)
+            writer.WriteLine(line)
+            writer.Flush()
+            stream.Flush(true))
+
+    let private tryAppendLine logFile line =
+        if not (String.IsNullOrEmpty logFile) then
+            try appendLine logFile line with _ -> ()
+
+    let formatException
+        (utc: DateTime)
+        (source: string)
+        (operation: string)
+        (context: string)
+        (ex: exn)
+        =
+        sprintf
+            "%s EXCEPTION source=%s operation=%s context=%s type=%s message=%s stack=%s"
+            (utc.ToString("o"))
+            (oneLine source)
+            (oneLine operation)
+            (oneLine context)
+            (ex.GetType().FullName)
+            (oneLine (clip ex.Message))
+            (oneLine (clip ex.StackTrace))
+
+    /// Best-effort direct exception append; never uses graph persistence and never throws.
+    let appendException
+        (logFile: string)
+        (source: string)
+        (operation: string)
+        (context: string)
+        (ex: exn)
+        =
+        if not (String.IsNullOrEmpty logFile) then
+            try
+                let line =
+                    formatException DateTime.UtcNow source operation context ex
+                tryAppendLine logFile line
+            with _ ->
+                ()
 
     /// Append a client/server upload failure line (no auth secrets).
     let appendErrorReport
@@ -132,7 +152,7 @@ module HttpResponseLog =
                     relative
                     status
                     message
-            try appendLine logFile line with _ -> ()
+            tryAppendLine logFile line
 
     /// Forwards writes to the real response; keeps the first N bytes for the log.
     type private CaptureStream(inner: Stream, limit: int) =
@@ -188,37 +208,124 @@ module HttpResponseLog =
             if disposing then ()
             base.Dispose(disposing)
 
-    let private tryLog
+    let private capturesRequestBody (ctx: HttpContext) =
+        isMutating ctx.Request.Method
+        && bodyCapturePaths.Contains(requestPath ctx)
+
+    let private readRequestBody (ctx: HttpContext) = task {
+        if not (capturesRequestBody ctx) then
+            return ""
+        else
+            try
+                ctx.Request.EnableBuffering()
+                use reader =
+                    new StreamReader(
+                        ctx.Request.Body,
+                        Encoding.UTF8,
+                        true,
+                        1024,
+                        true)
+                let! body = reader.ReadToEndAsync()
+                ctx.Request.Body.Position <- 0L
+                return body
+            with _ ->
+                if ctx.Request.Body.CanSeek then
+                    ctx.Request.Body.Position <- 0L
+                return "[BODY CAPTURE FAILED]"
+    }
+
+    let private formatBegin
+        (utc: DateTime)
+        (requestId: string)
+        (ctx: HttpContext)
+        (requestBody: string)
+        =
+        sprintf
+            "%s BEGIN requestId=%s method=%s target=%s body=%s"
+            (utc.ToString("o"))
+            requestId
+            ctx.Request.Method
+            (oneLine (requestTarget ctx))
+            (summarize requestBody)
+
+    let private formatEnd
+        (utc: DateTime)
+        (requestId: string)
+        (elapsedMs: int64)
+        (ctx: HttpContext)
+        (body: string)
+        =
+        let relative =
+            tryRelative ctx
+            |> Option.map (fun value -> " relative=" + summarize value)
+            |> Option.defaultValue ""
+        sprintf
+            "%s END requestId=%s status=%d elapsedMs=%d%s body=%s"
+            (utc.ToString("o"))
+            requestId
+            ctx.Response.StatusCode
+            elapsedMs
+            relative
+            (summarize body)
+
+    let private formatRequestException
+        (utc: DateTime)
+        (requestId: string)
+        (elapsedMs: int64)
+        (ex: exn)
+        =
+        sprintf
+            "%s EXCEPTION requestId=%s elapsedMs=%d source=AspNet type=%s message=%s stack=%s"
+            (utc.ToString("o"))
+            requestId
+            elapsedMs
+            (ex.GetType().FullName)
+            (summarize ex.Message)
+            (summarize ex.StackTrace)
+
+    let invokeLifecycle
         (logFile: string)
         (ctx: HttpContext)
-        (capture: CaptureStream)
+        (next: RequestDelegate)
         =
-        if shouldLog ctx then
-            let body, truncated = capture.CapturedText()
-            let line =
-                formatEntry
-                    DateTime.UtcNow
-                    ctx.Request.Method
-                    (requestPath ctx)
-                    ctx.Response.StatusCode
-                    body
-                    truncated
-                    (tryRelative ctx)
-            try appendLine logFile line with _ -> ()
+        task {
+            let requestId = Guid.NewGuid().ToString("N")
+            let! requestBody = readRequestBody ctx
+            tryAppendLine logFile (formatBegin DateTime.UtcNow requestId ctx requestBody)
+            let timer = Stopwatch.StartNew()
+            let original = ctx.Response.Body
+            use capture = new CaptureStream(original, maxBodyBytes)
+            ctx.Response.Body <- capture
+            try
+                try
+                    do! next.Invoke(ctx)
+                    let body, truncated = capture.CapturedText()
+                    let summary =
+                        if truncated then body + " [TRUNCATED]" else body
+                    tryAppendLine
+                        logFile
+                        (formatEnd
+                            DateTime.UtcNow
+                            requestId
+                            timer.ElapsedMilliseconds
+                            ctx
+                            summary)
+                with ex ->
+                    tryAppendLine
+                        logFile
+                        (formatRequestException
+                            DateTime.UtcNow
+                            requestId
+                            timer.ElapsedMilliseconds
+                            ex)
+                    return raise ex
+            finally
+                ctx.Response.Body <- original
+        }
 
     let useMiddleware (logFile: string) (app: WebApplication) =
         app.Use(fun (ctx: HttpContext) (next: RequestDelegate) ->
-            task {
-                let original = ctx.Response.Body
-                use capture = new CaptureStream(original, maxBodyBytes)
-                ctx.Response.Body <- capture
-                try
-                    do! next.Invoke(ctx)
-                    tryLog logFile ctx capture
-                finally
-                    ctx.Response.Body <- original
-            }
-            :> Task)
+            invokeLifecycle logFile ctx next :> Task)
         |> ignore
 
     let private tryReadReport (req: HttpRequest) = task {

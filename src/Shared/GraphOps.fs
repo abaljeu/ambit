@@ -16,8 +16,8 @@ module GraphOps =
         static member systemId = GraphBuild.systemId
         static member isSystemFolderNode nodeId = GraphBuild.isSystemFolderNode nodeId
         static member isSystemDirectoryNode nodeId = GraphBuild.isSystemDirectoryNode nodeId
-        static member isSystemDirectoryMember graph nodeId =
-            GraphBuild.isSystemDirectoryMember graph nodeId
+        static member isSpecialSystemDirectoryMember graph nodeId =
+            GraphBuild.isSpecialSystemDirectoryMember graph nodeId
         static member isCanonicalDataRoot nodeId = GraphBuild.isCanonicalDataRoot nodeId
         static member isCanonicalNode nodeId = GraphBuild.isCanonicalNode nodeId
         static member rootPlaceholder = GraphBuild.rootPlaceholder

@@ -45,6 +45,16 @@ module WorkspaceUpload =
     let sequenceParseEffects (effects: Effect list) =
         if effects.IsEmpty then [] else [ ContinueUploadParses effects ]
 
+    /// Only a completed mapped desktop push should source parse text from desktop.
+    let desktopReadPath
+        (action: WorkspaceUploadAction)
+        (canImportDesktop: bool)
+        (path: string option)
+        : string option =
+        match action with
+        | WorkspaceUploadAction.DesktopPush _ when canImportDesktop -> path
+        | _ -> None
+
     /// Palette / key: Upload when Workspaces+desktop, or File/Dir/Workspace focus.
     let isAvailable
         (canPush: bool)

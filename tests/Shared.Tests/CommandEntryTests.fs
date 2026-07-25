@@ -111,9 +111,14 @@ let ``context command parses owning unparsed file from focused owner occurrence`
     let rootIndex =
         graph.nodes.[Graph.rootId].children
         |> List.findIndex (fun child -> child.id = fileId)
+    let target = contextualTarget graph Graph.rootId rootIndex
     Assert.Equal(
         Some(ParseFile fileId),
-        contextualTarget graph Graph.rootId rootIndex)
+        target)
+    Assert.Equal(
+        WorkspaceUploadAction.ParseServerDisk fileId,
+        WorkspaceUpload.plan true false false target)
+    Assert.True(WorkspaceSyncScope.tryFromFocus graph fileId |> Result.isError)
     Assert.Equal(
         Some(ParseFile fileId),
         contextualTarget graph fileId 0)

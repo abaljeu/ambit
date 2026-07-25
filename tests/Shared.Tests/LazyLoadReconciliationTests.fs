@@ -599,4 +599,4 @@ let ``planAddedPaths creates File under SYSTEM`` () =
         requirePlan graph0 "SYSTEM" [ "user.css" ] |> applyOps graph0
     let file = childNamed graph1 Graph.systemId "user.css"
     Assert.Equal(Special File, file.kind)
-    Assert.True(Graph.isSystemDirectoryMember graph1 file.id)
+    Assert.True(Graph.isSpecialSystemDirectoryMember graph1 file.id)

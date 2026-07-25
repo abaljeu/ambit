@@ -349,7 +349,11 @@ let completeWorkspacePush
         | Ok presentModel ->
             match parseFileId with
             | Some fileId ->
-                parseFileOp fileId presentModel |> withPathSyncRefresh
+                parseFileOp
+                    (WorkspaceUploadAction.DesktopPush(Some fileId))
+                    fileId
+                    presentModel
+                |> withPathSyncRefresh
             | None ->
                 okDetail presentModel sync.detail |> withPathSyncRefresh
     | Ok { error = Some e } -> failWorkspacePush e model
@@ -541,9 +545,9 @@ let uploadOp (model: VM) : VM * Effect list =
         | Ok scope ->
             postDirectoryReconcile model scope.label scope.relative
             |> withPathSyncRefresh
-    | WorkspaceUploadAction.ParseServerDisk fileId when
+    | (WorkspaceUploadAction.ParseServerDisk fileId as action) when
         WorkspaceUpload.canStartWeb model.syncInfo ->
-        parseFileOp fileId model
+        parseFileOp action fileId model
     | WorkspaceUploadAction.ReconcileServerDisk
     | WorkspaceUploadAction.ParseServerDisk _ ->
         queueUploadRequest model

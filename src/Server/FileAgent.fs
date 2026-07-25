@@ -2,18 +2,29 @@ namespace Gambol.Server
 
 open System
 open System.IO
+open System.Threading.Tasks
 open Gambol.Shared
 
 module Encode = Thoth.Json.Newtonsoft.Encode
 module Decode = Thoth.Json.Newtonsoft.Decode
 
 type FileAgentMsg =
-    | GetState of AsyncReplyChannel<string>
-    | GetRevision of AsyncReplyChannel<int>
-    | GetChangesSince of after: int * AsyncReplyChannel<Change list>
+    | GetState of AsyncReplyChannel<Result<string, string>>
+    | GetRevision of AsyncReplyChannel<Result<int, string>>
+    | GetChangesSince of
+        after: int * AsyncReplyChannel<Result<Change list, string>>
     | PostChange of body: string * AsyncReplyChannel<Result<string, string>>
     | PostGraphOnlyChange of body: string * AsyncReplyChannel<Result<string, string>>
     | SnapshotDone of graph: Graph option
+
+type FileAgentDependencies = {
+    persistGraphOps:
+        string -> Graph -> Graph -> Op list -> Result<Graph, string>
+    appendException: string -> string -> exn -> unit
+    /// Wall-clock bound for the persistGraphOps call. Overridable so tests can exercise
+    /// the timeout path without waiting the full production timeout.
+    changeProcessingTimeoutMs: int
+}
 
 // FileAgent — serialises all reads/writes for a single file
 type FileAgent = {
@@ -24,7 +35,42 @@ type FileAgent = {
 
 module FileAgent =
 
-    let create (dataDir: string) : FileAgent =
+    /// Bound on wall-clock time for a single change's persist step (disk write via
+    /// DocumentWarm/CStyleReconcile). That reconcile path is a known-slow/hanging
+    /// algorithm; this timeout exists to keep the mailbox loop responsive, not to fix it.
+    [<Literal>]
+    let ChangeProcessingTimeoutMs = 8000
+
+    /// Runs a synchronous computation on a background Task, bounding wall-clock time so
+    /// a pathologically slow computation can never wedge the caller's mailbox loop. If the
+    /// timeout elapses, the background Task is abandoned (fire-and-forget): it may still run
+    /// to completion later and write to disk concurrently with subsequently accepted changes.
+    /// Uses WaitAny (not Wait/Result) because WaitAny reports timeout vs settled without
+    /// itself throwing on a faulted task; GetAwaiter().GetResult() then rethrows `f`'s
+    /// original exception unwrapped (as if called synchronously), so the caller's existing
+    /// exception handling is unaffected.
+    let runBounded (timeoutMs: int) (f: unit -> Result<'a, string>) : Result<'a, string> =
+        let task = Task.Run(fun () -> f ())
+        let settledIndex = Task.WaitAny([| task :> Task |], timeoutMs)
+        if settledIndex = -1 then
+            Error "change processing timed out"
+        else
+            task.GetAwaiter().GetResult()
+
+    let defaultDependencies (dataDir: string) =
+        {
+            persistGraphOps = DocumentPersistence.persistGraphOps
+            appendException =
+                HttpResponseLog.appendException
+                    (HttpResponseLog.logPath dataDir)
+                    "FileAgent"
+            changeProcessingTimeoutMs = ChangeProcessingTimeoutMs
+        }
+
+    let createWithDependencies
+        (dependencies: FileAgentDependencies)
+        (dataDir: string)
+        : FileAgent =
         let initialState =
             match DocumentLoader.tryLoadState dataDir with
             | Ok state -> state
@@ -62,7 +108,10 @@ module FileAgent =
             (postGraph: Graph)
             (ops: Op list)
             =
-            match DocumentPersistence.persistGraphOps dataDir preGraph postGraph ops with
+            let persisted =
+                runBounded dependencies.changeProcessingTimeoutMs (fun () ->
+                    dependencies.persistGraphOps dataDir preGraph postGraph ops)
+            match persisted with
             | Error err -> Error err
             | Ok stamped ->
                 match Bookkeeping.writeRevision dataDir rev with
@@ -175,28 +224,67 @@ module FileAgent =
                                 state.Value <- finalState
                                 reply.Reply(Ok (encodeChangeAckJson ackedChangeIds stampOps))
 
+        let operationContext msg =
+            let bodyLength (body: string) =
+                if isNull body then 0 else body.Length
+            match msg with
+            | GetState _ -> "GetState", ""
+            | GetRevision _ -> "GetRevision", ""
+            | GetChangesSince (after, _) ->
+                "GetChangesSince", $"after={after}"
+            | PostChange (body, _) ->
+                "PostChange", $"bodyLength={bodyLength body}"
+            | PostGraphOnlyChange (body, _) ->
+                "PostGraphOnlyChange", $"bodyLength={bodyLength body}"
+            | SnapshotDone _ -> "SnapshotDone", ""
+
+        let replyFailure operation msg =
+            let error = $"Internal server error in FileAgent {operation}."
+            match msg with
+            | GetState reply -> reply.Reply(Error error)
+            | GetRevision reply -> reply.Reply(Error error)
+            | GetChangesSince (_, reply) -> reply.Reply(Error error)
+            | PostChange (_, reply) -> reply.Reply(Error error)
+            | PostGraphOnlyChange (_, reply) -> reply.Reply(Error error)
+            | SnapshotDone _ -> ()
+
+        let dispatch msg =
+            match msg with
+            | GetState reply ->
+                reply.Reply(Ok (encodeStateJson ()))
+            | GetRevision reply ->
+                reply.Reply(Ok state.Value.revision.Value)
+            | GetChangesSince (after, reply) ->
+                let changes =
+                    [ after .. offsetIndex.Count - 1 ]
+                    |> List.choose (fun i ->
+                        let _, json =
+                            ChangeLog.readEntryAt logStream offsetIndex.[i]
+                        match ChangeLog.decodeChange json with
+                        | Ok change -> Some change
+                        | Error _ -> None)
+                reply.Reply(Ok changes)
+            | PostChange (body, reply) ->
+                handlePostChange body false reply
+            | PostGraphOnlyChange (body, reply) ->
+                handlePostChange body true reply
+            | SnapshotDone _ -> ()
+
         let mailbox = MailboxProcessor<FileAgentMsg>.Start(fun inbox ->
             let rec loop () = async {
                 let! msg = inbox.Receive()
-                match msg with
-                | GetState reply ->
-                    reply.Reply(encodeStateJson ())
-                | GetRevision reply ->
-                    reply.Reply(state.Value.revision.Value)
-                | GetChangesSince (after, reply) ->
-                    let changes =
-                        [ after .. offsetIndex.Count - 1 ]
-                        |> List.choose (fun i ->
-                            let _, json = ChangeLog.readEntryAt logStream offsetIndex.[i]
-                            match ChangeLog.decodeChange json with
-                            | Ok change -> Some change
-                            | Error _ -> None)
-                    reply.Reply(changes)
-                | PostChange (body, reply) ->
-                    handlePostChange body false reply
-                | PostGraphOnlyChange (body, reply) ->
-                    handlePostChange body true reply
-                | _ -> ()
+                try
+                    dispatch msg
+                with ex ->
+                    let operation, context = operationContext msg
+                    try
+                        dependencies.appendException operation context ex
+                    with _ ->
+                        ()
+                    try
+                        replyFailure operation msg
+                    with _ ->
+                        ()
                 return! loop ()
             }
             loop ()
@@ -204,14 +292,33 @@ module FileAgent =
 
         { mailbox = mailbox; logStream = logStream; initialState = capturedInitialState }
 
+    let create (dataDir: string) : FileAgent =
+        createWithDependencies (defaultDependencies dataDir) dataDir
+
+    let private unwrap result =
+        match result with
+        | Ok value -> value
+        | Error error -> failwith error
+
     let getState (agent: FileAgent) : Async<string> =
-        agent.mailbox.PostAndAsyncReply(GetState)
+        async {
+            let! result = agent.mailbox.PostAndAsyncReply(GetState)
+            return unwrap result
+        }
 
     let getRevision (agent: FileAgent) : Async<int> =
-        agent.mailbox.PostAndAsyncReply(GetRevision)
+        async {
+            let! result = agent.mailbox.PostAndAsyncReply(GetRevision)
+            return unwrap result
+        }
 
     let getChangesSince (agent: FileAgent) (after: int) : Async<Change list> =
-        agent.mailbox.PostAndAsyncReply(fun reply -> GetChangesSince(after, reply))
+        async {
+            let! result =
+                agent.mailbox.PostAndAsyncReply(fun reply ->
+                    GetChangesSince(after, reply))
+            return unwrap result
+        }
 
     let postChange (agent: FileAgent) (body: string) : Async<Result<string, string>> =
         agent.mailbox.PostAndAsyncReply(fun reply -> PostChange(body, reply))

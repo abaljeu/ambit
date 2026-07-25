@@ -193,6 +193,35 @@ let ``planRenameNode on Normal updates name not text`` () =
         Assert.Equal("visible label", node.text)
 
 [<Fact>]
+let ``planRenameNode allows Normal child under SYSTEM`` () =
+    let graph0 = Graph.create ()
+    let graph1, nodeId = Graph.newNode "visible label" graph0
+    let graph2 =
+        Graph.replace Graph.systemId 0 [] (owned [ nodeId ]) graph1
+        |> requireOk "SYSTEM->normal"
+    Assert.True(NodeRenameOps.isRenameAllowed graph2 nodeId)
+    match NodeRenameOps.planRenameNode graph2 nodeId "file-name" with
+    | Error e -> Assert.Fail e
+    | Ok (ops, pathMove) ->
+        Assert.Equal(None, pathMove)
+        let graph3 = applyOps graph2 ops
+        Assert.Equal(Filename.Ok "file-name", graph3.nodes.[nodeId].name)
+
+[<Fact>]
+let ``planRenameNode rejects Special File child under SYSTEM`` () =
+    let graph0 = Graph.create ()
+    let fileId = NodeId.New()
+    let file = specialNode fileId File "user.css" Graph.systemId
+    let graph1 = Graph.addDetachedNode file graph0
+    let graph2 =
+        Graph.replace Graph.systemId 0 [] (owned [ fileId ]) graph1
+        |> requireOk "SYSTEM->file"
+    Assert.False(NodeRenameOps.isRenameAllowed graph2 fileId)
+    match NodeRenameOps.planRenameNode graph2 fileId "other.css" with
+    | Ok _ -> Assert.Fail "expected Error"
+    | Error msg -> Assert.Equal("cannot rename this node", msg)
+
+[<Fact>]
 let ``planRenameNode returns empty ops when name is unchanged`` () =
     let graph0 = Graph.create ()
     let graph1, nodeId = Graph.newNode "visible label" graph0

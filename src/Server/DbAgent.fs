@@ -25,6 +25,7 @@ module DbAgent =
         (initialState: State)
         (connectionString: string)
         (liveSaveDataDir: string option)
+        (persistGraphOps: string -> Graph -> Graph -> Op list -> Result<Graph, string>)
         (runStartupSweep: Graph -> Result<Guid list, string>)
         : DbAgent =
         let state = ref initialState
@@ -199,11 +200,14 @@ module DbAgent =
                                 let ops =
                                     logEntries
                                     |> List.collect (fun (_, change) -> change.ops)
-                                DocumentPersistence.persistGraphOps
-                                    dataDir
-                                    preGraph
-                                    newState.graph
-                                    ops
+                                FileAgent.runBounded
+                                    FileAgent.ChangeProcessingTimeoutMs
+                                    (fun () ->
+                                        persistGraphOps
+                                            dataDir
+                                            preGraph
+                                            newState.graph
+                                            ops)
                                 |> Result.map Some
                             | _ -> Ok None
                         match livePersist with
@@ -234,12 +238,52 @@ module DbAgent =
                                     if snapshotInProgress.Value then snapshotNeeded.Value <- true
                                     else startSnapshot inbox
 
+        let operationContext msg =
+            let bodyLength (body: string) =
+                if isNull body then 0 else body.Length
+            match msg with
+            | GetState _ -> "GetState", ""
+            | GetRevision _ -> "GetRevision", ""
+            | GetChangesSince (after, _) ->
+                "GetChangesSince", $"after={after}"
+            | PostChange (body, _) ->
+                "PostChange", $"bodyLength={bodyLength body}"
+            | PostGraphOnlyChange (body, _) ->
+                "PostGraphOnlyChange", $"bodyLength={bodyLength body}"
+            | SnapshotDone _ -> "SnapshotDone", ""
+
+        let replyFailure operation msg =
+            let error = $"Internal server error in DbAgent {operation}."
+            match msg with
+            | GetState reply -> reply.Reply(Error error)
+            | GetRevision reply -> reply.Reply(Error error)
+            | GetChangesSince (_, reply) -> reply.Reply(Error error)
+            | PostChange (_, reply) -> reply.Reply(Error error)
+            | PostGraphOnlyChange (_, reply) -> reply.Reply(Error error)
+            | SnapshotDone _ -> ()
+
+        let logUnhandledException operation context (ex: exn) =
+            match liveSaveDataDir with
+            | Some dataDir ->
+                HttpResponseLog.appendException
+                    (HttpResponseLog.logPath dataDir)
+                    "DbAgent"
+                    operation
+                    context
+                    ex
+            | None ->
+                eprintfn
+                    "DbAgent: unhandled exception in %s (%s): %s"
+                    operation
+                    context
+                    ex.Message
+
         let tryHandleRead msg =
             match msg with
             | GetState reply ->
-                Some(async { reply.Reply(encodeStateJson ()) })
+                Some(async { reply.Reply(Ok (encodeStateJson ())) })
             | GetRevision reply ->
-                Some(async { reply.Reply(state.Value.revision.Value) })
+                Some(async { reply.Reply(Ok state.Value.revision.Value) })
             | GetChangesSince (after, reply) ->
                 Some(async {
                     let rows =
@@ -252,7 +296,7 @@ module DbAgent =
                         rows
                         |> List.choose (fun row ->
                             decodeChangePayload row.payload |> Result.toOption)
-                    reply.Reply(changes)
+                    reply.Reply(Ok changes)
                 })
             | _ -> None
 
@@ -260,25 +304,30 @@ module DbAgent =
             MailboxProcessor<FileAgentMsg>.Start(fun inbox ->
                 let rec loop () = async {
                     let! msg = inbox.Receive()
-                    match tryHandleRead msg with
-                    | Some read -> do! read
-                    | None ->
-                        match msg with
-                        | PostChange (body, reply) ->
-                            handlePostChange body false reply inbox
-                        | PostGraphOnlyChange (body, reply) ->
-                            handlePostChange body true reply inbox
-                        | SnapshotDone persisted ->
-                            match persisted with
-                            | Some graph
-                                when GraphProjection.graphEquals
-                                    state.Value.graph
-                                    graph ->
-                                persistedGraph.Value <- graph
+                    try
+                        match tryHandleRead msg with
+                        | Some read -> do! read
+                        | None ->
+                            match msg with
+                            | PostChange (body, reply) ->
+                                handlePostChange body false reply inbox
+                            | PostGraphOnlyChange (body, reply) ->
+                                handlePostChange body true reply inbox
+                            | SnapshotDone persisted ->
+                                match persisted with
+                                | Some graph
+                                    when GraphProjection.graphEquals
+                                        state.Value.graph
+                                        graph ->
+                                    persistedGraph.Value <- graph
+                                | _ -> ()
+                                snapshotInProgress.Value <- false
+                                if snapshotNeeded.Value then startSnapshot inbox
                             | _ -> ()
-                            snapshotInProgress.Value <- false
-                            if snapshotNeeded.Value then startSnapshot inbox
-                        | _ -> ()
+                    with ex ->
+                        let operation, context = operationContext msg
+                        try logUnhandledException operation context ex with _ -> ()
+                        try replyFailure operation msg with _ -> ()
                     return! loop ()
                 }
                 let rec failedLoop error = async {
@@ -329,13 +378,30 @@ module DbAgent =
             initialState
             connectionString
             liveSaveDataDir
+            DocumentPersistence.persistGraphOps
             runStartupSweep
 
     let createForTest
         (initialState: State)
         (runStartupSweep: Graph -> Result<Guid list, string>)
         : DbAgent =
-        createLoaded initialState "" None runStartupSweep
+        createLoaded
+            initialState
+            ""
+            None
+            DocumentPersistence.persistGraphOps
+            runStartupSweep
+
+    /// Test-only seam: injects a stand-in for the live-persist step (and an optional
+    /// liveSaveDataDir) so failure/timeout behavior can be exercised without a real DB
+    /// connection or the real (slow/bug-prone) document reconcile path.
+    let createForTestWithDependencies
+        (initialState: State)
+        (liveSaveDataDir: string option)
+        (persistGraphOps: string -> Graph -> Graph -> Op list -> Result<Graph, string>)
+        (runStartupSweep: Graph -> Result<Guid list, string>)
+        : DbAgent =
+        createLoaded initialState "" liveSaveDataDir persistGraphOps runStartupSweep
 
     let createWithDataDir
         (connectionString: string)
@@ -349,14 +415,30 @@ module DbAgent =
     let isReady (agent: DbAgent) =
         agent.isReady ()
 
+    let private unwrap result =
+        match result with
+        | Ok value -> value
+        | Error error -> failwith error
+
     let getState (agent: DbAgent) : Async<string> =
-        agent.mailbox.PostAndAsyncReply(GetState)
+        async {
+            let! result = agent.mailbox.PostAndAsyncReply(GetState)
+            return unwrap result
+        }
 
     let getRevision (agent: DbAgent) : Async<int> =
-        agent.mailbox.PostAndAsyncReply(GetRevision)
+        async {
+            let! result = agent.mailbox.PostAndAsyncReply(GetRevision)
+            return unwrap result
+        }
 
     let getChangesSince (agent: DbAgent) (after: int) : Async<Change list> =
-        agent.mailbox.PostAndAsyncReply(fun reply -> GetChangesSince(after, reply))
+        async {
+            let! result =
+                agent.mailbox.PostAndAsyncReply(fun reply ->
+                    GetChangesSince(after, reply))
+            return unwrap result
+        }
 
     let postChange (agent: DbAgent) (body: string) : Async<Result<string, string>> =
         agent.mailbox.PostAndAsyncReply(fun reply -> PostChange(body, reply))

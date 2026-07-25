@@ -58,8 +58,8 @@ module GraphMutate =
             Error "cannot modify canonical root name"
         elif GraphBuild.isSystemFolderNode nodeId then
             Error "cannot modify system folder node name"
-        elif GraphBuild.isSystemDirectoryMember graph nodeId then
-            Error "cannot modify SYSTEM member name"
+        elif GraphBuild.isSpecialSystemDirectoryMember graph nodeId then
+            Error "cannot modify Special SYSTEM member name"
         else
             match graph.nodes |> Map.tryFind nodeId with
             | None -> Error "node not found"
@@ -246,15 +246,22 @@ module GraphMutate =
                             let after = ownedIds updatedChildren
                             let removed = Set.difference before after
                             let added = Set.difference after before
-                            // Add OK (new / detached). Refuse remove and move-in.
+                            // Add detached Special stubs. Normal outline children remain movable.
                             let isMoveIn id =
-                                match Map.tryFind id graph.ownerParentByChild with
-                                | Some p when p <> GraphBuild.systemId -> true
+                                match
+                                    graph.nodes.[id].kind,
+                                    Map.tryFind id graph.ownerParentByChild
+                                with
+                                | Special _, Some p when p <> GraphBuild.systemId -> true
                                 | _ -> false
-                            if not (Set.isEmpty removed) then
-                                Error "cannot remove owned children under SYSTEM"
+                            if
+                                removed
+                                |> Seq.exists
+                                    (GraphBuild.isSpecialSystemDirectoryMember graph)
+                            then
+                                Error "cannot remove Special owned children under SYSTEM"
                             elif added |> Seq.exists isMoveIn then
-                                Error "cannot move existing nodes under SYSTEM"
+                                Error "cannot move existing Special nodes under SYSTEM"
                             else
                                 Ok (commit updatedChildren)
                         elif
@@ -268,9 +275,9 @@ module GraphMutate =
                             updatedChildren
                             |> List.exists (fun c ->
                                 c.ref = Ownership.Owner
-                                && GraphBuild.isSystemDirectoryMember graph c.id)
+                                && GraphBuild.isSpecialSystemDirectoryMember graph c.id)
                         then
                             Error
-                                "SYSTEM members may not be OWNED by a non-SYSTEM parent"
+                                "Special SYSTEM members may not be OWNED by a non-SYSTEM parent"
                         else
                             Ok (commit updatedChildren)

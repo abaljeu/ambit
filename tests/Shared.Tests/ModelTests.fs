@@ -421,8 +421,11 @@ let ``Graph.replace rejects SYSTEM owned under non-root`` () =
             "trash, workspaces, and system may not be OWNED by a non-root parent",
             msg)
 
-/// Seed owned File children under SYSTEM via fromNodes (bypasses replace guards).
-let private graphWithSystemMembers (names: string list) : Graph * NodeId list =
+/// Seed owned Special children under SYSTEM via fromNodes (bypasses replace guards).
+let private graphWithSpecialSystemMembers
+    (kind: SpecialKind)
+    (names: string list)
+    : Graph * NodeId list =
     let graph0 = Graph.create ()
     let ids = names |> List.map (fun _ -> NodeId.New())
     let memberNodes =
@@ -433,7 +436,7 @@ let private graphWithSystemMembers (names: string list) : Graph * NodeId list =
                 id,
                 text = name,
                 name = Filename.Ok name,
-                kind = Special File,
+                kind = Special kind,
                 owner = Graph.systemId))
     let system = graph0.nodes.[Graph.systemId]
     let system' =
@@ -444,15 +447,56 @@ let private graphWithSystemMembers (names: string list) : Graph * NodeId list =
         |> Map.add Graph.systemId system'
     Graph.fromNodes graph0.root nodes, ids
 
+let private graphWithSystemMembers names =
+    graphWithSpecialSystemMembers File names
+
 [<Fact>]
-let ``isSystemDirectoryMember is true only for owned children of SYSTEM`` () =
+let ``isSpecialSystemDirectoryMember is true only for owned Special children of SYSTEM`` () =
     let graph, ids = graphWithSystemMembers [ "a.amb"; "b.amb" ]
     let a, b = ids.[0], ids.[1]
-    Assert.True(Graph.isSystemDirectoryMember graph a)
-    Assert.True(Graph.isSystemDirectoryMember graph b)
-    Assert.False(Graph.isSystemDirectoryMember graph Graph.systemId)
-    Assert.False(Graph.isSystemDirectoryMember graph Graph.trashId)
-    Assert.False(Graph.isSystemDirectoryMember graph Graph.rootId)
+    Assert.True(Graph.isSpecialSystemDirectoryMember graph a)
+    Assert.True(Graph.isSpecialSystemDirectoryMember graph b)
+    Assert.False(Graph.isSpecialSystemDirectoryMember graph Graph.systemId)
+    Assert.False(Graph.isSpecialSystemDirectoryMember graph Graph.trashId)
+    Assert.False(Graph.isSpecialSystemDirectoryMember graph Graph.rootId)
+
+[<Fact>]
+let ``Graph.replace allows indent-shaped reparent of Normal child under SYSTEM`` () =
+    let graph0 = Graph.create ()
+    let graph1, ids = ModelBuilder.createNodes [ "parent"; "child" ] graph0
+    let parent, child = ids.[0], ids.[1]
+    let graph2 =
+        Graph.replace Graph.systemId 0 [] (owned [ parent; child ]) graph1
+        |> requireOk "SYSTEM->normal children"
+    let graph3 =
+        Graph.replace Graph.systemId 1 (owned [ child ]) [] graph2
+        |> requireOk "remove normal child from SYSTEM"
+    let graph4 =
+        Graph.replace parent 0 [] (owned [ child ]) graph3
+        |> requireOk "indent normal child"
+    Assert.Equal(Some parent, graph4.ownerParentByChild |> Map.tryFind child)
+    Assert.False(Graph.isSpecialSystemDirectoryMember graph2 parent)
+    Assert.False(Graph.isSpecialSystemDirectoryMember graph2 child)
+    let graph5 =
+        Graph.replace parent 0 (owned [ child ]) [] graph4
+        |> requireOk "remove normal child from parent"
+    let graph6 =
+        Graph.replace Graph.systemId 1 [] (owned [ child ]) graph5
+        |> requireOk "reparent normal child into SYSTEM"
+    Assert.Equal(Some Graph.systemId, graph6.ownerParentByChild |> Map.tryFind child)
+
+[<Fact>]
+let ``Graph.setName allows Normal member under SYSTEM`` () =
+    let graph0 = Graph.create ()
+    let graph1, ids = ModelBuilder.createNodes [ "normal" ] graph0
+    let nodeId = ids.[0]
+    let graph2 =
+        Graph.replace Graph.systemId 0 [] (owned [ nodeId ]) graph1
+        |> requireOk "SYSTEM->normal"
+    let graph3 =
+        Graph.setName nodeId "" "renamed" graph2
+        |> requireOk "rename normal SYSTEM child"
+    Assert.Equal(Filename.Ok "renamed", graph3.nodes.[nodeId].name)
 
 [<Fact>]
 let ``Graph.replace allows Upload-style File stub under SYSTEM`` () =
@@ -471,7 +515,7 @@ let ``Graph.replace allows Upload-style File stub under SYSTEM`` () =
                 | ApplyResult.Unchanged next -> next
                 | ApplyResult.Invalid(_, msg) -> failwith msg)
             state0
-    Assert.True(Graph.isSystemDirectoryMember state1.graph fileId)
+    Assert.True(Graph.isSpecialSystemDirectoryMember state1.graph fileId)
     Assert.Contains(
         state1.graph.nodes.[Graph.systemId].children,
         fun c -> c.id = fileId && c.ref = Ownership.Owner)
@@ -494,7 +538,7 @@ let ``Graph.replace allows Upload-style Directory stub under SYSTEM`` () =
                 | ApplyResult.Unchanged next -> next
                 | ApplyResult.Invalid(_, msg) -> failwith msg)
             state0
-    Assert.True(Graph.isSystemDirectoryMember state1.graph dirId)
+    Assert.True(Graph.isSpecialSystemDirectoryMember state1.graph dirId)
 
 [<Fact>]
 let ``Graph.replace allows attaching stub with owner already SYSTEM`` () =
@@ -510,7 +554,7 @@ let ``Graph.replace allows attaching stub with owner already SYSTEM`` () =
     let graph1 = Graph.addDetachedNode node graph0
     match Graph.replace Graph.systemId 0 [] (owned [ fileId ]) graph1 with
     | Error msg -> Assert.True(false, $"expected Ok: {msg}")
-    | Ok graph2 -> Assert.True(Graph.isSystemDirectoryMember graph2 fileId)
+    | Ok graph2 -> Assert.True(Graph.isSpecialSystemDirectoryMember graph2 fileId)
 
 [<Fact>]
 let ``Graph.replace rejects moving existing owned node under SYSTEM`` () =
@@ -539,7 +583,7 @@ let ``Graph.replace rejects moving existing owned node under SYSTEM`` () =
     with
     | Ok _ -> Assert.True(false, "expected Error")
     | Error msg ->
-        Assert.Contains("cannot move existing nodes under SYSTEM", msg)
+        Assert.Contains("cannot move existing Special nodes under SYSTEM", msg)
 
 [<Fact>]
 let ``Graph.replace rejects removing owned child under SYSTEM`` () =
@@ -548,7 +592,7 @@ let ``Graph.replace rejects removing owned child under SYSTEM`` () =
     match Graph.replace Graph.systemId 0 oldChildren [] graph with
     | Ok _ -> Assert.True(false, "expected Error")
     | Error msg ->
-        Assert.Contains("cannot remove owned children under SYSTEM", msg)
+        Assert.Contains("cannot remove Special owned children under SYSTEM", msg)
 
 [<Fact>]
 let ``Graph.replace rejects moving SYSTEM member out to non-SYSTEM parent`` () =
@@ -563,7 +607,7 @@ let ``Graph.replace rejects moving SYSTEM member out to non-SYSTEM parent`` () =
     | Ok _ -> Assert.True(false, "expected Error")
     | Error msg ->
         Assert.Contains(
-            "SYSTEM members may not be OWNED by a non-SYSTEM parent",
+            "Special SYSTEM members may not be OWNED by a non-SYSTEM parent",
             msg)
 
 [<Fact>]
@@ -585,7 +629,26 @@ let ``Graph.setName rejects SYSTEM member`` () =
     let memberId = ids.[0]
     match Graph.setName memberId "a.amb" "b.amb" graph with
     | Ok _ -> Assert.True(false, "expected Error")
-    | Error msg -> Assert.Contains("cannot modify SYSTEM member name", msg)
+    | Error msg -> Assert.Contains("cannot modify Special SYSTEM member name", msg)
+
+[<Fact>]
+let ``Graph guards protect Special Directory member under SYSTEM`` () =
+    let graph0, ids = graphWithSpecialSystemMembers Directory [ "config" ]
+    let directoryId = ids.[0]
+    match Graph.replace Graph.systemId 0 (owned [ directoryId ]) [] graph0 with
+    | Ok _ -> Assert.Fail "expected remove Error"
+    | Error msg -> Assert.Contains("cannot remove Special owned children", msg)
+    let graph1, parentIds = ModelBuilder.createNodes [ "parent" ] graph0
+    let parentId = parentIds.[0]
+    let graph2 =
+        Graph.replace Graph.rootId 0 [] (owned [ parentId ]) graph1
+        |> requireOk "root->parent"
+    match Graph.replace parentId 0 [] (owned [ directoryId ]) graph2 with
+    | Ok _ -> Assert.Fail "expected move-out Error"
+    | Error msg -> Assert.Contains("Special SYSTEM members may not be OWNED", msg)
+    match Graph.setName directoryId "config" "renamed" graph2 with
+    | Ok _ -> Assert.Fail "expected rename Error"
+    | Error msg -> Assert.Contains("cannot modify Special SYSTEM member name", msg)
 
 [<Fact>]
 let ``Graph.setText on workspaces node is rejected`` () =

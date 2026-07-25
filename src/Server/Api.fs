@@ -90,6 +90,12 @@ module Api =
     let private jsonResult (json: string) : IResult =
         Results.Content(json, "application/json")
 
+    let private agentErrorResult (error: string) : IResult =
+        if error.StartsWith("Internal server error", StringComparison.Ordinal) then
+            Results.Problem(detail = error, statusCode = 500)
+        else
+            Results.BadRequest({| error = error |})
+
     let private decodeFileStatusRequest =
         Thoth.Json.Core.Decode.object (fun get ->
             get.Required.Field "path" Thoth.Json.Core.Decode.string)
@@ -125,7 +131,7 @@ module Api =
 
         match result with
         | Ok json -> return jsonResult json
-        | Error err -> return Results.BadRequest({| error = err |})
+        | Error err -> return agentErrorResult err
     }
 
     let getCapabilities (dataDir: string) : IResult =
@@ -231,7 +237,7 @@ module Api =
                             match result with
                             | Ok _ -> return jsonResult """{"ok":true}"""
                             | Error err ->
-                                return Results.BadRequest({| error = err |})
+                                return agentErrorResult err
         }
 
     let gitSave

@@ -39,6 +39,22 @@ let ``desktop Upload on unmapped file plans ParseServerDisk`` () =
         WorkspaceUpload.plan true false false (Some(ParseFile fileId)))
 
 [<Fact>]
+let ``ParseServerDisk never reads desktop file while DesktopPush does`` () =
+    Assert.Equal(
+        None,
+        WorkspaceUpload.desktopReadPath
+            (WorkspaceUploadAction.ParseServerDisk fileId)
+            true
+            (Some "//README"))
+    let workspacePath = Some "//home/name.ext"
+    Assert.Equal(
+        workspacePath,
+        WorkspaceUpload.desktopReadPath
+            (WorkspaceUploadAction.DesktopPush(Some fileId))
+            true
+            workspacePath)
+
+[<Fact>]
 let ``desktop Upload on mapped directory plans DesktopPush without parse`` () =
     Assert.Equal(
         WorkspaceUploadAction.DesktopPush None,
