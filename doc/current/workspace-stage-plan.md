@@ -369,7 +369,7 @@ Status: Stage 7 core `[x]`; Stage 8 `[x]`; Stage 7 follow-ups `[ ]`.
 What is in place:
 
 - **Path:** `{DataDir}/{workspaceLabel}/{canonicalRelativePath}` (folder name equals workspace label, verbatim).
-- **Write pattern:** live-save on accepted change via `DocumentPersistence.persistGraphChange` after DB commit (`DbAgent` snapshot task).
+- **Write pattern:** live-save on accepted change via `DocumentPersistence.persistGraphChange` after DB commit (`DbAgent` snapshot task); writes only affected Current document roots (pre→post + path moves), not a full Current-root walk.
 - **Stop at nested document root:** `AmbDocument.write` / `DocumentPartition` — nested workspace/directory/file document roots persist as separate artifacts.
 - **Unified path moves:** `executePathMoves` for rename, reparent, and soft delete (`MoveToTrash` → `//TRASH/...`). Path validation before accept; `Directory.Move` / `File.Move` on disk.
 - **TRASH on disk:** `TRASH/.amb` under `DataDir` (directory document for canonical `trashId`).

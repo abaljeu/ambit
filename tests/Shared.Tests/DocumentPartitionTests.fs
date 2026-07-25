@@ -226,3 +226,85 @@ let ``shouldWriteDocumentRoot is false for illicit Current amb-named file`` () =
             owner = Graph.rootId,
             kind = Special File)
     Assert.False(DocumentPartition.shouldWriteDocumentRoot node)
+
+let private graphWithTwoSiblingFiles () : Graph * NodeId * NodeId * NodeId * NodeId =
+    let graph0 = Graph.create ()
+    let wsId = NodeId.New()
+    let fileAId = NodeId.New()
+    let fileBId = NodeId.New()
+    let bodyAId = NodeId.New()
+    let bodyBId = NodeId.New()
+    let graph1 =
+        graph0.nodes
+        |> Map.add wsId (specialNode wsId Workspace "home" Graph.workspacesId)
+        |> Map.add fileAId (specialNode fileAId File "a.txt" wsId)
+        |> Map.add fileBId (specialNode fileBId File "b.txt" wsId)
+        |> Map.add bodyAId (normalNode bodyAId "alpha" fileAId)
+        |> Map.add bodyBId (normalNode bodyBId "beta" fileBId)
+        |> fun nodes -> Graph.fromNodes graph0.root nodes
+    let graph2 =
+        Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) graph1
+        |> requireOk "workspaces->ws"
+    let graph3 =
+        Graph.replace wsId 0 [] (owned [ fileAId; fileBId ]) graph2
+        |> requireOk "ws->files"
+    let graph4 =
+        Graph.replace fileAId 0 [] (owned [ bodyAId ]) graph3
+        |> requireOk "fileA->body"
+    let graph5 =
+        Graph.replace fileBId 0 [] (owned [ bodyBId ]) graph4
+        |> requireOk "fileB->body"
+    graph5, fileAId, fileBId, bodyAId, bodyBId
+
+[<Fact>]
+let ``documentRootsAffectedByGraphChange edit inside one file is only that file`` () =
+    let graph, fileAId, fileBId, bodyAId, _ = graphWithTwoSiblingFiles ()
+    let post =
+        Graph.setText bodyAId "alpha" "ALPHA" graph
+        |> requireOk "edit bodyA"
+    let affected =
+        DocumentPartition.documentRootsAffectedByGraphChange graph post []
+    Assert.True(Set.contains fileAId affected)
+    Assert.False(Set.contains fileBId affected)
+    Assert.Equal(1, Set.count affected)
+
+[<Fact>]
+let ``documentRootsAffectedByGraphChange rename nested file dirties file and parent dir`` () =
+    let graph, _, dirId, fileId, _ = graphWithNestedDocs ()
+    let post =
+        Graph.setName fileId "readme.txt" "notes.txt" graph
+        |> requireOk "rename file"
+    let affected =
+        DocumentPartition.documentRootsAffectedByGraphChange graph post []
+    Assert.True(Set.contains fileId affected)
+    Assert.True(Set.contains dirId affected)
+
+[<Fact>]
+let ``documentRootsAffectedByGraphChange unrelated sibling not included`` () =
+    let graph, fileAId, fileBId, bodyAId, _ = graphWithTwoSiblingFiles ()
+    let post =
+        Graph.setText bodyAId "alpha" "ALPHA" graph
+        |> requireOk "edit bodyA"
+    let affected =
+        DocumentPartition.documentRootsAffectedByGraphChange graph post []
+    Assert.True(Set.contains fileAId affected)
+    Assert.False(Set.contains fileBId affected)
+    Assert.Equal(1, Set.count affected)
+
+[<Fact>]
+let ``documentRootsAffectedByGraphChange includes path-move roots when passed`` () =
+    let graph, _, dirId, fileId, _ = graphWithNestedDocs ()
+    let post =
+        Graph.setName dirId "docs" "archive" graph
+        |> requireOk "rename dir"
+    let moveIds =
+        DocumentPathMove.planPathMovesBetweenGraphs graph post
+        |> List.map (fun m -> m.nodeId)
+    Assert.Contains(fileId, moveIds)
+    let withoutMoves =
+        DocumentPartition.documentRootsAffectedByGraphChange graph post []
+    let withMoves =
+        DocumentPartition.documentRootsAffectedByGraphChange graph post moveIds
+    Assert.False(Set.contains fileId withoutMoves)
+    Assert.True(Set.contains fileId withMoves)
+    Assert.True(Set.contains dirId withMoves)

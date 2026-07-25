@@ -14,19 +14,27 @@ Authority for document-scoped server/client residency, bootstrap/load APIs, per-
 - Each document has an independently checked version while the global change sequence remains available for audit and catch-up.
 - Search over unloaded workspaces queries PostgreSQL without hydrating the server cache.
 
+
+
 ## What it avoids for now
 
-- Change-scoped [[src/Server/DocumentPersistence.fs]] so disk projection no longer inspects every document (separate workstream). Before switching the server to partial residency, make its call contract partial-safe so unloaded documents are never interpreted as absent or deleted.
+- Op-impact / residency-scale change-scoping beyond the pre→post live-save slice in [[src/Server/DocumentPersistence.fs]] (see Separate follow-up tracks). Before switching the server to partial residency, make its call contract partial-safe so unloaded documents are never interpreted as absent or deleted.
 - Incremental in-memory maintenance of `parentByChild`, `ownerParentByChild`, and derived owner fields ([[src/Shared/GraphBuild.fs]], [[src/Shared/GraphMutate.fs]], [[src/Shared/History.fs]]) unless loaded-closure rebuild cost becomes material. Residency may rebuild indexes over a bounded loaded document closure initially.
 - Server weighted eviction until measurement shows need; database-backed search must bypass cache admission so scans cannot evict interactive documents.
 - IndexedDB / offline startup cache unless offline startup becomes a requirement.
 - Annotation migration when files change (still later scale work under [[lazy-load]] / [[workspace-scale-file-and-db-management]]).
 
+
+
 ## Established baseline and boundaries
 
 - Incremental PostgreSQL graph projection is complete in [[src/Server/DatabaseProjection.fs]] and [[src/Server/DbAgent.fs]]: accepted operations append their change and mutate only planned node/child rows in the same transaction. Treat this as an established prerequisite, not a residency delivery item.
-- Full-graph `Graph.fromNodes` index/owner rebuilding remains unsolved as a separate optimization from residency correctness.
-- [[src/Server/DocumentPersistence.fs]] still walks and serializes every Current document before content-diff skips. Change-scoped disk projection remains a separate workstream.
+- `Graph.fromNodes` in [[src/Shared/GraphBuild.fs]] remains the full rebuild path for parent indexes: it walks every node in the map to recompute `parentByChild` and `ownerParentByChild`, then stamps derived `Node.owner` via `applyOwnerField`. Non-append `Replace` in [[src/Shared/GraphMutate.fs]] and undo of `NewNode` / `NewSpecialNode` in [[src/Shared/History.fs]] still call that rebuild; only append-child and fresh detached-insert maintain those maps in place.
+- Rebuild cost scales with the in-memory node map and becomes quadratic under edit/undo churn that repeatedly rebuilds. Under partial residency, rebuilding over a loaded-only map indexes only edges present in that closure—it does not invent parent links into unloaded documents—so the open issue is cost and index completeness relative to what is loaded, not child-list residency correctness (`Unknown` children / `NeedsDocuments`).
+- Residency may rebuild those indexes over a bounded loaded document closure initially; true incremental in-memory maintenance stays deferred (see What it avoids and Separate follow-up tracks).
+- Live-save via `persistGraphChange` is change-scoped: it writes only document roots from the pre→post graph diff (plus path-move roots) via `DocumentPartition.documentRootsAffectedByGraphChange`. `writeAllDocuments` remains for migration/backup/git flush; eliminating those bulk flushes and moving to op-derived impact (O(touched) without a full node-map walk) stay follow-up.
+
+
 
 ## Residency model
 
@@ -36,23 +44,33 @@ Authority for document-scoped server/client residency, bootstrap/load APIs, per-
 - Server cache admission is whole-document and lazy-on-touch. Loading a document for a client also warms it for the client's likely edit; coalesce concurrent loads, retain client-interest leases briefly, prefetch one boundary hop at low priority, and initially avoid server eviction.
 - Client keeps whole loaded documents, preloads documents rooted at rendered Special nodes plus viewport/navigation lookahead, and retains only boundary headers and document descriptors outside that set. Do not keep global topology resident.
 
+
+
 ## Minimal state / API / ops
+
+
 
 ### Durable metadata and SQL loaders
 
 - Add durable document metadata sufficient for bounded reads: document root/version, node-to-document membership, owner parent, and workspace scope. Backfill it from the existing projection and maintain it through the existing operation-derived SQL planner.
 - Add SQL queries that load one complete document plus nested-root boundary headers and that load bootstrap descriptors without reading all node rows. A document query must stop at nested Special roots.
 
+
+
 ### Operation path
 
 - Before server apply, resolve the operation's document dependency closure, load and pin it, run pure Shared validation, commit the existing incremental projection changes and all touched document-version increments atomically, then update or invalidate cached documents.
 - Move global invariants such as artifact-name uniqueness and backlink/occurrence lookup to indexed SQL checks before validation stops depending on a fully resident graph.
+
+
 
 ### API and synchronization
 
 - Replace full `GET /state` bootstrap with a document/bootstrap endpoint that returns graph sequence, document versions, requested complete document packages, and boundary headers. Batch requests and support known-version/unchanged responses.
 - Keep one global ordered change sequence for audit and catch-up, but stop using exact global revision equality as the conflict boundary for unrelated workspaces. Submissions carry affected document base versions; cross-document changes check all touched documents atomically and later feed server-authoritative rebase.
 - Have the server emit canonical per-document projection patches (`upsert node`, `replace children`, `remove node`, version change) plus affected document IDs. Resident clients apply a matching patch; unloaded clients advance only the descriptor version; a version gap invalidates and refetches that document. Pending edits and in-flight operations pin their documents.
+
+
 
 ### Search
 
@@ -61,10 +79,14 @@ Authority for document-scoped server/client residency, bootstrap/load APIs, per-
 - Return node header, document root, document version, and owner breadcrumb. Selecting a remote hit hydrates its document and framing path before navigation.
 - Treat unparsed source-file content as a separate search phase: return file/line hits and parse on selection, because stable inner node IDs do not exist before parsing.
 
+
+
 ### Passive reclamation
 
 - After correctness without eviction, add a byte-budgeted document LRU/clock on the client. Pin rendered/expanded documents, viewport lookahead, zoom ingress, selection/edit state, pending/undo dependencies, clipboard dependencies, search navigation, and in-flight requests.
 - Eviction removes document bodies and child lists but retains boundary headers, versions, fold/session intent, and stale markers. Evict only clean acknowledged state.
+
+
 
 ## Implementation steps
 
@@ -75,6 +97,8 @@ Authority for document-scoped server/client residency, bootstrap/load APIs, per-
 5. Client on-demand load/prefetch in [[src/Client/Program.fs]], [[src/Client/App.fs]], and [[src/Shared/ViewModelSiteMap.fs]]. Prove restored zoom/folds load only their frontier and commands wait/retry on missing dependencies.
 6. Hybrid workspace-scoped search and search-result hydration. Preserve existing search tests and add unloaded-workspace/result-cap/version-race cases.
 7. Client passive reclamation under a measured byte budget, followed only if needed by server eviction.
+
+
 
 ## Tests
 
@@ -88,7 +112,10 @@ Authority for document-scoped server/client residency, bootstrap/load APIs, per-
 - Client restore of zoom/folds loads only the needed document frontier.
 - Search: loaded-document path unchanged; unloaded workspace hits via SQL with caps; selecting a remote hit hydrates before navigate; unparsed file hits stay file/line until parse.
 
+
+
 ## Separate follow-up tracks
 
-- Change-scope [[src/Server/DocumentPersistence.fs]] using accepted-operation impact so disk projection no longer inspects every document; optimize full `readAllDocuments` only if file bootstrap remains a supported authority path.
+- Live-save change-scoping (pre/post → affected roots) is done in [[src/Server/DocumentPersistence.fs]]; remaining work is eliminating `writeAllDocuments` bulk flushes (SavePrep / backup) and op-derived impact for residency-scale O(touched). Optimize full `readAllDocuments` only if file bootstrap remains a supported authority path.
 - Incrementally maintain `parentByChild`, `ownerParentByChild`, and derived owner fields if loaded-closure rebuild cost becomes material.
+

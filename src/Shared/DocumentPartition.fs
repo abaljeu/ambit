@@ -50,7 +50,8 @@ module DocumentPartition =
 
         collect documentRootId Set.empty
 
-    let private containingDocumentRootIds (graph: Graph) (nodeId: NodeId) : NodeId list =
+    /// Document root owning `nodeId`, plus the parent package when `nodeId` is itself a nested root.
+    let containingDocumentRootIds (graph: Graph) (nodeId: NodeId) : NodeId list =
         let primary = documentRootForNode graph nodeId |> Option.toList
         let enclosing =
             if isDocumentRootNode graph nodeId then
@@ -61,6 +62,40 @@ module DocumentPartition =
             else
                 []
         primary @ enclosing |> List.distinct
+
+    /// Current document roots on `postGraph` dirtied by pre→post node diffs and/or path moves.
+    let documentRootsAffectedByGraphChange
+        (preGraph: Graph)
+        (postGraph: Graph)
+        (pathMoveNodeIds: NodeId list)
+        : Set<NodeId> =
+        let allIds =
+            Set.union
+                (preGraph.nodes |> Map.toSeq |> Seq.map fst |> Set.ofSeq)
+                (postGraph.nodes |> Map.toSeq |> Seq.map fst |> Set.ofSeq)
+
+        let changedIds =
+            allIds
+            |> Set.filter (fun id ->
+                match Map.tryFind id preGraph.nodes, Map.tryFind id postGraph.nodes with
+                | Some a, Some b -> a <> b
+                | _ -> true)
+
+        let fromNodes =
+            changedIds
+            |> Set.toList
+            |> List.collect (fun id ->
+                containingDocumentRootIds preGraph id
+                @ containingDocumentRootIds postGraph id)
+
+        fromNodes @ pathMoveNodeIds
+        |> Set.ofList
+        |> Set.filter (fun rootId ->
+            match Map.tryFind rootId postGraph.nodes with
+            | Some node ->
+                isDocumentRootNode postGraph rootId
+                && shouldWriteDocumentRoot node
+            | None -> false)
 
     let private isMemberOfDocumentState state (graph: Graph) (nodeId: NodeId) =
         containingDocumentRootIds graph nodeId

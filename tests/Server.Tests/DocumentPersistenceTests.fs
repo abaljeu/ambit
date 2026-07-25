@@ -176,6 +176,35 @@ let private graphWithPlainFileRef () : Graph * NodeId * NodeId * NodeId =
 
     graph4, wsId, fileId, sharedId
 
+let private graphWithTwoSiblingFiles () : Graph * NodeId * NodeId * NodeId * NodeId =
+    let graph0 = Graph.create ()
+    let wsId = NodeId.New()
+    let fileAId = NodeId.New()
+    let fileBId = NodeId.New()
+    let bodyAId = NodeId.New()
+    let bodyBId = NodeId.New()
+    let graph1 =
+        graph0.nodes
+        |> Map.add wsId (specialNode wsId Workspace "home" Graph.workspacesId)
+        |> Map.add fileAId (specialNode fileAId File "a.txt" wsId)
+        |> Map.add fileBId (specialNode fileBId File "b.txt" wsId)
+        |> Map.add bodyAId (normalNode bodyAId "alpha" fileAId)
+        |> Map.add bodyBId (normalNode bodyBId "beta" fileBId)
+        |> fun nodes -> Graph.fromNodes graph0.root nodes
+    let graph2 =
+        Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) graph1
+        |> requireOk "workspaces->ws"
+    let graph3 =
+        Graph.replace wsId 0 [] (owned [ fileAId; fileBId ]) graph2
+        |> requireOk "ws->files"
+    let graph4 =
+        Graph.replace fileAId 0 [] (owned [ bodyAId ]) graph3
+        |> requireOk "fileA->body"
+    let graph5 =
+        Graph.replace fileBId 0 [] (owned [ bodyBId ]) graph4
+        |> requireOk "fileB->body"
+    graph5, fileAId, fileBId, bodyAId, bodyBId
+
 [<Fact>]
 let ``writeAllDocuments bootstrap graph writes ROOT and TRASH artifacts`` () =
     let dataDir = newTempDir ()
@@ -261,6 +290,30 @@ let ``upload structure persistence preserves existing file mtime`` () =
     let uploadedPath = artifactFullPath dataDir afterUpload uploadedId
     Assert.Equal(NoServerFile, stamped.nodes.[uploadedId].documentState)
     Assert.False(File.Exists uploadedPath)
+
+[<Fact>]
+let ``persistGraphChange does not rewrite untouched sibling document artifact`` () =
+    let dataDir = newTempDir ()
+    let graph, fileAId, fileBId, bodyAId, _ = graphWithTwoSiblingFiles ()
+    DocumentPersistence.writeAllDocuments dataDir graph
+    |> requireOk "initial write"
+    |> ignore
+    let pathA = artifactFullPath dataDir graph fileAId
+    let pathB = artifactFullPath dataDir graph fileBId
+    let planted = "PLANTED-UNTOUCHED"
+    File.WriteAllText(pathB, planted)
+    let mtimeB = File.GetLastWriteTimeUtc pathB
+    let post =
+        Graph.setText bodyAId "alpha" "ALPHA" graph
+        |> requireOk "edit bodyA"
+
+    DocumentPersistence.persistGraphChange dataDir graph post
+    |> requireOk "persistGraphChange"
+    |> ignore
+
+    Assert.Equal(planted, File.ReadAllText pathB)
+    Assert.Equal(mtimeB, File.GetLastWriteTimeUtc pathB)
+    Assert.Contains("ALPHA", File.ReadAllText pathA)
 
 [<Fact>]
 let ``readAllDocuments cold load stamps artifact roots from disk mtime`` () =

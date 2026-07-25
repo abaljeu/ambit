@@ -502,13 +502,16 @@ module DocumentPersistence =
                                 g.nodes })
             graph
 
-    let writeAllDocuments (dataDir: string) (graph: Graph) : Result<Graph, string> =
+    // avoid making new tests for writeAllDocuments unless this changed directly.
+    let private writeDocuments
+        (dataDir: string)
+        (graph: Graph)
+        (rootIds: NodeId list)
+        : Result<Graph, string> =
         let baseDir = dataDirBase dataDir
         Directory.CreateDirectory baseDir |> ignore
 
-        enumerateDocumentRoots graph
-        |> List.filter (fun documentRootId ->
-            DocumentPartition.shouldWriteDocumentRoot graph.nodes.[documentRootId])
+        rootIds
         |> List.fold
             (fun acc documentRootId ->
                 match acc with
@@ -522,6 +525,12 @@ module DocumentPersistence =
             (Ok Map.empty)
         |> Result.map (fun stamps -> stampNodes stamps graph)
 
+    let writeAllDocuments (dataDir: string) (graph: Graph) : Result<Graph, string> =
+        enumerateDocumentRoots graph
+        |> List.filter (fun documentRootId ->
+            DocumentPartition.shouldWriteDocumentRoot graph.nodes.[documentRootId])
+        |> writeDocuments dataDir graph
+
     let persistGraphChange
         (dataDir: string)
         (preGraph: Graph)
@@ -531,7 +540,17 @@ module DocumentPersistence =
 
         match executePathMoves dataDir preGraph postGraph moves with
         | Error msg -> Error msg
-        | Ok () -> writeAllDocuments dataDir postGraph
+        | Ok () ->
+            let moveIds = moves |> List.map (fun m -> m.nodeId)
+            let affected =
+                DocumentPartition.documentRootsAffectedByGraphChange
+                    preGraph
+                    postGraph
+                    moveIds
+
+            enumerateDocumentRoots postGraph
+            |> List.filter (fun id -> Set.contains id affected)
+            |> writeDocuments dataDir postGraph
 
     let private shouldSkipDiscoveryFile (fileName: string) =
         Filename.isReservedSystemName fileName

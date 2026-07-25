@@ -37,7 +37,7 @@ let private requireOk label result =
     | Error err -> failwith $"{label}: {err}"
 
 [<Fact>]
-let ``Git DB flush writes artifacts without touching locked log or meta`` () =
+let ``Git DB flush returns revision without rewriting disk`` () =
     let dataDir = newTempDir ()
     let state = stateWithRootChild "git-artifact"
     let logPath = Path.Combine(dataDir, "gambol.log")
@@ -48,20 +48,19 @@ let ``Git DB flush writes artifacts without touching locked log or meta`` () =
     use lockedLog =
         new FileStream(logPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None)
 
-    SavePrep.syncGitArtifacts
-        DatabaseSetup.PersistenceMode.Db
-        DatabaseSetup.DbStatus.Ok
-        (fun () -> async { return encodeState state })
-        (fun () -> async { return failwith "file flush should not run" })
-        (fun () -> async { return failwith "file revision should not be read" })
-        dataDir
-    |> Async.RunSynchronously
-    |> requireOk "Git flush"
-    |> ignore
+    let revision =
+        SavePrep.syncGitArtifacts
+            DatabaseSetup.PersistenceMode.Db
+            DatabaseSetup.DbStatus.Ok
+            (fun () -> async { return encodeState state })
+            (fun () -> async { return failwith "file flush should not run" })
+            (fun () -> async { return failwith "file revision should not be read" })
+            dataDir
+        |> Async.RunSynchronously
+        |> requireOk "Git flush"
 
-    let artifactPath = Path.Combine(dataDir, ".amb")
-    Assert.True(File.Exists(artifactPath))
-    Assert.Contains("git-artifact", File.ReadAllText(artifactPath))
+    Assert.Equal(state.revision.Value, revision)
+    Assert.False(File.Exists(Path.Combine(dataDir, ".amb")))
     Assert.Equal("sentinel", File.ReadAllText(metaPath))
     Assert.Equal(int64 "pending".Length, lockedLog.Length)
 
