@@ -63,9 +63,15 @@ Might be next: XML read/write ([[doc/roadmap/workspace-format-xml.md]]); expand-
 
 ### **Lazy Load and workspace source formats**
 Status: **Partial**.
-Details: [[doc/roadmap/lazy-load.md]], [[doc/roadmap/workspace-scale-import.md]].
+Details: [[doc/roadmap/lazy-load.md]], [[doc/roadmap/workspace-scale-import.md]], [[on-demand-graph-residency]].
 Last implemented: Disk-to-graph reconciliation for added, deleted, renamed/moved, and modified source paths under the named Workspace remains the web / repair path. Desktop Upload now creates client-first stubs instead ([[workspace-file-sync]]). Identity-preserving renames, TRASH/ref semantics, exact `.amb` handling, `M` → Unparsed, graph-only persistence, idempotency, and best-effort failure policy are covered.
-Might be next: Expand-to-parse and richer freshness metadata/UI (Lazy Load step 3).
+Might be next: Expand-to-parse and richer freshness metadata/UI (Lazy Load step 3); later on-demand graph residency ([[on-demand-graph-residency]]).
+
+### **On-demand graph residency**
+Status: **Planned**.
+Details: [[on-demand-graph-residency]], [[postgres-roadmap]] §5–6.
+Last implemented: Incremental PostgreSQL projection (prerequisite). Current sync still full-graph bootstrap ([[doc/current/sync-mvp]]).
+Might be next: Durable document descriptors/membership/versions and scoped SQL document loader.
 
 ### **Workspace file sync (WebDAV + server git)**
 Status: **Partial**.

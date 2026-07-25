@@ -22,13 +22,13 @@ The goal is to add those concepts without changing the current graph ownership r
 
 ## Documents
 
-Authority for the document partition concept: [[doc/roadmap/postgres-roadmap.md]] §5.
+Authority for the document partition concept: [[doc/roadmap/postgres-roadmap.md]] §5; residency and load/unload: [[on-demand-graph-residency]].
 
-There is always one graph on the server. **Today** the whole graph is one document (monolithic snapshot). **Target:** one graph, many documents.
+There is always one graph in PostgreSQL. **Today** the whole graph is one document (monolithic snapshot). **Target:** one graph, many documents with on-demand residency.
 
 A **document** is a partition of the graph defined by a **document root** — a `Special Workspace`, `Directory`, or `File` node (including implicit ROOT). **Document membership** follows Owner-tree ancestry from that root; Ref edges do not confer membership. **Ownership** means `Owner` vs `Ref` on a child slot only — not which document a node is in.
 
-Workspace, directory, and file special nodes are document roots. Per-document `DataDir` persistence is implemented; the **document load units** workset will load/unload documents on the client and replicate them as units. A document rooted at a `File` node usually persists as one file; workspace and directory roots persist as directory layouts (including `.amb` where applicable).
+Workspace, directory, and file special nodes are document roots. Per-document `DataDir` persistence is implemented; **on-demand graph residency** will load/unload documents on client and server and replicate them as units ([[on-demand-graph-residency]]). A document rooted at a `File` node usually persists as one file; workspace and directory roots persist as directory layouts (including `.amb` where applicable).
 
 ## Persistence Strategy
 
@@ -96,7 +96,7 @@ Authority for implemented behavior: [[doc/current/workspace-graph.md]],
 - `[x]` RefExpr anchors, path steps, tag steps, and namespace search —  [[doc/current/workspace-graph.md]], [[doc/roadmap/reference-expression-interpretation.md]].
 - `[x]` Correction: align RefExpr semantics with directory-first member lookup (`DirStep`/`FileStep`) and `^` structural-container lookup.
 - `[ ]` Surrounding language functions (`text Ref`, `children Ref`, `name Ref`) and command/assignment syntax.
-- `[ ]` **Document load units:** whole graph still one document; no `docId` / document membership in model yet.
+- `[ ]` **On-demand graph residency:** whole graph still one resident document at runtime; membership metadata, scoped loaders, and load/unload not started ([[on-demand-graph-residency]]).
 - `[x]` Per-document `DataDir` live-save and snapshot persist are implemented (Stages 7–8).
 - `[x]` Incremental persist skips unchanged documents on snapshot pass (Stage 8).
 - `[x]` Full unresolved-reference indicator for unknown workspace labels and paths.

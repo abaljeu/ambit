@@ -21,4 +21,6 @@ Follow language norms. Match existing style.
 
 Graphs may be millions of nodes. In hot paths, avoid O(nodes) full-graph scans (e.g. `Map.toList graph.nodes`). Prefer owner-subtree or other local walks (see `GraphQuery.ownedArtifactsInDirectory`).
 
+Never rebuild a whole structure once per item. Ops are applied in long batches (a parse tail or history replay is thousands in a row), so a per-item full rebuild or full scan is quadratic overall even when each call looks cheap. Watch for: calling `Graph.fromNodes` or any re-index/re-sort inside a per-op path; growing a list with `@` or `List.append` in a fold; `List.length`/`List.last`/`List.item` inside a loop over the same list. Instead update the index incrementally (see `GraphBuild.addDetachedNode` and `GraphBuild.appendChildren`), accumulate with `::` and reverse once, or rebuild once after the batch. When adding or changing a mutation op, cost it for a batch of 10,000, not for one call.
+
 Before adding a custom graph walk in Shared, check `GraphQuery` helpers first: `enclosing` walks **up** the owner chain; `ownedArtifactsInDirectory` walks **down** through Owner children (recurse Normal|Workspaces; stop at artifacts). A new `walk` is rarely needed — e.g. `ownsFileOrDirectoryThroughSkippables` is just a File|Directory filter over that downward walk, not a separate traversal.

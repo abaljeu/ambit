@@ -1,9 +1,9 @@
 # Persistence model (Graph / Node)
 
 Category: Persistence
-See also: [[doc/current/sync-mvp.md]], [[doc/arch.md]], [[doc/reference/postgres-environments.md]], [[doc/roadmap/workspace-file-persistence.md]]
+See also: [[doc/current/sync-mvp.md]], [[doc/arch.md]], [[doc/reference/postgres-environments.md]], [[doc/roadmap/workspace-file-persistence.md]], [[on-demand-graph-residency]]
 
-How Gambol persists the graph: PostgreSQL is always the source of truth; on-disk files under `DataDir` correlate with database nodes and are written automatically from accepted DB state.
+How Gambol persists the graph: PostgreSQL is always the source of truth; on-disk files under `DataDir` correlate with database nodes and are written automatically from accepted DB state. Target on-demand residency (partial warm cache, document versions) is roadmap-only until slices land: [[on-demand-graph-residency]].
 
 ## Principles
 

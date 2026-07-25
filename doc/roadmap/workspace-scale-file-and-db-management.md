@@ -1,8 +1,8 @@
 # Workspace scale file and db management
 
-See also: [[doc/roadmap/workspace-scale-import.md]], [[workspace-file-sync]], [[doc/roadmap/workspace-file-persistence.md]], [[doc/roadmap/workspace-file-model.md]]
+See also: [[doc/roadmap/workspace-scale-import.md]], [[workspace-file-sync]], [[doc/roadmap/workspace-file-persistence.md]], [[doc/roadmap/workspace-file-model.md]], [[on-demand-graph-residency]]
 
-This document is the **umbrella vision** for repo-scale outliner behavior (lazy materialization, residency, queries, identity). **Rollout** is divided into concrete worksets in [[doc/roadmap/workspace-scale-import.md]]; do not treat everything here as part of expand-to-parse and freshness UI. This file was created from discussions without looking at gambol sources — terms and details may need adaptation. `Repo` maps directly onto this project's concept of `workspace`.
+This document is the **umbrella vision** for repo-scale outliner behavior (lazy materialization, residency, queries, identity). **Rollout** is divided into concrete worksets in [[doc/roadmap/workspace-scale-import.md]] and residency authority in [[on-demand-graph-residency]]; do not treat everything here as part of expand-to-parse and freshness UI. This file was created from discussions without looking at gambol sources — terms and details may need adaptation. `Repo` maps directly onto this project's concept of `workspace`.
 
 ## Rollout
 
@@ -12,7 +12,7 @@ Committed sequencing (authoritative detail in linked docs):
 2. **Workspace file sync** — **planned**: WebDAV Class 1 Map / Push / Pull, server finish-commit, `git check-ignore` for `.gitignore` ([[workspace-file-sync]]).
 3. **Disk-to-graph stub reconciliation** — add/delete/rename/move/`M`→Unparsed after server tree commit is implemented; target trigger is WebDAV push + finish-commit. Contents are not parsed ([[lazy-load]]).
 4. **Expand-to-parse and freshness UI** — parse files on demand and report current / unparsed / older / newer state ([[doc/roadmap/workspace-scale-import.md]]).
-5. **Document load units, then later residency/search work** — document membership and load/unload before server lazy DB residency, client file LRU, query model, annotation migration, and git object model in the outline.
+5. **On-demand graph residency** — document membership, scoped SQL loaders, server/client residency, per-document versions, hybrid search, then passive reclamation ([[on-demand-graph-residency]]). Supersedes keeping all topology resident.
 
 Disk-to-graph reconciliation and expand-to-parse can use disk + graph path nodes without the full DB materialization model in this doc. Long-term, repo metadata and parsed nodes live in PostgreSQL as described here.
 
@@ -81,8 +81,8 @@ The repo boundary matters for:
 - Commit command.
 - Pull / push (git sync between server `DataDir` and desktop clone).
 - Gitignore scope.
-- Activation/residency (*deferred* until document load units and later residency/search work).
-- Search/query scoping (*deferred*).
+- Activation/residency (*deferred* — authority: [[on-demand-graph-residency]]).
+- Search/query scoping (*deferred* — [[on-demand-graph-residency]]).
 
 The file boundary matters for:
 
@@ -119,20 +119,9 @@ So the design assumes:
 
 ## Server-side memory management
 
-*Deferred to later residency/search work — policy target for repo-at-scale.*
+*Deferred — authority: [[on-demand-graph-residency]].*
 
-Current server loads the whole DB into memory.
-
-Repo-scale version should change to:
-
-- core outline may remain always resident for now,
-- repos become lazy-loaded,
-- server loads repo/file/node data on first touch,
-- no aggressive eviction needed initially,
-- daily reboot acts as a simple cleanup/reset,
-- low-GB memory is acceptable if the touched working set remains modest.
-
-So:
+Current server loads the whole DB into memory. Target policy: whole-document lazy-on-touch admission, coalesce concurrent loads, brief client-interest leases, prefetch one boundary hop at low priority, initially no server eviction. Search over unloaded workspaces queries PostgreSQL without hydrating the warm cache.
 
 > Server policy: lazy-on-touch, no LRU for v1.
 
@@ -140,20 +129,11 @@ So:
 
 ## Client-side residency memory management
 
-*Deferred to later residency/search work — policy target for repo-at-scale.*
+*Deferred — authority: [[on-demand-graph-residency]].*
 
-Client has same logical data model as server, but stricter memory constraints.
+Client policy: keep whole loaded documents; preload documents rooted at rendered Special nodes plus viewport/navigation lookahead; retain only boundary headers and document descriptors outside that set. After correctness without eviction, add byte-budgeted document LRU/clock; do not keep global topology resident.
 
-Client policy:
-
-- Load nodes/files on demand.
-- Use file as the main LRU unit.
-- Evict parsed file contents/subtrees when not recently viewed.
-- Keep lightweight node stubs for visible links, backlinks, query results, or recently referenced nodes.
-
-So a file can be evicted, while specific node stubs inside it remain known enough to display a title/path/preview and rehydrate on click.
-
-> Client policy: file-level LRU, with node stubs retained for references.
+> Client policy: document-level load/prefetch, then measured LRU; topology not globally resident.
 
 ---
 

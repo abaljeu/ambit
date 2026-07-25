@@ -20,6 +20,12 @@ type WorkspacePathSyncStatus =
     | Synced
     | Unparsed
 
+/// UI fields for one WorkspacePathSyncStatus case.
+type WorkspacePathSyncStatusPresentation =
+    { shortLabel: string
+      glyph: string
+      rowClass: string }
+
 /// Serializable ledger fact used by Client ViewModel (Fable-safe).
 type WorkspaceSyncPathFact =
     { relative: string
@@ -46,6 +52,42 @@ module WorkspacePathPresence =
 
 [<RequireQualifiedAccess>]
 module WorkspacePathSyncStatus =
+
+    /// Presentation for every sync status (glyph comments name the code point).
+    let table =
+        let p shortLabel glyph rowClass =
+            { shortLabel = shortLabel
+              glyph = glyph
+              rowClass = rowClass }
+        Map.ofList [
+            WorkspacePathSyncStatus.NoServerFile,
+            p "no file on server" "\u2205" (* empty set *)
+                "amb-row-sync-no-server-file"
+            WorkspacePathSyncStatus.OnlyOnServer,
+            p "srv only" "\u2601" (* cloud *)
+                "amb-row-sync-server-only"
+            WorkspacePathSyncStatus.NewerOnServer,
+            p "srv new" "\u2193" (* down arrow *)
+                "amb-row-sync-server-newer"
+            WorkspacePathSyncStatus.NewerOnDesktop,
+            p "desk new" "\u2191" (* up arrow *)
+                "amb-row-sync-desktop-newer"
+            WorkspacePathSyncStatus.OnlyOnDesktop,
+            p "desk only" "\u25A2" (* white square with rounded corners *)
+                "amb-row-sync-desktop-only"
+            WorkspacePathSyncStatus.Synced,
+            p "synced" "\u2713" (* check mark *)
+                "amb-row-sync-synced"
+            WorkspacePathSyncStatus.Unparsed,
+            p "unparsed" "\u2026" (* horizontal ellipsis *)
+                "amb-row-sync-unparsed"
+        ]
+
+    let private presentation status = Map.find status table
+
+    let shortLabel status = (presentation status).shortLabel
+    let glyph status = (presentation status).glyph
+    let rowClass status = (presentation status).rowClass
 
     /// Prefer node-carried server disk stamp when present; else ledger.
     let effectiveServerMtime
@@ -124,38 +166,3 @@ module WorkspacePathSyncStatus =
                                 nodeUpdateTime
                                 f.serverMtimeUtc })
         resolve canCompareDesktopMapped fact' isUnparsed
-
-    let shortLabel =
-        function
-        | WorkspacePathSyncStatus.NoServerFile -> "no file on server"
-        | WorkspacePathSyncStatus.OnlyOnServer -> "srv only"
-        | WorkspacePathSyncStatus.NewerOnServer -> "srv new"
-        | WorkspacePathSyncStatus.NewerOnDesktop -> "desk new"
-        | WorkspacePathSyncStatus.OnlyOnDesktop -> "desk only"
-        | WorkspacePathSyncStatus.Synced -> "synced"
-        | WorkspacePathSyncStatus.Unparsed -> "unparsed"
-
-    let glyph =
-        function
-        | WorkspacePathSyncStatus.NoServerFile -> "\u2205" // empty set
-        | WorkspacePathSyncStatus.Synced -> "\u2713" // check mark
-        | WorkspacePathSyncStatus.OnlyOnServer -> "\u2601" // cloud
-        | WorkspacePathSyncStatus.NewerOnServer -> "\u2193" // down arrow
-        | WorkspacePathSyncStatus.OnlyOnDesktop -> "\u25A2" // white square with rounded corners
-        | WorkspacePathSyncStatus.NewerOnDesktop -> "\u2191" // up arrow
-        | WorkspacePathSyncStatus.Unparsed -> "\u2026" // horizontal ellipsis
-
-    let rowClass =
-        function
-        | WorkspacePathSyncStatus.NoServerFile ->
-            "amb-row-sync-no-server-file"
-        | WorkspacePathSyncStatus.OnlyOnServer ->
-            "amb-row-sync-server-only"
-        | WorkspacePathSyncStatus.NewerOnServer ->
-            "amb-row-sync-server-newer"
-        | WorkspacePathSyncStatus.NewerOnDesktop ->
-            "amb-row-sync-desktop-newer"
-        | WorkspacePathSyncStatus.OnlyOnDesktop ->
-            "amb-row-sync-desktop-only"
-        | WorkspacePathSyncStatus.Synced -> "amb-row-sync-synced"
-        | WorkspacePathSyncStatus.Unparsed -> "amb-row-sync-unparsed"

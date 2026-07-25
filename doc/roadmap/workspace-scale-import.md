@@ -1,6 +1,6 @@
 # Workspace Scale Import
 
-See also: [[doc/roadmap/workspace-scale-file-and-db-management.md]], [[workspace-file-sync]], [[doc/roadmap/workspace-format-amb.md]], [[doc/roadmap/workspace-format-md.md]], [[doc/roadmap/workspace-format-plain.md]], [[doc/roadmap/workspace-format-code.md]]
+See also: [[doc/roadmap/workspace-scale-file-and-db-management.md]], [[workspace-file-sync]], [[doc/roadmap/workspace-format-amb.md]], [[doc/roadmap/workspace-format-md.md]], [[doc/roadmap/workspace-format-plain.md]], [[doc/roadmap/workspace-format-code.md]], [[on-demand-graph-residency]]
 
 Worksets: **disk-to-graph stub reconciliation**, **expand-to-parse and freshness UI**, and **workspace file sync**. Transport direction: [[workspace-file-sync]]; canonical Lazy Load project: [[lazy-load]].
 
@@ -30,15 +30,15 @@ That already delivers the core promise:
 Defer:
 
 - full content indexing,
-- repo-wide graph queries,
+- repo-wide graph queries ([[on-demand-graph-residency]]),
 - advanced freshness/reparse handling,
 - annotation migration,
-- client LRU,
-- partial hydration,
+- client LRU ([[on-demand-graph-residency]]),
+- partial hydration ([[on-demand-graph-residency]]),
 - multi-client graph merge (out of scope),
 - mirror-delete / conflict UI on file sync,
 - git object model in the outline,
-- server-wide memory management beyond not parsing everything.
+- server-wide memory management beyond not parsing everything ([[on-demand-graph-residency]]).
 
 ## Minimal state model
 

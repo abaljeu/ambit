@@ -48,7 +48,7 @@ A record of actions taken shall be maintained in [[doc/legacy/Commands executed 
 
 ## 3. Server-authoritative merge
 
-**Decision:** The database server is the sole merge authority. No other actor (client, local webserver) performs merge. The client submits changes against whatever base revision it has; the server rebases them against the current head and appends the result. This is the right split because the server always has the full graph, while the client may hold only a partial view.
+**Decision:** The database server is the sole merge authority. No other actor (client, local webserver) performs merge. The client submits changes against whatever base it has; the server rebases them against the current head and appends the result. This is the right split because PostgreSQL holds the complete model, while clients and the server warm cache may hold only partial views ([[on-demand-graph-residency]]).
 
 **Key sub-decisions:**
 
@@ -85,40 +85,39 @@ A record of actions taken shall be maintained in [[doc/legacy/Commands executed 
 
 ## 5. Client-side memory management (document-level loading)
 
-**Decision:** Introduce *document* as a first-class concept in the app. **Today** the whole graph is one document (monolithic snapshot). **Target:** one graph, many documents. Prior to document roots in the workspace model, the app has no explicit document partition — only the undifferentiated graph.
+**Decision:** Introduce *document* as a first-class concept in the app. **Today** the whole graph is one document (monolithic snapshot). **Target:** one graph, many documents with on-demand residency. Prior to document roots in the workspace model, the app has no explicit document partition — only the undifferentiated graph.
 
 **What a document is:**
 
-There is always exactly one graph on the server. A *document* is a named partition of that graph: a **document root** assigns a `docId` to every node with **document membership** in that partition (Owner-tree ancestry from the root; Ref edges do not confer membership). The graph is not split into separate stores; document membership is a property of each node within the single graph.
+There is always exactly one graph in PostgreSQL. A *document* is a named partition of that graph: a **document root** (root NodeId as identity unless a later requirement demands a separate ID) assigns membership to every node in that partition (Owner-tree ancestry from the root; Ref edges do not confer membership). The graph is not split into separate stores; document membership is a property of each node within the single graph.
 
-In the workspace file model, document roots are `Special Workspace`, `Directory`, and `File` nodes (including implicit ROOT). See [[doc/roadmap/workspace-file-model.md]] § Documents. Persistence, client load/unload, and replication all use the same document boundary. Per-document server persistence is implemented; **document load units** will add membership and client load/unload.
+In the workspace file model, document roots are `Special Workspace`, `Directory`, and `File` nodes (including implicit ROOT). See [[doc/roadmap/workspace-file-model.md]] § Documents. Persistence, client load/unload, and replication all use the same document boundary. Per-document server persistence is implemented; **on-demand graph residency** adds membership metadata, scoped loaders, and client/server load/unload — authority: [[on-demand-graph-residency]].
 
 **How it begins:**
 
-- **Now:** one document — the entire graph. All nodes belong to it.
-- **Target:** new documents when a workspace, directory, or file node becomes a document root (split): a new `docId` and document membership for all nodes under that root in the Owner tree.
-- Load/unload decisions operate at document granularity. A loaded document has all its node payloads resident. An unloaded document is absent from the payload map; only its topology edges remain so the graph structure is intact for navigation.
+- **Now:** one document — the entire graph. All nodes belong to it; `GET /state` bootstraps the full graph ([[doc/current/sync-mvp]]).
+- **Target:** documents rooted at Workspace/Directory/File Special nodes; load/unload at document granularity. A loaded document has its complete node payloads and child lists resident. Outside the loaded set, retain only boundary headers and document descriptors — **not** global topology.
 
 **Why this boundary:**
 
-Topology (edges) is small enough to keep fully in memory across all documents. Payloads (node text and content) are the memory pressure. The document is the natural unit for deciding what payloads to hold — coarse enough to be manageable, fine enough to match user intent about what they are working on.
+Payloads and complete child lists are the memory pressure. The document is the natural unit for deciding what to hold — coarse enough to be manageable, fine enough to match user intent about what they are working on. Navigation across unloaded documents goes through descriptors, boundary headers, and on-demand fetch (`NeedsDocuments`), not a fully resident edge map.
 
 **Key sub-decisions:**
 
-- **Hybrid search:** Instant search over loaded document payloads for local results; async server-side full-text search for global results across unloaded documents.
-- **Topology stays fully in memory:** Edge structure for all documents is always resident. Navigation and path-finding are always synchronous.
+- **Hybrid search:** Instant search over loaded document payloads for local results; async server-side search for results across unloaded documents ([[on-demand-graph-residency]]).
+- **Topology is not globally resident (supersedes prior commitment):** Do not keep all edges for all documents in memory. Unloaded documents contribute boundary headers and descriptors only; required closures load on touch.
 
-*Source:* [[doc/legacy/memory-management.md]].
+*Sources:* [[on-demand-graph-residency]], [[doc/legacy/memory-management.md]] (historical; topology-always-resident decision superseded).
 
 ---
 
 ## 6. Replication unit: whole documents
 
-**Decision:** The unit of replication between server and client is a *whole document* — the full set of nodes with a given `docId` within the single server graph. Edits are node-level, but sync and caching deal in complete documents. Cross-document references are allowed; cross-document edits are logged as a single operation with enough payload for per-document projections to update independently.
+**Decision:** The unit of replication between server and client is a *whole document* — the full set of nodes under a document root within the single server graph, stopping at nested document roots (boundary headers only). Edits are node-level, but sync and caching deal in complete documents. Cross-document references are allowed; cross-document edits are logged as a single operation with enough payload for per-document projections to update independently. Conflict checking targets per-document base versions while a global change sequence remains for audit and catch-up.
 
-Implementation workset: **document load units** in [[doc/roadmap/workspace-file-model.md]].
+Implementation workset: [[on-demand-graph-residency]] (supersedes the older “document load units” framing that kept topology fully resident).
 
-*Source:* [[doc/roadmap/future-merge-sync.md]].
+*Sources:* [[on-demand-graph-residency]], [[doc/roadmap/future-merge-sync.md]].
 
 ## 7. Desktop app with local webserver
 
