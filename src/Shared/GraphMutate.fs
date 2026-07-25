@@ -172,6 +172,19 @@ module GraphMutate =
                                 "File and Directory nodes must have a Workspace or Directory owner ancestor (not under a File)"
                         | _ -> None)
 
+                // Appending at the end removes nothing and shifts no sibling index,
+                // so the parent indexes can be updated in place.
+                let isAppend = oldCount = 0 && index = childCount
+                let commit (updatedChildren: ChildNode list) =
+                    let updatedParent =
+                        NodeUpdateTime.touch { parent with children = updatedChildren }
+                    if isAppend then
+                        GraphBuild.appendChildren parentId newChildren updatedParent graph
+                    else
+                        GraphBuild.fromNodes
+                            graph.root
+                            (graph.nodes |> Map.add parentId updatedParent)
+
                 match placementError with
                 | Some msg -> Error msg
                 | None ->
@@ -219,11 +232,7 @@ module GraphMutate =
                                         None)
                             match folderError with
                             | Some msg -> Error msg
-                            | None ->
-                                let updatedParent =
-                                    NodeUpdateTime.touch { parent with children = updatedChildren }
-                                let nodes = graph.nodes |> Map.add parentId updatedParent
-                                Ok (GraphBuild.fromNodes graph.root nodes)
+                            | None -> Ok (commit updatedChildren)
                         elif
                             updatedChildren
                             |> List.exists (fun c ->
@@ -232,7 +241,4 @@ module GraphMutate =
                         then
                             Error "trash, workspaces, and system may not be OWNED by a non-root parent"
                         else
-                            let updatedParent =
-                                NodeUpdateTime.touch { parent with children = updatedChildren }
-                            let nodes = graph.nodes |> Map.add parentId updatedParent
-                            Ok (GraphBuild.fromNodes graph.root nodes)
+                            Ok (commit updatedChildren)

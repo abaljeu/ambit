@@ -118,6 +118,54 @@ let ``tryStartPoll returns no effects when uploading`` () =
     Assert.Empty(effects)
 
 [<Fact>]
+let ``queued Upload waits while a change submit is in flight`` () =
+    let syncInfo =
+        { SyncInfo.initial with
+            pendingChanges = [ mkChange 14706 ]
+            syncState = Sending 1 }
+        |> SyncInfo.queueRequest QueuedUpload
+    let si, effects = SyncPlanner.tryReleaseQueued syncInfo
+    Assert.Equal<QueuedRequest list>([ QueuedUpload ], si.queuedRequests)
+    Assert.Empty(effects)
+
+[<Fact>]
+let ``queued Upload is released once the change queue drains`` () =
+    let c = mkChange 14706
+    let queued =
+        { SyncInfo.initial with
+            pendingChanges = [ c ]
+            syncState = Sending 1 }
+        |> SyncInfo.queueRequest QueuedUpload
+    let acked, _, _ = SyncPlanner.ackBatch [ c.changeId ] (Revision 14707) queued
+    let si, effects = SyncPlanner.tryReleaseQueued acked
+    Assert.Empty(si.queuedRequests)
+    Assert.Equal<Effect list>([ RunQueuedRequest QueuedUpload ], effects)
+
+[<Fact>]
+let ``queued Upload is released after a poll settles`` () =
+    let syncInfo =
+        { SyncInfo.initial with syncState = Polling }
+        |> SyncInfo.queueRequest QueuedUpload
+    Assert.Empty(snd (SyncPlanner.tryReleaseQueued syncInfo))
+    let settled =
+        { syncInfo with syncState = Idle } |> SyncPlanner.tryReleaseQueued
+    Assert.Equal<Effect list>([ RunQueuedRequest QueuedUpload ], snd settled)
+
+[<Fact>]
+let ``pressing Upload twice while it waits queues one request`` () =
+    let syncInfo =
+        { SyncInfo.initial with syncState = Polling }
+        |> SyncInfo.queueRequest QueuedUpload
+        |> SyncInfo.queueRequest QueuedUpload
+    Assert.Equal<QueuedRequest list>([ QueuedUpload ], syncInfo.queuedRequests)
+
+[<Fact>]
+let ``tryReleaseQueued is inert with nothing queued`` () =
+    let si, effects = SyncPlanner.tryReleaseQueued SyncInfo.initial
+    Assert.Equal(SyncInfo.initial, si)
+    Assert.Empty(effects)
+
+[<Fact>]
 let ``tryStartSubmit returns no effects when uploading`` () =
     let syncInfo =
         { SyncInfo.initial with

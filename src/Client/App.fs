@@ -129,6 +129,7 @@ let createRuntime (initialModel: VM) =
         | SubmitPendingBatch (baseRev, changes) -> runSubmitPendingBatch baseRev changes
         | PollServer _ -> runPollServer ()
         | ScheduleRetry delayMs -> runScheduleRetry delayMs
+        | RunQueuedRequest QueuedUpload -> dispatch (ApplyOp uploadOp)
         | SavePendingQueue q -> runSavePendingQueue q
         | RequestDesktopFileStatus (nodeId, path) -> runDesktopFileStatus nodeId path
         | RequestServerFileStatus (nodeId, path) -> runServerFileStatus nodeId path
@@ -466,8 +467,10 @@ let createRuntime (initialModel: VM) =
 
         let indicatorModel, indicatorEffects =
             ViewModel.refreshDesktopFileIndicator baseModel
-        let newModel = indicatorModel
-        let effects = baseEffects @ indicatorEffects
+        let releasedSync, releaseEffects =
+            SyncPlanner.tryReleaseQueued indicatorModel.syncInfo
+        let newModel = { indicatorModel with syncInfo = releasedSync }
+        let effects = baseEffects @ indicatorEffects @ releaseEffects
 
         model <- newModel
         try

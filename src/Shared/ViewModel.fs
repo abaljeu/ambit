@@ -215,9 +215,16 @@ type SyncState =
     | CodeOutdated    // server has newer code (build stamp changed) — reload required
     | DataOutdated    // server has newer data with no local pending — reload required
 
+/// A multi-phase request that must start from a settled revision, so it rides the
+/// change-ops queue instead of running while a submit or poll is in flight.
+type QueuedRequest =
+    | QueuedUpload
+
 type SyncInfo =
     { syncState: SyncState
       pendingChanges: Change list
+      /// Requests parked behind `pendingChanges` (see `SyncPlanner.tryReleaseQueued`).
+      queuedRequests: QueuedRequest list
       isPollingActive: bool
       isServerReady: bool
       syncRiskAcknowledged: bool }
@@ -227,12 +234,19 @@ module SyncInfo =
     let initial: SyncInfo =
         { syncState = Idle
           pendingChanges = []
+          queuedRequests = []
           isPollingActive = false
           isServerReady = false
           syncRiskAcknowledged = false }
 
     let withPendingChanges (pending: Change list) (si: SyncInfo) : SyncInfo =
         { si with pendingChanges = pending }
+
+    /// Park a request behind the change-ops queue. Pressing the command again while
+    /// it waits is not a second request.
+    let queueRequest (request: QueuedRequest) (si: SyncInfo) : SyncInfo =
+        if List.contains request si.queuedRequests then si
+        else { si with queuedRequests = si.queuedRequests @ [ request ] }
 
     let withServerReady ready (si: SyncInfo) : SyncInfo =
         { si with isServerReady = ready }
@@ -252,6 +266,8 @@ type Effect =
     | SubmitPendingBatch of baseRevision: int * changes: Change list
     | PollServer of revision: int
     | ScheduleRetry of delayMs: int
+    /// The change-ops queue settled: run a request that was parked behind it.
+    | RunQueuedRequest of QueuedRequest
     | SavePendingQueue of Change list
     | RequestDesktopFileStatus of nodeId: NodeId * path: string
     | RequestServerFileStatus of nodeId: NodeId * path: string

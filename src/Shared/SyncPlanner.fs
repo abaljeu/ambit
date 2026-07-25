@@ -41,6 +41,18 @@ module SyncPlanner =
             pending,
             [ SubmitPendingBatch (revision.Value, changes) ]
 
+    /// Release requests parked behind the change-ops queue, once that queue has drained
+    /// and nothing is in flight. Called after every message so any path back to Idle
+    /// (ack, poll, retry, upload completion) lets the parked request through.
+    let tryReleaseQueued (syncInfo: SyncInfo) : SyncInfo * Effect list =
+        match syncInfo.queuedRequests with
+        | [] -> syncInfo, []
+        | requests when
+            syncInfo.pendingChanges.IsEmpty && syncInfo.syncState = Idle ->
+            { syncInfo with queuedRequests = [] },
+            requests |> List.map RunQueuedRequest
+        | _ -> syncInfo, []
+
     /// Emit a PollServer effect when idle with an empty queue and not already polling.
     let tryStartPoll (revision: Revision) (syncInfo: SyncInfo) : SyncInfo * Effect list =
         match syncInfo.syncState, syncInfo.pendingChanges with

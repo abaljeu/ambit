@@ -276,6 +276,66 @@ module GraphBuild =
           parentByChild = pbc
           ownerParentByChild = opc }
 
+    /// Insert a fresh, childless, not-yet-attached node. Such a node contributes no
+    /// parent edges, so the indexes are unchanged and bulk inserts (a parse tail is
+    /// thousands of NewNode ops) avoid a whole-graph rebuild per op.
+    let addDetachedNode (node: Node) (graph: Graph) : Graph =
+        if Map.containsKey node.id graph.nodes then
+            fromNodes graph.root (graph.nodes |> Map.add node.id node)
+        else
+            { graph with
+                nodes = graph.nodes |> Map.add node.id { node with owner = graph.root } }
+
+    /// Index update for children appended at the end of a parent's list. Nothing is
+    /// removed and no sibling index shifts, so every existing edge stays valid and only
+    /// the appended children need entries — a parse tail is a long run of such appends,
+    /// and rebuilding the whole graph for each one is quadratic.
+    /// `parentByChild` keeps the lowest-keyed parent and `ownerParentByChild` the
+    /// highest-keyed owner, matching the fold order `fromNodes` uses.
+    let appendChildren
+        (parentId: NodeId)
+        (appended: ChildNode list)
+        (updatedParent: Node)
+        (graph: Graph)
+        : Graph =
+        let firstIndex = updatedParent.children.Length - appended.Length
+        let parentByChild =
+            appended
+            |> List.indexed
+            |> List.fold
+                (fun acc (i, child) ->
+                    match Map.tryFind child.id acc with
+                    | Some(existing, _) when existing <= parentId -> acc
+                    | _ -> Map.add child.id (parentId, firstIndex + i) acc)
+                graph.parentByChild
+        let ownerParentByChild =
+            appended
+            |> List.fold
+                (fun acc child ->
+                    match child.ref with
+                    | Ownership.Ref -> acc
+                    | Ownership.Owner ->
+                        match Map.tryFind child.id acc with
+                        | Some existing when existing >= parentId -> acc
+                        | _ -> Map.add child.id parentId acc)
+                graph.ownerParentByChild
+        let nodes =
+            appended
+            |> List.fold
+                (fun (acc: Map<NodeId, Node>) child ->
+                    let owner =
+                        Map.tryFind child.id ownerParentByChild
+                        |> Option.defaultValue graph.root
+                    match Map.tryFind child.id acc with
+                    | Some node when node.owner <> owner ->
+                        Map.add child.id { node with owner = owner } acc
+                    | _ -> acc)
+                (graph.nodes |> Map.add parentId updatedParent)
+        { root = graph.root
+          nodes = nodes
+          parentByChild = parentByChild
+          ownerParentByChild = ownerParentByChild }
+
     let nodeCount (graph: Graph) =
         graph.nodes.Count
 

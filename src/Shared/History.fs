@@ -146,10 +146,7 @@ module Op =
 
                 ApplyResult.Changed
                     { state with
-                          graph =
-                              Graph.fromNodes
-                                  state.graph.root
-                                  (state.graph.nodes |> Map.add nodeId node) }
+                          graph = Graph.addDetachedNode node state.graph }
         | Op.SetText(nodeId, oldText, newText) ->
             Graph.setText nodeId oldText newText state.graph
             |> fromGraphResult state
@@ -189,10 +186,7 @@ module Op =
                             updateTime = NodeUpdateTime.now ())
                     ApplyResult.Changed
                         { state with
-                              graph =
-                                  Graph.fromNodes
-                                      state.graph.root
-                                      (state.graph.nodes |> Map.add nodeId node) }
+                              graph = Graph.addDetachedNode node state.graph }
         | Op.SetName(nodeId, oldName, newName) ->
             Graph.setName nodeId oldName newName state.graph
             |> fromGraphResult state

@@ -507,7 +507,11 @@ let uploadCreateWorkspaceOp (model: VM) : VM * Effect list =
 /// Upload: desktop push when mapped; else graph-only from DataDir (web).
 let uploadOp (model: VM) : VM * Effect list =
     if not (WorkspaceUpload.canStart model.syncInfo) then
-        fail model "wait for pending synchronization to finish"
+        // Upload needs a settled revision, so it rides the change-ops queue.
+        okDetail
+            { model with
+                syncInfo = SyncInfo.queueRequest QueuedUpload model.syncInfo }
+            "upload queued behind pending changes"
     else
         let canPush =
             DesktopCapabilities.canWorkspacePush model.desktopCapabilities
@@ -535,8 +539,7 @@ let uploadOp (model: VM) : VM * Effect list =
                 (CmdLastResult.Error(Some(displayName Upload), msg))
 
 let uploadAvailable (model: VM) =
-    WorkspaceUpload.canStart model.syncInfo
-    && WorkspaceUpload.isAvailable
+    WorkspaceUpload.isAvailable
         (DesktopCapabilities.canWorkspacePush model.desktopCapabilities)
         (focusIsWorkspaces model)
         (contextualTargetForModel model)
