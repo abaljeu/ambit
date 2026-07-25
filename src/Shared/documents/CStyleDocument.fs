@@ -424,7 +424,10 @@ module CStyleDocument =
                 let stack' = flushTo edit.depth stack
 
                 let openChunk, closeChunk =
-                    if edit.text = prevLine.text && canKeepRaw u then
+                    // Prefer graph brace style when it differs from the file unit.
+                    if edit.text = prevLine.text
+                       && canKeepRaw u
+                       && u.braced = braced then
                         u.openRaw, u.closeRaw
                     else
                         formatFresh complement edit braced

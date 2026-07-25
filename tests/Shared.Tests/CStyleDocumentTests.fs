@@ -537,3 +537,89 @@ let ``writeArtifact falls back to cold when warm throws`` () =
         |> requireOk "writeArtifact"
     Assert.True(written.stableUpdateFailed)
     Assert.Contains("using System;", written.text)
+
+[<Fact>]
+let ``cold write emits Allman braces for code-brace parent`` () =
+    let nl = Environment.NewLine
+    let blockId = NodeId.New()
+    let yId = NodeId.New()
+    let xId = NodeId.New()
+    let y = Node.Create(yId, text = "y", owner = blockId)
+    let x = Node.Create(xId, text = "x", owner = blockId)
+    let block =
+        Node.Create(
+            blockId,
+            text = "block",
+            owner = NodeId.New(),
+            cssClasses = CssClass.ofList [ "code-brace" ])
+    let graph0, docId = graphWithDocument []
+    let block = { block with owner = docId; children = owned [ yId; xId ] }
+    let graph1 =
+        graph0.nodes
+        |> Map.add docId
+            { graph0.nodes.[docId] with
+                name = Filename.Ok "user.css"
+                children = [] }
+        |> Map.add blockId block
+        |> Map.add yId y
+        |> Map.add xId x
+        |> fun nodes -> Graph.fromNodes graph0.root nodes
+    let graph =
+        Graph.replace docId 0 [] (owned [ blockId ]) graph1
+        |> requireOk "attach"
+    let output =
+        CStyleDocument.writeArtifact graph docId None
+        |> requireOk "cold write"
+    let expected =
+        "block" + nl
+        + "{" + nl
+        + "\ty" + nl
+        + "\tx" + nl
+        + "}" + nl
+    Assert.Equal(expected, output)
+
+[<Fact>]
+let ``warm write overrides brace-less file when graph has code-brace`` () =
+    let nl = Environment.NewLine
+    let previous =
+        "block" + nl
+        + " y" + nl
+        + " x" + nl
+    let graph0, docId = graphWithDocument []
+    let readResult =
+        CStyleDocument.read previous docId graph0 |> requireOk "read"
+    let blockId = readResult.nodes.[docId].children.Head.id
+    let nodes =
+        readResult.nodes
+        |> Map.add
+            blockId
+            { readResult.nodes.[blockId] with
+                cssClasses = CssClass.ofList [ "code-brace" ] }
+    let graph =
+        { graph0 with nodes = nodes }
+        |> fun g ->
+            { g with
+                nodes =
+                    Map.add
+                        docId
+                        { g.nodes.[docId] with name = Filename.Ok "user.css" }
+                        g.nodes }
+    let output =
+        DocumentWarm.writeArtifact
+            OutlineLcs.diffTexts
+            graph
+            docId
+            "SYSTEM/user.css"
+            (Some previous)
+        |> requireOk "write"
+        |> fun w -> w.text
+    Assert.Contains("block" + nl + "{" + nl, output)
+    Assert.Contains("}" + nl, output)
+    Assert.Contains("y", output)
+    Assert.Contains("x", output)
+    let openAt = output.IndexOf("block" + nl + "{")
+    let yAt = output.IndexOf("y")
+    let xAt = output.IndexOf("x")
+    let closeAt = output.LastIndexOf("}")
+    Assert.True(openAt >= 0 && openAt < yAt && yAt < xAt && xAt < closeAt,
+        sprintf "Allman braces around children; got:%s%s" nl output)
