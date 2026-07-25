@@ -171,6 +171,29 @@ let ``align hard-match keeps ids across reorder`` () =
     | other -> failwithf "unexpected: %A" other
 
 [<Fact>]
+let ``writePlan tolerates embedded newline in edited line text`` () =
+    let a = id ()
+    let previous = [ line 0 "same" (Some a) ]
+    let edited = [ line 0 "x\nsame" None ]
+    let result = OutlineDocumentWarm.writePlan OutlineLcs.diffTexts previous edited
+    match result with
+    | [ OutlineDocumentWarm.EmitKeep(0, e) ] -> Assert.Equal("x\nsame", e.text)
+    | other -> failwithf "unexpected: %A" other
+
+[<Fact>]
+let ``diffTexts keeps indices in bounds when a line contains embedded newline`` () =
+    let previous = [ "same" ]
+    let edited = [ "x\nsame" ]
+    let ops = OutlineLcs.diffTexts previous edited
+    for op in ops do
+        match op with
+        | Equal(pi, ei) ->
+            Assert.True(pi < previous.Length)
+            Assert.True(ei < edited.Length)
+        | Insert ei -> Assert.True(ei < edited.Length)
+        | Delete pi -> Assert.True(pi < previous.Length)
+
+[<Fact>]
 let ``align duplicate hard keys fall through to LCS`` () =
     let a = id ()
     let b = id ()

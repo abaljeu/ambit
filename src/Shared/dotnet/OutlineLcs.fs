@@ -2,7 +2,6 @@ namespace Gambol.Shared
 
 open System
 open DiffPlex
-open DiffPlex.Chunkers
 
 /// Thin DiffPlex façade over a text sequence (match key = line text).
 [<RequireQualifiedAccess>]
@@ -50,6 +49,24 @@ module OutlineLcs =
 
         loop 0 0 0 []
 
+    /// A delimiter absent from every item in `texts`, so joining/splitting on
+    /// it round-trips exactly, regardless of embedded `\r`/`\n` in any item.
+    let private pickDelimiter (texts: string list) : string =
+        let rec pick (candidate: string) =
+            if texts |> List.exists (fun t -> t.Contains(candidate: string)) then
+                pick (candidate + Guid.NewGuid().ToString("N"))
+            else
+                candidate
+
+        pick "\u0000GAMBOL_LCS_SPLIT\u0000"
+
+    /// Splits on an exact literal delimiter (no line semantics), so an item's
+    /// embedded `\r`/`\n` never produces extra chunks beyond the item count.
+    let private sentinelChunker (delimiter: string) : IChunker =
+        { new IChunker with
+            member _.Chunk(text: string) =
+                text.Split([| delimiter |], StringSplitOptions.None) }
+
     /// LCS-style diff on text keys. Empty lists are handled without DiffPlex.
     let diffTexts: OutlineDiffTexts =
         fun previous edited ->
@@ -58,8 +75,9 @@ module OutlineLcs =
             | [], news -> news |> List.mapi (fun i _ -> Insert i)
             | olds, [] -> olds |> List.mapi (fun i _ -> Delete i)
             | olds, news ->
-                let oldText = String.Join("\n", Array.ofList olds)
-                let newText = String.Join("\n", Array.ofList news)
+                let delimiter = pickDelimiter (olds @ news)
+                let oldText = String.Join(delimiter, Array.ofList olds)
+                let newText = String.Join(delimiter, Array.ofList news)
 
                 let result =
                     Differ.Instance.CreateDiffs(
@@ -67,6 +85,6 @@ module OutlineLcs =
                         newText,
                         false,
                         false,
-                        LineChunker.Instance)
+                        sentinelChunker delimiter)
 
                 walkBlocks olds.Length (result.DiffBlocks |> Seq.toList)
