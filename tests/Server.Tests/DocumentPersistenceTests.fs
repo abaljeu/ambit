@@ -280,7 +280,7 @@ let ``upload structure persistence preserves existing file mtime`` () =
     Assert.Equal(original, File.GetLastWriteTimeUtc filePath)
     Assert.Equal(
         NodeUpdateTime.toDbPrecision original,
-        stamped.nodes.[fileId].updateTime)
+        stamped.graph.nodes.[fileId].updateTime)
     let uploadedId =
         WorkspaceUploadStructure.tryResolveFileNode
             afterUpload
@@ -288,7 +288,7 @@ let ``upload structure persistence preserves existing file mtime`` () =
             "docs/uploaded.txt"
         |> Option.get
     let uploadedPath = artifactFullPath dataDir afterUpload uploadedId
-    Assert.Equal(NoServerFile, stamped.nodes.[uploadedId].documentState)
+    Assert.Equal(NoServerFile, stamped.graph.nodes.[uploadedId].documentState)
     Assert.False(File.Exists uploadedPath)
 
 [<Fact>]

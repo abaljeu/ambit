@@ -118,7 +118,7 @@ module OutlineDocumentWarm =
         }
 
     /// Keep/Insert carry editedIndex so LCS diff-order can be rebuilt in graph order.
-    type private WriteStep =
+    type WriteStep =
         | WKeep of prevIndex: int * editedIndex: int * edit: OutlineReconcile.OutlineLine
         | WInsert of editedIndex: int * edit: OutlineReconcile.OutlineLine
         | WDelete of prevIndex: int
@@ -213,7 +213,7 @@ module OutlineDocumentWarm =
             | Some step -> step
             | None -> WInsert(ei, edit))
 
-    let private writeSteps
+    let writeSteps
         (diffTexts: OutlineDiffTexts)
         (previous: OutlineReconcile.OutlineLine list)
         (edited: OutlineReconcile.OutlineLine list)
@@ -251,10 +251,15 @@ module OutlineDocumentWarm =
                 |> List.mapi (fun i _ -> i)
                 |> List.filter (fun i -> not (Set.contains i hardPrev))
 
+            let editRestIndex =
+                edited
+                |> List.mapi (fun i _ -> i)
+                |> List.filter (fun i -> not (Set.contains i hardEdit))
+
             let remap = function
-                | WKeep(localPi, ei, edit) ->
-                    WKeep(prevRestIndex.[localPi], ei, edit)
-                | WInsert(ei, e) -> WInsert(ei, e)
+                | WKeep(localPi, localEi, edit) ->
+                    WKeep(prevRestIndex.[localPi], editRestIndex.[localEi], edit)
+                | WInsert(localEi, e) -> WInsert(editRestIndex.[localEi], e)
                 | WDelete localPi -> WDelete prevRestIndex.[localPi]
 
             // writeStepsLcs is already editRest order (Keep/Insert only).

@@ -409,7 +409,8 @@ type SystemMsg =
     | SubmitResponse of
         ackedChangeIds: System.Guid list *
         revision: Revision *
-        stampOps: Op list
+        stampOps: Op list *
+        message: string option
     | SubmitRejected of detail: string // server HTTP error (decoded `error` or short body snippet)
     | SubmitNetworkError of
         baseRevision: int * changes: Change list * kind: SubmitNetworkErrorKind

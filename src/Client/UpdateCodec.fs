@@ -265,7 +265,8 @@ let decodePostChangeError (text: string) : string option =
 type ChangeAck =
     { ackedChangeIds: System.Guid list
       revision: Revision
-      stampOps: Op list }
+      stampOps: Op list
+      message: string option }
 
 /// Decode POST /{file}/changes success body.
 let decodeChangeAckResponse (text: string) : Result<ChangeAck, string> =
@@ -273,5 +274,6 @@ let decodeChangeAckResponse (text: string) : Result<ChangeAck, string> =
     |> Result.map (fun ack ->
         { ackedChangeIds = ack.ackedChangeIds
           revision = ack.revision
-          stampOps = ack.stampOps })
+          stampOps = ack.stampOps
+          message = ack.message })
 

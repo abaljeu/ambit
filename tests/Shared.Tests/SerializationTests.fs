@@ -219,11 +219,13 @@ let ``ChangeBatchAck round-trip`` () =
               [ Op.SetUpdateTime(
                     NodeId.New(),
                     NodeUpdateTime.missing,
-                    NodeUpdateTime.toDbPrecision stamp) ] }
+                    NodeUpdateTime.toDbPrecision stamp) ]
+          message = Some "stable file update failed" }
     let decoded = roundTrip Serialization.encodeChangeBatchAck Serialization.decodeChangeBatchAck ack
     Assert.Equal(ack.revision, decoded.revision)
     Assert.Equal<System.Guid list>(ack.ackedChangeIds, decoded.ackedChangeIds)
     Assert.Equal<Op list>(ack.stampOps, decoded.stampOps)
+    Assert.Equal(ack.message, decoded.message)
 
 [<Fact>]
 let ``ChangeBatchAck omits stampOps when decoding legacy JSON`` () =
@@ -233,6 +235,7 @@ let ``ChangeBatchAck omits stampOps when decoding legacy JSON`` () =
     | Ok ack ->
         Assert.Equal(Revision 3, ack.revision)
         Assert.True(ack.stampOps.IsEmpty)
+        Assert.True(ack.message.IsNone)
 
 [<Fact>]
 let ``PollResponse round-trip with non-empty changes`` () =

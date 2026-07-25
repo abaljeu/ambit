@@ -60,12 +60,20 @@ module OutlineLcs =
 
         pick "\u0000GAMBOL_LCS_SPLIT\u0000"
 
+    /// Joins with a leading delimiter per item, so the joined text is never
+    /// the empty string (DiffPlex treats an empty oldText/newText as zero
+    /// pieces, discarding the chunker's own single-empty-chunk result).
+    let private prefixJoin (delimiter: string) (items: string list) : string =
+        items |> List.map (fun t -> delimiter + t) |> String.concat ""
+
     /// Splits on an exact literal delimiter (no line semantics), so an item's
     /// embedded `\r`/`\n` never produces extra chunks beyond the item count.
+    /// Text is always prefix-joined, so the first split part is always the
+    /// empty string before the leading delimiter; drop it.
     let private sentinelChunker (delimiter: string) : IChunker =
         { new IChunker with
             member _.Chunk(text: string) =
-                text.Split([| delimiter |], StringSplitOptions.None) }
+                (text.Split([| delimiter |], StringSplitOptions.None)).[1..] }
 
     /// LCS-style diff on text keys. Empty lists are handled without DiffPlex.
     let diffTexts: OutlineDiffTexts =
@@ -76,8 +84,8 @@ module OutlineLcs =
             | olds, [] -> olds |> List.mapi (fun i _ -> Delete i)
             | olds, news ->
                 let delimiter = pickDelimiter (olds @ news)
-                let oldText = String.Join(delimiter, Array.ofList olds)
-                let newText = String.Join(delimiter, Array.ofList news)
+                let oldText = prefixJoin delimiter olds
+                let newText = prefixJoin delimiter news
 
                 let result =
                     Differ.Instance.CreateDiffs(

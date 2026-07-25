@@ -42,7 +42,7 @@ let ``persistence exception is logged replied and mailbox survives`` () = task {
     let dataDir = newTempDir ()
     let logPath = HttpResponseLog.logPath dataDir
     HttpResponseLog.prepareFresh logPath
-    let throwingPersist : string -> Graph -> Graph -> Op list -> Result<Graph, string> =
+    let throwingPersist : string -> Graph -> Graph -> Op list -> Result<PersistGraphOk, string> =
         fun _ _ _ _ ->
             raise (InvalidOperationException("injected persistence failure"))
     let agent =

@@ -4,6 +4,18 @@ open System
 open System.IO
 open Gambol.Shared
 
+/// Path written plus optional status for the succeeded graph-change ack.
+type DocumentWriteOk = {
+    path: string
+    message: string option
+}
+
+/// Live-persist result: stamped graph plus optional file-write status message.
+type PersistGraphOk = {
+    graph: Graph
+    message: string option
+}
+
 [<RequireQualifiedAccess>]
 module DocumentPersistence =
 
@@ -441,11 +453,22 @@ module DocumentPersistence =
         else
             Ok ()
 
+    /// Live-save write outcomes returned with a succeeded graph change.
+    let fileCouldNotSave (path: string) = $"file couldn't save: {path}"
+
+    let stableFileUpdateFailed (path: string) =
+        $"partial file update failed.  full file rewrite completed: {path}"
+
+    let private softWritePathHint (graph: Graph) (documentRootId: NodeId) =
+        match DocumentPartition.artifactFileRelative graph documentRootId with
+        | Some rel -> rel
+        | None -> $"id={documentRootId.Value}"
+
     let writeDocument
         (dataDir: string)
         (graph: Graph)
         (documentRootId: NodeId)
-        : Result<string, string> =
+        : Result<DocumentWriteOk, string> =
         let refuse =
             match Map.tryFind documentRootId graph.nodes with
             | Some node -> refuseAmbMarkerNamedDocument node
@@ -485,47 +508,60 @@ module DocumentPersistence =
                                 previousText
                         with
                         | Error msg -> Error msg
-                        | Ok text when previousText = Some text ->
-                            Ok fullPath
-                        | Ok text ->
-                            let createDirResult =
-                                match DocumentPartition.artifactDirectoryRelative graph documentRootId with
-                                | None -> Ok ()
-                                | Some dirRel ->
-                                    match resolveUnderDataDir dataDir dirRel with
-                                    | Error msg -> Error msg
-                                    | Ok dirFull ->
-                                        try
-                                            Directory.CreateDirectory dirFull
-                                            |> ignore
-                                            match Map.tryFind documentRootId graph.nodes with
-                                            | Some node ->
-                                                match node.kind with
-                                                | Special Workspace ->
-                                                    if WorkspaceGit.isRepo dirFull then
-                                                        Ok ()
-                                                    else
-                                                        WorkspaceGit.ensureInit dirFull
-                                                | _ -> Ok ()
-                                            | None -> Ok ()
-                                        with ex ->
-                                            Error ex.Message
+                        | Ok artifact ->
+                            let message =
+                                if artifact.stableUpdateFailed then
+                                    Some(stableFileUpdateFailed rel)
+                                else
+                                    None
 
-                            match createDirResult with
-                            | Error msg -> Error msg
-                            | Ok () ->
-                                let parent = Path.GetDirectoryName fullPath
+                            if previousText = Some artifact.text then
+                                Ok {
+                                    path = fullPath
+                                    message = message
+                                }
+                            else
+                                let createDirResult =
+                                    match DocumentPartition.artifactDirectoryRelative graph documentRootId with
+                                    | None -> Ok ()
+                                    | Some dirRel ->
+                                        match resolveUnderDataDir dataDir dirRel with
+                                        | Error msg -> Error msg
+                                        | Ok dirFull ->
+                                            try
+                                                Directory.CreateDirectory dirFull
+                                                |> ignore
+                                                match Map.tryFind documentRootId graph.nodes with
+                                                | Some node ->
+                                                    match node.kind with
+                                                    | Special Workspace ->
+                                                        if WorkspaceGit.isRepo dirFull then
+                                                            Ok ()
+                                                        else
+                                                            WorkspaceGit.ensureInit dirFull
+                                                    | _ -> Ok ()
+                                                | None -> Ok ()
+                                            with ex ->
+                                                Error ex.Message
 
-                                if not (String.IsNullOrEmpty parent) then
-                                    Directory.CreateDirectory parent |> ignore
+                                match createDirResult with
+                                | Error msg -> Error msg
+                                | Ok () ->
+                                    let parent = Path.GetDirectoryName fullPath
 
-                                try
-                                    let tmpPath = fullPath + ".tmp"
-                                    File.WriteAllText(tmpPath, text)
-                                    File.Move(tmpPath, fullPath, true)
-                                    Ok fullPath
-                                with ex ->
-                                    Error ex.Message
+                                    if not (String.IsNullOrEmpty parent) then
+                                        Directory.CreateDirectory parent |> ignore
+
+                                    try
+                                        let tmpPath = fullPath + ".tmp"
+                                        File.WriteAllText(tmpPath, artifact.text)
+                                        File.Move(tmpPath, fullPath, true)
+                                        Ok {
+                                            path = fullPath
+                                            message = message
+                                        }
+                                    with ex ->
+                                        Error ex.Message
 
     let private stampNodes
         (stamps: Map<NodeId, DateTime>)
@@ -560,6 +596,12 @@ module DocumentPersistence =
             Map.empty
         |> fun stamps -> stampNodes stamps graph
 
+    let private joinWriteMessages (messages: string list) : string option =
+        match messages |> List.distinct with
+        | [] -> None
+        | msgs -> Some(String.concat "; " msgs)
+
+    /// Strict writes for bootstrap/tests: any writeDocument Error fails the fold.
     let private writeDocuments
         (dataDir: string)
         (graph: Graph)
@@ -576,11 +618,42 @@ module DocumentPersistence =
                 | Ok stamps ->
                     match writeDocument dataDir graph documentRootId with
                     | Error msg -> Error msg
-                    | Ok path ->
-                        let mtime = File.GetLastWriteTimeUtc path
+                    | Ok written ->
+                        let mtime = File.GetLastWriteTimeUtc written.path
                         Ok(Map.add documentRootId mtime stamps))
             (Ok Map.empty)
         |> Result.map (fun stamps -> stampNodes stamps graph)
+
+    /// Live-save writes: compute/IO failures never fail the fold; they become messages.
+    let private writeDocumentsSoft
+        (dataDir: string)
+        (graph: Graph)
+        (rootIds: NodeId list)
+        : Graph * string option =
+        let baseDir = dataDirBase dataDir
+        Directory.CreateDirectory baseDir |> ignore
+
+        let stamps, messages =
+            rootIds
+            |> List.fold
+                (fun (stamps, messages) documentRootId ->
+                    match writeDocument dataDir graph documentRootId with
+                    | Error _ ->
+                        let msg =
+                            softWritePathHint graph documentRootId
+                            |> fileCouldNotSave
+                        stamps, msg :: messages
+                    | Ok written ->
+                        let mtime = File.GetLastWriteTimeUtc written.path
+                        let stamps' = Map.add documentRootId mtime stamps
+                        let messages' =
+                            match written.message with
+                            | Some msg -> msg :: messages
+                            | None -> messages
+                        stamps', messages')
+                (Map.empty, [])
+
+        stampNodes stamps graph, joinWriteMessages (List.rev messages)
 
     /// Test/bootstrap helper that materializes a complete file layout from a generated graph.
     /// Normal accepted graph changes use persistGraphOps/JIT live-save; this intentionally
@@ -597,7 +670,7 @@ module DocumentPersistence =
         (dataDir: string)
         (preGraph: Graph)
         (postGraph: Graph)
-        : Result<Graph, string> =
+        : Result<PersistGraphOk, string> =
         let moves = DocumentPathMove.planPathMovesBetweenGraphs preGraph postGraph
 
         match executePathMoves dataDir preGraph postGraph moves with
@@ -605,19 +678,26 @@ module DocumentPersistence =
         | Ok () ->
             let moveIds = moves |> List.map (fun m -> m.nodeId)
             let affected = affectedRoots moveIds
+            let stamped, message =
+                affected
+                |> Set.toList
+                |> writeDocumentsSoft dataDir postGraph
 
-            affected
-            |> Set.toList
-            |> writeDocuments dataDir postGraph
-            |> Result.map (
-                stampExistingDocuments dataDir (existingStampRoots moveIds))
+            Ok {
+                graph =
+                    stampExistingDocuments
+                        dataDir
+                        (existingStampRoots moveIds)
+                        stamped
+                message = message
+            }
 
     /// Snapshot fallback when no accepted operation batch is available.
     let persistGraphChange
         (dataDir: string)
         (preGraph: Graph)
         (postGraph: Graph)
-        : Result<Graph, string> =
+        : Result<PersistGraphOk, string> =
         persistGraphChangeWith
             (DocumentPartition.documentRootsAffectedByGraphChange preGraph postGraph)
             (fun _ -> enumerateDocumentRoots postGraph)
@@ -626,12 +706,13 @@ module DocumentPersistence =
             postGraph
 
     /// Immediate live-save using accepted operations instead of a full graph diff.
+    /// File compute/write failures are reported in PersistGraphOk.message, not as Error.
     let persistGraphOps
         (dataDir: string)
         (preGraph: Graph)
         (postGraph: Graph)
         (ops: Op list)
-        : Result<Graph, string> =
+        : Result<PersistGraphOk, string> =
         persistGraphChangeWith
             (DocumentOpImpact.documentRootsAffectedByOps preGraph postGraph ops)
             id

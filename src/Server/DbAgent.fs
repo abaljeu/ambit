@@ -25,7 +25,7 @@ module DbAgent =
         (initialState: State)
         (connectionString: string)
         (liveSaveDataDir: string option)
-        (persistGraphOps: string -> Graph -> Graph -> Op list -> Result<Graph, string>)
+        (persistGraphOps: string -> Graph -> Graph -> Op list -> Result<PersistGraphOk, string>)
         (runStartupSweep: Graph -> Result<Guid list, string>)
         : DbAgent =
         let state = ref initialState
@@ -49,12 +49,17 @@ module DbAgent =
                   isReady = ready.Task.IsCompletedSuccessfully }
             |> Encode.toString 0
 
-        let encodeChangeAckJson (ackedChangeIds: Guid list) (stampOps: Op list) =
+        let encodeChangeAckJson
+            (ackedChangeIds: Guid list)
+            (stampOps: Op list)
+            (message: string option)
+            =
             Encode.toString 0 (
                 Serialization.encodeChangeBatchAck
                     { revision = state.Value.revision
                       ackedChangeIds = ackedChangeIds
-                      stampOps = stampOps })
+                      stampOps = stampOps
+                      message = message })
 
         let isDuplicateSubmission (change: Change) (history: History) =
             history.past |> List.exists (fun c -> c.id = change.id && c.changeId = change.changeId)
@@ -152,7 +157,7 @@ module DbAgent =
                                     "DbAgent: failed to write live documents: %s"
                                     err
                                 None
-                            | Ok stamped -> Some stamped
+                            | Ok stamped -> Some stamped.graph
                         | None -> Some postGraph
                     with ex ->
                         eprintfn
@@ -213,12 +218,15 @@ module DbAgent =
                         match livePersist with
                         | Error err -> reply.Reply(Error err)
                         | Ok stampedOpt ->
-                            let stampOps, stateToStore =
+                            let stampOps, stateToStore, persistMessage =
                                 match stampedOpt with
                                 | Some stamped ->
-                                    PersistStamp.opsBetween newState.graph stamped,
-                                    { newState with graph = stamped }
-                                | None -> [], newState
+                                    PersistStamp.opsBetween
+                                        newState.graph
+                                        stamped.graph,
+                                    { newState with graph = stamped.graph },
+                                    stamped.message
+                                | None -> [], newState, None
                             let logEntries' =
                                 logEntries
                                 |> List.map (fun (rev, change) -> rev, change)
@@ -226,11 +234,20 @@ module DbAgent =
                                     let changes = entries |> List.map snd
                                     let enriched = PersistStamp.appendToLast changes stampOps
                                     List.zip (entries |> List.map fst) enriched
-                            match persistBatch stateToStore logEntries' with
+                            match
+                                FileAgent.runBounded
+                                    FileAgent.ChangeProcessingTimeoutMs
+                                    (fun () -> persistBatch stateToStore logEntries')
+                            with
                             | Error err -> reply.Reply(Error err)
                             | Ok () ->
                                 state.Value <- stateToStore
-                                reply.Reply(Ok (encodeChangeAckJson ackedChangeIds stampOps))
+                                reply.Reply(
+                                    Ok(
+                                        encodeChangeAckJson
+                                            ackedChangeIds
+                                            stampOps
+                                            persistMessage))
                                 if graphOnly then
                                     persistedGraph.Value <- stateToStore.graph
                                 elif not (List.isEmpty logEntries) then
@@ -398,7 +415,7 @@ module DbAgent =
     let createForTestWithDependencies
         (initialState: State)
         (liveSaveDataDir: string option)
-        (persistGraphOps: string -> Graph -> Graph -> Op list -> Result<Graph, string>)
+        (persistGraphOps: string -> Graph -> Graph -> Op list -> Result<PersistGraphOk, string>)
         (runStartupSweep: Graph -> Result<Guid list, string>)
         : DbAgent =
         createLoaded initialState "" liveSaveDataDir persistGraphOps runStartupSweep

@@ -52,7 +52,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
     | AckSyncRisk ->
         { model with syncInfo = { model.syncInfo with syncRiskAcknowledged = true } }, []
 
-    | SysMsg (SubmitResponse (ackedChangeIds, revision, stampOps)) ->
+    | SysMsg (SubmitResponse (ackedChangeIds, revision, stampOps, message)) ->
         match model.syncInfo.syncState with
         | ServerRejected | CodeOutdated | DataOutdated ->
             consoleLog (
@@ -75,7 +75,11 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                 revision = revision
                 history =
                     { model.history with nextId = max model.history.nextId revision.Value }
-                syncInfo = nextSyncInfo }, effects
+                syncInfo = nextSyncInfo
+                lastCmdResult =
+                    match message with
+                    | Some msg -> Some(CmdLastResult.Detail(None, msg))
+                    | None -> model.lastCmdResult }, effects
 
     | SysMsg (SubmitRejected detail) ->
         consoleLog (

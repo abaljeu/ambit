@@ -5,6 +5,13 @@ namespace Gambol.Shared
 [<RequireQualifiedAccess>]
 module DocumentWarm =
 
+    /// Result of computing artifact text. `stableUpdateFailed` means warm merge of
+    /// graph+file failed and cold graph-only text was used instead.
+    type ArtifactWrite = {
+        text: string
+        stableUpdateFailed: bool
+    }
+
     let private handlerFor (diffTexts: OutlineDiffTexts) =
         function
         | DocumentCodec.Amb -> AmbReconcile.handler diffTexts
@@ -44,18 +51,55 @@ module DocumentWarm =
                         DocumentFormat.mergeReadResult allowContentUpdate context
                     )))
 
-    let writeArtifact
+    let private writeWarm
         (diffTexts: OutlineDiffTexts)
         (graph: Graph)
         (documentRootId: NodeId)
         (relativePath: string)
         (previousText: string option)
         : Result<string, string> =
+        DocumentFormat.classifyCodecForWrite graph documentRootId relativePath
+        |> Result.bind (fun codec ->
+            handlerFor diffTexts codec
+            |> fun h -> h.write graph documentRootId previousText)
+
+    /// Compute artifact text: warm merge when previous disk text exists; on warm
+    /// failure (Error or exception) fall back to cold graph-only write.
+    let writeArtifact
+        (diffTexts: OutlineDiffTexts)
+        (graph: Graph)
+        (documentRootId: NodeId)
+        (relativePath: string)
+        (previousText: string option)
+        : Result<ArtifactWrite, string> =
         match previousText with
         | None ->
             DocumentFormat.writeArtifact graph documentRootId relativePath None
+            |> Result.map (fun text -> {
+                text = text
+                stableUpdateFailed = false
+            })
         | Some _ ->
-            DocumentFormat.classifyCodecForWrite graph documentRootId relativePath
-            |> Result.bind (fun codec ->
-                handlerFor diffTexts codec
-                |> fun h -> h.write graph documentRootId previousText)
+            let warm =
+                try
+                    writeWarm
+                        diffTexts
+                        graph
+                        documentRootId
+                        relativePath
+                        previousText
+                with ex ->
+                    Error ex.Message
+
+            match warm with
+            | Ok text ->
+                Ok {
+                    text = text
+                    stableUpdateFailed = false
+                }
+            | Error _ ->
+                DocumentFormat.writeArtifact graph documentRootId relativePath None
+                |> Result.map (fun text -> {
+                    text = text
+                    stableUpdateFailed = true
+                })

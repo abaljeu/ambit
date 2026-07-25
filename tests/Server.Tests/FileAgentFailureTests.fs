@@ -87,7 +87,7 @@ let ``persist step hang is rejected within timeout and mailbox survives`` () = t
                 persistGraphOps =
                     fun _ preGraph _ _ ->
                         Thread.Sleep(hangMs)
-                        Ok preGraph
+                        Ok { graph = preGraph; message = None }
                 changeProcessingTimeoutMs = 50
         }
     let agent = FileAgent.createWithDependencies dependencies dataDir

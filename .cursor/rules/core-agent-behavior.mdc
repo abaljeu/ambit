@@ -67,7 +67,8 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 ## How to Work
 
-Include me in your work. Tell me what you're thinking about. Tell me what you did before running tools.
+Include me in your work. Tell me what you're thinking about.
+OBLIGAGTORY: Before any tool call that is not a simple information query, build, or test, explain the goal of that call.
 Never output multiple pages of text to the user. That much content works much better as a file.
 
 Advise me if there is a better way to do something.

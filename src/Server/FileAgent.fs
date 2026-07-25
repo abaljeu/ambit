@@ -19,7 +19,7 @@ type FileAgentMsg =
 
 type FileAgentDependencies = {
     persistGraphOps:
-        string -> Graph -> Graph -> Op list -> Result<Graph, string>
+        string -> Graph -> Graph -> Op list -> Result<PersistGraphOk, string>
     appendException: string -> string -> exn -> unit
     /// Wall-clock bound for the persistGraphOps call. Overridable so tests can exercise
     /// the timeout path without waiting the full production timeout.
@@ -92,12 +92,17 @@ module FileAgent =
                   isReady = true }
             |> Encode.toString 0
 
-        let encodeChangeAckJson (ackedChangeIds: Guid list) (stampOps: Op list) =
+        let encodeChangeAckJson
+            (ackedChangeIds: Guid list)
+            (stampOps: Op list)
+            (message: string option)
+            =
             Encode.toString 0 (
                 Serialization.encodeChangeBatchAck
                     { revision = state.Value.revision
                       ackedChangeIds = ackedChangeIds
-                      stampOps = stampOps })
+                      stampOps = stampOps
+                      message = message })
 
         let isDuplicateSubmission (change: Change) (history: History) =
             history.past |> List.exists (fun c -> c.id = change.id && c.changeId = change.changeId)
@@ -200,11 +205,15 @@ module FileAgent =
                         match diskPersist with
                         | Error err -> reply.Reply(Error err)
                         | Ok stampedOpt ->
-                            let stampOps, stampedGraph =
+                            let stampOps, stampedGraph, persistMessage =
                                 match stampedOpt with
                                 | Some stamped ->
-                                    PersistStamp.opsBetween newState.graph stamped, stamped
-                                | None -> [], newState.graph
+                                    PersistStamp.opsBetween
+                                        newState.graph
+                                        stamped.graph,
+                                    stamped.graph,
+                                    stamped.message
+                                | None -> [], newState.graph, None
                             let encodedLog =
                                 logEntries
                                 |> List.map snd
@@ -222,7 +231,12 @@ module FileAgent =
                                         { newState with graph = stampedGraph }
                                     | None -> newState
                                 state.Value <- finalState
-                                reply.Reply(Ok (encodeChangeAckJson ackedChangeIds stampOps))
+                                reply.Reply(
+                                    Ok(
+                                        encodeChangeAckJson
+                                            ackedChangeIds
+                                            stampOps
+                                            persistMessage))
 
         let operationContext msg =
             let bodyLength (body: string) =

@@ -395,6 +395,56 @@ let ``loadPersistedState preserves node kind`` () = task {
     | k -> Assert.Fail(sprintf "expected Special File, got %A" k)
 }
 
+/// A held table lock (not an exception) during the DB commit step must not wedge the
+/// mailbox forever: the handler should reject within the timeout, and the mailbox
+/// must still serve a subsequent GetState/postChange afterwards.
+[<Fact>]
+let ``DbAgent commit hang is rejected within timeout and mailbox survives`` () = task {
+    let connStr = requireDbConnStr ()
+    do! resetTestDatabase connStr
+    let agent = DbAgent.create connStr
+    let! json0 = DbAgent.getState agent |> Async.StartAsTask
+    let rootId = (decodeGraph json0).root
+    let childId = NodeId.New()
+
+    let change =
+        { id = 0
+          changeId = Guid.NewGuid()
+          ops =
+            [ Op.NewNode(childId, "commit-hang-check")
+              Op.Replace(rootId, 0, [], [ { ref = Ownership.Owner; id = childId } ]) ] }
+
+    use lockConn = Database.getConnection connStr
+    do! lockConn.OpenAsync()
+    use lockTx = lockConn.BeginTransaction()
+    use lockCmd = lockConn.CreateCommand()
+    lockCmd.Transaction <- lockTx
+    lockCmd.CommandText <- "LOCK TABLE changes IN ACCESS EXCLUSIVE MODE"
+    let! _ = lockCmd.ExecuteNonQueryAsync()
+
+    let sw = Diagnostics.Stopwatch.StartNew()
+    let! postResult =
+        DbAgent.postChange agent (encodeChangeBatch [ change ]) |> Async.StartAsTask
+    sw.Stop()
+
+    lockTx.Rollback()
+
+    match postResult with
+    | Ok _ -> Assert.Fail("Expected commit to time out while the table was locked.")
+    | Error error -> Assert.Contains("timed out", error)
+    Assert.True(
+        sw.ElapsedMilliseconds < 15000L,
+        $"Expected reject near the timeout bound, took {sw.ElapsedMilliseconds}ms.")
+
+    // let the orphaned background commit finish before reusing the connection pool
+    do! Task.Delay(500)
+
+    let! rev = DbAgent.getRevision agent |> Async.StartAsTask
+    let! stateJson = DbAgent.getState agent |> Async.StartAsTask
+    Assert.NotNull(stateJson)
+    Assert.True(rev >= 0)
+}
+
 [<Fact>]
 let ``DbAgent postChange live-saves artifacts before ack returns`` () = task {
     let connStr = requireDbConnStr ()

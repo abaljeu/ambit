@@ -294,6 +294,7 @@ let ``warm write sibling reorder follows graph not previous disk order`` () =
             "Form1.cs"
             (Some previous)
         |> requireOk "write"
+        |> fun w -> w.text
     let mediaAt = output.IndexOf("using System.Media;")
     let drawingAt = output.IndexOf("using System.Drawing.Drawing2D;")
     Assert.True(mediaAt >= 0, "media using missing")
@@ -344,6 +345,7 @@ let ``warm write first graph node replaces mismatched leading file line`` () =
             "Form1.cs"
             (Some previous)
         |> requireOk "write"
+        |> fun w -> w.text
     Assert.True(
         output.StartsWith("using System.Media;"),
         sprintf "first graph node must win; got:%s%s" nl output)
@@ -507,3 +509,31 @@ let ``Form1-like warm edit replaces mismatched body line without duplicating`` (
         loop 0 0
     Assert.Equal(1, drawingCount)
     Assert.False(output.Contains("}using "), sprintf "got:%s" output)
+
+[<Fact>]
+let ``writeArtifact falls back to cold when warm throws`` () =
+    let line =
+        Node.Create(NodeId.New(), text = "using System;", owner = NodeId.New())
+    let graph0, docId = graphWithDocument []
+    let line =
+        { line with
+            owner = docId }
+    let graph =
+        graph0.nodes
+        |> Map.add line.id line
+        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        |> Graph.replace docId 0 [] (owned [ line.id ])
+        |> requireOk "attach"
+    let previous = "using System;" + Environment.NewLine
+    let throwingDiff _ _ : OutlineDiffOp list =
+        failwith "injected warm failure"
+    let written =
+        DocumentWarm.writeArtifact
+            throwingDiff
+            graph
+            docId
+            "Form1.cs"
+            (Some previous)
+        |> requireOk "writeArtifact"
+    Assert.True(written.stableUpdateFailed)
+    Assert.Contains("using System;", written.text)

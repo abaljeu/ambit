@@ -22,6 +22,9 @@ let private specialNode id kind name owner =
         owner = owner,
         kind = Special kind)
 
+let private attach parent ids graph =
+    Graph.replace parent 0 [] (owned ids) graph |> requireOk "attach"
+
 let private graphWithTwoFiles () =
     let graph0 = Graph.create ()
     let wsId = NodeId.New()
@@ -37,8 +40,6 @@ let private graphWithTwoFiles () =
         |> Map.add bodyAId (Node.Create(bodyAId, text = "alpha", owner = fileAId))
         |> Map.add bodyBId (Node.Create(bodyBId, text = "beta", owner = fileBId))
     let graph1 = Graph.fromNodes graph0.root nodes
-    let attach parent ids graph =
-        Graph.replace parent 0 [] (owned ids) graph |> requireOk "attach"
     let graph =
         graph1
         |> attach Graph.workspacesId [ wsId ]
@@ -76,3 +77,42 @@ let ``persistGraphOps writes only roots represented by accepted operations`` () 
 
     Assert.Contains("ALPHA", File.ReadAllText pathA)
     Assert.Equal(planted, File.ReadAllText pathB)
+
+[<Fact>]
+let ``persistGraphOps soft-fails illicit write and returns could-not-save message`` () =
+    let dataDir = newTempDir ()
+    let graph0 = Graph.create ()
+    let fileId = NodeId.New()
+    let bodyId = NodeId.New()
+    // Non-allowlisted SYSTEM file: still a writable document root for impact,
+    // but writeDocument refuses via SystemDirectoryPersist.
+    let fileNode =
+        Node.Create(
+            fileId,
+            text = "secret.txt",
+            name = Filename.Ok "secret.txt",
+            owner = Graph.systemId,
+            kind = Special File)
+    let bodyNode = Node.Create(bodyId, text = "body", owner = fileId)
+    let nodes =
+        graph0.nodes
+        |> Map.add fileId fileNode
+        |> Map.add bodyId bodyNode
+    let graph1 = Graph.fromNodes graph0.root nodes
+    let graph =
+        graph1
+        |> attach Graph.systemId [ fileId ]
+        |> attach fileId [ bodyId ]
+    let post =
+        Graph.setText bodyId "body" "BODY" graph
+        |> requireOk "edit"
+    let result =
+        DocumentPersistence.persistGraphOps
+            dataDir
+            graph
+            post
+            [ Op.SetText(bodyId, "body", "BODY") ]
+        |> requireOk "persistGraphOps"
+    Assert.Equal(
+        Some(DocumentPersistence.fileCouldNotSave "SYSTEM/secret.txt"),
+        result.message)

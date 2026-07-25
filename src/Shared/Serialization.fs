@@ -12,7 +12,9 @@ type ChangeBatchAck =
     { revision: Revision
       ackedChangeIds: System.Guid list
       /// Disk mtime stamps after persist; empty when graph-only / no disk write.
-      stampOps: Op list }
+      stampOps: Op list
+      /// File-write status when graph change succeeded but artifact save had issues.
+      message: string option }
 
 [<RequireQualifiedAccess>]
 module Serialization =
@@ -387,10 +389,14 @@ module Serialization =
             else Decode.succeed batch)
 
     let encodeChangeBatchAck (ack: ChangeBatchAck) : IEncodable =
-        Encode.object
+        Encode.object (
             [ "revision", encodeRevision ack.revision
               "ackedChangeIds", ack.ackedChangeIds |> List.map Encode.guid |> Encode.list
               "stampOps", ack.stampOps |> List.map encodeOp |> Encode.list ]
+            @ match ack.message with
+              | None -> []
+              | Some msg -> [ "message", Encode.string msg ]
+        )
 
     let decodeChangeBatchAck: Decoder<ChangeBatchAck> =
         Decode.object (fun get ->
@@ -398,5 +404,6 @@ module Serialization =
               ackedChangeIds = get.Required.Field "ackedChangeIds" (Decode.list Decode.guid)
               stampOps =
                 get.Optional.Field "stampOps" (Decode.list decodeOp)
-                |> Option.defaultValue [] })
+                |> Option.defaultValue []
+              message = get.Optional.Field "message" Decode.string })
 

@@ -18,7 +18,6 @@ Mutations for delegated workers to return to their parent: `add`, `move`, `block
 
 Work currently being executed.
 
-- [[src/Shared/documents/OutlineDocumentWarm.fs]] — `remap` (lines ~254-258) never remaps `WKeep`'s `ei` from `editRest`-local to `edited`-global space — silently wrong downstream `ei` field (doesn't crash, but is incorrect wherever read). User requested this be corrected (owner: root-agent-db-exception-boundary)
 
 ## Pending
 

@@ -194,6 +194,74 @@ let ``diffTexts keeps indices in bounds when a line contains embedded newline`` 
         | Delete pi -> Assert.True(pi < previous.Length)
 
 [<Fact>]
+let ``diffTexts keeps indices in bounds when previous is a single blank line`` () =
+    let previous = [ "" ]
+    let edited = [ "x" ]
+    let ops = OutlineLcs.diffTexts previous edited
+    for op in ops do
+        match op with
+        | Equal(pi, ei) ->
+            Assert.True(pi < previous.Length)
+            Assert.True(ei < edited.Length)
+        | Insert ei -> Assert.True(ei < edited.Length)
+        | Delete pi -> Assert.True(pi < previous.Length)
+
+[<Fact>]
+let ``diffTexts keeps indices in bounds when edited is a single blank line`` () =
+    let previous = [ "a" ]
+    let edited = [ "" ]
+    let ops = OutlineLcs.diffTexts previous edited
+    for op in ops do
+        match op with
+        | Equal(pi, ei) ->
+            Assert.True(pi < previous.Length)
+            Assert.True(ei < edited.Length)
+        | Insert ei -> Assert.True(ei < edited.Length)
+        | Delete pi -> Assert.True(pi < previous.Length)
+
+[<Fact>]
+let ``writePlan handles blank line edited to text after hard-matched siblings`` () =
+    // Mirrors the CStyleReconcile write path: "block" and " " hard-match via
+    // node ids and are stripped out, leaving a single blank previous line to
+    // LCS-diff against a single non-blank edited line ("" -> "x").
+    let previous = [
+        hardLine 0 "block" (Some (id ())) "hk-block"
+        hardLine 0 " " (Some (id ())) "hk-space"
+        line 0 "" None
+    ]
+    let edited = [
+        hardLine 0 "block" None "hk-block"
+        hardLine 0 " " None "hk-space"
+        line 0 "x" None
+    ]
+    let result = OutlineDocumentWarm.writePlan OutlineLcs.diffTexts previous edited
+    Assert.Equal(3, result.Length)
+    match result |> List.last with
+    | OutlineDocumentWarm.EmitKeep(_, e) -> Assert.Equal("x", e.text)
+    | other -> failwithf "unexpected: %A" other
+
+[<Fact>]
+let ``writeSteps remaps rest Keep editedIndex to global edited space`` () =
+    let a = id ()
+    let b = id ()
+    let previous = [
+        hardLine 0 "^A one" (Some a) "^A"
+        line 0 "beta" (Some b)
+    ]
+    let edited = [
+        hardLine 0 "^A one" None "^A"
+        line 0 "beta" None
+    ]
+    let result = OutlineDocumentWarm.writeSteps OutlineLcs.diffTexts previous edited
+    match result with
+    | [ OutlineDocumentWarm.WKeep(_, _, _)
+        OutlineDocumentWarm.WKeep(pi, ei, edit) ] ->
+        Assert.Equal(1, pi)
+        Assert.Equal(1, ei)
+        Assert.Equal("beta", edit.text)
+    | other -> failwithf "unexpected: %A" other
+
+[<Fact>]
 let ``align duplicate hard keys fall through to LCS`` () =
     let a = id ()
     let b = id ()
