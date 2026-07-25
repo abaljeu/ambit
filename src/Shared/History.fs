@@ -88,16 +88,16 @@ module Op =
             && node.documentState = Current
         | None -> false
 
-    /// Unparsed membership blocks content edits. Structural Replace is allowed
-    /// when relocating an Unparsed document root as an opaque unit under a
+    /// Inaccessible document membership blocks content edits. Structural Replace is allowed
+    /// when relocating an inaccessible document root as an opaque unit under a
     /// Current parent (Move Up/Down, Move Selection to Start/End, indent).
     /// Replace that mutates inside an Unparsed document remains blocked, with
     /// two exceptions: Replace under a Current document root (nested parse while
     /// an enclosing Directory/Workspace is Unparsed), and attaching/detaching
     /// document-root stubs under an Unparsed Directory/Workspace shell.
-    let private isBlockedByUnparsedDocument (op: Op) (graph: Graph) : bool =
+    let private isBlockedByInaccessibleDocument (op: Op) (graph: Graph) : bool =
         let nodeBlocked nodeId =
-            DocumentPartition.isMemberOfUnparsedDocument graph nodeId
+            DocumentPartition.isMemberOfInaccessibleDocument graph nodeId
 
         let isUnparsedTreeShell nodeId =
             match Map.tryFind nodeId graph.nodes with
@@ -214,7 +214,7 @@ module Op =
                                     nodes = Map.add nodeId stamped state.graph.nodes } }
 
     let apply (op: Op) (state: State) : ApplyResult =
-        if isBlockedByUnparsedDocument op state.graph then
+        if isBlockedByInaccessibleDocument op state.graph then
             ApplyResult.Invalid(state, unparsedDocumentError)
         else
             applyAllowed op state
@@ -260,7 +260,7 @@ module Op =
                                     nodes = Map.add nodeId restored state.graph.nodes } }
 
     let undo (op: Op) (state: State) : ApplyResult =
-        if isBlockedByUnparsedDocument op state.graph then
+        if isBlockedByInaccessibleDocument op state.graph then
             ApplyResult.Invalid(state, unparsedDocumentError)
         else
             undoAllowed op state

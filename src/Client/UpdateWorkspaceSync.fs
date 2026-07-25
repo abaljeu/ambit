@@ -216,6 +216,25 @@ let private reparseSkippedUploadFiles
             (model, [])
     next, WorkspaceUpload.sequenceParseEffects parseEffects
 
+let private markServerFilesPresent
+    (scope: WorkspaceSyncScope)
+    (paths: string list)
+    (model: VM)
+    : Result<VM, string> =
+    let ops =
+        WorkspaceUploadStructure.planServerFilePresentOps
+            model.graph
+            scope.label
+            paths
+    if ops.IsEmpty then
+        Ok model
+    else
+        let change =
+            { id = model.revision.Value
+              changeId = System.Guid.NewGuid()
+              ops = ops }
+        applyAndPostSync change model |> Result.map withSiteMap
+
 let private createWorkspaceOnServer (ops: Op list) (model: VM) : Result<VM, string> =
     if ops.IsEmpty then
         Error "could not create workspace"
@@ -320,19 +339,28 @@ let completeWorkspacePush
         let model' = clearUploading model
         let skipped =
             sync.skippedPaths |> Option.defaultValue []
-        match parseFileId with
-        | Some fileId ->
-            parseFileOp fileId model' |> withPathSyncRefresh
-        | None when not skipped.IsEmpty ->
-            let modelR, parseEffs = reparseSkippedUploadFiles model' scope.label skipped
-            let detail =
-                sync.detail
-                + sprintf "; reparsed %d skipped file(s)" skipped.Length
-            { modelR with
-                lastCmdResult = Some (CmdLastResult.Detail (None, detail)) },
-            RequestWorkspacePathSyncSnapshot :: parseEffs
-        | None ->
-            okDetail model' sync.detail |> withPathSyncRefresh
+        let uploaded =
+            sync.uploadedPaths |> Option.defaultValue []
+        match markServerFilesPresent scope (uploaded @ skipped) model' with
+        | Error error -> failWorkspacePush error model'
+        | Ok presentModel ->
+            match parseFileId with
+            | Some fileId ->
+                parseFileOp fileId presentModel |> withPathSyncRefresh
+            | None when not skipped.IsEmpty ->
+                let modelR, parseEffs =
+                    reparseSkippedUploadFiles
+                        presentModel
+                        scope.label
+                        skipped
+                let detail =
+                    sync.detail
+                    + sprintf "; reparsed %d skipped file(s)" skipped.Length
+                { modelR with
+                    lastCmdResult = Some (CmdLastResult.Detail (None, detail)) },
+                RequestWorkspacePathSyncSnapshot :: parseEffs
+            | None ->
+                okDetail presentModel sync.detail |> withPathSyncRefresh
     | Ok { error = Some e } -> failWorkspacePush e model
     | Ok _ -> failWorkspacePush "request failed" model
 

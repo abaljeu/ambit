@@ -851,6 +851,16 @@ let ``Filename.create returns Invalid for dot and double-dot`` () =
     Assert.Equal(Filename.Invalid "..", Filename.create "..")
 
 [<Fact>]
+let ``Filename.create returns Invalid for exact amb marker basename case-insensitively`` () =
+    Assert.Equal(Filename.Invalid ".amb", Filename.create ".amb")
+    Assert.Equal(Filename.Invalid ".AMB", Filename.create ".AMB")
+    Assert.Equal(Filename.Invalid ".Amb", Filename.create ".Amb")
+    Assert.True(Filename.isAmbMarkerName ".amb")
+    Assert.True(Filename.isAmbMarkerName ".AMB")
+    Assert.False(Filename.isAmbMarkerName "notes.amb")
+    Assert.False(Filename.isAmbMarkerName ".ambient")
+
+[<Fact>]
 let ``Filename.create returns Invalid for strings over 255 chars`` () =
     let long = System.String('a', 256)
     Assert.Equal(Filename.Invalid long, Filename.create long)

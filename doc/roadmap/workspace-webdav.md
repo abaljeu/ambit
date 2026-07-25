@@ -25,6 +25,8 @@ Per [[workspace-file-sync]]:
 
 Never expose `.git/` under the DAV mount. Omit ignored paths from `PROPFIND`; reject `PUT` to an ignored destination (same exception for `.gitignore` files themselves as IgnoredDestination).
 
+An exact `.amb` file remains a DAV file so Upload and Download preserve its body. Graph consumers interpret it as the persistence/proxy artifact of the containing Directory, or the Workspace at mount root; DAV inventory must never cause a child File node named `.amb`. Names such as `notes.amb` remain ordinary files.
+
 ## What it avoids for now
 
 - WebDAV Class 2, locks, DeltaV, COPY/MOVE, Windows drive mapping.

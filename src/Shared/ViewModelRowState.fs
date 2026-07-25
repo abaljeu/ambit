@@ -378,8 +378,12 @@ module ViewModelRowState =
         (node: Node)
         : WorkspacePathSyncStatus option =
         let unparsed = rowUnparsedObservationEligible model entry
-        match node.kind with
-        | Special (Workspace | File | Directory) ->
+        match
+            DocumentPartition.isMemberOfNoServerFile model.graph entry.nodeId,
+            node.kind
+        with
+        | true, _ -> Some WorkspacePathSyncStatus.NoServerFile
+        | false, Special (Workspace | File | Directory) ->
             match tryWorkspaceSyncFact model entry.nodeId with
             | Some(label, fact) ->
                 WorkspacePathSyncStatus.resolveWithNodeStamp
@@ -401,7 +405,7 @@ module ViewModelRowState =
                         None
                         node.updateTime
                         unparsed
-        | _ ->
+        | false, _ ->
             WorkspacePathSyncStatus.resolveWithNodeStamp
                 false
                 None

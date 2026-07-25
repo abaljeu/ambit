@@ -35,8 +35,7 @@ module LazyLoadReconciliationServer =
             Serialization.encodeChangeBatch { changes = [ change ] })
 
     let private isDirInfoPath (path: string) =
-        let n = path.Replace('\\', '/')
-        n = ".amb" || n.EndsWith("/.amb", StringComparison.Ordinal)
+        DocumentArtifactPath.isMarker path
 
     let private markerPathsFromChanges
         (changedPaths: LazyLoadReconciliation.ChangedPath list)

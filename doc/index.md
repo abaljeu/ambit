@@ -64,13 +64,13 @@ Might be next: XML read/write ([[doc/roadmap/workspace-format-xml.md]]); expand-
 ### **Lazy Load and workspace source formats**
 Status: **Partial**.
 Details: [[doc/roadmap/lazy-load.md]], [[doc/roadmap/workspace-scale-import.md]].
-Last implemented: Disk-to-graph reconciliation for added, deleted, renamed/moved, and modified source paths under the named Workspace (triggered after WebDAV upload + finish-commit — [[workspace-file-sync]]). Identity-preserving renames, TRASH/ref semantics, exact `.amb` handling, `M` → Unparsed, graph-only persistence, idempotency, and best-effort failure policy are covered.
+Last implemented: Disk-to-graph reconciliation for added, deleted, renamed/moved, and modified source paths under the named Workspace remains the web / repair path. Desktop Upload now creates client-first stubs instead ([[workspace-file-sync]]). Identity-preserving renames, TRASH/ref semantics, exact `.amb` handling, `M` → Unparsed, graph-only persistence, idempotency, and best-effort failure policy are covered.
 Might be next: Expand-to-parse and richer freshness metadata/UI (Lazy Load step 3).
 
 ### **Workspace file sync (WebDAV + server git)**
 Status: **Partial**.
 Details: [[workspace-file-sync]], [[workspace-webdav]], [[lazy-load]], [[doc/current/workspace-local-mapping]], [[doc/current/desktop-local-files]].
-Last implemented: Upload / Download over WebDAV Class 1 under `/ambit/dav/{label}/…` with ensure-map (pick-folder + Put), Workspaces create-from-folder, desktop check-ignore on Upload, server DataDir check-ignore on `PROPFIND`, `_prepare-push` / `_finish-commit`, and post-upload reconcile via `/ambit/workspace/reconciliation/directory`. Not remotes / pack transport.
+Last implemented: Upload / Download over WebDAV Class 1 under `/ambit/dav/{label}/…`; Desktop Upload creates client-first `NoServerFile` stubs, applies the 1 MiB / 1,500-file / 16 MiB bulk policy, transfers eligible bodies smallest-first, and transitions present bodies to Unparsed before Parse. Download fetches every non-ignored path and file body in the selected server scope without volume or file-size limits. Not remotes / pack transport.
 Might be next: Overwrite / freshness UI; expand-to-parse; mirror-delete / Class 2.
 
 ### **Amble run**

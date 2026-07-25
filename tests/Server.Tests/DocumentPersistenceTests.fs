@@ -252,6 +252,15 @@ let ``upload structure persistence preserves existing file mtime`` () =
     Assert.Equal(
         NodeUpdateTime.toDbPrecision original,
         stamped.nodes.[fileId].updateTime)
+    let uploadedId =
+        WorkspaceUploadStructure.tryResolveFileNode
+            afterUpload
+            "home"
+            "docs/uploaded.txt"
+        |> Option.get
+    let uploadedPath = artifactFullPath dataDir afterUpload uploadedId
+    Assert.Equal(NoServerFile, stamped.nodes.[uploadedId].documentState)
+    Assert.False(File.Exists uploadedPath)
 
 [<Fact>]
 let ``readAllDocuments cold load stamps artifact roots from disk mtime`` () =
@@ -645,6 +654,9 @@ let ``readAllDocuments round trips nested workspace tree`` () =
     DocumentPersistence.writeAllDocuments dataDir expected |> requireOk "write" |> ignore
     let actual = DocumentPersistence.readAllDocuments dataDir |> requireOk "read"
     assertNestedWorkspaceLoad expected actual
+    Assert.DoesNotContain(
+        actual.nodes |> Map.toSeq,
+        fun (_, node) -> Filename.tryValue node.name = Some ".amb")
 
 [<Fact>]
 let ``readAllDocuments round trips file owns directory boundary`` () =
@@ -801,3 +813,70 @@ let ``readAllDocuments cold load of plain file loses ref edge`` () =
     Assert.Equal("shared text", actual.nodes.[child.id].text)
     Assert.Equal(Ownership.Owner, child.ref)
     Assert.NotEqual(sharedId, child.id)
+
+let private graphWithIllicitAmbFile () : Graph * NodeId * NodeId =
+    let graph0 = Graph.create ()
+    let wsId = NodeId.New()
+    let fileId = NodeId.New()
+    let wsNode = specialNode wsId Workspace "home" Graph.workspacesId
+    // Bypass Filename.create: illicit Ok ".amb" that somehow exists.
+    let fileNode =
+        Node.Create(
+            fileId,
+            text = ".amb",
+            name = Filename.Ok ".amb",
+            owner = wsId,
+            kind = Special File)
+    let graph1 =
+        graph0.nodes
+        |> Map.add wsId wsNode
+        |> Map.add fileId fileNode
+        |> fun nodes -> Graph.fromNodes graph0.root nodes
+    let graph2 =
+        Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) graph1
+        |> requireOk "workspaces->ws"
+    let graph3 =
+        Graph.replace wsId 0 [] (owned [ fileId ]) graph2
+        |> requireOk "ws->file"
+    graph3, wsId, fileId
+
+[<Fact>]
+let ``refuseAmbMarkerNamedDocument errors on illicit amb node name`` () =
+    let node =
+        Node.Create(
+            NodeId.New(),
+            text = ".amb",
+            name = Filename.Ok ".amb",
+            owner = Graph.rootId,
+            kind = Special File)
+    match DocumentPersistence.refuseAmbMarkerNamedDocument node with
+    | Ok () -> failwith "expected refuse"
+    | Error msg ->
+        Assert.Contains("amb marker", msg, StringComparison.OrdinalIgnoreCase)
+
+[<Fact>]
+let ``refuseAmbMarkerNamedDocument allows legitimate workspace name`` () =
+    let node =
+        Node.Create(
+            NodeId.New(),
+            text = "home",
+            name = Filename.create "home",
+            owner = Graph.workspacesId,
+            kind = Special Workspace)
+    DocumentPersistence.refuseAmbMarkerNamedDocument node
+    |> requireOk "refuseAmbMarkerNamedDocument"
+    |> ignore
+
+[<Fact>]
+let ``writeDocument refuses illicit amb-named file and leaves DataDir untouched`` () =
+    let dataDir = newTempDir ()
+    let graph, _, fileId = graphWithIllicitAmbFile ()
+    let homeDir = Path.Combine(dataDir, "home")
+    Directory.CreateDirectory homeDir |> ignore
+    let markerPath = Path.Combine(homeDir, ".amb")
+    File.WriteAllText(markerPath, "MARKER")
+    match DocumentPersistence.writeDocument dataDir graph fileId with
+    | Ok _ -> failwith "expected writeDocument to refuse illicit .amb"
+    | Error msg ->
+        Assert.Contains("amb marker", msg, StringComparison.OrdinalIgnoreCase)
+    Assert.Equal("MARKER", File.ReadAllText markerPath)

@@ -11,6 +11,12 @@ module DocumentPartition =
             | Special (Workspace | Directory | File) -> true
             | _ -> false
 
+    /// Current document roots write; exact `.amb` node names never do.
+    /// Legitimate Workspace/Directory `xx` still writes `xx/.amb`.
+    let shouldWriteDocumentRoot (node: Node) : bool =
+        node.documentState = Current
+        && not (Filename.isAmbMarkerFilename node.name)
+
     let documentRootForNode (graph: Graph) (nodeId: NodeId) : NodeId option =
         GraphQuery.enclosing graph (fun node -> isDocumentRootNode graph node.id) nodeId
 
@@ -56,18 +62,34 @@ module DocumentPartition =
                 []
         primary @ enclosing |> List.distinct
 
-    let isMemberOfUnparsedDocument (graph: Graph) (nodeId: NodeId) : bool =
+    let private isMemberOfDocumentState state (graph: Graph) (nodeId: NodeId) =
         containingDocumentRootIds graph nodeId
         |> List.exists (fun rootId ->
             match Map.tryFind rootId graph.nodes with
-            | Some node -> node.documentState = Unparsed
+            | Some node -> node.documentState = state
             | None -> false)
+
+    let isMemberOfUnparsedDocument (graph: Graph) (nodeId: NodeId) : bool =
+        isMemberOfDocumentState Unparsed graph nodeId
+
+    let isMemberOfInaccessibleDocument (graph: Graph) (nodeId: NodeId) : bool =
+        isMemberOfUnparsedDocument graph nodeId
+        || isMemberOfDocumentState NoServerFile graph nodeId
 
     let isMemberOfUnparsedFile (graph: Graph) (nodeId: NodeId) : bool =
         containingDocumentRootIds graph nodeId
         |> List.exists (fun rootId ->
             match Map.tryFind rootId graph.nodes with
             | Some node -> node.kind = Special File && node.documentState = Unparsed
+            | None -> false)
+
+    let isMemberOfNoServerFile (graph: Graph) (nodeId: NodeId) : bool =
+        containingDocumentRootIds graph nodeId
+        |> List.exists (fun rootId ->
+            match Map.tryFind rootId graph.nodes with
+            | Some node ->
+                node.kind = Special File
+                && node.documentState = NoServerFile
             | None -> false)
 
     let private isDirectoryNode (node: Node) : bool =

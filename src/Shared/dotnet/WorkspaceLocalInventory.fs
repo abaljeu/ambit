@@ -194,8 +194,7 @@ module WorkspaceLocalInventory =
                byteSize = tryItemByteSize mappedRoot item }
              : WorkspaceSyncLimits.SizedItem))
 
-    /// Scoped ignore-filtered inventory, volume-capped for stubs and PUTs.
-    /// Full/TreeStructure → all paths; TopLevel → immediate children only.
+    /// Scoped ignore-filtered inventory, upload-capped for stubs and PUTs.
     let listForUpload
         (mappedRoot: string)
         (scope: WorkspaceSyncScope)
@@ -204,14 +203,17 @@ module WorkspaceLocalInventory =
         | Error e -> Error e
         | Ok raw ->
             let sized = toSizedItems mappedRoot raw
-            let mode, selected =
-                WorkspaceSyncLimits.selectForVolume scope.relative sized
+            let mode, planned =
+                WorkspaceSyncLimits.planUpload
+                    scope.kind
+                    scope.relative
+                    sized
 
             let capped =
-                selected
-                |> List.map (fun s ->
-                    { relative = s.relative
-                      isDirectory = s.isDirectory })
+                planned
+                |> List.map (fun path ->
+                    { relative = path.relative
+                      isDirectory = path.isDirectory })
 
             Ok(mode, capped)
 

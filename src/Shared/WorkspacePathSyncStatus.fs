@@ -12,6 +12,7 @@ type WorkspacePathPresence =
 /// Desktop/server path comparison, plus Unparsed when revisions match.
 [<RequireQualifiedAccess>]
 type WorkspacePathSyncStatus =
+    | NoServerFile
     | OnlyOnServer
     | NewerOnServer
     | NewerOnDesktop
@@ -126,6 +127,7 @@ module WorkspacePathSyncStatus =
 
     let shortLabel =
         function
+        | WorkspacePathSyncStatus.NoServerFile -> "no file on server"
         | WorkspacePathSyncStatus.OnlyOnServer -> "srv only"
         | WorkspacePathSyncStatus.NewerOnServer -> "srv new"
         | WorkspacePathSyncStatus.NewerOnDesktop -> "desk new"
@@ -135,6 +137,7 @@ module WorkspacePathSyncStatus =
 
     let glyph =
         function
+        | WorkspacePathSyncStatus.NoServerFile -> "\u2205" // empty set
         | WorkspacePathSyncStatus.Synced -> "\u2713" // check mark
         | WorkspacePathSyncStatus.OnlyOnServer -> "\u2601" // cloud
         | WorkspacePathSyncStatus.NewerOnServer -> "\u2193" // down arrow
@@ -144,6 +147,8 @@ module WorkspacePathSyncStatus =
 
     let rowClass =
         function
+        | WorkspacePathSyncStatus.NoServerFile ->
+            "amb-row-sync-no-server-file"
         | WorkspacePathSyncStatus.OnlyOnServer ->
             "amb-row-sync-server-only"
         | WorkspacePathSyncStatus.NewerOnServer ->

@@ -65,7 +65,28 @@ let ``plan creates directory then file stubs under workspace`` () =
     Assert.Empty(file.children)
 
 [<Fact>]
-let ``new stubs start Unparsed; parent becomes Current`` () =
+let ``exact amb inventory paths represent containing document roots`` () =
+    let workspaceId, graph = Graph.create () |> addWorkspace "home"
+
+    let items =
+        [ item ".amb" false
+          item "docs/.amb" false
+          item "notes.amb" false ]
+
+    let graph2 =
+        requirePlan graph "home" items |> applyOps graph
+
+    let children = ownedNamedChildren graph2 workspaceId
+    Assert.DoesNotContain(children, fun (name, _) -> name = ".amb")
+    let docs = childNamed graph2 workspaceId "docs"
+    Assert.Equal(Special Directory, docs.kind)
+    Assert.DoesNotContain(
+        ownedNamedChildren graph2 docs.id,
+        fun (name, _) -> name = ".amb")
+    Assert.Equal(Special File, (childNamed graph2 workspaceId "notes.amb").kind)
+
+[<Fact>]
+let ``new file stubs start NoServerFile; directory parent stays Current`` () =
     let workspaceId, graph = Graph.create () |> addWorkspace "home"
 
     let items =
@@ -78,7 +99,7 @@ let ``new stubs start Unparsed; parent becomes Current`` () =
     let docs = childNamed graph2 workspaceId "docs"
     let file = childNamed graph2 docs.id "note.txt"
     Assert.Equal(Current, docs.documentState)
-    Assert.Equal(Unparsed, file.documentState)
+    Assert.Equal(NoServerFile, file.documentState)
 
 [<Fact>]
 let ``reuses existing owned path without duplicating`` () =
@@ -106,7 +127,7 @@ let ``reuses existing owned path without duplicating`` () =
     Assert.Equal(docsBefore.id, docsAfter.id)
     let file = childNamed graph2 docsAfter.id "note.txt"
     Assert.Equal(Special File, file.kind)
-    Assert.Equal(Unparsed, file.documentState)
+    Assert.Equal(NoServerFile, file.documentState)
 
 [<Fact>]
 let ``TopLevel cap keeps only immediate children under scope`` () =
@@ -246,6 +267,31 @@ let ``tryResolveFileNode finds owned file by relative path`` () =
             "home"
             "docs"
         |> Option.isNone)
+
+[<Fact>]
+let ``planServerFilePresentOps transitions only matching absent files`` () =
+    let _, graph0 = Graph.create () |> addWorkspace "home"
+    let graph1 =
+        requirePlan
+            graph0
+            "home"
+            [ item "present.txt" false
+              item "oversized.txt" false ]
+        |> applyOps graph0
+    let ops =
+        WorkspaceUploadStructure.planServerFilePresentOps
+            graph1
+            "home"
+            [ "present.txt"; "missing.txt" ]
+    let graph2 = applyOps graph1 ops
+    let presentId =
+        WorkspaceUploadStructure.tryResolveFileNode graph2 "home" "present.txt"
+        |> Option.get
+    let oversizedId =
+        WorkspaceUploadStructure.tryResolveFileNode graph2 "home" "oversized.txt"
+        |> Option.get
+    Assert.Equal(Unparsed, graph2.nodes.[presentId].documentState)
+    Assert.Equal(NoServerFile, graph2.nodes.[oversizedId].documentState)
 
 [<Fact>]
 let ``planAlignFileStampOps SetUpdateTime when node lags download mtime`` () =

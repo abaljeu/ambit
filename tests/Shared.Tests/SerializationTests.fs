@@ -76,6 +76,21 @@ let ``Unparsed node round-trip`` () =
     Assert.Equal(Unparsed, decoded.documentState)
 
 [<Fact>]
+let ``NoServerFile node and state op round-trip`` () =
+    let node =
+        Node.Create(
+            NodeId.New(),
+            text = "file",
+            kind = Special File,
+            documentState = NoServerFile)
+    let decoded = roundTrip Serialization.encodeNode Serialization.decodeNode node
+    Assert.Equal(NoServerFile, decoded.documentState)
+
+    let op =
+        Op.SetDocumentState(node.id, NoServerFile, Unparsed)
+    Assert.Equal(op, roundTrip Serialization.encodeOp Serialization.decodeOp op)
+
+[<Fact>]
 let ``Graph round-trip`` () =
     let graph = ModelBuilder.createDag12 ()
     let decoded = roundTrip Serialization.encodeGraph Serialization.decodeGraph graph

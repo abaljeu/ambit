@@ -20,12 +20,14 @@ module Serialization =
         match state with
         | Current -> Encode.string "current"
         | Unparsed -> Encode.string "unparsed"
+        | NoServerFile -> Encode.string "noServerFile"
 
     let private decodeDocumentState: Decoder<DocumentState> =
         Decode.string
         |> Decode.andThen (function
             | "current" -> Decode.succeed Current
             | "unparsed" -> Decode.succeed Unparsed
+            | "noServerFile" -> Decode.succeed NoServerFile
             | other -> Decode.fail $"Unknown document state: {other}")
 
     let private encodeSpecialKind (kind: SpecialKind) : IEncodable =

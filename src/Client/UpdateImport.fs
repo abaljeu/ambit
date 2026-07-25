@@ -67,6 +67,8 @@ let completeParseFilePost
 /// Parse: validate synchronously, then ContinueParseFile for async desktop read + POST.
 let parseFileOp (fileId: NodeId) (model: VM) : VM * Effect list =
     match Map.tryFind fileId model.graph.nodes with
+    | Some { kind = Special File; documentState = NoServerFile } ->
+        fail model "no file on server"
     | Some { kind = Special File; documentState = state; name = name; text = text } ->
         let pathOpt = NodeDesktopPath.pathForNodeId model.graph fileId
         let nameHint =
@@ -84,6 +86,7 @@ let parseFileOp (fileId: NodeId) (model: VM) : VM * Effect list =
                 match state with
                 | Unparsed -> "parsed: "
                 | Current -> "reconciled: "
+                | NoServerFile -> "parsed: "
 
             let detailPath = pathOpt |> Option.defaultValue ""
             let desktopReadPath =

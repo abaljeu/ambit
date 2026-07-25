@@ -35,7 +35,7 @@ module DocumentAssembly =
     let private isDirectoryArtifact (relativePath: string) =
         // Only `.amb` / `*/.amb` are directory markers; any other path is File
         // (including names that happen to end in `.amb`, e.g. `d/bob/cea.amb`).
-        relativePath = ".amb" || relativePath.EndsWith("/.amb")
+        DocumentArtifactPath.isMarker relativePath
 
     let artifactRelativeForNodeReference (nodeReference: string) : Result<string, string> =
         NodeDesktopPath.artifactRelativeForReference nodeReference
@@ -74,8 +74,9 @@ module DocumentAssembly =
 
     let private stubName (relativePath: string) : Filename =
         match splitSegments relativePath |> List.rev with
-        | ".amb" :: name :: _ -> Filename.create name
-        | [ ".amb" ] -> Filename.Empty
+        | name :: parent :: _ when Filename.isAmbMarkerName name ->
+            Filename.create parent
+        | [ name ] when Filename.isAmbMarkerName name -> Filename.Empty
         | name :: _ -> Filename.create name
         | [] -> Filename.Empty
 
@@ -105,7 +106,7 @@ module DocumentAssembly =
 
     let private seedStub (graph: Graph) (relativePath: string) (documentRootId: NodeId) : Graph =
         // Root `.amb` is already present via Graph.create / GraphBuild.ensure; do not replace it.
-        if relativePath = ".amb" then
+        if Filename.isAmbMarkerName relativePath then
             graph
         else
             let node = stubNode graph relativePath documentRootId

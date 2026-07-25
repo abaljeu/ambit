@@ -193,6 +193,9 @@ body {
 .amb-row-sync-unparsed .amb-text {
     color: #886600;
 }
+.amb-row-sync-no-server-file .amb-text {
+    color: #777;
+}
 .amb-row-sync-server-only .amb-file-indicator,
 .amb-row-sync-server-newer .amb-file-indicator {
     color: #2266aa;

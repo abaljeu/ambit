@@ -54,6 +54,7 @@ module GraphProjection =
             match node.documentState with
             | Current -> "current"
             | Unparsed -> "unparsed"
+            | NoServerFile -> "noServerFile"
           cssClassNames = CssClass.toList node.cssClasses
           updateTime = node.updateTime }
 
@@ -112,6 +113,7 @@ module GraphProjection =
                 let documentState =
                     match r.documentState with
                     | "unparsed" -> Unparsed
+                    | "noServerFile" -> NoServerFile
                     | _ -> Current
                 nid,
                 Node.Create(

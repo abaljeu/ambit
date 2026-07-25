@@ -53,6 +53,7 @@ let ``PROPFIND returns href collection and getlastmodified`` () = task {
     let home = Path.Combine(dataDir, "home")
     Directory.CreateDirectory(Path.Combine(home, "docs")) |> ignore
     File.WriteAllText(Path.Combine(home, "docs", "a.txt"), "hi")
+    File.WriteAllText(Path.Combine(home, "docs", ".amb"), "directory body")
     use client = createClientForDir dataDir
     let! resp = propfind client "/ambit/dav/home/docs" "1"
     Assert.Equal(HttpStatusCode.MultiStatus, resp.StatusCode)
@@ -60,6 +61,7 @@ let ``PROPFIND returns href collection and getlastmodified`` () = task {
     Assert.Contains("/ambit/dav/home/docs", body)
     Assert.Contains("<D:collection/>", body)
     Assert.Contains("a.txt", body)
+    Assert.Contains(".amb", body)
     Assert.Contains("<D:getlastmodified>", body)
     Assert.DoesNotContain(".git", body)
 }

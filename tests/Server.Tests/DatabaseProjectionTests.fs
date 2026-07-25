@@ -44,6 +44,7 @@ let private expectedRow node =
         match node.documentState with
         | Current -> "current"
         | Unparsed -> "unparsed"
+        | NoServerFile -> "noServerFile"
       cssClassNames = CssClass.toList node.cssClasses
       updateTime = node.updateTime }
     : GraphProjection.NodePersistenceRow

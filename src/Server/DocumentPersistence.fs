@@ -276,6 +276,8 @@ module DocumentPersistence =
         : Result<bool * string, string> =
         match Map.tryFind documentRootId graph.nodes with
         | None -> Error "node not found for document path move"
+        | Some node when Filename.isAmbMarkerFilename node.name ->
+            Error "amb marker basename must not drive artifact path moves"
         | Some node ->
             match node.kind with
             | Special File ->
@@ -395,72 +397,92 @@ module DocumentPersistence =
                     | Ok (oldPath, newPath) -> executePathMove oldPath newPath)
             (Ok ())
 
+    /// Refuse persist when the graph node *name* is `.amb` (not path basename).
+    /// Legitimate Workspace/Directory markers are `xx/.amb` for node named `xx`.
+    let refuseAmbMarkerNamedDocument (node: Node) : Result<unit, string> =
+        if Filename.isAmbMarkerFilename node.name then
+            Error "amb marker basename must not drive artifact writes"
+        else
+            Ok ()
+
     let writeDocument
         (dataDir: string)
         (graph: Graph)
         (documentRootId: NodeId)
         : Result<string, string> =
-        match resolveArtifactPath dataDir graph documentRootId with
+        let refuse =
+            match Map.tryFind documentRootId graph.nodes with
+            | Some node -> refuseAmbMarkerNamedDocument node
+            | None -> Ok ()
+
+        match refuse with
         | Error msg -> Error msg
-        | Ok fullPath ->
-            let createDirResult =
-                match DocumentPartition.artifactDirectoryRelative graph documentRootId with
-                | None -> Ok ()
-                | Some dirRel ->
-                    match resolveUnderDataDir dataDir dirRel with
-                    | Error msg -> Error msg
-                    | Ok dirFull ->
-                        try
-                            Directory.CreateDirectory dirFull |> ignore
-                            match Map.tryFind documentRootId graph.nodes with
-                            | Some node ->
-                                match node.kind with
-                                | Special Workspace ->
-                                    WorkspaceGit.ensureInit dirFull
-                                | _ -> Ok ()
-                            | None -> Ok ()
-                        with ex ->
-                            Error ex.Message
-
-            match createDirResult with
+        | Ok () ->
+            match resolveArtifactPath dataDir graph documentRootId with
             | Error msg -> Error msg
-            | Ok () ->
-                let parent = Path.GetDirectoryName fullPath
+            | Ok fullPath ->
+                let createDirResult =
+                    match DocumentPartition.artifactDirectoryRelative graph documentRootId with
+                    | None -> Ok ()
+                    | Some dirRel ->
+                        match resolveUnderDataDir dataDir dirRel with
+                        | Error msg -> Error msg
+                        | Ok dirFull ->
+                            try
+                                Directory.CreateDirectory dirFull |> ignore
+                                match Map.tryFind documentRootId graph.nodes with
+                                | Some node ->
+                                    match node.kind with
+                                    | Special Workspace ->
+                                        WorkspaceGit.ensureInit dirFull
+                                    | _ -> Ok ()
+                                | None -> Ok ()
+                            with ex ->
+                                Error ex.Message
 
-                if not (String.IsNullOrEmpty parent) then
-                    Directory.CreateDirectory parent |> ignore
-
-                let relativePath =
-                    DocumentPartition.artifactFileRelative graph documentRootId
-                    |> function
-                        | None -> Error "no file relative artifact path for document root"
-                        | Some rel -> Ok rel
-
-                match relativePath with
+                match createDirResult with
                 | Error msg -> Error msg
-                | Ok rel ->
-                    let previousText =
-                        if File.Exists fullPath then Some(File.ReadAllText fullPath) else None
+                | Ok () ->
+                    let parent = Path.GetDirectoryName fullPath
 
-                    match
-                        DocumentWarm.writeArtifact
-                            OutlineLcs.diffTexts
-                            graph
-                            documentRootId
-                            rel
-                            previousText
-                    with
+                    if not (String.IsNullOrEmpty parent) then
+                        Directory.CreateDirectory parent |> ignore
+
+                    let relativePath =
+                        DocumentPartition.artifactFileRelative graph documentRootId
+                        |> function
+                            | None ->
+                                Error "no file relative artifact path for document root"
+                            | Some rel -> Ok rel
+
+                    match relativePath with
                     | Error msg -> Error msg
-                    | Ok text when previousText = Some text ->
-                        Ok fullPath
-                    | Ok text ->
-                        try
-                            let tmpPath = fullPath + ".tmp"
-                            File.WriteAllText(tmpPath, text)
-                            File.Move(tmpPath, fullPath, true)
+                    | Ok rel ->
+                        let previousText =
+                            if File.Exists fullPath then
+                                Some(File.ReadAllText fullPath)
+                            else
+                                None
+
+                        match
+                            DocumentWarm.writeArtifact
+                                OutlineLcs.diffTexts
+                                graph
+                                documentRootId
+                                rel
+                                previousText
+                        with
+                        | Error msg -> Error msg
+                        | Ok text when previousText = Some text ->
                             Ok fullPath
-                        with ex ->
-                            Error ex.Message
+                        | Ok text ->
+                            try
+                                let tmpPath = fullPath + ".tmp"
+                                File.WriteAllText(tmpPath, text)
+                                File.Move(tmpPath, fullPath, true)
+                                Ok fullPath
+                            with ex ->
+                                Error ex.Message
 
     let private stampNodes
         (stamps: Map<NodeId, DateTime>)
@@ -486,7 +508,7 @@ module DocumentPersistence =
 
         enumerateDocumentRoots graph
         |> List.filter (fun documentRootId ->
-            graph.nodes.[documentRootId].documentState = Current)
+            DocumentPartition.shouldWriteDocumentRoot graph.nodes.[documentRootId])
         |> List.fold
             (fun acc documentRootId ->
                 match acc with

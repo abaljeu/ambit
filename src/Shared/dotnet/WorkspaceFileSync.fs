@@ -5,7 +5,7 @@ open System.IO
 open System.Net.Http
 open System.Threading.Tasks
 
-/// Desktop Post (Push) / Get (Pull) over WebDAV with volume ladder.
+/// Desktop Post (limited Push) / Get (unlimited Pull) over WebDAV.
 [<RequireQualifiedAccess>]
 module WorkspaceFileSync =
 
@@ -112,7 +112,11 @@ module WorkspaceFileSync =
         let files =
             planned
             |> List.filter (fun p -> not p.isDirectory)
-            |> List.sortBy (fun p -> p.relative)
+            |> List.sortBy (fun p ->
+                match p.file with
+                | Some(WorkspaceSyncLimits.FilePlan.Body bytes) ->
+                    bytes, p.relative
+                | _ -> Int64.MaxValue, p.relative)
 
         if files.IsEmpty then dirWaves
         else dirWaves @ [ files ]
@@ -379,10 +383,17 @@ module WorkspaceFileSync =
             | Ok () ->
                 let sized = toSizedItems mappedRoot items
                 let mode, planned =
-                    WorkspaceSyncLimits.plan scope.relative sized
+                    WorkspaceSyncLimits.planUpload
+                        scope.kind
+                        scope.relative
+                        sized
                 let bodyFiles =
                     WorkspaceSyncLimits.bodyTransfers planned
-                    |> List.sortBy (fun p -> p.relative)
+                    |> List.sortBy (fun path ->
+                        match path.file with
+                        | Some(WorkspaceSyncLimits.FilePlan.Body bytes) ->
+                            bytes, path.relative
+                        | _ -> Int64.MaxValue, path.relative)
 
                 match
                     ensureLedgerSeeded
@@ -640,7 +651,7 @@ module WorkspaceFileSync =
                         bytes
                         mtime
 
-    /// Pull with volume ladder; stage under `.gambol-dl-tmp/{jobId}` then promote.
+    /// Pull every inventory path; stage under `.gambol-dl-tmp/{jobId}` then promote.
     let getStaged
         (client: HttpClient)
         (ambitBase: string)
@@ -687,7 +698,7 @@ module WorkspaceFileSync =
             | Error e -> Error e
             | Ok ledger0 ->
                 let sized = inventoryFromDav scoped
-                let mode, planned = WorkspaceSyncLimits.plan scope.relative sized
+                let mode, planned = WorkspaceSyncLimits.planDownload sized
                 let ordered = orderPlanned planned
                 let stage = stagingRoot mappedRoot jobId
                 let mutable ledger = ledger0
@@ -794,7 +805,7 @@ module WorkspaceFileSync =
                                       uploadedPaths = downloadedPaths |> Seq.toList
                                       pathStamps = pathStamps |> Seq.toList }
 
-    /// Pull: PROPFIND inventory → limited GET under mapped root (blocking; manager preferred).
+    /// Pull: PROPFIND inventory → GET every file under mapped root.
     let get
         (client: HttpClient)
         (ambitBase: string)

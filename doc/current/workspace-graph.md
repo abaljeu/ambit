@@ -77,6 +77,12 @@ required.
 (`workspaces`, `workspace`, `directory`, `file`, `trash`). Kind is stored on each node in the
 graph JSON payload. Stage 6 retires the `trash` discriminator; TRASH persists as `directory` with `Node.name = TRASH`.
 
+## Document state
+
+`DocumentState` is persisted in graph JSON and the PostgreSQL node projection. `Current` means graph content represents the server artifact, `Unparsed` means a server artifact exists but has not been parsed into current graph content, and `NoServerFile` means a File node has no server body. `NoServerFile` and Unparsed documents block content edits. Desktop Upload creates new File stubs as `NoServerFile`; successful PUT or already-present mtime skip changes matching paths to Unparsed before Parse. Directories retain their existing state behavior.
+
+The filesystem file whose basename is exactly `.amb` (case-insensitive) is the persistence/proxy artifact consumed by its containing Directory document, or by the Workspace document at workspace root. It never has a graph node of its own and must not appear as a child File. `Filename.create` / `NewSpecialNode` / `SetName` reject that exact basename; create helpers fall back to a default name. If an illicit `.amb`-named node somehow exists, trash/delete/rename must not plan or execute DataDir move/delete/write for it. The artifact remains discoverable and transferable so its content is preserved. Names such as `notes.amb` are ordinary File nodes.
+
 ## Workspace lifecycle (graph ops)
 
 Workspace nodes are created through the general change op surface; names are fixed at creation:

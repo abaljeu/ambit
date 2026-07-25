@@ -10,6 +10,7 @@ module WorkspaceSyncLimits =
     let maxTransferBytes = 16L * 1024L * 1024L
     let maxStructurePaths = 1500
     let maxFileBytes = 4L * 1024L * 1024L
+    let maxBulkUploadFileBytes = 1L * 1024L * 1024L
 
     type Mode =
         | Full
@@ -131,6 +132,61 @@ module WorkspaceSyncLimits =
         : Mode * PlannedPath list =
         let mode, selected = selectForVolume scopeRelative items
         mode, selected |> List.map (toPlanned mode)
+
+    let private isBulkUploadEligible (item: SizedItem) =
+        not item.isDirectory
+        && item.byteSize <= maxBulkUploadFileBytes
+
+    let private bulkUploadWithinCaps (items: SizedItem list) =
+        let eligible = items |> List.filter isBulkUploadEligible
+        List.length eligible <= maxStructurePaths
+        && (eligible |> List.sumBy (fun (item: SizedItem) -> item.byteSize))
+           <= maxTransferBytes
+
+    let private uploadFilePlan maxBytes byteSize =
+        if byteSize <= maxBytes then Body byteSize else StubOnly
+
+    let private toUploadPlanned maxBytes (item: SizedItem) =
+        if item.isDirectory then
+            { relative = item.relative
+              isDirectory = true
+              file = None }
+        else
+            { relative = item.relative
+              isDirectory = false
+              file = Some(uploadFilePlan maxBytes item.byteSize) }
+
+    /// Download policy: every server-inventory path and every file body.
+    let planDownload (items: SizedItem list) : Mode * PlannedPath list =
+        Mode.Full,
+        items
+        |> List.map (fun item ->
+            { relative = item.relative
+              isDirectory = item.isDirectory
+              file =
+                if item.isDirectory then None
+                else Some(Body item.byteSize) })
+
+    /// Upload policy only.
+    let planUpload
+        (scopeKind: SyncScopeKind)
+        (scopeRelative: string)
+        (items: SizedItem list)
+        : Mode * PlannedPath list =
+        match scopeKind with
+        | SyncScopeKind.File ->
+            Mode.Full,
+            items |> List.map (toUploadPlanned maxFileBytes)
+        | SyncScopeKind.Workspace
+        | SyncScopeKind.Directory ->
+            let withinCaps = bulkUploadWithinCaps items
+            let mode = if withinCaps then Mode.Full else Mode.TopLevel
+            let selected =
+                if withinCaps then items
+                else items |> List.filter (fun i ->
+                    isImmediateChild scopeRelative i.relative)
+            mode,
+            selected |> List.map (toUploadPlanned maxBulkUploadFileBytes)
 
     let filesByParent (paths: PlannedPath list) : Map<string, Set<string>> =
         paths

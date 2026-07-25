@@ -16,19 +16,22 @@ module internal LazyLoadReconciliationPath =
             StringSplitOptions.RemoveEmptyEntries)
         |> Array.toList
 
-    let private classifyPath (parts: string list) : PathInfo option =
+    let private classifyPath (path: string) : PathInfo option =
+        let parts = pathParts path
+
         if parts.IsEmpty || (parts |> List.exists (fun part -> part = ".git")) then
             None
         elif parts |> List.last |> Filename.isReservedSystemName then
             None
-        elif List.last parts = ".amb" then
-            let ownerParts = List.take (parts.Length - 1) parts
-            Some
-                { parts = ownerParts
-                  kind = if ownerParts.IsEmpty then Workspace else Directory
-                  isDirInfo = true }
         else
-            Some { parts = parts; kind = File; isDirInfo = false }
+            match DocumentArtifactPath.tryMarkerOwnerParts path with
+            | Some ownerParts ->
+                Some
+                    { parts = ownerParts
+                      kind = if ownerParts.IsEmpty then Workspace else Directory
+                      isDirInfo = true }
+            | None ->
+                Some { parts = parts; kind = File; isDirInfo = false }
 
     let private validateParts (parts: string list) : Result<unit, string> =
         parts
@@ -81,7 +84,7 @@ module internal LazyLoadReconciliationPath =
         (path: string)
         : Result<PathInfo option, string>
         =
-        match path |> pathParts |> classifyPath with
+        match classifyPath path with
         | None -> Ok None
         | Some info ->
             validateParts info.parts

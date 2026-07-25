@@ -3,10 +3,12 @@ module WorkspaceFileSyncUploadWavesTests
 open Gambol.Shared
 open Xunit
 
-let private bodyFile (rel: string) : WorkspaceSyncLimits.PlannedPath =
+let private sizedBodyFile (rel: string) (bytes: int64) : WorkspaceSyncLimits.PlannedPath =
     { relative = rel
       isDirectory = false
-      file = Some(WorkspaceSyncLimits.FilePlan.Body 1L) }
+      file = Some(WorkspaceSyncLimits.FilePlan.Body bytes) }
+
+let private bodyFile rel = sizedBodyFile rel 1L
 
 let private dirPath (rel: string) : WorkspaceSyncLimits.PlannedPath =
     { relative = rel
@@ -46,6 +48,17 @@ let ``partitionUploadWaves files only is one wave`` () =
 
     Assert.Equal(1, waves.Length)
     Assert.Equal<string list>([ "a.txt"; "b.txt" ], waveRels waves.[0])
+
+[<Fact>]
+let ``partitionUploadWaves orders file bodies smallest-first then path`` () =
+    let planned =
+        [ sizedBodyFile "large.txt" 100L
+          sizedBodyFile "z-small.txt" 1L
+          sizedBodyFile "a-small.txt" 1L ]
+    let waves = WorkspaceFileSync.partitionUploadWaves planned
+    Assert.Equal<string list>(
+        [ "a-small.txt"; "z-small.txt"; "large.txt" ],
+        waveRels waves.[0])
 
 [<Fact>]
 let ``partitionUploadWaves dirs only has no file wave`` () =

@@ -62,15 +62,19 @@ module IgnoredDestination =
                 match artifactRelative postGraph nodeId with
                 | None -> None
                 | Some newPath ->
-                    let oldPath = artifactRelative preGraph nodeId
-
-                    match oldPath with
-                    | Some old when
-                        GitCheckIgnore.normalizeRel old
-                        = GitCheckIgnore.normalizeRel newPath
-                        ->
+                    match Map.tryFind nodeId postGraph.nodes with
+                    | Some node when Filename.isAmbMarkerFilename node.name ->
                         None
-                    | _ -> Some(nodeId, newPath))
+                    | _ ->
+                        let oldPath = artifactRelative preGraph nodeId
+
+                        match oldPath with
+                        | Some old when
+                            GitCheckIgnore.normalizeRel old
+                            = GitCheckIgnore.normalizeRel newPath
+                            ->
+                            None
+                        | _ -> Some(nodeId, newPath))
         |> Seq.toList
         |> List.sortBy (fun (nodeId, _) -> nodeId.Value)
 

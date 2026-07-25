@@ -257,6 +257,19 @@ let ``web or unmapped desktop only surfaces Unparsed`` () =
         rowWorkspacePathSyncClass model entry node)
 
 [<Fact>]
+let ``web and desktop surface no-server-file before path comparison`` () =
+    let baseModel, wsId, fileId = modelWithWorkspaceFile NoServerFile
+    let entry = entryUnderParentNode wsId fileId baseModel
+    let node = baseModel.graph.nodes.[fileId]
+    Assert.Equal(
+        Some WorkspacePathSyncStatus.NoServerFile,
+        rowWorkspacePathSyncStatus baseModel entry node)
+    Assert.Equal("\u2205", rowFileIndicatorText baseModel entry node)
+    Assert.Equal(
+        Some "no file on server",
+        rowFileIndicator baseModel entry node |> snd)
+
+[<Fact>]
 let ``mapped desktop uses ledger comparison and Unparsed overlay`` () =
     let baseModel, wsId, fileId = modelWithWorkspaceFile Unparsed
     let entry = entryUnderParentNode wsId fileId baseModel

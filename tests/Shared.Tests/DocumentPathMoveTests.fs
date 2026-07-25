@@ -269,6 +269,44 @@ let ``planPathMovesBetweenGraphs includes file move to trash`` () =
         moves)
 
 [<Fact>]
+let ``planPathMovesBetweenGraphs skips illicit amb-named file trash move`` () =
+    let graph0 = Graph.create ()
+    let wsId = NodeId.New()
+    let fileId = NodeId.New()
+    let wsNode =
+        Node.Create(
+            wsId,
+            text = "home",
+            name = Filename.Ok "home",
+            owner = Graph.workspacesId,
+            kind = Special Workspace)
+    // Bypass Filename.create: illicit Ok ".amb" that somehow exists.
+    let fileNode =
+        Node.Create(
+            fileId,
+            text = ".amb",
+            name = Filename.Ok ".amb",
+            owner = wsId,
+            kind = Special File)
+    let graph =
+        graph0.nodes
+        |> Map.add wsId wsNode
+        |> Map.add fileId fileNode
+        |> fun nodes -> Graph.fromNodes graph0.root nodes
+        |> fun g -> Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) g
+        |> requireOk "workspaces->ws"
+        |> fun g -> Graph.replace wsId 0 [] (owned [ fileId ]) g
+        |> requireOk "ws->file"
+    let graph1 =
+        Graph.replace wsId 0 (owned [ fileId ]) [] graph
+        |> requireOk "remove file"
+    let postGraph =
+        Graph.replace Graph.trashId 0 [] (owned [ fileId ]) graph1
+        |> requireOk "trash file"
+    let moves = DocumentPathMove.planPathMovesBetweenGraphs graph postGraph
+    Assert.Empty(moves)
+
+[<Fact>]
 let ``coalescePathMoves drops nested roots covered by directory move`` () =
     let graph, _, dirId, fileId, _ = graphWithNestedDocs ()
     let postGraph = Graph.setName dirId "docs" "archive" graph |> requireOk "rename dir"

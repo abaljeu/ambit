@@ -22,6 +22,8 @@ module internal LazyLoadReconciliationApply =
         match graph.nodes.[nodeId].documentState with
         | Unparsed -> []
         | Current -> [ Op.SetDocumentState(nodeId, Current, Unparsed) ]
+        | NoServerFile ->
+            [ Op.SetDocumentState(nodeId, NoServerFile, Unparsed) ]
 
     let private markParentCurrent (graph: Graph) nodeId =
         match Map.tryFind nodeId graph.nodes with
@@ -111,13 +113,19 @@ module internal LazyLoadReconciliationApply =
                         let docState = graph.nodes.[nodeId].documentState
                         let previousText =
                             match docState with
-                            | Unparsed -> None
+                            | Unparsed
+                            | NoServerFile -> None
                             | Current ->
                                 previousArtifactText graph nodeId relativePath
                         let markCurrent =
                             match docState with
                             | Unparsed ->
                                 [ Op.SetDocumentState(nodeId, Unparsed, Current) ]
+                            | NoServerFile ->
+                                [ Op.SetDocumentState(
+                                    nodeId,
+                                    NoServerFile,
+                                    Current) ]
                             | Current -> []
                         DocumentParseOps.planApplyArtifact
                             graph

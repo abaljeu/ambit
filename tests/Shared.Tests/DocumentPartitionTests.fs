@@ -197,3 +197,32 @@ let ``write nested file directory emits owner handle not directory children`` ()
     let normalSid = AmbDocument.formatStableId normalId
     Assert.Contains("^" + dirSid + " inner\tinner", text)
     Assert.DoesNotContain("^" + normalSid, text)
+
+[<Fact>]
+let ``shouldWriteDocumentRoot is true for Current workspace named home`` () =
+    let node = specialNode (NodeId.New()) Workspace "home" Graph.workspacesId
+    Assert.True(DocumentPartition.shouldWriteDocumentRoot node)
+
+[<Fact>]
+let ``shouldWriteDocumentRoot is false for Unparsed workspace`` () =
+    let node =
+        Node.Create(
+            NodeId.New(),
+            text = "home",
+            name = Filename.create "home",
+            owner = Graph.workspacesId,
+            kind = Special Workspace,
+            documentState = Unparsed)
+    Assert.False(DocumentPartition.shouldWriteDocumentRoot node)
+
+[<Fact>]
+let ``shouldWriteDocumentRoot is false for illicit Current amb-named file`` () =
+    // Bypass Filename.create: illicit Ok ".amb" that somehow exists.
+    let node =
+        Node.Create(
+            NodeId.New(),
+            text = ".amb",
+            name = Filename.Ok ".amb",
+            owner = Graph.rootId,
+            kind = Special File)
+    Assert.False(DocumentPartition.shouldWriteDocumentRoot node)

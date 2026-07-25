@@ -33,9 +33,16 @@ module DocumentPathMove =
             else
                 None)
 
+    /// Illicit `.amb`-named nodes must not drive DataDir move/delete/write.
+    let private skipsArtifactFs (graph: Graph) (nodeId: NodeId) : bool =
+        match Map.tryFind nodeId graph.nodes with
+        | Some node -> Filename.isAmbMarkerFilename node.name
+        | None -> false
+
     let private moveSourceRelative (graph: Graph) (move: DocumentPathMove) =
         match Map.tryFind move.nodeId graph.nodes with
         | None -> None
+        | Some node when Filename.isAmbMarkerFilename node.name -> None
         | Some node ->
             match node.kind with
             | Special File ->
@@ -53,10 +60,13 @@ module DocumentPathMove =
         Set.union (documentRootIds preGraph) (documentRootIds postGraph)
         |> Set.toList
         |> List.choose (fun nodeId ->
-            match pathForDocumentRoot preGraph nodeId, pathForDocumentRoot postGraph nodeId with
-            | Some oldPath, Some newPath when oldPath <> newPath ->
-                Some { nodeId = nodeId; oldPath = oldPath; newPath = newPath }
-            | _ -> None)
+            if skipsArtifactFs preGraph nodeId || skipsArtifactFs postGraph nodeId then
+                None
+            else
+                match pathForDocumentRoot preGraph nodeId, pathForDocumentRoot postGraph nodeId with
+                | Some oldPath, Some newPath when oldPath <> newPath ->
+                    Some { nodeId = nodeId; oldPath = oldPath; newPath = newPath }
+                | _ -> None)
         |> List.sortBy (fun move -> move.nodeId.Value)
 
     let coalescePathMoves (preGraph: Graph) (moves: DocumentPathMove list) : DocumentPathMove list =
@@ -89,6 +99,7 @@ module DocumentPathMove =
         match Map.tryFind nodeId graph.nodes with
         | None -> None
         | Some node when not (DocumentPartition.isDocumentRootNode graph nodeId) -> None
+        | Some node when Filename.isAmbMarkerFilename node.name -> None
         | Some node ->
             match pathForDocumentRoot graph nodeId with
             | None -> None
@@ -135,6 +146,7 @@ module DocumentPathMove =
         match Map.tryFind nodeId graph.nodes with
         | None -> None
         | Some node when not (DocumentPartition.isDocumentRootNode graph nodeId) -> None
+        | Some node when Filename.isAmbMarkerFilename node.name -> None
         | Some node when node.kind = Special Workspace && newParentId <> Graph.workspacesId ->
             None
         | Some node ->

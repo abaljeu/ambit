@@ -30,6 +30,21 @@ let private stubRoot (name: string) =
     documentRootId, graph
 
 [<Fact>]
+let ``planParseFile rejects file with no server body`` () =
+    let rootId, graph0 = stubRoot "absent.txt"
+    let graph =
+        Graph.fromNodes
+            graph0.root
+            (Map.add
+                rootId
+                { graph0.nodes.[rootId] with
+                    documentState = NoServerFile }
+                graph0.nodes)
+    match ImportDocument.planParseFile graph rootId "body" with
+    | Ok _ -> Assert.Fail("expected absent server file to be rejected")
+    | Error error -> Assert.Equal("no file on server", error)
+
+[<Fact>]
 let ``planApplyCold paste path uses Plain indent nesting`` () =
     let text = "parent" + Environment.NewLine + "\tchild" + Environment.NewLine
     let rootId, graph = stubRoot "paste.txt"

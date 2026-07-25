@@ -2,7 +2,7 @@ namespace Gambol.Shared
 
 open System
 
-/// Client-first Upload: inventory paths → Directory/File Unparsed stub ops.
+/// Client-first Upload: inventory paths → Directory/File stub ops.
 [<RequireQualifiedAccess>]
 module WorkspaceUploadStructure =
 
@@ -160,6 +160,16 @@ module WorkspaceUploadStructure =
         | Unparsed -> []
         | Current ->
             [ Op.SetDocumentState(nodeId, Current, Unparsed) ]
+        | NoServerFile ->
+            [ Op.SetDocumentState(nodeId, NoServerFile, Unparsed) ]
+
+    let private markNoServerFile (graph: Graph) nodeId =
+        match graph.nodes.[nodeId].documentState with
+        | NoServerFile -> []
+        | Current ->
+            [ Op.SetDocumentState(nodeId, Current, NoServerFile) ]
+        | Unparsed ->
+            [ Op.SetDocumentState(nodeId, Unparsed, NoServerFile) ]
 
     let private markParentCurrent (graph: Graph) nodeId =
         match Map.tryFind nodeId graph.nodes with
@@ -197,19 +207,25 @@ module WorkspaceUploadStructure =
             | _ -> None)
         |> foldStateOps markParentCurrent graph
 
-    let private createdStubIds (planned: Op list) =
+    let private createdStubIds kind (planned: Op list) =
         planned
         |> List.choose (function
-            | Op.NewSpecialNode(nodeId, (File | Directory), _) ->
+            | Op.NewSpecialNode(nodeId, createdKind, _) when createdKind = kind ->
                 Some nodeId
             | _ -> None)
         |> List.distinct
 
     let private markNewStubsUnparsed graph planned =
-        let stubIds = createdStubIds planned
+        let directoryIds = createdStubIds Directory planned
+        let fileIds = createdStubIds File planned
+        let stubIds = directoryIds @ fileIds
 
-        foldStateOps markUnparsed graph stubIds
-        |> Result.bind (fun (withStubs, stubOps) ->
+        foldStateOps markUnparsed graph directoryIds
+        |> Result.bind (fun (withDirs, directoryOps) ->
+            foldStateOps markNoServerFile withDirs fileIds
+            |> Result.map (fun (withFiles, fileOps) ->
+                withFiles, directoryOps, fileOps))
+        |> Result.bind (fun (withStubs, directoryOps, fileOps) ->
             let parentIds =
                 stubIds
                 |> List.choose (fun id ->
@@ -220,7 +236,7 @@ module WorkspaceUploadStructure =
             |> Result.bind (fun (withParents, parentOps) ->
                 promoteUnparsedDirsWithMembers withParents
                 |> Result.map (fun (_, memberOps) ->
-                    stubOps @ parentOps @ memberOps)))
+                    directoryOps @ fileOps @ parentOps @ memberOps)))
 
     let private orderForStubs (items: InventoryItem list) =
         let depth (rel: string) =
@@ -246,12 +262,24 @@ module WorkspaceUploadStructure =
         workspaceId
         (item: InventoryItem)
         =
-        let parts = pathParts item.relative
+        let markerOwnerParts =
+            if item.isDirectory then
+                None
+            else
+                DocumentArtifactPath.tryMarkerOwnerParts item.relative
+
+        let parts =
+            markerOwnerParts
+            |> Option.defaultWith (fun () -> pathParts item.relative)
 
         if parts.IsEmpty then
             Ok(graph, [])
         else
-            let kind = if item.isDirectory then Directory else File
+            let kind =
+                if item.isDirectory || markerOwnerParts.IsSome then
+                    Directory
+                else
+                    File
 
             planPath graph workspaceId kind parts
             |> Result.map (fun (_, next, ops) -> next, ops)
@@ -291,6 +319,23 @@ module WorkspaceUploadStructure =
                     match Map.tryFind nodeId graph.nodes with
                     | Some { kind = Special File } -> Some nodeId
                     | _ -> None)
+
+    /// Files confirmed present by PUT or mtime skip become parseable stubs.
+    let planServerFilePresentOps
+        (graph: Graph)
+        (workspaceLabel: string)
+        (paths: string list)
+        : Op list =
+        paths
+        |> List.distinct
+        |> List.choose (fun relative ->
+            tryResolveFileNode graph workspaceLabel relative
+            |> Option.bind (fun fileId ->
+                match graph.nodes.[fileId].documentState with
+                | NoServerFile ->
+                    Some(Op.SetDocumentState(fileId, NoServerFile, Unparsed))
+                | Current
+                | Unparsed -> None))
 
     /// After download: SetUpdateTime so graph matches local/server mtime (Locked #7).
     let planAlignFileStampOps

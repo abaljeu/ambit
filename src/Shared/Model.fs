@@ -70,6 +70,7 @@ module NodeKind =
 type DocumentState =
     | Current
     | Unparsed
+    | NoServerFile
 
 
 type Node =

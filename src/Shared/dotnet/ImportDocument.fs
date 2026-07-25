@@ -101,6 +101,8 @@ module ImportDocument =
                 Error "import text is empty"
             else
                 match Map.tryFind fileId graph.nodes with
+                | Some { kind = Special File; documentState = NoServerFile } ->
+                    Error "no file on server"
                 | Some { kind = Special File; documentState = state } ->
                     match DocumentPartition.artifactFileRelative graph fileId with
                     | None -> Error "no artifact path for file"
@@ -112,6 +114,7 @@ module ImportDocument =
                                 | Current ->
                                     previousArtifactText graph fileId relativePath
                                 | Unparsed -> None
+                                | NoServerFile -> None
 
                             DocumentParseOps.planApplyArtifact
                                 graph
@@ -128,6 +131,7 @@ module ImportDocument =
                                             Unparsed,
                                             Current) ]
                                     | Current -> []
+                                    | NoServerFile -> []
 
                                 markCurrent @ parseOps))
                 | _ -> Error "file not found or not a File document")
@@ -140,6 +144,8 @@ module ImportDocument =
         (text: string)
         : Result<DesktopImportPackage, string> =
         match Map.tryFind fileId graph.nodes with
+        | Some { kind = Special File; documentState = NoServerFile } ->
+            Error "no file on server"
         | Some { kind = Special File; documentState = Unparsed } ->
             Error "file is unparsed; use cold import"
         | Some { kind = Special File; documentState = Current } ->

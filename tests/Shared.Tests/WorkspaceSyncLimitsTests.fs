@@ -16,6 +16,127 @@ let private dir rel : WorkspaceSyncLimits.SizedItem =
 let private miB (n: int64) = n * 1024L * 1024L
 
 [<Fact>]
+let ``bulk upload includes full structure when eligible files fit caps`` () =
+    let items =
+        [ dir "docs"
+          file "docs/a.txt" (miB 1L)
+          file "docs/oversized.bin" (miB 8L)
+          file "root.txt" 10L ]
+    let mode, planned =
+        WorkspaceSyncLimits.planUpload SyncScopeKind.Workspace "" items
+    Assert.Equal(WorkspaceSyncLimits.Mode.Full, mode)
+    Assert.Equal(4, planned.Length)
+    let bodyPaths =
+        WorkspaceSyncLimits.bodyTransfers planned
+        |> List.map (fun p -> p.relative)
+        |> Set.ofList
+    Assert.Equal<Set<string>>(set [ "root.txt"; "docs/a.txt" ], bodyPaths)
+
+[<Fact>]
+let ``bulk upload eligible cap excludes oversized files`` () =
+    let oversized =
+        [ 1..1600 ]
+        |> List.map (fun i -> file $"large{i}.bin" (miB 2L))
+    let eligible =
+        [ 1..1500 ]
+        |> List.map (fun i -> file $"small{i}.txt" 1L)
+    let mode, planned =
+        WorkspaceSyncLimits.planUpload
+            SyncScopeKind.Workspace
+            ""
+            (oversized @ eligible)
+    Assert.Equal(WorkspaceSyncLimits.Mode.Full, mode)
+    Assert.Equal(3100, planned.Length)
+    Assert.Equal(1500, WorkspaceSyncLimits.bodyTransfers planned |> List.length)
+
+[<Fact>]
+let ``bulk upload falls back to eligible immediate files over either cap`` () =
+    let top =
+        [ 1..1501 ]
+        |> List.map (fun i -> file $"top{i}.txt" 1L)
+    let items =
+        dir "docs"
+        :: file "docs/nested.txt" 1L
+        :: file "huge.bin" (miB 2L)
+        :: top
+    let mode, planned =
+        WorkspaceSyncLimits.planUpload SyncScopeKind.Workspace "" items
+    Assert.Equal(WorkspaceSyncLimits.Mode.TopLevel, mode)
+    let rels = planned |> List.map (fun p -> p.relative) |> Set.ofList
+    Assert.True(Set.contains "docs" rels)
+    Assert.True(Set.contains "top1501.txt" rels)
+    Assert.False(Set.contains "docs/nested.txt" rels)
+    Assert.False(
+        WorkspaceSyncLimits.bodyTransfers planned
+        |> List.exists (fun p -> p.relative = "huge.bin"))
+    Assert.Equal(1501, WorkspaceSyncLimits.bodyTransfers planned |> List.length)
+
+[<Fact>]
+let ``bulk upload byte cap boundary is inclusive`` () =
+    let atCap =
+        [ 1..16 ]
+        |> List.map (fun i -> file $"f{i}.bin" (miB 1L))
+    let overCap = file "extra.txt" 1L :: atCap
+    let modeAt, _ =
+        WorkspaceSyncLimits.planUpload SyncScopeKind.Directory "d" atCap
+    let modeOver, _ =
+        WorkspaceSyncLimits.planUpload SyncScopeKind.Directory "d" overCap
+    Assert.Equal(WorkspaceSyncLimits.Mode.Full, modeAt)
+    Assert.Equal(WorkspaceSyncLimits.Mode.TopLevel, modeOver)
+
+[<Fact>]
+let ``direct file upload keeps four MiB limit`` () =
+    let mode, planned =
+        WorkspaceSyncLimits.planUpload
+            SyncScopeKind.File
+            "a.bin"
+            [ file "a.bin" (miB 4L) ]
+    Assert.Equal(WorkspaceSyncLimits.Mode.Full, mode)
+    Assert.Single(WorkspaceSyncLimits.bodyTransfers planned) |> ignore
+
+    let _, oversized =
+        WorkspaceSyncLimits.planUpload
+            SyncScopeKind.File
+            "a.bin"
+            [ file "a.bin" (miB 4L + 1L) ]
+    Assert.Empty(WorkspaceSyncLimits.bodyTransfers oversized)
+
+[<Fact>]
+let ``download plans file over four MiB as a body`` () =
+    let mode, planned =
+        WorkspaceSyncLimits.planDownload [ file "large.bin" (miB 8L) ]
+    Assert.Equal(WorkspaceSyncLimits.Mode.Full, mode)
+    Assert.Equal(1, planned.Length)
+    Assert.Equal(
+        Some(WorkspaceSyncLimits.FilePlan.Body(miB 8L)),
+        planned.Head.file)
+
+[<Fact>]
+let ``download plans every path over fifteen hundred without truncation`` () =
+    let items =
+        dir "nested"
+        :: ([ 1..1501 ]
+            |> List.map (fun i -> file $"nested/f{i}.txt" 1L))
+    let mode, planned = WorkspaceSyncLimits.planDownload items
+    Assert.Equal(WorkspaceSyncLimits.Mode.Full, mode)
+    Assert.Equal(items.Length, planned.Length)
+    Assert.Equal(1501, WorkspaceSyncLimits.bodyTransfers planned |> List.length)
+
+[<Fact>]
+let ``download plans every body when inventory exceeds sixteen MiB`` () =
+    let items =
+        [ file "a.bin" (miB 8L)
+          file "b.bin" (miB 8L)
+          file "c.bin" (miB 8L) ]
+    let mode, planned = WorkspaceSyncLimits.planDownload items
+    Assert.Equal(WorkspaceSyncLimits.Mode.Full, mode)
+    Assert.Equal(3, WorkspaceSyncLimits.bodyTransfers planned |> List.length)
+    Assert.DoesNotContain(
+        planned,
+        fun path ->
+            path.file = Some WorkspaceSyncLimits.FilePlan.StubOnly)
+
+[<Fact>]
 let ``nameCount counts every file and directory name`` () =
     let items =
         [ dir "a"

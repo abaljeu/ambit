@@ -71,6 +71,23 @@ let ``SetName rejects a reserved system name case-insensitively`` () =
     Assert.Contains("reserved", message)
 
 [<Fact>]
+let ``NewSpecialNode rejects exact amb marker basename case-insensitively`` () =
+    let state = ModelBuilder.createState12 ()
+    [ File, ".amb"; Directory, ".AMB"; Workspace, ".Amb" ]
+    |> List.iter (fun (kind, name) ->
+        Op.apply (Op.NewSpecialNode(NodeId.New(), kind, name)) state
+        |> expectInvalid
+        |> ignore)
+
+[<Fact>]
+let ``SetName rejects rename to exact amb marker basename`` () =
+    let fileId, file = specialNode File "notes.txt"
+    let state = stateWithNodes [ file ]
+    Op.apply (Op.SetName(fileId, "notes.txt", ".amb")) state
+    |> expectInvalid
+    |> ignore
+
+[<Fact>]
 let ``Replace rejects Special path under reserved ancestor but allows Normal child`` () =
     let directoryId, directory = specialNode Directory "Gambol.cache"
     let fileId, file = specialNode File "notes.txt"
@@ -375,6 +392,18 @@ let ``edit or rename of unparsed file descendant is rejected`` () =
     let state, _, childId, _, _ = unparsedFileState ()
     assertUnparsedInvalid state (Op.SetText(childId, "body", "changed"))
     assertUnparsedInvalid state (Op.SetName(childId, "", "renamed"))
+
+[<Fact>]
+let ``edit of no-server-file document is rejected`` () =
+    let state, fileId, _, _, _ = unparsedFileState ()
+    let absent =
+        Op.apply
+            (Op.SetDocumentState(fileId, Unparsed, NoServerFile))
+            state
+        |> expectChanged
+    assertUnparsedInvalid
+        absent
+        (Op.SetText(fileId, "file.txt", "changed"))
 
 [<Fact>]
 let ``structural relocate of unparsed file to start among siblings succeeds`` () =
