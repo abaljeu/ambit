@@ -181,17 +181,6 @@ module Main =
         )
         |> ignore
 
-    let useDevelopmentLatency (app: WebApplication) =
-        // Development only: handle first, then delay before completing the response.
-        // Simulates RTT after work so concurrent uploads overlap delays.
-        if app.Environment.EnvironmentName = "Development" then
-            app.Use(fun (ctx: HttpContext) (next: RequestDelegate) ->
-                task {
-                    do! next.Invoke(ctx)
-                    do! Task.Delay(1000)
-                } :> Task)
-            |> ignore
-
     let mapSourceFiles hasHead (app: WebApplication) =
         // Headed only: serve Client/Shared sources for browser source maps.
         if hasHead then
@@ -222,7 +211,6 @@ module Main =
 
         useAmbitStaticFiles jsModuleCorsOrigins app
         redirectAmbitSlash app
-        useDevelopmentLatency app
         mapSourceFiles hasHead app
 
         publicAssetBaseOpt

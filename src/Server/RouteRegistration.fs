@@ -168,6 +168,7 @@ module RouteRegistration =
         [
             assets.GambolHtml
             Path.Combine(webRoot, "Program.js")
+            Path.Combine(webRoot, "Program.bundle.js")
             Path.Combine(webRoot, "Update.js")
             Path.Combine(webRoot, "style.css")
             assets.DefaultUserCss
@@ -375,6 +376,7 @@ module RouteRegistration =
 
     let private renderGambolHtml
         (publicAssetBaseOpt: string option)
+        (programFile: string)
         (assets: RouteAssets)
         (stamps: BuildStamps)
         (dbStatus: DatabaseSetup.DbStatus)
@@ -393,8 +395,9 @@ module RouteRegistration =
             + "\";</script>\n</head>"
         let programSrc =
             match publicAssetBaseOpt with
-            | None -> sprintf "/ambit/Program.js?v=%d" pageEpoch
-            | Some baseUrl -> sprintf "%s/ambit/Program.js?v=%d" baseUrl pageEpoch
+            | None -> sprintf "/ambit/%s?v=%d" programFile pageEpoch
+            | Some baseUrl ->
+                sprintf "%s/ambit/%s?v=%d" baseUrl programFile pageEpoch
         raw
             .Replace("href=\"/ambit/style.css\"", sprintf "href=\"%s\"" styleHref)
             .Replace("href=\"/ambit/user.css\"", sprintf "href=\"%s\"" userHref)
@@ -415,8 +418,17 @@ module RouteRegistration =
                 ctx.Response.Headers.CacheControl <- "no-cache, no-store, must-revalidate"
                 ctx.Response.Headers.Pragma <- "no-cache"
                 ctx.Response.Headers.Expires <- "0"
+                let programFile =
+                    match ctx.Request.Query.TryGetValue("debug") with
+                    | true, value when value.ToString() = "1" -> "Program.js"
+                    | _ -> "Program.bundle.js"
                 let html =
-                    renderGambolHtml publicAssetBaseOpt assets stamps persistence.DbStatus
+                    renderGambolHtml
+                        publicAssetBaseOpt
+                        programFile
+                        assets
+                        stamps
+                        persistence.DbStatus
                 Results.Content(html, "text/html")
             else
                 Results.Redirect("/ambit/login")

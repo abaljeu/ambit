@@ -320,25 +320,22 @@ let toggleFoldOp (instanceId: SiteId) (model: VM) : VM * Effect list =
                 ViewModel.expandEntry instanceId model.graph model.siteMap model.nextSiteId
             { model with siteMap = siteMap; nextSiteId = nextId }, []
 
-/// Op: ArrowLeft in selection — fold if expanded, else move to parent.
-let arrowLeftSelectionOp (model: VM) : VM * Effect list =
-    model.selectedNodes
-    |> Option.bind (fun sel ->
-        focusedInstanceId sel |> Option.map (fun fid -> (fid, sel)))
-    |> Option.bind (fun (fid, _) ->
-        Map.tryFind fid model.siteMap.entries
-        |> Option.map (fun entry -> (entry, fid)))
-    |> Option.map (fun (entry, focusInstId) ->
-        let node = model.graph.nodes.[entry.nodeId]
-        if not node.children.IsEmpty && entry.expanded then
-            { model with siteMap = ViewModel.toggleFold focusInstId model.siteMap }
-        else
-            entry.parentInstanceId
-            |> Option.bind (singleSelectionForInstance model.siteMap)
+/// Op: ArrowLeft in selection — fold if any selected are expanded, else move to parent.
+let arrowFoldLeftOp (model: VM) : VM * Effect list =
+    match model.selectedNodes with
+    | None -> model, []
+    | Some sel ->
+        let frontier =
+            sel.range.parent.children
+            |> List.skip sel.range.start
+            |> List.take (sel.range.endd - sel.range.start)
+        match ViewModel.foldExpandedMembers model.siteMap frontier with
+        | Some siteMap -> { model with siteMap = siteMap }, []
+        | None ->
+            singleSelectionForInstance model.siteMap sel.range.parent.instanceId
             |> Option.map (fun parentSel -> { model with selectedNodes = Some parentSel })
-            |> Option.defaultValue model)
-    |> Option.defaultValue model
-    |> fun m -> m, []
+            |> Option.defaultValue model
+            |> fun m -> m, []
 
 /// Op: ArrowLeft in selection — move to parent (do not fold).
 let arrowLeftSelectionNoFoldOp (model: VM) : VM * Effect list =
@@ -350,6 +347,20 @@ let arrowLeftSelectionNoFoldOp (model: VM) : VM * Effect list =
     |> Option.map (fun ps -> { model with selectedNodes = Some ps })
     |> Option.defaultValue model
     |> fun m -> m, []
+
+/// Op: Shift+ArrowRight — iterative-deepening unfold; selection unchanged.
+let cursorUnfoldRightOp (model: VM) : VM * Effect list =
+    match model.selectedNodes with
+    | None -> model, []
+    | Some sel ->
+        let frontier =
+            sel.range.parent.children
+            |> List.skip sel.range.start
+            |> List.take (sel.range.endd - sel.range.start)
+        let siteMap, nextId =
+            ViewModel.iterativeDeepenUnfold
+                model.graph model.siteMap model.nextSiteId frontier
+        { model with siteMap = siteMap; nextSiteId = nextId }, []
 
 /// Op: ArrowRight in selection — expand if folded, else move to first child.
 let arrowRightSelectionOp (model: VM) : VM * Effect list =

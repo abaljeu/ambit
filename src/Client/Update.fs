@@ -26,7 +26,8 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
 
     | NodeSearchQuery query ->
         match model.mode with
-        | SearchDialog s ->
+        | SearchDialog s when s.query <> query ->
+            Gambol.Client.SearchDialog.resetSearchResults ()
             { model with
                 mode = SearchDialog { s with query = query; selectedIndex = 0 } }, []
         | _ -> model, []

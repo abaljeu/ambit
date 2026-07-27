@@ -16,7 +16,9 @@ F5 does not replace a running watch-task Server. If the watch task already owns 
 
 ## Fable watch
 
-[[.vscode/tasks.json|fable: Watch Client]] can stay running under either Server starter. Client-only edits then need only a browser refresh.
+[[.vscode/tasks.json|fable: Watch Client]] and `esbuild: Watch Client` can stay running under either Server starter. Fable refreshes the generated modules and esbuild refreshes `Program.bundle.js`; client-only edits then need only a browser refresh.
+
+The app loads the bundle by default in development and production. Open `/ambit?debug=1` to load unbundled Fable modules and their source maps for occasional debugging.
 
 ## Switching to F5
 

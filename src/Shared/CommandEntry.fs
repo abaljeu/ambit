@@ -18,6 +18,7 @@ type CommandId =
     | CursorFoldLeft
     | CursorLeftToParent
     | CursorUnfoldRight
+    | CursorRightToChild
     | MoveToPreviousNode
     | MoveToNextNode
     | SelectionUp
@@ -131,8 +132,11 @@ let allCommands : CommandEntry list =
           keys = [ "ArrowLeft"; "a" ]; keyScope = SelectionOnly
           iconId = None }
         { id = CursorUnfoldRight; name = "Cursor unfold right"
-          keys = [ "Shift+ArrowRight"; "ArrowRight"; "e"; "E" ]
-          keyScope = SelectionOnly; iconId = None }
+          keys = [ "Shift+ArrowRight" ]; keyScope = SelectionOnly
+          iconId = None }
+        { id = CursorRightToChild; name = "Cursor right to child"
+          keys = [ "ArrowRight"; "e"; "E" ]; keyScope = SelectionOnly
+          iconId = None }
           // if at start of edit area:
         { id = MoveToPreviousNode; name = "Move to previous node"
           keys = [ "ArrowLeft" ]; keyScope = EditingOnly

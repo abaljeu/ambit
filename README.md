@@ -56,10 +56,12 @@ Do reference ambit for proposing definitions of gambol behavior.
 ### Prerequisites
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
+- Node.js 18 or later
 
 ### Load the environment
 
 dotnet tool restore (pull in fable and other dependencies)
+npm ci (install the pinned client bundler)
 
 ### Build
 
@@ -81,7 +83,7 @@ dotnet test gambol.sln
 ### Dev (VS Code)
 
 Run the default build task (`Ctrl+Shift+B`) to start Fable watch and the server together.
-Both use the correct `--outDir` so `fable_modules` lands in `wwwroot` alongside the compiled JS.
+Fable and esbuild watch together: Fable writes modules into `wwwroot`, then esbuild refreshes the browser bundle. Open `/ambit?debug=1` to load unbundled modules when debugging.
 
 ### Custom domain (cPanel → Azure)
 

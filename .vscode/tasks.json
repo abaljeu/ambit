@@ -55,7 +55,7 @@
 		{
 			"label": "fable: Build Client",
 			"type": "shell",
-			"command": "dotnet fable src/Client --outDir src/Server/wwwroot --sourceMaps",
+			"command": "bash scripts/client.sh build",
 			"group": "build",
 			"presentation": {
 				"reveal": "always",
@@ -108,6 +108,18 @@
 			"problemMatcher": []
 		},
 		{
+			"label": "esbuild: Watch Client",
+			"type": "shell",
+			"command": "npm run bundle:watch",
+			"isBackground": true,
+			"group": "build",
+			"presentation": {
+				"reveal": "always",
+				"panel": "dedicated"
+			},
+			"problemMatcher": []
+		},
+		{
 			"label": "server: Run",
 			"type": "shell",
 			"command": "dotnet watch run --project src/Server",
@@ -123,6 +135,7 @@
 			"label": "dev: Watch + Run",
 			"dependsOn": [
 				"fable: Watch Client",
+				"esbuild: Watch Client",
 				"server: Run"
 			],
 			"dependsOrder": "parallel",

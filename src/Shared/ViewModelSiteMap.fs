@@ -197,6 +197,24 @@ module ViewModelSiteMap =
         | Some entry ->
             { siteMap with entries = Map.add instanceId { entry with expanded = false; childrenStale = true } siteMap.entries }
 
+    /// If any frontier entry is expanded, collapse every frontier entry and return
+    /// Some siteMap. Otherwise None (caller may navigate).
+    let foldExpandedMembers
+        (siteMap: SiteMap)
+        (frontier: SiteId list)
+        : SiteMap option =
+        let anyExpanded =
+            frontier
+            |> List.exists (fun id ->
+                match Map.tryFind id siteMap.entries with
+                | Some entry -> entry.expanded
+                | None -> false)
+        if not anyExpanded then None
+        else
+            frontier
+            |> List.fold (fun sm id -> toggleFold id sm) siteMap
+            |> Some
+
     /// Expand a collapsed entry, inserting or re-syncing immediate child SiteEntries from the graph.
     /// Children are matched positionally by nodeId to preserve existing instanceIds and fold state
     /// (useful when re-expanding after a simple collapse with no intervening structural op).
@@ -276,6 +294,46 @@ module ViewModelSiteMap =
 
                                 Map.tryFind siblingId siteMap.entries
                                 |> Option.map (fun expanded -> siteMap, nextSiteId, expanded))
+
+    let private isFolded (graph: Graph) (entry: SiteEntry) : bool =
+        match Map.tryFind entry.nodeId graph.nodes with
+        | Some node when not node.children.IsEmpty && not entry.expanded -> true
+        | _ -> false
+
+    /// Iterative-deepening unfold over a frontier of instance ids.
+    /// If any frontier entry is folded (has graph children, not expanded), expand those
+    /// and stop. Otherwise recurse on the site-map children of the frontier.
+    /// Does not change selection.
+    let iterativeDeepenUnfold
+        (graph: Graph)
+        (siteMap: SiteMap)
+        (startId: SiteId)
+        (frontier: SiteId list)
+        : SiteMap * SiteId =
+        let rec loop sm nextId frontier =
+            match frontier with
+            | [] -> sm, nextId
+            | _ ->
+                let folded =
+                    frontier
+                    |> List.filter (fun id ->
+                        match Map.tryFind id sm.entries with
+                        | Some entry -> isFolded graph entry
+                        | None -> false)
+                if not folded.IsEmpty then
+                    folded
+                    |> List.fold
+                        (fun (sm', nid) id -> expandEntry id graph sm' nid)
+                        (sm, nextId)
+                else
+                    let children =
+                        frontier
+                        |> List.collect (fun id ->
+                            match Map.tryFind id sm.entries with
+                            | Some e -> e.children
+                            | None -> [])
+                    loop sm nextId children
+        loop siteMap startId frontier
 
     /// Restore fold state from a saved set of expanded NodeIds.
     /// Walks the siteMap in BFS order, expanding each entry whose nodeId is in

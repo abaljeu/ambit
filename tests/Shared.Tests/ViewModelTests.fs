@@ -1556,6 +1556,115 @@ let ``SiteMap expandEntry inserts child entries`` () =
         Assert.True(expanded.entries.ContainsKey childInstId)
 
 // ---------------------------------------------------------------------------
+// SiteMapOps.iterativeDeepenUnfold
+// ---------------------------------------------------------------------------
+
+/// cont → a → mid → deep → tip (tip leaf). Used for deepen-level tests.
+let private buildDeepChain () : Graph * NodeId * NodeId list =
+    let graph0 = Graph.create ()
+    let graph1, contIds = ModelBuilder.createNodes [ "container" ] graph0
+    let cont = contIds.[0]
+    let graph2, ids = ModelBuilder.createNodes [ "a"; "mid"; "deep"; "tip" ] graph1
+    let a, mid, deep, tip = ids.[0], ids.[1], ids.[2], ids.[3]
+    let graph3 =
+        Graph.replace graph2.root 0 [] (owned [ cont ]) graph2
+        |> ModelBuilder.requireOk "buildDeepChain.root"
+    let graph4 =
+        Graph.replace cont 0 [] (owned [ a ]) graph3
+        |> ModelBuilder.requireOk "buildDeepChain.cont"
+    let graph5 =
+        Graph.replace a 0 [] (owned [ mid ]) graph4
+        |> ModelBuilder.requireOk "buildDeepChain.a"
+    let graph6 =
+        Graph.replace mid 0 [] (owned [ deep ]) graph5
+        |> ModelBuilder.requireOk "buildDeepChain.mid"
+    let graph7 =
+        Graph.replace deep 0 [] (owned [ tip ]) graph6
+        |> ModelBuilder.requireOk "buildDeepChain.deep"
+    graph7, cont, ids
+
+[<Fact>]
+let ``iterativeDeepenUnfold expands folded frontier and stops`` () =
+    let graph, cont, _ = buildDeepChain ()
+    let siteMap, nextId = buildSiteMapFrom graph cont (Sid 0)
+    let aInst = siteMap.entries.[siteMap.rootId].children.[0]
+    Assert.False(siteMap.entries.[aInst].expanded)
+    let sm2, _ = iterativeDeepenUnfold graph siteMap nextId [ aInst ]
+    Assert.True(sm2.entries.[aInst].expanded)
+    let midInst = sm2.entries.[aInst].children.[0]
+    Assert.False(sm2.entries.[midInst].expanded)
+
+[<Fact>]
+let ``iterativeDeepenUnfold recurses one level when frontier already expanded`` () =
+    let graph, cont, _ = buildDeepChain ()
+    let siteMap, nextId = buildSiteMapFrom graph cont (Sid 0)
+    let aInst = siteMap.entries.[siteMap.rootId].children.[0]
+    let sm1, next1 = expandEntry aInst graph siteMap nextId
+    let midInst = sm1.entries.[aInst].children.[0]
+    Assert.False(sm1.entries.[midInst].expanded)
+    let sm2, _ = iterativeDeepenUnfold graph sm1 next1 [ aInst ]
+    Assert.True(sm2.entries.[midInst].expanded)
+    let deepInst = sm2.entries.[midInst].children.[0]
+    Assert.False(sm2.entries.[deepInst].expanded)
+
+[<Fact>]
+let ``iterativeDeepenUnfold unfolds only folded members when frontier is mixed`` () =
+    let graph, cont, _ = buildNested ()
+    let siteMap, nextId = buildSiteMapFrom graph cont (Sid 0)
+    let root = siteMap.entries.[siteMap.rootId]
+    let aInst, bInst = root.children.[0], root.children.[1]
+    let sm1, next1 = expandEntry aInst graph siteMap nextId
+    Assert.True(sm1.entries.[aInst].expanded)
+    Assert.False(sm1.entries.[bInst].expanded)
+    let sm2, _ = iterativeDeepenUnfold graph sm1 next1 [ aInst; bInst ]
+    Assert.True(sm2.entries.[bInst].expanded)
+    // Did not recurse into a's children
+    for child in sm2.entries.[aInst].children do
+        Assert.False(sm2.entries.[child].expanded)
+
+// ---------------------------------------------------------------------------
+// SiteMapOps.foldExpandedMembers
+// ---------------------------------------------------------------------------
+
+[<Fact>]
+let ``foldExpandedMembers collapses all when any frontier member is expanded`` () =
+    let graph, cont, _ = buildNested ()
+    let siteMap, nextId = buildSiteMapFrom graph cont (Sid 0)
+    let root = siteMap.entries.[siteMap.rootId]
+    let aInst, bInst = root.children.[0], root.children.[1]
+    let sm1, next1 = expandEntry aInst graph siteMap nextId
+    let sm2, _ = expandEntry bInst graph sm1 next1
+    match foldExpandedMembers sm2 [ aInst; bInst ] with
+    | None -> Assert.True(false, "expected fold")
+    | Some folded ->
+        Assert.False(folded.entries.[aInst].expanded)
+        Assert.False(folded.entries.[bInst].expanded)
+
+[<Fact>]
+let ``foldExpandedMembers folds expanded sibling even if another is collapsed`` () =
+    let graph, cont, _ = buildNested ()
+    let siteMap, nextId = buildSiteMapFrom graph cont (Sid 0)
+    let root = siteMap.entries.[siteMap.rootId]
+    let aInst, bInst = root.children.[0], root.children.[1]
+    let sm1, _ = expandEntry bInst graph siteMap nextId
+    match foldExpandedMembers sm1 [ aInst; bInst ] with
+    | None -> Assert.True(false, "expected fold")
+    | Some folded ->
+        Assert.False(folded.entries.[aInst].expanded)
+        Assert.False(folded.entries.[bInst].expanded)
+
+[<Fact>]
+let ``foldExpandedMembers returns None when none are expanded`` () =
+    let graph, cont, _ = buildNested ()
+    let siteMap, nextId = buildSiteMapFrom graph cont (Sid 0)
+    let root = siteMap.entries.[siteMap.rootId]
+    let aInst, bInst = root.children.[0], root.children.[1]
+    Assert.True(foldExpandedMembers siteMap [ aInst; bInst ] |> Option.isNone)
+    let sm1, _ = expandEntry aInst graph siteMap nextId
+    // only collapsed b in frontier
+    Assert.True(foldExpandedMembers sm1 [ bInst ] |> Option.isNone)
+
+// ---------------------------------------------------------------------------
 // SiteMapOps.buildOccurrenceIndex
 // ---------------------------------------------------------------------------
 

@@ -64,7 +64,7 @@
             "type": "msedge",
             "request": "launch",
             "preLaunchTask": "fable: Build Client",
-            "url": "http://localhost:5115/ambit",
+            "url": "http://localhost:5115/ambit?debug=1",
             "webRoot": "${workspaceFolder}/src/Server/wwwroot",
             "sourceMapPathOverrides": {
                 "../../Client/*": "${workspaceFolder}/src/Client/*",
@@ -76,7 +76,7 @@
             "type": "chrome",
             "request": "launch",
             "preLaunchTask": "fable: Build Client",
-            "url": "http://localhost:5115/ambit",
+            "url": "http://localhost:5115/ambit?debug=1",
             "webRoot": "${workspaceFolder}/src/Server/wwwroot",
             "sourceMapPathOverrides": {
                 "../../Client/*": "${workspaceFolder}/src/Client/*",
@@ -87,7 +87,7 @@
             "name": "(Client for Full Stack)",
             "type": "chrome",
             "request": "launch",
-            "url": "http://localhost:5115/ambit",
+            "url": "http://localhost:5115/ambit?debug=1",
             "webRoot": "${workspaceFolder}/src/Server/wwwroot",
             "sourceMapPathOverrides": {
                 "../../Client/*": "${workspaceFolder}/src/Client/*",
@@ -98,7 +98,7 @@
             "name": "Azure Client (Chrome)",
             "type": "chrome",
             "request": "launch",
-            "url": "https://collaborative-systems.org/ambit",
+            "url": "https://collaborative-systems.org/ambit?debug=1",
             "webRoot": "${workspaceFolder}/src/Server/wwwroot",
             "pathMapping": {
                 "/ambit": "${workspaceFolder}/src/Server/wwwroot"
@@ -112,7 +112,7 @@
             "name": "Azure Client (Edge)",
             "type": "msedge",
             "request": "launch",
-            "url": "https://collaborative-systems.org/ambit",
+            "url": "https://collaborative-systems.org/ambit?debug=1",
             "webRoot": "${workspaceFolder}/src/Server/wwwroot",
             "pathMapping": {
                 "/ambit": "${workspaceFolder}/src/Server/wwwroot"

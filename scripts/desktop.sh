@@ -66,6 +66,7 @@ done
 build_client() {
     echo "==> Building client..."
     dotnet fable "$CLIENT_PROJECT" --outDir "$CLIENT_OUT_DIR" --sourceMaps
+    npm run bundle
 }
 
 server_listening() {
