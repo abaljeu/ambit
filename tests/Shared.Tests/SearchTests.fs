@@ -199,3 +199,66 @@ let ``searchNodes mixed text and path words require same node`` () =
         ViewModelSearch.searchNodes "readme //bobby/docs/readme.md" t.graph.root t.graph
         |> List.map (fun r -> r.nodeId)
     Assert.Equal<NodeId>([ t.readmeMd ], got)
+
+[<Fact>]
+let ``searchNodesBounded caps results at dialog limit`` () =
+    let graph0 = Graph.create ()
+    let labels = [ 1..120 ] |> List.map (fun i -> $"token {i}")
+    let graph1, ids = ModelBuilder.createNodes labels graph0
+    let graph2 = ownedRootChildren ids graph1
+    let z = graph2.root
+    let bounded =
+        ViewModelSearch.searchNodesBounded "token" z graph2 |> List.map (fun r -> r.nodeId)
+    Assert.Equal(ViewModelSearch.searchDialogResultLimit, bounded.Length)
+
+[<Fact>]
+let ``searchNodesBounded prefix matches unlimited ordering`` () =
+    let graph0 = Graph.create ()
+    let graph1, ids =
+        ModelBuilder.createNodes [ "z"; "za"; "hit here"; "hit branch" ] graph0
+    let zId = ids.[0]
+    let zaId = ids.[1]
+    let hitUnderZa = ids.[2]
+    let hitUnderRoot = ids.[3]
+    let chZ = [ { ref = Ownership.Owner; id = zaId } ]
+    let chZa = [ { ref = Ownership.Owner; id = hitUnderZa } ]
+    let graph2 =
+        match Graph.replace zId 0 [] chZ graph1 with
+        | Ok g -> g
+        | Error e -> failwith e
+    let graph3 =
+        match Graph.replace zaId 0 [] chZa graph2 with
+        | Ok g -> g
+        | Error e -> failwith e
+    let graph4 = ownedRootChildren [ zId; hitUnderRoot ] graph3
+    let unlimited = ViewModelSearch.searchNodes "hit" zaId graph4 |> List.map (fun r -> r.nodeId)
+    let bounded = ViewModelSearch.searchNodesBounded "hit" zaId graph4 |> List.map (fun r -> r.nodeId)
+    Assert.Equal<NodeId>(unlimited, bounded)
+
+[<Fact>]
+let ``searchNodesBounded multi-part matches unlimited when under cap`` () =
+    let graph0 = Graph.create ()
+    let graph1, ids =
+        ModelBuilder.createNodes [ "alpha only"; "alpha with gamma tail"; "gamma first alpha second" ] graph0
+    let graph2 = ownedRootChildren ids graph1
+    let z = graph2.root
+    let unlimited =
+        ViewModelSearch.searchNodes "alpha gamma" z graph2 |> List.map (fun r -> r.nodeId)
+    let bounded =
+        ViewModelSearch.searchNodesBounded "alpha gamma" z graph2 |> List.map (fun r -> r.nodeId)
+    Assert.Equal<NodeId>(unlimited, bounded)
+
+[<Fact>]
+let ``trySearchResultAtDisplayIndexBounded clamps high index to last row`` () =
+    let graph0 = Graph.create ()
+    let graph1, ids = ModelBuilder.createNodes [ "ax"; "bx"; "cx" ] graph0
+    let graph2 = ownedRootChildren ids graph1
+    let z = graph2.root
+    let ordered = ViewModelSearch.searchNodesBounded "x" z graph2
+    Assert.Equal(3, ordered.Length)
+    let expectLast = ordered.[2].nodeId
+    let got =
+        ViewModelSearch.trySearchResultAtDisplayIndexBounded "x" z graph2 999
+        |> Option.map (fun r -> r.nodeId)
+    Assert.Equal(Some expectLast, got)
+    Assert.Equal(ids.[2], expectLast)

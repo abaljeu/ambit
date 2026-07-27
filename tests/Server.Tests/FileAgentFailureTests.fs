@@ -9,6 +9,7 @@ open Gambol.Shared
 open Gambol.Server.Tests.TestBackend
 
 module Encode = Thoth.Json.Newtonsoft.Encode
+module Decode = Thoth.Json.Newtonsoft.Decode
 
 let private changedBody () =
     let childId = NodeId.New()
@@ -19,6 +20,38 @@ let private changedBody () =
             ops =
                 [
                     Op.NewNode(childId, "failure probe")
+                    Op.Replace(
+                        Graph.rootId,
+                        0,
+                        [],
+                        [ { ref = Ownership.Owner; id = childId } ])
+                ]
+        }
+    Encode.toString 0 (
+        Serialization.encodeChangeBatch { changes = [ change ] })
+
+let private softFailPersist : string -> Graph -> Graph -> Op list -> Result<PersistGraphOk, string> =
+    fun _ _ postGraph _ ->
+        Ok {
+            graph = postGraph
+            message = Some(DocumentPersistence.fileCouldNotSave "SYSTEM/secret.txt")
+        }
+
+let private decodeAckMessage (json: string) : string option =
+    match Decode.fromString Serialization.decodeChangeBatchAck json with
+    | Ok ack -> ack.message
+    | Error err -> failwith $"decode ack: {err}"
+
+/// Insert a normal child at ROOT index 0 (old span [] = insert).
+let private softFailEditBody () =
+    let childId = NodeId.New()
+    let change =
+        {
+            id = 0
+            changeId = Guid.NewGuid()
+            ops =
+                [
+                    Op.NewNode(childId, "soft-fail-probe")
                     Op.Replace(
                         Graph.rootId,
                         0,
@@ -115,4 +148,56 @@ let ``persist step hang is rejected within timeout and mailbox survives`` () = t
         // let the orphaned background task finish before disposing shared resources
         Thread.Sleep(hangMs)
         FileAgent.dispose agent
+}
+
+[<Fact>]
+let ``soft-fail live-save still commits graph and returns could-not-save message`` () = task {
+    let dataDir = newTempDir ()
+    let defaults = FileAgent.defaultDependencies dataDir
+    let dependencies = { defaults with persistGraphOps = softFailPersist }
+    let agent = FileAgent.createWithDependencies dependencies dataDir
+    try
+        let! postResult =
+            FileAgent.postChange agent (softFailEditBody ())
+            |> Async.StartAsTask
+        match postResult with
+        | Error err -> Assert.Fail($"expected Ok ack, got Error {err}")
+        | Ok ackJson ->
+            Assert.Equal(
+                Some(DocumentPersistence.fileCouldNotSave "SYSTEM/secret.txt"),
+                decodeAckMessage ackJson)
+        let! stateJson =
+            FileAgent.getState agent |> Async.StartAsTask
+        Assert.Contains("soft-fail-probe", stateJson)
+        Assert.Contains("\"revision\":1", stateJson)
+    finally
+        FileAgent.dispose agent
+}
+
+[<Fact>]
+let ``soft-fail graph edit survives FileAgent restart via log replay`` () = task {
+    let dataDir = newTempDir ()
+    let defaults = FileAgent.defaultDependencies dataDir
+    let dependencies = { defaults with persistGraphOps = softFailPersist }
+    let agent1 = FileAgent.createWithDependencies dependencies dataDir
+    try
+        let! postResult =
+            FileAgent.postChange agent1 (softFailEditBody ())
+            |> Async.StartAsTask
+        match postResult with
+        | Error err -> Assert.Fail($"expected Ok ack, got Error {err}")
+        | Ok _ -> ()
+    finally
+        FileAgent.dispose agent1
+
+    // Meta checkpoint stays behind after soft-fail; disk has no probe text.
+    Assert.Equal(Revision 0, Bookkeeping.readRevision dataDir)
+    let agent2 = FileAgent.createWithDependencies dependencies dataDir
+    try
+        let! stateJson =
+            FileAgent.getState agent2 |> Async.StartAsTask
+        Assert.Contains("soft-fail-probe", stateJson)
+        Assert.Contains("\"revision\":1", stateJson)
+    finally
+        FileAgent.dispose agent2
 }

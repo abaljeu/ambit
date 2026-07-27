@@ -67,11 +67,39 @@ module FileAgent =
             changeProcessingTimeoutMs = ChangeProcessingTimeoutMs
         }
 
+    /// Apply log entries at indexes `[fromRev .. offsetIndex.Count - 1]`.
+    /// Index `i` is the change that produces server revision `i + 1`.
+    let private replayLogFrom
+        (logStream: FileStream)
+        (offsetIndex: int64 ResizeArray)
+        (fromRev: int)
+        (start: State)
+        : State =
+        let lo = max 0 fromRev
+        let hi = offsetIndex.Count - 1
+        if hi < lo then
+            start
+        else
+            [ lo..hi ]
+            |> List.fold
+                (fun s i ->
+                    let _, json = ChangeLog.readEntryAt logStream offsetIndex.[i]
+                    match ChangeLog.decodeChange json with
+                    | Error _ -> s
+                    | Ok change ->
+                        match History.applyChange change s with
+                        | ApplyResult.Invalid _ -> s
+                        | ApplyResult.Unchanged s' ->
+                            { s' with revision = Revision(i + 1) }
+                        | ApplyResult.Changed s' ->
+                            { s' with revision = Revision(i + 1) })
+                { start with revision = Revision lo }
+
     let createWithDependencies
         (dependencies: FileAgentDependencies)
         (dataDir: string)
         : FileAgent =
-        let initialState =
+        let loadedState =
             match DocumentLoader.tryLoadState dataDir with
             | Ok state -> state
             | Error msg -> failwith msg
@@ -79,7 +107,20 @@ module FileAgent =
         let logStream = Bookkeeping.openLogStream dataDir
 
         let offsetIndex = ChangeLog.buildIndex logStream
+        // Soft-failed live-saves advance the log without rewriting disk; replay the
+        // tail past the checkpoint revision so those graph edits survive restart.
+        let initialState =
+            replayLogFrom
+                logStream
+                offsetIndex
+                loadedState.revision.Value
+                loadedState
+        if initialState.revision.Value > loadedState.revision.Value then
+            Bookkeeping.writeRevision dataDir initialState.revision.Value
+            |> ignore
         let state = ref initialState
+        /// False after a soft file-write failure until process restart (meta stays behind).
+        let persistClean = ref true
 
         let capturedInitialState = state.Value
 
@@ -119,9 +160,18 @@ module FileAgent =
             match persisted with
             | Error err -> Error err
             | Ok stamped ->
-                match Bookkeeping.writeRevision dataDir rev with
-                | Error err -> Error err
-                | Ok () -> Ok stamped
+                // Soft-fail (or prior soft-fail in this process): keep meta behind the
+                // log so startup replay can restore graph edits that never hit disk.
+                if stamped.message.IsSome then
+                    persistClean.Value <- false
+                let shouldCheckpoint =
+                    stamped.message.IsNone && persistClean.Value
+                if not shouldCheckpoint then
+                    Ok stamped
+                else
+                    match Bookkeeping.writeRevision dataDir rev with
+                    | Error err -> Error err
+                    | Ok () -> Ok stamped
 
         let applyBatch (changes: Change list) =
             let step (s, acked, logEntries, changed) (change: Change) =

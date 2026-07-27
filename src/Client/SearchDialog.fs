@@ -43,23 +43,17 @@ let searchSelectDownOp (model: VM) : VM * Effect list =
     match model.mode with
     | SearchDialog s ->
         let n =
-            ViewModelSearch.searchNodes s.query model.zoomRoot model.graph
+            ViewModelSearch.searchNodesBounded s.query model.zoomRoot model.graph
             |> List.length
         let cap = max 0 (n - 1)
         let next = min (s.selectedIndex + 1) cap
         { model with mode = SearchDialog { s with selectedIndex = next } }, []
     | _ -> model, []
 
-let searchSetQueryOp (query: string) (model: VM) : VM * Effect list =
-    match model.mode with
-    | SearchDialog s ->
-        { model with
-            mode = SearchDialog { s with query = query; selectedIndex = 0 } }, []
-    | _ -> model, []
-
 let currentSearchResults (model: VM) : NodeSearchResult list =
     match model.mode with
-    | SearchDialog s -> ViewModelSearch.searchNodes s.query model.zoomRoot model.graph
+    | SearchDialog s ->
+        ViewModelSearch.searchNodesBounded s.query model.zoomRoot model.graph
     | _ -> []
 
 let runSearchSelectionOp (mode: Mode) (model: VM) : VM * Effect list =
@@ -67,7 +61,10 @@ let runSearchSelectionOp (mode: Mode) (model: VM) : VM * Effect list =
     | SearchDialog s ->
         rememberSearchQuery s.query
         let closed = { model with mode = s.returnTo }
-        match ViewModelSearch.trySearchResultAtDisplayIndex s.query model.zoomRoot model.graph s.selectedIndex with
+        match
+            ViewModelSearch.trySearchResultAtDisplayIndexBounded
+                s.query model.zoomRoot model.graph s.selectedIndex
+        with
         | None -> model, []
         | Some hit -> s.onPick hit closed
     | _ -> model, []

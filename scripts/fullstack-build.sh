@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# AGENTS - don't use
 set -e
 
 dotnet build src/Server -c Debug

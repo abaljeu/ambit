@@ -116,3 +116,4 @@ let ``persistGraphOps soft-fails illicit write and returns could-not-save messag
     Assert.Equal(
         Some(DocumentPersistence.fileCouldNotSave "SYSTEM/secret.txt"),
         result.message)
+    Assert.Equal("BODY", result.graph.nodes.[bodyId].text)

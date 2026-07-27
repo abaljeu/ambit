@@ -24,6 +24,13 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
     match msg with
     | ApplyOp op -> op model
 
+    | NodeSearchQuery query ->
+        match model.mode with
+        | SearchDialog s ->
+            { model with
+                mode = SearchDialog { s with query = query; selectedIndex = 0 } }, []
+        | _ -> model, []
+
     | SysMsg (StateLoaded response) ->
         let graph = response.graph
         let zoomRoot = firstGraphChild graph

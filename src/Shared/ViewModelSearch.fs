@@ -4,6 +4,9 @@ open System
 
 module ViewModelSearch =
 
+    /// Dialog UI shows at most this many selectable rows.
+    let searchDialogResultLimit = 100
+
     let parseSearchTerm (query: string) : string option =
         let q = if isNull query then "" else query.Trim()
         if q = "" then
@@ -35,118 +38,129 @@ module ViewModelSearch =
           text = node.text
           name = node.name }
 
-    let private textMatchesPart
-        (part: string)
-        (discoveryOrder: NodeId list)
+    type private IdQueue = { front: NodeId list; back: NodeId list }
+
+    let private emptyQueue = { front = []; back = [] }
+
+    let private snocMany (q: IdQueue) (ids: NodeId list) : IdQueue =
+        List.fold (fun acc id -> { acc with back = id :: acc.back }) q ids
+
+    let private tryDequeue (q: IdQueue) : (NodeId * IdQueue) option =
+        match q.front with
+        | u :: rest -> Some (u, { front = rest; back = q.back })
+        | [] ->
+            match q.back with
+            | [] -> None
+            | _ ->
+                let front = List.rev q.back
+                match front with
+                | u :: rest -> Some (u, { front = rest; back = [] })
+                | [] -> None
+
+    type private DiscoveryPhase =
+        | ZoomPhase
+        | RootPhase
+
+    type private DiscoveryState =
+        { phase: DiscoveryPhase
+          visited: Set<NodeId>
+          queue: IdQueue }
+
+    /// Lazy breadth-first discovery: zoom subtree first, then the rest of the root graph.
+    let private discoveryNodes (zoomRoot: NodeId) (graph: Graph) : Node seq =
+        let rec next state =
+            match tryDequeue state.queue with
+            | None ->
+                match state.phase with
+                | RootPhase -> None
+                | ZoomPhase ->
+                    next
+                        { state with
+                            phase = RootPhase
+                            queue = snocMany emptyQueue [ graph.root ] }
+            | Some (nodeId, queue) when Set.contains nodeId state.visited ->
+                next { state with queue = queue }
+            | Some (nodeId, queue) ->
+                let visited = Set.add nodeId state.visited
+                match Map.tryFind nodeId graph.nodes with
+                | None -> next { state with visited = visited; queue = queue }
+                | Some node ->
+                    let childIds = node.children |> List.map (fun child -> child.id)
+                    let nextState =
+                        { state with
+                            visited = visited
+                            queue = snocMany queue childIds }
+                    Some(node, nextState)
+
+        { phase = ZoomPhase
+          visited = Set.empty
+          queue = snocMany emptyQueue [ zoomRoot ] }
+        |> Seq.unfold next
+
+    type private PartFilter = { part: string; refIds: Set<NodeId> }
+
+    let private buildPartFilter (ctx: RefContext) (part: string) (graph: Graph) : PartFilter =
+        let refIds =
+            match RefExpr.parse part with
+            | Error _ -> Set.empty
+            | Ok expr ->
+                RefExpr.match_ ctx graph expr
+                |> List.map (fun r -> r.nodeId)
+                |> Set.ofList
+        { part = part; refIds = refIds }
+
+    let private nodeMatchesPartFilter (pf: PartFilter) (nodeId: NodeId) (node: Node) : bool =
+        nodeMatchesPart pf.part node || Set.contains nodeId pf.refIds
+
+    let private nodeMatchesAllParts (parts: PartFilter list) (nodeId: NodeId) (node: Node) : bool =
+        parts |> List.forall (fun pf -> nodeMatchesPartFilter pf nodeId node)
+
+    let private searchResultSeq
+        (query: string)
+        (zoomRoot: NodeId)
         (graph: Graph)
-        : NodeSearchResult list =
-        discoveryOrder
-        |> List.choose (fun nid ->
-            let node = graph.nodes.[nid]
-
-            if nodeMatchesPart part node then
-                Some(nodeToSearchResult node)
-            else
-                None)
-
-    let private refMatchesPart
-        (ctx: RefContext)
-        (part: string)
-        (discoverySet: Set<NodeId>)
-        (graph: Graph)
-        : NodeSearchResult list =
-        match RefExpr.parse part with
-        | Error _ -> []
-        | Ok expr ->
-            RefExpr.match_ ctx graph expr
-            |> List.filter (fun r -> Set.contains r.nodeId discoverySet)
-
-    let private mergePartResults
-        (refHits: NodeSearchResult list)
-        (textHits: NodeSearchResult list)
-        : NodeSearchResult list =
-        let rec dedupeSearch seen (items: NodeSearchResult list) : NodeSearchResult list =
-            match items with
-            | [] -> []
-            | r :: rest ->
-                if Set.contains r.nodeId seen then
-                    dedupeSearch seen rest
-                else
-                    r :: dedupeSearch (Set.add r.nodeId seen) rest
-
-        dedupeSearch Set.empty (refHits @ textHits)
-
-    let private intersectByNodeId (lists: NodeSearchResult list list) : Set<NodeId> =
-        match lists with
-        | [] -> Set.empty
-        | first :: rest ->
-            let firstSet = first |> List.map (fun r -> r.nodeId) |> Set.ofList
-
-            rest
-            |> List.fold (fun acc lst ->
-                Set.intersect acc (lst |> List.map (fun r -> r.nodeId) |> Set.ofList))
-                firstSet
-
-    let private tryStructuralChildIds (graph: Graph) (nid: NodeId) : NodeId list =
-        graph.nodes
-        |> Map.tryFind nid
-        |> Option.map (fun n -> n.children |> List.map (fun c -> c.id))
-        |> Option.defaultValue []
-
-    /// Breadth-first over structural `children`; skips ids missing from `graph.nodes`.
-    let private bfsAppendOrder (graph: Graph) (visited: Set<NodeId>) (queue: NodeId list) : NodeId list * Set<NodeId> =
-        let rec go visited accOrder q =
-            match q with
-            | [] -> List.rev accOrder, visited
-            | u :: rest ->
-                if Set.contains u visited then
-                    go visited accOrder rest
-                else
-                    let visited2 = Set.add u visited
-                    let acc2 = u :: accOrder
-                    let next =
-                        tryStructuralChildIds graph u
-                        |> List.filter (fun c -> Map.containsKey c graph.nodes)
-                    go visited2 acc2 (rest @ next)
-        go visited [] queue
-
-    /// Phase A from `zoomRoot`, then phase B from `graph.root` with the same visited set.
-    let private searchDiscoveryOrder (zoomRoot: NodeId) (graph: Graph) : NodeId list =
-        let o1, v1 =
-            if Map.containsKey zoomRoot graph.nodes then
-                bfsAppendOrder graph Set.empty [ zoomRoot ]
-            else
-                [], Set.empty
-        let o2, _ =
-            if Map.containsKey graph.root graph.nodes then
-                bfsAppendOrder graph v1 [ graph.root ]
-            else
-                [], v1
-        o1 @ o2
-
-    let searchNodes (query: string) (zoomRoot: NodeId) (graph: Graph) : NodeSearchResult list =
+        : NodeSearchResult seq =
         match parseSearchParts query with
-        | None -> []
+        | None -> Seq.empty
         | Some parts ->
-            let discoveryOrder = searchDiscoveryOrder zoomRoot graph
-            let discoverySet = Set.ofList discoveryOrder
             let ctx = RefExpr.refContext zoomRoot graph
-
-            let perPart =
-                parts
-                |> List.map (fun part ->
-                    mergePartResults
-                        (refMatchesPart ctx part discoverySet graph)
-                        (textMatchesPart part discoveryOrder graph))
-
-            let hitIds = intersectByNodeId perPart
-
-            discoveryOrder
-            |> List.choose (fun nid ->
-                if Set.contains nid hitIds then
-                    Some(nodeToSearchResult graph.nodes.[nid])
+            let filters = parts |> List.map (fun part -> buildPartFilter ctx part graph)
+            discoveryNodes zoomRoot graph
+            |> Seq.choose (fun node ->
+                if nodeMatchesAllParts filters node.id node then
+                    Some(nodeToSearchResult node)
                 else
                     None)
+
+    let private searchNodesWithLimit
+        (limit: int option)
+        (query: string)
+        (zoomRoot: NodeId)
+        (graph: Graph)
+        : NodeSearchResult list =
+        let results = searchResultSeq query zoomRoot graph
+        match limit with
+        | None -> results
+        | Some count -> results |> Seq.truncate count
+        |> Seq.toList
+
+    let searchNodes (query: string) (zoomRoot: NodeId) (graph: Graph) : NodeSearchResult list =
+        searchNodesWithLimit None query zoomRoot graph
+
+    let searchNodesBounded (query: string) (zoomRoot: NodeId) (graph: Graph) : NodeSearchResult list =
+        searchNodesWithLimit (Some searchDialogResultLimit) query zoomRoot graph
+
+    let private tryResultAtDisplayIndex
+        (selectedIndex: int)
+        (results: NodeSearchResult list)
+        : NodeSearchResult option =
+        if results.IsEmpty then
+            None
+        else
+            selectedIndex
+            |> min (results.Length - 1)
+            |> max 0
+            |> fun index -> List.tryItem index results
 
     /// Same index rule as the search UI: clamp to [0 .. count-1].
     let trySearchResultAtDisplayIndex
@@ -155,15 +169,17 @@ module ViewModelSearch =
         (graph: Graph)
         (selectedIndex: int)
         : NodeSearchResult option =
-        let results = searchNodes query zoomRoot graph
-        if results.IsEmpty then
-            None
-        else
-            let i =
-                selectedIndex
-                |> min (results.Length - 1)
-                |> max 0
-            List.tryItem i results
+        searchNodes query zoomRoot graph
+        |> tryResultAtDisplayIndex selectedIndex
+
+    let trySearchResultAtDisplayIndexBounded
+        (query: string)
+        (zoomRoot: NodeId)
+        (graph: Graph)
+        (selectedIndex: int)
+        : NodeSearchResult option =
+        searchNodesBounded query zoomRoot graph
+        |> tryResultAtDisplayIndex selectedIndex
 
     /// Find (/): after picking a search hit, re-root the site map at the hit, or at its parent
     /// when the hit is a leaf (same framing as zoom-in on a leaf).

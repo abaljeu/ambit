@@ -9,6 +9,8 @@ open Gambol.Client.JsInterop
 open Gambol.Client.Update
 open Gambol.Shared.CommandCategory
 
+let private searchDebounceMs = 50
+
 let private scrollIntoViewNearest (el: HTMLElement) : unit =
     let o = Fable.Core.JsInterop.createEmpty<ScrollIntoViewOptions>
     o.block <- ScrollAlignment.Nearest
@@ -34,10 +36,38 @@ let private renderSearchResults
         ul.appendChild li |> ignore)
     selectedLi |> Option.iter (fun el -> scrollIntoViewNearest (el :?> HTMLElement))
 
-let private handleSearchKey (ke: KeyboardEvent) (dispatch: Msg -> unit) : unit =
+let private debounceTimer = ref (None: float option)
+
+let private clearSearchDebounce () : unit =
+    match debounceTimer.Value with
+    | None -> ()
+    | Some id ->
+        window.clearTimeout id |> ignore
+        debounceTimer.Value <- None
+
+let private flushSearchQuery (input: HTMLInputElement) (dispatch: Msg -> unit) : unit =
+    clearSearchDebounce ()
+    dispatch (NodeSearchQuery input.value)
+
+let private scheduleSearchQuery (input: HTMLInputElement) (dispatch: Msg -> unit) : unit =
+    clearSearchDebounce ()
+    debounceTimer.Value <-
+        Some(
+            window.setTimeout(
+                (fun _ ->
+                    debounceTimer.Value <- None
+                    dispatch (NodeSearchQuery input.value)),
+                searchDebounceMs))
+
+let private handleSearchKey
+    (input: HTMLInputElement)
+    (ke: KeyboardEvent)
+    (dispatch: Msg -> unit)
+    : unit =
     let keyStr = formatKeyCombo ke
     let overlay op =
         ke.preventDefault()
+        flushSearchQuery input dispatch
         dispatch (ApplyOp op)
     match keyStr with
     | "Escape"    -> overlay Gambol.Client.SearchDialog.closeSearchDialogOp
@@ -45,6 +75,7 @@ let private handleSearchKey (ke: KeyboardEvent) (dispatch: Msg -> unit) : unit =
     | "ArrowDown" -> overlay Gambol.Client.SearchDialog.searchSelectDownOp
     | "Enter"     ->
         ke.preventDefault()
+        flushSearchQuery input dispatch
         dispatch (ApplyOp (fun m ->
             let name =
                 match m.mode with
@@ -95,19 +126,20 @@ let renderSearchDialog (model: VM) (dispatch: Msg -> unit) : unit =
             let ul = document.getElementById "search-dialog-results"
 
             input.addEventListener("input", fun _ ->
-                dispatch (ApplyOp (Gambol.Client.SearchDialog.searchSetQueryOp input.value)))
+                scheduleSearchQuery input dispatch)
 
             input.addEventListener("keydown", fun (ev: Event) ->
                 let ke = ev :?> KeyboardEvent
                 if (ke.ctrlKey || ke.metaKey) && ke.key = "p" && not ke.shiftKey then
                     ev.preventDefault()
-                handleSearchKey ke dispatch)
+                handleSearchKey input ke dispatch)
 
             ul.addEventListener("click", fun (ev: Event) ->
                 let target = ev.target :?> HTMLElement
                 match target.closest "li" with
                 | None -> ()
                 | Some li ->
+                    flushSearchQuery input dispatch
                     let idxStr = (li :?> HTMLElement).dataset.["idx"]
                     let idx = if System.String.IsNullOrEmpty idxStr then 0 else int idxStr
                     dispatch (ApplyOp (fun m ->
@@ -117,4 +149,5 @@ let renderSearchDialog (model: VM) (dispatch: Msg -> unit) : unit =
                                 (SearchDialog { s with selectedIndex = idx }) m
                         | _ -> m, [])))
     | _ ->
+        clearSearchDebounce ()
         container.classList.remove "amb-dialog-open"
