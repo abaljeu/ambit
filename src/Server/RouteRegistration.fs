@@ -273,8 +273,17 @@ module RouteRegistration =
             if not (auth.IsAuthenticated req) then
                 return Results.Unauthorized()
             else
-                let handle = persistence.GetHandle ()
-                return! Api.getState handle |> Async.StartAsTask
+                try
+                    let handle = persistence.GetHandle ()
+                    return! Api.getState handle |> Async.StartAsTask
+                with ex ->
+                    let detail =
+                        $"Internal server error loading state (dataDir={persistence.DataDir}): {ex.Message}"
+                    return
+                        Results.Content(
+                            detail,
+                            "text/plain; charset=utf-8",
+                            statusCode = 500)
         })) |> ignore
         app.MapGet("/ambit/poll", Func<HttpRequest, Task<IResult>>(fun req -> task {
             if not (auth.IsAuthenticated req) then

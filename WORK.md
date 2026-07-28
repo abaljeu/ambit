@@ -18,8 +18,6 @@ Mutations for delegated workers to return to their parent: `add`, `move`, `block
 
 Work currently being executed.
 
-- [[src/Server/Api.fs]] — empty-body HTTP 500 on `/state`: find why Problem detail is missing; ensure non-empty body with detail (owner: empty-body-500)
-
 ## Pending
 
 Work ready to start but not yet claimed.

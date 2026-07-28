@@ -774,6 +774,9 @@ module DocumentPersistence =
         match discoverArtifactRelatives dataDir with
         | Error msg -> Error msg
         | Ok relatives ->
+            let relatives =
+                relatives
+                |> List.filter DocumentArtifactPath.isMarker
             let resolved =
                 relatives
                 |> List.fold
@@ -798,7 +801,15 @@ module DocumentPersistence =
                         | Ok artifacts ->
                             try
                                 let text = File.ReadAllText fullPath
-                                Ok(Map.add rel text artifacts)
+                                match DocumentParseLimits.refuseText text with
+                                | Error msg ->
+                                    eprintfn
+                                        "Gambol: skipping oversized document '%s': %s"
+                                        rel
+                                        msg
+                                    Ok artifacts
+                                | Ok () ->
+                                    Ok(Map.add rel text artifacts)
                             with ex ->
                                 Error ex.Message)
                     (Ok Map.empty)

@@ -90,11 +90,16 @@ module Api =
     let private jsonResult (json: string) : IResult =
         Results.Content(json, "application/json")
 
+    /// Prefer Content over Results.Problem: Problem.ExecuteAsync needs RequestServices
+    /// and can leave HTTP 500 with an empty body if execution fails after status is set.
     let private agentErrorResult (error: string) : IResult =
         if error.StartsWith("Internal server error", StringComparison.Ordinal) then
-            Results.Problem(detail = error, statusCode = 500)
+            Results.Content(error, "text/plain; charset=utf-8", statusCode = 500)
         else
             Results.BadRequest({| error = error |})
+
+    let private internalError (detail: string) : IResult =
+        Results.Content(detail, "text/plain; charset=utf-8", statusCode = 500)
 
     let private decodeFileStatusRequest =
         Thoth.Json.Core.Decode.object (fun get ->
@@ -122,10 +127,15 @@ module Api =
     }
 
     let getState (handle: AgentHandle) : Async<IResult> = async {
-        let! result = handle.getState ()
-        match result with
-        | Ok json -> return jsonResult json
-        | Error err -> return agentErrorResult err
+        try
+            let! result = handle.getState ()
+            match result with
+            | Ok json -> return jsonResult json
+            | Error err -> return agentErrorResult err
+        with ex ->
+            return
+                internalError
+                    $"Internal server error in GetState: {ex.Message}"
     }
 
     let postChange (handle: AgentHandle) (body: string) : Async<IResult> = async {

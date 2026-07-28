@@ -121,11 +121,12 @@ let private assertNestedWorkspaceLoad (expected: Graph) (actual: Graph) =
             | _ -> None)
     let dirId = expected.nodes.[wsId].children.Head.id
     let fileId = expected.nodes.[dirId].children.Head.id
-    let actualNormalId = actual.nodes.[fileId].children.Head.id
-    Assert.Equal("body", actual.nodes.[actualNormalId].text)
     Assert.Equal(wsId, actual.nodes.[Graph.workspacesId].children.Head.id)
     Assert.Equal(dirId, actual.nodes.[wsId].children.Head.id)
     Assert.Equal(fileId, actual.nodes.[dirId].children.Head.id)
+    Assert.Equal(NodeKind.Normal, actual.nodes.[fileId].kind)
+    Assert.Equal("readme.txt", Filename.tryValue actual.nodes.[fileId].name |> Option.get)
+    Assert.Empty(actual.nodes.[fileId].children)
 
 let private assertFileOwnsDirectoryLoad (expected: Graph) (actual: Graph) =
     let fileId =
@@ -316,26 +317,23 @@ let ``persistGraphChange does not rewrite untouched sibling document artifact`` 
     Assert.Contains("ALPHA", File.ReadAllText pathA)
 
 [<Fact>]
-let ``readAllDocuments cold load stamps artifact roots from disk mtime`` () =
+let ``readAllDocuments cold load stamps amb marker roots from disk mtime`` () =
     let dataDir = newTempDir ()
     let graph, wsId, dirId, fileId, _ = graphWithNestedDocs ()
     DocumentPersistence.writeAllDocuments dataDir graph
     |> requireOk "writeAllDocuments"
     |> ignore
-    let filePath = artifactFullPath dataDir graph fileId
     let dirPath = artifactFullPath dataDir graph dirId
     let wsPath = artifactFullPath dataDir graph wsId
-    let fileMtime =
-        File.GetLastWriteTimeUtc filePath |> NodeUpdateTime.toDbPrecision
     let dirMtime =
         File.GetLastWriteTimeUtc dirPath |> NodeUpdateTime.toDbPrecision
     let wsMtime =
         File.GetLastWriteTimeUtc wsPath |> NodeUpdateTime.toDbPrecision
     let loaded =
         DocumentPersistence.readAllDocuments dataDir |> requireOk "read"
-    Assert.Equal(fileMtime, loaded.nodes.[fileId].updateTime)
     Assert.Equal(dirMtime, loaded.nodes.[dirId].updateTime)
     Assert.Equal(wsMtime, loaded.nodes.[wsId].updateTime)
+    Assert.True(Map.containsKey fileId loaded.nodes)
 
 [<Fact>]
 let ``fileStatusForReference reports existing and missing server artifacts`` () =
@@ -750,12 +748,15 @@ let ``readAllDocuments round trips nested workspace tree`` () =
         fun (_, node) -> Filename.tryValue node.name = Some ".amb")
 
 [<Fact>]
-let ``readAllDocuments round trips file owns directory boundary`` () =
+let ``readAllDocuments cold load file-owns-directory without plain body`` () =
     let dataDir = newTempDir ()
-    let expected, _, _, _ = graphFileOwnsDirectory ()
+    let expected, fileId, dirId, _ = graphFileOwnsDirectory ()
     DocumentPersistence.writeAllDocuments dataDir expected |> requireOk "write" |> ignore
     let actual = DocumentPersistence.readAllDocuments dataDir |> requireOk "read"
-    assertFileOwnsDirectoryLoad expected actual
+    Assert.True(Map.containsKey fileId actual.nodes)
+    Assert.Equal("container.txt", Filename.tryValue actual.nodes.[fileId].name |> Option.get)
+    Assert.Empty(actual.nodes.[fileId].children)
+    Assert.False(Map.containsKey dirId actual.nodes)
 
 [<Fact>]
 let ``readAllDocuments preserves owner handle when artifact is missing`` () =
@@ -807,15 +808,40 @@ let ``readAllDocuments ignores stray amb file`` () =
     DocumentPersistence.readAllDocuments dataDir |> requireOk "read" |> ignore
 
 [<Fact>]
+let ``readAllDocuments ignores large non-marker under dataDir`` () =
+    let dataDir = newTempDir ()
+    File.WriteAllText(Path.Combine(dataDir, ".amb"), "")
+    File.WriteAllText(
+        Path.Combine(dataDir, "blob.bin"),
+        String.replicate (DocumentParseLimits.maxInputCodeUnits + 1) "x")
+    File.WriteAllText(
+        Path.Combine(dataDir, "notes.amb"),
+        String.replicate (DocumentParseLimits.maxInputCodeUnits + 1) "y")
+    DocumentPersistence.readAllDocuments dataDir |> requireOk "read" |> ignore
+
+[<Fact>]
+let ``readAllDocuments skips oversized amb marker`` () =
+    let dataDir = newTempDir ()
+    let graph, wsId, _, _, _ = graphWithNestedDocs ()
+    DocumentPersistence.writeAllDocuments dataDir graph |> requireOk "write" |> ignore
+    let oversized =
+        String.replicate (DocumentParseLimits.maxInputCodeUnits + 1) "a"
+    File.WriteAllText(Path.Combine(dataDir, "home", ".amb"), oversized)
+    let actual =
+        DocumentPersistence.readAllDocuments dataDir |> requireOk "read"
+    Assert.True(Map.containsKey wsId actual.nodes)
+    Assert.Equal(0, actual.nodes.[wsId].children.Length)
+
+[<Fact>]
 let ``readAllDocuments duplicate id corruption returns error`` () =
     let dataDir = newTempDir ()
-    let graph, _, dirId, fileId, normalId = graphWithNestedDocs ()
+    let graph, wsId, dirId, _, normalId = graphWithNestedDocs ()
     DocumentPersistence.writeAllDocuments dataDir graph |> requireOk "write" |> ignore
-    let filePath = artifactFullPath dataDir graph fileId
+    let wsPath = artifactFullPath dataDir graph wsId
     let dirPath = artifactFullPath dataDir graph dirId
     let sid = AmbDocument.formatStableId normalId
     let corrupt = "^" + sid + " corrupt" + System.Environment.NewLine
-    File.WriteAllText(filePath, corrupt)
+    File.WriteAllText(wsPath, File.ReadAllText wsPath + corrupt)
     File.WriteAllText(dirPath, File.ReadAllText dirPath + corrupt)
     match DocumentPersistence.readAllDocuments dataDir with
     | Ok _ -> failwith "expected error"
@@ -844,13 +870,15 @@ let ``writeAllDocuments amb directory artifact keeps stable id syntax`` () =
     Assert.Contains("^" + fileSid, text)
 
 [<Fact>]
-let ``readAllDocuments round trips plain file member text`` () =
+let ``readAllDocuments cold load keeps file outline without plain body`` () =
     let dataDir = newTempDir ()
-    let expected, _, _, fileId, _ = graphWithNestedDocs ()
+    let expected, _, dirId, fileId, _ = graphWithNestedDocs ()
     DocumentPersistence.writeAllDocuments dataDir expected |> requireOk "write" |> ignore
     let actual = DocumentPersistence.readAllDocuments dataDir |> requireOk "read"
-    let actualNormalId = actual.nodes.[fileId].children.Head.id
-    Assert.Equal("body", actual.nodes.[actualNormalId].text)
+    Assert.Equal(fileId, actual.nodes.[dirId].children.Head.id)
+    Assert.Equal(NodeKind.Normal, actual.nodes.[fileId].kind)
+    Assert.Equal("readme.txt", Filename.tryValue actual.nodes.[fileId].name |> Option.get)
+    Assert.Empty(actual.nodes.[fileId].children)
 
 [<Fact>]
 let ``discoverArtifactRelatives lists plain file alongside amb artifacts`` () =
@@ -888,16 +916,14 @@ let ``writeAllDocuments ref child in plain file writes target text only`` () =
     Assert.DoesNotContain("^" + sharedSid, text)
 
 [<Fact>]
-let ``readAllDocuments cold load of plain file loses ref edge`` () =
+let ``readAllDocuments cold load skips plain file body artifact`` () =
     let dataDir = newTempDir ()
     let graph, _, fileId, sharedId = graphWithPlainFileRef ()
     DocumentPersistence.writeAllDocuments dataDir graph |> requireOk "write" |> ignore
     let actual = DocumentPersistence.readAllDocuments dataDir |> requireOk "read"
-    let holderId = actual.nodes.[fileId].children.Head.id
-    let child = actual.nodes.[holderId].children.Head
-    Assert.Equal("shared text", actual.nodes.[child.id].text)
-    Assert.Equal(Ownership.Owner, child.ref)
-    Assert.NotEqual(sharedId, child.id)
+    Assert.True(Map.containsKey fileId actual.nodes)
+    Assert.Empty(actual.nodes.[fileId].children)
+    Assert.False(Map.containsKey sharedId actual.nodes)
 
 let private graphWithIllicitAmbFile () : Graph * NodeId * NodeId =
     let graph0 = Graph.create ()

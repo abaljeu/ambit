@@ -174,10 +174,10 @@ module HttpResponseLog =
         override _.CanRead = false
         override _.CanSeek = false
         override _.CanWrite = true
-        override _.Length = inner.Length
+        override _.Length = raise (NotSupportedException())
         override _.Position
-            with get () = inner.Position
-            and set v = inner.Position <- v
+            with get () = raise (NotSupportedException())
+            and set _ = raise (NotSupportedException())
         override _.Flush() = inner.Flush()
         override _.FlushAsync(ct) = inner.FlushAsync(ct)
         override _.Read(_, _, _) = raise (NotSupportedException())

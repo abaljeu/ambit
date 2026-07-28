@@ -93,6 +93,37 @@ let ``controlled bad request logs begin and end with request body`` () = task {
 }
 
 [<Fact>]
+let ``response body remains on original stream after capture lifecycle`` () = task {
+    let dataDir = newTempDir ()
+    let logPath = HttpResponseLog.logPath dataDir
+    HttpResponseLog.prepareFresh logPath
+    let original = new MemoryStream()
+    let ctx = DefaultHttpContext()
+    ctx.Request.Method <- "GET"
+    ctx.Request.Path <- PathString("/ambit/state")
+    ctx.Response.Body <- original
+    let expected =
+        "Internal server error in FileAgent GetState (dataDir=C:\\data)."
+    do!
+        runLifecycle logPath ctx (fun endpointCtx -> task {
+            endpointCtx.Response.StatusCode <- 500
+            endpointCtx.Response.ContentType <- "application/problem+json"
+            do! endpointCtx.Response.WriteAsync(expected)
+        })
+    Assert.True(obj.ReferenceEquals(original, ctx.Response.Body))
+    original.Position <- 0L
+    use reader =
+        new StreamReader(
+            original,
+            Encoding.UTF8,
+            detectEncodingFromByteOrderMarks = false,
+            leaveOpen = true)
+    let body = reader.ReadToEnd()
+    Assert.Equal(expected, body)
+    Assert.True(body.Length > 0)
+}
+
+[<Fact>]
 let ``thrown exception logs correlated begin and exception`` () = task {
     let dataDir = newTempDir ()
     let logPath = HttpResponseLog.logPath dataDir
