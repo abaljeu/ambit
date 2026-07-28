@@ -184,8 +184,8 @@ let commandRegistry : CommandEntry2 list =
       cmd JoinWithNext handleDelete
       cmd CursorUp (keyAlways moveSelectionUp)
       cmd CursorDown (keyAlways moveSelectionDown)
-      cmd CursorFoldLeft (keyAlways arrowFoldLeftOp)
-      cmd CursorLeftToParent (keyAlways arrowLeftSelectionNoFoldOp)
+      cmd CursorFoldLeft (keyAlways arrowLeftSelectionNoFoldOp)
+      cmd CursorLeftToParent (keyAlways arrowFoldLeftOp)
       cmd CursorUnfoldRight (keyAlways cursorUnfoldRightOp)
       cmd CursorRightToChild (keyAlways arrowRightSelectionOp)
       cmd MoveToPreviousNode handleArrowLeft

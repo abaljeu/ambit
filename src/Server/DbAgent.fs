@@ -270,7 +270,12 @@ module DbAgent =
             | SnapshotDone _ -> "SnapshotDone", ""
 
         let replyFailure operation msg =
-            let error = $"Internal server error in DbAgent {operation}."
+            let error =
+                match liveSaveDataDir with
+                | Some dir ->
+                    $"Internal server error in DbAgent {operation} (dataDir={dir})."
+                | None ->
+                    $"Internal server error in DbAgent {operation}."
             match msg with
             | GetState reply -> reply.Reply(Error error)
             | GetRevision reply -> reply.Reply(Error error)
@@ -437,9 +442,12 @@ module DbAgent =
         | Ok value -> value
         | Error error -> failwith error
 
+    let tryGetState (agent: DbAgent) : Async<Result<string, string>> =
+        agent.mailbox.PostAndAsyncReply(GetState)
+
     let getState (agent: DbAgent) : Async<string> =
         async {
-            let! result = agent.mailbox.PostAndAsyncReply(GetState)
+            let! result = tryGetState agent
             return unwrap result
         }
 

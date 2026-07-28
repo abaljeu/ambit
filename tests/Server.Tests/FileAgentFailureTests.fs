@@ -89,6 +89,7 @@ let ``persistence exception is logged replied and mailbox survives`` () = task {
         | Ok _ -> Assert.Fail("Expected persistence failure.")
         | Error error ->
             Assert.Contains("Internal server error in FileAgent PostChange", error)
+            Assert.Contains($"(dataDir={dataDir})", error)
 
         let log = File.ReadAllText logPath
         Assert.Contains("EXCEPTION source=FileAgent operation=PostChange", log)

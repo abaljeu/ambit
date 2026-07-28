@@ -61,7 +61,7 @@ Do reference ambit for proposing definitions of gambol behavior.
 ### Load the environment
 
 dotnet tool restore (pull in fable and other dependencies)
-npm ci (install the pinned client bundler)
+npm ci (once: install pinned esbuild; only again if `package-lock.json` changes)
 
 ### Build
 
@@ -70,6 +70,7 @@ Use commands like these:
 ```bash
 dotnet build gambol.sln
 dotnet fable src/Client --outDir src/Server/wwwroot
+npm run bundle
 dotnet fable watch src/Client --outDir src/Server/wwwroot
 dotnet run --project src/Server
 ```
@@ -83,7 +84,7 @@ dotnet test gambol.sln
 ### Dev (VS Code)
 
 Run the default build task (`Ctrl+Shift+B`) to start Fable watch and the server together.
-Fable and esbuild watch together: Fable writes modules into `wwwroot`, then esbuild refreshes the browser bundle. Open `/ambit?debug=1` to load unbundled modules when debugging.
+Fable writes modules into `wwwroot`; run `npm run bundle` when you need a fresh `Program.bundle.js` (esbuild watch is optional). Open `/ambit?debug=1` to load unbundled modules when debugging.
 
 ### Custom domain (cPanel → Azure)
 

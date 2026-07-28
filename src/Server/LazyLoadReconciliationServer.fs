@@ -123,32 +123,35 @@ module LazyLoadReconciliationServer =
         (changedPaths: LazyLoadReconciliation.ChangedPath list)
         : Async<Result<LazyLoadReconciliationReport.Failure list, string>> =
         async {
-            let! stateJson = handle.getState ()
-            match decodeGraphState stateJson with
+            let! stateResult = handle.getState ()
+            match stateResult with
             | Error err -> return Error err
-            | Ok(revision, graph) ->
-                match discoveredAddedPaths dataDir workspaceLabel discoveryDirRel with
+            | Ok stateJson ->
+                match decodeGraphState stateJson with
                 | Error err -> return Error err
-                | Ok discovered ->
-                    let allChanges = changedPaths @ discovered
-                    let artifacts =
-                        readDirInfoArtifacts dataDir workspaceLabel allChanges
-                    match
-                        LazyLoadReconciliationReport.planChangedPathsWithArtifacts
-                            graph
-                            workspaceLabel
-                            allChanges
-                            artifacts
-                    with
+                | Ok(revision, graph) ->
+                    match discoveredAddedPaths dataDir workspaceLabel discoveryDirRel with
                     | Error err -> return Error err
-                    | Ok report ->
-                        logFailures workspaceLabel report.failures
-                        match report.ops with
-                        | [] -> return Ok report.failures
-                        | ops ->
-                            let! result =
-                                handle.postGraphOnlyChange (encodeChange revision ops)
-                            return result |> Result.map (fun _ -> report.failures)
+                    | Ok discovered ->
+                        let allChanges = changedPaths @ discovered
+                        let artifacts =
+                            readDirInfoArtifacts dataDir workspaceLabel allChanges
+                        match
+                            LazyLoadReconciliationReport.planChangedPathsWithArtifacts
+                                graph
+                                workspaceLabel
+                                allChanges
+                                artifacts
+                        with
+                        | Error err -> return Error err
+                        | Ok report ->
+                            logFailures workspaceLabel report.failures
+                            match report.ops with
+                            | [] -> return Ok report.failures
+                            | ops ->
+                                let! result =
+                                    handle.postGraphOnlyChange (encodeChange revision ops)
+                                return result |> Result.map (fun _ -> report.failures)
         }
 
     let reconcileChangedPaths

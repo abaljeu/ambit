@@ -303,7 +303,8 @@ module FileAgent =
             | SnapshotDone _ -> "SnapshotDone", ""
 
         let replyFailure operation msg =
-            let error = $"Internal server error in FileAgent {operation}."
+            let error =
+                $"Internal server error in FileAgent {operation} (dataDir={dataDir})."
             match msg with
             | GetState reply -> reply.Reply(Error error)
             | GetRevision reply -> reply.Reply(Error error)
@@ -364,9 +365,12 @@ module FileAgent =
         | Ok value -> value
         | Error error -> failwith error
 
+    let tryGetState (agent: FileAgent) : Async<Result<string, string>> =
+        agent.mailbox.PostAndAsyncReply(GetState)
+
     let getState (agent: FileAgent) : Async<string> =
         async {
-            let! result = agent.mailbox.PostAndAsyncReply(GetState)
+            let! result = tryGetState agent
             return unwrap result
         }
 

@@ -28,6 +28,7 @@
     <Compile Include="WorkspaceWebDavTests.fs" />
     <Compile Include="HttpResponseLogTests.fs" />
     <Compile Include="FileAgentFailureTests.fs" />
+    <Compile Include="ApiGetStateTests.fs" />
     <Compile Include="ChangeEndpointResilienceTests.fs" />
     <Compile Include="DatabaseProjectionTests.fs" />
     <Compile Include="DatabaseProjectionContractTests.fs" />

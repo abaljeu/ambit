@@ -1,6 +1,7 @@
 module Gambol.Client.Program
 
 open Gambol.Shared
+open Gambol.Shared.LogText
 open Gambol.Shared.ViewModel
 open Gambol.Client
 open Gambol.Client.App
@@ -57,11 +58,22 @@ fetchTextNoCacheWithFail
             dispatch (SysMsg (ServerCapabilitiesDetected None)))
     (fun () -> dispatch (SysMsg (ServerCapabilitiesDetected None)))
 
-fetchText $"/{currentFile}/state" (fun text ->
-    match decodeStateResponse text with
-    | Ok response ->
-        dispatch (SysMsg (StateLoaded response))
-        startPolling pollForRemoteChanges recordActivity
-    | Error err ->
-        app.textContent <- $"Error: {err}"
-)
+let private showBootError (msg: string) =
+    app.textContent <- $"Error: {msg}"
+
+fetchGet
+    $"/{currentFile}/state"
+    (fun text ->
+        match decodeStateResponse text with
+        | Ok response ->
+            dispatch (SysMsg (StateLoaded response))
+            startPolling pollForRemoteChanges recordActivity
+        | Error err ->
+            showBootError err)
+    (fun status body ->
+        let snippet = summarizeHttpBody 400 body
+        let detail =
+            if snippet = "" then $"HTTP {status}"
+            else $"HTTP {status}: {snippet}"
+        showBootError detail)
+    (fun () -> showBootError "network failure loading /state")

@@ -7,7 +7,7 @@ open Thoth.Json.Newtonsoft
 
 /// Thin abstraction over FileAgent and DbAgent so Api functions are backend-agnostic.
 type AgentHandle =
-    { getState        : unit -> Async<string>
+    { getState        : unit -> Async<Result<string, string>>
       getRevision     : unit -> Async<int>
       getChangesSince : int -> Async<Change list>
       isReady         : unit -> bool
@@ -17,7 +17,7 @@ type AgentHandle =
 [<RequireQualifiedAccess>]
 module AgentHandle =
     let ofFile (agent: FileAgent) : AgentHandle =
-        { getState        = fun () -> FileAgent.getState agent
+        { getState        = fun () -> FileAgent.tryGetState agent
           getRevision     = fun () -> FileAgent.getRevision agent
           getChangesSince = fun after -> FileAgent.getChangesSince agent after
           isReady         = fun () -> true
@@ -26,7 +26,7 @@ module AgentHandle =
             fun body -> FileAgent.postGraphOnlyChange agent body }
 
     let ofDb (agent: DbAgent) : AgentHandle =
-        { getState        = fun () -> DbAgent.getState agent
+        { getState        = fun () -> DbAgent.tryGetState agent
           getRevision     = fun () -> DbAgent.getRevision agent
           getChangesSince = fun after -> DbAgent.getChangesSince agent after
           isReady         = fun () -> DbAgent.isReady agent
@@ -45,7 +45,7 @@ module AgentHandle =
     /// On-disk document is authoritative; when `db` is present, each successful file `postChange`
     /// is mirrored to PostgreSQL (best-effort log on DB failure; response still reflects file ack).
     let ofFileWithDbMirror (file: FileAgent) (db: DbAgent option) : AgentHandle =
-        { getState        = fun () -> FileAgent.getState file
+        { getState        = fun () -> FileAgent.tryGetState file
           getRevision     = fun () -> FileAgent.getRevision file
           getChangesSince = fun after -> FileAgent.getChangesSince file after
           isReady         = fun () -> true
@@ -122,8 +122,10 @@ module Api =
     }
 
     let getState (handle: AgentHandle) : Async<IResult> = async {
-        let! json = handle.getState ()
-        return jsonResult json
+        let! result = handle.getState ()
+        match result with
+        | Ok json -> return jsonResult json
+        | Error err -> return agentErrorResult err
     }
 
     let postChange (handle: AgentHandle) (body: string) : Async<IResult> = async {
@@ -214,30 +216,33 @@ module Api =
                 | None ->
                     return Results.BadRequest({| error = "fileId is invalid" |})
                 | Some fileId ->
-                    let! stateJson = handle.getState ()
-                    match decodeGraphState stateJson with
+                    let! stateResult = handle.getState ()
+                    match stateResult with
                     | Error err ->
-                        return Results.BadRequest({| error = err |})
-                    | Ok(revision, graph) ->
-                        match
-                            DocumentPersistence.planParseFile
-                                dataDir
-                                graph
-                                fileId
-                                payload.text
-                        with
+                        return agentErrorResult err
+                    | Ok stateJson ->
+                        match decodeGraphState stateJson with
                         | Error err ->
                             return Results.BadRequest({| error = err |})
-                        | Ok [] ->
-                            return jsonResult """{"ok":true}"""
-                        | Ok ops ->
-                            let! result =
-                                handle.postGraphOnlyChange (
-                                    encodeGraphOnlyChange revision ops)
-                            match result with
-                            | Ok _ -> return jsonResult """{"ok":true}"""
+                        | Ok(revision, graph) ->
+                            match
+                                DocumentPersistence.planParseFile
+                                    dataDir
+                                    graph
+                                    fileId
+                                    payload.text
+                            with
                             | Error err ->
-                                return agentErrorResult err
+                                return Results.BadRequest({| error = err |})
+                            | Ok [] ->
+                                return jsonResult """{"ok":true}"""
+                            | Ok ops ->
+                                let! result =
+                                    handle.postGraphOnlyChange (
+                                        encodeGraphOnlyChange revision ops)
+                                match result with
+                                | Ok _ -> return jsonResult """{"ok":true}"""
+                                | Error err -> return agentErrorResult err
         }
 
     let gitSave
