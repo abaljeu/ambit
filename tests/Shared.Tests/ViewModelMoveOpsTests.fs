@@ -174,6 +174,101 @@ let private folderBesideFileGraph () =
     graph, fileId, dirId
 
 [<Fact>]
+let ``selectionModelAfterStructuralMove indents under nearest shared sibling instance`` () =
+    let graph, cont, sharedId, newId = sharedRefGraph ()
+    let newChild = graph.nodes.[cont].children.[2]
+    let gMid =
+        Graph.replace cont 2 [ newChild ] [] graph
+        |> ModelBuilder.requireOk "rm new"
+    let gPost =
+        Graph.replace sharedId 1 [] [ newChild ] gMid
+        |> ModelBuilder.requireOk "add under shared"
+    let mPre = modelWithSelection graph cont (Sid 0) 2 3 2
+    let root = mPre.siteMap.entries.[mPre.siteMap.rootId]
+    let ownerInst = root.children.[0]
+    let refInst = root.children.[1]
+    let postModel = { mPre with graph = gPost }
+    let result =
+        selectionModelAfterStructuralMove
+            graph
+            { parent = root; start = 2; endd = 3 }
+            false
+            sharedId
+            1
+            1
+            0
+            root
+            postModel
+
+    Assert.NotEqual(ownerInst, result.selectedNodes.Value.range.parent.instanceId)
+    Assert.Equal(refInst, result.selectedNodes.Value.range.parent.instanceId)
+    Assert.Equal(newId, focusedNodeId gPost result.selectedNodes.Value)
+
+/// Zoom shows two occurrences of shared G; outdent from under the ref
+/// occurrence must keep selection under that G, not the owner G.
+let private sharedGrandparentOutdentGraph () =
+    let graph0 = Graph.create ()
+    let graph1, ids =
+        ModelBuilder.createNodes [ "container"; "sharedG"; "parent"; "child" ] graph0
+    let cont = ids.[0]
+    let sharedG = ids.[1]
+    let parentId = ids.[2]
+    let childId = ids.[3]
+    let sharedRef = { ref = Ownership.Ref; id = sharedG }
+    let graph2 =
+        Graph.replace graph1.root 0 [] (owned [ cont ]) graph1
+        |> ModelBuilder.requireOk "root"
+    let graph3 =
+        Graph.replace cont 0 [] (owned [ sharedG ] @ [ sharedRef ]) graph2
+        |> ModelBuilder.requireOk "cont"
+    let graph4 =
+        Graph.replace sharedG 0 [] (owned [ parentId ]) graph3
+        |> ModelBuilder.requireOk "sharedG"
+    let graph =
+        Graph.replace parentId 0 [] (owned [ childId ]) graph4
+        |> ModelBuilder.requireOk "parent"
+    graph, cont, sharedG, parentId, childId
+
+[<Fact>]
+let ``selectionModelAfterStructuralMove outdents under ancestor shared instance`` () =
+    let graph, cont, sharedG, parentId, childId = sharedGrandparentOutdentGraph ()
+    let model0 = emptyModelAt graph cont
+    let root = model0.siteMap.entries.[model0.siteMap.rootId]
+    let ownerG = root.children.[0]
+    let refG = root.children.[1]
+    let sm1, nid1 = expandEntry refG graph model0.siteMap model0.nextSiteId
+    let parentInst = sm1.entries.[refG].children.[0]
+    let sm2, nid2 = expandEntry parentInst graph sm1 nid1
+    let parentEntry = sm2.entries.[parentInst]
+    let childChild = graph.nodes.[parentId].children.[0]
+    let gMid =
+        Graph.replace parentId 0 [ childChild ] [] graph
+        |> ModelBuilder.requireOk "rm child"
+    let gPost =
+        Graph.replace sharedG 1 [] [ childChild ] gMid
+        |> ModelBuilder.requireOk "add under G"
+    let postModel =
+        { model0 with
+            graph = gPost
+            siteMap = sm2
+            nextSiteId = nid2 }
+    let result =
+        selectionModelAfterStructuralMove
+            graph
+            { parent = parentEntry; start = 0; endd = 1 }
+            false
+            sharedG
+            1
+            1
+            0
+            parentEntry
+            postModel
+
+    Assert.NotEqual(ownerG, result.selectedNodes.Value.range.parent.instanceId)
+    Assert.Equal(refG, result.selectedNodes.Value.range.parent.instanceId)
+    Assert.Equal(childId, focusedNodeId gPost result.selectedNodes.Value)
+
+[<Fact>]
 let ``selectionModelAfterStructuralMove expands visible collapsed destination`` () =
     let graphPre, cont, ids = buildFlat [ "a"; "b"; "c" ]
     let a = ids.[0]

@@ -81,6 +81,83 @@ module ViewModelMoveOps =
         siteMap.entries
         |> Map.tryPick (fun _ e -> if e.nodeId = nodeId then Some e else None)
 
+    let private closestIndexedEntry
+        (indexed: (int * SiteEntry) list)
+        (preferIdx: int)
+        : SiteEntry option =
+        match indexed with
+        | [] -> None
+        | _ ->
+            indexed
+            |> List.minBy (fun (i, _) -> abs (i - preferIdx))
+            |> snd
+            |> Some
+
+    let private matchingChildEntries
+        (siteMap: SiteMap)
+        (parent: SiteEntry)
+        (nodeId: NodeId)
+        : (int * SiteEntry) list =
+        parent.children
+        |> List.indexed
+        |> List.choose (fun (i, cid) ->
+            match Map.tryFind cid siteMap.entries with
+            | Some e when e.nodeId = nodeId -> Some (i, e)
+            | _ -> None)
+
+    let private findAncestorEntry
+        (siteMap: SiteMap)
+        (startParentInstId: SiteId option)
+        (nodeId: NodeId)
+        : SiteEntry option =
+        let rec go instIdOpt =
+            match instIdOpt with
+            | None -> None
+            | Some iid ->
+                match Map.tryFind iid siteMap.entries with
+                | Some e when e.nodeId = nodeId -> Some e
+                | Some e -> go e.parentInstanceId
+                | None -> None
+
+        go startParentInstId
+
+    /// Prefer the destination SiteEntry near `fromRange` when NodeId appears
+    /// more than once (indent under prev sibling, outdent to ancestor, etc.).
+    let private findDestParentEntry
+        (siteMap: SiteMap)
+        (destParentNodeId: NodeId)
+        (fromRange: SiteNodeRange)
+        : SiteEntry option =
+        let fromParent = fromRange.parent
+
+        if fromParent.nodeId = destParentNodeId then
+            Map.tryFind fromParent.instanceId siteMap.entries
+            |> Option.orElse (Some fromParent)
+        else
+            matchingChildEntries siteMap fromParent destParentNodeId
+            |> fun ms -> closestIndexedEntry ms (fromRange.start - 1)
+            |> Option.orElseWith (fun () ->
+                findAncestorEntry
+                    siteMap
+                    fromParent.parentInstanceId
+                    destParentNodeId)
+            |> Option.orElseWith (fun () ->
+                match fromParent.parentInstanceId with
+                | None -> None
+                | Some gpId ->
+                    match Map.tryFind gpId siteMap.entries with
+                    | None -> None
+                    | Some gp ->
+                        let fromIdx =
+                            gp.children
+                            |> List.tryFindIndex ((=) fromParent.instanceId)
+                            |> Option.defaultValue 0
+
+                        matchingChildEntries siteMap gp destParentNodeId
+                        |> fun ms -> closestIndexedEntry ms fromIdx)
+            |> Option.orElseWith (fun () ->
+                findSiteEntryByNodeId siteMap destParentNodeId)
+
     let private expandIfCollapsed (model: VM) (parent: SiteEntry) : VM * SiteEntry =
         if parent.expanded then
             model, parent
@@ -108,7 +185,8 @@ module ViewModelMoveOps =
         (fallbackParent: SiteEntry)
         (model: VM)
         : VM =
-        let destOpt = findSiteEntryByNodeId model.siteMap destParentNodeId
+        let destOpt =
+            findDestParentEntry model.siteMap destParentNodeId fromRange
         let model, newParent =
             match stayAtSource, destOpt with
             | _, None -> model, fallbackParent

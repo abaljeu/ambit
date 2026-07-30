@@ -142,7 +142,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
         { model with serverCapabilities = capabilities }, []
 
     | SysMsg (DesktopFileStatusReceived (nodeId, path, status, sourceModifiedUtc)) ->
-        ViewModel.applyDesktopFileStatus nodeId path status sourceModifiedUtc model, []
+        applyDesktopFileStatus nodeId path status sourceModifiedUtc model, []
 
     | SysMsg (WorkspacePathSyncSnapshotReceived (mappedLabels, factsByLabel)) ->
         ViewModel.applyWorkspacePathSyncSnapshot mappedLabels factsByLabel model, []
