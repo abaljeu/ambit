@@ -173,6 +173,36 @@ let ``planRenameNode Error name conflict when sibling name taken`` () =
     | Error msg -> Assert.Equal("name conflict", msg)
 
 [<Fact>]
+let ``planRenameNode Error when File rename collides with Directory peer`` () =
+    let graph, wsId, fileId = graphWithWorkspaceFile ()
+    let dirId = NodeId.New()
+    let graph1 =
+        graph.nodes
+        |> Map.add dirId (specialNode dirId Directory "docs" wsId)
+        |> fun nodes -> Graph.fromNodes graph.root nodes
+    let graph2 =
+        Graph.replace wsId 0 (owned [ fileId ]) (owned [ fileId; dirId ]) graph1
+        |> requireOk "ws->file+dir"
+    match NodeRenameOps.planRenameNode graph2 fileId "docs" with
+    | Ok _ -> Assert.Fail "expected Error"
+    | Error msg -> Assert.Equal("name conflict", msg)
+
+[<Fact>]
+let ``planRenameNode Error when Directory rename collides with File peer`` () =
+    let graph, wsId, fileId = graphWithWorkspaceFile ()
+    let dirId = NodeId.New()
+    let graph1 =
+        graph.nodes
+        |> Map.add dirId (specialNode dirId Directory "docs" wsId)
+        |> fun nodes -> Graph.fromNodes graph.root nodes
+    let graph2 =
+        Graph.replace wsId 0 (owned [ fileId ]) (owned [ fileId; dirId ]) graph1
+        |> requireOk "ws->file+dir"
+    match NodeRenameOps.planRenameNode graph2 dirId "readme.txt" with
+    | Ok _ -> Assert.Fail "expected Error"
+    | Error msg -> Assert.Equal("name conflict", msg)
+
+[<Fact>]
 let ``planRenameNode Error when new name is invalid filename`` () =
     let graph, _, fileId = graphWithWorkspaceFile ()
     match NodeRenameOps.planRenameNode graph fileId "bad/name" with

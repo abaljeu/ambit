@@ -7,26 +7,6 @@ type FocusInsertPoint =
 [<RequireQualifiedAccess>]
 module FileNodeOps =
 
-    let private numberedSiblingName (baseName: string) (i: int) : string =
-        if i = 0 then
-            baseName
-        else
-            let lastDot = baseName.LastIndexOf('.')
-            if lastDot <= 0 then
-                sprintf "%s%d" baseName i
-            else
-                sprintf "%s%d%s" (baseName.Substring(0, lastDot)) i (baseName.Substring(lastDot))
-
-    let private unusedOwnedName (graph: Graph) (parentId: NodeId) (baseName: string) : string =
-        let rec loop (i: int) =
-            let candidate = numberedSiblingName baseName i
-            if Graph.ownedNameTaken graph parentId None (candidate.ToLowerInvariant()) then
-                loop (i + 1)
-            else
-                candidate
-
-        loop 0
-
     let private baseNameFromQuery (query: string) (defaultName: string) : string =
         let trimmed = query.Trim()
         if System.String.IsNullOrWhiteSpace trimmed then
@@ -49,7 +29,8 @@ module FileNodeOps =
         | None -> focusId, []
         | Some(parentId, index) ->
             let childId = NodeId.New()
-            let name = unusedOwnedName graph parentId baseName
+            let name =
+                GraphQuery.unusedOwnedName graph parentId baseName Set.empty
             let ops =
                 [ Op.NewSpecialNode(childId, kind, name)
                   appendOwnedOp parentId childId index ]
@@ -58,7 +39,11 @@ module FileNodeOps =
     let planCreateWorkspace (graph: Graph) (query: string) : NodeId * Op list =
         let childId = NodeId.New()
         let name =
-            unusedOwnedName graph Graph.workspacesId (baseNameFromQuery query "workspace")
+            GraphQuery.unusedOwnedName
+                graph
+                Graph.workspacesId
+                (baseNameFromQuery query "workspace")
+                Set.empty
         let index = Graph.fileTreeInsertIndex graph Graph.workspacesId
         childId,
         [ Op.NewSpecialNode(childId, Workspace, name)

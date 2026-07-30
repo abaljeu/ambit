@@ -141,6 +141,28 @@ let ``SetName rejects root file rename colliding with workspace`` () =
     Assert.True(Result.isError (Graph.setName fileId "other" "shared" graph2))
 
 [<Fact>]
+let ``SetName rejects Directory rename colliding with File peer in same scope`` () =
+    let graph0 = Graph.create ()
+    let wsId = NodeId.New()
+    let state1 =
+        Op.apply (Op.NewSpecialNode(wsId, Workspace, "home")) (freshState ())
+        |> requireChanged
+    let graph1 = appendOwned Graph.workspacesId wsId state1.graph
+    let dirId = NodeId.New()
+    let state2 =
+        Op.apply (Op.NewSpecialNode(dirId, Directory, "docs")) (makeState graph1)
+        |> requireChanged
+    let graph2 = appendOwned wsId dirId state2.graph
+    let fileId = NodeId.New()
+    let state3 =
+        Op.apply (Op.NewSpecialNode(fileId, File, "notes")) (makeState graph2)
+        |> requireChanged
+    let graph3 = appendOwned wsId fileId state3.graph
+    match Graph.setName dirId "docs" "notes" graph3 with
+    | Ok _ -> Assert.Fail "expected name conflict"
+    | Error msg -> Assert.Equal("name conflict", msg)
+
+[<Fact>]
 let ``SetName allows nested file rename matching workspace`` () =
     let graph0 = Graph.create ()
     let wsId = NodeId.New()

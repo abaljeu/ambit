@@ -136,6 +136,38 @@ module ViewModelDeleteOps =
                     Op.Replace(promoParentId, promoIdx, [ oldChild ], [ newChild ]))
             | _ -> None)
 
+    /// Rename MoveToTrash items that would collide under TRASH (after span remove).
+    let private buildTrashRenameOps
+        (graph: Graph)
+        (classified: ClassifiedDelete list)
+        : Op list
+        =
+        classified
+        |> List.fold
+            (fun (ops, reserved) item ->
+                match item.action with
+                | MoveToTrash ->
+                    match Map.tryFind item.child.id graph.nodes with
+                    | Some node ->
+                        match Filename.tryValue node.name with
+                        | None -> ops, reserved
+                        | Some baseName ->
+                            let newName =
+                                GraphQuery.unusedOwnedName
+                                    graph Graph.trashId baseName reserved
+                            let reserved' =
+                                Set.add (newName.ToLowerInvariant()) reserved
+                            if newName = baseName then
+                                ops, reserved'
+                            else
+                                Op.SetName(item.child.id, baseName, newName) :: ops,
+                                reserved'
+                    | None -> ops, reserved
+                | _ -> ops, reserved)
+            ([], Set.empty)
+        |> fst
+        |> List.rev
+
     /// Build TRASH append op for all MoveToTrash items (one op, appended at end).
     let private buildTrashOp
         (graph: Graph)
@@ -184,7 +216,7 @@ module ViewModelDeleteOps =
 
     /// Build the complete ordered op list for a classified delete gesture.
     /// Precondition: classified is non-empty (caller checks classifyDeleteForSelection <> []).
-    /// Op ordering: promote ops → span remove → TRASH append → hard-delete subtree ops.
+    /// Op ordering: promote → span remove → trash renames → TRASH append → hard-delete.
     let planDeleteOps
         (graph: Graph)
         (range: SiteNodeRange)
@@ -197,6 +229,7 @@ module ViewModelDeleteOps =
             parentChildren |> List.skip range.start |> List.take (range.endd - range.start)
         let promoteOps = buildPromoteOps graph classified
         let spanRemove = Op.Replace(parentId, range.start, selectedChildren, [])
+        let trashRenames = buildTrashRenameOps graph classified
         let trashOps = buildTrashOp graph classified
         let hardDeleteOps = buildHardDeleteOps graph parentId classified
-        promoteOps @ [ spanRemove ] @ trashOps @ hardDeleteOps
+        promoteOps @ [ spanRemove ] @ trashRenames @ trashOps @ hardDeleteOps

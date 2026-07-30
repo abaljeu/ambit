@@ -36,13 +36,13 @@ let private focusParentId (model: VM) : NodeId option =
     | None -> None
     | Some sel -> Some (focusedNodeId model.graph sel)
 
-/// Op: Insert a file reference at the focus row from an existing workspaces file node.
-let fileSearchPickExisting (fileNodeId: NodeId) (model: VM) : VM * Effect list =
+/// Op: Insert a Ref at the focus row from an existing scoped Workspace/Directory/File.
+let fileSearchPickExisting (nodeId: NodeId) (model: VM) : VM * Effect list =
     match model.selectedNodes with
     | None -> model, []
     | Some sel ->
         let ops =
-            FileNodeOps.planInsertFileRefAtFocus (focusInsertPoint sel) fileNodeId model.graph
+            FileNodeOps.planInsertFileRefAtFocus (focusInsertPoint sel) nodeId model.graph
         applyOpsChange ops model
 
 let fileSearchCreateWorkspace (query: string) (model: VM) : VM * Effect list =
@@ -69,17 +69,12 @@ let runFileSearchSelectionOp (mode: Mode) (model: VM) : VM * Effect list =
     match mode with
     | FileSearchDialog s ->
         FileSearchDialog.rememberFileSearchQuery s.query
+        let hit = FileSearchDialog.runFileSearchSelectionFromCache s model
+        FileSearchDialog.resetFileSearchResults ()
         let closed = { model with mode = s.returnTo }
-        match closed.selectedNodes with
+        match hit with
         | None -> model, []
-        | Some sel ->
-            let focusId = focusedNodeId closed.graph sel
-            match
-                ViewModelFileSearch.tryFileResultAtDisplayIndex
-                    s.query focusId closed.graph s.selectedIndex
-            with
-            | None -> model, []
-            | Some hit -> fileSearchPickExisting hit.nodeId closed
+        | Some hit -> fileSearchPickExisting hit.nodeId closed
     | _ -> model, []
 
 let runFileSearchNewWorkspaceOp (model: VM) : VM * Effect list =
@@ -87,6 +82,7 @@ let runFileSearchNewWorkspaceOp (model: VM) : VM * Effect list =
     | FileSearchDialog s ->
         let query = readFileSearchQueryInput ()
         FileSearchDialog.rememberFileSearchQuery query
+        FileSearchDialog.resetFileSearchResults ()
         let closed = { model with mode = s.returnTo }
         fileSearchCreateWorkspace query closed
     | _ -> model, []
@@ -96,6 +92,7 @@ let runFileSearchNewFileOp (model: VM) : VM * Effect list =
     | FileSearchDialog s ->
         let query = readFileSearchQueryInput ()
         FileSearchDialog.rememberFileSearchQuery query
+        FileSearchDialog.resetFileSearchResults ()
         let closed = { model with mode = s.returnTo }
         fileSearchCreateFile query closed
     | _ -> model, []
@@ -105,6 +102,7 @@ let runFileSearchNewFolderOp (model: VM) : VM * Effect list =
     | FileSearchDialog s ->
         let query = readFileSearchQueryInput ()
         FileSearchDialog.rememberFileSearchQuery query
+        FileSearchDialog.resetFileSearchResults ()
         let closed = { model with mode = s.returnTo }
         fileSearchCreateFolder query closed
     | _ -> model, []

@@ -482,7 +482,7 @@ let createRuntime (initialModel: VM) =
                     match msg with
                     | SysMsg (StateLoaded _) ->
                         render newModel dispatch
-                    | NodeSearchQuery _ ->
+                    | NodeSearchQuery _ | FileSearchQuery _ ->
                         elementCache
                     | _ ->
                         patchDOM prev newModel dispatch elementCache

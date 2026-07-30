@@ -469,7 +469,10 @@ let deleteSelectionOp (model: VM) : VM * Effect list =
                       ops = allOps }
 
                 match applyAndPost change model with
-                | Error _ -> model, []
+                | Error msg ->
+                    { model with
+                        lastCmdResult = Some(CmdLastResult.Error(None, msg)) },
+                    []
                 | Ok (m, effects) ->
                     let newChildren = m.graph.nodes.[sel.range.parent.nodeId].children
                     let newSel =

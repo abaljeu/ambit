@@ -261,3 +261,103 @@ let ``planDeleteOps multi-item hard-delete from TRASH: both items removed perman
         let trashChildren = s.graph.nodes.[Graph.trashId].children
         Assert.False(trashChildren |> List.exists (fun c -> c.id = a), "a should be gone from TRASH")
         Assert.False(trashChildren |> List.exists (fun c -> c.id = b), "b should be gone from TRASH")
+
+// ---------------------------------------------------------------------------
+// Special Directory MoveToTrash
+// ---------------------------------------------------------------------------
+
+let private specialNode (id: NodeId) (kind: SpecialKind) (name: string) (owner: NodeId) : Node =
+    Node.Create(
+        id,
+        text = name,
+        name = Filename.create name,
+        owner = owner,
+        kind = Special kind)
+
+let private workspaceDirectoryGraph () : Graph * NodeId * NodeId =
+    let graph0 = Graph.create ()
+    let wsId = NodeId.New()
+    let dirId = NodeId.New()
+    let graph1 =
+        graph0.nodes
+        |> Map.add wsId (specialNode wsId Workspace "home" Graph.workspacesId)
+        |> Map.add dirId (specialNode dirId Directory "docs" wsId)
+        |> fun nodes -> Graph.fromNodes graph0.root nodes
+    let graph2 =
+        Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) graph1
+        |> ModelBuilder.requireOk "workspaces->ws"
+    let graph3 =
+        Graph.replace wsId 0 [] (owned [ dirId ]) graph2
+        |> ModelBuilder.requireOk "ws->dir"
+    graph3, wsId, dirId
+
+let private parentRange (parentId: NodeId) (start: int) (endd: int) : SiteNodeRange =
+    { parent =
+        { instanceId = Sid 0
+          nodeId = parentId
+          parentInstanceId = None
+          expanded = true
+          childrenStale = false
+          children = [] }
+      start = start
+      endd = endd }
+
+[<Fact>]
+let ``planDeleteOps Directory under workspace moves to TRASH`` () =
+    let graph, wsId, dirId = workspaceDirectoryGraph ()
+    let range = parentRange wsId 0 1
+    let classified = ViewModelDeleteOps.classifyDeleteForSelection graph range
+    Assert.Equal(1, classified.Length)
+    Assert.Equal(ViewModelDeleteOps.MoveToTrash, classified.[0].action)
+    let ops = ViewModelDeleteOps.planDeleteOps graph range classified
+    let change = { id = 0; changeId = System.Guid.NewGuid(); ops = ops }
+    let result = History.applyChange change (stateOf graph)
+    match result with
+    | ApplyResult.Invalid(_, msg) -> Assert.True(false, $"Invalid: {msg}")
+    | ApplyResult.Unchanged _ -> Assert.True(false, "Expected Changed")
+    | ApplyResult.Changed s ->
+        let trashChildren = s.graph.nodes.[Graph.trashId].children
+        Assert.True(
+            trashChildren |> List.exists (fun c -> c.id = dirId && c.ref = Ownership.Owner),
+            "directory should be under TRASH")
+        Assert.False(
+            s.graph.nodes.[wsId].children |> List.exists (fun c -> c.id = dirId),
+            "directory should leave workspace")
+
+[<Fact>]
+let ``planDeleteOps second Directory with same name as one already in TRASH applies`` () =
+    let graph0, wsId, dir1 = workspaceDirectoryGraph ()
+    let range1 = parentRange wsId 0 1
+    let ops1 =
+        ViewModelDeleteOps.planDeleteOps
+            graph0
+            range1
+            (ViewModelDeleteOps.classifyDeleteForSelection graph0 range1)
+    let graph1 =
+        match History.applyChange { id = 0; changeId = System.Guid.NewGuid(); ops = ops1 } (stateOf graph0) with
+        | ApplyResult.Changed s -> s.graph
+        | r -> failwithf "first delete failed: %A" r
+    let dir2 = NodeId.New()
+    let graph2 =
+        graph1.nodes
+        |> Map.add dir2 (specialNode dir2 Directory "docs" wsId)
+        |> fun nodes -> Graph.fromNodes graph1.root nodes
+        |> fun g -> Graph.replace wsId 0 [] (owned [ dir2 ]) g
+        |> ModelBuilder.requireOk "ws->dir2"
+    let range2 = parentRange wsId 0 1
+    let ops2 =
+        ViewModelDeleteOps.planDeleteOps
+            graph2
+            range2
+            (ViewModelDeleteOps.classifyDeleteForSelection graph2 range2)
+    let result =
+        History.applyChange { id = 1; changeId = System.Guid.NewGuid(); ops = ops2 } (stateOf graph2)
+    match result with
+    | ApplyResult.Invalid(_, msg) -> Assert.True(false, $"Invalid: {msg}")
+    | ApplyResult.Unchanged _ -> Assert.True(false, "Expected Changed")
+    | ApplyResult.Changed s ->
+        let trashChildren = s.graph.nodes.[Graph.trashId].children
+        Assert.True(trashChildren |> List.exists (fun c -> c.id = dir1), "dir1 stays in TRASH")
+        Assert.True(trashChildren |> List.exists (fun c -> c.id = dir2), "dir2 should join TRASH")
+        Assert.Equal(Filename.Ok "docs", s.graph.nodes.[dir1].name)
+        Assert.Equal(Filename.Ok "docs1", s.graph.nodes.[dir2].name)

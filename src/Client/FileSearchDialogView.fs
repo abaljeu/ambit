@@ -13,6 +13,8 @@ open Gambol.Shared.CommandEntry
 
 let private insertCommandName = Some (displayName InsertFile)
 
+let private fileSearchDebounceMs = 50
+
 let private scrollIntoViewNearest (el: HTMLElement) : unit =
     let o = Fable.Core.JsInterop.createEmpty<ScrollIntoViewOptions>
     o.block <- ScrollAlignment.Nearest
@@ -30,8 +32,10 @@ let private renderFileSearchResults
     (container: HTMLElement)
     (items: string list)
     (selectedIndex: int)
+    (scrollSelection: bool)
     : unit =
     let ul = container.querySelector ".amb-dialog-results" :?> HTMLElement
+    let previousScrollTop = ul.scrollTop
     ul.innerHTML <- ""
     let clampedSel = if items.IsEmpty then 0 else min selectedIndex (items.Length - 1)
     let mutable selectedLi: Element option = None
@@ -44,12 +48,43 @@ let private renderFileSearchResults
             li.classList.add "amb-dialog-selected"
             selectedLi <- Some li
         ul.appendChild li |> ignore)
-    selectedLi |> Option.iter (fun el -> scrollIntoViewNearest (el :?> HTMLElement))
+    if scrollSelection then
+        selectedLi |> Option.iter (fun el -> scrollIntoViewNearest (el :?> HTMLElement))
+    else
+        ul.scrollTop <- previousScrollTop
 
-let private handleFileSearchKey (ke: KeyboardEvent) (dispatch: Msg -> unit) : unit =
+let private debounceTimer = ref (None: float option)
+
+let private clearFileSearchDebounce () : unit =
+    match debounceTimer.Value with
+    | None -> ()
+    | Some id ->
+        window.clearTimeout id |> ignore
+        debounceTimer.Value <- None
+
+let private flushFileSearchQuery (input: HTMLInputElement) (dispatch: Msg -> unit) : unit =
+    clearFileSearchDebounce ()
+    dispatch (FileSearchQuery input.value)
+
+let private scheduleFileSearchQuery (input: HTMLInputElement) (dispatch: Msg -> unit) : unit =
+    clearFileSearchDebounce ()
+    debounceTimer.Value <-
+        Some(
+            window.setTimeout(
+                (fun _ ->
+                    debounceTimer.Value <- None
+                    dispatch (FileSearchQuery input.value)),
+                fileSearchDebounceMs))
+
+let private handleFileSearchKey
+    (input: HTMLInputElement)
+    (ke: KeyboardEvent)
+    (dispatch: Msg -> unit)
+    : unit =
     let keyStr = formatKeyCombo ke
     let overlay op =
         ke.preventDefault()
+        flushFileSearchQuery input dispatch
         dispatch (ApplyOp op)
     match keyStr with
     | "Escape"    -> overlay Gambol.Client.FileSearchDialog.closeFileSearchDialogOp
@@ -57,6 +92,7 @@ let private handleFileSearchKey (ke: KeyboardEvent) (dispatch: Msg -> unit) : un
     | "ArrowDown" -> overlay Gambol.Client.FileSearchDialog.fileSearchSelectDownOp
     | "Enter"     ->
         ke.preventDefault()
+        flushFileSearchQuery input dispatch
         dispatch (ApplyOp (withDiagnostic insertCommandName (fun m ->
             runFileSearchSelectionOp m.mode m)))
     | _           -> ()
@@ -69,6 +105,75 @@ let private setDockAccent (el: HTMLElement) (cls: string) : unit =
     el.classList.add cls
 
 let private fileSearchDialogWired = ref false
+
+type private FileSearchRenderKey =
+    { query: string
+      focusNodeId: NodeId option
+      graph: Graph
+      selectedIndex: int }
+
+let mutable private lastFileSearchRenderKey: FileSearchRenderKey option = None
+
+let private fileSearchRenderKeyMatches (left: FileSearchRenderKey) (right: FileSearchRenderKey) : bool =
+    left.query = right.query
+    && left.focusNodeId = right.focusNodeId
+    && left.selectedIndex = right.selectedIndex
+    && LanguagePrimitives.PhysicalEquality left.graph right.graph
+
+let private focusNodeIdOpt (model: VM) : NodeId option =
+    match model.selectedNodes with
+    | None -> None
+    | Some sel -> Some (focusedNodeId model.graph sel)
+
+let private wireFileSearchDialog (input: HTMLInputElement) (dispatch: Msg -> unit) : unit =
+    if not fileSearchDialogWired.Value then
+        fileSearchDialogWired.Value <- true
+        let ul = document.getElementById "file-search-dialog-results"
+
+        input.addEventListener("input", fun _ ->
+            scheduleFileSearchQuery input dispatch)
+
+        input.addEventListener("keydown", fun (ev: Event) ->
+            let ke = ev :?> KeyboardEvent
+            if (ke.ctrlKey || ke.metaKey) && ke.key = "p" && not ke.shiftKey then
+                ev.preventDefault()
+            handleFileSearchKey input ke dispatch)
+
+        ul.addEventListener("scroll", fun _ ->
+            let nearEnd = ul.scrollTop + ul.clientHeight >= ul.scrollHeight - 48.0
+            if nearEnd then
+                dispatch (ApplyOp Gambol.Client.FileSearchDialog.loadMoreFileSearchResultsOp))
+
+        ul.addEventListener("click", fun (ev: Event) ->
+            let target = ev.target :?> HTMLElement
+            match target.closest "li" with
+            | None -> ()
+            | Some li ->
+                clearFileSearchDebounce ()
+                let idxStr = (li :?> HTMLElement).dataset.["idx"]
+                let idx = if System.String.IsNullOrEmpty idxStr then 0 else int idxStr
+                dispatch (ApplyOp (fun m ->
+                    match m.mode with
+                    | FileSearchDialog s ->
+                        runFileSearchSelectionOp
+                            (FileSearchDialog { s with selectedIndex = idx }) m
+                    | _ -> m, [])))
+
+        let wsBtn = document.getElementById "file-search-dialog-new-workspace" :?> HTMLButtonElement
+        let fileBtn = document.getElementById "file-search-dialog-new-file" :?> HTMLButtonElement
+        let folderBtn = document.getElementById "file-search-dialog-new-folder" :?> HTMLButtonElement
+
+        wsBtn.addEventListener("click", fun _ ->
+            clearFileSearchDebounce ()
+            dispatch (ApplyOp (withDiagnostic insertCommandName runFileSearchNewWorkspaceOp)))
+
+        fileBtn.addEventListener("click", fun _ ->
+            clearFileSearchDebounce ()
+            dispatch (ApplyOp (withDiagnostic insertCommandName runFileSearchNewFileOp)))
+
+        folderBtn.addEventListener("click", fun _ ->
+            clearFileSearchDebounce ()
+            dispatch (ApplyOp (withDiagnostic insertCommandName runFileSearchNewFolderOp)))
 
 /// Show or hide the file-search overlay and keep it in sync with query/results.
 let renderFileSearchDialog (model: VM) (dispatch: Msg -> unit) : unit =
@@ -84,15 +189,25 @@ let renderFileSearchDialog (model: VM) (dispatch: Msg -> unit) : unit =
             ctx.textContent <- "Insert…"
             setDockAccent ctx (searchDialogDockCssClass "Insert…")
         let input = document.getElementById "file-search-dialog-input" :?> HTMLInputElement
-        if input.value <> s.query then input.value <- s.query
+        if not wasOpen || input.value <> s.query then input.value <- s.query
         if not wasOpen then
             window.setTimeout((fun _ ->
                 focusPreventScroll input
                 input.select()), 0) |> ignore
+        let renderKey =
+            { query = s.query
+              focusNodeId = focusNodeIdOpt model
+              graph = model.graph
+              selectedIndex = s.selectedIndex }
+        let scrollSelection =
+            lastFileSearchRenderKey
+            |> Option.exists (fileSearchRenderKeyMatches renderKey)
+            |> not
+        lastFileSearchRenderKey <- Some renderKey
         let items =
             Gambol.Client.FileSearchDialog.currentFileSearchResults model
             |> List.map formatHitLabel
-        renderFileSearchResults container items s.selectedIndex
+        renderFileSearchResults container items s.selectedIndex scrollSelection
 
         let wsBtn = document.getElementById "file-search-dialog-new-workspace" :?> HTMLButtonElement
         let fileBtn = document.getElementById "file-search-dialog-new-file" :?> HTMLButtonElement
@@ -106,40 +221,8 @@ let renderFileSearchDialog (model: VM) (dispatch: Msg -> unit) : unit =
         setButtonVisible fileBtn showFileFolder
         setButtonVisible folderBtn showFileFolder
 
-        if not fileSearchDialogWired.Value then
-            fileSearchDialogWired.Value <- true
-            let ul = document.getElementById "file-search-dialog-results"
-
-            input.addEventListener("input", fun _ ->
-                dispatch (ApplyOp (Gambol.Client.FileSearchDialog.fileSearchSetQueryOp input.value)))
-
-            input.addEventListener("keydown", fun (ev: Event) ->
-                let ke = ev :?> KeyboardEvent
-                if (ke.ctrlKey || ke.metaKey) && ke.key = "p" && not ke.shiftKey then
-                    ev.preventDefault()
-                handleFileSearchKey ke dispatch)
-
-            ul.addEventListener("click", fun (ev: Event) ->
-                let target = ev.target :?> HTMLElement
-                match target.closest "li" with
-                | None -> ()
-                | Some li ->
-                    let idxStr = (li :?> HTMLElement).dataset.["idx"]
-                    let idx = if System.String.IsNullOrEmpty idxStr then 0 else int idxStr
-                    dispatch (ApplyOp (fun m ->
-                        match m.mode with
-                        | FileSearchDialog s ->
-                            runFileSearchSelectionOp
-                                (FileSearchDialog { s with selectedIndex = idx }) m
-                        | _ -> m, [])))
-
-            wsBtn.addEventListener("click", fun _ ->
-                dispatch (ApplyOp (withDiagnostic insertCommandName runFileSearchNewWorkspaceOp)))
-
-            fileBtn.addEventListener("click", fun _ ->
-                dispatch (ApplyOp (withDiagnostic insertCommandName runFileSearchNewFileOp)))
-
-            folderBtn.addEventListener("click", fun _ ->
-                dispatch (ApplyOp (withDiagnostic insertCommandName runFileSearchNewFolderOp)))
+        wireFileSearchDialog input dispatch
     | _ ->
+        clearFileSearchDebounce ()
+        lastFileSearchRenderKey <- None
         container.classList.remove "amb-dialog-open"

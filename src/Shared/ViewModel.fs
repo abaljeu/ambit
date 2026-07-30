@@ -433,6 +433,7 @@ type Msg =
     | SysMsg of SystemMsg
     | AckSyncRisk
     | NodeSearchQuery of string
+    | FileSearchQuery of string
     | ApplyOp of Updater
 
 /// After row patches (and if `ManageFocus` still runs without a mode change): keep the live

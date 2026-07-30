@@ -32,6 +32,14 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                 mode = SearchDialog { s with query = query; selectedIndex = 0 } }, []
         | _ -> model, []
 
+    | FileSearchQuery query ->
+        match model.mode with
+        | FileSearchDialog s when s.query <> query ->
+            Gambol.Client.FileSearchDialog.resetFileSearchResults ()
+            { model with
+                mode = FileSearchDialog { s with query = query; selectedIndex = 0 } }, []
+        | _ -> model, []
+
     | SysMsg (StateLoaded response) ->
         let graph = response.graph
         let zoomRoot = firstGraphChild graph

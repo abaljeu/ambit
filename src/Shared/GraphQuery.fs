@@ -145,16 +145,18 @@ module GraphQuery =
                 |> Map.tryFind c.id
                 |> Option.bind nameLowerOk)
 
-    let artifactNameLowers
+    /// Owned File/Directory/Workspace peers in the uniqueness directory for
+    /// placements under parentId. Shared by rename/move checks and Insert listing.
+    let ownedArtifactsInUniquenessScope
         (graph: Graph)
-        (artifactDir: NodeId)
-        (excludeParentId: NodeId option)
+        (parentId: NodeId)
         (excludeId: NodeId option)
-        : string list
+        : NodeId list
         =
-        ownedArtifactsInDirectory graph artifactDir excludeParentId excludeId
-        |> List.choose (fun id ->
-            graph.nodes |> Map.tryFind id |> Option.bind nameLowerOk)
+        match enclosingContainer graph parentId with
+        | None -> []
+        | Some artifactDir ->
+            ownedArtifactsInDirectory graph artifactDir None excludeId
 
     /// Artifact-directory uniqueness for File/Directory/Workspace names.
     let ownedNameTaken
@@ -164,11 +166,56 @@ module GraphQuery =
         (nameLower: string)
         : bool
         =
-        match enclosingContainer graph parentId with
-        | None -> false
-        | Some artifactDir ->
-            artifactNameLowers graph artifactDir None excludeId
-            |> List.exists (fun n -> n = nameLower)
+        ownedArtifactsInUniquenessScope graph parentId excludeId
+        |> List.exists (fun id ->
+            match Map.tryFind id graph.nodes |> Option.bind nameLowerOk with
+            | Some n -> n = nameLower
+            | None -> false)
+
+    let private numberedSiblingName (baseName: string) (i: int) : string =
+        if i = 0 then
+            baseName
+        else
+            let lastDot = baseName.LastIndexOf('.')
+            if lastDot <= 0 then
+                sprintf "%s%d" baseName i
+            else
+                sprintf "%s%d%s"
+                    (baseName.Substring(0, lastDot))
+                    i
+                    (baseName.Substring(lastDot))
+
+    /// Next unused owned name under parentId (artifact + sibling names).
+    /// `reservedLowers` covers names claimed earlier in the same batch.
+    let unusedOwnedName
+        (graph: Graph)
+        (parentId: NodeId)
+        (baseName: string)
+        (reservedLowers: Set<string>)
+        : string =
+        let siblingTaken (nameLower: string) =
+            match Map.tryFind parentId graph.nodes with
+            | None -> false
+            | Some parent ->
+                parent.children
+                |> List.exists (fun c ->
+                    c.ref = Ownership.Owner
+                    && match Map.tryFind c.id graph.nodes
+                             |> Option.bind nameLowerOk with
+                       | Some n -> n = nameLower
+                       | None -> false)
+
+        let rec loop (i: int) =
+            let candidate = numberedSiblingName baseName i
+            let lower = candidate.ToLowerInvariant()
+            if Set.contains lower reservedLowers
+               || ownedNameTaken graph parentId None lower
+               || siblingTaken lower then
+                loop (i + 1)
+            else
+                candidate
+
+        loop 0
 
     /// True when owned artifacts in `introduced` duplicate a File/Directory/Workspace
     /// name in parentId's artifact directory. Only names from `introduced` are gated;
@@ -181,7 +228,7 @@ module GraphQuery =
         =
         match enclosingContainer graph parentId with
         | None -> false
-        | Some artifactDir ->
+        | Some _ ->
             let introducedArtifacts =
                 introduced
                 |> List.choose (fun c ->
@@ -204,7 +251,7 @@ module GraphQuery =
                         introducedArtifacts |> List.map fst |> Set.ofList
 
                     let otherNames =
-                        ownedArtifactsInDirectory graph artifactDir None None
+                        ownedArtifactsInUniquenessScope graph parentId None
                         |> List.filter (fun id -> not (Set.contains id introducedIds))
                         |> List.choose (fun id ->
                             graph.nodes |> Map.tryFind id |> Option.bind nameLowerOk)
