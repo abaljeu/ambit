@@ -18,8 +18,6 @@ Mutations for delegated workers to return to their parent: `add`, `move`, `block
 
 Work currently being executed.
 
-- [[tests/Shared.Tests/]] — assess whether a small graph-test framework can substantially simplify tests without becoming complex (owner: current-root)
-
 ## Pending
 
 Work ready to start but not yet claimed.

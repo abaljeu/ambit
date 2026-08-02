@@ -592,35 +592,74 @@ let ``selectionAfterStructuralMove collapsed parent picks original sibling below
     Assert.Equal(b, focusedNodeId gPost sel)
 
 [<Fact>]
-let ``selectionAfterStructuralMove stayAtSource picks sibling below range at range start`` () =
-    let graph, cont, ids = buildFlat [ "a"; "b"; "c" ]
+let ``selectionAfterStructuralMove stayAtSource same-parent keeps from index`` () =
+    let graphPre, cont, ids = buildFlat [ "a"; "b"; "c" ]
     let c = ids.[2]
-    let m0 = emptyModelAt graph cont
+    let oldKids = graphPre.nodes.[cont].children
+    let bChild = oldKids.[1]
+    let withoutB =
+        oldKids
+        |> List.indexed
+        |> List.filter (fun (i, _) -> i <> 1)
+        |> List.map snd
+    let gPost =
+        Graph.replace cont 0 oldKids (withoutB @ [ bChild ]) graphPre
+        |> ModelBuilder.requireOk "move b to end"
+    let m0 = emptyModelAt graphPre cont
     let fromParent = m0.siteMap.entries.[m0.siteMap.rootId]
     let sel =
-        selectionAfterStructuralMove graph graph m0.siteMap
-            { parent = fromParent; start = 0; endd = 2 }
+        selectionAfterStructuralMove graphPre gPost m0.siteMap
+            { parent = fromParent; start = 1; endd = 2 }
             true
             fromParent
-            0
-            0
+            2
+            1
             0
         |> Option.get
 
-    Assert.Equal(c, focusedNodeId graph sel)
+    Assert.Equal(1, sel.focus)
+    Assert.Equal(c, focusedNodeId gPost sel)
+
+[<Fact>]
+let ``selectionAfterStructuralMove stayAtSource picks sibling below range at range start`` () =
+    let graphPre, cont, ids = buildFlat [ "a"; "b"; "c" ]
+    let c = ids.[2]
+    let oldKids = graphPre.nodes.[cont].children
+    let moved = [ oldKids.[0]; oldKids.[1] ]
+    let gMid =
+        Graph.replace cont 0 moved [] graphPre |> ModelBuilder.requireOk "rm a b"
+    let gPost =
+        Graph.replace c 0 [] moved gMid |> ModelBuilder.requireOk "add under c"
+    let m0 = emptyModelAt graphPre cont
+    let fromParent = m0.siteMap.entries.[m0.siteMap.rootId]
+    let destParent = m0.siteMap.entries.[fromParent.children.[2]]
+    let sel =
+        selectionAfterStructuralMove graphPre gPost m0.siteMap
+            { parent = fromParent; start = 0; endd = 2 }
+            true
+            destParent
+            0
+            2
+            0
+        |> Option.get
+
+    Assert.Equal(c, focusedNodeId gPost sel)
 
 [<Fact>]
 let ``selectionAfterStructuralMove stayAtSource returns none when zoom root has no siblings`` () =
-    let graph, cont, _ = buildFlat [ "a" ]
-    let m0 = emptyModelAt graph cont
+    let graphPre, cont, _ = buildFlat [ "a" ]
+    let aChild = graphPre.nodes.[cont].children.[0]
+    let gEmpty =
+        Graph.replace cont 0 [ aChild ] [] graphPre |> ModelBuilder.requireOk "empty"
+    let m0 = emptyModelAt graphPre cont
     let fromParent = m0.siteMap.entries.[m0.siteMap.rootId]
     let sel =
-        selectionAfterStructuralMove graph graph m0.siteMap
+        selectionAfterStructuralMove graphPre gEmpty m0.siteMap
             { parent = fromParent; start = 0; endd = 1 }
             true
             fromParent
             0
-            0
+            1
             0
 
     Assert.True(sel.IsNone)

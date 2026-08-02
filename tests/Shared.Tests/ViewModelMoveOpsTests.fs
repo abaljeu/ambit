@@ -329,6 +329,46 @@ let ``selectionModelAfterStructuralMove stayAtSource does not expand destination
 
     Assert.False(result.siteMap.entries.[aInst].expanded)
 
+/// Move Selected targeting the parent: item goes to end; selection stays at
+/// the from index (whatever slid into that slot), not the moved item.
+[<Fact>]
+let ``selectionModelAfterStructuralMove stayAtSource same-parent keeps from index`` () =
+    let graphPre, cont, ids = buildFlat [ "a"; "b"; "c" ]
+    let b = ids.[1]
+    let c = ids.[2]
+    let oldKids = graphPre.nodes.[cont].children
+    let bChild = oldKids.[1]
+    let withoutB =
+        oldKids
+        |> List.indexed
+        |> List.filter (fun (i, _) -> i <> 1)
+        |> List.map snd
+    let gPost =
+        Graph.replace cont 0 oldKids (withoutB @ [ bChild ]) graphPre
+        |> ModelBuilder.requireOk "move b to end"
+    let mPre = emptyModelAt graphPre cont
+    let rootPre = mPre.siteMap.entries.[mPre.siteMap.rootId]
+    let postModel = { mPre with graph = gPost }
+    let result =
+        selectionModelAfterStructuralMove
+            graphPre
+            { parent = rootPre; start = 1; endd = 2 }
+            true
+            cont
+            2
+            1
+            0
+            rootPre
+            postModel
+
+    match result.selectedNodes with
+    | None -> Assert.True(false, "expected selection at from index")
+    | Some sel ->
+        Assert.Equal(1, sel.focus)
+        Assert.Equal(1, sel.range.start)
+        Assert.Equal(c, focusedNodeId gPost sel)
+        Assert.NotEqual(b, focusedNodeId gPost sel)
+
 [<Fact>]
 let ``completeIndent rejected keeps selection and sets invalid target message`` () =
     let graph, _fileId, dirId = folderBesideFileGraph ()

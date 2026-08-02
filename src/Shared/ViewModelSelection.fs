@@ -95,9 +95,39 @@ module ViewModelSelection =
         elif fromRange.endd < kids.Length then Some kids.[fromRange.endd].id
         else None
 
-    /// Selection after a structural move. `stayAtSource` (Move Selected): sibling or parent at
-    /// the old location, else None at view root with no sibling. Otherwise selection follows
-    /// the moved block when `newParent` is expanded, or a bordering sibling / parent.
+    let private stayAtSourceSelection
+            (preGraph: Graph)
+            (postGraph: Graph)
+            (postSiteMap: SiteMap)
+            (fromRange: SiteNodeRange)
+            (newParent: SiteEntry)
+            : Selection option =
+        let parent = postSiteMap.entries.[fromRange.parent.instanceId]
+        let parentSel () =
+            singleSelectionForInstance postSiteMap parent.instanceId
+            |> Option.orElse (singleSelection postGraph postSiteMap parent.nodeId)
+        let keepFromIndex () =
+            match Map.tryFind parent.nodeId postGraph.nodes with
+            | Some node when node.children.Length > 0 ->
+                let idx = min fromRange.start (node.children.Length - 1)
+                Some
+                    { range = { parent = parent; start = idx; endd = idx + 1 }
+                      focus = idx }
+            | _ ->
+                if parent.instanceId = postSiteMap.rootId then None else parentSel ()
+
+        if newParent.nodeId = fromRange.parent.nodeId then
+            keepFromIndex ()
+        else
+            tryOriginalAdjacentNodeId preGraph fromRange
+            |> Option.bind (fun nid -> singleSelection postGraph postSiteMap nid)
+            |> Option.orElseWith (fun () ->
+                if parent.instanceId = postSiteMap.rootId then None else parentSel ())
+
+    /// Selection after a structural move. `stayAtSource` (Move Selected): when dest is the
+    /// same parent, keep the from index; otherwise sibling or parent at the old location,
+    /// else None at view root with no sibling. Otherwise selection follows the moved block
+    /// when `newParent` is expanded, or a bordering sibling / parent.
     /// Callers that follow the move should expand a visible collapsed destination first
     /// (see `selectionModelAfterStructuralMove`).
     let selectionAfterStructuralMove
@@ -112,14 +142,7 @@ module ViewModelSelection =
             (focusOffset: int)
             : Selection option =
         if stayAtSource then
-            let parent = postSiteMap.entries.[fromRange.parent.instanceId]
-            let parentSel () =
-                singleSelectionForInstance postSiteMap parent.instanceId
-                |> Option.orElse (singleSelection postGraph postSiteMap parent.nodeId)
-            tryOriginalAdjacentNodeId preGraph fromRange
-            |> Option.bind (fun nid -> singleSelection postGraph postSiteMap nid)
-            |> Option.orElseWith (fun () ->
-                if parent.instanceId = postSiteMap.rootId then None else parentSel ())
+            stayAtSourceSelection preGraph postGraph postSiteMap fromRange newParent
         else
             let movedBlock () =
                 let lo = min (max 0 focusOffset) (max 0 (count - 1))
