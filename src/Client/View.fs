@@ -21,7 +21,6 @@ let private doubleTapScrollDeferMs = 400
 let mutable private deferSelectionScroll = false
 let mutable private pendingSelectionScrollTimer : float option = None
 let mutable private pendingFoldToggleTimer : float option = None
-let mutable private pendingFoldToggleInst : SiteId option = None
 
 let private cancelPendingSelectionScroll () : unit =
     pendingSelectionScrollTimer |> Option.iter clearTimeout
@@ -30,7 +29,6 @@ let private cancelPendingSelectionScroll () : unit =
 let private cancelPendingFoldToggle () : unit =
     pendingFoldToggleTimer |> Option.iter clearTimeout
     pendingFoldToggleTimer <- None
-    pendingFoldToggleInst <- None
 
 let private scheduleDeferredSelectionScroll (el: HTMLElement) : unit =
     cancelPendingSelectionScroll ()
@@ -162,27 +160,27 @@ let private makeRowElement
                 ev.preventDefault()
                 ev.stopPropagation()
                 let instId = siteEntry.instanceId
-                match pendingFoldToggleInst with
-                | Some prev when prev = instId ->
-                    cancelPendingFoldToggle ()
-                    dispatch (ApplyOp (fun model ->
-                        let m, effs = selectInstance instId model
-                        let m2, effs2 = zoomInOp m
-                        m2, effs @ effs2))
-                | _ ->
-                    cancelPendingFoldToggle ()
-                    pendingFoldToggleInst <- Some instId
-                    pendingFoldToggleTimer <-
-                        Some (
-                            setTimeout
-                                (fun () ->
-                                    pendingFoldToggleTimer <- None
-                                    pendingFoldToggleInst <- None
-                                    let op =
-                                        if siteEntry.parentInstanceId = None then zoomOutOp
-                                        else toggleFoldOp instId
-                                    dispatch (ApplyOp op))
-                                doubleTapScrollDeferMs)
+                cancelPendingFoldToggle ()
+                pendingFoldToggleTimer <-
+                    Some (
+                        setTimeout
+                            (fun () ->
+                                pendingFoldToggleTimer <- None
+                                let op =
+                                    if siteEntry.parentInstanceId = None then zoomOutOp
+                                    else toggleFoldOp instId
+                                dispatch (ApplyOp op))
+                            doubleTapScrollDeferMs)
+            )
+            toggle.addEventListener("dblclick", fun (ev: Event) ->
+                ev.preventDefault()
+                ev.stopPropagation()
+                cancelPendingFoldToggle ()
+                let instId = siteEntry.instanceId
+                dispatch (ApplyOp (fun model ->
+                    let m, effs = selectInstance instId model
+                    let m2, effs2 = zoomInOp m
+                    m2, effs @ effs2))
             )
             row.appendChild toggle |> ignore
             toggle

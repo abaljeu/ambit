@@ -1,0 +1,40 @@
+selective client loading
+	for the following discussion "load a node" means to send the node and all children of that node, owned or not, to the client.
+		This definition is not recursive.  Children of children are not included in this definition.  Although it is common that loading is executed recursively.
+		Loaded is a state of the node in the graph in memory.  Graph in database doesn't have this state.
+			An unloaded node has no children in-graph.  
+			A loaded node may or may not have children.
+		Client user interface will show unloaded nodes differently.  Hollow circle for the fold.
+		Client graph may be different from Server graph.  This requirement does not introduce unloaded server nodes.  It does introduce unloaded client nodes.
+		When an unloaded node becomes loaded, its state becomes the database state.
+	when client starts, load the root workspace.
+		recursively load every node that is transitively owned by the workspace. But do not load other workspaces.
+		Prior to this changeset all server nodes always came to client.  This changeset makes that no longer automatic, but the Load command will make it happen.
+	The Upload command is extended and renamed to simply Load.  
+		currently used for 
+			Load file data from client (desktop app) filespace to server filespace
+			Load file data in server into server nodes
+		Newly will also send server nodes to client, if the client doesn't already have them.
+			Load all children transitively owned by that node, but not other workspaces.
+			This is the third action of a sequence.  In some cases the others don't apply and only this needs to be done.
+	Graph nav
+		If the user operation (eg. zoom; unfold) demands children of graph node that is not loaded, we fail it
+		search dialog does not load unloaded nodes.  
+			Search algorithm doesn't delve into children of unloaded nodes
+			If an unloaded node is chosen as the search target, 
+				we load it recursively.
+			if an unloaded node is chosen as a move target
+				we load exactly that node.
+				and then execute move.
+	Graph edits
+		edits that happen on the client keep client nodes loaded
+		The server can send graph changes.  Those changes can now involve parent nodes not in the graph.  We need to reconcile our nodeset
+			Operations on a single node
+				If we have the node, we can change it
+				otherwise ignore it
+			Add node
+				accept op
+			Add child to parent / Remove child from parent
+				Allow if we have parent and child
+				and parent is set to loaded.
+	

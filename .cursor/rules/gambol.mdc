@@ -19,6 +19,12 @@ Shared runtime state:
 
 - [[WORK.md]] — live actionable work (Active, Pending, Blocked)
 
+Imported engineering skill configuration:
+
+- [[docs/agents/issue-tracker.md]] — local Markdown issue tracker, shared language, and Wayfinder operations
+- [[docs/agents/triage-labels.md]] — default triage role vocabulary
+- [[docs/agents/domain.md]] — canonical project docs under [[doc/]] and decision records under [[docs/adr/]]
+
 Workflow skills in [[.cursor/skills/]]:
 
 - [[.cursor/skills/plan-roadmap-change/SKILL.md]] — roadmap and plan doc changes
