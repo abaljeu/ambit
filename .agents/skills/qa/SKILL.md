@@ -1,11 +1,11 @@
 ---
 name: qa
-description: Interactive QA session where user reports bugs or issues conversationally, and the agent files GitHub issues. Explores the codebase in the background for context and domain language. Use when user wants to report bugs, do QA, file issues conversationally, or mentions "QA session".
+description: Interactive QA session where user reports bugs or issues conversationally, and the agent files local Markdown issues under .scratch/. Explores the codebase in the background for context and domain language. Use when user wants to report bugs, do QA, file issues conversationally, or mentions "QA session".
 ---
 
 # QA Session
 
-Run an interactive QA session. The user describes problems they're encountering. You clarify, explore the codebase for context, and file GitHub issues that are durable, user-focused, and use the project's domain language.
+Run an interactive QA session. The user describes problems they're encountering. You clarify, explore the codebase for context, and file **local** issues under `.scratch/` per [[docs/agents/issue-tracker.md]]. Issues must be durable, user-focused, and use the project's domain language. Do not use `gh`/`glab` to file issues.
 
 ## For each issue the user raises
 
@@ -23,7 +23,7 @@ Do NOT over-interview. If the description is clear enough to file, move on.
 
 While talking to the user, kick off an Agent (subagent_type=Explore) in the background to understand the relevant area. The goal is NOT to find a fix — it's to:
 
-- Learn the domain language used in that area (check UBIQUITOUS_LANGUAGE.md)
+- Learn the domain language used in that area (check [[CONTEXT.md]])
 - Understand what the feature is supposed to do
 - Identify the user-facing behavior boundary
 
@@ -44,9 +44,9 @@ Keep as a single issue when:
 - It's one behavior that's wrong in one place
 - The symptoms are all caused by the same root behavior
 
-### 4. File the GitHub issue(s)
+### 4. File the local issue(s)
 
-Create issues with `gh issue create`. Do NOT ask the user to review first — just file and share URLs.
+Publish under `.scratch/<feature-slug>/issues/` per [[docs/agents/issue-tracker.md]]. Do NOT ask the user to review first — file and share the paths.
 
 Issues must be **durable** — they should still make sense after major refactors. Write from the user's perspective.
 
@@ -76,14 +76,14 @@ Use this template:
 
 #### For a breakdown (multiple issues)
 
-Create issues in dependency order (blockers first) so you can reference real issue numbers.
+Create issue files in dependency order (blockers first) so you can reference sibling paths/numbers under the same feature.
 
 Use this template for each sub-issue:
 
 ```
 ## Parent issue
 
-#<parent-issue-number> (if you created a tracking issue) or "Reported during QA session"
+Path to parent under .scratch/ (if any) or "Reported during QA session"
 
 ## What's wrong
 
@@ -99,9 +99,7 @@ Use this template for each sub-issue:
 
 ## Blocked by
 
-- #<issue-number> (if this issue can't be fixed until another is resolved)
-
-Or "None — can start immediately" if no blockers.
+- NN (sibling issue number) if blocked; else "None — can start immediately"
 
 ## Additional context
 
@@ -112,18 +110,18 @@ When creating a breakdown:
 
 - **Prefer many thin issues over few thick ones** — each should be independently fixable and verifiable
 - **Mark blocking relationships honestly** — if issue B genuinely can't be tested until issue A is fixed, say so. If they're independent, mark both as "None — can start immediately"
-- **Create issues in dependency order** so you can reference real issue numbers in "Blocked by"
+- **Create issues in dependency order** so "Blocked by" can cite real sibling numbers
 - **Maximize parallelism** — the goal is that multiple people (or agents) can grab different issues simultaneously
 
 #### Rules for all issue bodies
 
-- **No file paths or line numbers** — these go stale
-- **Use the project's domain language** (check UBIQUITOUS_LANGUAGE.md if it exists)
+- **No source file paths or line numbers** — these go stale (issue paths under `.scratch/` are fine)
+- **Use the project's domain language** (check [[CONTEXT.md]] if it exists)
 - **Describe behaviors, not code** — "the sync service fails to apply the patch" not "applyPatch() throws on line 42"
 - **Reproduction steps are mandatory** — if you can't determine them, ask the user
 - **Keep it concise** — a developer should be able to read the issue in 30 seconds
 
-After filing, print all issue URLs (with blocking relationships summarized) and ask: "Next issue, or are we done?"
+After filing, print all issue paths (with blocking relationships summarized) and ask: "Next issue, or are we done?"
 
 ### 5. Continue the session
 

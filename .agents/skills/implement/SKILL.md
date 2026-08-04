@@ -12,4 +12,4 @@ Run typechecking regularly, single test files regularly, and the full test suite
 
 Once done, use /code-review to review the work.
 
-Commit your work to the current branch.
+Finish as **agent-done** per [[.cursor/rules/environment.mdc]] / [[CONTEXT.md]]: only commit on the current project branch (`w/*`). If not on `w/*`, leave the dirty tree, suggest a commit message, and offer to create `w/<slug>`.

@@ -41,6 +41,28 @@ let ``isIgnored detects ignored and allowed paths`` () =
     | Error e -> Assert.Fail(e)
     | Ok ignored -> Assert.True(ignored)
 
+/// Shared TEMP check-ignore .git can exist without HEAD/config; must reinit.
+[<SkippableFact>]
+let ``isIgnored recovers from incomplete shared check-ignore git dir`` () =
+    Skip.IfNot(gitOnPath (), "git unavailable")
+    let sharedRoot =
+        Path.Combine(Path.GetTempPath(), "gambol-check-ignore-git")
+    let sharedGit = Path.Combine(sharedRoot, ".git")
+    if Directory.Exists sharedGit then
+        Directory.Delete(sharedGit, true)
+    elif File.Exists sharedGit then
+        File.Delete sharedGit
+    Directory.CreateDirectory sharedGit |> ignore
+    Assert.False(File.Exists(Path.Combine(sharedGit, "HEAD")))
+    let root = newTempDir ()
+    writeIgnore root "blocked.txt\n"
+    match GitCheckIgnore.isIgnored root "notes.txt" with
+    | Error e -> Assert.Fail(e)
+    | Ok ignored -> Assert.False(ignored)
+    match GitCheckIgnore.isIgnored root "blocked.txt" with
+    | Error e -> Assert.Fail(e)
+    | Ok ignored -> Assert.True(ignored)
+
 [<SkippableFact>]
 let ``isEffectivelyIgnored never blocks gitignore file`` () =
     Skip.IfNot(gitOnPath (), "git unavailable")

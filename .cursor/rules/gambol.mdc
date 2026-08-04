@@ -18,6 +18,7 @@ Canonical project rules are split across [[.cursor/rules/]]:
 Shared runtime state:
 
 - [[WORK.md]] — live actionable work (Active, Pending, Blocked)
+- [[CONTEXT.md]] — concise domain glossary
 
 Imported engineering skill configuration:
 

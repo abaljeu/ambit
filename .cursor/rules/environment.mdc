@@ -7,7 +7,21 @@ Windows 10. GIT Bash shell. Use it.
 Your working directory is the project root. Do not use `cd`. Do not change directories.
 Use relative paths such as ./src. Do not use absolute paths.
 
-Don't use git unless asked. Do not run VSCode Tasks.
+## Git hygiene
+
+Branch model and terms: [[CONTEXT.md]], decision: [[docs/adr/0001-agent-git-hygiene.md]].
+
+- **Original branch**: human-owned long-lived line ≠ main/master; human squashes onto it. Agents never switch back to it, never squash onto it, never touch main/master.
+- **Project branch**: prefix `w/`. Default workplace. When not already on `w/*`, the agent may create/checkout `w/<slug>` once from HEAD, then stay. Update `.scratch/<feature>/git.md` on create/switch (current project branch, cut-from original, notes).
+- **Commit**: only when the current branch matches `w/*`, as part of **agent-done** (tests green + `/code-review` + `git commit`). If not on `w/*`: leave the dirty tree, suggest a commit message, and offer to create `w/<slug>`. No SHA bookkeeping on tickets.
+- **Remotes**: no `fetch`/`pull`/`push` or remote ops via `gh`/`glab` unless the user directly asks (**manual approval**).
+- **Tool allowlist intent** (user configures Cursor): auto-approve read-only git + `add` + `commit` on `w/*`. Manual approval required for: checkout/switch to other branches, merge/rebase, reset, clean, remotes, main/master writes.
+- **Bisect**: prepare a read-only recipe (log range + red command) only; the human runs bisect. No agent checkouts for bisect.
+- Read-only local git (`status`, `diff`, `log`, `rev-parse`, `check-ignore`, etc.) is always fine.
+
+Do not run VSCode Tasks.
+
+Issues are local Markdown under `.scratch/` — see [[docs/agents/issue-tracker.md]]. Do not file or sync issues on GitHub/GitLab.
 
 Never override OutputPath/BaseIntermediateOutputPath (e.g. bin-verify/obj-verify); use normal Debug bin/obj. If outputs are locked, report and stop — do not redirect build output.
 

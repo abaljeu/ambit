@@ -1,9 +1,11 @@
 ---
 name: request-refactor-plan
-description: Create a detailed refactor plan with tiny commits via user interview, then file it as a GitHub issue. Use when user wants to plan a refactor, create a refactoring RFC, or break a refactor into safe incremental steps.
+description: Create a detailed refactor plan with tiny steps via user interview, then publish it under local .scratch/. Use when user wants to plan a refactor, create a refactoring RFC, or break a refactor into safe incremental steps.
 ---
 
 This skill will be invoked when the user wants to create a refactor request. You should go through the steps below. You may skip steps if you don't consider them necessary.
+
+Git and publish policy: [[.cursor/rules/environment.mdc]], [[docs/agents/issue-tracker.md]]. Plan grain is **steps** (same size discipline as tiny commits), not commits. Publish under `.scratch/`. Commits are allowed only when implementing on an unlocked project branch (`w/*`).
 
 1. Ask the user for a long, detailed description of the problem they want to solve and any potential ideas for solutions.
 
@@ -17,9 +19,9 @@ This skill will be invoked when the user wants to create a refactor request. You
 
 6. Look in the codebase to check for test coverage of this area of the codebase. If there is insufficient test coverage, ask the user what their plans for testing are.
 
-7. Break the implementation into a plan of tiny commits. Remember Martin Fowler's advice to "make each refactoring step as small as possible, so that you can always see the program working."
+7. Break the implementation into a plan of tiny **steps**. Remember Martin Fowler's advice to "make each refactoring step as small as possible, so that you can always see the program working." Each step should leave the codebase in a working state; when later implementing on `w/*`, a step may become a commit.
 
-8. Create a GitHub issue with the refactor plan. Use the following template for the issue description:
+8. Publish the refactor plan under `.scratch/<feature-slug>/` per [[docs/agents/issue-tracker.md]]. Use the following template:
 
 <refactor-plan-template>
 
@@ -31,9 +33,9 @@ The problem that the developer is facing, from the developer's perspective.
 
 The solution to the problem, from the developer's perspective.
 
-## Commits
+## Steps
 
-A LONG, detailed implementation plan. Write the plan in plain English, breaking down the implementation into the tiniest commits possible. Each commit should leave the codebase in a working state.
+A LONG, detailed implementation plan. Write the plan in plain English, breaking down the implementation into the tiniest steps possible. Each step should leave the codebase in a working state.
 
 ## Decision Document
 

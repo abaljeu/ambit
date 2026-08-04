@@ -18,8 +18,6 @@ Mutations for delegated workers to return to their parent: `add`, `move`, `block
 
 Work currently being executed.
 
-- [[src/Shared/dotnet/GitCheckIgnore.fs]] — validate/reinitialize the shared check-ignore repository and preserve initialization failures
-
 ## Pending
 
 Work ready to start but not yet claimed.
