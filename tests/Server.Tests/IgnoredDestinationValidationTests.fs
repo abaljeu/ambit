@@ -135,7 +135,9 @@ let ``non ignored destination succeeds`` () =
 let private encodeChange graph parentId name =
     let _, ops = FileNodeOps.planCreateOwnedFile graph parentId name
     let change = { id = 0; changeId = Guid.NewGuid(); ops = ops }
-    Encode.toString 0 (Serialization.encodeChangeBatch { changes = [ change ] })
+    Encode.toString 0 (
+        Serialization.encodeChangeBatch
+            { changes = [ HistoryAction.Change change ] })
 
 [<SkippableFact>]
 let ``FileAgent rejects ignored graph state before acceptance`` () =

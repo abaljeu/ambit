@@ -25,7 +25,8 @@ let private changedBody () =
                 ]
         }
     Encode.toString 0 (
-        Serialization.encodeChangeBatch { changes = [ change ] })
+        Serialization.encodeChangeBatch
+            { changes = [ HistoryAction.Change change ] })
 
 let private freshState () : State =
     { graph = Graph.create ()

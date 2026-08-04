@@ -46,6 +46,66 @@ let private specialNode kind name =
         name = Filename.create name,
         kind = Special kind)
 
+let private actionState () =
+    let state = ModelBuilder.createState12 ()
+    let root = state.graph.nodes.[state.graph.root]
+    let node = state.graph.nodes.[root.children.Head.id]
+    state, node
+
+[<Fact>]
+let ``HistoryAction Change materializes unchanged change`` () =
+    let state, node = actionState ()
+    let change =
+        { id = 0
+          changeId = Guid.NewGuid()
+          ops = [ Op.SetText(node.id, node.text, "changed") ] }
+    match History.applyAction (HistoryAction.Change change) state with
+    | Error error -> failwith error
+    | Ok (next, materialized) ->
+        Assert.Equal(change, materialized)
+        Assert.Equal("changed", next.graph.nodes.[node.id].text)
+        Assert.Equal<Change list>([ change ], next.history.past)
+
+[<Fact>]
+let ``HistoryAction Undo and Redo materialize canonical operations with action identity`` () =
+    let state, node = actionState ()
+    let original =
+        { id = 0
+          changeId = Guid.NewGuid()
+          ops = [ Op.SetText(node.id, node.text, "changed") ] }
+    let changed =
+        History.applyAction (HistoryAction.Change original) state
+        |> Result.map fst
+        |> Result.defaultWith failwith
+    let undoId = Guid.NewGuid()
+    let undone, undoChange =
+        History.applyAction (HistoryAction.Undo(1, undoId)) changed
+        |> Result.defaultWith failwith
+    Assert.Equal(1, undoChange.id)
+    Assert.Equal(undoId, undoChange.changeId)
+    Assert.Equal<Op list>(
+        [ Op.SetText(node.id, "changed", node.text) ],
+        undoChange.ops)
+    Assert.Equal(node.text, undone.graph.nodes.[node.id].text)
+    let redoId = Guid.NewGuid()
+    let redone, redoChange =
+        History.applyAction (HistoryAction.Redo(2, redoId)) undone
+        |> Result.defaultWith failwith
+    Assert.Equal(2, redoChange.id)
+    Assert.Equal(redoId, redoChange.changeId)
+    Assert.Equal<Op list>(original.ops, redoChange.ops)
+    Assert.Equal("changed", redone.graph.nodes.[node.id].text)
+
+[<Fact>]
+let ``HistoryAction Undo and Redo reject empty history`` () =
+    let state, _ = actionState ()
+    match History.applyAction (HistoryAction.Undo(0, Guid.NewGuid())) state with
+    | Ok _ -> failwith "expected empty Undo to fail"
+    | Error error -> Assert.Contains("Undo", error)
+    match History.applyAction (HistoryAction.Redo(0, Guid.NewGuid())) state with
+    | Ok _ -> failwith "expected empty Redo to fail"
+    | Error error -> Assert.Contains("Redo", error)
+
 [<Fact>]
 let ``NewSpecialNode rejects reserved system names case-insensitively`` () =
     let state = ModelBuilder.createState12 ()

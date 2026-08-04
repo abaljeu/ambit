@@ -26,6 +26,37 @@ type Change =
       ops: Op list }
 
 
+[<RequireQualifiedAccess>]
+type HistoryAction =
+    | Change of Change
+    | Undo of id: int * changeId: System.Guid
+    | Redo of id: int * changeId: System.Guid
+
+
+[<RequireQualifiedAccess>]
+module HistoryAction =
+    let baseRevision =
+        function
+        | HistoryAction.Change change -> change.id
+        | HistoryAction.Undo(id, _)
+        | HistoryAction.Redo(id, _) -> id
+
+    let actionId =
+        function
+        | HistoryAction.Change change -> change.changeId
+        | HistoryAction.Undo(_, changeId)
+        | HistoryAction.Redo(_, changeId) -> changeId
+
+    let withBaseRevision id =
+        function
+        | HistoryAction.Change change ->
+            HistoryAction.Change { change with id = id }
+        | HistoryAction.Undo(_, changeId) ->
+            HistoryAction.Undo(id, changeId)
+        | HistoryAction.Redo(_, changeId) ->
+            HistoryAction.Redo(id, changeId)
+
+
 type History =
     { past: Change list
       future: Change list
@@ -565,6 +596,45 @@ module History =
                         future = restFuture }
 
                 ApplyResult.Changed { s with history = history' }
+
+    let private changedResult
+        (actionName: string)
+        (materialized: Change)
+        (result: ApplyResult)
+        : Result<State * Change, string> =
+        match result with
+        | ApplyResult.Changed state -> Ok(state, materialized)
+        | ApplyResult.Unchanged _ -> Error(actionName + " did not change state")
+        | ApplyResult.Invalid(_, message) -> Error message
+
+    let applyAction
+        (action: HistoryAction)
+        (state: State)
+        : Result<State * Change, string> =
+        match action with
+        | HistoryAction.Change change ->
+            applyChange change state
+            |> changedResult "Change" change
+        | HistoryAction.Undo(id, changeId) ->
+            match state.history.past with
+            | [] -> Error "Undo requires a past change"
+            | change :: _ ->
+                let materialized =
+                    { Change.invert change with
+                        id = id
+                        changeId = changeId }
+                undo state
+                |> changedResult "Undo" materialized
+        | HistoryAction.Redo(id, changeId) ->
+            match state.history.future with
+            | [] -> Error "Redo requires a future change"
+            | change :: _ ->
+                let materialized =
+                    { change with
+                        id = id
+                        changeId = changeId }
+                redo state
+                |> changedResult "Redo" materialized
 
 /// After DocumentPersistence stamps artifact roots, emit ops for the change log / poll tail.
 [<RequireQualifiedAccess>]

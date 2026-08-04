@@ -37,7 +37,13 @@ module private SubmitChangeCallbacks =
                 "[Gambol sync] POST 200 req=" + reqId
                 + " ackRev=" + string ack.revision.Value
                 + " bodyLen=" + string n)
-            dispatch (SysMsg (SubmitResponse (ack.ackedChangeIds, ack.revision, ack.stampOps, ack.message)))
+            dispatch (
+                SysMsg (
+                    SubmitResponse (
+                        ack.ackedChangeIds,
+                        ack.revision,
+                        ack.stampOps,
+                        ack.message)))
         | Error err ->
             consoleLog (
                 "[Gambol sync] POST 200 bad ACK JSON req=" + reqId
@@ -60,13 +66,18 @@ module private SubmitChangeCallbacks =
         (timeoutId: float)
         (reqId: string)
         (baseRev: int)
-        (changes: Change list)
+        (changes: HistoryAction list)
         (dispatch: Msg -> unit)
         ()
         : unit =
         clearTimeout timeoutId
         consoleLog ("[Gambol sync] POST fetch failed req=" + reqId)
-        dispatch (SysMsg (SubmitNetworkError (baseRev, changes, SubmitNetworkErrorKind.FetchFailed)))
+        dispatch (
+            SysMsg (
+                SubmitNetworkError (
+                    baseRev,
+                    changes,
+                    SubmitNetworkErrorKind.FetchFailed)))
 
 // Idle/pause remote polling after a period of no user interaction (battery-friendly).
 let idleTimeoutMs = 15 * 60 * 1000
@@ -89,21 +100,27 @@ let createRuntime (initialModel: VM) =
         lastActivityMs <- nowMs ()
         let saved = loadPendingQueue ()
         let serverRev = restored.revision.Value
-        let filtered = saved |> List.filter (fun c -> c.id >= serverRev)
-        let localGraph, restoredPending =
-            filtered |> List.fold
-                (fun (g, acc) c ->
-                    let s: State =
-                        { graph = g
-                          history = History.empty
-                          revision = Revision 0 }
-                    match Change.apply c s with
-                    | ApplyResult.Changed s' -> s'.graph, acc @ [ c ]
-                    | _ -> g, acc)
-                (restored.graph, [])
+        let filtered =
+            saved
+            |> List.filter (fun action ->
+                HistoryAction.baseRevision action >= serverRev)
+        let localState, restoredPending =
+            filtered
+            |> List.fold
+                (fun (state, reversed) action ->
+                    match History.applyAction action state with
+                    | Ok (next, _) -> next, action :: reversed
+                    | Error _ -> state, reversed)
+                ({ graph = restored.graph
+                   history = restored.history
+                   revision = restored.revision },
+                 [])
+            |> fun (state, reversed) -> state, List.rev reversed
         savePendingQueue restoredPending
         if restoredPending.IsEmpty then
-            { restored with graph = localGraph }, []
+            { restored with
+                graph = localState.graph
+                history = localState.history }, []
         else
             consoleLog (
                 "[Gambol sync] StateLoaded firePending serverRev=" + string serverRev
@@ -111,7 +128,8 @@ let createRuntime (initialModel: VM) =
             let submitEffects =
                 [ SubmitPendingBatch (serverRev, restoredPending) ]
             { restored with
-                graph = localGraph
+                graph = localState.graph
+                history = localState.history
                 syncInfo =
                     restored.syncInfo
                     |> SyncInfo.withPendingChanges restoredPending
@@ -167,7 +185,9 @@ let createRuntime (initialModel: VM) =
         | ContinuePostUploadStructure (change, scope, parseFileId) ->
             // Stubs already in the model (DOM patched before effects). Async POST.
             let body =
-                SyncBatch.toDeltaChain model.revision.Value [ change ]
+                SyncBatch.toActionDeltaChain
+                    model.revision.Value
+                    [ HistoryAction.Change change ]
                 |> encodePendingBatchBody
             let url = sprintf "/%s/changes" currentFile
             let rec post () =
@@ -307,14 +327,16 @@ let createRuntime (initialModel: VM) =
             50
         |> ignore
 
-    and runSubmitPendingBatch (baseRev: int) (changes: Change list) : unit =
+    and runSubmitPendingBatch (baseRev: int) (changes: HistoryAction list) : unit =
         let reqId =
             changes
             |> List.tryHead
-            |> Option.map (fun change -> change.changeId.ToString("N").Substring(0, 8))
+            |> Option.map (fun action ->
+                (HistoryAction.actionId action).ToString("N").Substring(0, 8))
             |> Option.defaultValue "empty"
         let url = $"/{currentFile}/changes"
-        let postChanges = Gambol.Shared.SyncBatch.toDeltaChain baseRev changes
+        let postChanges =
+            Gambol.Shared.SyncBatch.toActionDeltaChain baseRev changes
         let body = encodePendingBatchBody postChanges
         let qLen = model.syncInfo.pendingChanges.Length
         consoleLog (
@@ -351,11 +373,20 @@ let createRuntime (initialModel: VM) =
                       pageBuildEpochSec = readPageBuildEpochSec () }
                 let outcome =
                     SyncLogic.getPollOutcome poll model.revision.Value context
-                dispatch (SysMsg (PollDone (outcome, poll.changes, Some poll.isReady)))
+                dispatch (
+                    SysMsg (
+                        PollDone (
+                            outcome,
+                            poll.changes,
+                            Some poll.isReady)))
             | Error _ ->
-                dispatch (SysMsg (PollDone (None, [], None)))
+                dispatch (
+                    SysMsg (
+                        PollDone (None, [], None)))
         let onPollFail () : unit =
-            dispatch (SysMsg (PollDone (None, [], None)))
+            dispatch (
+                SysMsg (
+                    PollDone (None, [], None)))
         fetchTextNoCacheWithFail url onPollOk onPollFail
 
     and runScheduleRetry (delayMs: int) : unit =
@@ -368,7 +399,7 @@ let createRuntime (initialModel: VM) =
                         dispatch (SysMsg RetrySubmit))
                     delayMs)
 
-    and runSavePendingQueue (q: Change list) : unit =
+    and runSavePendingQueue (q: HistoryAction list) : unit =
         savePendingQueue q
 
     and runDesktopFileStatus (nodeId: NodeId) (path: string) : unit =

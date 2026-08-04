@@ -53,7 +53,11 @@ let private getStateJson (client: HttpClient) (_file: string) = task {
 }
 
 let private encodeChangeBatchBody (changes: Change list) =
-    Encode.toString 0 (Serialization.encodeChangeBatch { changes = changes })
+    let actions = changes |> List.map HistoryAction.Change
+    Encode.toString 0 (Serialization.encodeChangeBatch { changes = actions })
+
+let private encodeActionBatchBody (actions: HistoryAction list) =
+    Encode.toString 0 (Serialization.encodeChangeBatch { changes = actions })
 
 /// POST /ambit/changes with a change and return the raw response.
 let private postChange (client: HttpClient) (_file: string) (change: Change) = task {
@@ -64,6 +68,12 @@ let private postChange (client: HttpClient) (_file: string) (change: Change) = t
 
 let private postChanges (client: HttpClient) (_file: string) (changes: Change list) = task {
     let body = encodeChangeBatchBody changes
+    let content = new StringContent(body, Encoding.UTF8, "application/json")
+    return! client.PostAsync("/ambit/changes", content)
+}
+
+let private postActions (client: HttpClient) (actions: HistoryAction list) = task {
+    let body = encodeActionBatchBody actions
     let content = new StringContent(body, Encoding.UTF8, "application/json")
     return! client.PostAsync("/ambit/changes", content)
 }
@@ -188,6 +198,53 @@ let ``user css is served from canonical SYSTEM path`` () = task {
 }
 
 // ---- POST /ambit/changes tests (parameterised) ----
+
+[<Theory; MemberData(nameof backends)>]
+let ``POST Change Undo Redo preserves graph and Poll exposes materialized Changes``
+    (backend: BackendKind) =
+    withClient backend (fun client -> task {
+        let! json0 = getStateJson client testFile
+        let rootId = (decodeGraph json0).root
+        let change, childId = changeAddChild rootId 0 "history-action"
+        let undoId = Guid.NewGuid()
+        let redoId = Guid.NewGuid()
+        let! response =
+            postActions
+                client
+                [ HistoryAction.Change change
+                  HistoryAction.Undo(1, undoId)
+                  HistoryAction.Redo(2, redoId) ]
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode)
+        let! ack = response.Content.ReadAsStringAsync()
+        Assert.Equal(Revision 3, decodeRevision ack)
+        Assert.Equal<Guid list>(
+            [ change.changeId; undoId; redoId ],
+            decodeAckChangeIds ack)
+        let! stateJson = getStateJson client testFile
+        Assert.Equal("history-action", (decodeGraph stateJson).nodes.[childId].text)
+        let! pollResponse = client.GetAsync("/ambit/poll?rev=0")
+        let! pollJson = pollResponse.Content.ReadAsStringAsync()
+        let poll =
+            decode ApiResponseSerialization.decodePollResponseDecoder pollJson
+        Assert.Equal<Guid list>(
+            [ change.changeId; undoId; redoId ],
+            poll.changes |> List.map (fun materialized -> materialized.changeId))
+        Assert.Equal<Op list>(
+            change.ops,
+            poll.changes.[2].ops |> List.take change.ops.Length)
+    })
+
+[<Theory; MemberData(nameof backends)>]
+let ``POST mixed batch rolls back when Undo has empty canonical history``
+    (backend: BackendKind) =
+    withClient backend (fun client -> task {
+        let undoId = Guid.NewGuid()
+        let! response =
+            postActions client [ HistoryAction.Undo(0, undoId) ]
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode)
+        let! stateJson = getStateJson client testFile
+        Assert.Equal(Revision 0, decodeRevision stateJson)
+    })
 
 [<Fact>]
 let ``POST changes accepts X-Gambol-Client header`` () = task {
@@ -566,7 +623,7 @@ let ``DB restart preserves NodeIds`` () = task {
 }
 
 [<Fact>]
-let ``DB restart replays log when projection is cleared`` () = task {
+let ``DB restart does not replay log when projection is cleared`` () = task {
     let connStr = requireDbConnStr ()
     do! resetTestDatabase connStr
     use client1 = createDbClient connStr
@@ -580,7 +637,7 @@ let ``DB restart replays log when projection is cleared`` () = task {
     Assert.Equal(HttpStatusCode.OK, r2.StatusCode)
     let! logRows = Database.getChangesAfterCheckpointRevision connStr 0 |> Async.AwaitTask
     Assert.Equal(2, logRows.Length)
-    // Wipe projection tables only (not changes) to force full log replay on restart
+    // Wipe projection tables only; the Change log is not a startup journal.
     use conn = new Npgsql.NpgsqlConnection(connStr)
     do! conn.OpenAsync()
     use cmd = conn.CreateCommand()
@@ -588,12 +645,10 @@ let ``DB restart replays log when projection is cleared`` () = task {
     let! _ = cmd.ExecuteNonQueryAsync()
     use client2 = createDbClientNoReset connStr
     let! json2 = getStateJson client2 testFile
-    Assert.Equal(Revision 2, decodeRevision json2)
+    Assert.Equal(Revision 0, decodeRevision json2)
     let graph2 = decodeGraph json2
-    Assert.True(graph2.nodes.ContainsKey childId1, "first child must survive restart")
-    Assert.True(graph2.nodes.ContainsKey childId2, "second child must survive restart")
-    Assert.Equal("first", graph2.nodes.[childId1].text)
-    Assert.Equal("second", graph2.nodes.[childId2].text)
+    Assert.False(graph2.nodes.ContainsKey childId1)
+    Assert.False(graph2.nodes.ContainsKey childId2)
 }
 
 [<Fact>]

@@ -30,7 +30,7 @@ type FileAgentDependencies = {
 type FileAgent = {
     mailbox: MailboxProcessor<FileAgentMsg>
     logStream: FileStream
-    initialState: Gambol.Shared.State  // post-replay state captured at startup; used by DB setup
+    initialState: Gambol.Shared.State  // checkpoint state captured at startup; used by DB setup
 }
 
 module FileAgent =
@@ -67,34 +67,6 @@ module FileAgent =
             changeProcessingTimeoutMs = ChangeProcessingTimeoutMs
         }
 
-    /// Apply log entries at indexes `[fromRev .. offsetIndex.Count - 1]`.
-    /// Index `i` is the change that produces server revision `i + 1`.
-    let private replayLogFrom
-        (logStream: FileStream)
-        (offsetIndex: int64 ResizeArray)
-        (fromRev: int)
-        (start: State)
-        : State =
-        let lo = max 0 fromRev
-        let hi = offsetIndex.Count - 1
-        if hi < lo then
-            start
-        else
-            [ lo..hi ]
-            |> List.fold
-                (fun s i ->
-                    let _, json = ChangeLog.readEntryAt logStream offsetIndex.[i]
-                    match ChangeLog.decodeChange json with
-                    | Error _ -> s
-                    | Ok change ->
-                        match History.applyChange change s with
-                        | ApplyResult.Invalid _ -> s
-                        | ApplyResult.Unchanged s' ->
-                            { s' with revision = Revision(i + 1) }
-                        | ApplyResult.Changed s' ->
-                            { s' with revision = Revision(i + 1) })
-                { start with revision = Revision lo }
-
     let createWithDependencies
         (dependencies: FileAgentDependencies)
         (dataDir: string)
@@ -107,17 +79,8 @@ module FileAgent =
         let logStream = Bookkeeping.openLogStream dataDir
 
         let offsetIndex = ChangeLog.buildIndex logStream
-        // Soft-failed live-saves advance the log without rewriting disk; replay the
-        // tail past the checkpoint revision so those graph edits survive restart.
         let initialState =
-            replayLogFrom
-                logStream
-                offsetIndex
-                loadedState.revision.Value
-                loadedState
-        if initialState.revision.Value > loadedState.revision.Value then
-            Bookkeeping.writeRevision dataDir initialState.revision.Value
-            |> ignore
+            { loadedState with history = History.empty }
         let state = ref initialState
         /// False after a soft file-write failure until process restart (meta stays behind).
         let persistClean = ref true
@@ -145,8 +108,14 @@ module FileAgent =
                       stampOps = stampOps
                       message = message })
 
-        let isDuplicateSubmission (change: Change) (history: History) =
-            history.past |> List.exists (fun c -> c.id = change.id && c.changeId = change.changeId)
+        let isPersistedDuplicateSubmission (action: HistoryAction) =
+            let actionId = HistoryAction.actionId action
+            offsetIndex
+            |> Seq.exists (fun offset ->
+                let _, json = ChangeLog.readEntryAt logStream offset
+                match ChangeLog.decodeChange json with
+                | Ok change -> change.changeId = actionId
+                | Error _ -> false)
 
         let syncPersistChange
             (rev: int)
@@ -173,31 +142,33 @@ module FileAgent =
                     | Error err -> Error err
                     | Ok () -> Ok stamped
 
-        let applyBatch (changes: Change list) =
-            let step (s, acked, logEntries, changed) (change: Change) =
-                if isDuplicateSubmission change s.history then
-                    Ok(s, acked @ [ change.changeId ], logEntries, changed)
-                elif change.id <> s.revision.Value then
+        let applyBatch (actions: HistoryAction list) =
+            let step (s, acked, logEntries, changed) action =
+                let actionId = HistoryAction.actionId action
+                let baseRevision = HistoryAction.baseRevision action
+                if isPersistedDuplicateSubmission action then
+                    Ok(s, actionId :: acked, logEntries, changed)
+                elif baseRevision <> s.revision.Value then
                     Error
-                        $"Revision mismatch: server is at revision {s.revision.Value}, but this change targets base revision {change.id}."
+                        $"Revision mismatch: server is at revision {s.revision.Value}, but this action targets base revision {baseRevision}."
                 else
-                    match History.applyChange change s with
-                    | ApplyResult.Invalid (_, errMsg) -> Error errMsg
-                    | ApplyResult.Unchanged s' ->
-                        Ok(s', acked @ [ change.changeId ], logEntries, changed)
-                    | ApplyResult.Changed s' ->
+                    match History.applyAction action s with
+                    | Error error -> Error error
+                    | Ok (s', materialized) ->
                         let nextRev = s.revision.Value + 1
                         let nextState = { s' with revision = Revision nextRev }
-                        let logEntry = change.id, change
-                        Ok(nextState, acked @ [ change.changeId ], logEntries @ [ logEntry ], true)
+                        let logEntry = materialized.id, materialized
+                        Ok(nextState, actionId :: acked, logEntry :: logEntries, true)
 
-            changes
+            actions
             |> List.fold
-                (fun acc change ->
+                (fun acc action ->
                     match acc with
                     | Error err -> Error err
-                    | Ok stateAndLog -> step stateAndLog change)
+                    | Ok stateAndLog -> step stateAndLog action)
                 (Ok(state.Value, [], [], false))
+            |> Result.map (fun (newState, acked, entries, changed) ->
+                newState, List.rev acked, List.rev entries, changed)
 
         let persistLogEntries (logEntries: (int * string) list) =
             let logStart = logStream.Length

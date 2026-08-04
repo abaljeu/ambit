@@ -18,7 +18,7 @@ Mutations for delegated workers to return to their parent: `add`, `move`, `block
 
 Work currently being executed.
 
-- [[.scratch/selective-client-loading/issues/15-introduce-history-action-messaging.md]] — introduce explicit Change, Undo, and Redo messaging across sync and durable history (parent: [[.scratch/selective-client-loading/spec.md]]; owner: root-agent)
+- [[src/Shared/dotnet/GitCheckIgnore.fs]] — validate/reinitialize the shared check-ignore repository and preserve initialization failures
 
 ## Pending
 
@@ -35,7 +35,7 @@ Work ready to start but not yet claimed.
 
 Work that cannot proceed until a named dependency or decision is resolved.
 
-- [[.scratch/selective-client-loading/issues/18-synchronize-a-resident-projection-safely.md]] — apply canonical HistoryAction tails to a resident projection (blocked by: [[.scratch/selective-client-loading/issues/15-introduce-history-action-messaging.md]], [[.scratch/selective-client-loading/issues/17-represent-unloaded-child-lists-end-to-end.md]])
+- [[.scratch/selective-client-loading/issues/18-synchronize-a-resident-projection-safely.md]] — reconcile and apply materialized Change tails to a resident projection while clearing local History (blocked by: [[.scratch/selective-client-loading/issues/15-introduce-history-action-messaging.md]], [[.scratch/selective-client-loading/issues/17-represent-unloaded-child-lists-end-to-end.md]])
 - [[.scratch/selective-client-loading/issues/19-bootstrap-fresh-sessions-with-complete-root.md]] — bootstrap complete ROOT without sending the full graph (blocked by: [[.scratch/selective-client-loading/issues/18-synchronize-a-resident-projection-safely.md]])
 - [[.scratch/selective-client-loading/issues/20-restore-saved-zoom-workspace-during-bootstrap.md]] — restore at most one saved zoom Workspace during bootstrap (blocked by: [[.scratch/selective-client-loading/issues/19-bootstrap-fresh-sessions-with-complete-root.md]])
 - [[.scratch/selective-client-loading/issues/21-load-one-selected-target-through-synchronization.md]] — load one selected target through serialized synchronization (blocked by: [[.scratch/selective-client-loading/issues/16-rename-upload-to-load.md]], [[.scratch/selective-client-loading/issues/19-bootstrap-fresh-sessions-with-complete-root.md]])

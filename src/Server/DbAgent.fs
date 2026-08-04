@@ -61,42 +61,41 @@ module DbAgent =
                       stampOps = stampOps
                       message = message })
 
-        let isDuplicateSubmission (change: Change) (history: History) =
-            history.past |> List.exists (fun c -> c.id = change.id && c.changeId = change.changeId)
-
-        let isPersistedDuplicateSubmission (change: Change) =
-            Database.hasPersistedChangeId connectionString change.changeId
+        let isPersistedDuplicateSubmission (action: HistoryAction) =
+            Database.hasPersistedChangeId
+                connectionString
+                (HistoryAction.actionId action)
             |> Async.AwaitTask
             |> Async.RunSynchronously
 
-        let applyBatch (changes: Change list) =
-            let step (s, acked, logEntries) (change: Change) =
-                if isDuplicateSubmission change s.history then
-                    Ok(s, acked @ [ change.changeId ], logEntries)
-                elif change.id <> s.revision.Value
-                    && isPersistedDuplicateSubmission change then
-                    Ok(s, acked @ [ change.changeId ], logEntries)
-                elif change.id <> s.revision.Value then
+        let applyBatch (actions: HistoryAction list) =
+            let step (s, acked, logEntries) action =
+                let actionId = HistoryAction.actionId action
+                let baseRevision = HistoryAction.baseRevision action
+                if baseRevision <> s.revision.Value
+                    && isPersistedDuplicateSubmission action then
+                    Ok(s, actionId :: acked, logEntries)
+                elif baseRevision <> s.revision.Value then
                     Error
-                        $"Revision mismatch: server is at revision {s.revision.Value}, but this change targets base revision {change.id}."
+                        $"Revision mismatch: server is at revision {s.revision.Value}, but this action targets base revision {baseRevision}."
                 else
-                    match History.applyChange change s with
-                    | ApplyResult.Invalid (_, errMsg) -> Error errMsg
-                    | ApplyResult.Unchanged s' ->
-                        Ok(s', acked @ [ change.changeId ], logEntries)
-                    | ApplyResult.Changed s' ->
+                    match History.applyAction action s with
+                    | Error error -> Error error
+                    | Ok (s', materialized) ->
                         let nextRev = s.revision.Value + 1
                         let nextState = { s' with revision = Revision nextRev }
-                        let logEntry = nextRev, change
-                        Ok(nextState, acked @ [ change.changeId ], logEntries @ [ logEntry ])
+                        let logEntry = nextRev, materialized
+                        Ok(nextState, actionId :: acked, logEntry :: logEntries)
 
-            changes
+            actions
             |> List.fold
-                (fun acc change ->
+                (fun acc action ->
                     match acc with
                     | Error err -> Error err
-                    | Ok stateAndLog -> step stateAndLog change)
+                    | Ok stateAndLog -> step stateAndLog action)
                 (Ok(state.Value, [], []))
+            |> Result.map (fun (newState, acked, entries) ->
+                newState, List.rev acked, List.rev entries)
 
         let persistBatch (newState: State) (logEntries: (int * Change) list) =
             try

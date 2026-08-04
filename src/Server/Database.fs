@@ -434,38 +434,22 @@ module Database =
                     :> Task
         }
 
-    let loadPersistedState (connectionString: string) (decodeChange: string -> Result<Change, string>) : Task<State> =
+    let loadPersistedState
+        (connectionString: string)
+        (_decodeChange: string -> Result<Change, string>)
+        : Task<State> =
         task {
             let! proj = tryLoadGraphFromProjection connectionString |> Async.AwaitTask
 
-            let baseGraph, baseRevision =
+            let graph, revision =
                 match proj with
                 | Ok (g, r) -> g, r
                 | Error _ -> Graph.create (), 0
 
-            let! rows =
-                getChangesAfterCheckpointRevision connectionString baseRevision
-                |> Async.AwaitTask
-
-            let st0 =
-                { graph = baseGraph
+            return
+                { graph = graph
                   history = History.empty
-                  revision = Revision baseRevision }
-
-            let stFinal =
-                rows
-                |> List.fold
-                    (fun st row ->
-                        match decodeChange row.payload with
-                        | Error _ -> st
-                        | Ok change ->
-                            match History.applyChange change st with
-                            | ApplyResult.Changed newState ->
-                                { newState with revision = Revision (st.revision.Value + 1) }
-                            | _ -> st)
-                    st0
-
-            return stFinal
+                  revision = Revision revision }
         }
 
     /// Truncate SQL tables and replace the projection from a pre-loaded file `State`.

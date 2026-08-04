@@ -127,7 +127,8 @@ let ``server reconciler applies planner ops through active agent`` () =
     let change = { id = 0; changeId = Guid.NewGuid(); ops = ops }
     let body =
         Thoth.Json.Newtonsoft.Encode.toString 0
-            (Serialization.encodeChangeBatch { changes = [ change ] })
+            (Serialization.encodeChangeBatch
+                { changes = [ HistoryAction.Change change ] })
     FileAgent.postChange fileAgent body |> Async.RunSynchronously |> requireOk "workspace" |> ignore
     Assert.True(File.Exists(Path.Combine(tempDir, "home", ".amb")))
     Assert.Equal("1", File.ReadAllText(Bookkeeping.metaPath tempDir))
@@ -159,7 +160,8 @@ let ``server reconciler adds disk files outside the changed path list`` () =
     let change = { id = 0; changeId = Guid.NewGuid(); ops = ops }
     let body =
         Thoth.Json.Newtonsoft.Encode.toString 0
-            (Serialization.encodeChangeBatch { changes = [ change ] })
+            (Serialization.encodeChangeBatch
+                { changes = [ HistoryAction.Change change ] })
     FileAgent.postChange fileAgent body |> Async.RunSynchronously |> requireOk "workspace" |> ignore
     let existingPath = Path.Combine(tempDir, "home", "existing.txt")
     let updatedPath = Path.Combine(tempDir, "home", "updated.txt")
@@ -192,7 +194,8 @@ let ``server reconciler adds missing directory and file nodes from discovered pa
     let change = { id = 0; changeId = Guid.NewGuid(); ops = ops }
     let body =
         Thoth.Json.Newtonsoft.Encode.toString 0
-            (Serialization.encodeChangeBatch { changes = [ change ] })
+            (Serialization.encodeChangeBatch
+                { changes = [ HistoryAction.Change change ] })
     FileAgent.postChange fileAgent body |> Async.RunSynchronously |> requireOk "workspace" |> ignore
     let nestedPath = Path.Combine(tempDir, "home", "docs", "notes.txt")
     Directory.CreateDirectory(Path.GetDirectoryName(nestedPath)) |> ignore
@@ -234,7 +237,8 @@ let ``post receive rename of unparsed stub is rejected without moving disk twice
     let change = { id = 0; changeId = Guid.NewGuid(); ops = ops }
     let body =
         Thoth.Json.Newtonsoft.Encode.toString 0
-            (Serialization.encodeChangeBatch { changes = [ change ] })
+            (Serialization.encodeChangeBatch
+                { changes = [ HistoryAction.Change change ] })
     FileAgent.postChange fileAgent body
     |> Async.RunSynchronously
     |> requireOk "workspace"
@@ -296,7 +300,8 @@ let ``server reconciler posts good sibling when one path fails`` () =
     let change = { id = 0; changeId = Guid.NewGuid(); ops = ops }
     let body =
         Thoth.Json.Newtonsoft.Encode.toString 0
-            (Serialization.encodeChangeBatch { changes = [ change ] })
+            (Serialization.encodeChangeBatch
+                { changes = [ HistoryAction.Change change ] })
     FileAgent.postChange fileAgent body
     |> Async.RunSynchronously
     |> requireOk "workspace"
@@ -375,7 +380,8 @@ let private postWorkspace (fileAgent: FileAgent) (label: string) =
     let change = { id = 0; changeId = Guid.NewGuid(); ops = ops }
     let body =
         Thoth.Json.Newtonsoft.Encode.toString 0
-            (Serialization.encodeChangeBatch { changes = [ change ] })
+            (Serialization.encodeChangeBatch
+                { changes = [ HistoryAction.Change change ] })
     FileAgent.postChange fileAgent body
     |> Async.RunSynchronously
     |> requireOk "workspace"
@@ -386,7 +392,8 @@ let private postOps (fileAgent: FileAgent) (revision: int) (ops: Op list) =
     let change = { id = revision; changeId = Guid.NewGuid(); ops = ops }
     let body =
         Thoth.Json.Newtonsoft.Encode.toString 0
-            (Serialization.encodeChangeBatch { changes = [ change ] })
+            (Serialization.encodeChangeBatch
+                { changes = [ HistoryAction.Change change ] })
     FileAgent.postChange fileAgent body
     |> Async.RunSynchronously
     |> requireOk "ops"
@@ -666,7 +673,8 @@ let ``directory reconciliation POST returns failures JSON`` () =
     let wsChange = { id = 0; changeId = Guid.NewGuid(); ops = wsOps }
     let wsBody =
         Thoth.Json.Newtonsoft.Encode.toString 0
-            (Serialization.encodeChangeBatch { changes = [ wsChange ] })
+            (Serialization.encodeChangeBatch
+                { changes = [ HistoryAction.Change wsChange ] })
     use wsContent = new StringContent(wsBody, Text.Encoding.UTF8, "application/json")
     let wsResp =
         client.PostAsync("/ambit/changes", wsContent)
@@ -690,7 +698,8 @@ let ``directory reconciliation POST returns failures JSON`` () =
     let docsChange = { id = 1; changeId = Guid.NewGuid(); ops = docsOps }
     let docsBody =
         Thoth.Json.Newtonsoft.Encode.toString 0
-            (Serialization.encodeChangeBatch { changes = [ docsChange ] })
+            (Serialization.encodeChangeBatch
+                { changes = [ HistoryAction.Change docsChange ] })
     use docsContent =
         new StringContent(docsBody, Text.Encoding.UTF8, "application/json")
     let docsResp =
@@ -724,7 +733,8 @@ let ``workspace reconciliation POST with empty path discovers root`` () =
     let wsChange = { id = 0; changeId = Guid.NewGuid(); ops = wsOps }
     let wsBody =
         Thoth.Json.Newtonsoft.Encode.toString 0
-            (Serialization.encodeChangeBatch { changes = [ wsChange ] })
+            (Serialization.encodeChangeBatch
+                { changes = [ HistoryAction.Change wsChange ] })
     use wsContent = new StringContent(wsBody, Text.Encoding.UTF8, "application/json")
     let wsResp =
         client.PostAsync("/ambit/changes", wsContent)

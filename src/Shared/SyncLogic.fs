@@ -37,13 +37,15 @@ module SyncLogic =
         if List.isEmpty changes then
             Ok state
         else
+            let withoutLocalHistory =
+                { state with history = History.empty }
             changes
             |> List.fold
                 (fun acc change ->
                     match acc with
                     | Error _ -> acc
                     | Ok st ->
-                        match History.applyChangeTrusted change st with
+                        match Change.apply change st with
                         | ApplyResult.Changed newSt ->
                             Ok
                                 { newSt with
@@ -55,4 +57,4 @@ module SyncLogic =
                                       revision =
                                           Revision (st.revision.Value + 1) }
                         | ApplyResult.Invalid (_, msg) -> Error msg)
-                (Ok state)
+                (Ok withoutLocalHistory)

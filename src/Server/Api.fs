@@ -198,7 +198,8 @@ module Api =
               changeId = Guid.NewGuid()
               ops = ops }
         Encode.toString 0 (
-            Serialization.encodeChangeBatch { changes = [ change ] })
+            Serialization.encodeChangeBatch
+                { changes = [ HistoryAction.Change change ] })
 
     type private ParseFileBody =
         { fileId: string

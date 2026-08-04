@@ -96,7 +96,7 @@ let ``Upload cannot start from revision 14706 while its prior submit is in fligh
     let syncInfo =
         { SyncInfo.initial with
             syncState = Sending 1
-            pendingChanges = [ pending ] }
+            pendingChanges = [ HistoryAction.Change pending ] }
     Assert.False(WorkspaceUpload.canStart syncInfo)
     Assert.True(WorkspaceUpload.canStart SyncInfo.initial)
 
@@ -110,9 +110,10 @@ let ``canStart is true only when Idle with empty pending`` () =
         WorkspaceUpload.canStart
             { SyncInfo.initial with
                 pendingChanges =
-                    [ { id = 1
-                        changeId = System.Guid.NewGuid()
-                        ops = [] } ] })
+                    [ HistoryAction.Change
+                        { id = 1
+                          changeId = System.Guid.NewGuid()
+                          ops = [] } ] })
 
 [<Fact>]
 let ``canStartWeb allows Polling when pending is empty`` () =
@@ -128,9 +129,10 @@ let ``canStartWeb allows Polling when pending is empty`` () =
             { SyncInfo.initial with
                 syncState = Polling
                 pendingChanges =
-                    [ { id = 1
-                        changeId = System.Guid.NewGuid()
-                        ops = [] } ] })
+                    [ HistoryAction.Change
+                        { id = 1
+                          changeId = System.Guid.NewGuid()
+                          ops = [] } ] })
 
 [<Fact>]
 let ``queueBlockedDetail distinguishes pending from poll`` () =
@@ -143,9 +145,10 @@ let ``queueBlockedDetail distinguishes pending from poll`` () =
         WorkspaceUpload.queueBlockedDetail
             { SyncInfo.initial with
                 pendingChanges =
-                    [ { id = 1
-                        changeId = System.Guid.NewGuid()
-                        ops = [] } ] })
+                    [ HistoryAction.Change
+                        { id = 1
+                          changeId = System.Guid.NewGuid()
+                          ops = [] } ] })
 
 [<Fact>]
 let ``one Upload sequences all parse phases instead of racing revision 14706`` () =

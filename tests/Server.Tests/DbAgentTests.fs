@@ -25,7 +25,9 @@ let private decodeGraph (json: string) : Graph =
     | Error e -> failwith $"Decode graph: {e}"
 
 let private encodeChangeBatch (changes: Change list) =
-    Encode.toString 0 (Serialization.encodeChangeBatch { changes = changes })
+    Encode.toString 0 (
+        Serialization.encodeChangeBatch
+            { changes = changes |> List.map HistoryAction.Change })
 
 let private waitUntil (timeoutMs: int) (predicate: unit -> bool) : Task<bool> = task {
     let mutable elapsed = 0
@@ -208,6 +210,38 @@ let ``DbAgent new process loads state from projection and changes after post`` (
     Assert.Equal(Graph.workspacesId, root.children.[1].id)
     Assert.Equal(Graph.systemId, root.children.[2].id)
     Assert.Equal(Graph.trashId, root.children.[3].id)
+}
+
+[<Fact>]
+let ``loadPersistedState ignores Change rows beyond authoritative projection`` () = task {
+    let connStr = requireDbConnStr ()
+    do! resetTestDatabase connStr
+    let childId = NodeId.New()
+    let change =
+        { id = 0
+          changeId = Guid.NewGuid()
+          ops =
+            [ Op.NewNode(childId, "log-only")
+              Op.Replace(
+                  Graph.rootId,
+                  0,
+                  [],
+                  [ { ref = Ownership.Owner; id = childId } ]) ] }
+    do!
+        Database.appendChange
+            connStr
+            1
+            change.id
+            change.changeId
+            (ChangeLog.encodeChange change)
+        |> Async.AwaitTask
+    let! loaded =
+        Database.loadPersistedState connStr decodeChange
+        |> Async.AwaitTask
+    Assert.Equal(Revision 0, loaded.revision)
+    Assert.False(loaded.graph.nodes.ContainsKey childId)
+    Assert.Empty(loaded.history.past)
+    Assert.Empty(loaded.history.future)
 }
 
 [<Fact>]

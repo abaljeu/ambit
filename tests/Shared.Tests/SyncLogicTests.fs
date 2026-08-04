@@ -50,6 +50,17 @@ let ``getPollOutcome returns CodeOutdated when build stamps differ and client st
     Assert.Equal(Some CodeOutdated, SyncLogic.getPollOutcome poll 5 ctx)
 
 [<Fact>]
+let ``getPollOutcome sends an existing page through CodeOutdated after server restart`` () =
+    let pageProcessStart = 1_700_000_000
+    let restartedProcessStart = pageProcessStart + 1
+    let pageBuild = 1_699_999_000
+    let poll = mkPoll 5 restartedProcessStart pageBuild
+    let context = mkContext pageProcessStart pageBuild
+    Assert.Equal(
+        Some CodeOutdated,
+        SyncLogic.getPollOutcome poll 5 context)
+
+[<Fact>]
 let ``getPollOutcome returns None when client build stamp is 0 (stamps not yet injected)`` () =
     let poll = mkPoll 5 99 99
     let ctx = mkContext 0 0
@@ -87,7 +98,7 @@ let ``SyncInfo readiness follows state and poll responses`` () =
 
 [<Fact>]
 let ``SyncInfo withPendingChanges replaces pending list`` () =
-    let pending = [ mkChange 0 ]
+    let pending = [ HistoryAction.Change(mkChange 0) ]
     let si = SyncInfo.initial
     let si2 = SyncInfo.withPendingChanges pending si
     Assert.Equal(1, si2.pendingChanges.Length)
@@ -132,12 +143,40 @@ let private stateWithNode text : State * NodeId =
 
 [<Fact>]
 let ``applyServerTail empty list returns Ok with state unchanged`` () =
-    let st = emptyState ()
+    let past = mkChange 4
+    let st =
+        { emptyState () with
+            history =
+                { History.empty with
+                    past = [ past ]
+                    nextId = 5 } }
     match SyncLogic.applyServerTail [] st with
     | Error msg -> failwith $"Expected Ok, got Error: {msg}"
     | Ok result ->
         Assert.Equal(st.revision, result.revision)
         Assert.Equal(st.graph.root, result.graph.root)
+        Assert.Equal(st.history, result.history)
+
+[<Fact>]
+let ``applyServerTail non-empty tail clears History atomically`` () =
+    let st, nodeId = stateWithNode "before"
+    let local = mkChange 2
+    let withHistory =
+        { st with
+            history =
+                { past = [ local ]
+                  future = [ mkChange 1 ]
+                  nextId = 3 } }
+    let upstream =
+        { id = 3
+          changeId = System.Guid.NewGuid()
+          ops = [ Op.SetText(nodeId, "before", "after") ] }
+    match SyncLogic.applyServerTail [ upstream ] withHistory with
+    | Error msg -> failwith $"Expected Ok, got Error: {msg}"
+    | Ok result ->
+        Assert.Equal(History.empty, result.history)
+        Assert.Equal("after", result.graph.nodes.[nodeId].text)
+        Assert.Equal(Revision 4, result.revision)
 
 [<Fact>]
 let ``applyServerTail advances revision by one per change`` () =

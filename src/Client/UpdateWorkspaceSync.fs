@@ -168,7 +168,9 @@ let private applyAndPostSync (change: Change) (model: VM) : Result<VM, string> =
     | ApplyResult.Unchanged _ -> Error "change not applied"
     | ApplyResult.Changed newState ->
         let body =
-            SyncBatch.toDeltaChain model.revision.Value [ change ]
+            SyncBatch.toActionDeltaChain
+                model.revision.Value
+                [ HistoryAction.Change change ]
             |> encodePendingBatchBody
         let url = sprintf "/%s/changes" currentFile
         let status, text = postJsonSync url body (jsonHeaders ())

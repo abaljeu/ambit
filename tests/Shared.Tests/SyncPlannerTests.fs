@@ -10,18 +10,20 @@ let private mkChange id =
       changeId = Guid.NewGuid()
       ops = [] }
 
+let private asAction change = HistoryAction.Change change
+
 [<Fact>]
 let ``tryStartSubmit returns SubmitPendingBatch effect when queue is ready`` () =
     let c = mkChange 7
     let syncInfo =
         { SyncInfo.initial with
-            pendingChanges = [ c ] }
+            pendingChanges = [ asAction c ] }
     let nextInfo, effects = SyncPlanner.tryStartSubmit (Revision 9) syncInfo
     Assert.Equal(Sending 1, nextInfo.syncState)
     match effects with
     | [ SubmitPendingBatch (baseRevision, changes) ] ->
         Assert.Equal(9, baseRevision)
-        Assert.Equal<Change list>([ c ], changes)
+        Assert.Equal<HistoryAction list>([ asAction c ], changes)
     | _ ->
         failwith "Expected single SubmitPendingBatch effect"
 
@@ -29,7 +31,7 @@ let ``tryStartSubmit returns SubmitPendingBatch effect when queue is ready`` () 
 let ``tryStartSubmit returns no effects when already sending`` () =
     let syncInfo =
         { SyncInfo.initial with
-            pendingChanges = [ mkChange 1 ]
+            pendingChanges = [ mkChange 1 |> asAction ]
             syncState = Sending 1 }
     let nextInfo, effects = SyncPlanner.tryStartSubmit (Revision 1) syncInfo
     Assert.Equal(Sending 1, nextInfo.syncState)
@@ -42,17 +44,17 @@ let ``ackBatch dequeues acknowledged changes and schedules remainder`` () =
     let c3 = mkChange 0
     let syncInfo =
         { SyncInfo.initial with
-            pendingChanges = [ c1; c2; c3 ]
+            pendingChanges = [ c1; c2; c3 ] |> List.map asAction
             syncState = Sending 1 }
     let nextInfo, pending, effects =
         SyncPlanner.ackBatch [ c1.changeId; c2.changeId ] (Revision 3) syncInfo
     Assert.Single(pending) |> ignore
-    Assert.Equal(c3.changeId, pending.Head.changeId)
+    Assert.Equal(c3.changeId, HistoryAction.actionId pending.Head)
     Assert.Equal(Sending 1, nextInfo.syncState)
     match effects with
     | [ SubmitPendingBatch (baseRevision, changes) ] ->
         Assert.Equal(3, baseRevision)
-        Assert.Equal<Change list>([ c3 ], changes)
+        Assert.Equal<HistoryAction list>([ asAction c3 ], changes)
     | _ ->
         failwith "Expected single SubmitPendingBatch effect for remaining queue"
 
@@ -61,7 +63,7 @@ let ``ackBatch with last item returns Idle and no effects`` () =
     let c = mkChange 0
     let syncInfo =
         { SyncInfo.initial with
-            pendingChanges = [ c ]
+            pendingChanges = [ asAction c ]
             syncState = Sending 1 }
     let nextInfo, pending, effects =
         SyncPlanner.ackBatch [ c.changeId ] (Revision 1) syncInfo
@@ -96,7 +98,7 @@ let ``tryStartPoll emits PollServer when idle with empty queue`` () =
 [<Fact>]
 let ``tryStartPoll returns no effects when queue is non-empty`` () =
     let syncInfo =
-        { SyncInfo.initial with pendingChanges = [ mkChange 0 ] }
+        { SyncInfo.initial with pendingChanges = [ mkChange 0 |> asAction ] }
     let si, effects = SyncPlanner.tryStartPoll (Revision 5) syncInfo
     Assert.Equal(Idle, si.syncState)
     Assert.Empty(effects)
@@ -126,7 +128,7 @@ let ``queued Upload waits while a change submit is in flight`` () =
     let request = QueuedWorkspacePush(scope, Some(NodeId.New()))
     let syncInfo =
         { SyncInfo.initial with
-            pendingChanges = [ mkChange 14706 ]
+            pendingChanges = [ mkChange 14706 |> asAction ]
             syncState = Sending 1 }
         |> SyncInfo.queueRequest request
     let si, effects = SyncPlanner.tryReleaseQueued syncInfo
@@ -144,7 +146,7 @@ let ``queued file Upload preserves its scope until the change queue drains`` () 
             Some(NodeId.New()))
     let queued =
         { SyncInfo.initial with
-            pendingChanges = [ c ]
+            pendingChanges = [ asAction c ]
             syncState = Sending 1 }
         |> SyncInfo.queueRequest request
     let acked, _, _ = SyncPlanner.ackBatch [ c.changeId ] (Revision 14707) queued
@@ -214,8 +216,52 @@ let ``tryReleaseQueued is inert with nothing queued`` () =
 let ``tryStartSubmit returns no effects when uploading`` () =
     let syncInfo =
         { SyncInfo.initial with
-            pendingChanges = [ mkChange 1 ]
+            pendingChanges = [ mkChange 1 |> asAction ]
             syncState = Uploading }
     let nextInfo, effects = SyncPlanner.tryStartSubmit (Revision 1) syncInfo
     Assert.Equal(Uploading, nextInfo.syncState)
     Assert.Empty(effects)
+
+[<Fact>]
+let ``mixed action delta chain preserves identities and rewrites revisions`` () =
+    let change = mkChange 99
+    let undoId = Guid.NewGuid()
+    let redoId = Guid.NewGuid()
+    let actions =
+        [ HistoryAction.Change change
+          HistoryAction.Undo(99, undoId)
+          HistoryAction.Redo(99, redoId) ]
+    let chained = SyncBatch.toActionDeltaChain 7 actions
+    Assert.Equal<int list>(
+        [ 7; 8; 9 ],
+        chained |> List.map HistoryAction.baseRevision)
+    Assert.Equal<Guid list>(
+        [ change.changeId; undoId; redoId ],
+        chained |> List.map HistoryAction.actionId)
+
+[<Fact>]
+let ``applyAndEnqueueLocalAction applies Undo optimistically and queues intent`` () =
+    let state0 = ModelBuilder.createState12 ()
+    let root = state0.graph.nodes.[state0.graph.root]
+    let node = state0.graph.nodes.[root.children.Head.id]
+    let change =
+        { id = 0
+          changeId = Guid.NewGuid()
+          ops = [ Op.SetText(node.id, node.text, "changed") ] }
+    let changed =
+        History.applyChange change state0
+        |> function
+            | ApplyResult.Changed state -> state
+            | _ -> failwith "expected initial change"
+    let undo = HistoryAction.Undo(1, Guid.NewGuid())
+    match
+        SyncPlanner.applyAndEnqueueLocalAction
+            undo
+            changed
+            SyncInfo.initial
+    with
+    | Error error -> failwith error
+    | Ok (next, syncInfo, effects) ->
+        Assert.Equal(node.text, next.graph.nodes.[node.id].text)
+        Assert.Equal<HistoryAction list>([ undo ], syncInfo.pendingChanges)
+        Assert.Contains(SavePendingQueue [ undo ], effects)

@@ -708,23 +708,26 @@ let undoOp (model: VM) : VM * Effect list =
     let state = { graph = model'.graph; history = model'.history; revision = model'.revision }
     match model'.history.past |> List.tryHead with
     | None -> model', commitEffects
-    | Some headChange ->
-        match History.undo state with
-        | ApplyResult.Changed newState ->
-            let invertedChange = { Change.invert headChange with id = model'.history.nextId }
-            let pending = model'.syncInfo.pendingChanges @ [invertedChange]
-            let nextSyncInfo, submitEffects =
-                { model'.syncInfo with pendingChanges = pending }
-                |> SyncPlanner.tryStartSubmit model'.revision
-            let effects = commitEffects @ (SavePendingQueue pending) :: submitEffects
+    | Some _ ->
+        let action =
+            HistoryAction.Undo(
+                model'.history.nextId,
+                System.Guid.NewGuid())
+        match
+            SyncPlanner.applyAndEnqueueLocalAction
+                action
+                state
+                model'.syncInfo
+        with
+        | Ok (newState, nextSyncInfo, actionEffects) ->
             { model' with
                 graph = newState.graph
                 history = newState.history
                 mode = Selecting
                 syncInfo = nextSyncInfo }
             |> withSiteMap
-            |> fun m -> m, effects
-        | _ -> model', commitEffects
+            |> fun m -> m, commitEffects @ actionEffects
+        | Error _ -> model', commitEffects
 
 /// Op: Redo the last undone change, committing any in-progress edit first.
 let redoOp (model: VM) : VM * Effect list =
@@ -732,23 +735,23 @@ let redoOp (model: VM) : VM * Effect list =
     let state = { graph = model'.graph; history = model'.history; revision = model'.revision }
     match model'.history.future |> List.tryHead with
     | None -> model', commitEffects
-    | Some headChange ->
-        match History.redo state with
-        | ApplyResult.Changed newState ->
-            let reChange =
-                { headChange with
-                    id = model'.history.nextId
-                    changeId = System.Guid.NewGuid() }
-            let pending = model'.syncInfo.pendingChanges @ [reChange]
-            let nextSyncInfo, submitEffects =
-                { model'.syncInfo with pendingChanges = pending }
-                |> SyncPlanner.tryStartSubmit model'.revision
-            let effects = commitEffects @ (SavePendingQueue pending) :: submitEffects
+    | Some _ ->
+        let action =
+            HistoryAction.Redo(
+                model'.history.nextId,
+                System.Guid.NewGuid())
+        match
+            SyncPlanner.applyAndEnqueueLocalAction
+                action
+                state
+                model'.syncInfo
+        with
+        | Ok (newState, nextSyncInfo, actionEffects) ->
             { model' with
                 graph = newState.graph
                 history = newState.history
                 mode = Selecting
                 syncInfo = nextSyncInfo }
             |> withSiteMap
-            |> fun m -> m, effects
-        | _ -> model', commitEffects
+            |> fun m -> m, commitEffects @ actionEffects
+        | Error _ -> model', commitEffects

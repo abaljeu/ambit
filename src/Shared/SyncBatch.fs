@@ -7,3 +7,11 @@ module SyncBatch =
         changes
         |> List.mapi (fun idx change ->
             { change with id = baseRevision + idx })
+
+    let toActionDeltaChain
+        (baseRevision: int)
+        (actions: HistoryAction list)
+        : HistoryAction list =
+        actions
+        |> List.mapi (fun index action ->
+            HistoryAction.withBaseRevision (baseRevision + index) action)

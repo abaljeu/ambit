@@ -1,13 +1,12 @@
-# 15 — Introduce HistoryAction messaging
+# 15 — Introduce HistoryAction submission
 
-**What to build:** Make Change, Undo, and Redo explicit HistoryActions throughout synchronization and durable history so users receive the same ordered behavior during ordinary full-graph submit, Poll, bootstrap, Load catch-up, replay, and projected transitions. Undo and Redo must travel as actions rather than becoming inverted or reissued Changes.
+**What to build:** Widen the existing client pending queue, mixed `/changes` batch, and server command application from Change to HistoryAction. Keep Undo and Redo immediate and optimistic: submit the explicit action, apply it to canonical server History, then materialize its graph effect as an ordinary Change through the unchanged ChangeLog, Poll, bootstrap, Load, persistence, acknowledgement, revision, and retry paths. See the superseding plan in [[.scratch/selective-client-loading/undo-spec.md]].
 
-**Blocked by:** None — can start immediately.
+**Status:** ready
 
-**Status:** ready-for-agent
-
-- [ ] Submitting, polling, bootstrapping, and loading exchange ordered Change, Undo, and Redo HistoryActions with revisions preserved from request through response.
-- [ ] Durable history records and replays all three action kinds, and an existing Change-only durable entry decodes and replays as a Change HistoryAction.
-- [ ] Invoking Undo or Redo places that explicit action in the client pending queue and produces the corresponding canonical server History entry without creating an inverted or reissued Change.
-- [ ] Server application and the resident-transition boundary accept each HistoryAction kind and produce the expected graph and History result.
-- [ ] Existing full-graph editing, synchronization, replay, Undo, and Redo behavior remains green when all child lists are resident.
+- [ ] Change, Undo, and Redo share the existing pending queue and atomic `/changes` batch; every action carries the existing revision id and `changeId`, while only Change carries operations.
+- [ ] Invoking Undo or Redo updates local History immediately and queues that explicit action; server application performs the same canonical History transition or fails the batch.
+- [ ] Every accepted action produces one materialized Change with the action's same revision id and `changeId`; ChangeLog, persistence, acknowledgements, Poll, bootstrap, and Load remain Change-only.
+- [ ] Applying a non-empty upstream Change tail clears local History and applies the projected Changes without recording them; empty Polls and acknowledgements of this client's own actions preserve local History.
+- [ ] Server History starts empty on each process start, database and file startup do not replay ChangeLog, and a changed server start time puts existing pages into the stale-client refresh flow without requiring a new login.
+- [ ] No compatibility codec or migration is added, and existing full-graph editing, mixed batching, retry identity, synchronization, optimistic Undo, and optimistic Redo behavior remains green.

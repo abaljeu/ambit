@@ -28,7 +28,8 @@ let private changedBody () =
                 ]
         }
     Encode.toString 0 (
-        Serialization.encodeChangeBatch { changes = [ change ] })
+        Serialization.encodeChangeBatch
+            { changes = [ HistoryAction.Change change ] })
 
 let private softFailPersist : string -> Graph -> Graph -> Op list -> Result<PersistGraphOk, string> =
     fun _ _ postGraph _ ->
@@ -60,7 +61,8 @@ let private softFailEditBody () =
                 ]
         }
     Encode.toString 0 (
-        Serialization.encodeChangeBatch { changes = [ change ] })
+        Serialization.encodeChangeBatch
+            { changes = [ HistoryAction.Change change ] })
 
 [<Fact>]
 let ``persistence exception is logged replied and mailbox survives`` () = task {
@@ -176,7 +178,7 @@ let ``soft-fail live-save still commits graph and returns could-not-save message
 }
 
 [<Fact>]
-let ``soft-fail graph edit survives FileAgent restart via log replay`` () = task {
+let ``soft-fail log is not replayed into FileAgent state after restart`` () = task {
     let dataDir = newTempDir ()
     let defaults = FileAgent.defaultDependencies dataDir
     let dependencies = { defaults with persistGraphOps = softFailPersist }
@@ -191,14 +193,16 @@ let ``soft-fail graph edit survives FileAgent restart via log replay`` () = task
     finally
         FileAgent.dispose agent1
 
-    // Meta checkpoint stays behind after soft-fail; disk has no probe text.
+    // Meta checkpoint stays behind after soft-fail; restart trusts that checkpoint.
     Assert.Equal(Revision 0, Bookkeeping.readRevision dataDir)
     let agent2 = FileAgent.createWithDependencies dependencies dataDir
     try
         let! stateJson =
             FileAgent.getState agent2 |> Async.StartAsTask
-        Assert.Contains("soft-fail-probe", stateJson)
-        Assert.Contains("\"revision\":1", stateJson)
+        Assert.DoesNotContain("soft-fail-probe", stateJson)
+        Assert.Contains("\"revision\":0", stateJson)
+        Assert.Empty(agent2.initialState.history.past)
+        Assert.Empty(agent2.initialState.history.future)
     finally
         FileAgent.dispose agent2
 }

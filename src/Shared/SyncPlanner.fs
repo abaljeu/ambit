@@ -23,15 +23,33 @@ module SyncPlanner =
             let nextInfo = syncInfo |> SyncInfo.withSyncState (Sending 1)
             nextInfo, [ SubmitPendingBatch (baseRevision.Value, changes) ]
 
+    let applyAndEnqueueLocalAction
+        (action: HistoryAction)
+        (state: State)
+        (syncInfo: SyncInfo)
+        : Result<State * SyncInfo * Effect list, string> =
+        match History.applyAction action state with
+        | Error error -> Error error
+        | Ok (nextState, _) ->
+            let pending = syncInfo.pendingChanges @ [ action ]
+            let nextSyncInfo, submitEffects =
+                { syncInfo with pendingChanges = pending }
+                |> tryStartSubmit state.revision
+            Ok(
+                nextState,
+                nextSyncInfo,
+                SavePendingQueue pending :: submitEffects)
+
     let ackBatch
         (ackedChangeIds: System.Guid list)
         (revision: Revision)
         (syncInfo: SyncInfo)
-        : SyncInfo * Change list * Effect list =
+        : SyncInfo * HistoryAction list * Effect list =
         let acked = ackedChangeIds |> Set.ofList
         let pending =
             syncInfo.pendingChanges
-            |> List.filter (fun change -> not (Set.contains change.changeId acked))
+            |> List.filter (fun action ->
+                not (Set.contains (HistoryAction.actionId action) acked))
         let baseInfo = syncInfo |> SyncInfo.withPendingChanges pending
         match pending with
         | [] ->
@@ -40,6 +58,23 @@ module SyncPlanner =
             baseInfo |> SyncInfo.withSyncState (Sending 1),
             pending,
             [ SubmitPendingBatch (revision.Value, changes) ]
+
+    let ackRequiresReload
+        (clientRevision: Revision)
+        (attempt: int)
+        (ackedChangeIds: System.Guid list)
+        (syncInfo: SyncInfo)
+        (serverRevision: Revision)
+        : bool =
+        let acked = ackedChangeIds |> Set.ofList
+        let acknowledgedPendingCount =
+            syncInfo.pendingChanges
+            |> List.filter (fun action ->
+                Set.contains (HistoryAction.actionId action) acked)
+            |> List.length
+        let expectedRevision =
+            clientRevision.Value + acknowledgedPendingCount
+        attempt > 1 || serverRevision.Value <> expectedRevision
 
     /// Release requests parked behind the change-ops queue, once that queue has drained
     /// and nothing is in flight. Called after every message so any path back to Idle

@@ -188,6 +188,7 @@ module RouteRegistration =
             failwithf "Could not read server assembly timestamp: missing file at '%s'." serverAssemblyPath
         // Deploy stamps freeze at startup; page stamps re-read wwwroot mtimes (Fable watch).
         let deployUtc = max (File.GetLastWriteTimeUtc(serverAssemblyPath)) (readPageArtifactUtc ())
+        let processStartUtc = DateTime.UtcNow
         let torontoTz = TimeZoneInfo.FindSystemTimeZoneById("America/Toronto")
         let formatStamp (utc: DateTime) =
             TimeZoneInfo.ConvertTimeFromUtc(utc, torontoTz).ToString("yyyy-MM-dd HH:mm:ss") + " ET"
@@ -208,7 +209,7 @@ module RouteRegistration =
                     if artifactUtc > DateTime.MinValue then formatStamp artifactUtc
                     else "unknown"
             PageBuildEpochSec = fun () -> pageUtc () |> epochSec
-            DeployEpochSec = fun () -> epochSec deployUtc
+            DeployEpochSec = fun () -> epochSec processStartUtc
             InlineCommandDockSprite = inlineCommandDockSprite
         }
 

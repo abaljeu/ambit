@@ -8,8 +8,8 @@ open Thoth.Json.Core
 // ---------------------------------------------------------------------------
 
 /// Encode a batch as compact JSON for POST /{file}/changes.
-let encodePendingBatchBody (changes: Change list) : string =
-    let batch: ChangeBatch = { changes = changes }
+let encodePendingBatchBody (actions: HistoryAction list) : string =
+    let batch: ChangeBatch = { changes = actions }
     Thoth.Json.JavaScript.Encode.toString 0 (Serialization.encodeChangeBatch batch)
 
 

@@ -36,20 +36,21 @@ let jsonMutatingPostHeaders () : obj =
 
 let private pendingKey = "gambol-pending-v1"
 
-let savePendingQueue (changes: Change list) =
-    if changes.IsEmpty then localStorageRemove pendingKey
+let savePendingQueue (actions: HistoryAction list) =
+    if actions.IsEmpty then localStorageRemove pendingKey
     else
-        let encoded = Encode.list (changes |> List.map Serialization.encodeChange)
+        let encoded =
+            Encode.list (actions |> List.map Serialization.encodeHistoryAction)
         let json = Thoth.Json.JavaScript.Encode.toString 0 encoded
         localStorageSet pendingKey json
 
-let loadPendingQueue () : Change list =
+let loadPendingQueue () : HistoryAction list =
     let json = localStorageGet pendingKey
     if isNull json || json = "" then []
     else
         match Thoth.Json.JavaScript.Decode.fromString
-            (Decode.list Serialization.decodeChange) json with
-        | Ok cs -> cs
+            (Decode.list Serialization.decodeHistoryAction) json with
+        | Ok actions -> actions
         | Error _ -> []
 
 // ---------------------------------------------------------------------------
@@ -83,24 +84,29 @@ let readEditInputSelectionEnd () : int =
 /// changes locally but do not fire a POST.
 let applyAndPost (change: Change) (model: VM) : Result<VM * Effect list, string> =
     let state: State = { graph = model.graph; revision = model.revision; history = model.history }
-    match History.applyChange change state with
-    | ApplyResult.Changed newState ->
-        let pending = model.syncInfo.pendingChanges @ [change]
-        let nextSyncInfo, submitEffects =
-            { model.syncInfo with pendingChanges = pending }
-            |> SyncPlanner.tryStartSubmit model.revision
-        if not submitEffects.IsEmpty then
+    let action = HistoryAction.Change change
+    match
+        SyncPlanner.applyAndEnqueueLocalAction
+            action
+            state
+            model.syncInfo
+    with
+    | Ok (newState, nextSyncInfo, effects) ->
+        if
+            effects
+            |> List.exists (function
+                | SubmitPendingBatch _ -> true
+                | _ -> false)
+        then
             consoleLog (
                 "[Gambol sync] applyAndPost fireFirst modelRev=" + string model.revision.Value
-                + " qLen=" + string pending.Length)
-        let effects = (SavePendingQueue pending) :: submitEffects
+                + " qLen=" + string nextSyncInfo.pendingChanges.Length)
         Ok
             ({ model with
                 graph = newState.graph
                 history = newState.history
                 syncInfo = nextSyncInfo }, effects)
-    | ApplyResult.Invalid (_, msg) -> Error msg
-    | ApplyResult.Unchanged _ -> Error "change not applied"
+    | Error error -> Error error
 
 /// Extract the child span covered by a SiteNodeRange.
 let rangeChildren (graph: Graph) (range: SiteNodeRange) =
