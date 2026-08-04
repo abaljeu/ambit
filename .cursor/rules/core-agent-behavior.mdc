@@ -82,5 +82,6 @@ While in plan mode, any request for a change should be interpreted as a request 
 ## Multitasking / SubAgent Delegation
 Use subagents to carry out tasks.
 When a subagent completes, summarize its conclusion for the user.
+When a subagent's final report would be long, require it to write the full report to `tmp/<agent-window-title>.md` and return only a short summary with a link to the file. Short reports may remain in chat; if a workflow specifies another report path, use that path instead.
 Subagents should only run focused tests, never all tests.
 You may create a subagent specifically to run all tests of a project.

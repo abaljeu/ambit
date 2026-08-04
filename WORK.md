@@ -18,6 +18,8 @@ Mutations for delegated workers to return to their parent: `add`, `move`, `block
 
 Work currently being executed.
 
+- [[.scratch/selective-client-loading/map.md]] — resolve selective client loading decisions for `/to-spec` readiness
+
 ## Pending
 
 Work ready to start but not yet claimed.
