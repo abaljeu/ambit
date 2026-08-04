@@ -209,7 +209,7 @@ type SyncState =
     | Idle                       // all confirmed, nothing pending
     | Sending of attempt: int    // POST in-flight; attempt = 1-based send count
     | Polling                    // GET poll in-flight
-    | Uploading                  // workspace push in progress (blocks poll)
+    | Uploading                  // workspace file push in progress (blocks poll)
     | WaitingToRetry of attempt: int * baseRevision: int * changes: HistoryAction list
     | ServerRejected  // server returned 400 — change cannot be applied; reload required
     | CodeOutdated    // server has newer code (build stamp changed) — reload required
@@ -218,7 +218,7 @@ type SyncState =
 /// A multi-phase request that must start from a settled revision, so it rides the
 /// change-ops queue instead of running while a submit or poll is in flight.
 type QueuedRequest =
-    | QueuedUpload
+    | QueuedLoad
     /// Preserve a desktop target while another workspace push is in flight.
     | QueuedWorkspacePush of WorkspaceSyncScope * parseFileId: NodeId option
 

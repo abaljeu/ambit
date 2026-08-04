@@ -22,7 +22,6 @@ Work currently being executed.
 
 Work ready to start but not yet claimed.
 
-- [[.scratch/selective-client-loading/issues/16-rename-upload-to-load.md]] — rename Upload to Load without changing source synchronization behavior (parent: [[.scratch/selective-client-loading/spec.md]])
 - [[.scratch/selective-client-loading/issues/17-represent-unloaded-child-lists-end-to-end.md]] — represent unloaded child lists while preserving canonical owner identity (parent: [[.scratch/selective-client-loading/spec.md]])
 - [[doc/current/workspace-graph.md]] — add SYSTEM to ROOT's fixed children and canonical special-node table
 - [[doc/reference/dev-debug-workflow.md]] — document watch: prefer `/ambit?debug=1`; after esbuild rebuild hard-reload (Ack on CodeOutdated does not unblock)

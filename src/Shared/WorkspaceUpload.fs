@@ -2,7 +2,7 @@ namespace Gambol.Shared
 
 open Gambol.Shared.CommandEntry
 
-/// What Upload should do for the current focus + desktop push capability.
+/// What Upload (file push / parse) should do for the current Load focus.
 [<RequireQualifiedAccess>]
 type WorkspaceUploadAction =
     /// Workspaces focus: pick folder, create named workspace, map, push.
@@ -29,17 +29,17 @@ module WorkspaceUpload =
            | Idle | Polling -> true
            | _ -> false
 
-    /// Detail when Upload is parked; distinguish pending ops from sync busy.
+    /// Detail when Load is parked; distinguish pending ops from sync busy.
     let queueBlockedDetail (syncInfo: SyncInfo) =
         if not syncInfo.pendingChanges.IsEmpty then
-            "upload queued behind pending changes"
+            "load queued behind pending changes"
         else
             match syncInfo.syncState with
-            | Polling -> "upload queued until poll completes"
-            | Sending _ -> "upload queued until submit completes"
-            | Uploading -> "upload queued until current upload completes"
-            | WaitingToRetry _ -> "upload queued until retry completes"
-            | _ -> "upload queued until sync settles"
+            | Polling -> "load queued until poll completes"
+            | Sending _ -> "load queued until submit completes"
+            | Uploading -> "load queued until current upload completes"
+            | WaitingToRetry _ -> "load queued until retry completes"
+            | _ -> "load queued until sync settles"
 
     /// Keep parse/materialization requests from one Upload strictly ordered.
     let sequenceParseEffects (effects: Effect list) =
@@ -55,7 +55,7 @@ module WorkspaceUpload =
         | WorkspaceUploadAction.DesktopPush _ when canImportDesktop -> path
         | _ -> None
 
-    /// Palette / key: Upload when Workspaces+desktop, or File/Dir/Workspace focus.
+    /// Palette / key: Load when Workspaces+desktop, or File/Dir/Workspace focus.
     let isAvailable
         (canPush: bool)
         (focusIsWorkspaces: bool)

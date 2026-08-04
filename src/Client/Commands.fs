@@ -224,7 +224,7 @@ let commandRegistry : CommandEntry2 list =
       cmd Find (keyAlways findRootOp)
       cmd EditClasses (keyAlways openCssClassPromptOp)
       cmd JumpToTarget (keyAlways jumpTargetOp)
-      cmd Upload (keyAlways uploadOp)
+      cmd Load (keyAlways loadOp)
       cmd Save (keyAlways saveOp)
       cmd Download (keyAlways downloadOp)
       cmd CheckGraph (keyAlways validateGraphOp)
@@ -261,7 +261,7 @@ let commandsForPalette (model: VM) (returnTo: Mode) : CommandEntry2 list =
         | None -> false
         | Some e ->
             inKeyScope sel e.keyScope
-            && (c.id <> Upload || uploadAvailable model)
+            && (c.id <> Load || loadAvailable model)
             && (c.id <> Download || downloadAvailable model))
 
 let filteredCommands (model: VM) (returnTo: Mode) (query: string) : CommandEntry2 list =

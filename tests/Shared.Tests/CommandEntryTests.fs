@@ -53,12 +53,13 @@ let ``displayName matches metadata name`` () =
         Assert.Equal(e.name, name)
 
 [<Fact>]
-let ``upload owns Ctrl Shift greater-than`` () =
-    let entry = commandFor Upload |> Option.get
-    Assert.Equal("Upload", entry.name)
+let ``load owns Ctrl Shift greater-than`` () =
+    let entry = commandFor Load |> Option.get
+    Assert.Equal("Load", entry.name)
     Assert.Equal<string list>([ "Ctrl+Shift+>" ], entry.keys)
     Assert.DoesNotContain(allCommands, fun command -> command.name = "Import")
     Assert.DoesNotContain(allCommands, fun command -> command.name = "Map workspace")
+    Assert.DoesNotContain(allCommands, fun command -> command.name = "Upload")
 
 [<Fact>]
 let ``download owns Ctrl Shift less-than`` () =

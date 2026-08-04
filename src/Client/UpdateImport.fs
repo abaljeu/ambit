@@ -13,7 +13,7 @@ let private canImportDesktop (model: VM) =
 let private fail (model: VM) (message: string) : VM * Effect list =
     consoleLog ("[Gambol desktop] parse failed: " + message)
     { model with
-        lastCmdResult = Some(CmdLastResult.Error (Some "Upload", message)) },
+        lastCmdResult = Some(CmdLastResult.Error (Some "Load", message)) },
     []
 
 let private httpError (status: int) (responseText: string) =

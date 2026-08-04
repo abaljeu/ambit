@@ -284,7 +284,7 @@ let private queueWorkspacePush
     okDetail
         { model with
             syncInfo = SyncInfo.queueRequest request model.syncInfo }
-        "upload queued until current sync completes"
+        "load queued until current sync completes"
 
 /// Ensure map (may pick-folder), then JSON body for async `/_desktop/workspace-push`.
 let tryPrepareWorkspacePushBody
@@ -501,10 +501,10 @@ let uploadCreateWorkspaceOp (model: VM) : VM * Effect list =
                         keepUploading model',
                         [ Effect.ContinueWorkspaceStubsThenPush (scope, None) ]
 
-let private queueUploadRequest (model: VM) : VM * Effect list =
+let private queueLoadRequest (model: VM) : VM * Effect list =
     okDetail
         { model with
-            syncInfo = SyncInfo.queueRequest QueuedUpload model.syncInfo }
+            syncInfo = SyncInfo.queueRequest QueuedLoad model.syncInfo }
         (WorkspaceUpload.queueBlockedDetail model.syncInfo)
 
 let private labelHasLocalMapping (label: string) : bool =
@@ -512,8 +512,8 @@ let private labelHasLocalMapping (label: string) : bool =
     | Ok(Some _) -> true
     | _ -> false
 
-/// Upload: desktop push when mapped; else graph-only from DataDir (web / unmapped).
-let uploadOp (model: VM) : VM * Effect list =
+/// Load command: desktop Upload when mapped; else graph-only from DataDir (web / unmapped).
+let loadOp (model: VM) : VM * Effect list =
     let canPush =
         DesktopCapabilities.canWorkspacePush model.desktopCapabilities
     let target = contextualTargetForModel model
@@ -539,7 +539,7 @@ let uploadOp (model: VM) : VM * Effect list =
         WorkspaceUpload.canStart model.syncInfo ->
         uploadCreateWorkspaceOp model
     | WorkspaceUploadAction.CreateWorkspaceFromFolder ->
-        queueUploadRequest model
+        queueLoadRequest model
     | WorkspaceUploadAction.ReconcileServerDisk when
         WorkspaceUpload.canStartWeb model.syncInfo ->
         match syncScopeFromFocus model with
@@ -552,13 +552,13 @@ let uploadOp (model: VM) : VM * Effect list =
         parseFileOp action fileId model
     | WorkspaceUploadAction.ReconcileServerDisk
     | WorkspaceUploadAction.ParseServerDisk _ ->
-        queueUploadRequest model
+        queueLoadRequest model
     | WorkspaceUploadAction.Unavailable msg ->
         withResult
             model
-            (CmdLastResult.Error(Some(displayName Upload), msg))
+            (CmdLastResult.Error(Some(displayName Load), msg))
 
-let uploadAvailable (model: VM) =
+let loadAvailable (model: VM) =
     WorkspaceUpload.isAvailable
         (DesktopCapabilities.canWorkspacePush model.desktopCapabilities)
         (focusIsWorkspaces model)

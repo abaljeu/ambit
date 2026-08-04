@@ -54,7 +54,7 @@ type CommandId =
     | Find
     | EditClasses
     | JumpToTarget
-    | Upload
+    | Load
     | Save
     | Download
     | InsertFile
@@ -245,7 +245,7 @@ let allCommands : CommandEntry list =
         { id = JumpToTarget; name = "Jump to Target"
           keys = [ "Alt+j"; "j" ]; keyScope = SelectionOrEditing
           iconId = Some "amb-icon-jump" }
-        { id = Upload; name = "Upload"
+        { id = Load; name = "Load"
           keys = [ "Ctrl+Shift+>" ]; keyScope = SelectionOnly
           iconId = None }
         { id = Save; name = "Save"

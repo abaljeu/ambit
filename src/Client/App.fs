@@ -148,7 +148,7 @@ let createRuntime (initialModel: VM) =
         | SubmitPendingBatch (baseRev, changes) -> runSubmitPendingBatch baseRev changes
         | PollServer _ -> runPollServer ()
         | ScheduleRetry delayMs -> runScheduleRetry delayMs
-        | RunQueuedRequest QueuedUpload -> dispatch (ApplyOp uploadOp)
+        | RunQueuedRequest QueuedLoad -> dispatch (ApplyOp loadOp)
         | RunQueuedRequest (QueuedWorkspacePush (scope, parseFileId)) ->
             dispatch (ApplyOp (startWorkspacePush scope parseFileId))
         | SavePendingQueue q -> runSavePendingQueue q

@@ -120,7 +120,7 @@ let ``tryStartPoll returns no effects when uploading`` () =
     Assert.Empty(effects)
 
 [<Fact>]
-let ``queued Upload waits while a change submit is in flight`` () =
+let ``queued workspace Upload waits while a change submit is in flight`` () =
     let scope =
         { label = "home"
           relative = "notes/today.md"
@@ -193,18 +193,23 @@ let ``queued Upload is released after a poll settles`` () =
     Assert.Equal<Effect list>([ RunQueuedRequest request ], snd settled)
 
 [<Fact>]
-let ``pressing Upload twice while it waits queues one request`` () =
-    let request =
-        QueuedWorkspacePush(
-            { label = "home"
-              relative = ""
-              kind = SyncScopeKind.Workspace },
-            None)
+let ``pressing Load twice while it waits queues one request`` () =
+    let request = QueuedLoad
     let syncInfo =
         { SyncInfo.initial with syncState = Polling }
         |> SyncInfo.queueRequest request
         |> SyncInfo.queueRequest request
     Assert.Equal<QueuedRequest list>([ request ], syncInfo.queuedRequests)
+
+[<Fact>]
+let ``QueuedLoad releases after sync settles`` () =
+    let syncInfo =
+        { SyncInfo.initial with syncState = Polling }
+        |> SyncInfo.queueRequest QueuedLoad
+    Assert.Empty(snd (SyncPlanner.tryReleaseQueued syncInfo))
+    let settled =
+        { syncInfo with syncState = Idle } |> SyncPlanner.tryReleaseQueued
+    Assert.Equal<Effect list>([ RunQueuedRequest QueuedLoad ], snd settled)
 
 [<Fact>]
 let ``tryReleaseQueued is inert with nothing queued`` () =
