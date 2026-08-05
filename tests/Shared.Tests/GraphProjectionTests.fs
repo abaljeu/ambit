@@ -64,6 +64,28 @@ let ``graphEquals is true for same graph`` () =
     Assert.True(GraphProjection.graphEquals g g)
 
 [<Fact>]
+let ``graphEquals distinguishes Unloaded from Loaded empty`` () =
+    let g0 = Graph.create ()
+    let id = NodeId.New()
+    let unloaded = Node.Create(id, text = "hollow", childrenStatus = Unloaded)
+    let loadedEmpty = Node.Create(id, text = "hollow")
+    let gUnloaded = Graph.fromNodes g0.root (g0.nodes |> Map.add id unloaded)
+    let gLoaded = Graph.fromNodes g0.root (g0.nodes |> Map.add id loadedEmpty)
+    Assert.False(GraphProjection.graphEquals gUnloaded gLoaded)
+
+[<Fact>]
+let ``graphRoundTrip rebuilds Unloaded as Loaded`` () =
+    let g0 = Graph.create ()
+    let id = NodeId.New()
+    let unloaded = Node.Create(id, text = "hollow", childrenStatus = Unloaded)
+    let g1 = Graph.fromNodes g0.root (g0.nodes |> Map.add id unloaded)
+    match GraphProjection.graphRoundTrip g1 with
+    | Error e -> Assert.Fail(e)
+    | Ok g2 ->
+        Assert.Equal(Loaded, g2.nodes.[id].childrenStatus)
+        Assert.True(g2.nodes |> Map.forall (fun _ n -> n.childrenStatus = Loaded))
+
+[<Fact>]
 let ``graphRoundTrip preserves default graph`` () =
     let g = Graph.create ()
 

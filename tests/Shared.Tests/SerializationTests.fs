@@ -46,6 +46,32 @@ let ``Node round-trip with Empty name`` () =
     Assert.Equal(node, decoded)
 
 [<Fact>]
+let ``Node childrenStatus Unloaded round-trip`` () =
+    let node = Node.Create(NodeId.New(), text = "hollow", childrenStatus = Unloaded)
+    let decoded = roundTrip Serialization.encodeNode Serialization.decodeNode node
+    Assert.Equal(Unloaded, decoded.childrenStatus)
+    Assert.Equal(node, decoded)
+
+[<Fact>]
+let ``Node decode without childrenStatus defaults to Loaded`` () =
+    let nodeId = NodeId.New()
+    let json =
+        $"""{{"id":"{nodeId.Value}","text":"legacy","children":[],"cssClasses":[],"kind":"normal"}}"""
+    match Dec.fromString Serialization.decodeNode json with
+    | Error err -> failwith $"Decode failed: {err}"
+    | Ok decoded -> Assert.Equal(Loaded, decoded.childrenStatus)
+
+[<Fact>]
+let ``Node decode rejects Unloaded with non-empty children`` () =
+    let nodeId = NodeId.New()
+    let childId = NodeId.New()
+    let json =
+        $"""{{"id":"{nodeId.Value}","text":"bad","children":[{{"ref":"owner","id":"{childId.Value}"}}],"childrenStatus":"unloaded","cssClasses":[],"kind":"normal"}}"""
+    match Dec.fromString Serialization.decodeNode json with
+    | Ok _ -> failwith "expected decode failure"
+    | Error err -> Assert.Contains("Unloaded", err)
+
+[<Fact>]
 let ``Node decode without updateTime uses missing sentinel`` () =
     let nodeId = NodeId.New()
     let json =

@@ -270,8 +270,17 @@ module GraphBuild =
                     |> Option.defaultValue root
                 { node with owner = ownerParent })
 
+    let private requireValidChildrenStatus (nodes: Map<NodeId, Node>) : unit =
+        nodes
+        |> Map.iter (fun _ node ->
+            match node.childrenStatus, node.children with
+            | Unloaded, _ :: _ ->
+                failwith "Unloaded childrenStatus requires empty children"
+            | _ -> ())
+
     /// Build a graph with recomputed parent indexes (use for decode, snapshots, tests).
     let fromNodes (root: NodeId) (nodes: Map<NodeId, Node>) : Graph =
+        requireValidChildrenStatus nodes
         let nodesWithRoot = ensureRootKind nodes
         let nodesWithWorkspaces = ensureWorkspacesNode nodesWithRoot
         let nodesWithSystem = ensureSystemNode nodesWithWorkspaces

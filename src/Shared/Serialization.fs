@@ -32,6 +32,18 @@ module Serialization =
             | "noServerFile" -> Decode.succeed NoServerFile
             | other -> Decode.fail $"Unknown document state: {other}")
 
+    let private encodeChildrenStatus (status: ChildrenStatus) : IEncodable =
+        match status with
+        | Loaded -> Encode.string "loaded"
+        | Unloaded -> Encode.string "unloaded"
+
+    let private decodeChildrenStatus: Decoder<ChildrenStatus> =
+        Decode.string
+        |> Decode.andThen (function
+            | "loaded" -> Decode.succeed Loaded
+            | "unloaded" -> Decode.succeed Unloaded
+            | other -> Decode.fail $"Unknown children status: {other}")
+
     let private encodeSpecialKind (kind: SpecialKind) : IEncodable =
         match kind with
         | Workspaces -> Encode.string "workspaces"
@@ -116,6 +128,7 @@ module Serialization =
               "text", Encode.string node.text
               "name", Encode.lossyOption Encode.string (Filename.tryValue node.name)
               "children", node.children |> List.map encodeChildNode |> Encode.list
+              "childrenStatus", encodeChildrenStatus node.childrenStatus
               "cssClasses", node.cssClasses |> CssClass.toList |> List.map Encode.string |> Encode.list
               "kind", encodeNodeKind node.kind
               "documentState", encodeDocumentState node.documentState
@@ -141,15 +154,35 @@ module Serialization =
             let documentState =
                 get.Optional.Field "documentState" decodeDocumentState
                 |> Option.defaultValue Current
-            Node.Create(
-                get.Required.Field "id" decodeNodeId,
-                text = get.Required.Field "text" Decode.string,
-                name = name,
-                children = get.Required.Field "children" (Decode.list decodeChildNode),
-                cssClasses = cssClasses,
-                kind = kind,
-                documentState = documentState,
-                updateTime = updateTime))
+            let children = get.Required.Field "children" (Decode.list decodeChildNode)
+            let childrenStatus =
+                get.Optional.Field "childrenStatus" decodeChildrenStatus
+                |> Option.defaultValue Loaded
+            get.Required.Field "id" decodeNodeId,
+            get.Required.Field "text" Decode.string,
+            name,
+            children,
+            childrenStatus,
+            cssClasses,
+            kind,
+            documentState,
+            updateTime)
+        |> Decode.andThen (fun (id, text, name, children, childrenStatus, cssClasses, kind, documentState, updateTime) ->
+            match childrenStatus, children with
+            | Unloaded, _ :: _ ->
+                Decode.fail "Unloaded childrenStatus requires empty children"
+            | _ ->
+                Decode.succeed (
+                    Node.Create(
+                        id,
+                        text = text,
+                        name = name,
+                        children = children,
+                        childrenStatus = childrenStatus,
+                        cssClasses = cssClasses,
+                        kind = kind,
+                        documentState = documentState,
+                        updateTime = updateTime)))
 
     // ---- Graph ----
 

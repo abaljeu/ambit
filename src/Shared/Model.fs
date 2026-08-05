@@ -72,12 +72,17 @@ type DocumentState =
     | Unparsed
     | NoServerFile
 
+/// Whether `Node.children` is an authoritative Loaded list or Unloaded (must be empty).
+type ChildrenStatus =
+    | Unloaded
+    | Loaded
 
 type Node =
     { id         : NodeId
       text       : string
       name       : Filename
       children   : ChildNode list
+      childrenStatus : ChildrenStatus
       cssClasses : CssClasses
       owner      : NodeId
       kind       : NodeKind
@@ -118,28 +123,37 @@ module NodeUpdateTime =
 
 type Node with
     /// Build a node; omit fields to use defaults (empty text/name/children/classes,
-    /// owner = root Guid.Empty, kind = Normal, updateTime = missing).
+    /// childrenStatus = Loaded, owner = root Guid.Empty, kind = Normal, updateTime = missing).
+    /// Unloaded is valid only when children is empty.
     static member Create
         (
             id: NodeId,
             ?text: string,
             ?name: Filename,
             ?children: ChildNode list,
+            ?childrenStatus: ChildrenStatus,
             ?cssClasses: CssClasses,
             ?owner: NodeId,
             ?kind: NodeKind,
             ?documentState: DocumentState,
             ?updateTime: DateTime
         ) : Node =
-        { id = id
-          text = defaultArg text ""
-          name = defaultArg name Filename.Empty
-          children = defaultArg children []
-          cssClasses = defaultArg cssClasses CssClass.empty
-          owner = defaultArg owner (NodeId Guid.Empty)
-          kind = defaultArg kind Normal
-          documentState = defaultArg documentState Current
-          updateTime = defaultArg updateTime NodeUpdateTime.missing }
+        let children' = defaultArg children []
+        let childrenStatus' = defaultArg childrenStatus Loaded
+        match childrenStatus', children' with
+        | Unloaded, _ :: _ ->
+            invalidArg "childrenStatus" "Unloaded childrenStatus requires empty children"
+        | _ ->
+            { id = id
+              text = defaultArg text ""
+              name = defaultArg name Filename.Empty
+              children = children'
+              childrenStatus = childrenStatus'
+              cssClasses = defaultArg cssClasses CssClass.empty
+              owner = defaultArg owner (NodeId Guid.Empty)
+              kind = defaultArg kind Normal
+              documentState = defaultArg documentState Current
+              updateTime = defaultArg updateTime NodeUpdateTime.missing }
 
 
 // Span of child indices [start, endd) under graph node `pnode` (parent NodeId).

@@ -29,6 +29,7 @@ module GraphProjection =
         && a.name = b.name
         && a.kind = b.kind
         && a.documentState = b.documentState
+        && a.childrenStatus = b.childrenStatus
         && CssClass.toList a.cssClasses = CssClass.toList b.cssClasses
         && a.updateTime = b.updateTime
         && List.length a.children = List.length b.children

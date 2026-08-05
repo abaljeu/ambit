@@ -4,11 +4,13 @@
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** agent-done
 
-- [ ] A child list has exactly Unloaded or Loaded status, Unloaded is valid only with no resident children, and existing current and full graphs default to Loaded.
-- [ ] A resident header with Unloaded children is observably distinct from both a Loaded empty leaf and a Loaded parent.
-- [ ] Encoding, decoding, equality, graph construction, and persistence projection preserve child-list status and reject or avoid the invalid Unloaded-with-children state.
-- [ ] Only Loaded child lists contribute parent, owner-parent, traversal, and other edge-derived indexes.
+- [x] A child list has exactly Unloaded or Loaded status, Unloaded is valid only with no resident children, and existing current and full graphs default to Loaded.
+- [x] A resident header with Unloaded children is observably distinct from both a Loaded empty leaf and a Loaded parent.
+- [x] Encoding, decoding, equality, graph construction, and persistence projection preserve child-list status and reject or avoid the invalid Unloaded-with-children state.
+- [x] Only Loaded child lists contribute parent, owner-parent, traversal, and other edge-derived indexes.
 - [ ] Every resident header supplies its plain canonical NodeId owner; rebuilding a projection whose owner edge or owner list is Unloaded preserves that owner instead of replacing it with ROOT.
 - [ ] The owner-parent index contains only authoritative Owner edges from Loaded lists, ROOT self-owns, and no Unknown owner wrapper, case, or sentinel is introduced.
+
+Notes: Plan simplified model — owner/Unknown ACs left unchanged (`applyOwnerField` ROOT default as-is). SQL projection has no status column; rebuild defaults Loaded.

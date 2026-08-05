@@ -271,10 +271,45 @@ let ``Node.Create applies defaults for omitted fields`` () =
     Assert.Equal("hello", node.text)
     Assert.Equal(Filename.Empty, node.name)
     Assert.Equal<ChildNode list>([], node.children)
+    Assert.Equal(Loaded, node.childrenStatus)
     Assert.Equal(CssClass.empty, node.cssClasses)
     Assert.Equal(Graph.rootId, node.owner)
     Assert.Equal(Normal, node.kind)
     Assert.Equal(NodeUpdateTime.missing, node.updateTime)
+
+[<Fact>]
+let ``Node Unloaded empty is distinct from Loaded empty`` () =
+    let id = NodeId.New()
+    let unloaded = Node.Create(id, childrenStatus = Unloaded)
+    let loadedEmpty = Node.Create(id)
+    Assert.Equal(Unloaded, unloaded.childrenStatus)
+    Assert.Equal(Loaded, loadedEmpty.childrenStatus)
+    Assert.NotEqual(unloaded, loadedEmpty)
+
+[<Fact>]
+let ``Node.Create rejects Unloaded with non-empty children`` () =
+    let id = NodeId.New()
+    let child = ChildNode.New()
+    Assert.Throws<System.ArgumentException>(fun () ->
+        Node.Create(id, children = [ child ], childrenStatus = Unloaded) |> ignore)
+    |> ignore
+
+[<Fact>]
+let ``Graph.fromNodes preserves Unloaded and rejects Unloaded with children`` () =
+    let g0 = Graph.create ()
+    let id = NodeId.New()
+    let unloaded = Node.Create(id, text = "hollow", childrenStatus = Unloaded)
+    let g1 = Graph.fromNodes g0.root (g0.nodes |> Map.add id unloaded)
+    Assert.Equal(Unloaded, g1.nodes.[id].childrenStatus)
+    Assert.Equal<ChildNode list>([], g1.nodes.[id].children)
+
+    let invalid =
+        { unloaded with
+            children = [ ChildNode.New() ]
+            childrenStatus = Unloaded }
+    Assert.Throws<System.Exception>(fun () ->
+        Graph.fromNodes g0.root (g0.nodes |> Map.add id invalid) |> ignore)
+    |> ignore
 
 [<Fact>]
 let ``Graph.create bootstraps WORKSPACES under root with special kind`` () =

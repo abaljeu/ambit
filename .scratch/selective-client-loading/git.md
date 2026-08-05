@@ -2,4 +2,4 @@
 
 - **Current project branch:** `w/rename-upload-to-load`
 - **Cut from original:** `workspaces`
-- **Notes:** Issue 16 — rename user-facing Upload command to Load / QueuedLoad; keep Uploading for file push.
+- **Notes:** Issue 17 — `ChildrenStatus` on Node (Unloaded|Loaded); wire/equality/fromNodes; SQL projection stays Loaded.
