@@ -4,6 +4,8 @@
 
 **Blocked by:** 17 — Represent unloaded child lists end to end.
 
+**See also:** [[.scratch/selective-client-loading/spec.md]] (shared structural pre-commit guard); [[.scratch/selective-client-loading/issues/14-simplify-selective-loading.md]] (Structural commands).
+
 **Status:** ready-for-agent
 
 - [ ] Every local Change-planning command other than MoveSelected is rejected before commit when any planned operation would modify an Unloaded child list.

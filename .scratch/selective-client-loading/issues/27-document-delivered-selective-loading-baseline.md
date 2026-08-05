@@ -4,6 +4,8 @@
 
 **Blocked by:** 20 — Restore saved zoom Workspace during bootstrap; 23 — Make hollow-circle clicks invoke Load; 24 — Keep navigation and Find resident-only; 26 — Move selected content into an unloaded destination.
 
+**See also:** [[.scratch/selective-client-loading/spec.md]] (Further Notes documentation promotion); [[.scratch/selective-client-loading/issues/14-simplify-selective-loading.md]] (Authority).
+
 **Status:** ready-for-agent
 
 - [ ] One authoritative current document explains complete-Workspace client residency, bootstrap scope, explicit Load, resident-only behavior, HistoryAction synchronization, canonical owners, structural guards, and MoveSelected projection behavior as delivered facts.

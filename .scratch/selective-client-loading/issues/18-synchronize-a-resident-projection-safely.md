@@ -1,8 +1,12 @@
-# 18 — Synchronize a resident projection safely
+# 18 — Apply catch-up HistoryActions under Loaded rules
 
-**What to build:** Apply ordered canonical HistoryAction tails to a client's resident projection without manufacturing partial child lists, losing History, or exposing a partially applied response.
+**Context:** When changes happen server-side, client polling receives those changes and applies them.  The rules for applying the change set is a bit different where absent or unloaded nodes exist.
+
+**What to build:** Apply ordered canonical Change, Undo, and Redo catch-up to the client's graph without inventing Loaded child lists, dropping History, or exposing a half-applied synchronization response.
 
 **Blocked by:** 15 — Introduce HistoryAction messaging; 17 — Represent unloaded child lists end to end.
+
+**See also:** [[.scratch/selective-client-loading/spec.md]] (projected catch-up and atomic install); [[.scratch/selective-client-loading/issues/14-simplify-selective-loading.md]] (Synchronization and projected correctness).
 
 **Status:** ready-for-agent
 

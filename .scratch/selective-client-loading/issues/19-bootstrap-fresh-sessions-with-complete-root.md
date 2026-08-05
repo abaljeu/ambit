@@ -1,8 +1,11 @@
 # 19 — Bootstrap fresh sessions with complete ROOT
 
+**Context:** When the client initializes, previously it would receive the complete graph from the server via /state.  Now we want only part of the graph.
 **What to build:** Start each fresh webpage session from one coherent complete ROOT Workspace package instead of the full canonical graph, while retaining the core subtrees and headers needed for the first usable view.
 
 **Blocked by:** 18 — Synchronize a resident projection safely.
+
+**See also:** [[.scratch/selective-client-loading/spec.md]] (ROOT bootstrap scope); [[.scratch/selective-client-loading/issues/14-simplify-selective-loading.md]] (Residency and graph model).
 
 **Status:** ready-for-agent
 

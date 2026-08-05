@@ -1,8 +1,11 @@
 # 20 — Restore saved zoom Workspace during bootstrap
 
+**Context:** The client on refresh may have a saved zoom node.  Now we use this node to modify what's initially loaded.
 **What to build:** Restore a saved zoom target during initial bootstrap by adding at most its complete owning Workspace to complete ROOT, with deterministic fallback for duplicate or stale targets and no residency caused by fold restoration.
 
 **Blocked by:** 19 — Bootstrap fresh sessions with complete ROOT.
+
+**See also:** [[.scratch/selective-client-loading/spec.md]] (saved zoom Workspace and fold restoration); [[.scratch/selective-client-loading/issues/14-simplify-selective-loading.md]] (startup installs ROOT plus at most one saved-zoom Workspace).
 
 **Status:** ready-for-agent
 

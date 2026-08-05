@@ -4,6 +4,8 @@
 
 **Blocked by:** 18 — Synchronize a resident projection safely; 25 — Guard structural commands at unloaded boundaries.
 
+**See also:** [[.scratch/selective-client-loading/spec.md]] (MoveSelected disappearance and Undo/Redo); [[.scratch/selective-client-loading/issues/14-simplify-selective-loading.md]] (MoveSelected exception).
+
 **Status:** ready-for-agent
 
 - [ ] MoveSelected into an Unloaded destination submits the complete canonical move without requesting or installing that destination's Workspace.

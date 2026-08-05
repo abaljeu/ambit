@@ -4,6 +4,7 @@ globs: **/*.{md,mdc}
 
 DO NOT PUT LINEBREAKS in Markdown paragraphs. Wordwrap takes care of it for us.
 Markdown lines are unlimited length. Only linebreaks at paragraph boundaries or for markdown formatting.
+Always talk in ASD-STE100 Simplified Technical English.  Always read CONTEXT.md files and use their ubiquitous language.
 
 When writing markdown with Write, do not include explicit CRLF (`\r\n`) in the content; use normal newlines and let the tool/editor preserve CRLF.
 

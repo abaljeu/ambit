@@ -4,6 +4,8 @@
 
 **Blocked by:** 19 — Bootstrap fresh sessions with complete ROOT.
 
+**See also:** [[.scratch/selective-client-loading/spec.md]] (resident-only Zoom, Find, folds, traversal); [[.scratch/selective-client-loading/issues/14-simplify-selective-loading.md]] (no implicit loading from navigation surfaces).
+
 **Status:** ready-for-agent
 
 - [ ] Zoom treats a resident header with Unloaded children as an ordinary leaf and emits no request for additional residency.

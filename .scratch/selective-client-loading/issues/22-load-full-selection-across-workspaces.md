@@ -1,8 +1,11 @@
 # 22 — Load full selection across Workspaces
+This is poorly written and must not be implemented until clarified.
 
 **What to build:** Make one Load process the user's complete selection across owning Workspaces, preserving source-stage order while deduplicating the authoritative Workspace packages needed by Unloaded targets.
 
 **Blocked by:** 21 — Load one selected target through synchronization.
+
+**See also:** [[.scratch/selective-client-loading/spec.md]] (multi-Workspace Load and package deduplication); [[.scratch/selective-client-loading/issues/14-simplify-selective-loading.md]] (selected-target resolution and Workspace packages).
 
 **Status:** ready-for-agent
 

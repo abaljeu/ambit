@@ -1,8 +1,10 @@
 # 23 — Make hollow-circle clicks invoke Load
 
-**What to build:** Let users invoke the full-selection Load command from the hollow-circle affordance while keeping Unloaded residency distinct from Unparsed source state and loaded empty nodes visually distinct.
+**What to build:** Let users click on the hollow circle adjacent to a user node.invoke the Load command from the hollow-circle affordance while keeping Unloaded residency distinct from Unparsed source state and loaded empty nodes visually distinct.
 
 **Blocked by:** 22 — Load full selection across Workspaces.
+
+**See also:** [[.scratch/selective-client-loading/spec.md]] (hollow-circle Load affordance); [[.scratch/selective-client-loading/issues/14-simplify-selective-loading.md]] (Unloaded vs Unparsed; full-selection hollow-circle click).
 
 **Status:** ready-for-agent
 

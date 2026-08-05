@@ -28,10 +28,6 @@ The idea `implement` runs on is the **seam** — the stable interface a feature 
 
 Around that core it keeps the loop tight — typecheck often, run single test files as it goes, run the whole suite once at the end — then closes out with a review pass and a commit to the current branch.
 
-## How It's Implemented
-Follow
-[[.cursor/skills/implement-fsharp-feature/SKILL.md]]
-
 ## Where it fits
 
 `implement` is the build step near the end of the main chain, just before the review:
