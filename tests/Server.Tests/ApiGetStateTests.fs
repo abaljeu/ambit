@@ -40,42 +40,8 @@ let private minimalStateJson () =
               revision = Revision 0
               isReady = true })
 
-[<Fact>]
-let ``getState returns 500 text body when agent fails`` () = task {
-    let err =
-        "Internal server error in FileAgent GetState (dataDir=C:\\data)."
-    let handle =
-        handleWithGetState (fun () -> async.Return(Result.Error err))
-    let! result = Api.getState handle (defaultStateRequest()) |> Async.StartAsTask
-    match box result with
-    | :? ContentHttpResult as content ->
-        Assert.Equal(Nullable 500, content.StatusCode)
-        Assert.Equal(err, content.ResponseContent)
-        Assert.Contains("text/plain", content.ContentType)
-    | other ->
-        Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")
-}
-
-[<Fact>]
-let ``getState returns JSON content when agent succeeds`` () = task {
-    let json = minimalStateJson ()
-    let handle =
-        handleWithGetState (fun () -> async.Return(Result.Ok json))
-    let! result = Api.getState handle (defaultStateRequest()) |> Async.StartAsTask
-    match box result with
-    | :? ContentHttpResult as content ->
-        Assert.Equal("application/json", content.ContentType)
-        match decodeStateResponse content.ResponseContent with
-        | Error err -> failwith err
-        | Ok response ->
-            Assert.Equal(Revision 0, response.revision)
-            Assert.True(response.isReady)
-    | other ->
-        Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")
-}
-
-[<Fact>]
-let ``getState scope full skips bootstrap projection`` () = task {
+/// Nested named Workspace with one Directory child (canonical full graph JSON).
+let private nestedWorkspaceStateJson () =
     let graph0 = Graph.create ()
     let wsId = NodeId.New()
     let dirId = NodeId.New()
@@ -115,6 +81,45 @@ let ``getState scope full skips bootstrap projection`` () = task {
                 { graph = graph2
                   revision = Revision 1
                   isReady = true })
+    json, wsId, dirId
+
+[<Fact>]
+let ``getState returns 500 text body when agent fails`` () = task {
+    let err =
+        "Internal server error in FileAgent GetState (dataDir=C:\\data)."
+    let handle =
+        handleWithGetState (fun () -> async.Return(Result.Error err))
+    let! result = Api.getState handle (defaultStateRequest()) |> Async.StartAsTask
+    match box result with
+    | :? ContentHttpResult as content ->
+        Assert.Equal(Nullable 500, content.StatusCode)
+        Assert.Equal(err, content.ResponseContent)
+        Assert.Contains("text/plain", content.ContentType)
+    | other ->
+        Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")
+}
+
+[<Fact>]
+let ``getState returns JSON content when agent succeeds`` () = task {
+    let json = minimalStateJson ()
+    let handle =
+        handleWithGetState (fun () -> async.Return(Result.Ok json))
+    let! result = Api.getState handle (defaultStateRequest()) |> Async.StartAsTask
+    match box result with
+    | :? ContentHttpResult as content ->
+        Assert.Equal("application/json", content.ContentType)
+        match decodeStateResponse content.ResponseContent with
+        | Error err -> failwith err
+        | Ok response ->
+            Assert.Equal(Revision 0, response.revision)
+            Assert.True(response.isReady)
+    | other ->
+        Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")
+}
+
+[<Fact>]
+let ``getState scope full skips bootstrap projection`` () = task {
+    let json, _, dirId = nestedWorkspaceStateJson ()
     let handle =
         handleWithGetState (fun () -> async.Return(Result.Ok json))
     let req = DefaultHttpContext().Request
@@ -126,6 +131,45 @@ let ``getState scope full skips bootstrap projection`` () = task {
         | Error err -> failwith err
         | Ok response ->
             Assert.True(response.graph.nodes.ContainsKey dirId)
+    | other ->
+        Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")
+}
+
+[<Fact>]
+let ``getState zoom outside ROOT adds owning Workspace`` () = task {
+    let json, wsId, dirId = nestedWorkspaceStateJson ()
+    let handle =
+        handleWithGetState (fun () -> async.Return(Result.Ok json))
+    let req = DefaultHttpContext().Request
+    let (NodeId zoomGuid) = dirId
+    req.QueryString <- QueryString.Create("zoom", zoomGuid.ToString())
+    let! result = Api.getState handle req |> Async.StartAsTask
+    match box result with
+    | :? ContentHttpResult as content ->
+        match decodeStateResponse content.ResponseContent with
+        | Error err -> failwith err
+        | Ok response ->
+            Assert.True(response.graph.nodes.ContainsKey dirId)
+            Assert.Equal(Loaded, response.graph.nodes.[wsId].childrenStatus)
+            Assert.Equal(Revision 1, response.revision)
+    | other ->
+        Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")
+}
+
+[<Fact>]
+let ``getState without zoom keeps nested Workspace Unloaded`` () = task {
+    let json, wsId, dirId = nestedWorkspaceStateJson ()
+    let handle =
+        handleWithGetState (fun () -> async.Return(Result.Ok json))
+    let! result = Api.getState handle (defaultStateRequest()) |> Async.StartAsTask
+    match box result with
+    | :? ContentHttpResult as content ->
+        match decodeStateResponse content.ResponseContent with
+        | Error err -> failwith err
+        | Ok response ->
+            Assert.True(response.graph.nodes.ContainsKey wsId)
+            Assert.Equal(Unloaded, response.graph.nodes.[wsId].childrenStatus)
+            Assert.False(response.graph.nodes.ContainsKey dirId)
     | other ->
         Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")
 }

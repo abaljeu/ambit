@@ -5,6 +5,7 @@ open Gambol.Shared.LogText
 open Gambol.Shared.ViewModel
 open Gambol.Client
 open Gambol.Client.App
+open Gambol.Client.SessionState
 open Gambol.Client.Update
 open Gambol.Client.UpdateCodec
 open Gambol.Client.Controller
@@ -61,8 +62,14 @@ fetchTextNoCacheWithFail
 let private showBootError (msg: string) =
     app.textContent <- $"Error: {msg}"
 
+let private stateUrl =
+    match tryReadSavedZoomId () with
+    | None -> $"/{currentFile}/state"
+    | Some (NodeId g) ->
+        $"/{currentFile}/state?zoom={g.ToString()}"
+
 fetchGet
-    $"/{currentFile}/state"
+    stateUrl
     (fun text ->
         match decodeStateResponse text with
         | Ok response ->

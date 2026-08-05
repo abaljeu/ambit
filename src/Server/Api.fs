@@ -132,9 +132,18 @@ module Api =
             BootstrapScope.FullGraph
         | _ -> BootstrapScope.RootClosure
 
+    let private parseSavedZoom (req: HttpRequest) : NodeId option =
+        match req.Query.TryGetValue "zoom" with
+        | true, values when values.Count > 0 ->
+            match Guid.TryParse(values.[0]) with
+            | true, g -> Some(NodeId g)
+            | _ -> None
+        | _ -> None
+
     let getState (handle: AgentHandle) (req: HttpRequest) : Async<IResult> = async {
         try
             let scope = parseBootstrapScope req
+            let savedZoom = parseSavedZoom req
             let! result = handle.getState ()
             match result with
             | Ok json ->
@@ -149,7 +158,10 @@ module Api =
                             $"Internal server error in GetState decode: {err}"
                 | Ok response ->
                     let scoped =
-                        ResidentProjection.bootstrapStateResponse scope response
+                        ResidentProjection.bootstrapStateResponse
+                            scope
+                            savedZoom
+                            response
                     let encoded =
                         ApiResponseSerialization.encodeStateResponse scoped
                         |> Encode.toString 0
