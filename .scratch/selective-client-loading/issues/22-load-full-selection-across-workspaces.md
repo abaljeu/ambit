@@ -13,5 +13,5 @@ This is poorly written and must not be implemented until clarified.
 - [ ] Mixed selections run the existing source synchronization stages in their established order for every eligible target.
 - [ ] The server resolves each Unloaded target to its canonical owning Workspace and returns each required Workspace package at most once.
 - [ ] Loaded targets receive catch-up without causing redundant Workspace packages, including when they share a Workspace with an Unloaded target.
-- [ ] Selections spanning several Workspaces install all deduplicated packages and the ordered ChangeRequest tail at one response revision.
+- [ ] Selections spanning several Workspaces install all deduplicated Graph subgraphs and the ordered Change tail at one response revision.
 - [ ] The resulting resident projection retains all previously loaded Workspaces and contains the complete newly requested Workspace closures.

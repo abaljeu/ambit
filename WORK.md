@@ -22,9 +22,8 @@ Work currently being executed.
 
 Work ready to start but not yet claimed.
 
-- [[.scratch/selective-client-loading/issues/18-synchronize-a-resident-projection-safely.md]] — reconcile and apply materialized Change tails to a resident projection while clearing local History (parent: [[.scratch/selective-client-loading/spec.md]])
+- [[.scratch/selective-client-loading/issues/19-bootstrap-fresh-sessions-with-complete-root.md]] — `/state` scoped Graph: ROOT closure (± ticket 20 Workspace), no Change tail, no full canonical graph (parent: [[.scratch/selective-client-loading/spec.md]])
 - [[.scratch/selective-client-loading/issues/25-guard-structural-commands-at-unloaded-boundaries.md]] — guard ordinary structural commands from unloaded child lists (parent: [[.scratch/selective-client-loading/spec.md]])
-- [[doc/current/workspace-graph.md]] — add SYSTEM to ROOT's fixed children and canonical special-node table
 - [[doc/reference/dev-debug-workflow.md]] — document watch: prefer `/ambit?debug=1`; after esbuild rebuild hard-reload (Ack on CodeOutdated does not unblock)
 - [[src/Shared/SyncLogic.fs]] — decide whether to ignore page-stamp drift when deploy stamp matches during Fable/esbuild watch
 - [[src/Client/Program.fs]] — optional hardening: `fetchTextNoCacheWithFail` for `/ambit/state` (not the primary hang)
@@ -33,11 +32,10 @@ Work ready to start but not yet claimed.
 
 Work that cannot proceed until a named dependency or decision is resolved.
 
-- [[.scratch/selective-client-loading/issues/19-bootstrap-fresh-sessions-with-complete-root.md]] — bootstrap complete ROOT without sending the full graph (blocked by: [[.scratch/selective-client-loading/issues/18-synchronize-a-resident-projection-safely.md]])
 - [[.scratch/selective-client-loading/issues/20-restore-saved-zoom-workspace-during-bootstrap.md]] — restore at most one saved zoom Workspace during bootstrap (blocked by: [[.scratch/selective-client-loading/issues/19-bootstrap-fresh-sessions-with-complete-root.md]])
 - [[.scratch/selective-client-loading/issues/21-load-one-selected-target-through-synchronization.md]] — load one selected target through serialized synchronization (blocked by: [[.scratch/selective-client-loading/issues/16-rename-upload-to-load.md]], [[.scratch/selective-client-loading/issues/19-bootstrap-fresh-sessions-with-complete-root.md]])
 - [[.scratch/selective-client-loading/issues/22-load-full-selection-across-workspaces.md]] — load mixed selections with deduplicated Workspace packages (blocked by: [[.scratch/selective-client-loading/issues/21-load-one-selected-target-through-synchronization.md]])
 - [[.scratch/selective-client-loading/issues/23-make-hollow-circle-clicks-invoke-load.md]] — dispatch full-selection Load from the hollow-circle affordance (blocked by: [[.scratch/selective-client-loading/issues/22-load-full-selection-across-workspaces.md]])
 - [[.scratch/selective-client-loading/issues/24-keep-navigation-and-find-resident-only.md]] — keep navigation and Find synchronous over resident content (blocked by: [[.scratch/selective-client-loading/issues/19-bootstrap-fresh-sessions-with-complete-root.md]])
-- [[.scratch/selective-client-loading/issues/26-move-selected-content-into-an-unloaded-destination.md]] — preserve projected MoveSelected disappearance and Undo/Redo parity (blocked by: [[.scratch/selective-client-loading/issues/18-synchronize-a-resident-projection-safely.md]], [[.scratch/selective-client-loading/issues/25-guard-structural-commands-at-unloaded-boundaries.md]])
+- [[.scratch/selective-client-loading/issues/26-move-selected-content-into-an-unloaded-destination.md]] — preserve projected MoveSelected disappearance and Undo/Redo parity (blocked by: [[.scratch/selective-client-loading/issues/25-guard-structural-commands-at-unloaded-boundaries.md]])
 - [[.scratch/selective-client-loading/issues/27-document-delivered-selective-loading-baseline.md]] — promote implemented client residency while retaining future server residency in the roadmap (blocked by: [[.scratch/selective-client-loading/issues/20-restore-saved-zoom-workspace-during-bootstrap.md]], [[.scratch/selective-client-loading/issues/23-make-hollow-circle-clicks-invoke-load.md]], [[.scratch/selective-client-loading/issues/24-keep-navigation-and-find-resident-only.md]], [[.scratch/selective-client-loading/issues/26-move-selected-content-into-an-unloaded-destination.md]])

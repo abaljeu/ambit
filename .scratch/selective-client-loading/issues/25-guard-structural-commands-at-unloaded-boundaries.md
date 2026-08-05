@@ -13,4 +13,4 @@
 - [ ] A plan containing both valid Loaded-list operations and one Unloaded-list operation commits none of its operations.
 - [ ] Add Child, Paste, ordinary structural moves, delete-related plans, and other structural command categories exhibit the same all-or-nothing boundary behavior through the common guard.
 - [ ] Nonstructural changes to a resident Node header remain allowed when that header's children are Unloaded.
-- [ ] Existing ROOT, SYSTEM, and TRASH ordinary delete, permanent delete, and Undo behavior remains available because their required lists are Loaded.
+- [ ] Ordinary delete, permanent delete, and Undo remain available because ROOT (and thus the lists they require, including TRASH) is Loaded.

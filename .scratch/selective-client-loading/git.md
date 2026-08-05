@@ -1,5 +1,3 @@
-# Git bookkeeping — selective-client-loading
-
-- **Current project branch:** `w/rename-upload-to-load`
+- **Current project branch:** `w/synchronize-resident-projection`
 - **Cut from original:** `workspaces`
-- **Notes:** Issue 17 — `ChildrenStatus` on Node (Unloaded|Loaded); wire/equality/fromNodes; SQL projection stays Loaded.
+- **Notes:** Issue 18 — projected Poll apply under Loaded rules; cut from selective-client-sync HEAD.

@@ -267,7 +267,7 @@ module GraphBuild =
                 let ownerParent =
                     ownerParentByChild
                     |> Map.tryFind nid
-                    |> Option.defaultValue root
+                    |> Option.defaultValue node.owner
                 { node with owner = ownerParent })
 
     let private requireValidChildrenStatus (nodes: Map<NodeId, Node>) : unit =

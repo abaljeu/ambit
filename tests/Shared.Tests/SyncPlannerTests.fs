@@ -10,7 +10,7 @@ let private mkChange id =
       changeId = Guid.NewGuid()
       ops = [] }
 
-let private asAction change = HistoryAction.Change change
+let private asAction change = ChangeRequest.Change change
 
 [<Fact>]
 let ``tryStartSubmit returns SubmitPendingBatch effect when queue is ready`` () =
@@ -23,7 +23,7 @@ let ``tryStartSubmit returns SubmitPendingBatch effect when queue is ready`` () 
     match effects with
     | [ SubmitPendingBatch (baseRevision, changes) ] ->
         Assert.Equal(9, baseRevision)
-        Assert.Equal<HistoryAction list>([ asAction c ], changes)
+        Assert.Equal<ChangeRequest list>([ asAction c ], changes)
     | _ ->
         failwith "Expected single SubmitPendingBatch effect"
 
@@ -49,12 +49,12 @@ let ``ackBatch dequeues acknowledged changes and schedules remainder`` () =
     let nextInfo, pending, effects =
         SyncPlanner.ackBatch [ c1.changeId; c2.changeId ] (Revision 3) syncInfo
     Assert.Single(pending) |> ignore
-    Assert.Equal(c3.changeId, HistoryAction.actionId pending.Head)
+    Assert.Equal(c3.changeId, ChangeRequest.actionId pending.Head)
     Assert.Equal(Sending 1, nextInfo.syncState)
     match effects with
     | [ SubmitPendingBatch (baseRevision, changes) ] ->
         Assert.Equal(3, baseRevision)
-        Assert.Equal<HistoryAction list>([ asAction c3 ], changes)
+        Assert.Equal<ChangeRequest list>([ asAction c3 ], changes)
     | _ ->
         failwith "Expected single SubmitPendingBatch effect for remaining queue"
 
@@ -233,16 +233,16 @@ let ``mixed action delta chain preserves identities and rewrites revisions`` () 
     let undoId = Guid.NewGuid()
     let redoId = Guid.NewGuid()
     let actions =
-        [ HistoryAction.Change change
-          HistoryAction.Undo(99, undoId)
-          HistoryAction.Redo(99, redoId) ]
+        [ ChangeRequest.Change change
+          ChangeRequest.Undo(99, undoId)
+          ChangeRequest.Redo(99, redoId) ]
     let chained = SyncBatch.toActionDeltaChain 7 actions
     Assert.Equal<int list>(
         [ 7; 8; 9 ],
-        chained |> List.map HistoryAction.baseRevision)
+        chained |> List.map ChangeRequest.baseRevision)
     Assert.Equal<Guid list>(
         [ change.changeId; undoId; redoId ],
-        chained |> List.map HistoryAction.actionId)
+        chained |> List.map ChangeRequest.actionId)
 
 [<Fact>]
 let ``applyAndEnqueueLocalAction applies Undo optimistically and queues intent`` () =
@@ -258,7 +258,7 @@ let ``applyAndEnqueueLocalAction applies Undo optimistically and queues intent``
         |> function
             | ApplyResult.Changed state -> state
             | _ -> failwith "expected initial change"
-    let undo = HistoryAction.Undo(1, Guid.NewGuid())
+    let undo = ChangeRequest.Undo(1, Guid.NewGuid())
     match
         SyncPlanner.applyAndEnqueueLocalAction
             undo
@@ -268,5 +268,5 @@ let ``applyAndEnqueueLocalAction applies Undo optimistically and queues intent``
     | Error error -> failwith error
     | Ok (next, syncInfo, effects) ->
         Assert.Equal(node.text, next.graph.nodes.[node.id].text)
-        Assert.Equal<HistoryAction list>([ undo ], syncInfo.pendingChanges)
+        Assert.Equal<ChangeRequest list>([ undo ], syncInfo.pendingChanges)
         Assert.Contains(SavePendingQueue [ undo ], effects)

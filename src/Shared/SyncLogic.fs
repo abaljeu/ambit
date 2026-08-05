@@ -29,32 +29,51 @@ module SyncLogic =
         elif dataOutdated then Some DataOutdated
         else None
 
-    /// Apply a server-supplied change tail onto local state.
-    /// Trusted apply only (no ownership re-check): the server already accepted
-    /// the log. Ok increments revision by one per change; Error if any change
-    /// is structurally invalid. Empty list is a no-op.
-    let applyServerTail (changes: Change list) (state: State) : Result<State, string> =
-        if List.isEmpty changes then
-            Ok state
-        else
-            let withoutLocalHistory =
+    let private advanceOne (st: State) (newSt: State) : State =
+        { newSt with revision = Revision (st.revision.Value + 1) }
+
+    let private foldProjectedChanges
+        (changes: Change list)
+        (state: State)
+        : Result<State, string> =
+        changes
+        |> List.fold
+            (fun acc change ->
+                match acc with
+                | Error _ -> acc
+                | Ok st ->
+                    match ResidentProjection.applyChange change st with
+                    | ApplyResult.Changed newSt
+                    | ApplyResult.Unchanged newSt ->
+                        Ok (advanceOne st newSt)
+                    | ApplyResult.Invalid (_, msg) -> Error msg)
+            (Ok state)
+
+    /// Apply a Sync response atomically under Loaded rules.
+    /// Non-empty Change tails clear local History first; packages install after
+    /// the projected tail so authoritative snapshots at the response revision win.
+    let applySyncResponse
+        (response: SyncResponse)
+        (state: State)
+        : Result<State, string> =
+        let afterHistory =
+            if List.isEmpty response.changes then
+                state
+            else
                 { state with history = History.empty }
-            changes
-            |> List.fold
-                (fun acc change ->
-                    match acc with
-                    | Error _ -> acc
-                    | Ok st ->
-                        match Change.apply change st with
-                        | ApplyResult.Changed newSt ->
-                            Ok
-                                { newSt with
-                                      revision =
-                                          Revision (st.revision.Value + 1) }
-                        | ApplyResult.Unchanged newSt ->
-                            Ok
-                                { newSt with
-                                      revision =
-                                          Revision (st.revision.Value + 1) }
-                        | ApplyResult.Invalid (_, msg) -> Error msg)
-                (Ok withoutLocalHistory)
+        match foldProjectedChanges response.changes afterHistory with
+        | Error msg -> Error msg
+        | Ok afterChanges ->
+            let graph =
+                ResidentProjection.installPackages
+                    response.packages
+                    afterChanges.graph
+            Ok { afterChanges with graph = graph }
+
+    /// Apply a server-supplied Change tail onto local State (Poll path).
+    /// Empty list is a no-op that preserves History.
+    let applyServerTail
+        (changes: Change list)
+        (state: State)
+        : Result<State, string> =
+        applySyncResponse { changes = changes; packages = [] } state

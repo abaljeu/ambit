@@ -70,6 +70,7 @@
     <Compile Include="SyncBatch.fs" />
     <Compile Include="SyncPlanner.fs" />
     <Compile Include="SyncRetry.fs" />
+    <Compile Include="ResidentProjection.fs" />
     <Compile Include="SyncLogic.fs" />
     <Compile Include="ModelBuilder.fs" />
     <Compile Include="OpenTarget.fs" />

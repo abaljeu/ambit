@@ -17,7 +17,7 @@ What is the smallest coherent selective-client-loading design after the complete
 ### Residency and graph model
 
 - Client residency grows monotonically by complete Workspace during one webpage session. Explicit loads retain every previously loaded Workspace. Revisit this unit only if loading any one Workspace takes more than 10 seconds.
-- ROOT is a fully loaded Workspace. Its complete closure contains SYSTEM, TRASH, and their subtrees; nested Workspaces appear as ordinary members whose children are unloaded.
+- ROOT is a fully loaded Workspace. Nested Workspaces appear as ordinary members whose children are unloaded.
 - Startup installs exactly complete ROOT plus the complete Workspace owning the saved zoom target when that target exists outside ROOT. With no saved target, or with a target in ROOT, there is no second Workspace. Saved fold preferences never add residency.
 - `Node` keeps ordinary `children: ChildNode list` and separate `childrenStatus: Unloaded | Loaded`. `Unloaded` requires `children = []`; functions that do not require completeness operate on the resident projection and therefore see an unloaded node as a leaf.
 - Only receipt of a complete authoritative child list, including an empty list, changes that node to `Loaded`. Incremental child operations never promote status. Loading is global synchronization state, not a per-node graph status.
@@ -46,7 +46,7 @@ What is the smallest coherent selective-client-loading design after the complete
 - MoveSelected is the deliberate exception and never loads its destination. It may submit a move to an unloaded destination; projected apply removes the source edge but skips destination insertion, so the moved node disappears until that destination Workspace is explicitly loaded. Normal command feedback still names the destination.
 - The server receives the complete move and History. Undo restores the source in the resident projection while removing the hidden destination canonically; projected Undo and Redo remain History actions rather than newly planned Changes.
 - Any other structural move that intends to retain or focus the moving node no-ops before commit when its destination is unloaded. MoveSelected is the sole command allowed to cause projected disappearance.
-- ROOT is fully loaded, so SYSTEM, TRASH, ordinary delete, permanent delete, and their Undo behavior need no bootstrap exception or server-only Delete command.
+- ROOT is fully loaded, so ordinary delete, permanent delete, and their Undo behavior need no bootstrap exception or server-only Delete command.
 
 ### Responsibility seams
 

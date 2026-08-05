@@ -98,7 +98,7 @@ let ``SyncInfo readiness follows state and poll responses`` () =
 
 [<Fact>]
 let ``SyncInfo withPendingChanges replaces pending list`` () =
-    let pending = [ HistoryAction.Change(mkChange 0) ]
+    let pending = [ ChangeRequest.Change(mkChange 0) ]
     let si = SyncInfo.initial
     let si2 = SyncInfo.withPendingChanges pending si
     Assert.Equal(1, si2.pendingChanges.Length)
@@ -219,11 +219,11 @@ let ``applyServerTail carries SetUpdateTime after SetText as poll stamp path`` (
 
 [<Fact>]
 let ``applyServerTail returns Error on first invalid change`` () =
-    let st = emptyState ()
+    let st, nodeId = stateWithNode "original"
     let badChange =
         { id = 5
           changeId = System.Guid.NewGuid()
-          ops = [ Op.SetText(NodeId.New(), "old", "new") ] }
+          ops = [ Op.SetText(nodeId, "wrong-old", "new") ] }
     let goodChange = mkChange 6
     match SyncLogic.applyServerTail [ badChange; goodChange ] st with
     | Ok _ -> failwith "Expected Error but got Ok"
@@ -235,7 +235,7 @@ let ``applyServerTail short-circuits: state unchanged after invalid change`` () 
     let badChange =
         { id = 3
           changeId = System.Guid.NewGuid()
-          ops = [ Op.SetText(NodeId.New(), "x", "y") ] }
+          ops = [ Op.SetText(nodeId, "wrong-old", "y") ] }
     let goodChange =
         { id = 4
           changeId = System.Guid.NewGuid()
@@ -244,6 +244,181 @@ let ``applyServerTail short-circuits: state unchanged after invalid change`` () 
     | Ok _ -> failwith "Expected Error but got Ok"
     | Error _ ->
         Assert.Equal("original", st.graph.nodes.[nodeId].text)
+
+[<Fact>]
+let ``applyServerTail consumes Change on Absent Header without graph effect`` () =
+    let st = emptyState ()
+    let absentId = NodeId.New()
+    let change =
+        { id = 5
+          changeId = System.Guid.NewGuid()
+          ops = [ Op.SetText(absentId, "old", "new") ] }
+    match SyncLogic.applyServerTail [ change ] st with
+    | Error msg -> failwith $"Expected Ok, got Error: {msg}"
+    | Ok result ->
+        Assert.Equal(Revision 6, result.revision)
+        Assert.False(result.graph.nodes.ContainsKey absentId)
+        Assert.Equal(History.empty, result.history)
+
+[<Fact>]
+let ``applyServerTail skips structural Replace on Unloaded parent`` () =
+    let graph0 = Graph.create ()
+    let wsId = NodeId.New()
+    let childId = NodeId.New()
+    let ws =
+        Node.Create(
+            wsId,
+            text = "ws",
+            name = Filename.Ok "ws",
+            kind = Special Workspace,
+            childrenStatus = Unloaded,
+            owner = Graph.workspacesId)
+    let child =
+        Node.Create(childId, text = "child", owner = wsId)
+    let root = graph0.nodes.[graph0.root]
+    let workspaces = graph0.nodes.[Graph.workspacesId]
+    let nodes =
+        graph0.nodes
+        |> Map.add wsId ws
+        |> Map.add childId child
+        |> Map.add
+            Graph.workspacesId
+            { workspaces with
+                children =
+                    workspaces.children
+                    @ [ { ref = Ownership.Owner; id = wsId } ] }
+    let graph = Graph.fromNodes graph0.root nodes
+    let st =
+        { graph = graph
+          history = History.empty
+          revision = Revision 3 }
+    let change =
+        { id = 4
+          changeId = System.Guid.NewGuid()
+          ops =
+              [ Op.Replace(
+                    wsId,
+                    0,
+                    [],
+                    [ { ref = Ownership.Owner; id = childId } ]) ] }
+    match SyncLogic.applyServerTail [ change ] st with
+    | Error msg -> failwith $"Expected Ok, got Error: {msg}"
+    | Ok result ->
+        Assert.Equal(Revision 4, result.revision)
+        Assert.Equal(Unloaded, result.graph.nodes.[wsId].childrenStatus)
+        Assert.Equal<ChildNode list>([], result.graph.nodes.[wsId].children)
+
+[<Fact>]
+let ``applyServerTail applies header facts on Unloaded resident Node`` () =
+    let graph0 = Graph.create ()
+    let wsId = NodeId.New()
+    let ws =
+        Node.Create(
+            wsId,
+            text = "before",
+            name = Filename.Ok "ws",
+            kind = Special Workspace,
+            childrenStatus = Unloaded,
+            owner = Graph.workspacesId)
+    let workspaces = graph0.nodes.[Graph.workspacesId]
+    let nodes =
+        graph0.nodes
+        |> Map.add wsId ws
+        |> Map.add
+            Graph.workspacesId
+            { workspaces with
+                children =
+                    workspaces.children
+                    @ [ { ref = Ownership.Owner; id = wsId } ] }
+    let st =
+        { graph = Graph.fromNodes graph0.root nodes
+          history = History.empty
+          revision = Revision 2 }
+    let change =
+        { id = 3
+          changeId = System.Guid.NewGuid()
+          ops = [ Op.SetText(wsId, "before", "after") ] }
+    match SyncLogic.applyServerTail [ change ] st with
+    | Error msg -> failwith $"Expected Ok, got Error: {msg}"
+    | Ok result ->
+        Assert.Equal("after", result.graph.nodes.[wsId].text)
+        Assert.Equal(Unloaded, result.graph.nodes.[wsId].childrenStatus)
+
+[<Fact>]
+let ``applySyncResponse installs complete child list as Loaded and preserves owner`` () =
+    let graph0 = Graph.create ()
+    let wsId = NodeId.New()
+    let childId = NodeId.New()
+    let ownerWs = NodeId.New()
+    let markerId = NodeId.New()
+    let wsHeader =
+        Node.Create(
+            wsId,
+            text = "ws",
+            name = Filename.Ok "ws",
+            kind = Special Workspace,
+            childrenStatus = Unloaded,
+            owner = Graph.workspacesId)
+    let marker =
+        Node.Create(markerId, text = "marker", owner = Graph.rootId)
+    let workspaces = graph0.nodes.[Graph.workspacesId]
+    let root = graph0.nodes.[graph0.root]
+    let nodes0 =
+        graph0.nodes
+        |> Map.add wsId wsHeader
+        |> Map.add markerId marker
+        |> Map.add
+            Graph.workspacesId
+            { workspaces with
+                children =
+                    workspaces.children
+                    @ [ { ref = Ownership.Owner; id = wsId } ] }
+        |> Map.add
+            graph0.root
+            { root with
+                children =
+                    root.children
+                    @ [ { ref = Ownership.Owner; id = markerId } ] }
+    let st =
+        { graph = Graph.fromNodes graph0.root nodes0
+          history =
+              { past = [ mkChange 1 ]
+                future = []
+                nextId = 2 }
+          revision = Revision 5 }
+    let child =
+        Node.Create(childId, text = "leaf", owner = wsId)
+    let loadedWs =
+        { wsHeader with
+            children = [ { ref = Ownership.Owner; id = childId } ]
+            childrenStatus = Loaded }
+    // External resident header whose owner edge lives only in an Unloaded list.
+    let external =
+        Node.Create(
+            ownerWs,
+            text = "ext",
+            name = Filename.Ok "ext",
+            kind = Special Workspace,
+            childrenStatus = Unloaded,
+            owner = wsId)
+    // Change touches a Loaded root child; package then installs ws at response revision.
+    let response =
+        { SyncResponse.changes =
+              [ { id = 6
+                  changeId = System.Guid.NewGuid()
+                  ops = [ Op.SetText(markerId, "marker", "marker-tail") ] } ]
+          packages = [ loadedWs; child; external ] }
+    match SyncLogic.applySyncResponse response st with
+    | Error msg -> failwith $"Expected Ok, got Error: {msg}"
+    | Ok result ->
+        Assert.Equal(History.empty, result.history)
+        Assert.Equal(Revision 6, result.revision)
+        Assert.Equal(Loaded, result.graph.nodes.[wsId].childrenStatus)
+        Assert.Equal(1, result.graph.nodes.[wsId].children.Length)
+        Assert.Equal("marker-tail", result.graph.nodes.[markerId].text)
+        Assert.Equal(wsId, result.graph.nodes.[external.id].owner)
+        Assert.Equal(Some wsId, result.graph.ownerParentByChild |> Map.tryFind childId)
+        Assert.Equal(None, result.graph.ownerParentByChild |> Map.tryFind ownerWs)
 
 [<Fact>]
 let ``applyServerTail multi-change tail advances revision and graph`` () =
@@ -268,7 +443,59 @@ let ``applyServerTail multi-change tail advances revision and graph`` () =
         Assert.Equal(nodeB.text + "2", result.graph.nodes.[nodeB.id].text)
 
 [<Fact>]
-let ``applyServerTail returns Ok even when final graph would fail ownership`` () =
+let ``applySyncResponse empty packages and empty changes preserves History`` () =
+    let past = mkChange 4
+    let st =
+        { emptyState () with
+            history =
+                { History.empty with
+                    past = [ past ]
+                    nextId = 5 } }
+    match SyncLogic.applySyncResponse { changes = []; packages = [] } st with
+    | Error msg -> failwith $"Expected Ok, got Error: {msg}"
+    | Ok result ->
+        Assert.Equal(st.history, result.history)
+        Assert.Equal(st.revision, result.revision)
+
+[<Fact>]
+let ``applySyncResponse empty Loaded child list marks Loaded without History clear`` () =
+    let graph0 = Graph.create ()
+    let wsId = NodeId.New()
+    let ws =
+        Node.Create(
+            wsId,
+            text = "empty-ws",
+            name = Filename.Ok "empty-ws",
+            kind = Special Workspace,
+            childrenStatus = Unloaded,
+            owner = Graph.workspacesId)
+    let workspaces = graph0.nodes.[Graph.workspacesId]
+    let nodes =
+        graph0.nodes
+        |> Map.add wsId ws
+        |> Map.add
+            Graph.workspacesId
+            { workspaces with
+                children =
+                    workspaces.children
+                    @ [ { ref = Ownership.Owner; id = wsId } ] }
+    let past = mkChange 2
+    let st =
+        { graph = Graph.fromNodes graph0.root nodes
+          history = { History.empty with past = [ past ]; nextId = 3 }
+          revision = Revision 4 }
+    let loadedEmpty = { ws with children = []; childrenStatus = Loaded }
+    match
+        SyncLogic.applySyncResponse
+            { changes = []; packages = [ loadedEmpty ] }
+            st
+    with
+    | Error msg -> failwith $"Expected Ok, got Error: {msg}"
+    | Ok result ->
+        Assert.Equal(st.history, result.history)
+        Assert.Equal(Revision 4, result.revision)
+        Assert.Equal(Loaded, result.graph.nodes.[wsId].childrenStatus)
+        Assert.Equal<ChildNode list>([], result.graph.nodes.[wsId].children)
     // Server-accepted tails are trusted: poll apply must not reject on ownership.
     let state0 = ModelBuilder.createState12 ()
     let rootId = state0.graph.root

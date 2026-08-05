@@ -53,13 +53,13 @@ let private actionState () =
     state, node
 
 [<Fact>]
-let ``HistoryAction Change materializes unchanged change`` () =
+let ``ChangeRequest Change materializes unchanged change`` () =
     let state, node = actionState ()
     let change =
         { id = 0
           changeId = Guid.NewGuid()
           ops = [ Op.SetText(node.id, node.text, "changed") ] }
-    match History.applyAction (HistoryAction.Change change) state with
+    match History.applyAction (ChangeRequest.Change change) state with
     | Error error -> failwith error
     | Ok (next, materialized) ->
         Assert.Equal(change, materialized)
@@ -67,19 +67,19 @@ let ``HistoryAction Change materializes unchanged change`` () =
         Assert.Equal<Change list>([ change ], next.history.past)
 
 [<Fact>]
-let ``HistoryAction Undo and Redo materialize canonical operations with action identity`` () =
+let ``ChangeRequest Undo and Redo materialize canonical operations with action identity`` () =
     let state, node = actionState ()
     let original =
         { id = 0
           changeId = Guid.NewGuid()
           ops = [ Op.SetText(node.id, node.text, "changed") ] }
     let changed =
-        History.applyAction (HistoryAction.Change original) state
+        History.applyAction (ChangeRequest.Change original) state
         |> Result.map fst
         |> Result.defaultWith failwith
     let undoId = Guid.NewGuid()
     let undone, undoChange =
-        History.applyAction (HistoryAction.Undo(1, undoId)) changed
+        History.applyAction (ChangeRequest.Undo(1, undoId)) changed
         |> Result.defaultWith failwith
     Assert.Equal(1, undoChange.id)
     Assert.Equal(undoId, undoChange.changeId)
@@ -89,7 +89,7 @@ let ``HistoryAction Undo and Redo materialize canonical operations with action i
     Assert.Equal(node.text, undone.graph.nodes.[node.id].text)
     let redoId = Guid.NewGuid()
     let redone, redoChange =
-        History.applyAction (HistoryAction.Redo(2, redoId)) undone
+        History.applyAction (ChangeRequest.Redo(2, redoId)) undone
         |> Result.defaultWith failwith
     Assert.Equal(2, redoChange.id)
     Assert.Equal(redoId, redoChange.changeId)
@@ -97,12 +97,12 @@ let ``HistoryAction Undo and Redo materialize canonical operations with action i
     Assert.Equal("changed", redone.graph.nodes.[node.id].text)
 
 [<Fact>]
-let ``HistoryAction Undo and Redo reject empty history`` () =
+let ``ChangeRequest Undo and Redo reject empty history`` () =
     let state, _ = actionState ()
-    match History.applyAction (HistoryAction.Undo(0, Guid.NewGuid())) state with
+    match History.applyAction (ChangeRequest.Undo(0, Guid.NewGuid())) state with
     | Ok _ -> failwith "expected empty Undo to fail"
     | Error error -> Assert.Contains("Undo", error)
-    match History.applyAction (HistoryAction.Redo(0, Guid.NewGuid())) state with
+    match History.applyAction (ChangeRequest.Redo(0, Guid.NewGuid())) state with
     | Ok _ -> failwith "expected empty Redo to fail"
     | Error error -> Assert.Contains("Redo", error)
 

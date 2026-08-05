@@ -1,7 +1,8 @@
 # 20 — Restore saved zoom Workspace during bootstrap
 
-**Context:** The client on refresh may have a saved zoom node.  Now we use this node to modify what's initially loaded.
-**What to build:** Restore a saved zoom target during initial bootstrap by adding at most its complete owning Workspace to complete ROOT, with deterministic fallback for duplicate or stale targets and no residency caused by fold restoration.
+**Context:** On refresh the client may have a saved zoom node. That target can widen the initial `/state` Graph without changing the response shape.
+
+**What to build:** When restoring a valid saved zoom target outside ROOT, include at most one extra complete owning Workspace in the same `/state` Graph as ROOT, at one response revision, with deterministic fallback for duplicate or stale targets and no residency caused by fold restoration.
 
 **Blocked by:** 19 — Bootstrap fresh sessions with complete ROOT.
 
@@ -9,9 +10,9 @@
 
 **Status:** ready-for-agent
 
-- [ ] With no saved zoom target, bootstrap installs complete ROOT and no additional Workspace.
-- [ ] A valid saved target owned by ROOT restores from the ROOT package without requesting or installing ROOT twice.
-- [ ] A valid saved target outside ROOT adds exactly one complete owning Workspace, captured and installed atomically with ROOT and the response revision.
+- [ ] With no saved zoom target, `/state` installs complete ROOT and no additional Workspace.
+- [ ] A valid saved target owned by ROOT restores from the ROOT closure without requesting or installing ROOT twice.
+- [ ] A valid saved target outside ROOT adds exactly one complete owning Workspace into the same `/state` Graph, captured and installed atomically with ROOT at one response revision.
 - [ ] A stale or missing saved target installs only complete ROOT and selects the normal default in-ROOT view.
 - [ ] Saved folds are restored only for resident nodes and neither fold restoration nor saved nonresident fold entries request additional content.
-- [ ] The first rendered view reflects the resolved zoom and folds after the complete bootstrap state is installed.
+- [ ] The first rendered view reflects the resolved zoom and folds after that `/state` Graph is installed.

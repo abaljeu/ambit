@@ -224,9 +224,9 @@ let ``ChangeBatch round-trip`` () =
         { id = 5
           changeId = System.Guid.NewGuid()
           ops = [ Op.SetText(NodeId.New(), "old", "new") ] }
-    let batch = { changes = [ HistoryAction.Change change ] }
+    let batch = { changes = [ ChangeRequest.Change change ] }
     let decoded = roundTrip Serialization.encodeChangeBatch Serialization.decodeChangeBatch batch
-    Assert.Equal<HistoryAction list>(batch.changes, decoded.changes)
+    Assert.Equal<ChangeRequest list>(batch.changes, decoded.changes)
 
 [<Fact>]
 let ``ChangeBatch round-trip preserves bare Change and explicit Undo Redo`` () =
@@ -234,17 +234,17 @@ let ``ChangeBatch round-trip preserves bare Change and explicit Undo Redo`` () =
         { id = 5
           changeId = System.Guid.NewGuid()
           ops = [ Op.SetText(NodeId.New(), "old", "new") ] }
-    let undo = HistoryAction.Undo(6, System.Guid.NewGuid())
-    let redo = HistoryAction.Redo(7, System.Guid.NewGuid())
+    let undo = ChangeRequest.Undo(6, System.Guid.NewGuid())
+    let redo = ChangeRequest.Redo(7, System.Guid.NewGuid())
     let batch =
-        { changes = [ HistoryAction.Change change; undo; redo ] }
+        { changes = [ ChangeRequest.Change change; undo; redo ] }
     let json = Enc.toString 0 (Serialization.encodeChangeBatch batch)
     Assert.DoesNotContain("\"action\":\"change\"", json)
     Assert.Contains("\"action\":\"undo\"", json)
     Assert.Contains("\"action\":\"redo\"", json)
     let decoded =
         roundTrip Serialization.encodeChangeBatch Serialization.decodeChangeBatch batch
-    Assert.Equal<HistoryAction list>(batch.changes, decoded.changes)
+    Assert.Equal<ChangeRequest list>(batch.changes, decoded.changes)
 
 [<Fact>]
 let ``ChangeBatch decoder rejects empty changes`` () =
