@@ -383,7 +383,7 @@ module RouteRegistration =
         | DatabaseSetup.DbStatus.Absent -> "absent"
 
     let private serveUserCss (dataDir: string) (defaultUserCss: string) =
-        let userPath = Path.Combine(dataDir, "user.css")
+        let userPath = Path.Combine(Bookkeeping.systemDir dataDir, "user.css")
         let path = if File.Exists(userPath) then userPath else defaultUserCss
         if File.Exists(path) then Results.File(path, "text/css")
         else Results.NoContent()

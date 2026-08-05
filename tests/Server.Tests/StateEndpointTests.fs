@@ -111,8 +111,10 @@ let private writeDocumentFiles (tempDir: string) (state: State) =
     |> function
         | Ok _ -> ()
         | Error err -> failwith err
-    File.WriteAllText(Path.Combine(tempDir, $"{testFile}.meta"), string state.revision.Value)
-    File.WriteAllText(Path.Combine(tempDir, $"{testFile}.log"), "")
+    match Bookkeeping.writeRevision tempDir state.revision.Value with
+    | Ok () -> ()
+    | Error err -> failwith err
+    File.WriteAllText(Bookkeeping.logPath tempDir, "")
 
 let private stateWithChild (text: string) =
     let initialState =
@@ -492,7 +494,7 @@ let ``POST changes creates log file`` () = task {
 
     let! _ = addChild client testFile rootId (Revision 0) "logged"
 
-    let logPath = Path.Combine(tempDir, $"{testFile}.log")
+    let logPath = Bookkeeping.logPath tempDir
     Assert.True(File.Exists(logPath), "Log file should exist after first change")
     let content = readFileShared logPath
     Assert.Contains("logged", content)
@@ -514,7 +516,7 @@ let ``Snapshot writes amb artifacts asynchronously after change`` () = task {
     let content = File.ReadAllText ambPath
     Assert.Contains("snapped", content)
 
-    let metaPath = Path.Combine(tempDir, testFile + ".meta")
+    let metaPath = Bookkeeping.metaPath tempDir
     Assert.True(File.Exists metaPath, "Meta file should exist")
     let rev = Int32.Parse(File.ReadAllText(metaPath).Trim())
     Assert.Equal(1, rev)
@@ -529,7 +531,7 @@ let ``Log contains valid change data after POST`` () = task {
 
     let! _ = addChild client testFile rootId (Revision 0) "logged-entry"
 
-    let logPath = Path.Combine(tempDir, $"{testFile}.log")
+    let logPath = Bookkeeping.logPath tempDir
     Assert.True(File.Exists(logPath))
     let content = readFileShared logPath
     Assert.Contains("logged-entry", content)
