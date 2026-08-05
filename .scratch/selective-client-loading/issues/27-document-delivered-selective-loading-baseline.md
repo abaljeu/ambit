@@ -16,3 +16,4 @@
 - [ ] The roadmap keeps only unimplemented work: partial-server residency, per-document versions, projection patches, hybrid search, and reclamation.
 - [ ] Current and roadmap material use Unloaded and Loaded. They do not present Unknown as the implemented client model.
 - [ ] Docs do not claim that this phase has partial server residency, automatic loading, eviction, or multiple loading modes.
+- [ ] document `?scope=full` in `doc/api.md` when selective-loading baseline is promoted (ticket 19)
