@@ -170,7 +170,7 @@ let private applyAndPostSync (change: Change) (model: VM) : Result<VM, string> =
         let body =
             SyncBatch.toActionDeltaChain
                 model.revision.Value
-                [ HistoryAction.Change change ]
+                [ ChangeRequest.Change change ]
             |> encodePendingBatchBody
         let url = sprintf "/%s/changes" currentFile
         let status, text = postJsonSync url body (jsonHeaders ())

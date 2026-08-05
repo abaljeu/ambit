@@ -6,7 +6,7 @@ open Thoth.Json.JavaScript
 
 
 type ChangeBatch =
-    { changes: HistoryAction list }
+    { changes: ChangeRequest list }
 
 type ChangeBatchAck =
     { revision: Revision
@@ -410,21 +410,21 @@ module Serialization =
                 |> Option.defaultWith System.Guid.NewGuid
               ops = get.Required.Field "ops" (Decode.list decodeOp) })
 
-    let encodeHistoryAction (action: HistoryAction) : IEncodable =
+    let encodeChangeRequest (action: ChangeRequest) : IEncodable =
         match action with
-        | HistoryAction.Change change -> encodeChange change
-        | HistoryAction.Undo(id, changeId) ->
+        | ChangeRequest.Change change -> encodeChange change
+        | ChangeRequest.Undo(id, changeId) ->
             Encode.object
                 [ "action", Encode.string "undo"
                   "id", Encode.int id
                   "changeId", Encode.guid changeId ]
-        | HistoryAction.Redo(id, changeId) ->
+        | ChangeRequest.Redo(id, changeId) ->
             Encode.object
                 [ "action", Encode.string "redo"
                   "id", Encode.int id
                   "changeId", Encode.guid changeId ]
 
-    let decodeHistoryAction: Decoder<HistoryAction> =
+    let decodeChangeRequest: Decoder<ChangeRequest> =
         Decode.object (fun get ->
             get.Optional.Field "action" Decode.string,
             get.Required.Field "id" Decode.int,
@@ -436,16 +436,16 @@ module Serialization =
                 let actionId =
                     changeId |> Option.defaultWith System.Guid.NewGuid
                 Decode.succeed (
-                    HistoryAction.Change
+                    ChangeRequest.Change
                         { id = id
                           changeId = actionId
                           ops = changeOps })
             | Some "undo", None when changeId.IsSome ->
                 let actionId = Option.get changeId
-                Decode.succeed (HistoryAction.Undo(id, actionId))
+                Decode.succeed (ChangeRequest.Undo(id, actionId))
             | Some "redo", None when changeId.IsSome ->
                 let actionId = Option.get changeId
-                Decode.succeed (HistoryAction.Redo(id, actionId))
+                Decode.succeed (ChangeRequest.Redo(id, actionId))
             | Some ("undo" | "redo"), None ->
                 Decode.fail "History action requires changeId"
             | None, None -> Decode.fail "Change requires ops"
@@ -454,14 +454,14 @@ module Serialization =
     let encodeChangeBatch (batch: ChangeBatch) : IEncodable =
         Encode.object
             [ "changes",
-              batch.changes |> List.map encodeHistoryAction |> Encode.list ]
+              batch.changes |> List.map encodeChangeRequest |> Encode.list ]
 
     let decodeChangeBatch: Decoder<ChangeBatch> =
         Decode.object (fun get ->
             { changes =
                 get.Required.Field
                     "changes"
-                    (Decode.list decodeHistoryAction) })
+                    (Decode.list decodeChangeRequest) })
         |> Decode.andThen (fun batch ->
             if batch.changes.IsEmpty then Decode.fail "changes must not be empty"
             else Decode.succeed batch)

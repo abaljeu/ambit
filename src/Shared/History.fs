@@ -27,34 +27,34 @@ type Change =
 
 
 [<RequireQualifiedAccess>]
-type HistoryAction =
+type ChangeRequest =
     | Change of Change
     | Undo of id: int * changeId: System.Guid
     | Redo of id: int * changeId: System.Guid
 
 
 [<RequireQualifiedAccess>]
-module HistoryAction =
+module ChangeRequest =
     let baseRevision =
         function
-        | HistoryAction.Change change -> change.id
-        | HistoryAction.Undo(id, _)
-        | HistoryAction.Redo(id, _) -> id
+        | ChangeRequest.Change change -> change.id
+        | ChangeRequest.Undo(id, _)
+        | ChangeRequest.Redo(id, _) -> id
 
     let actionId =
         function
-        | HistoryAction.Change change -> change.changeId
-        | HistoryAction.Undo(_, changeId)
-        | HistoryAction.Redo(_, changeId) -> changeId
+        | ChangeRequest.Change change -> change.changeId
+        | ChangeRequest.Undo(_, changeId)
+        | ChangeRequest.Redo(_, changeId) -> changeId
 
     let withBaseRevision id =
         function
-        | HistoryAction.Change change ->
-            HistoryAction.Change { change with id = id }
-        | HistoryAction.Undo(_, changeId) ->
-            HistoryAction.Undo(id, changeId)
-        | HistoryAction.Redo(_, changeId) ->
-            HistoryAction.Redo(id, changeId)
+        | ChangeRequest.Change change ->
+            ChangeRequest.Change { change with id = id }
+        | ChangeRequest.Undo(_, changeId) ->
+            ChangeRequest.Undo(id, changeId)
+        | ChangeRequest.Redo(_, changeId) ->
+            ChangeRequest.Redo(id, changeId)
 
 
 type History =
@@ -608,14 +608,14 @@ module History =
         | ApplyResult.Invalid(_, message) -> Error message
 
     let applyAction
-        (action: HistoryAction)
+        (action: ChangeRequest)
         (state: State)
         : Result<State * Change, string> =
         match action with
-        | HistoryAction.Change change ->
+        | ChangeRequest.Change change ->
             applyChange change state
             |> changedResult "Change" change
-        | HistoryAction.Undo(id, changeId) ->
+        | ChangeRequest.Undo(id, changeId) ->
             match state.history.past with
             | [] -> Error "Undo requires a past change"
             | change :: _ ->
@@ -625,7 +625,7 @@ module History =
                         changeId = changeId }
                 undo state
                 |> changedResult "Undo" materialized
-        | HistoryAction.Redo(id, changeId) ->
+        | ChangeRequest.Redo(id, changeId) ->
             match state.history.future with
             | [] -> Error "Redo requires a future change"
             | change :: _ ->

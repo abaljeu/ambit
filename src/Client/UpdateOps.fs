@@ -710,7 +710,7 @@ let undoOp (model: VM) : VM * Effect list =
     | None -> model', commitEffects
     | Some _ ->
         let action =
-            HistoryAction.Undo(
+            ChangeRequest.Undo(
                 model'.history.nextId,
                 System.Guid.NewGuid())
         match
@@ -737,7 +737,7 @@ let redoOp (model: VM) : VM * Effect list =
     | None -> model', commitEffects
     | Some _ ->
         let action =
-            HistoryAction.Redo(
+            ChangeRequest.Redo(
                 model'.history.nextId,
                 System.Guid.NewGuid())
         match

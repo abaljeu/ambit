@@ -1,7 +1,7 @@
-# 15 — Introduce HistoryAction submission
+# 15 — Introduce ChangeRequest submission
 
 **Context:** Browser edits get send to the server as Change objects.  We introduce Undo and Redo as distinct objects so the server can evaluate those in context of the full graph.
-**What to build:** Widen the existing client pending queue, mixed `/changes` batch, and server command application from Change to HistoryAction. Keep Undo and Redo immediate and optimistic: submit the explicit action, apply it to canonical server History, then materialize its graph effect as an ordinary Change through the unchanged ChangeLog, Poll, bootstrap, Load, persistence, acknowledgement, revision, and retry paths. See the superseding plan in [[.scratch/selective-client-loading/undo-spec.md]].
+**What to build:** Widen the existing client pending queue, mixed `/changes` batch, and server command application from Change to ChangeRequest. Keep Undo and Redo immediate and optimistic: submit the explicit action, apply it to canonical server History, then materialize its graph effect as an ordinary Change through the unchanged ChangeLog, Poll, bootstrap, Load, persistence, acknowledgement, revision, and retry paths. See the superseding plan in [[.scratch/selective-client-loading/undo-spec.md]].
 
 **Status:** agent-done
 

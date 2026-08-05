@@ -61,17 +61,17 @@ module DbAgent =
                       stampOps = stampOps
                       message = message })
 
-        let isPersistedDuplicateSubmission (action: HistoryAction) =
+        let isPersistedDuplicateSubmission (action: ChangeRequest) =
             Database.hasPersistedChangeId
                 connectionString
-                (HistoryAction.actionId action)
+                (ChangeRequest.actionId action)
             |> Async.AwaitTask
             |> Async.RunSynchronously
 
-        let applyBatch (actions: HistoryAction list) =
+        let applyBatch (actions: ChangeRequest list) =
             let step (s, acked, logEntries) action =
-                let actionId = HistoryAction.actionId action
-                let baseRevision = HistoryAction.baseRevision action
+                let actionId = ChangeRequest.actionId action
+                let baseRevision = ChangeRequest.baseRevision action
                 if baseRevision <> s.revision.Value
                     && isPersistedDuplicateSubmission action then
                     Ok(s, actionId :: acked, logEntries)

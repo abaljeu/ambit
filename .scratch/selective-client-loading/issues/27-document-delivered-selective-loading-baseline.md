@@ -8,7 +8,7 @@
 
 **Status:** ready-for-agent
 
-- [ ] One authoritative current document explains complete-Workspace client residency, bootstrap scope, explicit Load, resident-only behavior, HistoryAction synchronization, canonical owners, structural guards, and MoveSelected projection behavior as delivered facts.
+- [ ] One authoritative current document explains complete-Workspace client residency, bootstrap scope, explicit Load, resident-only behavior, ChangeRequest synchronization, canonical owners, structural guards, and MoveSelected projection behavior as delivered facts.
 - [ ] The documentation index presents selective client loading as current behavior and points readers to that authoritative document.
 - [ ] Synchronization, persistence, workspace graph, architecture, API, and command references agree with the authoritative baseline and link to it instead of restating competing models.
 - [ ] The roadmap retains only unimplemented partial-server residency, per-document versions, projection patches, hybrid search, and reclamation work.

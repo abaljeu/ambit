@@ -36,20 +36,20 @@ let jsonMutatingPostHeaders () : obj =
 
 let private pendingKey = "gambol-pending-v1"
 
-let savePendingQueue (actions: HistoryAction list) =
+let savePendingQueue (actions: ChangeRequest list) =
     if actions.IsEmpty then localStorageRemove pendingKey
     else
         let encoded =
-            Encode.list (actions |> List.map Serialization.encodeHistoryAction)
+            Encode.list (actions |> List.map Serialization.encodeChangeRequest)
         let json = Thoth.Json.JavaScript.Encode.toString 0 encoded
         localStorageSet pendingKey json
 
-let loadPendingQueue () : HistoryAction list =
+let loadPendingQueue () : ChangeRequest list =
     let json = localStorageGet pendingKey
     if isNull json || json = "" then []
     else
         match Thoth.Json.JavaScript.Decode.fromString
-            (Decode.list Serialization.decodeHistoryAction) json with
+            (Decode.list Serialization.decodeChangeRequest) json with
         | Ok actions -> actions
         | Error _ -> []
 
@@ -84,7 +84,7 @@ let readEditInputSelectionEnd () : int =
 /// changes locally but do not fire a POST.
 let applyAndPost (change: Change) (model: VM) : Result<VM * Effect list, string> =
     let state: State = { graph = model.graph; revision = model.revision; history = model.history }
-    let action = HistoryAction.Change change
+    let action = ChangeRequest.Change change
     match
         SyncPlanner.applyAndEnqueueLocalAction
             action

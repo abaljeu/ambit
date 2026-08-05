@@ -10,8 +10,8 @@ module SyncBatch =
 
     let toActionDeltaChain
         (baseRevision: int)
-        (actions: HistoryAction list)
-        : HistoryAction list =
+        (actions: ChangeRequest list)
+        : ChangeRequest list =
         actions
         |> List.mapi (fun index action ->
-            HistoryAction.withBaseRevision (baseRevision + index) action)
+            ChangeRequest.withBaseRevision (baseRevision + index) action)

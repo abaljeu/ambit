@@ -33,7 +33,7 @@ module LazyLoadReconciliationServer =
               ops = ops }
         JsonEncode.toString 0 (
             Serialization.encodeChangeBatch
-                { changes = [ HistoryAction.Change change ] })
+                { changes = [ ChangeRequest.Change change ] })
 
     let private isDirInfoPath (path: string) =
         DocumentArtifactPath.isMarker path

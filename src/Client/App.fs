@@ -66,7 +66,7 @@ module private SubmitChangeCallbacks =
         (timeoutId: float)
         (reqId: string)
         (baseRev: int)
-        (changes: HistoryAction list)
+        (changes: ChangeRequest list)
         (dispatch: Msg -> unit)
         ()
         : unit =
@@ -103,7 +103,7 @@ let createRuntime (initialModel: VM) =
         let filtered =
             saved
             |> List.filter (fun action ->
-                HistoryAction.baseRevision action >= serverRev)
+                ChangeRequest.baseRevision action >= serverRev)
         let localState, restoredPending =
             filtered
             |> List.fold
@@ -187,7 +187,7 @@ let createRuntime (initialModel: VM) =
             let body =
                 SyncBatch.toActionDeltaChain
                     model.revision.Value
-                    [ HistoryAction.Change change ]
+                    [ ChangeRequest.Change change ]
                 |> encodePendingBatchBody
             let url = sprintf "/%s/changes" currentFile
             let rec post () =
@@ -327,12 +327,12 @@ let createRuntime (initialModel: VM) =
             50
         |> ignore
 
-    and runSubmitPendingBatch (baseRev: int) (changes: HistoryAction list) : unit =
+    and runSubmitPendingBatch (baseRev: int) (changes: ChangeRequest list) : unit =
         let reqId =
             changes
             |> List.tryHead
             |> Option.map (fun action ->
-                (HistoryAction.actionId action).ToString("N").Substring(0, 8))
+                (ChangeRequest.actionId action).ToString("N").Substring(0, 8))
             |> Option.defaultValue "empty"
         let url = $"/{currentFile}/changes"
         let postChanges =
@@ -399,7 +399,7 @@ let createRuntime (initialModel: VM) =
                         dispatch (SysMsg RetrySubmit))
                     delayMs)
 
-    and runSavePendingQueue (q: HistoryAction list) : unit =
+    and runSavePendingQueue (q: ChangeRequest list) : unit =
         savePendingQueue q
 
     and runDesktopFileStatus (nodeId: NodeId) (path: string) : unit =

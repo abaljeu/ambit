@@ -12,5 +12,5 @@
 - [ ] Projected application removes the source edge, skips insertion into the Unloaded destination list, and makes content with no remaining resident occurrence disappear from the current projection.
 - [ ] The fully resident server applies and records both source removal and destination insertion as one canonical move.
 - [ ] Normal command feedback names the destination even when the moved content disappears from the resident projection.
-- [ ] An explicit Undo HistoryAction restores the projected source and removes the hidden canonical destination without loading it; an explicit Redo removes the projected source again.
+- [ ] An explicit Undo ChangeRequest restores the projected source and removes the hidden canonical destination without loading it; an explicit Redo removes the projected source again.
 - [ ] Structural move commands other than MoveSelected remain guarded when an Unloaded destination would require retaining or focusing the moved content.

@@ -24,7 +24,7 @@ module SyncPlanner =
             nextInfo, [ SubmitPendingBatch (baseRevision.Value, changes) ]
 
     let applyAndEnqueueLocalAction
-        (action: HistoryAction)
+        (action: ChangeRequest)
         (state: State)
         (syncInfo: SyncInfo)
         : Result<State * SyncInfo * Effect list, string> =
@@ -44,12 +44,12 @@ module SyncPlanner =
         (ackedChangeIds: System.Guid list)
         (revision: Revision)
         (syncInfo: SyncInfo)
-        : SyncInfo * HistoryAction list * Effect list =
+        : SyncInfo * ChangeRequest list * Effect list =
         let acked = ackedChangeIds |> Set.ofList
         let pending =
             syncInfo.pendingChanges
             |> List.filter (fun action ->
-                not (Set.contains (HistoryAction.actionId action) acked))
+                not (Set.contains (ChangeRequest.actionId action) acked))
         let baseInfo = syncInfo |> SyncInfo.withPendingChanges pending
         match pending with
         | [] ->
@@ -70,7 +70,7 @@ module SyncPlanner =
         let acknowledgedPendingCount =
             syncInfo.pendingChanges
             |> List.filter (fun action ->
-                Set.contains (HistoryAction.actionId action) acked)
+                Set.contains (ChangeRequest.actionId action) acked)
             |> List.length
         let expectedRevision =
             clientRevision.Value + acknowledgedPendingCount

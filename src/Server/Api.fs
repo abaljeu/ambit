@@ -199,7 +199,7 @@ module Api =
               ops = ops }
         Encode.toString 0 (
             Serialization.encodeChangeBatch
-                { changes = [ HistoryAction.Change change ] })
+                { changes = [ ChangeRequest.Change change ] })
 
     type private ParseFileBody =
         { fileId: string

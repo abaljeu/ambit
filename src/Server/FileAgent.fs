@@ -108,8 +108,8 @@ module FileAgent =
                       stampOps = stampOps
                       message = message })
 
-        let isPersistedDuplicateSubmission (action: HistoryAction) =
-            let actionId = HistoryAction.actionId action
+        let isPersistedDuplicateSubmission (action: ChangeRequest) =
+            let actionId = ChangeRequest.actionId action
             offsetIndex
             |> Seq.exists (fun offset ->
                 let _, json = ChangeLog.readEntryAt logStream offset
@@ -142,10 +142,10 @@ module FileAgent =
                     | Error err -> Error err
                     | Ok () -> Ok stamped
 
-        let applyBatch (actions: HistoryAction list) =
+        let applyBatch (actions: ChangeRequest list) =
             let step (s, acked, logEntries, changed) action =
-                let actionId = HistoryAction.actionId action
-                let baseRevision = HistoryAction.baseRevision action
+                let actionId = ChangeRequest.actionId action
+                let baseRevision = ChangeRequest.baseRevision action
                 if isPersistedDuplicateSubmission action then
                     Ok(s, actionId :: acked, logEntries, changed)
                 elif baseRevision <> s.revision.Value then

@@ -210,7 +210,7 @@ type SyncState =
     | Sending of attempt: int    // POST in-flight; attempt = 1-based send count
     | Polling                    // GET poll in-flight
     | Uploading                  // workspace file push in progress (blocks poll)
-    | WaitingToRetry of attempt: int * baseRevision: int * changes: HistoryAction list
+    | WaitingToRetry of attempt: int * baseRevision: int * changes: ChangeRequest list
     | ServerRejected  // server returned 400 — change cannot be applied; reload required
     | CodeOutdated    // server has newer code (build stamp changed) — reload required
     | DataOutdated    // server has newer data with no local pending — reload required
@@ -224,7 +224,7 @@ type QueuedRequest =
 
 type SyncInfo =
     { syncState: SyncState
-      pendingChanges: HistoryAction list
+      pendingChanges: ChangeRequest list
       /// Requests parked behind `pendingChanges` (see `SyncPlanner.tryReleaseQueued`).
       queuedRequests: QueuedRequest list
       isPollingActive: bool
@@ -241,7 +241,7 @@ module SyncInfo =
           isServerReady = false
           syncRiskAcknowledged = false }
 
-    let withPendingChanges (pending: HistoryAction list) (si: SyncInfo) : SyncInfo =
+    let withPendingChanges (pending: ChangeRequest list) (si: SyncInfo) : SyncInfo =
         { si with pendingChanges = pending }
 
     /// Park a request behind the change-ops queue. Pressing the command again while
@@ -265,12 +265,12 @@ module SyncInfo =
         else { si with syncState = newState; syncRiskAcknowledged = false }
 
 type Effect =
-    | SubmitPendingBatch of baseRevision: int * changes: HistoryAction list
+    | SubmitPendingBatch of baseRevision: int * changes: ChangeRequest list
     | PollServer of revision: int
     | ScheduleRetry of delayMs: int
     /// The change-ops queue settled: run a request that was parked behind it.
     | RunQueuedRequest of QueuedRequest
-    | SavePendingQueue of HistoryAction list
+    | SavePendingQueue of ChangeRequest list
     | RequestDesktopFileStatus of nodeId: NodeId * path: string
     | RequestServerFileStatus of nodeId: NodeId * path: string
     /// Desktop: refresh mapped labels + sync-ledger facts for path-status UI.
@@ -413,7 +413,7 @@ type SystemMsg =
         message: string option
     | SubmitRejected of detail: string // server HTTP error (decoded `error` or short body snippet)
     | SubmitNetworkError of
-        baseRevision: int * changes: HistoryAction list * kind: SubmitNetworkErrorKind
+        baseRevision: int * changes: ChangeRequest list * kind: SubmitNetworkErrorKind
     | DesktopCapabilitiesDetected of DesktopCapabilities option
     | ServerCapabilitiesDetected of ServerCapabilities option
     | DesktopFileStatusReceived of
