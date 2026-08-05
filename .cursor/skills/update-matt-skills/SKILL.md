@@ -1,98 +1,90 @@
 ---
 name: update-matt-skills
-description: Update mattpocock/skills under .agents/skills/ and merge prior local forks into the new upstream files. User types /update-matt-skills.
+description: Pull mattpocock skills tree onto vendor, flatten to .agents/skills, commit, merge to live w/*. User types /update-matt-skills.
 disable-model-invocation: true
 ---
 
 # Update Matt Skills
 
-Refresh managed Matt skills, then **merge previous edits into the new files**. The lockfile is inventory only — it does not preserve forks.
+Same-branch model: operator skill lives here under `.cursor/skills`. Branch `vendor/mattpocock-skills` holds:
 
-Scratch workspace: `.scratch/matt-skills-merge/` (safe to delete after the run is accepted).
+| Path | Role |
+| --- | --- |
+| `skills/` | Bucketed tree from `skills-source` |
+| `.agents/skills/` | Flat install agents use |
+| `.cursor/skills/update-matt-skills/` | This skill + scripts |
+
+Run scripts **in place** from the repo root (no temp copy, no worktrees).
+
+Flat target: `.agents/skills`. No `skills-lock.json`, no `npx skills`. No SHA bookkeeping in commit messages or reports. No push of vendor / no origin remotes unless the user asks.
 
 ## Preconditions
 
 Stop and ask if any fail:
 
-- Current branch is `w/*` (see [[.cursor/rules/environment.mdc]]).
-- Working tree is clean for `.agents/skills/` and `skills-lock.json` (commit or stash first).
-- `skills-lock.json` exists at the repo root.
+- Working tree is clean.
+- Remote `skills-source` exists (local path to upstream clone).
+- For pull / flatten / vendor commit: current branch is `vendor/mattpocock-skills`.
+- For merge: current branch is live `w/*` and is clean.
 
-## Steps
+## Ordinary update
 
-### 1. Snapshot ours
-
-Copy `.agents/skills/` → `.scratch/matt-skills-merge/ours/`.
-
-Record `PRE=$(git rev-parse HEAD)`.
-
-**Done when:** scratch `ours/` exists and matches the current skill tree.
-
-### 2. Recover base (previous upstream)
-
-Run `npx skills experimental_install -y` so on-disk skills match the **current lock** (last installed upstream).
-
-Copy `.agents/skills/` → `.scratch/matt-skills-merge/base/`.
-
-If `experimental_install` fails, stop and ask — do not update without a base (2-way guesswork).
-
-**Done when:** scratch `base/` exists and differs from `ours/` only where we had local forks.
-
-### 3. Pull new upstream
-
-Run `npx skills update -p -y`.
-
-On-disk `.agents/skills/` and `skills-lock.json` are now **theirs** (new upstream). Keep this lock.
-
-Copy `.agents/skills/` → `.scratch/matt-skills-merge/theirs/` for reference.
-
-**Done when:** lock hashes changed where upstream moved, and `theirs/` is snapshotted.
-
-### 4. Merge forks into new files
-
-For each skill directory name under the union of `ours/`, `base/`, and `theirs/`:
-
-| Situation | Action |
-| --- | --- |
-| In `ours` and `base`, trees equal | Keep **theirs** (already on disk). No local fork. |
-| In `ours` and `base`, trees differ | **Fork** — merge into `.agents/skills/<name>/` (below). |
-| Only in `theirs` | New upstream skill — keep. |
-| Only in `ours` (gone from lock/theirs) | Ask before deleting; default leave a note, do not silently delete. |
-
-For each **forked** skill, for each file path in the union of ours/base/theirs for that skill:
-
-- Missing in ours → keep theirs (or add new upstream file).
-- Missing in theirs → ask (upstream removed the file).
-- Present in all three → run a 3-way merge into the on-disk path:
+### 1. Pull tree (on vendor)
 
 ```bash
-git merge-file -p \
-  .scratch/matt-skills-merge/ours/<skill>/<file> \
-  .scratch/matt-skills-merge/base/<skill>/<file> \
-  .scratch/matt-skills-merge/theirs/<skill>/<file> \
-  > .agents/skills/<skill>/<file>
+bash .cursor/skills/update-matt-skills/scripts/pull-skills-tree.sh
 ```
 
-If `git merge-file` exits non-zero, conflict markers are in the file — resolve like [[.agents/skills/resolving-merge-conflicts/SKILL.md]]: keep upstream structure, re-apply local intent, do not invent behaviour.
+Fetches `skills-source` and replaces `skills/` from `skills-source/main`.
 
-**Done when:** every forked skill is merged or has an explicit unresolved conflict list for the user; pristine skills remain pure theirs.
+**Done when:** `skills/` matches source main.
+
+### 2. Flatten (on vendor)
+
+```bash
+bash .cursor/skills/update-matt-skills/scripts/flatten-skills.sh
+```
+
+Deletes `.agents/skills` on vendor only, then copies each non-deprecated `skills/**/SKILL.md` parent dir to `.agents/skills/<name>/`. Rejects duplicate basenames. Does not touch `skills/` or this cursor skill.
+
+**Done when:** flat tree exists under `.agents/skills` with no duplicates and no deprecated entries.
+
+### 3. Commit on vendor
+
+```bash
+bash .cursor/skills/update-matt-skills/scripts/commit-vendor.sh
+```
+
+Stages `skills/` and `.agents/skills/`, commits with message `Update projected skills` when there are changes.
+
+**Done when:** vendor HEAD has the new tree + flat, or the script reports nothing to commit.
+
+### 4. Merge to live
+
+On a clean live `w/*` branch:
+
+```bash
+bash .cursor/skills/update-matt-skills/scripts/merge-to-live.sh
+```
+
+First-time bootstrap only:
+
+```bash
+bash .cursor/skills/update-matt-skills/scripts/merge-to-live.sh --bootstrap
+```
+
+(`--bootstrap` adds `--allow-unrelated-histories`.)
+
+**Done when:** merge commit exists on live (resolve conflicts if any).
 
 ### 5. Hand back
 
-Show a short report:
-
-- Skills updated with no local fork
-- Skills merged (names)
-- Conflicts still open (paths)
-- Removals / new skills needing a decision
-
-Do **not** commit unless the user asks. Leave `.scratch/matt-skills-merge/` until they confirm; then delete it.
-
-**Done when:** user has the report and a usable tree (or a clear conflict list).
+Short report: skill counts under `skills/` and `.agents/skills/`, whether anything needed conflict resolution. No SHAs. Do **not** commit further unless the user asks. Forks re-apply from `.scratch/update-matt-skills/forks/` is a separate follow-up when needed.
 
 ## Do not
 
-- Edit Matt skills “in place” as the way to customize long-term without expecting this merge on the next update.
-- Treat `skills-lock.json` as something to merge hunk-by-hunk — accept the post-update lock.
-- Run remotes/`gh` beyond what `npx skills` needs for this flow.
-- Touch `.cursor/skills/` (Gambol-local); this flow only manages `.agents/skills/` entries from the lock.
+- Use `mktemp` worktrees or copy this skill elsewhere to run it.
+- Push `vendor/mattpocock-skills` or touch origin remotes unless asked.
+- Put SHAs in commit messages or scratch notes.
+- Delete `skills/` or `.cursor/skills/update-matt-skills/` during flatten.
+- Run `npx skills` or maintain `skills-lock.json`.
