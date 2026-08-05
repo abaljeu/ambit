@@ -36,6 +36,7 @@ Workflow skills in [[.cursor/skills/]]:
 - [[.cursor/skills/co-edit-format-plan/SKILL.md]] — collaborative (interactive) document editing
 - [[.cursor/skills/prepare-agent-instruction-change/SKILL.md]] — maintain rules/skills/bridges
 - [[.cursor/skills/write-simple-parser/SKILL.md]] — simple document parsers / format codecs
+- [[.cursor/skills/update-matt-skills/SKILL.md]] — update mattpocock skills with merge of local forks
 
 Tool-specific notes:
 
