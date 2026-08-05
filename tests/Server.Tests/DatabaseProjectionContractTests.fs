@@ -71,7 +71,7 @@ let private scalar<'a> connStr sql = task {
 let private encodeBatch (changes: Change list) =
     Encode.toString 0 (
         Serialization.encodeChangeBatch
-            { changes = changes |> List.map HistoryAction.Change })
+            { changes = changes |> List.map ChangeRequest.Change })
 
 [<Fact>]
 let ``writer upserts complete nodes children revision and reloads`` () = task {

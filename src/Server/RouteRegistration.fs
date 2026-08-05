@@ -276,7 +276,7 @@ module RouteRegistration =
             else
                 try
                     let handle = persistence.GetHandle ()
-                    return! Api.getState handle |> Async.StartAsTask
+                    return! Api.getState handle req |> Async.StartAsTask
                 with ex ->
                     let detail =
                         $"Internal server error loading state (dataDir={persistence.DataDir}): {ex.Message}"

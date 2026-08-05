@@ -11,6 +11,13 @@ open Xunit
 open Gambol.Server
 open Gambol.Shared
 open Gambol.Server.Tests.TestBackend
+open Thoth.Json.Newtonsoft
+
+module Encode = Thoth.Json.Newtonsoft.Encode
+module Decode = Thoth.Json.Newtonsoft.Decode
+
+let private decodeStateResponse json =
+    Decode.fromString ApiResponseSerialization.decodeStateResponseDecoder json
 
 let private handleWithGetState
     (getState: unit -> Async<Result<string, string>>)
@@ -22,13 +29,24 @@ let private handleWithGetState
       postChange = fun _ -> async.Return(Result.Error "unused")
       postGraphOnlyChange = fun _ -> async.Return(Result.Error "unused") }
 
+let private defaultStateRequest () =
+    DefaultHttpContext().Request
+
+let private minimalStateJson () =
+    let graph = Graph.create ()
+    Encode.toString 0 (
+        ApiResponseSerialization.encodeStateResponse
+            { graph = graph
+              revision = Revision 0
+              isReady = true })
+
 [<Fact>]
 let ``getState returns 500 text body when agent fails`` () = task {
     let err =
         "Internal server error in FileAgent GetState (dataDir=C:\\data)."
     let handle =
         handleWithGetState (fun () -> async.Return(Result.Error err))
-    let! result = Api.getState handle |> Async.StartAsTask
+    let! result = Api.getState handle (defaultStateRequest()) |> Async.StartAsTask
     match box result with
     | :? ContentHttpResult as content ->
         Assert.Equal(Nullable 500, content.StatusCode)
@@ -40,15 +58,74 @@ let ``getState returns 500 text body when agent fails`` () = task {
 
 [<Fact>]
 let ``getState returns JSON content when agent succeeds`` () = task {
-    let json =
-        """{"revision":0,"graph":{"root":"00000000-0000-0000-0000-000000000000","nodes":[]},"ready":true}"""
+    let json = minimalStateJson ()
     let handle =
         handleWithGetState (fun () -> async.Return(Result.Ok json))
-    let! result = Api.getState handle |> Async.StartAsTask
+    let! result = Api.getState handle (defaultStateRequest()) |> Async.StartAsTask
     match box result with
     | :? ContentHttpResult as content ->
-        Assert.Equal(json, content.ResponseContent)
         Assert.Equal("application/json", content.ContentType)
+        match decodeStateResponse content.ResponseContent with
+        | Error err -> failwith err
+        | Ok response ->
+            Assert.Equal(Revision 0, response.revision)
+            Assert.True(response.isReady)
+    | other ->
+        Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")
+}
+
+[<Fact>]
+let ``getState scope full skips bootstrap projection`` () = task {
+    let graph0 = Graph.create ()
+    let wsId = NodeId.New()
+    let dirId = NodeId.New()
+    let wsNode =
+        Node.Create(
+            wsId,
+            text = "home",
+            name = Filename.Ok "home",
+            kind = Special Workspace,
+            owner = Graph.workspacesId)
+    let dirNode =
+        Node.Create(
+            dirId,
+            text = "docs",
+            name = Filename.Ok "docs",
+            kind = Special Directory,
+            owner = wsId)
+    let workspaces = graph0.nodes.[Graph.workspacesId]
+    let nodes =
+        graph0.nodes
+        |> Map.add wsId wsNode
+        |> Map.add dirId dirNode
+        |> Map.add
+            Graph.workspacesId
+            { workspaces with
+                children =
+                    workspaces.children @ [ { ref = Ownership.Owner; id = wsId } ] }
+    let graph1 = Graph.fromNodes graph0.root nodes
+    let graph2 =
+        Graph.replace wsId 0 [] [ { ref = Ownership.Owner; id = dirId } ] graph1
+        |> function
+            | Ok g -> g
+            | Error err -> failwith err
+    let json =
+        Encode.toString 0 (
+            ApiResponseSerialization.encodeStateResponse
+                { graph = graph2
+                  revision = Revision 1
+                  isReady = true })
+    let handle =
+        handleWithGetState (fun () -> async.Return(Result.Ok json))
+    let req = DefaultHttpContext().Request
+    req.QueryString <- QueryString.Create("scope", "full")
+    let! result = Api.getState handle req |> Async.StartAsTask
+    match box result with
+    | :? ContentHttpResult as content ->
+        match decodeStateResponse content.ResponseContent with
+        | Error err -> failwith err
+        | Ok response ->
+            Assert.True(response.graph.nodes.ContainsKey dirId)
     | other ->
         Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")
 }
@@ -59,7 +136,7 @@ let ``getState returns 500 text body when getState throws`` () = task {
         handleWithGetState (fun () -> async {
             return failwith "injected GetState boom"
         })
-    let! result = Api.getState handle |> Async.StartAsTask
+    let! result = Api.getState handle (defaultStateRequest()) |> Async.StartAsTask
     match box result with
     | :? ContentHttpResult as content ->
         Assert.Equal(Nullable 500, content.StatusCode)

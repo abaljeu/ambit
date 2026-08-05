@@ -52,11 +52,19 @@ let private getStateJson (client: HttpClient) (_file: string) = task {
     return! resp.Content.ReadAsStringAsync()
 }
 
+/// Legacy total-load escape hatch for tests that need the canonical graph via HTTP.
+let private getStateJsonFull (client: HttpClient) (_file: string) = task {
+    let! resp = client.GetAsync("/ambit/state?scope=full")
+    Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
+    Assert.Equal("application/json", resp.Content.Headers.ContentType.MediaType)
+    return! resp.Content.ReadAsStringAsync()
+}
+
 let private encodeChangeBatchBody (changes: Change list) =
-    let actions = changes |> List.map HistoryAction.Change
+    let actions = changes |> List.map ChangeRequest.Change
     Encode.toString 0 (Serialization.encodeChangeBatch { changes = actions })
 
-let private encodeActionBatchBody (actions: HistoryAction list) =
+let private encodeActionBatchBody (actions: ChangeRequest list) =
     Encode.toString 0 (Serialization.encodeChangeBatch { changes = actions })
 
 /// POST /ambit/changes with a change and return the raw response.
@@ -72,7 +80,7 @@ let private postChanges (client: HttpClient) (_file: string) (changes: Change li
     return! client.PostAsync("/ambit/changes", content)
 }
 
-let private postActions (client: HttpClient) (actions: HistoryAction list) = task {
+let private postActions (client: HttpClient) (actions: ChangeRequest list) = task {
     let body = encodeActionBatchBody actions
     let content = new StringContent(body, Encoding.UTF8, "application/json")
     return! client.PostAsync("/ambit/changes", content)
@@ -211,9 +219,9 @@ let ``POST Change Undo Redo preserves graph and Poll exposes materialized Change
         let! response =
             postActions
                 client
-                [ HistoryAction.Change change
-                  HistoryAction.Undo(1, undoId)
-                  HistoryAction.Redo(2, redoId) ]
+                [ ChangeRequest.Change change
+                  ChangeRequest.Undo(1, undoId)
+                  ChangeRequest.Redo(2, redoId) ]
         Assert.Equal(HttpStatusCode.OK, response.StatusCode)
         let! ack = response.Content.ReadAsStringAsync()
         Assert.Equal(Revision 3, decodeRevision ack)
@@ -240,7 +248,7 @@ let ``POST mixed batch rolls back when Undo has empty canonical history``
     withClient backend (fun client -> task {
         let undoId = Guid.NewGuid()
         let! response =
-            postActions client [ HistoryAction.Undo(0, undoId) ]
+            postActions client [ ChangeRequest.Undo(0, undoId) ]
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode)
         let! stateJson = getStateJson client testFile
         Assert.Equal(Revision 0, decodeRevision stateJson)
@@ -704,3 +712,53 @@ let ``New server uses snapshot + log replay`` () = task {
     Assert.Equal("updated", child.text)
     Assert.Equal(Revision 2, decodeRevision json)
 }
+
+let private postChangeOk (client: HttpClient) (change: Change) = task {
+    let! resp = postChange client testFile change
+    Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
+}
+
+let private addNestedWorkspaceViaPost (client: HttpClient) = task {
+    let wsId = NodeId.New()
+    let innerId = NodeId.New()
+    let c0 =
+        { id = 0
+          changeId = Guid.NewGuid()
+          ops =
+            [ Op.NewSpecialNode(wsId, Workspace, "home")
+              Op.Replace(Graph.workspacesId, 0, [], ownedChild wsId) ] }
+    do! postChangeOk client c0
+    let c1 =
+        { id = 1
+          changeId = Guid.NewGuid()
+          ops =
+            [ Op.NewNode(innerId, "inside-ws")
+              Op.Replace(wsId, 0, [], ownedChild innerId) ] }
+    do! postChangeOk client c1
+    return wsId, innerId
+}
+
+[<Theory; MemberData(nameof backends)>]
+let ``GET state default returns ROOT closure excluding nested workspace contents`` (backend: BackendKind) =
+    withClient backend (fun client -> task {
+        let! json0 = getStateJson client testFile
+        let rootId = (decodeGraph json0).root
+        let! wsId, innerId = addNestedWorkspaceViaPost client
+        let! json = getStateJson client testFile
+        let graph = decodeGraph json
+        Assert.True(graph.nodes.ContainsKey wsId)
+        Assert.Equal(Unloaded, graph.nodes.[wsId].childrenStatus)
+        Assert.False(graph.nodes.ContainsKey innerId)
+    })
+
+[<Theory; MemberData(nameof backends)>]
+let ``GET state scope full returns canonical graph for tests`` (backend: BackendKind) =
+    withClient backend (fun client -> task {
+        let! json0 = getStateJson client testFile
+        let rootId = (decodeGraph json0).root
+        let! wsId, innerId = addNestedWorkspaceViaPost client
+        let! json = getStateJsonFull client testFile
+        let graph = decodeGraph json
+        Assert.True(graph.nodes.ContainsKey wsId)
+        Assert.True(graph.nodes.ContainsKey innerId)
+    })

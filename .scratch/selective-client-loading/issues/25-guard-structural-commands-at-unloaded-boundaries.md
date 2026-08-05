@@ -1,6 +1,8 @@
 # 25 — Guard structural commands at unloaded boundaries
 
-**What to build:** Apply one all-or-nothing precommit residency rule to every local command that plans structural Change effects, except MoveSelected, so no command partially edits an Unloaded child list while nonstructural editing remains available.
+**Context:** Local commands can plan Changes that edit child lists. An Unloaded child list must not receive any edit. This includes MoveSelected. Header edits on a resident Node remain allowed when its children are Unloaded. ROOT is Loaded, so delete paths that need ROOT and TRASH stay available. Ticket 26 covers the Move dialog UI rule.
+
+**What to build:** Add one Shared pre-commit guard for every local command that plans a Change, including MoveSelected. If any planned operation would change an Unloaded child list, commit nothing. Make that rejection a silent no-op. Keep nonstructural header edits available on Unloaded Nodes.
 
 **Blocked by:** 17 — Represent unloaded child lists end to end.
 
@@ -8,9 +10,9 @@
 
 **Status:** ready-for-agent
 
-- [ ] Every local Change-planning command other than MoveSelected is rejected before commit when any planned operation would modify an Unloaded child list.
-- [ ] A rejected plan is a silent no-op: graph state, History, selection, synchronization queue, and command effects remain unchanged.
-- [ ] A plan containing both valid Loaded-list operations and one Unloaded-list operation commits none of its operations.
-- [ ] Add Child, Paste, ordinary structural moves, delete-related plans, and other structural command categories exhibit the same all-or-nothing boundary behavior through the common guard.
-- [ ] Nonstructural changes to a resident Node header remain allowed when that header's children are Unloaded.
-- [ ] Ordinary delete, permanent delete, and Undo remain available because ROOT (and thus the lists they require, including TRASH) is Loaded.
+- [ ] Every local Change-planning command, including MoveSelected, is blocked before commit when any planned operation would change an Unloaded child list.
+- [ ] A blocked plan is a silent no-op. Graph, History, selection, sync queue, and command effects do not change.
+- [ ] If a plan has both Loaded-list operations and one Unloaded-list operation, the guard commits none of them.
+- [ ] Add Child, Paste, MoveSelected, ordinary structural moves, delete plans, and other structural commands all use this one guard.
+- [ ] Nonstructural edits to a resident Node header remain allowed when that Node's children are Unloaded.
+- [ ] Ordinary delete, permanent delete, and Undo stay available because ROOT is Loaded, including the lists they need such as TRASH.

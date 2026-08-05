@@ -1,5 +1,11 @@
 namespace Gambol.Shared
 
+/// Bootstrap graph scope for GET /state. Production clients use RootClosure.
+/// Tests may request FullGraph via `?scope=full` on `/ambit/state`.
+type BootstrapScope =
+    | RootClosure
+    | FullGraph
+
 /// Response from GET /{file}/state.
 type StateResponse =
     { graph: Graph

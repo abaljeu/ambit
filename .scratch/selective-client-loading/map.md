@@ -15,7 +15,7 @@ Resolve every product, domain, and architectural decision needed for `/to-spec` 
 
 ## Decisions so far
 
-- [[.scratch/selective-client-loading/issues/14-simplify-selective-loading.md]]: use monotonic complete-Workspace residency, explicit full-selection Load, serialized projected synchronization, and one shared structural guard with MoveSelected as the deliberate disappearance exception.
+- [[.scratch/selective-client-loading/issues/14-simplify-selective-loading.md]]: use monotonic complete-Workspace residency, explicit full-selection Load, serialized projected synchronization, and one shared structural guard for every local Change plan including MoveSelected; the Move dialog does not offer Unloaded destinations.
 
 ## Not yet specified
 

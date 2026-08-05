@@ -8,11 +8,11 @@
 
 **See also:** [[.scratch/selective-client-loading/spec.md]] (ROOT `/state` scope); [[.scratch/selective-client-loading/issues/14-simplify-selective-loading.md]] (Residency and graph model); [[.scratch/selective-client-loading/undo-spec.md]] (`/state` installs graph; Poll/Load catch-up remain Changes).
 
-**Status:** ready-for-agent
+**Status:** agent-done
 
-- [ ] `/state` returns `StateResponse` with a scoped `graph` and one response revision; it does not return or apply a Change tail.
-- [ ] The graph map contains only the resident ROOT closure, not the full canonical Server Graph.
-- [ ] Nested named Workspaces appear as resident Headers with Unloaded empty children rather than their Workspace contents.
-- [ ] Ref headers reachable from owned ROOT nodes are resident; their children are omitted.
-- [ ] The Browser does not request, transfer, or install the complete canonical Graph during fresh startup.
-- [ ] The first Graph render waits until that `/state` graph is installed, so no partial ROOT view is exposed.
+- [x] `/state` returns `StateResponse` with a scoped `graph` and one response revision; it does not return or apply a Change tail.
+- [x] The graph map contains only the resident ROOT closure, not the full canonical Server Graph.
+- [x] Nested named Workspaces appear as resident Headers with Unloaded empty children rather than their Workspace contents.
+- [x] Ref headers reachable from owned ROOT nodes are resident; their children are omitted.
+- [x] The Browser does not request, transfer, or install the complete canonical Graph during fresh startup.
+- [x] The first Graph render waits until that `/state` graph is installed, so no partial ROOT view is exposed.

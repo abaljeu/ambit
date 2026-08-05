@@ -29,7 +29,7 @@ What is the smallest coherent selective-client-loading design after the complete
 - Unparsed source state and Unloaded residency remain distinct facts but share the hollow-circle affordance and the same Load command. Clicking a hollow circle dispatches the normal full-selection Load: first make the clicked occurrence the sole selection when it was not selected, otherwise preserve the full selection.
 - Zoom treats an unloaded node as an ordinary leaf. Find searches only the resident projection, and committing a result delegates to exactly the same Zoom behavior. Keyboard unfold, traversal, and range commands consume `children = []` and naturally no-op or continue; only hollow-circle click invokes Load.
 - Full-selection Load preserves every current Upload filter, stage, ordering rule, and source-side effect, including desktop push and parse/reconciliation. A loaded target may still run those stages, often as no-ops.
-- The request carries each selected target ID and `includeWorkspace`. Use `true` for an Unloaded target and `false` for a Loaded target. The server resolves and deduplicates owning Workspaces and may process selections spanning Workspaces.
+- The request carries each selected target ID and `includeWorkspace`. Use `true` for an Unloaded target and `false` for a Loaded target. The server resolves and deduplicates the one owning Workspace shared by all targets and refuses the whole request when the selection spans more than one Workspace.
 - A target with `includeWorkspace = false` receives only the normal poll diff, including source or parse changes. A target with `includeWorkspace = true` additionally receives its complete owning Workspace snapshot. There are no Direct, ArtifactClosure, or Workspace load modes.
 
 ### Synchronization and projected correctness
@@ -42,10 +42,8 @@ What is the smallest coherent selective-client-loading design after the complete
 
 ### Structural commands
 
-- Use one Shared pre-commit guard for every local command that plans a new Change except MoveSelected: if any planned operation would modify an Unloaded node's child list, commit nothing and silently no-op. Add Child, Paste, ordinary move behavior, and other structural commands need no command-specific residency handling.
-- MoveSelected is the deliberate exception and never loads its destination. It may submit a move to an unloaded destination; projected apply removes the source edge but skips destination insertion, so the moved node disappears until that destination Workspace is explicitly loaded. Normal command feedback still names the destination.
-- The server receives the complete move and History. Undo restores the source in the resident projection while removing the hidden destination canonically; projected Undo and Redo remain History actions rather than newly planned Changes.
-- Any other structural move that intends to retain or focus the moving node no-ops before commit when its destination is unloaded. MoveSelected is the sole command allowed to cause projected disappearance.
+- Use one Shared pre-commit guard for every local command that plans a new Change, including MoveSelected: if any planned operation would modify an Unloaded node's child list, commit nothing and silently no-op. Add Child, Paste, MoveSelected, ordinary move behavior, and other structural commands need no command-specific residency handling beyond that guard.
+- The Move dialog does not allow picking an Unloaded Node as a destination. That UI rule and the Shared guard together keep Unloaded child lists unchanged.
 - ROOT is fully loaded, so ordinary delete, permanent delete, and their Undo behavior need no bootstrap exception or server-only Delete command.
 
 ### Responsibility seams

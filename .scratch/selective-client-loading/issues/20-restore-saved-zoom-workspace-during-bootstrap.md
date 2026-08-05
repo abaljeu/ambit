@@ -1,8 +1,8 @@
 # 20 — Restore saved zoom Workspace during bootstrap
 
-**Context:** On refresh the client may have a saved zoom node. That target can widen the initial `/state` Graph without changing the response shape.
+**Context:** Browser refresh may carry a saved zoom target. Selective loading still serves startup as `GET /{file}/state` → `StateResponse` with a scoped `graph`, not a Change list. A valid target outside ROOT may widen that same `/state` Graph by at most one complete owning Workspace.
 
-**What to build:** When restoring a valid saved zoom target outside ROOT, include at most one extra complete owning Workspace in the same `/state` Graph as ROOT, at one response revision, with deterministic fallback for duplicate or stale targets and no residency caused by fold restoration.
+**What to build:** Extend the ticket-19 `/state` Graph so a valid saved zoom target outside ROOT adds at most one complete owning Workspace into the same response (ROOT ± one Workspace) at one revision. Nested Workspace headers in that Workspace stay resident with Unloaded empty children; Ref headers reachable from owned nodes are included without their children. Do not re-elevate SYSTEM/TRASH. `/state` does not use SiteMap. Keep deterministic fallbacks when there is no target, the target is already in ROOT, or the target is stale/missing. Saved folds never request extra residency. The Browser installs the complete `/state` Graph before first render.
 
 **Blocked by:** 19 — Bootstrap fresh sessions with complete ROOT.
 
@@ -13,6 +13,7 @@
 - [ ] With no saved zoom target, `/state` installs complete ROOT and no additional Workspace.
 - [ ] A valid saved target owned by ROOT restores from the ROOT closure without requesting or installing ROOT twice.
 - [ ] A valid saved target outside ROOT adds exactly one complete owning Workspace into the same `/state` Graph, captured and installed atomically with ROOT at one response revision.
+- [ ] Nested Workspace headers in that added Workspace appear as resident Headers with Unloaded empty children; Ref headers reachable from its owned nodes are resident with children omitted.
 - [ ] A stale or missing saved target installs only complete ROOT and selects the normal default in-ROOT view.
 - [ ] Saved folds are restored only for resident nodes and neither fold restoration nor saved nonresident fold entries request additional content.
-- [ ] The first rendered view reflects the resolved zoom and folds after that `/state` Graph is installed.
+- [ ] The first Graph render waits until that `/state` Graph is installed, so the resolved zoom and folds are not shown against a partial package.

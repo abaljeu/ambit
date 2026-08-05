@@ -29,7 +29,7 @@ let private changedBody () =
         }
     Encode.toString 0 (
         Serialization.encodeChangeBatch
-            { changes = [ HistoryAction.Change change ] })
+            { changes = [ ChangeRequest.Change change ] })
 
 let private softFailPersist : string -> Graph -> Graph -> Op list -> Result<PersistGraphOk, string> =
     fun _ _ postGraph _ ->
@@ -62,7 +62,7 @@ let private softFailEditBody () =
         }
     Encode.toString 0 (
         Serialization.encodeChangeBatch
-            { changes = [ HistoryAction.Change change ] })
+            { changes = [ ChangeRequest.Change change ] })
 
 [<Fact>]
 let ``persistence exception is logged replied and mailbox survives`` () = task {

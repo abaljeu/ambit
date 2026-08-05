@@ -112,6 +112,7 @@ let newTempDir () =
     dir
 
 /// Create a test client pointing at the given data directory (file backend, no DB).
+/// GET `/ambit/state` returns the scoped ROOT bootstrap graph; use `?scope=full` for total-load tests.
 let createClientForDir (tempDir: string) =
     let priorDb = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING")
     try

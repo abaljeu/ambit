@@ -126,11 +126,34 @@ module Api =
         return jsonResult json
     }
 
-    let getState (handle: AgentHandle) : Async<IResult> = async {
+    let private parseBootstrapScope (req: HttpRequest) : BootstrapScope =
+        match req.Query.TryGetValue "scope" with
+        | true, values when values.Count > 0 && values.[0] = "full" ->
+            BootstrapScope.FullGraph
+        | _ -> BootstrapScope.RootClosure
+
+    let getState (handle: AgentHandle) (req: HttpRequest) : Async<IResult> = async {
         try
+            let scope = parseBootstrapScope req
             let! result = handle.getState ()
             match result with
-            | Ok json -> return jsonResult json
+            | Ok json ->
+                match
+                    Decode.fromString
+                        ApiResponseSerialization.decodeStateResponseDecoder
+                        json
+                with
+                | Error err ->
+                    return
+                        internalError
+                            $"Internal server error in GetState decode: {err}"
+                | Ok response ->
+                    let scoped =
+                        ResidentProjection.bootstrapStateResponse scope response
+                    let encoded =
+                        ApiResponseSerialization.encodeStateResponse scoped
+                        |> Encode.toString 0
+                    return jsonResult encoded
             | Error err -> return agentErrorResult err
         with ex ->
             return

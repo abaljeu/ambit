@@ -1,6 +1,6 @@
 # Gambol
 
-Concise glossary for this repo. Prefer these words; do not invent synonyms.
+Concise glossary for this repo. Prefer these words; do not invent synonyms.  If a new term seems to be needed, raise the issue.
 
 ## About Working
 
@@ -139,7 +139,7 @@ A Load-stage operation that pushes App files to the Server. Not the user-facing 
 _Avoid_: Load (for this stage), push (as the stage name)
 
 **Parse**:
-A Load-stage operation that turns server files into Graph content.
+A Load-stage operation that turns server files into Graph content.  This step is more than simple parsing but also reconciles pre-existing graph content with file content.
 _Avoid_: import, reconcile (as the stage name)
 
 **Download**:
@@ -181,3 +181,18 @@ _Avoid_: Load (for this meaning), reconcile (as a synonym for Sync)
 **Poll**:
 A Browser request for Actions since a known Revision in History; used in Sync and also as part of Load's final stage with Fetch.
 _Avoid_: sync (as a synonym for Poll), fetch (for this meaning)
+
+## Additional approved terms
+These terms are permitted with standard definition:
+
+- **SiteMap**: the client's derived view index over the resident Graph.
+- **ChangeRequest**: the client's pending-queue and submit-payload unit (Change, Undo, or Redo).
+- **StateResponse**: the `/state` endpoint's response payload.
+- **ChangeLog**: the server's durable ordered log of Changes.
+- **Session**: one webpage lifetime from load to refresh or close.
+- **Selection**: the set of Nodes a user has currently selected.  It will always be a range of children of a node.
+- **Focus**: the active node.  It will always be the first or last of selection.
+- **Zoom**: the command that focuses the view on a Node.
+- **Find**: the command that searches the resident Graph.
+- **Fold**: the collapsed/expanded display state of a Node's Children.
+- synchronization: plain noun form of **Sync**, same meaning.

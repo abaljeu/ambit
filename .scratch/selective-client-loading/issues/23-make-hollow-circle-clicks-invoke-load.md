@@ -1,6 +1,8 @@
 # 23 — Make hollow-circle clicks invoke Load
 
-**What to build:** Let users click on the hollow circle adjacent to a user node.invoke the Load command from the hollow-circle affordance while keeping Unloaded residency distinct from Unparsed source state and loaded empty nodes visually distinct.
+**Context:** Unloaded residency and Unparsed source state are different facts. Both show a hollow circle next to the Node. Unparsed also keeps its current secondary visual indicator. A Node that is Loaded and Parsed keeps its current look and behavior. Users click the hollow circle to run Load. Load already carries the full selection after issue 22.
+
+**What to build:** Let a hollow-circle click run the Load command. Keep Unloaded distinct from Unparsed. Keep the current Unparsed secondary indicator. Keep the current look and behavior for Nodes that are Loaded and Parsed. Use the current QueuedLoad and Loading path. Do not add per-Node loading state. Do not let other clicks or render steps load content.
 
 **Blocked by:** 22 — Load full selection across Workspaces.
 
@@ -8,9 +10,10 @@
 
 **Status:** ready-for-agent
 
-- [ ] Unloaded and Unparsed occurrences remain distinct states but each presents the hollow-circle affordance and invokes the same Load command.
-- [ ] A Loaded node with an authoritative empty child list is distinguishable from an Unloaded node and is not presented as unloaded.
-- [ ] Clicking the hollow circle on an occurrence outside the current selection first makes that occurrence the sole selection and then loads it.
-- [ ] Clicking the hollow circle on an already selected occurrence preserves the entire current selection and loads all selected targets.
-- [ ] Hollow-circle Load uses the global QueuedLoad and Loading synchronization behavior and introduces no per-node loading state.
-- [ ] No other click or rendering transition implicitly obtains resident content.
+- [ ] Unloaded and Unparsed each show the hollow circle. Each runs the same Load command.
+- [ ] Unparsed also keeps its current secondary visual indicator.
+- [ ] A Node that is Loaded and Parsed keeps its current look and behavior.
+- [ ] A hollow-circle click on an occurrence that is not selected first makes that occurrence the only selection. Then Load runs.
+- [ ] A hollow-circle click on an occurrence that is already selected keeps the full current selection. Then Load runs for every selected target.
+- [ ] Hollow-circle Load uses global QueuedLoad and Loading. It does not add per-Node loading state.
+- [ ] No other click or render step loads resident content.

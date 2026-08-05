@@ -86,7 +86,7 @@ let ``SetText persists SYSTEM user css and server remains responsive`` () = task
     let body =
         Encode.toString 0 (
             Serialization.encodeChangeBatch
-                { changes = [ HistoryAction.Change change ] })
+                { changes = [ ChangeRequest.Change change ] })
     use content = new StringContent(body, Encoding.UTF8, "application/json")
     use! response = client.PostAsync("/ambit/changes", content) |> timeout
     Assert.Equal(HttpStatusCode.OK, response.StatusCode)
