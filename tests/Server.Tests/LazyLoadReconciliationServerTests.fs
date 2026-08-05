@@ -682,7 +682,7 @@ let ``directory reconciliation POST returns failures JSON`` () =
         |> Async.RunSynchronously
     Assert.Equal(HttpStatusCode.OK, wsResp.StatusCode)
     let stateResp =
-        client.GetAsync("/ambit/state")
+        client.GetAsync("/ambit/state?scope=full")
         |> Async.AwaitTask
         |> Async.RunSynchronously
     let stateJson =
@@ -759,7 +759,7 @@ let ``workspace reconciliation POST with empty path discovers root`` () =
         $"expected OK, got {response.StatusCode}: {responseBody}")
     Assert.Equal("""{"failures":[]}""", responseBody)
     let stateResp =
-        client.GetAsync("/ambit/state")
+        client.GetAsync("/ambit/state?scope=full")
         |> Async.AwaitTask
         |> Async.RunSynchronously
     let stateJson =
