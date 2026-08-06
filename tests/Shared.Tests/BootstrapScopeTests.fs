@@ -213,3 +213,56 @@ let ``bootstrapGraph zoom Workspace includes Ref header without children`` () =
     Assert.True(scoped.nodes.ContainsKey refTargetId)
     Assert.Equal(Unloaded, scoped.nodes.[refTargetId].childrenStatus)
     Assert.Empty scoped.nodes.[refTargetId].children
+
+[<Fact>]
+let ``sessionBootstrapTarget keeps zoom when zoom is outside ROOT`` () =
+    let graph, _, _, fileId = graphWithNestedWorkspace ()
+    let target =
+        ResidentProjection.sessionBootstrapTarget graph fileId (Some graph.root)
+    Assert.Equal(fileId, target)
+
+[<Fact>]
+let ``sessionBootstrapTarget uses focus when zoom stays in ROOT`` () =
+    // Interactive F5: Load a Workspace, select a sub-node, never Zoom — zoomRoot
+    // remains an in-ROOT default while focus lies in the loaded Workspace.
+    let graph, wsId, _, fileId = graphWithNestedWorkspace ()
+    let inRootZoom = Graph.workspacesId
+    let target =
+        ResidentProjection.sessionBootstrapTarget graph inRootZoom (Some fileId)
+    Assert.Equal(fileId, target)
+    let scoped =
+        ResidentProjection.bootstrapGraph BootstrapScope.RootClosure (Some target) graph
+    Assert.Equal(Loaded, scoped.nodes.[wsId].childrenStatus)
+    Assert.True(scoped.nodes.ContainsKey fileId)
+
+[<Fact>]
+let ``sessionTargets keeps zoom restore and widens bootstrap via focus`` () =
+    // F5 must Load the owning Workspace without zooming into the selection.
+    let graph, _, _, fileId = graphWithNestedWorkspace ()
+    let inRootZoom = Graph.workspacesId
+    let zoom, bootstrap =
+        ResidentProjection.sessionTargets graph inRootZoom (Some fileId)
+    Assert.Equal(inRootZoom, zoom)
+    Assert.Equal(fileId, bootstrap)
+
+[<Fact>]
+let ``sessionTargets uses zoom for both when zoom is outside ROOT`` () =
+    let graph, _, _, fileId = graphWithNestedWorkspace ()
+    let zoom, bootstrap =
+        ResidentProjection.sessionTargets graph fileId (Some graph.root)
+    Assert.Equal(fileId, zoom)
+    Assert.Equal(fileId, bootstrap)
+
+[<Fact>]
+let ``sessionBootstrapTarget ignores focus that is missing or still in ROOT`` () =
+    let graph, _, _, _ = graphWithNestedWorkspace ()
+    let inRootZoom = Graph.workspacesId
+    Assert.Equal(
+        inRootZoom,
+        ResidentProjection.sessionBootstrapTarget graph inRootZoom (Some Graph.trashId))
+    Assert.Equal(
+        inRootZoom,
+        ResidentProjection.sessionBootstrapTarget graph inRootZoom (Some (NodeId.New())))
+    Assert.Equal(
+        inRootZoom,
+        ResidentProjection.sessionBootstrapTarget graph inRootZoom None)

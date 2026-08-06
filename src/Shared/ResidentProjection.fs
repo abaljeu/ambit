@@ -230,16 +230,43 @@ module ResidentProjection =
     let rootBootstrapGraph (graph: Graph) : Graph =
         Graph.fromNodes graph.root (projectWorkspaceNodes graph graph.root)
 
+    let private outsideRootWorkspace (graph: Graph) (nodeId: NodeId) : bool =
+        Map.containsKey nodeId graph.nodes
+        && match GraphQuery.enclosingWorkspace graph nodeId with
+           | Some wsId when wsId <> graph.root -> true
+           | _ -> false
+
+    /// Node id for `/state?zoom=` widen only (not UI zoom restore).
+    /// Prefer zoomRoot when it already lies outside ROOT; otherwise use focus
+    /// when the focused node identifies a named Workspace (Load without Zoom).
+    let sessionBootstrapTarget
+        (graph: Graph)
+        (zoomRoot: NodeId)
+        (focusId: NodeId option)
+        : NodeId =
+        if outsideRootWorkspace graph zoomRoot then
+            zoomRoot
+        else
+            match focusId with
+            | Some fid when outsideRootWorkspace graph fid -> fid
+            | _ -> zoomRoot
+
+    /// Persist zoom restore and bootstrap widen as separate ids.
+    let sessionTargets
+        (graph: Graph)
+        (zoomRoot: NodeId)
+        (focusId: NodeId option)
+        : NodeId * NodeId =
+        zoomRoot, sessionBootstrapTarget graph zoomRoot focusId
+
     /// Extra named Workspace to include when saved zoom lies outside ROOT.
     let private extraZoomWorkspace (graph: Graph) (savedZoom: NodeId option) : NodeId option =
         savedZoom
         |> Option.bind (fun zoomId ->
-            if not (Map.containsKey zoomId graph.nodes) then
+            if not (outsideRootWorkspace graph zoomId) then
                 None
             else
-                match GraphQuery.enclosingWorkspace graph zoomId with
-                | Some wsId when wsId <> graph.root -> Some wsId
-                | _ -> None)
+                GraphQuery.enclosingWorkspace graph zoomId)
 
     /// Merge package nodes into an existing bootstrap graph (Loaded wins over Unloaded headers).
     let private mergePackageNodes
