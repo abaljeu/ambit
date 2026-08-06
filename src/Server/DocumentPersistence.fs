@@ -774,9 +774,8 @@ module DocumentPersistence =
         match discoverArtifactRelatives dataDir with
         | Error msg -> Error msg
         | Ok relatives ->
-            let relatives =
-                relatives
-                |> List.filter DocumentArtifactPath.isMarker
+            // Include non-marker bodies (e.g. SYSTEM/user.css). Assembly only follows
+            // children referenced from markers; refuseText still skips oversized files.
             let resolved =
                 relatives
                 |> List.fold

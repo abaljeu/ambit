@@ -25,6 +25,7 @@ let private decodeGraph json =
     | Ok graph -> graph
     | Error err -> failwith err
 
+/// SYSTEM always exists; user.css is optional — create it when this scenario needs it.
 let private createSystemCssClient () =
     let dataDir = newTempDir ()
     let systemDir = Path.Combine(dataDir, "SYSTEM")
@@ -35,6 +36,17 @@ let private createSystemCssClient () =
         "^6556583f-322d-4183-bc42-284a81044a0f user.css\tuser.css")
     File.WriteAllText(Path.Combine(systemDir, "user.css"), "block")
     dataDir, createClientForDir dataDir
+
+let private findOwnedChildNamed (graph: Graph) (parentId: NodeId) (name: string) =
+    graph.nodes.[parentId].children
+    |> List.choose (fun c ->
+        if c.ref <> Ownership.Owner then
+            None
+        else
+            match Map.tryFind c.id graph.nodes with
+            | Some node when Filename.tryValue node.name = Some name -> Some c.id
+            | _ -> None)
+    |> List.exactlyOne
 
 let private exactRawBatch =
     """
@@ -74,10 +86,10 @@ let ``exact raw change array is rejected and server remains responsive`` () = ta
 let ``SetText persists SYSTEM user css and server remains responsive`` () = task {
     let dataDir, client = createSystemCssClient ()
     use client = client
-    use! initialResponse = client.GetAsync("/ambit/state") |> timeout
+    use! initialResponse = client.GetAsync("/ambit/state?scope=full") |> timeout
     let! initialJson = initialResponse.Content.ReadAsStringAsync() |> timeout
     let graph = decodeGraph initialJson
-    let fileId = graph.nodes.[Graph.systemId].children |> List.exactlyOne |> fun c -> c.id
+    let fileId = findOwnedChildNamed graph Graph.systemId "user.css"
     let cssNodeId = graph.nodes.[fileId].children |> List.exactlyOne |> fun c -> c.id
     let change =
         { id = 0

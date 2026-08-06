@@ -79,13 +79,27 @@ module DbAgent =
                     Error
                         $"Revision mismatch: server is at revision {s.revision.Value}, but this action targets base revision {baseRevision}."
                 else
-                    match History.applyAction action s with
-                    | Error error -> Error error
-                    | Ok (s', materialized) ->
-                        let nextRev = s.revision.Value + 1
-                        let nextState = { s' with revision = Revision nextRev }
-                        let logEntry = nextRev, materialized
-                        Ok(nextState, actionId :: acked, logEntry :: logEntries)
+                    match action with
+                    | ChangeRequest.Change change ->
+                        match History.applyChange change s with
+                        | ApplyResult.Invalid (_, errMsg) -> Error errMsg
+                        | ApplyResult.Unchanged s' ->
+                            // Write-free ack: no revision bump, no change log row.
+                            Ok(s', actionId :: acked, logEntries)
+                        | ApplyResult.Changed s' ->
+                            let nextRev = s.revision.Value + 1
+                            let nextState = { s' with revision = Revision nextRev }
+                            let logEntry = nextRev, change
+                            Ok(nextState, actionId :: acked, logEntry :: logEntries)
+                    | ChangeRequest.Undo _
+                    | ChangeRequest.Redo _ ->
+                        match History.applyAction action s with
+                        | Error error -> Error error
+                        | Ok (s', materialized) ->
+                            let nextRev = s.revision.Value + 1
+                            let nextState = { s' with revision = Revision nextRev }
+                            let logEntry = nextRev, materialized
+                            Ok(nextState, actionId :: acked, logEntry :: logEntries)
 
             actions
             |> List.fold
