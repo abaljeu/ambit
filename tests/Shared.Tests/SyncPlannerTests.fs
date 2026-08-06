@@ -120,6 +120,46 @@ let ``tryStartPoll returns no effects when uploading`` () =
     Assert.Empty(effects)
 
 [<Fact>]
+let ``tryStartLoad emits LoadServer when idle with empty queue`` () =
+    let targetId = NodeId.New()
+    let si, effects =
+        SyncPlanner.tryStartLoad (Revision 5) targetId true SyncInfo.initial
+    Assert.Equal(Loading, si.syncState)
+    match effects with
+    | [ LoadServer (rev, tid, includeWorkspace) ] ->
+        Assert.Equal(5, rev)
+        Assert.Equal(targetId, tid)
+        Assert.True(includeWorkspace)
+    | _ -> failwith "Expected single LoadServer effect"
+
+[<Fact>]
+let ``tryStartLoad returns no effects when already loading`` () =
+    let syncInfo =
+        { SyncInfo.initial with syncState = Loading }
+    let si, effects =
+        SyncPlanner.tryStartLoad (Revision 5) (NodeId.New()) false syncInfo
+    Assert.Equal(Loading, si.syncState)
+    Assert.Empty(effects)
+
+[<Fact>]
+let ``tryStartPoll returns no effects when loading`` () =
+    let syncInfo =
+        { SyncInfo.initial with syncState = Loading }
+    let si, effects = SyncPlanner.tryStartPoll (Revision 5) syncInfo
+    Assert.Equal(Loading, si.syncState)
+    Assert.Empty(effects)
+
+[<Fact>]
+let ``tryStartSubmit returns no effects when loading`` () =
+    let syncInfo =
+        { SyncInfo.initial with
+            pendingChanges = [ mkChange 1 |> asAction ]
+            syncState = Loading }
+    let nextInfo, effects = SyncPlanner.tryStartSubmit (Revision 1) syncInfo
+    Assert.Equal(Loading, nextInfo.syncState)
+    Assert.Empty(effects)
+
+[<Fact>]
 let ``queued workspace Upload waits while a change submit is in flight`` () =
     let scope =
         { label = "home"

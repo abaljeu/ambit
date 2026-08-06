@@ -1,5 +1,5 @@
 # Selective client loading — git
 
-- **Project branch:** `w/restore-saved-zoom-bootstrap`
+- **Project branch:** `w/issue-21-load-sync`
 - **Cut from:** `selective-client-sync`
-- **Notes:** Issue 20 — restore saved zoom Workspace during `/state` bootstrap
+- **Notes:** Issue 21 — Load one selected target through synchronization

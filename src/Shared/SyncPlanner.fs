@@ -11,7 +11,7 @@ module SyncPlanner =
 
     let private isBusy (syncState: SyncState) =
         match syncState with
-        | Sending _ | Polling | Uploading -> true
+        | Sending _ | Polling | Uploading | Loading -> true
         | _ -> false
 
     let tryStartSubmit (baseRevision: Revision) (syncInfo: SyncInfo) : SyncInfo * Effect list =
@@ -93,4 +93,17 @@ module SyncPlanner =
         match syncInfo.syncState, syncInfo.pendingChanges with
         | Idle, [] ->
             syncInfo |> SyncInfo.withSyncState Polling, [ PollServer revision.Value ]
+        | _ -> syncInfo, []
+
+    /// Emit a LoadServer effect (Fetch + Poll) when idle with an empty pending queue.
+    let tryStartLoad
+        (revision: Revision)
+        (targetId: NodeId)
+        (includeWorkspace: bool)
+        (syncInfo: SyncInfo)
+        : SyncInfo * Effect list =
+        match syncInfo.syncState, syncInfo.pendingChanges with
+        | Idle, [] ->
+            syncInfo |> SyncInfo.withSyncState Loading,
+            [ LoadServer(revision.Value, targetId, includeWorkspace) ]
         | _ -> syncInfo, []

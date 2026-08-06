@@ -4,6 +4,7 @@ open Browser.Dom
 open Fable.Core.JsInterop
 open Gambol.Client.JsInterop
 open Gambol.Shared
+open Gambol.Shared.CommandEntry
 open Gambol.Shared.ViewModel
 open Gambol.Shared.ViewModelMoveOps
 open Thoth.Json.Core
@@ -29,6 +30,32 @@ let emptyMutatingPostHeaders () : obj =
 
 let jsonMutatingPostHeaders () : obj =
     withClientIdentity [ "Content-Type" ==> "application/json" ]
+
+/// Focus target used by Load (same resolution as the Load command).
+let focusContextualTarget (model: VM) : ContextualTarget option =
+    model.selectedNodes
+    |> Option.bind (fun selection ->
+        contextualTarget
+            model.graph
+            selection.range.parent.nodeId
+            selection.focus)
+
+/// After Upload/Parse stages: Fetch+Poll for Focus; fall back to ordinary Poll.
+let tryStartLoadFetch (model: VM) : SyncInfo * Effect list =
+    match focusContextualTarget model with
+    | Some target ->
+        let targetId = contextualTargetId target
+        let includeWorkspace =
+            match Map.tryFind targetId model.graph.nodes with
+            | Some node when node.childrenStatus = Unloaded -> true
+            | _ -> false
+        SyncPlanner.tryStartLoad
+            model.revision
+            targetId
+            includeWorkspace
+            model.syncInfo
+    | None ->
+        SyncPlanner.tryStartPoll model.revision model.syncInfo
 
 // ---------------------------------------------------------------------------
 // Pending-queue localStorage persistence

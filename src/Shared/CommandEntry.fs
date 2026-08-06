@@ -102,6 +102,12 @@ let contextualTarget (graph: Graph) (parentId: NodeId) (index: int) : Contextual
                 | _ -> None)
         | _ -> None
 
+let contextualTargetId (target: ContextualTarget) : NodeId =
+    match target with
+    | ParseFile id
+    | ReconcileWorkspace id
+    | ReconcileDirectory id -> id
+
 let allCommands : CommandEntry list =
     [
         { id = EditNode; name = "Edit node"

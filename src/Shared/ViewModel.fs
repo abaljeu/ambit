@@ -210,6 +210,7 @@ type SyncState =
     | Sending of attempt: int    // POST in-flight; attempt = 1-based send count
     | Polling                    // GET poll in-flight
     | Uploading                  // workspace file push in progress (blocks poll)
+    | Loading                    // Load Fetch+Poll in-flight (blocks poll/submit)
     | WaitingToRetry of attempt: int * baseRevision: int * changes: ChangeRequest list
     | ServerRejected  // server returned 400 — change cannot be applied; reload required
     | CodeOutdated    // server has newer code (build stamp changed) — reload required
@@ -267,6 +268,7 @@ module SyncInfo =
 type Effect =
     | SubmitPendingBatch of baseRevision: int * changes: ChangeRequest list
     | PollServer of revision: int
+    | LoadServer of revision: int * targetId: NodeId * includeWorkspace: bool
     | ScheduleRetry of delayMs: int
     /// The change-ops queue settled: run a request that was parked behind it.
     | RunQueuedRequest of QueuedRequest
@@ -427,6 +429,7 @@ type SystemMsg =
     | SetPollingActive of bool
     | PollTick            // polling timer fired; update decides whether to emit PollServer effect
     | PollDone of SyncState option * Change list * isReady: bool option
+    | LoadDone of SyncState option * SyncResponse * isReady: bool option
     | RetrySubmit         // retry timer fired; update resends the stored batch snapshot
 
 type Msg =

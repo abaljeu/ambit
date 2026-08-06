@@ -70,6 +70,17 @@ module SyncLogic =
                     afterChanges.graph
             Ok { afterChanges with graph = graph }
 
+    let loadResponseToSync (response: LoadResponse) : SyncResponse =
+        { changes = response.changes
+          packages = response.packages }
+
+    let loadResponseToPoll (response: LoadResponse) : PollResponse =
+        { revision = response.revision
+          buildEpochSec = response.buildEpochSec
+          pageBuildEpochSec = response.pageBuildEpochSec
+          isReady = response.isReady
+          changes = response.changes }
+
     /// Apply a server-supplied Change tail onto local State (Poll path).
     /// Empty list is a no-op that preserves History.
     let applyServerTail

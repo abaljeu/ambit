@@ -30,6 +30,9 @@ let private renderSyncStatus (model: VM) =
             | Uploading ->
                 el.textContent <- "Uploading\u2026"
                 el.className <- "amb-sync-status amb-syncing"
+            | Loading ->
+                el.textContent <- "Loading\u2026"
+                el.className <- "amb-sync-status amb-syncing"
             | WaitingToRetry (attempt, _, _) ->
                 el.textContent <- $"Unsaved \u2014 (try {attempt})"
                 el.className <- "amb-sync-status amb-pending"

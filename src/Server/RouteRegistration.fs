@@ -297,6 +297,18 @@ module RouteRegistration =
                     Api.getPoll handle (stamps.DeployEpochSec ()) pageEpoch clientRev
                     |> Async.StartAsTask
         })) |> ignore
+        app.MapPost("/ambit/load", Func<HttpRequest, Task<IResult>>(fun req -> task {
+            if not (auth.IsAuthenticated req) then
+                return Results.Unauthorized()
+            else
+                use reader = new StreamReader(req.Body)
+                let! body = reader.ReadToEndAsync()
+                let handle = persistence.GetHandle ()
+                let pageEpoch = stamps.PageBuildEpochSec ()
+                return!
+                    Api.postLoad handle (stamps.DeployEpochSec ()) pageEpoch body
+                    |> Async.StartAsTask
+        })) |> ignore
         app.MapPost("/ambit/changes", Func<HttpRequest, Task<IResult>>(fun req -> task {
             if not (auth.IsAuthenticated req) then
                 return Results.Unauthorized()

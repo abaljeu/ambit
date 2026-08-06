@@ -229,6 +229,61 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
             | Some s ->
                 { readyModel with syncInfo = SyncInfo.withSyncState s si }, []
 
+    | SysMsg (LoadDone (stateOpt, syncResponse, readyOpt)) ->
+        let readyModel =
+            match readyOpt with
+            | Some ready ->
+                { model with
+                    syncInfo =
+                        model.syncInfo
+                        |> SyncInfo.withServerReady ready }
+            | None -> model
+        let si = SyncInfo.withSyncState Idle readyModel.syncInfo
+        let hasPayload =
+            not (List.isEmpty syncResponse.changes)
+            || not (List.isEmpty syncResponse.packages)
+        match stateOpt with
+        | Some CodeOutdated ->
+            { readyModel with
+                syncInfo = SyncInfo.withSyncState CodeOutdated si }, []
+        | Some DataOutdated when not hasPayload || isAutoSyncBlocked readyModel ->
+            { readyModel with
+                syncInfo = SyncInfo.withSyncState DataOutdated si }, []
+        | None when not hasPayload ->
+            { readyModel with syncInfo = si }, []
+        | None when isAutoSyncBlocked readyModel ->
+            { readyModel with
+                syncInfo = SyncInfo.withSyncState DataOutdated si }, []
+        | None
+        | Some DataOutdated ->
+            let state: State =
+                { graph = readyModel.graph
+                  history = readyModel.history
+                  revision = readyModel.revision }
+            match SyncLogic.applySyncResponse syncResponse state with
+            | Error _ ->
+                { readyModel with
+                    syncInfo = SyncInfo.withSyncState DataOutdated si }, []
+            | Ok newState ->
+                consoleLog (
+                    "[Gambol sync] LoadDone applied changes="
+                    + string syncResponse.changes.Length
+                    + " packages="
+                    + string syncResponse.packages.Length
+                    + " newRev="
+                    + string newState.revision.Value)
+                let synced =
+                    { readyModel with
+                        graph = newState.graph
+                        history = newState.history
+                        revision = newState.revision
+                        syncInfo = si }
+                    |> withSiteMap
+                    |> adjustModeAfterServerApply readyModel.graph
+                synced, []
+        | Some s ->
+            { readyModel with syncInfo = SyncInfo.withSyncState s si }, []
+
     | SysMsg RetrySubmit ->
         let m, effs = UpdateOps.retryPendingOp false model
         m, effs

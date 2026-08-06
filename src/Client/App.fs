@@ -147,6 +147,8 @@ let createRuntime (initialModel: VM) =
         match e with
         | SubmitPendingBatch (baseRev, changes) -> runSubmitPendingBatch baseRev changes
         | PollServer _ -> runPollServer ()
+        | LoadServer (rev, targetId, includeWorkspace) ->
+            runLoadServer rev targetId includeWorkspace
         | ScheduleRetry delayMs -> runScheduleRetry delayMs
         | RunQueuedRequest QueuedLoad -> dispatch (ApplyOp loadOp)
         | RunQueuedRequest (QueuedWorkspacePush (scope, parseFileId)) ->
@@ -388,6 +390,55 @@ let createRuntime (initialModel: VM) =
                 SysMsg (
                     PollDone (None, [], None)))
         fetchTextNoCacheWithFail url onPollOk onPollFail
+
+    and runLoadServer
+        (revision: int)
+        (targetId: NodeId)
+        (includeWorkspace: bool)
+        : unit =
+        let url = $"/{currentFile}/load"
+        let body =
+            Thoth.Json.JavaScript.Encode.toString 0 (
+                ApiResponseSerialization.encodeLoadRequest
+                    { revision = revision
+                      targetId = targetId
+                      includeWorkspace = includeWorkspace })
+        let onLoadOk (text: string) : unit =
+            match ApiResponseSerialization.decodeLoadResponse text with
+            | Ok load ->
+                let context =
+                    { ClientPollContext.buildEpochSec = readBuildEpochSec ()
+                      pageBuildEpochSec = readPageBuildEpochSec () }
+                let outcome =
+                    SyncLogic.getPollOutcome
+                        (SyncLogic.loadResponseToPoll load)
+                        model.revision.Value
+                        context
+                dispatch (
+                    SysMsg (
+                        LoadDone (
+                            outcome,
+                            SyncLogic.loadResponseToSync load,
+                            Some load.isReady)))
+            | Error _ ->
+                dispatch (
+                    SysMsg (
+                        LoadDone (None, { changes = []; packages = [] }, None)))
+        let onLoadHttp (_status: int) (_body: string) : unit =
+            dispatch (
+                SysMsg (
+                    LoadDone (None, { changes = []; packages = [] }, None)))
+        let onLoadFail () : unit =
+            dispatch (
+                SysMsg (
+                    LoadDone (None, { changes = []; packages = [] }, None)))
+        postJson
+            url
+            body
+            onLoadOk
+            onLoadHttp
+            onLoadFail
+            (jsonMutatingPostHeaders ())
 
     and runScheduleRetry (delayMs: int) : unit =
         clearRetryTimer ()

@@ -126,6 +126,70 @@ module Api =
         return jsonResult json
     }
 
+    let private loadPackages
+        (handle: AgentHandle)
+        (targetId: NodeId)
+        (includeWorkspace: bool)
+        : Async<Result<Node list, string>> =
+        if not includeWorkspace then
+            async.Return(Ok [])
+        else
+            async {
+                match! handle.getState () with
+                | Error err -> return Error err
+                | Ok json ->
+                    match
+                        Decode.fromString
+                            ApiResponseSerialization.decodeStateResponseDecoder
+                            json
+                    with
+                    | Error err ->
+                        return
+                            Error $"Internal server error in Load decode: {err}"
+                    | Ok stateResponse ->
+                        return
+                            Ok(
+                                ResidentProjection.packagesForTarget
+                                    stateResponse.graph
+                                    targetId
+                                    true)
+            }
+
+    let postLoad
+        (handle: AgentHandle)
+        (buildEpochSec: int)
+        (pageBuildEpochSec: int)
+        (body: string)
+        : Async<IResult> = async {
+        match
+            Decode.fromString
+                ApiResponseSerialization.decodeLoadRequestDecoder
+                body
+        with
+        | Error err ->
+            return Results.BadRequest({| error = $"Invalid load request: {err}" |})
+        | Ok request ->
+            let! rev = handle.getRevision ()
+            let! changes =
+                if rev > request.revision then
+                    handle.getChangesSince request.revision
+                else
+                    async.Return []
+            match! loadPackages handle request.targetId request.includeWorkspace with
+            | Error err -> return agentErrorResult err
+            | Ok packages ->
+                let load: LoadResponse =
+                    { revision = rev
+                      buildEpochSec = buildEpochSec
+                      pageBuildEpochSec = pageBuildEpochSec
+                      isReady = handle.isReady ()
+                      changes = changes
+                      packages = packages }
+                let json =
+                    Encode.toString 0 (ApiResponseSerialization.encodeLoadResponse load)
+                return jsonResult json
+    }
+
     let private parseBootstrapScope (req: HttpRequest) : BootstrapScope =
         match req.Query.TryGetValue "scope" with
         | true, values when values.Count > 0 && values.[0] = "full" ->

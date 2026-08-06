@@ -1,11 +1,5 @@
 namespace Gambol.Shared
 
-/// Authoritative Sync install: ordered Change tail plus optional resident packages.
-type SyncResponse =
-    { changes: Change list
-      /// Complete Workspace / child-list snapshots at the response revision.
-      packages: Node list }
-
 /// Projected Graph transitions for a resident (possibly partial) client Graph.
 [<RequireQualifiedAccess>]
 module ResidentProjection =
@@ -146,6 +140,46 @@ module ResidentProjection =
         |> List.choose (fun id ->
             projectNode id |> Option.map (fun node -> id, node))
         |> Map.ofList
+
+    /// Workspace subgraph as a Node list for SyncResponse.packages / LoadResponse.
+    let workspaceSubgraphNodes (graph: Graph) (workspaceId: NodeId) : Node list =
+        projectWorkspaceNodes graph workspaceId
+        |> Map.toList
+        |> List.map snd
+
+    /// Optional owning-Workspace subgraph for one Load target.
+    /// Missing target → empty (Change catch-up only).
+    let packagesForTarget
+        (graph: Graph)
+        (targetId: NodeId)
+        (includeWorkspace: bool)
+        : Node list =
+        if not includeWorkspace then
+            []
+        elif not (Map.containsKey targetId graph.nodes) then
+            []
+        else
+            match GraphQuery.enclosingWorkspace graph targetId with
+            | None -> []
+            | Some wsId -> workspaceSubgraphNodes graph wsId
+
+    /// Capture LoadResponse fields at one Revision (changes + optional subgraph).
+    let captureLoadResponse
+        (revision: int)
+        (buildEpochSec: int)
+        (pageBuildEpochSec: int)
+        (isReady: bool)
+        (changes: Change list)
+        (graph: Graph)
+        (targetId: NodeId)
+        (includeWorkspace: bool)
+        : LoadResponse =
+        { revision = revision
+          buildEpochSec = buildEpochSec
+          pageBuildEpochSec = pageBuildEpochSec
+          isReady = isReady
+          changes = changes
+          packages = packagesForTarget graph targetId includeWorkspace }
 
     /// Scoped resident graph for fresh-session bootstrap: complete ROOT Workspace,
     /// nested named Workspace headers Unloaded, reachable Ref headers without children.

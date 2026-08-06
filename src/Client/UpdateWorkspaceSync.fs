@@ -22,15 +22,15 @@ let private okDetail (model: VM) (msg: string) : VM * Effect list =
     consoleLog ("[Gambol sync] " + msg)
     withResult model (CmdLastResult.Detail (None, msg))
 
-/// Success detail plus immediate sync poll (server applied graph-only ops).
+/// Success detail plus Load Fetch+Poll (or ordinary Poll if no Focus target).
 let private okDetailWithPoll (model: VM) (msg: string) : VM * Effect list =
     let model', effs = okDetail model msg
-    let si, pollEffs = SyncPlanner.tryStartPoll model'.revision model'.syncInfo
+    let si, pollEffs = tryStartLoadFetch model'
     { model' with syncInfo = si }, effs @ pollEffs
 
 let private okWithPoll (model: VM) : VM * Effect list =
     consoleLog "[Gambol sync] ok"
-    let si, pollEffs = SyncPlanner.tryStartPoll model.revision model.syncInfo
+    let si, pollEffs = tryStartLoadFetch model
     { model with
         syncInfo = si
         lastCmdResult = Some (CmdLastResult.Ok None) },
@@ -323,12 +323,7 @@ let private withPathSyncRefresh
     model, RequestWorkspacePathSyncSnapshot :: effs
 
 let private contextualTargetForModel (model: VM) =
-    model.selectedNodes
-    |> Option.bind (fun selection ->
-        contextualTarget
-            model.graph
-            selection.range.parent.nodeId
-            selection.focus)
+    focusContextualTarget model
 
 /// After async workspace-push success: clear Uploading; parse only for single-file Upload.
 let completeWorkspacePush
@@ -357,7 +352,8 @@ let completeWorkspacePush
                     presentModel
                 |> withPathSyncRefresh
             | None ->
-                okDetail presentModel sync.detail |> withPathSyncRefresh
+                okDetailWithPoll presentModel sync.detail
+                |> withPathSyncRefresh
     | Ok { error = Some e } -> failWorkspacePush e model
     | Ok _ -> failWorkspacePush "request failed" model
 

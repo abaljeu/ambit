@@ -340,6 +340,58 @@ let ``PollResponse decoder tolerates missing changes field`` () =
         Assert.Equal<Change list>([], decoded.changes)
 
 [<Fact>]
+let ``LoadRequest round-trip`` () =
+    let request: LoadRequest =
+        { revision = 11
+          targetId = NodeId.New()
+          includeWorkspace = true }
+    let decoded =
+        roundTrip
+            ApiResponseSerialization.encodeLoadRequest
+            ApiResponseSerialization.decodeLoadRequestDecoder
+            request
+    Assert.Equal(request.revision, decoded.revision)
+    Assert.Equal(request.targetId, decoded.targetId)
+    Assert.True(decoded.includeWorkspace)
+
+[<Fact>]
+let ``LoadResponse round-trip with packages`` () =
+    let node =
+        Node.Create(NodeId.New(), text = "ws child", owner = Graph.rootId)
+    let change =
+        { id = 2
+          changeId = System.Guid.NewGuid()
+          ops = [ Op.SetText(node.id, "a", "b") ] }
+    let response: LoadResponse =
+        { revision = 8
+          buildEpochSec = 10
+          pageBuildEpochSec = 20
+          isReady = false
+          changes = [ change ]
+          packages = [ node ] }
+    let decoded =
+        roundTrip
+            ApiResponseSerialization.encodeLoadResponse
+            ApiResponseSerialization.decodeLoadResponseDecoder
+            response
+    Assert.Equal(response.revision, decoded.revision)
+    Assert.Equal(response.buildEpochSec, decoded.buildEpochSec)
+    Assert.Equal(response.pageBuildEpochSec, decoded.pageBuildEpochSec)
+    Assert.False(decoded.isReady)
+    Assert.Equal(1, decoded.changes.Length)
+    Assert.Equal(1, decoded.packages.Length)
+    Assert.Equal(node.id, decoded.packages.[0].id)
+
+[<Fact>]
+let ``LoadResponse decoder tolerates missing packages`` () =
+    let json = """{"r":4,"b":100,"p":200,"ready":true,"c":[]}"""
+    match Dec.fromString ApiResponseSerialization.decodeLoadResponseDecoder json with
+    | Error err -> failwith $"Decode failed: {err}"
+    | Ok (decoded: LoadResponse) ->
+        Assert.Equal(4, decoded.revision)
+        Assert.Empty(decoded.packages)
+
+[<Fact>]
 let ``StateResponse round-trip preserves startup readiness`` () =
     let response =
         { graph = Graph.create ()

@@ -63,8 +63,7 @@ let completeParseFilePost
         let model' =
             { model with
                 lastCmdResult = Some(CmdLastResult.Detail(None, detailPrefix + detailPath)) }
-        let si, pollEffs =
-            SyncPlanner.tryStartPoll model'.revision model'.syncInfo
+        let si, pollEffs = tryStartLoadFetch model'
         { model' with syncInfo = si }, pollEffs
 
 /// Parse: validate synchronously, then ContinueParseFile for optional desktop read + POST.
