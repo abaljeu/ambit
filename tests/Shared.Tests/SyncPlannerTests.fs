@@ -122,22 +122,26 @@ let ``tryStartPoll returns no effects when uploading`` () =
 [<Fact>]
 let ``tryStartLoad emits LoadServer when idle with empty queue`` () =
     let targetId = NodeId.New()
+    let targets = [ { targetId = targetId; includeWorkspace = true } ]
     let si, effects =
-        SyncPlanner.tryStartLoad (Revision 5) targetId true SyncInfo.initial
+        SyncPlanner.tryStartLoad (Revision 5) targets SyncInfo.initial
     Assert.Equal(Loading, si.syncState)
     match effects with
-    | [ LoadServer (rev, tid, includeWorkspace) ] ->
+    | [ LoadServer (rev, loadTargets) ] ->
         Assert.Equal(5, rev)
-        Assert.Equal(targetId, tid)
-        Assert.True(includeWorkspace)
+        Assert.Equal(1, loadTargets.Length)
+        Assert.Equal(targetId, loadTargets.[0].targetId)
+        Assert.True(loadTargets.[0].includeWorkspace)
     | _ -> failwith "Expected single LoadServer effect"
 
 [<Fact>]
 let ``tryStartLoad returns no effects when already loading`` () =
     let syncInfo =
         { SyncInfo.initial with syncState = Loading }
+    let targets =
+        [ { targetId = NodeId.New(); includeWorkspace = false } ]
     let si, effects =
-        SyncPlanner.tryStartLoad (Revision 5) (NodeId.New()) false syncInfo
+        SyncPlanner.tryStartLoad (Revision 5) targets syncInfo
     Assert.Equal(Loading, si.syncState)
     Assert.Empty(effects)
 

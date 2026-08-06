@@ -2,6 +2,7 @@ module Gambol.Server.Tests.ApiPostLoadTests
 
 open System
 open System.Threading.Tasks
+open Microsoft.AspNetCore.Http
 open Microsoft.AspNetCore.Http.HttpResults
 open Xunit
 open Gambol.Server
@@ -100,8 +101,8 @@ let ``postLoad Change-only when includeWorkspace false`` () = task {
     let body =
         encodeRequest
             { revision = 2
-              targetId = fileId
-              includeWorkspace = false }
+              targets =
+                [ { targetId = fileId; includeWorkspace = false } ] }
     let! result = Api.postLoad handle 100 200 body |> Async.StartAsTask
     match box result with
     | :? ContentHttpResult as content ->
@@ -126,8 +127,8 @@ let ``postLoad Workspace subgraph when includeWorkspace true`` () = task {
     let body =
         encodeRequest
             { revision = 7
-              targetId = fileId
-              includeWorkspace = true }
+              targets =
+                [ { targetId = fileId; includeWorkspace = true } ] }
     let! result = Api.postLoad handle 1 2 body |> Async.StartAsTask
     match box result with
     | :? ContentHttpResult as content ->
@@ -157,8 +158,8 @@ let ``postLoad missing target returns changes without packages`` () = task {
     let body =
         encodeRequest
             { revision = 0
-              targetId = NodeId.New()
-              includeWorkspace = true }
+              targets =
+                [ { targetId = NodeId.New(); includeWorkspace = true } ] }
     let! result = Api.postLoad handle 0 0 body |> Async.StartAsTask
     match box result with
     | :? ContentHttpResult as content ->
@@ -184,8 +185,8 @@ let ``postLoad shares one revision for changes and packages`` () = task {
     let body =
         encodeRequest
             { revision = 3
-              targetId = fileId
-              includeWorkspace = true }
+              targets =
+                [ { targetId = fileId; includeWorkspace = true } ] }
     let! result = Api.postLoad handle 10 20 body |> Async.StartAsTask
     match box result with
     | :? ContentHttpResult as content ->
@@ -197,4 +198,101 @@ let ``postLoad shares one revision for changes and packages`` () = task {
             Assert.True(response.packages |> List.exists (fun n -> n.id = wsId))
     | other ->
         Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")
+}
+
+[<Fact>]
+let ``postLoad same Workspace multi-target dedupes one package`` () = task {
+    let graph, wsId, dirId, fileId = nestedWorkspaceGraph ()
+    let handle =
+        handleForLoad 8 [] (stateJson graph 8)
+    let body =
+        encodeRequest
+            { revision = 8
+              targets =
+                [ { targetId = dirId; includeWorkspace = true }
+                  { targetId = fileId; includeWorkspace = true } ] }
+    let! result = Api.postLoad handle 1 2 body |> Async.StartAsTask
+    match box result with
+    | :? ContentHttpResult as content ->
+        match decodeLoadResponse content.ResponseContent with
+        | Error err -> failwith err
+        | Ok (response: LoadResponse) ->
+            let wsNodes =
+                response.packages |> List.filter (fun n -> n.id = wsId)
+            Assert.Equal(1, wsNodes.Length)
+    | other ->
+        Assert.Fail($"Expected ContentHttpResult, got {other.GetType().FullName}")
+}
+
+[<Fact>]
+let ``postLoad refuses selection spanning two Workspaces`` () = task {
+    let graph0 = Graph.create ()
+    let wsA = NodeId.New()
+    let fileA = NodeId.New()
+    let wsB = NodeId.New()
+    let fileB = NodeId.New()
+    let wsNodeA =
+        Node.Create(
+            wsA,
+            text = "a",
+            name = Filename.Ok "a",
+            kind = Special Workspace,
+            owner = Graph.workspacesId)
+    let fileNodeA =
+        Node.Create(
+            fileA,
+            text = "a.txt",
+            name = Filename.Ok "a.txt",
+            kind = Special File,
+            owner = wsA)
+    let wsNodeB =
+        Node.Create(
+            wsB,
+            text = "b",
+            name = Filename.Ok "b",
+            kind = Special Workspace,
+            owner = Graph.workspacesId)
+    let fileNodeB =
+        Node.Create(
+            fileB,
+            text = "b.txt",
+            name = Filename.Ok "b.txt",
+            kind = Special File,
+            owner = wsB)
+    let workspaces = graph0.nodes.[Graph.workspacesId]
+    let nodes =
+        graph0.nodes
+        |> Map.add wsA wsNodeA
+        |> Map.add fileA fileNodeA
+        |> Map.add wsB wsNodeB
+        |> Map.add fileB fileNodeB
+        |> Map.add
+            Graph.workspacesId
+            { workspaces with
+                children = workspaces.children @ owned [ wsA; wsB ] }
+    let graph1 = Graph.fromNodes graph0.root nodes
+    let graph2 =
+        Graph.replace wsA 0 [] (owned [ fileA ]) graph1
+        |> function
+            | Ok g -> g
+            | Error err -> failwith err
+    let graph3 =
+        Graph.replace wsB 0 [] (owned [ fileB ]) graph2
+        |> function
+            | Ok g -> g
+            | Error err -> failwith err
+    let handle =
+        handleForLoad 3 [] (stateJson graph3 3)
+    let body =
+        encodeRequest
+            { revision = 3
+              targets =
+                [ { targetId = fileA; includeWorkspace = true }
+                  { targetId = fileB; includeWorkspace = true } ] }
+    let! result = Api.postLoad handle 0 0 body |> Async.StartAsTask
+    match result with
+    | :? Microsoft.AspNetCore.Http.IStatusCodeHttpResult as status ->
+        Assert.Equal(Nullable 400, status.StatusCode)
+    | other ->
+        Assert.Fail($"Expected status result, got {other.GetType().FullName}")
 }

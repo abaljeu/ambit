@@ -98,12 +98,11 @@ module SyncPlanner =
     /// Emit a LoadServer effect (Fetch + Poll) when idle with an empty pending queue.
     let tryStartLoad
         (revision: Revision)
-        (targetId: NodeId)
-        (includeWorkspace: bool)
+        (targets: LoadTarget list)
         (syncInfo: SyncInfo)
         : SyncInfo * Effect list =
         match syncInfo.syncState, syncInfo.pendingChanges with
         | Idle, [] ->
             syncInfo |> SyncInfo.withSyncState Loading,
-            [ LoadServer(revision.Value, targetId, includeWorkspace) ]
+            [ LoadServer(revision.Value, targets) ]
         | _ -> syncInfo, []

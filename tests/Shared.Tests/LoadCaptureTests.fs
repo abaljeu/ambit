@@ -50,6 +50,35 @@ let private graphWithNestedWorkspace () : Graph * NodeId * NodeId * NodeId =
 
     graph4, wsId, dirId, fileId
 
+let private graphWithTwoWorkspaces () : Graph * NodeId * NodeId * NodeId * NodeId =
+    let graph0 = Graph.create ()
+    let wsA = NodeId.New()
+    let fileA = NodeId.New()
+    let wsB = NodeId.New()
+    let fileB = NodeId.New()
+    let nodes =
+        graph0.nodes
+        |> Map.add wsA (specialNode wsA Workspace "a" Graph.workspacesId)
+        |> Map.add fileA (specialNode fileA File "a.txt" wsA)
+        |> Map.add wsB (specialNode wsB Workspace "b" Graph.workspacesId)
+        |> Map.add fileB (specialNode fileB File "b.txt" wsB)
+    let graph1 = Graph.fromNodes graph0.root nodes
+    let graph2 =
+        Graph.replace Graph.workspacesId 0 [] (owned [ wsA; wsB ]) graph1
+        |> function
+            | Ok g -> g
+            | Error err -> failwith err
+    let graph3 =
+        Graph.replace wsA 0 [] (owned [ fileA ]) graph2
+        |> function
+            | Ok g -> g
+            | Error err -> failwith err
+    let graph4 =
+        Graph.replace wsB 0 [] (owned [ fileB ]) graph3
+        |> function
+            | Ok g -> g
+            | Error err -> failwith err
+    graph4, wsA, fileA, wsB, fileB
 [<Fact>]
 let ``packagesForTarget with includeWorkspace false returns empty`` () =
     let graph, _, _, fileId = graphWithNestedWorkspace ()
@@ -80,7 +109,7 @@ let ``captureLoadResponse shares revision for changes and packages`` () =
         { id = 4
           changeId = System.Guid.NewGuid()
           ops = [ Op.SetText(fileId, "old", "new") ] }
-    let response =
+    match
         ResidentProjection.captureLoadResponse
             9
             100
@@ -88,14 +117,16 @@ let ``captureLoadResponse shares revision for changes and packages`` () =
             true
             [ change ]
             graph
-            fileId
-            true
-    Assert.Equal(9, response.revision)
-    Assert.Equal(100, response.buildEpochSec)
-    Assert.Equal(200, response.pageBuildEpochSec)
-    Assert.True(response.isReady)
-    Assert.Equal(1, response.changes.Length)
-    Assert.True(response.packages |> List.exists (fun n -> n.id = wsId))
+            [ { targetId = fileId; includeWorkspace = true } ]
+    with
+    | Error _ -> failwith "expected LoadResponse"
+    | Ok response ->
+        Assert.Equal(9, response.revision)
+        Assert.Equal(100, response.buildEpochSec)
+        Assert.Equal(200, response.pageBuildEpochSec)
+        Assert.True(response.isReady)
+        Assert.Equal(1, response.changes.Length)
+        Assert.True(response.packages |> List.exists (fun n -> n.id = wsId))
 
 [<Fact>]
 let ``LoadResponse toSyncResponse preserves changes and packages`` () =
@@ -112,3 +143,67 @@ let ``LoadResponse toSyncResponse preserves changes and packages`` () =
     Assert.Empty(sync.changes)
     Assert.Equal(1, sync.packages.Length)
     Assert.Equal(node.id, sync.packages.[0].id)
+
+[<Fact>]
+let ``packagesForTargets same Workspace Unloaded targets dedupe one package`` () =
+    let graph, wsId, dirId, fileId = graphWithNestedWorkspace ()
+    let targets =
+        [ { targetId = dirId; includeWorkspace = true }
+          { targetId = fileId; includeWorkspace = true } ]
+    match ResidentProjection.packagesForTargets graph targets with
+    | Error ResidentProjection.LoadRefuse.MultiWorkspace ->
+        failwith "expected packages"
+    | Ok packages ->
+        let wsNodes = packages |> List.filter (fun n -> n.id = wsId)
+        Assert.Equal(1, wsNodes.Length)
+        Assert.Equal(Loaded, wsNodes.[0].childrenStatus)
+
+[<Fact>]
+let ``packagesForTargets Loaded and Unloaded same Workspace send package once`` () =
+    let graph, wsId, dirId, fileId = graphWithNestedWorkspace ()
+    let targets =
+        [ { targetId = dirId; includeWorkspace = false }
+          { targetId = fileId; includeWorkspace = true } ]
+    match ResidentProjection.packagesForTargets graph targets with
+    | Error _ -> failwith "expected packages"
+    | Ok packages ->
+        Assert.True(packages |> List.exists (fun n -> n.id = wsId))
+        let wsCount =
+            packages |> List.filter (fun n -> n.id = wsId) |> List.length
+        Assert.Equal(1, wsCount)
+
+[<Fact>]
+let ``packagesForTargets all includeWorkspace false returns empty`` () =
+    let graph, _, dirId, fileId = graphWithNestedWorkspace ()
+    let targets =
+        [ { targetId = dirId; includeWorkspace = false }
+          { targetId = fileId; includeWorkspace = false } ]
+    match ResidentProjection.packagesForTargets graph targets with
+    | Error _ -> failwith "expected packages"
+    | Ok packages -> Assert.Empty(packages)
+
+[<Fact>]
+let ``packagesForTargets refuses when selection spans two Workspaces`` () =
+    let graph, _, fileA, _, fileB = graphWithTwoWorkspaces ()
+    let targets =
+        [ { targetId = fileA; includeWorkspace = true }
+          { targetId = fileB; includeWorkspace = true } ]
+    match ResidentProjection.packagesForTargets graph targets with
+    | Error ResidentProjection.LoadRefuse.MultiWorkspace -> ()
+    | Ok _ -> failwith "expected MultiWorkspace refuse"
+
+[<Fact>]
+let ``selectionSpansMultipleWorkspaces is true across two Workspaces`` () =
+    let graph, _, fileA, _, fileB = graphWithTwoWorkspaces ()
+    Assert.True(
+        ResidentProjection.selectionSpansMultipleWorkspaces
+            graph
+            [ fileA; fileB ])
+
+[<Fact>]
+let ``selectionSpansMultipleWorkspaces is false within one Workspace`` () =
+    let graph, _, dirId, fileId = graphWithNestedWorkspace ()
+    Assert.False(
+        ResidentProjection.selectionSpansMultipleWorkspaces
+            graph
+            [ dirId; fileId ])

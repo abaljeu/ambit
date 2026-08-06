@@ -147,6 +147,30 @@ module ResidentProjection =
         |> Map.toList
         |> List.map snd
 
+    [<RequireQualifiedAccess>]
+    type LoadRefuse =
+        | MultiWorkspace
+
+    let private distinctOwningWorkspaces
+        (graph: Graph)
+        (targetIds: NodeId list)
+        : NodeId list =
+        targetIds
+        |> List.choose (fun id ->
+            if Map.containsKey id graph.nodes then
+                GraphQuery.enclosingWorkspace graph id
+            else
+                None)
+        |> List.distinct
+
+    /// True when selected targets resolve to more than one owning Workspace.
+    let selectionSpansMultipleWorkspaces
+        (graph: Graph)
+        (targetIds: NodeId list)
+        : bool =
+        distinctOwningWorkspaces graph targetIds
+        |> List.length > 1
+
     /// Optional owning-Workspace subgraph for one Load target.
     /// Missing target → empty (Change catch-up only).
     let packagesForTarget
@@ -163,6 +187,23 @@ module ResidentProjection =
             | None -> []
             | Some wsId -> workspaceSubgraphNodes graph wsId
 
+    /// Deduplicated packages for a full selection; refuses multi-Workspace.
+    let packagesForTargets
+        (graph: Graph)
+        (targets: LoadTarget list)
+        : Result<Node list, LoadRefuse> =
+        let targetIds = targets |> List.map (fun t -> t.targetId)
+        if selectionSpansMultipleWorkspaces graph targetIds then
+            Error LoadRefuse.MultiWorkspace
+        else
+            let packageIds =
+                targets
+                |> List.choose (fun t ->
+                    if t.includeWorkspace then Some t.targetId else None)
+            match distinctOwningWorkspaces graph packageIds with
+            | [ wsId ] -> Ok(workspaceSubgraphNodes graph wsId)
+            | _ -> Ok []
+
     /// Capture LoadResponse fields at one Revision (changes + optional subgraph).
     let captureLoadResponse
         (revision: int)
@@ -171,15 +212,18 @@ module ResidentProjection =
         (isReady: bool)
         (changes: Change list)
         (graph: Graph)
-        (targetId: NodeId)
-        (includeWorkspace: bool)
-        : LoadResponse =
-        { revision = revision
-          buildEpochSec = buildEpochSec
-          pageBuildEpochSec = pageBuildEpochSec
-          isReady = isReady
-          changes = changes
-          packages = packagesForTarget graph targetId includeWorkspace }
+        (targets: LoadTarget list)
+        : Result<LoadResponse, LoadRefuse> =
+        match packagesForTargets graph targets with
+        | Error refuse -> Error refuse
+        | Ok packages ->
+            Ok
+                { revision = revision
+                  buildEpochSec = buildEpochSec
+                  pageBuildEpochSec = pageBuildEpochSec
+                  isReady = isReady
+                  changes = changes
+                  packages = packages }
 
     /// Scoped resident graph for fresh-session bootstrap: complete ROOT Workspace,
     /// nested named Workspace headers Unloaded, reachable Ref headers without children.

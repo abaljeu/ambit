@@ -20,11 +20,15 @@ type PollResponse =
       isReady: bool
       changes: Change list }
 
-/// Request body for POST /ambit/load (Fetch + Poll for one Focus target).
+/// One selected Load target and whether its owning Workspace package is needed.
+type LoadTarget =
+    { targetId: NodeId
+      includeWorkspace: bool }
+
+/// Request body for POST /ambit/load (Fetch + Poll for the full selection).
 type LoadRequest =
     { revision: int
-      targetId: NodeId
-      includeWorkspace: bool }
+      targets: LoadTarget list }
 
 /// Response from POST /ambit/load: Poll stamp envelope plus optional Workspace subgraphs.
 type LoadResponse =

@@ -343,16 +343,19 @@ let ``PollResponse decoder tolerates missing changes field`` () =
 let ``LoadRequest round-trip`` () =
     let request: LoadRequest =
         { revision = 11
-          targetId = NodeId.New()
-          includeWorkspace = true }
+          targets =
+            [ { targetId = NodeId.New(); includeWorkspace = true }
+              { targetId = NodeId.New(); includeWorkspace = false } ] }
     let decoded =
         roundTrip
             ApiResponseSerialization.encodeLoadRequest
             ApiResponseSerialization.decodeLoadRequestDecoder
             request
     Assert.Equal(request.revision, decoded.revision)
-    Assert.Equal(request.targetId, decoded.targetId)
-    Assert.True(decoded.includeWorkspace)
+    Assert.Equal(2, decoded.targets.Length)
+    Assert.Equal(request.targets.[0].targetId, decoded.targets.[0].targetId)
+    Assert.True(decoded.targets.[0].includeWorkspace)
+    Assert.False(decoded.targets.[1].includeWorkspace)
 
 [<Fact>]
 let ``LoadResponse round-trip with packages`` () =

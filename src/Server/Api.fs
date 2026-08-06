@@ -128,32 +128,27 @@ module Api =
 
     let private loadPackages
         (handle: AgentHandle)
-        (targetId: NodeId)
-        (includeWorkspace: bool)
-        : Async<Result<Node list, string>> =
-        if not includeWorkspace then
-            async.Return(Ok [])
-        else
-            async {
-                match! handle.getState () with
-                | Error err -> return Error err
-                | Ok json ->
-                    match
-                        Decode.fromString
-                            ApiResponseSerialization.decodeStateResponseDecoder
-                            json
-                    with
-                    | Error err ->
-                        return
-                            Error $"Internal server error in Load decode: {err}"
-                    | Ok stateResponse ->
-                        return
-                            Ok(
-                                ResidentProjection.packagesForTarget
-                                    stateResponse.graph
-                                    targetId
-                                    true)
-            }
+        (targets: LoadTarget list)
+        : Async<Result<Result<Node list, ResidentProjection.LoadRefuse>, string>> =
+        async {
+            match! handle.getState () with
+            | Error err -> return Error err
+            | Ok json ->
+                match
+                    Decode.fromString
+                        ApiResponseSerialization.decodeStateResponseDecoder
+                        json
+                with
+                | Error err ->
+                    return
+                        Error $"Internal server error in Load decode: {err}"
+                | Ok stateResponse ->
+                    return
+                        Ok(
+                            ResidentProjection.packagesForTargets
+                                stateResponse.graph
+                                targets)
+        }
 
     let postLoad
         (handle: AgentHandle)
@@ -169,15 +164,20 @@ module Api =
         | Error err ->
             return Results.BadRequest({| error = $"Invalid load request: {err}" |})
         | Ok request ->
-            let! rev = handle.getRevision ()
-            let! changes =
-                if rev > request.revision then
-                    handle.getChangesSince request.revision
-                else
-                    async.Return []
-            match! loadPackages handle request.targetId request.includeWorkspace with
+            match! loadPackages handle request.targets with
             | Error err -> return agentErrorResult err
-            | Ok packages ->
+            | Ok(Error ResidentProjection.LoadRefuse.MultiWorkspace) ->
+                return
+                    Results.BadRequest(
+                        {| error =
+                            "Load requires all selected targets in one Workspace" |})
+            | Ok(Ok packages) ->
+                let! rev = handle.getRevision ()
+                let! changes =
+                    if rev > request.revision then
+                        handle.getChangesSince request.revision
+                    else
+                        async.Return []
                 let load: LoadResponse =
                     { revision = rev
                       buildEpochSec = buildEpochSec

@@ -510,49 +510,61 @@ let private labelHasLocalMapping (label: string) : bool =
 
 /// Load command: desktop Upload when mapped; else graph-only from DataDir (web / unmapped).
 let loadOp (model: VM) : VM * Effect list =
-    let canPush =
-        DesktopCapabilities.canWorkspacePush model.desktopCapabilities
-    let target = contextualTargetForModel model
-    let hasMapping =
-        match syncScopeFromFocus model with
-        | Ok scope -> labelHasLocalMapping scope.label
-        | Error _ -> false
-    match
-        WorkspaceUpload.plan
-            canPush
-            hasMapping
-            (focusIsWorkspaces model)
-            target
-    with
-    | WorkspaceUploadAction.DesktopPush parseFileId ->
-        match syncScopeFromFocus model with
-        | Error msg -> fail model msg
-        | Ok scope when WorkspaceUpload.canStart model.syncInfo ->
-            startWorkspacePush scope parseFileId model
-        | Ok scope ->
-            queueWorkspacePush scope parseFileId model
-    | WorkspaceUploadAction.CreateWorkspaceFromFolder when
-        WorkspaceUpload.canStart model.syncInfo ->
-        uploadCreateWorkspaceOp model
-    | WorkspaceUploadAction.CreateWorkspaceFromFolder ->
-        queueLoadRequest model
-    | WorkspaceUploadAction.ReconcileServerDisk when
-        WorkspaceUpload.canStartWeb model.syncInfo ->
-        match syncScopeFromFocus model with
-        | Error msg -> fail model msg
-        | Ok scope ->
-            postDirectoryReconcile model scope.label scope.relative
-            |> withPathSyncRefresh
-    | (WorkspaceUploadAction.ParseServerDisk fileId as action) when
-        WorkspaceUpload.canStartWeb model.syncInfo ->
-        parseFileOp action fileId model
-    | WorkspaceUploadAction.ReconcileServerDisk
-    | WorkspaceUploadAction.ParseServerDisk _ ->
-        queueLoadRequest model
-    | WorkspaceUploadAction.Unavailable msg ->
+    let targetIds = selectedLoadTargetIds model
+    if
+        ResidentProjection.selectionSpansMultipleWorkspaces
+            model.graph
+            targetIds
+    then
         withResult
             model
-            (CmdLastResult.Error(Some(displayName Load), msg))
+            (CmdLastResult.Error(
+                Some(displayName Load),
+                "Load requires all selected targets in one Workspace"))
+    else
+        let canPush =
+            DesktopCapabilities.canWorkspacePush model.desktopCapabilities
+        let target = contextualTargetForModel model
+        let hasMapping =
+            match syncScopeFromFocus model with
+            | Ok scope -> labelHasLocalMapping scope.label
+            | Error _ -> false
+        match
+            WorkspaceUpload.plan
+                canPush
+                hasMapping
+                (focusIsWorkspaces model)
+                target
+        with
+        | WorkspaceUploadAction.DesktopPush parseFileId ->
+            match syncScopeFromFocus model with
+            | Error msg -> fail model msg
+            | Ok scope when WorkspaceUpload.canStart model.syncInfo ->
+                startWorkspacePush scope parseFileId model
+            | Ok scope ->
+                queueWorkspacePush scope parseFileId model
+        | WorkspaceUploadAction.CreateWorkspaceFromFolder when
+            WorkspaceUpload.canStart model.syncInfo ->
+            uploadCreateWorkspaceOp model
+        | WorkspaceUploadAction.CreateWorkspaceFromFolder ->
+            queueLoadRequest model
+        | WorkspaceUploadAction.ReconcileServerDisk when
+            WorkspaceUpload.canStartWeb model.syncInfo ->
+            match syncScopeFromFocus model with
+            | Error msg -> fail model msg
+            | Ok scope ->
+                postDirectoryReconcile model scope.label scope.relative
+                |> withPathSyncRefresh
+        | (WorkspaceUploadAction.ParseServerDisk fileId as action) when
+            WorkspaceUpload.canStartWeb model.syncInfo ->
+            parseFileOp action fileId model
+        | WorkspaceUploadAction.ReconcileServerDisk
+        | WorkspaceUploadAction.ParseServerDisk _ ->
+            queueLoadRequest model
+        | WorkspaceUploadAction.Unavailable msg ->
+            withResult
+                model
+                (CmdLastResult.Error(Some(displayName Load), msg))
 
 let loadAvailable (model: VM) =
     WorkspaceUpload.isAvailable

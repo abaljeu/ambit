@@ -147,8 +147,8 @@ let createRuntime (initialModel: VM) =
         match e with
         | SubmitPendingBatch (baseRev, changes) -> runSubmitPendingBatch baseRev changes
         | PollServer _ -> runPollServer ()
-        | LoadServer (rev, targetId, includeWorkspace) ->
-            runLoadServer rev targetId includeWorkspace
+        | LoadServer (rev, targets) ->
+            runLoadServer rev targets
         | ScheduleRetry delayMs -> runScheduleRetry delayMs
         | RunQueuedRequest QueuedLoad -> dispatch (ApplyOp loadOp)
         | RunQueuedRequest (QueuedWorkspacePush (scope, parseFileId)) ->
@@ -393,16 +393,14 @@ let createRuntime (initialModel: VM) =
 
     and runLoadServer
         (revision: int)
-        (targetId: NodeId)
-        (includeWorkspace: bool)
+        (targets: LoadTarget list)
         : unit =
         let url = $"/{currentFile}/load"
         let body =
             Thoth.Json.JavaScript.Encode.toString 0 (
                 ApiResponseSerialization.encodeLoadRequest
                     { revision = revision
-                      targetId = targetId
-                      includeWorkspace = includeWorkspace })
+                      targets = targets })
         let onLoadOk (text: string) : unit =
             match ApiResponseSerialization.decodeLoadResponse text with
             | Ok load ->

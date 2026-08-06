@@ -268,7 +268,7 @@ module SyncInfo =
 type Effect =
     | SubmitPendingBatch of baseRevision: int * changes: ChangeRequest list
     | PollServer of revision: int
-    | LoadServer of revision: int * targetId: NodeId * includeWorkspace: bool
+    | LoadServer of revision: int * targets: LoadTarget list
     | ScheduleRetry of delayMs: int
     /// The change-ops queue settled: run a request that was parked behind it.
     | RunQueuedRequest of QueuedRequest

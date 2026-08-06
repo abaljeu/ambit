@@ -40,22 +40,44 @@ let focusContextualTarget (model: VM) : ContextualTarget option =
             selection.range.parent.nodeId
             selection.focus)
 
-/// After Upload/Parse stages: Fetch+Poll for Focus; fall back to ordinary Poll.
+/// Selected NodeIds for the current selection range (full selection).
+let selectedLoadTargetIds (model: VM) : NodeId list =
+    match model.selectedNodes with
+    | None -> []
+    | Some sel ->
+        match Map.tryFind sel.range.parent.nodeId model.graph.nodes with
+        | None -> []
+        | Some parent ->
+            parent.children
+            |> List.skip sel.range.start
+            |> List.take (sel.range.endd - sel.range.start)
+            |> List.map (fun child -> child.id)
+
+let private loadTargetIntent (graph: Graph) (targetId: NodeId) : LoadTarget =
+    let includeWorkspace =
+        match Map.tryFind targetId graph.nodes with
+        | Some node when node.childrenStatus = Unloaded -> true
+        | _ -> false
+    { targetId = targetId; includeWorkspace = includeWorkspace }
+
+/// After Upload/Parse stages: Fetch+Poll for the full selection; else ordinary Poll.
 let tryStartLoadFetch (model: VM) : SyncInfo * Effect list =
-    match focusContextualTarget model with
-    | Some target ->
-        let targetId = contextualTargetId target
-        let includeWorkspace =
-            match Map.tryFind targetId model.graph.nodes with
-            | Some node when node.childrenStatus = Unloaded -> true
-            | _ -> false
+    let targetIds = selectedLoadTargetIds model
+    if List.isEmpty targetIds then
+        SyncPlanner.tryStartPoll model.revision model.syncInfo
+    elif
+        ResidentProjection.selectionSpansMultipleWorkspaces
+            model.graph
+            targetIds
+    then
+        model.syncInfo, []
+    else
+        let targets =
+            targetIds |> List.map (loadTargetIntent model.graph)
         SyncPlanner.tryStartLoad
             model.revision
-            targetId
-            includeWorkspace
+            targets
             model.syncInfo
-    | None ->
-        SyncPlanner.tryStartPoll model.revision model.syncInfo
 
 // ---------------------------------------------------------------------------
 // Pending-queue localStorage persistence
