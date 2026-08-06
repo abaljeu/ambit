@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Measure F# binding size (40 lines) and long lines (100 chars).
 
-  python .agents/skills/code-review/scripts/measure-fs-size.py --diff HEAD
-  python .agents/skills/code-review/scripts/measure-fs-size.py \\
+  python .agents/skills/code-review-fsharp/scripts/measure-fs-size.py --diff HEAD
+  python .agents/skills/code-review-fsharp/scripts/measure-fs-size.py \\
     --fn src/Client/App.fs::runLoadServer \\
     --range src/Shared/ResidentProjection.fs:141-185 --usage captureLoadResponse
 """
