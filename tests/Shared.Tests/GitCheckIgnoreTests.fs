@@ -93,6 +93,58 @@ let ``classify batches ignored and not ignored`` () =
         Assert.True(map.["x.cache"])
         Assert.False(map.["keep.md"])
 
+/// One git process lists included files; ignored trees stay out.
+[<SkippableFact>]
+let ``listIncluded returns non-ignored files under directory`` () =
+    Skip.IfNot(gitOnPath (), "git unavailable")
+    let root = newTempDir ()
+    writeIgnore root "ignored/\n*.cache\n"
+    Directory.CreateDirectory(Path.Combine(root, "ignored")) |> ignore
+    Directory.CreateDirectory(Path.Combine(root, "src")) |> ignore
+    File.WriteAllText(Path.Combine(root, "ok.txt"), "y")
+    File.WriteAllText(Path.Combine(root, "x.cache"), "n")
+    File.WriteAllText(Path.Combine(root, "ignored", "a.txt"), "n")
+    File.WriteAllText(Path.Combine(root, "src", "keep.md"), "y")
+    match GitCheckIgnore.listIncluded root "" with
+    | Error e -> Assert.Fail(e)
+    | Ok paths ->
+        let set = Set.ofList paths
+        Assert.True(Set.contains "ok.txt" set)
+        Assert.True(Set.contains "src/keep.md" set)
+        Assert.True(Set.contains ".gitignore" set)
+        Assert.False(Set.contains "x.cache" set)
+        Assert.False(Set.contains "ignored/a.txt" set)
+    match GitCheckIgnore.listIncluded root "src" with
+    | Error e -> Assert.Fail(e)
+    | Ok underSrc ->
+        Assert.Contains("src/keep.md", underSrc)
+        Assert.DoesNotContain("ok.txt", underSrc)
+
+[<SkippableFact>]
+let ``listIncluded keeps gitignore when pattern would ignore it`` () =
+    Skip.IfNot(gitOnPath (), "git unavailable")
+    let root = newTempDir ()
+    writeIgnore root ".*\n"
+    File.WriteAllText(Path.Combine(root, "ok.txt"), "y")
+    match GitCheckIgnore.listIncluded root "" with
+    | Error e -> Assert.Fail(e)
+    | Ok paths ->
+        let set = Set.ofList paths
+        Assert.True(Set.contains "ok.txt" set)
+        Assert.True(Set.contains ".gitignore" set)
+    Assert.True(
+        GitCheckIgnore.isIncludedIn
+            (Set.ofList [ "src/a.txt" ])
+            "src"
+            true)
+    Assert.False(
+        GitCheckIgnore.isIncludedIn
+            (Set.ofList [ "ok.txt" ])
+            "other"
+            true)
+    Assert.True(
+        GitCheckIgnore.isIncludedIn Set.empty ".gitignore" false)
+
 /// Repro: stdin write before draining stdout deadlocks once ignored output
 /// exceeds the OS pipe buffer (~64KiB). Must finish well under a minute.
 [<SkippableFact>]

@@ -144,3 +144,111 @@ module GitCheckIgnore =
                     |> List.map (fun p -> p, Set.contains p ignored)
                     |> Ok
                 | Ok(_, stdout, stderr) -> Error(ignoreError stdout stderr)
+
+    let private fullUnderWorkTree (workTree: string) (relative: string) =
+        let n = normalizeRel relative
+        if n = "" then workTree
+        else
+            let parts =
+                n.Split([| '/' |], StringSplitOptions.RemoveEmptyEntries)
+            Path.Combine(Array.append [| workTree |] parts)
+
+    /// Ensure a `.gitignore` path is listed when the file exists on disk.
+    let private withExistingGitignore
+        (workTree: string)
+        (relativeGitignore: string)
+        (paths: string list)
+        =
+        let n = normalizeRel relativeGitignore
+        if
+            String.IsNullOrWhiteSpace n
+            || List.exists (fun p -> p = n) paths
+        then
+            paths
+        elif File.Exists(fullUnderWorkTree workTree n) then
+            n :: paths
+        else
+            paths
+
+    /// Recover `.gitignore` files that `ls-files` may omit (e.g. `.*`).
+    let private withEffectiveGitignores
+        (workTree: string)
+        (underRelative: string)
+        (files: string list)
+        =
+        let scopeGi =
+            let u = normalizeRel underRelative
+            if u = "" then ".gitignore"
+            else u.TrimEnd('/') + "/.gitignore"
+
+        let ancestorGis =
+            files
+            |> List.collect (fun f ->
+                let parts =
+                    (normalizeRel f).Split(
+                        [| '/' |],
+                        StringSplitOptions.RemoveEmptyEntries)
+                [
+                    for i in 0 .. parts.Length - 2 do
+                        yield
+                            String.Join("/", parts.[0..i]) + "/.gitignore"
+                ])
+            |> List.distinct
+
+        (scopeGi :: ancestorGis)
+        |> List.fold
+            (fun acc gi -> withExistingGitignore workTree gi acc)
+            files
+
+    /// One `git ls-files -o --exclude-standard` for included files under
+    /// `underRelative` ("" = work tree). Directories are not listed.
+    let listIncluded
+        (workTree: string)
+        (underRelative: string)
+        : Result<string list, string> =
+        let under = normalizeRel underRelative
+
+        match ensureEmptyGitDir () with
+        | Error e -> Error e
+        | Ok gitDir ->
+            Directory.CreateDirectory workTree |> ignore
+            let configure (psi: ProcessStartInfo) =
+                baseConfigure gitDir workTree false psi
+                psi.ArgumentList.Add("ls-files")
+                psi.ArgumentList.Add("-o")
+                psi.ArgumentList.Add("--exclude-standard")
+                psi.ArgumentList.Add("-z")
+                if under <> "" then
+                    psi.ArgumentList.Add("--")
+                    psi.ArgumentList.Add(under)
+
+            match GitRun.gitCapture configure None with
+            | Error e -> Error e
+            | Ok(0, stdout, _) ->
+                let files =
+                    stdout.Split(
+                        [| '\u0000'; '\n'; '\r' |],
+                        StringSplitOptions.RemoveEmptyEntries)
+                    |> Array.map normalizeRel
+                    |> Array.toList
+                Ok(withEffectiveGitignores workTree under files)
+            | Ok(_, stdout, stderr) -> Error(ignoreError stdout stderr)
+
+    /// Whether `relativePath` is kept given a `listIncluded` file set.
+    /// Directories stay if any included file is under them.
+    let isIncludedIn
+        (includedFiles: Set<string>)
+        (relativePath: string)
+        (isDirectory: bool)
+        : bool =
+        let rel = normalizeRel relativePath
+
+        if String.IsNullOrWhiteSpace rel then true
+        elif isGitignorePath rel then true
+        elif isDirectory then
+            let prefix = rel.TrimEnd('/') + "/"
+            includedFiles
+            |> Set.exists (fun f ->
+                f.StartsWith(prefix, StringComparison.Ordinal))
+        else
+            Set.contains rel includedFiles

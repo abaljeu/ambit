@@ -85,6 +85,26 @@ let ``PROPFIND omits gitignored paths`` () = task {
 }
 
 [<SkippableFact>]
+let ``PROPFIND infinity omits ignored directory tree`` () = task {
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let dataDir = newTempDir ()
+    let home = Path.Combine(dataDir, "home")
+    Directory.CreateDirectory(Path.Combine(home, "keep")) |> ignore
+    Directory.CreateDirectory(Path.Combine(home, "noise", "deep")) |> ignore
+    File.WriteAllText(Path.Combine(home, ".gitignore"), "noise/\n")
+    File.WriteAllText(Path.Combine(home, "keep", "a.txt"), "yes")
+    File.WriteAllText(Path.Combine(home, "noise", "deep", "x.txt"), "no")
+    use client = createClientForDir dataDir
+    let! resp = propfind client "/ambit/dav/home" "infinity"
+    Assert.Equal(HttpStatusCode.MultiStatus, resp.StatusCode)
+    let! body = resp.Content.ReadAsStringAsync()
+    Assert.Contains("keep", body)
+    Assert.Contains("a.txt", body)
+    Assert.DoesNotContain("noise", body)
+    Assert.DoesNotContain("x.txt", body)
+}
+
+[<SkippableFact>]
 let ``PUT ignored path is rejected`` () = task {
     Skip.IfNot(gitOnPath(), "git not on PATH")
     let dataDir = newTempDir ()

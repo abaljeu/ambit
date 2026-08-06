@@ -153,43 +153,76 @@ module WorkspaceWebDav =
     let private childRelative (parentRel: string) (name: string) =
         if parentRel = "" then name else parentRel + "/" + name
 
+    let private readDirChildren (parentRel: string) (parentFull: string) =
+        let dirs =
+            Directory.GetDirectories parentFull
+            |> Array.toList
+            |> List.choose (fun p ->
+                let name = Path.GetFileName p
+                if
+                    String.Equals(
+                        name,
+                        ".git",
+                        StringComparison.OrdinalIgnoreCase)
+                then
+                    None
+                else
+                    Some(childRelative parentRel name, p, true))
+        let files =
+            Directory.GetFiles parentFull
+            |> Array.toList
+            |> List.map (fun p ->
+                childRelative parentRel (Path.GetFileName p), p, false)
+        dirs, files
+
+    let private keepUncertainDirs
+        (workspaceRoot: string)
+        (uncertainDirs: (string * string * bool) list)
+        : Result<(string * string * bool) list, string> =
+        match uncertainDirs with
+        | [] -> Ok []
+        | _ ->
+            let paths =
+                uncertainDirs |> List.map (fun (rel, _, _) -> rel)
+
+            match GitCheckIgnore.classify workspaceRoot paths with
+            | Error e -> Error e
+            | Ok rows ->
+                let ignored =
+                    rows
+                    |> List.choose (fun (p, ign) ->
+                        if ign then Some p else None)
+                    |> Set.ofList
+                uncertainDirs
+                |> List.filter (fun (rel, _, _) ->
+                    not (Set.contains rel ignored))
+                |> Ok
+
+    /// Immediate children: files from `listIncluded`; dirs kept if they have
+    /// included descendants, else one batched classify for empty/uncertain dirs.
     let private listChildren
         (workspaceRoot: string)
+        (included: Set<string>)
         (parentRel: string)
         (parentFull: string)
         : Result<(string * string * bool) list, string> =
         try
-            let dirs =
-                Directory.GetDirectories parentFull
-                |> Array.toList
-                |> List.choose (fun p ->
-                    let name = Path.GetFileName p
-                    if
-                        String.Equals(
-                            name,
-                            ".git",
-                            StringComparison.OrdinalIgnoreCase)
-                    then
-                        None
-                    else
-                        Some(childRelative parentRel name, p, true))
-            let files =
-                Directory.GetFiles parentFull
-                |> Array.toList
-                |> List.map (fun p ->
-                    childRelative parentRel (Path.GetFileName p), p, false)
-            (dirs @ files)
-            |> List.fold
-                (fun acc (rel, full, isColl) ->
-                    match acc with
-                    | Error e -> Error e
-                    | Ok kept ->
-                        match isOmitted workspaceRoot rel with
-                        | Error e -> Error e
-                        | Ok true -> Ok kept
-                        | Ok false -> Ok((rel, full, isColl) :: kept))
-                (Ok [])
-            |> Result.map List.rev
+            let dirs, files = readDirChildren parentRel parentFull
+            let keptFiles =
+                files
+                |> List.filter (fun (rel, _, _) ->
+                    not (touchesGit rel)
+                    && GitCheckIgnore.isIncludedIn included rel false)
+            let keptDirs, uncertainDirs =
+                dirs
+                |> List.filter (fun (rel, _, _) -> not (touchesGit rel))
+                |> List.partition (fun (rel, _, _) ->
+                    GitCheckIgnore.isIncludedIn included rel true)
+
+            match keepUncertainDirs workspaceRoot uncertainDirs with
+            | Error e -> Error e
+            | Ok keptUncertain ->
+                Ok(keptDirs @ keptUncertain @ keptFiles)
         with ex ->
             Error ex.Message
 
@@ -199,6 +232,50 @@ module WorkspaceWebDav =
           isCollection = isColl
           mtimeUtc = mtime
           length = len }
+
+    let rec private walkIncluded
+        (workspaceRoot: string)
+        (included: Set<string>)
+        (d: Depth)
+        (rel: string)
+        (full: string)
+        (coll: bool)
+        : Result<Entry list, string> =
+        let append soFar (cRel, cFull, cColl) =
+            match tryEntryInfo cFull with
+            | None -> Ok soFar
+            | Some(_, cm, cl) ->
+                let here = toEntry (cRel, cFull, cColl, cm, cl)
+                match d with
+                | DepthInfinity when cColl ->
+                    match
+                        walkIncluded
+                            workspaceRoot
+                            included
+                            DepthInfinity
+                            cRel
+                            cFull
+                            true
+                    with
+                    | Error e -> Error e
+                    | Ok deeper -> Ok(soFar @ (here :: deeper))
+                | _ -> Ok(soFar @ [ here ])
+
+        match d, coll with
+        | Depth0, _
+        | _, false -> Ok []
+        | Depth1, true
+        | DepthInfinity, true ->
+            match listChildren workspaceRoot included rel full with
+            | Error e -> Error e
+            | Ok children ->
+                children
+                |> List.fold
+                    (fun acc child ->
+                        match acc with
+                        | Error e -> Error e
+                        | Ok soFar -> append soFar child)
+                    (Ok [])
 
     let private collectEntries
         (resolved: Resolved)
@@ -215,44 +292,30 @@ module WorkspaceWebDav =
                     mtime,
                     len)
 
-            let rec walk d rel full coll : Result<Entry list, string> =
-                match d, coll with
-                | Depth0, _
-                | _, false -> Ok []
-                | Depth1, true
-                | DepthInfinity, true ->
-                    match listChildren resolved.workspaceRoot rel full with
+            match depth, isColl with
+            | Depth0, _
+            | _, false -> Ok [ self ]
+            | Depth1, true
+            | DepthInfinity, true ->
+                match
+                    GitCheckIgnore.listIncluded
+                        resolved.workspaceRoot
+                        resolved.relative
+                with
+                | Error e -> Error e
+                | Ok files ->
+                    let included = Set.ofList files
+                    match
+                        walkIncluded
+                            resolved.workspaceRoot
+                            included
+                            depth
+                            resolved.relative
+                            resolved.fullPath
+                            isColl
+                    with
                     | Error e -> Error e
-                    | Ok children ->
-                        children
-                        |> List.fold
-                            (fun acc (cRel, cFull, cColl) ->
-                                match acc with
-                                | Error e -> Error e
-                                | Ok soFar ->
-                                    match tryEntryInfo cFull with
-                                    | None -> Ok soFar
-                                    | Some(_, cm, cl) ->
-                                        let here =
-                                            toEntry (cRel, cFull, cColl, cm, cl)
-                                        match d with
-                                        | DepthInfinity when cColl ->
-                                            match
-                                                walk
-                                                    DepthInfinity
-                                                    cRel
-                                                    cFull
-                                                    true
-                                            with
-                                            | Error e -> Error e
-                                            | Ok deeper ->
-                                                Ok(soFar @ (here :: deeper))
-                                        | _ -> Ok(soFar @ [ here ]))
-                            (Ok [])
-
-            match walk depth resolved.relative resolved.fullPath isColl with
-            | Error e -> Error e
-            | Ok kids -> Ok(self :: kids)
+                    | Ok kids -> Ok(self :: kids)
 
     let private responseXml (label: string) (e: Entry) =
         let href = xmlEscape (hrefOf label e.relative e.isCollection)
