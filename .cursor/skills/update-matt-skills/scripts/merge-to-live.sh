@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Merge vendor/mattpocock-skills into current live w/* branch.
+# From a live w/* tip, land vendor merge on update/mattpocock-skills.
 # Pass --bootstrap for first merge (--allow-unrelated-histories).
+# Does not merge onto the shared w/* branch itself.
 set -euo pipefail
 
 bootstrap=0
@@ -13,7 +14,7 @@ case "$branch" in
   w/*)
     ;;
   *)
-    echo "Must be on a live w/* branch (on $branch)"
+    echo "Checkout a live w/* branch first (on $branch)"
     exit 1
     ;;
 esac
@@ -28,10 +29,12 @@ if [ -n "$(git status --porcelain)" ]; then
   exit 1
 fi
 
+git checkout -B update/mattpocock-skills
+
 if [ "$bootstrap" -eq 1 ]; then
   git merge --no-ff --allow-unrelated-histories vendor/mattpocock-skills
 else
   git merge --no-ff vendor/mattpocock-skills
 fi
 
-echo "Merged vendor/mattpocock-skills into $branch"
+echo "Merged vendor/mattpocock-skills into update/mattpocock-skills"

@@ -1,6 +1,6 @@
 ---
 name: update-matt-skills
-description: Pull mattpocock skills tree onto vendor, flatten to .agents/skills, commit, merge to live w/*. User types /update-matt-skills.
+description: Pull mattpocock skills tree onto vendor, flatten to .agents/skills, commit, merge onto update/mattpocock-skills. User types /update-matt-skills.
 disable-model-invocation: true
 ---
 
@@ -25,7 +25,7 @@ Stop and ask if any fail:
 - Working tree is clean.
 - Remote `skills-source` exists (local path to upstream clone).
 - For pull / flatten / vendor commit: current branch is `vendor/mattpocock-skills`.
-- For merge: current branch is live `w/*` and is clean.
+- For merge: current branch is a clean live `w/*` (script then switches to `update/mattpocock-skills`).
 
 ## Ordinary update
 
@@ -59,15 +59,17 @@ Stages `skills/` and `.agents/skills/`, commits with message `Update projected s
 
 **Done when:** vendor HEAD has the new tree + flat, or the script reports nothing to commit.
 
-### 4. Merge to live
+### 4. Merge onto update branch
 
-On a clean live `w/*` branch:
+Checkout a clean live `w/*` tip first (do not merge while on an arbitrary branch). The merge script requires `w/*`, then creates/resets `update/mattpocock-skills` from that tip and merges vendor there — not onto the shared `w/*` itself.
 
 ```bash
 bash .cursor/skills/update-matt-skills/scripts/merge-to-live.sh
 ```
 
-First-time bootstrap only:
+Ordinary: `git merge --no-ff vendor/mattpocock-skills` on `update/mattpocock-skills`.
+
+First-time bootstrap (unrelated histories) only — brings vendor flat skills onto the update branch (live integration):
 
 ```bash
 bash .cursor/skills/update-matt-skills/scripts/merge-to-live.sh --bootstrap
@@ -75,7 +77,7 @@ bash .cursor/skills/update-matt-skills/scripts/merge-to-live.sh --bootstrap
 
 (`--bootstrap` adds `--allow-unrelated-histories`.)
 
-**Done when:** merge commit exists on live (resolve conflicts if any).
+**Done when:** merge commit exists on `update/mattpocock-skills` (resolve conflicts if any).
 
 ### 5. Hand back
 
@@ -88,3 +90,4 @@ Short report: skill counts under `skills/` and `.agents/skills/`, whether anythi
 - Put SHAs in commit messages or scratch notes.
 - Delete `skills/` or `.cursor/skills/update-matt-skills/` during flatten.
 - Run `npx skills` or maintain `skills-lock.json`.
+- Merge vendor directly onto a shared `w/*` that may carry unrelated work.
