@@ -56,7 +56,27 @@ Each smell reads *what it is* → *how to fix*; match it against the diff:
 - **Middle Man** — a class or function that mostly just delegates onward. → cut it, call the real target direct.
 - **Refused Bequest** — a subclass or implementer that ignores or overrides most of what it inherits. → drop the inheritance, use composition.
 
-### 4. Spawn both sub-agents in parallel
+### 4. F# size check (when the diff touches `*.fs` / `*.fsi`)
+
+Before spawning sub-agents, run the measurement helper against the same review range:
+
+```bash
+python .agents/skills/code-review/scripts/measure-fs-size.py --diff HEAD
+```
+
+If a fixed point was named, pass that ref instead of `HEAD`. Defaults match [[.cursor/rules/fsharp-source.mdc]]: 40 lines/function, 100 chars/line. Long lines are reported only on **added** hunk lines. Paste the script output into the Standards sub-agent prompt.
+
+Do not measure match arms separately — they are sub-parts of a function, and the enclosing `let`/`and` must already be ≤40 lines.
+
+Optional narrowing (`--fn` / `--range path:start-end` / `--usage`):
+
+```bash
+python .agents/skills/code-review/scripts/measure-fs-size.py \
+  --fn 'src/Client/App.fs::runLoadServer' \
+  --usage captureLoadResponse
+```
+
+### 5. Spawn both sub-agents in parallel
 
 Send a single message with two `Agent` tool calls. Use the `general-purpose` subagent for both.
 
@@ -64,6 +84,7 @@ Send a single message with two `Agent` tool calls. Use the `general-purpose` sub
 
 - The full diff command (default `git diff HEAD`) and commit list if a fixed point was named.
 - The list of standards-source files you found in step 3, **plus the smell baseline from step 3** pasted in full — the sub-agent has no other access to it.
+- The `measure-fs-size.py` output from step 4 when F# files changed (treat over-limit bindings and added long lines as documented-standard findings citing `fsharp-source.mdc`).
 - The brief: "Report — per file/hunk where relevant — (a) every place the diff violates a documented standard: cite the standard (file + the rule); and (b) any baseline smell you spot: name it and quote the hunk. Distinguish hard violations from judgement calls — documented-standard breaches can be hard, but baseline smells are always judgement calls, and a documented repo standard overrides the baseline. Skip anything tooling enforces. Under 400 words."
 
 **Spec sub-agent prompt** — include:
@@ -74,7 +95,7 @@ Send a single message with two `Agent` tool calls. Use the `general-purpose` sub
 
 If the spec is missing, skip the Spec sub-agent and note this in the final report.
 
-### 5. Aggregate
+### 6. Aggregate
 
 Present the two reports under `## Standards` and `## Spec` headings, verbatim or lightly cleaned. Do **not** merge or rerank findings — the two axes are deliberately separate (see _Why two axes_).
 
