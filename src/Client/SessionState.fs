@@ -13,6 +13,25 @@ open Gambol.Client.JsInterop
 
 let private sessionKey = "gambol-session-v1"
 
+/// Best-effort saved zoom NodeId from sessionStorage (before /state).
+/// sessionStorage.getItem can throw (e.g. SecurityError when storage is blocked).
+let tryReadSavedZoomId () : NodeId option =
+    try
+        let json = sessionGet sessionKey
+        if isNull json || json = "" then None
+        else
+            let decoder =
+                Decode.object (fun get ->
+                    get.Optional.Field "z" Decode.string)
+            match Thoth.Json.JavaScript.Decode.fromString decoder json with
+            | Error _ -> None
+            | Ok None -> None
+            | Ok (Some s) ->
+                match System.Guid.TryParse(s) with
+                | true, g -> Some(NodeId g)
+                | _ -> None
+    with _ -> None
+
 /// Snapshot the session-specific parts of the VM to sessionStorage.
 let saveSessionState (model: VM) : unit =
     let expandedIds =

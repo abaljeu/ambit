@@ -68,13 +68,13 @@ module ResidentProjection =
                     graph.nodes
             Graph.fromNodes graph.root merged
 
-    let private isNamedWorkspaceBoundary (rootId: NodeId) (node: Node) : bool =
+    let private isNamedWorkspaceBoundary (packageRootId: NodeId) (node: Node) : bool =
         match node.kind with
-        | Special Workspace when node.id <> rootId -> true
+        | Special Workspace when node.id <> packageRootId -> true
         | _ -> false
 
-    /// Owner-closure of ROOT; stops at nested named Workspace headers (included).
-    let private collectRootOwnedIds (graph: Graph) : Set<NodeId> =
+    /// Owner-closure of a Workspace package; stops at nested named Workspace headers.
+    let private collectOwnedIds (graph: Graph) (packageRootId: NodeId) : Set<NodeId> =
         let rec loop (nodeId: NodeId) (visited: Set<NodeId>) =
             if Set.contains nodeId visited then
                 visited
@@ -83,7 +83,7 @@ module ResidentProjection =
                 | None -> visited
                 | Some node ->
                     let visited' = Set.add nodeId visited
-                    if isNamedWorkspaceBoundary graph.root node then
+                    if isNamedWorkspaceBoundary packageRootId node then
                         visited'
                     else
                         node.children
@@ -91,9 +91,9 @@ module ResidentProjection =
                             if c.ref = Ownership.Owner then Some c.id else None)
                         |> List.fold (fun visited id -> loop id visited) visited'
 
-        loop graph.root Set.empty
+        loop packageRootId Set.empty
 
-    /// Ref targets from the owned ROOT closure that lie outside that closure.
+    /// Ref targets from the owned package that lie outside that package.
     let private collectRefHeaderIds (graph: Graph) (ownedIds: Set<NodeId>) : Set<NodeId> =
         ownedIds
         |> Set.toList
@@ -109,10 +109,12 @@ module ResidentProjection =
                         None))
         |> Set.ofList
 
-    /// Scoped resident graph for fresh-session bootstrap: complete ROOT Workspace,
-    /// nested named Workspace headers Unloaded, reachable Ref headers without children.
-    let rootBootstrapGraph (graph: Graph) : Graph =
-        let ownedIds = collectRootOwnedIds graph
+    /// Projected Nodes for one Workspace package root (not a full Graph).
+    let private projectWorkspaceNodes
+        (graph: Graph)
+        (packageRootId: NodeId)
+        : Map<NodeId, Node> =
+        let ownedIds = collectOwnedIds graph packageRootId
         let refHeaderIds = collectRefHeaderIds graph ownedIds
         let residentIds = Set.union ownedIds refHeaderIds
 
@@ -122,7 +124,7 @@ module ResidentProjection =
             | Some node ->
                 let headerOnly =
                     Set.contains nodeId refHeaderIds
-                    || isNamedWorkspaceBoundary graph.root node
+                    || isNamedWorkspaceBoundary packageRootId node
 
                 if headerOnly then
                     Some
@@ -139,20 +141,64 @@ module ResidentProjection =
                             children = children
                             childrenStatus = Loaded }
 
-        let nodes =
-            residentIds
-            |> Set.toList
-            |> List.choose (fun id ->
-                projectNode id |> Option.map (fun node -> id, node))
-            |> Map.ofList
+        residentIds
+        |> Set.toList
+        |> List.choose (fun id ->
+            projectNode id |> Option.map (fun node -> id, node))
+        |> Map.ofList
 
-        Graph.fromNodes graph.root nodes
+    /// Scoped resident graph for fresh-session bootstrap: complete ROOT Workspace,
+    /// nested named Workspace headers Unloaded, reachable Ref headers without children.
+    let rootBootstrapGraph (graph: Graph) : Graph =
+        Graph.fromNodes graph.root (projectWorkspaceNodes graph graph.root)
 
-    let bootstrapGraph (scope: BootstrapScope) (graph: Graph) : Graph =
+    /// Extra named Workspace to include when saved zoom lies outside ROOT.
+    let private extraZoomWorkspace (graph: Graph) (savedZoom: NodeId option) : NodeId option =
+        savedZoom
+        |> Option.bind (fun zoomId ->
+            if not (Map.containsKey zoomId graph.nodes) then
+                None
+            else
+                match GraphQuery.enclosingWorkspace graph zoomId with
+                | Some wsId when wsId <> graph.root -> Some wsId
+                | _ -> None)
+
+    /// Merge package nodes into an existing bootstrap graph (Loaded wins over Unloaded headers).
+    let private mergePackageNodes
+        (baseGraph: Graph)
+        (extra: Map<NodeId, Node>)
+        : Graph =
+        let merged =
+            extra
+            |> Map.fold
+                (fun nodes id node ->
+                    match Map.tryFind id nodes with
+                    | Some existing when
+                        existing.childrenStatus = Loaded
+                        && node.childrenStatus = Unloaded ->
+                        nodes
+                    | _ -> Map.add id node nodes)
+                baseGraph.nodes
+        Graph.fromNodes baseGraph.root merged
+
+    let bootstrapGraph
+        (scope: BootstrapScope)
+        (savedZoom: NodeId option)
+        (graph: Graph)
+        : Graph =
         match scope with
         | BootstrapScope.FullGraph -> graph
-        | BootstrapScope.RootClosure -> rootBootstrapGraph graph
+        | BootstrapScope.RootClosure ->
+            let rootScoped = rootBootstrapGraph graph
+            match extraZoomWorkspace graph savedZoom with
+            | None -> rootScoped
+            | Some wsId ->
+                mergePackageNodes rootScoped (projectWorkspaceNodes graph wsId)
 
-    let bootstrapStateResponse (scope: BootstrapScope) (response: StateResponse) : StateResponse =
+    let bootstrapStateResponse
+        (scope: BootstrapScope)
+        (savedZoom: NodeId option)
+        (response: StateResponse)
+        : StateResponse =
         { response with
-            graph = bootstrapGraph scope response.graph }
+            graph = bootstrapGraph scope savedZoom response.graph }

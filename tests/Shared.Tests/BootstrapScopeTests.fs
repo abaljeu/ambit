@@ -106,6 +106,110 @@ let ``rootBootstrapGraph includes Ref header without children`` () =
 [<Fact>]
 let ``bootstrapGraph FullGraph returns canonical graph unchanged`` () =
     let graph, wsId, _, _ = graphWithNestedWorkspace ()
-    let scoped = ResidentProjection.bootstrapGraph BootstrapScope.FullGraph graph
+    let scoped =
+        ResidentProjection.bootstrapGraph BootstrapScope.FullGraph None graph
     Assert.True(scoped.nodes.ContainsKey wsId)
     Assert.Equal<ChildNode list>(graph.nodes.[wsId].children, scoped.nodes.[wsId].children)
+
+[<Fact>]
+let ``bootstrapGraph with zoom outside ROOT adds complete owning Workspace`` () =
+    let graph, wsId, dirId, fileId = graphWithNestedWorkspace ()
+    let scoped =
+        ResidentProjection.bootstrapGraph BootstrapScope.RootClosure (Some fileId) graph
+    Assert.True(scoped.nodes.ContainsKey wsId)
+    Assert.Equal(Loaded, scoped.nodes.[wsId].childrenStatus)
+    Assert.True(scoped.nodes.ContainsKey dirId)
+    Assert.Equal(Loaded, scoped.nodes.[dirId].childrenStatus)
+    Assert.True(scoped.nodes.ContainsKey fileId)
+    Assert.Equal(Loaded, scoped.nodes.[fileId].childrenStatus)
+
+[<Fact>]
+let ``bootstrapGraph with no zoom is ROOT only`` () =
+    let graph, wsId, dirId, fileId = graphWithNestedWorkspace ()
+    let scoped =
+        ResidentProjection.bootstrapGraph BootstrapScope.RootClosure None graph
+    Assert.True(scoped.nodes.ContainsKey wsId)
+    Assert.Equal(Unloaded, scoped.nodes.[wsId].childrenStatus)
+    Assert.False(scoped.nodes.ContainsKey dirId)
+    Assert.False(scoped.nodes.ContainsKey fileId)
+
+[<Fact>]
+let ``bootstrapGraph with zoom inside ROOT does not duplicate residency`` () =
+    let graph0 = Graph.create ()
+    let noteId = NodeId.New()
+    let note = Node.Create(noteId, text = "note", owner = graph0.root)
+    let root = graph0.nodes.[graph0.root]
+    let graph1 =
+        graph0.nodes
+        |> Map.add noteId note
+        |> Map.add graph0.root { root with children = owned [ noteId ] }
+        |> fun nodes -> Graph.fromNodes graph0.root nodes
+    let scoped =
+        ResidentProjection.bootstrapGraph BootstrapScope.RootClosure (Some noteId) graph1
+    Assert.True(scoped.nodes.ContainsKey noteId)
+    Assert.Equal(Loaded, scoped.nodes.[noteId].childrenStatus)
+    // Named workspaces stay Unloaded headers; no extra package.
+    Assert.Equal(
+        (ResidentProjection.rootBootstrapGraph graph1).nodes.Count,
+        scoped.nodes.Count)
+
+[<Fact>]
+let ``bootstrapGraph with missing zoom falls back to ROOT only`` () =
+    let graph, wsId, dirId, fileId = graphWithNestedWorkspace ()
+    let missing = NodeId.New()
+    let scoped =
+        ResidentProjection.bootstrapGraph BootstrapScope.RootClosure (Some missing) graph
+    Assert.True(scoped.nodes.ContainsKey wsId)
+    Assert.Equal(Unloaded, scoped.nodes.[wsId].childrenStatus)
+    Assert.False(scoped.nodes.ContainsKey dirId)
+    Assert.False(scoped.nodes.ContainsKey fileId)
+
+[<Fact>]
+let ``bootstrapGraph zoom Workspace keeps nested Workspace header Unloaded`` () =
+    let graph0, wsId, _, _ = graphWithNestedWorkspace ()
+    let nestedWsId = NodeId.New()
+    let nestedFileId = NodeId.New()
+    let nestedWs = specialNode nestedWsId Workspace "nested" wsId
+    let nestedFile = specialNode nestedFileId File "inner.txt" nestedWsId
+    let wsNode = graph0.nodes.[wsId]
+    let graph1 =
+        graph0.nodes
+        |> Map.add nestedWsId nestedWs
+        |> Map.add nestedFileId nestedFile
+        |> Map.add
+            wsId
+            { wsNode with
+                children = wsNode.children @ owned [ nestedWsId ] }
+        |> fun nodes -> Graph.fromNodes graph0.root nodes
+    let graph2 =
+        Graph.replace nestedWsId 0 [] (owned [ nestedFileId ]) graph1
+        |> function
+            | Ok g -> g
+            | Error err -> failwith err
+    let scoped =
+        ResidentProjection.bootstrapGraph BootstrapScope.RootClosure (Some wsId) graph2
+    Assert.True(scoped.nodes.ContainsKey nestedWsId)
+    Assert.Equal(Unloaded, scoped.nodes.[nestedWsId].childrenStatus)
+    Assert.Empty scoped.nodes.[nestedWsId].children
+    Assert.False(scoped.nodes.ContainsKey nestedFileId)
+
+[<Fact>]
+let ``bootstrapGraph zoom Workspace includes Ref header without children`` () =
+    let graph0, wsId, dirId, _ = graphWithNestedWorkspace ()
+    let refTargetId = NodeId.New()
+    let refTarget =
+        Node.Create(refTargetId, text = "external", owner = refTargetId)
+    let dirNode = graph0.nodes.[dirId]
+    let graph1 =
+        graph0.nodes
+        |> Map.add refTargetId refTarget
+        |> Map.add
+            dirId
+            { dirNode with
+                children = dirNode.children @ [ refChild refTargetId ] }
+        |> fun nodes -> Graph.fromNodes graph0.root nodes
+    let scoped =
+        ResidentProjection.bootstrapGraph BootstrapScope.RootClosure (Some dirId) graph1
+    Assert.True(scoped.nodes.ContainsKey refTargetId)
+    Assert.Equal(Unloaded, scoped.nodes.[refTargetId].childrenStatus)
+    Assert.Empty scoped.nodes.[refTargetId].children
