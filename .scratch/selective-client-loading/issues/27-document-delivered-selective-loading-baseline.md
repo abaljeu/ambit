@@ -4,7 +4,7 @@
 
 **What to build:** Write the delivered selective client-loading baseline as one document under [[doc/current/]]. Point [[doc/index.md]] and related references to that document. Leave only unimplemented server-residency work in the roadmap. Use Unloaded and Loaded for the client phase.
 
-**Blocked by:** 20 — Restore saved zoom Workspace during bootstrap; 23 — Make hollow-circle clicks invoke Load; 24 — Keep navigation and Find resident-only; 26 — Forbid Unloaded destinations in the Move dialog.
+**Blocked by:** 20 — Restore saved zoom Workspace during bootstrap; 28 — Make hollow-circle clicks invoke Load; 24 — Keep navigation and Find resident-only; 26 — Forbid Unloaded destinations in the Move dialog.
 
 **See also:** [[.scratch/selective-client-loading/spec.md]] (Further Notes documentation promotion); [[.scratch/selective-client-loading/issues/14-simplify-selective-loading.md]] (Authority).
 

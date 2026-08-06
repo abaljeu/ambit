@@ -558,3 +558,75 @@ let ``mapped Unparsed file keeps ledger stamps despite newer node updateTime`` (
             model
             entry
             model.graph.nodes.[fileId])
+
+// ---------------------------------------------------------------------------
+// rowChildrenIndicator — hollow circle for Unloaded / Unparsed leaves
+// ---------------------------------------------------------------------------
+
+[<Fact>]
+let ``rowChildrenIndicator is HollowCircle when children are Unloaded`` () =
+    let node = Node.Create(NodeId.New(), text = "ws", childrenStatus = Unloaded)
+    Assert.Equal(RowChildrenIndicator.HollowCircle, rowChildrenIndicator node)
+
+[<Fact>]
+let ``rowChildrenIndicator is HollowCircle when document is Unparsed leaf`` () =
+    let node =
+        Node.Create(
+            NodeId.New(),
+            text = "file",
+            kind = Special File,
+            documentState = Unparsed)
+    Assert.Equal(RowChildrenIndicator.HollowCircle, rowChildrenIndicator node)
+
+[<Fact>]
+let ``rowChildrenIndicator is SolidCircle for Loaded Parsed empty children`` () =
+    let node = Node.Create(NodeId.New(), text = "leaf")
+    Assert.Equal(RowChildrenIndicator.SolidCircle, rowChildrenIndicator node)
+
+[<Fact>]
+let ``rowChildrenIndicator is FoldChevron when Loaded with children`` () =
+    let childId = NodeId.New()
+    let node =
+        Node.Create(
+            NodeId.New(),
+            text = "parent",
+            children = [ { ref = Ownership.Owner; id = childId } ])
+    Assert.Equal(RowChildrenIndicator.FoldChevron, rowChildrenIndicator node)
+
+[<Fact>]
+let ``rowChildrenIndicator keeps FoldChevron for Unparsed with resident children`` () =
+    let childId = NodeId.New()
+    let node =
+        Node.Create(
+            NodeId.New(),
+            text = "file",
+            kind = Special File,
+            documentState = Unparsed,
+            children = [ { ref = Ownership.Owner; id = childId } ])
+    Assert.Equal(RowChildrenIndicator.FoldChevron, rowChildrenIndicator node)
+
+[<Fact>]
+let ``planPatchDOM recreates row when leaf circle becomes hollow`` () =
+    let graph0 = Graph.create ()
+    let leafId = NodeId.New()
+    let leaf = Node.Create(leafId, text = "leaf")
+    let nodes = graph0.nodes |> Map.add leafId leaf
+    let graph1 = Graph.fromNodes graph0.root nodes
+    let graph2 = addChild Graph.rootId leafId graph1
+    let oldModel = modelFromGraph graph2
+    let unloaded = { leaf with childrenStatus = Unloaded }
+    let newModel =
+        { oldModel with
+            graph =
+                Graph.fromNodes
+                    graph2.root
+                    (Map.add leafId unloaded graph2.nodes) }
+    let leafInst =
+        entryUnderParentNode Graph.rootId leafId oldModel
+    let cached = Set.ofList [ oldModel.siteMap.rootId; leafInst.instanceId ]
+    let mutations = planPatchDOM oldModel newModel cached
+    Assert.True(
+        mutations
+        |> List.exists (function
+            | RecreateRow id -> id = leafInst.instanceId
+            | _ -> false))

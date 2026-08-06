@@ -6,6 +6,8 @@ disable-model-invocation: true
 
 Implement the work described by the user in the spec or tickets.
 
+Only work on the current project branch (`w/*`). If not on `w/*`, if status is dirty, abort.  If status is clean, create a project branch then start.  
+
 Follow /implement-fsharp-feature to code.
 
 Use /tdd where possible, at pre-agreed seams.
@@ -16,4 +18,4 @@ Once done, run `dotnet test` on modified modules.  Do this as a background task 
 While you wait, use /code-review to review the work.
 
 
-Finish as **agent-done** per [[.cursor/rules/environment.mdc]] / [[CONTEXT.md]]: only commit on the current project branch (`w/*`). If not on `w/*`, leave the dirty tree, suggest a commit message, and offer to create `w/<slug>`.
+Finish as **agent-done** per [[.cursor/rules/environment.mdc]] / [[CONTEXT.md]]: leave the dirty tree, suggest a commit message, and offer to create `w/<slug>`.

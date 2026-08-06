@@ -8,6 +8,7 @@ module ViewModelDomPlan =
 
     open ViewModelSiteMap
     open ViewModelRowState
+    open ViewModelChildrenIndicator
 
     type RowPatch =
         | SetClassName of newClass: string
@@ -42,18 +43,17 @@ module ViewModelDomPlan =
                 if Set.contains instId cachedInstIds then
                     let wasEditing = isEditingEntry oldModel entry
                     let nowEditing = isEditingEntry newModel entry
-                    let oldHasChildren =
-                        oldModel.graph.nodes
-                        |> Map.tryFind entry.nodeId
-                        |> Option.map (fun n -> not n.children.IsEmpty)
-                        |> Option.defaultValue false
-                    let newHasChildren = not (newModel.graph.nodes.[entry.nodeId].children.IsEmpty)
-                    let oldKind =
-                        oldModel.graph.nodes
-                        |> Map.tryFind entry.nodeId
-                        |> Option.map (fun n -> n.kind)
-                    let newKind = newModel.graph.nodes.[entry.nodeId].kind
-                    if wasEditing <> nowEditing || oldHasChildren <> newHasChildren
+                    let newNode = newModel.graph.nodes.[entry.nodeId]
+                    let oldNode = oldModel.graph.nodes |> Map.tryFind entry.nodeId
+                    let oldChildrenIndicator =
+                        oldNode
+                        |> Option.map rowChildrenIndicator
+                        |> Option.defaultValue RowChildrenIndicator.SolidCircle
+                    let newChildrenIndicator = rowChildrenIndicator newNode
+                    let oldKind = oldNode |> Option.map (fun n -> n.kind)
+                    let newKind = newNode.kind
+                    if wasEditing <> nowEditing
+                       || oldChildrenIndicator <> newChildrenIndicator
                        || oldKind <> Some newKind then
                         RecreateRow instId
                     else
@@ -62,8 +62,6 @@ module ViewModelDomPlan =
                             let sel = isEntrySelected newModel entry
                             let foc = isEntryFocused newModel entry
                             let isRoot = entry.instanceId = newModel.siteMap.rootId
-                            let newNode = newModel.graph.nodes.[entry.nodeId]
-                            let oldNode = oldModel.graph.nodes |> Map.tryFind entry.nodeId
                             let newSyncClass =
                                 rowWorkspacePathSyncClass newModel entry newNode
                             let newClass =
@@ -109,14 +107,14 @@ module ViewModelDomPlan =
                                 |> CssClass.addIf oldSel "amb-selected"
                                 |> CssClass.addIf oldFoc "amb-focused"
                             if newClass <> oldClass then yield SetClassName newClass
-                            let newIndicator, newTitle =
+                            let newFileIndicator, newTitle =
                                 rowFileIndicator newModel entry newNode
-                            let oldIndicator, oldTitle =
+                            let oldFileIndicator, oldTitle =
                                 match oldEntry, oldNode with
                                 | Some e, Some n -> rowFileIndicator oldModel e n
                                 | _ -> "", None
-                            if newIndicator <> oldIndicator || newTitle <> oldTitle then
-                                yield SetFileIndicator (newIndicator, newTitle)
+                            if newFileIndicator <> oldFileIndicator || newTitle <> oldTitle then
+                                yield SetFileIndicator (newFileIndicator, newTitle)
                             // Sync row text on graph or filename changes (editing row included — e.g. paste).
                             let newText = outlineDisplayText newNode
                             let oldText =
@@ -129,7 +127,7 @@ module ViewModelDomPlan =
                             let newClasses = newNode.cssClasses
                             let oldClasses = oldNode |> Option.map (fun n -> n.cssClasses) |> Option.defaultValue CssClass.empty
                             if newClasses <> oldClasses then yield SetTextClasses newClasses
-                            if newHasChildren then
+                            if newChildrenIndicator = RowChildrenIndicator.FoldChevron then
                                 let oldExpanded = oldEntry |> Option.map (fun e -> e.expanded) |> Option.defaultValue false
                                 if entry.expanded <> oldExpanded then
                                     yield SetFoldArrow (if entry.expanded then "\u25BC" else "\u25B6")

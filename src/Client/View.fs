@@ -126,7 +126,8 @@ let private makeRowElement
     (model: VM) (dispatch: Msg -> unit) (depth: int) (siteEntry: SiteEntry) : HTMLElement =
     let nodeId = siteEntry.nodeId
     let node = model.graph.nodes.[nodeId]
-    let hasChildren = not node.children.IsEmpty
+    let childrenIndicator = ViewModel.rowChildrenIndicator node
+    let hasChildren = childrenIndicator = RowChildrenIndicator.FoldChevron
     let row = document.createElement "div"
     row.classList.add "amb-row"
     row.classList.add (ViewModel.rowOwnershipClass model siteEntry)
@@ -150,9 +151,10 @@ let private makeRowElement
         indent.classList.add "amb-indent"
         row.appendChild indent |> ignore
 
-    // Fold toggle indicator
+    // Fold toggle / leaf circle indicator
     let leafBullet =
-        if hasChildren then
+        match childrenIndicator with
+        | RowChildrenIndicator.FoldChevron ->
             let toggle = document.createElement "span"
             toggle.classList.add "amb-fold-toggle"
             toggle.textContent <- if siteEntry.expanded then "\u25BC" else "\u25B6"
@@ -184,10 +186,16 @@ let private makeRowElement
             )
             row.appendChild toggle |> ignore
             toggle
-        else
+        | RowChildrenIndicator.SolidCircle ->
             let dot = document.createElement "span"
             dot.classList.add "amb-fold-toggle"
             dot.classList.add "amb-leaf-dot"
+            row.appendChild dot |> ignore
+            dot
+        | RowChildrenIndicator.HollowCircle ->
+            let dot = document.createElement "span"
+            dot.classList.add "amb-fold-toggle"
+            dot.classList.add "amb-leaf-hollow"
             row.appendChild dot |> ignore
             dot
     let cssClasses = CssClass.toList node.cssClasses

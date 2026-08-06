@@ -49,6 +49,7 @@
     <Compile Include="ViewModelOccurrence.fs" />
     <Compile Include="ViewModelSelection.fs" />
     <Compile Include="ViewModelRowState.fs" />
+    <Compile Include="ViewModelChildrenIndicator.fs" />
     <Compile Include="ViewModelDomPlan.fs" />
     <Compile Include="ViewModelOps.fs" />
     <Compile Include="ViewModelJoinOps.fs" />

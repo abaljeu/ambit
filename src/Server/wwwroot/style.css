@@ -226,14 +226,22 @@ body {
     border-top: 1px solid #666;
     border-left: 1px solid #666;
 }
-.amb-leaf-dot::before {
+.amb-leaf-dot::before,
+.amb-leaf-hollow::before {
     content: "";
     display: block;
     width: 0.4em;
     height: 0.4em;
     margin-top: 0.45em;
     border-radius: 50%;
+    box-sizing: border-box;
+}
+.amb-leaf-dot::before {
     background: currentColor;
+}
+.amb-leaf-hollow::before {
+    background: transparent;
+    border: 1.5px solid currentColor;
 }
 .amb-row-owned .amb-fold-toggle {
     color: #000;

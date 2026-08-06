@@ -196,3 +196,6 @@ These terms are permitted with standard definition:
 - **Find**: the command that searches the resident Graph.
 - **Fold**: the collapsed/expanded display state of a Node's Children.
 - synchronization: plain noun form of **Sync**, same meaning.
+
+## Additional Unwanted terms
+- affordance
