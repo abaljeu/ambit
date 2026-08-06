@@ -160,7 +160,10 @@ let ``SetName rejects Directory rename colliding with File peer in same scope`` 
     let graph3 = appendOwned wsId fileId state3.graph
     match Graph.setName dirId "docs" "notes" graph3 with
     | Ok _ -> Assert.Fail "expected name conflict"
-    | Error msg -> Assert.Equal("name conflict", msg)
+    | Error msg ->
+        Assert.Contains("name conflict", msg)
+        Assert.Contains("notes", msg)
+        Assert.Contains("home", msg)
 
 [<Fact>]
 let ``SetName allows nested file rename matching workspace`` () =
@@ -199,11 +202,19 @@ let ``Replace rejects new child colliding with existing sibling name`` () =
     let graph0 = Graph.create ()
     let graph1, contId = Graph.newNode "container" graph0
     let graph2 = appendOwned Graph.rootId contId graph1
+    // Name the container so conflict messages can cite parent context.
+    let graph2 =
+        Graph.setName contId "" "folder" graph2 |> requireOk "name container"
     let graph3, nodeIdA = addNamedNode "foo" graph2
     let graph4 = appendOwned contId nodeIdA graph3
     let graph5, nodeIdB = addNamedNode "FOO" graph4
-    let result = Graph.replace contId 1 [] [ owned nodeIdB ] graph5
-    Assert.True(Result.isError result)
+    match Graph.replace contId 1 [] [ owned nodeIdB ] graph5 with
+    | Ok _ -> Assert.Fail "expected name conflict"
+    | Error msg ->
+        Assert.Contains("name conflict", msg)
+        Assert.Contains("FOO", msg)
+        Assert.Contains("folder", msg)
+        Assert.Contains(NodeId.GuidTail8 contId.Value, msg)
 
 [<Fact>]
 let ``Replace allows ref child with same name as owner sibling`` () =

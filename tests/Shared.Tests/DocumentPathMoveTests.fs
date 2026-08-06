@@ -170,7 +170,9 @@ let ``planRenameNode Error name conflict when sibling name taken`` () =
         |> requireOk "ws->two files"
     match NodeRenameOps.planRenameNode graph2 fileId "notes.txt" with
     | Ok _ -> Assert.Fail "expected Error"
-    | Error msg -> Assert.Equal("name conflict", msg)
+    | Error msg ->
+        Assert.Contains("name conflict", msg)
+        Assert.Contains("notes.txt", msg)
 
 [<Fact>]
 let ``planRenameNode Error when File rename collides with Directory peer`` () =
@@ -185,7 +187,9 @@ let ``planRenameNode Error when File rename collides with Directory peer`` () =
         |> requireOk "ws->file+dir"
     match NodeRenameOps.planRenameNode graph2 fileId "docs" with
     | Ok _ -> Assert.Fail "expected Error"
-    | Error msg -> Assert.Equal("name conflict", msg)
+    | Error msg ->
+        Assert.Contains("name conflict", msg)
+        Assert.Contains("docs", msg)
 
 [<Fact>]
 let ``planRenameNode Error when Directory rename collides with File peer`` () =
@@ -200,7 +204,9 @@ let ``planRenameNode Error when Directory rename collides with File peer`` () =
         |> requireOk "ws->file+dir"
     match NodeRenameOps.planRenameNode graph2 dirId "readme.txt" with
     | Ok _ -> Assert.Fail "expected Error"
-    | Error msg -> Assert.Equal("name conflict", msg)
+    | Error msg ->
+        Assert.Contains("name conflict", msg)
+        Assert.Contains("readme.txt", msg)
 
 [<Fact>]
 let ``planRenameNode Error when new name is invalid filename`` () =

@@ -467,8 +467,12 @@ module History =
                         | None ->
                             match GraphQuery.tryFindArtifactNameDuplicate graph with
                             | Some dupId ->
+                                let name =
+                                    Map.tryFind dupId graph.nodes
+                                    |> Option.bind (fun n -> Filename.tryValue n.name)
+                                    |> Option.defaultValue "?"
                                 Error (
-                                    "invalid ownership semantics: duplicate name in artifact directory",
+                                    $"invalid ownership semantics: duplicate name '{name}' in artifact directory",
                                     dupId)
                             | None -> Ok ()
 
@@ -529,8 +533,17 @@ module History =
                             newChildren |> List.exists (fun c -> c.ref = Ownership.Owner)
                             && GraphQuery.artifactNameConflict graph parentId newChildren
                         then
+                            let name =
+                                newChildren
+                                |> List.tryPick (fun c ->
+                                    if c.ref <> Ownership.Owner then None
+                                    else
+                                        Map.tryFind c.id graph.nodes
+                                        |> Option.bind (fun n ->
+                                            Filename.tryValue n.name))
+                                |> Option.defaultValue "?"
                             Some
-                                "invalid ownership semantics: duplicate name in artifact directory"
+                                $"invalid ownership semantics: duplicate name '{name}' in artifact directory"
                         else
                             None
                     | _ -> None)

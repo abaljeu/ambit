@@ -349,6 +349,8 @@ module WorkspaceUploadStructure =
 
     /// Ops for one Change: Directory/File stubs, reuse owned paths, Unparsed.
     /// `items` must already be the volume-capped path set (1:1).
+    /// Unloaded workspaces skip inventing stubs: empty children would create
+    /// new ids that collide with the server's resident names on POST /changes.
     let planStubOps
         (graph: Graph)
         (workspaceLabel: string)
@@ -356,18 +358,21 @@ module WorkspaceUploadStructure =
         : Result<Op list, string> =
         workspaceByLabel graph workspaceLabel
         |> Result.bind (fun workspaceId ->
-            let ordered = orderForStubs items
+            match Map.tryFind workspaceId graph.nodes with
+            | Some { childrenStatus = Unloaded } -> Ok []
+            | _ ->
+                let ordered = orderForStubs items
 
-            ordered
-            |> List.fold
-                (fun result item ->
-                    result
-                    |> Result.bind (fun (current, planned) ->
-                        planOne current workspaceId item
-                        |> Result.map (fun (next, ops) ->
-                            next, prependReversed ops planned)))
-                (Ok(graph, []))
-            |> Result.bind (fun (afterCreates, createOpsReversed) ->
-                let createOps = List.rev createOpsReversed
-                markNewStubsUnparsed afterCreates createOps
-                |> Result.map (fun stateOps -> createOps @ stateOps)))
+                ordered
+                |> List.fold
+                    (fun result item ->
+                        result
+                        |> Result.bind (fun (current, planned) ->
+                            planOne current workspaceId item
+                            |> Result.map (fun (next, ops) ->
+                                next, prependReversed ops planned)))
+                    (Ok(graph, []))
+                |> Result.bind (fun (afterCreates, createOpsReversed) ->
+                    let createOps = List.rev createOpsReversed
+                    markNewStubsUnparsed afterCreates createOps
+                    |> Result.map (fun stateOps -> createOps @ stateOps)))

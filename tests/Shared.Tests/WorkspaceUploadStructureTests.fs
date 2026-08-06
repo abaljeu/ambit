@@ -352,3 +352,50 @@ let ``planStubOps creates File under SYSTEM label`` () =
     Assert.Equal(
         Some file.id,
         WorkspaceUploadStructure.tryResolveFileNode graph2 "SYSTEM" "user.css")
+
+/// Issue 21 Load path: client sees Unloaded workspace (bootstrap), inventory
+/// lists paths already resident on the server. Stub planning against empty
+/// Unloaded children invents NewSpecialNodes; POST /changes then 400s with
+/// "name conflict" — stuck Uploading, package never fetched.
+[<Fact>]
+let ``Load Unloaded stub plan must not name-conflict on resident server`` () =
+    let workspaceId, server0 = Graph.create () |> addWorkspace "home"
+    let server =
+        requirePlan server0 "home" [ item "note.txt" false ]
+        |> applyOps server0
+    let serverFileId = (childNamed server workspaceId "note.txt").id
+    let client =
+        ResidentProjection.bootstrapGraph
+            BootstrapScope.RootClosure
+            None
+            server
+    Assert.Equal(Unloaded, client.nodes.[workspaceId].childrenStatus)
+    Assert.False(Map.containsKey serverFileId client.nodes)
+    let ops = requirePlan client "home" [ item "note.txt" false ]
+    match ops with
+    | [] -> ()
+    | _ ->
+        let invented =
+            ops
+            |> List.choose (function
+                | Op.NewSpecialNode(id, File, name) -> Some(id, name)
+                | _ -> None)
+        Assert.True(
+            invented |> List.exists (fun (id, name) ->
+                name = "note.txt" && id <> serverFileId),
+            "expected a new File stub id for note.txt")
+        let change =
+            { id = 0
+              changeId = System.Guid.NewGuid()
+              ops = ops }
+        let state =
+            { graph = server
+              history = History.empty
+              revision = Revision 0 }
+        match History.applyChange change state with
+        | ApplyResult.Invalid(_, msg) ->
+            Assert.True(
+                false,
+                "Load structure POST must not 400; got: " + msg)
+        | ApplyResult.Unchanged _
+        | ApplyResult.Changed _ -> ()

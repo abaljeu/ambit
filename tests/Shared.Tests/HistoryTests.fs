@@ -737,6 +737,7 @@ let ``validateOwnershipLocated reports duplicate artifact name`` () =
     | Ok () -> Assert.True(false, "expected Error")
     | Error (msg, nodeId) ->
         Assert.Contains("duplicate name", msg)
+        Assert.Contains("dup", msg)
         Assert.True(nodeId = d1Id || nodeId = d2Id)
 
 [<Fact>]

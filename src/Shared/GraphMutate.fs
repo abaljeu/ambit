@@ -3,6 +3,39 @@ namespace Gambol.Shared
 /// Graph mutations: setText/Name/Classes/DocumentState and Replace.
 module GraphMutate =
 
+    let private nodeDisplayName (graph: Graph) (id: NodeId) : string option =
+        Map.tryFind id graph.nodes
+        |> Option.bind (fun n -> Filename.tryValue n.name)
+        |> Option.orElseWith (fun () ->
+            Map.tryFind id graph.nodes
+            |> Option.bind (fun n ->
+                if System.String.IsNullOrEmpty n.text then None
+                else Some n.text))
+
+    /// Include colliding name, parent label, and parent id tail for diagnosis.
+    let private formatNameConflict
+        (graph: Graph)
+        (parentId: NodeId)
+        (name: string)
+        : string
+        =
+        let parentPart =
+            match nodeDisplayName graph parentId with
+            | Some pn -> $" under '{pn}'"
+            | None -> ""
+        let parentTail = NodeId.GuidTail8 parentId.Value
+        $"name conflict: '{name}'{parentPart} ({parentTail})"
+
+    let private firstIntroducedOwnerName
+        (graph: Graph)
+        (introduced: ChildNode list)
+        : string option
+        =
+        introduced
+        |> List.tryPick (fun c ->
+            if c.ref <> Ownership.Owner then None
+            else nodeDisplayName graph c.id)
+
     let setText
         (nodeId: NodeId)
         (oldText: string)
@@ -97,7 +130,11 @@ module GraphMutate =
                                         (Some nodeId)
                                     |> List.exists (fun n -> n = newNameLower)
                         if hasConflict then
-                            Error "name conflict"
+                            match graph.ownerParentByChild |> Map.tryFind nodeId with
+                            | Some parentId ->
+                                Error (formatNameConflict graph parentId validName)
+                            | None ->
+                                Error $"name conflict: '{validName}'"
                         else
                             let updatedNode =
                                 match node.kind with
@@ -210,7 +247,10 @@ module GraphMutate =
                                 || GraphQuery.artifactNameConflict graph parentId newChildren)
 
                         if hasNameConflict then
-                            Error "name conflict"
+                            let name =
+                                firstIntroducedOwnerName graph newChildren
+                                |> Option.defaultValue "?"
+                            Error (formatNameConflict graph parentId name)
                         elif parentId = GraphBuild.rootId then
                             let isOwnerChild (fid: NodeId) (kids: ChildNode list) =
                                 kids
