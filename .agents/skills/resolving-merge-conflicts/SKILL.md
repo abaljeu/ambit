@@ -3,12 +3,14 @@ name: resolving-merge-conflicts
 description: "Use when you need to resolve an in-progress git merge/rebase conflict."
 ---
 
-1. **See the current state** of the merge/rebase. Check git history, and the conflicting files.
+Human owns the merge/rebase state (start, continue, abort, checkout). Agent proposes and applies **file** resolutions only. Do not run merge/rebase/commit git mutations — see [[.cursor/rules/environment.mdc]].
 
-2. **Find the primary sources** for each conflict. Understand deeply why each change was made, and what the original intent was. Read the commit messages, check the PRs, check original issues/tickets.
+1. **See the current state** of the merge/rebase. Check git history (read-only), and the conflicting files.
 
-3. **Resolve each hunk.** Preserve both intents where possible. Where incompatible, pick the one matching the merge's stated goal and note the trade-off. Do **not** invent new behaviour. Always resolve; never `--abort`.
+2. **Find the primary sources** for each conflict. Understand deeply why each change was made, and what the original intent was. Read the commit messages and local specs/issues under `.scratch/` per [[docs/agents/issue-tracker.md]].
 
-4. Discover the project's **automated checks** and run them — typically typecheck, then tests, then format. Fix anything the merge broke.
+3. **Resolve each hunk in the working tree.** Preserve both intents where possible. Where incompatible, pick the one matching the merge's stated goal and note the trade-off. Do **not** invent new behaviour. Edit conflicted files only; leave `git add` / continue / abort to the human unless they give **manual approval**.
 
-5. **Finish the merge/rebase.** Stage everything and commit. If rebasing, continue the rebase process until all commits are rebased.
+4. Discover the project's **automated checks** and run them — typically typecheck, then tests. Fix anything the merge broke in source files.
+
+5. **Hand back to the human** to stage, continue, or finish the merge/rebase. Summarize what you resolved and any remaining trade-offs.
