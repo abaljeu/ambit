@@ -104,12 +104,31 @@ module DocumentColdParse =
 
         outlineWithoutDupRefs @ preserved
 
-    let private replaceOps
+    /// Keep the existing Owner when it lives outside this parse overlay; do not
+    /// claim a second edge (Owner or Ref) under the parse parent. Content may
+    /// still warm-update via createOrUpdateOps. Do not strip foreign Owners.
+    let private omitForeignOwnedClaims
+        (before: Graph)
+        (overlay: Set<NodeId>)
+        (parentId: NodeId)
+        (children: ChildNode list)
+        : ChildNode list =
+        children
+        |> List.filter (fun child ->
+            match Map.tryFind child.id before.ownerParentByChild with
+            | Some existing when
+                existing <> parentId
+                && not (Set.contains existing overlay) ->
+                false
+            | _ -> true)
+
+    let private plannedChildren
         (before: Graph)
         (after: Graph)
         (documentRootId: NodeId)
+        (overlay: Set<NodeId>)
         (nodeId: NodeId)
-        : Op list =
+        : ChildNode list * ChildNode list =
         let oldChildren =
             match Map.tryFind nodeId before.nodes with
             | Some node -> node.children
@@ -117,16 +136,46 @@ module DocumentColdParse =
 
         let afterChildren = after.nodes.[nodeId].children
 
-        let newChildren =
+        let outlined =
             if nodeId = documentRootId then
                 withPreservedSpecials before documentRootId afterChildren
             else
                 afterChildren
 
-        if oldChildren = newChildren then
+        let newChildren =
+            omitForeignOwnedClaims before overlay nodeId outlined
+
+        oldChildren, newChildren
+
+    let private droppedOwnedIds
+        (oldChildren: ChildNode list)
+        (newChildren: ChildNode list)
+        : Set<NodeId> =
+        let newIds =
+            newChildren |> List.map (fun c -> c.id) |> Set.ofList
+
+        oldChildren
+        |> List.choose (fun c ->
+            if c.ref = Ownership.Owner && not (Set.contains c.id newIds) then
+                Some c.id
+            else
+                None)
+        |> Set.ofList
+
+    let private replaceOps
+        (oldChildren: ChildNode list)
+        (newChildren: ChildNode list)
+        (dropIds: Set<NodeId>)
+        (nodeId: NodeId)
+        : Op list =
+        let remainingOld =
+            oldChildren
+            |> List.filter (fun c -> not (Set.contains c.id dropIds))
+
+        if remainingOld = newChildren then
             []
         else
-            [ Op.Replace(nodeId, 0, oldChildren, newChildren) ]
+            [ Op.Replace(nodeId, 0, remainingOld, newChildren) ]
 
     /// classifyCodecForRead → codec readCold → mergeReadResult. Never readWarm.
     let readArtifactCold
@@ -141,7 +190,9 @@ module DocumentColdParse =
             documentRootId
             context
 
-    /// before/after graph → Op list (pure; shared with DotNet warm path).
+    /// before/after graph → Op list (pure; shared with DotNet warm path via
+    /// DocumentParseOps / DocumentWarm — module name is historical; this planner
+    /// is not cold-only). Unmatched owned children use Delete → TRASH.
     let planOpsFromGraphs
         (before: Graph)
         (documentRootId: NodeId)
@@ -149,18 +200,50 @@ module DocumentColdParse =
         : Op list =
         let overlay =
             overlayMemberIds after documentRootId
-            |> Set.toList
+
+        let overlayList = Set.toList overlay
 
         let nodeOps =
-            overlay
+            overlayList
             |> List.collect (fun nodeId ->
                 createOrUpdateOps before after.nodes.[nodeId])
 
-        let childOps =
-            overlay
-            |> List.collect (replaceOps before after documentRootId)
+        let planned =
+            overlayList
+            |> List.map (fun nodeId ->
+                let oldC, newC =
+                    plannedChildren
+                        before after documentRootId overlay nodeId
+                nodeId, oldC, newC, droppedOwnedIds oldC newC)
 
-        nodeOps @ childOps
+        // Owner claimed under another overlay parent is a reparent via Replace,
+        // not an unmatched drop — Delete→trash would dual-Own with reclaim.
+        let reclaimedOwned =
+            planned
+            |> List.collect (fun (_, _, newC, _) ->
+                newC
+                |> List.choose (fun c ->
+                    if c.ref = Ownership.Owner then Some c.id else None))
+            |> Set.ofList
+
+        let dropByParent =
+            planned
+            |> List.choose (fun (nodeId, _, _, drops) ->
+                let unmatched = Set.difference drops reclaimedOwned
+                if Set.isEmpty unmatched then None
+                else Some(nodeId, unmatched))
+            |> Map.ofList
+
+        let deleteOps =
+            ViewModelDeleteOps.planDeleteDroppedOwnedMany before dropByParent
+
+        let childOps =
+            planned
+            |> List.collect (fun (nodeId, oldC, newC, drops) ->
+                let dropIds = Set.difference drops reclaimedOwned
+                replaceOps oldC newC dropIds nodeId)
+
+        nodeOps @ deleteOps @ childOps
 
     let private targetsDocumentRoot (documentRootId: NodeId) =
         function

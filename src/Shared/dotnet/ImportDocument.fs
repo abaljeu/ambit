@@ -88,8 +88,10 @@ module ImportDocument =
         | Ok prev when prev.Length > 0 -> Some prev
         | _ -> None
 
-    /// Live-graph parse ops for ParseFile (server apply). Unparsed → cold +
-    /// SetDocumentState; Current → warm with previousText from graph export.
+    /// Live-graph parse ops for ParseFile (server apply). Reuse the existing
+    /// File owner id. When graph export yields prior artifact text (Current, or
+    /// Unparsed after M/upload with structure retained), warm-reconcile; cold
+    /// only when there is no prior content. Unparsed also emits SetDocumentState.
     let planParseFile
         (graph: Graph)
         (fileId: NodeId)
@@ -108,9 +110,9 @@ module ImportDocument =
                     |> Result.bind (fun () ->
                         let previousText =
                             match state with
-                            | Current ->
+                            | Current
+                            | Unparsed ->
                                 previousArtifactText graph fileId relativePath
-                            | Unparsed -> None
                             | NoServerFile -> None
 
                         DocumentParseOps.planApplyArtifact

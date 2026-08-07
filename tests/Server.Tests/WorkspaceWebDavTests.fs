@@ -8,6 +8,7 @@ open System.Security.Cryptography
 open System.Text
 open System.Text.Json
 open System.Threading.Tasks
+open Microsoft.Extensions.Configuration
 open Xunit
 open Gambol.Server
 open Gambol.Shared
@@ -373,4 +374,84 @@ let ``prepare-push JIT commits dirty DataDir`` () = task {
         | Ok false -> ()
         | Ok true -> Assert.Fail("expected clean after JIT")
         | Error err -> Assert.Fail(err)
+}
+
+type private ForceAsyncSendHandler(inner: HttpMessageHandler) =
+    inherit DelegatingHandler(inner)
+    override this.Send(request, cancellationToken) =
+        this.SendAsync(request, cancellationToken).GetAwaiter().GetResult()
+
+/// Phase-1 upload loop: local edit → WorkspaceFileSync.post → DataDir bytes.
+[<SkippableFact>]
+let ``WorkspaceFileSync.post uploads edited local file into DataDir`` () = task {
+    Skip.IfNot(gitOnPath(), "git not on PATH")
+    let label =
+        "up"
+        + Guid.NewGuid().ToString("N").Substring(0, 10)
+    let ledgerPath = WorkspaceSyncLedger.ledgerPathFor label
+    if File.Exists ledgerPath then File.Delete ledgerPath
+    let dataDir = newTempDir ()
+    let serverRoot = Path.Combine(dataDir, label)
+    Directory.CreateDirectory serverRoot |> ignore
+    File.WriteAllText(Path.Combine(serverRoot, "note.txt"), "OLD")
+    match WorkspaceGit.ensureInit serverRoot with
+    | Error err -> Assert.Fail(err)
+    | Ok () -> ()
+    let mapped = newTempDir ()
+    File.WriteAllText(Path.Combine(mapped, "note.txt"), "NEW-EDIT")
+    File.SetLastWriteTimeUtc(
+        Path.Combine(mapped, "note.txt"),
+        DateTime.UtcNow.AddMinutes(1.0))
+    let priorDb = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING")
+    Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", null)
+    try
+        use factory =
+            (new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactory<Program>())
+                .WithWebHostBuilder(fun builder ->
+                    builder.ConfigureAppConfiguration(fun _ config ->
+                        config.AddInMemoryCollection(
+                            dict [
+                                "DataDir", dataDir
+                                "Persistence:Mode", "file"
+                                "DB_CONNECTION_STRING", ""
+                                "Auth:Username", ""
+                                "Auth:Password", ""
+                            ]
+                        )
+                        |> ignore
+                    )
+                    |> ignore)
+        use handler = new ForceAsyncSendHandler(factory.Server.CreateHandler())
+        use client = new HttpClient(handler, disposeHandler = true)
+        client.BaseAddress <- factory.Server.BaseAddress
+        let ambitBase =
+            client.BaseAddress.ToString().TrimEnd('/') + "/ambit"
+        let scope =
+            { label = label
+              relative = "note.txt"
+              kind = SyncScopeKind.File }
+        match
+            WorkspaceFileSync.post
+                client
+                ambitBase
+                mapped
+                scope
+                None
+                None
+        with
+        | Error e -> Assert.Fail(e)
+        | Ok result ->
+            Assert.True(
+                result.uploaded >= 1,
+                "expected at least one uploaded path, got detail="
+                + result.detail)
+            Assert.Equal(
+                "NEW-EDIT",
+                File.ReadAllText(Path.Combine(serverRoot, "note.txt")))
+    finally
+        if isNull priorDb then
+            Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", null)
+        else
+            Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", priorDb)
+        if File.Exists ledgerPath then File.Delete ledgerPath
 }

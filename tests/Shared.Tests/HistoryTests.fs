@@ -717,7 +717,63 @@ let ``validateOwnershipLocated reports missing owner node`` () =
     | Ok () -> Assert.True(false, "expected Error")
     | Error (msg, nodeId) ->
         Assert.Contains("missing owner", msg)
+        Assert.Contains("text='orphan-ref'", msg)
+        Assert.Contains($"id={NodeId.GuidTail8 childId.Value}", msg)
         Assert.Equal(childId, nodeId)
+
+[<Fact>]
+let ``validateOwnershipLocated reports multiple owner occurrences with ids`` () =
+    let graph0 = Graph.create ()
+    let childId = NodeId.New()
+    let parentAId = NodeId.New()
+    let parentBId = NodeId.New()
+    let owner id = { ref = Ownership.Owner; id = id }
+    let child = Node.Create(childId, text = "child")
+    let parentA = { Node.Create(parentAId, text = "a") with children = [ owner childId ] }
+    let parentB = { Node.Create(parentBId, text = "b") with children = [ owner childId ] }
+    let root = graph0.nodes.[Graph.rootId]
+    let nodes =
+        graph0.nodes
+        |> Map.add Graph.rootId
+            { root with children = root.children @ [ owner parentAId; owner parentBId ] }
+        |> Map.add parentAId parentA
+        |> Map.add parentBId parentB
+        |> Map.add childId child
+    let graph = Graph.fromNodes graph0.root nodes
+    match History.validateOwnershipLocated graph with
+    | Ok () -> Assert.True(false, "expected Error")
+    | Error (msg, nodeId) ->
+        Assert.Contains("expected exactly one owner occurrence", msg)
+        Assert.Contains("text='child'", msg)
+        Assert.Contains($"id={NodeId.GuidTail8 childId.Value}", msg)
+        Assert.Contains(NodeId.GuidTail8 parentAId.Value, msg)
+        Assert.Contains(NodeId.GuidTail8 parentBId.Value, msg)
+        Assert.Equal(childId, nodeId)
+
+[<Fact>]
+let ``validateOwnershipLocated reports owner chain that does not reach root`` () =
+    let graph0 = Graph.create ()
+    let aId = NodeId.New()
+    let bId = NodeId.New()
+    let owner id = { ref = Ownership.Owner; id = id }
+    let a = { Node.Create(aId, text = "a") with children = [ owner bId ] }
+    let b = { Node.Create(bId, text = "b") with children = [ owner aId ] }
+    let nodes =
+        graph0.nodes
+        |> Map.add aId a
+        |> Map.add bId b
+    let graph = Graph.fromNodes graph0.root nodes
+    match History.validateOwnershipLocated graph with
+    | Ok () -> Assert.True(false, "expected Error")
+    | Error (msg, nodeId) ->
+        Assert.Contains("owner chain does not reach root", msg)
+        Assert.True(
+            msg.Contains("text='a'") || msg.Contains("text='b'"),
+            $"expected located node text in msg: {msg}")
+        Assert.Contains($"id={NodeId.GuidTail8 nodeId.Value}", msg)
+        Assert.Contains(NodeId.GuidTail8 aId.Value, msg)
+        Assert.Contains(NodeId.GuidTail8 bId.Value, msg)
+        Assert.True(nodeId = aId || nodeId = bId)
 
 [<Fact>]
 let ``validateOwnershipLocated reports duplicate artifact name`` () =

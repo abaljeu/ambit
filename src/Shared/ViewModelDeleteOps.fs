@@ -233,3 +233,156 @@ module ViewModelDeleteOps =
         let trashOps = buildTrashOp graph classified
         let hardDeleteOps = buildHardDeleteOps graph parentId classified
         promoteOps @ [ spanRemove ] @ trashRenames @ trashOps @ hardDeleteOps
+
+    let private occurrencesOutsideIndices
+        (graph: Graph)
+        (parentId: NodeId)
+        (indices: Set<int>)
+        (nodeId: NodeId)
+        =
+        getAllOccurrences graph nodeId
+        |> List.filter (fun (pid, index, _) ->
+            if pid <> parentId then true
+            else not (Set.contains index indices))
+
+    /// Classify Delete actions for specific child indices under one parent.
+    let private classifyDeleteAtIndices
+        (graph: Graph)
+        (parentId: NodeId)
+        (indices: int list)
+        : ClassifiedDelete list
+        =
+        let parentNode = graph.nodes.[parentId]
+        let selected =
+            indices
+            |> List.choose (fun index ->
+                parentNode.children
+                |> List.tryItem index
+                |> Option.map (fun child -> index, child))
+
+        let isBlocked (child: ChildNode) =
+            Graph.isSystemFolderNode child.id
+            || (match graph.nodes.[child.id].kind with
+                | Special Workspace -> true
+                | _ -> false)
+
+        if selected |> List.exists (fun (_, c) -> isBlocked c) then
+            []
+        else
+            let indexSet = Set.ofList indices
+
+            selected
+            |> List.map (fun (index, child) ->
+                let nodeId = child.id
+                let ownerParentId, ownerIndex, _ = getOwnerOccurrence graph nodeId
+                let isOwnerHere =
+                    ownerParentId = parentId && ownerIndex = index
+                let ownerUnderTrash = isOwnerUnderTrash graph nodeId
+                let others =
+                    occurrencesOutsideIndices graph parentId indexSet nodeId
+
+                let action =
+                    match child.ref, isOwnerHere, ownerUnderTrash, others with
+                    | Ownership.Ref, _, _, _ ->
+                        DeleteAction.LocalDeleteRefOnly
+                    | Ownership.Owner, false, _, _ ->
+                        DeleteAction.LocalDeleteRefOnly
+                    | Ownership.Owner, true, true, [] ->
+                        DeleteAction.HardDeleteSubtreeInTrash
+                    | Ownership.Owner, true, true, _ :: _ ->
+                        DeleteAction.LocalDeleteRefOnly
+                    | Ownership.Owner, true, false, [] ->
+                        DeleteAction.MoveToTrash
+                    | Ownership.Owner, true, false, _ :: _ ->
+                        DeleteAction.LocalDeleteWithPromotion
+
+                { parentId = parentId
+                  index = index
+                  child = child
+                  otherOccurrences = others
+                  action = action })
+
+    let private buildHardDeleteOpsExcluding
+        (graph: Graph)
+        (excludedParents: Set<NodeId>)
+        (classified: ClassifiedDelete list)
+        : Op list
+        =
+        classified
+        |> List.choose (fun item ->
+            match item.action with
+            | HardDeleteSubtreeInTrash -> Some item.child.id
+            | _ -> None)
+        |> List.distinct
+        |> List.collect (fun rootId ->
+            hardDeleteSubtreePlan graph rootId
+            |> Map.toList
+            |> List.filter (fun (pid, _) -> not (Set.contains pid excludedParents))
+            |> List.map (fun (pid, indices) ->
+                let children = graph.nodes.[pid].children
+                let indicesSet = Set.ofList indices
+                let remaining =
+                    children
+                    |> List.mapi (fun i c -> i, c)
+                    |> List.filter (fun (i, _) ->
+                        not (Set.contains i indicesSet))
+                    |> List.map snd
+                Op.Replace(pid, 0, children, remaining)))
+
+    /// Delete-command disposal for owned children dropped under each parent
+    /// (warm parse unmatched Owner rows). One shared TRASH append.
+    let planDeleteDroppedOwnedMany
+        (graph: Graph)
+        (dropByParent: Map<NodeId, Set<NodeId>>)
+        : Op list
+        =
+        let classified =
+            dropByParent
+            |> Map.toList
+            |> List.collect (fun (parentId, dropIds) ->
+                if Set.isEmpty dropIds then
+                    []
+                else
+                    match Map.tryFind parentId graph.nodes with
+                    | None -> []
+                    | Some parent ->
+                        let indices =
+                            parent.children
+                            |> List.mapi (fun i c -> i, c)
+                            |> List.choose (fun (i, c) ->
+                                if
+                                    c.ref = Ownership.Owner
+                                    && Set.contains c.id dropIds
+                                then
+                                    Some i
+                                else
+                                    None)
+
+                        if indices.IsEmpty then
+                            []
+                        else
+                            classifyDeleteAtIndices graph parentId indices)
+
+        match classified with
+        | [] -> []
+        | _ ->
+            let promoteOps = buildPromoteOps graph classified
+            let removeOps =
+                classified
+                |> List.groupBy (fun item -> item.parentId)
+                |> List.collect (fun (parentId, items) ->
+                    items
+                    |> List.sortByDescending (fun item -> item.index)
+                    |> List.map (fun item ->
+                        Op.Replace(
+                            parentId,
+                            item.index,
+                            [ item.child ],
+                            [])))
+            let trashRenames = buildTrashRenameOps graph classified
+            let trashOps = buildTrashOp graph classified
+            let excluded =
+                classified |> List.map (fun c -> c.parentId) |> Set.ofList
+            let hardDeleteOps =
+                buildHardDeleteOpsExcluding graph excluded classified
+            promoteOps @ removeOps @ trashRenames @ trashOps @ hardDeleteOps

@@ -394,15 +394,25 @@ module History =
             | None -> allChildIds
             | Some ids -> Set.intersect ids allChildIds
 
+        let locatedChildDetail (id: NodeId) : string =
+            let text =
+                match Map.tryFind id graph.nodes with
+                | Some n when n.text.Length <= 80 -> n.text
+                | Some n -> n.text.Substring(0, 80) + "..."
+                | None -> ""
+            let tail = NodeId.GuidTail8 id.Value
+            $"text='{text}' id={tail}"
+
         let childIdsMissingOwner =
             childIdsToCheck
             |> Seq.filter (fun childId -> not (Map.containsKey childId ownerByChildId))
             |> Seq.toList
 
         if not childIdsMissingOwner.IsEmpty then
+            let childId = List.head childIdsMissingOwner
             Error (
-                "invalid ownership semantics: missing owner occurrence",
-                List.head childIdsMissingOwner)
+                $"invalid ownership semantics: missing owner occurrence [{locatedChildDetail childId}]",
+                childId)
         else
             let childIdsWithMultipleOwners =
                 childIdsToCheck
@@ -413,9 +423,15 @@ module History =
                 |> Seq.toList
 
             if not childIdsWithMultipleOwners.IsEmpty then
+                let childId = List.head childIdsWithMultipleOwners
+                let owners = ownerByChildId.[childId]
+                let ownersStr =
+                    owners
+                    |> List.map (fun id -> NodeId.GuidTail8 id.Value)
+                    |> String.concat ","
                 Error (
-                    "invalid ownership semantics: expected exactly one owner occurrence",
-                    List.head childIdsWithMultipleOwners)
+                    $"invalid ownership semantics: expected exactly one owner occurrence [{locatedChildDetail childId} owners={ownersStr}]",
+                    childId)
             else
                 let ownerParentOf childId = ownerByChildId.[childId] |> List.head
 
@@ -430,6 +446,26 @@ module History =
                     else
                         false
 
+                let ownerChainIds (startId: NodeId) : NodeId list =
+                    let rec loop currentId visited acc =
+                        if Set.contains currentId visited then
+                            List.rev (currentId :: acc)
+                        else
+                            let nextAcc = currentId :: acc
+                            let nextVisited = Set.add currentId visited
+                            if currentId = graph.root then
+                                List.rev nextAcc
+                            elif Map.containsKey currentId ownerByChildId then
+                                loop (ownerParentOf currentId) nextVisited nextAcc
+                            else
+                                List.rev nextAcc
+                    loop startId Set.empty []
+
+                let formatOwnerChain (ids: NodeId list) : string =
+                    ids
+                    |> List.map (fun id -> NodeId.GuidTail8 id.Value)
+                    |> String.concat " -> "
+
                 let brokenOwnerChainChild =
                     childIdsToCheck
                     |> Seq.tryFind (fun childId ->
@@ -438,8 +474,9 @@ module History =
 
                 match brokenOwnerChainChild with
                 | Some childId ->
+                    let chain = formatOwnerChain (ownerChainIds childId)
                     Error (
-                        "invalid ownership semantics: owner chain does not reach root",
+                        $"invalid ownership semantics: owner chain does not reach root [{locatedChildDetail childId} chain={chain}]",
                         childId)
                 | None ->
                     match childIdsScope with

@@ -572,10 +572,15 @@ module WorkspaceWebDav =
             return Error "invalid_upload_grant_request"
     }
 
-    let private issueGrant dataDir user secret (req: HttpRequest) = task {
-        let! decoded = decodeGrantRequest req
+    let private grantResult
+        dataDir
+        user
+        secret
+        (req: HttpRequest)
+        (decoded: Result<string * int64 * string * int64, string>)
+        : IResult =
         match decoded with
-        | Error e -> return Results.BadRequest(e)
+        | Error e -> Results.BadRequest(e)
         | Ok(resource, size, sha256, ticks) ->
             let decodedResource =
                 if String.IsNullOrEmpty resource then
@@ -583,7 +588,7 @@ module WorkspaceWebDav =
                 else
                     WorkspaceDavClient.decodeResourceToken resource
             match decodedResource with
-            | Error e -> return Results.BadRequest(e)
+            | Error e -> Results.BadRequest(e)
             | Ok(label, relative) ->
                 let validSize =
                     size >= 0L && size <= WorkspaceSyncLimits.maxFileBytes
@@ -599,11 +604,11 @@ module WorkspaceWebDav =
                     validHash,
                     validTicks
                 with
-                | Error e, _, _, _ -> return Results.BadRequest(e)
+                | Error e, _, _, _ -> Results.BadRequest(e)
                 | _, false, _, _ ->
-                    return Results.Json({| error = "upload_body_too_large" |}, statusCode = 413)
-                | _, _, false, _ -> return Results.BadRequest("invalid_upload_digest")
-                | _, _, _, false -> return Results.BadRequest("invalid_upload_mtime")
+                    Results.Json({| error = "upload_body_too_large" |}, statusCode = 413)
+                | _, _, false, _ -> Results.BadRequest("invalid_upload_digest")
+                | _, _, _, false -> Results.BadRequest("invalid_upload_mtime")
                 | Ok _, true, true, true ->
                     let claim: UploadCapability.Claim =
                         { user = user
@@ -621,7 +626,11 @@ module WorkspaceWebDav =
                         + "://"
                         + string req.Host
                         + "/ambit/direct-upload"
-                    return Results.Json {| uploadUrl = uploadUrl; capability = capability |}
+                    Results.Json {| uploadUrl = uploadUrl; capability = capability |}
+
+    let private issueGrant dataDir user secret (req: HttpRequest) = task {
+        let! decoded = decodeGrantRequest req
+        return grantResult dataDir user secret req decoded
     }
 
     let private directCapability (secret: string) user (req: HttpRequest) =

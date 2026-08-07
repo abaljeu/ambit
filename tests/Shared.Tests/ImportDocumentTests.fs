@@ -489,3 +489,423 @@ let ``buildReconcilePackage rejects unparsed file`` () =
     | Error err ->
         Assert.Equal("file is unparsed; use cold import", err)
 
+/// After upload/M, File is Unparsed but still owns prior children. Parse must
+/// warm-reconcile against that owner (not cold-replan Owners).
+[<Fact>]
+let ``planParseFile Unparsed with prior children warms and keeps line ids`` () =
+    let graph0 = Graph.create ()
+    let fileId = NodeId.New()
+    let aId = NodeId.New()
+    let bId = NodeId.New()
+    let file =
+        Node.Create(
+            fileId,
+            text = "readme.txt",
+            name = Filename.create "readme.txt",
+            owner = graph0.root,
+            kind = Special File,
+            documentState = Unparsed,
+            children =
+                [ { ref = Ownership.Owner; id = aId }
+                  { ref = Ownership.Owner; id = bId } ])
+    let aNode = Node.Create(aId, text = "alpha", owner = fileId)
+    let bNode = Node.Create(bId, text = "beta", owner = fileId)
+    let graph =
+        graph0.nodes
+        |> Map.add fileId file
+        |> Map.add aId aNode
+        |> Map.add bId bNode
+        |> fun nodes -> Graph.fromNodes graph0.root nodes
+
+    let ops =
+        ImportDocument.planParseFile
+            graph
+            fileId
+            ("ALPHA" + Environment.NewLine + "beta" + Environment.NewLine)
+        |> requireOk "planParseFile"
+
+    Assert.True(
+        ops
+        |> List.exists (function
+            | Op.SetDocumentState(id, Unparsed, Current) when id = fileId ->
+                true
+            | _ -> false),
+        "Unparsed → Current must lead the batch")
+
+    let change =
+        { id = 0
+          changeId = Guid.NewGuid()
+          ops = ops }
+    let state =
+        { graph = graph; history = History.empty; revision = Revision.Zero }
+
+    match History.applyChange change state with
+    | ApplyResult.Invalid(_, msg) ->
+        Assert.True(false, "Unparsed warm parse must apply; got: " + msg)
+    | ApplyResult.Unchanged _ -> failwith "expected Changed"
+    | ApplyResult.Changed after ->
+        Assert.Equal(Current, after.graph.nodes.[fileId].documentState)
+        Assert.Equal(aId, after.graph.nodes.[fileId].children.Head.id)
+        Assert.Equal("ALPHA", after.graph.nodes.[aId].text)
+        Assert.Equal(bId, after.graph.nodes.[fileId].children.[1].id)
+        Assert.Equal("beta", after.graph.nodes.[bId].text)
+
+/// Current File Load + desktop-newer Amb body that carets a node already Owned
+/// under a sibling File: reuse that Owner; claim no second edge (Owner or Ref)
+/// under the parse File. Warm-update content; do not dual-Own.
+/// Symptom without fix: History 400 "expected exactly one owner occurrence".
+[<Fact>]
+let ``planParseFile Current warm Amb reuses foreign owner without Ref`` () =
+    let graph0 = Graph.create ()
+    let workspaceId, wsOps = FileNodeOps.planCreateWorkspace graph0 "home"
+    let state0 =
+        { graph = graph0; history = History.empty; revision = Revision.Zero }
+    let withWs =
+        wsOps
+        |> List.fold
+            (fun s op ->
+                match Op.apply op s with
+                | ApplyResult.Changed n
+                | ApplyResult.Unchanged n -> n
+                | ApplyResult.Invalid(_, e) -> failwith e)
+            state0
+    let noteId, noteOps =
+        FileNodeOps.planCreateOwnedFile withWs.graph workspaceId "note.txt"
+    let withNote =
+        noteOps
+        |> List.fold
+            (fun s op ->
+                match Op.apply op s with
+                | ApplyResult.Changed n
+                | ApplyResult.Unchanged n -> n
+                | ApplyResult.Invalid(_, e) -> failwith e)
+            withWs
+    let otherId, otherOps =
+        FileNodeOps.planCreateOwnedFile withNote.graph workspaceId "other.txt"
+    let withOther =
+        otherOps
+        |> List.fold
+            (fun s op ->
+                match Op.apply op s with
+                | ApplyResult.Changed n
+                | ApplyResult.Unchanged n -> n
+                | ApplyResult.Invalid(_, e) -> failwith e)
+            withNote
+    let priorId = NodeId.New()
+    let foreignId = NodeId.New()
+    let prior = Node.Create(priorId, text = "prior", owner = noteId)
+    let foreign = Node.Create(foreignId, text = "foreign", owner = otherId)
+    let noteNode = withOther.graph.nodes.[noteId]
+    let otherNode = withOther.graph.nodes.[otherId]
+    let graph =
+        withOther.graph.nodes
+        |> Map.add priorId prior
+        |> Map.add foreignId foreign
+        |> Map.add
+            noteId
+            { noteNode with
+                children = [ { ref = Ownership.Owner; id = priorId } ]
+                documentState = Current }
+        |> Map.add
+            otherId
+            { otherNode with
+                children = [ { ref = Ownership.Owner; id = foreignId } ]
+                documentState = Current }
+        |> fun nodes -> Graph.fromNodes withOther.graph.root nodes
+
+    let ambBody =
+        "^"
+        + AmbDocument.formatStableId foreignId
+        + " stolen"
+        + Environment.NewLine
+
+    let ops =
+        ImportDocument.planParseFile graph noteId ambBody
+        |> requireOk "planParseFile"
+
+    let change =
+        { id = 0
+          changeId = Guid.NewGuid()
+          ops = ops }
+    let state =
+        { graph = graph; history = History.empty; revision = Revision.Zero }
+
+    match History.applyChange change state with
+    | ApplyResult.Invalid(_, msg) ->
+        Assert.True(
+            false,
+            "Current warm Amb must reuse existing owner; got: " + msg)
+    | ApplyResult.Unchanged _ -> failwith "expected Changed"
+    | ApplyResult.Changed after ->
+        match History.validateOwnership after.graph with
+        | Error msg -> Assert.True(false, "ownership broken after parse: " + msg)
+        | Ok () ->
+            let owners =
+                after.graph.nodes
+                |> Map.toList
+                |> List.collect (fun (parentId, node) ->
+                    node.children
+                    |> List.choose (fun c ->
+                        if c.ref = Ownership.Owner && c.id = foreignId then
+                            Some parentId
+                        else
+                            None))
+            Assert.Equal(1, owners.Length)
+            Assert.Equal(otherId, owners.Head)
+            Assert.Equal(Ownership.Owner, after.graph.nodes.[otherId].children.Head.ref)
+            Assert.Equal("stolen", after.graph.nodes.[foreignId].text)
+            let underNote =
+                after.graph.nodes.[noteId].children
+                |> List.filter (fun c -> c.id = foreignId)
+            Assert.True(
+                List.isEmpty underNote,
+                "parse must not claim Owner or Ref under note for foreign-owned node")
+
+/// Current warm reparent within the File overlay: child drops under old parent
+/// but is reclaimed as Owner under another overlay parent. Must not Delete→trash
+/// then Replace-claim (dual Owner / History 400).
+[<Fact>]
+let ``planParseFile Current warm overlay reparent does not dual-Own`` () =
+    let graph0 = Graph.create ()
+    let workspaceId, wsOps = FileNodeOps.planCreateWorkspace graph0 "life"
+    let state0 =
+        { graph = graph0; history = History.empty; revision = Revision.Zero }
+    let applyOps (s: State) ops =
+        ops
+        |> List.fold
+            (fun st op ->
+                match Op.apply op st with
+                | ApplyResult.Changed n
+                | ApplyResult.Unchanged n -> n
+                | ApplyResult.Invalid(_, e) -> failwith e)
+            s
+    let withWs = applyOps state0 wsOps
+    let fileId, fileOps =
+        FileNodeOps.planCreateOwnedFile
+            withWs.graph
+            workspaceId
+            "reparent.txt"
+    let withFile = applyOps withWs fileOps
+    let seededGraph =
+        { withFile.graph.nodes.[fileId] with documentState = Unparsed }
+        |> fun n ->
+            withFile.graph.nodes
+            |> Map.add fileId n
+            |> fun nodes -> Graph.fromNodes withFile.graph.root nodes
+    let seedBody =
+        "Section"
+        + Environment.NewLine
+        + "\tItem"
+        + Environment.NewLine
+        + "Other"
+        + Environment.NewLine
+    let seedOps =
+        ImportDocument.planParseFile seededGraph fileId seedBody
+        |> requireOk "seed planParseFile"
+    let seeded =
+        match
+            History.applyChange
+                { id = 0; changeId = Guid.NewGuid(); ops = seedOps }
+                { graph = seededGraph
+                  history = History.empty
+                  revision = Revision.Zero }
+        with
+        | ApplyResult.Changed s -> s.graph
+        | ApplyResult.Unchanged s -> s.graph
+        | ApplyResult.Invalid(_, msg) -> failwith ("seed: " + msg)
+
+    let sectionId = seeded.nodes.[fileId].children.[0].id
+    let otherId = seeded.nodes.[fileId].children.[1].id
+    let itemId = seeded.nodes.[sectionId].children.Head.id
+    // Move Item under Other (same texts → warm Keep ids; overlay reparent).
+    let newBody =
+        "Section"
+        + Environment.NewLine
+        + "Other"
+        + Environment.NewLine
+        + "\tItem"
+        + Environment.NewLine
+    let ops =
+        ImportDocument.planParseFile seeded fileId newBody
+        |> requireOk "planParseFile"
+
+    let change =
+        { id = 0
+          changeId = Guid.NewGuid()
+          ops = ops }
+    let state =
+        { graph = seeded; history = History.empty; revision = Revision.Zero }
+
+    match History.applyChange change state with
+    | ApplyResult.Invalid(_, msg) ->
+        Assert.True(
+            false,
+            "Current warm overlay reparent must apply; got: " + msg)
+    | ApplyResult.Unchanged _ -> failwith "expected Changed"
+    | ApplyResult.Changed after ->
+        match History.validateOwnership after.graph with
+        | Error msg ->
+            Assert.True(false, "ownership broken after warm reparent: " + msg)
+        | Ok () ->
+            Assert.Equal(otherId, after.graph.ownerParentByChild.[itemId])
+            Assert.True(
+                List.isEmpty after.graph.nodes.[sectionId].children,
+                "Section must no longer own Item")
+            let underTrash =
+                after.graph.nodes.[Graph.trashId].children
+                |> List.exists (fun c -> c.id = itemId)
+            Assert.False(
+                underTrash,
+                "reclaimed overlay child must not MoveToTrash")
+
+/// Current warm reparse: prior owned child unmatched by the new artifact must
+/// use Delete → TRASH (same as the Delete command), never silent Owner drop.
+/// HITL class: Load 400 "owner chain does not reach root" after unmoored Owner.
+[<Fact>]
+let ``planParseFile Current warm unmatched owned child Deletes to trash`` () =
+    let graph0 = Graph.create ()
+    let workspaceId, wsOps = FileNodeOps.planCreateWorkspace graph0 "life"
+    let state0 =
+        { graph = graph0; history = History.empty; revision = Revision.Zero }
+    let applyOps (s: State) ops =
+        ops
+        |> List.fold
+            (fun st op ->
+                match Op.apply op st with
+                | ApplyResult.Changed n
+                | ApplyResult.Unchanged n -> n
+                | ApplyResult.Invalid(_, e) -> failwith e)
+            s
+    let withWs = applyOps state0 wsOps
+    let fileId, fileOps =
+        FileNodeOps.planCreateOwnedFile
+            withWs.graph
+            workspaceId
+            "honda-civic-sale.txt"
+    let withFile = applyOps withWs fileOps
+    // Seed via parse so warm previousText matches outline ids.
+    let seededGraph =
+        { withFile.graph.nodes.[fileId] with documentState = Unparsed }
+        |> fun n ->
+            withFile.graph.nodes
+            |> Map.add fileId n
+            |> fun nodes -> Graph.fromNodes withFile.graph.root nodes
+    let seedBody =
+        "Listing Draft"
+        + Environment.NewLine
+        + "Marketplace Description Draft"
+        + Environment.NewLine
+    let seedOps =
+        ImportDocument.planParseFile seededGraph fileId seedBody
+        |> requireOk "seed planParseFile"
+    let seeded =
+        match
+            History.applyChange
+                { id = 0; changeId = Guid.NewGuid(); ops = seedOps }
+                { graph = seededGraph
+                  history = History.empty
+                  revision = Revision.Zero }
+        with
+        | ApplyResult.Changed s -> s.graph
+        | ApplyResult.Unchanged s -> s.graph
+        | ApplyResult.Invalid(_, msg) -> failwith ("seed: " + msg)
+
+    let listingId = seeded.nodes.[fileId].children.[0].id
+    let midId = seeded.nodes.[fileId].children.[1].id
+    // Drop Marketplace sibling; rename Listing. Unmatched mid → Delete→trash.
+    let newBody =
+        "Listing Draft (ready to post)" + Environment.NewLine
+    let ops =
+        ImportDocument.planParseFile seeded fileId newBody
+        |> requireOk "planParseFile"
+
+    let change =
+        { id = 0
+          changeId = Guid.NewGuid()
+          ops = ops }
+    let state =
+        { graph = seeded; history = History.empty; revision = Revision.Zero }
+
+    match History.applyChange change state with
+    | ApplyResult.Invalid(_, msg) ->
+        Assert.True(
+            false,
+            "Current warm unmatched must apply; got: " + msg)
+    | ApplyResult.Unchanged _ -> failwith "expected Changed"
+    | ApplyResult.Changed after ->
+        match History.validateOwnership after.graph with
+        | Error msg ->
+            Assert.True(false, "ownership broken after warm parse: " + msg)
+        | Ok () ->
+            let underFile = after.graph.nodes.[fileId].children
+            Assert.Equal(1, underFile.Length)
+            Assert.Equal(
+                "Listing Draft (ready to post)",
+                after.graph.nodes.[underFile.Head.id].text)
+            let rec ownerUnderTrash nodeId =
+                match Map.tryFind nodeId after.graph.ownerParentByChild with
+                | Some p when p = Graph.trashId -> true
+                | Some p -> ownerUnderTrash p
+                | None -> false
+
+            // LCS may Keep either sibling in place; the unmatched one must
+            // hit Delete → TRASH (never a silent Owner-edge drop).
+            Assert.True(
+                ownerUnderTrash listingId || ownerUnderTrash midId,
+                "unmatched prior owned sibling must Delete to TRASH")
+            Assert.True(
+                underFile.Head.id = listingId
+                || underFile.Head.id = midId,
+                "File child should be a rematched prior line id")
+
+/// Baseline: empty Unparsed (first parse) still cold-applies via History.
+[<Fact>]
+let ``planParseFile Unparsed plain upload body applies via History`` () =
+    let graph0 = Graph.create ()
+    let workspaceId, wsOps = FileNodeOps.planCreateWorkspace graph0 "home"
+    let state0 =
+        { graph = graph0; history = History.empty; revision = Revision.Zero }
+    let withWs =
+        wsOps
+        |> List.fold
+            (fun s op ->
+                match Op.apply op s with
+                | ApplyResult.Changed n
+                | ApplyResult.Unchanged n -> n
+                | ApplyResult.Invalid(_, e) -> failwith e)
+            state0
+    let noteId, noteOps =
+        FileNodeOps.planCreateOwnedFile withWs.graph workspaceId "note.txt"
+    let withNote =
+        noteOps
+        |> List.fold
+            (fun s op ->
+                match Op.apply op s with
+                | ApplyResult.Changed n
+                | ApplyResult.Unchanged n -> n
+                | ApplyResult.Invalid(_, e) -> failwith e)
+            withWs
+    let graph =
+        withNote.graph.nodes
+        |> Map.add
+            noteId
+            { withNote.graph.nodes.[noteId] with documentState = Unparsed }
+        |> fun nodes -> Graph.fromNodes withNote.graph.root nodes
+
+    let ops =
+        ImportDocument.planParseFile graph noteId ("NEW-EDIT" + Environment.NewLine)
+        |> requireOk "planParseFile"
+
+    let change =
+        { id = 0
+          changeId = Guid.NewGuid()
+          ops = ops }
+    let state =
+        { graph = graph; history = History.empty; revision = Revision.Zero }
+
+    match History.applyChange change state with
+    | ApplyResult.Invalid(_, msg) ->
+        Assert.True(false, "plain Unparsed parse must apply; got: " + msg)
+    | ApplyResult.Unchanged _
+    | ApplyResult.Changed _ -> ()
+
