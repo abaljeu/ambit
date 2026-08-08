@@ -31,6 +31,10 @@
     <Compile Include="SearchDialogView.fs" />
     <Compile Include="FileSearchDialogView.fs" />
     <Compile Include="StatusView.fs" />
+    <Compile Include="RowView.fs" />
+    <Compile Include="FocusView.fs" />
+    <Compile Include="CommandDock.fs" />
+    <Compile Include="Overlays.fs" />
     <Compile Include="View.fs" />
     <Compile Include="SessionState.fs" />
     <Compile Include="App.fs" />

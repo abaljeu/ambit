@@ -12,6 +12,8 @@ open Gambol.Client.UpdateOps
 open Gambol.Client.UpdateWorkspaceSync
 open Gambol.Client.UpdateImport
 open Gambol.Client.Controller
+open Gambol.Client.CommandDock
+open Gambol.Client.Overlays
 open Gambol.Client.View
 open Gambol.Client.SearchDialogView
 open Gambol.Client.FileSearchDialogView
