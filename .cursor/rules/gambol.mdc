@@ -30,6 +30,7 @@ Imported engineering skill configuration:
 
 Workflow skills in [[.cursor/skills/]]:
 
+- [[.cursor/skills/project-work/SKILL.md]] — git protocol for `.scratch` projects (branch, commit, merge back)
 - [[.cursor/skills/plan-roadmap-change/SKILL.md]] — roadmap and plan doc changes
 - [[.cursor/skills/implement-fsharp-feature/SKILL.md]] — test-first F# implementation
 - [[.cursor/skills/add-shared-test/SKILL.md]] — Shared.Tests coverage

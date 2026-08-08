@@ -8,7 +8,7 @@ alwaysApply: true
 
 Whenever any skill starts or advances a **project** (a `.scratch/<slug>/` effort), set that project's `Stage:` and regenerate [[.scratch/index.md]] per [[docs/agents/project-status.md]]. Create `project.md` if the effort lacks one.
 
-Starting a new project comes first with a workplace branch: before writing any of its documents, ensure the branch is `w/*`; if not, create and checkout `w/<slug>` from HEAD per [[.cursor/rules/environment.mdc]] and record it in the project's `git.md`. This keeps every project document on a `w/` branch.
+Starting or advancing a project follows [[.cursor/skills/project-work/SKILL.md]]: be on a `w/*` branch and record the cut-from in the project's `git.md` before writing any of its documents.
 
 Skill-to-stage transitions:
 

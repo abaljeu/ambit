@@ -59,6 +59,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
           serverCapabilities = model.serverCapabilities
           desktopFileIndicator = BlankFileIndicator
           workspaceMappedLabels = model.workspaceMappedLabels
+          workspaceRoots = model.workspaceRoots
           workspaceSyncFacts = model.workspaceSyncFacts
           syncInfo =
             SyncInfo.initial
@@ -143,6 +144,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
         else
             { model' with
                 workspaceMappedLabels = Set.empty
+                workspaceRoots = Map.empty
                 workspaceSyncFacts = Map.empty },
             []
 
@@ -152,8 +154,9 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
     | SysMsg (DesktopFileStatusReceived (nodeId, path, status, sourceModifiedUtc)) ->
         applyDesktopFileStatus nodeId path status sourceModifiedUtc model, []
 
-    | SysMsg (WorkspacePathSyncSnapshotReceived (mappedLabels, factsByLabel)) ->
-        ViewModel.applyWorkspacePathSyncSnapshot mappedLabels factsByLabel model, []
+    | SysMsg (WorkspacePathSyncSnapshotReceived (mappedLabels, factsByLabel, rootsByLabel)) ->
+        let model' = ViewModel.applyWorkspacePathSyncSnapshot mappedLabels factsByLabel model
+        { model' with workspaceRoots = rootsByLabel }, []
 
     | SysMsg PollTick ->
         let si, effects = SyncPlanner.tryStartPoll model.revision model.syncInfo

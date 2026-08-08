@@ -630,3 +630,132 @@ let ``planPatchDOM recreates row when leaf circle becomes hollow`` () =
         |> List.exists (function
             | RecreateRow id -> id = leafInst.instanceId
             | _ -> false))
+
+// ---------------------------------------------------------------------------
+// bulletTip — hover inspector facts, self-gated, fixed order
+// ---------------------------------------------------------------------------
+
+let private stubFormatLocal (d: System.DateTime) : string = $"LOCAL[{d.Ticks}]"
+
+let private modelWithLooseNode (node: Node) =
+    let graph0 = Graph.create ()
+    let graph = Graph.fromNodes graph0.root (Map.add node.id node graph0.nodes)
+    modelFromGraph graph
+
+[<Fact>]
+let ``bulletTip minimal node lists guid residency and update time only`` () =
+    let nid = NodeId.New()
+    let t = System.DateTime(2026, 1, 2, 3, 4, 0, System.DateTimeKind.Utc)
+    let node = Node.Create(nid, text = "leaf", updateTime = t)
+    let model = modelWithLooseNode node
+    let tip = bulletTip stubFormatLocal model node
+    let lines = tip.Split('\n')
+    Assert.Equal(3, lines.Length)
+    Assert.Contains(NodeId.GuidTail8 nid.Value, lines.[0])
+    Assert.Equal("Residency: Loaded, Current", lines.[1])
+    Assert.Equal($"Updated: {stubFormatLocal t}", lines.[2])
+
+[<Fact>]
+let ``bulletTip disambiguates hollow by Unloaded versus Unparsed`` () =
+    let unloaded =
+        Node.Create(NodeId.New(), text = "ws", childrenStatus = Unloaded)
+    let unparsed =
+        Node.Create(
+            NodeId.New(),
+            text = "file",
+            kind = Special File,
+            documentState = Unparsed)
+    let tipU = bulletTip stubFormatLocal (modelWithLooseNode unloaded) unloaded
+    let tipP = bulletTip stubFormatLocal (modelWithLooseNode unparsed) unparsed
+    Assert.Contains("Residency: Unloaded, Current", tipU)
+    Assert.Contains("Residency: Loaded, Unparsed", tipP)
+    Assert.NotEqual<string>(tipU, tipP)
+
+[<Fact>]
+let ``bulletTip reads Loaded Current for a parsed leaf`` () =
+    let node = Node.Create(NodeId.New(), text = "leaf")
+    let tip = bulletTip stubFormatLocal (modelWithLooseNode node) node
+    Assert.Contains("Residency: Loaded, Current", tip)
+
+[<Fact>]
+let ``bulletTip includes workspace path between residency and update time`` () =
+    let model, _wsId, fileId = modelWithWorkspaceFile Current
+    let node = model.graph.nodes.[fileId]
+    let tip = bulletTip stubFormatLocal model node
+    let lines = tip.Split('\n')
+    let residencyIdx = System.Array.FindIndex(lines, fun l -> l.StartsWith "Residency:")
+    let pathIdx = System.Array.FindIndex(lines, fun l -> l.StartsWith "Path:")
+    let updatedIdx = System.Array.FindIndex(lines, fun l -> l.StartsWith "Updated:")
+    Assert.Equal("Path: //home/note.md", lines.[pathIdx])
+    Assert.True(residencyIdx < pathIdx && pathIdx < updatedIdx)
+
+[<Fact>]
+let ``bulletTip shows both workspace and local path when a desktop mapping exists`` () =
+    let baseModel, _wsId, fileId = modelWithWorkspaceFile Current
+    let model = { baseModel with workspaceRoots = Map.ofList [ "home", "d:\\life" ] }
+    let node = model.graph.nodes.[fileId]
+    let tip = bulletTip stubFormatLocal model node
+    let lines = tip.Split('\n')
+    let pathIdx = System.Array.FindIndex(lines, fun l -> l.StartsWith "Path:")
+    let localIdx = System.Array.FindIndex(lines, fun l -> l.StartsWith "Local:")
+    let updatedIdx = System.Array.FindIndex(lines, fun l -> l.StartsWith "Updated:")
+    Assert.Equal("Path: //home/note.md", lines.[pathIdx])
+    Assert.Equal("Local: d:\\life\\note.md", lines.[localIdx])
+    Assert.True(pathIdx < localIdx && localIdx < updatedIdx)
+
+[<Fact>]
+let ``bulletTip omits local path when the workspace has no desktop mapping`` () =
+    let model, _wsId, fileId = modelWithWorkspaceFile Current
+    let node = model.graph.nodes.[fileId]
+    let tip = bulletTip stubFormatLocal model node
+    Assert.Contains("Path: //home/note.md", tip)
+    Assert.DoesNotContain("Local:", tip)
+
+[<Fact>]
+let ``bulletTip omits workspace path for an unmapped node`` () =
+    let node = Node.Create(NodeId.New(), text = "leaf")
+    let tip = bulletTip stubFormatLocal (modelWithLooseNode node) node
+    Assert.DoesNotContain("Path:", tip)
+
+[<Fact>]
+let ``bulletTip lists css classes last when present`` () =
+    let node =
+        Node.Create(
+            NodeId.New(),
+            text = "leaf",
+            cssClasses = CssClass.ofList [ "h1"; "blue" ])
+    let tip = bulletTip stubFormatLocal (modelWithLooseNode node) node
+    let lines = tip.Split('\n')
+    Assert.Equal("Classes: h1 blue", Array.last lines)
+
+[<Fact>]
+let ``bulletTip omits css line when node has no classes`` () =
+    let node = Node.Create(NodeId.New(), text = "leaf")
+    let tip = bulletTip stubFormatLocal (modelWithLooseNode node) node
+    Assert.DoesNotContain("Classes:", tip)
+
+[<Fact>]
+let ``bulletTip keeps line order stable across chevron and leaf nodes`` () =
+    let childId = NodeId.New()
+    let chevron =
+        Node.Create(
+            NodeId.New(),
+            text = "parent",
+            children = [ { ref = Ownership.Owner; id = childId } ])
+    let leaf = Node.Create(NodeId.New(), text = "leaf")
+    let orderOf (node: Node) =
+        (bulletTip stubFormatLocal (modelWithLooseNode node) node).Split('\n')
+        |> Array.map (fun l -> l.Substring(0, l.IndexOf ':' + 1))
+    Assert.Equal<string[]>(orderOf chevron, orderOf leaf)
+
+[<Fact>]
+let ``bulletTip renders update time via the injected formatter verbatim`` () =
+    let t = System.DateTime(2027, 5, 6, 7, 8, 0, System.DateTimeKind.Utc)
+    let node = Node.Create(NodeId.New(), text = "leaf", updateTime = t)
+    let mutable seen = []
+    let spy (d: System.DateTime) =
+        seen <- d :: seen
+        "STAMP"
+    let tip = bulletTip spy (modelWithLooseNode node) node
+    Assert.Equal<System.DateTime list>([ t ], seen)
+    Assert.Contains("Updated: STAMP", tip)

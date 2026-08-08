@@ -106,6 +106,7 @@ module ViewModel =
     let rowFileUnparsedClassEligible = ViewModelRowState.rowFileUnparsedClassEligible
     let rowUnparsedObservationEligible = ViewModelRowState.rowUnparsedObservationEligible
     let rowChildrenIndicator = ViewModelChildrenIndicator.rowChildrenIndicator
+    let bulletTip = ViewModelRowState.bulletTip
 
     let canCompareWorkspacePathSync = ViewModelRowState.canCompareWorkspacePathSync
     let rowWorkspacePathSyncStatus = ViewModelRowState.rowWorkspacePathSyncStatus

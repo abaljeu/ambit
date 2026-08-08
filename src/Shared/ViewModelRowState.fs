@@ -446,3 +446,54 @@ module ViewModelRowState =
         match specialKindRowClass nodeId kind with
         | Some sk -> CssClass.add sk className
         | None -> className
+
+    let private residencyText (node: Node) : string =
+        let children =
+            match node.childrenStatus with
+            | Loaded -> "Loaded"
+            | Unloaded -> "Unloaded"
+        let document =
+            match node.documentState with
+            | Current -> "Current"
+            | Unparsed -> "Unparsed"
+            | NoServerFile -> "NoServerFile"
+        $"Residency: {children}, {document}"
+
+    /// Desktop local path for a Node (e.g. "d:\life\note.md"), when its workspace label
+    /// has a local root mapping. Display-only string join; never a validated resolve.
+    let private tryWorkspaceLocalPath (model: VM) (nodeId: NodeId) : string option =
+        tryParseLabelRelative model nodeId
+        |> Option.bind (fun (label, relative) ->
+            Map.tryFind (normalizeWorkspaceLabel label) model.workspaceRoots
+            |> Option.map (fun root ->
+                let trimmedRoot = root.TrimEnd('\\', '/')
+                let relBack = relative.Replace('/', '\\')
+                if relBack = "" then trimmedRoot else trimmedRoot + "\\" + relBack))
+
+    /// Bullet hover-inspector tip: `\n`-joined non-obvious Node facts in fixed order
+    /// (Guid tail, residency, workspace path, local path, Update Time, CSS classes). Each
+    /// line is self-gating; absent facts are omitted. `formatLocal` renders a UTC time in
+    /// the viewer's local zone (injected because Shared has no browser clock).
+    let bulletTip (formatLocal: System.DateTime -> string) (model: VM) (node: Node) : string =
+        let workspacePathLine =
+            NodeDesktopPath.pathForNodeId model.graph node.id
+            |> Option.filter (fun p ->
+                p.StartsWith(NodeDesktopPath.rootPrefix, System.StringComparison.Ordinal))
+            |> Option.map (fun p -> $"Path: {p}")
+        let localPathLine =
+            tryWorkspaceLocalPath model node.id
+            |> Option.map (fun p -> $"Local: {p}")
+        let cssLine =
+            match CssClass.toList node.cssClasses with
+            | [] -> None
+            | classes ->
+                let joined = String.concat " " classes
+                Some $"Classes: {joined}"
+        [ Some $"Guid \u2026{NodeId.GuidTail8 node.id.Value}"
+          Some(residencyText node)
+          workspacePathLine
+          localPathLine
+          Some $"Updated: {formatLocal node.updateTime}"
+          cssLine ]
+        |> List.choose id
+        |> String.concat "\n"

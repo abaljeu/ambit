@@ -158,7 +158,7 @@ module Layout =
             indent.classList.add "amb-indent"
             row.appendChild indent |> ignore
 
-        let leafBullet =
+        let nodeBullet =
             match childrenIndicator with
             | RowChildrenIndicator.FoldChevron ->
                 let toggle = document.createElement "span"
@@ -169,18 +169,20 @@ module Layout =
             | RowChildrenIndicator.SolidCircle ->
                 let dot = document.createElement "span"
                 dot.classList.add "amb-fold-toggle"
-                dot.classList.add "amb-leaf-dot"
+                dot.classList.add "amb-bullet-dot"
                 row.appendChild dot |> ignore
                 dot
             | RowChildrenIndicator.HollowCircle ->
                 let dot = document.createElement "span"
                 dot.classList.add "amb-fold-toggle"
-                dot.classList.add "amb-leaf-hollow"
+                dot.classList.add "amb-bullet-hollow"
                 row.appendChild dot |> ignore
                 dot
         let cssClasses = CssClass.toList node.cssClasses
         for cls in cssClasses do
-            leafBullet.classList.add cls
+            nodeBullet.classList.add cls
+        let tip = ViewModel.bulletTip formatLocalDateTime model node
+        if tip <> "" then nodeBullet.setAttribute("title", tip)
 
         let textDiv = document.createElement "div"
         textDiv.classList.add "amb-text"
@@ -223,7 +225,7 @@ module Layout =
         | Some t -> fileIndicator.setAttribute("title", t)
         | None -> fileIndicator.removeAttribute "title"
         row.appendChild fileIndicator |> ignore
-        row, textDiv, leafBullet, hasChildren, childrenIndicator
+        row, textDiv, nodeBullet, hasChildren, childrenIndicator
 
 /// Listeners, scroll-defer / fold-toggle timers, dispatch wiring.
 module Behavior =
@@ -324,7 +326,7 @@ module Behavior =
 
     let private wireSelectingActivate
         (dispatch: Msg -> unit) (siteEntry: SiteEntry)
-        (textDiv: HTMLElement) (leafBullet: HTMLElement) (hasChildren: bool) : unit =
+        (textDiv: HTMLElement) (nodeBullet: HTMLElement) (hasChildren: bool) : unit =
         let rowTextOffset (ev: MouseEvent) : int =
             getCaretOffsetInRoot textDiv ev.clientX ev.clientY
 
@@ -346,22 +348,22 @@ module Behavior =
         textDiv.addEventListener("mousedown", activateRow)
         textDiv.addEventListener("dblclick", doubleClickRow)
         if not hasChildren then
-            leafBullet.addEventListener("mousedown", activateRow)
-            leafBullet.addEventListener("dblclick", doubleClickRow)
+            nodeBullet.addEventListener("mousedown", activateRow)
+            nodeBullet.addEventListener("dblclick", doubleClickRow)
 
     /// Attach row listeners and scroll-defer flag writes to a layout-built row.
     let internal wireRow
         (model: VM) (dispatch: Msg -> unit) (siteEntry: SiteEntry)
-        (textDiv: HTMLElement) (leafBullet: HTMLElement)
+        (textDiv: HTMLElement) (nodeBullet: HTMLElement)
         (hasChildren: bool) (childrenIndicator: RowChildrenIndicator) : unit =
         match childrenIndicator with
         | RowChildrenIndicator.FoldChevron ->
-            wireFoldToggle dispatch siteEntry leafBullet
+            wireFoldToggle dispatch siteEntry nodeBullet
         | _ -> ()
         if isEditingEntry model siteEntry then
             wireEditText model dispatch textDiv
         else
-            wireSelectingActivate dispatch siteEntry textDiv leafBullet hasChildren
+            wireSelectingActivate dispatch siteEntry textDiv nodeBullet hasChildren
 
 // ---------------------------------------------------------------------------
 // Public compose / re-exports (View + FocusView call sites stay name-stable)
@@ -385,9 +387,9 @@ let internal syncZoomPath
 /// Create a fresh DOM row for the given SiteEntry at the given depth.
 let internal makeRowElement
     (model: VM) (dispatch: Msg -> unit) (depth: int) (siteEntry: SiteEntry) : HTMLElement =
-    let row, textDiv, leafBullet, hasChildren, childrenIndicator =
+    let row, textDiv, nodeBullet, hasChildren, childrenIndicator =
         Layout.buildRowElement model depth siteEntry
-    Behavior.wireRow model dispatch siteEntry textDiv leafBullet hasChildren childrenIndicator
+    Behavior.wireRow model dispatch siteEntry textDiv nodeBullet hasChildren childrenIndicator
     row
 
 /// Resolve the row element for an instance: create, recreate, or patch as dictated by the upsert index.

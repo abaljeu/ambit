@@ -419,6 +419,22 @@ let readBuildEpochSec () : int = jsNative
 })($0)")>]
 let epochSecToTorontoString (epochSec: int) : string = jsNative
 
+[<Emit("(function(ms){
+    var parts = new Intl.DateTimeFormat(undefined, {
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', hour12: false
+    }).formatToParts(new Date(ms));
+    var m = {};
+    parts.forEach(function(p){ if(p.type !== 'literal') m[p.type] = p.value; });
+    return m.year + '-' + m.month + '-' + m.day + ' ' + m.hour + ':' + m.minute;
+})($0)")>]
+let private formatLocalEpochMs (epochMs: float) : string = jsNative
+
+/// Render a UTC `DateTime` in the browser's local timezone (date + time to the minute).
+let formatLocalDateTime (utc: System.DateTime) : string =
+    let unixEpochTicks = System.DateTime(1970, 1, 1, 0, 0, 0, System.DateTimeKind.Utc).Ticks
+    formatLocalEpochMs (float (utc.Ticks - unixEpochTicks) / 10000.0)
+
 [<Emit("(typeof window.__PAGE_BUILD_TS__ !== 'undefined' ? window.__PAGE_BUILD_TS__ : 0)")>]
 let readPageBuildEpochSec () : int = jsNative
 

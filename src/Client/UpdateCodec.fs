@@ -140,6 +140,20 @@ let decodeMappedRootPath
         |> Option.map snd
         |> Ok
 
+/// GET /_desktop/workspace-mappings → (label, rootPath) entries.
+let decodeMappedRoots (text: string) : Result<(string * string) list, string> =
+    let entryDecoder =
+        Decode.object (fun get ->
+            get.Required.Field "label" Decode.string,
+            get.Required.Field "path" Decode.string)
+    let decoder =
+        Decode.object (fun get ->
+            get.Optional.Field
+                "workspaceMappings"
+                (Decode.list entryDecoder)
+            |> Option.defaultValue [])
+    Thoth.Json.JavaScript.Decode.fromString decoder text
+
 /// GET /_desktop/workspace-mappings → all mapped labels.
 let decodeMappedWorkspaceLabels (text: string) : Result<Set<string>, string> =
     let entryDecoder =

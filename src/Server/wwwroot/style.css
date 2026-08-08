@@ -226,8 +226,8 @@ body {
     border-top: 1px solid #666;
     border-left: 1px solid #666;
 }
-.amb-leaf-dot::before,
-.amb-leaf-hollow::before {
+.amb-bullet-dot::before,
+.amb-bullet-hollow::before {
     content: "";
     display: block;
     width: 0.4em;
@@ -236,10 +236,10 @@ body {
     border-radius: 50%;
     box-sizing: border-box;
 }
-.amb-leaf-dot::before {
+.amb-bullet-dot::before {
     background: currentColor;
 }
-.amb-leaf-hollow::before {
+.amb-bullet-hollow::before {
     background: transparent;
     border: 1.5px solid currentColor;
 }

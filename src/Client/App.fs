@@ -491,11 +491,16 @@ let createRuntime (initialModel: VM) =
                 "[Gambol sync] workspace-mappings HTTP "
                 + string status)
         else
-            match decodeMappedWorkspaceLabels text with
+            match decodeMappedRoots text with
             | Error err ->
                 consoleLog (
                     "[Gambol sync] workspace-mappings decode: " + err)
-            | Ok labels ->
+            | Ok entries ->
+                let labels = entries |> List.map fst |> Set.ofList
+                let rootsByLabel =
+                    entries
+                    |> List.map (fun (l, p) -> l.Trim().ToLowerInvariant(), p)
+                    |> Map.ofList
                 let factsByLabel =
                     labels
                     |> Set.toList
@@ -524,7 +529,7 @@ let createRuntime (initialModel: VM) =
                 dispatch (
                     SysMsg (
                         WorkspacePathSyncSnapshotReceived (
-                            labels, factsByLabel)))
+                            labels, factsByLabel, rootsByLabel)))
 
     and runFileStatusEndpoint
         (url: string)

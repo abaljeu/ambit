@@ -395,6 +395,8 @@ and VM = // the client state
       desktopFileIndicator: DesktopFileIndicator
       /// Labels with a desktop local folder mapping (comparison statuses gated).
       workspaceMappedLabels: Set<string>
+      /// Lowercased label → desktop local root path (e.g. "life" → "d:\life").
+      workspaceRoots: Map<string, string>
       /// label → relative → ledger fact for File/Directory row sync status.
       workspaceSyncFacts: Map<string, Map<string, WorkspaceSyncPathFact>>
       syncInfo: SyncInfo
@@ -427,7 +429,8 @@ type SystemMsg =
         sourceModifiedUtc: System.DateTime option
     | WorkspacePathSyncSnapshotReceived of
         mappedLabels: Set<string> *
-        factsByLabel: Map<string, Map<string, WorkspaceSyncPathFact>>
+        factsByLabel: Map<string, Map<string, WorkspaceSyncPathFact>> *
+        rootsByLabel: Map<string, string>
     | SetPollingActive of bool
     | PollTick            // polling timer fired; update decides whether to emit PollServer effect
     | PollDone of SyncState option * Change list * isReady: bool option
