@@ -124,33 +124,6 @@ let private syncScopeFromFocus (model: VM) : Result<WorkspaceSyncScope, string> 
         let nodeId = focusedNodeId model.graph sel
         WorkspaceSyncScope.tryFromFocus model.graph nodeId
 
-let private postReconcileResponse
-    (model: VM)
-    (status: int)
-    (text: string)
-    : VM * Effect list =
-    if status < 200 || status >= 300 then
-        fail model (httpError status text)
-    else
-        match decodeReconciliationDirectory text with
-        | Ok n when n > 0 ->
-            okDetailWithPoll model $"reconciled with warnings ({n})"
-        | Ok _ -> okWithPoll model
-        | Error e -> fail model e
-
-let private postDirectoryReconcile
-    (model: VM)
-    (workspace: string)
-    (path: string)
-    : VM * Effect list =
-    let body = encodeReconciliationDirectoryRequest workspace path
-    let status, text =
-        postJsonSync
-            "/ambit/workspace/reconciliation/directory"
-            body
-            (jsonHeaders ())
-    postReconcileResponse model status text
-
 let private inventoryToStubItems (items: DesktopInventoryItem list) : WorkspaceUploadStructure.InventoryItem list =
     items
     |> List.map (fun i ->
@@ -321,6 +294,26 @@ let private withPathSyncRefresh
     (model: VM, effs: Effect list)
     : VM * Effect list =
     model, RequestWorkspacePathSyncSnapshot :: effs
+
+/// After async directory reconcile: clear busy, decode, poll + path-sync refresh.
+let completeDirectoryReconcile (text: string) (model: VM) : VM * Effect list =
+    let model' = clearUploading model
+    match decodeReconciliationDirectory text with
+    | Ok n when n > 0 ->
+        okDetailWithPoll model' $"reconciled with warnings ({n})"
+        |> withPathSyncRefresh
+    | Ok _ -> okWithPoll model' |> withPathSyncRefresh
+    | Error e -> fail model' e |> withPathSyncRefresh
+
+let failDirectoryReconcile (msg: string) (model: VM) : VM * Effect list =
+    fail (clearUploading model) msg |> withPathSyncRefresh
+
+let failDirectoryReconcileHttp
+    (status: int)
+    (body: string)
+    (model: VM)
+    : VM * Effect list =
+    failDirectoryReconcile (httpError status body) model
 
 let private contextualTargetForModel (model: VM) =
     focusContextualTarget model
@@ -553,8 +546,9 @@ let loadOp (model: VM) : VM * Effect list =
             match syncScopeFromFocus model with
             | Error msg -> fail model msg
             | Ok scope ->
-                postDirectoryReconcile model scope.label scope.relative
-                |> withPathSyncRefresh
+                let model', effs =
+                    okDetail (keepUploading model) "reconciling server disk"
+                model', effs @ [ Effect.ContinueDirectoryReconcile scope ]
         | (WorkspaceUploadAction.ParseServerDisk fileId as action) when
             WorkspaceUpload.canStartWeb model.syncInfo ->
             parseFileOp action fileId model

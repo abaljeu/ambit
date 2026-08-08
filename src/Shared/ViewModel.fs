@@ -286,6 +286,8 @@ type Effect =
     | ContinueWorkspacePush of WorkspaceSyncScope * parseFileId: NodeId option
     /// Poll `GET /_desktop/workspace-download?id=` until job completes or fails.
     | ContinueWorkspaceDownload of jobId: string
+    /// Deferred async web reconcile (`postJson /reconciliation/directory`).
+    | ContinueDirectoryReconcile of WorkspaceSyncScope
     /// Deferred async file parse (`fetchGet` desktop text when needed, then `postJson`).
     | ContinueParseFile of
         fileId: NodeId *

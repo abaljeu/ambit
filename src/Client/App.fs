@@ -269,6 +269,31 @@ let createRuntime (initialModel: VM) =
                                         "workspace-download poll failed"))))
                 200
             |> ignore
+        | ContinueDirectoryReconcile scope ->
+            setTimeout
+                (fun () ->
+                    let body =
+                        encodeReconciliationDirectoryRequest
+                            scope.label
+                            scope.relative
+                    postJson
+                        "/ambit/workspace/reconciliation/directory"
+                        body
+                        (fun text ->
+                            dispatch (
+                                ApplyOp (completeDirectoryReconcile text)))
+                        (fun status text ->
+                            dispatch (
+                                ApplyOp (
+                                    failDirectoryReconcileHttp status text)))
+                        (fun () ->
+                            dispatch (
+                                ApplyOp (
+                                    failDirectoryReconcile
+                                        "reconcile request failed")))
+                        (jsonMutatingPostHeaders ()))
+                50
+            |> ignore
         | ContinueParseFile (fileId, path, prefix, detail) ->
             runParseFile (fileId, path, prefix, detail) ignore
         | ContinueUploadParses requests ->
