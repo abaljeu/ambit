@@ -9,7 +9,7 @@ Use relative paths such as ./src. Do not use absolute paths.
 
 ## Git hygiene
 
-Branch model and terms: [[CONTEXT.md]], decision: [[docs/adr/0001-agent-git-hygiene.md]].
+Branch model and terms: [[CONTEXT.md]], decision: [[docs/Decisions/0001-agent-git-hygiene.md]].
 
 - **Original branch**: human-owned long-lived line ≠ main/master; human squashes onto it. Agents never switch back to it, never squash onto it, never touch main/master.
 - **Project branch**: prefix `w/`. Default workplace. When not already on `w/*`, the agent may create/checkout `w/<slug>` once from HEAD, then stay. Update `.scratch/<feature>/git.md` on create/switch (current project branch, cut-from original, notes).

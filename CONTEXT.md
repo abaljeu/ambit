@@ -28,6 +28,10 @@ _Avoid_: permission, override, allowlist exception
 Local Markdown under `.scratch/` for specs and issues; see [[docs/agents/issue-tracker.md]]. Not GitHub or GitLab issues.
 _Avoid_: backlog, GitHub issues, GitLab issues, tickets board
 
+**Committed Decision**:
+A record under [[docs/Decisions/]] of a choice that is costly to reverse, surprising without context, and made between genuine alternatives. The mattpocock skills call this an ADR; in this project always say Committed Decision.
+_Avoid_: ADR (outside vendored skills), architecture decision record, decision record
+
 ## About the Software
 
 **Graph**:
@@ -45,6 +49,10 @@ _Avoid_: metadata, node body, properties
 **Children**:
 The child appearances under a Node (Owned and Ref roles).
 _Avoid_: kids, subordinates, child list (as a synonym for the Children themselves)
+
+**Bullet**:
+The visual glyph element every Node view shows at its left edge, rendered as a fold chevron, a solid circle, or a hollow circle. A Bullet marks a Node's appearance in the view; a Node is not a Bullet.
+_Avoid_: leaf, leafBullet, node marker, dot, tooltip target (as names for this element)
 
 **Owned**:
 A child appearance that is a Node's single structural placement in the ownership tree. Prefer this over the code case name `Owner` in speech and docs.

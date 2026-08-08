@@ -5,11 +5,10 @@ open Browser.Types
 open Gambol.Shared
 open Gambol.Shared.ViewModel
 open Gambol.Client.JsInterop
-open Gambol.Client.RowView
+open Gambol.Client.RowView.Behavior
 
-// ---------------------------------------------------------------------------
-// Focus management
-// ---------------------------------------------------------------------------
+// Focus/caret/scroll behavior after paint. Depends on RowView.Behavior for
+// selection-scroll defer (cancel / flag / scrollFocusedRow).
 
 /// Focus the correct element after a focus-relevant transition (`ManageFocus.shouldInvoke`).
 /// `previousModel` = model before this dispatch; None on full `render` (always apply caret).

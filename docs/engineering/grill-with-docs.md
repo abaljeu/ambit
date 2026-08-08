@@ -9,7 +9,8 @@ npx skills update grill-with-docs
 ```
 
 [Source](https://github.com/mattpocock/skills/tree/main/skills/engineering/grill-with-docs)
-
+[[README.md]]
+[[.agents/skills/grill-with-docs/SKILL.md]]
 ## What it does
 
 `grill-with-docs` interviews you relentlessly about a plan or design, one question at a time, until you and the agent reach a shared understanding — and it writes the vocabulary and decisions down as you go.
@@ -24,7 +25,7 @@ Reach for it at the very start of a change, when the plan is still fuzzy and the
 
 ## Prerequisites
 
-This skill is stateful — it writes into your repo as it grills. Resolved terms land in a `CONTEXT.md` glossary at the root (or the relevant context's `CONTEXT.md` if a `CONTEXT-MAP.md` marks a multi-context repo), and genuinely hard-to-reverse decisions land as ADRs under `docs/adr/`. Both are created lazily — nothing exists until the first term or decision crystallises — so you don't need to scaffold anything up front, but you do need to be somewhere it's safe to write these files.
+This skill is stateful — it writes into your repo as it grills. Resolved terms land in a `CONTEXT.md` glossary at the root (or the relevant context's `CONTEXT.md` if a `CONTEXT-MAP.md` marks a multi-context repo), and genuinely hard-to-reverse decisions land as ADRs under `docs/Decisions/`. Both are created lazily — nothing exists until the first term or decision crystallises — so you don't need to scaffold anything up front, but you do need to be somewhere it's safe to write these files.
 
 ## The grill
 

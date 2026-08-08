@@ -1,6 +1,8 @@
-# Architecture Decision Records
+# Committed Decisions
 
-ADRs record decisions that are costly to reverse, surprising without context, and made between genuine alternatives. Skip routine or easily reversible choices.
+A **Committed Decision** records a choice that is costly to reverse, surprising without context, and made between genuine alternatives. Skip routine or easily reversible choices.
+
+(The mattpocock skills call this an ADR; in this project we always say Committed Decision.)
 
 Name records sequentially: `0001-short-title.md`, `0002-short-title.md`, and so on. Scan this directory for the highest existing number before creating one.
 
