@@ -1,0 +1,17 @@
+---
+
+alwaysApply: true
+
+---
+
+## Project stage upkeep
+
+Whenever any skill starts or advances a **project** (a `.scratch/<slug>/` effort), set that project's `Stage:` and regenerate [[.scratch/index.md]] per [[docs/agents/project-status.md]]. Create `project.md` if the effort lacks one.
+
+Skill-to-stage transitions:
+
+- `/grilling`, `/grill-with-docs`, `/wayfinder` charting a new effort → `charting`
+- `/to-spec`, a locked refactor plan, or a resolved wayfinder destination → `spec`
+- `/to-tickets` → `tickets`
+- implementation underway → `active`; delivered → `done`
+- waiting on a named dependency or decision → `blocked`

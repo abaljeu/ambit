@@ -14,6 +14,7 @@ Canonical project rules are split across [[.cursor/rules/]]:
 - [[.cursor/rules/testing-workflow.mdc]] — TDD and test running (scoped to tests)
 - [[.cursor/rules/planning-docs.mdc]] — roadmap/plan documents (scoped to doc/)
 - [[.cursor/rules/work-blackboard.mdc]] — shared task board protocol
+- [[.cursor/rules/project-stage.mdc]] — keep each `.scratch/` project's `Stage:` and the overview current
 
 Shared runtime state:
 
@@ -24,7 +25,8 @@ Imported engineering skill configuration:
 
 - [[docs/agents/issue-tracker.md]] — local Markdown issue tracker, shared language, and Wayfinder operations
 - [[docs/agents/triage-labels.md]] — default triage role vocabulary
-- [[docs/agents/domain.md]] — canonical project docs under [[doc/]] and decision records under [[docs/adr/]]
+- [[docs/agents/domain.md]] — canonical project docs under [[doc/]] and Committed Decisions under [[docs/Decisions/]]
+- [[docs/agents/project-status.md]] — per-project `Stage:` vocabulary and the `.scratch/index.md` overview
 
 Workflow skills in [[.cursor/skills/]]:
 
@@ -36,6 +38,8 @@ Workflow skills in [[.cursor/skills/]]:
 - [[.cursor/skills/co-edit-format-plan/SKILL.md]] — collaborative (interactive) document editing
 - [[.cursor/skills/prepare-agent-instruction-change/SKILL.md]] — maintain rules/skills/bridges
 - [[.cursor/skills/write-simple-parser/SKILL.md]] — simple document parsers / format codecs
+- [[.cursor/skills/projects-overview/SKILL.md]] — regenerate the `.scratch/index.md` project stage overview
+- [[.cursor/skills/to-archive/SKILL.md]] — move a `done` project into `.scratch/done/` and drop it from the overview
 - [[.cursor/skills/update-matt-skills/SKILL.md]] — pull mattpocock skills tree on vendor, flatten to .agents/skills, merge to live
 
 Tool-specific notes:
