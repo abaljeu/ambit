@@ -23,7 +23,10 @@
     <Compile Include="UpdatePaste.fs" />
     <Compile Include="UpdateImport.fs" />
     <Compile Include="UpdateSave.fs" />
+    <Compile Include="UpdateWorkspaceDesktop.fs" />
     <Compile Include="UpdateWorkspaceSync.fs" />
+    <Compile Include="UpdateWorkspaceDownload.fs" />
+    <Compile Include="UpdateWorkspaceLoad.fs" />
     <Compile Include="UpdateOps.fs" />
     <Compile Include="Update.fs" />
     <Compile Include="Commands.fs" />
@@ -37,6 +40,7 @@
     <Compile Include="Overlays.fs" />
     <Compile Include="View.fs" />
     <Compile Include="SessionState.fs" />
+    <Compile Include="AutoDownloadTimer.fs" />
     <Compile Include="App.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>

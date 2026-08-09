@@ -101,7 +101,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                         | Some msg -> Some(CmdLastResult.Detail(None, msg))
                         | None -> model.lastCmdResult }
             let updated', autoEffects =
-                UpdateWorkspaceSync.accumulateAutoDownloadFromOps stampOps updated
+                UpdateWorkspaceDownload.accumulateAutoDownloadFromOps stampOps updated
             updated', effects @ autoEffects
 
     | SysMsg (SubmitRejected detail) ->
@@ -169,7 +169,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
         { model with syncInfo = si }, effects
 
     | SysMsg AutoDownloadTick ->
-        UpdateWorkspaceSync.runAutoDownloadTick model
+        UpdateWorkspaceDownload.runAutoDownloadTick model
 
     | SysMsg (PollDone (stateOpt, changes, readyOpt)) ->
         let readyModel =
@@ -203,7 +203,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                         |> adjustModeAfterServerApply readyModel.graph
                     { kept with
                         syncInfo = SyncInfo.withSyncState Uploading kept.syncInfo }
-                    |> UpdateWorkspaceSync.accumulateAutoDownloadFromChanges changes
+                    |> UpdateWorkspaceDownload.accumulateAutoDownloadFromChanges changes
             | _ -> readyModel, []
         | _ ->
             let si = SyncInfo.withSyncState Idle readyModel.syncInfo
@@ -237,7 +237,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                             syncInfo = si }
                         |> withSiteMap
                         |> adjustModeAfterServerApply readyModel.graph
-                    UpdateWorkspaceSync.accumulateAutoDownloadFromChanges changes synced
+                    UpdateWorkspaceDownload.accumulateAutoDownloadFromChanges changes synced
             | Some s ->
                 { readyModel with syncInfo = SyncInfo.withSyncState s si }, []
 

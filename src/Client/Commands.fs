@@ -14,6 +14,8 @@ open Gambol.Client.UpdateOps
 open Gambol.Client.UpdatePaste
 open Gambol.Client.UpdateSave
 open Gambol.Client.UpdateWorkspaceSync
+open Gambol.Client.UpdateWorkspaceDownload
+open Gambol.Client.UpdateWorkspaceLoad
 open Gambol.Client.UpdateFileSearch
 open Gambol.Client.UpdateRename
 open Gambol.Client.UpdateAmbleRun

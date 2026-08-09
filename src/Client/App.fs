@@ -10,6 +10,8 @@ open Gambol.Client.UpdateCodec
 open Gambol.Client.UpdateHelpers
 open Gambol.Client.UpdateOps
 open Gambol.Client.UpdateWorkspaceSync
+open Gambol.Client.UpdateWorkspaceDownload
+open Gambol.Client.UpdateWorkspaceLoad
 open Gambol.Client.UpdateImport
 open Gambol.Client.Controller
 open Gambol.Client.CommandDock
@@ -18,6 +20,7 @@ open Gambol.Client.View
 open Gambol.Client.SearchDialogView
 open Gambol.Client.FileSearchDialogView
 open Gambol.Client.JsInterop
+open Gambol.Client.AutoDownloadTimer
 open Gambol.Client.SessionState
 
 // ---------------------------------------------------------------------------
@@ -312,16 +315,11 @@ let createRuntime (initialModel: VM) =
             runScheduleAutoDownloadTick delayMs
 
     and runScheduleAutoDownloadTick (delayMs: int) : unit =
-        match autoDownloadTimeoutId with
-        | Some id -> clearTimeout id
-        | None -> ()
-        autoDownloadTimeoutId <-
-            Some (
-                setTimeout
-                    (fun () ->
-                        autoDownloadTimeoutId <- None
-                        dispatch (SysMsg AutoDownloadTick))
-                    delayMs)
+        AutoDownloadTimer.armOrRearm
+            (fun () -> autoDownloadTimeoutId)
+            (fun id -> autoDownloadTimeoutId <- id)
+            delayMs
+            (fun () -> dispatch (SysMsg AutoDownloadTick))
 
     and runParseFile
         (fileId, desktopReadPath, detailPrefix, detailPath)

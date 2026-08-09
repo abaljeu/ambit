@@ -4,21 +4,20 @@ open Gambol.Client.JsInterop
 open Gambol.Client.UpdateCodec
 open Gambol.Client.UpdateHelpers
 open Gambol.Client.UpdateImport
+open Gambol.Client.UpdateWorkspaceDesktop
 open Gambol.Shared
-open Gambol.Shared.CommandEntry
 open Gambol.Shared.ViewModel
-open Thoth.Json.Core
 
 let private jsonHeaders () = jsonMutatingPostHeaders ()
 
-let private withResult (model: VM) (result: CmdLastResult) : VM * Effect list =
+let withResult (model: VM) (result: CmdLastResult) : VM * Effect list =
     { model with lastCmdResult = Some result }, []
 
-let private fail (model: VM) (msg: string) : VM * Effect list =
+let fail (model: VM) (msg: string) : VM * Effect list =
     consoleLog ("[Gambol sync] " + msg)
     withResult model (CmdLastResult.Error (None, msg))
 
-let private okDetail (model: VM) (msg: string) : VM * Effect list =
+let okDetail (model: VM) (msg: string) : VM * Effect list =
     consoleLog ("[Gambol sync] " + msg)
     withResult model (CmdLastResult.Detail (None, msg))
 
@@ -36,88 +35,7 @@ let private okWithPoll (model: VM) : VM * Effect list =
         lastCmdResult = Some (CmdLastResult.Ok None) },
     pollEffs
 
-let private httpError (status: int) (body: string) : string =
-    match decodePostChangeError body with
-    | Some err -> LogText.summarizeHttpBody 200 err
-    | None ->
-        "HTTP " + string status + ": " + LogText.summarizeHttpBody 200 body
-
-let private encodeWorkspacePath (workspace: string) (path: string) : string =
-    Encode.object
-        [ "label", Encode.string workspace
-          "path", Encode.string path ]
-    |> Thoth.Json.JavaScript.Encode.toString 0
-
-let private encodeSyncScope (scope: WorkspaceSyncScope) : string =
-    let kind =
-        match scope.kind with
-        | SyncScopeKind.Workspace -> "workspace"
-        | SyncScopeKind.Directory -> "directory"
-        | SyncScopeKind.File -> "file"
-    Encode.object
-        [ "label", Encode.string scope.label
-          "relative", Encode.string scope.relative
-          "kind", Encode.string kind ]
-    |> Thoth.Json.JavaScript.Encode.toString 0
-
-let private postDesktop (url: string) (body: string) : Result<string, string> =
-    let status, text = postJsonSync url body (jsonHeaders ())
-    if status < 200 || status >= 300 then Error(httpError status text)
-    else Ok text
-
-let private putDesktop (url: string) (body: string) : Result<string, string> =
-    let status, text = putJsonSync url body (jsonHeaders ())
-    if status < 200 || status >= 300 then Error(httpError status text)
-    else Ok text
-
-let private pickFolder () : Result<string, string> =
-    match postDesktop "/_desktop/pick-folder" "{}" with
-    | Error e -> Error e
-    | Ok text ->
-        match decodeDesktopPickFolder text with
-        | Error e -> Error e
-        | Ok { cancelled = true } -> Error "cancelled"
-        | Ok { path = Some path } -> Ok path
-        | Ok _ -> Error "no folder selected"
-
-let private upsertMapping (workspace: string) (path: string) : Result<unit, string> =
-    match putDesktop "/_desktop/workspace-mappings" (encodeWorkspacePath workspace path) with
-    | Error e -> Error e
-    | Ok _ -> Ok ()
-
-let private folderBasename (path: string) : string =
-    let trimmed = path.TrimEnd('\\', '/')
-    let i =
-        max (trimmed.LastIndexOf('\\')) (trimmed.LastIndexOf('/'))
-    if i < 0 then trimmed
-    else trimmed.Substring(i + 1)
-
-let private lookupMappedPath (label: string) : Result<string option, string> =
-    let status, text = getJsonSync "/_desktop/workspace-mappings"
-    if status < 200 || status >= 300 then
-        Error(httpError status text)
-    else
-        match decodeMappedRootPath text label with
-        | Error e -> Error e
-        | Ok pathOpt -> Ok pathOpt
-
-/// GET mappings; pick-folder + PUT when label has no mapping.
-let private ensureMapped (label: string) : Result<string, string> =
-    if System.String.IsNullOrWhiteSpace label then
-        Error "ROOT and Workspaces cannot be mapped"
-    else
-        match lookupMappedPath label with
-        | Error e -> Error e
-        | Ok(Some path) -> Ok path
-        | Ok None ->
-            match pickFolder () with
-            | Error e -> Error e
-            | Ok path ->
-                match upsertMapping label path with
-                | Error e -> Error e
-                | Ok () -> Ok path
-
-let private syncScopeFromFocus (model: VM) : Result<WorkspaceSyncScope, string> =
+let syncScopeFromFocus (model: VM) : Result<WorkspaceSyncScope, string> =
     match model.selectedNodes with
     | None -> Error "select a workspace, directory, or file"
     | Some sel ->
@@ -131,7 +49,7 @@ let private inventoryToStubItems (items: DesktopInventoryItem list) : WorkspaceU
           isDirectory = i.isDirectory })
 
 /// Apply + synchronous POST so server graph has the workspace before push/reconcile.
-let private applyAndPostSync (change: Change) (model: VM) : Result<VM, string> =
+let applyAndPostSync (change: Change) (model: VM) : Result<VM, string> =
     let state: State =
         { graph = model.graph
           revision = model.revision
@@ -203,25 +121,6 @@ let private createWorkspaceOnServer (ops: Op list) (model: VM) : Result<VM, stri
               ops = ops }
         applyAndPostSync change model |> Result.map withSiteMap
 
-let private postWorkspaceDownload
-    (scope: WorkspaceSyncScope)
-    : Result<DesktopWorkspaceSyncResponse, string> =
-    match postDesktop "/_desktop/workspace-download" (encodeSyncScope scope) with
-    | Error e -> Error e
-    | Ok text ->
-        match decodeDesktopWorkspaceSync text with
-        | Error e -> Error e
-        | Ok resp when resp.ok -> Ok resp
-        | Ok { error = Some e } -> Error e
-        | Ok _ -> Error "request failed"
-
-let private downloadScoped
-    (scope: WorkspaceSyncScope)
-    : Result<DesktopWorkspaceSyncResponse, string> =
-    match ensureMapped scope.label with
-    | Error e -> Error e
-    | Ok _ -> postWorkspaceDownload scope
-
 /// Empty selection means the view root is the focus (same as edit/jump).
 let private effectiveFocusId (model: VM) : NodeId =
     match model.selectedNodes with
@@ -235,7 +134,7 @@ let private clearUploading (m: VM) =
     { m with
         syncInfo = SyncInfo.withSyncState Idle m.syncInfo }
 
-let private keepUploading (m: VM) =
+let keepUploading (m: VM) =
     { m with
         syncInfo = SyncInfo.withSyncState Uploading m.syncInfo }
 
@@ -247,17 +146,6 @@ let startWorkspacePush
     : VM * Effect list =
     keepUploading model,
     [ Effect.ContinueWorkspaceStubsThenPush(scope, parseFileId) ]
-
-let private queueWorkspacePush
-    (scope: WorkspaceSyncScope)
-    (parseFileId: NodeId option)
-    (model: VM)
-    : VM * Effect list =
-    let request = QueuedWorkspacePush(scope, parseFileId)
-    okDetail
-        { model with
-            syncInfo = SyncInfo.queueRequest request model.syncInfo }
-        "load queued until current sync completes"
 
 /// Ensure map (may pick-folder), then JSON body for async `/_desktop/workspace-push`.
 let tryPrepareWorkspacePushBody
@@ -280,17 +168,7 @@ let failWorkspacePushHttp
     : VM * Effect list =
     failWorkspacePush (httpError status body) model
 
-let failWorkspaceDownload (msg: string) (model: VM) : VM * Effect list =
-    fail model msg
-
-let failWorkspaceDownloadHttp
-    (status: int)
-    (body: string)
-    (model: VM)
-    : VM * Effect list =
-    failWorkspaceDownload (httpError status body) model
-
-let private withPathSyncRefresh
+let withPathSyncRefresh
     (model: VM, effs: Effect list)
     : VM * Effect list =
     model, RequestWorkspacePathSyncSnapshot :: effs
@@ -314,9 +192,6 @@ let failDirectoryReconcileHttp
     (model: VM)
     : VM * Effect list =
     failDirectoryReconcile (httpError status body) model
-
-let private contextualTargetForModel (model: VM) =
-    focusContextualTarget model
 
 /// After async workspace-push success: clear Uploading; parse only for single-file Upload.
 let completeWorkspacePush
@@ -349,39 +224,6 @@ let completeWorkspacePush
                 |> withPathSyncRefresh
     | Ok { error = Some e } -> failWorkspacePush e model
     | Ok _ -> failWorkspacePush "request failed" model
-
-/// Poll async download job; stamp graph nodes then refresh path sync.
-let pollWorkspaceDownloadJob (jobId: string) (text: string) (model: VM) : VM * Effect list =
-    match decodeDesktopWorkspaceDownloadJob text with
-    | Error e -> failWorkspaceDownload e model
-    | Ok job ->
-        match job.state with
-        | "completed" ->
-            consoleLog ("[Gambol sync] download completed: " + job.detail)
-            let stampOps =
-                WorkspaceUploadStructure.planAlignFileStampOps
-                    model.graph
-                    job.label
-                    job.pathStamps
-            match stampOps with
-            | [] ->
-                okDetail model job.detail |> withPathSyncRefresh
-            | ops ->
-                let change =
-                    { id = model.revision.Value
-                      changeId = System.Guid.NewGuid()
-                      ops = ops }
-                match applyAndPostSync change model with
-                | Error e -> failWorkspaceDownload e model
-                | Ok model' ->
-                    okDetail (withSiteMap model') job.detail
-                    |> withPathSyncRefresh
-        | "failed" -> failWorkspaceDownload job.detail model
-        | "running" | "queued" ->
-            let detail = sprintf "download %s: %s" job.state job.detail
-            let model', _ = okDetail model detail
-            model', [ Effect.ContinueWorkspaceDownload jobId ]
-        | _ -> failWorkspaceDownload ("unknown download state: " + job.state) model
 
 /// Body for async POST `/_desktop/workspace-inventory`.
 let encodeWorkspaceInventoryBody (scope: WorkspaceSyncScope) : string =
@@ -489,137 +331,3 @@ let uploadCreateWorkspaceOp (model: VM) : VM * Effect list =
                               kind = SyncScopeKind.Workspace }
                         keepUploading model',
                         [ Effect.ContinueWorkspaceStubsThenPush (scope, None) ]
-
-let private queueLoadRequest (model: VM) : VM * Effect list =
-    okDetail
-        { model with
-            syncInfo = SyncInfo.queueRequest QueuedLoad model.syncInfo }
-        (WorkspaceUpload.queueBlockedDetail model.syncInfo)
-
-let private labelHasLocalMapping (label: string) : bool =
-    match lookupMappedPath label with
-    | Ok(Some _) -> true
-    | _ -> false
-
-/// Load command: desktop Upload when mapped; else graph-only from DataDir (web / unmapped).
-let loadOp (model: VM) : VM * Effect list =
-    let targetIds = selectedLoadTargetIds model
-    if
-        ResidentProjection.selectionSpansMultipleWorkspaces
-            model.graph
-            targetIds
-    then
-        withResult
-            model
-            (CmdLastResult.Error(
-                Some(displayName Load),
-                "Load requires all selected targets in one Workspace"))
-    else
-        let canPush =
-            DesktopCapabilities.canWorkspacePush model.desktopCapabilities
-        let target = contextualTargetForModel model
-        let hasMapping =
-            match syncScopeFromFocus model with
-            | Ok scope -> labelHasLocalMapping scope.label
-            | Error _ -> false
-        match
-            WorkspaceUpload.plan
-                canPush
-                hasMapping
-                (focusIsWorkspaces model)
-                target
-        with
-        | WorkspaceUploadAction.DesktopPush parseFileId ->
-            match syncScopeFromFocus model with
-            | Error msg -> fail model msg
-            | Ok scope when WorkspaceUpload.canStart model.syncInfo ->
-                startWorkspacePush scope parseFileId model
-            | Ok scope ->
-                queueWorkspacePush scope parseFileId model
-        | WorkspaceUploadAction.CreateWorkspaceFromFolder when
-            WorkspaceUpload.canStart model.syncInfo ->
-            uploadCreateWorkspaceOp model
-        | WorkspaceUploadAction.CreateWorkspaceFromFolder ->
-            queueLoadRequest model
-        | WorkspaceUploadAction.ReconcileServerDisk when
-            WorkspaceUpload.canStartWeb model.syncInfo ->
-            match syncScopeFromFocus model with
-            | Error msg -> fail model msg
-            | Ok scope ->
-                let model', effs =
-                    okDetail (keepUploading model) "reconciling server disk"
-                model', effs @ [ Effect.ContinueDirectoryReconcile scope ]
-        | (WorkspaceUploadAction.ParseServerDisk fileId as action) when
-            WorkspaceUpload.canStartWeb model.syncInfo ->
-            parseFileOp action fileId model
-        | WorkspaceUploadAction.ReconcileServerDisk
-        | WorkspaceUploadAction.ParseServerDisk _ ->
-            queueLoadRequest model
-        | WorkspaceUploadAction.Unavailable msg ->
-            withResult
-                model
-                (CmdLastResult.Error(Some(displayName Load), msg))
-
-let loadAvailable (model: VM) =
-    WorkspaceUpload.isAvailable
-        (DesktopCapabilities.canWorkspacePush model.desktopCapabilities)
-        (focusIsWorkspaces model)
-        (contextualTargetForModel model)
-
-let downloadOp (model: VM) : VM * Effect list =
-    if not (DesktopCapabilities.canWorkspaceSync model.desktopCapabilities) then
-        model, []
-    else
-        match syncScopeFromFocus model with
-        | Error msg -> fail model msg
-        | Ok scope ->
-            match downloadScoped scope with
-            | Error "cancelled" -> model, []
-            | Error e -> fail model e
-            | Ok sync ->
-                match sync.jobId with
-                | Some jobId ->
-                    let detail =
-                        match sync.state with
-                        | Some state -> sprintf "download %s: %s" state sync.detail
-                        | None -> sync.detail
-                    let model', _ = okDetail model detail
-                    model', [ Effect.ContinueWorkspaceDownload jobId ]
-                | None ->
-                    let detail =
-                        match sync.state with
-                        | Some state -> sprintf "download %s: %s" state sync.detail
-                        | None -> sync.detail
-                    okDetail model detail |> withPathSyncRefresh
-
-/// Debounce window before coalescing accumulated auto-download targets.
-let autoDownloadDebounceMs = 400
-
-/// Persist stamps arrived: accumulate File targets and arm the debounce tick.
-/// Desktop-only; plain web (no workspace sync) is a no-op.
-let accumulateAutoDownloadFromOps (ops: Op list) (model: VM) : VM * Effect list =
-    if not (DesktopCapabilities.canWorkspaceSync model.desktopCapabilities) then
-        model, []
-    else
-        match WorkspaceUploadStructure.autoDownloadFileTargets model.graph ops with
-        | [] -> model, []
-        | targets ->
-            { model with
-                pendingAutoDownloads = model.pendingAutoDownloads @ targets },
-            [ Effect.ScheduleAutoDownloadTick autoDownloadDebounceMs ]
-
-/// Remote poll changes carry the same persist `SetUpdateTime` ops.
-let accumulateAutoDownloadFromChanges
-    (changes: Change list)
-    (model: VM)
-    : VM * Effect list =
-    accumulateAutoDownloadFromOps (changes |> List.collect (fun c -> c.ops)) model
-
-/// Debounce tick: coalesce pending targets per label, keep already-mapped
-/// labels, and fire-and-forget one scoped download each. No job polling and no
-/// stamp-align Change, so a stamp-only change cannot feed back into itself.
-let runAutoDownloadTick (model: VM) : VM * Effect list =
-    WorkspaceSyncScope.coalesceDownloadTargets model.pendingAutoDownloads
-    |> List.filter (fun scope -> labelHasLocalMapping scope.label)
-    |> List.iter (fun scope -> postWorkspaceDownload scope |> ignore)
-    { model with pendingAutoDownloads = [] }, []
