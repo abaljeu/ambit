@@ -119,6 +119,19 @@ Download fetches every non-ignored directory and file in the selected server sco
 - Endpoints: `POST /_desktop/workspace-download` (enqueue), `GET /_desktop/workspace-download?id=…` (status).
 - Client Download: ensure map → POST → `okDetail`; no wait, no reconcile, no progress UI.
 
+## Auto-download on persist
+
+Persisted changes already carry `SetUpdateTime` stamp ops naming the rewritten document-root nodes ([[src/Server/DocumentPersistence.fs]], `PersistStamp` in [[src/Shared/History.fs]]). The Browser MVU loop reuses those stamps to keep the App's mapped folder current without any extra command:
+
+- Own edits: the `SubmitResponse` handler in [[src/Client/Update.fs]] extracts affected File targets from `stampOps`.
+- Remote edits: the `PollDone` handler extracts them from the applied poll `Change list` (same `SetUpdateTime` ops).
+
+Extraction and coalescing are pure Shared logic: `WorkspaceUploadStructure.autoDownloadFileTargets` resolves each stamped node id to a File `WorkspaceSyncScope`, and `WorkspaceSyncScope.coalesceDownloadTargets` reduces the pending `(label, relative)` set to **at most one job per label** — one file → File scope; several → nearest common Directory, else the whole Workspace (matching the manager's 1 running + 1 queued cap).
+
+The client seam is a `pendingAutoDownloads` VM field plus a debounced `AutoDownloadTick` (mirrors the `PollTick` timer in [[src/Client/App.fs]]). Both handlers accumulate targets and arm the tick; the tick coalesces, keeps only labels with an existing mapping (read-only `lookupMappedPath`; never `pickFolder`/`ensureMapped`), fires `POST /_desktop/workspace-download` fire-and-forget, and clears the field.
+
+Gated on `DesktopCapabilities.canWorkspaceSync` (plain web is a no-op). **No feedback loop:** the auto path never polls the job and never posts a stamp-align `Change`, because persist already made server file mtime = graph node `updateTime` and WebDAV download preserves that mtime onto the local file (local == server == graph). A stamp-only change therefore produces no new triggering `stampOps`.
+
 ## Sync ledger + mtime skip (shipped)
 
 Per-path ledger in `%LocalAppData%/Gambol/sync-ledger-{label}.json` beside mappings (`config.json`). Seeded on first scoped Upload/Download from full-workspace PROPFIND + local inventory. Later scoped syncs update only touched rows.

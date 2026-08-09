@@ -328,6 +328,22 @@ module WorkspaceUploadStructure =
         | Current
         | NoServerFile -> false
 
+    /// Persist stamp `SetUpdateTime` node ids that resolve to a File download
+    /// scope, as AutoDownloadTarget values for auto-download coalescing.
+    let autoDownloadFileTargets
+        (graph: Graph)
+        (ops: Op list)
+        : AutoDownloadTarget list =
+        ops
+        |> List.choose (function
+            | Op.SetUpdateTime(nodeId, _, _) -> Some nodeId
+            | _ -> None)
+        |> List.choose (fun nodeId ->
+            match WorkspaceSyncScope.tryFromFocus graph nodeId with
+            | Ok scope when scope.kind = SyncScopeKind.File ->
+                Some { label = scope.label; relative = scope.relative }
+            | _ -> None)
+
     /// After download: SetUpdateTime so graph matches local/server mtime (Locked #7).
     let planAlignFileStampOps
         (graph: Graph)

@@ -16,6 +16,11 @@ type WorkspaceSyncScope =
       relative: string
       kind: SyncScopeKind }
 
+/// Persist-stamped file awaiting a debounced auto-download coalesce.
+type AutoDownloadTarget =
+    { label: string
+      relative: string }
+
 [<RequireQualifiedAccess>]
 module WorkspaceSyncScope =
 
@@ -75,6 +80,43 @@ module WorkspaceSyncScope =
         (candidates: string list)
         : string list =
         candidates |> List.filter (isUnderScope scope)
+
+    let private fileParentSegments (relative: string) : string list =
+        match splitSegments relative |> List.rev with
+        | _ :: parentReversed -> List.rev parentReversed
+        | [] -> []
+
+    let rec private commonPrefix (a: string list) (b: string list) : string list =
+        match a, b with
+        | x :: xs, y :: ys when x = y -> x :: commonPrefix xs ys
+        | _ -> []
+
+    /// Deepest directory containing every file relative (nearest common parent).
+    let private nearestCommonDirectory (relatives: string list) : string =
+        match relatives |> List.map fileParentSegments with
+        | [] -> ""
+        | first :: rest ->
+            List.fold commonPrefix first rest |> String.concat "/"
+
+    /// Coalesce affected file relatives to at most one download scope per label:
+    /// one file -> File; several -> nearest common Directory, else the Workspace.
+    let coalesceDownloadTargets
+        (targets: AutoDownloadTarget list)
+        : WorkspaceSyncScope list =
+        targets
+        |> List.filter (fun t ->
+            not (String.IsNullOrWhiteSpace t.label) && t.relative <> "")
+        |> List.groupBy (fun t -> t.label)
+        |> List.map (fun (label, items) ->
+            match items |> List.map (fun t -> t.relative) |> List.distinct with
+            | [ single ] ->
+                { label = label; relative = single; kind = SyncScopeKind.File }
+            | many ->
+                match nearestCommonDirectory many with
+                | "" ->
+                    { label = label; relative = ""; kind = SyncScopeKind.Workspace }
+                | dir ->
+                    { label = label; relative = dir; kind = SyncScopeKind.Directory })
 
     /// Relative path from a `//label/...` desktop path when labels match.
     let tryRelativeUnderLabel

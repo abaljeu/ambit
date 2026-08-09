@@ -296,6 +296,8 @@ type Effect =
         detailPath: string
     /// Same Upload may reparse several skipped files; run these requests in order.
     | ContinueUploadParses of parseRequests: Effect list
+    /// Arm (or re-arm) the debounced auto-download tick after a delay.
+    | ScheduleAutoDownloadTick of delayMs: int
 
 /// Row / active-file indicator vocabulary (desktop status + absent artifacts).
 type DesktopFileIndicator =
@@ -399,6 +401,8 @@ and VM = // the client state
       workspaceRoots: Map<string, string>
       /// label → relative → ledger fact for File/Directory row sync status.
       workspaceSyncFacts: Map<string, Map<string, WorkspaceSyncPathFact>>
+      /// Persist-stamped file targets awaiting a debounced auto-download.
+      pendingAutoDownloads: AutoDownloadTarget list
       syncInfo: SyncInfo
       lastCmdResult: CmdLastResult option }
 
@@ -433,6 +437,7 @@ type SystemMsg =
         rootsByLabel: Map<string, string>
     | SetPollingActive of bool
     | PollTick            // polling timer fired; update decides whether to emit PollServer effect
+    | AutoDownloadTick    // debounce timer fired; update coalesces + fires auto-downloads
     | PollDone of SyncState option * Change list * isReady: bool option
     | LoadDone of SyncState option * SyncResponse * isReady: bool option
     | RetrySubmit         // retry timer fired; update resends the stored batch snapshot

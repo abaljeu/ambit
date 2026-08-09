@@ -89,6 +89,7 @@ let createRuntime (initialModel: VM) =
     let mutable elementCache = Map.empty<SiteId, HTMLElement>
     let mutable lastActivityMs = nowMs ()
     let mutable retryTimeoutId: float option = None
+    let mutable autoDownloadTimeoutId: float option = None
 
     let clearRetryTimer () =
         match retryTimeoutId with
@@ -307,6 +308,20 @@ let createRuntime (initialModel: VM) =
                         (fun () -> runNext rest)
                 | _ :: rest -> runNext rest
             runNext requests
+        | ScheduleAutoDownloadTick delayMs ->
+            runScheduleAutoDownloadTick delayMs
+
+    and runScheduleAutoDownloadTick (delayMs: int) : unit =
+        match autoDownloadTimeoutId with
+        | Some id -> clearTimeout id
+        | None -> ()
+        autoDownloadTimeoutId <-
+            Some (
+                setTimeout
+                    (fun () ->
+                        autoDownloadTimeoutId <- None
+                        dispatch (SysMsg AutoDownloadTick))
+                    delayMs)
 
     and runParseFile
         (fileId, desktopReadPath, detailPrefix, detailPath)

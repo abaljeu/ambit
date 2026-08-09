@@ -186,3 +186,78 @@ let ``tryRelativeUnderLabel accepts matching label`` () =
     match WorkspaceSyncScope.tryRelativeUnderLabel "home" "//home/docs/a.txt" with
     | Error e -> Assert.Fail(e)
     | Ok rel -> Assert.Equal("docs/a.txt", rel)
+
+[<Fact>]
+let ``coalesceDownloadTargets one file per label is File scope`` () =
+    let scopes =
+        WorkspaceSyncScope.coalesceDownloadTargets
+            [ { label = "home"; relative = "docs/readme.txt" } ]
+    Assert.Equal<WorkspaceSyncScope list>(
+        [ { label = "home"
+            relative = "docs/readme.txt"
+            kind = SyncScopeKind.File } ],
+        scopes)
+
+[<Fact>]
+let ``coalesceDownloadTargets shared parent is nearest Directory`` () =
+    let scopes =
+        WorkspaceSyncScope.coalesceDownloadTargets
+            [ { label = "home"; relative = "docs/a.txt" }
+              { label = "home"; relative = "docs/sub/b.txt" } ]
+    Assert.Equal<WorkspaceSyncScope list>(
+        [ { label = "home"; relative = "docs"; kind = SyncScopeKind.Directory } ],
+        scopes)
+
+[<Fact>]
+let ``coalesceDownloadTargets disjoint roots fall back to Workspace`` () =
+    let scopes =
+        WorkspaceSyncScope.coalesceDownloadTargets
+            [ { label = "home"; relative = "docs/a.txt" }
+              { label = "home"; relative = "src/b.txt" } ]
+    Assert.Equal<WorkspaceSyncScope list>(
+        [ { label = "home"; relative = ""; kind = SyncScopeKind.Workspace } ],
+        scopes)
+
+[<Fact>]
+let ``coalesceDownloadTargets root-level files coalesce to Workspace`` () =
+    let scopes =
+        WorkspaceSyncScope.coalesceDownloadTargets
+            [ { label = "home"; relative = "a.txt" }
+              { label = "home"; relative = "b.txt" } ]
+    Assert.Equal<WorkspaceSyncScope list>(
+        [ { label = "home"; relative = ""; kind = SyncScopeKind.Workspace } ],
+        scopes)
+
+[<Fact>]
+let ``coalesceDownloadTargets groups per label`` () =
+    let scopes =
+        WorkspaceSyncScope.coalesceDownloadTargets
+            [ { label = "home"; relative = "a.txt" }
+              { label = "work"; relative = "b.txt" }
+              { label = "home"; relative = "a.txt" } ]
+    Assert.Equal(2, scopes.Length)
+    Assert.Contains(
+        { label = "home"; relative = "a.txt"; kind = SyncScopeKind.File },
+        scopes)
+    Assert.Contains(
+        { label = "work"; relative = "b.txt"; kind = SyncScopeKind.File },
+        scopes)
+
+[<Fact>]
+let ``coalesceDownloadTargets drops empty label or relative`` () =
+    let scopes =
+        WorkspaceSyncScope.coalesceDownloadTargets
+            [ { label = ""; relative = "a.txt" }
+              { label = "home"; relative = "" } ]
+    Assert.Equal<WorkspaceSyncScope list>([], scopes)
+
+[<Fact>]
+let ``autoDownloadFileTargets keeps File stamps drops non-file`` () =
+    let graph, wsId, _, fileId = graphWithWorkspaceTree ()
+    let stamp = System.DateTime(2024, 1, 1)
+    let ops =
+        [ Op.SetUpdateTime(fileId, NodeUpdateTime.missing, stamp)
+          Op.SetUpdateTime(wsId, NodeUpdateTime.missing, stamp) ]
+    let targets = WorkspaceUploadStructure.autoDownloadFileTargets graph ops
+    Assert.Equal<AutoDownloadTarget list>(
+        [ { label = "home"; relative = "docs/readme.txt" } ], targets)

@@ -591,3 +591,35 @@ let downloadOp (model: VM) : VM * Effect list =
                         | Some state -> sprintf "download %s: %s" state sync.detail
                         | None -> sync.detail
                     okDetail model detail |> withPathSyncRefresh
+
+/// Debounce window before coalescing accumulated auto-download targets.
+let autoDownloadDebounceMs = 400
+
+/// Persist stamps arrived: accumulate File targets and arm the debounce tick.
+/// Desktop-only; plain web (no workspace sync) is a no-op.
+let accumulateAutoDownloadFromOps (ops: Op list) (model: VM) : VM * Effect list =
+    if not (DesktopCapabilities.canWorkspaceSync model.desktopCapabilities) then
+        model, []
+    else
+        match WorkspaceUploadStructure.autoDownloadFileTargets model.graph ops with
+        | [] -> model, []
+        | targets ->
+            { model with
+                pendingAutoDownloads = model.pendingAutoDownloads @ targets },
+            [ Effect.ScheduleAutoDownloadTick autoDownloadDebounceMs ]
+
+/// Remote poll changes carry the same persist `SetUpdateTime` ops.
+let accumulateAutoDownloadFromChanges
+    (changes: Change list)
+    (model: VM)
+    : VM * Effect list =
+    accumulateAutoDownloadFromOps (changes |> List.collect (fun c -> c.ops)) model
+
+/// Debounce tick: coalesce pending targets per label, keep already-mapped
+/// labels, and fire-and-forget one scoped download each. No job polling and no
+/// stamp-align Change, so a stamp-only change cannot feed back into itself.
+let runAutoDownloadTick (model: VM) : VM * Effect list =
+    WorkspaceSyncScope.coalesceDownloadTargets model.pendingAutoDownloads
+    |> List.filter (fun scope -> labelHasLocalMapping scope.label)
+    |> List.iter (fun scope -> postWorkspaceDownload scope |> ignore)
+    { model with pendingAutoDownloads = [] }, []

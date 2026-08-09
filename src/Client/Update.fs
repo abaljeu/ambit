@@ -61,6 +61,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
           workspaceMappedLabels = model.workspaceMappedLabels
           workspaceRoots = model.workspaceRoots
           workspaceSyncFacts = model.workspaceSyncFacts
+          pendingAutoDownloads = []
           syncInfo =
             SyncInfo.initial
             |> SyncInfo.withServerReady response.isReady
@@ -87,16 +88,21 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                 + " serverAck=" + string revision.Value + " pendingWas=" + string pendingWas
                 + " pendingNext=" + string pending.Length
                 + " stampOps=" + string stampOps.Length)
-            { model with
-                graph = graph'
-                revision = revision
-                history =
-                    { model.history with nextId = max model.history.nextId revision.Value }
-                syncInfo = nextSyncInfo
-                lastCmdResult =
-                    match message with
-                    | Some msg -> Some(CmdLastResult.Detail(None, msg))
-                    | None -> model.lastCmdResult }, effects
+            let updated =
+                { model with
+                    graph = graph'
+                    revision = revision
+                    history =
+                        { model.history with
+                            nextId = max model.history.nextId revision.Value }
+                    syncInfo = nextSyncInfo
+                    lastCmdResult =
+                        match message with
+                        | Some msg -> Some(CmdLastResult.Detail(None, msg))
+                        | None -> model.lastCmdResult }
+            let updated', autoEffects =
+                UpdateWorkspaceSync.accumulateAutoDownloadFromOps stampOps updated
+            updated', effects @ autoEffects
 
     | SysMsg (SubmitRejected detail) ->
         consoleLog (
@@ -162,6 +168,9 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
         let si, effects = SyncPlanner.tryStartPoll model.revision model.syncInfo
         { model with syncInfo = si }, effects
 
+    | SysMsg AutoDownloadTick ->
+        UpdateWorkspaceSync.runAutoDownloadTick model
+
     | SysMsg (PollDone (stateOpt, changes, readyOpt)) ->
         let readyModel =
             match readyOpt with
@@ -193,8 +202,8 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                         |> withSiteMap
                         |> adjustModeAfterServerApply readyModel.graph
                     { kept with
-                        syncInfo = SyncInfo.withSyncState Uploading kept.syncInfo },
-                    []
+                        syncInfo = SyncInfo.withSyncState Uploading kept.syncInfo }
+                    |> UpdateWorkspaceSync.accumulateAutoDownloadFromChanges changes
             | _ -> readyModel, []
         | _ ->
             let si = SyncInfo.withSyncState Idle readyModel.syncInfo
@@ -228,7 +237,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                             syncInfo = si }
                         |> withSiteMap
                         |> adjustModeAfterServerApply readyModel.graph
-                    synced, []
+                    UpdateWorkspaceSync.accumulateAutoDownloadFromChanges changes synced
             | Some s ->
                 { readyModel with syncInfo = SyncInfo.withSyncState s si }, []
 

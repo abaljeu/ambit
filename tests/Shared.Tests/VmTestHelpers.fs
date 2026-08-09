@@ -23,6 +23,7 @@ let emptyModel (graph: Graph) : VM =
       workspaceMappedLabels = Set.empty
       workspaceRoots = Map.empty
       workspaceSyncFacts = Map.empty
+      pendingAutoDownloads = []
       syncInfo = SyncInfo.initial
       lastCmdResult = None }
 
@@ -46,5 +47,6 @@ let emptyModelAt (graph: Graph) (viewRoot: NodeId) : VM =
       workspaceMappedLabels = Set.empty
       workspaceRoots = Map.empty
       workspaceSyncFacts = Map.empty
+      pendingAutoDownloads = []
       syncInfo = SyncInfo.initial
       lastCmdResult = None }
