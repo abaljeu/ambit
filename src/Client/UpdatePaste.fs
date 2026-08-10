@@ -59,24 +59,10 @@ let private normalizePasteLines (pastedText: string) : string list =
     pastedText.Replace("\r\n", "\n").Replace("\r", "\n").Split('\n')
     |> Array.toList
 
-let private planColdPaste
-    (graph: Graph)
-    (documentRootId: NodeId)
-    (text: string)
-    : (NodeId list * Op list) option =
-    match
-        DocumentColdParse.planApplyCold
-            graph
-            documentRootId
-            DocumentColdParse.PasteRelativePath
-            text
-    with
+let private planColdPaste (text: string) : (NodeId list * Op list) option =
+    match DocumentColdParse.planPasteOps text with
+    | Ok result -> Some result
     | Error _ -> None
-    | Ok ops ->
-        let topLevelIds, nested =
-            DocumentColdParse.peelDocumentRootOps documentRootId ops
-
-        if topLevelIds.IsEmpty then None else Some(topLevelIds, nested)
 
 let private pasteNodesSelecting
     (model: VM) (sel: Selection) (entries: (string * int) list)
@@ -86,7 +72,7 @@ let private pasteNodesSelecting
         match tryPasteLinkIds model.graph preferredNodeIds entries with
         | Some existingIds -> existingIds, []
         | None ->
-            match planColdPaste model.graph sel.range.parent.nodeId pastedText with
+            match planColdPaste pastedText with
             | Some result -> result
             | None -> [], []
 
@@ -149,7 +135,7 @@ let private pasteEditingMultiline
         if newText <> originalText then [ Op.SetText(focusId, originalText, newText) ]
         else []
     let remainingTopIds, remainingOps =
-        match planColdPaste model.graph parentId restText with
+        match planColdPaste restText with
         | Some result -> result
         | None -> [], []
     let insertOps =
@@ -203,7 +189,7 @@ let private pasteNodesEditing
 /// Select mode: replaces selection with resolved nodes.
 /// Edit mode: commits current text then inserts resolved nodes as siblings below; stays Editing.
 ///
-/// Otherwise (external plain text): DocumentColdParse Plain via `__paste__.txt`.
+/// Otherwise (external plain text): DocumentColdParse.planPasteOps (stub Plain).
 /// Select mode: replaces selection with pasted subtree.
 /// Edit mode: splices first line into node at cursor; remaining lines become siblings; stays Editing.
 let pasteNodes (pastedText: string) (preferredNodeIds: string option) (model: VM)

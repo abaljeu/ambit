@@ -22,6 +22,7 @@ Work currently being executed.
 
 Work ready to start but not yet claimed.
 
+- [[src/Client/UpdatePaste.fs]] — HITL verify external multiline Ctrl+V (select + edit): siblings kept; lines become nodes (fix: [[src/Shared/documents/DocumentColdParse.fs]] planPasteOps; tests: [[tests/Shared.Tests/DocumentColdParseTests.fs]])
 - [[doc/roadmap/workspace-file-sync.md]] — HITL verify auto-download on persist: edit a mapped-workspace file (own edit + remote poll) refreshes the local mapped folder with no feedback loop; plain web is a no-op (plan: auto-download-persisted-files_560c6923; artifacts: [[src/Shared/WorkspaceSyncScope.fs]], [[src/Shared/WorkspaceUploadStructure.fs]], [[src/Client/UpdateWorkspaceSync.fs]], [[src/Client/Update.fs]], [[src/Client/App.fs]])
 - [[.scratch/node-bullet-tooltip/issues/02-client-bullet-tip-wiring.md]] — HITL verify: hover a chevron, solid-circle, and hollow-circle Bullet each show the tip; click/fold/zoom unchanged (implemented, Shared suite green; artifacts: [[src/Shared/ViewModelRowState.fs]] bulletTip, [[src/Client/RowView.fs]], [[src/Client/JsInterop.fs]])
 - [[tmp/warm-parse-dual-owner-fix.md]] — HITL verify Current warm File Load after reclaim-vs-trash fix; dual-Owner gone (artifacts: [[src/Shared/documents/DocumentColdParse.fs]], [[src/Shared/History.fs]], [[tests/Shared.Tests/ImportDocumentTests.fs]])

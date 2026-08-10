@@ -246,7 +246,9 @@ module ViewModelSiteMap =
                     entries = acc
                     parentByInstanceId = buildParentInstanceIndex acc }, endCount ()
 
-    /// Adjacent sibling of `me`'s parent, expanding that sibling first when it has children.
+    /// Adjacent sibling of `me`'s parent when that sibling is already open (or a leaf).
+    /// Collapsed siblings with children return None so callers can fall back to move-beside-parent
+    /// without auto-unfolding.
     let parentSiblingTarget
         (delta: int)
         (me: SiteEntry)
@@ -289,12 +291,7 @@ module ViewModelSiteMap =
                             if not hasChildren then
                                 Some (siteMap, nextSiteId, sibling)
                             else
-                                let siteMap, nextSiteId =
-                                    expandEntry siblingId graph siteMap nextSiteId
-
-                                Map.tryFind siblingId siteMap.entries
-                                |> Option.map (fun expanded -> siteMap, nextSiteId, expanded))
-
+                                None)
     let private isFolded (graph: Graph) (entry: SiteEntry) : bool =
         match Map.tryFind entry.nodeId graph.nodes with
         | Some node when not node.children.IsEmpty && not entry.expanded -> true

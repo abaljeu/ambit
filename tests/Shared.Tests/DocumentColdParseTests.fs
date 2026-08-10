@@ -117,6 +117,144 @@ let ``planApplyCold rejects oversized text before graph materialization`` () =
             DocumentParseLimits.errorForCodeUnits actualCodeUnits,
             err)
 
+/// Mirrors Client UpdatePaste.pasteNodesSelecting after planPasteOps.
+let private applySelectModeExternalPaste
+    (graph: Graph)
+    (parentId: NodeId)
+    (selStart: int)
+    (selected: ChildNode list)
+    (pastedText: string)
+    : Result<Graph, string> =
+    match DocumentColdParse.planPasteOps pastedText with
+    | Error e -> Error e
+    | Ok(topLevelIds, nested) ->
+        let insertChildren =
+            topLevelIds
+            |> List.map (fun id -> { ref = Ownership.Owner; id = id })
+
+        let replaceOp =
+            Op.Replace(parentId, selStart, selected, insertChildren)
+
+        let change =
+            { id = 0
+              changeId = Guid.NewGuid()
+              ops = nested @ [ replaceOp ] }
+
+        let state =
+            { graph = graph
+              history = History.empty
+              revision = Revision.Zero }
+
+        match History.applyChange change state with
+        | ApplyResult.Changed s -> Ok s.graph
+        | ApplyResult.Unchanged _ -> Error "paste applied as Unchanged"
+        | ApplyResult.Invalid(_, msg) -> Error msg
+
+[<Fact>]
+let ``live-parent planApplyCold peel is empty when siblings exist`` () =
+    let g0 = Graph.create ()
+    let parentId = NodeId.New()
+    let keepId = NodeId.New()
+    let selectedId = NodeId.New()
+
+    let parent =
+        Node.Create(
+            parentId,
+            text = "parent",
+            owner = g0.root,
+            children =
+                [ { ref = Ownership.Owner; id = keepId }
+                  { ref = Ownership.Owner; id = selectedId } ])
+
+    let keep = Node.Create(keepId, text = "keep", owner = parentId)
+    let selected = Node.Create(selectedId, text = "selected", owner = parentId)
+
+    let graph =
+        g0.nodes
+        |> Map.add parentId parent
+        |> Map.add keepId keep
+        |> Map.add selectedId selected
+        |> fun nodes ->
+            let rootChildren =
+                g0.nodes.[g0.root].children
+                @ [ { ref = Ownership.Owner; id = parentId } ]
+
+            Map.add g0.root { g0.nodes.[g0.root] with children = rootChildren } nodes
+        |> fun nodes -> Graph.fromNodes g0.root nodes
+
+    let pasted = "alpha" + Environment.NewLine + "beta" + Environment.NewLine
+
+    let planned =
+        DocumentColdParse.planApplyCold
+            graph
+            parentId
+            DocumentColdParse.PasteRelativePath
+            pasted
+        |> requireOk "planApplyCold"
+
+    let topLevelIds, _ =
+        DocumentColdParse.peelDocumentRootOps parentId planned
+
+    Assert.True(
+        topLevelIds.IsEmpty,
+        "documents why paste must not cold-plan against the live parent")
+
+[<Fact>]
+let ``select-mode external multiline paste keeps non-selected siblings`` () =
+    let g0 = Graph.create ()
+    let parentId = NodeId.New()
+    let keepId = NodeId.New()
+    let selectedId = NodeId.New()
+
+    let parent =
+        Node.Create(
+            parentId,
+            text = "parent",
+            owner = g0.root,
+            children =
+                [ { ref = Ownership.Owner; id = keepId }
+                  { ref = Ownership.Owner; id = selectedId } ])
+
+    let keep = Node.Create(keepId, text = "keep", owner = parentId)
+    let selected = Node.Create(selectedId, text = "selected", owner = parentId)
+
+    let graph =
+        g0.nodes
+        |> Map.add parentId parent
+        |> Map.add keepId keep
+        |> Map.add selectedId selected
+        |> fun nodes ->
+            let rootChildren =
+                g0.nodes.[g0.root].children
+                @ [ { ref = Ownership.Owner; id = parentId } ]
+
+            Map.add g0.root { g0.nodes.[g0.root] with children = rootChildren } nodes
+        |> fun nodes -> Graph.fromNodes g0.root nodes
+
+    let pasted = "alpha" + Environment.NewLine + "beta" + Environment.NewLine
+    let selectedChild = { ref = Ownership.Owner; id = selectedId }
+
+    match
+        applySelectModeExternalPaste
+            graph
+            parentId
+            1
+            [ selectedChild ]
+            pasted
+    with
+    | Error err -> Assert.Fail($"expected paste apply to succeed: {err}")
+    | Ok after ->
+        let children = after.nodes.[parentId].children
+        let texts =
+            children
+            |> List.map (fun c -> after.nodes.[c.id].text)
+
+        Assert.Contains("keep", texts)
+        Assert.Contains("alpha", texts)
+        Assert.Contains("beta", texts)
+        Assert.DoesNotContain("selected", texts)
+        Assert.Equal(keepId, children.Head.id)
+
 [<Fact>]
 let ``planApplyCold md heading emits SetClasses md-head`` () =
     let text = "# Title" + Environment.NewLine + "body" + Environment.NewLine

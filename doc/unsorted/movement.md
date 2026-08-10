@@ -21,8 +21,8 @@ In Select mode a node or contiguous range of siblings is highlighted. No text cu
 
 | Key | Behaviour |
 |-----|-----------|
-| **Alt+UP** or **Ctrl+UP** | Move the selected node (or range) up past its preceding sibling |
-| **Alt+DOWN** or **Ctrl+DOWN** | Move the selected node (or range) down past its following sibling |
+| **Alt+UP** or **Ctrl+UP** | Move the selected node (or range) up past its preceding sibling. At a level boundary: open uncle → move into it; folded uncle with children → move beside parent (no unfold) |
+| **Alt+DOWN** or **Ctrl+DOWN** | Move the selected node (or range) down past its following sibling. Same level-boundary rule as Alt/Ctrl+UP |
 | **Tab** | Indent: make the selected node (or range) a child of its preceding sibling |
 | **Shift+Tab** | Outdent: promote the selected node (or range) up one level |
 
@@ -95,8 +95,8 @@ The app does not intercept these keys; the browser input handles them natively.
 
 | Key | Behaviour |
 |-----|-----------|
-| **Alt+UP** or **Ctrl+UP** | Move the current node up past its preceding sibling (text is committed first) |
-| **Alt+DOWN** or **Ctrl+DOWN** | Move the current node down past its following sibling (text is committed first) |
+| **Alt+UP** or **Ctrl+UP** | Move the current node up past its preceding sibling (text is committed first). At a level boundary: open uncle → move into it; folded uncle with children → move beside parent (no unfold) |
+| **Alt+DOWN** or **Ctrl+DOWN** | Move the current node down past its following sibling (text is committed first). Same level-boundary rule as Alt/Ctrl+UP |
 | **Tab** | Indent: make the current node a child of its preceding sibling |
 | **Shift+Tab** | Outdent: promote the current node up one level |
 

@@ -994,7 +994,7 @@ let ``nodeHasExpandedChildren false when collapsed or leaf`` () =
     Assert.False(SiteMap.nodeIsExpanded sm2 (Some a1InstId))
 
 [<Fact>]
-let ``parentSiblingTarget expands collapsed sibling with children`` () =
+let ``parentSiblingTarget ignores collapsed sibling with children`` () =
     let graph, cont, _ = buildNested ()
     let siteMap, nextId = buildSiteMapFrom graph cont (Sid 0)
     let rootEntry = siteMap.entries.[siteMap.rootId]
@@ -1004,12 +1004,28 @@ let ``parentSiblingTarget expands collapsed sibling with children`` () =
     let a1InstId = siteMap.entries.[aInstId].children.[0]
     let a1Entry = siteMap.entries.[a1InstId]
 
+    Assert.True(parentSiblingTarget 1 a1Entry graph siteMap nextId cont |> Option.isNone)
+    Assert.False(siteMap.entries.[bInstId].expanded)
+
+[<Fact>]
+let ``parentSiblingTarget returns expanded sibling with children`` () =
+    let graph, cont, _ = buildNested ()
+    let siteMap, nextId = buildSiteMapFrom graph cont (Sid 0)
+    let rootEntry = siteMap.entries.[siteMap.rootId]
+    let aInstId = rootEntry.children.[0]
+    let bInstId = rootEntry.children.[1]
+    let siteMap, nextId = expandEntry aInstId graph siteMap nextId
+    let siteMap, nextId = expandEntry bInstId graph siteMap nextId
+    let a1InstId = siteMap.entries.[aInstId].children.[0]
+    let a1Entry = siteMap.entries.[a1InstId]
+
     match parentSiblingTarget 1 a1Entry graph siteMap nextId cont with
     | None -> Assert.True(false, "expected sibling target")
-    | Some (siteMap2, _, sibling) ->
+    | Some (siteMap2, nextId2, sibling) ->
         Assert.Equal(bInstId, sibling.instanceId)
         Assert.True(sibling.expanded)
-        Assert.Single(siteMap2.entries.[bInstId].children) |> ignore
+        Assert.Equal(nextId, nextId2)
+        Assert.True(System.Object.ReferenceEquals(siteMap, siteMap2))
 
 [<Fact>]
 let ``parentSiblingTarget accepts collapsed leaf sibling`` () =

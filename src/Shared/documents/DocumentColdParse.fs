@@ -283,3 +283,37 @@ module DocumentColdParse =
         : Result<Op list, string> =
         readArtifactCold relativePath text documentRootId graph
         |> Result.map (planOpsFromGraphs graph documentRootId)
+
+    let private stubPasteGraph (documentRootId: NodeId) : Graph =
+        let graph0 = Graph.create ()
+        let name = PasteRelativePath
+
+        let file =
+            Node.Create(
+                documentRootId,
+                text = name,
+                name = Filename.create name,
+                owner = graph0.root,
+                kind = Special File,
+                documentState = Unparsed)
+
+        graph0.nodes
+        |> Map.add documentRootId file
+        |> fun nodes -> Graph.fromNodes graph0.root nodes
+
+    /// External paste: cold-plan on a disposable stub root, then peel.
+    /// Do not plan against the live insertion parent — existing siblings produce
+    /// delete Replaces that peelDocumentRootOps mis-reads as empty top-level ids.
+    let planPasteOps (text: string) : Result<NodeId list * Op list, string> =
+        let documentRootId = NodeId.New()
+        let graph = stubPasteGraph documentRootId
+
+        planApplyCold graph documentRootId PasteRelativePath text
+        |> Result.bind (fun ops ->
+            let topLevelIds, nested =
+                peelDocumentRootOps documentRootId ops
+
+            if topLevelIds.IsEmpty then
+                Error "paste cold parse produced no nodes"
+            else
+                Ok(topLevelIds, nested))
