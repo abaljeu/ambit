@@ -5,6 +5,7 @@ Regenerated from each project's `project.md` with [[.cursor/skills/projects-over
 | Project | Stage | Summary |
 | --- | --- | --- |
 | [[bullet-tip-times/project.md\|bullet-tip-times]] | charting | Which non-obvious time facts a node-marker tooltip should show (update, workspace, server, last-sync) with de-dup, timezone, and availability rules; open questions unresolved. |
+| [[childnode-drop-ref/project.md\|childnode-drop-ref]] | charting | Progressive removal of ChildNode.ref; Node.owner + Op.SetOwner become the sole ownership source while ChildNode remains id-only. |
 | [[rowview-layout-behavior/project.md\|rowview-layout-behavior]] | charting | Separate layout from behavior inside RowView/FocusView; plan complete, waits on the split-view-by-concern refactor landing. |
 | [[auto-download-persisted-files/project.md\|auto-download-persisted-files]] | active | Auto-download into mapped folder implemented; Standards filesize peels delivered (ViewModelSync + UpdateWorkspace* splits; App timer-only). HITL verify remains. |
 | [[selective-client-loading/project.md\|selective-client-loading]] | active | Client-partial residency with explicit Load and Unloaded/Loaded child lists; spec ready-for-agent, implementation issues in flight. |

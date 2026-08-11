@@ -22,7 +22,7 @@ Work currently being executed.
 
 Work ready to start but not yet claimed.
 
-- [[tmp/childnode-refactor.md]] — Phase C: collapse ChildNode → children NodeId list; A+B done on w/childnode-ownership
+- [[.scratch/childnode-drop-ref/map.md]] — chart progressive drop of ChildNode.ref (Node.owner sole source + Loaded-scope membership seam + pre-collapse dual-Owner at load); frontier: [[.scratch/childnode-drop-ref/issues/06-inventory-edge-ref-sites.md]] then spine (parent: A+B on w/childnode-ownership; Phase C collapse abandoned)
 
 - [[src/Client/UpdatePaste.fs]] — HITL verify external multiline Ctrl+V (select + edit): siblings kept; lines become nodes (fix: [[src/Shared/documents/DocumentColdParse.fs]] planPasteOps; tests: [[tests/Shared.Tests/DocumentColdParseTests.fs]])
 - [[doc/roadmap/workspace-file-sync.md]] — HITL verify auto-download on persist: edit a mapped-workspace file (own edit + remote poll) refreshes the local mapped folder with no feedback loop; plain web is a no-op (plan: auto-download-persisted-files_560c6923; artifacts: [[src/Shared/WorkspaceSyncScope.fs]], [[src/Shared/WorkspaceUploadStructure.fs]], [[src/Client/UpdateWorkspaceSync.fs]], [[src/Client/Update.fs]], [[src/Client/App.fs]])
