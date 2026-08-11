@@ -3,48 +3,40 @@
 ## Destination
 
 `ChildNode` remains (`children: ChildNode list`) but loses `ref` — id-only edges.
-Ordered `children` stay the primary structure. `Node.owner` is the sole ownership
-source (≤1 owner is structural and travels with a resident node, fitting selective
-load). A **Loaded-scope** Graph/Op seam assures membership ↔ `Node.owner` when the
-relevant child lists are Loaded; disagreement under an Unloaded owner parent stays
-unprovable and accepted. `Op.SetOwner` carries owner changes; `Replace` is id-only.
-JSON: first encode/decode `Node.owner` on the node (absent from wire today); migrate
-readers off edge `ref=Owner`; only then stop encoding edge `ref` (decode may tolerate
-old edge `ref` / missing node `owner` for a bounded window).
-DB `node_children.ownership` stays as load bootstrap (no `nodes.owner` column yet);
-dual-Owner rows are detected **before** collapse into one `Node.owner`.
-Reached when edge `ref` is gone from the type and all live paths classify ownership
-from `Node.owner`, via a **progressive** migration (no oneshot field deletion).
+Ordered `children` stay the primary structure.
+`Node.owner` is the sole **in-memory** ownership source (≤1 owner; travels with a resident node, fitting selective load).
+A **Loaded-scope** Graph/Op seam assures membership ↔ `Node.owner` only when the claimed owner parent is Resident with a Loaded child list; Absent/Unloaded → unprovable, accepted.
+`Op.SetOwner` carries owner changes; `Replace` is id-only.
+JSON: hard before/after per slice — encode both node `owner` and edge `ref` while both exist; later stop edge `ref`; no omit-`owner` / mixed-style messages.
+DB keeps Ownership in `node_children.ownership` (no `nodes.owner` column); dual-Owner rows detected **before** collapse into one `Node.owner`.
+Reached when edge `ref` is gone from the type and live paths classify from `Node.owner`, via progressive slices ([[.scratch/childnode-drop-ref/spine-draft.md]]).
 
 ## Notes
 
-- Prior context: [[tmp/childnode-refactor.md]] Phases A+B on `w/childnode-ownership`.
-  Phase C (delete `ChildNode` / `NodeId list`) abandoned for this effort.
-- Shared ctors already exist: `ChildNode.owner` / `reference` / `ofOwnership` / `owners`.
-- **Progressive only** — each slice must leave the tree green; dual-read/write windows
-  are allowed when a ticket says so. Do not oneshot-delete `ref`.
-- Plan by default (decision tickets). Implementation may follow the resolved spine
-  slice-by-slice on this branch; do not treat the whole destination as one Change.
-- Selective load: not every node or child list is Loaded; a Loaded child list implies
-  those child nodes (and their `owner` fields) are resident. Prefer sole `Node.owner`
-  over a required dual-Owner seam on edge `ref` alone — edge dual-Owner is unprovable
-  across Unloaded parents.
-- Skills: [[.agents/skills/wayfinder/SKILL.md]], [[.agents/skills/grilling/SKILL.md]],
-  [[.agents/skills/domain-modeling/SKILL.md]], [[.cursor/skills/implement-fsharp-feature/SKILL.md]].
-- Destination locks from grill / integrity review (not yet ticket answers): keep type +
-  name; order primary; owner-only truth; Loaded-scope membership seam; ops set
-  `Node.owner` via `SetOwner`; Replace id-only; JSON owner-field-first then drop edge
-  `ref`; DB ownership column kept as bootstrap with pre-collapse dual-Owner detection.
+- Prior context: [[tmp/childnode-refactor.md]] Phases A+B on `w/childnode-ownership`. Phase C abandoned.
+- Shared ctors: `ChildNode.owner` / `reference` / `ofOwnership` / `owners`.
+- Progressive slices; wire is hard cutover per deploy; DB column remains bootstrap/store for Ownership.
+- Plan by default; implement slice-by-slice on this branch.
+- Selective load / Server authority as before.
+- Skills: wayfinder, grilling, domain-modeling, implement-fsharp-feature.
 
 ## Decisions so far
 
+- [Inventory edge ref sites](.scratch/childnode-drop-ref/issues/06-inventory-edge-ref-sites.md) — [[tmp/childnode-drop-ref-edge-ref-inventory.md]].
+- [Detect dual-Owner before load collapse](.scratch/childnode-drop-ref/issues/08-detect-dual-owner-before-load-collapse.md) — lowest parent wins; extras → Ref.
+- [Choose progressive migration spine](.scratch/childnode-drop-ref/issues/01-choose-progressive-migration-spine.md) — [[.scratch/childnode-drop-ref/spine-draft.md]].
+- [Switch index build to Node.owner](.scratch/childnode-drop-ref/issues/04-switch-index-build-to-node-owner.md) — maps from `Node.owner` only.
+- [Define Loaded-scope ownership seam](.scratch/childnode-drop-ref/issues/07-define-loaded-scope-ownership-seam.md) — provable → reject; mandatory steps 3/6 before drop-ref encode.
+- [Define SetOwner op contract](.scratch/childnode-drop-ref/issues/02-define-setowner-op-contract.md) — header-only; old/new; NewNode owner arg; Change-complete Apply→Check→Undo; any Op order.
+- [Reshape childOwnership API](.scratch/childnode-drop-ref/issues/05-reshape-childownership-api.md) — `(parentId, child: Node)` at step 5.
+- [Define JSON owner-then-drop-ref wire windows](.scratch/childnode-drop-ref/issues/09-define-json-owner-then-drop-ref-wire-windows.md) — encode both; hard cutovers; no omit-compat.
+- [Define load bootstrap without edge ref](.scratch/childnode-drop-ref/issues/03-define-load-bootstrap-without-edge-ref.md) — DB keeps Ownership on `node_children`; Load sets `Node.owner` from it.
+- **ChildNode ctors** — shrink `owner` / `reference` to id aliases, then delete helpers in a cleanup slice (with step 8).
+- **Planner/cold-parse** — after step 5, emit `SetOwner` + id-only `Replace` only (no proposed Owned mark / side-channel).
+
 ## Not yet specified
 
-- Whether `ChildNode.owner` / `reference` ctors shrink to id aliases then vanish, or
-  rename in a late slice.
-- Planner/cold-parse paths that still classify proposed edges via `child.ref` —
-  exact slice boundaries after the spine lands.
-- Later: drop DB `ownership` column or add `nodes.owner` (explicitly beyond near destination).
+- Later: drop DB `ownership` column or add `nodes.owner` (beyond near destination).
 
 ## Out of scope
 
