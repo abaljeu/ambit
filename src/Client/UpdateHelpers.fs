@@ -163,11 +163,9 @@ let rangeChildren (graph: Graph) (range: SiteNodeRange) =
     |> List.skip range.start
     |> List.take (range.endd - range.start)
 
-let ownedChild (id: NodeId) : ChildNode =
-    { ref = Ownership.Owner; id = id }
+let ownedChild = ChildNode.owner
 
-let ownedChildren (ids: NodeId list) : ChildNode list =
-    ids |> List.map ownedChild
+let ownedChildren = ChildNode.owners
 
 let childrenForPaste (graph: Graph) (ids: NodeId list) : ChildNode list =
     let existingOwnerIds =
@@ -185,7 +183,7 @@ let childrenForPaste (graph: Graph) (ids: NodeId list) : ChildNode list =
         let ownership =
             if Set.contains id seenOwnerIds then Ownership.Ref else Ownership.Owner
 
-        let child = { ref = ownership; id = id }
+        let child = ChildNode.ofOwnership ownership id
         Set.add id seenOwnerIds, child :: children
 
     let _, childrenRev = ids |> List.fold folder (existingOwnerIds, [])

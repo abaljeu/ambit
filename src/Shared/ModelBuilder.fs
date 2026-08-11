@@ -17,7 +17,7 @@ module ModelBuilder =
                 else
                     Ownership.Owner
 
-            let child = { ref = ownership; id = id }
+            let child = ChildNode.ofOwnership ownership id
             Set.add id seen, child :: children
 
         let _, childrenRev = ids |> List.fold folder (existingOccurrences, [])

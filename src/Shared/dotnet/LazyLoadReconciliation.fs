@@ -82,7 +82,7 @@ module LazyLoadReconciliation =
                   parentId,
                   index,
                   [ oldChild ],
-                  [ { ref = Ownership.Owner; id = replacementId } ]) ])
+                  [ ChildNode.owner replacementId ]) ])
 
     let private planTrashNode (graph: Graph) nodeId =
         if DocumentPartition.isMemberOfUnparsedDocument graph nodeId then

@@ -37,8 +37,7 @@ module ImportText =
         | InvalidFileReference -> Error "file reference is invalid"
         | FileReference path -> Ok path
 
-    let private ownedChildren (ids: NodeId list) : ChildNode list =
-        ids |> List.map (fun id -> { ref = Ownership.Owner; id = id })
+    let private ownedChildren = ChildNode.owners
 
     let private markDocumentCurrentBeforeParse (graph: Graph) (focusId: NodeId) : Op list =
         match Map.tryFind focusId graph.nodes with

@@ -17,7 +17,7 @@ module FileNodeOps =
             | _ -> defaultName
 
     let private appendOwnedOp (parentId: NodeId) (childId: NodeId) (index: int) : Op =
-        Op.Replace(parentId, index, [], [ { ref = Ownership.Owner; id = childId } ])
+        Op.Replace(parentId, index, [], [ ChildNode.owner childId ])
 
     let private planCreateOwnedSpecial
         (graph: Graph)
@@ -63,7 +63,7 @@ module FileNodeOps =
         if insert.index < 0 || insert.index > graph.nodes.[insert.parentId].children.Length then
             []
         else
-            let newRef = { ref = Ownership.Ref; id = fileNodeId }
+            let newRef = ChildNode.reference fileNodeId
 
             let already =
                 graph.nodes.[insert.parentId].children

@@ -543,7 +543,7 @@ module AmbDocument =
                 match resolveRefTarget path stableToken contextGraph nodes with
                 | Error msg -> nodes, stack, idMap, claimed, Error msg
                 | Ok (nodeId, nodes') ->
-                    let edge = { ref = Ownership.Ref; id = nodeId }
+                    let edge = ChildNode.reference nodeId
                     let nodes'' = prependChild parentId edge nodes'
                     nodes'', stack, idMap, claimed, Ok ()
 
@@ -567,7 +567,7 @@ module AmbDocument =
                 | Ok (nodeId, nodes') ->
                     let idMap' = idMap |> Map.add stableToken nodeId
                     let claimed' = Set.add nodeId claimed
-                    let edge = { ref = Ownership.Owner; id = nodeId }
+                    let edge = ChildNode.owner nodeId
                     let nodes'' = prependChild parentId edge nodes'
                     nodes'', (depth, nodeId) :: stack, idMap', claimed', Ok ()
             | None ->
@@ -576,7 +576,7 @@ module AmbDocument =
                 let nodeId, nodes', claimed' =
                     resolvePlainLine
                         parentId classes nodeText nodes contextGraph ownerCandidates claimed
-                let edge = { ref = Ownership.Owner; id = nodeId }
+                let edge = ChildNode.owner nodeId
                 let nodes'' = prependChild parentId edge nodes'
                 nodes'', (depth, nodeId) :: stack, idMap, claimed', Ok ()
 
@@ -586,7 +586,7 @@ module AmbDocument =
                 resolvePlainLine
                     parentId classes nodeText nodes contextGraph ownerCandidates claimed
 
-            let edge = { ref = Ownership.Owner; id = nodeId }
+            let edge = ChildNode.owner nodeId
             let nodes'' = prependChild parentId edge nodes'
             nodes'', (depth, nodeId) :: stack, idMap, claimed', Ok ()
 

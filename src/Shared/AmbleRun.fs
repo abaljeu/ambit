@@ -38,7 +38,7 @@ module AmbleRun =
             let pairs = lines |> List.map (fun line -> NodeId.New(), line)
             let newOps = pairs |> List.collect (fun (id, line) -> newErrorNodeOps id line)
             let childNodes =
-                pairs |> List.map (fun (id, _) -> { ref = Ownership.Owner; id = id })
+                pairs |> List.map (fun (id, _) -> ChildNode.owner id)
 
             newOps @ [ replaceAllChildrenOp graph focusNodeId childNodes ]
 
@@ -58,14 +58,14 @@ module AmbleRun =
                         | AmbleEval.NodeSpec.RefSpec node ->
                             if Map.containsKey node.id graph.nodes then
                                 ops,
-                                children @ [ { ref = Ownership.Ref; id = node.id } ]
+                                children @ [ ChildNode.reference node.id ]
                             else
                                 ops @ [ Op.NewNode(node.id, node.text) ],
-                                children @ [ { ref = Ownership.Owner; id = node.id } ]
+                                children @ [ ChildNode.owner node.id ]
                         | AmbleEval.NodeSpec.NewSpec text ->
                             let id = NodeId.New()
                             ops @ [ Op.NewNode(id, text) ],
-                            children @ [ { ref = Ownership.Owner; id = id } ])
+                            children @ [ ChildNode.owner id ])
                     ([], [])
 
             newNodeOps @ [ replaceAllChildrenOp graph focusNodeId childNodes ]

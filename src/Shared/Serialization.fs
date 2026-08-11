@@ -101,8 +101,9 @@ module Serialization =
 
     let decodeChildNode: Decoder<ChildNode> =
         Decode.object (fun get ->
-            { ref = get.Required.Field "ref" decodeOwnership
-              id = get.Required.Field "id" (Decode.guid |> Decode.map NodeId) })
+            ChildNode.ofOwnership
+                (get.Required.Field "ref" decodeOwnership)
+                (get.Required.Field "id" (Decode.guid |> Decode.map NodeId)))
 
     // ---- NodeId ----
 

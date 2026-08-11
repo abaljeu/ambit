@@ -92,9 +92,7 @@ module GraphBuild =
                         name = Filename.Ok "TRASH",
                         kind = Special Directory)
 
-                let trashChild: ChildNode =
-                    { ref = Ownership.Owner
-                      id = trashId }
+                let trashChild = ChildNode.owner trashId
 
                 let rootChildren =
                     if rootNode.children |> List.exists (fun c -> c.id = trashId) then
@@ -116,7 +114,7 @@ module GraphBuild =
                 nodesWithTrash
             else
                 // Missing Owner under ROOT — append (repair load / partial graphs).
-                let trashChild = { ref = Ownership.Owner; id = trashId }
+                let trashChild = ChildNode.owner trashId
                 let withoutTrash =
                     rootNode.children |> List.filter (fun c -> c.id <> trashId)
                 nodesWithTrash
@@ -147,9 +145,7 @@ module GraphBuild =
                         text = "Workspaces",
                         kind = Special Workspaces)
 
-                let workspacesChild: ChildNode =
-                    { ref = Ownership.Owner
-                      id = workspacesId }
+                let workspacesChild = ChildNode.owner workspacesId
 
                 let rootChildren =
                     if rootNode.children |> List.exists (fun c -> c.id = workspacesId) then
@@ -171,7 +167,7 @@ module GraphBuild =
             nodesWithWorkspaces
         else
             // Missing Owner under ROOT — insert before TRASH when present.
-            let workspacesChild = { ref = Ownership.Owner; id = workspacesId }
+            let workspacesChild = ChildNode.owner workspacesId
             let withoutWorkspaces =
                 rootNode.children |> List.filter (fun c -> c.id <> workspacesId)
             let beforeTrash, afterTrashStart =
@@ -200,9 +196,7 @@ module GraphBuild =
                         name = Filename.Ok "SYSTEM",
                         kind = Special Directory)
 
-                let systemChild: ChildNode =
-                    { ref = Ownership.Owner
-                      id = systemId }
+                let systemChild = ChildNode.owner systemId
 
                 let rootChildren =
                     if rootNode.children |> List.exists (fun c -> c.id = systemId) then
@@ -224,7 +218,7 @@ module GraphBuild =
                 nodesWithSystem
             else
                 // Missing Owner under ROOT — insert before TRASH when present.
-                let systemChild = { ref = Ownership.Owner; id = systemId }
+                let systemChild = ChildNode.owner systemId
                 let withoutSystem =
                     rootNode.children |> List.filter (fun c -> c.id <> systemId)
                 let beforeTrash, afterTrashStart =

@@ -184,7 +184,7 @@ module ViewModelDeleteOps =
             classified
             |> List.choose (fun item ->
                 match item.action with
-                | MoveToTrash -> Some { ref = Ownership.Owner; id = item.child.id }
+                | MoveToTrash -> Some (ChildNode.owner item.child.id)
                 | _ -> None)
         match newOwners with
         | [] -> []

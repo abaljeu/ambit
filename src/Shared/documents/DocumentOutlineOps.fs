@@ -110,7 +110,7 @@ module DocumentOutlineOps =
             let parentId = snd stack'.Head
             let nodeId = nodeIdFor row
             let nodes' = mergeNode nodeId row parentId nodes contextGraph
-            let edge = { ref = Ownership.Owner; id = nodeId }
+            let edge = ChildNode.owner nodeId
             let nodes'' = prependChild parentId edge nodes'
             nodes'', (depth, nodeId) :: stack'
 

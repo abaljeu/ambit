@@ -3,8 +3,7 @@ module Gambol.Shared.Paste
 open System
 open Gambol.Shared
 
-let private ownedChildren (ids: NodeId list) : ChildNode list =
-    ids |> List.map (fun id -> { ref = Ownership.Owner; id = id })
+let private ownedChildren = ChildNode.owners
 
 /// Parse clipboard plain text into (nodeText, depth) pairs.
 /// Tabs at the start of a line indicate nesting depth.

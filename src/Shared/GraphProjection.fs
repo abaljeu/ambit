@@ -159,11 +159,7 @@ module GraphProjection =
                     let ch =
                         sorted
                         |> List.map (fun r ->
-                            { ref =
-                                match r.ownership with
-                                | Ownership.Owner -> Ownership.Owner
-                                | Ownership.Ref -> Ownership.Ref
-                              id = NodeId r.childId })
+                            ChildNode.ofOwnership r.ownership (NodeId r.childId))
 
                     { node with children = ch })
 

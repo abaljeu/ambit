@@ -37,9 +37,20 @@ type ChildNode =
     { ref: Ownership
       id: NodeId }
 
+    static member owner (id: NodeId) : ChildNode =
+        { ref = Ownership.Owner; id = id }
+
+    static member reference (id: NodeId) : ChildNode =
+        { ref = Ownership.Ref; id = id }
+
+    static member ofOwnership (ownership: Ownership) (id: NodeId) : ChildNode =
+        { ref = ownership; id = id }
+
+    static member owners (ids: NodeId list) : ChildNode list =
+        ids |> List.map ChildNode.owner
+
     static member New() : ChildNode =
-        { ref = Ownership.Owner
-          id = NodeId.New() }
+        ChildNode.owner (NodeId.New())
 
 
 type SpecialKind =

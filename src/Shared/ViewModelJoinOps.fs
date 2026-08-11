@@ -8,8 +8,7 @@ module ViewModelJoinOps =
         | Apply of ops: Op list * text: string * caret: EditCaret * focusInstanceId: SiteId
         | RestoreCaret
 
-    let private ownedChildren (ids: NodeId list) : ChildNode list =
-        ids |> List.map (fun id -> { ref = Ownership.Owner; id = id })
+    let private ownedChildren = ChildNode.owners
 
     let private tryVisibleNeighbor offset model sel =
         focusedInstanceId sel

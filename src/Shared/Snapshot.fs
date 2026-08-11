@@ -278,21 +278,21 @@ module Snapshot =
         if content.StartsWith("-> #") then
             let sid = content.Substring(4).Trim()
             let nid, nodes, idMap = resolveRefSid sid nodes idMap
-            let edge = { ref = Ownership.Ref; id = nid }
+            let edge = ChildNode.reference nid
             (prependOutlineChild parentId edge nodes, stack, idMap)
 
         elif content.StartsWith("#") then
             let sid, body = parseHashDefLine content
             let classes, nodeText = parseOutlineMeta body
             let nid, nodes', idMap' = resolveOwnerSid sid classes nodeText nodes idMap
-            let edge = { ref = Ownership.Owner; id = nid }
+            let edge = ChildNode.owner nid
             (prependOutlineChild parentId edge nodes', (depth, nid) :: stack, idMap')
 
         else
             let classes, nodeText = parseOutlineMeta content
             let nid = NodeId.New()
             let nodes = nodes |> Map.add nid (outlineTextNode nid nodeText classes)
-            let edge = { ref = Ownership.Owner; id = nid }
+            let edge = ChildNode.owner nid
             (prependOutlineChild parentId edge nodes, (depth, nid) :: stack, idMap)
 
     let private finalizeOutlineGraph (rootId: NodeId) (nodemap: Map<NodeId, Node>) : Graph =
