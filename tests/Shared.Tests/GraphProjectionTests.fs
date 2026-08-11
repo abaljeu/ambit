@@ -4,8 +4,7 @@ open System
 open Xunit
 open Gambol.Shared
 
-let private owned (ids: NodeId list) =
-    ids |> List.map (fun id -> { ref = Ownership.Owner; id = id })
+let private owned = ChildNode.owners
 
 let private applyChange (ops: Op list) (graph: Graph) : Graph =
     let change =
@@ -108,7 +107,7 @@ let ``graphRoundTrip preserves graph with child`` () =
           changeId = System.Guid.NewGuid()
           ops =
             [ Op.NewNode(childId, "x")
-              Op.Replace(Graph.rootId, 0, [], [ { ref = Ownership.Owner; id = childId } ]) ] }
+              Op.Replace(Graph.rootId, 0, [], [ ChildNode.owner childId ]) ] }
 
     match History.applyChange change { graph = g0; history = History.empty; revision = Revision 0 } with
     | ApplyResult.Changed st ->
@@ -139,7 +138,7 @@ let ``graphRoundTrip preserves updateTime`` () =
           changeId = Guid.NewGuid()
           ops =
             [ Op.NewNode(childId, "stamped")
-              Op.Replace(Graph.rootId, 0, [], [ { ref = Ownership.Owner; id = childId } ]) ] }
+              Op.Replace(Graph.rootId, 0, [], [ ChildNode.owner childId ]) ] }
 
     match History.applyChange change { graph = g0; history = History.empty; revision = Revision 0 } with
     | ApplyResult.Changed st ->
@@ -164,7 +163,7 @@ let ``graphEquals is false when text differs`` () =
           changeId = System.Guid.NewGuid()
           ops =
             [ Op.NewNode(childId, "alpha")
-              Op.Replace(Graph.rootId, 0, [], [ { ref = Ownership.Owner; id = childId } ]) ] }
+              Op.Replace(Graph.rootId, 0, [], [ ChildNode.owner childId ]) ] }
 
     match History.applyChange change { graph = g0; history = History.empty; revision = Revision 0 } with
     | ApplyResult.Changed st ->

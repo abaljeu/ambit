@@ -8,8 +8,7 @@ open SpecialNodeTestHelpers
 open VmTestHelpers
 open Xunit
 
-let private owned (ids: NodeId list) : ChildNode list =
-    ids |> List.map (fun id -> { ref = Ownership.Owner; id = id })
+let private owned = ChildNode.owners
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -2191,7 +2190,7 @@ let private buildSharedRefLink () : Graph * NodeId * NodeId * NodeId =
         Graph.replace ownerParent 0 [] (owned [ shared ]) graph2
         |> ModelBuilder.requireOk "buildSharedRefLink.owner"
     let graph4 =
-        Graph.replace refParent 0 [] [ { ref = Ownership.Ref; id = shared } ] graph3
+        Graph.replace refParent 0 [] [ ChildNode.reference shared ] graph3
         |> ModelBuilder.requireOk "buildSharedRefLink.ref"
     graph4, ownerParent, refParent, shared
 
@@ -2232,7 +2231,7 @@ let ``tryFocusNodeOccurrence falls back to ref occurrence without owner`` () =
         |> Map.add Graph.rootId
             { root with
                 children =
-                    root.children @ [ { ref = Ownership.Ref; id = childId } ] }
+                    root.children @ [ ChildNode.reference childId ] }
         |> Map.add childId child
     let graph = Graph.fromNodes graph0.root nodes
     match tryFocusNodeOccurrence graph childId (Sid 0) with
@@ -2296,7 +2295,7 @@ let ``pushZoomIngress collapses when zooming into an ancestor via Ref`` () =
         Graph.replace a 0 [] (owned [ b ]) graph3
         |> ModelBuilder.requireOk "a->b"
     let graph5 =
-        Graph.replace b 0 [] [ { ref = Ownership.Ref; id = a } ] graph4
+        Graph.replace b 0 [] [ ChildNode.reference a ] graph4
         |> ModelBuilder.requireOk "b-ref->a"
 
     let stackAtA = pushZoomIngress cont a (cont, 0) []
@@ -2611,7 +2610,7 @@ let ``MoveToTrash ops apply successfully and node lands under TRASH`` () =
     let removeOp = Op.Replace(graph2.root, 0, owned [ a ], [])
 
     let trashChildren = graph2.nodes.[Graph.trashId].children
-    let newTrashChildren = trashChildren @ [ { ref = Ownership.Owner; id = a } ]
+    let newTrashChildren = trashChildren @ [ ChildNode.owner a ]
     let addToTrashOp = Op.Replace(Graph.trashId, 0, trashChildren, newTrashChildren)
 
     let change =

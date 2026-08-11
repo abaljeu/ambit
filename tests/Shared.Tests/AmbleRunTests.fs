@@ -40,7 +40,7 @@ let ``replace rejects trash owner under non-root parent`` () =
     let graph1, ids = ModelBuilder.createNodes [ "a" ] graph0
     let focusId = ids.[0]
     match
-        Graph.replace focusId 0 [] [ { ref = Ownership.Owner; id = Graph.trashId } ] graph1
+        Graph.replace focusId 0 [] [ ChildNode.owner Graph.trashId ] graph1
     with
     | Error msg -> Assert.Contains("OWNED by a non-root parent", msg)
     | Ok _ -> Assert.Fail("expected Error")

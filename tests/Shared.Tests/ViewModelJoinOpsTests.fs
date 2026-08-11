@@ -6,8 +6,7 @@ open Gambol.Shared.ViewModelJoinOps
 open VmTestHelpers
 open Xunit
 
-let private owned (ids: NodeId list) : ChildNode list =
-    ids |> List.map (fun id -> { ref = Ownership.Owner; id = id })
+let private owned = ChildNode.owners
 
 let private buildFlat (texts: string list) : Graph * NodeId * NodeId list =
     let graph0 = Graph.create ()
@@ -114,7 +113,7 @@ let ``joinWithPreviousPlan moves current children to previous leaf`` () =
     let graph0, cont, ids = buildFlat [ "a"; "b"; "child" ]
     let prevId = ids.[0]
     let currentId = ids.[1]
-    let child = { ref = Ownership.Owner; id = ids.[2] }
+    let child = ChildNode.owner ids.[2]
     let graph =
         Graph.replace currentId 0 [] [ child ] graph0
         |> ModelBuilder.requireOk "current child"
@@ -139,7 +138,7 @@ let ``joinWithPreviousPlan focuses previous ref instance instead of owner instan
     let cont = contIds.[0]
     let sharedId = contIds.[1]
     let newId = contIds.[2]
-    let sharedRef = { ref = Ownership.Ref; id = sharedId }
+    let sharedRef = ChildNode.reference sharedId
     let graph2 =
         Graph.replace graph1.root 0 [] (owned [ cont ]) graph1
         |> ModelBuilder.requireOk "root"

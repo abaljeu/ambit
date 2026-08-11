@@ -7,8 +7,7 @@ open Gambol.Shared.Paste
 open Gambol.Shared.ViewModel
 
 let private nl = Environment.NewLine
-let private owned (ids: NodeId list) : ChildNode list =
-    ids |> List.map (fun id -> { ref = Ownership.Owner; id = id })
+let private owned = ChildNode.owners
 
 let private requireOk label = function
     | Ok v -> v

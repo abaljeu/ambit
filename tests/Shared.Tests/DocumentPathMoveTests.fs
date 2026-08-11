@@ -18,8 +18,7 @@ let private applyOps (graph: Graph) (ops: Op list) : Graph =
         | ApplyResult.Invalid(_, msg) -> failwith msg) state
     |> fun s -> s.graph
 
-let private owned ids =
-    ids |> List.map (fun id -> { ref = Ownership.Owner; id = id })
+let private owned = ChildNode.owners
 
 let private graphWithWorkspaceFile () : Graph * NodeId * NodeId =
     let graph0 = Graph.create ()

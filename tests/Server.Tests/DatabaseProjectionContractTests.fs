@@ -82,8 +82,8 @@ let ``writer upserts complete nodes children revision and reloads`` () = task {
     let parentId, firstId, secondId = id 50, id 51, id 52
     let first = Node.Create(firstId, text = "first")
     let second = Node.Create(secondId, text = "second")
-    let firstRef = { ref = Ownership.Owner; id = firstId }
-    let secondRef = { ref = Ownership.Ref; id = secondId }
+    let firstRef = ChildNode.owner firstId
+    let secondRef = ChildNode.reference secondId
 
     let initial =
         Node.Create(
@@ -161,8 +161,8 @@ let ``writer clears one parent without rewriting unrelated rows and rolls back``
     let parentAId, parentBId = id 60, id 61
     let childAId, childBId = id 62, id 63
     let childA, childB = Node.Create(childAId), Node.Create(childBId)
-    let edgeA = { ref = Ownership.Owner; id = childAId }
-    let edgeB = { ref = Ownership.Owner; id = childBId }
+    let edgeA = ChildNode.owner childAId
+    let edgeB = ChildNode.owner childBId
     let parentA = Node.Create(parentAId, text = "before", children = [ edgeA ])
     let parentB = Node.Create(parentBId, text = "unrelated", children = [ edgeB ])
     let initial = graphWithCustomNodes [ parentA; parentB; childA; childB ]
@@ -232,7 +232,7 @@ let ``DbAgent bootstrap duplicate and no-op preserve write-free behavior`` () = 
                   Graph.rootId,
                   0,
                   [],
-                  [ { ref = Ownership.Owner; id = childId } ]) ] }
+                  [ ChildNode.owner childId ]) ] }
 
     let! first = DbAgent.postChange agent (encodeBatch [ accepted ]) |> Async.StartAsTask
     Assert.True(Result.isOk first)
@@ -272,13 +272,13 @@ let ``startup sweep deletes unreachable rows without rewriting reachable project
         Node.Create(
             reachableId,
             text = "reachable",
-            children = [ { ref = Ref; id = Graph.rootId } ])
+            children = [ ChildNode.reference Graph.rootId ])
     let orphanChild = Node.Create(orphanChildId, text = "orphan child")
     let orphan =
         Node.Create(
             orphanId,
             text = "orphan",
-            children = [ { ref = Owner; id = orphanChildId } ])
+            children = [ ChildNode.owner orphanChildId ])
     let graph0 = graphWithCustomNodes [ reachable; orphan; orphanChild ]
     let root = graph0.nodes.[Graph.rootId]
     let graph =
@@ -286,7 +286,7 @@ let ``startup sweep deletes unreachable rows without rewriting reachable project
         |> Map.add Graph.rootId
             { root with
                 children =
-                    { ref = Owner; id = reachableId } :: root.children }
+                    ChildNode.owner reachableId :: root.children }
         |> Graph.fromNodes Graph.rootId
     do! replaceProjection connStr graph 12
 
@@ -384,7 +384,7 @@ let ``startup sweep preserves persisted reachable nodes absent from loaded subse
         |> Map.add Graph.rootId
             { root with
                 children =
-                    { ref = Owner; id = persistedId } :: root.children }
+                    ChildNode.owner persistedId :: root.children }
         |> Graph.fromNodes Graph.rootId
     do! replaceProjection connStr persistedGraph 5
 

@@ -55,7 +55,7 @@ let ``plan selects complete final node rows for every current op`` () =
     let nodes = ids |> List.mapi (fun index nodeId -> completeNode nodeId $"final-{index}")
     let graph = graphFromNodes ids.Head nodes
     let classes = CssClass.ofList [ "old" ]
-    let child = { ref = Ownership.Ref; id = ids.[1] }
+    let child = ChildNode.reference ids.[1]
 
     let changes =
         [ Op.NewNode(ids.[0], "initial")
@@ -109,7 +109,7 @@ let ``plan collapses repeated node and parent touches`` () =
     let parentId = id 20
     let childId = id 21
     let child = completeNode childId "child"
-    let childRef = { ref = Ownership.Owner; id = childId }
+    let childRef = ChildNode.owner childId
     let parent = Node.Create(parentId, text = "final", children = [ childRef ])
     let graph = graphFromNodes parentId [ parent; child ]
 
@@ -138,8 +138,8 @@ let ``plan replaces children from final ordering including an empty list`` () =
     let second = completeNode secondId "second"
 
     let finalChildren =
-        [ { ref = Ownership.Ref; id = secondId }
-          { ref = Ownership.Owner; id = firstId } ]
+        [ ChildNode.reference secondId
+          ChildNode.owner firstId ]
 
     let filled = Node.Create(filledId, children = finalChildren)
     let empty = Node.Create(emptyId)
@@ -166,7 +166,7 @@ let private normalizeSql (sql: string) =
 let ``commands expose deterministic SQL and bind values`` () =
     let parentId = id 40
     let childId = id 41
-    let childRef = { ref = Ownership.Owner; id = childId }
+    let childRef = ChildNode.owner childId
     let parent = Node.Create(parentId, text = "parent", children = [ childRef ])
     let child = completeNode childId "child"
     let graph = graphFromNodes parentId [ parent; child ]

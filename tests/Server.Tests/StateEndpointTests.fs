@@ -87,7 +87,7 @@ let private postActions (client: HttpClient) (actions: ChangeRequest list) = tas
 }
 
 let private ownedChild (id: NodeId) : ChildNode list =
-    [ { ref = Ownership.Owner; id = id } ]
+    ChildNode.owners [ id ]
 
 /// Build a change (base revision `rev`) that adds one child under root; returns change + child id.
 let private changeAddChild (rootId: NodeId) (rev: int) (childText: string) : Change * NodeId =
@@ -308,7 +308,7 @@ let ``POST changes NewNode+Replace adds child to root`` (backend: BackendKind) =
               changeId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(childId, "child")
-                  Op.Replace(rootId, 0, [], [ { ref = Ownership.Owner; id = childId } ]) ] }
+                  Op.Replace(rootId, 0, [], [ ChildNode.owner childId ]) ] }
 
         let! resp = postChange client testFile change
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
@@ -320,7 +320,7 @@ let ``POST changes NewNode+Replace adds child to root`` (backend: BackendKind) =
         let! json = getStateJson client testFile
         let graph = decodeGraph json
         Assert.Equal(1, userNodeCount graph)
-        Assert.Equal<ChildNode list>([ { ref = Ownership.Owner; id = childId } ], userRootChildren graph)
+        Assert.Equal<ChildNode list>([ ChildNode.owner childId ], userRootChildren graph)
         Assert.Equal("child", graph.nodes.[childId].text)
     })
 

@@ -129,8 +129,7 @@ let private applySelectModeExternalPaste
     | Error e -> Error e
     | Ok(topLevelIds, nested) ->
         let insertChildren =
-            topLevelIds
-            |> List.map (fun id -> { ref = Ownership.Owner; id = id })
+            ChildNode.owners topLevelIds
 
         let replaceOp =
             Op.Replace(parentId, selStart, selected, insertChildren)
@@ -163,8 +162,8 @@ let ``live-parent planApplyCold peel is empty when siblings exist`` () =
             text = "parent",
             owner = g0.root,
             children =
-                [ { ref = Ownership.Owner; id = keepId }
-                  { ref = Ownership.Owner; id = selectedId } ])
+                [ ChildNode.owner keepId
+                  ChildNode.owner selectedId ])
 
     let keep = Node.Create(keepId, text = "keep", owner = parentId)
     let selected = Node.Create(selectedId, text = "selected", owner = parentId)
@@ -177,7 +176,7 @@ let ``live-parent planApplyCold peel is empty when siblings exist`` () =
         |> fun nodes ->
             let rootChildren =
                 g0.nodes.[g0.root].children
-                @ [ { ref = Ownership.Owner; id = parentId } ]
+                @ [ ChildNode.owner parentId ]
 
             Map.add g0.root { g0.nodes.[g0.root] with children = rootChildren } nodes
         |> fun nodes -> Graph.fromNodes g0.root nodes
@@ -212,8 +211,8 @@ let ``select-mode external multiline paste keeps non-selected siblings`` () =
             text = "parent",
             owner = g0.root,
             children =
-                [ { ref = Ownership.Owner; id = keepId }
-                  { ref = Ownership.Owner; id = selectedId } ])
+                [ ChildNode.owner keepId
+                  ChildNode.owner selectedId ])
 
     let keep = Node.Create(keepId, text = "keep", owner = parentId)
     let selected = Node.Create(selectedId, text = "selected", owner = parentId)
@@ -226,13 +225,13 @@ let ``select-mode external multiline paste keeps non-selected siblings`` () =
         |> fun nodes ->
             let rootChildren =
                 g0.nodes.[g0.root].children
-                @ [ { ref = Ownership.Owner; id = parentId } ]
+                @ [ ChildNode.owner parentId ]
 
             Map.add g0.root { g0.nodes.[g0.root] with children = rootChildren } nodes
         |> fun nodes -> Graph.fromNodes g0.root nodes
 
     let pasted = "alpha" + Environment.NewLine + "beta" + Environment.NewLine
-    let selectedChild = { ref = Ownership.Owner; id = selectedId }
+    let selectedChild = ChildNode.owner selectedId
 
     match
         applySelectModeExternalPaste

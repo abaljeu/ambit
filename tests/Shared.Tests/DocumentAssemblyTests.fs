@@ -8,8 +8,7 @@ let private requireOk label r =
     | Ok v -> v
     | Error e -> failwith $"{label}: {e}"
 
-let private owned (ids: NodeId list) : ChildNode list =
-    ids |> List.map (fun id -> { ref = Ownership.Owner; id = id })
+let private owned = ChildNode.owners
 
 let private specialNode (id: NodeId) (kind: SpecialKind) (name: string) (owner: NodeId) : Node =
     Node.Create(
@@ -268,7 +267,7 @@ let ``validateAssembledGraph stubs missing ref target with Broken link`` () =
         Node.Create(
             parentId,
             text = "parent",
-            children = [ { ref = Ownership.Ref; id = missingId } ])
+            children = [ ChildNode.reference missingId ])
     let graph =
         graph0.nodes
         |> Map.add parentId parent
@@ -289,7 +288,7 @@ let ``validateAssembledGraph preserves existing text on missing-target stub`` ()
         Node.Create(
             parentId,
             text = "parent",
-            children = [ { ref = Ownership.Ref; id = targetId } ])
+            children = [ ChildNode.reference targetId ])
     let stub =
         Node.Create(targetId, text = "kept annotation")
     let graph =

@@ -12,8 +12,7 @@ let private requireOk label r =
     | Ok v -> v
     | Error e -> failwith $"{label}: {e}"
 
-let private owned (ids: NodeId list) : ChildNode list =
-    ids |> List.map (fun id -> { ref = Ownership.Owner; id = id })
+let private owned = ChildNode.owners
 
 let private specialNode (id: NodeId) (kind: SpecialKind) (name: string) (owner: NodeId) : Node =
     Node.Create(
@@ -152,7 +151,7 @@ let private graphWithPlainFileRef () : Graph * NodeId * NodeId * NodeId =
     let fileNode = specialNode fileId File "readme.txt" wsId
     let holderNode =
         { normalNode holderId "holder" fileId with
-            children = [ { ref = Ownership.Ref; id = sharedId } ] }
+            children = [ ChildNode.reference sharedId ] }
     let sharedNode = normalNode sharedId "shared text" Graph.rootId
 
     let graph1 =

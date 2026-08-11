@@ -188,7 +188,7 @@ let ``DbAgent new process loads state from projection and changes after post`` (
           changeId = Guid.NewGuid()
           ops =
             [ Op.NewNode(childId, "reload-check")
-              Op.Replace(rootId, 0, [], [ { ref = Ownership.Owner; id = childId } ]) ] }
+              Op.Replace(rootId, 0, [], [ ChildNode.owner childId ]) ] }
 
     let body = encodeChangeBatch [ change ]
     let! postResult = DbAgent.postChange agent1 body |> Async.StartAsTask
@@ -226,7 +226,7 @@ let ``loadPersistedState ignores Change rows beyond authoritative projection`` (
                   Graph.rootId,
                   0,
                   [],
-                  [ { ref = Ownership.Owner; id = childId } ]) ] }
+                  [ ChildNode.owner childId ]) ] }
     do!
         Database.appendChange
             connStr
@@ -258,7 +258,7 @@ let ``DbAgent reload preserves node updateTime from projection`` () = task {
           changeId = Guid.NewGuid()
           ops =
             [ Op.NewNode(childId, "stamped")
-              Op.Replace(rootId, 0, [], [ { ref = Ownership.Owner; id = childId } ]) ] }
+              Op.Replace(rootId, 0, [], [ ChildNode.owner childId ]) ] }
 
     let! postResult =
         DbAgent.postChange agent1 (encodeChangeBatch [ change ]) |> Async.StartAsTask
@@ -291,7 +291,7 @@ let ``DbAgent change fails and state is unchanged when DB goes away after startu
           changeId = Guid.NewGuid()
           ops =
             [ Op.NewNode(childId, "db-down")
-              Op.Replace(rootId, 0, [], [ { ref = Ownership.Owner; id = childId } ]) ] }
+              Op.Replace(rootId, 0, [], [ ChildNode.owner childId ]) ] }
 
     try
         do! setDatabaseAllowConnections connStr false
@@ -333,7 +333,7 @@ let ``rebuildFromDocumentFiles aligns DB with on-disk document`` () = task {
               changeId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(childId, "db-only")
-                  Op.Replace(Graph.rootId, 0, [], [ { ref = Ownership.Owner; id = childId } ]) ] }
+                  Op.Replace(Graph.rootId, 0, [], [ ChildNode.owner childId ]) ] }
 
         let body = encodeChangeBatch [ change ]
         let! postR = DbAgent.postChange agent body |> Async.StartAsTask
@@ -405,7 +405,7 @@ let ``loadPersistedState preserves node kind`` () = task {
                       Graph.rootId,
                       idx,
                       [],
-                      [ { ref = Ownership.Owner; id = fileId } ]) ] }
+                      [ ChildNode.owner fileId ]) ] }
 
         match
             History.applyChange change
@@ -446,7 +446,7 @@ let ``DbAgent commit hang is rejected within timeout and mailbox survives`` () =
           changeId = Guid.NewGuid()
           ops =
             [ Op.NewNode(childId, "commit-hang-check")
-              Op.Replace(rootId, 0, [], [ { ref = Ownership.Owner; id = childId } ]) ] }
+              Op.Replace(rootId, 0, [], [ ChildNode.owner childId ]) ] }
 
     use lockConn = Database.getConnection connStr
     do! lockConn.OpenAsync()
@@ -496,7 +496,7 @@ let ``DbAgent postChange live-saves artifacts before ack returns`` () = task {
           changeId = Guid.NewGuid()
           ops =
             [ Op.NewNode(childId, "live-save-check")
-              Op.Replace(rootId, 0, [], [ { ref = Ownership.Owner; id = childId } ]) ] }
+              Op.Replace(rootId, 0, [], [ ChildNode.owner childId ]) ] }
 
     let! postResult =
         DbAgent.postChange agent (encodeChangeBatch [ change ]) |> Async.StartAsTask

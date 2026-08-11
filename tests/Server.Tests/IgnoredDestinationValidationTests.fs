@@ -11,7 +11,7 @@ module Encode = Thoth.Json.Newtonsoft.Encode
 
 let private gitOnPath () = DesktopGit.isAvailable()
 
-let private ownedChild id = { ref = Ownership.Owner; id = id }
+let private ownedChild = ChildNode.owner
 
 let private addSpecial parentId kind name (graph: Graph) =
     let id = NodeId.New()

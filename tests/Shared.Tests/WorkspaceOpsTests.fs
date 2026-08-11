@@ -27,8 +27,8 @@ let private makeState (graph: Graph) : State =
 
 let private freshState () = makeState (Graph.create ())
 
-let private owned id = { ref = Ownership.Owner; id = id }
-let private asRef id = { ref = Ownership.Ref; id = id }
+let private owned = ChildNode.owner
+let private asRef = ChildNode.reference
 
 /// Add a node with Filename.Ok name directly into the graph's node map.
 let private addNamedNode (name: string) (graph: Graph) : Graph * NodeId =

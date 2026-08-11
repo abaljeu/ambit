@@ -255,7 +255,7 @@ let ``planParseFile md reorder updates child order`` () =
         |> fun nodes -> Graph.fromNodes graph0.root nodes
     let idx = Graph.fileTreeInsertIndex graph1 Graph.rootId
     let graph2 =
-        Graph.replace Graph.rootId idx [] [ { ref = Ownership.Owner; id = fileId } ] graph1
+        Graph.replace Graph.rootId idx [] [ ChildNode.owner fileId ] graph1
         |> requireOk "root->file"
     let cold =
         MdDocument.read orderA fileId graph2
@@ -306,8 +306,8 @@ let ``planParseFile plain keeps id on line text edit`` () =
             kind = Special File,
             documentState = Current,
             children =
-                [ { ref = Ownership.Owner; id = aId }
-                  { ref = Ownership.Owner; id = bId } ])
+                [ ChildNode.owner aId
+                  ChildNode.owner bId ])
     let aNode = Node.Create(aId, text = "alpha", owner = fileId)
     let bNode = Node.Create(bId, text = "beta", owner = fileId)
     let graph =
@@ -506,8 +506,8 @@ let ``planParseFile Unparsed with prior children warms and keeps line ids`` () =
             kind = Special File,
             documentState = Unparsed,
             children =
-                [ { ref = Ownership.Owner; id = aId }
-                  { ref = Ownership.Owner; id = bId } ])
+                [ ChildNode.owner aId
+                  ChildNode.owner bId ])
     let aNode = Node.Create(aId, text = "alpha", owner = fileId)
     let bNode = Node.Create(bId, text = "beta", owner = fileId)
     let graph =
@@ -589,13 +589,13 @@ let ``planParseFile Current warm plain defers matching Ref`` () =
             sectionAId,
             text = "SectionA",
             owner = noteId,
-            children = [ { ref = Ownership.Owner; id = urlId } ])
+            children = [ ChildNode.owner urlId ])
     let sectionB =
         Node.Create(
             sectionBId,
             text = "SectionB",
             owner = noteId,
-            children = [ { ref = Ownership.Ref; id = urlId } ])
+            children = [ ChildNode.reference urlId ])
     let urlNode = Node.Create(urlId, text = urlText, owner = sectionAId)
     let noteNode = withNote.graph.nodes.[noteId]
     let graph =
@@ -607,8 +607,8 @@ let ``planParseFile Current warm plain defers matching Ref`` () =
             noteId
             { noteNode with
                 children =
-                    [ { ref = Ownership.Owner; id = sectionAId }
-                      { ref = Ownership.Owner; id = sectionBId } ]
+                    [ ChildNode.owner sectionAId
+                      ChildNode.owner sectionBId ]
                 documentState = Current }
         |> fun nodes -> Graph.fromNodes withNote.graph.root nodes
 
@@ -717,13 +717,13 @@ let ``planParseFile Current warm plain keeps foreign Ref`` () =
             noteId
             { noteNode with
                 children =
-                    [ { ref = Ownership.Owner; id = localId }
-                      { ref = Ownership.Ref; id = foreignId } ]
+                    [ ChildNode.owner localId
+                      ChildNode.reference foreignId ]
                 documentState = Current }
         |> Map.add
             otherId
             { otherNode with
-                children = [ { ref = Ownership.Owner; id = foreignId } ]
+                children = [ ChildNode.owner foreignId ]
                 documentState = Current }
         |> fun nodes -> Graph.fromNodes withOther.graph.root nodes
 
@@ -815,12 +815,12 @@ let ``planParseFile Current warm Amb reuses foreign owner without Ref`` () =
         |> Map.add
             noteId
             { noteNode with
-                children = [ { ref = Ownership.Owner; id = priorId } ]
+                children = [ ChildNode.owner priorId ]
                 documentState = Current }
         |> Map.add
             otherId
             { otherNode with
-                children = [ { ref = Ownership.Owner; id = foreignId } ]
+                children = [ ChildNode.owner foreignId ]
                 documentState = Current }
         |> fun nodes -> Graph.fromNodes withOther.graph.root nodes
 
@@ -1159,12 +1159,12 @@ let private graphWithUnrelatedDualOwner () =
         |> Map.add
             otherAId
             { aNode with
-                children = [ { ref = Ownership.Owner; id = victimId } ]
+                children = [ ChildNode.owner victimId ]
                 documentState = Current }
         |> Map.add
             otherBId
             { bNode with
-                children = [ { ref = Ownership.Owner; id = victimId } ]
+                children = [ ChildNode.owner victimId ]
                 documentState = Current }
         |> Map.add
             parseFileId
@@ -1227,7 +1227,7 @@ let ``planParseFile fails when parse File itself has dual Owner`` () =
             { host with
                 children =
                     host.children
-                    @ [ { ref = Ownership.Owner; id = fileId } ] }
+                    @ [ ChildNode.owner fileId ] }
         |> Map.add fileId { file with documentState = Unparsed }
     let graph = Graph.fromNodes withOther.graph.root nodes
 

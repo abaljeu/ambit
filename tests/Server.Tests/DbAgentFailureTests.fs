@@ -21,7 +21,7 @@ let private changedBody () =
                         Graph.rootId,
                         0,
                         [],
-                        [ { ref = Ownership.Owner; id = childId } ])
+                        [ ChildNode.owner childId ])
                 ]
         }
     Encode.toString 0 (

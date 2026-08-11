@@ -75,7 +75,7 @@ let private contextualGraph () =
     let childId = NodeId.New()
     let workspaceId = NodeId.New()
     let refHolderId = NodeId.New()
-    let owned id = { ref = Ownership.Owner; id = id }
+    let owned = ChildNode.owner
     let file =
         Node.Create(
             fileId,
@@ -92,7 +92,7 @@ let private contextualGraph () =
     let holder =
         Node.Create(
             refHolderId,
-            children = [ { ref = Ownership.Ref; id = fileId } ])
+            children = [ ChildNode.reference fileId ])
     let root = graph0.nodes.[Graph.rootId]
     let rootChildren =
         root.children @ [ owned fileId; owned workspaceId; owned refHolderId ]
@@ -168,14 +168,14 @@ let ``context command reconciles owned directory under named workspace`` () =
     let holder =
         Node.Create(
             refHolderId,
-            children = [ { ref = Ownership.Ref; id = dirId } ])
+            children = [ ChildNode.reference dirId ])
     let ws = graph2.nodes.[workspaceId]
     let graph3 =
         graph2.nodes
         |> Map.add workspaceId
             { ws with
                 children =
-                    ws.children @ [ { ref = Ownership.Owner; id = refHolderId } ] }
+                    ws.children @ [ ChildNode.owner refHolderId ] }
         |> Map.add refHolderId holder
         |> Graph.fromNodes graph2.root
     let refIndex =

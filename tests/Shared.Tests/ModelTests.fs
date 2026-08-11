@@ -5,8 +5,7 @@ open SpecialNodeTestHelpers
 open SpecialNodeTestHelpers
 open Xunit
 
-let private owned (ids: NodeId list) : ChildNode list =
-    ids |> List.map (fun id -> { ref = Ownership.Owner; id = id })
+let private owned = ChildNode.owners
 
 let private requireOk label r =
     match r with
@@ -141,8 +140,8 @@ let ``Replace can insert duplicate id with owner then ref`` () =
     let graph3, ids = ModelBuilder.createNodes [ "shared" ] graph2
     let shared = ids |> List.head
     let children =
-        [ { ref = Ownership.Owner; id = shared }
-          { ref = Ownership.Ref; id = shared } ]
+        [ ChildNode.owner shared
+          ChildNode.reference shared ]
 
     let result = Graph.replace cont 0 [] children graph3
 
@@ -878,7 +877,7 @@ let ``Graph.replace accepts Ref Special File under normal parent`` () =
     let graph4 =
         Graph.replace Graph.rootId idx [] (owned [ fileId ]) graph3
         |> requireOk "root->file"
-    match Graph.replace parent 0 [] [ { ref = Ownership.Ref; id = fileId } ] graph4 with
+    match Graph.replace parent 0 [] [ ChildNode.reference fileId ] graph4 with
     | Ok graph5 ->
         let children = graph5.nodes.[parent].children
         Assert.Equal(Ownership.Ref, children.Head.ref)
@@ -915,7 +914,7 @@ let ``Graph.replace accepts Ref beside Owner sibling with the same name`` () =
         |> Map.add ownedDirId ownedDir
         |> Map.add refTargetId refTarget
     let graph = Graph.fromNodes graph1.root nodes
-    match Graph.replace parent 1 [] [ { ref = Ownership.Ref; id = refTargetId } ] graph with
+    match Graph.replace parent 1 [] [ ChildNode.reference refTargetId ] graph with
     | Ok graph2 ->
         let children = graph2.nodes.[parent].children
         Assert.Equal(2, children.Length)
@@ -937,7 +936,7 @@ let ``Graph.replace accepts Ref Special Workspace under normal parent`` () =
     let graph4 =
         Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) graph3
         |> requireOk "workspaces->ws"
-    match Graph.replace parent 0 [] [ { ref = Ownership.Ref; id = wsId } ] graph4 with
+    match Graph.replace parent 0 [] [ ChildNode.reference wsId ] graph4 with
     | Ok graph5 ->
         let children = graph5.nodes.[parent].children
         Assert.Equal(Ownership.Ref, children.Head.ref)
@@ -957,7 +956,7 @@ let ``Graph.replace moves Ref Special Workspace between normal parents`` () =
     let graph4 =
         Graph.replace Graph.workspacesId 0 [] (owned [ wsId ]) graph3
         |> requireOk "workspaces->ws"
-    let wsRef = { ref = Ownership.Ref; id = wsId }
+    let wsRef = ChildNode.reference wsId
     let graph5 =
         Graph.replace aId 0 [] [ wsRef ] graph4 |> requireOk "a->ref"
     let graph6 =

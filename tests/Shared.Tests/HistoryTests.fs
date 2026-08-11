@@ -154,7 +154,7 @@ let ``Replace rejects Special path under reserved ancestor but allows Normal chi
     let normalId = NodeId.New()
     let normal = Node.Create(normalId, text = "ordinary")
     let state = stateWithNodes [ directory; file; normal ]
-    let owner id = { ref = Ownership.Owner; id = id }
+    let owner = ChildNode.owner
     let _, message =
         Op.apply (Op.Replace(directoryId, 0, [], [ owner fileId ])) state
         |> expectInvalid
@@ -400,7 +400,7 @@ let private unparsedFileState () =
             fileId,
             text = "file.txt",
             name = Filename.create "file.txt",
-            children = [ { ref = Ownership.Owner; id = childId } ],
+            children = [ ChildNode.owner childId ],
             kind = Special File,
             documentState = Unparsed)
     let child = Node.Create(childId, text = "body", owner = fileId)
@@ -414,12 +414,12 @@ let private unparsedFileState () =
         Node.Create(
             holderId,
             text = "holder",
-            children = [ { ref = Ownership.Ref; id = fileId } ])
+            children = [ ChildNode.reference fileId ])
     let root = graph0.nodes.[Graph.rootId]
     let additions =
-        [ { ref = Ownership.Owner; id = fileId }
-          { ref = Ownership.Owner; id = otherId }
-          { ref = Ownership.Owner; id = holderId } ]
+        [ ChildNode.owner fileId
+          ChildNode.owner otherId
+          ChildNode.owner holderId ]
     let nodes =
         graph0.nodes
         |> Map.add Graph.rootId { root with children = root.children @ additions }
@@ -499,7 +499,7 @@ let ``ref occurrence is governed by occurrence document not target document`` ()
     let withReplacement =
         Op.apply (Op.NewNode(replacementId, "replacement")) state
         |> expectChanged
-    let replacement = { ref = Ownership.Owner; id = replacementId }
+    let replacement = ChildNode.owner replacementId
     let changed =
         Op.apply (Op.Replace(holderId, 0, [ oldRef ], [ replacement ])) withReplacement
         |> expectChanged
@@ -510,7 +510,7 @@ let ``ref occurrence is governed by occurrence document not target document`` ()
 let ``parse state transition before tree mutation succeeds and reverse order fails`` () =
     let state, fileId, _, _, _ = unparsedFileState ()
     let parsedId = NodeId.New()
-    let attach = { ref = Ownership.Owner; id = parsedId }
+    let attach = ChildNode.owner parsedId
     let parseChange =
         { id = 0
           changeId = System.Guid.NewGuid()
@@ -582,7 +582,7 @@ let ``nested file parse under current directory replaces file tree`` () =
         |> expectChanged
     Assert.Equal(Current, fileUnparsed.graph.nodes.[directoryId].documentState)
     let parsedId = NodeId.New()
-    let attach = { ref = Ownership.Owner; id = parsedId }
+    let attach = ChildNode.owner parsedId
     let parseChange =
         { id = 0
           changeId = System.Guid.NewGuid()
@@ -620,7 +620,7 @@ let ``nested file parse still allowed when enclosing directory is unparsed`` () 
           Op.SetDocumentState(fileId, Current, Unparsed) ]
         |> List.fold (fun state op -> Op.apply op state |> expectChanged) state2
     let parsedId = NodeId.New()
-    let attach = { ref = Ownership.Owner; id = parsedId }
+    let attach = ChildNode.owner parsedId
     let parseChange =
         { id = 0
           changeId = System.Guid.NewGuid()
@@ -668,7 +668,7 @@ let private graphWithDistantFileUnderFileViolation () =
     let graph0 = Graph.create ()
     let fileAId, fileA = specialNode File "outer.txt"
     let fileBId, fileB = specialNode File "inner.txt"
-    let owner id = { ref = Ownership.Owner; id = id }
+    let owner = ChildNode.owner
     let root = graph0.nodes.[Graph.rootId]
     let nodes =
         graph0.nodes
@@ -712,7 +712,7 @@ let ``validateOwnershipLocated Ok when Ref owner defaults to ROOT`` () =
         |> Map.add Graph.rootId
             { root with
                 children =
-                    root.children @ [ { ref = Ownership.Ref; id = childId } ] }
+                    root.children @ [ ChildNode.reference childId ] }
         |> Map.add childId child
     let graph = Graph.fromNodes graph0.root nodes
     match History.validateOwnershipLocated graph with
@@ -722,8 +722,8 @@ let ``validateOwnershipLocated Ok when Ref owner defaults to ROOT`` () =
 [<Fact>]
 let ``validateOwnershipLocated Ok when Ref owner parent is Unloaded`` () =
     let graph0 = Graph.create ()
-    let owner id = { ref = Ownership.Owner; id = id }
-    let refOf id = { ref = Ownership.Ref; id = id }
+    let owner = ChildNode.owner
+    let refOf = ChildNode.reference
     let ownerParentId = NodeId.New()
     let loadedParentId = NodeId.New()
     let headerId = NodeId.New()
@@ -764,8 +764,8 @@ let ``validateOwnershipLocated Ok when Ref owner parent is Unloaded`` () =
 [<Fact>]
 let ``validateOwnershipLocated Ok when Ref owner defaulted to ROOT with Unloaded real owner`` () =
     let graph0 = Graph.create ()
-    let owner id = { ref = Ownership.Owner; id = id }
-    let refOf id = { ref = Ownership.Ref; id = id }
+    let owner = ChildNode.owner
+    let refOf = ChildNode.reference
     let ownerParentId = NodeId.New()
     let loadedParentId = NodeId.New()
     let headerId = NodeId.New()
@@ -808,8 +808,8 @@ let ``validateOwnershipLocated Ok when Ref owner defaulted to ROOT with Unloaded
 [<Fact>]
 let ``validateOwnershipLocated Error when Ref owner parent is Loaded without Owner`` () =
     let graph0 = Graph.create ()
-    let owner id = { ref = Ownership.Owner; id = id }
-    let refOf id = { ref = Ownership.Ref; id = id }
+    let owner = ChildNode.owner
+    let refOf = ChildNode.reference
     let claimedOwnerId = NodeId.New()
     let loadedParentId = NodeId.New()
     let headerId = NodeId.New()
@@ -854,7 +854,7 @@ let ``validateOwnershipLocated reports multiple owner occurrences with ids`` () 
     let childId = NodeId.New()
     let parentAId = NodeId.New()
     let parentBId = NodeId.New()
-    let owner id = { ref = Ownership.Owner; id = id }
+    let owner = ChildNode.owner
     let child = Node.Create(childId, text = "child")
     let parentA = { Node.Create(parentAId, text = "a") with children = [ owner childId ] }
     let parentB = { Node.Create(parentBId, text = "b") with children = [ owner childId ] }
@@ -882,7 +882,7 @@ let ``validateOwnershipLocated reports owner chain that does not reach root`` ()
     let graph0 = Graph.create ()
     let aId = NodeId.New()
     let bId = NodeId.New()
-    let owner id = { ref = Ownership.Owner; id = id }
+    let owner = ChildNode.owner
     let a = { Node.Create(aId, text = "a") with children = [ owner bId ] }
     let b = { Node.Create(bId, text = "b") with children = [ owner aId ] }
     let nodes =
@@ -907,7 +907,7 @@ let ``validateOwnershipLocated reports duplicate artifact name`` () =
     let graph0 = Graph.create ()
     let d1Id, d1 = specialNode Directory "dup"
     let d2Id, d2 = specialNode Directory "dup"
-    let owner id = { ref = Ownership.Owner; id = id }
+    let owner = ChildNode.owner
     let root = graph0.nodes.[Graph.rootId]
     let nodes =
         graph0.nodes
@@ -937,5 +937,5 @@ let ``local shape op succeeds despite distant ownership violation`` () =
                 Graph.rootId,
                 state.graph.nodes.[Graph.rootId].children.Length,
                 [],
-                [ { ref = Ownership.Owner; id = newId } ]))
+                [ ChildNode.owner newId ]))
     History.applyChange change state |> expectChanged |> ignore

@@ -9,8 +9,7 @@ let private requireOk label r =
     | Ok v -> v
     | Error e -> failwith $"{label}: {e}"
 
-let private owned (ids: NodeId list) : ChildNode list =
-    ids |> List.map (fun id -> { ref = Ownership.Owner; id = id })
+let private owned = ChildNode.owners
 
 let private graphWithDocument (childNodes: Node list) : Graph * NodeId =
     let graph0 = Graph.create ()

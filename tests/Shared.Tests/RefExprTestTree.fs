@@ -28,7 +28,7 @@ let private specialNode (id: NodeId) (kind: SpecialKind) (name: string) (owner: 
 
 let private addUnder (parentId: NodeId) (child: Node) (graph: Graph) : Graph =
     let parent = graph.nodes.[parentId]
-    let link = { ref = Ownership.Owner; id = child.id }
+    let link = ChildNode.owner child.id
     let nodes =
         graph.nodes
         |> Map.add child.id child

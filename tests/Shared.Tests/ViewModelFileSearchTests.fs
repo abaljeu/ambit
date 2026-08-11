@@ -23,7 +23,7 @@ let private addRootOwnedFile (name: string) (graph: Graph) : NodeId * Graph =
             owner = Graph.rootId,
             kind = Special File)
     let parent = graph.nodes.[Graph.rootId]
-    let link = { ref = Ownership.Owner; id = fileId }
+    let link = ChildNode.owner fileId
     let nodes =
         graph.nodes
         |> Map.add fileId file

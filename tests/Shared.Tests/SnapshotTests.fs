@@ -6,7 +6,7 @@ open Gambol.Shared
 open SpecialNodeTestHelpers
 
 let private childId (child: ChildNode) = child.id
-let private owned (ids: NodeId list) = ids |> List.map (fun id -> { ref = Ownership.Owner; id = id })
+let private owned = ChildNode.owners
 
 /// Extract the tree shape as (depth, text) pairs via depth-first traversal.
 /// The root is excluded; its children are depth 0.

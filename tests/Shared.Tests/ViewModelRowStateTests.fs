@@ -5,11 +5,9 @@ open Gambol.Shared.ViewModel
 open VmTestHelpers
 open Xunit
 
-let private owned id =
-    { ref = Ownership.Owner; id = id }
+let private owned = ChildNode.owner
 
-let private reference id =
-    { ref = Ownership.Ref; id = id }
+let private reference = ChildNode.reference
 
 let private requireOk label result =
     result |> ModelBuilder.requireOk label
@@ -590,7 +588,7 @@ let ``rowChildrenIndicator is FoldChevron when Loaded with children`` () =
         Node.Create(
             NodeId.New(),
             text = "parent",
-            children = [ { ref = Ownership.Owner; id = childId } ])
+            children = [ ChildNode.owner childId ])
     Assert.Equal(RowChildrenIndicator.FoldChevron, rowChildrenIndicator node)
 
 [<Fact>]
@@ -602,7 +600,7 @@ let ``rowChildrenIndicator keeps FoldChevron for Unparsed with resident children
             text = "file",
             kind = Special File,
             documentState = Unparsed,
-            children = [ { ref = Ownership.Owner; id = childId } ])
+            children = [ ChildNode.owner childId ])
     Assert.Equal(RowChildrenIndicator.FoldChevron, rowChildrenIndicator node)
 
 [<Fact>]
@@ -741,7 +739,7 @@ let ``bulletTip keeps line order stable across chevron and leaf nodes`` () =
         Node.Create(
             NodeId.New(),
             text = "parent",
-            children = [ { ref = Ownership.Owner; id = childId } ])
+            children = [ ChildNode.owner childId ])
     let leaf = Node.Create(NodeId.New(), text = "leaf")
     let orderOf (node: Node) =
         (bulletTip stubFormatLocal (modelWithLooseNode node) node).Split('\n')

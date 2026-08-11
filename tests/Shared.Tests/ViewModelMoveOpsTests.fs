@@ -6,8 +6,7 @@ open Gambol.Shared.ViewModelMoveOps
 open VmTestHelpers
 open Xunit
 
-let private owned (ids: NodeId list) : ChildNode list =
-    ids |> List.map (fun id -> { ref = Ownership.Owner; id = id })
+let private owned = ChildNode.owners
 
 let private buildFlat (texts: string list) : Graph * NodeId * NodeId list =
     let graph0 = Graph.create ()
@@ -42,7 +41,7 @@ let private sharedRefGraph () =
     let sharedId = ids.[1]
     let newId = ids.[2]
     let childId = ids.[3]
-    let sharedRef = { ref = Ownership.Ref; id = sharedId }
+    let sharedRef = ChildNode.reference sharedId
     let graph2 =
         Graph.replace graph1.root 0 [] (owned [ cont ]) graph1
         |> ModelBuilder.requireOk "root"
@@ -214,7 +213,7 @@ let private sharedGrandparentOutdentGraph () =
     let sharedG = ids.[1]
     let parentId = ids.[2]
     let childId = ids.[3]
-    let sharedRef = { ref = Ownership.Ref; id = sharedG }
+    let sharedRef = ChildNode.reference sharedG
     let graph2 =
         Graph.replace graph1.root 0 [] (owned [ cont ]) graph1
         |> ModelBuilder.requireOk "root"
@@ -471,7 +470,7 @@ let private refBesideNormalWithForeignDupDirs () =
     let graph3 = addSpecialNode d2Id Directory "dup" graph2
     let root = graph3.nodes.[Graph.rootId]
     let idx = Graph.fileTreeInsertIndex graph3 Graph.rootId
-    let dirRef = { ref = Ownership.Ref; id = d1Id }
+    let dirRef = ChildNode.reference d1Id
     let nodes =
         graph3.nodes
         |> Map.add Graph.rootId

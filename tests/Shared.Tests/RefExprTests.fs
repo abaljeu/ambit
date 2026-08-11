@@ -14,8 +14,7 @@ let private parseOk input =
 
 let private ids results = results |> List.map (fun r -> r.nodeId) |> Set.ofList
 
-let private owned (ids: NodeId list) : ChildNode list =
-    ids |> List.map (fun id -> { ref = Ownership.Owner; id = id })
+let private owned = ChildNode.owners
 
 // ---- parse ----
 
@@ -382,7 +381,7 @@ let ``match_ path step follows ref children`` () =
         let parent = t.appFs
         let parentNode = t.graph.nodes.[parent]
         let children =
-            parentNode.children @ [ { ref = Ownership.Ref; id = t.libFs } ]
+            parentNode.children @ [ ChildNode.reference t.libFs ]
         Graph.fromNodes t.graph.root (t.graph.nodes |> Map.add parent { parentNode with children = children })
     let ctx = RefExpr.refContext t.appFs graph
     let nodes = RefExpr.match_ ctx graph (parseOk "lib.fs")
@@ -403,7 +402,7 @@ let ``match_ tag step follows ref children`` () =
         |> Map.add tagged taggedNode
         |> fun nodes -> Graph.fromNodes graph2.root nodes
     let graph4 =
-        match Graph.replace holder 0 [] [ { ref = Ownership.Ref; id = tagged } ] graph3 with
+        match Graph.replace holder 0 [] [ ChildNode.reference tagged ] graph3 with
         | Ok g -> g
         | Error e -> failwith e
     let ctx = RefExpr.refContext holder graph4

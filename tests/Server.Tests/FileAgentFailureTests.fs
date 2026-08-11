@@ -24,7 +24,7 @@ let private changedBody () =
                         Graph.rootId,
                         0,
                         [],
-                        [ { ref = Ownership.Owner; id = childId } ])
+                        [ ChildNode.owner childId ])
                 ]
         }
     Encode.toString 0 (
@@ -57,7 +57,7 @@ let private softFailEditBody () =
                         Graph.rootId,
                         0,
                         [],
-                        [ { ref = Ownership.Owner; id = childId } ])
+                        [ ChildNode.owner childId ])
                 ]
         }
     Encode.toString 0 (

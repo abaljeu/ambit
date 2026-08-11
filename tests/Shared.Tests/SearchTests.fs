@@ -17,7 +17,7 @@ let private setNodeName (nodeId: NodeId) (nameStr: string option) (graph: Graph)
     Graph.fromNodes graph.root (graph.nodes |> Map.add nodeId { node with name = name })
 
 let private ownedRootChildren (ids: NodeId list) (graph: Graph) : Graph =
-    let ch = ids |> List.map (fun id -> { ref = Ownership.Owner; id = id })
+    let ch = ChildNode.owners ids
     match Graph.replace graph.root 0 [] ch graph with
     | Ok g -> g
     | Error e -> failwith e
@@ -64,8 +64,8 @@ let ``searchNodes phase A then B puts zoom subtree before rest of root tree`` ()
     let zaId = ids.[1]
     let hitUnderZa = ids.[2]
     let hitUnderRoot = ids.[3]
-    let chZ = [ { ref = Ownership.Owner; id = zaId } ]
-    let chZa = [ { ref = Ownership.Owner; id = hitUnderZa } ]
+    let chZ = [ ChildNode.owner zaId ]
+    let chZa = [ ChildNode.owner hitUnderZa ]
     let graph2 =
         match Graph.replace zId 0 [] chZ graph1 with
         | Ok g -> g
@@ -150,7 +150,7 @@ let ``makeNodeRangeForInsertingUnder node with children appends at end`` () =
     let graph0 = Graph.create ()
     let graph1, ids = ModelBuilder.createNodes [ "parent"; "child1"; "child2" ] graph0
     let graph2 = ownedRootChildren [ ids.[0] ] graph1
-    let ch = [ { ref = Ownership.Owner; id = ids.[1] }; { ref = Ownership.Owner; id = ids.[2] } ]
+    let ch = [ ChildNode.owner ids.[1]; ChildNode.owner ids.[2] ]
     let graph3 =
         match Graph.replace ids.[0] 0 [] ch graph2 with
         | Ok g -> g
@@ -234,7 +234,7 @@ let ``search cursor terminates and deduplicates a cycle`` () =
     let childId = ids.[0]
     let graph2 = ownedRootChildren ids graph1
     let child = graph2.nodes.[childId]
-    let cycle = [ { ref = Ownership.Owner; id = graph2.root } ]
+    let cycle = [ ChildNode.owner graph2.root ]
     let graph3 =
         Graph.fromNodes graph2.root
             (graph2.nodes |> Map.add childId { child with children = cycle })

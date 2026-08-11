@@ -11,8 +11,7 @@ let private requireOk label result =
     | Ok value -> value
     | Error error -> failwith $"{label}: {error}"
 
-let private owned ids =
-    ids |> List.map (fun id -> { ref = Ownership.Owner; id = id })
+let private owned = ChildNode.owners
 
 let private specialNode id kind name owner =
     Node.Create(

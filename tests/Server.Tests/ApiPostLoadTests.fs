@@ -15,8 +15,7 @@ module Decode = Thoth.Json.Newtonsoft.Decode
 let private decodeLoadResponse json =
     Decode.fromString ApiResponseSerialization.decodeLoadResponseDecoder json
 
-let private owned (ids: NodeId list) : ChildNode list =
-    ids |> List.map (fun id -> { ref = Ownership.Owner; id = id })
+let private owned = ChildNode.owners
 
 let private nestedWorkspaceGraph () : Graph * NodeId * NodeId * NodeId =
     let graph0 = Graph.create ()

@@ -21,8 +21,8 @@ let private applyOps (graph: Graph) (ops: Op list) : Graph =
         | ApplyResult.Invalid(_, msg) -> failwith msg) state
     |> fun s -> s.graph
 
-let private owned id = { ref = Ownership.Owner; id = id }
-let private asRef id = { ref = Ownership.Ref; id = id }
+let private owned = ChildNode.owner
+let private asRef = ChildNode.reference
 
 let private outlineSetup () =
     let graph0 = Graph.create ()

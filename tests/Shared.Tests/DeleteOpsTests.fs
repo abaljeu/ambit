@@ -8,11 +8,9 @@ open Xunit
 // Helpers
 // ---------------------------------------------------------------------------
 
-let private owned (ids: NodeId list) : ChildNode list =
-    ids |> List.map (fun id -> { ref = Ownership.Owner; id = id })
+let private owned = ChildNode.owners
 
-let private ref_ (id: NodeId) : ChildNode =
-    { ref = Ownership.Ref; id = id }
+let private ref_ = ChildNode.reference
 
 /// Build graph: root -> [a(owner), b(owner)]. Returns graph, a, b.
 let private buildTwoSiblings () : Graph * NodeId * NodeId =
@@ -217,7 +215,7 @@ let ``planDeleteOps single item hard-delete from TRASH: item removed permanently
     let a = ids.[0]
     let g2 =
         let trashLen = g1.nodes.[Graph.trashId].children.Length
-        Graph.replace Graph.trashId trashLen [] [ { ref = Ownership.Owner; id = a } ] g1
+        Graph.replace Graph.trashId trashLen [] [ ChildNode.owner a ] g1
         |> ModelBuilder.requireOk "trash->[a]"
     let range = trashRange g2 0 1
     let classified = ViewModelDeleteOps.classifyDeleteForSelection g2 range
@@ -243,7 +241,7 @@ let ``planDeleteOps multi-item hard-delete from TRASH: both items removed perman
     let g2 =
         let trashLen = g1.nodes.[Graph.trashId].children.Length
         Graph.replace Graph.trashId trashLen []
-            [ { ref = Ownership.Owner; id = a }; { ref = Ownership.Owner; id = b } ] g1
+            [ ChildNode.owner a; ChildNode.owner b ] g1
         |> ModelBuilder.requireOk "trash->[a,b]"
     let range = trashRange g2 0 2
     let classified = ViewModelDeleteOps.classifyDeleteForSelection g2 range

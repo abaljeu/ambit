@@ -6,8 +6,7 @@ open Gambol.Shared
 module Enc = Thoth.Json.Newtonsoft.Encode
 module Dec = Thoth.Json.Newtonsoft.Decode
 
-let private owned (ids: NodeId list) : ChildNode list =
-    ids |> List.map (fun id -> { ref = Ownership.Owner; id = id })
+let private owned = ChildNode.owners
 
 let private requirePackage = function
     | Ok package -> package
@@ -176,7 +175,7 @@ let ``build import marks unparsed file current before tree operations`` () =
             documentState = Unparsed)
     let graph0 = Graph.create ()
     let root = graph0.nodes.[Graph.rootId]
-    let fileOccurrence = { ref = Ownership.Owner; id = focusId }
+    let fileOccurrence = ChildNode.owner focusId
     let graph =
         graph0.nodes
         |> Map.add Graph.rootId { root with children = root.children @ [ fileOccurrence ] }

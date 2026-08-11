@@ -16,7 +16,7 @@ let private stateWithRootChild (text: string) : State =
           changeId = Guid.NewGuid()
           ops =
             [ Op.NewNode(childId, text)
-              Op.Replace(Graph.rootId, 0, [], [ { ref = Ownership.Owner; id = childId } ]) ] }
+              Op.Replace(Graph.rootId, 0, [], [ ChildNode.owner childId ]) ] }
     let initial =
         { graph = Graph.create ()
           history = History.empty

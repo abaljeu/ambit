@@ -9,8 +9,7 @@ let private requireOk label r =
     | Ok v -> v
     | Error e -> failwith $"{label}: {e}"
 
-let private owned (ids: NodeId list) : ChildNode list =
-    ids |> List.map (fun id -> { ref = Ownership.Owner; id = id })
+let private owned = ChildNode.owners
 
 let private graphWithDocument (childNodes: Node list) : Graph * NodeId =
     let graph0 = Graph.create ()
@@ -146,7 +145,7 @@ let ``write ref occurrence exports target visible text`` () =
     let parentId = NodeId.New()
     let parent =
         { normalNode parentId "holder" Graph.rootId with
-            children = [ { ref = Ownership.Ref; id = sharedId } ] }
+            children = [ ChildNode.reference sharedId ] }
     let shared = normalNode sharedId "shared text" Graph.rootId
     let graph0, docId = graphWithDocument [ parent ]
     let graph =
@@ -403,7 +402,7 @@ let ``cold read of exported ref line creates ordinary content`` () =
     let parentId = NodeId.New()
     let parent =
         { normalNode parentId "holder" Graph.rootId with
-            children = [ { ref = Ownership.Ref; id = sharedId } ] }
+            children = [ ChildNode.reference sharedId ] }
     let shared = normalNode sharedId "shared text" Graph.rootId
     let graph0, docId = graphWithDocument [ parent ]
     let graph =
@@ -425,7 +424,7 @@ let ``reconcile preserves ref edge from graph context`` () =
     let parentId = NodeId.New()
     let parent =
         { normalNode parentId "holder" Graph.rootId with
-            children = [ { ref = Ownership.Ref; id = sharedId } ] }
+            children = [ ChildNode.reference sharedId ] }
     let shared = normalNode sharedId "shared text" Graph.rootId
     let graph0, docId = graphWithDocument [ parent ]
     let graph =

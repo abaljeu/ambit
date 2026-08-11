@@ -3,8 +3,7 @@ module WorkspaceSyncScopeTests
 open Gambol.Shared
 open Xunit
 
-let private owned (ids: NodeId list) : ChildNode list =
-    ids |> List.map (fun id -> { ref = Ownership.Owner; id = id })
+let private owned = ChildNode.owners
 
 let private requireOk label r =
     match r with

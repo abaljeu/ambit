@@ -4,8 +4,7 @@ open System
 open Xunit
 open Gambol.Shared
 
-let private owned (ids: NodeId list) =
-    ids |> List.map (fun id -> { ref = Ownership.Owner; id = id })
+let private owned = ChildNode.owners
 
 let private graphWithDocument (childNodes: Node list) : Graph * NodeId =
     let graph0 = Graph.create ()
@@ -72,7 +71,7 @@ let ``write referenced node uses caret stable id on ref line`` () =
         Node.Create(
             parentId,
             text = "holder",
-            children = [ { ref = Ownership.Ref; id = sharedId } ])
+            children = [ ChildNode.reference sharedId ])
     let shared =
         Node.Create(sharedId, text = "hello")
     let graph, docId = graphWithDocument [ parent; shared ]
@@ -109,7 +108,7 @@ let ``write referenced named node uses caret stable id and tab before body`` () 
         Node.Create(
             parentId,
             text = "holder",
-            children = [ { ref = Ownership.Ref; id = sharedId } ])
+            children = [ ChildNode.reference sharedId ])
     let shared =
         Node.Create(sharedId, text = "body text", name = Filename.Ok "anchor")
     let graph, docId = graphWithDocument [ parent; shared ]
@@ -429,8 +428,8 @@ let ``reconcile ref line stable across reorder`` () =
             docId
             0
             []
-            [ { ref = Ownership.Ref; id = aId }
-              { ref = Ownership.Ref; id = bId } ]
+            [ ChildNode.reference aId
+              ChildNode.reference bId ]
             graph0
         |> requireOk "replace refs"
     let previous =

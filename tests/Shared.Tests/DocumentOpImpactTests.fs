@@ -9,8 +9,7 @@ let private requireOk label result =
     | Ok value -> value
     | Error error -> failwith $"{label}: {error}"
 
-let private owned ids =
-    ids |> List.map (fun id -> { ref = Ownership.Owner; id = id })
+let private owned = ChildNode.owners
 
 let private specialNode id kind name owner =
     Node.Create(
@@ -109,7 +108,7 @@ let ``SetName on nested root affects itself and parent including path moves`` ()
 let ``NewNode and Replace append affect only the receiving document`` () =
     let graph, _, dirAId, _, fileAId, fileBId, _, _ = graphWithDocuments ()
     let childId = NodeId.New()
-    let child = { ref = Ownership.Owner; id = childId }
+    let child = ChildNode.owner childId
     let index = graph.nodes.[fileAId].children.Length
     let ops =
         [ Op.NewNode(childId, "new")
@@ -123,7 +122,7 @@ let ``NewNode and Replace append affect only the receiving document`` () =
 [<Fact>]
 let ``Replace reparent affects old and new packages and moved root`` () =
     let graph, wsId, dirAId, dirBId, fileAId, fileBId, _, _ = graphWithDocuments ()
-    let child = { ref = Ownership.Owner; id = fileAId }
+    let child = ChildNode.owner fileAId
     let ops =
         [ Op.Replace(dirAId, 0, [ child ], [])
           Op.Replace(dirBId, 0, [], [ child ]) ]
@@ -139,7 +138,7 @@ let ``Replace reparent affects old and new packages and moved root`` () =
 let ``NewSpecialNode and Replace affect new root and parent package`` () =
     let graph, wsId, dirAId, _, _, fileBId, _, _ = graphWithDocuments ()
     let fileId = NodeId.New()
-    let child = { ref = Ownership.Owner; id = fileId }
+    let child = ChildNode.owner fileId
     let index = graph.nodes.[dirAId].children.Length
     let ops =
         [ Op.NewSpecialNode(fileId, File, "new.txt")

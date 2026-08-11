@@ -3,8 +3,7 @@ module GraphQueryTests
 open Gambol.Shared
 open Xunit
 
-let private owned (ids: NodeId list) : ChildNode list =
-    ids |> List.map (fun id -> { ref = Ownership.Owner; id = id })
+let private owned = ChildNode.owners
 
 let private requireOk label r =
     match r with
@@ -187,7 +186,7 @@ let ``tryFindArtifactNameDuplicate returns a duplicate artifact id`` () =
 [<Fact>]
 let ``Graph.replace accepts Ref attach despite foreign duplicate artifact names`` () =
     let graph, normalId, d1Id = graphWithForeignDuplicateDirsAndRef ()
-    let dirRef = { ref = Ownership.Ref; id = d1Id }
+    let dirRef = ChildNode.reference d1Id
     match Graph.replace normalId 0 [] [ dirRef ] graph with
     | Ok graph2 ->
         Assert.Equal<ChildNode list>([ dirRef ], graph2.nodes.[normalId].children)

@@ -26,7 +26,7 @@ let private artifactsForChildKind (kind: SpecialKind) =
             Graph.workspacesId
             0
             []
-            [ { ref = Ownership.Owner; id = childId } ]
+            [ ChildNode.owner childId ]
             graphWithNode
         |> requireOk "place child"
     let rootText = AmbDocument.write expected Graph.rootId |> requireOk "write root"

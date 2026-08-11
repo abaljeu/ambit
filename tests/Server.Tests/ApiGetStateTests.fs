@@ -68,10 +68,10 @@ let private nestedWorkspaceStateJson () =
             Graph.workspacesId
             { workspaces with
                 children =
-                    workspaces.children @ [ { ref = Ownership.Owner; id = wsId } ] }
+                    workspaces.children @ [ ChildNode.owner wsId ] }
     let graph1 = Graph.fromNodes graph0.root nodes
     let graph2 =
-        Graph.replace wsId 0 [] [ { ref = Ownership.Owner; id = dirId } ] graph1
+        Graph.replace wsId 0 [] [ ChildNode.owner dirId ] graph1
         |> function
             | Ok g -> g
             | Error err -> failwith err

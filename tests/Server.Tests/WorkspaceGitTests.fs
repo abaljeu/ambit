@@ -27,8 +27,7 @@ let private currentBranch root =
 let private branchOid root branch =
     git root $"rev-parse refs/heads/{branch}"
 
-let private owned (ids: NodeId list) : ChildNode list =
-    ids |> List.map (fun id -> { ref = Ownership.Owner; id = id })
+let private owned = ChildNode.owners
 
 let private graphWithWorkspace (label: string) : Graph * NodeId =
     let graph0 = Graph.create ()

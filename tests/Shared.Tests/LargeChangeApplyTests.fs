@@ -22,7 +22,7 @@ let private baseState () : State =
 
 let private parseLikeChange (parentId: NodeId) : Change =
     let children =
-        List.init nodeCount (fun _ -> { ref = Ownership.Owner; id = NodeId.New() })
+        List.init nodeCount (fun _ -> ChildNode.owner (NodeId.New()))
     { id = 0
       changeId = System.Guid.NewGuid()
       ops =
@@ -61,8 +61,8 @@ let ``bulk NewNode apply does not cost a full graph rebuild per op`` () =
 let private nestedParseChange (documentRootId: NodeId) : Change =
     let branches =
         List.init 200 (fun _ ->
-            { ref = Ownership.Owner; id = NodeId.New() },
-            List.init 10 (fun _ -> { ref = Ownership.Owner; id = NodeId.New() }))
+            ChildNode.owner (NodeId.New()),
+            List.init 10 (fun _ -> ChildNode.owner (NodeId.New())))
     { id = 0
       changeId = System.Guid.NewGuid()
       ops =

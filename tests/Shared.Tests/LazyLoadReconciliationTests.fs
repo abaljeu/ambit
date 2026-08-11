@@ -74,7 +74,7 @@ let ``nested file parse after upload tree build is accepted`` () =
     Assert.Equal(Current, src.documentState)
     Assert.Equal(Unparsed, file.documentState)
     let parsedId = NodeId.New()
-    let attach = { ref = Ownership.Owner; id = parsedId }
+    let attach = ChildNode.owner parsedId
     let state =
         { graph = graph2; history = History.empty; revision = Revision.Zero }
     let parseChange =
@@ -233,7 +233,7 @@ let ``reconciliation finds artifacts through normal organizers`` () =
               workspaceId,
               0,
               [],
-              [ { ref = Ownership.Owner; id = workspaceOrganizerId } ]) ]
+              [ ChildNode.owner workspaceOrganizerId ]) ]
         |> applyOps graph1
     let srcId, srcOps =
         FileNodeOps.planCreateOwnedDirectory graph2 workspaceOrganizerId "src"
@@ -244,7 +244,7 @@ let ``reconciliation finds artifacts through normal organizers`` () =
               srcId,
               0,
               [],
-              [ { ref = Ownership.Owner; id = srcOrganizerId } ]) ]
+              [ ChildNode.owner srcOrganizerId ]) ]
         |> applyOps graph4
     let fileId, fileOps =
         FileNodeOps.planCreateOwnedFile graph5 srcOrganizerId "main.fs"
@@ -332,7 +332,7 @@ let ``deleted file is moved to trash with parsed descendants`` () =
     let parsedId = NodeId.New()
     let graph3 =
         [ Op.NewNode(parsedId, "parsed")
-          Op.Replace(file.id, 0, [], [ { ref = Ownership.Owner; id = parsedId } ]) ]
+          Op.Replace(file.id, 0, [], [ ChildNode.owner parsedId ]) ]
         |> applyOps graph2
     let graph4 =
         requireChangedPlan graph3 "home" [ LazyLoadReconciliation.Deleted "docs/readme.txt" ]
@@ -350,8 +350,8 @@ let ``deleted file refs become path expressions without promotion`` () =
     let holderId = NodeId.New()
     let graph3 =
         [ Op.NewNode(holderId, "holder")
-          Op.Replace(Graph.rootId, 0, [], [ { ref = Ownership.Owner; id = holderId } ])
-          Op.Replace(holderId, 0, [], [ { ref = Ownership.Ref; id = file.id } ]) ]
+          Op.Replace(Graph.rootId, 0, [], [ ChildNode.owner holderId ])
+          Op.Replace(holderId, 0, [], [ ChildNode.reference file.id ]) ]
         |> applyOps graph2
     let graph4 =
         requireChangedPlan graph3 "home" [ LazyLoadReconciliation.Deleted "note.txt" ]
@@ -373,7 +373,7 @@ let ``rename and cross-directory move preserve identity and children`` () =
     let parsedId = NodeId.New()
     let graph3 =
         [ Op.NewNode(parsedId, "parsed")
-          Op.Replace(file.id, 0, [], [ { ref = Ownership.Owner; id = parsedId } ]) ]
+          Op.Replace(file.id, 0, [], [ ChildNode.owner parsedId ]) ]
         |> applyOps graph2
     let renamed =
         requireChangedPlan

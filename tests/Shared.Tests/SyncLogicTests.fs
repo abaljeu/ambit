@@ -286,7 +286,7 @@ let ``applyServerTail skips structural Replace on Unloaded parent`` () =
             { workspaces with
                 children =
                     workspaces.children
-                    @ [ { ref = Ownership.Owner; id = wsId } ] }
+                    @ [ ChildNode.owner wsId ] }
     let graph = Graph.fromNodes graph0.root nodes
     let st =
         { graph = graph
@@ -300,7 +300,7 @@ let ``applyServerTail skips structural Replace on Unloaded parent`` () =
                     wsId,
                     0,
                     [],
-                    [ { ref = Ownership.Owner; id = childId } ]) ] }
+                    [ ChildNode.owner childId ]) ] }
     match SyncLogic.applyServerTail [ change ] st with
     | Error msg -> failwith $"Expected Ok, got Error: {msg}"
     | Ok result ->
@@ -329,7 +329,7 @@ let ``applyServerTail applies header facts on Unloaded resident Node`` () =
             { workspaces with
                 children =
                     workspaces.children
-                    @ [ { ref = Ownership.Owner; id = wsId } ] }
+                    @ [ ChildNode.owner wsId ] }
     let st =
         { graph = Graph.fromNodes graph0.root nodes
           history = History.empty
@@ -372,13 +372,13 @@ let ``applySyncResponse installs complete child list as Loaded and preserves own
             { workspaces with
                 children =
                     workspaces.children
-                    @ [ { ref = Ownership.Owner; id = wsId } ] }
+                    @ [ ChildNode.owner wsId ] }
         |> Map.add
             graph0.root
             { root with
                 children =
                     root.children
-                    @ [ { ref = Ownership.Owner; id = markerId } ] }
+                    @ [ ChildNode.owner markerId ] }
     let st =
         { graph = Graph.fromNodes graph0.root nodes0
           history =
@@ -390,7 +390,7 @@ let ``applySyncResponse installs complete child list as Loaded and preserves own
         Node.Create(childId, text = "leaf", owner = wsId)
     let loadedWs =
         { wsHeader with
-            children = [ { ref = Ownership.Owner; id = childId } ]
+            children = [ ChildNode.owner childId ]
             childrenStatus = Loaded }
     // External resident header whose owner edge lives only in an Unloaded list.
     let external =
@@ -478,7 +478,7 @@ let ``applySyncResponse empty Loaded child list marks Loaded without History cle
             { workspaces with
                 children =
                     workspaces.children
-                    @ [ { ref = Ownership.Owner; id = wsId } ] }
+                    @ [ ChildNode.owner wsId ] }
     let past = mkChange 2
     let st =
         { graph = Graph.fromNodes graph0.root nodes

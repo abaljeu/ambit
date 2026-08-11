@@ -26,7 +26,7 @@ let private graphWithWorkspace () =
             name = Filename.Ok "parent.amb",
             owner = graph.root,
             kind = Special File,
-            children = [ { ref = Ownership.Owner; id = workspaceId } ])
+            children = [ ChildNode.owner workspaceId ])
     let nodes =
         graph.nodes
         |> Map.add documentId document

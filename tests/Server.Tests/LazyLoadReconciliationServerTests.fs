@@ -526,7 +526,7 @@ let ``directory reconcile does not duplicate Normal-owned present file`` () =
               docsId,
               0,
               [],
-              [ { ref = Ownership.Owner; id = organizerId } ]) ]
+              [ ChildNode.owner organizerId ]) ]
     let graph4 = readGraph fileAgent
     let fileId, fileOps =
         FileNodeOps.planCreateOwnedFile graph4 organizerId "present.txt"

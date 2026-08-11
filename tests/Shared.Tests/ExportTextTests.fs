@@ -9,8 +9,7 @@ module Dec = Thoth.Json.Newtonsoft.Decode
 
 let private nl = Environment.NewLine
 
-let private owned (ids: NodeId list) : ChildNode list =
-    ids |> List.map (fun id -> { ref = Ownership.Owner; id = id })
+let private owned = ChildNode.owners
 
 let private requireOk = function
     | Ok value -> value
@@ -82,7 +81,7 @@ let ``serializeOwnedChildren omits ref children`` () =
     let graph, refIds = ModelBuilder.createNodes [ "ref-only" ] graph
     let refId = refIds.[0]
     let graph =
-        Graph.replace parentId 0 (owned childIds) (owned childIds @ [ { ref = Ownership.Ref; id = refId } ]) graph
+        Graph.replace parentId 0 (owned childIds) (owned childIds @ [ ChildNode.reference refId ]) graph
         |> requireOk
 
     let text = ExportText.serializeOwnedChildren graph parentId
