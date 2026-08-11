@@ -39,7 +39,7 @@ module DocumentPartition =
                     node.children
                     |> List.fold
                         (fun acc child ->
-                            if child.ref = Ownership.Owner then
+                            if Node.childOwnership graph nodeId child = Ownership.Owner then
                                 if isNestedDocumentRootBoundary graph documentRootId child.id then
                                     Set.add child.id acc
                                 else
@@ -243,6 +243,6 @@ module DocumentPartition =
                 invalidHere
                 || (node.children
                     |> List.exists (fun child ->
-                        child.ref = Ownership.Owner
+                        Node.childOwnership graph nodeId child = Ownership.Owner
                         && ownedSubtreeHasReservedArtifactPath
                             graph (Set.add nodeId visited) child.id))

@@ -73,7 +73,8 @@ module LazyLoadReconciliation =
 
     let private refReplacementOps (graph: Graph) nodeId path =
         ViewModel.getAllOccurrences graph nodeId
-        |> List.filter (fun (_, _, child) -> child.ref = Ownership.Ref)
+        |> List.filter (fun (parentId, _, child) ->
+            Node.childOwnership graph parentId child = Ownership.Ref)
         |> List.collect (fun (parentId, index, oldChild) ->
             let replacementId = NodeId.New()
             [ Op.NewNode(replacementId, $"[[{path}]]")
@@ -96,7 +97,9 @@ module LazyLoadReconciliation =
                 let index =
                     parent.children
                     |> List.findIndex (fun child ->
-                        child.id = nodeId && child.ref = Ownership.Owner)
+                        child.id = nodeId
+                        && Node.childOwnership graph parentId child
+                           = Ownership.Owner)
                 let ownerChild = parent.children.[index]
                 let path =
                     NodeDesktopPath.pathForNodeId graph nodeId
@@ -177,7 +180,9 @@ module LazyLoadReconciliation =
                                     oldParent.children
                                     |> List.findIndex (fun child ->
                                         child.id = nodeId
-                                        && child.ref = Ownership.Owner)
+                                        && Node.childOwnership
+                                            renamed oldParentId child
+                                           = Ownership.Owner)
                                 let ownerChild = oldParent.children.[oldIndex]
                                 let newIndex =
                                     Graph.fileTreeInsertIndex renamed newParentId

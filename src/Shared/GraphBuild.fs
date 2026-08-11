@@ -60,6 +60,9 @@ module GraphBuild =
             acc
 
     let private addOwnerEdges (parentId: NodeId) (parent: Node) acc =
+        // Edge.ref is the write-side source until ChildNode is removed (Phase C).
+        // Do not use Node.childOwnership here: fromNodes applies owner fields after
+        // these maps are built.
         parent.children
         |> List.fold
             (fun a child ->

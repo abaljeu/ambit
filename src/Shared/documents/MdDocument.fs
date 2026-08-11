@@ -235,6 +235,7 @@ module MdDocument =
         | None -> []
         | Some root ->
             let rec loop
+                (parentId: NodeId)
                 (activeHeading: int)
                 (listDepth: int)
                 (acc: SerializedLine list)
@@ -263,7 +264,10 @@ module MdDocument =
                         }
                         :: acc
 
-                    match child.ref, Map.tryFind child.id graph.nodes with
+                    match
+                        Node.childOwnership graph parentId child,
+                        Map.tryFind child.id graph.nodes
+                    with
                     | Ownership.Owner, Some node ->
                         let nextListDepth =
                             match kind with
@@ -271,10 +275,14 @@ module MdDocument =
                             | _ -> 0
 
                         node.children
-                        |> List.fold (loop activeHeading' nextListDepth) acc'
+                        |> List.fold
+                            (loop child.id activeHeading' nextListDepth)
+                            acc'
                     | _ -> acc'
 
-            root.children |> List.fold (loop 0 0) [] |> List.rev
+            root.children
+            |> List.fold (loop documentRootId 0 0) []
+            |> List.rev
 
     let private mapPreviousLines (previousText: string) (graph: Graph) (documentRootId: NodeId) =
         let serialized = serializeLines graph documentRootId |> List.toArray

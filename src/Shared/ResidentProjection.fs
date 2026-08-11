@@ -82,7 +82,10 @@ module ResidentProjection =
                     else
                         node.children
                         |> List.choose (fun c ->
-                            if c.ref = Ownership.Owner then Some c.id else None)
+                            if Node.childOwnership graph nodeId c = Ownership.Owner then
+                                Some c.id
+                            else
+                                None)
                         |> List.fold (fun visited id -> loop id visited) visited'
 
         loop packageRootId Set.empty
@@ -97,7 +100,10 @@ module ResidentProjection =
             | Some node ->
                 node.children
                 |> List.choose (fun c ->
-                    if c.ref = Ownership.Ref && not (Set.contains c.id ownedIds) then
+                    if
+                        Node.childOwnership graph id c = Ownership.Ref
+                        && not (Set.contains c.id ownedIds)
+                    then
                         Some c.id
                     else
                         None))

@@ -61,8 +61,12 @@ module DocumentColdParse =
 
             textOps @ nameOps @ classOps
 
-    let private isOwnedSpecial (graph: Graph) (child: ChildNode) =
-        child.ref = Ownership.Owner
+    let private isOwnedSpecial
+        (graph: Graph)
+        (parentId: NodeId)
+        (child: ChildNode)
+        =
+        Node.childOwnership graph parentId child = Ownership.Owner
         && match Map.tryFind child.id graph.nodes with
            | Some { kind = Special (File | Directory) } -> true
            | _ -> false
@@ -77,13 +81,17 @@ module DocumentColdParse =
             match Map.tryFind documentRootId before.nodes with
             | None -> []
             | Some root ->
-                root.children |> List.filter (isOwnedSpecial before)
+                root.children
+                |> List.filter (isOwnedSpecial before documentRootId)
 
         let existingOwnedIds =
             existingOwnedSpecials
             |> List.map (fun child -> child.id)
             |> Set.ofList
 
+        // Outline edges are proposed (pre-apply): use edge.ref, not childOwnership.
+        // Phase B owner=parent would treat a Ref to an already-owned special as Owner
+        // and keep the Ref edge instead of restoring the preserved Owner.
         let outlinedOwners =
             outlineChildren
             |> List.choose (fun child ->
@@ -96,7 +104,6 @@ module DocumentColdParse =
                 not (
                     child.ref = Ownership.Ref
                     && Set.contains child.id existingOwnedIds))
-
         let preserved =
             existingOwnedSpecials
             |> List.filter (fun child ->
@@ -113,6 +120,7 @@ module DocumentColdParse =
         : ChildNode list =
         children
         |> List.filter (fun child ->
+            // Planned edge claim is edge.ref; ownerParentByChild is live before-graph.
             match child.ref with
             | Ownership.Ref -> true
             | Ownership.Owner ->
@@ -122,16 +130,20 @@ module DocumentColdParse =
                     && not (Set.contains existing overlay) ->
                     false
                 | _ -> true)
-
     /// Text projection lacks Owner/Ref — preserve prior matching Ref edges by id.
     let private restoreMatchingRefs
+        (graph: Graph)
+        (parentId: NodeId)
         (oldChildren: ChildNode list)
         (outlined: ChildNode list)
         : ChildNode list =
         let priorRefIds =
             oldChildren
             |> List.choose (fun c ->
-                if c.ref = Ownership.Ref then Some c.id else None)
+                if Node.childOwnership graph parentId c = Ownership.Ref then
+                    Some c.id
+                else
+                    None)
             |> Set.ofList
 
         outlined
@@ -161,7 +173,8 @@ module DocumentColdParse =
             else
                 afterChildren
 
-        let withRefs = restoreMatchingRefs oldChildren outlined
+        let withRefs =
+            restoreMatchingRefs before nodeId oldChildren outlined
 
         let newChildren =
             omitForeignOwnedClaims before overlay nodeId withRefs
@@ -169,6 +182,8 @@ module DocumentColdParse =
         oldChildren, newChildren
 
     let private droppedOwnedIds
+        (graph: Graph)
+        (parentId: NodeId)
         (oldChildren: ChildNode list)
         (newChildren: ChildNode list)
         : Set<NodeId> =
@@ -177,7 +192,10 @@ module DocumentColdParse =
 
         oldChildren
         |> List.choose (fun c ->
-            if c.ref = Ownership.Owner && not (Set.contains c.id newIds) then
+            if
+                Node.childOwnership graph parentId c = Ownership.Owner
+                && not (Set.contains c.id newIds)
+            then
                 Some c.id
             else
                 None)
@@ -235,7 +253,10 @@ module DocumentColdParse =
                 let oldC, newC =
                     plannedChildren
                         before after documentRootId overlay nodeId
-                nodeId, oldC, newC, droppedOwnedIds oldC newC)
+                nodeId,
+                oldC,
+                newC,
+                droppedOwnedIds before nodeId oldC newC)
 
         // Owner claimed under another overlay parent is a reparent via Replace,
         // not an unmatched drop — Delete→trash would dual-Own with reclaim.

@@ -121,9 +121,11 @@ module AmbDocument =
     let private refTargetIds (graph: Graph) : Set<NodeId> =
         graph.nodes
         |> Map.toSeq
-        |> Seq.collect (fun (_, node) -> node.children)
-        |> Seq.filter (fun child -> child.ref = Ownership.Ref)
-        |> Seq.map (fun child -> child.id)
+        |> Seq.collect (fun (parentId, node) ->
+            node.children |> List.map (fun child -> parentId, child))
+        |> Seq.filter (fun (parentId, child) ->
+            Node.childOwnership graph parentId child = Ownership.Ref)
+        |> Seq.map (fun (_, child) -> child.id)
         |> Set.ofSeq
 
     let private ownerLineContent (nodeId: NodeId) (node: Node) (bodyText: string) : string =
@@ -199,6 +201,7 @@ module AmbDocument =
                 |> Map.ofSeq
 
             let rec writeChild
+                (parentId: NodeId)
                 (depth: int)
                 (emittedOwners: Set<NodeId>)
                 (acc: SerializedLine list)
@@ -210,7 +213,7 @@ module AmbDocument =
                      |> Map.tryFind nodeId
                      |> Option.defaultValue 0) > 1
 
-                match child.ref with
+                match Node.childOwnership graph parentId child with
                 | Ownership.Ref ->
                     let content =
                         refLineContent
@@ -265,7 +268,7 @@ module AmbDocument =
                                 node.children
                                 |> List.fold
                                     (fun (em, a) c ->
-                                        writeChild (depth + 1) em a c)
+                                        writeChild nodeId (depth + 1) em a c)
                                     (emitted', line :: acc)
                             emitted'', acc'
 
@@ -273,7 +276,7 @@ module AmbDocument =
                 rootNode.children
                 |> List.fold
                     (fun (emitted, acc) child ->
-                        writeChild 0 emitted acc child)
+                        writeChild documentRootId 0 emitted acc child)
                     (Set.empty, [])
 
             Ok(List.rev lines)
@@ -454,8 +457,11 @@ module AmbDocument =
         let fromParentChildren (nodeSources: Map<NodeId, Node>) (parent: Node) =
             parent.children
             |> List.tryPick (fun child ->
-                if child.ref <> Ownership.Owner then None
-                else fromOwnerChild nodeSources child.id)
+                if Node.childOwnership contextGraph parentId child
+                   <> Ownership.Owner then
+                    None
+                else
+                    fromOwnerChild nodeSources child.id)
 
         let fromOwnerLinks (nodeSources: Map<NodeId, Node>) =
             ownerCandidates

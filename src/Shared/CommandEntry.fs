@@ -89,11 +89,11 @@ let contextualTarget (graph: Graph) (parentId: NodeId) (index: int) : Contextual
                  |> Option.isSome ->
             Some(ReconcileWorkspace occurrence.id)
         | Some { kind = Special Directory }
-            when occurrence.ref = Ownership.Owner ->
+            when Node.childOwnership graph parentId occurrence = Ownership.Owner ->
             match WorkspaceSyncScope.tryFromFocus graph occurrence.id with
             | Ok _ -> Some(ReconcileDirectory occurrence.id)
             | Error _ -> None
-        | _ when occurrence.ref = Ownership.Owner ->
+        | _ when Node.childOwnership graph parentId occurrence = Ownership.Owner ->
             DocumentPartition.documentRootForNode graph occurrence.id
             |> Option.bind (fun rootId ->
                 match Map.tryFind rootId graph.nodes with

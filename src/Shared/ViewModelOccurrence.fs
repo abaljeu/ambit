@@ -24,7 +24,8 @@ module ViewModelOccurrence =
     /// The unique owner occurrence (parent, index, child) for nodeId, assuming invariants hold.
     let getOwnerOccurrence (graph: Graph) (nodeId: NodeId) : (NodeId * int * ChildNode) =
         getAllOccurrences graph nodeId
-        |> List.find (fun (_, _, child) -> child.ref = Ownership.Owner)
+        |> List.find (fun (parentId, _, child) ->
+            Node.childOwnership graph parentId child = Ownership.Owner)
 
     /// Reframe zoom at the owner parent of nodeId. None at graph root or without owner parent.
     let tryReframeZoomAtOwnerParent (graph: Graph) (nodeId: NodeId) (nextSiteId: SiteId)

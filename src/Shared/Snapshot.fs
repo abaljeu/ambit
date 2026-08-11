@@ -63,13 +63,13 @@ module Snapshot =
             else
                 None
 
-        let rec writeChild (depth: int) (child: ChildNode) =
+        let rec writeChild (parentId: NodeId) (depth: int) (child: ChildNode) =
             let indent = String.replicate depth "\t"
             let nodeId = child.id
             let isShared =
                 (occurrenceCount |> Map.tryFind nodeId |> Option.defaultValue 0) > 1
 
-            match child.ref with
+            match Node.childOwnership graph parentId child with
             | Ownership.Ref ->
                 let sid =
                     ensureCanonicalSid nodeId
@@ -94,12 +94,12 @@ module Snapshot =
                 else
                     sb.Append(indent).Append(body).Append(nl) |> ignore
                 for c in node.children do
-                    writeChild (depth + 1) c
+                    writeChild nodeId (depth + 1) c
 
         let root = graph.nodes.[graph.root]
 
         for child in root.children do
-            writeChild 0 child
+            writeChild graph.root 0 child
 
         sb.ToString()
 

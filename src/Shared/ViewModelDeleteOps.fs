@@ -53,7 +53,12 @@ module ViewModelDeleteOps =
             let others = occurrencesOutsideSelection graph range nodeId
 
             let action =
-                match child.ref, isOwnerHere, ownerUnderTrash, others with
+                match
+                    Node.childOwnership graph parentId child,
+                    isOwnerHere,
+                    ownerUnderTrash,
+                    others
+                with
                 | Ownership.Ref, _, _, _ ->
                     DeleteAction.LocalDeleteRefOnly
                 | Ownership.Owner, false, _, _ ->
@@ -130,7 +135,8 @@ module ViewModelDeleteOps =
             match item.action with
             | LocalDeleteWithPromotion ->
                 item.otherOccurrences
-                |> List.tryFind (fun (_, _, c) -> c.ref = Ownership.Ref)
+                |> List.tryFind (fun (promoParentId, _, c) ->
+                    Node.childOwnership graph promoParentId c = Ownership.Ref)
                 |> Option.map (fun (promoParentId, promoIdx, oldChild) ->
                     let newChild = { oldChild with ref = Ownership.Owner }
                     Op.Replace(promoParentId, promoIdx, [ oldChild ], [ newChild ]))
@@ -282,7 +288,12 @@ module ViewModelDeleteOps =
                     occurrencesOutsideIndices graph parentId indexSet nodeId
 
                 let action =
-                    match child.ref, isOwnerHere, ownerUnderTrash, others with
+                    match
+                        Node.childOwnership graph parentId child,
+                        isOwnerHere,
+                        ownerUnderTrash,
+                        others
+                    with
                     | Ownership.Ref, _, _, _ ->
                         DeleteAction.LocalDeleteRefOnly
                     | Ownership.Owner, false, _, _ ->
@@ -351,7 +362,8 @@ module ViewModelDeleteOps =
                             |> List.mapi (fun i c -> i, c)
                             |> List.choose (fun (i, c) ->
                                 if
-                                    c.ref = Ownership.Owner
+                                    Node.childOwnership graph parentId c
+                                       = Ownership.Owner
                                     && Set.contains c.id dropIds
                                 then
                                     Some i

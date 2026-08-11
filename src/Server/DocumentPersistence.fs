@@ -774,8 +774,11 @@ module DocumentPersistence =
         match discoverArtifactRelatives dataDir with
         | Error msg -> Error msg
         | Ok relatives ->
-            // Include non-marker bodies (e.g. SYSTEM/user.css). Assembly only follows
-            // children referenced from markers; refuseText still skips oversized files.
+            // Cold bootstrap is marker-outline only for every directory (plain
+            // File bodies stay unloaded until Parse / selective load).
+            let relatives =
+                relatives
+                |> List.filter DocumentArtifactPath.isMarker
             let resolved =
                 relatives
                 |> List.fold

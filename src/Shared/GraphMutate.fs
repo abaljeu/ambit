@@ -28,12 +28,13 @@ module GraphMutate =
 
     let private firstIntroducedOwnerName
         (graph: Graph)
+        (parentId: NodeId)
         (introduced: ChildNode list)
         : string option
         =
         introduced
         |> List.tryPick (fun c ->
-            if c.ref <> Ownership.Owner then None
+            if Node.childOwnership graph parentId c <> Ownership.Owner then None
             else nodeDisplayName graph c.id)
 
     let setText
@@ -126,6 +127,7 @@ module GraphMutate =
                                 | _ ->
                                     GraphQuery.ownedNameLowers
                                         graph
+                                        parentId
                                         (GraphQuery.childrenOf graph parentId)
                                         (Some nodeId)
                                     |> List.exists (fun n -> n = newNameLower)
@@ -198,7 +200,9 @@ module GraphMutate =
                     |> List.tryPick (fun child ->
                         let childNode = graph.nodes.[child.id]
 
-                        match child.ref, childNode.kind with
+                        match
+                            Node.childOwnership graph parentId child, childNode.kind
+                        with
                         | Ownership.Owner, Special Workspace
                             when parentId <> GraphBuild.workspacesId ->
                             Some "Workspace nodes may only be placed under Workspaces"
@@ -242,24 +246,30 @@ module GraphMutate =
                         let hasNameConflict =
                             // Refs never participate in name uniqueness.
                             newChildren
-                            |> List.exists (fun c -> c.ref = Ownership.Owner)
-                            && (GraphQuery.siblingOwnedNameConflict graph updatedChildren newChildren
+                            |> List.exists (fun c ->
+                                Node.childOwnership graph parentId c = Ownership.Owner)
+                            && (GraphQuery.siblingOwnedNameConflict
+                                    graph parentId updatedChildren newChildren
                                 || GraphQuery.artifactNameConflict graph parentId newChildren)
 
                         if hasNameConflict then
                             let name =
-                                firstIntroducedOwnerName graph newChildren
+                                firstIntroducedOwnerName graph parentId newChildren
                                 |> Option.defaultValue "?"
                             Error (formatNameConflict graph parentId name)
                         elif parentId = GraphBuild.rootId then
                             let isOwnerChild (fid: NodeId) (kids: ChildNode list) =
                                 kids
                                 |> List.exists (fun c ->
-                                    c.id = fid && c.ref = Ownership.Owner)
+                                    c.id = fid
+                                    && Node.childOwnership graph parentId c
+                                       = Ownership.Owner)
                             let ownerCount (fid: NodeId) (kids: ChildNode list) =
                                 kids
                                 |> List.filter (fun c ->
-                                    c.id = fid && c.ref = Ownership.Owner)
+                                    c.id = fid
+                                    && Node.childOwnership graph parentId c
+                                       = Ownership.Owner)
                                 |> List.length
                             let folderError =
                                 GraphBuild.systemFolderNodes
@@ -279,8 +289,11 @@ module GraphMutate =
                             let ownedIds (kids: ChildNode list) =
                                 kids
                                 |> List.choose (fun c ->
-                                    if c.ref = Ownership.Owner then Some c.id
-                                    else None)
+                                    if Node.childOwnership graph parentId c
+                                       = Ownership.Owner then
+                                        Some c.id
+                                    else
+                                        None)
                                 |> Set.ofList
                             let before = ownedIds children
                             let after = ownedIds updatedChildren
@@ -307,14 +320,14 @@ module GraphMutate =
                         elif
                             updatedChildren
                             |> List.exists (fun c ->
-                                c.ref = Ownership.Owner
+                                Node.childOwnership graph parentId c = Ownership.Owner
                                 && GraphBuild.isSystemFolderNode c.id)
                         then
                             Error "trash, workspaces, and system may not be OWNED by a non-root parent"
                         elif
                             updatedChildren
                             |> List.exists (fun c ->
-                                c.ref = Ownership.Owner
+                                Node.childOwnership graph parentId c = Ownership.Owner
                                 && GraphBuild.isSpecialSystemDirectoryMember graph c.id)
                         then
                             Error

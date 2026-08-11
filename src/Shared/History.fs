@@ -109,7 +109,10 @@ module Op =
             parentId
             :: ((oldChildren @ newChildren)
                 |> List.choose (fun child ->
-                    if child.ref = Ownership.Owner then Some child.id else None))
+                    if Node.childOwnership graph parentId child = Ownership.Owner then
+                        Some child.id
+                    else
+                        None))
         | Op.SetDocumentState _ -> []
 
     let private isCurrentDocumentRoot (graph: Graph) (nodeId: NodeId) : bool =
@@ -136,9 +139,10 @@ module Op =
                      documentState = Unparsed } -> true
             | _ -> false
 
-        let ownedAreDocumentRoots children =
+        let ownedAreDocumentRoots parentId children =
             children
-            |> List.filter (fun child -> child.ref = Ownership.Owner)
+            |> List.filter (fun child ->
+                Node.childOwnership graph parentId child = Ownership.Owner)
             |> List.forall (fun child ->
                 DocumentPartition.isDocumentRootNode graph child.id)
 
@@ -146,8 +150,8 @@ module Op =
         | Op.Replace(parentId, _, oldChildren, newChildren) ->
             let stubAttachUnderShell =
                 isUnparsedTreeShell parentId
-                && ownedAreDocumentRoots oldChildren
-                && ownedAreDocumentRoots newChildren
+                && ownedAreDocumentRoots parentId oldChildren
+                && ownedAreDocumentRoots parentId newChildren
             let parentBlocked =
                 if isCurrentDocumentRoot graph parentId then false
                 elif stubAttachUnderShell then false
@@ -157,7 +161,7 @@ module Op =
             let childBlocked =
                 (oldChildren @ newChildren)
                 |> List.exists (fun child ->
-                    child.ref = Ownership.Owner
+                    Node.childOwnership graph parentId child = Ownership.Owner
                     && nodeBlocked child.id
                     && not (DocumentPartition.isDocumentRootNode graph child.id))
             parentBlocked || childBlocked
@@ -189,7 +193,7 @@ module Op =
             | Error msg -> ApplyResult.Invalid(state, msg)
             | Ok graph ->
                 let isInvalidOwner child =
-                    child.ref = Ownership.Owner
+                    Node.childOwnership graph parentId child = Ownership.Owner
                     && DocumentPartition.ownedSubtreeHasReservedArtifactPath
                         graph Set.empty child.id
                 if List.exists isInvalidOwner newChildren then
@@ -382,7 +386,7 @@ module History =
         let ownerByChildId =
             allChildren
             |> List.choose (fun (parentId, child) ->
-                match child.ref with
+                match Node.childOwnership graph parentId child with
                 | Ownership.Owner -> Some(child.id, parentId)
                 | Ownership.Ref -> None)
             |> List.groupBy fst
@@ -523,7 +527,10 @@ module History =
                         let invalidPlacementChild =
                             allChildren
                             |> Seq.tryPick (fun (parentId, child) ->
-                                match child.ref, Map.tryFind child.id graph.nodes with
+                                match
+                                    Node.childOwnership graph parentId child,
+                                    Map.tryFind child.id graph.nodes
+                                with
                                 | Ownership.Owner,
                                   Some { kind = Special (File | Directory) }
                                     when not (Graph.isSystemDirectoryNode child.id) ->
@@ -605,13 +612,17 @@ module History =
                             Some
                                 "invalid ownership semantics: File and Directory nodes must have a Workspace or Directory owner ancestor (not under a File)"
                         elif
-                            newChildren |> List.exists (fun c -> c.ref = Ownership.Owner)
+                            newChildren
+                            |> List.exists (fun c ->
+                                Node.childOwnership graph parentId c = Ownership.Owner)
                             && GraphQuery.artifactNameConflict graph parentId newChildren
                         then
                             let name =
                                 newChildren
                                 |> List.tryPick (fun c ->
-                                    if c.ref <> Ownership.Owner then None
+                                    if Node.childOwnership graph parentId c
+                                       <> Ownership.Owner then
+                                        None
                                     else
                                         Map.tryFind c.id graph.nodes
                                         |> Option.bind (fun n ->

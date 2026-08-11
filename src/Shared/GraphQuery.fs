@@ -73,7 +73,7 @@ module GraphQuery =
                     parent.children
                     |> List.fold
                         (fun acc child ->
-                            if child.ref <> Ownership.Owner then
+                            if Node.childOwnership graph parentId child <> Ownership.Owner then
                                 acc
                             elif Set.contains child.id visited then
                                 acc
@@ -112,7 +112,10 @@ module GraphQuery =
         else
             newChildren
             |> List.exists (fun child ->
-                match child.ref, Map.tryFind child.id graph.nodes with
+                match
+                    Node.childOwnership graph parentId child,
+                    Map.tryFind child.id graph.nodes
+                with
                 | Ownership.Owner, Some { kind = Special (File | Directory) }
                     when not (GraphBuild.isSystemDirectoryNode child.id) ->
                     true
@@ -132,13 +135,14 @@ module GraphQuery =
 
     let ownedNameLowers
         (graph: Graph)
+        (parentId: NodeId)
         (children: ChildNode list)
         (excludeId: NodeId option)
         : string list
         =
         children
         |> List.choose (fun c ->
-            if c.ref <> Ownership.Owner then None
+            if Node.childOwnership graph parentId c <> Ownership.Owner then None
             elif excludeId = Some c.id then None
             else
                 graph.nodes
@@ -199,7 +203,7 @@ module GraphQuery =
             | Some parent ->
                 parent.children
                 |> List.exists (fun c ->
-                    c.ref = Ownership.Owner
+                    Node.childOwnership graph parentId c = Ownership.Owner
                     && match Map.tryFind c.id graph.nodes
                              |> Option.bind nameLowerOk with
                        | Some n -> n = nameLower
@@ -232,7 +236,8 @@ module GraphQuery =
             let introducedArtifacts =
                 introduced
                 |> List.choose (fun c ->
-                    if c.ref <> Ownership.Owner then None
+                    if Node.childOwnership graph parentId c <> Ownership.Owner then
+                        None
                     else
                         match Map.tryFind c.id graph.nodes with
                         | Some node when isArtifact node ->
@@ -263,6 +268,7 @@ module GraphQuery =
     /// Pre-existing sibling dups among non-introduced children do not fail the op.
     let siblingOwnedNameConflict
         (graph: Graph)
+        (parentId: NodeId)
         (updatedChildren: ChildNode list)
         (introduced: ChildNode list)
         : bool
@@ -270,7 +276,8 @@ module GraphQuery =
         let introducedNamed =
             introduced
             |> List.choose (fun c ->
-                if c.ref <> Ownership.Owner then None
+                if Node.childOwnership graph parentId c <> Ownership.Owner then
+                    None
                 else
                     graph.nodes
                     |> Map.tryFind c.id
@@ -290,7 +297,8 @@ module GraphQuery =
                 let otherNames =
                     updatedChildren
                     |> List.choose (fun c ->
-                        if c.ref <> Ownership.Owner then None
+                        if Node.childOwnership graph parentId c <> Ownership.Owner then
+                            None
                         elif Set.contains c.id introducedIds then None
                         else
                             graph.nodes
@@ -368,10 +376,12 @@ module GraphQuery =
         elif String.Equals(label, "TRASH", StringComparison.OrdinalIgnoreCase) then
             Ok GraphBuild.trashId
         else
+            let workspaces = graph.nodes.[GraphBuild.workspacesId]
             match
-                graph.nodes.[GraphBuild.workspacesId].children
+                workspaces.children
                 |> List.tryPick (fun child ->
-                    if child.ref <> Ownership.Owner then
+                    if Node.childOwnership graph GraphBuild.workspacesId child
+                       <> Ownership.Owner then
                         None
                     else
                         let node = graph.nodes.[child.id]

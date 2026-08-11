@@ -68,7 +68,9 @@ module FileNodeOps =
             let already =
                 graph.nodes.[insert.parentId].children
                 |> List.tryItem insert.index
-                |> Option.exists (fun c -> c.ref = Ownership.Ref && c.id = fileNodeId)
+                |> Option.exists (fun c ->
+                    Node.childOwnership graph insert.parentId c = Ownership.Ref
+                    && c.id = fileNodeId)
 
             if already then
                 []

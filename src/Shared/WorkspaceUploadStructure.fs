@@ -162,7 +162,8 @@ module WorkspaceUploadStructure =
 
     let private hasOwnedMember (graph: Graph) (dirId: NodeId) =
         graph.nodes.[dirId].children
-        |> List.exists (fun c -> c.ref = Ownership.Owner)
+        |> List.exists (fun c ->
+            Node.childOwnership graph dirId c = Ownership.Owner)
 
     let private foldStateOps markFn graph nodeIds =
         nodeIds

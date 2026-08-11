@@ -192,12 +192,13 @@ module PlainTextDocument =
         content: string
     }
 
-    let private lineContent (graph: Graph) (child: ChildNode) =
-        match child.ref with
-        | Ownership.Ref ->
-            match Map.tryFind child.id graph.nodes with
-            | None -> None
-            | Some node -> Some node.text
+    let private lineContent
+        (graph: Graph)
+        (parentId: NodeId)
+        (child: ChildNode)
+        =
+        match Node.childOwnership graph parentId child with
+        | Ownership.Ref
         | Ownership.Owner ->
             match Map.tryFind child.id graph.nodes with
             | None -> None
@@ -207,20 +208,35 @@ module PlainTextDocument =
         match Map.tryFind documentRootId graph.nodes with
         | None -> []
         | Some root ->
-            let rec loop depth (acc: SerializedLine list) (child: ChildNode) =
-                match lineContent graph child with
+            let rec loop
+                parentId
+                depth
+                (acc: SerializedLine list)
+                (child: ChildNode)
+                =
+                match lineContent graph parentId child with
                 | None -> acc
                 | Some content ->
                     let acc' =
-                        { nodeId = Some child.id; depth = depth; content = content }
+                        {
+                            nodeId = Some child.id
+                            depth = depth
+                            content = content
+                        }
                         :: acc
 
-                    match child.ref, Map.tryFind child.id graph.nodes with
+                    match
+                        Node.childOwnership graph parentId child,
+                        Map.tryFind child.id graph.nodes
+                    with
                     | Ownership.Owner, Some node ->
-                        node.children |> List.fold (loop (depth + 1)) acc'
+                        node.children
+                        |> List.fold (loop child.id (depth + 1)) acc'
                     | _ -> acc'
 
-            root.children |> List.fold (loop 0) [] |> List.rev
+            root.children
+            |> List.fold (loop documentRootId 0) []
+            |> List.rev
 
     let private parseCold
         (text: string)

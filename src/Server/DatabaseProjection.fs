@@ -116,7 +116,7 @@ module DatabaseProjection =
             |> Map.tryFind parentId
             |> Option.map (fun node ->
                 { parentId = parentId.Value
-                  rows = GraphProjection.childRowsFromNode node }))
+                  rows = GraphProjection.childRowsFromNode graph node }))
 
     let plan (graph: Graph) (revision: int) (changes: Change list) : ProjectionPatch =
         { nodeUpserts = nodeRows graph changes

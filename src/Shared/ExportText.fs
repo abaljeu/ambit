@@ -12,10 +12,10 @@ type DesktopExportResponse =
 
 [<RequireQualifiedAccess>]
 module ExportText =
-    let private ownedChildIds (node: Node) : NodeId list =
+    let private ownedChildIds (graph: Graph) (node: Node) : NodeId list =
         node.children
         |> List.choose (fun child ->
-            match child.ref with
+            match Node.childOwnership graph node.id child with
             | Ownership.Owner -> Some child.id
             | Ownership.Ref -> None)
 
@@ -31,11 +31,12 @@ module ExportText =
         let rec walk (depth: int) (nodeId: NodeId) =
             let node = graph.nodes.[nodeId]
             sb.Append(String.replicate depth "\t").Append(node.text).Append(nl) |> ignore
-            ownedChildIds node |> List.iter (fun childId -> walk (depth + 1) childId)
+            ownedChildIds graph node
+            |> List.iter (fun childId -> walk (depth + 1) childId)
 
         match Map.tryFind focusId graph.nodes with
         | None -> ()
-        | Some focus -> ownedChildIds focus |> List.iter (walk 0)
+        | Some focus -> ownedChildIds graph focus |> List.iter (walk 0)
 
         let text = sb.ToString()
 

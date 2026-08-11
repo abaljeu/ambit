@@ -64,18 +64,18 @@ module GraphProjection =
         |> Map.toList
         |> List.map (snd >> nodeRowFromNode)
 
-    let childRowsFromNode (node: Node) : ChildPersistenceRow list =
+    let childRowsFromNode (graph: Graph) (node: Node) : ChildPersistenceRow list =
         node.children
         |> List.mapi (fun ordinal child ->
             { parentId = node.id.Value
               ordinal = ordinal
               childId = child.id.Value
-              ownership = child.ref })
+              ownership = Node.childOwnership graph node.id child })
 
     let childRowsFromGraph (g: Graph) : ChildPersistenceRow list =
         g.nodes
         |> Map.toList
-        |> List.collect (snd >> childRowsFromNode)
+        |> List.collect (fun (_, node) -> childRowsFromNode g node)
 
     let graphFromPersistence
         (rootId: NodeId)

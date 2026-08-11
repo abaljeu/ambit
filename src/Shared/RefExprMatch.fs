@@ -13,7 +13,7 @@ module RefExprMatch =
     let private ownerChildren (parentId: NodeId) (graph: Graph) : Node list =
         graph.nodes.[parentId].children
         |> List.choose (fun child ->
-            if child.ref = Ownership.Owner then
+            if Node.childOwnership graph parentId child = Ownership.Owner then
                 graph.nodes |> Map.tryFind child.id
             else
                 None)

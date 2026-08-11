@@ -182,12 +182,16 @@ type NodeNav = NodeNav of Graph * NodeId option
 [<RequireQualifiedAccess>]
 module Node =
     /// Owner vs Ref for the parent→child edge. Prefer over reading ChildNode.ref.
+    /// When `Node.owner` matches parent, that wins. Otherwise fall back to edge.ref
+    /// (proposed Replace edges before apply, or dual-Owner edge inventory).
     let childOwnership
-        (_graph: Graph)
-        (_parentId: NodeId)
+        (graph: Graph)
+        (parentId: NodeId)
         (child: ChildNode)
         : Ownership =
-        child.ref
+        match Map.tryFind child.id graph.nodes with
+        | Some n when n.owner = parentId -> Ownership.Owner
+        | _ -> child.ref
 
     let at (graph: Graph) (id: NodeId option) : NodeNav = NodeNav(graph, id)
     let current (NodeNav(_, id)) : NodeId option = id

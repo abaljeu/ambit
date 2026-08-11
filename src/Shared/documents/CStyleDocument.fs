@@ -148,7 +148,7 @@ module CStyleDocument =
         match Map.tryFind documentRootId graph.nodes with
         | None -> []
         | Some root ->
-            let rec loop depth acc (child: ChildNode) =
+            let rec loop parentId depth acc (child: ChildNode) =
                 match Map.tryFind child.id graph.nodes with
                 | None -> acc
                 | Some node ->
@@ -161,12 +161,15 @@ module CStyleDocument =
                         }
                         :: acc
 
-                    match child.ref with
+                    match Node.childOwnership graph parentId child with
                     | Ownership.Owner ->
-                        node.children |> List.fold (loop (depth + 1)) acc'
+                        node.children
+                        |> List.fold (loop child.id (depth + 1)) acc'
                     | Ownership.Ref -> acc'
 
-            root.children |> List.fold (loop 0) [] |> List.rev
+            root.children
+            |> List.fold (loop documentRootId 0) []
+            |> List.rev
 
     let flattenText (text: string) : PlainTextIndentStyle * (int * string * bool) list =
         let style, rows = CStyleBrace.toOutlineRows text

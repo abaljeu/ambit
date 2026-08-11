@@ -173,8 +173,9 @@ module DocumentFormat =
         | Some root ->
             root.children
             |> List.exists (fun child ->
-                child.ref = Ownership.Owner
-                && DocumentPartition.isNestedDocumentRootBoundary graph documentRootId child.id)
+                Node.childOwnership graph documentRootId child = Ownership.Owner
+                && DocumentPartition.isNestedDocumentRootBoundary
+                    graph documentRootId child.id)
 
     let private looksLikeAmbContent (text: string) =
         if String.IsNullOrEmpty text then

@@ -46,7 +46,7 @@ module internal LazyLoadReconciliationPath =
     let ownedChildNamed (graph: Graph) parentId name : Node option =
         graph.nodes.[parentId].children
         |> List.tryPick (fun child ->
-            if child.ref <> Ownership.Owner then
+            if Node.childOwnership graph parentId child <> Ownership.Owner then
                 None
             else
                 let node = graph.nodes.[child.id]

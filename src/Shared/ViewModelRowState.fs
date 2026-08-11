@@ -303,8 +303,10 @@ module ViewModelRowState =
             |> Option.bind (fun index ->
                 model.graph.nodes
                 |> Map.tryFind parent.nodeId
-                |> Option.bind (fun node -> List.tryItem index node.children)))
-        |> Option.map (fun child -> child.ref)
+                |> Option.bind (fun node ->
+                    List.tryItem index node.children
+                    |> Option.map (fun child ->
+                        Node.childOwnership model.graph parent.nodeId child))))
         |> Option.defaultValue Ownership.Owner
 
     let rowOwnershipClass (model: VM) (entry: SiteEntry) : string =
