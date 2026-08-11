@@ -181,6 +181,14 @@ type NodeNav = NodeNav of Graph * NodeId option
 
 [<RequireQualifiedAccess>]
 module Node =
+    /// Owner vs Ref for the parent→child edge. Prefer over reading ChildNode.ref.
+    let childOwnership
+        (_graph: Graph)
+        (_parentId: NodeId)
+        (child: ChildNode)
+        : Ownership =
+        child.ref
+
     let at (graph: Graph) (id: NodeId option) : NodeNav = NodeNav(graph, id)
     let current (NodeNav(_, id)) : NodeId option = id
 

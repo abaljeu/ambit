@@ -722,6 +722,91 @@ let ``validateOwnershipLocated reports missing owner node`` () =
         Assert.Equal(childId, nodeId)
 
 [<Fact>]
+let ``validateOwnershipLocated Ok when Ref owner parent is Unloaded`` () =
+    let graph0 = Graph.create ()
+    let owner id = { ref = Ownership.Owner; id = id }
+    let refOf id = { ref = Ownership.Ref; id = id }
+    let ownerParentId = NodeId.New()
+    let loadedParentId = NodeId.New()
+    let headerId = NodeId.New()
+    let ownerParent =
+        Node.Create(
+            ownerParentId,
+            text = "owner-unloaded",
+            childrenStatus = Unloaded,
+            owner = Graph.rootId)
+    let loadedParent =
+        Node.Create(
+            loadedParentId,
+            text = "loaded-parent",
+            children = [ refOf headerId ],
+            owner = Graph.rootId)
+    let header =
+        Node.Create(
+            headerId,
+            text = "ref-header",
+            childrenStatus = Unloaded,
+            owner = ownerParentId)
+    let root = graph0.nodes.[Graph.rootId]
+    let nodes =
+        graph0.nodes
+        |> Map.add Graph.rootId
+            { root with
+                children =
+                    root.children
+                    @ [ owner ownerParentId; owner loadedParentId ] }
+        |> Map.add ownerParentId ownerParent
+        |> Map.add loadedParentId loadedParent
+        |> Map.add headerId header
+    let graph = Graph.fromNodes graph0.root nodes
+    match History.validateOwnershipLocated graph with
+    | Ok () -> ()
+    | Error (msg, _) -> Assert.True(false, $"expected Ok, got Error: {msg}")
+
+[<Fact>]
+let ``validateOwnershipLocated Error when Ref owner parent is Loaded without Owner`` () =
+    let graph0 = Graph.create ()
+    let owner id = { ref = Ownership.Owner; id = id }
+    let refOf id = { ref = Ownership.Ref; id = id }
+    let claimedOwnerId = NodeId.New()
+    let loadedParentId = NodeId.New()
+    let headerId = NodeId.New()
+    let claimedOwner =
+        Node.Create(
+            claimedOwnerId,
+            text = "claimed-owner",
+            children = [],
+            owner = Graph.rootId)
+    let loadedParent =
+        Node.Create(
+            loadedParentId,
+            text = "loaded-parent",
+            children = [ refOf headerId ],
+            owner = Graph.rootId)
+    let header =
+        Node.Create(
+            headerId,
+            text = "orphan-ref-header",
+            owner = claimedOwnerId)
+    let root = graph0.nodes.[Graph.rootId]
+    let nodes =
+        graph0.nodes
+        |> Map.add Graph.rootId
+            { root with
+                children =
+                    root.children
+                    @ [ owner claimedOwnerId; owner loadedParentId ] }
+        |> Map.add claimedOwnerId claimedOwner
+        |> Map.add loadedParentId loadedParent
+        |> Map.add headerId header
+    let graph = Graph.fromNodes graph0.root nodes
+    match History.validateOwnershipLocated graph with
+    | Ok () -> Assert.True(false, "expected Error")
+    | Error (msg, nodeId) ->
+        Assert.Contains("missing owner", msg)
+        Assert.Equal(headerId, nodeId)
+
+[<Fact>]
 let ``validateOwnershipLocated reports multiple owner occurrences with ids`` () =
     let graph0 = Graph.create ()
     let childId = NodeId.New()

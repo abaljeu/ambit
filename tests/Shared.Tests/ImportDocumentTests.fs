@@ -909,3 +909,144 @@ let ``planParseFile Unparsed plain upload body applies via History`` () =
     | ApplyResult.Unchanged _
     | ApplyResult.Changed _ -> ()
 
+/// TEMP probe: OpenDrive ownership. Remove after diagnosis.
+[<Fact>]
+let ``PROBE OpenDrive cold then warm ownership`` () =
+    let body = System.IO.File.ReadAllText @"d:\downloads\OpenDrive"
+    let applyOps (s: State) ops =
+        ops
+        |> List.fold
+            (fun st op ->
+                match Op.apply op st with
+                | ApplyResult.Changed n
+                | ApplyResult.Unchanged n -> n
+                | ApplyResult.Invalid(_, e) -> failwith e)
+            s
+
+    let graph0 = Graph.create ()
+    let workspaceId, wsOps = FileNodeOps.planCreateWorkspace graph0 "home"
+    let withWs =
+        applyOps
+            { graph = graph0; history = History.empty; revision = Revision.Zero }
+            wsOps
+    let fileId, fileOps =
+        FileNodeOps.planCreateOwnedFile withWs.graph workspaceId "OpenDrive"
+    let withFile = applyOps withWs fileOps
+    let unparsed =
+        { withFile.graph.nodes.[fileId] with documentState = Unparsed }
+        |> fun n ->
+            withFile.graph.nodes
+            |> Map.add fileId n
+            |> fun nodes -> Graph.fromNodes withFile.graph.root nodes
+
+    let coldOps =
+        ImportDocument.planParseFile unparsed fileId body
+        |> requireOk "cold planParseFile"
+
+    let afterCold =
+        match
+            History.applyChange
+                { id = 0; changeId = Guid.NewGuid(); ops = coldOps }
+                { graph = unparsed
+                  history = History.empty
+                  revision = Revision.Zero }
+        with
+        | ApplyResult.Changed s -> s
+        | ApplyResult.Unchanged s -> s
+        | ApplyResult.Invalid(_, msg) ->
+            failwith ("COLD apply failed: " + msg)
+
+    match History.validateOwnership afterCold.graph with
+    | Error msg -> failwith ("COLD ownership: " + msg)
+    | Ok () -> ()
+
+    let rel =
+        DocumentPartition.artifactFileRelative afterCold.graph fileId
+        |> Option.defaultValue "OpenDrive"
+
+    let exported =
+        match DocumentFormat.writeArtifact afterCold.graph fileId rel None with
+        | Ok t -> t
+        | Error e -> failwith ("export: " + e)
+
+    let warmOps =
+        ImportDocument.planParseFile afterCold.graph fileId body
+        |> requireOk "warm planParseFile"
+
+    let warmMsg =
+        match
+            History.applyChange
+                { id = 1; changeId = Guid.NewGuid(); ops = warmOps }
+                afterCold
+        with
+        | ApplyResult.Invalid(_, msg) -> "WARM apply: " + msg
+        | ApplyResult.Unchanged s
+        | ApplyResult.Changed s ->
+            match History.validateOwnership s.graph with
+            | Error msg -> "WARM ownership: " + msg
+            | Ok () -> "WARM ok"
+
+    let package =
+        ImportDocument.buildFilePackage "//home/OpenDrive" body
+        |> requireOk "buildFilePackage"
+
+    let g0 = Graph.create ()
+    let wsId, wsOps2 = FileNodeOps.planCreateWorkspace g0 "home"
+    let withWs2 =
+        applyOps
+            { graph = g0; history = History.empty; revision = Revision.Zero }
+            wsOps2
+    let focusId, focusOps =
+        FileNodeOps.planCreateOwnedFile withWs2.graph wsId "OpenDrive"
+    let withFocus = applyOps withWs2 focusOps
+    let focusGraph =
+        { withFocus.graph.nodes.[focusId] with documentState = Unparsed }
+        |> fun n ->
+            withFocus.graph.nodes
+            |> Map.add focusId n
+            |> fun nodes -> Graph.fromNodes withFocus.graph.root nodes
+
+    let existing = focusGraph.nodes.[focusId].children
+    let change =
+        ImportText.buildImportChange
+            focusGraph focusId existing package 1 (Guid.NewGuid())
+
+    let importMsg =
+        match
+            History.applyChange
+                change
+                { graph = focusGraph
+                  history = History.empty
+                  revision = Revision.Zero }
+        with
+        | ApplyResult.Invalid(_, msg) -> "IMPORT apply: " + msg
+        | ApplyResult.Unchanged s
+        | ApplyResult.Changed s ->
+            match History.validateOwnership s.graph with
+            | Error msg -> "IMPORT ownership: " + msg
+            | Ok () -> "IMPORT ok"
+
+    let dual msgGraph =
+        msgGraph.nodes
+        |> Map.toList
+        |> List.collect (fun (pid, n) ->
+            n.children
+            |> List.choose (fun c ->
+                if c.ref = Ownership.Owner then Some(c.id, pid) else None))
+        |> List.groupBy fst
+        |> List.filter (fun (_, pairs) -> List.length pairs > 1)
+        |> List.length
+
+    Assert.True(
+        false,
+        sprintf
+            "children=%d exportEq=%b exportLen=%d bodyLen=%d warm=%s import=%s dualCold=%d pkgTops=%d pkgOps=%d"
+            afterCold.graph.nodes.[fileId].children.Length
+            (exported = body)
+            exported.Length
+            body.Length
+            warmMsg
+            importMsg
+            (dual afterCold.graph)
+            package.topLevelIds.Length
+            package.ops.Length)

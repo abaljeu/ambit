@@ -403,9 +403,31 @@ module History =
             let tail = NodeId.GuidTail8 id.Value
             $"text='{text}' id={tail}"
 
+        // Prefer Owner parent from Loaded lists; else Node.owner (resident claim).
+        let ownerParentOf (childId: NodeId) : NodeId option =
+            match Map.tryFind childId ownerByChildId with
+            | Some (parentId :: _) -> Some parentId
+            | Some []
+            | None ->
+                Map.tryFind childId graph.nodes
+                |> Option.map (fun n -> n.owner)
+
+        // Proven missing only when claimed owner is Loaded without Owner edge.
+        let isProvenMissingOwner (childId: NodeId) : bool =
+            match Map.tryFind childId ownerByChildId with
+            | Some _ -> false
+            | None ->
+                match Map.tryFind childId graph.nodes with
+                | None -> false
+                | Some childNode ->
+                    match Map.tryFind childNode.owner graph.nodes with
+                    | None -> false
+                    | Some { childrenStatus = Unloaded } -> false
+                    | Some _ -> true
+
         let childIdsMissingOwner =
             childIdsToCheck
-            |> Seq.filter (fun childId -> not (Map.containsKey childId ownerByChildId))
+            |> Seq.filter isProvenMissingOwner
             |> Seq.toList
 
         if not childIdsMissingOwner.IsEmpty then
@@ -433,18 +455,28 @@ module History =
                     $"invalid ownership semantics: expected exactly one owner occurrence [{locatedChildDetail childId} owners={ownersStr}]",
                     childId)
             else
-                let ownerParentOf childId = ownerByChildId.[childId] |> List.head
-
-                let rec reachesRootWithoutCycle (currentId: NodeId) (visited: Set<NodeId>) =
+                // true = reaches root; false = cycle/broken; None = incomplete hop
+                let rec reachesRootWithoutCycle
+                    (currentId: NodeId)
+                    (visited: Set<NodeId>)
+                    : bool option =
                     if currentId = graph.root then
-                        true
+                        Some true
                     elif Set.contains currentId visited then
-                        false
-                    elif ownerByChildId |> Map.containsKey currentId then
-                        let parentId = ownerParentOf currentId
-                        reachesRootWithoutCycle parentId (Set.add currentId visited)
+                        Some false
                     else
-                        false
+                        match Map.tryFind currentId graph.nodes with
+                        | None -> None
+                        | Some _ ->
+                            match ownerParentOf currentId with
+                            | None -> None
+                            | Some parentId ->
+                                match Map.tryFind parentId graph.nodes with
+                                | None when parentId <> graph.root -> None
+                                | _ ->
+                                    reachesRootWithoutCycle
+                                        parentId
+                                        (Set.add currentId visited)
 
                 let ownerChainIds (startId: NodeId) : NodeId list =
                     let rec loop currentId visited acc =
@@ -455,10 +487,11 @@ module History =
                             let nextVisited = Set.add currentId visited
                             if currentId = graph.root then
                                 List.rev nextAcc
-                            elif Map.containsKey currentId ownerByChildId then
-                                loop (ownerParentOf currentId) nextVisited nextAcc
                             else
-                                List.rev nextAcc
+                                match ownerParentOf currentId with
+                                | Some parentId ->
+                                    loop parentId nextVisited nextAcc
+                                | None -> List.rev nextAcc
                     loop startId Set.empty []
 
                 let formatOwnerChain (ids: NodeId list) : string =
@@ -469,8 +502,10 @@ module History =
                 let brokenOwnerChainChild =
                     childIdsToCheck
                     |> Seq.tryFind (fun childId ->
-                        let ownerParent = ownerParentOf childId
-                        not (reachesRootWithoutCycle ownerParent Set.empty))
+                        match ownerParentOf childId with
+                        | None -> false
+                        | Some ownerParent ->
+                            reachesRootWithoutCycle ownerParent Set.empty = Some false)
 
                 match brokenOwnerChainChild with
                 | Some childId ->
