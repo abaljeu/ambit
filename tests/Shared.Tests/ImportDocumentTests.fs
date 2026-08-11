@@ -909,144 +909,190 @@ let ``planParseFile Unparsed plain upload body applies via History`` () =
     | ApplyResult.Unchanged _
     | ApplyResult.Changed _ -> ()
 
-/// TEMP probe: OpenDrive ownership. Remove after diagnosis.
-[<Fact>]
-let ``PROBE OpenDrive cold then warm ownership`` () =
-    let body = System.IO.File.ReadAllText @"d:\downloads\OpenDrive"
-    let applyOps (s: State) ops =
-        ops
-        |> List.fold
-            (fun st op ->
-                match Op.apply op st with
-                | ApplyResult.Changed n
-                | ApplyResult.Unchanged n -> n
-                | ApplyResult.Invalid(_, e) -> failwith e)
-            s
+let private applyOpsState (s: State) (ops: Op list) : State =
+    ops
+    |> List.fold
+        (fun st op ->
+            match Op.apply op st with
+            | ApplyResult.Changed n
+            | ApplyResult.Unchanged n -> n
+            | ApplyResult.Invalid(_, e) -> failwith e)
+        s
 
+/// Seed workspace + Unparsed parse target + two parents that dual-Own an
+/// unrelated child (graph-invalid; not part of the parse File overlay).
+let private graphWithUnrelatedDualOwner () =
     let graph0 = Graph.create ()
     let workspaceId, wsOps = FileNodeOps.planCreateWorkspace graph0 "home"
     let withWs =
-        applyOps
+        applyOpsState
+            { graph = graph0; history = History.empty; revision = Revision.Zero }
+            wsOps
+    let parseFileId, parseOps =
+        FileNodeOps.planCreateOwnedFile withWs.graph workspaceId "target.txt"
+    let withParse = applyOpsState withWs parseOps
+    let otherAId, otherAOps =
+        FileNodeOps.planCreateOwnedFile withParse.graph workspaceId "a.txt"
+    let withA = applyOpsState withParse otherAOps
+    let otherBId, otherBOps =
+        FileNodeOps.planCreateOwnedFile withA.graph workspaceId "b.txt"
+    let withB = applyOpsState withA otherBOps
+    let victimId = NodeId.New()
+    let victim = Node.Create(victimId, text = "victim", owner = otherAId)
+    let aNode = withB.graph.nodes.[otherAId]
+    let bNode = withB.graph.nodes.[otherBId]
+    let parseNode = withB.graph.nodes.[parseFileId]
+    let nodes =
+        withB.graph.nodes
+        |> Map.add victimId victim
+        |> Map.add
+            otherAId
+            { aNode with
+                children = [ { ref = Ownership.Owner; id = victimId } ]
+                documentState = Current }
+        |> Map.add
+            otherBId
+            { bNode with
+                children = [ { ref = Ownership.Owner; id = victimId } ]
+                documentState = Current }
+        |> Map.add
+            parseFileId
+            { parseNode with documentState = Unparsed }
+    let graph = Graph.fromNodes withB.graph.root nodes
+    parseFileId, victimId, graph
+
+/// Pre-existing dual-Owner elsewhere must not block Parse of a different File.
+[<Fact>]
+let ``planParseFile succeeds despite unrelated dual-Owner on graph`` () =
+    let parseFileId, victimId, graph = graphWithUnrelatedDualOwner ()
+    match History.validateOwnershipLocated graph with
+    | Ok () -> Assert.True(false, "seed graph must be ownership-invalid")
+    | Error (msg, nodeId) ->
+        Assert.Contains("expected exactly one owner occurrence", msg)
+        Assert.Equal(victimId, nodeId)
+
+    let body = "hello from parse" + Environment.NewLine
+    let ops =
+        ImportDocument.planParseFile graph parseFileId body
+        |> requireOk "planParseFile"
+
+    let change =
+        { id = 0; changeId = Guid.NewGuid(); ops = ops }
+    let state =
+        { graph = graph; history = History.empty; revision = Revision.Zero }
+
+    match History.applyChange change state with
+    | ApplyResult.Invalid(_, msg) ->
+        Assert.True(
+            false,
+            "parse must not fail from unrelated dual-Owner; got: " + msg)
+    | ApplyResult.Unchanged after
+    | ApplyResult.Changed after ->
+        Assert.Equal(Current, after.graph.nodes.[parseFileId].documentState)
+
+/// Dual-Owner of the File being parsed (not Ref) blocks applyChange — proves
+/// parse fails from File-level invalid ownership, not outline content.
+[<Fact>]
+let ``planParseFile fails when parse File itself has dual Owner`` () =
+    let graph0 = Graph.create ()
+    let workspaceId, wsOps = FileNodeOps.planCreateWorkspace graph0 "home"
+    let withWs =
+        applyOpsState
             { graph = graph0; history = History.empty; revision = Revision.Zero }
             wsOps
     let fileId, fileOps =
-        FileNodeOps.planCreateOwnedFile withWs.graph workspaceId "OpenDrive"
-    let withFile = applyOps withWs fileOps
-    let unparsed =
-        { withFile.graph.nodes.[fileId] with documentState = Unparsed }
+        FileNodeOps.planCreateOwnedFile withWs.graph workspaceId "dual.txt"
+    let withFile = applyOpsState withWs fileOps
+    let otherId, otherOps =
+        FileNodeOps.planCreateOwnedFile withFile.graph workspaceId "host.txt"
+    let withOther = applyOpsState withFile otherOps
+    // Second Owner edge to the same File (invalid; Insert pick uses Ref instead).
+    let host = withOther.graph.nodes.[otherId]
+    let file = withOther.graph.nodes.[fileId]
+    let nodes =
+        withOther.graph.nodes
+        |> Map.add
+            otherId
+            { host with
+                children =
+                    host.children
+                    @ [ { ref = Ownership.Owner; id = fileId } ] }
+        |> Map.add fileId { file with documentState = Unparsed }
+    let graph = Graph.fromNodes withOther.graph.root nodes
+
+    match History.validateOwnershipLocated graph with
+    | Ok () -> Assert.True(false, "seed must be dual-Owner invalid")
+    | Error (msg, _) ->
+        Assert.Contains("expected exactly one owner occurrence", msg)
+
+    let ops =
+        ImportDocument.planParseFile
+            graph
+            fileId
+            ("line" + Environment.NewLine)
+        |> requireOk "planParseFile"
+
+    match
+        History.applyChange
+            { id = 0; changeId = Guid.NewGuid(); ops = ops }
+            { graph = graph; history = History.empty; revision = Revision.Zero }
+    with
+    | ApplyResult.Invalid(_, msg) ->
+        Assert.Contains("expected exactly one owner occurrence", msg)
+        Assert.Contains(NodeId.GuidTail8 fileId.Value, msg)
+    | ApplyResult.Unchanged _
+    | ApplyResult.Changed _ ->
+        Assert.True(
+            false,
+            "dual-Owner File must fail applyChange ownership check")
+
+/// Insert Ref (valid) + Unparsed File parse → Current; Ref is not a second Owner.
+[<Fact>]
+let ``planParseFile after Insert Ref reaches Current`` () =
+    let graph0 = Graph.create ()
+    let workspaceId, wsOps = FileNodeOps.planCreateWorkspace graph0 "home"
+    let withWs =
+        applyOpsState
+            { graph = graph0; history = History.empty; revision = Revision.Zero }
+            wsOps
+    let fileId, fileOps =
+        FileNodeOps.planCreateOwnedFile withWs.graph workspaceId "refed.txt"
+    let withFile = applyOpsState withWs fileOps
+    let hostId, hostOps =
+        FileNodeOps.planCreateOwnedFile withFile.graph workspaceId "host.txt"
+    let withHost = applyOpsState withFile hostOps
+    let insert =
+        { parentId = hostId
+          index = withHost.graph.nodes.[hostId].children.Length }
+    let refOps =
+        FileNodeOps.planInsertFileRefAtFocus insert fileId withHost.graph
+    let withRef = applyOpsState withHost refOps
+    let graph =
+        { withRef.graph.nodes.[fileId] with documentState = Unparsed }
         |> fun n ->
-            withFile.graph.nodes
+            withRef.graph.nodes
             |> Map.add fileId n
-            |> fun nodes -> Graph.fromNodes withFile.graph.root nodes
+            |> fun nodes -> Graph.fromNodes withRef.graph.root nodes
 
-    let coldOps =
-        ImportDocument.planParseFile unparsed fileId body
-        |> requireOk "cold planParseFile"
-
-    let afterCold =
-        match
-            History.applyChange
-                { id = 0; changeId = Guid.NewGuid(); ops = coldOps }
-                { graph = unparsed
-                  history = History.empty
-                  revision = Revision.Zero }
-        with
-        | ApplyResult.Changed s -> s
-        | ApplyResult.Unchanged s -> s
-        | ApplyResult.Invalid(_, msg) ->
-            failwith ("COLD apply failed: " + msg)
-
-    match History.validateOwnership afterCold.graph with
-    | Error msg -> failwith ("COLD ownership: " + msg)
+    match History.validateOwnershipLocated graph with
+    | Error (msg, _) ->
+        Assert.True(false, "Insert Ref must keep graph valid: " + msg)
     | Ok () -> ()
 
-    let rel =
-        DocumentPartition.artifactFileRelative afterCold.graph fileId
-        |> Option.defaultValue "OpenDrive"
+    let ops =
+        ImportDocument.planParseFile
+            graph
+            fileId
+            ("parsed" + Environment.NewLine)
+        |> requireOk "planParseFile"
 
-    let exported =
-        match DocumentFormat.writeArtifact afterCold.graph fileId rel None with
-        | Ok t -> t
-        | Error e -> failwith ("export: " + e)
-
-    let warmOps =
-        ImportDocument.planParseFile afterCold.graph fileId body
-        |> requireOk "warm planParseFile"
-
-    let warmMsg =
-        match
-            History.applyChange
-                { id = 1; changeId = Guid.NewGuid(); ops = warmOps }
-                afterCold
-        with
-        | ApplyResult.Invalid(_, msg) -> "WARM apply: " + msg
-        | ApplyResult.Unchanged s
-        | ApplyResult.Changed s ->
-            match History.validateOwnership s.graph with
-            | Error msg -> "WARM ownership: " + msg
-            | Ok () -> "WARM ok"
-
-    let package =
-        ImportDocument.buildFilePackage "//home/OpenDrive" body
-        |> requireOk "buildFilePackage"
-
-    let g0 = Graph.create ()
-    let wsId, wsOps2 = FileNodeOps.planCreateWorkspace g0 "home"
-    let withWs2 =
-        applyOps
-            { graph = g0; history = History.empty; revision = Revision.Zero }
-            wsOps2
-    let focusId, focusOps =
-        FileNodeOps.planCreateOwnedFile withWs2.graph wsId "OpenDrive"
-    let withFocus = applyOps withWs2 focusOps
-    let focusGraph =
-        { withFocus.graph.nodes.[focusId] with documentState = Unparsed }
-        |> fun n ->
-            withFocus.graph.nodes
-            |> Map.add focusId n
-            |> fun nodes -> Graph.fromNodes withFocus.graph.root nodes
-
-    let existing = focusGraph.nodes.[focusId].children
-    let change =
-        ImportText.buildImportChange
-            focusGraph focusId existing package 1 (Guid.NewGuid())
-
-    let importMsg =
-        match
-            History.applyChange
-                change
-                { graph = focusGraph
-                  history = History.empty
-                  revision = Revision.Zero }
-        with
-        | ApplyResult.Invalid(_, msg) -> "IMPORT apply: " + msg
-        | ApplyResult.Unchanged s
-        | ApplyResult.Changed s ->
-            match History.validateOwnership s.graph with
-            | Error msg -> "IMPORT ownership: " + msg
-            | Ok () -> "IMPORT ok"
-
-    let dual msgGraph =
-        msgGraph.nodes
-        |> Map.toList
-        |> List.collect (fun (pid, n) ->
-            n.children
-            |> List.choose (fun c ->
-                if c.ref = Ownership.Owner then Some(c.id, pid) else None))
-        |> List.groupBy fst
-        |> List.filter (fun (_, pairs) -> List.length pairs > 1)
-        |> List.length
-
-    Assert.True(
-        false,
-        sprintf
-            "children=%d exportEq=%b exportLen=%d bodyLen=%d warm=%s import=%s dualCold=%d pkgTops=%d pkgOps=%d"
-            afterCold.graph.nodes.[fileId].children.Length
-            (exported = body)
-            exported.Length
-            body.Length
-            warmMsg
-            importMsg
-            (dual afterCold.graph)
-            package.topLevelIds.Length
-            package.ops.Length)
+    match
+        History.applyChange
+            { id = 0; changeId = Guid.NewGuid(); ops = ops }
+            { graph = graph; history = History.empty; revision = Revision.Zero }
+    with
+    | ApplyResult.Invalid(_, msg) ->
+        Assert.True(false, "parse after Insert Ref must apply; got: " + msg)
+    | ApplyResult.Unchanged after
+    | ApplyResult.Changed after ->
+        Assert.Equal(Current, after.graph.nodes.[fileId].documentState)

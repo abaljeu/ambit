@@ -700,7 +700,9 @@ let ``SetClasses via applyChange succeeds despite distant ownership violation`` 
     Assert.Equal(fileAId, result.graph.nodes.[fileAId].id)
 
 [<Fact>]
-let ``validateOwnershipLocated reports missing owner node`` () =
+let ``validateOwnershipLocated Ok when Ref owner defaults to ROOT`` () =
+    // Selective-load shape: Ref under Loaded parent, real Owner Unloaded, but
+    // Node.owner was defaulted/rewritten to ROOT (Guid.Empty) — incomplete, not proven.
     let graph0 = Graph.create ()
     let childId = NodeId.New()
     let child = Node.Create(childId, text = "orphan-ref")
@@ -714,12 +716,8 @@ let ``validateOwnershipLocated reports missing owner node`` () =
         |> Map.add childId child
     let graph = Graph.fromNodes graph0.root nodes
     match History.validateOwnershipLocated graph with
-    | Ok () -> Assert.True(false, "expected Error")
-    | Error (msg, nodeId) ->
-        Assert.Contains("missing owner", msg)
-        Assert.Contains("text='orphan-ref'", msg)
-        Assert.Contains($"id={NodeId.GuidTail8 childId.Value}", msg)
-        Assert.Equal(childId, nodeId)
+    | Ok () -> ()
+    | Error (msg, _) -> Assert.True(false, $"expected Ok, got Error: {msg}")
 
 [<Fact>]
 let ``validateOwnershipLocated Ok when Ref owner parent is Unloaded`` () =
@@ -759,6 +757,50 @@ let ``validateOwnershipLocated Ok when Ref owner parent is Unloaded`` () =
         |> Map.add loadedParentId loadedParent
         |> Map.add headerId header
     let graph = Graph.fromNodes graph0.root nodes
+    match History.validateOwnershipLocated graph with
+    | Ok () -> ()
+    | Error (msg, _) -> Assert.True(false, $"expected Ok, got Error: {msg}")
+
+[<Fact>]
+let ``validateOwnershipLocated Ok when Ref owner defaulted to ROOT with Unloaded real owner`` () =
+    let graph0 = Graph.create ()
+    let owner id = { ref = Ownership.Owner; id = id }
+    let refOf id = { ref = Ownership.Ref; id = id }
+    let ownerParentId = NodeId.New()
+    let loadedParentId = NodeId.New()
+    let headerId = NodeId.New()
+    let ownerParent =
+        Node.Create(
+            ownerParentId,
+            text = "owner-unloaded",
+            childrenStatus = Unloaded,
+            owner = Graph.rootId)
+    let loadedParent =
+        Node.Create(
+            loadedParentId,
+            text = "loaded-parent",
+            children = [ refOf headerId ],
+            owner = Graph.rootId)
+    // Claim defaulted to ROOT despite Unloaded real owner existing (appendChildren path).
+    let header =
+        Node.Create(
+            headerId,
+            text = "LAPS-log",
+            childrenStatus = Unloaded,
+            owner = Graph.rootId)
+    let root = graph0.nodes.[Graph.rootId]
+    let nodes =
+        graph0.nodes
+        |> Map.add Graph.rootId
+            { root with
+                children =
+                    root.children
+                    @ [ owner ownerParentId; owner loadedParentId ] }
+        |> Map.add ownerParentId ownerParent
+        |> Map.add loadedParentId loadedParent
+        |> Map.add headerId header
+    let graph = Graph.fromNodes graph0.root nodes
+    Assert.Equal(Graph.rootId, graph.nodes.[headerId].owner)
     match History.validateOwnershipLocated graph with
     | Ok () -> ()
     | Error (msg, _) -> Assert.True(false, $"expected Ok, got Error: {msg}")

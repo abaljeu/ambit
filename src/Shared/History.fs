@@ -412,13 +412,16 @@ module History =
                 Map.tryFind childId graph.nodes
                 |> Option.map (fun n -> n.owner)
 
-        // Proven missing only when claimed owner is Loaded without Owner edge.
+        // Proven missing only when a non-ROOT claimed owner is Loaded without
+        // an Owner edge. ROOT (Create/appendChildren default) is incomplete under
+        // selective load: the real Owner parent may be Unloaded elsewhere.
         let isProvenMissingOwner (childId: NodeId) : bool =
             match Map.tryFind childId ownerByChildId with
             | Some _ -> false
             | None ->
                 match Map.tryFind childId graph.nodes with
                 | None -> false
+                | Some childNode when childNode.owner = graph.root -> false
                 | Some childNode ->
                     match Map.tryFind childNode.owner graph.nodes with
                     | None -> false
