@@ -104,9 +104,7 @@ module DocumentColdParse =
 
         outlineWithoutDupRefs @ preserved
 
-    /// Keep the existing Owner when it lives outside this parse overlay; do not
-    /// claim a second edge (Owner or Ref) under the parse parent. Content may
-    /// still warm-update via createOrUpdateOps. Do not strip foreign Owners.
+    /// Omit foreign Owner claims; keep restored Refs (text codecs emit Owner).
     let private omitForeignOwnedClaims
         (before: Graph)
         (overlay: Set<NodeId>)
@@ -115,12 +113,33 @@ module DocumentColdParse =
         : ChildNode list =
         children
         |> List.filter (fun child ->
-            match Map.tryFind child.id before.ownerParentByChild with
-            | Some existing when
-                existing <> parentId
-                && not (Set.contains existing overlay) ->
-                false
-            | _ -> true)
+            match child.ref with
+            | Ownership.Ref -> true
+            | Ownership.Owner ->
+                match Map.tryFind child.id before.ownerParentByChild with
+                | Some existing when
+                    existing <> parentId
+                    && not (Set.contains existing overlay) ->
+                    false
+                | _ -> true)
+
+    /// Text projection lacks Owner/Ref — preserve prior matching Ref edges by id.
+    let private restoreMatchingRefs
+        (oldChildren: ChildNode list)
+        (outlined: ChildNode list)
+        : ChildNode list =
+        let priorRefIds =
+            oldChildren
+            |> List.choose (fun c ->
+                if c.ref = Ownership.Ref then Some c.id else None)
+            |> Set.ofList
+
+        outlined
+        |> List.map (fun child ->
+            if Set.contains child.id priorRefIds then
+                { child with ref = Ownership.Ref }
+            else
+                child)
 
     let private plannedChildren
         (before: Graph)
@@ -142,8 +161,10 @@ module DocumentColdParse =
             else
                 afterChildren
 
+        let withRefs = restoreMatchingRefs oldChildren outlined
+
         let newChildren =
-            omitForeignOwnedClaims before overlay nodeId outlined
+            omitForeignOwnedClaims before overlay nodeId withRefs
 
         oldChildren, newChildren
 

@@ -550,6 +550,217 @@ let ``planParseFile Unparsed with prior children warms and keeps line ids`` () =
         Assert.Equal(bId, after.graph.nodes.[fileId].children.[1].id)
         Assert.Equal("beta", after.graph.nodes.[bId].text)
 
+/// Plain text projection cannot express Owner vs Ref. Warm plain reparse of a
+/// file that Owned a URL once and Refs it elsewhere must keep the Ref — not
+/// promote both outline hits to Owner (dual-Own → History 400).
+[<Fact>]
+let ``planParseFile Current warm plain defers matching Ref`` () =
+    let graph0 = Graph.create ()
+    let workspaceId, wsOps = FileNodeOps.planCreateWorkspace graph0 "home"
+    let state0 =
+        { graph = graph0; history = History.empty; revision = Revision.Zero }
+    let withWs =
+        wsOps
+        |> List.fold
+            (fun s op ->
+                match Op.apply op s with
+                | ApplyResult.Changed n
+                | ApplyResult.Unchanged n -> n
+                | ApplyResult.Invalid(_, e) -> failwith e)
+            state0
+    let noteId, noteOps =
+        FileNodeOps.planCreateOwnedFile withWs.graph workspaceId "note.txt"
+    let withNote =
+        noteOps
+        |> List.fold
+            (fun s op ->
+                match Op.apply op s with
+                | ApplyResult.Changed n
+                | ApplyResult.Unchanged n -> n
+                | ApplyResult.Invalid(_, e) -> failwith e)
+            withWs
+    let sectionAId = NodeId.New()
+    let sectionBId = NodeId.New()
+    let urlId = NodeId.New()
+    let urlText =
+        "https://learn.microsoft.com/en-us/windows-hardware/test/hlk/getstarted/step-2--install-client"
+    let sectionA =
+        Node.Create(
+            sectionAId,
+            text = "SectionA",
+            owner = noteId,
+            children = [ { ref = Ownership.Owner; id = urlId } ])
+    let sectionB =
+        Node.Create(
+            sectionBId,
+            text = "SectionB",
+            owner = noteId,
+            children = [ { ref = Ownership.Ref; id = urlId } ])
+    let urlNode = Node.Create(urlId, text = urlText, owner = sectionAId)
+    let noteNode = withNote.graph.nodes.[noteId]
+    let graph =
+        withNote.graph.nodes
+        |> Map.add sectionAId sectionA
+        |> Map.add sectionBId sectionB
+        |> Map.add urlId urlNode
+        |> Map.add
+            noteId
+            { noteNode with
+                children =
+                    [ { ref = Ownership.Owner; id = sectionAId }
+                      { ref = Ownership.Owner; id = sectionBId } ]
+                documentState = Current }
+        |> fun nodes -> Graph.fromNodes withNote.graph.root nodes
+
+    // Force warm LCS (not whenUnchanged copy): tweak a non-ref line.
+    let editedBody =
+        "SectionA!"
+        + Environment.NewLine
+        + "\t"
+        + urlText
+        + Environment.NewLine
+        + "SectionB"
+        + Environment.NewLine
+        + "\t"
+        + urlText
+        + Environment.NewLine
+
+    let ops =
+        ImportDocument.planParseFile graph noteId editedBody
+        |> requireOk "planParseFile"
+
+    let change =
+        { id = 0
+          changeId = Guid.NewGuid()
+          ops = ops }
+    let state =
+        { graph = graph; history = History.empty; revision = Revision.Zero }
+
+    match History.applyChange change state with
+    | ApplyResult.Invalid(_, msg) ->
+        Assert.True(
+            false,
+            "warm plain must defer matching Ref; got: " + msg)
+    | ApplyResult.Unchanged _ -> failwith "expected Changed"
+    | ApplyResult.Changed after ->
+        match History.validateOwnership after.graph with
+        | Error msg ->
+            Assert.True(false, "ownership broken after warm plain: " + msg)
+        | Ok () ->
+            Assert.Equal("SectionA!", after.graph.nodes.[sectionAId].text)
+            Assert.Equal(sectionAId, after.graph.ownerParentByChild.[urlId])
+            let underB =
+                after.graph.nodes.[sectionBId].children
+                |> List.filter (fun c -> c.id = urlId)
+            Assert.Equal(1, underB.Length)
+            Assert.Equal(Ownership.Ref, underB.Head.ref)
+            let ownerEdges =
+                after.graph.nodes
+                |> Map.toList
+                |> List.collect (fun (_, node) ->
+                    node.children
+                    |> List.filter (fun c ->
+                        c.ref = Ownership.Owner && c.id = urlId))
+            Assert.Equal(1, ownerEdges.Length)
+
+/// Warm plain must keep a prior Ref to a foreign-owned node (text projection
+/// must not promote it to Owner under the parse parent).
+[<Fact>]
+let ``planParseFile Current warm plain keeps foreign Ref`` () =
+    let graph0 = Graph.create ()
+    let workspaceId, wsOps = FileNodeOps.planCreateWorkspace graph0 "home"
+    let state0 =
+        { graph = graph0; history = History.empty; revision = Revision.Zero }
+    let withWs =
+        wsOps
+        |> List.fold
+            (fun s op ->
+                match Op.apply op s with
+                | ApplyResult.Changed n
+                | ApplyResult.Unchanged n -> n
+                | ApplyResult.Invalid(_, e) -> failwith e)
+            state0
+    let noteId, noteOps =
+        FileNodeOps.planCreateOwnedFile withWs.graph workspaceId "note.txt"
+    let withNote =
+        noteOps
+        |> List.fold
+            (fun s op ->
+                match Op.apply op s with
+                | ApplyResult.Changed n
+                | ApplyResult.Unchanged n -> n
+                | ApplyResult.Invalid(_, e) -> failwith e)
+            withWs
+    let otherId, otherOps =
+        FileNodeOps.planCreateOwnedFile withNote.graph workspaceId "other.txt"
+    let withOther =
+        otherOps
+        |> List.fold
+            (fun s op ->
+                match Op.apply op s with
+                | ApplyResult.Changed n
+                | ApplyResult.Unchanged n -> n
+                | ApplyResult.Invalid(_, e) -> failwith e)
+            withNote
+    let localId = NodeId.New()
+    let foreignId = NodeId.New()
+    let urlText = "https://example.com/shared-ref"
+    let local = Node.Create(localId, text = "local", owner = noteId)
+    let foreign = Node.Create(foreignId, text = urlText, owner = otherId)
+    let noteNode = withOther.graph.nodes.[noteId]
+    let otherNode = withOther.graph.nodes.[otherId]
+    let graph =
+        withOther.graph.nodes
+        |> Map.add localId local
+        |> Map.add foreignId foreign
+        |> Map.add
+            noteId
+            { noteNode with
+                children =
+                    [ { ref = Ownership.Owner; id = localId }
+                      { ref = Ownership.Ref; id = foreignId } ]
+                documentState = Current }
+        |> Map.add
+            otherId
+            { otherNode with
+                children = [ { ref = Ownership.Owner; id = foreignId } ]
+                documentState = Current }
+        |> fun nodes -> Graph.fromNodes withOther.graph.root nodes
+
+    let editedBody =
+        "local!"
+        + Environment.NewLine
+        + urlText
+        + Environment.NewLine
+
+    let ops =
+        ImportDocument.planParseFile graph noteId editedBody
+        |> requireOk "planParseFile"
+
+    let change =
+        { id = 0
+          changeId = Guid.NewGuid()
+          ops = ops }
+    let state =
+        { graph = graph; history = History.empty; revision = Revision.Zero }
+
+    match History.applyChange change state with
+    | ApplyResult.Invalid(_, msg) ->
+        Assert.True(false, "warm plain must keep foreign Ref; got: " + msg)
+    | ApplyResult.Unchanged _ -> failwith "expected Changed"
+    | ApplyResult.Changed after ->
+        match History.validateOwnership after.graph with
+        | Error msg ->
+            Assert.True(false, "ownership broken after keep Ref: " + msg)
+        | Ok () ->
+            Assert.Equal("local!", after.graph.nodes.[localId].text)
+            Assert.Equal(otherId, after.graph.ownerParentByChild.[foreignId])
+            let underNote =
+                after.graph.nodes.[noteId].children
+                |> List.filter (fun c -> c.id = foreignId)
+            Assert.Equal(1, underNote.Length)
+            Assert.Equal(Ownership.Ref, underNote.Head.ref)
+
 /// Current File Load + desktop-newer Amb body that carets a node already Owned
 /// under a sibling File: reuse that Owner; claim no second edge (Owner or Ref)
 /// under the parse File. Warm-update content; do not dual-Own.
