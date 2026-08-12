@@ -460,6 +460,28 @@ let ``modified file becomes unparsed without losing identity or placement`` () =
     Assert.Equal(Unparsed, after.documentState)
 
 [<Fact>]
+let ``rediscovered Added Current file stays Current with children`` () =
+    let workspaceId, graph = Graph.create () |> addWorkspace "home"
+    let graph2 = createPaths graph [ "note.txt" ]
+    let file = childNamed graph2 workspaceId "note.txt"
+    Assert.Equal(Unparsed, file.documentState)
+    let parsedId = NodeId.New()
+    let attach = ChildNode.owner parsedId
+    let current =
+        [ Op.SetDocumentState(file.id, Unparsed, Current)
+          Op.NewNode(parsedId, "parsed")
+          Op.Replace(file.id, 0, [], [ attach ]) ]
+        |> applyOps graph2
+    Assert.Equal(Current, current.nodes.[file.id].documentState)
+    Assert.Equal(parsedId, current.nodes.[file.id].children.Head.id)
+    let graph3 =
+        requirePlan current "home" [ "note.txt" ] |> applyOps current
+    let after = childNamed graph3 workspaceId "note.txt"
+    Assert.Equal(file.id, after.id)
+    Assert.Equal(Current, after.documentState)
+    Assert.Equal(parsedId, after.children.Head.id)
+
+[<Fact>]
 let ``x amb remains an ordinary file for rename and delete`` () =
     let workspaceId, graph = Graph.create () |> addWorkspace "home"
     let graph2 = createPaths graph [ "x.amb" ] |> markDocumentsCurrent

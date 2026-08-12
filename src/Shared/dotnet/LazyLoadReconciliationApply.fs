@@ -52,7 +52,10 @@ module internal LazyLoadReconciliationApply =
             added
             |> List.choose (fun info ->
                 match LazyLoadReconciliationPath.resolveInfo graph workspaceId info with
-                | Ok(Some(nodeId, k)) when k = kind -> Some nodeId
+                | Ok(Some(nodeId, k)) when k = kind ->
+                    match Map.tryFind nodeId graph.nodes with
+                    | Some node when node.documentState = NoServerFile -> Some nodeId
+                    | _ -> None
                 | _ -> None)
         [ File; Directory ]
         |> List.collect (fun kind ->
