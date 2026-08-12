@@ -939,3 +939,24 @@ let ``local shape op succeeds despite distant ownership violation`` () =
                 [],
                 [ ChildNode.owner newId ]))
     History.applyChange change state |> expectChanged |> ignore
+
+[<Fact>]
+let ``applyChange accepts same-parent Owner then Ref (Duplicate link)`` () =
+    let state0 = ModelBuilder.createState12 ()
+    let parent = state0.graph.nodes.[state0.graph.root]
+    let ownedChild = parent.children.Head
+    let insertAt = parent.children.Length
+    let change =
+        { id = 0
+          changeId = Guid.NewGuid()
+          ops =
+            [ Op.Replace(
+                  state0.graph.root,
+                  insertAt,
+                  [],
+                  [ ChildNode.reference ownedChild.id ]) ] }
+    let state1 = History.applyChange change state0 |> expectChanged
+    let kids = state1.graph.nodes.[state0.graph.root].children
+    Assert.Equal(insertAt + 1, kids.Length)
+    Assert.Equal(ChildNode.reference ownedChild.id, kids.[insertAt])
+    Assert.Equal(Ownership.Ref, Node.childOwnership state1.graph state0.graph.root kids.[insertAt])

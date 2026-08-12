@@ -434,7 +434,10 @@ let duplicateSelectionOp (model: VM) : VM * Effect list =
                   changeId = System.Guid.NewGuid()
                   ops = [ insertOp ] }
             match applyAndPost change model with
-            | Error _ -> model, []
+            | Error msg ->
+                { model with
+                    lastCmdResult = Some(CmdLastResult.Error(None, msg)) },
+                []
             | Ok (m, effects) ->
                 let insertStart = sel.range.endd
                 let insertEnd = insertStart + duplicatedRefs.Length
