@@ -25,6 +25,7 @@ Work currently being executed.
 Work ready to start but not yet claimed.
 
 - [[.scratch/childnode-drop-ref/map.md]] — way clear (Stage: spec); next: `/to-tickets` or implement spine slices from [[.scratch/childnode-drop-ref/spine-draft.md]]
+- [[.scratch/login-context-restore/map.md]] — HITL iPad/iPhone still-open tab cold-reload: Workspace Loaded + Zoom restored (ticket: [[.scratch/login-context-restore/issues/06-restore-active-workspace-on-cold-init.md]])
 
 - [[src/Client/UpdatePaste.fs]] — HITL verify external multiline Ctrl+V (select + edit): siblings kept; lines become nodes (fix: [[src/Shared/documents/DocumentColdParse.fs]] planPasteOps; tests: [[tests/Shared.Tests/DocumentColdParseTests.fs]])
 - [[doc/roadmap/workspace-file-sync.md]] — HITL verify auto-download on persist: edit a mapped-workspace file (own edit + remote poll) refreshes the local mapped folder with no feedback loop; plain web is a no-op (plan: auto-download-persisted-files_560c6923; artifacts: [[src/Shared/WorkspaceSyncScope.fs]], [[src/Shared/WorkspaceUploadStructure.fs]], [[src/Client/UpdateWorkspaceSync.fs]], [[src/Client/Update.fs]], [[src/Client/App.fs]])

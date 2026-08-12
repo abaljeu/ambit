@@ -1,7 +1,7 @@
 # What storage survives Safari tab discard
 
 Type: research
-Status: claimed
+Status: closed
 
 ## Question
 
@@ -17,3 +17,6 @@ Compare at least:
 Cite primary WebKit/Safari sources. State clearly which of today’s auth and UI-context stores would still be present after the destination’s “harsh restart,” and which would be empty the way a brand-new tab is.
 
 ## Comments
+
+- Findings: [[.scratch/login-context-restore/research/02-what-storage-survives-safari-tab-discard.md]]
+- Closed on `w/login-context-restore` (common project branch; no `research/*` checkout).

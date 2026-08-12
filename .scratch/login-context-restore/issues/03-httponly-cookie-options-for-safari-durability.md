@@ -1,7 +1,7 @@
 # HttpOnly cookie options for Safari durability
 
 Type: research
-Status: claimed
+Status: closed
 
 ## Question
 
@@ -17,3 +17,6 @@ Cover with primary sources:
 Record options and tradeoffs only — do not recommend a product decision here; that belongs to auth-persistence grilling.
 
 ## Comments
+
+- Findings: [[.scratch/login-context-restore/research/03-httponly-cookie-options-for-safari-durability.md]]
+- Closed on `w/login-context-restore` (common project branch; no `research/*` checkout).

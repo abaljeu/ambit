@@ -75,11 +75,17 @@ module RouteRegistration =
             let opts =
                 CookieOptions(
                     HttpOnly = true,
-                    SameSite = SameSiteMode.Strict,
+                    Secure = true,
+                    SameSite = SameSiteMode.Lax,
                     Expires = Nullable(DateTimeOffset.UtcNow.AddYears(10)))
             resp.Cookies.Append(AuthToken.cookieName, validToken, opts)
         let clearAuthCookie (resp: HttpResponse) =
-            resp.Cookies.Delete(AuthToken.cookieName)
+            let opts =
+                CookieOptions(
+                    HttpOnly = true,
+                    Secure = true,
+                    SameSite = SameSiteMode.Lax)
+            resp.Cookies.Delete(AuthToken.cookieName, opts)
         {
             ExpectedUser = expectedUser
             ExpectedPass = expectedPass

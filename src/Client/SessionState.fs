@@ -7,8 +7,9 @@ open Gambol.Client.JsInterop
 
 // ---------------------------------------------------------------------------
 // Session state: persist zoom root + fold state across browser-initiated reloads
-// (e.g. iOS Safari tab eviction). Saved to sessionStorage on visibility hide;
-// restored once after StateLoaded, before the first render.
+// (e.g. iOS Safari tab eviction). Written to sessionStorage and localStorage on
+// visibility hide; read sessionStorage first, then localStorage. Restored once
+// after StateLoaded, before the first render.
 // ---------------------------------------------------------------------------
 
 let private sessionKey = "gambol-session-v1"
@@ -18,14 +19,26 @@ let private tryParseNodeId (s: string) : NodeId option =
     | true, g -> Some(NodeId g)
     | _ -> None
 
-/// Best-effort bootstrap widen id from sessionStorage (before /state).
-/// Prefers `b` (widen); falls back to `z` for older session payloads.
-/// sessionStorage.getItem can throw (e.g. SecurityError when storage is blocked).
-let tryReadSavedZoomId () : NodeId option =
+/// getItem can throw (e.g. SecurityError when storage is blocked).
+let private tryGetItem (get: string -> string) : string option =
     try
-        let json = sessionGet sessionKey
-        if isNull json || json = "" then None
-        else
+        let json = get sessionKey
+        if isNull json || json = "" then None else Some json
+    with _ -> None
+
+let private tryReadSessionJson () : string option =
+    match tryGetItem sessionGet with
+    | Some json -> Some json
+    | None -> tryGetItem localStorageGet
+
+/// Best-effort bootstrap widen id (before /state).
+/// Prefers `b` (widen); falls back to `z` for older session payloads.
+/// Reads sessionStorage first, then localStorage.
+let tryReadSavedZoomId () : NodeId option =
+    match tryReadSessionJson () with
+    | None -> None
+    | Some json ->
+        try
             let decoder =
                 Decode.object (fun get ->
                     get.Optional.Field "b" Decode.string,
@@ -36,9 +49,9 @@ let tryReadSavedZoomId () : NodeId option =
                 b
                 |> Option.bind tryParseNodeId
                 |> Option.orElse (z |> Option.bind tryParseNodeId)
-    with _ -> None
+        with _ -> None
 
-/// Snapshot the session-specific parts of the VM to sessionStorage.
+/// Snapshot the session-specific parts of the VM to sessionStorage and localStorage.
 let saveSessionState (model: VM) : unit =
     let expandedIds =
         model.siteMap.entries
@@ -60,17 +73,18 @@ let saveSessionState (model: VM) : unit =
     let bootJson = "\"" + bg.ToString() + "\""
     let idsJson =
         expandedIds |> Array.map (fun s -> "\"" + s + "\"") |> String.concat ","
-    sessionSet
-        sessionKey
-        (sprintf "{\"z\":%s,\"b\":%s,\"e\":[%s]}" zoomJson bootJson idsJson)
+    let payload = sprintf "{\"z\":%s,\"b\":%s,\"e\":[%s]}" zoomJson bootJson idsJson
+    sessionSet sessionKey payload
+    try localStorageSet sessionKey payload with _ -> ()
 
 /// Restore zoom root and fold state into a freshly-loaded VM.
 /// Called once immediately after StateLoaded, before the initial render.
 /// Uses `z` only — bootstrap widen (`b`) must not change UI zoom.
+/// Reads sessionStorage first, then localStorage.
 let restoreSessionState (model: VM) : VM =
-    let json = sessionGet sessionKey
-    if isNull json || json = "" then model
-    else
+    match tryReadSessionJson () with
+    | None -> model
+    | Some json ->
         try
             let decoder =
                 Decode.object (fun get ->

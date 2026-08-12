@@ -67,7 +67,7 @@ When `Auth:Username` and `Auth:Password` are both non-empty in configuration:
 | `POST` | `/ambit/login` | Form fields `username`, `password`; sets cookie, redirects to `/ambit` |
 | `GET` | `/ambit/logout` | Clears cookie, redirects to `/ambit/login` |
 
-Cookie name: `gambol_auth` (HttpOnly, SameSite=Strict). Value is HMAC-SHA256 of username keyed by password ([[src/Server/AuthToken.fs]]).
+Cookie name: `gambol_auth` (HttpOnly, SameSite=Lax, Secure). Value is HMAC-SHA256 of username keyed by password ([[src/Server/AuthToken.fs]]).
 
 Protected routes (`GET /ambit`, `GET /ambit/state`, `GET /ambit/poll`, `POST /ambit/changes`) return **401 Unauthorized** when auth is enabled and the cookie is missing or invalid.
 
