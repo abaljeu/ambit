@@ -195,7 +195,7 @@ module GraphMutate =
             then
                 Error "new child not found"
             else
-                let placementError =
+                let workspacePlacementError =
                     newChildren
                     |> List.tryPick (fun child ->
                         let childNode = graph.nodes.[child.id]
@@ -206,14 +206,21 @@ module GraphMutate =
                         | Ownership.Owner, Special Workspace
                             when parentId <> GraphBuild.workspacesId ->
                             Some "Workspace nodes may only be placed under Workspaces"
-                        | Ownership.Owner, _
-                            when GraphQuery.invalidOwnedFileDirectoryPlacement
-                                     graph
-                                     parentId
-                                     [ child ] ->
-                            Some
-                                "File and Directory nodes must have a Workspace or Directory owner ancestor (not under a File)"
                         | _ -> None)
+
+                // One placement scan for the whole introduced list — per-child calls
+                // re-walked the owner chain for every NewNode in a parse tail Replace.
+                let placementError =
+                    match workspacePlacementError with
+                    | Some _ as err -> err
+                    | None when
+                        GraphQuery.invalidOwnedFileDirectoryPlacement
+                            graph
+                            parentId
+                            newChildren ->
+                        Some
+                            "File and Directory nodes must have a Workspace or Directory owner ancestor (not under a File)"
+                    | None -> None
 
                 // Appending at the end removes nothing and shifts no sibling index,
                 // so the parent indexes can be updated in place.
@@ -243,11 +250,21 @@ module GraphMutate =
                         let suffix = children |> List.skip (index + oldCount)
                         let updatedChildren = prefix @ newChildren @ suffix
 
-                        let hasNameConflict =
-                            // Refs never participate in name uniqueness.
+                        // Parse-tail Normals have no Filename.Ok — skip sibling/artifact
+                        // conflict walks that only gate introduced owned names.
+                        let introducedOwnedName =
                             newChildren
                             |> List.exists (fun c ->
-                                Node.childOwnership graph parentId c = Ownership.Owner)
+                                Node.childOwnership graph parentId c = Ownership.Owner
+                                && match Map.tryFind c.id graph.nodes with
+                                   | Some node ->
+                                       match node.name with
+                                       | Filename.Ok _ -> true
+                                       | _ -> false
+                                   | None -> false)
+
+                        let hasNameConflict =
+                            introducedOwnedName
                             && (GraphQuery.siblingOwnedNameConflict
                                     graph parentId updatedChildren newChildren
                                 || GraphQuery.artifactNameConflict graph parentId newChildren)

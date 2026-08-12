@@ -133,9 +133,17 @@ module DocumentPartition =
     let isMemberOfUnparsedDocument (graph: Graph) (nodeId: NodeId) : bool =
         isMemberOfDocumentState Unparsed graph nodeId
 
+    /// Unparsed or NoServerFile document membership. One ancestor walk — Op.apply
+    /// gates every Replace on this, so doubling the walk (Unparsed then NoServerFile)
+    /// shows up on nested parse tails with hundreds of Replace ops.
     let isMemberOfInaccessibleDocument (graph: Graph) (nodeId: NodeId) : bool =
-        isMemberOfUnparsedDocument graph nodeId
-        || isMemberOfDocumentState NoServerFile graph nodeId
+        containingDocumentRootIds graph nodeId
+        |> List.exists (fun rootId ->
+            match Map.tryFind rootId graph.nodes with
+            | Some node ->
+                node.documentState = Unparsed
+                || node.documentState = NoServerFile
+            | None -> false)
 
     let isMemberOfUnparsedFile (graph: Graph) (nodeId: NodeId) : bool =
         containingDocumentRootIds graph nodeId
