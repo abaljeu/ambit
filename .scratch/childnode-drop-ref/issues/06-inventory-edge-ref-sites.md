@@ -9,7 +9,7 @@ What are the production (and test-helper) sites that still construct, read, comp
 
 ## Notes
 
-Evidence anchors: [[tmp/childnode-refactor.md]], `Node.childOwnership` in [[src/Shared/Model.fs]], `GraphBuild` owner-map fold still on `child.ref`, `node_children.ownership` in [[src/Server/Database.fs]], projection write via `Node.childOwnership` in [[src/Shared/GraphProjection.fs]].
+Evidence anchors: [[tmp/childnode-refactor.md]], `Node.childOwnership` in [[src/Shared/Model.fs]], `GraphBuild` owner-map fold still on `child.ref`, `node_children.ownership` in [[src/Server/Database.fs]], projection write via `Node.childOwnership` in [[src/Shared/GraphProjection.fs]]. Broader name-mention census (Phase C framing obsolete): [[tmp/childnode-wayfinder-inventory.md]].
 
 ## Answer
 
