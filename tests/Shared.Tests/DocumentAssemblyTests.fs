@@ -100,13 +100,13 @@ let private artifactMap (graph: Graph) : Map<string, string> =
     |> Map.ofSeq
 
 [<Fact>]
-let ``classifyCodec uses Amb for marker and named amb paths`` () =
-    let marker =
-        DocumentFormat.classifyCodec ".amb" |> requireOk "root marker"
-    Assert.Equal(DocumentCodec.Amb, marker)
+let ``classifyCodec uses Amb for Directory File and named amb paths`` () =
+    let directoryFile =
+        DocumentFormat.classifyCodec ".amb" |> requireOk "root Directory File"
+    Assert.Equal(DocumentCodec.Amb, directoryFile)
 
     let nestedDirInfo =
-        DocumentFormat.classifyCodec "d/bob/.amb" |> requireOk "nested marker"
+        DocumentFormat.classifyCodec "d/bob/.amb" |> requireOk "nested Directory File"
     Assert.Equal(DocumentCodec.Amb, nestedDirInfo)
 
     let named =
@@ -433,3 +433,34 @@ let ``readArtifact cold Amb ignores previous when None`` () =
         |> requireOk "cold amb read"
     Assert.Equal(1, after.nodes.[docId].children.Length)
     Assert.Equal("hello", after.nodes.[after.nodes.[docId].children.Head.id].text)
+
+[<Fact>]
+let ``assembleFromArtifactsBounded seeds Unparsed File stub without body`` () =
+    let fileId = NodeId(System.Guid.Parse "6556583f-322d-4183-bc42-284a81044a0f")
+    let artifacts =
+        Map.ofList
+            [ ".amb", "^SYSTEM SYSTEM\tSystem" + System.Environment.NewLine
+              "SYSTEM/.amb",
+              "^"
+              + AmbDocument.formatStableId fileId
+              + " user.css\tuser.css"
+              + System.Environment.NewLine ]
+    let actual =
+        DocumentAssembly.assembleFromArtifactsBounded
+            artifacts
+            (Set.singleton "SYSTEM/user.css")
+        |> requireOk "assemble"
+    let file = actual.nodes.[fileId]
+    Assert.Equal(Special File, file.kind)
+    Assert.Equal(Unparsed, file.documentState)
+    Assert.Empty(file.children)
+    let owned =
+        actual.nodes.[Graph.systemId].children
+        |> List.choose (fun c ->
+            if c.ref <> Ownership.Owner then None
+            else
+                match Map.tryFind c.id actual.nodes with
+                | Some node when Filename.tryValue node.name = Some "user.css" ->
+                    Some c.id
+                | _ -> None)
+    Assert.Equal<NodeId list>([ fileId ], owned)

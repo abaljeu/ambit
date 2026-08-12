@@ -5,11 +5,11 @@ open Gambol.Shared
 open Xunit
 
 [<Fact>]
-let ``allows SYSTEM amb marker`` () =
+let ``allows SYSTEM Directory File`` () =
     Assert.Equal(Ok (), SystemDirectoryPersist.refuseWrite "SYSTEM/.amb")
 
 [<Fact>]
-let ``allows SYSTEM amb marker case insensitive`` () =
+let ``allows SYSTEM Directory File case insensitive`` () =
     Assert.Equal(Ok (), SystemDirectoryPersist.refuseWrite "system/.AMB")
 
 [<Fact>]

@@ -63,7 +63,7 @@ module IgnoredDestination =
                 | None -> None
                 | Some newPath ->
                     match Map.tryFind nodeId postGraph.nodes with
-                    | Some node when Filename.isAmbMarkerFilename node.name ->
+                    | Some node when Filename.isDirectoryFileFilename node.name ->
                         None
                     | _ ->
                         let oldPath = artifactRelative preGraph nodeId

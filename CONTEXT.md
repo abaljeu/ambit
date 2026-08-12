@@ -90,9 +90,13 @@ _Avoid_: Workspaces (bare, for this Node), workspace list, workspace root
 A Node whose Kind is Directory; corresponds to a server directory plus that directory's `.amb` file (`DirName/.amb`). Always say Directory Node, not bare “directory,” when referring to the Node.
 _Avoid_: directory (bare, for a Node), folder
 
+**Directory File**:
+The `.amb` Document that belongs to a Directory Node or Workspace Node (root `.amb` or `DirName/.amb`). It is that node's Document artifact, not a File Node child. Cold bootstrap that reads only Directory Files leaves other File Nodes Unparsed until Parse.
+_Avoid_: Marker (for this concept), marker file, directory marker, amb marker, marker-only load (prefer Directory-File-only / Directory File cold load)
+
 **File Node**:
-A Node whose Kind is File; corresponds to a file on the server. Always say File Node, not bare “file,” when referring to the Node.
-_Avoid_: file (bare, for a Node), document, page, note
+A Node whose Kind is File; a Graph node that stands for a real on-disk file, identified by a relative path (e.g. `SYSTEM/user.css`). Always say File Node, not bare “file,” when referring to the Node. Cold load / stub: know the path exists and create the File Node without reading the file's text yet (Unparsed). After reading/parsing that file's text, it is the same File Node. Prefer “the file” at that relative path — not “file body.”
+_Avoid_: file (bare, for a Node), document, page, note, file body
 
 **ROOT**:
 The unique nameless Workspace Node at the Graph root.
@@ -207,3 +211,4 @@ These terms are permitted with standard definition:
 
 ## Additional Unwanted terms
 - affordance
+- **Marker** (for `.amb` Directory/Workspace documents, or “marker-only” cold bootstrap) — deprecated; say **Directory File**

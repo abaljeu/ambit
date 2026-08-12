@@ -24,7 +24,7 @@ module internal LazyLoadReconciliationPath =
         elif parts |> List.last |> Filename.isReservedSystemName then
             None
         else
-            match DocumentArtifactPath.tryMarkerOwnerParts path with
+            match DocumentArtifactPath.tryDirectoryFileOwnerParts path with
             | Some ownerParts ->
                 Some
                     { parts = ownerParts

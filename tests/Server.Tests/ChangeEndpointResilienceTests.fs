@@ -25,6 +25,19 @@ let private decodeGraph json =
     | Ok graph -> graph
     | Error err -> failwith err
 
+let private decodeRevisionAndGraph json =
+    let decoder =
+        Thoth.Json.Core.Decode.object (fun get ->
+            let revision =
+                get.Required.Field "revision" Serialization.decodeRevision
+            let graph =
+                get.Required.Field "graph" Serialization.decodeGraph
+            revision.Value, graph)
+
+    match Decode.fromString decoder json with
+    | Ok pair -> pair
+    | Error err -> failwith err
+
 /// SYSTEM always exists; user.css is optional — create it when this scenario needs it.
 let private createSystemCssClient () =
     let dataDir = newTempDir ()
@@ -88,11 +101,19 @@ let ``SetText persists SYSTEM user css and server remains responsive`` () = task
     use client = client
     use! initialResponse = client.GetAsync("/ambit/state?scope=full") |> timeout
     let! initialJson = initialResponse.Content.ReadAsStringAsync() |> timeout
-    let graph = decodeGraph initialJson
-    let fileId = findOwnedChildNamed graph Graph.systemId "user.css"
+    let graph0 = decodeGraph initialJson
+    let fileId = findOwnedChildNamed graph0 Graph.systemId "user.css"
+    // Cold bootstrap is Directory File outline only; File bodies load on Parse.
+    let parseBody = sprintf """{"fileId":"%O"}""" fileId.Value
+    use parseContent = new StringContent(parseBody, Encoding.UTF8, "application/json")
+    use! parseResponse = client.PostAsync("/ambit/file/parse", parseContent) |> timeout
+    Assert.Equal(HttpStatusCode.OK, parseResponse.StatusCode)
+    use! loadedResponse = client.GetAsync("/ambit/state?scope=full") |> timeout
+    let! loadedJson = loadedResponse.Content.ReadAsStringAsync() |> timeout
+    let revision, graph = decodeRevisionAndGraph loadedJson
     let cssNodeId = graph.nodes.[fileId].children |> List.exactlyOne |> fun c -> c.id
     let change =
-        { id = 0
+        { id = revision
           changeId = Guid.Parse("93a26b25-272f-4c48-916b-4045a2ba37a1")
           ops = [ Op.SetText(cssNodeId, "block", "\"background\" : #fff") ] }
     let body =

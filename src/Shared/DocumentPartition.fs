@@ -15,7 +15,7 @@ module DocumentPartition =
     /// Legitimate Workspace/Directory `xx` still writes `xx/.amb`.
     let shouldWriteDocumentRoot (node: Node) : bool =
         node.documentState = Current
-        && not (Filename.isAmbMarkerFilename node.name)
+        && not (Filename.isDirectoryFileFilename node.name)
 
     let documentRootForNode (graph: Graph) (nodeId: NodeId) : NodeId option =
         GraphQuery.enclosing graph (fun node -> isDocumentRootNode graph node.id) nodeId

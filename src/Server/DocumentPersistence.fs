@@ -96,18 +96,18 @@ module DocumentPersistence =
                       status = InvalidPath
                       sourceModifiedUtc = None }
             | Ok fullPath ->
-                // Workspace/directory refs resolve to `…/.amb`. Treat marker paths as
-                // folders (not "file"), including when only the parent dir exists
-                // after WebDAV MKCOL without an `.amb` body yet.
-                let markerName = Path.GetFileName fullPath
+                // Workspace/directory refs resolve to `…/.amb`. Treat Directory File
+                // paths as folders (not "file"), including when only the parent dir
+                // exists after WebDAV MKCOL without an `.amb` body yet.
+                let directoryFileBasename = Path.GetFileName fullPath
                 let parentDir = Path.GetDirectoryName fullPath
-                let isAmbMarker =
+                let isDirectoryFile =
                     String.Equals(
-                        markerName,
+                        directoryFileBasename,
                         ".amb",
                         StringComparison.OrdinalIgnoreCase)
 
-                if isAmbMarker then
+                if isDirectoryFile then
                     if
                         not (isNull parentDir)
                         && Directory.Exists parentDir
@@ -296,8 +296,8 @@ module DocumentPersistence =
         : Result<bool * string, string> =
         match Map.tryFind documentRootId graph.nodes with
         | None -> Error "node not found for document path move"
-        | Some node when Filename.isAmbMarkerFilename node.name ->
-            Error "amb marker basename must not drive artifact path moves"
+        | Some node when Filename.isDirectoryFileFilename node.name ->
+            Error "directory file basename must not drive artifact path moves"
         | Some node ->
             match node.kind with
             | Special File ->
@@ -446,10 +446,10 @@ module DocumentPersistence =
             (Ok ())
 
     /// Refuse persist when the graph node *name* is `.amb` (not path basename).
-    /// Legitimate Workspace/Directory markers are `xx/.amb` for node named `xx`.
-    let refuseAmbMarkerNamedDocument (node: Node) : Result<unit, string> =
-        if Filename.isAmbMarkerFilename node.name then
-            Error "amb marker basename must not drive artifact writes"
+    /// Legitimate Workspace/Directory nodes write Directory Files as `xx/.amb`.
+    let refuseDirectoryFileNamedDocument (node: Node) : Result<unit, string> =
+        if Filename.isDirectoryFileFilename node.name then
+            Error "directory file basename must not drive artifact writes"
         else
             Ok ()
 
@@ -471,7 +471,7 @@ module DocumentPersistence =
         : Result<DocumentWriteOk, string> =
         let refuse =
             match Map.tryFind documentRootId graph.nodes with
-            | Some node -> refuseAmbMarkerNamedDocument node
+            | Some node -> refuseDirectoryFileNamedDocument node
             | None -> Ok ()
 
         match refuse with
@@ -774,13 +774,19 @@ module DocumentPersistence =
         match discoverArtifactRelatives dataDir with
         | Error msg -> Error msg
         | Ok relatives ->
-            // Cold bootstrap is marker-outline only for every directory (plain
-            // File bodies stay unloaded until Parse / selective load).
-            let relatives =
+            // Cold bootstrap reads Directory File outline only; discovered File bodies
+            // become Unparsed stubs until Parse / selective load.
+            let normalize (rel: string) = rel.Replace('\\', '/')
+            let stubOnlyPaths =
                 relatives
-                |> List.filter DocumentArtifactPath.isMarker
+                |> List.map normalize
+                |> List.filter (DocumentArtifactPath.isDirectoryFile >> not)
+                |> Set.ofList
+            let directoryFileRelatives =
+                relatives
+                |> List.filter DocumentArtifactPath.isDirectoryFile
             let resolved =
-                relatives
+                directoryFileRelatives
                 |> List.fold
                     (fun acc rel ->
                         match acc with
@@ -789,7 +795,7 @@ module DocumentPersistence =
                             match resolveUnderDataDir dataDir rel with
                             | Error msg -> Error msg
                             | Ok fullPath ->
-                                Ok(Map.add (rel.Replace('\\', '/')) fullPath paths))
+                                Ok(Map.add (normalize rel) fullPath paths))
                     (Ok Map.empty)
 
             match resolved with
@@ -815,7 +821,10 @@ module DocumentPersistence =
                             with ex ->
                                 Error ex.Message)
                     (Ok Map.empty)
-                |> Result.bind DocumentAssembly.assembleFromArtifacts
+                |> Result.bind (fun artifacts ->
+                    DocumentAssembly.assembleFromArtifactsBounded
+                        artifacts
+                        stubOnlyPaths)
                 |> Result.map (fun graph ->
                     let tryMtime (rel: string) =
                         let norm = rel.Replace('\\', '/')
@@ -858,7 +867,16 @@ module DocumentPersistence =
                                 | Some rel ->
                                     match tryMtime rel with
                                     | Some mtime -> Map.add documentRootId mtime acc
-                                    | None -> acc
+                                    | None ->
+                                        // Stub-only File bodies are not in pathByRel
+                                        // (Directory Files only); stamp from DataDir when present.
+                                        match resolveUnderDataDir dataDir rel with
+                                        | Ok full when File.Exists full ->
+                                            Map.add
+                                                documentRootId
+                                                (File.GetLastWriteTimeUtc full)
+                                                acc
+                                        | _ -> acc
                                 | None ->
                                     match Map.tryFind documentRootId graph.nodes with
                                     | Some node ->

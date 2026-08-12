@@ -24,7 +24,7 @@ module SystemDirectoryPersist =
         match parts relativePath with
         | root :: rest when eq root "SYSTEM" ->
             match rest with
-            | [ name ] when Filename.isAmbMarkerName name -> Ok ()
+            | [ name ] when Filename.isDirectoryFileBasename name -> Ok ()
             | [ name ] when writeAllowlist |> List.exists (eq name) ->
                 Ok ()
             | _ -> Error "system directory write refused"

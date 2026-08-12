@@ -36,13 +36,13 @@ module DocumentPathMove =
     /// Illicit `.amb`-named nodes must not drive DataDir move/delete/write.
     let private skipsArtifactFs (graph: Graph) (nodeId: NodeId) : bool =
         match Map.tryFind nodeId graph.nodes with
-        | Some node -> Filename.isAmbMarkerFilename node.name
+        | Some node -> Filename.isDirectoryFileFilename node.name
         | None -> false
 
     let private moveSourceRelative (graph: Graph) (move: DocumentPathMove) =
         match Map.tryFind move.nodeId graph.nodes with
         | None -> None
-        | Some node when Filename.isAmbMarkerFilename node.name -> None
+        | Some node when Filename.isDirectoryFileFilename node.name -> None
         | Some node ->
             match node.kind with
             | Special File ->
@@ -99,7 +99,7 @@ module DocumentPathMove =
         match Map.tryFind nodeId graph.nodes with
         | None -> None
         | Some node when not (DocumentPartition.isDocumentRootNode graph nodeId) -> None
-        | Some node when Filename.isAmbMarkerFilename node.name -> None
+        | Some node when Filename.isDirectoryFileFilename node.name -> None
         | Some node ->
             match pathForDocumentRoot graph nodeId with
             | None -> None
@@ -146,7 +146,7 @@ module DocumentPathMove =
         match Map.tryFind nodeId graph.nodes with
         | None -> None
         | Some node when not (DocumentPartition.isDocumentRootNode graph nodeId) -> None
-        | Some node when Filename.isAmbMarkerFilename node.name -> None
+        | Some node when Filename.isDirectoryFileFilename node.name -> None
         | Some node when node.kind = Special Workspace && newParentId <> Graph.workspacesId ->
             None
         | Some node ->

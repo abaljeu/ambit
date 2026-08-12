@@ -245,21 +245,21 @@ module WorkspaceUploadStructure =
         workspaceId
         (item: InventoryItem)
         =
-        let markerOwnerParts =
+        let directoryFileOwnerParts =
             if item.isDirectory then
                 None
             else
-                DocumentArtifactPath.tryMarkerOwnerParts item.relative
+                DocumentArtifactPath.tryDirectoryFileOwnerParts item.relative
 
         let parts =
-            markerOwnerParts
+            directoryFileOwnerParts
             |> Option.defaultWith (fun () -> pathParts item.relative)
 
         if parts.IsEmpty then
             Ok(graph, [])
         else
             let kind =
-                if item.isDirectory || markerOwnerParts.IsSome then
+                if item.isDirectory || directoryFileOwnerParts.IsSome then
                     Directory
                 else
                     File

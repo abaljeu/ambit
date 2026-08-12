@@ -114,14 +114,14 @@ module LazyLoadReconciliationReport =
 
     let private orderedRenames renames =
         let pairs = renames |> List.map (fun item -> item.oldInfo, item.newInfo)
-        let markers = LazyLoadReconciliation.markerMoves pairs
+        let directoryFiles = LazyLoadReconciliation.directoryFileMoves pairs
         renames
         |> List.sortBy (fun item -> if item.oldInfo.isDirInfo then 0 else 1)
         |> List.filter (fun item ->
             item.oldInfo.isDirInfo
             || not (
                 LazyLoadReconciliation.coveredByDirInfoMove
-                    markers
+                    directoryFiles
                     item.oldInfo
                     item.newInfo))
 

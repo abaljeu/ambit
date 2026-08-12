@@ -86,21 +86,21 @@ let ``planCreateOwnedDirectory uses query as name and text`` () =
     Assert.Equal("my-docs", dirNode.text)
 
 [<Fact>]
-let ``planCreateOwnedFile falls back when query is amb marker basename`` () =
+let ``planCreateOwnedFile falls back when query is Directory File basename`` () =
     let focus, graph = outlineSetup ()
     let fileId, ops = FileNodeOps.planCreateOwnedFile graph focus ".amb"
     let graph2 = applyOps graph ops
     Assert.Equal(Filename.Ok "file.txt", graph2.nodes.[fileId].name)
 
 [<Fact>]
-let ``planCreateOwnedDirectory falls back when query is amb marker basename`` () =
+let ``planCreateOwnedDirectory falls back when query is Directory File basename`` () =
     let focus, graph = outlineSetup ()
     let dirId, ops = FileNodeOps.planCreateOwnedDirectory graph focus ".AMB"
     let graph2 = applyOps graph ops
     Assert.Equal(Filename.Ok "folder", graph2.nodes.[dirId].name)
 
 [<Fact>]
-let ``planCreateWorkspace falls back when query is amb marker basename`` () =
+let ``planCreateWorkspace falls back when query is Directory File basename`` () =
     let graph = Graph.create ()
     let wsId, ops = FileNodeOps.planCreateWorkspace graph ".Amb"
     let graph2 = applyOps graph ops

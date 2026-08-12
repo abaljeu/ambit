@@ -220,7 +220,7 @@ module LazyLoadReconciliation =
         prefix.Length < parts.Length
         && List.forall2 (=) prefix (List.take prefix.Length parts)
 
-    let internal markerMoves (renames: (Path.PathInfo * Path.PathInfo) list) =
+    let internal directoryFileMoves (renames: (Path.PathInfo * Path.PathInfo) list) =
         renames
         |> List.choose (fun (oldInfo, newInfo) ->
             if oldInfo.isDirInfo && newInfo.isDirInfo
@@ -230,9 +230,9 @@ module LazyLoadReconciliation =
             else
                 None)
 
-    let internal coveredByDirInfoMove markerPairs
+    let internal coveredByDirInfoMove directoryFilePairs
         (oldInfo: Path.PathInfo) (newInfo: Path.PathInfo) =
-        markerPairs
+        directoryFilePairs
         |> List.exists (fun (oldPrefix, newPrefix) ->
             startsWithParts oldPrefix oldInfo.parts
             && startsWithParts newPrefix newInfo.parts
@@ -337,7 +337,7 @@ module LazyLoadReconciliation =
                 match conflictFromDeleteAdd deleted added with
                 | Some err -> Error err
                 | None ->
-                    let markers = markerMoves renames
+                    let directoryFiles = directoryFileMoves renames
                     let protectedDirectoryIds =
                         renames
                         |> List.choose (fun (oldInfo, newInfo) ->
@@ -354,7 +354,11 @@ module LazyLoadReconciliation =
                             if oldInfo.isDirInfo then 0 else 1)
                         |> List.filter (fun (oldInfo, newInfo) ->
                             oldInfo.isDirInfo
-                            || not (coveredByDirInfoMove markers oldInfo newInfo))
+                            || not (
+                                coveredByDirInfoMove
+                                    directoryFiles
+                                    oldInfo
+                                    newInfo))
                     let deletedDeepest =
                         deleted
                         |> List.sortByDescending (fun info -> info.parts.Length)

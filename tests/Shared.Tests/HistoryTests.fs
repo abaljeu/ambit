@@ -131,7 +131,7 @@ let ``SetName rejects a reserved system name case-insensitively`` () =
     Assert.Contains("reserved", message)
 
 [<Fact>]
-let ``NewSpecialNode rejects exact amb marker basename case-insensitively`` () =
+let ``NewSpecialNode rejects exact Directory File basename case-insensitively`` () =
     let state = ModelBuilder.createState12 ()
     [ File, ".amb"; Directory, ".AMB"; Workspace, ".Amb" ]
     |> List.iter (fun (kind, name) ->
@@ -140,7 +140,7 @@ let ``NewSpecialNode rejects exact amb marker basename case-insensitively`` () =
         |> ignore)
 
 [<Fact>]
-let ``SetName rejects rename to exact amb marker basename`` () =
+let ``SetName rejects rename to exact Directory File basename`` () =
     let fileId, file = specialNode File "notes.txt"
     let state = stateWithNodes [ file ]
     Op.apply (Op.SetName(fileId, "notes.txt", ".amb")) state

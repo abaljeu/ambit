@@ -36,9 +36,9 @@ module LazyLoadReconciliationServer =
                 { changes = [ ChangeRequest.Change change ] })
 
     let private isDirInfoPath (path: string) =
-        DocumentArtifactPath.isMarker path
+        DocumentArtifactPath.isDirectoryFile path
 
-    let private markerPathsFromChanges
+    let private directoryFilePathsFromChanges
         (changedPaths: LazyLoadReconciliation.ChangedPath list)
         =
         changedPaths
@@ -57,7 +57,7 @@ module LazyLoadReconciliationServer =
         (changedPaths: LazyLoadReconciliation.ChangedPath list)
         : Map<string, string> =
         let root = Path.Combine(dataDir, workspaceLabel)
-        markerPathsFromChanges changedPaths
+        directoryFilePathsFromChanges changedPaths
         |> List.choose (fun relative ->
             let full = Path.Combine(root, relative.Replace('/', Path.DirectorySeparatorChar))
             if File.Exists full then

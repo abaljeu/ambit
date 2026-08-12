@@ -62,7 +62,7 @@ module internal LazyLoadReconciliationApply =
             createdStubIds kind @ resolvedStubIds kind)
         |> List.distinct
 
-    let markerRelativePath (info: LazyLoadReconciliationPath.PathInfo) =
+    let directoryFileRelativePath (info: LazyLoadReconciliationPath.PathInfo) =
         if info.parts.IsEmpty then
             ".amb"
         else
@@ -87,7 +87,7 @@ module internal LazyLoadReconciliationApply =
         (artifacts: Map<string, string>)
         (info: LazyLoadReconciliationPath.PathInfo)
         =
-        Map.tryFind (markerRelativePath info) artifacts
+        Map.tryFind (directoryFileRelativePath info) artifacts
 
     /// Prior artifact bytes for warm reconcile: export current graph when it
     /// already projects outline text. Empty/missing → cold None (first load).
@@ -112,7 +112,7 @@ module internal LazyLoadReconciliationApply =
                 |> Result.bind (function
                     | None -> Ok(graph, [])
                     | Some(nodeId, _) ->
-                        let relativePath = markerRelativePath info
+                        let relativePath = directoryFileRelativePath info
                         let docState = graph.nodes.[nodeId].documentState
                         let previousText =
                             match docState with

@@ -12,11 +12,11 @@ module DocumentArtifactPath =
         |> Array.toList
 
     /// Exact `.amb` basename maps to its containing document root.
-    let tryMarkerOwnerParts (relativePath: string) : string list option =
+    let tryDirectoryFileOwnerParts (relativePath: string) : string list option =
         match parts relativePath |> List.rev with
-        | name :: ownerReversed when Filename.isAmbMarkerName name ->
+        | name :: ownerReversed when Filename.isDirectoryFileBasename name ->
             Some(List.rev ownerReversed)
         | _ -> None
 
-    let isMarker (relativePath: string) =
-        tryMarkerOwnerParts relativePath |> Option.isSome
+    let isDirectoryFile (relativePath: string) =
+        tryDirectoryFileOwnerParts relativePath |> Option.isSome

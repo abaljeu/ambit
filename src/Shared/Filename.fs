@@ -19,14 +19,14 @@ module Filename =
     let isReservedSystemName (name: string) : bool =
         name.StartsWith("gambol.", StringComparison.OrdinalIgnoreCase)
 
-    /// Exact `.amb` basename is the directory/workspace proxy artifact, never a graph node name.
-    let isAmbMarkerName (name: string) : bool =
+    /// Exact `.amb` basename is the Directory File artifact, never a graph node name.
+    let isDirectoryFileBasename (name: string) : bool =
         String.Equals(name, ".amb", StringComparison.OrdinalIgnoreCase)
 
-    let isAmbMarkerFilename (f: Filename) : bool =
+    let isDirectoryFileFilename (f: Filename) : bool =
         match f with
         | Filename.Ok s
-        | Filename.Invalid s -> isAmbMarkerName s
+        | Filename.Invalid s -> isDirectoryFileBasename s
         | Filename.Empty -> false
 
     let private isValidChar (c: char) : bool =
@@ -52,7 +52,7 @@ module Filename =
         if String.IsNullOrEmpty s then Filename.Empty
         elif s.Length > maxLength then Filename.Invalid s
         elif s = "." || s = ".." then Filename.Invalid s
-        elif isAmbMarkerName s then Filename.Invalid s
+        elif isDirectoryFileBasename s then Filename.Invalid s
         else
             match s |> Seq.tryFind (fun c -> not (isValidChar c)) with
             | Some _ -> Filename.Invalid s

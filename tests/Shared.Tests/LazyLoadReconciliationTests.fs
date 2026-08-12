@@ -282,7 +282,7 @@ let ``amb suffixes are ordinary file names`` () =
     Assert.Equal(Special File, notesAmbTxt.kind)
 
 [<Fact>]
-let ``exact amb marker represents its containing directory`` () =
+let ``exact Directory File represents its containing directory`` () =
     let workspaceId, graph = Graph.create () |> addWorkspace "home"
     let paths = [ ".git/config"; ".amb"; "docs/.amb" ]
     let graph2 = requirePlan graph "home" paths |> applyOps graph
@@ -394,7 +394,7 @@ let ``rename and cross-directory move preserve identity and children`` () =
     Assert.Equal(parsedId, movedFile.children.Head.id)
 
 [<Fact>]
-let ``directory marker rename coalesces nested renames`` () =
+let ``Directory File rename coalesces nested renames`` () =
     let workspaceId, graph = Graph.create () |> addWorkspace "home"
     let graph2 =
         createPaths graph [ "docs/.amb"; "docs/nested/a.txt" ]
@@ -428,7 +428,7 @@ let ``directory rename survives deletion of its last old child`` () =
     Assert.Equal(docsId, (childNamed graph3 workspaceId "archive").id)
 
 [<Fact>]
-let ``exact marker modification invalidates containing documents`` () =
+let ``exact Directory File modification invalidates containing documents`` () =
     let workspaceId, graph = Graph.create () |> addWorkspace "home"
     let graph2 = createPaths graph [ "docs/.amb" ] |> markDocumentsCurrent
     let docs = childNamed graph2 workspaceId "docs"
@@ -522,7 +522,7 @@ let ``repeated full reconciliation is idempotent`` () =
     Assert.Empty(requireChangedPlan graph3 "home" changes)
 
 [<Fact>]
-let ``deleting exact marker alone keeps containing directory`` () =
+let ``deleting exact Directory File alone keeps containing directory`` () =
     let workspaceId, graph = Graph.create () |> addWorkspace "home"
     let graph2 = createPaths graph [ "docs/.amb"; "docs/keep.txt" ]
     let docsId = (childNamed graph2 workspaceId "docs").id

@@ -33,9 +33,9 @@ module DocumentAssembly =
             Some (Some path, target.Substring(caretIdx + 1))
 
     let private isDirectoryArtifact (relativePath: string) =
-        // Only `.amb` / `*/.amb` are directory markers; any other path is File
+        // Only `.amb` / `*/.amb` are Directory Files; any other path is File
         // (including names that happen to end in `.amb`, e.g. `d/bob/cea.amb`).
-        DocumentArtifactPath.isMarker relativePath
+        DocumentArtifactPath.isDirectoryFile relativePath
 
     let artifactRelativeForNodeReference (nodeReference: string) : Result<string, string> =
         NodeDesktopPath.artifactRelativeForReference nodeReference
@@ -74,9 +74,9 @@ module DocumentAssembly =
 
     let private stubName (relativePath: string) : Filename =
         match splitSegments relativePath |> List.rev with
-        | name :: parent :: _ when Filename.isAmbMarkerName name ->
+        | name :: parent :: _ when Filename.isDirectoryFileBasename name ->
             Filename.create parent
-        | [ name ] when Filename.isAmbMarkerName name -> Filename.Empty
+        | [ name ] when Filename.isDirectoryFileBasename name -> Filename.Empty
         | name :: _ -> Filename.create name
         | [] -> Filename.Empty
 
@@ -106,7 +106,7 @@ module DocumentAssembly =
 
     let private seedStub (graph: Graph) (relativePath: string) (documentRootId: NodeId) : Graph =
         // Root `.amb` is already present via Graph.create / GraphBuild.ensure; do not replace it.
-        if Filename.isAmbMarkerName relativePath then
+        if Filename.isDirectoryFileBasename relativePath then
             graph
         else
             let node = stubNode graph relativePath documentRootId
@@ -179,7 +179,7 @@ module DocumentAssembly =
         if slash < 0 then "" else relativePath.Substring(0, slash + 1)
 
     let private tryChildArtifact
-        (artifacts: Map<string, string>)
+        (presentPaths: Set<string>)
         (baseDirectory: string)
         (node: Node)
         : string option =
@@ -187,10 +187,10 @@ module DocumentAssembly =
         | None -> None
         | Some name ->
             [ baseDirectory + name + "/.amb"; baseDirectory + name ]
-            |> List.tryFind (fun relativePath -> Map.containsKey relativePath artifacts)
+            |> List.tryFind (fun relativePath -> Set.contains relativePath presentPaths)
 
     let private resolveChildArtifact
-        (artifacts: Map<string, string>)
+        (presentPaths: Set<string>)
         (baseDirectory: string)
         (graph: Graph)
         (seen: Set<string>)
@@ -200,7 +200,7 @@ module DocumentAssembly =
         match Map.tryFind childId graph.nodes with
         | None -> Ok (graph, seen, queue)
         | Some node ->
-            match tryChildArtifact artifacts baseDirectory node with
+            match tryChildArtifact presentPaths baseDirectory node with
             | None -> Ok (graph, seen, queue)
             | Some childRel when Set.contains childRel seen -> Ok (graph, seen, queue)
             | Some childRel ->
@@ -208,7 +208,7 @@ module DocumentAssembly =
                 Ok (graph', Set.add childRel seen, (childRel, childId) :: queue)
 
     let private resolveChildArtifacts
-        (artifacts: Map<string, string>)
+        (presentPaths: Set<string>)
         (relativePath: string)
         (documentRootId: NodeId)
         (graph: Graph)
@@ -220,7 +220,7 @@ module DocumentAssembly =
         |> resultFold
             (fun (graph', seen', queue') childId ->
                 resolveChildArtifact
-                    artifacts
+                    presentPaths
                     (artifactDirectory relativePath)
                     graph'
                     seen'
@@ -228,8 +228,26 @@ module DocumentAssembly =
                     childId)
             (graph, seen, queue)
 
+    let private seedUnparsedStub
+        (graph: Graph)
+        (relativePath: string)
+        (documentRootId: NodeId)
+        : Graph =
+        let graph' = seedStub graph relativePath documentRootId
+        match Map.tryFind documentRootId graph'.nodes with
+        | Some ({ kind = Special File } as node) ->
+            let nodes =
+                Map.add
+                    documentRootId
+                    { node with documentState = Unparsed; children = [] }
+                    graph'.nodes
+            Graph.fromNodes graph'.root nodes
+        | _ -> graph'
+
     let rec private assembleLoop
         (artifacts: Map<string, string>)
+        (stubOnlyPaths: Set<string>)
+        (presentPaths: Set<string>)
         (seen: Set<string>)
         (queue: (string * NodeId) list)
         (graph: Graph)
@@ -238,17 +256,46 @@ module DocumentAssembly =
         | [] -> validateAssembledGraph graph
         | (relativePath, docId) :: rest ->
             match Map.tryFind relativePath artifacts with
+            | None when Set.contains relativePath stubOnlyPaths ->
+                let graph' = seedUnparsedStub graph relativePath docId
+                assembleLoop artifacts stubOnlyPaths presentPaths seen rest graph'
             | None ->
                 let graph' = seedStub graph relativePath docId
-                assembleLoop artifacts seen rest graph'
+                assembleLoop artifacts stubOnlyPaths presentPaths seen rest graph'
             | Some text ->
                 let graph' = seedStub graph relativePath docId
                 readArtifact graph' relativePath text docId
                 |> Result.bind (fun refs ->
                     resolveChildArtifacts
-                        artifacts relativePath docId refs seen rest
+                        presentPaths relativePath docId refs seen rest
                     |> Result.bind (fun (graph'', seen', queue') ->
-                        assembleLoop artifacts seen' queue' graph''))
+                        assembleLoop
+                            artifacts
+                            stubOnlyPaths
+                            presentPaths
+                            seen'
+                            queue'
+                            graph''))
+
+    /// `stubOnlyPaths` are on-disk File relatives whose bodies stay unloaded
+    /// (Unparsed File stubs) until Parse / selective load.
+    let assembleFromArtifactsBounded
+        (artifacts: Map<string, string>)
+        (stubOnlyPaths: Set<string>)
+        : Result<Graph, string> =
+        let presentPaths =
+            artifacts
+            |> Map.toSeq
+            |> Seq.map fst
+            |> Set.ofSeq
+            |> Set.union stubOnlyPaths
+        assembleLoop
+            artifacts
+            stubOnlyPaths
+            presentPaths
+            (Set.ofList [ ".amb" ])
+            [ ".amb", Graph.rootId ]
+            (Graph.create ())
 
     let assembleFromArtifacts (artifacts: Map<string, string>) : Result<Graph, string> =
-        assembleLoop artifacts (Set.ofList [ ".amb" ]) [ ".amb", Graph.rootId ] (Graph.create ())
+        assembleFromArtifactsBounded artifacts Set.empty

@@ -123,7 +123,9 @@ let private assertNestedWorkspaceLoad (expected: Graph) (actual: Graph) =
     Assert.Equal(wsId, actual.nodes.[Graph.workspacesId].children.Head.id)
     Assert.Equal(dirId, actual.nodes.[wsId].children.Head.id)
     Assert.Equal(fileId, actual.nodes.[dirId].children.Head.id)
-    Assert.Equal(NodeKind.Normal, actual.nodes.[fileId].kind)
+    // Cold load: on-disk plain body → Unparsed File stub (no children), not Normal outline.
+    Assert.Equal(NodeKind.Special SpecialKind.File, actual.nodes.[fileId].kind)
+    Assert.Equal(Unparsed, actual.nodes.[fileId].documentState)
     Assert.Equal("readme.txt", Filename.tryValue actual.nodes.[fileId].name |> Option.get)
     Assert.Empty(actual.nodes.[fileId].children)
 
@@ -316,7 +318,7 @@ let ``persistGraphChange does not rewrite untouched sibling document artifact`` 
     Assert.Contains("ALPHA", File.ReadAllText pathA)
 
 [<Fact>]
-let ``readAllDocuments cold load stamps amb marker roots from disk mtime`` () =
+let ``readAllDocuments cold load stamps Directory File roots from disk mtime`` () =
     let dataDir = newTempDir ()
     let graph, wsId, dirId, fileId, _ = graphWithNestedDocs ()
     DocumentPersistence.writeAllDocuments dataDir graph
@@ -807,7 +809,7 @@ let ``readAllDocuments ignores stray amb file`` () =
     DocumentPersistence.readAllDocuments dataDir |> requireOk "read" |> ignore
 
 [<Fact>]
-let ``readAllDocuments ignores large non-marker under dataDir`` () =
+let ``readAllDocuments ignores large non-Directory-File under dataDir`` () =
     let dataDir = newTempDir ()
     File.WriteAllText(Path.Combine(dataDir, ".amb"), "")
     File.WriteAllText(
@@ -819,7 +821,7 @@ let ``readAllDocuments ignores large non-marker under dataDir`` () =
     DocumentPersistence.readAllDocuments dataDir |> requireOk "read" |> ignore
 
 [<Fact>]
-let ``readAllDocuments skips oversized amb marker`` () =
+let ``readAllDocuments skips oversized Directory File`` () =
     let dataDir = newTempDir ()
     let graph, wsId, _, _, _ = graphWithNestedDocs ()
     DocumentPersistence.writeAllDocuments dataDir graph |> requireOk "write" |> ignore
@@ -875,7 +877,9 @@ let ``readAllDocuments cold load keeps file outline without plain body`` () =
     DocumentPersistence.writeAllDocuments dataDir expected |> requireOk "write" |> ignore
     let actual = DocumentPersistence.readAllDocuments dataDir |> requireOk "read"
     Assert.Equal(fileId, actual.nodes.[dirId].children.Head.id)
-    Assert.Equal(NodeKind.Normal, actual.nodes.[fileId].kind)
+    // Body is on disk but unloaded: Special File + Unparsed, empty children.
+    Assert.Equal(NodeKind.Special SpecialKind.File, actual.nodes.[fileId].kind)
+    Assert.Equal(Unparsed, actual.nodes.[fileId].documentState)
     Assert.Equal("readme.txt", Filename.tryValue actual.nodes.[fileId].name |> Option.get)
     Assert.Empty(actual.nodes.[fileId].children)
 
@@ -951,7 +955,7 @@ let private graphWithIllicitAmbFile () : Graph * NodeId * NodeId =
     graph3, wsId, fileId
 
 [<Fact>]
-let ``refuseAmbMarkerNamedDocument errors on illicit amb node name`` () =
+let ``refuseDirectoryFileNamedDocument errors on illicit amb node name`` () =
     let node =
         Node.Create(
             NodeId.New(),
@@ -959,13 +963,13 @@ let ``refuseAmbMarkerNamedDocument errors on illicit amb node name`` () =
             name = Filename.Ok ".amb",
             owner = Graph.rootId,
             kind = Special File)
-    match DocumentPersistence.refuseAmbMarkerNamedDocument node with
+    match DocumentPersistence.refuseDirectoryFileNamedDocument node with
     | Ok () -> failwith "expected refuse"
     | Error msg ->
-        Assert.Contains("amb marker", msg, StringComparison.OrdinalIgnoreCase)
+        Assert.Contains("directory file", msg, StringComparison.OrdinalIgnoreCase)
 
 [<Fact>]
-let ``refuseAmbMarkerNamedDocument allows legitimate workspace name`` () =
+let ``refuseDirectoryFileNamedDocument allows legitimate workspace name`` () =
     let node =
         Node.Create(
             NodeId.New(),
@@ -973,8 +977,8 @@ let ``refuseAmbMarkerNamedDocument allows legitimate workspace name`` () =
             name = Filename.create "home",
             owner = Graph.workspacesId,
             kind = Special Workspace)
-    DocumentPersistence.refuseAmbMarkerNamedDocument node
-    |> requireOk "refuseAmbMarkerNamedDocument"
+    DocumentPersistence.refuseDirectoryFileNamedDocument node
+    |> requireOk "refuseDirectoryFileNamedDocument"
     |> ignore
 
 let private graphWithSystemFile (fileName: string) : Graph * NodeId =
@@ -991,7 +995,7 @@ let private graphWithSystemFile (fileName: string) : Graph * NodeId =
     graph2, fileId
 
 [<Fact>]
-let ``writeDocument allows SYSTEM amb marker`` () =
+let ``writeDocument allows SYSTEM Directory File`` () =
     let dataDir = newTempDir ()
     let graph = Graph.create ()
     DocumentPersistence.writeDocument dataDir graph Graph.systemId
@@ -1073,10 +1077,10 @@ let ``writeDocument refuses illicit amb-named file and leaves DataDir untouched`
     let graph, _, fileId = graphWithIllicitAmbFile ()
     let homeDir = Path.Combine(dataDir, "home")
     Directory.CreateDirectory homeDir |> ignore
-    let markerPath = Path.Combine(homeDir, ".amb")
-    File.WriteAllText(markerPath, "MARKER")
+    let directoryFilePath = Path.Combine(homeDir, ".amb")
+    File.WriteAllText(directoryFilePath, "MARKER")
     match DocumentPersistence.writeDocument dataDir graph fileId with
     | Ok _ -> failwith "expected writeDocument to refuse illicit .amb"
     | Error msg ->
-        Assert.Contains("amb marker", msg, StringComparison.OrdinalIgnoreCase)
-    Assert.Equal("MARKER", File.ReadAllText markerPath)
+        Assert.Contains("directory file", msg, StringComparison.OrdinalIgnoreCase)
+    Assert.Equal("MARKER", File.ReadAllText directoryFilePath)
