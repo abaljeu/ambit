@@ -132,13 +132,22 @@ module LazyLoadReconciliationReport =
             [ item.info ]
             createOps
         |> Result.bind (fun (withFiles, fileOps) ->
-            LazyLoadReconciliationApply.parseDirInfoIfPresent
-                withFiles
-                workspaceId
-                artifacts
-                item.info
-            |> Result.map (fun (finalGraph, parseOps) ->
-                finalGraph, fileOps @ parseOps))
+            if
+                LazyLoadReconciliationApply.skipParseAddedDirInfo
+                    withFiles
+                    workspaceId
+                    createOps
+                    item.info
+            then
+                Ok(withFiles, fileOps)
+            else
+                LazyLoadReconciliationApply.parseDirInfoIfPresent
+                    withFiles
+                    workspaceId
+                    artifacts
+                    item.info
+                |> Result.map (fun (finalGraph, parseOps) ->
+                    finalGraph, fileOps @ parseOps))
 
     let planChangedPathsWithArtifacts
         (graph: Graph)

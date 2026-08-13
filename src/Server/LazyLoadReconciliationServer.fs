@@ -38,28 +38,59 @@ module LazyLoadReconciliationServer =
     let private isDirInfoPath (path: string) =
         DocumentArtifactPath.isDirectoryFile path
 
-    let private directoryFilePathsFromChanges
-        (changedPaths: LazyLoadReconciliation.ChangedPath list)
+    /// Added Current Directory Files are skipped at finalize; do not read them.
+    /// Modified / renamed / Unparsed / missing stubs still need artifact text.
+    let private needsDirInfoArtifactRead
+        (graph: Graph)
+        (workspaceLabel: string)
+        (change: LazyLoadReconciliation.ChangedPath)
         =
-        changedPaths
-        |> List.collect (function
-            | LazyLoadReconciliation.Added path
-            | LazyLoadReconciliation.Modified path when isDirInfoPath path ->
-                [ path ]
-            | LazyLoadReconciliation.Renamed(_, newPath) when isDirInfoPath newPath ->
-                [ newPath ]
-            | _ -> [])
-        |> List.distinct
+        match change with
+        | LazyLoadReconciliation.Modified path
+        | LazyLoadReconciliation.Renamed(_, path) when isDirInfoPath path ->
+            true
+        | LazyLoadReconciliation.Added path when isDirInfoPath path ->
+            match
+                LazyLoadReconciliation.resolveOwnedPath
+                    graph
+                    workspaceLabel
+                    path
+            with
+            | Ok(Some(nodeId, _)) ->
+                graph.nodes.[nodeId].documentState <> Current
+            | Ok None -> true
+            | Error _ -> true
+        | _ -> false
 
     let private readDirInfoArtifacts
+        (graph: Graph)
         (dataDir: string)
         (workspaceLabel: string)
         (changedPaths: LazyLoadReconciliation.ChangedPath list)
         : Map<string, string> =
         let root = Path.Combine(dataDir, workspaceLabel)
-        directoryFilePathsFromChanges changedPaths
+        let pathsToRead =
+            changedPaths
+            |> List.collect (fun change ->
+                if needsDirInfoArtifactRead graph workspaceLabel change then
+                    match change with
+                    | LazyLoadReconciliation.Added path
+                    | LazyLoadReconciliation.Modified path when
+                        isDirInfoPath path ->
+                        [ path ]
+                    | LazyLoadReconciliation.Renamed(_, newPath) when
+                        isDirInfoPath newPath ->
+                        [ newPath ]
+                    | _ -> []
+                else
+                    [])
+            |> List.distinct
+        pathsToRead
         |> List.choose (fun relative ->
-            let full = Path.Combine(root, relative.Replace('/', Path.DirectorySeparatorChar))
+            let full =
+                Path.Combine(
+                    root,
+                    relative.Replace('/', Path.DirectorySeparatorChar))
             if File.Exists full then
                 try
                     Some(relative.Replace('\\', '/'), File.ReadAllText full)
@@ -136,7 +167,11 @@ module LazyLoadReconciliationServer =
                     | Ok discovered ->
                         let allChanges = changedPaths @ discovered
                         let artifacts =
-                            readDirInfoArtifacts dataDir workspaceLabel allChanges
+                            readDirInfoArtifacts
+                                graph
+                                dataDir
+                                workspaceLabel
+                                allChanges
                         match
                             LazyLoadReconciliationReport.planChangedPathsWithArtifacts
                                 graph

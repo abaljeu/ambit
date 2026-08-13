@@ -622,3 +622,129 @@ let ``planAddedPaths creates File under SYSTEM`` () =
     let file = childNamed graph1 Graph.systemId "user.css"
     Assert.Equal(Special File, file.kind)
     Assert.True(Graph.isSpecialSystemDirectoryMember graph1 file.id)
+
+let private seedCurrentDirsWithAmb
+    (count: int)
+    : Graph * Map<string, string> * LazyLoadReconciliation.ChangedPath list =
+    let _, graph0 = Graph.create () |> addWorkspace "home"
+    let paths =
+        [ for i in 1..count do
+              yield $"d{i}/.amb" ]
+    let artifacts =
+        paths
+        |> List.map (fun p -> p, "outline" + System.Environment.NewLine)
+        |> Map.ofList
+    let ops =
+        match
+            LazyLoadReconciliationReport.planChangedPathsWithArtifacts
+                graph0
+                "home"
+                (paths |> List.map LazyLoadReconciliation.Added)
+                artifacts
+        with
+        | Ok report -> report.ops
+        | Error err -> failwith err
+    let graph1 = applyOps graph0 ops |> markDocumentsCurrent
+    let changes = paths |> List.map LazyLoadReconciliation.Added
+    graph1, artifacts, changes
+
+[<Fact>]
+let ``rediscovered Current Directory Files skip parse on Added`` () =
+    let workspaceId, graph0 = Graph.create () |> addWorkspace "home"
+    let artifacts =
+        Map.ofList [ "docs/.amb", "outline" + System.Environment.NewLine ]
+    let ops1 =
+        match
+            LazyLoadReconciliationReport.planChangedPathsWithArtifacts
+                graph0
+                "home"
+                [ LazyLoadReconciliation.Added "docs/.amb" ]
+                artifacts
+        with
+        | Ok report -> report.ops
+        | Error err -> failwith err
+    let graph1 = applyOps graph0 ops1 |> markDocumentsCurrent
+    let docs = childNamed graph1 workspaceId "docs"
+    Assert.Equal("outline", graph1.nodes.[docs.children.Head.id].text)
+    // Divergent disk text must not apply while stub stays Current.
+    let poison =
+        Map.ofList [ "docs/.amb", "POISON" + System.Environment.NewLine ]
+    match
+        LazyLoadReconciliationReport.planChangedPathsWithArtifacts
+            graph1
+            "home"
+            [ LazyLoadReconciliation.Added "docs/.amb" ]
+            poison
+    with
+    | Error err -> Assert.Fail(err)
+    | Ok report ->
+        Assert.Empty(report.failures)
+        Assert.Empty(report.ops)
+        Assert.Equal(
+            "outline",
+            graph1.nodes.[docs.children.Head.id].text)
+
+[<Fact>]
+let ``rediscovered Unparsed Directory File still parses on Added`` () =
+    let workspaceId, graph0 = Graph.create () |> addWorkspace "home"
+    let graph1 = createPaths graph0 [ "docs/.amb" ]
+    let docs = childNamed graph1 workspaceId "docs"
+    Assert.Equal(Unparsed, docs.documentState)
+    let artifacts =
+        Map.ofList [ "docs/.amb", "body" + System.Environment.NewLine ]
+    match
+        LazyLoadReconciliationReport.planChangedPathsWithArtifacts
+            graph1
+            "home"
+            [ LazyLoadReconciliation.Added "docs/.amb" ]
+            artifacts
+    with
+    | Error err -> Assert.Fail(err)
+    | Ok report ->
+        Assert.Empty(report.failures)
+        Assert.NotEmpty(report.ops)
+        let graph2 = applyOps graph1 report.ops
+        let docs2 = graph2.nodes.[docs.id]
+        Assert.Equal(Current, docs2.documentState)
+        Assert.Equal(1, docs2.children.Length)
+        Assert.Equal("body", graph2.nodes.[docs2.children.Head.id].text)
+
+[<Fact>]
+let ``new Directory File Added still parses outline`` () =
+    let workspaceId, graph0 = Graph.create () |> addWorkspace "home"
+    let artifacts =
+        Map.ofList [ "fresh/.amb", "hello" + System.Environment.NewLine ]
+    match
+        LazyLoadReconciliationReport.planChangedPathsWithArtifacts
+            graph0
+            "home"
+            [ LazyLoadReconciliation.Added "fresh/.amb" ]
+            artifacts
+    with
+    | Error err -> Assert.Fail(err)
+    | Ok report ->
+        Assert.Empty(report.failures)
+        Assert.NotEmpty(report.ops)
+        let graph1 = applyOps graph0 report.ops
+        let fresh = childNamed graph1 workspaceId "fresh"
+        Assert.Equal(Current, fresh.documentState)
+        Assert.Equal("hello", graph1.nodes.[fresh.children.Head.id].text)
+
+[<Fact>]
+let ``second Added rediscovery of Current dirs stays under 100ms`` () =
+    let graph1, artifacts, changes = seedCurrentDirsWithAmb 80
+    let sw = System.Diagnostics.Stopwatch.StartNew()
+    match
+        LazyLoadReconciliationReport.planChangedPathsWithArtifacts
+            graph1
+            "home"
+            changes
+            artifacts
+    with
+    | Error err -> Assert.Fail(err)
+    | Ok report ->
+        sw.Stop()
+        Assert.Empty(report.ops)
+        Assert.True(
+            sw.ElapsedMilliseconds < 100L,
+            $"second rediscovery took {sw.ElapsedMilliseconds}ms")

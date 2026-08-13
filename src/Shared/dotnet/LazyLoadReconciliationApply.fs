@@ -96,6 +96,24 @@ module internal LazyLoadReconciliationApply =
         | Ok prev when prev.Length > 0 -> Some prev
         | _ -> None
 
+    /// Skip Added-path Directory File parse when stub already exists Current
+    /// and ensureChild emitted no creates. New / Unparsed / NoServerFile parse.
+    let skipParseAddedDirInfo
+        (graph: Graph)
+        workspaceId
+        (createOps: Op list)
+        (info: LazyLoadReconciliationPath.PathInfo)
+        =
+        if not info.isDirInfo || not createOps.IsEmpty then
+            false
+        else
+            match
+                LazyLoadReconciliationPath.resolveInfo graph workspaceId info
+            with
+            | Ok(Some(nodeId, _)) ->
+                graph.nodes.[nodeId].documentState = Current
+            | _ -> false
+
     let parseDirInfoIfPresent
         graph
         workspaceId
@@ -151,6 +169,9 @@ module internal LazyLoadReconciliationApply =
         |> List.fold (fun result info ->
             result
             |> Result.bind (fun (current, ops) ->
-                parseDirInfoIfPresent current workspaceId artifacts info
-                |> Result.map (fun (next, parseOps) ->
-                    next, ops @ parseOps))) (Ok(graph, []))
+                if skipParseAddedDirInfo current workspaceId [] info then
+                    Ok(current, ops)
+                else
+                    parseDirInfoIfPresent current workspaceId artifacts info
+                    |> Result.map (fun (next, parseOps) ->
+                        next, ops @ parseOps))) (Ok(graph, []))
