@@ -180,9 +180,9 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                         model.syncInfo
                         |> SyncInfo.withServerReady ready }
             | None -> model
-        // While Uploading: apply graph deltas but keep the Uploading indicator.
+        // While Uploading or Parsing: apply graph deltas but keep the busy indicator.
         match readyModel.syncInfo.syncState with
-        | Uploading ->
+        | Uploading | Parsing as busy ->
             match stateOpt with
             | Some DataOutdated
                 when not changes.IsEmpty
@@ -202,7 +202,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                         |> withSiteMap
                         |> adjustModeAfterServerApply readyModel.graph
                     { kept with
-                        syncInfo = SyncInfo.withSyncState Uploading kept.syncInfo }
+                        syncInfo = SyncInfo.withSyncState busy kept.syncInfo }
                     |> UpdateWorkspaceDownload.accumulateAutoDownloadFromChanges changes
             | _ -> readyModel, []
         | _ ->

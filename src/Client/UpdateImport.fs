@@ -45,7 +45,10 @@ let validateParseTextOpt (textOpt: string option) : Result<string option, string
     | None -> Ok None
 
 let failParseFile (message: string) (model: VM) : VM * Effect list =
-    fail model message
+    fail
+        { model with
+            syncInfo = SyncInfo.withSyncState Idle model.syncInfo }
+        message
 
 let failParseFileHttp (status: int) (responseText: string) (model: VM) : VM * Effect list =
     failParseFile (httpError status responseText) model
@@ -57,12 +60,14 @@ let completeParseFilePost
     (model: VM)
     : VM * Effect list =
     match decodeParseFileOk responseText with
-    | Error err -> fail model err
+    | Error err -> failParseFile err model
     | Ok () ->
         // Server may have applied graph-only ops; poll immediately so the outline updates.
         let model' =
             { model with
-                lastCmdResult = Some(CmdLastResult.Detail(None, detailPrefix + detailPath)) }
+                lastCmdResult =
+                    Some(CmdLastResult.Detail(None, detailPrefix + detailPath))
+                syncInfo = SyncInfo.withSyncState Idle model.syncInfo }
         let si, pollEffs = tryStartLoadFetch model'
         { model' with syncInfo = si }, pollEffs
 
@@ -104,7 +109,8 @@ let parseFileOp
             let model' =
                 { model with
                     lastCmdResult =
-                        Some(CmdLastResult.Detail(None, "parsing: " + detailPath)) }
+                        Some(CmdLastResult.Detail(None, "parsing: " + detailPath))
+                    syncInfo = SyncInfo.withSyncState Parsing model.syncInfo }
 
             model',
             [ Effect.ContinueParseFile(fileId, desktopReadPath, detailPrefix, detailPath) ]

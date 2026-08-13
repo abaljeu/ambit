@@ -272,6 +272,35 @@ let ``tryStartSubmit returns no effects when uploading`` () =
     Assert.Empty(effects)
 
 [<Fact>]
+let ``tryStartPoll returns no effects when parsing`` () =
+    let syncInfo =
+        { SyncInfo.initial with syncState = Parsing }
+    let si, effects = SyncPlanner.tryStartPoll (Revision 5) syncInfo
+    Assert.Equal(Parsing, si.syncState)
+    Assert.Empty(effects)
+
+[<Fact>]
+let ``tryStartSubmit returns no effects when parsing`` () =
+    let syncInfo =
+        { SyncInfo.initial with
+            pendingChanges = [ mkChange 1 |> asAction ]
+            syncState = Parsing }
+    let nextInfo, effects = SyncPlanner.tryStartSubmit (Revision 1) syncInfo
+    Assert.Equal(Parsing, nextInfo.syncState)
+    Assert.Empty(effects)
+
+[<Fact>]
+let ``tryStartLoad returns no effects when parsing`` () =
+    let syncInfo =
+        { SyncInfo.initial with syncState = Parsing }
+    let targets =
+        [ { targetId = NodeId.New(); includeWorkspace = false } ]
+    let si, effects =
+        SyncPlanner.tryStartLoad (Revision 5) targets syncInfo
+    Assert.Equal(Parsing, si.syncState)
+    Assert.Empty(effects)
+
+[<Fact>]
 let ``mixed action delta chain preserves identities and rewrites revisions`` () =
     let change = mkChange 99
     let undoId = Guid.NewGuid()

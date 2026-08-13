@@ -11,7 +11,7 @@ module SyncPlanner =
 
     let private isBusy (syncState: SyncState) =
         match syncState with
-        | Sending _ | Polling | Uploading | Loading -> true
+        | Sending _ | Polling | Uploading | Parsing | Loading -> true
         | _ -> false
 
     let tryStartSubmit (baseRevision: Revision) (syncInfo: SyncInfo) : SyncInfo * Effect list =

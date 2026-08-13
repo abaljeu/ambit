@@ -133,6 +133,9 @@ let ``canStartWeb allows Polling when pending is empty`` () =
                         { id = 1
                           changeId = System.Guid.NewGuid()
                           ops = [] } ] })
+    Assert.False(
+        WorkspaceUpload.canStartWeb
+            { SyncInfo.initial with syncState = Parsing })
 
 [<Fact>]
 let ``queueBlockedDetail distinguishes pending from poll`` () =
@@ -153,6 +156,10 @@ let ``queueBlockedDetail distinguishes pending from poll`` () =
         "load queued until current upload completes",
         WorkspaceUpload.queueBlockedDetail
             { SyncInfo.initial with syncState = Uploading })
+    Assert.Equal(
+        "load queued until parse completes",
+        WorkspaceUpload.queueBlockedDetail
+            { SyncInfo.initial with syncState = Parsing })
 
 [<Fact>]
 let ``one Upload sequences all parse phases instead of racing revision 14706`` () =

@@ -76,8 +76,12 @@ let loadOp (model: VM) : VM * Effect list =
             match syncScopeFromFocus model with
             | Error msg -> fail model msg
             | Ok scope ->
+                let parsing =
+                    { model with
+                        syncInfo =
+                            SyncInfo.withSyncState Parsing model.syncInfo }
                 let model', effs =
-                    okDetail (keepUploading model) "reconciling server disk"
+                    okDetail parsing "reconciling server disk"
                 model', effs @ [ Effect.ContinueDirectoryReconcile scope ]
         | (WorkspaceUploadAction.ParseServerDisk fileId as action) when
             WorkspaceUpload.canStartWeb model.syncInfo ->

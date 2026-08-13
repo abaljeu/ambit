@@ -38,6 +38,7 @@ module WorkspaceUpload =
             | Polling -> "load queued until poll completes"
             | Sending _ -> "load queued until submit completes"
             | Uploading -> "load queued until current upload completes"
+            | Parsing -> "load queued until parse completes"
             | WaitingToRetry _ -> "load queued until retry completes"
             | _ -> "load queued until sync settles"
 
