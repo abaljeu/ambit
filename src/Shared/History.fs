@@ -96,6 +96,10 @@ module Op =
         | Ok graph -> ApplyResult.Changed { state with graph = graph }
         | Error msg -> ApplyResult.Invalid(state, msg)
 
+    /// Node ids whose ownership facts this op can flip (Owner edges added/removed,
+    /// or a newly introduced node). Replace parent is excluded: being the edit site
+    /// does not change the parent's own owner-occurrence / chain; placement and
+    /// artifact-name checks for that parent run separately in validateOwnershipForChange.
     let involvedNodeIds (graph: Graph) (op: Op) : NodeId list =
         match op with
         | Op.NewNode(nodeId, _)
@@ -106,13 +110,12 @@ module Op =
         | Op.SetName(nodeId, _, _)
         | Op.SetUpdateTime(nodeId, _, _) -> [ nodeId ]
         | Op.Replace(parentId, _, oldChildren, newChildren) ->
-            parentId
-            :: ((oldChildren @ newChildren)
-                |> List.choose (fun child ->
-                    if Node.childOwnership graph parentId child = Ownership.Owner then
-                        Some child.id
-                    else
-                        None))
+            (oldChildren @ newChildren)
+            |> List.choose (fun child ->
+                if Node.childOwnership graph parentId child = Ownership.Owner then
+                    Some child.id
+                else
+                    None)
         | Op.SetDocumentState _ -> []
 
     let private isCurrentDocumentRoot (graph: Graph) (nodeId: NodeId) : bool =

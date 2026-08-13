@@ -1201,10 +1201,11 @@ let ``planParseFile succeeds despite unrelated dual-Owner on graph`` () =
     | ApplyResult.Changed after ->
         Assert.Equal(Current, after.graph.nodes.[parseFileId].documentState)
 
-/// Dual-Owner of the File being parsed (not Ref) blocks applyChange — proves
-/// parse fails from File-level invalid ownership, not outline content.
+/// Dual-Owner of the File being parsed does not block applyChange: Replace parent
+/// is not ownership-scoped; only Owner-edge-touched child ids are. Global validate
+/// still sees the dual-Owner seed.
 [<Fact>]
-let ``planParseFile fails when parse File itself has dual Owner`` () =
+let ``planParseFile succeeds when parse File itself has dual Owner`` () =
     let graph0 = Graph.create ()
     let workspaceId, wsOps = FileNodeOps.planCreateWorkspace graph0 "home"
     let withWs =
@@ -1249,13 +1250,10 @@ let ``planParseFile fails when parse File itself has dual Owner`` () =
             { graph = graph; history = History.empty; revision = Revision.Zero }
     with
     | ApplyResult.Invalid(_, msg) ->
-        Assert.Contains("expected exactly one owner occurrence", msg)
-        Assert.Contains(NodeId.GuidTail8 fileId.Value, msg)
-    | ApplyResult.Unchanged _
-    | ApplyResult.Changed _ ->
-        Assert.True(
-            false,
-            "dual-Owner File must fail applyChange ownership check")
+        Assert.True(false, $"parse must not be blocked by File dual-Owner: {msg}")
+    | ApplyResult.Unchanged after
+    | ApplyResult.Changed after ->
+        Assert.Equal(Current, after.graph.nodes.[fileId].documentState)
 
 /// Insert Ref (valid) + Unparsed File parse → Current; Ref is not a second Owner.
 [<Fact>]

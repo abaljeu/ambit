@@ -941,6 +941,16 @@ let ``local shape op succeeds despite distant ownership violation`` () =
     History.applyChange change state |> expectChanged |> ignore
 
 [<Fact>]
+let ``childOwnership follows edge.ref even when Node.owner matches parent`` () =
+    let state0 = ModelBuilder.createState12 ()
+    let parentId = state0.graph.root
+    let owned = state0.graph.nodes.[parentId].children.Head
+    Assert.Equal(Ownership.Owner, owned.ref)
+    Assert.Equal(parentId, state0.graph.nodes.[owned.id].owner)
+    let asRef = ChildNode.reference owned.id
+    Assert.Equal(Ownership.Ref, Node.childOwnership state0.graph parentId asRef)
+
+[<Fact>]
 let ``applyChange accepts same-parent Owner then Ref (Duplicate link)`` () =
     let state0 = ModelBuilder.createState12 ()
     let parent = state0.graph.nodes.[state0.graph.root]
@@ -960,3 +970,128 @@ let ``applyChange accepts same-parent Owner then Ref (Duplicate link)`` () =
     Assert.Equal(insertAt + 1, kids.Length)
     Assert.Equal(ChildNode.reference ownedChild.id, kids.[insertAt])
     Assert.Equal(Ownership.Ref, Node.childOwnership state1.graph state0.graph.root kids.[insertAt])
+
+/// Live Duplicate inserts at selection endd (often mid-list) → fromNodes, not appendChildren.
+[<Fact>]
+let ``applyChange accepts mid-list same-parent Ref (Duplicate link)`` () =
+    let state0 = ModelBuilder.createState12 ()
+    let parentId = state0.graph.root
+    let kids0 = state0.graph.nodes.[parentId].children
+    Assert.True(kids0.Length >= 2, "need a mid-list insert slot")
+    let ownedChild = kids0.Head
+    let insertAt = 1
+    let change =
+        { id = 0
+          changeId = Guid.NewGuid()
+          ops =
+            [ Op.Replace(parentId, insertAt, [], [ ChildNode.reference ownedChild.id ]) ] }
+    let state1 = History.applyChange change state0 |> expectChanged
+    let kids = state1.graph.nodes.[parentId].children
+    Assert.Equal(kids0.Length + 1, kids.Length)
+    Assert.Equal(ChildNode.reference ownedChild.id, kids.[insertAt])
+    Assert.Equal(Ownership.Ref, Node.childOwnership state1.graph parentId kids.[insertAt])
+    match
+        SyncPlanner.applyAndEnqueueLocalAction
+            (ChangeRequest.Change change)
+            state0
+            SyncInfo.initial
+    with
+    | Error msg -> failwithf "Duplicate mid-list applyAndPost path failed: %s" msg
+    | Ok (st, _, _) ->
+        let kids2 = st.graph.nodes.[parentId].children
+        Assert.Equal(ChildNode.reference ownedChild.id, kids2.[insertAt])
+
+/// Replace parent is always in Op.involvedNodeIds historically; ownership scope must not
+/// re-validate the parent's own dual-Owner merely because a Ref was inserted under it.
+let private graphWithDualOwnedParentAndChild () =
+    let graph0 = Graph.create ()
+    let parentId = NodeId.New()
+    let altParentId = NodeId.New()
+    let childId = NodeId.New()
+    let owner = ChildNode.owner
+    let parent = { Node.Create(parentId, text = "parent") with children = [ owner childId ] }
+    let altParent = Node.Create(altParentId, text = "alt")
+    let child = Node.Create(childId, text = "child")
+    let root = graph0.nodes.[Graph.rootId]
+    let nodes =
+        graph0.nodes
+        |> Map.add Graph.rootId
+            { root with children = root.children @ [ owner parentId; owner altParentId ] }
+        |> Map.add parentId parent
+        // Second Owner edge to parent (pre-existing graph dirt).
+        |> Map.add altParentId { altParent with children = [ owner parentId ] }
+        |> Map.add childId child
+    let graph = Graph.fromNodes graph0.root nodes
+    graph, parentId, childId
+
+[<Fact>]
+let ``Duplicate Ref succeeds despite dual-Owned Replace parent`` () =
+    let graph, parentId, childId = graphWithDualOwnedParentAndChild ()
+    match History.validateOwnershipLocated graph with
+    | Ok () -> failwith "expected dual-Owner parent seed"
+    | Error (msg, _) -> Assert.Contains("expected exactly one owner occurrence", msg)
+    let state =
+        { graph = graph; history = History.empty; revision = Revision.Zero }
+    let insertAt = state.graph.nodes.[parentId].children.Length
+    let change =
+        { id = 0
+          changeId = Guid.NewGuid()
+          ops =
+            [ Op.Replace(parentId, insertAt, [], [ ChildNode.reference childId ]) ] }
+    let state1 = History.applyChange change state |> expectChanged
+    let kids = state1.graph.nodes.[parentId].children
+    Assert.Equal(ChildNode.reference childId, kids.[insertAt])
+
+[<Fact>]
+let ``Duplicate Ref succeeds despite distant dual-Owner`` () =
+    let graph0 = Graph.create ()
+    let parentId = NodeId.New()
+    let childId = NodeId.New()
+    let u1 = NodeId.New()
+    let u2 = NodeId.New()
+    let victim = NodeId.New()
+    let owner = ChildNode.owner
+    let parent = { Node.Create(parentId, text = "parent") with children = [ owner childId ] }
+    let child = Node.Create(childId, text = "child")
+    let root = graph0.nodes.[Graph.rootId]
+    let nodes =
+        graph0.nodes
+        |> Map.add Graph.rootId
+            { root with
+                children =
+                    root.children
+                    @ [ owner parentId; owner u1; owner u2 ] }
+        |> Map.add parentId parent
+        |> Map.add childId child
+        |> Map.add u1 { Node.Create(u1, text = "u1") with children = [ owner victim ] }
+        |> Map.add u2 { Node.Create(u2, text = "u2") with children = [ owner victim ] }
+        |> Map.add victim (Node.Create(victim, text = "victim"))
+    let graph = Graph.fromNodes graph0.root nodes
+    match History.validateOwnershipLocated graph with
+    | Ok () -> failwith "expected distant dual-Owner seed"
+    | Error _ -> ()
+    let state =
+        { graph = graph; history = History.empty; revision = Revision.Zero }
+    let insertAt = state.graph.nodes.[parentId].children.Length
+    let change =
+        { id = 0
+          changeId = Guid.NewGuid()
+          ops =
+            [ Op.Replace(parentId, insertAt, [], [ ChildNode.reference childId ]) ] }
+    History.applyChange change state |> expectChanged |> ignore
+
+[<Fact>]
+let ``applyChange rejects Replace that introduces a second Owner edge`` () =
+    let state0 = ModelBuilder.createState12 ()
+    let rootKids = state0.graph.nodes.[state0.graph.root].children
+    let parentA = rootKids.[0].id
+    let parentB = rootKids.[1].id
+    let ownedUnderA = state0.graph.nodes.[parentA].children.Head.id
+    let insertAt = state0.graph.nodes.[parentB].children.Length
+    let change =
+        { id = 0
+          changeId = Guid.NewGuid()
+          ops =
+            [ Op.Replace(parentB, insertAt, [], [ ChildNode.owner ownedUnderA ]) ] }
+    let _, msg = History.applyChange change state0 |> expectInvalid
+    Assert.Contains("expected exactly one owner occurrence", msg)

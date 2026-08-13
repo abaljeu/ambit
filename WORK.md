@@ -24,6 +24,7 @@ Work currently being executed.
 
 Work ready to start but not yet claimed.
 
+- [[tmp/validate-ownership-change-scope.md]] — HITL verify Duplicate (link) on Normal under dual-Owned parent; change-scoped ownership (artifacts: [[src/Shared/History.fs]] Op.involvedNodeIds, [[tests/Shared.Tests/HistoryTests.fs]], [[tests/Shared.Tests/ImportDocumentTests.fs]])
 - [[.scratch/childnode-drop-ref/map.md]] — way clear (Stage: spec); next: `/to-tickets` or implement spine slices from [[.scratch/childnode-drop-ref/spine-draft.md]]
 - [[.scratch/login-context-restore/map.md]] — HITL iPad/iPhone still-open tab cold-reload: Workspace Loaded + Zoom restored (ticket: [[.scratch/login-context-restore/issues/06-restore-active-workspace-on-cold-init.md]])
 
