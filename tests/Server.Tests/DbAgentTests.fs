@@ -509,3 +509,84 @@ let ``DbAgent postChange live-saves artifacts before ack returns`` () = task {
     Assert.True(File.Exists ambPath)
     Assert.Contains("live-save-check", File.ReadAllText ambPath)
 }
+
+[<Fact>]
+let ``DbAgent missing ROOT fails closed while reads stay available`` () = task {
+    let connStr = requireDbConnStr ()
+    do! resetTestDatabase connStr
+    use conn = Database.getConnection connStr
+    do! conn.OpenAsync()
+    use command = conn.CreateCommand()
+    command.CommandText <-
+        """
+        INSERT INTO graph (singleton, root_id, revision)
+        VALUES (1, '00000000-0000-0000-0000-000000000000', 4)
+        """
+    let! _ = command.ExecuteNonQueryAsync()
+
+    let agent = DbAgent.create connStr
+    do! Task.Delay(200)
+    Assert.False(DbAgent.isReady agent)
+
+    let change =
+        { id = 0
+          changeId = Guid.NewGuid()
+          ops = [ Op.NewNode(NodeId.New(), "blocked") ] }
+    let! postResult =
+        DbAgent.postChange agent (encodeChangeBatch [ change ]) |> Async.StartAsTask
+    match postResult with
+    | Error error ->
+        Assert.Contains("Startup projection sweep failed", error)
+    | Ok _ -> Assert.Fail("Expected mutation rejection after missing ROOT.")
+
+    let! json = DbAgent.getState agent |> Async.StartAsTask
+    let! revision = DbAgent.getRevision agent |> Async.StartAsTask
+    Assert.Contains("\"ready\":false", json)
+    Assert.Equal(4, revision)
+}
+
+[<Fact>]
+let ``DbAgent dual-owned repair reloads ready graph from projection`` () = task {
+    let connStr = requireDbConnStr ()
+    do! resetTestDatabase connStr
+    let aId = NodeId(Guid.Parse("20000000-0000-0000-0000-000000000110"))
+    let uId = NodeId(Guid.Parse("20000000-0000-0000-0000-000000000111"))
+    let a = Node.Create(aId, text = "A")
+    let u = Node.Create(uId, text = "U", children = [ ChildNode.owner aId ])
+    let graph0 = Graph.create ()
+    let custom =
+        graph0.nodes
+        |> Map.add aId a
+        |> Map.add uId u
+    let ws = custom.[Graph.workspacesId]
+    let root = custom.[Graph.rootId]
+    let graph =
+        custom
+        |> Map.add Graph.workspacesId
+            { ws with children = ChildNode.owner aId :: ws.children }
+        |> Map.add Graph.rootId
+            { root with children = ChildNode.owner uId :: root.children }
+        |> Graph.fromNodes Graph.rootId
+
+    use conn = Database.getConnection connStr
+    do! conn.OpenAsync()
+    use tx = conn.BeginTransaction()
+    do! Database.replaceGraphProjectionWithTx tx graph 6 |> Async.AwaitTask
+    tx.Commit()
+
+    let agent = DbAgent.create connStr
+    let! ready = waitUntil 2000 (fun () -> DbAgent.isReady agent)
+    Assert.True(ready, "Expected ownership repair to enable normal processing.")
+    let! json = DbAgent.getState agent |> Async.StartAsTask
+    let readyGraph = decodeGraph json
+    let! loaded = Database.tryLoadGraphFromProjection connStr |> Async.AwaitTask
+    match loaded with
+    | Error e -> Assert.Fail(e)
+    | Ok (projected, revision) ->
+        Assert.Equal(6, revision)
+        Assert.True(GraphProjection.graphEquals readyGraph projected)
+        Assert.Equal(
+            Some Graph.workspacesId,
+            Map.tryFind aId projected.ownerParentByChild)
+}
+

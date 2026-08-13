@@ -26,7 +26,7 @@ module DbAgent =
         (connectionString: string)
         (liveSaveDataDir: string option)
         (persistGraphOps: string -> Graph -> Graph -> Op list -> Result<PersistGraphOk, string>)
-        (runStartupSweep: Graph -> Result<Guid list, string>)
+        (runStartupSweep: Graph -> Result<DatabaseProjection.ProjectionMaintenanceResult, string>)
         : DbAgent =
         let state = ref initialState
         let persistedGraph = ref initialState.graph
@@ -41,6 +41,24 @@ module DbAgent =
             let trim = DatabaseProjection.trimDeletedNodes deletedNodeIds
             state.Value <- { state.Value with graph = trim state.Value.graph }
             persistedGraph.Value <- trim persistedGraph.Value
+
+        let applyMaintenance
+            (result: DatabaseProjection.ProjectionMaintenanceResult)
+            : Result<unit, string> =
+            if result.requiresReload then
+                match
+                    Database.tryLoadGraphFromProjection connectionString
+                    |> Async.AwaitTask
+                    |> Async.RunSynchronously
+                with
+                | Ok (graph, _) ->
+                    state.Value <- { state.Value with graph = graph }
+                    persistedGraph.Value <- graph
+                    Ok ()
+                | Error e -> Error $"Startup projection sweep failed: {e}"
+            else
+                trimDeletedIds result.deletedIds
+                Ok ()
 
         let encodeStateJson () =
             ApiResponseSerialization.encodeStateResponse
@@ -381,7 +399,7 @@ module DbAgent =
 
                 DbAgentStartup.run
                     (fun () -> runStartupSweep initialState.graph)
-                    trimDeletedIds
+                    applyMaintenance
                     (fun () -> ready.TrySetResult() |> ignore)
                     tryHandleRead
                     loop
@@ -400,12 +418,28 @@ module DbAgent =
 
         let runStartupSweep (_: Graph) =
             try
-                DatabaseProjection.startupSweepPatch
-                |> DatabaseProjection.maintenanceCommand
-                |> DatabaseProjection.executeMaintenance connectionString
-                |> Async.AwaitTask
-                |> Async.RunSynchronously
-                |> Ok
+                let result =
+                    DatabaseProjection.startupSweepPatch
+                    |> DatabaseProjection.maintenanceCommand
+                    |> DatabaseProjection.executeMaintenance connectionString
+                    |> Async.AwaitTask
+                    |> Async.RunSynchronously
+                match result with
+                | Error e -> Error $"Startup projection sweep failed: {e}"
+                | Ok r ->
+                    let facts = r.logFacts
+                    let affected =
+                        facts.affectedNodeIds
+                        |> List.map string
+                        |> String.concat ", "
+                    eprintfn "%s"
+                        ($"DbAgent: projection repair deleted={facts.deletedCount} "
+                         + $"ownershipUpdates={facts.ownershipUpdateCount} "
+                         + $"insertNodes={facts.insertNodeCount} "
+                         + $"insertChildren={facts.insertChildCount} "
+                         + $"ordinalShifts={facts.ordinalShiftCount} "
+                         + $"affected=[{affected}]")
+                    Ok r
             with ex ->
                 Error $"Startup projection sweep failed: {ex.Message}"
 
@@ -416,6 +450,16 @@ module DbAgent =
             DocumentPersistence.persistGraphOps
             runStartupSweep
 
+    let private wrapFakeSweep
+        (runStartupSweep: Graph -> Result<Guid list, string>)
+        : Graph -> Result<DatabaseProjection.ProjectionMaintenanceResult, string> =
+        fun graph ->
+            runStartupSweep graph
+            |> Result.map (fun ids ->
+                { deletedIds = ids
+                  requiresReload = false
+                  logFacts = ProjectionOwnershipRepair.emptyPlan.logFacts })
+
     let createForTest
         (initialState: State)
         (runStartupSweep: Graph -> Result<Guid list, string>)
@@ -425,7 +469,7 @@ module DbAgent =
             ""
             None
             DocumentPersistence.persistGraphOps
-            runStartupSweep
+            (wrapFakeSweep runStartupSweep)
 
     /// Test-only seam: injects a stand-in for the live-persist step (and an optional
     /// liveSaveDataDir) so failure/timeout behavior can be exercised without a real DB
@@ -436,7 +480,12 @@ module DbAgent =
         (persistGraphOps: string -> Graph -> Graph -> Op list -> Result<PersistGraphOk, string>)
         (runStartupSweep: Graph -> Result<Guid list, string>)
         : DbAgent =
-        createLoaded initialState "" liveSaveDataDir persistGraphOps runStartupSweep
+        createLoaded
+            initialState
+            ""
+            liveSaveDataDir
+            persistGraphOps
+            (wrapFakeSweep runStartupSweep)
 
     let createWithDataDir
         (connectionString: string)
@@ -456,7 +505,7 @@ module DbAgent =
         | Error error -> failwith error
 
     let tryGetState (agent: DbAgent) : Async<Result<string, string>> =
-        agent.mailbox.PostAndAsyncReply(GetState)
+        agent.mailbox.PostAndAsyncReply GetState
 
     let getState (agent: DbAgent) : Async<string> =
         async {
@@ -466,7 +515,7 @@ module DbAgent =
 
     let getRevision (agent: DbAgent) : Async<int> =
         async {
-            let! result = agent.mailbox.PostAndAsyncReply(GetRevision)
+            let! result = agent.mailbox.PostAndAsyncReply GetRevision
             return unwrap result
         }
 

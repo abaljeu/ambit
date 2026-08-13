@@ -8,8 +8,8 @@ open System.Threading.Tasks
 module DbAgentStartup =
 
     let run
-        (runSweep: unit -> Result<Guid list, string>)
-        (trimDeletedIds: Guid list -> unit)
+        (runSweep: unit -> Result<DatabaseProjection.ProjectionMaintenanceResult, string>)
+        (applySuccess: DatabaseProjection.ProjectionMaintenanceResult -> Result<unit, string>)
         (setReady: unit -> unit)
         (tryHandleRead: FileAgentMsg -> Async<unit> option)
         (normalLoop: unit -> Async<unit>)
@@ -26,10 +26,13 @@ module DbAgentStartup =
         let rec startupLoop () = async {
             if sweepTask.IsCompleted then
                 match sweepTask.GetAwaiter().GetResult() with
-                | Ok deletedIds ->
-                    trimDeletedIds deletedIds
-                    setReady ()
-                    return! normalLoop ()
+                | Ok result ->
+                    match applySuccess result with
+                    | Ok () ->
+                        setReady ()
+                        return! normalLoop ()
+                    | Error error ->
+                        return! failedLoop error
                 | Error error ->
                     return! failedLoop error
             else

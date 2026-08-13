@@ -11,6 +11,7 @@
     <Compile Include="OpenTargetTests.fs" />
     <Compile Include="ModelTests.fs" />
     <Compile Include="GraphProjectionTests.fs" />
+    <Compile Include="ProjectionOwnershipRepairTests.fs" />
     <Compile Include="BootstrapScopeTests.fs" />
     <Compile Include="LoadCaptureTests.fs" />
     <Compile Include="GraphQueryTests.fs" />

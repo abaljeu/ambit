@@ -46,10 +46,15 @@ let private persistPatch connStr graph revision changes = task {
     tx.Commit()
 }
 
-let private sweep connStr =
-    DatabaseProjection.startupSweepPatch
-    |> DatabaseProjection.maintenanceCommand
-    |> DatabaseProjection.executeMaintenance connStr
+let private sweep connStr = task {
+    let! result =
+        DatabaseProjection.startupSweepPatch
+        |> DatabaseProjection.maintenanceCommand
+        |> DatabaseProjection.executeMaintenance connStr
+    match result with
+    | Ok r -> return r.deletedIds
+    | Error e -> return failwith e
+}
 
 let private scalarById<'a> connStr sql idValue = task {
     use conn = new NpgsqlConnection(connStr)
@@ -73,6 +78,37 @@ let private encodeBatch (changes: Change list) =
         Serialization.encodeChangeBatch
             { changes = changes |> List.map ChangeRequest.Change })
 
+let private exec connStr sql (parameters: (string * obj) list) = task {
+    use conn = Database.getConnection connStr
+    do! conn.OpenAsync()
+    use command = new NpgsqlCommand(sql, conn)
+    parameters
+    |> List.iter (fun (name, value) ->
+        command.Parameters.AddWithValue(name, value) |> ignore)
+    let! _ = command.ExecuteNonQueryAsync()
+    return ()
+}
+
+let private readRootChildren connStr = task {
+    use conn = new NpgsqlConnection(connStr)
+    do! conn.OpenAsync()
+    use command =
+        new NpgsqlCommand(
+            """
+            SELECT child_id, ordinal, ownership
+            FROM node_children
+            WHERE parent_id = '00000000-0000-0000-0000-000000000000'
+            ORDER BY ordinal
+            """,
+            conn)
+    use! reader = command.ExecuteReaderAsync()
+    let rec loop acc =
+        if reader.Read() then
+            loop ((reader.GetGuid 0, reader.GetInt32 1, reader.GetString 2) :: acc)
+        else
+            List.rev acc
+    return loop []
+}
 [<Fact>]
 let ``writer upserts complete nodes children revision and reloads`` () = task {
     let connStr = requireDbConnStr ()
@@ -404,3 +440,192 @@ let ``startup sweep preserves persisted reachable nodes absent from loaded subse
     Assert.False(trimmed.nodes.ContainsKey persistedId)
     Assert.True(stillPersisted)
 }
+
+[<Fact>]
+let ``ownership repair does not bump revision or append changes`` () = task {
+    let connStr = requireDbConnStr ()
+    do! resetTestDatabase connStr
+    let aId, uId = id 100, id 101
+    let a = Node.Create(aId, text = "A")
+    let u = Node.Create(uId, text = "U", children = [ ChildNode.owner aId ])
+    let graph0 = graphWithCustomNodes [ a; u ]
+    let ws = graph0.nodes.[Graph.workspacesId]
+    let root = graph0.nodes.[Graph.rootId]
+    let graph =
+        graph0.nodes
+        |> Map.add Graph.workspacesId
+            { ws with children = ChildNode.owner aId :: ws.children }
+        |> Map.add Graph.rootId
+            { root with children = ChildNode.owner uId :: root.children }
+        |> Graph.fromNodes Graph.rootId
+    do! replaceProjection connStr graph 8
+
+    use conn = Database.getConnection connStr
+    do! conn.OpenAsync()
+    use tx = conn.BeginTransaction()
+    do!
+        Database.appendChangeWithTx tx 8 7 (Guid.NewGuid()) "{}"
+        |> Async.AwaitTask
+    tx.Commit()
+
+    let! deleted = sweep connStr
+    Assert.Empty(deleted)
+    let! wsOwnership =
+        scalarById<string> connStr
+            """
+            SELECT ownership FROM node_children
+            WHERE parent_id = '00000000-0000-0000-0000-000000000002'
+              AND child_id = @id
+            """
+            aId.Value
+    let! uOwnership =
+        scalarById<string> connStr
+            """
+            SELECT ownership FROM node_children
+            WHERE parent_id = '20000000-0000-0000-0000-000000000101'
+              AND child_id = @id
+            """
+            aId.Value
+    let! revision = scalar<int> connStr "SELECT revision FROM graph WHERE singleton = 1"
+    let! changeCount = scalar<int64> connStr "SELECT count(*) FROM changes"
+    Assert.Equal("owner", wsOwnership)
+    Assert.Equal("ref", uOwnership)
+    Assert.Equal(8, revision)
+    Assert.Equal(1L, changeCount)
+}
+
+[<Fact>]
+let ``ownership repair inserts canonicals without node_children_pkey clash`` () = task {
+    let connStr = requireDbConnStr ()
+    do! resetTestDatabase connStr
+    let u1Id, u2Id = id 120, id 121
+    let u1 = Node.Create(u1Id, text = "U1")
+    let u2 = Node.Create(u2Id, text = "U2")
+    let graph0 = graphWithCustomNodes [ u1; u2 ]
+    let root = graph0.nodes.[Graph.rootId]
+    let graph =
+        graph0.nodes
+        |> Map.add Graph.rootId
+            { root with
+                children =
+                    root.children
+                    @ [ ChildNode.owner u1Id; ChildNode.owner u2Id ] }
+        |> Graph.fromNodes Graph.rootId
+    do! replaceProjection connStr graph 9
+
+    do!
+        exec connStr
+            """
+            DELETE FROM nodes
+            WHERE id IN (
+                '00000000-0000-0000-0000-000000000002',
+                '00000000-0000-0000-0000-000000000003'
+            )
+            """
+            []
+    do!
+        exec connStr
+            """
+            DELETE FROM node_children
+            WHERE parent_id = '00000000-0000-0000-0000-000000000000'
+            """
+            []
+    do!
+        exec connStr
+            """
+            INSERT INTO node_children
+                (parent_id, ordinal, child_id, ownership)
+            VALUES
+                ('00000000-0000-0000-0000-000000000000', 0, @u1, 'owner'),
+                ('00000000-0000-0000-0000-000000000000', 1, @u2, 'owner'),
+                ('00000000-0000-0000-0000-000000000000', 2,
+                 '00000000-0000-0000-0000-000000000001', 'owner')
+            """
+            [ "u1", box u1Id.Value; "u2", box u2Id.Value ]
+
+    let! result =
+        DatabaseProjection.startupSweepPatch
+        |> DatabaseProjection.maintenanceCommand
+        |> DatabaseProjection.executeMaintenance connStr
+    match result with
+    | Error e -> Assert.Fail($"executeMaintenance: {e}")
+    | Ok _ -> ()
+
+    let! kids = readRootChildren connStr
+    let ids = kids |> List.map (fun (childId, _, _) -> childId)
+    let ords = kids |> List.map (fun (_, ordinal, _) -> ordinal)
+    Assert.Equal<int list>([ 0; 1; 2; 3; 4 ], ords)
+    Assert.Equal(u1Id.Value, ids.[0])
+    Assert.Equal(u2Id.Value, ids.[1])
+    Assert.Equal(Graph.workspacesId.Value, ids.[2])
+    Assert.Equal(Graph.systemId.Value, ids.[3])
+    Assert.Equal(Graph.trashId.Value, ids.[4])
+    Assert.All(kids, fun (_, _, ownership) -> Assert.Equal("owner", ownership))
+}
+
+[<Fact>]
+let ``ownership repair shifts root with owner-and-ref sibling without pkey clash`` () =
+    task {
+        let connStr = requireDbConnStr ()
+        do! resetTestDatabase connStr
+        let u1Id = id 122
+        let u1 = Node.Create(u1Id, text = "U1")
+        let graph0 = graphWithCustomNodes [ u1 ]
+        let root = graph0.nodes.[Graph.rootId]
+        let graph =
+            graph0.nodes
+            |> Map.add Graph.rootId
+                { root with
+                    children = root.children @ [ ChildNode.owner u1Id ] }
+            |> Graph.fromNodes Graph.rootId
+        do! replaceProjection connStr graph 9
+        do!
+            exec connStr
+                """
+                DELETE FROM nodes
+                WHERE id IN (
+                    '00000000-0000-0000-0000-000000000002',
+                    '00000000-0000-0000-0000-000000000003'
+                )
+                """
+                []
+        do!
+            exec connStr
+                """
+                DELETE FROM node_children
+                WHERE parent_id = '00000000-0000-0000-0000-000000000000'
+                """
+                []
+        do!
+            exec connStr
+                """
+                INSERT INTO node_children
+                    (parent_id, ordinal, child_id, ownership)
+                VALUES
+                    ('00000000-0000-0000-0000-000000000000', 0, @u1, 'owner'),
+                    ('00000000-0000-0000-0000-000000000000', 1, @u1, 'ref'),
+                    ('00000000-0000-0000-0000-000000000000', 2,
+                     '00000000-0000-0000-0000-000000000001', 'owner')
+                """
+                [ "u1", box u1Id.Value ]
+
+        let! result =
+            DatabaseProjection.startupSweepPatch
+            |> DatabaseProjection.maintenanceCommand
+            |> DatabaseProjection.executeMaintenance connStr
+        match result with
+        | Error e -> Assert.Fail($"executeMaintenance: {e}")
+        | Ok _ -> ()
+
+        let! kids = readRootChildren connStr
+        let ords = kids |> List.map (fun (_, ordinal, _) -> ordinal)
+        Assert.Equal<int list>([ 0; 1; 2; 3; 4 ], ords)
+        Assert.Equal(u1Id.Value, kids.[0] |> fun (id, _, _) -> id)
+        Assert.Equal("owner", kids.[0] |> fun (_, _, o) -> o)
+        Assert.Equal(u1Id.Value, kids.[1] |> fun (id, _, _) -> id)
+        Assert.Equal("ref", kids.[1] |> fun (_, _, o) -> o)
+        Assert.Equal(Graph.workspacesId.Value, kids.[2] |> fun (id, _, _) -> id)
+        Assert.Equal(Graph.systemId.Value, kids.[3] |> fun (id, _, _) -> id)
+        Assert.Equal(Graph.trashId.Value, kids.[4] |> fun (id, _, _) -> id)
+    }
+

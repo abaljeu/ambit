@@ -18,13 +18,13 @@ Mutations for delegated workers to return to their parent: `add`, `move`, `block
 
 Work currently being executed.
 
+- [[.scratch/owner-edge-db-repair/spec.md]] — extend startup sweep: ACID repair of `node_children` Owned tree (GC unreachable; promote Ref when reachable node has no owner) (artifacts: [[.scratch/owner-edge-db-repair/implement.md]], [[src/Shared/ProjectionOwnershipRepair.fs]])
 - [[.scratch/parse-load-demote/issues/01-keep-current-on-rediscovered-added.md]] — keep Current when Load Workspace rediscovers Added path; demote only new stubs / NoServerFile (plan: fix_load_demotes_parse_8d40752b; artifacts: [[src/Shared/dotnet/LazyLoadReconciliationApply.fs]], [[tests/Shared.Tests/LazyLoadReconciliationTests.fs]])
 
 ## Pending
 
 Work ready to start but not yet claimed.
 
-- [[.scratch/owner-edge-db-repair/spec.md]] — extend startup sweep: ACID repair of `node_children` Owned tree (GC unreachable; promote Ref when reachable node has no owner)
 - [[tmp/duplicate-link-double-fail.md]] — HITL verify Duplicate (link) on Normal owned node creates sibling Ref (hard-reload after Fable+bundle; also dual-Owned parent case: [[tmp/validate-ownership-change-scope.md]])
 - [[.scratch/childnode-drop-ref/map.md]] — way clear (Stage: spec); next: `/to-tickets` or implement spine slices from [[.scratch/childnode-drop-ref/spine-draft.md]]
 - [[.scratch/login-context-restore/map.md]] — HITL iPad/iPhone still-open tab cold-reload: Workspace Loaded + Zoom restored (ticket: [[.scratch/login-context-restore/issues/06-restore-active-workspace-on-cold-init.md]])

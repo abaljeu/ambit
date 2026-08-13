@@ -25,6 +25,7 @@
     <Compile Include="AmbleParse.fs" />
     <Compile Include="NodeKindPersistence.fs" />
     <Compile Include="GraphProjection.fs" />
+    <Compile Include="ProjectionOwnershipRepair.fs" />
     <Compile Include="DesktopCapabilities.fs" />
     <Compile Include="NodeDesktopPath.fs" />
     <Compile Include="WorkspaceSyncScope.fs" />

@@ -259,25 +259,8 @@ let ``trim deleted nodes rebuilds indexes and protects canonical nodes`` () =
     Assert.False(trimmed.parentByChild.ContainsKey detachedId)
 
 [<Fact>]
-let ``startup sweep command binds canonical protection and recursive delete returning`` () =
-    let patch = DatabaseProjection.startupSweepPatch
-    let command = DatabaseProjection.maintenanceCommand patch
-    let sql = DatabaseProjection.maintenanceSqlText command |> normalizeSql
-    let bindings = DatabaseProjection.maintenanceBindings command
-
-    Assert.Contains("WITH RECURSIVE reachable", sql)
-    Assert.Contains("SELECT root_id FROM graph WHERE singleton = 1", sql)
-    Assert.Contains("UNION SELECT children.child_id", sql)
-    Assert.Contains("JOIN reachable", sql)
-    Assert.Contains("DELETE FROM nodes", sql)
-    Assert.Contains("RETURNING id", sql)
-    Assert.Single(bindings) |> ignore
-    Assert.Equal("protected_ids", bindings.Head.name)
-
-    match bindings.Head.value with
-    | DatabaseProjection.GuidValues values ->
-        Assert.Equal<Guid list>(
-            [ Graph.rootId; Graph.trashId; Graph.workspacesId; Graph.systemId ]
-            |> List.map _.Value,
-            values)
-    | value -> Assert.Fail($"expected GuidValues, got {value}")
+let ``startup sweep patch protects canonical node ids`` () =
+    Assert.Equal<Guid list>(
+        [ Graph.rootId; Graph.trashId; Graph.workspacesId; Graph.systemId ]
+        |> List.map _.Value,
+        DatabaseProjection.startupSweepPatch.protectedNodeIds)
