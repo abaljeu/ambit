@@ -19,3 +19,7 @@ Candidates: previously active Workspace only (`b`); Refresh-parity Workspace + Z
 ## Answer
 
 Cold init after memory-unload should match Refresh for Workspace Load and Zoom. Keep the same `gambol-session-v1` snapshot. Write `sessionStorage` and `localStorage`. Read `sessionStorage` first (tab Session / Refresh); if empty, read `localStorage` (new Session after iOS unload). `tryReadSavedZoomId` and `restoreSessionState` both use that read order. No new client credential store. ITP may still purge `localStorage` after 7 days without site interaction.
+
+## Verification
+
+Passed on 2026-08-15: after iOS unloaded a still-open Safari tab from memory, its cold reload Loaded the owning Workspace and restored the prior Zoom. Device model and iOS version were unspecified. See the authoritative [[../pending-audit-cold-reload.md]].

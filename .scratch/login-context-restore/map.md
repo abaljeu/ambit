@@ -9,7 +9,7 @@ After iOS unloads Safari from memory while tabs stay open (iPad/iPhone, regular 
 ## Notes
 
 - **Why it matters:** Relogin breaks the note-taking workflow.
-- **Way:** auth landed (Lax + Secure); HITL login succeeded. Ticket 06 code landed (session then localStorage). HITL cold-init remaining.
+- **Way:** auth landed (Lax + Secure); HITL login succeeded. Ticket 06 code landed (session then localStorage); cold-init HITL passed on 2026-08-15.
 - **Surface:** Regular Safari tab on iPad/iPhone — not Desktop-first; not Home Screen/PWA unless the destination is later redrawn. Event: iOS unloads Safari from memory, tabs stay open, active tab cold-reloads.
 - **“Remember me” UI** is not the problem; ignore cosmetic remember-me controls.
 - **Prior facts:** Server sets long-lived HttpOnly `gambol_auth` cookie ([[src/Server/AuthToken.fs]], [[src/Server/RouteRegistration.fs]]); Desktop has Windows AuthStore restore ([[src/Desktop/AuthStore.fs]]) — orthogonal here; Client restores zoom/folds via `gambol-session-v1` in sessionStorage then localStorage ([[src/Client/SessionState.fs]]), not auth. Charting notes: [[tmp/wayfinder-login-restore-chart.md]].
@@ -28,11 +28,11 @@ After iOS unloads Safari from memory while tabs stay open (iPad/iPhone, regular 
 - Cookie-attribute options/tradeoffs recorded without locking a product choice ([[.scratch/login-context-restore/research/03-httponly-cookie-options-for-safari-durability.md]]).
 - [[.scratch/login-context-restore/issues/04-choose-auth-persistence-approach.md]] — first try Lax + Secure + HttpOnly; experiment during implement; fallback only if that fails. HITL login succeeded.
 - [[.scratch/login-context-restore/issues/05-choose-ui-context-persistence-approach.md]] — closed out of scope; destination later redrawn — see ticket 06.
-- [[.scratch/login-context-restore/issues/06-restore-active-workspace-on-cold-init.md]] — Refresh-parity Workspace + Zoom; same snapshot; sessionStorage then localStorage fallback.
+- [[.scratch/login-context-restore/issues/06-restore-active-workspace-on-cold-init.md]] — Refresh-parity Workspace + Zoom; same snapshot; sessionStorage then localStorage fallback; HITL passed.
 
-## Not yet specified
+## Verification
 
-- HITL after deploy: memory-unload cold reload Loads previously active Workspace and restores Zoom (ticket 06).
+- On 2026-08-15 the user confirmed that, after iOS unloaded a still-open Safari tab from memory, its cold reload Loaded the owning Workspace and restored the prior Zoom. Device model and iOS version were unspecified. Authoritative record: [[pending-audit-cold-reload.md]].
 
 ## Out of scope
 

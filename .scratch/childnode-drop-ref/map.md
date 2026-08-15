@@ -36,6 +36,8 @@ Reached when edge `ref` is gone from the type and live paths classify from `Node
 
 ## Not yet specified
 
+- **Duplicate (link) HITL acceptance** — after the ownership migration changes Browser ownership classification, rebuild Fable and the bundle, hard-reload, then verify that Duplicate (link) on an Owned appearance of a Normal Node leaves a sibling Ref. Retained from [[tmp/duplicate-link-double-fail.md]].
+- **Dual-Owned parent acceptance** — retain the Ref-only Duplicate case where the Replace parent has two Owned appearances; ownership validation must not reject the Change because it did not change that parent’s ownership. Retained from [[tmp/validate-ownership-change-scope.md]].
 - Later: drop DB `ownership` column or add `nodes.owner` (beyond near destination).
 
 ## Out of scope

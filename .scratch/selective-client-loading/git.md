@@ -1,5 +1,5 @@
 # Selective client loading — git
 
-- **Project branch:** `w/issue-21-load-sync`
+- **Project branch:** `w/selective-client-loading-undo`
 - **Cut from:** `selective-client-sync`
-- **Notes:** Issue 21 landed; Issue 22 Load full selection in progress on same project branch
+- **Notes:** Undo redesign planning from the delivered selective-client synchronization baseline

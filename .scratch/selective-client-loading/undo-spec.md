@@ -18,3 +18,14 @@ This section remains the authoritative behavior for ChangeRequest submission. It
 - Server `History` starts empty on every process start. [[src/Server/Database.fs]] and [[src/Server/FileAgent.fs]] load authoritative graph state without replaying `ChangeLog`; the server start time becomes the Poll mismatch that puts an existing page into the stale-client refresh flow.
 - Do not add a compatibility decoder or migration. Existing ChangeRequest-specific durable codecs, bootstrap journals, catch-up paths, and replay work from the stopped attempt are not part of the delivered design.
 - Preserve existing routes, response shapes, ChangeLog format, retry identity, revision chaining, optimistic conflict behavior, and single-flight synchronization except where the explicit decisions above require a narrow change.
+
+## Revised Expectation
+
+- when any change occurs the client computes a Change object, and applies that to its partial graph.
+- The changes are sent to the server.
+- The server applies changes to the full graph.
+- The server sends back confirmation of the change (or else rejection of it).
+- The confirmation may include additional changes, typically they belong to things not in the client view.
+- The client will update its change record to include modifications returned by the server.
+
+When Undo occurs, the client may have different nodes resident than when the change originally happened.  But it has the complete change record.  Client updates resident nodes.  Server receives message and also updates nodes.

@@ -53,17 +53,18 @@ Write gambol-session-v1 to localStorage and read it after sessionStorage so Safa
 
 Include [[src/Client/SessionState.fs]]. Do not commit unless asked.
 
-## HITL experiment (human after deploy)
+## HITL experiment and result
 
 iPad/iPhone, regular Safari tab still open: after iOS memory-unload cold-reload, pass = already authenticated **and** previously active Workspace Loaded + Zoom restored (Refresh-parity). Kill/quit Safari is out of scope. ITP may still purge localStorage after 7 days without site interaction.
 
+The user confirmed the Workspace + Zoom check passed on 2026-08-15. Device model and iOS version were unspecified. See the authoritative [[pending-audit-cold-reload.md]].
+
 ## WORK.md mutations (for parent)
 
-- `remove` Active: [[.scratch/login-context-restore/issues/06-restore-active-workspace-on-cold-init.md]] — implement sessionStorage + localStorage fallback for Workspace + Zoom cold init (code landed)
-- `add` Pending: [[.scratch/login-context-restore/map.md]] — HITL iPad/iPhone still-open tab cold-reload after memory unload; pass = Workspace Loaded + Zoom restored (ticket: [[.scratch/login-context-restore/issues/06-restore-active-workspace-on-cold-init.md]])
+- `remove` Blocked: [[.scratch/login-context-restore/map.md]] — iPad/iPhone still-open Safari cold-reload HITL passed
 
-Stage stays `active` until HITL. No index regen. Do not edit WORK.md from this worker.
+Stage is now `done`; [[.scratch/index.md]] was regenerated. Do not edit WORK.md from this worker.
 
 ## Blockers
 
-None for code. HITL is human-only after deploy.
+None.

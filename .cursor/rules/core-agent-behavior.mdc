@@ -80,6 +80,7 @@ Do not websearch. Tell me if you lack information.
 While in plan mode, any request for a change should be interpreted as a request to plan for the change; do not write detailed code then.
 
 ## Multitasking / SubAgent Delegation
+At startup, a subagent runs `bash ./status.sh` once instead of separate Git branch and working-tree status commands. Run extra Git commands only when the task requires them.
 Use subagents to carry out tasks.
 When a subagent completes, summarize its conclusion for the user.
 Subagent must report final results to `.scratch/<project-name>/<subagent-title>.md`, not chat. if a workflow specifies another report path, use that path instead.

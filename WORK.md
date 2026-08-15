@@ -18,6 +18,7 @@ Mutations for delegated workers to return to their parent: `add`, `move`, `block
 
 Work currently being executed.
 
+- [[src/Client/UpdatePaste.fs]] — HITL verify external multiline Ctrl+V (select + edit): siblings kept; lines become nodes (fix: [[src/Shared/documents/DocumentColdParse.fs]] planPasteOps; tests: [[tests/Shared.Tests/DocumentColdParseTests.fs]])
 - [[.scratch/owner-edge-db-repair/spec.md]] — extend startup sweep: ACID repair of `node_children` Owned tree (GC unreachable; promote Ref when reachable node has no owner) (artifacts: [[.scratch/owner-edge-db-repair/implement.md]], [[src/Shared/ProjectionOwnershipRepair.fs]])
 - [[.scratch/parse-load-demote/issues/01-keep-current-on-rediscovered-added.md]] — keep Current when Load Workspace rediscovers Added path; demote only new stubs / NoServerFile (plan: fix_load_demotes_parse_8d40752b; artifacts: [[src/Shared/dotnet/LazyLoadReconciliationApply.fs]], [[tests/Shared.Tests/LazyLoadReconciliationTests.fs]])
 
@@ -25,11 +26,6 @@ Work currently being executed.
 
 Work ready to start but not yet claimed.
 
-- [[tmp/duplicate-link-double-fail.md]] — HITL verify Duplicate (link) on Normal owned node creates sibling Ref (hard-reload after Fable+bundle; also dual-Owned parent case: [[tmp/validate-ownership-change-scope.md]])
-- [[.scratch/childnode-drop-ref/map.md]] — way clear (Stage: spec); next: `/to-tickets` or implement spine slices from [[.scratch/childnode-drop-ref/spine-draft.md]]
-- [[.scratch/login-context-restore/map.md]] — HITL iPad/iPhone still-open tab cold-reload: Workspace Loaded + Zoom restored (ticket: [[.scratch/login-context-restore/issues/06-restore-active-workspace-on-cold-init.md]])
-
-- [[src/Client/UpdatePaste.fs]] — HITL verify external multiline Ctrl+V (select + edit): siblings kept; lines become nodes (fix: [[src/Shared/documents/DocumentColdParse.fs]] planPasteOps; tests: [[tests/Shared.Tests/DocumentColdParseTests.fs]])
 - [[doc/roadmap/workspace-file-sync.md]] — HITL verify auto-download on persist: edit a mapped-workspace file (own edit + remote poll) refreshes the local mapped folder with no feedback loop; plain web is a no-op (plan: auto-download-persisted-files_560c6923; artifacts: [[src/Shared/WorkspaceSyncScope.fs]], [[src/Shared/WorkspaceUploadStructure.fs]], [[src/Client/UpdateWorkspaceSync.fs]], [[src/Client/Update.fs]], [[src/Client/App.fs]])
 - [[.scratch/node-bullet-tooltip/issues/02-client-bullet-tip-wiring.md]] — HITL verify: hover a chevron, solid-circle, and hollow-circle Bullet each show the tip; click/fold/zoom unchanged (implemented, Shared suite green; artifacts: [[src/Shared/ViewModelRowState.fs]] bulletTip, [[src/Client/RowView.fs]], [[src/Client/JsInterop.fs]])
 - [[tmp/warm-parse-dual-owner-fix.md]] — HITL verify Current warm File Load after reclaim-vs-trash fix; dual-Owner gone (artifacts: [[src/Shared/documents/DocumentColdParse.fs]], [[src/Shared/History.fs]], [[tests/Shared.Tests/ImportDocumentTests.fs]])

@@ -59,8 +59,8 @@ Recipe (also on [[map.md]] Notes): After Server sets SameSite Lax + Secure (Http
 - `add` Pending: [[.scratch/login-context-restore/map.md]] — HITL iPad/iPhone still-open tab cold-reload after memory unload; pass = `/ambit` no login form (ticket: [[.scratch/login-context-restore/issues/04-choose-auth-persistence-approach.md]])
 - `add` Pending (optional): [[doc/api.md]] — cookie line still says SameSite=Strict; update to Lax + Secure + HttpOnly
 
-Stage stays `active` until HITL. No index regen.
+The project is now `done` after the later context-restore HITL passed on 2026-08-15; [[.scratch/index.md]] was regenerated.
 
 ## Blockers
 
-None for code. HITL is human-only after deploy.
+None.
