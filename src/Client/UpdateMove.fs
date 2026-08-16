@@ -2,6 +2,7 @@ module Gambol.Client.UpdateMove
 
 open Gambol.Client.UpdateHelpers
 open Gambol.Shared
+open Gambol.Shared.CommandEntry
 open Gambol.Shared.ViewModel
 open Gambol.Shared.ViewModelMoveOps
 
@@ -34,9 +35,10 @@ let private trySaveContext (mode: Mode) : InlineEditContext option =
             Some
                 { originalText = orig
                   rebuildMode = fun t c -> Editing (t, EditCaret.utf16ClampedToLength c t.Length) }
-        | CommandPalette (q, sc, ret) ->
+        | Mode.CommandPalette (q, sc, ret) ->
             unwrapMode ret
-            |> Option.map (mapRebuild (fun rebuild t c -> CommandPalette (q, sc, rebuild t c)))
+            |> Option.map (mapRebuild (fun rebuild t c ->
+                Mode.CommandPalette (q, sc, rebuild t c)))
         | SearchDialog s ->
             unwrapMode s.returnTo
             |> Option.map (mapRebuild (fun rebuild t c ->
@@ -56,12 +58,12 @@ let private trySaveContext (mode: Mode) : InlineEditContext option =
     unwrapMode mode
 
 
-let private tryApplyOps (ops: Op list) (model: VM) =
+let private tryApplyOps (commandName: string) (ops: Op list) (model: VM) =
     let change =
         { id = model.revision.Value
           changeId = System.Guid.NewGuid()
           ops = ops }
-    match applyAndPost change model with
+    match applyAndPost commandName change model with
     | Ok (m, effects) -> Ok (m, effects)
     | Error err -> Error err
 
@@ -129,7 +131,12 @@ let private restoreInlineMode
 /// (two Op.Replace ops), or reorder within the same parent.
 /// Inline edit: `tryTextCommitOps` + move in one change; stay in edit mode with clamped caret.
 /// Error when inputs are missing or History rejects the change (message for `#cmd-last-result`).
-let tryMoveNodeFromTo (stayAtSource: bool) (too: NodeRange) (model: VM) : Result<VM * Effect list, string> =
+let tryMoveNodeFromTo
+    (commandName: string)
+    (stayAtSource: bool)
+    (too: NodeRange)
+    (model: VM)
+    : Result<VM * Effect list, string> =
     let oldMode = trySaveContext model.mode
     let live = readEditInputValue ()
     let caret = readEditInputCursor ()
@@ -145,7 +152,7 @@ let tryMoveNodeFromTo (stayAtSource: bool) (too: NodeRange) (model: VM) : Result
         let replaceOps =
             replaceOpsForMove too from selectedChildren sameParent insertIdx model.graph
         let ops = textOps @ replaceOps
-        match tryApplyOps ops model with
+        match tryApplyOps commandName ops model with
         | Error e -> Error e
         | Ok (movedModel, effects) ->
             let destParentId = if sameParent then from.parent.nodeId else too.pnode
@@ -167,8 +174,13 @@ let tryMoveNodeFromTo (stayAtSource: bool) (too: NodeRange) (model: VM) : Result
                 | None, None -> movedModel
             Ok (finalModel, effects)
 
-let moveNodeFromTo (stayAtSource: bool) (too: NodeRange) (model: VM) : VM * Effect list =
-    match tryMoveNodeFromTo stayAtSource too model with
+let moveNodeFromTo
+    (commandName: string)
+    (stayAtSource: bool)
+    (too: NodeRange)
+    (model: VM)
+    : VM * Effect list =
+    match tryMoveNodeFromTo commandName stayAtSource too model with
     | Ok result -> result
     | Error msg -> withMoveError msg model, []
 
@@ -204,7 +216,7 @@ let private moveBesideParent (delta: int) (range: SiteNodeRange) (model: VM) =
                 let insertIdx = parentIdx + (if delta = -1 then 0 else 1)
                 { pnode = parent.nodeId; start = insertIdx; endd = insertIdx }))
 
-let moveNodeDelta (delta: int) (model: VM) : VM * Effect list =
+let moveNodeDelta (commandName: string) (delta: int) (model: VM) : VM * Effect list =
     match model.selectedNodes with
     | None -> model, []
     | Some sel ->
@@ -230,7 +242,8 @@ let moveNodeDelta (delta: int) (model: VM) : VM * Effect list =
                 None
         match moveTarget with
         | None -> model, []
-        | Some (targetModel, target) -> moveNodeFromTo false target targetModel
+        | Some (targetModel, target) ->
+            moveNodeFromTo commandName false target targetModel
 
 
 // ---------------------------------------------------------------------------
@@ -244,7 +257,7 @@ let indentSelection (model: VM) : VM * Effect list =
     match planIndentSelection model with
     | None -> model, []
     | Some plan ->
-        match tryMoveNodeFromTo false plan.target plan.model with
+        match tryMoveNodeFromTo (displayName Indent) false plan.target plan.model with
         | Error msg -> completeIndent model plan (Error msg), []
         | Ok (result, effects) ->
             completeIndent model plan (Ok (withSiteMap result)), effects
@@ -256,7 +269,7 @@ let outdentSelection (model: VM) : VM * Effect list =
     match planOutdentSelection model with
     | None -> model, []
     | Some plan ->
-        match tryMoveNodeFromTo false plan.target plan.model with
+        match tryMoveNodeFromTo (displayName Outdent) false plan.target plan.model with
         | Error msg -> withMoveError msg model, []
         | Ok (result, effects) ->
             match plan.afterMove with

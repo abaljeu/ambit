@@ -6,6 +6,7 @@ open Gambol.Client.UpdateHelpers
 open Gambol.Client.UpdateWorkspaceDesktop
 open Gambol.Client.UpdateWorkspaceSync
 open Gambol.Shared
+open Gambol.Shared.CommandEntry
 open Gambol.Shared.ViewModel
 
 let private postWorkspaceDownload
@@ -63,7 +64,7 @@ let pollWorkspaceDownloadJob (jobId: string) (text: string) (model: VM) : VM * E
                     { id = model.revision.Value
                       changeId = System.Guid.NewGuid()
                       ops = ops }
-                match applyAndPostSync change model with
+                match applyAndPostSync (displayName Download) change model with
                 | Error e -> failWorkspaceDownload e model
                 | Ok model' ->
                     okDetail (withSiteMap model') job.detail

@@ -10,12 +10,6 @@ let private expectChanged (result: ApplyResult) : State =
     | ApplyResult.Unchanged _ -> failwith "expected Changed, got Unchanged"
     | ApplyResult.Invalid(_, msg) -> failwithf "expected Changed, got Invalid: %s" msg
 
-let private expectUnchanged (result: ApplyResult) : State =
-    match result with
-    | ApplyResult.Unchanged state -> state
-    | ApplyResult.Changed _ -> failwith "expected Unchanged, got Changed"
-    | ApplyResult.Invalid(_, msg) -> failwithf "expected Unchanged, got Invalid: %s" msg
-
 let private expectInvalid (result: ApplyResult) : State * string =
     match result with
     | ApplyResult.Invalid(state, msg) -> state, msg
@@ -45,66 +39,6 @@ let private specialNode kind name =
         text = name,
         name = Filename.create name,
         kind = Special kind)
-
-let private actionState () =
-    let state = ModelBuilder.createState12 ()
-    let root = state.graph.nodes.[state.graph.root]
-    let node = state.graph.nodes.[root.children.Head.id]
-    state, node
-
-[<Fact>]
-let ``ChangeRequest Change materializes unchanged change`` () =
-    let state, node = actionState ()
-    let change =
-        { id = 0
-          changeId = Guid.NewGuid()
-          ops = [ Op.SetText(node.id, node.text, "changed") ] }
-    match History.applyAction (ChangeRequest.Change change) state with
-    | Error error -> failwith error
-    | Ok (next, materialized) ->
-        Assert.Equal(change, materialized)
-        Assert.Equal("changed", next.graph.nodes.[node.id].text)
-        Assert.Equal<Change list>([ change ], next.history.past)
-
-[<Fact>]
-let ``ChangeRequest Undo and Redo materialize canonical operations with action identity`` () =
-    let state, node = actionState ()
-    let original =
-        { id = 0
-          changeId = Guid.NewGuid()
-          ops = [ Op.SetText(node.id, node.text, "changed") ] }
-    let changed =
-        History.applyAction (ChangeRequest.Change original) state
-        |> Result.map fst
-        |> Result.defaultWith failwith
-    let undoId = Guid.NewGuid()
-    let undone, undoChange =
-        History.applyAction (ChangeRequest.Undo(1, undoId)) changed
-        |> Result.defaultWith failwith
-    Assert.Equal(1, undoChange.id)
-    Assert.Equal(undoId, undoChange.changeId)
-    Assert.Equal<Op list>(
-        [ Op.SetText(node.id, "changed", node.text) ],
-        undoChange.ops)
-    Assert.Equal(node.text, undone.graph.nodes.[node.id].text)
-    let redoId = Guid.NewGuid()
-    let redone, redoChange =
-        History.applyAction (ChangeRequest.Redo(2, redoId)) undone
-        |> Result.defaultWith failwith
-    Assert.Equal(2, redoChange.id)
-    Assert.Equal(redoId, redoChange.changeId)
-    Assert.Equal<Op list>(original.ops, redoChange.ops)
-    Assert.Equal("changed", redone.graph.nodes.[node.id].text)
-
-[<Fact>]
-let ``ChangeRequest Undo and Redo reject empty history`` () =
-    let state, _ = actionState ()
-    match History.applyAction (ChangeRequest.Undo(0, Guid.NewGuid())) state with
-    | Ok _ -> failwith "expected empty Undo to fail"
-    | Error error -> Assert.Contains("Undo", error)
-    match History.applyAction (ChangeRequest.Redo(0, Guid.NewGuid())) state with
-    | Ok _ -> failwith "expected empty Redo to fail"
-    | Error error -> Assert.Contains("Redo", error)
 
 [<Fact>]
 let ``NewSpecialNode rejects reserved system names case-insensitively`` () =
@@ -187,32 +121,6 @@ let ``AddOp appends to change`` () =
     Assert.Equal<Op>([ op1; op2 ], change2.ops)
 
 [<Fact>]
-let ``AddChange pushes to past and clears future`` () =
-    let history0 =
-        { History.empty with
-            future = [ { id = 99; changeId = System.Guid.NewGuid(); ops = [] } ] }
-
-    let change: Change = History.newChange history0
-    let history1 = History.addChange change history0
-    // Emacs model: the existing future entry is folded back into past as an inverse,
-    // so past = [newChange; invert(futureEntry)] — length 2.
-    Assert.Equal(2, history1.past.Length)
-    Assert.Equal(change, history1.past.[0])
-    Assert.Empty(history1.future)
-
-[<Fact>]
-let ``Undo does nothing when past is empty`` () =
-    let state = ModelBuilder.createState12 ()
-    let state1 = History.undo state |> expectUnchanged
-    Assert.Same(state, state1)
-
-[<Fact>]
-let ``Redo does nothing when future is empty`` () =
-    let state = ModelBuilder.createState12 ()
-    let state1 = History.redo state |> expectUnchanged
-    Assert.Same(state, state1)
-
-[<Fact>]
 let ``Apply change that updates f g h text`` () =
     let state0 = ModelBuilder.createState12 ()
     let nodeF = findNodeByText "f" state0
@@ -235,7 +143,7 @@ let ``Apply change that updates f g h text`` () =
     Assert.Equal("newg", nodeG'.text)
     Assert.Equal("newh", nodeH'.text)
 
-    let state2 = History.undo state1 |> expectChanged
+    let state2 = Change.undo change state1 |> expectChanged
 
     let nodeF'' = state2.graph.nodes |> Map.find nodeF.id
     let nodeG'' = state2.graph.nodes |> Map.find nodeG.id
@@ -551,10 +459,10 @@ let ``valid parse batch can replay undo and redo`` () =
             [ Op.SetDocumentState(fileId, Unparsed, Current)
               Op.SetText(childId, "body", "parsed") ] }
     let applied = History.applyChange change state |> expectChanged
-    let undone = History.undo applied |> expectChanged
+    let undone = Change.undo change applied |> expectChanged
     Assert.Equal(Unparsed, undone.graph.nodes.[fileId].documentState)
     Assert.Equal("body", undone.graph.nodes.[childId].text)
-    let redone = History.redo undone |> expectChanged
+    let redone = Change.apply change undone |> expectChanged
     Assert.Equal(Current, redone.graph.nodes.[fileId].documentState)
     Assert.Equal("parsed", redone.graph.nodes.[childId].text)
 
@@ -990,16 +898,6 @@ let ``applyChange accepts mid-list same-parent Ref (Duplicate link)`` () =
     Assert.Equal(kids0.Length + 1, kids.Length)
     Assert.Equal(ChildNode.reference ownedChild.id, kids.[insertAt])
     Assert.Equal(Ownership.Ref, Node.childOwnership state1.graph parentId kids.[insertAt])
-    match
-        SyncPlanner.applyAndEnqueueLocalAction
-            (ChangeRequest.Change change)
-            state0
-            SyncInfo.initial
-    with
-    | Error msg -> failwithf "Duplicate mid-list applyAndPost path failed: %s" msg
-    | Ok (st, _, _) ->
-        let kids2 = st.graph.nodes.[parentId].children
-        Assert.Equal(ChildNode.reference ownedChild.id, kids2.[insertAt])
 
 /// Replace parent is always in Op.involvedNodeIds historically; ownership scope must not
 /// re-validate the parent's own dual-Owner merely because a Ref was inserted under it.
@@ -1116,9 +1014,12 @@ let private applyUndoRedo (change: Change) (state: State) =
     let before = reachableStructure state.graph
     let changed = History.applyChange change state |> expectChanged
     let after = reachableStructure changed.graph
-    let undone = History.undo changed |> expectChanged
+    let undoChange = Change.inverse (Revision change.id) (Guid.NewGuid()) change
+    let undone = History.applyChange undoChange changed |> expectChanged
     Assert.True((before = reachableStructure undone.graph))
-    let redone = History.redo undone |> expectChanged
+    let redoChange =
+        Change.inverse (Revision undoChange.id) (Guid.NewGuid()) undoChange
+    let redone = History.applyChange redoChange undone |> expectChanged
     Assert.True((after = reachableStructure redone.graph))
     changed
 

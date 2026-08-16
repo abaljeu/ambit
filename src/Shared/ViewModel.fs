@@ -256,6 +256,12 @@ module CmdLastResult =
         | CmdLastResult.Detail (name, msg) -> formatNamed name msg
         | CmdLastResult.Error (name, msg) -> formatNamed name msg
 
+    let undoResult (commandName: string option) =
+        CmdLastResult.Detail (Some "Undo", Option.defaultValue "nothing to undo" commandName)
+
+    let redoResult (commandName: string option) =
+        CmdLastResult.Detail (Some "Redo", Option.defaultValue "nothing to redo" commandName)
+
     let formatDisplay = function
         | None -> ""
         | Some r -> toDisplay r
@@ -289,7 +295,7 @@ and FileSearchDialogState =
 and VM = // the client state
     { graph: Graph // the core data
       revision: Revision
-      history: History
+      history: ClientHistory
       selectedNodes: Selection option
       mode: Mode
       siteMap: SiteMap
@@ -324,9 +330,8 @@ type SystemMsg =
     | StateLoaded of StateResponse
     | SubmitResponse of
         submitted: PendingChange list *
-        ackedChangeIds: System.Guid list *
+        confirmed: Change list *
         revision: Revision *
-        stampOps: Op list *
         message: string option
     | SubmitRejected of detail: string // server HTTP error (decoded `error` or short body snippet)
     | SubmitNetworkError of
@@ -346,7 +351,8 @@ type SystemMsg =
     | PollTick            // polling timer fired; update decides whether to emit PollServer effect
     | AutoDownloadTick    // debounce timer fired; update coalesces + fires auto-downloads
     | PollDone of SyncState option * Change list * isReady: bool option
-    | LoadDone of SyncState option * SyncResponse * isReady: bool option
+    | LoadDone of
+        SyncState option * SyncResponse * responseRevision: int * isReady: bool option
     | RetrySubmit         // retry timer fired; update resends the stored batch snapshot
 
 type Msg =

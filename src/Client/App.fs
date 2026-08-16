@@ -52,9 +52,8 @@ module private SubmitChangeCallbacks =
                 SysMsg (
                     SubmitResponse (
                         submitted,
-                        ack.ackedChangeIds,
+                        ack.changes,
                         ack.revision,
-                        ack.stampOps,
                         ack.message)))
         | Error err ->
             consoleLog (
@@ -118,13 +117,12 @@ let createRuntime (initialModel: VM) =
                 restored.revision
                 saved
                 { graph = restored.graph
-                  history = restored.history
+                  history = History.empty
                   revision = restored.revision }
         savePendingQueue restoredPending
         if restoredPending.IsEmpty then
             { restored with
-                graph = localState.graph
-                history = localState.history }, []
+                graph = localState.graph }, []
         else
             consoleLog (
                 "[Gambol sync] StateLoaded firePending serverRev=" + string serverRev
@@ -133,7 +131,6 @@ let createRuntime (initialModel: VM) =
                 [ SubmitPendingBatch (serverRev, restoredPending) ]
             { restored with
                 graph = localState.graph
-                history = localState.history
                 syncInfo =
                     restored.syncInfo
                     |> SyncInfo.withPendingChanges restoredPending
@@ -453,19 +450,32 @@ let createRuntime (initialModel: VM) =
                         LoadDone (
                             outcome,
                             SyncLogic.loadResponseToSync load,
+                            load.revision,
                             Some load.isReady)))
             | Error _ ->
                 dispatch (
                     SysMsg (
-                        LoadDone (None, { changes = []; packages = [] }, None)))
+                        LoadDone (
+                            None,
+                            { changes = []; packages = [] },
+                            model.revision.Value,
+                            None)))
         let onLoadHttp (_status: int) (_body: string) : unit =
             dispatch (
                 SysMsg (
-                    LoadDone (None, { changes = []; packages = [] }, None)))
+                    LoadDone (
+                        None,
+                        { changes = []; packages = [] },
+                        model.revision.Value,
+                        None)))
         let onLoadFail () : unit =
             dispatch (
                 SysMsg (
-                    LoadDone (None, { changes = []; packages = [] }, None)))
+                    LoadDone (
+                        None,
+                        { changes = []; packages = [] },
+                        model.revision.Value,
+                        None)))
         postJson
             url
             body

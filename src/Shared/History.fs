@@ -26,37 +26,6 @@ type Change =
       ops: Op list }
 
 
-[<RequireQualifiedAccess>]
-type ChangeRequest =
-    | Change of Change
-    | Undo of id: int * changeId: System.Guid
-    | Redo of id: int * changeId: System.Guid
-
-
-[<RequireQualifiedAccess>]
-module ChangeRequest =
-    let baseRevision =
-        function
-        | ChangeRequest.Change change -> change.id
-        | ChangeRequest.Undo(id, _)
-        | ChangeRequest.Redo(id, _) -> id
-
-    let actionId =
-        function
-        | ChangeRequest.Change change -> change.changeId
-        | ChangeRequest.Undo(_, changeId)
-        | ChangeRequest.Redo(_, changeId) -> changeId
-
-    let withBaseRevision id =
-        function
-        | ChangeRequest.Change change ->
-            ChangeRequest.Change { change with id = id }
-        | ChangeRequest.Undo(_, changeId) ->
-            ChangeRequest.Undo(id, changeId)
-        | ChangeRequest.Redo(_, changeId) ->
-            ChangeRequest.Redo(id, changeId)
-
-
 type History =
     { past: Change list
       future: Change list
@@ -657,26 +626,8 @@ module History =
                 |> Option.map Error
                 |> Option.defaultValue (Ok ())
 
-    let addChange (change: Change) (history: History) : History =
-        let nextId = max history.nextId (change.id + 1)
-        // Emacs stack model: instead of discarding the future on a new change, fold it back
-        // into past as inverse changes. Subsequent undos will re-apply those inverses,
-        // giving "undo the undo" (redo-via-undo) without a separate redo stack clearing.
-        let requeued = history.future |> List.map Change.invert
-        { history with
-              past = change :: requeued @ history.past
-              future = []
-              nextId = nextId }
-
-    /// Apply a server-trusted change: ops + history, no ownership check.
-    /// Poll/tail replay trusts the server log; local edits use applyChange instead.
     let applyChangeTrusted (change: Change) (state: State) : ApplyResult =
-        match Change.apply change state with
-        | ApplyResult.Invalid _ as err -> err
-        | ApplyResult.Unchanged s -> ApplyResult.Unchanged s
-        | ApplyResult.Changed s ->
-            let history' = addChange change s.history
-            ApplyResult.Changed { s with history = history' }
+        Change.apply change state
 
     let applyChange (change: Change) (state: State) : ApplyResult =
         match applyChangeTrusted change state with
@@ -686,75 +637,6 @@ module History =
             match validateOwnershipForChange s.graph change with
             | Error msg -> ApplyResult.Invalid(state, msg)
             | Ok () -> ApplyResult.Changed s
-
-    let undo (state: State) : ApplyResult =
-        match state.history.past with
-        | [] -> ApplyResult.Unchanged state
-        | change :: restPast ->
-            match Change.undo change state with
-            | ApplyResult.Invalid _ as err -> err
-            | ApplyResult.Unchanged s -> ApplyResult.Unchanged s
-            | ApplyResult.Changed s ->
-                let history' =
-                    { s.history with
-                        past = restPast
-                        future = change :: s.history.future }
-
-                ApplyResult.Changed { s with history = history' }
-
-    let redo (state: State) : ApplyResult =
-        match state.history.future with
-        | [] -> ApplyResult.Unchanged state
-        | change :: restFuture ->
-            match Change.apply change state with
-            | ApplyResult.Invalid _ as err -> err
-            | ApplyResult.Unchanged s -> ApplyResult.Unchanged s
-            | ApplyResult.Changed s ->
-                let history' =
-                    { s.history with
-                        past = change :: s.history.past
-                        future = restFuture }
-
-                ApplyResult.Changed { s with history = history' }
-
-    let private changedResult
-        (actionName: string)
-        (materialized: Change)
-        (result: ApplyResult)
-        : Result<State * Change, string> =
-        match result with
-        | ApplyResult.Changed state -> Ok(state, materialized)
-        | ApplyResult.Unchanged _ -> Error(actionName + " did not change state")
-        | ApplyResult.Invalid(_, message) -> Error message
-
-    let applyAction
-        (action: ChangeRequest)
-        (state: State)
-        : Result<State * Change, string> =
-        match action with
-        | ChangeRequest.Change change ->
-            applyChange change state
-            |> changedResult "Change" change
-        | ChangeRequest.Undo(id, changeId) ->
-            match state.history.past with
-            | [] -> Error "Undo requires a past change"
-            | change :: _ ->
-                let materialized =
-                    { Change.invert change with
-                        id = id
-                        changeId = changeId }
-                undo state
-                |> changedResult "Undo" materialized
-        | ChangeRequest.Redo(id, changeId) ->
-            match state.history.future with
-            | [] -> Error "Redo requires a future change"
-            | change :: _ ->
-                let materialized =
-                    { change with
-                        id = id
-                        changeId = changeId }
-                redo state
-                |> changedResult "Redo" materialized
 
 /// After DocumentPersistence stamps artifact roots, emit ops for the change log / poll tail.
 [<RequireQualifiedAccess>]
@@ -792,22 +674,4 @@ module PersistStamp =
             | [] -> changes
             | last :: rest ->
                 List.rev (appendToChange last stampOps :: rest)
-
-    /// Apply stamp ops to a graph (submitter ack path; ignores history).
-    let applyToGraph (stampOps: Op list) (graph: Graph) : Graph =
-        if stampOps.IsEmpty then
-            graph
-        else
-            let state =
-                { graph = graph
-                  history = History.empty
-                  revision = Revision.Zero }
-            let change =
-                { id = 0
-                  changeId = System.Guid.Empty
-                  ops = stampOps }
-            match Change.apply change state with
-            | ApplyResult.Changed s
-            | ApplyResult.Unchanged s -> s.graph
-            | ApplyResult.Invalid _ -> graph
 

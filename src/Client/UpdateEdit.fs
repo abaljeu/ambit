@@ -2,6 +2,7 @@ module Gambol.Client.UpdateEdit
 
 open Gambol.Client.UpdateHelpers
 open Gambol.Shared
+open Gambol.Shared.CommandEntry
 open Gambol.Shared.ViewModel
 open Gambol.Shared.ViewModelJoinOps
 open Gambol.Shared.ViewModelMoveOps
@@ -16,13 +17,13 @@ let moveEditUpAtClientX (clientX: float) (model: VM) : VM * Effect list =
 let moveEditDownAtClientX (clientX: float) (model: VM) : VM * Effect list =
     moveEditImpl 1 (MoveEditNextFirstLineX clientX) model
 
-let private applyJoin ops text caret instanceId (model: VM) =
+let private applyJoin commandName ops text caret instanceId (model: VM) =
     let change =
         { id = model.revision.Value
           changeId = System.Guid.NewGuid()
           ops = ops }
 
-    match applyAndPost change model with
+    match applyAndPost commandName change model with
     | Error msg -> withMoveError msg model, []
     | Ok (m, effects) ->
         let result = withSiteMap m
@@ -39,18 +40,18 @@ let private restoreEditCursor model =
     | Editing (text, _) -> { model with mode = Editing (text, EditCaret.Utf16Index pos) }, []
     | _ -> model, []
 
-let private applyJoinPlan model plan =
+let private applyJoinPlan commandName model plan =
     match plan with
     | JoinEditPlan.Apply (ops, text, caret, instanceId) ->
-        applyJoin ops text caret instanceId model
+        applyJoin commandName ops text caret instanceId model
     | JoinEditPlan.RestoreCaret -> restoreEditCursor model
 
 let joinWithNext (currentText: string) (model: VM) : VM * Effect list =
     joinWithNextPlan currentText model
-    |> Option.map (applyJoinPlan model)
+    |> Option.map (applyJoinPlan (displayName JoinWithNext) model)
     |> Option.defaultValue (model, [])
 
 let joinWithPrevious (currentText: string) (model: VM) : VM * Effect list =
     joinWithPreviousPlan currentText model
-    |> Option.map (applyJoinPlan model)
+    |> Option.map (applyJoinPlan (displayName JoinWithPrevious) model)
     |> Option.defaultValue (model, [])

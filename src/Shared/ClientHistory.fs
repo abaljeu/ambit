@@ -83,3 +83,13 @@ module ClientHistory =
                 historyRecord.commandName,
                 nextHistory,
                 historyRecord.recordId)
+
+    let tryPeekUndoName (history: ClientHistory) : string option =
+        match history.past with
+        | [] -> None
+        | historyRecord :: _ -> Some historyRecord.commandName
+
+    let tryPeekRedoName (history: ClientHistory) : string option =
+        match history.future with
+        | [] -> None
+        | historyRecord :: _ -> Some historyRecord.commandName

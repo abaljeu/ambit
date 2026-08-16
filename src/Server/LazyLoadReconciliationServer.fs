@@ -33,7 +33,7 @@ module LazyLoadReconciliationServer =
               ops = ops }
         JsonEncode.toString 0 (
             Serialization.encodeChangeBatch
-                { changes = [ ChangeRequest.Change change ] })
+                { changes = [ change ] })
 
     let private isDirInfoPath (path: string) =
         DocumentArtifactPath.isDirectoryFile path

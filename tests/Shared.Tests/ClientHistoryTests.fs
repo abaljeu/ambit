@@ -202,6 +202,40 @@ let ``Redo moves the same logical record and keeps its exact command name`` () =
         Assert.Equal(redoId, redo.changeId)
         Assert.Equal<Op list>(source.ops, redo.ops)
 
+[<Theory>]
+[<InlineData("Edit node")>]
+[<InlineData("Paste")>]
+[<InlineData("Cut")>]
+[<InlineData("Load")>]
+[<InlineData("Download")>]
+let ``record stores required command names verbatim`` (name: string) =
+    let source = textChange 0 (NodeId.New()) "old" "new"
+    let history, _ =
+        ClientHistory.clear ()
+        |> ClientHistory.record name source
+    match ClientHistory.undo (Revision 1) (Guid.NewGuid()) history with
+    | None -> failwith "expected an Undo transition"
+    | Some (_, commandName, undone, _) ->
+        Assert.Equal(name, commandName)
+        match ClientHistory.redo (Revision 2) (Guid.NewGuid()) undone with
+        | None -> failwith "expected a Redo transition"
+        | Some (_, redoName, _, _) -> Assert.Equal(name, redoName)
+
+[<Fact>]
+let ``tryPeekUndoName and tryPeekRedoName follow the stacks`` () =
+    let source = textChange 0 (NodeId.New()) "old" "new"
+    let empty = ClientHistory.clear ()
+    Assert.Equal(None, ClientHistory.tryPeekUndoName empty)
+    Assert.Equal(None, ClientHistory.tryPeekRedoName empty)
+    let recorded, _ = ClientHistory.record "Cut" source empty
+    Assert.Equal(Some "Cut", ClientHistory.tryPeekUndoName recorded)
+    Assert.Equal(None, ClientHistory.tryPeekRedoName recorded)
+    match ClientHistory.undo (Revision 1) (Guid.NewGuid()) recorded with
+    | None -> failwith "expected Undo"
+    | Some (_, _, undone, _) ->
+        Assert.Equal(None, ClientHistory.tryPeekUndoName undone)
+        Assert.Equal(Some "Cut", ClientHistory.tryPeekRedoName undone)
+
 [<Fact>]
 let ``normal record folds future without duplicating logical records`` () =
     let first = textChange 0 (NodeId.New()) "first-old" "first-new"

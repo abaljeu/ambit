@@ -9,7 +9,7 @@ let emptyModel (graph: Graph) : VM =
 
     { graph = graph
       revision = Revision.Zero
-      history = History.empty
+      history = ClientHistory.clear ()
       selectedNodes = None
       mode = Selecting
       siteMap = siteMap
@@ -33,7 +33,7 @@ let emptyModelAt (graph: Graph) (viewRoot: NodeId) : VM =
 
     { graph = graph
       revision = Revision.Zero
-      history = History.empty
+      history = ClientHistory.clear ()
       selectedNodes = None
       mode = Selecting
       siteMap = siteMap

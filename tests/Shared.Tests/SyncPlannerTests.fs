@@ -46,7 +46,7 @@ let ``tryStartSubmit returns no effects when already sending`` () =
     Assert.Empty(effects)
 
 [<Fact>]
-let ``ackBatch dequeues acknowledged changes and schedules remainder`` () =
+let ``retireSubmittedPrefix dequeues the prefix and schedules remainder`` () =
     let c1 = mkChange 0
     let c2 = mkChange 0
     let c3 = mkChange 0
@@ -55,7 +55,7 @@ let ``ackBatch dequeues acknowledged changes and schedules remainder`` () =
             pendingChanges = [ c1; c2; c3 ] |> List.map asPending
             syncState = Sending 1 }
     let nextInfo, pending, effects =
-        SyncPlanner.ackBatch [ c1.changeId; c2.changeId ] (Revision 3) syncInfo
+        SyncPlanner.retireSubmittedPrefix 2 (Revision 3) syncInfo
     Assert.Single(pending) |> ignore
     Assert.Equal(c3.changeId, pending.Head.change.changeId)
     Assert.Equal(Sending 1, nextInfo.syncState)
@@ -67,14 +67,14 @@ let ``ackBatch dequeues acknowledged changes and schedules remainder`` () =
         failwith "Expected single SubmitPendingBatch effect for remaining queue"
 
 [<Fact>]
-let ``ackBatch with last item returns Idle and no effects`` () =
+let ``retireSubmittedPrefix of the full queue returns Idle and no effects`` () =
     let c = mkChange 0
     let syncInfo =
         { SyncInfo.initial with
             pendingChanges = [ asPending c ]
             syncState = Sending 1 }
     let nextInfo, pending, effects =
-        SyncPlanner.ackBatch [ c.changeId ] (Revision 1) syncInfo
+        SyncPlanner.retireSubmittedPrefix 1 (Revision 1) syncInfo
     Assert.Empty(pending)
     Assert.Equal(Idle, nextInfo.syncState)
     Assert.Empty(effects)
@@ -201,7 +201,7 @@ let ``queued file Upload preserves its scope until the change queue drains`` () 
             pendingChanges = [ asPending c ]
             syncState = Sending 1 }
         |> SyncInfo.queueRequest request
-    let acked, _, _ = SyncPlanner.ackBatch [ c.changeId ] (Revision 14707) queued
+    let acked, _, _ = SyncPlanner.retireSubmittedPrefix 1 (Revision 14707) queued
     let si, effects = SyncPlanner.tryReleaseQueued acked
     Assert.Empty(si.queuedRequests)
     Assert.Equal<Effect list>([ RunQueuedRequest request ], effects)
@@ -330,42 +330,11 @@ let ``mixed C Undo Redo delta chain preserves identities and rewrites revisions`
         |> List.map (fun item ->
             item.transition |> Option.map (fun t -> t.kind)))
     let wire = SyncBatch.toWireBatch 7 items
-    Assert.Equal<ChangeRequest list>(
-        [ ChangeRequest.Change { change with id = 7 }
-          ChangeRequest.Undo(8, undo.changeId)
-          ChangeRequest.Redo(9, redo.changeId) ],
+    Assert.Equal<Change list>(
+        [ { change with id = 7 }
+          { undo with id = 8 }
+          { redo with id = 9 } ],
         wire)
-
-[<Fact>]
-let ``applyAndEnqueueLocalAction applies Undo optimistically and queues the Change`` () =
-    let state0 = ModelBuilder.createState12 ()
-    let root = state0.graph.nodes.[state0.graph.root]
-    let node = state0.graph.nodes.[root.children.Head.id]
-    let change =
-        { id = 0
-          changeId = Guid.NewGuid()
-          ops = [ Op.SetText(node.id, node.text, "changed") ] }
-    let changed =
-        History.applyChange change state0
-        |> function
-            | ApplyResult.Changed state -> state
-            | _ -> failwith "expected initial change"
-    let undo = ChangeRequest.Undo(1, Guid.NewGuid())
-    match
-        SyncPlanner.applyAndEnqueueLocalAction
-            undo
-            changed
-            SyncInfo.initial
-    with
-    | Error error -> failwith error
-    | Ok (next, syncInfo, effects) ->
-        Assert.Equal(node.text, next.graph.nodes.[node.id].text)
-        let queued = Assert.Single(syncInfo.pendingChanges)
-        Assert.Equal(ChangeRequest.actionId undo, queued.change.changeId)
-        let queuedKind = queued.transition |> Option.map (fun t -> t.kind)
-        Assert.Equal(Some PendingKind.Undo, queuedKind)
-        Assert.False(queued.change.ops.IsEmpty)
-        Assert.Contains(SavePendingQueue syncInfo.pendingChanges, effects)
 
 [<Fact>]
 let ``later queued actions do not alter the SubmitPendingBatch list`` () =
@@ -418,7 +387,7 @@ let ``same recordId C Undo Redo remain one SubmitPendingBatch`` () =
         failwith "Expected the full same-recordId batch"
 
 [<Fact>]
-let ``ackBatch remainder with the same recordId still submits together`` () =
+let ``retireSubmittedPrefix remainder with the same recordId still submits together`` () =
     let first = mkChange 0 |> withKind 7 PendingKind.Normal
     let remainder =
         [ mkChange 0 |> withKind 7 PendingKind.Undo
@@ -428,7 +397,7 @@ let ``ackBatch remainder with the same recordId still submits together`` () =
             pendingChanges = first :: remainder
             syncState = Sending 1 }
     let _, pending, effects =
-        SyncPlanner.ackBatch [ first.change.changeId ] (Revision 1) syncInfo
+        SyncPlanner.retireSubmittedPrefix 1 (Revision 1) syncInfo
     Assert.Equal<PendingChange list>(remainder, pending)
     match effects with
     | [ SubmitPendingBatch (_, submitted) ] ->
@@ -478,8 +447,8 @@ let ``workspace singleton lineage is the exact item used before the request`` ()
     let wire = SyncBatch.toWireBatch 12 [ submitted ]
     Assert.Equal(submitted.change.changeId, chained.Head.change.changeId)
     Assert.Equal(submitted.transition, chained.Head.transition)
-    Assert.Equal<ChangeRequest list>(
-        [ ChangeRequest.Change { change with id = 12 } ],
+    Assert.Equal<Change list>(
+        [ { change with id = 12 } ],
         wire)
     let effect =
         ContinuePostUploadStructure(

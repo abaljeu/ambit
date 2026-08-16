@@ -20,6 +20,64 @@ let currentFile = UpdateHelpers.currentFile
 let firstGraphChild graph =
     defaultArg (Node.at graph (Some graph.root) |> Node.firstChild |> Node.current) graph.root
 
+let private clientSyncState (model: VM) : ClientSyncState =
+    { graph = model.graph
+      revision = model.revision
+      history = model.history }
+
+let private rejectPending detail (model: VM) : VM * Effect list =
+    let err = Some (CmdLastResult.Error (None, detail))
+    if model.syncInfo.pendingChanges.IsEmpty then
+        { model with lastCmdResult = err }, []
+    else
+        { model with
+            lastCmdResult = err
+            syncInfo =
+                model.syncInfo
+                |> SyncInfo.withPendingChanges []
+                |> SyncInfo.withSyncState ServerRejected },
+        [ SavePendingQueue [] ]
+
+let private applySubmitResponse
+    (submitted: PendingChange list)
+    (confirmed: Change list)
+    (revision: Revision)
+    (message: string option)
+    (model: VM)
+    : VM * Effect list =
+    match model.syncInfo.syncState with
+    | ServerRejected | CodeOutdated | DataOutdated ->
+        consoleLog (
+            "[Gambol sync] SubmitResponse IGNORED blocked-risk serverAck="
+            + string revision.Value + " modelRev=" + string model.revision.Value)
+        model, []
+    | _ ->
+        match
+            SyncLogic.reconcileAck
+                submitted confirmed revision (clientSyncState model) model.syncInfo
+        with
+        | AckReconcile.Ignored -> model, []
+        | AckReconcile.Rejected detail -> rejectPending detail model
+        | AckReconcile.Applied (nextState, nextSync, submitEffects, suffixOps) ->
+            consoleLog (
+                "[Gambol sync] SubmitResponse apply prevRev="
+                + string model.revision.Value
+                + " serverAck=" + string revision.Value
+                + " pendingNext=" + string nextSync.pendingChanges.Length)
+            let updated =
+                { model with
+                    graph = nextState.graph
+                    revision = nextState.revision
+                    history = nextState.history
+                    syncInfo = nextSync
+                    lastCmdResult =
+                        match message with
+                        | Some msg -> Some(CmdLastResult.Detail(None, msg))
+                        | None -> model.lastCmdResult }
+            let updated', autoEffects =
+                UpdateWorkspaceDownload.accumulateAutoDownloadFromOps suffixOps updated
+            updated', (SavePendingQueue nextSync.pendingChanges) :: submitEffects @ autoEffects
+
 let update (msg: Msg) (model: VM) : VM * Effect list =
     match msg with
     | ApplyOp op -> op model
@@ -47,7 +105,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
             ViewModel.buildSiteMapFrom graph zoomRoot (Sid 0)
         { graph = graph
           revision = response.revision
-          history = History.empty
+          history = ClientHistory.clear ()
           selectedNodes = None
           mode = Selecting
           siteMap = siteMap
@@ -70,57 +128,15 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
     | AckSyncRisk ->
         { model with syncInfo = { model.syncInfo with syncRiskAcknowledged = true } }, []
 
-    | SysMsg (SubmitResponse (submitted, ackedChangeIds, revision, stampOps, message)) ->
-        match model.syncInfo.syncState with
-        | ServerRejected | CodeOutdated | DataOutdated ->
-            consoleLog (
-                "[Gambol sync] SubmitResponse IGNORED blocked-risk serverAck="
-                + string revision.Value + " modelRev=" + string model.revision.Value)
-            model, []
-        | _ ->
-            let pendingWas = model.syncInfo.pendingChanges.Length
-            let nextSyncInfo, pending, submitEffects =
-                SyncPlanner.ackBatch ackedChangeIds revision model.syncInfo
-            let effects = (SavePendingQueue pending) :: submitEffects
-            let graph' = PersistStamp.applyToGraph stampOps model.graph
-            consoleLog (
-                "[Gambol sync] SubmitResponse apply prevRev=" + string model.revision.Value
-                + " serverAck=" + string revision.Value + " pendingWas=" + string pendingWas
-                + " pendingNext=" + string pending.Length
-                + " submittedLen=" + string submitted.Length
-                + " stampOps=" + string stampOps.Length)
-            let updated =
-                { model with
-                    graph = graph'
-                    revision = revision
-                    history =
-                        { model.history with
-                            nextId = max model.history.nextId revision.Value }
-                    syncInfo = nextSyncInfo
-                    lastCmdResult =
-                        match message with
-                        | Some msg -> Some(CmdLastResult.Detail(None, msg))
-                        | None -> model.lastCmdResult }
-            let updated', autoEffects =
-                UpdateWorkspaceDownload.accumulateAutoDownloadFromOps stampOps updated
-            updated', effects @ autoEffects
+    | SysMsg (SubmitResponse (submitted, confirmed, revision, message)) ->
+        applySubmitResponse submitted confirmed revision message model
 
     | SysMsg (SubmitRejected detail) ->
         consoleLog (
             "[Gambol sync] SubmitRejected modelRev=" + string model.revision.Value
             + " pending=" + string model.syncInfo.pendingChanges.Length
             + " detail=" + detail)
-        let err = Some (CmdLastResult.Error (None, detail))
-        if model.syncInfo.pendingChanges.IsEmpty then
-            { model with lastCmdResult = err }, []
-        else
-            // Rejected payload cannot be replayed safely; drop persisted queue so reload starts clean.
-            { model with
-                lastCmdResult = err
-                syncInfo =
-                    model.syncInfo
-                    |> SyncInfo.withPendingChanges []
-                    |> SyncInfo.withSyncState ServerRejected }, [ SavePendingQueue [] ]
+        rejectPending detail model
 
     | SysMsg (SubmitNetworkError (baseRev, changes, kind)) ->
         consoleLog (
@@ -188,11 +204,11 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
             | Some DataOutdated
                 when not changes.IsEmpty
                     && not (isAutoSyncBlocked readyModel) ->
-                let state: State =
+                let clientState: ClientSyncState =
                     { graph = readyModel.graph
-                      history = readyModel.history
-                      revision = readyModel.revision }
-                match SyncLogic.applyServerTail changes state with
+                      revision = readyModel.revision
+                      history = readyModel.history }
+                match SyncLogic.applyServerTail changes clientState with
                 | Error _ -> readyModel, []
                 | Ok newState ->
                     let kept =
@@ -218,11 +234,11 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                 { readyModel with
                     syncInfo = SyncInfo.withSyncState DataOutdated si }, []
             | Some DataOutdated ->
-                let state: State =
+                let clientState: ClientSyncState =
                     { graph = readyModel.graph
                       history = readyModel.history
                       revision = readyModel.revision }
-                match SyncLogic.applyServerTail changes state with
+                match SyncLogic.applyServerTail changes clientState with
                 | Error _ ->
                     { readyModel with
                         syncInfo = SyncInfo.withSyncState DataOutdated si }, []
@@ -242,7 +258,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
             | Some s ->
                 { readyModel with syncInfo = SyncInfo.withSyncState s si }, []
 
-    | SysMsg (LoadDone (stateOpt, syncResponse, readyOpt)) ->
+    | SysMsg (LoadDone (stateOpt, syncResponse, responseRevision, readyOpt)) ->
         let readyModel =
             match readyOpt with
             | Some ready ->
@@ -255,6 +271,11 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
         let hasPayload =
             not (List.isEmpty syncResponse.changes)
             || not (List.isEmpty syncResponse.packages)
+        let hasPendingLocal =
+            not readyModel.syncInfo.pendingChanges.IsEmpty
+            || match readyModel.syncInfo.syncState with
+               | Sending _ | WaitingToRetry _ -> true
+               | _ -> false
         match stateOpt with
         | Some CodeOutdated ->
             { readyModel with
@@ -269,11 +290,17 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                 syncInfo = SyncInfo.withSyncState DataOutdated si }, []
         | None
         | Some DataOutdated ->
-            let state: State =
+            let clientState: ClientSyncState =
                 { graph = readyModel.graph
                   history = readyModel.history
                   revision = readyModel.revision }
-            match SyncLogic.applySyncResponse syncResponse state with
+            match
+                SyncLogic.applyLoadResponse
+                    responseRevision
+                    hasPendingLocal
+                    syncResponse
+                    clientState
+            with
             | Error _ ->
                 { readyModel with
                     syncInfo = SyncInfo.withSyncState DataOutdated si }, []

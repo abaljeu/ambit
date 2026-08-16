@@ -8,8 +8,8 @@ open Thoth.Json.Core
 // ---------------------------------------------------------------------------
 
 /// Encode a batch as compact JSON for POST /{file}/changes.
-let encodePendingBatchBody (actions: ChangeRequest list) : string =
-    let batch: ChangeBatch = { changes = actions }
+let encodePendingBatchBody (changes: Change list) : string =
+    let batch: ChangeBatch = { changes = changes }
     Thoth.Json.JavaScript.Encode.toString 0 (Serialization.encodeChangeBatch batch)
 
 
@@ -277,17 +277,15 @@ let decodePostChangeError (text: string) : string option =
     | Error _ -> None
 
 type ChangeAck =
-    { ackedChangeIds: System.Guid list
+    { changes: Change list
       revision: Revision
-      stampOps: Op list
       message: string option }
 
 /// Decode POST /{file}/changes success body.
 let decodeChangeAckResponse (text: string) : Result<ChangeAck, string> =
     Thoth.Json.JavaScript.Decode.fromString Serialization.decodeChangeBatchAck text
     |> Result.map (fun ack ->
-        { ackedChangeIds = ack.ackedChangeIds
+        { changes = ack.changes
           revision = ack.revision
-          stampOps = ack.stampOps
           message = ack.message })
 

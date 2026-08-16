@@ -23,34 +23,23 @@ module SyncPlanner =
             let nextInfo = syncInfo |> SyncInfo.withSyncState (Sending 1)
             nextInfo, [ SubmitPendingBatch (baseRevision.Value, changes) ]
 
-    let applyAndEnqueueLocalAction
-        (action: ChangeRequest)
-        (state: State)
+    let enqueuePending
+        (item: PendingChange)
+        (revision: Revision)
         (syncInfo: SyncInfo)
-        : Result<State * SyncInfo * Effect list, string> =
-        match History.applyAction action state with
-        | Error error -> Error error
-        | Ok (nextState, materialized) ->
-            let pendingItem = PendingChange.fromRequest action materialized
-            let pending = syncInfo.pendingChanges @ [ pendingItem ]
-            let nextSyncInfo, submitEffects =
-                { syncInfo with pendingChanges = pending }
-                |> tryStartSubmit state.revision
-            Ok(
-                nextState,
-                nextSyncInfo,
-                SavePendingQueue pending :: submitEffects)
+        : SyncInfo * Effect list =
+        let pending = syncInfo.pendingChanges @ [ item ]
+        let nextSyncInfo, submitEffects =
+            { syncInfo with pendingChanges = pending }
+            |> tryStartSubmit revision
+        nextSyncInfo, SavePendingQueue pending :: submitEffects
 
-    let ackBatch
-        (ackedChangeIds: System.Guid list)
+    let retireSubmittedPrefix
+        (submittedCount: int)
         (revision: Revision)
         (syncInfo: SyncInfo)
         : SyncInfo * PendingChange list * Effect list =
-        let acked = ackedChangeIds |> Set.ofList
-        let pending =
-            syncInfo.pendingChanges
-            |> List.filter (fun item ->
-                not (Set.contains item.change.changeId acked))
+        let pending = List.skip submittedCount syncInfo.pendingChanges
         let baseInfo = syncInfo |> SyncInfo.withPendingChanges pending
         match pending with
         | [] ->
@@ -59,23 +48,6 @@ module SyncPlanner =
             baseInfo |> SyncInfo.withSyncState (Sending 1),
             pending,
             [ SubmitPendingBatch (revision.Value, changes) ]
-
-    let ackRequiresReload
-        (clientRevision: Revision)
-        (attempt: int)
-        (ackedChangeIds: System.Guid list)
-        (syncInfo: SyncInfo)
-        (serverRevision: Revision)
-        : bool =
-        let acked = ackedChangeIds |> Set.ofList
-        let acknowledgedPendingCount =
-            syncInfo.pendingChanges
-            |> List.filter (fun item ->
-                Set.contains item.change.changeId acked)
-            |> List.length
-        let expectedRevision =
-            clientRevision.Value + acknowledgedPendingCount
-        attempt > 1 || serverRevision.Value <> expectedRevision
 
     let restorePending
         (serverRevision: Revision)

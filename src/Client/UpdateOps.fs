@@ -9,6 +9,7 @@ open Gambol.Client.UpdateHelpers
 open Gambol.Client.UpdateMove
 open Gambol.Client.UpdatePaste
 open Gambol.Shared
+open Gambol.Shared.CommandEntry
 open Gambol.Shared.Paste
 open Gambol.Shared.ViewModel
 
@@ -22,7 +23,7 @@ let handleEsc (model: VM) : VM * Effect list =
     match model.mode with
     | Editing _ -> commitIfEditing model
     | Selecting -> collapseToFocus model, []
-    | CommandPalette _ | SearchDialog _ | FileSearchDialog _ | CssClassPrompt _ | RenamePrompt _ ->
+    | Mode.CommandPalette _ | SearchDialog _ | FileSearchDialog _ | CssClassPrompt _ | RenamePrompt _ ->
         model, []  // handled by close modal operations
 
 /// Op: Copy the focused subtree to the internal clipboard.
@@ -129,13 +130,13 @@ let doubleClickRowAtPos (instanceId: SiteId) (cursorPos: int) (model: VM) : VM *
     match model.mode with
     | Selecting -> startEditInstanceAtPos instanceId cursorPos model
     | Editing _ -> commitAndStartEditInstanceAtPos instanceId cursorPos model
-    | CommandPalette _ | SearchDialog _ | FileSearchDialog _ | CssClassPrompt _ | RenamePrompt _ ->
+    | Mode.CommandPalette _ | SearchDialog _ | FileSearchDialog _ | CssClassPrompt _ | RenamePrompt _ ->
         model, []
 
 /// Op: Move selection up, committing any in-progress edit first.
 let moveSelectionUp (model: VM) : VM * Effect list =
     match model.mode with
-    | CommandPalette _ -> Gambol.Client.CommandPalette.paletteSelectUpOp model
+    | Mode.CommandPalette _ -> Gambol.Client.CommandPalette.paletteSelectUpOp model
     | CssClassPrompt _ | RenamePrompt _ -> model, []
     | _ ->
         let result, effects =
@@ -150,7 +151,7 @@ let moveSelectionUp (model: VM) : VM * Effect list =
 /// Op: Move selection down, committing any in-progress edit first.
 let moveSelectionDown (model: VM) : VM * Effect list =
     match model.mode with
-    | CommandPalette _ -> Gambol.Client.CommandPalette.paletteSelectDownOp model
+    | Mode.CommandPalette _ -> Gambol.Client.CommandPalette.paletteSelectDownOp model
     | CssClassPrompt _ | RenamePrompt _ -> model, []
     | _ ->
         let result, effects =
@@ -201,12 +202,12 @@ let outdentOp (model: VM) : VM * Effect list =
 
 /// Op: Move selected nodes up.
 let moveNodeUpOp (model: VM) : VM * Effect list =
-    let m, effs = moveNodeDelta -1 model
+    let m, effs = moveNodeDelta (displayName MoveUp) -1 model
     withSiteMap m, effs
 
 /// Op: Move selected nodes down.
 let moveNodeDownOp (model: VM) : VM * Effect list =
-    let m, effs = moveNodeDelta 1 model
+    let m, effs = moveNodeDelta (displayName MoveDown) 1 model
     withSiteMap m, effs
 
 /// Op: PageUp — cursor to start of current level (no graph move).
@@ -235,6 +236,7 @@ let endSelectionOp (model: VM) : VM * Effect list =
 
 /// Move selection with `moveNodeFromTo` when `resolveToo` returns Some.
 let private tryStructuralMove
+    (commandName: string)
     (model: VM)
     (resolveToo: VM -> Selection -> NodeRange option)
     : VM * Effect list =
@@ -244,17 +246,17 @@ let private tryStructuralMove
         match resolveToo model sel with
         | None -> model, []
         | Some too ->
-            let m, effs = moveNodeFromTo false too model
+            let m, effs = moveNodeFromTo commandName false too model
             withSiteMap m, effs
 
 /// Op: Ctrl+PageUp — move selected objects to start of current level; selection follows.
 let moveSelectionToLevelStartOp (model: VM) : VM * Effect list =
-    tryStructuralMove model (fun m sel ->
+    tryStructuralMove (displayName MoveSelectionToStart) model (fun m sel ->
         Some { pnode = sel.range.parent.nodeId; start = 0; endd = 0 })
 
 /// Op: Ctrl+PageDown — move selected objects to end of current level; selection follows.
 let moveSelectionToLevelEndOp (model: VM) : VM * Effect list =
-    tryStructuralMove model (fun m sel ->
+    tryStructuralMove (displayName MoveSelectionToEnd) model (fun m sel ->
         let range = sel.range
         let parentLen = m.graph.nodes.[range.parent.nodeId].children.Length
         if parentLen = 0 || range.endd >= parentLen then None
@@ -268,7 +270,7 @@ let private searchPickMoveAfterHit (hit: NodeSearchResult) (model: VM) : VM * Ef
     match Graph.makeNodeRangeForInsertingUnder hit.nodeId model.graph with
     | None -> model, []
     | Some too ->
-        let m, effs = moveNodeFromTo true too model
+        let m, effs = moveNodeFromTo (displayName MoveSelected) true too model
         withSiteMap m, effs
 
 /// Op: Move Selected (m) — pick target via search, then move after that node.
@@ -280,7 +282,7 @@ let moveNodesOp (model: VM) : VM * Effect list =
 
 /// Op: Ctrl+Home — move selected objects to first slot under view root; selection follows.
 let moveSelectionToViewRootStartOp (model: VM) : VM * Effect list =
-    tryStructuralMove model (fun m sel ->
+    tryStructuralMove (displayName MoveSelectionToTopOfView) model (fun m sel ->
         match Map.tryFind m.siteMap.rootId m.siteMap.entries with
         | None -> None
         | Some rootEntry ->
@@ -292,7 +294,7 @@ let moveSelectionToViewRootStartOp (model: VM) : VM * Effect list =
 
 /// Op: Ctrl+End — move selected objects to last slot under view root; selection follows.
 let moveSelectionToViewRootEndOp (model: VM) : VM * Effect list =
-    tryStructuralMove model (fun m sel ->
+    tryStructuralMove (displayName MoveSelectionToEndOfView) model (fun m sel ->
         match Map.tryFind m.siteMap.rootId m.siteMap.entries with
         | None -> None
         | Some rootEntry ->
@@ -433,7 +435,7 @@ let duplicateSelectionOp (model: VM) : VM * Effect list =
                 { id = model.revision.Value
                   changeId = System.Guid.NewGuid()
                   ops = [ insertOp ] }
-            match applyAndPost change model with
+            match applyAndPost (displayName DupNodes) change model with
             | Error msg ->
                 { model with
                     lastCmdResult = Some(CmdLastResult.Error(None, msg)) },
@@ -471,7 +473,7 @@ let deleteSelectionOp (model: VM) : VM * Effect list =
                       changeId = System.Guid.NewGuid()
                       ops = allOps }
 
-                match applyAndPost change model with
+                match applyAndPost (displayName Delete) change model with
                 | Error msg ->
                     { model with
                         lastCmdResult = Some(CmdLastResult.Error(None, msg)) },
@@ -526,7 +528,7 @@ let closeCssClassPromptOp (model: VM) : VM * Effect list =
 /// Op: Close the active overlay dialog/palette, restoring its return mode.
 let closeActiveOverlayOp (model: VM) : VM * Effect list =
     match model.mode with
-    | CommandPalette _ -> closeCommandPaletteOp model
+    | Mode.CommandPalette _ -> closeCommandPaletteOp model
     | SearchDialog _ -> Gambol.Client.SearchDialog.closeSearchDialogOp model
     | FileSearchDialog _ -> Gambol.Client.FileSearchDialog.closeFileSearchDialogOp model
     | CssClassPrompt _ -> closeCssClassPromptOp model
@@ -537,7 +539,7 @@ let closeActiveOverlayOp (model: VM) : VM * Effect list =
 let pointerActivateRowAtPos (instanceId: SiteId) (cursorPos: int) (model: VM)
     : VM * Effect list =
     match model.mode with
-    | CommandPalette _ | SearchDialog _ | FileSearchDialog _ | CssClassPrompt _ | RenamePrompt _ ->
+    | Mode.CommandPalette _ | SearchDialog _ | FileSearchDialog _ | CssClassPrompt _ | RenamePrompt _ ->
         let closed, closeEffs = closeActiveOverlayOp model
         let result, actEffs =
             match closed.mode with
@@ -581,7 +583,7 @@ let submitCssClassPromptOp (model: VM) : VM * Effect list =
                 { id = model.revision.Value
                   changeId = System.Guid.NewGuid()
                   ops = ops }
-            match applyAndPost change result with
+            match applyAndPost (displayName EditClasses) change result with
             | Ok (m, effects) -> m, effects
             | Error msg ->
                 consoleLog msg
@@ -702,53 +704,49 @@ let retryPendingOp (resetCount: bool) (model: VM) : VM * Effect list =
 /// Op: Undo the last change, committing any in-progress edit first.
 let undoOp (model: VM) : VM * Effect list =
     let model', commitEffects = commitIfEditing model
-    let state = { graph = model'.graph; history = model'.history; revision = model'.revision }
-    match model'.history.past |> List.tryHead with
-    | None -> model', commitEffects
-    | Some _ ->
-        let action =
-            ChangeRequest.Undo(
-                model'.history.nextId,
-                System.Guid.NewGuid())
-        match
-            SyncPlanner.applyAndEnqueueLocalAction
-                action
-                state
-                model'.syncInfo
-        with
-        | Ok (newState, nextSyncInfo, actionEffects) ->
-            { model' with
-                graph = newState.graph
-                history = newState.history
-                mode = Selecting
-                syncInfo = nextSyncInfo }
-            |> withSiteMap
-            |> fun m -> m, commitEffects @ actionEffects
-        | Error _ -> model', commitEffects
+    let clientState: ClientSyncState =
+        { graph = model'.graph
+          revision = model'.revision
+          history = model'.history }
+    let commandName = ClientHistory.tryPeekUndoName model'.history
+    match SyncLogic.applyLocalUndo (System.Guid.NewGuid()) clientState with
+    | None ->
+        { model' with lastCmdResult = Some (CmdLastResult.undoResult None) },
+        commitEffects
+    | Some (Error _) -> model', commitEffects
+    | Some (Ok (nextState, pendingItem)) ->
+        let nextSyncInfo, actionEffects =
+            SyncPlanner.enqueuePending pendingItem model'.revision model'.syncInfo
+        { model' with
+            graph = nextState.graph
+            history = nextState.history
+            mode = Selecting
+            syncInfo = nextSyncInfo
+            lastCmdResult = Some (CmdLastResult.undoResult commandName) }
+        |> withSiteMap
+        |> fun m -> m, commitEffects @ actionEffects
 
 /// Op: Redo the last undone change, committing any in-progress edit first.
 let redoOp (model: VM) : VM * Effect list =
     let model', commitEffects = commitIfEditing model
-    let state = { graph = model'.graph; history = model'.history; revision = model'.revision }
-    match model'.history.future |> List.tryHead with
-    | None -> model', commitEffects
-    | Some _ ->
-        let action =
-            ChangeRequest.Redo(
-                model'.history.nextId,
-                System.Guid.NewGuid())
-        match
-            SyncPlanner.applyAndEnqueueLocalAction
-                action
-                state
-                model'.syncInfo
-        with
-        | Ok (newState, nextSyncInfo, actionEffects) ->
-            { model' with
-                graph = newState.graph
-                history = newState.history
-                mode = Selecting
-                syncInfo = nextSyncInfo }
-            |> withSiteMap
-            |> fun m -> m, commitEffects @ actionEffects
-        | Error _ -> model', commitEffects
+    let clientState: ClientSyncState =
+        { graph = model'.graph
+          revision = model'.revision
+          history = model'.history }
+    let commandName = ClientHistory.tryPeekRedoName model'.history
+    match SyncLogic.applyLocalRedo (System.Guid.NewGuid()) clientState with
+    | None ->
+        { model' with lastCmdResult = Some (CmdLastResult.redoResult None) },
+        commitEffects
+    | Some (Error _) -> model', commitEffects
+    | Some (Ok (nextState, pendingItem)) ->
+        let nextSyncInfo, actionEffects =
+            SyncPlanner.enqueuePending pendingItem model'.revision model'.syncInfo
+        { model' with
+            graph = nextState.graph
+            history = nextState.history
+            mode = Selecting
+            syncInfo = nextSyncInfo
+            lastCmdResult = Some (CmdLastResult.redoResult commandName) }
+        |> withSiteMap
+        |> fun m -> m, commitEffects @ actionEffects

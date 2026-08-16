@@ -19,6 +19,6 @@ module SyncBatch =
     let toWireBatch
         (baseRevision: int)
         (items: PendingChange list)
-        : ChangeRequest list =
+        : Change list =
         toPendingDeltaChain baseRevision items
-        |> List.map PendingChange.toChangeRequest
+        |> List.map (fun item -> item.change)

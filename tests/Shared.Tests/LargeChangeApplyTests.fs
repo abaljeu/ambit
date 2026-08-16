@@ -1,8 +1,11 @@
 module LargeChangeApplyTests
 
+open System
 open System.Diagnostics
 open Gambol.Shared
 open Xunit
+
+module Enc = Thoth.Json.Newtonsoft.Encode
 
 /// A parse of a large file arrives as one Change holding thousands of NewNode ops
 /// followed by a Replace that attaches them, so per-op cost must not scale with
@@ -104,6 +107,100 @@ let ``ordinary inverse of large paste detaches but retains created nodes`` () =
         | Op.NewSpecialNode(nodeId, _, _) ->
             Assert.True(Map.containsKey nodeId undone.graph.nodes)
         | _ -> ())
+
+let private reachableStructure (graph: Graph) =
+    let rec walk nodeId (visited, nodes) =
+        if Set.contains nodeId visited then
+            visited, nodes
+        else
+            let node = graph.nodes.[nodeId]
+            let shape =
+                node.text, node.name, node.cssClasses, node.owner,
+                node.kind, node.documentState, node.childrenStatus, node.children
+            node.children
+            |> List.fold
+                (fun state child -> walk child.id state)
+                (Set.add nodeId visited, Map.add nodeId shape nodes)
+
+    walk graph.root (Set.empty, Map.empty) |> snd
+
+let private time f =
+    let sw = Stopwatch.StartNew()
+    let value = f ()
+    sw.Stop()
+    value, sw.Elapsed.TotalMilliseconds
+
+let private undoInverse history =
+    match ClientHistory.undo (Revision 1) (Guid.NewGuid()) history with
+    | Some (inverse, _, _, _) -> inverse
+    | None -> failwith "Undo had no inverse Change"
+
+let private projectInverse inverse state =
+    match ResidentProjection.applyChange inverse state with
+    | ApplyResult.Changed result -> result
+    | ApplyResult.Unchanged _ -> failwith "projected apply did not change the graph"
+    | ApplyResult.Invalid(_, message) -> failwithf "projected apply failed: %s" message
+
+let private serverApplyInverse inverse state =
+    match History.applyChange inverse state with
+    | ApplyResult.Changed _ -> ()
+    | ApplyResult.Unchanged _ -> failwith "server apply did not change the graph"
+    | ApplyResult.Invalid(_, message) -> failwithf "server apply failed: %s" message
+
+let private assertNoCreateOps (change: Change) =
+    Assert.Equal(1, change.ops.Length)
+    Assert.DoesNotContain(
+        change.ops,
+        fun op ->
+            match op with
+            | Op.NewNode _ | Op.NewSpecialNode _ -> true
+            | _ -> false)
+
+[<Fact>]
+let ``delivered inverse of large paste measures phases without per-created-Node rebuild`` () =
+    let state = baseState ()
+    let change = parseLikeChange Graph.workspacesId
+    let changed = applied state change
+    let history0, _ = ClientHistory.record "Paste" change (ClientHistory.clear ())
+    let before = reachableStructure state.graph
+    let after = reachableStructure changed.graph
+    let inverse, planMs = time (fun () -> undoInverse history0)
+    assertNoCreateOps inverse
+    let projected, projectedMs = time (fun () -> projectInverse inverse changed)
+    Assert.True((before = reachableStructure projected.graph))
+    let redo = Change.inverse (Revision inverse.id) (Guid.NewGuid()) inverse
+    Assert.True((after = reachableStructure (applied projected redo).graph))
+    projected.graph.nodes
+    |> Map.iter (fun nodeId _ ->
+        Assert.True(Map.containsKey nodeId changed.graph.nodes))
+    let _, serverMs = time (fun () -> serverApplyInverse inverse changed)
+    Assert.True(
+        projectedMs < 300.0,
+        sprintf "projected inverse apply took %.3f ms" projectedMs)
+    let siteMap0, nextId =
+        ViewModel.buildSiteMapFrom changed.graph Graph.workspacesId (Sid 0)
+    let _, siteMs =
+        time (fun () ->
+            ViewModel.reconcileSiteMapFrom
+                projected.graph Graph.workspacesId siteMap0 nextId
+            |> ignore)
+    let _, encodeMs =
+        time (fun () ->
+            Enc.toString 0 (Serialization.encodeChangeBatch { changes = [ inverse ] })
+            |> ignore)
+    let ack : ChangeBatchAck =
+        { revision = Revision 2
+          changes = [ inverse ]
+          message = None }
+    let _, ackMs =
+        time (fun () ->
+            Enc.toString 0 (Serialization.encodeChangeBatchAck ack) |> ignore)
+    printfn
+        "2,000-Node paste inverse phases: planning=%.3f ms projected=%.3f ms"
+        planMs projectedMs
+    printfn
+        "server-apply=%.3f ms sitemap=%.3f ms encode=%.3f ms ack-encode=%.3f ms ops=%d"
+        serverMs siteMs encodeMs ackMs inverse.ops.Length
 
 /// A nested document parses into one Replace per parent whose children changed.
 let private nestedParseChange (documentRootId: NodeId) : Change =

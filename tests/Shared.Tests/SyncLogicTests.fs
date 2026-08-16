@@ -131,12 +131,21 @@ let ``SyncInfo withSyncState keeps ack within non-risk states`` () =
 // applyServerTail
 // ---------------------------------------------------------------------------
 
-let private emptyState () : State =
+let private emptyState () : ClientSyncState =
     { graph = Graph.create ()
-      history = History.empty
+      history = ClientHistory.clear ()
       revision = Revision 5 }
 
-let private stateWithNode text : State * NodeId =
+let private ofState (st: State) : ClientSyncState =
+    { graph = st.graph
+      revision = st.revision
+      history = ClientHistory.clear () }
+
+let private withRecorded (change: Change) (state: ClientSyncState) =
+    let history, _ = ClientHistory.record "test" change state.history
+    { state with history = history }
+
+let private stateWithNode text : ClientSyncState * NodeId =
     let graph0 = Graph.create ()
     let graph1, nodeId = Graph.newNode text graph0
     { emptyState() with graph = graph1; revision = Revision 3 }, nodeId
@@ -144,12 +153,7 @@ let private stateWithNode text : State * NodeId =
 [<Fact>]
 let ``applyServerTail empty list returns Ok with state unchanged`` () =
     let past = mkChange 4
-    let st =
-        { emptyState () with
-            history =
-                { History.empty with
-                    past = [ past ]
-                    nextId = 5 } }
+    let st = emptyState () |> withRecorded past
     match SyncLogic.applyServerTail [] st with
     | Error msg -> failwith $"Expected Ok, got Error: {msg}"
     | Ok result ->
@@ -161,12 +165,7 @@ let ``applyServerTail empty list returns Ok with state unchanged`` () =
 let ``applyServerTail non-empty tail clears History atomically`` () =
     let st, nodeId = stateWithNode "before"
     let local = mkChange 2
-    let withHistory =
-        { st with
-            history =
-                { past = [ local ]
-                  future = [ mkChange 1 ]
-                  nextId = 3 } }
+    let withHistory = st |> withRecorded local
     let upstream =
         { id = 3
           changeId = System.Guid.NewGuid()
@@ -174,12 +173,9 @@ let ``applyServerTail non-empty tail clears History atomically`` () =
     match SyncLogic.applyServerTail [ upstream ] withHistory with
     | Error msg -> failwith $"Expected Ok, got Error: {msg}"
     | Ok result ->
-        Assert.Equal(History.empty, result.history)
+        Assert.Equal(ClientHistory.clear (), result.history)
         Assert.Equal("after", result.graph.nodes.[nodeId].text)
         Assert.Equal(Revision 4, result.revision)
-
-[<Fact>]
-let ``applyServerTail advances revision by one per change`` () =
     let st = emptyState ()
     let changes = [ mkChange 5; mkChange 6; mkChange 7 ]
     match SyncLogic.applyServerTail changes st with
@@ -258,7 +254,7 @@ let ``applyServerTail consumes Change on Absent Header without graph effect`` ()
     | Ok result ->
         Assert.Equal(Revision 6, result.revision)
         Assert.False(result.graph.nodes.ContainsKey absentId)
-        Assert.Equal(History.empty, result.history)
+        Assert.Equal(ClientHistory.clear (), result.history)
 
 [<Fact>]
 let ``applyServerTail skips structural Replace on Unloaded parent`` () =
@@ -288,9 +284,9 @@ let ``applyServerTail skips structural Replace on Unloaded parent`` () =
                     workspaces.children
                     @ [ ChildNode.owner wsId ] }
     let graph = Graph.fromNodes graph0.root nodes
-    let st =
+    let st: ClientSyncState =
         { graph = graph
-          history = History.empty
+          history = ClientHistory.clear ()
           revision = Revision 3 }
     let change =
         { id = 4
@@ -330,9 +326,9 @@ let ``applyServerTail applies header facts on Unloaded resident Node`` () =
                 children =
                     workspaces.children
                     @ [ ChildNode.owner wsId ] }
-    let st =
+    let st: ClientSyncState =
         { graph = Graph.fromNodes graph0.root nodes
-          history = History.empty
+          history = ClientHistory.clear ()
           revision = Revision 2 }
     let change =
         { id = 3
@@ -379,12 +375,11 @@ let ``applySyncResponse installs complete child list as Loaded and preserves own
                 children =
                     root.children
                     @ [ ChildNode.owner markerId ] }
-    let st =
+    let st: ClientSyncState =
         { graph = Graph.fromNodes graph0.root nodes0
           history =
-              { past = [ mkChange 1 ]
-                future = []
-                nextId = 2 }
+            ClientHistory.record "test" (mkChange 1) (ClientHistory.clear ())
+            |> fst
           revision = Revision 5 }
     let child =
         Node.Create(childId, text = "leaf", owner = wsId)
@@ -411,7 +406,7 @@ let ``applySyncResponse installs complete child list as Loaded and preserves own
     match SyncLogic.applySyncResponse response st with
     | Error msg -> failwith $"Expected Ok, got Error: {msg}"
     | Ok result ->
-        Assert.Equal(History.empty, result.history)
+        Assert.Equal(ClientHistory.clear (), result.history)
         Assert.Equal(Revision 6, result.revision)
         Assert.Equal(Loaded, result.graph.nodes.[wsId].childrenStatus)
         Assert.Equal(1, result.graph.nodes.[wsId].children.Length)
@@ -435,7 +430,7 @@ let ``applyServerTail multi-change tail advances revision and graph`` () =
         { id = 2
           changeId = System.Guid.NewGuid()
           ops = [ Op.SetText(nodeB.id, nodeB.text, nodeB.text + "2") ] }
-    match SyncLogic.applyServerTail [ change1; change2 ] state0 with
+    match SyncLogic.applyServerTail [ change1; change2 ] (ofState state0) with
     | Error msg -> failwith $"Expected Ok, got Error: {msg}"
     | Ok result ->
         Assert.Equal(Revision 12, result.revision)
@@ -445,12 +440,7 @@ let ``applyServerTail multi-change tail advances revision and graph`` () =
 [<Fact>]
 let ``applySyncResponse empty packages and empty changes preserves History`` () =
     let past = mkChange 4
-    let st =
-        { emptyState () with
-            history =
-                { History.empty with
-                    past = [ past ]
-                    nextId = 5 } }
+    let st = emptyState () |> withRecorded past
     match SyncLogic.applySyncResponse { changes = []; packages = [] } st with
     | Error msg -> failwith $"Expected Ok, got Error: {msg}"
     | Ok result ->
@@ -480,9 +470,10 @@ let ``applySyncResponse empty Loaded child list marks Loaded without History cle
                     workspaces.children
                     @ [ ChildNode.owner wsId ] }
     let past = mkChange 2
-    let st =
+    let st: ClientSyncState =
         { graph = Graph.fromNodes graph0.root nodes
-          history = { History.empty with past = [ past ]; nextId = 3 }
+          history =
+            ClientHistory.record "test" past (ClientHistory.clear ()) |> fst
           revision = Revision 4 }
     let loadedEmpty = { ws with children = []; childrenStatus = Loaded }
     match
@@ -515,7 +506,7 @@ let ``applySyncResponse empty Loaded child list marks Loaded without History cle
           ops =
             [ Op.Replace(rootId, 0, [ childA ], [])
               Op.Replace(childB.id, originalBChildren.Length, [], [ childA ]) ] }
-    match SyncLogic.applyServerTail [ goodChange; ownershipBreakingChange ] state0 with
+    match SyncLogic.applyServerTail [ goodChange; ownershipBreakingChange ] (ofState state0) with
     | Error msg -> failwith $"Expected Ok (no ownership re-check), got Error: {msg}"
     | Ok result ->
         Assert.Equal(Revision (state0.revision.Value + 2), result.revision)

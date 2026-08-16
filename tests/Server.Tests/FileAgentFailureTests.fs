@@ -29,7 +29,7 @@ let private changedBody () =
         }
     Encode.toString 0 (
         Serialization.encodeChangeBatch
-            { changes = [ ChangeRequest.Change change ] })
+            { changes = [ change ] })
 
 let private softFailPersist : string -> Graph -> Graph -> Op list -> Result<PersistGraphOk, string> =
     fun _ _ postGraph _ ->
@@ -38,10 +38,13 @@ let private softFailPersist : string -> Graph -> Graph -> Op list -> Result<Pers
             message = Some(DocumentPersistence.fileCouldNotSave "SYSTEM/secret.txt")
         }
 
-let private decodeAckMessage (json: string) : string option =
+let private decodeAck (json: string) =
     match Decode.fromString Serialization.decodeChangeBatchAck json with
-    | Ok ack -> ack.message
+    | Ok ack -> ack
     | Error err -> failwith $"decode ack: {err}"
+
+let private decodeAckMessage (json: string) : string option =
+    (decodeAck json).message
 
 /// Insert a normal child at ROOT index 0 (old span [] = insert).
 let private softFailEditBody () =
@@ -62,7 +65,7 @@ let private softFailEditBody () =
         }
     Encode.toString 0 (
         Serialization.encodeChangeBatch
-            { changes = [ ChangeRequest.Change change ] })
+            { changes = [ change ] })
 
 [<Fact>]
 let ``persistence exception is logged replied and mailbox survives`` () = task {
@@ -205,4 +208,117 @@ let ``soft-fail log is not replayed into FileAgent state after restart`` () = ta
         Assert.Empty(agent2.initialState.history.future)
     finally
         FileAgent.dispose agent2
+}
+
+let private stampBase = DateTime(2026, 8, 16, 12, 0, 0, DateTimeKind.Utc)
+
+let private incrementingStampPersist (count: int ref) =
+    fun _ _ (postGraph: Graph) _ ->
+        count.Value <- count.Value + 1
+        let stampedTime = stampBase.AddMinutes(float count.Value)
+        let node = postGraph.nodes.[Graph.workspacesId]
+        let graph =
+            { postGraph with
+                nodes =
+                    Map.add
+                        Graph.workspacesId
+                        { node with updateTime = stampedTime }
+                        postGraph.nodes }
+        Ok { graph = graph; message = None }
+
+let private encodeBatch (changes: Change list) =
+    Encode.toString 0 (Serialization.encodeChangeBatch { changes = changes })
+
+let private addChildChange rev text =
+    let childId = NodeId.New()
+    { id = rev
+      changeId = Guid.NewGuid()
+      ops =
+        [ Op.NewNode(childId, text)
+          Op.Replace(Graph.rootId, 0, [], [ ChildNode.owner childId ]) ] }
+
+let private suffixAfter (submitted: Change) (confirmed: Change) =
+    List.skip submitted.ops.Length confirmed.ops
+
+[<Fact>]
+let ``ACK returns stamped complete Change equal to ChangeLog`` () = task {
+    let dataDir = newTempDir ()
+    let count = ref 0
+    let defaults = FileAgent.defaultDependencies dataDir
+    let dependencies =
+        { defaults with persistGraphOps = incrementingStampPersist count }
+    let agent = FileAgent.createWithDependencies dependencies dataDir
+    try
+        let change = addChildChange 0 "stamp-prefix"
+        let! postResult =
+            FileAgent.postChange agent (encodeBatch [ change ])
+            |> Async.StartAsTask
+        match postResult with
+        | Error err -> Assert.Fail($"expected Ok ack, got Error {err}")
+        | Ok ackJson ->
+            let ack = decodeAck ackJson
+            let confirmed = Assert.Single(ack.changes)
+            Assert.Equal(change.changeId, confirmed.changeId)
+            Assert.Equal<Op list>(
+                change.ops,
+                List.take change.ops.Length confirmed.ops)
+            let suffix = suffixAfter change confirmed
+            Assert.NotEmpty(suffix)
+            suffix
+            |> List.iter (fun op ->
+                match op with
+                | Op.SetUpdateTime(nodeId, _, _) ->
+                    Assert.Equal(Graph.workspacesId, nodeId)
+                | _ -> failwith "expected SetUpdateTime suffix")
+            let! logged =
+                FileAgent.getChangesSince agent 0 |> Async.StartAsTask
+            Assert.Equal<Change list>([ confirmed ], logged)
+    finally
+        FileAgent.dispose agent
+}
+
+[<Fact>]
+let ``trailing duplicate keeps stamps on last new Change`` () = task {
+    let dataDir = newTempDir ()
+    let count = ref 0
+    let defaults = FileAgent.defaultDependencies dataDir
+    let dependencies =
+        { defaults with persistGraphOps = incrementingStampPersist count }
+    let agent = FileAgent.createWithDependencies dependencies dataDir
+    try
+        let first = addChildChange 0 "first-new"
+        let! firstResult =
+            FileAgent.postChange agent (encodeBatch [ first ])
+            |> Async.StartAsTask
+        let firstConfirmed =
+            match firstResult with
+            | Ok json -> Assert.Single((decodeAck json).changes)
+            | Error err -> failwith err
+        let second = addChildChange 1 "second-new"
+        let! batchResult =
+            FileAgent.postChange agent (encodeBatch [ second; first ])
+            |> Async.StartAsTask
+        match batchResult with
+        | Error err -> Assert.Fail($"expected Ok ack, got Error {err}")
+        | Ok ackJson ->
+            let ack = decodeAck ackJson
+            Assert.Equal(2, ack.changes.Length)
+            let secondConfirmed, trailingDup = ack.changes.[0], ack.changes.[1]
+            Assert.Equal(firstConfirmed, trailingDup)
+            Assert.Equal(second.changeId, secondConfirmed.changeId)
+            Assert.Equal<Op list>(
+                second.ops,
+                List.take second.ops.Length secondConfirmed.ops)
+            let secondSuffix = suffixAfter second secondConfirmed
+            Assert.NotEmpty(secondSuffix)
+            Assert.NotEqual<Op list>(
+                suffixAfter first firstConfirmed,
+                secondSuffix)
+            let! logged =
+                FileAgent.getChangesSince agent 0 |> Async.StartAsTask
+            Assert.Equal<Change list>(
+                [ firstConfirmed; secondConfirmed ],
+                logged)
+    finally
+        FileAgent.dispose agent
 }

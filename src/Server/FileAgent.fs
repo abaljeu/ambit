@@ -79,9 +79,7 @@ module FileAgent =
         let logStream = Bookkeeping.openLogStream dataDir
 
         let offsetIndex = ChangeLog.buildIndex logStream
-        let initialState =
-            { loadedState with history = History.empty }
-        let state = ref initialState
+        let state = ref loadedState
         /// False after a soft file-write failure until process restart (meta stays behind).
         let persistClean = ref true
 
@@ -97,25 +95,27 @@ module FileAgent =
             |> Encode.toString 0
 
         let encodeChangeAckJson
-            (ackedChangeIds: Guid list)
-            (stampOps: Op list)
+            (confirmed: Change list)
             (message: string option)
             =
             Encode.toString 0 (
                 Serialization.encodeChangeBatchAck
                     { revision = state.Value.revision
-                      ackedChangeIds = ackedChangeIds
-                      stampOps = stampOps
+                      changes = confirmed
                       message = message })
 
-        let isPersistedDuplicateSubmission (action: ChangeRequest) =
-            let actionId = ChangeRequest.actionId action
-            offsetIndex
-            |> Seq.exists (fun offset ->
-                let _, json = ChangeLog.readEntryAt logStream offset
-                match ChangeLog.decodeChange json with
-                | Ok change -> change.changeId = actionId
-                | Error _ -> false)
+        let overlayFresh confirmations fresh stampOps =
+            let stamped = PersistStamp.appendToLast fresh stampOps
+            let stampedById =
+                stamped
+                |> List.map (fun change -> change.changeId, change)
+                |> Map.ofList
+            let confirmed =
+                confirmations
+                |> List.map (fun change ->
+                    Map.tryFind change.changeId stampedById
+                    |> Option.defaultValue change)
+            stamped, confirmed
 
         let syncPersistChange
             (rev: int)
@@ -142,47 +142,33 @@ module FileAgent =
                     | Error err -> Error err
                     | Ok () -> Ok stamped
 
-        let applyBatch (actions: ChangeRequest list) =
-            let step (s, acked, logEntries, changed) action =
-                let actionId = ChangeRequest.actionId action
-                let baseRevision = ChangeRequest.baseRevision action
-                if isPersistedDuplicateSubmission action then
-                    Ok(s, actionId :: acked, logEntries, changed)
-                elif baseRevision <> s.revision.Value then
+        let applyBatch (changes: Change list) =
+            let step (s, confirmations, fresh, changed) change =
+                match ChangeLog.tryFindByChangeId logStream offsetIndex change.changeId with
+                | Some stored ->
+                    Ok(s, stored :: confirmations, fresh, changed)
+                | None when change.id <> s.revision.Value ->
                     Error
-                        $"Revision mismatch: server is at revision {s.revision.Value}, but this action targets base revision {baseRevision}."
-                else
-                    match action with
-                    | ChangeRequest.Change change ->
-                        match History.applyChange change s with
-                        | ApplyResult.Invalid (_, errMsg) -> Error errMsg
-                        | ApplyResult.Unchanged s' ->
-                            // Write-free ack: no revision bump, no log append.
-                            Ok(s', actionId :: acked, logEntries, changed)
-                        | ApplyResult.Changed s' ->
-                            let nextRev = s.revision.Value + 1
-                            let nextState = { s' with revision = Revision nextRev }
-                            let logEntry = change.id, change
-                            Ok(nextState, actionId :: acked, logEntry :: logEntries, true)
-                    | ChangeRequest.Undo _
-                    | ChangeRequest.Redo _ ->
-                        match History.applyAction action s with
-                        | Error error -> Error error
-                        | Ok (s', materialized) ->
-                            let nextRev = s.revision.Value + 1
-                            let nextState = { s' with revision = Revision nextRev }
-                            let logEntry = materialized.id, materialized
-                            Ok(nextState, actionId :: acked, logEntry :: logEntries, true)
+                        $"Revision mismatch: server is at revision {s.revision.Value}, but this Change targets base revision {change.id}."
+                | None ->
+                    match History.applyChange change s with
+                    | ApplyResult.Invalid (_, errMsg) -> Error errMsg
+                    | ApplyResult.Unchanged _ ->
+                        Error "Unchanged submission is rejected."
+                    | ApplyResult.Changed s' ->
+                        let nextRev = s.revision.Value + 1
+                        let nextState = { s' with revision = Revision nextRev }
+                        Ok(nextState, change :: confirmations, change :: fresh, true)
 
-            actions
+            changes
             |> List.fold
-                (fun acc action ->
+                (fun acc change ->
                     match acc with
                     | Error err -> Error err
-                    | Ok stateAndLog -> step stateAndLog action)
+                    | Ok stateAndLog -> step stateAndLog change)
                 (Ok(state.Value, [], [], false))
-            |> Result.map (fun (newState, acked, entries, changed) ->
-                newState, List.rev acked, List.rev entries, changed)
+            |> Result.map (fun (newState, confirmations, fresh, changed) ->
+                newState, List.rev confirmations, List.rev fresh, changed)
 
         let persistLogEntries (logEntries: (int * string) list) =
             let logStart = logStream.Length
@@ -206,7 +192,7 @@ module FileAgent =
             | Ok batch ->
                 match applyBatch batch.changes with
                 | Error err -> reply.Reply(Error err)
-                | Ok (newState, ackedChangeIds, logEntries, changed) ->
+                | Ok (newState, confirmations, fresh, changed) ->
                     let preGraph = state.Value.graph
                     let validation =
                         if graphOnly then
@@ -227,8 +213,8 @@ module FileAgent =
                         let diskPersist =
                             if changed && not graphOnly then
                                 let ops =
-                                    logEntries
-                                    |> List.collect (fun (_, change) -> change.ops)
+                                    fresh
+                                    |> List.collect (fun change -> change.ops)
                                 syncPersistChange
                                     newState.revision.Value
                                     preGraph
@@ -249,11 +235,10 @@ module FileAgent =
                                     stamped.graph,
                                     stamped.message
                                 | None -> [], newState.graph, None
+                            let stampedFresh, ackChanges =
+                                overlayFresh confirmations fresh stampOps
                             let encodedLog =
-                                logEntries
-                                |> List.map snd
-                                |> fun changes ->
-                                    PersistStamp.appendToLast changes stampOps
+                                stampedFresh
                                 |> List.map (fun change ->
                                     change.id, ChangeLog.encodeChange change)
                             match persistLogEntries encodedLog with
@@ -269,8 +254,7 @@ module FileAgent =
                                 reply.Reply(
                                     Ok(
                                         encodeChangeAckJson
-                                            ackedChangeIds
-                                            stampOps
+                                            ackChanges
                                             persistMessage))
 
         let operationContext msg =

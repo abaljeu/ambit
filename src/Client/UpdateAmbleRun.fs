@@ -2,6 +2,7 @@ module Gambol.Client.UpdateAmbleRun
 
 open Gambol.Client.UpdateHelpers
 open Gambol.Shared
+open Gambol.Shared.CommandEntry
 open Gambol.Shared.ViewModel
 
 let private focusLine (model: VM) (focusId: NodeId) : string =
@@ -25,6 +26,6 @@ let runAmbleOp (model: VM) : VM * Effect list =
                     { id = model.revision.Value
                       changeId = System.Guid.NewGuid()
                       ops = ops }
-                match applyAndPost change model with
+                match applyAndPost (displayName Exec) change model with
                 | Ok (m, effects) -> withSiteMap m, effects
                 | Error _ -> model, []

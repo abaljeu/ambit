@@ -28,30 +28,6 @@ module PendingChange =
                   submittedChangeId = change.changeId
                   kind = PendingKind.Normal } }
 
-    let fromRequest (action: ChangeRequest) (materialized: Change) : PendingChange =
-        let kind =
-            match action with
-            | ChangeRequest.Change _ -> None
-            | ChangeRequest.Undo _ -> Some PendingKind.Undo
-            | ChangeRequest.Redo _ -> Some PendingKind.Redo
-        { change = materialized
-          transition =
-            kind
-            |> Option.map (fun pendingKind ->
-                { recordId = 0
-                  submittedChangeId = materialized.changeId
-                  kind = pendingKind }) }
-
-    let toChangeRequest (item: PendingChange) : ChangeRequest =
-        match item.transition with
-        | Some { kind = PendingKind.Undo } ->
-            ChangeRequest.Undo(item.change.id, item.change.changeId)
-        | Some { kind = PendingKind.Redo } ->
-            ChangeRequest.Redo(item.change.id, item.change.changeId)
-        | Some { kind = PendingKind.Normal }
-        | None ->
-            ChangeRequest.Change item.change
-
 type SyncState =
     | Idle                       // all confirmed, nothing pending
     | Sending of attempt: int    // POST in-flight; attempt = 1-based send count

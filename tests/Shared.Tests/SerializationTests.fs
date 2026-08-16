@@ -224,27 +224,27 @@ let ``ChangeBatch round-trip`` () =
         { id = 5
           changeId = System.Guid.NewGuid()
           ops = [ Op.SetText(NodeId.New(), "old", "new") ] }
-    let batch = { changes = [ ChangeRequest.Change change ] }
+    let batch = { changes = [ change ] }
     let decoded = roundTrip Serialization.encodeChangeBatch Serialization.decodeChangeBatch batch
-    Assert.Equal<ChangeRequest list>(batch.changes, decoded.changes)
+    Assert.Equal<Change list>(batch.changes, decoded.changes)
 
 [<Fact>]
-let ``ChangeBatch round-trip preserves bare Change and explicit Undo Redo`` () =
-    let change =
+let ``ChangeBatch round-trip preserves request order`` () =
+    let first =
         { id = 5
           changeId = System.Guid.NewGuid()
           ops = [ Op.SetText(NodeId.New(), "old", "new") ] }
-    let undo = ChangeRequest.Undo(6, System.Guid.NewGuid())
-    let redo = ChangeRequest.Redo(7, System.Guid.NewGuid())
-    let batch =
-        { changes = [ ChangeRequest.Change change; undo; redo ] }
+    let second =
+        { id = 6
+          changeId = System.Guid.NewGuid()
+          ops = [ Op.SetText(NodeId.New(), "a", "b") ] }
+    let batch = { changes = [ first; second ] }
     let json = Enc.toString 0 (Serialization.encodeChangeBatch batch)
-    Assert.DoesNotContain("\"action\":\"change\"", json)
-    Assert.Contains("\"action\":\"undo\"", json)
-    Assert.Contains("\"action\":\"redo\"", json)
+    Assert.DoesNotContain("\"action\":\"undo\"", json)
+    Assert.DoesNotContain("\"action\":\"redo\"", json)
     let decoded =
         roundTrip Serialization.encodeChangeBatch Serialization.decodeChangeBatch batch
-    Assert.Equal<ChangeRequest list>(batch.changes, decoded.changes)
+    Assert.Equal<Change list>([ first; second ], decoded.changes)
 
 [<Fact>]
 let ``ChangeBatch decoder rejects empty changes`` () =
@@ -254,39 +254,48 @@ let ``ChangeBatch decoder rejects empty changes`` () =
     | Error _ -> ()
 
 [<Fact>]
-let ``History action decoder requires explicit changeId`` () =
-    let json = """{"changes":[{"action":"undo","id":1}]}"""
+let ``ChangeBatch decoder rejects explicit Undo JSON`` () =
+    let json =
+        """{"changes":[{"action":"undo","id":1,"changeId":"00000000-0000-0000-0000-000000000001"}]}"""
     match Dec.fromString Serialization.decodeChangeBatch json with
-    | Ok _ -> failwith "Expected Undo without changeId to fail decoding"
-    | Error error -> Assert.Contains("changeId", error)
+    | Ok _ -> failwith "Expected explicit Undo JSON to fail decoding"
+    | Error _ -> ()
+
+[<Fact>]
+let ``ChangeBatch decoder rejects explicit Redo JSON`` () =
+    let json =
+        """{"changes":[{"action":"redo","id":1,"changeId":"00000000-0000-0000-0000-000000000001"}]}"""
+    match Dec.fromString Serialization.decodeChangeBatch json with
+    | Ok _ -> failwith "Expected explicit Redo JSON to fail decoding"
+    | Error _ -> ()
 
 [<Fact>]
 let ``ChangeBatchAck round-trip`` () =
     let stamp = System.DateTime(2026, 7, 22, 12, 0, 0, System.DateTimeKind.Utc)
+    let confirmed =
+        { id = 4
+          changeId = System.Guid.NewGuid()
+          ops =
+            [ Op.SetText(NodeId.New(), "old", "new")
+              Op.SetUpdateTime(
+                  NodeId.New(),
+                  NodeUpdateTime.missing,
+                  NodeUpdateTime.toDbPrecision stamp) ] }
     let ack =
         { revision = Revision 7
-          ackedChangeIds = [ System.Guid.NewGuid(); System.Guid.NewGuid() ]
-          stampOps =
-              [ Op.SetUpdateTime(
-                    NodeId.New(),
-                    NodeUpdateTime.missing,
-                    NodeUpdateTime.toDbPrecision stamp) ]
+          changes = [ confirmed ]
           message = Some "stable file update failed" }
     let decoded = roundTrip Serialization.encodeChangeBatchAck Serialization.decodeChangeBatchAck ack
     Assert.Equal(ack.revision, decoded.revision)
-    Assert.Equal<System.Guid list>(ack.ackedChangeIds, decoded.ackedChangeIds)
-    Assert.Equal<Op list>(ack.stampOps, decoded.stampOps)
+    Assert.Equal<Change list>(ack.changes, decoded.changes)
     Assert.Equal(ack.message, decoded.message)
 
 [<Fact>]
-let ``ChangeBatchAck omits stampOps when decoding legacy JSON`` () =
-    let json = """{"revision":3,"ackedChangeIds":[]}"""
+let ``ChangeBatchAck decoder rejects legacy id and stamp fields`` () =
+    let json = """{"revision":3,"ackedChangeIds":[],"stampOps":[]}"""
     match Dec.fromString Serialization.decodeChangeBatchAck json with
-    | Error e -> failwith e
-    | Ok ack ->
-        Assert.Equal(Revision 3, ack.revision)
-        Assert.True(ack.stampOps.IsEmpty)
-        Assert.True(ack.message.IsNone)
+    | Ok _ -> failwith "Expected legacy ACK JSON to fail decoding"
+    | Error _ -> ()
 
 [<Fact>]
 let ``PollResponse round-trip with non-empty changes`` () =

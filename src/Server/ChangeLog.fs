@@ -103,3 +103,15 @@ module ChangeLog =
     /// Decode a Change from JSON.
     let decodeChange (json: string) : Result<Change, string> =
         Decode.fromString Serialization.decodeChange json
+
+    let tryFindByChangeId
+        (stream: FileStream)
+        (offsets: int64 ResizeArray)
+        (changeId: Guid)
+        : Change option =
+        offsets
+        |> Seq.tryPick (fun offset ->
+            let _, json = readEntryAt stream offset
+            match decodeChange json with
+            | Ok change when change.changeId = changeId -> Some change
+            | _ -> None)

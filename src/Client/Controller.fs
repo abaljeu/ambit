@@ -100,9 +100,16 @@ let onPaste (ev: Event) (dispatch: Msg -> unit) : unit =
         | _ -> text
     ev.preventDefault()
     if pastedText <> "" then
-        dispatch (ApplyOp (withDiagnostic None (pasteNodesOp pastedText nodeIds)))
+        dispatch (ApplyOp (withDiagnostic (Some "Paste") (pasteNodesOp pastedText nodeIds)))
 
-let private onCopyOrCut (model: VM) (ev: Event) (dispatch: Msg -> unit) (updater: Updater) (includeNodeIds: bool) : unit =
+let private onCopyOrCut
+    (model: VM)
+    (ev: Event)
+    (dispatch: Msg -> unit)
+    (updater: Updater)
+    (includeNodeIds: bool)
+    (commandName: string option)
+    : unit =
     match model.selectedNodes with
     | None -> ()
     | Some sel ->
@@ -122,16 +129,16 @@ let private onCopyOrCut (model: VM) (ev: Event) (dispatch: Msg -> unit) (updater
                 |> List.map (fun (NodeId guid) -> guid.ToString())
                 |> String.concat "\n"
             setClipboardData ev nodeIdsFormat idsText
-        dispatch (ApplyOp (withDiagnostic None updater))
+        dispatch (ApplyOp (withDiagnostic commandName updater))
 
 /// Handle a copy event: serialize the selected subtree to the clipboard.
 let onCopy (model: VM) (ev: Event) (dispatch: Msg -> unit) : unit =
-    onCopyOrCut model ev dispatch copySelectionOp false
+    onCopyOrCut model ev dispatch copySelectionOp false None
 
 /// Handle a cut event: serialize and remove the selected subtree.
 /// Puts both node IDs and full data on clipboard; paste prefers IDs when resolvable.
 let onCut (model: VM) (ev: Event) (dispatch: Msg -> unit) : unit =
-    onCopyOrCut model ev dispatch cutSelectionOp true
+    onCopyOrCut model ev dispatch cutSelectionOp true (Some "Cut")
 
 /// True when `#edit-input` has a non-collapsed text range (browser should own copy/cut).
 let editFieldHasTextRangeSelection () : bool =

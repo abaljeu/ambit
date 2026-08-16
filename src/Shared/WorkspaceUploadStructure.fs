@@ -44,7 +44,7 @@ module WorkspaceUploadStructure =
                 isImmediateChild scopeRelative i.relative)
 
     let private applyOps (graph: Graph) (ops: Op list) : Result<Graph, string> =
-        let initial =
+        let initial: State =
             { graph = graph
               history = History.empty
               revision = Revision.Zero }

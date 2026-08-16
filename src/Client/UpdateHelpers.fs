@@ -100,16 +100,7 @@ let loadPendingQueue () : PendingChange list =
         match Thoth.Json.JavaScript.Decode.fromString
             (Decode.list Serialization.decodePendingChange) json with
         | Ok items -> items
-        | Error _ ->
-            match Thoth.Json.JavaScript.Decode.fromString
-                (Decode.list Serialization.decodeChangeRequest) json with
-            | Ok actions ->
-                actions
-                |> List.choose (function
-                    | ChangeRequest.Change change ->
-                        Some (PendingChange.ofChange change)
-                    | _ -> None)
-            | Error _ -> []
+        | Error _ -> []
 
 // ---------------------------------------------------------------------------
 // Update helpers
@@ -140,16 +131,20 @@ let readEditInputSelectionEnd () : int =
 /// Fires SubmitPendingBatch only when the queue was empty and no request is in-flight.
 /// Blocked states (ServerRejected / CodeOutdated / DataOutdated / WaitingToRetry) queue
 /// changes locally but do not fire a POST.
-let applyAndPost (change: Change) (model: VM) : Result<VM * Effect list, string> =
-    let state: State = { graph = model.graph; revision = model.revision; history = model.history }
-    let action = ChangeRequest.Change change
-    match
-        SyncPlanner.applyAndEnqueueLocalAction
-            action
-            state
-            model.syncInfo
-    with
-    | Ok (newState, nextSyncInfo, effects) ->
+let applyAndPost
+    (commandName: string)
+    (change: Change)
+    (model: VM)
+    : Result<VM * Effect list, string> =
+    let clientState: ClientSyncState =
+        { graph = model.graph
+          revision = model.revision
+          history = model.history }
+    match SyncLogic.applyLocalChange commandName change clientState with
+    | Error error -> Error error
+    | Ok (nextState, pendingItem) ->
+        let nextSyncInfo, effects =
+            SyncPlanner.enqueuePending pendingItem model.revision model.syncInfo
         if
             effects
             |> List.exists (function
@@ -157,14 +152,16 @@ let applyAndPost (change: Change) (model: VM) : Result<VM * Effect list, string>
                 | _ -> false)
         then
             consoleLog (
-                "[Gambol sync] applyAndPost fireFirst modelRev=" + string model.revision.Value
-                + " qLen=" + string nextSyncInfo.pendingChanges.Length)
+                "[Gambol sync] applyAndPost fireFirst modelRev="
+                + string model.revision.Value
+                + " qLen="
+                + string nextSyncInfo.pendingChanges.Length)
         Ok
             ({ model with
-                graph = newState.graph
-                history = newState.history
-                syncInfo = nextSyncInfo }, effects)
-    | Error error -> Error error
+                graph = nextState.graph
+                history = nextState.history
+                syncInfo = nextSyncInfo },
+             effects)
 
 /// Extract the child span covered by a SiteNodeRange.
 let rangeChildren (graph: Graph) (range: SiteNodeRange) =
@@ -263,7 +260,7 @@ let commitTextEdit
             { id = model.revision.Value
               changeId = System.Guid.NewGuid()
               ops = ops }
-        match applyAndPost change model with
+        match applyAndPost (displayName EditNode) change model with
         | Ok (m, effects) -> { m with mode = Selecting }, effects
         | Error msg -> withMoveError msg { model with mode = Selecting }, []
 
@@ -315,7 +312,7 @@ let splitNode (currentText: string) (cursorPos: int) (model: VM) : VM * Effect l
             { id = model.revision.Value
               changeId = System.Guid.NewGuid()
               ops = ops }
-        match applyAndPost change model with
+        match applyAndPost (displayName SplitAtCursor) change model with
         | Ok (m, effects) ->
             let effRoot = m.zoomRoot
             let siteMap, nextId =

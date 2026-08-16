@@ -240,24 +240,22 @@ module Database =
             return rows |> Seq.toList
         }
 
-    let hasPersistedChangeId
+    let tryGetPersistedPayload
         (connectionString: string)
         (changeId: Guid)
-        : Task<bool> =
+        : Task<string option> =
         task {
             use conn = getConnection connectionString
             do! conn.OpenAsync()
 
-            let! exists =
-                conn.QuerySingleAsync<bool>(
+            let! payload =
+                conn.QueryFirstOrDefaultAsync<string>(
                     """
-                    SELECT EXISTS (
-                        SELECT 1 FROM changes WHERE change_uuid = @change_uuid
-                    )
+                    SELECT payload FROM changes WHERE change_uuid = @change_uuid
                     """,
                     {| change_uuid = changeId |})
 
-            return exists
+            return if isNull payload then None else Some payload
         }
 
     let tryGetGraphSingleton (connectionString: string) : Task<GraphSingletonRow option> =

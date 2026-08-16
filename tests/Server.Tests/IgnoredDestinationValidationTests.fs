@@ -137,7 +137,7 @@ let private encodeChange graph parentId name =
     let change = { id = 0; changeId = Guid.NewGuid(); ops = ops }
     Encode.toString 0 (
         Serialization.encodeChangeBatch
-            { changes = [ ChangeRequest.Change change ] })
+            { changes = [ change ] })
 
 [<SkippableFact>]
 let ``FileAgent rejects ignored graph state before acceptance`` () =

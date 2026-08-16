@@ -5,6 +5,7 @@ open Browser.Types
 open Gambol.Client.FileSearchDialog
 open Gambol.Client.UpdateHelpers
 open Gambol.Shared
+open Gambol.Shared.CommandEntry
 open Gambol.Shared.ViewModel
 
 let private readFileSearchQueryInput () : string =
@@ -27,7 +28,7 @@ let private applyOpsChange (ops: Op list) (model: VM) : VM * Effect list =
             { id = model.revision.Value
               changeId = System.Guid.NewGuid()
               ops = ops }
-        match applyAndPost change model with
+        match applyAndPost (displayName InsertFile) change model with
         | Error _ -> withCmdError "could not apply" model
         | Ok (m, effects) -> withSiteMap m, effects
 

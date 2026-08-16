@@ -89,7 +89,7 @@ let private pasteNodesSelecting
                 childrenForPaste model.graph topLevelIds
             )
         let change = newChange model (pasteOps @ [replaceOp])
-        match applyAndPost change model with
+        match applyAndPost "Paste" change model with
         | Ok (m, effects) ->
             let newEnd = range.start + topLevelIds.Length
             let newSel =
@@ -108,7 +108,7 @@ let private pasteEditingLink
     let insertOp =
         Op.Replace(parentId, focusIdx + 1, [], childrenForPaste model.graph refIds)
     let change = newChange model (setTextOps @ [insertOp])
-    match applyAndPost change model with
+    match applyAndPost "Paste" change model with
     | Ok (m, effects) -> editingModeAfterPaste m focusId cursorPos, effects
     | Error _ -> model, []
 
@@ -122,7 +122,7 @@ let private pasteEditingSingleLine
     else
         let ops = [ Op.SetText(focusId, originalText, newText) ]
         let afterCaret = cursorPos + firstText.Length
-        match applyAndPost (newChange model ops) model with
+        match applyAndPost "Paste" (newChange model ops) model with
         | Ok (m, effects) -> editingModeAfterPaste m focusId afterCaret, effects
         | Error _ -> model, []
 
@@ -146,7 +146,7 @@ let private pasteEditingMultiline
     if allOps.IsEmpty then
         editingUnchangedAtCaret model originalText cursorPos, []
     else
-        match applyAndPost (newChange model allOps) model with
+        match applyAndPost "Paste" (newChange model allOps) model with
         | Ok (m, effects) -> editingModeAfterPaste m focusId afterCaret, effects
         | Error _ -> model, []
 
@@ -220,7 +220,7 @@ let cutSelection (model: VM) : VM * Effect list =
             { id = model.revision.Value
               changeId = System.Guid.NewGuid()
               ops = [removeOp] }
-        match applyAndPost change model with
+        match applyAndPost "Cut" change model with
         | Ok (m, effects) ->
             let newChildren = m.graph.nodes.[sel.range.parent.nodeId].children
             let newSel =

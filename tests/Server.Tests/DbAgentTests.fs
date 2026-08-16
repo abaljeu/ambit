@@ -27,7 +27,7 @@ let private decodeGraph (json: string) : Graph =
 let private encodeChangeBatch (changes: Change list) =
     Encode.toString 0 (
         Serialization.encodeChangeBatch
-            { changes = changes |> List.map ChangeRequest.Change })
+            { changes = changes })
 
 let private waitUntil (timeoutMs: int) (predicate: unit -> bool) : Task<bool> = task {
     let mutable elapsed = 0

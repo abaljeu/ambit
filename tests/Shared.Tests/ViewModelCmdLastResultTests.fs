@@ -64,3 +64,27 @@ let ``withCommandName rewrites Ok Detail and Error`` () =
         CmdLastResult.withCommandName
             (Some "Rename")
             (CmdLastResult.Error (None, "cannot rename this node")))
+
+[<Fact>]
+let ``toDisplay Undo success is Undo colon command name`` () =
+    Assert.Equal(
+        "Undo: Edit node",
+        CmdLastResult.toDisplay (CmdLastResult.undoResult (Some "Edit node")))
+
+[<Fact>]
+let ``toDisplay Undo empty is nothing to undo`` () =
+    Assert.Equal(
+        "Undo: nothing to undo",
+        CmdLastResult.toDisplay (CmdLastResult.undoResult None))
+
+[<Fact>]
+let ``toDisplay Redo success is Redo colon command name`` () =
+    Assert.Equal(
+        "Redo: Paste",
+        CmdLastResult.toDisplay (CmdLastResult.redoResult (Some "Paste")))
+
+[<Fact>]
+let ``toDisplay Redo empty is nothing to redo`` () =
+    Assert.Equal(
+        "Redo: nothing to redo",
+        CmdLastResult.toDisplay (CmdLastResult.redoResult None))

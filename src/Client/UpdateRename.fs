@@ -4,6 +4,7 @@ open Browser.Dom
 open Browser.Types
 open Gambol.Client.UpdateHelpers
 open Gambol.Shared
+open Gambol.Shared.CommandEntry
 open Gambol.Shared.ViewModel
 
 let private nameString (name: Filename) : string =
@@ -60,7 +61,7 @@ let submitRenamePromptOp (model: VM) : VM * Effect list =
                     { id = model.revision.Value
                       changeId = System.Guid.NewGuid()
                       ops = ops }
-                match applyAndPost change result with
+                match applyAndPost (displayName Rename) change result with
                 | Ok (m, effects) -> withSiteMap m, effects
                 | Error msg ->
                     { result with lastCmdResult = Some (CmdLastResult.Error (None, msg)) }, []

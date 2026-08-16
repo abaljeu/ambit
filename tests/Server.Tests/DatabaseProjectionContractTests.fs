@@ -8,6 +8,7 @@ open Npgsql
 open Gambol.Server.Tests.TestBackend
 
 module Encode = Thoth.Json.Newtonsoft.Encode
+module Decode = Thoth.Json.Newtonsoft.Decode
 
 let private id value =
     NodeId(Guid.Parse($"20000000-0000-0000-0000-{value:D12}"))
@@ -76,7 +77,7 @@ let private scalar<'a> connStr sql = task {
 let private encodeBatch (changes: Change list) =
     Encode.toString 0 (
         Serialization.encodeChangeBatch
-            { changes = changes |> List.map ChangeRequest.Change })
+            { changes = changes })
 
 let private exec connStr sql (parameters: (string * obj) list) = task {
     use conn = Database.getConnection connStr
@@ -253,7 +254,7 @@ let ``writer clears one parent without rewriting unrelated rows and rolls back``
 }
 
 [<Fact>]
-let ``DbAgent bootstrap duplicate and no-op preserve write-free behavior`` () = task {
+let ``DbAgent bootstrap duplicate returns stored Change and rejects no-op`` () = task {
     let connStr = requireDbConnStr ()
     do! resetTestDatabase connStr
     let agent = DbAgent.create connStr
@@ -271,24 +272,35 @@ let ``DbAgent bootstrap duplicate and no-op preserve write-free behavior`` () = 
                   [ ChildNode.owner childId ]) ] }
 
     let! first = DbAgent.postChange agent (encodeBatch [ accepted ]) |> Async.StartAsTask
-    Assert.True(Result.isOk first)
+    let firstAck =
+        match first with
+        | Ok json ->
+            match Decode.fromString Serialization.decodeChangeBatchAck json with
+            | Ok ack -> ack
+            | Error err -> failwith err
+        | Error err -> failwith err
+    Assert.Equal(accepted.changeId, Assert.Single(firstAck.changes).changeId)
     let! xminAfterFirst =
         scalar<string> connStr "SELECT xmin::text FROM graph WHERE singleton = 1"
 
     let! duplicate =
         DbAgent.postChange agent (encodeBatch [ accepted ]) |> Async.StartAsTask
-    Assert.True(Result.isOk duplicate)
+    match duplicate with
+    | Ok json ->
+        match Decode.fromString Serialization.decodeChangeBatchAck json with
+        | Ok ack ->
+            Assert.Equal<Change list>(firstAck.changes, ack.changes)
+        | Error err -> failwith err
+    | Error err -> failwith err
 
     let noOp =
         { id = 1
           changeId = Guid.NewGuid()
-          ops =
-            [ Op.SetUpdateTime(
-                  Graph.workspacesId,
-                  NodeUpdateTime.missing,
-                  NodeUpdateTime.missing) ] }
+          ops = [] }
     let! unchanged = DbAgent.postChange agent (encodeBatch [ noOp ]) |> Async.StartAsTask
-    Assert.True(Result.isOk unchanged)
+    match unchanged with
+    | Ok _ -> Assert.Fail("unchanged submission must be rejected")
+    | Error err -> Assert.Contains("Unchanged", err)
 
     let! xminAfterNoWrites =
         scalar<string> connStr "SELECT xmin::text FROM graph WHERE singleton = 1"

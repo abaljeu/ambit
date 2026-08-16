@@ -5,6 +5,7 @@ open Browser.Types
 open Gambol.Shared
 open Gambol.Shared.ViewModel
 open Gambol.Client.Commands
+open Gambol.Client.Controller
 open Gambol.Client.Update
 open Gambol.Shared.CommandDockLayout
 open Gambol.Shared.CommandCategory
@@ -87,7 +88,8 @@ let private makeCommandIconButton
     match cmd.run () with
     | None -> btn.classList.add "amb-inactive"
     | Some op ->
-        btn.addEventListener ("click", fun _ -> dispatch (ApplyOp op))
+        btn.addEventListener ("click", fun _ ->
+            dispatch (ApplyOp (withDiagnostic (Some label) op)))
     btn
 
 let private appendDockSlot

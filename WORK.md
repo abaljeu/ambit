@@ -25,8 +25,6 @@ Work currently being executed.
 
 Work ready to start but not yet claimed.
 
-- [[.scratch/selective-client-loading/look-ahead-remaining-slices.md]] — decide whether to start 3b by encoding queued items as `ChangeRequest.Change` (parent: [[.scratch/selective-client-loading/undo-implementation-plan.md]])
-- [[.scratch/selective-client-loading/undo-implementation-plan.md]] — implement Slice 3b (wire runtime History and projected local flow) (parent: [[.scratch/selective-client-loading/undo-spec.md]])
 - [[tmp/warm-parse-dual-owner-fix.md]] — HITL verify Current warm File Load after reclaim-vs-trash fix; dual-Owner gone (artifacts: [[src/Shared/documents/DocumentColdParse.fs]], [[src/Shared/History.fs]], [[tests/Shared.Tests/ImportDocumentTests.fs]])
 - [[.scratch/selective-client-loading/issues/20-restore-saved-zoom-workspace-during-bootstrap.md]] — HITL F5: Load Workspace, focus a sub-node (no Zoom), refresh; owning Workspace Loaded and zoom stays at prior zoomRoot / in-ROOT (not zoomed into selection) (artifacts: [[src/Shared/ResidentProjection.fs]] sessionTargets, [[src/Client/SessionState.fs]])
 - [[.scratch/selective-client-loading/issues/21-load-one-selected-target-through-synchronization.md]] — HITL verify Load of Unloaded named Workspace after stub-skip fix (inventory → push → `/load` with packages; no `/changes` name conflict) (artifacts: [[src/Shared/WorkspaceUploadStructure.fs]], [[tests/Shared.Tests/WorkspaceUploadStructureTests.fs]])

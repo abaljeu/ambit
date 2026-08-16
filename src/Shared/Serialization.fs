@@ -6,13 +6,12 @@ open Thoth.Json.JavaScript
 
 
 type ChangeBatch =
-    { changes: ChangeRequest list }
+    { changes: Change list }
 
 type ChangeBatchAck =
     { revision: Revision
-      ackedChangeIds: System.Guid list
-      /// Disk mtime stamps after persist; empty when graph-only / no disk write.
-      stampOps: Op list
+      /// Durable complete Changes in request order, including duplicates.
+      changes: Change list
       /// File-write status when graph change succeeded but artifact save had issues.
       message: string option }
 
@@ -450,58 +449,16 @@ module Serialization =
             { change = get.Required.Field "change" decodeChange
               transition = get.Optional.Field "transition" decodePendingTransition })
 
-    let encodeChangeRequest (action: ChangeRequest) : IEncodable =
-        match action with
-        | ChangeRequest.Change change -> encodeChange change
-        | ChangeRequest.Undo(id, changeId) ->
-            Encode.object
-                [ "action", Encode.string "undo"
-                  "id", Encode.int id
-                  "changeId", Encode.guid changeId ]
-        | ChangeRequest.Redo(id, changeId) ->
-            Encode.object
-                [ "action", Encode.string "redo"
-                  "id", Encode.int id
-                  "changeId", Encode.guid changeId ]
-
-    let decodeChangeRequest: Decoder<ChangeRequest> =
-        Decode.object (fun get ->
-            get.Optional.Field "action" Decode.string,
-            get.Required.Field "id" Decode.int,
-            get.Optional.Field "changeId" Decode.guid,
-            get.Optional.Field "ops" (Decode.list decodeOp))
-        |> Decode.andThen (fun (kind, id, changeId, ops) ->
-            match kind, ops with
-            | None, Some changeOps ->
-                let actionId =
-                    changeId |> Option.defaultWith System.Guid.NewGuid
-                Decode.succeed (
-                    ChangeRequest.Change
-                        { id = id
-                          changeId = actionId
-                          ops = changeOps })
-            | Some "undo", None when changeId.IsSome ->
-                let actionId = Option.get changeId
-                Decode.succeed (ChangeRequest.Undo(id, actionId))
-            | Some "redo", None when changeId.IsSome ->
-                let actionId = Option.get changeId
-                Decode.succeed (ChangeRequest.Redo(id, actionId))
-            | Some ("undo" | "redo"), None ->
-                Decode.fail "History action requires changeId"
-            | None, None -> Decode.fail "Change requires ops"
-            | Some action, _ -> Decode.fail $"Unknown history action: {action}")
-
     let encodeChangeBatch (batch: ChangeBatch) : IEncodable =
         Encode.object
-            [ "changes",
-              batch.changes |> List.map encodeChangeRequest |> Encode.list ]
+            [ "changes", batch.changes |> List.map encodeChange |> Encode.list ]
 
     let decodeChangeBatch: Decoder<ChangeBatch> =
         Decode.object (fun get ->
             { changes =
                 get.Required.Field
                     "changes"
-                    (Decode.list decodeChangeRequest) })
+                    (Decode.list decodeChange) })
         |> Decode.andThen (fun batch ->
             if batch.changes.IsEmpty then Decode.fail "changes must not be empty"
             else Decode.succeed batch)
@@ -509,8 +466,7 @@ module Serialization =
     let encodeChangeBatchAck (ack: ChangeBatchAck) : IEncodable =
         Encode.object (
             [ "revision", encodeRevision ack.revision
-              "ackedChangeIds", ack.ackedChangeIds |> List.map Encode.guid |> Encode.list
-              "stampOps", ack.stampOps |> List.map encodeOp |> Encode.list ]
+              "changes", ack.changes |> List.map encodeChange |> Encode.list ]
             @ match ack.message with
               | None -> []
               | Some msg -> [ "message", Encode.string msg ]
@@ -519,9 +475,9 @@ module Serialization =
     let decodeChangeBatchAck: Decoder<ChangeBatchAck> =
         Decode.object (fun get ->
             { revision = get.Required.Field "revision" decodeRevision
-              ackedChangeIds = get.Required.Field "ackedChangeIds" (Decode.list Decode.guid)
-              stampOps =
-                get.Optional.Field "stampOps" (Decode.list decodeOp)
-                |> Option.defaultValue []
+              changes = get.Required.Field "changes" (Decode.list decodeChange)
               message = get.Optional.Field "message" Decode.string })
+        |> Decode.andThen (fun ack ->
+            if ack.changes.IsEmpty then Decode.fail "changes must not be empty"
+            else Decode.succeed ack)
 
