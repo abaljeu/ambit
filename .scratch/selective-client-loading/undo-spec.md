@@ -19,13 +19,13 @@ This section remains the authoritative behavior for ChangeRequest submission. It
 - Do not add a compatibility decoder or migration. Existing ChangeRequest-specific durable codecs, bootstrap journals, catch-up paths, and replay work from the stopped attempt are not part of the delivered design.
 - Preserve existing routes, response shapes, ChangeLog format, retry identity, revision chaining, optimistic conflict behavior, and single-flight synchronization except where the explicit decisions above require a narrow change.
 
-## Revised Expectation
+## Change-only destination decision
 
-- when any change occurs the client computes a Change object, and applies that to its partial graph.
-- The changes are sent to the server.
-- The server applies changes to the full graph.
-- The server sends back confirmation of the change (or else rejection of it).
-- The confirmation may include additional changes, typically they belong to things not in the client view.
-- The client will update its change record to include modifications returned by the server.
+The delivered ChangeRequest behavior above is historical context. The approved Change-only destination is specified by [[undo-implementation-plan.md]] and supported by [[audit-optimistic-undo-safety.md]].
 
-When Undo occurs, the client may have different nodes resident than when the change originally happened.  But it has the complete change record.  Client updates resident nodes.  Server receives message and also updates nodes.
+- When a local command, Undo, or Redo occurs, the Browser computes and optimistically projects an ordinary Change, sends that Change to the Server, and stores exactly the submitted local Change in Browser History.
+- The Server applies the submitted Change to its full Graph and returns the complete durable confirmation or rejects the request.
+- A successful confirmation preserves submitted Ops as an exact prefix. Its suffix may contain only authoritative persistence `SetUpdateTime` Ops.
+- The Browser validates and projects the suffix atomically through the resident-projection reconciliation seam, but never stores or inverts ACK suffix Ops in Browser History. A client-submitted `SetUpdateTime` remains part of the submitted prefix and remains invertible.
+- C, Undo, and Redo may share one ordered batch. Exact in-flight membership and transition lineage validate and retire confirmations; ACK handling does not amend History or rewrite dependent inverse Changes.
+- When Undo occurs, the Browser may have different Nodes Resident than when the submitted Change occurred. It projects the complete submitted inverse under Resident and Loaded rules, and the Server applies that same inverse to its full Graph.

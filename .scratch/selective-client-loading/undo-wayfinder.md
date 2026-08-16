@@ -1,12 +1,12 @@
 # Change-only Undo destination
 
-See also: [[undo-spec.md]], [[spec.md]], [[doc/current/sync-mvp.md]], [[doc/arch.md]]
+See also: [[undo-spec.md]], [[undo-implementation-plan.md]], [[audit-optimistic-undo-safety.md]], [[spec.md]], [[doc/current/sync-mvp.md]], [[doc/arch.md]]
 
 ## Destination
 
 Every local graph action sends an ordinary `Change`. A normal command sends its planned Change. Undo sends a new inverse Change. Redo sends a new inverse of the last applied Undo Change. The Browser applies each Change optimistically through the resident-projection rules, and the Server applies the same Change to its full Graph.
 
-The Server confirms each accepted request with the complete persisted Change that has the same `changeId`. The confirmed Change keeps the submitted Ops as an unchanged prefix and appends any server Ops. The Browser projects only the appended Ops when the submitted direction is still current, then replaces the matching client History record's Change with the complete confirmed Change. Poll and Load continue to carry the same complete Changes from ChangeLog.
+The Server confirms each accepted request with the complete persisted Change that has the same `changeId`. The confirmed Change keeps the submitted Ops as an unchanged prefix and may append only persistence `SetUpdateTime` Ops. The Browser keeps exactly the submitted local Change in History, validates and projects the ACK suffix atomically through resident-projection rules, and never stores or inverts that suffix. A client-submitted `SetUpdateTime` remains inside the submitted prefix and remains invertible. Poll and Load continue to carry the same complete Changes from ChangeLog.
 
 The wire batch, pending queue, Server apply path, ChangeLog, Poll, and Load therefore have one modification unit: `Change`. `ChangeRequest.Undo`, `ChangeRequest.Redo`, and process-local Server History leave this path. A Server restart cannot make a later Undo invalid because the Server no longer interprets an Undo intent.
 
@@ -54,14 +54,14 @@ Server Parse and directory reconciliation can create one or several canonical Ch
 ## Invariants
 
 1. The Browser and Server send, apply, persist, confirm, Poll, and Load only ordinary Changes.
-2. One History-worthy normal local Change creates one logical client History record. One UI invocation may create several records. Undo and Redo move and amend their target record; ACK handling never pushes a duplicate record.
-3. A History record always contains the most complete confirmed Change for its last applied direction, or an optimistic descendant that is linked to an earlier in-flight direction.
-4. A confirmed Change has the submitted Ops as an exact prefix. Server enrichment is append-only and uses the submitted `changeId`.
+2. One History-worthy normal local Change creates one logical client History record. One UI invocation may create several records. Undo and Redo move the target record and replace its `applied` value with the newly submitted inverse; ACK handling never changes or duplicates a History record.
+3. A History record always contains exactly the last client-submitted local Change for its applied direction. ACK suffix metadata is not History.
+4. A confirmed Change has the submitted Ops as an exact prefix. Its suffix may contain only `SetUpdateTime`, Server enrichment is append-only, and the confirmation uses the submitted `changeId`.
 5. Every inverse Change has a fresh `changeId` and the current base Revision when it is sent.
-6. Undo and Redo project the complete Change onto the current resident Graph. Effects for Absent Headers and Unloaded Children are consumed without widening residency.
-7. A dependent inverse is not released to the Server until confirmation of its predecessor has been folded into it. Unrelated rapid Undo requests can still advance optimistically and queue in order.
-8. An ACK is reconciled in request order against the exact in-flight prefix. A missing, reordered, duplicate-with-different-content, or unknown confirmation is a data-outdated condition, not a best-effort merge.
-9. A non-empty remote Poll or Load tail still clears local History. Own ACK confirmations amend local History and do not clear it.
+6. Undo and Redo project the complete submitted inverse Change onto the current resident Graph. Effects for Absent Headers and Unloaded Children are consumed without widening residency.
+7. C, Undo, and Redo may share one batch. Confirmation never changes an inverse payload, so there is no same-record selection stop or dependent rewrite.
+8. An ACK is reconciled in request order against exact in-flight membership. Identity and submitted prefix must match, and every suffix Op must be `SetUpdateTime`. A missing, reordered, duplicate-with-different-content, unknown, changed-prefix, or forbidden-suffix confirmation is a data-outdated condition, not a best-effort merge.
+9. A non-empty semantic remote Poll or Load Change tail clears local History before projection. Empty tails preserve it. Package-only residency expansion may preserve History only at the same settled Revision with no pending or in-flight local transition. Own ACK suffixes project without changing or clearing History.
 10. Rejection keeps the current fail-safe rule: discard the persisted pending queue, mark Sync as rejected, and require reload. Do not try to reverse an optimistic chain after canonical rejection.
 
 ## Minimal client History seam
@@ -75,14 +75,13 @@ Use client-only metadata near the Browser VM, not fields in wire `Change` or Cha
 Keep the pure interface small:
 
 1. `record commandName change` applies a normal Change and adds one record.
-2. `undo newIdentity` returns the projected inverse Change, target command name, moved History, and pending transition.
+2. `undo newIdentity` returns the projected inverse Change, target command name, stable record identity, and moved History.
 3. `redo newIdentity` does the same in the opposite direction.
-4. `confirm transition confirmedChange` validates identity and submitted-prefix invariants, amends the existing record, and re-derives any dependent inverse before it can be sent.
-5. `clear` handles a non-empty upstream tail.
+4. `clear` handles a non-empty upstream tail.
 
-This interface hides stack orientation, dependent-confirmation lineage, and Emacs-style “undo the undo” behavior. When a normal Change arrives while `future` is non-empty, move the already-applied future records back into Undo order without creating new logical records.
+This interface hides stack orientation, stable record identity, and Emacs-style “undo the undo” behavior. It does not own pending confirmation lineage or ACK validation. When a normal Change arrives while `future` is non-empty, move the already-applied future records back into Undo order without creating new logical records.
 
-Names are resolved at the command/event source and passed as strings. This keeps CommandEntry as the source of user-facing names without making History depend on its later compile position. A stable `recordId` is client-only and lets an ACK amend the record even after an optimistic stack move changed the current Change identity.
+Names are resolved at the command/event source and passed as strings. This keeps CommandEntry as the source of user-facing names without making History depend on its later compile position. A stable `recordId` is client-only and lets the queue identify ordered Normal, Undo, and Redo confirmation lineage without coupling ACK handling to the record's current stack position.
 
 ## Ordinary Change inversion
 
@@ -96,16 +95,18 @@ The pure inversion tests must cover Set Ops, nested Replace order, a split, a la
 
 ## Ordered ACK reconciliation
 
-The ACK should return `confirmedChanges` in request order. Each item is the exact ChangeLog payload for that accepted `changeId`, including appended persistence or full-Graph Ops. `ackedChangeIds` and aggregate `stampOps` then become redundant.
+The ACK returns `confirmedChanges` in request order. Each item is the exact ChangeLog payload for that accepted `changeId`, including an optional appended persistence suffix. `ackedChangeIds` and aggregate `stampOps` then become redundant.
 
-- Normal: the record already exists from optimistic apply. Confirm amends it in place and projects only appended Ops.
-- Undo: the record already moved from `past` to `future` and contains the optimistic inverse. Confirm amends that moved record; it does not add the inverse as a second record.
-- Redo: the record already moved from `future` to `past`. Confirm amends it there; it does not restore the old forward record as a duplicate.
-- Dependent action: if an unconfirmed record was inverted again, keep that inverse queued locally. Fold the predecessor's complete confirmation into the queued inverse, preserve the inverse's own `changeId`, and only then release it in the next POST.
+- Validate the complete ordered ACK against the exact in-flight batch before publishing any model change.
+- Each confirmation must have the submitted identity and preserve the submitted Ops as an exact prefix.
+- Every suffix Op must be `SetUpdateTime`; any other suffix kind rejects the whole ACK and requires reload.
+- Project suffixes in request order through ResidentProjection, retire each PendingTransition lineage item, advance Revision, and leave Browser History unchanged.
+- Normal, Undo, and Redo use the same rule even after their logical record moved between `past` and `future`. ACK reconciliation never inspects stack position.
+- Every normal or workspace submission registers exact in-flight lineage before issuing its request. Synchronous workspace posts and the async upload-structure bypass use the same singleton registration and atomic reconciliation seam.
 
 The Server must return the durable confirmed Change for an idempotent retry after a lost response. DB mode can read the stored payload by `change_uuid`; file mode can read the matching indexed ChangeLog entry. Returning only an ID on the duplicate path is insufficient because the Browser may have missed enrichment.
 
-Batch revision chaining remains ordered. The planner may batch independent ready Changes, but it must stop before a Change that depends on an unconfirmed predecessor. Poll and Load remain blocked while pending Changes exist.
+Batch Revision chaining remains ordered. The planner may batch all ready Changes, including C, Undo, and Redo transitions for one `recordId`. Exact in-flight membership isolates retry and ordered confirmation from later pending growth. Poll and Load remain blocked while pending or in-flight Changes exist.
 
 ## Command provenance and feedback
 
@@ -124,7 +125,7 @@ All Change-producing surfaces must provide provenance at the Change seam. Keyboa
 - Preserve each Change body and `changeId` across network retries. Rewrite only the base Revision when the planner releases a ready Change.
 - A duplicate ACK must return the same confirmed Change value as the first successful ACK. Different content for one `changeId` is corruption and requires reload.
 - A server rejection leaves the optimistic Browser Graph and History untrusted. Keep the existing blocked-risk and reload flow; do not add rollback.
-- A remote Revision cannot race an own ACK because Poll, Load, and submit stay single-flight. A remote tail after the queue drains still clears client History.
+- A remote Revision cannot race an own ACK because Poll, Load, and submit stay single-flight. A remote tail after the queue drains still clears client History. Package-only Load residency may preserve it only at the same settled Revision with no pending or in-flight local transition.
 - Browser refresh may continue to clear client History. Pending Changes may still retry from local storage, but restored pending entries do not recreate Undo records.
 - Server process restart no longer affects Undo capability. The existing deployment-stamp stale-page rule remains useful, but it is not required for History correctness.
 
@@ -139,10 +140,10 @@ Measure before and after with the same large external paste: pure inverse planni
 ## Incremental slices
 
 1. Add characterization and timing tests for current large-paste Undo and reachable-Graph Undo/Redo semantics. Checkpoint: the test exposes the rebuild cost without changing behavior.
-2. Add ordinary append-only inversion and the pure client History interface. Checkpoint: normal/Undo/Redo, create/paste detach and reuse, command-name retention, rapid stack movement, and no duplicate records pass through this interface.
+2. Add ordinary append-only inversion and the pure submitted-only client History interface. Checkpoint: normal/Undo/Redo, create/paste detach and reuse, command-name retention, rapid stack movement, stable record identity, and no duplicate records pass through the four-operation interface; confirmation has no ClientHistory API.
 3. Change Shared transport codecs to Change-only batches and ordered complete confirmations. Checkpoint: round trips prove identity, exact submitted prefix, enrichment, and ordered mixed batches.
 4. Convert one Server adapter at a time, first file and then DB, to apply only Changes and return durable confirmations for new and duplicate submissions. Checkpoint: focused endpoint tests prove restart-safe Undo Changes, retry after lost ACK, ChangeLog equality, and atomic rejection.
-5. Convert the Browser planner and update flow to optimistic ordinary Changes plus ordered confirmation. Checkpoint: projection tests cover Normal/Undo/Redo ACKs, dependent inverses, absent/unloaded effects, retries, rejection, and remote-tail History clearing.
+5. Convert the Browser planner and update flow to optimistic ordinary Changes plus ordered confirmation. Checkpoint: projection tests cover same-batch C/Undo/Redo, exact in-flight retry, `SetUpdateTime`-only suffix validation and projection without History changes, workspace singleton lineage, absent/unloaded effects, retries, rejection, remote-tail History clearing, and package-only settled-Revision guards.
 6. Wire command provenance through keyboard, palette, dock, prompts, clipboard, text commit, Load phases, and explicit Download. Checkpoint: each local Change records its selected name, automatic refresh creates no record, and rapid Undo/Redo updates `CmdLastResult` immediately.
 7. Run focused Shared, Browser planner, codec, and Server endpoint tests, compile Fable, then perform the same manual large-paste Undo measurement. Checkpoint: the primary rebuild is absent and any remaining delay has phase timings.
 
@@ -159,5 +160,6 @@ Measure before and after with the same large external paste: pure inverse planni
 1. Undo and Redo use the exact accepted result wording stated above, including the accepted empty-stack text.
 2. Non-registry local Change sources use their audited generating action: `Edit node`, `Paste`, `Cut`, `Load`, or explicit `Download`. Automatic workspace refresh and auto-download have no History label because they create no local Change.
 3. Preserve current one-record-per-Change granularity. Composite commands that build one Change keep one record; dirty-text Undo uses one record lineage across two ordered Changes; a multi-phase Load may leave several `Load` records. Do not add speculative invocation grouping.
+4. Browser History stores exactly submitted local Changes. ACK suffix metadata is restricted to `SetUpdateTime`, projects atomically, and is never stored or inverted. C, Undo, and Redo may share a batch; confirmation does not rewrite inverse Changes.
 
 No user-owned decision remains for this wayfinder destination.

@@ -22,23 +22,10 @@ let private reachableIds (graph: Graph) : Set<NodeId> =
 
     walk Set.empty graph.root
 
-let private expectErrorContaining
-    (fragment: string)
-    (result: Result<'a, string>)
-    : unit =
-    match result with
-    | Ok _ -> failwith $"expected failure containing '{fragment}'"
-    | Error error -> Assert.Contains(fragment, error)
-
 let private textChange id nodeId oldText newText : Change =
     { id = id
       changeId = Guid.NewGuid()
       ops = [ Op.SetText(nodeId, oldText, newText) ] }
-
-let private confirmedHistory transition confirmed history =
-    ClientHistory.confirm transition confirmed history
-    |> Result.map fst
-    |> Result.defaultWith failwith
 
 [<Fact>]
 let ``ordinary inverse reverses Set ops and uses supplied identity`` () =
@@ -123,13 +110,13 @@ let private createPasteScenario () : State * Change * NodeId list =
 let ``create inverse retains detached nodes and Redo reconnects their identities`` () =
     let initial, source, createdIds = createPasteScenario ()
     let changed = applied source initial
-    let recorded, _ =
+    let recorded, _recordId =
         ClientHistory.clear ()
         |> ClientHistory.record "Paste" source
     let undo, afterUndo =
         match ClientHistory.undo (Revision 1) (Guid.NewGuid()) recorded with
         | None -> failwith "expected create Undo"
-        | Some (change, _, history, _) -> change, history
+        | Some (change, _, history, _recordId) -> change, history
     Assert.DoesNotContain(
         undo.ops,
         fun op ->
@@ -146,7 +133,7 @@ let ``create inverse retains detached nodes and Redo reconnects their identities
     let redo =
         match ClientHistory.redo (Revision 2) (Guid.NewGuid()) afterUndo with
         | None -> failwith "expected create Redo"
-        | Some (change, _, _, _) -> change
+        | Some (change, _, _, _recordId) -> change
     let redone = applied redo undone
     let reachableAfterRedo = reachableIds redone.graph
     createdIds
@@ -155,17 +142,15 @@ let ``create inverse retains detached nodes and Redo reconnects their identities
         Assert.Contains(nodeId, reachableAfterRedo))
 
 [<Fact>]
-let ``record returns a Normal transition with stable client identity`` () =
+let ``record returns a stable client record identity`` () =
     let change =
         { id = 7
           changeId = Guid.NewGuid()
           ops = [] }
-    let _, transition =
+    let _, recordId =
         ClientHistory.clear ()
         |> ClientHistory.record "Edit node" change
-    Assert.Equal(PendingTransitionKind.Normal, transition.kind)
-    Assert.Equal(change.changeId, transition.submittedChangeId)
-    Assert.Equal(0, transition.recordId)
+    Assert.Equal(0, recordId)
 
 [<Fact>]
 let ``clear has explicit empty Undo and Redo behavior`` () =
@@ -181,17 +166,15 @@ let ``clear has explicit empty Undo and Redo behavior`` () =
 let ``Undo moves the same named record and returns an ordinary inverse`` () =
     let nodeId = NodeId.New()
     let source = textChange 0 nodeId "old" "new"
-    let history, normal =
+    let history, recordId =
         ClientHistory.clear ()
         |> ClientHistory.record "Exact command name" source
     let undoId = Guid.NewGuid()
     match ClientHistory.undo (Revision 9) undoId history with
     | None -> failwith "expected an Undo transition"
-    | Some (inverse, commandName, _, transition) ->
+    | Some (inverse, commandName, _, undoRecordId) ->
         Assert.Equal("Exact command name", commandName)
-        Assert.Equal(normal.recordId, transition.recordId)
-        Assert.Equal(PendingTransitionKind.Undo, transition.kind)
-        Assert.Equal(undoId, transition.submittedChangeId)
+        Assert.Equal(recordId, undoRecordId)
         Assert.Equal(9, inverse.id)
         Assert.Equal(undoId, inverse.changeId)
         Assert.Equal<Op list>(
@@ -202,21 +185,19 @@ let ``Undo moves the same named record and returns an ordinary inverse`` () =
 let ``Redo moves the same logical record and keeps its exact command name`` () =
     let nodeId = NodeId.New()
     let source = textChange 0 nodeId "old" "new"
-    let recorded, normal =
+    let recorded, recordId =
         ClientHistory.clear ()
         |> ClientHistory.record "Name kept verbatim" source
     let undone =
         ClientHistory.undo (Revision 1) (Guid.NewGuid()) recorded
-        |> Option.map (fun (_, _, history, _) -> history)
+        |> Option.map (fun (_, _, history, _recordId) -> history)
         |> Option.defaultWith (fun () -> failwith "expected Undo")
     let redoId = Guid.NewGuid()
     match ClientHistory.redo (Revision 2) redoId undone with
     | None -> failwith "expected a Redo transition"
-    | Some (redo, commandName, _, transition) ->
+    | Some (redo, commandName, _, redoRecordId) ->
         Assert.Equal("Name kept verbatim", commandName)
-        Assert.Equal(normal.recordId, transition.recordId)
-        Assert.Equal(PendingTransitionKind.Redo, transition.kind)
-        Assert.Equal(redoId, transition.submittedChangeId)
+        Assert.Equal(recordId, redoRecordId)
         Assert.Equal(2, redo.id)
         Assert.Equal(redoId, redo.changeId)
         Assert.Equal<Op list>(source.ops, redo.ops)
@@ -225,175 +206,59 @@ let ``Redo moves the same logical record and keeps its exact command name`` () =
 let ``normal record folds future without duplicating logical records`` () =
     let first = textChange 0 (NodeId.New()) "first-old" "first-new"
     let second = textChange 1 (NodeId.New()) "second-old" "second-new"
-    let recordedFirst, firstTransition =
+    let recordedFirst, firstRecordId =
         ClientHistory.clear ()
         |> ClientHistory.record "First" first
     let afterFirstUndo =
         ClientHistory.undo (Revision 1) (Guid.NewGuid()) recordedFirst
-        |> Option.map (fun (_, _, history, _) -> history)
+        |> Option.map (fun (_, _, history, _recordId) -> history)
         |> Option.defaultWith (fun () -> failwith "expected first Undo")
     let withSecond, _ =
         ClientHistory.record "Second" second afterFirstUndo
     let afterSecondUndo =
         match ClientHistory.undo (Revision 2) (Guid.NewGuid()) withSecond with
         | None -> failwith "expected Second Undo"
-        | Some (_, name, history, _) ->
+        | Some (_, name, history, _recordId) ->
             Assert.Equal("Second", name)
             history
     let afterFoldedUndo =
         match ClientHistory.undo (Revision 3) (Guid.NewGuid()) afterSecondUndo with
         | None -> failwith "expected folded First Undo"
-        | Some (_, name, history, transition) ->
+        | Some (_, name, history, recordId) ->
             Assert.Equal("First", name)
-            Assert.Equal(firstTransition.recordId, transition.recordId)
+            Assert.Equal(firstRecordId, recordId)
             history
     Assert.True(
         ClientHistory.undo (Revision 4) (Guid.NewGuid()) afterFoldedUndo
         |> Option.isNone)
 
 [<Fact>]
-let ``Normal confirmation amends its logical record without adding one`` () =
-    let nodeId = NodeId.New()
-    let submitted = textChange 0 nodeId "old" "new"
-    let recorded, transition =
-        ClientHistory.clear ()
-        |> ClientHistory.record "Edit node" submitted
-    let classes = CssClass.ofList [ "confirmed" ]
-    let confirmed =
-        { submitted with
-            ops =
-                submitted.ops
-                @ [ Op.SetClasses(nodeId, CssClass.empty, classes) ] }
-    let amended =
-        match ClientHistory.confirm transition confirmed recorded with
-        | Error error -> failwith error
-        | Ok (history, Some _) -> failwith "unexpected dependent Change"
-        | Ok (history, None) -> history
-    let undoId = Guid.NewGuid()
-    match ClientHistory.undo (Revision 1) undoId amended with
-    | None -> failwith "expected amended record to remain undoable"
-    | Some (inverse, _, afterUndo, undoTransition) ->
-        Assert.Equal(transition.recordId, undoTransition.recordId)
-        Assert.Equal<Op list>(
-            [ Op.SetClasses(nodeId, classes, CssClass.empty)
-              Op.SetText(nodeId, "new", "old") ],
-            inverse.ops)
-        Assert.True(
-            ClientHistory.undo (Revision 2) (Guid.NewGuid()) afterUndo
-            |> Option.isNone)
-
-[<Fact>]
-let ``confirmation re-derives its direct dependent without changing identity`` () =
-    let nodeId = NodeId.New()
-    let submitted = textChange 0 nodeId "old" "new"
-    let recorded, normalTransition =
-        ClientHistory.clear ()
-        |> ClientHistory.record "Edit node" submitted
-    let undoId = Guid.NewGuid()
-    let originalUndo, undone =
-        match ClientHistory.undo (Revision 1) undoId recorded with
-        | None -> failwith "expected rapid Undo"
-        | Some (change, _, history, _) -> change, history
-    let classes = CssClass.ofList [ "server" ]
-    let confirmed =
-        { submitted with
-            ops =
-                submitted.ops
-                @ [ Op.SetClasses(nodeId, CssClass.empty, classes) ] }
-    match ClientHistory.confirm normalTransition confirmed undone with
-    | Error error -> failwith error
-    | Ok (_, None) -> failwith "expected a re-derived dependent"
-    | Ok (amended, Some revisedUndo) ->
-        Assert.Equal(originalUndo.id, revisedUndo.id)
-        Assert.Equal(originalUndo.changeId, revisedUndo.changeId)
-        Assert.Equal<Op list>(
-            [ Op.SetClasses(nodeId, classes, CssClass.empty)
-              Op.SetText(nodeId, "new", "old") ],
-            revisedUndo.ops)
-        match ClientHistory.redo (Revision 2) (Guid.NewGuid()) amended with
-        | None -> failwith "expected Redo after rapid Undo"
-        | Some (redo, _, _, _) ->
-            Assert.Equal<Op list>(confirmed.ops, redo.ops)
-
-[<Fact>]
-let ``confirmation rejects submitted identity and Ops prefix mismatches`` () =
-    let nodeId = NodeId.New()
-    let submitted = textChange 0 nodeId "old" "new"
-    let history, transition =
-        ClientHistory.clear ()
-        |> ClientHistory.record "Edit node" submitted
-    ClientHistory.confirm
-        transition
-        { submitted with changeId = Guid.NewGuid() }
-        history
-    |> expectErrorContaining "identity"
-    ClientHistory.confirm
-        transition
-        { submitted with
-            ops = [ Op.SetText(nodeId, "different", "new") ] }
-        history
-    |> expectErrorContaining "prefix"
-
-[<Fact>]
-let ``confirmation rejects record and direction lineage mismatches`` () =
-    let submitted = textChange 0 (NodeId.New()) "old" "new"
-    let recorded, normalTransition =
-        ClientHistory.clear ()
-        |> ClientHistory.record "Edit node" submitted
-    let afterUndo, undoTransition =
-        match ClientHistory.undo (Revision 1) (Guid.NewGuid()) recorded with
-        | None -> failwith "expected Undo"
-        | Some (_, _, history, transition) -> history, transition
-    ClientHistory.confirm undoTransition submitted afterUndo
-    |> expectErrorContaining "lineage"
-    ClientHistory.confirm
-        { normalTransition with recordId = 99 }
-        submitted
-        afterUndo
-    |> expectErrorContaining "record identity"
-    ClientHistory.confirm
-        { normalTransition with kind = PendingTransitionKind.Undo }
-        submitted
-        afterUndo
-    |> expectErrorContaining "lineage"
-
-[<Fact>]
-let ``Undo and Redo confirmations amend the same logical record`` () =
+let ``Undo and Redo retain only their submitted local Changes`` () =
     let nodeId = NodeId.New()
     let source = textChange 0 nodeId "old" "new"
-    let recorded, normalTransition =
+    let recorded, recordId =
         ClientHistory.clear ()
         |> ClientHistory.record "Edit node" source
-    let confirmedNormal =
-        confirmedHistory normalTransition source recorded
-    let undo, undone, undoTransition =
-        match ClientHistory.undo (Revision 1) (Guid.NewGuid()) confirmedNormal with
+    let undoId = Guid.NewGuid()
+    let undo, undone =
+        match ClientHistory.undo (Revision 1) undoId recorded with
         | None -> failwith "expected Undo"
-        | Some (change, _, history, transition) ->
-            change, history, transition
-    let classes = CssClass.ofList [ "server" ]
-    let confirmedUndo =
-        { undo with
-            ops =
-                undo.ops
-                @ [ Op.SetClasses(nodeId, CssClass.empty, classes) ] }
-    let afterConfirmedUndo =
-        confirmedHistory undoTransition confirmedUndo undone
-    let redo, redone, redoTransition =
-        match ClientHistory.redo (Revision 2) (Guid.NewGuid()) afterConfirmedUndo with
+        | Some (change, _, history, undoRecordId) ->
+            Assert.Equal(recordId, undoRecordId)
+            change, history
+    let redoId = Guid.NewGuid()
+    let redo, redone =
+        match ClientHistory.redo (Revision 2) redoId undone with
         | None -> failwith "expected Redo"
-        | Some (change, _, history, transition) ->
-            change, history, transition
-    let confirmedRedo =
-        { redo with
-            ops = redo.ops @ [ Op.SetName(nodeId, "old", "server") ] }
-    let amended =
-        confirmedHistory redoTransition confirmedRedo redone
-    match ClientHistory.undo (Revision 3) (Guid.NewGuid()) amended with
+        | Some (change, _, history, redoRecordId) ->
+            Assert.Equal(recordId, redoRecordId)
+            change, history
+    Assert.Equal(undoId, undo.changeId)
+    Assert.Equal<Op list>([ Op.SetText(nodeId, "new", "old") ], undo.ops)
+    Assert.Equal(redoId, redo.changeId)
+    Assert.Equal<Op list>(source.ops, redo.ops)
+    match ClientHistory.undo (Revision 3) (Guid.NewGuid()) redone with
     | None -> failwith "expected Undo"
-    | Some (nextUndo, _, _, _) ->
-        Assert.Equal<Op list>(
-            [ Op.SetName(nodeId, "server", "old")
-              Op.SetText(nodeId, "new", "old")
-              Op.SetClasses(nodeId, CssClass.empty, classes) ],
-            nextUndo.ops)
+    | Some (nextUndo, _, _, undoRecordId) ->
+        Assert.Equal(recordId, undoRecordId)
+        Assert.Equal<Op list>(undo.ops, nextUndo.ops)
