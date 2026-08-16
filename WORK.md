@@ -18,6 +18,7 @@ Mutations for delegated workers to return to their parent: `add`, `move`, `block
 
 Work currently being executed.
 
+- [[.scratch/selective-client-loading/clarify-undo-slice-3a.md]] — rewrite Slice 3a using actual synchronization concepts and introduce no unnecessary in-flight abstraction
 - [[.scratch/node-bullet-tooltip/issues/02-client-bullet-tip-wiring.md]] — HITL verify: hover a chevron, solid-circle, and hollow-circle Bullet each show the tip; click/fold/zoom unchanged (implemented, Shared suite green; artifacts: [[src/Shared/ViewModelRowState.fs]] bulletTip, [[src/Client/RowView.fs]], [[src/Client/JsInterop.fs]])
 - [[.scratch/owner-edge-db-repair/spec.md]] — extend startup sweep: ACID repair of `node_children` Owned tree (GC unreachable; promote Ref when reachable node has no owner) (artifacts: [[.scratch/owner-edge-db-repair/implement.md]], [[src/Shared/ProjectionOwnershipRepair.fs]])
 - [[.scratch/parse-load-demote/issues/01-keep-current-on-rediscovered-added.md]] — keep Current when Load Workspace rediscovers Added path; demote only new stubs / NoServerFile (plan: fix_load_demotes_parse_8d40752b; artifacts: [[src/Shared/dotnet/LazyLoadReconciliationApply.fs]], [[tests/Shared.Tests/LazyLoadReconciliationTests.fs]])

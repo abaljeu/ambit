@@ -1,31 +1,40 @@
-# undo-spec
+# Change-only Undo behavioral contract
 
-## History and Status
+See also: [[undo-wayfinder.md]], [[undo-implementation-plan.md]], [[audit-optimistic-undo-safety.md]], [[server-change-augmentation-audit.md]], [[spec.md]]
 
-On 2026-08-04, implementation of [[.scratch/selective-client-loading/issues/15-introduce-change-request-messaging.md]] began from commit ec17f938731437cfb8ace4dd83e711ed1bc77c23. An early attempt interpreted the ticket and [[.scratch/selective-client-loading/spec.md]] as a broader synchronization redesign and was abandoned as `stash@{0}` (`WIP history action attempt 2026-08-04`). Do not apply that stash.
+## Status
 
-The corrective restart landed in commit `4255c48` (“implementing new undo plan ready for partially downloaded graph”). Ticket 15 is **agent-done**: `ChangeRequest` is the pending-queue / submit / server-command unit; ChangeLog, Poll, and Load catch-up remain Change paths; `/state` installs scoped graph state without a Change tail.
+Commit `4255c48` delivered the current explicit `ChangeRequest` behavior from [[.scratch/selective-client-loading/issues/15-introduce-change-request-messaging.md]]. The earlier abandoned `stash@{0}` must not be applied. The contract below is the approved Change-only destination and supersedes that delivered transport behavior as its implementation slices land.
 
-## Corrective Plan
+## Contract
 
-This section remains the authoritative behavior for ChangeRequest submission. It was implemented by `4255c48`; keep it as the decision record for later tickets (especially 18).
+1. The Browser sends every normal command, Undo, and Redo as an ordinary Change. The Server applies, persists, confirms, Polls, and Loads ordinary Changes and keeps no Undo state.
+2. Browser History is client-only. One History-worthy local Change creates one logical record containing its command name, stable record identity, and exactly the last submitted local Change for its applied direction. One user invocation may create several records.
+3. Undo and Redo are optimistic. Each creates a complete inverse Change with a fresh request identity and projects it under Resident and Loaded rules. Effects for Absent Headers and Unloaded Children are consumed without widening residency.
+4. Ordinary inversion reverses source Ops, swaps old and new values, and omits node-creation Ops. Undo of create or paste detaches created Nodes but keeps their Headers; Redo reconnects the same Node IDs.
+5. A successful ACK returns one complete durable confirmed Change per submitted Change in request order. Each confirmation has the submitted identity and submitted Ops as an exact prefix. Any appended suffix contains only authoritative `SetUpdateTime` Ops.
+6. ACK suffix Ops project atomically through the resident-projection seam but never enter or alter Browser History. A client-submitted `SetUpdateTime` is part of the submitted prefix and remains invertible.
+7. C, Undo, and Redo for one logical record may share an ordered batch. All transitions remain eligible for selection, and confirmation neither amends History nor changes an already-planned inverse.
+8. Exact ordered submission membership, submitted bodies, identities, and confirmation lineage survive later queue growth and retry. Retry preserves each Change body and identity; only its release-time base Revision may change.
+9. A complete ACK is validated before state changes. Missing, reordered, unmatched, changed-prefix, partial-overlap, forward-Revision, duplicate-with-different-content, or forbidden-suffix responses require reload. A fully valid late response may be ignored only when all its submitted identities are already retired and its Revision is not ahead; it must not apply suffixes twice or move Revision backward.
+10. Every normal and workspace submission establishes exact confirmation lineage before issuing the request. Synchronous workspace posts and asynchronous upload-structure posts use the same atomic confirmation rules even though they bypass the normal queue.
+11. A rejected submission discards the persisted pending queue, marks synchronization as rejected, and requires reload. Do not reverse the optimistic chain or attempt a best-effort merge.
+12. A non-empty semantic remote Poll or Load Change tail clears Browser History before projected application. An empty tail preserves History. Do not match or rebase remote tails against Browser History.
+13. Package-only Load residency may preserve History only at the same settled Revision with no pending local transition or submission awaiting response or retry. Refuse a raced payload and require reload.
+14. Browser refresh may restore pending Changes onto a fresh Server snapshot using the existing filter, projection, persistence, and retry behavior. Restored Changes have no History lineage and do not recreate Browser History.
+15. Persistence stamps remain appended to the last newly persisted Change in a batch, including when later request items are duplicates. A duplicate returns its stored complete confirmation without another apply or persist. An unchanged first submission rejects the batch.
 
-- `ChangeRequest` is the client pending-queue, submit-payload, and server-command unit only. It has `Change`, `Undo`, and `Redo` cases; every case carries the existing revision id and `changeId`, and only `Change` carries operations.
-- Keep the existing mixed `/changes` batch and atomic application path. The client applies Undo and Redo immediately with its local `History`, then submits the explicit action without waiting for the server.
-- The server applies each action to canonical process-local `History`, materializes its graph effect as an ordinary `Change` carrying the action's same revision id and `changeId`, and persists that Change through the existing path.
-- `ChangeLog`, Poll, and Load catch-up remain ordered `Change` paths. They do not store or return Undo or Redo actions. `/state` (bootstrap) installs scoped graph state and does not return a Change tail.
-- Applying a non-empty upstream Change tail clears local `History` and applies the tail without recording those upstream Changes in local `History`. Empty Polls and acknowledgements of the client's own submissions preserve local `History`.
-- Server `History` starts empty on every process start. [[src/Server/Database.fs]] and [[src/Server/FileAgent.fs]] load authoritative graph state without replaying `ChangeLog`; the server start time becomes the Poll mismatch that puts an existing page into the stale-client refresh flow.
-- Do not add a compatibility decoder or migration. Existing ChangeRequest-specific durable codecs, bootstrap journals, catch-up paths, and replay work from the stopped attempt are not part of the delivered design.
-- Preserve existing routes, response shapes, ChangeLog format, retry identity, revision chaining, optimistic conflict behavior, and single-flight synchronization except where the explicit decisions above require a narrow change.
+## Command names and feedback
 
-## Change-only destination decision
+Resolve names when a local History record is created. Use `Edit node`, `Paste`, `Cut`, `Load`, and explicit `Download` at audited non-registry sources. Automatic path refresh and auto-download create no History record.
 
-The delivered ChangeRequest behavior above is historical context. The approved Change-only destination is specified by [[undo-implementation-plan.md]] and supported by [[audit-optimistic-undo-safety.md]].
+After an optimistic transition, display `Undo: <command name>` or `Redo: <command name>`. Empty History displays `Undo: nothing to undo` or `Redo: nothing to redo`.
 
-- When a local command, Undo, or Redo occurs, the Browser computes and optimistically projects an ordinary Change, sends that Change to the Server, and stores exactly the submitted local Change in Browser History.
-- The Server applies the submitted Change to its full Graph and returns the complete durable confirmation or rejects the request.
-- A successful confirmation preserves submitted Ops as an exact prefix. Its suffix may contain only authoritative persistence `SetUpdateTime` Ops.
-- The Browser validates and projects the suffix atomically through the resident-projection reconciliation seam, but never stores or inverts ACK suffix Ops in Browser History. A client-submitted `SetUpdateTime` remains part of the submitted prefix and remains invertible.
-- C, Undo, and Redo may share one ordered batch. Exact in-flight membership and transition lineage validate and retire confirmations; ACK handling does not amend History or rewrite dependent inverse Changes.
-- When Undo occurs, the Browser may have different Nodes Resident than when the submitted Change occurred. It projects the complete submitted inverse under Resident and Loaded rules, and the Server applies that same inverse to its full Graph.
+## Deferrals
+
+- Durable or cross-session Browser History.
+- Invocation grouping.
+- Detached-Node garbage collection.
+- A separate Undo endpoint or action codec.
+- Compatibility decoding for explicit Undo or Redo requests.
+- Conflict-policy, Revision, Poll/Load scope, or Server residency changes.
