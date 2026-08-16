@@ -1095,3 +1095,87 @@ let ``applyChange rejects Replace that introduces a second Owner edge`` () =
             [ Op.Replace(parentB, insertAt, [], [ ChildNode.owner ownedUnderA ]) ] }
     let _, msg = History.applyChange change state0 |> expectInvalid
     Assert.Contains("expected exactly one owner occurrence", msg)
+
+let private reachableStructure (graph: Graph) =
+    let rec walk nodeId (visited, nodes) =
+        if Set.contains nodeId visited then
+            visited, nodes
+        else
+            let node = graph.nodes.[nodeId]
+            let shape =
+                node.text, node.name, node.cssClasses, node.owner,
+                node.kind, node.documentState, node.childrenStatus, node.children
+            node.children
+            |> List.fold
+                (fun state child -> walk child.id state)
+                (Set.add nodeId visited, Map.add nodeId shape nodes)
+
+    walk graph.root (Set.empty, Map.empty) |> snd
+
+let private applyUndoRedo (change: Change) (state: State) =
+    let before = reachableStructure state.graph
+    let changed = History.applyChange change state |> expectChanged
+    let after = reachableStructure changed.graph
+    let undone = History.undo changed |> expectChanged
+    Assert.True((before = reachableStructure undone.graph))
+    let redone = History.redo undone |> expectChanged
+    Assert.True((after = reachableStructure redone.graph))
+    changed
+
+[<Fact>]
+let ``nested paste and NewSpecialNode Undo and Redo preserve reachable structure`` () =
+    let state =
+        { graph = Graph.create ()
+          history = History.empty
+          revision = Revision.Zero }
+    let topIds, pasteOps =
+        Paste.buildPasteOps [ "parent", 0; "child", 1; "leaf", 2; "sibling", 0 ]
+    let workspaceId = NodeId.New()
+    let root = state.graph.nodes.[state.graph.root]
+    let change =
+        { id = 0
+          changeId = Guid.NewGuid()
+          ops =
+            pasteOps
+            @ [ Op.Replace(
+                    state.graph.root,
+                    root.children.Length,
+                    [],
+                    ChildNode.owners topIds)
+                Op.NewSpecialNode(workspaceId, Workspace, "undo-workspace")
+                Op.Replace(
+                    Graph.workspacesId,
+                    0,
+                    [],
+                    [ ChildNode.owner workspaceId ]) ] }
+    let changed = applyUndoRedo change state
+    let parent = changed.graph.nodes.[topIds.Head]
+    let child = changed.graph.nodes.[parent.children.Head.id]
+    Assert.Equal("child", child.text)
+    Assert.Equal("leaf", changed.graph.nodes.[child.children.Head.id].text)
+    let workspace = changed.graph.nodes.[workspaceId]
+    Assert.Equal(Special Workspace, workspace.kind)
+    Assert.Equal(Filename.Ok "undo-workspace", workspace.name)
+    Assert.Equal("undo-workspace", workspace.text)
+
+[<Fact>]
+let ``split-shaped Change Undo and Redo preserve sibling semantics`` () =
+    let state = ModelBuilder.createState12 ()
+    let parentId = state.graph.root
+    let original = state.graph.nodes.[parentId].children.Head
+    let splitId = NodeId.New()
+    let change =
+        { id = 0
+          changeId = Guid.NewGuid()
+          ops =
+            [ Op.NewNode(splitId, "right")
+              Op.Replace(parentId, 1, [], [ ChildNode.owner splitId ])
+              Op.SetText(original.id, "a", "left") ] }
+    let changed = applyUndoRedo change state
+    Assert.Equal<NodeId list>(
+        [ original.id; splitId ],
+        changed.graph.nodes.[parentId].children
+        |> List.take 2
+        |> List.map _.id)
+    Assert.Equal("left", changed.graph.nodes.[original.id].text)
+    Assert.Equal("right", changed.graph.nodes.[splitId].text)

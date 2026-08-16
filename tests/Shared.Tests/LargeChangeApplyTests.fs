@@ -57,6 +57,54 @@ let ``bulk NewNode apply does not cost a full graph rebuild per op`` () =
         sw.ElapsedMilliseconds < 300L,
         sprintf "applying %d NewNode ops took %dms" nodeCount sw.ElapsedMilliseconds)
 
+[<Fact>]
+let ``paste-shaped Undo records one rebuild opportunity per create Op`` () =
+    let state = baseState ()
+    let change = parseLikeChange Graph.workspacesId
+    let createOpCount =
+        change.ops
+        |> List.sumBy (function
+            | Op.NewNode _ | Op.NewSpecialNode _ -> 1
+            | _ -> 0)
+    Assert.Equal(nodeCount, createOpCount)
+    let changed = applied state change
+    let sw = Stopwatch.StartNew()
+    let undone =
+        match Change.undo change changed with
+        | ApplyResult.Changed result -> result
+        | ApplyResult.Unchanged _ -> failwith "Undo did not change the graph"
+        | ApplyResult.Invalid(_, message) -> failwithf "Undo failed: %s" message
+    sw.Stop()
+    Assert.Equal<ChildNode list>(
+        state.graph.nodes.[Graph.workspacesId].children,
+        undone.graph.nodes.[Graph.workspacesId].children)
+    printfn "2,000-Node paste-shaped Undo: %d create Ops, %.3f ms"
+        createOpCount sw.Elapsed.TotalMilliseconds
+
+[<Fact>]
+let ``ordinary inverse of large paste detaches but retains created nodes`` () =
+    let state = baseState ()
+    let change = parseLikeChange Graph.workspacesId
+    let changed = applied state change
+    let inverse =
+        Change.inverse (Revision 1) (System.Guid.NewGuid()) change
+    Assert.DoesNotContain(
+        inverse.ops,
+        fun op ->
+            match op with
+            | Op.NewNode _ | Op.NewSpecialNode _ -> true
+            | _ -> false)
+    let undone = applied changed inverse
+    Assert.Equal<ChildNode list>(
+        state.graph.nodes.[Graph.workspacesId].children,
+        undone.graph.nodes.[Graph.workspacesId].children)
+    change.ops
+    |> List.iter (function
+        | Op.NewNode(nodeId, _)
+        | Op.NewSpecialNode(nodeId, _, _) ->
+            Assert.True(Map.containsKey nodeId undone.graph.nodes)
+        | _ -> ())
+
 /// A nested document parses into one Replace per parent whose children changed.
 let private nestedParseChange (documentRootId: NodeId) : Change =
     let branches =

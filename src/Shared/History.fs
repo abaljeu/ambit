@@ -303,6 +303,28 @@ module Change =
     let addOp (op: Op) (change: Change) : Change =
         { change with ops = change.ops @ [ op ] }
 
+    let inverse
+        (baseRevision: Revision)
+        (changeId: System.Guid)
+        (source: Change)
+        : Change =
+        let inverseOp =
+            function
+            | Op.SetText(id, old, new_) -> Some(Op.SetText(id, new_, old))
+            | Op.SetClasses(id, old, new_) -> Some(Op.SetClasses(id, new_, old))
+            | Op.SetName(id, old, new_) -> Some(Op.SetName(id, new_, old))
+            | Op.SetDocumentState(id, old, new_) ->
+                Some(Op.SetDocumentState(id, new_, old))
+            | Op.SetUpdateTime(id, old, new_) -> Some(Op.SetUpdateTime(id, new_, old))
+            | Op.Replace(parentId, index, oldChildren, newChildren) ->
+                Some(Op.Replace(parentId, index, newChildren, oldChildren))
+            | Op.NewNode _
+            | Op.NewSpecialNode _ -> None
+
+        { id = baseRevision.Value
+          changeId = changeId
+          ops = source.ops |> List.rev |> List.choose inverseOp }
+
     /// Construct the inverse of a change: reversed op list, each op with old/new swapped.
     /// Change.undo(invert c) re-applies c's effect (valid for SetText and Replace).
     /// NewNode has no DeleteNode counterpart, so its inversion is imperfect; undo-of-undo

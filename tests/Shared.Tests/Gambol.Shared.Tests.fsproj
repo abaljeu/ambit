@@ -17,6 +17,7 @@
     <Compile Include="GraphQueryTests.fs" />
     <Compile Include="ModelBuilderTests.fs" />
     <Compile Include="HistoryTests.fs" />
+    <Compile Include="ClientHistoryTests.fs" />
     <Compile Include="LargeChangeApplyTests.fs" />
     <Compile Include="WorkspaceOpsTests.fs" />
     <Compile Include="RefExprTestTree.fs" />

@@ -1,5 +1,5 @@
 # Auto-download persisted files
 
-Stage: active
-Summary: Auto-download into mapped folder implemented; Standards filesize peels delivered (ViewModelSync + UpdateWorkspace* splits; App timer-only). HITL verify remains.
-Updated: 2026-08-08
+Stage: blocked
+Summary: Auto-download and filesize peels delivered; four runtime checks are tabled until the user decides to resume HITL verification.
+Updated: 2026-08-15

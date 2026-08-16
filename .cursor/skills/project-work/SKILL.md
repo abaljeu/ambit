@@ -13,7 +13,7 @@ Every `.scratch/<slug>/` effort runs on a **project branch** (`w/*`). Do the bra
 
 Read the current branch. If it already matches `w/*`, stay. Otherwise create and checkout `w/<slug>` once from HEAD.
 
-Completion: `git rev-parse --abbrev-ref HEAD` matches `w/*`.
+Completion: Run `status.sh`, the branch matches `w/*`.
 
 ## 2. Record the cut-from
 

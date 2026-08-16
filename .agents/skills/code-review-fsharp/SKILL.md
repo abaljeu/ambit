@@ -7,10 +7,10 @@ Companion to [[.agents/skills/code-review/SKILL.md]]. Run when the review range 
 
 ## Size check
 
-Before the Standards sub-agent runs, measure against the same review range:
+Before the Standards sub-agent runs, measure against the same review range. Prefer the shell wrapper:
 
 ```bash
-python .agents/skills/code-review-fsharp/scripts/measure-fs-size.py --diff HEAD
+.agents/skills/code-review-fsharp/scripts/measure-fs-size.sh --diff HEAD
 ```
 
 If a fixed point was named, pass that ref instead of `HEAD`.
@@ -24,13 +24,13 @@ Do **not** measure match arms separately — they are sub-parts of a function, a
 `--fn`, `--range path:start-end`, and `--usage`:
 
 ```bash
-python .agents/skills/code-review-fsharp/scripts/measure-fs-size.py \
+.agents/skills/code-review-fsharp/scripts/measure-fs-size.sh \
   --fn 'src/Client/App.fs::runLoadServer' \
   --usage captureLoadResponse
 ```
 
 ```bash
-python .agents/skills/code-review-fsharp/scripts/measure-fs-size.py \
+.agents/skills/code-review-fsharp/scripts/measure-fs-size.sh \
   --range src/Shared/ResidentProjection.fs:141-185
 ```
 

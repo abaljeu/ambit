@@ -111,11 +111,11 @@ Checkpoint: the semantic tests pass and the baseline demonstrates K rebuild oppo
 
 Files: [[src/Shared/History.fs]], new [[src/Shared/ClientHistory.fs]], [[src/Shared/Gambol.Shared.fsproj]], new [[tests/Shared.Tests/ClientHistoryTests.fs]], [[tests/Shared.Tests/Gambol.Shared.Tests.fsproj]].
 
-Add identity-supplied inversion and the five-function ClientHistory interface. Test Normal, Undo, Redo, future folding, stable record identity, exact names, confirmation prefix validation, dependent inverse re-derivation, and no duplicate records.
+Add identity-supplied inversion and the five-function ClientHistory interface. Test Normal, Undo, Redo, future folding, stable record identity, exact names, confirmation prefix validation, dependent inverse re-derivation, and no duplicate records. Prove that Undo of a create or paste detaches the created Normal and Special Nodes but keeps their Headers in Graph.nodes for a later Redo with the same Node IDs.
 
 Why now: this creates the final pure seam without changing transport or runtime callers.
 
-Checkpoint: all new behavior is proven through ClientHistory, and large create inversion contains no NewNode or NewSpecialNode Ops.
+Checkpoint: all new behavior is proven through ClientHistory, and large create inversion contains no NewNode or NewSpecialNode Ops. Created Nodes remain in Graph.nodes but are unreachable from ROOT after Undo, and Redo reconnects the same Node IDs. Permanent orphan collection stays deferred to a future garbage-collection policy.
 
 ### 3. Convert the Browser queue and projected local flow
 
