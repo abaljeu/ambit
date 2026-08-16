@@ -98,7 +98,7 @@ let ``SyncInfo readiness follows state and poll responses`` () =
 
 [<Fact>]
 let ``SyncInfo withPendingChanges replaces pending list`` () =
-    let pending = [ ChangeRequest.Change(mkChange 0) ]
+    let pending = [ PendingChange.ofChange (mkChange 0) ]
     let si = SyncInfo.initial
     let si2 = SyncInfo.withPendingChanges pending si
     Assert.Equal(1, si2.pendingChanges.Length)

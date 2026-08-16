@@ -19,9 +19,9 @@
 
 ## Files changed
 
-- [[undo-implementation-plan.md]] now uses `SyncInfo.pendingChanges`, `SyncState.Sending`, `SubmitPendingBatch`, `WaitingToRetry`, `SubmitNetworkError`, `SubmitResponse`, `ackBatch`, `runSubmitPendingBatch`, `retryPendingOp`, and `ContinuePostUploadStructure` to describe Slice 3a and later ACK reconciliation.
-- [[undo-wayfinder.md]] now describes the same retained submit-effect argument, retry snapshot, queue-prefix validation/removal, and workspace singleton arguments.
-- [[undo-spec.md]] replaces abstract exact in-flight membership with the actual `SubmitPendingBatch` callback and `SyncInfo.pendingChanges` prefix.
+- [[undo-implementation-plan.md]] uses actual submit and retry names once in Slice 3a and the minimum callback/queue names needed by Slice 5 ACK reconciliation.
+- [[undo-wayfinder.md]] states only the destination, rationale, and major decisions and points mechanics to the implementation plan.
+- [[undo-spec.md]] is the compact authoritative behavioral contract and does not prescribe synchronization program names.
 - [[clarify-undo-slice-3a.md]] records the evidence and final boundary.
 
 ## Final Slice 3a scope
@@ -51,12 +51,12 @@ Explicit non-scope:
 
 ## Consolidation
 
-Task-start and final line counts:
+Task-start and final newline counts (`wc -l`):
 
-- [[undo-implementation-plan.md]]: 199 → 107 lines, down 92.
-- [[undo-wayfinder.md]]: 168 → 58 lines, down 110.
-- [[undo-spec.md]]: 32 → 41 lines, up 9 because it now contains the complete authoritative contract.
-- Total active guidance: 399 → 206 lines, down 193.
+- [[undo-implementation-plan.md]]: 198 → 107 lines, down 91.
+- [[undo-wayfinder.md]]: 167 → 57 lines, down 110.
+- [[undo-spec.md]]: 31 → 40 lines, up 9 because it now contains the complete authoritative contract.
+- Total active guidance: 396 → 204 lines, down 192.
 
 Sections removed or condensed:
 
@@ -74,10 +74,10 @@ Authoritative homes:
 
 Final verification:
 
-- All seven ordered slices retain Files, implementation delta, Why now, and Checkpoint, including the verification slice.
+- All eight ordered slices, counting 3a and 3b separately, retain Files, Delta, Why now, and Checkpoint, including the verification slice.
 - Active-doc searches find no `InFlightBatch`, `inFlightCount`, same-record blocking requirement, or dependent re-derivation requirement.
 - Submit/retry program names occur only in implementation-plan Slices 3a and 5; the wayfinder and spec contain no callback choreography.
-- Final diff checks pass and the active guidance has a net reduction of 193 lines.
+- Final diff checks pass and the active guidance has a net reduction of 192 lines.
 
 ## Proposed WORK.md mutation
 

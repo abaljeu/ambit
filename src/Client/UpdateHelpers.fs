@@ -85,22 +85,31 @@ let tryStartLoadFetch (model: VM) : SyncInfo * Effect list =
 
 let private pendingKey = "gambol-pending-v1"
 
-let savePendingQueue (actions: ChangeRequest list) =
-    if actions.IsEmpty then localStorageRemove pendingKey
+let savePendingQueue (items: PendingChange list) =
+    if items.IsEmpty then localStorageRemove pendingKey
     else
         let encoded =
-            Encode.list (actions |> List.map Serialization.encodeChangeRequest)
+            Encode.list (items |> List.map Serialization.encodePendingChange)
         let json = Thoth.Json.JavaScript.Encode.toString 0 encoded
         localStorageSet pendingKey json
 
-let loadPendingQueue () : ChangeRequest list =
+let loadPendingQueue () : PendingChange list =
     let json = localStorageGet pendingKey
     if isNull json || json = "" then []
     else
         match Thoth.Json.JavaScript.Decode.fromString
-            (Decode.list Serialization.decodeChangeRequest) json with
-        | Ok actions -> actions
-        | Error _ -> []
+            (Decode.list Serialization.decodePendingChange) json with
+        | Ok items -> items
+        | Error _ ->
+            match Thoth.Json.JavaScript.Decode.fromString
+                (Decode.list Serialization.decodeChangeRequest) json with
+            | Ok actions ->
+                actions
+                |> List.choose (function
+                    | ChangeRequest.Change change ->
+                        Some (PendingChange.ofChange change)
+                    | _ -> None)
+            | Error _ -> []
 
 // ---------------------------------------------------------------------------
 // Update helpers

@@ -8,10 +8,17 @@ module SyncBatch =
         |> List.mapi (fun idx change ->
             { change with id = baseRevision + idx })
 
-    let toActionDeltaChain
+    let toPendingDeltaChain
         (baseRevision: int)
-        (actions: ChangeRequest list)
+        (items: PendingChange list)
+        : PendingChange list =
+        items
+        |> List.mapi (fun index item ->
+            { item with change = { item.change with id = baseRevision + index } })
+
+    let toWireBatch
+        (baseRevision: int)
+        (items: PendingChange list)
         : ChangeRequest list =
-        actions
-        |> List.mapi (fun index action ->
-            ChangeRequest.withBaseRevision (baseRevision + index) action)
+        toPendingDeltaChain baseRevision items
+        |> List.map PendingChange.toChangeRequest

@@ -33,7 +33,13 @@ module private SubmitChangeCallbacks =
     open Gambol.Client.JsInterop
     open Gambol.Client.Update
 
-    let onPostOk (timeoutId: float) (reqId: string) (dispatch: Msg -> unit) (text: string) : unit =
+    let onPostOk
+        (timeoutId: float)
+        (reqId: string)
+        (submitted: PendingChange list)
+        (dispatch: Msg -> unit)
+        (text: string)
+        : unit =
         clearTimeout timeoutId
         let n = text.Length
         match decodeChangeAckResponse text with
@@ -45,6 +51,7 @@ module private SubmitChangeCallbacks =
             dispatch (
                 SysMsg (
                     SubmitResponse (
+                        submitted,
                         ack.ackedChangeIds,
                         ack.revision,
                         ack.stampOps,
@@ -71,7 +78,7 @@ module private SubmitChangeCallbacks =
         (timeoutId: float)
         (reqId: string)
         (baseRev: int)
-        (changes: ChangeRequest list)
+        (changes: PendingChange list)
         (dispatch: Msg -> unit)
         ()
         : unit =
@@ -106,22 +113,13 @@ let createRuntime (initialModel: VM) =
         lastActivityMs <- nowMs ()
         let saved = loadPendingQueue ()
         let serverRev = restored.revision.Value
-        let filtered =
-            saved
-            |> List.filter (fun action ->
-                ChangeRequest.baseRevision action >= serverRev)
         let localState, restoredPending =
-            filtered
-            |> List.fold
-                (fun (state, reversed) action ->
-                    match History.applyAction action state with
-                    | Ok (next, _) -> next, action :: reversed
-                    | Error _ -> state, reversed)
-                ({ graph = restored.graph
-                   history = restored.history
-                   revision = restored.revision },
-                 [])
-            |> fun (state, reversed) -> state, List.rev reversed
+            SyncPlanner.restorePending
+                restored.revision
+                saved
+                { graph = restored.graph
+                  history = restored.history
+                  revision = restored.revision }
         savePendingQueue restoredPending
         if restoredPending.IsEmpty then
             { restored with
@@ -190,12 +188,10 @@ let createRuntime (initialModel: VM) =
                         (jsonMutatingPostHeaders ()))
                 50
             |> ignore
-        | ContinuePostUploadStructure (change, scope, parseFileId) ->
+        | ContinuePostUploadStructure (submitted, scope, parseFileId) ->
             // Stubs already in the model (DOM patched before effects). Async POST.
             let body =
-                SyncBatch.toActionDeltaChain
-                    model.revision.Value
-                    [ ChangeRequest.Change change ]
+                SyncBatch.toWireBatch model.revision.Value [ submitted ]
                 |> encodePendingBatchBody
             let url = sprintf "/%s/changes" currentFile
             let rec post () =
@@ -209,6 +205,7 @@ let createRuntime (initialModel: VM) =
                         dispatch (
                             ApplyOp (
                                 completeUploadStructurePost
+                                    submitted
                                     scope
                                     parseFileId
                                     text)))
@@ -369,16 +366,15 @@ let createRuntime (initialModel: VM) =
             50
         |> ignore
 
-    and runSubmitPendingBatch (baseRev: int) (changes: ChangeRequest list) : unit =
+    and runSubmitPendingBatch (baseRev: int) (changes: PendingChange list) : unit =
         let reqId =
             changes
             |> List.tryHead
-            |> Option.map (fun action ->
-                (ChangeRequest.actionId action).ToString("N").Substring(0, 8))
+            |> Option.map (fun item ->
+                item.change.changeId.ToString("N").Substring(0, 8))
             |> Option.defaultValue "empty"
         let url = $"/{currentFile}/changes"
-        let postChanges =
-            Gambol.Shared.SyncBatch.toActionDeltaChain baseRev changes
+        let postChanges = SyncBatch.toWireBatch baseRev changes
         let body = encodePendingBatchBody postChanges
         let qLen = model.syncInfo.pendingChanges.Length
         consoleLog (
@@ -399,7 +395,7 @@ let createRuntime (initialModel: VM) =
         postJson
             url
             body
-            (SubmitChangeCallbacks.onPostOk timeoutId reqId dispatch)
+            (SubmitChangeCallbacks.onPostOk timeoutId reqId changes dispatch)
             (SubmitChangeCallbacks.onPostHttp timeoutId reqId dispatch)
             (SubmitChangeCallbacks.onPostFetchFail timeoutId reqId baseRev changes dispatch)
             (jsonMutatingPostHeaders ())
@@ -488,7 +484,7 @@ let createRuntime (initialModel: VM) =
                         dispatch (SysMsg RetrySubmit))
                     delayMs)
 
-    and runSavePendingQueue (q: ChangeRequest list) : unit =
+    and runSavePendingQueue (q: PendingChange list) : unit =
         savePendingQueue q
 
     and runDesktopFileStatus (nodeId: NodeId) (path: string) : unit =

@@ -690,20 +690,14 @@ let findRootOp (model: VM) : VM * Effect list =
 /// Op: Retry pending server POST. Only valid from WaitingToRetry state.
 /// resetCount=true (manual click) restarts the attempt counter from 1.
 let retryPendingOp (resetCount: bool) (model: VM) : VM * Effect list =
-    match model.syncInfo.syncState, model.syncInfo.pendingChanges with
-    | ServerRejected, _ | CodeOutdated, _ | DataOutdated, _ -> model, []
-    | _, [] ->
-        { model with syncInfo = model.syncInfo |> SyncInfo.withSyncState Idle }, []
-    | WaitingToRetry (n, baseRev, changes), _ ->
+    match model.syncInfo.syncState with
+    | WaitingToRetry _ when not model.syncInfo.pendingChanges.IsEmpty ->
         consoleLog (
             "[Gambol sync] retryPendingOp modelRev=" + string model.revision.Value
             + " qLen=" + string model.syncInfo.pendingChanges.Length)
-        let nextAttempt = if resetCount then 1 else n + 1
-        let effects = [ SubmitPendingBatch (baseRev, changes) ]
-        { model with
-            syncInfo = model.syncInfo |> SyncInfo.withSyncState (Sending nextAttempt) }, effects
-    | Sending _, _ -> model, []
-    | _ -> model, []
+    | _ -> ()
+    let nextSyncInfo, effects = SyncPlanner.retryWaiting resetCount model.syncInfo
+    { model with syncInfo = nextSyncInfo }, effects
 
 /// Op: Undo the last change, committing any in-progress edit first.
 let undoOp (model: VM) : VM * Effect list =

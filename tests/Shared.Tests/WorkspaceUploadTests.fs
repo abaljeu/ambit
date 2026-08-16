@@ -96,7 +96,7 @@ let ``Upload cannot start from revision 14706 while its prior submit is in fligh
     let syncInfo =
         { SyncInfo.initial with
             syncState = Sending 1
-            pendingChanges = [ ChangeRequest.Change pending ] }
+            pendingChanges = [ PendingChange.ofChange pending ] }
     Assert.False(WorkspaceUpload.canStart syncInfo)
     Assert.True(WorkspaceUpload.canStart SyncInfo.initial)
 
@@ -110,7 +110,7 @@ let ``canStart is true only when Idle with empty pending`` () =
         WorkspaceUpload.canStart
             { SyncInfo.initial with
                 pendingChanges =
-                    [ ChangeRequest.Change
+                    [ PendingChange.ofChange
                         { id = 1
                           changeId = System.Guid.NewGuid()
                           ops = [] } ] })
@@ -129,7 +129,7 @@ let ``canStartWeb allows Polling when pending is empty`` () =
             { SyncInfo.initial with
                 syncState = Polling
                 pendingChanges =
-                    [ ChangeRequest.Change
+                    [ PendingChange.ofChange
                         { id = 1
                           changeId = System.Guid.NewGuid()
                           ops = [] } ] })
@@ -148,7 +148,7 @@ let ``queueBlockedDetail distinguishes pending from poll`` () =
         WorkspaceUpload.queueBlockedDetail
             { SyncInfo.initial with
                 pendingChanges =
-                    [ ChangeRequest.Change
+                    [ PendingChange.ofChange
                         { id = 1
                           changeId = System.Guid.NewGuid()
                           ops = [] } ] })

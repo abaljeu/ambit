@@ -58,10 +58,9 @@ let applyAndPostSync (change: Change) (model: VM) : Result<VM, string> =
     | ApplyResult.Invalid (_, msg) -> Error msg
     | ApplyResult.Unchanged _ -> Error "change not applied"
     | ApplyResult.Changed newState ->
+        let submitted = PendingChange.workspaceSingleton 0 change
         let body =
-            SyncBatch.toActionDeltaChain
-                model.revision.Value
-                [ ChangeRequest.Change change ]
+            SyncBatch.toWireBatch model.revision.Value [ submitted ]
             |> encodePendingBatchBody
         let url = sprintf "/%s/changes" currentFile
         let status, text = postJsonSync url body (jsonHeaders ())
@@ -277,16 +276,19 @@ let completeUploadInventory
             match applyStructureLocally change model with
             | Error e -> fail (clearUploading model) e
             | Ok model' ->
+                let submitted = PendingChange.workspaceSingleton 0 change
                 keepUploading (withSiteMap model'),
-                [ Effect.ContinuePostUploadStructure (change, scope, parseFileId) ]
+                [ Effect.ContinuePostUploadStructure (submitted, scope, parseFileId) ]
 
 /// Structure Change ACK: stamp + revision, then body push.
 let completeUploadStructurePost
+    (submitted: PendingChange)
     (scope: WorkspaceSyncScope)
     (parseFileId: NodeId option)
     (text: string)
     (model: VM)
     : VM * Effect list =
+    ignore submitted
     match decodeChangeAckResponse text with
     | Error e -> failUploadStructurePost e model
     | Ok ack ->

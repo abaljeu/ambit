@@ -26,7 +26,7 @@ Implement the slices in order. Each slice depends on the seams established by th
 
 Files: [[tests/Shared.Tests/HistoryTests.fs]], [[tests/Shared.Tests/LargeChangeApplyTests.fs]], [[tests/Shared.Tests/Gambol.Shared.Tests.fsproj]].
 
-Add tests for reachable Graph equality after create/paste Undo and Redo, nested Replace order, split, NewSpecialNode, and a 2,000-Node paste-shaped Change. Record baseline timings for current Undo and count the created Nodes that trigger full `Graph.fromNodes` rebuilds.
+Delta: add tests for reachable Graph equality after create/paste Undo and Redo, nested Replace order, split, NewSpecialNode, and a 2,000-Node paste-shaped Change. Record baseline timings for current Undo and count the created Nodes that trigger full `Graph.fromNodes` rebuilds.
 
 Why now: these tests lock current user-visible structure before stack and wire types change.
 
@@ -36,7 +36,7 @@ Checkpoint: the semantic tests pass and the baseline demonstrates K rebuild oppo
 
 Files: [[src/Shared/History.fs]], new [[src/Shared/ClientHistory.fs]], [[src/Shared/Gambol.Shared.fsproj]], new [[tests/Shared.Tests/ClientHistoryTests.fs]], [[tests/Shared.Tests/Gambol.Shared.Tests.fsproj]].
 
-Add identity-supplied ordinary inversion and the four-function ClientHistory interface: `record`, `undo`, `redo`, and `clear`. ClientHistory stores submitted-only Changes and stable record identity, but no pending lineage or confirmation operation. Put [[src/Shared/ClientHistory.fs]] immediately after [[src/Shared/History.fs]] in compile order. Remove the current confirmation-amendment and pending-lineage implementation before Slice 3.
+Delta: add identity-supplied ordinary inversion and the four-function ClientHistory interface: `record`, `undo`, `redo`, and `clear`. ClientHistory stores submitted-only Changes and stable record identity, but no pending lineage or confirmation operation. Put [[src/Shared/ClientHistory.fs]] immediately after [[src/Shared/History.fs]] in compile order. Remove the current confirmation-amendment and pending-lineage implementation before Slice 3.
 
 Why now: this creates the final pure seam without changing transport or runtime callers.
 
@@ -58,7 +58,7 @@ Checkpoint: tests prove later actions do not alter the submitted or retry list; 
 
 Files: [[src/Shared/ViewModel.fs]], [[src/Shared/SyncLogic.fs]], [[src/Client/UpdateHelpers.fs]], [[src/Client/UpdateOps.fs]], [[src/Client/Program.fs]], [[tests/Shared.Tests/SyncLogicTests.fs]], and VM test helpers.
 
-Change `VM.history` to ClientHistory. Record normal local Changes with command provenance, and make Undo and Redo optimistic local operations. Route every inverse Change through the existing [[src/Shared/ResidentProjection.fs]] seam only; do not add another Graph application path. Keep the old runtime action functions only as the temporary branch-local compile bridge until their removal in slice 5.
+Delta: change `VM.history` to ClientHistory. Record normal local Changes with command provenance, and make Undo and Redo optimistic local operations. Route every inverse Change through the existing [[src/Shared/ResidentProjection.fs]] seam only; do not add another Graph application path. Keep the old runtime action functions only as the temporary branch-local compile bridge until their removal in slice 5.
 
 Implement the Poll, Load, package-only residency, and partial-projection rules from [[undo-spec.md]]. Keep ACK reconciliation deferred until Slice 5 has complete confirmations.
 
@@ -70,7 +70,7 @@ Checkpoint: focused runtime and SyncLogic tests prove submitted-only normal reco
 
 Files: [[src/Shared/Serialization.fs]], [[src/Client/UpdateCodec.fs]], [[src/Client/Update.fs]], [[src/Client/App.fs]], [[src/Server/ChangeLog.fs]], [[src/Server/Database.fs]], [[src/Server/FileAgent.fs]], [[src/Server/DbAgent.fs]], [[src/Server/Api.fs]], [[tests/Shared.Tests/SerializationTests.fs]], [[tests/Server.Tests/StateEndpointTests.fs]], [[tests/Server.Tests/FileAgentFailureTests.fs]], and [[tests/Server.Tests/DatabaseProjectionContractTests.fs]].
 
-Replace action batches and old ACK fields in one coordinated slice. Return durable complete Changes for new and duplicate requests. Preserve stamp assignment, batch atomicity, optional persistence messages, and the existing route.
+Delta: replace action batches and old ACK fields in one coordinated slice. Return durable complete Changes for new and duplicate requests. Preserve stamp assignment, batch atomicity, optional persistence messages, and the existing route.
 
 Why now: both sides already use ordinary local Changes, so this slice changes one transport contract without adding compatibility code.
 
@@ -80,7 +80,7 @@ Checkpoint: codec and both-backend endpoint tests prove request order, exact sub
 
 Files: [[src/Shared/History.fs]], [[src/Shared/SyncPlanner.fs]], [[src/Client/Update.fs]], [[src/Client/UpdateWorkspaceSync.fs]], [[src/Client/UpdateWorkspaceDownload.fs]], [[src/Server/Database.fs]], [[src/Server/FileAgent.fs]], [[src/Server/DocumentLoader.fs]], [[src/Server/SavePrep.fs]], and affected constructors and tests.
 
-Extend `SubmitResponse` with the submitted queued items retained by the `SubmitPendingBatch` callback. Reconcile complete confirmations atomically: validate ordered identity and submitted prefixes, allow only `SetUpdateTime` suffixes, remove only the matching `pendingChanges` prefix, retire transitions, project suffixes, and advance Revision without changing ClientHistory. Ignore a fully valid response only when all submitted identities are already retired and its Revision is not ahead; reject partial overlap or any other mismatch. Route synchronous and async workspace singleton responses through this seam. Remove legacy action cases, Server History, ACK ID/stamp aggregates, and direct stamp application.
+Delta: extend `SubmitResponse` with the submitted queued items retained by the `SubmitPendingBatch` callback. Reconcile complete confirmations atomically: validate ordered identity and submitted prefixes, allow only `SetUpdateTime` suffixes, remove only the matching `pendingChanges` prefix, retire transitions, project suffixes, and advance Revision without changing ClientHistory. Ignore a fully valid response only when all submitted identities are already retired and its Revision is not ahead; reject partial overlap or any other mismatch. Route synchronous and async workspace singleton responses through this seam. Remove legacy action cases, Server History, ACK ID/stamp aggregates, and direct stamp application.
 
 Why now: complete confirmations are available, so no caller needs the legacy intent or aggregate ACK paths.
 
@@ -90,7 +90,7 @@ Checkpoint: Normal, Undo, Redo, same-batch C/U/Redo, partial residency, retry, l
 
 Files: [[src/Client/Controller.fs]], [[src/Client/CommandDock.fs]], [[src/Client/UpdateHelpers.fs]], [[src/Client/UpdatePaste.fs]], [[src/Client/UpdateWorkspaceSync.fs]], [[src/Client/UpdateWorkspaceDownload.fs]], [[src/Client/UpdateRename.fs]], [[src/Client/UpdateFileSearch.fs]], and other direct `applyAndPost` callers found by the final source search.
 
-Pass the resolved string at the command/event source. Keep CommandEntry in place. Set Undo and Redo result text on optimistic stack success, including `Undo: nothing to undo` and `Redo: nothing to redo`.
+Delta: pass the resolved string at the command/event source. Keep CommandEntry in place. Set Undo and Redo result text on optimistic stack success, including `Undo: nothing to undo` and `Redo: nothing to redo`.
 
 Why now: the History seam is stable, so this is mechanical provenance wiring rather than a second redesign.
 
@@ -100,7 +100,7 @@ Checkpoint: focused ClientHistory and CmdLastResult tests prove accepted text an
 
 Files: [[tests/Shared.Tests/Gambol.Shared.Tests.fsproj]], [[tests/Server.Tests/Gambol.Server.Tests.fsproj]], [[src/Client/Client.fsproj]], and the measurement report for this project.
 
-Run the focused Shared and Server suites for the changed modules, DB tests when configured, and the Browser build. Repeat the same large-paste scenario and measure inverse planning, projected apply, SiteMap reconciliation, encoding, Server apply, persistence, ACK encoding, and total response. Add a stable inverse budget only after measurement.
+Delta: run the focused Shared and Server suites for the changed modules, DB tests when configured, and the Browser build. Repeat the same large-paste scenario and measure inverse planning, projected apply, SiteMap reconciliation, encoding, Server apply, persistence, ACK encoding, and total response. Add a stable inverse budget only after measurement.
 
 Why now: all behavior and transport changes are present, so the final measurements compare the delivered path rather than intermediate bridges.
 

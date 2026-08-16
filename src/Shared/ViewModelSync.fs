@@ -1,5 +1,57 @@
 namespace Gambol.Shared
 
+[<RequireQualifiedAccess>]
+type PendingKind =
+    | Normal
+    | Undo
+    | Redo
+
+type PendingTransition =
+    { recordId: int
+      submittedChangeId: System.Guid
+      kind: PendingKind }
+
+type PendingChange =
+    { change: Change
+      transition: PendingTransition option }
+
+[<RequireQualifiedAccess>]
+module PendingChange =
+    let ofChange (change: Change) : PendingChange =
+        { change = change; transition = None }
+
+    let workspaceSingleton (recordId: int) (change: Change) : PendingChange =
+        { change = change
+          transition =
+            Some
+                { recordId = recordId
+                  submittedChangeId = change.changeId
+                  kind = PendingKind.Normal } }
+
+    let fromRequest (action: ChangeRequest) (materialized: Change) : PendingChange =
+        let kind =
+            match action with
+            | ChangeRequest.Change _ -> None
+            | ChangeRequest.Undo _ -> Some PendingKind.Undo
+            | ChangeRequest.Redo _ -> Some PendingKind.Redo
+        { change = materialized
+          transition =
+            kind
+            |> Option.map (fun pendingKind ->
+                { recordId = 0
+                  submittedChangeId = materialized.changeId
+                  kind = pendingKind }) }
+
+    let toChangeRequest (item: PendingChange) : ChangeRequest =
+        match item.transition with
+        | Some { kind = PendingKind.Undo } ->
+            ChangeRequest.Undo(item.change.id, item.change.changeId)
+        | Some { kind = PendingKind.Redo } ->
+            ChangeRequest.Redo(item.change.id, item.change.changeId)
+        | Some { kind = PendingKind.Normal }
+        | None ->
+            ChangeRequest.Change item.change
+
 type SyncState =
     | Idle                       // all confirmed, nothing pending
     | Sending of attempt: int    // POST in-flight; attempt = 1-based send count
@@ -7,7 +59,7 @@ type SyncState =
     | Uploading                  // workspace file push in progress (blocks poll)
     | Parsing                    // server disk parse/reconcile in progress (blocks poll)
     | Loading                    // Load Fetch+Poll in-flight (blocks poll/submit)
-    | WaitingToRetry of attempt: int * baseRevision: int * changes: ChangeRequest list
+    | WaitingToRetry of attempt: int * baseRevision: int * changes: PendingChange list
     | ServerRejected  // server returned 400 — change cannot be applied; reload required
     | CodeOutdated    // server has newer code (build stamp changed) — reload required
     | DataOutdated    // server has newer data with no local pending — reload required
@@ -21,7 +73,7 @@ type QueuedRequest =
 
 type SyncInfo =
     { syncState: SyncState
-      pendingChanges: ChangeRequest list
+      pendingChanges: PendingChange list
       /// Requests parked behind `pendingChanges` (see `SyncPlanner.tryReleaseQueued`).
       queuedRequests: QueuedRequest list
       isPollingActive: bool
@@ -38,7 +90,7 @@ module SyncInfo =
           isServerReady = false
           syncRiskAcknowledged = false }
 
-    let withPendingChanges (pending: ChangeRequest list) (si: SyncInfo) : SyncInfo =
+    let withPendingChanges (pending: PendingChange list) (si: SyncInfo) : SyncInfo =
         { si with pendingChanges = pending }
 
     /// Park a request behind the change-ops queue. Pressing the command again while
@@ -62,13 +114,13 @@ module SyncInfo =
         else { si with syncState = newState; syncRiskAcknowledged = false }
 
 type Effect =
-    | SubmitPendingBatch of baseRevision: int * changes: ChangeRequest list
+    | SubmitPendingBatch of baseRevision: int * changes: PendingChange list
     | PollServer of revision: int
     | LoadServer of revision: int * targets: LoadTarget list
     | ScheduleRetry of delayMs: int
     /// The change-ops queue settled: run a request that was parked behind it.
     | RunQueuedRequest of QueuedRequest
-    | SavePendingQueue of ChangeRequest list
+    | SavePendingQueue of PendingChange list
     | RequestDesktopFileStatus of nodeId: NodeId * path: string
     | RequestServerFileStatus of nodeId: NodeId * path: string
     /// Desktop: refresh mapped labels + sync-ledger facts for path-status UI.
@@ -77,7 +129,7 @@ type Effect =
     | ContinueWorkspaceStubsThenPush of WorkspaceSyncScope * parseFileId: NodeId option
     /// After local stubs painted: async structure Change POST, then workspace-push.
     | ContinuePostUploadStructure of
-        Change * WorkspaceSyncScope * parseFileId: NodeId option
+        PendingChange * WorkspaceSyncScope * parseFileId: NodeId option
     /// Deferred async workspace-push (`postJson`); Some fileId → parse after push.
     | ContinueWorkspacePush of WorkspaceSyncScope * parseFileId: NodeId option
     /// Poll `GET /_desktop/workspace-download?id=` until job completes or fails.

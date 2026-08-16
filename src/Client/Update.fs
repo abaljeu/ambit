@@ -70,7 +70,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
     | AckSyncRisk ->
         { model with syncInfo = { model.syncInfo with syncRiskAcknowledged = true } }, []
 
-    | SysMsg (SubmitResponse (ackedChangeIds, revision, stampOps, message)) ->
+    | SysMsg (SubmitResponse (submitted, ackedChangeIds, revision, stampOps, message)) ->
         match model.syncInfo.syncState with
         | ServerRejected | CodeOutdated | DataOutdated ->
             consoleLog (
@@ -87,6 +87,7 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                 "[Gambol sync] SubmitResponse apply prevRev=" + string model.revision.Value
                 + " serverAck=" + string revision.Value + " pendingWas=" + string pendingWas
                 + " pendingNext=" + string pending.Length
+                + " submittedLen=" + string submitted.Length
                 + " stampOps=" + string stampOps.Length)
             let updated =
                 { model with

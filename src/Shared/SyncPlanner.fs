@@ -30,8 +30,9 @@ module SyncPlanner =
         : Result<State * SyncInfo * Effect list, string> =
         match History.applyAction action state with
         | Error error -> Error error
-        | Ok (nextState, _) ->
-            let pending = syncInfo.pendingChanges @ [ action ]
+        | Ok (nextState, materialized) ->
+            let pendingItem = PendingChange.fromRequest action materialized
+            let pending = syncInfo.pendingChanges @ [ pendingItem ]
             let nextSyncInfo, submitEffects =
                 { syncInfo with pendingChanges = pending }
                 |> tryStartSubmit state.revision
@@ -44,12 +45,12 @@ module SyncPlanner =
         (ackedChangeIds: System.Guid list)
         (revision: Revision)
         (syncInfo: SyncInfo)
-        : SyncInfo * ChangeRequest list * Effect list =
+        : SyncInfo * PendingChange list * Effect list =
         let acked = ackedChangeIds |> Set.ofList
         let pending =
             syncInfo.pendingChanges
-            |> List.filter (fun action ->
-                not (Set.contains (ChangeRequest.actionId action) acked))
+            |> List.filter (fun item ->
+                not (Set.contains item.change.changeId acked))
         let baseInfo = syncInfo |> SyncInfo.withPendingChanges pending
         match pending with
         | [] ->
@@ -69,12 +70,50 @@ module SyncPlanner =
         let acked = ackedChangeIds |> Set.ofList
         let acknowledgedPendingCount =
             syncInfo.pendingChanges
-            |> List.filter (fun action ->
-                Set.contains (ChangeRequest.actionId action) acked)
+            |> List.filter (fun item ->
+                Set.contains item.change.changeId acked)
             |> List.length
         let expectedRevision =
             clientRevision.Value + acknowledgedPendingCount
         attempt > 1 || serverRevision.Value <> expectedRevision
+
+    let restorePending
+        (serverRevision: Revision)
+        (saved: PendingChange list)
+        (state: State)
+        : State * PendingChange list =
+        let prepared =
+            saved
+            |> List.filter (fun item -> item.change.id >= serverRevision.Value)
+            |> List.map (fun item -> { item with transition = None })
+        prepared
+        |> List.fold
+            (fun (state, reversed) item ->
+                match History.applyChange item.change state with
+                | ApplyResult.Changed next ->
+                    { next with history = state.history }, item :: reversed
+                | _ ->
+                    state, reversed)
+            (state, [])
+        |> fun (nextState, reversed) -> nextState, List.rev reversed
+
+    let retryWaiting
+        (resetCount: bool)
+        (syncInfo: SyncInfo)
+        : SyncInfo * Effect list =
+        match syncInfo.syncState, syncInfo.pendingChanges with
+        | ServerRejected, _
+        | CodeOutdated, _
+        | DataOutdated, _ ->
+            syncInfo, []
+        | _, [] ->
+            syncInfo |> SyncInfo.withSyncState Idle, []
+        | WaitingToRetry (n, baseRev, changes), _ ->
+            let nextAttempt = if resetCount then 1 else n + 1
+            syncInfo |> SyncInfo.withSyncState (Sending nextAttempt),
+            [ SubmitPendingBatch (baseRev, changes) ]
+        | Sending _, _ -> syncInfo, []
+        | _ -> syncInfo, []
 
     /// Release requests parked behind the change-ops queue, once that queue has drained
     /// and nothing is in flight. Called after every message so any path back to Idle

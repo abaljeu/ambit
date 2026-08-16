@@ -411,6 +411,45 @@ module Serialization =
                 |> Option.defaultWith System.Guid.NewGuid
               ops = get.Required.Field "ops" (Decode.list decodeOp) })
 
+    let private encodePendingKind =
+        function
+        | PendingKind.Normal -> Encode.string "normal"
+        | PendingKind.Undo -> Encode.string "undo"
+        | PendingKind.Redo -> Encode.string "redo"
+
+    let private decodePendingKind: Decoder<PendingKind> =
+        Decode.string
+        |> Decode.andThen (function
+            | "normal" -> Decode.succeed PendingKind.Normal
+            | "undo" -> Decode.succeed PendingKind.Undo
+            | "redo" -> Decode.succeed PendingKind.Redo
+            | other -> Decode.fail ("Unknown pending kind: " + other))
+
+    let private encodePendingTransition (transition: PendingTransition) : IEncodable =
+        Encode.object
+            [ "recordId", Encode.int transition.recordId
+              "submittedChangeId", Encode.guid transition.submittedChangeId
+              "kind", encodePendingKind transition.kind ]
+
+    let private decodePendingTransition: Decoder<PendingTransition> =
+        Decode.object (fun get ->
+            { recordId = get.Required.Field "recordId" Decode.int
+              submittedChangeId = get.Required.Field "submittedChangeId" Decode.guid
+              kind = get.Required.Field "kind" decodePendingKind })
+
+    let encodePendingChange (item: PendingChange) : IEncodable =
+        Encode.object (
+            [ "change", encodeChange item.change ]
+            @ match item.transition with
+              | None -> []
+              | Some transition ->
+                  [ "transition", encodePendingTransition transition ])
+
+    let decodePendingChange: Decoder<PendingChange> =
+        Decode.object (fun get ->
+            { change = get.Required.Field "change" decodeChange
+              transition = get.Optional.Field "transition" decodePendingTransition })
+
     let encodeChangeRequest (action: ChangeRequest) : IEncodable =
         match action with
         | ChangeRequest.Change change -> encodeChange change
