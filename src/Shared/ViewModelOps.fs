@@ -114,3 +114,4 @@ module ViewModel =
     let applyWorkspacePathSyncSnapshot = ViewModelRowState.applyWorkspacePathSyncSnapshot
 
     let planPatchDOM = ViewModelDomPlan.planPatchDOM
+    let needsDomOrderWalk = ViewModelDomPlan.needsDomOrderWalk

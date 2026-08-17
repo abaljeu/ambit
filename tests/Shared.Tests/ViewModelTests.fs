@@ -2076,6 +2076,9 @@ let ``planPatchDOM selection move emits only affected row patches`` () =
             | PatchRow (id, patches) when not patches.IsEmpty -> Some id
             | _ -> None)
     Assert.Equal(0, structural.Length)
+    Assert.False(
+        needsDomOrderWalk oldModel newModel mutations,
+        "selection-only CursorUp/Down must keep the non-structural patchDOM fast path")
     Assert.True(
         mutations.Length < visibleCount / 2,
         sprintf "expected selection fast path; got %d mutations for %d visible" mutations.Length visibleCount)
@@ -2092,6 +2095,82 @@ let ``planPatchDOM selection move emits only affected row patches`` () =
                     | _ -> None)
             | _ -> [])
         |> String.concat " ")
+
+[<Fact>]
+let ``planPatchDOM sibling reorder needs DOM order walk without Create Remove Recreate`` () =
+    let graph, cont, ids = buildFlat [ "a"; "b"; "c" ]
+    let oldModel = modelWithSel graph cont 1 2 1
+    let oldChildren = graph.nodes.[cont].children
+    // Move selected "b" up among siblings: [a;b;c] -> [b;a;c]
+    let reordered = [ oldChildren.[1]; oldChildren.[0]; oldChildren.[2] ]
+    let graph2 =
+        Graph.replace cont 0 oldChildren reordered graph
+        |> ModelBuilder.requireOk "sibling reorder"
+    let siteMap2, nextId2 =
+        reconcileSiteMapFrom graph2 cont oldModel.siteMap oldModel.nextSiteId
+    let rootEntry = siteMap2.entries.[siteMap2.rootId]
+    let newModel =
+        { oldModel with
+            graph = graph2
+            siteMap = siteMap2
+            nextSiteId = nextId2
+            selectedNodes =
+                Some
+                    { range = { parent = rootEntry; start = 0; endd = 1 }
+                      focus = 0 } }
+    let oldVisible = getVisibleInstanceIds oldModel.siteMap
+    let newVisible = getVisibleInstanceIds newModel.siteMap
+    Assert.True(oldVisible <> newVisible, "visible preorder must change after sibling reorder")
+    Assert.Equal(ids.[1], siteMap2.entries.[rootEntry.children.[0]].nodeId)
+    Assert.Equal(ids.[0], siteMap2.entries.[rootEntry.children.[1]].nodeId)
+    let cachedInstIds = buildCacheSet oldModel.siteMap
+    let mutations = planPatchDOM oldModel newModel cachedInstIds
+    let structural =
+        mutations
+        |> List.filter (function
+            | CreateRow _
+            | RemoveRow _
+            | RecreateRow _ -> true
+            | _ -> false)
+    Assert.Equal(0, structural.Length)
+    Assert.True(
+        needsDomOrderWalk oldModel newModel mutations,
+        "MoveUp-style sibling reorder must force DOM order walk even with PatchRow-only plan")
+
+[<Fact>]
+let ``planPatchDOM sibling reorder down needs DOM order walk`` () =
+    let graph, cont, ids = buildFlat [ "a"; "b"; "c" ]
+    let oldModel = modelWithSel graph cont 0 1 0
+    let oldChildren = graph.nodes.[cont].children
+    // Move selected "a" down: [a;b;c] -> [b;a;c]
+    let reordered = [ oldChildren.[1]; oldChildren.[0]; oldChildren.[2] ]
+    let graph2 =
+        Graph.replace cont 0 oldChildren reordered graph
+        |> ModelBuilder.requireOk "sibling reorder down"
+    let siteMap2, nextId2 =
+        reconcileSiteMapFrom graph2 cont oldModel.siteMap oldModel.nextSiteId
+    let rootEntry = siteMap2.entries.[siteMap2.rootId]
+    let newModel =
+        { oldModel with
+            graph = graph2
+            siteMap = siteMap2
+            nextSiteId = nextId2
+            selectedNodes =
+                Some
+                    { range = { parent = rootEntry; start = 1; endd = 2 }
+                      focus = 1 } }
+    Assert.Equal(ids.[1], siteMap2.entries.[rootEntry.children.[0]].nodeId)
+    Assert.Equal(ids.[0], siteMap2.entries.[rootEntry.children.[1]].nodeId)
+    let mutations = planPatchDOM oldModel newModel (buildCacheSet oldModel.siteMap)
+    let structural =
+        mutations
+        |> List.filter (function
+            | CreateRow _
+            | RemoveRow _
+            | RecreateRow _ -> true
+            | _ -> false)
+    Assert.Equal(0, structural.Length)
+    Assert.True(needsDomOrderWalk oldModel newModel mutations)
 
 // ---------------------------------------------------------------------------
 // Page / Home — cursorLevel*, shiftPg*, cursorViewRoot*
