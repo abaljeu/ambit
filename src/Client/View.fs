@@ -100,15 +100,8 @@ let patchDOM
 
     syncZoomPath newModel dispatch rowRoot |> ignore
 
-    let hasStructuralMutation =
-        mutations
-        |> List.exists (function
-            | CreateRow _
-            | RemoveRow _
-            | RecreateRow _ -> true
-            | PatchRow _ -> false)
-
-    if not hasStructuralMutation then
+    // PatchRow-only is not enough: sibling MoveUp/Down keeps the same rows but changes order.
+    if not (ViewModel.needsDomOrderWalk oldModel newModel mutations) then
         // Selection/class-only (or empty): patch named rows; skip full visible walk + DOM order checks.
         for mut in mutations do
             match mut with

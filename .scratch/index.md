@@ -16,5 +16,5 @@
 | [Load status phases](load-status-phases/) | done | Make Load's three stages visible: Uploading (desktop push), Parsing (disk parse/reconcile), Loading (graph fetch); web skips Uploading. |
 | [Login / context restore](login-context-restore/) | done | Auth and cold-reload HITLs passed; owning Workspace and prior Zoom restore after iOS unload. |
 | [Node-bullet tooltip](node-bullet-tooltip/) | done | Bullet hover tip (native title) listing self-gated Node facts — Guid tail, residency, workspace path + local desktop path, Update Time (local tz), CSS classes. Shared `bulletTip` + Client `nodeBullet`/CSS rename + local-time formatter + `VM.workspaceRoots` local-path line; delivered, committed, and browser-verified on 2026-08-16. |
-| [Search zoom select](search-zoom-select/) | done | Find pick must zoom to the target's owner parent, then select the target (align with focusNode / tryReframeZoomAtOwnerParent). |
+| [Search zoom select](search-zoom-select/) | done | Restore prior Find zoom framing; on no-children parent fallback, select the search target. |
 | [Work board audit](work-board-audit/) | done | Audit WORK claims against source, tests, history, and durable HITL evidence. |

@@ -1,5 +1,5 @@
 # Search zoom select — git
 
-- **Project branch:** `w/trash-search-zoom`
-- **Cut from:** `selective-client-sync`
-- **Notes:** Implementing Find pick via `focusNode` framing on `w/trash-search-zoom` (cut from `selective-client-sync`).
+- **Project branch:** `w/search-zoom-select`
+- **Cut from:** `selective-client-sync` (cut during in-progress merge on that branch)
+- **Notes:** Correct Find pick: restore pre-focusNode zoom framing; leaf-fallback selects target.

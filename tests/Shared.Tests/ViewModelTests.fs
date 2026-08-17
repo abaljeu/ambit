@@ -2076,6 +2076,9 @@ let ``planPatchDOM selection move emits only affected row patches`` () =
             | PatchRow (id, patches) when not patches.IsEmpty -> Some id
             | _ -> None)
     Assert.Equal(0, structural.Length)
+    Assert.False(
+        needsDomOrderWalk oldModel newModel mutations,
+        "selection-only CursorUp/Down must keep the non-structural patchDOM fast path")
     Assert.True(
         mutations.Length < visibleCount / 2,
         sprintf "expected selection fast path; got %d mutations for %d visible" mutations.Length visibleCount)
@@ -2092,6 +2095,82 @@ let ``planPatchDOM selection move emits only affected row patches`` () =
                     | _ -> None)
             | _ -> [])
         |> String.concat " ")
+
+[<Fact>]
+let ``planPatchDOM sibling reorder needs DOM order walk without Create Remove Recreate`` () =
+    let graph, cont, ids = buildFlat [ "a"; "b"; "c" ]
+    let oldModel = modelWithSel graph cont 1 2 1
+    let oldChildren = graph.nodes.[cont].children
+    // Move selected "b" up among siblings: [a;b;c] -> [b;a;c]
+    let reordered = [ oldChildren.[1]; oldChildren.[0]; oldChildren.[2] ]
+    let graph2 =
+        Graph.replace cont 0 oldChildren reordered graph
+        |> ModelBuilder.requireOk "sibling reorder"
+    let siteMap2, nextId2 =
+        reconcileSiteMapFrom graph2 cont oldModel.siteMap oldModel.nextSiteId
+    let rootEntry = siteMap2.entries.[siteMap2.rootId]
+    let newModel =
+        { oldModel with
+            graph = graph2
+            siteMap = siteMap2
+            nextSiteId = nextId2
+            selectedNodes =
+                Some
+                    { range = { parent = rootEntry; start = 0; endd = 1 }
+                      focus = 0 } }
+    let oldVisible = getVisibleInstanceIds oldModel.siteMap
+    let newVisible = getVisibleInstanceIds newModel.siteMap
+    Assert.True(oldVisible <> newVisible, "visible preorder must change after sibling reorder")
+    Assert.Equal(ids.[1], siteMap2.entries.[rootEntry.children.[0]].nodeId)
+    Assert.Equal(ids.[0], siteMap2.entries.[rootEntry.children.[1]].nodeId)
+    let cachedInstIds = buildCacheSet oldModel.siteMap
+    let mutations = planPatchDOM oldModel newModel cachedInstIds
+    let structural =
+        mutations
+        |> List.filter (function
+            | CreateRow _
+            | RemoveRow _
+            | RecreateRow _ -> true
+            | _ -> false)
+    Assert.Equal(0, structural.Length)
+    Assert.True(
+        needsDomOrderWalk oldModel newModel mutations,
+        "MoveUp-style sibling reorder must force DOM order walk even with PatchRow-only plan")
+
+[<Fact>]
+let ``planPatchDOM sibling reorder down needs DOM order walk`` () =
+    let graph, cont, ids = buildFlat [ "a"; "b"; "c" ]
+    let oldModel = modelWithSel graph cont 0 1 0
+    let oldChildren = graph.nodes.[cont].children
+    // Move selected "a" down: [a;b;c] -> [b;a;c]
+    let reordered = [ oldChildren.[1]; oldChildren.[0]; oldChildren.[2] ]
+    let graph2 =
+        Graph.replace cont 0 oldChildren reordered graph
+        |> ModelBuilder.requireOk "sibling reorder down"
+    let siteMap2, nextId2 =
+        reconcileSiteMapFrom graph2 cont oldModel.siteMap oldModel.nextSiteId
+    let rootEntry = siteMap2.entries.[siteMap2.rootId]
+    let newModel =
+        { oldModel with
+            graph = graph2
+            siteMap = siteMap2
+            nextSiteId = nextId2
+            selectedNodes =
+                Some
+                    { range = { parent = rootEntry; start = 1; endd = 2 }
+                      focus = 1 } }
+    Assert.Equal(ids.[1], siteMap2.entries.[rootEntry.children.[0]].nodeId)
+    Assert.Equal(ids.[0], siteMap2.entries.[rootEntry.children.[1]].nodeId)
+    let mutations = planPatchDOM oldModel newModel (buildCacheSet oldModel.siteMap)
+    let structural =
+        mutations
+        |> List.filter (function
+            | CreateRow _
+            | RemoveRow _
+            | RecreateRow _ -> true
+            | _ -> false)
+    Assert.Equal(0, structural.Length)
+    Assert.True(needsDomOrderWalk oldModel newModel mutations)
 
 // ---------------------------------------------------------------------------
 // Page / Home — cursorLevel*, shiftPg*, cursorViewRoot*
@@ -2192,7 +2271,7 @@ let private searchHit (graph: Graph) (nodeId: NodeId) : NodeSearchResult =
     { nodeId = nodeId; text = n.text; name = n.name }
 
 [<Fact>]
-let ``searchPickSetRoot zooms to owner parent and selects leaf target`` () =
+let ``searchPickSetRoot leaf fallback zooms parent and selects target`` () =
     let graph, cont, ids = buildNested ()
     let a = ids.[0]
     let a1 = ids.[2]
@@ -2208,7 +2287,7 @@ let ``searchPickSetRoot zooms to owner parent and selects leaf target`` () =
     Assert.Equal(Selecting, result.mode)
 
 [<Fact>]
-let ``searchPickSetRoot selects non-first leaf sibling not first child`` () =
+let ``searchPickSetRoot leaf fallback selects non-first sibling not first child`` () =
     let graph, cont, ids = buildNested ()
     let a = ids.[0]
     let a2 = ids.[3]
@@ -2221,17 +2300,18 @@ let ``searchPickSetRoot selects non-first leaf sibling not first child`` () =
     Assert.Equal(Some a2, selectedId)
 
 [<Fact>]
-let ``searchPickSetRoot zooms to owner parent and selects non-leaf target`` () =
+let ``searchPickSetRoot with children zooms target and selects first child`` () =
     let graph, cont, ids = buildNested ()
     let a = ids.[0]
+    let a1 = ids.[2]
     let model = emptyModelAt graph cont
     let result = ViewModelSearch.searchPickSetRoot (searchHit graph a) model |> fst
 
-    Assert.Equal(cont, result.zoomRoot)
+    Assert.Equal(a, result.zoomRoot)
+    Assert.False(result.graph.nodes.[a].children.IsEmpty)
     let selectedId =
         result.selectedNodes |> Option.map (focusedNodeId result.graph)
-    Assert.Equal(Some a, selectedId)
-    Assert.False(result.graph.nodes.[a].children.IsEmpty)
+    Assert.Equal(Some a1, selectedId)
 
 [<Fact>]
 let ``searchPickSetRoot reframes outside prior zoom when hit is not under zoom root`` () =
@@ -2252,15 +2332,6 @@ let ``searchPickSetRoot reframes outside prior zoom when hit is not under zoom r
     let selectedId =
         result.selectedNodes |> Option.map (focusedNodeId result.graph)
     Assert.Equal(Some a1, selectedId)
-
-[<Fact>]
-let ``searchPickSetRoot leaves model unchanged for ROOT hit`` () =
-    let graph, cont, _ = buildNested ()
-    let model = emptyModelAt graph cont
-    let result =
-        ViewModelSearch.searchPickSetRoot (searchHit graph graph.root) model |> fst
-    Assert.Equal(model.zoomRoot, result.zoomRoot)
-    Assert.Equal(model.selectedNodes, result.selectedNodes)
 
 let private buildSharedRefLink () : Graph * NodeId * NodeId * NodeId =
     let graph0 = Graph.create ()
@@ -2464,19 +2535,24 @@ let ``zoomIngressPathTexts follows ingress then zoom root`` () =
         zoomIngressPathTexts graph4 b stack)
 
 [<Fact>]
-let ``searchPickSetRoot prefers owner parent for shared non-leaf hit`` () =
+let ``searchPickSetRoot seeds owner ingress for shared zoom-out`` () =
     let graph, ownerParent, _refParent, shared = buildSharedRefLinkNonLeaf ()
     let model = emptyModelAt graph graph.root
     let result =
         ViewModelSearch.searchPickSetRoot (searchHit graph shared) model |> fst
 
-    Assert.Equal(ownerParent, result.zoomRoot)
+    Assert.Equal(shared, result.zoomRoot)
     Assert.Equal<(NodeId * int) list>(
-        ownerPathIngress graph ownerParent, result.zoomIngress)
-    let selectedId =
-        result.selectedNodes |> Option.map (focusedNodeId result.graph)
-    Assert.Equal(Some shared, selectedId)
-    Assert.False(result.graph.nodes.[shared].children.IsEmpty)
+        ownerPathIngress graph shared, result.zoomIngress)
+
+    match resolveZoomOutParent result.graph result.zoomRoot result.zoomIngress with
+    | None -> Assert.True(false, "Expected Some")
+    | Some (parentId, index, rest) ->
+        Assert.Equal(ownerParent, parentId)
+        Assert.Equal<(NodeId * int) list>(
+            ownerPathIngress graph ownerParent, rest)
+        let _, ownerIndex, _ = getOwnerOccurrence graph shared
+        Assert.Equal(ownerIndex, index)
 
 // ---------------------------------------------------------------------------
 // EditingCaretPreserve — same Editing mode ref: restore live caret after patches

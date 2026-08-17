@@ -120,6 +120,21 @@ module ViewModelDomPlan =
                     | patches -> Some (PatchRow (instId, patches)))
             Some mutations
 
+    let private hasStructuralRowMutation (mutations: RowMutation list) =
+        mutations
+        |> List.exists (function
+            | CreateRow _
+            | RemoveRow _
+            | RecreateRow _ -> true
+            | PatchRow _ -> false)
+
+    /// True when patchDOM must walk visible rows and correct DOM order.
+    /// Create/Remove/Recreate always need it; sibling reorder (MoveUp/Down) often emits
+    /// only PatchRow (or nothing structural) while visible preorder still changes.
+    let needsDomOrderWalk (oldModel: VM) (newModel: VM) (mutations: RowMutation list) : bool =
+        hasStructuralRowMutation mutations
+        || getVisibleInstanceIds oldModel.siteMap <> getVisibleInstanceIds newModel.siteMap
+
     /// Compute the minimal set of DOM mutations needed to transition from oldModel to newModel.
     /// cachedInstIds is the set of instanceIds currently held in the element cache.
     /// Returns removals followed by visible-row operations in preorder display order.

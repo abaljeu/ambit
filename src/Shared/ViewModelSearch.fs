@@ -185,7 +185,28 @@ module ViewModelSearch =
         searchNodes query zoomRoot graph
         |> tryResultAtDisplayIndex selectedIndex
 
-    /// Find (/): after picking a search hit, zoom to the owner parent and select the target
-    /// (same framing as focusNode / tryReframeZoomAtOwnerParent). Unchanged for ROOT / no parent.
+    /// Find (/): after picking a search hit, re-root like prior zoom-in framing (hit if it has
+    /// children, else structural parent). On that leaf/parent fallback, select the hit — not the
+    /// first child under the zoom root.
     let searchPickSetRoot (hit: NodeSearchResult) (model: VM) : VM * Effect list =
-        ViewModel.focusNode hit.nodeId model, []
+        let node = model.graph.nodes.[hit.nodeId]
+        let zoomId, leafTargetIndex =
+            if node.children.IsEmpty then
+                match Graph.tryFindParentAndIndex hit.nodeId model.graph with
+                | Some (parentId, index) -> parentId, Some index
+                | None -> hit.nodeId, None
+            else
+                hit.nodeId, None
+        let siteMap, nextId =
+            ViewModel.buildSiteMapFrom model.graph zoomId model.nextSiteId
+        let selectedNodes =
+            match leafTargetIndex with
+            | Some index -> ViewModel.childSelectionAt siteMap zoomId index
+            | None -> ViewModel.firstChildSelection siteMap zoomId
+        { model with
+            zoomRoot = zoomId
+            zoomIngress = ViewModel.ownerPathIngress model.graph zoomId
+            siteMap = siteMap
+            nextSiteId = nextId
+            selectedNodes = selectedNodes
+            mode = Selecting }, []
