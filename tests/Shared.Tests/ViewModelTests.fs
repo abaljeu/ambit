@@ -2192,7 +2192,7 @@ let private searchHit (graph: Graph) (nodeId: NodeId) : NodeSearchResult =
     { nodeId = nodeId; text = n.text; name = n.name }
 
 [<Fact>]
-let ``searchPickSetRoot reframes at parent and selects first child for a leaf hit`` () =
+let ``searchPickSetRoot zooms to owner parent and selects leaf target`` () =
     let graph, cont, ids = buildNested ()
     let a = ids.[0]
     let a1 = ids.[2]
@@ -2205,6 +2205,33 @@ let ``searchPickSetRoot reframes at parent and selects first child for a leaf hi
     let selectedId =
         result.selectedNodes |> Option.map (focusedNodeId result.graph)
     Assert.Equal(Some a1, selectedId)
+    Assert.Equal(Selecting, result.mode)
+
+[<Fact>]
+let ``searchPickSetRoot selects non-first leaf sibling not first child`` () =
+    let graph, cont, ids = buildNested ()
+    let a = ids.[0]
+    let a2 = ids.[3]
+    let model = emptyModelAt graph cont
+    let result = ViewModelSearch.searchPickSetRoot (searchHit graph a2) model |> fst
+
+    Assert.Equal(a, result.zoomRoot)
+    let selectedId =
+        result.selectedNodes |> Option.map (focusedNodeId result.graph)
+    Assert.Equal(Some a2, selectedId)
+
+[<Fact>]
+let ``searchPickSetRoot zooms to owner parent and selects non-leaf target`` () =
+    let graph, cont, ids = buildNested ()
+    let a = ids.[0]
+    let model = emptyModelAt graph cont
+    let result = ViewModelSearch.searchPickSetRoot (searchHit graph a) model |> fst
+
+    Assert.Equal(cont, result.zoomRoot)
+    let selectedId =
+        result.selectedNodes |> Option.map (focusedNodeId result.graph)
+    Assert.Equal(Some a, selectedId)
+    Assert.False(result.graph.nodes.[a].children.IsEmpty)
 
 [<Fact>]
 let ``searchPickSetRoot reframes outside prior zoom when hit is not under zoom root`` () =
@@ -2225,6 +2252,15 @@ let ``searchPickSetRoot reframes outside prior zoom when hit is not under zoom r
     let selectedId =
         result.selectedNodes |> Option.map (focusedNodeId result.graph)
     Assert.Equal(Some a1, selectedId)
+
+[<Fact>]
+let ``searchPickSetRoot leaves model unchanged for ROOT hit`` () =
+    let graph, cont, _ = buildNested ()
+    let model = emptyModelAt graph cont
+    let result =
+        ViewModelSearch.searchPickSetRoot (searchHit graph graph.root) model |> fst
+    Assert.Equal(model.zoomRoot, result.zoomRoot)
+    Assert.Equal(model.selectedNodes, result.selectedNodes)
 
 let private buildSharedRefLink () : Graph * NodeId * NodeId * NodeId =
     let graph0 = Graph.create ()
@@ -2428,24 +2464,19 @@ let ``zoomIngressPathTexts follows ingress then zoom root`` () =
         zoomIngressPathTexts graph4 b stack)
 
 [<Fact>]
-let ``searchPickSetRoot seeds owner ingress for shared zoom-out`` () =
+let ``searchPickSetRoot prefers owner parent for shared non-leaf hit`` () =
     let graph, ownerParent, _refParent, shared = buildSharedRefLinkNonLeaf ()
     let model = emptyModelAt graph graph.root
     let result =
         ViewModelSearch.searchPickSetRoot (searchHit graph shared) model |> fst
 
-    Assert.Equal(shared, result.zoomRoot)
+    Assert.Equal(ownerParent, result.zoomRoot)
     Assert.Equal<(NodeId * int) list>(
-        ownerPathIngress graph shared, result.zoomIngress)
-
-    match resolveZoomOutParent result.graph result.zoomRoot result.zoomIngress with
-    | None -> Assert.True(false, "Expected Some")
-    | Some (parentId, index, rest) ->
-        Assert.Equal(ownerParent, parentId)
-        Assert.Equal<(NodeId * int) list>(
-            ownerPathIngress graph ownerParent, rest)
-        let _, ownerIndex, _ = getOwnerOccurrence graph shared
-        Assert.Equal(ownerIndex, index)
+        ownerPathIngress graph ownerParent, result.zoomIngress)
+    let selectedId =
+        result.selectedNodes |> Option.map (focusedNodeId result.graph)
+    Assert.Equal(Some shared, selectedId)
+    Assert.False(result.graph.nodes.[shared].children.IsEmpty)
 
 // ---------------------------------------------------------------------------
 // EditingCaretPreserve — same Editing mode ref: restore live caret after patches
