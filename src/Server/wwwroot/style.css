@@ -504,7 +504,7 @@ body {
 .blueletter { color:#00f; }
 .check { text-decoration: line-through; }
 .blue { background-color: #0af8; }
-.dblue { background-color: #88fc; }
+.dblue { background-color: #59fc; }
 .green { background-color: #7f76; }
 .dgreen { background-color: #7f76; }
 .pink { background-color: #f996; }
@@ -519,6 +519,6 @@ body {
 .yellow { background-color: #ff48; }
 .dyellow { background-color: #ff0a; }
 .grey, .gray { background-color: #8886; }
-
+.brown { background-color: #d606; }
 .center { text-align: center; }
 .code { font-family: monospace; }

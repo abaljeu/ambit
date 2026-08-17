@@ -61,6 +61,7 @@ let private selectionOn (graph: Graph) (parentId: NodeId) (focusIdx: int) : Sele
             { instanceId = Sid 0
               nodeId = parentId
               parentInstanceId = None
+              childIndex = 0
               expanded = true
               childrenStale = false
               children = [] }

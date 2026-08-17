@@ -294,6 +294,7 @@ let private parentRange (parentId: NodeId) (start: int) (endd: int) : SiteNodeRa
         { instanceId = Sid 0
           nodeId = parentId
           parentInstanceId = None
+          childIndex = 0
           expanded = true
           childrenStale = false
           children = [] }

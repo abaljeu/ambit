@@ -219,7 +219,7 @@ let allCommands : CommandEntry list =
           keys = [ "Ctrl+["; "[" ]; keyScope = SelectionOrEditing
           iconId = Some "amb-icon-zoom-out" }
         { id = ZoomOwner; name = "Zoom owner"
-          keys = [ "Alt+[" ]; keyScope = SelectionOrEditing
+          keys = [ "{" ; "Alt+[" ]; keyScope = SelectionOrEditing
           iconId = Some "amb-icon-zoom-out" }
         { id = Undo; name = "Undo"
           keys = [ "Ctrl+Z"; "z" ]; keyScope = SelectionOrEditing

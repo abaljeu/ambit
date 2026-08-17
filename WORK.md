@@ -25,7 +25,6 @@ Work currently being executed.
 
 Work ready to start but not yet claimed.
 
-- [[tmp/warm-parse-dual-owner-fix.md]] — HITL verify Current warm File Load after reclaim-vs-trash fix; dual-Owner gone (artifacts: [[src/Shared/documents/DocumentColdParse.fs]], [[src/Shared/History.fs]], [[tests/Shared.Tests/ImportDocumentTests.fs]])
 - [[.scratch/selective-client-loading/issues/20-restore-saved-zoom-workspace-during-bootstrap.md]] — HITL F5: Load Workspace, focus a sub-node (no Zoom), refresh; owning Workspace Loaded and zoom stays at prior zoomRoot / in-ROOT (not zoomed into selection) (artifacts: [[src/Shared/ResidentProjection.fs]] sessionTargets, [[src/Client/SessionState.fs]])
 - [[.scratch/selective-client-loading/issues/21-load-one-selected-target-through-synchronization.md]] — HITL verify Load of Unloaded named Workspace after stub-skip fix (inventory → push → `/load` with packages; no `/changes` name conflict) (artifacts: [[src/Shared/WorkspaceUploadStructure.fs]], [[tests/Shared.Tests/WorkspaceUploadStructureTests.fs]])
 - [[tmp/load-performance-audit.md]] — secondary: ensure ledger reuse on already-synced Load (Mask path); diagnose empty-ledger resets (artifacts: [[src/Shared/dotnet/WorkspaceSyncLedger.fs]] needsSeed, [[src/Shared/dotnet/WorkspaceFileSync.fs]] ensureLedgerSeeded)
@@ -43,7 +42,7 @@ Work ready to start but not yet claimed.
 
 Work that cannot proceed until a named dependency or decision is resolved.
 
-- [[.scratch/node-bullet-tooltip/issues/02-client-bullet-tip-wiring.md]] — HITL verify three Bullet hover tips and unchanged click/fold/zoom (blocked by: browser check; audit: [[.scratch/node-bullet-tooltip/pending-audit-tooltip-hitl.md]])
+- [[tmp/warm-parse-dual-owner-fix.md]] — HITL verify Current warm File Load after reclaim-vs-trash fix; dual-Owner gone (blocked by: focused warm-load browser check; audit: [[.scratch/work-board-audit/warm-parse-dual-owner.md]])
 - [[.scratch/selective-client-loading/issues/26-forbid-unloaded-destinations-in-move-dialog.md]] — Move dialog does not offer Unloaded destinations (blocked by: [[.scratch/selective-client-loading/issues/25-guard-structural-commands-at-unloaded-boundaries.md]])
 - [[.scratch/selective-client-loading/issues/27-document-delivered-selective-loading-baseline.md]] — promote implemented client residency while retaining future server residency in the roadmap (blocked by: [[.scratch/selective-client-loading/issues/20-restore-saved-zoom-workspace-during-bootstrap.md]], [[.scratch/selective-client-loading/issues/28-make-hollow-circle-clicks-invoke-load.md]], [[.scratch/selective-client-loading/issues/24-keep-navigation-and-find-resident-only.md]], [[.scratch/selective-client-loading/issues/26-forbid-unloaded-destinations-in-move-dialog.md]])
 - [[.scratch/selective-client-loading/issues/28-make-hollow-circle-clicks-invoke-load.md]] — dispatch full-selection Load from the hollow-circle control (blocked by: [[.scratch/selective-client-loading/issues/22-load-full-selection.md]], [[.scratch/selective-client-loading/issues/23-introduce-hollow-circle-presentation.md]])

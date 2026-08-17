@@ -100,34 +100,55 @@ let patchDOM
 
     syncZoomPath newModel dispatch rowRoot |> ignore
 
-    // Apply upserts in preorder, correcting DOM position as we go
-    let mutable prevNode: Browser.Types.Node option = None
+    let hasStructuralMutation =
+        mutations
+        |> List.exists (function
+            | CreateRow _
+            | RemoveRow _
+            | RecreateRow _ -> true
+            | PatchRow _ -> false)
 
-    for instId in ViewModel.getVisibleInstanceIds newModel.siteMap do
-        let entry = newModel.siteMap.entries.[instId]
-        let depth = computeDepth newModel.siteMap entry
+    if not hasStructuralMutation then
+        // Selection/class-only (or empty): patch named rows; skip full visible walk + DOM order checks.
+        for mut in mutations do
+            match mut with
+            | PatchRow (instId, _) ->
+                match Map.tryFind instId newModel.siteMap.entries with
+                | None -> ()
+                | Some entry ->
+                    let depth = computeDepth newModel.siteMap entry
+                    let _, cache'' = resolveRow newModel dispatch depth entry instId upsertIndex cache'
+                    cache' <- cache''
+            | _ -> ()
+    else
+        // Apply upserts in preorder, correcting DOM position as we go
+        let mutable prevNode: Browser.Types.Node option = None
 
-        let row, cache'' = resolveRow newModel dispatch depth entry instId upsertIndex cache'
-        cache' <- cache''
+        for instId in ViewModel.getVisibleInstanceIds newModel.siteMap do
+            let entry = newModel.siteMap.entries.[instId]
+            let depth = computeDepth newModel.siteMap entry
 
-        // Ensure the row sits in the correct DOM position (preorder sequence)
-        let atCorrectPos =
-            match prevNode with
-            | None ->
-                let first = firstRowAnchor rowRoot
-                not (isNull first) && System.Object.ReferenceEquals(first, row)
-            | Some pe ->
-                let ns = pe.nextSibling
-                not (isNull ns) && System.Object.ReferenceEquals(ns, row)
+            let row, cache'' = resolveRow newModel dispatch depth entry instId upsertIndex cache'
+            cache' <- cache''
 
-        if not atCorrectPos then
-            let anchor =
+            // Ensure the row sits in the correct DOM position (preorder sequence)
+            let atCorrectPos =
                 match prevNode with
-                | None -> firstRowAnchor rowRoot
-                | Some pe -> pe.nextSibling
-            rowRoot.insertBefore(row, anchor) |> ignore
+                | None ->
+                    let first = firstRowAnchor rowRoot
+                    not (isNull first) && System.Object.ReferenceEquals(first, row)
+                | Some pe ->
+                    let ns = pe.nextSibling
+                    not (isNull ns) && System.Object.ReferenceEquals(ns, row)
 
-        prevNode <- Some (row :> Browser.Types.Node)
+            if not atCorrectPos then
+                let anchor =
+                    match prevNode with
+                    | None -> firstRowAnchor rowRoot
+                    | Some pe -> pe.nextSibling
+                rowRoot.insertBefore(row, anchor) |> ignore
+
+            prevNode <- Some (row :> Browser.Types.Node)
 
     if ManageFocus.shouldInvoke (Some oldModel) newModel then
     //if false then

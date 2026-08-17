@@ -15,7 +15,8 @@ module ViewModelSiteMap =
 
     let emptySiteMap : SiteMap =
         let rootEntry = { instanceId = Sid 0; nodeId = Graph.rootId
-                          parentInstanceId = None; expanded = true; childrenStale = false; children = [] }
+                          parentInstanceId = None; childIndex = 0
+                          expanded = true; childrenStale = false; children = [] }
         let entries = Map.ofList [Sid 0, rootEntry]
         { rootId = Sid 0
           entries = entries
@@ -37,6 +38,7 @@ module ViewModelSiteMap =
         (acc: Map<SiteId, SiteEntry> ref)
         (nodeId: NodeId)
         (parentInstId: SiteId option)
+        (siblingIndex: int)
         (isRoot: bool)
         (oldInstIdOpt: SiteId option) : SiteId =
         let oldEntryOpt =
@@ -51,6 +53,7 @@ module ViewModelSiteMap =
             resolveChildInstIds graph oldMap freshId acc nodeId isRoot expanded oldEntryOpt instId
         let entry =
             { instanceId = instId; nodeId = nodeId; parentInstanceId = parentInstId
+              childIndex = siblingIndex
               expanded = if isRoot then true else expanded
               childrenStale = false; children = childInstIds }
         acc.Value <- Map.add instId entry acc.Value
@@ -98,16 +101,17 @@ module ViewModelSiteMap =
                 match oldChildOpt with
                 | Some old when old.expanded ->
                     walkReconciled graph oldMap freshId acc child.id
-                        (Some instId) false (Some old.instanceId)
+                        (Some instId) i false (Some old.instanceId)
                 | Some old ->
                     acc.Value <- Map.add old.instanceId
-                        { old with childrenStale = true; children = [] }
+                        { old with childrenStale = true; children = []; childIndex = i }
                         acc.Value
                     old.instanceId
                 | None ->
                     let newId = freshId ()
                     acc.Value <- Map.add newId { instanceId = newId; nodeId = child.id
                                                  parentInstanceId = Some instId
+                                                 childIndex = i
                                                  expanded = false;
                                                  childrenStale = true;
                                                  children = []
@@ -127,14 +131,16 @@ module ViewModelSiteMap =
         let rootInstId = freshId ()
         let rootNode = graph.nodes.[rootNodeId]
         let childInstIds =
-            rootNode.children |> List.map (fun child ->
+            rootNode.children |> List.mapi (fun i child ->
                 let childId = freshId ()
                 acc <- Map.add childId { instanceId = childId; nodeId = child.id
                                          parentInstanceId = Some rootInstId
+                                         childIndex = i
                                          expanded = false; childrenStale = true; children = [] } acc
                 childId)
         acc <- Map.add rootInstId { instanceId = rootInstId; nodeId = rootNodeId
                                     parentInstanceId = None
+                                    childIndex = 0
                                     expanded = true; childrenStale = false; children = childInstIds } acc
         { rootId = rootInstId
           entries = acc
@@ -177,7 +183,7 @@ module ViewModelSiteMap =
         : SiteMap * SiteId =
         let freshId, endCount = makeCounter startId
         let acc = ref Map.empty<SiteId, SiteEntry>
-        let rootInstId = walkReconciled graph oldMap freshId acc rootNodeId None true (Some oldMap.rootId)
+        let rootInstId = walkReconciled graph oldMap freshId acc rootNodeId None 0 true (Some oldMap.rootId)
         let entries = acc.Value
         { rootId = rootInstId
           entries = entries
@@ -233,11 +239,15 @@ module ViewModelSiteMap =
                     node.children |> List.mapi (fun i child ->
                         // Reuse existing child entry at this position if nodeId matches
                         match List.tryItem i entry.children |> Option.bind (fun oid -> Map.tryFind oid acc) with
-                        | Some existing when existing.nodeId = child.id -> existing.instanceId
+                        | Some existing when existing.nodeId = child.id ->
+                            if existing.childIndex <> i then
+                                acc <- Map.add existing.instanceId { existing with childIndex = i } acc
+                            existing.instanceId
                         | _ ->
                             let newId = freshId ()
                             acc <- Map.add newId { instanceId = newId; nodeId = child.id
                                                    parentInstanceId = Some instanceId
+                                                   childIndex = i
                                                    expanded = false; childrenStale = true; children = [] } acc
                             newId)
                 let updated = { entry with expanded = true; childrenStale = false; children = childInstIds }

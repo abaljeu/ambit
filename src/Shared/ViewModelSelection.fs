@@ -32,9 +32,10 @@ module ViewModelSelection =
                 match Map.tryFind parentInstId siteMap.entries with
                 | None -> None
                 | Some parentEntry ->
-                    match parentEntry.children |> List.tryFindIndex ((=) instanceId) with
-                    | None -> None
-                    | Some idx -> Some { range = { parent = parentEntry; start = idx; endd = idx + 1 }; focus = idx }
+                    let idx = entry.childIndex
+                    if idx < 0 || idx >= parentEntry.children.Length then None
+                    elif parentEntry.children.[idx] <> instanceId then None
+                    else Some { range = { parent = parentEntry; start = idx; endd = idx + 1 }; focus = idx }
 
     /// Refreshes a Selection against the current site map and graph.
     /// Clamps out-of-range indices under the same parent when possible; otherwise

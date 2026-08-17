@@ -11,28 +11,18 @@ module ViewModelRowState =
     /// True when entry is directly within the selected index range AND is a child
     /// of the exact same parent instance that the selection was made on.
     /// Prevents sibling occurrences of the same NodeId (DIGRAPH links) from lighting up.
-    let private isInstanceDirectlySelected (sel: Selection) (siteMap: SiteMap) (entry: SiteEntry) : bool =
+    let private isInstanceDirectlySelected (sel: Selection) (_siteMap: SiteMap) (entry: SiteEntry) : bool =
         match entry.parentInstanceId with
         | Some parentInstId when parentInstId = sel.range.parent.instanceId ->
-            match Map.tryFind parentInstId siteMap.entries with
-            | None -> false
-            | Some parentEntry ->
-                match parentEntry.children |> List.tryFindIndex ((=) entry.instanceId) with
-                | Some idx -> idx >= sel.range.start && idx < sel.range.endd
-                | None -> false
+            entry.childIndex >= sel.range.start && entry.childIndex < sel.range.endd
         | _ -> false
 
     /// True when entry is at the focused index AND is a child of the exact same
     /// parent instance that the selection was made on.
-    let private isInstanceFocused (sel: Selection) (siteMap: SiteMap) (entry: SiteEntry) : bool =
+    let private isInstanceFocused (sel: Selection) (_siteMap: SiteMap) (entry: SiteEntry) : bool =
         match entry.parentInstanceId with
         | Some parentInstId when parentInstId = sel.range.parent.instanceId ->
-            match Map.tryFind parentInstId siteMap.entries with
-            | None -> false
-            | Some parentEntry ->
-                match parentEntry.children |> List.tryFindIndex ((=) entry.instanceId) with
-                | Some idx -> idx = sel.focus
-                | None -> false
+            entry.childIndex = sel.focus
         | _ -> false
 
     /// Walk up the parentInstanceId chain: true if entry or any ancestor satisfies pred.
@@ -298,15 +288,12 @@ module ViewModelRowState =
         entry.parentInstanceId
         |> Option.bind (fun parentId -> Map.tryFind parentId model.siteMap.entries)
         |> Option.bind (fun parent ->
-            parent.children
-            |> List.tryFindIndex ((=) entry.instanceId)
-            |> Option.bind (fun index ->
-                model.graph.nodes
-                |> Map.tryFind parent.nodeId
-                |> Option.bind (fun node ->
-                    List.tryItem index node.children
-                    |> Option.map (fun child ->
-                        Node.childOwnership model.graph parent.nodeId child))))
+            model.graph.nodes
+            |> Map.tryFind parent.nodeId
+            |> Option.bind (fun node ->
+                List.tryItem entry.childIndex node.children
+                |> Option.map (fun child ->
+                    Node.childOwnership model.graph parent.nodeId child)))
         |> Option.defaultValue Ownership.Owner
 
     let rowOwnershipClass (model: VM) (entry: SiteEntry) : string =

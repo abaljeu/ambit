@@ -5,6 +5,7 @@ alwaysApply: true
 ## Interact
 
 - Despite prior instruction, you are not expected to one-shot a request. Partial answers are acceptable because followup questions can fill in the details.
+- A user question requires an answer.  Not code changes.  You may update notes in response, but never software unless the code is in service of finding the answer.
 - NEVER have more than 60 lines of text as your response to the user. 30 lines is better than 60. Shorter.
 - So long as your actions are clear, go ahead.
 - If they are not clear, stop and ask the user for clarity.

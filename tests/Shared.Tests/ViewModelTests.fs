@@ -2044,6 +2044,55 @@ let ``planPatchDOM editing row text change produces SetText not RecreateRow`` ()
     Assert.Equal(1, setTextOnTarget.Length)
     Assert.Equal("b+pasted", setTextOnTarget.[0])
 
+[<Fact>]
+let ``SiteEntry.childIndex matches sibling order under parent`` () =
+    let graph, cont, _ = buildFlat [ "a"; "b"; "c" ]
+    let m = emptyModelAt graph cont
+    let root = m.siteMap.entries.[m.siteMap.rootId]
+    Assert.Equal(0, root.childIndex)
+    root.children
+    |> List.iteri (fun i id -> Assert.Equal(i, m.siteMap.entries.[id].childIndex))
+
+[<Fact>]
+let ``planPatchDOM selection move emits only affected row patches`` () =
+    let texts = [ for i in 1 .. 40 -> sprintf "n%d" i ]
+    let graph, cont, _ = buildFlat texts
+    let oldModel = modelWithSel graph cont 0 1 0
+    let newModel = moveSelectionBy 1 oldModel
+    Assert.True(oldModel.selectedNodes <> newModel.selectedNodes)
+    let cachedInstIds = buildCacheSet oldModel.siteMap
+    let visibleCount = getVisibleInstanceIds oldModel.siteMap |> List.length
+    let mutations = planPatchDOM oldModel newModel cachedInstIds
+    let structural =
+        mutations
+        |> List.filter (function
+            | CreateRow _
+            | RemoveRow _
+            | RecreateRow _ -> true
+            | _ -> false)
+    let nonEmptyPatches =
+        mutations
+        |> List.choose (function
+            | PatchRow (id, patches) when not patches.IsEmpty -> Some id
+            | _ -> None)
+    Assert.Equal(0, structural.Length)
+    Assert.True(
+        mutations.Length < visibleCount / 2,
+        sprintf "expected selection fast path; got %d mutations for %d visible" mutations.Length visibleCount)
+    Assert.True(
+        nonEmptyPatches.Length <= 4,
+        sprintf "expected few class patches; got %d" nonEmptyPatches.Length)
+    Assert.Contains("amb-focused",
+        mutations
+        |> List.collect (function
+            | PatchRow (_, patches) ->
+                patches
+                |> List.choose (function
+                    | SetClassName c -> Some c
+                    | _ -> None)
+            | _ -> [])
+        |> String.concat " ")
+
 // ---------------------------------------------------------------------------
 // Page / Home — cursorLevel*, shiftPg*, cursorViewRoot*
 // ---------------------------------------------------------------------------

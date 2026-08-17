@@ -25,6 +25,8 @@ type SiteEntry =
     { instanceId: SiteId
       nodeId: NodeId
       parentInstanceId: SiteId option   // None = root
+      /// 0-based index among parent's `children` (0 for root). Kept in sync when children lists are built.
+      childIndex: int
       expanded: bool
       childrenStale: bool            // true when children list may not match graph; re-synced on expand
       children: SiteId list }        // instanceId list, ordered to match graph.children (valid when not stale)
@@ -63,10 +65,12 @@ module SiteMap =
     /// missing, the parent entry is missing, or `child` is not a direct child of that
     /// parent instance.
     let siteChildIndex (siteMap: SiteMap) (parent: SiteId option) (child: SiteId option) : int option =
-        withEntry siteMap parent 
-                    (fun p -> 
-                        child |> Option.bind (fun cid -> 
-                            List.tryFindIndex ((=) cid) p.children))
+        match parent, child with
+        | Some pid, Some cid ->
+            match Map.tryFind cid siteMap.entries with
+            | Some e when e.parentInstanceId = Some pid -> Some e.childIndex
+            | _ -> None
+        | _ -> None
 
     let private siteSiblingOffset (delta: int) (siteMap: SiteMap) (id: SiteId option) : SiteId option =
         withEntry siteMap id (fun e ->
@@ -74,8 +78,7 @@ module SiteMap =
             |> Option.bind (fun pid ->
                 Map.tryFind pid siteMap.entries
                 |> Option.bind (fun parent ->
-                    List.tryFindIndex ((=) e.instanceId) parent.children
-                    |> Option.bind (fun i -> List.tryItem (i + delta) parent.children))))
+                    List.tryItem (e.childIndex + delta) parent.children)))
 
     /// Next sibling under the same parent (`children` order). Root has no siblings.
     let siteNext = siteSiblingOffset 1
