@@ -629,6 +629,38 @@ let ``planPatchDOM recreates row when leaf circle becomes hollow`` () =
             | RecreateRow id -> id = leafInst.instanceId
             | _ -> false))
 
+[<Fact>]
+let ``planPatchDOM recreates row when Unloaded leaf becomes Loaded with children`` () =
+    let graph0 = Graph.create ()
+    let leafId = NodeId.New()
+    let childId = NodeId.New()
+    let unloaded =
+        Node.Create(leafId, text = "leaf", childrenStatus = Unloaded)
+    let graph1 =
+        Graph.fromNodes graph0.root (graph0.nodes |> Map.add leafId unloaded)
+    let graph2 = addChild Graph.rootId leafId graph1
+    let oldModel = modelFromGraph graph2
+    let loaded =
+        { unloaded with
+            children = [ ChildNode.owner childId ]
+            childrenStatus = Loaded }
+    let child = Node.Create(childId, text = "c", owner = leafId)
+    let newModel =
+        { oldModel with
+            graph =
+                Graph.fromNodes
+                    graph2.root
+                    (graph2.nodes |> Map.add leafId loaded |> Map.add childId child) }
+    let leafInst =
+        entryUnderParentNode Graph.rootId leafId oldModel
+    let cached = Set.ofList [ oldModel.siteMap.rootId; leafInst.instanceId ]
+    let mutations = planPatchDOM oldModel newModel cached
+    Assert.True(
+        mutations
+        |> List.exists (function
+            | RecreateRow id -> id = leafInst.instanceId
+            | _ -> false))
+
 // ---------------------------------------------------------------------------
 // bulletTip — hover inspector facts, self-gated, fixed order
 // ---------------------------------------------------------------------------

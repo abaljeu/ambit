@@ -102,17 +102,26 @@ let patchDOM
 
     // PatchRow-only is not enough: sibling MoveUp/Down keeps the same rows but changes order.
     if not (ViewModel.needsDomOrderWalk oldModel newModel mutations) then
-        // Selection/class-only (or empty): patch named rows; skip full visible walk + DOM order checks.
+        // Fast path: patch in-place; still honor structural row mutations (bullet/chevron
+        // type changes emit RecreateRow even when visible preorder is unchanged).
         for mut in mutations do
             match mut with
-            | PatchRow (instId, _) ->
+            | RemoveRow instId ->
+                match Map.tryFind instId cache' with
+                | Some el -> el.remove()
+                | None -> ()
+                cache' <- Map.remove instId cache'
+            | _ -> ()
+        for mut in mutations do
+            match mut with
+            | PatchRow (instId, _) | RecreateRow instId | CreateRow instId ->
                 match Map.tryFind instId newModel.siteMap.entries with
                 | None -> ()
                 | Some entry ->
                     let depth = computeDepth newModel.siteMap entry
                     let _, cache'' = resolveRow newModel dispatch depth entry instId upsertIndex cache'
                     cache' <- cache''
-            | _ -> ()
+            | RemoveRow _ -> ()
     else
         // Apply upserts in preorder, correcting DOM position as we go
         let mutable prevNode: Browser.Types.Node option = None

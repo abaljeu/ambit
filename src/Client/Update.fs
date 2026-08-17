@@ -197,8 +197,12 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                         model.syncInfo
                         |> SyncInfo.withServerReady ready }
             | None -> model
-        // While Uploading or Parsing: apply graph deltas but keep the busy indicator.
+        // While Uploading, Parsing, or Loading: keep the busy indicator. Do not apply
+        // Poll tails during Loading — a stale poll would advance Revision and cause
+        // applyLoadResponse to reject package-only Load payloads.
         match readyModel.syncInfo.syncState with
+        | Loading ->
+            readyModel, []
         | Uploading | Parsing as busy ->
             match stateOpt with
             | Some DataOutdated
