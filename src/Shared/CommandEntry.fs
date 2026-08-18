@@ -159,16 +159,16 @@ let allCommands : CommandEntry list =
           keys = [ "Shift+ArrowDown"; "O" ]; keyScope = SelectionOrEditing
           iconId = Some "amb-icon-sel-down" }
         { id = EditCursorUp; name = "Edit cursor up"
-          keys = [ "ArrowUp" ]; keyScope = EditingOnly
+          keys = [ "ArrowUp"; "," ]; keyScope = EditingOnly
           iconId = None }
         { id = EditCursorDown; name = "Edit cursor down"
-          keys = [ "ArrowDown" ]; keyScope = EditingOnly
+          keys = [ "ArrowDown"; "o" ]; keyScope = EditingOnly
           iconId = None }
         { id = MoveUp; name = "Move Up"
-          keys = [ "Alt+ArrowUp"; "Ctrl+ArrowUp" ]; keyScope = SelectionOrEditing
+          keys = [ "Alt+ArrowUp"; "Ctrl+ArrowUp"; "Ctrl+," ]; keyScope = SelectionOrEditing
           iconId = Some "amb-icon-move-up" }
         { id = MoveDown; name = "Move Down"
-          keys = [ "Alt+ArrowDown"; "Ctrl+ArrowDown" ]; keyScope = SelectionOrEditing
+          keys = [ "Alt+ArrowDown"; "Ctrl+ArrowDown"; "Ctrl+o" ]; keyScope = SelectionOrEditing
           iconId = Some "amb-icon-move-down" }
         { id = CursorToStart; name = "Cursor to Start"
           keys = [ "PageUp" ]; keyScope = SelectionOnly
