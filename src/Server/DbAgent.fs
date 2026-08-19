@@ -91,39 +91,47 @@ module DbAgent =
             stamped, confirmed
 
         let tryPersistedChange (changeId: Guid) =
-            Database.tryGetPersistedPayload connectionString changeId
-            |> Async.AwaitTask
-            |> Async.RunSynchronously
-            |> Option.bind (decodeChangePayload >> Result.toOption)
+            if String.IsNullOrEmpty connectionString then
+                None
+            else
+                Database.tryGetPersistedPayload connectionString changeId
+                |> Async.AwaitTask
+                |> Async.RunSynchronously
+                |> Option.bind (decodeChangePayload >> Result.toOption)
 
         let applyBatch (changes: Change list) =
-            let step (s, confirmations, logEntries) change =
-                match tryPersistedChange change.changeId with
-                | Some stored ->
-                    Ok(s, stored :: confirmations, logEntries)
-                | None when change.id <> s.revision.Value ->
-                    Error
-                        $"Revision mismatch: server is at revision {s.revision.Value}, but this Change targets base revision {change.id}."
-                | None ->
-                    match History.applyChange change s with
-                    | ApplyResult.Invalid (_, errMsg) -> Error errMsg
-                    | ApplyResult.Unchanged _ ->
-                        Error "Unchanged submission is rejected."
-                    | ApplyResult.Changed s' ->
-                        let nextRev = s.revision.Value + 1
-                        let nextState = { s' with revision = Revision nextRev }
-                        let logEntry = nextRev, change
-                        Ok(nextState, change :: confirmations, logEntry :: logEntries)
+            try
+                let step (s, confirmations, logEntries) change =
+                    match tryPersistedChange change.changeId with
+                    | Some stored ->
+                        Ok(s, stored :: confirmations, logEntries)
+                    | None when change.id <> s.revision.Value ->
+                        Error
+                            $"Revision mismatch: server is at revision {s.revision.Value}, but this Change targets base revision {change.id}."
+                    | None ->
+                        match History.applyChange change s with
+                        | ApplyResult.Invalid (_, errMsg) -> Error errMsg
+                        | ApplyResult.Unchanged _ ->
+                            Error "Unchanged submission is rejected."
+                        | ApplyResult.Changed s' ->
+                            let nextRev = s.revision.Value + 1
+                            let nextState =
+                                { s' with revision = Revision nextRev }
+                            let logEntry = nextRev, change
+                            Ok(nextState, change :: confirmations, logEntry :: logEntries)
 
-            changes
-            |> List.fold
-                (fun acc change ->
-                    match acc with
-                    | Error err -> Error err
-                    | Ok stateAndLog -> step stateAndLog change)
-                (Ok(state.Value, [], []))
-            |> Result.map (fun (newState, confirmations, entries) ->
-                newState, List.rev confirmations, List.rev entries)
+                changes
+                |> List.fold
+                    (fun acc change ->
+                        match acc with
+                        | Error err -> Error err
+                        | Ok stateAndLog -> step stateAndLog change)
+                    (Ok(state.Value, [], []))
+                |> Result.map (fun (newState, confirmations, entries) ->
+                    newState, List.rev confirmations, List.rev entries)
+            with ex ->
+                eprintfn "DbAgent: failed to apply batch: %s" ex.Message
+                Error $"Database error: {ex.Message}"
 
         let persistBatch (newState: State) (logEntries: (int * Change) list) =
             try
@@ -204,7 +212,11 @@ module DbAgent =
             | Error err ->
                 reply.Reply(Error $"Invalid JSON: {err}")
             | Ok batch ->
-                match applyBatch batch.changes with
+                match
+                    FileAgent.runBounded
+                        FileAgent.ChangeProcessingTimeoutMs
+                        (fun () -> applyBatch batch.changes)
+                with
                 | Error err -> reply.Reply(Error err)
                 | Ok (newState, confirmations, logEntries) ->
                     let preGraph = state.Value.graph

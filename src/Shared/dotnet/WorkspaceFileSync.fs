@@ -398,6 +398,12 @@ module WorkspaceFileSync =
                     serverM
                     localM
 
+    let private isSizeRejectedFile (planned: WorkspaceSyncLimits.PlannedPath) =
+        not planned.isDirectory
+        && match planned.file with
+           | Some WorkspaceSyncLimits.FilePlan.StubOnly -> true
+           | _ -> false
+
     /// Push: local inventory → classify/plan → MKCOL/PUT → finish-commit.
     let post
         (client: HttpClient)
@@ -462,7 +468,7 @@ module WorkspaceFileSync =
                     | Error e -> Error e
                     | Ok scopeServerMap ->
                         let mutable ledger = ledger0
-                        let mutable skipped = 0
+                        let mutable alreadyUpToDate = 0
                         let skippedPaths = ResizeArray<string>()
                         let uploadedPaths = ResizeArray<string>()
 
@@ -496,7 +502,7 @@ module WorkspaceFileSync =
                                         mappedRoot
                                         item
                                 then
-                                    skipped <- skipped + 1
+                                    alreadyUpToDate <- alreadyUpToDate + 1
                                     skippedPaths.Add item.relative
                                     false
                                 else
@@ -519,6 +525,12 @@ module WorkspaceFileSync =
                                 recordUploaded item
 
                             let uploaded = List.length uploadedItems
+                            let uploadFailed = List.length toUpload - uploaded
+
+                            let sizeRejected =
+                                planned |> List.filter isSizeRejectedFile |> List.length
+
+                            let skipped = uploadFailed + sizeRejected
                             match
                                 WorkspaceDavClient.finishCommit
                                     client
@@ -545,17 +557,12 @@ module WorkspaceFileSync =
                                 | Error e -> Error e
                                 | Ok () ->
                                     let baseDetail =
-                                        if skipped > 0 then
-                                            sprintf
-                                                "uploaded %d, skipped %d (%s)"
-                                                uploaded
-                                                skipped
-                                                (modeLabel mode)
-                                        else
-                                            sprintf
-                                                "uploaded %d (%s)"
-                                                uploaded
-                                                (modeLabel mode)
+                                        sprintf
+                                            "already up to date %d, uploaded %d, skipped %d (%s)"
+                                            alreadyUpToDate
+                                            uploaded
+                                            skipped
+                                            (modeLabel mode)
 
                                     let withGit =
                                         if DesktopGit.isAvailable() then
@@ -569,8 +576,6 @@ module WorkspaceFileSync =
                                             withGit
                                         else
                                             withGit
-                                            + "; failed "
-                                            + string uploadErrors.Length
                                             + ": "
                                             + String.concat "; " uploadErrors
 
