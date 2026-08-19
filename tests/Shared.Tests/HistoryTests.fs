@@ -350,6 +350,18 @@ let private assertUnparsedInvalid state op =
     Assert.Equal(state.graph, unchanged.graph)
 
 [<Fact>]
+let ``SetUpdateTime on unparsed file root succeeds`` () =
+    let state, fileId, _, _, _ = unparsedFileState ()
+    let oldStamp = state.graph.nodes.[fileId].updateTime
+    let newStamp =
+        System.DateTime(2026, 1, 2, 0, 0, 0, System.DateTimeKind.Utc)
+    let changed =
+        Op.apply (Op.SetUpdateTime(fileId, oldStamp, newStamp)) state
+        |> expectChanged
+    Assert.Equal(NodeUpdateTime.toDbPrecision newStamp, changed.graph.nodes.[fileId].updateTime)
+    Assert.Equal(Unparsed, changed.graph.nodes.[fileId].documentState)
+
+[<Fact>]
 let ``edit or rename of unparsed file root is rejected`` () =
     let state, fileId, _, _, _ = unparsedFileState ()
     assertUnparsedInvalid state (Op.SetText(fileId, "file.txt", "changed"))

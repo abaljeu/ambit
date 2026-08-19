@@ -119,6 +119,10 @@ module Op =
                 DocumentPartition.isDocumentRootNode graph child.id)
 
         match op with
+        | Op.SetUpdateTime _ ->
+            // Download stamp alignment and persist tails only touch mtime metadata;
+            // they must not require the document to be parsed first.
+            false
         | Op.Replace(parentId, _, oldChildren, newChildren) ->
             let stubAttachUnderShell =
                 isUnparsedTreeShell parentId
