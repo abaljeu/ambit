@@ -3,6 +3,9 @@ module LazyLoadReconciliationTests
 open Gambol.Shared
 open Xunit
 
+[<CollectionDefinition("ExclusiveTiming", DisableParallelization = true)>]
+type ExclusiveTimingCollection() = class end
+
 let private applyOps (graph: Graph) (ops: Op list) : Graph =
     let state = { graph = graph; history = History.empty; revision = Revision.Zero }
     ops
@@ -730,21 +733,32 @@ let ``new Directory File Added still parses outline`` () =
         Assert.Equal(Current, fresh.documentState)
         Assert.Equal("hello", graph1.nodes.[fresh.children.Head.id].text)
 
-[<Fact>]
-let ``second Added rediscovery of Current dirs stays under 100ms`` () =
-    let graph1, artifacts, changes = seedCurrentDirsWithAmb 80
-    let sw = System.Diagnostics.Stopwatch.StartNew()
-    match
-        LazyLoadReconciliationReport.planChangedPathsWithArtifacts
-            graph1
-            "home"
-            changes
-            artifacts
-    with
-    | Error err -> Assert.Fail(err)
-    | Ok report ->
-        sw.Stop()
-        Assert.Empty(report.ops)
-        Assert.True(
-            sw.ElapsedMilliseconds < 100L,
-            $"second rediscovery took {sw.ElapsedMilliseconds}ms")
+[<Collection("ExclusiveTiming")>]
+type SecondRediscoveryTiming() =
+    [<Fact>]
+    member _.``second Added rediscovery of Current dirs stays under 100ms`` () =
+        let graph1, artifacts, changes = seedCurrentDirsWithAmb 80
+        match
+            LazyLoadReconciliationReport.planChangedPathsWithArtifacts
+                graph1
+                "home"
+                changes
+                artifacts
+        with
+        | Error err -> Assert.Fail(err)
+        | Ok warmup -> Assert.Empty(warmup.ops)
+        let sw = System.Diagnostics.Stopwatch.StartNew()
+        match
+            LazyLoadReconciliationReport.planChangedPathsWithArtifacts
+                graph1
+                "home"
+                changes
+                artifacts
+        with
+        | Error err -> Assert.Fail(err)
+        | Ok report ->
+            sw.Stop()
+            Assert.Empty(report.ops)
+            Assert.True(
+                sw.ElapsedMilliseconds < 100L,
+                $"second rediscovery took {sw.ElapsedMilliseconds}ms")

@@ -38,6 +38,9 @@ Work ready to start but not yet claimed.
 - [[src/Client/Program.fs]] — optional hardening: `fetchTextNoCacheWithFail` for `/ambit/state` (not the primary hang)
 - [[.scratch/glossary-directory-file/rename-isMarker.md]] — optional remaining speech/doc sweep for informal “marker” (Directory File sense); `isMarker` / related API renames done
 - [[.scratch/large-node-cursor-perf/delete-children-cost.md]] — profile/optimize delete among large siblings (fromNodes + SiteMap rematch / structural DOM plan) (parent: [[.scratch/large-node-cursor-perf/project.md]])
+- [[src/Shared/ViewModelJoinOps.fs]] — `removeCurrentOp` fabricates `ChildNode.owner` instead of reading the live edge, so join on a Ref occurrence fails the `Graph.replace` span CAS; untested (evidence: [[.scratch/relaxed-concurrency/replace-span-cas-feasibility.md]])
+- [[.scratch/relaxed-concurrency/spec.md]] — drop the global revision gate on both server apply paths; rely on per-op preconditions; same-parent structural rejection keeps today's Reject path (design: [[.scratch/relaxed-concurrency/design.md]], parent: [[.scratch/relaxed-concurrency/project.md]], map: [[.scratch/relaxed-concurrency/map.md]])
+- [[.scratch/relaxed-concurrency/map.md]] — client merge-sync slices 2–3: reject payload with remote changes, merge + replan at pendingChanges tail, Replace replan with contiguous-run fallback; G resolved — server weak-form Replace rejected (parent: [[.scratch/relaxed-concurrency/project.md]], report: [[.scratch/relaxed-concurrency/g-decision-report.md]])
 
 ## Blocked
 

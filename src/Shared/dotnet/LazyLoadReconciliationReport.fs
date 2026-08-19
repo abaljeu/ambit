@@ -90,16 +90,25 @@ module LazyLoadReconciliationReport =
                 ops,
                 failures @ [ { path = pathFor item; message = message } ]) state
 
+    let private isExistingCurrent graph workspaceId (info: Path.PathInfo) =
+        match Path.resolveInfo graph workspaceId info with
+        | Ok(Some(nodeId, _)) ->
+            graph.nodes.[nodeId].documentState = Current
+        | _ -> false
+
     let private foldAdded workspaceId state items =
         items
         |> List.fold (fun ((graph, ops, failures), accepted) item ->
-            match LazyLoadReconciliation.planAddedInfo graph workspaceId item.info with
-            | Ok(next, nextOps) ->
-                (next, ops @ nextOps, failures),
-                accepted @ [ item, nextOps ]
-            | Error message ->
-                (graph, ops, failures @ [ { path = item.path; message = message } ]),
-                accepted) (state, [])
+            if isExistingCurrent graph workspaceId item.info then
+                ((graph, ops, failures), accepted)
+            else
+                match LazyLoadReconciliation.planAddedInfo graph workspaceId item.info with
+                | Ok(next, nextOps) ->
+                    (next, ops @ nextOps, failures),
+                    accepted @ [ item, nextOps ]
+                | Error message ->
+                    (graph, ops, failures @ [ { path = item.path; message = message } ]),
+                    accepted) (state, [])
 
     let private protectedDirectoryIds graph workspaceId renames =
         renames
