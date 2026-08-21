@@ -1,6 +1,7 @@
 module Gambol.Server.Tests.DatabaseProjectionContractTests
 
 open System
+open System.Data.Common
 open Xunit
 open Gambol.Server
 open Gambol.Shared
@@ -90,6 +91,14 @@ let private exec connStr sql (parameters: (string * obj) list) = task {
     return ()
 }
 
+let private readChildRows (reader: DbDataReader) =
+    let rec loop acc =
+        if reader.Read() then
+            loop ((reader.GetGuid 0, reader.GetInt32 1, reader.GetString 2) :: acc)
+        else
+            List.rev acc
+    loop []
+
 let private readRootChildren connStr = task {
     use conn = new NpgsqlConnection(connStr)
     do! conn.OpenAsync()
@@ -103,12 +112,7 @@ let private readRootChildren connStr = task {
             """,
             conn)
     use! reader = command.ExecuteReaderAsync()
-    let rec loop acc =
-        if reader.Read() then
-            loop ((reader.GetGuid 0, reader.GetInt32 1, reader.GetString 2) :: acc)
-        else
-            List.rev acc
-    return loop []
+    return readChildRows reader
 }
 [<Fact>]
 let ``writer upserts complete nodes children revision and reloads`` () = task {

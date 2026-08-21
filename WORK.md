@@ -18,6 +18,7 @@ Mutations for delegated workers to return to their parent: `add`, `move`, `block
 
 Work currently being executed.
 
+- [[.scratch/event-sourced-ops/project.md]] — grill increment-2 of the async Change/Merge framework; three-layer picture published (top: [[.scratch/event-sourced-ops/overview.md]], [[.scratch/event-sourced-ops/architecture.md]]; details index on [[.scratch/event-sourced-ops/project.md]]; frontier: [[.scratch/event-sourced-ops/details/open-questions.md]]; history: [[.scratch/event-sourced-ops/details/decision-log.md]]; related: [[.scratch/relaxed-concurrency/map.md]], [[.scratch/event-sourced-ops/details/relation-to-relaxed-concurrency.md]])
 - [[.scratch/owner-edge-db-repair/spec.md]] — extend startup sweep: ACID repair of `node_children` Owned tree (GC unreachable; promote Ref when reachable node has no owner) (artifacts: [[.scratch/owner-edge-db-repair/implement.md]], [[src/Shared/ProjectionOwnershipRepair.fs]])
 - [[.scratch/parse-load-demote/issues/01-keep-current-on-rediscovered-added.md]] — keep Current when Load Workspace rediscovers Added path; demote only new stubs / NoServerFile (plan: fix_load_demotes_parse_8d40752b; artifacts: [[src/Shared/dotnet/LazyLoadReconciliationApply.fs]], [[tests/Shared.Tests/LazyLoadReconciliationTests.fs]])
 
@@ -38,11 +39,14 @@ Work ready to start but not yet claimed.
 - [[src/Client/Program.fs]] — optional hardening: `fetchTextNoCacheWithFail` for `/ambit/state` (not the primary hang)
 - [[.scratch/glossary-directory-file/rename-isMarker.md]] — optional remaining speech/doc sweep for informal “marker” (Directory File sense); `isMarker` / related API renames done
 - [[.scratch/large-node-cursor-perf/delete-children-cost.md]] — profile/optimize delete among large siblings (fromNodes + SiteMap rematch / structural DOM plan) (parent: [[.scratch/large-node-cursor-perf/project.md]])
+- [[src/Shared/ViewModelJoinOps.fs]] — `removeCurrentOp` fabricates `ChildNode.owner` instead of reading the live edge, so join on a Ref occurrence fails the `Graph.replace` span CAS; untested (evidence: [[.scratch/relaxed-concurrency/replace-span-cas-feasibility.md]])
+- [[.scratch/relaxed-concurrency/spec.md]] — drop the global revision gate on both server apply paths; rely on per-op preconditions; same-parent structural rejection keeps today's Reject path (design: [[.scratch/relaxed-concurrency/design.md]], parent: [[.scratch/relaxed-concurrency/project.md]], map: [[.scratch/relaxed-concurrency/map.md]])
 
 ## Blocked
 
 Work that cannot proceed until a named dependency or decision is resolved.
 
+- [[.scratch/relaxed-concurrency/map.md]] — client merge-sync slices 2–3: reject payload with remote changes, merge + replan at pendingChanges tail, Replace replan with contiguous-run fallback — superseded for recoverable kick-back (blocked by: [[.scratch/event-sourced-ops/details/relation-to-relaxed-concurrency.md]]; parent: [[.scratch/relaxed-concurrency/project.md]]; G stands: [[.scratch/relaxed-concurrency/g-decision-report.md]])
 - [[tmp/warm-parse-dual-owner-fix.md]] — HITL verify Current warm File Load after reclaim-vs-trash fix; dual-Owner gone (blocked by: focused warm-load browser check; audit: [[.scratch/work-board-audit/warm-parse-dual-owner.md]])
 - [[.scratch/selective-client-loading/issues/26-forbid-unloaded-destinations-in-move-dialog.md]] — Move dialog does not offer Unloaded destinations (blocked by: [[.scratch/selective-client-loading/issues/25-guard-structural-commands-at-unloaded-boundaries.md]])
 - [[.scratch/selective-client-loading/issues/27-document-delivered-selective-loading-baseline.md]] — promote implemented client residency while retaining future server residency in the roadmap (blocked by: [[.scratch/selective-client-loading/issues/20-restore-saved-zoom-workspace-during-bootstrap.md]], [[.scratch/selective-client-loading/issues/28-make-hollow-circle-clicks-invoke-load.md]], [[.scratch/selective-client-loading/issues/24-keep-navigation-and-find-resident-only.md]], [[.scratch/selective-client-loading/issues/26-forbid-unloaded-destinations-in-move-dialog.md]])
