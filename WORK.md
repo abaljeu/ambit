@@ -18,6 +18,7 @@ Mutations for delegated workers to return to their parent: `add`, `move`, `block
 
 Work currently being executed.
 
+- [[.scratch/event-sourced-ops/project.md]] — grill and sharpen the event-sourced ops architectural goal (related: [[.scratch/relaxed-concurrency/map.md]]; artifacts: [[.scratch/event-sourced-ops/goal.md]], [[.scratch/event-sourced-ops/grill-setup.md]])
 - [[.scratch/owner-edge-db-repair/spec.md]] — extend startup sweep: ACID repair of `node_children` Owned tree (GC unreachable; promote Ref when reachable node has no owner) (artifacts: [[.scratch/owner-edge-db-repair/implement.md]], [[src/Shared/ProjectionOwnershipRepair.fs]])
 - [[.scratch/parse-load-demote/issues/01-keep-current-on-rediscovered-added.md]] — keep Current when Load Workspace rediscovers Added path; demote only new stubs / NoServerFile (plan: fix_load_demotes_parse_8d40752b; artifacts: [[src/Shared/dotnet/LazyLoadReconciliationApply.fs]], [[tests/Shared.Tests/LazyLoadReconciliationTests.fs]])
 
