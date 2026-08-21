@@ -87,7 +87,7 @@ Slices 2–3 narrow this: recoverable failures merge + replan at `pendingChanges
 
 G answered **YES** via client merge + replan, not server weak form. Full rationale: [[design.md#Client vs server replan]].
 
-**Later (event-sourced-ops, design only):** slice 2's Reject + remote + replan + POST-again is **obsolete** for recoverable concurrent kick-back. That case is HTTP 200 Merge (A accepted, then B amended; Client rewind+replay). G's rejection of server weak-form Replace **stands**. Slice 1 (drop the gate) **stands**. Software does not do 200-Merge yet. [[.scratch/event-sourced-ops/slice-2-obsoleted.md]]. Remaining Reject is auth, malformed POST, and similar request failures. Name is `amb-conflict`, not Reject.
+**Later (event-sourced-ops, design only):** slice 2's Reject + remote + replan + POST-again is **obsolete** for recoverable concurrent kick-back. That case is HTTP 200 Merge (A accepted, then B amended; Client rewind+replay). G's rejection of server weak-form Replace **stands**. Slice 1 (drop the gate) **stands**. Software does not do 200-Merge yet. [[.scratch/event-sourced-ops/details/relation-to-relaxed-concurrency.md]]. Remaining Reject is auth, malformed POST, and similar request failures. Name is `amb-conflict`, not Reject.
 
 **Protocol:**
 
@@ -143,7 +143,7 @@ If pursued, events would not carry old values; undo becomes compensating command
 
 ## Related later work (pointer only)
 
-[[.scratch/event-sourced-ops/]] charts a **more general** Merge (global Change order, Server amends newest, Client rewind+replay). It does not rewrite this map. Genesis replay stays rejected. Slice 1 and G (no server weak-form Replace) stand. Slice 2 Reject+replan is **obsolete** for recoverable kick-back ([[.scratch/event-sourced-ops/slice-2-obsoleted.md]]). Remaining pending after a 200 POST is still open.
+[[.scratch/event-sourced-ops/]] charts a **more general** Merge (global Change order, Server amends newest, Client rewind+replay). It does not rewrite this map. Genesis replay stays rejected. Slice 1 and G (no server weak-form Replace) stand. Slice 2 Reject+replan is **obsolete** for recoverable kick-back ([[.scratch/event-sourced-ops/details/relation-to-relaxed-concurrency.md]]). Remaining pending after a 200 POST is still open.
 
 ## Out of scope
 

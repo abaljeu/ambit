@@ -3,8 +3,8 @@
 ## Destination
 
 `ChildNode` remains (`children: ChildNode list`) but loses `ref` — id-only edges.
-Ordered `children` stay the primary structure.
-`Node.owner` is the sole **in-memory** ownership source (≤1 owner; travels with a resident node, fitting selective load).
+Ordered `children` stay the primary `structure.
+`Node.owner` is the sole **in-memor`y** ownership source (≤1 owner; travels with a resident node, fitting selective load).
 A **Loaded-scope** Graph/Op seam assures membership ↔ `Node.owner` only when the claimed owner parent is Resident with a Loaded child list; Absent/Unloaded → unprovable, accepted.
 `Op.SetOwner` carries owner changes; `Replace` is id-only.
 JSON: hard before/after per slice — encode both node `owner` and edge `ref` while both exist; later stop edge `ref`; no omit-`owner` / mixed-style messages.
