@@ -2,7 +2,7 @@
 
 Not locked. Names only — no merge algorithm. Merge process and preserve-information invariant: [[merge.md]]. Cite [[.scratch/relaxed-concurrency/map.md]] for existing apply facts; do not copy that spec.
 
-Independence is the load-bearing idea: if two Changes do not conflict, Actors can work those areas and merge is simple.
+Independence is the load-bearing idea: if two Changes do not conflict, Actors can work those areas and merge is simple. Independence does **not** skip conveyance: the Client still applies other Actors' accepted Changes before (or already has applied them when) the newest Change is amended ([[merge.md#Amendment order]]).
 
 ## User sketch
 
@@ -20,10 +20,12 @@ Independence is not a set of Node ids. Split **node fields** from **child-list /
 ## Proposed kinds (not locked)
 
 1. **Disjoint field / disjoint parent-list** — no conflict. Different Nodes' fields, or child-lists of different parents.
-2. **Same node, same field** — conflict. (Today: attribute CAS on text, classes, name, documentState. `SetUpdateTime` ignores mismatch — not this class.)
-3. **Same parent child-list** — not automatically a conflict.
+2. **Same node, same field** — **Classes are not this class** — set delta, independent ([[merge.md]]). `SetUpdateTime` ignores mismatch — not this class. **DocumentState is not a field** (deleted; inferred).
+   - **Text (accepted):** Server arrival is first. `A→B` stays on the Node; second becomes **Add Node** first child `amb-conflict` / `C`. Optimistic Client **rewind+replays** that sequence ([[merge.md#Client correction]]). `SetText C→B` is not the strategy. See [[merge.md]].
+   - **Name (accepted):** Server arrival is first. That name stays on the Node; second becomes **Add Node** first child `amb-conflict` / the new name (a **Normal Node**). Merge success, not Reject. See [[merge.md]], [[name-clash-amb-conflict.md]].
+3. **Same parent child-list (accepted)** — default is positional Replace (posted Op / happy path). Not automatically a reject.
    - **Insert + insert** — no conflict; either order OK.
-   - **Overlapping Replace / delete / reorder** — conflict, or "depends" (pin later).
+   - **Conflict:** best approximation; **critical** invariant is occurrence-bag **Accept Both** vs common prior (adds = new slots, removes = prior slots). Order not critical. Algorithm later. Implemented span-CAS Replace is behavior to beat, not this spec. Not an `amb-conflict` child. See [[merge.md]].
 
 An Actor's "area" should be node fields and/or child-list spans, not a Subgraph blob. Two Actors under one parent then need not look overlapping.
 

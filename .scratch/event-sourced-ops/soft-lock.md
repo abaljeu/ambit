@@ -1,17 +1,17 @@
 # Soft lock (soft lock)
 
-Not a graph lock. Optional UX/HITL reservation. Merge stays independence + transform + HITL.
+**Meaning accepted.** Issuance, expiry, and UX chrome stay **proposed**. Home for this term. Not fill-in, not Load packages. History-clear is a unified-messaging rule (neither POST nor Poll).
 
-## Sense
+## Meaning (accepted)
 
-Hint: "don't work here — someone else has it checked out." Does **not** reject Merge Changes. Does **not** replace CAS or the merge invariant.
+A long-running Server Actor (Parse File, Shell command, same kind) **checks out** its **subtree** (the subgraph it may Change).
 
-**Area** = node fields and/or child-list spans (same as an optimistic Actor area). Not a Subgraph blob.
+That is an **advisory** reservation: when the job completes there may be Changes to those Nodes, so it is **recommended to work elsewhere**. It is **not** a hard lock. It is **not** illegal to work there. Concurrent Browser edits on that subtree are **legal**. They are other accepted Changes. The job's concluding Change is **amended** as newest (200 Merge). Do not block or Reject those edits.
 
-The same surface is the **cancel** point for the Actor that holds the area. **Cancel ≠ Undo** (accepted). Cancel = stop generating Changes. Already-merged Changes stay; they rewind only via **Undo**. Thoughts: [[undo.md]].
+UX: recommend working elsewhere. No further UI spec.
 
-Hard locking is out of the standard. No glossary **cancel**. UI "cancel" today is prompts / folder pick, not Graph rewind.
+**Cancel ≠ Undo** (accepted). Cancel = stop generating Changes. Already-merged Changes stay. Thoughts: [[undo.md]]. Soft-lock as the cancel *surface* stays proposed ([[job-launch-apply-cancel.md]]).
 
-## Open
+## Still proposed
 
-Who issues the checkout (Actor start vs explicit). How it expires. Cancel likely implies the Actor that checked out — not pinned.
+Who issues / how it expires / chrome. Hard locking stays out of the standard.

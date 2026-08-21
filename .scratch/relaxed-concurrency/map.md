@@ -87,6 +87,8 @@ Slices 2–3 narrow this: recoverable failures merge + replan at `pendingChanges
 
 G answered **YES** via client merge + replan, not server weak form. Full rationale: [[design.md#Client vs server replan]].
 
+**Later (event-sourced-ops, design only):** slice 2's Reject + remote + replan + POST-again is **obsolete** for recoverable concurrent kick-back. That case is HTTP 200 Merge (A accepted, then B amended; Client rewind+replay). G's rejection of server weak-form Replace **stands**. Slice 1 (drop the gate) **stands**. Software does not do 200-Merge yet. [[.scratch/event-sourced-ops/slice-2-obsoleted.md]]. Remaining Reject is auth, malformed POST, and similar request failures. Name is `amb-conflict`, not Reject.
+
 **Protocol:**
 
 1. Client POSTs pending batch.
@@ -102,7 +104,7 @@ After slice 1: stale base revision alone does **not** reject — kick-back only 
 | Slice | Scope | Notes |
 | --- | --- | --- |
 | 1 | Gate removal | Current [[spec.md]] — today's Reject client path |
-| 2 | Merge reject payload | Reject body carries remote changes; client merge instead of wipe |
+| 2 | Merge reject payload | **Obsolete** for recoverable kick-back — see event-sourced-ops 200 Merge. Still listed as the old protocol below. |
 | 3 | Replace replan | Contiguous-run fallback during replan |
 
 **Slice 2 blockers:** `reconcileAck` exact-match requirement; server batch fail-fast; `rejectPending` queue wipe; `ChangeBatchAck` has no remote-changes field. **Existing primitive:** `SyncPlanner.restorePending` / `mergePendingAfterLoad` in [[src/Client/App.fs]].
@@ -138,6 +140,10 @@ If pursued, events would not carry old values; undo becomes compensating command
 ### G. Weak form of id-anchored `Replace`? — RESOLVED
 
 **YES** via client merge-sync (slices 2–3), **not** server-side relocation. See **Client merge-sync** and [[design.md#Client vs server replan]].
+
+## Related later work (pointer only)
+
+[[.scratch/event-sourced-ops/]] charts a **more general** Merge (global Change order, Server amends newest, Client rewind+replay). It does not rewrite this map. Genesis replay stays rejected. Slice 1 and G (no server weak-form Replace) stand. Slice 2 Reject+replan is **obsolete** for recoverable kick-back ([[.scratch/event-sourced-ops/slice-2-obsoleted.md]]). Remaining pending after a 200 POST is still open.
 
 ## Out of scope
 

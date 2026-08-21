@@ -1,12 +1,12 @@
 # Poll vs Load conveyance
 
-Facts from current code. Not a design.
+Facts from current code. Not a design. **POST and Poll are not the same path** (unification superseded — [[unified-messaging.md]], [[pipelined-post.md]]). Do not read "Poll = empty POST" as current design.
 
 ## Poll — GET `/ambit/poll?rev=N`
 
 **Sent:** `PollResponse`: revision, deploy/page build stamps, `isReady`, and `changes: Change list` (wire `c`). No Graph, no Node packages, no files. Each `Change` is `{ id, changeId, ops }`. Empty `c` when the Browser is current.
 
-**Browser:** `SyncLogic.applyServerTail` → `ResidentProjection.applyChange` → `Op.apply` per Op. No map-merge.
+**Browser:** `SyncLogic.applyServerTail` → `ResidentProjection.applyChange` → `Op.apply` per Op. No map-merge. Non-empty Change tail **clears History** (`applySyncResponse`). That is **software debt**. Design: Poll is its own path (queue-empty catch-up from **baseline**); it must not clear History ([[pipelined-post.md]]).
 
 **Verdict:** Yes — Poll is Changes/Ops only.
 
