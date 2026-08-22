@@ -112,7 +112,7 @@ let ``NewNode and Replace append affect only the receiving document`` () =
     let index = graph.nodes.[fileAId].children.Length
     let ops =
         [ Op.NewNode(childId, "new")
-          Op.Replace(fileAId, index, [], [ child ]) ]
+          ChildListWire.append fileAId graph.nodes.[fileAId].children [ child ] ]
     let post = applyOps graph ops
     let affected = affectedByOps graph post ops
     assertParity graph post ops
@@ -124,8 +124,8 @@ let ``Replace reparent affects old and new packages and moved root`` () =
     let graph, wsId, dirAId, dirBId, fileAId, fileBId, _, _ = graphWithDocuments ()
     let child = ChildNode.owner fileAId
     let ops =
-        [ Op.Replace(dirAId, 0, [ child ], [])
-          Op.Replace(dirBId, 0, [], [ child ]) ]
+        [ Op.Replace(dirAId, [ child ], [])
+          Op.Replace(dirBId, [], [ child ]) ]
     let post = applyOps graph ops
     let affected = affectedByOps graph post ops
     assertParity graph post ops
@@ -142,7 +142,7 @@ let ``NewSpecialNode and Replace affect new root and parent package`` () =
     let index = graph.nodes.[dirAId].children.Length
     let ops =
         [ Op.NewSpecialNode(fileId, File, "new.txt")
-          Op.Replace(dirAId, index, [], [ child ]) ]
+          ChildListWire.append dirAId graph.nodes.[dirAId].children [ child ] ]
     let post = applyOps graph ops
     let affected = affectedByOps graph post ops
     assertParity graph post ops

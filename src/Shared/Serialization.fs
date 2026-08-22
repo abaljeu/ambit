@@ -227,11 +227,10 @@ module Serialization =
                   "nodeId", encodeNodeId nodeId
                   "oldClasses", oldClasses |> CssClass.toList |> List.map Encode.string |> Encode.list
                   "newClasses", newClasses |> CssClass.toList |> List.map Encode.string |> Encode.list ]
-        | Op.Replace(parentId, index, oldChildren, newChildren) ->
+        | Op.Replace(parentId, oldChildren, newChildren) ->
             Encode.object
                 [ "type", Encode.string "Replace"
                   "parentId", encodeNodeId parentId
-                  "index", Encode.int index
                   "oldChildren", oldChildren |> List.map encodeChildNode |> Encode.list
                   "newChildren", newChildren |> List.map encodeChildNode |> Encode.list ]
         | Op.NewSpecialNode(nodeId, kind, name) ->
@@ -284,7 +283,6 @@ module Serialization =
                 Decode.object (fun get ->
                     Op.Replace(
                         get.Required.Field "parentId" decodeNodeId,
-                        get.Required.Field "index" Decode.int,
                         get.Required.Field "oldChildren" (Decode.list decodeChildNode),
                         get.Required.Field "newChildren" (Decode.list decodeChildNode)))
             | "NewSpecialNode" ->

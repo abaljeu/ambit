@@ -65,12 +65,12 @@ let ``ordinary inverse reverses nested Replace order`` () =
         { id = 0
           changeId = Guid.NewGuid()
           ops =
-            [ Op.Replace(innerId, 0, [], [ leaf ])
-              Op.Replace(outerId, 0, [], [ outerChild ]) ] }
+            [ Op.Replace(innerId, [], [ leaf ])
+              Op.Replace(outerId, [], [ outerChild ]) ] }
     let inverse = Change.inverse Revision.Zero (Guid.NewGuid()) source
     Assert.Equal<Op list>(
-        [ Op.Replace(outerId, 0, [ outerChild ], [])
-          Op.Replace(innerId, 0, [ leaf ], []) ],
+        [ Op.Replace(outerId, [ outerChild ], [])
+          Op.Replace(innerId, [ leaf ], []) ],
         inverse.ops)
 
 let private createPasteScenario () : State * Change * NodeId list =
@@ -87,15 +87,10 @@ let private createPasteScenario () : State * Change * NodeId list =
           changeId = Guid.NewGuid()
           ops =
             pasteOps
-            @ [ Op.Replace(
-                    initial.graph.root,
-                    rootIndex,
-                    [],
-                    ChildNode.owners topIds)
+            @ [ ChildListWire.append initial.graph.root initial.graph.nodes.[initial.graph.root].children (ChildNode.owners topIds)
                 Op.NewSpecialNode(workspaceId, Workspace, "retained")
                 Op.Replace(
                     Graph.workspacesId,
-                    0,
                     [],
                     [ ChildNode.owner workspaceId ]) ] }
     let createdIds =

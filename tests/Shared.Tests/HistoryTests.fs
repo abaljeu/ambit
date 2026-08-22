@@ -90,10 +90,10 @@ let ``Replace rejects Special path under reserved ancestor but allows Normal chi
     let state = stateWithNodes [ directory; file; normal ]
     let owner = ChildNode.owner
     let _, message =
-        Op.apply (Op.Replace(directoryId, 0, [], [ owner fileId ])) state
+        Op.apply (Op.Replace(directoryId, [], [ owner fileId ])) state
         |> expectInvalid
     Assert.Contains("reserved", message)
-    Op.apply (Op.Replace(directoryId, 0, [], [ owner normalId ])) state
+    Op.apply (Op.Replace(directoryId, [], [ owner normalId ])) state
     |> expectChanged
     |> ignore
 
@@ -238,12 +238,10 @@ let ``Apply Replace updates parent children`` () =
     let newNode = ChildNode.New()
     let state1 = Op.apply (Op.NewNode(newNode.id, "new")) state |> expectChanged
     let op =
-        Op.Replace(
-            parentId,
-            0,
-            [ oldChild0 ],
-            [ newNode ]
-        )
+        ChildListWire.replace
+            parentId
+            originalChildren
+            (newNode :: List.tail originalChildren)
     let state2 = Op.apply op state1 |> expectChanged
     let updatedParent = state2.graph.nodes |> Map.find parentId
     Assert.Equal(newNode.id, updatedParent.children.[0].id)
@@ -258,9 +256,11 @@ let ``Invalid move change does not modify graph`` () =
     let second = originalChildren.[1]
 
     // Simulate a move as remove+insert, but make the remove invalid
-    // by supplying a mismatched old span at index 0.
-    let invalidRemove = Op.Replace(parentId, 0, [ second ], [])
-    let insertAtEnd = Op.Replace(parentId, originalChildren.Length, [], [ first ])
+    // by supplying a mismatched full-list anchor.
+    let wrongAnchor = second :: List.tail originalChildren
+    let invalidRemove = Op.Replace(parentId, wrongAnchor, List.filter ((<>) second) wrongAnchor)
+    let insertAtEnd =
+        ChildListWire.insertAt parentId originalChildren originalChildren.Length [ first ]
     let moveChange =
         History.newChange state0.history
         |> Change.addOp invalidRemove
@@ -283,8 +283,10 @@ let ``Move with correct old span is rejected when target is owned-descendant`` (
 
     // Valid move-shape (remove+insert) using the correct old span.
     // Illegal by ownership semantics: moving A under its owned descendant B.
-    let removeAFromRoot = Op.Replace(rootId, 0, [ childA ], [])
-    let insertAUnderB = Op.Replace(childB.id, originalBChildren.Length, [], [ childA ])
+    let removeAFromRoot =
+        Op.Replace(rootId, originalRootChildren, List.filter (fun c -> c.id <> childA.id) originalRootChildren)
+    let insertAUnderB =
+        ChildListWire.insertAt childB.id originalBChildren originalBChildren.Length [ childA ]
     let moveChange =
         History.newChange state0.history
         |> Change.addOp removeAFromRoot
@@ -398,7 +400,7 @@ let ``structural relocate of unparsed file to start among siblings succeeds`` ()
         |> List.map snd
     let newChildren = occurrence :: without
     let changed =
-        Op.apply (Op.Replace(Graph.rootId, 0, oldChildren, newChildren)) state
+        Op.apply (Op.Replace(Graph.rootId, oldChildren, newChildren)) state
         |> expectChanged
     Assert.Equal(fileId, changed.graph.nodes.[Graph.rootId].children.Head.id)
     Assert.Equal(Unparsed, changed.graph.nodes.[fileId].documentState)
@@ -421,7 +423,7 @@ let ``ref occurrence is governed by occurrence document not target document`` ()
         |> expectChanged
     let replacement = ChildNode.owner replacementId
     let changed =
-        Op.apply (Op.Replace(holderId, 0, [ oldRef ], [ replacement ])) withReplacement
+        Op.apply (Op.Replace(holderId, [ oldRef ], [ replacement ])) withReplacement
         |> expectChanged
     Assert.Equal(replacementId, changed.graph.nodes.[holderId].children.Head.id)
     assertUnparsedInvalid state (Op.SetText(fileId, "file.txt", "changed"))
@@ -431,13 +433,14 @@ let ``parse state transition before tree mutation succeeds and reverse order fai
     let state, fileId, _, _, _ = unparsedFileState ()
     let parsedId = NodeId.New()
     let attach = ChildNode.owner parsedId
+    let fileChildren = state.graph.nodes.[fileId].children
     let parseChange =
         { id = 0
           changeId = System.Guid.NewGuid()
           ops =
             [ Op.SetDocumentState(fileId, Unparsed, Current)
               Op.NewNode(parsedId, "parsed")
-              Op.Replace(fileId, 1, [], [ attach ]) ] }
+              ChildListWire.append fileId fileChildren [ attach ] ] }
     let parsed = History.applyChange parseChange state |> expectChanged
     Assert.Equal(Current, parsed.graph.nodes.[fileId].documentState)
     Assert.Equal(parsedId, parsed.graph.nodes.[fileId].children.[1].id)
@@ -447,7 +450,7 @@ let ``parse state transition before tree mutation succeeds and reverse order fai
             changeId = System.Guid.NewGuid()
             ops =
                 [ Op.NewNode(parsedId, "parsed")
-                  Op.Replace(fileId, 1, [], [ attach ])
+                  ChildListWire.append fileId fileChildren [ attach ]
                   Op.SetDocumentState(fileId, Unparsed, Current) ] }
     let rejected, error = History.applyChange reverse state |> expectInvalid
     Assert.Equal(unparsedError, error)
@@ -509,7 +512,7 @@ let ``nested file parse under current directory replaces file tree`` () =
           ops =
             [ Op.SetDocumentState(fileId, Unparsed, Current)
               Op.NewNode(parsedId, "parsed")
-              Op.Replace(fileId, 0, [], [ attach ]) ] }
+              Op.Replace(fileId, [], [ attach ]) ] }
     let parsed = History.applyChange parseChange fileUnparsed |> expectChanged
     Assert.Equal(Current, parsed.graph.nodes.[fileId].documentState)
     Assert.Equal(Current, parsed.graph.nodes.[directoryId].documentState)
@@ -547,7 +550,7 @@ let ``nested file parse still allowed when enclosing directory is unparsed`` () 
           ops =
             [ Op.SetDocumentState(fileId, Unparsed, Current)
               Op.NewNode(parsedId, "parsed")
-              Op.Replace(fileId, 0, [], [ attach ]) ] }
+              Op.Replace(fileId, [], [ attach ]) ] }
     let parsed = History.applyChange parseChange bothUnparsed |> expectChanged
     Assert.Equal(Current, parsed.graph.nodes.[fileId].documentState)
     Assert.Equal(Unparsed, parsed.graph.nodes.[directoryId].documentState)
@@ -853,11 +856,10 @@ let ``local shape op succeeds despite distant ownership violation`` () =
         History.newChange History.empty
         |> Change.addOp (Op.NewNode(newId, "sibling"))
         |> Change.addOp (
-            Op.Replace(
-                Graph.rootId,
-                state.graph.nodes.[Graph.rootId].children.Length,
-                [],
-                [ ChildNode.owner newId ]))
+            ChildListWire.append
+                Graph.rootId
+                state.graph.nodes.[Graph.rootId].children
+                [ ChildNode.owner newId ])
     History.applyChange change state |> expectChanged |> ignore
 
 [<Fact>]
@@ -880,11 +882,11 @@ let ``applyChange accepts same-parent Owner then Ref (Duplicate link)`` () =
         { id = 0
           changeId = Guid.NewGuid()
           ops =
-            [ Op.Replace(
-                  state0.graph.root,
-                  insertAt,
-                  [],
-                  [ ChildNode.reference ownedChild.id ]) ] }
+            [ ChildListWire.insertAt
+                  state0.graph.root
+                  parent.children
+                  insertAt
+                  [ ChildNode.reference ownedChild.id ] ] }
     let state1 = History.applyChange change state0 |> expectChanged
     let kids = state1.graph.nodes.[state0.graph.root].children
     Assert.Equal(insertAt + 1, kids.Length)
@@ -904,7 +906,7 @@ let ``applyChange accepts mid-list same-parent Ref (Duplicate link)`` () =
         { id = 0
           changeId = Guid.NewGuid()
           ops =
-            [ Op.Replace(parentId, insertAt, [], [ ChildNode.reference ownedChild.id ]) ] }
+            [ ChildListWire.insertAt parentId kids0 insertAt [ ChildNode.reference ownedChild.id ] ] }
     let state1 = History.applyChange change state0 |> expectChanged
     let kids = state1.graph.nodes.[parentId].children
     Assert.Equal(kids0.Length + 1, kids.Length)
@@ -947,7 +949,11 @@ let ``Duplicate Ref succeeds despite dual-Owned Replace parent`` () =
         { id = 0
           changeId = Guid.NewGuid()
           ops =
-            [ Op.Replace(parentId, insertAt, [], [ ChildNode.reference childId ]) ] }
+            [ ChildListWire.insertAt
+                  parentId
+                  state.graph.nodes.[parentId].children
+                  insertAt
+                  [ ChildNode.reference childId ] ] }
     let state1 = History.applyChange change state |> expectChanged
     let kids = state1.graph.nodes.[parentId].children
     Assert.Equal(ChildNode.reference childId, kids.[insertAt])
@@ -987,7 +993,11 @@ let ``Duplicate Ref succeeds despite distant dual-Owner`` () =
         { id = 0
           changeId = Guid.NewGuid()
           ops =
-            [ Op.Replace(parentId, insertAt, [], [ ChildNode.reference childId ]) ] }
+            [ ChildListWire.insertAt
+                  parentId
+                  state.graph.nodes.[parentId].children
+                  insertAt
+                  [ ChildNode.reference childId ] ] }
     History.applyChange change state |> expectChanged |> ignore
 
 [<Fact>]
@@ -1002,7 +1012,11 @@ let ``applyChange rejects Replace that introduces a second Owner edge`` () =
         { id = 0
           changeId = Guid.NewGuid()
           ops =
-            [ Op.Replace(parentB, insertAt, [], [ ChildNode.owner ownedUnderA ]) ] }
+            [ ChildListWire.insertAt
+                  parentB
+                  state0.graph.nodes.[parentB].children
+                  insertAt
+                  [ ChildNode.owner ownedUnderA ] ] }
     let _, msg = History.applyChange change state0 |> expectInvalid
     Assert.Contains("expected exactly one owner occurrence", msg)
 
@@ -1050,15 +1064,10 @@ let ``nested paste and NewSpecialNode Undo and Redo preserve reachable structure
           changeId = Guid.NewGuid()
           ops =
             pasteOps
-            @ [ Op.Replace(
-                    state.graph.root,
-                    root.children.Length,
-                    [],
-                    ChildNode.owners topIds)
+            @ [ ChildListWire.append state.graph.root root.children (ChildNode.owners topIds)
                 Op.NewSpecialNode(workspaceId, Workspace, "undo-workspace")
                 Op.Replace(
                     Graph.workspacesId,
-                    0,
                     [],
                     [ ChildNode.owner workspaceId ]) ] }
     let changed = applyUndoRedo change state
@@ -1082,7 +1091,7 @@ let ``split-shaped Change Undo and Redo preserve sibling semantics`` () =
           changeId = Guid.NewGuid()
           ops =
             [ Op.NewNode(splitId, "right")
-              Op.Replace(parentId, 1, [], [ ChildNode.owner splitId ])
+              ChildListWire.insertAt parentId state.graph.nodes.[parentId].children 1 [ ChildNode.owner splitId ]
               Op.SetText(original.id, "a", "left") ] }
     let changed = applyUndoRedo change state
     Assert.Equal<NodeId list>(

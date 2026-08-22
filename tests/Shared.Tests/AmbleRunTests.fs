@@ -20,7 +20,7 @@ let ``run TRASH ref replace succeeds under normal focus`` () =
     let focusId = ids.[0]
     let ops = requireOk "run" (AmbleRun.run focusId graph1 "//TRASH/")
     match ops |> List.tryFind (function Op.Replace _ -> true | _ -> false) with
-    | Some (Op.Replace(parentId, 0, _, [ child ])) ->
+    | Some (Op.Replace(parentId, _, [ child ])) ->
         Assert.Equal(focusId, parentId)
         Assert.Equal(Graph.trashId, child.id)
         Assert.Equal(Ownership.Ref, child.ref)
@@ -57,7 +57,7 @@ let ``run assign renames focus node`` () =
         Assert.Equal("todo", newName)
     | _ -> Assert.Fail("expected SetName op")
     match ops |> List.tryFind (function Op.Replace _ -> true | _ -> false) with
-    | Some (Op.Replace(parentId, _, _, newChildren)) ->
+    | Some (Op.Replace(parentId, _, newChildren)) ->
         Assert.Equal(focusId, parentId)
         Assert.Equal(2, newChildren.Length)
     | _ -> Assert.Fail("expected Replace op")
@@ -70,7 +70,7 @@ let ``run assign unchanged name replaces children`` () =
     let setNameOps = ops |> List.choose (function Op.SetName _ -> Some () | _ -> None)
     Assert.Empty(setNameOps)
     match ops |> List.tryFind (function Op.Replace _ -> true | _ -> false) with
-    | Some (Op.Replace(parentId, _, _, newChildren)) ->
+    | Some (Op.Replace(parentId, _, newChildren)) ->
         Assert.Equal(focusId, parentId)
         Assert.Equal(2, newChildren.Length)
     | _ -> Assert.Fail("expected Replace op")
@@ -96,7 +96,7 @@ let ``run empty search creates error child`` () =
         Assert.True(CssClass.contains "redletter" newClasses)
     | _ -> Assert.Fail("expected SetClasses op")
     match ops |> List.tryFind (function Op.Replace _ -> true | _ -> false) with
-    | Some (Op.Replace(parentId, _, _, newChildren)) ->
+    | Some (Op.Replace(parentId, _, newChildren)) ->
         Assert.Equal(focusId, parentId)
         Assert.Single(newChildren) |> ignore
     | _ -> Assert.Fail("expected Replace op")
@@ -110,7 +110,7 @@ let ``run text named ref creates child from node text`` () =
         ops |> List.choose (function Op.NewNode(_, text) -> Some text | _ -> None)
     Assert.Equal<string list>([ "beta" ], newTexts)
     match ops |> List.tryFind (function Op.Replace _ -> true | _ -> false) with
-    | Some (Op.Replace(parentId, 0, _, newChildren)) ->
+    | Some (Op.Replace(parentId, _, newChildren)) ->
         Assert.Equal(focusId, parentId)
         Assert.Single(newChildren) |> ignore
     | _ -> Assert.Fail("expected Replace op")
@@ -131,7 +131,7 @@ let ``run parse error replaces children from line`` () =
     Assert.Single(newNodeOps) |> ignore
     Assert.Single(classOps) |> ignore
     match ops |> List.tryFind (function Op.Replace _ -> true | _ -> false) with
-    | Some (Op.Replace(parentId, 0, _, newChildren)) ->
+    | Some (Op.Replace(parentId, _, newChildren)) ->
         Assert.Equal(focusId, parentId)
         Assert.Single(newChildren) |> ignore
     | _ -> Assert.Fail("expected Replace op")
@@ -153,7 +153,7 @@ let ``run parse error multiline replaces children`` () =
     Assert.Equal(2, newNodes.Length)
     Assert.Equal(2, classOps.Length)
     match ops |> List.tryFind (function Op.Replace _ -> true | _ -> false) with
-    | Some (Op.Replace(parentId, 0, _, newChildren)) ->
+    | Some (Op.Replace(parentId, _, newChildren)) ->
         Assert.Equal(focusId, parentId)
         Assert.Equal(2, newChildren.Length)
     | _ -> Assert.Fail("expected Replace op")

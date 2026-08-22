@@ -14,7 +14,7 @@ CLIENT_PROJECT="$ROOT/src/Client"
 CLIENT_OUT_DIR="$ROOT/src/Server/wwwroot"
 SERVER_PROJECT="$ROOT/src/Server"
 CLOUD_APP_URL="https://collaborative-systems.org/ambit"
-LOCAL_APP_URL="http://localhost:5115/ambit"
+LOCAL_APP_URL="http://localhost:5215/ambit"
 
 usage() {
     echo "Usage: $0 [action] [--debug|--release] [--cloud|--local]"
@@ -24,7 +24,7 @@ usage() {
     echo "  --debug  (default) Debug configuration"
     echo "  --release  Release configuration"
     echo "  --cloud  proxy to production server (default for run)"
-    echo "  --local  proxy to http://localhost:5115/ambit (run only)"
+    echo "  --local  proxy to http://localhost:5215/ambit (run only)"
     echo "  --no-client  skip Fable build (run / run-local only)"
     exit 1
 }
@@ -106,7 +106,7 @@ run_local() {
     dotnet build "$SERVER_PROJECT" -c "$CONFIG"
 
     echo "==> Starting local server..."
-    ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://localhost:5115 \
+    ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS=http://localhost:5215 \
         dotnet run --project "$SERVER_PROJECT" -c "$CONFIG" --no-launch-profile &
     SERVER_PID=$!
 

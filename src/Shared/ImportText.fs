@@ -76,7 +76,7 @@ module ImportText =
         (changeId: System.Guid)
         : Change =
         let attach =
-            Op.Replace(focusId, 0, existingChildren, ownedChildren package.topLevelIds)
+            ChildListWire.replace focusId existingChildren (ownedChildren package.topLevelIds)
         let markCurrent = markDocumentCurrentBeforeParse graph focusId
 
         { id = revision
@@ -124,11 +124,11 @@ module ImportText =
                 package.ops
                 |> List.filter (function
                     | Op.NewNode(id, _) -> Set.contains id filteredIdSet
-                    | Op.Replace(parentId, _, _, _) -> Set.contains parentId filteredIdSet
+                    | Op.Replace(parentId, _, _) -> Set.contains parentId filteredIdSet
                     | _ -> true)
 
             let attach =
-                Op.Replace(focusId, existingChildren.Length, [], ownedChildren filteredIds)
+                ChildListWire.append focusId existingChildren (ownedChildren filteredIds)
 
             { id = revision
               changeId = changeId

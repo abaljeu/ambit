@@ -48,11 +48,15 @@ module ChangeAmendment =
         let adds = Set.difference postedNewSet priorSet
         Set.union adds (Set.difference currentSet removes) |> classesFromSet
 
-    let private ambConflictChildOps (parentId: NodeId) (conflictText: string) =
+    let private ambConflictChildOps (graph: Graph) (parentId: NodeId) (conflictText: string) =
         let childId = NodeId.New()
+        let current =
+            match Map.tryFind parentId graph.nodes with
+            | None -> []
+            | Some parent -> parent.children
         [ Op.NewNode(childId, conflictText)
           Op.SetClasses(childId, CssClass.empty, ambConflictClasses)
-          Op.Replace(parentId, 0, [], [ ChildNode.owner childId ]) ]
+          ChildListWire.replace parentId current [ ChildNode.owner childId ] ]
 
     let private tryAmendSetText (graph: Graph) (nodeId: NodeId) (message: string) (newText: string) =
         if message <> oldTextMismatch then
@@ -61,7 +65,7 @@ module ChangeAmendment =
             match Map.tryFind nodeId graph.nodes with
             | None -> Error "node not found"
             | Some node when node.text = newText -> Ok []
-            | Some _ -> Ok (ambConflictChildOps nodeId newText)
+            | Some _ -> Ok (ambConflictChildOps graph nodeId newText)
 
     let private tryAmendSetName
         (graph: Graph)
@@ -77,7 +81,7 @@ module ChangeAmendment =
             | Some node ->
                 match Filename.tryValue node.name with
                 | Some current when current = newName -> Ok []
-                | _ -> Ok (ambConflictChildOps nodeId newName)
+                | _ -> Ok (ambConflictChildOps graph nodeId newName)
 
     let private tryAmendSetClasses
         (graph: Graph)
@@ -102,14 +106,11 @@ module ChangeAmendment =
     let private tryAmendReplace
         (graph: Graph)
         (parentId: NodeId)
-        (index: int)
         (anchor: ChildNode list)
         (newList: ChildNode list)
         (message: string)
         =
         if message <> oldSpanMismatch then
-            Error message
-        elif index <> 0 then
             Error message
         else
             match Map.tryFind parentId graph.nodes with
@@ -120,7 +121,7 @@ module ChangeAmendment =
                 if target = current then
                     Ok []
                 else
-                    Ok [ Op.Replace(parentId, 0, current, target) ]
+                    Ok [ ChildListWire.replace parentId current target ]
 
     let private tryAmendOp (graph: Graph) (op: Op) (message: string) : Result<Op list, string> =
         match op with
@@ -130,8 +131,8 @@ module ChangeAmendment =
             tryAmendSetName graph nodeId message newName
         | Op.SetClasses(nodeId, prior, postedNew) ->
             tryAmendSetClasses graph nodeId prior postedNew message
-        | Op.Replace(parentId, index, anchor, newList) ->
-            tryAmendReplace graph parentId index anchor newList message
+        | Op.Replace(parentId, anchor, newList) ->
+            tryAmendReplace graph parentId anchor newList message
         | _ -> Error message
 
     let private buildAmendedOps (change: Change) (state: State) : Result<Op list, string> =

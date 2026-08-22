@@ -195,8 +195,20 @@ module GraphMutate =
             then
                 Error "new child not found"
             else
+                let isFullListWireReplace = index = 0 && oldCount = childCount
+
+                let introducedChildren =
+                    if isFullListWireReplace then
+                        newChildren
+                        |> List.filter (fun nc ->
+                            oldChildren
+                            |> List.exists (fun oc -> oc.id = nc.id && oc.ref = nc.ref)
+                            |> not)
+                    else
+                        newChildren
+
                 let workspacePlacementError =
-                    newChildren
+                    introducedChildren
                     |> List.tryPick (fun child ->
                         let childNode = graph.nodes.[child.id]
 
@@ -217,7 +229,7 @@ module GraphMutate =
                         GraphQuery.invalidOwnedFileDirectoryPlacement
                             graph
                             parentId
-                            newChildren ->
+                            introducedChildren ->
                         Some
                             "File and Directory nodes must have a Workspace or Directory owner ancestor (not under a File)"
                     | None -> None
@@ -253,7 +265,7 @@ module GraphMutate =
                         // Parse-tail Normals have no Filename.Ok — skip sibling/artifact
                         // conflict walks that only gate introduced owned names.
                         let introducedOwnedName =
-                            newChildren
+                            introducedChildren
                             |> List.exists (fun c ->
                                 Node.childOwnership graph parentId c = Ownership.Owner
                                 && match Map.tryFind c.id graph.nodes with
@@ -266,12 +278,12 @@ module GraphMutate =
                         let hasNameConflict =
                             introducedOwnedName
                             && (GraphQuery.siblingOwnedNameConflict
-                                    graph parentId updatedChildren newChildren
-                                || GraphQuery.artifactNameConflict graph parentId newChildren)
+                                    graph parentId updatedChildren introducedChildren
+                                || GraphQuery.artifactNameConflict graph parentId introducedChildren)
 
                         if hasNameConflict then
                             let name =
-                                firstIntroducedOwnerName graph parentId newChildren
+                                firstIntroducedOwnerName graph parentId introducedChildren
                                 |> Option.defaultValue "?"
                             Error (formatNameConflict graph parentId name)
                         elif parentId = GraphBuild.rootId then

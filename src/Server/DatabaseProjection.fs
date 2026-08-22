@@ -87,7 +87,7 @@ module DatabaseProjection =
         | Op.NewNode(nodeId, _)
         | Op.SetText(nodeId, _, _)
         | Op.SetClasses(nodeId, _, _)
-        | Op.Replace(nodeId, _, _, _)
+        | Op.Replace(nodeId, _, _)
         | Op.NewSpecialNode(nodeId, _, _)
         | Op.SetName(nodeId, _, _)
         | Op.SetDocumentState(nodeId, _, _)
@@ -95,7 +95,7 @@ module DatabaseProjection =
 
     let private replacedParentFromOp op =
         match op with
-        | Op.Replace(parentId, _, _, _) -> Some parentId
+        | Op.Replace(parentId, _, _) -> Some parentId
         | _ -> None
 
     let private distinctIds select (changes: Change list) =

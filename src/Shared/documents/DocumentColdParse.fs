@@ -214,7 +214,7 @@ module DocumentColdParse =
         if remainingOld = newChildren then
             []
         else
-            [ Op.Replace(nodeId, 0, remainingOld, newChildren) ]
+            [ Op.Replace(nodeId, remainingOld, newChildren) ]
 
     /// classifyCodecForRead → codec readCold → mergeReadResult. Never readWarm.
     let readArtifactCold
@@ -289,7 +289,7 @@ module DocumentColdParse =
 
     let private targetsDocumentRoot (documentRootId: NodeId) =
         function
-        | Op.Replace(id, _, _, _) when id = documentRootId -> true
+        | Op.Replace(id, _, _) when id = documentRootId -> true
         | Op.SetText(id, _, _) when id = documentRootId -> true
         | Op.SetName(id, _, _) when id = documentRootId -> true
         | Op.SetClasses(id, _, _) when id = documentRootId -> true
@@ -306,7 +306,7 @@ module DocumentColdParse =
         let topLevelIds =
             ops
             |> List.tryPick (function
-                | Op.Replace(id, _, _, children) when id = documentRootId ->
+                | Op.Replace(id, _, children) when id = documentRootId ->
                     Some(children |> List.map (fun c -> c.id))
                 | _ -> None)
             |> Option.defaultValue []

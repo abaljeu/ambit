@@ -2763,11 +2763,11 @@ let ``MoveToTrash ops apply successfully and node lands under TRASH`` () =
     let state0 : State =
         { graph = graph2; history = History.empty; revision = Revision.Zero }
 
-    let removeOp = Op.Replace(graph2.root, 0, owned [ a ], [])
+    let removeOp = Op.Replace(graph2.root, owned [ a ], [])
 
     let trashChildren = graph2.nodes.[Graph.trashId].children
     let newTrashChildren = trashChildren @ [ ChildNode.owner a ]
-    let addToTrashOp = Op.Replace(Graph.trashId, 0, trashChildren, newTrashChildren)
+    let addToTrashOp = Op.Replace(Graph.trashId, trashChildren, newTrashChildren)
 
     let change =
         { id = 0; changeId = System.Guid.NewGuid(); ops = [ removeOp; addToTrashOp ] }

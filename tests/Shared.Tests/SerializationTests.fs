@@ -171,7 +171,12 @@ let ``Op.SetText round-trip`` () =
 
 [<Fact>]
 let ``Op.Replace round-trip`` () =
-    let op = Op.Replace(NodeId.New(), 2, [ ChildNode.New() ], [ ChildNode.New(); ChildNode.New() ])
+    let parentId = NodeId.New()
+    let oldChildren = [ ChildNode.New() ]
+    let newChildren = [ ChildNode.New(); ChildNode.New() ]
+    let op = Op.Replace(parentId, oldChildren, newChildren)
+    let json = Enc.toString 0 (Serialization.encodeOp op)
+    Assert.DoesNotContain("\"index\"", json)
     let decoded = roundTrip Serialization.encodeOp Serialization.decodeOp op
     Assert.Equal(op, decoded)
 
@@ -181,7 +186,6 @@ let ``Op.Replace round-trip preserves child ownership`` () =
     let op =
         Op.Replace(
             NodeId.New(),
-            0,
             [],
             [ ChildNode.owner shared
               ChildNode.reference shared ])
@@ -213,7 +217,7 @@ let ``Change round-trip`` () =
           ops =
             [ Op.NewNode(NodeId.New(), "hello")
               Op.SetText(NodeId.New(), "old", "new")
-              Op.Replace(NodeId.New(), 0, [], [ ChildNode.New() ]) ] }
+              Op.Replace(NodeId.New(), [], [ ChildNode.New() ]) ] }
     let decoded = roundTrip Serialization.encodeChange Serialization.decodeChange change
     Assert.Equal(change.id, decoded.id)
     Assert.Equal<Op list>(change.ops, decoded.ops)

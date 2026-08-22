@@ -20,11 +20,7 @@ let private changedBody () =
             ops =
                 [
                     Op.NewNode(childId, "failure probe")
-                    Op.Replace(
-                        Graph.rootId,
-                        0,
-                        [],
-                        [ ChildNode.owner childId ])
+                    Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ])
                 ]
         }
     Encode.toString 0 (
@@ -60,11 +56,7 @@ let private softFailEditBody () =
             ops =
                 [
                     Op.NewNode(childId, "soft-fail-probe")
-                    Op.Replace(
-                        Graph.rootId,
-                        0,
-                        [],
-                        [ ChildNode.owner childId ])
+                    Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ])
                 ]
         }
     Encode.toString 0 (
@@ -239,7 +231,7 @@ let private addChildChange rev text =
       changeId = Guid.NewGuid()
       ops =
         [ Op.NewNode(childId, text)
-          Op.Replace(Graph.rootId, 0, [], [ ChildNode.owner childId ]) ] }
+          Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
 
 let private suffixAfter (submitted: Change) (confirmed: Change) =
     List.skip submitted.ops.Length confirmed.ops

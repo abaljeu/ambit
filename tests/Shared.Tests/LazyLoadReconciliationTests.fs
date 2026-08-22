@@ -86,7 +86,7 @@ let ``nested file parse after upload tree build is accepted`` () =
           ops =
             [ Op.SetDocumentState(file.id, Unparsed, Current)
               Op.NewNode(parsedId, "parsed")
-              Op.Replace(file.id, 0, [], [ attach ]) ] }
+              Op.Replace(file.id, [], [ attach ]) ] }
     match History.applyChange parseChange state with
     | ApplyResult.Changed next ->
         Assert.Equal(Current, next.graph.nodes.[file.id].documentState)
@@ -234,7 +234,6 @@ let ``reconciliation finds artifacts through normal organizers`` () =
     let graph2 =
         [ Op.Replace(
               workspaceId,
-              0,
               [],
               [ ChildNode.owner workspaceOrganizerId ]) ]
         |> applyOps graph1
@@ -245,7 +244,6 @@ let ``reconciliation finds artifacts through normal organizers`` () =
     let graph5 =
         [ Op.Replace(
               srcId,
-              0,
               [],
               [ ChildNode.owner srcOrganizerId ]) ]
         |> applyOps graph4
@@ -335,7 +333,7 @@ let ``deleted file is moved to trash with parsed descendants`` () =
     let parsedId = NodeId.New()
     let graph3 =
         [ Op.NewNode(parsedId, "parsed")
-          Op.Replace(file.id, 0, [], [ ChildNode.owner parsedId ]) ]
+          Op.Replace(file.id, [], [ ChildNode.owner parsedId ]) ]
         |> applyOps graph2
     let graph4 =
         requireChangedPlan graph3 "home" [ LazyLoadReconciliation.Deleted "docs/readme.txt" ]
@@ -353,8 +351,8 @@ let ``deleted file refs become path expressions without promotion`` () =
     let holderId = NodeId.New()
     let graph3 =
         [ Op.NewNode(holderId, "holder")
-          Op.Replace(Graph.rootId, 0, [], [ ChildNode.owner holderId ])
-          Op.Replace(holderId, 0, [], [ ChildNode.reference file.id ]) ]
+          Op.Replace(Graph.rootId, [], [ ChildNode.owner holderId ])
+          Op.Replace(holderId, [], [ ChildNode.reference file.id ]) ]
         |> applyOps graph2
     let graph4 =
         requireChangedPlan graph3 "home" [ LazyLoadReconciliation.Deleted "note.txt" ]
@@ -376,7 +374,7 @@ let ``rename and cross-directory move preserve identity and children`` () =
     let parsedId = NodeId.New()
     let graph3 =
         [ Op.NewNode(parsedId, "parsed")
-          Op.Replace(file.id, 0, [], [ ChildNode.owner parsedId ]) ]
+          Op.Replace(file.id, [], [ ChildNode.owner parsedId ]) ]
         |> applyOps graph2
     let renamed =
         requireChangedPlan
@@ -473,7 +471,7 @@ let ``rediscovered Added Current file stays Current with children`` () =
     let current =
         [ Op.SetDocumentState(file.id, Unparsed, Current)
           Op.NewNode(parsedId, "parsed")
-          Op.Replace(file.id, 0, [], [ attach ]) ]
+          Op.Replace(file.id, [], [ attach ]) ]
         |> applyOps graph2
     Assert.Equal(Current, current.nodes.[file.id].documentState)
     Assert.Equal(parsedId, current.nodes.[file.id].children.Head.id)

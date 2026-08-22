@@ -7,7 +7,6 @@ type Op =
     | SetClasses of nodeId: NodeId * oldClasses: CssClasses * newClasses: CssClasses
     | Replace of
         parentId: NodeId *
-        index: int *
         oldChildren: ChildNode list *
         newChildren: ChildNode list
     | NewSpecialNode of nodeId: NodeId * kind: SpecialKind * name: string
@@ -78,7 +77,7 @@ module Op =
         | Op.SetClasses(nodeId, _, _)
         | Op.SetName(nodeId, _, _)
         | Op.SetUpdateTime(nodeId, _, _) -> [ nodeId ]
-        | Op.Replace(parentId, _, oldChildren, newChildren) ->
+        | Op.Replace(parentId, oldChildren, newChildren) ->
             (oldChildren @ newChildren)
             |> List.choose (fun child ->
                 if Node.childOwnership graph parentId child = Ownership.Owner then
@@ -123,7 +122,7 @@ module Op =
             // Download stamp alignment and persist tails only touch mtime metadata;
             // they must not require the document to be parsed first.
             false
-        | Op.Replace(parentId, _, oldChildren, newChildren) ->
+        | Op.Replace(parentId, oldChildren, newChildren) ->
             let stubAttachUnderShell =
                 isUnparsedTreeShell parentId
                 && ownedAreDocumentRoots parentId oldChildren
@@ -164,8 +163,8 @@ module Op =
         | Op.SetClasses(nodeId, oldClasses, newClasses) ->
             Graph.setClasses nodeId oldClasses newClasses state.graph
             |> fromGraphResult state
-        | Op.Replace(parentId, index, oldChildren, newChildren) ->
-            match Graph.replace parentId index oldChildren newChildren state.graph with
+        | Op.Replace(parentId, oldChildren, newChildren) ->
+            match Graph.replace parentId 0 oldChildren newChildren state.graph with
             | Error msg -> ApplyResult.Invalid(state, msg)
             | Ok graph ->
                 let isInvalidOwner child =
@@ -236,9 +235,9 @@ module Op =
         | Op.SetClasses(nodeId, oldClasses, newClasses) ->
             Graph.setClasses nodeId newClasses oldClasses state.graph
             |> fromGraphResult state
-        | Op.Replace(parentId, index, oldChildren, newChildren) ->
+        | Op.Replace(parentId, oldChildren, newChildren) ->
             // Inverse: swap old/new to restore
-            Graph.replace parentId index newChildren oldChildren state.graph
+            Graph.replace parentId 0 newChildren oldChildren state.graph
             |> fromGraphResult state
         | Op.NewSpecialNode(nodeId, _, _) ->
             let nodes = state.graph.nodes |> Map.remove nodeId
@@ -281,8 +280,8 @@ module Change =
         | Op.NewNode(id, text) -> Op.NewNode(id, text)
         | Op.SetText(id, old, new_) -> Op.SetText(id, new_, old)
         | Op.SetClasses(id, old, new_) -> Op.SetClasses(id, new_, old)
-        | Op.Replace(parentId, index, oldChildren, newChildren) ->
-            Op.Replace(parentId, index, newChildren, oldChildren)
+        | Op.Replace(parentId, oldChildren, newChildren) ->
+            Op.Replace(parentId, newChildren, oldChildren)
         | Op.NewSpecialNode(id, kind, name) -> Op.NewSpecialNode(id, kind, name)
         | Op.SetName(id, old, new_) -> Op.SetName(id, new_, old)
         | Op.SetDocumentState(id, old, new_) ->
@@ -584,6 +583,20 @@ module History =
         =
         GraphQuery.invalidOwnedFileDirectoryPlacement graph parentId newChildren
 
+    let private introducedChildren (oldChildren: ChildNode list) (newChildren: ChildNode list) =
+        newChildren
+        |> List.filter (fun nc ->
+            oldChildren
+            |> List.exists (fun oc -> oc.id = nc.id && oc.ref = nc.ref)
+            |> not)
+
+    let private removedChildren (oldChildren: ChildNode list) (newChildren: ChildNode list) =
+        oldChildren
+        |> List.filter (fun oc ->
+            newChildren
+            |> List.exists (fun nc -> nc.id = oc.id && nc.ref = oc.ref)
+            |> not)
+
     let private validateOwnershipForChange (graph: Graph) (change: Change) : Result<unit, string> =
         let shapeOps = change.ops |> List.filter opChangesGraphShape
 
@@ -601,26 +614,22 @@ module History =
                 shapeOps
                 |> List.tryPick (fun op ->
                     match op with
-                    | Op.Replace(parentId, _, _, newChildren) ->
-                        if invalidOwnedFileDirectoryPlacement graph parentId newChildren then
+                    | Op.Replace(parentId, oldChildren, newChildren) ->
+                        let introduced = introducedChildren oldChildren newChildren
+                        if invalidOwnedFileDirectoryPlacement graph parentId introduced then
                             Some
                                 "invalid ownership semantics: File and Directory nodes must have a Workspace or Directory owner ancestor (not under a File)"
                         elif
-                            newChildren
+                            introduced
                             |> List.exists (fun c ->
                                 Node.childOwnership graph parentId c = Ownership.Owner)
-                            && GraphQuery.artifactNameConflict graph parentId newChildren
+                            && GraphQuery.artifactNameConflict graph parentId introduced
                         then
                             let name =
-                                newChildren
+                                introduced
                                 |> List.tryPick (fun c ->
-                                    if Node.childOwnership graph parentId c
-                                       <> Ownership.Owner then
-                                        None
-                                    else
-                                        Map.tryFind c.id graph.nodes
-                                        |> Option.bind (fun n ->
-                                            Filename.tryValue n.name))
+                                    Map.tryFind c.id graph.nodes
+                                    |> Option.bind (fun n -> Filename.tryValue n.name))
                                 |> Option.defaultValue "?"
                             Some
                                 $"invalid ownership semantics: duplicate name '{name}' in artifact directory"

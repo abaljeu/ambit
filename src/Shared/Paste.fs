@@ -45,7 +45,8 @@ let buildPasteOps (entries: (string * int) list) : NodeId list * Op list =
     let replaceOps =
         childrenMap
         |> Map.toList
-        |> List.map (fun (parentId, childIds) -> Op.Replace(parentId, 0, [], ownedChildren childIds))
+        |> List.map (fun (parentId, childIds) ->
+            ChildListWire.insertAt parentId [] 0 (ownedChildren childIds))
     topLevel, newNodeOps @ replaceOps
 
 // ---------------------------------------------------------------------------
@@ -133,5 +134,5 @@ let buildPasteOpsFromClipboard (clipboard: ClipboardContent) : NodeId list * Op 
                 let remappedChildren = // not sure about this
                     node.children
                     |> List.map (fun child -> { child with id = mapId child.id })
-                Some (Op.Replace(mapId oldId, 0, [], remappedChildren)))
+                Some (ChildListWire.insertAt (mapId oldId) [] 0 remappedChildren))
     newTopLevelIds, newNodeOps @ replaceOps

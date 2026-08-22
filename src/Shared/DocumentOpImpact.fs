@@ -11,6 +11,24 @@ module DocumentOpImpact =
             else
                 None)
 
+    let private introducedChildren (oldChildren: ChildNode list) (newChildren: ChildNode list) =
+        newChildren
+        |> List.filter (fun nc ->
+            oldChildren
+            |> List.exists (fun oc -> oc.id = nc.id && oc.ref = nc.ref)
+            |> not)
+
+    let private removedChildren (oldChildren: ChildNode list) (newChildren: ChildNode list) =
+        oldChildren
+        |> List.filter (fun oc ->
+            newChildren
+            |> List.exists (fun nc -> nc.id = oc.id && nc.ref = oc.ref)
+            |> not)
+
+    let private childListDelta (oldChildren: ChildNode list) (newChildren: ChildNode list) =
+        (removedChildren oldChildren newChildren)
+        @ (introducedChildren oldChildren newChildren)
+
     let private touchedNodeIds (graph: Graph) op =
         match op with
         | Op.NewNode(nodeId, _)
@@ -19,10 +37,10 @@ module DocumentOpImpact =
         | Op.NewSpecialNode(nodeId, _, _)
         | Op.SetName(nodeId, _, _)
         | Op.SetDocumentState(nodeId, _, _) -> [ nodeId ]
-        | Op.Replace(parentId, _, oldChildren, newChildren) ->
+        | Op.Replace(parentId, oldChildren, newChildren) ->
             parentId
-            :: (ownedChildIds graph parentId oldChildren
-                @ ownedChildIds graph parentId newChildren)
+            :: (childListDelta oldChildren newChildren
+                |> ownedChildIds graph parentId)
         | Op.SetUpdateTime _ -> []
 
     /// Current writable document roots dirtied by accepted operations and path moves.

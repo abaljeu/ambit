@@ -300,9 +300,11 @@ let splitNode (currentText: string) (cursorPos: int) (model: VM) : VM * Effect l
                 // new node after; focus moves to new node
                 (parentId, indexInParent + 1, textAfter)
 
+        let ownerChildren = model.graph.nodes.[newNodeOwner].children
+
         let ops =
             [ yield Op.NewNode(newChild.id, newNodeText)
-              yield Op.Replace(newNodeOwner, insertIndex, [], [ newChild ])
+              yield ChildListWire.insertAt newNodeOwner ownerChildren insertIndex [ newChild ]
               // update current node's text only when it actually changes
               let updatedText = if clampedPos = 0 then currentText else textBefore
               if updatedText <> modelText then

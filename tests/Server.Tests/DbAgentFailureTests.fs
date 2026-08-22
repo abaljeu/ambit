@@ -17,11 +17,7 @@ let private changedBody () =
             ops =
                 [
                     Op.NewNode(childId, "failure probe")
-                    Op.Replace(
-                        Graph.rootId,
-                        0,
-                        [],
-                        [ ChildNode.owner childId ])
+                    Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ])
                 ]
         }
     Encode.toString 0 (

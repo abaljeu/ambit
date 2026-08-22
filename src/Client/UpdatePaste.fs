@@ -79,22 +79,24 @@ let private pasteNodesSelecting
     if topLevelIds.IsEmpty then
         model, []
     else
-        let range = sel.range
-        let selectedChildren = rangeChildren model.graph range
+        let selRange = sel.range
+        let parentId = selRange.parent.nodeId
+        let parentChildren = model.graph.nodes.[parentId].children
         let replaceOp =
-            Op.Replace(
-                range.parent.nodeId,
-                range.start,
-                selectedChildren,
-                childrenForPaste model.graph topLevelIds
-            )
+            ChildListWire.edit
+                parentId
+                parentChildren
+                selRange.start
+                (selRange.endd - selRange.start)
+                selRange.start
+                (childrenForPaste model.graph topLevelIds)
         let change = newChange model (pasteOps @ [replaceOp])
         match applyAndPost "Paste" change model with
         | Ok (m, effects) ->
-            let newEnd = range.start + topLevelIds.Length
+            let newEnd = selRange.start + topLevelIds.Length
             let newSel =
-                { range = { parent = range.parent; start = range.start; endd = newEnd }
-                  focus = range.start }
+                { range = { parent = selRange.parent; start = selRange.start; endd = newEnd }
+                  focus = selRange.start }
             { m with selectedNodes = Some newSel }, effects
         | Error _ -> model, []
 
@@ -105,8 +107,13 @@ let private pasteEditingLink
     let setTextOps =
         if currentText <> originalText then [ Op.SetText(focusId, originalText, currentText) ]
         else []
+    let parentChildren = model.graph.nodes.[parentId].children
     let insertOp =
-        Op.Replace(parentId, focusIdx + 1, [], childrenForPaste model.graph refIds)
+        ChildListWire.insertAt
+            parentId
+            parentChildren
+            (focusIdx + 1)
+            (childrenForPaste model.graph refIds)
     let change = newChange model (setTextOps @ [insertOp])
     match applyAndPost "Paste" change model with
     | Ok (m, effects) -> editingModeAfterPaste m focusId cursorPos, effects
@@ -138,9 +145,15 @@ let private pasteEditingMultiline
         match planColdPaste restText with
         | Some result -> result
         | None -> [], []
+    let parentChildren = model.graph.nodes.[parentId].children
     let insertOps =
         if remainingTopIds.IsEmpty then []
-        else [ Op.Replace(parentId, focusIdx + 1, [], childrenForPaste model.graph remainingTopIds) ]
+        else
+            [ ChildListWire.insertAt
+                  parentId
+                  parentChildren
+                  (focusIdx + 1)
+                  (childrenForPaste model.graph remainingTopIds) ]
     let allOps = setTextOps @ remainingOps @ insertOps
     let afterCaret = cursorPos + firstText.Length
     if allOps.IsEmpty then
@@ -213,9 +226,16 @@ let cutSelection (model: VM) : VM * Effect list =
     match model.selectedNodes with
     | None -> model, []
     | Some sel ->
+        let parentId = sel.range.parent.nodeId
+        let parentChildren = model.graph.nodes.[parentId].children
         let selectedChildren = rangeChildren model.graph sel.range
         let cb = collectSubtree model.graph model.siteMap selectedChildren
-        let removeOp = Op.Replace(sel.range.parent.nodeId, sel.range.start, selectedChildren, [])
+        let removeOp =
+            ChildListWire.removeRange
+                parentId
+                parentChildren
+                sel.range.start
+                selectedChildren.Length
         let change =
             { id = model.revision.Value
               changeId = System.Guid.NewGuid()

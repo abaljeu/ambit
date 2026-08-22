@@ -140,7 +140,7 @@ let ``writer upserts complete nodes children revision and reloads`` () = task {
         [ Op.NewSpecialNode(parentId, Directory, "initial.amb")
           Op.NewNode(firstId, "first")
           Op.NewNode(secondId, "second")
-          Op.Replace(parentId, 0, [], initial.children) ]
+          Op.Replace(parentId, [], initial.children) ]
     do! persistPatch connStr initialGraph 1 [ change createOps ]
 
     let final =
@@ -157,7 +157,7 @@ let ``writer upserts complete nodes children revision and reloads`` () = task {
           Op.SetClasses(parentId, CssClass.empty, final.cssClasses)
           Op.SetDocumentState(parentId, Current, Unparsed)
           Op.SetUpdateTime(parentId, stamp 2, stamp 4)
-          Op.Replace(parentId, 0, initial.children, final.children) ]
+          Op.Replace(parentId, initial.children, final.children) ]
     do! persistPatch connStr finalGraph 2 [ change updateOps ]
 
     use conn = new NpgsqlConnection(connStr)
@@ -222,7 +222,7 @@ let ``writer clears one parent without rewriting unrelated rows and rolls back``
     let final = graphWithCustomNodes [ clearedA; parentB; childA; childB ]
     let ops =
         [ Op.SetText(parentAId, "before", "after")
-          Op.Replace(parentAId, 0, [ edgeA ], []) ]
+          Op.Replace(parentAId, [ edgeA ], []) ]
     do! persistPatch connStr final 6 [ change ops ]
 
     let! remaining =
@@ -269,11 +269,7 @@ let ``DbAgent bootstrap duplicate returns stored Change and rejects no-op`` () =
           changeId = Guid.NewGuid()
           ops =
             [ Op.NewNode(childId, "bootstrap")
-              Op.Replace(
-                  Graph.rootId,
-                  0,
-                  [],
-                  [ ChildNode.owner childId ]) ] }
+              Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
 
     let! first = DbAgent.postChange agent (encodeBatch [ accepted ]) |> Async.StartAsTask
     let firstAck =

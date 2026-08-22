@@ -427,10 +427,13 @@ let duplicateSelectionOp (model: VM) : VM * Effect list =
         let selectedChildren = rangeChildren model.graph sel.range
         if selectedChildren.IsEmpty then model, []
         else
+            let parentId = sel.range.parent.nodeId
+            let parentChildren = model.graph.nodes.[parentId].children
             let duplicatedRefs =
                 selectedChildren
                 |> List.map (fun child -> { child with ref = Ownership.Ref })
-            let insertOp = Op.Replace(sel.range.parent.nodeId, sel.range.endd, [], duplicatedRefs)
+            let insertOp =
+                ChildListWire.insertAt parentId parentChildren sel.range.endd duplicatedRefs
             let change =
                 { id = model.revision.Value
                   changeId = System.Guid.NewGuid()

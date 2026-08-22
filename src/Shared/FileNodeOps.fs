@@ -16,8 +16,9 @@ module FileNodeOps =
             | Filename.Ok name -> name
             | _ -> defaultName
 
-    let private appendOwnedOp (parentId: NodeId) (childId: NodeId) (index: int) : Op =
-        Op.Replace(parentId, index, [], [ ChildNode.owner childId ])
+    let private appendOwnedOp (graph: Graph) (parentId: NodeId) (childId: NodeId) (index: int) : Op =
+        let oldChildren = graph.nodes.[parentId].children
+        ChildListWire.insertAt parentId oldChildren index [ ChildNode.owner childId ]
 
     let private planCreateOwnedSpecial
         (graph: Graph)
@@ -33,7 +34,7 @@ module FileNodeOps =
                 GraphQuery.unusedOwnedName graph parentId baseName Set.empty
             let ops =
                 [ Op.NewSpecialNode(childId, kind, name)
-                  appendOwnedOp parentId childId index ]
+                  appendOwnedOp graph parentId childId index ]
             childId, ops
 
     let planCreateWorkspace (graph: Graph) (query: string) : NodeId * Op list =
@@ -47,7 +48,7 @@ module FileNodeOps =
         let index = Graph.fileTreeInsertIndex graph Graph.workspacesId
         childId,
         [ Op.NewSpecialNode(childId, Workspace, name)
-          appendOwnedOp Graph.workspacesId childId index ]
+          appendOwnedOp graph Graph.workspacesId childId index ]
 
     let planCreateOwnedFile (graph: Graph) (parentId: NodeId) (query: string) : NodeId * Op list =
         planCreateOwnedSpecial graph parentId File (baseNameFromQuery query "file.txt")
@@ -75,4 +76,5 @@ module FileNodeOps =
             if already then
                 []
             else
-                [ Op.Replace(insert.parentId, insert.index, [], [ newRef ]) ]
+                let oldChildren = graph.nodes.[insert.parentId].children
+                [ ChildListWire.insertAt insert.parentId oldChildren insert.index [ newRef ] ]

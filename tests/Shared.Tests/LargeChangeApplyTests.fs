@@ -31,7 +31,7 @@ let private parseLikeChange (parentId: NodeId) : Change =
       ops =
         [ for i, child in List.indexed children ->
             Op.NewNode(child.id, "line " + string i)
-          yield Op.Replace(parentId, 0, [], children) ] }
+          yield Op.Replace(parentId, [], children) ] }
 
 let private applied (state: State) (change: Change) : State =
     match Change.apply change state with
@@ -220,9 +220,9 @@ let private nestedParseChange (documentRootId: NodeId) : Change =
         [ for branch, leaves in branches do
             yield Op.NewNode(branch.id, "branch")
             for leaf in leaves -> Op.NewNode(leaf.id, "leaf")
-          yield Op.Replace(documentRootId, 0, [], branches |> List.map fst)
+          yield Op.Replace(documentRootId, [], branches |> List.map fst)
           for branch, leaves in branches ->
-            Op.Replace(branch.id, 0, [], leaves) ] }
+            Op.Replace(branch.id, [], leaves) ] }
 
 [<Fact>]
 let ``nested parse tail with many Replace ops stays responsive`` () =

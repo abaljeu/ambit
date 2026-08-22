@@ -39,7 +39,6 @@ Work ready to start but not yet claimed.
 - [[.scratch/glossary-directory-file/rename-isMarker.md]] — optional remaining speech/doc sweep for informal “marker” (Directory File sense); `isMarker` / related API renames done
 - [[.scratch/large-node-cursor-perf/delete-children-cost.md]] — profile/optimize delete among large siblings (fromNodes + SiteMap rematch / structural DOM plan) (parent: [[.scratch/large-node-cursor-perf/project.md]])
 - [[src/Shared/ViewModelJoinOps.fs]] — `removeCurrentOp` fabricates `ChildNode.owner` instead of reading the live edge, so join on a Ref occurrence fails the `Graph.replace` span CAS; untested (evidence: [[.scratch/relaxed-concurrency/replace-span-cas-feasibility.md]])
-- [[.scratch/event-sourced-ops/issues/13-migrate-producers-full-list-replace-wire.md]] — Client/Shared planners emit only full-list Replace on the wire (`index = 0`, complete parent lists); no span/partial posts (spec: [[.scratch/event-sourced-ops/details/replace-amendment.md]] §1, §6; catalogue: [[.scratch/event-sourced-ops/reports/wire-full-list-replace-contract.md]])
 
 ## Blocked
 

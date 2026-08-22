@@ -61,7 +61,7 @@ let ``plan selects complete final node rows for every current op`` () =
         [ Op.NewNode(ids.[0], "initial")
           Op.SetText(ids.[1], "before", "after")
           Op.SetClasses(ids.[2], classes, CssClass.empty)
-          Op.Replace(ids.[3], 0, [], [ child ])
+          Op.Replace(ids.[3], [], [ child ])
           Op.NewSpecialNode(ids.[4], SpecialKind.File, "initial.amb")
           Op.SetName(ids.[5], "before.amb", "after.amb")
           Op.SetDocumentState(ids.[6], Current, Unparsed)
@@ -119,8 +119,8 @@ let ``plan collapses repeated node and parent touches`` () =
             ops =
                 [ Op.SetText(parentId, "first", "second")
                   Op.SetText(parentId, "second", "final")
-                  Op.Replace(parentId, 0, [], [ childRef ])
-                  Op.Replace(parentId, 0, [ childRef ], [ childRef ]) ] } ]
+                  Op.Replace(parentId, [], [ childRef ])
+                  Op.Replace(parentId, [ childRef ], [ childRef ]) ] } ]
 
     let patch = DatabaseProjection.plan graph 1 changes
 
@@ -146,8 +146,8 @@ let ``plan replaces children from final ordering including an empty list`` () =
     let graph = graphFromNodes filledId [ first; second; filled; empty ]
 
     let changes =
-        [ change (Op.Replace(filledId, 0, [], finalChildren))
-          change (Op.Replace(emptyId, 0, finalChildren, [])) ]
+        [ change (Op.Replace(filledId, [], finalChildren))
+          change (Op.Replace(emptyId, finalChildren, [])) ]
 
     let patch = DatabaseProjection.plan graph 5 changes
 
@@ -177,7 +177,7 @@ let ``commands expose deterministic SQL and bind values`` () =
                 changeId = Guid.NewGuid()
                 ops =
                     [ Op.SetText(childId, "old", "child")
-                      Op.Replace(parentId, 0, [], [ childRef ]) ] } ]
+                      Op.Replace(parentId, [], [ childRef ]) ] } ]
 
     let commands = DatabaseProjection.commands patch
     let sql = commands |> List.map DatabaseProjection.sqlText |> List.map normalizeSql

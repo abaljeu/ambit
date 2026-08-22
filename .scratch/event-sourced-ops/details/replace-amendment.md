@@ -24,11 +24,9 @@ Each occurrence is a full `ChildNode { ref; id }`, not a `NodeId` alone. Ref and
 
 On the wire, **only** full-list Replace is valid: `parentId` plus the parent's **complete** `oldList` and `newList`. Partial span Replace — including zero-width insert at `index > 0`, remove-at-index, or `index = 0` with `oldChildren` / `newChildren` that are not the full parent list — is **not** part of the wire contract and must not be emitted by producers.
 
-The internal `Op.Replace(parentId, index, oldChildren, newChildren)` type may still carry span semantics during migration. That is implementation debt, not wire permission. See §6 and issue 13.
+Wire JSON (§10, 2026-08-22): `"type": "Replace"`, `"parentId"`, `"oldChildren"`, `"newChildren"` — no `"index"`. Field names stay `oldChildren` / `newChildren` (semantically the Actor's `oldList` / `newList` from §1); a rename to `oldList` / `newList` is **not planned**.
 
-Until §10 drops the field, wire JSON keeps `"index"`, `"oldChildren"`, and `"newChildren"`. Full-list posts use **`index = 0`** with `oldChildren` / `newChildren` equal to the full parent lists. Target shape after §10: `oldList` / `newList` fields with no `index` (open in [[open-questions.md]]).
-
-The span form `Replace(parentId, index, oldChildren, newChildren)` remains **behavior to beat** for apply and for legacy logs read at replay. It is **superseded** as the Actor posting and wire contract. See [[as-implemented-facts.md]].
+`Graph.replace` retains an internal splice `index` for apply paths that are not full-list wire posts (e.g. prepend via `oldChildren = []`). `Op.apply` always calls `Graph.replace parentId 0 oldChildren newChildren`. See §10 and [[as-implemented-facts.md]].
 
 ## 2. Three-way resolve (core apply rule)
 
@@ -234,14 +232,18 @@ Insert `O(newB)`: `P(newB)` = `{O(a), O(b)}`; last in spine = `O(b)`. Insert aft
 
 `target = [O(a), O(b), O(newB), O(newA)]`. Context tail `newA` keeps its spine position relative to `a`, `b` (invariant 1). `newB` is anchored after `b` per B's `newList` (invariant 2). Critical edges from both Actors are kept. Order is deterministic from spine + anchor insert, not Server arrival order.
 
-## 10. Migration note (open decision)
+## 10. Migration note
 
-Two migrations are in flight:
+Two migrations were in flight; **(2) is now implemented** (2026-08-22, issue [[../issues/14-drop-replace-index-wire-migration.md]], report [[../reports/14-drop-replace-index-wire-migration-build.md]]):
 
-1. **Producer migration (issue 13):** Client and Shared planners must stop emitting span/partial Replaces and post only full-list shape (`index = 0`, complete `oldChildren` / `newChildren`). Until then, span posts on the wire are invalid contract usage, not an alternate supported mode.
-2. **Wire field rename (open):** Full-list Replace may later rename JSON fields to `oldList` / `newList` and drop `index`. Legacy span Replaces already in change logs need either a compat shim that upgrades span to full-list at read time, or a one-time log migration.
+| Item | Status |
+| --- | --- |
+| **Producer migration (issue 13)** | Done — planners emit full-list `Replace(parentId, oldList, newList)` via [[../../../src/Shared/ChildListWire.fs]] |
+| **Drop `index` from `Op` + JSON** | **Done** — `Op.Replace(parentId, oldChildren, newChildren)`; encode omits `"index"`; decode requires `parentId`, `oldChildren`, `newChildren` only (no legacy `"index"` shim) |
+| **Rename to `oldList` / `newList` JSON fields** | **Closed — not planned** — `oldChildren` / `newChildren` retained on wire (decision 2026-08-22, [[../reports/14-drop-replace-index-wire-migration-no-legacy-shim.md]]) |
+| **Legacy log upgrade** | Not in scope — span/partial logs do not replay correctly without a one-time migration |
 
-**Not decided here** for (2). Do not implement field rename without an explicit choice recorded in [[open-questions.md]].
+`Graph.replace` in [[../../../src/Shared/GraphMutate.fs]] still accepts an internal `index` for span splice when `oldChildren` is not the full parent list (e.g. prepend via `oldChildren = []`). `Op.apply` always calls `Graph.replace parentId 0 oldChildren newChildren`.
 
 ## Non-goals
 
@@ -254,4 +256,4 @@ Two migrations are in flight:
 
 ## See also
 
-[[conflict-resolution.md]], [[merge-invariant.md]], [[../issues/05-child-list-accept-both.md]], [[../issues/10-child-list-approximation-polish.md]], [[../issues/13-migrate-producers-full-list-replace-wire.md]], [[as-implemented-facts.md]], [[.scratch/relaxed-concurrency/replace-span-cas-feasibility.md]]
+[[conflict-resolution.md]], [[merge-invariant.md]], [[../issues/05-child-list-accept-both.md]], [[../issues/10-child-list-approximation-polish.md]], [[../issues/13-migrate-producers-full-list-replace-wire.md]], [[../issues/14-drop-replace-index-wire-migration.md]], [[as-implemented-facts.md]], [[.scratch/relaxed-concurrency/replace-span-cas-feasibility.md]]

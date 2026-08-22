@@ -294,11 +294,7 @@ let ``applyServerTail skips structural Replace on Unloaded parent`` () =
         { id = 4
           changeId = System.Guid.NewGuid()
           ops =
-              [ Op.Replace(
-                    wsId,
-                    0,
-                    [],
-                    [ ChildNode.owner childId ]) ] }
+              [ Op.Replace(wsId, [], [ ChildNode.owner childId ]) ] }
     match SyncLogic.applyServerTail [ change ] st with
     | Error msg -> failwith $"Expected Ok, got Error: {msg}"
     | Ok result ->
@@ -509,8 +505,7 @@ let ``applyServerTail trusts server tails without ownership re-check`` () =
         { id = 2
           changeId = System.Guid.NewGuid()
           ops =
-            [ Op.Replace(rootId, 0, [ childA ], [])
-              Op.Replace(childB.id, originalBChildren.Length, [], [ childA ]) ] }
+            [ Op.Replace(childB.id, originalBChildren, originalBChildren @ [ childA ]) ] }
     match SyncLogic.applyServerTail [ goodChange; ownershipBreakingChange ] (ofState state0) with
     | Error msg -> failwith $"Expected Ok (no ownership re-check), got Error: {msg}"
     | Ok result ->

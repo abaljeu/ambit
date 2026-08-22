@@ -139,7 +139,8 @@ module ViewModelDeleteOps =
                     Node.childOwnership graph promoParentId c = Ownership.Ref)
                 |> Option.map (fun (promoParentId, promoIdx, oldChild) ->
                     let newChild = { oldChild with ref = Ownership.Owner }
-                    Op.Replace(promoParentId, promoIdx, [ oldChild ], [ newChild ]))
+                    let oldChildren = graph.nodes.[promoParentId].children
+                    ChildListWire.updateChildAt promoParentId oldChildren promoIdx newChild)
             | _ -> None)
 
     /// Rename MoveToTrash items that would collide under TRASH (after span remove).
@@ -189,8 +190,8 @@ module ViewModelDeleteOps =
         match newOwners with
         | [] -> []
         | owners ->
-            let trashLen = graph.nodes.[Graph.trashId].children.Length
-            [ Op.Replace(Graph.trashId, trashLen, [], owners) ]
+            let oldChildren = graph.nodes.[Graph.trashId].children
+            [ ChildListWire.append Graph.trashId oldChildren owners ]
 
     /// Build hard-delete ops for HardDeleteSubtreeInTrash items.
     /// selectionParentId is excluded from the plan because spanRemove already removes those entries.
@@ -212,13 +213,7 @@ module ViewModelDeleteOps =
             |> List.filter (fun (pid, _) -> pid <> selectionParentId)
             |> List.map (fun (pid, indices) ->
                 let children = graph.nodes.[pid].children
-                let indicesSet = Set.ofList indices
-                let remaining =
-                    children
-                    |> List.mapi (fun i c -> i, c)
-                    |> List.filter (fun (i, _) -> not (Set.contains i indicesSet))
-                    |> List.map snd
-                Op.Replace(pid, 0, children, remaining)))
+                ChildListWire.removeIndices pid children (Set.ofList indices)))
 
     /// Build the complete ordered op list for a classified delete gesture.
     /// Precondition: classified is non-empty (caller checks classifyDeleteForSelection <> []).
@@ -231,10 +226,13 @@ module ViewModelDeleteOps =
         =
         let parentId = range.parent.nodeId
         let parentChildren = graph.nodes.[parentId].children
-        let selectedChildren =
-            parentChildren |> List.skip range.start |> List.take (range.endd - range.start)
         let promoteOps = buildPromoteOps graph classified
-        let spanRemove = Op.Replace(parentId, range.start, selectedChildren, [])
+        let spanRemove =
+            ChildListWire.removeRange
+                parentId
+                parentChildren
+                range.start
+                (range.endd - range.start)
         let trashRenames = buildTrashRenameOps graph classified
         let trashOps = buildTrashOp graph classified
         let hardDeleteOps = buildHardDeleteOps graph parentId classified
@@ -331,14 +329,7 @@ module ViewModelDeleteOps =
             |> List.filter (fun (pid, _) -> not (Set.contains pid excludedParents))
             |> List.map (fun (pid, indices) ->
                 let children = graph.nodes.[pid].children
-                let indicesSet = Set.ofList indices
-                let remaining =
-                    children
-                    |> List.mapi (fun i c -> i, c)
-                    |> List.filter (fun (i, _) ->
-                        not (Set.contains i indicesSet))
-                    |> List.map snd
-                Op.Replace(pid, 0, children, remaining)))
+                ChildListWire.removeIndices pid children (Set.ofList indices)))
 
     /// Delete-command disposal for owned children dropped under each parent
     /// (warm parse unmatched Owner rows). One shared TRASH append.
@@ -382,15 +373,11 @@ module ViewModelDeleteOps =
             let removeOps =
                 classified
                 |> List.groupBy (fun item -> item.parentId)
-                |> List.collect (fun (parentId, items) ->
-                    items
-                    |> List.sortByDescending (fun item -> item.index)
-                    |> List.map (fun item ->
-                        Op.Replace(
-                            parentId,
-                            item.index,
-                            [ item.child ],
-                            [])))
+                |> List.map (fun (parentId, items) ->
+                    let children = graph.nodes.[parentId].children
+                    let indicesToRemove =
+                        items |> List.map (fun item -> item.index) |> Set.ofList
+                    ChildListWire.removeIndices parentId children indicesToRemove)
             let trashRenames = buildTrashRenameOps graph classified
             let trashOps = buildTrashOp graph classified
             let excluded =

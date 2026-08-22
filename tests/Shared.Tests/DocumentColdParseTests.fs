@@ -66,7 +66,7 @@ let ``planApplyCold paste path uses Plain indent nesting`` () =
     let childIds =
         nested
         |> List.tryPick (function
-            | Op.Replace(id, _, _, children) when id = parentId ->
+            | Op.Replace(id, _, children) when id = parentId ->
                 Some(children |> List.map (fun c -> c.id))
             | _ -> None)
 
@@ -131,8 +131,15 @@ let private applySelectModeExternalPaste
         let insertChildren =
             ChildNode.owners topLevelIds
 
+        let parentChildren = graph.nodes.[parentId].children
         let replaceOp =
-            Op.Replace(parentId, selStart, selected, insertChildren)
+            ChildListWire.edit
+                parentId
+                parentChildren
+                selStart
+                selected.Length
+                selStart
+                insertChildren
 
         let change =
             { id = 0

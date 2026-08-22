@@ -1078,12 +1078,14 @@ let ``History.applyChange rejects Normal-owning-File moved under File`` () =
     let normalIdx =
         graph6.nodes.[Graph.rootId].children
         |> List.findIndex (fun c -> c.id = normalId)
+    let rootKids = graph6.nodes.[Graph.rootId].children
+    let withoutNormal = rootKids |> List.filter (fun c -> c.id <> normalId)
     let change =
         { id = 0
           changeId = System.Guid.NewGuid()
           ops =
-            [ Op.Replace(Graph.rootId, normalIdx, [ normalChild ], [])
-              Op.Replace(outerFile, 0, [], [ normalChild ]) ] }
+            [ Op.Replace(Graph.rootId, rootKids, withoutNormal)
+              Op.Replace(outerFile, [], [ normalChild ]) ] }
     let state =
         { graph = graph6
           history = History.empty

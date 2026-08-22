@@ -1,12 +1,12 @@
 # Event-sourced ops
 
 Stage: active
-Summary: One semantic standard for how any Actor's Change enters a Graph — twelve implementation issues (`issues/01`–`12`) from critical-flaw elimination through Actor spine, recovery decisions, and polish; charting docs in overview, architecture, and details.
+Summary: One semantic standard for how any Actor's Change enters a Graph — fourteen implementation issues (`issues/01`–`14`) from critical-flaw elimination through Actor spine, recovery decisions, wire migration, and polish; charting docs in overview, architecture, and details.
 Updated: 2026-08-22
 
 Start at [[overview.md]] — objective and semantic means. Then [[architecture.md]] — roles, the life of a Change, the two channels.
 
-Implementation issues (dependency order): [[issues/01-shared-success-envelope-expand.md]] through [[issues/12-unrestricted-undo-desirability-decision.md]]. Draft and quiz history: [[to-tickets-draft.md]].
+Implementation issues (dependency order): [[issues/01-shared-success-envelope-expand.md]] through [[issues/14-drop-replace-index-wire-migration.md]]. Done wire slices: [[issues/13-migrate-producers-full-list-replace-wire.md]], [[issues/14-drop-replace-index-wire-migration.md]]. Draft and quiz history: [[to-tickets-draft.md]].
 
 Details, by topic:
 

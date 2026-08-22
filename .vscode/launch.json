@@ -56,7 +56,7 @@
             "console": "internalConsole",
             "env": {
                 "ASPNETCORE_ENVIRONMENT": "Development",
-                "ASPNETCORE_URLS": "http://localhost:5115"
+                "ASPNETCORE_URLS": "http://localhost:5215"
             }
         },
         {
@@ -64,7 +64,7 @@
             "type": "msedge",
             "request": "launch",
             "preLaunchTask": "fable: Build Client",
-            "url": "http://localhost:5115/ambit?debug=1",
+            "url": "http://localhost:5215/ambit?debug=1",
             "webRoot": "${workspaceFolder}/src/Server/wwwroot",
             "sourceMapPathOverrides": {
                 "../../Client/*": "${workspaceFolder}/src/Client/*",
@@ -76,7 +76,7 @@
             "type": "chrome",
             "request": "launch",
             "preLaunchTask": "fable: Build Client",
-            "url": "http://localhost:5115/ambit?debug=1",
+            "url": "http://localhost:5215/ambit?debug=1",
             "webRoot": "${workspaceFolder}/src/Server/wwwroot",
             "sourceMapPathOverrides": {
                 "../../Client/*": "${workspaceFolder}/src/Client/*",
@@ -87,7 +87,7 @@
             "name": "(Client for Full Stack)",
             "type": "chrome",
             "request": "launch",
-            "url": "http://localhost:5115/ambit?debug=1",
+            "url": "http://localhost:5215/ambit?debug=1",
             "webRoot": "${workspaceFolder}/src/Server/wwwroot",
             "sourceMapPathOverrides": {
                 "../../Client/*": "${workspaceFolder}/src/Client/*",
@@ -133,7 +133,7 @@
             "console": "internalConsole",
             "env": {
                 "ASPNETCORE_ENVIRONMENT": "Development",
-                "ASPNETCORE_URLS": "http://localhost:5115"
+                "ASPNETCORE_URLS": "http://localhost:5215"
             }
         }
     ]

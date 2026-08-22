@@ -126,7 +126,7 @@ let private changeAddChild (rootId: NodeId) (rev: int) (childText: string) : Cha
           changeId = Guid.NewGuid()
           ops =
             [ Op.NewNode(childId, childText)
-              Op.Replace(rootId, 0, [], ownedChild childId) ] }
+              Op.Replace(rootId, [], ownedChild childId) ] }
     c, childId
 
 /// Read a file that may be held open by a FileAgent (shared read).
@@ -287,7 +287,7 @@ let ``file backend large paste inverse total response is measured`` () = task {
           ops =
             [ for i, child in List.indexed children ->
                 Op.NewNode(child.id, "line " + string i)
-              yield Op.Replace(Graph.workspacesId, 0, [], children) ] }
+              yield Op.Replace(Graph.workspacesId, [], children) ] }
     let! pasteResp = postChange client testFile paste
     Assert.Equal(HttpStatusCode.OK, pasteResp.StatusCode)
     let inverse = Change.inverse (Revision 1) (Guid.NewGuid()) paste
@@ -379,7 +379,7 @@ let ``POST changes NewNode+Replace adds child to root`` (backend: BackendKind) =
               changeId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(childId, "child")
-                  Op.Replace(rootId, 0, [], [ ChildNode.owner childId ]) ] }
+                  Op.Replace(rootId, [], [ ChildNode.owner childId ]) ] }
 
         let! resp = postChange client testFile change
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
@@ -519,7 +519,7 @@ let ``POST same changeId twice is idempotent`` (backend: BackendKind) =
               changeId = cid
               ops =
                 [ Op.NewNode(childId, "once")
-                  Op.Replace(rootId, 0, [], ownedChild childId) ] }
+                  Op.Replace(rootId, [], ownedChild childId) ] }
 
         let! r1 = postChange client testFile change
         Assert.Equal(HttpStatusCode.OK, r1.StatusCode)
@@ -579,13 +579,20 @@ let ``POST unrelated attribute edits with stale revision both succeed``
         let! rX = postChange client testFile setupX
         Assert.Equal(HttpStatusCode.OK, rX.StatusCode)
 
+        let! json1 = getStateJson client testFile
+        let rootChildren = (decodeGraph json1).nodes.[rootId].children
         let nodeY = NodeId.New()
         let setupY =
             { id = 1
               changeId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(nodeY, "y0")
-                  Op.Replace(rootId, 1, [], ownedChild nodeY) ] }
+                  Op.Replace(
+                      rootId,
+                      rootChildren,
+                      (List.take 1 rootChildren)
+                      @ (ownedChild nodeY)
+                      @ (List.skip 1 rootChildren)) ] }
         let! rY = postChange client testFile setupY
         Assert.Equal(HttpStatusCode.OK, rY.StatusCode)
 
@@ -665,7 +672,7 @@ let ``POST concurrent stale name Changes amend second as amb-conflict child``
               ops =
                 [ Op.NewNode(nodeId, "body")
                   Op.SetName(nodeId, "", "alpha")
-                  Op.Replace(rootId, 0, [], ownedChild nodeId) ] }
+                  Op.Replace(rootId, [], ownedChild nodeId) ] }
         let! r0 = postChange client testFile setup
         Assert.Equal(HttpStatusCode.OK, r0.StatusCode)
 
@@ -707,7 +714,7 @@ let ``POST concurrent stale class Changes merge set delta and succeed``
               ops =
                 [ Op.NewNode(nodeId, "tagged")
                   Op.SetClasses(nodeId, CssClass.empty, prior)
-                  Op.Replace(rootId, 0, [], ownedChild nodeId) ] }
+                  Op.Replace(rootId, [], ownedChild nodeId) ] }
         let! r0 = postChange client testFile setup
         Assert.Equal(HttpStatusCode.OK, r0.StatusCode)
 
@@ -750,11 +757,7 @@ let ``POST unrelated structural edits with stale revision both succeed``
               ops =
                 [ Op.NewNode(parentP1, "p1")
                   Op.NewNode(parentP2, "p2")
-                  Op.Replace(
-                      rootId,
-                      0,
-                      [],
-                      [ ChildNode.owner parentP1; ChildNode.owner parentP2 ]) ] }
+                  Op.Replace(rootId, [], [ ChildNode.owner parentP1; ChildNode.owner parentP2 ]) ] }
         let! r0 = postChange client testFile setupParents
         Assert.Equal(HttpStatusCode.OK, r0.StatusCode)
 
@@ -764,7 +767,7 @@ let ``POST unrelated structural edits with stale revision both succeed``
               changeId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(childA, "a")
-                  Op.Replace(parentP1, 0, [], ownedChild childA) ] }
+                  Op.Replace(parentP1, [], ownedChild childA) ] }
         let! rA = postChange client testFile changeA
         Assert.Equal(HttpStatusCode.OK, rA.StatusCode)
 
@@ -774,7 +777,7 @@ let ``POST unrelated structural edits with stale revision both succeed``
               changeId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(childB, "b")
-                  Op.Replace(parentP2, 0, [], ownedChild childB) ] }
+                  Op.Replace(parentP2, [], ownedChild childB) ] }
         let! rB = postChange client testFile changeB
         Assert.Equal(HttpStatusCode.OK, rB.StatusCode)
 
@@ -808,8 +811,8 @@ let ``POST same-parent structural collision amends and succeeds``
               ops =
                 [ Op.NewNode(parentP, "p")
                   Op.NewNode(child0, "c0")
-                  Op.Replace(rootId, 0, [], ownedChild parentP)
-                  Op.Replace(parentP, 0, [], ownedChild child0) ] }
+                  Op.Replace(rootId, [], ownedChild parentP)
+                  Op.Replace(parentP, [], ownedChild child0) ] }
         let! r0 = postChange client testFile setup
         Assert.Equal(HttpStatusCode.OK, r0.StatusCode)
 
@@ -819,11 +822,7 @@ let ``POST same-parent structural collision amends and succeeds``
               changeId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(childA, "a")
-                  Op.Replace(
-                      parentP,
-                      0,
-                      ownedChild child0,
-                      ownedChild childA) ] }
+                  Op.Replace(parentP, ownedChild child0, ownedChild childA) ] }
         let! rA = postChange client testFile changeA
         Assert.Equal(HttpStatusCode.OK, rA.StatusCode)
 
@@ -833,11 +832,7 @@ let ``POST same-parent structural collision amends and succeeds``
               changeId = Guid.NewGuid()
               ops =
                 [ Op.NewNode(childB, "b")
-                  Op.Replace(
-                      parentP,
-                      0,
-                      ownedChild child0,
-                      ownedChild childB) ] }
+                  Op.Replace(parentP, ownedChild child0, ownedChild childB) ] }
         let! rB = postChange client testFile changeB
         Assert.Equal(HttpStatusCode.OK, rB.StatusCode)
         let! postBody = rB.Content.ReadAsStringAsync()
@@ -866,7 +861,7 @@ let ``POST duplicate changeId with stale revision stays idempotent``
               changeId = cid
               ops =
                 [ Op.NewNode(childId, "once")
-                  Op.Replace(rootId, 0, [], ownedChild childId) ] }
+                  Op.Replace(rootId, [], ownedChild childId) ] }
 
         let! r1 = postChange client testFile change
         Assert.Equal(HttpStatusCode.OK, r1.StatusCode)
@@ -1199,14 +1194,14 @@ let private addNestedWorkspaceViaPost (client: HttpClient) = task {
           changeId = Guid.NewGuid()
           ops =
             [ Op.NewSpecialNode(wsId, Workspace, "home")
-              Op.Replace(Graph.workspacesId, 0, [], ownedChild wsId) ] }
+              Op.Replace(Graph.workspacesId, [], ownedChild wsId) ] }
     do! postChangeOk client c0
     let c1 =
         { id = 1
           changeId = Guid.NewGuid()
           ops =
             [ Op.NewNode(innerId, "inside-ws")
-              Op.Replace(wsId, 0, [], ownedChild innerId) ] }
+              Op.Replace(wsId, [], ownedChild innerId) ] }
     do! postChangeOk client c1
     return wsId, innerId
 }

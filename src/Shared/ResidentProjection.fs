@@ -17,7 +17,7 @@ module ResidentProjection =
                 Op.apply op state
             else
                 ApplyResult.Unchanged state
-        | Op.Replace(parentId, _, _, _) ->
+        | Op.Replace(parentId, _, _) ->
             match Map.tryFind parentId state.graph.nodes with
             | Some parent when parent.childrenStatus = Loaded ->
                 Op.apply op state

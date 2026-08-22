@@ -101,18 +101,16 @@ let private replaceOpsForMove
         // temporary "removed from root" intermediate state.
         let parentId = from.parent.nodeId
         let oldChildren = graph.nodes.[parentId].children
-        let without =
-            oldChildren
-            |> List.indexed
-            |> List.filter (fun (i, _) -> i < from.start || i >= from.endd)
-            |> List.map snd
-        let before = List.take insertIdx without
-        let after = List.skip insertIdx without
-        let newChildren = before @ selectedChildren @ after
-        [ Op.Replace(parentId, 0, oldChildren, newChildren) ]
+        let count = selectedChildren.Length
+        [ ChildListWire.edit parentId oldChildren from.start count insertIdx selectedChildren ]
     else
-        [ Op.Replace(from.parent.nodeId, from.start, selectedChildren, [])
-          Op.Replace(too.pnode, too.endd, [], selectedChildren) ]
+        let fromParentId = from.parent.nodeId
+        let toParentId = too.pnode
+        let fromOld = graph.nodes.[fromParentId].children
+        let toOld = graph.nodes.[toParentId].children
+        let count = selectedChildren.Length
+        [ ChildListWire.removeRange fromParentId fromOld from.start count
+          ChildListWire.insertAt toParentId toOld insertIdx selectedChildren ]
 
 let private restoreInlineMode
     (oldMode: InlineEditContext option)

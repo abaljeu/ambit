@@ -54,7 +54,7 @@ let ``buildPackage imports tab-indented child`` () =
 
     Assert.Equal<string list>(["parent"; "child"], newNodeTexts package.ops)
     Assert.Equal<Op list>(
-        [ Op.Replace(parentId, 0, [], owned [childId]) ],
+        [ Op.Replace(parentId, [], owned [childId]) ],
         replaceOps package.ops)
 
 [<Fact>]
@@ -98,7 +98,7 @@ let ``buildImportChange single line attaches to focus`` () =
     Assert.Equal(1, change.id)
     Assert.Equal<Op list>(
         package.ops
-        @ [ Op.Replace(focusId, 0, existing, owned package.topLevelIds) ],
+        @ [ Op.Replace(focusId, existing, owned package.topLevelIds) ],
         change.ops)
 
 [<Fact>]
@@ -115,7 +115,7 @@ let ``buildImportChange nested package attaches top level only`` () =
             (System.Guid.NewGuid())
 
     Assert.Equal<Op list>(
-        package.ops @ [ Op.Replace(focusId, 0, [], owned package.topLevelIds) ],
+        package.ops @ [ Op.Replace(focusId, [], owned package.topLevelIds) ],
         change.ops)
 
 [<Fact>]
@@ -187,7 +187,7 @@ let ``build import marks unparsed file current before tree operations`` () =
         Op.SetDocumentState(focusId, Unparsed, Current),
         change.ops.Head)
     Assert.Equal(
-        Op.Replace(focusId, 0, [], owned package.topLevelIds),
+        Op.Replace(focusId, [], owned package.topLevelIds),
         change.ops |> List.last)
 
 [<Fact>]
@@ -202,7 +202,7 @@ let ``buildDirectoryMergeChange with empty existing adds all entries`` () =
     Assert.Equal(2, package.topLevelIds.Length)
 
     Assert.Equal<Op list>(
-        [ Op.Replace(focusId, 0, [], owned package.topLevelIds) ],
+        [ Op.Replace(focusId, [], owned package.topLevelIds) ],
         replaceOps change.ops)
 
 [<Fact>]
@@ -221,7 +221,7 @@ let ``buildDirectoryMergeChange skips existing Normal child by file reference`` 
     let betaId = List.last package.topLevelIds
 
     Assert.Equal<Op list>(
-        [ Op.Replace(focusId, 1, [], owned [ betaId ]) ],
+        [ Op.Replace(focusId, existing, existing @ owned [ betaId ]) ],
         replaceOps change.ops)
 
 [<Fact>]
@@ -240,7 +240,7 @@ let ``buildDirectoryMergeChange skips existing Special File child by name`` () =
     let betaId = List.last package.topLevelIds
 
     Assert.Equal<Op list>(
-        [ Op.Replace(focusId, 1, [], owned [ betaId ]) ],
+        [ Op.Replace(focusId, existing, existing @ owned [ betaId ]) ],
         replaceOps change.ops)
 
 [<Fact>]
@@ -259,7 +259,7 @@ let ``buildDirectoryMergeChange appends only new entries at end`` () =
     let betaId = List.last package.topLevelIds
 
     Assert.Equal<Op list>(
-        [ Op.Replace(focusId, 1, [], owned [ betaId ]) ],
+        [ Op.Replace(focusId, existing, existing @ owned [ betaId ]) ],
         replaceOps change.ops)
 
 [<Fact>]

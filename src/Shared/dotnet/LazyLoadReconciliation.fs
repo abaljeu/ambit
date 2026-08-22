@@ -77,12 +77,9 @@ module LazyLoadReconciliation =
             Node.childOwnership graph parentId child = Ownership.Ref)
         |> List.collect (fun (parentId, index, oldChild) ->
             let replacementId = NodeId.New()
+            let oldChildren = graph.nodes.[parentId].children
             [ Op.NewNode(replacementId, $"[[{path}]]")
-              Op.Replace(
-                  parentId,
-                  index,
-                  [ oldChild ],
-                  [ ChildNode.owner replacementId ]) ])
+              ChildListWire.updateChildAt parentId oldChildren index (ChildNode.owner replacementId) ])
 
     let private planTrashNode (graph: Graph) nodeId =
         if DocumentPartition.isMemberOfUnparsedDocument graph nodeId then
@@ -105,11 +102,12 @@ module LazyLoadReconciliation =
                     NodeDesktopPath.pathForNodeId graph nodeId
                     |> Option.defaultValue ""
                 let refOps = refReplacementOps graph nodeId path
-                let trashIndex = graph.nodes.[Graph.trashId].children.Length
+                let oldParentChildren = parent.children
+                let oldTrashChildren = graph.nodes.[Graph.trashId].children
                 let ops =
                     refOps
-                    @ [ Op.Replace(parentId, index, [ ownerChild ], [])
-                        Op.Replace(Graph.trashId, trashIndex, [], [ ownerChild ]) ]
+                    @ [ ChildListWire.removeRange parentId oldParentChildren index 1
+                        ChildListWire.append Graph.trashId oldTrashChildren [ ownerChild ] ]
                 applyOps graph ops |> Result.map (fun next -> next, ops)
 
     let rec private cleanupEmptyDirectories protectedIds (graph: Graph) parentId =
@@ -186,16 +184,14 @@ module LazyLoadReconciliation =
                                 let ownerChild = oldParent.children.[oldIndex]
                                 let newIndex =
                                     Graph.fileTreeInsertIndex renamed newParentId
-                                [ Op.Replace(
-                                      oldParentId,
-                                      oldIndex,
-                                      [ ownerChild ],
-                                      [])
-                                  Op.Replace(
-                                      newParentId,
-                                      newIndex,
-                                      [],
-                                      [ ownerChild ]) ]
+                                let oldParentChildren = oldParent.children
+                                let newParentOldChildren = renamed.nodes.[newParentId].children
+                                [ ChildListWire.removeRange oldParentId oldParentChildren oldIndex 1
+                                  ChildListWire.insertAt
+                                      newParentId
+                                      newParentOldChildren
+                                      newIndex
+                                      [ ownerChild ] ]
                         applyOps renamed reparentOps
                         |> Result.bind (fun moved ->
                             cleanupEmptyDirectories Set.empty moved oldParentId

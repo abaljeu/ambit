@@ -8,8 +8,8 @@
 
 **See also:** [[../details/replace-amendment.md]] §6, §10, [[../details/conflict-resolution.md]] Kind 3
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Every Client/Shared Change planner emits only full-list Replace on the wire (no span at `index > 0`; no partial lists at `index = 0`).
-- [ ] Cross-parent move, paste, delete, import, join, lazy-load reconciliation, and file-node insert paths covered.
-- [ ] Focused tests updated; existing merge/amend tests still green.
+- [x] Every Client/Shared Change planner emits only full-list Replace on the wire (no span at `index > 0`; no partial lists at `index = 0`).
+- [x] Cross-parent move, paste, delete, import, join, lazy-load reconciliation, and file-node insert paths covered.
+- [x] Focused tests updated; existing merge/amend tests still green.

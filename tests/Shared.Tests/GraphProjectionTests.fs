@@ -20,10 +20,11 @@ let private specialFileUnderRoot () : Graph * NodeId =
     let fileId = NodeId.New()
     let g0 = Graph.create ()
     let idx = Graph.fileTreeInsertIndex g0 Graph.rootId
+    let rootKids = g0.nodes.[Graph.rootId].children
     let g =
         applyChange
             [ Op.NewSpecialNode(fileId, File, "file1")
-              Op.Replace(Graph.rootId, idx, [], owned [ fileId ]) ]
+              ChildListWire.insertAt Graph.rootId rootKids idx (owned [ fileId]) ]
             g0
     g, fileId
 
@@ -34,12 +35,12 @@ let private workspaceWithDirectory () : Graph * NodeId * NodeId =
     let g1 =
         applyChange
             [ Op.NewSpecialNode(wsId, Workspace, "my-ws")
-              Op.Replace(Graph.workspacesId, 0, [], owned [ wsId ]) ]
+              Op.Replace(Graph.workspacesId, [], owned [ wsId ]) ]
             g0
     let g2 =
         applyChange
             [ Op.NewSpecialNode(dirId, Directory, "subdir")
-              Op.Replace(wsId, 0, [], owned [ dirId ]) ]
+              Op.Replace(wsId, [], owned [ dirId ]) ]
             g1
     g2, wsId, dirId
 
@@ -107,7 +108,7 @@ let ``graphRoundTrip preserves graph with child`` () =
           changeId = System.Guid.NewGuid()
           ops =
             [ Op.NewNode(childId, "x")
-              Op.Replace(Graph.rootId, 0, [], [ ChildNode.owner childId ]) ] }
+              Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
 
     match History.applyChange change { graph = g0; history = History.empty; revision = Revision 0 } with
     | ApplyResult.Changed st ->
@@ -138,7 +139,7 @@ let ``graphRoundTrip preserves updateTime`` () =
           changeId = Guid.NewGuid()
           ops =
             [ Op.NewNode(childId, "stamped")
-              Op.Replace(Graph.rootId, 0, [], [ ChildNode.owner childId ]) ] }
+              Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
 
     match History.applyChange change { graph = g0; history = History.empty; revision = Revision 0 } with
     | ApplyResult.Changed st ->
@@ -163,7 +164,7 @@ let ``graphEquals is false when text differs`` () =
           changeId = System.Guid.NewGuid()
           ops =
             [ Op.NewNode(childId, "alpha")
-              Op.Replace(Graph.rootId, 0, [], [ ChildNode.owner childId ]) ] }
+              Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
 
     match History.applyChange change { graph = g0; history = History.empty; revision = Revision 0 } with
     | ApplyResult.Changed st ->

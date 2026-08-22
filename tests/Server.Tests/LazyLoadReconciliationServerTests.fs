@@ -522,11 +522,7 @@ let ``directory reconcile does not duplicate Normal-owned present file`` () =
         fileAgent
         2
         [ Op.NewNode(organizerId, "organizer")
-          Op.Replace(
-              docsId,
-              0,
-              [],
-              [ ChildNode.owner organizerId ]) ]
+          Op.Replace(docsId, [], [ ChildNode.owner organizerId ]) ]
     let graph4 = readGraph fileAgent
     let fileId, fileOps =
         FileNodeOps.planCreateOwnedFile graph4 organizerId "present.txt"

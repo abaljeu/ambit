@@ -15,7 +15,7 @@ let private stateWithChild (text: string) =
           changeId = System.Guid.NewGuid()
           ops =
             [ Op.NewNode(childId, text)
-              Op.Replace(Graph.rootId, 0, [], [ ChildNode.owner childId ]) ] }
+              Op.Replace(Graph.rootId, [], [ ChildNode.owner childId ]) ] }
 
     match History.applyChange change initialState with
     | ApplyResult.Changed st -> st, childId
@@ -96,8 +96,8 @@ let private stateWithParentChild (parentText: string) (childText: string) =
           ops =
             [ Op.NewNode(parentId, parentText)
               Op.NewNode(childId, childText)
-              Op.Replace(Graph.rootId, 0, [], [ ChildNode.owner parentId ])
-              Op.Replace(parentId, 0, [], [ ChildNode.owner childId ]) ] }
+              Op.Replace(Graph.rootId, [], [ ChildNode.owner parentId ])
+              Op.Replace(parentId, [], [ ChildNode.owner childId ]) ] }
 
     match History.applyChange change initialState with
     | ApplyResult.Changed st -> st, parentId, childId
@@ -114,7 +114,6 @@ let ``applyChange amends stale Replace collision`` () =
             [ Op.NewNode(childA, "a")
               Op.Replace(
                   parentId,
-                  0,
                   [ ChildNode.owner child0 ],
                   [ ChildNode.owner childA ]) ] }
     let state =
@@ -130,7 +129,6 @@ let ``applyChange amends stale Replace collision`` () =
             [ Op.NewNode(childB, "b")
               Op.Replace(
                   parentId,
-                  0,
                   [ ChildNode.owner child0 ],
                   [ ChildNode.owner childB ]) ] }
     let result, amended, applied = ChangeAmendment.applyChange changeB state

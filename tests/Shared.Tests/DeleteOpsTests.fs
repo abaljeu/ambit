@@ -144,7 +144,7 @@ let ``classifyDeleteForSelection returns empty for workspace delete`` () =
               changeId = System.Guid.NewGuid()
               ops =
                 [ Op.NewSpecialNode(ws, Workspace, "home")
-                  Op.Replace(Graph.workspacesId, 0, [], owned [ ws ]) ] }
+                  Op.Replace(Graph.workspacesId, [], owned [ ws ]) ] }
             (stateOf g0)
     match g1 with
     | ApplyResult.Changed s ->
@@ -166,7 +166,7 @@ let ``classifyDeleteForSelection cancels whole selection when workspace is in ra
               ops =
                 [ Op.NewSpecialNode(ws, Workspace, "home")
                   Op.NewNode(other, "docs")
-                  Op.Replace(Graph.workspacesId, 0, [], owned [ ws; other ]) ] }
+                  Op.Replace(Graph.workspacesId, [], owned [ ws; other ]) ] }
             (stateOf g0)
     match g1 with
     | ApplyResult.Changed s ->

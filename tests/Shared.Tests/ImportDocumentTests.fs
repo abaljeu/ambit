@@ -57,7 +57,7 @@ let ``buildFilePackage md heading produces nested replace ops`` () =
     let h1Children =
         package.ops
         |> List.tryPick (function
-            | Op.Replace(parentId, _, _, children) when parentId = h1Id ->
+            | Op.Replace(parentId, _, children) when parentId = h1Id ->
                 Some children
             | _ -> None)
 
@@ -69,7 +69,7 @@ let ``buildFilePackage md heading produces nested replace ops`` () =
         let h2Children =
             package.ops
             |> List.tryPick (function
-                | Op.Replace(parentId, _, _, grandchildren) when parentId = h2Id ->
+                | Op.Replace(parentId, _, grandchildren) when parentId = h2Id ->
                     Some grandchildren
                 | _ -> None)
 
@@ -225,7 +225,7 @@ let ``buildTextPackage Plain indent nesting under paste path`` () =
     let betaChildren =
         package.ops
         |> List.tryPick (function
-            | Op.Replace(parentId, _, _, children) when parentId = alphaId ->
+            | Op.Replace(parentId, _, children) when parentId = alphaId ->
                 Some children
             | _ -> None)
 

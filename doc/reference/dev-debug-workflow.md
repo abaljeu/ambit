@@ -5,14 +5,24 @@ See also: [[doc/arch.md]], [[.vscode/launch.json]], [[.vscode/tasks.json]]
 
 ## Two Server starters
 
-Gambol has two alternate ways to start the Server on `:5115`. They are mutually exclusive: only one can own the port.
+Gambol has two alternate ways to start the Server on `:5215`. They are mutually exclusive: only one can own the port.
 
 | Starter | How | Debugger |
 |---------|-----|----------|
 | Watch task | Run [[.vscode/tasks.json|dev: Watch + Run]] or [[.vscode/tasks.json|server: Run]] (`dotnet watch run`) | No |
 | F5 | Launch [[.vscode/launch.json|Local Server]] or [[.vscode/launch.json|Full Stack]] | Yes |
 
-F5 does not replace a running watch-task Server. If the watch task already owns `:5115`, F5 tries to start a second Server and fails.
+F5 does not replace a running watch-task Server. If the watch task already owns `:5215`, F5 tries to start a second Server and fails.
+
+## Windows Hyper-V port exclusion
+
+On Windows, Hyper-V reserves dynamic TCP port ranges that can include the old dev port `5115`. If Kestrel fails with *access forbidden by its access permissions* (not *address already in use*), check exclusions in PowerShell:
+
+```powershell
+netsh interface ipv4 show excludedportrange protocol=tcp
+```
+
+Gambol dev now uses `:5215`, outside typical exclusion blocks. Pick another free port if `5215` is ever reserved locally.
 
 ## Fable watch
 

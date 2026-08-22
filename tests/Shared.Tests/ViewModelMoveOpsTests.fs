@@ -440,9 +440,11 @@ let ``indent Directory under Normal sibling is accepted by History.applyChange``
     let plan = planIndentSelection selected |> Option.get
     Assert.Equal(normalId, plan.target.pnode)
     let dirChild = graph.nodes.[Graph.rootId].children.[dirIdx]
+    let rootKids = graph.nodes.[Graph.rootId].children
+    let normKids = graph.nodes.[normalId].children
     let ops =
-        [ Op.Replace(Graph.rootId, dirIdx, [ dirChild ], [])
-          Op.Replace(normalId, plan.target.endd, [], [ dirChild ]) ]
+        [ Op.Replace(Graph.rootId, rootKids, List.filter ((<>) dirChild) rootKids)
+          ChildListWire.insertAt normalId normKids plan.target.endd [ dirChild ] ]
     let change =
         { id = selected.revision.Value
           changeId = System.Guid.NewGuid()
@@ -502,9 +504,11 @@ let ``indent Ref Directory under Normal succeeds despite foreign name duplicates
                       focus = refIdx } }
     let plan = planIndentSelection selected |> Option.get
     Assert.Equal(normalId, plan.target.pnode)
+    let rootKids = graph.nodes.[Graph.rootId].children
+    let normKids = graph.nodes.[normalId].children
     let ops =
-        [ Op.Replace(Graph.rootId, refIdx, [ dirRef ], [])
-          Op.Replace(normalId, plan.target.endd, [], [ dirRef ]) ]
+        [ Op.Replace(Graph.rootId, rootKids, List.filter ((<>) dirRef) rootKids)
+          ChildListWire.insertAt normalId normKids plan.target.endd [ dirRef ] ]
     let change =
         { id = selected.revision.Value
           changeId = System.Guid.NewGuid()

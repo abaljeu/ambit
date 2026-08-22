@@ -13,7 +13,7 @@ module Program =
     let private cloudAppUrl = "https://collaborative-systems.org/ambit"
 
     [<Literal>]
-    let private localAppUrl = "http://localhost:5115/ambit"
+    let private localAppUrl = "http://localhost:5215/ambit"
 
     let private targetFromEnv () =
         match Environment.GetEnvironmentVariable "GAMBOL_TARGET_URL" with

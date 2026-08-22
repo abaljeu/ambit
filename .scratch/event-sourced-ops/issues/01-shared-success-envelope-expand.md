@@ -8,7 +8,7 @@
 
 **See also:** [[../details/messaging.md]], [[../post-poll-envelope-unify.md]]
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] Post and Poll encode/decode share one success response type including revision, readiness/stamps, external-changes signal, and a possibly empty Change list.
 - [x] With `externalChanges = false`, Post confirmation-echo success and Client reconcile behavior match today (no apply from Post body).

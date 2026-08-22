@@ -58,7 +58,7 @@ let ``joinWithNextPlan joins current text into next node`` () =
 
     Assert.Equal<Op list>(
         [ Op.SetText(nextId, "b", "ab")
-          Op.Replace(cont, 0, owned [ currentId ], []) ],
+          Op.Replace(cont, owned [ currentId; nextId ], owned [ nextId ]) ],
         ops)
     Assert.Equal("ab", text)
     Assert.Equal(EditCaret.Utf16Index 1, caret)
@@ -73,7 +73,9 @@ let ``joinWithNextPlan removes blank current node`` () =
     let nextInstId = visibleRowInstance 1 model
     let ops, text, caret, focusInstanceId = expectApply (joinWithNextPlan " " model)
 
-    Assert.Equal<Op list>([ Op.Replace(cont, 0, owned [ currentId ], []) ], ops)
+    Assert.Equal<Op list>(
+        [ Op.Replace(cont, owned [ currentId; nextId ], owned [ nextId ]) ],
+        ops)
     Assert.Equal("b", text)
     Assert.Equal(EditCaret.Utf16Index 0, caret)
     Assert.Equal(nextInstId, focusInstanceId)
@@ -102,7 +104,7 @@ let ``joinWithPreviousPlan joins current text into previous node`` () =
 
     Assert.Equal<Op list>(
         [ Op.SetText(prevId, "a", "ab")
-          Op.Replace(cont, 1, owned [ currentId ], []) ],
+          Op.Replace(cont, owned [ prevId; currentId ], owned [ prevId ]) ],
         ops)
     Assert.Equal("ab", text)
     Assert.Equal(EditCaret.Utf16Index 1, caret)
@@ -117,6 +119,9 @@ let ``joinWithPreviousPlan moves current children to previous leaf`` () =
     let graph =
         Graph.replace currentId 0 [] [ child ] graph0
         |> ModelBuilder.requireOk "current child"
+        |> fun g ->
+            Graph.replace cont 0 (owned ids) (owned [ prevId; currentId ]) g
+            |> ModelBuilder.requireOk "cont without top-level child"
 
     let model = modelWithSel graph cont 1 2 1
     let prevInstId = visibleRowInstance 0 model
@@ -124,8 +129,8 @@ let ``joinWithPreviousPlan moves current children to previous leaf`` () =
 
     Assert.Equal<Op list>(
         [ Op.SetText(prevId, "a", "ab")
-          Op.Replace(prevId, 0, [], [ child ])
-          Op.Replace(cont, 1, owned [ currentId ], []) ],
+          Op.Replace(prevId, [], [ child ])
+          Op.Replace(cont, owned [ prevId; currentId ], owned [ prevId ]) ],
         ops)
     Assert.Equal("ab", text)
     Assert.Equal(EditCaret.Utf16Index 1, caret)
@@ -154,8 +159,10 @@ let ``joinWithPreviousPlan focuses previous ref instance instead of owner instan
     let ownerInstId = visibleRowInstance 0 model
     let ops, text, caret, focusInstanceId = expectApply (joinWithPreviousPlan "" model)
 
+    let contChildren = (owned [ sharedId ]) @ [ sharedRef ] @ (owned [ newId ])
+
     Assert.Equal<Op list>(
-        [ Op.Replace(cont, 2, owned [ newId ], []) ],
+        [ Op.Replace(cont, contChildren, (owned [ sharedId ]) @ [ sharedRef ]) ],
         ops)
     Assert.Equal("shared", text)
     Assert.Equal(EditCaret.Utf16Index 6, caret)
