@@ -32,6 +32,7 @@
     <Compile Include="DocumentArtifactPath.fs" />
     <Compile Include="DocumentPartition.fs" />
     <Compile Include="History.fs" />
+    <Compile Include="ChildListMerge.fs" />
     <Compile Include="ChangeAmendment.fs" />
     <Compile Include="ClientHistory.fs" />
     <Compile Include="DocumentOpImpact.fs" />

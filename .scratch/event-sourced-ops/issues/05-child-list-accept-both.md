@@ -8,8 +8,8 @@
 
 **See also:** [[../details/replace-amendment.md]], [[../details/conflict-resolution.md]], [[../details/merge-invariant.md]]
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Same-parent concurrent inserts/removes succeed without Reject.
-- [ ] Occurrence-bag Accept Both preserves critical add/remove slots and §4 order invariants against the common prior.
-- [ ] Amended child-list success is consumed through the existing rewind/replay path without reload.
+- [x] Same-parent concurrent inserts/removes succeed without Reject.
+- [x] Occurrence-bag Accept Both preserves critical add/remove slots and §4 order invariants against the common prior.
+- [x] Amended child-list success is consumed through the existing rewind/replay path without reload.

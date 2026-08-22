@@ -20,7 +20,15 @@ Replace(parentId, oldList, newList)
 
 Each occurrence is a full `ChildNode { ref; id }`, not a `NodeId` alone. Ref and Owner matter; two occurrences with the same id but different `ref` are distinct slots.
 
-The span form `Replace(parentId, index, oldChildren, newChildren)` remains **behavior to beat** for apply and for legacy logs. It is **superseded** as the Actor posting contract. See [[as-implemented-facts.md]].
+### Wire contract (full-list only)
+
+On the wire, **only** full-list Replace is valid: `parentId` plus the parent's **complete** `oldList` and `newList`. Partial span Replace — including zero-width insert at `index > 0`, remove-at-index, or `index = 0` with `oldChildren` / `newChildren` that are not the full parent list — is **not** part of the wire contract and must not be emitted by producers.
+
+The internal `Op.Replace(parentId, index, oldChildren, newChildren)` type may still carry span semantics during migration. That is implementation debt, not wire permission. See §6 and issue 13.
+
+Until §10 drops the field, wire JSON keeps `"index"`, `"oldChildren"`, and `"newChildren"`. Full-list posts use **`index = 0`** with `oldChildren` / `newChildren` equal to the full parent lists. Target shape after §10: `oldList` / `newList` fields with no `index` (open in [[open-questions.md]]).
+
+The span form `Replace(parentId, index, oldChildren, newChildren)` remains **behavior to beat** for apply and for legacy logs read at replay. It is **superseded** as the Actor posting and wire contract. See [[as-implemented-facts.md]].
 
 ## 2. Three-way resolve (core apply rule)
 
@@ -140,9 +148,9 @@ Amendment order is fixed in [[merge-invariant.md]]: common prior → other accep
 
 ## 6. Producer rule
 
-Planners send **full lists** for `oldList` and `newList`. Prefer **one Replace per parent per Change**; compose multiple edits on one parent at plan time.
+Planners send **full lists** for `oldList` and `newList` on the wire. Prefer **one Replace per parent per Change**; compose multiple edits on one parent at plan time.
 
-Migration scope for producers that still emit span Replaces is catalogued in [[.scratch/relaxed-concurrency/replace-span-cas-feasibility.md]]. Implementation of that migration is **not** this document.
+Any producer that still builds span or partial Replace ops (non-zero `index`, or lists shorter than the parent's full children) is **migration debt** — tracked in [[../issues/13-migrate-producers-full-list-replace-wire.md]]. Catalogue of current span emitters: [[.scratch/relaxed-concurrency/replace-span-cas-feasibility.md]], [[../reports/wire-full-list-replace-contract.md]]. Implementation of that migration is **not** issue 05.
 
 ## 7. Undo
 
@@ -228,12 +236,12 @@ Insert `O(newB)`: `P(newB)` = `{O(a), O(b)}`; last in spine = `O(b)`. Insert aft
 
 ## 10. Migration note (open decision)
 
-Full-list Replace changes the serialization wire shape (`oldList` / `newList` instead of `index` / `oldChildren` / `newChildren`). Legacy span Replaces in change logs need either:
+Two migrations are in flight:
 
-- a compat shim that decodes span form and upgrades to full-list at read time, or
-- a one-time log migration.
+1. **Producer migration (issue 13):** Client and Shared planners must stop emitting span/partial Replaces and post only full-list shape (`index = 0`, complete `oldChildren` / `newChildren`). Until then, span posts on the wire are invalid contract usage, not an alternate supported mode.
+2. **Wire field rename (open):** Full-list Replace may later rename JSON fields to `oldList` / `newList` and drop `index`. Legacy span Replaces already in change logs need either a compat shim that upgrades span to full-list at read time, or a one-time log migration.
 
-**Not decided here.** Do not implement in the issue 05 slice without an explicit choice recorded in [[open-questions.md]].
+**Not decided here** for (2). Do not implement field rename without an explicit choice recorded in [[open-questions.md]].
 
 ## Non-goals
 
@@ -246,4 +254,4 @@ Full-list Replace changes the serialization wire shape (`oldList` / `newList` in
 
 ## See also
 
-[[conflict-resolution.md]], [[merge-invariant.md]], [[../issues/05-child-list-accept-both.md]], [[../issues/10-child-list-approximation-polish.md]], [[as-implemented-facts.md]], [[.scratch/relaxed-concurrency/replace-span-cas-feasibility.md]]
+[[conflict-resolution.md]], [[merge-invariant.md]], [[../issues/05-child-list-accept-both.md]], [[../issues/10-child-list-approximation-polish.md]], [[../issues/13-migrate-producers-full-list-replace-wire.md]], [[as-implemented-facts.md]], [[.scratch/relaxed-concurrency/replace-span-cas-feasibility.md]]

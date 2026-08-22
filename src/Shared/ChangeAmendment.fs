@@ -16,6 +16,9 @@ module ChangeAmendment =
     [<Literal>]
     let private oldClassesMismatch = "old classes do not match"
 
+    [<Literal>]
+    let private oldSpanMismatch = "old span does not match"
+
     let private ambConflictClasses =
         CssClass.ofList [ ambConflictClass ]
 
@@ -23,6 +26,7 @@ module ChangeAmendment =
         message = oldTextMismatch
         || message = oldNameMismatch
         || message = oldClassesMismatch
+        || message = oldSpanMismatch
 
     let private classSet (classes: CssClasses) =
         classes |> CssClass.toList |> Set.ofList
@@ -95,6 +99,29 @@ module ChangeAmendment =
                 else
                     Ok [ Op.SetClasses(nodeId, node.cssClasses, merged) ]
 
+    let private tryAmendReplace
+        (graph: Graph)
+        (parentId: NodeId)
+        (index: int)
+        (anchor: ChildNode list)
+        (newList: ChildNode list)
+        (message: string)
+        =
+        if message <> oldSpanMismatch then
+            Error message
+        elif index <> 0 then
+            Error message
+        else
+            match Map.tryFind parentId graph.nodes with
+            | None -> Error "node not found"
+            | Some parent ->
+                let current = parent.children
+                let target = ChildListMerge.resolve anchor current newList
+                if target = current then
+                    Ok []
+                else
+                    Ok [ Op.Replace(parentId, 0, current, target) ]
+
     let private tryAmendOp (graph: Graph) (op: Op) (message: string) : Result<Op list, string> =
         match op with
         | Op.SetText(nodeId, _, newText) ->
@@ -103,6 +130,8 @@ module ChangeAmendment =
             tryAmendSetName graph nodeId message newName
         | Op.SetClasses(nodeId, prior, postedNew) ->
             tryAmendSetClasses graph nodeId prior postedNew message
+        | Op.Replace(parentId, index, anchor, newList) ->
+            tryAmendReplace graph parentId index anchor newList message
         | _ -> Error message
 
     let private buildAmendedOps (change: Change) (state: State) : Result<Op list, string> =

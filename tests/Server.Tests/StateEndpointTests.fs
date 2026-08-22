@@ -794,7 +794,7 @@ let ``POST unrelated structural edits with stale revision both succeed``
     })
 
 [<Theory; MemberData(nameof backends)>]
-let ``POST same-parent structural collision with stale span returns 400``
+let ``POST same-parent structural collision amends and succeeds``
     (backend: BackendKind)
     =
     withClient backend (fun client -> task {
@@ -839,16 +839,17 @@ let ``POST same-parent structural collision with stale span returns 400``
                       ownedChild child0,
                       ownedChild childB) ] }
         let! rB = postChange client testFile changeB
-        Assert.Equal(HttpStatusCode.BadRequest, rB.StatusCode)
-        let! errBody = rB.Content.ReadAsStringAsync()
-        Assert.Contains("old span does not match", decodeErrorField errBody)
+        Assert.Equal(HttpStatusCode.OK, rB.StatusCode)
+        let! postBody = rB.Content.ReadAsStringAsync()
+        Assert.True(decodeSuccessExternalChanges postBody)
 
         let! json = getStateJson client testFile
         let g = decodeGraph json
-        Assert.Equal(Revision 2, decodeRevision json)
-        Assert.Equal<ChildNode list>(
-            ownedChild childA,
-            g.nodes.[parentP].children)
+        Assert.Equal(Revision 3, decodeRevision json)
+        let children = g.nodes.[parentP].children
+        Assert.Equal(2, children.Length)
+        Assert.Contains(ownedChild childA |> List.head, children)
+        Assert.Contains(ownedChild childB |> List.head, children)
     })
 
 [<Theory; MemberData(nameof backends)>]

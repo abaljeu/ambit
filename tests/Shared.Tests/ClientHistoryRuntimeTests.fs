@@ -130,7 +130,7 @@ let ``empty Poll tail preserves ClientHistory`` () =
         Assert.Equal(state.history, result.history)
 
 [<Fact>]
-let ``non-empty Poll tail clears ClientHistory before projection`` () =
+let ``non-empty Poll tail preserves ClientHistory before projection`` () =
     let graph0 = Graph.create ()
     let graph1, nodeId = Graph.newNode "before" graph0
     let change = textChange 0 nodeId "before" "after"
@@ -144,7 +144,7 @@ let ``non-empty Poll tail clears ClientHistory before projection`` () =
     match SyncLogic.applyServerTail [ upstream ] state with
     | Error msg -> failwith msg
     | Ok result ->
-        Assert.Equal(ClientHistory.clear (), result.history)
+        Assert.Equal(state.history, result.history)
         Assert.Equal("remote", result.graph.nodes.[nodeId].text)
         Assert.Equal(Revision 4, result.revision)
 

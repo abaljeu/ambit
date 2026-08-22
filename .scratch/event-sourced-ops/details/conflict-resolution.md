@@ -30,7 +30,7 @@ Different Nodes' fields, or the child lists of different parents. **No conflict.
 
 ## Kind 3 — same parent, child list
 
-**Default (accepted).** The happy path is a **full-list Replace**: `Replace(parentId, oldList, newList)` at the Actor's common prior. Shape, three-way resolve, and minimal acceptBoth are in [[replace-amendment.md]]. Two inserts do not conflict, in either order.
+**Default (accepted).** The happy path is a **full-list Replace**: `Replace(parentId, oldList, newList)` at the Actor's common prior. On the wire, only full-list Replace is valid — partial span Replace at any `index` is not part of the contract ([[replace-amendment.md]] §1). Shape, three-way resolve, and minimal acceptBoth are in [[replace-amendment.md]]. Two inserts do not conflict, in either order.
 
 **Conflict (accepted).** Do not treat a Reject as the whole story. Compute `target` via three-way resolve and occurrence-bag **Accept Both** against the common prior: the adds are new slots, the removes are prior slots, and those sets are disjoint in the same way class deltas are. Order invariants and deterministic construction are locked in issue 05 ([[replace-amendment.md]] §4); issue 10 may refine interleaving among valid orderings only.
 
