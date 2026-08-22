@@ -164,7 +164,7 @@ let ``applyServerTail empty list returns Ok with state unchanged`` () =
         Assert.Equal(st.history, result.history)
 
 [<Fact>]
-let ``applyServerTail non-empty tail clears History atomically`` () =
+let ``applyServerTail non-empty tail preserves History`` () =
     let st, nodeId = stateWithNode "before"
     let local = mkChange 2
     let withHistory = st |> withRecorded local
@@ -175,7 +175,7 @@ let ``applyServerTail non-empty tail clears History atomically`` () =
     match SyncLogic.applyServerTail [ upstream ] withHistory with
     | Error msg -> failwith $"Expected Ok, got Error: {msg}"
     | Ok result ->
-        Assert.Equal(ClientHistory.clear (), result.history)
+        Assert.Equal(withHistory.history, result.history)
         Assert.Equal("after", result.graph.nodes.[nodeId].text)
         Assert.Equal(Revision 4, result.revision)
     let st = emptyState ()
@@ -408,7 +408,7 @@ let ``applySyncResponse installs complete child list as Loaded and preserves own
     match SyncLogic.applySyncResponse response st with
     | Error msg -> failwith $"Expected Ok, got Error: {msg}"
     | Ok result ->
-        Assert.Equal(ClientHistory.clear (), result.history)
+        Assert.Equal(st.history, result.history)
         Assert.Equal(Revision 6, result.revision)
         Assert.Equal(Loaded, result.graph.nodes.[wsId].childrenStatus)
         Assert.Equal(1, result.graph.nodes.[wsId].children.Length)
@@ -489,6 +489,9 @@ let ``applySyncResponse empty Loaded child list marks Loaded without History cle
         Assert.Equal(Revision 4, result.revision)
         Assert.Equal(Loaded, result.graph.nodes.[wsId].childrenStatus)
         Assert.Equal<ChildNode list>([], result.graph.nodes.[wsId].children)
+
+[<Fact>]
+let ``applyServerTail trusts server tails without ownership re-check`` () =
     // Server-accepted tails are trusted: poll apply must not reject on ownership.
     let state0 = ModelBuilder.createState12 ()
     let rootId = state0.graph.root
@@ -516,3 +519,71 @@ let ``applySyncResponse empty Loaded child list marks Loaded without History cle
         match History.validateOwnership result.graph with
         | Ok () -> failwith "Expected ownership to fail on result (proves check was skipped)"
         | Error msg -> Assert.Contains("ownership", msg)
+
+// ---------------------------------------------------------------------------
+// External-changes consume — rewind and replay
+// ---------------------------------------------------------------------------
+
+let private textChange id nodeId oldText newText : Change =
+    { id = id
+      changeId = System.Guid.NewGuid()
+      ops = [ Op.SetText(nodeId, oldText, newText) ] }
+
+let private seededEditState () =
+    let graph0 = Graph.create ()
+    let graph1, nodeId = Graph.newNode "before" graph0
+    let change = textChange 0 nodeId "before" "after"
+    let state0 : ClientSyncState =
+        { graph = graph1
+          revision = Revision 0
+          history = ClientHistory.clear () }
+    match SyncLogic.applyLocalChange "Edit node" change state0 with
+    | Error msg -> failwith msg
+    | Ok (state, pending) -> nodeId, state, pending, change
+
+[<Fact>]
+let ``consumeCatchUpPoll rewinds to baseline and preserves History`` () =
+    let nodeId, optimistic, pending, _ = seededEditState ()
+    let baselineGraph =
+        match Graph.setText nodeId "after" "before" optimistic.graph with
+        | Ok graph -> graph
+        | Error msg -> failwith msg
+    let baseline =
+        { revision = Revision 0
+          graph = baselineGraph }
+    let serverChange =
+        { id = 1
+          changeId = System.Guid.NewGuid()
+          ops = [ Op.SetText(nodeId, "before", "server") ] }
+    match
+        SyncLogic.consumeCatchUpPoll
+            baseline
+            [ serverChange ]
+            (Revision 1)
+            optimistic
+    with
+    | Error msg -> failwith msg
+    | Ok result ->
+        Assert.Equal("server", result.graph.nodes.[nodeId].text)
+        Assert.Equal(Revision 1, result.revision)
+        Assert.Equal(optimistic.history, result.history)
+        Assert.NotEqual(pending.change.changeId, serverChange.changeId)
+
+[<Fact>]
+let ``applyServerTail with changes preserves History`` () =
+    let past = mkChange 4
+    let st = emptyState () |> withRecorded past
+    let state0 = ModelBuilder.createState12 ()
+    let root = state0.graph.nodes.[state0.graph.root]
+    let nodeA = state0.graph.nodes.[root.children.[0].id]
+    let change =
+        { id = 1
+          changeId = System.Guid.NewGuid()
+          ops = [ Op.SetText(nodeA.id, nodeA.text, nodeA.text + "!") ] }
+    let client : ClientSyncState =
+        { graph = state0.graph
+          revision = Revision state0.revision.Value
+          history = st.history }
+    match SyncLogic.applyServerTail [ change ] client with
+    | Error msg -> failwith msg
+    | Ok result -> Assert.Equal(st.history, result.history)

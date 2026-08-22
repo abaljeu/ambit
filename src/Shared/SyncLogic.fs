@@ -84,18 +84,13 @@ module SyncLogic =
                   kind = kind } }
 
     /// Apply a Sync response atomically under Loaded rules.
-    /// Non-empty Change tails clear local History first; packages install after
-    /// the projected tail so authoritative snapshots at the response revision win.
+    /// Packages install after the projected tail so authoritative snapshots at the
+    /// response revision win. Poll and Post consume paths preserve History.
     let applySyncResponse
         (response: SyncResponse)
         (state: ClientSyncState)
         : Result<ClientSyncState, string> =
-        let afterHistory =
-            if List.isEmpty response.changes then
-                state
-            else
-                { state with history = ClientHistory.clear () }
-        match foldProjectedChanges response.changes afterHistory with
+        match foldProjectedChanges response.changes state with
         | Error msg -> Error msg
         | Ok afterChanges ->
             let graph =
@@ -141,6 +136,29 @@ module SyncLogic =
         (state: ClientSyncState)
         : Result<ClientSyncState, string> =
         applySyncResponse { changes = changes; packages = [] } state
+
+    let private undoPendingGraph
+        (state: ClientSyncState)
+        (pending: PendingChange list)
+        : Graph =
+        pending
+        |> List.rev
+        |> List.fold
+            (fun graph item ->
+                let inverse =
+                    Change.inverse
+                        state.revision
+                        item.change.changeId
+                        item.change
+                match
+                    ResidentProjection.applyChange
+                        inverse
+                        (asProjectionState { state with graph = graph })
+                with
+                | ApplyResult.Changed projected
+                | ApplyResult.Unchanged projected -> projected.graph
+                | ApplyResult.Invalid _ -> graph)
+            state.graph
 
     let applyLocalChange
         (commandName: string)
@@ -286,6 +304,59 @@ module SyncLogic =
             | ApplyResult.Invalid (_, msg) -> Error msg
             | ApplyResult.Unchanged projected
             | ApplyResult.Changed projected -> Ok projected.graph
+
+    let isConfirmationEcho (submitted: PendingChange list) (confirmed: Change list) =
+        if submitted.IsEmpty then
+            false
+        else
+            match identityError submitted confirmed with
+            | Some _ -> false
+            | None ->
+                match collectSuffixes submitted confirmed with
+                | Error _ -> false
+                | Ok _ -> true
+
+    /// Rewind to the noted baseline and replay a Poll Change list without clearing History.
+    let consumeCatchUpPoll
+        (baseline: CatchUpBaseline)
+        (changes: Change list)
+        (serverRevision: Revision)
+        (state: ClientSyncState)
+        : Result<ClientSyncState, string> =
+        let atBaseline =
+            { state with
+                graph = baseline.graph
+                revision = baseline.revision }
+        match foldProjectedChanges changes atBaseline with
+        | Error msg -> Error msg
+        | Ok afterChanges ->
+            Ok
+                { afterChanges with
+                    revision = serverRevision
+                    history = state.history }
+
+    let reconcileExternalAck
+        (submitted: PendingChange list)
+        (serverRevision: Revision)
+        (state: ClientSyncState)
+        (syncInfo: SyncInfo)
+        : AckReconcile =
+        if submitted.IsEmpty then
+            AckReconcile.Rejected "missing confirmation"
+        else
+            let catchUp =
+                match syncInfo.catchUp with
+                | Some noted -> noted
+                | None ->
+                    { revision = state.revision
+                      graph = undoPendingGraph state syncInfo.pendingChanges }
+            let nextSync, _, effects =
+                SyncPlanner.retireSubmittedPrefix
+                    submitted.Length
+                    serverRevision
+                    syncInfo
+            let nextSync = nextSync |> SyncInfo.withCatchUp (Some catchUp)
+            AckReconcile.Applied(state, nextSync, effects, [])
 
     let reconcileAck
         (submitted: PendingChange list)

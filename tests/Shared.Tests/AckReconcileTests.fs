@@ -342,3 +342,42 @@ let ``forbidden-suffix confirmation is rejected atomically`` () =
             state
             (sending [ pending ])
     expectRejected "forbidden-suffix" result
+
+[<Fact>]
+let ``externalChanges ACK notes catch-up without rejecting or changing graph`` () =
+    let nodeId, state, pending = seededEdit ()
+    let syncInfo = sending [ pending ]
+    let result =
+        SyncLogic.reconcileExternalAck
+            [ pending ]
+            (Revision 1)
+            state
+            syncInfo
+    let next, nextSync, effects, suffixOps = expectApplied result
+    Assert.Equal(state.graph, next.graph)
+    Assert.Equal(state.revision, next.revision)
+    Assert.Equal(state.history, next.history)
+    Assert.Empty(nextSync.pendingChanges)
+    Assert.Equal(Idle, nextSync.syncState)
+    Assert.Equal(Some "before", nextSync.catchUp |> Option.map (fun c -> c.graph.nodes.[nodeId].text))
+    Assert.Empty(suffixOps)
+    Assert.Empty(effects)
+
+[<Fact>]
+let ``amended confirmation echo routes through external ACK not Reject`` () =
+    let nodeId, state, pending = seededEdit ()
+    let amended =
+        [ { pending.change with
+              ops = [ Op.SetText(nodeId, "before", "server-amended") ] } ]
+    let result =
+        SyncLogic.reconcileExternalAck
+            [ pending ]
+            (Revision 1)
+            state
+            (sending [ pending ])
+    match result with
+    | AckReconcile.Applied _ -> ()
+    | AckReconcile.Rejected msg ->
+        failwithf "expected external Applied, got Rejected: %s" msg
+    | AckReconcile.Ignored -> failwith "expected Applied, got Ignored"
+    Assert.False(SyncLogic.isConfirmationEcho [ pending ] amended)

@@ -335,6 +335,7 @@ type SystemMsg =
         submitted: PendingChange list *
         confirmed: Change list *
         revision: Revision *
+        externalChanges: bool *
         message: string option
     | SubmitRejected of detail: string // server HTTP error (decoded `error` or short body snippet)
     | SubmitNetworkError of
@@ -353,7 +354,11 @@ type SystemMsg =
     | SetPollingActive of bool
     | PollTick            // polling timer fired; update decides whether to emit PollServer effect
     | AutoDownloadTick    // debounce timer fired; update coalesces + fires auto-downloads
-    | PollDone of SyncState option * Change list * isReady: bool option
+    | PollDone of
+        SyncState option *
+        Change list *
+        isReady: bool option *
+        responseRevision: Revision option
     | LoadDone of
         SyncState option * SyncResponse * responseRevision: int * isReady: bool option
     | RetrySubmit         // retry timer fired; update resends the stored batch snapshot

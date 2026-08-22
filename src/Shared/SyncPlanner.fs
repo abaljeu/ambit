@@ -103,7 +103,12 @@ module SyncPlanner =
     let tryStartPoll (revision: Revision) (syncInfo: SyncInfo) : SyncInfo * Effect list =
         match syncInfo.syncState, syncInfo.pendingChanges with
         | Idle, [] ->
-            syncInfo |> SyncInfo.withSyncState Polling, [ PollServer revision.Value ]
+            let pollRevision =
+                match syncInfo.catchUp with
+                | Some baseline -> baseline.revision.Value
+                | None -> revision.Value
+            syncInfo |> SyncInfo.withSyncState Polling,
+            [ PollServer pollRevision ]
         | _ -> syncInfo, []
 
     /// Emit a LoadServer effect (Fetch + Poll) when idle with an empty pending queue.

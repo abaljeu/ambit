@@ -96,6 +96,21 @@ let ``toDeltaChain keeps empty batch empty`` () =
     Assert.Empty(chained)
 
 [<Fact>]
+let ``tryStartPoll uses catch-up baseline revision`` () =
+    let graph0 = Graph.create ()
+    let syncInfo =
+        { SyncInfo.initial with
+            catchUp =
+                Some
+                    { revision = Revision 3
+                      graph = graph0 } }
+    let si, effects = SyncPlanner.tryStartPoll (Revision 9) syncInfo
+    Assert.Equal(Polling, si.syncState)
+    match effects with
+    | [ PollServer rev ] -> Assert.Equal(3, rev)
+    | _ -> failwith "Expected PollServer from catch-up baseline"
+
+[<Fact>]
 let ``tryStartPoll emits PollServer when idle with empty queue`` () =
     let si, effects = SyncPlanner.tryStartPoll (Revision 5) SyncInfo.initial
     Assert.Equal(Polling, si.syncState)

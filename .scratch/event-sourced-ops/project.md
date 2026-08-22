@@ -13,6 +13,7 @@ Details, by topic:
 - [[details/vocabulary.md]] — locked terms, and the words this project refuses
 - [[details/merge-invariant.md]] — critical information, amendment order, single owner
 - [[details/conflict-resolution.md]] — the conflict kinds and what merge does with each
+- [[details/replace-amendment.md]] — full-list Replace shape, three-way resolve, acceptBoth algorithm
 - [[details/client-consume.md]] — rewind and replay, baseline, leftover pending
 - [[details/messaging.md]] — post against poll, success against Reject, History
 - [[details/completing-ops.md]] — Server fill-in and its timing

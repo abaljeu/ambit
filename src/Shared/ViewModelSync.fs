@@ -47,11 +47,18 @@ type QueuedRequest =
     /// Preserve a desktop target while another workspace push is in flight.
     | QueuedWorkspacePush of WorkspaceSyncScope * parseFileId: NodeId option
 
+/// Optimistic graph at the last server revision before catch-up replay.
+type CatchUpBaseline =
+    { revision: Revision
+      graph: Graph }
+
 type SyncInfo =
     { syncState: SyncState
       pendingChanges: PendingChange list
       /// Requests parked behind `pendingChanges` (see `SyncPlanner.tryReleaseQueued`).
       queuedRequests: QueuedRequest list
+      /// Baseline noted from a Post external-changes signal until Poll replay completes.
+      catchUp: CatchUpBaseline option
       isPollingActive: bool
       isServerReady: bool
       syncRiskAcknowledged: bool }
@@ -62,6 +69,7 @@ module SyncInfo =
         { syncState = Idle
           pendingChanges = []
           queuedRequests = []
+          catchUp = None
           isPollingActive = false
           isServerReady = false
           syncRiskAcknowledged = false }
@@ -77,6 +85,12 @@ module SyncInfo =
 
     let withServerReady ready (si: SyncInfo) : SyncInfo =
         { si with isServerReady = ready }
+
+    let withCatchUp catchUp (si: SyncInfo) : SyncInfo =
+        { si with catchUp = catchUp }
+
+    let clearCatchUp (si: SyncInfo) : SyncInfo =
+        { si with catchUp = None }
 
     /// Updates sync state. Clears risk acknowledgment when crossing the risk boundary.
     let withSyncState (newState: SyncState) (si: SyncInfo) : SyncInfo =

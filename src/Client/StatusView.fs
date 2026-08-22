@@ -13,6 +13,9 @@ let private renderSyncStatus (model: VM) =
             el.className <- "amb-sync-status amb-syncing"
         else
             match model.syncInfo.syncState with
+            | Idle when model.syncInfo.catchUp.IsSome ->
+                el.textContent <- "Merging remote changes\u2026"
+                el.className <- "amb-sync-status amb-syncing"
             | Idle ->
                 el.textContent <-
                     if model.syncInfo.isPollingActive then "synced" else "idle"

@@ -54,6 +54,7 @@ module private SubmitChangeCallbacks =
                         submitted,
                         ack.changes,
                         ack.revision,
+                        ack.externalChanges,
                         ack.message)))
         | Error err ->
             consoleLog (
@@ -413,15 +414,16 @@ let createRuntime (initialModel: VM) =
                         PollDone (
                             outcome,
                             poll.changes,
-                            Some poll.isReady)))
+                            Some poll.isReady,
+                            Some poll.revision)))
             | Error _ ->
                 dispatch (
                     SysMsg (
-                        PollDone (None, [], None)))
+                        PollDone (None, [], None, None)))
         let onPollFail () : unit =
             dispatch (
                 SysMsg (
-                    PollDone (None, [], None)))
+                    PollDone (None, [], None, None)))
         fetchTextNoCacheWithFail url onPollOk onPollFail
 
     and runLoadServer

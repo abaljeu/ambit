@@ -80,7 +80,7 @@ That reading drops every other-Actor Op that does not rewrite the same field or 
 | `SetText C→B` as the general Client correction | Rewind to the baseline and replay the sequence ([[client-consume.md]]) |
 | A recoverable collision is a Reject that the Client replans | Merge success with a Change list ([[relation-to-relaxed-concurrency.md]]) |
 | A name clash is a Reject | An `amb-conflict` child, and merge success ([[conflict-resolution.md]]) |
-| Implemented span compare-and-swap Replace stands in for the child-list rule | It is behavior to beat ([[as-implemented-facts.md]]) |
+| Implemented span compare-and-swap Replace stands in for the child-list rule | Behavior to beat ([[as-implemented-facts.md]]); Actor contract is full-list Replace ([[replace-amendment.md]]) |
 
 ## Quiz pins — later sequence (to-tickets)
 
@@ -91,6 +91,8 @@ User answers while drafting the program ticket sequence ([[../to-tickets-draft.m
 - **Decision-first is OK** for Kind 4 / orphan / Undo, provided early tickets leave extension room (optional Change baseline, adjustable short-tail retention, History not frozen as own-posts-only) so late accepts do not force wire rework.
 - **Load packages as Graph / state transfer** reaffirmed **accepted** (Round 4); remove stale “parked” wording that blurred transfer kind with unfinished residency packaging.
 - **One global Server revision sequence** reaffirmed **accepted**; not per-Workspace.
+- **No Client replan for pending.** Server-only amendment stays the integration point; leftover pending posts unamended. Client replan before POST is a possible future UX improvement only — extra complexity, not an equal alternative ([[client-consume.md]]).
+- **Sync status during external-changes catch-up.** After a Post external-changes signal and before the queue-empty Poll replay completes, the sync status control shows that remote Changes are forthcoming ([[../issues/04-client-consumes-merge-success-without-reload.md]]).
 
 ## Removed language
 

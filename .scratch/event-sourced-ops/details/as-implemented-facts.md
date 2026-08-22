@@ -11,7 +11,7 @@ Do not copy a specification out of this file.
 - The Browser applies local edits, undo, and poll tails through the resident projection, **without** the ownership validation. Absent headers and Unloaded `Replace` become no-ops, silently.
 - Distinct parents do not interact. Same-parent structural overlap is the remaining collision class.
 
-**Behavior to beat:** whole-field `SetText` compare-and-swap, whole-set `SetClasses` replace, and span compare-and-swap `Replace` that refuses. The standard says set delta for classes ([[conflict-resolution.md]]) and Accept Both for child lists.
+**Behavior to beat:** whole-field `SetText` compare-and-swap, whole-set `SetClasses` replace, and span compare-and-swap `Replace` that refuses. The standard says set delta for classes ([[conflict-resolution.md]]) and full-list Replace with Accept Both for child lists ([[replace-amendment.md]]).
 
 ## Server apply path
 

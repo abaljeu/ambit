@@ -7,7 +7,7 @@ An inventory. It is not a lock and it is not new work. The project stage stays `
 - The increment-1 vocabulary: Op, Change, Actor, Subgraph, Local Graph ([[vocabulary.md]]).
 - Amendment order; Client rewind and replay; a node-local correction that omits the other Changes is invalid.
 - Same text and same name become an `amb-conflict` Normal child. Success with a Change list, not a Reject.
-- Child lists: positional Replace by default; a conflict is an occurrence-bag Accept Both. The algorithm is later.
+- Child lists: full-list Replace by default ([[replace-amendment.md]]); a conflict is occurrence-bag Accept Both with minimal algorithm in [[replace-amendment.md]]; order polish in issue 10.
 - Classes are a set delta. Owner count never rises from one to two. Fill-in **timing** is the same Change as the delete. DocumentState is removed.
 - **Two paths.** A post acknowledgement is an external-changes signal and a baseline note; a queue-empty poll applies the Change list. "Poll is an empty post" is **superseded**. Neither clears History; today's poll clear is debt.
 - Leftover pending stays unamended; the next post sends it and the Server amends. Posts and polls carry only the last revision received from the Server.
@@ -31,6 +31,7 @@ An inventory. It is not a lock and it is not new work. The project stage stays `
 - **Actor packaging and residency detail** — one Change or a set, and what a job emits against what a Browser must Load (Load itself stays Graph transfer).
 - **Parse File realignment.** An observation, not a plan.
 - **Shell command.** A later Actor, with no product behind it.
+- **Client replan before POST (optional future UX).** Replan leftover pending against the graph after learning of external Changes, instead of sending unamended Ops for Server amend. Deferred: duplicates amendment logic for smoother optimistic display only ([[client-consume.md]]).
 
 ## Open and retained — not parked
 

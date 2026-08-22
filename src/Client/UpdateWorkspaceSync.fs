@@ -64,12 +64,22 @@ let private reconcileWorkspaceAck
         { SyncInfo.initial with
             pendingChanges = [ submitted ]
             syncState = Sending 1 }
-    SyncLogic.reconcileAck
-        [ submitted ]
-        ack.changes
-        ack.revision
-        state
-        syncInfo
+    if
+        ack.externalChanges
+        || not (SyncLogic.isConfirmationEcho [ submitted ] ack.changes)
+    then
+        SyncLogic.reconcileExternalAck
+            [ submitted ]
+            ack.revision
+            state
+            syncInfo
+    else
+        SyncLogic.reconcileAck
+            [ submitted ]
+            ack.changes
+            ack.revision
+            state
+            syncInfo
 
 /// Apply + synchronous POST so server graph has the workspace before push/reconcile.
 let applyAndPostSync (commandName: string) (change: Change) (model: VM) : Result<VM, string> =

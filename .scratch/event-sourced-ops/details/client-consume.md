@@ -43,3 +43,11 @@ Posts and polls carry only the **last revision received from the Server**, never
 
 - Whether the Client replans remaining pending work onto the new base. It does not; see above.
 - History behavior beyond "neither channel clears it" ([[undo.md]]).
+
+## Sync status (accepted for Ticket 4)
+
+When a Post acknowledgement signals external Changes, the Browser notes the baseline and keeps posting until the queue is empty. During that window the sync status control must show that remote Changes are forthcoming and catch-up is not done yet. After the queue-empty Poll rewinds and replays, status returns to the ordinary idle/synced pattern.
+
+## Client replan (deferred — optional UX)
+
+Replanning leftover pending Ops on the Client before the next POST could smooth optimistic UI sooner. It duplicates Server amendment logic and is strictly extra complexity for UX polish. **Not** part of the accepted consume path. Leftover pending stays unamended; the Server amends on receive. A future increment may add Client replan only if smoother pending display is worth the dual maintenance cost.

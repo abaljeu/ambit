@@ -1,8 +1,8 @@
 # 10 — Child-list approximation polish
 
-**Context:** Ticket 05 locks occurrence-bag Accept Both; order may remain approximate. The approximation algorithm is explicitly later / not locked. This ticket improves order quality without changing Accept Both semantics or protocol.
+**Context:** Ticket 05 locks occurrence-bag Accept Both and **order invariants** (context order, intent add order, honored removes, no id cancel — [[../details/replace-amendment.md]] §4). This ticket improves **interleaving polish** when multiple valid orderings satisfy those invariants; it does not randomize and does not change which occurrences survive.
 
-**What to build:** Better ordered-list approximation while preserving occurrence-bag Accept Both for same-parent concurrent edits. Demo: concurrent same-parent edits keep critical edges and a clearer order.
+**What to build:** Clearer ordered-list interleaving while preserving occurrence-bag Accept Both and the §4 order invariants for same-parent concurrent edits. Demo: concurrent same-parent edits keep critical edges and a clearer order than the post-05 deterministic rule where several interleavings are valid.
 
 **Blocked by:** 05 — Child-list Accept Both (same-parent merge)
 
@@ -11,5 +11,5 @@
 **Status:** ready-for-agent
 
 - [ ] Same-parent concurrent merges keep occurrence-bag Accept Both semantics.
-- [ ] Ordered result is observably clearer than the post-05 approximation for representative concurrent insert/remove cases.
+- [ ] Ordered result is observably clearer than the post-05 deterministic interleaving for representative concurrent insert/remove cases where multiple valid orderings exist.
 - [ ] No new Reject path or protocol channel is introduced.

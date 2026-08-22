@@ -30,13 +30,13 @@ Different Nodes' fields, or the child lists of different parents. **No conflict.
 
 ## Kind 3 — same parent, child list
 
-**Default (accepted).** The happy path is a **positional Replace**: specified position, specified Nodes. That is the Op the Actor posts. Two inserts do not conflict, in either order.
+**Default (accepted).** The happy path is a **full-list Replace**: `Replace(parentId, oldList, newList)` at the Actor's common prior. Shape, three-way resolve, and minimal acceptBoth are in [[replace-amendment.md]]. Two inserts do not conflict, in either order.
 
-**Conflict (accepted).** Do not treat a Reject as the whole story. Compute a best approximation. The **critical** invariant is an occurrence-bag **Accept Both** against the common prior: the adds are new slots, the removes are prior slots, and those sets are disjoint in the same way class deltas are. Order is important but not critical. The approximation algorithm is later work.
+**Conflict (accepted).** Do not treat a Reject as the whole story. Compute `target` via three-way resolve and occurrence-bag **Accept Both** against the common prior: the adds are new slots, the removes are prior slots, and those sets are disjoint in the same way class deltas are. Order invariants and deterministic construction are locked in issue 05 ([[replace-amendment.md]] §4); issue 10 may refine interleaving among valid orderings only.
 
-The bag holds **occurrences** — edges, or child slots — not Node ids. If the elements were Node ids, then adding another `X` and removing `X` could cancel each other, which is an outcome neither Actor intended and a confusion of identity. That reading is **rejected**.
+The bag holds **occurrences** — full `ChildNode { ref; id }` values — not Node ids alone. If the elements were Node ids, then adding another `X` and removing `X` could cancel each other, which is an outcome neither Actor intended and a confusion of identity. That reading is **rejected**.
 
-The Server amends the newest Actor's posted Replace into a definitive ordered-list Replace for the combined Local Graph — computed **after** the other accepted Changes are in, never from isolated node fields, and never as a substitute for sending those other Changes.
+The Server amends the newest Actor's posted Replace to `Replace(parentId, current, target)` for the combined Local Graph — computed **after** the other accepted Changes are in, never from isolated node fields, and never as a substitute for sending those other Changes. See [[replace-amendment.md]] §5.
 
 ## Kind 4 — delete against edit
 

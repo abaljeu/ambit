@@ -65,7 +65,7 @@ sequenceDiagram
 
 ## Outcomes
 
-**Merge success.** A stale base, a stale field value, or a stale child span is not a failure. The Server amends and answers with success. This includes the same-text and same-name cases, which become an `amb-conflict` child instead of a refusal.
+**Merge success.** A stale base, a stale field value, or a stale child list (`oldList` ≠ live) is not a failure. The Server amends and answers with success via three-way resolve ([[details/replace-amendment.md]]). This includes the same-text and same-name cases, which become an `amb-conflict` child instead of a refusal.
 
 **Reject.** Only request failures remain: authentication, a malformed request, and the like. Concurrency is not a Reject.
 

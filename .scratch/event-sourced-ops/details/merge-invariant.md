@@ -55,6 +55,6 @@ Repair of existing defects at startup stays a no-Change path — [[.scratch/owne
 
 ## What this does not decide
 
-- The approximation algorithm for conflicting child lists.
+- Child-list merge semantics — acceptBoth and order invariants (context and intent order preserved) are locked in [[replace-amendment.md]] §4; interleaving polish only in issue 10.
 - Any per-Op transform table.
 - Whether an in-place transform could ever be proved identical to rewind and replay. Until that is proved, it is not equal.
