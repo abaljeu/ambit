@@ -532,17 +532,256 @@ let ``POST same changeId twice is idempotent`` (backend: BackendKind) =
     })
 
 [<Theory; MemberData(nameof backends)>]
-let ``POST with wrong base revision returns 400`` (backend: BackendKind) =
+let ``POST with stale base revision and valid SetText succeeds`` (backend: BackendKind) =
     withClient backend (fun client -> task {
         let! json0 = getStateJson client testFile
         let rootId = (decodeGraph json0).root
-        let change =
+        let setup, childId = changeAddChild rootId 0 ""
+        let! r0 = postChange client testFile setup
+        Assert.Equal(HttpStatusCode.OK, r0.StatusCode)
+
+        let stale =
             { id = 5
               changeId = Guid.NewGuid()
-              ops = [ Op.SetText(rootId, "", "x") ] }
+              ops = [ Op.SetText(childId, "", "x") ] }
+        let! resp = postChange client testFile stale
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
 
-        let! resp = postChange client testFile change
-        Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode)
+        let! postBody = resp.Content.ReadAsStringAsync()
+        Assert.Equal(Revision 2, decodeSuccessRevision postBody)
+        Assert.Equal<Guid list>([ stale.changeId ], decodeAckChangeIds postBody)
+
+        let! json = getStateJson client testFile
+        Assert.Equal(Revision 2, decodeRevision json)
+        Assert.Equal("x", (decodeGraph json).nodes.[childId].text)
+    })
+
+[<Theory; MemberData(nameof backends)>]
+let ``POST unrelated attribute edits with stale revision both succeed``
+    (backend: BackendKind)
+    =
+    withClient backend (fun client -> task {
+        let! json0 = getStateJson client testFile
+        let rootId = (decodeGraph json0).root
+        let setupX, nodeX = changeAddChild rootId 0 "x0"
+        let! rX = postChange client testFile setupX
+        Assert.Equal(HttpStatusCode.OK, rX.StatusCode)
+
+        let nodeY = NodeId.New()
+        let setupY =
+            { id = 1
+              changeId = Guid.NewGuid()
+              ops =
+                [ Op.NewNode(nodeY, "y0")
+                  Op.Replace(rootId, 1, [], ownedChild nodeY) ] }
+        let! rY = postChange client testFile setupY
+        Assert.Equal(HttpStatusCode.OK, rY.StatusCode)
+
+        let changeA =
+            { id = 2
+              changeId = Guid.NewGuid()
+              ops = [ Op.SetText(nodeY, "y0", "yA") ] }
+        let! rA = postChange client testFile changeA
+        Assert.Equal(HttpStatusCode.OK, rA.StatusCode)
+
+        let changeB =
+            { id = 2
+              changeId = Guid.NewGuid()
+              ops = [ Op.SetText(nodeX, "x0", "xB") ] }
+        let! rB = postChange client testFile changeB
+        Assert.Equal(HttpStatusCode.OK, rB.StatusCode)
+
+        let! postBody = rB.Content.ReadAsStringAsync()
+        Assert.Equal(Revision 4, decodeSuccessRevision postBody)
+        Assert.Equal<Guid list>([ changeB.changeId ], decodeAckChangeIds postBody)
+
+        let! json = getStateJson client testFile
+        let g = decodeGraph json
+        Assert.Equal(Revision 4, decodeRevision json)
+        Assert.Equal("xB", g.nodes.[nodeX].text)
+        Assert.Equal("yA", g.nodes.[nodeY].text)
+    })
+
+[<Theory; MemberData(nameof backends)>]
+let ``POST attribute collision with stale oldText returns 400`` (backend: BackendKind) =
+    withClient backend (fun client -> task {
+        let! json0 = getStateJson client testFile
+        let rootId = (decodeGraph json0).root
+        let setup, nodeX = changeAddChild rootId 0 "x0"
+        let! r0 = postChange client testFile setup
+        Assert.Equal(HttpStatusCode.OK, r0.StatusCode)
+
+        let changeA =
+            { id = 1
+              changeId = Guid.NewGuid()
+              ops = [ Op.SetText(nodeX, "x0", "xA") ] }
+        let! rA = postChange client testFile changeA
+        Assert.Equal(HttpStatusCode.OK, rA.StatusCode)
+
+        let changeB =
+            { id = 1
+              changeId = Guid.NewGuid()
+              ops = [ Op.SetText(nodeX, "x0", "xB") ] }
+        let! rB = postChange client testFile changeB
+        Assert.Equal(HttpStatusCode.BadRequest, rB.StatusCode)
+        let! errBody = rB.Content.ReadAsStringAsync()
+        Assert.Contains("old text does not match", decodeErrorField errBody)
+
+        let! json = getStateJson client testFile
+        Assert.Equal(Revision 2, decodeRevision json)
+        Assert.Equal("xA", (decodeGraph json).nodes.[nodeX].text)
+    })
+
+[<Theory; MemberData(nameof backends)>]
+let ``POST unrelated structural edits with stale revision both succeed``
+    (backend: BackendKind)
+    =
+    withClient backend (fun client -> task {
+        let! json0 = getStateJson client testFile
+        let rootId = (decodeGraph json0).root
+        let parentP1 = NodeId.New()
+        let parentP2 = NodeId.New()
+        let setupParents =
+            { id = 0
+              changeId = Guid.NewGuid()
+              ops =
+                [ Op.NewNode(parentP1, "p1")
+                  Op.NewNode(parentP2, "p2")
+                  Op.Replace(
+                      rootId,
+                      0,
+                      [],
+                      [ ChildNode.owner parentP1; ChildNode.owner parentP2 ]) ] }
+        let! r0 = postChange client testFile setupParents
+        Assert.Equal(HttpStatusCode.OK, r0.StatusCode)
+
+        let childA = NodeId.New()
+        let changeA =
+            { id = 1
+              changeId = Guid.NewGuid()
+              ops =
+                [ Op.NewNode(childA, "a")
+                  Op.Replace(parentP1, 0, [], ownedChild childA) ] }
+        let! rA = postChange client testFile changeA
+        Assert.Equal(HttpStatusCode.OK, rA.StatusCode)
+
+        let childB = NodeId.New()
+        let changeB =
+            { id = 1
+              changeId = Guid.NewGuid()
+              ops =
+                [ Op.NewNode(childB, "b")
+                  Op.Replace(parentP2, 0, [], ownedChild childB) ] }
+        let! rB = postChange client testFile changeB
+        Assert.Equal(HttpStatusCode.OK, rB.StatusCode)
+
+        let! postBody = rB.Content.ReadAsStringAsync()
+        Assert.Equal(Revision 3, decodeSuccessRevision postBody)
+        Assert.Equal<Guid list>([ changeB.changeId ], decodeAckChangeIds postBody)
+
+        let! json = getStateJson client testFile
+        let g = decodeGraph json
+        Assert.Equal(Revision 3, decodeRevision json)
+        Assert.Equal<ChildNode list>(
+            ownedChild childA,
+            g.nodes.[parentP1].children)
+        Assert.Equal<ChildNode list>(
+            ownedChild childB,
+            g.nodes.[parentP2].children)
+    })
+
+[<Theory; MemberData(nameof backends)>]
+let ``POST same-parent structural collision with stale span returns 400``
+    (backend: BackendKind)
+    =
+    withClient backend (fun client -> task {
+        let! json0 = getStateJson client testFile
+        let rootId = (decodeGraph json0).root
+        let parentP = NodeId.New()
+        let child0 = NodeId.New()
+        let setup =
+            { id = 0
+              changeId = Guid.NewGuid()
+              ops =
+                [ Op.NewNode(parentP, "p")
+                  Op.NewNode(child0, "c0")
+                  Op.Replace(rootId, 0, [], ownedChild parentP)
+                  Op.Replace(parentP, 0, [], ownedChild child0) ] }
+        let! r0 = postChange client testFile setup
+        Assert.Equal(HttpStatusCode.OK, r0.StatusCode)
+
+        let childA = NodeId.New()
+        let changeA =
+            { id = 1
+              changeId = Guid.NewGuid()
+              ops =
+                [ Op.NewNode(childA, "a")
+                  Op.Replace(
+                      parentP,
+                      0,
+                      ownedChild child0,
+                      ownedChild childA) ] }
+        let! rA = postChange client testFile changeA
+        Assert.Equal(HttpStatusCode.OK, rA.StatusCode)
+
+        let childB = NodeId.New()
+        let changeB =
+            { id = 1
+              changeId = Guid.NewGuid()
+              ops =
+                [ Op.NewNode(childB, "b")
+                  Op.Replace(
+                      parentP,
+                      0,
+                      ownedChild child0,
+                      ownedChild childB) ] }
+        let! rB = postChange client testFile changeB
+        Assert.Equal(HttpStatusCode.BadRequest, rB.StatusCode)
+        let! errBody = rB.Content.ReadAsStringAsync()
+        Assert.Contains("old span does not match", decodeErrorField errBody)
+
+        let! json = getStateJson client testFile
+        let g = decodeGraph json
+        Assert.Equal(Revision 2, decodeRevision json)
+        Assert.Equal<ChildNode list>(
+            ownedChild childA,
+            g.nodes.[parentP].children)
+    })
+
+[<Theory; MemberData(nameof backends)>]
+let ``POST duplicate changeId with stale revision stays idempotent``
+    (backend: BackendKind)
+    =
+    withClient backend (fun client -> task {
+        let! json0 = getStateJson client testFile
+        let rootId = (decodeGraph json0).root
+        let cid = Guid.NewGuid()
+        let childId = NodeId.New()
+        let change =
+            { id = 0
+              changeId = cid
+              ops =
+                [ Op.NewNode(childId, "once")
+                  Op.Replace(rootId, 0, [], ownedChild childId) ] }
+
+        let! r1 = postChange client testFile change
+        Assert.Equal(HttpStatusCode.OK, r1.StatusCode)
+
+        let other, otherId = changeAddChild rootId 1 "other"
+        let! rOther = postChange client testFile other
+        Assert.Equal(HttpStatusCode.OK, rOther.StatusCode)
+
+        let! r2 = postChange client testFile change
+        Assert.Equal(HttpStatusCode.OK, r2.StatusCode)
+        let! b2 = r2.Content.ReadAsStringAsync()
+        Assert.Equal(Revision 2, decodeSuccessRevision b2)
+        Assert.Equal<Guid list>([ cid ], decodeAckChangeIds b2)
+
+        let! json = getStateJson client testFile
+        let g = decodeGraph json
+        Assert.Equal(Revision 2, decodeRevision json)
+        Assert.Equal("once", g.nodes.[childId].text)
+        Assert.Equal("other", g.nodes.[otherId].text)
     })
 
 // ---- Change log + persistence tests (file backend only) ----

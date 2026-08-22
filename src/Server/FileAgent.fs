@@ -151,9 +151,6 @@ module FileAgent =
                 match ChangeLog.tryFindByChangeId logStream offsetIndex change.changeId with
                 | Some stored ->
                     Ok(s, stored :: confirmations, fresh, changed)
-                | None when change.id <> s.revision.Value ->
-                    Error
-                        $"Revision mismatch: server is at revision {s.revision.Value}, but this Change targets base revision {change.id}."
                 | None ->
                     match History.applyChange change s with
                     | ApplyResult.Invalid (_, errMsg) -> Error errMsg

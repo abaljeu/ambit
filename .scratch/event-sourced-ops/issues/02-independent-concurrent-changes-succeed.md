@@ -8,8 +8,8 @@
 
 **See also:** [[../../relaxed-concurrency/spec.md]], [[../details/relation-to-relaxed-concurrency.md]]
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Concurrent Changes that only lag the global revision, and whose Ops do not collide on per-Op preconditions, both apply successfully.
-- [ ] Unrelated attribute edits and structural edits under different parents are not refused solely for revision lag.
-- [ ] Auth and malformed requests remain Reject; this ticket does not invent field or child-list merge.
+- [x] Concurrent Changes that only lag the global revision, and whose Ops do not collide on per-Op preconditions, both apply successfully.
+- [x] Unrelated attribute edits and structural edits under different parents are not refused solely for revision lag.
+- [x] Auth and malformed requests remain Reject; this ticket does not invent field or child-list merge.

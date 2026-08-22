@@ -39,7 +39,6 @@ Work ready to start but not yet claimed.
 - [[.scratch/glossary-directory-file/rename-isMarker.md]] — optional remaining speech/doc sweep for informal “marker” (Directory File sense); `isMarker` / related API renames done
 - [[.scratch/large-node-cursor-perf/delete-children-cost.md]] — profile/optimize delete among large siblings (fromNodes + SiteMap rematch / structural DOM plan) (parent: [[.scratch/large-node-cursor-perf/project.md]])
 - [[src/Shared/ViewModelJoinOps.fs]] — `removeCurrentOp` fabricates `ChildNode.owner` instead of reading the live edge, so join on a Ref occurrence fails the `Graph.replace` span CAS; untested (evidence: [[.scratch/relaxed-concurrency/replace-span-cas-feasibility.md]])
-- [[.scratch/event-sourced-ops/issues/02-independent-concurrent-changes-succeed.md]] — drop the global revision gate on both server apply paths; rely on per-Op preconditions (delivery: [[.scratch/relaxed-concurrency/spec.md]]; design: [[.scratch/relaxed-concurrency/design.md]]; parent: [[.scratch/event-sourced-ops/project.md]])
 
 ## Blocked
 
