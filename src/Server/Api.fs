@@ -268,8 +268,7 @@ module Api =
                         { response with
                             buildEpochSec = buildEpochSec
                             pageBuildEpochSec = pageBuildEpochSec
-                            isReady = handle.isReady ()
-                            externalChanges = false }
+                            isReady = handle.isReady () }
         | Error err -> return agentErrorResult err
     }
 

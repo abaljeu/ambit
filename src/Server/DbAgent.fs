@@ -69,6 +69,7 @@ module DbAgent =
 
         let encodeChangeAckJson
             (confirmed: Change list)
+            (externalChanges: bool)
             (message: string option)
             =
             Encode.toString 0 (
@@ -77,7 +78,7 @@ module DbAgent =
                       buildEpochSec = 0
                       pageBuildEpochSec = 0
                       isReady = ready.Task.IsCompletedSuccessfully
-                      externalChanges = false
+                      externalChanges = externalChanges
                       changes = confirmed
                       message = message })
 
@@ -105,12 +106,15 @@ module DbAgent =
 
         let applyBatch (changes: Change list) =
             try
-                let step (s, confirmations, logEntries) change =
+                let step (s, confirmations, logEntries, externalChanges) change =
                     match tryPersistedChange change.changeId with
                     | Some stored ->
-                        Ok(s, stored :: confirmations, logEntries)
+                        Ok(s, stored :: confirmations, logEntries, externalChanges)
                     | None ->
-                        match History.applyChange change s with
+                        let result, amended, applied =
+                            ChangeAmendment.applyChange change s
+
+                        match result with
                         | ApplyResult.Invalid (_, errMsg) -> Error errMsg
                         | ApplyResult.Unchanged _ ->
                             Error "Unchanged submission is rejected."
@@ -118,8 +122,12 @@ module DbAgent =
                             let nextRev = s.revision.Value + 1
                             let nextState =
                                 { s' with revision = Revision nextRev }
-                            let logEntry = nextRev, change
-                            Ok(nextState, change :: confirmations, logEntry :: logEntries)
+                            let logEntry = nextRev, applied
+                            Ok(
+                                nextState,
+                                applied :: confirmations,
+                                logEntry :: logEntries,
+                                externalChanges || amended)
 
                 changes
                 |> List.fold
@@ -127,9 +135,9 @@ module DbAgent =
                         match acc with
                         | Error err -> Error err
                         | Ok stateAndLog -> step stateAndLog change)
-                    (Ok(state.Value, [], []))
-                |> Result.map (fun (newState, confirmations, entries) ->
-                    newState, List.rev confirmations, List.rev entries)
+                    (Ok(state.Value, [], [], false))
+                |> Result.map (fun (newState, confirmations, entries, externalChanges) ->
+                    newState, List.rev confirmations, List.rev entries, externalChanges)
             with ex ->
                 eprintfn "DbAgent: failed to apply batch: %s" ex.Message
                 Error $"Database error: {ex.Message}"
@@ -219,7 +227,7 @@ module DbAgent =
                         (fun () -> applyBatch batch.changes)
                 with
                 | Error err -> reply.Reply(Error err)
-                | Ok (newState, confirmations, logEntries) ->
+                | Ok (newState, confirmations, logEntries, externalChanges) ->
                     let preGraph = state.Value.graph
                     let pathValidation =
                         match graphOnly, liveSaveDataDir with
@@ -286,6 +294,7 @@ module DbAgent =
                                     Ok(
                                         encodeChangeAckJson
                                             ackChanges
+                                            externalChanges
                                             persistMessage))
                                 if graphOnly then
                                     persistedGraph.Value <- stateToStore.graph

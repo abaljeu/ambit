@@ -8,8 +8,8 @@
 
 **See also:** [[../details/merge-invariant.md]], [[../details/conflict-resolution.md]]
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Stale concurrent field Changes on text/name succeed with first arrival kept and loser as an `amb-conflict` first child.
-- [ ] Concurrent class edits succeed as a set delta against the common prior without discarding either Actor's intended add/remove.
-- [ ] Success sets `externalChanges = true` when other Actors' work or amendment occurred; auth and malformed requests remain Reject.
+- [x] Stale concurrent field Changes on text/name succeed with first arrival kept and loser as an `amb-conflict` first child.
+- [x] Concurrent class edits succeed as a set delta against the common prior without discarding either Actor's intended add/remove.
+- [x] Success sets `externalChanges = true` when other Actors' work or amendment occurred; auth and malformed requests remain Reject.

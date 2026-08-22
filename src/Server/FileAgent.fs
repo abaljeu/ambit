@@ -96,6 +96,7 @@ module FileAgent =
 
         let encodeChangeAckJson
             (confirmed: Change list)
+            (externalChanges: bool)
             (message: string option)
             =
             Encode.toString 0 (
@@ -104,7 +105,7 @@ module FileAgent =
                       buildEpochSec = 0
                       pageBuildEpochSec = 0
                       isReady = true
-                      externalChanges = false
+                      externalChanges = externalChanges
                       changes = confirmed
                       message = message })
 
@@ -147,19 +148,27 @@ module FileAgent =
                     | Ok () -> Ok stamped
 
         let applyBatch (changes: Change list) =
-            let step (s, confirmations, fresh, changed) change =
+            let step (s, confirmations, fresh, changed, externalChanges) change =
                 match ChangeLog.tryFindByChangeId logStream offsetIndex change.changeId with
                 | Some stored ->
-                    Ok(s, stored :: confirmations, fresh, changed)
+                    Ok(s, stored :: confirmations, fresh, changed, externalChanges)
                 | None ->
-                    match History.applyChange change s with
+                    let result, amended, applied =
+                        ChangeAmendment.applyChange change s
+
+                    match result with
                     | ApplyResult.Invalid (_, errMsg) -> Error errMsg
                     | ApplyResult.Unchanged _ ->
                         Error "Unchanged submission is rejected."
                     | ApplyResult.Changed s' ->
                         let nextRev = s.revision.Value + 1
                         let nextState = { s' with revision = Revision nextRev }
-                        Ok(nextState, change :: confirmations, change :: fresh, true)
+                        Ok(
+                            nextState,
+                            applied :: confirmations,
+                            applied :: fresh,
+                            true,
+                            externalChanges || amended)
 
             changes
             |> List.fold
@@ -167,9 +176,9 @@ module FileAgent =
                     match acc with
                     | Error err -> Error err
                     | Ok stateAndLog -> step stateAndLog change)
-                (Ok(state.Value, [], [], false))
-            |> Result.map (fun (newState, confirmations, fresh, changed) ->
-                newState, List.rev confirmations, List.rev fresh, changed)
+                (Ok(state.Value, [], [], false, false))
+            |> Result.map (fun (newState, confirmations, fresh, changed, externalChanges) ->
+                newState, List.rev confirmations, List.rev fresh, changed, externalChanges)
 
         let persistLogEntries (logEntries: (int * string) list) =
             let logStart = logStream.Length
@@ -193,7 +202,7 @@ module FileAgent =
             | Ok batch ->
                 match applyBatch batch.changes with
                 | Error err -> reply.Reply(Error err)
-                | Ok (newState, confirmations, fresh, changed) ->
+                | Ok (newState, confirmations, fresh, changed, externalChanges) ->
                     let preGraph = state.Value.graph
                     let validation =
                         if graphOnly then
@@ -256,6 +265,7 @@ module FileAgent =
                                     Ok(
                                         encodeChangeAckJson
                                             ackChanges
+                                            externalChanges
                                             persistMessage))
 
         let operationContext msg =

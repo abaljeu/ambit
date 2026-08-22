@@ -46,6 +46,18 @@ let private decodeAckChangeIds json =
 let private decodeSuccessRevision json =
     (decodeSuccess json).revision
 
+let private decodeSuccessExternalChanges json =
+    (decodeSuccess json).externalChanges
+
+let private assertAmbConflictFirstChild (graph: Graph) (parentId: NodeId) (expectedText: string) =
+    let parent = graph.nodes.[parentId]
+    Assert.NotEmpty(parent.children)
+    let first = parent.children.[0]
+    Assert.Equal(Ownership.Owner, Node.childOwnership graph parentId first)
+    let child = graph.nodes.[first.id]
+    Assert.Equal(expectedText, child.text)
+    Assert.True(CssClass.contains "amb-conflict" child.cssClasses)
+
 let private decodeErrorField json =
     Thoth.Json.Core.Decode.object (fun get ->
         get.Required.Field "error" Thoth.Json.Core.Decode.string)
@@ -603,7 +615,9 @@ let ``POST unrelated attribute edits with stale revision both succeed``
     })
 
 [<Theory; MemberData(nameof backends)>]
-let ``POST attribute collision with stale oldText returns 400`` (backend: BackendKind) =
+let ``POST concurrent stale text Changes amend second as amb-conflict child``
+    (backend: BackendKind)
+    =
     withClient backend (fun client -> task {
         let! json0 = getStateJson client testFile
         let rootId = (decodeGraph json0).root
@@ -623,13 +637,102 @@ let ``POST attribute collision with stale oldText returns 400`` (backend: Backen
               changeId = Guid.NewGuid()
               ops = [ Op.SetText(nodeX, "x0", "xB") ] }
         let! rB = postChange client testFile changeB
-        Assert.Equal(HttpStatusCode.BadRequest, rB.StatusCode)
-        let! errBody = rB.Content.ReadAsStringAsync()
-        Assert.Contains("old text does not match", decodeErrorField errBody)
+        Assert.Equal(HttpStatusCode.OK, rB.StatusCode)
+
+        let! postBody = rB.Content.ReadAsStringAsync()
+        Assert.Equal(Revision 3, decodeSuccessRevision postBody)
+        Assert.Equal<Guid list>([ changeB.changeId ], decodeAckChangeIds postBody)
+        Assert.True(decodeSuccessExternalChanges postBody)
 
         let! json = getStateJson client testFile
-        Assert.Equal(Revision 2, decodeRevision json)
-        Assert.Equal("xA", (decodeGraph json).nodes.[nodeX].text)
+        let g = decodeGraph json
+        Assert.Equal(Revision 3, decodeRevision json)
+        Assert.Equal("xA", g.nodes.[nodeX].text)
+        assertAmbConflictFirstChild g nodeX "xB"
+    })
+
+[<Theory; MemberData(nameof backends)>]
+let ``POST concurrent stale name Changes amend second as amb-conflict child``
+    (backend: BackendKind)
+    =
+    withClient backend (fun client -> task {
+        let! json0 = getStateJson client testFile
+        let rootId = (decodeGraph json0).root
+        let nodeId = NodeId.New()
+        let setup =
+            { id = 0
+              changeId = Guid.NewGuid()
+              ops =
+                [ Op.NewNode(nodeId, "body")
+                  Op.SetName(nodeId, "", "alpha")
+                  Op.Replace(rootId, 0, [], ownedChild nodeId) ] }
+        let! r0 = postChange client testFile setup
+        Assert.Equal(HttpStatusCode.OK, r0.StatusCode)
+
+        let changeA =
+            { id = 1
+              changeId = Guid.NewGuid()
+              ops = [ Op.SetName(nodeId, "alpha", "nameA") ] }
+        let! rA = postChange client testFile changeA
+        Assert.Equal(HttpStatusCode.OK, rA.StatusCode)
+
+        let changeB =
+            { id = 1
+              changeId = Guid.NewGuid()
+              ops = [ Op.SetName(nodeId, "alpha", "nameB") ] }
+        let! rB = postChange client testFile changeB
+        Assert.Equal(HttpStatusCode.OK, rB.StatusCode)
+
+        let! postBody = rB.Content.ReadAsStringAsync()
+        Assert.True(decodeSuccessExternalChanges postBody)
+
+        let! json = getStateJson client testFile
+        let g = decodeGraph json
+        Assert.Equal("nameA", Filename.tryValue g.nodes.[nodeId].name |> Option.get)
+        assertAmbConflictFirstChild g nodeId "nameB"
+    })
+
+[<Theory; MemberData(nameof backends)>]
+let ``POST concurrent stale class Changes merge set delta and succeed``
+    (backend: BackendKind)
+    =
+    withClient backend (fun client -> task {
+        let! json0 = getStateJson client testFile
+        let rootId = (decodeGraph json0).root
+        let nodeId = NodeId.New()
+        let prior = CssClass.ofList [ "a"; "b" ]
+        let setup =
+            { id = 0
+              changeId = Guid.NewGuid()
+              ops =
+                [ Op.NewNode(nodeId, "tagged")
+                  Op.SetClasses(nodeId, CssClass.empty, prior)
+                  Op.Replace(rootId, 0, [], ownedChild nodeId) ] }
+        let! r0 = postChange client testFile setup
+        Assert.Equal(HttpStatusCode.OK, r0.StatusCode)
+
+        let changeA =
+            { id = 1
+              changeId = Guid.NewGuid()
+              ops = [ Op.SetClasses(nodeId, prior, CssClass.ofList [ "b" ]) ] }
+        let! rA = postChange client testFile changeA
+        Assert.Equal(HttpStatusCode.OK, rA.StatusCode)
+
+        let changeB =
+            { id = 1
+              changeId = Guid.NewGuid()
+              ops =
+                [ Op.SetClasses(nodeId, prior, CssClass.ofList [ "a"; "b"; "c" ]) ] }
+        let! rB = postChange client testFile changeB
+        Assert.Equal(HttpStatusCode.OK, rB.StatusCode)
+
+        let! postBody = rB.Content.ReadAsStringAsync()
+        Assert.True(decodeSuccessExternalChanges postBody)
+
+        let! json = getStateJson client testFile
+        let classes =
+            (decodeGraph json).nodes.[nodeId].cssClasses |> CssClass.toList |> Set.ofList
+        Assert.Equal<Set<string>>(Set.ofList [ "b"; "c" ], classes)
     })
 
 [<Theory; MemberData(nameof backends)>]
