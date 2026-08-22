@@ -38,7 +38,7 @@ The older map had already examined Event Modeling and Event Sourcing and rejecte
 
 The user reversed round 5's Q1: **send leftover pending unamended**. The Server amends it as the newest Actor when it arrives. The reason is simplicity, and the belief that the outcome does not change. The Server then amends both applied Changes and leftover pending.
 
-**Narrow pin on revision:** posts and polls carry only the last revision the Client **received from the Server**, never a locally advanced number. A stale value against the Server's current one is exactly the amendment case. The wider revision topic stays parked.
+**Narrow pin on revision:** posts and polls carry only the last revision the Client **received from the Server**, never a locally advanced number. A stale value against the Server's current one is exactly the amendment case. **Quiz follow-up:** one **global** Server arrival order / revision sequence is **accepted** (not per-Workspace). Exact token encoding may still be refined; the global sequence itself is not parked.
 
 ## Round 7 — pipelined posts
 
@@ -81,6 +81,16 @@ That reading drops every other-Actor Op that does not rewrite the same field or 
 | A recoverable collision is a Reject that the Client replans | Merge success with a Change list ([[relation-to-relaxed-concurrency.md]]) |
 | A name clash is a Reject | An `amb-conflict` child, and merge success ([[conflict-resolution.md]]) |
 | Implemented span compare-and-swap Replace stands in for the child-list rule | It is behavior to beat ([[as-implemented-facts.md]]) |
+
+## Quiz pins — later sequence (to-tickets)
+
+User answers while drafting the program ticket sequence ([[../to-tickets-draft.md]]):
+
+- **Soft-lock and job are one surface.** The lock belongs to the job; completion clears it; the indicator opens the job. Prefer one vertical project, not soft-lock-before-job or two parallel products. Parse remains a tracer for the Actor produce path without that surface.
+- **Shared Post/Poll success envelope type** is preferred for a smaller footprint / easier verification. Channels stay distinct (Post signals; Poll lists). Fold into Ticket 0 expand; do not leave type unify as late optional cleanup.
+- **Decision-first is OK** for Kind 4 / orphan / Undo, provided early tickets leave extension room (optional Change baseline, adjustable short-tail retention, History not frozen as own-posts-only) so late accepts do not force wire rework.
+- **Load packages as Graph / state transfer** reaffirmed **accepted** (Round 4); remove stale “parked” wording that blurred transfer kind with unfinished residency packaging.
+- **One global Server revision sequence** reaffirmed **accepted**; not per-Workspace.
 
 ## Removed language
 

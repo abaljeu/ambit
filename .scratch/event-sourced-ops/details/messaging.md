@@ -1,6 +1,6 @@
 # Messaging — post, poll, and what a Reject means
 
-The two Client channels and the response shape. The conceptual split is **accepted**. The exact types and fields are **proposed** and are not implemented.
+The two Client channels and the response shape. The conceptual split is **accepted**. A **shared success envelope type** for Post and Poll is the **pinned direction** (quiz: fewer concepts / easier to verify). Exact field inventory beyond that direction may still be refined in implementation. The type is not implemented yet.
 
 ## Two paths (accepted)
 
@@ -34,10 +34,13 @@ Authentication, a malformed request, and similar request failures. That is all. 
 
 **Neither post nor poll clears the Client's History.** Today's behavior — a poll with a non-empty tail clears History — is **software debt**, not the standard.
 
+## Shared envelope type (pinned direction)
+
+Post and Poll may share one success **response type** (revision, stamps/readiness as needed, external-changes signal, Change list that may be empty). Channels stay separate: Post uses the envelope as a **signal** (and must not be treated as an apply tail); Poll uses the same type with a populated list for rewind and replay. Behavior-identical expand can land the shared type while Post still confirmation-echo succeeds with `externalChanges = false`.
+
 ## Still proposed
 
-- The exact response type. Whether a post returns the poll envelope, or keeps its own acknowledgement type carrying the same kind of Change list.
-- Envelope fields. Both types already carry a Change list, but they differ in stamps, readiness, and an optional persistence message. Sharing a kind may still grow fields.
+- The exact field inventory on that shared type (stamps, readiness, optional persistence message, how “empty list” is encoded).
 - Duplicate-retry behavior. A stored echo against a freshly computed tail; a lost acknowledgement can mean the retry should return the current tail.
 
 ## Obstacles, assessed
@@ -48,4 +51,4 @@ Two naive implementations are traps rather than reasons the design cannot work, 
 
 The contracts that must change are listed as facts in [[as-implemented-facts.md]]. They make today's tests and specs fail on purpose; they do not make the design unsafe.
 
-Not obstacles: Reject (a different status, not the success list); Load packages (Graph transfer, parked); update-time stamps riding inside the Change list; whether revision stays one global number (parked).
+Not obstacles: Reject (a different status, not the success list); Load packages (Graph / state transfer — **accepted**, not Ops replay); update-time stamps riding inside the Change list; one global Server revision sequence (**accepted**).

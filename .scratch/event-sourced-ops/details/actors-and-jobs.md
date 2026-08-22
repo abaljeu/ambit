@@ -55,6 +55,6 @@ Prospective, and no such interface exists. Same shape as Parse: its own task off
 ## The sharp gaps
 
 1. **Packaging.** One Change or a set. If a set: one shared common prior from job start, or each Change planned after the previous apply landed.
-2. **Soft lock.** The meaning is accepted; issuance, expiry, and chrome are not ([[soft-lock.md]]).
-3. **Residency.** What a job must emit against what a Browser must Load is parked. Poll still sends Ops for Unloaded parts, and today's apply can silently skip them.
+2. **Soft lock.** The meaning is accepted; **job-owned lifecycle** is an accepted direction (lock belongs to the job; completion clears it; indicator opens the job). Issuance, expiry, and chrome details are not locked ([[soft-lock.md]]). Ship with job identity as one vertical when the runtime exists.
+3. **Residency packaging.** What a job must emit against what a Browser must Load is still open detail. **Load itself stays Graph / state transfer** (accepted), not Ops replay. Poll still sends Ops for Unloaded parts, and today's apply can silently skip them.
 4. **Entry.** Don't-care, as above.

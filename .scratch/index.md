@@ -3,11 +3,11 @@
 | Project | Stage | Summary |
 | --- | --- | --- |
 | [Bullet tip times](bullet-tip-times/) | charting | Which non-obvious time facts a node-marker tooltip should show (update, workspace, server, last-sync) with de-dup, timezone, and availability rules; open questions unresolved. |
-| [Event-sourced ops](event-sourced-ops/) | charting | One semantic standard for how any Actor's Change enters a Graph — global order by Server arrival, Server amendment, Client rewind and replay, conflict as an `amb-conflict` child instead of a Reject; three layers now published as overview, architecture, and details. |
 | [Parse load demote](parse-load-demote/) | charting | Empty stub directory; stage unknown until contents land. |
 | [RowView / FocusView layout vs behavior](rowview-layout-behavior/) | charting | Separate layout from behavior inside RowView/FocusView; plan complete, waits on the split-view-by-concern refactor landing. |
 | [ChildNode drop ref](childnode-drop-ref/) | spec | Progressive removal of ChildNode.ref; Node.owner + Op.SetOwner sole ownership source; Loaded-scope membership seam; ordered id-only ChildNode retained. |
 | [Relaxed concurrency](relaxed-concurrency/) | spec | Slice 1 (drop global revision gate) spec-ready; G resolved — client merge-sync with reject+remote payload and client replan at pending tail (slices 2–3 deferred); |
+| [Event-sourced ops](event-sourced-ops/) | tickets | One semantic standard for how any Actor's Change enters a Graph — twelve implementation issues (`issues/01`–`12`) from critical-flaw elimination through Actor spine, recovery decisions, and polish; charting docs in overview, architecture, and details. |
 | [Large-node cursor perf](large-node-cursor-perf/) | active | Selection-only planPatchDOM/patchDOM fast path + O(1) SiteEntry.childIndex implemented; delete-children cost analysis in delete-children-cost.md (no delete fix yet). |
 | [Owner-edge database repair](owner-edge-db-repair/) | active | Extend DbAgent startup sweep: ACID repair of `node_children` into a ROOT-owned tree; GC unreachable; promote a Ref when a reachable node has no owner. |
 | [Selective client loading](selective-client-loading/) | active | Client-partial residency with explicit Load and Unloaded/Loaded child lists; spec ready-for-agent, implementation issues in flight. |

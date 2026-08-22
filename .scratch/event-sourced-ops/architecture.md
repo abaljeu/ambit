@@ -75,11 +75,16 @@ This replaces the older plan in which a recoverable collision was refused and th
 
 A long job must not hold the Server's apply queue. It plans off that queue, on its own task, and then sends a message so the queue applies the result. When it concludes, its Change is simply the newest Change, and every rule above applies to it. Other Browsers learn of it by polling; there is no completion push. The job may soft-lock its subtree as advice, which changes nothing about merge. Details, and the parts that do not exist yet — job identity, launch, cancel — are in [[details/actors-and-jobs.md]] and [[details/soft-lock.md]].
 
+## Accepted conveyance and sequencing pins
+
+- **Load packages** stay a **Graph / state transfer** for Nodes and children the Client does not yet hold. They are not a Change replay and not genesis replay. Round 4 locked this; quiz confirmed. Residency *product* detail (what a job must emit vs what a Browser must Load) may still be proposed; the transfer kind is **accepted**.
+- **One global Server arrival order / revision sequence.** The Server is the sole sequencer. Posts and polls carry the last revision **received from the Server**. Not per-Workspace revision sequences. Exact token encoding may be refined; the global sequence itself is **accepted**.
+
 ## Boundaries
 
 The architecture deliberately stops before these:
 
 - **No per-Op transform tables.** The child-list approximation algorithm is later work.
-- **No wire types.** Response shape and acknowledgement payload stay **proposed** ([[details/messaging.md]]).
-- **No residency model.** Load packages stay a Graph transfer and stay **parked** ([[details/as-implemented-facts.md]]).
+- **Exact envelope field inventory.** Shared success **type** for Post and Poll is the pinned direction; channels stay distinct; field-level detail may still be refined ([[details/messaging.md]]).
+- **No full residency product model.** Load stays Graph transfer (**accepted**); job-vs-Browser residency packaging detail stays out of this layer ([[details/as-implemented-facts.md]], [[details/open-questions.md]]).
 - **No undo protocol across Actors.** Undo stays thoughts, and one question is retained **open** ([[details/undo.md]]).

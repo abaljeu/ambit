@@ -18,7 +18,6 @@ Mutations for delegated workers to return to their parent: `add`, `move`, `block
 
 Work currently being executed.
 
-- [[.scratch/event-sourced-ops/project.md]] — grill increment-2 of the async Change/Merge framework; three-layer picture published (top: [[.scratch/event-sourced-ops/overview.md]], [[.scratch/event-sourced-ops/architecture.md]]; details index on [[.scratch/event-sourced-ops/project.md]]; frontier: [[.scratch/event-sourced-ops/details/open-questions.md]]; history: [[.scratch/event-sourced-ops/details/decision-log.md]]; related: [[.scratch/relaxed-concurrency/map.md]], [[.scratch/event-sourced-ops/details/relation-to-relaxed-concurrency.md]])
 - [[.scratch/owner-edge-db-repair/spec.md]] — extend startup sweep: ACID repair of `node_children` Owned tree (GC unreachable; promote Ref when reachable node has no owner) (artifacts: [[.scratch/owner-edge-db-repair/implement.md]], [[src/Shared/ProjectionOwnershipRepair.fs]])
 - [[.scratch/parse-load-demote/issues/01-keep-current-on-rediscovered-added.md]] — keep Current when Load Workspace rediscovers Added path; demote only new stubs / NoServerFile (plan: fix_load_demotes_parse_8d40752b; artifacts: [[src/Shared/dotnet/LazyLoadReconciliationApply.fs]], [[tests/Shared.Tests/LazyLoadReconciliationTests.fs]])
 
@@ -26,6 +25,7 @@ Work currently being executed.
 
 Work ready to start but not yet claimed.
 
+- [[.scratch/event-sourced-ops/issues/01-shared-success-envelope-expand.md]] — use one behavior-identical success envelope for the distinct Post and Poll channels (parent: [[.scratch/event-sourced-ops/project.md]])
 - [[.scratch/selective-client-loading/issues/20-restore-saved-zoom-workspace-during-bootstrap.md]] — HITL F5: Load Workspace, focus a sub-node (no Zoom), refresh; owning Workspace Loaded and zoom stays at prior zoomRoot / in-ROOT (not zoomed into selection) (artifacts: [[src/Shared/ResidentProjection.fs]] sessionTargets, [[src/Client/SessionState.fs]])
 - [[.scratch/selective-client-loading/issues/21-load-one-selected-target-through-synchronization.md]] — HITL verify Load of Unloaded named Workspace after stub-skip fix (inventory → push → `/load` with packages; no `/changes` name conflict) (artifacts: [[src/Shared/WorkspaceUploadStructure.fs]], [[tests/Shared.Tests/WorkspaceUploadStructureTests.fs]])
 - [[tmp/load-performance-audit.md]] — secondary: ensure ledger reuse on already-synced Load (Mask path); diagnose empty-ledger resets (artifacts: [[src/Shared/dotnet/WorkspaceSyncLedger.fs]] needsSeed, [[src/Shared/dotnet/WorkspaceFileSync.fs]] ensureLedgerSeeded)
@@ -40,7 +40,7 @@ Work ready to start but not yet claimed.
 - [[.scratch/glossary-directory-file/rename-isMarker.md]] — optional remaining speech/doc sweep for informal “marker” (Directory File sense); `isMarker` / related API renames done
 - [[.scratch/large-node-cursor-perf/delete-children-cost.md]] — profile/optimize delete among large siblings (fromNodes + SiteMap rematch / structural DOM plan) (parent: [[.scratch/large-node-cursor-perf/project.md]])
 - [[src/Shared/ViewModelJoinOps.fs]] — `removeCurrentOp` fabricates `ChildNode.owner` instead of reading the live edge, so join on a Ref occurrence fails the `Graph.replace` span CAS; untested (evidence: [[.scratch/relaxed-concurrency/replace-span-cas-feasibility.md]])
-- [[.scratch/relaxed-concurrency/spec.md]] — drop the global revision gate on both server apply paths; rely on per-op preconditions; same-parent structural rejection keeps today's Reject path (design: [[.scratch/relaxed-concurrency/design.md]], parent: [[.scratch/relaxed-concurrency/project.md]], map: [[.scratch/relaxed-concurrency/map.md]])
+- [[.scratch/event-sourced-ops/issues/02-independent-concurrent-changes-succeed.md]] — drop the global revision gate on both server apply paths; rely on per-Op preconditions (delivery: [[.scratch/relaxed-concurrency/spec.md]]; design: [[.scratch/relaxed-concurrency/design.md]]; parent: [[.scratch/event-sourced-ops/project.md]])
 
 ## Blocked
 

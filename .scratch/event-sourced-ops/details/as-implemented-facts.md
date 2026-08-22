@@ -30,7 +30,7 @@ Do not copy a specification out of this file.
 | **Load** | The same envelope **plus** packages — complete Workspace Nodes at that revision | Ops for the tail, then the packages are merged into the map |
 | **State** | Revision and a full graph | No Change list at all |
 
-Poll is Ops only. Load is mixed: Ops for the tail, Graph transfer for residency. Packages are sliced out of the Server Graph, not replayed from Ops. Making them Ops would be either genesis replay, which is rejected, or a verbose encoding of the same Nodes — so Load stays mixed, and residency stays parked.
+Poll is Ops only. Load is mixed: Ops for the tail, Graph transfer for residency. Packages are sliced out of the Server Graph, not replayed from Ops. Making them Ops would be either genesis replay, which is rejected, or a verbose encoding of the same Nodes — so Load stays mixed. **Architecture pin:** Load packages as Graph / state transfer is **accepted**; only finer residency packaging (job emit vs Browser Load) stays proposed/parked detail.
 
 **Behavior to beat:** a poll with a non-empty tail **clears** the Browser History. The standard says neither channel clears it ([[messaging.md]]).
 

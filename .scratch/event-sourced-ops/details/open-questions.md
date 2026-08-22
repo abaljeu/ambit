@@ -13,18 +13,22 @@ An inventory. It is not a lock and it is not new work. The project stage stays `
 - Leftover pending stays unamended; the next post sends it and the Server amends. Posts and polls carry only the last revision received from the Server.
 - A recoverable kick-back is merge success. The older slice-2 Reject and replan is obsolete for that case. The remaining Reject is auth and malformed requests.
 - The soft-lock **meaning**: an advisory subtree reservation; edits there are legal.
+- **Soft-lock lifecycle couples to a job** (quiz pin): the reservation belongs to the job; job completion clears it; the lock indicator is an access point to the job. Issuance, expiry, and chrome details stay proposed.
 - Cancel is not Undo. This project is a sibling of relaxed concurrency, not a replacement.
+- **Load packages are Graph / state transfer** for Nodes and children the Client does not yet hold — not Ops replay, not genesis replay ([[decision-log.md]] Round 4; [[architecture.md]]).
+- **One global Server arrival order / revision sequence.** Posts and polls carry the last revision received from the Server. Not per-Workspace revisions.
+- **Shared success envelope type** for Post and Poll is the pinned direction (fewer concepts); the two **channels** stay distinct (Post signals; Poll carries the list) ([[messaging.md]]).
 
 ## Still proposed — not locked
 
 - **The merge document as a whole** ([[merge-invariant.md]]). The order, the correction strategy, and several kinds are accepted; the invariant and any per-Op tables are not.
 - **The conflict taxonomy** as a taxonomy ([[conflict-resolution.md]]). Text, name, children, and classes are already pinned inside it.
-- **Kind 4, delete against edit** ([[conflict-resolution.md]]) — independence for critical information; removal exemption against the common prior ([[merge-invariant.md]]); tentative `deleted` wrapper recovery is future, not locked.
+- **Kind 4, delete against edit** ([[conflict-resolution.md]]) — independence for critical information; removal exemption against the common prior ([[merge-invariant.md]]); tentative `deleted` wrapper recovery is future, not locked. Decide early relative to log/Change extension; implement only after accept ([[../to-tickets-draft.md]]).
 - **The fill-in pattern** ([[completing-ops.md]]). The timing is accepted; the rest is proposed.
-- **Exact message types and fields** ([[messaging.md]]).
-- **Soft-lock issuance, expiry, chrome, and the cancel surface** ([[soft-lock.md]]).
-- **Job identity, launch, and cancel** ([[actors-and-jobs.md]]). None of it exists.
-- **Actor packaging and residency** — one Change or a set, and what a job emits against what a Browser must Load.
+- **Exact envelope field set** beyond the shared-type direction ([[messaging.md]]).
+- **Soft-lock issuance, expiry, and chrome** ([[soft-lock.md]]) — not the job-coupling pin above.
+- **Job identity, launch, and cancel mechanics** ([[actors-and-jobs.md]]). None of it exists; product surface should ship with soft-lock, not as a second orphan concept.
+- **Actor packaging and residency detail** — one Change or a set, and what a job emits against what a Browser must Load (Load itself stays Graph transfer).
 - **Parse File realignment.** An observation, not a plan.
 - **Shell command.** A later Actor, with no product behind it.
 
@@ -38,10 +42,8 @@ An inventory. It is not a lock and it is not new work. The project stage stays `
 
 ## Parked — deliberately not discussed now
 
-- **Changes against Graph transfer.** Load packages and the state endpoint.
-- **Whether revision stays one global number.** One narrow pin only: posts and polls carry the last revision **received from the Server**.
-- **Two deferred questions on the state endpoint.** Whether a producer must refuse to propose an Op-invalid Graph, or whether transfer fails closed; and what a partial view may believe. The user paused this topic.
-- **A Server-partial Local Graph.**
+- **Two deferred questions on the state endpoint.** Whether a producer must refuse to propose an Op-invalid Graph, or whether transfer fails closed; and what a partial view may believe. The user paused this topic. (Load-as-Graph-transfer and global revision are **not** parked — see Accepted.)
+- **A Server-partial Local Graph** as a designed Server mode.
 - **Action against Change as a framing.** No stake either way ([[vocabulary.md]]).
 
 ## Not this project

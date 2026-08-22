@@ -2,7 +2,7 @@
 
 The advisory reservation a long-running Actor makes on its subtree.
 
-Status: the **meaning** is **accepted**. Issuance, expiry, and screen chrome are **proposed**. Hard locking stays out of this standard.
+Status: the **meaning** is **accepted**. **Lifecycle coupling to a job** is an **accepted direction** (quiz pin). Issuance, expiry, and screen chrome details stay **proposed**. Hard locking stays out of this standard.
 
 ## Meaning (accepted)
 
@@ -14,6 +14,12 @@ Concurrent Browser edits on that subtree are **legal**. They are other accepted 
 
 Merge runs exactly as it would without the lock. The soft lock changes no rule in [[merge-invariant.md]].
 
+## Lifecycle with a job (accepted direction)
+
+The reservation **belongs to a job**. Job completion clears the lock. The lock indicator is an **access point to the job** (inspect / cancel), not a second independent object. Product work should ship job identity and soft-lock as **one vertical**, not as two sibling features ([[actors-and-jobs.md]], [[../to-tickets-draft.md]]).
+
+Parse realignment can prove the Actor produce path **without** inventing this surface first (request-scoped Parse needs no multi-job soft-lock chrome).
+
 ## Cancel is not Undo (accepted)
 
 Cancel stops the job from generating further Changes. Changes that already merged stay merged. Undo names an already-merged Change and inverts it ([[undo.md]]).
@@ -21,5 +27,5 @@ Cancel stops the job from generating further Changes. Changes that already merge
 ## Still proposed
 
 - Who issues a soft lock, and how it expires.
-- The screen chrome. The only decided part of the interface is the recommendation to work elsewhere.
-- Whether the soft lock is also the surface a user cancels the job from ([[actors-and-jobs.md]]).
+- The screen chrome beyond “work elsewhere” and “indicator opens the job”.
+- Exact cancel control placement on that shared surface ([[actors-and-jobs.md]]).
