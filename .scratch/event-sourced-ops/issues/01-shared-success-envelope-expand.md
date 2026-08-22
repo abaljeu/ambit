@@ -10,6 +10,6 @@
 
 **Status:** ready-for-agent
 
-- [ ] Post and Poll encode/decode share one success response type including revision, readiness/stamps, external-changes signal, and a possibly empty Change list.
-- [ ] With `externalChanges = false`, Post confirmation-echo success and Client reconcile behavior match today (no apply from Post body).
-- [ ] Poll still delivers its Change list through the shared type without collapsing the Post and Poll channels.
+- [x] Post and Poll encode/decode share one success response type including revision, readiness/stamps, external-changes signal, and a possibly empty Change list.
+- [x] With `externalChanges = false`, Post confirmation-echo success and Client reconcile behavior match today (no apply from Post body).
+- [x] Poll still delivers its Change list through the shared type without collapsing the Post and Poll channels.

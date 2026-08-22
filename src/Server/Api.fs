@@ -90,6 +90,12 @@ module Api =
     let private jsonResult (json: string) : IResult =
         Results.Content(json, "application/json")
 
+    let private changeSuccessResult (response: ChangeSuccessResponse) =
+        response
+        |> ApiResponseSerialization.encodeChangeSuccessResponse
+        |> Encode.toString 0
+        |> jsonResult
+
     /// Prefer Content over Results.Problem: Problem.ExecuteAsync needs RequestServices
     /// and can leave HTTP 500 with an empty body if execution fails after status is set.
     let private agentErrorResult (error: string) : IResult =
@@ -115,15 +121,15 @@ module Api =
         let! changes =
             if rev > clientRev then handle.getChangesSince clientRev
             else async.Return []
-        let poll: PollResponse =
-            { revision = rev
+        let poll: ChangeSuccessResponse =
+            { revision = Revision rev
               buildEpochSec = buildEpochSec
               pageBuildEpochSec = pageBuildEpochSec
               isReady = handle.isReady ()
-              changes = changes }
-        let json =
-            Encode.toString 0 (ApiResponseSerialization.encodePollResponse poll)
-        return jsonResult json
+              externalChanges = not changes.IsEmpty
+              changes = changes
+              message = None }
+        return changeSuccessResult poll
     }
 
     let private loadPackages
@@ -237,11 +243,33 @@ module Api =
                     $"Internal server error in GetState: {ex.Message}"
     }
 
-    let postChange (handle: AgentHandle) (body: string) : Async<IResult> = async {
+    let postChange
+        (handle: AgentHandle)
+        (buildEpochSec: int)
+        (pageBuildEpochSec: int)
+        (body: string)
+        : Async<IResult> = async {
         let! result = handle.postChange body
 
         match result with
-        | Ok json -> return jsonResult json
+        | Ok json ->
+            match
+                Decode.fromString
+                    ApiResponseSerialization.decodeChangeSuccessResponseDecoder
+                    json
+            with
+            | Error err ->
+                return
+                    internalError
+                        $"Internal server error in PostChange decode: {err}"
+            | Ok response ->
+                return
+                    changeSuccessResult
+                        { response with
+                            buildEpochSec = buildEpochSec
+                            pageBuildEpochSec = pageBuildEpochSec
+                            isReady = handle.isReady ()
+                            externalChanges = false }
         | Error err -> return agentErrorResult err
     }
 

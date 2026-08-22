@@ -276,16 +276,9 @@ let decodePostChangeError (text: string) : string option =
     | Ok None -> None
     | Error _ -> None
 
-type ChangeAck =
-    { changes: Change list
-      revision: Revision
-      message: string option }
-
 /// Decode POST /{file}/changes success body.
-let decodeChangeAckResponse (text: string) : Result<ChangeAck, string> =
-    Thoth.Json.JavaScript.Decode.fromString Serialization.decodeChangeBatchAck text
-    |> Result.map (fun ack ->
-        { changes = ack.changes
-          revision = ack.revision
-          message = ack.message })
+let decodeChangeSuccessResponse
+    (text: string)
+    : Result<ChangeSuccessResponse, string> =
+    ApiResponseSerialization.decodeChangeSuccessResponse text
 

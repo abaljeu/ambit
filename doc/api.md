@@ -7,7 +7,7 @@
 | **Implemented** | `/{pathname}/*` routes (production app at `/ambit`; see below) |
 | **Target** | `/documents/{docId}` multi-document API (future design) |
 
-For sync semantics and client behavior, see [[doc/sync-mvp.md]] and [[doc/arch.md]].
+For Sync semantics and Browser behavior, see [[doc/current/sync-mvp.md]] and [[doc/arch.md]].
 
 ---
 
@@ -19,21 +19,21 @@ The live server exposes JSON under a URL prefix derived from the app pathname (e
 
 ```mermaid
 sequenceDiagram
-    participant Client
+    participant Browser
     participant Server
-    Client->>Server: POST /ambit/changes ChangeBatch
-    Server-->>Client: ChangeBatchAck revision ackedChangeIds
+    Browser->>Server: POST /ambit/changes ChangeBatch
+    Server-->>Browser: ChangeSuccessResponse confirmations
     loop every 5s or on activity
-        Client->>Server: GET /ambit/poll?rev=N
-        Server-->>Client: PollResponse revision changes build stamps
+        Browser->>Server: GET /ambit/poll?rev=N
+        Server-->>Browser: ChangeSuccessResponse Poll tail
     end
-    Client->>Server: GET /ambit/state
-    Server-->>Client: graph revision
+    Browser->>Server: GET /ambit/state
+    Server-->>Browser: graph revision
 ```
 
-- **`POST /changes`** returns an ack only (revision + `ackedChangeIds`), not the full graph.
+- **`POST /changes`** returns the complete Change success envelope with confirmation Changes and `externalChanges = false`, not the full Graph. The Browser uses only confirmation reconciliation on this path.
 - **`GET /state`** returns the full graph for initial load or resync.
-- **`GET /poll`** returns revision, deploy/page build stamps, and a change tail when the client is behind.
+- **`GET /poll`** returns the same success envelope with a Change tail when the Browser is behind.
 
 There is **no** `POST /submit` (full graph in response) and **no** `POST /save` route. Persistence runs automatically after each accepted change (snapshot + append-only log on disk and/or PostgreSQL `changes` table). See [[doc/current/persistence-model.md]].
 
@@ -106,15 +106,17 @@ When both auth fields are empty, auth is disabled and all routes are open.
 
 #### `GET /ambit/poll`
 
-**Query**: `rev` — client revision (default `0` if missing or invalid).
+**Query**: `rev` — Browser Revision (default `0` if missing or invalid).
 
-**Response** (`200`): compact keys from [[src/Shared/Serialization.fs]]:
+**Response** (`200`): complete success envelope from [[src/Shared/ApiResponseSerialization.fs]]:
 
 ```json
 {
   "r": 2,
   "b": 1715788800,
   "p": 1715788800,
+  "ready": true,
+  "externalChanges": true,
   "c": [ … ]
 }
 ```
@@ -123,10 +125,13 @@ When both auth fields are empty, auth is disabled and all routes are open.
 |-------|---------|
 | `r` | Current server revision |
 | `b` | Server/deploy build epoch (seconds, Unix) |
-| `p` | Page/client artifact build epoch (seconds, Unix) |
-| `c` | Changes after client `rev` (empty when up to date); omitted on older servers → treated as `[]` |
+| `p` | Page/Browser artifact build epoch (seconds, Unix) |
+| `ready` | Whether Server startup work is ready |
+| `externalChanges` | `true` when this Poll carries one or more Changes |
+| `c` | Changes after Browser `rev`; required and possibly empty |
+| `message` | Optional persistence status; absent for Poll |
 
-Client uses `b` / `p` to detect redeploy or stale bundles ([[doc/sync-mvp.md]]).
+The Browser uses `b` / `p` to detect redeploy or stale bundles ([[doc/current/sync-mvp.md]]).
 
 ---
 
@@ -149,17 +154,31 @@ Client uses `b` / `p` to detect redeploy or stale bundles ([[doc/sync-mvp.md]]).
 - `changes` must be non-empty.
 - Multiple changes in one batch are applied in order; all must succeed or none are applied (`400` on failure leaves state unchanged).
 
-**Response** (`200`): `ChangeBatchAck`
+**Response** (`200`): the same `ChangeSuccessResponse` codec as Poll.
 
 ```json
 {
-  "revision": 1,
-  "ackedChangeIds": [ "550e8400-e29b-41d4-a716-446655440000" ]
+  "r": 1,
+  "b": 1715788800,
+  "p": 1715788800,
+  "ready": true,
+  "externalChanges": false,
+  "c": [
+    {
+      "id": 0,
+      "changeId": "550e8400-e29b-41d4-a716-446655440000",
+      "ops": [ … ]
+    }
+  ]
 }
 ```
 
-- Does **not** include `graph`.
-- Resubmitting the same `changeId` is idempotent: same revision and `ackedChangeIds`, no double-apply.
+- `c` contains durable complete confirmation Changes in request order. The Browser reconciles these confirmations; it does not apply them as a Poll tail.
+- `externalChanges` is `false` for this behavior-identical contract.
+- `b`, `p`, and `ready` are current real Server values.
+- `message` is present only when the Graph change succeeded but artifact persistence returned a status message.
+- The response does **not** include `graph`.
+- Resubmitting the same `changeId` is idempotent: same revision and confirmation Changes, no double-apply.
 
 **Error** (`400`):
 
@@ -173,7 +192,7 @@ Other failures: invalid JSON, empty batch, invalid op, log write error.
 
 ## JSON encoding (implemented)
 
-Types and codecs: [[src/Shared/Serialization.fs]]. Tests: [[tests/Server.Tests/StateEndpointTests.fs]].
+Change success type and codec: [[src/Shared/ApiResponses.fs]] and [[src/Shared/ApiResponseSerialization.fs]]. Domain codecs: [[src/Shared/Serialization.fs]]. Tests: [[tests/Server.Tests/StateEndpointTests.fs]].
 
 ### NodeId
 
@@ -261,7 +280,7 @@ Example `Replace`:
 
 1. **Initial load**: `GET /{pathname}/state` → graph + revision.
 2. **Local edit**: build `Change` with `id` = current revision; apply locally; queue for POST.
-3. **Submit**: `POST /{pathname}/changes` with `ChangeBatch`; on success update revision from ack (no graph in response).
+3. **Submit**: `POST /{pathname}/changes` with `ChangeBatch`; on success reconcile the confirmation Changes and update Revision. Do not apply the response as a Poll tail.
 4. **Poll**: `GET /{pathname}/poll?rev=N` on interval and after activity; apply `c` tail when behind.
 5. **Resync**: if needed, `GET /{pathname}/state` for full graph.
 

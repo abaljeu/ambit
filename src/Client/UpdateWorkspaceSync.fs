@@ -51,7 +51,7 @@ let private inventoryToStubItems (items: DesktopInventoryItem list) : WorkspaceU
 
 let private reconcileWorkspaceAck
     (submitted: PendingChange)
-    (ack: ChangeAck)
+    (ack: ChangeSuccessResponse)
     (graph: Graph)
     (history: ClientHistory)
     (revision: Revision)
@@ -88,7 +88,7 @@ let applyAndPostSync (commandName: string) (change: Change) (model: VM) : Result
         if status < 200 || status >= 300 then
             Error(httpError status text)
         else
-            match decodeChangeAckResponse text with
+            match decodeChangeSuccessResponse text with
             | Error e -> Error e
             | Ok ack ->
                 match
@@ -324,7 +324,7 @@ let completeUploadStructurePost
     (text: string)
     (model: VM)
     : VM * Effect list =
-    match decodeChangeAckResponse text with
+    match decodeChangeSuccessResponse text with
     | Error e -> failUploadStructurePost e model
     | Ok ack ->
         match

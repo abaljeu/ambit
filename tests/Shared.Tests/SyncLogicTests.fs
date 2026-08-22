@@ -16,12 +16,14 @@ let private mkContext build page =
     { ClientPollContext.buildEpochSec = build
       pageBuildEpochSec = page }
 
-let private mkPoll rev build page =
-    { revision = rev
+let private mkPoll rev build page : ChangeSuccessResponse =
+    { revision = Revision rev
       buildEpochSec = build
       pageBuildEpochSec = page
       isReady = true
-      changes = [] }
+      externalChanges = false
+      changes = []
+      message = None }
 
 // ---------------------------------------------------------------------------
 // getPollOutcome — data outdated

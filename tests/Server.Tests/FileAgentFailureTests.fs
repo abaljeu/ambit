@@ -39,8 +39,12 @@ let private softFailPersist : string -> Graph -> Graph -> Op list -> Result<Pers
         }
 
 let private decodeAck (json: string) =
-    match Decode.fromString Serialization.decodeChangeBatchAck json with
-    | Ok ack -> ack
+    match
+        Decode.fromString
+            ApiResponseSerialization.decodeChangeSuccessResponseDecoder
+            json
+    with
+    | Ok response -> response
     | Error err -> failwith $"decode ack: {err}"
 
 let private decodeAckMessage (json: string) : string option =

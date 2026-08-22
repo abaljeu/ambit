@@ -11,9 +11,10 @@ Last write wins by arrival order on the server. No client-side merging required.
 1. Client sends a `ChangeBatch` to `POST /{pathname}/changes` (e.g. `POST /ambit/changes`).
 2. Server applies each change in order against authoritative state (revision must match `Change.id`).
 3. If changed, server increments `revision`, appends to PostgreSQL `changes` table, and auto-persists affected document artifacts under `DataDir`.
-4. Server responds with `ChangeBatchAck` (`revision`, `ackedChangeIds`) — **not** the full graph.
-5. Client polls `GET /{pathname}/poll?rev=N` (e.g. every 5s or after activity) for remote changes and build stamps.
-6. When behind, poll returns a change tail in `c`; client applies it locally. Full graph via `GET /{pathname}/state` on initial load or resync.
+4. Server responds with the complete `ChangeSuccessResponse`: Revision, real deploy/page stamps, readiness, `externalChanges = false`, durable confirmation Changes in `c`, and an optional persistence message. It does **not** return the full Graph.
+5. The Browser uses the Post response only for confirmation reconciliation. It does not apply `c` as a Poll tail.
+6. The Browser polls `GET /{pathname}/poll?rev=N` (for example, every 5 seconds or after activity) for remote Changes and build stamps.
+7. When behind, Poll returns the same response type with its Change tail in `c`; the Browser applies that list locally. The full Graph comes from `GET /{pathname}/state` on initial Load or resync.
 
 ## Why this is simpler
 
@@ -46,8 +47,8 @@ Canonical reference: [[doc/api.md]].
 | Method | Path | Role |
 |--------|------|------|
 | `GET` | `/ambit/state` | `{ revision, graph }` |
-| `POST` | `/ambit/changes` | `ChangeBatch` → `{ revision, ackedChangeIds }` |
-| `GET` | `/ambit/poll?rev=N` | `{ r, b, p, c }` — revision, build stamps, change tail |
+| `POST` | `/ambit/changes` | `ChangeBatch` → complete Change success envelope with confirmation Changes |
+| `GET` | `/ambit/poll?rev=N` | The same Change success envelope with a Poll tail |
 
 There is **no** `POST /submit` (formerly returned full graph in the response).
 
@@ -74,10 +75,22 @@ There is **no** `POST /submit` (formerly returned full graph in the response).
 
 ```json
 {
-  "revision": 1,
-  "ackedChangeIds": [ "550e8400-e29b-41d4-a716-446655440000" ]
+  "r": 1,
+  "b": 1715788800,
+  "p": 1715788800,
+  "ready": true,
+  "externalChanges": false,
+  "c": [
+    {
+      "id": 0,
+      "changeId": "550e8400-e29b-41d4-a716-446655440000",
+      "ops": [ … ]
+    }
+  ]
 }
 ```
+
+Post uses `c` as confirmation data only. Poll uses `c` as the remote Change tail. Both channels use [[src/Shared/ApiResponseSerialization.fs]], but they remain separate Browser paths.
 
 **Failure** (400): `{ "error": "…" }` (invalid op, revision mismatch, empty batch, etc.).
 

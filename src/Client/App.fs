@@ -42,7 +42,7 @@ module private SubmitChangeCallbacks =
         : unit =
         clearTimeout timeoutId
         let n = text.Length
-        match decodeChangeAckResponse text with
+        match decodeChangeSuccessResponse text with
         | Ok ack ->
             consoleLog (
                 "[Gambol sync] POST 200 req=" + reqId
@@ -401,7 +401,7 @@ let createRuntime (initialModel: VM) =
         let url =
             $"/{currentFile}/poll?_={nowMs ()}&rev={model.revision.Value}"
         let onPollOk (text: string) : unit =
-            match ApiResponseSerialization.decodePollResponse text with
+            match ApiResponseSerialization.decodeChangeSuccessResponse text with
             | Ok poll ->
                 let context =
                     { ClientPollContext.buildEpochSec = readBuildEpochSec ()

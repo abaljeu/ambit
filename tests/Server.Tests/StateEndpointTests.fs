@@ -29,14 +29,22 @@ let private decodeRevision json =
         get.Required.Field "revision" Serialization.decodeRevision)
     |> decode <| json
 
-let private decodeAck json =
-    match Decode.fromString Serialization.decodeChangeBatchAck json with
-    | Ok ack -> ack
-    | Error err -> failwith $"Decode ack failed: {err}"
+let private decodeSuccess json =
+    match
+        Decode.fromString
+            ApiResponseSerialization.decodeChangeSuccessResponseDecoder
+            json
+    with
+    | Ok response -> response
+    | Error err -> failwith $"Decode success response failed: {err}"
 
 let private decodeAckChangeIds json =
-    decodeAck json
-    |> fun ack -> ack.changes |> List.map (fun change -> change.changeId)
+    decodeSuccess json
+    |> fun response ->
+        response.changes |> List.map (fun change -> change.changeId)
+
+let private decodeSuccessRevision json =
+    (decodeSuccess json).revision
 
 let private decodeErrorField json =
     Thoth.Json.Core.Decode.object (fun get ->
@@ -230,19 +238,30 @@ let ``POST Change and inverse Changes return complete confirmations in request o
         let! response = postChanges client testFile [ change; undo; redo ]
         Assert.Equal(HttpStatusCode.OK, response.StatusCode)
         let! ackJson = response.Content.ReadAsStringAsync()
-        let ack = decodeAck ackJson
-        Assert.Equal(Revision 3, ack.revision)
+        let post = decodeSuccess ackJson
+        Assert.Equal(Revision 3, post.revision)
+        Assert.True(post.buildEpochSec > 0)
+        Assert.True(post.pageBuildEpochSec > 0)
+        Assert.True(post.isReady)
+        Assert.False(post.externalChanges)
         Assert.Equal<Guid list>(
             [ change.changeId; undo.changeId; redo.changeId ],
-            ack.changes |> List.map (fun confirmed -> confirmed.changeId))
-        List.iter2 assertExactPrefix [ change; undo; redo ] ack.changes
+            post.changes |> List.map (fun confirmed -> confirmed.changeId))
+        List.iter2 assertExactPrefix [ change; undo; redo ] post.changes
         let! stateJson = getStateJson client testFile
         Assert.Equal("history-action", (decodeGraph stateJson).nodes.[childId].text)
         let! pollResponse = client.GetAsync("/ambit/poll?rev=0")
         let! pollJson = pollResponse.Content.ReadAsStringAsync()
         let poll =
-            decode ApiResponseSerialization.decodePollResponseDecoder pollJson
-        Assert.Equal<Change list>(ack.changes, poll.changes)
+            decode
+                ApiResponseSerialization.decodeChangeSuccessResponseDecoder
+                pollJson
+        Assert.Equal(Revision 3, poll.revision)
+        Assert.True(poll.buildEpochSec > 0)
+        Assert.True(poll.pageBuildEpochSec > 0)
+        Assert.True(poll.isReady)
+        Assert.True(poll.externalChanges)
+        Assert.Equal<Change list>(post.changes, poll.changes)
     })
 
 [<Fact>]
@@ -328,7 +347,7 @@ let ``POST changes SetText changes child text and bumps revision`` (backend: Bac
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
 
         let! postBody = resp.Content.ReadAsStringAsync()
-        Assert.Equal(Revision 2, decodeRevision postBody)
+        Assert.Equal(Revision 2, decodeSuccessRevision postBody)
         Assert.Equal<Guid list>([ change.changeId ], decodeAckChangeIds postBody)
 
         let! json = getStateJson client testFile
@@ -354,7 +373,7 @@ let ``POST changes NewNode+Replace adds child to root`` (backend: BackendKind) =
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
 
         let! postBody = resp.Content.ReadAsStringAsync()
-        Assert.Equal(Revision 1, decodeRevision postBody)
+        Assert.Equal(Revision 1, decodeSuccessRevision postBody)
         Assert.Equal<Guid list>([ change.changeId ], decodeAckChangeIds postBody)
 
         let! json = getStateJson client testFile
@@ -400,7 +419,7 @@ let ``POST changes twice bumps revision to 2`` (backend: BackendKind) =
         Assert.Equal(HttpStatusCode.OK, resp2.StatusCode)
 
         let! postBody2 = resp2.Content.ReadAsStringAsync()
-        Assert.Equal(Revision 2, decodeRevision postBody2)
+        Assert.Equal(Revision 2, decodeSuccessRevision postBody2)
 
         let! json = getStateJson client testFile
         let g = decodeGraph json
@@ -422,7 +441,7 @@ let ``POST changes batch with two changes bumps revision to 2`` (backend: Backen
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode)
 
         let! postBody = resp.Content.ReadAsStringAsync()
-        Assert.Equal(Revision 2, decodeRevision postBody)
+        Assert.Equal(Revision 2, decodeSuccessRevision postBody)
         Assert.Equal<Guid list>(
             [ change1.changeId; change2.changeId ],
             decodeAckChangeIds postBody)
@@ -452,7 +471,10 @@ let ``POST changes batch with bad second change leaves state unchanged`` (backen
         let! pollResponse = client.GetAsync("/ambit/poll?rev=0")
         let! pollJson = pollResponse.Content.ReadAsStringAsync()
         let poll =
-            decode ApiResponseSerialization.decodePollResponseDecoder pollJson
+            decode
+                ApiResponseSerialization.decodeChangeSuccessResponseDecoder
+                pollJson
+        Assert.False(poll.externalChanges)
         Assert.Empty(poll.changes)
     })
 
@@ -491,16 +513,18 @@ let ``POST same changeId twice is idempotent`` (backend: BackendKind) =
         Assert.Equal(HttpStatusCode.OK, r1.StatusCode)
         let! b1 = r1.Content.ReadAsStringAsync()
         Assert.DoesNotContain("graph", b1, StringComparison.Ordinal)
-        Assert.Equal(Revision 1, decodeRevision b1)
+        Assert.Equal(Revision 1, decodeSuccessRevision b1)
         Assert.Equal<Guid list>([ cid ], decodeAckChangeIds b1)
 
         let! r2 = postChange client testFile change
         Assert.Equal(HttpStatusCode.OK, r2.StatusCode)
         let! b2 = r2.Content.ReadAsStringAsync()
         Assert.DoesNotContain("graph", b2, StringComparison.Ordinal)
-        Assert.Equal(Revision 1, decodeRevision b2)
+        Assert.Equal(Revision 1, decodeSuccessRevision b2)
         Assert.Equal<Guid list>([ cid ], decodeAckChangeIds b2)
-        Assert.Equal<Change list>((decodeAck b1).changes, (decodeAck b2).changes)
+        Assert.Equal<Change list>(
+            (decodeSuccess b1).changes,
+            (decodeSuccess b2).changes)
 
         let! json = getStateJson client testFile
         Assert.Equal(Revision 1, decodeRevision json)
@@ -718,16 +742,18 @@ let ``DB restart keeps duplicate changeId idempotent`` () = task {
     let! r1 = postChange client1 testFile change
     Assert.Equal(HttpStatusCode.OK, r1.StatusCode)
     let! b1 = r1.Content.ReadAsStringAsync()
-    Assert.Equal(Revision 1, decodeRevision b1)
+    Assert.Equal(Revision 1, decodeSuccessRevision b1)
     Assert.Equal<Guid list>([ change.changeId ], decodeAckChangeIds b1)
 
     use client2 = createDbClientNoReset connStr
     let! r2 = postChange client2 testFile change
     Assert.Equal(HttpStatusCode.OK, r2.StatusCode)
     let! b2 = r2.Content.ReadAsStringAsync()
-    Assert.Equal(Revision 1, decodeRevision b2)
+    Assert.Equal(Revision 1, decodeSuccessRevision b2)
     Assert.Equal<Guid list>([ change.changeId ], decodeAckChangeIds b2)
-    Assert.Equal<Change list>((decodeAck b1).changes, (decodeAck b2).changes)
+    Assert.Equal<Change list>(
+        (decodeSuccess b1).changes,
+        (decodeSuccess b2).changes)
 
     let! json2 = getStateJson client2 testFile
     Assert.Equal(Revision 1, decodeRevision json2)
@@ -750,12 +776,14 @@ let ``file restart keeps inverse Change in ChangeLog`` () = task {
     let! undoResp = postChange client1 testFile undo
     Assert.Equal(HttpStatusCode.OK, undoResp.StatusCode)
     let! undoAck = undoResp.Content.ReadAsStringAsync()
-    let confirmedUndo = Assert.Single((decodeAck undoAck).changes)
+    let confirmedUndo = Assert.Single((decodeSuccess undoAck).changes)
     use client2 = createClientForDir tempDir
     let! pollResponse = client2.GetAsync("/ambit/poll?rev=0")
     let! pollJson = pollResponse.Content.ReadAsStringAsync()
     let poll =
-        decode ApiResponseSerialization.decodePollResponseDecoder pollJson
+        decode
+            ApiResponseSerialization.decodeChangeSuccessResponseDecoder
+            pollJson
     Assert.Equal(2, poll.changes.Length)
     Assert.Equal(confirmedUndo, poll.changes.[1])
     let! stateJson = getStateJson client2 testFile
@@ -776,12 +804,14 @@ let ``DB restart keeps inverse Change in ChangeLog`` () = task {
     let! undoResp = postChange client1 testFile undo
     Assert.Equal(HttpStatusCode.OK, undoResp.StatusCode)
     let! undoAck = undoResp.Content.ReadAsStringAsync()
-    let confirmedUndo = Assert.Single((decodeAck undoAck).changes)
+    let confirmedUndo = Assert.Single((decodeSuccess undoAck).changes)
     use client2 = createDbClientNoReset connStr
     let! pollResponse = client2.GetAsync("/ambit/poll?rev=0")
     let! pollJson = pollResponse.Content.ReadAsStringAsync()
     let poll =
-        decode ApiResponseSerialization.decodePollResponseDecoder pollJson
+        decode
+            ApiResponseSerialization.decodeChangeSuccessResponseDecoder
+            pollJson
     Assert.Equal(2, poll.changes.Length)
     Assert.Equal(confirmedUndo, poll.changes.[1])
     let! stateJson = getStateJson client2 testFile

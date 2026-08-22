@@ -323,7 +323,14 @@ module RouteRegistration =
                 use reader = new StreamReader(req.Body)
                 let! body = reader.ReadToEndAsync()
                 let handle = persistence.GetHandle ()
-                return! Api.postChange handle body |> Async.StartAsTask
+                let pageEpoch = stamps.PageBuildEpochSec ()
+                return!
+                    Api.postChange
+                        handle
+                        (stamps.DeployEpochSec ())
+                        pageEpoch
+                        body
+                    |> Async.StartAsTask
         })) |> ignore
 
     let private prepareGitSave (persistence: PersistenceContext) () = async {

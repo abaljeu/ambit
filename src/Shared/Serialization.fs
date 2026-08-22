@@ -8,13 +8,6 @@ open Thoth.Json.JavaScript
 type ChangeBatch =
     { changes: Change list }
 
-type ChangeBatchAck =
-    { revision: Revision
-      /// Durable complete Changes in request order, including duplicates.
-      changes: Change list
-      /// File-write status when graph change succeeded but artifact save had issues.
-      message: string option }
-
 [<RequireQualifiedAccess>]
 module Serialization =
     let private encodeDocumentState (state: DocumentState) : IEncodable =
@@ -462,22 +455,4 @@ module Serialization =
         |> Decode.andThen (fun batch ->
             if batch.changes.IsEmpty then Decode.fail "changes must not be empty"
             else Decode.succeed batch)
-
-    let encodeChangeBatchAck (ack: ChangeBatchAck) : IEncodable =
-        Encode.object (
-            [ "revision", encodeRevision ack.revision
-              "changes", ack.changes |> List.map encodeChange |> Encode.list ]
-            @ match ack.message with
-              | None -> []
-              | Some msg -> [ "message", Encode.string msg ]
-        )
-
-    let decodeChangeBatchAck: Decoder<ChangeBatchAck> =
-        Decode.object (fun get ->
-            { revision = get.Required.Field "revision" decodeRevision
-              changes = get.Required.Field "changes" (Decode.list decodeChange)
-              message = get.Optional.Field "message" Decode.string })
-        |> Decode.andThen (fun ack ->
-            if ack.changes.IsEmpty then Decode.fail "changes must not be empty"
-            else Decode.succeed ack)
 

@@ -7,11 +7,9 @@ open Gambol.Client.UpdateCodec
 open Gambol.Client.UpdateHelpers
 open Gambol.Client.UpdateOps
 
-type ChangeAck = UpdateCodec.ChangeAck
-
 let encodePendingBatchBody = UpdateCodec.encodePendingBatchBody
 let decodeStateResponse = UpdateCodec.decodeStateResponse
-let decodeChangeAckResponse = UpdateCodec.decodeChangeAckResponse
+let decodeChangeSuccessResponse = UpdateCodec.decodeChangeSuccessResponse
 let currentFile = UpdateHelpers.currentFile
 
 // ---------------------------------------------------------------------------

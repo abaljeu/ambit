@@ -1,6 +1,6 @@
 # Event-sourced ops
 
-Stage: tickets
+Stage: active
 Summary: One semantic standard for how any Actor's Change enters a Graph — twelve implementation issues (`issues/01`–`12`) from critical-flaw elimination through Actor spine, recovery decisions, and polish; charting docs in overview, architecture, and details.
 Updated: 2026-08-22
 

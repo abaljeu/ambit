@@ -28,7 +28,7 @@ module SyncLogic =
     /// Callers must only invoke this when there are no pending local changes
     /// (otherwise a higher server revision may reflect our own in-flight POST).
     let getPollOutcome
-        (poll: PollResponse)
+        (poll: ChangeSuccessResponse)
         (clientRev: int)
         (context: ClientPollContext)
         : SyncState option =
@@ -36,7 +36,7 @@ module SyncLogic =
             (context.buildEpochSec <> 0 && context.pageBuildEpochSec <> 0)
             && (poll.buildEpochSec <> context.buildEpochSec
                 || poll.pageBuildEpochSec <> context.pageBuildEpochSec)
-        let dataOutdated = poll.revision > clientRev
+        let dataOutdated = poll.revision.Value > clientRev
         if codeOutdated then Some CodeOutdated
         elif dataOutdated then Some DataOutdated
         else None
@@ -125,12 +125,14 @@ module SyncLogic =
         { changes = response.changes
           packages = response.packages }
 
-    let loadResponseToPoll (response: LoadResponse) : PollResponse =
-        { revision = response.revision
+    let loadResponseToPoll (response: LoadResponse) : ChangeSuccessResponse =
+        { revision = Revision response.revision
           buildEpochSec = response.buildEpochSec
           pageBuildEpochSec = response.pageBuildEpochSec
           isReady = response.isReady
-          changes = response.changes }
+          externalChanges = not response.changes.IsEmpty
+          changes = response.changes
+          message = None }
 
     /// Apply a server-supplied Change tail onto local State (Poll path).
     /// Empty list is a no-op that preserves History.

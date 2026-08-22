@@ -270,83 +270,53 @@ let ``ChangeBatch decoder rejects explicit Redo JSON`` () =
     | Error _ -> ()
 
 [<Fact>]
-let ``ChangeBatchAck round-trip`` () =
-    let stamp = System.DateTime(2026, 7, 22, 12, 0, 0, System.DateTimeKind.Utc)
-    let confirmed =
-        { id = 4
-          changeId = System.Guid.NewGuid()
-          ops =
-            [ Op.SetText(NodeId.New(), "old", "new")
-              Op.SetUpdateTime(
-                  NodeId.New(),
-                  NodeUpdateTime.missing,
-                  NodeUpdateTime.toDbPrecision stamp) ] }
-    let ack =
-        { revision = Revision 7
-          changes = [ confirmed ]
-          message = Some "stable file update failed" }
-    let decoded = roundTrip Serialization.encodeChangeBatchAck Serialization.decodeChangeBatchAck ack
-    Assert.Equal(ack.revision, decoded.revision)
-    Assert.Equal<Change list>(ack.changes, decoded.changes)
-    Assert.Equal(ack.message, decoded.message)
-
-[<Fact>]
-let ``ChangeBatchAck decoder rejects legacy id and stamp fields`` () =
-    let json = """{"revision":3,"ackedChangeIds":[],"stampOps":[]}"""
-    match Dec.fromString Serialization.decodeChangeBatchAck json with
-    | Ok _ -> failwith "Expected legacy ACK JSON to fail decoding"
-    | Error _ -> ()
-
-[<Fact>]
-let ``PollResponse round-trip with non-empty changes`` () =
+let ``ChangeSuccessResponse round-trip with non-empty Changes`` () =
     let change =
         { id = 3
           changeId = System.Guid.NewGuid()
           ops = [ Op.SetText(NodeId.New(), "old", "new") ] }
-    let poll =
-        { revision = 7
+    let response: ChangeSuccessResponse =
+        { revision = Revision 7
           buildEpochSec = 100
           pageBuildEpochSec = 200
           isReady = false
-          changes = [ change ] }
+          externalChanges = true
+          changes = [ change ]
+          message = Some "stable file update failed" }
     let decoded =
         roundTrip
-            ApiResponseSerialization.encodePollResponse
-            ApiResponseSerialization.decodePollResponseDecoder
-            poll
-    Assert.Equal(poll.revision, decoded.revision)
-    Assert.Equal(poll.buildEpochSec, decoded.buildEpochSec)
-    Assert.Equal(poll.pageBuildEpochSec, decoded.pageBuildEpochSec)
+            ApiResponseSerialization.encodeChangeSuccessResponse
+            ApiResponseSerialization.decodeChangeSuccessResponseDecoder
+            response
+    Assert.Equal(response.revision, decoded.revision)
+    Assert.Equal(response.buildEpochSec, decoded.buildEpochSec)
+    Assert.Equal(response.pageBuildEpochSec, decoded.pageBuildEpochSec)
     Assert.False(decoded.isReady)
+    Assert.True(decoded.externalChanges)
     Assert.Equal(1, decoded.changes.Length)
     Assert.Equal(change.id, decoded.changes.[0].id)
     Assert.Equal<Op list>(change.ops, decoded.changes.[0].ops)
+    Assert.Equal(response.message, decoded.message)
 
 [<Fact>]
-let ``PollResponse round-trip with empty changes`` () =
-    let poll =
-        { revision = 5
+let ``ChangeSuccessResponse round-trip with empty Changes`` () =
+    let response: ChangeSuccessResponse =
+        { revision = Revision 5
           buildEpochSec = 0
           pageBuildEpochSec = 0
           isReady = true
-          changes = [] }
+          externalChanges = false
+          changes = []
+          message = None }
     let decoded =
         roundTrip
-            ApiResponseSerialization.encodePollResponse
-            ApiResponseSerialization.decodePollResponseDecoder
-            poll
-    Assert.Equal(poll.revision, decoded.revision)
+            ApiResponseSerialization.encodeChangeSuccessResponse
+            ApiResponseSerialization.decodeChangeSuccessResponseDecoder
+            response
+    Assert.Equal(response.revision, decoded.revision)
+    Assert.False(decoded.externalChanges)
     Assert.Equal<Change list>([], decoded.changes)
-
-[<Fact>]
-let ``PollResponse decoder tolerates missing changes field`` () =
-    let json = """{"r":4,"b":100,"p":200}"""
-    match Dec.fromString ApiResponseSerialization.decodePollResponseDecoder json with
-    | Error err -> failwith $"Decode failed: {err}"
-    | Ok decoded ->
-        Assert.Equal(4, decoded.revision)
-        Assert.True(decoded.isReady)
-        Assert.Equal<Change list>([], decoded.changes)
+    Assert.Equal(None, decoded.message)
 
 [<Fact>]
 let ``LoadRequest round-trip`` () =

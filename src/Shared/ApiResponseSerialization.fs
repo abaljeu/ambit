@@ -24,33 +24,40 @@ module ApiResponseSerialization =
     let decodeStateResponse text =
         Decode.fromString decodeStateResponseDecoder text
 
-    let encodePollResponse (response: PollResponse) : IEncodable =
-        Encode.object
-            [ "r", Encode.int response.revision
+    let encodeChangeSuccessResponse
+        (response: ChangeSuccessResponse)
+        : IEncodable =
+        Encode.object (
+            [ "r", Serialization.encodeRevision response.revision
               "b", Encode.int response.buildEpochSec
               "p", Encode.int response.pageBuildEpochSec
               "ready", Encode.bool response.isReady
+              "externalChanges", Encode.bool response.externalChanges
               "c",
                 response.changes
                 |> List.map Serialization.encodeChange
                 |> Encode.list ]
+            @ match response.message with
+              | None -> []
+              | Some message -> [ "message", Encode.string message ])
 
-    let decodePollResponseDecoder: Decoder<PollResponse> =
+    let decodeChangeSuccessResponseDecoder: Decoder<ChangeSuccessResponse> =
         Decode.object (fun get ->
-            { revision = get.Required.Field "r" Decode.int
+            { revision =
+                get.Required.Field "r" Serialization.decodeRevision
               buildEpochSec = get.Required.Field "b" Decode.int
               pageBuildEpochSec = get.Required.Field "p" Decode.int
-              isReady =
-                get.Optional.Field "ready" Decode.bool
-                |> Option.defaultValue true
+              isReady = get.Required.Field "ready" Decode.bool
+              externalChanges =
+                get.Required.Field "externalChanges" Decode.bool
               changes =
-                get.Optional.Field
+                get.Required.Field
                     "c"
                     (Decode.list Serialization.decodeChange)
-                |> Option.defaultValue [] })
+              message = get.Optional.Field "message" Decode.string })
 
-    let decodePollResponse text =
-        Decode.fromString decodePollResponseDecoder text
+    let decodeChangeSuccessResponse text =
+        Decode.fromString decodeChangeSuccessResponseDecoder text
 
     let encodeLoadTarget (target: LoadTarget) : IEncodable =
         Encode.object

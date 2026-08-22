@@ -72,8 +72,12 @@ module DbAgent =
             (message: string option)
             =
             Encode.toString 0 (
-                Serialization.encodeChangeBatchAck
+                ApiResponseSerialization.encodeChangeSuccessResponse
                     { revision = state.Value.revision
+                      buildEpochSec = 0
+                      pageBuildEpochSec = 0
+                      isReady = ready.Task.IsCompletedSuccessfully
+                      externalChanges = false
                       changes = confirmed
                       message = message })
 

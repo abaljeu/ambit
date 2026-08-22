@@ -188,13 +188,19 @@ let ``delivered inverse of large paste measures phases without per-created-Node 
         time (fun () ->
             Enc.toString 0 (Serialization.encodeChangeBatch { changes = [ inverse ] })
             |> ignore)
-    let ack : ChangeBatchAck =
+    let ack: ChangeSuccessResponse =
         { revision = Revision 2
+          buildEpochSec = 0
+          pageBuildEpochSec = 0
+          isReady = true
+          externalChanges = false
           changes = [ inverse ]
           message = None }
     let _, ackMs =
         time (fun () ->
-            Enc.toString 0 (Serialization.encodeChangeBatchAck ack) |> ignore)
+            Enc.toString 0 (
+                ApiResponseSerialization.encodeChangeSuccessResponse ack)
+            |> ignore)
     printfn
         "2,000-Node paste inverse phases: planning=%.3f ms projected=%.3f ms"
         planMs projectedMs

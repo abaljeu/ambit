@@ -12,13 +12,16 @@ type StateResponse =
       revision: Revision
       isReady: bool }
 
-/// Response from GET /{file}/poll.
-type PollResponse =
-    { revision: int
+/// Complete success response from POST /changes and GET /poll.
+type ChangeSuccessResponse =
+    { revision: Revision
       buildEpochSec: int
       pageBuildEpochSec: int
       isReady: bool
-      changes: Change list }
+      externalChanges: bool
+      changes: Change list
+      /// File-write status when graph change succeeded but artifact save had issues.
+      message: string option }
 
 /// One selected Load target and whether its owning Workspace package is needed.
 type LoadTarget =

@@ -279,7 +279,11 @@ let ``DbAgent bootstrap duplicate returns stored Change and rejects no-op`` () =
     let firstAck =
         match first with
         | Ok json ->
-            match Decode.fromString Serialization.decodeChangeBatchAck json with
+            match
+                Decode.fromString
+                    ApiResponseSerialization.decodeChangeSuccessResponseDecoder
+                    json
+            with
             | Ok ack -> ack
             | Error err -> failwith err
         | Error err -> failwith err
@@ -291,7 +295,11 @@ let ``DbAgent bootstrap duplicate returns stored Change and rejects no-op`` () =
         DbAgent.postChange agent (encodeBatch [ accepted ]) |> Async.StartAsTask
     match duplicate with
     | Ok json ->
-        match Decode.fromString Serialization.decodeChangeBatchAck json with
+        match
+            Decode.fromString
+                ApiResponseSerialization.decodeChangeSuccessResponseDecoder
+                json
+        with
         | Ok ack ->
             Assert.Equal<Change list>(firstAck.changes, ack.changes)
         | Error err -> failwith err
