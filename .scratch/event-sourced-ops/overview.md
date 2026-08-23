@@ -26,9 +26,17 @@ Three aims:
 2. **Merge, not refuse.** Concurrency is normal, not an error. The Server sequences Changes and amends the newest one against what already landed. A recoverable collision is a success, not a Reject.
 3. **Async work is not a separate product.** A long-running job is an Actor of the same kind. Its result arrives as Changes on the same path, and Clients consume it the same way.
 
+## Goal outcome (proposed)
+
+A **new server process or version** must not demand a Browser reload when the post protocol is unchanged. The Server resumes with **consistent state** — same graph and revision the Clients already knew — as before the reset. **Old Clients are accepted** unless we **explicitly code a fail point** (`CodeOutdated`, malformed wire, auth, and similar). The Server still generates Browser code, so very old Clients do not exist in practice; we only code for **short-term transition states**, and that coding is basically **keep state and protocols consistent** so the previous Client does not break. See [[details/permanent-history-and-genesis.md]].
+
 ## What this is not
 
-This is **not** full Event Sourcing. Replay from genesis stays **rejected**, as [[.scratch/relaxed-concurrency/map.md]] already decided. The snapshot is the record; the Change log is a short tail. Load packages stay a Graph transfer, not a replay. This project is a **more general relaxed concurrency** than that older map, and a sibling of it — not a replacement. See [[details/relation-to-relaxed-concurrency.md]].
+This is **not** full Event Sourcing in the relaxed-concurrency sense: log-as-truth, retained historic parsers, or **routine** replay from empty through re-parse. That rejection from [[.scratch/relaxed-concurrency/map.md]] stands.
+
+**Proposed extension:** make the **global Change log permanent** so a new server process does not discard history and orphan open Browsers. Current state still loads from the DB projection; genesis — the state when the permanent log began — is **derivable** by inverting every Change back to the first entry, not by re-parsing files from empty. Routine operation still uses a short poll tail, not genesis replay. Post-protocol changes still force reload. See [[details/permanent-history-and-genesis.md]].
+
+Load packages stay a Graph transfer, not a replay. This project is a **more general relaxed concurrency** than that older map, and a sibling of it — not a replacement. See [[details/relation-to-relaxed-concurrency.md]].
 
 It is also not an architecture for a plug-in bus, a job framework, or an offline editor. It is a small framework for how a Change merges into a Local Graph.
 

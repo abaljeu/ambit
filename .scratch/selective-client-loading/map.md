@@ -18,6 +18,7 @@ Resolve every product, domain, and architectural decision needed for `/to-spec` 
 - [[.scratch/selective-client-loading/issues/14-simplify-selective-loading.md]]: use monotonic complete-Workspace residency, explicit full-selection Load, serialized projected synchronization, and one shared structural guard for every local Change plan including MoveSelected; the Move dialog does not offer Unloaded destinations.
 
 ## Not yet specified
+- [[.scratch\event-sourced-ops\overview.md]] is a standard of behavior, established after this project began, but to be met by this project.  The local spec does not yet take it into account.
 
 ## Out of scope
 

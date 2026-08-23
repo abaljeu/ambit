@@ -21,7 +21,7 @@ A later increment may prove that some in-place transform is identical to rewind 
 
 ## This is not genesis replay
 
-The base is the common prior this merge already shares, plus a short Server tail. It is not a replay from empty. The rejection of replay from genesis stands ([[relation-to-relaxed-concurrency.md]]).
+The base is the common prior this merge already shares, plus a short Server tail. It is not a replay from empty. **Routine** replay from genesis through historic parsers stays rejected ([[relation-to-relaxed-concurrency.md]]). A **permanent** global log would make genesis **derivable** by invert-walk for recovery only ([[permanent-history-and-genesis.md]]); Client catch-up remains a short tail.
 
 A shorter Server list — only the amended newest Change plus completing Ops — is still this strategy, as long as that list is the whole sequence from the rewind base. It is not a second path.
 

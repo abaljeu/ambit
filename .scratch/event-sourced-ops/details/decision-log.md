@@ -94,6 +94,19 @@ User answers while drafting the program ticket sequence ([[../to-tickets-draft.m
 - **No Client replan for pending.** Server-only amendment stays the integration point; leftover pending posts unamended. Client replan before POST is a possible future UX improvement only — extra complexity, not an equal alternative ([[client-consume.md]]).
 - **Sync status during external-changes catch-up.** After a Post external-changes signal and before the queue-empty Poll replay completes, the sync status control shows that remote Changes are forthcoming ([[../issues/04-client-consumes-merge-success-without-reload.md]]).
 
-## Removed language
+## Round 9 — permanent global history (proposed)
+
+**Problem (fact):** Recovery does not reliably load **DB projection + Change log** on restart. Open Browsers can see stale-client rejection (`DataOutdated`, `ServerRejected`) instead of merge catch-up. File-mode bootstrap may truncate the log; that path is separate from the proposed DB+log model.
+
+**Proposed:** Persist the global Change log permanently. Startup loads current state from the DB projection as today. Genesis — state at the first log entry — is derivable by inverting the full retained sequence; not routine, not historic-parser replay. Post-protocol change still forces Browser reload (`CodeOutdated`).
+
+**Store (proposed, recommended):** PostgreSQL table `changes` already implemented in [[src/Server/Database.fs]] (append-only; `getChangesAfterCheckpointRevision`). Keep or evolve that table — do not add a file log, Redis, or parallel store. User direction ("I think the log is best stored as a PG table") aligns with the as-implemented store; not yet an accepted pin beyond this proposal.
+
+**Goal outcome:** New server process/version does not demand Client restart when protocol is unchanged; state is consistent with pre-reset. Old Clients accepted unless we explicitly code a fail point. Server-generated Browser code means only short-term transition states matter; transition coding = keep state and protocols consistent so the prior Client does not break.
+
+**Not reopened:** log-as-truth Event Sourcing, routine genesis replay, Load as Ops replay.
+
+Detail: [[permanent-history-and-genesis.md]]. Implementation: [[../issues/15-permanent-global-change-log.md]].
+
 
 Worker slang about a "wipe" of the pending queue, and a rejected-pending concept as a merge topic, were removed from the project. They were not a design case. The remaining Reject is authentication, malformed requests, and similar request failures.

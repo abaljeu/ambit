@@ -32,6 +32,7 @@ An inventory. It is not a lock and it is not new work. The project stage stays `
 - **Parse File realignment.** An observation, not a plan.
 - **Shell command.** A later Actor, with no product behind it.
 - **Client replan before POST (optional future UX).** Replan leftover pending against the graph after learning of external Changes, instead of sending unamended Ops for Server amend. Deferred: duplicates amendment logic for smoother optimistic display only ([[client-consume.md]]).
+- **Permanent global Change log** — retain every accepted Change across server restart; load current state from DB; genesis derivable by invert-walk, not routine parser replay ([[permanent-history-and-genesis.md]]).
 
 ## Open and retained — not parked
 

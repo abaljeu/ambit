@@ -19,7 +19,8 @@ The older picture is per-path: apply if the compare-and-swap matches, otherwise 
 
 ## What stays from the older map
 
-- Full Event Sourcing with **replay from genesis** stays **rejected**. The snapshot is the record and the poll tail is short. Parse already logs Op diffs. Rewind and replay is a short tail from a shared base, not a replay from empty.
+- Full Event Sourcing with **replay from genesis through historic parsers** stays **rejected**. Parse already logs Op diffs. Rewind and replay for Clients is a short tail from a shared base, not a replay from empty.
+- **Proposed nuance (this project):** a **permanent** global Change log makes genesis **derivable** by inverting the retained sequence to its first entry — not routine, not log-as-truth, not a reopening of parser replay ([[permanent-history-and-genesis.md]]). The DB projection remains how current state loads.
 - Ops stay per-Node field or per-parent child list. There is no graph-wide Op.
 - No silent server-side relocation inside the replace path.
 - The first slice — drop the revision gate, keep per-Op compare-and-swap on apply — is **not cancelled**. Rejection stays legal where this framework still rejects.
@@ -36,4 +37,4 @@ Slice 1 stands. The no-silent-relocation decision stands. The remaining Reject i
 - **Model and wire.** The older first slice claimed no model change and no wire change. This project **is** a merge model, and, when the messaging change lands, a change in what an acknowledgement means. They are not the same increment.
 - **Behavior to beat.** The older slice keeps span compare-and-swap and attribute compare-and-swap as the refusal boundary. This standard treats those apply paths as behavior to beat for the cases that Accept Both or keep both texts.
 - **Leftover pending.** Consume of a posted Change is rewind and replay of the success list. Leftover pending stays unamended and is sent on the next post ([[client-consume.md]]). Replanning the *failed posted item* is what became obsolete.
-- **This is still not genesis Event Sourcing.** Do not reopen log-as-truth.
+- **This is still not log-as-truth Event Sourcing.** Permanent retention and derivable genesis do not make the log the sole record or reopen parser replay from empty.

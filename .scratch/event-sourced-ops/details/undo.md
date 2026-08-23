@@ -28,7 +28,7 @@ Keep Undo linear **within one process**, as today. A concurrent undo is just ano
 
 Amendment order produces a global sequence of Changes, and rewind and replay consumes it. So unrestricted Undo is **possible**: an Actor could name any already-merged Change in that order and invert it — inverting the amended Change, as above.
 
-**Whether that is desirable is open.** The question is whether Actors can **see and understand** those edits well enough to choose Undo properly. No interface is invented here. The question is not answered yes or no, and it is deliberately not parked.
+**Whether that is desirable is open.** The global order makes it possible. A **permanent** global log ([[permanent-history-and-genesis.md]]) would retain the full sequence across server restart, which strengthens the invert-walk to genesis but does not answer the UX question.
 
 This is distinct from *what* Undo inverts, which is settled above. This section is about *whether* unrestricted Undo should exist now that a global order does.
 

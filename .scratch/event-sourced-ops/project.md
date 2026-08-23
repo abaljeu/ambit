@@ -1,8 +1,8 @@
 # Event-sourced ops
 
 Stage: active
-Summary: One semantic standard for how any Actor's Change enters a Graph — fourteen implementation issues (`issues/01`–`14`) from critical-flaw elimination through Actor spine, recovery decisions, wire migration, and polish; charting docs in overview, architecture, and details.
-Updated: 2026-08-22
+Summary: One semantic standard for how any Actor's Change enters a Graph — implementation issues (`issues/01`–`15`) through wire migration, Actor spine, recovery, and permanent global history; charting docs in overview, architecture, and details.
+Updated: 2026-08-23
 
 Start at [[overview.md]] — objective and semantic means. Then [[architecture.md]] — roles, the life of a Change, the two channels.
 
@@ -21,6 +21,7 @@ Details, by topic:
 - [[details/actors-and-jobs.md]] — long-running Actors, Parse File, shell commands, launch and cancel
 - [[details/undo.md]] — what Undo inverts, and the retained open question
 - [[details/relation-to-relaxed-concurrency.md]] — sibling project, what stays, what is obsolete
+- [[details/permanent-history-and-genesis.md]] — permanent log, server-restart stale-client flaw, derivable genesis
 - [[details/as-implemented-facts.md]] — today's behavior, including behavior to beat
 - [[details/open-questions.md]] — accepted, proposed, open, parked
 - [[details/decision-log.md]] — how each point was reached, and what was superseded

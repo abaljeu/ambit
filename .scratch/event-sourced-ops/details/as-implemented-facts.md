@@ -48,6 +48,7 @@ These are contract and migration problems. They are expected, and they do not ma
 - When other occurrences are Resident, the Browser already plans promote-then-remove in **one** Change, so that fill-in is on the undo stack because the Browser sent it ([[completing-ops.md]]).
 - Startup repair can promote a Ref with no Change and no poll — [[.scratch/owner-edge-db-repair/]].
 - Startup can replace or trim the in-memory Graph without Ops. A snapshot load builds the Graph from rows; it is not a replay.
+- **File-mode bootstrap/migration can truncate the Change log** while keeping graph + revision: [[src/Server/DatabaseSetup.fs]] calls [[src/Server/Database.fs]] `rebuildFromDocumentFiles` when the DB is empty or disk and DB diverge; that clears `changes` and re-seeds the projection from parsed files — not DB+log recovery. An open Browser then hits `DataOutdated` ([[src/Shared/SyncLogic.fs]]) or submit rejection — **behavior to beat**; proposed fix is permanent log + DB+log restart ([[permanent-history-and-genesis.md]]).
 - [[doc/arch.md]] still says last-write-wins and no client merge.
 
 ## Sources
