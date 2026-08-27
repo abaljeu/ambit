@@ -23,7 +23,7 @@ No new bootstrap API is required for the common warm-reload path.
 | Run **immediate boot poll** after that paint | Catch events this tab did not cache (other actors); skip Change already in the local log |
 | **Fallback to `/state`** on cache miss, decode failure, fold error, `poll.revision < snapshot.revision`, poll apply error, or scope/codec mismatch | Poll and the local log cannot repair a wrong or missing snapshot |
 | Treat **CodeOutdated** as today — offer refresh; cache is advisory until new page stamps match | [[src/Shared/SyncLogic.fs]] `getPollOutcome` |
-| **Spec decision** if cache ever stores full session Graph (Workspaces beyond bootstrap) | Conflicts with user story 11 ([[.scratch/selective-client-loading/spec.md]]:34) |
+| Snapshot stays **bootstrap-scoped** (never Load-only Workspaces) | User story 11 is memory footprint: refresh drops Load residency. Fast reboot must not grow that footprint. |
 
 **What you gain:** eliminate `/state` network TTFB + download on warm F5 (~0.8–3.5 s measured). Local IndexedDB read + JSON decode (~200–1000 ms) remains on the critical path unless a faster binary cache is added later.
 
@@ -316,21 +316,16 @@ Do **not** invalidate on revision match alone — that is the hit case.
 
 ---
 
-## Spec conflicts
+## Relation to selective client loading
 
-[[.scratch/selective-client-loading/spec.md]] explicitly excludes client offline/startup caches (:121) and defines refresh as a **new residency session** (user story 11, :34): Workspaces loaded via Load in the prior session are **not** retained on F5.
+This project is **fast reboot** ([[.scratch/client-start-time/project.md]]). It is out of scope of [[.scratch/selective-client-loading/spec.md]]. That specification lists IndexedDB startup caches as out of scope because they are this project's work, not because they are forbidden.
 
-| Cache policy | Spec alignment |
+User story 11 there is a **memory-footprint** story: the user must have a way to drop Workspaces that are no longer needed. Refresh remains that way for Load residency. A bootstrap-scoped snapshot is the same size as `/state`. It does not keep Workspaces added only by Load.
+
+| Cache policy | Memory story |
 | --- | --- |
-| **Bootstrap-scoped snapshot + Change log** (v1) | **Aligned** if snapshot writes project to ROOT + optional zoom Workspace — same residency as `/state`. Cached Change must not reinstall out-of-scope Workspaces. |
-| **Full client Graph cache** | **Conflicts** — resurrects Load residency without Load; requires spec amendment |
-| **IndexedDB boot cache** | **Conflicts** with Out of Scope :121 — needs spec update to move from "deferred/ out of scope" to "allowed for warm boot" |
-
-Recommended spec edits if proceeding:
-
-1. Amend user story 11: "refresh begins a new **Load** residency session; bootstrap-scoped residency may persist across reload for fast boot."
-2. Remove or narrow Out of Scope item on IndexedDB/offline startup caches.
-3. Document snapshot write projection rule (bootstrap scope only) and that the Change log is the same event type as poll.
+| **Bootstrap-scoped snapshot + Change log** (v1) | Same resident set as `/state`. Story 11 still holds. |
+| **Full client Graph cache** | Would restore Load residency without Load and grow the footprint. Do not do this. |
 
 ---
 

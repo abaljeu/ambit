@@ -31,7 +31,7 @@ Treat the client graph as a resident projection of the canonical server graph. S
 8. As a user, I want named Workspace nodes encountered inside ROOT to appear as ordinary resident headers with unloaded children, so that I can see available Workspaces without downloading their contents.
 9. As a user, I want a loaded empty child list to remain distinguishable from an unloaded child list, so that a true leaf is not confused with missing content.
 10. As a user, I want loading one Workspace to retain every Workspace already loaded in this webpage session, so that navigating back never causes a second load.
-11. As a user, I want a page refresh to begin a new residency session, so that the browser can reclaim prior session state without an eviction subsystem.
+11. As a user, I want a way to manage the program's memory footprint, so that Workspaces I no longer need do not stay resident. A page refresh begins a new Load residency session: Workspaces added only by Load in the prior session are not retained. Fast reboot of bootstrap-scoped state is a separate project ([[.scratch/client-start-time/reports/cache-first-boot-via-poll.md]]).
 12. As a user, I want external and Ref targets reached by loaded content to be present as ordinary Node headers without automatically loading their children, so that references remain meaningful without expanding residency.
 13. As a user, I want every resident header to retain its canonical owner even when that owner's edge is unloaded while derived parent and owner indexes contain only authoritative edges from loaded child lists, so that projected graph queries neither invent relationships nor replace known identity.
 14. As a user, I want unloaded nodes to behave like leaves for operations that do not require complete children, so that navigation remains simple and deterministic.
@@ -118,7 +118,7 @@ Treat the client graph as a resident projection of the canonical server graph. S
 - Partial server residency, lazy server cache admission, startup without a fully resident server graph, or server cache eviction.
 - Durable document descriptors, node-to-document membership tables, per-document versions, scoped SQL document loaders, or document projection patches.
 - Server-backed or hybrid search across unloaded Workspaces, remote search-result hydration, or unparsed source-file content search.
-- Client eviction, re-unloading, passive reclamation, memory budgets, pin sets, or IndexedDB/offline startup caches.
+- Client eviction, re-unloading, passive reclamation, memory budgets, pin sets, or IndexedDB/offline startup caches. Those caches belong to fast reboot ([[.scratch/client-start-time/reports/cache-first-boot-via-poll.md]]), not this project.
 - Automatic loading from Zoom, Find, Move, edit, traversal, fold restoration, viewport lookahead, prefetch, or any action other than bootstrap and explicit Load.
 - Loading modes other than the selected target's complete owning Workspace.
 - Parallel Poll/submit/Load response handling, mutation-epoch compare-and-swap, response retry/replay, or a configurable load coordinator.
