@@ -77,8 +77,14 @@ fetchGet
             showBootError
                 "state response is compressed but not decompressed (Content-Encoding?)"
         else
+            let decodeStart = perfNowMs ()
             match decodeStateResponse text with
             | Ok response ->
+                let decodeMs = int (perfNowMs () - decodeStart)
+                let nodeCount = Map.count response.graph.nodes
+                consoleLog (
+                    $"[Gambol boot] decodeStateResponse: {decodeMs}ms, "
+                    + $"{text.Length} chars, {nodeCount} nodes")
                 dispatch (SysMsg (StateLoaded response))
                 startPolling pollForRemoteChanges recordActivity
             | Error err ->

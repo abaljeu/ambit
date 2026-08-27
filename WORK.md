@@ -25,7 +25,7 @@ Work currently being executed.
 
 Work ready to start but not yet claimed.
 
-- [[.scratch/client-start-time/reports/scope-before-encode.md]] — HITL production refresh: confirm `/ambit/state` TTFB and payload size drop after deploy (was ~3.5s / ~3.7M chars; server gzip: [[.scratch/client-start-time/reports/server-state-compression.md]])
+- [[.scratch/client-start-time/reports/bucket-3-post-state-work.md]] — defer `applyFoldSession` to after first paint; first render collapsed SiteMap only (artifacts: [[src/Client/App.fs]], [[src/Client/SessionState.fs]]); lower priority after HITL: restore 8ms / 18 rows ([[.scratch/client-start-time/reports/production-hitl-after-deploy.md]])
 - [[.scratch/selective-client-loading/issues/20-restore-saved-zoom-workspace-during-bootstrap.md]] — HITL F5: Load Workspace, focus a sub-node (no Zoom), refresh; owning Workspace Loaded and zoom stays at prior zoomRoot / in-ROOT (not zoomed into selection) (artifacts: [[src/Shared/ResidentProjection.fs]] sessionTargets, [[src/Client/SessionState.fs]])
 - [[.scratch/selective-client-loading/issues/21-load-one-selected-target-through-synchronization.md]] — HITL verify Load of Unloaded named Workspace after stub-skip fix (inventory → push → `/load` with packages; no `/changes` name conflict) (artifacts: [[src/Shared/WorkspaceUploadStructure.fs]], [[tests/Shared.Tests/WorkspaceUploadStructureTests.fs]])
 - [[tmp/load-performance-audit.md]] — secondary: ensure ledger reuse on already-synced Load (Mask path); diagnose empty-ledger resets (artifacts: [[src/Shared/dotnet/WorkspaceSyncLedger.fs]] needsSeed, [[src/Shared/dotnet/WorkspaceFileSync.fs]] ensureLedgerSeeded)

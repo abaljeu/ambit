@@ -50,7 +50,21 @@ Not the header sync bar (`Loading…` Unicode ellipsis is a different path in [[
 3. **Defer session fold expansion** — first render minimal tree, expand folds after first paint (addresses blue-segment client work)  
 4. **Instrument boot (validation)** — marks around `/ambit/state` and `View.render` to confirm server fix and quantify remaining client cost  
 
+## Localhost validation (2026-08-27, post scope-before-encode + gzip)
+
+Report: [[.scratch/client-start-time/reports/localhost-timing-after-optimizations.md]]
+
+**Caveat:** Localhost used a much smaller test database than production's full workspace graph. Numbers below validate **mechanism only** — not expected production improvement magnitude.
+
+| Metric | Production baseline (full graph, pre-fix) | Localhost smoke test (small test DB, post-fix) |
+| --- | --- | --- |
+| `/ambit/state` | 3.50 s TTFB, ~3.7M characters decoded JSON (production, pre-fix) | **199 ms**, **400,000 characters** decoded JSON, **88.9 kB** transferred (compressed) — different DB; not comparable magnitude |
+
+On localhost, state is no longer the waterfall bottleneck. Post-bootstrap **workspace-sync-ledger** XHRs (×7, 95–567 ms each) now dominate total span (~3 s). **Production HITL on the same production data** after deploy is the apples-to-apples retest.
+
 ## Remaining questions
 
-- ROOT workspace node count and saved fold count on refresh? (informs expected gain from scope-before-encode and defer-render)  
-- Phase A severity vs Loading placeholder? (preload/CSS vs client deferrals)
+- Production HITL after deploy: Content-Encoding, TTFB, transferred size on `/ambit/state`  
+- ROOT workspace node count and saved fold count on refresh? (informs defer-render gain)  
+- Phase A severity vs Loading placeholder? (preload/CSS vs client deferrals)  
+- Ledger waterfall: defer/narrow path-sync after push? ([[tmp/load-performance-audit.md]])

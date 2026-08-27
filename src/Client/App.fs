@@ -588,11 +588,19 @@ let createRuntime (initialModel: VM) =
     and dispatch (msg: Msg) : unit =
         let prev = model
 
+        let stateLoadedStart =
+            match msg with
+            | SysMsg (StateLoaded _) -> Some (perfNowMs ())
+            | _ -> None
+
         let baseModel, baseEffects =
             match msg with
             | SysMsg (StateLoaded _) ->
                 let baseModel, e0 = update msg prev
+                let restoreStart = perfNowMs ()
                 let restored = restoreSessionState baseModel
+                consoleLog (
+                    $"[Gambol boot] restoreSessionState: {int (perfNowMs () - restoreStart)}ms")
                 let merged, e1 = mergePendingAfterLoad restored
                 merged, e0 @ e1
             | SysMsg (SubmitResponse _) ->
@@ -614,7 +622,21 @@ let createRuntime (initialModel: VM) =
                 elementCache <-
                     match msg with
                     | SysMsg (StateLoaded _) ->
-                        render newModel dispatch
+                        let renderStart = perfNowMs ()
+                        let cache = render newModel dispatch
+                        let visibleRows =
+                            ViewModel.getVisibleInstanceIds newModel.siteMap
+                            |> List.length
+                        consoleLog (
+                            $"[Gambol boot] View.render: {int (perfNowMs () - renderStart)}ms, "
+                            + $"{visibleRows} rows")
+                        match stateLoadedStart with
+                        | Some start ->
+                            consoleLog (
+                                $"[Gambol boot] StateLoaded dispatch total: "
+                                + $"{int (perfNowMs () - start)}ms")
+                        | None -> ()
+                        cache
                     | NodeSearchQuery _ | FileSearchQuery _ ->
                         elementCache
                     | _ ->

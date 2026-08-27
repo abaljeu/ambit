@@ -3,7 +3,7 @@
 | Project | Stage | Summary |
 | --- | --- | --- |
 | [Bullet tip times](bullet-tip-times/) | charting | Which non-obvious time facts a node-marker tooltip should show (update, workspace, server, last-sync) with de-dup, timezone, and availability rules; open questions unresolved. |
-| [Client start time](client-start-time/) | active | Scope-before-encode + gzip/brotli done; awaiting production HITL timing retest. |
+| [Client start time](client-start-time/) | active | Mechanism validated on localhost (small test DB); production HITL on same data after deploy for magnitude. |
 | [Parse load demote](parse-load-demote/) | charting | Empty stub directory; stage unknown until contents land. |
 | [RowView / FocusView layout vs behavior](rowview-layout-behavior/) | charting | Separate layout from behavior inside RowView/FocusView; plan complete, waits on the split-view-by-concern refactor landing. |
 | [ChildNode drop ref](childnode-drop-ref/) | spec | Progressive removal of ChildNode.ref; Node.owner + Op.SetOwner sole ownership source; Loaded-scope membership seam; ordered id-only ChildNode retained. |

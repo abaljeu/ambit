@@ -404,6 +404,10 @@ let writeClipboardText (text: string) : unit = jsNative
 [<Emit("Date.now()")>]
 let nowMs () : int = jsNative
 
+/// Monotonic ms since navigation start — use for elapsed timing (not wall clock).
+[<Emit("performance.now()")>]
+let perfNowMs () : float = jsNative
+
 [<Emit("(typeof window.__BUILD_TS__ !== 'undefined' ? window.__BUILD_TS__ : 0)")>]
 let readBuildEpochSec () : int = jsNative
 

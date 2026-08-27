@@ -190,8 +190,11 @@ module Serialization =
     let decodeGraph: Decoder<Graph> =
         Decode.object (fun get ->
             let root = get.Required.Field "root" decodeNodeId
-            let nodeList = get.Required.Field "nodes" (Decode.list decodeNode)
-            let nodes = nodeList |> List.map (fun n -> n.id, n) |> Map.ofList
+            let nodeArray = get.Required.Field "nodes" (Decode.resizeArray decodeNode)
+            let nodes =
+                nodeArray
+                |> Seq.map (fun n -> n.id, n)
+                |> Map.ofSeq
             Graph.fromNodes root nodes)
         |> Decode.andThen (fun g ->
             if g.root <> Graph.rootId then
