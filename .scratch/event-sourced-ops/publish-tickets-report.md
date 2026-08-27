@@ -51,5 +51,4 @@ Each issue: Context, What to build, Blocked by, See also, Status `ready-for-agen
 
 - **remove** Active [[.scratch/event-sourced-ops/to-tickets-draft.md]] quiz/publish entry (publish complete).
 - **add** Pending frontier: [[.scratch/event-sourced-ops/issues/01-shared-success-envelope-expand.md]] and [[.scratch/event-sourced-ops/issues/02-independent-concurrent-changes-succeed.md]] — start critical-flaw elimination (parent: [[.scratch/event-sourced-ops/project.md]]).
-- **leave** Pending [[.scratch/relaxed-concurrency/spec.md]] — may satisfy issue 02 via verify/handoff.
-- **no remove** of Blocked relaxed-concurrency client merge-sync slices.
+- **note** [[.scratch/relaxed-concurrency/]] is a build-upon layer (Stage done); gate removal delivered in issue 02.

@@ -6,7 +6,7 @@ Do not copy a specification out of this file.
 
 ## Apply
 
-- An Op applies through [[src/Shared/GraphMutate.fs]]. Attribute Ops compare and swap the old value; `Replace` compares and swaps a span of one parent's children and refuses on a mismatch. `SetUpdateTime` ignores a mismatch.
+- An Op applies through [[src/Shared/GraphMutate.fs]]. Attribute Ops compare and swap the old value; `Replace` compares and swaps a span of one parent's children and refuses on a mismatch ([[.scratch/relaxed-concurrency/replace-span-cas-feasibility.md]]). `SetUpdateTime` ignores a mismatch.
 - `History.applyChange` checks ownership after apply. A static ownership check exists — owner edges, File and Directory placement, artifact names — and partial Graphs already skip a missing owner when the claimed owner is Unloaded or Absent.
 - The Browser applies local edits, undo, and poll tails through the resident projection, **without** the ownership validation. Absent headers and Unloaded `Replace` become no-ops, silently.
 - Distinct parents do not interact. Same-parent structural overlap is the remaining collision class.
@@ -15,12 +15,12 @@ Do not copy a specification out of this file.
 
 ## Server apply path
 
-- The request path reads the body, decodes it, and calls apply inside the agent. Apply deduplicates by change identity, passes a **global revision gate**, applies, then bumps the revision, validates and persists to disk, adds stamp Ops, and logs.
-- The **global revision gate** refuses every concurrent Change, related or not. Dropping it is the first slice of [[.scratch/relaxed-concurrency/]].
+- The request path reads the body, decodes it, and calls apply inside the agent. Apply deduplicates by change identity, applies through per-op preconditions ([[.scratch/relaxed-concurrency/map.md]]), then bumps the revision, validates and persists to disk, adds stamp Ops, and logs.
+- The **global revision gate** was removed (issue 02). Concurrent Changes on unrelated targets succeed when each Op's compare-and-swap matches. Upstream evidence: knowns in [[.scratch/relaxed-concurrency/map.md]]; Replace producer audit [[.scratch/relaxed-concurrency/replace-span-cas-feasibility.md]]; duplicate-id evidence [[.scratch/relaxed-concurrency/child-occurrence-uniqueness.md]].
 - A file agent is a single mailbox that serialises all reads and writes for one file: one message at a time, one consumer loop. Posting from many request tasks is safe. Applying a Change runs **on** that loop; only the disk write is pushed to the pool, with a timeout so a stuck write does not wedge the loop.
 - Parse plans **off** the mailbox on a snapshot, then sends a message for apply. That is already the shape a long job needs ([[actors-and-jobs.md]]). It still encodes to text and then decodes, and it discards the acknowledgement.
 
-**Behavior to beat:** the revision gate, and the confirmation-echo acknowledgement.
+**Behavior to beat:** the confirmation-echo acknowledgement.
 
 ## Conveyance
 

@@ -20,7 +20,7 @@ let private decodeStateResponse json =
     Decode.fromString ApiResponseSerialization.decodeStateResponseDecoder json
 
 let private handleWithGetState
-    (getState: unit -> Async<Result<string, string>>)
+    (getState: unit -> Async<Result<StateResponse, string>>)
     : AgentHandle =
     { getState = getState
       getRevision = fun () -> async.Return 0
@@ -32,16 +32,13 @@ let private handleWithGetState
 let private defaultStateRequest () =
     DefaultHttpContext().Request
 
-let private minimalStateJson () =
-    let graph = Graph.create ()
-    Encode.toString 0 (
-        ApiResponseSerialization.encodeStateResponse
-            { graph = graph
-              revision = Revision 0
-              isReady = true })
+let private minimalStateResponse () =
+    { graph = Graph.create ()
+      revision = Revision 0
+      isReady = true }
 
-/// Nested named Workspace with one Directory child (canonical full graph JSON).
-let private nestedWorkspaceStateJson () =
+/// Nested named Workspace with one Directory child (canonical full graph).
+let private nestedWorkspaceStateResponse () =
     let graph0 = Graph.create ()
     let wsId = NodeId.New()
     let dirId = NodeId.New()
@@ -75,13 +72,11 @@ let private nestedWorkspaceStateJson () =
         |> function
             | Ok g -> g
             | Error err -> failwith err
-    let json =
-        Encode.toString 0 (
-            ApiResponseSerialization.encodeStateResponse
-                { graph = graph2
-                  revision = Revision 1
-                  isReady = true })
-    json, wsId, dirId
+    { graph = graph2
+      revision = Revision 1
+      isReady = true },
+    wsId,
+    dirId
 
 [<Fact>]
 let ``getState returns 500 text body when agent fails`` () = task {
@@ -101,9 +96,9 @@ let ``getState returns 500 text body when agent fails`` () = task {
 
 [<Fact>]
 let ``getState returns JSON content when agent succeeds`` () = task {
-    let json = minimalStateJson ()
+    let response = minimalStateResponse ()
     let handle =
-        handleWithGetState (fun () -> async.Return(Result.Ok json))
+        handleWithGetState (fun () -> async.Return(Result.Ok response))
     let! result = Api.getState handle (defaultStateRequest()) |> Async.StartAsTask
     match box result with
     | :? ContentHttpResult as content ->
@@ -119,9 +114,9 @@ let ``getState returns JSON content when agent succeeds`` () = task {
 
 [<Fact>]
 let ``getState scope full skips bootstrap projection`` () = task {
-    let json, _, dirId = nestedWorkspaceStateJson ()
+    let response, _, dirId = nestedWorkspaceStateResponse ()
     let handle =
-        handleWithGetState (fun () -> async.Return(Result.Ok json))
+        handleWithGetState (fun () -> async.Return(Result.Ok response))
     let req = DefaultHttpContext().Request
     req.QueryString <- QueryString.Create("scope", "full")
     let! result = Api.getState handle req |> Async.StartAsTask
@@ -137,9 +132,9 @@ let ``getState scope full skips bootstrap projection`` () = task {
 
 [<Fact>]
 let ``getState zoom outside ROOT adds owning Workspace`` () = task {
-    let json, wsId, dirId = nestedWorkspaceStateJson ()
+    let response, wsId, dirId = nestedWorkspaceStateResponse ()
     let handle =
-        handleWithGetState (fun () -> async.Return(Result.Ok json))
+        handleWithGetState (fun () -> async.Return(Result.Ok response))
     let req = DefaultHttpContext().Request
     let (NodeId zoomGuid) = dirId
     req.QueryString <- QueryString.Create("zoom", zoomGuid.ToString())
@@ -158,9 +153,9 @@ let ``getState zoom outside ROOT adds owning Workspace`` () = task {
 
 [<Fact>]
 let ``getState without zoom keeps nested Workspace Unloaded`` () = task {
-    let json, wsId, dirId = nestedWorkspaceStateJson ()
+    let response, wsId, dirId = nestedWorkspaceStateResponse ()
     let handle =
-        handleWithGetState (fun () -> async.Return(Result.Ok json))
+        handleWithGetState (fun () -> async.Return(Result.Ok response))
     let! result = Api.getState handle (defaultStateRequest()) |> Async.StartAsTask
     match box result with
     | :? ContentHttpResult as content ->

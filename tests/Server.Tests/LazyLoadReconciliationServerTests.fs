@@ -141,8 +141,8 @@ let ``server reconciler applies planner ops through active agent`` () =
     |> requireOk "reconcile"
     |> ignore
     FileAgent.flushSnapshot fileAgent |> Async.RunSynchronously |> requireOk "reconcile persist"
-    let stateJson = FileAgent.getState fileAgent |> Async.RunSynchronously
-    let graph = LazyLoadReconciliationServer.decodeGraphState stateJson |> requireOk "state" |> snd
+    let state = FileAgent.getState fileAgent |> Async.RunSynchronously
+    let graph = state.graph
     let srcId = graph.nodes.[workspaceId].children |> List.exactlyOne |> fun child -> child.id
     let fileId = graph.nodes.[srcId].children |> List.exactlyOne |> fun child -> child.id
     Assert.Equal(Special SpecialKind.Directory, graph.nodes.[srcId].kind)
@@ -176,8 +176,8 @@ let ``server reconciler adds disk files outside the changed path list`` () =
     |> Async.RunSynchronously
     |> requireOk "reconcile"
     |> ignore
-    let stateJson = FileAgent.getState fileAgent |> Async.RunSynchronously
-    let graph = LazyLoadReconciliationServer.decodeGraphState stateJson |> requireOk "state" |> snd
+    let state = FileAgent.getState fileAgent |> Async.RunSynchronously
+    let graph = state.graph
     let childNames =
         graph.nodes.[workspaceId].children
         |> List.choose (fun child -> Filename.tryValue graph.nodes.[child.id].name)
@@ -208,11 +208,8 @@ let ``server reconciler adds missing directory and file nodes from discovered pa
     |> Async.RunSynchronously
     |> requireOk "reconcile"
     |> ignore
-    let stateJson = FileAgent.getState fileAgent |> Async.RunSynchronously
-    let graph =
-        LazyLoadReconciliationServer.decodeGraphState stateJson
-        |> requireOk "state"
-        |> snd
+    let state = FileAgent.getState fileAgent |> Async.RunSynchronously
+    let graph = state.graph
     let docsId =
         graph.nodes.[workspaceId].children
         |> List.find (fun child ->
@@ -273,11 +270,8 @@ let ``post receive rename of unparsed stub is rejected without moving disk twice
     FileAgent.flushSnapshot fileAgent
     |> Async.RunSynchronously
     |> requireOk "flush"
-    let stateJson = FileAgent.getState fileAgent |> Async.RunSynchronously
-    let graph =
-        LazyLoadReconciliationServer.decodeGraphState stateJson
-        |> requireOk "state"
-        |> snd
+    let state = FileAgent.getState fileAgent |> Async.RunSynchronously
+    let graph = state.graph
     let fileId =
         graph.nodes.[workspaceId].children
         |> List.find (fun child ->
@@ -334,11 +328,8 @@ let ``server reconciler posts good sibling when one path fails`` () =
         fun f ->
             f.path = "bad.txt"
             && f.message.Contains("unparsed document"))
-    let stateJson = FileAgent.getState fileAgent |> Async.RunSynchronously
-    let graph =
-        LazyLoadReconciliationServer.decodeGraphState stateJson
-        |> requireOk "state"
-        |> snd
+    let state = FileAgent.getState fileAgent |> Async.RunSynchronously
+    let graph = state.graph
     let names =
         graph.nodes.[workspaceId].children
         |> List.choose (fun child -> Filename.tryValue graph.nodes.[child.id].name)
@@ -400,10 +391,7 @@ let private postOps (fileAgent: FileAgent) (revision: int) (ops: Op list) =
     |> ignore
 
 let private readGraph (fileAgent: FileAgent) =
-    let stateJson = FileAgent.getState fileAgent |> Async.RunSynchronously
-    LazyLoadReconciliationServer.decodeGraphState stateJson
-    |> requireOk "state"
-    |> snd
+    (FileAgent.getState fileAgent |> Async.RunSynchronously).graph
 
 [<Fact>]
 let ``directory reconcile discovers only under directory prefix`` () =

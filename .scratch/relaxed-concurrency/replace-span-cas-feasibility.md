@@ -1,9 +1,10 @@
 # Replace span compare-and-swap feasibility
 
+**Staleness note (2026-08-23):** The global revision gate was removed (ESO issue 02). Full-list Replace wire migration is done (ESO issues 13–14). `ViewModelJoinOps.removeCurrentChildOp` now reads the live child list via `ChildListWire.removeRange`. This audit remains upstream evidence for the build-upon layer; active concurrency delivery is event-sourced-ops.
+
 ## Bottom line
 
-**Full-value span comparison is already enforced in `Graph.replace`** (`src/Shared/GraphMutate.fs:241-247`: compares `List.skip index >> List.take oldCount` against `oldChildren`; mismatch → `"old span does not match"`). Production edit paths overwhelmingly plan against the live graph and treat `oldChildren = []` as a zero-width insert (valid at any index, including non-zero). **Enforcing (or keeping) this check would not break normal client/server flows today**, and the suite already assumes it in places (`HistoryTests.fs:261-271`, reorder tests using live `oldChildren` in `ModelTests.fs:405-413`, `648-653`). The main **production gap** is `ViewModelJoinOps.removeCurrentOp`, which fabricates `ChildNode.owner` instead of reading the live edge at the removal index — that would fail full-value CAS when join runs on a **Ref** occurrence. **Id-only comparison would paper over that join bug** but would weaken CAS for any edit where only the ownership flag differs (duplicate-link rows, parse ref restoration, promote-ref delete prelude). For relaxing the global `FileAgent` revision gate (`src/Server/FileAgent.fs:150-152`), Replace-level CAS is necessary but not sufficient: `SetText` / `SetName` / etc. still have no analogous guard.
-
+**Full-value span comparison is enforced in `Graph.replace`** (`src/Shared/GraphMutate.fs:241-247`: compares `List.skip index >> List.take oldCount` against `oldChildren`; mismatch → `"old span does not match"`). Production edit paths overwhelmingly plan against the live graph and treat `oldChildren = []` as a zero-width insert (valid at any index, including non-zero). The suite already assumes this in places (`HistoryTests.fs:261-271`, reorder tests using live `oldChildren` in `ModelTests.fs:405-413`, `648-653`). **Id-only comparison would weaken CAS** for any edit where only the ownership flag differs (duplicate-link rows, parse ref restoration, promote-ref delete prelude). See [[child-occurrence-uniqueness.md]] for why strong id-anchored Replace is rejected.
 ---
 
 ## 1. Every `Op.Replace` producer in `src/` (production)
@@ -24,7 +25,7 @@
 | `src/Shared/ImportText.fs` | 79 | **Faithful*** | `existingChildren` passed in by caller; must be live at plan time. Production callers read focus node children. |
 | `src/Shared/ImportText.fs` | 131 | **Faithful** | Directory merge append: `[]` at `existingChildren.Length`. |
 | `src/Shared/AmbleRun.fs` | 22 | **Faithful** | `replaceAllChildrenOp`: `existing = graph.nodes.[parentId].children` (21). |
-| `src/Shared/ViewModelJoinOps.fs` | 32 | **Unfaithful (ref)** | `removeCurrentOp`: `ownedChildren [ currentId ]` — always `Owner`; live row may be `Ref`. |
+| `src/Shared/ViewModelJoinOps.fs` | 31-31 | **Faithful** | `removeCurrentChildOp`: reads live `g.nodes.[parentId].children` and calls `ChildListWire.removeRange` at `indexInParent`. |
 | `src/Shared/ViewModelJoinOps.fs` | 87 | **Faithful** | Reparent current's children onto previous: `[]` append at `prevNode.children.Length`; copies `currentNode.children` verbatim. |
 | `src/Shared/ViewModelDeleteOps.fs` | 142 | **Faithful** | Promote: `[ oldChild ]` from classification (actual graph child). |
 | `src/Shared/ViewModelDeleteOps.fs` | 193 | **Faithful** | TRASH append: `[]` at `trashLen`. |
@@ -65,7 +66,7 @@ This is the **insert idiom**, not an unfaithful shortcut. `Graph.replace` takes 
 
 | Location | Issue |
 |----------|-------|
-| `ViewModelJoinOps.fs:32` | **Only production gap found.** Uses `ChildNode.owner currentId` for removal; if the focused row is a **Ref** occurrence (`Node.childOwnership = Ref`), live span is `{ ref = Ref; id = currentId }` → full-value CAS fails. |
+| `ViewModelJoinOps.fs:29-31` | **Fixed.** `removeCurrentChildOp` reads the live parent children list and removes by index via `ChildListWire.removeRange`. |
 | `ViewModelDeleteOps.fs:142` | Uses actual `oldChild` from graph; `newChild` flips ref to Owner — old side faithful. |
 | `Paste.buildPasteOpsFromClipboard` (`Paste.fs:133-135`) | Remaps ids/refs into **newChildren** on empty parents — old side `[]`. |
 | `DocumentColdParse` (`restoreMatchingRefs`, `DocumentColdParse.fs:134-154`) | Adjusts **newChildren** ref flags from prior graph; `oldChildren`/`remainingOld` come from live before graph. |
@@ -75,9 +76,9 @@ This is the **insert idiom**, not an unfaithful shortcut. `Graph.replace` takes 
 | Approach | Effect |
 |----------|--------|
 | **Full-value** (current) | Correct CAS for ownership-sensitive structure (Refs vs Owners at same id). Catches stale plans and ref/owner confusion. |
-| **Id-only** | Would allow join-on-Ref to keep working without fixing `removeCurrentOp`. Would **not** detect ref-vs-owner drift; weakens compare-and-swap to "same ids in order" only. |
+| **Id-only** | Would have masked the former join-on-Ref fabrication bug. Would **not** detect ref-vs-owner drift; weakens compare-and-swap to "same ids in order" only. |
 
-**Recommendation:** keep full-value comparison; fix `ViewModelJoinOps.removeCurrentOp` to use the live child at `(parentId, indexInParent)` (as delete/paste already do).
+**Recommendation:** keep full-value comparison. `ViewModelJoinOps.removeCurrentChildOp` now uses the live child at `(parentId, indexInParent)` (as delete/paste already do).
 
 ---
 
@@ -103,7 +104,7 @@ This is the **insert idiom**, not an unfaithful shortcut. `Graph.replace` takes 
 
 `tests/Server.Tests/DatabaseProjectionTests.fs:122-123`: second Replace's `oldChildren` matches **post-first-op** state, not original — documents required staging.
 
-**Risk:** any planner that emits two Replace ops on the same parent where the second's `oldChildren` was computed from the **pre-change** graph (without full-list or descending-index discipline) would fail CAS. No production producer found with that bug besides the join ref case above.
+**Risk:** any planner that emits two Replace ops on the same parent where the second's `oldChildren` was computed from the **pre-change** graph (without full-list or descending-index discipline) would fail CAS. No production producer found with that bug.
 
 ---
 
@@ -147,19 +148,18 @@ This is the **insert idiom**, not an unfaithful shortcut. `Graph.replace` takes 
 ### Gap / would fail if behavior exercised
 
 - **No test** asserts `"old span does not match"` directly (only a comment at `ModelTests.fs:253`; error string exists at `GraphMutate.fs:247`).
-- **Join on Ref occurrence** — no test; would fail full-value CAS until `removeCurrentOp` is fixed.
+- **Join on Ref occurrence** — no dedicated test; `removeCurrentChildOp` now reads live children (worth adding coverage).
 - **`ImportTextTests.fs:88`** — uses synthetic `existing = owned [ NodeId.New() ]` for change **shape** assertions; tests that **apply** use live `[]` or real children.
 
-**Rough blast radius if CAS were newly enabled:** low for the current suite (~0–1 failing tests unless join-on-Ref is covered). **With CAS already enabled in `GraphMutate.fs`,** the suite is already written for it; remaining risk is production join-on-Ref, not mass test breakage.
+**Rough blast radius:** low for the current suite. The suite is already written for full-value CAS in `GraphMutate.fs`.
 
 ---
 
-## Ranked code paths to fix first (before relying on Replace CAS for relaxed revision gating)
+## Ranked invariants to preserve
 
-1. **`ViewModelJoinOps.removeCurrentOp`** (`ViewModelJoinOps.fs:31-32`) — read live `parent.children.[indexInParent]` instead of `ownedChildren [ currentId ]`.
-2. **`ImportText.buildImportChange` callers** — ensure `existingChildren` is always read immediately before planning (already true in client import paths; keep as invariant).
-3. **`DocumentColdParse.planOpsFromGraphs` batch** — keep `deleteOps` before child `Replace`; add regression test if concurrent same-parent edits become common under relaxed revision checks.
-4. **Future: non-Replace ops** — `SetText`/`SetName`/… still lack span CAS; relaxing `FileAgent.fs:150` revision check requires separate staleness strategy for those op types.
+1. **`ImportText.buildImportChange` callers** — ensure `existingChildren` is always read immediately before planning (already true in client import paths; keep as invariant).
+2. **`DocumentColdParse.planOpsFromGraphs` batch** — keep `deleteOps` before child `Replace`; add regression test if concurrent same-parent edits become common.
+3. **Join on Ref occurrence** — `removeCurrentChildOp` is fixed; add a test if join-on-Ref becomes common.
 
 ---
 
@@ -188,8 +188,4 @@ This is the **insert idiom**, not an unfaithful shortcut. `Graph.replace` takes 
                 (Ok(state, false))
 ```
 
-```150:152:src/Server/FileAgent.fs
-                | None when change.id <> s.revision.Value ->
-                    Error
-                        $"Revision mismatch: server is at revision {s.revision.Value}, but this Change targets base revision {change.id}."
-```
+Global revision gate removed (ESO issue 02). `change.id` is informational for client sync; per-op preconditions bound collisions.

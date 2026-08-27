@@ -62,7 +62,7 @@ A new server process or version **does not demand a Client restart** when protoc
 
 - **Merge and amendment** ([[merge-invariant.md]], [[messaging.md]]) still apply; permanent history makes the sequence durable across processes.
 - **Unrestricted Undo** ([[undo.md]], issue 12) becomes more meaningful when the global sequence is complete and retained; desirability is still open.
-- **Relaxed concurrency** sibling: genesis *replay through parsers* stays rejected; genesis *derivable via invert* is the new nuance ([[relation-to-relaxed-concurrency.md]]).
+- **Relaxed concurrency** build-upon layer: genesis *replay through parsers* stays rejected; genesis *derivable via invert* is the new nuance ([[relation-to-relaxed-concurrency.md]]).
 
 ## Open (this doc)
 

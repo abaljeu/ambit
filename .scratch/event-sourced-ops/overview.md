@@ -36,7 +36,7 @@ This is **not** full Event Sourcing in the relaxed-concurrency sense: log-as-tru
 
 **Proposed extension:** make the **global Change log permanent** so a new server process does not discard history and orphan open Browsers. Current state still loads from the DB projection; genesis — the state when the permanent log began — is **derivable** by inverting every Change back to the first entry, not by re-parsing files from empty. Routine operation still uses a short poll tail, not genesis replay. Post-protocol changes still force reload. See [[details/permanent-history-and-genesis.md]].
 
-Load packages stay a Graph transfer, not a replay. This project is a **more general relaxed concurrency** than that older map, and a sibling of it — not a replacement. See [[details/relation-to-relaxed-concurrency.md]].
+Load packages stay a Graph transfer, not a replay. [[.scratch/relaxed-concurrency/map.md]] is a **build-upon layer** on this foundation — verified facts, shared rejections, frontier D–F — not a competing implementation. See [[details/relation-to-relaxed-concurrency.md]].
 
 It is also not an architecture for a plug-in bus, a job framework, or an offline editor. It is a small framework for how a Change merges into a Local Graph.
 

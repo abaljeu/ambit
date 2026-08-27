@@ -65,9 +65,9 @@ let ``persistence exception is logged replied and mailbox survives`` () = task {
     Assert.Contains("message=injected persistence failure", log)
     Assert.Contains("stack=", log)
 
-    let! stateJson =
+    let! state =
         DbAgent.getState agent
         |> Async.StartAsTask
         |> fun pending -> pending.WaitAsync(TimeSpan.FromSeconds(2.0))
-    Assert.Contains("\"revision\":0", stateJson)
+    Assert.Equal(Revision 0, state.revision)
 }

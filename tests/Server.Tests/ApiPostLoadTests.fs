@@ -66,19 +66,17 @@ let private nestedWorkspaceGraph () : Graph * NodeId * NodeId * NodeId =
             | Error err -> failwith err
     graph3, wsId, dirId, fileId
 
-let private stateJson (graph: Graph) (revision: int) =
-    Encode.toString 0 (
-        ApiResponseSerialization.encodeStateResponse
-            { graph = graph
-              revision = Revision revision
-              isReady = true })
+let private stateResponse (graph: Graph) (revision: int) =
+    { graph = graph
+      revision = Revision revision
+      isReady = true }
 
 let private handleForLoad
     (revision: int)
     (changes: Change list)
-    (stateJson: string)
+    (state: StateResponse)
     : AgentHandle =
-    { getState = fun () -> async.Return(Result.Ok stateJson)
+    { getState = fun () -> async.Return(Result.Ok state)
       getRevision = fun () -> async.Return revision
       getChangesSince = fun _ -> async.Return changes
       isReady = fun () -> true
@@ -96,7 +94,7 @@ let ``postLoad Change-only when includeWorkspace false`` () = task {
           changeId = Guid.NewGuid()
           ops = [ Op.SetText(fileId, "a", "b") ] }
     let handle =
-        handleForLoad 5 [ change ] (stateJson graph 5)
+        handleForLoad 5 [ change ] (stateResponse graph 5)
     let body =
         encodeRequest
             { revision = 2
@@ -122,7 +120,7 @@ let ``postLoad Change-only when includeWorkspace false`` () = task {
 let ``postLoad Workspace subgraph when includeWorkspace true`` () = task {
     let graph, wsId, dirId, fileId = nestedWorkspaceGraph ()
     let handle =
-        handleForLoad 7 [] (stateJson graph 7)
+        handleForLoad 7 [] (stateResponse graph 7)
     let body =
         encodeRequest
             { revision = 7
@@ -153,7 +151,7 @@ let ``postLoad missing target returns changes without packages`` () = task {
           changeId = Guid.NewGuid()
           ops = [] }
     let handle =
-        handleForLoad 4 [ change ] (stateJson graph 4)
+        handleForLoad 4 [ change ] (stateResponse graph 4)
     let body =
         encodeRequest
             { revision = 0
@@ -180,7 +178,7 @@ let ``postLoad shares one revision for changes and packages`` () = task {
           changeId = Guid.NewGuid()
           ops = [ Op.SetText(fileId, "x", "y") ] }
     let handle =
-        handleForLoad 9 [ change ] (stateJson graph 9)
+        handleForLoad 9 [ change ] (stateResponse graph 9)
     let body =
         encodeRequest
             { revision = 3
@@ -203,7 +201,7 @@ let ``postLoad shares one revision for changes and packages`` () = task {
 let ``postLoad same Workspace multi-target dedupes one package`` () = task {
     let graph, wsId, dirId, fileId = nestedWorkspaceGraph ()
     let handle =
-        handleForLoad 8 [] (stateJson graph 8)
+        handleForLoad 8 [] (stateResponse graph 8)
     let body =
         encodeRequest
             { revision = 8
@@ -281,7 +279,7 @@ let ``postLoad refuses selection spanning two Workspaces`` () = task {
             | Ok g -> g
             | Error err -> failwith err
     let handle =
-        handleForLoad 3 [] (stateJson graph3 3)
+        handleForLoad 3 [] (stateResponse graph3 3)
     let body =
         encodeRequest
             { revision = 3

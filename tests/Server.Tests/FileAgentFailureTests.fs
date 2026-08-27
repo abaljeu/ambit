@@ -99,11 +99,11 @@ let ``persistence exception is logged replied and mailbox survives`` () = task {
         Assert.Contains("message=injected persistence failure", log)
         Assert.Contains("stack=", log)
 
-        let! stateJson =
+        let! state =
             FileAgent.getState agent
             |> Async.StartAsTask
             |> fun pending -> pending.WaitAsync(TimeSpan.FromSeconds(2.0))
-        Assert.Contains("\"revision\":0", stateJson)
+        Assert.Equal(Revision 0, state.revision)
     finally
         FileAgent.dispose agent
 }
@@ -141,11 +141,11 @@ let ``persist step hang is rejected within timeout and mailbox survives`` () = t
             sw.ElapsedMilliseconds < int64 hangMs,
             $"Expected reject before the {hangMs}ms hang completed, took {sw.ElapsedMilliseconds}ms.")
 
-        let! stateJson =
+        let! state =
             FileAgent.getState agent
             |> Async.StartAsTask
             |> fun pending -> pending.WaitAsync(TimeSpan.FromSeconds(2.0))
-        Assert.Contains("\"revision\":0", stateJson)
+        Assert.Equal(Revision 0, state.revision)
     finally
         // let the orphaned background task finish before disposing shared resources
         Thread.Sleep(hangMs)
@@ -168,10 +168,12 @@ let ``soft-fail live-save still commits graph and returns could-not-save message
             Assert.Equal(
                 Some(DocumentPersistence.fileCouldNotSave "SYSTEM/secret.txt"),
                 decodeAckMessage ackJson)
-        let! stateJson =
+        let! state =
             FileAgent.getState agent |> Async.StartAsTask
-        Assert.Contains("soft-fail-probe", stateJson)
-        Assert.Contains("\"revision\":1", stateJson)
+        Assert.True(
+            state.graph.nodes
+            |> Map.exists (fun _ n -> n.text = "soft-fail-probe"))
+        Assert.Equal(Revision 1, state.revision)
     finally
         FileAgent.dispose agent
 }
@@ -196,10 +198,12 @@ let ``soft-fail log is not replayed into FileAgent state after restart`` () = ta
     Assert.Equal(Revision 0, Bookkeeping.readRevision dataDir)
     let agent2 = FileAgent.createWithDependencies dependencies dataDir
     try
-        let! stateJson =
+        let! state =
             FileAgent.getState agent2 |> Async.StartAsTask
-        Assert.DoesNotContain("soft-fail-probe", stateJson)
-        Assert.Contains("\"revision\":0", stateJson)
+        Assert.False(
+            state.graph.nodes
+            |> Map.exists (fun _ n -> n.text = "soft-fail-probe"))
+        Assert.Equal(Revision 0, state.revision)
         Assert.Empty(agent2.initialState.history.past)
         Assert.Empty(agent2.initialState.history.future)
     finally

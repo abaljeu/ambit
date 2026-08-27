@@ -47,3 +47,19 @@ let ``summarizeHttpBody maps other HTML to short label`` () =
 let ``summarizeHttpBody truncates plain text`` () =
     let long = System.String('x', 500)
     Assert.Equal(truncateForLog 200 long, summarizeHttpBody 200 long)
+
+[<Fact>]
+let ``looksCompressed detects gzip magic`` () =
+    Assert.True(looksCompressed "\x1F\x8B\x08")
+
+[<Fact>]
+let ``looksCompressed detects zlib deflate header`` () =
+    Assert.True(looksCompressed "\x78\x9C")
+
+[<Fact>]
+let ``looksCompressed is false for JSON`` () =
+    Assert.False(looksCompressed "{\"graph\":{}}")
+
+[<Fact>]
+let ``looksCompressed is false for short text`` () =
+    Assert.False(looksCompressed "x")

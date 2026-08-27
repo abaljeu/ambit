@@ -2,7 +2,7 @@
 
 Draft only. Do not publish issue files until the user approves the breakdown. Stage stays `charting`.
 
-Source: [[overview.md]], [[architecture.md]], [[project.md]], [[details/]], especially [[details/as-implemented-facts.md]], [[details/messaging.md]], [[details/merge-invariant.md]], [[details/conflict-resolution.md]], [[details/client-consume.md]], [[details/soft-lock.md]], [[details/actors-and-jobs.md]], [[details/completing-ops.md]], [[details/undo.md]], [[details/open-questions.md]], [[details/decision-log.md]], [[details/relation-to-relaxed-concurrency.md]], [[details/vocabulary.md]]. Sibling: [[.scratch/relaxed-concurrency/]]. Envelope note: [[post-poll-envelope-unify.md]]. Quiz reconcile: [[reconcile-architecture-sequence-report.md]].
+Source: [[overview.md]], [[architecture.md]], [[project.md]], [[details/]], especially [[details/as-implemented-facts.md]], [[details/messaging.md]], [[details/merge-invariant.md]], [[details/conflict-resolution.md]], [[details/client-consume.md]], [[details/soft-lock.md]], [[details/actors-and-jobs.md]], [[details/completing-ops.md]], [[details/undo.md]], [[details/open-questions.md]], [[details/decision-log.md]], [[details/relation-to-relaxed-concurrency.md]], [[details/vocabulary.md]]. Build-upon layer: [[.scratch/relaxed-concurrency/]]. Envelope note: [[post-poll-envelope-unify.md]]. Quiz reconcile: [[reconcile-architecture-sequence-report.md]].
 
 Publication map: conceptual Ticket N publishes as `issues/0(N+1)-…` when N < 9; Ticket 9 → `10`, Ticket 10 → `11`, Ticket 11 → `12`.
 
@@ -10,7 +10,7 @@ Publication map: conceptual Ticket N publishes as `issues/0(N+1)-…` when N < 9
 
 Inferred from the project docs plus a short Client/Server skim. These are **behavior to beat**, not the semantic standard.
 
-1. **Global revision gate.** Any concurrent Change that names a stale base revision is refused, even when the Ops touch unrelated Nodes or parents. Named as the first slice of [[.scratch/relaxed-concurrency/spec.md]]; still pending on the work board.
+1. **Global revision gate.** Any concurrent Change that names a stale base revision is refused, even when the Ops touch unrelated Nodes or parents. Identified in [[.scratch/relaxed-concurrency/map.md]] known 3; **delivered** in issue 02.
 2. **Per-Op compare-and-swap refuse.** After the gate, same-field text/name, whole-set classes, and same-parent Replace span mismatch still Reject. The standard says amend: `amb-conflict` for text/name, set delta for classes, occurrence-bag Accept Both for children.
 3. **Reject forces reload and drops work.** Client `ServerRejected` shows a blocking alert: reload to resync; **unsaved Changes will be lost**. Ack reconciliation also Rejects when the acknowledgement is not a confirmation echo of the submitted Ops. So a recoverable concurrent kick-back — and any future amended success list — is treated like a terminal failure. User judgment: this Reject/reload path is **indirectly a critical information loss**.
 4. **No Server amendment path.** Produce today is apply-or-refuse. There is no common-prior → other accepted Changes → amend newest sequence. Recoverable collision is not merge success.
@@ -41,11 +41,11 @@ Tickets 0–4 must leave these open without implementing them:
 
 ### Ticket 1 — Independent concurrent Changes succeed → publish `02`
 
-- **Blocked by:** None — can start immediately (may be delivered entirely by the sibling [[.scratch/relaxed-concurrency/]] slice 1; this ticket then becomes a verify/handoff). Parallel with Ticket 0.
+- **Blocked by:** None — can start immediately. **Delivered** in issue 02. Parallel with Ticket 0.
 - **What it delivers:** Two Actors may post Changes against a stale global revision when their Ops do not collide on per-Op preconditions; both succeed. Unrelated attribute edits and structural edits under different parents no longer Reject solely for revision lag. Same-target CAS Reject still exists until Tickets 2 and 4.
-- **Architectural shift:** Revision ceases to be the conflict boundary for unrelated work (sibling slice 1). Not yet the merge model.
-- **Status basis:** Sibling spec **ready-for-agent**; this project's relation says slice 1 **stands**. One **global** Server sequence/revision is **accepted** (see §5).
-- **See also:** [[.scratch/relaxed-concurrency/spec.md]], [[details/relation-to-relaxed-concurrency.md]], [[details/as-implemented-facts.md]]
+- **Architectural shift:** Revision ceases to be the conflict boundary for unrelated work. Not yet the merge model.
+- **Status basis:** Gate removal **delivered** (issue 02). One **global** Server sequence/revision is **accepted** (see §5).
+- **See also:** [[.scratch/relaxed-concurrency/map.md]], [[details/relation-to-relaxed-concurrency.md]], [[details/as-implemented-facts.md]]
 
 ### Ticket 2 — Server amends recoverable field collisions (text, name, classes) → publish `03`
 
@@ -209,7 +209,6 @@ This round:
 
 - **refine** Active [[.scratch/event-sourced-ops/to-tickets-draft.md]] — outcome: quiz answers reconciled; approve revised sequence (Tickets 0–11) then publish `issues/01`–`12`; architectural pins recorded in detail docs.
 - **add** Pending (optional): [[.scratch/event-sourced-ops/reconcile-architecture-sequence-report.md]] — delegated reconcile report for parent synthesis.
-- **leave** Pending [[.scratch/relaxed-concurrency/spec.md]] gate removal for Ticket 1.
-- **no remove** of Blocked relaxed-concurrency client merge-sync slices — still superseded for recoverable kick-back by [[details/relation-to-relaxed-concurrency.md]].
+- **note** [[.scratch/relaxed-concurrency/]] is a build-upon layer (Stage done) — gate removal delivered in issue 02; old slice 2–3 protocol superseded by [[details/relation-to-relaxed-concurrency.md]].
 
 No Stage change. No `issues/` files written. No software edits. No commit.

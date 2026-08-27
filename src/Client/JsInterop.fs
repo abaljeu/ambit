@@ -368,6 +368,8 @@ let encodeUriComponent (text: string) : string = jsNative
 let postJsonSync (url: string) (body: string) (headers: obj) : int * string = jsNative
 
 /// GET: onSuccess (2xx body), onHttpError (non-2xx status + body text), onNetworkFail.
+/// Browsers send Accept-Encoding on fetch (forbidden to set from JS) and decompress
+/// gzip/brotli/deflate Content-Encoding before `r.text()` — no client decode step.
 [<Emit("fetch($0, {cache: 'no-store', credentials: 'same-origin'})" +
        ".then(function(r){return r.text().then(function(t){" +
        "if(r.ok){$1(t);}else{$2(r.status,t);}});})" +

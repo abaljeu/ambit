@@ -340,11 +340,7 @@ module RouteRegistration =
             SavePrep.syncDataDir
                 persistence.Mode
                 persistence.DbStatus
-                (fun () -> async {
-                    match! handle.getState () with
-                    | Ok json -> return json
-                    | Error err -> return failwith err
-                })
+                (fun () -> handle.getState ())
                 (fun () -> FileAgent.flushSnapshot fileAgent)
                 (fun () -> FileAgent.getRevision fileAgent)
                 persistence.DataDir
@@ -520,11 +516,7 @@ module RouteRegistration =
                     SavePrep.syncGitArtifacts
                         persistence.Mode
                         persistence.DbStatus
-                        (fun () -> async {
-                            match! handle.getState () with
-                            | Ok json -> return json
-                            | Error err -> return failwith err
-                        })
+                        (fun () -> handle.getState ())
                         (fun () ->
                             persistence.GetOrCreateFileAgent ()
                             |> FileAgent.flushSnapshot)

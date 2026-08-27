@@ -9,7 +9,7 @@ module Encode = Thoth.Json.Newtonsoft.Encode
 module Decode = Thoth.Json.Newtonsoft.Decode
 
 type FileAgentMsg =
-    | GetState of AsyncReplyChannel<Result<string, string>>
+    | GetState of AsyncReplyChannel<Result<StateResponse, string>>
     | GetRevision of AsyncReplyChannel<Result<int, string>>
     | GetChangesSince of
         after: int * AsyncReplyChannel<Result<Change list, string>>
@@ -87,12 +87,10 @@ module FileAgent =
 
         logStream.Seek(0L, SeekOrigin.End) |> ignore
 
-        let encodeStateJson () =
-            ApiResponseSerialization.encodeStateResponse
-                { graph = state.Value.graph
-                  revision = state.Value.revision
-                  isReady = true }
-            |> Encode.toString 0
+        let stateResponse () =
+            { graph = state.Value.graph
+              revision = state.Value.revision
+              isReady = true }
 
         let encodeChangeAckJson
             (confirmed: Change list)
@@ -296,7 +294,7 @@ module FileAgent =
         let dispatch msg =
             match msg with
             | GetState reply ->
-                reply.Reply(Ok (encodeStateJson ()))
+                reply.Reply(Ok (stateResponse ()))
             | GetRevision reply ->
                 reply.Reply(Ok state.Value.revision.Value)
             | GetChangesSince (after, reply) ->
@@ -345,10 +343,10 @@ module FileAgent =
         | Ok value -> value
         | Error error -> failwith error
 
-    let tryGetState (agent: FileAgent) : Async<Result<string, string>> =
+    let tryGetState (agent: FileAgent) : Async<Result<StateResponse, string>> =
         agent.mailbox.PostAndAsyncReply(GetState)
 
-    let getState (agent: FileAgent) : Async<string> =
+    let getState (agent: FileAgent) : Async<StateResponse> =
         async {
             let! result = tryGetState agent
             return unwrap result

@@ -48,3 +48,14 @@ let summarizeHttpBody (maxLen: int) (text: string) : string =
                 summary
         else
             truncateForLog maxLen text
+
+/// True when `text` begins with gzip or zlib deflate magic — compressed bytes that
+/// were not transparently decompressed (missing or wrong Content-Encoding).
+let looksCompressed (text: string) : bool =
+    if text.Length < 2 then
+        false
+    else
+        let b0 = int text.[0]
+        let b1 = int text.[1]
+        b0 = 0x1F && b1 = 0x8B
+        || b0 = 0x78 && (b1 = 0x01 || b1 = 0x5E || b1 = 0x9C || b1 = 0xDA)

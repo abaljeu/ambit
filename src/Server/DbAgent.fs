@@ -60,12 +60,10 @@ module DbAgent =
                 trimDeletedIds result.deletedIds
                 Ok ()
 
-        let encodeStateJson () =
-            ApiResponseSerialization.encodeStateResponse
-                { graph = state.Value.graph
-                  revision = state.Value.revision
-                  isReady = ready.Task.IsCompletedSuccessfully }
-            |> Encode.toString 0
+        let stateResponse () =
+            { graph = state.Value.graph
+              revision = state.Value.revision
+              isReady = ready.Task.IsCompletedSuccessfully }
 
         let encodeChangeAckJson
             (confirmed: Change list)
@@ -351,7 +349,7 @@ module DbAgent =
         let tryHandleRead msg =
             match msg with
             | GetState reply ->
-                Some(async { reply.Reply(Ok (encodeStateJson ())) })
+                Some(async { reply.Reply(Ok (stateResponse ())) })
             | GetRevision reply ->
                 Some(async { reply.Reply(Ok state.Value.revision.Value) })
             | GetChangesSince (after, reply) ->
@@ -521,10 +519,10 @@ module DbAgent =
         | Ok value -> value
         | Error error -> failwith error
 
-    let tryGetState (agent: DbAgent) : Async<Result<string, string>> =
+    let tryGetState (agent: DbAgent) : Async<Result<StateResponse, string>> =
         agent.mailbox.PostAndAsyncReply GetState
 
-    let getState (agent: DbAgent) : Async<string> =
+    let getState (agent: DbAgent) : Async<StateResponse> =
         async {
             let! result = tryGetState agent
             return unwrap result

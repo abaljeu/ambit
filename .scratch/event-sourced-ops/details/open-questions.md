@@ -14,7 +14,7 @@ An inventory. It is not a lock and it is not new work. The project stage stays `
 - A recoverable kick-back is merge success. The older slice-2 Reject and replan is obsolete for that case. The remaining Reject is auth and malformed requests.
 - The soft-lock **meaning**: an advisory subtree reservation; edits there are legal.
 - **Soft-lock lifecycle couples to a job** (quiz pin): the reservation belongs to the job; job completion clears it; the lock indicator is an access point to the job. Issuance, expiry, and chrome details stay proposed.
-- Cancel is not Undo. This project is a sibling of relaxed concurrency, not a replacement.
+- Cancel is not Undo. Relaxed concurrency is a build-upon layer on this foundation, not a competing implementation ([[relation-to-relaxed-concurrency.md]]).
 - **Load packages are Graph / state transfer** for Nodes and children the Client does not yet hold — not Ops replay, not genesis replay ([[decision-log.md]] Round 4; [[architecture.md]]).
 - **One global Server arrival order / revision sequence.** Posts and polls carry the last revision received from the Server. Not per-Workspace revisions.
 - **Shared success envelope type** for Post and Poll is the pinned direction (fewer concepts); the two **channels** stay distinct (Post signals; Poll carries the list) ([[messaging.md]]).
@@ -50,5 +50,5 @@ An inventory. It is not a lock and it is not new work. The project stage stays `
 
 ## Not this project
 
-- The first slice of [[.scratch/relaxed-concurrency/]] — drop the global revision gate — is still pending there.
-- That project's later slices are blocked, superseded for recoverable kick-back ([[relation-to-relaxed-concurrency.md]]).
+- Frontier open questions D–F live in [[.scratch/relaxed-concurrency/map.md]] (build-upon layer — upstream audits and rejections, not implementation).
+- Old relaxed-concurrency slice 2–3 client merge-sync protocol was superseded for recoverable kick-back ([[relation-to-relaxed-concurrency.md]]); delivery is ESO issues 01–05, 13–14.

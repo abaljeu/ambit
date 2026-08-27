@@ -7,7 +7,7 @@ open Thoth.Json.Newtonsoft
 
 /// Thin abstraction over FileAgent and DbAgent so Api functions are backend-agnostic.
 type AgentHandle =
-    { getState        : unit -> Async<Result<string, string>>
+    { getState        : unit -> Async<Result<StateResponse, string>>
       getRevision     : unit -> Async<int>
       getChangesSince : int -> Async<Change list>
       isReady         : unit -> bool
@@ -139,21 +139,12 @@ module Api =
         async {
             match! handle.getState () with
             | Error err -> return Error err
-            | Ok json ->
-                match
-                    Decode.fromString
-                        ApiResponseSerialization.decodeStateResponseDecoder
-                        json
-                with
-                | Error err ->
-                    return
-                        Error $"Internal server error in Load decode: {err}"
-                | Ok stateResponse ->
-                    return
-                        Ok(
-                            ResidentProjection.packagesForTargets
-                                stateResponse.graph
-                                targets)
+            | Ok stateResponse ->
+                return
+                    Ok(
+                        ResidentProjection.packagesForTargets
+                            stateResponse.graph
+                            targets)
         }
 
     let postLoad
@@ -216,26 +207,16 @@ module Api =
             let savedZoom = parseSavedZoom req
             let! result = handle.getState ()
             match result with
-            | Ok json ->
-                match
-                    Decode.fromString
-                        ApiResponseSerialization.decodeStateResponseDecoder
-                        json
-                with
-                | Error err ->
-                    return
-                        internalError
-                            $"Internal server error in GetState decode: {err}"
-                | Ok response ->
-                    let scoped =
-                        ResidentProjection.bootstrapStateResponse
-                            scope
-                            savedZoom
-                            response
-                    let encoded =
-                        ApiResponseSerialization.encodeStateResponse scoped
-                        |> Encode.toString 0
-                    return jsonResult encoded
+            | Ok response ->
+                let scoped =
+                    ResidentProjection.bootstrapStateResponse
+                        scope
+                        savedZoom
+                        response
+                let encoded =
+                    ApiResponseSerialization.encodeStateResponse scoped
+                    |> Encode.toString 0
+                return jsonResult encoded
             | Error err -> return agentErrorResult err
         with ex ->
             return
@@ -306,18 +287,6 @@ module Api =
         | true, guid -> Some(NodeId guid)
         | false, _ -> None
 
-    let private decodeGraphState (json: string) : Result<int * Graph, string> =
-        let decoder =
-            Thoth.Json.Core.Decode.object (fun get ->
-                let revision =
-                    get.Required.Field
-                        "revision"
-                        Serialization.decodeRevision
-                let graph =
-                    get.Required.Field "graph" Serialization.decodeGraph
-                revision.Value, graph)
-        Decode.fromString decoder json
-
     let private encodeGraphOnlyChange revision ops =
         let change =
             { id = revision
@@ -357,29 +326,27 @@ module Api =
                     match stateResult with
                     | Error err ->
                         return agentErrorResult err
-                    | Ok stateJson ->
-                        match decodeGraphState stateJson with
+                    | Ok stateResponse ->
+                        match
+                            DocumentPersistence.planParseFile
+                                dataDir
+                                stateResponse.graph
+                                fileId
+                                payload.text
+                        with
                         | Error err ->
                             return Results.BadRequest({| error = err |})
-                        | Ok(revision, graph) ->
-                            match
-                                DocumentPersistence.planParseFile
-                                    dataDir
-                                    graph
-                                    fileId
-                                    payload.text
-                            with
-                            | Error err ->
-                                return Results.BadRequest({| error = err |})
-                            | Ok [] ->
-                                return jsonResult """{"ok":true}"""
-                            | Ok ops ->
-                                let! result =
-                                    handle.postGraphOnlyChange (
-                                        encodeGraphOnlyChange revision ops)
-                                match result with
-                                | Ok _ -> return jsonResult """{"ok":true}"""
-                                | Error err -> return agentErrorResult err
+                        | Ok [] ->
+                            return jsonResult """{"ok":true}"""
+                        | Ok ops ->
+                            let! result =
+                                handle.postGraphOnlyChange (
+                                    encodeGraphOnlyChange
+                                        stateResponse.revision.Value
+                                        ops)
+                            match result with
+                            | Ok _ -> return jsonResult """{"ok":true}"""
+                            | Error err -> return agentErrorResult err
         }
 
     let gitSave

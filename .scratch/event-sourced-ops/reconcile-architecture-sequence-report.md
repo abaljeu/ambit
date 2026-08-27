@@ -48,7 +48,6 @@ Tickets 0–4 carry **extension constraints** (optional baseline field room; adj
 
 - **refine** Active [[.scratch/event-sourced-ops/to-tickets-draft.md]] — quiz reconciled; approve Tickets 0–11 then publish `issues/01`–`12`.
 - **add** Pending (optional): [[.scratch/event-sourced-ops/reconcile-architecture-sequence-report.md]].
-- **leave** Pending [[.scratch/relaxed-concurrency/spec.md]] for Ticket 1.
-- **no remove** of Blocked relaxed-concurrency client merge-sync slices.
+- **note** [[.scratch/relaxed-concurrency/]] is a build-upon layer (Stage done); gate removal delivered in issue 02.
 
 No Stage change. No `issues/`. No software. No commit.

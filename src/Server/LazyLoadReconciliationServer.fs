@@ -158,11 +158,10 @@ module LazyLoadReconciliationServer =
             let! stateResult = handle.getState ()
             match stateResult with
             | Error err -> return Error err
-            | Ok stateJson ->
-                match decodeGraphState stateJson with
-                | Error err -> return Error err
-                | Ok(revision, graph) ->
-                    match discoveredAddedPaths dataDir workspaceLabel discoveryDirRel with
+            | Ok stateResponse ->
+                let revision = stateResponse.revision.Value
+                let graph = stateResponse.graph
+                match discoveredAddedPaths dataDir workspaceLabel discoveryDirRel with
                     | Error err -> return Error err
                     | Ok discovered ->
                         let allChanges = changedPaths @ discovered

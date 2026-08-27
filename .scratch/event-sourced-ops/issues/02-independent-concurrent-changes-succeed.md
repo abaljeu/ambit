@@ -1,12 +1,12 @@
 # 02 — Independent concurrent Changes succeed
 
-**Context:** The global revision gate refuses any concurrent Change that names a stale base revision, even when Ops touch unrelated Nodes or parents. That is critical-flaw behavior to beat. Sibling [[.scratch/relaxed-concurrency/]] slice 1 may deliver the gate removal; this ticket is then verify/handoff rather than a duplicate build. One global Server revision sequence is accepted.
+**Context:** The global revision gate refused any concurrent Change that named a stale base revision, even when Ops touched unrelated Nodes or parents. That was critical-flaw behavior to beat. Gate removal was **delivered in this issue**; upstream evidence is [[.scratch/relaxed-concurrency/map.md]] known 3. One global Server revision sequence is accepted.
 
 **What to build:** Two Actors may post Changes against a stale global revision when their Ops do not collide on per-Op preconditions; both succeed. Unrelated attribute edits and structural edits under different parents no longer Reject solely for revision lag. Same-target compare-and-swap Reject may still exist until later amendment tickets.
 
 **Blocked by:** None — can start immediately.
 
-**See also:** [[../../relaxed-concurrency/spec.md]], [[../details/relation-to-relaxed-concurrency.md]]
+**See also:** [[../../relaxed-concurrency/map.md]], [[../details/relation-to-relaxed-concurrency.md]]
 
 **Status:** done
 

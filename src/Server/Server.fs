@@ -3,8 +3,10 @@ namespace Gambol.Server
 open System
 open System.IO
 open System.Threading.Tasks
+open System.IO.Compression
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Http
+open Microsoft.AspNetCore.ResponseCompression
 open Microsoft.AspNetCore.Server.Kestrel.Core
 open Microsoft.AspNetCore.StaticFiles
 open Microsoft.Extensions.Configuration
@@ -58,6 +60,24 @@ module Main =
         builder.Services.Configure<KestrelServerOptions>(fun (options: KestrelServerOptions) ->
             options.Limits.MaxRequestBodySize <- Nullable(100L * 1024L * 1024L))
         |> ignore
+
+    let configureResponseCompression (builder: WebApplicationBuilder) =
+        builder.Services.AddResponseCompression(fun options ->
+            options.EnableForHttps <- true
+            options.Providers.Add<BrotliCompressionProvider>() |> ignore
+            options.Providers.Add<GzipCompressionProvider>() |> ignore)
+        |> ignore
+        builder.Services.Configure<BrotliCompressionProviderOptions>(
+            fun (options: BrotliCompressionProviderOptions) ->
+                options.Level <- CompressionLevel.Fastest)
+        |> ignore
+        builder.Services.Configure<GzipCompressionProviderOptions>(
+            fun (options: GzipCompressionProviderOptions) ->
+                options.Level <- CompressionLevel.Fastest)
+        |> ignore
+
+    let useResponseCompression (app: WebApplication) =
+        app.UseResponseCompression() |> ignore
 
     let addAppSettings location (builder: WebApplicationBuilder) =
         // Env-specific appsettings.
@@ -216,6 +236,7 @@ module Main =
         publicAssetBaseOpt
 
     let configureApplication hasHead location (app: WebApplication) =
+        useResponseCompression app
         let config = app.Configuration
         let dataDirResult =
             try Ok (resolveDataDir app.Environment.ContentRootPath config)
@@ -247,6 +268,7 @@ module Main =
 
         addAppSettings location builder
         configureKestrelLimits builder
+        configureResponseCompression builder
 
         let app = builder.Build()
         bindConfiguredPort port app

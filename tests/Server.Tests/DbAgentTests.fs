@@ -15,15 +15,6 @@ module Encode = Thoth.Json.Newtonsoft.Encode
 let private decodeChange (s: string) =
     Decode.fromString Serialization.decodeChange s
 
-let private decodeGraph (json: string) : Graph =
-    let decoder =
-        Thoth.Json.Core.Decode.object (fun get ->
-            get.Required.Field "graph" Serialization.decodeGraph)
-
-    match Decode.fromString decoder json with
-    | Ok g -> g
-    | Error e -> failwith $"Decode graph: {e}"
-
 let private encodeChangeBatch (changes: Change list) =
     Encode.toString 0 (
         Serialization.encodeChangeBatch
@@ -56,9 +47,9 @@ let ``DbAgent empty test DB has revision 0 and canonical ROOT`` () = task {
     do! resetTestDatabase connStr
     let agent = DbAgent.create connStr
     let! rev = DbAgent.getRevision agent |> Async.StartAsTask
-    let! json = DbAgent.getState agent |> Async.StartAsTask
+    let! state = DbAgent.getState agent |> Async.StartAsTask
     Assert.Equal(0, rev)
-    let graph = decodeGraph json
+    let graph = state.graph
     let root = graph.nodes.[graph.root]
     Assert.Equal(4, graph.nodes.Count)
     Assert.Equal("ROOT", root.text)
@@ -92,9 +83,9 @@ let ``DbAgent startup sweeps and trims unreachable persisted nodes before ready`
     let agent = DbAgent.create connStr
     let! ready = waitUntil 2000 (fun () -> DbAgent.isReady agent)
     Assert.True(ready, "Expected startup sweep to enable normal queue processing.")
-    let! json = DbAgent.getState agent |> Async.StartAsTask
+    let! state = DbAgent.getState agent |> Async.StartAsTask
     let! revision = DbAgent.getRevision agent |> Async.StartAsTask
-    let loaded = decodeGraph json
+    let loaded = state.graph
 
     Assert.Equal(9, revision)
     Assert.False(loaded.nodes.ContainsKey orphanId)
@@ -130,10 +121,10 @@ let ``DbAgent serves reads while sweep buffers FIFO mutations then trims`` () = 
     Assert.True(revisionTask.IsCompleted)
     Assert.False(firstPost.IsCompleted)
     Assert.False(secondPost.IsCompleted)
-    let! beforeJson = stateTask
+    let! beforeState = stateTask
     let! beforeRevision = revisionTask
-    Assert.Contains("\"ready\":false", beforeJson)
-    Assert.True((decodeGraph beforeJson).nodes.ContainsKey orphanId)
+    Assert.False(beforeState.isReady)
+    Assert.True(beforeState.graph.nodes.ContainsKey orphanId)
     Assert.Equal(4, beforeRevision)
     release.Set()
 
@@ -146,9 +137,9 @@ let ``DbAgent serves reads while sweep buffers FIFO mutations then trims`` () = 
     match secondResult with
     | Error error -> Assert.Contains("Invalid JSON:", error)
     | Ok _ -> Assert.Fail("Expected invalid buffered mutation to fail.")
-    let! afterJson = DbAgent.getState agent |> Async.StartAsTask
-    Assert.Contains("\"ready\":true", afterJson)
-    Assert.False((decodeGraph afterJson).nodes.ContainsKey orphanId)
+    let! afterState = DbAgent.getState agent |> Async.StartAsTask
+    Assert.True(afterState.isReady)
+    Assert.False(afterState.graph.nodes.ContainsKey orphanId)
     Assert.True(DbAgent.isReady agent)
 }
 
@@ -168,9 +159,9 @@ let ``DbAgent startup sweep failure preserves reads and fails mutations closed``
     | Error error -> Assert.Contains("Startup projection sweep failed: blocked", error)
     | Ok _ -> Assert.Fail("Expected mutation rejection after startup sweep failure.")
 
-    let! json = DbAgent.getState agent |> Async.StartAsTask
+    let! state = DbAgent.getState agent |> Async.StartAsTask
     let! revision = DbAgent.getRevision agent |> Async.StartAsTask
-    Assert.True((decodeGraph json).nodes.ContainsKey orphanId)
+    Assert.True(state.graph.nodes.ContainsKey orphanId)
     Assert.Equal(4, revision)
 }
 
@@ -179,8 +170,8 @@ let ``DbAgent new process loads state from projection and changes after post`` (
     let connStr = requireDbConnStr ()
     do! resetTestDatabase connStr
     let agent1 = DbAgent.create connStr
-    let! json0 = DbAgent.getState agent1 |> Async.StartAsTask
-    let rootId = (decodeGraph json0).root
+    let! state0 = DbAgent.getState agent1 |> Async.StartAsTask
+    let rootId = state0.graph.root
     let childId = NodeId.New()
 
     let change =
@@ -199,9 +190,9 @@ let ``DbAgent new process loads state from projection and changes after post`` (
 
     let agent2 = DbAgent.create connStr
     let! rev2 = DbAgent.getRevision agent2 |> Async.StartAsTask
-    let! json2 = DbAgent.getState agent2 |> Async.StartAsTask
+    let! state2 = DbAgent.getState agent2 |> Async.StartAsTask
     Assert.Equal(1, rev2)
-    let graph2 = decodeGraph json2
+    let graph2 = state2.graph
     Assert.Equal(Graph.rootId, graph2.root)
     let root = graph2.nodes.[graph2.root]
     Assert.Equal(4, root.children.Length)
@@ -245,8 +236,8 @@ let ``DbAgent reload preserves node updateTime from projection`` () = task {
     let connStr = requireDbConnStr ()
     do! resetTestDatabase connStr
     let agent1 = DbAgent.create connStr
-    let! json0 = DbAgent.getState agent1 |> Async.StartAsTask
-    let rootId = (decodeGraph json0).root
+    let! state0 = DbAgent.getState agent1 |> Async.StartAsTask
+    let rootId = state0.graph.root
     let childId = NodeId.New()
 
     let change =
@@ -263,13 +254,13 @@ let ``DbAgent reload preserves node updateTime from projection`` () = task {
     | Error e -> Assert.Fail($"postChange: {e}")
     | Ok _ -> ()
 
-    let! json1 = DbAgent.getState agent1 |> Async.StartAsTask
-    let stored = (decodeGraph json1).nodes.[childId].updateTime
+    let! state1 = DbAgent.getState agent1 |> Async.StartAsTask
+    let stored = state1.graph.nodes.[childId].updateTime
     Assert.True(stored > NodeUpdateTime.missing)
 
     let agent2 = DbAgent.create connStr
-    let! json2 = DbAgent.getState agent2 |> Async.StartAsTask
-    let reloaded = (decodeGraph json2).nodes.[childId].updateTime
+    let! state2 = DbAgent.getState agent2 |> Async.StartAsTask
+    let reloaded = state2.graph.nodes.[childId].updateTime
     Assert.Equal(NodeUpdateTime.toDbPrecision stored, reloaded)
 }
 
@@ -278,8 +269,8 @@ let ``DbAgent change fails and state is unchanged when DB goes away after startu
     let connStr = requireDbConnStr ()
     do! resetTestDatabase connStr
     let agent = DbAgent.create connStr
-    let! json0 = DbAgent.getState agent |> Async.StartAsTask
-    let rootId = (decodeGraph json0).root
+    let! state0 = DbAgent.getState agent |> Async.StartAsTask
+    let rootId = state0.graph.root
     let childId = NodeId.New()
 
     let change =
@@ -299,9 +290,9 @@ let ``DbAgent change fails and state is unchanged when DB goes away after startu
         | Error err -> Assert.Contains("Database error:", err)
 
         let! rev = DbAgent.getRevision agent |> Async.StartAsTask
-        let! jsonAfter = DbAgent.getState agent |> Async.StartAsTask
+        let! afterState = DbAgent.getState agent |> Async.StartAsTask
         Assert.Equal(0, rev)
-        Assert.False((decodeGraph jsonAfter).nodes.ContainsKey childId)
+        Assert.False(afterState.graph.nodes.ContainsKey childId)
     finally
         setDatabaseAllowConnections connStr true
         |> fun t -> t.GetAwaiter().GetResult()
@@ -429,8 +420,8 @@ let ``DbAgent commit hang is rejected within timeout and mailbox survives`` () =
     let connStr = requireDbConnStr ()
     do! resetTestDatabase connStr
     let agent = DbAgent.create connStr
-    let! json0 = DbAgent.getState agent |> Async.StartAsTask
-    let rootId = (decodeGraph json0).root
+    let! state0 = DbAgent.getState agent |> Async.StartAsTask
+    let rootId = state0.graph.root
     let childId = NodeId.New()
 
     let change =
@@ -466,8 +457,8 @@ let ``DbAgent commit hang is rejected within timeout and mailbox survives`` () =
     do! Task.Delay(500)
 
     let! rev = DbAgent.getRevision agent |> Async.StartAsTask
-    let! stateJson = DbAgent.getState agent |> Async.StartAsTask
-    Assert.NotNull(stateJson)
+    let! state = DbAgent.getState agent |> Async.StartAsTask
+    Assert.NotNull(state)
     Assert.True(rev >= 0)
 }
 
@@ -479,8 +470,8 @@ let ``DbAgent postChange live-saves artifacts before ack returns`` () = task {
 
     let agent = DbAgent.createWithDataDir connStr tempRoot
 
-    let! json0 = DbAgent.getState agent |> Async.StartAsTask
-    let rootId = (decodeGraph json0).root
+    let! state0 = DbAgent.getState agent |> Async.StartAsTask
+    let rootId = state0.graph.root
     let childId = NodeId.New()
 
     let change =
@@ -531,9 +522,9 @@ let ``DbAgent missing ROOT fails closed while reads stay available`` () = task {
         Assert.Contains("Startup projection sweep failed", error)
     | Ok _ -> Assert.Fail("Expected mutation rejection after missing ROOT.")
 
-    let! json = DbAgent.getState agent |> Async.StartAsTask
+    let! state = DbAgent.getState agent |> Async.StartAsTask
     let! revision = DbAgent.getRevision agent |> Async.StartAsTask
-    Assert.Contains("\"ready\":false", json)
+    Assert.False(state.isReady)
     Assert.Equal(4, revision)
 }
 
@@ -569,8 +560,8 @@ let ``DbAgent dual-owned repair reloads ready graph from projection`` () = task 
     let agent = DbAgent.create connStr
     let! ready = waitUntil 2000 (fun () -> DbAgent.isReady agent)
     Assert.True(ready, "Expected ownership repair to enable normal processing.")
-    let! json = DbAgent.getState agent |> Async.StartAsTask
-    let readyGraph = decodeGraph json
+    let! state = DbAgent.getState agent |> Async.StartAsTask
+    let readyGraph = state.graph
     let! loaded = Database.tryLoadGraphFromProjection connStr |> Async.AwaitTask
     match loaded with
     | Error e -> Assert.Fail(e)

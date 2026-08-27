@@ -73,12 +73,16 @@ let private stateUrl =
 fetchGet
     stateUrl
     (fun text ->
-        match decodeStateResponse text with
-        | Ok response ->
-            dispatch (SysMsg (StateLoaded response))
-            startPolling pollForRemoteChanges recordActivity
-        | Error err ->
-            showBootError err)
+        if looksCompressed text then
+            showBootError
+                "state response is compressed but not decompressed (Content-Encoding?)"
+        else
+            match decodeStateResponse text with
+            | Ok response ->
+                dispatch (SysMsg (StateLoaded response))
+                startPolling pollForRemoteChanges recordActivity
+            | Error err ->
+                showBootError err)
     (fun status body ->
         let snippet = summarizeHttpBody 400 body
         let detail =

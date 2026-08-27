@@ -20,10 +20,11 @@ Details, by topic:
 - [[details/soft-lock.md]] — the advisory subtree reservation
 - [[details/actors-and-jobs.md]] — long-running Actors, Parse File, shell commands, launch and cancel
 - [[details/undo.md]] — what Undo inverts, and the retained open question
-- [[details/relation-to-relaxed-concurrency.md]] — sibling project, what stays, what is obsolete
+- [[details/relation-to-relaxed-concurrency.md]] — build-upon layer on this project; what stays, what was superseded
+- [[.scratch/relaxed-concurrency/map.md]] — verified knowns, audit docs, shared rejections, frontier D–F
 - [[details/permanent-history-and-genesis.md]] — permanent log, server-restart stale-client flaw, derivable genesis
 - [[details/as-implemented-facts.md]] — today's behavior, including behavior to beat
 - [[details/open-questions.md]] — accepted, proposed, open, parked
 - [[details/decision-log.md]] — how each point was reached, and what was superseded
 
-Related, not a replacement: [[.scratch/relaxed-concurrency/]]. That map examined Event Modeling and Event Sourcing and rejected full Event Sourcing with replay from genesis. This framework is a more general relaxed concurrency. Do not archive or cancel the older project.
+Build-upon layer: [[.scratch/relaxed-concurrency/]] — verified facts, shared rejections, frontier D–F on this foundation ([[.scratch/relaxed-concurrency/map.md]]). Implementation and standard live here.
