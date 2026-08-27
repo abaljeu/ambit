@@ -286,7 +286,8 @@ let ``ChangeSuccessResponse round-trip with non-empty Changes`` () =
           isReady = false
           externalChanges = true
           changes = [ change ]
-          message = Some "stable file update failed" }
+          message = Some "stable file update failed"
+          bootstrapHash = None }
     let decoded =
         roundTrip
             ApiResponseSerialization.encodeChangeSuccessResponse
@@ -311,7 +312,8 @@ let ``ChangeSuccessResponse round-trip with empty Changes`` () =
           isReady = true
           externalChanges = false
           changes = []
-          message = None }
+          message = None
+          bootstrapHash = None }
     let decoded =
         roundTrip
             ApiResponseSerialization.encodeChangeSuccessResponse
@@ -321,6 +323,34 @@ let ``ChangeSuccessResponse round-trip with empty Changes`` () =
     Assert.False(decoded.externalChanges)
     Assert.Equal<Change list>([], decoded.changes)
     Assert.Equal(None, decoded.message)
+    Assert.Equal(None, decoded.bootstrapHash)
+
+[<Fact>]
+let ``ChangeSuccessResponse omits bootstrapHash and still decodes`` () =
+    let json = """{"r":3,"b":0,"p":0,"ready":true,"externalChanges":false,"c":[]}"""
+    match Dec.fromString ApiResponseSerialization.decodeChangeSuccessResponseDecoder json with
+    | Error err -> failwith err
+    | Ok decoded ->
+        Assert.Equal(3, decoded.revision.Value)
+        Assert.Equal(None, decoded.bootstrapHash)
+
+[<Fact>]
+let ``ChangeSuccessResponse round-trip with bootstrapHash`` () =
+    let response: ChangeSuccessResponse =
+        { revision = Revision 3
+          buildEpochSec = 0
+          pageBuildEpochSec = 0
+          isReady = true
+          externalChanges = false
+          changes = []
+          message = None
+          bootstrapHash = Some "deadbeef" }
+    let decoded =
+        roundTrip
+            ApiResponseSerialization.encodeChangeSuccessResponse
+            ApiResponseSerialization.decodeChangeSuccessResponseDecoder
+            response
+    Assert.Equal(Some "deadbeef", decoded.bootstrapHash)
 
 [<Fact>]
 let ``LoadRequest round-trip`` () =

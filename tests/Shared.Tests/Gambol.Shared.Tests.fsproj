@@ -82,6 +82,8 @@
     <Compile Include="ViewModelTests.fs" />
     <Compile Include="DeleteOpsTests.fs" />
     <Compile Include="SyncLogicTests.fs" />
+    <Compile Include="BootCacheTests.fs" />
+    <Compile Include="BootCachePollTests.fs" />
     <Compile Include="ClientHistoryRuntimeTests.fs" />
     <Compile Include="AckReconcileTests.fs" />
     <Compile Include="SyncPlannerTests.fs" />

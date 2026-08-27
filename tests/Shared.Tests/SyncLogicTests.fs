@@ -23,7 +23,8 @@ let private mkPoll rev build page : ChangeSuccessResponse =
       isReady = true
       externalChanges = false
       changes = []
-      message = None }
+      message = None
+      bootstrapHash = None }
 
 // ---------------------------------------------------------------------------
 // getPollOutcome — data outdated

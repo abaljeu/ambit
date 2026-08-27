@@ -79,6 +79,7 @@
     <Compile Include="SyncRetry.fs" />
     <Compile Include="ResidentProjection.fs" />
     <Compile Include="SyncLogic.fs" />
+    <Compile Include="BootCache.fs" />
     <Compile Include="ModelBuilder.fs" />
     <Compile Include="OpenTarget.fs" />
     <Compile Include="CommandCategory.fs" />

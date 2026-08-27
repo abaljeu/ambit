@@ -127,7 +127,8 @@ module SyncLogic =
           isReady = response.isReady
           externalChanges = not response.changes.IsEmpty
           changes = response.changes
-          message = None }
+          message = None
+          bootstrapHash = None }
 
     /// Apply a server-supplied Change tail onto local State (Poll path).
     /// Empty list is a no-op that preserves History.

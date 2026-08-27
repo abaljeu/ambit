@@ -121,6 +121,16 @@ module Api =
         let! changes =
             if rev > clientRev then handle.getChangesSince clientRev
             else async.Return []
+        let! bootstrapHash =
+            if rev <> clientRev then
+                async.Return None
+            else
+                async {
+                    match! handle.getState () with
+                    | Ok state ->
+                        return Some (BootCache.graphFingerprint state.graph)
+                    | Error _ -> return None
+                }
         let poll: ChangeSuccessResponse =
             { revision = Revision rev
               buildEpochSec = buildEpochSec
@@ -128,7 +138,8 @@ module Api =
               isReady = handle.isReady ()
               externalChanges = not changes.IsEmpty
               changes = changes
-              message = None }
+              message = None
+              bootstrapHash = bootstrapHash }
         return changeSuccessResult poll
     }
 

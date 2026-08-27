@@ -40,6 +40,7 @@
     <Compile Include="Overlays.fs" />
     <Compile Include="View.fs" />
     <Compile Include="SessionState.fs" />
+    <Compile Include="BootCacheStore.fs" />
     <Compile Include="AutoDownloadTimer.fs" />
     <Compile Include="App.fs" />
     <Compile Include="Program.fs" />

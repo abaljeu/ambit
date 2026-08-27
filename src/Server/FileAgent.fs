@@ -105,7 +105,8 @@ module FileAgent =
                       isReady = true
                       externalChanges = externalChanges
                       changes = confirmed
-                      message = message })
+                      message = message
+                      bootstrapHash = None })
 
         let overlayFresh confirmations fresh stampOps =
             let stamped = PersistStamp.appendToLast fresh stampOps

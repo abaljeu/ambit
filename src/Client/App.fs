@@ -603,9 +603,28 @@ let createRuntime (initialModel: VM) =
                     $"[Gambol boot] restoreSessionState: {int (perfNowMs () - restoreStart)}ms")
                 let merged, e1 = mergePendingAfterLoad restored
                 merged, e0 @ e1
-            | SysMsg (SubmitResponse _) ->
+            | SysMsg (SubmitResponse (submitted, confirmed, _, _, _)) ->
                 clearRetryTimer ()
-                update msg prev
+                let next, effects = update msg prev
+                let pendingLen = prev.syncInfo.pendingChanges.Length
+                let nextLen = next.syncInfo.pendingChanges.Length
+                let pendingDropped = pendingLen > nextLen
+                let rejected =
+                    match next.syncInfo.syncState with
+                    | ServerRejected -> true
+                    | _ -> false
+                if pendingDropped && not rejected then
+                    BootCacheStore.appendChanges
+                        currentFile
+                        (BootCache.acceptedForLog confirmed submitted)
+                    BootCacheStore.requestIdleTruncate
+                        currentFile
+                        (BootCache.scopeKey (tryReadSavedZoomId ()))
+                        (tryReadSavedZoomId ())
+                        next.revision.Value
+                        next.syncInfo.isServerReady
+                        next.graph
+                next, effects
             | _ ->
                 update msg prev
 

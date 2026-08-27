@@ -39,7 +39,10 @@ module ApiResponseSerialization =
                 |> Encode.list ]
             @ match response.message with
               | None -> []
-              | Some message -> [ "message", Encode.string message ])
+              | Some message -> [ "message", Encode.string message ]
+            @ match response.bootstrapHash with
+              | None -> []
+              | Some hash -> [ "bootstrapHash", Encode.string hash ])
 
     let decodeChangeSuccessResponseDecoder: Decoder<ChangeSuccessResponse> =
         Decode.object (fun get ->
@@ -54,7 +57,9 @@ module ApiResponseSerialization =
                 get.Required.Field
                     "c"
                     (Decode.list Serialization.decodeChange)
-              message = get.Optional.Field "message" Decode.string })
+              message = get.Optional.Field "message" Decode.string
+              bootstrapHash =
+                get.Optional.Field "bootstrapHash" Decode.string })
 
     let decodeChangeSuccessResponse text =
         Decode.fromString decodeChangeSuccessResponseDecoder text

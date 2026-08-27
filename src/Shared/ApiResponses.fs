@@ -21,7 +21,9 @@ type ChangeSuccessResponse =
       externalChanges: bool
       changes: Change list
       /// File-write status when graph change succeeded but artifact save had issues.
-      message: string option }
+      message: string option
+      /// Optional ROOT-closure fingerprint; omitted by old Servers.
+      bootstrapHash: string option }
 
 /// One selected Load target and whether its owning Workspace package is needed.
 type LoadTarget =

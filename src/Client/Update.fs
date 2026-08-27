@@ -321,6 +321,18 @@ let update (msg: Msg) (model: VM) : VM * Effect list =
                 | Some s ->
                     { readyModel with syncInfo = SyncInfo.withSyncState s si }, []
 
+    | SysMsg (BootGraphApplied (graph, revision, history, ready)) ->
+        { model with
+            graph = graph
+            revision = revision
+            history = history
+            syncInfo =
+                model.syncInfo
+                |> SyncInfo.withServerReady ready
+                |> SyncInfo.withSyncState Idle }
+        |> withSiteMap
+        |> adjustModeAfterServerApply model.graph, []
+
     | SysMsg (LoadDone (stateOpt, syncResponse, responseRevision, readyOpt)) ->
         let readyModel =
             match readyOpt with

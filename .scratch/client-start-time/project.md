@@ -1,5 +1,5 @@
 # Client start time
 
 Stage: active
-Summary: Scope-before-encode + gzip validated on localhost; cache-first boot designed as snapshot plus Change log ([[.scratch/client-start-time/reports/cache-first-boot-via-poll.md]]); production HITL pending.
+Summary: Cache-first boot tickets 01–07 implemented (IndexedDB snapshot plus Change log, fold then first paint, boot Poll, truncation, optional bootstrapHash); HITL pending.
 Updated: 2026-08-27

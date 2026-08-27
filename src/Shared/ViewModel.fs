@@ -359,6 +359,11 @@ type SystemMsg =
         Change list *
         isReady: bool option *
         responseRevision: Revision option
+    | BootGraphApplied of
+        graph: Graph *
+        revision: Revision *
+        history: ClientHistory *
+        isReady: bool
     | LoadDone of
         SyncState option * SyncResponse * responseRevision: int * isReady: bool option
     | RetrySubmit         // retry timer fired; update resends the stored batch snapshot
