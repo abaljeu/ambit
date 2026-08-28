@@ -1,5 +1,5 @@
 # Client start time — git
 
-- **Project branch:** `w/relaxed-concurrency`
+- **Project branch:** `w/client-start-time`
 - **Cut from:** `selective-client-sync`
-- **Notes:** research-only `.scratch` effort; shares active project branch with relaxed-concurrency WIP
+- **Notes:** diagnosis report for Free-tier cold start + Poll recovery; cut from selective-client-sync (ahead 8)

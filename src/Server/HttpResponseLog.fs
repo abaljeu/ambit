@@ -179,7 +179,11 @@ module HttpResponseLog =
             with get () = raise (NotSupportedException())
             and set _ = raise (NotSupportedException())
         override _.Flush() = inner.Flush()
-        override _.FlushAsync(ct) = inner.FlushAsync(ct)
+        override _.FlushAsync(ct) =
+            task {
+                try do! inner.FlushAsync(ct)
+                with :? OperationCanceledException -> ()
+            }
         override _.Read(_, _, _) = raise (NotSupportedException())
         override _.Seek(_, _) = raise (NotSupportedException())
         override _.SetLength(_) = raise (NotSupportedException())
@@ -192,13 +196,20 @@ module HttpResponseLog =
             (buffer, offset, count, ct: CancellationToken)
             =
             take (ReadOnlySpan(buffer, offset, count))
-            inner.WriteAsync(buffer, offset, count, ct)
+            task {
+                try do! inner.WriteAsync(buffer, offset, count, ct)
+                with :? OperationCanceledException -> ()
+            }
 
         override _.WriteAsync
             (buffer: ReadOnlyMemory<byte>, ct: CancellationToken)
             =
             take buffer.Span
-            inner.WriteAsync(buffer, ct)
+            ValueTask(
+                task {
+                    try do! inner.WriteAsync(buffer, ct)
+                    with :? OperationCanceledException -> ()
+                })
 
         member _.CapturedText() =
             let text = Encoding.UTF8.GetString(buf, 0, captured)
@@ -299,26 +310,22 @@ module HttpResponseLog =
             try
                 try
                     do! next.Invoke(ctx)
-                    let body, truncated = capture.CapturedText()
-                    let summary =
-                        if truncated then body + " [TRUNCATED]" else body
+                with
+                | :? OperationCanceledException when ctx.RequestAborted.IsCancellationRequested ->
+                    ()
+                | ex ->
+                    let elapsed = timer.ElapsedMilliseconds
                     tryAppendLine
                         logFile
-                        (formatEnd
-                            DateTime.UtcNow
-                            requestId
-                            timer.ElapsedMilliseconds
-                            ctx
-                            summary)
-                with ex ->
-                    tryAppendLine
-                        logFile
-                        (formatRequestException
-                            DateTime.UtcNow
-                            requestId
-                            timer.ElapsedMilliseconds
-                            ex)
+                        (formatRequestException DateTime.UtcNow requestId elapsed ex)
                     return raise ex
+                let body, truncated = capture.CapturedText()
+                let summary =
+                    if truncated then body + " [TRUNCATED]" else body
+                let elapsed = timer.ElapsedMilliseconds
+                tryAppendLine
+                    logFile
+                    (formatEnd DateTime.UtcNow requestId elapsed ctx summary)
             finally
                 ctx.Response.Body <- original
         }

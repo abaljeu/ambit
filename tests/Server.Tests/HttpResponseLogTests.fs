@@ -215,6 +215,57 @@ let ``logger write failure never breaks request`` () = task {
     Assert.True(reached.Task.IsCompletedSuccessfully)
 }
 
+let private abortingFlushBody () =
+    { new Stream() with
+        member _.CanRead = false
+        member _.CanSeek = false
+        member _.CanWrite = true
+        member _.Length = raise (NotSupportedException())
+        member _.Position
+            with get () = raise (NotSupportedException())
+            and set _ = raise (NotSupportedException())
+        member _.Flush() = ()
+        member _.FlushAsync(ct: CancellationToken) =
+            ct.ThrowIfCancellationRequested()
+            Task.CompletedTask
+        member _.Read(_, _, _) = raise (NotSupportedException())
+        member _.Seek(_, _) = raise (NotSupportedException())
+        member _.SetLength(_) = raise (NotSupportedException())
+        member _.Write(_, _, _) = ()
+        member _.WriteAsync(_, _, _, _) = Task.CompletedTask
+        member _.WriteAsync(_, _) = ValueTask.CompletedTask }
+
+[<Fact>]
+let ``client abort during flush logs end not exception`` () = task {
+    let dataDir = newTempDir ()
+    let logPath = HttpResponseLog.logPath dataDir
+    HttpResponseLog.prepareFresh logPath
+    use cts = new CancellationTokenSource()
+    cts.Cancel()
+    let ctx = DefaultHttpContext()
+    ctx.Request.Method <- "GET"
+    ctx.Request.Path <- PathString("/main.js")
+    ctx.RequestAborted <- cts.Token
+    ctx.Response.Body <- abortingFlushBody ()
+    let flushed = TaskCompletionSource<bool>()
+    do!
+        runLifecycle logPath ctx (fun endpointCtx -> task {
+            endpointCtx.Response.StatusCode <- 200
+            try
+                do! endpointCtx.Response.Body.FlushAsync(endpointCtx.RequestAborted)
+                flushed.SetResult(true)
+            with :? OperationCanceledException ->
+                flushed.SetResult(false)
+        })
+    Assert.True(flushed.Task.Result)
+    let lines = lifecycleLines logPath
+    Assert.Equal(2, lines.Length)
+    Assert.Contains(" BEGIN ", lines.[0])
+    Assert.Contains(" END ", lines.[1])
+    Assert.Contains("status=200", lines.[1])
+    Assert.Equal(requestId lines.[0], requestId lines.[1])
+}
+
 [<Fact>]
 let ``upload-error-report appends ERROR-REPORT to SYSTEM http-responses.log`` () = task {
     let dataDir = newTempDir ()
