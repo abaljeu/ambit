@@ -8,9 +8,9 @@
 
 **See also:** [[.scratch/expression-language/spec.md]] chapters 3 and 4; [[.scratch/expression-language/issues/01-pipeline-versus-amble-juxtaposition.md]].
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `root descendant containing "the"` evaluates as bind: ROOT, then descendant closure, then Header substring filter.
-- [ ] `child` equals `:*`; `descendant` follows Ref; `tree` and `**` match the Owned-only closure row.
-- [ ] `// ws` is a parse error (spaced `ws` is a symbol, not a `/` argument); `//ws` is valid.
-- [ ] Unknown standalone words (not in the catalog) are parse errors.
+- [x] `root descendant containing "the"` evaluates as bind: ROOT, then descendant closure, then Header substring filter.
+- [x] `child` equals `:*`; `descendant` follows Ref; `tree` and `**` match the Owned-only closure row.
+- [x] `// ws` is a parse error (spaced `ws` is a symbol, not a `/` argument); `//ws` is valid.
+- [x] Unknown standalone words (not in the catalog) are parse errors.

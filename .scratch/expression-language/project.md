@@ -1,5 +1,5 @@
 # Expression Language
 
-Stage: tickets
-Summary: Comprehensive spec at [[spec.md]] — eleven implementation tickets (15–25) from eval core through ch.11 regression; frontier 15 and 16 on `w/expr`.
+Stage: active
+Summary: Spec locked; tickets 15–19 implemented on `w/expr` (eval core, cluster parse, structural/`#` eval, pipeline words). Next is ticket 20 filters.
 Updated: 2026-08-28

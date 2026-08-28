@@ -8,9 +8,9 @@
 
 **See also:** [[.scratch/expression-language/spec.md]] chapter 7 content search row; [[.scratch/expression-language/issues/12-owned-versus-ref-walk-for-descendant.md]].
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `d#e` and `/ "d" # "e"` yield the same Normal Nodes named `e` strictly below each structural `d` match.
-- [ ] A named Normal Node that matches stops descent; a named non-match is a wall; unnamed Normal Nodes are walked through.
-- [ ] Ref Children are followed; duplicate Node identity within one `#` search from one input appears at most once.
-- [ ] `a#b#c` applies each `#` search below the Answers of the prior step in order.
+- [x] `d#e` and `/ "d" # "e"` yield the same Normal Nodes named `e` strictly below each structural `d` match.
+- [x] A named Normal Node that matches stops descent; a named non-match is a wall; unnamed Normal Nodes are walked through.
+- [x] Ref Children are followed; duplicate Node identity within one `#` search from one input appears at most once.
+- [x] `a#b#c` applies each `#` search below the Answers of the prior step in order.

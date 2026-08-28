@@ -28,6 +28,8 @@
     <Compile Include="ExprPathClusterTypes.fs" />
     <Compile Include="ExprPathClusterParse.fs" />
     <Compile Include="ExprParse.fs" />
+    <Compile Include="ExprPrimitive.fs" />
+    <Compile Include="ExprCompile.fs" />
     <Compile Include="AmbleTypes.fs" />
     <Compile Include="AmbleParse.fs" />
     <Compile Include="NodeKindPersistence.fs" />

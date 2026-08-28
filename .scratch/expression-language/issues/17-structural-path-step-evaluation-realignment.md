@@ -8,9 +8,9 @@
 
 **See also:** [[.scratch/expression-language/spec.md]] chapter 7 structural search row; chapter 9 divergences 1, 3, 10, 13, and 15.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `root / "ws" / "x"` and `//ws/x` yield the same structural Answers under ROOT in a fixture graph.
-- [ ] `**` from a Node matches `tree` and does not follow Ref Children; it differs from `descendant` when Refs are present.
-- [ ] Structural `/` does not recurse into Children of a Directory Node or Workspace Node; chaining reaches deeper names (`//ws/x`).
-- [ ] Glob patterns match with `*` only; a name containing `?` is literal, not a one-character wildcard.
+- [x] `root / "ws" / "x"` and `//ws/x` yield the same structural Answers under ROOT in a fixture graph.
+- [x] `**` from a Node matches `tree` and does not follow Ref Children; it differs from `descendant` when Refs are present.
+- [x] Structural `/` does not recurse into Children of a Directory Node or Workspace Node; chaining reaches deeper names (`//ws/x`).
+- [x] Glob patterns match with `*` only; a name containing `?` is literal, not a one-character wildcard.

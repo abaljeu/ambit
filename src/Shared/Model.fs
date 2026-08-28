@@ -233,3 +233,39 @@ module Node =
                     else
                         List.tryItem (n - 1) node.children
                         |> Option.map (fun c -> c.id))))
+
+    let childNth (n: int) =
+        step (fun graph id ->
+            id
+            |> Option.bind (fun nid -> Map.tryFind nid graph.nodes)
+            |> Option.bind (fun (node: Node) ->
+                List.tryItem n node.children |> Option.map (fun c -> c.id)))
+
+    let childIds (NodeNav(graph, id)) : NodeId list =
+        id
+        |> Option.bind (fun nid -> Map.tryFind nid graph.nodes)
+        |> Option.map (fun (node: Node) ->
+            node.children |> List.map (fun c -> c.id))
+        |> Option.defaultValue []
+
+    /// Index of the current id's Owned appearance among the Owned parent's Children.
+    let childIndex (nav: NodeNav) : int option =
+        let (NodeNav (graph, id)) = nav
+        match nav |> owner |> current, id with
+        | Some pid, Some cid ->
+            Map.tryFind pid graph.nodes
+            |> Option.bind (fun (parent: Node) ->
+                parent.children
+                |> List.tryFindIndex (fun c ->
+                    c.id = cid && c.ref = Ownership.Owner))
+        | _ -> None
+
+    let siblingNth (n: int) (nav: NodeNav) : NodeNav =
+        match childIndex nav with
+        | None ->
+            let (NodeNav (graph, _)) = nav
+            NodeNav(graph, None)
+        | Some i -> nav |> owner |> childNth (i + n)
+
+    let next nav = siblingNth 1 nav
+    let prev nav = siblingNth -1 nav
