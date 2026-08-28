@@ -24,6 +24,8 @@
     <Compile Include="WorkspaceOpsTests.fs" />
     <Compile Include="RefExprTestTree.fs" />
     <Compile Include="RefExprTests.fs" />
+    <Compile Include="ExprEvalTests.fs" />
+    <Compile Include="ExprPathClusterParseTests.fs" />
     <Compile Include="AmbleTests.fs" />
     <Compile Include="AmbleRunTests.fs" />
     <Compile Include="ViewModelFileSearchTests.fs" />

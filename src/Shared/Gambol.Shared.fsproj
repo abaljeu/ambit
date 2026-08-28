@@ -21,6 +21,13 @@
     <Compile Include="RefExprParse.fs" />
     <Compile Include="RefExprMatch.fs" />
     <Compile Include="RefExpr.fs" />
+    <Compile Include="ExprAnswer.fs" />
+    <Compile Include="ExprEval.fs" />
+    <Compile Include="ExprCatalog.fs" />
+    <Compile Include="ExprWalk.fs" />
+    <Compile Include="ExprPathClusterTypes.fs" />
+    <Compile Include="ExprPathClusterParse.fs" />
+    <Compile Include="ExprParse.fs" />
     <Compile Include="AmbleTypes.fs" />
     <Compile Include="AmbleParse.fs" />
     <Compile Include="NodeKindPersistence.fs" />

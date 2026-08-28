@@ -8,9 +8,9 @@
 
 **See also:** [[.scratch/expression-language/spec.md]] chapters 2 and 6; [[.scratch/expression-language/reports/spec-abstraction-core-and-barriers.md]] Part 1.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Shared tests prove bind concatenates left-to-right Answer sequences in order.
-- [ ] `OR` concatenates operand sequences and may repeat an Answer; `AND` keeps left-operand order with at-most-once intersection by Answer equality; `NOT` yields the input when the operand sequence is empty and otherwise yields nothing.
-- [ ] A catalog row type holds spellings, slot, signature, and Answer function; a minimal stub row can be registered and invoked through the core.
-- [ ] Evaluating through an Unloaded Node boundary yields an empty sequence, not an exception or Load side effect.
+- [x] Shared tests prove bind concatenates left-to-right Answer sequences in order.
+- [x] `OR` concatenates operand sequences and may repeat an Answer; `AND` keeps left-operand order with at-most-once intersection by Answer equality; `NOT` yields the input when the operand sequence is empty and otherwise yields nothing.
+- [x] A catalog row type holds spellings, slot, signature, and Answer function; a minimal stub row can be registered and invoked through the core.
+- [x] Evaluating through an Unloaded Node boundary yields an empty sequence, not an exception or Load side effect.
