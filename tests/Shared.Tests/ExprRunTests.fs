@@ -106,6 +106,7 @@ let ``parse type and zero Answers write blueletter No matches found`` () =
     let cases =
         [ "= /"
           "= root text child"
+          "= text #todo"
           "= named \"zzz\"" ]
     for line in cases do
         match runFocus f line with

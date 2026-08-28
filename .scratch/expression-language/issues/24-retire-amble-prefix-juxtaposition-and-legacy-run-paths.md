@@ -1,16 +1,27 @@
-# 24 — Retire Amble prefix juxtaposition and legacy Run paths
+# 24 — Retire Amble prefix juxtaposition and `of`
 
-**Context:** The pipeline is the single query surface. Amble prefix `FunCall` juxtaposition, `of`, and legacy Run entry points must not remain as a parallel eval model once consumers and combinators land. Work on branch `w/expr` (cut from `selective-client-sync`).
+**Context:** The pipeline is the query surface. Amble prefix `FunCall` juxtaposition and `of` must go. The Run command ([[src/Shared/CommandEntry.fs]] `Exec`) stays. A bare RefExpr line such as `//x/y` is not a Run statement. Work on branch `w/expr` (cut from `selective-client-sync`).
 
-**What to build:** Remove or gate legacy Amble prefix forms so only the spec pipeline evaluates. Prefix `text Ref` and similar old orders become type errors or are removed from the parse surface. Drop `of` and comma-as-`FunCall` sugar (comma is `OR` in Expressions). Stop evaluating bare anchored RefExpr lines in Run; only `=` and `Name=` run. Ensure `Ref text` postfix order is the supported spelling where `text` is later enabled.
+**What to build:** Remove Amble prefix `FunCall` juxtaposition so `text Ref` and similar old orders fail as type or parse errors per spec. Drop `of`. Drop Amble comma-as-`FunCall` sugar. Comma-as-`OR` is ticket 23, after this surface is clean. Where postfix `text` is later enabled, the spelling is `Ref text`. Run accepts only `= Expression` and `Name=Expression`; a line that is not that form, including bare `//x/y`, does nothing. Do not unwire the Run command. Do not change `>` shell.
 
-**Blocked by:** [[.scratch/expression-language/issues/21-run-consumer-equals-and-name-equals-statements.md]], [[.scratch/expression-language/issues/22-search-and-move-consumer-leading-equals.md]], [[.scratch/expression-language/issues/23-and-or-not-and-comma-combinators.md]].
+**Blocked by:** none. Do this before [[.scratch/expression-language/issues/23-and-or-not-and-comma-combinators.md]].
 
-**See also:** [[.scratch/expression-language/reports/amble-refexpr-seams.md]]; [[.scratch/expression-language/spec.md]] chapter 9 divergence 6.
+**See also:** [[.scratch/expression-language/issues/01-pipeline-versus-amble-juxtaposition.md]]; [[.scratch/expression-language/issues/07-statements-in-this-spec.md]]; [[.scratch/expression-language/issues/11-keep-or-drop-amble-of-and-comma.md]]; [[.scratch/expression-language/spec.md]] chapter 9 divergences 6 and 8.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Amble prefix `text #todo` (and similar prefix orders) no longer evaluate; they fail as type or parse errors per spec.
-- [ ] `of` is not accepted in Expression text; comma in an Expression means `OR`, not `FunCall`.
-- [ ] Run no longer evaluates a bare RefExpr line without `=`; legacy redletter error Children for that path are gone.
-- [ ] No code path still uses a second juxtaposition eval model beside the catalog pipeline.
+- [x] Amble prefix `text #todo` (and similar prefix orders) no longer evaluate; they fail as type or parse errors per spec.
+- [x] `of` is not accepted.
+- [x] Amble comma-as-`FunCall` sugar is gone.
+- [x] Run on a bare RefExpr such as `//x/y` does nothing; only `=` and `Name=` statements evaluate.
+- [x] The Run command remains; `>` is unchanged.
+
+## Comments
+
+HITL 2026-08-28. The Run command is not retired. Ticket 07 locked Expression statement syntax: `Name=Expression` and `= Expression`. Shell `>` was out of discussion.
+
+HITL 2026-08-28 (correction). Amble prefix juxtaposition and `of` are retired (spec chapter 9 divergence 6).
+
+HITL 2026-08-28 (correction). Run on a Node whose text is a bare RefExpr such as `//x/y` is retired, because only `=` statements are accepted (spec chapter 9 divergence 8). That is not retirement of the Run command.
+
+HITL 2026-08-28. Do this before ticket 23 so combinators land after prefix `FunCall`, `of`, and comma-as-`FunCall` are gone.

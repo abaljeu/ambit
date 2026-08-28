@@ -4,7 +4,7 @@
 
 **What to build:** Parse and evaluate `OR`, comma, `AND`, and `NOT` at spec precedence: juxtaposition tightest, then `NOT`, then `AND`, then `OR` and comma. `OR` and comma concatenate Answer sequences and may repeat. `AND` keeps left-operand order with at-most-once intersection by Answer equality. `NOT` is negation-as-failure on the operand sequence from the same input. Mixed operand types across combinators is a type error. Parentheses group sub-Expressions where precedence requires them.
 
-**Blocked by:** [[.scratch/expression-language/issues/19-spaced-pipeline-lexer-walk-words-and-juxtaposition.md]], [[.scratch/expression-language/issues/20-pure-filter-catalog-rows.md]].
+**Blocked by:** none.
 
 **See also:** [[.scratch/expression-language/issues/04-boolean-operators-as-control.md]]; [[.scratch/expression-language/issues/05-how-multiple-answers-surface.md]].
 

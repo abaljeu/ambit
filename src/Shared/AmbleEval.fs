@@ -14,15 +14,6 @@ module AmbleEval =
     let private nodeSpecsOf (nodes: Node list) : NodeSpec list =
         nodes |> List.map RefSpec
 
-    let private evalText (focusNodeId: NodeId) (graph: Graph) (args: AmbleExpr list)
-        : Result<NodeSpec list, string> =
-        match args with
-        | [ AmbleExpr.Ref pathExpr ] ->
-            evalRefExpr focusNodeId graph pathExpr
-            |> List.map (fun node -> NewSpec node.text)
-            |> Ok
-        | _ -> Error "text expects one ref argument"
-
     let evalExpr
         (focusNodeId: NodeId)
         (graph: Graph)
@@ -30,7 +21,6 @@ module AmbleEval =
         : Result<NodeSpec list, string> =
         match expr with
         | AmbleExpr.Ref pathExpr -> Ok (evalRefExpr focusNodeId graph pathExpr |> nodeSpecsOf)
-        | FunCall("text", args) -> evalText focusNodeId graph args
         | _ -> Error "Expression type not implemented"
 
     let evalStatement

@@ -127,41 +127,7 @@ module AmbleParse =
         else
             loop 0 []
 
-    let private isArgStarter = function
-        | [] -> false
-        | TLParen :: _ | TStr _ :: _ | TRef _ :: _ | TNum _ :: _ -> true
-        | TWord _ :: _ -> true
-        | _ -> false
-
-    let rec private parseInfixExpr tokens =
-        match tokens with
-        | TWord fn :: TWord "of" :: rest ->
-            parseInfixExpr rest
-            |> Result.map (fun (arg, next) -> FunCall(fn, [ arg ]), next)
-        | _ ->
-            parseJuxtapose tokens
-            |> Result.bind (fun (left, rest) ->
-                match rest with
-                | TComma :: r ->
-                    parseInfixExpr r
-                    |> Result.map (fun (right, next) -> FunCall(",", [ left; right ]), next)
-                | _ -> Ok(left, rest))
-
-    and private parseJuxtapose tokens =
-        match tokens with
-        | [] -> Error "expected expression"
-        | TWord fn :: rest when isArgStarter rest -> parseArgs fn rest []
-        | TComma :: rest when isArgStarter rest -> parseArgs "," rest []
-        | _ -> parsePrimary tokens
-
-    and private parseArgs fn tokens acc =
-        if isArgStarter tokens then
-            parseInfixExpr tokens
-            |> Result.bind (fun (arg, next) -> parseArgs fn next (arg :: acc))
-        else
-            Ok(FunCall(fn, List.rev acc), tokens)
-
-    and private parsePrimary tokens =
+    let rec private parsePrimary tokens =
         match tokens with
         | TStr text :: rest -> Ok(Str text, rest)
         | TNum num :: rest -> Ok(Num num, rest)
@@ -177,7 +143,7 @@ module AmbleParse =
         | _ -> Error "expected expression"
 
     and private parseExpr atStatementStart tokens =
-        parseInfixExpr tokens
+        parsePrimary tokens
         |> Result.bind (fun (expr, rest) ->
             match atStatementStart, rest with
             | true, [] -> Ok(expr, [])

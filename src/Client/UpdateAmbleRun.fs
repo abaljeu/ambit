@@ -27,5 +27,12 @@ let runAmbleOp (model: VM) : VM * Effect list =
                       changeId = System.Guid.NewGuid()
                       ops = ops }
                 match applyAndPost (displayName Exec) change model with
-                | Ok (m, effects) -> withSiteMap m, effects
                 | Error _ -> model, []
+                | Ok (m, effects) ->
+                    let m = withSiteMap m
+                    match m.selectedNodes |> Option.bind focusedInstanceId with
+                    | None -> m, effects
+                    | Some instId ->
+                        let sm, nextId =
+                            expandEntry instId m.graph m.siteMap m.nextSiteId
+                        { m with siteMap = sm; nextSiteId = nextId }, effects

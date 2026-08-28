@@ -89,17 +89,26 @@ module AmbleRun =
         planRenameOps graph focusNodeId nameOpt
         |> Result.map (fun renameOps -> renameOps @ planReplaceFromSpecs graph focusNodeId specs)
 
+    let private legacyRun (graph: Graph) (focusNodeId: NodeId) (line: string) =
+        match AmbleParse.parse line with
+        | Error _ -> Ok (planErrorTextNodes graph focusNodeId line)
+        | Ok stmt ->
+            match AmbleEval.evalStatement focusNodeId graph stmt with
+            | Error _ -> Ok (planErrorTextNodes graph focusNodeId line)
+            | Ok (nameOpt, specs) ->
+                if specs.IsEmpty then
+                    Ok (planErrorTextNodes graph focusNodeId line)
+                else
+                    planEvalResult graph focusNodeId (nameOpt, specs)
+
     let run (focusNodeId: NodeId) (graph: Graph) (line: string) : Result<Op list, string> =
         if isSpecialFocus graph focusNodeId then
             Ok []
         else
-            match AmbleParse.parse line with
-            | Error _ -> Ok (planErrorTextNodes graph focusNodeId line)
-            | Ok stmt ->
-                match AmbleEval.evalStatement focusNodeId graph stmt with
-                | Error _ -> Ok (planErrorTextNodes graph focusNodeId line)
-                | Ok (nameOpt, specs) ->
-                    if specs.IsEmpty then
-                        Ok (planErrorTextNodes graph focusNodeId line)
-                    else
-                        planEvalResult graph focusNodeId (nameOpt, specs)
+            match ExprRun.run focusNodeId graph line with
+            | ExprRun.Apply plan -> Ok plan.ops
+            | ExprRun.Ignore ->
+                if line.TrimStart().StartsWith(">") then
+                    legacyRun graph focusNodeId line
+                else
+                    Ok []

@@ -20,54 +20,31 @@ let private refExpr input =
 
 let private aref input = AmbleExpr.Ref(refExpr input)
 
+let private parseFails input =
+    match Amble.parse input with
+    | Error _ -> ()
+    | Ok stmt -> failwith $"expected Error, got {stmt}"
+
 // ---- expressions ----
 
 [<Fact>]
-let ``parse function application`` () =
-    Assert.Equal(
-        FunCall("text", [ aref "#todo" ]),
-        parseExpr "text #todo"
-    )
+let ``parse rejects prefix FunCall juxtaposition`` () =
+    parseFails "text #todo"
+    parseFails "name ^/notes.md"
 
 [<Fact>]
-let ``parse structural ref application`` () =
-    Assert.Equal(
-        FunCall("name", [ aref "^/notes.md" ]),
-        parseExpr "name ^/notes.md"
-    )
+let ``parse rejects of form`` () =
+    parseFails "name of children ./folder/"
 
 [<Fact>]
-let ``parse of form`` () =
-    let expected =
-        FunCall("name", [ FunCall("children", [ aref "./folder/" ]) ])
-    Assert.Equal(expected, parseExpr "name of children ./folder/")
+let ``parse parenthesized ref`` () =
+    Assert.Equal(Paren(aref "#rugbydata"), parseExpr "(#rugbydata)")
 
 [<Fact>]
-let ``parse parenthesized expr`` () =
-    Assert.Equal(
-        Paren(FunCall("text", [ aref "#rugbydata" ])),
-        parseExpr "(text #rugbydata)"
-    )
-
-[<Fact>]
-let ``parse infix comma right assoc`` () =
-    let a = aref "#a"
-    let b = aref "#b"
-    let c = aref "#c"
-    Assert.Equal(FunCall(",", [ a; FunCall(",", [ b; c ]) ]), parseExpr "#a , #b , #c")
-
-[<Fact>]
-let ``parse comma after juxtaposition groups rhs`` () =
-    let list = aref "#list"
-    let expected =
-        FunCall(",", [ list; FunCall("sort", [ list ]) ])
-    Assert.Equal(expected, parseExpr "#list , sort #list")
-
-[<Fact>]
-let ``parse sort with nested comma args`` () =
-    let expected =
-        FunCall("sort", [ FunCall(",", [ Num(Int 3L); FunCall(",", [ Num(Int 5L); Num(Int 2L) ]) ]) ])
-    Assert.Equal(expected, parseExpr "sort 3 , 5 , 2")
+let ``parse rejects Amble comma FunCall sugar`` () =
+    parseFails "#a , #b , #c"
+    parseFails "#list , sort #list"
+    parseFails "sort 3 , 5 , 2"
 
 // ---- assignment ----
 
@@ -106,8 +83,8 @@ let ``parse command with paren word`` () =
     let stages =
         [ [ ShellWord(WordBare "tool")
             ShellWord(WordBare "--data")
-            ShellWord(WordExpr(FunCall("text", [ aref "#rugbydata" ]))) ] ]
-    Assert.Equal(ExprStmt(Cmd stages), parseOk "> tool --data (text #rugbydata)")
+            ShellWord(WordExpr(aref "#rugbydata")) ] ]
+    Assert.Equal(ExprStmt(Cmd stages), parseOk "> tool --data (#rugbydata)")
 
 [<Fact>]
 let ``parse piped command with redirects`` () =
