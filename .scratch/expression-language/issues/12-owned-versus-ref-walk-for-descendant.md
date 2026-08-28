@@ -25,3 +25,8 @@ HITL 2026-08-27. Words follow the model element [[CONTEXT.md]] Children (Owned a
 This revises [[08-prototype-pipeline-examples.md]]’s first `descendant` line (Owned-only, same as `**`) and the `**` / `descendant` alias on [[02-path-references-as-pipeline-terms.md|Path references as pipeline terms]] and [[03-first-primitive-catalog.md|First primitive catalog]].
 
 `**` is `tree`: transitively Owned Nodes, no Directory/Workspace stop. It is not `descendant`. Today’s implemented `**` stops at Directory Node and Workspace Node; this spec revises that walk.
+
+HITL 2026-08-28. The final content-search decision separates `#` from `named`.
+
+- `#` takes a required name and searches strictly below each input through Children, both Owned and Ref. It visits Nodes depth-first in Children order and deduplicates by Node identity within each search; first reach wins. Existing named-Normal and structural content-search walls stay in force. In `a#b#c`, `#b` searches below each Answer from `a`, then `#c` searches below each resulting `b`.
+- `named "x"` is a pure `Node ⇒ Node` filter. It yields its input Node when that Node’s name matches `x`; otherwise it yields no Answers. It does not walk Children, so the Owned-versus-Ref question does not apply.

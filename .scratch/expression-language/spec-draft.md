@@ -1,5 +1,7 @@
 # Expression language spec draft
 
+The comprehensive specification now lives at [[.scratch/expression-language/spec.md]]; this draft is superseded.
+
 Working draft toward the destination spec. Sections marked **Locked** come from the destination named 2026-08-27. Sections marked **Proposed** are recommended answers waiting on open tickets. Research findings are cited; they are not a substitute for grilling.
 
 ## What an Expression is — Locked

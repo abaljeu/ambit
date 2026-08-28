@@ -1,5 +1,5 @@
 # Expression Language
 
-Stage: charting
-Summary: Destination named — spec for pipeline Expression language; all eval local; server Search postponed.
-Updated: 2026-08-27
+Stage: spec
+Summary: Comprehensive spec at [[spec.md]] — typed predicate core, two-layer lexing, `/` structural search, `#` Owned-and-Ref descendant search, pure `named` filter, and Run/Search/Move consumers.
+Updated: 2026-08-28

@@ -4,10 +4,10 @@
 | --- | --- | --- |
 | [Bullet tip times](bullet-tip-times/) | charting | Which non-obvious time facts a node-marker tooltip should show (update, workspace, server, last-sync) with de-dup, timezone, and availability rules; open questions unresolved. |
 | [Download no-parse fix](download-no-parse-fix/) | charting | Download stamp-align must not require Parse; SetUpdateTime is exempt from the unparsed-document gate. |
-| [Expression Language](expression-language/) | charting | Destination named — spec for pipeline Expression language; all eval local; server Search postponed. |
 | [Parse load demote](parse-load-demote/) | charting | Empty stub directory; stage unknown until contents land. |
 | [RowView / FocusView layout vs behavior](rowview-layout-behavior/) | charting | Separate layout from behavior inside RowView/FocusView; plan complete, waits on the split-view-by-concern refactor landing. |
 | [ChildNode drop ref](childnode-drop-ref/) | spec | Progressive removal of ChildNode.ref; Node.owner + Op.SetOwner sole ownership source; Loaded-scope membership seam; ordered id-only ChildNode retained. |
+| [Expression Language](expression-language/) | spec | Comprehensive spec written at spec.md — typed predicate core, two-layer lexing with the uniform literals-are-arguments model (`/` infix structural search, `//` desugars to `root /`, wsroot, ws/dir/file/normal/class filters), Run/Search/Move consumers; one open contradiction (content-search descent role). |
 | [Client start time](client-start-time/) | active | Cache-first boot tickets 01–07 implemented (IndexedDB snapshot plus Change log, fold then first paint, boot Poll, truncation, optional bootstrapHash); HITL pending. |
 | [Event-sourced ops](event-sourced-ops/) | active | One semantic standard for how any Actor's Change enters a Graph — implementation issues (`issues/01`–`15`) through wire migration, Actor spine, recovery, and permanent global history; charting docs in overview, architecture, and details. |
 | [Large-node cursor perf](large-node-cursor-perf/) | active | Selection-only planPatchDOM/patchDOM fast path + O(1) SiteEntry.childIndex implemented; delete-children cost analysis in delete-children-cost.md (no delete fix yet). |
