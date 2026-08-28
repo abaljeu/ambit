@@ -88,5 +88,5 @@ When a subagent completes, summarize its conclusion for the user.
 Subagent must report final results to `.scratch/<project-name>/reports/<subagent-title>.md`, not chat. Only the final report goes to reports/.  The reports directory exists to isolate transactional reporting from longterm project definition artifacts which go to the main <project-name> directory.  If a workflow specifies another report path, use that path instead.
 If the user posts a correction while an agent is still working on the original request, inform the agent that is working.  Don't start a second agent with overlapping work area.
 
-Subagents should only run focused tests, never all tests.
+Subagents should only run focused tests, never all tests. The Client compile gate in [[.cursor/rules/testing-workflow.mdc]] is a compile gate, not all tests; do not skip it when Client dependencies were edited.
 You may create a subagent specifically to run all tests of a project.

@@ -33,6 +33,12 @@ dotnet build tests/Shared.Tests -c Debug
 dotnet test tests/Shared.Tests -c Debug --no-build --filter "FullyQualifiedName~YourTestModule"
 ```
 
+When Client dependencies changed (`src/Shared/`, `src/Client/`, or other Client fsproj references), run the Client compile gate after Shared tests. Policy: [[.cursor/rules/testing-workflow.mdc]].
+
+```bash
+bash ./scripts/client.sh build
+```
+
 **Background** (full suite — slow):
 
 ```bash

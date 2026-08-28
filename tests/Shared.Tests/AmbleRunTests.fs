@@ -266,3 +266,22 @@ let ``run Ignore leaves the Run node folded`` () =
     Assert.False(plan.unfold)
     Assert.Empty(plan.ops)
     Assert.False(entry.expanded)
+
+[<Fact>]
+let ``runPlanOnNode after SetText uses committed node text`` () =
+    let graph0, focusId = focusUnderRoot ()
+    let stale = graph0.nodes.[focusId].text
+    let committed = "= named \"zzz\""
+    let before =
+        requirePlan "stale" (AmbleRun.runPlanOnNode focusId graph0)
+    Assert.False(before.unfold)
+    Assert.Empty(before.ops)
+    let graph1 =
+        match Graph.setText focusId stale committed graph0 with
+        | Ok g -> g
+        | Error e -> failwith e
+    Assert.Equal(committed, graph1.nodes.[focusId].text)
+    let plan =
+        requirePlan "committed" (AmbleRun.runPlanOnNode focusId graph1)
+    Assert.True(plan.unfold)
+    Assert.True(hasBlueletter plan.ops)

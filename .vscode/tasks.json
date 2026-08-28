@@ -61,7 +61,8 @@
 				"reveal": "always",
 				"panel": "shared"
 			},
-			"problemMatcher": []
+			"problemMatcher": "$msCompile",
+			"continueOnError": false
 		},
 		{
 			"label": "fullstack: Build",
@@ -72,7 +73,8 @@
 				"reveal": "always",
 				"panel": "shared"
 			},
-			"problemMatcher": []
+			"problemMatcher": "$msCompile",
+			"continueOnError": false
 		},
 		{
 			"label": "wait for server",

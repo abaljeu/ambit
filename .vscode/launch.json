@@ -7,7 +7,7 @@
                 "(Server for Full Stack)",
                 "(Client for Full Stack)"
             ],
-            "preLaunchTask": "server: Build",
+            "preLaunchTask": "fullstack: Build",
             "stopAll": true
         },
         {

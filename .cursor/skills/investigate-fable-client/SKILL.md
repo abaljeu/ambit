@@ -37,9 +37,9 @@ Fable output goes to `src/Server/wwwroot`; the server serves `/ambit`.
 
 ## Dev commands
 
-VS Code default: Fable watch + server. Manual: `./scripts/client.sh`
+VS Code default: Fable watch + server. Manual: `./scripts/client.sh` (default action is watch).
 
-Rebuild client after Shared changes that affect compiled JS.
+Shared edits that must ship to `/ambit` are Client dependencies. After those edits, run `bash ./scripts/client.sh build` (Fable and esbuild). Shared.Tests do not compile the Client. A Fable failure is a real failure, not a skip. Policy: [[.cursor/rules/testing-workflow.mdc]].
 
 ## Escalation
 

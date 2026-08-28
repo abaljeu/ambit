@@ -36,7 +36,7 @@ You do not stop a Server that F5 started in order to press F5 again. Stop the wa
 
 ## Full Stack preLaunch
 
-[[.vscode/launch.json|Full Stack]] `preLaunchTask` is [[.vscode/tasks.json|server: Build]] only (same as Local Server). It expects client JS already in `src/Server/wwwroot` from Fable watch or a manual [[.vscode/tasks.json|fable: Build Client]]. Cold Fable remains available via [[.vscode/tasks.json|fullstack: Build]] / `scripts/fullstack-build.sh`, not as Full Stack’s preLaunch.
+[[.vscode/launch.json|Full Stack]] `preLaunchTask` is [[.vscode/tasks.json|fullstack: Build]] (Server + Fable + esbuild). [[.vscode/launch.json|Local Client Chrome]] and Edge use [[.vscode/tasks.json|fable: Build Client]]. A failed Client compile aborts the browser launch. Azure Client configs do not compile locally.
 
 ## Server.Tests and DLL locks
 

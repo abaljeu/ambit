@@ -5,32 +5,35 @@ open Gambol.Shared
 open Gambol.Shared.CommandEntry
 open Gambol.Shared.ViewModel
 
-let private focusLine (model: VM) (focusId: NodeId) : string =
-    match model.mode with
-    | Editing _ -> readEditInputValue ()
-    | _ -> model.graph.nodes.[focusId].text
+let private applyRunPlan
+    (focusId: NodeId)
+    (plan: ExprRun.Plan)
+    (commitEffects: Effect list)
+    (model: VM)
+    : VM * Effect list =
+    if plan.ops.IsEmpty then
+        model, commitEffects
+    else
+        let change =
+            { id = model.revision.Value
+              changeId = System.Guid.NewGuid()
+              ops = plan.ops }
+        match applyAndPost (displayName Exec) change model with
+        | Error _ -> model, commitEffects
+        | Ok (m, effects) ->
+            let m = withSiteMap m
+            let sm, nextId =
+                AmbleRun.applyUnfold
+                    plan.unfold focusId m.graph m.siteMap m.nextSiteId
+            { m with siteMap = sm; nextSiteId = nextId },
+            commitEffects @ effects
 
 let runAmbleOp (model: VM) : VM * Effect list =
-    match model.selectedNodes with
-    | None -> model, []
+    let committed, commitEffects = commitIfEditing model
+    match committed.selectedNodes with
+    | None -> committed, commitEffects
     | Some sel ->
-        let focusId = focusedNodeId model.graph sel
-        let line = focusLine model focusId
-        match AmbleRun.runPlan focusId model.graph line with
-        | Error _ -> model, []
-        | Ok plan ->
-            if plan.ops.IsEmpty then
-                model, []
-            else
-                let change =
-                    { id = model.revision.Value
-                      changeId = System.Guid.NewGuid()
-                      ops = plan.ops }
-                match applyAndPost (displayName Exec) change model with
-                | Error _ -> model, []
-                | Ok (m, effects) ->
-                    let m = withSiteMap m
-                    let sm, nextId =
-                        AmbleRun.applyUnfold
-                            plan.unfold focusId m.graph m.siteMap m.nextSiteId
-                    { m with siteMap = sm; nextSiteId = nextId }, effects
+        let focusId = focusedNodeId committed.graph sel
+        match AmbleRun.runPlanOnNode focusId committed.graph with
+        | Error _ -> committed, commitEffects
+        | Ok plan -> applyRunPlan focusId plan commitEffects committed

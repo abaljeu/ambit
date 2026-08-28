@@ -11,7 +11,7 @@ Canonical project rules are split across [[.cursor/rules/]]:
 - [[.cursor/rules/environment.mdc]] — shell, paths, tooling
 - [[.cursor/rules/fsharp-source.mdc]] — F# conventions (scoped to *.fs)
 - [[.cursor/rules/markdown-writing.mdc]] — markdown conventions (scoped to *.md)
-- [[.cursor/rules/testing-workflow.mdc]] — TDD and test running (scoped to tests)
+- [[.cursor/rules/testing-workflow.mdc]] — TDD, test running, and Client compile gate (scoped to tests, Shared, Client)
 - [[.cursor/rules/planning-docs.mdc]] — roadmap/plan documents (scoped to doc/)
 - [[.cursor/rules/work-blackboard.mdc]] — shared task board protocol
 - [[.cursor/rules/project-stage.mdc]] — keep each `.scratch/` project's `Stage:` and the overview current

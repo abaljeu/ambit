@@ -125,6 +125,12 @@ module AmbleRun =
     let run (focusNodeId: NodeId) (graph: Graph) (line: string) : Result<Op list, string> =
         runPlan focusNodeId graph line |> Result.map (fun plan -> plan.ops)
 
+    let runPlanOnNode
+        (focusNodeId: NodeId)
+        (graph: Graph)
+        : Result<ExprRun.Plan, string> =
+        runPlan focusNodeId graph graph.nodes.[focusNodeId].text
+
     let applyUnfold
         (unfold: bool)
         (nodeId: NodeId)
