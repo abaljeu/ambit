@@ -65,7 +65,7 @@ module ExprPrimitive =
 
     let private contentRow graph =
         row
-            [ "#" ]
+            [ "subsection"; "#" ]
             (Some ExprSlotKind.NameGlob)
             (requireName (ExprWalk.contentSearch graph))
 
@@ -98,6 +98,9 @@ module ExprPrimitive =
 
     let private normalRow graph =
         row [ "normal" ] None (fun _ -> ExprWalk.normal graph)
+
+    let private sectionRow graph =
+        row [ "section" ] None (fun _ -> ExprWalk.section graph)
 
     let private classRow graph =
         row
@@ -136,5 +139,6 @@ module ExprPrimitive =
         |> ExprCatalog.register (dirRow graph)
         |> ExprCatalog.register (fileRow graph)
         |> ExprCatalog.register (normalRow graph)
+        |> ExprCatalog.register (sectionRow graph)
         |> ExprCatalog.register (classRow graph)
         |> ExprCatalog.register (textRow graph)

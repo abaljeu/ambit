@@ -65,7 +65,10 @@ module ExprParse =
         |> Seq.toList
 
     let private wordWantsTrailingLiteral (word: string) =
-        word = "containing" || word = "named" || word = "class"
+        word = "containing"
+        || word = "named"
+        || word = "class"
+        || word = "subsection"
 
     let private parseWord (word: string) (literal: string option) : Result<ExprTerm, string> =
         if wordWantsTrailingLiteral word && literal.IsNone then

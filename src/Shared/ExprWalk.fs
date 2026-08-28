@@ -214,6 +214,12 @@ module ExprWalk =
             | Normal -> true
             | _ -> false) input
 
+    let section graph input =
+        keepInput graph (fun (node: Node) ->
+            match node.kind, Filename.tryValue node.name with
+            | Normal, Some _ -> true
+            | _ -> false) input
+
     let classMember graph token input =
         keepInput graph (fun (node: Node) ->
             CssClass.contains token node.cssClasses) input

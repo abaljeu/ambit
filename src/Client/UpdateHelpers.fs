@@ -177,10 +177,9 @@ let childrenForPaste (graph: Graph) (ids: NodeId list) : ChildNode list =
     let existingOwnerIds =
         graph.nodes
         |> Map.toSeq
-        |> Seq.collect (fun (parentId, node) ->
-            node.children |> List.map (fun child -> parentId, child))
-        |> Seq.choose (fun (parentId, child) ->
-            match Gambol.Shared.Node.childOwnership graph parentId child with
+        |> Seq.collect (fun (_, node) -> node.children)
+        |> Seq.choose (fun child ->
+            match child.ref with
             | Ownership.Owner -> Some child.id
             | Ownership.Ref -> None)
         |> Set.ofSeq

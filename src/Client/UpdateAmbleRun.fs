@@ -16,23 +16,21 @@ let runAmbleOp (model: VM) : VM * Effect list =
     | Some sel ->
         let focusId = focusedNodeId model.graph sel
         let line = focusLine model focusId
-        match AmbleRun.run focusId model.graph line with
+        match AmbleRun.runPlan focusId model.graph line with
         | Error _ -> model, []
-        | Ok ops ->
-            if ops.IsEmpty then
+        | Ok plan ->
+            if plan.ops.IsEmpty then
                 model, []
             else
                 let change =
                     { id = model.revision.Value
                       changeId = System.Guid.NewGuid()
-                      ops = ops }
+                      ops = plan.ops }
                 match applyAndPost (displayName Exec) change model with
                 | Error _ -> model, []
                 | Ok (m, effects) ->
                     let m = withSiteMap m
-                    match m.selectedNodes |> Option.bind focusedInstanceId with
-                    | None -> m, effects
-                    | Some instId ->
-                        let sm, nextId =
-                            expandEntry instId m.graph m.siteMap m.nextSiteId
-                        { m with siteMap = sm; nextSiteId = nextId }, effects
+                    let sm, nextId =
+                        AmbleRun.applyUnfold
+                            plan.unfold focusId m.graph m.siteMap m.nextSiteId
+                    { m with siteMap = sm; nextSiteId = nextId }, effects

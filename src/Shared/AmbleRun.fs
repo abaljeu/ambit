@@ -91,24 +91,48 @@ module AmbleRun =
 
     let private legacyRun (graph: Graph) (focusNodeId: NodeId) (line: string) =
         match AmbleParse.parse line with
-        | Error _ -> Ok (planErrorTextNodes graph focusNodeId line)
+        | Error msg -> Ok (planErrorTextNodes graph focusNodeId msg)
         | Ok stmt ->
             match AmbleEval.evalStatement focusNodeId graph stmt with
-            | Error _ -> Ok (planErrorTextNodes graph focusNodeId line)
+            | Error msg -> Ok (planErrorTextNodes graph focusNodeId msg)
             | Ok (nameOpt, specs) ->
                 if specs.IsEmpty then
-                    Ok (planErrorTextNodes graph focusNodeId line)
+                    Ok (planErrorTextNodes graph focusNodeId "No matches found")
                 else
                     planEvalResult graph focusNodeId (nameOpt, specs)
 
-    let run (focusNodeId: NodeId) (graph: Graph) (line: string) : Result<Op list, string> =
+    let private emptyPlan : ExprRun.Plan = { ops = []; unfold = false }
+
+    let private planFromOps (ops: Op list) : ExprRun.Plan =
+        { ops = ops; unfold = not ops.IsEmpty }
+
+    let runPlan
+        (focusNodeId: NodeId)
+        (graph: Graph)
+        (line: string)
+        : Result<ExprRun.Plan, string> =
         if isSpecialFocus graph focusNodeId then
-            Ok []
+            Ok emptyPlan
         else
             match ExprRun.run focusNodeId graph line with
-            | ExprRun.Apply plan -> Ok plan.ops
+            | ExprRun.Apply plan -> Ok plan
             | ExprRun.Ignore ->
                 if line.TrimStart().StartsWith(">") then
-                    legacyRun graph focusNodeId line
+                    legacyRun graph focusNodeId line |> Result.map planFromOps
                 else
-                    Ok []
+                    Ok emptyPlan
+
+    let run (focusNodeId: NodeId) (graph: Graph) (line: string) : Result<Op list, string> =
+        runPlan focusNodeId graph line |> Result.map (fun plan -> plan.ops)
+
+    let applyUnfold
+        (unfold: bool)
+        (nodeId: NodeId)
+        (graph: Graph)
+        (siteMap: SiteMap)
+        (nextId: SiteId)
+        : SiteMap * SiteId =
+        if unfold then
+            ViewModel.applyFoldSession (Set.singleton nodeId) graph siteMap nextId
+        else
+            siteMap, nextId

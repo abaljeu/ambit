@@ -13,16 +13,24 @@ let private nameString (name: Filename) : string =
     | Filename.Ok s -> s
     | _ -> ""
 
+let private newNodeTexts (ops: Op list) =
+    ops |> List.choose (function Op.NewNode(_, text) -> Some text | _ -> None)
+
 let private hasBlueletter (ops: Op list) =
-    let textOk =
-        ops
-        |> List.exists (function
-            | Op.NewNode(_, "No matches found") -> true
-            | _ -> false)
+    let textOk = newNodeTexts ops |> List.contains "No matches found"
     let classOk =
         ops
         |> List.exists (function
             | Op.SetClasses(_, _, classes) -> CssClass.contains "blueletter" classes
+            | _ -> false)
+    textOk && classOk
+
+let private hasRedletterText (ops: Op list) (text: string) =
+    let textOk = newNodeTexts ops |> List.contains text
+    let classOk =
+        ops
+        |> List.exists (function
+            | Op.SetClasses(_, _, classes) -> CssClass.contains "redletter" classes
             | _ -> false)
     textOk && classOk
 
@@ -112,12 +120,26 @@ let ``run non-statement parse error does nothing`` () =
     Assert.Empty(ops2)
 
 [<Fact>]
-let ``run equals parse type and zero Answers write blueletter`` () =
+let ``run equals parse failure writes the parse error not the input`` () =
     let t = RefExprTestTree.build ()
-    let cases = [ "= /"; "= text #todo"; "= named \"zzz\"" ]
-    for line in cases do
-        let ops = requireOk line (AmbleRun.run t.plainChild t.graph line)
-        Assert.True(hasBlueletter ops)
+    let line = "= /"
+    let ops = requireOk line (AmbleRun.run t.plainChild t.graph line)
+    Assert.Equal<string list>([ "missing argument" ], newNodeTexts ops)
+    Assert.DoesNotContain(line, newNodeTexts ops)
+
+[<Fact>]
+let ``run equals type failure writes the type error not the input`` () =
+    let t = RefExprTestTree.build ()
+    let line = "= text #todo"
+    let ops = requireOk line (AmbleRun.run t.plainChild t.graph line)
+    Assert.Equal<string list>([ "type error" ], newNodeTexts ops)
+    Assert.DoesNotContain(line, newNodeTexts ops)
+
+[<Fact>]
+let ``run equals zero Answers write blueletter`` () =
+    let t = RefExprTestTree.build ()
+    let ops = requireOk "run" (AmbleRun.run t.plainChild t.graph "= named \"zzz\"")
+    Assert.True(hasBlueletter ops)
 
 [<Fact>]
 let ``run name-equals updates graph name`` () =
@@ -138,15 +160,109 @@ let ``run name-equals updates graph name`` () =
     Assert.Equal("todo", nameString graph2.nodes.[focusId].name)
 
 [<Fact>]
-let ``run shell line still plans error children`` () =
+let ``run shell eval error writes the eval message not the input`` () =
     let t = RefExprTestTree.build ()
     let line = "> python"
     let ops = requireOk "run" (AmbleRun.run t.plainChild t.graph line)
-    let newTexts =
-        ops |> List.choose (function Op.NewNode(_, text) -> Some text | _ -> None)
-    Assert.Equal<string list>([ line ], newTexts)
-    match ops |> List.tryFind (function Op.SetClasses _ -> true | _ -> false) with
-    | Some(Op.SetClasses(_, old, newClasses)) ->
-        Assert.Equal(CssClass.empty, old)
-        Assert.True(CssClass.contains "redletter" newClasses)
-    | _ -> Assert.Fail("expected SetClasses op")
+    Assert.Equal<string list>([ "Expression type not implemented" ], newNodeTexts ops)
+    Assert.DoesNotContain(line, newNodeTexts ops)
+    Assert.True(hasRedletterText ops "Expression type not implemented")
+
+[<Fact>]
+let ``run shell parse error writes the parse message not the input`` () =
+    let t = RefExprTestTree.build ()
+    let line = ">"
+    let ops = requireOk "run" (AmbleRun.run t.plainChild t.graph line)
+    Assert.Equal<string list>([ "empty command stage" ], newNodeTexts ops)
+    Assert.DoesNotContain(line, newNodeTexts ops)
+    Assert.True(hasRedletterText ops "empty command stage")
+
+let private requirePlan label r =
+    match r with
+    | Ok p -> p
+    | Error e -> failwith $"{label}: {e}"
+
+let private applyOps graph ops =
+    let state = { graph = graph; history = History.empty; revision = Revision.Zero }
+    ops
+    |> List.fold
+        (fun s op ->
+            match Op.apply op s with
+            | ApplyResult.Changed s' -> s'
+            | ApplyResult.Unchanged s' -> s'
+            | ApplyResult.Invalid(_, msg) -> failwith msg)
+        state
+    |> fun s -> s.graph
+
+let private addUnder parentId child graph =
+    let parent = graph.nodes.[parentId]
+    let nodes =
+        graph.nodes
+        |> Map.add child.id child
+        |> Map.add parentId
+            { parent with children = parent.children @ [ ChildNode.owner child.id ] }
+    Graph.fromNodes graph.root nodes
+
+let private entryOf nodeId (siteMap: SiteMap) =
+    siteMap.entries
+    |> Map.toSeq
+    |> Seq.map snd
+    |> Seq.find (fun e -> e.nodeId = nodeId)
+
+let private focusUnderRoot () =
+    let graph0 = Graph.create ()
+    let focusId = NodeId.New()
+    let graph =
+        addUnder graph0.root (Node.Create(focusId, text = "focus", owner = graph0.root)) graph0
+    graph, focusId
+
+let private afterRun line =
+    let graph, focusId = focusUnderRoot ()
+    let siteMap, nextId = ViewModel.buildSiteMap graph
+    Assert.False((entryOf focusId siteMap).expanded)
+    let plan = requirePlan line (AmbleRun.runPlan focusId graph line)
+    let graph2 = applyOps graph plan.ops
+    let siteMap2, nextId2 = ViewModel.reconcileSiteMap graph2 siteMap nextId
+    let siteMap3, _ =
+        AmbleRun.applyUnfold plan.unfold focusId graph2 siteMap2 nextId2
+    plan, entryOf focusId siteMap3
+
+[<Fact>]
+let ``runPlan materialise sets unfold`` () =
+    let t = RefExprTestTree.build ()
+    let plan =
+        requirePlan "runPlan" (AmbleRun.runPlan t.plainChild t.graph
+            "= root descendant named \"blue\"")
+    Assert.True(plan.unfold)
+    Assert.False(plan.ops.IsEmpty)
+
+[<Fact>]
+let ``runPlan no matches sets unfold`` () =
+    let t = RefExprTestTree.build ()
+    let plan =
+        requirePlan "runPlan" (AmbleRun.runPlan t.plainChild t.graph
+            "= named \"zzz\"")
+    Assert.True(plan.unfold)
+    Assert.True(hasBlueletter plan.ops)
+
+[<Fact>]
+let ``runPlan ignore does not unfold`` () =
+    let t = RefExprTestTree.build ()
+    let plan =
+        requirePlan "runPlan" (AmbleRun.runPlan t.plainChild t.graph "text #todo")
+    Assert.False(plan.unfold)
+    Assert.Empty(plan.ops)
+
+[<Fact>]
+let ``run that writes Children unfolds the Run node`` () =
+    let plan, entry = afterRun "= named \"zzz\""
+    Assert.True(plan.unfold)
+    Assert.True(entry.expanded)
+    Assert.False(entry.children.IsEmpty)
+
+[<Fact>]
+let ``run Ignore leaves the Run node folded`` () =
+    let plan, entry = afterRun "text #todo"
+    Assert.False(plan.unfold)
+    Assert.Empty(plan.ops)
+    Assert.False(entry.expanded)

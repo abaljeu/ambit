@@ -8,9 +8,9 @@
 
 **See also:** [[.scratch/expression-language/spec.md]] chapter 7 `section` and `subsection` rows; [[.scratch/expression-language/reports/section-filter-lock.md]]; [[.scratch/expression-language/issues/20-pure-filter-catalog-rows.md]]; [[.scratch/expression-language/issues/18-content-search-path-step-evaluation.md]]. Ticket 25's chapter 11 harness should include `section` and the `subsection "todo"` / `#todo` equivalence when that harness lands; do not rewrite [[.scratch/expression-language/issues/25-spec-ch11-worked-example-regression-harness.md]] here.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `section` keeps a named Normal Node and yields nothing on an unnamed Normal Node, File Node, Directory Node, or Workspace Node; it does not walk Children.
-- [ ] `subsection "todo"` and `#todo` yield the same Answers from the same input.
-- [ ] Bare `subsection` is a missing-argument parse error, uniform with bare `#`.
-- [ ] `named` and `section` stay distinct: `named "blue"` is a name glob on the input; `section` is named-Normal classification with no argument.
+- [x] `section` keeps a named Normal Node and yields nothing on an unnamed Normal Node, File Node, Directory Node, or Workspace Node; it does not walk Children.
+- [x] `subsection "todo"` and `#todo` yield the same Answers from the same input.
+- [x] Bare `subsection` is a missing-argument parse error, uniform with bare `#`.
+- [x] `named` and `section` stay distinct: `named "blue"` is a name glob on the input; `section` is named-Normal classification with no argument.

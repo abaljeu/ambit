@@ -16,7 +16,12 @@ let currentFile = UpdateHelpers.currentFile
 // update : Msg -> VM -> VM * Effect list
 // ---------------------------------------------------------------------------
 let firstGraphChild graph =
-    defaultArg (Node.at graph (Some graph.root) |> Node.firstChild |> Node.current) graph.root
+    match Map.tryFind graph.root graph.nodes with
+    | None -> graph.root
+    | Some node ->
+        match List.tryHead node.children with
+        | Some child -> child.id
+        | None -> graph.root
 
 let private clientSyncState (model: VM) : ClientSyncState =
     { graph = model.graph

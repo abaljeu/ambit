@@ -24,7 +24,10 @@ type private Fixture =
       cSec: NodeId
       theBlue: NodeId
       headed: NodeId
-      focus: NodeId }
+      focus: NodeId
+      secX: NodeId
+      secY: NodeId
+      draft: NodeId }
 
 let private specialNode id kind name owner =
     Node.Create(
@@ -59,6 +62,7 @@ let private build () : Fixture =
     let spacedId, abId, cdId = NodeId.New(), NodeId.New(), NodeId.New()
     let aId, bId, cId = NodeId.New(), NodeId.New(), NodeId.New()
     let theBlueId, headedId, focusId = NodeId.New(), NodeId.New(), NodeId.New()
+    let secXId, secYId, draftId = NodeId.New(), NodeId.New(), NodeId.New()
     let g0 = Graph.create ()
     let graph =
         g0
@@ -76,6 +80,10 @@ let private build () : Fixture =
                 owner = innerId))
         |> addUnder todoId (namedNormal blueTodoId "blue" todoId)
         |> addUnder innerId (Node.Create(sibAId, text = "A", owner = innerId))
+        |> addUnder innerId (namedNormal secXId "x" innerId)
+        |> addUnder innerId (namedNormal secYId "y" innerId)
+        |> addUnder innerId
+            (Node.Create(draftId, text = "draft notes", owner = innerId))
         |> addUnder wsId
             (Node.Create(
                 wsTodoId,
@@ -130,7 +138,10 @@ let private build () : Fixture =
       cSec = cId
       theBlue = theBlueId
       headed = headedId
-      focus = focusId }
+      focus = focusId
+      secX = secXId
+      secY = secYId
+      draft = draftId }
 
 let private nodeIds (answers: ExprAnswer list) =
     answers
@@ -229,6 +240,7 @@ let ``child equals colon-star; wsroot is containing Workspace`` () =
 [<InlineData("// ws", "missing argument")>]
 [<InlineData("\"d\" \"e\"", "unexpected quoted literal")>]
 [<InlineData("/", "missing argument")>]
+[<InlineData("// OR /", "missing argument")>]
 [<InlineData("root descendant containing root", "missing argument")>]
 [<InlineData("3", "a number is only valid as the right operand of : or !")>]
 let ``parse error rows assert spec messages`` (source: string) (needle: string) =
@@ -252,6 +264,34 @@ let ``out-of-range sibling offset is zero Answers not an error`` () =
     match ExprCompile.evalOutcome f.graph (answerOf f f.sibA) "!-249053534" with
     | ExprCompile.Hits(ExprAnswerType.Node, []) -> ()
     | other -> failwith $"expected empty Node Answers, got {other}"
+
+[<Fact>]
+let ``hash x comma hash y concatenates; a Node may appear twice`` () =
+    let f = build ()
+    let fromFile = answerOf f f.innerFile
+    Assert.Equal<NodeId list>([ f.secX; f.secY ], nodeHits f fromFile "#x , #y")
+    Assert.Equal<NodeId list>([ f.secX; f.secX ], nodeHits f fromFile "#x , #x")
+
+[<Fact>]
+let ``containing the AND named blue is same-input intersection`` () =
+    let f = build ()
+    let source = "containing \"the\" AND named \"blue\""
+    Assert.Equal<NodeId list>(
+        [ f.theBlue ],
+        nodeHits f (answerOf f f.theBlue) source)
+    Assert.Equal<NodeId list>([], nodeHits f (answerOf f f.headed) source)
+    Assert.Equal<NodeId list>(
+        [],
+        nodeHits f (answerOf f f.blueUnderTodo) source)
+
+[<Fact>]
+let ``root descendant NOT containing draft is negation-as-failure`` () =
+    let f = build ()
+    let found = nodeHits f (rootOf f) "root descendant NOT containing \"draft\""
+    Assert.Contains(f.theBlue, found)
+    Assert.Contains(f.headed, found)
+    Assert.Contains(f.secX, found)
+    Assert.DoesNotContain(f.draft, found)
 
 [<Fact>]
 let ``Run statement rows materialise named blue descendants`` () =

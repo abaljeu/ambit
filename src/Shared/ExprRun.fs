@@ -52,14 +52,17 @@ module ExprRun =
     let private replaceChildren (graph: Graph) (parentId: NodeId) kids =
         Op.Replace(parentId, graph.nodes.[parentId].children, kids)
 
-    let private noMatches (graph: Graph) (focusId: NodeId) : Plan =
+    let private blueletterChild (graph: Graph) (focusId: NodeId) (text: string) : Plan =
         let id = NodeId.New()
         let classes = CssClass.ofList [ "blueletter" ]
         { ops =
-            [ Op.NewNode(id, "No matches found")
+            [ Op.NewNode(id, text)
               Op.SetClasses(id, CssClass.empty, classes)
               replaceChildren graph focusId [ ChildNode.owner id ] ]
           unfold = true }
+
+    let private noMatches graph focusId =
+        blueletterChild graph focusId "No matches found"
 
     let private renameOps (graph: Graph) (focusId: NodeId) (name: string) =
         let oldName =
@@ -92,8 +95,8 @@ module ExprRun =
         let input = ExprAnswer.Node graph.nodes.[focusId]
         let core =
             match ExprCompile.evalOutcome graph input source with
-            | ExprCompile.ParseFailed _
-            | ExprCompile.TypeFailed _ -> noMatches graph focusId
+            | ExprCompile.ParseFailed e
+            | ExprCompile.TypeFailed e -> blueletterChild graph focusId e
             | ExprCompile.Hits(_, []) -> noMatches graph focusId
             | ExprCompile.Hits(_, answers) -> materialise graph focusId answers
 
