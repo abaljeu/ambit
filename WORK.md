@@ -26,6 +26,8 @@ Work currently being executed.
 
 Work ready to start but not yet claimed.
 
+- [[.scratch/expression-language/issues/15-answer-sequence-eval-core-and-catalog-row-shape.md]] — Shared answer-sequence eval core, catalog row shape, bind/OR/AND/NOT, Unloaded miss (branch: `w/expr`)
+- [[.scratch/expression-language/issues/16-path-cluster-parse-realignment.md]] — path-cluster parse per spec ch.3–4: `//` desugar, implicit `/`, required args, `:*`/`!*` (branch: `w/expr`)
 - [[.scratch/client-start-time/issues/09-cache-first-boot-delayed-lcp.md]] — HITL: `/ambit` bundle LCP of `div.amb-text` back near ~1 s (artifacts: [[.scratch/client-start-time/reports/cache-first-boot-delayed-lcp.md]])
 - [[.scratch/client-start-time/issues/08-poll-hash-fallback-loop.md]] — HITL: one `/state` then Poll confirms; Selection must not jump to ROOT (artifacts: [[.scratch/client-start-time/reports/poll-hash-fallback-loop.md]])
 - [[.scratch/client-start-time/reports/cold-load-loading-hang.md]] — HITL re-verify cold load past Loading..., then warm F5 cache hit (parent: [[.scratch/client-start-time/reports/implement-cache-first-boot-01-07.md]])

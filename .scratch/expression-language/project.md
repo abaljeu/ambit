@@ -1,5 +1,5 @@
 # Expression Language
 
-Stage: spec
-Summary: Comprehensive spec at [[spec.md]] — typed predicate core, two-layer lexing, `/` structural search, `#` Owned-and-Ref descendant search, pure `named` filter, and Run/Search/Move consumers.
+Stage: tickets
+Summary: Comprehensive spec at [[spec.md]] — eleven implementation tickets (15–25) from eval core through ch.11 regression; frontier 15 and 16 on `w/expr`.
 Updated: 2026-08-28
