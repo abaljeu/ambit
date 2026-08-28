@@ -135,6 +135,7 @@ let ``LoadResponse toSyncResponse preserves changes and packages`` () =
         { revision = 3
           buildEpochSec = 1
           pageBuildEpochSec = 2
+          apiVersion = ApiVersion.current
           isReady = true
           changes = []
           packages = [ node ] }

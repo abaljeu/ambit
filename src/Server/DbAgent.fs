@@ -75,6 +75,7 @@ module DbAgent =
                     { revision = state.Value.revision
                       buildEpochSec = 0
                       pageBuildEpochSec = 0
+                      apiVersion = ApiVersion.current
                       isReady = ready.Task.IsCompletedSuccessfully
                       externalChanges = externalChanges
                       changes = confirmed

@@ -151,15 +151,12 @@ and private applyBootNovel (novel: Change list) (ready: bool) =
             newState.graph
 
 and private handleBootPoll (clientRev: int) (poll: ChangeSuccessResponse) =
-    let context =
-        { ClientPollContext.buildEpochSec = readBuildEpochSec ()
-          pageBuildEpochSec = readPageBuildEpochSec () }
     let cached =
         BootCache.cachedHashForBootPoll justFetchedState bootHash
     justFetchedState <- false
     match
         BootCache.decideBootPoll
-            clientRev bootLog poll context poll.bootstrapHash cached
+            clientRev bootLog poll poll.bootstrapHash cached
     with
     | BootCache.BootPoll.Confirmed ready ->
         dispatch (

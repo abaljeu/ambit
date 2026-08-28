@@ -192,6 +192,7 @@ let ``delivered inverse of large paste measures phases without per-created-Node 
         { revision = Revision 2
           buildEpochSec = 0
           pageBuildEpochSec = 0
+          apiVersion = ApiVersion.current
           isReady = true
           externalChanges = false
           changes = [ inverse ]

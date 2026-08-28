@@ -404,11 +404,8 @@ let createRuntime (initialModel: VM) =
         let onPollOk (text: string) : unit =
             match ApiResponseSerialization.decodeChangeSuccessResponse text with
             | Ok poll ->
-                let context =
-                    { ClientPollContext.buildEpochSec = readBuildEpochSec ()
-                      pageBuildEpochSec = readPageBuildEpochSec () }
                 let outcome =
-                    SyncLogic.getPollOutcome poll model.revision.Value context
+                    SyncLogic.getPollOutcome poll model.revision.Value
                 dispatch (
                     SysMsg (
                         PollDone (
@@ -439,14 +436,10 @@ let createRuntime (initialModel: VM) =
         let onLoadOk (text: string) : unit =
             match ApiResponseSerialization.decodeLoadResponse text with
             | Ok load ->
-                let context =
-                    { ClientPollContext.buildEpochSec = readBuildEpochSec ()
-                      pageBuildEpochSec = readPageBuildEpochSec () }
                 let outcome =
                     SyncLogic.getPollOutcome
                         (SyncLogic.loadResponseToPoll load)
                         model.revision.Value
-                        context
                 dispatch (
                     SysMsg (
                         LoadDone (

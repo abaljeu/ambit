@@ -125,6 +125,7 @@ module Api =
             { revision = Revision rev
               buildEpochSec = buildEpochSec
               pageBuildEpochSec = pageBuildEpochSec
+              apiVersion = ApiVersion.current
               isReady = handle.isReady ()
               externalChanges = not changes.IsEmpty
               changes = changes
@@ -180,6 +181,7 @@ module Api =
                     { revision = rev
                       buildEpochSec = buildEpochSec
                       pageBuildEpochSec = pageBuildEpochSec
+                      apiVersion = ApiVersion.current
                       isReady = handle.isReady ()
                       changes = changes
                       packages = packages }
@@ -250,6 +252,7 @@ module Api =
                         { response with
                             buildEpochSec = buildEpochSec
                             pageBuildEpochSec = pageBuildEpochSec
+                            apiVersion = ApiVersion.current
                             isReady = handle.isReady () }
         | Error err -> return agentErrorResult err
     }

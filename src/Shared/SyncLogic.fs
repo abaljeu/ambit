@@ -1,10 +1,5 @@
 namespace Gambol.Shared
 
-/// Client-side values needed to determine if a poll response implies the client is outdated.
-type ClientPollContext =
-    { buildEpochSec: int
-      pageBuildEpochSec: int }
-
 /// Browser graph, Revision, and ClientHistory used by local and remote apply.
 type ClientSyncState =
     { graph: Graph
@@ -21,7 +16,7 @@ type AckReconcile =
 module SyncLogic =
 
     /// Determine if the poll response indicates the client is outdated.
-    /// Returns Some CodeOutdated if server has new code (build stamps differ),
+    /// Returns Some CodeOutdated if Poll apiVersion differs from ApiVersion.current,
     /// Some DataOutdated if server revision is ahead of the client,
     /// or None if the client is up to date.
     /// CodeOutdated takes priority when both conditions hold.
@@ -30,12 +25,8 @@ module SyncLogic =
     let getPollOutcome
         (poll: ChangeSuccessResponse)
         (clientRev: int)
-        (context: ClientPollContext)
         : SyncState option =
-        let codeOutdated =
-            (context.buildEpochSec <> 0 && context.pageBuildEpochSec <> 0)
-            && (poll.buildEpochSec <> context.buildEpochSec
-                || poll.pageBuildEpochSec <> context.pageBuildEpochSec)
+        let codeOutdated = poll.apiVersion <> ApiVersion.current
         let dataOutdated = poll.revision.Value > clientRev
         if codeOutdated then Some CodeOutdated
         elif dataOutdated then Some DataOutdated
@@ -124,6 +115,7 @@ module SyncLogic =
         { revision = Revision response.revision
           buildEpochSec = response.buildEpochSec
           pageBuildEpochSec = response.pageBuildEpochSec
+          apiVersion = response.apiVersion
           isReady = response.isReady
           externalChanges = not response.changes.IsEmpty
           changes = response.changes

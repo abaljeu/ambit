@@ -283,6 +283,7 @@ let ``ChangeSuccessResponse round-trip with non-empty Changes`` () =
         { revision = Revision 7
           buildEpochSec = 100
           pageBuildEpochSec = 200
+          apiVersion = ApiVersion.current
           isReady = false
           externalChanges = true
           changes = [ change ]
@@ -296,6 +297,7 @@ let ``ChangeSuccessResponse round-trip with non-empty Changes`` () =
     Assert.Equal(response.revision, decoded.revision)
     Assert.Equal(response.buildEpochSec, decoded.buildEpochSec)
     Assert.Equal(response.pageBuildEpochSec, decoded.pageBuildEpochSec)
+    Assert.Equal(response.apiVersion, decoded.apiVersion)
     Assert.False(decoded.isReady)
     Assert.True(decoded.externalChanges)
     Assert.Equal(1, decoded.changes.Length)
@@ -309,6 +311,7 @@ let ``ChangeSuccessResponse round-trip with empty Changes`` () =
         { revision = Revision 5
           buildEpochSec = 0
           pageBuildEpochSec = 0
+          apiVersion = ApiVersion.current
           isReady = true
           externalChanges = false
           changes = []
@@ -321,6 +324,7 @@ let ``ChangeSuccessResponse round-trip with empty Changes`` () =
             response
     Assert.Equal(response.revision, decoded.revision)
     Assert.False(decoded.externalChanges)
+    Assert.Equal(response.apiVersion, decoded.apiVersion)
     Assert.Equal<Change list>([], decoded.changes)
     Assert.Equal(None, decoded.message)
     Assert.Equal(None, decoded.bootstrapHash)
@@ -332,6 +336,7 @@ let ``ChangeSuccessResponse omits bootstrapHash and still decodes`` () =
     | Error err -> failwith err
     | Ok decoded ->
         Assert.Equal(3, decoded.revision.Value)
+        Assert.Equal(0, decoded.apiVersion)
         Assert.Equal(None, decoded.bootstrapHash)
 
 [<Fact>]
@@ -340,6 +345,7 @@ let ``ChangeSuccessResponse round-trip with bootstrapHash`` () =
         { revision = Revision 3
           buildEpochSec = 0
           pageBuildEpochSec = 0
+          apiVersion = ApiVersion.current
           isReady = true
           externalChanges = false
           changes = []
@@ -382,6 +388,7 @@ let ``LoadResponse round-trip with packages`` () =
         { revision = 8
           buildEpochSec = 10
           pageBuildEpochSec = 20
+          apiVersion = ApiVersion.current
           isReady = false
           changes = [ change ]
           packages = [ node ] }
@@ -393,6 +400,7 @@ let ``LoadResponse round-trip with packages`` () =
     Assert.Equal(response.revision, decoded.revision)
     Assert.Equal(response.buildEpochSec, decoded.buildEpochSec)
     Assert.Equal(response.pageBuildEpochSec, decoded.pageBuildEpochSec)
+    Assert.Equal(response.apiVersion, decoded.apiVersion)
     Assert.False(decoded.isReady)
     Assert.Equal(1, decoded.changes.Length)
     Assert.Equal(1, decoded.packages.Length)

@@ -18,6 +18,8 @@ Mutations for delegated workers to return to their parent: `add`, `move`, `block
 
 Work currently being executed.
 
+- [[.scratch/expression-language/spec-draft.md]] — design minimal abstraction core (grammar + Answer-stream semantics) and report barriers to that core before full spec (report: [[.scratch/expression-language/reports/spec-abstraction-core-and-barriers.md]])
+
 - [[.scratch/owner-edge-db-repair/spec.md]] — extend startup sweep: ACID repair of `node_children` Owned tree (GC unreachable; promote Ref when reachable node has no owner) (artifacts: [[.scratch/owner-edge-db-repair/implement.md]], [[src/Shared/ProjectionOwnershipRepair.fs]])
 - [[.scratch/parse-load-demote/issues/01-keep-current-on-rediscovered-added.md]] — keep Current when Load Workspace rediscovers Added path; demote only new stubs / NoServerFile (plan: fix_load_demotes_parse_8d40752b; artifacts: [[src/Shared/dotnet/LazyLoadReconciliationApply.fs]], [[tests/Shared.Tests/LazyLoadReconciliationTests.fs]])
 
@@ -26,7 +28,6 @@ Work currently being executed.
 Work ready to start but not yet claimed.
 
 - [[.scratch/client-start-time/reports/edit-indent-old-text-mismatch.md]] — verify/fix Editing `returnTo` + `adjustModeAfterServerApply` vs Poll/Load under edit+indent Tab CAS
-- [[.scratch/client-start-time/reports/free-tier-cold-start-sync.md]] — client recovery: existing tab after server reload applies Poll `ready:false` then `CodeOutdated` and never Polls again (Ack does not clear Starting up)
 - [[.scratch/client-start-time/issues/09-cache-first-boot-delayed-lcp.md]] — HITL: `/ambit` bundle LCP of `div.amb-text` back near ~1 s (artifacts: [[.scratch/client-start-time/reports/cache-first-boot-delayed-lcp.md]])
 - [[.scratch/client-start-time/issues/08-poll-hash-fallback-loop.md]] — HITL: one `/state` then Poll confirms; Selection must not jump to ROOT (artifacts: [[.scratch/client-start-time/reports/poll-hash-fallback-loop.md]])
 - [[.scratch/client-start-time/reports/cold-load-loading-hang.md]] — HITL re-verify cold load past Loading..., then warm F5 cache hit (parent: [[.scratch/client-start-time/reports/implement-cache-first-boot-01-07.md]])
@@ -42,7 +43,6 @@ Work ready to start but not yet claimed.
 - [[.scratch/selective-client-loading/issues/25-guard-structural-commands-at-unloaded-boundaries.md]] — guard all structural Change plans, including MoveSelected, from Unloaded child lists (parent: [[.scratch/selective-client-loading/spec.md]])
 - [[.scratch/selective-client-loading/reports/two-phase-state-loading-exploration.md]] — validate spec-break (folds widen bootstrap), Phase 1 thin-id-list feasibility, production \|V⁺\| vs Workspace; reconcile with cache-first boot; decisions captured, promotion pending validation (parent: [[.scratch/selective-client-loading/spec.md]])
 - [[doc/reference/dev-debug-workflow.md]] — document watch: prefer `/ambit?debug=1`; after esbuild rebuild hard-reload (Ack on CodeOutdated does not unblock)
-- [[src/Shared/SyncLogic.fs]] — decide API-version-only `CodeOutdated` vs process/page stamps (candidate: Shared protocol marker; covers watch page-mtime and server reload; artifact: [[.scratch/client-start-time/reports/free-tier-cold-start-sync.md]])
 - [[.scratch/glossary-directory-file/rename-isMarker.md]] — optional remaining speech/doc sweep for informal “marker” (Directory File sense); `isMarker` / related API renames done
 - [[.scratch/large-node-cursor-perf/delete-children-cost.md]] — profile/optimize delete among large siblings (fromNodes + SiteMap rematch / structural DOM plan) (parent: [[.scratch/large-node-cursor-perf/project.md]])
 

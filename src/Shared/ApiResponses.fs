@@ -1,5 +1,10 @@
 namespace Gambol.Shared
 
+/// Shared Poll/changes/load protocol marker. Bump on incompatible wire or semantics.
+[<RequireQualifiedAccess>]
+module ApiVersion =
+    let current = 1
+
 /// Bootstrap graph scope for GET /state. Production clients use RootClosure.
 /// Tests may request FullGraph via `?scope=full` on `/ambit/state`.
 type BootstrapScope =
@@ -17,6 +22,7 @@ type ChangeSuccessResponse =
     { revision: Revision
       buildEpochSec: int
       pageBuildEpochSec: int
+      apiVersion: int
       isReady: bool
       externalChanges: bool
       changes: Change list
@@ -40,6 +46,7 @@ type LoadResponse =
     { revision: int
       buildEpochSec: int
       pageBuildEpochSec: int
+      apiVersion: int
       isReady: bool
       changes: Change list
       /// Complete Workspace subgraph Nodes at the response Revision (wire: packages).

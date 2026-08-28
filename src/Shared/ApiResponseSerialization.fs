@@ -31,6 +31,7 @@ module ApiResponseSerialization =
             [ "r", Serialization.encodeRevision response.revision
               "b", Encode.int response.buildEpochSec
               "p", Encode.int response.pageBuildEpochSec
+              "v", Encode.int response.apiVersion
               "ready", Encode.bool response.isReady
               "externalChanges", Encode.bool response.externalChanges
               "c",
@@ -50,6 +51,9 @@ module ApiResponseSerialization =
                 get.Required.Field "r" Serialization.decodeRevision
               buildEpochSec = get.Required.Field "b" Decode.int
               pageBuildEpochSec = get.Required.Field "p" Decode.int
+              apiVersion =
+                get.Optional.Field "v" Decode.int
+                |> Option.defaultValue 0
               isReady = get.Required.Field "ready" Decode.bool
               externalChanges =
                 get.Required.Field "externalChanges" Decode.bool
@@ -99,6 +103,7 @@ module ApiResponseSerialization =
             [ "r", Encode.int response.revision
               "b", Encode.int response.buildEpochSec
               "p", Encode.int response.pageBuildEpochSec
+              "v", Encode.int response.apiVersion
               "ready", Encode.bool response.isReady
               "c",
                 response.changes
@@ -114,6 +119,9 @@ module ApiResponseSerialization =
             { revision = get.Required.Field "r" Decode.int
               buildEpochSec = get.Required.Field "b" Decode.int
               pageBuildEpochSec = get.Required.Field "p" Decode.int
+              apiVersion =
+                get.Optional.Field "v" Decode.int
+                |> Option.defaultValue 0
               isReady =
                 get.Optional.Field "ready" Decode.bool
                 |> Option.defaultValue true

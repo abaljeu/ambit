@@ -227,6 +227,7 @@ module ResidentProjection =
                 { revision = revision
                   buildEpochSec = buildEpochSec
                   pageBuildEpochSec = pageBuildEpochSec
+                  apiVersion = ApiVersion.current
                   isReady = isReady
                   changes = changes
                   packages = packages }

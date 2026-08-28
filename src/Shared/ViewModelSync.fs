@@ -37,7 +37,7 @@ type SyncState =
     | Loading                    // Load Fetch+Poll in-flight (blocks poll/submit)
     | WaitingToRetry of attempt: int * baseRevision: int * changes: PendingChange list
     | ServerRejected  // server returned 400 — change cannot be applied; reload required
-    | CodeOutdated    // server has newer code (build stamp changed) — reload required
+    | CodeOutdated    // Poll apiVersion differs from ApiVersion.current — reload required
     | DataOutdated    // server has newer data with no local pending — reload required
 
 /// A multi-phase request that must start from a settled revision, so it rides the

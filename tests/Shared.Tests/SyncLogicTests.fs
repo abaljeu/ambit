@@ -12,14 +12,11 @@ let private emptyModel = VmTestHelpers.emptyModel
 
 let private mkChange id = { id = id; changeId = System.Guid.NewGuid(); ops = [] }
 
-let private mkContext build page =
-    { ClientPollContext.buildEpochSec = build
-      pageBuildEpochSec = page }
-
 let private mkPoll rev build page : ChangeSuccessResponse =
     { revision = Revision rev
       buildEpochSec = build
       pageBuildEpochSec = page
+      apiVersion = ApiVersion.current
       isReady = true
       externalChanges = false
       changes = []
@@ -33,57 +30,45 @@ let private mkPoll rev build page : ChangeSuccessResponse =
 [<Fact>]
 let ``getPollOutcome returns DataOutdated when server revision is ahead`` () =
     let poll = mkPoll 6 1 1
-    let ctx = mkContext 1 1
-    Assert.Equal(Some DataOutdated, SyncLogic.getPollOutcome poll 5 ctx)
+    Assert.Equal(Some DataOutdated, SyncLogic.getPollOutcome poll 5)
 
 [<Fact>]
 let ``getPollOutcome returns None when server revision equals client`` () =
     let poll = mkPoll 5 1 1
-    let ctx = mkContext 1 1
-    Assert.Equal(None, SyncLogic.getPollOutcome poll 5 ctx)
+    Assert.Equal(None, SyncLogic.getPollOutcome poll 5)
 
 // ---------------------------------------------------------------------------
-// getPollOutcome — code outdated
+// getPollOutcome — API version, not process/page stamps
 // ---------------------------------------------------------------------------
 
 [<Fact>]
-let ``getPollOutcome returns CodeOutdated when build stamps differ and client stamps non-zero`` () =
-    let poll = mkPoll 5 2 2
-    let ctx = mkContext 1 1
-    Assert.Equal(Some CodeOutdated, SyncLogic.getPollOutcome poll 5 ctx)
-
-[<Fact>]
-let ``getPollOutcome sends an existing page through CodeOutdated after server restart`` () =
+let ``getPollOutcome does not CodeOutdated an existing page after server restart with the same API`` () =
     let pageProcessStart = 1_700_000_000
     let restartedProcessStart = pageProcessStart + 1
     let pageBuild = 1_699_999_000
     let poll = mkPoll 5 restartedProcessStart pageBuild
-    let context = mkContext pageProcessStart pageBuild
-    Assert.Equal(
-        Some CodeOutdated,
-        SyncLogic.getPollOutcome poll 5 context)
+    Assert.Equal(None, SyncLogic.getPollOutcome poll 5)
 
 [<Fact>]
-let ``getPollOutcome returns None when client build stamp is 0 (stamps not yet injected)`` () =
-    let poll = mkPoll 5 99 99
-    let ctx = mkContext 0 0
-    Assert.Equal(None, SyncLogic.getPollOutcome poll 5 ctx)
+let ``getPollOutcome returns DataOutdated after server restart when revision is ahead`` () =
+    let pageProcessStart = 1_700_000_000
+    let poll = mkPoll 6 (pageProcessStart + 1) 1_699_999_000
+    Assert.Equal(Some DataOutdated, SyncLogic.getPollOutcome poll 5)
 
 [<Fact>]
-let ``getPollOutcome returns None when client page stamp is 0`` () =
-    let poll = mkPoll 5 99 99
-    let ctx = mkContext 99 0
-    Assert.Equal(None, SyncLogic.getPollOutcome poll 5 ctx)
-
-// ---------------------------------------------------------------------------
-// getPollOutcome — priority: CodeOutdated beats DataOutdated
-// ---------------------------------------------------------------------------
+let ``getPollOutcome does not treat page stamp drift as CodeOutdated`` () =
+    let poll = mkPoll 5 1 99
+    Assert.Equal(None, SyncLogic.getPollOutcome poll 5)
 
 [<Fact>]
-let ``getPollOutcome returns CodeOutdated when both code and data are outdated`` () =
-    let poll = mkPoll 6 2 2
-    let ctx = mkContext 1 1
-    Assert.Equal(Some CodeOutdated, SyncLogic.getPollOutcome poll 5 ctx)
+let ``getPollOutcome returns CodeOutdated when API version mismatches`` () =
+    let poll = { mkPoll 5 1 1 with apiVersion = ApiVersion.current + 1 }
+    Assert.Equal(Some CodeOutdated, SyncLogic.getPollOutcome poll 5)
+
+[<Fact>]
+let ``getPollOutcome returns CodeOutdated when both API and data are outdated`` () =
+    let poll = { mkPoll 6 1 1 with apiVersion = ApiVersion.current + 1 }
+    Assert.Equal(Some CodeOutdated, SyncLogic.getPollOutcome poll 5)
 
 // ---------------------------------------------------------------------------
 // SyncInfo helpers

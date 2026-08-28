@@ -13,18 +13,15 @@ let private mkPoll rev (changes: Change list) : ChangeSuccessResponse =
     { revision = Revision rev
       buildEpochSec = 1
       pageBuildEpochSec = 1
+      apiVersion = ApiVersion.current
       isReady = true
       externalChanges = not changes.IsEmpty
       changes = changes
       message = None
       bootstrapHash = None }
 
-let private ctx =
-    { ClientPollContext.buildEpochSec = 1
-      pageBuildEpochSec = 1 }
-
 let private decide clientRev log poll =
-    BootCache.decideBootPoll clientRev log poll ctx None None
+    BootCache.decideBootPoll clientRev log poll None None
 
 [<Fact>]
 let ``novelChanges skips Poll Changes already in the log by id`` () =
@@ -56,10 +53,17 @@ let ``decideBootPoll confirms when the tail is only local log duplicates`` () =
     | other -> failwithf "%A" other
 
 [<Fact>]
-let ``decideBootPoll reports CodeOutdated when page stamps differ`` () =
-    let poll = { mkPoll 5 [] with buildEpochSec = 2 }
+let ``decideBootPoll reports CodeOutdated when API version mismatches`` () =
+    let poll = { mkPoll 5 [] with apiVersion = ApiVersion.current + 1 }
     match decide 5 [] poll with
     | BootCache.BootPoll.CodeOutdated -> ()
+    | other -> failwithf "%A" other
+
+[<Fact>]
+let ``decideBootPoll confirms when page stamps differ and API matches`` () =
+    let poll = { mkPoll 5 [] with buildEpochSec = 2; pageBuildEpochSec = 99 }
+    match decide 5 [] poll with
+    | BootCache.BootPoll.Confirmed true -> ()
     | other -> failwithf "%A" other
 
 [<Fact>]
@@ -156,7 +160,7 @@ let ``graphFingerprint is stable for the same Graph and changes when ROOT text c
 let ``decideBootPoll falls back on equal Revision hash mismatch`` () =
     match
         BootCache.decideBootPoll
-            5 [] (mkPoll 5 []) ctx (Some "aaa") (Some "bbb")
+            5 [] (mkPoll 5 []) (Some "aaa") (Some "bbb")
     with
     | BootCache.BootPoll.FallbackState "hash" -> ()
     | other -> failwithf "%A" other
@@ -164,7 +168,7 @@ let ``decideBootPoll falls back on equal Revision hash mismatch`` () =
 [<Fact>]
 let ``decideBootPoll skips hash compare when Poll omits bootstrapHash`` () =
     match
-        BootCache.decideBootPoll 5 [] (mkPoll 5 []) ctx None (Some "bbb")
+        BootCache.decideBootPoll 5 [] (mkPoll 5 []) None (Some "bbb")
     with
     | BootCache.BootPoll.Confirmed true -> ()
     | other -> failwithf "%A" other
@@ -181,7 +185,7 @@ let ``decideBootPoll confirms after /state when a client fingerprint disagrees``
     let poll = { mkPoll 5 [] with bootstrapHash = Some "server" }
     let cached = BootCache.cachedHashForBootPoll true "fable-poison"
     match
-        BootCache.decideBootPoll 5 [] poll ctx (Some "server") cached
+        BootCache.decideBootPoll 5 [] poll (Some "server") cached
     with
     | BootCache.BootPoll.Confirmed true -> ()
     | other -> failwithf "%A" other

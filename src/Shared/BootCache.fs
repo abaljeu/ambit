@@ -225,14 +225,13 @@ module BootCache =
         (clientRev: int)
         (log: Change list)
         (poll: ChangeSuccessResponse)
-        (context: ClientPollContext)
         (pollHash: string option)
         (cachedHash: string option)
         : BootPoll =
         if poll.revision.Value < clientRev then
             BootPoll.FallbackState "revision"
         else
-            match SyncLogic.getPollOutcome poll clientRev context with
+            match SyncLogic.getPollOutcome poll clientRev with
             | Some CodeOutdated -> BootPoll.CodeOutdated
             | Some DataOutdated
             | None ->

@@ -150,7 +150,7 @@ Do not block first paint on sweep complete: the Graph is already servable. The y
 
 ## Discussion: API version vs process stamps for CodeOutdated
 
-Proposal (not implemented): gate `CodeOutdated` on an API/protocol version marker shared by Server and Client. Do **not** treat process restart, Azure Free unload, or `dotnet` reload as code-outdated when the API is unchanged.
+Proposal (now implemented): gate `CodeOutdated` on an API/protocol version marker shared by Server and Client. Do **not** treat process restart, Azure Free unload, or `dotnet` reload as code-outdated when the API is unchanged.
 
 ### Cite current design
 
@@ -170,3 +170,7 @@ Proposal (not implemented): gate `CodeOutdated` on an API/protocol version marke
 6. Relates to WORK watch item: both avoid false `CodeOutdated` on page mtime drift; API-version also ignores process recycle.
 7. Risk: UI-only deploy without API bump leaves old tabs on stale client JS (Ack still does not reload).
 8. Counter-risk of keeping process stamps: Free unload / `dotnet` reload keeps forcing `CodeOutdated` on open tabs.
+
+## Implemented: API-version-only CodeOutdated
+
+Date: 2026-08-28. `getPollOutcome` returns `CodeOutdated` only when Poll `apiVersion` differs from [[src/Shared/ApiResponses.fs]] `ApiVersion.current` (value 1). Process restart, Azure Free unload, `dotnet` reload, and wwwroot page mtime do not set `CodeOutdated`. Poll/load/changes JSON field `v` carries that constant. Stamps `b`/`p` and HTML `__BUILD_TS__` / `__PAGE_BUILD_TS__` stay for logging. No UI-only reload hint. See [[api-version-code-outdated.md]].
