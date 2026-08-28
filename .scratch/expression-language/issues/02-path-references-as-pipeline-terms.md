@@ -27,7 +27,7 @@ Every path operator is a Prolog-style predicate. It finds 0, 1, or many Answers.
 **`//name` and `/`**
 
 - `//name` — search from ROOT for `name` with the path-search ruling in [[doc/roadmap/reference-expression-interpretation.md]] (so `//workspacename` is that Workspace Node).
-- `/` as a postfix filter: keep Directory Node and Workspace Node. Do not drop a Workspace Node. Drop File Node and Normal Node.
+- `/` as a postfix filter: keep Directory Node and Workspace Node. Do not drop a Workspace Node. Drop File Node and Normal Node. `/` is not a prefix. Bare `/` is undefined.
 - After a kept Workspace Node or Directory Node, a following name is documented path search: `//ws/x` searches for File Node `x`, or Directory Node `x` with `x/`. `/x` is not tag search.
 
 **`#` (tag / Normal names)**
@@ -43,10 +43,11 @@ Every path operator is a Prolog-style predicate. It finds 0, 1, or many Answers.
 
 **`**`**
 
-- Same as today’s `**`, and the same idea as postfix `descendant`.
+- Same as `tree`: transitively Owned Nodes; acyclic; does not follow Ref; no Directory/Workspace stop. Not the word `descendant`. Walk words: [[12-owned-versus-ref-walk-for-descendant.md|Owned versus Ref walk for descendant]].
 
 **`:` and `!`**
 
 - `x:n` — the Child of `x` at index `n`. `x!n` — the sibling of `x` at offset `n`. `!0` is `x`.
 - `x:` and `x!` are not defined (drop old “all Children” and “identity”).
 - `x:*` — every Child of `x`. `x!*` — every sibling of `x` including `x` (the parent’s Children). Omitted `x` is allowed (`:*`, `!*`).
+- A number is only valid as the right operand of `:` or `!`. Anywhere else is a type error.

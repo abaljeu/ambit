@@ -29,7 +29,9 @@ Path operators are locked on [[.scratch/expression-language/issues/02-path-refer
 HITL 2026-08-27. Closed first catalog of words:
 
 - `root` — generator; short form `//` (ROOT).
-- `descendant` — generator from left-hand Nodes; `**` is the same idea ([[.scratch/expression-language/issues/02-path-references-as-pipeline-terms.md|Path references as pipeline terms]]).
+- `child` — generator from left-hand Nodes; finds Children (Owned and Ref). Same set as `:*`.
+- `descendant` — closure of `child` (follows Ref). Not `**`.
+- `tree` — transitively Owned Nodes; acyclic; does not follow Ref. Short form `**`. `// tree` is that walk from ROOT.
 - `containing` — infix or postfix filter; argument is a quoted string; matches Header text only (not name).
 - `named` — not `tagged`; finds Normal Nodes with that name; short form `#x`. Same glob: `named "re*ed"` and `#re*ed`.
 - `NOT` — negation-as-failure. `(left) NOT #x` and `(left) NOT named x` have the natural meaning. Letter-case is locked on [[04-boolean-operators-as-control.md]].
@@ -44,8 +46,8 @@ Combinators:
 - Composition of two pure filters happens to equal `AND` (`left containing "the" named "blue"` versus `… AND …`). If an operand is not a pure filter (for example the generator `descendant`), composition and `AND` differ. They are not interchangeable.
 - Answer sequence (order, duplicates) is locked on [[05-how-multiple-answers-surface.md]]: `OR` concatenates and may repeat; `AND` is left-predicate order, at most once.
 
-Path symbols already locked on Path references as pipeline terms stay in the language: `//`, `^`, `.`, `/`, `#`, `*`, `**`, `:n`, `!n`, `:*`, `!*`. This ticket does not re-open them.
+Path symbols already locked on Path references as pipeline terms stay in the language: `//`, `^`, `.`, `/`, `#`, `*`, `**`, `:n`, `!n`, `:*`, `!*`. This ticket does not re-open them. `/` is not a prefix. `**` is `tree`, not `descendant`. Walk words `child` / `descendant` / `tree`: [[12-owned-versus-ref-walk-for-descendant.md|Owned versus Ref walk for descendant]].
 
-Out of this closed word set until later tickets: postfix `text` (exists from [[.scratch/expression-language/issues/01-pipeline-versus-amble-juxtaposition.md|Pipeline versus Amble juxtaposition]] but not this catalog slice), `name`, `children`, `of`, `sort`. `of` remains the open question on [[.scratch/expression-language/issues/11-keep-or-drop-amble-of-and-comma.md|Keep or drop Amble of and comma]].
+Out of this closed word set until later tickets: postfix `text` (exists from [[.scratch/expression-language/issues/01-pipeline-versus-amble-juxtaposition.md|Pipeline versus Amble juxtaposition]] but not this catalog slice), `name`, `sort`. `of` is dropped ([[.scratch/expression-language/issues/11-keep-or-drop-amble-of-and-comma.md|Keep or drop Amble of and comma]]).
 
 No Boolean Answer type. A miss is 0 Answers (Prolog-style), already locked.

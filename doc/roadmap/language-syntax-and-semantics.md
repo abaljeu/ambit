@@ -22,11 +22,9 @@ Expressions are first-class expression values. They can be passed to functions d
 Expr        ::= Number | RefExpr | String | "(" Expr ")" | FunCall | ">" CmdLine
 
 FunCall     ::= Function Juxtapose+
-            | Name "of" InfixExpr
             | Juxtapose "," InfixExpr
 
-InfixExpr   ::= Name "of" InfixExpr
-            | Juxtapose
+InfixExpr   ::= Juxtapose
             | Juxtapose "," InfixExpr
 
 Juxtapose   ::= Function Juxtapose+ | Primary
@@ -36,8 +34,10 @@ SignedInt   ::= ["+" | "-"] Digit+
 SignedFloat ::= SignedInt "." Digit+
 Name        ::= NameChar+
 NameChar    ::= letter | digit | "@" | "." | "-" | "_" | "?" | "*"
-Function    ::= Name | ","
+Function    ::= Name
 ```
+
+Juxtaposition is left-associative postfix (`#todo text`). The `FunCall` production above is the old prefix shape and does not match these examples. See [[.scratch/expression-language/spec-draft.md]].
 
 `Name` and `NameChar` match `RefExprParse.isNameChar` / `RefExpr.readName` (including `.`). Numbers are signed integers or floats with a single `.` fractional part; no `e` / `E` exponent notation.
 
@@ -45,7 +45,7 @@ Function    ::= Name | ","
 
 **Anchored references.** Only Amble requires every `RefExpr` to begin with an explicit anchor (`//`, `/`, `^`, `#`, `!`, or `!nn`) or a current-directory base (`.` alone or `./…`; see [[doc/roadmap/reference-expression-interpretation.md]]). Search and persistence do not mandate either; implicit context (e.g. `:0`, `.amb`, a bare name) is valid there and is a parse error in Amble.
 
-**Infix `of` and comma.** `of` and `,` have equal precedence, bind less tightly than juxtaposition, and associate right. `a , b , c` parses as `FunCall(",", [a; FunCall(",", [b; c])])`. `List , sort List` parses as `FunCall(",", [List; FunCall("sort", [List])])` — juxtaposition groups `sort List` before comma combines. Juxtaposition arguments are full `InfixExpr` values, so `sort 3 , 5 , 2` parses as `FunCall("sort", [FunCall(",", [3; FunCall(",", [5; 2])])])`.
+**Comma.** `,` is `OR`. It concatenates Answer streams. It binds less tightly than juxtaposition. `#list , (#list sort)` concatenates the `#list` stream with the sorted `#list` stream. `of` is not in this language. `sort 3,5,2` is not defined.
 
 ### Statements
 
@@ -108,29 +108,31 @@ Parse and resolution errors follow the command result contract in [[doc/roadmap/
 
 ### Functions
 
-These functions operate on the node list resolved by a reference expression:
+These functions take a Node stream on the left (postfix):
 
-- `text Ref` returns text from each resolved node.
-- `name Ref` returns names from resolved nodes that have names.
-- `children Ref` returns direct children, including refs, of each resolved node.
-- `,` concatenates two values (infix: `a , b`).
+- `text` returns text from each Node.
+- `name` returns names from named Nodes.
+- `child` returns Children (Owned and Ref) of each Node.
+- `sort` sorts Nodes by their text. `sort 3,5,2` is not defined.
+- `,` is `OR`: it concatenates two Node streams.
 
-Infix `of` and `,` desugar to `FunCall`. `name of children ./folder/` is `FunCall("name", [FunCall("children", […])])`. `name of children , other` is `FunCall("name", [FunCall(",", […; other])])`. `of` and `,` share precedence and associate right; juxtaposition binds tighter than both.
+`of` is not in this language. Prefix `text Ref` is a type error; the form is `Ref text`.
 
-`Ref` is any expression that resolves to nodes, usually a reference expression such as `#todo`, `^/notes.md`, or `//workspaceName/src/`.
+`Ref` is any Expression that yields Nodes, usually a path such as `#todo`, `^/notest.md`, or `//workspaceName/src/`.
 
 ## Examples
 
 ```text
-text #todo
-name ^/notes.md
-children //workspaceName/src/
-name of children ./folder/
-#list , sort #list
-sort 3 , 5 , 2
+#todo text
+^/notest.md
+//workspaceName/src/ child
+./folder/ child name
+#list , (#list sort)
 > python //ws/rugby.py < #rugbydata
 > tool --data (text #rugbydata)
 > python ./rugby.py --verbose
 > tool "/arg=x" --option p > ^/out.log
 > python ./step1.py < #rugbydata | python ./step2.py > ^/result.txt
 ```
+
+`#list , (#list sort)`: comma is `OR`. `#list` applies to the current Node and yields Nodes. The second `#list` does the same. `sort` sorts those Nodes by their text. The result is the list appended to itself; the second half is in order. `sort 3,5,2` is not defined.
