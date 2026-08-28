@@ -74,6 +74,29 @@ module ExprCompile =
         | ExprTerm.Word(word, literal) -> compileWord catalog word literal
         | ExprTerm.Cluster(steps, _) -> compileCluster catalog steps
 
+    let rec private compileExpr catalog expr =
+        match expr with
+        | Expr.Term t -> compileTerm catalog t
+        | Expr.Pipe [] -> Error "empty expression"
+        | Expr.Pipe (head :: tail) ->
+            List.fold
+                (bindNext (compileExpr catalog))
+                (compileExpr catalog head)
+                tail
+        | Expr.Not inner ->
+            compileExpr catalog inner
+            |> Result.map ExprEval.notEval
+        | Expr.And (left, right) ->
+            compileExpr catalog left
+            |> Result.bind (fun lpred ->
+                compileExpr catalog right
+                |> Result.map (ExprEval.andEval lpred))
+        | Expr.Or (left, right) ->
+            compileExpr catalog left
+            |> Result.bind (fun lpred ->
+                compileExpr catalog right
+                |> Result.map (ExprEval.orEval lpred))
+
     let private compose (left: ExprSignature) (right: ExprSignature) =
         if left.output = right.input then
             Ok
@@ -119,23 +142,33 @@ module ExprCompile =
         | ExprTerm.Word(word, _) -> lookupSig catalog word
         | ExprTerm.Cluster(steps, _) -> clusterSig catalog steps
 
+    let rec private inferExpr catalog expr =
+        match expr with
+        | Expr.Term t -> termSig catalog t
+        | Expr.Pipe [] -> Error "empty expression"
+        | Expr.Pipe (head :: tail) ->
+            composeList (inferExpr catalog) head tail
+        | Expr.Not inner ->
+            inferExpr catalog inner
+            |> Result.map (fun s -> { input = s.input; output = s.input })
+        | Expr.And (left, right)
+        | Expr.Or (left, right) ->
+            inferExpr catalog left
+            |> Result.bind (fun lsig ->
+                inferExpr catalog right
+                |> Result.bind (fun rsig ->
+                    if lsig.input = rsig.input && lsig.output = rsig.output then
+                        Ok lsig
+                    else
+                        Error "type error"))
+
     let inferType catalog source =
         ExprParse.parseExpr source
-        |> Result.bind (fun terms ->
-            match terms with
-            | [] -> Error "empty expression"
-            | head :: tail -> composeList (termSig catalog) head tail)
+        |> Result.bind (inferExpr catalog)
 
     let compile catalog source =
         ExprParse.parseExpr source
-        |> Result.bind (fun terms ->
-            match terms with
-            | [] -> Error "empty expression"
-            | head :: tail ->
-                List.fold
-                    (bindNext (compileTerm catalog))
-                    (compileTerm catalog head)
-                    tail)
+        |> Result.bind (compileExpr catalog)
 
     type Outcome =
         | Hits of ExprAnswerType * ExprAnswer list

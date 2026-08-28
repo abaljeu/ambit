@@ -51,3 +51,5 @@ Path symbols already locked on Path references as pipeline terms stay in the lan
 Out of this closed word set until later tickets: postfix `text` (exists from [[.scratch/expression-language/issues/01-pipeline-versus-amble-juxtaposition.md|Pipeline versus Amble juxtaposition]] but not this catalog slice), `name`, `sort`. `of` is dropped ([[.scratch/expression-language/issues/11-keep-or-drop-amble-of-and-comma.md|Keep or drop Amble of and comma]]).
 
 No Boolean Answer type. A miss is 0 Answers (Prolog-style), already locked.
+
+HITL 2026-08-28 amendment. `#` is not the short form of `named`. `#` is subsection search (spoken spelling `subsection`; `subsection "todo"` equals `#todo`). `named` remains the name-glob pure filter. `section` is the zero-argument pure filter “is a named Normal Node”.

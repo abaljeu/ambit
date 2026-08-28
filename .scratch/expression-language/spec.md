@@ -16,11 +16,11 @@ User decisions of 2026-08-28, incorporated throughout:
 - Four postfix filters by Node classification join the catalog: `ws`, `dir`, `file`, and `normal`. Each is `Node ⇒ Node` with no slot, a pure filter that satisfies the pure-filter theorem. They fill the dropped DirStep gap and more: directories named `d` is `x / "d" dir`. Pleasantly, `root ws` equals `root`, because ROOT is a Workspace Node.
 - One more infix pure filter joins the catalog: `class`, with a required quoted Text argument. `x class "y"` yields the input Node when `y` is in the Node's cssClasses, matching the implemented representation ([[src/Shared/CssClass.fs]]: a token list, tested by exact case-sensitive membership).
 - New catalog word `wsroot`: up to the nearest Workspace Node. An ordinary row beside `^` and `.`.
-- `#` and `named` are separate rows. `#` takes a required name and searches strictly below each input through Children (Owned and Ref), with the content-search walls and deterministic Node-identity deduplication defined in chapter 7. `named` takes a required quoted name and is a pure filter on the input Node.
+- `#` and `named` are separate rows. `#` is subsection search (spoken spelling `subsection`; `subsection "todo"` equals `#todo`): it takes a required name and searches strictly below each input through Children (Owned and Ref) for sections, with the walls and deterministic Node-identity deduplication defined in chapter 7. `named` takes a required quoted name and is a pure filter on the input Node's name glob. `section` is a zero-argument pure filter: yield the input when it is a named Normal Node.
 - Barriers 4 through 8 absorb as the report recommends: Answer equality is defined once; closure entries dedupe and composition never does; parse error, type error, and zero Answers stay distinct outcomes.
 - Terminology: this spec says type (`τ`) and never "kind" for the Node/Text classification, because Kind is the established Node classification in [[CONTEXT.md]].
 
-Notation: `τ` ranges over Answer types; `τ1 ⇒ τ2` is the type of a term (chapter 2); `E⟦e⟧` is the Answer function of Expression `e` (chapter 6); `δ(w)` is the catalog Answer function of row `w`; `⟨⟩` is the empty sequence, `⟨x⟩` the one-Answer sequence, `++` concatenation. Grammar is EBNF. Domain words — Node, Answer, Graph, Header, Children, Owned, Ref, Normal Node, File Node, Directory Node, Workspace Node, ROOT, Loaded, Unloaded, zoomRoot, Zoom, Find — follow [[CONTEXT.md]] exactly.
+Notation: `τ` ranges over Answer types; `τ1 ⇒ τ2` is the type of a term (chapter 2); `E⟦e⟧` is the Answer function of Expression `e` (chapter 6); `δ(w)` is the catalog Answer function of row `w`; `⟨⟩` is the empty sequence, `⟨x⟩` the one-Answer sequence, `++` concatenation. Grammar is EBNF. Domain words — Node, Answer, Graph, Header, Children, Owned, Ref, Normal Node, section, subsection, File Node, Directory Node, Workspace Node, ROOT, Loaded, Unloaded, zoomRoot, Zoom, Find — follow [[CONTEXT.md]] exactly.
 
 ## 2. Semantic domain: Answers, types, and predicates
 
@@ -87,8 +87,8 @@ Int         ::= ["+" | "-"] Digit+
 ```
 
 - The locked precedence is encoded directly: juxtaposition (Seq) binds tightest, then `NOT`, then `AND`, then `OR` and comma.
-- The trailing Literal of a Term is consumed exactly when the Word's catalog row, or the cluster's final step, has an unfilled argument slot; a Literal in any other position is a parse error. A required slot that no adjacent NamePattern and no trailing Literal fills is a missing-argument parse error: bare `/`, bare `//`, bare `#`, `containing` without its string, `// OR /`.
-- The `named` word requires a quoted name argument. The cluster operator `#` requires either an adjacent NamePattern or a trailing quoted name argument.
+- The trailing Literal of a Term is consumed exactly when the Word's catalog row, or the cluster's final step, has an unfilled argument slot; a Literal in any other position is a parse error. A required slot that no adjacent NamePattern and no trailing Literal fills is a missing-argument parse error: bare `/`, bare `//`, bare `#`, bare `subsection`, `containing` without its string, `// OR /`.
+- The `named` word requires a quoted name argument. The `subsection` word requires a quoted name argument. The cluster operator `#` requires either an adjacent NamePattern or a trailing quoted name argument. `subsection "todo"` equals `#todo`. Bare `subsection` is a missing-argument parse error, uniform with bare `#`.
 - A bare NamePattern element of a cluster is the argument of an implicit `/` (chapter 3).
 - Symbols are never operator arguments. The cluster fragment `//` desugars to `root /`, so bare `//` is a missing-argument parse error and the locked example `// tree` becomes `root tree`.
 - A compound predicate after `NOT` needs parentheses (`left NOT (containing "the" AND named "blue")`), because the `NOT` arm takes one NotExpr, as the precedence lock requires.
@@ -129,9 +129,9 @@ E⟦NOT e⟧ x       = ⟨x⟩ when E⟦e⟧ x is empty, otherwise ⟨⟩
 
 - Juxtaposition is monadic bind over the sequence and therefore associative: `((a) b) c` and `a (b c)` denote the same function; the left-associativity lock only fixes the parse tree.
 - Order is fixed by these rules: juxtaposition is left-to-right; `OR` and comma concatenate and may repeat an Answer; `AND` keeps the left operand's order, each Answer at most once.
-- Deduplication belongs to `AND`, the closure row `descendant`, and each `#` search. Composition never dedupes, so `child child` legitimately repeats a Node that appears under two parents, and separate left-input Answers can still produce the same Node.
+- Deduplication belongs to `AND`, the closure row `descendant`, and each subsection search (`#`). Composition never dedupes, so `child child` legitimately repeats a Node that appears under two parents, and separate left-input Answers can still produce the same Node.
 - Lazy, eager, or backtracking evaluation is an implementation freedom, because the rules fix only the sequence and its order.
-- Theorem (provable remark, not a rule): when `f` and `g` are pure filters — each yields a subsequence of `⟨x⟩`, as `containing`, `named`, `class`, and the classification filters `ws`, `dir`, `file`, and `normal` do — `f g` and `f AND g` denote the same function; a generator such as `descendant` makes them differ.
+- Theorem (provable remark, not a rule): when `f` and `g` are pure filters — each yields a subsequence of `⟨x⟩`, as `containing`, `named`, `class`, `section`, and the classification filters `ws`, `dir`, `file`, and `normal` do — `f g` and `f AND g` denote the same function; a generator such as `descendant` makes them differ.
 - Unloaded rule: a walk step that needs the Children of an Unloaded Node yields no Answers from that Node. It is a miss, never an error, and it never Loads. All evaluation is local to the Browser Graph ([[.scratch/expression-language/issues/14-server-side-search.md]]).
 
 ## 7. The catalog
@@ -144,7 +144,7 @@ Stated once for every row: a miss is the empty sequence (fail-to-answer); a walk
 | --- | --- | --- | --- | --- |
 | root | `root` | — | `τ ⇒ Node` | Ignore the input; yield ROOT. The cluster fragment `//` is exactly shorthand for `root /`, so `//name` desugars to `root / "name"` and bare `//` is a missing-argument parse error. |
 | structural search | `/`; also implicit for an unconsumed cluster name | required name | `Node ⇒ Node` | The Workspace Nodes, Directory Nodes, and File Nodes (containers including files) whose name matches the glob, by Owned recursive descent below the input that does not enter the Children of a Directory Node or Workspace Node; deeper structure is reached by chaining (`//ws/x`). |
-| content search | cluster `#` | required name | `Node ⇒ Node` | Search strictly below the input for Normal Nodes whose name matches the glob; wall, traversal, and deduplication rules are below the table. Bare `#` is a missing-argument parse error. |
+| subsection | `subsection`; cluster `#` | required name | `Node ⇒ Node` | Search strictly below the input for sections whose name matches the glob; wall, traversal, and deduplication rules are below the table. `subsection "todo"` equals `#todo`. Bare `#` and bare `subsection` are missing-argument parse errors. |
 | named | `named` | required quoted name | `Node ⇒ Node` | Yield the input when it is a Normal Node whose name matches the glob; otherwise yield no Answers. This row is a pure filter and does not search Children. |
 | child | `child` | — | `Node ⇒ Node` | The Children of the input (Owned and Ref), in Children order; the same set as `:` with `*`. |
 | descendant | `descendant` | — | `Node ⇒ Node` | Every Node reachable through one or more child steps (follows Ref), depth-first in Children order, each Node at most once by Node identity (first reach wins). |
@@ -154,6 +154,7 @@ Stated once for every row: a miss is the empty sequence (fail-to-answer); a walk
 | dir | `dir` | — | `Node ⇒ Node` | Yield the input when it is a Directory Node; a pure filter. Directories named `d` is `x / "d" dir`. |
 | file | `file` | — | `Node ⇒ Node` | Yield the input when it is a File Node; a pure filter. |
 | normal | `normal` | — | `Node ⇒ Node` | Yield the input when it is a Normal Node; a pure filter. |
+| section | `section` | — | `Node ⇒ Node` | Yield the input when it is a section (a named Normal Node); a pure filter. Unnamed Normal Nodes are not sections. |
 | class | `class` | required quoted string | `Node ⇒ Node` | Yield the input when the argument is a member of the Node's cssClasses token list; membership is exact and case-sensitive, aligned with the implemented `CssClass.contains` ([[src/Shared/CssClass.fs]]); a pure filter, no glob and no substring. |
 | structural up | cluster `^` | — | `Node ⇒ Node` | The nearest File Node, Directory Node, or Workspace Node up the Owned chain, the input included. |
 | directory up | cluster `.` | — | `Node ⇒ Node` | The nearest Directory Node or Workspace Node up the Owned chain, the input included. |
@@ -164,8 +165,9 @@ Stated once for every row: a miss is the empty sequence (fail-to-answer); a walk
 Search rules:
 
 - Structural search (`/`, including the `//` desugar and the implicit `/`): decided 2026-08-28 — Owned recursive descent strictly below the input, not entering the Children of a Directory Node or Workspace Node. RefExpr's trailing-slash directory-only constraint has no spelling here; its meaning is spelled with the classification filter, `x / "d" dir` (chapter 9).
-- Content search (`#`): search strictly below each input through Children, both Owned and Ref. Visit Nodes depth-first in Children order and visit each Node at most once per input by Node identity; first reach wins. An unnamed Normal Node is transparent. A named Normal Node is a wall: yield it when its name matches, and never enter its Children. Do not enter the Children of a File Node, Directory Node, or Workspace Node. Therefore `a#b#c` first applies implicit `/ "a"`, then searches below each resulting Answer for Nodes named `b`, then searches below each resulting `b` for Nodes named `c`.
-- Name filter (`named`): test only the input Node. `containing "the" AND named "blue"` applies both pure filters to the same input and keeps it only when its Header contains `the` and it is a Normal Node whose name matches `blue`.
+- Subsection search (`#`, spoken `subsection`): search strictly below each input through Children, both Owned and Ref. Visit Nodes depth-first in Children order and visit each Node at most once per input by Node identity; first reach wins. An unnamed Normal Node is transparent (not a section). A section is a wall: yield it when its name matches, and never enter its Children. Do not enter the Children of a File Node, Directory Node, or Workspace Node. Therefore `a#b#c` first applies implicit `/ "a"`, then searches below each resulting Answer for sections named `b`, then searches below each resulting `b` for sections named `c`.
+- Section filter (`section`): test only the input Node. Yield it when it is a named Normal Node; otherwise yield no Answers.
+- Name filter (`named`): test only the input Node. `containing "the" AND named "blue"` applies both pure filters to the same input and keeps it only when its Header contains `the` and it is a Normal Node whose name matches `blue`. `named` is not `#`; `#` is subsection search.
 
 Combinators are rows too, with their Answer functions given by the chapter 6 rules:
 
@@ -207,18 +209,18 @@ Revision list for the later implementation effort, against [[src/Shared/RefExprM
 1. `**` today walks Owned Children, stops at Directory Node and Workspace Node, and includes the base Node; this spec's `**` is `tree`: transitively Owned, no stop, input excluded.
 2. `/` today is the anchor "nearest Workspace, else ROOT"; this spec's `/` is the infix structural-search operator with a required name argument, and the up-walk meaning moves to the word `wsroot`.
 3. RefExpr's DirStep constraint (trailing `d/` meaning directories only) has no spelling in this spec and is dropped: `/` finds Workspace Nodes, Directory Nodes, and File Nodes uniformly, and the directory-only meaning is spelled `x / "d" dir` with the classification filter. FileStep's file-only match widens the same way (`x / "f" file` restores it).
-4. The bare `#` anchor (nearest named Normal ancestor) is removed; `#` always takes a name argument and searches down.
+4. The bare `#` anchor (nearest named Normal ancestor) is removed; `#` always takes a name argument and searches down for subsections (sections below). Spoken spelling `subsection`.
 5. The leading `!` anchor and bare `!` (context Node) and bare `:` (all Children) are removed; `!0` is the identity, `!*` and `:*` are the all-forms.
 6. Amble prefix `FunCall` juxtaposition is gone: `text Ref` becomes `Ref text` (prefix `text` is a type error), `of` is dropped, and comma-as-`FunCall` sugar is dropped (comma is `OR`).
 7. Amble today rejects a leading name without an anchor; this spec accepts it as the argument of an implicit `/` from the current Node, matching search's implicit context.
 8. Run today evaluates a bare anchored RefExpr line and writes redletter error Children; this spec runs only `=` and `Name=` forms and writes one blueletter Child `No matches found`.
 9. `RefExprParse` today accepts quoted segments inside a path; this spec keeps cluster-internal quotes out of scope (chapter 10), while spaced quoted arguments (`x / "a b"`) are new.
 10. Implemented `pathSearchFrom` follows Ref Children and recurses through Directory Node and Workspace Node Children; this spec's structural search is decided as Owned-only descent that stops there, so the implementation and its Ref-following path-step tests must be revised.
-11. Implemented content search and this spec's `#` search both start strictly below the base. The new `named` row tests the input itself because it is a filter, not a search.
-12. Implemented `tagSearchFrom` follows Ref Children, consistent with this spec's `#` traversal; [[doc/roadmap/reference-expression-interpretation.md]] says Owned only and must be revised. The `named` word is separate from `#`: it is a pure same-input filter and performs no traversal.
+11. Implemented content search and this spec's subsection search (`#`) both start strictly below the base. The `named` row tests the input itself because it is a filter, not a search. The `section` row also tests the input: it keeps a named Normal Node and yields nothing otherwise.
+12. Implemented `tagSearchFrom` follows Ref Children, consistent with this spec's `#` traversal; [[doc/roadmap/reference-expression-interpretation.md]] says Owned only and must be revised. The `named` word is separate from `#`: it is a pure same-input name-glob filter and performs no traversal. `#` is subsection search, not a short form of `named`.
 13. Implemented `globMatch` treats `?` as a one-character wildcard; this spec defines `*` as the only glob metacharacter, so `?` behavior must be specified or revised later.
 14. `//` today is the ROOT anchor; this spec has no `//` row — the cluster fragment desugars to `root /` and bare `//` no longer parses.
-15. The words `root`, `child`, `descendant`, `tree`, `containing`, `named`, `wsroot`, `class`, the classification filters `ws`/`dir`/`file`/`normal`, the reserved `AND`/`OR`/`NOT`, and the statement forms `=` / `Name=` are all new surface.
+15. The words `root`, `child`, `descendant`, `tree`, `containing`, `named`, `section`, `subsection`, `wsroot`, `class`, the classification filters `ws`/`dir`/`file`/`normal`, the reserved `AND`/`OR`/`NOT`, and the statement forms `=` / `Name=` are all new surface.
 
 ## 10. Deferred and not planned
 
@@ -234,7 +236,7 @@ Extends [[.scratch/expression-language/reports/pipeline-examples.md]], re-checke
 | --- | --- | --- |
 | `root descendant containing "the" named "blue"` | `Node ⇒ Node` | ROOT; closure of child; keep Nodes whose Header text contains `the`; then keep only those same Nodes that are Normal Nodes named `blue`. |
 | `containing "the" AND named "blue"` | `Node ⇒ Node` | Same-input intersection: keep the current Node when its Header text contains `the` and it is a Normal Node named `blue`. |
-| `#x , #y` | `Node ⇒ Node` | Comma is `OR`: descendant-search Answers of `#x`, then descendant-search Answers of `#y`, from the same input; may repeat a Node across the two searches. |
+| `#x , #y` | `Node ⇒ Node` | Comma is `OR`: subsection-search Answers of `#x`, then subsection-search Answers of `#y`, from the same input; may repeat a Node across the two searches. |
 | `root descendant containing "the"` | `Node ⇒ Node` | The value row `root`, then the words compose. Amended from the locked `// descendant …`, which no longer parses (bare `//` lacks its name). |
 | `root tree` | `Node ⇒ Node` | Transitively Owned Nodes from ROOT; acyclic; does not follow Ref; the same as `**`. Amended from the locked `// tree`. |
 | `root ws` | `Node ⇒ Node` | Equals `root`: ROOT is a Workspace Node, so the classification filter keeps it. |
@@ -247,18 +249,20 @@ Extends [[.scratch/expression-language/reports/pipeline-examples.md]], re-checke
 | `/ "d" dir` | `Node ⇒ Node` | Structural Nodes named `d` below the current Node, kept only when they are Directory Nodes: the spelling that replaces RefExpr's DirStep. |
 | `root descendant class "h1"` | `Node ⇒ Node` | Descendants of ROOT whose cssClasses contain the token `h1`; exact case-sensitive membership, no glob. |
 | `d/e` | `Node ⇒ Node` | One cluster from the current Node: implicit `/` with argument `d`, then `/` with argument `e`; the spaced spelling is `/ "d" / "e"`. |
-| `d#e` | `Node ⇒ Node` | Implicit `/` with argument `d`, then search strictly below each resulting `d` for Normal Nodes named `e`; equals `/ "d" # "e"`, but not `/ "d" named "e"`. |
-| `a#b#c` | `Node ⇒ Node` | Apply implicit `/ "a"`; below each resulting Answer search for `b`; below each resulting `b` search for `c`. Each `#` search follows Owned and Ref Children depth-first in Children order, with Node-identity deduplication per input. |
+| `d#e` | `Node ⇒ Node` | Implicit `/` with argument `d`, then subsection search strictly below each resulting `d` for sections named `e`; equals `/ "d" # "e"` and `/ "d" subsection "e"`, but not `/ "d" named "e"`. |
+| `a#b#c` | `Node ⇒ Node` | Apply implicit `/ "a"`; below each resulting Answer search for sections named `b`; below each resulting `b` search for sections named `c`. Each subsection search follows Owned and Ref Children depth-first in Children order, with Node-identity deduplication per input. |
 | `"d" "e"` | parse error | Literals are never terms: neither string has a preceding operator that wants an argument. |
 | `/` | parse error | Missing argument: `/` requires a name, uniform with `containing` lacking its string. |
 | `// OR /` | parse error | A missing-argument parse error twice over: bare `//` lacks the name of its `root /` desugar, and bare `/` lacks its name (final barrier 2 resolution). |
 | `wsroot` | `Node ⇒ Node` | The containing Workspace: nearest Workspace Node up the Owned chain from the current Node. |
-| `wsroot #todo` | `Node ⇒ Node` | Up to the containing Workspace, then search strictly below it through Owned and Ref Children for Normal Nodes named `todo`. |
-| `^#blue` | `Node ⇒ Node` | From the structural container, content search down; a named Normal Node walls the search, so `blue` under `todo` is missed; `^#todo#blue` finds it. |
+| `wsroot #todo` | `Node ⇒ Node` | Up to the containing Workspace, then subsection search strictly below it through Owned and Ref Children for sections named `todo`. Equals `wsroot subsection "todo"`. |
+| `^#blue` | `Node ⇒ Node` | From the structural container, subsection search down; a section walls the search, so `blue` under `todo` is missed; `^#todo#blue` finds it. |
 | `child` | `Node ⇒ Node` | The Children of the current Node (Owned and Ref); the same set as `:*`. |
 | `!-249053534` | zero Answers | Out-of-range sibling offset: a miss, not an error. |
 | `root descendant NOT containing "draft"` | `Node ⇒ Node` | Descendants of ROOT kept when the `containing "draft"` predicate yields nothing from them. |
-| `#todo text` | `Node ⇒ Text` (later slice) | Descendant-search Nodes named `todo`, then each Node's text; `text` is postfix and outside this closed catalog slice. |
+| `#todo text` | `Node ⇒ Text` (later slice) | Subsection-search sections named `todo`, then each Node's text; `text` is postfix and outside this closed catalog slice. |
+| `subsection "todo"` | `Node ⇒ Node` | Equals `#todo`: search strictly below the input for sections named `todo`. |
+| `section` | `Node ⇒ Node` | Yield the input when it is a section (a named Normal Node); empty on an unnamed Normal Node or any Special Kind. |
 | `text #todo` | type error | Old Amble prefix form; no composition matches `Node ⇒ Text` then `Node ⇒ Node`. |
 | `root descendant containing root` | parse error | `root` is a symbol and cannot fill the string slot of `containing`; reported in the type-error format (the draft's label for this case). |
 | `3` | parse error | A literal with no operator wanting it; reported with the locked wording: a number is only valid as the right operand of `:` or `!`. |

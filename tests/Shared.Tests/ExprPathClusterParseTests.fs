@@ -35,11 +35,13 @@ let ``//ws desugars to root slash ws`` () =
 let ``root slash ws cluster matches spaced structural search`` () =
     let fromRoot = exprOk "root /ws"
     let fromQuoted = exprOk "root / \"ws\""
-    let expected: ExprSeq =
-        [ ExprTerm.Word("root", None)
-          ExprTerm.Cluster([ ClusterStep.Structural "ws" ], None) ]
-    Assert.Equal<ExprSeq>(expected, fromRoot)
-    Assert.Equal<ExprSeq>(expected, fromQuoted)
+    let expected =
+        Expr.Pipe [
+            Expr.Term(ExprTerm.Word("root", None))
+            Expr.Term(ExprTerm.Cluster([ ClusterStep.Structural "ws" ], None))
+        ]
+    Assert.Equal(expected, fromRoot)
+    Assert.Equal(expected, fromQuoted)
 
 [<Fact>]
 let ``bare double slash is missing argument`` () =
@@ -87,17 +89,22 @@ let ``bare bang is missing argument`` () =
 
 [<Fact>]
 let ``spaced quoted structural name argument`` () =
-    let expected: ExprSeq =
-        [ ExprTerm.Word("x", None)
-          ExprTerm.Cluster([ ClusterStep.Structural "filename with spaces" ], None) ]
-    Assert.Equal<ExprSeq>(expected, exprOk "x / \"filename with spaces\"")
+    let expected =
+        Expr.Pipe [
+            Expr.Term(ExprTerm.Word("x", None))
+            Expr.Term(
+                ExprTerm.Cluster([ ClusterStep.Structural "filename with spaces" ], None))
+        ]
+    Assert.Equal(expected, exprOk "x / \"filename with spaces\"")
 
 [<Fact>]
 let ``spaced quoted content name argument`` () =
-    let expected: ExprSeq =
-        [ ExprTerm.Word("x", None)
-          ExprTerm.Cluster([ ClusterStep.Content "a b" ], None) ]
-    Assert.Equal<ExprSeq>(expected, exprOk "x # \"a b\"")
+    let expected =
+        Expr.Pipe [
+            Expr.Term(ExprTerm.Word("x", None))
+            Expr.Term(ExprTerm.Cluster([ ClusterStep.Content "a b" ], None))
+        ]
+    Assert.Equal(expected, exprOk "x # \"a b\"")
 
 // ---- spaced // ws stays parse error ----
 

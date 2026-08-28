@@ -74,6 +74,14 @@ _Avoid_: regular, plain, standard
 A Node whose Kind is Normal. Always say Normal Node, not bare “normal,” when referring to the Node.
 _Avoid_: normal (bare, for a Node), regular node, plain node
 
+**section**:
+A named Normal Node. Unnamed Normal Nodes are not sections.
+_Avoid_: heading, HTML heading, Header (as this Node), named (as this Node)
+
+**subsection**:
+The Expression search for sections below the input Node. Cluster spelling `#`; `subsection "todo"` equals `#todo`.
+_Avoid_: tagged, content search, named (as this search), Find
+
 **Special**:
 Any Kind that is not Normal; a structural or system role.
 _Avoid_: system node, meta node

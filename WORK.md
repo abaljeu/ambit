@@ -26,7 +26,8 @@ Work currently being executed.
 
 Work ready to start but not yet claimed.
 
-- [[.scratch/expression-language/issues/23-and-or-not-and-comma-combinators.md]] — parse/eval `OR`, comma, `AND`, `NOT` at spec precedence (branch: `w/expr`; reports: [[.scratch/expression-language/reports/ticket-24-retire-prefix-funcall.md]])
+- [[.scratch/expression-language/issues/26-section-and-subsection-catalog-rows.md]] — implement `section` filter and `subsection` spelling of `#` (branch: `w/expr`; lock: [[.scratch/expression-language/reports/section-filter-lock.md]])
+- [[tests/Shared.Tests/ExprChapter11Tests.fs]] — add leftover chapter 11 combinator rows (`#x , #y`, `AND`/`NOT`/`OR`) now that ticket 23 landed (parent: [[.scratch/expression-language/issues/25-spec-ch11-worked-example-regression-harness.md]])
 - [[.scratch/client-start-time/issues/09-cache-first-boot-delayed-lcp.md]] — HITL: `/ambit` bundle LCP of `div.amb-text` back near ~1 s (artifacts: [[.scratch/client-start-time/reports/cache-first-boot-delayed-lcp.md]])
 - [[.scratch/client-start-time/issues/08-poll-hash-fallback-loop.md]] — HITL: one `/state` then Poll confirms; Selection must not jump to ROOT (artifacts: [[.scratch/client-start-time/reports/poll-hash-fallback-loop.md]])
 - [[.scratch/client-start-time/reports/cold-load-loading-hang.md]] — HITL re-verify cold load past Loading..., then warm F5 cache hit (parent: [[.scratch/client-start-time/reports/implement-cache-first-boot-01-07.md]])

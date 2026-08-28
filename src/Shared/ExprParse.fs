@@ -13,12 +13,18 @@ module ExprParse =
     let numberOnlyOperand =
         "a number is only valid as the right operand of : or !"
 
-    type private Segment =
+    type private Token =
         | Quoted of string
         | Raw of string
+        | AndKw
+        | OrKw
+        | NotKw
+        | Comma
+        | LParen
+        | RParen
 
     let private segmentRegex =
-        Regex(@"""[^""]*""|[^""\s(),]+")
+        Regex(@"""[^""]*""|[(),]|[^""\s(),]+")
 
     let private isPathCluster (seg: string) =
         seg.Length > 0
@@ -38,16 +44,24 @@ module ExprParse =
            | '+' | '-' -> seg.Length > 1 && Char.IsDigit seg.[1]
            | _ -> false
 
-    let private splitSegments (input: string) : Segment list =
+    let private classify (seg: string) =
+        if seg = "," then Comma
+        elif seg = "(" then LParen
+        elif seg = ")" then RParen
+        elif seg = "AND" then AndKw
+        elif seg = "OR" then OrKw
+        elif seg = "NOT" then NotKw
+        elif seg.Length >= 2 && seg.[0] = '"' && seg.[seg.Length - 1] = '"' then
+            Quoted(seg.Substring(1, seg.Length - 2))
+        else
+            Raw seg
+
+    let private tokenize (input: string) : Token list =
         segmentRegex.Matches input
         |> Seq.cast<Match>
         |> Seq.map (fun m -> m.Value)
         |> Seq.filter (not << String.IsNullOrWhiteSpace)
-        |> Seq.map (fun seg ->
-            if seg.Length >= 2 && seg.[0] = '"' && seg.[seg.Length - 1] = '"' then
-                Quoted(seg.Substring(1, seg.Length - 2))
-            else
-                Raw seg)
+        |> Seq.map classify
         |> Seq.toList
 
     let private wordWantsTrailingLiteral (word: string) =
@@ -68,33 +82,112 @@ module ExprParse =
             ExprPathClusterParse.parse seg
             |> Result.map (fun cluster -> ExprTerm.Cluster(cluster, None))
 
-    let private parseSegments segments =
-        let rec loop remaining acc =
-            match remaining with
-            | [] -> Ok(List.rev acc)
-            | Quoted _ :: _ -> Error "unexpected quoted literal"
-            | Raw word :: Quoted text :: rest when wordWantsTrailingLiteral word ->
-                parseWord word (Some text)
-                |> Result.bind (fun term -> loop rest (term :: acc))
-            | Raw word :: rest when isPathCluster word ->
-                let literal, after =
-                    match rest with
-                    | Quoted text :: tail -> Some text, tail
-                    | _ -> None, rest
+    let private takeLiteral rest =
+        match rest with
+        | Quoted text :: tail -> Some text, tail
+        | _ -> None, rest
 
-                parseClusterSegment word literal
-                |> Result.bind (fun term -> loop after (term :: acc))
-            | Raw word :: rest when isSignedInteger word -> Error numberOnlyOperand
-            | Raw word :: rest ->
-                parseWord word None
-                |> Result.bind (fun term -> loop rest (term :: acc))
+    let private isTermStart token =
+        match token with
+        | LParen
+        | Quoted _ -> true
+        | Raw _ -> true
+        | _ -> false
 
-        loop segments []
+    let private seqExpr items =
+        match items with
+        | [ one ] -> one
+        | many -> Expr.Pipe many
 
-    let parseExpr (input: string) : Result<ExprSeq, string> =
+    let private attachNot left inner =
+        match left with
+        | Expr.Pipe items -> Expr.Pipe(items @ [ Expr.Not inner ])
+        | _ -> Expr.Pipe [ left; Expr.Not inner ]
+
+    let rec private parseOr tokens =
+        parseAnd tokens
+        |> Result.bind (fun (left, rest) -> parseOrTail left rest)
+
+    and private parseOrTail left tokens =
+        match tokens with
+        | OrKw :: rest
+        | Comma :: rest ->
+            parseAnd rest
+            |> Result.bind (fun (right, rest2) ->
+                parseOrTail (Expr.Or(left, right)) rest2)
+        | _ -> Ok(left, tokens)
+
+    and private parseAnd tokens =
+        parseNot tokens
+        |> Result.bind (fun (left, rest) -> parseAndTail left rest)
+
+    and private parseAndTail left tokens =
+        match tokens with
+        | AndKw :: rest ->
+            parseNot rest
+            |> Result.bind (fun (right, rest2) ->
+                parseAndTail (Expr.And(left, right)) rest2)
+        | _ -> Ok(left, tokens)
+
+    and private parseNot tokens =
+        match tokens with
+        | NotKw :: rest ->
+            parseNot rest
+            |> Result.map (fun (inner, rest2) -> Expr.Not inner, rest2)
+        | _ ->
+            parseSeq tokens
+            |> Result.bind (fun (seqNode, rest) ->
+                match rest with
+                | NotKw :: rest2 ->
+                    parseNot rest2
+                    |> Result.map (fun (inner, rest3) ->
+                        attachNot seqNode inner, rest3)
+                | _ -> Ok(seqNode, rest))
+
+    and private parseSeq tokens =
+        parseTerm tokens
+        |> Result.bind (fun (first, rest) -> parseSeqTail [ first ] rest)
+
+    and private parseSeqTail acc tokens =
+        match tokens with
+        | t :: _ when isTermStart t ->
+            parseTerm tokens
+            |> Result.bind (fun (next, rest) -> parseSeqTail (next :: acc) rest)
+        | _ -> Ok(seqExpr (List.rev acc), tokens)
+
+    and private parseTerm tokens =
+        match tokens with
+        | LParen :: rest -> parseGroup rest
+        | Quoted _ :: _ -> Error "unexpected quoted literal"
+        | Raw word :: rest when isPathCluster word ->
+            let literal, after = takeLiteral rest
+            parseClusterSegment word literal
+            |> Result.map (fun term -> Expr.Term term, after)
+        | Raw word :: rest when isSignedInteger word -> Error numberOnlyOperand
+        | Raw word :: rest ->
+            let literal, after =
+                if wordWantsTrailingLiteral word then takeLiteral rest
+                else None, rest
+            parseWord word literal
+            |> Result.map (fun term -> Expr.Term term, after)
+        | _ -> Error "empty expression"
+
+    and private parseGroup tokens =
+        parseOr tokens
+        |> Result.bind (fun (inner, rest) ->
+            match rest with
+            | RParen :: rest2 -> Ok(inner, rest2)
+            | _ -> Error "missing )")
+
+    let parseExpr (input: string) : Result<Expr, string> =
         if String.IsNullOrWhiteSpace input then
             Error "empty expression"
         else
-            splitSegments input |> parseSegments
+            parseOr (tokenize input)
+            |> Result.bind (fun (expr, rest) ->
+                match rest with
+                | [] -> Ok expr
+                | RParen :: _ -> Error "unexpected )"
+                | _ -> Error "unexpected token")
 
     let parseCluster = ExprPathClusterParse.parse

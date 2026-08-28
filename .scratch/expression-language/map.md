@@ -28,6 +28,7 @@ Standing preferences: plan, do not implement eval or parse in `src/`. Use Graph,
 - [[.scratch/expression-language/issues/11-keep-or-drop-amble-of-and-comma.md|Keep or drop Amble of and comma]] — drop `of`; drop Amble comma-as-`FunCall`; comma stays `OR`; `sort 3,5,2` is not defined.
 - [[.scratch/expression-language/issues/13-fog-of-the-first-spec.md|Fog of the first spec]] — unification, cut/if-then, and `findall`/`bagof` not planned; Unloaded walk is fail-to-answer; quotes for filters only; numbers and shell out for now.
 - [[.scratch/expression-language/issues/14-server-side-search.md|Server-side search]] — all eval is local; server postponed.
+- HITL 2026-08-28 — `section` is the pure filter “named Normal Node”; `subsection` is the spoken catalog spelling of cluster `#` (search for sections below). `named` stays the name-glob filter. Lock: [[.scratch/expression-language/reports/section-filter-lock.md]].
 
 ## Not yet specified
 

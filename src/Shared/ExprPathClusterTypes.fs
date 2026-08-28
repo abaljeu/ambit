@@ -20,4 +20,11 @@ type ExprTerm =
     | Word of string * string option
     | Cluster of PathCluster * string option
 
-type ExprSeq = ExprTerm list
+[<StructuralEquality; StructuralComparison>]
+[<RequireQualifiedAccess>]
+type Expr =
+    | Term of ExprTerm
+    | Pipe of Expr list
+    | Not of Expr
+    | And of Expr * Expr
+    | Or of Expr * Expr

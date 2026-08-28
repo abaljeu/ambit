@@ -8,9 +8,9 @@
 
 **See also:** [[.scratch/expression-language/issues/04-boolean-operators-as-control.md]]; [[.scratch/expression-language/issues/05-how-multiple-answers-surface.md]].
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `#x , #y` concatenates Answers from both searches; a Node may appear twice.
-- [ ] `containing "the" AND named "blue"` keeps the current Node only when both pure filters succeed on the same input.
-- [ ] `root descendant NOT containing "draft"` keeps descendants where the inner predicate yields nothing from that Node.
-- [ ] `d AND b OR c` parses as `(d AND b) OR c` by precedence.
+- [x] `#x , #y` concatenates Answers from both searches; a Node may appear twice.
+- [x] `containing "the" AND named "blue"` keeps the current Node only when both pure filters succeed on the same input.
+- [x] `root descendant NOT containing "draft"` keeps descendants where the inner predicate yields nothing from that Node.
+- [x] `d AND b OR c` parses as `(d AND b) OR c` by precedence.

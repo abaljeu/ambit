@@ -30,8 +30,10 @@
     <Compile Include="ExprContentSearchTests.fs" />
     <Compile Include="ExprPipelineTests.fs" />
     <Compile Include="ExprFilterTests.fs" />
+    <Compile Include="ExprCombinatorTests.fs" />
     <Compile Include="ExprRunTests.fs" />
     <Compile Include="ExprDialogTests.fs" />
+    <Compile Include="ExprChapter11Tests.fs" />
     <Compile Include="AmbleTests.fs" />
     <Compile Include="AmbleRunTests.fs" />
     <Compile Include="ViewModelFileSearchTests.fs" />
