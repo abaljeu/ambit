@@ -159,9 +159,12 @@ module ViewModelSearch =
         collect count [] cursor.discovery
 
     let searchNodes (query: string) (zoomRoot: NodeId) (graph: Graph) : NodeSearchResult list =
-        match startSearch query zoomRoot graph with
-        | None -> []
-        | Some cursor -> takeResults Int32.MaxValue cursor |> fst
+        match ExprDialog.tryHits query zoomRoot graph with
+        | Some results -> results
+        | None ->
+            match startSearch query zoomRoot graph with
+            | None -> []
+            | Some cursor -> takeResults Int32.MaxValue cursor |> fst
 
     let private tryResultAtDisplayIndex
         (selectedIndex: int)

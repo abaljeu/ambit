@@ -8,9 +8,9 @@
 
 **See also:** [[.scratch/expression-language/spec.md]] chapter 7 filter rows; [[.scratch/expression-language/issues/03-first-primitive-catalog.md]].
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `named "blue"` on a matching Normal Node yields that Node; on a non-match or non-Normal Node yields nothing without walking Children.
-- [ ] `root ws` equals `root`; `x / "d" dir` keeps only Directory Nodes named `d` among structural matches.
-- [ ] `class "h1"` keeps a Node only when `h1` is an exact cssClasses member.
-- [ ] `containing "the" AND named "blue"` (once combinators exist) intersects on the same input; `named` does not replace `#` search semantics.
+- [x] `named "blue"` on a matching Normal Node yields that Node; on a non-match or non-Normal Node yields nothing without walking Children.
+- [x] `root ws` equals `root`; `x / "d" dir` keeps only Directory Nodes named `d` among structural matches.
+- [x] `class "h1"` keeps a Node only when `h1` is an exact cssClasses member.
+- [x] `containing "the" AND named "blue"` (once combinators exist) intersects on the same input; `named` does not replace `#` search semantics.

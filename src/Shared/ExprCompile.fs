@@ -74,6 +74,58 @@ module ExprCompile =
         | ExprTerm.Word(word, literal) -> compileWord catalog word literal
         | ExprTerm.Cluster(steps, _) -> compileCluster catalog steps
 
+    let private compose (left: ExprSignature) (right: ExprSignature) =
+        if left.output = right.input then
+            Ok
+                { input = left.input
+                  output = right.output }
+        else
+            Error "type error"
+
+    let private lookupSig catalog spelling =
+        match ExprCatalog.lookup spelling catalog with
+        | None -> Error(unknownWord spelling)
+        | Some row -> Ok row.signature
+
+    let private stepSig catalog step =
+        match step with
+        | ClusterStep.Root -> lookupSig catalog "root"
+        | ClusterStep.Structural _ -> lookupSig catalog "/"
+        | ClusterStep.Content _ -> lookupSig catalog "#"
+        | ClusterStep.StructuralUp -> lookupSig catalog "^"
+        | ClusterStep.DirectoryUp -> lookupSig catalog "."
+        | ClusterStep.Tree -> lookupSig catalog "**"
+        | ClusterStep.ChildAt _ -> lookupSig catalog ":"
+        | ClusterStep.SiblingAt _ -> lookupSig catalog "!"
+
+    let private composeList infer first rest =
+        List.fold
+            (fun acc item ->
+                acc
+                |> Result.bind (fun left ->
+                    infer item |> Result.bind (compose left)))
+            (infer first)
+            rest
+
+    let private clusterSig catalog steps =
+        match steps with
+        | [] -> Error "empty cluster"
+        | head :: tail -> composeList (stepSig catalog) head tail
+
+    let private termSig catalog term =
+        match term with
+        | ExprTerm.Word(word, _) when isReserved word ->
+            Error(unknownWord word)
+        | ExprTerm.Word(word, _) -> lookupSig catalog word
+        | ExprTerm.Cluster(steps, _) -> clusterSig catalog steps
+
+    let inferType catalog source =
+        ExprParse.parseExpr source
+        |> Result.bind (fun terms ->
+            match terms with
+            | [] -> Error "empty expression"
+            | head :: tail -> composeList (termSig catalog) head tail)
+
     let compile catalog source =
         ExprParse.parseExpr source
         |> Result.bind (fun terms ->
@@ -84,6 +136,21 @@ module ExprCompile =
                     (bindNext (compileTerm catalog))
                     (compileTerm catalog head)
                     tail)
+
+    type Outcome =
+        | Hits of ExprAnswerType * ExprAnswer list
+        | ParseFailed of string
+        | TypeFailed of string
+
+    let evalOutcome graph input source =
+        let catalog = ExprPrimitive.catalog graph
+        match inferType catalog source with
+        | Error e when e = "type error" -> TypeFailed e
+        | Error e -> ParseFailed e
+        | Ok signature ->
+            match compile catalog source with
+            | Error e -> ParseFailed e
+            | Ok pred -> Hits(signature.output, pred input)
 
     let eval graph input source =
         compile (ExprPrimitive.catalog graph) source

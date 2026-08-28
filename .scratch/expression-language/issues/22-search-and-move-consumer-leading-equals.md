@@ -8,9 +8,9 @@
 
 **See also:** [[.scratch/expression-language/spec.md]] chapter 8; [[.scratch/expression-language/issues/06-top-level-context-node-versus-text.md]].
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `= root descendant containing "the"` in Search lists matching Nodes under zoomRoot; picking one Zooms to it.
-- [ ] Move `= Expression` relocates to the picked Node with the same Answer set as Search.
-- [ ] A `Node ⇒ Text` Expression shows no hits (type error merged into empty display).
-- [ ] A line without leading `=` still runs today's word search, not Expression evaluation.
+- [x] `= root descendant containing "the"` in Search lists matching Nodes under zoomRoot; picking one Zooms to it.
+- [x] Move `= Expression` relocates to the picked Node with the same Answer set as Search.
+- [x] A `Node ⇒ Text` Expression shows no hits (type error merged into empty display).
+- [x] A line without leading `=` still runs today's word search, not Expression evaluation.

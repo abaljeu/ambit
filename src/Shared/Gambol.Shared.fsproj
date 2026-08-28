@@ -30,6 +30,7 @@
     <Compile Include="ExprParse.fs" />
     <Compile Include="ExprPrimitive.fs" />
     <Compile Include="ExprCompile.fs" />
+    <Compile Include="ExprDialog.fs" />
     <Compile Include="AmbleTypes.fs" />
     <Compile Include="AmbleParse.fs" />
     <Compile Include="NodeKindPersistence.fs" />
@@ -41,6 +42,7 @@
     <Compile Include="DocumentArtifactPath.fs" />
     <Compile Include="DocumentPartition.fs" />
     <Compile Include="History.fs" />
+    <Compile Include="ExprRun.fs" />
     <Compile Include="ChildListWire.fs" />
     <Compile Include="ChildListMerge.fs" />
     <Compile Include="ChangeAmendment.fs" />

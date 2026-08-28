@@ -8,9 +8,9 @@
 
 **See also:** [[.scratch/expression-language/issues/07-statements-in-this-spec.md]]; [[.scratch/expression-language/spec.md]] chapter 8.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `= root descendant named "blue"` on a matching graph writes Ref Children for each Node Answer in order.
-- [ ] `todo=root descendant named "blue"` renames the current Node to `todo` and materialises as `=`.
-- [ ] A line with no leading `=` (bare Expression) does nothing in Run.
-- [ ] Parse error, type error, and zero Answers each produce one blueletter Child `No matches found`.
+- [x] `= root descendant named "blue"` on a matching graph writes Ref Children for each Node Answer in order.
+- [x] `todo=root descendant named "blue"` renames the current Node to `todo` and materialises as `=`.
+- [x] A line with no leading `=` (bare Expression) does nothing in Run.
+- [x] Parse error, type error, and zero Answers each produce one blueletter Child `No matches found`.

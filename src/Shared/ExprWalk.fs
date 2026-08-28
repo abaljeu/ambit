@@ -179,6 +179,45 @@ module ExprWalk =
                     |> Option.toList
                     |> answersOf graph
 
+    let private keepInput graph predicate input =
+        match tryGraphNode graph input with
+        | Some node when predicate node -> [ toAnswer node ]
+        | _ -> []
+
+    let named graph glob input =
+        keepInput graph (fun (node: Node) ->
+            match node.kind, Filename.tryValue node.name with
+            | Normal, Some name -> globMatch glob name
+            | _ -> false) input
+
+    let ws graph input =
+        keepInput graph (fun (node: Node) ->
+            match node.kind with
+            | Special Workspace -> true
+            | _ -> false) input
+
+    let dir graph input =
+        keepInput graph (fun (node: Node) ->
+            match node.kind with
+            | Special Directory -> true
+            | _ -> false) input
+
+    let file graph input =
+        keepInput graph (fun (node: Node) ->
+            match node.kind with
+            | Special File -> true
+            | _ -> false) input
+
+    let normal graph input =
+        keepInput graph (fun (node: Node) ->
+            match node.kind with
+            | Normal -> true
+            | _ -> false) input
+
+    let classMember graph token input =
+        keepInput graph (fun (node: Node) ->
+            CssClass.contains token node.cssClasses) input
+
     let containing graph (needle: string) input =
         match tryGraphNode graph input with
         | None -> []

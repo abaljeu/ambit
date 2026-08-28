@@ -81,6 +81,42 @@ module ExprPrimitive =
             (Some ExprSlotKind.QuotedText)
             (requireQuoted (ExprWalk.containing graph))
 
+    let private namedRow graph =
+        row
+            [ "named" ]
+            (Some ExprSlotKind.QuotedText)
+            (requireQuoted (ExprWalk.named graph))
+
+    let private wsRow graph =
+        row [ "ws" ] None (fun _ -> ExprWalk.ws graph)
+
+    let private dirRow graph =
+        row [ "dir" ] None (fun _ -> ExprWalk.dir graph)
+
+    let private fileRow graph =
+        row [ "file" ] None (fun _ -> ExprWalk.file graph)
+
+    let private normalRow graph =
+        row [ "normal" ] None (fun _ -> ExprWalk.normal graph)
+
+    let private classRow graph =
+        row
+            [ "class" ]
+            (Some ExprSlotKind.QuotedText)
+            (requireQuoted (ExprWalk.classMember graph))
+
+    let private textRow graph : ExprCatalogRow =
+        { spellings = [ "text" ]
+          slot = None
+          signature =
+            { input = ExprAnswerType.Node
+              output = ExprAnswerType.Text }
+          evaluate =
+            fun _ input ->
+                match ExprWalk.tryGraphNode graph input with
+                | Some node -> [ ExprAnswer.Text node.text ]
+                | None -> [] }
+
     let catalog (graph: Graph) : ExprCatalog.T =
         ExprCatalog.empty
         |> ExprCatalog.register (rootRow graph)
@@ -95,3 +131,10 @@ module ExprPrimitive =
         |> ExprCatalog.register (childRow graph)
         |> ExprCatalog.register (descendantRow graph)
         |> ExprCatalog.register (containingRow graph)
+        |> ExprCatalog.register (namedRow graph)
+        |> ExprCatalog.register (wsRow graph)
+        |> ExprCatalog.register (dirRow graph)
+        |> ExprCatalog.register (fileRow graph)
+        |> ExprCatalog.register (normalRow graph)
+        |> ExprCatalog.register (classRow graph)
+        |> ExprCatalog.register (textRow graph)

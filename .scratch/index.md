@@ -9,7 +9,7 @@
 | [ChildNode drop ref](childnode-drop-ref/) | spec | Progressive removal of ChildNode.ref; Node.owner + Op.SetOwner sole ownership source; Loaded-scope membership seam; ordered id-only ChildNode retained. |
 | [Client start time](client-start-time/) | active | Cache-first boot tickets 01–07 implemented (IndexedDB snapshot plus Change log, fold then first paint, boot Poll, truncation, optional bootstrapHash); HITL pending. |
 | [Event-sourced ops](event-sourced-ops/) | active | One semantic standard for how any Actor's Change enters a Graph — implementation issues (`issues/01`–`15`) through wire migration, Actor spine, recovery, and permanent global history; charting docs in overview, architecture, and details. |
-| [Expression Language](expression-language/) | active | Spec locked; tickets 15–19 implemented on `w/expr` (eval core, cluster parse, structural/`#` eval, pipeline words). Next is ticket 20 filters. |
+| [Expression Language](expression-language/) | active | Spec locked; tickets 15–22 implemented on `w/expr` (eval, filters, Run/Search/Move consumers). Next is ticket 23 combinators. |
 | [Large-node cursor perf](large-node-cursor-perf/) | active | Selection-only planPatchDOM/patchDOM fast path + O(1) SiteEntry.childIndex implemented; delete-children cost analysis in delete-children-cost.md (no delete fix yet). |
 | [Owner-edge database repair](owner-edge-db-repair/) | active | Extend DbAgent startup sweep: ACID repair of `node_children` into a ROOT-owned tree; GC unreachable; promote a Ref when a reachable node has no owner. |
 | [Selective client loading](selective-client-loading/) | active | Client-partial residency with explicit Load and Unloaded/Loaded child lists; spec ready-for-agent, implementation issues in flight. |
