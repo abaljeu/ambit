@@ -75,6 +75,7 @@ let private bootScope = BootCache.scopeKey (tryReadSavedZoomId ())
 let mutable bootLog: Change list = []
 let mutable pollingStarted = false
 let mutable bootHash = ""
+let mutable justFetchedState = false
 
 let private ensurePolling () =
     if not pollingStarted then
@@ -82,6 +83,7 @@ let private ensurePolling () =
         startPolling pollForRemoteChanges recordActivity
 
 let rec private loadFromState () =
+    justFetchedState <- true
     fetchGet
         stateUrl
         (fun text ->
@@ -97,13 +99,16 @@ let rec private loadFromState () =
                     consoleLog (
                         $"[Gambol boot] decodeStateResponse: {decodeMs}ms, "
                         + $"{text.Length} chars, {nodeCount} nodes")
-                    BootCacheStore.persistAfterState
-                        currentFile
-                        bootScope
-                        text
-                        response
-                    bootHash <- BootCache.graphFingerprint response.graph
                     finishPaint response []
+                    setTimeout
+                        (fun () ->
+                            BootCacheStore.persistAfterState
+                                currentFile
+                                bootScope
+                                text
+                                response)
+                        0
+                    |> ignore
                 | Error err ->
                     showBootError err)
         (fun status body ->
@@ -116,7 +121,8 @@ let rec private loadFromState () =
 
 and private fallbackState (reason: string) =
     consoleLog ("[Gambol boot] poll fallback " + reason + " → /state")
-    BootCacheStore.deleteCache currentFile (fun _ -> loadFromState ())
+    BootCacheStore.deleteCache currentFile ignore
+    loadFromState ()
 
 and private applyBootNovel (novel: Change list) (ready: bool) =
     let model = getModel ()
@@ -148,10 +154,12 @@ and private handleBootPoll (clientRev: int) (poll: ChangeSuccessResponse) =
     let context =
         { ClientPollContext.buildEpochSec = readBuildEpochSec ()
           pageBuildEpochSec = readPageBuildEpochSec () }
+    let cached =
+        BootCache.cachedHashForBootPoll justFetchedState bootHash
+    justFetchedState <- false
     match
         BootCache.decideBootPoll
-            clientRev bootLog poll context poll.bootstrapHash
-            (if bootHash = "" then None else Some bootHash)
+            clientRev bootLog poll context poll.bootstrapHash cached
     with
     | BootCache.BootPoll.Confirmed ready ->
         dispatch (
@@ -192,31 +200,4 @@ and private finishPaint (response: StateResponse) (localLog: Change list) =
         response.isReady
         response.graph
 
-let private bootFromCache
-    (record: BootCache.SnapshotRecord option)
-    (log: Change list)
-    : unit =
-    match
-        BootCache.decideBootRead
-            BootCache.enabled
-            currentFile
-            bootScope
-            record
-            log
-            decodeStateResponse
-    with
-    | BootCache.BootRead.FetchState reason ->
-        consoleLog ("[Gambol boot] cache " + reason + " → /state")
-        loadFromState ()
-    | BootCache.BootRead.UseCache response ->
-        consoleLog (
-            "[Gambol boot] cache hit rev=" + string response.revision.Value)
-        match record with
-        | Some snap -> bootHash <- snap.bootstrapHash
-        | None -> ()
-        finishPaint response log
-
-if BootCache.enabled then
-    BootCacheStore.readSnapshotAndLog currentFile bootFromCache
-else
-    loadFromState ()
+loadFromState ()

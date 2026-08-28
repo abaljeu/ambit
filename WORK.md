@@ -25,7 +25,10 @@ Work currently being executed.
 
 Work ready to start but not yet claimed.
 
-- [[.scratch/client-start-time/reports/implement-cache-first-boot-01-07.md]] — HITL verify cache-first boot: IndexedDB snapshot present, no `/state` on warm F5, first paint includes accepted edits (parent: [[.scratch/client-start-time/reports/cache-first-boot-via-poll.md]])
+- [[.scratch/expression-language/issues/06-top-level-context-node-versus-text.md]] — next wayfinder frontier: Top-level context Node versus text (parent: [[.scratch/expression-language/map.md]])
+- [[.scratch/client-start-time/issues/09-cache-first-boot-delayed-lcp.md]] — HITL: `/ambit` bundle LCP of `div.amb-text` back near ~1 s (artifacts: [[.scratch/client-start-time/reports/cache-first-boot-delayed-lcp.md]])
+- [[.scratch/client-start-time/issues/08-poll-hash-fallback-loop.md]] — HITL: one `/state` then Poll confirms; Selection must not jump to ROOT (artifacts: [[.scratch/client-start-time/reports/poll-hash-fallback-loop.md]])
+- [[.scratch/client-start-time/reports/cold-load-loading-hang.md]] — HITL re-verify cold load past Loading..., then warm F5 cache hit (parent: [[.scratch/client-start-time/reports/implement-cache-first-boot-01-07.md]])
 - [[.scratch/client-start-time/reports/reload-state-reuse-investigation.md]] — server revision-keyed bootstrap encode cache for warm F5 at unchanged revision (artifacts: [[src/Server/Api.fs]], [[src/Shared/ResidentProjection.fs]]; parent: [[.scratch/client-start-time/reports/state-further-optimization.md]])
 - [[.scratch/client-start-time/reports/bucket-3-post-state-work.md]] — defer `applyFoldSession` to after first paint; first render collapsed SiteMap only (artifacts: [[src/Client/App.fs]], [[src/Client/SessionState.fs]]); lower priority after HITL: restore 8ms / 18 rows ([[.scratch/client-start-time/reports/production-hitl-after-deploy.md]])
 - [[.scratch/selective-client-loading/issues/20-restore-saved-zoom-workspace-during-bootstrap.md]] — HITL F5: Load Workspace, focus a sub-node (no Zoom), refresh; owning Workspace Loaded and zoom stays at prior zoomRoot / in-ROOT (not zoomed into selection) (artifacts: [[src/Shared/ResidentProjection.fs]] sessionTargets, [[src/Client/SessionState.fs]])

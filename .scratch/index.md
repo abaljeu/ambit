@@ -3,6 +3,8 @@
 | Project | Stage | Summary |
 | --- | --- | --- |
 | [Bullet tip times](bullet-tip-times/) | charting | Which non-obvious time facts a node-marker tooltip should show (update, workspace, server, last-sync) with de-dup, timezone, and availability rules; open questions unresolved. |
+| [Download no-parse fix](download-no-parse-fix/) | charting | Download stamp-align must not require Parse; SetUpdateTime is exempt from the unparsed-document gate. |
+| [Expression Language](expression-language/) | charting | Destination named — spec for pipeline Expression language; juxtaposition, path operators, first word catalog, boolean combinators, and Answer sequence locked. |
 | [Parse load demote](parse-load-demote/) | charting | Empty stub directory; stage unknown until contents land. |
 | [RowView / FocusView layout vs behavior](rowview-layout-behavior/) | charting | Separate layout from behavior inside RowView/FocusView; plan complete, waits on the split-view-by-concern refactor landing. |
 | [ChildNode drop ref](childnode-drop-ref/) | spec | Progressive removal of ChildNode.ref; Node.owner + Op.SetOwner sole ownership source; Loaded-scope membership seam; ordered id-only ChildNode retained. |
@@ -18,6 +20,6 @@
 | [Load status phases](load-status-phases/) | done | Make Load's three stages visible: Uploading (desktop push), Parsing (disk parse/reconcile), Loading (graph fetch); web skips Uploading. |
 | [Login / context restore](login-context-restore/) | done | Auth and cold-reload HITLs passed; owning Workspace and prior Zoom restore after iOS unload. |
 | [Node-bullet tooltip](node-bullet-tooltip/) | done | Bullet hover tip (native title) listing self-gated Node facts — Guid tail, residency, workspace path + local desktop path, Update Time (local tz), CSS classes. Shared `bulletTip` + Client `nodeBullet`/CSS rename + local-time formatter + `VM.workspaceRoots` local-path line; delivered, committed, and browser-verified on 2026-08-16. |
-| [Relaxed concurrency](relaxed-concurrency/) | done | Build-upon layer — verified Graph/Ops facts, shared rejections, frontier D–F; merge implementation and active standard are event-sourced-ops. |
+| [Relaxed concurrency](relaxed-concurrency/) | done | Build-upon layer — verified Graph/Ops facts, shared rejections, frontier D–F; merge implementation and active standard are [[event-sourced-ops/overview.md]]. |
 | [Search zoom select](search-zoom-select/) | done | Restore prior Find zoom framing; on no-children parent fallback, select the search target. |
 | [Work board audit](work-board-audit/) | done | Audit WORK claims against source, tests, history, and durable HITL evidence. |

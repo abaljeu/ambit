@@ -154,6 +154,37 @@ let ``decideBootRead fetches /state on miss and metadata mismatch`` () =
     | BootCache.BootRead.FetchState "file" -> ()
     | other -> failwithf "%A" other
 
+let private wait decode elapsed returned record =
+    BootCache.decideBootReadWait
+        elapsed returned true "ambit" "root" record [] decode
+
+[<Fact>]
+let ``decideBootReadWait keeps waiting before the cache-read timeout`` () =
+    match wait decodeState 0 false None with
+    | BootCache.BootReadWait.KeepWaiting -> ()
+    | other -> failwithf "%A" other
+    match
+        wait decodeState (BootCache.cacheReadTimeoutMs - 1) false None
+    with
+    | BootCache.BootReadWait.KeepWaiting -> ()
+    | other -> failwithf "%A" other
+
+[<Fact>]
+let ``decideBootReadWait fetches /state when IndexedDB never returns`` () =
+    match
+        wait decodeState BootCache.cacheReadTimeoutMs false None
+    with
+    | BootCache.BootReadWait.Done (BootCache.BootRead.FetchState "timeout") ->
+        ()
+    | other -> failwithf "%A" other
+
+[<Fact>]
+let ``decideBootReadWait fetches /state as soon as IndexedDB reports a miss`` () =
+    match wait decodeState 0 true None with
+    | BootCache.BootReadWait.Done (BootCache.BootRead.FetchState "miss") ->
+        ()
+    | other -> failwithf "%A" other
+
 [<Fact>]
 let ``decideBootRead fetches /state on decode error`` () =
     let snap =

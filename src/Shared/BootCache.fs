@@ -162,6 +162,33 @@ module BootCache =
                         | Error _ -> BootRead.FetchState "fold"
                         | Ok folded -> BootRead.UseCache folded
 
+    /// Hung IndexedDB must not skip `/state`. Above typical warm IDB read.
+    let cacheReadTimeoutMs = 2500
+
+    [<RequireQualifiedAccess>]
+    type BootReadWait =
+        | KeepWaiting
+        | Done of BootRead
+
+    let decideBootReadWait
+        (elapsedMs: int)
+        (cacheReturned: bool)
+        (flagOn: bool)
+        (currentFile: string)
+        (currentScope: string)
+        (record: SnapshotRecord option)
+        (log: Change list)
+        (decode: string -> Result<StateResponse, string>)
+        : BootReadWait =
+        if cacheReturned then
+            BootReadWait.Done (
+                decideBootRead
+                    flagOn currentFile currentScope record log decode)
+        elif elapsedMs >= cacheReadTimeoutMs then
+            BootReadWait.Done (BootRead.FetchState "timeout")
+        else
+            BootReadWait.KeepWaiting
+
     let maxNovelCount = 64
     let maxPollRevGap = 64
     let maxLogLength = 32
@@ -184,6 +211,15 @@ module BootCache =
         | ApplyNovel of Change list * isReady: bool
         | CodeOutdated
         | FallbackState of reason: string
+
+    /// After `/state`, omit the cached hash. A Fable fingerprint does not match
+    /// the server hash, and Poll would refetch `/state` forever.
+    let cachedHashForBootPoll
+        (justFetchedState: bool)
+        (storedHash: string)
+        : string option =
+        if justFetchedState || storedHash = "" then None
+        else Some storedHash
 
     let decideBootPoll
         (clientRev: int)

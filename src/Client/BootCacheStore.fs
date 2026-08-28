@@ -82,7 +82,7 @@ let persistAfterState
             response.revision.Value
             response.isReady
             (System.DateTime.UtcNow.ToString("o"))
-            (BootCache.graphFingerprint response.graph)
+            ""
     writeSnapshotAndClearLog record (fun ok ->
         let ms = int (perfNowMs () - started)
         consoleLog (
@@ -191,10 +191,26 @@ let deleteCache (file: string) (onDone: bool -> unit) : unit =
 
 [<Emit("""
 (function(dbName, snapStore, chStore, file, onDone){
-  function miss(){ onDone(""); }
+  var settled = false;
+  function finish(json){ if(settled) return; settled = true; onDone(json); }
+  function miss(){ finish(""); }
+  function payload(rec, changes){
+    finish(JSON.stringify({
+      codecVersion: rec.codecVersion,
+      file: rec.file,
+      scopeKey: rec.scopeKey,
+      revision: rec.revision,
+      ready: rec.isReady,
+      stateJson: rec.stateJson,
+      writtenAt: rec.writtenAt,
+      bootstrapHash: rec.bootstrapHash || "",
+      changes: changes
+    }));
+  }
   try {
     var req = indexedDB.open(dbName, 1);
     req.onerror = function(){ miss(); };
+    req.onblocked = function(){ miss(); };
     req.onupgradeneeded = function(e){
       var db = e.target.result;
       if(!db.objectStoreNames.contains(snapStore))
@@ -205,35 +221,36 @@ let deleteCache (file: string) (onDone: bool -> unit) : unit =
       }
     };
     req.onsuccess = function(e){
-      var db = e.target.result;
-      var tx = db.transaction([snapStore, chStore], 'readonly');
-      var snapReq = tx.objectStore(snapStore).get(file);
-      var changes = [];
-      tx.objectStore(chStore).index('byFile')
-        .openCursor(IDBKeyRange.only(file)).onsuccess = function(ev){
-          var cursor = ev.target.result;
-          if(cursor){
-            changes.push(cursor.value.changeJson);
-            cursor.continue();
+      try {
+        var db = e.target.result;
+        var tx = db.transaction([snapStore], 'readonly');
+        var snapReq = tx.objectStore(snapStore).get(file);
+        tx.oncomplete = function(){
+          var rec = snapReq.result;
+          if(!rec){ db.close(); miss(); return; }
+          if(!db.objectStoreNames.contains(chStore)){
+            db.close(); payload(rec, []); return;
           }
+          try {
+            var tx2 = db.transaction([chStore], 'readonly');
+            var changes = [];
+            var store = tx2.objectStore(chStore);
+            if(store.indexNames.contains('byFile')){
+              store.index('byFile')
+                .openCursor(IDBKeyRange.only(file)).onsuccess = function(ev){
+                  var cursor = ev.target.result;
+                  if(cursor){
+                    changes.push(cursor.value.changeJson);
+                    cursor.continue();
+                  }
+                };
+            }
+            tx2.oncomplete = function(){ db.close(); payload(rec, changes); };
+            tx2.onerror = function(){ db.close(); miss(); };
+          } catch (err2) { db.close(); miss(); }
         };
-      tx.oncomplete = function(){
-        db.close();
-        var rec = snapReq.result;
-        if(!rec){ miss(); return; }
-        onDone(JSON.stringify({
-          codecVersion: rec.codecVersion,
-          file: rec.file,
-          scopeKey: rec.scopeKey,
-          revision: rec.revision,
-          ready: rec.isReady,
-          stateJson: rec.stateJson,
-          writtenAt: rec.writtenAt,
-          bootstrapHash: rec.bootstrapHash || "",
-          changes: changes
-        }));
-      };
-      tx.onerror = function(){ db.close(); miss(); };
+        tx.onerror = function(){ db.close(); miss(); };
+      } catch (err) { miss(); }
     };
   } catch (err) { miss(); }
 })($0,$1,$2,$3,$4)

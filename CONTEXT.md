@@ -194,6 +194,14 @@ _Avoid_: Load (for this meaning), reconcile (as a synonym for Sync)
 A Browser request for Actions since a known Revision in History; used in Sync and also as part of Load's final stage with Fetch.
 _Avoid_: sync (as a synonym for Poll), fetch (for this meaning)
 
+**Expression**:
+A non-deterministic predicate over the Graph that can yield many Answers. Most Expressions find a Node; text and numbers are also in scope.
+_Avoid_: query (as the language name), FunCall, RefExpr (that is the path subset)
+
+**Answer**:
+One possible value of an Expression: a Node, text, or a number. Failure produces no Answer. Boolean succeed and fail are control, not an Answer type.
+_Avoid_: result, solution, match (as this value)
+
 ## Additional approved terms
 These terms are permitted with standard definition:
 

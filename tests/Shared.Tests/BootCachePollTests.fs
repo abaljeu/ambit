@@ -168,3 +168,20 @@ let ``decideBootPoll skips hash compare when Poll omits bootstrapHash`` () =
     with
     | BootCache.BootPoll.Confirmed true -> ()
     | other -> failwithf "%A" other
+
+[<Fact>]
+let ``cachedHashForBootPoll is None after /state even when a fingerprint is set`` () =
+    Assert.Equal(None, BootCache.cachedHashForBootPoll true "fable-poison")
+    Assert.Equal(None, BootCache.cachedHashForBootPoll true "")
+    Assert.Equal(None, BootCache.cachedHashForBootPoll false "")
+    Assert.Equal(Some "srv", BootCache.cachedHashForBootPoll false "srv")
+
+[<Fact>]
+let ``decideBootPoll confirms after /state when a client fingerprint disagrees`` () =
+    let poll = { mkPoll 5 [] with bootstrapHash = Some "server" }
+    let cached = BootCache.cachedHashForBootPoll true "fable-poison"
+    match
+        BootCache.decideBootPoll 5 [] poll ctx (Some "server") cached
+    with
+    | BootCache.BootPoll.Confirmed true -> ()
+    | other -> failwithf "%A" other
