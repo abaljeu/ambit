@@ -135,3 +135,43 @@ let ``class keeps exact cssClasses membership`` () =
     Assert.Equal<NodeId list>(
         [],
         nodeIds (evalOk f.graph (answerOf f.graph f.blue) "class \"h1\""))
+
+[<Fact>]
+let ``re matches Header like containing for same-case substring`` () =
+    let f = build ()
+    let fromHeaded = answerOf f.graph f.headed
+    let fromBlue = answerOf f.graph f.blue
+    Assert.Equal<NodeId list>(
+        nodeIds (evalOk f.graph fromHeaded "containing \"the\""),
+        nodeIds (evalOk f.graph fromHeaded "re \".*the.*\""))
+    Assert.Equal<NodeId list>(
+        [ f.blue ],
+        nodeIds (evalOk f.graph fromBlue "re \".*blue.*\""))
+    Assert.Equal<NodeId list>(
+        [],
+        nodeIds (evalOk f.graph fromHeaded "re \".*red.*\""))
+
+[<Fact>]
+let ``re is case-sensitive; rei uses engine ignore-case`` () =
+    let f = build ()
+    let fromHeaded = answerOf f.graph f.headed
+    Assert.Equal<NodeId list>(
+        [],
+        nodeIds (evalOk f.graph fromHeaded "re \".*THE.*\""))
+    Assert.Equal<NodeId list>(
+        [ f.headed ],
+        nodeIds (evalOk f.graph fromHeaded "rei \".*THE.*\""))
+    Assert.Equal<NodeId list>(
+        [ f.headed ],
+        nodeIds (evalOk f.graph fromHeaded "containing \"THE\""))
+
+[<Fact>]
+let ``invalid re pattern is a miss`` () =
+    let f = build ()
+    let fromHeaded = answerOf f.graph f.headed
+    Assert.Equal<NodeId list>(
+        [],
+        nodeIds (evalOk f.graph fromHeaded "re \"(\""))
+    Assert.Equal<NodeId list>(
+        [],
+        nodeIds (evalOk f.graph fromHeaded "rei \"(\""))

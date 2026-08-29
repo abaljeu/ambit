@@ -1,5 +1,5 @@
 # Expression Language — git
 
-- **Project branch:** `w/expr-self-ref-unfold`
+- **Project branch:** `w/tree2-semantics`
 - **Cut from:** `selective-client-sync`
-- **Notes:** Hang fix for Run `!* containing` self-Ref unfold. Prior charting branch remains `w/expr`.
+- **Notes:** Lock prefix combinator `outer` into spec. Prior branch `w/expr-self-ref-unfold`.

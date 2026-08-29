@@ -69,6 +69,8 @@ module ExprParse =
         || word = "named"
         || word = "class"
         || word = "subsection"
+        || word = "re"
+        || word = "rei"
 
     let private parseWord (word: string) (literal: string option) : Result<ExprTerm, string> =
         if wordWantsTrailingLiteral word && literal.IsNone then

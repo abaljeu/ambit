@@ -210,6 +210,10 @@ _Avoid_: query (as the language name), FunCall, RefExpr (that is the path subset
 One possible value of an Expression: a Node, text, or a number. Failure produces no Answer. Boolean succeed and fail are control, not an Answer type.
 _Avoid_: result, solution, match (as this value)
 
+**outer**:
+An Expression combinator: the outermost acceptable Owned descendants below the input. Walk strictly below the input, Owned only; a Node that satisfies the operand yields, and the walk does not visit its descendants. Spelling is lowercase `outer`.
+_Avoid_: tree2, outermost, cut (for this combinator)
+
 ## Additional approved terms
 These terms are permitted with standard definition:
 

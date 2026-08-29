@@ -81,6 +81,18 @@ module ExprPrimitive =
             (Some ExprSlotKind.QuotedText)
             (requireQuoted (ExprWalk.containing graph))
 
+    let private reRow graph =
+        row
+            [ "re" ]
+            (Some ExprSlotKind.QuotedText)
+            (requireQuoted (ExprWalk.re graph))
+
+    let private reiRow graph =
+        row
+            [ "rei" ]
+            (Some ExprSlotKind.QuotedText)
+            (requireQuoted (ExprWalk.rei graph))
+
     let private namedRow graph =
         row
             [ "named" ]
@@ -134,6 +146,8 @@ module ExprPrimitive =
         |> ExprCatalog.register (childRow graph)
         |> ExprCatalog.register (descendantRow graph)
         |> ExprCatalog.register (containingRow graph)
+        |> ExprCatalog.register (reRow graph)
+        |> ExprCatalog.register (reiRow graph)
         |> ExprCatalog.register (namedRow graph)
         |> ExprCatalog.register (wsRow graph)
         |> ExprCatalog.register (dirRow graph)

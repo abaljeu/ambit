@@ -41,7 +41,7 @@ Statement lines are recognized before expression lexing; chapter 8 gives the lin
 Layer one. Whitespace separates tokens. `(`, `)`, and `,` are single-character tokens and also terminate a running segment. A `"` begins a quoted string token, which runs to the next `"` and may contain spaces, path symbols, parentheses, and commas; this spec defines no escape sequences. Every other maximal run of characters is one segment, classified whole:
 
 - A segment that contains any of `/`, `^`, `#`, `:`, `!`, `*`, or that begins with `.`, is one PathCluster token, sub-lexed by layer two.
-- A segment that is exactly `AND`, `OR`, or `NOT` (capitals only) is a reserved word; lowercase or mixed case is not reserved.
+- A segment that is exactly `AND`, `OR`, or `NOT` (capitals only) is a reserved word; lowercase or mixed case is not reserved. A segment that is exactly `outer` (lowercase only) is reserved, so it is the combinator and not bind; mixed or uppercase is not reserved.
 - A segment that is a signed integer is a Number token.
 - Any other segment is a Name token: a standalone symbol looked up in the catalog. A `.` after the first character is an ordinary name character, matching the layer-two `.` rule.
 
@@ -70,7 +70,8 @@ Expression  ::= OrExpr
 OrExpr      ::= AndExpr (("OR" | ",") AndExpr)*
 AndExpr     ::= NotExpr ("AND" NotExpr)*
 NotExpr     ::= "NOT" NotExpr
-              | Seq ("NOT" NotExpr)?
+              | "outer" NotExpr
+              | Seq (("NOT" | "outer") NotExpr)?
 Seq         ::= Term Term*
 Term        ::= Word Literal?
               | PathCluster Literal?
@@ -86,12 +87,12 @@ Step        ::= "//" NamePattern?
 Int         ::= ["+" | "-"] Digit+
 ```
 
-- The locked precedence is encoded directly: juxtaposition (Seq) binds tightest, then `NOT`, then `AND`, then `OR` and comma.
-- The trailing Literal of a Term is consumed exactly when the Word's catalog row, or the cluster's final step, has an unfilled argument slot; a Literal in any other position is a parse error. A required slot that no adjacent NamePattern and no trailing Literal fills is a missing-argument parse error: bare `/`, bare `//`, bare `#`, bare `subsection`, `containing` without its string, `// OR /`.
+- The locked precedence is encoded directly: juxtaposition (Seq) binds tightest, then `NOT` and `outer`, then `AND`, then `OR` and comma.
+- The trailing Literal of a Term is consumed exactly when the Word's catalog row, or the cluster's final step, has an unfilled argument slot; a Literal in any other position is a parse error. A required slot that no adjacent NamePattern and no trailing Literal fills is a missing-argument parse error: bare `/`, bare `//`, bare `#`, bare `subsection`, `containing` without its string, `re` or `rei` without its string, `// OR /`.
 - The `named` word requires a quoted name argument. The `subsection` word requires a quoted name argument. The cluster operator `#` requires either an adjacent NamePattern or a trailing quoted name argument. `subsection "todo"` equals `#todo`. Bare `subsection` is a missing-argument parse error, uniform with bare `#`.
 - A bare NamePattern element of a cluster is the argument of an implicit `/` (chapter 3).
 - Symbols are never operator arguments. The cluster fragment `//` desugars to `root /`, so bare `//` is a missing-argument parse error and the locked example `// tree` becomes `root tree`.
-- A compound predicate after `NOT` needs parentheses (`left NOT (containing "the" AND named "blue")`), because the `NOT` arm takes one NotExpr, as the precedence lock requires.
+- A compound predicate after `NOT` or `outer` needs parentheses (`left NOT (containing "the" AND named "blue")`, `root outer (containing "blue" AND named "x")`), because each arm takes one NotExpr, as the precedence lock requires. Bare `outer` is a missing-operand parse error, uniform with bare `NOT`.
 - Same-operator `AND` and `OR` chains are semantically associative; mixed `d AND b OR c` parses as `(d AND b) OR c` by precedence, but write the parentheses.
 - There is no literal in the Term production's head position: literals are arguments, never terms.
 
@@ -104,6 +105,7 @@ w : τ1 ⇒ τ2 in the catalog, its slot filled by a literal of the row's argume
 ⊢ e1 : τ1 ⇒ τ2   ⊢ e2 : τ2 ⇒ τ3                                                       ⊢ e1 e2 : τ1 ⇒ τ3
 ⊢ e1 : τ1 ⇒ τ2   ⊢ e2 : τ1 ⇒ τ2                                                       ⊢ e1 OR e2 : τ1 ⇒ τ2   (AND and comma the same)
 ⊢ e : τ ⇒ τ'                                                                           ⊢ NOT e : τ ⇒ τ
+⊢ e : Node ⇒ τ                                                                         ⊢ outer e : Node ⇒ Node
 ```
 
 Argument sorts are syntactic, not Answer types: each row declares name (a glob string, spelled as a cluster NamePattern or a quoted string), or number-or-`*`. Slot filling is a lexical and grammatical concern (chapters 3 and 4), so an ill-filled slot is a parse error, not a type error.
@@ -117,7 +119,7 @@ The locked rules fall out as derived facts:
 
 ## 6. Evaluation semantics
 
-`E⟦e⟧ : Answer → Answer sequence`. Four rules cover the whole language; `δ(w)` is the row's Answer function from chapter 7.
+`E⟦e⟧ : Answer → Answer sequence`. The rules cover the whole language; `δ(w)` is the row's Answer function from chapter 7.
 
 ```text
 E⟦w a⟧ x         = δ(w) a x, where a is the row's literal argument value (absent for rows without a slot)
@@ -125,13 +127,15 @@ E⟦e1 e2⟧ x       = concat [ E⟦e2⟧ y | y ← E⟦e1⟧ x ]
 E⟦e1 OR e2⟧ x    = E⟦e1⟧ x ++ E⟦e2⟧ x                    (comma the same)
 E⟦e1 AND e2⟧ x   = every y in E⟦e1⟧ x, in that order, at most once, that also appears (by Answer equality) in E⟦e2⟧ x
 E⟦NOT e⟧ x       = ⟨x⟩ when E⟦e⟧ x is empty, otherwise ⟨⟩
+E⟦outer e⟧ x     = Owned depth-first walk strictly below x in Children order: at each visited Node N, if E⟦e⟧ N is nonempty then yield N and do not enter Owned Children of N, else recurse on the Owned Children of N
 ```
 
 - Juxtaposition is monadic bind over the sequence and therefore associative: `((a) b) c` and `a (b c)` denote the same function; the left-associativity lock only fixes the parse tree.
 - Order is fixed by these rules: juxtaposition is left-to-right; `OR` and comma concatenate and may repeat an Answer; `AND` keeps the left operand's order, each Answer at most once.
 - Deduplication belongs to `AND`, the closure row `descendant`, and each subsection search (`#`). Composition never dedupes, so `child child` legitimately repeats a Node that appears under two parents, and separate left-input Answers can still produce the same Node.
 - Lazy, eager, or backtracking evaluation is an implementation freedom, because the rules fix only the sequence and its order.
-- Theorem (provable remark, not a rule): when `f` and `g` are pure filters — each yields a subsequence of `⟨x⟩`, as `containing`, `named`, `class`, `section`, and the classification filters `ws`, `dir`, `file`, and `normal` do — `f g` and `f AND g` denote the same function; a generator such as `descendant` makes them differ.
+- Theorem (provable remark, not a rule): when `f` and `g` are pure filters — each yields a subsequence of `⟨x⟩`, as `containing`, `re`, `rei`, `named`, `class`, `section`, and the classification filters `ws`, `dir`, `file`, and `normal` do — `f g` and `f AND g` denote the same function; a generator such as `descendant` makes them differ.
+- `outer` fuses the operand into that Owned walk (prune-during-accept). `acceptable(N)` is `E⟦e⟧ N` nonempty, the `NOT` emptiness test inverted. It is not a generator followed by a filter, and it is not a post-pass over `tree`. The walk is Owned only and does not yield the input, same as `tree`. Unloaded is a miss per the Unloaded rule.
 - Unloaded rule: a walk step that needs the Children of an Unloaded Node yields no Answers from that Node. It is a miss, never an error, and it never Loads. All evaluation is local to the Browser Graph ([[.scratch/expression-language/issues/14-server-side-search.md]]).
 
 ## 7. The catalog
@@ -150,6 +154,8 @@ Stated once for every row: a miss is the empty sequence (fail-to-answer); a walk
 | descendant | `descendant` | — | `Node ⇒ Node` | Every Node reachable through one or more child steps (follows Ref), depth-first in Children order, each Node at most once by Node identity (first reach wins). |
 | tree | `tree`; cluster `**` | — | `Node ⇒ Node` | Every Node reachable through one or more Owned steps, depth-first in Children order; Owned placement is unique and acyclic, so no dedupe clause is needed. |
 | containing | `containing` | required quoted string | `Node ⇒ Node` | Yield the input when its Header text contains the argument as a case-insensitive substring (Header text only, not the name). |
+| re | `re` | required quoted string | `Node ⇒ Node` | Yield the input when its Header text matches the argument as a regular expression, case-sensitive (Header text only, not the name). The engine is `System.Text.RegularExpressions` in Shared (.NET and Fable/JS). An invalid pattern is a miss. `x re ".*blue.*"` equals `x containing "blue"` when the Header has that same-case substring. |
+| rei | `rei` | required quoted string | `Node ⇒ Node` | Same as `re`, but case-insensitive via engine flags (`RegexOptions.IgnoreCase` on .NET; the `i` flag on Fable/JS). Case does not come from an inline `(?i)` group; Fable/JS typically does not honor `(?i)`. An invalid pattern is a miss. |
 | ws | `ws` | — | `Node ⇒ Node` | Yield the input when it is a Workspace Node; a pure filter. `root ws` equals `root`, because ROOT is a Workspace Node. |
 | dir | `dir` | — | `Node ⇒ Node` | Yield the input when it is a Directory Node; a pure filter. Directories named `d` is `x / "d" dir`. |
 | file | `file` | — | `Node ⇒ Node` | Yield the input when it is a File Node; a pure filter. |
@@ -174,6 +180,7 @@ Combinators are rows too, with their Answer functions given by the chapter 6 rul
 | Entry | Spellings | Signature | Answer function |
 | --- | --- | --- | --- |
 | NOT | `NOT` | `(τ ⇒ τ') → (τ ⇒ τ)` | Negation-as-failure: yield the input when the operand yields nothing from it. |
+| outer | `outer` | `(Node ⇒ τ) → (Node ⇒ Node)` | Outermost acceptable Owned descendants: walk strictly below the input, Owned only, depth-first in Children order; at each N, if the operand yields any Answer from N then yield N and do not visit descendants of N, else recurse on the Owned Children of N. Unloaded is a miss. Bare `outer` is a missing-operand parse error. |
 | AND | `AND` | `(τ1 ⇒ τ2) → (τ1 ⇒ τ2) → (τ1 ⇒ τ2)` | Pointwise order-preserving intersection by Answer equality, per the AND rule. |
 | OR | `OR`; `,` | `(τ1 ⇒ τ2) → (τ1 ⇒ τ2) → (τ1 ⇒ τ2)` | Pointwise concatenation, per the OR rule; may repeat. |
 
@@ -220,11 +227,11 @@ Revision list for the later implementation effort, against [[src/Shared/RefExprM
 12. Implemented `tagSearchFrom` follows Ref Children, consistent with this spec's `#` traversal; [[doc/roadmap/reference-expression-interpretation.md]] says Owned only and must be revised. The `named` word is separate from `#`: it is a pure same-input name-glob filter and performs no traversal. `#` is subsection search, not a short form of `named`.
 13. Implemented `globMatch` treats `?` as a one-character wildcard; this spec defines `*` as the only glob metacharacter, so `?` behavior must be specified or revised later.
 14. `//` today is the ROOT anchor; this spec has no `//` row — the cluster fragment desugars to `root /` and bare `//` no longer parses.
-15. The words `root`, `child`, `descendant`, `tree`, `containing`, `named`, `section`, `subsection`, `wsroot`, `class`, the classification filters `ws`/`dir`/`file`/`normal`, the reserved `AND`/`OR`/`NOT`, and the statement forms `=` / `Name=` are all new surface.
+15. The words `root`, `child`, `descendant`, `tree`, `containing`, `re`, `rei`, `named`, `section`, `subsection`, `wsroot`, `class`, `outer`, the classification filters `ws`/`dir`/`file`/`normal`, the reserved `AND`/`OR`/`NOT`, and the statement forms `=` / `Name=` are all new surface.
 
 ## 10. Deferred and not planned
 
-Deferred to later slices: postfix `text`, `name`, and `sort` as catalog rows; the Number type and Number-returning producers; shell `> …`; quoted arguments inside a space-free cluster (`//"a b"/x`); server-side Search ([[.scratch/expression-language/issues/14-server-side-search.md]]).
+Deferred to later slices: postfix `text`, `name`, and `sort` as catalog rows; the Number type and Number-returning producers; shell `> …`; quoted arguments inside a space-free cluster (`//"a b"/x`); server-side Search ([[.scratch/expression-language/issues/14-server-side-search.md]]); sugar `outer "blue"` for `outer containing "blue"`; a Ref-following analog of `outer`.
 
 Not planned ([[.scratch/expression-language/issues/13-fog-of-the-first-spec.md]]): logical variables and unification; cut and if-then; a `findall`/`bagof` collection primitive (collection stays the consumer); a Boolean Answer type; a full Prolog system.
 
@@ -236,9 +243,12 @@ Extends [[.scratch/expression-language/reports/pipeline-examples.md]], re-checke
 | --- | --- | --- |
 | `root descendant containing "the" named "blue"` | `Node ⇒ Node` | ROOT; closure of child; keep Nodes whose Header text contains `the`; then keep only those same Nodes that are Normal Nodes named `blue`. |
 | `containing "the" AND named "blue"` | `Node ⇒ Node` | Same-input intersection: keep the current Node when its Header text contains `the` and it is a Normal Node named `blue`. |
+| `re ".*blue.*"` | `Node ⇒ Node` | Keep the current Node when its Header text matches the regular expression, case-sensitive. Same Header field as `containing`. Equals `containing "blue"` when that substring is present in the same case. |
+| `rei ".*BLUE.*"` | `Node ⇒ Node` | Same as `re`, case-insensitive via engine flags. |
 | `#x , #y` | `Node ⇒ Node` | Comma is `OR`: subsection-search Answers of `#x`, then subsection-search Answers of `#y`, from the same input; may repeat a Node across the two searches. |
 | `root descendant containing "the"` | `Node ⇒ Node` | The value row `root`, then the words compose. Amended from the locked `// descendant …`, which no longer parses (bare `//` lacks its name). |
 | `root tree` | `Node ⇒ Node` | Transitively Owned Nodes from ROOT; acyclic; does not follow Ref; the same as `**`. Amended from the locked `// tree`. |
+| `root outer containing "blue"` | `Node ⇒ Node` | Outermost Owned descendants of ROOT whose Header contains `blue`: a match yields and its Owned descendants are not visited; a non-match does not yield and the walk continues in its Owned Children. ROOT is not yielded (strictly below), same as `root tree`. Does not follow Ref. |
 | `root ws` | `Node ⇒ Node` | Equals `root`: ROOT is a Workspace Node, so the classification filter keeps it. |
 | `//ws/x` | `Node ⇒ Node` | One cluster desugaring to `root / "ws" / "x"`: structural Nodes named `ws` under ROOT, then structural Nodes named `x` under those. |
 | `//ws` | `Node ⇒ Node` | Desugars to `root / "ws"`: Workspace, Directory, or File Nodes named `ws` under ROOT. Equals `// "ws"` and `root /ws`; `ws` there is a string, although it is also the Workspace filter word. |

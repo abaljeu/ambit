@@ -123,3 +123,8 @@ let ``standalone number is parse error`` () =
 [<Fact>]
 let ``containing without string is missing argument`` () =
     Assert.Contains("missing argument", exprErr "containing")
+
+[<Fact>]
+let ``re and rei without string are missing argument`` () =
+    Assert.Contains("missing argument", exprErr "re")
+    Assert.Contains("missing argument", exprErr "rei")

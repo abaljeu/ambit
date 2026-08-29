@@ -27,6 +27,8 @@ Work currently being executed.
 
 Work ready to start but not yet claimed.
 
+- [[.scratch/expression-language/issues/28-outer-prefix-combinator.md]] — implement `outer` per spec (fused Owned walk); do not replace `tree`; do not post-pass prune
+- [[.scratch/expression-language/reports/re-filter.md]] — HITL: Run `= … re "…"` and `= … rei "…"` on `/ambit` or `/ambit?debug=1`; confirm Header match, case split, and invalid pattern as no matches
 - [[.scratch/expression-language/reports/run-changes-not-effective.md]] — HITL hard-reload `/ambit` or `/ambit?debug=1`; confirm Run error strings and unfold (not old red-echo)
 - [[.scratch/expression-language/reports/run-commit-edit-before-exec.md]] — HITL: while Editing, change the line and Ctrl+Enter; graph text commits, then Run uses that text
 - [[.scratch/expression-language/reports/expr-eval-pull-enumerator-impl.md]] — HITL: Run `= root descendant …` with more than 50 hits; confirm 50 Children and unfold

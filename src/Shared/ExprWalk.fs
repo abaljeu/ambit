@@ -1,6 +1,7 @@
 namespace Gambol.Shared
 
 open System
+open System.Text.RegularExpressions
 
 [<RequireQualifiedAccess>]
 module ExprWalk =
@@ -250,6 +251,25 @@ module ExprWalk =
                 ExprEval.singleton (toAnswer node)
             else
                 ExprEval.empty
+
+    let private tryRegex ignoreCase (pattern: string) =
+        try
+            let options =
+                if ignoreCase then RegexOptions.IgnoreCase
+                else RegexOptions.None
+            Some(Regex(pattern, options))
+        with
+        | _ -> None
+
+    let private headerRe graph ignoreCase pattern input =
+        match tryRegex ignoreCase pattern with
+        | None -> ExprEval.empty
+        | Some regex ->
+            keepInput graph (fun (node: Node) -> regex.IsMatch node.text) input
+
+    let re graph pattern input = headerRe graph false pattern input
+
+    let rei graph pattern input = headerRe graph true pattern input
 
     let private isFileDirWorkspace (node: Node) =
         match node.kind with
