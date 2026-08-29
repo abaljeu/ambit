@@ -2,8 +2,6 @@
 globs: doc/**,**/*.plan.md,**/*roadmap*
 ---
 
-We are working through [[doc/plan]].
-
-Put non-trivial plans in a markdown file in doc/ so they can be reviewed.
+[[doc/]] describes the current program. Chart future work on `.scratch` Projects. Leftover [[doc/roadmap/]] files wait until a Project cites them or they move to history.
 
 Planning docs use [[wikilinks]], no hard wrap, one concern per section.

@@ -27,6 +27,10 @@ Work currently being executed.
 
 Work ready to start but not yet claimed.
 
+- [[.scratch/document-formats/map.md]] — chart remaining document formats (XML and other draft codecs)
+- [[.scratch/end-user-wiki/map.md]] — chart the end-user wiki (describe the software)
+- [[.scratch/architecture/map.md]] — chart the architecture wiki (how it is coded and run)
+- [[.scratch/marketing-wiki/map.md]] — chart the marketing wiki (uses, GitLab-level browsable; not a campaign)
 - [[.scratch/expression-language/reports/ref-owned-children-impl.md]] — HITL: Run `= owned` and `= ref` on `/ambit` or `/ambit?debug=1` on a Node with mixed Owned and Ref Children; confirm `child` is the Children-order merge, that `owned OR ref` concatenates when roles interleave, and that `Ref` / `Owned` are unknown words
 - [[.scratch/expression-language/reports/text-ops-impl.md]] — HITL: Run `= … IF (text left 5 IS "rapid")` and `= … IF (name right 4 IS ".txt")` on `/ambit` or `/ambit?debug=1`; confirm the Answers are Nodes, that a bare `left 5` reports a type error, that lowercase `is` is not the combinator, and that `"d" "e"` is a parse error
 - [[.scratch/expression-language/reports/if-impl.md]] — HITL: Run `= … IF containing "…"` on `/ambit` or `/ambit?debug=1`; confirm Answers stay Nodes (not an inner stream), and that lowercase `if` is not the combinator

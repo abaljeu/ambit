@@ -28,6 +28,30 @@ _Avoid_: permission, override, allowlist exception
 Local Markdown under `.scratch/` for specs and issues; see [[docs/agents/issue-tracker.md]]. Not GitHub or GitLab issues.
 _Avoid_: backlog, GitHub issues, GitLab issues, tickets board
 
+**Project**:
+A `.scratch/<slug>/` effort. Two kinds: the Roadmap, and a feature-set Project.
+_Avoid_: epic project (as a third kind)
+
+**Roadmap**:
+The steering Project at [[.scratch/roadmap/]]. It answers what to work on next by grouping Epics by Stage. Order inside a Stage does not matter.
+_Avoid_: master project, master steering, doc/roadmap (as this Project), numbered Epic sequence (as the listing rule)
+
+**Epic**:
+A marketable user end-goal, larger than a feature or interaction. On the Roadmap it is a standing file under [[.scratch/roadmap/epics/]] until that goal is met. It has a Stage (same words as a feature-set Project, except steering) and Chapters.
+_Avoid_: saga, tale, epic project, marketable story (as the glossary name), steering (as an Epic Stage), Stage (for a Chapter)
+
+**Chapter**:
+A named beat of an Epic (Visit Troy, see Circe). Not a Project Stage. A Chapter’s **What to build** names major features; its checklist points at Projects or issues and does not own them.
+_Avoid_: Stage (for this beat), leg, beat (as the glossary name)
+
+**Feature-set Project**:
+A Project defined by focused features, user stories, and implementation issues. It may enable one or more Epics.
+_Avoid_: epic project, feature project (say Feature-set Project)
+
+**Steering**:
+The Stage of the Roadmap. It sequences Epics and does not reach done while the application is unfinished.
+_Avoid_: using steering as a Stage on a feature-set Project
+
 **Committed Decision**:
 A record under [[docs/Decisions/]] of a choice that is costly to reverse, surprising without context, and made between genuine alternatives. The mattpocock skills call this an ADR; in this project always say Committed Decision.
 _Avoid_: ADR (outside vendored skills), architecture decision record, decision record

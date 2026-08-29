@@ -10,6 +10,10 @@ Issues and specs for this repo live as Markdown files under `.scratch/`.
 
 **Decision ticket**: A Wayfinder child issue whose question resolves to a decision rather than an implementation slice.
 
+**Epic**: A standing Roadmap file at `.scratch/roadmap/epics/<slug>.md` whose resolution is a met user end-goal. It has a **Stage** (same words as a feature-set Project, except steering) and **Chapters** (named beats). Each Chapter uses the raised shape of an implementation issue: **What to build** is major features; the checklist is pointers to Projects or issues. See [[.scratch/roadmap/map.md]]. The wayfinder frontier does not scan `epics/`.
+
+**Chapter**: A named beat of an Epic. Not a Stage.
+
 **Triage role**: The next-action state assigned during triage, using the mapping in [[docs/agents/triage-labels.md]].
 
 An issue tracker holds issues. An issue carries one triage role at a time. A decision ticket is an issue, but its Wayfinder lifecycle is recorded separately from implementation triage.
@@ -18,7 +22,7 @@ Use **issue tracker**, not “backlog backend” or “backlog manager.” Use *
 
 ## Conventions
 
-- One feature per directory: `.scratch/<feature-slug>/`.
+- One Project per directory: `.scratch/<slug>/` (a feature-set Project, or the Roadmap).
 - The spec is `.scratch/<feature-slug>/spec.md`.
 - Implementation issues are separate files at `.scratch/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01`.
 - A `Status:` line records an implementation issue's triage role.
@@ -34,9 +38,9 @@ When a skill says “fetch the relevant issue,” read the referenced file. The 
 
 The Wayfinder map is one file with one child file per decision ticket.
 
-- **Map**: `.scratch/<effort>/map.md` holds Notes, Decisions so far, Not yet specified, and Out of scope.
+- **Map**: `.scratch/<effort>/map.md` holds Notes, Decisions so far, Not yet specified, and Out of scope. The Roadmap also lists open Epics grouped by Stage, each with its current Chapter. Order inside a Stage does not matter.
 - **Child decision ticket**: `.scratch/<effort>/issues/NN-<slug>.md`, numbered from `01`, contains the question. `Type:` records `research`, `prototype`, `grilling`, or `task`; `Status:` records `open`, `claimed`, or `resolved`.
 - **Blocking**: `Blocked by: NN, NN` near the top. A decision ticket is unblocked when every listed ticket is resolved.
-- **Frontier**: Scan the effort's `issues/` directory for open, unblocked, unclaimed tickets; first by number wins.
+- **Frontier**: Scan the effort's `issues/` directory for open, unblocked, unclaimed tickets; first by number wins. On the Roadmap, do not treat `epics/` as the frontier.
 - **Claim**: Set `Status: claimed` and save before doing any work.
 - **Resolve**: Append the resolution under `## Answer`, set `Status: resolved`, then append a one-line gist and link to the map's Decisions so far.

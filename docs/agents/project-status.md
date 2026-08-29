@@ -2,7 +2,7 @@
 
 Every **project** — a `.scratch/<slug>/` effort — carries one lifecycle **stage**. This file is the single source of truth for the stage vocabulary, the per-project `project.md`, and the overview index.
 
-A project's `Stage:` is distinct from an issue's `Status:` line, which records a triage role (see [[docs/agents/issue-tracker.md]]).
+A project's `Stage:` is distinct from an issue's `Status:` line, which records a triage role (see [[docs/agents/issue-tracker.md]]). An Epic also has a **Stage** (same words as a feature-set Project, except `steering`) plus **Chapters** (named beats). Record Epic Stage on the Epic file. The Roadmap map groups Epics by Stage; they are not rows in [[.scratch/index.md]]. Advancing a Chapter means charting pointers to other Projects’ pieces, not coding on the Roadmap.
 
 ## project.md
 
@@ -23,6 +23,7 @@ Grounded in the wayfinder arc ([[.agents/skills/wayfinder/SKILL.md]]) and the is
 | Stage | Meaning |
 | --- | --- |
 | `charting` | destination unnamed; grilling or wayfinder mapping the frontier |
+| `steering` | standing Project that sequences Epics toward the application; not a bounded feature-set destination |
 | `spec` | destination reached (spec, plan, or decision); not yet broken into issues |
 | `tickets` | broken into implementation issues; ready to build |
 | `active` | implementation underway |

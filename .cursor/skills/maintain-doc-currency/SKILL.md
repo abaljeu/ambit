@@ -9,9 +9,9 @@ Follow [[.cursor/rules/markdown-writing.mdc]] and read [[doc/README.md]] first. 
 
 ## Directory Fit
 
-- Top-level [[doc/]] docs are front-door docs for the current system as a whole: global index, architecture, spec, and API.
+- Top-level [[doc/]] docs are front-door docs for the current program: Feature index, architecture, spec, and API.
 - [[doc/current/]] holds current subsystem or feature baselines.
-- [[doc/roadmap/]] holds committed direction and rollout tracking, not fully implemented behavior.
+- [[doc/roadmap/]] is leftover planned-direction text until a `.scratch` Project cites it or it moves to history. New planned work lives in Projects.
 - [[doc/history/]] holds assessed historical project materials.
 - [[doc/reference/]] holds operational and reference material.
 - [[doc/unsorted/]] is temporary, unassessed, and non-authoritative.
@@ -21,9 +21,9 @@ If a doc's content no longer matches its directory, propose the smallest correct
 ## Currency Workflow
 
 1. Read the relevant current docs before changing roadmap, history, or unsorted material.
-2. Check the global index named by [[doc/README.md]] for status and sequencing.
-3. Check whether implemented behavior is still described as future work; if so, move the durable truth into current or reference docs and reduce roadmap text to remaining rollout or follow-up work.
-4. Update the global index when a change affects what is done, what remains, or the order of planned work.
+2. Check the Feature index [[doc/index.md]] for current-program coverage.
+3. Check whether implemented behavior is still described as future work; if so, move the durable truth into current or reference docs and reduce leftover roadmap text, or cite it from a `.scratch` Project.
+4. Update the Feature index when a change affects what is current. Planned work is not sequenced there.
 5. Check whether roadmap commitments became obsolete; mark the mismatch and ask before deleting or rewriting direction.
 6. Keep one authoritative home for each fact. Link to it from other docs instead of restating it, unless local clarity requires a short recap.
 7. When redundancy is useful for clarity, keep it brief and make it consistent with the authoritative doc.
@@ -42,7 +42,7 @@ When a roadmap, history, or unsorted doc disagrees with a current doc, assume th
 ## Finishing Checklist
 
 - [ ] The doc lives in the directory described by [[doc/README.md]].
-- [ ] Global index status and sequencing still match the changed docs.
+- [ ] The Feature index still matches current docs. Planned work is not listed there.
 - [ ] Fully implemented behavior is not treated as future roadmap work.
 - [ ] Current docs remain the authority for current behavior.
 - [ ] Redundant text is either removed, linked, or deliberately kept for clarity.
