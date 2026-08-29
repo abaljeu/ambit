@@ -4,4 +4,41 @@ Stage: charting
 
 A person chats with an agent that provides managed context.
 
-Current chapter: uncharted
+Current chapter: Ask from what I see
+
+## Ask from what I see
+
+**What to build:** Run `?` with a message and included context. The reply is Owned children of the focus Node. The call is a long-running Actor: launch, answers arrive while the person works, cancel stops a slow job.
+
+**Blocked by:** None.
+
+- [ ] [[.scratch/llm-connector/project.md]] — pack, LLM call, write-back
+- [ ] [[.scratch/expression-language/issues/33-recognize-ask-run-statement.md]] — recognize `?` as a Run statement
+- [ ] [[.scratch/event-sourced-ops/issues/07-generalized-server-actor-produce-path.md]]
+- [ ] [[.scratch/event-sourced-ops/issues/09-job-identity-with-advisory-soft-lock.md]]
+
+## Talk again
+
+**What to build:** Follow-up turns live in the Graph, not a one-shot `?`.
+
+**Blocked by:** Ask from what I see.
+
+## Change the Graph
+
+**What to build:** The LLM authors Changes, not only reply text.
+
+**Blocked by:** Ask from what I see.
+
+## Query the Graph or the files
+
+**What to build:** The LLM queries the Graph or the files behind File Nodes, not only included context.
+
+**Blocked by:** Ask from what I see.
+
+## Act through CLI or MCP
+
+**What to build:** Work runs through CLI or MCP as a long-running Actor. Not glossary Agent.
+
+**Blocked by:** Change the Graph.
+
+- [ ] [[.scratch/event-sourced-ops/details/actors-and-jobs.md]] — shell command as a later Actor

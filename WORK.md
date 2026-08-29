@@ -27,6 +27,10 @@ Work currently being executed.
 
 Work ready to start but not yet claimed.
 
+- [[.scratch/llm-connector/map.md]] — chart Run `?` pack, LLM call, and write-back
+- [[.scratch/roadmap/issues/07-chart-automatic-upload-and-download.md]] — chart auto-upload (and remaining pointers) for [[.scratch/roadmap/epics/work-with-text-files-from-anywhere.md]] current Chapter
+- [[.scratch/end-user-wiki/issues/01-describe-documents-from-any-connected-device.md]] — operator how-to for documents from any connected device
+- [[.scratch/marketing-wiki/issues/01-use-page-documents-from-any-connected-device.md]] — first use page for documents from any connected device
 - [[.scratch/document-formats/map.md]] — chart remaining document formats (XML and other draft codecs)
 - [[.scratch/end-user-wiki/map.md]] — chart the end-user wiki (describe the software)
 - [[.scratch/architecture/map.md]] — chart the architecture wiki (how it is coded and run)

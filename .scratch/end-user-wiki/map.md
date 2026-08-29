@@ -20,7 +20,7 @@ A browsable wiki that describes the software for people who use it: what Gambol 
 ## Not yet specified
 
 - Home: a `doc/` subtree, a GitLab wiki, in-app Graph content, or another browse tree.
-- Navigation and page set (what “describes the software” covers first).
+- Navigation and page set besides how to work with documents from any connected device (that use is a child ticket).
 - Which existing [[doc/]] pages are linked vs rewritten in user language.
 - Boundary vs Architecture (internals) and vs Marketing wiki (uses).
 

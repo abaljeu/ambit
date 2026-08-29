@@ -26,22 +26,25 @@ Grouped by Stage. Order inside a Stage does not matter.
 
 ### charting
 
-- [[epics/work-with-text-files-from-anywhere.md]] — Work with my text files from anywhere
+- [[epics/work-with-text-files-from-anywhere.md]] — Work with my documents from anywhere (current: Automatic upload and download)
 - [[epics/build-or-explore-a-wiki.md]] — Build or explore a wiki
 - [[epics/create-and-publish-web-pages.md]] — Create and publish web pages
 - [[epics/manage-a-project.md]] — Manage a project
 - [[epics/operate-a-pkm.md]] — Operate a PKM (current: Find what I wrote)
-- [[epics/agent-chat-managed-context.md]] — Agent chat with managed context
+- [[epics/agent-chat-managed-context.md]] — Agent chat with managed context (current: Ask from what I see)
 
 ## Decisions so far
 
 - [Inventory live Projects and roadmap remainder](.scratch/roadmap/issues/02-inventory-live-projects-and-roadmap-remainder.md) — [[.scratch/roadmap/reports/live-projects-and-roadmap-remainder.md]]: 16 non-done feature-set Projects (includes End-user wiki, Architecture, Marketing wiki); postgres-roadmap §0–2 done, §3–7 still open.
 - [Name and order the first Epics](.scratch/roadmap/issues/01-name-and-order-first-epics.md) — five person-jobs grouped by Stage (all charting); outline capture already met; wiki folders stay Projects.
 - [Retire index Development Sequence](.scratch/roadmap/issues/03-retire-index-development-sequence.md) — [[doc/index.md]] is the Feature index; leftovers went to existing Projects plus [[.scratch/document-formats/map.md]]; desktop mapping is Current.
+- [Chart chapters for Agent chat with managed context](.scratch/roadmap/issues/04-chart-agent-chat-managed-context.md) — five Chapters; current Ask from what I see; new Project plus `?` on expression-language and eso 07/09.
+- [Create Ask from what I see Project](.scratch/roadmap/issues/05-create-ask-from-what-i-see-project.md) — [[.scratch/llm-connector/project.md]]; `?` recognition is [[.scratch/expression-language/issues/33-recognize-ask-run-statement.md]].
+- [Chart chapters for Work with my text files from anywhere](.scratch/roadmap/issues/06-chart-work-with-text-files-from-anywhere.md) — title Work with my documents from anywhere; five Chapters; current Automatic upload and download; wiki issues plus [[.scratch/roadmap/issues/07-chart-automatic-upload-and-download.md]].
 
 ## Not yet specified
 
-- Chapters on each standing Epic.
+- Chapters on standing Epics other than [[epics/agent-chat-managed-context.md]], [[epics/operate-a-pkm.md]], and [[epics/work-with-text-files-from-anywhere.md]].
 - Later Epics beyond the standing list.
 - How leftover `doc/roadmap` files become references vs history vs current.
 - When the application is complete (this five plus any later Epics).

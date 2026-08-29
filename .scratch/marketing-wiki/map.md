@@ -20,7 +20,7 @@ A GitLab-level browsable wiki that describes uses of Gambol (who it is for, what
 ## Not yet specified
 
 - Home: a `doc/` subtree, a GitLab wiki/Pages tree, in-app Graph content, or another browse tree.
-- First use pages (which jobs and situations).
+- First use pages besides documents from any connected device (that use is a child ticket).
 - Boundary vs End-user wiki (how-to vs why/where you would use it).
 
 ## Out of scope

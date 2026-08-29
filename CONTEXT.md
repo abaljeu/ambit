@@ -122,8 +122,12 @@ _Avoid_: Workspaces (bare, for this Node), workspace list, workspace root
 A Node whose Kind is Directory; corresponds to a server directory plus that directory's `.amb` file (`DirName/.amb`). Always say Directory Node, not bare “directory,” when referring to the Node.
 _Avoid_: directory (bare, for a Node), folder
 
+**document**:
+Text content a person works with. In the App, a document that lives on disk is a File Node. A document need not be a file. A graphic file is not a document; graphic editing is out of scope.
+_Avoid_: Document (the project), File (for the English content when it is not a File Node)
+
 **Directory File**:
-The `.amb` Document that belongs to a Directory Node or Workspace Node (root `.amb` or `DirName/.amb`). It is that node's Document artifact, not a File Node child. Cold bootstrap that reads only Directory Files leaves other File Nodes Unparsed until Parse.
+The `.amb` document that belongs to a Directory Node or Workspace Node (root `.amb` or `DirName/.amb`). It is that node's document artifact, not a File Node child. Cold bootstrap that reads only Directory Files leaves other File Nodes Unparsed until Parse.
 _Avoid_: Marker (for this concept), marker file, directory marker, amb marker, marker-only load (prefer Directory-File-only / Directory File cold load)
 
 **File Node**:
@@ -167,8 +171,8 @@ Projects (`Shared` and `Shared/dotnet`) whose code is shared across modules and 
 _Avoid_: common, core, lib
 
 **Document**:
-The project responsible for loading and saving between Graph and file.
-_Avoid_: codec package, documents project, parsers (as the project name)
+The project that reads and writes documents between Graph and file.
+_Avoid_: codec package, documents project, parsers (as the project name); File Node (do not say Document for the Node)
 
 **Load**:
 A user-facing command that runs up to three operations in sequence: Upload, Parse, then Fetch. Often only one of the three applies for a given run. The final stage Fetches part of the Graph and also Polls updates.
@@ -245,6 +249,10 @@ _Avoid_: if (lowercase, for this combinator), pullback (as a catalog name)
 **IS**:
 An infix Expression combinator: run both operands on the same input Answer and yield the Answers of the left operand that equal an Answer of the right operand. Spelling is `IS` (capitals, attaches in the `AND` family). It is not the Run statement `=`.
 _Avoid_: is (lowercase, for this combinator), equals, comparison operator
+
+**Included context**:
+The Nodes shown in the current SiteMap under Zoom, honoring Fold. Not the pixel viewport, and not every Resident Node.
+_Avoid_: visible (as the glossary name), context (bare, for this pack)
 
 ## Additional approved terms
 These terms are permitted with standard definition:
