@@ -159,6 +159,70 @@ let ``child answers on Loaded node yields Children in order`` () =
     Assert.Equal<NodeId list>([ child1.id; child2.id ], nodeIds result)
 
 [<Fact>]
+let ``owned and ref answers partition Loaded Children in order`` () =
+    let owned1 = node 1
+    let refN = node 2
+    let owned2 = node 3
+    let parent =
+        Node.Create(
+            NodeId.New(),
+            children =
+                [ ChildNode.owner owned1.id
+                  ChildNode.reference refN.id
+                  ChildNode.owner owned2.id ])
+    let graph =
+        Graph.create ()
+        |> fun g ->
+            let nodes =
+                g.nodes
+                |> Map.add parent.id parent
+                |> Map.add owned1.id owned1
+                |> Map.add refN.id refN
+                |> Map.add owned2.id owned2
+            Graph.fromNodes g.root nodes
+    let input = ExprAnswer.Node parent
+    Assert.Equal<NodeId list>(
+        [ owned1.id; owned2.id ],
+        nodeIds (ExprEval.toList (ExprWalk.ownedAnswers graph input)))
+    Assert.Equal<NodeId list>(
+        [ refN.id ],
+        nodeIds (ExprEval.toList (ExprWalk.refAnswers graph input)))
+    Assert.Equal<NodeId list>(
+        [ owned1.id; refN.id; owned2.id ],
+        nodeIds (ExprEval.toList (ExprWalk.childAnswers graph parent)))
+    Assert.Equal<ExprAnswer list>(
+        [],
+        ExprEval.toList (ExprWalk.ownedAnswers graph (textAnswer "x")))
+    Assert.Equal<ExprAnswer list>(
+        [],
+        ExprEval.toList (ExprWalk.refAnswers graph (textAnswer "x")))
+
+[<Fact>]
+let ``owned and ref answers on Unloaded node yield empty sequence`` () =
+    let parent =
+        Node.Create(
+            NodeId.New(),
+            childrenStatus = Unloaded,
+            children = [])
+    let child = node 1
+    let graph =
+        Graph.create ()
+        |> fun g ->
+            let nodes =
+                g.nodes
+                |> Map.add parent.id parent
+                |> Map.add child.id child
+            Graph.fromNodes g.root nodes
+    let input = ExprAnswer.Node parent
+    Assert.Equal<ExprAnswer list>(
+        [],
+        ExprEval.toList (ExprWalk.ownedAnswers graph input))
+    Assert.Equal<ExprAnswer list>(
+        [],
+        ExprEval.toList (ExprWalk.refAnswers graph input))
+    Assert.Equal(Unloaded, graph.nodes.[parent.id].childrenStatus)
+
+[<Fact>]
 let ``take two from a three-hit stream leaves the third unforced`` () =
     let thirdForced = ref false
     let third =

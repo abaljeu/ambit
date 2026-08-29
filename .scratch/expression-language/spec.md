@@ -164,6 +164,8 @@ Stated once for every row: a miss is the empty sequence (fail-to-answer); a walk
 | `subsection`; `#` | name | `Node ⇒ Node` | Search strictly below the input for sections whose name matches the glob; wall, traversal, and deduplication rules are below the table. `subsection "todo"` equals `#todo`. Bare `#` and bare `subsection` are missing-argument parse errors. |
 | `named` | quoted name | `Node ⇒ Node` | Yield the input when it is a Normal Node whose name matches the glob; otherwise yield no Answers. This row is a pure filter and does not search Children. |
 | `child` | — | `Node ⇒ Node` | The Children of the input (Owned and Ref), in Children order; the same set as `:` with `*`. |
+| `owned` | — | `Node ⇒ Node` | Immediate Children whose Graph edge is Owned, in Children order. Unloaded is a miss. Together with `ref`, a partition of `child`. |
+| `ref` | — | `Node ⇒ Node` | Immediate Children whose Graph edge is Ref, in Children order. Unloaded is a miss. Together with `owned`, a partition of `child`. |
 | `descendant` | — | `Node ⇒ Node` | Every Node reachable through one or more child steps (follows Ref), depth-first in Children order, each Node at most once by Node identity (first reach wins). |
 | `tree`; `**` | — | `Node ⇒ Node` | Every Node reachable through one or more Owned steps, depth-first in Children order; Owned placement is unique and acyclic, so no dedupe clause is needed. |
 | `containing` | quoted string | `Node ⇒ Node`, or `Text ⇒ Text` | A dual row. On a Node: yield the input Node when its Header text contains the argument as a case-insensitive substring (Header text only, not the name). On a Text: yield that same Text when it contains the argument. |
@@ -207,7 +209,6 @@ Reserved for later slices, defined here only so their shape is fixed:
 
 | Entry | Spellings | Signature | Answer function |
 | --- | --- | --- | --- |
-| ref, owned | `ref`; `owned` | `Node ⇒ Node` | Immediate Children that are Ref / Owned appearances; partition of `child`. Unloaded is a miss. Not in this closed slice. Issue: [[issues/32-ref-and-owned-children.md]]. |
 | sort | `sort` | — | Later tickets. |
 | Number producers | — | `… ⇒ Number` | When one joins, Number becomes a type; number literals stay operator arguments unless a later spec revises the literals-are-arguments rule. |
 
@@ -246,7 +247,7 @@ Revision list for the later implementation effort, against [[src/Shared/RefExprM
 12. Implemented `tagSearchFrom` follows Ref Children, consistent with this spec's `#` traversal; [[doc/roadmap/reference-expression-interpretation.md]] says Owned only and must be revised. The `named` word is separate from `#`: it is a pure same-input name-glob filter and performs no traversal. `#` is subsection search, not a short form of `named`.
 13. Implemented `globMatch` treats `?` as a one-character wildcard; this spec defines `*` as the only glob metacharacter, so `?` behavior must be specified or revised later.
 14. `//` today is the ROOT anchor; this spec has no `//` row — the cluster fragment desugars to `root /` and bare `//` no longer parses.
-15. The words `root`, `child`, `descendant`, `tree`, `containing`, `re`, `rei`, `named`, `section`, `subsection`, `wsroot`, `class`, `text`, `name`, `left`, `right`, the classification filters `ws`/`dir`/`file`/`normal`, the reserved `AND`/`OR`/`NOT`/`OUTER`/`IF`/`IS`, and the statement forms `=` / `Name=` are all new surface.
+15. The words `root`, `child`, `owned`, `ref`, `descendant`, `tree`, `containing`, `re`, `rei`, `named`, `section`, `subsection`, `wsroot`, `class`, `text`, `name`, `left`, `right`, the classification filters `ws`/`dir`/`file`/`normal`, the reserved `AND`/`OR`/`NOT`/`OUTER`/`IF`/`IS`, and the statement forms `=` / `Name=` are all new surface.
 
 ## 10. Deferred and not planned
 
@@ -287,6 +288,8 @@ Extends [[.scratch/expression-language/reports/pipeline-examples.md]], re-checke
 | `wsroot #todo` | `Node ⇒ Node` | Up to the containing Workspace, then subsection search strictly below it through Owned and Ref Children for sections named `todo`. Equals `wsroot subsection "todo"`. |
 | `^#blue` | `Node ⇒ Node` | From the structural container, subsection search down; a section walls the search, so `blue` under `todo` is missed; `^#todo#blue` finds it. |
 | `child` | `Node ⇒ Node` | The Children of the current Node (Owned and Ref); the same set as `:*`. |
+| `owned` | `Node ⇒ Node` | Owned Children of the current Node, immediate only. Together with `ref`, a partition of `child`. |
+| `ref` | `Node ⇒ Node` | Ref Children of the current Node, immediate only. Together with `owned`, a partition of `child`. |
 | `!-249053534` | zero Answers | Out-of-range sibling offset: a miss, not an error. |
 | `root descendant NOT containing "draft"` | `Node ⇒ Node` | Descendants of ROOT kept when the `containing "draft"` predicate yields nothing from them. |
 | `IF containing "blue"` | `Node ⇒ Node` | Keep the current Node when its Header contains `blue`. Same-input pullback; equals `NOT (NOT containing "blue")`. The Answers stay the input Nodes. |

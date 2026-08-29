@@ -8,13 +8,15 @@
 
 **See also:** [[../spec.md]] chapters 6 and 7 (`child`, Unloaded rule; reserved `ref` / `owned`); [[12-owned-versus-ref-walk-for-descendant.md]]; [[CONTEXT.md]] Children, Owned, Ref; [[src/Shared/ExprWalk.fs]] `childAnswers` / `ownedChildren`; [[src/Shared/ExprPrimitive.fs]] `childRow`; tests next to existing child/walk facts in [[tests/Shared.Tests/ExprEvalTests.fs]] and [[tests/Shared.Tests/ExprPipelineTests.fs]]. Notes: [[../reports/ref-owned-children.md]].
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `owned` yields only Owned Children of the input, in Children order; immediate only (not descendants, not `tree`).
-- [ ] `ref` yields only Ref Children of the input, in Children order; immediate only (not descendants, not `descendant`).
-- [ ] On a mixed parent, `child` equals the Children-order merge of `owned` and `ref` (every Child appearance is in exactly one of the two). `owned OR ref` is not `child` (OR concatenates whole sequences).
-- [ ] Unloaded input: `child`, `owned`, and `ref` all miss; evaluation does not Load.
-- [ ] Spellings are exactly `ref` and `owned` (lowercase Name tokens, same class as `child` / `tree`). No slot. Text input is a miss.
+Implementation: [[../reports/ref-owned-children-impl.md]].
+
+- [x] `owned` yields only Owned Children of the input, in Children order; immediate only (not descendants, not `tree`).
+- [x] `ref` yields only Ref Children of the input, in Children order; immediate only (not descendants, not `descendant`).
+- [x] On a mixed parent, `child` equals the Children-order merge of `owned` and `ref` (every Child appearance is in exactly one of the two). `owned OR ref` is not `child` (OR concatenates whole sequences).
+- [x] Unloaded input: `child`, `owned`, and `ref` all miss; evaluation does not Load.
+- [x] Spellings are exactly `ref` and `owned` (lowercase Name tokens, same class as `child` / `tree`). No slot. Text input is a miss.
 
 ## Comments
 

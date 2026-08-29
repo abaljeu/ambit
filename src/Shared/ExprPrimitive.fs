@@ -88,6 +88,12 @@ module ExprPrimitive =
     let private childRow graph =
         row [ "child" ] None (fun _ -> ExprWalk.childAt graph None)
 
+    let private ownedRow graph =
+        row [ "owned" ] None (fun _ -> ExprWalk.ownedAnswers graph)
+
+    let private refRow graph =
+        row [ "ref" ] None (fun _ -> ExprWalk.refAnswers graph)
+
     let private descendantRow graph =
         row [ "descendant" ] None (fun _ -> ExprWalk.descendantAnswers graph)
 
@@ -174,6 +180,8 @@ module ExprPrimitive =
         |> ExprCatalog.register (siblingAtRow graph)
         |> ExprCatalog.register (contentRow graph)
         |> ExprCatalog.register (childRow graph)
+        |> ExprCatalog.register (ownedRow graph)
+        |> ExprCatalog.register (refRow graph)
         |> ExprCatalog.register (descendantRow graph)
         |> ExprCatalog.register (containingRow graph)
         |> ExprCatalog.register (reRow graph)

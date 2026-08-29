@@ -5,16 +5,26 @@ open System.Text.RegularExpressions
 
 [<RequireQualifiedAccess>]
 module ExprWalk =
-    /// Children of a Node as Answers; Unloaded yields no Answers (miss, never an error).
-    let childAnswers (graph: Graph) (node: Node) : ExprEval.Stream =
+    let private childrenWhere
+        (graph: Graph)
+        (keep: ChildNode -> bool)
+        (node: Node)
+        : Node list =
         match node.childrenStatus with
-        | Unloaded -> ExprEval.empty
+        | Unloaded -> []
         | Loaded ->
             node.children
             |> List.choose (fun child ->
-                Map.tryFind child.id graph.nodes
-                |> Option.map ExprAnswer.Node)
-            |> ExprEval.ofList
+                if keep child then
+                    Map.tryFind child.id graph.nodes
+                else
+                    None)
+
+    /// Children of a Node as Answers; Unloaded yields no Answers (miss, never an error).
+    let childAnswers (graph: Graph) (node: Node) : ExprEval.Stream =
+        childrenWhere graph (fun _ -> true) node
+        |> List.map ExprAnswer.Node
+        |> ExprEval.ofList
 
     let tryGraphNode (graph: Graph) (input: ExprAnswer) : Node option =
         match input with
@@ -55,15 +65,23 @@ module ExprWalk =
         | _ -> false
 
     let private ownedChildren (graph: Graph) (parent: Node) : Node list =
-        match parent.childrenStatus with
-        | Unloaded -> []
-        | Loaded ->
-            parent.children
-            |> List.choose (fun child ->
-                if child.ref <> Ownership.Owner then
-                    None
-                else
-                    Map.tryFind child.id graph.nodes)
+        childrenWhere graph (fun child -> child.ref = Ownership.Owner) parent
+
+    let private answersWhere graph keep input =
+        match tryGraphNode graph input with
+        | None -> ExprEval.empty
+        | Some node ->
+            childrenWhere graph keep node
+            |> List.map (fun n -> ExprAnswer.Node n)
+            |> ExprEval.ofList
+
+    /// Immediate Owned Children of the input; Unloaded and Text are a miss.
+    let ownedAnswers graph input =
+        answersWhere graph (fun child -> child.ref = Ownership.Owner) input
+
+    /// Immediate Ref Children of the input; Unloaded and Text are a miss.
+    let refAnswers graph input =
+        answersWhere graph (fun child -> child.ref = Ownership.Ref) input
 
     let private loadedChildren (parent: Node) =
         match parent.childrenStatus with
