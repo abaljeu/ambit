@@ -166,6 +166,41 @@ let ``re is case-sensitive; rei uses engine ignore-case`` () =
         nodeIds (evalOk f.graph fromHeaded "containing \"THE\""))
 
 [<Fact>]
+let ``containing re and rei are dual: Text in, same Text out`` () =
+    let f = build ()
+    let fromHeaded = answerOf f.graph f.headed
+    let textOf source =
+        evalOk f.graph fromHeaded source
+        |> List.map (function
+            | ExprAnswer.Text t -> t
+            | other -> failwith $"expected Text answer, got {other}")
+    Assert.Equal<string list>([ "the heading" ], textOf "text containing \"the\"")
+    Assert.Equal<string list>([], textOf "text containing \"absent\"")
+    Assert.Equal<string list>([ "the heading" ], textOf "text re \".*the.*\"")
+    Assert.Equal<string list>([], textOf "text re \".*THE.*\"")
+    Assert.Equal<string list>([ "the heading" ], textOf "text rei \".*THE.*\"")
+    Assert.Equal<string list>([ "the" ], textOf "text left 3 containing \"the\"")
+
+[<Fact>]
+let ``the Node overload of containing re and rei still yields Nodes`` () =
+    let f = build ()
+    let fromHeaded = answerOf f.graph f.headed
+    let catalog = ExprPrimitive.catalog f.graph
+    Assert.Equal<NodeId list>(
+        [ f.headed ],
+        nodeIds (evalOk f.graph fromHeaded "containing \"the\""))
+    Assert.Equal(Ok ExprAnswerType.Node, ExprCompile.inferType catalog "containing \"the\"")
+    Assert.Equal(
+        Ok ExprAnswerType.Node,
+        ExprCompile.inferType catalog "root descendant containing \"the\"")
+    Assert.Equal(
+        Ok ExprAnswerType.Text,
+        ExprCompile.inferType catalog "text containing \"the\"")
+    Assert.Equal(
+        Ok ExprAnswerType.Node,
+        ExprCompile.inferType catalog "root OUTER containing \"the\"")
+
+[<Fact>]
 let ``invalid re pattern is a miss`` () =
     let f = build ()
     let fromHeaded = answerOf f.graph f.headed

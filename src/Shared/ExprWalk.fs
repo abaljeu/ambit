@@ -260,14 +260,20 @@ module ExprWalk =
         keepInput graph (fun (node: Node) ->
             CssClass.contains token node.cssClasses) input
 
+    /// Dual filter: a Text input is tested directly, a Node input through `node.text`.
+    /// Either way the input Answer is what the filter yields.
+    let private dualFilter graph (matches: string -> bool) input =
+        match input with
+        | ExprAnswer.Text text ->
+            if matches text then ExprEval.singleton input else ExprEval.empty
+        | ExprAnswer.Node _ ->
+            keepInput graph (fun (node: Node) -> matches node.text) input
+
     let containing graph (needle: string) input =
-        match tryGraphNode graph input with
-        | None -> ExprEval.empty
-        | Some node ->
-            if node.text.IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0 then
-                ExprEval.singleton (toAnswer node)
-            else
-                ExprEval.empty
+        dualFilter
+            graph
+            (fun text -> text.IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0)
+            input
 
     let private tryRegex ignoreCase (pattern: string) =
         try
@@ -278,15 +284,42 @@ module ExprWalk =
         with
         | _ -> None
 
-    let private headerRe graph ignoreCase pattern input =
+    let private matchRe graph ignoreCase pattern input =
         match tryRegex ignoreCase pattern with
         | None -> ExprEval.empty
-        | Some regex ->
-            keepInput graph (fun (node: Node) -> regex.IsMatch node.text) input
+        | Some regex -> dualFilter graph regex.IsMatch input
 
-    let re graph pattern input = headerRe graph false pattern input
+    let re graph pattern input = matchRe graph false pattern input
 
-    let rei graph pattern input = headerRe graph true pattern input
+    let rei graph pattern input = matchRe graph true pattern input
+
+    /// `name`: the Filename of a Node, Ok only. Empty and Invalid are a miss.
+    let nameText graph input =
+        match tryGraphNode graph input with
+        | None -> ExprEval.empty
+        | Some node ->
+            Filename.tryValue node.name
+            |> Option.map ExprAnswer.Text
+            |> ExprEval.ofOption
+
+    /// Length of the prefix or suffix to keep: never past the ends of the string.
+    let private clampLength (n: int) (text: string) =
+        if n < 1 then 0
+        elif n > text.Length then text.Length
+        else n
+
+    let leftText (n: int) input =
+        match input with
+        | ExprAnswer.Text text ->
+            ExprEval.singleton (ExprAnswer.Text(text.Substring(0, clampLength n text)))
+        | ExprAnswer.Node _ -> ExprEval.empty
+
+    let rightText (n: int) input =
+        match input with
+        | ExprAnswer.Text text ->
+            let kept = clampLength n text
+            ExprEval.singleton (ExprAnswer.Text(text.Substring(text.Length - kept)))
+        | ExprAnswer.Node _ -> ExprEval.empty
 
     let private isFileDirWorkspace (node: Node) =
         match node.kind with

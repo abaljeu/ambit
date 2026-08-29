@@ -3,13 +3,24 @@ namespace Gambol.Shared
 [<RequireQualifiedAccess>]
 module ExprPrimitive =
     let private nodeSig =
-        { input = ExprAnswerType.Node
-          output = ExprAnswerType.Node }
+        ExprSignature.Fixed(ExprAnswerType.Node, ExprAnswerType.Node)
+
+    let private nodeToTextSig =
+        ExprSignature.Fixed(ExprAnswerType.Node, ExprAnswerType.Text)
+
+    let private textSig =
+        ExprSignature.Fixed(ExprAnswerType.Text, ExprAnswerType.Text)
 
     let private row spellings slot evaluate : ExprCatalogRow =
         { spellings = spellings
           slot = slot
           signature = nodeSig
+          evaluate = evaluate }
+
+    let private typedRow signature spellings slot evaluate : ExprCatalogRow =
+        { spellings = spellings
+          slot = slot
+          signature = signature
           evaluate = evaluate }
 
     let private requireName eval bound input =
@@ -25,6 +36,11 @@ module ExprPrimitive =
     let private requireQuoted eval bound input =
         match bound with
         | ExprBoundSlot.QuotedText text -> eval text input
+        | _ -> ExprEval.empty
+
+    let private requireLength eval bound input =
+        match bound with
+        | ExprBoundSlot.Int n -> eval n input
         | _ -> ExprEval.empty
 
     let private rootRow graph =
@@ -76,19 +92,22 @@ module ExprPrimitive =
         row [ "descendant" ] None (fun _ -> ExprWalk.descendantAnswers graph)
 
     let private containingRow graph =
-        row
+        typedRow
+            ExprSignature.Same
             [ "containing" ]
             (Some ExprSlotKind.QuotedText)
             (requireQuoted (ExprWalk.containing graph))
 
     let private reRow graph =
-        row
+        typedRow
+            ExprSignature.Same
             [ "re" ]
             (Some ExprSlotKind.QuotedText)
             (requireQuoted (ExprWalk.re graph))
 
     let private reiRow graph =
-        row
+        typedRow
+            ExprSignature.Same
             [ "rei" ]
             (Some ExprSlotKind.QuotedText)
             (requireQuoted (ExprWalk.rei graph))
@@ -120,17 +139,28 @@ module ExprPrimitive =
             (Some ExprSlotKind.QuotedText)
             (requireQuoted (ExprWalk.classMember graph))
 
-    let private textRow graph : ExprCatalogRow =
-        { spellings = [ "text" ]
-          slot = None
-          signature =
-            { input = ExprAnswerType.Node
-              output = ExprAnswerType.Text }
-          evaluate =
-            fun _ input ->
-                match ExprWalk.tryGraphNode graph input with
-                | Some node -> ExprEval.singleton (ExprAnswer.Text node.text)
-                | None -> ExprEval.empty }
+    let private textRow graph =
+        typedRow nodeToTextSig [ "text" ] None (fun _ input ->
+            match ExprWalk.tryGraphNode graph input with
+            | Some node -> ExprEval.singleton (ExprAnswer.Text node.text)
+            | None -> ExprEval.empty)
+
+    let private nameRow graph =
+        typedRow nodeToTextSig [ "name" ] None (fun _ -> ExprWalk.nameText graph)
+
+    let private leftRow =
+        typedRow
+            textSig
+            [ "left" ]
+            (Some ExprSlotKind.Int)
+            (requireLength ExprWalk.leftText)
+
+    let private rightRow =
+        typedRow
+            textSig
+            [ "right" ]
+            (Some ExprSlotKind.Int)
+            (requireLength ExprWalk.rightText)
 
     let catalog (graph: Graph) : ExprCatalog.T =
         ExprCatalog.empty
@@ -156,3 +186,6 @@ module ExprPrimitive =
         |> ExprCatalog.register (sectionRow graph)
         |> ExprCatalog.register (classRow graph)
         |> ExprCatalog.register (textRow graph)
+        |> ExprCatalog.register (nameRow graph)
+        |> ExprCatalog.register leftRow
+        |> ExprCatalog.register rightRow

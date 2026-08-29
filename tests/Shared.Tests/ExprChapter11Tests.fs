@@ -238,11 +238,11 @@ let ``child equals colon-star; wsroot is containing Workspace`` () =
 
 [<Theory>]
 [<InlineData("// ws", "missing argument")>]
-[<InlineData("\"d\" \"e\"", "unexpected quoted literal")>]
 [<InlineData("/", "missing argument")>]
 [<InlineData("// OR /", "missing argument")>]
 [<InlineData("root descendant containing root", "missing argument")>]
-[<InlineData("3", "a number is only valid as the right operand of : or !")>]
+[<InlineData("3", "a number is only valid as the slot of : ! left or right")>]
+[<InlineData("\"d\" \"e\"", "cannot juxtapose two quoted strings")>]
 let ``parse error rows assert spec messages`` (source: string) (needle: string) =
     let f = build ()
     Assert.Contains(needle, parseFailed f source)

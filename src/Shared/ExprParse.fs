@@ -11,7 +11,10 @@ module ExprParse =
 
     [<Literal>]
     let numberOnlyOperand =
-        "a number is only valid as the right operand of : or !"
+        "a number is only valid as the slot of : ! left or right"
+
+    [<Literal>]
+    let adjacentQuotedStrings = "cannot juxtapose two quoted strings"
 
     type private Token =
         | Quoted of string
@@ -21,6 +24,7 @@ module ExprParse =
         | NotKw
         | OuterKw
         | IfKw
+        | IsKw
         | Comma
         | LParen
         | RParen
@@ -55,6 +59,7 @@ module ExprParse =
         elif seg = "NOT" then NotKw
         elif seg = "OUTER" then OuterKw
         elif seg = "IF" then IfKw
+        elif seg = "IS" then IsKw
         elif seg.Length >= 2 && seg.[0] = '"' && seg.[seg.Length - 1] = '"' then
             Quoted(seg.Substring(1, seg.Length - 2))
         else
@@ -76,8 +81,11 @@ module ExprParse =
         || word = "re"
         || word = "rei"
 
+    let private wordWantsNumber (word: string) =
+        word = "left" || word = "right"
+
     let private parseWord (word: string) (literal: string option) : Result<ExprTerm, string> =
-        if wordWantsTrailingLiteral word && literal.IsNone then
+        if (wordWantsTrailingLiteral word || wordWantsNumber word) && literal.IsNone then
             Error missingArgument
         else
             Ok(ExprTerm.Word(word, literal))
@@ -96,11 +104,21 @@ module ExprParse =
         | Quoted text :: tail -> Some text, tail
         | _ -> None, rest
 
+    let private takeNumber rest =
+        match rest with
+        | Raw number :: tail when isSignedInteger number -> Some number, tail
+        | _ -> None, rest
+
     let private isTermStart token =
         match token with
         | LParen
         | Quoted _ -> true
         | Raw _ -> true
+        | _ -> false
+
+    let private isQuotedTerm expr =
+        match expr with
+        | Expr.Term(ExprTerm.Text _) -> true
         | _ -> false
 
     let private seqExpr items =
@@ -143,6 +161,10 @@ module ExprParse =
             parseNot rest
             |> Result.bind (fun (right, rest2) ->
                 parseAndTail (Expr.And(left, right)) rest2)
+        | IsKw :: rest ->
+            parseNot rest
+            |> Result.bind (fun (right, rest2) ->
+                parseAndTail (Expr.Is(left, right)) rest2)
         | _ -> Ok(left, tokens)
 
     and private parseNot tokens =
@@ -176,13 +198,17 @@ module ExprParse =
         match tokens with
         | t :: _ when isTermStart t ->
             parseTerm tokens
-            |> Result.bind (fun (next, rest) -> parseSeqTail (next :: acc) rest)
+            |> Result.bind (fun (next, rest) ->
+                match acc with
+                | prev :: _ when isQuotedTerm prev && isQuotedTerm next ->
+                    Error adjacentQuotedStrings
+                | _ -> parseSeqTail (next :: acc) rest)
         | _ -> Ok(seqExpr (List.rev acc), tokens)
 
     and private parseTerm tokens =
         match tokens with
         | LParen :: rest -> parseGroup rest
-        | Quoted _ :: _ -> Error "unexpected quoted literal"
+        | Quoted text :: rest -> Ok(Expr.Term(ExprTerm.Text text), rest)
         | Raw word :: rest when isPathCluster word ->
             let literal, after = takeLiteral rest
             parseClusterSegment word literal
@@ -191,6 +217,7 @@ module ExprParse =
         | Raw word :: rest ->
             let literal, after =
                 if wordWantsTrailingLiteral word then takeLiteral rest
+                elif wordWantsNumber word then takeNumber rest
                 else None, rest
             parseWord word literal
             |> Result.map (fun term -> Expr.Term term, after)

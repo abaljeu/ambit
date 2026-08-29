@@ -1,5 +1,7 @@
 namespace Gambol.Shared
 
+open System
+
 [<RequireQualifiedAccess>]
 module ExprCompile =
     let unknownWord (word: string) = $"unknown word '{word}'"
@@ -52,6 +54,10 @@ module ExprCompile =
         | Some ExprSlotKind.NameGlob, Some name ->
             Ok(ExprBoundSlot.NameGlob name)
         | Some _, None -> Error ExprParse.missingArgument
+        | Some ExprSlotKind.Int, Some raw ->
+            match Int32.TryParse raw with
+            | true, n -> Ok(ExprBoundSlot.Int n)
+            | _ -> Error ExprParse.numberOnlyOperand
         | Some ExprSlotKind.IntOrStar, Some _ ->
             Error ExprParse.missingArgument
 
@@ -61,6 +67,7 @@ module ExprCompile =
         || word = "NOT"
         || word = "OUTER"
         || word = "IF"
+        || word = "IS"
 
     let private compileWord catalog word literal =
         if isReserved word then
@@ -77,6 +84,8 @@ module ExprCompile =
         match term with
         | ExprTerm.Word(word, literal) -> compileWord catalog word literal
         | ExprTerm.Cluster(steps, _) -> compileCluster catalog steps
+        | ExprTerm.Text text ->
+            Ok(fun _ -> ExprEval.singleton (ExprAnswer.Text text))
 
     let rec private compileExpr graph catalog expr =
         match expr with
@@ -106,14 +115,19 @@ module ExprCompile =
             |> Result.bind (fun lpred ->
                 compileExpr graph catalog right
                 |> Result.map (ExprEval.orEval lpred))
+        | Expr.Is (left, right) ->
+            compileExpr graph catalog left
+            |> Result.bind (fun lpred ->
+                compileExpr graph catalog right
+                |> Result.map (ExprEval.isEval lpred))
 
-    let private compose (left: ExprSignature) (right: ExprSignature) =
-        if left.output = right.input then
-            Ok
-                { input = left.input
-                  output = right.output }
-        else
-            Error "type error"
+    /// Types flow left to right: each term is offered the type of the Answer reaching
+    /// it and reports the type it yields. A `Same` row takes whichever type arrives.
+    let private applySig (input: ExprAnswerType) (signature: ExprSignature) =
+        match signature with
+        | ExprSignature.Fixed(expected, output) ->
+            if expected = input then Ok output else Error "type error"
+        | ExprSignature.Same -> Ok input
 
     let private lookupSig catalog spelling =
         match ExprCatalog.lookup spelling catalog with
@@ -131,60 +145,57 @@ module ExprCompile =
         | ClusterStep.ChildAt _ -> lookupSig catalog ":"
         | ClusterStep.SiblingAt _ -> lookupSig catalog "!"
 
-    let private composeList infer first rest =
+    let private typeList infer input items =
         List.fold
-            (fun acc item ->
-                acc
-                |> Result.bind (fun left ->
-                    infer item |> Result.bind (compose left)))
-            (infer first)
-            rest
+            (fun acc item -> acc |> Result.bind (fun left -> infer left item))
+            (Ok input)
+            items
 
-    let private clusterSig catalog steps =
+    let private clusterType catalog input steps =
         match steps with
         | [] -> Error "empty cluster"
-        | head :: tail -> composeList (stepSig catalog) head tail
+        | _ ->
+            typeList
+                (fun left step -> stepSig catalog step |> Result.bind (applySig left))
+                input
+                steps
 
-    let private termSig catalog term =
+    let private termType catalog input term =
         match term with
         | ExprTerm.Word(word, _) when isReserved word ->
             Error(unknownWord word)
-        | ExprTerm.Word(word, _) -> lookupSig catalog word
-        | ExprTerm.Cluster(steps, _) -> clusterSig catalog steps
+        | ExprTerm.Word(word, _) ->
+            lookupSig catalog word |> Result.bind (applySig input)
+        | ExprTerm.Cluster(steps, _) -> clusterType catalog input steps
+        | ExprTerm.Text _ -> Ok ExprAnswerType.Text
 
-    let rec private inferExpr catalog expr =
+    let rec private inferExpr catalog input expr =
         match expr with
-        | Expr.Term t -> termSig catalog t
+        | Expr.Term t -> termType catalog input t
         | Expr.Pipe [] -> Error "empty expression"
-        | Expr.Pipe (head :: tail) ->
-            composeList (inferExpr catalog) head tail
+        | Expr.Pipe items -> typeList (inferExpr catalog) input items
         | Expr.Not inner
         | Expr.If inner ->
-            inferExpr catalog inner
-            |> Result.map (fun s -> { input = s.input; output = s.input })
+            inferExpr catalog input inner |> Result.map (fun _ -> input)
         | Expr.Outer inner ->
-            inferExpr catalog inner
-            |> Result.bind (fun s ->
-                if s.input = ExprAnswerType.Node then
-                    Ok
-                        { input = ExprAnswerType.Node
-                          output = ExprAnswerType.Node }
-                else
-                    Error "type error")
+            if input = ExprAnswerType.Node then
+                inferExpr catalog ExprAnswerType.Node inner
+                |> Result.map (fun _ -> ExprAnswerType.Node)
+            else
+                Error "type error"
         | Expr.And (left, right)
-        | Expr.Or (left, right) ->
-            inferExpr catalog left
-            |> Result.bind (fun lsig ->
-                inferExpr catalog right
-                |> Result.bind (fun rsig ->
-                    if lsig.input = rsig.input && lsig.output = rsig.output then
-                        Ok lsig
-                    else
-                        Error "type error"))
+        | Expr.Or (left, right)
+        | Expr.Is (left, right) ->
+            inferExpr catalog input left
+            |> Result.bind (fun lout ->
+                inferExpr catalog input right
+                |> Result.bind (fun rout ->
+                    if lout = rout then Ok lout else Error "type error"))
 
+    /// Every consumer applies the Expression to a Node Answer (spec chapter 8).
     let inferType catalog source =
         ExprParse.parseExpr source
-        |> Result.bind (inferExpr catalog)
+        |> Result.bind (inferExpr catalog ExprAnswerType.Node)
 
     let compile graph catalog source =
         ExprParse.parseExpr source
@@ -200,10 +211,10 @@ module ExprCompile =
         match inferType catalog source with
         | Error e when e = "type error" -> TypeFailed e
         | Error e -> ParseFailed e
-        | Ok signature ->
+        | Ok output ->
             match compile graph catalog source with
             | Error e -> ParseFailed e
-            | Ok pred -> Hits(signature.output, ExprEval.toList (pred input))
+            | Ok pred -> Hits(output, ExprEval.toList (pred input))
 
     let eval graph input source =
         let catalog = ExprPrimitive.catalog graph

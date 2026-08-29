@@ -32,6 +32,7 @@
     <Compile Include="ExprFilterTests.fs" />
     <Compile Include="ExprSectionTests.fs" />
     <Compile Include="ExprCombinatorTests.fs" />
+    <Compile Include="ExprTextOpsTests.fs" />
     <Compile Include="ExprRunTests.fs" />
     <Compile Include="ExprDialogTests.fs" />
     <Compile Include="ExprChapter11Tests.fs" />

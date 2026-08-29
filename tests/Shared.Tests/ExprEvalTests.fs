@@ -103,7 +103,7 @@ let ``catalog stub row registers and invokes through core`` () =
     let row =
         { spellings = [ "echo" ]
           slot = None
-          signature = { input = ExprAnswerType.Node; output = ExprAnswerType.Node }
+          signature = ExprSignature.Fixed(ExprAnswerType.Node, ExprAnswerType.Node)
           evaluate =
             fun _ input ->
                 match input with

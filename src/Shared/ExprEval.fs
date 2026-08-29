@@ -70,7 +70,9 @@ module ExprEval =
     let orEval (left: Predicate) (right: Predicate) : Predicate =
         fun input -> append (left input) (right input)
 
-    let andEval (left: Predicate) (right: Predicate) : Predicate =
+    /// Left Answers that also appear in the right sequence, both sides run on the same
+    /// input. `once` drops repeats (AND); without it every match is yielded (IS).
+    let private intersectEval (once: bool) (left: Predicate) (right: Predicate) : Predicate =
         fun input ->
             let rights = toList (right input)
             let isInRights answer =
@@ -83,11 +85,18 @@ module ExprEval =
                     | Some(answer, rest) ->
                         if isInRights answer
                            && not (List.exists (ExprAnswer.equal answer) seen) then
-                            Some(answer, filter (answer :: seen) rest)
+                            let seen = if once then answer :: seen else seen
+                            Some(answer, filter seen rest)
                         else
                             pull (filter seen rest))
 
             filter [] (left input)
+
+    let andEval (left: Predicate) (right: Predicate) : Predicate =
+        intersectEval true left right
+
+    let isEval (left: Predicate) (right: Predicate) : Predicate =
+        intersectEval false left right
 
     let notEval (inner: Predicate) : Predicate =
         fun input ->

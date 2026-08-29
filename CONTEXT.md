@@ -218,6 +218,10 @@ _Avoid_: tree2, outer (lowercase), outermost, cut (for this combinator)
 An Expression combinator: yield the input Answer when the operand yields any Answer from that same input; otherwise miss. Same-input pullback. Spelling is `IF` (capitals, same class as `NOT` and `OUTER`).
 _Avoid_: if (lowercase, for this combinator), pullback (as a catalog name)
 
+**IS**:
+An infix Expression combinator: run both operands on the same input Answer and yield the Answers of the left operand that equal an Answer of the right operand. Spelling is `IS` (capitals, attaches in the `AND` family). It is not the Run statement `=`.
+_Avoid_: is (lowercase, for this combinator), equals, comparison operator
+
 ## Additional approved terms
 These terms are permitted with standard definition:
 

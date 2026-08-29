@@ -5,6 +5,7 @@ type ExprSlotKind =
     | NameGlob
     | QuotedText
     | IntOrStar
+    | Int
 
 [<RequireQualifiedAccess>]
 type ExprBoundSlot =
@@ -12,6 +13,7 @@ type ExprBoundSlot =
     | NameGlob of string
     | QuotedText of string
     | IntOrStar of int option
+    | Int of int
 
 type ExprCatalogRow =
     { spellings: string list

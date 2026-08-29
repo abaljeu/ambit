@@ -18,6 +18,9 @@ type ExprAnswerType =
     | Node
     | Text
 
+/// A catalog row's typing. `Same` is the dual shape `τ ⇒ τ`: one row that serves
+/// both a Node input and a Text input, as `containing`, `re`, and `rei` do.
+[<RequireQualifiedAccess>]
 type ExprSignature =
-    { input: ExprAnswerType
-      output: ExprAnswerType }
+    | Fixed of input: ExprAnswerType * output: ExprAnswerType
+    | Same
