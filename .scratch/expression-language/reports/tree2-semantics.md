@@ -2,7 +2,7 @@
 
 Design only. No product code. Home is [[.scratch/expression-language/]] because Expression eval, `tree`, and after-filters live there. Written on project branch `w/tree2-semantics`, cut from `selective-client-sync`. See [[.scratch/expression-language/spec.md]], [[src/Shared/ExprWalk.fs]], [[src/Shared/ExprEval.fs]], [[src/Shared/ExprCompile.fs]], [[src/Shared/ExprPrimitive.fs]].
 
-Working name in this report: `tree2` (history only). Catalog spelling is locked: `outer`. Do not replace the `tree` / `**` row.
+Working name in this report: `tree2` (history only). Catalog spelling is locked: `OUTER` (capitals, same class as `NOT`). Do not replace the `tree` / `**` row.
 
 ## Canonical algorithm
 
@@ -22,7 +22,7 @@ Implications:
 - A Node that is not acceptable does not yield. Search continues in its Owned Children. A matching descendant under a non-matching ancestor is found.
 - A post-pass that first materializes `tree`, then filters, then drops descendants of remaining Answers is the wrong shape. It does extra work. It does not match this algorithm.
 
-`tree` starts strictly below the input (it does not yield the input). `outer` must do the same. The walk is Owned only. It does not follow Ref. An Unloaded Node is a miss and is never Loaded, same as [[.scratch/expression-language/spec.md]] chapter 6.
+`tree` starts strictly below the input (it does not yield the input). `OUTER` must do the same. The walk is Owned only. It does not follow Ref. An Unloaded Node is a miss and is never Loaded, same as [[.scratch/expression-language/spec.md]] chapter 6.
 
 ## Current semantics
 
@@ -42,7 +42,7 @@ E⟦e1 e2⟧ x = concat [ E⟦e2⟧ y | y ← E⟦e1⟧ x ]
 
 `(tree containing "blue")` therefore means: generate every Owned descendant, then keep those whose Header contains `blue`. Nested matches stay. That is accepted behavior for `tree`.
 
-The nearest existing wall is subsection search (`#`). A matching section yields and does not enter Children. A non-matching named section is also a wall. `outer` is different: a non-acceptable Node is transparent, not a wall.
+The nearest existing wall is subsection search (`#`). A matching section yields and does not enter Children. A non-matching named section is also a wall. `OUTER` is different: a non-acceptable Node is transparent, not a wall.
 
 ## Why a `tree` replacement fails
 
@@ -66,20 +66,20 @@ That fact does not save a post-pass design. Recovering ancestry after `tree` plu
 
 ### A — Prefix combinator that fuses the predicate into the walk (recommended)
 
-Interface: a unary combinator with the same parse family as `NOT`. Locked spelling `outer`. Working name in this report: `tree2`.
+Interface: a unary combinator with the same parse family as `NOT`. Locked spelling `OUTER`. Working name in this report: `tree2`.
 
 ```
-outer : (Node ⇒ τ) → (Node ⇒ Node)
+OUTER : (Node ⇒ τ) → (Node ⇒ Node)
 ```
 
 `acceptable(N)` is `E⟦inner⟧ N` nonempty. That is the `NOT` emptiness test, inverted. The operand may be any predicate. The common case is a pure filter.
 
 Usage:
 
-- `outer containing "blue"`
-- `root outer containing "blue"`
-- `outer (containing "blue" AND named "x")` — prune on the conjunction; parentheses match the `NOT` rule
-- `outer containing "blue" named "x"` — walk with `containing` only; `named` then filters the yielded (already pruned) set
+- `OUTER containing "blue"`
+- `root OUTER containing "blue"`
+- `OUTER (containing "blue" AND named "x")` — prune on the conjunction; parentheses match the `NOT` rule
+- `OUTER containing "blue" named "x"` — walk with `containing` only; `named` then filters the yielded (already pruned) set
 
 What it hides: the Owned depth-first walk, the Unloaded miss, and the decision to skip Children after a hit. The caller writes a predicate, not a walk.
 
@@ -97,9 +97,9 @@ This matches the motivating Answer set when the left side is `tree` plus pure fi
 
 ### C — String-slot walk row (too narrow)
 
-Interface: a generator with a quoted slot, `outer "blue"`, meaning the algorithm with `containing` fused and no other predicate.
+Interface: a generator with a quoted slot, `OUTER "blue"`, meaning the algorithm with `containing` fused and no other predicate.
 
-This can implement the algorithm for one filter. It does not generalize to `named`, `class`, `AND`, or `NOT`. A later sugar `outer "blue"` for `outer containing "blue"` is optional. It is not the catalog row.
+This can implement the algorithm for one filter. It does not generalize to `named`, `class`, `AND`, or `NOT`. A later sugar `OUTER "blue"` for `OUTER containing "blue"` is optional. It is not the catalog row.
 
 ### D — Consumer post-pass or path-carrying Answers (rejected)
 
@@ -111,22 +111,22 @@ Prune then sits outside the Expression. Nested matches still exist as Answers. T
 
 The catalog core says every term is a function of one input Answer ([[.scratch/expression-language/spec.md]] chapter 1). Designs B and D operate on a finished sequence. They need ancestry after the fact. Design C is a shallow row that hides a walk but cannot take a general `acceptable` test. Design A is a combinator, like `NOT`: the operand is the predicate, and the walk is internal.
 
-Interface simplicity favors A: one reserved word, one operand, no new Answer type. Depth favors A: a small surface hides the prune-during-walk. Ease of correct use favors A if `outer` is reserved and bare `outer` is a missing-operand parse error, same idea as bare `NOT`. Ease of misuse: `outer child` treats “has a Child” as acceptable. That is defined (nonempty inner stream) and is a poor default; the spec examples must show pure filters.
+Interface simplicity favors A: one reserved word, one operand, no new Answer type. Depth favors A: a small surface hides the prune-during-walk. Ease of correct use favors A if `OUTER` is reserved and bare `OUTER` is a missing-operand parse error, same idea as bare `NOT`. Ease of misuse: `OUTER child` treats “has a Child” as acceptable. That is defined (nonempty inner stream) and is a poor default; the spec examples must show pure filters.
 
 Design B is easier to bolt onto today’s bind without a new parse form, and that ease is exactly why it looks attractive. It is still the wrong algorithm.
 
 ## Recommendation
 
-Lock Design A. Treat `outer` as a prefix combinator that takes one predicate operand and runs the canonical Owned walk. Do not add an `outer` generator row. Do not replace `tree`. Do not plan a sequence prune as the implementation.
+Lock Design A. Treat `OUTER` as a prefix combinator that takes one predicate operand and runs the canonical Owned walk. Do not add an `OUTER` generator row. Do not replace `tree`. Do not plan a sequence prune as the implementation.
 
 Fuse versus after-combinator: fuse. A separate after-combinator on a full Answer list cannot ask `acceptable?` per Node during the walk. The requirement chooses fusion.
 
-Locked spelling (user 2026-08-29: "Let's go with outer" and "plan A"): `outer`. `tree2` is not a catalog name. `**` stays `tree`. No cluster spelling.
+Locked spelling (user 2026-08-29: first "Let's go with outer" and "plan A", then capitals for consistency with `NOT`): `OUTER`. `tree2` is not a catalog name. `**` stays `tree`. No cluster spelling.
 
 Recommended evaluation rule (spec chapter 6 shape):
 
 ```
-E⟦outer e⟧ x = Owned depth-first walk strictly below x.
+E⟦OUTER e⟧ x = Owned depth-first walk strictly below x.
 At each visited Node N:
   if E⟦e⟧ N is nonempty then yield N and do not enter Owned Children of N
   else enter Owned Children of N (Unloaded is a miss)
@@ -135,14 +135,14 @@ At each visited Node N:
 Recommended parse (spec chapter 4 shape): same attach as `NOT`.
 
 ```
-NotExpr ::= "NOT" NotExpr | "outer" NotExpr | Seq (("NOT" | "outer") NotExpr)?
+NotExpr ::= "NOT" NotExpr | "OUTER" NotExpr | Seq (("NOT" | "OUTER") NotExpr)?
 ```
 
-Then `root outer containing "blue"` is `Seq[root]` then `outer` of `containing "blue"`, not bind of a generator named `outer`. Compound operands need parentheses, same as `NOT`.
+Then `root OUTER containing "blue"` is `Seq[root]` then `OUTER` of `containing "blue"`, not bind of a generator named `OUTER`. Compound operands need parentheses, same as `NOT`.
 
 ### Motivating example
 
-`root outer containing "blue"`:
+`root OUTER containing "blue"`:
 
 - A Node whose Header contains `blue` yields. Its Owned descendants are not visited.
 - A Node whose Header does not contain `blue` does not yield. The walk continues in its Owned Children.
@@ -156,19 +156,19 @@ Order is the `tree` order: depth-first, Owned Children order ([[.scratch/express
 
 ### Generalization beyond `containing`
 
-The algorithm’s `acceptable` is any inner predicate, not a special case of `containing`. All after-functions that can be an operand of `NOT` can be an operand of `outer`. Pure filters are the intended use. Generators are allowed by the emptiness rule and are usually a mistake.
+The algorithm’s `acceptable` is any inner predicate, not a special case of `containing`. All after-functions that can be an operand of `NOT` can be an operand of `OUTER`. Pure filters are the intended use. Generators are allowed by the emptiness rule and are usually a mistake.
 
 ### Name
 
-`tree2` is not domain-accurate. The operation is outermost acceptable Nodes under Owned descent, with transparent non-matches. Spelling is locked `outer`. Do not reopen fusion.
+`tree2` is not domain-accurate. The operation is outermost acceptable Nodes under Owned descent, with transparent non-matches. Spelling is locked `OUTER`. Do not reopen fusion.
 
 ## Locked 2026-08-29
 
-User confirmed Design A and spelling `outer` ("Let's go with outer" and "plan A"). Spec lock: [[.scratch/expression-language/spec.md]] chapters 4, 6, 7, and 11; implementation issue [[.scratch/expression-language/issues/28-outer-prefix-combinator.md]]. Worker report: [[.scratch/expression-language/reports/outer-spec-lock.md]].
+User confirmed Design A ("plan A"). First spelling lock was lowercase `outer`; later the same day the catalog word became `OUTER` (capitals, same class as `NOT`). Spec lock: [[.scratch/expression-language/spec.md]] chapters 4, 6, 7, and 11; implementation issue [[.scratch/expression-language/issues/28-outer-prefix-combinator.md]]. Worker report: [[.scratch/expression-language/reports/outer-spec-lock.md]].
 
-- Spelling: lowercase catalog word `outer`, reserved so it is not bind. Not `cut`. Not `tree2` as a catalog name.
+- Spelling: catalog word `OUTER`, reserved so it is not bind. Not `cut`. Not `tree2` as a catalog name. Not lowercase `outer`.
 - Fusion: fuse the predicate into the Owned walk. Do not implement a post-pass prune.
-- Sugar `outer "blue"` for `outer containing "blue"` is out of this slice ([[.scratch/expression-language/spec.md]] chapter 10).
+- Sugar `OUTER "blue"` for `OUTER containing "blue"` is out of this slice ([[.scratch/expression-language/spec.md]] chapter 10).
 - Ref analog (descendant-shaped wall) is out of this slice. Owned only.
 
 ## Planning artifacts

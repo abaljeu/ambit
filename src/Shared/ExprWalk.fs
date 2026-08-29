@@ -120,6 +120,23 @@ module ExprWalk =
         | None -> ExprEval.empty
         | Some node -> streamOf (stepOwned graph) [ ownedChildren graph node ]
 
+    let rec private stepOuter inner graph (frames: Node list list) =
+        match frames with
+        | [] -> None
+        | [] :: rest -> stepOuter inner graph rest
+        | (node :: siblings) :: rest ->
+            match ExprEval.pull (inner (toAnswer node)) with
+            | Some _ -> Some(toAnswer node, siblings :: rest)
+            | None ->
+                let kids = ownedChildren graph node
+                stepOuter inner graph (kids :: siblings :: rest)
+
+    let outerAnswers graph inner input =
+        match tryGraphNode graph input with
+        | None -> ExprEval.empty
+        | Some node ->
+            streamOf (stepOuter inner graph) [ ownedChildren graph node ]
+
     let rec private stepDesc graph seen (frames: ChildNode list list) =
         match frames with
         | [] -> None

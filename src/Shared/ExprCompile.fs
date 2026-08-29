@@ -56,7 +56,7 @@ module ExprCompile =
             Error ExprParse.missingArgument
 
     let private isReserved word =
-        word = "AND" || word = "OR" || word = "NOT"
+        word = "AND" || word = "OR" || word = "NOT" || word = "OUTER"
 
     let private compileWord catalog word literal =
         if isReserved word then
@@ -74,27 +74,30 @@ module ExprCompile =
         | ExprTerm.Word(word, literal) -> compileWord catalog word literal
         | ExprTerm.Cluster(steps, _) -> compileCluster catalog steps
 
-    let rec private compileExpr catalog expr =
+    let rec private compileExpr graph catalog expr =
         match expr with
         | Expr.Term t -> compileTerm catalog t
         | Expr.Pipe [] -> Error "empty expression"
         | Expr.Pipe (head :: tail) ->
             List.fold
-                (bindNext (compileExpr catalog))
-                (compileExpr catalog head)
+                (bindNext (compileExpr graph catalog))
+                (compileExpr graph catalog head)
                 tail
         | Expr.Not inner ->
-            compileExpr catalog inner
+            compileExpr graph catalog inner
             |> Result.map ExprEval.notEval
+        | Expr.Outer inner ->
+            compileExpr graph catalog inner
+            |> Result.map (ExprWalk.outerAnswers graph)
         | Expr.And (left, right) ->
-            compileExpr catalog left
+            compileExpr graph catalog left
             |> Result.bind (fun lpred ->
-                compileExpr catalog right
+                compileExpr graph catalog right
                 |> Result.map (ExprEval.andEval lpred))
         | Expr.Or (left, right) ->
-            compileExpr catalog left
+            compileExpr graph catalog left
             |> Result.bind (fun lpred ->
-                compileExpr catalog right
+                compileExpr graph catalog right
                 |> Result.map (ExprEval.orEval lpred))
 
     let private compose (left: ExprSignature) (right: ExprSignature) =
@@ -151,6 +154,15 @@ module ExprCompile =
         | Expr.Not inner ->
             inferExpr catalog inner
             |> Result.map (fun s -> { input = s.input; output = s.input })
+        | Expr.Outer inner ->
+            inferExpr catalog inner
+            |> Result.bind (fun s ->
+                if s.input = ExprAnswerType.Node then
+                    Ok
+                        { input = ExprAnswerType.Node
+                          output = ExprAnswerType.Node }
+                else
+                    Error "type error")
         | Expr.And (left, right)
         | Expr.Or (left, right) ->
             inferExpr catalog left
@@ -166,9 +178,9 @@ module ExprCompile =
         ExprParse.parseExpr source
         |> Result.bind (inferExpr catalog)
 
-    let compile catalog source =
+    let compile graph catalog source =
         ExprParse.parseExpr source
-        |> Result.bind (compileExpr catalog)
+        |> Result.bind (compileExpr graph catalog)
 
     type Outcome =
         | Hits of ExprAnswerType * ExprAnswer list
@@ -181,10 +193,11 @@ module ExprCompile =
         | Error e when e = "type error" -> TypeFailed e
         | Error e -> ParseFailed e
         | Ok signature ->
-            match compile catalog source with
+            match compile graph catalog source with
             | Error e -> ParseFailed e
             | Ok pred -> Hits(signature.output, ExprEval.toList (pred input))
 
     let eval graph input source =
-        compile (ExprPrimitive.catalog graph) source
+        let catalog = ExprPrimitive.catalog graph
+        compile graph catalog source
         |> Result.map (fun pred -> ExprEval.toList (pred input))

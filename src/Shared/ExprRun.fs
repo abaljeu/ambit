@@ -28,6 +28,7 @@ module ExprRun =
         && seg <> "AND"
         && seg <> "OR"
         && seg <> "NOT"
+        && seg <> "OUTER"
         && not (isSignedInteger seg)
         && not (
             seg
@@ -110,7 +111,7 @@ module ExprRun =
             | Error e when e = "type error" -> blueletterChild graph focusId e
             | Error e -> blueletterChild graph focusId e
             | Ok _ ->
-                match ExprCompile.compile catalog source with
+                match ExprCompile.compile graph catalog source with
                 | Error e -> blueletterChild graph focusId e
                 | Ok pred -> planFromPred graph focusId pred input
 

@@ -1,14 +1,14 @@
-# outer spec lock
+# OUTER spec lock
 
-Design A is locked in [[.scratch/expression-language/spec.md]] with spelling `outer`. User confirmation: "Let's go with outer" and "plan A". No product code. Project stage stays `active`. [[doc/]] is unchanged.
+Design A is locked in [[.scratch/expression-language/spec.md]]. First spelling was lowercase `outer`; user later locked `OUTER` (capitals, same class as `NOT`). No product code in this lock report. Project stage stays `active`. [[doc/]] is unchanged.
 
 ## Files changed
 
-- [[.scratch/expression-language/spec.md]] — chapters 3 (reserved `outer`), 4 (grammar), 5 (type rule), 6 (evaluation), 7 (combinator row), 9 (new-surface list), 10 (defer sugar and Ref analog), 11 (`root outer containing "blue"`)
+- [[.scratch/expression-language/spec.md]] — chapters 3 (reserved `OUTER`), 4 (grammar), 5 (type rule), 6 (evaluation), 7 (combinator row), 9 (new-surface list), 10 (defer sugar and Ref analog), 11 (`root OUTER containing "blue"`)
 - [[.scratch/expression-language/reports/tree2-semantics.md]] — spelling and fusion closed; `tree2` remains history only
 - [[.scratch/expression-language/issues/28-outer-prefix-combinator.md]] — implementation issue, Status `ready-for-agent`
 - [[.scratch/expression-language/git.md]] — project branch `w/tree2-semantics`
-- [[CONTEXT.md]] — glossary entry for `outer`
+- [[CONTEXT.md]] — glossary entry for `OUTER`
 
 ## WORK.md mutations (for the parent)
 

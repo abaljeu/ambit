@@ -294,6 +294,20 @@ let ``root descendant NOT containing draft is negation-as-failure`` () =
     Assert.DoesNotContain(f.draft, found)
 
 [<Fact>]
+let ``root OUTER containing blue yields outermost Header matches`` () =
+    let f = build ()
+    let found = nodeHits f (rootOf f) "root OUTER containing \"blue\""
+    Assert.Contains(f.theBlue, found)
+    Assert.Contains(f.blueUnderTodo, found)
+    Assert.DoesNotContain(f.graph.root, found)
+    Assert.DoesNotContain(f.headed, found)
+    let withRe = nodeHits f (rootOf f) "root OUTER re \".*blue.*\""
+    Assert.Equal<NodeId list>(found, withRe)
+    match ExprParse.parseExpr "OUTER containing \"blue\"" with
+    | Ok(Expr.Outer _) -> ()
+    | other -> failwith $"expected OUTER combinator, got {other}"
+
+[<Fact>]
 let ``Run statement rows materialise named blue descendants`` () =
     let f = build ()
     match ExprRun.run f.focus f.graph "= root descendant named \"blue\"" with

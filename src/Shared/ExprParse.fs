@@ -19,6 +19,7 @@ module ExprParse =
         | AndKw
         | OrKw
         | NotKw
+        | OuterKw
         | Comma
         | LParen
         | RParen
@@ -51,6 +52,7 @@ module ExprParse =
         elif seg = "AND" then AndKw
         elif seg = "OR" then OrKw
         elif seg = "NOT" then NotKw
+        elif seg = "OUTER" then OuterKw
         elif seg.Length >= 2 && seg.[0] = '"' && seg.[seg.Length - 1] = '"' then
             Quoted(seg.Substring(1, seg.Length - 2))
         else
@@ -104,10 +106,16 @@ module ExprParse =
         | [ one ] -> one
         | many -> Expr.Pipe many
 
-    let private attachNot left inner =
+    let private tryPrefix token =
+        match token with
+        | NotKw -> Some Expr.Not
+        | OuterKw -> Some Expr.Outer
+        | _ -> None
+
+    let private attachPrefix wrap left inner =
         match left with
-        | Expr.Pipe items -> Expr.Pipe(items @ [ Expr.Not inner ])
-        | _ -> Expr.Pipe [ left; Expr.Not inner ]
+        | Expr.Pipe items -> Expr.Pipe(items @ [ wrap inner ])
+        | _ -> Expr.Pipe [ left; wrap inner ]
 
     let rec private parseOr tokens =
         parseAnd tokens
@@ -136,18 +144,26 @@ module ExprParse =
 
     and private parseNot tokens =
         match tokens with
-        | NotKw :: rest ->
-            parseNot rest
-            |> Result.map (fun (inner, rest2) -> Expr.Not inner, rest2)
-        | _ ->
-            parseSeq tokens
-            |> Result.bind (fun (seqNode, rest) ->
-                match rest with
-                | NotKw :: rest2 ->
+        | tok :: rest ->
+            match tryPrefix tok with
+            | Some wrap ->
+                parseNot rest
+                |> Result.map (fun (inner, rest2) -> wrap inner, rest2)
+            | None -> parseNotAfterSeq tokens
+        | [] -> parseNotAfterSeq tokens
+
+    and private parseNotAfterSeq tokens =
+        parseSeq tokens
+        |> Result.bind (fun (seqNode, rest) ->
+            match rest with
+            | tok :: rest2 ->
+                match tryPrefix tok with
+                | Some wrap ->
                     parseNot rest2
                     |> Result.map (fun (inner, rest3) ->
-                        attachNot seqNode inner, rest3)
-                | _ -> Ok(seqNode, rest))
+                        attachPrefix wrap seqNode inner, rest3)
+                | None -> Ok(seqNode, rest)
+            | [] -> Ok(seqNode, rest))
 
     and private parseSeq tokens =
         parseTerm tokens
