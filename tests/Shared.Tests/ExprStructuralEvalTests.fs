@@ -118,7 +118,7 @@ let ``star-star matches tree and does not follow Ref`` () =
     let tree = evalOk f.graph fromWs "tree"
     Assert.Equal<NodeId list>(nodeIds stars, nodeIds tree)
     Assert.DoesNotContain(f.outside, nodeIds stars)
-    let desc = ExprWalk.descendantAnswers f.graph fromWs
+    let desc = ExprEval.toList (ExprWalk.descendantAnswers f.graph fromWs)
     Assert.Contains(f.outside, nodeIds desc)
     Assert.NotEqual<NodeId list>(nodeIds stars, nodeIds desc)
 

@@ -28,6 +28,8 @@ Work ready to start but not yet claimed.
 
 - [[.scratch/expression-language/reports/run-changes-not-effective.md]] — HITL hard-reload `/ambit` or `/ambit?debug=1`; confirm Run error strings and unfold (not old red-echo)
 - [[.scratch/expression-language/reports/run-commit-edit-before-exec.md]] — HITL: while Editing, change the line and Ctrl+Enter; graph text commits, then Run uses that text
+- [[.scratch/expression-language/reports/expr-eval-pull-enumerator-impl.md]] — HITL: Run `= root descendant …` with more than 50 hits; confirm 50 Children and unfold
+- [[.scratch/expression-language/reports/expr-eval-pull-enumerator-impl.md]] — later: adapt Expression Stream into SearchCursor / takeResults for `=` paging; do not apply the Run cap of 50
 - [[.scratch/client-start-time/issues/09-cache-first-boot-delayed-lcp.md]] — HITL: `/ambit` bundle LCP of `div.amb-text` back near ~1 s (artifacts: [[.scratch/client-start-time/reports/cache-first-boot-delayed-lcp.md]])
 - [[.scratch/client-start-time/issues/08-poll-hash-fallback-loop.md]] — HITL: one `/state` then Poll confirms; Selection must not jump to ROOT (artifacts: [[.scratch/client-start-time/reports/poll-hash-fallback-loop.md]])
 - [[.scratch/client-start-time/reports/cold-load-loading-hang.md]] — HITL re-verify cold load past Loading..., then warm F5 cache hit (parent: [[.scratch/client-start-time/reports/implement-cache-first-boot-01-07.md]])

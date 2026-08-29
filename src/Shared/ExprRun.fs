@@ -12,6 +12,9 @@ module ExprRun =
         | Ignore
         | Apply of Plan
 
+    /// Run materialises at most this many Answers. Search paging is separate.
+    let maxMaterialisedAnswers = 50
+
     let private isSignedInteger (seg: string) =
         seg.Length > 0
         && match seg.[0] with
@@ -91,14 +94,22 @@ module ExprRun =
             @ [ replaceChildren graph focusId (List.rev kids) ]
           unfold = true }
 
+    let private planFromPred graph focusId pred input =
+        match ExprEval.take maxMaterialisedAnswers (pred input) with
+        | [], _ -> noMatches graph focusId
+        | answers, _ -> materialise graph focusId answers
+
     let private planExpr graph focusId nameOpt source : Plan =
         let input = ExprAnswer.Node graph.nodes.[focusId]
+        let catalog = ExprPrimitive.catalog graph
         let core =
-            match ExprCompile.evalOutcome graph input source with
-            | ExprCompile.ParseFailed e
-            | ExprCompile.TypeFailed e -> blueletterChild graph focusId e
-            | ExprCompile.Hits(_, []) -> noMatches graph focusId
-            | ExprCompile.Hits(_, answers) -> materialise graph focusId answers
+            match ExprCompile.inferType catalog source with
+            | Error e when e = "type error" -> blueletterChild graph focusId e
+            | Error e -> blueletterChild graph focusId e
+            | Ok _ ->
+                match ExprCompile.compile catalog source with
+                | Error e -> blueletterChild graph focusId e
+                | Ok pred -> planFromPred graph focusId pred input
 
         match nameOpt with
         | None -> core

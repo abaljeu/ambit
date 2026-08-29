@@ -19,6 +19,20 @@ module ViewModelDeleteOps =
           otherOccurrences: (NodeId * int * ChildNode) list
           action: DeleteAction }
 
+    /// Owned system folders and Workspace Nodes are not deleted. A Ref to them is.
+    let private isBlockedOwnedDelete
+        (graph: Graph)
+        (parentId: NodeId)
+        (child: ChildNode)
+        =
+        let isProtectedTarget =
+            Graph.isSystemFolderNode child.id
+            || match graph.nodes.[child.id].kind with
+               | Special Workspace -> true
+               | _ -> false
+        isProtectedTarget
+        && Node.childOwnership graph parentId child = Ownership.Owner
+
     /// Classify each child in the selected span under the same parent into a delete action.
     let classifyDeleteForSelection
         (graph: Graph)
@@ -32,14 +46,8 @@ module ViewModelDeleteOps =
             |> List.mapi (fun i child -> i, child)
             |> List.filter (fun (i, _) -> i >= range.start && i < range.endd)
 
-        // All-or-nothing: system folders and workspace roots are not deleted.
-        let isBlockedDeleteChild (child: ChildNode) =
-            Graph.isSystemFolderNode child.id
-            || (match graph.nodes.[child.id].kind with
-                | Special Workspace -> true
-                | _ -> false)
-
-        if selectedChildren |> List.exists (fun (_, c) -> isBlockedDeleteChild c) then []
+        if selectedChildren |> List.exists (fun (_, c) ->
+            isBlockedOwnedDelete graph parentId c) then []
         else
 
         selectedChildren
@@ -264,13 +272,8 @@ module ViewModelDeleteOps =
                 |> List.tryItem index
                 |> Option.map (fun child -> index, child))
 
-        let isBlocked (child: ChildNode) =
-            Graph.isSystemFolderNode child.id
-            || (match graph.nodes.[child.id].kind with
-                | Special Workspace -> true
-                | _ -> false)
-
-        if selected |> List.exists (fun (_, c) -> isBlocked c) then
+        if selected |> List.exists (fun (_, c) ->
+            isBlockedOwnedDelete graph parentId c) then
             []
         else
             let indexSet = Set.ofList indices

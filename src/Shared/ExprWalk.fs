@@ -5,14 +5,15 @@ open System
 [<RequireQualifiedAccess>]
 module ExprWalk =
     /// Children of a Node as Answers; Unloaded yields no Answers (miss, never an error).
-    let childAnswers (graph: Graph) (node: Node) : ExprAnswer list =
+    let childAnswers (graph: Graph) (node: Node) : ExprEval.Stream =
         match node.childrenStatus with
-        | Unloaded -> []
+        | Unloaded -> ExprEval.empty
         | Loaded ->
             node.children
             |> List.choose (fun child ->
                 Map.tryFind child.id graph.nodes
                 |> Option.map ExprAnswer.Node)
+            |> ExprEval.ofList
 
     let tryGraphNode (graph: Graph) (input: ExprAnswer) : Node option =
         match input with
@@ -63,74 +64,90 @@ module ExprWalk =
                 else
                     Map.tryFind child.id graph.nodes)
 
+    let private loadedChildren (parent: Node) =
+        match parent.childrenStatus with
+        | Unloaded -> []
+        | Loaded -> parent.children
+
     let private toAnswer (node: Node) = ExprAnswer.Node node
 
-    let rec private collectStructural glob graph (parent: Node) (acc: ExprAnswer list) =
-        ownedChildren graph parent
-        |> List.fold
-            (fun acc node ->
-                let acc =
-                    if isStructural node && nameMatches glob node then
-                        toAnswer node :: acc
-                    else
-                        acc
+    let rec private streamOf step frames : ExprEval.Stream =
+        ExprEval.delay (fun () ->
+            match step frames with
+            | None -> None
+            | Some(answer, next) -> Some(answer, streamOf step next))
 
+    let rec private streamSeen step seen frames : ExprEval.Stream =
+        ExprEval.delay (fun () ->
+            match step seen frames with
+            | None -> None
+            | Some(answer, seen, next) ->
+                Some(answer, streamSeen step seen next))
+
+    let rec private stepStructural glob graph (frames: Node list list) =
+        match frames with
+        | [] -> None
+        | [] :: rest -> stepStructural glob graph rest
+        | (node :: siblings) :: rest ->
+            let kids =
                 if isDirOrWorkspace node then
-                    acc
+                    []
                 else
-                    collectStructural glob graph node acc)
-            acc
+                    ownedChildren graph node
+            let frames = kids :: siblings :: rest
+            if isStructural node && nameMatches glob node then
+                Some(toAnswer node, frames)
+            else
+                stepStructural glob graph frames
 
     let structuralSearch graph glob input =
         match tryGraphNode graph input with
-        | None -> []
-        | Some node -> collectStructural glob graph node [] |> List.rev
+        | None -> ExprEval.empty
+        | Some node ->
+            streamOf (stepStructural glob graph) [ ownedChildren graph node ]
 
-    let rec private collectOwned graph (parent: Node) (acc: ExprAnswer list) =
-        ownedChildren graph parent
-        |> List.fold
-            (fun acc node -> collectOwned graph node (toAnswer node :: acc))
-            acc
+    let rec private stepOwned graph (frames: Node list list) =
+        match frames with
+        | [] -> None
+        | [] :: rest -> stepOwned graph rest
+        | (node :: siblings) :: rest ->
+            let kids = ownedChildren graph node
+            Some(toAnswer node, kids :: siblings :: rest)
 
     let treeAnswers graph input =
         match tryGraphNode graph input with
-        | None -> []
-        | Some node -> collectOwned graph node [] |> List.rev
+        | None -> ExprEval.empty
+        | Some node -> streamOf (stepOwned graph) [ ownedChildren graph node ]
 
-    let rec private collectDesc graph seen (acc: ExprAnswer list) (parent: Node) =
-        let visit (acc, seen) (child: ChildNode) =
+    let rec private stepDesc graph seen (frames: ChildNode list list) =
+        match frames with
+        | [] -> None
+        | [] :: rest -> stepDesc graph seen rest
+        | (child :: siblings) :: rest ->
+            let frames = siblings :: rest
             if Set.contains child.id seen then
-                acc, seen
+                stepDesc graph seen frames
             else
                 match Map.tryFind child.id graph.nodes with
-                | None -> acc, seen
+                | None -> stepDesc graph seen frames
                 | Some node ->
-                    collectDesc
-                        graph
-                        (Set.add node.id seen)
-                        (toAnswer node :: acc)
-                        node
-
-        match parent.childrenStatus with
-        | Unloaded -> acc, seen
-        | Loaded -> List.fold visit (acc, seen) parent.children
+                    let seen = Set.add node.id seen
+                    Some(toAnswer node, seen, loadedChildren node :: frames)
 
     let descendantAnswers graph input =
         match tryGraphNode graph input with
-        | None -> []
+        | None -> ExprEval.empty
         | Some node ->
-            collectDesc graph (Set.singleton node.id) [] node
-            |> fst
-            |> List.rev
+            streamSeen (stepDesc graph) (Set.singleton node.id) [ loadedChildren node ]
 
     let private enclosingAnswer graph predicate input =
         match tryGraphNode graph input with
-        | None -> []
+        | None -> ExprEval.empty
         | Some node ->
             GraphQuery.enclosing graph predicate node.id
             |> Option.bind (fun id -> Map.tryFind id graph.nodes)
             |> Option.map ExprAnswer.Node
-            |> Option.toList
+            |> ExprEval.ofOption
 
     let structuralUp graph input =
         enclosingAnswer graph isStructural input
@@ -152,10 +169,11 @@ module ExprWalk =
         ids
         |> List.choose (fun id ->
             Map.tryFind id graph.nodes |> Option.map toAnswer)
+        |> ExprEval.ofList
 
     let childAt graph index input =
         match navOf graph input with
-        | None -> []
+        | None -> ExprEval.empty
         | Some nav ->
             match index with
             | None -> answersOf graph (Node.childIds nav)
@@ -165,10 +183,10 @@ module ExprWalk =
 
     let siblingAt graph offset input =
         match navOf graph input with
-        | None -> []
+        | None -> ExprEval.empty
         | Some nav ->
             match Node.current nav with
-            | Some id when id = graph.root -> []
+            | Some id when id = graph.root -> ExprEval.empty
             | _ ->
                 match offset with
                 | None -> answersOf graph (Node.childIds (Node.owner nav))
@@ -181,8 +199,8 @@ module ExprWalk =
 
     let private keepInput graph predicate input =
         match tryGraphNode graph input with
-        | Some node when predicate node -> [ toAnswer node ]
-        | _ -> []
+        | Some node when predicate node -> ExprEval.singleton (toAnswer node)
+        | _ -> ExprEval.empty
 
     let named graph glob input =
         keepInput graph (fun (node: Node) ->
@@ -226,48 +244,45 @@ module ExprWalk =
 
     let containing graph (needle: string) input =
         match tryGraphNode graph input with
-        | None -> []
+        | None -> ExprEval.empty
         | Some node ->
             if node.text.IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0 then
-                [ toAnswer node ]
+                ExprEval.singleton (toAnswer node)
             else
-                []
+                ExprEval.empty
 
     let private isFileDirWorkspace (node: Node) =
         match node.kind with
         | Special (File | Directory | Workspace) -> true
         | _ -> false
 
-    let rec private visitContent graph glob seen acc (node: Node) =
-        if Set.contains node.id seen then
-            acc, seen
-        else
-            let seen = Set.add node.id seen
-            match node.kind, Filename.tryValue node.name with
-            | Normal, None ->
-                walkContentChildren graph glob seen acc node
-            | Normal, Some name when globMatch glob name ->
-                toAnswer node :: acc, seen
-            | Normal, Some _ -> acc, seen
-            | _ when isFileDirWorkspace node -> acc, seen
-            | _ -> walkContentChildren graph glob seen acc node
-
-    and walkContentChildren graph glob seen acc (parent: Node) =
-        match parent.childrenStatus with
-        | Unloaded -> acc, seen
-        | Loaded ->
-            parent.children
-            |> List.fold
-                (fun (acc, seen) (child: ChildNode) ->
-                    match Map.tryFind child.id graph.nodes with
-                    | None -> acc, seen
-                    | Some node -> visitContent graph glob seen acc node)
-                (acc, seen)
+    let rec private stepContent glob graph seen (frames: ChildNode list list) =
+        match frames with
+        | [] -> None
+        | [] :: rest -> stepContent glob graph seen rest
+        | (child :: siblings) :: rest ->
+            let frames = siblings :: rest
+            if Set.contains child.id seen then
+                stepContent glob graph seen frames
+            else
+                match Map.tryFind child.id graph.nodes with
+                | None -> stepContent glob graph seen frames
+                | Some node ->
+                    let seen = Set.add node.id seen
+                    match node.kind, Filename.tryValue node.name with
+                    | Normal, None ->
+                        stepContent glob graph seen (loadedChildren node :: frames)
+                    | Normal, Some name when globMatch glob name ->
+                        Some(toAnswer node, seen, frames)
+                    | Normal, Some _ ->
+                        stepContent glob graph seen frames
+                    | _ when isFileDirWorkspace node ->
+                        stepContent glob graph seen frames
+                    | _ ->
+                        stepContent glob graph seen (loadedChildren node :: frames)
 
     let contentSearch graph glob input =
         match tryGraphNode graph input with
-        | None -> []
+        | None -> ExprEval.empty
         | Some node ->
-            walkContentChildren graph glob Set.empty [] node
-            |> fst
-            |> List.rev
+            streamSeen (stepContent glob graph) Set.empty [ loadedChildren node ]

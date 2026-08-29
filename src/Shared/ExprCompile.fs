@@ -183,8 +183,8 @@ module ExprCompile =
         | Ok signature ->
             match compile catalog source with
             | Error e -> ParseFailed e
-            | Ok pred -> Hits(signature.output, pred input)
+            | Ok pred -> Hits(signature.output, ExprEval.toList (pred input))
 
     let eval graph input source =
         compile (ExprPrimitive.catalog graph) source
-        |> Result.map (fun pred -> pred input)
+        |> Result.map (fun pred -> ExprEval.toList (pred input))

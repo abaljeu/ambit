@@ -222,3 +222,33 @@ let ``equals slash-slash Example is no-match when Example is nested`` () =
     | ExprRun.Ignore -> failwith "expected Apply"
     | ExprRun.Apply plan ->
         Assert.True(hasBlueletter plan.ops)
+
+[<Fact>]
+let ``equals root descendant named hit writes at most maxMaterialisedAnswers`` () =
+    let focusId = NodeId.New()
+    let extra = 10
+    let total = ExprRun.maxMaterialisedAnswers + extra
+    let graph0 = Graph.create ()
+    let graph1 =
+        graph0
+        |> addUnder graph0.root
+            (Node.Create(focusId, text = "focus", owner = graph0.root))
+    let graph, hitIds =
+        [ 1..total ]
+        |> List.fold
+            (fun (g, ids) _ ->
+                let id = NodeId.New()
+                let child = namedNormal id "hit" Graph.workspacesId
+                addUnder Graph.workspacesId child g, id :: ids)
+            (graph1, [])
+    let hitIds = List.rev hitIds
+    match ExprRun.run focusId graph "= root descendant named \"hit\"" with
+    | ExprRun.Ignore -> failwith "expected Apply"
+    | ExprRun.Apply plan ->
+        Assert.True(plan.unfold)
+        let kids = refIds plan.ops |> List.map fst
+        Assert.Equal(ExprRun.maxMaterialisedAnswers, kids.Length)
+        Assert.Equal<NodeId list>(
+            hitIds |> List.take ExprRun.maxMaterialisedAnswers,
+            kids)
+        Assert.DoesNotContain(List.item ExprRun.maxMaterialisedAnswers hitIds, kids)

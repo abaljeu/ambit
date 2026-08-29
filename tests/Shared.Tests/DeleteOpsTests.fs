@@ -302,6 +302,80 @@ let private parentRange (parentId: NodeId) (start: int) (endd: int) : SiteNodeRa
       endd = endd }
 
 [<Fact>]
+let ``classifyDeleteForSelection unlinks a Ref to Workspaces`` () =
+    let g0 = Graph.create ()
+    let g1, ids = ModelBuilder.createNodes [ "a" ] g0
+    let a = ids.[0]
+    let g2 =
+        Graph.replace g1.root 0 [] (owned [ a ]) g1
+        |> ModelBuilder.requireOk "root->[a]"
+    let g3 =
+        Graph.replace a 0 [] [ ref_ Graph.workspacesId ] g2
+        |> ModelBuilder.requireOk "a->[Workspaces(ref)]"
+    let range = parentRange a 0 1
+    let classified = ViewModelDeleteOps.classifyDeleteForSelection g3 range
+    Assert.Equal(1, classified.Length)
+    Assert.Equal(ViewModelDeleteOps.LocalDeleteRefOnly, classified.[0].action)
+    let ops = ViewModelDeleteOps.planDeleteOps g3 range classified
+    let result =
+        History.applyChange
+            { id = 0; changeId = System.Guid.NewGuid(); ops = ops }
+            (stateOf g3)
+    match result with
+    | ApplyResult.Changed s ->
+        Assert.Empty(s.graph.nodes.[a].children)
+        let wsOwned =
+            s.graph.nodes.[s.graph.root].children
+            |> List.exists (fun c ->
+                c.id = Graph.workspacesId && c.ref = Ownership.Owner)
+        Assert.True(wsOwned, "Workspaces stays Owned under ROOT")
+    | ApplyResult.Invalid(_, msg) -> Assert.True(false, $"Invalid: {msg}")
+    | ApplyResult.Unchanged _ -> Assert.True(false, "Expected Changed")
+
+[<Fact>]
+let ``classifyDeleteForSelection unlinks a Ref to a Workspace Node`` () =
+    let ws = NodeId.New()
+    let g0 = Graph.create ()
+    let g1, ids = ModelBuilder.createNodes [ "a" ] g0
+    let a = ids.[0]
+    let g2 =
+        Graph.replace g1.root 0 [] (owned [ a ]) g1
+        |> ModelBuilder.requireOk "root->[a]"
+    let g3 =
+        History.applyChange
+            { id = 0
+              changeId = System.Guid.NewGuid()
+              ops =
+                [ Op.NewSpecialNode(ws, Workspace, "home")
+                  Op.Replace(Graph.workspacesId, [], owned [ ws ]) ] }
+            (stateOf g2)
+    match g3 with
+    | ApplyResult.Changed s0 ->
+        let g4 =
+            Graph.replace a 0 [] [ ref_ ws ] s0.graph
+            |> ModelBuilder.requireOk "a->[home(ref)]"
+        let range = parentRange a 0 1
+        let classified = ViewModelDeleteOps.classifyDeleteForSelection g4 range
+        Assert.Equal(1, classified.Length)
+        Assert.Equal(ViewModelDeleteOps.LocalDeleteRefOnly, classified.[0].action)
+        let ops = ViewModelDeleteOps.planDeleteOps g4 range classified
+        let result =
+            History.applyChange
+                { id = 1; changeId = System.Guid.NewGuid(); ops = ops }
+                (stateOf g4)
+        match result with
+        | ApplyResult.Changed s ->
+            Assert.Empty(s.graph.nodes.[a].children)
+            let stillOwned =
+                s.graph.nodes.[Graph.workspacesId].children
+                |> List.exists (fun c -> c.id = ws && c.ref = Ownership.Owner)
+            Assert.True(stillOwned, "Workspace Node stays Owned under Workspaces")
+        | ApplyResult.Invalid(_, msg) -> Assert.True(false, $"Invalid: {msg}")
+        | ApplyResult.Unchanged _ -> Assert.True(false, "Expected Changed")
+    | ApplyResult.Invalid(_, msg) -> Assert.True(false, $"Invalid: {msg}")
+    | ApplyResult.Unchanged _ -> Assert.True(false, "Expected Changed")
+
+[<Fact>]
 let ``planDeleteOps Directory under workspace moves to TRASH`` () =
     let graph, wsId, dirId = workspaceDirectoryGraph ()
     let range = parentRange wsId 0 1

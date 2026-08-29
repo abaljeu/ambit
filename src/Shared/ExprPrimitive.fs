@@ -15,23 +15,23 @@ module ExprPrimitive =
     let private requireName eval bound input =
         match bound with
         | ExprBoundSlot.NameGlob glob -> eval glob input
-        | _ -> []
+        | _ -> ExprEval.empty
 
     let private requireIndex eval bound input =
         match bound with
         | ExprBoundSlot.IntOrStar n -> eval n input
-        | _ -> []
+        | _ -> ExprEval.empty
 
     let private requireQuoted eval bound input =
         match bound with
         | ExprBoundSlot.QuotedText text -> eval text input
-        | _ -> []
+        | _ -> ExprEval.empty
 
     let private rootRow graph =
         row [ "root" ] None (fun _ _ ->
             Map.tryFind graph.root graph.nodes
             |> Option.map ExprAnswer.Node
-            |> Option.toList)
+            |> ExprEval.ofOption)
 
     let private structuralRow graph =
         row
@@ -117,8 +117,8 @@ module ExprPrimitive =
           evaluate =
             fun _ input ->
                 match ExprWalk.tryGraphNode graph input with
-                | Some node -> [ ExprAnswer.Text node.text ]
-                | None -> [] }
+                | Some node -> ExprEval.singleton (ExprAnswer.Text node.text)
+                | None -> ExprEval.empty }
 
     let catalog (graph: Graph) : ExprCatalog.T =
         ExprCatalog.empty

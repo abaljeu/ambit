@@ -34,5 +34,5 @@ module ExprCatalog =
     let lookup (spelling: string) (Catalog catalog) : ExprCatalogRow option =
         Map.tryFind spelling catalog
 
-    let invoke (bound: ExprBoundSlot) (row: ExprCatalogRow) (input: ExprAnswer) : ExprAnswer list =
+    let invoke (bound: ExprBoundSlot) (row: ExprCatalogRow) (input: ExprAnswer) : ExprEval.Stream =
         row.evaluate bound input
