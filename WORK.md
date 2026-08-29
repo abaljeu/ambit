@@ -18,6 +18,7 @@ Mutations for delegated workers to return to their parent: `add`, `move`, `block
 
 Work currently being executed.
 
+- [[.scratch/daily-git-save/project.md]] — once-per-UTC-day background `commitAll` after listen; git subprocess only (no DbAgent wait) (artifacts: [[.scratch/daily-git-save/reports/implement.md]], [[src/Server/DailyGitSave.fs]])
 - [[.scratch/client-start-time/reports/edit-indent-old-text-mismatch.md]] — verify/fix Editing `returnTo` + `adjustModeAfterServerApply` vs Poll/Load under edit+indent Tab CAS
 - [[.scratch/owner-edge-db-repair/spec.md]] — extend startup sweep: ACID repair of `node_children` Owned tree (GC unreachable; promote Ref when reachable node has no owner) (artifacts: [[.scratch/owner-edge-db-repair/implement.md]], [[src/Shared/ProjectionOwnershipRepair.fs]])
 - [[.scratch/parse-load-demote/issues/01-keep-current-on-rediscovered-added.md]] — keep Current when Load Workspace rediscovers Added path; demote only new stubs / NoServerFile (plan: fix_load_demotes_parse_8d40752b; artifacts: [[src/Shared/dotnet/LazyLoadReconciliationApply.fs]], [[tests/Shared.Tests/LazyLoadReconciliationTests.fs]])
@@ -52,7 +53,6 @@ Work ready to start but not yet claimed.
 
 Work that cannot proceed until a named dependency or decision is resolved.
 
-- [[.scratch/daily-git-save/project.md]] — daily background git commit-all after listen and ready (artifacts: [[.scratch/daily-git-save/reports/implement.md]], [[src/Server/DailyGitSave.fs]]); focused DailyGitSaveTests not yet green (blocked by: Server Debug `bin` locked by fullstack debug / `netcoredbg`)
 - [[.scratch/selective-client-loading/issues/26-forbid-unloaded-destinations-in-move-dialog.md]] — Move dialog does not offer Unloaded destinations (blocked by: [[.scratch/selective-client-loading/issues/25-guard-structural-commands-at-unloaded-boundaries.md]])
 - [[.scratch/selective-client-loading/issues/27-document-delivered-selective-loading-baseline.md]] — promote implemented client residency while retaining future server residency in the roadmap (blocked by: [[.scratch/selective-client-loading/issues/20-restore-saved-zoom-workspace-during-bootstrap.md]], [[.scratch/selective-client-loading/issues/28-make-hollow-circle-clicks-invoke-load.md]], [[.scratch/selective-client-loading/issues/24-keep-navigation-and-find-resident-only.md]], [[.scratch/selective-client-loading/issues/26-forbid-unloaded-destinations-in-move-dialog.md]])
 - [[.scratch/selective-client-loading/issues/28-make-hollow-circle-clicks-invoke-load.md]] — dispatch full-selection Load from the hollow-circle control (blocked by: [[.scratch/selective-client-loading/issues/22-load-full-selection.md]], [[.scratch/selective-client-loading/issues/23-introduce-hollow-circle-presentation.md]])

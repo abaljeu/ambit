@@ -10,8 +10,7 @@ module Decode = Thoth.Json.Newtonsoft.Decode
 /// PostgreSQL-backed agent. Same message type as `FileAgent`.
 type DbAgent =
     { mailbox: MailboxProcessor<FileAgentMsg>
-      isReady: unit -> bool
-      whenReady: Task }
+      isReady: unit -> bool }
 
 [<RequireQualifiedAccess>]
 module DbAgent =
@@ -425,8 +424,7 @@ module DbAgent =
                     inbox)
 
         { mailbox = mailbox
-          isReady = fun () -> ready.Task.IsCompletedSuccessfully
-          whenReady = ready.Task :> Task }
+          isReady = fun () -> ready.Task.IsCompletedSuccessfully }
 
     let private createWithLiveSave
         (connectionString: string)

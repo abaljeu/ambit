@@ -30,6 +30,11 @@ let private requireOk label r =
     | Ok v -> v
     | Error e -> failwith $"{label}: {e}"
 
+let private formatBoolResult (r: Result<bool, string>) =
+    match r with
+    | Ok v -> sprintf "Ok %b" v
+    | Error err -> sprintf "Error %s" err
+
 [<Fact>]
 let ``formatUtcDay is ISO date`` () =
     Assert.Equal("2026-08-28", DailyGitSave.formatUtcDay utcDay)
@@ -96,7 +101,7 @@ let ``tryRun writes stamp only after a successful empty walk`` () =
     let dataDir = newTempDir ()
     match DailyGitSave.tryRun dataDir utcDay with
     | Ok true -> ()
-    | other -> Assert.Fail($"expected walked, got {other}")
+    | other -> Assert.Fail($"expected Ok true, got {formatBoolResult other}")
     let text = File.ReadAllText(DailyGitSave.stampPath dataDir).Trim()
     Assert.Equal("2026-08-28", text)
 
@@ -106,7 +111,7 @@ let ``tryRun skips when today's stamp is already set`` () =
     requireOk "stamp" (DailyGitSave.writeStamp dataDir "2026-08-28")
     match DailyGitSave.tryRun dataDir utcDay with
     | Ok false -> ()
-    | other -> Assert.Fail($"expected skip, got {other}")
+    | other -> Assert.Fail($"expected Ok false, got {formatBoolResult other}")
 
 [<Fact>]
 let ``tryRun leaves stamp unset when a repo commit fails`` () =
@@ -118,23 +123,16 @@ let ``tryRun leaves stamp unset when a repo commit fails`` () =
     Assert.False(File.Exists(DailyGitSave.stampPath dataDir))
 
 [<Fact>]
-let ``start does not wait on git when today's stamp is set`` () =
+let ``start skips git when today's stamp is set`` () =
     let dataDir = newTempDir ()
     requireOk "stamp" (DailyGitSave.writeStamp dataDir "2026-08-28")
-    let hung = TaskCompletionSource<unit>()
-    let running = DailyGitSave.start dataDir hung.Task utcDay
+    let running = DailyGitSave.start dataDir utcDay
     Assert.True(running.Wait(TimeSpan.FromSeconds(2.0)))
 
 [<Fact>]
-let ``start does not walk until whenReady completes`` () = task {
+let ``start walks without waiting on the server`` () = task {
     let dataDir = newTempDir ()
-    let tcs = TaskCompletionSource<unit>()
-    let running = DailyGitSave.start dataDir tcs.Task utcDay
-    do! Task.Delay(80)
-    Assert.False(running.IsCompleted)
-    Assert.False(File.Exists(DailyGitSave.stampPath dataDir))
-    tcs.SetResult()
-    do! running
+    do! DailyGitSave.start dataDir utcDay
     Assert.True(File.Exists(DailyGitSave.stampPath dataDir))
 }
 
@@ -150,7 +148,7 @@ let ``walk commitAll DataDir then immediate child`` () =
     File.WriteAllText(Path.Combine(home, "child.txt"), "c")
     match DailyGitSave.tryRun dataDir utcDay with
     | Ok true -> ()
-    | other -> Assert.Fail($"expected walked, got {other}")
+    | other -> Assert.Fail($"expected Ok true, got {formatBoolResult other}")
     let rootMsg =
         GitSave.runGit dataDir "log -1 --pretty=%s" |> requireOk "root log"
     let childMsg =
@@ -159,4 +157,4 @@ let ``walk commitAll DataDir then immediate child`` () =
     Assert.Equal(DailyGitSave.commitMessage, childMsg.Trim())
     match DailyGitSave.tryRun dataDir utcDay with
     | Ok false -> ()
-    | other -> Assert.Fail($"expected same-day skip, got {other}")
+    | other -> Assert.Fail($"expected Ok false, got {formatBoolResult other}")

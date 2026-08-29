@@ -101,24 +101,16 @@ module DailyGitSave =
                 | Error err -> Error err
                 | Ok () -> Ok true
 
-    let start (dataDir: string) (whenReady: Task) (utcNow: DateTime) : Task =
+    /// Background git only. Does not wait on or call DbAgent / FileAgent.
+    let start (dataDir: string) (utcNow: DateTime) : Task =
         task {
-            let day = formatUtcDay utcNow
-            if not (shouldRunToday (tryReadStamp dataDir) day) then
-                ()
-            else
-                do! whenReady
-                match tryRun dataDir utcNow with
-                | Ok _ -> ()
-                | Error err -> eprintfn "[DailyGitSave] %s" err
+            match tryRun dataDir utcNow with
+            | Ok _ -> ()
+            | Error err -> eprintfn "[DailyGitSave] %s" err
         }
 
-    let register
-        (lifetime: IHostApplicationLifetime)
-        (dataDir: string)
-        (whenReady: Task)
-        =
+    let register (lifetime: IHostApplicationLifetime) (dataDir: string) =
         lifetime.ApplicationStarted.Register(fun () ->
-            Task.Run(fun () -> start dataDir whenReady DateTime.UtcNow)
+            Task.Run(fun () -> start dataDir DateTime.UtcNow)
             |> ignore)
         |> ignore
