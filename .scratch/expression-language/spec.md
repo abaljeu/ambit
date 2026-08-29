@@ -41,7 +41,7 @@ Statement lines are recognized before expression lexing; chapter 8 gives the lin
 Layer one. Whitespace separates tokens. `(`, `)`, and `,` are single-character tokens and also terminate a running segment. A `"` begins a quoted string token, which runs to the next `"` and may contain spaces, path symbols, parentheses, and commas; this spec defines no escape sequences. Every other maximal run of characters is one segment, classified whole:
 
 - A segment that contains any of `/`, `^`, `#`, `:`, `!`, `*`, or that begins with `.`, is one PathCluster token, sub-lexed by layer two.
-- A segment that is exactly `AND`, `OR`, `NOT`, or `OUTER` (capitals only) is a reserved word; lowercase or mixed case is not reserved.
+- A segment that is exactly `AND`, `OR`, `NOT`, `OUTER`, or `IF` (capitals only) is a reserved word; lowercase or mixed case is not reserved.
 - A segment that is a signed integer is a Number token.
 - Any other segment is a Name token: a standalone symbol looked up in the catalog. A `.` after the first character is an ordinary name character, matching the layer-two `.` rule.
 
@@ -71,7 +71,8 @@ OrExpr      ::= AndExpr (("OR" | ",") AndExpr)*
 AndExpr     ::= NotExpr ("AND" NotExpr)*
 NotExpr     ::= "NOT" NotExpr
               | "OUTER" NotExpr
-              | Seq (("NOT" | "OUTER") NotExpr)?
+              | "IF" NotExpr
+              | Seq (("NOT" | "OUTER" | "IF") NotExpr)?
 Seq         ::= Term Term*
 Term        ::= Word Literal?
               | PathCluster Literal?
@@ -87,12 +88,12 @@ Step        ::= "//" NamePattern?
 Int         ::= ["+" | "-"] Digit+
 ```
 
-- The locked precedence is encoded directly: juxtaposition (Seq) binds tightest, then `NOT` and `OUTER`, then `AND`, then `OR` and comma.
+- The locked precedence is encoded directly: juxtaposition (Seq) binds tightest, then `NOT`, `OUTER`, and `IF`, then `AND`, then `OR` and comma.
 - The trailing Literal of a Term is consumed exactly when the Word's catalog row, or the cluster's final step, has an unfilled argument slot; a Literal in any other position is a parse error. A required slot that no adjacent NamePattern and no trailing Literal fills is a missing-argument parse error: bare `/`, bare `//`, bare `#`, bare `subsection`, `containing` without its string, `re` or `rei` without its string, `// OR /`.
 - The `named` word requires a quoted name argument. The `subsection` word requires a quoted name argument. The cluster operator `#` requires either an adjacent NamePattern or a trailing quoted name argument. `subsection "todo"` equals `#todo`. Bare `subsection` is a missing-argument parse error, uniform with bare `#`.
 - A bare NamePattern element of a cluster is the argument of an implicit `/` (chapter 3).
 - Symbols are never operator arguments. The cluster fragment `//` desugars to `root /`, so bare `//` is a missing-argument parse error and the locked example `// tree` becomes `root tree`.
-- A compound predicate after `NOT` or `OUTER` needs parentheses (`left NOT (containing "the" AND named "blue")`, `root OUTER (containing "blue" AND named "x")`), because each arm takes one NotExpr, as the precedence lock requires. Bare `OUTER` is a missing-operand parse error, uniform with bare `NOT`.
+- A compound predicate after `NOT`, `OUTER`, or `IF` needs parentheses (`left NOT (containing "the" AND named "blue")`, `root OUTER (containing "blue" AND named "x")`, `IF (containing "blue" AND named "x")`), because each arm takes one NotExpr, as the precedence lock requires. Bare `OUTER` and bare `IF` are missing-operand parse errors, uniform with bare `NOT`.
 - Same-operator `AND` and `OR` chains are semantically associative; mixed `d AND b OR c` parses as `(d AND b) OR c` by precedence, but write the parentheses.
 - There is no literal in the Term production's head position: literals are arguments, never terms.
 
@@ -105,6 +106,7 @@ w : τ1 ⇒ τ2 in the catalog, its slot filled by a literal of the row's argume
 ⊢ e1 : τ1 ⇒ τ2   ⊢ e2 : τ2 ⇒ τ3                                                       ⊢ e1 e2 : τ1 ⇒ τ3
 ⊢ e1 : τ1 ⇒ τ2   ⊢ e2 : τ1 ⇒ τ2                                                       ⊢ e1 OR e2 : τ1 ⇒ τ2   (AND and comma the same)
 ⊢ e : τ ⇒ τ'                                                                           ⊢ NOT e : τ ⇒ τ
+⊢ e : τ ⇒ τ'                                                                           ⊢ IF e : τ ⇒ τ
 ⊢ e : Node ⇒ τ                                                                         ⊢ OUTER e : Node ⇒ Node
 ```
 
@@ -127,6 +129,7 @@ E⟦e1 e2⟧ x       = concat [ E⟦e2⟧ y | y ← E⟦e1⟧ x ]
 E⟦e1 OR e2⟧ x    = E⟦e1⟧ x ++ E⟦e2⟧ x                    (comma the same)
 E⟦e1 AND e2⟧ x   = every y in E⟦e1⟧ x, in that order, at most once, that also appears (by Answer equality) in E⟦e2⟧ x
 E⟦NOT e⟧ x       = ⟨x⟩ when E⟦e⟧ x is empty, otherwise ⟨⟩
+E⟦IF e⟧ x        = ⟨x⟩ when E⟦e⟧ x is nonempty, otherwise ⟨⟩
 E⟦OUTER e⟧ x     = Owned depth-first walk strictly below x in Children order: at each visited Node N, if E⟦e⟧ N is nonempty then yield N and do not enter Owned Children of N, else recurse on the Owned Children of N
 ```
 
@@ -136,6 +139,7 @@ E⟦OUTER e⟧ x     = Owned depth-first walk strictly below x in Children order
 - Lazy, eager, or backtracking evaluation is an implementation freedom, because the rules fix only the sequence and its order.
 - Theorem (provable remark, not a rule): when `f` and `g` are pure filters — each yields a subsequence of `⟨x⟩`, as `containing`, `re`, `rei`, `named`, `class`, `section`, and the classification filters `ws`, `dir`, `file`, and `normal` do — `f g` and `f AND g` denote the same function; a generator such as `descendant` makes them differ.
 - `OUTER` fuses the operand into that Owned walk (prune-during-accept). `acceptable(N)` is `E⟦e⟧ N` nonempty, the `NOT` emptiness test inverted. It is not a generator followed by a filter, and it is not a post-pass over `tree`. The walk is Owned only and does not yield the input, same as `tree`. Unloaded is a miss per the Unloaded rule.
+- `IF` is the same-input pullback: it yields the input Answer when the operand is nonempty, otherwise miss. `NOT (NOT e)` denotes the same function under the `NOT` rule. `OUTER` pullbacks while walking Owned descendants; `IF` pullbacks in place.
 - Unloaded rule: a walk step that needs the Children of an Unloaded Node yields no Answers from that Node. It is a miss, never an error, and it never Loads. All evaluation is local to the Browser Graph ([[.scratch/expression-language/issues/14-server-side-search.md]]).
 
 ## 7. The catalog
@@ -180,6 +184,7 @@ Combinators are rows too, with their Answer functions given by the chapter 6 rul
 | Entry | Spellings | Signature | Answer function |
 | --- | --- | --- | --- |
 | NOT | `NOT` | `(τ ⇒ τ') → (τ ⇒ τ)` | Negation-as-failure: yield the input when the operand yields nothing from it. |
+| IF | `IF` | `(τ ⇒ τ') → (τ ⇒ τ)` | Same-input pullback: yield the input when the operand yields any Answer from it; otherwise miss. Bare `IF` is a missing-operand parse error. `NOT (NOT e)` denotes the same function. |
 | OUTER | `OUTER` | `(Node ⇒ τ) → (Node ⇒ Node)` | Outermost acceptable Owned descendants: walk strictly below the input, Owned only, depth-first in Children order; at each N, if the operand yields any Answer from N then yield N and do not visit descendants of N, else recurse on the Owned Children of N. Unloaded is a miss. Bare `OUTER` is a missing-operand parse error. |
 | AND | `AND` | `(τ1 ⇒ τ2) → (τ1 ⇒ τ2) → (τ1 ⇒ τ2)` | Pointwise order-preserving intersection by Answer equality, per the AND rule. |
 | OR | `OR`; `,` | `(τ1 ⇒ τ2) → (τ1 ⇒ τ2) → (τ1 ⇒ τ2)` | Pointwise concatenation, per the OR rule; may repeat. |
@@ -227,7 +232,7 @@ Revision list for the later implementation effort, against [[src/Shared/RefExprM
 12. Implemented `tagSearchFrom` follows Ref Children, consistent with this spec's `#` traversal; [[doc/roadmap/reference-expression-interpretation.md]] says Owned only and must be revised. The `named` word is separate from `#`: it is a pure same-input name-glob filter and performs no traversal. `#` is subsection search, not a short form of `named`.
 13. Implemented `globMatch` treats `?` as a one-character wildcard; this spec defines `*` as the only glob metacharacter, so `?` behavior must be specified or revised later.
 14. `//` today is the ROOT anchor; this spec has no `//` row — the cluster fragment desugars to `root /` and bare `//` no longer parses.
-15. The words `root`, `child`, `descendant`, `tree`, `containing`, `re`, `rei`, `named`, `section`, `subsection`, `wsroot`, `class`, the classification filters `ws`/`dir`/`file`/`normal`, the reserved `AND`/`OR`/`NOT`/`OUTER`, and the statement forms `=` / `Name=` are all new surface.
+15. The words `root`, `child`, `descendant`, `tree`, `containing`, `re`, `rei`, `named`, `section`, `subsection`, `wsroot`, `class`, the classification filters `ws`/`dir`/`file`/`normal`, the reserved `AND`/`OR`/`NOT`/`OUTER`/`IF`, and the statement forms `=` / `Name=` are all new surface.
 
 ## 10. Deferred and not planned
 
@@ -270,6 +275,8 @@ Extends [[.scratch/expression-language/reports/pipeline-examples.md]], re-checke
 | `child` | `Node ⇒ Node` | The Children of the current Node (Owned and Ref); the same set as `:*`. |
 | `!-249053534` | zero Answers | Out-of-range sibling offset: a miss, not an error. |
 | `root descendant NOT containing "draft"` | `Node ⇒ Node` | Descendants of ROOT kept when the `containing "draft"` predicate yields nothing from them. |
+| `IF containing "blue"` | `Node ⇒ Node` | Keep the current Node when its Header contains `blue`. Same-input pullback; equals `NOT (NOT containing "blue")`. The Answers stay the input Nodes. |
+| `root descendant IF child` | `Node ⇒ Node` | Descendants of ROOT that have Children. Equals `root descendant NOT (NOT child)`. |
 | `#todo text` | `Node ⇒ Text` (later slice) | Subsection-search sections named `todo`, then each Node's text; `text` is postfix and outside this closed catalog slice. |
 | `subsection "todo"` | `Node ⇒ Node` | Equals `#todo`: search strictly below the input for sections named `todo`. |
 | `section` | `Node ⇒ Node` | Yield the input when it is a section (a named Normal Node); empty on an unnamed Normal Node or any Special Kind. |

@@ -95,3 +95,10 @@ module ExprEval =
                 match pull (inner input) with
                 | None -> Some(input, empty)
                 | Some _ -> None)
+
+    let ifEval (inner: Predicate) : Predicate =
+        fun input ->
+            Stream(fun () ->
+                match pull (inner input) with
+                | Some _ -> Some(input, empty)
+                | None -> None)

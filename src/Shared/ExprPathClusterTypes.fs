@@ -27,5 +27,6 @@ type Expr =
     | Pipe of Expr list
     | Not of Expr
     | Outer of Expr
+    | If of Expr
     | And of Expr * Expr
     | Or of Expr * Expr

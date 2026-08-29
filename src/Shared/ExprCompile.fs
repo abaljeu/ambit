@@ -56,7 +56,11 @@ module ExprCompile =
             Error ExprParse.missingArgument
 
     let private isReserved word =
-        word = "AND" || word = "OR" || word = "NOT" || word = "OUTER"
+        word = "AND"
+        || word = "OR"
+        || word = "NOT"
+        || word = "OUTER"
+        || word = "IF"
 
     let private compileWord catalog word literal =
         if isReserved word then
@@ -86,6 +90,9 @@ module ExprCompile =
         | Expr.Not inner ->
             compileExpr graph catalog inner
             |> Result.map ExprEval.notEval
+        | Expr.If inner ->
+            compileExpr graph catalog inner
+            |> Result.map ExprEval.ifEval
         | Expr.Outer inner ->
             compileExpr graph catalog inner
             |> Result.map (ExprWalk.outerAnswers graph)
@@ -151,7 +158,8 @@ module ExprCompile =
         | Expr.Pipe [] -> Error "empty expression"
         | Expr.Pipe (head :: tail) ->
             composeList (inferExpr catalog) head tail
-        | Expr.Not inner ->
+        | Expr.Not inner
+        | Expr.If inner ->
             inferExpr catalog inner
             |> Result.map (fun s -> { input = s.input; output = s.input })
         | Expr.Outer inner ->

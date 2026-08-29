@@ -29,6 +29,7 @@ module ExprRun =
         && seg <> "OR"
         && seg <> "NOT"
         && seg <> "OUTER"
+        && seg <> "IF"
         && not (isSignedInteger seg)
         && not (
             seg

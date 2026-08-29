@@ -20,6 +20,7 @@ module ExprParse =
         | OrKw
         | NotKw
         | OuterKw
+        | IfKw
         | Comma
         | LParen
         | RParen
@@ -53,6 +54,7 @@ module ExprParse =
         elif seg = "OR" then OrKw
         elif seg = "NOT" then NotKw
         elif seg = "OUTER" then OuterKw
+        elif seg = "IF" then IfKw
         elif seg.Length >= 2 && seg.[0] = '"' && seg.[seg.Length - 1] = '"' then
             Quoted(seg.Substring(1, seg.Length - 2))
         else
@@ -110,6 +112,7 @@ module ExprParse =
         match token with
         | NotKw -> Some Expr.Not
         | OuterKw -> Some Expr.Outer
+        | IfKw -> Some Expr.If
         | _ -> None
 
     let private attachPrefix wrap left inner =

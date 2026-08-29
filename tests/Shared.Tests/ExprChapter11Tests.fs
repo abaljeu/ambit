@@ -308,6 +308,26 @@ let ``root OUTER containing blue yields outermost Header matches`` () =
     | other -> failwith $"expected OUTER combinator, got {other}"
 
 [<Fact>]
+let ``IF containing blue keeps the input Node`` () =
+    let f = build ()
+    let fromBlue = answerOf f f.theBlue
+    Assert.Equal<NodeId list>(
+        [ f.theBlue ],
+        nodeHits f fromBlue "IF containing \"blue\"")
+    Assert.Equal<NodeId list>(
+        [],
+        nodeHits f (answerOf f f.headed) "IF containing \"blue\"")
+    Assert.Equal<NodeId list>(
+        nodeHits f fromBlue "IF containing \"blue\"",
+        nodeHits f fromBlue "NOT (NOT containing \"blue\")")
+    match ExprParse.parseExpr "IF containing \"blue\"" with
+    | Ok(Expr.If _) -> ()
+    | other -> failwith $"expected IF combinator, got {other}"
+    let ifChild = nodeHits f (rootOf f) "root descendant IF child"
+    Assert.Contains(f.todo, ifChild)
+    Assert.DoesNotContain(f.sibA, ifChild)
+
+[<Fact>]
 let ``Run statement rows materialise named blue descendants`` () =
     let f = build ()
     match ExprRun.run f.focus f.graph "= root descendant named \"blue\"" with

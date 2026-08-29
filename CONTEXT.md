@@ -214,6 +214,10 @@ _Avoid_: result, solution, match (as this value)
 An Expression combinator: the outermost acceptable Owned descendants below the input. Walk strictly below the input, Owned only; a Node that satisfies the operand yields, and the walk does not visit its descendants. Spelling is `OUTER` (capitals, same class as `NOT`).
 _Avoid_: tree2, outer (lowercase), outermost, cut (for this combinator)
 
+**IF**:
+An Expression combinator: yield the input Answer when the operand yields any Answer from that same input; otherwise miss. Same-input pullback. Spelling is `IF` (capitals, same class as `NOT` and `OUTER`).
+_Avoid_: if (lowercase, for this combinator), pullback (as a catalog name)
+
 ## Additional approved terms
 These terms are permitted with standard definition:
 

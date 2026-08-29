@@ -292,3 +292,88 @@ let ``OUTER re and rei operands match Header like containing`` () =
     Assert.Equal<NodeId list>(
         withContaining,
         nodeIds (evalOk f.graph fromFile "OUTER rei \".*BLUE.*\""))
+
+[<Fact>]
+let ``IF containing blue parses as combinator not bind`` () =
+    Assert.Equal(Expr.If containingBlue, exprOk "IF containing \"blue\"")
+    let root = Expr.Term(ExprTerm.Word("root", None))
+    Assert.Equal(
+        Expr.Pipe [ root; Expr.If containingBlue ],
+        exprOk "root IF containing \"blue\"")
+    match exprOk "if containing \"blue\"" with
+    | Expr.Term(ExprTerm.Word("if", _))
+    | Expr.Pipe(Expr.Term(ExprTerm.Word("if", _)) :: _) -> ()
+    | other -> failwith $"lowercase if must be bind, got {other}"
+
+[<Fact>]
+let ``bare IF is a missing-operand parse error`` () =
+    match ExprParse.parseExpr "IF" with
+    | Error _ -> ()
+    | Ok expr -> failwith $"expected parse error, got {expr}"
+    let named = Expr.Term(ExprTerm.Word("named", Some "x"))
+    let inner = Expr.And(containingBlue, named)
+    Assert.Equal(
+        Expr.If inner,
+        exprOk "IF (containing \"blue\" AND named \"x\")")
+
+[<Fact>]
+let ``IF child keeps a Node that has Children`` () =
+    let f = build ()
+    Assert.Equal<NodeId list>(
+        [ f.file ],
+        nodeIds (evalOk f.graph (answerOf f.graph f.file) "IF child"))
+    Assert.Equal<NodeId list>(
+        [],
+        nodeIds (evalOk f.graph (answerOf f.graph f.keep) "IF child"))
+    Assert.Equal<NodeId list>(
+        [ f.both ],
+        nodeIds (evalOk f.graph (answerOf f.graph f.both) "IF containing \"the\""))
+    Assert.Equal<NodeId list>(
+        [],
+        nodeIds (evalOk f.graph (answerOf f.graph f.x) "IF containing \"the\""))
+
+[<Fact>]
+let ``IF e equals NOT NOT e under current NOT`` () =
+    let f = build ()
+    let fromFile = answerOf f.graph f.file
+    Assert.Equal<NodeId list>(
+        nodeIds (evalOk f.graph fromFile "IF child"),
+        nodeIds (evalOk f.graph fromFile "NOT (NOT child)"))
+    Assert.Equal<NodeId list>(
+        nodeIds (evalOk f.graph (answerOf f.graph f.both) "IF containing \"the\""),
+        nodeIds (
+            evalOk f.graph (answerOf f.graph f.both) "NOT (NOT containing \"the\")"))
+    let ifChild =
+        nodeIds (evalOk f.graph (rootAnswer f.graph) "root descendant IF child")
+    let notNot =
+        nodeIds (
+            evalOk f.graph (rootAnswer f.graph) "root descendant NOT (NOT child)")
+    Assert.Equal<NodeId list>(ifChild, notNot)
+    Assert.Contains(f.file, ifChild)
+    Assert.DoesNotContain(f.keep, ifChild)
+
+[<Fact>]
+let ``IF does not change OUTER re rei containing`` () =
+    let f = buildOuter ()
+    let fromFile = answerOf f.graph f.file
+    let outer = nodeIds (evalOk f.graph fromFile "OUTER containing \"blue\"")
+    Assert.Contains(f.parentBlue, outer)
+    Assert.DoesNotContain(f.nestedBlue, outer)
+    Assert.Equal<NodeId list>(
+        outer,
+        nodeIds (evalOk f.graph fromFile "OUTER re \".*blue.*\""))
+    Assert.Equal<NodeId list>(
+        outer,
+        nodeIds (evalOk f.graph fromFile "OUTER rei \".*BLUE.*\""))
+    Assert.Equal<NodeId list>(
+        [ f.parentBlue ],
+        nodeIds (
+            evalOk f.graph (answerOf f.graph f.parentBlue) "containing \"blue\""))
+    Assert.Equal<NodeId list>(
+        [ f.parentBlue ],
+        nodeIds (
+            evalOk f.graph (answerOf f.graph f.parentBlue) "IF containing \"blue\""))
+    Assert.Equal<NodeId list>(
+        [],
+        nodeIds (
+            evalOk f.graph (answerOf f.graph f.clearParent) "IF containing \"blue\""))

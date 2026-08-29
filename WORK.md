@@ -28,7 +28,7 @@ Work currently being executed.
 Work ready to start but not yet claimed.
 
 - [[.scratch/expression-language/issues/30-text-operations.md]] — plan/lock text ops: Node→text coercion; `left`/`right`/`name`/`text`; equality word `is`; redefine `containing`/`re`/`rei` as string ops
-- [[.scratch/expression-language/issues/31-if-pullback.md]] — plan/lock `IF` combinator (same-input pullback); independent of 30
+- [[.scratch/expression-language/reports/if-impl.md]] — HITL: Run `= … IF containing "…"` on `/ambit` or `/ambit?debug=1`; confirm Answers stay Nodes (not an inner stream), and that lowercase `if` is not the combinator
 - [[.scratch/expression-language/reports/outer-impl.md]] — HITL: Run `= root OUTER containing "…"` on `/ambit` or `/ambit?debug=1`; confirm nested prune, Owned-only walk, and that lowercase `outer` is not the combinator
 - [[.scratch/expression-language/reports/re-filter.md]] — HITL: Run `= … re "…"` and `= … rei "…"` on `/ambit` or `/ambit?debug=1`; confirm Header match, case split, and invalid pattern as no matches
 - [[.scratch/expression-language/reports/run-changes-not-effective.md]] — HITL hard-reload `/ambit` or `/ambit?debug=1`; confirm Run error strings and unfold (not old red-echo)
