@@ -53,14 +53,7 @@ let tryReadSavedZoomId () : NodeId option =
 
 /// Snapshot the session-specific parts of the VM to sessionStorage and localStorage.
 let saveSessionState (model: VM) : unit =
-    let expandedIds =
-        model.siteMap.entries
-        |> Map.toArray
-        |> Array.choose (fun (_, e) ->
-            // Root entry (parentInstanceId = None) is always expanded — skip it.
-            if e.expanded && e.parentInstanceId <> None
-            then Some (e.nodeId.Value.ToString())
-            else None)
+    let foldSnapshots = ViewModel.captureFoldOccurrences model.siteMap
     let focusId =
         match model.selectedNodes with
         | Some sel -> Some (ViewModel.focusedNodeId model.graph sel)
@@ -71,9 +64,17 @@ let saveSessionState (model: VM) : unit =
         ResidentProjection.sessionTargets model.graph model.zoomRoot focusId
     let zoomJson = "\"" + zg.ToString() + "\""
     let bootJson = "\"" + bg.ToString() + "\""
-    let idsJson =
-        expandedIds |> Array.map (fun s -> "\"" + s + "\"") |> String.concat ","
-    let payload = sprintf "{\"z\":%s,\"b\":%s,\"e\":[%s]}" zoomJson bootJson idsJson
+    let foldJson =
+        foldSnapshots
+        |> List.map (fun snap ->
+            let parentJson =
+                match snap.parentIndex with
+                | None -> "null"
+                | Some i -> string i
+            sprintf "{\"p\":%s,\"i\":%d,\"n\":\"%s\"}"
+                parentJson snap.childIndex (snap.nodeId.Value.ToString()))
+        |> String.concat ","
+    let payload = sprintf "{\"z\":%s,\"b\":%s,\"f\":[%s]}" zoomJson bootJson foldJson
     sessionSet sessionKey payload
     try localStorageSet sessionKey payload with _ -> ()
 
@@ -81,25 +82,33 @@ let saveSessionState (model: VM) : unit =
 /// Called once immediately after StateLoaded, before the initial render.
 /// Uses `z` only — bootstrap widen (`b`) must not change UI zoom.
 /// Reads sessionStorage first, then localStorage.
+/// Legacy `e: string[]` payloads are ignored (all appearances stay collapsed).
 let restoreSessionState (model: VM) : VM =
     match tryReadSessionJson () with
     | None -> model
     | Some json ->
         try
+            let foldDecoder =
+                Decode.object (fun get ->
+                    let p = get.Optional.Field "p" Decode.int
+                    let i = get.Required.Field "i" Decode.int
+                    let n = get.Required.Field "n" Decode.string
+                    p, i, n)
             let decoder =
                 Decode.object (fun get ->
                     let z = get.Optional.Field "z" Decode.string
-                    let e = get.Required.Field "e" (Decode.list Decode.string)
-                    z, e)
+                    let f =
+                        get.Optional.Field "f" (Decode.list foldDecoder)
+                        |> Option.defaultValue []
+                    z, f)
             match Thoth.Json.JavaScript.Decode.fromString decoder json with
             | Error _ -> model
-            | Ok (zoomStr, expandedStrs) ->
+            | Ok (zoomStr, foldPairs) ->
                 let zoomRoot =
                     zoomStr
                     |> Option.bind tryParseNodeId
                     |> Option.map (fun nid ->
-                        if Map.containsKey nid model.graph.nodes then nid
-                        else model.zoomRoot)
+                        ViewModel.resolveZoomRoot model.graph nid)
                     |> Option.defaultValue model.zoomRoot
 
                 let siteMap0, nextId0 =
@@ -107,12 +116,17 @@ let restoreSessionState (model: VM) : VM =
                         ViewModel.buildSiteMapFrom model.graph zoomRoot (Sid 0)
                     else
                         model.siteMap, model.nextSiteId
-                let expandedSet =
-                    expandedStrs
-                    |> List.choose tryParseNodeId
-                    |> Set.ofList
+                let foldSnapshots =
+                    foldPairs
+                    |> List.choose (fun (p, i, n) ->
+                        tryParseNodeId n
+                        |> Option.map (fun nodeId ->
+                            { parentIndex = p
+                              childIndex = i
+                              nodeId = nodeId }))
                 let siteMap1, nextId1 =
-                    ViewModel.applyFoldSession expandedSet model.graph siteMap0 nextId0
+                    ViewModel.restoreFoldOccurrences
+                        foldSnapshots model.graph siteMap0 nextId0
                 { model with
                     zoomRoot = zoomRoot
                     siteMap = siteMap1

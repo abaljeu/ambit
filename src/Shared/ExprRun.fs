@@ -52,6 +52,9 @@ module ExprRun =
                 let right = trimmed.Substring(i + 1).Trim()
                 if isNameToken left then Some(Some left, right) else None
 
+    let isRunStatement (line: string) =
+        classify line |> Option.isSome
+
     let private replaceChildren (graph: Graph) (parentId: NodeId) kids =
         Op.Replace(parentId, graph.nodes.[parentId].children, kids)
 

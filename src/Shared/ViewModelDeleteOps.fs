@@ -334,6 +334,31 @@ module ViewModelDeleteOps =
                 let children = graph.nodes.[pid].children
                 ChildListWire.removeIndices pid children (Set.ofList indices)))
 
+    let private planFromClassified
+        (graph: Graph)
+        (classified: ClassifiedDelete list)
+        : Op list
+        =
+        match classified with
+        | [] -> []
+        | _ ->
+            let promoteOps = buildPromoteOps graph classified
+            let removeOps =
+                classified
+                |> List.groupBy (fun item -> item.parentId)
+                |> List.map (fun (parentId, items) ->
+                    let children = graph.nodes.[parentId].children
+                    let indicesToRemove =
+                        items |> List.map (fun item -> item.index) |> Set.ofList
+                    ChildListWire.removeIndices parentId children indicesToRemove)
+            let trashRenames = buildTrashRenameOps graph classified
+            let trashOps = buildTrashOp graph classified
+            let excluded =
+                classified |> List.map (fun c -> c.parentId) |> Set.ofList
+            let hardDeleteOps =
+                buildHardDeleteOpsExcluding graph excluded classified
+            promoteOps @ removeOps @ trashRenames @ trashOps @ hardDeleteOps
+
     /// Delete-command disposal for owned children dropped under each parent
     /// (warm parse unmatched Owner rows). One shared TRASH append.
     let planDeleteDroppedOwnedMany
@@ -369,22 +394,30 @@ module ViewModelDeleteOps =
                         else
                             classifyDeleteAtIndices graph parentId indices)
 
-        match classified with
-        | [] -> []
-        | _ ->
-            let promoteOps = buildPromoteOps graph classified
-            let removeOps =
-                classified
-                |> List.groupBy (fun item -> item.parentId)
-                |> List.map (fun (parentId, items) ->
-                    let children = graph.nodes.[parentId].children
-                    let indicesToRemove =
-                        items |> List.map (fun item -> item.index) |> Set.ofList
-                    ChildListWire.removeIndices parentId children indicesToRemove)
-            let trashRenames = buildTrashRenameOps graph classified
-            let trashOps = buildTrashOp graph classified
-            let excluded =
-                classified |> List.map (fun c -> c.parentId) |> Set.ofList
-            let hardDeleteOps =
-                buildHardDeleteOpsExcluding graph excluded classified
-            promoteOps @ removeOps @ trashRenames @ trashOps @ hardDeleteOps
+        planFromClassified graph classified
+
+    /// Classify a child span from the graph Node. No SiteMap or SiteEntry required.
+    let classifyDeleteForChildSpan
+        (graph: Graph)
+        (parentId: NodeId)
+        (start: int)
+        (endd: int)
+        : ClassifiedDelete list
+        =
+        match Map.tryFind parentId graph.nodes with
+        | None -> []
+        | Some parent ->
+            let lo = max 0 start
+            let hi = min parent.children.Length endd
+            if hi <= lo then
+                []
+            else
+                classifyDeleteAtIndices graph parentId [ lo .. hi - 1 ]
+
+    /// Plan Delete ops for a classified child span. No SiteEntry required.
+    let planDeleteChildSpan
+        (graph: Graph)
+        (classified: ClassifiedDelete list)
+        : Op list
+        =
+        planFromClassified graph classified

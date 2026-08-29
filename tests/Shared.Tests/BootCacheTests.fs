@@ -267,3 +267,35 @@ let ``decideBootRead uses the folded snapshot when the cache is valid`` () =
         Assert.Equal("world", folded.graph.nodes.[noteId].text)
         Assert.Equal(6, folded.revision.Value)
     | other -> failwithf "%A" other
+
+[<Fact>]
+let ``foldLog applies deletion and advances Revision`` () =
+    let graph0 = Graph.create ()
+    let graph1, ids = ModelBuilder.createNodes [ "doomed" ] graph0
+    let noteId = ids.[0]
+    let graph2 =
+        Graph.replace graph1.root 0 [] [ ChildNode.owner noteId ] graph1
+        |> ModelBuilder.requireOk "root->doomed"
+    let snapshot =
+        { graph = graph2; revision = Revision 5; isReady = true }
+    Assert.True(Map.containsKey noteId snapshot.graph.nodes)
+    let removeOp = Op.Replace(graph2.root, [ ChildNode.owner noteId ], [])
+    let trashChildren = graph2.nodes.[Graph.trashId].children
+    let addToTrashOp =
+        Op.Replace(Graph.trashId, trashChildren, trashChildren @ [ ChildNode.owner noteId ])
+    let change =
+        { id = 6
+          changeId = Guid.NewGuid()
+          ops = [ removeOp; addToTrashOp ] }
+    match BootCache.foldLog snapshot [ change ] with
+    | Error err -> failwith err
+    | Ok folded ->
+        Assert.Equal(6, folded.revision.Value)
+        let underRoot =
+            folded.graph.nodes.[folded.graph.root].children
+            |> List.exists (fun c -> c.id = noteId)
+        Assert.False(underRoot, "deleted node must leave its former parent")
+        let underTrash =
+            folded.graph.nodes.[Graph.trashId].children
+            |> List.exists (fun c -> c.id = noteId)
+        Assert.True(underTrash, "MoveToTrash must place the node under TRASH")

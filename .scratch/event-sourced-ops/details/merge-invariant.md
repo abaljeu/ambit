@@ -8,20 +8,20 @@ Status: the amendment order is **accepted**. The invariant and the process shape
 
 Never lose **critical information**, except when an Actor removed it. Then merge may propagate that removal.
 
-**Removed means removed against that Actor's common prior (proposed).** An Actor consents to losing what it could see, not to losing what another Actor added concurrently. Deleting a Node therefore does not carry away a child a second Actor added to it in the same window. This is the occurrence-bag reasoning of Kind 3 — adds are new slots, removes are prior slots, and they do not cancel — applied to the exemption itself. See Kind 4 in [[conflict-resolution.md]].
+**Removed means removed against that Actor's common prior (proposed).** An Actor consents to losing what it could see, not to losing what another Actor added concurrently. Deleting a Node therefore does not carry away a child a second Actor added to it in the same window. This is the occurrence-bag reasoning of Kind 3 — adds are new slots, removes are prior slots, and they do not cancel — applied to the exemption itself. See delete-against-edit in [[conflict-resolution.md]].
 
 Critical:
 
 - Changing a Node's text.
 - Adding a cssClass.
 - Adding a child edge.
-- Orphaning a Node — leaving no Owned path from ROOT — conflicts with changing that Node's critical details. No resolution is named for that conflict; a **less aggressive orphan collection** is only a safety belt. **Open**, see Kind 4 in [[conflict-resolution.md]].
+- Orphaning a Node — leaving no Owned path from ROOT — conflicts with changing that Node's critical details. No resolution is named for that conflict; a **less aggressive orphan collection** is only a safety belt. **Open**, see delete-against-edit in [[conflict-resolution.md]].
 
 Not critical:
 
 - The order of edges. It is important, but merge may approximate it.
 - Which Node is the owner. It is important, but not critical.
-- Moving to TRASH. Those children are still Owned by TRASH, so this is not an Orphaning conflict. Landing a concurrent **edit** under TRASH is a separate discoverability problem; tentative recovery is future work in Kind 4.
+- Moving to TRASH. Those children are still Owned by TRASH, so this is not an Orphaning conflict. Landing a concurrent **edit** under TRASH is a separate discoverability problem; tentative recovery is future work for delete-against-edit.
 
 ## Amendment order (accepted)
 

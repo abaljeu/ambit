@@ -1,5 +1,5 @@
 # Client start time — git
 
-- **Project branch:** `w/client-start-time`
+- **Project branch:** `w/sitemap-parent-index`
 - **Cut from:** `selective-client-sync`
-- **Notes:** diagnosis report for Free-tier cold start + Poll recovery; cut from selective-client-sync (ahead 8)
+- **Notes:** stale Zoom normalize before SiteMap reconcile; occurrence fold restore; prior incremental parent index

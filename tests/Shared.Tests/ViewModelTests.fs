@@ -981,6 +981,194 @@ let ``SiteMap parentByInstanceId matches entries after build and expand`` () =
     let sm2, _ = expandEntry aInstId graph siteMap nextId
     assertParentIndexMatchesEntries sm2
 
+/// Owner chain: container → n1 → n2 → … → n{depth}.
+let private buildOwnerChain (depth: int) : Graph * NodeId * NodeId list =
+    let graph0 = Graph.create ()
+    let labels = [ for i in 1 .. depth -> $"n{i}" ]
+    let graph1, ids = ModelBuilder.createNodes ("container" :: labels) graph0
+    let cont = ids.Head
+    let chain = ids.Tail
+    let graph2 =
+        Graph.replace graph1.root 0 [] (owned [ cont ]) graph1
+        |> ModelBuilder.requireOk "buildOwnerChain.root"
+    let rec link parent remaining graph =
+        match remaining with
+        | [] -> graph
+        | child :: rest ->
+            let g =
+                Graph.replace parent 0 [] (owned [ child ]) graph
+                |> ModelBuilder.requireOk "buildOwnerChain.link"
+            link child rest g
+    link cont chain graph2, cont, chain
+
+[<Fact>]
+let ``SiteMap parent index matches full rebuild after many fold restores`` () =
+    let depth = 40
+    let graph, cont, chain = buildOwnerChain depth
+    let siteMap, nextId = buildSiteMapFrom graph cont (Sid 0)
+    let snapshots =
+        [ for i, nid in List.indexed chain ->
+            { parentIndex = if i = 0 then None else Some (i - 1)
+              childIndex = 0
+              nodeId = nid } ]
+    let sm, _ = restoreFoldOccurrences snapshots graph siteMap nextId
+    let expandedCount =
+        sm.entries
+        |> Map.fold (fun n _ e -> if e.expanded then n + 1 else n) 0
+    Assert.Equal(depth + 1, expandedCount)
+    Assert.True(
+        buildParentInstanceIndex sm.entries = sm.parentByInstanceId,
+        "parentByInstanceId must equal a full rebuild")
+    assertParentIndexMatchesEntries sm
+
+let private buildRefCycleGraph () : Graph * NodeId * NodeId * NodeId =
+    let graph0 = Graph.create ()
+    let graph1, ids = ModelBuilder.createNodes [ "container"; "a"; "b" ] graph0
+    let cont = ids.[0]
+    let a = ids.[1]
+    let b = ids.[2]
+    let graph2 =
+        Graph.replace graph0.root 0 [] (owned [ cont ]) graph1
+        |> ModelBuilder.requireOk "buildRefCycleGraph.root"
+    let graph3 =
+        Graph.replace cont 0 [] (owned [ a ]) graph2
+        |> ModelBuilder.requireOk "buildRefCycleGraph.cont"
+    let graph4 =
+        Graph.replace a 0 [] (owned [ b ]) graph3
+        |> ModelBuilder.requireOk "buildRefCycleGraph.a"
+    let graph5 =
+        Graph.replace b 0 [] [ ChildNode.reference a ] graph4
+        |> ModelBuilder.requireOk "buildRefCycleGraph.b-ref"
+    graph5, cont, a, b
+
+let private buildSharedRefLinkForFold () : Graph * NodeId * NodeId * NodeId =
+    let graph0 = Graph.create ()
+    let graph1, ids = ModelBuilder.createNodes [ "ownerParent"; "refParent"; "shared" ] graph0
+    let ownerParent = ids.[0]
+    let refParent = ids.[1]
+    let shared = ids.[2]
+    let graph2 =
+        Graph.replace graph0.root 0 [] (owned [ ownerParent; refParent ]) graph1
+        |> ModelBuilder.requireOk "buildSharedRefLinkForFold.root"
+    let graph3 =
+        Graph.replace ownerParent 0 [] (owned [ shared ]) graph2
+        |> ModelBuilder.requireOk "buildSharedRefLinkForFold.owner"
+    let graph4 =
+        Graph.replace refParent 0 [] [ ChildNode.reference shared ] graph3
+        |> ModelBuilder.requireOk "buildSharedRefLinkForFold.ref"
+    graph4, ownerParent, refParent, shared
+
+[<Fact>]
+let ``restoreFoldOccurrences finishes on a Ref cycle`` () =
+    let graph, cont, a, b = buildRefCycleGraph ()
+    let siteMap, nextId = buildSiteMapFrom graph cont (Sid 0)
+    let aInst = siteMap.entries.[siteMap.rootId].children.[0]
+    let sm1, nextId1 = expandEntry aInst graph siteMap nextId
+    let bInst = sm1.entries.[aInst].children.[0]
+    let sm2, nextId2 = expandEntry bInst graph sm1 nextId1
+    let refAInst = sm2.entries.[bInst].children.[0]
+    let sm3, nextId3 = expandEntry refAInst graph sm2 nextId2
+    let snapshots = captureFoldOccurrences sm3
+    let freshMap, freshNext = buildSiteMapFrom graph cont (Sid 0)
+    let restored, _ = restoreFoldOccurrences snapshots graph freshMap freshNext
+    Assert.Equal(snapshots.Length, captureFoldOccurrences restored |> List.length)
+
+[<Fact>]
+let ``restoreFoldOccurrences restores two appearances of one Node independently`` () =
+    let graph, ownerParent, refParent, shared = buildSharedRefLinkForFold ()
+    let siteMap, nextId = buildSiteMapFrom graph refParent (Sid 0)
+    let refInst = siteMap.entries.[siteMap.rootId].children.[0]
+    let sm1, nextId1 = expandEntry refInst graph siteMap nextId
+    let snapshots = captureFoldOccurrences sm1
+    Assert.Equal(1, snapshots.Length)
+    Assert.Equal(Some shared, snapshots |> List.tryHead |> Option.map (fun s -> s.nodeId))
+    let ownerMap, ownerNext = buildSiteMapFrom graph ownerParent (Sid 0)
+    let ownerSharedInst = ownerMap.entries.[ownerMap.rootId].children.[0]
+    let smOwner, _ = expandEntry ownerSharedInst graph ownerMap ownerNext
+    Assert.Equal(1, captureFoldOccurrences smOwner |> List.length)
+    let freshMap, freshNext = buildSiteMapFrom graph refParent (Sid 0)
+    let restored, _ = restoreFoldOccurrences snapshots graph freshMap freshNext
+    let restoredSharedInst = restored.entries.[restored.rootId].children.[0]
+    Assert.True(restored.entries.[restoredSharedInst].expanded)
+    Assert.Equal(1, captureFoldOccurrences restored |> List.length)
+
+[<Fact>]
+let ``restoreFoldOccurrences succeeds when runtime SiteIds differ`` () =
+    let graph, cont, chain = buildOwnerChain 3
+    let siteMap, nextId = buildSiteMapFrom graph cont (Sid 0)
+    let aInst = siteMap.entries.[siteMap.rootId].children.[0]
+    let sm1, nextId1 = expandEntry aInst graph siteMap nextId
+    let snapshots = captureFoldOccurrences sm1
+    let freshMap, freshNext = buildSiteMapFrom graph cont (Sid 100)
+    Assert.NotEqual(siteMap.entries.[aInst].instanceId, freshMap.entries.[freshMap.rootId].children.[0])
+    let restored, _ = restoreFoldOccurrences snapshots graph freshMap freshNext
+    Assert.Equal(snapshots.Length, captureFoldOccurrences restored |> List.length)
+
+[<Fact>]
+let ``restoreFoldOccurrences skips stale child index and NodeId mismatch`` () =
+    let graph, cont, ids = buildFlat [ "a"; "b" ]
+    let siteMap, nextId = buildSiteMapFrom graph cont (Sid 0)
+    let staleOnly =
+        [ { parentIndex = None; childIndex = 99; nodeId = cont } ]
+    let wrongNodeOnly =
+        [ { parentIndex = None; childIndex = 0; nodeId = ids.[1] } ]
+    let freshMap, freshNext = buildSiteMapFrom graph cont (Sid 0)
+    let restoredStale, _ = restoreFoldOccurrences staleOnly graph freshMap freshNext
+    let restoredWrong, _ = restoreFoldOccurrences wrongNodeOnly graph freshMap freshNext
+    Assert.Equal(0, captureFoldOccurrences restoredStale |> List.length)
+    Assert.Equal(0, captureFoldOccurrences restoredWrong |> List.length)
+
+[<Fact>]
+let ``resolveZoomRoot keeps preferred Node when Resident`` () =
+    let graph, cont, _ = buildFlat [ "a" ]
+    Assert.Equal(cont, resolveZoomRoot graph cont)
+
+[<Fact>]
+let ``resolveZoomRoot falls back to first Graph child when preferred is absent`` () =
+    let graph = Graph.create ()
+    let missing = NodeId.New()
+    let expected = firstGraphChild graph
+    Assert.Equal(expected, resolveZoomRoot graph missing)
+    Assert.True(Map.containsKey expected graph.nodes)
+
+[<Fact>]
+let ``retargetZoomIfMissing rebuilds SiteMap when preferred Zoom is deleted`` () =
+    let graphWith, cont, _ = buildFlat [ "a"; "b" ]
+    let siteMap, nextId = buildSiteMapFrom graphWith cont (Sid 0)
+    // Post-replay Graph no longer contains the former Zoom Node.
+    let graphWithout = Graph.create ()
+    Assert.False(Map.containsKey cont graphWithout.nodes)
+    let zoom, sm, _, changed =
+        retargetZoomIfMissing graphWithout cont siteMap nextId
+    Assert.True(changed)
+    Assert.Equal(firstGraphChild graphWithout, zoom)
+    Assert.Equal(zoom, sm.entries.[sm.rootId].nodeId)
+    Assert.True(Map.containsKey zoom graphWithout.nodes)
+
+[<Fact>]
+let ``buildParentInstanceIndex of 18568 entries returns a finite index`` () =
+    let n = 18568
+    let entries =
+        [ 0 .. n - 1 ]
+        |> List.fold
+            (fun m i ->
+                let id = Sid i
+                let e =
+                    { instanceId = id
+                      nodeId = Graph.rootId
+                      parentInstanceId = if i = 0 then None else Some (Sid (i - 1))
+                      childIndex = 0
+                      expanded = false
+                      childrenStale = true
+                      children = [] }
+                Map.add id e m)
+            Map.empty
+    let idx = buildParentInstanceIndex entries
+    Assert.Equal(n - 1, idx.Count)
+    Assert.True(Map.tryFind (Sid 0) idx |> Option.isNone)
+    Assert.Equal(Some (Sid 0), Map.tryFind (Sid 1) idx)
+    Assert.Equal(Some (Sid (n - 2)), Map.tryFind (Sid (n - 1)) idx)
+
 [<Fact>]
 let ``nodeHasExpandedChildren false when collapsed or leaf`` () =
     let graph, cont, _ = buildNested ()

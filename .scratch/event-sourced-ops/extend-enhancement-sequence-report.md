@@ -15,7 +15,7 @@ Parent-facing summary of the /to-tickets draft extension. Full ticket text lives
 2. **Ticket 6 / `07` — Parse File realignment** (after 5)
 3. **Ticket 7 / `08` — Advisory soft-lock product** (after 5; ∥ 6)
 4. **Ticket 8 / `09` — Job identity, launch, cancel** (after 5, preferably 7)
-5. **Ticket 9 / `10` — Kind 4 delete/edit recovery (decision→implement)** (after 2–4)
+5. **Ticket 9 / `10` — delete-against-edit recovery (decision→implement)** (after 2–4)
 6. **Ticket 10 / `11` — Orphan-collection safety (decision)** (after 2–4; ∥ 9)
 7. **Ticket 11 / `12` — Child-list approximation polish** (after 4)
 8. **Ticket 12 / `13` — Completing-ops pattern beyond timing** (after 5)

@@ -16,7 +16,7 @@ Created [[../details/replace-amendment.md]] — complete specification for full-
 8. **Hard Reject** — placement, ownership, missing nodes, auth/malformed unchanged.
 9. **Worked examples** — index staleness, same-slot collision (StateEndpointTests pattern), disjoint append.
 10. **Migration** — wire format open decision documented.
-11. **Non-goals** — issue 10, Kind 4, id-anchored Replace, amb-conflict on lists.
+11. **Non-goals** — issue 10, delete-against-edit, id-anchored Replace, amb-conflict on lists.
 
 ## Files touched
 

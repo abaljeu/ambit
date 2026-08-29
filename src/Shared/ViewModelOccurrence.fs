@@ -223,3 +223,32 @@ module ViewModelOccurrence =
                 if Map.containsKey targetId graph.nodes then
                     Some (targetId, childIndex, List.skip (i + 1) stack)
                 else None
+
+    /// Default Zoom after StateLoaded: first child of Graph root, else the root.
+    let firstGraphChild (graph: Graph) : NodeId =
+        match Map.tryFind graph.root graph.nodes with
+        | None -> graph.root
+        | Some node ->
+            match List.tryHead node.children with
+            | Some child -> child.id
+            | None -> graph.root
+
+    /// Keep preferred Zoom when Resident; otherwise the StateLoaded default.
+    let resolveZoomRoot (graph: Graph) (preferred: NodeId) : NodeId =
+        if Map.containsKey preferred graph.nodes then preferred
+        else firstGraphChild graph
+
+    /// When preferred Zoom is absent from the Graph, rebuild SiteMap from the fallback.
+    /// Returns (zoomRoot, siteMap, nextSiteId, changed).
+    let retargetZoomIfMissing
+        (graph: Graph)
+        (zoomRoot: NodeId)
+        (siteMap: SiteMap)
+        (nextSiteId: SiteId)
+        : NodeId * SiteMap * SiteId * bool =
+        let resolved = resolveZoomRoot graph zoomRoot
+        if resolved = zoomRoot then
+            zoomRoot, siteMap, nextSiteId, false
+        else
+            let sm, nid = buildSiteMapFrom graph resolved (Sid 0)
+            resolved, sm, nid, true

@@ -31,6 +31,7 @@ let private applyRunPlan
             { m with siteMap = sm; nextSiteId = nextId },
             commitEffects @ effects
 
+/// Search and materialise. Caller Deletes existing Children first when needed.
 let runAmbleOp (model: VM) : VM * Effect list =
     let committed, commitEffects = commitIfEditing model
     match committed.selectedNodes with

@@ -455,49 +455,64 @@ let duplicateSelectionOp (model: VM) : VM * Effect list =
                           focus = insertStart }
                 withSiteMap { m with selectedNodes = newSel }, effects
 
+/// Apply Delete ops for a child span by graph NodeId. Remaps SiteMap on
+/// successful apply. Does not clamp or swap selectedNodes.
+let deleteChildSpan
+    (parentId: NodeId)
+    (start: int)
+    (endd: int)
+    (model: VM)
+    : VM * Effect list =
+    let classified =
+        ViewModelDeleteOps.classifyDeleteForChildSpan
+            model.graph parentId start endd
+    if classified.IsEmpty then
+        model, []
+    else
+        let allOps =
+            ViewModelDeleteOps.planDeleteChildSpan model.graph classified
+        if allOps.IsEmpty then
+            model, []
+        else
+            let change =
+                { id = model.revision.Value
+                  changeId = System.Guid.NewGuid()
+                  ops = allOps }
+            match applyAndPost (displayName Delete) change model with
+            | Error msg ->
+                { model with
+                    lastCmdResult = Some(CmdLastResult.Error(None, msg)) },
+                []
+            | Ok (m, effects) -> withSiteMap m, effects
+
+/// Apply Delete ops for a SiteNodeRange. Delegates to deleteChildSpan.
+let deleteRange (range: SiteNodeRange) (model: VM) : VM * Effect list =
+    deleteChildSpan range.parent.nodeId range.start range.endd model
+
 /// Op: Delete the selected nodes, integrating TRASH semantics and ownership rules.
 let deleteSelectionOp (model: VM) : VM * Effect list =
     match model.selectedNodes with
     | None -> model, []
     | Some sel ->
-        let classified =
-            ViewModelDeleteOps.classifyDeleteForSelection model.graph sel.range
-
-        if classified.IsEmpty then
-            model, []
+        let m, effects = deleteRange sel.range model
+        if effects.IsEmpty then
+            m, []
         else
-            let allOps = ViewModelDeleteOps.planDeleteOps model.graph sel.range classified
-
-            if allOps.IsEmpty then
-                model, []
-            else
-                let change =
-                    { id = model.revision.Value
-                      changeId = System.Guid.NewGuid()
-                      ops = allOps }
-
-                match applyAndPost (displayName Delete) change model with
-                | Error msg ->
-                    { model with
-                        lastCmdResult = Some(CmdLastResult.Error(None, msg)) },
-                    []
-                | Ok (m, effects) ->
-                    let newChildren = m.graph.nodes.[sel.range.parent.nodeId].children
-                    let newSel =
-                        if sel.range.start < newChildren.Length then
-                            let i = sel.range.start
-                            Some
-                                { range = { parent = sel.range.parent; start = i; endd = i + 1 }
-                                  focus = i }
-                        elif sel.range.start > 0 then
-                            let i = sel.range.start - 1
-                            Some
-                                { range = { parent = sel.range.parent; start = i; endd = i + 1 }
-                                  focus = i }
-                        else
-                            singleSelection m.graph m.siteMap sel.range.parent.nodeId
-
-                    withSiteMap { m with selectedNodes = newSel }, effects
+            let newChildren = m.graph.nodes.[sel.range.parent.nodeId].children
+            let newSel =
+                if sel.range.start < newChildren.Length then
+                    let i = sel.range.start
+                    Some
+                        { range = { parent = sel.range.parent; start = i; endd = i + 1 }
+                          focus = i }
+                elif sel.range.start > 0 then
+                    let i = sel.range.start - 1
+                    Some
+                        { range = { parent = sel.range.parent; start = i; endd = i + 1 }
+                          focus = i }
+                else
+                    singleSelection m.graph m.siteMap sel.range.parent.nodeId
+            withSiteMap { m with selectedNodes = newSel }, effects
 
 /// Union of user classes (non-amb-) across selected nodes, as space-separated string.
 let private initialUserClassesForSelection (model: VM) (sel: Selection) : string =

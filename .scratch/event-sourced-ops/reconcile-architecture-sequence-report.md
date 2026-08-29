@@ -20,7 +20,7 @@ Rationale: user said lock lifecycle is job-owned and the indicator is a job acce
 
 | Item | Action | Why |
 | --- | --- | --- |
-| Kind 4 + orphan | **Ticket 5** decision early; implement later | May need Change baseline + history scan / retention |
+| Delete-against-edit + orphan | **Ticket 5** decision early; implement later | May need Change baseline + history scan / retention |
 | Completing-ops beyond timing | Ticket 10 after Actor path | Timing already accepted; same-Change fill-in constrains 2–3 |
 | Unrestricted Undo | Ticket 11 after Ticket 3 | Only needs History extensibility constraint on Ticket 3 |
 
@@ -41,7 +41,7 @@ Tickets 0–4 carry **extension constraints** (optional baseline field room; adj
 ## Remaining user choices
 
 1. Approve merged Ticket 8 and Ticket 0 shared-envelope pin for publish.
-2. Confirm Ticket 5 may decide Kind 4 without implementing recovery in the same project.
+2. Confirm Ticket 5 may decide delete-against-edit without implementing recovery in the same project.
 3. Optional further merges (e.g. Ticket 10 into 6)?
 
 ## WORK.md mutation (parent applies)

@@ -131,6 +131,14 @@ module AmbleRun =
         : Result<ExprRun.Plan, string> =
         runPlan focusNodeId graph graph.nodes.[focusNodeId].text
 
+    let shouldExec (graph: Graph) (focusNodeId: NodeId) : bool =
+        if isSpecialFocus graph focusNodeId then
+            false
+        else
+            let line = graph.nodes.[focusNodeId].text
+            ExprRun.isRunStatement line
+            || line.TrimStart().StartsWith(">")
+
     /// Unfold the query node's instance one level (spec: unfold that Node).
     let applyUnfold
         (unfold: bool)

@@ -76,6 +76,83 @@ let ``planDeleteOps multi-sibling: change applies and both nodes land under TRAS
         Assert.False(rootChildren |> List.exists (fun c -> c.id = a), "a should not be under root")
         Assert.False(rootChildren |> List.exists (fun c -> c.id = b), "b should not be under root")
 
+let private rootChildNodeIds (siteMap: SiteMap) : NodeId list =
+    siteMap.entries.[siteMap.rootId].children
+    |> List.map (fun inst -> siteMap.entries.[inst].nodeId)
+
+[<Fact>]
+let ``reconcileSiteMapFrom after planDeleteOps drops deleted children from parent SiteEntry`` () =
+    let graph, a, b = buildTwoSiblings ()
+    let siteMap, nextId = buildSiteMap graph
+    let range =
+        { parent = siteMap.entries.[siteMap.rootId]; start = 0; endd = 2 }
+    Assert.Contains(a, rootChildNodeIds siteMap)
+    Assert.Contains(b, rootChildNodeIds siteMap)
+    let classified = ViewModelDeleteOps.classifyDeleteForSelection graph range
+    let ops = ViewModelDeleteOps.planDeleteOps graph range classified
+    let change = { id = 0; changeId = System.Guid.NewGuid(); ops = ops }
+    match History.applyChange change (stateOf graph) with
+    | ApplyResult.Changed s ->
+        Assert.Contains(a, rootChildNodeIds siteMap)
+        Assert.Contains(b, rootChildNodeIds siteMap)
+        let remapped, _ =
+            reconcileSiteMapFrom s.graph s.graph.root siteMap nextId
+        Assert.DoesNotContain(a, rootChildNodeIds remapped)
+        Assert.DoesNotContain(b, rootChildNodeIds remapped)
+        let rootKids = s.graph.nodes.[s.graph.root].children
+        Assert.False(rootKids |> List.exists (fun c -> c.id = a))
+        Assert.False(rootKids |> List.exists (fun c -> c.id = b))
+    | r -> Assert.True(false, $"expected Changed: {r}")
+
+[<Fact>]
+let ``reconcileSiteMapFrom after partial planDeleteOps keeps leftover children`` () =
+    let graph, a, b = buildTwoSiblings ()
+    let siteMap, nextId = buildSiteMap graph
+    let range =
+        { parent = siteMap.entries.[siteMap.rootId]; start = 0; endd = 1 }
+    let classified = ViewModelDeleteOps.classifyDeleteForSelection graph range
+    let ops = ViewModelDeleteOps.planDeleteOps graph range classified
+    let change = { id = 0; changeId = System.Guid.NewGuid(); ops = ops }
+    match History.applyChange change (stateOf graph) with
+    | ApplyResult.Changed s ->
+        Assert.Contains(a, rootChildNodeIds siteMap)
+        Assert.Contains(b, rootChildNodeIds siteMap)
+        let remapped, _ =
+            reconcileSiteMapFrom s.graph s.graph.root siteMap nextId
+        Assert.DoesNotContain(a, rootChildNodeIds remapped)
+        Assert.Contains(b, rootChildNodeIds remapped)
+        let rootKids = s.graph.nodes.[s.graph.root].children
+        Assert.False(rootKids |> List.exists (fun c -> c.id = a))
+        Assert.True(rootKids |> List.exists (fun c -> c.id = b))
+    | r -> Assert.True(false, $"expected Changed: {r}")
+
+[<Fact>]
+let ``classifyDeleteForChildSpan plans delete without a SiteEntry`` () =
+    let graph, a, b = buildTwoSiblings ()
+    let classified =
+        ViewModelDeleteOps.classifyDeleteForChildSpan graph graph.root 0 2
+    Assert.Equal(2, classified.Length)
+    let ops = ViewModelDeleteOps.planDeleteChildSpan graph classified
+    let change = { id = 0; changeId = System.Guid.NewGuid(); ops = ops }
+    match History.applyChange change (stateOf graph) with
+    | ApplyResult.Changed s ->
+        let rootKids = s.graph.nodes.[s.graph.root].children
+        Assert.False(rootKids |> List.exists (fun c -> c.id = a))
+        Assert.False(rootKids |> List.exists (fun c -> c.id = b))
+    | r -> Assert.True(false, $"expected Changed: {r}")
+
+[<Fact>]
+let ``classifyDeleteForChildSpan is empty when parent Node is missing`` () =
+    let graph, _, _ = buildTwoSiblings ()
+    Assert.Empty(
+        ViewModelDeleteOps.classifyDeleteForChildSpan graph (NodeId.New()) 0 2)
+
+[<Fact>]
+let ``classifyDeleteForChildSpan is empty when the span has no Children`` () =
+    let graph, _, _ = buildTwoSiblings ()
+    Assert.Empty(
+        ViewModelDeleteOps.classifyDeleteForChildSpan graph graph.root 0 0)
+
 // ---------------------------------------------------------------------------
 // LocalDeleteWithPromotion
 // ---------------------------------------------------------------------------

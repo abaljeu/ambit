@@ -250,7 +250,7 @@ Two migrations were in flight; **(2) is now implemented** (2026-08-22, issue [[.
 | Topic | Where |
 | --- | --- |
 | Order polish beyond locked invariants | Issue 10 ([[../issues/10-child-list-approximation-polish.md]]) — interleaving only |
-| Kind 4 delete against edit | [[conflict-resolution.md]] |
+| Delete-against-edit | [[conflict-resolution.md]] |
 | Id-anchored Replace (ids without `ref`) | Rejected — occurrence bag requires full `ChildNode` |
 | `amb-conflict` children for child-list collisions | Kind 3 uses Accept Both, not amb-conflict ([[conflict-resolution.md]]) |
 

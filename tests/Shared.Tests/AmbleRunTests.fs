@@ -313,3 +313,106 @@ let ``run bang-star containing needle on the expression text unfolds`` () =
     Assert.Contains(
         hitId,
         graph2.nodes.[focusId].children |> List.map (fun c -> c.id))
+
+let private siblingChildHits line =
+    let graph0 = Graph.create ()
+    let parentId = NodeId.New()
+    let focusId = NodeId.New()
+    let sibA = NodeId.New()
+    let sibB = NodeId.New()
+    let hit1 = NodeId.New()
+    let hit2 = NodeId.New()
+    let graph =
+        graph0
+        |> addUnder graph0.root
+            (Node.Create(parentId, text = "P", owner = graph0.root))
+        |> addUnder parentId
+            (Node.Create(focusId, text = line, owner = parentId))
+        |> addUnder parentId (Node.Create(sibA, text = "A", owner = parentId))
+        |> addUnder parentId (Node.Create(sibB, text = "B", owner = parentId))
+        |> addUnder sibA
+            (Node.Create(hit1, text = "needle one", owner = sibA))
+        |> addUnder sibB
+            (Node.Create(hit2, text = "needle two", owner = sibB))
+    graph, parentId, focusId, hit1, hit2
+
+let private childCount graph focusId =
+    graph.nodes.[focusId].children.Length
+
+let private runOnce graph focusId line =
+    let plan = requirePlan "run" (AmbleRun.runPlan focusId graph line)
+    applyOps graph plan.ops
+
+let private childrenRange graph parentId focusId =
+    let siteMap, nextId = ViewModel.buildSiteMap graph
+    let pEntry = entryOf parentId siteMap
+    let siteMap2, _ =
+        ViewModel.expandEntry pEntry.instanceId graph siteMap nextId
+    let parent = entryOf focusId siteMap2
+    { parent = parent
+      start = 0
+      endd = graph.nodes.[focusId].children.Length }
+
+let private deleteThenRun graph parentId focusId line =
+    let range = childrenRange graph parentId focusId
+    let classified = ViewModelDeleteOps.classifyDeleteForSelection graph range
+    let graph1 =
+        if classified.IsEmpty then graph
+        else applyOps graph (ViewModelDeleteOps.planDeleteOps graph range classified)
+    runOnce graph1 focusId line
+
+[<Fact>]
+let ``second run of bang-star child containing finds prior result refs`` () =
+    let line = "=!* child containing \"needle\""
+    let graph, _, focusId, hit1, hit2 = siblingChildHits line
+    let graph1 = runOnce graph focusId line
+    let count1 = childCount graph1 focusId
+    Assert.Equal(2, count1)
+    let ids1 = graph1.nodes.[focusId].children |> List.map (fun c -> c.id)
+    Assert.Contains(hit1, ids1)
+    Assert.Contains(hit2, ids1)
+    let graph2 = runOnce graph1 focusId line
+    Assert.Equal(4, childCount graph2 focusId)
+
+[<Fact>]
+let ``delete children then run does not pick up prior result refs`` () =
+    let line = "=!* child containing \"needle\""
+    let graph, parentId, focusId, hit1, hit2 = siblingChildHits line
+    let graph1 = deleteThenRun graph parentId focusId line
+    Assert.Equal(2, childCount graph1 focusId)
+    let graph2 = deleteThenRun graph1 parentId focusId line
+    Assert.Equal(2, childCount graph2 focusId)
+    let ids = graph2.nodes.[focusId].children |> List.map (fun c -> c.id)
+    Assert.Contains(hit1, ids)
+    Assert.Contains(hit2, ids)
+    let trashIds =
+        graph2.nodes.[Graph.trashId].children |> List.map (fun c -> c.id)
+    Assert.DoesNotContain(hit1, trashIds)
+    Assert.DoesNotContain(hit2, trashIds)
+
+[<Fact>]
+let ``delete of run children is one range Replace on the query node`` () =
+    let line = "=!* child containing \"needle\""
+    let graph, parentId, focusId, _, _ = siblingChildHits line
+    let graph1 = runOnce graph focusId line
+    let range = childrenRange graph1 parentId focusId
+    let classified = ViewModelDeleteOps.classifyDeleteForSelection graph1 range
+    let ops = ViewModelDeleteOps.planDeleteOps graph1 range classified
+    let replaces =
+        ops
+        |> List.choose (function
+            | Op.Replace(pid, oldKids, newKids) when pid = focusId ->
+                Some(oldKids.Length, newKids.Length)
+            | _ -> None)
+    Assert.Equal<(int * int) list>([ 2, 0 ], replaces)
+
+[<Fact>]
+let ``shouldExec is false for a non-statement line`` () =
+    let t = RefExprTestTree.build ()
+    Assert.False(AmbleRun.shouldExec t.graph t.plainChild)
+    let graph, focusId = focusUnderRoot ()
+    let graph1 =
+        match Graph.setText focusId "focus" "= named \"zzz\"" graph with
+        | Ok g -> g
+        | Error e -> failwith e
+    Assert.True(AmbleRun.shouldExec graph1 focusId)

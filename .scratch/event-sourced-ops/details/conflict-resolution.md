@@ -2,7 +2,7 @@
 
 The taxonomy of concurrent edits, and what merge does with each. The invariant behind these rules is in [[merge-invariant.md]].
 
-Status: the **taxonomy** as a whole is **proposed**. The four resolutions inside it — text, name, classes, children — are **accepted**. Kind 4 is **proposed** throughout.
+Status: the **taxonomy** as a whole is **proposed**. The four resolutions inside it — text, name, classes, children — are **accepted**. Delete-against-edit is **proposed** throughout.
 
 ## Independence is the load-bearing idea
 
@@ -38,7 +38,7 @@ The bag holds **occurrences** — full `ChildNode { ref; id }` values — not No
 
 The Server amends the newest Actor's posted Replace to `Replace(parentId, current, target)` for the combined Local Graph — computed **after** the other accepted Changes are in, never from isolated node fields, and never as a substitute for sending those other Changes. See [[replace-amendment.md]] §5.
 
-## Kind 4 — delete against edit
+## Delete-against-edit
 
 Actor A changes N's content or adds children to N. Actor B deletes N.
 
@@ -56,7 +56,7 @@ Read it as: if the transitive owner of a Node touched by a Change is nothing, or
 
 `amb-conflict` is a **node indicator**: a class and a text on a new child. That child is a **Normal Node**. Being a conflict is a role, not a Kind, and there is no Conflict Kind to invent.
 
-It is not an edge-editing device for ordinary child-list conflicts (Kind 3). Kind 4's tentative `deleted` wrapper is the one proposed exception — still future work.
+It is not an edge-editing device for ordinary child-list conflicts (Kind 3). The tentative `deleted` wrapper for delete-against-edit is the one proposed exception — still future work.
 
 ## What is not a conflict at all
 

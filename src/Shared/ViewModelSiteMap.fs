@@ -13,6 +13,13 @@ module ViewModelSiteMap =
             e.parentInstanceId |> Option.map (fun p -> e.instanceId, p))
         |> Map.ofSeq
 
+    let private indexChildParents
+        (parentId: SiteId)
+        (childIds: SiteId list)
+        (index: Map<SiteId, SiteId>)
+        : Map<SiteId, SiteId> =
+        List.fold (fun idx childId -> Map.add childId parentId idx) index childIds
+
     let emptySiteMap : SiteMap =
         let rootEntry = { instanceId = Sid 0; nodeId = Graph.rootId
                           parentInstanceId = None; childIndex = 0
@@ -254,7 +261,9 @@ module ViewModelSiteMap =
                 acc <- Map.add instanceId updated acc
                 { siteMap with
                     entries = acc
-                    parentByInstanceId = buildParentInstanceIndex acc }, endCount ()
+                    parentByInstanceId =
+                        indexChildParents instanceId childInstIds
+                            siteMap.parentByInstanceId }, endCount ()
 
     /// Adjacent sibling of `me`'s parent when that sibling is already open (or a leaf).
     /// Collapsed siblings with children return None so callers can fall back to move-beside-parent
@@ -342,38 +351,75 @@ module ViewModelSiteMap =
                     loop sm nextId children
         loop siteMap startId frontier
 
-    /// Restore fold state from a saved set of expanded NodeIds.
-    /// Walks the siteMap in BFS order, expanding each entry whose nodeId is in
-    /// expandedNodeIds.  Parent-before-child ordering ensures that children only
-    /// become visible after their parent is expanded.
-    /// Returns the updated SiteMap and next available instanceId.
-    let applyFoldSession
-        (expandedNodeIds: Set<NodeId>)
+    /// Capture expanded non-root appearances from the current SiteMap in parent-first order.
+    let captureFoldOccurrences (siteMap: SiteMap) : FoldOccurrenceSnapshot list =
+        let rec loop queue (indexByInst: Map<SiteId, int>) acc =
+            match queue with
+            | [] -> List.rev acc
+            | instId :: rest ->
+                match Map.tryFind instId siteMap.entries with
+                | None -> loop rest indexByInst acc
+                | Some entry when not entry.expanded -> loop rest indexByInst acc
+                | Some entry ->
+                    let queue', indexByInst', acc' =
+                        entry.children
+                        |> List.fold
+                            (fun (q, idxMap, snaps) childId ->
+                                match Map.tryFind childId siteMap.entries with
+                                | Some child when child.expanded && child.parentInstanceId <> None ->
+                                    let parentIdx =
+                                        if instId = siteMap.rootId then None
+                                        else Some (Map.find instId idxMap)
+                                    let snap =
+                                        { parentIndex = parentIdx
+                                          childIndex = child.childIndex
+                                          nodeId = child.nodeId }
+                                    let snapIdx = List.length snaps
+                                    (rest @ [ childId ], Map.add childId snapIdx idxMap, snap :: snaps)
+                                | _ -> (rest @ [ childId ], idxMap, snaps))
+                            (rest, indexByInst, acc)
+                    loop queue' indexByInst' acc'
+        loop [ siteMap.rootId ] Map.empty []
+
+    /// Restore fold state from parent-first occurrence snapshots.
+    /// Resolves each parent to a runtime `SiteId`, validates the indexed child's `NodeId`,
+    /// and expands that exact appearance. Invalid parents and mismatches are skipped.
+    let restoreFoldOccurrences
+        (snapshots: FoldOccurrenceSnapshot list)
         (graph: Graph)
         (siteMap: SiteMap)
         (startId: SiteId)
         : SiteMap * SiteId =
-        if Set.isEmpty expandedNodeIds then siteMap, startId
+        if List.isEmpty snapshots then siteMap, startId
         else
-            let mutable sm = siteMap
-            let mutable nextId = startId
-            let queue = System.Collections.Generic.Queue<SiteId>()
-            queue.Enqueue(sm.rootId)
-            while queue.Count > 0 do
-                let instId = queue.Dequeue()
-                match Map.tryFind instId sm.entries with
-                | None -> ()
-                | Some entry ->
-                    if Set.contains entry.nodeId expandedNodeIds && not entry.expanded then
-                        let sm', nextId' = expandEntry instId graph sm nextId
-                        sm <- sm'
-                        nextId <- nextId'
-                    // Re-read after potential expansion to enqueue the (now visible) children.
-                    match Map.tryFind instId sm.entries with
-                    | Some e when e.expanded ->
-                        for childId in e.children do queue.Enqueue(childId)
-                    | _ -> ()
-            sm, nextId
+            let snapshotArray = List.toArray snapshots
+            let resolved = Array.create snapshotArray.Length None
+            let rec loop i (sm: SiteMap) (nextId: SiteId) =
+                if i >= snapshotArray.Length then sm, nextId
+                else
+                    let snap = snapshotArray.[i]
+                    let parentInstIdOpt =
+                        match snap.parentIndex with
+                        | None -> Some sm.rootId
+                        | Some pi -> resolved.[pi]
+                    match parentInstIdOpt with
+                    | None -> loop (i + 1) sm nextId
+                    | Some parentInstId ->
+                        match Map.tryFind parentInstId sm.entries with
+                        | None -> loop (i + 1) sm nextId
+                        | Some parentEntry ->
+                            match List.tryItem snap.childIndex parentEntry.children with
+                            | None -> loop (i + 1) sm nextId
+                            | Some childInstId ->
+                                match Map.tryFind childInstId sm.entries with
+                                | Some child when child.nodeId = snap.nodeId ->
+                                    let sm', nextId' =
+                                        if child.expanded then sm, nextId
+                                        else expandEntry childInstId graph sm nextId
+                                    resolved.[i] <- Some childInstId
+                                    loop (i + 1) sm' nextId'
+                                | _ -> loop (i + 1) sm nextId
+            loop 0 siteMap startId
 
     /// Build an index from NodeId to all instanceIds (all occurrences). O(S log S).
     let buildOccurrenceIndex (siteMap: SiteMap) : Map<NodeId, SiteId list> =

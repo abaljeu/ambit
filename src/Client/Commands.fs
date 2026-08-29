@@ -43,6 +43,31 @@ let private cmd (id: CommandId) (run: CommandOp) : CommandEntry2 =
 
 let private keyAlways (updater: Updater) : CommandOp = fun () -> Some updater
 
+let private execRunOp (model: VM) : VM * Effect list =
+    let committed, commitEffects = commitIfEditing model
+    match committed.selectedNodes with
+    | None -> committed, commitEffects
+    | Some sel ->
+        let focusId = focusedNodeId committed.graph sel
+        if not (AmbleRun.shouldExec committed.graph focusId) then
+            committed, commitEffects
+        else
+            let afterDelete, delEffects =
+                match Map.tryFind focusId committed.graph.nodes with
+                | Some node when node.children.Length > 0 ->
+                    deleteChildSpan
+                        focusId 0 node.children.Length committed
+                | _ -> committed, []
+            let kidsLeft =
+                match Map.tryFind focusId afterDelete.graph.nodes with
+                | Some node -> node.children.Length > 0
+                | None -> false
+            if kidsLeft then
+                afterDelete, commitEffects @ delEffects
+            else
+                let ran, runEffects = runAmbleOp afterDelete
+                ran, commitEffects @ delEffects @ runEffects
+
 let private splitAtCursor () : Updater option =
     let text = readEditInputValue ()
     let pos = readEditInputCursor ()
@@ -179,7 +204,7 @@ let commandRegistry : CommandEntry2 list =
     [
       cmd EditNode (keyAlways startEditOp)
       cmd Rename (keyAlways openRenamePromptOp)
-      cmd Exec (keyAlways runAmbleOp)
+      cmd Exec (keyAlways execRunOp)
       cmd SplitAtCursor splitAtCursor
       cmd Delete (keyAlways deleteSelectionOp)
       cmd JoinWithPrevious handleBackspace

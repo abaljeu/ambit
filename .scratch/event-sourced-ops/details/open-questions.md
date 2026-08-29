@@ -23,7 +23,7 @@ An inventory. It is not a lock and it is not new work. The project stage stays `
 
 - **The merge document as a whole** ([[merge-invariant.md]]). The order, the correction strategy, and several kinds are accepted; the invariant and any per-Op tables are not.
 - **The conflict taxonomy** as a taxonomy ([[conflict-resolution.md]]). Text, name, children, and classes are already pinned inside it.
-- **Kind 4, delete against edit** ([[conflict-resolution.md]]) — independence for critical information; removal exemption against the common prior ([[merge-invariant.md]]); tentative `deleted` wrapper recovery is future, not locked. Decide early relative to log/Change extension; implement only after accept ([[../to-tickets-draft.md]]).
+- **Delete-against-edit** ([[conflict-resolution.md]]) — independence for critical information; removal exemption against the common prior ([[merge-invariant.md]]); tentative `deleted` wrapper recovery is future, not locked. Decide early relative to log/Change extension; implement only after accept ([[../to-tickets-draft.md]]).
 - **The fill-in pattern** ([[completing-ops.md]]). The timing is accepted; the rest is proposed.
 - **Exact envelope field set** beyond the shared-type direction ([[messaging.md]]).
 - **Soft-lock issuance, expiry, and chrome** ([[soft-lock.md]]) — not the job-coupling pin above.
@@ -38,7 +38,7 @@ An inventory. It is not a lock and it is not new work. The project stage stays `
 
 **Is unrestricted Undo desirable?** The global order makes it possible. Whether Actors can see and understand those edits well enough to choose Undo properly is unanswered, on purpose ([[undo.md]]).
 
-**Delete-against-edit recovery (future consideration).** Tentative choice: if the transitive owner of a Change'd Node is nothing or TRASH, recover with a `deleted`-labeled conflict wrapper at the old parent that Owns the Node ([[conflict-resolution.md]] Kind 4). Issues left open: a Change does not carry ownership; correcting when the Change precedes the delete is awkward. Sketched how: the Change's baseline, plus a scan of history since that baseline. No algorithm yet.
+**Delete-against-edit recovery (future consideration).** Tentative choice: if the transitive owner of a Change'd Node is nothing or TRASH, recover with a `deleted`-labeled conflict wrapper at the old parent that Owns the Node ([[conflict-resolution.md]]). Issues left open: a Change does not carry ownership; correcting when the Change precedes the delete is awkward. Sketched how: the Change's baseline, plus a scan of history since that baseline. No algorithm yet.
 
 **What resolves a hard Orphaning against a critical edit?** [[merge-invariant.md]] names the conflict and no outcome. Whether a well-formed Change can produce one at all is part of the question, since fill-in makes every delete Move-shaped ([[completing-ops.md]]). A less aggressive orphan collection is a proposed safety belt only.
 

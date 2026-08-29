@@ -15,7 +15,7 @@ Inferred from the project docs plus a short Client/Server skim. These are **beha
 3. **Reject forces reload and drops work.** Client `ServerRejected` shows a blocking alert: reload to resync; **unsaved Changes will be lost**. Ack reconciliation also Rejects when the acknowledgement is not a confirmation echo of the submitted Ops. So a recoverable concurrent kick-back — and any future amended success list — is treated like a terminal failure. User judgment: this Reject/reload path is **indirectly a critical information loss**.
 4. **No Server amendment path.** Produce today is apply-or-refuse. There is no common-prior → other accepted Changes → amend newest sequence. Recoverable collision is not merge success.
 5. **No Client rewind-and-replay consume for that case.** Poll with a non-empty tail **clears History** (debt). Submit success still uses confirmation-echo reconcile, not baseline note + later poll replay. Leftover pending cannot survive a Reject wipe.
-6. **After the initial critical-flaw tickets.** Actor produce path, Parse realignment, job identity **with** advisory soft-lock (one vertical), early recovery decisions (Kind 4 / orphan), child-list polish, completing-ops beyond timing, Undo desirability.
+6. **After the initial critical-flaw tickets.** Actor produce path, Parse realignment, job identity **with** advisory soft-lock (one vertical), early recovery decisions (delete-against-edit / orphan), child-list polish, completing-ops beyond timing, Undo desirability.
 
 ## 2. Initial tickets — critical-flaw elimination
 
@@ -25,8 +25,8 @@ High-level on purpose: each ticket is meant to become its own later project. Sco
 
 Tickets 0–4 must leave these open without implementing them:
 
-- **Optional Change baseline field** (or equivalent) for Kind 4 history scan — do not ship a Change schema that cannot grow it.
-- **Short-tail log retention policy** remains adjustable — do not hard-code “discard immediately after poll” if Kind 4 needs scan-since-baseline.
+- **Optional Change baseline field** (or equivalent) for delete-against-edit history scan — do not ship a Change schema that cannot grow it.
+- **Short-tail log retention policy** remains adjustable — do not hard-code “discard immediately after poll” if delete-against-edit needs scan-since-baseline.
 - **History** after Ticket 3 retains Server-originated Changes — do not freeze History as own-posts-only (Undo decision may need other Actors’ amended Changes visible).
 - **Amendment / complete** seam allows same-Change fill-in (timing already **accepted** in [[details/completing-ops.md]]).
 
@@ -79,12 +79,12 @@ Each item is project-sized (likely its own `.scratch/<slug>/`). Status words fol
 
 ### Early decisions (decision first; implement later)
 
-#### Ticket 5 — Recovery safety decisions (Kind 4 + orphan) → publish `06`
+#### Ticket 5 — Recovery safety decisions (delete-against-edit + orphan) → publish `06`
 
 - **Blocked by:** Tickets 2–3 for a meaningful prototype substrate; may start analysis in parallel with Ticket 4. **Product schedule:** decide before Tickets 6–8 freeze log retention or Change schema further. **Technical gate for implementation of recovery only** — does **not** block Tickets 0–4 if extension constraints above are honored.
 - **What it delivers:** A **decision/prototype** that (a) accepts, revises, or rejects the tentative `deleted` Owned-wrapper recovery and whether a Change must carry an explicit baseline for history scan; (b) names orphan-collection policy vs proving hard Orphaning cannot arise. Implementation of recovery is a **follow-on** only after accept.
-- **Architectural shift:** **Significant if Kind 4 accepted** (wrapper Owns recovered Node; possible baseline + history scan). Orphan policy is janitor/safety, not a second mutation path.
-- **Status basis:** Kind 4 independence **proposed**; wrapper **tentative/open**; orphan outcome **open** ([[details/conflict-resolution.md]], [[details/open-questions.md]]).
+- **Architectural shift:** **Significant if delete-against-edit is accepted** (wrapper Owns recovered Node; possible baseline + history scan). Orphan policy is janitor/safety, not a second mutation path.
+- **Status basis:** Delete-against-edit independence **proposed**; wrapper **tentative/open**; orphan outcome **open** ([[details/conflict-resolution.md]], [[details/open-questions.md]]).
 - **Why early:** Late accept of baseline/history-scan after Ticket 0–3 freeze would force painful wire/log rework. Decide early; build recovery later.
 - **See also:** [[details/conflict-resolution.md]], [[details/merge-invariant.md]], [[details/open-questions.md]], [[details/completing-ops.md]]
 
@@ -188,7 +188,7 @@ Prior:
 1. Granularity OK with child-list separate.
 2. Child-list own ticket (Ticket 4).
 3. Scaffold early = Ticket 0; linear `0 ∥ 1 → 2 → 3 → 4`.
-4. Soft-lock/jobs/Kind 4 after critical flaws — now sequenced with merges below.
+4. Soft-lock/jobs/delete-against-edit after critical flaws — now sequenced with merges below.
 5. Early expand — now includes shared envelope type in Ticket 0.
 
 This round:
@@ -196,13 +196,13 @@ This round:
 1. **Later grouping.** Accepted as probably OK; soft-lock/job merged to shrink footprint.
 2. **Soft-lock vs job.** Neither first as separate products. **Parse (7) tracers the produce path without jobs.** Then **Ticket 8** delivers job identity **and** soft-lock together (lock owned by job; completion clears; indicator opens job).
 3. **Envelope.** Separate channels OK; **shared type preferred**. Folded into Ticket 0; optional later unify ticket **removed**. Caveat: Post still does not apply the list.
-4. **Decision-first OK.** Kind 4/orphan decisions moved to Ticket 5 (early); implementation later. Extension constraints on 0–4 prevent late wire pain. Completing-ops timing already accepted; Undo stays later with History extensibility constraint.
+4. **Decision-first OK.** Delete-against-edit/orphan decisions moved to Ticket 5 (early); implementation later. Extension constraints on 0–4 prevent late wire pain. Completing-ops timing already accepted; Undo stays later with History extensibility constraint.
 5. **Load.** User claim verified: Graph/state transfer for unloaded Nodes/children is **accepted**, not parked. **Global revision.** User claim verified: one global Server sequence is **accepted**; not per-Workspace.
 
 ## 7. Remaining user choice (narrow)
 
 1. Approve merged Ticket 8 (job+soft-lock) and Ticket 0 shared-envelope pin for publish.
-2. Confirm Ticket 5 may decide Kind 4 **without** implementing recovery in the same project.
+2. Confirm Ticket 5 may decide delete-against-edit **without** implementing recovery in the same project.
 3. Anything else to merge for a still-smaller footprint (e.g. fold Ticket 10 into 6)?
 
 ## 8. WORK.md mutations for parent (do not apply here)

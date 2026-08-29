@@ -31,6 +31,14 @@ type SiteEntry =
       childrenStale: bool            // true when children list may not match graph; re-synced on expand
       children: SiteId list }        // instanceId list, ordered to match graph.children (valid when not stale)
 
+/// One expanded non-root appearance for session fold restore.
+/// `parentIndex` indexes an earlier record in the same parent-first list;
+/// `None` means the parent is the site-map root. Runtime `SiteId` values are not stored.
+type FoldOccurrenceSnapshot =
+    { parentIndex: int option
+      childIndex: int
+      nodeId: NodeId }
+
 /// Flat map keyed by instanceId. O(log S) per-entry access for all operations.
 type SiteMap =
     { rootId: SiteId

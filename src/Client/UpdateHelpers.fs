@@ -354,14 +354,32 @@ let commitIfEditing (model: VM) : VM * Effect list =
     | _ -> model, []
 
 /// Rebuild the site map after a graph mutation, preserving fold states.
-/// Uses the effective zoom root if set (and still present in the graph); falls back to graph.root.
+/// Normalizes zoomRoot against the current Graph first (stale Zoom after
+/// cache replay or remote delete). When Zoom falls back, rebuilds SiteMap
+/// and zoomIngress from the fallback root.
 /// Also refreshes selectedNodes.range.parent from the new siteMap so that
 /// focusedInstanceId can resolve against an up-to-date parent.children list.
 let withSiteMap (model: VM) : VM =
-    let zoomRoot = model.zoomRoot
+    let zoomRoot, siteMap0, nextId0, zoomChanged =
+        ViewModel.retargetZoomIfMissing
+            model.graph model.zoomRoot model.siteMap model.nextSiteId
     let siteMap, nextId =
-        ViewModel.reconcileSiteMapFrom model.graph zoomRoot model.siteMap model.nextSiteId
-    let model' = { model with siteMap = siteMap; nextSiteId = nextId; zoomRoot = zoomRoot }
+        if zoomChanged then
+            siteMap0, nextId0
+        else
+            ViewModel.reconcileSiteMapFrom
+                model.graph zoomRoot model.siteMap model.nextSiteId
+    let ingress =
+        if zoomChanged then
+            ViewModel.ownerPathIngress model.graph zoomRoot
+        else
+            model.zoomIngress
+    let model' =
+        { model with
+            siteMap = siteMap
+            nextSiteId = nextId
+            zoomRoot = zoomRoot
+            zoomIngress = ingress }
     match model'.selectedNodes with
     | None -> model'
     | Some sel ->
