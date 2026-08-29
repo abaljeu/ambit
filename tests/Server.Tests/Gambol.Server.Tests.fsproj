@@ -21,6 +21,7 @@
     <Compile Include="DocumentLoaderTests.fs" />
     <Compile Include="SavePrepTests.fs" />
     <Compile Include="GitSaveTests.fs" />
+    <Compile Include="DailyGitSaveTests.fs" />
     <Compile Include="WorkspaceGitTests.fs" />
     <Compile Include="GitGatewayTests.fs" />
     <Compile Include="LazyLoadReconciliationServerTests.fs" />

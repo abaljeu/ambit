@@ -111,9 +111,16 @@ let newTempDir () =
     Directory.CreateDirectory(dir) |> ignore
     dir
 
+let private suppressDailyGitSave (dataDir: string) =
+    DailyGitSave.writeStamp
+        dataDir
+        (DailyGitSave.formatUtcDay DateTime.UtcNow)
+    |> ignore
+
 /// Create a test client pointing at the given data directory (file backend, no DB).
 /// GET `/ambit/state` returns the scoped ROOT bootstrap graph; use `?scope=full` for total-load tests.
 let createClientForDir (tempDir: string) =
+    suppressDailyGitSave tempDir
     let priorDb = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING")
     try
         Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", null)
@@ -145,6 +152,7 @@ let createClientForDirWithAuth
     (username: string)
     (password: string)
     =
+    suppressDailyGitSave tempDir
     let priorDb = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING")
     try
         Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", null)
@@ -174,6 +182,7 @@ let createClientForDirWithAuth
 let createFileClient () = newTempDir () |> createClientForDir
 
 let createDbClientForDir (connStr: string) (tempDir: string) =
+    suppressDailyGitSave tempDir
     DatabaseSetup.resetAgentCacheForTest ()
     let priorDb = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING")
     try
@@ -201,6 +210,7 @@ let createDbClientForDir (connStr: string) (tempDir: string) =
             Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", priorDb)
 
 let createFileModeWithDbClientForDir (connStr: string) (tempDir: string) =
+    suppressDailyGitSave tempDir
     DatabaseSetup.resetAgentCacheForTest ()
     let priorDb = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING")
     try
@@ -239,6 +249,7 @@ let createDbClientNoReset (connStr: string) =
     createDbClient connStr
 
 let createDbModeWithoutConnectionClientForDir (tempDir: string) =
+    suppressDailyGitSave tempDir
     let priorDb = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING")
     try
         Environment.SetEnvironmentVariable("DB_CONNECTION_STRING", null)

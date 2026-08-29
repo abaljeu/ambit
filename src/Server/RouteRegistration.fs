@@ -482,6 +482,23 @@ module RouteRegistration =
         )) |> ignore
         registerAppShellRoute app auth publicAssetBaseOpt assets stamps persistence
 
+    let private registerDailyGitSave
+        (app: WebApplication)
+        (config: IConfiguration)
+        (persistence: PersistenceContext)
+        =
+        let whenReady =
+            match persistence.DbStatus with
+            | DatabaseSetup.DbStatus.Ok ->
+                let conn =
+                    config.["DB_CONNECTION_STRING"]
+                    |> Option.ofObj
+                    |> Option.defaultValue ""
+                DatabaseSetup.getOrCreateDbAgent conn persistence.DataDir
+                |> fun agent -> agent.whenReady
+            | _ -> Task.CompletedTask
+        DailyGitSave.register app.Lifetime persistence.DataDir whenReady
+
     let registerPersistenceAndRoutes
         (config: IConfiguration)
         (auth: Authentication)
@@ -563,3 +580,4 @@ module RouteRegistration =
                 auth.ExpectedUser
                 auth.ExpectedPass
             registerCssAndShellRoutes app auth publicAssetBaseOpt assets stamps persistence
+            registerDailyGitSave app config persistence
