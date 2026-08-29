@@ -252,3 +252,24 @@ let ``equals root descendant named hit writes at most maxMaterialisedAnswers`` (
             hitIds |> List.take ExprRun.maxMaterialisedAnswers,
             kids)
         Assert.DoesNotContain(List.item ExprRun.maxMaterialisedAnswers hitIds, kids)
+
+[<Fact>]
+let ``bang-star containing plans at most maxMaterialisedAnswers without SiteMap`` () =
+    let line = "=!* containing \"OpenDrive\""
+    let graph0 = Graph.create ()
+    let focusId = NodeId.New()
+    let hitId = NodeId.New()
+    let graph =
+        graph0
+        |> addUnder graph0.root
+            (Node.Create(focusId, text = line, owner = graph0.root))
+        |> addUnder graph0.root
+            (Node.Create(hitId, text = "OpenDrive notes", owner = graph0.root))
+    match ExprRun.run focusId graph line with
+    | ExprRun.Ignore -> failwith "expected Apply"
+    | ExprRun.Apply plan ->
+        let kids = refIds plan.ops |> List.map fst
+        Assert.True(kids.Length > 0)
+        Assert.True(kids.Length <= ExprRun.maxMaterialisedAnswers)
+        Assert.Contains(hitId, kids)
+        Assert.Contains(focusId, kids)
