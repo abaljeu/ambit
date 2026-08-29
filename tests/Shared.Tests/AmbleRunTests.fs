@@ -219,12 +219,13 @@ let private focusUnderRoot () =
 let private afterRun line =
     let graph, focusId = focusUnderRoot ()
     let siteMap, nextId = ViewModel.buildSiteMap graph
+    let queryInst = (entryOf focusId siteMap).instanceId
     Assert.False((entryOf focusId siteMap).expanded)
     let plan = requirePlan line (AmbleRun.runPlan focusId graph line)
     let graph2 = applyOps graph plan.ops
     let siteMap2, nextId2 = ViewModel.reconcileSiteMap graph2 siteMap nextId
     let siteMap3, _ =
-        AmbleRun.applyUnfold plan.unfold focusId graph2 siteMap2 nextId2
+        AmbleRun.applyUnfold plan.unfold queryInst graph2 siteMap2 nextId2
     plan, entryOf focusId siteMap3
 
 [<Fact>]
@@ -285,3 +286,30 @@ let ``runPlanOnNode after SetText uses committed node text`` () =
         requirePlan "committed" (AmbleRun.runPlanOnNode focusId graph1)
     Assert.True(plan.unfold)
     Assert.True(hasBlueletter plan.ops)
+
+[<Fact>]
+let ``run bang-star containing needle on the expression text unfolds`` () =
+    let line = "=!* containing \"OpenDrive\""
+    let graph0 = Graph.create ()
+    let focusId = NodeId.New()
+    let hitId = NodeId.New()
+    let graph =
+        graph0
+        |> addUnder graph0.root
+            (Node.Create(focusId, text = line, owner = graph0.root))
+        |> addUnder graph0.root
+            (Node.Create(hitId, text = "OpenDrive notes", owner = graph0.root))
+    let siteMap, nextId = ViewModel.buildSiteMap graph
+    let queryInst = (entryOf focusId siteMap).instanceId
+    let plan = requirePlan line (AmbleRun.runPlanOnNode focusId graph)
+    let graph2 = applyOps graph plan.ops
+    let siteMap2, nextId2 = ViewModel.reconcileSiteMap graph2 siteMap nextId
+    let siteMap3, _ =
+        AmbleRun.applyUnfold plan.unfold queryInst graph2 siteMap2 nextId2
+    let entry = entryOf focusId siteMap3
+    Assert.True(plan.unfold)
+    Assert.True(entry.expanded)
+    Assert.True(siteMap3.entries.Count < 50)
+    Assert.Contains(
+        hitId,
+        graph2.nodes.[focusId].children |> List.map (fun c -> c.id))

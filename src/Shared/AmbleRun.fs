@@ -131,14 +131,15 @@ module AmbleRun =
         : Result<ExprRun.Plan, string> =
         runPlan focusNodeId graph graph.nodes.[focusNodeId].text
 
+    /// Unfold the query node's instance one level (spec: unfold that Node).
     let applyUnfold
         (unfold: bool)
-        (nodeId: NodeId)
+        (instanceId: SiteId)
         (graph: Graph)
         (siteMap: SiteMap)
         (nextId: SiteId)
         : SiteMap * SiteId =
         if unfold then
-            ViewModel.applyFoldSession (Set.singleton nodeId) graph siteMap nextId
+            ViewModel.expandEntry instanceId graph siteMap nextId
         else
             siteMap, nextId

@@ -6,7 +6,7 @@ open Gambol.Shared.CommandEntry
 open Gambol.Shared.ViewModel
 
 let private applyRunPlan
-    (focusId: NodeId)
+    (queryInst: SiteId option)
     (plan: ExprRun.Plan)
     (commitEffects: Effect list)
     (model: VM)
@@ -23,8 +23,11 @@ let private applyRunPlan
         | Ok (m, effects) ->
             let m = withSiteMap m
             let sm, nextId =
-                AmbleRun.applyUnfold
-                    plan.unfold focusId m.graph m.siteMap m.nextSiteId
+                match queryInst with
+                | None -> m.siteMap, m.nextSiteId
+                | Some inst ->
+                    AmbleRun.applyUnfold
+                        plan.unfold inst m.graph m.siteMap m.nextSiteId
             { m with siteMap = sm; nextSiteId = nextId },
             commitEffects @ effects
 
@@ -36,4 +39,5 @@ let runAmbleOp (model: VM) : VM * Effect list =
         let focusId = focusedNodeId committed.graph sel
         match AmbleRun.runPlanOnNode focusId committed.graph with
         | Error _ -> committed, commitEffects
-        | Ok plan -> applyRunPlan focusId plan commitEffects committed
+        | Ok plan ->
+            applyRunPlan (focusedInstanceId sel) plan commitEffects committed
