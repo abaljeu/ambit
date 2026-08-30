@@ -11,9 +11,9 @@ MESSAGE=""
 
 usage() {
     echo "Usage: $0 <command> [options]"
-    echo "  ready              Merge dev into ready (--no-ff)."
+    echo "  ready [-m <msg>]     Merge dev into ready (--no-ff)."
     echo "  master -m <msg>    Squash ready onto master, then propagate forward."
-    echo "  forward [place]    Propagate master (default) or ready toward dev."
+    echo "  forward [place] [-m <msg>]  Propagate master (default) or ready toward dev."
     echo
     echo "A hotfix born on master or ready reaches dev with: $0 forward <place>"
     exit 1
@@ -39,16 +39,22 @@ require_ready_current() {
 
 merge_no_ff() {
     local into="$1" from="$2"
+    local msg="${3-}"
     echo "==> $from into $into"
     git switch "$into"
-    git merge --no-ff "$from"
+    if [[ -n "$msg" ]]; then
+        git merge --no-ff -m "$msg" "$from"
+    else
+        git merge --no-ff "$from"
+    fi
 }
 
 forward_from() {
     local place="$1"
+    local msg="${2-}"
     case "$place" in
-        master) merge_no_ff ready master; merge_no_ff dev ready ;;
-        ready)  merge_no_ff dev ready ;;
+        master) merge_no_ff ready master "$msg"; merge_no_ff dev ready "$msg" ;;
+        ready)  merge_no_ff dev ready "$msg" ;;
         *)      echo "Propagate forward from master or ready, not $place" >&2; exit 1 ;;
     esac
 }
@@ -73,7 +79,7 @@ require_clean
 case "$COMMAND" in
     ready)
         require_ready_current
-        merge_no_ff ready dev
+        merge_no_ff ready dev "$MESSAGE"
         git switch dev
         ;;
     master)
@@ -83,10 +89,10 @@ case "$COMMAND" in
         git switch master
         git merge --squash ready
         git commit -m "$MESSAGE"
-        forward_from master
+        forward_from master "$MESSAGE"
         ;;
     forward)
-        forward_from "${PLACE:-master}"
+        forward_from "${PLACE:-master}" "$MESSAGE"
         ;;
     *)
         usage

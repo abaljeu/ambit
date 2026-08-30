@@ -5,7 +5,7 @@ Concise glossary for this repo. Prefer these words; do not invent synonyms.  If 
 ## About Working
 
 **Agent-done**:
-Finished work: tests green, `/code-review` passed, and a `git commit` on `dev`. Then the human runs [[scripts/merge.sh]] (or types the merge) to put that work on `ready`. Tickets do not record commit SHAs. Procedure: [[.cursor/skills/git-protocol/SKILL.md]].
+Finished work: tests green, `/code-review` passed, and a commit on `dev` via [[scripts/commit.sh]] or human CLI. Then the human runs [[scripts/merge.sh]] (or types the merge) to put that work on `ready`. Tickets do not record commit SHAs. Procedure: [[.cursor/skills/git-protocol/SKILL.md]].
 _Avoid_: done, finished, shipped, complete
 
 **dev**:
