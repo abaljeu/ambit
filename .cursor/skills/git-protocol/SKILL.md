@@ -22,6 +22,7 @@ A hotfix is born on the oldest place that must contain it, then merged toward `d
 ## Commits
 
 Ordinary commits on `dev` go through [[scripts/commit.sh]] `"<message>"` (Cursor manual approval) or the human runs `git commit` in the CLI. The script refuses when HEAD is not `dev`, stages `.`, and commits with the message.
+Commit AFTER writing any report files, not before.
 
 ## Merges
 
