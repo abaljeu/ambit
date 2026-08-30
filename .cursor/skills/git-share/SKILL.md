@@ -12,7 +12,13 @@ Places and daily merges are in [[.cursor/skills/git-protocol/SKILL.md]]. Publish
 
 ## Publish
 
-One human operator on this machine. `dev` stays local. Publish `ready` with push.
+One human operator on this machine. `dev` stays local.
+
+```bash
+./scripts/push.sh ready
+```
+
+[[scripts/push.sh]] refuses `dev` and pushes `origin` `ready`.
 
 ## Pull
 

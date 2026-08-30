@@ -28,4 +28,8 @@ Tags name commits on `master`.
 
 ## Publish
 
-Push `master` to `origin`. It fast-forwards: the public presentation commits on `origin/master` are in this line's ancestry.
+```bash
+./scripts/push.sh master
+```
+
+[[scripts/push.sh]] refuses `dev` and pushes `origin` `master`. It fast-forwards once the public presentation commits on `origin/master` are in this line's ancestry.
