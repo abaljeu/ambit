@@ -42,3 +42,15 @@ Current chapter: Ask from what I see
 **Blocked by:** Change the Graph.
 
 - [ ] [[.scratch/event-sourced-ops/details/actors-and-jobs.md]] — shell command as a later Actor
+
+## Homed Projects
+
+Live:
+
+- [ ] [[.scratch/llm-connector/project.md]] — also the current Chapter
+- [ ] [[.scratch/expression-language/project.md]] — `?` recognition plus remainder
+- [ ] [[.scratch/event-sourced-ops/project.md]] — Actor issues on the current Chapter; remainder also homed here
+
+## Notes
+
+- Scaling is [[organize-huge-outlines.md]]; first use does not wait on it.

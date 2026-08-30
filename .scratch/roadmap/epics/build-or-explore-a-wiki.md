@@ -20,8 +20,16 @@ Current chapter: Markdown codec
 
 **Blocked by:** Markdown codec.
 
+## Homed Projects
+
+Live:
+
+- [ ] [[.scratch/document-formats/map.md]] — `.md` File codec; also the current Chapter
+- [ ] [[.scratch/expression-language/project.md]] — remainder beyond Find / `?`
+
 ## Notes
 
+- Scaling is [[organize-huge-outlines.md]]; first use does not wait on it.
 - In-product wiki. The three documentation wikis stay Projects: [[.scratch/end-user-wiki/map.md]], [[.scratch/architecture/map.md]], [[.scratch/marketing-wiki/map.md]].
 - Two document classes: `.md` (this Epic) vs HTML Files ([[create-and-publish-web-pages.md]]).
 - [[work-with-text-files-from-anywhere.md]] Markdown styling is look in the App, not the `.md` codec.

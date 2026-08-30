@@ -32,8 +32,15 @@ Current chapter: HTML codec
 
 **Blocked by:** HTML codec.
 
+## Homed Projects
+
+Live:
+
+- [ ] [[.scratch/document-formats/map.md]] — HTML File codec; also the current Chapter
+
 ## Notes
 
+- Scaling is [[organize-huge-outlines.md]]; first use does not wait on it.
 - Wiki page and published page are the same family; presentation and needs vary greatly at the detail level. Do not collapse with [[build-or-explore-a-wiki.md]].
 - Not documents-from-anywhere: that audience is the person working; this is visitors without the App. Not export to another host.
 - English **web page** vs File Node: do not say page for a File Node. [[CONTEXT.md]].

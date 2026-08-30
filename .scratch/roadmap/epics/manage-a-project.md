@@ -18,8 +18,15 @@ Current chapter: Status
 
 **Blocked by:** Status.
 
+## Homed Projects
+
+Live:
+
+- [ ] [[.scratch/expression-language/project.md]] — remainder beyond Find / `?`
+
 ## Notes
 
+- Scaling is [[organize-huge-outlines.md]]; first use does not wait on it.
 - Do not say project for a Workspace Node or for glossary Project. [[CONTEXT.md]].
 - Outline capture is already met; this Epic is organizing work.
 - Chapters stay open-ended: add one when a specific need is named.

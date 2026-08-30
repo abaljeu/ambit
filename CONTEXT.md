@@ -37,11 +37,11 @@ The steering Project at [[.scratch/roadmap/]]. It answers what to work on next b
 _Avoid_: master project, master steering, doc/roadmap (as this Project), numbered Epic sequence (as the listing rule)
 
 **Epic**:
-A marketable user end-goal, larger than a feature or interaction. On the Roadmap it is a standing file under [[.scratch/roadmap/epics/]] until that goal is met. It has a Stage (same words as a feature-set Project, except steering) and Chapters.
-_Avoid_: saga, tale, epic project, marketable story (as the glossary name), steering (as an Epic Stage), Stage (for a Chapter)
+A marketable user end-goal, larger than a feature or interaction. On the Roadmap it is a standing file under [[.scratch/roadmap/epics/]] until that goal is met. It has a Stage (same words as a feature-set Project, except steering). Person-job Epics have Chapters. Home Epics ([[.scratch/roadmap/epics/organize-huge-outlines.md]], [[.scratch/roadmap/epics/robust-outliner.md]]) exist to give Projects a home and have no Chapters to chart.
+_Avoid_: saga, tale, epic project, marketable story (as the glossary name), steering (as an Epic Stage), Stage (for a Chapter), pseudo-epic (say home Epic)
 
 **Chapter**:
-A named beat of an Epic (Visit Troy, see Circe). Not a Project Stage. A Chapter’s **What to build** names major features; its checklist points at Projects or issues and does not own them.
+A named beat of a person-job Epic (Visit Troy, see Circe). Not a Project Stage. A Chapter’s **What to build** names major features; its checklist points at Projects or issues and does not own them. Home Epics have none.
 _Avoid_: Stage (for this beat), leg, beat (as the glossary name)
 
 **Feature-set Project**:
