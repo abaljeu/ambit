@@ -23,7 +23,7 @@ Current chapter: Automatic upload and download
 
 ## Markdown styling
 
-**What to build:** Markdown look in the App (bold, italic, headings). Not the markdown file codec.
+**What to build:** Markdown look in the App (bold, italic, headings). Not the markdown file codec. HTML in-app styling is [[create-and-publish-web-pages.md]] In-app styling.
 
 **Blocked by:** None.
 

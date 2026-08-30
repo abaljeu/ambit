@@ -18,6 +18,7 @@ A standing Roadmap that answers “what should I work on next.” Completing it 
 - This Roadmap’s Stage is **steering**. Feature-set Projects and Epics share the other Stage words; an Epic must not use steering. An Epic has Stage plus Chapters. A Chapter’s body is **What to build** plus a pointer checklist.
 - Skills: wayfinder, grilling, domain-modeling, project-work, maintain-doc-currency. Implementation skills run on feature-set Projects.
 - Stay on `w/roadmap`. Plan by default on this map except when invoking a named feature-set Project.
+- Sessions present multiple choice of takeable work (frontier tickets, uncharted Epic Chapters, fog now specifiable). Do not auto-pick the first frontier ticket.
 - Documentation wikis are feature-set Projects: [[.scratch/end-user-wiki/map.md]], [[.scratch/architecture/map.md]], [[.scratch/marketing-wiki/map.md]].
 
 ## Epics
@@ -27,9 +28,9 @@ Grouped by Stage. Order inside a Stage does not matter.
 ### charting
 
 - [[epics/work-with-text-files-from-anywhere.md]] — Work with my documents from anywhere (current: Automatic upload and download)
-- [[epics/build-or-explore-a-wiki.md]] — Build or explore a wiki
-- [[epics/create-and-publish-web-pages.md]] — Create and publish web pages
-- [[epics/manage-a-project.md]] — Manage a project
+- [[epics/build-or-explore-a-wiki.md]] — Build or explore a wiki (current: Markdown codec)
+- [[epics/create-and-publish-web-pages.md]] — Create and publish web pages (current: HTML codec)
+- [[epics/manage-a-project.md]] — Manage a project (current: Status)
 - [[epics/operate-a-pkm.md]] — Operate a PKM (current: Find what I wrote)
 - [[epics/agent-chat-managed-context.md]] — Agent chat with managed context (current: Ask from what I see)
 
@@ -41,10 +42,14 @@ Grouped by Stage. Order inside a Stage does not matter.
 - [Chart chapters for Agent chat with managed context](.scratch/roadmap/issues/04-chart-agent-chat-managed-context.md) — five Chapters; current Ask from what I see; new Project plus `?` on expression-language and eso 07/09.
 - [Create Ask from what I see Project](.scratch/roadmap/issues/05-create-ask-from-what-i-see-project.md) — [[.scratch/llm-connector/project.md]]; `?` recognition is [[.scratch/expression-language/issues/33-recognize-ask-run-statement.md]].
 - [Chart chapters for Work with my text files from anywhere](.scratch/roadmap/issues/06-chart-work-with-text-files-from-anywhere.md) — title Work with my documents from anywhere; five Chapters; current Automatic upload and download; wiki issues plus [[.scratch/roadmap/issues/07-chart-automatic-upload-and-download.md]].
+- [Chart chapters for Create and publish web pages](.scratch/roadmap/issues/08-chart-create-and-publish-web-pages.md) — four Chapters; current HTML codec; codec on document-formats; In-app styling, Public URL, and Published-page CSS have no Project yet.
+- [Chart chapters for Build or explore a wiki](.scratch/roadmap/issues/09-chart-build-or-explore-a-wiki.md) — two Chapters; current Markdown codec; `.md` on document-formats; Public URL (md as HTML) has no Project yet.
+- [Chart chapters for Manage a project](.scratch/roadmap/issues/10-chart-manage-a-project.md) — two Chapters; current Status; Date is set/find/compare with no forced meaning; no owning Project yet.
 
 ## Not yet specified
 
-- Chapters on standing Epics other than [[epics/agent-chat-managed-context.md]], [[epics/operate-a-pkm.md]], and [[epics/work-with-text-files-from-anywhere.md]].
+- Pointer charting for Public URL, Published-page CSS, and In-app styling (web pages) and for wiki Public URL (no owning Project yet).
+- Pointer charting for Status and Date on [[epics/manage-a-project.md]] (no owning Project yet).
 - Later Epics beyond the standing list.
 - How leftover `doc/roadmap` files become references vs history vs current.
 - When the application is complete (this five plus any later Epics).
