@@ -28,7 +28,7 @@ Work currently being executed.
 Work ready to start but not yet claimed.
 
 - [[.cursor/skills/update-matt-skills/scripts/merge-to-live.sh]] — align with git-protocol (`dev`/`ready`, no `w/*`); done forks under [[.scratch/done/update-matt-skills/forks/]] still describe `w/*`
-- [[.agents/skills/git-guardrails-claude-code/SKILL.md]] — hooks may block [[scripts/merge.sh]] and cloud push of `ready`
+- [[.agents/skills/git-guardrails-claude-code/SKILL.md]] — hooks may block [[scripts/merge.sh]], [[scripts/push.sh]], and cloud push of `ready`
 - [[.cursor/skills/git-master/SKILL.md]] — name the tag convention on `master` and who applies a tag
 - [[.scratch/llm-connector/map.md]] — chart Run `?` pack, LLM call, and write-back
 - [[.scratch/roadmap/issues/07-chart-automatic-upload-and-download.md]] — chart auto-upload (and remaining pointers) for [[.scratch/roadmap/epics/work-with-text-files-from-anywhere.md]] current Chapter
