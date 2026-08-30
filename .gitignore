@@ -78,6 +78,11 @@ artifacts/
 # Ad-hoc agent/local build outputs (dotnet -o ./tmp-*-build)
 tmp-*-build/
 
+# Redirected build/test output (never commit; see environment.mdc)
+alt-out/
+bin-verify/
+obj-verify/
+
 # ASP.NET Scaffolding
 ScaffoldingReadMe.txt
 
