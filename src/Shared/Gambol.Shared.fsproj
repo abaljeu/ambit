@@ -6,19 +6,104 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="CssClass.fs" />
+    <Compile Include="ClientRectCaret.fs" />
+    <Compile Include="Filename.fs" />
+    <Compile Include="DocumentParseLimits.fs" />
+    <Compile Include="SystemDirectoryPersist.fs" />
     <Compile Include="Model.fs" />
+
+    <Compile Include="GraphBuild.fs" />
+    <Compile Include="GraphQuery.fs" />
+    <Compile Include="GraphMutate.fs" />
+    <Compile Include="GraphOps.fs" />
+    <Compile Include="RefExprTypes.fs" />
+    <Compile Include="RefExprParse.fs" />
+    <Compile Include="RefExprMatch.fs" />
+    <Compile Include="RefExpr.fs" />
+    <Compile Include="ExprAnswer.fs" />
+    <Compile Include="ExprEval.fs" />
+    <Compile Include="ExprCatalog.fs" />
+    <Compile Include="ExprWalk.fs" />
+    <Compile Include="ExprPathClusterTypes.fs" />
+    <Compile Include="ExprPathClusterParse.fs" />
+    <Compile Include="ExprParse.fs" />
+    <Compile Include="ExprPrimitive.fs" />
+    <Compile Include="ExprCompile.fs" />
+    <Compile Include="ExprDialog.fs" />
+    <Compile Include="AmbleTypes.fs" />
+    <Compile Include="AmbleParse.fs" />
+    <Compile Include="NodeKindPersistence.fs" />
+    <Compile Include="GraphProjection.fs" />
+    <Compile Include="ProjectionOwnershipRepair.fs" />
+    <Compile Include="DesktopCapabilities.fs" />
+    <Compile Include="NodeDesktopPath.fs" />
+    <Compile Include="WorkspaceSyncScope.fs" />
+    <Compile Include="DocumentArtifactPath.fs" />
+    <Compile Include="DocumentPartition.fs" />
     <Compile Include="History.fs" />
+    <Compile Include="ExprRun.fs" />
+    <Compile Include="ChildListWire.fs" />
+    <Compile Include="ChildListMerge.fs" />
+    <Compile Include="ChangeAmendment.fs" />
+    <Compile Include="ClientHistory.fs" />
+    <Compile Include="DocumentOpImpact.fs" />
+    <Compile Include="ApiResponses.fs" />
+    <Compile Include="LogText.fs" />
+    <Compile Include="ClientIdentity.fs" />
+    <Compile Include="WorkspaceGitRemote.fs" />
+    <Compile Include="ServerCapabilities.fs" />
+
+    <Compile Include="FileSyncIndicator.fs" />
+    <Compile Include="WorkspacePathSyncStatus.fs" />
+    <Compile Include="WorkspaceLocalMapping.fs" />
+    <Compile Include="LoginForm.fs" />
+    <Compile Include="LoginRedirect.fs" />
+    <Compile Include="RedirectRewrite.fs" />
+    <Compile Include="ViewModelSync.fs" />
     <Compile Include="ViewModel.fs" />
-    <Compile Include="ModelOps.fs" />
+    <Compile Include="ViewModelSiteMap.fs" />
+    <Compile Include="ViewModelOccurrence.fs" />
+    <Compile Include="ViewModelSelection.fs" />
+    <Compile Include="ViewModelRowState.fs" />
+    <Compile Include="ViewModelChildrenIndicator.fs" />
+    <Compile Include="ViewModelDomPlan.fs" />
     <Compile Include="ViewModelOps.fs" />
+    <Compile Include="ViewModelJoinOps.fs" />
+    <Compile Include="ViewModelMoveOps.fs" />
+    <Compile Include="ViewModelDeleteOps.fs" />
+    <Compile Include="ViewModelSearch.fs" />
+    <Compile Include="ViewModelFileSearch.fs" />
+    <Compile Include="FileNodeOps.fs" />
+    <Compile Include="DocumentPathMove.fs" />
+    <Compile Include="AmbleEval.fs" />
+    <Compile Include="AmbleRun.fs" />
+    <Compile Include="Amble.fs" />
     <Compile Include="Paste.fs" />
-    <Compile Include="ModelBuilder.fs" />
+    <Compile Include="ImportText.fs" />
+    <Compile Include="ExportText.fs" />
     <Compile Include="Snapshot.fs" />
     <Compile Include="Serialization.fs" />
+    <Compile Include="ApiResponseSerialization.fs" />
+    <Compile Include="SyncBatch.fs" />
+    <Compile Include="SyncPlanner.fs" />
+    <Compile Include="SyncRetry.fs" />
+    <Compile Include="ResidentProjection.fs" />
+    <Compile Include="SyncLogic.fs" />
+    <Compile Include="BootCache.fs" />
+    <Compile Include="ModelBuilder.fs" />
+    <Compile Include="OpenTarget.fs" />
+    <Compile Include="CommandCategory.fs" />
+    <Compile Include="CommandEntry.fs" />
+    <Compile Include="WorkspaceUpload.fs" />
+    <Compile Include="WorkspaceUploadStructure.fs" />
+    <Compile Include="CommandDockLayout.fs" />
+    <Compile Include="CommandIconLookup.fs" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Thoth.Json.Core" Version="0.7.1" />
+    <PackageReference Include="Thoth.Json.JavaScript" Version="0.4.1" />
   </ItemGroup>
 
 </Project>

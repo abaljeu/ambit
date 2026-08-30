@@ -1,0 +1,871 @@
+namespace Gambol.Shared
+
+open System
+open System.IO
+open System.Net.Http
+open System.Threading.Tasks
+
+/// Desktop Post (limited Push) / Get (unlimited Pull) over WebDAV.
+[<RequireQualifiedAccess>]
+module WorkspaceFileSync =
+
+    type SyncResult =
+        { uploaded: int
+          downloaded: int
+          detail: string
+          mode: WorkspaceSyncLimits.Mode option
+          skippedPaths: string list
+          uploadedPaths: string list
+          /// Relative path + PROPFIND/server mtime after transfer (download align).
+          pathStamps: (string * DateTime) list }
+
+    let private localFull (mappedRoot: string) (relative: string) =
+        if relative = "" then mappedRoot
+        else
+            let parts =
+                relative.Split(
+                    [| '/' |],
+                    StringSplitOptions.RemoveEmptyEntries)
+            Path.GetFullPath(Path.Combine(Array.append [| mappedRoot |] parts))
+
+    let private ensureLocalDir (path: string) =
+        try
+            Directory.CreateDirectory path |> ignore
+            Ok ()
+        with ex ->
+            Error ex.Message
+
+    let private writeFile (path: string) (bytes: byte[]) (mtimeUtc: DateTime option) =
+        try
+            let parent = Path.GetDirectoryName path
+            if not (String.IsNullOrEmpty parent) then
+                Directory.CreateDirectory parent |> ignore
+            File.WriteAllBytes(path, bytes)
+            match mtimeUtc with
+            | Some utc -> File.SetLastWriteTimeUtc(path, utc)
+            | None -> ()
+            Ok ()
+        with ex ->
+            Error ex.Message
+
+    let private readFile (path: string) =
+        try Ok(File.ReadAllBytes path)
+        with ex -> Error ex.Message
+
+    let private tryFileMtime (path: string) =
+        try
+            if File.Exists path then Some(File.GetLastWriteTimeUtc path)
+            else None
+        with _ ->
+            None
+
+    let private tryFileSize (path: string) =
+        try
+            if File.Exists path then Some(FileInfo(path).Length)
+            else None
+        with _ ->
+            None
+
+    let private toSizedItems (mappedRoot: string) (items: LocalSyncItem list) =
+        items
+        |> List.map (fun item ->
+            if item.isDirectory then
+                ({ relative = item.relative
+                   isDirectory = true
+                   byteSize = 0L }
+                 : WorkspaceSyncLimits.SizedItem)
+            else
+                let full = localFull mappedRoot item.relative
+                let size = tryFileSize full |> Option.defaultValue 0L
+                ({ relative = item.relative
+                   isDirectory = false
+                   byteSize = size }
+                 : WorkspaceSyncLimits.SizedItem))
+
+    let private inventoryFromDav (entries: DavInventoryEntry list) =
+        entries
+        |> List.map (fun e ->
+            ({ relative = e.relative
+               isDirectory = e.isCollection
+               byteSize = if e.isCollection then 0L else e.contentLength }
+             : WorkspaceSyncLimits.SizedItem))
+
+    /// Max overlapping WebDAV PUT/MKCOL requests within one wave.
+    let private uploadConcurrency = 12
+
+    let private pathDepth (rel: string) =
+        if rel = "" then 0
+        else rel.Split('/').Length
+
+    /// Dependency-safe waves: directory depth groups, then all files.
+    let partitionUploadWaves
+        (planned: WorkspaceSyncLimits.PlannedPath list)
+        : WorkspaceSyncLimits.PlannedPath list list =
+        let dirWaves =
+            planned
+            |> List.filter (fun p -> p.isDirectory)
+            |> List.groupBy (fun p -> pathDepth p.relative)
+            |> List.sortBy fst
+            |> List.map (fun (_, items) ->
+                items |> List.sortBy (fun p -> p.relative))
+
+        let files =
+            planned
+            |> List.filter (fun p -> not p.isDirectory)
+            |> List.sortBy (fun p ->
+                match p.file with
+                | Some(WorkspaceSyncLimits.FilePlan.Body bytes) ->
+                    bytes, p.relative
+                | _ -> Int64.MaxValue, p.relative)
+
+        if files.IsEmpty then dirWaves
+        else dirWaves @ [ files ]
+
+    let private orderPlanned (planned: WorkspaceSyncLimits.PlannedPath list) =
+        partitionUploadWaves planned |> List.concat
+
+    let private uploadOne
+        (client: HttpClient)
+        (ambitBase: string)
+        (label: string)
+        (mappedRoot: string)
+        (cookie: string option)
+        (hint: string option)
+        (planned: WorkspaceSyncLimits.PlannedPath)
+        : Result<unit, string> =
+        try
+            if planned.isDirectory then
+                WorkspaceDavClient.mkcol
+                    client ambitBase label planned.relative cookie hint
+            else
+                let full = localFull mappedRoot planned.relative
+                let mtime = tryFileMtime full
+                match planned.file with
+                | None -> Error "missing file plan"
+                | Some WorkspaceSyncLimits.FilePlan.StubOnly ->
+                    Ok ()
+                | Some(WorkspaceSyncLimits.FilePlan.Body _) ->
+                    match readFile full with
+                    | Error e -> Error e
+                    | Ok bytes ->
+                        WorkspaceDavClient.putBytes
+                            client
+                            ambitBase
+                            label
+                            planned.relative
+                            bytes
+                            cookie
+                            hint
+                            mtime
+        with ex ->
+            Error ex.Message
+
+    /// Keep successes when some PUTs fail so one 500 does not drop the batch.
+    let partitionUploadBatchResults
+        (results: Result<'a, string> list)
+        : 'a list * string list =
+        let uploaded =
+            results
+            |> List.choose (function
+                | Ok item -> Some item
+                | Error _ -> None)
+        let errors =
+            results
+            |> List.choose (function
+                | Error e -> Some e
+                | Ok _ -> None)
+        uploaded, errors
+
+    /// Fold concurrent batch partitions: always continue; never skip later batches.
+    let accumulateUploadWaveBatches
+        (batchPartitions: ('a list * string list) list)
+        : 'a list * string list =
+        batchPartitions
+        |> List.fold
+            (fun (uploadedAcc, errorAcc) (uploaded, errors) ->
+                uploadedAcc @ uploaded, errorAcc @ errors)
+            ([], [])
+
+    /// True when every attempted upload failed (all were still attempted).
+    let uploadWaveAllFailed
+        (uploaded: 'a list)
+        (errors: string list)
+        =
+        uploaded.IsEmpty && not errors.IsEmpty
+
+    let private runUploadWave
+        (client: HttpClient)
+        (ambitBase: string)
+        (label: string)
+        (mappedRoot: string)
+        (cookie: string option)
+        (hint: string option)
+        (wave: WorkspaceSyncLimits.PlannedPath list)
+        : WorkspaceSyncLimits.PlannedPath list * string list =
+        let runBatch batch =
+            let tasks =
+                batch
+                |> List.map (fun item ->
+                    Task.Run(fun () ->
+                        try
+                            match
+                                uploadOne
+                                    client
+                                    ambitBase
+                                    label
+                                    mappedRoot
+                                    cookie
+                                    hint
+                                    item
+                            with
+                            | Error e -> Error(item.relative + ": " + e)
+                            | Ok () -> Ok item
+                        with ex ->
+                            Error(item.relative + ": " + ex.Message)))
+                |> Array.ofList
+
+            try
+                Task.WaitAll(tasks |> Array.map (fun t -> t :> Task))
+            with _ ->
+                ()
+
+            tasks
+            |> Array.map (fun t ->
+                if t.IsFaulted then
+                    let msg =
+                        match t.Exception with
+                        | null -> "upload task faulted"
+                        | agg ->
+                            agg.GetBaseException().Message
+                    Error msg
+                elif t.IsCompletedSuccessfully then
+                    t.Result
+                else
+                    Error "upload task incomplete")
+            |> Array.toList
+            |> partitionUploadBatchResults
+
+        wave
+        |> List.chunkBySize uploadConcurrency
+        |> List.map runBatch
+        |> accumulateUploadWaveBatches
+
+    let private modeLabel mode =
+        match mode with
+        | WorkspaceSyncLimits.Mode.Full -> "Full"
+        | WorkspaceSyncLimits.Mode.TreeStructure -> "TreeStructure"
+        | WorkspaceSyncLimits.Mode.TopLevel -> "TopLevel"
+
+    let private propfindDepth (scope: WorkspaceSyncScope) =
+        match scope.kind with
+        | SyncScopeKind.File -> "0"
+        | SyncScopeKind.Workspace
+        | SyncScopeKind.Directory -> "infinity"
+
+    let private serverMtimeMap (entries: DavInventoryEntry list) =
+        entries
+        |> List.filter (fun e -> not e.isCollection)
+        |> List.map (fun e -> e.relative, e.lastModifiedUtc)
+        |> Map.ofList
+
+    /// Seed ledger from the push/pull scope only — never walk the whole mapped
+    /// tree (e.g. node_modules) when uploading a subdirectory.
+    let private ensureLedgerSeeded
+        (client: HttpClient)
+        (ambitBase: string)
+        (mappedRoot: string)
+        (scope: WorkspaceSyncScope)
+        (knownLocalItems: LocalSyncItem list option)
+        (cookie: string option)
+        =
+        match WorkspaceSyncLedger.loadForLabel scope.label with
+        | Error e -> Error e
+        | Ok ledger ->
+            if not (WorkspaceSyncLedger.needsSeed ledger) then Ok ledger
+            else
+                match
+                    WorkspaceDavClient.propfind
+                        client
+                        ambitBase
+                        scope.label
+                        scope.relative
+                        (propfindDepth scope)
+                        cookie
+                with
+                | Error e -> Error e
+                | Ok serverEntries ->
+                    let scopedServer =
+                        serverEntries
+                        |> List.filter (fun e ->
+                            WorkspaceSyncScope.isUnderScope scope e.relative)
+
+                    let localItems =
+                        knownLocalItems
+                        |> Option.map Ok
+                        |> Option.defaultWith (fun () ->
+                            WorkspaceLocalInventory.listForPush mappedRoot scope)
+                    match localItems with
+                    | Error e -> Error e
+                    | Ok items ->
+                        let seeded =
+                            WorkspaceSyncLedger.seed
+                                scope.label
+                                mappedRoot
+                                scopedServer
+                                items
+                        match WorkspaceSyncLedger.saveForLabel seeded with
+                        | Error e -> Error e
+                        | Ok () -> Ok seeded
+
+    let private needsScopePropfind
+        (ledger: WorkspaceSyncLedger)
+        (planned: WorkspaceSyncLimits.PlannedPath list)
+        =
+        planned
+        |> List.exists (fun p ->
+            WorkspaceSyncLimits.isBodyTransfer p
+            && WorkspaceSyncLedger.tryServerMtime ledger p.relative
+               |> Option.isNone)
+
+    let private fetchScopeServerMtimes
+        (client: HttpClient)
+        (ambitBase: string)
+        (scope: WorkspaceSyncScope)
+        (cookie: string option)
+        =
+        match
+            WorkspaceDavClient.propfind
+                client
+                ambitBase
+                scope.label
+                scope.relative
+                (propfindDepth scope)
+                cookie
+        with
+        | Error e -> Error e
+        | Ok entries ->
+            Ok(
+                entries
+                |> List.filter (fun e ->
+                    WorkspaceSyncScope.isUnderScope scope e.relative)
+                |> serverMtimeMap)
+
+    let private shouldSkipUploadFile
+        (scopeKind: SyncScopeKind)
+        (ledger: WorkspaceSyncLedger)
+        (scopeServer: Map<string, DateTime option>)
+        (mappedRoot: string)
+        (planned: WorkspaceSyncLimits.PlannedPath)
+        =
+        if planned.isDirectory then false
+        elif not (WorkspaceSyncLimits.isBodyTransfer planned) then false
+        else
+            let full = localFull mappedRoot planned.relative
+
+            match tryFileMtime full with
+            | None -> false
+            | Some localM ->
+                let serverM =
+                    WorkspaceSyncLedger.tryServerMtime ledger planned.relative
+                    |> Option.orElseWith (fun () ->
+                        Map.tryFind planned.relative scopeServer
+                        |> Option.flatten)
+                WorkspaceSyncLedger.shouldSkipUploadScoped
+                    scopeKind
+                    localM
+                    serverM
+
+    let private shouldSkipDownloadFile
+        (scopeKind: SyncScopeKind)
+        (mappedRoot: string)
+        (entryMap: Map<string, DavInventoryEntry>)
+        (planned: WorkspaceSyncLimits.PlannedPath)
+        =
+        if planned.isDirectory then false
+        elif not (WorkspaceSyncLimits.isBodyTransfer planned) then false
+        else
+            match
+                entryMap
+                |> Map.tryFind planned.relative
+                |> Option.bind (fun e -> e.lastModifiedUtc)
+            with
+            | None -> false
+            | Some serverM ->
+                let localM =
+                    tryFileMtime (localFull mappedRoot planned.relative)
+                WorkspaceSyncLedger.shouldSkipDownloadScoped
+                    scopeKind
+                    serverM
+                    localM
+
+    let private isSizeRejectedFile (planned: WorkspaceSyncLimits.PlannedPath) =
+        not planned.isDirectory
+        && match planned.file with
+           | Some WorkspaceSyncLimits.FilePlan.StubOnly -> true
+           | _ -> false
+
+    /// Push: local inventory → classify/plan → MKCOL/PUT → finish-commit.
+    let post
+        (client: HttpClient)
+        (ambitBase: string)
+        (mappedRoot: string)
+        (scope: WorkspaceSyncScope)
+        (cookieHeader: string option)
+        (clientHint: string option)
+        : Result<SyncResult, string> =
+        match WorkspaceLocalInventory.listForPush mappedRoot scope with
+        | Error e -> Error e
+        | Ok items ->
+            match
+                WorkspaceDavClient.preparePush
+                    client
+                    ambitBase
+                    scope.label
+                    cookieHeader
+                    clientHint
+            with
+            | Error e -> Error e
+            | Ok () ->
+                let sized = toSizedItems mappedRoot items
+                let mode, planned =
+                    WorkspaceSyncLimits.planUpload
+                        scope.kind
+                        scope.relative
+                        sized
+                let bodyFiles =
+                    WorkspaceSyncLimits.bodyTransfers planned
+                    |> List.sortBy (fun path ->
+                        match path.file with
+                        | Some(WorkspaceSyncLimits.FilePlan.Body bytes) ->
+                            bytes, path.relative
+                        | _ -> Int64.MaxValue, path.relative)
+
+                match
+                    ensureLedgerSeeded
+                        client
+                        ambitBase
+                        mappedRoot
+                        scope
+                        (Some items)
+                        cookieHeader
+                with
+                | Error e -> Error e
+                | Ok ledger0 ->
+                    let scopeServer =
+                        if needsScopePropfind ledger0 bodyFiles then
+                            match
+                                fetchScopeServerMtimes
+                                    client
+                                    ambitBase
+                                    scope
+                                    cookieHeader
+                            with
+                            | Error e -> Error e
+                            | Ok m -> Ok m
+                        else Ok Map.empty
+
+                    match scopeServer with
+                    | Error e -> Error e
+                    | Ok scopeServerMap ->
+                        let mutable ledger = ledger0
+                        let mutable alreadyUpToDate = 0
+                        let skippedPaths = ResizeArray<string>()
+                        let uploadedPaths = ResizeArray<string>()
+
+                        let recordUploaded
+                            (item: WorkspaceSyncLimits.PlannedPath)
+                            =
+                            let full =
+                                localFull mappedRoot item.relative
+
+                            match tryFileMtime full with
+                            | None -> ()
+                            | Some localM ->
+                                uploadedPaths.Add item.relative
+                                ledger <-
+                                    WorkspaceSyncLedger.recordUpload
+                                        ledger
+                                        item.relative
+                                        false
+                                        localM
+                                        localM
+                                        None
+
+                        let toUpload =
+                            bodyFiles
+                            |> List.filter (fun item ->
+                                if
+                                    shouldSkipUploadFile
+                                        scope.kind
+                                        ledger
+                                        scopeServerMap
+                                        mappedRoot
+                                        item
+                                then
+                                    alreadyUpToDate <- alreadyUpToDate + 1
+                                    skippedPaths.Add item.relative
+                                    false
+                                else
+                                    true)
+
+                        let uploadedItems, uploadErrors =
+                            runUploadWave
+                                client
+                                ambitBase
+                                scope.label
+                                mappedRoot
+                                cookieHeader
+                                clientHint
+                                toUpload
+
+                        if uploadWaveAllFailed uploadedItems uploadErrors then
+                            Error(String.concat "; " uploadErrors)
+                        else
+                            for item in uploadedItems do
+                                recordUploaded item
+
+                            let uploaded = List.length uploadedItems
+                            let uploadFailed = List.length toUpload - uploaded
+
+                            let sizeRejected =
+                                planned |> List.filter isSizeRejectedFile |> List.length
+
+                            let skipped = uploadFailed + sizeRejected
+                            match
+                                WorkspaceDavClient.finishCommit
+                                    client
+                                    ambitBase
+                                    scope.label
+                                    cookieHeader
+                                    clientHint
+                            with
+                            | Error e -> Error e
+                            | Ok finishBody ->
+                                let head =
+                                    WorkspaceSyncLedger.tryParseFinishHead finishBody
+
+                                if head.IsSome then
+                                    ledger <-
+                                        { ledger with
+                                            rows =
+                                                ledger.rows
+                                                |> List.map (fun r ->
+                                                    { r with
+                                                        lastServerHead = head }) }
+
+                                match WorkspaceSyncLedger.saveForLabel ledger with
+                                | Error e -> Error e
+                                | Ok () ->
+                                    let baseDetail =
+                                        sprintf
+                                            "already up to date %d, uploaded %d, skipped %d (%s)"
+                                            alreadyUpToDate
+                                            uploaded
+                                            skipped
+                                            (modeLabel mode)
+
+                                    let withGit =
+                                        if DesktopGit.isAvailable() then
+                                            baseDetail
+                                        else
+                                            baseDetail
+                                            + "; .gitignore filter skipped (git unavailable)"
+
+                                    let detail =
+                                        if uploadErrors.IsEmpty then
+                                            withGit
+                                        else
+                                            withGit
+                                            + ": "
+                                            + String.concat "; " uploadErrors
+
+                                    Ok
+                                        { uploaded = uploaded
+                                          downloaded = 0
+                                          detail = detail
+                                          mode = Some mode
+                                          skippedPaths = skippedPaths |> Seq.toList
+                                          uploadedPaths = uploadedPaths |> Seq.toList
+                                          pathStamps = [] }
+
+    let private stagingRoot (jobId: Guid) =
+        Path.Combine(Path.GetTempPath(), "gambol-dl-tmp", jobId.ToString("N"))
+
+    let private discardStaging (path: string) =
+        try
+            if Directory.Exists path then Directory.Delete(path, true)
+        with _ ->
+            ()
+
+    let private mergeDirectory (src: string) (dst: string) =
+        try
+            if not (Directory.Exists src) then Ok ()
+            else
+                let parent = Path.GetDirectoryName dst
+                if not (String.IsNullOrEmpty parent) then
+                    Directory.CreateDirectory parent |> ignore
+                if Directory.Exists dst then
+                    for file in Directory.GetFiles(src, "*", SearchOption.AllDirectories) do
+                        let rel = Path.GetRelativePath(src, file)
+                        let target = Path.Combine(dst, rel)
+                        let targetParent = Path.GetDirectoryName target
+                        if not (String.IsNullOrEmpty targetParent) then
+                            Directory.CreateDirectory targetParent |> ignore
+                        File.Move(file, target, true)
+                    Directory.Delete(src, true)
+                    Ok ()
+                else
+                    Directory.Move(src, dst)
+                    Ok ()
+        with ex ->
+            Error ex.Message
+
+    /// Promote staged paths into the mapped root.
+    /// Nested File-scope plans have no directory rows — must move those files too.
+    let promotePlanned
+        (mappedRoot: string)
+        (stageRoot: string)
+        (planned: WorkspaceSyncLimits.PlannedPath list)
+        =
+        let dirs =
+            planned
+            |> List.filter (fun p -> p.isDirectory)
+            |> List.sortByDescending (fun p ->
+                if p.relative = "" then 0
+                else p.relative.Split('/').Length)
+
+        let files =
+            planned
+            |> List.filter (fun p -> not p.isDirectory)
+
+        let promoteDirs =
+            dirs
+            |> List.fold
+                (fun acc p ->
+                    acc
+                    |> Result.bind (fun () ->
+                        mergeDirectory
+                            (localFull stageRoot p.relative)
+                            (localFull mappedRoot p.relative)))
+                (Ok ())
+
+        files
+        |> List.fold
+            (fun acc p ->
+                acc
+                |> Result.bind (fun () ->
+                    let src = localFull stageRoot p.relative
+                    let dst = localFull mappedRoot p.relative
+                    try
+                        if File.Exists src then
+                            let parent = Path.GetDirectoryName dst
+
+                            if not (String.IsNullOrEmpty parent) then
+                                Directory.CreateDirectory parent |> ignore
+
+                            File.Move(src, dst, true)
+
+                        Ok ()
+                    with ex ->
+                        Error ex.Message))
+            promoteDirs
+
+    let private downloadPlannedFile
+        (client: HttpClient)
+        (ambitBase: string)
+        (label: string)
+        (stageRoot: string)
+        (cookie: string option)
+        (entryMap: Map<string, DavInventoryEntry>)
+        (planned: WorkspaceSyncLimits.PlannedPath)
+        =
+        if planned.isDirectory then
+            ensureLocalDir (localFull stageRoot planned.relative)
+        else
+            let mtime =
+                entryMap
+                |> Map.tryFind planned.relative
+                |> Option.bind (fun e -> e.lastModifiedUtc)
+            match planned.file with
+            | None -> Error "missing file plan"
+            | Some WorkspaceSyncLimits.FilePlan.StubOnly ->
+                Ok ()
+            | Some(WorkspaceSyncLimits.FilePlan.Body _) ->
+                match
+                    WorkspaceDavClient.getBytes
+                        client
+                        ambitBase
+                        label
+                        planned.relative
+                        cookie
+                with
+                | Error err -> Error err
+                | Ok bytes ->
+                    writeFile
+                        (localFull stageRoot planned.relative)
+                        bytes
+                        mtime
+
+    /// Pull every inventory path; stage under temp `gambol-dl-tmp/{jobId}` then promote.
+    let getStaged
+        (client: HttpClient)
+        (ambitBase: string)
+        (mappedRoot: string)
+        (scope: WorkspaceSyncScope)
+        (cookieHeader: string option)
+        (jobId: Guid)
+        : Result<SyncResult, string> =
+        let depth =
+            match scope.kind with
+            | SyncScopeKind.File -> "0"
+            | _ -> "infinity"
+
+        match
+            WorkspaceDavClient.propfind
+                client
+                ambitBase
+                scope.label
+                scope.relative
+                depth
+                cookieHeader
+        with
+        | Error e -> Error e
+        | Ok inventory ->
+            let scoped =
+                inventory
+                |> List.filter (fun e ->
+                    WorkspaceSyncScope.isUnderScope scope e.relative)
+
+            let entryMap =
+                scoped
+                |> List.map (fun e -> e.relative, e)
+                |> Map.ofList
+
+            match
+                ensureLedgerSeeded
+                    client
+                    ambitBase
+                    mappedRoot
+                    scope
+                    None
+                    cookieHeader
+            with
+            | Error e -> Error e
+            | Ok ledger0 ->
+                let sized = inventoryFromDav scoped
+                let mode, planned = WorkspaceSyncLimits.planDownload sized
+                let ordered = orderPlanned planned
+                let stage = stagingRoot jobId
+                let mutable ledger = ledger0
+                let mutable skipped = 0
+                let downloadedPaths = ResizeArray<string>()
+
+                match
+                    try
+                        discardStaging stage
+                        Directory.CreateDirectory stage |> ignore
+                        Ok ()
+                    with ex ->
+                        Error ex.Message
+                with
+                | Error e -> Error e
+                | Ok () ->
+                    let rec download remaining count =
+                        match remaining with
+                        | [] -> Ok count
+                        | item :: rest ->
+                            if not (WorkspaceSyncLimits.isBodyTransfer item)
+                               && not item.isDirectory then
+                                download rest count
+                            elif
+                                shouldSkipDownloadFile
+                                    scope.kind
+                                    mappedRoot
+                                    entryMap
+                                    item
+                            then
+                                skipped <- skipped + 1
+                                download rest count
+                            else
+                                match
+                                    downloadPlannedFile
+                                        client
+                                        ambitBase
+                                        scope.label
+                                        stage
+                                        cookieHeader
+                                        entryMap
+                                        item
+                                with
+                                | Error e -> Error(item.relative + ": " + e)
+                                | Ok () ->
+                                    match item.file with
+                                    | Some _ when not item.isDirectory ->
+                                        downloadedPaths.Add item.relative
+                                        download rest (count + 1)
+                                    | _ -> download rest count
+
+                    match download ordered 0 with
+                    | Error e ->
+                        discardStaging stage
+                        Error e
+                    | Ok downloaded ->
+                        match promotePlanned mappedRoot stage planned with
+                        | Error e ->
+                            discardStaging stage
+                            Error e
+                        | Ok () ->
+                            discardStaging stage
+
+                            let pathStamps = ResizeArray<string * DateTime>()
+
+                            for rel in downloadedPaths do
+                                match
+                                    entryMap
+                                    |> Map.tryFind rel
+                                    |> Option.bind (fun e -> e.lastModifiedUtc)
+                                with
+                                | None -> ()
+                                | Some serverM ->
+                                    pathStamps.Add(rel, serverM)
+                                    ledger <-
+                                        WorkspaceSyncLedger.recordDownload
+                                            ledger
+                                            rel
+                                            serverM
+                                            serverM
+
+                            match WorkspaceSyncLedger.saveForLabel ledger with
+                            | Error e -> Error e
+                            | Ok () ->
+                                let detail =
+                                    if skipped > 0 then
+                                        sprintf
+                                            "downloaded %d files, skipped %d (%s)"
+                                            downloaded
+                                            skipped
+                                            (modeLabel mode)
+                                    else
+                                        sprintf
+                                            "downloaded %d files (%s)"
+                                            downloaded
+                                            (modeLabel mode)
+
+                                Ok
+                                    { uploaded = 0
+                                      downloaded = downloaded
+                                      detail = detail
+                                      mode = Some mode
+                                      skippedPaths = []
+                                      uploadedPaths = downloadedPaths |> Seq.toList
+                                      pathStamps = pathStamps |> Seq.toList }
+
+    /// Pull: PROPFIND inventory → GET every file under mapped root.
+    let get
+        (client: HttpClient)
+        (ambitBase: string)
+        (mappedRoot: string)
+        (scope: WorkspaceSyncScope)
+        (cookieHeader: string option)
+        : Result<SyncResult, string> =
+        getStaged client ambitBase mappedRoot scope cookieHeader (Guid.NewGuid())

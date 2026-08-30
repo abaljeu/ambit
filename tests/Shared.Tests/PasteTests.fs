@@ -7,6 +7,7 @@ open Gambol.Shared.Paste
 open Gambol.Shared.ViewModel
 
 let private nl = Environment.NewLine
+let private owned = ChildNode.owners
 
 let private requireOk label = function
     | Ok v -> v
@@ -16,7 +17,7 @@ let private requireOk label = function
 let private buildFlat (texts: string list) : Graph * NodeId list =
     let g0 = Graph.create ()
     let g1, ids = ModelBuilder.createNodes texts g0
-    let g2 = Graph.replace g1.root 0 [] ids g1 |> requireOk "buildFlat"
+    let g2 = Graph.replace g1.root 0 [] (owned ids) g1 |> requireOk "buildFlat"
     g2, ids
 
 /// Build graph: root → [parentText → childTexts].
@@ -25,12 +26,12 @@ let private buildNested (parentText: string) (childTexts: string list) : Graph *
     let g1, parentIds = ModelBuilder.createNodes [parentText] g0
     let parentId = parentIds.[0]
     let g2, childIds = ModelBuilder.createNodes childTexts g1
-    let g3 = Graph.replace g2.root 0 [] [parentId] g2 |> requireOk "buildNested.root"
-    let g4 = Graph.replace parentId 0 [] childIds g3 |> requireOk "buildNested.parent"
+    let g3 = Graph.replace g2.root 0 [] (owned [parentId]) g2 |> requireOk "buildNested.root"
+    let g4 = Graph.replace parentId 0 [] (owned childIds) g3 |> requireOk "buildNested.parent"
     g4, parentId, childIds
 
 /// Find the instanceId of the first SiteEntry whose nodeId matches.
-let private findInstanceId (nodeId: NodeId) (siteMap: SiteMap) : int =
+let private findInstanceId (nodeId: NodeId) (siteMap: SiteMap) : SiteId =
     siteMap.entries
     |> Map.tryPick (fun instId e -> if e.nodeId = nodeId then Some instId else None)
     |> Option.defaultWith (fun () -> failwith $"instanceId not found for {nodeId}")
@@ -43,21 +44,21 @@ let private findInstanceId (nodeId: NodeId) (siteMap: SiteMap) : int =
 let ``serializeSubtree single node no children`` () =
     let graph, ids = buildFlat ["hello"]
     let id = ids.[0]
-    let siteMap, _ = buildSiteMap graph 0
+    let siteMap, _ = buildSiteMap graph
     let result = serializeSubtree graph siteMap [id]
     Assert.Equal("hello" + nl, result)
 
 [<Fact>]
 let ``serializeSubtree two sibling nodes`` () =
     let graph, ids = buildFlat ["alpha"; "beta"]
-    let siteMap, _ = buildSiteMap graph 0
+    let siteMap, _ = buildSiteMap graph
     let result = serializeSubtree graph siteMap ids
     Assert.Equal("alpha" + nl + "beta" + nl, result)
 
 [<Fact>]
 let ``serializeSubtree node with collapsed children omits children`` () =
     let graph, parentId, _childIds = buildNested "parent" ["child1"; "child2"]
-    let siteMap, _ = buildSiteMap graph 0
+    let siteMap, _ = buildSiteMap graph
     // parent is collapsed by default
     let result = serializeSubtree graph siteMap [parentId]
     Assert.Equal("parent" + nl, result)
@@ -65,7 +66,7 @@ let ``serializeSubtree node with collapsed children omits children`` () =
 [<Fact>]
 let ``serializeSubtree node with expanded children includes children`` () =
     let graph, parentId, _childIds = buildNested "parent" ["child1"; "child2"]
-    let siteMap, nextId = buildSiteMap graph 0
+    let siteMap, nextId = buildSiteMap graph
     let parentInstanceId = findInstanceId parentId siteMap
     let siteMap', _ = expandEntry parentInstanceId graph siteMap nextId
     let result = serializeSubtree graph siteMap' [parentId]
@@ -77,10 +78,10 @@ let ``serializeSubtree multi-level expanded`` () =
     let g0 = Graph.create ()
     let g1, abcIds = ModelBuilder.createNodes ["a"; "b"; "c"] g0
     let aId, bId, cId = abcIds.[0], abcIds.[1], abcIds.[2]
-    let g2 = Graph.replace g1.root 0 [] [aId] g1 |> requireOk "root"
-    let g3 = Graph.replace aId 0 [] [bId] g2 |> requireOk "a"
-    let g4 = Graph.replace bId 0 [] [cId] g3 |> requireOk "b"
-    let siteMap, nextId = buildSiteMap g4 0
+    let g2 = Graph.replace g1.root 0 [] (owned [aId]) g1 |> requireOk "root"
+    let g3 = Graph.replace aId 0 [] (owned [bId]) g2 |> requireOk "a"
+    let g4 = Graph.replace bId 0 [] (owned [cId]) g3 |> requireOk "b"
+    let siteMap, nextId = buildSiteMap g4
     // Expand a, then b (b becomes visible as a child of a after expanding a)
     let aInst = findInstanceId aId siteMap
     let siteMap', nextId' = expandEntry aInst g4 siteMap nextId
@@ -95,10 +96,10 @@ let ``serializeSubtree partial expand: only expanded level included`` () =
     let g0 = Graph.create ()
     let g1, abcIds = ModelBuilder.createNodes ["a"; "b"; "c"] g0
     let aId, bId, cId = abcIds.[0], abcIds.[1], abcIds.[2]
-    let g2 = Graph.replace g1.root 0 [] [aId] g1 |> requireOk "root"
-    let g3 = Graph.replace aId 0 [] [bId] g2 |> requireOk "a"
-    let g4 = Graph.replace bId 0 [] [cId] g3 |> requireOk "b"
-    let siteMap, nextId = buildSiteMap g4 0
+    let g2 = Graph.replace g1.root 0 [] (owned [aId]) g1 |> requireOk "root"
+    let g3 = Graph.replace aId 0 [] (owned [bId]) g2 |> requireOk "a"
+    let g4 = Graph.replace bId 0 [] (owned [cId]) g3 |> requireOk "b"
+    let siteMap, nextId = buildSiteMap g4
     let aInst = findInstanceId aId siteMap
     let siteMap', _ = expandEntry aInst g4 siteMap nextId  // expand a only
     let result = serializeSubtree g4 siteMap' [aId]
@@ -113,8 +114,8 @@ let ``serializeSubtree partial expand: only expanded level included`` () =
 let ``collectSubtree single node no children`` () =
     let graph, ids = buildFlat ["x"]
     let id = ids.[0]
-    let siteMap, _ = buildSiteMap graph 0
-    let cb = collectSubtree graph siteMap [id]
+    let siteMap, _ = buildSiteMap graph
+    let cb = collectSubtree graph siteMap (owned [id])
     Assert.Equal<NodeId list>([id], cb.topLevelIds)
     Assert.Equal(1, cb.nodes.Count)
     Assert.Equal("x", cb.nodes.[id].text)
@@ -123,9 +124,9 @@ let ``collectSubtree single node no children`` () =
 [<Fact>]
 let ``collectSubtree collapsed node excludes children`` () =
     let graph, parentId, _childIds = buildNested "p" ["c1"; "c2"]
-    let siteMap, _ = buildSiteMap graph 0
+    let siteMap, _ = buildSiteMap graph
     // parent collapsed (default)
-    let cb = collectSubtree graph siteMap [parentId]
+    let cb = collectSubtree graph siteMap (owned [parentId])
     Assert.Equal<NodeId list>([parentId], cb.topLevelIds)
     Assert.Equal(1, cb.nodes.Count)
     Assert.Empty(cb.nodes.[parentId].children)
@@ -133,21 +134,21 @@ let ``collectSubtree collapsed node excludes children`` () =
 [<Fact>]
 let ``collectSubtree expanded node includes children`` () =
     let graph, parentId, childIds = buildNested "p" ["c1"; "c2"]
-    let siteMap, nextId = buildSiteMap graph 0
+    let siteMap, nextId = buildSiteMap graph
     let parentInst = findInstanceId parentId siteMap
     let siteMap', _ = expandEntry parentInst graph siteMap nextId
-    let cb = collectSubtree graph siteMap' [parentId]
+    let cb = collectSubtree graph siteMap' (owned [parentId])
     Assert.Equal<NodeId list>([parentId], cb.topLevelIds)
     Assert.Equal(3, cb.nodes.Count)  // parent + 2 children
-    Assert.Equal<NodeId list>(childIds, cb.nodes.[parentId].children)
+    Assert.Equal<NodeId list>(childIds, cb.nodes.[parentId].children |> List.map (fun child -> child.id))
     for cid in childIds do
         Assert.True(cb.nodes.ContainsKey cid)
 
 [<Fact>]
 let ``collectSubtree multiple top-level nodes`` () =
     let graph, ids = buildFlat ["a"; "b"; "c"]
-    let siteMap, _ = buildSiteMap graph 0
-    let cb = collectSubtree graph siteMap ids
+    let siteMap, _ = buildSiteMap graph
+    let cb = collectSubtree graph siteMap (owned ids)
     Assert.Equal<NodeId list>(ids, cb.topLevelIds |> List.ofSeq)
     Assert.Equal(3, cb.nodes.Count)
 
@@ -167,7 +168,10 @@ let ``buildPasteOpsFromClipboard single node gets fresh id and same text`` () =
     let oldId = NodeId.New()
     let cb =
         { topLevelIds = [oldId]
-          nodes = Map.ofList [oldId, { id = oldId; text = "hello"; name = None; children = [] }] }
+          nodes =
+            Map.ofList
+                [ oldId,
+                  Node.Create(oldId, text = "hello") ] }
     let newTopIds, ops = buildPasteOpsFromClipboard cb
     Assert.Equal(1, newTopIds.Length)
     Assert.NotEqual(oldId, newTopIds.[0])
@@ -183,8 +187,13 @@ let ``buildPasteOpsFromClipboard remaps parent-child relationship`` () =
     let cb =
         { topLevelIds = [aId]
           nodes = Map.ofList
-            [ aId, { id = aId; text = "a"; name = None; children = [bId] }
-              bId, { id = bId; text = "b"; name = None; children = [] } ] }
+            [ aId,
+              Node.Create(
+                aId,
+                text = "a",
+                children = owned [ bId ])
+              bId,
+              Node.Create(bId, text = "b") ] }
     let newTopIds, ops = buildPasteOpsFromClipboard cb
     let graph = applyOps ops (Graph.create ())
     let newAId = newTopIds.[0]
@@ -192,7 +201,7 @@ let ``buildPasteOpsFromClipboard remaps parent-child relationship`` () =
     let newANode = graph.nodes.[newAId]
     Assert.Equal("a", newANode.text)
     Assert.Equal(1, newANode.children.Length)
-    let newBId = newANode.children.[0]
+    let newBId = newANode.children.[0].id
     Assert.NotEqual(bId, newBId)
     let newBNode = graph.nodes.[newBId]
     Assert.Equal("b", newBNode.text)
@@ -204,8 +213,10 @@ let ``buildPasteOpsFromClipboard multiple top-level nodes`` () =
     let cb =
         { topLevelIds = [id1; id2]
           nodes = Map.ofList
-            [ id1, { id = id1; text = "x"; name = None; children = [] }
-              id2, { id = id2; text = "y"; name = None; children = [] } ] }
+            [ id1,
+              Node.Create(id1, text = "x")
+              id2,
+              Node.Create(id2, text = "y") ] }
     let newTopIds, ops = buildPasteOpsFromClipboard cb
     Assert.Equal(2, newTopIds.Length)
     Assert.NotEqual(id1, newTopIds.[0])
@@ -219,7 +230,10 @@ let ``buildPasteOpsFromClipboard all old ids absent from new graph keys`` () =
     let oldId = NodeId.New()
     let cb =
         { topLevelIds = [oldId]
-          nodes = Map.ofList [oldId, { id = oldId; text = "z"; name = None; children = [] }] }
+          nodes =
+            Map.ofList
+                [ oldId,
+                  Node.Create(oldId, text = "z") ] }
     let _, ops = buildPasteOpsFromClipboard cb
     let graph = applyOps ops (Graph.create ())
     Assert.False(graph.nodes.ContainsKey oldId)

@@ -1,0 +1,3 @@
+interface:
+  display_name: "Code Review (F#)"
+  short_description: "F# size checks for code-review"

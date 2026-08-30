@@ -1,147 +1,200 @@
 module Gambol.Client.Program
 
-open Browser.Dom
-open Browser.Types
-open Fable.Core
 open Gambol.Shared
+open Gambol.Shared.LogText
 open Gambol.Shared.ViewModel
 open Gambol.Client
+open Gambol.Client.App
+open Gambol.Client.SessionState
 open Gambol.Client.Update
+open Gambol.Client.UpdateCodec
 open Gambol.Client.Controller
-open Gambol.Client.View
+open Gambol.Client.JsInterop
 
-// ---------------------------------------------------------------------------
-// JS interop
-// ---------------------------------------------------------------------------
+let initialGraph = Graph.create ()
 
-[<Emit("fetch($0).then(r => r.text()).then($1)")>]
-let fetchText (url: string) (callback: string -> unit) : unit = jsNative
-
-[<Emit("(typeof window.__BUILD__ !== 'undefined' ? window.__BUILD__ : $0)")>]
-let readBuildStamp (fallback: string) : string = jsNative
-
-// ---------------------------------------------------------------------------
-// MVU dispatch loop
-// ---------------------------------------------------------------------------
-
-let mutable currentModel: VM =
-    { graph = { root = NodeId(System.Guid.Empty); nodes = Map.empty }
+let initialModel: VM =
+    { graph = initialGraph
       revision = Revision.Zero
-      history = History.empty
+      history = ClientHistory.clear ()
       selectedNodes = None
       mode = Selecting
       siteMap = ViewModel.emptySiteMap
-      nextInstanceId = 1
-      zoomRoot = None
+      nextSiteId = Sid 1
+      zoomRoot = initialGraph.root
+      zoomIngress = []
       clipboard = None
-      linkPasteEnabled = false
-      pendingChanges = []
-      syncState = Synced }
+      desktopCapabilities = None
+      serverCapabilities = None
+      desktopFileIndicator = BlankFileIndicator
+      workspaceMappedLabels = Set.empty
+      workspaceRoots = Map.empty
+      workspaceSyncFacts = Map.empty
+      pendingAutoDownloads = []
+      syncInfo = SyncInfo.initial
+      lastCmdResult = None }
 
-/// Element cache: instanceId → DOM row element.  Populated on first StateLoaded.
-let mutable elementCache: Map<int, HTMLElement> = Map.empty
+let dispatch, getModel, wakePolling, pollForRemoteChanges, recordActivity =
+    createRuntime initialModel
 
-// ---------------------------------------------------------------------------
-// One-time static DOM setup (hidden-input + settings-bar)
-// These elements persist for the lifetime of the page; their event handlers
-// read currentModel so they always operate on the latest state.
-// ---------------------------------------------------------------------------
+setupStaticDOM dispatch getModel wakePolling
 
-let setupStaticDOM (applyOp: Op -> unit) : unit =
-    let hiddenInput = document.createElement "input"
-    hiddenInput.id <- "hidden-input"
-    hiddenInput.setAttribute("autocomplete", "off")
-    hiddenInput.setAttribute("tabindex", "-1")
-    hiddenInput.addEventListener("keydown", fun (ev: Event) ->
-        let ke = ev :?> KeyboardEvent
-        if ke.key = "Tab" then ev.preventDefault()
-        match currentModel.selectedNodes with
-        | None ->
-            let viewRootId = currentModel.zoomRoot |> Option.defaultValue currentModel.graph.root
-            let rootNode = currentModel.graph.nodes.[viewRootId]
-            match ke.key with
-            | "Enter" | "F2" -> applyOp (startEdit rootNode.text)
-            | "ArrowDown"    -> applyOp moveSelectionDown
-            | _ ->
-                if isPrintableKey ke.key && not ke.ctrlKey && not ke.metaKey && not ke.altKey then
-                    applyOp (startEdit ke.key)
-        | Some sel ->
-            let nodeId = focusedNodeId currentModel.graph sel
-            let nodeText = currentModel.graph.nodes.[nodeId].text
-            let ctx =
-                { keyEvent = ke
-                  selectedNodeText = nodeText }
-            handleKey selectionKeyTable ctx ke applyOp
-    )
-    hiddenInput.addEventListener("paste", fun ev -> onPaste ev applyOp)
-    hiddenInput.addEventListener("copy",  fun ev -> onCopy  currentModel ev applyOp)
-    hiddenInput.addEventListener("cut",   fun ev -> onCut   currentModel ev applyOp)
-    app.appendChild hiddenInput |> ignore
+fetchTextNoCacheWithFail
+    "/_desktop/capabilities"
+    (fun text ->
+        match decodeDesktopCapabilities text with
+        | Ok capabilities ->
+            dispatch (SysMsg (DesktopCapabilitiesDetected (Some capabilities)))
+        | Error err ->
+            consoleLog ("[Gambol desktop] capability decode failed: " + err)
+            dispatch (SysMsg (DesktopCapabilitiesDetected None)))
+    (fun () -> dispatch (SysMsg (DesktopCapabilitiesDetected None)))
 
-    let settingsBar = document.createElement "div"
-    settingsBar.id <- "settings-bar"
-    let cbId = "setting-link-paste"
-    let label = document.createElement "label"
-    label.setAttribute("for", cbId)
-    let cb = document.createElement "input"
-    cb.id <- cbId
-    cb.setAttribute("type", "checkbox")
-    (cb :?> HTMLInputElement).``checked`` <- currentModel.linkPasteEnabled
-    cb.addEventListener("change", fun _ -> applyOp toggleLinkPasteOp)
-    label.appendChild cb |> ignore
-    label.appendChild (document.createTextNode " Copy/Paste reference to original") |> ignore
-    settingsBar.appendChild label |> ignore
+fetchTextNoCacheWithFail
+    (sprintf "/%s/capabilities" currentFile)
+    (fun text ->
+        match decodeServerCapabilities text with
+        | Ok capabilities ->
+            dispatch (SysMsg (ServerCapabilitiesDetected (Some capabilities)))
+        | Error err ->
+            consoleLog ("[Gambol] server capability decode failed: " + err)
+            dispatch (SysMsg (ServerCapabilitiesDetected None)))
+    (fun () -> dispatch (SysMsg (ServerCapabilitiesDetected None)))
 
-    let logoutLink = document.createElement "a"
-    logoutLink.setAttribute("href", "/logout")
-    logoutLink.setAttribute("style", "margin-left: 1rem; font-size: .85rem; color: #555;")
-    logoutLink.textContent <- "Logout"
-    settingsBar.appendChild logoutLink |> ignore
+let private showBootError (msg: string) =
+    app.textContent <- $"Error: {msg}"
 
-    let buildLabel = document.createElement "span"
-    buildLabel.setAttribute("style", "margin-left: auto; font-size: .75rem; color: #666;")
-    buildLabel.textContent <- readBuildStamp BuildInfo.buildNumber
-    settingsBar.appendChild buildLabel |> ignore
+let private stateUrl =
+    match tryReadSavedZoomId () with
+    | None -> $"/{currentFile}/state"
+    | Some (NodeId g) ->
+        $"/{currentFile}/state?zoom={g.ToString()}"
 
-    app.appendChild settingsBar |> ignore
+let private bootScope = BootCache.scopeKey (tryReadSavedZoomId ())
 
-    let syncStatus = document.createElement "div"
-    syncStatus.id <- "sync-status"
-    syncStatus.addEventListener("click", fun _ -> applyOp retryPendingOp)
-    app.appendChild syncStatus |> ignore
+let mutable bootLog: Change list = []
+let mutable pollingStarted = false
+let mutable bootHash = ""
+let mutable justFetchedState = false
 
-    let undoStatus = document.createElement "div"
-    undoStatus.id <- "undo-status"
-    undoStatus.setAttribute("title", "Undo/Redo status")
-    app.appendChild undoStatus |> ignore
+let private ensurePolling () =
+    if not pollingStarted then
+        pollingStarted <- true
+        startPolling pollForRemoteChanges recordActivity
 
-let rec applyOp (op: Op) : unit =
-    let prevModel = currentModel
-    currentModel <- op currentModel dispatch
-    elementCache <- patchDOM prevModel currentModel applyOp elementCache
-    View.renderUndoStatus currentModel
+let rec private loadFromState () =
+    justFetchedState <- true
+    fetchGet
+        stateUrl
+        (fun text ->
+            if looksCompressed text then
+                showBootError
+                    "state response is compressed but not decompressed (Content-Encoding?)"
+            else
+                let decodeStart = perfNowMs ()
+                match decodeStateResponse text with
+                | Ok response ->
+                    let decodeMs = int (perfNowMs () - decodeStart)
+                    let nodeCount = Map.count response.graph.nodes
+                    consoleLog (
+                        $"[Gambol boot] decodeStateResponse: {decodeMs}ms, "
+                        + $"{text.Length} chars, {nodeCount} nodes")
+                    finishPaint response []
+                    setTimeout
+                        (fun () ->
+                            BootCacheStore.persistAfterState
+                                currentFile
+                                bootScope
+                                text
+                                response)
+                        0
+                    |> ignore
+                | Error err ->
+                    showBootError err)
+        (fun status body ->
+            let snippet = summarizeHttpBody 400 body
+            let detail =
+                if snippet = "" then $"HTTP {status}"
+                else $"HTTP {status}: {snippet}"
+            showBootError detail)
+        (fun () -> showBootError "network failure loading /state")
 
-and dispatch (msg: Msg) : unit =
-    let prevModel = currentModel
-    currentModel <- update msg currentModel dispatch
+and private fallbackState (reason: string) =
+    consoleLog ("[Gambol boot] poll fallback " + reason + " → /state")
+    BootCacheStore.deleteCache currentFile ignore
+    loadFromState ()
 
-    match msg with
-    | System (StateLoaded _) ->
-        elementCache <- render currentModel applyOp
-        View.renderUndoStatus currentModel
-    | System (SubmitResponse _) | System SubmitFailed ->
-        View.renderStatus currentModel
+and private applyBootNovel (novel: Change list) (ready: bool) =
+    let model = getModel ()
+    let clientState: ClientSyncState =
+        { graph = model.graph
+          revision = model.revision
+          history = model.history }
+    match SyncLogic.applyServerTail novel clientState with
+    | Error _ -> fallbackState "apply"
+    | Ok newState ->
+        dispatch (
+            SysMsg (
+                BootGraphApplied (
+                    newState.graph,
+                    newState.revision,
+                    newState.history,
+                    ready)))
+        BootCacheStore.appendChanges currentFile novel
+        bootLog <- bootLog @ novel
+        BootCacheStore.requestIdleTruncate
+            currentFile
+            bootScope
+            (tryReadSavedZoomId ())
+            newState.revision.Value
+            ready
+            newState.graph
 
-// ---------------------------------------------------------------------------
-// Bootstrap
-// ---------------------------------------------------------------------------
+and private handleBootPoll (clientRev: int) (poll: ChangeSuccessResponse) =
+    let cached =
+        BootCache.cachedHashForBootPoll justFetchedState bootHash
+    justFetchedState <- false
+    match
+        BootCache.decideBootPoll
+            clientRev bootLog poll poll.bootstrapHash cached
+    with
+    | BootCache.BootPoll.Confirmed ready ->
+        dispatch (
+            SysMsg (PollDone (None, [], Some ready, Some poll.revision)))
+    | BootCache.BootPoll.CodeOutdated ->
+        dispatch (
+            SysMsg (
+                PollDone (
+                    Some CodeOutdated,
+                    [],
+                    Some poll.isReady,
+                    Some poll.revision)))
+    | BootCache.BootPoll.ApplyNovel (novel, ready) ->
+        applyBootNovel novel ready
+    | BootCache.BootPoll.FallbackState reason ->
+        fallbackState reason
 
-setupStaticDOM applyOp
+and private runBootPoll (clientRev: int) =
+    let url = $"/{currentFile}/poll?_={nowMs ()}&rev={clientRev}"
+    fetchTextNoCacheWithFail
+        url
+        (fun text ->
+            match decodeChangeSuccessResponse text with
+            | Ok poll -> handleBootPoll clientRev poll
+            | Error _ -> ())
+        (fun () -> ())
 
-fetchText $"/{Update.currentFile}/state" (fun text ->
-    match decodeStateResponse text with
-    | Ok (graph, revision) ->
-        dispatch (System (StateLoaded (graph, revision)))
-    | Error err ->
-        app.textContent <- $"Error: {err}"
-)
+and private finishPaint (response: StateResponse) (localLog: Change list) =
+    bootLog <- localLog
+    dispatch (SysMsg (StateLoaded response))
+    ensurePolling ()
+    runBootPoll response.revision.Value
+    BootCacheStore.requestIdleTruncate
+        currentFile
+        bootScope
+        (tryReadSavedZoomId ())
+        response.revision.Value
+        response.isReady
+        response.graph
+
+loadFromState ()

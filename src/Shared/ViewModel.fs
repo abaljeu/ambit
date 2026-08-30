@@ -1,10 +1,20 @@
 namespace Gambol.Shared
 
-type Mode =
-    | Selecting
-    | Editing of originalText: string * prefill: string option * cursorPos: int option
-    // prefill: the initial text shown in the edit input (if different from originalText)
-    // cursorPos: None = place cursor at end; Some n = place cursor at position n
+/// How to place the caret after focusing `#edit-input`.
+[<RequireQualifiedAccess>]
+type EditCaret =
+    | EndOfText
+    | Utf16Index of int
+    | LastVisualLineAtClientX of float
+    | FirstVisualLineAtClientX of float
+
+[<RequireQualifiedAccess>]
+module EditCaret =
+    /// UTF-16 index clamped to `[0, textLen]` (former `moveEdit` rule with lower bound).
+    let utf16ClampedToLength (cursorUtf16: int) (textLen: int) : EditCaret =
+        EditCaret.Utf16Index (min (max 0 cursorUtf16) textLen)
+
+type SiteId = Sid of int
 
 /// A rendered appearance of a node in a flat site map. Each appearance gets a unique
 /// instanceId so that fold state is per-occurrence, not per-NodeId.
@@ -12,17 +22,162 @@ type Mode =
 /// independent fold states. Cycle termination relies on lazy expansion: a new entry
 /// starts collapsed with children = [], so recursion stops naturally.
 type SiteEntry =
-    { instanceId: int
+    { instanceId: SiteId
       nodeId: NodeId
-      parentInstanceId: int option   // None = root
+      parentInstanceId: SiteId option   // None = root
+      /// 0-based index among parent's `children` (0 for root). Kept in sync when children lists are built.
+      childIndex: int
       expanded: bool
       childrenStale: bool            // true when children list may not match graph; re-synced on expand
-      children: int list }           // instanceId list, ordered to match graph.children (valid when not stale)
+      children: SiteId list }        // instanceId list, ordered to match graph.children (valid when not stale)
+
+/// One expanded non-root appearance for session fold restore.
+/// `parentIndex` indexes an earlier record in the same parent-first list;
+/// `None` means the parent is the site-map root. Runtime `SiteId` values are not stored.
+type FoldOccurrenceSnapshot =
+    { parentIndex: int option
+      childIndex: int
+      nodeId: NodeId }
 
 /// Flat map keyed by instanceId. O(log S) per-entry access for all operations.
 type SiteMap =
-    { rootId: int
-      entries: Map<int, SiteEntry> }
+    { rootId: SiteId
+      entries: Map<SiteId, SiteEntry>
+      /// Non-root instanceId -> `parentInstanceId` (root has no key).
+      parentByInstanceId: Map<SiteId, SiteId> }
+
+[<RequireQualifiedAccess>]
+module SiteMap =
+    let private withEntry (siteMap: SiteMap) (id: SiteId option) (f: SiteEntry -> 'a option) : 'a option =
+        id |> Option.bind (fun sid -> Map.tryFind sid siteMap.entries |> Option.bind f)
+
+    /// One step up the instance parent chain. Uses `parentByInstanceId` (root has no key).
+    /// Prefer `Site.at siteMap id |> Site.parent` when composing; `None` in → `None` out.
+    let siteParent (siteMap: SiteMap) (id: SiteId option) : SiteId option =
+        id
+        |> Option.bind (fun sid ->
+            if sid = siteMap.rootId then
+                None
+            else
+                Map.tryFind sid siteMap.parentByInstanceId)
+
+    /// First child instance under this occurrence (`children` head). Composes like `siteParent`.
+    let siteFirstChild (siteMap: SiteMap) (id: SiteId option) : SiteId option =
+        withEntry siteMap id (fun e -> List.tryHead e.children)
+
+    /// Last child instance under this occurrence. None if `children` is empty.
+    let siteLastChild (siteMap: SiteMap) (id: SiteId option) : SiteId option =
+        withEntry siteMap id (fun e -> List.tryItem (e.children.Length - 1) e.children)
+
+    /// 0-based index of `child` in `parent`'s `children` list. `None` if either id is
+    /// missing, the parent entry is missing, or `child` is not a direct child of that
+    /// parent instance.
+    let siteChildIndex (siteMap: SiteMap) (parent: SiteId option) (child: SiteId option) : int option =
+        match parent, child with
+        | Some pid, Some cid ->
+            match Map.tryFind cid siteMap.entries with
+            | Some e when e.parentInstanceId = Some pid -> Some e.childIndex
+            | _ -> None
+        | _ -> None
+
+    let private siteSiblingOffset (delta: int) (siteMap: SiteMap) (id: SiteId option) : SiteId option =
+        withEntry siteMap id (fun e ->
+            e.parentInstanceId
+            |> Option.bind (fun pid ->
+                Map.tryFind pid siteMap.entries
+                |> Option.bind (fun parent ->
+                    List.tryItem (e.childIndex + delta) parent.children)))
+
+    /// Next sibling under the same parent (`children` order). Root has no siblings.
+    let siteNext = siteSiblingOffset 1
+
+    /// Previous sibling under the same parent. Root has no siblings.
+    let sitePrev = siteSiblingOffset -1
+    let nodeIsExpanded (siteMap: SiteMap) (instanceId: SiteId option) : bool =
+        withEntry siteMap instanceId (fun e -> if e.expanded then Some () else None)
+        |> Option.isSome
+
+/// Carries a fixed SiteMap and a current position. Every step is `SiteNav -> SiteNav`,
+/// so paths compose freely with `>>` without repeating `siteMap`.
+///   let prevCousin = Site.parent >> Site.prev >> Site.lastChild
+///   Site.at siteMap (Some id) |> prevCousin |> Site.current
+type SiteNav = SiteNav of SiteMap * SiteId option
+
+[<RequireQualifiedAccess>]
+module Site =
+    let at (siteMap: SiteMap) (id: SiteId option) : SiteNav = SiteNav(siteMap, id)
+    let current (SiteNav(_, id)) : SiteId option = id
+
+    let private step f (SiteNav(sm, id)) = SiteNav(sm, f sm id)
+
+    let parent     = step SiteMap.siteParent
+    let firstChild = step SiteMap.siteFirstChild
+    let lastChild  = step SiteMap.siteLastChild
+    let next       = step SiteMap.siteNext
+    let prev       = step SiteMap.sitePrev
+    let prevCousin = parent >> prev >> lastChild
+
+    /// 0-based index of the current `SiteId` among its parent's `children`, or `None` if
+    /// there is no current id, the entry is missing, or the id is the site-map root.
+    let childIndex (nav: SiteNav) : int option =
+        let (SiteNav (sm, id)) = nav
+        let parentId = nav |> parent |> current
+        SiteMap.siteChildIndex sm parentId id
+
+/// Like `SiteNav`, but `at` / each step keep `SiteId` only when fold-visible on that `SiteMap`.
+type VisiNav = VisiNav of SiteMap * SiteId option
+
+[<RequireQualifiedAccess>]
+module VisibleSite =
+    let rec private siteEntryIsVisible (siteMap: SiteMap) (sid: SiteId) : bool =
+        match Map.tryFind sid siteMap.entries with
+        | None -> false
+        | Some entry ->
+            match entry.parentInstanceId with
+            | None -> sid = siteMap.rootId
+            | Some pid ->
+                match Map.tryFind pid siteMap.entries with
+                | None -> false
+                | Some parent ->
+                    if not parent.expanded then
+                        false
+                    elif not (List.exists ((=) sid) parent.children) then
+                        false
+                    else
+                        siteEntryIsVisible siteMap pid
+
+    let at (siteMap: SiteMap) (id: SiteId option) : VisiNav =
+        let filtered =
+            id
+            |> Option.bind (fun sid ->
+                if siteEntryIsVisible siteMap sid then
+                    Some sid
+                else
+                    None)
+
+        VisiNav(siteMap, filtered)
+
+    let current (VisiNav(_, id)) : SiteId option = id
+
+    let private step f (VisiNav(sm, id)) =
+        let nextId = f sm id
+
+        let filtered =
+            nextId
+            |> Option.bind (fun sid ->
+                if siteEntryIsVisible sm sid then
+                    Some sid
+                else
+                    None)
+
+        VisiNav(sm, filtered)
+
+    let parent = step SiteMap.siteParent
+    let firstChild = step SiteMap.siteFirstChild
+    let lastChild = step SiteMap.siteLastChild
+    let next = step SiteMap.siteNext
+    let prev = step SiteMap.sitePrev
+    let prevCousin = parent >> prev >> lastChild
 
 /// A contiguous span of children under a specific site-map occurrence of a parent node.
 /// parent is a SiteEntry (not just a NodeId) so the selection is unambiguous in a DAG
@@ -31,6 +186,23 @@ type SiteNodeRange =
     { parent: SiteEntry
       start: int
       endd: int }
+
+[<RequireQualifiedAccess>]
+module SiteNodeRange =
+    /// The SiteEntry for the first node in the range, if in bounds.
+    let firstChild (range: SiteNodeRange) (siteMap: SiteMap) : SiteEntry option =
+        range.parent.children
+        |> List.tryItem range.start
+        |> Option.bind (fun id -> Map.tryFind id siteMap.entries)
+
+    /// The SiteEntry for the last node in the range, if in bounds.
+    let lastChild (range: SiteNodeRange) (siteMap: SiteMap) : SiteEntry option =
+        if range.endd > 0 then
+            range.parent.children
+            |> List.tryItem (range.endd - 1)
+            |> Option.bind (fun id -> Map.tryFind id siteMap.entries)
+        else
+            None
 
 /// A SiteNodeRange with a focus index marking the "active" end used for Shift-Arrow and editing.
 /// focus is always range.start or range.endd - 1.
@@ -44,31 +216,181 @@ type ClipboardContent =
     { topLevelIds: NodeId list
       nodes: Map<NodeId, Node> }
 
-type SyncState =
-    | Synced    // all changes confirmed by server
-    | Syncing   // a POST is currently in-flight
-    | Pending   // last POST failed; changes queued, awaiting user retry
+/// Row / active-file indicator vocabulary (desktop status + absent artifacts).
+type DesktopFileIndicator =
+    | BlankFileIndicator
+    | CheckingFileStatus of nodeId: NodeId * path: string
+    | InvalidFileReferenceIndicator
+    | AbsentArtifactIndicator
+    | FileStatusIndicator of
+        nodeId: NodeId *
+        path: string *
+        status: DesktopFileStatus *
+        sourceModifiedUtc: System.DateTime option
+
+[<RequireQualifiedAccess>]
+module DesktopFileIndicator =
+    /// Fixed labels for payload-free cases (status text uses FileSyncIndicator).
+    let textByState : Map<DesktopFileIndicator, string> =
+        [ BlankFileIndicator, ""
+          InvalidFileReferenceIndicator, "invalid"
+          AbsentArtifactIndicator, "missing" ]
+        |> Map.ofList
+
+    let toText (state: DesktopFileIndicator) : string =
+        match state with
+        | CheckingFileStatus _ -> "..."
+        | FileStatusIndicator _ -> ""
+        | other -> Map.find other textByState
+
+/// Result of the most recent command, shown in `#cmd-last-result`.
+/// Optional `commandName` is the registry display name (`None` = anonymous / no prefix).
+[<RequireQualifiedAccess>]
+type CmdLastResult =
+    | Ok of commandName: string option
+    | Detail of commandName: string option * message: string
+    | Error of commandName: string option * message: string
+
+module CmdLastResult =
+    let withCommandName (name: string option) = function
+        | CmdLastResult.Ok _ -> CmdLastResult.Ok name
+        | CmdLastResult.Detail (_, msg) -> CmdLastResult.Detail (name, msg)
+        | CmdLastResult.Error (_, msg) -> CmdLastResult.Error (name, msg)
+
+    let private formatNamed (name: string option) (body: string) : string =
+        match name with
+        | None -> body
+        | Some n -> sprintf "%s: %s" n body
+
+    let toDisplay = function
+        | CmdLastResult.Ok name -> formatNamed name "OK"
+        | CmdLastResult.Detail (name, msg) -> formatNamed name msg
+        | CmdLastResult.Error (name, msg) -> formatNamed name msg
+
+    let undoResult (commandName: string option) =
+        CmdLastResult.Detail (Some "Undo", Option.defaultValue "nothing to undo" commandName)
+
+    let redoResult (commandName: string option) =
+        CmdLastResult.Detail (Some "Redo", Option.defaultValue "nothing to redo" commandName)
+
+    let formatDisplay = function
+        | None -> ""
+        | Some r -> toDisplay r
+
+/// UI mode; `SearchDialog.onPick` closes over model updates (mutually recursive with `VM`).
+type Mode =
+    | Selecting
+    /// `caret` placement after `#edit-input` receives focus (see `manageFocus`).
+    | Editing of originalText: string * caret: EditCaret
+    | CommandPalette of query: string * selectedCommand: int * returnTo: Mode
+    | SearchDialog of SearchDialogState
+    | FileSearchDialog of FileSearchDialogState
+    | CssClassPrompt of returnTo: Mode * initialValue: string
+    | RenamePrompt of returnTo: Mode * initialValue: string
+
+/// Node search overlay: query, selection, and `onPick` (mutually recursive with `Mode` / `VM`).
+and SearchDialogState =
+    { invokedCommand: string
+      query: string
+      selectedIndex: int
+      returnTo: Mode
+      onPick: NodeSearchResult -> VM -> VM * Effect list }
+
+/// File search overlay: path query, list selection, and optional create via **New** button.
+and FileSearchDialogState =
+    { query: string
+      selectedIndex: int
+      returnTo: Mode }
 
 // Server `State` is in `FileAgent`, and mainly the graph.
-type VM = // the client state
+and VM = // the client state
     { graph: Graph // the core data
       revision: Revision
-      history: History
+      history: ClientHistory
       selectedNodes: Selection option
       mode: Mode
       siteMap: SiteMap
-      nextInstanceId: int
-      zoomRoot: NodeId option   // None = display from graph.root; Some id = display rooted at that node
+      nextSiteId: SiteId
+      zoomRoot: NodeId // display starting from here
+      /// Stack of (parentId, childIndex) ingress occurrences for zoom-out.
+      zoomIngress: (NodeId * int) list
       clipboard: ClipboardContent option
-      linkPasteEnabled: bool
-      pendingChanges: Change list  // FIFO queue of changes awaiting server confirmation
-      syncState: SyncState }
+      desktopCapabilities: DesktopCapabilities option
+      serverCapabilities: ServerCapabilities option
+      desktopFileIndicator: DesktopFileIndicator
+      /// Labels with a desktop local folder mapping (comparison statuses gated).
+      workspaceMappedLabels: Set<string>
+      /// Lowercased label → desktop local root path (e.g. "life" → "d:\life").
+      workspaceRoots: Map<string, string>
+      /// label → relative → ledger fact for File/Directory row sync status.
+      workspaceSyncFacts: Map<string, Map<string, WorkspaceSyncPathFact>>
+      /// Persist-stamped file targets awaiting a debounced auto-download.
+      pendingAutoDownloads: AutoDownloadTarget list
+      syncInfo: SyncInfo
+      lastCmdResult: CmdLastResult option }
+
+/// Self-contained pure model transformation for the client update loop (see `Msg.ApplyOp`).
+type Updater = VM -> VM * Effect list
+
+type SubmitNetworkErrorKind =
+    | FetchFailed
+    | ClientTimeout
 
 /// Messages dispatched by async server callbacks (not directly caused by user input).
 type SystemMsg =
-    | StateLoaded of Graph * Revision
-    | SubmitResponse of Revision
-    | SubmitFailed
+    | StateLoaded of StateResponse
+    | SubmitResponse of
+        submitted: PendingChange list *
+        confirmed: Change list *
+        revision: Revision *
+        externalChanges: bool *
+        message: string option
+    | SubmitRejected of detail: string // server HTTP error (decoded `error` or short body snippet)
+    | SubmitNetworkError of
+        baseRevision: int * changes: PendingChange list * kind: SubmitNetworkErrorKind
+    | DesktopCapabilitiesDetected of DesktopCapabilities option
+    | ServerCapabilitiesDetected of ServerCapabilities option
+    | DesktopFileStatusReceived of
+        nodeId: NodeId *
+        path: string *
+        status: DesktopFileStatus *
+        sourceModifiedUtc: System.DateTime option
+    | WorkspacePathSyncSnapshotReceived of
+        mappedLabels: Set<string> *
+        factsByLabel: Map<string, Map<string, WorkspaceSyncPathFact>> *
+        rootsByLabel: Map<string, string>
+    | SetPollingActive of bool
+    | PollTick            // polling timer fired; update decides whether to emit PollServer effect
+    | AutoDownloadTick    // debounce timer fired; update coalesces + fires auto-downloads
+    | PollDone of
+        SyncState option *
+        Change list *
+        isReady: bool option *
+        responseRevision: Revision option
+    | BootGraphApplied of
+        graph: Graph *
+        revision: Revision *
+        history: ClientHistory *
+        isReady: bool
+    | LoadDone of
+        SyncState option * SyncResponse * responseRevision: int * isReady: bool option
+    | RetrySubmit         // retry timer fired; update resends the stored batch snapshot
 
 type Msg =
-    | System of SystemMsg
+    | SysMsg of SystemMsg
+    | AckSyncRisk
+    | NodeSearchQuery of string
+    | FileSearchQuery of string
+    | ApplyOp of Updater
+
+/// After row patches (and if `ManageFocus` still runs without a mode change): keep the live
+/// `#edit-input` caret. Keystrokes update only the contenteditable; `Editing` text/caret stay
+/// stale until commit. True when still `Editing` with the same mode ref — restore saved offset
+/// if patches cleared the selection; do not apply stale `EditCaret` from the model.
+[<RequireQualifiedAccess>]
+module EditingCaretPreserve =
+    let shouldPreserveDomCaret (previousModel: VM option) (model: VM) : bool =
+        match previousModel, model.mode with
+        | Some prev, Editing _ ->
+            LanguagePrimitives.PhysicalEquality prev.mode model.mode
+        | _ -> false

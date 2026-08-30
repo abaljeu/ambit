@@ -6,12 +6,45 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="AssemblyInfo.fs" />
+    <Compile Include="AuthTokenTests.fs" />
+    <Compile Include="..\Shared.Tests\SpecialNodeTestHelpers.fs" Link="SpecialNodeTestHelpers.fs" />
+    <Compile Include="HeadPresenceTests.fs" />
+    <Compile Include="DataDirTests.fs" />
+    <Compile Include="TestDbConfigTests.fs" />
+    <Compile Include="DatabaseSetupTests.fs" />
+    <Compile Include="TestBackend.fs" />
+    <Compile Include="DocumentPersistenceTests.fs" />
+    <Compile Include="DocumentOpPersistenceTests.fs" />
+    <Compile Include="DocumentPathMoveExecutionTests.fs" />
+    <Compile Include="IgnoredDestinationValidationTests.fs" />
+    <Compile Include="DocumentLoaderTests.fs" />
+    <Compile Include="SavePrepTests.fs" />
+    <Compile Include="GitSaveTests.fs" />
+    <Compile Include="DailyGitSaveTests.fs" />
+    <Compile Include="WorkspaceGitTests.fs" />
+    <Compile Include="GitGatewayTests.fs" />
+    <Compile Include="LazyLoadReconciliationServerTests.fs" />
+    <Compile Include="GitSaveEndpointTests.fs" />
+    <Compile Include="WorkspaceWebDavTests.fs" />
+    <Compile Include="HttpResponseLogTests.fs" />
+    <Compile Include="FileAgentFailureTests.fs" />
+    <Compile Include="ApiGetStateTests.fs" />
+    <Compile Include="ResponseCompressionTests.fs" />
+    <Compile Include="ApiPostLoadTests.fs" />
+    <Compile Include="ChangeEndpointResilienceTests.fs" />
+    <Compile Include="DatabaseProjectionTests.fs" />
+    <Compile Include="DatabaseProjectionContractTests.fs" />
+    <Compile Include="DbAgentTests.fs" />
+    <Compile Include="DbAgentFailureTests.fs" />
     <Compile Include="StateEndpointTests.fs" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Server\Gambol.Server.fsproj" />
     <ProjectReference Include="..\..\src\Shared\Gambol.Shared.fsproj" />
+    <ProjectReference Include="..\..\src\Shared\dotnet\Gambol.Shared.DotNet.fsproj" />
+    <ProjectReference Include="..\..\src\Shared\documents\Gambol.Shared.Documents.fsproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -27,6 +60,7 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+    <PackageReference Include="Xunit.SkippableFact" Version="1.5.23" />
   </ItemGroup>
 
 </Project>

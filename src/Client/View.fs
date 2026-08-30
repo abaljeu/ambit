@@ -5,195 +5,47 @@ open Browser.Types
 open Gambol.Shared
 open Gambol.Shared.ViewModel
 open Gambol.Client.Controller
+open Gambol.Client.JsInterop
 open Gambol.Client.Update
-
-// ---------------------------------------------------------------------------
-// Depth helper
-// ---------------------------------------------------------------------------
-
-/// Depth of entry in the site map (root's children are at depth 0).
-let private computeDepth (siteMap: SiteMap) (entry: SiteEntry) : int =
-    let rec go (parentInstId: int option) acc =
-        match parentInstId with
-        | None -> acc
-        | Some pid ->
-            match Map.tryFind pid siteMap.entries with
-            | None -> acc
-            | Some pe -> go pe.parentInstanceId (acc + 1)
-    go entry.parentInstanceId 0
-
-// ---------------------------------------------------------------------------
-// Row element creation
-// ---------------------------------------------------------------------------
-
-/// Create a fresh DOM row for the given SiteEntry at the given depth.
-let private makeRowElement (model: VM) (applyOp: Op -> unit) (depth: int) (siteEntry: SiteEntry) : HTMLElement =
-    let nodeId = siteEntry.nodeId
-    let node = model.graph.nodes.[nodeId]
-    let hasChildren = not node.children.IsEmpty
-    let row = document.createElement "div"
-    row.classList.add "row"
-
-    if siteEntry.parentInstanceId = None then row.classList.add "view-root"
-    if isEntrySelected model siteEntry then row.classList.add "selected"
-    if isEntryFocused  model siteEntry then row.classList.add "focused"
-
-    // Indentation
-    for _ in 1 .. depth do
-        let indent = document.createElement "div"
-        indent.classList.add "indent"
-        row.appendChild indent |> ignore
-
-    // Fold toggle indicator
-    if hasChildren then
-        let toggle = document.createElement "span"
-        toggle.classList.add "fold-toggle"
-        toggle.textContent <- if siteEntry.expanded then "\u25BC" else "\u25B6"
-        toggle.addEventListener("mousedown", fun (ev: Event) ->
-            ev.preventDefault()
-            ev.stopPropagation()
-            applyOp (toggleFoldOp siteEntry.instanceId)
-        )
-        row.appendChild toggle |> ignore
-    else
-        let dot = document.createElement "span"
-        dot.classList.add "fold-toggle"
-        dot.textContent <- "\u25CF"
-        row.appendChild dot |> ignore
-
-    // Content: edit input or text div
-    if isEditingEntry model siteEntry then
-        let editInput = document.createElement "input"
-        editInput.id <- "edit-input"
-        editInput.classList.add "edit-input"
-        editInput.setAttribute("tabindex", "-1")
-        let prefill =
-            match model.mode with
-            | Editing (originalText, Some pf, _) -> pf
-            | Editing (originalText, None, _)    -> originalText
-            | _ -> node.text
-        (editInput :?> HTMLInputElement).value <- prefill
-        editInput.addEventListener("keydown", fun (ev: Event) ->
-            let key = ev :?> KeyboardEvent
-            let ctx =
-                { keyEvent = key
-                  editInput = (editInput :?> HTMLInputElement) }
-            handleKey editingKeyTable ctx key applyOp
-        )
-        editInput.addEventListener("mousedown", fun (ev: Event) ->
-            ev.stopPropagation()
-        )
-        editInput.addEventListener("paste", fun ev -> onPaste ev applyOp)
-        row.appendChild editInput |> ignore
-    else
-        let textDiv = document.createElement "div"
-        textDiv.classList.add "text"
-        textDiv.textContent <- node.text
-        row.appendChild textDiv |> ignore
-
-    // Row click → select the exact view-line instance, not just the first occurrence of the nodeId
-    row.addEventListener("mousedown", fun (ev: Event) ->
-        ev.preventDefault()
-        applyOp (selectInstance siteEntry.instanceId)
-    )
-    // Row double-click → enter edit mode with cursor at mouse position
-    row.addEventListener("dblclick", fun (ev: Event) ->
-        ev.preventDefault()
-        let me = ev :?> MouseEvent
-        let offset = getCaretOffset me.clientX me.clientY
-        applyOp (startEditAtPos node.text offset)
-    )
-    row
-
-// ---------------------------------------------------------------------------
-// Focus management
-// ---------------------------------------------------------------------------
-
-/// Focus the correct element (edit-input or hidden-input) after each dispatch.
-let manageFocus (model: VM) : unit =
-    match model.mode with
-    | Editing _ ->
-        let editInput = document.getElementById "edit-input"
-        if not (isNull editInput) then
-            let inp = editInput :?> HTMLInputElement
-            inp.focus()
-            let pos =
-                match model.mode with
-                | Editing (_, _, Some p) -> p
-                | _ -> inp.value.Length
-            inp.setSelectionRange(pos, pos)
-    | Selecting ->
-        let hiddenInput = document.getElementById "hidden-input"
-        if not (isNull hiddenInput) then
-            (hiddenInput :?> HTMLInputElement).focus()
-
-// ---------------------------------------------------------------------------
-// status indicators
-// ---------------------------------------------------------------------------
-
-/// Update the persistent status element text and style.
-let renderStatus (model: VM) : unit =
-    let el = document.getElementById "sync-status"
-    if not (isNull el) then
-        match model.syncState with
-        | Synced  ->
-            el.textContent <- "synced"
-            el.className <- "sync-status"
-        | Syncing ->
-            el.textContent <- "Saving\u2026"
-            el.className <- "sync-status syncing"
-        | Pending ->
-            el.textContent <- "Unsaved changes \u2014 click to retry"
-            el.className <- "sync-status pending"
-
-/// Update the undo/redo status indicator based on history.
-let renderUndoStatus (model: VM) : unit =
-    let el = document.getElementById "undo-status"
-    if not (isNull el) then
-        let canUndo = not model.history.past.IsEmpty
-        let canRedo = not model.history.future.IsEmpty
-        let undoText = if canUndo then "\u21B6" else "\u2205"           // ↶ or ∅
-        let redoText = if canRedo then "\u21B7" else "\u2205"           // ↷ or ∅
-        el.textContent <- $"{undoText} {redoText}"
-        el.className <- if canUndo || canRedo then "undo-status active" else "undo-status"
+open Gambol.Client.RowView
+open Gambol.Client.FocusView
+open Gambol.Client.Overlays
 
 // ---------------------------------------------------------------------------
 // Full rebuild (StateLoaded)
 // ---------------------------------------------------------------------------
 
-/// Rebuild all row elements from scratch: removes existing rows (children of app
+/// Rebuild all row elements from scratch: removes existing rows (children of #amb-document
 /// that precede the hidden-input sentinel), then recreates them in preorder.
 /// Returns a fresh element cache keyed by instanceId.
-let render (vm: VM) (applyOp: Op -> unit) : Map<int, HTMLElement> =
+let render (vm: VM) (dispatch: Msg -> unit) : Map<SiteId, HTMLElement> =
+    let rowRoot =
+        if isNull ambDocument then app else ambDocument
     // Remove existing rows — everything before the hidden-input sentinel
     let hiddenInput = document.getElementById "hidden-input"
     if isNull hiddenInput then
-        app.innerHTML <- ""
+        rowRoot.innerHTML <- ""
     else
         let mutable sib = hiddenInput.previousSibling
         while not (isNull sib) do
             let prev = sib.previousSibling
-            app.removeChild sib |> ignore
+            rowRoot.removeChild sib |> ignore
             sib <- prev
 
-    let mutable cache = Map.empty<int, HTMLElement>
+    let mutable cache = Map.empty<SiteId, HTMLElement>
     let visible = ViewModel.getVisibleInstanceIds vm.siteMap
+    syncZoomPath vm dispatch rowRoot |> ignore
     for instId in visible do
         let entry = vm.siteMap.entries.[instId]
         let depth = computeDepth vm.siteMap entry
-        let row = makeRowElement vm applyOp depth entry
+        let row = makeRowElement vm dispatch depth entry
         cache <- Map.add instId row cache
         let sentinel = document.getElementById "hidden-input"
-        if isNull sentinel then app.appendChild row |> ignore
-        else app.insertBefore(row, sentinel) |> ignore
+        if isNull sentinel then rowRoot.appendChild row |> ignore
+        else rowRoot.insertBefore(row, sentinel) |> ignore
 
-    // Sync the settings-bar checkbox
-    let cb = document.getElementById "setting-link-paste"
-    if not (isNull cb) then
-        (cb :?> HTMLInputElement).``checked`` <- vm.linkPasteEnabled
-
-    manageFocus vm
-    renderStatus vm
+    manageFocus None vm cache
+    renderSyncChrome vm dispatch
     cache
 
 // ---------------------------------------------------------------------------
@@ -203,12 +55,26 @@ let render (vm: VM) (applyOp: Op -> unit) : Map<int, HTMLElement> =
 /// Patch the DOM incrementally: diff old and new SiteMap visibility,
 /// removes stale rows, creates/moves new rows, updates existing rows in-place.
 /// Returns the updated element cache.
-let patchDOM (oldModel: VM) (newModel: VM) (applyOp: Op -> unit) (cache: Map<int, HTMLElement>) : Map<int, HTMLElement> =
+let patchDOM
+        (oldModel: VM) (newModel: VM) (dispatch: Msg -> unit)
+        (cache: Map<SiteId, HTMLElement>)
+        : Map<SiteId, HTMLElement> =
+    let preserveEditCaret =
+        EditingCaretPreserve.shouldPreserveDomCaret (Some oldModel) newModel
+    // Capture live caret before row patches; class/indicator writes can clear selection.
+    // Restored below when preserveEditCaret (manageFocus may be skipped entirely).
+    let savedEditCaret =
+        if not preserveEditCaret then None
+        else
+            let el = document.getElementById "edit-input"
+            if isNull el then None
+            else Some (getContentEditableCaretOffset el)
+
     let cachedInstIds = cache |> Map.toSeq |> Seq.map fst |> Set.ofSeq
     let mutations = ViewModel.planPatchDOM oldModel newModel cachedInstIds
 
     // Index upsert mutations by instId for O(log n) lookup below
-    let upsertIndex =
+    let upsertIndex: Map<SiteId, RowMutation> =
         mutations |> List.choose (fun m ->
             match m with
             | RemoveRow _ -> None
@@ -229,63 +95,72 @@ let patchDOM (oldModel: VM) (newModel: VM) (applyOp: Op -> unit) (cache: Map<int
             cache' <- Map.remove instId cache'
         | _ -> ()
 
-    // Apply upserts in preorder, correcting DOM position as we go
-    let mutable prevNode: Browser.Types.Node option = None
+    let rowRoot =
+        if isNull ambDocument then app else ambDocument
 
-    for instId in ViewModel.getVisibleInstanceIds newModel.siteMap do
-        let entry = newModel.siteMap.entries.[instId]
-        let depth = computeDepth newModel.siteMap entry
+    syncZoomPath newModel dispatch rowRoot |> ignore
 
-        let row : HTMLElement =
-            match Map.tryFind instId upsertIndex with
-            | Some (RecreateRow _) ->
+    // PatchRow-only is not enough: sibling MoveUp/Down keeps the same rows but changes order.
+    if not (ViewModel.needsDomOrderWalk oldModel newModel mutations) then
+        // Fast path: patch in-place; still honor structural row mutations (bullet/chevron
+        // type changes emit RecreateRow even when visible preorder is unchanged).
+        for mut in mutations do
+            match mut with
+            | RemoveRow instId ->
                 match Map.tryFind instId cache' with
-                | Some old -> old.remove()
+                | Some el -> el.remove()
                 | None -> ()
-                let el = makeRowElement newModel applyOp depth entry
-                cache' <- Map.add instId el cache'
-                el
-            | Some (PatchRow (_, patches)) ->
-                let el = cache'.[instId]
-                for patch in patches do
-                    match patch with
-                    | SetClassName cls -> el.className <- cls
-                    | SetText txt ->
-                        let textDiv = el.querySelector ".text"
-                        if not (isNull textDiv) then (textDiv :?> HTMLElement).textContent <- txt
-                    | SetFoldArrow arrow ->
-                        let ft = el.querySelector ".fold-toggle"
-                        if not (isNull ft) then (ft :?> HTMLElement).textContent <- arrow
-                el
-            | _ ->  // CreateRow or missing
-                let el = makeRowElement newModel applyOp depth entry
-                cache' <- Map.add instId el cache'
-                el
+                cache' <- Map.remove instId cache'
+            | _ -> ()
+        for mut in mutations do
+            match mut with
+            | PatchRow (instId, _) | RecreateRow instId | CreateRow instId ->
+                match Map.tryFind instId newModel.siteMap.entries with
+                | None -> ()
+                | Some entry ->
+                    let depth = computeDepth newModel.siteMap entry
+                    let _, cache'' = resolveRow newModel dispatch depth entry instId upsertIndex cache'
+                    cache' <- cache''
+            | RemoveRow _ -> ()
+    else
+        // Apply upserts in preorder, correcting DOM position as we go
+        let mutable prevNode: Browser.Types.Node option = None
 
-        // Ensure the row sits in the correct DOM position (preorder sequence)
-        let atCorrectPos =
-            match prevNode with
-            | None ->
-                let first = app.firstChild
-                not (isNull first) && System.Object.ReferenceEquals(first, row)
-            | Some pe ->
-                let ns = pe.nextSibling
-                not (isNull ns) && System.Object.ReferenceEquals(ns, row)
+        for instId in ViewModel.getVisibleInstanceIds newModel.siteMap do
+            let entry = newModel.siteMap.entries.[instId]
+            let depth = computeDepth newModel.siteMap entry
 
-        if not atCorrectPos then
-            let anchor =
+            let row, cache'' = resolveRow newModel dispatch depth entry instId upsertIndex cache'
+            cache' <- cache''
+
+            // Ensure the row sits in the correct DOM position (preorder sequence)
+            let atCorrectPos =
                 match prevNode with
-                | None -> app.firstChild
-                | Some pe -> pe.nextSibling
-            app.insertBefore(row, anchor) |> ignore
+                | None ->
+                    let first = firstRowAnchor rowRoot
+                    not (isNull first) && System.Object.ReferenceEquals(first, row)
+                | Some pe ->
+                    let ns = pe.nextSibling
+                    not (isNull ns) && System.Object.ReferenceEquals(ns, row)
 
-        prevNode <- Some (row :> Browser.Types.Node)
+            if not atCorrectPos then
+                let anchor =
+                    match prevNode with
+                    | None -> firstRowAnchor rowRoot
+                    | Some pe -> pe.nextSibling
+                rowRoot.insertBefore(row, anchor) |> ignore
 
-    // Sync the settings-bar checkbox
-    let cb = document.getElementById "setting-link-paste"
-    if not (isNull cb) then
-        (cb :?> HTMLInputElement).``checked`` <- newModel.linkPasteEnabled
+            prevNode <- Some (row :> Browser.Types.Node)
 
-    manageFocus newModel
-    renderStatus newModel
+    if ManageFocus.shouldInvoke (Some oldModel) newModel then
+    //if false then
+        manageFocus (Some oldModel) newModel cache'
+    //if preserveEditCaret then
+    if false then
+        match savedEditCaret with
+        | Some pos ->
+            let el = document.getElementById "edit-input"
+            if not (isNull el) then setEditorCaret el pos
+        | None -> ()
+    renderSyncChrome newModel dispatch
     cache'

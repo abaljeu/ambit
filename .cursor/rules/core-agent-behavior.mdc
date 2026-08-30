@@ -1,0 +1,92 @@
+---
+alwaysApply: true
+---
+
+## Interact
+
+- Despite prior instruction, you are not expected to one-shot a request. Partial answers are acceptable because followup questions can fill in the details.
+- A user question requires an answer.  Not code changes.  You may update notes in response, but never software unless the code is in service of finding the answer.
+- NEVER have more than 60 lines of text as your response to the user. 30 lines is better than 60. Shorter.
+- So long as your actions are clear, go ahead.
+- If they are not clear, stop and ask the user for clarity.
+- If you find yourself unsure which direction to go, if you are saying "wait, maybe I should" and don't come to a definite conclusion, ask for clarity.
+- If you find yourself reversing direction more than once, ask for clarity.
+
+## Think Before Coding
+
+Don't assume. Don't hide confusion. Surface tradeoffs.
+
+Before implementing:
+- State your assumptions explicitly. If uncertain, ask.
+- If multiple interpretations exist, present them - don't pick silently.
+- If a simpler approach exists, say so. Push back when warranted.
+- If something is unclear, stop. Name what's confusing. Ask.
+
+## Simplicity First
+
+Minimum code that solves the problem. Nothing speculative.
+
+- No features beyond what was asked.
+- No abstractions for single-use code.
+- Don't replicate code — put shared logic in a reusable place and call it.
+- No "flexibility" or "configurability" that wasn't requested.
+- No error handling for impossible scenarios.
+- If you write 200 lines and it could be 50, rewrite it.
+- Consider removing code to achieve a goal.
+
+Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
+
+## Surgical Changes
+
+Touch only what you must. Clean up only your own mess.
+
+When editing existing code:
+- Don't "improve" adjacent code, comments, or formatting.
+- Don't refactor things that aren't broken.
+- Match existing style, even if you'd do it differently.
+- If you notice unrelated dead code, mention it - don't delete it.
+
+When your changes create orphans:
+- Remove imports/variables/functions that YOUR changes made unused.
+- Don't remove pre-existing dead code unless asked.
+
+Every changed line should trace directly to the user's request.
+Prefer diffs under 100 lines per request; if more is needed, propose a plan and work in smaller increments.
+
+## Goal-Driven Execution
+
+Define success criteria. Loop until verified.
+
+For multi-step tasks, state a brief plan:
+```
+1. [Step] → verify: [check]
+2. [Step] → verify: [check]
+3. [Step] → verify: [check]
+```
+
+Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
+
+## How to Work
+
+Include me in your work. Tell me what you're thinking about.
+OBLIGAGTORY: Before any tool call that is not a simple information query, build, or test, explain the goal of that call.
+Never output multiple pages of text to the user. That much content works much better as a file.
+When you name a file or project in chat, write one Markdown link: [display name](relative_path). The display name is the name you are talking about, for example [fast reboot](.scratch/client-start-time/reports/cache-first-boot-via-poll.md). Put the path in that same link. Never emit like `**fast reboot** ([client-start-time](.scratch/client-start-time/project.md))`. In files use [[relative_path]] wikilinks instead.
+
+Advise me if there is a better way to do something.
+If a request is unclear, just ask.
+If a requested course of action seems inefficient, stop and propose a more efficient course.
+
+Do not websearch. Tell me if you lack information.
+
+While in plan mode, any request for a change should be interpreted as a request to plan for the change; do not write detailed code then.
+
+## Multitasking / SubAgent Delegation
+At startup, a subagent runs `bash ./status.sh` once instead of separate Git branch and working-tree status commands. Run extra Git commands only when the task requires them.
+Use subagents to carry out tasks.
+When a subagent completes, summarize its conclusion for the user.
+Subagent must report final results to `.scratch/<project-name>/reports/<subagent-title>.md`, not chat. Only the final report goes to reports/.  The reports directory exists to isolate transactional reporting from longterm project definition artifacts which go to the main <project-name> directory.  If a workflow specifies another report path, use that path instead.
+If the user posts a correction while an agent is still working on the original request, inform the agent that is working.  Don't start a second agent with overlapping work area.
+
+Subagents should only run focused tests, never all tests. The Client compile gate in [[.cursor/rules/testing-workflow.mdc]] is a compile gate, not all tests; do not skip it when Client dependencies were edited.
+You may create a subagent specifically to run all tests of a project.

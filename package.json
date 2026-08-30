@@ -1,0 +1,11 @@
+{
+  "name": "gambol",
+  "private": true,
+  "scripts": {
+    "bundle": "esbuild src/Server/wwwroot/Program.js --bundle --minify --format=esm --sourcemap --outfile=src/Server/wwwroot/Program.bundle.js",
+    "bundle:watch": "npm run bundle -- --watch=forever"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.1"
+  }
+}

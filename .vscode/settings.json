@@ -5,6 +5,12 @@
             "path": "C:\\Program Files\\Git\\bin\\bash.exe",
             "args": ["--login"]
         }
-    }
+    },
+    "editor.inlayHints.enabled": "offUnlessPressed",
+    "git.mergeEditor" : false,
+    "workbench.editorAssociations": {
+            "*.svg": "default"
+    },
+    "dotnet.defaultSolution": "disable"
 }
 

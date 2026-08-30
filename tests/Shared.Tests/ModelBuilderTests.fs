@@ -1,6 +1,8 @@
 module ModelBuilderTests
 
 open Gambol.Shared
+open SpecialNodeTestHelpers
+open SpecialNodeTestHelpers
 open Xunit
 
 [<Fact>]
@@ -16,7 +18,7 @@ let ``Create nodes from text list`` () =
 [<Fact>]
 let ``CreateDag12 builds a 12 node dag with depth 3`` () =
     let graph = ModelBuilder.createDag12 ()
-    Assert.Equal(12, Graph.nodeCount graph)
+    Assert.Equal(11, userNodeCount graph)
 
     let rec maxDepthFrom nodeId depth visited =
         if Set.contains nodeId visited then
@@ -28,7 +30,7 @@ let ``CreateDag12 builds a 12 node dag with depth 3`` () =
             | children ->
                 let visited2 = Set.add nodeId visited
                 children
-                |> List.map (fun childId -> maxDepthFrom childId (depth + 1) visited2)
+                |> List.map (fun child -> maxDepthFrom child.id (depth + 1) visited2)
                 |> List.max
 
     let depth = maxDepthFrom graph.root 0 Set.empty

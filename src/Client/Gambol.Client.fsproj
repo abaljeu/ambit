@@ -3,14 +3,46 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
-
+    <WarningsAsErrors>$(WarningsAsErrors);FS0025</WarningsAsErrors>
   </PropertyGroup>
 
   <ItemGroup>
     <Compile Include="BuildInfo.fs" />
+    <Compile Include="JsInterop.fs" />
+    <Compile Include="CommandPalette.fs" />
+    <Compile Include="UpdateHelpers.fs" />
+    <Compile Include="UpdateCodec.fs" />
+    <Compile Include="UpdateEdit.fs" />
+    <Compile Include="UpdateMove.fs" />
+    <Compile Include="SearchDialog.fs" />
+    <Compile Include="FileSearchDialog.fs" />
+    <Compile Include="UpdateFileSearch.fs" />
+    <Compile Include="UpdateRename.fs" />
+    <Compile Include="UpdateAmbleRun.fs" />
+    <Compile Include="UpdateValidateGraph.fs" />
+    <Compile Include="UpdatePaste.fs" />
+    <Compile Include="UpdateImport.fs" />
+    <Compile Include="UpdateSave.fs" />
+    <Compile Include="UpdateWorkspaceDesktop.fs" />
+    <Compile Include="UpdateWorkspaceSync.fs" />
+    <Compile Include="UpdateWorkspaceDownload.fs" />
+    <Compile Include="UpdateWorkspaceLoad.fs" />
+    <Compile Include="UpdateOps.fs" />
     <Compile Include="Update.fs" />
+    <Compile Include="Commands.fs" />
     <Compile Include="Controller.fs" />
+    <Compile Include="SearchDialogView.fs" />
+    <Compile Include="FileSearchDialogView.fs" />
+    <Compile Include="StatusView.fs" />
+    <Compile Include="RowView.fs" />
+    <Compile Include="FocusView.fs" />
+    <Compile Include="CommandDock.fs" />
+    <Compile Include="Overlays.fs" />
     <Compile Include="View.fs" />
+    <Compile Include="SessionState.fs" />
+    <Compile Include="BootCacheStore.fs" />
+    <Compile Include="AutoDownloadTimer.fs" />
+    <Compile Include="App.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 
@@ -25,6 +57,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Shared\Gambol.Shared.fsproj" />
+    <ProjectReference Include="..\Shared\documents\Gambol.Shared.Documents.fsproj" />
   </ItemGroup>
 
 </Project>

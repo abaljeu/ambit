@@ -36,6 +36,26 @@ module ChangeLog =
         stream.Flush()
         offset
 
+    let appendEntries (stream: FileStream) (entries: (int * string) list) : int64 list =
+        let startOffset = stream.Position
+        let lines =
+            entries
+            |> List.map (fun (changeId, json) ->
+                let header = sprintf "%08d" changeId
+                header + json + Environment.NewLine)
+        let offsets =
+            lines
+            |> List.mapFold
+                (fun offset line ->
+                    let nextOffset = offset + int64 (Encoding.UTF8.GetByteCount line)
+                    offset, nextOffset)
+                startOffset
+            |> fst
+        let bytes = lines |> String.concat "" |> Encoding.UTF8.GetBytes
+        stream.Write(bytes, 0, bytes.Length)
+        stream.Flush()
+        offsets
+
     // ------------------------------------------------------------------
     // Read / index
     // ------------------------------------------------------------------
@@ -83,3 +103,15 @@ module ChangeLog =
     /// Decode a Change from JSON.
     let decodeChange (json: string) : Result<Change, string> =
         Decode.fromString Serialization.decodeChange json
+
+    let tryFindByChangeId
+        (stream: FileStream)
+        (offsets: int64 ResizeArray)
+        (changeId: Guid)
+        : Change option =
+        offsets
+        |> Seq.tryPick (fun offset ->
+            let _, json = readEntryAt stream offset
+            match decodeChange json with
+            | Ok change when change.changeId = changeId -> Some change
+            | _ -> None)

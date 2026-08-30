@@ -7,11 +7,11 @@ module Snapshot =
 
     /// Serialize a graph to tab-indented text outline format.
     /// The root node is implicit; its children become top-level lines.
-    /// Nodes that appear under more than one parent are emitted once as
+    /// Shared NodeIds (multiple child slots) use Ownership: the Owner edge emits
     ///   #n1 text
-    /// and every subsequent appearance as
+    /// and indented children; each Ref edge emits only
     ///   -> #n1
-    /// Nodes that appear only once are emitted as plain text (backward compatible).
+    /// Single-slot nodes are plain text (backward compatible).
     let write (graph: Graph) : string =
         let sb = Text.StringBuilder()
         let nl = Environment.NewLine
@@ -20,7 +20,7 @@ module Snapshot =
         let occurrenceCount =
             graph.nodes
             |> Map.toSeq
-            |> Seq.collect (fun (_, node) -> node.children)
+            |> Seq.collect (fun (_, node) -> node.children |> Seq.map (fun child -> child.id))
             |> Seq.groupBy id
             |> Seq.map (fun (nodeId, xs) -> nodeId, Seq.length xs)
             |> Map.ofSeq
@@ -34,98 +34,280 @@ module Snapshot =
             shortIds <- Map.add nodeId sid shortIds
             sid
 
-        let mutable visited = Set.empty<NodeId>
+        let ensureShortId (nodeId: NodeId) =
+            match shortIds |> Map.tryFind nodeId with
+            | Some sid -> sid
+            | None -> assignShortId nodeId
 
-        let rec writeNode (depth: int) (nodeId: NodeId) =
-            let indent = String.replicate depth "\t"
-            let isShared = (occurrenceCount |> Map.tryFind nodeId |> Option.defaultValue 0) > 1
-            if Set.contains nodeId visited then
-                let sid = shortIds.[nodeId]
-                sb.Append(indent).Append("-> #").Append(sid).Append(nl) |> ignore
+        let pathBodyFor (nodeId: NodeId) (node: Node) =
+            match node.kind with
+            | Special Workspace -> NodeDesktopPath.pathForNodeId graph nodeId
+            | Normal
+            | Special (Workspaces | Directory | File) -> None
+
+        let lineBodyFor (node: Node) (bodyText: string) =
+            let needsMeta =
+                not (CssClass.toList node.cssClasses).IsEmpty || bodyText.StartsWith("{")
+            if needsMeta then
+                "{" + CssClass.toMetaString node.cssClasses + "}" + bodyText
             else
-                visited <- Set.add nodeId visited
+                bodyText
+
+        let ensureCanonicalSid (nodeId: NodeId) : string option =
+            if nodeId = Graph.workspacesId then
+                Some "WORKSPACES"
+            elif nodeId = Graph.systemId then
+                Some "SYSTEM"
+            elif nodeId = Graph.trashId then
+                Some "TRASH"
+            else
+                None
+
+        let rec writeChild (parentId: NodeId) (depth: int) (child: ChildNode) =
+            let indent = String.replicate depth "\t"
+            let nodeId = child.id
+            let isShared =
+                (occurrenceCount |> Map.tryFind nodeId |> Option.defaultValue 0) > 1
+
+            match Node.childOwnership graph parentId child with
+            | Ownership.Ref ->
+                let sid =
+                    ensureCanonicalSid nodeId
+                    |> Option.defaultWith (fun () -> ensureShortId nodeId)
+                sb.Append(indent).Append("-> #").Append(sid).Append(nl) |> ignore
+            | Ownership.Owner ->
                 let node = graph.nodes.[nodeId]
-                if isShared then
-                    let sid = assignShortId nodeId
-                    sb.Append(indent).Append("#").Append(sid).Append(" ").Append(node.text).Append(nl) |> ignore
+                let pathBody = pathBodyFor nodeId node
+                let body = lineBodyFor node (pathBody |> Option.defaultValue node.text)
+                let isSpecial =
+                    match node.kind with
+                    | Special _ -> true
+                    | Normal -> false
+                if pathBody.IsSome && not isShared then
+                    sb.Append(indent).Append(body).Append(nl) |> ignore
+                elif isShared || isSpecial then
+                    let sid =
+                        ensureCanonicalSid nodeId
+                        |> Option.defaultWith (fun () -> ensureShortId nodeId)
+                    sb.Append(indent).Append("#").Append(sid).Append(" ").Append(body).Append(nl)
+                    |> ignore
                 else
-                    sb.Append(indent).Append(node.text).Append(nl) |> ignore
-                for childId in node.children do
-                    writeNode (depth + 1) childId
+                    sb.Append(indent).Append(body).Append(nl) |> ignore
+                for c in node.children do
+                    writeChild nodeId (depth + 1) c
 
         let root = graph.nodes.[graph.root]
 
-        for childId in root.children do
-            writeNode 0 childId
+        for child in root.children do
+            writeChild graph.root 0 child
 
         sb.ToString()
 
+    /// Collapse CR/LF variants for equality checks (line breaks between lines and any embedded
+    /// newlines inside node text). Editors often hide why raw `=` is false.
+    let normalizeOutlineForCompare (s: string) : string =
+        s.Replace("\r\n", "\n").Replace("\r", "\n")
+
+    let private firstOutlineDiffIndex (left: string) (right: string) : int option =
+        let rec go i =
+            if i >= left.Length && i >= right.Length then
+                None
+            elif i >= left.Length || i >= right.Length then
+                Some i
+            elif left.[i] = right.[i] then
+                go (i + 1)
+            else
+                Some i
+
+        go 0
+
+    /// When two outlines look the same in a viewer but `=` is false, this reports lengths,
+    /// CR/LF counts, first differing index, and short context (code points, not escaped body).
+    let describeOutlineMismatch (left: string) (right: string) : string =
+        let sb = Text.StringBuilder()
+        let cr (t: string) = t.Length - t.Replace("\r", "").Length
+        let lf (t: string) = t.Length - t.Replace("\n", "").Length
+        sb.AppendLine(sprintf "length left=%d right=%d" left.Length right.Length) |> ignore
+        sb.AppendLine(sprintf "CR count left=%d right=%d; LF left=%d right=%d" (cr left) (cr right) (lf left) (lf right))
+        |> ignore
+
+        match firstOutlineDiffIndex left right with
+        | None -> sb.Append("No character difference and lengths match.").ToString()
+        | Some i ->
+            let at (t: string) (j: int) =
+                if j >= t.Length then "EOF" else sprintf "U+%04X" (int t.[j])
+
+            let lo = max 0 (i - 24)
+
+            let span (t: string) =
+                if lo >= t.Length then ""
+                else t.Substring(lo, min 48 (t.Length - lo))
+
+            sb.AppendLine(sprintf "first differing index (0-based): %d" i) |> ignore
+            sb.AppendLine(sprintf "left_char=%s right_char=%s" (at left i) (at right i)) |> ignore
+            sb.AppendLine("context left:  " + span left) |> ignore
+            sb.Append("context right: " + span right) |> ignore
+            sb.ToString()
+
+    /// Optional leading metadata "{...}rest" → (cssClasses, nodeText).
+    let private parseOutlineMeta (raw: string) : CssClasses * string =
+        if not (raw.StartsWith("{")) then
+            CssClass.empty, raw
+        else
+            let closeIdx = raw.IndexOf('}')
+            if closeIdx < 0 then
+                CssClass.empty, raw
+            else
+                let metaContent = raw.Substring(1, closeIdx - 1)
+                let nodeText = raw.Substring(closeIdx + 1)
+                let classList =
+                    metaContent.Split(' ')
+                    |> Array.toList
+                    |> List.choose (fun tok ->
+                        let t = tok.Trim()
+                        if t.StartsWith(".") && t.Length > 1 then Some (t.Substring(1))
+                        else None)
+                CssClass.ofList classList, nodeText
+
+    let private outlineTextNode (id: NodeId) (nodeText: string) (classes: CssClasses) : Node =
+        let name =
+            if id = Graph.trashId then
+                Filename.Ok "TRASH"
+            elif id = Graph.systemId then
+                Filename.Ok "SYSTEM"
+            else
+                Filename.Empty
+        let kind =
+            if id = Graph.rootId then
+                Special Workspace
+            elif id = Graph.workspacesId then
+                Special Workspaces
+            elif Graph.isSystemDirectoryNode id then
+                Special Directory
+            else
+                Normal
+        Node.Create(id, text = nodeText, name = name, cssClasses = classes, kind = kind)
+
+    let private outlineStubNode (id: NodeId) : Node =
+        outlineTextNode id "" CssClass.empty
+
+    /// Prepends edge to parent's children (fold uses reverse; see read).
+    let private prependOutlineChild
+        (parentId: NodeId)
+        (edge: ChildNode)
+        (nodes: Map<NodeId, Node>)
+        =
+        let p = nodes |> Map.find parentId
+        nodes |> Map.add parentId { p with children = edge :: p.children }
+
+    let private parseHashDefLine (content: string) : string * string =
+        let spaceIdx = content.IndexOf(' ')
+        if spaceIdx < 0 then content.Substring(1), ""
+        else content.Substring(1, spaceIdx - 1), content.Substring(spaceIdx + 1)
+
+    let private canonicalNodeIdForSid (sid: string) : NodeId option =
+        match sid with
+        | "WORKSPACES" -> Some Graph.workspacesId
+        | "SYSTEM" -> Some Graph.systemId
+        | "TRASH" -> Some Graph.trashId
+        | _ -> None
+
+    let private resolveRefSid
+        (sid: string)
+        (nodes: Map<NodeId, Node>)
+        (idMap: Map<string, NodeId>)
+        =
+        let chosenId =
+            match canonicalNodeIdForSid sid, idMap |> Map.tryFind sid with
+            | Some canonical, _ -> canonical
+            | None, Some nid -> nid
+            | None, None -> NodeId.New()
+
+        let nodes' =
+            if Map.containsKey chosenId nodes then
+                nodes
+            else
+                nodes |> Map.add chosenId (outlineStubNode chosenId)
+
+        let idMap' = idMap |> Map.add sid chosenId
+        chosenId, nodes', idMap'
+
+    let private resolveOwnerSid
+        (sid: string)
+        (classes: CssClasses)
+        (nodeText: string)
+        (nodes: Map<NodeId, Node>)
+        (idMap: Map<string, NodeId>)
+        =
+        let chosenId =
+            match canonicalNodeIdForSid sid, idMap |> Map.tryFind sid with
+            | Some canonical, _ -> canonical
+            | None, Some nid -> nid
+            | None, None -> NodeId.New()
+
+        let prior =
+            nodes
+            |> Map.tryFind chosenId
+            |> Option.defaultValue (outlineTextNode chosenId nodeText classes)
+
+        let n =
+            match canonicalNodeIdForSid sid with
+            | Some _ -> { prior with text = nodeText; cssClasses = classes }
+            | None -> NodeUpdateTime.touch { prior with text = nodeText; cssClasses = classes }
+        let nodes' = nodes |> Map.add chosenId n
+        let idMap' = idMap |> Map.add sid chosenId
+        chosenId, nodes', idMap'
+
+    let rec private popOutlineStack depth stack =
+        match stack with
+        | (d, _) :: tail when d >= depth -> popOutlineStack depth tail
+        | _ -> stack
+
+    let private outlineSourceLines (text: string) =
+        if String.IsNullOrEmpty(text) then
+            Array.empty
+        else
+            text.Replace("\r\n", "\n").TrimEnd('\n').Split('\n')
+
+    let private foldOutlineLine (nodes, stack, idMap: Map<string, NodeId>) (line: string) =
+        let depth = line |> Seq.takeWhile ((=) '\t') |> Seq.length
+        let content = line.Substring(depth)
+        let stack = popOutlineStack depth stack
+        let parentId = snd stack.Head
+
+        if content.StartsWith("-> #") then
+            let sid = content.Substring(4).Trim()
+            let nid, nodes, idMap = resolveRefSid sid nodes idMap
+            let edge = ChildNode.reference nid
+            (prependOutlineChild parentId edge nodes, stack, idMap)
+
+        elif content.StartsWith("#") then
+            let sid, body = parseHashDefLine content
+            let classes, nodeText = parseOutlineMeta body
+            let nid, nodes', idMap' = resolveOwnerSid sid classes nodeText nodes idMap
+            let edge = ChildNode.owner nid
+            (prependOutlineChild parentId edge nodes', (depth, nid) :: stack, idMap')
+
+        else
+            let classes, nodeText = parseOutlineMeta content
+            let nid = NodeId.New()
+            let nodes = nodes |> Map.add nid (outlineTextNode nid nodeText classes)
+            let edge = ChildNode.owner nid
+            (prependOutlineChild parentId edge nodes, (depth, nid) :: stack, idMap)
+
+    let private finalizeOutlineGraph (rootId: NodeId) (nodemap: Map<NodeId, Node>) : Graph =
+        let nodes =
+            nodemap
+            |> Map.map (fun _ (n: Node) -> { n with children = List.rev n.children })
+        Graph.fromNodes rootId nodes
+
     /// Parse tab-indented text outline into a new Graph.
-    /// Creates new NodeIds; original IDs are not preserved.
-    /// Handles three line formats:
-    ///   #n1 text   — first occurrence of a shared node; registers "n1" in ID map
-    ///   -> #n1     — subsequent occurrence; reuses the registered NodeId
-    ///   text       — plain line; fresh NodeId (backward compatible with old snapshots)
+    /// Canonical root id is preserved; other NodeIds are minted fresh.
+    /// Formats: #n1 text (Owner), -> #n1 (Ref), or plain line. Owner may update a ref stub.
     let read (text: string) : Graph =
-        let lines =
-            if String.IsNullOrEmpty(text) then
-                Array.empty
-            else
-                text.Replace("\r\n", "\n").TrimEnd('\n').Split('\n')
-
-        let rootId = NodeId.New()
-
-        let rootNode: Node =
-            { id = rootId
-              text = "ROOT"
-              name = None
-              children = [] }
-
-        let rec popStack depth stack =
-            match stack with
-            | (d, _) :: tail when d >= depth -> popStack depth tail
-            | _ -> stack
-
-        let processLine (nodes, stack, idMap: Map<string, NodeId>) (line: string) =
-            let depth =
-                line |> Seq.takeWhile ((=) '\t') |> Seq.length
-
-            let content = line.Substring(depth)
-            let stack = popStack depth stack
-            let parentId = snd stack.Head
-            let parent: Node = nodes |> Map.find parentId
-
-            if content.StartsWith("-> #") then
-                // Reference to an already-introduced shared node.
-                let sid = content.Substring(4).Trim()
-                let nodeId = idMap.[sid]
-                let nodes = nodes |> Map.add parentId { parent with children = parent.children @ [ nodeId ] }
-                // Do not push onto stack — no children are expected below a reference line.
-                (nodes, stack, idMap)
-
-            elif content.StartsWith("#") then
-                // First occurrence of a shared node: "#sid text"
-                let spaceIdx = content.IndexOf(' ')
-                let sid, nodeText =
-                    if spaceIdx < 0 then content.Substring(1), ""
-                    else content.Substring(1, spaceIdx - 1), content.Substring(spaceIdx + 1)
-                let nodeId = NodeId.New()
-                let node: Node = { id = nodeId; text = nodeText; name = None; children = [] }
-                let nodes = nodes |> Map.add nodeId node
-                let nodes = nodes |> Map.add parentId { parent with children = parent.children @ [ nodeId ] }
-                let idMap = idMap |> Map.add sid nodeId
-                (nodes, (depth, nodeId) :: stack, idMap)
-
-            else
-                // Plain line — fresh ID (backward compatible).
-                let nodeId = NodeId.New()
-                let node: Node = { id = nodeId; text = content; name = None; children = [] }
-                let nodes = nodes |> Map.add nodeId node
-                let nodes = nodes |> Map.add parentId { parent with children = parent.children @ [ nodeId ] }
-                (nodes, (depth, nodeId) :: stack, idMap)
-
-        let nodes, _, _ =
-            lines
-            |> Array.fold processLine (Map.ofList [ rootId, rootNode ], [ (-1, rootId) ], Map.empty)
-
-        { root = rootId; nodes = nodes }
+        let initial =
+            ( Map.ofList [ Graph.rootId, Graph.rootPlaceholder ]
+              , [ (-1, Graph.rootId) ]
+              , Map.empty )
+        let nodemap, _, _ = outlineSourceLines text |> Array.fold foldOutlineLine initial
+        finalizeOutlineGraph Graph.rootId nodemap

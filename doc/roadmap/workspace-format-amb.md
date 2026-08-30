@@ -1,0 +1,111 @@
+# Workspace `.amb` Text Format
+
+Status: Draft
+Authority: [[src/Shared/Snapshot.fs]] documents a pre-workspace baseline; workspace `.amb` rules below are target design.
+See also: [[doc/roadmap/workspace-text-outline-conversion.md]], [[doc/roadmap/reference-expressions.md]]
+
+This document defines the native `.amb` line grammar and how it maps to outline nodes. Import/export workflow and the generic conversion contract live in [[doc/roadmap/workspace-text-outline-conversion.md]].
+
+## Pre-workspace baseline (Snapshot.fs)
+
+`Snapshot.write` / `Snapshot.read` implement an interim format for whole-graph snapshots. Workspace `.amb` **replaces** its identity scheme; backward compatibility is not required.
+
+- Tab indentation sets parentage.
+- `#n1` Owner lines and `-> #n1` Ref lines use ephemeral short ids reassigned on each write.
+- Plain lines mint fresh `NodeId`s on read.
+- Metadata prefix `{.class1 .class2}rest` on line bodies.
+
+## Line grammar
+
+One line per outline row. Tab depth sets parentage; the file root is implicit.
+
+```
+<line>      ::= <indent> <content>
+<indent>    ::= TAB*
+<content>   ::= <ref-line> | <owner-line> | <plain-line>
+<ref-line>  ::= "-> " <ref-target>
+<owner-line>::= "^" <stable-id> <owner-rest>
+<owner-rest>::= <body>
+              | <name-token> TAB <body>
+<plain-line>::= <body>
+<body>      ::= [<meta>] <text>
+<meta>      ::= "{" <class-list> "}"
+<stable-id> ::= <guid> | "WORKSPACES" | "TRASH" | "SYSTEM"
+<name-token>::= identifier satisfying [[src/Shared/Filename.fs]] Ok rules (without leading ^)
+<ref-target>::= "^" <stable-id>
+              | <workspace-relative-path> "^" <stable-id>
+<guid>      ::= canonical `NodeId` string form (full GUID)
+```
+
+Line breaks: `\n` or `\r\n`; normalize on read.
+
+**Owner line.** Replaces baseline `#n1`. Stable ids use `^`, not `#`. The stable id is authoritative for import reconciliation. When the node has a readable `name`, export writes `<name-token> TAB <body>` after the stable id; import splits on the first TAB in the remainder. When the node has no `name`, the remainder is `<body>` only (may contain spaces). `body` is node text after optional metadata prefix.
+
+**Ref line.** Replaces baseline `-> #n1`. Resolves by stable `NodeId` via `^<stable-id>` in the current file, or `<path>^<stable-id>` cross-file. Import must not rely on line order or tab depth alone.
+
+**Plain line.** Content without a stable id. Import mints a new `NodeId`. Export uses owner lines for all persisted subtree nodes; plain lines appear only from external edits before reconciliation.
+
+**Blank lines.** Empty line bodies are ordinary plain rows (`text = ""`). Amb does not use Plain's blank-both-ways complement policy.
+
+**Metadata prefix.** Unchanged from baseline: `{.class1 .class2}rest` on line bodies maps to `cssClasses` + text.
+
+## Warm reconcile
+
+Warm import uses Shared/Documents `DocumentFormat.readArtifact` with `previousText` (routes to `AmbReconcile`: unique Owner/Ref durable keys hard-match first (`^<stable-id>`, `->^<stable-id>`), then shared outline LCS for plain rows and unmatched lines) ([[doc/roadmap/workspace-text-outline-conversion.md]] § Shared outline LCS reconcile). Lazy-load modify of an already-projected `.amb` exports the current graph as `previousText` (cold `None` only on first empty load). Export is full-cloth `AmbDocument.write`; that is sufficient for identity/reconcile. Ops-driven incremental write is optional only for quieter git diffs, not an open reconcile gap.
+
+## Text to outline
+
+| Line kind | Import rule | Export counterpart |
+|-----------|-------------|-------------------|
+| Owner | Match `stable-id` to a node in the current file subtree; update text, classes, name, and children stack. Unknown id in subtree: report or mint per policy (TBD). | **Owner line** |
+| Ref | Resolve `ref-target` to `NodeId` (within-file by `^<stable-id>`, cross-file by path + `^<stable-id>` against graph). Emit Ref edge under current parent. | **Ref line** |
+| Plain | Mint new `NodeId`; Owner edge; push onto stack. | **Owner line** (once persisted) |
+| Tab depth | Pop stack to depth; attach under stack head. | Same depth on write |
+| Metadata | Parse `{...}` prefix into classes + text. | Same prefix on write |
+
+Special nodes: `WORKSPACES` and `TRASH` ids map to fixed canonical nodes as today.
+
+## Outline to text
+
+| Outline state | Export rule | Import counterpart |
+|---------------|-------------|-------------------|
+| Owned node in file subtree | `^<NodeId> [<name> TAB] <body>` at tab depth from parentage; include `name-token` when node has a readable name. | **Owner line** |
+| Ref edge | `-> ^<NodeId>` within file, or `-> <path>^<NodeId>` cross-file. | **Ref line** |
+| Hierarchy | Tab depth = child depth under owner parentage. | Tab depth |
+| Classes | `{.class...}` prefix when non-empty or text starts with `{`. | Metadata prefix |
+
+Workspace export projects one file subtree only (not the whole graph).
+
+## References (within and cross-file)
+
+Stable anchor is `^<stable-id>`. Cross-file form is `<workspace-relative-path>^<stable-id>`, aligned with [[doc/roadmap/reference-expressions.md]] namespace member steps where applicable.
+
+- Bind by stable `NodeId`; editing file B must not force rewriting file A when A holds a cross-file reference into B.
+- Ambit ensures `name` is unique among reference targets within a file when a reference is created.
+- Each import rule above names its export counterpart.
+
+## Carried forward from baseline
+
+- Tab indentation sets parentage; root is implicit.
+- Metadata prefix `{.class1 .class2}rest` on line bodies.
+- Line break normalization on read.
+
+## Not in Snapshot.fs
+
+- Stable file-scoped and cross-file identity as above.
+- Subtree scope — workspace export projects one file subtree only.
+- Unsupported-structure reporting — workspace import reports what cannot round-trip.
+- Full-cloth export of one file subtree (canonical rewrite is fine; ops-driven delta write is optional for git-diff niceties only).
+
+## Open Questions
+
+- Whether unknown stable id on import is an error or triggers mint-with-warning.
+- Exact cross-file path encoding when the target workspace label differs from the current file's workspace.
+
+## Verification Targets
+
+- Tab depth, Owner/Ref line kinds, and metadata prefix round-trip under workspace rules.
+- `read` then `write` is stable when the outline is unchanged (modulo readable ref projection choices).
+- Reorder and text edit preserve identity via stable ids on import.
+- Warm reconcile: owner text edit and reindent keep `^` ids; plain add/delete LCS-align; ref reorder keeps `->^` targets (`AmbDocumentTests` / `AmbReconcile`).
+- Cross-file reference in file A stays valid without rewriting A when file B is edited elsewhere.

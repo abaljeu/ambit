@@ -4,25 +4,57 @@
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
 
+  <!-- Run Fable before publish so deployed wwwroot always has the latest client -->
+  <Target Name="BuildFableBeforePublish" BeforeTargets="ComputeFilesToPublish">
+    <Exec Command="dotnet fable ..\Client --outDir $(ProjectDir)wwwroot --sourceMaps" WorkingDirectory="$(ProjectDir)" />
+    <Exec Command="npm --prefix ../.. run bundle" WorkingDirectory="$(ProjectDir)" />
+  </Target>
+
   <ItemGroup>
     <!-- Prevent dotnet watch from restarting the server when Fable rewrites wwwroot -->
     <Watch Remove="wwwroot\**" />
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="DataDir.fs" />
     <Compile Include="Types.fs" />
     <Compile Include="ChangeLog.fs" />
+    <Compile Include="AuthToken.fs" />
+    <Compile Include="HttpResponseLog.fs" />
+    <Compile Include="GitSave.fs" />
+    <Compile Include="WorkspaceGit.fs" />
+    <Compile Include="WorkspaceWebDav.fs" />
+    <Compile Include="LazyLoadReconciliationDiagnostics.fs" />
+    <Compile Include="GitGatewayDiagnostics.fs" />
+    <Compile Include="GitGateway.fs" />
+    <Compile Include="IgnoredDestination.fs" />
+    <Compile Include="DocumentPersistence.fs" />
+    <Compile Include="Bookkeeping.fs" />
+    <Compile Include="DailyGitSave.fs" />
+    <Compile Include="DocumentLoader.fs" />
     <Compile Include="FileAgent.fs" />
+    <Compile Include="Database.fs" />
+    <Compile Include="DatabaseProjection.fs" />
+    <Compile Include="DbAgentStartup.fs" />
+    <Compile Include="DbAgent.fs" />
+    <Compile Include="DatabaseSetup.fs" />
+    <Compile Include="SavePrep.fs" />
     <Compile Include="Api.fs" />
+    <Compile Include="LazyLoadReconciliationServer.fs" />
+    <Compile Include="HeadPresence.fs" />
+    <Compile Include="RouteRegistration.fs" />
     <Compile Include="Server.fs" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Shared\Gambol.Shared.fsproj" />
+    <ProjectReference Include="..\Shared\dotnet\Gambol.Shared.DotNet.fsproj" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Thoth.Json.Newtonsoft" Version="0.3.3" />
+    <PackageReference Include="Npgsql" Version="9.0.3" />
+    <PackageReference Include="Dapper" Version="2.1.35" />
   </ItemGroup>
 
 </Project>

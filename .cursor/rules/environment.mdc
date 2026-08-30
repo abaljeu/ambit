@@ -1,0 +1,28 @@
+---
+alwaysApply: true
+---
+
+Windows 10. GIT Bash shell. Use it.
+
+Your working directory is the project root. Do not use `cd`. Do not change directories.
+Use relative paths such as ./src. Do not use absolute paths.
+
+## Git
+
+Follow [[.cursor/skills/git-protocol/SKILL.md]]. Terms: [[CONTEXT.md]].
+
+The Desktop agent does not run remotes unless the user asks (manual approval). Remotes are [[.cursor/skills/git-share/SKILL.md]], which the human invokes.
+
+Read-only local git (`status`, `diff`, `log`, `rev-parse`, `check-ignore`, etc.) is always fine.
+
+Do not run VSCode Tasks.
+
+Issues are local Markdown under `.scratch/` — see [[docs/agents/issue-tracker.md]]. Do not file or sync issues on GitHub/GitLab.
+
+Never override OutputPath/BaseIntermediateOutputPath (e.g. bin-verify/obj-verify); use normal Debug bin/obj. If outputs are locked, report and stop — do not redirect build output.
+
+The linter is never able to handle project edits until the environment reloads. Don't let this stop you.
+
+Occasionally the first time you send a command, the tool will delete the first character of your command. If so, just send it again.
+
+When writing with Write, do not include explicit CRLF (`\r\n`) in the content; use normal newlines and let the tool/editor preserve CRLF.

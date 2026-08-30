@@ -3,7 +3,7 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/main/VisualStudio.gitignore
 *.zip
-
+tmp
 # Credentials — upload directly to server, do not commit
 src/Server/appsettings.Production.json
 
@@ -74,6 +74,9 @@ BenchmarkDotNet.Artifacts/
 project.lock.json
 project.fragment.lock.json
 artifacts/
+
+# Ad-hoc agent/local build outputs (dotnet -o ./tmp-*-build)
+tmp-*-build/
 
 # ASP.NET Scaffolding
 ScaffoldingReadMe.txt
@@ -416,5 +419,12 @@ FodyWeavers.xsd
 *.fable-temp.csproj
 dist/
 
-# Runtime data
-#data/
+# Lucide vendored package: tarball committed; icons/ extracted locally
+other/lucide/icons/
+
+# Server HTTP response diagnostic log (recreated each run)
+src/Server/logs/
+
+# Runtime data (own nested git repo)
+/data/
+**/.SageFs/

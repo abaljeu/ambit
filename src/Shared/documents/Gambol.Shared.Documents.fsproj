@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="DocumentHandler.fs" />
+    <Compile Include="OutlineDocument.fs" />
+    <Compile Include="DocumentOutlineOps.fs" />
+    <Compile Include="OutlineReconcile.fs" />
+    <Compile Include="OutlineDocumentWarm.fs" />
+    <Compile Include="AmbDocument.fs" />
+    <Compile Include="PlainTextDocument.fs" />
+    <Compile Include="CStyleBrace.fs" />
+    <Compile Include="CStyleDocument.fs" />
+    <Compile Include="MdDocument.fs" />
+    <Compile Include="DocumentBinary.fs" />
+    <Compile Include="DocumentFormat.fs" />
+    <Compile Include="DocumentColdParse.fs" />
+    <Compile Include="PlainTextReconcile.fs" />
+    <Compile Include="CStyleReconcile.fs" />
+    <Compile Include="MdReconcile.fs" />
+    <Compile Include="AmbReconcile.fs" />
+    <Compile Include="DocumentWarm.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Gambol.Shared.fsproj" />
+  </ItemGroup>
+
+</Project>

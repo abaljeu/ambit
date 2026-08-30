@@ -1,6 +1,6 @@
 namespace Gambol.Server
 
-/// Marker type for WebApplicationFactory<Program> in tests.
+/// DirInfo type for WebApplicationFactory<Program> in tests.
 type Program = class end
 
 module Encode = Thoth.Json.Newtonsoft.Encode

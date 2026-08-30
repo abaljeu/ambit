@@ -1,0 +1,133 @@
+Commands executed into Azure
+
+This file is an operational log of Azure/PostgreSQL setup work.
+`overview.md` is the canonical status source when this log and planning docs differ.
+
+Current status from overview.md
+
+- [x] Provision Azure Database for PostgreSQL - Flexible Server
+- [x] Create the `gambol` database and credentials
+- [x] Configure network access from Azure App Service (`Amble`) to the database
+- [x] Set `DB_CONNECTION_STRING` in Azure App Service environment variables
+- [ ] Deploy once so startup runs `initSchema` and the initial rebuild/parity checks
+
+Commands executed
+
+1. Inspect App Service region and outbound IPs
+
+```powershell
+az webapp show --resource-group Amble_group --name Amble --query "{location:location, outboundIps:outboundIpAddresses}" -o json
+```
+
+Result:
+
+```json
+{
+  "location": "Canada Central",
+  "outboundIps": "4.248.233.23,20.48.202.164"
+}
+```
+
+2. Create PostgreSQL Flexible Server
+
+Template command:
+
+```bash
+az postgres flexible-server create \
+  --resource-group Amble_group \
+  --name gambol-pg \
+  --location "Canada Central" \
+  --admin-user gambol_admin \
+  --admin-password "<redacted>" \
+  --sku-name Standard_B1ms \
+  --tier Burstable \
+  --storage-size 32 \
+  --version 17 \
+  --public-access 0.0.0.0
+```
+
+Executed successfully.
+
+Result summary:
+
+- Server: `gambol-pg`
+- Host: `gambol-pg.postgres.database.azure.com`
+- Admin user: `gambol_admin`
+- Version: `17`
+- SKU: `Standard_B1ms`
+- Resource group: `Amble_group`
+- Azure firewall rule created: `AllowAllAzureServicesAndResourcesWithinAzureIps_2026-4-20_12-39-45`
+
+Azure returned:
+
+```json
+{
+  "connectionString": "postgresql://gambol_admin:<password>@gambol-pg.postgres.database.azure.com/postgres?sslmode=require",
+  "databaseName": "postgres",
+  "firewallName": "AllowAllAzureServicesAndResourcesWithinAzureIps_2026-4-20_12-39-45",
+  "host": "gambol-pg.postgres.database.azure.com",
+  "id": "/subscriptions/186518c2-b4d7-4118-998c-d5cd0b67517e/resourceGroups/Amble_group/providers/Microsoft.DBforPostgreSQL/flexibleServers/gambol-pg",
+  "location": "Canada Central",
+  "resourceGroup": "Amble_group",
+  "skuname": "Standard_B1ms",
+  "username": "gambol_admin",
+  "version": "17"
+}
+```
+
+3. Create Gambol application database
+
+```bash
+az postgres flexible-server db create \
+  --resource-group Amble_group \
+  --server-name gambol-pg \
+  --database-name gambol
+```
+
+Operational values for the next step
+
+- App Service setting name: `DB_CONNECTION_STRING`
+- Expected app connection string format:
+
+```text
+Host=gambol-pg.postgres.database.azure.com;Database=gambol;Username=gambol_admin;Password=<redacted>;SSL Mode=Require;Trust Server Certificate=true
+```
+
+- If Azure requires the fully qualified username instead:
+
+```text
+Host=gambol-pg.postgres.database.azure.com;Database=gambol;Username=gambol_admin@gambol-pg;Password=<redacted>;SSL Mode=Require;Trust Server Certificate=true
+```
+
+Next commands to run
+
+1. Set the App Service environment variable
+
+```bash
+az webapp config appsettings set \
+  --resource-group Amble_group \
+  --name Amble \
+  --settings DB_CONNECTION_STRING="Host=gambol-pg.postgres.database.azure.com;Database=gambol;Username=gambol_admin;Password=<redacted>;SSL Mode=Require;Trust Server Certificate=true"
+```
+
+2. Deploy the app
+
+Use the normal Gambol publish/deploy command or script after setting the app setting.
+
+3. Verify startup after deploy
+
+Confirm that startup:
+
+- connects to PostgreSQL
+- runs `initSchema`
+- rebuilds from file authority if needed
+- reports DB presence on the status line
+
+4. App Service restart bundled with DB start/stop (repository script)
+
+`./scripts/azure.sh` calls the following after a successful `start` or `stop`, and `./scripts/azure.sh
+web` runs the same step alone:
+
+```bash
+az webapp restart --resource-group Amble_group --name Amble
+```

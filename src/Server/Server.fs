@@ -2,189 +2,279 @@ namespace Gambol.Server
 
 open System
 open System.IO
-open System.Security.Cryptography
 open System.Threading.Tasks
+open System.IO.Compression
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Http
+open Microsoft.AspNetCore.ResponseCompression
+open Microsoft.AspNetCore.Server.Kestrel.Core
+open Microsoft.AspNetCore.StaticFiles
 open Microsoft.Extensions.Configuration
+open Microsoft.Extensions.DependencyInjection
+open Gambol.Shared
+
 
 module Main =
 
+    type ServerLocation =
+        {
+            ContentRoot: string
+            OnAzure: bool
+            HomeDir: string
+        }
+
     let resolveDataDir (contentRoot: string) (config: IConfiguration) =
         let onAzure = Environment.GetEnvironmentVariable("WEBSITE_SITE_NAME") |> Option.ofObj |> Option.isSome
-        let dataDir =
-            if onAzure then
-                // Azure App Service: use persistent /home mount; ignore DataDir config
-                let home = Environment.GetEnvironmentVariable("HOME") |> Option.ofObj |> Option.defaultValue "/home"
-                Path.Combine(home, "site", "data")
-            else
-                let relative = config.["DataDir"] |> Option.ofObj |> Option.defaultValue "../../data"
-                if Path.IsPathRooted(relative) then relative
-                else Path.Combine(contentRoot, relative) |> Path.GetFullPath
-        Directory.CreateDirectory(dataDir) |> ignore
-        dataDir
+        let home = Environment.GetEnvironmentVariable("HOME") |> Option.ofObj |> Option.defaultValue "/home"
+        let configured = config.["DataDir"] |> Option.ofObj
+        DataDir.resolve contentRoot configured onAzure home
 
-    let private cookieName = "gambol_auth"
-
-    let private generateToken () =
-        let bytes = Array.zeroCreate<byte> 32
-        RandomNumberGenerator.Fill(Span<byte>(bytes))
-        Convert.ToBase64String(bytes)
-
-    [<EntryPoint>]
-    let main args =
-        let port = Environment.GetEnvironmentVariable("PORT") |> Option.ofObj
-
+    let serverLocation () =
         // Dev: __SOURCE_DIRECTORY__ has wwwroot next to it (Fable output).
         // Published: wwwroot is copied into the publish output dir alongside the DLL.
+        let src = __SOURCE_DIRECTORY__
         let contentRoot =
-            let src = __SOURCE_DIRECTORY__
-            if Directory.Exists(Path.Combine(src, "wwwroot")) then src
-            else AppContext.BaseDirectory
+            if Directory.Exists(Path.Combine(src, "wwwroot")) then
+                src
+            else
+                AppContext.BaseDirectory
+        let onAzure =
+            Environment.GetEnvironmentVariable("WEBSITE_SITE_NAME")
+            |> Option.ofObj
+            |> Option.isSome
+        let homeDir =
+            Environment.GetEnvironmentVariable("HOME")
+            |> Option.ofObj
+            |> Option.defaultValue "/home"
+        { ContentRoot = contentRoot; OnAzure = onAzure; HomeDir = homeDir }
 
+    let createBuilder args location =
         let options = WebApplicationOptions(
                         Args = args,
-                        ContentRootPath = contentRoot,
-                        WebRootPath = Path.Combine(contentRoot, "wwwroot"))
-        let builder = WebApplication.CreateBuilder(options)
-        // Env-specific appsettings: required in Production (fail if missing), optional elsewhere
+                        ContentRootPath = location.ContentRoot,
+                        WebRootPath = Path.Combine(location.ContentRoot, "wwwroot"))
+        WebApplication.CreateBuilder(options)
+
+    /// Git smart HTTP receive-pack can exceed Kestrel's default 30 MB body limit.
+    let configureKestrelLimits (builder: WebApplicationBuilder) =
+        builder.Services.Configure<KestrelServerOptions>(fun (options: KestrelServerOptions) ->
+            options.Limits.MaxRequestBodySize <- Nullable(100L * 1024L * 1024L))
+        |> ignore
+
+    let configureResponseCompression (builder: WebApplicationBuilder) =
+        builder.Services.AddResponseCompression(fun options ->
+            options.EnableForHttps <- true
+            options.Providers.Add<BrotliCompressionProvider>() |> ignore
+            options.Providers.Add<GzipCompressionProvider>() |> ignore)
+        |> ignore
+        builder.Services.Configure<BrotliCompressionProviderOptions>(
+            fun (options: BrotliCompressionProviderOptions) ->
+                options.Level <- CompressionLevel.Fastest)
+        |> ignore
+        builder.Services.Configure<GzipCompressionProviderOptions>(
+            fun (options: GzipCompressionProviderOptions) ->
+                options.Level <- CompressionLevel.Fastest)
+        |> ignore
+
+    let useResponseCompression (app: WebApplication) =
+        app.UseResponseCompression() |> ignore
+
+    let addAppSettings location (builder: WebApplicationBuilder) =
+        // Env-specific appsettings.
+        // In Azure, read from persistent /home (not the site wwwroot) so config can survive redeploys.
+        if location.OnAzure then
+            let settingsPath = Path.Combine(location.HomeDir, "appsettings.json")
+            builder.Configuration.AddJsonFile(settingsPath, optional = true)
+                |> ignore
         let envFile = "appsettings." + builder.Environment.EnvironmentName + ".json"
-        builder.Configuration.AddJsonFile(envFile, optional = (builder.Environment.EnvironmentName <> "Production"))
-        let app = builder.Build()
+        let envFilePath =
+            if location.OnAzure then Path.Combine(location.HomeDir, envFile)
+            else envFile
+        builder.Configuration.AddJsonFile(envFilePath, optional = true)
+            |> ignore
+
+    let bindConfiguredPort port (app: WebApplication) =
         port |> Option.iter (fun p -> app.Urls.Add(sprintf "http://0.0.0.0:%s" p))
 
+    let logHeadPresence hasHead =
+        eprintfn
+            "Gambol: server hasHead=%b (Environment.UserInteractive=%b)."
+            hasHead
+            Environment.UserInteractive
+
+    let registerProductionConfigGuard location (app: WebApplication) =
+        // Production without appsettings.Production.json: start but show error to every request
+        let expectedProductionConfigPath =
+            let filename = "appsettings.Production.json"
+            if location.OnAzure then Path.Combine(location.HomeDir, filename)
+            else Path.Combine(app.Environment.ContentRootPath, filename)
+        let productionConfigMissing =
+            app.Environment.EnvironmentName = "Production"
+            && not (File.Exists(expectedProductionConfigPath))
+        if productionConfigMissing then
+            app.Use(fun (ctx: HttpContext) (next: RequestDelegate) ->
+                ctx.Response.StatusCode <- 500
+                ctx.Response.ContentType <- "text/html; charset=utf-8"
+                let errorHtmlPath = Path.Combine(app.Environment.WebRootPath, "missing-production-config.html")
+                let errorHtml =
+                    if File.Exists(errorHtmlPath) then
+                        File.ReadAllText(errorHtmlPath)
+                    else
+                        sprintf "Missing appsettings.Production.json at %s" expectedProductionConfigPath
+                let html = errorHtml.Replace("{{CONFIG_PATH}}", expectedProductionConfigPath)
+                ctx.Response.WriteAsync(html)
+            ) |> ignore
+
+    let resolvePublicAssetBase location (config: IConfiguration) (app: WebApplication) =
+        // Absolute origin for CSS + Program.js when the app page is served from another host.
+        let publicAssetBaseOpt =
+            let raw = config.["PublicAssetBase"] |> Option.ofObj |> Option.defaultValue ""
+            let trimmed = raw.Trim().TrimEnd('/')
+            let fromConfig = if String.IsNullOrWhiteSpace(trimmed) then None else Some trimmed
+            match fromConfig with
+            | Some b -> Some b
+            | None ->
+                if location.OnAzure && app.Environment.EnvironmentName = "Production" then
+                    Environment.GetEnvironmentVariable("WEBSITE_HOSTNAME")
+                    |> Option.ofObj
+                    |> Option.map (fun h -> ("https://" + h.Trim()).TrimEnd('/'))
+                else None
+
+        publicAssetBaseOpt
+
+    let resolveJsModuleCorsOrigins (config: IConfiguration) publicAssetBaseOpt =
+        // Comma-separated origins for Access-Control-Allow-Origin on /ambit/*.js (ES modules cross-origin).
+        // If empty but PublicAssetBase is in effect, default to "*" so proxy + Azure works without extra config.
+        let rawCors = config.["JsModuleCorsOrigins"] |> Option.ofObj |> Option.defaultValue ""
+        let parsed =
+            if String.IsNullOrWhiteSpace(rawCors) then
+                [||]
+            else
+                rawCors.Split(',')
+                |> Array.map (fun s -> s.Trim())
+                |> Array.filter (fun s -> s.Length > 0)
+        if parsed.Length > 0 then parsed
+        elif Option.isSome publicAssetBaseOpt then [| "*" |]
+        else [||]
+
+    let applyNoCacheHeaders (resp: HttpResponse) =
+        resp.Headers.CacheControl <- "no-cache, no-store, must-revalidate"
+        resp.Headers.Pragma <- "no-cache"
+        resp.Headers.Expires <- "0"
+
+    let applyCorsHeaders (origins: string[]) (ctx: HttpContext) =
+        if origins.Length > 0 then
+            let allowAny = origins |> Array.exists (fun o -> o = "*")
+            if allowAny then
+                ctx.Response.Headers.Append("Access-Control-Allow-Origin", "*")
+            else
+                match ctx.Request.Headers.TryGetValue("Origin") with
+                | true, originVals ->
+                    let origin = originVals.ToString()
+                    if origins |> Array.contains origin then
+                        ctx.Response.Headers.Append("Access-Control-Allow-Origin", origin)
+                        ctx.Response.Headers.Append("Vary", "Origin")
+                | _ -> ()
+
+    let useAmbitStaticFiles (jsModuleCorsOrigins: string[]) (app: WebApplication) =
+        // Serve wwwroot under /ambit/ so assets like /ambit/Program.js work.
+        let ambitOpts = StaticFileOptions(
+            RequestPath = PathString("/ambit"),
+            OnPrepareResponse = Action<StaticFileResponseContext>(fun ctx ->
+                let path = ctx.Context.Request.Path.Value
+                if path.EndsWith(".js", StringComparison.OrdinalIgnoreCase)
+                    || path.EndsWith(".js.map", StringComparison.OrdinalIgnoreCase)
+                    || path.EndsWith(".svg", StringComparison.OrdinalIgnoreCase) then
+                    applyNoCacheHeaders ctx.Context.Response
+                    applyCorsHeaders jsModuleCorsOrigins ctx.Context))
+        app.UseStaticFiles(ambitOpts) |> ignore
+
+    let redirectAmbitSlash (app: WebApplication) =
+        // Do not register both MapGet("/ambit") and MapGet("/ambit/") — routing treats them as ambiguous for the same request.
+        // Normalize trailing slash to the canonical app URL.
+        app.Use(fun (ctx: HttpContext) (next: RequestDelegate) ->
+            if HttpMethods.IsGet(ctx.Request.Method) && ctx.Request.Path.Equals(PathString("/ambit/")) then
+                ctx.Response.Redirect("/ambit", false)
+                Task.CompletedTask
+            else
+                next.Invoke(ctx)
+        )
+        |> ignore
+
+    let mapSourceFiles hasHead (app: WebApplication) =
+        // Headed only: serve Client/Shared sources for browser source maps.
+        if hasHead then
+            let contentRoot = app.Environment.ContentRootPath
+            let clientDir = Path.GetFullPath(Path.Combine(contentRoot, "..", "Client"))
+            let sharedDir = Path.GetFullPath(Path.Combine(contentRoot, "..", "Shared"))
+            let serveSource (dir: string) (path: string) =
+                let fullPath = Path.GetFullPath(Path.Combine(dir, path))
+                if fullPath.StartsWith(dir, StringComparison.OrdinalIgnoreCase)
+                   && File.Exists(fullPath)
+                   && (path.EndsWith(".fs", StringComparison.OrdinalIgnoreCase)
+                       || path.EndsWith(".fsx", StringComparison.OrdinalIgnoreCase))
+                then Results.File(fullPath, "text/plain")
+                else Results.NotFound()
+            app.MapGet("/Client/{*path}", Func<string, IResult>(fun path -> serveSource clientDir path)) |> ignore
+            app.MapGet("/Shared/{*path}", Func<string, IResult>(fun path -> serveSource sharedDir path)) |> ignore
+
+    let configureStaticAssetsAndSources
+        hasHead
+        location
+        (config: IConfiguration)
+        (app: WebApplication)
+        =
+        app.UseDefaultFiles() |> ignore
+        app.UseStaticFiles() |> ignore
+        let publicAssetBaseOpt = resolvePublicAssetBase location config app
+        let jsModuleCorsOrigins = resolveJsModuleCorsOrigins config publicAssetBaseOpt
+
+        useAmbitStaticFiles jsModuleCorsOrigins app
+        redirectAmbitSlash app
+        mapSourceFiles hasHead app
+
+        publicAssetBaseOpt
+
+    let configureApplication hasHead location (app: WebApplication) =
+        useResponseCompression app
         let config = app.Configuration
         let dataDirResult =
             try Ok (resolveDataDir app.Environment.ContentRootPath config)
             with ex -> Error ex
+        // Early: capture status + body for errors / mutating / DAV / git.
+        // Log file is wiped fresh on each process start; lives under dataDir/SYSTEM/.
+        let httpLogFile =
+            match dataDirResult with
+            | Ok dataDir -> HttpResponseLog.register dataDir app
+            | Error _ -> ""
+        let auth = RouteRegistration.createAuthentication config
+        let publicAssetBaseOpt =
+            configureStaticAssetsAndSources hasHead location config app
 
-        // ── Session token (single-user, in-memory) ─────────────────────────
-        let mutable sessionToken: string option = None
+        RouteRegistration.registerPersistenceAndRoutes
+            config
+            auth
+            publicAssetBaseOpt
+            dataDirResult
+            app
+            httpLogFile
 
-        let isAuthenticated (req: HttpRequest) =
-            match sessionToken with
-            | None -> false
-            | Some token ->
-                match req.Cookies.TryGetValue(cookieName) with
-                | true, cookie -> cookie = token
-                | _ -> false
+    [<EntryPoint>]
+    let main args =
+        let port = Environment.GetEnvironmentVariable("PORT") |> Option.ofObj
+        let hasHead = HeadPresence.detectHasHead ()
+        let location = serverLocation ()
+        let builder = createBuilder args location
 
-        let setAuthCookie (resp: HttpResponse) (token: string) =
-            let opts =
-                CookieOptions(
-                    HttpOnly = true,
-                    SameSite = SameSiteMode.Strict,
-                    Expires = Nullable(DateTimeOffset.UtcNow.AddYears(10)))
-            resp.Cookies.Append(cookieName, token, opts)
+        addAppSettings location builder
+        configureKestrelLimits builder
+        configureResponseCompression builder
 
-        let clearAuthCookie (resp: HttpResponse) =
-            resp.Cookies.Delete(cookieName)
-
-        app.UseDefaultFiles() |> ignore
-        app.UseStaticFiles() |> ignore
-
-        match dataDirResult with
-        | Error ex ->
-            let errorHtml =
-                sprintf """<!DOCTYPE html>
-<html><head><title>Server Error</title>
-<style>body{font-family:sans-serif;padding:2rem}pre{background:#f4f4f4;padding:1rem;overflow:auto}</style>
-</head><body>
-<h1>Server failed to start</h1>
-<pre>%s</pre>
-</body></html>""" (ex.ToString())
-            app.MapFallback(fun (ctx: HttpContext) ->
-                ctx.Response.StatusCode <- 500
-                ctx.Response.ContentType <- "text/html; charset=utf-8"
-                ctx.Response.WriteAsync(errorHtml)
-            ) |> ignore
-
-        | Ok dataDir ->
-
-            // ── File agent ─────────────────────────────────────────────────
-            let mutable currentAgent: (string * FileAgent) option = None
-            let agentLock = obj ()
-
-            let getOrCreateAgent (filename: string) : FileAgent =
-                lock agentLock (fun () ->
-                    match currentAgent with
-                    | Some (name, agent) when name = filename -> agent
-                    | Some (_, agent) ->
-                        FileAgent.dispose agent
-                        let newAgent = FileAgent.create dataDir filename
-                        currentAgent <- Some (filename, newAgent)
-                        newAgent
-                    | None ->
-                        let newAgent = FileAgent.create dataDir filename
-                        currentAgent <- Some (filename, newAgent)
-                        newAgent
-                )
-
-            // GET /login → serve login.html
-            let loginHtml = Path.Combine(app.Environment.WebRootPath, "login.html")
-            app.MapGet("/login", Func<IResult>(fun () ->
-                Results.File(loginHtml, "text/html")
-            )) |> ignore
-
-            // POST /login → validate credentials, set permanent cookie, redirect
-            app.MapPost("/login", Func<HttpRequest, Task<IResult>>(fun req -> task {
-                let! form = req.ReadFormAsync()
-                let username = string form.["username"]
-                let password = string form.["password"]
-                let expectedUser = config.["Auth:Username"] |> Option.ofObj |> Option.defaultValue ""
-                let expectedPass = config.["Auth:Password"] |> Option.ofObj |> Option.defaultValue ""
-                if username = expectedUser && password = expectedPass && username <> "" then
-                    let token = generateToken()
-                    sessionToken <- Some token
-                    setAuthCookie req.HttpContext.Response token
-                    return Results.Redirect("/amble")
-                else
-                    return Results.Redirect("/login?error=1")
-            })) |> ignore
-
-            // GET /logout → clear session, redirect to login
-            app.MapGet("/logout", Func<HttpResponse, IResult>(fun resp ->
-                sessionToken <- None
-                clearAuthCookie resp
-                Results.Redirect("/login")
-            )) |> ignore
-
-            // GET /amble/state → JSON { revision, graph }
-            app.MapGet("/amble/state", Func<HttpRequest, Task<IResult>>(fun req -> task {
-                if not (isAuthenticated req) then
-                    return Results.Unauthorized()
-                else
-                    let agent = getOrCreateAgent "gambol"
-                    return! Api.getState agent |> Async.StartAsTask
-            })) |> ignore
-
-            // POST /amble/changes → JSON { revision, graph } or 400
-            app.MapPost("/amble/changes", Func<HttpRequest, Task<IResult>>(fun req -> task {
-                if not (isAuthenticated req) then
-                    return Results.Unauthorized()
-                else
-                    use reader = new StreamReader(req.Body)
-                    let! body = reader.ReadToEndAsync()
-                    let agent = getOrCreateAgent "gambol"
-                    return! Api.postChange agent body |> Async.StartAsTask
-            })) |> ignore
-
-            // GET /amble → serve gambol.html (protected) with startup stamp injected
-            let gambolHtml = Path.Combine(app.Environment.WebRootPath, "gambol.html")
-            let torontoTz = TimeZoneInfo.FindSystemTimeZoneById("America/Toronto")
-            let torontoNow = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, torontoTz)
-            let startupStamp = torontoNow.ToString("yyyy-MM-dd HH:mm:ss") + " ET"
-            let gambolHtmlWithStamp =
-                let raw = File.ReadAllText(gambolHtml)
-                let snippet = "    <script>window.__BUILD__ = \"" + startupStamp + "\";</script>\n</head>"
-                raw.Replace("</head>", snippet)
-            app.MapGet("/amble", Func<HttpRequest, IResult>(fun req ->
-                if isAuthenticated req then
-                    Results.Content(gambolHtmlWithStamp, "text/html")
-                else
-                    Results.Redirect("/login")
-            )) |> ignore
-
+        let app = builder.Build()
+        bindConfiguredPort port app
+        logHeadPresence hasHead
+        registerProductionConfigGuard location app
+        configureApplication hasHead location app
         app.Run()
 
         0 // Exit code

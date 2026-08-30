@@ -10,6 +10,11 @@ type NodeId =
         let (NodeId value) = this
         value
 
+    /// Last 8 chars of `Guid.ToString()` (compact id suffix for messages).
+    static member GuidTail8 (guid: Guid) : string =
+        let s = guid.ToString()
+        if s.Length >= 8 then s.Substring(s.Length - 8) else s
+
     static member New() = NodeId(Guid.NewGuid())
 
 
@@ -22,125 +27,245 @@ type Revision =
         value
 
     static member Zero = Revision 0
-    static member One = Revision 1
 
+type Ownership =
+    | Ref
+    | Owner
+
+// For each id:NodeId exactly one will have ref: Owner.
+type ChildNode =
+    { ref: Ownership
+      id: NodeId }
+
+    static member owner (id: NodeId) : ChildNode =
+        { ref = Ownership.Owner; id = id }
+
+    static member reference (id: NodeId) : ChildNode =
+        { ref = Ownership.Ref; id = id }
+
+    static member ofOwnership (ownership: Ownership) (id: NodeId) : ChildNode =
+        { ref = ownership; id = id }
+
+    static member owners (ids: NodeId list) : ChildNode list =
+        ids |> List.map ChildNode.owner
+
+    static member New() : ChildNode =
+        ChildNode.owner (NodeId.New())
+
+
+type SpecialKind =
+    | Workspaces
+    | Workspace
+    | Directory
+    | File
+
+type NodeKind =
+    | Normal
+    | Special of SpecialKind
+
+[<RequireQualifiedAccess>]
+module NodeKind =
+    /// File, Directory, or named Workspace (artifact on disk).
+    let artifact (kind: NodeKind) : bool =
+        match kind with
+        | Special (File | Directory | Workspace) -> true
+        | _ -> false
+
+    /// Workspace or Directory (can own nested artifacts).
+    let container (kind: NodeKind) : bool =
+        match kind with
+        | Special (Workspace | Directory) -> true
+        | _ -> false
+
+
+type DocumentState =
+    | Current
+    | Unparsed
+    | NoServerFile
+
+/// Whether `Node.children` is an authoritative Loaded list or Unloaded (must be empty).
+type ChildrenStatus =
+    | Unloaded
+    | Loaded
 
 type Node =
-    { id: NodeId
-      text: string
-      name: string option
-      children: NodeId list }
-
-
-// defines span of nodes in parent where start <= index in children < end
-// and start<end.
-type NodeRange = 
-    { parent : NodeId
-      start: int
-      endd : int } 
-
-type Graph =
-    { root: NodeId
-      nodes: Map<NodeId, Node> }
+    { id         : NodeId
+      text       : string
+      name       : Filename
+      children   : ChildNode list
+      childrenStatus : ChildrenStatus
+      cssClasses : CssClasses
+      owner      : NodeId
+      kind       : NodeKind
+      documentState : DocumentState
+      /// Mutation time via `touch`; after server persist, artifact disk mtime.
+      updateTime : DateTime }
 
 
 [<RequireQualifiedAccess>]
-module Graph =
-    let create () : Graph =
-        let rootId = NodeId.New()
+module NodeUpdateTime =
+    /// Canonical nodes and JSON without `updateTime`.
+    /// UTC kind so `toDbPrecision` does not shift through PostgreSQL `timestamptz`.
+    let missing = DateTime(0L, DateTimeKind.Utc)
 
-        let rootNode: Node = // depth 0 node
-            { id = rootId
-              text = ""
-              name = None
-              children = [] }
+    /// PostgreSQL `timestamptz` stores microseconds; align before DB round-trip.
+    let private ticksPerMicrosecond = 10L
 
-        { root = rootId
-          nodes = Map.ofList [ rootId, rootNode ] }
+    let toDbPrecision (time: DateTime) : DateTime =
+        let utc =
+            match time.Kind with
+            | DateTimeKind.Utc -> time
+            | DateTimeKind.Local -> time.ToUniversalTime()
+            | DateTimeKind.Unspecified ->
+                // PostgreSQL `timestamptz` via Npgsql/Dapper: UTC clock, Unspecified kind.
+                DateTime.SpecifyKind(time, DateTimeKind.Utc)
+            | _ -> time.ToUniversalTime()
+        DateTime(utc.Ticks - utc.Ticks % ticksPerMicrosecond, DateTimeKind.Utc)
 
-    let nodeCount (graph: Graph) =
-        graph.nodes.Count
+    let now () = DateTime.UtcNow |> toDbPrecision
 
-    let contains (nodeId: NodeId) (graph: Graph) =
-        graph.nodes.ContainsKey nodeId
+    let touch (node: Node) : Node = { node with updateTime = now () }
 
-    let newNode (text: string) (graph: Graph) : Graph * NodeId =
-        let nodeId = NodeId.New()
+    /// After server persist, artifact `updateTime` is the DataDir file mtime.
+    /// Between edits, `touch` sets mutation time (FileSyncIndicator "edited").
+    let withStamp (time: DateTime) (node: Node) : Node =
+        { node with updateTime = toDbPrecision time }
 
-        let node: Node =
-            { id = nodeId
-              text = text
-              name = None
-              children = [] }
 
-        let nodes = graph.nodes |> Map.add nodeId node
-        { graph with nodes = nodes }, nodeId
+type Node with
+    /// Build a node; omit fields to use defaults (empty text/name/children/classes,
+    /// childrenStatus = Loaded, owner = root Guid.Empty, kind = Normal, updateTime = missing).
+    /// Unloaded is valid only when children is empty.
+    static member Create
+        (
+            id: NodeId,
+            ?text: string,
+            ?name: Filename,
+            ?children: ChildNode list,
+            ?childrenStatus: ChildrenStatus,
+            ?cssClasses: CssClasses,
+            ?owner: NodeId,
+            ?kind: NodeKind,
+            ?documentState: DocumentState,
+            ?updateTime: DateTime
+        ) : Node =
+        let children' = defaultArg children []
+        let childrenStatus' = defaultArg childrenStatus Loaded
+        match childrenStatus', children' with
+        | Unloaded, _ :: _ ->
+            invalidArg "childrenStatus" "Unloaded childrenStatus requires empty children"
+        | _ ->
+            { id = id
+              text = defaultArg text ""
+              name = defaultArg name Filename.Empty
+              children = children'
+              childrenStatus = childrenStatus'
+              cssClasses = defaultArg cssClasses CssClass.empty
+              owner = defaultArg owner (NodeId Guid.Empty)
+              kind = defaultArg kind Normal
+              documentState = defaultArg documentState Current
+              updateTime = defaultArg updateTime NodeUpdateTime.missing }
 
-    let setText
-        (nodeId: NodeId)
-        (oldText: string)
-        (newText: string)
-        (graph: Graph)
-        : Result<Graph, string>
-        =
-        match graph.nodes |> Map.tryFind nodeId with
-        | None -> Error "node not found"
-        | Some node ->
-            if node.text <> oldText then
-                Error "old text does not match"
-            else
-                let updatedNode = { node with text = newText }
-                let nodes = graph.nodes |> Map.add nodeId updatedNode
-                Ok { graph with nodes = nodes }
 
-    let replace
-        (parentId: NodeId)
-        (index: int)
-        (oldIds: NodeId list)
-        (newIds: NodeId list)
-        (graph: Graph)
-        : Result<Graph, string>
-        =
-        let parentOpt = graph.nodes |> Map.tryFind parentId
+// Span of child indices [start, endd) under graph node `pnode` (parent NodeId).
+type NodeRange =
+    { pnode: NodeId
+      start: int
+      endd : int }
 
-        match parentOpt with
-        | None -> Error "parent not found"
-        | Some parent ->
-            let children = parent.children
-            let childCount = List.length children
-            let oldCount = List.length oldIds
+/// One row from node search (Ctrl+F); shared by ViewModelSearch and SearchDialog onPick.
+type NodeSearchResult =
+    { nodeId: NodeId
+      text: string
+      name: Filename }
 
-            if index < 0 || index > childCount then
-                Error "index out of bounds"
-            elif index + oldCount > childCount then
-                Error "old span out of bounds"
-            elif
-                newIds
-                |> List.exists (fun nodeId -> not (graph.nodes.ContainsKey nodeId))
-            then
-                Error "new child not found"
-            else
-                let existing =
-                    children
-                    |> List.skip index
-                    |> List.take oldCount
+type Graph =
+    { root: NodeId
+      nodes: Map<NodeId, Node>
+      /// Child id -> structural parent and index (min parent NodeId wins when shared).
+      parentByChild: Map<NodeId, NodeId * int>
+      /// Child id -> graph parent along the single Ownership.Owner edge.
+      ownerParentByChild: Map<NodeId, NodeId> }
 
-                if existing <> oldIds then
-                    Error "old span does not match"
-                else
-                    let prefix = children |> List.take index
-                    let suffix = children |> List.skip (index + oldCount)
-                    let updatedParent =
-                        { parent with
-                            children = prefix @ newIds @ suffix }
+/// Carries a fixed `Graph` and current `NodeId`; steps compose like `SiteNav`.
+type NodeNav = NodeNav of Graph * NodeId option
 
-                    let nodes = graph.nodes |> Map.add parentId updatedParent
-                    Ok { graph with nodes = nodes }
+[<RequireQualifiedAccess>]
+module Node =
+    /// Owner vs Ref for the parent→child edge.
+    /// Edge.ref is authoritative while it exists: same-parent Refs (Duplicate link)
+    /// must stay Ref even when `Node.owner` matches the parent. Node.owner remains
+    /// the structural owner claim for navigation/indexes.
+    let childOwnership
+        (_graph: Graph)
+        (_parentId: NodeId)
+        (child: ChildNode)
+        : Ownership =
+        child.ref
 
-    let tryFindParentAndIndex (targetId: NodeId) (graph: Graph) : (NodeId * int) option =
-        graph.nodes
-        |> Map.toSeq
-        |> Seq.tryPick (fun (parentId, parent) ->
-            parent.children
-            |> List.tryFindIndex ((=) targetId)
-            |> Option.map (fun index -> parentId, index))
+    let at (graph: Graph) (id: NodeId option) : NodeNav = NodeNav(graph, id)
+    let current (NodeNav(_, id)) : NodeId option = id
+
+    let private step f (NodeNav(g, id)) = NodeNav(g, f g id)
+
+    /// Parent along the canonical `Ownership.Owner` edge. `None` id -> `None`.
+    let owner =
+        step (fun graph id ->
+            id |> Option.bind (fun nid -> Map.tryFind nid graph.ownerParentByChild))
+
+    let firstChild =
+        step (fun graph id ->
+            id
+            |> Option.bind (fun nid ->
+                Map.tryFind nid graph.nodes
+                |> Option.bind (fun node ->
+                    node.children |> List.tryHead |> Option.map (fun c -> c.id))))
+
+    let lastChild =
+        step (fun graph id ->
+            id
+            |> Option.bind (fun nid ->
+                Map.tryFind nid graph.nodes
+                |> Option.bind (fun node ->
+                    let n = List.length node.children
+                    if n = 0 then
+                        None
+                    else
+                        List.tryItem (n - 1) node.children
+                        |> Option.map (fun c -> c.id))))
+
+    let childNth (n: int) =
+        step (fun graph id ->
+            id
+            |> Option.bind (fun nid -> Map.tryFind nid graph.nodes)
+            |> Option.bind (fun (node: Node) ->
+                List.tryItem n node.children |> Option.map (fun c -> c.id)))
+
+    let childIds (NodeNav(graph, id)) : NodeId list =
+        id
+        |> Option.bind (fun nid -> Map.tryFind nid graph.nodes)
+        |> Option.map (fun (node: Node) ->
+            node.children |> List.map (fun c -> c.id))
+        |> Option.defaultValue []
+
+    /// Index of the current id's Owned appearance among the Owned parent's Children.
+    let childIndex (nav: NodeNav) : int option =
+        let (NodeNav (graph, id)) = nav
+        match nav |> owner |> current, id with
+        | Some pid, Some cid ->
+            Map.tryFind pid graph.nodes
+            |> Option.bind (fun (parent: Node) ->
+                parent.children
+                |> List.tryFindIndex (fun c ->
+                    c.id = cid && c.ref = Ownership.Owner))
+        | _ -> None
+
+    let siblingNth (n: int) (nav: NodeNav) : NodeNav =
+        match childIndex nav with
+        | None ->
+            let (NodeNav (graph, _)) = nav
+            NodeNav(graph, None)
+        | Some i -> nav |> owner |> childNth (i + n)
+
+    let next nav = siblingNth 1 nav
+    let prev nav = siblingNth -1 nav

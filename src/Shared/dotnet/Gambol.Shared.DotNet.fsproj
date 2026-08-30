@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+<!--only files that are exclusively for dotnet and not fable -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="ProcessExec.fs" />
+    <Compile Include="GitRun.fs" />
+    <Compile Include="DesktopGit.fs" />
+    <Compile Include="GitCheckIgnore.fs" />
+    <Compile Include="WorkspaceSyncLimits.fs" />
+    <Compile Include="WorkspaceLocalInventory.fs" />
+    <Compile Include="WorkspaceDownloadQueue.fs" />
+    <Compile Include="WorkspaceDavClient.fs" />
+    <Compile Include="WorkspaceSyncLedger.fs" />
+    <Compile Include="WorkspaceFileSync.fs" />
+    <Compile Include="OutlineLcs.fs" />
+    <Compile Include="DocumentParseOps.fs" />
+    <Compile Include="ImportDocument.fs" />
+    <Compile Include="DocumentAssembly.fs" />
+    <Compile Include="LazyLoadReconciliationPath.fs" />
+    <Compile Include="LazyLoadReconciliationApply.fs" />
+    <Compile Include="LazyLoadReconciliation.fs" />
+    <Compile Include="LazyLoadReconciliationReport.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Gambol.Shared.fsproj" />
+    <ProjectReference Include="..\documents\Gambol.Shared.Documents.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="DiffPlex" Version="1.7.2" />
+  </ItemGroup>
+
+</Project>

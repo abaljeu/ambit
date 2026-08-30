@@ -1,8 +1,320 @@
-# New API Contract
+# HTTP API
 
-To be implemented.
+## Status
 
-## Data Model
+| Section | Scope |
+|---------|-------|
+| **Implemented** | `/{pathname}/*` routes (production app at `/ambit`; see below) |
+| **Target** | `/documents/{docId}` multi-document API (future design) |
+
+For Sync semantics and Browser behavior, see [[doc/current/sync-mvp.md]] and [[doc/arch.md]].
+
+---
+
+## Implemented API
+
+The live server exposes JSON under a URL prefix derived from the app pathname (e.g. `/ambit/state` when the app is served at `/ambit`). The client builds paths as `/{pathname}/…` from `window.location.pathname` ([[src/Client/UpdateHelpers.fs]]). The server currently maps these routes to a single on-disk document name (`gambol`) via persistence agents.
+
+### Sync model
+
+```mermaid
+sequenceDiagram
+    participant Browser
+    participant Server
+    Browser->>Server: POST /ambit/changes ChangeBatch
+    Server-->>Browser: ChangeSuccessResponse confirmations
+    loop every 5s or on activity
+        Browser->>Server: GET /ambit/poll?rev=N
+        Server-->>Browser: ChangeSuccessResponse Poll tail
+    end
+    Browser->>Server: GET /ambit/state
+    Server-->>Browser: graph revision
+```
+
+- **`POST /changes`** returns the complete Change success envelope with confirmation Changes and `externalChanges = false`, not the full Graph. The Browser uses only confirmation reconciliation on this path.
+- **`GET /state`** returns the full graph for initial load or resync.
+- **`GET /poll`** returns the same success envelope with a Change tail when the Browser is behind.
+
+There is **no** `POST /submit` (full graph in response) and **no** `POST /save` route. Persistence runs automatically after each accepted change (snapshot + append-only log on disk and/or PostgreSQL `changes` table). See [[doc/current/persistence-model.md]].
+
+### Revision tracking
+
+- **Revision**: monotonically increasing integer (`Revision`); server is authoritative.
+- Each accepted change increments revision by one.
+- **`Change.id`** is the **base revision** the change was built against; it must equal the server revision at apply time or the batch is rejected (`400`).
+- **`Change.changeId`**: client-generated `Guid` per network submission; used for idempotent dedup (resubmitting the same `changeId` returns success without re-applying).
+
+### Transaction log
+
+The in-process `History` inside server state mirrors applied changes for undo/redo on the client. **Durable** history is separate:
+
+| Mode | Authority | Durable log | Snapshot |
+|------|-----------|-------------|----------|
+| `file` | `data/{doc}.log` + snapshot | Append-only `.log` | Tab-indented outline + `.meta` revision |
+| `db` | PostgreSQL | `changes` table | Optional file backup/export |
+
+Configured via `Persistence:Mode` (`db` default, `file` rollback). See [[doc/arch.md]].
+
+On startup, the server replays the log (and/or DB) from the last snapshot checkpoint.
+
+### Authentication
+
+When `Auth:Username` and `Auth:Password` are both non-empty in configuration:
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `GET` | `/ambit/login` | Login page (`login.html`) |
+| `POST` | `/ambit/login` | Form fields `username`, `password`; sets cookie, redirects to `/ambit` |
+| `GET` | `/ambit/logout` | Clears cookie, redirects to `/ambit/login` |
+
+Cookie name: `gambol_auth` (HttpOnly, SameSite=Lax, Secure). Value is HMAC-SHA256 of username keyed by password ([[src/Server/AuthToken.fs]]).
+
+Protected routes (`GET /ambit`, `GET /ambit/state`, `GET /ambit/poll`, `POST /ambit/changes`) return **401 Unauthorized** when auth is enabled and the cookie is missing or invalid.
+
+When both auth fields are empty, auth is disabled and all routes are open.
+
+### Endpoints
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `GET` | `/ambit` | HTML shell (`gambol.template.html`); redirects to `/ambit/login` if unauthenticated |
+| `GET` | `/ambit/state` | Full graph + revision |
+| `GET` | `/ambit/poll?rev={n}` | Revision, build stamps, change tail since `rev` |
+| `POST` | `/ambit/changes` | Submit `ChangeBatch` |
+| `GET` | `/ambit/user.css` | User stylesheet (`data/user.css` or default) |
+| `GET` | `/ambit/*` (static) | Fable client assets (`Program.js`, CSS, etc.) |
+
+**Deferred** (not implemented on server): `POST /undo`, `POST /redo`, `GET /ops?since={revision}`.
+
+---
+
+#### `GET /ambit/state`
+
+**Response** (`200`, `application/json`):
+
+```json
+{
+  "revision": 0,
+  "graph": { "root": "…", "nodes": [ … ] }
+}
+```
+
+- `graph.root`: canonical root node id.
+- `graph.nodes`: array of `Node` objects (not a map).
+
+---
+
+#### `GET /ambit/poll`
+
+**Query**: `rev` — Browser Revision (default `0` if missing or invalid).
+
+**Response** (`200`): complete success envelope from [[src/Shared/ApiResponseSerialization.fs]]:
+
+```json
+{
+  "r": 2,
+  "b": 1715788800,
+  "p": 1715788800,
+  "ready": true,
+  "externalChanges": true,
+  "c": [ … ]
+}
+```
+
+| Field | Meaning |
+|-------|---------|
+| `r` | Current server revision |
+| `b` | Server/deploy build epoch (seconds, Unix) |
+| `p` | Page/Browser artifact build epoch (seconds, Unix) |
+| `ready` | Whether Server startup work is ready |
+| `externalChanges` | `true` when this Poll carries one or more Changes |
+| `c` | Changes after Browser `rev`; required and possibly empty |
+| `message` | Optional persistence status; absent for Poll |
+
+The Browser uses `b` / `p` to detect redeploy or stale bundles ([[doc/current/sync-mvp.md]]).
+
+---
+
+#### `POST /ambit/changes`
+
+**Request** (`application/json`): `ChangeBatch`
+
+```json
+{
+  "changes": [
+    {
+      "id": 0,
+      "changeId": "550e8400-e29b-41d4-a716-446655440000",
+      "ops": [ … ]
+    }
+  ]
+}
+```
+
+- `changes` must be non-empty.
+- Multiple changes in one batch are applied in order; all must succeed or none are applied (`400` on failure leaves state unchanged).
+
+**Response** (`200`): the same `ChangeSuccessResponse` codec as Poll.
+
+```json
+{
+  "r": 1,
+  "b": 1715788800,
+  "p": 1715788800,
+  "ready": true,
+  "externalChanges": false,
+  "c": [
+    {
+      "id": 0,
+      "changeId": "550e8400-e29b-41d4-a716-446655440000",
+      "ops": [ … ]
+    }
+  ]
+}
+```
+
+- `c` contains durable complete confirmation Changes in request order. The Browser reconciles these confirmations; it does not apply them as a Poll tail.
+- `externalChanges` is `false` for this behavior-identical contract.
+- `b`, `p`, and `ready` are current real Server values.
+- `message` is present only when the Graph change succeeded but artifact persistence returned a status message.
+- The response does **not** include `graph`.
+- Resubmitting the same `changeId` is idempotent: same revision and confirmation Changes, no double-apply.
+
+**Error** (`400`):
+
+```json
+{ "error": "Revision mismatch: server is at revision 1, but this change targets base revision 5." }
+```
+
+Other failures: invalid JSON, empty batch, invalid op, log write error.
+
+---
+
+## JSON encoding (implemented)
+
+Change success type and codec: [[src/Shared/ApiResponses.fs]] and [[src/Shared/ApiResponseSerialization.fs]]. Domain codecs: [[src/Shared/Serialization.fs]]. Tests: [[tests/Server.Tests/StateEndpointTests.fs]].
+
+### NodeId
+
+GUID string (lowercase, no braces).
+
+### ChildNode
+
+```json
+{ "ref": "owner", "id": "550e8400-e29b-41d4-a716-446655440000" }
+```
+
+`ref` is `"owner"` or `"ref"` ([[src/Shared/Serialization.fs]]).
+
+### Node
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "text": "node text",
+  "name": null,
+  "children": [ { "ref": "owner", "id": "…" } ],
+  "cssClasses": [],
+  "kind": "normal"
+}
+```
+
+- `kind`: `"normal"` or `{ "type": "special", "kind": "trash" }`.
+- `cssClasses`: string list (optional; defaults to `[]`).
+
+### Graph
+
+```json
+{
+  "root": "550e8400-e29b-41d4-a716-446655440000",
+  "nodes": [ { "id": "…", "text": "ROOT", … }, … ]
+}
+```
+
+Canonical root node must exist with expected shape (see `decodeGraph` in Serialization).
+
+### Op
+
+| `type` | Fields |
+|--------|--------|
+| `NewNode` | `nodeId`, `text` |
+| `SetText` | `nodeId`, `oldText`, `newText` |
+| `SetClasses` | `nodeId`, `oldClasses`, `newClasses` (string arrays) |
+| `Replace` | `parentId`, `index`, `oldChildren`, `newChildren` (`ChildNode` arrays) |
+
+Example `Replace`:
+
+```json
+{
+  "type": "Replace",
+  "parentId": "550e8400-e29b-41d4-a716-446655440000",
+  "index": 0,
+  "oldChildren": [],
+  "newChildren": [ { "ref": "owner", "id": "…" } ]
+}
+```
+
+### Change
+
+```json
+{
+  "id": 0,
+  "changeId": "550e8400-e29b-41d4-a716-446655440000",
+  "ops": [ … ]
+}
+```
+
+- `id`: base revision (see Revision tracking).
+- `changeId`: stable id for dedup across retries.
+
+---
+
+## Multi-client sync (implemented)
+
+### Assumptions
+
+- Small number of concurrent clients on one document.
+- Server is authoritative; clients apply optimistically then sync.
+
+### Client flow
+
+1. **Initial load**: `GET /{pathname}/state` → graph + revision.
+2. **Local edit**: build `Change` with `id` = current revision; apply locally; queue for POST.
+3. **Submit**: `POST /{pathname}/changes` with `ChangeBatch`; on success reconcile the confirmation Changes and update Revision. Do not apply the response as a Poll tail.
+4. **Poll**: `GET /{pathname}/poll?rev=N` on interval and after activity; apply `c` tail when behind.
+5. **Resync**: if needed, `GET /{pathname}/state` for full graph.
+
+Conflict handling: last-write-wins by server apply order; revision mismatch returns `400` (client must catch up via poll or state).
+
+Undo/redo: client-local via inverted ops in batches; server undo/redo endpoints not wired.
+
+---
+
+## Error codes (implemented)
+
+| Code | When |
+|------|------|
+| `200` | Success |
+| `400` | Invalid batch, revision mismatch, invalid op, JSON decode error |
+| `401` | Auth required and cookie missing/invalid |
+| `500` | Startup/config failure (e.g. missing production config) |
+
+---
+
+## Notes
+
+- GUIDs: lowercase strings without braces.
+- Revision starts at `0` for a fresh document.
+- Empty arrays are `[]`, not omitted, in requests.
+- `POST /save` existed in early MVP docs only; `FileAgent` and `DbAgent` live-save accepted changes via `persistGraphOps` (DbAgent may also run async `persistGraphChange` catch-up). Neither uses an HTTP save call for ordinary edits.
+
+---
+
+## Target API (future)
+
+Design for multi-document hosting and sequence-based concurrency. **Not implemented**; routes below do not exist on the current server.
+
+### Data model
 
 ```
 Node {
@@ -28,7 +340,7 @@ Graph {
 
 ---
 
-## Concurrency Model
+### Concurrency model
 
 - Server maintains a linear operation log
 - Each changeset has a sequence number
@@ -38,7 +350,7 @@ Graph {
 
 ---
 
-## Operations
+### Operations (target)
 
 | Operation | Payload |
 |-----------|---------|
@@ -51,7 +363,7 @@ Graph {
 
 ---
 
-## HTTP Endpoints
+### HTTP endpoints (target)
 
 | Method | Path | Purpose |
 |--------|------|---------|
@@ -59,31 +371,35 @@ Graph {
 | `GET` | `/documents/{docId}/operations?from={seq}&to={seq}` | Fetch operation range |
 | `POST` | `/documents/{docId}/operations` | Submit changeset |
 
-### POST Request
+#### POST request
+
 ```json
 {
   "changesetId": "uuid",
   "baseSequence": 42,
   "clientId": "uuid",
-  "operations": [...]
+  "operations": [ … ]
 }
 ```
 
-### POST Response (200)
+#### POST response (200)
+
 ```json
 {
   "sequence": 43
 }
 ```
 
-### POST Response (409)
+#### POST response (409)
+
 ```json
 {
   "currentSequence": 47
 }
 ```
 
-### GET /documents/{docId} Response
+#### GET `/documents/{docId}` response
+
 ```json
 {
   "sequence": 47,
@@ -91,11 +407,11 @@ Graph {
   "nodes": {
     "uuid": {
       "id": "uuid",
-      "text": "...",
+      "text": "…",
       "name": null,
       "children": [
-        {"type": "Owned", "nodeId": "..."},
-        {"type": "Ref", "nodeId": "..."}
+        { "type": "Owned", "nodeId": "…" },
+        { "type": "Ref", "nodeId": "…" }
       ]
     }
   }
@@ -104,348 +420,27 @@ Graph {
 
 ---
 
-## WebSocket
+### WebSocket (target)
 
 **Connect:** `/documents/{docId}/ws?clientId={uuid}&fromSequence={seq}`
 
 **Server pushes:**
+
 ```json
 {
   "sequence": 44,
   "changesetId": "uuid",
   "clientId": "uuid",
-  "operations": [...]
+  "operations": [ … ]
 }
 ```
 
 ---
 
-## Deferred
+### Target deferred
 
-- Undo/redo mechanism
-- Rebase logic ("how to apply" after conflict)
-- MoveNodes validation rules (cycles, ownership preservation)
+- Undo/redo mechanism (server-side)
+- Rebase logic after conflict
+- MoveNodes validation (cycles, ownership)
 - Orphan holding area structure
 - Ref promotion selection logic
-
----
-
-Anything to add, revise, or clarify before this is final?
-
-# Old API Contract
-
-
-
-
-HTTP API for current MVP client-server communication.
-
-## Revision Tracking
-
-- **Revision**: Monotonically increasing integer representing the state version
-- Server maintains authoritative revision
-- Each change increments revision
-- Client tracks its local revision
-- Client must send its revision with each request
-
-## Transaction Log (History)
-
-The server uses the shared `History` type (from `State`) as its transaction log — they are the same object. All applied changes are appended to `History.past`:
-- Server processes changes in order; the history preserves the full linear record
-- Enables: future undo/redo, load snapshot → replay, debugging
-- In-memory only for MVP; disk persistence is a future enhancement
-
-## Endpoints
-
-### `GET /`
-Returns HTML page with client application.
-
-**Response**: `text/html`
-
----
-
-### `GET /state`
-Get current graph state and revision.
-
-**Response** (JSON):
-```json
-{
-  "graph": { ... },
-  "revision": 42
-}
-```
-
-**Fields**:
-- `graph`: Full graph structure (see JSON encoding)
-- `revision`: Current server revision
-
----
-
-### `POST /submit`
-Apply a change (batch of ops) to the graph.
-
-**Request** (JSON):
-```json
-{
-  "clientRevision": 40,
-  "change": {
-    "id": 0,
-    "ops": [ ... ]
-  }
-}
-```
-
-**Fields**:
-- `clientRevision`: Client's current revision (currently accepted as advisory in MVP)
-- `change`: Change to apply (see Change JSON encoding)
-
-**Response** (JSON):
-```json
-{
-  "revision": 42,
-  "graph": { ... }
-}
-```
-
-**Fields**:
-- `revision`: Current server revision after handling the request
-- `graph`: Current authoritative graph
-
-**Error Cases**:
-- `400 Bad Request`: Invalid change (e.g., op validation failed)
-  - Returns error message
-
-**Client Behavior**:
-1. Send change with current `clientRevision`
-2. On success: update local revision from `revision`
-3. Keep local graph (already optimistic) or replace with returned `graph`
-4. If `400 Bad Request`: show error, do not retry
-
----
-
-### `POST /undo`
-Undo the most recent change.
-
-**Request** (JSON):
-```json
-{
-  "clientRevision": 42
-}
-```
-
-**Status**: Deferred in current MVP (endpoint not implemented).
-
----
-
-### `POST /redo`
-Redo the most recent undone change.
-
-**Request** (JSON):
-```json
-{
-  "clientRevision": 42
-}
-```
-
-**Status**: Deferred in current MVP (endpoint not implemented).
-
----
-
-### `POST /save`
-Write current graph state to snapshot file on disk.
-
-**Request**: No body required.
-
-**Response** (JSON):
-```json
-{
-  "success": true,
-  "snapshotFile": "gambol-snapshot.txt"
-}
-```
-
-**Error Response** (500, JSON):
-```json
-{
-  "success": false,
-  "error": "Failed to write snapshot: ..."
-}
-```
-
-**Notes**:
-- This is the only way to persist state to disk. Edits are not auto-saved.
-- Snapshot is a tab-indented text outline file (see Snapshot module).
-- On server restart, only the last saved snapshot is restored. Unsaved edits are lost.
-
----
-
-### `GET /ops?since={revision}`
-Get all changes since a given revision.
-
-**Status**: Deferred in current MVP (endpoint not implemented).
-
-**Query Parameters**:
-- `since`: Revision number to fetch changes after
-
-**Response** (JSON):
-```json
-{
-  "changes": [
-    {
-      "id": 14,
-      "ops": [ ... ],
-      "revision": 41
-    },
-    {
-      "id": 15,
-      "ops": [ ... ],
-      "revision": 42
-    }
-  ],
-  "latestRevision": 42
-}
-```
-
-**Fields**:
-- `changes`: Array of changes since `since` revision (may be empty)
-- `latestRevision`: Current server revision
-
-**Use Case** (future): Client polling for remote changes, or resync after conflict
-
----
-
-## JSON Encoding
-
-### NodeId
-```json
-"550e8400-e29b-41d4-a716-446655440000"
-```
-Guid as string.
-
-### Op
-```json
-{
-  "type": "NewNode",
-  "nodeId": "550e8400-e29b-41d4-a716-446655440000",
-  "text": "node text"
-}
-```
-
-```json
-{
-  "type": "SetText",
-  "nodeId": "550e8400-e29b-41d4-a716-446655440000",
-  "oldText": "old",
-  "newText": "new"
-}
-```
-
-```json
-{
-  "type": "Replace",
-  "parentId": "550e8400-e29b-41d4-a716-446655440000",
-  "index": 0,
-  "oldIds": ["id1", "id2"],
-  "newIds": ["id3", "id4", "id5"]
-}
-```
-
-### Change
-```json
-{
-  "id": 15,
-  "ops": [
-    { "type": "NewNode", ... },
-    { "type": "SetText", ... }
-  ]
-}
-```
-
-**Note**: Client-provided `id` is passed through in MVP; there is no server-side reassignment yet.
-
-### Node
-```json
-{
-  "id": "550e8400-e29b-41d4-a716-446655440000",
-  "text": "node text",
-  "children": ["id1", "id2", "id3"]
-}
-```
-
-### Graph
-```json
-{
-  "root": "550e8400-e29b-41d4-a716-446655440000",
-  "nodes": {
-    "550e8400-e29b-41d4-a716-446655440000": {
-      "id": "550e8400-e29b-41d4-a716-446655440000",
-      "text": "root",
-      "children": ["id1", "id2"]
-    },
-    "id1": { ... },
-    "id2": { ... }
-  }
-}
-```
-
-**Note**: `nodes` is an object/map keyed by NodeId string.
-
----
-
-## Multi-Client Sync Protocol (Current MVP)
-
-### Assumptions
-- Maximum 5 concurrent clients (N<5)
-- All clients operate on the same model
-- Server is authoritative
-- Changes are applied optimistically on client, then synced to server
-
-### Client Sync Flow
-
-1. **Initial Load**:
-   - `GET /state` → get graph + current revision
-   - Store locally as baseline
-
-2. **Local Edit**:
-   - User makes edit → create `Change` with ops
-   - Apply optimistically to local state
-   - Queue change for server sync
-
-3. **Sync to Server**:
-   - `POST /submit` with `clientRevision` and queued change
-  - On success: update local revision from response
-  - On `400`: surface error and keep local state unchanged
-
-4. **Polling for Remote Changes**:
-  - Not part of current MVP (no `GET /ops?since=` endpoint yet)
-
-### Conflict Resolution
-
-Advanced conflict handling is deferred for MVP. Current behavior is effectively last-write-wins by arrival order.
-
-### Transaction Log Structure
-
-The server's transaction log is the shared `History` type inside `State`. `History.past` is a list of `Change` records (newest first). Each `Change` has an `id` and a list of `Op`s.
-
-The server additionally tracks `revision` (on `ServerState`) which is bumped with each applied change.
-
-**Note**: Log is in-memory only for MVP. Disk persistence (for crash recovery
-and load → replay) is a future enhancement.
-
----
-
-## Error Codes
-
-- `200 OK`: Success
-- `400 Bad Request`: Invalid request (malformed JSON, invalid op, etc.)
-- `500 Internal Server Error`: Server error
-
----
-
-## Notes
-
-- All timestamps in ISO 8601 format
-- All GUIDs as lowercase strings without braces
-- Server does not currently reassign change IDs
-- Revision starts at 0
-- Empty arrays should be `[]`, not omitted
-

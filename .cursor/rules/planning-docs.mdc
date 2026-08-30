@@ -1,0 +1,7 @@
+---
+globs: doc/**,**/*.plan.md,**/*roadmap*
+---
+
+[[doc/]] describes the current program. Chart future work on `.scratch` Projects. Leftover [[doc/roadmap/]] files wait until a Project cites them or they move to history.
+
+Planning docs use [[wikilinks]], no hard wrap, one concern per section.

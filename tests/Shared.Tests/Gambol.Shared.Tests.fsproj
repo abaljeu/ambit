@@ -6,13 +6,109 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="SpecialNodeTestHelpers.fs" />
+    <Compile Include="VmTestHelpers.fs" />
+    <Compile Include="OpenTargetTests.fs" />
     <Compile Include="ModelTests.fs" />
+    <Compile Include="GraphProjectionTests.fs" />
+    <Compile Include="ProjectionOwnershipRepairTests.fs" />
+    <Compile Include="BootstrapScopeTests.fs" />
+    <Compile Include="LoadCaptureTests.fs" />
+    <Compile Include="GraphQueryTests.fs" />
     <Compile Include="ModelBuilderTests.fs" />
     <Compile Include="HistoryTests.fs" />
+    <Compile Include="ClientHistoryTests.fs" />
+    <Compile Include="ChangeAmendmentTests.fs" />
+    <Compile Include="ChildListMergeTests.fs" />
+    <Compile Include="LargeChangeApplyTests.fs" />
+    <Compile Include="WorkspaceOpsTests.fs" />
+    <Compile Include="RefExprTestTree.fs" />
+    <Compile Include="RefExprTests.fs" />
+    <Compile Include="ExprEvalTests.fs" />
+    <Compile Include="ExprPathClusterParseTests.fs" />
+    <Compile Include="ExprStructuralEvalTests.fs" />
+    <Compile Include="ExprContentSearchTests.fs" />
+    <Compile Include="ExprPipelineTests.fs" />
+    <Compile Include="ExprFilterTests.fs" />
+    <Compile Include="ExprSectionTests.fs" />
+    <Compile Include="ExprCombinatorTests.fs" />
+    <Compile Include="ExprTextOpsTests.fs" />
+    <Compile Include="ExprRunTests.fs" />
+    <Compile Include="ExprDialogTests.fs" />
+    <Compile Include="ExprChapter11Tests.fs" />
+    <Compile Include="AmbleTests.fs" />
+    <Compile Include="AmbleRunTests.fs" />
+    <Compile Include="ViewModelFileSearchTests.fs" />
+    <Compile Include="FileNodeOpsTests.fs" />
+    <Compile Include="LazyLoadReconciliationTests.fs" />
+    <Compile Include="DocumentPathMoveTests.fs" />
+    <Compile Include="DocumentPartitionTests.fs" />
+    <Compile Include="DocumentOpImpactTests.fs" />
+    <Compile Include="DocumentAssemblyTests.fs" />
+    <Compile Include="DocumentAssemblyWorkspaceMarkerTests.fs" />
+    <Compile Include="LogTextTests.fs" />
     <Compile Include="SnapshotTests.fs" />
+    <Compile Include="AmbDocumentTests.fs" />
+    <Compile Include="AmbDocumentWorkspaceMarkerTests.fs" />
+    <Compile Include="PlainTextDocumentTests.fs" />
+    <Compile Include="CStyleDocumentTests.fs" />
+    <Compile Include="DocumentBinaryTests.fs" />
+    <Compile Include="MdDocumentTests.fs" />
+    <Compile Include="OutlineDocumentTests.fs" />
+    <Compile Include="OutlineReconcileTests.fs" />
     <Compile Include="SerializationTests.fs" />
+    <Compile Include="WorkspaceLocalMappingTests.fs" />
+    <Compile Include="WorkspaceSyncScopeTests.fs" />
+    <Compile Include="GitCheckIgnoreTests.fs" />
+    <Compile Include="WorkspaceLocalInventoryTests.fs" />
+    <Compile Include="WorkspaceSyncLimitsTests.fs" />
+    <Compile Include="DocumentParseLimitsTests.fs" />
+    <Compile Include="SystemDirectoryPersistTests.fs" />
+    <Compile Include="WorkspaceDownloadQueueTests.fs" />
+
+    <Compile Include="WorkspaceDavClientTests.fs" />
+    <Compile Include="WorkspaceFileSyncPromoteTests.fs" />
+    <Compile Include="WorkspaceFileSyncUploadWavesTests.fs" />
+    <Compile Include="WorkspaceSyncLedgerTests.fs" />
+    <Compile Include="LoginFormTests.fs" />
+    <Compile Include="LoginRedirectTests.fs" />
+    <Compile Include="RedirectRewriteTests.fs" />
+    <Compile Include="FileSyncIndicatorTests.fs" />
+    <Compile Include="WorkspacePathSyncStatusTests.fs" />
+    <Compile Include="ClientIdentityTests.fs" />
+    <Compile Include="WorkspaceGitRemoteTests.fs" />
+    <Compile Include="DesktopGitTests.fs" />
+
+    <Compile Include="ImportTextTests.fs" />
+    <Compile Include="ImportDocumentTests.fs" />
+    <Compile Include="DocumentColdParseTests.fs" />
+    <Compile Include="ExportTextTests.fs" />
+    <Compile Include="NodeDesktopPathTests.fs" />
+    <Compile Include="SearchTests.fs" />
+    <Compile Include="SearchDialogModeTests.fs" />
+    <Compile Include="FileSearchDialogModeTests.fs" />
+    <Compile Include="ViewModelJoinOpsTests.fs" />
+    <Compile Include="ViewModelMoveOpsTests.fs" />
+    <Compile Include="ViewModelRowStateTests.fs" />
+    <Compile Include="ViewModelCmdLastResultTests.fs" />
     <Compile Include="ViewModelTests.fs" />
+    <Compile Include="DeleteOpsTests.fs" />
+    <Compile Include="SyncLogicTests.fs" />
+    <Compile Include="BootCacheTests.fs" />
+    <Compile Include="BootCachePollTests.fs" />
+    <Compile Include="ClientHistoryRuntimeTests.fs" />
+    <Compile Include="AckReconcileTests.fs" />
+    <Compile Include="SyncPlannerTests.fs" />
+    <Compile Include="SyncRetryTests.fs" />
     <Compile Include="PasteTests.fs" />
+    <Compile Include="ClientRectCaretTests.fs" />
+    <Compile Include="EditCaretTests.fs" />
+    <Compile Include="CommandDockLayoutTests.fs" />
+    <Compile Include="CommandCategoryTests.fs" />
+    <Compile Include="CommandEntryTests.fs" />
+    <Compile Include="WorkspaceUploadTests.fs" />
+    <Compile Include="WorkspaceUploadStructureTests.fs" />
+    <Compile Include="CommandIconsTests.fs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -21,10 +117,13 @@
     <PackageReference Include="Thoth.Json.Newtonsoft" Version="0.3.3" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+    <PackageReference Include="Xunit.SkippableFact" Version="1.5.23" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Shared\Gambol.Shared.fsproj" />
+    <ProjectReference Include="..\..\src\Shared\documents\Gambol.Shared.Documents.fsproj" />
+    <ProjectReference Include="..\..\src\Shared\dotnet\Gambol.Shared.DotNet.fsproj" />
   </ItemGroup>
 
 </Project>

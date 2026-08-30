@@ -2,14 +2,50 @@
     "version": "0.2.0",
     "compounds": [
         {
-            "name": "Full Stack",
-            "configurations": ["Launch Server",
-                "Launch Client (Edge)"]
+            "name": "Local Server and Web Client",
+            "configurations": [
+                "(Server for Full Stack)",
+                "(Client for Full Stack)"
+            ],
+            "preLaunchTask": "fullstack: Build",
+            "stopAll": true
+        },
+        {
+            "name": "Desktop App and Local Server",
+            "configurations": [
+                "(Local Server)",
+                "(Desktop App for Local Server)"
+            ],
+            "preLaunchTask": "desktop: local: build",
+            "stopAll": true
         }
     ],
     "configurations": [
-    {
-            "name": "Launch Server",
+        {
+            "name": "Desktop App (Connect to Azure)",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "desktop: Build",
+            "program": "${workspaceFolder}/src/Desktop/bin/Debug/net10.0-windows/Gambol.Desktop.dll",
+            "args": ["--cloud"],
+            "cwd": "${workspaceFolder}/src/Desktop",
+            "stopAtEntry": false,
+            "console": "internalConsole",
+            "justMyCode": false
+        },
+        {
+            "name": "(Desktop App for Local Server)",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/Desktop/bin/Debug/net10.0-windows/Gambol.Desktop.dll",
+            "args": ["--local"],
+            "cwd": "${workspaceFolder}/src/Desktop",
+            "stopAtEntry": false,
+            "console": "internalConsole",
+            "justMyCode": false
+        },
+        {
+            "name": "(Local Server)",
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "server: Build",
@@ -20,29 +56,84 @@
             "console": "internalConsole",
             "env": {
                 "ASPNETCORE_ENVIRONMENT": "Development",
-                "ASPNETCORE_URLS": "http://localhost:5115"
+                "ASPNETCORE_URLS": "http://localhost:5215"
             }
         },
         {
-            "name": "Launch Client (Edge)",
+            "name": "(Local Client Edge)",
             "type": "msedge",
             "request": "launch",
             "preLaunchTask": "fable: Build Client",
-            "url": "http://localhost:5115/amble",
+            "url": "http://localhost:5215/ambit?debug=1",
             "webRoot": "${workspaceFolder}/src/Server/wwwroot",
             "sourceMapPathOverrides": {
-                "../../Client/*": "${workspaceFolder}/src/Client/*"
+                "../../Client/*": "${workspaceFolder}/src/Client/*",
+                "../../../Shared/*": "${workspaceFolder}/src/Shared/*"
             }
         },
         {
-            "name": "Launch Client (Chrome)",
+            "name": "(Local Client Chrome)",
             "type": "chrome",
             "request": "launch",
             "preLaunchTask": "fable: Build Client",
-            "url": "http://localhost:5115/amble",
+            "url": "http://localhost:5215/ambit?debug=1",
             "webRoot": "${workspaceFolder}/src/Server/wwwroot",
             "sourceMapPathOverrides": {
-                "../../Client/*": "${workspaceFolder}/src/Client/*"
+                "../../Client/*": "${workspaceFolder}/src/Client/*",
+                "../../../Shared/*": "${workspaceFolder}/src/Shared/*"
+            }
+        },
+        {
+            "name": "(Client for Full Stack)",
+            "type": "chrome",
+            "request": "launch",
+            "url": "http://localhost:5215/ambit?debug=1",
+            "webRoot": "${workspaceFolder}/src/Server/wwwroot",
+            "sourceMapPathOverrides": {
+                "../../Client/*": "${workspaceFolder}/src/Client/*",
+                "../../../Shared/*": "${workspaceFolder}/src/Shared/*"
+            }
+        },
+        {
+            "name": "Azure Client (Chrome)",
+            "type": "chrome",
+            "request": "launch",
+            "url": "https://collaborative-systems.org/ambit?debug=1",
+            "webRoot": "${workspaceFolder}/src/Server/wwwroot",
+            "pathMapping": {
+                "/ambit": "${workspaceFolder}/src/Server/wwwroot"
+            },
+            "sourceMapPathOverrides": {
+                "../../Client/*": "${workspaceFolder}/src/Client/*",
+                "../../../Shared/*": "${workspaceFolder}/src/Shared/*"
+            }
+        },
+        {
+            "name": "Azure Client (Edge)",
+            "type": "msedge",
+            "request": "launch",
+            "url": "https://collaborative-systems.org/ambit?debug=1",
+            "webRoot": "${workspaceFolder}/src/Server/wwwroot",
+            "pathMapping": {
+                "/ambit": "${workspaceFolder}/src/Server/wwwroot"
+            },
+            "sourceMapPathOverrides": {
+                "../../Client/*": "${workspaceFolder}/src/Client/*",
+                "../../../Shared/*": "${workspaceFolder}/src/Shared/*"
+            }
+        },
+        {
+            "name": "(Server for Full Stack)",
+            "type": "coreclr",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/Server/bin/Debug/net10.0/Gambol.Server.dll",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "console": "internalConsole",
+            "env": {
+                "ASPNETCORE_ENVIRONMENT": "Development",
+                "ASPNETCORE_URLS": "http://localhost:5215"
             }
         }
     ]
