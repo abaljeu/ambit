@@ -11,7 +11,7 @@ Use relative paths such as ./src. Do not use absolute paths.
 
 Follow [[.cursor/skills/git-protocol/SKILL.md]]. Terms: [[CONTEXT.md]].
 
-The Desktop agent does not run remotes unless the user asks (manual approval). Cloud sharing in that skill is the exception for a cloud agent on `ready`.
+The Desktop agent does not run remotes unless the user asks (manual approval). Remotes are [[.cursor/skills/git-share/SKILL.md]], which the human invokes.
 
 Read-only local git (`status`, `diff`, `log`, `rev-parse`, `check-ignore`, etc.) is always fine.
 

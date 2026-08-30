@@ -5,7 +5,7 @@ Concise glossary for this repo. Prefer these words; do not invent synonyms.  If 
 ## About Working
 
 **Agent-done**:
-A finished slice: tests green, `/code-review` passed, and a `git commit` on `dev`. Then the human runs [[scripts/merge.sh]] (or types the merge) to put that work on `ready`. Tickets do not record commit SHAs. Procedure: [[.cursor/skills/git-protocol/SKILL.md]].
+Finished work: tests green, `/code-review` passed, and a `git commit` on `dev`. Then the human runs [[scripts/merge.sh]] (or types the merge) to put that work on `ready`. Tickets do not record commit SHAs. Procedure: [[.cursor/skills/git-protocol/SKILL.md]].
 _Avoid_: done, finished, shipped, complete
 
 **dev**:
@@ -17,7 +17,7 @@ Integration place. Procedure: [[.cursor/skills/git-protocol/SKILL.md]].
 _Avoid_: original branch (for this place)
 
 **master**:
-Slice place. Tags name commits here. Procedure: [[.cursor/skills/git-protocol/SKILL.md]].
+The place squashed merges from `ready` land, one commit each. Procedure: [[.cursor/skills/git-master/SKILL.md]].
 
 **Original branch**:
 Retired. Use **dev**, **ready**, and **master**. See [[.cursor/skills/git-protocol/SKILL.md]].
@@ -32,7 +32,7 @@ Retired. Do not add `.scratch/<feature>/git.md` for branch names. Existing files
 _Avoid_: branch notes, git status file, branch tracker
 
 **Manual approval**:
-A direct user request that authorizes a named git operation the Desktop agent does not run on its own (for example remotes). Merge and squash go through [[scripts/merge.sh]] or the human CLI per [[.cursor/skills/git-protocol/SKILL.md]].
+A direct user request that authorizes a named git operation the Desktop agent does not run on its own (for example remotes). Merge goes through [[scripts/merge.sh]] or the human CLI per [[.cursor/skills/git-protocol/SKILL.md]]; squash onto `master` is [[.cursor/skills/git-master/SKILL.md]].
 _Avoid_: permission, override, allowlist exception
 
 **Issue tracker**:
@@ -282,4 +282,5 @@ These terms are permitted with standard definition:
 
 ## Additional Unwanted terms
 - affordance
+- **Piece** and **Slice** as names for git commit granularity — say what the commits are: ordinary commits on `dev`, one squashed merge per commit on `master`. The separate `.scratch/` sense of slice (an implementation increment) is unaffected.
 - **Marker** (for `.amb` Directory/Workspace documents, or “marker-only” cold bootstrap) — deprecated; say **Directory File**
