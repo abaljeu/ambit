@@ -5,7 +5,7 @@ description: Create a detailed refactor plan with tiny steps via user interview,
 
 This skill will be invoked when the user wants to create a refactor request. You should go through the steps below. You may skip steps if you don't consider them necessary.
 
-Git and publish policy: [[.cursor/rules/environment.mdc]], [[docs/agents/issue-tracker.md]]. Plan grain is **steps** (same size discipline as tiny commits), not commits. Publish under `.scratch/`. Commits are allowed only when implementing on an unlocked project branch (`w/*`).
+Git: follow [[.cursor/skills/git-protocol/SKILL.md]]. Publish under `.scratch/` per [[docs/agents/issue-tracker.md]]. Plan grain is **steps** (same size discipline as tiny commits), not commits.
 
 1. Ask the user for a long, detailed description of the problem they want to solve and any potential ideas for solutions.
 
@@ -19,7 +19,7 @@ Git and publish policy: [[.cursor/rules/environment.mdc]], [[docs/agents/issue-t
 
 6. Look in the codebase to check for test coverage of this area of the codebase. If there is insufficient test coverage, ask the user what their plans for testing are.
 
-7. Break the implementation into a plan of tiny **steps**. Remember Martin Fowler's advice to "make each refactoring step as small as possible, so that you can always see the program working." Each step should leave the codebase in a working state; when later implementing on `w/*`, a step may become a commit.
+7. Break the implementation into a plan of tiny **steps**. Remember Martin Fowler's advice to "make each refactoring step as small as possible, so that you can always see the program working." Each step should leave the codebase in a working state; when later implementing, a step may become a commit.
 
 8. Publish the refactor plan under `.scratch/<feature-slug>/` per [[docs/agents/issue-tracker.md]]. Use the following template:
 

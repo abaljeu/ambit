@@ -1,3 +1,3 @@
 # Agent git hygiene: commit only on project branches
 
-Agents treat a human-owned **original branch** (not main/master) as the squash target and work only on **project branches** prefixed `w/`. Agents may create or check out `w/<slug>` once from HEAD when not already on `w/`, then stay there; they do not switch back to the original, squash, or touch remotes/main/master unless the user directly asks (**manual approval**). Commits happen only on `w/*` after **agent-done** (tests green, code-review, commit); otherwise the agent leaves a dirty tree and a suggested message. Bookkeeping lives in `.scratch/<feature>/git.md`. This keeps human history ownership and remote risk hard to reverse while still letting agents commit on disposable workplace lines.
+Superseded by [[docs/Decisions/0002-git-protocol.md]]. Canonical git procedure is [[.cursor/skills/git-protocol/SKILL.md]].

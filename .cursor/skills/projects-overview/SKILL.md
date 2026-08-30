@@ -5,7 +5,7 @@ description: Regenerate .scratch/index.md, a stage overview of every project. Us
 
 # Projects overview
 
-Follow [[docs/agents/project-status.md]] for the stage vocabulary and the `project.md` format, and [[.cursor/skills/project-work/SKILL.md]] for the branch and commit protocol.
+Follow [[docs/agents/project-status.md]] for the stage vocabulary and the `project.md` format. Git: [[.cursor/skills/git-protocol/SKILL.md]].
 
 Regenerate [[.scratch/index.md]] so every **project** — a `.scratch/<slug>/` directory — appears with its **stage**.
 

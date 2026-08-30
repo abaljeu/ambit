@@ -1,46 +1,28 @@
 ---
 name: project-work
-description: Git protocol for any .scratch project — start on a w/* project branch, record the cut-from branch, commit only approved work, offer to merge back when done. Use before editing a project's files, when starting a .scratch effort, or when another skill touches .scratch.
+description: .scratch project files and Stage. Use before editing a project's files, when starting a .scratch effort, or when another skill touches .scratch.
 ---
 
 # Project work
 
-Policy and tool allowlist: [[.cursor/rules/environment.mdc]]. Stages: [[docs/agents/project-status.md]].
+Stages: [[docs/agents/project-status.md]]. Git: [[.cursor/skills/git-protocol/SKILL.md]].
 
-Every `.scratch/<slug>/` effort runs on a **project branch** (`w/*`). Do the branch step before editing any of its files.
+Each `.scratch/<slug>/` effort is a **Project**. Keep its `project.md` Stage current. Create `project.md` if the effort lacks one. Regenerating the overview: [[.cursor/skills/projects-overview/SKILL.md]].
 
-## 1. Start on a project branch
+Do not create `git.md` to record branch names. Existing `git.md` files are history.
 
-Read the current branch. If it already matches `w/*`, stay. Otherwise create and checkout `w/<slug>` once from HEAD.
+## 1. Start
 
-Completion: Run `status.sh`, the branch matches `w/*`.
+Follow [[.cursor/skills/git-protocol/SKILL.md]] for where work sits. Then write the project files.
 
-## 2. Record the cut-from
+## 2. Stage
 
-Write the project's `.scratch/<slug>/git.md`:
-
-```text
-# <name> — git
-
-- **Project branch:** `w/<slug>`
-- **Cut from:** `<branch this was branched off>`
-- **Notes:** <one line>
-```
-
-Completion: `git.md` names the project branch and the cut-from branch.
+Set `Stage:` and `Updated:` in `project.md` when the effort starts or advances. Then regenerate [[.scratch/index.md]].
 
 ## 3. Work
 
-Edit freely on the project branch. Never switch back to the cut-from branch, never touch main/master, run no remote ops — each is manual-approval per [[.cursor/rules/environment.mdc]].
+Edit the project's files. Specs, issues, maps, and reports live under `.scratch/<slug>/`.
 
-## 4. Commit only approved work
+## 4. Finish
 
-Commit as **agent-done**: tests green, `/code-review`, then `git commit` — only on `w/*`, and only the changes the user approved. Not on `w/*`? Leave the tree dirty and suggest a message.
-
-Completion: HEAD carries only approved changes, or a suggested message is offered.
-
-## 5. Offer to merge back
-
-When the project reaches `done`, suggest merging the project branch back into its cut-from. Do not merge without the user's go-ahead (manual approval).
-
-Completion: a merge back to the cut-from branch is offered.
+Commit only the changes the user approved, as **agent-done** per [[.cursor/skills/git-protocol/SKILL.md]].

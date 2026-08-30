@@ -5,23 +5,34 @@ Concise glossary for this repo. Prefer these words; do not invent synonyms.  If 
 ## About Working
 
 **Agent-done**:
-A finished slice on a project branch: tests green, `/code-review` passed, and a commit on the current `w/*` branch. Tickets do not record commit SHAs.
+A finished slice: tests green, `/code-review` passed, and a `git commit` on `dev`. Then the human runs [[scripts/merge.sh]] (or types the merge) to put that work on `ready`. Tickets do not record commit SHAs. Procedure: [[.cursor/skills/git-protocol/SKILL.md]].
 _Avoid_: done, finished, shipped, complete
 
+**dev**:
+Desktop workplace. Ordinary commits happen here. Local-only. Procedure: [[.cursor/skills/git-protocol/SKILL.md]].
+_Avoid_: original branch, project branch, `w/` (for this place)
+
+**ready**:
+Integration place. Procedure: [[.cursor/skills/git-protocol/SKILL.md]].
+_Avoid_: original branch (for this place)
+
+**master**:
+Slice place. Tags name commits here. Procedure: [[.cursor/skills/git-protocol/SKILL.md]].
+
 **Original branch**:
-The human-owned long-lived line that is not main or master; the human squashes onto it.
-_Avoid_: base branch, long-lived branch, integration branch, feature branch
+Retired. Use **dev**, **ready**, and **master**. See [[.cursor/skills/git-protocol/SKILL.md]].
+_Avoid_: original branch, base branch, long-lived branch
 
 **Project branch**:
-The agent's default workplace branch, always prefixed `w/`. The agent may create or check out `w/<slug>` once from HEAD when not already on `w/`, then stays there.
-_Avoid_: work branch, agent branch, workplace branch, scratch branch
+Retired. Do not create `w/` branches. See [[.cursor/skills/git-protocol/SKILL.md]].
+_Avoid_: project branch, work branch, agent branch, `w/`
 
 **Git bookkeeping**:
-The file `.scratch/<feature>/git.md` that records the current project branch, the original it was cut from, and short notes.
+Retired. Do not add `.scratch/<feature>/git.md` for branch names. Existing files are history.
 _Avoid_: branch notes, git status file, branch tracker
 
 **Manual approval**:
-A direct user request that authorizes a named git operation otherwise off-limits (for example checkout of another branch, merge, rebase, reset, clean, remotes, or writes to main/master).
+A direct user request that authorizes a named git operation the Desktop agent does not run on its own (for example remotes). Merge and squash go through [[scripts/merge.sh]] or the human CLI per [[.cursor/skills/git-protocol/SKILL.md]].
 _Avoid_: permission, override, allowlist exception
 
 **Issue tracker**:

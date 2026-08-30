@@ -5,6 +5,8 @@ description: Set up Claude Code hooks to block dangerous git commands (push, res
 
 # Setup Git Guardrails
 
+Git: follow [[.cursor/skills/git-protocol/SKILL.md]]. Exception: this skill installs Claude Code hooks that block push, reset --hard, clean, and related commands — **diverging; needs human**.
+
 Sets up a PreToolUse hook that intercepts and blocks dangerous git commands before Claude executes them.
 
 ## What Gets Blocked

@@ -3,7 +3,7 @@ name: resolving-merge-conflicts
 description: "Use when you need to resolve an in-progress git merge/rebase conflict."
 ---
 
-Human owns the merge/rebase state (start, continue, abort, checkout). Agent proposes and applies **file** resolutions only. Do not run merge/rebase/commit git mutations — see [[.cursor/rules/environment.mdc]].
+Git: follow [[.cursor/skills/git-protocol/SKILL.md]]. Exception: while a merge or rebase is in progress, the human owns start, continue, abort, and checkout; this skill applies file resolutions only.
 
 1. **See the current state** of the merge/rebase. Check git history (read-only), and the conflicting files.
 

@@ -7,17 +7,13 @@ Windows 10. GIT Bash shell. Use it.
 Your working directory is the project root. Do not use `cd`. Do not change directories.
 Use relative paths such as ./src. Do not use absolute paths.
 
-## Git hygiene
+## Git
 
-Branch model and terms: [[CONTEXT.md]], decision: [[docs/Decisions/0001-agent-git-hygiene.md]].
+Follow [[.cursor/skills/git-protocol/SKILL.md]]. Terms: [[CONTEXT.md]].
 
-- **Original branch**: human-owned long-lived line ≠ main/master; human squashes onto it. Agents never switch back to it, never squash onto it, never touch main/master.
-- **Project branch**: prefix `w/`. Default workplace. When not already on `w/*`, the agent may create/checkout `w/<slug>` once from HEAD, then stay. Update `.scratch/<feature>/git.md` on create/switch (current project branch, cut-from original, notes).
-- **Commit**: only when the current branch matches `w/*`, as part of **agent-done** (tests green + `/code-review` + `git commit`). If not on `w/*`: leave the dirty tree, suggest a commit message, and offer to create `w/<slug>`. No SHA bookkeeping on tickets.
-- **Remotes**: no `fetch`/`pull`/`push` or remote ops via `gh`/`glab` unless the user directly asks (**manual approval**).
-- **Tool allowlist intent** (user configures Cursor): auto-approve read-only git + `add` + `commit` on `w/*`. Manual approval required for: checkout/switch to other branches, merge/rebase, reset, clean, remotes, main/master writes.
-- **Bisect**: prepare a read-only recipe (log range + red command) only; the human runs bisect. No agent checkouts for bisect.
-- Read-only local git (`status`, `diff`, `log`, `rev-parse`, `check-ignore`, etc.) is always fine.
+The Desktop agent does not run remotes unless the user asks (manual approval). Cloud sharing in that skill is the exception for a cloud agent on `ready`.
+
+Read-only local git (`status`, `diff`, `log`, `rev-parse`, `check-ignore`, etc.) is always fine.
 
 Do not run VSCode Tasks.
 

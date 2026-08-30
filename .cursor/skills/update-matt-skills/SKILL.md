@@ -14,6 +14,8 @@ Same-branch model: operator skill lives here under `.cursor/skills`. Branch `ven
 | `.agents/skills/` | Flat install agents use |
 | `.cursor/skills/update-matt-skills/` | This skill + scripts |
 
+Git: follow [[.cursor/skills/git-protocol/SKILL.md]]. Exception: this skill still uses `vendor/mattpocock-skills` and a merge script that expects a clean `w/*` tip, then creates `update/mattpocock-skills` — **diverging; needs human**.
+
 Run scripts **in place** from the repo root (no temp copy, no worktrees).
 
 Flat target: `.agents/skills`. No `skills-lock.json`, no `npx skills`. No SHA bookkeeping in commit messages or reports. No push of vendor / no origin remotes unless the user asks.

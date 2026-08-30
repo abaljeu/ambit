@@ -5,7 +5,9 @@ description: Create exercise directory structures with sections, problems, solut
 
 # Scaffold Exercises
 
-Create exercise directory structures that pass `pnpm ai-hero-cli internal lint`, then commit with `git commit`.
+Git: follow [[.cursor/skills/git-protocol/SKILL.md]]. Exception: this skill still says `git commit` after lint for course exercises.
+
+Create exercise directory structures that pass `pnpm ai-hero-cli internal lint`.
 
 ## Directory naming
 
