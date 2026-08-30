@@ -1,7 +1,7 @@
 # cPanel transparent proxy (custom domain → Azure)
 
 Category: Deployment
-See also: [[doc/reference/deploy-azure.md]], [[.htaccess]], [[proxy.php]], [[src/Server/Server.fs]]
+See also: [[doc/reference/deploy-azure.md]], [[proxy.php]], [[src/Server/Server.fs]]
 
 Production serves Gambol at `https://collaborative-systems.org/ambit`. Azure App Service runs the .NET app and PostgreSQL connection. The cPanel (HostGator) host at that domain only forwards `/ambit` traffic; it does not run .NET, a Gambol process, or application data.
 
@@ -22,18 +22,17 @@ sequenceDiagram
     PHP-->>Browser: same body; Location rewritten to custom domain
 ```
 
-1. Apache matches `^ambit(/.*)?$` in [[.htaccess]] and routes to [[proxy.php]] with the subpath in `path`.
+1. Apache matches the `/ambit` path and routes to [[proxy.php]] with the subpath in `path`.
 2. `proxy.php` builds the Azure backend URL (`$BACKEND` + `/ambit` + subpath), forwards the request with curl, and returns the response.
 3. `Location` headers from Azure are rewritten so redirects stay on `collaborative-systems.org` instead of exposing the `*.azurewebsites.net` host.
 
 ## cPanel host files
 
-Upload repo-root [[.htaccess]] and [[proxy.php]] to the cPanel document root after changes.
+Upload repo-root [[proxy.php]] to the cPanel document root after changes.
 
-### `.htaccess`
+### Web-server configuration
 
-- Collapses doubled paths: `/ambit/ambit/login` → `/ambit/login` (301).
-- Rewrites `/ambit` and `/ambit/*` to `proxy.php?path=…` with query string preserved (`QSA`).
+The Apache configuration that forwards the `/ambit` path to [[proxy.php]] is kept outside this repository. The operator holds the current copy and installs it in the cPanel document root beside [[proxy.php]]. It performs two jobs: it hands `/ambit` requests to [[proxy.php]] with the subpath in `path`, and it collapses doubled paths that the proxy would otherwise forward twice.
 
 Apache `mod_proxy` is not used — shared hosting often disables it. PHP curl in `proxy.php` is the workaround.
 
