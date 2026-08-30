@@ -18,11 +18,15 @@ Current chapter: Status
 
 **Blocked by:** Status.
 
-## Homed Projects
+## Required for done
+
+Not a Chapter. The Epic is not done until each item is done (or the named part).
 
 Live:
 
 - [ ] [[.scratch/expression-language/project.md]] — remainder beyond Find / `?`
+- [ ] [[.scratch/end-user-wiki/map.md]] — portion for this Epic (not yet filed)
+- [ ] [[.scratch/marketing-wiki/map.md]] — portion for this Epic (not yet filed)
 
 ## Notes
 
@@ -30,5 +34,5 @@ Live:
 - Do not say project for a Workspace Node or for glossary Project. [[CONTEXT.md]].
 - Outline capture is already met; this Epic is organizing work.
 - Chapters stay open-ended: add one when a specific need is named.
-- Wiki write-up is not this session.
+- Wiki write-up is not a Chapter. Portions are Required for done.
 - Status and Date have no owning Project yet.

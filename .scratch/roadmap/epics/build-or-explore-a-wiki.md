@@ -20,12 +20,15 @@ Current chapter: Markdown codec
 
 **Blocked by:** Markdown codec.
 
-## Homed Projects
+## Required for done
+
+Not a Chapter. The Epic is not done until each item is done (or the named part).
 
 Live:
 
-- [ ] [[.scratch/document-formats/map.md]] — `.md` File codec; also the current Chapter
 - [ ] [[.scratch/expression-language/project.md]] — remainder beyond Find / `?`
+- [ ] [[.scratch/end-user-wiki/map.md]] — portion for this Epic (not yet filed)
+- [ ] [[.scratch/marketing-wiki/map.md]] — portion for this Epic (not yet filed)
 
 ## Notes
 
@@ -35,5 +38,5 @@ Live:
 - [[work-with-text-files-from-anywhere.md]] Markdown styling is look in the App, not the `.md` codec.
 - English **wiki page** vs File Node: do not say page for a File Node. [[CONTEXT.md]].
 - Chapters stay open-ended: add one when a specific need is named.
-- Wiki write-up is not this session.
+- Wiki write-up is not a Chapter. Portions are Required for done.
 - Public URL has no owning Project yet.

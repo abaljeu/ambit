@@ -39,11 +39,12 @@ Current chapter: Automatic upload and download
 
 **Blocked by:** None.
 
-## Homed Projects
+## Required for done
+
+Not a Chapter. The Epic is not done until each item is done (or the named part).
 
 Live:
 
-- [ ] [[.scratch/auto-download-persisted-files/project.md]] — also the current Chapter
 - [ ] [[.scratch/selective-client-loading/project.md]]
 - [ ] [[.scratch/client-start-time/project.md]] — primarily mobile; this Epic is a key component for [[manage-a-project.md]] and [[operate-a-pkm.md]]
 - [ ] [[.scratch/daily-git-save/project.md]]
@@ -51,6 +52,8 @@ Live:
 - [ ] [[.scratch/parse-load-demote/project.md]]
 - [ ] [[.scratch/bullet-tip-times/project.md]]
 - [ ] [[.scratch/document-formats/map.md]] — remainder (XML and other draft codecs); `.md` and HTML are on other Epics
+- [ ] [[.scratch/end-user-wiki/issues/01-describe-documents-from-any-connected-device.md]] — end-user wiki portion for this Epic
+- [ ] [[.scratch/marketing-wiki/issues/01-use-page-documents-from-any-connected-device.md]] — marketing wiki portion for this Epic
 
 Done:
 
@@ -64,7 +67,7 @@ Done:
 - Scaling is [[organize-huge-outlines.md]]; first use does not wait on it.
 - Outline capture (“get it out of my head”) is already met; this Epic is documents from anywhere.
 - Chapters stay open-ended: add one when a specific document class or usability is named.
-- Wiki write-up is not a Chapter. Issues: [[.scratch/end-user-wiki/issues/01-describe-documents-from-any-connected-device.md]], [[.scratch/marketing-wiki/issues/01-use-page-documents-from-any-connected-device.md]]. Architecture wiki only if this use needs how-it-runs.
+- Wiki write-up is not a Chapter. Portions are Required for done.
 - A Google Doc (a document that is not a File) is potentially IN scope.
 - Graphic editing is out of scope. A graphic file is not a document.
 - English **document** vs **Document** (project) vs File Node: [[CONTEXT.md]].

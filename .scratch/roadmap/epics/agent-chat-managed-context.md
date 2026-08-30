@@ -43,13 +43,16 @@ Current chapter: Ask from what I see
 
 - [ ] [[.scratch/event-sourced-ops/details/actors-and-jobs.md]] — shell command as a later Actor
 
-## Homed Projects
+## Required for done
+
+Not a Chapter. The Epic is not done until each item is done (or the named part).
 
 Live:
 
-- [ ] [[.scratch/llm-connector/project.md]] — also the current Chapter
-- [ ] [[.scratch/expression-language/project.md]] — `?` recognition plus remainder
-- [ ] [[.scratch/event-sourced-ops/project.md]] — Actor issues on the current Chapter; remainder also homed here
+- [ ] [[.scratch/expression-language/project.md]] — remainder beyond `?` recognition
+- [ ] [[.scratch/event-sourced-ops/project.md]] — remainder beyond Actor issues on Chapters
+- [ ] [[.scratch/end-user-wiki/map.md]] — portion for this Epic (not yet filed)
+- [ ] [[.scratch/marketing-wiki/map.md]] — portion for this Epic (not yet filed)
 
 ## Notes
 

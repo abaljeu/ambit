@@ -32,11 +32,14 @@ Current chapter: HTML codec
 
 **Blocked by:** HTML codec.
 
-## Homed Projects
+## Required for done
+
+Not a Chapter. The Epic is not done until each item is done (or the named part).
 
 Live:
 
-- [ ] [[.scratch/document-formats/map.md]] — HTML File codec; also the current Chapter
+- [ ] [[.scratch/end-user-wiki/map.md]] — portion for this Epic (not yet filed)
+- [ ] [[.scratch/marketing-wiki/map.md]] — portion for this Epic (not yet filed)
 
 ## Notes
 
@@ -45,5 +48,5 @@ Live:
 - Not documents-from-anywhere: that audience is the person working; this is visitors without the App. Not export to another host.
 - English **web page** vs File Node: do not say page for a File Node. [[CONTEXT.md]].
 - Chapters stay open-ended: add one when a specific need is named. Custom domain is not named yet.
-- Wiki write-up is not this session.
+- Wiki write-up is not a Chapter. Portions are Required for done.
 - Public URL, Published-page CSS, and In-app styling have no owning Project yet.

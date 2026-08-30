@@ -10,9 +10,9 @@ Issues and specs for this repo live as Markdown files under `.scratch/`.
 
 **Decision ticket**: A Wayfinder child issue whose question resolves to a decision rather than an implementation slice.
 
-**Epic**: A standing Roadmap file at `.scratch/roadmap/epics/<slug>.md` whose resolution is a met user end-goal. It has a **Stage** (same words as a feature-set Project, except steering). Person-job Epics have **Chapters** (named beats). Home Epics have Homed Projects and no Chapters. Each Chapter uses the raised shape of an implementation issue: **What to build** is major features; the checklist is pointers to Projects or issues. See [[.scratch/roadmap/map.md]]. The wayfinder frontier does not scan `epics/`.
+**Epic**: A standing Roadmap file at `.scratch/roadmap/epics/<slug>.md` whose resolution is a met user end-goal. It has a **Stage** (same words as a feature-set Project, except steering). Person-job Epics have **Chapters** (named beats) plus **Required for done**. Home Epics have Required for done and no Chapters. Each Chapter uses the raised shape of an implementation issue: **What to build** is major features; the checklist is pointers to Projects or issues that belong to that beat. See [[.scratch/roadmap/map.md]]. The wayfinder frontier does not scan `epics/`.
 
-**Chapter**: A named beat of an Epic. Not a Stage.
+**Chapter**: A named beat of a person-job Epic. Not a Stage. Checklist items belong to that beat and are not repeated on Required for done.
 
 **Triage role**: The next-action state assigned during triage, using the mapping in [[docs/agents/triage-labels.md]].
 

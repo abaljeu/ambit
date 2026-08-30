@@ -11,17 +11,17 @@ A standing Roadmap that answers “what should I work on next.” Completing it 
 - Two Project kinds only: this Roadmap, and feature-set Projects (existing `.scratch/<slug>/`). No Epic Project folders. Standing Epic files live in [[epics/]] (`epics/<slug>.md`), one file per Epic. Person-job Epics hold Chapters in that file. [[issues/]] is wayfinder tickets only (this map’s decisions and tasks). The frontier does not scan `epics/`.
 - Open Epics are listed under **Epics** below, grouped by Stage (override of “do not list open tickets”). Order inside a Stage does not matter.
 - Standing Epic files stay open until the end-goal is met. An Epic has a Stage and, when it is a person-job, an ordered list of **Chapters** (named beats: Visit Troy, see Circe). The file names which Chapter is current. Each Chapter follows the shape of [[.scratch/selective-client-loading/issues/17-represent-unloaded-child-lists-end-to-end.md]] raised one level: **What to build** names major features; the checklist is wikilinks to Projects or issues. The Chapter does not own those items. Most often a Chapter focuses in one Project; several pointers are allowed when the end-goal needs them. Advancing a Chapter is charting those pieces on the Projects that own them. Charting / spec / tickets / active / blocked / done stay on those Projects. This Roadmap is not a coding Project. `/to-tickets` subdivides a feature-set Project, not the Epic or Chapter list.
-- Every feature-set Project is homed on one or more Epics (**Homed Projects** on the Epic file). Chapter checklists stay the beat’s work pointers. [[epics/organize-huge-outlines.md]] and [[epics/robust-outliner.md]] exist to home Projects; they have no Chapters to chart. Sessions do not present them as uncharted Chapters. Person-job Epics reference Organize Huge Outlines for scaling; first use does not wait on it.
+- Every classified feature-set Project (or a named part) sits on at least one Epic. **Chapter** checklists hold items that belong to a beat. **Required for done** holds the rest. No overlap. The Epic is not done until every Chapter item and every Required item is done (or the named part). [[epics/organize-huge-outlines.md]] and [[epics/robust-outliner.md]] exist to home Projects; they have only Required for done. Sessions do not present them as uncharted Chapters. Person-job Epics reference Organize Huge Outlines for scaling; first use does not wait on it. Wiki portions about this Epic are Required on that Epic; the whole wiki Project is not.
 - [[.scratch/childnode-drop-ref/project.md]] is tabled; no Epic pointer. [[.scratch/work-board-audit/project.md]] served this Roadmap, not an Epic.
 - `.scratch` is steering. `doc/` is committed facts (target). `doc/roadmap` is subsumed by references from this and other `.scratch` Projects — not a second project home. [[doc/roadmap/postgres-roadmap.md]] is accomplished inventory.
 - [[WORK.md]] stays the low-level started/outstanding board. This map does not copy those lines.
 - Feature-set agent-done promotes spec into `doc/` (current or history as fit). This Roadmap groups Epics; it does not copy specs.
 - [[doc/index.md]] is the Feature index of the current program. This map is the goto for what to work on next.
-- This Roadmap’s Stage is **steering**. Feature-set Projects and Epics share the other Stage words; an Epic must not use steering. A person-job Epic has Stage plus Chapters. A home Epic has Stage and Homed Projects only. A Chapter’s body is **What to build** plus a pointer checklist.
+- This Roadmap’s Stage is **steering**. Feature-set Projects and Epics share the other Stage words; an Epic must not use steering. A person-job Epic has Stage, Chapters, and Required for done. A home Epic has Stage and Required for done only. A Chapter’s body is **What to build** plus a pointer checklist.
 - Skills: wayfinder, grilling, domain-modeling, project-work, maintain-doc-currency. Implementation skills run on feature-set Projects.
 - Stay on `w/roadmap`. Plan by default on this map except when invoking a named feature-set Project.
 - Sessions present multiple choice of takeable work (frontier tickets, uncharted person-job Epic Chapters, fog now specifiable). Do not auto-pick the first frontier ticket. Do not offer home-Epic Chapters; there are none.
-- Documentation wikis support every Epic via issues: [[.scratch/end-user-wiki/map.md]], [[.scratch/marketing-wiki/map.md]], [[.scratch/architecture/map.md]]. Architecture is also homed on [[epics/robust-outliner.md]].
+- Documentation wikis: [[.scratch/end-user-wiki/map.md]], [[.scratch/marketing-wiki/map.md]], [[.scratch/architecture/map.md]]. An Epic is not done until the wiki portions about that Epic are done. Architecture’s remainder is also Required on [[epics/robust-outliner.md]].
 
 ## Epics
 
@@ -50,13 +50,14 @@ Grouped by Stage. Order inside a Stage does not matter.
 - [Chart chapters for Build or explore a wiki](.scratch/roadmap/issues/09-chart-build-or-explore-a-wiki.md) — two Chapters; current Markdown codec; `.md` on document-formats; Public URL (md as HTML) has no Project yet.
 - [Chart chapters for Manage a project](.scratch/roadmap/issues/10-chart-manage-a-project.md) — two Chapters; current Status; Date is set/find/compare with no forced meaning; no owning Project yet.
 - [Home every Project on an Epic](.scratch/roadmap/issues/11-home-every-project-on-an-epic.md) — coverage via Homed Projects; new home Epics Organize Huge Outlines and Robust outliner; ChildNode drop ref tabled; work-board-audit on this Roadmap.
+- [Required for Epic done vs Chapter, no overlap](.scratch/roadmap/issues/12-required-for-epic-done.md) — Chapter vs Required for done; wiki portions about this Epic gate this Epic.
 
 ## Not yet specified
 
 - Pointer charting for Public URL, Published-page CSS, and In-app styling (web pages) and for wiki Public URL (no owning Project yet).
 - Pointer charting for Status and Date on [[epics/manage-a-project.md]] (no owning Project yet).
 - Later Epics beyond the standing list.
-- Which Chapter (if any) each newly homed Project should also sit on, beyond Homed Projects.
+- Which remaining Required-until-done items belong on a Chapter. Named parts of a Project still unspecified.
 - How leftover `doc/roadmap` files become references vs history vs current.
 - When the application is complete (person-job Epics plus any later).
 

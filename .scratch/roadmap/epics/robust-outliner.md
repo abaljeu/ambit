@@ -6,7 +6,9 @@ Integrity and correctness of the outline: ownership, parse/load state, UI seams,
 
 This Epic homes Projects. There are no Chapters to chart.
 
-## Homed Projects
+## Required for done
+
+The Epic is not done until each item is done (or the named part).
 
 Live:
 
@@ -14,7 +16,9 @@ Live:
 - [ ] [[.scratch/parse-load-demote/project.md]]
 - [ ] [[.scratch/rowview-layout-behavior/project.md]]
 - [ ] [[.scratch/event-sourced-ops/project.md]] — remainder beyond Agent-chat Actor issues
-- [ ] [[.scratch/architecture/map.md]] — also supports every Epic via issues
+- [ ] [[.scratch/architecture/map.md]] — remainder of the architecture wiki; portions about other Epics gate those Epics
+- [ ] [[.scratch/end-user-wiki/map.md]] — portion for this Epic (not yet filed)
+- [ ] [[.scratch/marketing-wiki/map.md]] — portion for this Epic (not yet filed)
 
 Done:
 

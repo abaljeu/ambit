@@ -14,15 +14,19 @@ Current chapter: Find what I wrote
 
 - [ ] [[.scratch/expression-language/project.md]]
 
-## Homed Projects
+## Required for done
+
+Not a Chapter. The Epic is not done until each item is done (or the named part).
 
 Live:
 
-- [ ] [[.scratch/expression-language/project.md]] — also the current Chapter
+- [ ] [[.scratch/expression-language/project.md]] — remainder beyond Find
 - [ ] [[.scratch/selective-client-loading/project.md]]
 - [ ] [[.scratch/bullet-tip-times/project.md]]
 - [ ] [[.scratch/document-formats/map.md]] — remainder (XML and other draft codecs)
 - [ ] [[.scratch/event-sourced-ops/project.md]] — remainder beyond Agent-chat Actor issues
+- [ ] [[.scratch/end-user-wiki/map.md]] — portion for this Epic (not yet filed)
+- [ ] [[.scratch/marketing-wiki/map.md]] — portion for this Epic (not yet filed)
 
 Done:
 
