@@ -49,6 +49,24 @@ merge_no_ff() {
     fi
 }
 
+trees_match() {
+    git diff --quiet "$1" "$2"
+}
+
+branches_aligned() {
+    local base="$1"
+    shift
+    local branch
+    for branch in "$@"; do
+        git merge-base --is-ancestor "$base" "$branch" || return 1
+    done
+}
+
+finish_on_dev() {
+    git switch dev
+    echo "==> Done. Now on dev ($(git rev-parse --short HEAD))."
+}
+
 forward_from() {
     local place="$1"
     local msg="${2-}"
@@ -79,24 +97,45 @@ require_clean
 case "$COMMAND" in
     ready)
         require_ready_current
+        if trees_match dev ready && branches_aligned dev ready; then
+            echo "==> dev already on ready."
+            finish_on_dev
+            exit 0
+        fi
         merge_no_ff ready dev "$MESSAGE"
-        git switch dev
+        finish_on_dev
         ;;
     master)
         [[ -n "$MESSAGE" ]] || { echo "A squash needs -m <msg>" >&2; exit 1; }
         require_ready_current
+        if trees_match master ready; then
+            echo "==> ready and master already match; nothing to squash."
+            if branches_aligned master ready dev; then
+                finish_on_dev
+                exit 0
+            fi
+            echo "==> catch up branch ancestry"
+            forward_from master
+            finish_on_dev
+            exit 0
+        fi
         echo "==> squash ready onto master"
         git switch master
         git merge --squash ready
+        if git diff --cached --quiet; then
+            echo "==> nothing to squash onto master." >&2
+            finish_on_dev
+            exit 1
+        fi
         git commit -m "$MESSAGE"
-        forward_from master "$MESSAGE"
+        forward_from master
+        finish_on_dev
         ;;
     forward)
         forward_from "${PLACE:-master}" "$MESSAGE"
+        finish_on_dev
         ;;
     *)
         usage
         ;;
 esac
-
-echo "==> Done. Now on $(git rev-parse --abbrev-ref HEAD)."
