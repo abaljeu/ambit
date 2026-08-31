@@ -48,11 +48,17 @@ The steering Project at [[plan/roadmap/]]. It answers what to work on next by gr
 _Avoid_: master project, master steering, doc/roadmap (as this Project), numbered Epic sequence (as the listing rule)
 
 **Epic**:
-A marketable user end-goal, larger than a feature or interaction. On the Roadmap it is a standing file under [[plan/roadmap/epics/]] until that goal is met. It has a Stage (same words as a feature-set Project, except steering). Person-job Epics have Chapters plus a **Required for done** list. Home Epics ([[plan/roadmap/epics/organize-huge-outlines.md]], [[plan/roadmap/epics/robust-outliner.md]]) have only Required for done (no Chapters). The Epic is not done until every Chapter item and every Required item is done (or the named part of that Project). Wiki portions about this Epic are Required; the whole wiki Project is not.
-_Avoid_: saga, tale, epic project, marketable story (as the glossary name), steering (as an Epic Stage), Stage (for a Chapter), pseudo-epic (say home Epic), Homed Projects (say Required for done)
+A marketable user end-goal, larger than a feature or interaction. On the Roadmap it is a standing file under [[plan/roadmap/epics/]] until that goal is met. It has a Stage (same words as a feature-set Project, except steering). Two kinds: **User Epic** and **Developer Epic**. The Epic is not done until every Chapter item and every Required item is done (or the named part of that Project). Wiki portions about this Epic are Required; the whole wiki Project is not.
+_Avoid_: saga, tale, epic project, marketable story (as the glossary name), steering (as an Epic Stage), Stage (for a Chapter), person-job, person-job Epic, home Epic, home-Epic, Person-job, Use Epic, end-user Epic (as this kind name), pseudo-epic (say Developer Epic), Homed Projects (say Required for done)
+
+**User Epic**:
+An Epic that fulfills an end-user’s goal for a particular pattern of usage of the software. Has Chapters plus Required for done. Opening line is still *A person [verb phrase]* where that is already the file shape.
+
+**Developer Epic**:
+An Epic that serves developers. Has only Required for done (no Chapters). Same files: [[plan/roadmap/epics/organize-huge-outlines.md]], [[plan/roadmap/epics/robust-outliner.md]].
 
 **Chapter**:
-A named beat of a person-job Epic (Visit Troy, see Circe). Not a Project Stage. A Chapter’s **What to build** names major features; its checklist points at Projects or issues that belong to that beat and does not own them. Those items are not repeated on Required for done. Home Epics have none.
+A named beat of a User Epic (Visit Troy, see Circe). Not a Project Stage. A Chapter’s **What to build** names major features; its checklist points at Projects or issues that belong to that beat and does not own them. Those items are not repeated on Required for done. Developer Epics have none.
 _Avoid_: Stage (for this beat), leg, beat (as the glossary name)
 
 **Feature-set Project**:

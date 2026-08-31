@@ -4,7 +4,7 @@ For product discussion. Sources: [[plan/roadmap/map.md]], sample Epics, [[plan/e
 
 ## 1. How existing Epics are framed
 
-**Person-job Epics** open with one sentence: *A person [verb phrase]* — a marketable end-goal, not a mechanism. They have `Stage: charting`, a **current Chapter** (named beat), further Chapters in order, and **Required for done** (cross-cutting Projects not tied to one beat). Each Chapter is **What to build** plus a pointer checklist; charting advances by pointing at feature-set Projects, not by coding on the Epic file.
+**User Epics** open with one sentence: *A person [verb phrase]* — a marketable end-goal, not a mechanism. They have `Stage: charting`, a **current Chapter** (named beat), further Chapters in order, and **Required for done** (cross-cutting Projects not tied to one beat). Each Chapter is **What to build** plus a pointer checklist; charting advances by pointing at feature-set Projects, not by coding on the Epic file.
 
 Examples:
 
@@ -12,7 +12,7 @@ Examples:
 - *Work with my documents from anywhere* — connected-device document work; Chapters on auto upload/download, auto Parse, styling, images, tables.
 - *Agent chat with managed context* — Chapters from `?` through Graph/file query to CLI/MCP Actors.
 
-**Home Epics** (*Organize Huge Outlines*, *Robust outliner*) state a scaling concern, have **no Chapters**, and only **Required for done** that homes Projects other Epics reference. Sessions do not offer home-Epic Chapters as takeable work.
+**Developer Epics** (*Organize Huge Outlines*, *Robust outliner*) state a scaling concern, have **no Chapters**, and only **Required for done** that homes Projects other Epics reference. Sessions do not offer Developer Epic Chapters as takeable work.
 
 **Roadmap** itself is the only `steering` Project — it sequences Epics; it is not a product vision document.
 
@@ -33,19 +33,19 @@ ESO is **active** and defines a **semantic standard**, not a connector catalog:
 
 | Framing | Verdict |
 | --- | --- |
-| **Single person-job Epic** | Risky as stated — "hub for all kinds of information" is a **program thesis**, not one beat a person can finish and market. |
+| **Single User Epic** | Risky as stated — "hub for all kinds of information" is a **program thesis**, not one beat a person can finish and market. |
 | **Steering Roadmap note** | Wrong layer — Roadmap sequences Epics; it does not hold product vision prose. |
-| **New Epic kind** | Out of scope per [[plan/roadmap/map.md]] (person-job + home only). |
-| **Umbrella home Epic** | Plausible for **homing connector Projects** (like Organize Huge Outlines homes scale work) if the user-facing story stays thin. |
+| **New Epic kind** | Out of scope per [[plan/roadmap/map.md]] (User Epic + Developer Epic only). |
+| **Umbrella Developer Epic** | Plausible for **homing connector Projects** (like Organize Huge Outlines homes scale work) if the user-facing story stays thin. |
 | **Cross-cutting `plan` Project** | **Best home for the pattern** (inbound / outbound / round-trip, Graph authority, Actor boundary). Epics **cite** it; they do not restate it. Promote to `doc/` only after human promotion per [[.cursor/skills/maintain-doc-currency/SKILL.md]] — not there yet. |
 
-**Recommendation:** Treat the full vision as **`plan` architecture + Roadmap sequencing**, not one Epic. Ship **person-job Epics per channel or job** (files, chat, publish, future APIs). Optionally add a **home Epic** only if many connector Projects need a single Required-for-done home without a narrative Chapter arc.
+**Recommendation:** Treat the full vision as **`plan` architecture + Roadmap sequencing**, not one Epic. Ship **User Epics per channel** (files, chat, publish, future APIs). Optionally add a **Developer Epic** only if many connector Projects need a single Required-for-done home without a narrative Chapter arc.
 
 **Partial overlap:** [[plan/roadmap/epics/operate-a-pkm.md]] claims "imports external data without a seam" — that line names a **dependency**, not PKM's whole mandate. PKM's job is **find and operate on knowledge already in the Graph**; the transport layer owns how outside material arrives. See §8.
 
 ## 4. Candidate Epic titles (2–3 each)
 
-### Person-job framings
+### User Epic framings
 
 | Title | Pros | Cons |
 | --- | --- | --- |
@@ -57,7 +57,7 @@ ESO is **active** and defines a **semantic standard**, not a connector catalog:
 
 | Title | Pros | Cons |
 | --- | --- | --- |
-| **Information hub** (home Epic) | Homes many connector Projects; no false Chapter narrative. | Not marketable as a user end-goal; same class as Organize Huge Outlines. |
+| **Information hub** (Developer Epic) | Homes many connector Projects; no false Chapter narrative. | Not marketable as a user end-goal; same class as Organize Huge Outlines. |
 | **Information hub** (`plan` Project, not Epic) | Holds inbound/outbound/round-trip pattern once; all Epics reference it. | Not on Roadmap Epics list; does not answer "what to work on next" by itself. |
 | **Operate a PKM** (expand existing) | Already on Roadmap; "without a seam" is close. | PKM Epic already heavy (graph view, expression-language, formats); blurs PKM vs integration; round-trip and generate-from-data are out of PKM scope. |
 
@@ -80,9 +80,9 @@ ESO is **active** and defines a **semantic standard**, not a connector catalog:
 | **Round-trip external edit** — export → edit elsewhere → re-import → Update as Changes | Import layer + document-formats codec leg + workspace sync | **No** — PKM navigates the Graph; it does not own sync with editable external systems |
 | **Generate from data** — produce new content or views from Graph data (reports, derived outlines, LLM output) | Expression-language, llm-connector, future publish | **No** — consumption and navigation, not generation |
 
-**Division rule:** Epic = **person job** on a channel or outcome; feature-set Project = **one source, codec, or Actor**; ESO = **how Changes land**; transport-layer Project = **inbound / outbound / round-trip template** (`plan` until promoted).
+**Division rule:** Epic = **User Epic** on a channel or outcome; feature-set Project = **one source, codec, or Actor**; ESO = **how Changes land**; transport-layer Project = **inbound / outbound / round-trip template** (`plan` until promoted).
 
-## 6. Suggested Chapter beats (if person-job Epic: *Connect my tools to my Graph*)
+## 6. Suggested Chapter beats (if User Epic: *Connect my tools to my Graph*)
 
 1. **See what is connected** — catalog of sources/destinations, connection health, Graph authority stated in UI (no duplicate truth).
 2. **Pull information in** — inbound: external → tailored Graph view for examination/editing (Parse, paste, import jobs as Actors).
@@ -165,10 +165,10 @@ Create [[plan/transport-layer/project.md]] at `charting` to hold:
 - Homing pointer for future per-source connector Projects
 - Explicit out-of-scope: PKM navigation, expression, generate-from-data, ESO merge semantics
 
-Optional later: a **home Epic** (*Information hub*) if many connector Projects need one Required-for-done row on the Roadmap — same class as Organize Huge Outlines.
+Optional later: a **Developer Epic** (*Information hub*) if many connector Projects need one Required-for-done row on the Roadmap — same class as Organize Huge Outlines.
 
 Do **not** add a `doc/arch` hub section yet; `doc/` stays as-is until promotion.
 
 ## Summary for coordinator
 
-The hub vision is **comprehensive product architecture in `plan`**, not a single marketable Epic and **not** yet committed in `doc/`. Existing Roadmap **distributes legs** across PKM, documents-from-anywhere, agent-chat, and document-formats. Best path: **new `transport-layer` Project** for the three-flow pattern + **person-job or home Epics per channel** as needed. **PKM depends on the transport layer** for seamless inbound materialization; PKM does not own round-trip external edit or generate-from-data. **ESO stays the mutation foundation**; connector catalog and hub UX stay out of ESO scope per [[plan/event-sourced-ops/overview.md]].
+The hub vision is **comprehensive product architecture in `plan`**, not a single marketable Epic and **not** yet committed in `doc/`. Existing Roadmap **distributes legs** across PKM, documents-from-anywhere, agent-chat, and document-formats. Best path: **new `transport-layer` Project** for the three-flow pattern + **User Epic or Developer Epic per channel** as needed. **PKM depends on the transport layer** for seamless inbound materialization; PKM does not own round-trip external edit or generate-from-data. **ESO stays the mutation foundation**; connector catalog and hub UX stay out of ESO scope per [[plan/event-sourced-ops/overview.md]].

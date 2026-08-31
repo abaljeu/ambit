@@ -6,7 +6,7 @@ Blocked by: 01
 
 ## Question
 
-Name the Chapters of [[plan/roadmap/epics/agent-chat-managed-context.md]] as useful increments of capability. Set Current chapter. Point each Chapter at owning Projects or issues; do not own that work on the Epic file. Pin the person-job so product language does not collide with glossary Agent (agent-done, DbAgent) or context (ownership ancestry).
+Name the Chapters of [[plan/roadmap/epics/agent-chat-managed-context.md]] as useful increments of capability. Set Current chapter. Point each Chapter at owning Projects or issues; do not own that work on the Epic file. Pin the User Epic so product language does not collide with glossary Agent (agent-done, DbAgent) or context (ownership ancestry).
 
 Recommended: grill the in-product job first, then name increments breadth-first. Do not create an Epic Project folder. Later tickets chart those pointers onto the Projects that own them.
 

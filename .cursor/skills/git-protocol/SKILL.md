@@ -26,7 +26,7 @@ Commit AFTER writing any report files, not before.
 
 ## Merges
 
-The Desktop agent does not run `git merge` or squash. Those moves go through [[scripts/merge.sh]] (Cursor manual approval) or the human types them in the CLI. `merge.sh ready [-m <msg>]` brings `dev` into `ready` (`--no-ff`); `merge.sh forward [master|ready] [-m <msg>]` brings a hotfix toward `dev`. The script refuses a dirty tree, and refuses a local `ready` that is behind `origin/ready`.
+The Desktop agent does not run `git merge` or squash. Those moves go through [[scripts/merge.sh]] (Cursor manual approval) or the human types them in the CLI. `merge.sh ready [-m <msg>]` brings `dev` into `ready` (`--no-ff`); `merge.sh forward [master|ready]` brings a hotfix toward `dev` with a stock forward message. The script refuses a dirty tree, and refuses a local `ready` that is behind `origin/ready`.
 
 **agent-done** is tests green, `/code-review`, and a commit on `dev` via [[scripts/commit.sh]] `"<message>"` or human `git commit`. Then ask the human to run `merge.sh` (or type the merge) to put that work on `ready`.
 
