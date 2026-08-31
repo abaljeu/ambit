@@ -38,7 +38,7 @@ This is **not** full Event Sourcing in the relaxed-concurrency sense: log-as-tru
 
 Load packages stay a Graph transfer, not a replay. [[.scratch/relaxed-concurrency/map.md]] is a **build-upon layer** on this foundation — verified facts, shared rejections, frontier D–F — not a competing implementation. See [[details/relation-to-relaxed-concurrency.md]].
 
-It is also not an architecture for a plug-in bus, a job framework, or an offline editor. It is a small framework for how a Change merges into a Local Graph.
+**Out of scope for ESO** (not Gambol-wide; see [[docs/agents/scope-vs-commitment.md]]): a plug-in bus, a job-framework product, or an offline editor. ESO is a small framework for how a Change merges into a Local Graph.
 
 ## Semantic means
 

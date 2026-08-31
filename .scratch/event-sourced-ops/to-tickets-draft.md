@@ -110,7 +110,7 @@ Each item is project-sized (likely its own `.scratch/<slug>/`). Status words fol
 
 - **Blocked by:** Ticket 6; preferably after Ticket 7 so the produce path is proven by Parse first.
 - **What it delivers:** Client-held job identity, launch that returns before apply, cancel that stops further Changes (not Undo), **and** advisory soft-lock as part of the same surface: the lock is owned by the job; job completion clears it; the lock indicator is an access point to the job. Edits under the lock remain legal and merge.
-- **Architectural shift:** **Significant.** One concept footprint: reservation lifecycle is not a second product beside jobs. Still not a plug-in bus.
+- **Architectural shift:** **Significant.** One concept footprint: reservation lifecycle is not a second product beside jobs. Not the plug-in-bus pattern (ESO scope; see [[overview.md]] § What this is not).
 - **Status basis:** Soft-lock **meaning accepted**; job↔lock lifecycle coupling is **accepted direction** (user quiz); issuance/expiry/chrome details **proposed**. Job identity/launch/cancel **proposed** / none exists yet.
 - **Why not soft-lock before job, or two tickets:** User: lock linked to job, completion unlocks, indicator opens job. Separate tickets would invent two surfaces that must immediately couple. Parse is the tracer for produce path **without** this footprint.
 - **See also:** [[details/soft-lock.md]], [[details/actors-and-jobs.md]], [[details/undo.md]], [[architecture.md]]

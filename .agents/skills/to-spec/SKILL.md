@@ -66,7 +66,7 @@ A list of testing decisions that were made. Include:
 
 ## Out of Scope
 
-A description of the things that are out of scope for this spec.
+Things this spec will not implement — **scope for this effort**, not product-wide exclusions. Name the effort; do not write "the system excludes …". See [[docs/agents/scope-vs-commitment.md]].
 
 ## Further Notes
 
