@@ -1,13 +1,13 @@
 ---
 name: project-work
-description: .scratch project files and Stage. Use before editing a project's files, when starting a .scratch effort, or when another skill touches .scratch.
+description: plan project files and Stage. Use before editing a project's files, when starting a plan effort, or when another skill touches plan.
 ---
 
 # Project work
 
-Stages: [[docs/agents/project-status.md]]. Git: [[.cursor/skills/git-protocol/SKILL.md]].
+Stages: [[doc/agents/project-status.md]]. Git: [[.cursor/skills/git-protocol/SKILL.md]].
 
-Each `.scratch/<slug>/` effort is a **Project**. Keep its `project.md` Stage current. Create `project.md` if the effort lacks one. Regenerating the overview: [[.cursor/skills/projects-overview/SKILL.md]].
+Each `plan/<slug>/` effort is a **Project**. Keep its `project.md` Stage current. Create `project.md` if the effort lacks one. Regenerating the overview: [[.cursor/skills/projects-overview/SKILL.md]].
 
 Do not create `git.md` to record branch names. Existing `git.md` files are history.
 
@@ -17,11 +17,11 @@ Follow [[.cursor/skills/git-protocol/SKILL.md]] for where work sits. Then write 
 
 ## 2. Stage
 
-Set `Stage:` and `Updated:` in `project.md` when the effort starts or advances. Then regenerate [[.scratch/index.md]].
+Set `Stage:` and `Updated:` in `project.md` when the effort starts or advances. Then regenerate [[plan/index.md]].
 
 ## 3. Work
 
-Edit the project's files. Specs, issues, maps, and reports live under `.scratch/<slug>/`.
+Edit the project's files. Specs, issues, maps, and reports live under `plan/<slug>/`.
 
 ## 4. Finish
 

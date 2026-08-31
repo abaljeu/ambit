@@ -14,7 +14,7 @@ Most repos have a single context:
 ```
 /
 ├── CONTEXT.md
-├── docs/
+├── doc/
 │   └── Decisions/
 │       ├── 0001-event-sourced-orders.md
 │       └── 0002-postgres-for-write-model.md
@@ -26,18 +26,18 @@ If a `CONTEXT-MAP.md` exists at the root, the repo has multiple contexts. The ma
 ```
 /
 ├── CONTEXT-MAP.md
-├── docs/
+├── doc/
 │   └── Decisions/                          ← system-wide decisions
 ├── src/
 │   ├── ordering/
 │   │   ├── CONTEXT.md
-│   │   └── docs/Decisions/                 ← context-specific decisions
+│   │   └── doc/Decisions/                 ← context-specific decisions
 │   └── billing/
 │       ├── CONTEXT.md
-│       └── docs/Decisions/
+│       └── doc/Decisions/
 ```
 
-Create files lazily — only when you have something to write. If no `CONTEXT.md` exists, create one when the first term is resolved. If no `docs/Decisions/` exists, create it when the first ADR is needed.
+Create files lazily — only when you have something to write. If no `CONTEXT.md` exists, create one when the first term is resolved. If no `doc/Decisions/` exists, create it when the first ADR is needed.
 
 ## During the session
 
@@ -73,4 +73,4 @@ Only offer to create an ADR when all three are true:
 
 If any of the three is missing, skip the ADR. Use the format in [ADR-FORMAT.md](./ADR-FORMAT.md).
 
-A project's Out of scope section is **scope**, not an ADR. Do not promote inferred exclusions to Committed Decisions or `doc/` without human confirmation. See [[docs/agents/scope-vs-commitment.md]].
+A project's Out of scope section is **scope**, not an ADR. Do not promote inferred exclusions to Committed Decisions or `doc/` without human confirmation. See [[doc/agents/scope-vs-commitment.md]].

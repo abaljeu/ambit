@@ -192,7 +192,7 @@ sequenceDiagram
     .git/                ← server-side tracking only; never transferred
     src/
       lib.fs
-    docs/
+    doc/
       specs/
         .amb
 ```

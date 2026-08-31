@@ -66,7 +66,7 @@ A list of testing decisions that were made. Include:
 
 ## Out of Scope
 
-Things this spec will not implement — **scope for this effort**, not product-wide exclusions. Name the effort; do not write "the system excludes …". See [[docs/agents/scope-vs-commitment.md]].
+Things this spec will not implement — **scope for this effort**, not product-wide exclusions. Name the effort; do not write "the system excludes …". See [[doc/agents/scope-vs-commitment.md]].
 
 ## Further Notes
 

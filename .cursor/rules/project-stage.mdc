@@ -6,7 +6,7 @@ alwaysApply: true
 
 ## Project stage upkeep
 
-Whenever any skill starts or advances a **project** (a `.scratch/<slug>/` effort), set that project's `Stage:` and regenerate [[.scratch/index.md]] per [[docs/agents/project-status.md]]. Create `project.md` if the effort lacks one.
+Whenever any skill starts or advances a **project** (a `plan/<slug>/` effort), set that project's `Stage:` and regenerate [[plan/index.md]] per [[doc/agents/project-status.md]]. Create `project.md` if the effort lacks one.
 
 Starting or advancing a project follows [[.cursor/skills/project-work/SKILL.md]]. Git: [[.cursor/skills/git-protocol/SKILL.md]].
 

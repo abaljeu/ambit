@@ -2,9 +2,9 @@
 
 Category: PKM navigation
 Status: Planned — design drafted; no implementation started
-See also: [[.scratch/graph-view/graph-view-draft-proposal.md]], [[doc/current/workspace-graph.md]], [[on-demand-graph-residency]], [[.scratch/selective-client-loading/project.md]], [[doc/arch.md]]
+See also: [[plan/graph-view/graph-view-draft-proposal.md]], [[doc/current/workspace-graph.md]], [[on-demand-graph-residency]], [[plan/selective-client-loading/project.md]], [[doc/arch.md]]
 
-An alternate navigation surface beside the outline SiteMap: a **focus-centric radial tree** of Owned children with **Ref edges** as a secondary overlay. Tree layout is authoritative; Ref edges do not move Nodes. Design detail lives in [[.scratch/graph-view/graph-view-draft-proposal.md]].
+An alternate navigation surface beside the outline SiteMap: a **focus-centric radial tree** of Owned children with **Ref edges** as a secondary overlay. Tree layout is authoritative; Ref edges do not move Nodes. Design detail lives in [[plan/graph-view/graph-view-draft-proposal.md]].
 
 ## What it gives you
 
@@ -27,7 +27,7 @@ An alternate navigation surface beside the outline SiteMap: a **focus-centric ra
 
 ## Open decisions (lock before tickets)
 
-Record answers in [[.scratch/graph-view/graph-view-draft-proposal.md]] or a follow-on spec slice.
+Record answers in [[plan/graph-view/graph-view-draft-proposal.md]] or a follow-on spec slice.
 
 1. **Focus closure** — descendants-only vs include ancestors when focus ≠ ROOT (affects inbound Ref routing).
 2. **Portal clustering** — lowest common ancestor (LCA) branch is the draft default; confirm or replace.
@@ -40,7 +40,7 @@ Record answers in [[.scratch/graph-view/graph-view-draft-proposal.md]] or a foll
 - **Visible set** — Owned descendants of focus (plus optional bounded ancestor context per decision 1).
 - **Edge classes** — internal Ref (both ends visible), outbound Ref (source visible, target outside), inbound Ref (source outside, target visible).
 - **Layout pipeline** — deterministic radial positions from sibling index; classify Ref edges touching the visible set; assign annulus lanes by target angle with monotonic radius; bucket external Ref edges into portals; optionally layout satellite radials per expanded bucket.
-- **Client-only rendering** — pure layout over resident Graph + SiteMap fold state; no new server ops. Unloaded boundaries from [[.scratch/selective-client-loading/project.md]] surface as portal stubs or load affordances, not empty trees.
+- **Client-only rendering** — pure layout over resident Graph + SiteMap fold state; no new server ops. Unloaded boundaries from [[plan/selective-client-loading/project.md]] surface as portal stubs or load affordances, not empty trees.
 - **Interaction** — focus change, portal expand, optional pin/compare; reuse existing navigation commands where possible.
 
 ## Implementation steps
