@@ -149,4 +149,4 @@ Scale: real workspaces with hundreds of files / many Directory Files will sit in
 
 ## WORK.md mutations (for parent)
 
-- `add` [[.scratch/load-status-phases/slow-parsing.md]] — web Load Parsing slowness: rediscover-all-as-Added + per-`.amb` reparse even when ops empty; ranked fixes (1)–(5)
+- `add` [[plan/load-status-phases/slow-parsing.md]] — web Load Parsing slowness: rediscover-all-as-Added + per-`.amb` reparse even when ops empty; ranked fixes (1)–(5)

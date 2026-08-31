@@ -12,8 +12,8 @@ Current chapter: Automatic upload and download
 
 **Blocked by:** None.
 
-- [ ] [[.scratch/auto-download-persisted-files/project.md]] — auto-download (HITL tabled)
-- [ ] [[.scratch/roadmap/issues/07-chart-automatic-upload-and-download.md]] — chart auto-upload (no Project yet)
+- [ ] [[plan/auto-download-persisted-files/project.md]] — auto-download (HITL tabled)
+- [ ] [[plan/roadmap/issues/07-chart-automatic-upload-and-download.md]] — chart auto-upload (no Project yet)
 
 ## Automatic parse
 
@@ -45,26 +45,26 @@ Not a Chapter. The Epic is not done until each item is done (or the named part).
 
 Live:
 
-- [ ] [[.scratch/selective-client-loading/project.md]]
-- [ ] [[.scratch/client-start-time/project.md]] — primarily mobile; this Epic is a key component for [[manage-a-project.md]] and [[operate-a-pkm.md]]
-- [ ] [[.scratch/daily-git-save/project.md]]
-- [ ] [[.scratch/download-no-parse-fix/project.md]]
-- [ ] [[.scratch/parse-load-demote/project.md]]
-- [ ] [[.scratch/bullet-tip-times/project.md]]
-- [ ] [[.scratch/document-formats/map.md]] — remainder (XML and other draft codecs); `.md` and HTML are on other Epics
-- [ ] [[.scratch/end-user-wiki/issues/01-describe-documents-from-any-connected-device.md]] — end-user wiki portion for this Epic
-- [ ] [[.scratch/marketing-wiki/issues/01-use-page-documents-from-any-connected-device.md]] — marketing wiki portion for this Epic
+- [ ] [[plan/selective-client-loading/project.md]]
+- [ ] [[plan/client-start-time/project.md]] — primarily mobile; this Epic is a key component for [[manage-a-project.md]] and [[operate-a-pkm.md]]
+- [ ] [[plan/daily-git-save/project.md]]
+- [ ] [[plan/download-no-parse-fix/project.md]]
+- [ ] [[plan/parse-load-demote/project.md]]
+- [ ] [[plan/bullet-tip-times/project.md]]
+- [ ] [[plan/document-formats/map.md]] — remainder (XML and other draft codecs); `.md` and HTML are on other Epics
+- [ ] [[plan/end-user-wiki/issues/01-describe-documents-from-any-connected-device.md]] — end-user wiki portion for this Epic
+- [ ] [[plan/marketing-wiki/issues/01-use-page-documents-from-any-connected-device.md]] — marketing wiki portion for this Epic
 
 Done:
 
-- [x] [[.scratch/load-status-phases/project.md]]
-- [x] [[.scratch/login-context-restore/project.md]]
-- [x] [[.scratch/node-bullet-tooltip/project.md]]
-- [x] [[.scratch/relaxed-concurrency/project.md]]
+- [x] [[plan/load-status-phases/project.md]]
+- [x] [[plan/login-context-restore/project.md]]
+- [x] [[plan/node-bullet-tooltip/project.md]]
+- [x] [[plan/relaxed-concurrency/project.md]]
 
 ## Notes
 
-- [[.scratch/transport-layer/project.md]] cross-cutting pattern — disk Upload/Download is one transport instance (Parse/Persist); Google (Drive/Docs, example) is another inbound and likely later round-trip channel on the same contract (plan from Local Graph, Parse/Persist, emit Changes via ESO Actor). See [[.scratch/transport-layer/overview.md]], [[.scratch/transport-layer/map.md]].
+- [[plan/transport-layer/project.md]] cross-cutting pattern — disk Upload/Download is one transport instance (Parse/Persist); Google (Drive/Docs, example) is another inbound and likely later round-trip channel on the same contract (plan from Local Graph, Parse/Persist, emit Changes via ESO Actor). See [[plan/transport-layer/overview.md]], [[plan/transport-layer/map.md]].
 - Scaling is [[organize-huge-outlines.md]]; first use does not wait on it.
 - Outline capture (“get it out of my head”) is already met; this Epic is documents from anywhere.
 - Chapters stay open-ended: add one when a specific document class or usability is named.

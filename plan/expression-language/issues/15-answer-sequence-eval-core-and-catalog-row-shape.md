@@ -6,7 +6,7 @@
 
 **Blocked by:** None — can start immediately.
 
-**See also:** [[.scratch/expression-language/spec.md]] chapters 2 and 6; [[.scratch/expression-language/reports/spec-abstraction-core-and-barriers.md]] Part 1.
+**See also:** [[plan/expression-language/spec.md]] chapters 2 and 6; [[plan/expression-language/reports/spec-abstraction-core-and-barriers.md]] Part 1.
 
 **Status:** done
 

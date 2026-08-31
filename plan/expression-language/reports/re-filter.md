@@ -14,8 +14,8 @@ Implemented two catalog after-filters on Header text (`node.text`), the same fie
 - Catalog: [[src/Shared/ExprPrimitive.fs]]
 - Match: [[src/Shared/ExprWalk.fs]] `re` / `rei`
 - Parse slot: [[src/Shared/ExprParse.fs]] `wordWantsTrailingLiteral`
-- Spec rows: [[.scratch/expression-language/spec.md]] chapter 7 (surgical insert next to `containing`; `outer` grammar and combinator rows not touched)
-- Issue: [[.scratch/expression-language/issues/29-re-and-rei-header-filters.md]]
+- Spec rows: [[plan/expression-language/spec.md]] chapter 7 (surgical insert next to `containing`; `outer` grammar and combinator rows not touched)
+- Issue: [[plan/expression-language/issues/29-re-and-rei-header-filters.md]]
 
 ## Verify
 
@@ -28,5 +28,5 @@ Shared already uses `System.Text.RegularExpressions`. Fable maps that type to JS
 
 ## Board mutations
 
-- `add` [[.scratch/expression-language/reports/re-filter.md]] — HITL: Run `= … re "…"` and `= … rei "…"` on `/ambit` or `/ambit?debug=1`; confirm Header match, case split, and invalid pattern as no matches
+- `add` [[plan/expression-language/reports/re-filter.md]] — HITL: Run `= … re "…"` and `= … rei "…"` on `/ambit` or `/ambit?debug=1`; confirm Header match, case split, and invalid pattern as no matches
 - do not `remove` the `outer` spec-lock pending item

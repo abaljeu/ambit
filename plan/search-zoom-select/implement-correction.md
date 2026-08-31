@@ -23,10 +23,10 @@ Restore pre-`focusNode` Find zoom (hit if it has children, else structural paren
 
 ## Files
 
-- `.scratch/search-zoom-select/spec.md`
+- `plan/search-zoom-select/spec.md`
 - `src/Shared/ViewModelSearch.fs` — `searchPickSetRoot`
 - `tests/Shared.Tests/ViewModelTests.fs` — searchPickSetRoot cases
-- `.scratch/search-zoom-select/project.md`, `git.md`
+- `plan/search-zoom-select/project.md`, `git.md`
 
 ## Tests
 

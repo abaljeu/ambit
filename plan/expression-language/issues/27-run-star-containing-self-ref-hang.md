@@ -6,7 +6,7 @@
 
 **Blocked by:** none.
 
-**See also:** [[.scratch/expression-language/spec.md]] chapter 8; [[.scratch/expression-language/reports/run-unfold-node.md]].
+**See also:** [[plan/expression-language/spec.md]] chapter 8; [[plan/expression-language/reports/run-unfold-node.md]].
 
 **Status:** done
 

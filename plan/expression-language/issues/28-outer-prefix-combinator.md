@@ -2,11 +2,11 @@
 
 **Context:** User locked Design A on 2026-08-29 ("plan A"). Catalog spelling is `OUTER` (capitals, same class as `NOT`; override of the earlier working name `outer`). `OUTER` is a prefix combinator in the same parse family as `NOT`, not a generator row and not a `tree` replacement. The walk fuses the operand: at each Owned child N, if the operand is nonempty on N then yield N and do not visit descendants of N, else recurse on Owned Children of N. Work on branch `w/tree2-semantics` (cut from `selective-client-sync`).
 
-**What to build:** Parse and evaluate `OUTER` per [[.scratch/expression-language/spec.md]] chapters 4, 6, and 7. Reserve `OUTER` so it is not bind. Attach like `NOT`. Fuse the predicate into an Owned walk strictly below the input (same start as `tree`). Unloaded is a miss and is never Loaded. Do not replace `tree` / `**`. Do not implement a post-pass prune. Do not add sugar `OUTER "blue"` or a Ref analog.
+**What to build:** Parse and evaluate `OUTER` per [[plan/expression-language/spec.md]] chapters 4, 6, and 7. Reserve `OUTER` so it is not bind. Attach like `NOT`. Fuse the predicate into an Owned walk strictly below the input (same start as `tree`). Unloaded is a miss and is never Loaded. Do not replace `tree` / `**`. Do not implement a post-pass prune. Do not add sugar `OUTER "blue"` or a Ref analog.
 
 **Blocked by:** none.
 
-**See also:** [[.scratch/expression-language/spec.md]] chapters 4, 6, 7, and 11; [[.scratch/expression-language/reports/tree2-semantics.md]]; [[.scratch/expression-language/reports/outer-spec-lock.md]]; [[src/Shared/ExprParse.fs]]; [[src/Shared/ExprEval.fs]] `notEval`; [[src/Shared/ExprWalk.fs]] `treeAnswers`; [[src/Shared/ExprCompile.fs]]. Tests belong next to existing Expr facts in [[tests/Shared.Tests/ExprCombinatorTests.fs]] and the chapter 11 row in [[tests/Shared.Tests/ExprChapter11Tests.fs]].
+**See also:** [[plan/expression-language/spec.md]] chapters 4, 6, 7, and 11; [[plan/expression-language/reports/tree2-semantics.md]]; [[plan/expression-language/reports/outer-spec-lock.md]]; [[src/Shared/ExprParse.fs]]; [[src/Shared/ExprEval.fs]] `notEval`; [[src/Shared/ExprWalk.fs]] `treeAnswers`; [[src/Shared/ExprCompile.fs]]. Tests belong next to existing Expr facts in [[tests/Shared.Tests/ExprCombinatorTests.fs]] and the chapter 11 row in [[tests/Shared.Tests/ExprChapter11Tests.fs]].
 
 **Status:** done
 

@@ -1,6 +1,6 @@
 # Public face merge
 
-Editing pass that brings the `origin/master` presentation into the work line. Input analysis: [[.scratch/git-protocol/reports/public-face-reconciliation.md]]. No git operations were run; only file edits. Working tree changes from other work were left alone.
+Editing pass that brings the `origin/master` presentation into the work line. Input analysis: [[plan/git-protocol/reports/public-face-reconciliation.md]]. No git operations were run; only file edits. Working tree changes from other work were left alone.
 
 ## Task 1 — merged [[README.md]]
 
@@ -70,4 +70,4 @@ Whole-tree, case-insensitive, including untracked files.
 
 ### One item that needs a decision
 
-[[.scratch/git-protocol/reports/public-face-reconciliation.md]] quotes the deleted file's two Apache match expressions in its findings (sections 2 and the recommendation). `.scratch/` is not gitignored, so committing that report publishes the very configuration detail this pass removed from [[doc/reference/cpanel-transparent-proxy.md]]. The file is currently untracked, so nothing is published yet. It was not edited here, because the task scope did not include it. Recommendation: scrub those expressions from that report, or exclude the report from the commit.
+[[plan/git-protocol/reports/public-face-reconciliation.md]] quotes the deleted file's two Apache match expressions in its findings (sections 2 and the recommendation). `plan/` is not gitignored, so committing that report publishes the very configuration detail this pass removed from [[doc/reference/cpanel-transparent-proxy.md]]. The file is currently untracked, so nothing is published yet. It was not edited here, because the task scope did not include it. Recommendation: scrub those expressions from that report, or exclude the report from the commit.

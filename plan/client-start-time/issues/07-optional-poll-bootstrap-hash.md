@@ -6,7 +6,7 @@
 
 **Blocked by:** [[05-novel-tail-and-state-fallback-matrix.md]]
 
-**See also:** [[.scratch/client-start-time/reports/cache-first-boot-via-poll.md]], [[src/Shared/ApiResponses.fs]], [[src/Shared/ApiResponseSerialization.fs]], [[src/Server/Api.fs]]
+**See also:** [[plan/client-start-time/reports/cache-first-boot-via-poll.md]], [[src/Shared/ApiResponses.fs]], [[src/Shared/ApiResponseSerialization.fs]], [[src/Server/Api.fs]]
 
 **Status:** ready-for-agent
 

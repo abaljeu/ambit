@@ -1,6 +1,6 @@
 # Findings: HttpOnly cookie options for Safari durability
 
-Ticket: [[.scratch/login-context-restore/issues/03-httponly-cookie-options-for-safari-durability.md]]
+Ticket: [[plan/login-context-restore/issues/03-httponly-cookie-options-for-safari-durability.md]]
 Date: 2026-08-11
 Branch: `w/login-context-restore`
 

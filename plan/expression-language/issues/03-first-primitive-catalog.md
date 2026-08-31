@@ -20,9 +20,9 @@ Recommended answer (HITL confirm): a small closed catalog:
 
 Keep `text`, `name`, `children`, `of`, and `sort` out of this closed set until later tickets graduate them.
 
-Fixity is locked on [[.scratch/expression-language/issues/01-pipeline-versus-amble-juxtaposition.md]]: anchors, postfix, and infix; `text` is postfix (`Ref text`); space only lexes.
+Fixity is locked on [[plan/expression-language/issues/01-pipeline-versus-amble-juxtaposition.md]]: anchors, postfix, and infix; `text` is postfix (`Ref text`); space only lexes.
 
-Path operators are locked on [[.scratch/expression-language/issues/02-path-references-as-pipeline-terms.md|Path references as pipeline terms]]: each is one function of its left-hand Nodes; `#x` searches down; `/` keeps Directory Node and Workspace Node; `**` is the same idea as `descendant`.
+Path operators are locked on [[plan/expression-language/issues/02-path-references-as-pipeline-terms.md|Path references as pipeline terms]]: each is one function of its left-hand Nodes; `#x` searches down; `/` keeps Directory Node and Workspace Node; `**` is the same idea as `descendant`.
 
 ## Answer
 
@@ -48,7 +48,7 @@ Combinators:
 
 Path symbols already locked on Path references as pipeline terms stay in the language: `//`, `^`, `.`, `/`, `#`, `*`, `**`, `:n`, `!n`, `:*`, `!*`. This ticket does not re-open them. `/` is not a prefix. `**` is `tree`, not `descendant`. Walk words `child` / `descendant` / `tree`: [[12-owned-versus-ref-walk-for-descendant.md|Owned versus Ref walk for descendant]].
 
-Out of this closed word set until later tickets: postfix `text` (exists from [[.scratch/expression-language/issues/01-pipeline-versus-amble-juxtaposition.md|Pipeline versus Amble juxtaposition]] but not this catalog slice), `name`, `sort`. `of` is dropped ([[.scratch/expression-language/issues/11-keep-or-drop-amble-of-and-comma.md|Keep or drop Amble of and comma]]).
+Out of this closed word set until later tickets: postfix `text` (exists from [[plan/expression-language/issues/01-pipeline-versus-amble-juxtaposition.md|Pipeline versus Amble juxtaposition]] but not this catalog slice), `name`, `sort`. `of` is dropped ([[plan/expression-language/issues/11-keep-or-drop-amble-of-and-comma.md|Keep or drop Amble of and comma]]).
 
 No Boolean Answer type. A miss is 0 Answers (Prolog-style), already locked.
 

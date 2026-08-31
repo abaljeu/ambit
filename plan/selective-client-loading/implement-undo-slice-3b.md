@@ -77,8 +77,8 @@ No commit was created.
 
 ## WORK.md mutations
 
-- `remove` [[.scratch/selective-client-loading/look-ahead-remaining-slices.md]] — encoding easing is done in this slice.
-- `remove` [[.scratch/selective-client-loading/undo-implementation-plan.md]] — implement Slice 3b (wire runtime History and projected local flow)
-- `add` [[.scratch/selective-client-loading/undo-implementation-plan.md]] — implement Slice 4 (cut the wire and Server to Change-only confirmations) (parent: [[.scratch/selective-client-loading/undo-spec.md]])
+- `remove` [[plan/selective-client-loading/look-ahead-remaining-slices.md]] — encoding easing is done in this slice.
+- `remove` [[plan/selective-client-loading/undo-implementation-plan.md]] — implement Slice 3b (wire runtime History and projected local flow)
+- `add` [[plan/selective-client-loading/undo-implementation-plan.md]] — implement Slice 4 (cut the wire and Server to Change-only confirmations) (parent: [[plan/selective-client-loading/undo-spec.md]])
 - `move` none
 - `block` none

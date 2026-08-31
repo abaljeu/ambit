@@ -4,8 +4,8 @@ Date: 2026-08-27
 Deploy: commit **9942ce7** (`w/relaxed-concurrency`), Azure deploy ~12:44 UTC  
 Environment: **production** — custom domain via cPanel proxy → Azure (same workspace as pre-fix baseline)  
 Source: user Network tab screenshot (parent chat), confirmed as deployed report  
-Prior baseline: [[.scratch/client-start-time/reports/client-start-time-research.md]]  
-Post-fix estimates: [[.scratch/client-start-time/reports/state-further-optimization.md]]
+Prior baseline: [[plan/client-start-time/reports/client-start-time-research.md]]  
+Post-fix estimates: [[plan/client-start-time/reports/state-further-optimization.md]]
 
 ## Measured numbers (production, post-deploy)
 
@@ -23,11 +23,11 @@ User hard-refresh Network tab waterfall (Time column visible; Size and Response 
 
 **Not captured in screenshot (still open):**
 
-- `Content-Encoding` response header (`br` / `gzip` expected per [[.scratch/client-start-time/reports/server-state-compression.md]])
+- `Content-Encoding` response header (`br` / `gzip` expected per [[plan/client-start-time/reports/server-state-compression.md]])
 - Network tab **Size** column (transferred vs decoded JSON)
 - Explicit time-to-outline (perceptual UX); infer from waterfall end ~**1.9 s** vs pre-fix ≥**3 s** phase B
 
-**Not observed in this capture:** `workspace-sync-ledger` × N XHRs seen on localhost ([[.scratch/client-start-time/reports/localhost-timing-after-optimizations.md]]). Likely because desktop capabilities fetch failed (red row), so ledger sync did not run on this refresh.
+**Not observed in this capture:** `workspace-sync-ledger` × N XHRs seen on localhost ([[plan/client-start-time/reports/localhost-timing-after-optimizations.md]]). Likely because desktop capabilities fetch failed (red row), so ledger sync did not run on this refresh.
 
 ## Comparison vs baseline and estimates
 
@@ -40,7 +40,7 @@ User hard-refresh Network tab waterfall (Time column visible; Size and Response 
 | Bundle | 153 ms | unchanged | **124 ms** |
 | Total boot waterfall (visible) | state hid downstream; ≥3 s to outline | state no longer sole multi-second pole | **~1.9 s** span to last visible request |
 
-**State TTFB improvement:** 3.50 s → 1.19 s = **~66% reduction** (~2.31 s saved). Falls inside the **0.8–1.5 s** estimate band from [[.scratch/client-start-time/reports/state-further-optimization.md]] and matches the prior **~1.19 s** screenshot referenced there.
+**State TTFB improvement:** 3.50 s → 1.19 s = **~66% reduction** (~2.31 s saved). Falls inside the **0.8–1.5 s** estimate band from [[plan/client-start-time/reports/state-further-optimization.md]] and matches the prior **~1.19 s** screenshot referenced there.
 
 ## Verdict
 
@@ -48,11 +48,11 @@ User hard-refresh Network tab waterfall (Time column visible; Size and Response 
 
 Scope-before-encode + gzip (9942ce7) delivered the predicted magnitude on production data. **1.19 s** is a material win over **3.50 s** and within the modeled **~50–70%** TTFB reduction. Treat `/ambit/state` server work as **largely done for this phase** unless follow-up header/size checks show compression misconfiguration.
 
-Sub-300 ms on this workspace remains unrealistic without payload reduction or revision cache / on-demand residency ([[.scratch/client-start-time/reports/state-further-optimization.md]]).
+Sub-300 ms on this workspace remains unrealistic without payload reduction or revision cache / on-demand residency ([[plan/client-start-time/reports/state-further-optimization.md]]).
 
 ### Bucket 3 — **now the relative bottleneck for perceived boot**
 
-State is no longer the multi-second long pole. Remaining gap to interactive outline is main-thread post-state work ([[.scratch/client-start-time/reports/bucket-3-post-state-work.md]]):
+State is no longer the multi-second long pole. Remaining gap to interactive outline is main-thread post-state work ([[plan/client-start-time/reports/bucket-3-post-state-work.md]]):
 
 1. **`decodeStateResponse`** on ~3.7M-char JSON (scales with production graph)
 2. **`applyFoldSession`** + synchronous **`View.render`**
@@ -62,19 +62,19 @@ Waterfall ends ~**1.9 s** vs pre-fix **≥3 s** `"Loading..."` phase — user-vi
 
 ## Recommended next steps
 
-1. **Optional quick follow-up:** on same production refresh, click `state?zoom=…` → Response Headers → confirm `Content-Encoding: br` or `gzip`; note Size column (transferred KB vs decoded MB). Closes the open items from [[.scratch/client-start-time/reports/localhost-timing-after-optimizations.md]] checklist.
+1. **Optional quick follow-up:** on same production refresh, click `state?zoom=…` → Response Headers → confirm `Content-Encoding: br` or `gzip`; note Size column (transferred KB vs decoded MB). Closes the open items from [[plan/client-start-time/reports/localhost-timing-after-optimizations.md]] checklist.
 
 2. **Move to Bucket 3 implementation** ([[WORK.md]] Pending):
    - Defer `applyFoldSession` until after first paint ([[src/Client/App.fs]], [[src/Client/SessionState.fs]])
    - Add boot `performance.mark` to quantify decode vs render vs ledger on production data
 
-3. **Do not pursue further `/ambit/state` micro-optimization** unless optional header check fails or a warm F5 retest shows TTFB still **>1.5 s** (then consider revision-keyed bootstrap cache per [[.scratch/client-start-time/reports/state-further-optimization.md]]).
+3. **Do not pursue further `/ambit/state` micro-optimization** unless optional header check fails or a warm F5 retest shows TTFB still **>1.5 s** (then consider revision-keyed bootstrap cache per [[plan/client-start-time/reports/state-further-optimization.md]]).
 
 4. **Ledger deferral** ([[tmp/load-performance-audit.md]]) — secondary; validate on a refresh where desktop capabilities succeed and ledger XHRs appear.
 
 ## WORK.md note (for parent — do not edit here)
 
-Pending item *"HITL production refresh after user deploy"* ([[.scratch/client-start-time/reports/localhost-timing-after-optimizations.md]]) **can be marked complete** for state TTFB magnitude validation: **1.19 s measured on same zoom/workspace**. Optional sub-note: Content-Encoding and transferred size still unverified in screenshot.
+Pending item *"HITL production refresh after user deploy"* ([[plan/client-start-time/reports/localhost-timing-after-optimizations.md]]) **can be marked complete** for state TTFB magnitude validation: **1.19 s measured on same zoom/workspace**. Optional sub-note: Content-Encoding and transferred size still unverified in screenshot.
 
 ## Status
 
@@ -93,8 +93,8 @@ User console after deploy (`Decode.resizeArray`, `perfNowMs` boot logs). Same wo
 
 **Client post-state total:** ~**197 ms** (163 + 25, decode overlaps dispatch tail slightly).
 
-**Verdict:** [[.scratch/client-start-time/reports/decode-list-append-hotspot.md]] fix exceeded estimate (~200–350 ms → **163 ms**). Rank #1 decode bottleneck cleared. Session restore + first render are negligible at 18 visible rows — defer `applyFoldSession` is lower priority unless saved folds expand to hundreds of rows.
+**Verdict:** [[plan/client-start-time/reports/decode-list-append-hotspot.md]] fix exceeded estimate (~200–350 ms → **163 ms**). Rank #1 decode bottleneck cleared. Session restore + first render are negligible at 18 visible rows — defer `applyFoldSession` is lower priority unless saved folds expand to hundreds of rows.
 
 **Remaining boot pole:** `/ambit/state` network TTFB (~1.19 s from prior capture) + capabilities/file-status. `/_desktop/capabilities` **404** on web host (expected; ledger sync skipped).
 
-See [[.scratch/client-start-time/reports/boot-timing-instrumentation.md]].
+See [[plan/client-start-time/reports/boot-timing-instrumentation.md]].

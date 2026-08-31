@@ -36,4 +36,4 @@ Nothing blocked. Ticket 25 leftover combinator rows in the chapter 11 harness we
 
 ## WORK.md mutations (parent applies; this agent did not edit [[WORK.md]])
 
-- `remove` [[.scratch/expression-language/issues/26-section-and-subsection-catalog-rows.md]] from Pending — implemented; tests green
+- `remove` [[plan/expression-language/issues/26-section-and-subsection-catalog-rows.md]] from Pending — implemented; tests green

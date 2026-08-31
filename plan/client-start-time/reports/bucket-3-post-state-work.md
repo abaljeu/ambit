@@ -2,7 +2,7 @@
 
 Date: 2026-08-27  
 Branch: `w/relaxed-concurrency`  
-Parent: [[.scratch/client-start-time/research.md]], [[.scratch/client-start-time/reports/localhost-timing-after-optimizations.md]]  
+Parent: [[plan/client-start-time/research.md]], [[plan/client-start-time/reports/localhost-timing-after-optimizations.md]]  
 Scope: synchronous main-thread work from `/ambit/state` response until first outline render (and what runs immediately after).
 
 ## Definition
@@ -107,7 +107,7 @@ All steps run **synchronously on the main thread** before `runEffects`.
 | `postJsonSync` workspace-sync-ledger × labels | [[src/Client/App.fs]]:532–534 | **yes**, sequential fold | 95–567 ms each localhost (×7) |
 | `WorkspacePathSyncSnapshotReceived` | [[src/Client/Update.fs]]:200–202 | yes + `patchDOM` | after ledger |
 
-On localhost ([[.scratch/client-start-time/reports/localhost-timing-after-optimizations.md]]), network order is: **state → mappings → ledger ×7 → file-status**. That implies ledger work **starts after** the state response is processed, and on a typical run **after** `View.render` has mutated the DOM. Ledger still extends total waterfall span (~3 s) and uses **blocking** `postJsonSync`, so it can freeze the UI and delay the browser paint if the capabilities callback runs in the same turn before yield.
+On localhost ([[plan/client-start-time/reports/localhost-timing-after-optimizations.md]]), network order is: **state → mappings → ledger ×7 → file-status**. That implies ledger work **starts after** the state response is processed, and on a typical run **after** `View.render` has mutated the DOM. Ledger still extends total waterfall span (~3 s) and uses **blocking** `postJsonSync`, so it can freeze the UI and delay the browser paint if the capabilities callback runs in the same turn before yield.
 
 **Verdict: ledger sync is bucket 4 by intent** (not part of `StateLoaded`), but **can overlap bucket 3 perceptually** when capabilities return early or when sync XHR runs before the browser paints.
 
@@ -119,7 +119,7 @@ On localhost ([[.scratch/client-start-time/reports/localhost-timing-after-optimi
 
 ## What `View.render` costs
 
-[[src/Client/View.fs]]:36–45 loops `getVisibleInstanceIds` (preorder of expanded tree) and calls `makeRowElement` per entry ([[src/Client/RowView.fs]]:388–393) — full DOM subtree + event wiring per row. No virtualization ([[.scratch/large-node-cursor-perf/investigation.md]]). Cost is **O(visible rows)**. The loop calls `document.getElementById "hidden-input"` on every iteration ([[src/Client/View.fs]]:43).
+[[src/Client/View.fs]]:36–45 loops `getVisibleInstanceIds` (preorder of expanded tree) and calls `makeRowElement` per entry ([[src/Client/RowView.fs]]:388–393) — full DOM subtree + event wiring per row. No virtualization ([[plan/large-node-cursor-perf/investigation.md]]). Cost is **O(visible rows)**. The loop calls `document.getElementById "hidden-input"` on every iteration ([[src/Client/View.fs]]:43).
 
 ## Likely cost drivers (ranked)
 
@@ -149,7 +149,7 @@ Localhost (~400k JSON): state is 199 ms; remaining ~2.8 s span is likely **ledge
 
 4. **Two-phase first render** — Render ROOT + collapsed children first (current default map without `applyFoldSession`), then patchDOM after deferred fold restore. Reuses existing `patchDOM` path.
 
-5. **Row virtualization or chunked render** — For large visible sets, render first screen in first frame, `requestIdleCallback` for remainder. Files: [[src/Client/View.fs]], ties to [[.scratch/large-node-cursor-perf/project.md]].
+5. **Row virtualization or chunked render** — For large visible sets, render first screen in first frame, `requestIdleCallback` for remainder. Files: [[src/Client/View.fs]], ties to [[plan/large-node-cursor-perf/project.md]].
 
 6. **Cache `hidden-input` sentinel in `render`** — Avoid per-row `getElementById` ([[src/Client/View.fs]]:43).
 

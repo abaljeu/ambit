@@ -37,6 +37,6 @@ dotnet build src/Client -c Debug → succeeded
 
 ## Board (for root)
 
-- `add` Active: [[.scratch/large-node-cursor-perf/move-up-view-regression.md]] — fix MoveUp no DOM reorder after view-opt (owner: this subagent; done pending root verify)
+- `add` Active: [[plan/large-node-cursor-perf/move-up-view-regression.md]] — fix MoveUp no DOM reorder after view-opt (owner: this subagent; done pending root verify)
 - `remove` that Active entry after root verifies
 - Related Pending already: [[delete-children-cost.md]] (unchanged)

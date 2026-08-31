@@ -9,7 +9,7 @@ Created [[design.md]] — design pass between spec and tickets using codebase-de
 ## Inputs consumed
 
 - [[spec.md]], [[map.md]], [[replace-span-cas-feasibility.md]]
-- [[docs/agents/issue-tracker.md]] — conventions only; no issue files written
+- [[doc/agents/issue-tracker.md]] — conventions only; no issue files written
 - Source: `FileAgent.applyBatch` (revision gate ~150), `DbAgent.applyBatch` (~108), `History.applyChange`, `GraphMutate` CAS, `StateEndpointTests.fs` (`POST with wrong base revision returns 400`)
 
 ## Design conclusions
@@ -22,10 +22,10 @@ Created [[design.md]] — design pass between spec and tickets using codebase-de
 
 | File | Action |
 |------|--------|
-| `.scratch/relaxed-concurrency/design.md` | Created |
-| `.scratch/relaxed-concurrency/to-design-report.md` | Created (this file) |
-| `.scratch/relaxed-concurrency/spec.md` | Added Further Notes wikilink to design.md |
-| `.scratch/relaxed-concurrency/spec.md.md` | Deleted (empty junk) |
+| `plan/relaxed-concurrency/design.md` | Created |
+| `plan/relaxed-concurrency/to-design-report.md` | Created (this file) |
+| `plan/relaxed-concurrency/spec.md` | Added Further Notes wikilink to design.md |
+| `plan/relaxed-concurrency/spec.md.md` | Deleted (empty junk) |
 | `WORK.md` | Linked design.md from pending entry |
 
 ## Not changed (per instructions)

@@ -26,7 +26,7 @@ The actual disk mtime is a Server-only fact. The Server also needs its fully res
 
 ### Absent and Unloaded Nodes
 
-The stamped Node is a Document root. It can be Resident with Unloaded Children; ResidentProjection applies Header Ops, including SetUpdateTime, whenever the Header is Resident, without loading Children at [[src/Shared/ResidentProjection.fs]] lines 7–25. It can also be Absent when a command changes a Resident Ref target whose canonical Owned chain and containing Document root are outside the Browser's resident Workspaces. The Server can still resolve and stamp that root from the full Graph. The Browser then consumes that appended Op as a projected no-op. The residency model explicitly permits reachable Ref Headers without their Children and preserves canonical owner identity even when the owner edge is not resident at [[.scratch/selective-client-loading/spec.md]] lines 73–81.
+The stamped Node is a Document root. It can be Resident with Unloaded Children; ResidentProjection applies Header Ops, including SetUpdateTime, whenever the Header is Resident, without loading Children at [[src/Shared/ResidentProjection.fs]] lines 7–25. It can also be Absent when a command changes a Resident Ref target whose canonical Owned chain and containing Document root are outside the Browser's resident Workspaces. The Server can still resolve and stamp that root from the full Graph. The Browser then consumes that appended Op as a projected no-op. The residency model explicitly permits reachable Ref Headers without their Children and preserves canonical owner identity even when the owner edge is not resident at [[plan/selective-client-loading/spec.md]] lines 73–81.
 
 ### Batch assignment
 

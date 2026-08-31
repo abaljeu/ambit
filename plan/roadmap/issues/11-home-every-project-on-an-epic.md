@@ -19,4 +19,4 @@ Every feature-set Project should appear on the Roadmap. Interview Project by Pro
 
 ## Answer
 
-Every live and Stage-done feature-set Project is homed. Chapter checklists are unchanged as beat work pointers. New Epics: Organize Huge Outlines; Robust outliner. Tabled: [[.scratch/childnode-drop-ref/project.md]]. Roadmap-only: [[.scratch/work-board-audit/project.md]]. Full homed lists live on the Epic files.
+Every live and Stage-done feature-set Project is homed. Chapter checklists are unchanged as beat work pointers. New Epics: Organize Huge Outlines; Robust outliner. Tabled: [[plan/childnode-drop-ref/project.md]]. Roadmap-only: [[plan/work-board-audit/project.md]]. Full homed lists live on the Epic files.

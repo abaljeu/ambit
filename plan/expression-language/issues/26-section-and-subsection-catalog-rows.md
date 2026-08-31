@@ -6,7 +6,7 @@
 
 **Blocked by:** none.
 
-**See also:** [[.scratch/expression-language/spec.md]] chapter 7 `section` and `subsection` rows; [[.scratch/expression-language/reports/section-filter-lock.md]]; [[.scratch/expression-language/issues/20-pure-filter-catalog-rows.md]]; [[.scratch/expression-language/issues/18-content-search-path-step-evaluation.md]]. Ticket 25's chapter 11 harness should include `section` and the `subsection "todo"` / `#todo` equivalence when that harness lands; do not rewrite [[.scratch/expression-language/issues/25-spec-ch11-worked-example-regression-harness.md]] here.
+**See also:** [[plan/expression-language/spec.md]] chapter 7 `section` and `subsection` rows; [[plan/expression-language/reports/section-filter-lock.md]]; [[plan/expression-language/issues/20-pure-filter-catalog-rows.md]]; [[plan/expression-language/issues/18-content-search-path-step-evaluation.md]]. Ticket 25's chapter 11 harness should include `section` and the `subsection "todo"` / `#todo` equivalence when that harness lands; do not rewrite [[plan/expression-language/issues/25-spec-ch11-worked-example-regression-harness.md]] here.
 
 **Status:** done
 

@@ -6,7 +6,7 @@ Blocked by: 01
 
 ## Question
 
-Name the Chapters of [[.scratch/roadmap/epics/manage-a-project.md]] as useful increments of capability. Set Current chapter. Point each Chapter at owning Projects or issues; do not own that work on the Epic file. Pin the use so English **project** stays distinct from glossary Project, from Workspace, from [[epics/operate-a-pkm.md]], and from [[epics/build-or-explore-a-wiki.md]].
+Name the Chapters of [[plan/roadmap/epics/manage-a-project.md]] as useful increments of capability. Set Current chapter. Point each Chapter at owning Projects or issues; do not own that work on the Epic file. Pin the use so English **project** stays distinct from glossary Project, from Workspace, from [[epics/operate-a-pkm.md]], and from [[epics/build-or-explore-a-wiki.md]].
 
 Recommended: grill the in-product use first (what is managed, who tracks status), then name increments breadth-first. Do not create an Epic Project folder.
 
@@ -23,6 +23,6 @@ Recommended: grill the in-product use first (what is managed, who tracks status)
 
 ## Answer
 
-Chapters named on [[.scratch/roadmap/epics/manage-a-project.md]]. Current chapter: Status. Two Chapters: Status; Date (set / find / compare; no forced meaning). Work item is a Node in a Workspace. English project is not a glossary or application term. No follow-up tickets or wiki issues this session.
+Chapters named on [[plan/roadmap/epics/manage-a-project.md]]. Current chapter: Status. Two Chapters: Status; Date (set / find / compare; no forced meaning). Work item is a Node in a Workspace. English project is not a glossary or application term. No follow-up tickets or wiki issues this session.
 
 

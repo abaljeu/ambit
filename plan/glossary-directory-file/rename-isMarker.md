@@ -31,4 +31,4 @@ Error strings that said “amb marker basename…” now say “directory file b
 
 ## WORK.md
 
-Narrow Pending speech/doc sweep: `isMarker` API rename is complete; remaining is informal docs/comments elsewhere (and AmbDocument format “marker” is unrelated).
+Narrow Pending speech/doc sweep: `isMarker` API rename is complete; remaining is informal doc/comments elsewhere (and AmbDocument format “marker” is unrelated).

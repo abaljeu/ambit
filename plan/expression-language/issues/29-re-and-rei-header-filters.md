@@ -6,7 +6,7 @@
 
 **Blocked by:** none.
 
-**See also:** [[.scratch/expression-language/spec.md]] chapter 7 `re` and `rei` rows; [[.scratch/expression-language/reports/re-filter.md]]; [[src/Shared/ExprWalk.fs]]; [[src/Shared/ExprPrimitive.fs]]; [[tests/Shared.Tests/ExprFilterTests.fs]].
+**See also:** [[plan/expression-language/spec.md]] chapter 7 `re` and `rei` rows; [[plan/expression-language/reports/re-filter.md]]; [[src/Shared/ExprWalk.fs]]; [[src/Shared/ExprPrimitive.fs]]; [[tests/Shared.Tests/ExprFilterTests.fs]].
 
 **Status:** done
 

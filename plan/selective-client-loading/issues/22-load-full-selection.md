@@ -6,7 +6,7 @@
 
 **Blocked by:** 21 — Load one selected target through synchronization.
 
-**See also:** [[.scratch/selective-client-loading/spec.md]] (Workspace-selection refusal and package deduplication); [[.scratch/selective-client-loading/issues/14-simplify-selective-loading.md]] (selected-target resolution and Workspace packages).
+**See also:** [[plan/selective-client-loading/spec.md]] (Workspace-selection refusal and package deduplication); [[plan/selective-client-loading/issues/14-simplify-selective-loading.md]] (selected-target resolution and Workspace packages).
 
 **Status:** ready-for-agent
 

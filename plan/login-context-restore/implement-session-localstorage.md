@@ -61,9 +61,9 @@ The user confirmed the Workspace + Zoom check passed on 2026-08-15. Device model
 
 ## WORK.md mutations (for parent)
 
-- `remove` Blocked: [[.scratch/login-context-restore/map.md]] — iPad/iPhone still-open Safari cold-reload HITL passed
+- `remove` Blocked: [[plan/login-context-restore/map.md]] — iPad/iPhone still-open Safari cold-reload HITL passed
 
-Stage is now `done`; [[.scratch/index.md]] was regenerated. Do not edit WORK.md from this worker.
+Stage is now `done`; [[plan/index.md]] was regenerated. Do not edit WORK.md from this worker.
 
 ## Blockers
 

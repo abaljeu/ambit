@@ -4,7 +4,7 @@
 
 ## Spec ask
 
-[[.scratch/owner-edge-db-repair/spec.md]] requires: “Log correction counts and affected Node ids.” That is satisfied by server logging, not by a client toast/banner.
+[[plan/owner-edge-db-repair/spec.md]] requires: “Log correction counts and affected Node ids.” That is satisfied by server logging, not by a client toast/banner.
 
 ## What the server logs (success)
 

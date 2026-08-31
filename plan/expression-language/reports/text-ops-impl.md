@@ -54,7 +54,7 @@ A path cluster still takes a following quoted string greedily, so `#todo "x"` is
 
 ## Board mutations for the parent
 
-- `remove` [[.scratch/expression-language/issues/30-text-operations.md]] from Pending.
-- `add` to Pending: [[.scratch/expression-language/reports/text-ops-impl.md]] — HITL: Run `= … IF (text left 5 IS "rapid")` and `= … IF (name right 4 IS ".txt")` on `/ambit` or `/ambit?debug=1`; confirm the Answers are Nodes, that a bare `left 5` reports a type error, that lowercase `is` is not the combinator, and that `"d" "e"` is a parse error.
+- `remove` [[plan/expression-language/issues/30-text-operations.md]] from Pending.
+- `add` to Pending: [[plan/expression-language/reports/text-ops-impl.md]] — HITL: Run `= … IF (text left 5 IS "rapid")` and `= … IF (name right 4 IS ".txt")` on `/ambit` or `/ambit?debug=1`; confirm the Answers are Nodes, that a bare `left 5` reports a type error, that lowercase `is` is not the combinator, and that `"d" "e"` is a parse error.
 
-The project Stage in [[../project.md]] stays `active` (issue 32 is open), so it is unchanged and [[.scratch/index.md]] needs no regeneration for this work.
+The project Stage in [[../project.md]] stays `active` (issue 32 is open), so it is unchanged and [[plan/index.md]] needs no regeneration for this work.

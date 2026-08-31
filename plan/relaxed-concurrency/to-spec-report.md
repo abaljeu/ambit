@@ -4,7 +4,7 @@ Date: 2026-08-19
 
 ## Spec path
 
-[[.scratch/relaxed-concurrency/spec.md]] — `Status: ready-for-agent`
+[[plan/relaxed-concurrency/spec.md]] — `Status: ready-for-agent`
 
 ## Proposed testing seams (for user confirmation)
 
@@ -23,10 +23,10 @@ Covers:
 
 ## Files changed
 
-- `.scratch/relaxed-concurrency/spec.md` — created (this spec)
-- `.scratch/relaxed-concurrency/to-spec-report.md` — created (this report)
-- `.scratch/relaxed-concurrency/project.md` — summary refreshed
-- `.scratch/index.md` — regenerated
+- `plan/relaxed-concurrency/spec.md` — created (this spec)
+- `plan/relaxed-concurrency/to-spec-report.md` — created (this report)
+- `plan/relaxed-concurrency/project.md` — summary refreshed
+- `plan/index.md` — regenerated
 - `WORK.md` — pending entry now links to spec
 
 ## Stage

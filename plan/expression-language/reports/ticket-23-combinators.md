@@ -28,5 +28,5 @@ Result: **Passed — ExprCombinatorTests 6/6**, **Expr 118/118** (includes RefEx
 
 ## WORK.md mutations (for the root)
 
-- `remove` [[.scratch/expression-language/issues/23-and-or-not-and-comma-combinators.md]] from Pending — implemented; tests green
+- `remove` [[plan/expression-language/issues/23-and-or-not-and-comma-combinators.md]] from Pending — implemented; tests green
 - Ticket 25 is not on the board (harness already `Status: done` without combinator rows). It is unblocked for those omitted chapter 11 rows; 21–22 are done. Parent may add a small follow-up to Pending, or leave 25 as done with that leftover.

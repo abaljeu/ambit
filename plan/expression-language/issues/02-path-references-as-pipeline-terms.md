@@ -10,13 +10,13 @@ How do `/`, `//`, `#tag`, `^`, `.`, `*`, and `**` appear inside the pipeline? Ar
 
 Recommended answer (HITL confirm): a path RefExpr remains a term and generator that yields Nodes. Words are relations over Node sets. Example: `// descendant containing "the"`. A path-only expression stays valid.
 
-See the Answer on [[.scratch/expression-language/issues/01-pipeline-versus-amble-juxtaposition.md]]: the lexer stays; `#todo` is two tokens (`#` then `todo`) and `(left) #todo` means `(left) tagged "todo"`.
+See the Answer on [[plan/expression-language/issues/01-pipeline-versus-amble-juxtaposition.md]]: the lexer stays; `#todo` is two tokens (`#` then `todo`) and `(left) #todo` means `(left) tagged "todo"`.
 
 ## Answer
 
-HITL 2026-08-27. Path symbols are pipeline terms (postfix and infix functions), not a second language. A path-only Expression is juxtaposition of these functions. One rule: every path operator is one function of its left-hand Nodes. There is no variant that searches up from an initial context and down on later steps. When the left side is omitted, the left-hand Node is the current Node (same as [[.scratch/expression-language/issues/01-pipeline-versus-amble-juxtaposition.md|Pipeline versus Amble juxtaposition]]).
+HITL 2026-08-27. Path symbols are pipeline terms (postfix and infix functions), not a second language. A path-only Expression is juxtaposition of these functions. One rule: every path operator is one function of its left-hand Nodes. There is no variant that searches up from an initial context and down on later steps. When the left side is omitted, the left-hand Node is the current Node (same as [[plan/expression-language/issues/01-pipeline-versus-amble-juxtaposition.md|Pipeline versus Amble juxtaposition]]).
 
-Every path operator is a Prolog-style predicate. It finds 0, 1, or many Answers. Failure is zero Answers, not an error. Example: `x!-249053534` finds 0 Answers (out-of-range sibling index). The same holds for out-of-range `:n` and a name, `#`, or `/` search that matches nothing. This is the empty-miss rule in [[doc/roadmap/reference-expression-interpretation.md]] and the fail-to-answer rule from [[.scratch/expression-language/issues/09-research-prolog-control-mapped.md|Research: Prolog control mapped to this language]]. Index, glob, and `!n` are not exceptions.
+Every path operator is a Prolog-style predicate. It finds 0, 1, or many Answers. Failure is zero Answers, not an error. Example: `x!-249053534` finds 0 Answers (out-of-range sibling index). The same holds for out-of-range `:n` and a name, `#`, or `/` search that matches nothing. This is the empty-miss rule in [[doc/roadmap/reference-expression-interpretation.md]] and the fail-to-answer rule from [[plan/expression-language/issues/09-research-prolog-control-mapped.md|Research: Prolog control mapped to this language]]. Index, glob, and `!n` are not exceptions.
 
 **Anchors and up**
 

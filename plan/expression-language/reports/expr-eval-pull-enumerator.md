@@ -57,7 +57,7 @@ Search chapter 8 wants the dialog to fetch Answers as the user scrolls. Word Sea
 
 ## 5. Spec: chapter 6 does not require pull
 
-Chapter 6 of [[spec.md]] fixes only the sequence and its order. The explicit freedom is: “Lazy, eager, or backtracking evaluation is an implementation freedom, because the rules fix only the sequence and its order.” The same lock is on [[.scratch/expression-language/issues/05-how-multiple-answers-surface.md]]. Chapter 2 says a term denotes an ordered sequence (Prolog-style fail/succeed/backtrack as the sequence), not a machine representation.
+Chapter 6 of [[spec.md]] fixes only the sequence and its order. The explicit freedom is: “Lazy, eager, or backtracking evaluation is an implementation freedom, because the rules fix only the sequence and its order.” The same lock is on [[plan/expression-language/issues/05-how-multiple-answers-surface.md]]. Chapter 2 says a term denotes an ordered sequence (Prolog-style fail/succeed/backtrack as the sequence), not a machine representation.
 
 Chapter 8 Search “fetches Answers as the user scrolls” is a consumer display rule, not an eval-layer requirement. Run disposes the whole sequence as Children in Answer order; that consumer can stay eager.
 

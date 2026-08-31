@@ -1,11 +1,11 @@
 ---
 name: qa
-description: Interactive QA session where user reports bugs or issues conversationally, and the agent files local Markdown issues under .scratch/. Explores the codebase in the background for context and domain language. Use when user wants to report bugs, do QA, file issues conversationally, or mentions "QA session".
+description: Interactive QA session where user reports bugs or issues conversationally, and the agent files local Markdown issues under plan/. Explores the codebase in the background for context and domain language. Use when user wants to report bugs, do QA, file issues conversationally, or mentions "QA session".
 ---
 
 # QA Session
 
-Run an interactive QA session. The user describes problems they're encountering. You clarify, explore the codebase for context, and file **local** issues under `.scratch/` per [[docs/agents/issue-tracker.md]]. Issues must be durable, user-focused, and use the project's domain language. Do not use `gh`/`glab` to file issues.
+Run an interactive QA session. The user describes problems they're encountering. You clarify, explore the codebase for context, and file **local** issues under `plan/` per [[doc/agents/issue-tracker.md]]. Issues must be durable, user-focused, and use the project's domain language. Do not use `gh`/`glab` to file issues.
 
 ## For each issue the user raises
 
@@ -46,7 +46,7 @@ Keep as a single issue when:
 
 ### 4. File the local issue(s)
 
-Publish under `.scratch/<feature-slug>/issues/` per [[docs/agents/issue-tracker.md]]. Do NOT ask the user to review first — file and share the paths.
+Publish under `plan/<feature-slug>/issues/` per [[doc/agents/issue-tracker.md]]. Do NOT ask the user to review first — file and share the paths.
 
 Issues must be **durable** — they should still make sense after major refactors. Write from the user's perspective.
 
@@ -83,7 +83,7 @@ Use this template for each sub-issue:
 ```
 ## Parent issue
 
-Path to parent under .scratch/ (if any) or "Reported during QA session"
+Path to parent under plan/ (if any) or "Reported during QA session"
 
 ## What's wrong
 
@@ -115,7 +115,7 @@ When creating a breakdown:
 
 #### Rules for all issue bodies
 
-- **No source file paths or line numbers** — these go stale (issue paths under `.scratch/` are fine)
+- **No source file paths or line numbers** — these go stale (issue paths under `plan/` are fine)
 - **Use the project's domain language** (check [[CONTEXT.md]] if it exists)
 - **Describe behaviors, not code** — "the sync service fails to apply the patch" not "applyPatch() throws on line 42"
 - **Reproduction steps are mandatory** — if you can't determine them, ask the user

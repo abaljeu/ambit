@@ -4,7 +4,7 @@ See also: [[undo-wayfinder.md]], [[undo-implementation-plan.md]], [[audit-optimi
 
 ## Status
 
-Commit `4255c48` delivered the current explicit `ChangeRequest` behavior from [[.scratch/selective-client-loading/issues/15-introduce-change-request-messaging.md]]. The earlier abandoned `stash@{0}` must not be applied. The contract below is the approved Change-only destination and supersedes that delivered transport behavior as its implementation slices land.
+Commit `4255c48` delivered the current explicit `ChangeRequest` behavior from [[plan/selective-client-loading/issues/15-introduce-change-request-messaging.md]]. The earlier abandoned `stash@{0}` must not be applied. The contract below is the approved Change-only destination and supersedes that delivered transport behavior as its implementation slices land.
 
 ## Contract
 

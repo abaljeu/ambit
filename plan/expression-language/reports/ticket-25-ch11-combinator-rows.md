@@ -20,8 +20,8 @@ dotnet test tests/Shared.Tests -c Debug --no-build --filter "FullyQualifiedName~
 
 Build succeeded. ExprChapter11: 17 passed (was 13; three Facts plus one Theory case).
 
-Ticket comments: [[.scratch/expression-language/issues/25-spec-ch11-worked-example-regression-harness.md]] — combinator leftover filled (except 26 rows).
+Ticket comments: [[plan/expression-language/issues/25-spec-ch11-worked-example-regression-harness.md]] — combinator leftover filled (except 26 rows).
 
 ## WORK.md mutations
 
-- `remove` [[tests/Shared.Tests/ExprChapter11Tests.fs]] — add leftover chapter 11 combinator rows (`#x , #y`, `AND`/`NOT`/`OR`) now that ticket 23 landed (parent: [[.scratch/expression-language/issues/25-spec-ch11-worked-example-regression-harness.md]]) from Pending
+- `remove` [[tests/Shared.Tests/ExprChapter11Tests.fs]] — add leftover chapter 11 combinator rows (`#x , #y`, `AND`/`NOT`/`OR`) now that ticket 23 landed (parent: [[plan/expression-language/issues/25-spec-ch11-worked-example-regression-harness.md]]) from Pending

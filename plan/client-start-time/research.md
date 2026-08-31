@@ -2,7 +2,7 @@
 
 Date: 2026-08-27  
 Branch: `w/relaxed-concurrency`  
-See also: [[.scratch/selective-client-loading/spec.md]], [[doc/reference/dev-debug-workflow.md]], [[doc/arch.md]]
+See also: [[plan/selective-client-loading/spec.md]], [[doc/reference/dev-debug-workflow.md]], [[doc/arch.md]]
 
 ## Problem statement (user-scoped)
 
@@ -136,7 +136,7 @@ On `StateLoaded` ([[src/Client/App.fs]] dispatch):
 1. `update` — `buildSiteMapFrom` at `firstGraphChild` zoom root ([[src/Client/Update.fs]])
 2. `restoreSessionState` — may change zoom and **expand saved folds** (`applyFoldSession`) before first render
 3. `mergePendingAfterLoad` — replays `localStorage` pending change queue if present
-4. `View.render` — **full DOM rebuild**: one `.amb-row` per visible SiteMap entry, no virtualization ([[.scratch/large-node-cursor-perf/investigation.md]])
+4. `View.render` — **full DOM rebuild**: one `.amb-row` per visible SiteMap entry, no virtualization ([[plan/large-node-cursor-perf/investigation.md]])
 
 If session restore expands many nodes, first render creates hundreds/thousands of DOM nodes synchronously on the main thread.
 
@@ -229,7 +229,7 @@ Scope-before-encode attacks steps 2–5 directly and shrinks both TTFB and downl
 
 ### Phase B — "Loading..." → outline (highest impact)
 
-1. **Scope graph before server encode** — Change [[src/Server/Api.fs]] `getState` to call `ResidentProjection.bootstrapGraph` on the in-memory `Graph` inside DbAgent/FileAgent **before** JSON encoding, eliminating full-graph decode→re-encode on every refresh unless `?scope=full`. **Measured 3.50 s TTFB on `/ambit/state` makes this the clear #1 fix.** Aligns with delivered selective-loading intent ([[.scratch/selective-client-loading/spec.md]]).
+1. **Scope graph before server encode** — Change [[src/Server/Api.fs]] `getState` to call `ResidentProjection.bootstrapGraph` on the in-memory `Graph` inside DbAgent/FileAgent **before** JSON encoding, eliminating full-graph decode→re-encode on every refresh unless `?scope=full`. **Measured 3.50 s TTFB on `/ambit/state` makes this the clear #1 fix.** Aligns with delivered selective-loading intent ([[plan/selective-client-loading/spec.md]]).
 
 2. **Defer first-render work after paint** — Split bootstrap: render a **minimal** visible tree (ROOT + default zoom, no session fold expansion), then `requestAnimationFrame` / `setTimeout(0)` apply `restoreSessionState` fold expansion. Addresses the **blue segment** (post-network client work) after state returns. *Files:* [[src/Client/App.fs]], [[src/Client/SessionState.fs]].
 
@@ -274,7 +274,7 @@ Network tab measurements confirm `/ambit/state` TTFB as the dominant cost; **rec
 | No response compression middleware | [[src/Server/Server.fs]], [[src/Server/Gambol.Server.fsproj]] |
 | Production proxy path for API | [[doc/reference/cpanel-transparent-proxy.md]], [[proxy.php]] |
 | ASP.NET compression does not reduce handler time | [Response compression in ASP.NET Core](https://learn.microsoft.com/en-us/aspnet/core/performance/response-compression) |
-| Selective bootstrap scope | [[.scratch/selective-client-loading/spec.md]] |
+| Selective bootstrap scope | [[plan/selective-client-loading/spec.md]] |
 | Poll not SignalR | [[src/Client/App.fs]], [[doc/arch.md]] |
 | esbuild splitting | [esbuild API — Splitting](https://esbuild.github.io/api/#splitting) |
 | No mobile SLA | User clarification |

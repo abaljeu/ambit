@@ -6,7 +6,7 @@
 
 **Blocked by:** none. Combinator leftover filled (except ticket 26 `section` / `subsection` rows).
 
-**See also:** [[.scratch/expression-language/spec.md]] chapter 11; [[.scratch/expression-language/reports/pipeline-examples.md]].
+**See also:** [[plan/expression-language/spec.md]] chapter 11; [[plan/expression-language/reports/pipeline-examples.md]].
 
 **Status:** done
 
@@ -17,4 +17,4 @@
 
 ## Comments
 
-Combinator leftover filled (except 26 rows). [[tests/Shared.Tests/ExprChapter11Tests.fs]] includes `#x , #y` (concatenates; a Node may appear twice), `containing "the" AND named "blue"` (same-input intersection), `root descendant NOT containing "draft"` (negation-as-failure), and parse error `// OR /`. Ticket 26 `section` / `subsection` rows stay omitted; `#todo` stands in for `subsection "todo"` where the table allows it. Report: [[.scratch/expression-language/reports/ticket-25-ch11-combinator-rows.md]].
+Combinator leftover filled (except 26 rows). [[tests/Shared.Tests/ExprChapter11Tests.fs]] includes `#x , #y` (concatenates; a Node may appear twice), `containing "the" AND named "blue"` (same-input intersection), `root descendant NOT containing "draft"` (negation-as-failure), and parse error `// OR /`. Ticket 26 `section` / `subsection` rows stay omitted; `#todo` stands in for `subsection "todo"` where the table allows it. Report: [[plan/expression-language/reports/ticket-25-ch11-combinator-rows.md]].

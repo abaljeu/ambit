@@ -55,11 +55,11 @@ Recipe (also on [[map.md]] Notes): After Server sets SameSite Lax + Secure (Http
 
 ## WORK.md mutations (for parent)
 
-- `remove` Active: [[.scratch/login-context-restore/issues/04-choose-auth-persistence-approach.md]] — implement SameSite Lax + Secure on `gambol_auth` (code landed)
-- `add` Pending: [[.scratch/login-context-restore/map.md]] — HITL iPad/iPhone still-open tab cold-reload after memory unload; pass = `/ambit` no login form (ticket: [[.scratch/login-context-restore/issues/04-choose-auth-persistence-approach.md]])
+- `remove` Active: [[plan/login-context-restore/issues/04-choose-auth-persistence-approach.md]] — implement SameSite Lax + Secure on `gambol_auth` (code landed)
+- `add` Pending: [[plan/login-context-restore/map.md]] — HITL iPad/iPhone still-open tab cold-reload after memory unload; pass = `/ambit` no login form (ticket: [[plan/login-context-restore/issues/04-choose-auth-persistence-approach.md]])
 - `add` Pending (optional): [[doc/api.md]] — cookie line still says SameSite=Strict; update to Lax + Secure + HttpOnly
 
-The project is now `done` after the later context-restore HITL passed on 2026-08-15; [[.scratch/index.md]] was regenerated.
+The project is now `done` after the later context-restore HITL passed on 2026-08-15; [[plan/index.md]] was regenerated.
 
 ## Blockers
 

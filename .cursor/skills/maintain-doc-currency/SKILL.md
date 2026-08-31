@@ -11,7 +11,7 @@ Follow [[.cursor/rules/markdown-writing.mdc]] and read [[doc/README.md]] first. 
 
 - Top-level [[doc/]] docs are front-door docs for the current program: Feature index, architecture, spec, and API.
 - [[doc/current/]] holds current subsystem or feature baselines.
-- [[doc/roadmap/]] is leftover planned-direction text until a `.scratch` Project cites it or it moves to history. New planned work lives in Projects.
+- [[doc/roadmap/]] is leftover planned-direction text until a `plan` Project cites it or it moves to history. New planned work lives in Projects.
 - [[doc/history/]] holds assessed historical project materials.
 - [[doc/reference/]] holds operational and reference material.
 - [[doc/unsorted/]] is temporary, unassessed, and non-authoritative.
@@ -20,11 +20,11 @@ If a doc's content no longer matches its directory, propose the smallest correct
 
 ## Currency Workflow
 
-Before promoting any exclusion or "Gambol does not …" into `doc/`, confirm it is a product **commitment** with an authorized source — not **scope** or **surmise** from a Project. See [[docs/agents/scope-vs-commitment.md]].
+Before promoting any exclusion or "Gambol does not …" into `doc/`, confirm it is a product **commitment** with an authorized source — not **scope** or **surmise** from a Project. See [[doc/agents/scope-vs-commitment.md]].
 
 1. Read the relevant current docs before changing roadmap, history, or unsorted material.
 2. Check the Feature index [[doc/index.md]] for current-program coverage.
-3. Check whether implemented behavior is still described as future work; if so, move the durable truth into current or reference docs and reduce leftover roadmap text, or cite it from a `.scratch` Project.
+3. Check whether implemented behavior is still described as future work; if so, move the durable truth into current or reference docs and reduce leftover roadmap text, or cite it from a `plan` Project.
 4. Update the Feature index when a change affects what is current. Planned work is not sequenced there.
 5. Check whether roadmap commitments became obsolete; mark the mismatch and ask before deleting or rewriting direction.
 6. Keep one authoritative home for each fact. Link to it from other docs instead of restating it, unless local clarity requires a short recap.

@@ -50,5 +50,5 @@ An inventory. It is not a lock and it is not new work. The project stage stays `
 
 ## Not this project
 
-- Frontier open questions D–F live in [[.scratch/relaxed-concurrency/map.md]] (build-upon layer — upstream audits and rejections, not implementation).
+- Frontier open questions D–F live in [[plan/relaxed-concurrency/map.md]] (build-upon layer — upstream audits and rejections, not implementation).
 - Old relaxed-concurrency slice 2–3 client merge-sync protocol was superseded for recoverable kick-back ([[relation-to-relaxed-concurrency.md]]); delivery is ESO issues 01–05, 13–14.

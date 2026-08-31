@@ -1,6 +1,6 @@
 # Merge invariant and amendment order
 
-What merge must protect, and the order in which the Server produces its result. Per-Op transform tables are **later work** and are not written here. Protocol summary: [[.scratch/event-sourced-ops/architecture.md]].
+What merge must protect, and the order in which the Server produces its result. Per-Op transform tables are **later work** and are not written here. Protocol summary: [[plan/event-sourced-ops/architecture.md]].
 
 Status: the amendment order is **accepted**. The invariant and the process shape are **proposed** as a whole, although several of the rules inside them are accepted; see [[conflict-resolution.md]] and [[open-questions.md]].
 
@@ -51,7 +51,7 @@ Every Node has one **Owned** parent, except **ROOT** and except **Orphaned** Nod
 
 **Bug net.** If a Change would raise the owner count from one to two, demote the extra Owned edge to a Ref. Which owner remains is not critical. This is a net for defects, not a merge rule.
 
-Repair of existing defects at startup stays a no-Change path — [[.scratch/owner-edge-db-repair/]].
+Repair of existing defects at startup stays a no-Change path — [[plan/owner-edge-db-repair/]].
 
 ## What this does not decide
 

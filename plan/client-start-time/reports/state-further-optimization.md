@@ -2,7 +2,7 @@
 
 Date: 2026-08-27  
 Branch: `w/relaxed-concurrency` (commit 9942ce7)  
-Parent: [[.scratch/client-start-time/research.md]], [[.scratch/client-start-time/reports/localhost-timing-after-optimizations.md]]
+Parent: [[plan/client-start-time/research.md]], [[plan/client-start-time/reports/localhost-timing-after-optimizations.md]]
 
 ## Executive answer
 
@@ -41,7 +41,7 @@ sequenceDiagram
 | Encode | [[src/Shared/ApiResponseSerialization.fs]]:9–13 | Thoth `Encode.toString 0` — full string before first byte |
 | Compression | [[src/Server/Server.fs]] | `UseResponseCompression` (gzip + Brotli) |
 
-Default bootstrap scope ([[.scratch/selective-client-loading/spec.md]]): **complete ROOT Workspace closure** (nested named Workspaces as Unloaded headers only; Ref headers without children), plus **at most one extra complete Workspace** when `?zoom=` targets a node outside ROOT.
+Default bootstrap scope ([[plan/selective-client-loading/spec.md]]): **complete ROOT Workspace closure** (nested named Workspaces as Unloaded headers only; Ref headers without children), plus **at most one extra complete Workspace** when `?zoom=` targets a node outside ROOT.
 
 ---
 
@@ -49,17 +49,17 @@ Default bootstrap scope ([[.scratch/selective-client-loading/spec.md]]): **compl
 
 | Change | Effect | Artifact |
 | --- | --- | --- |
-| **Scope-before-encode** | Agents return `StateResponse`; Api scopes then encodes **once**. Eliminates full-graph JSON encode in agent + full-graph decode in Api. | [[.scratch/client-start-time/reports/scope-before-encode.md]] |
-| **Response compression** | gzip/Brotli on JSON; localhost **88.9 kB** transferred vs **400,000** decoded chars. Does **not** reduce TTFB (body built before compress). | [[.scratch/client-start-time/reports/server-state-compression.md]] |
-| **Client compression guard** | Detects misconfigured proxy (`looksCompressed` without `Content-Encoding`). | [[.scratch/client-start-time/reports/client-state-compression.md]] |
+| **Scope-before-encode** | Agents return `StateResponse`; Api scopes then encodes **once**. Eliminates full-graph JSON encode in agent + full-graph decode in Api. | [[plan/client-start-time/reports/scope-before-encode.md]] |
+| **Response compression** | gzip/Brotli on JSON; localhost **88.9 kB** transferred vs **400,000** decoded chars. Does **not** reduce TTFB (body built before compress). | [[plan/client-start-time/reports/server-state-compression.md]] |
+| **Client compression guard** | Detects misconfigured proxy (`looksCompressed` without `Content-Encoding`). | [[plan/client-start-time/reports/client-state-compression.md]] |
 
-Localhost smoke test (small DB, not production magnitude): **199 ms**, **400,000** decoded chars, **88.9 kB** transferred — [[.scratch/client-start-time/reports/localhost-timing-after-optimizations.md]].
+Localhost smoke test (small DB, not production magnitude): **199 ms**, **400,000** decoded chars, **88.9 kB** transferred — [[plan/client-start-time/reports/localhost-timing-after-optimizations.md]].
 
 ---
 
 ## Where remaining time goes (production, post-deploy estimate)
 
-Pre-fix production ([[.scratch/client-start-time/research.md]]): **`GET /ambit/state?zoom=…`** **3.50 s** total, green segment = **server TTFB**, body **~3.7M characters** JSON.
+Pre-fix production ([[plan/client-start-time/research.md]]): **`GET /ambit/state?zoom=…`** **3.50 s** total, green segment = **server TTFB**, body **~3.7M characters** JSON.
 
 Important: the **3.7M-char body was already scoped** (old Api decoded, scoped, re-encoded). Scope-before-encode attacks **CPU/allocation**, not wire size vs pre-fix.
 
@@ -85,7 +85,7 @@ Important: the **3.7M-char body was already scoped** (old Api decoded, scoped, r
 | `?zoom=` outside ROOT | Adds **one complete owning Workspace** via `mergePackageNodes` | [[tests/Server.Tests/ApiGetStateTests.fs]] `getState zoom outside ROOT adds owning Workspace` |
 | Invalid/missing zoom id | Falls back to ROOT only | [[tests/Shared.Tests/BootstrapScopeTests.fs]] `bootstrapGraph with missing zoom falls back to ROOT only` |
 
-Client sends `?zoom=` from [[src/Client/SessionState.fs]] `tryReadSavedZoomId` ([[src/Client/Program.fs]]:67–71). Saved **fold** state does **not** widen `/state` ([[.scratch/selective-client-loading/spec.md]] line 77).
+Client sends `?zoom=` from [[src/Client/SessionState.fs]] `tryReadSavedZoomId` ([[src/Client/Program.fs]]:67–71). Saved **fold** state does **not** widen `/state` ([[plan/selective-client-loading/spec.md]] line 77).
 
 Production baseline already used `?zoom=d28e665d…` at **3.50 s** — zoom did not prevent a large payload.
 
@@ -119,7 +119,7 @@ Thoth + `Results.Content(json)` builds the **entire string** before first byte (
 
 ### 6. Narrow bootstrap scope within ROOT — LOW–MEDIUM impact, HIGH product cost
 
-Spec requires **complete ROOT Workspace** ([[.scratch/selective-client-loading/spec.md]] user story 7). Trimming ROOT owned content would violate delivered selective-loading contract unless spec changes.
+Spec requires **complete ROOT Workspace** ([[plan/selective-client-loading/spec.md]] user story 7). Trimming ROOT owned content would violate delivered selective-loading contract unless spec changes.
 
 ### 7. Bypass / tune cPanel proxy for API — LOW impact
 
@@ -154,7 +154,7 @@ Adds tens–low hundreds of ms; not the multi-second pre-fix gap.
 
 5. **For sub-second bootstrap at scale**, plan **on-demand server graph residency** ([[doc/roadmap/on-demand-graph-residency.md]]) — that is the architectural ceiling-breaker, not more `/state` micro-optimization.
 
-6. **Separate track:** bucket 3 post-state work ([[.scratch/client-start-time/reports/bucket-3-post-state-work.md]]) — defer `applyFoldSession`, async ledger — improves **perceived** boot after state returns; **not** state fetch TTFB.
+6. **Separate track:** bucket 3 post-state work ([[plan/client-start-time/reports/bucket-3-post-state-work.md]]) — defer `applyFoldSession`, async ledger — improves **perceived** boot after state returns; **not** state fetch TTFB.
 
 ---
 

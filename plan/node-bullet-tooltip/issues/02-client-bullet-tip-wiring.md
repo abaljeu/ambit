@@ -11,8 +11,8 @@ behavioral change to any existing listener.
 
 **Blocked by:** 01 — Shared `bulletTip` formatter.
 
-**See also:** [[.scratch/node-bullet-tooltip/spec.md]] (Client attachment, Local-time formatter,
-CSS class rename), [[.scratch/node-bullet-tooltip/grill-notes.md]].
+**See also:** [[plan/node-bullet-tooltip/spec.md]] (Client attachment, Local-time formatter,
+CSS class rename), [[plan/node-bullet-tooltip/grill-notes.md]].
 
 **Status:** ready-for-agent
 

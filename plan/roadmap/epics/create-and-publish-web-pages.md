@@ -12,7 +12,7 @@ Current chapter: HTML codec
 
 **Blocked by:** None.
 
-- [ ] [[.scratch/document-formats/map.md]] — HTML File codec (extend that destination; HTML was excluded)
+- [ ] [[plan/document-formats/map.md]] — HTML File codec (extend that destination; HTML was excluded)
 
 ## In-app styling
 
@@ -38,12 +38,12 @@ Not a Chapter. The Epic is not done until each item is done (or the named part).
 
 Live:
 
-- [ ] [[.scratch/end-user-wiki/map.md]] — portion for this Epic (not yet filed)
-- [ ] [[.scratch/marketing-wiki/map.md]] — portion for this Epic (not yet filed)
+- [ ] [[plan/end-user-wiki/map.md]] — portion for this Epic (not yet filed)
+- [ ] [[plan/marketing-wiki/map.md]] — portion for this Epic (not yet filed)
 
 ## Notes
 
-- [[.scratch/transport-layer/project.md]] cross-cutting pattern — HTML codec and publish are outbound transport: generate HTML and send attachments and CSS through transport-layer (Graph / HTML File content → visitor-facing site), not a separate publisher stack. Distinct from wiki Public URL (`.md` → HTML) in [[build-or-explore-a-wiki.md]]. In-app styling and Published-page CSS are the same outbound transport with CSS as payload. See [[.scratch/transport-layer/overview.md]], [[.scratch/transport-layer/map.md]].
+- [[plan/transport-layer/project.md]] cross-cutting pattern — HTML codec and publish are outbound transport: generate HTML and send attachments and CSS through transport-layer (Graph / HTML File content → visitor-facing site), not a separate publisher stack. Distinct from wiki Public URL (`.md` → HTML) in [[build-or-explore-a-wiki.md]]. In-app styling and Published-page CSS are the same outbound transport with CSS as payload. See [[plan/transport-layer/overview.md]], [[plan/transport-layer/map.md]].
 - Scaling is [[organize-huge-outlines.md]]; first use does not wait on it.
 - Wiki page and published page are the same family; presentation and needs vary greatly at the detail level. Do not collapse with [[build-or-explore-a-wiki.md]].
 - Not documents-from-anywhere: that audience is the person working; this is visitors without the App. Not export to another host.

@@ -1,6 +1,6 @@
 # Amble and RefExpr seams
 
-Research note for [[.scratch/expression-language/issues/10-research-amble-refexpr-seams.md]]. Local sources: [[.scratch/expression-language/reports/existing-language-survey.md]], [[doc/roadmap/language-syntax-and-semantics.md]], [[doc/roadmap/reference-expression-interpretation.md]], [[doc/roadmap/reference-expressions.md]].
+Research note for [[plan/expression-language/issues/10-research-amble-refexpr-seams.md]]. Local sources: [[plan/expression-language/reports/existing-language-survey.md]], [[doc/roadmap/language-syntax-and-semantics.md]], [[doc/roadmap/reference-expression-interpretation.md]], [[doc/roadmap/reference-expressions.md]].
 
 ## Seams the spec must not contradict
 

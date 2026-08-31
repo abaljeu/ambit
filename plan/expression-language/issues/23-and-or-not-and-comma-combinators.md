@@ -6,7 +6,7 @@
 
 **Blocked by:** none.
 
-**See also:** [[.scratch/expression-language/issues/04-boolean-operators-as-control.md]]; [[.scratch/expression-language/issues/05-how-multiple-answers-surface.md]].
+**See also:** [[plan/expression-language/issues/04-boolean-operators-as-control.md]]; [[plan/expression-language/issues/05-how-multiple-answers-surface.md]].
 
 **Status:** done
 

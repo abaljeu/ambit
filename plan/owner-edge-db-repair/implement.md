@@ -12,7 +12,7 @@ Shared planner [[src/Shared/ProjectionOwnershipRepair.fs]] (after [[src/Shared/G
 
 Startup paragraph in [[doc/current/persistence-model.md]] now describes repair plus reload.
 
-Project [[.scratch/owner-edge-db-repair/project.md]] Stage is `active`. [[.scratch/index.md]] was regenerated.
+Project [[plan/owner-edge-db-repair/project.md]] Stage is `active`. [[plan/index.md]] was regenerated.
 
 ## Tests
 
@@ -31,4 +31,4 @@ Shared: 10 passed (nine spec stories; story 7 has missing-TRASH and missing-Work
 
 ## WORK.md mutations
 
-- `move` [[.scratch/owner-edge-db-repair/spec.md]] from Pending to Active
+- `move` [[plan/owner-edge-db-repair/spec.md]] from Pending to Active

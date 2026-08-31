@@ -6,7 +6,7 @@
 
 **Blocked by:** 18 — Synchronize a resident projection safely.
 
-**See also:** [[.scratch/selective-client-loading/spec.md]] (ROOT `/state` scope); [[.scratch/selective-client-loading/issues/14-simplify-selective-loading.md]] (Residency and graph model); [[.scratch/selective-client-loading/undo-spec.md]] (`/state` installs graph; Poll/Load catch-up remain Changes).
+**See also:** [[plan/selective-client-loading/spec.md]] (ROOT `/state` scope); [[plan/selective-client-loading/issues/14-simplify-selective-loading.md]] (Residency and graph model); [[plan/selective-client-loading/undo-spec.md]] (`/state` installs graph; Poll/Load catch-up remain Changes).
 
 **Status:** agent-done
 

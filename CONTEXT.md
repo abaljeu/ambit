@@ -28,7 +28,7 @@ Retired. Do not create `w/` branches. See [[.cursor/skills/git-protocol/SKILL.md
 _Avoid_: project branch, work branch, agent branch, `w/`
 
 **Git bookkeeping**:
-Retired. Do not add `.scratch/<feature>/git.md` for branch names. Existing files are history.
+Retired. Do not add `plan/<feature>/git.md` for branch names. Existing files are history.
 _Avoid_: branch notes, git status file, branch tracker
 
 **Manual approval**:
@@ -36,19 +36,19 @@ A direct user request that authorizes a named git operation the Desktop agent do
 _Avoid_: permission, override, allowlist exception
 
 **Issue tracker**:
-Local Markdown under `.scratch/` for specs and issues; see [[docs/agents/issue-tracker.md]]. Not GitHub or GitLab issues.
+Local Markdown under `plan/` for specs and issues; see [[doc/agents/issue-tracker.md]]. Not GitHub or GitLab issues.
 _Avoid_: backlog, GitHub issues, GitLab issues, tickets board
 
 **Project**:
-A `.scratch/<slug>/` effort. Two kinds: the Roadmap, and a feature-set Project.
+A `plan/<slug>/` effort. Two kinds: the Roadmap, and a feature-set Project.
 _Avoid_: epic project (as a third kind)
 
 **Roadmap**:
-The steering Project at [[.scratch/roadmap/]]. It answers what to work on next by grouping Epics by Stage. Order inside a Stage does not matter.
+The steering Project at [[plan/roadmap/]]. It answers what to work on next by grouping Epics by Stage. Order inside a Stage does not matter.
 _Avoid_: master project, master steering, doc/roadmap (as this Project), numbered Epic sequence (as the listing rule)
 
 **Epic**:
-A marketable user end-goal, larger than a feature or interaction. On the Roadmap it is a standing file under [[.scratch/roadmap/epics/]] until that goal is met. It has a Stage (same words as a feature-set Project, except steering). Person-job Epics have Chapters plus a **Required for done** list. Home Epics ([[.scratch/roadmap/epics/organize-huge-outlines.md]], [[.scratch/roadmap/epics/robust-outliner.md]]) have only Required for done (no Chapters). The Epic is not done until every Chapter item and every Required item is done (or the named part of that Project). Wiki portions about this Epic are Required; the whole wiki Project is not.
+A marketable user end-goal, larger than a feature or interaction. On the Roadmap it is a standing file under [[plan/roadmap/epics/]] until that goal is met. It has a Stage (same words as a feature-set Project, except steering). Person-job Epics have Chapters plus a **Required for done** list. Home Epics ([[plan/roadmap/epics/organize-huge-outlines.md]], [[plan/roadmap/epics/robust-outliner.md]]) have only Required for done (no Chapters). The Epic is not done until every Chapter item and every Required item is done (or the named part of that Project). Wiki portions about this Epic are Required; the whole wiki Project is not.
 _Avoid_: saga, tale, epic project, marketable story (as the glossary name), steering (as an Epic Stage), Stage (for a Chapter), pseudo-epic (say home Epic), Homed Projects (say Required for done)
 
 **Chapter**:
@@ -64,7 +64,7 @@ The Stage of the Roadmap. It sequences Epics and does not reach done while the a
 _Avoid_: using steering as a Stage on a feature-set Project
 
 **Committed Decision**:
-A record under [[docs/Decisions/]] of a choice that is costly to reverse, surprising without context, and made between genuine alternatives. The mattpocock skills call this an ADR; in this project always say Committed Decision.
+A record under [[doc/Decisions/]] of a choice that is costly to reverse, surprising without context, and made between genuine alternatives. The mattpocock skills call this an ADR; in this project always say Committed Decision.
 _Avoid_: ADR (outside vendored skills), architecture decision record, decision record
 
 ## About the Software
@@ -282,5 +282,5 @@ These terms are permitted with standard definition:
 
 ## Additional Unwanted terms
 - affordance
-- **Piece** and **Slice** as names for git commit granularity — say what the commits are: ordinary commits on `dev`, one squashed merge per commit on `master`. The separate `.scratch/` sense of slice (an implementation increment) is unaffected.
+- **Piece** and **Slice** as names for git commit granularity — say what the commits are: ordinary commits on `dev`, one squashed merge per commit on `master`. The separate `plan/` sense of slice (an implementation increment) is unaffected.
 - **Marker** (for `.amb` Directory/Workspace documents, or “marker-only” cold bootstrap) — deprecated; say **Directory File**

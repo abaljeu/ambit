@@ -40,6 +40,6 @@ Client Move relocate still uses the existing Search-dialog onPick; the Answer se
 
 ## WORK.md mutations
 
-- `remove` [[.scratch/expression-language/issues/21-run-consumer-equals-and-name-equals-statements.md]] — implemented; tests green
-- `remove` [[.scratch/expression-language/issues/22-search-and-move-consumer-leading-equals.md]] — implemented; tests green
-- `add` [[.scratch/expression-language/issues/23-and-or-not-and-comma-combinators.md]] — Pending; unblocked now that 19 and 20 are done
+- `remove` [[plan/expression-language/issues/21-run-consumer-equals-and-name-equals-statements.md]] — implemented; tests green
+- `remove` [[plan/expression-language/issues/22-search-and-move-consumer-leading-equals.md]] — implemented; tests green
+- `add` [[plan/expression-language/issues/23-and-or-not-and-comma-combinators.md]] — Pending; unblocked now that 19 and 20 are done

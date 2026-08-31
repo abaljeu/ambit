@@ -80,7 +80,7 @@ Remember: after persist, Update Time often *is* Server DataDir mtime; server fil
 ❓ **R2-Q6** - **Samness + naming (one bite)**:
 
 1. Same tip payload on FoldChevron / SolidCircle / HollowCircle? (Passive tip; clicks unchanged; no Load/fold instructions in tip.)
-2. Spoken name: **Node marker** or **children indicator** — never "bullet" in docs/glossary.
+2. Spoken name: **Node marker** or **children indicator** — never "bullet" in doc/glossary.
 3. Code: rename binding `leafBullet` → `nodeBullet` without glossary promotion of "bullet"?
 4. CSS `amb-leaf-*` and class lie `.amb-node-guid` (Filename): same slice, later ticket, or ignore?
 

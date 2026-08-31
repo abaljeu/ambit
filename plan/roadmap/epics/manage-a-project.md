@@ -24,9 +24,9 @@ Not a Chapter. The Epic is not done until each item is done (or the named part).
 
 Live:
 
-- [ ] [[.scratch/expression-language/project.md]] — remainder beyond Find / `?`
-- [ ] [[.scratch/end-user-wiki/map.md]] — portion for this Epic (not yet filed)
-- [ ] [[.scratch/marketing-wiki/map.md]] — portion for this Epic (not yet filed)
+- [ ] [[plan/expression-language/project.md]] — remainder beyond Find / `?`
+- [ ] [[plan/end-user-wiki/map.md]] — portion for this Epic (not yet filed)
+- [ ] [[plan/marketing-wiki/map.md]] — portion for this Epic (not yet filed)
 
 ## Notes
 

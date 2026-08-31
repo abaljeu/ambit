@@ -6,7 +6,7 @@
 
 **Blocked by:** [[03-warm-f5-fold-then-first-paint.md]]
 
-**See also:** [[.scratch/client-start-time/reports/cache-first-boot-via-poll.md]], [[src/Shared/SyncLogic.fs]], [[src/Client/App.fs]]
+**See also:** [[plan/client-start-time/reports/cache-first-boot-via-poll.md]], [[src/Shared/SyncLogic.fs]], [[src/Client/App.fs]]
 
 **Status:** ready-for-agent
 

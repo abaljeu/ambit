@@ -4,9 +4,9 @@
 
 **What to build:** Implement layer-one segmentation and left-associative juxtaposition (monadic bind) for spaced pipeline Expressions. Register and evaluate the anchor and walk catalog rows: `root`, `child`, `descendant`, `tree`, `containing`, and `wsroot`. A standalone Name must resolve to a catalog row or parse as unknown. Juxtaposition concatenates Answer sequences in order (`root descendant containing "the"`). Reserve `AND`, `OR`, and `NOT` as spaced words only in capitals.
 
-**Blocked by:** [[.scratch/expression-language/issues/15-answer-sequence-eval-core-and-catalog-row-shape.md]], [[.scratch/expression-language/issues/18-content-search-path-step-evaluation.md]].
+**Blocked by:** [[plan/expression-language/issues/15-answer-sequence-eval-core-and-catalog-row-shape.md]], [[plan/expression-language/issues/18-content-search-path-step-evaluation.md]].
 
-**See also:** [[.scratch/expression-language/spec.md]] chapters 3 and 4; [[.scratch/expression-language/issues/01-pipeline-versus-amble-juxtaposition.md]].
+**See also:** [[plan/expression-language/spec.md]] chapters 3 and 4; [[plan/expression-language/issues/01-pipeline-versus-amble-juxtaposition.md]].
 
 **Status:** done
 

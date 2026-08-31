@@ -65,7 +65,7 @@ No commit was created. Slice 7 was not started.
 
 ## WORK.md mutations
 
-- `remove` [[.scratch/selective-client-loading/undo-implementation-plan.md]] — implement Slice 6 (wire command provenance and feedback)
-- `add` [[.scratch/selective-client-loading/undo-implementation-plan.md]] — implement Slice 7 (verify and measure) (parent: [[.scratch/selective-client-loading/undo-spec.md]])
+- `remove` [[plan/selective-client-loading/undo-implementation-plan.md]] — implement Slice 6 (wire command provenance and feedback)
+- `add` [[plan/selective-client-loading/undo-implementation-plan.md]] — implement Slice 7 (verify and measure) (parent: [[plan/selective-client-loading/undo-spec.md]])
 - `move` none
 - `block` none

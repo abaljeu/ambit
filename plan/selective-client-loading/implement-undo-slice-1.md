@@ -4,7 +4,7 @@
 
 - [[tests/Shared.Tests/HistoryTests.fs]] adds reachable-structure Undo and Redo characterization for nested paste, split, and NewSpecialNode Changes.
 - [[tests/Shared.Tests/LargeChangeApplyTests.fs]] adds the 2,000-Node paste-shaped Undo baseline and structural create-Op count.
-- [[.scratch/selective-client-loading/implement-undo-slice-1.md]] records this worker result.
+- [[plan/selective-client-loading/implement-undo-slice-1.md]] records this worker result.
 
 No production source or test project file changed.
 

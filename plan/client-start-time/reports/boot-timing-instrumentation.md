@@ -29,7 +29,7 @@ Uses `perfNowMs()` (`performance.now()`) and `consoleLog` from [[src/Client/JsIn
 
 Order: decode runs in the fetch callback; restore/render/total run when `StateLoaded` is dispatched.
 
-After [[.scratch/client-start-time/reports/decode-list-append-hotspot.md]] (`Decode.resizeArray` in [[src/Shared/Serialization.fs]]), production decode should drop from ~900ms toward ~200–350ms on the same ~6k-node graph; restore/render/total stay in the low-ms range above.
+After [[plan/client-start-time/reports/decode-list-append-hotspot.md]] (`Decode.resizeArray` in [[src/Shared/Serialization.fs]]), production decode should drop from ~900ms toward ~200–350ms on the same ~6k-node graph; restore/render/total stay in the low-ms range above.
 
 ## Notes
 

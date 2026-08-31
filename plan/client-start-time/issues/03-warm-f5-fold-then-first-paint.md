@@ -1,12 +1,12 @@
 # 03 — Warm F5: fold snapshot plus log, then first paint
 
-**Context:** Slice 3 of [[.scratch/client-start-time/reports/cache-first-boot-via-poll.md]]. On warm reload the Browser must fold cached Change events onto snapshot **F₀** before first paint, then run Session restore and pending merge. A miss, decode error, or fold error falls back to `/state`. Feature flag off keeps today's boot.
+**Context:** Slice 3 of [[plan/client-start-time/reports/cache-first-boot-via-poll.md]]. On warm reload the Browser must fold cached Change events onto snapshot **F₀** before first paint, then run Session restore and pending merge. A miss, decode error, or fold error falls back to `/state`. Feature flag off keeps today's boot.
 
 **What to build:** Shared `decideBootRead` / `foldLog` using `ResidentProjection.applyChange`. Program reads IndexedDB when the flag is on; hit dispatches `StateLoaded` with the folded Graph and Revision `max(R, max log id)`. Miss/error fetches `/state` and writes a fresh snapshot (slice 1). Flag off always fetches `/state`.
 
 **Blocked by:** [[02-append-accepted-change-on-retire.md]]
 
-**See also:** [[.scratch/client-start-time/reports/cache-first-boot-via-poll.md]], [[src/Client/Program.fs]], [[src/Client/App.fs]], [[src/Client/SessionState.fs]], [[.scratch/selective-client-loading/spec.md]] user story 11
+**See also:** [[plan/client-start-time/reports/cache-first-boot-via-poll.md]], [[src/Client/Program.fs]], [[src/Client/App.fs]], [[src/Client/SessionState.fs]], [[plan/selective-client-loading/spec.md]] user story 11
 
 **Status:** ready-for-agent
 

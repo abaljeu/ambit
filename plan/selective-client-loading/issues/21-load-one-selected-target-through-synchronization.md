@@ -6,7 +6,7 @@ This issue and issue 22 form one pair.
 
 **Blocked by:** 16 — Rename Upload to Load; 19 — Bootstrap fresh sessions with complete ROOT.
 
-**See also:** [[.scratch/selective-client-loading/spec.md]] (single-target Load through single-flight sync); [[.scratch/selective-client-loading/issues/14-simplify-selective-loading.md]] (User surface and Load; Synchronization and projected correctness).
+**See also:** [[plan/selective-client-loading/spec.md]] (single-target Load through single-flight sync); [[plan/selective-client-loading/issues/14-simplify-selective-loading.md]] (User surface and Load; Synchronization and projected correctness).
 
 **Status:** ready-for-agent
 

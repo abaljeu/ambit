@@ -6,9 +6,9 @@ Blocked by:
 
 ## Question
 
-Name the Chapters of [[.scratch/roadmap/epics/work-with-text-files-from-anywhere.md]] as useful increments of capability. Set Current chapter. Point each Chapter at owning Projects or issues; do not own that work on the Epic file. Pin the person-job so “anywhere,” “text files,” and the already-met outline capture stay distinct.
+Name the Chapters of [[plan/roadmap/epics/work-with-text-files-from-anywhere.md]] as useful increments of capability. Set Current chapter. Point each Chapter at owning Projects or issues; do not own that work on the Epic file. Pin the person-job so “anywhere,” “text files,” and the already-met outline capture stay distinct.
 
-Recommended: grill the in-product job first (App at a desk vs Browser elsewhere vs File Nodes), then name increments breadth-first. Chart documentation on [[.scratch/end-user-wiki/map.md]] and [[.scratch/marketing-wiki/map.md]]; use [[.scratch/architecture/map.md]] only if the use needs how-it-runs. Do not create an Epic Project folder.
+Recommended: grill the in-product job first (App at a desk vs Browser elsewhere vs File Nodes), then name increments breadth-first. Chart documentation on [[plan/end-user-wiki/map.md]] and [[plan/marketing-wiki/map.md]]; use [[plan/architecture/map.md]] only if the use needs how-it-runs. Do not create an Epic Project folder.
 
 ## Comments
 
@@ -29,4 +29,4 @@ Recommended: grill the in-product job first (App at a desk vs Browser elsewhere 
 
 ## Answer
 
-Chapters named on [[.scratch/roadmap/epics/work-with-text-files-from-anywhere.md]] (title Work with my documents from anywhere; slug unchanged). Current chapter: Automatic upload and download. Five Chapters, open-ended for later class or usability. Wiki issues: [[.scratch/end-user-wiki/issues/01-describe-documents-from-any-connected-device.md]], [[.scratch/marketing-wiki/issues/01-use-page-documents-from-any-connected-device.md]]. Next pointer charting: [[07-chart-automatic-upload-and-download.md]]. Glossary: [[CONTEXT.md]] document, Document, File Node. A declined Chapter is not “Gambol excludes Google Docs” ([[docs/agents/scope-vs-commitment.md]]). Graphic editing stays out of scope on that Epic’s Notes. Later Epic Notes + [[.scratch/transport-layer/map.md]] treat Google as an example transport; that is draft/scope of those files, not a Committed Decision.
+Chapters named on [[plan/roadmap/epics/work-with-text-files-from-anywhere.md]] (title Work with my documents from anywhere; slug unchanged). Current chapter: Automatic upload and download. Five Chapters, open-ended for later class or usability. Wiki issues: [[plan/end-user-wiki/issues/01-describe-documents-from-any-connected-device.md]], [[plan/marketing-wiki/issues/01-use-page-documents-from-any-connected-device.md]]. Next pointer charting: [[07-chart-automatic-upload-and-download.md]]. Glossary: [[CONTEXT.md]] document, Document, File Node. A declined Chapter is not “Gambol excludes Google Docs” ([[doc/agents/scope-vs-commitment.md]]). Graphic editing stays out of scope on that Epic’s Notes. Later Epic Notes + [[plan/transport-layer/map.md]] treat Google as an example transport; that is draft/scope of those files, not a Committed Decision.

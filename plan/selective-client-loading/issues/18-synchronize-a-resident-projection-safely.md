@@ -6,7 +6,7 @@
 
 **Blocked by:** 15 — Introduce ChangeRequest submission; 17 — Represent unloaded child lists end to end.
 
-**See also:** [[.scratch/selective-client-loading/spec.md]] (projected catch-up and atomic install); [[.scratch/selective-client-loading/issues/14-simplify-selective-loading.md]] (Synchronization and projected correctness); [[.scratch/selective-client-loading/undo-spec.md]] (clear local History on Poll Changes).
+**See also:** [[plan/selective-client-loading/spec.md]] (projected catch-up and atomic install); [[plan/selective-client-loading/issues/14-simplify-selective-loading.md]] (Synchronization and projected correctness); [[plan/selective-client-loading/undo-spec.md]] (clear local History on Poll Changes).
 
 **Status:** agent-done
 

@@ -6,7 +6,7 @@
 
 **Blocked by:** 17 — Represent unloaded child lists end to end; 25 — Guard structural commands at unloaded boundaries.
 
-**See also:** [[.scratch/selective-client-loading/spec.md]] (Move dialog Unloaded destinations); [[.scratch/selective-client-loading/issues/14-simplify-selective-loading.md]] (Structural commands); [[.scratch/selective-client-loading/issues/25-guard-structural-commands-at-unloaded-boundaries.md]] (Shared guard).
+**See also:** [[plan/selective-client-loading/spec.md]] (Move dialog Unloaded destinations); [[plan/selective-client-loading/issues/14-simplify-selective-loading.md]] (Structural commands); [[plan/selective-client-loading/issues/25-guard-structural-commands-at-unloaded-boundaries.md]] (Shared guard).
 
 **Status:** ready-for-agent
 

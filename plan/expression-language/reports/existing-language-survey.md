@@ -6,13 +6,13 @@ Facts only. No wayfinder map. No implementation.
 
 Current branch is `w/broken`. The worker did not create `w/expression-language`. [[.cursor/skills/project-work/SKILL.md]] requires stay on an existing `w/*` branch.
 
-Contents of [[.scratch/expression-language/git.md]]:
+Contents of [[plan/expression-language/git.md]]:
 
 - **Project branch:** `w/broken`
 - **Cut from:** `w/broken` (already on a project branch; stayed)
 - **Notes:** Wayfinder charting; destination still unnamed.
 
-[[.scratch/expression-language/project.md]] Stage is `charting`. [[.scratch/index.md]] was regenerated from every live `.scratch/*/project.md`. The overview skill also required a missing [[.scratch/download-no-parse-fix/project.md]]; that file was created as `charting`.
+[[plan/expression-language/project.md]] Stage is `charting`. [[plan/index.md]] was regenerated from every live `plan/*/project.md`. The overview skill also required a missing [[plan/download-no-parse-fix/project.md]]; that file was created as `charting`.
 
 ## 2. Path and reference syntax: specified versus implemented
 

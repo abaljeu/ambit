@@ -4,9 +4,9 @@
 
 **What to build:** When Search or Move receives a line starting with `=`, parse and evaluate the following Expression with zoomRoot as the initial Answer. Require a `Node ⇒ Node` result type. Present Answers in the scrolling picker; the user picks one Node and Zoom (Search) or relocates (Move) to it. Parse error, type error, and zero Answers show no hits (same merged outcome shape). Lines without a leading `=` keep legacy word-search behavior unchanged.
 
-**Blocked by:** [[.scratch/expression-language/issues/19-spaced-pipeline-lexer-walk-words-and-juxtaposition.md]], [[.scratch/expression-language/issues/20-pure-filter-catalog-rows.md]].
+**Blocked by:** [[plan/expression-language/issues/19-spaced-pipeline-lexer-walk-words-and-juxtaposition.md]], [[plan/expression-language/issues/20-pure-filter-catalog-rows.md]].
 
-**See also:** [[.scratch/expression-language/spec.md]] chapter 8; [[.scratch/expression-language/issues/06-top-level-context-node-versus-text.md]].
+**See also:** [[plan/expression-language/spec.md]] chapter 8; [[plan/expression-language/issues/06-top-level-context-node-versus-text.md]].
 
 **Status:** done
 

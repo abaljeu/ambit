@@ -12,7 +12,7 @@ A product-wide fact belongs only where the human has placed it:
 
 | Channel | What it may commit |
 | --- | --- |
-| [[docs/Decisions/]] | A **Committed Decision** — costly to reverse, surprising without context, chosen between genuine alternatives ([[docs/Decisions/README.md]]) |
+| [[doc/Decisions/]] | A **Committed Decision** — costly to reverse, surprising without context, chosen between genuine alternatives ([[doc/Decisions/README.md]]) |
 | [[doc/current/]], [[doc/arch.md]], [[doc/spec.md]] | Implemented or agreed system behavior, after promotion per [[.cursor/skills/maintain-doc-currency/SKILL.md]] |
 | [[CONTEXT.md]] | Ubiquitous language — terms and meanings, not exclusions or architecture |
 
@@ -32,7 +32,7 @@ When one effort's scope touches another, say which effort owns the work — as i
 
 Product commitments state the decision and point at the record:
 
-- "Committed Decision: …" with a link to `docs/Decisions/NNNN-….md`
+- "Committed Decision: …" with a link to `doc/Decisions/NNNN-….md`
 - "Current behavior: …" with a link to the authoritative `doc/` baseline
 
 ## Surmise

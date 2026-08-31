@@ -17,7 +17,7 @@ Read-only local git (`status`, `diff`, `log`, `rev-parse`, `check-ignore`, etc.)
 
 Do not run VSCode Tasks.
 
-Issues are local Markdown under `.scratch/` — see [[docs/agents/issue-tracker.md]]. Do not file or sync issues on GitHub/GitLab.
+Issues are local Markdown under `plan/` — see [[doc/agents/issue-tracker.md]]. Do not file or sync issues on GitHub/GitLab.
 
 Never override OutputPath/BaseIntermediateOutputPath (e.g. bin-verify/obj-verify); use normal Debug bin/obj. If outputs are locked, report and stop — do not redirect build output.
 

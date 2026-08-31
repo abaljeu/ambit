@@ -6,14 +6,14 @@ Post and Poll now use one complete `ChangeSuccessResponse` type and codec. Both 
 
 ## Files changed
 
-- Tracking: [[.scratch/event-sourced-ops/project.md]], [[.scratch/index.md]], and [[.scratch/event-sourced-ops/issues/01-shared-success-envelope-expand.md]]
+- Tracking: [[plan/event-sourced-ops/project.md]], [[plan/index.md]], and [[plan/event-sourced-ops/issues/01-shared-success-envelope-expand.md]]
 - Shared contract: [[src/Shared/ApiResponses.fs]], [[src/Shared/ApiResponseSerialization.fs]], [[src/Shared/Serialization.fs]], and [[src/Shared/SyncLogic.fs]]
 - Server: [[src/Server/Api.fs]], [[src/Server/RouteRegistration.fs]], [[src/Server/FileAgent.fs]], and [[src/Server/DbAgent.fs]]
 - Browser: [[src/Client/UpdateCodec.fs]], [[src/Client/Update.fs]], [[src/Client/UpdateWorkspaceSync.fs]], and [[src/Client/App.fs]]
 - Shared tests: [[tests/Shared.Tests/SerializationTests.fs]], [[tests/Shared.Tests/SyncLogicTests.fs]], and [[tests/Shared.Tests/LargeChangeApplyTests.fs]]
 - Server tests: [[tests/Server.Tests/StateEndpointTests.fs]], [[tests/Server.Tests/FileAgentFailureTests.fs]], and [[tests/Server.Tests/DatabaseProjectionContractTests.fs]]
 - Current docs: [[doc/api.md]] and [[doc/current/sync-mvp.md]]
-- Report: [[.scratch/event-sourced-ops/reports/shared-success-envelope-build.md]]
+- Report: [[plan/event-sourced-ops/reports/shared-success-envelope-build.md]]
 
 The pre-existing root-agent change in [[WORK.md]] was not edited.
 
@@ -80,4 +80,4 @@ No code concern remains from focused verification. Cursor diagnostics still show
 
 ## Requested board mutation
 
-`remove` [[.scratch/event-sourced-ops/issues/01-shared-success-envelope-expand.md]] from [[WORK.md]].
+`remove` [[plan/event-sourced-ops/issues/01-shared-success-envelope-expand.md]] from [[WORK.md]].

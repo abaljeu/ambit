@@ -12,8 +12,8 @@ always-present lines.
 
 **Blocked by:** None — can start immediately.
 
-**See also:** [[.scratch/node-bullet-tooltip/spec.md]] (Implementation Decisions, Testing
-Decisions), [[.scratch/node-bullet-tooltip/grill-notes.md]].
+**See also:** [[plan/node-bullet-tooltip/spec.md]] (Implementation Decisions, Testing
+Decisions), [[plan/node-bullet-tooltip/grill-notes.md]].
 
 **Status:** ready-for-agent
 

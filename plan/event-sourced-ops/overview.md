@@ -32,13 +32,13 @@ A **new server process or version** must not demand a Browser reload when the po
 
 ## What this is not
 
-This is **not** full Event Sourcing in the relaxed-concurrency sense: log-as-truth, retained historic parsers, or **routine** replay from empty through re-parse. That rejection from [[.scratch/relaxed-concurrency/map.md]] stands.
+This is **not** full Event Sourcing in the relaxed-concurrency sense: log-as-truth, retained historic parsers, or **routine** replay from empty through re-parse. That rejection from [[plan/relaxed-concurrency/map.md]] stands.
 
 **Proposed extension:** make the **global Change log permanent** so a new server process does not discard history and orphan open Browsers. Current state still loads from the DB projection; genesis — the state when the permanent log began — is **derivable** by inverting every Change back to the first entry, not by re-parsing files from empty. Routine operation still uses a short poll tail, not genesis replay. Post-protocol changes still force reload. See [[details/permanent-history-and-genesis.md]].
 
-Load packages stay a Graph transfer, not a replay. [[.scratch/relaxed-concurrency/map.md]] is a **build-upon layer** on this foundation — verified facts, shared rejections, frontier D–F — not a competing implementation. See [[details/relation-to-relaxed-concurrency.md]].
+Load packages stay a Graph transfer, not a replay. [[plan/relaxed-concurrency/map.md]] is a **build-upon layer** on this foundation — verified facts, shared rejections, frontier D–F — not a competing implementation. See [[details/relation-to-relaxed-concurrency.md]].
 
-**Out of scope for ESO** (not Gambol-wide; see [[docs/agents/scope-vs-commitment.md]]): a plug-in bus, a job-framework product, or an offline editor. ESO is a small framework for how a Change merges into a Local Graph.
+**Out of scope for ESO** (not Gambol-wide; see [[doc/agents/scope-vs-commitment.md]]): a plug-in bus, a job-framework product, or an offline editor. ESO is a small framework for how a Change merges into a Local Graph.
 
 ## Semantic means
 

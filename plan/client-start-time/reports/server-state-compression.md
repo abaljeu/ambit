@@ -2,7 +2,7 @@
 
 Date: 2026-08-27  
 Branch: `w/relaxed-concurrency`  
-Parent: [[.scratch/client-start-time/research.md]], [[.scratch/client-start-time/reports/client-state-compression.md]]
+Parent: [[plan/client-start-time/research.md]], [[plan/client-start-time/reports/client-state-compression.md]]
 
 ## Verdict
 

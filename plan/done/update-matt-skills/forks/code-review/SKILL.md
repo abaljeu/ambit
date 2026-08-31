@@ -1,6 +1,6 @@
 ---
 name: code-review
-description: Review working-tree changes vs HEAD (or a user-named fixed point when given) along Standards and Spec axes. Spec comes from local .scratch/ paths. Use when the user wants to review a branch, work-in-progress changes, or asks to "review since X".
+description: Review working-tree changes vs HEAD (or a user-named fixed point when given) along Standards and Spec axes. Spec comes from local plan/ paths. Use when the user wants to review a branch, work-in-progress changes, or asks to "review since X".
 ---
 
 Two-axis review of a working-tree or tip diff:
@@ -10,7 +10,7 @@ Two-axis review of a working-tree or tip diff:
 
 Both axes run as **parallel sub-agents** so they don't pollute each other's context, then this skill aggregates their findings.
 
-Issue tracker: [[docs/agents/issue-tracker.md]] (local `.scratch/`). Git range defaults: [[.cursor/rules/environment.mdc]].
+Issue tracker: [[doc/agents/issue-tracker.md]] (local `plan/`). Git range defaults: [[.cursor/rules/environment.mdc]].
 
 ## Process
 
@@ -26,8 +26,8 @@ For an explicit fixed point: `git diff <fixed-point>...HEAD` (three-dot) and `gi
 
 Look for the originating spec, in this order:
 
-1. A `.scratch/` path the user passed (preferred) — read it per [[docs/agents/issue-tracker.md]].
-2. A PRD/spec under `.scratch/<feature>/` (or rarely `docs/` / `specs/`) matching the feature.
+1. A `plan/` path the user passed (preferred) — read it per [[doc/agents/issue-tracker.md]].
+2. A PRD/spec under `plan/<feature>/` (or rarely `doc/` / `specs/`) matching the feature.
 3. If nothing is found, ask the user for the local spec path. If they say there isn't one, the **Spec** sub-agent will skip and report "no spec available".
 
 Do **not** harvest GitHub/GitLab issue numbers from commit messages as the spec source. No SHA bookkeeping on tickets.

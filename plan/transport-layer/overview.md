@@ -18,9 +18,9 @@ Prior work called this the import layer or information hub. **Transport-layer** 
 
 Each flow uses the same building blocks: plan from a **Local Graph**, optionally stage for examination, then emit **Changes** on the ESO Actor path.
 
-Wiki publish (Public URL in [[.scratch/roadmap/epics/build-or-explore-a-wiki.md]]) is an outbound instance (Graph / `.md` File content → HTML for visitors), not disk Parse File and not HTML File web-site publish; it still uses Parse/Persist as the text-processing unit.
+Wiki publish (Public URL in [[plan/roadmap/epics/build-or-explore-a-wiki.md]]) is an outbound instance (Graph / `.md` File content → HTML for visitors), not disk Parse File and not HTML File web-site publish; it still uses Parse/Persist as the text-processing unit.
 
-Web-site publish ([[.scratch/roadmap/epics/create-and-publish-web-pages.md]]) is outbound transport: generate HTML and send attachments and CSS through transport-layer (Graph / HTML File content → visitor-facing site).
+Web-site publish ([[plan/roadmap/epics/create-and-publish-web-pages.md]]) is outbound transport: generate HTML and send attachments and CSS through transport-layer (Graph / HTML File content → visitor-facing site).
 
 ## Parse/Persist as core text-processing unit
 
@@ -45,7 +45,7 @@ The *Work with my documents from anywhere* Epic is the person job; channels incl
 
 Every transport that **mutates** the Graph posts **Changes** through the ESO path. A person editing in the Browser, **Parse File**, an LLM connector **Actor**, or a future shell command are the same kind of producer.
 
-Transport-layer does not define merge, Poll, or job identity — [[.scratch/event-sourced-ops/overview.md]] does. Transport-layer requires every module to use that path. **Load** (Fetch residency) stays Graph transfer, not Change replay; inbound materialization and ongoing **Sync** both matter.
+Transport-layer does not define merge, Poll, or job identity — [[plan/event-sourced-ops/overview.md]] does. Transport-layer requires every module to use that path. **Load** (Fetch residency) stays Graph transfer, not Change replay; inbound materialization and ongoing **Sync** both matter.
 
 ## Graph authority
 
@@ -56,5 +56,5 @@ Outside copies are editable views or exports. The Graph is the single truth for 
 1. This file — framing and three flows.
 2. [[map.md]] — existing legs and future connector checklist.
 3. [[details/parse-persist.md]] — Parse/Persist primitive, shared vs per-transport.
-4. [[.scratch/roadmap/reports/hub-epic-framing.md]] — Epic fit and PKM dependency.
-5. [[.scratch/event-sourced-ops/overview.md]] — mutation foundation below this layer.
+4. [[plan/roadmap/reports/hub-epic-framing.md]] — Epic fit and PKM dependency.
+5. [[plan/event-sourced-ops/overview.md]] — mutation foundation below this layer.

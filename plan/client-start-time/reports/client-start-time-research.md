@@ -1,7 +1,7 @@
 # Client start time — research summary
 
 Date: 2026-08-27  
-Full report: [[.scratch/client-start-time/research.md]]
+Full report: [[plan/client-start-time/research.md]]
 
 ## User problem (production desktop refresh)
 
@@ -52,7 +52,7 @@ Not the header sync bar (`Loading…` Unicode ellipsis is a different path in [[
 
 ## Localhost validation (2026-08-27, post scope-before-encode + gzip)
 
-Report: [[.scratch/client-start-time/reports/localhost-timing-after-optimizations.md]]
+Report: [[plan/client-start-time/reports/localhost-timing-after-optimizations.md]]
 
 **Caveat:** Localhost used a much smaller test database than production's full workspace graph. Numbers below validate **mechanism only** — not expected production improvement magnitude.
 

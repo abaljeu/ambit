@@ -32,4 +32,4 @@ Nothing blocked. Combinator intersection stays ticket 23.
 
 ## WORK.md mutations
 
-- `remove` [[.scratch/expression-language/issues/20-pure-filter-catalog-rows.md]] — implemented; tests green
+- `remove` [[plan/expression-language/issues/20-pure-filter-catalog-rows.md]] — implemented; tests green

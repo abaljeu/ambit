@@ -53,4 +53,4 @@ Belongs as **optional Ticket 13**, not on the critical path. Exact type unify is
 
 - **refine** Active [[to-tickets-draft.md]] — quiz later sequence; publish only after approval
 - **add** Pending [[extend-enhancement-sequence-report.md]] (optional parent synthesis pointer)
-- **note** [[.scratch/relaxed-concurrency/]] is a build-upon layer (Stage done); gate removal delivered in issue 02.
+- **note** [[plan/relaxed-concurrency/]] is a build-upon layer (Stage done); gate removal delivered in issue 02.

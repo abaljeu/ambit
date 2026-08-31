@@ -42,5 +42,5 @@ This slice does **not** wire Search or Move to the new stream. It only matches t
 
 ## WORK.md mutations
 
-- add [[.scratch/expression-language/reports/expr-eval-pull-enumerator-impl.md]] — HITL: Run `= root descendant …` with more than 50 hits; confirm 50 Children and unfold (owner: parent)
-- add [[.scratch/expression-language/reports/expr-eval-pull-enumerator-impl.md]] — later: adapt Expression `Stream` into `SearchCursor` / `takeResults` so the Search dialog pages `=` queries; do not apply the Run cap of 50 (owner: parent)
+- add [[plan/expression-language/reports/expr-eval-pull-enumerator-impl.md]] — HITL: Run `= root descendant …` with more than 50 hits; confirm 50 Children and unfold (owner: parent)
+- add [[plan/expression-language/reports/expr-eval-pull-enumerator-impl.md]] — later: adapt Expression `Stream` into `SearchCursor` / `takeResults` so the Search dialog pages `=` queries; do not apply the Run cap of 50 (owner: parent)

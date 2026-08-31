@@ -1,6 +1,6 @@
 # 13 — Migrate producers to full-list Replace wire shape
 
-**Context:** Wire contract is full-list Replace only: `parentId` plus the parent's complete `oldList` and `newList` at common prior ([[../details/replace-amendment.md]] §1). Partial span Replace — any non-zero `index`, or lists shorter than the full parent children — is not valid on the wire. Issue 05 amend/merge applies to wire-valid full-list posts; current Client and Shared planners still emit span/partial ops (catalogue: [[../reports/wire-full-list-replace-contract.md]], [[.scratch/relaxed-concurrency/replace-span-cas-feasibility.md]]).
+**Context:** Wire contract is full-list Replace only: `parentId` plus the parent's complete `oldList` and `newList` at common prior ([[../details/replace-amendment.md]] §1). Partial span Replace — any non-zero `index`, or lists shorter than the full parent children — is not valid on the wire. Issue 05 amend/merge applies to wire-valid full-list posts; current Client and Shared planners still emit span/partial ops (catalogue: [[../reports/wire-full-list-replace-contract.md]], [[plan/relaxed-concurrency/replace-span-cas-feasibility.md]]).
 
 **What to build:** Each producer that plans child-list edits emits one full-list Replace per parent per Change (`index = 0`, complete `oldChildren` / `newChildren` from the planning anchor). Span helpers may remain internal to apply/replay until §10 field rename. No new Reject path; amended full-list posts continue through ticket 04 rewind/replay.
 

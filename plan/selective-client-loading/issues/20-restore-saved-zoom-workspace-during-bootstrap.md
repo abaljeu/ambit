@@ -6,7 +6,7 @@
 
 **Blocked by:** 19 — Bootstrap fresh sessions with complete ROOT.
 
-**See also:** [[.scratch/selective-client-loading/spec.md]] (saved zoom Workspace and fold restoration); [[.scratch/selective-client-loading/issues/14-simplify-selective-loading.md]] (startup installs ROOT plus at most one saved-zoom Workspace).
+**See also:** [[plan/selective-client-loading/spec.md]] (saved zoom Workspace and fold restoration); [[plan/selective-client-loading/issues/14-simplify-selective-loading.md]] (startup installs ROOT plus at most one saved-zoom Workspace).
 
 **Status:** agent-done
 

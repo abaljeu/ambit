@@ -53,7 +53,7 @@ Nothing blocked. Ticket 20 is the next catalog slice (pure filters). Combinators
 
 ## WORK.md mutations (for the root)
 
-- `remove` [[.scratch/expression-language/issues/17-structural-path-step-evaluation-realignment.md]] — implemented; tests green
-- `remove` [[.scratch/expression-language/issues/18-content-search-path-step-evaluation.md]] — implemented; tests green
-- `remove` [[.scratch/expression-language/issues/19-spaced-pipeline-lexer-walk-words-and-juxtaposition.md]] — implemented; tests green
-- `add` [[.scratch/expression-language/issues/20-pure-filter-catalog-rows.md]] — Pending; `named`, `ws`/`dir`/`file`/`normal`, `class` (blocked by 19, now clear)
+- `remove` [[plan/expression-language/issues/17-structural-path-step-evaluation-realignment.md]] — implemented; tests green
+- `remove` [[plan/expression-language/issues/18-content-search-path-step-evaluation.md]] — implemented; tests green
+- `remove` [[plan/expression-language/issues/19-spaced-pipeline-lexer-walk-words-and-juxtaposition.md]] — implemented; tests green
+- `add` [[plan/expression-language/issues/20-pure-filter-catalog-rows.md]] — Pending; `named`, `ws`/`dir`/`file`/`normal`, `class` (blocked by 19, now clear)

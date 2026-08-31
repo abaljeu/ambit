@@ -14,7 +14,7 @@ Canonical project rules are split across [[.cursor/rules/]]:
 - [[.cursor/rules/testing-workflow.mdc]] — TDD, test running, and Client compile gate (scoped to tests, Shared, Client)
 - [[.cursor/rules/planning-docs.mdc]] — roadmap/plan documents (scoped to doc/)
 - [[.cursor/rules/work-blackboard.mdc]] — shared task board protocol
-- [[.cursor/rules/project-stage.mdc]] — keep each `.scratch/` project's `Stage:` and the overview current
+- [[.cursor/rules/project-stage.mdc]] — keep each `plan/` project's `Stage:` and the overview current
 
 Shared runtime state:
 
@@ -23,18 +23,18 @@ Shared runtime state:
 
 Imported engineering skill configuration:
 
-- [[docs/agents/issue-tracker.md]] — local Markdown issue tracker, shared language, and Wayfinder operations
-- [[docs/agents/triage-labels.md]] — default triage role vocabulary
-- [[docs/agents/domain.md]] — canonical project docs under [[doc/]] and Committed Decisions under [[docs/Decisions/]]
-- [[docs/agents/scope-vs-commitment.md]] — scope is effort-local; product commitments need an authorized record
-- [[docs/agents/project-status.md]] — per-project `Stage:` vocabulary and the `.scratch/index.md` overview
+- [[doc/agents/issue-tracker.md]] — local Markdown issue tracker, shared language, and Wayfinder operations
+- [[doc/agents/triage-labels.md]] — default triage role vocabulary
+- [[doc/agents/domain.md]] — canonical project docs under [[doc/]] and Committed Decisions under [[doc/Decisions/]]
+- [[doc/agents/scope-vs-commitment.md]] — scope is effort-local; product commitments need an authorized record
+- [[doc/agents/project-status.md]] — per-project `Stage:` vocabulary and the `plan/index.md` overview
 
 Workflow skills in [[.cursor/skills/]]:
 
 - [[.cursor/skills/git-protocol/SKILL.md]] — git procedure (`dev`, `ready`, `master`)
 - [[.cursor/skills/git-master/SKILL.md]] — squash, tag, and publish `master`; explicit invocation only
 - [[.cursor/skills/git-share/SKILL.md]] — publish `ready`, pull, catch up; explicit invocation only
-- [[.cursor/skills/project-work/SKILL.md]] — `.scratch` project files and Stage
+- [[.cursor/skills/project-work/SKILL.md]] — `plan` project files and Stage
 - [[.cursor/skills/plan-roadmap-change/SKILL.md]] — roadmap and plan doc changes
 - [[.cursor/skills/implement-fsharp-feature/SKILL.md]] — test-first F# implementation
 - [[.cursor/skills/add-shared-test/SKILL.md]] — Shared.Tests coverage
@@ -43,8 +43,8 @@ Workflow skills in [[.cursor/skills/]]:
 - [[.cursor/skills/co-edit-format-plan/SKILL.md]] — collaborative (interactive) document editing
 - [[.cursor/skills/prepare-agent-instruction-change/SKILL.md]] — maintain rules/skills/bridges
 - [[.cursor/skills/write-simple-parser/SKILL.md]] — simple document parsers / format codecs
-- [[.cursor/skills/projects-overview/SKILL.md]] — regenerate the `.scratch/index.md` project stage overview
-- [[.cursor/skills/to-archive/SKILL.md]] — move a `done` project into `.scratch/done/` and drop it from the overview
+- [[.cursor/skills/projects-overview/SKILL.md]] — regenerate the `plan/index.md` project stage overview
+- [[.cursor/skills/to-archive/SKILL.md]] — move a `done` project into `plan/done/` and drop it from the overview
 - [[.cursor/skills/update-matt-skills/SKILL.md]] — pull mattpocock skills tree on vendor, flatten to .agents/skills, merge to live
 
 Tool-specific notes:

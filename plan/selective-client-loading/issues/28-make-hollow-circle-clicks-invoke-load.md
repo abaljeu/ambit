@@ -6,7 +6,7 @@
 
 **Blocked by:** 22 — Load full selection; 23 — Introduce hollow-circle presentation.
 
-**See also:** [[.scratch/selective-client-loading/spec.md]] (hollow-circle Load control); [[.scratch/selective-client-loading/issues/14-simplify-selective-loading.md]] (full-selection hollow-circle click); [[.scratch/selective-client-loading/issues/23-introduce-hollow-circle-presentation.md]] (introduces hollow-circle presentation).
+**See also:** [[plan/selective-client-loading/spec.md]] (hollow-circle Load control); [[plan/selective-client-loading/issues/14-simplify-selective-loading.md]] (full-selection hollow-circle click); [[plan/selective-client-loading/issues/23-introduce-hollow-circle-presentation.md]] (introduces hollow-circle presentation).
 
 **Status:** ready-for-agent
 

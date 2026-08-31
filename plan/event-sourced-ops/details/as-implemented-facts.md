@@ -6,7 +6,7 @@ Do not copy a specification out of this file.
 
 ## Apply
 
-- An Op applies through [[src/Shared/GraphMutate.fs]]. Attribute Ops compare and swap the old value; `Replace` compares and swaps a span of one parent's children and refuses on a mismatch ([[.scratch/relaxed-concurrency/replace-span-cas-feasibility.md]]). `SetUpdateTime` ignores a mismatch.
+- An Op applies through [[src/Shared/GraphMutate.fs]]. Attribute Ops compare and swap the old value; `Replace` compares and swaps a span of one parent's children and refuses on a mismatch ([[plan/relaxed-concurrency/replace-span-cas-feasibility.md]]). `SetUpdateTime` ignores a mismatch.
 - `History.applyChange` checks ownership after apply. A static ownership check exists — owner edges, File and Directory placement, artifact names — and partial Graphs already skip a missing owner when the claimed owner is Unloaded or Absent.
 - The Browser applies local edits, undo, and poll tails through the resident projection, **without** the ownership validation. Absent headers and Unloaded `Replace` become no-ops, silently.
 - Distinct parents do not interact. Same-parent structural overlap is the remaining collision class.
@@ -15,8 +15,8 @@ Do not copy a specification out of this file.
 
 ## Server apply path
 
-- The request path reads the body, decodes it, and calls apply inside the agent. Apply deduplicates by change identity, applies through per-op preconditions ([[.scratch/relaxed-concurrency/map.md]]), then bumps the revision, validates and persists to disk, adds stamp Ops, and logs.
-- The **global revision gate** was removed (issue 02). Concurrent Changes on unrelated targets succeed when each Op's compare-and-swap matches. Upstream evidence: knowns in [[.scratch/relaxed-concurrency/map.md]]; Replace producer audit [[.scratch/relaxed-concurrency/replace-span-cas-feasibility.md]]; duplicate-id evidence [[.scratch/relaxed-concurrency/child-occurrence-uniqueness.md]].
+- The request path reads the body, decodes it, and calls apply inside the agent. Apply deduplicates by change identity, applies through per-op preconditions ([[plan/relaxed-concurrency/map.md]]), then bumps the revision, validates and persists to disk, adds stamp Ops, and logs.
+- The **global revision gate** was removed (issue 02). Concurrent Changes on unrelated targets succeed when each Op's compare-and-swap matches. Upstream evidence: knowns in [[plan/relaxed-concurrency/map.md]]; Replace producer audit [[plan/relaxed-concurrency/replace-span-cas-feasibility.md]]; duplicate-id evidence [[plan/relaxed-concurrency/child-occurrence-uniqueness.md]].
 - A file agent is a single mailbox that serialises all reads and writes for one file: one message at a time, one consumer loop. Posting from many request tasks is safe. Applying a Change runs **on** that loop; only the disk write is pushed to the pool, with a timeout so a stuck write does not wedge the loop.
 - Parse plans **off** the mailbox on a snapshot, then sends a message for apply. That is already the shape a long job needs ([[actors-and-jobs.md]]). It still encodes to text and then decodes, and it discards the acknowledgement.
 
@@ -46,11 +46,11 @@ These are contract and migration problems. They are expected, and they do not ma
 
 - The user removes an item from the outline with a move to TRASH, which stays Owned. A hard delete happens only for a subtree already under TRASH with no references from outside.
 - When other occurrences are Resident, the Browser already plans promote-then-remove in **one** Change, so that fill-in is on the undo stack because the Browser sent it ([[completing-ops.md]]).
-- Startup repair can promote a Ref with no Change and no poll — [[.scratch/owner-edge-db-repair/]].
+- Startup repair can promote a Ref with no Change and no poll — [[plan/owner-edge-db-repair/]].
 - Startup can replace or trim the in-memory Graph without Ops. A snapshot load builds the Graph from rows; it is not a replay.
 - **File-mode bootstrap/migration can truncate the Change log** while keeping graph + revision: [[src/Server/DatabaseSetup.fs]] calls [[src/Server/Database.fs]] `rebuildFromDocumentFiles` when the DB is empty or disk and DB diverge; that clears `changes` and re-seeds the projection from parsed files — not DB+log recovery. An open Browser then hits `DataOutdated` ([[src/Shared/SyncLogic.fs]]) or submit rejection — **behavior to beat**; proposed fix is permanent log + DB+log restart ([[permanent-history-and-genesis.md]]).
 - [[doc/arch.md]] still says last-write-wins and no client merge.
 
 ## Sources
 
-[[src/Shared/GraphMutate.fs]], [[src/Shared/History.fs]], [[src/Shared/SyncLogic.fs]], [[src/Shared/ApiResponses.fs]], [[src/Shared/Serialization.fs]], [[src/Shared/ViewModelDeleteOps.fs]], [[src/Server/Api.fs]], [[src/Server/FileAgent.fs]], [[src/Server/DbAgent.fs]], [[src/Server/RouteRegistration.fs]], [[src/Client/Update.fs]], [[tests/Shared.Tests/AckReconcileTests.fs]], [[.scratch/selective-client-loading/undo-spec.md]], [[doc/api.md]].
+[[src/Shared/GraphMutate.fs]], [[src/Shared/History.fs]], [[src/Shared/SyncLogic.fs]], [[src/Shared/ApiResponses.fs]], [[src/Shared/Serialization.fs]], [[src/Shared/ViewModelDeleteOps.fs]], [[src/Server/Api.fs]], [[src/Server/FileAgent.fs]], [[src/Server/DbAgent.fs]], [[src/Server/RouteRegistration.fs]], [[src/Client/Update.fs]], [[tests/Shared.Tests/AckReconcileTests.fs]], [[plan/selective-client-loading/undo-spec.md]], [[doc/api.md]].

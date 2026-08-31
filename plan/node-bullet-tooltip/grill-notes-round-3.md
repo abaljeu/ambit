@@ -44,14 +44,14 @@ nodes → only Update Time is available locally.
 - **R3-Q1 = a**: the tip is an always-on inspector for everyone. User does **not** consider
   "where the file lives on my computer" a privacy concern, so the workspace path is fine to show.
   The content choice is **not** a long-term Committed Decision (reversible) — no record under
-  [[docs/Decisions/]].
+  [[doc/Decisions/]].
 - **R3-Q4 = a**, sharpened: **Bullet** = the glyph element every Node view shows (chevron / solid /
   hollow circle); a Node is not a Bullet; "leaf" was the false name. Promoted to [[CONTEXT.md]].
   Rename binding `leafBullet` → `nodeBullet`; CSS `amb-leaf-*` and `.amb-node-guid` are later debt.
 - **R3-Q5 = yes**: one self-gating template; each line renders only if its fact applies; identical
   across chevron / solid / hollow.
 - **R3-Q2 / R3-Q3 (time model)**: tabled to its own project
-  [[.scratch/bullet-tip-times/map.md]] + [[.scratch/bullet-tip-times/time-requirements.md]].
+  [[plan/bullet-tip-times/map.md]] + [[plan/bullet-tip-times/time-requirements.md]].
 
 ## Locked (parent frontier P-Q1…P-Q4)
 
@@ -60,4 +60,4 @@ nodes → only Update Time is available locally.
 - **P-Q3 = yes**: show residency as text — `documentState` and `childrenStatus` — to disambiguate
   the hollow Bullet; self-gated like every line.
 - **P-Q4 = line order**: GuidTail8 → residency → workspace `//label/relative` path → times block
-  (order per [[.scratch/bullet-tip-times/time-requirements.md]] T-Q4) → `node.cssClasses` last.
+  (order per [[plan/bullet-tip-times/time-requirements.md]] T-Q4) → `node.cssClasses` last.

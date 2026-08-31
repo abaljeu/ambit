@@ -20,7 +20,7 @@ isProject: false
 
 ## Goal and non-goals
 
-Deliver [.scratch/event-sourced-ops/issues/02-independent-concurrent-changes-succeed.md](.scratch/event-sourced-ops/issues/02-independent-concurrent-changes-succeed.md) by implementing sibling slice 1 from [.scratch/relaxed-concurrency/spec.md](.scratch/relaxed-concurrency/spec.md) and [.scratch/relaxed-concurrency/design.md](.scratch/relaxed-concurrency/design.md). Two Actors may POST Changes that name a stale global base revision when Ops do not collide on per-Op preconditions; both succeed. Same-target attribute or same-parent Replace compare-and-swap may still Reject until later amendment tickets. Do not invent field or child-list merge. Do not change the Post confirmation-echo contract or `externalChanges` semantics owned by issue 01.
+Deliver [plan/event-sourced-ops/issues/02-independent-concurrent-changes-succeed.md](plan/event-sourced-ops/issues/02-independent-concurrent-changes-succeed.md) by implementing sibling slice 1 from [plan/relaxed-concurrency/spec.md](plan/relaxed-concurrency/spec.md) and [plan/relaxed-concurrency/design.md](plan/relaxed-concurrency/design.md). Two Actors may POST Changes that name a stale global base revision when Ops do not collide on per-Op preconditions; both succeed. Same-target attribute or same-parent Replace compare-and-swap may still Reject until later amendment tickets. Do not invent field or child-list merge. Do not change the Post confirmation-echo contract or `externalChanges` semantics owned by issue 01.
 
 ## Dependency on issue 01
 
@@ -50,7 +50,7 @@ Assert HTTP status, returned revision, acked `changeId`s, and GET graph state â€
 
 ## Verification and handoff
 
-Run focused `StateEndpointTests` (both backends). After green: check issue 02 acceptance boxes; treat [.scratch/relaxed-concurrency/](.scratch/relaxed-concurrency/) slice 1 as delivered/verify-handoff rather than a second build. Leave issue 01 envelope behavior and docs alone. Do not commit unless requested.
+Run focused `StateEndpointTests` (both backends). After green: check issue 02 acceptance boxes; treat [plan/relaxed-concurrency/](plan/relaxed-concurrency/) slice 1 as delivered/verify-handoff rather than a second build. Leave issue 01 envelope behavior and docs alone. Do not commit unless requested.
 
 ## Explicit defaults
 

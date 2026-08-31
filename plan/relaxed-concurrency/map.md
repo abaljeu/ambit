@@ -2,7 +2,7 @@
 
 ## Role
 
-Build-upon layer on [[.scratch/event-sourced-ops/overview.md]]. This map records verified Graph/Ops apply-path facts, shared rejections, and frontier open questions D–F. The **active concurrency standard**, protocol, and implementation are event-sourced-ops — not this project.
+Build-upon layer on [[plan/event-sourced-ops/overview.md]]. This map records verified Graph/Ops apply-path facts, shared rejections, and frontier open questions D–F. The **active concurrency standard**, protocol, and implementation are event-sourced-ops — not this project.
 
 ## Verified knowns
 
@@ -20,7 +20,7 @@ Two Ops are **not** compare-and-swap and should not be counted as such: `NewNode
 
 ### 3. The global revision gate was removed
 
-Previously `FileAgent.applyBatch` rejected a Change when `change.id <> s.revision.Value`, with `"Revision mismatch: server is at revision …, but this Change targets base revision …"` ([[src/Server/FileAgent.fs]]). One global counter blocked every unrelated concurrent Change. ESO issue 02 removed that gate; per-op preconditions now bound collisions. See [[.scratch/event-sourced-ops/details/as-implemented-facts.md]].
+Previously `FileAgent.applyBatch` rejected a Change when `change.id <> s.revision.Value`, with `"Revision mismatch: server is at revision …, but this Change targets base revision …"` ([[src/Server/FileAgent.fs]]). One global counter blocked every unrelated concurrent Change. ESO issue 02 removed that gate; per-op preconditions now bound collisions. See [[plan/event-sourced-ops/details/as-implemented-facts.md]].
 
 ### 4. `Replace` index staleness is confined to one parent
 
@@ -65,10 +65,10 @@ Not pursuing order-CRDTs, tombstones, or convergence without rejection — neith
 
 Delivery for concurrency implementation lives in event-sourced-ops:
 
-- **Gate removal:** done — [[.scratch/event-sourced-ops/issues/02-independent-concurrent-changes-succeed.md]].
-- **Merge, amend, consume:** issues 01–05 done; protocol in [[.scratch/event-sourced-ops/architecture.md]].
+- **Gate removal:** done — [[plan/event-sourced-ops/issues/02-independent-concurrent-changes-succeed.md]].
+- **Merge, amend, consume:** issues 01–05 done; protocol in [[plan/event-sourced-ops/architecture.md]].
 - **Full-list Replace wire:** issues 13–14 done.
-- **Remaining Reject:** auth, malformed requests, `CodeOutdated` — [[.scratch/event-sourced-ops/details/messaging.md]].
+- **Remaining Reject:** auth, malformed requests, `CodeOutdated` — [[plan/event-sourced-ops/details/messaging.md]].
 
 ## Open questions
 
@@ -82,7 +82,7 @@ Yes in production; `ViewModelJoinOps.removeCurrentOp` now reads the live child a
 
 ### C. Same-parent structural rejection? — RESOLVED
 
-Recoverable cases: ESO merge + rewind/replay ([[.scratch/event-sourced-ops/details/client-consume.md]]). Unrecoverable collisions still reject.
+Recoverable cases: ESO merge + rewind/replay ([[plan/event-sourced-ops/details/client-consume.md]]). Unrecoverable collisions still reject.
 
 ### D. Hybrid authority — log for the Graph, files for their own text
 
@@ -98,7 +98,7 @@ If pursued, events would not carry old values; undo becomes compensating command
 
 ### G. Weak form of id-anchored `Replace`? — RESOLVED
 
-Client replan after merge via ESO amend path — **not** server-side relocation. See [[design.md#No server weak-form Replace (still valid)]] and [[.scratch/event-sourced-ops/details/relation-to-relaxed-concurrency.md]].
+Client replan after merge via ESO amend path — **not** server-side relocation. See [[design.md#No server weak-form Replace (still valid)]] and [[plan/event-sourced-ops/details/relation-to-relaxed-concurrency.md]].
 
 ## Out of scope
 

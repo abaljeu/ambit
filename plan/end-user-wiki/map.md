@@ -8,10 +8,10 @@ A browsable wiki that describes the software for people who use it: what Gambol 
 
 ## Notes
 
-- Charted from [[.scratch/roadmap/map.md]] after [[.scratch/roadmap/issues/02-inventory-live-projects-and-roadmap-remainder.md]].
+- Charted from [[plan/roadmap/map.md]] after [[plan/roadmap/issues/02-inventory-live-projects-and-roadmap-remainder.md]].
 - [[doc/]] today is engineer-facing (current baselines, roadmap, reference). It is not an end-user wiki.
 - [[CONTEXT.md]] is the agent glossary, not user documentation.
-- Sister Projects: [[.scratch/architecture/map.md]] (how it is coded and run), [[.scratch/marketing-wiki/map.md]] (uses, not how-to).
+- Sister Projects: [[plan/architecture/map.md]] (how it is coded and run), [[plan/marketing-wiki/map.md]] (uses, not how-to).
 
 ## Decisions so far
 
@@ -26,6 +26,6 @@ A browsable wiki that describes the software for people who use it: what Gambol 
 
 ## Out of scope
 
-- Agent-instruction files under `.cursor/` and [[docs/agents/]].
+- Agent-instruction files under `.cursor/` and [[doc/agents/]].
 - A marketing campaign.
 - Implementing product features; this Project describes the software.

@@ -4,9 +4,9 @@
 
 **What to build:** Implement the `#` catalog row as content search below each input Node. Traverse Children (Owned and Ref) depth-first in Children order. Visit each Node at most once per input by Node identity; first reach wins. Unnamed Normal Nodes are transparent. Named Normal Nodes match when their name fits the glob and wall the search (do not enter their Children). Do not enter Children of File Nodes, Directory Nodes, or Workspace Nodes. Chained `#` steps search below each Answer from the prior step (`a#b#c`).
 
-**Blocked by:** [[.scratch/expression-language/issues/17-structural-path-step-evaluation-realignment.md]].
+**Blocked by:** [[plan/expression-language/issues/17-structural-path-step-evaluation-realignment.md]].
 
-**See also:** [[.scratch/expression-language/spec.md]] chapter 7 content search row; [[.scratch/expression-language/issues/12-owned-versus-ref-walk-for-descendant.md]].
+**See also:** [[plan/expression-language/spec.md]] chapter 7 content search row; [[plan/expression-language/issues/12-owned-versus-ref-walk-for-descendant.md]].
 
 **Status:** done
 

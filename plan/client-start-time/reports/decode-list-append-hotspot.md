@@ -2,7 +2,7 @@
 
 Date: 2026-08-27  
 Branch: `w/relaxed-concurrency`  
-Parent: [[.scratch/client-start-time/reports/bucket-3-post-state-work.md]], [[.scratch/client-start-time/reports/state-further-optimization.md]]
+Parent: [[plan/client-start-time/reports/bucket-3-post-state-work.md]], [[plan/client-start-time/reports/state-further-optimization.md]]
 
 ## Flame chart finding
 

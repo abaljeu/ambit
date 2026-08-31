@@ -6,7 +6,7 @@
 
 **Blocked by:** None — can start immediately.
 
-**See also:** [[.scratch/expression-language/spec.md]] chapters 3 and 4; [[.scratch/expression-language/issues/02-path-references-as-pipeline-terms.md]].
+**See also:** [[plan/expression-language/spec.md]] chapters 3 and 4; [[plan/expression-language/issues/02-path-references-as-pipeline-terms.md]].
 
 **Status:** done
 

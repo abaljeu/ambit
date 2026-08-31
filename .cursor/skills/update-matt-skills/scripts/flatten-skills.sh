@@ -13,8 +13,8 @@ if [ ! -d skills ]; then
   exit 1
 fi
 
-list=.scratch/update-matt-skills/flatten-list.txt
-mkdir -p .scratch/update-matt-skills
+list=plan/update-matt-skills/flatten-list.txt
+mkdir -p plan/update-matt-skills
 : > "$list"
 
 # List non-deprecated skill dirs as: name<TAB>path

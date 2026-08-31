@@ -1,6 +1,6 @@
 # Vocabulary
 
-The locked terms of increment 1, plus the words this project deliberately refuses. Top layer: [[.scratch/event-sourced-ops/overview.md]]. Protocol: [[.scratch/event-sourced-ops/architecture.md]].
+The locked terms of increment 1, plus the words this project deliberately refuses. Top layer: [[plan/event-sourced-ops/overview.md]]. Protocol: [[plan/event-sourced-ops/architecture.md]].
 
 Do not add these terms to [[CONTEXT.md]] yet. They are a project vocabulary, not yet project-wide language.
 

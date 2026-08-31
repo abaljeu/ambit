@@ -6,7 +6,7 @@
 
 **Blocked by:** 19 — Bootstrap fresh sessions with complete ROOT.
 
-**See also:** [[.scratch/selective-client-loading/spec.md]] (resident-only Zoom, Find, folds, traversal); [[.scratch/selective-client-loading/issues/14-simplify-selective-loading.md]] (no implicit loading from navigation surfaces).
+**See also:** [[plan/selective-client-loading/spec.md]] (resident-only Zoom, Find, folds, traversal); [[plan/selective-client-loading/issues/14-simplify-selective-loading.md]] (no implicit loading from navigation surfaces).
 
 **Status:** ready-for-agent
 

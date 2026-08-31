@@ -39,7 +39,7 @@ Where:
 Examples:
 
 - workspace `home`, file `src/lib.fs` -> `data/home/src/lib.fs`
-- workspace `home`, directory `docs/specs` -> `data/home/docs/specs/.amb`
+- workspace `home`, directory `doc/specs` -> `data/home/doc/specs/.amb`
 - nameless ROOT workspace, Special Directory document (directory persistence) -> `data/TRASH/.amb`
   (Stage 7)
 

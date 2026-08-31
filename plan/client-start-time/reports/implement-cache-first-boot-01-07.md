@@ -2,15 +2,15 @@
 
 Date: 2026-08-27
 Branch: `w/relaxed-concurrency`
-Parent: [[cache-first-boot-via-poll.md]], [[.scratch/client-start-time/project.md]]
+Parent: [[cache-first-boot-via-poll.md]], [[plan/client-start-time/project.md]]
 
 ## Starting tree
 
-`bash ./status.sh` showed project branch `w/relaxed-concurrency`. Working tree was clean at HEAD `d643d8b`. No files existed under [[.scratch/client-start-time/issues/]]. [[project.md]] was already `Stage: active`. No prior ticket or `src/` cache-first work was present, so this session published issues 01–07 and implemented them in order.
+`bash ./status.sh` showed project branch `w/relaxed-concurrency`. Working tree was clean at HEAD `d643d8b`. No files existed under [[plan/client-start-time/issues/]]. [[project.md]] was already `Stage: active`. No prior ticket or `src/` cache-first work was present, so this session published issues 01–07 and implemented them in order.
 
 ## Tickets published
 
-All seven issues live under [[.scratch/client-start-time/issues/]]. Criteria are checked. [[project.md]] stays `Stage: active`. [[.scratch/index.md]] was regenerated.
+All seven issues live under [[plan/client-start-time/issues/]]. Criteria are checked. [[project.md]] stays `Stage: active`. [[plan/index.md]] was regenerated.
 
 ## What each ticket delivered
 
@@ -58,5 +58,5 @@ Equal-Revision `getPoll` calls `getState` to fingerprint; a revision-keyed hash 
 
 ## WORK.md mutations (parent should apply)
 
-- `remove` [[.scratch/client-start-time/reports/cache-first-boot-via-poll.md]] from Pending (slices 1–7 are in the tree).
-- `add` [[.scratch/client-start-time/reports/implement-cache-first-boot-01-07.md]] — HITL verify cache-first boot (IndexedDB snapshot, no `/state` on warm F5, first paint includes accepted edits).
+- `remove` [[plan/client-start-time/reports/cache-first-boot-via-poll.md]] from Pending (slices 1–7 are in the tree).
+- `add` [[plan/client-start-time/reports/implement-cache-first-boot-01-07.md]] — HITL verify cache-first boot (IndexedDB snapshot, no `/state` on warm F5, first paint includes accepted edits).

@@ -4,9 +4,9 @@
 
 **What to build:** Remove Amble prefix `FunCall` juxtaposition so `text Ref` and similar old orders fail as type or parse errors per spec. Drop `of`. Drop Amble comma-as-`FunCall` sugar. Comma-as-`OR` is ticket 23, after this surface is clean. Where postfix `text` is later enabled, the spelling is `Ref text`. Run accepts only `= Expression` and `Name=Expression`; a line that is not that form, including bare `//x/y`, does nothing. Do not unwire the Run command. Do not change `>` shell.
 
-**Blocked by:** none. Do this before [[.scratch/expression-language/issues/23-and-or-not-and-comma-combinators.md]].
+**Blocked by:** none. Do this before [[plan/expression-language/issues/23-and-or-not-and-comma-combinators.md]].
 
-**See also:** [[.scratch/expression-language/issues/01-pipeline-versus-amble-juxtaposition.md]]; [[.scratch/expression-language/issues/07-statements-in-this-spec.md]]; [[.scratch/expression-language/issues/11-keep-or-drop-amble-of-and-comma.md]]; [[.scratch/expression-language/spec.md]] chapter 9 divergences 6 and 8.
+**See also:** [[plan/expression-language/issues/01-pipeline-versus-amble-juxtaposition.md]]; [[plan/expression-language/issues/07-statements-in-this-spec.md]]; [[plan/expression-language/issues/11-keep-or-drop-amble-of-and-comma.md]]; [[plan/expression-language/spec.md]] chapter 9 divergences 6 and 8.
 
 **Status:** done
 

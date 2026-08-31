@@ -46,8 +46,8 @@ Tickets 0–4 carry **extension constraints** (optional baseline field room; adj
 
 ## WORK.md mutation (parent applies)
 
-- **refine** Active [[.scratch/event-sourced-ops/to-tickets-draft.md]] — quiz reconciled; approve Tickets 0–11 then publish `issues/01`–`12`.
-- **add** Pending (optional): [[.scratch/event-sourced-ops/reconcile-architecture-sequence-report.md]].
-- **note** [[.scratch/relaxed-concurrency/]] is a build-upon layer (Stage done); gate removal delivered in issue 02.
+- **refine** Active [[plan/event-sourced-ops/to-tickets-draft.md]] — quiz reconciled; approve Tickets 0–11 then publish `issues/01`–`12`.
+- **add** Pending (optional): [[plan/event-sourced-ops/reconcile-architecture-sequence-report.md]].
+- **note** [[plan/relaxed-concurrency/]] is a build-upon layer (Stage done); gate removal delivered in issue 02.
 
 No Stage change. No `issues/`. No software. No commit.

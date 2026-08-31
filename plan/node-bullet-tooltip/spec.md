@@ -2,9 +2,9 @@
 
 Status: ready-for-agent
 
-Synthesis of [[.scratch/node-bullet-tooltip/grill-notes-round-3.md]] (locked answers R3 + parent
+Synthesis of [[plan/node-bullet-tooltip/grill-notes-round-3.md]] (locked answers R3 + parent
 frontier P-Q1…P-Q4). Time model beyond Update Time is deferred to the parked
-[[.scratch/bullet-tip-times/map.md]].
+[[plan/bullet-tip-times/map.md]].
 
 ## Problem Statement
 
@@ -136,7 +136,7 @@ interactive surface.
 ## Out of Scope
 
 - **The full time model.** Workspace file time, Server file time, and Last sync (ledger-derived) are
-  parked in [[.scratch/bullet-tip-times/map.md]] (T-Q1…T-Q4: de-dup tolerance, tz precision/format,
+  parked in [[plan/bullet-tip-times/map.md]] (T-Q1…T-Q4: de-dup tolerance, tz precision/format,
   whether a real last-sync timestamp is wanted, multi-clock ordering). v1 shows Update Time only.
 - **Active file-status clock.** `VM.desktopFileIndicator.sourceModifiedUtc` and the orphaned
   `desktopFileIndicatorText` (current/old/edited) are not shown on the tip.
@@ -160,7 +160,7 @@ interactive surface.
 - The tip is an always-on inspector for everyone; the workspace path is not treated as a privacy
   concern (R3-Q1). Precise timestamps remain screenshot/screen-share visible — accepted, noted.
 - This content choice is reversible and is intentionally **not** a Committed Decision under
-  [[docs/Decisions/]].
+  [[doc/Decisions/]].
 - The hollow Bullet's Load-on-click behavior is separate work
-  ([[.scratch/selective-client-loading/issues/28-make-hollow-circle-clicks-invoke-load.md]]); the tip
+  ([[plan/selective-client-loading/issues/28-make-hollow-circle-clicks-invoke-load.md]]); the tip
   must not interfere with it.

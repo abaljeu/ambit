@@ -1,6 +1,6 @@
 # Findings: Why Safari harsh restart drops auth
 
-Ticket: [[.scratch/login-context-restore/issues/01-why-safari-harsh-restart-drops-auth.md]]
+Ticket: [[plan/login-context-restore/issues/01-why-safari-harsh-restart-drops-auth.md]]
 Date: 2026-08-11
 Branch: `w/login-context-restore`
 

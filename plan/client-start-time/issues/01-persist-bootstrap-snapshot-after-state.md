@@ -1,12 +1,12 @@
 # 01 — Persist bootstrap snapshot after `/state`
 
-**Context:** Warm F5 still waits on `GET /state`. Slice 1 of [[.scratch/client-start-time/reports/cache-first-boot-via-poll.md]] writes a bootstrap-scoped snapshot to IndexedDB after a successful `/state` so later slices can paint from cache. This slice does not read the cache at boot.
+**Context:** Warm F5 still waits on `GET /state`. Slice 1 of [[plan/client-start-time/reports/cache-first-boot-via-poll.md]] writes a bootstrap-scoped snapshot to IndexedDB after a successful `/state` so later slices can paint from cache. This slice does not read the cache at boot.
 
 **What to build:** Shared snapshot envelope (database `gambol-boot-cache-v1`, store `snapshots`, `codecVersion`, `file`, `scopeKey`, `revision`, `stateJson`). Browser writes that envelope after a successful `/state` decode and clears the Change log. Do not write on `pagehide`. Do not persist Load-only Workspace Nodes. No boot read yet.
 
 **Blocked by:** None
 
-**See also:** [[.scratch/client-start-time/reports/cache-first-boot-via-poll.md]], [[.scratch/client-start-time/reports/reload-state-reuse-investigation.md]], [[.scratch/selective-client-loading/spec.md]] user story 11, [[.scratch/event-sourced-ops/overview.md]]
+**See also:** [[plan/client-start-time/reports/cache-first-boot-via-poll.md]], [[plan/client-start-time/reports/reload-state-reuse-investigation.md]], [[plan/selective-client-loading/spec.md]] user story 11, [[plan/event-sourced-ops/overview.md]]
 
 **Status:** ready-for-agent
 

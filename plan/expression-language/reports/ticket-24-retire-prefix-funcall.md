@@ -28,5 +28,5 @@ Result: **Passed — Amble 25/25**, **Expr 99/99** (Expr* plus RefExpr). Client 
 
 ## WORK.md mutations (for the root)
 
-- `remove` [[.scratch/expression-language/issues/24-retire-amble-prefix-juxtaposition-and-legacy-run-paths.md]] — implemented; tests green
-- `move` [[.scratch/expression-language/issues/23-and-or-not-and-comma-combinators.md]] from Blocked to Pending — unblocked now that 24 is done
+- `remove` [[plan/expression-language/issues/24-retire-amble-prefix-juxtaposition-and-legacy-run-paths.md]] — implemented; tests green
+- `move` [[plan/expression-language/issues/23-and-or-not-and-comma-combinators.md]] from Blocked to Pending — unblocked now that 24 is done

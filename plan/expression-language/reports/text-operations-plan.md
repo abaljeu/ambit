@@ -36,4 +36,4 @@ Product F#. Replacing `tree`. Post-pass prune.
 
 ## WORK.md mutations (for the parent)
 
-- expected-outcome tweak of the existing Pending row [[.scratch/expression-language/issues/30-text-operations.md]] — plan locked: explicit `text` coerce (no implicit Node→Text); `containing`/`re`/`rei` dual Text→Text or Node via node.text→Node; infix `IS`; `left`/`right` always string; name Filename.Ok only
+- expected-outcome tweak of the existing Pending row [[plan/expression-language/issues/30-text-operations.md]] — plan locked: explicit `text` coerce (no implicit Node→Text); `containing`/`re`/`rei` dual Text→Text or Node via node.text→Node; infix `IS`; `left`/`right` always string; name Filename.Ok only

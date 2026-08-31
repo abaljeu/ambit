@@ -4,9 +4,9 @@
 
 **What to build:** Add the pure filter catalog rows and evaluate them as subsequence tests on the input Answer. `named` takes a quoted name and yields the input when it is a Normal Node whose name matches the glob; otherwise yield nothing. `ws`, `dir`, `file`, and `normal` each keep the input when its Node classification matches. `class` takes a quoted token and keeps the input when that token is in the Node cssClasses list (exact, case-sensitive). These rows do not search Children; `#` remains the content-search row.
 
-**Blocked by:** [[.scratch/expression-language/issues/19-spaced-pipeline-lexer-walk-words-and-juxtaposition.md]].
+**Blocked by:** [[plan/expression-language/issues/19-spaced-pipeline-lexer-walk-words-and-juxtaposition.md]].
 
-**See also:** [[.scratch/expression-language/spec.md]] chapter 7 filter rows; [[.scratch/expression-language/issues/03-first-primitive-catalog.md]].
+**See also:** [[plan/expression-language/spec.md]] chapter 7 filter rows; [[plan/expression-language/issues/03-first-primitive-catalog.md]].
 
 **Status:** done
 

@@ -12,18 +12,18 @@ The Epic is not done until each item is done (or the named part).
 
 Live:
 
-- [ ] [[.scratch/owner-edge-db-repair/project.md]]
-- [ ] [[.scratch/parse-load-demote/project.md]]
-- [ ] [[.scratch/rowview-layout-behavior/project.md]]
-- [ ] [[.scratch/event-sourced-ops/project.md]] — remainder beyond Agent-chat Actor issues
-- [ ] [[.scratch/architecture/map.md]] — remainder of the architecture wiki; portions about other Epics gate those Epics
-- [ ] [[.scratch/end-user-wiki/map.md]] — portion for this Epic (not yet filed)
-- [ ] [[.scratch/marketing-wiki/map.md]] — portion for this Epic (not yet filed)
+- [ ] [[plan/owner-edge-db-repair/project.md]]
+- [ ] [[plan/parse-load-demote/project.md]]
+- [ ] [[plan/rowview-layout-behavior/project.md]]
+- [ ] [[plan/event-sourced-ops/project.md]] — remainder beyond Agent-chat Actor issues
+- [ ] [[plan/architecture/map.md]] — remainder of the architecture wiki; portions about other Epics gate those Epics
+- [ ] [[plan/end-user-wiki/map.md]] — portion for this Epic (not yet filed)
+- [ ] [[plan/marketing-wiki/map.md]] — portion for this Epic (not yet filed)
 
 Done:
 
-- [x] [[.scratch/delete-ref/project.md]]
-- [x] [[.scratch/fix-settext-system-css-resilience/project.md]]
-- [x] [[.scratch/glossary-directory-file/project.md]]
-- [x] [[.scratch/search-zoom-select/project.md]]
-- [x] [[.scratch/relaxed-concurrency/project.md]]
+- [x] [[plan/delete-ref/project.md]]
+- [x] [[plan/fix-settext-system-css-resilience/project.md]]
+- [x] [[plan/glossary-directory-file/project.md]]
+- [x] [[plan/search-zoom-select/project.md]]
+- [x] [[plan/relaxed-concurrency/project.md]]

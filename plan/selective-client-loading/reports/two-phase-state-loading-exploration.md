@@ -1,8 +1,8 @@
 # Two-phase state loading — conceptual exploration
 
 Status: charting (conceptual only; no implementation)
-Parent: [[.scratch/selective-client-loading/spec.md]], [[.scratch/selective-client-loading/project.md]]
-Related: [[.scratch/event-sourced-ops/overview.md]], [[.scratch/client-start-time/reports/bucket-3-post-state-work.md]]
+Parent: [[plan/selective-client-loading/spec.md]], [[plan/selective-client-loading/project.md]]
+Related: [[plan/event-sourced-ops/overview.md]], [[plan/client-start-time/reports/bucket-3-post-state-work.md]]
 
 ## Problem framing
 
@@ -24,11 +24,11 @@ The hypothesis: split boot into **Phase 1** (enough to paint and navigate the sh
 
 Session write path: [[src/Client/SessionState.fs]] (`saveSessionState` on visibility hide and `pagehide`). Read path: `tryReadSavedZoomId` **before** `/state` fetch (widens bootstrap via `?zoom=`); `restoreSessionState` **after** `StateLoaded` (UI zoom + folds).
 
-Boot timing ([[.scratch/client-start-time/reports/boot-timing-instrumentation.md]]): decode dominates on large graphs; `restoreSessionState` + first `View.render` are small when visible rows ≈ 18. Client-only defer of `applyFoldSession` ([[.scratch/client-start-time/reports/bucket-3-post-state-work.md]]) is ruled out as critical path — see **Resolved positions**.
+Boot timing ([[plan/client-start-time/reports/boot-timing-instrumentation.md]]): decode dominates on large graphs; `restoreSessionState` + first `View.render` are small when visible rows ≈ 18. Client-only defer of `applyFoldSession` ([[plan/client-start-time/reports/bucket-3-post-state-work.md]]) is ruled out as critical path — see **Resolved positions**.
 
 ### Current vs proposed granularity
 
-**As implemented** ([[.scratch/selective-client-loading/spec.md]]): residency is **Workspace-monotonic**. `/state` returns ROOT closure (nested Workspace headers Unloaded) ± one extra complete Workspace when `?zoom=` identifies a non-ROOT target. Explicit Load adds whole Workspaces.
+**As implemented** ([[plan/selective-client-loading/spec.md]]): residency is **Workspace-monotonic**. `/state` returns ROOT closure (nested Workspace headers Unloaded) ± one extra complete Workspace when `?zoom=` identifies a non-ROOT target. Explicit Load adds whole Workspaces.
 
 **This exploration**: residency query keyed to the **visible node closure** **V⁺** derived from `zoomRoot` + saved `expanded` — finer than Workspace, coarser than per-field lazy fields. **Resolved positions** below fix Phase 2 at **V⁺** and a minimal Phase 1 hypothesis; promotion beyond charting waits on validation and measurement in **Open questions**.
 
@@ -101,7 +101,7 @@ E₀ = decode(e)
 
 After Phase 1 installs a skeleton graph **G₁**, rebuild **SM₁** = `buildSiteMapFrom G₁ r₀` then `applyFoldSession E₀` to get **SM\*`. Visible closure **V⁺(\*)** is computed as above on **(SM\*, G₁)**. That set is the candidate **Phase 2 query target**.
 
-**Important:** Saved folds never widen `/state` today ([[.scratch/selective-client-loading/spec.md]] user story 6). A visible-closure Phase 2 would **break** that rule unless Phase 1 already carries enough structure to expand without network. Whether that break is sound is an **Open question**; fallback narrows bootstrap rather than widening arbitrarily — see **Resolved positions**.
+**Important:** Saved folds never widen `/state` today ([[plan/selective-client-loading/spec.md]] user story 6). A visible-closure Phase 2 would **break** that rule unless Phase 1 already carries enough structure to expand without network. Whether that break is sound is an **Open question**; fallback narrows bootstrap rather than widening arbitrarily — see **Resolved positions**.
 
 ---
 
@@ -127,17 +127,17 @@ R = ( N_R, content_R, C_R, κ_R, rev )
 
 ### Invariants for clean partial operation
 
-These are largely implemented in [[src/Shared/ResidentProjection.fs]] and [[.scratch/selective-client-loading/spec.md]]:
+These are largely implemented in [[src/Shared/ResidentProjection.fs]] and [[plan/selective-client-loading/spec.md]]:
 
 1. **Unloaded ≠ empty leaf:** `κ(n) = Unloaded ⇒ C_R(n) = []`; UI must not infer leaf-ness from an empty list alone.
 2. **Monotonic Loaded promotion:** only a complete authoritative child list (including `[]`) at revision **rev** sets κ(n) = Loaded.
 3. **Structural ops locality:** `Op.Replace` applies only when parent κ = Loaded; otherwise `Unchanged` ([[src/Shared/ResidentProjection.fs]]:20–25).
 4. **Header ops on resident ids:** SetText, SetName, … apply when `n ∈ N_R` even if κ(n) = Unloaded.
-5. **Owner identity:** canonical `Node.owner` preserved on resident headers; derived indexes built only from Loaded edges ([[.scratch/selective-client-loading/spec.md]]).
+5. **Owner identity:** canonical `Node.owner` preserved on resident headers; derived indexes built only from Loaded edges ([[plan/selective-client-loading/spec.md]]).
 6. **SiteMap vs graph:** `expanded` lives on **SM**, not on `Node`; fold state does not imply Loaded κ.
 7. **Single-flight sync:** one revision stream; partial graph still merges Changes + packages through [[src/Shared/SyncLogic.fs]].
 
-**Resident-only navigation:** Find and keyboard traversal use **R** only ([[.scratch/selective-client-loading/issues/24-keep-navigation-and-find-resident-only.md]]).
+**Resident-only navigation:** Find and keyboard traversal use **R** only ([[plan/selective-client-loading/issues/24-keep-navigation-and-find-resident-only.md]]).
 
 ---
 
@@ -150,7 +150,7 @@ These are largely implemented in [[src/Shared/ResidentProjection.fs]] and [[.scr
 | Source | Today | Visible-closure variant (proposed) |
 | --- | --- | --- |
 | HTTP | `GET /{file}/state?zoom=` → ROOT closure ± extra Workspace | Narrower **skeleton**: headers on path **r** + ancestor chain + immediate children of **r**; optional `?visible=` encoding **V⁺(\*)** from session |
-| Client | `StateLoaded` → `buildSiteMapFrom` → `restoreSessionState` | Same, or defer `applyFoldSession` to after first paint ([[.scratch/client-start-time/reports/bucket-3-post-state-work.md]]) |
+| Client | `StateLoaded` → `buildSiteMapFrom` → `restoreSessionState` | Same, or defer `applyFoldSession` to after first paint ([[plan/client-start-time/reports/bucket-3-post-state-work.md]]) |
 | Render | `View.render` over `getVisibleInstanceIds` | Unchanged contract: only **V_inst** rows |
 
 Phase 1 payload might include: `revision`, `isReady`, minimal **N_R** with text/name/kind, **κ** flags, child **ids** without full descendant headers (stubs).
@@ -192,9 +192,9 @@ sequenceDiagram
 
 ## Relation to the ops model
 
-Event-sourced ops ([[.scratch/event-sourced-ops/overview.md]]): canonical state evolves as **F' = apply(F, Δ)** for ordered Changes **Δ** composed of Ops.
+Event-sourced ops ([[plan/event-sourced-ops/overview.md]]): canonical state evolves as **F' = apply(F, Δ)** for ordered Changes **Δ** composed of Ops.
 
-**Local Graph / Local Subgraph** vocabulary ([[.scratch/event-sourced-ops/details/vocabulary.md]]): the browser holds a **Local Subgraph** **R** ⊂ **F**, not a second type.
+**Local Graph / Local Subgraph** vocabulary ([[plan/event-sourced-ops/details/vocabulary.md]]): the browser holds a **Local Subgraph** **R** ⊂ **F**, not a second type.
 
 ### Composition
 
@@ -236,7 +236,7 @@ Not full `Op.apply` on incomplete parents — structural fragments are skipped, 
 | Workspace-scoped projection | [[src/Shared/ResidentProjection.fs]]:70–148, 296–307 |
 | Partial Change application | [[src/Shared/ResidentProjection.fs]]:7–51 |
 | Pending queue persistence | [[src/Client/UpdateHelpers.fs]]:83–103 |
-| Boot timing | [[.scratch/client-start-time/reports/boot-timing-instrumentation.md]] |
+| Boot timing | [[plan/client-start-time/reports/boot-timing-instrumentation.md]] |
 
 **Boot nuance:** `StateLoaded` sets `zoomRoot = firstGraphChild graph` ([[src/Client/Update.fs]]:18–19, 123–124) — first child of graph root, not `graph.root`. Session restore may then replace zoom via `z` ([[src/Client/SessionState.fs]]:97–103).
 
@@ -272,7 +272,7 @@ Ideally there is no collapsed-then-expanded snap on reload. This has **not been 
 
 ### Ruled out (preserved)
 
-Client-only defer of `applyFoldSession` is **not** on the critical path. [[.scratch/client-start-time/reports/bucket-3-post-state-work.md]] stays a lower-priority boot tweak, not a substitute for two-phase fetch.
+Client-only defer of `applyFoldSession` is **not** on the critical path. [[plan/client-start-time/reports/bucket-3-post-state-work.md]] stays a lower-priority boot tweak, not a substitute for two-phase fetch.
 
 ---
 
@@ -281,7 +281,7 @@ Client-only defer of `applyFoldSession` is **not** on the critical path. [[.scra
 1. **Spec-break validation:** Can saved expansion (`e`) widen Phase 2 fetch with a sound semantic, or must the proposal narrow bootstrap to requested nodes ⊂ (ROOT + active Workspaces)?
 2. **Phase 1 thin-id-list feasibility:** Can session expanded ids alone drive minimal Phase 1 and a correct Phase 2 **V⁺** query without omitting structure needed for fold restore?
 3. **Production \|V⁺\| measurement:** When does \|V⁺\| ≪ \|Workspace\| in real sessions — is visible-closure fetch worth server and query complexity?
-4. **Cache-first vs two-phase orthogonality:** How does [[.scratch/client-start-time/reports/cache-first-boot-via-poll.md]] relate to two-phase fetch — complementary, competing, or one subsumes the other?
+4. **Cache-first vs two-phase orthogonality:** How does [[plan/client-start-time/reports/cache-first-boot-via-poll.md]] relate to two-phase fetch — complementary, competing, or one subsumes the other?
 
 ---
 
@@ -291,7 +291,7 @@ Client-only defer of `applyFoldSession` is **not** on the critical path. [[.scra
 - IndexedDB / offline graph cache
 - Automatic load on expand, zoom, find, or fold restore (spec forbids)
 - Client eviction or re-unloading
-- Solving merge, Undo, or permanent Change log ([[.scratch/event-sourced-ops/]])
+- Solving merge, Undo, or permanent Change log ([[plan/event-sourced-ops/]])
 - Wire format or endpoint design
 - Replacing Workspace-monotonic Load without a spec revision
 - Per-field lazy loading (text bodies, file contents)
@@ -301,6 +301,6 @@ Client-only defer of `applyFoldSession` is **not** on the critical path. [[.scra
 ## Suggested reading order
 
 1. This report
-2. [[.scratch/selective-client-loading/spec.md]] — delivered Workspace baseline
-3. [[.scratch/client-start-time/reports/bucket-3-post-state-work.md]] — boot bottleneck map
-4. [[.scratch/event-sourced-ops/details/vocabulary.md]] — Local Subgraph language
+2. [[plan/selective-client-loading/spec.md]] — delivered Workspace baseline
+3. [[plan/client-start-time/reports/bucket-3-post-state-work.md]] — boot bottleneck map
+4. [[plan/event-sourced-ops/details/vocabulary.md]] — Local Subgraph language

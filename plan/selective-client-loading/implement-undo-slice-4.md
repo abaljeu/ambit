@@ -89,7 +89,7 @@ No commit was created.
 
 ## WORK.md mutations
 
-- `remove` [[.scratch/selective-client-loading/undo-implementation-plan.md]] — implement Slice 4 (Change-only wire and Server confirmations)
-- `add` [[.scratch/selective-client-loading/undo-implementation-plan.md]] — implement Slice 5 (reconcile ACKs and remove legacy History) (parent: [[.scratch/selective-client-loading/undo-spec.md]])
+- `remove` [[plan/selective-client-loading/undo-implementation-plan.md]] — implement Slice 4 (Change-only wire and Server confirmations)
+- `add` [[plan/selective-client-loading/undo-implementation-plan.md]] — implement Slice 5 (reconcile ACKs and remove legacy History) (parent: [[plan/selective-client-loading/undo-spec.md]])
 - `move` none
 - `block` none

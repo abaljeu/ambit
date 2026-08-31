@@ -1,6 +1,6 @@
 # Pipeline examples (prototype)
 
-Cheap reaction page for [[.scratch/expression-language/issues/08-prototype-pipeline-examples.md]]. Juxtaposition and fixity are locked ([[.scratch/expression-language/issues/01-pipeline-versus-amble-juxtaposition.md|Pipeline versus Amble juxtaposition]]). HITL 2026-08-27 confirmed the rows, then amended `/`, numbers, and walk words. This page is not locked syntax. Answer kinds: Node, text, or number. Failure is no Answer.
+Cheap reaction page for [[plan/expression-language/issues/08-prototype-pipeline-examples.md]]. Juxtaposition and fixity are locked ([[plan/expression-language/issues/01-pipeline-versus-amble-juxtaposition.md|Pipeline versus Amble juxtaposition]]). HITL 2026-08-27 confirmed the rows, then amended `/`, numbers, and walk words. This page is not locked syntax. Answer kinds: Node, text, or number. Failure is no Answer.
 
 Old Amble prefix `text #todo` is a type error. The valid form is `#todo text`.
 
@@ -28,4 +28,4 @@ Old Amble prefix `text #todo` is a type error. The valid form is `#todo text`.
 | `= // descendant named "blue"` | statement | Run: materialise Node Answers as Children. Unfold if Children are written. |
 | `todo=// descendant named "blue"` | statement | Same as `= …`, plus rename the current Node `todo`. |
 
-Path-plus-pipeline mix: a path term yields Nodes; postfix and infix words continue from the left. `child` finds Children (Owned and Ref). `descendant` is the closure of `child`. `tree` / `**` is transitively Owned only. `/` is not a prefix. A number is only valid on the right of `:` or `!`. Search-algorithm and Node-tree details for `#` live on [[.scratch/expression-language/issues/02-path-references-as-pipeline-terms.md|Path references as pipeline terms]], not on this page.
+Path-plus-pipeline mix: a path term yields Nodes; postfix and infix words continue from the left. `child` finds Children (Owned and Ref). `descendant` is the closure of `child`. `tree` / `**` is transitively Owned only. `/` is not a prefix. A number is only valid on the right of `:` or `!`. Search-algorithm and Node-tree details for `#` live on [[plan/expression-language/issues/02-path-references-as-pipeline-terms.md|Path references as pipeline terms]], not on this page.

@@ -12,10 +12,10 @@ Current chapter: Ask from what I see
 
 **Blocked by:** None.
 
-- [ ] [[.scratch/llm-connector/project.md]] — pack, LLM call, write-back
-- [ ] [[.scratch/expression-language/issues/33-recognize-ask-run-statement.md]] — recognize `?` as a Run statement
-- [ ] [[.scratch/event-sourced-ops/issues/07-generalized-server-actor-produce-path.md]]
-- [ ] [[.scratch/event-sourced-ops/issues/09-job-identity-with-advisory-soft-lock.md]]
+- [ ] [[plan/llm-connector/project.md]] — pack, LLM call, write-back
+- [ ] [[plan/expression-language/issues/33-recognize-ask-run-statement.md]] — recognize `?` as a Run statement
+- [ ] [[plan/event-sourced-ops/issues/07-generalized-server-actor-produce-path.md]]
+- [ ] [[plan/event-sourced-ops/issues/09-job-identity-with-advisory-soft-lock.md]]
 
 ## Talk again
 
@@ -41,7 +41,7 @@ Current chapter: Ask from what I see
 
 **Blocked by:** Change the Graph.
 
-- [ ] [[.scratch/event-sourced-ops/details/actors-and-jobs.md]] — shell command as a later Actor
+- [ ] [[plan/event-sourced-ops/details/actors-and-jobs.md]] — shell command as a later Actor
 
 ## Required for done
 
@@ -49,12 +49,12 @@ Not a Chapter. The Epic is not done until each item is done (or the named part).
 
 Live:
 
-- [ ] [[.scratch/expression-language/project.md]] — remainder beyond `?` recognition
-- [ ] [[.scratch/event-sourced-ops/project.md]] — remainder beyond Actor issues on Chapters
-- [ ] [[.scratch/end-user-wiki/map.md]] — portion for this Epic (not yet filed)
-- [ ] [[.scratch/marketing-wiki/map.md]] — portion for this Epic (not yet filed)
+- [ ] [[plan/expression-language/project.md]] — remainder beyond `?` recognition
+- [ ] [[plan/event-sourced-ops/project.md]] — remainder beyond Actor issues on Chapters
+- [ ] [[plan/end-user-wiki/map.md]] — portion for this Epic (not yet filed)
+- [ ] [[plan/marketing-wiki/map.md]] — portion for this Epic (not yet filed)
 
 ## Notes
 
-- [[.scratch/transport-layer/project.md]] cross-cutting pattern — agent Actor is an inbound transport leg (reply as Owned children); see [[.scratch/transport-layer/overview.md]], [[.scratch/transport-layer/map.md]].
+- [[plan/transport-layer/project.md]] cross-cutting pattern — agent Actor is an inbound transport leg (reply as Owned children); see [[plan/transport-layer/overview.md]], [[plan/transport-layer/map.md]].
 - Scaling is [[organize-huge-outlines.md]]; first use does not wait on it.

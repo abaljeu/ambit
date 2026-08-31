@@ -12,7 +12,7 @@ Current chapter: Markdown codec
 
 **Blocked by:** None.
 
-- [ ] [[.scratch/document-formats/map.md]] — `.md` File codec
+- [ ] [[plan/document-formats/map.md]] — `.md` File codec
 
 ## Public URL
 
@@ -26,15 +26,15 @@ Not a Chapter. The Epic is not done until each item is done (or the named part).
 
 Live:
 
-- [ ] [[.scratch/expression-language/project.md]] — remainder beyond Find / `?`
-- [ ] [[.scratch/end-user-wiki/map.md]] — portion for this Epic (not yet filed)
-- [ ] [[.scratch/marketing-wiki/map.md]] — portion for this Epic (not yet filed)
+- [ ] [[plan/expression-language/project.md]] — remainder beyond Find / `?`
+- [ ] [[plan/end-user-wiki/map.md]] — portion for this Epic (not yet filed)
+- [ ] [[plan/marketing-wiki/map.md]] — portion for this Epic (not yet filed)
 
 ## Notes
 
-- [[.scratch/transport-layer/project.md]] cross-cutting pattern — the `.md` codec is a Parse/Persist round-trip (authoring) leg; Public URL (wiki publish) is an outbound transport instance (Graph / `.md` File content → HTML for visitors), not the HTML File body or in-app HTML of [[create-and-publish-web-pages.md]]. Publish still uses Parse/Persist as the text-processing unit. See [[.scratch/transport-layer/overview.md]], [[.scratch/transport-layer/map.md]].
+- [[plan/transport-layer/project.md]] cross-cutting pattern — the `.md` codec is a Parse/Persist round-trip (authoring) leg; Public URL (wiki publish) is an outbound transport instance (Graph / `.md` File content → HTML for visitors), not the HTML File body or in-app HTML of [[create-and-publish-web-pages.md]]. Publish still uses Parse/Persist as the text-processing unit. See [[plan/transport-layer/overview.md]], [[plan/transport-layer/map.md]].
 - Scaling is [[organize-huge-outlines.md]]; first use does not wait on it.
-- In-product wiki. The three documentation wikis stay Projects: [[.scratch/end-user-wiki/map.md]], [[.scratch/architecture/map.md]], [[.scratch/marketing-wiki/map.md]].
+- In-product wiki. The three documentation wikis stay Projects: [[plan/end-user-wiki/map.md]], [[plan/architecture/map.md]], [[plan/marketing-wiki/map.md]].
 - Two document classes: `.md` (this Epic) vs HTML Files ([[create-and-publish-web-pages.md]]).
 - [[work-with-text-files-from-anywhere.md]] Markdown styling is look in the App, not the `.md` codec.
 - English **wiki page** vs File Node: do not say page for a File Node. [[CONTEXT.md]].

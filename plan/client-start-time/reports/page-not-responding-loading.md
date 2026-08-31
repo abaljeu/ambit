@@ -48,7 +48,7 @@ Parallel boot fetches ([[src/Client/Program.fs]]): `/_desktop/capabilities`, `/{
 | --- | --- |
 | Large `/state` decode | **Plausible, not Edge-only.** `decodeStateResponse` is on the main thread before dispatch ([[src/Client/Program.fs]]). `Decode.resizeArray` already replaced O(n²) `Decode.list` ([[src/Shared/Serialization.fs]]). Remaining cost is per-node Thoth decode + `Graph.fromNodes`. Production scoped bootstrap was ~1800 nodes / ~3.7M chars ([[decode-list-append-hotspot.md]]). Enough to feel slow; watchdog (~10 s) needs a bigger graph, a huge fold expansion, or extra desktop work. |
 | `Graph.fromNodes` | **Part of decode, not a separate boot read.** [[src/Shared/GraphBuild.fs]]: `requireValidChildrenStatus` (full `Map.iter`), `ensure*` system nodes, `buildParentMaps`. O(nodes). Same for Chrome and Edge given the same JSON. |
-| `applyFoldSession` / `restoreFoldOccurrences` | **Root cause (corrected).** Node-keyed fold state (`e: NodeId[]`) expanded every runtime appearance of each saved NodeId. On a Ref cycle, each expand creates a fresh appearance; BFS never empties. Raw `SiteId` values are not stable across refresh, so occurrence identity must be parent index + child index + NodeId. Fixed: [[.scratch/client-start-time/reports/restore-fold-occurrences.md]]. DevTools `Map.ofSeq` in `buildParentInstanceIndex` was a secondary cost amplifier, not the fundamental loop. |
+| `applyFoldSession` / `restoreFoldOccurrences` | **Root cause (corrected).** Node-keyed fold state (`e: NodeId[]`) expanded every runtime appearance of each saved NodeId. On a Ref cycle, each expand creates a fresh appearance; BFS never empties. Raw `SiteId` values are not stable across refresh, so occurrence identity must be parent index + child index + NodeId. Fixed: [[plan/client-start-time/reports/restore-fold-occurrences.md]]. DevTools `Map.ofSeq` in `buildParentInstanceIndex` was a secondary cost amplifier, not the fundamental loop. |
 | SiteMap full walk | **Rejected as the first walk.** `buildSiteMapFrom` expands only the zoom root; children stay collapsed. A full visible tree is `applyFoldSession` then `getVisibleInstanceIds` / `View.render`. |
 | Cache-first boot applying a huge graph on the main thread | **Rejected on current Program.fs.** Issue 09 removed the IndexedDB wait ([[cache-first-boot-delayed-lcp.md]], [[../issues/09-cache-first-boot-delayed-lcp.md]]). Persist still runs after paint. `requestIdleTruncate` reads IndexedDB at 2500 ms **after** `finishPaint` and may re-encode the graph on the main thread — too late to leave HTML **Loading...**. |
 | Poll loop spinning | **Rejected for this frame.** `startPolling` is after `StateLoaded` dispatch returns. An infinite Elmish loop would need `dispatch` from `update`/`render`; `PollTick` only `tryStartPoll`. StatusView **Loading…** is Load-in-flight, not this screenshot’s document text. |
@@ -83,7 +83,7 @@ On the hung Edge/WebView2 profile: DevTools console for `[Gambol boot] decodeSta
 
 ## WORK.md mutations (parent)
 
-- `add` [[.scratch/client-start-time/reports/page-not-responding-loading.md]] — HITL: Edge/WebView2 Wait/Exit vs Chrome; confirm blocking XHR ledger and/or warm session fold vs `/state` decode; IndexedDB persists but is not boot-read (owner: parent)
+- `add` [[plan/client-start-time/reports/page-not-responding-loading.md]] — HITL: Edge/WebView2 Wait/Exit vs Chrome; confirm blocking XHR ledger and/or warm session fold vs `/state` decode; IndexedDB persists but is not boot-read (owner: parent)
 - Keep [[cold-load-loading-hang.md]] HITL as the miss-callback case; do not merge the two
 - Do not add daily-git work for this hang
 
@@ -149,5 +149,5 @@ Fold and Zoom live in `gambol-session-v1` (sessionStorage/localStorage):
 
 ## WORK.md mutations (parent)
 
-- Update [[.scratch/client-start-time/reports/page-not-responding-loading.md]] — HITL: warm F5 with occurrence-based `f` restore; legacy `e` collapses safely; confirm Zoom fallback when preferred Node is absent after replay (owner: parent)
+- Update [[plan/client-start-time/reports/page-not-responding-loading.md]] — HITL: warm F5 with occurrence-based `f` restore; legacy `e` collapses safely; confirm Zoom fallback when preferred Node is absent after replay (owner: parent)
 - Keep [[bucket-3-post-state-work.md]] as optional first-paint deferral of fold restore

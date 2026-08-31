@@ -7,7 +7,7 @@ Git: follow [[.cursor/skills/git-protocol/SKILL.md]]. Exception: while a merge o
 
 1. **See the current state** of the merge/rebase. Check git history (read-only), and the conflicting files.
 
-2. **Find the primary sources** for each conflict. Understand deeply why each change was made, and what the original intent was. Read the commit messages and local specs/issues under `.scratch/` per [[docs/agents/issue-tracker.md]].
+2. **Find the primary sources** for each conflict. Understand deeply why each change was made, and what the original intent was. Read the commit messages and local specs/issues under `plan/` per [[doc/agents/issue-tracker.md]].
 
 3. **Resolve each hunk in the working tree.** Preserve both intents where possible. Where incompatible, pick the one matching the merge's stated goal and note the trade-off. Do **not** invent new behaviour. Edit conflicted files only; leave `git add` / continue / abort to the human unless they give **manual approval**.
 

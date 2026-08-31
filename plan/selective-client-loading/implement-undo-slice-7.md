@@ -70,7 +70,7 @@ No commit was created.
 
 ## WORK.md mutations
 
-- `remove` [[.scratch/selective-client-loading/undo-implementation-plan.md]] — implement Slice 7 (verify and measure)
+- `remove` [[plan/selective-client-loading/undo-implementation-plan.md]] — implement Slice 7 (verify and measure)
 - `add` none
 - `move` none
 - `block` none

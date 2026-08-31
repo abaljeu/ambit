@@ -9,14 +9,14 @@ stays with the parent grill.
 
 ## Notes
 
-- Spun out of [[.scratch/node-bullet-tooltip/grill-notes.md]] round 3 because the time model got
+- Spun out of [[plan/node-bullet-tooltip/grill-notes.md]] round 3 because the time model got
   complex enough to deserve its own decision store.
-- Evidence: [[tmp/node-marker-tip-facts.md]] and [[.scratch/node-bullet-tooltip/grill-notes-round-3.md]].
+- Evidence: [[tmp/node-marker-tip-facts.md]] and [[plan/node-bullet-tooltip/grill-notes-round-3.md]].
 - Parent decisions already locked: tip is an always-on inspector (privacy exposure accepted);
   each line self-gates and is omitted entirely when absent (no label, no `N/A`); vehicle is native
   `title` with `\n` lines; source is the client-local **sync ledger** (`VM.workspaceSyncFacts`),
   not the active-only `/file-status` slot; no fetch on hover.
-- Full requirement table: [[.scratch/bullet-tip-times/time-requirements.md]].
+- Full requirement table: [[plan/bullet-tip-times/time-requirements.md]].
 
 ## Status
 

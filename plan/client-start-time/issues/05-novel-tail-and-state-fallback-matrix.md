@@ -1,12 +1,12 @@
 # 05 — Novel tail plus `/state` fallback matrix
 
-**Context:** Slice 5 of [[.scratch/client-start-time/reports/cache-first-boot-via-poll.md]]. Other-actor events must apply and append. Poll cannot repair a wrong snapshot: revision regression, apply error, scope/codec mismatch, or an oversized tail must delete the cache and fetch `/state`.
+**Context:** Slice 5 of [[plan/client-start-time/reports/cache-first-boot-via-poll.md]]. Other-actor events must apply and append. Poll cannot repair a wrong snapshot: revision regression, apply error, scope/codec mismatch, or an oversized tail must delete the cache and fetch `/state`.
 
 **What to build:** Shared `decideBootPoll`. Novel tail → `applyServerTail` then append. Fallback reasons delete snapshot+log and fetch `/state`. Oversized: novel count or `poll.revision - clientRev` over a documented bound.
 
 **Blocked by:** [[04-immediate-boot-poll-after-first-paint.md]]
 
-**See also:** [[.scratch/client-start-time/reports/cache-first-boot-via-poll.md]], [[src/Shared/SyncLogic.fs]], [[.scratch/event-sourced-ops/overview.md]]
+**See also:** [[plan/client-start-time/reports/cache-first-boot-via-poll.md]], [[src/Shared/SyncLogic.fs]], [[plan/event-sourced-ops/overview.md]]
 
 **Status:** ready-for-agent
 

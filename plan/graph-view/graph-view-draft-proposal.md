@@ -1,4 +1,4 @@
-See also: [[doc/roadmap/graph-view.md]], [[.scratch/graph-view/project.md]]
+See also: [[doc/roadmap/graph-view.md]], [[plan/graph-view/project.md]]
 
 Your constraints pin down a clean architecture: **tree layout is authoritative; backlinks are overlay; focus changes what “the tree” means.**
 

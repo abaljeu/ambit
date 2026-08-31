@@ -1,6 +1,6 @@
 # Hub / connector vision — Epic framing report
 
-For product discussion. Sources: [[.scratch/roadmap/map.md]], sample Epics, [[.scratch/event-sourced-ops/overview.md]], [[docs/agents/scope-vs-commitment.md]], [[docs/agents/domain.md]], [[CONTEXT.md]], connector/import/export/Actor grep in `.scratch` and `doc/`.
+For product discussion. Sources: [[plan/roadmap/map.md]], sample Epics, [[plan/event-sourced-ops/overview.md]], [[doc/agents/scope-vs-commitment.md]], [[doc/agents/domain.md]], [[CONTEXT.md]], connector/import/export/Actor grep in `plan` and `doc/`.
 
 ## 1. How existing Epics are framed
 
@@ -25,9 +25,9 @@ ESO is **active** and defines a **semantic standard**, not a connector catalog:
 - **Parse File** is the first non-Browser Server Actor; **generalized produce path** (issue 07) and **job identity + soft-lock** (issue 09) are the spine for more Actors.
 - **Load** stays **Graph transfer** (residency), not Change replay — relevant for inbound materialization vs ongoing Sync.
 
-**Out of scope for ESO** ([[.scratch/event-sourced-ops/overview.md]] — not Gambol-wide; see [[docs/agents/scope-vs-commitment.md]]): a plug-in bus, a job-framework product, or an offline editor. ESO is a small framework for how a Change merges into a Local Graph. ESO enables modules that **emit Changes**; it does not specify inbound/outbound UX, source catalogs, or export-transform-import workflows.
+**Out of scope for ESO** ([[plan/event-sourced-ops/overview.md]] — not Gambol-wide; see [[doc/agents/scope-vs-commitment.md]]): a plug-in bus, a job-framework product, or an offline editor. ESO is a small framework for how a Change merges into a Local Graph. ESO enables modules that **emit Changes**; it does not specify inbound/outbound UX, source catalogs, or export-transform-import workflows.
 
-**What `doc/` says today (as-is only):** per [[docs/agents/domain.md]] and [[.cursor/rules/planning-docs.mdc]], [[doc/]] describes the current program — implemented baselines, reference, and leftover roadmap text. Grep shows `import`/`export` there mostly means **document codecs** (Parse/reconcile round-trip on File Nodes) and workspace file sync, not a general information hub. `connector` appears only for **llm-connector** and graph-view visual edges. **Actor** is centralized in ESO charting docs. The inbound/outbound/round-trip hub pattern is **not** in `doc/` yet; it stays in `.scratch` until promoted.
+**What `doc/` says today (as-is only):** per [[doc/agents/domain.md]] and [[.cursor/rules/planning-docs.mdc]], [[doc/]] describes the current program — implemented baselines, reference, and leftover roadmap text. Grep shows `import`/`export` there mostly means **document codecs** (Parse/reconcile round-trip on File Nodes) and workspace file sync, not a general information hub. `connector` appears only for **llm-connector** and graph-view visual edges. **Actor** is centralized in ESO charting docs. The inbound/outbound/round-trip hub pattern is **not** in `doc/` yet; it stays in `plan` until promoted.
 
 ## 3. Epic definition fit
 
@@ -35,13 +35,13 @@ ESO is **active** and defines a **semantic standard**, not a connector catalog:
 | --- | --- |
 | **Single person-job Epic** | Risky as stated — "hub for all kinds of information" is a **program thesis**, not one beat a person can finish and market. |
 | **Steering Roadmap note** | Wrong layer — Roadmap sequences Epics; it does not hold product vision prose. |
-| **New Epic kind** | Out of scope per [[.scratch/roadmap/map.md]] (person-job + home only). |
+| **New Epic kind** | Out of scope per [[plan/roadmap/map.md]] (person-job + home only). |
 | **Umbrella home Epic** | Plausible for **homing connector Projects** (like Organize Huge Outlines homes scale work) if the user-facing story stays thin. |
-| **Cross-cutting `.scratch` Project** | **Best home for the pattern** (inbound / outbound / round-trip, Graph authority, Actor boundary). Epics **cite** it; they do not restate it. Promote to `doc/` only after human promotion per [[.cursor/skills/maintain-doc-currency/SKILL.md]] — not there yet. |
+| **Cross-cutting `plan` Project** | **Best home for the pattern** (inbound / outbound / round-trip, Graph authority, Actor boundary). Epics **cite** it; they do not restate it. Promote to `doc/` only after human promotion per [[.cursor/skills/maintain-doc-currency/SKILL.md]] — not there yet. |
 
-**Recommendation:** Treat the full vision as **`.scratch` architecture + Roadmap sequencing**, not one Epic. Ship **person-job Epics per channel or job** (files, chat, publish, future APIs). Optionally add a **home Epic** only if many connector Projects need a single Required-for-done home without a narrative Chapter arc.
+**Recommendation:** Treat the full vision as **`plan` architecture + Roadmap sequencing**, not one Epic. Ship **person-job Epics per channel or job** (files, chat, publish, future APIs). Optionally add a **home Epic** only if many connector Projects need a single Required-for-done home without a narrative Chapter arc.
 
-**Partial overlap:** [[.scratch/roadmap/epics/operate-a-pkm.md]] claims "imports external data without a seam" — that line names a **dependency**, not PKM's whole mandate. PKM's job is **find and operate on knowledge already in the Graph**; the transport layer owns how outside material arrives. See §8.
+**Partial overlap:** [[plan/roadmap/epics/operate-a-pkm.md]] claims "imports external data without a seam" — that line names a **dependency**, not PKM's whole mandate. PKM's job is **find and operate on knowledge already in the Graph**; the transport layer owns how outside material arrives. See §8.
 
 ## 4. Candidate Epic titles (2–3 each)
 
@@ -58,7 +58,7 @@ ESO is **active** and defines a **semantic standard**, not a connector catalog:
 | Title | Pros | Cons |
 | --- | --- | --- |
 | **Information hub** (home Epic) | Homes many connector Projects; no false Chapter narrative. | Not marketable as a user end-goal; same class as Organize Huge Outlines. |
-| **Information hub** (`.scratch` Project, not Epic) | Holds inbound/outbound/round-trip pattern once; all Epics reference it. | Not on Roadmap Epics list; does not answer "what to work on next" by itself. |
+| **Information hub** (`plan` Project, not Epic) | Holds inbound/outbound/round-trip pattern once; all Epics reference it. | Not on Roadmap Epics list; does not answer "what to work on next" by itself. |
 | **Operate a PKM** (expand existing) | Already on Roadmap; "without a seam" is close. | PKM Epic already heavy (graph view, expression-language, formats); blurs PKM vs integration; round-trip and generate-from-data are out of PKM scope. |
 
 ## 5. Relation to existing Epics (avoid duplication)
@@ -80,7 +80,7 @@ ESO is **active** and defines a **semantic standard**, not a connector catalog:
 | **Round-trip external edit** — export → edit elsewhere → re-import → Update as Changes | Import layer + document-formats codec leg + workspace sync | **No** — PKM navigates the Graph; it does not own sync with editable external systems |
 | **Generate from data** — produce new content or views from Graph data (reports, derived outlines, LLM output) | Expression-language, llm-connector, future publish | **No** — consumption and navigation, not generation |
 
-**Division rule:** Epic = **person job** on a channel or outcome; feature-set Project = **one source, codec, or Actor**; ESO = **how Changes land**; transport-layer Project = **inbound / outbound / round-trip template** (`.scratch` until promoted).
+**Division rule:** Epic = **person job** on a channel or outcome; feature-set Project = **one source, codec, or Actor**; ESO = **how Changes land**; transport-layer Project = **inbound / outbound / round-trip template** (`plan` until promoted).
 
 ## 6. Suggested Chapter beats (if person-job Epic: *Connect my tools to my Graph*)
 
@@ -94,11 +94,11 @@ Chart each beat onto existing Projects where possible (auto-download, document-f
 
 ## 7. event-sourced-ops vs new work
 
-| Stay on **event-sourced-ops** | New **feature-set Project(s)** / `.scratch` architecture |
+| Stay on **event-sourced-ops** | New **feature-set Project(s)** / `plan` architecture |
 | --- | --- |
 | Actor produce path, merge, Poll/Post, job identity, soft-lock, permanent history, completing-ops | Per-source **connector modules** (API client, OAuth, mapping Graph ↔ external model) |
 | Parse File as reference Actor | Hub **catalog UX**, connection config Nodes, "examine before commit" staging |
-| Vocabulary: Actor, Change, Op, Load vs Sync | **Inbound/outbound/round-trip** pattern in [[.scratch/transport-layer/project.md]] (module contract: plan from Local Graph, emit Changes, optional long-running Actor) |
+| Vocabulary: Actor, Change, Op, Load vs Sync | **Inbound/outbound/round-trip** pattern in [[plan/transport-layer/project.md]] (module contract: plan from Local Graph, emit Changes, optional long-running Actor) |
 | Issues 01–15 implementation spine | Export-transform-import **orchestration** above codecs (may compose document-formats + workspace file model) |
 
 **Do not expand ESO** into connector product design; **do require** every hub module to post Changes through the Actor path ESO defines.
@@ -116,7 +116,7 @@ Chart each beat onto existing Projects where possible (auto-download, document-f
 | **operate-a-pkm** (Epic) | Consumer of transported Graph material | **Downstream** — depends on transport layer; does not replace it |
 | **auto-download / documents-from-anywhere** | Disk channel, workspace mapping | **One channel** under the hub pattern |
 
-**Conclusion:** No existing Project fully owns the hub/import-layer vision. Extend siblings where they touch one leg; chart a **new** `.scratch` Project for the cross-cutting pattern and connector homing.
+**Conclusion:** No existing Project fully owns the hub/import-layer vision. Extend siblings where they touch one leg; chart a **new** `plan` Project for the cross-cutting pattern and connector homing.
 
 ### Is this a foundation we implement first?
 
@@ -158,9 +158,9 @@ flowchart BT
 
 **Extend existing Projects for their legs; do not fold the whole hub into ESO or PKM.**
 
-Create [[.scratch/transport-layer/project.md]] at `charting` to hold:
+Create [[plan/transport-layer/project.md]] at `charting` to hold:
 
-- Inbound / outbound / round-trip pattern (`.scratch` only until promoted)
+- Inbound / outbound / round-trip pattern (`plan` only until promoted)
 - Module contract (plan from Local Graph, emit Changes, optional Actor)
 - Homing pointer for future per-source connector Projects
 - Explicit out-of-scope: PKM navigation, expression, generate-from-data, ESO merge semantics
@@ -171,4 +171,4 @@ Do **not** add a `doc/arch` hub section yet; `doc/` stays as-is until promotion.
 
 ## Summary for coordinator
 
-The hub vision is **comprehensive product architecture in `.scratch`**, not a single marketable Epic and **not** yet committed in `doc/`. Existing Roadmap **distributes legs** across PKM, documents-from-anywhere, agent-chat, and document-formats. Best path: **new `transport-layer` Project** for the three-flow pattern + **person-job or home Epics per channel** as needed. **PKM depends on the transport layer** for seamless inbound materialization; PKM does not own round-trip external edit or generate-from-data. **ESO stays the mutation foundation**; connector catalog and hub UX stay out of ESO scope per [[.scratch/event-sourced-ops/overview.md]].
+The hub vision is **comprehensive product architecture in `plan`**, not a single marketable Epic and **not** yet committed in `doc/`. Existing Roadmap **distributes legs** across PKM, documents-from-anywhere, agent-chat, and document-formats. Best path: **new `transport-layer` Project** for the three-flow pattern + **person-job or home Epics per channel** as needed. **PKM depends on the transport layer** for seamless inbound materialization; PKM does not own round-trip external edit or generate-from-data. **ESO stays the mutation foundation**; connector catalog and hub UX stay out of ESO scope per [[plan/event-sourced-ops/overview.md]].

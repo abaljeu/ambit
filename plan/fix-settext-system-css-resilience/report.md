@@ -33,7 +33,7 @@ Dirty `Model.fs` / `UpdateOps.fs` were unrelated (clean vs HEAD).
 - `src/Server/DocumentPersistence.fs`
 - `tests/Shared.Tests/DocumentAssemblyTests.fs`
 - `tests/Server.Tests/ChangeEndpointResilienceTests.fs`
-- `.scratch/fix-settext-system-css-resilience/` (git.md, project.md, this report)
+- `plan/fix-settext-system-css-resilience/` (git.md, project.md, this report)
 
 ## Verification
 
@@ -55,7 +55,7 @@ Result: **20** Shared DocumentAssemblyTests passed; **2** ChangeEndpointResilien
 
 ## Root cause of the 2 failures
 
-Stub seeding from the fix above is **intentional and correct**. After write → `readAllDocuments`, on-disk files that exist but stay unread (e.g. `home/docs/readme.txt`) become **Unparsed `Special File`** stubs with empty children.
+Stub seeding from the fix above is **intentional and correct**. After write → `readAllDocuments`, on-disk files that exist but stay unread (e.g. `home/doc/readme.txt`) become **Unparsed `Special File`** stubs with empty children.
 
 The two failing tests still asserted the **pre-stub** contract (`NodeKind.Normal`):
 

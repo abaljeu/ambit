@@ -11,7 +11,7 @@ Created [[../details/replace-amendment.md]] — complete specification for full-
 3. **diff extraction** — bag walk on full `ChildNode` value equality.
 4. **acceptBoth** — order invariants (context order, intent add order, honored removes, no id cancel); spine-from-current deterministic construction; issue 10 interleaving polish only.
 5. **Server amend** — rewrite to `Replace(parentId, current, target)`; mirrors ticket 03; [[merge-invariant.md]] order.
-6. **Producer rule** — full lists, one Replace per parent; [[.scratch/relaxed-concurrency/replace-span-cas-feasibility.md]] as migration scope.
+6. **Producer rule** — full lists, one Replace per parent; [[plan/relaxed-concurrency/replace-span-cas-feasibility.md]] as migration scope.
 7. **Undo** — `Replace(P, newList, oldList)`; amended undo uses applied pair.
 8. **Hard Reject** — placement, ownership, missing nodes, auth/malformed unchanged.
 9. **Worked examples** — index staleness, same-slot collision (StateEndpointTests pattern), disjoint append.

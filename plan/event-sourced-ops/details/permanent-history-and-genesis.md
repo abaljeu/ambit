@@ -14,7 +14,7 @@ Grounding in today's code:
 - **Submit can still reject.** [[src/Client/Update.fs]] maps failed apply / reconcile to `ServerRejected` and wipes pending. [[src/Client/Overlays.fs]] describes "revision mismatch or invalid op". Pending Ops planned against a graph the server no longer shares fail compare-and-swap even when amendment would have helped.
 - **Protocol change is separate.** `CodeOutdated` when build stamps differ ([[src/Shared/SyncLogic.fs]]) — a forced reload remains correct and is not solved here.
 
-This is **behavior to beat**, not the standard. It conflicts with merge-not-refuse and with [[.scratch/selective-client-loading/spec.md]] story 46 (mark stale and refresh without login when server restarts).
+This is **behavior to beat**, not the standard. It conflicts with merge-not-refuse and with [[plan/selective-client-loading/spec.md]] story 46 (mark stale and refresh without login when server restarts).
 
 ## Proposed resolution
 
@@ -45,7 +45,7 @@ A new server process or version **does not demand a Client restart** when protoc
 
 **Recovery / rebuild (proposed)** — load **DB projection + permanent Change log** (same PostgreSQL database: projection tables + `changes`). Do not re-parse document files to rebuild state. Document-file bootstrap/migration (`rebuildFromDocumentFiles`) is out of scope for this model.
 
-**Genesis** — the Graph state at revision 0 of the permanent log (the moment the log was first instituted for this deployment). It is **not** replay-from-empty through historic parsers (that stays rejected — [[.scratch/relaxed-concurrency/map.md]]). Genesis is **derivable**: walk the global sequence backward, inverting each Change (the same inverse Ops Undo already uses — [[details/undo.md]]), until the first entry. Nobody plans to do this routinely; the capability exists for recovery, audit, and future tooling.
+**Genesis** — the Graph state at revision 0 of the permanent log (the moment the log was first instituted for this deployment). It is **not** replay-from-empty through historic parsers (that stays rejected — [[plan/relaxed-concurrency/map.md]]). Genesis is **derivable**: walk the global sequence backward, inverting each Change (the same inverse Ops Undo already uses — [[details/undo.md]]), until the first entry. Nobody plans to do this routinely; the capability exists for recovery, audit, and future tooling.
 
 **Client catch-up** — unchanged in spirit: rewind to baseline, replay a **short tail** from the permanent log ([[client-consume.md]]). Permanent storage does not mean every Client replays from genesis on every poll.
 

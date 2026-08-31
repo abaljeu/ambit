@@ -47,7 +47,7 @@ Migrated `Op.Replace` from `Replace(parentId, index, oldChildren, newChildren)` 
 
 ## Files changed (this slice)
 
-~**50** tracked paths (13 `src/` including `ChildListWire.fs`, 37 `tests/`, 2 `.scratch/` spec/report updates). Count includes issue-13 producer work on the same branch.
+~**50** tracked paths (13 `src/` including `ChildListWire.fs`, 37 `tests/`, 2 `plan/` spec/report updates). Count includes issue-13 producer work on the same branch.
 
 ## Not in scope
 

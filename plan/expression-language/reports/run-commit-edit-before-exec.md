@@ -41,4 +41,4 @@ Commit is Client MVU (DOM `readEditInputValue`). Shared tests lock Graph `setTex
 
 ## WORK.md mutations
 
-- `add` [[.scratch/expression-language/reports/run-commit-edit-before-exec.md]] — HITL: while Editing, change the line and Ctrl+Enter; the graph text commits, then Run uses that text (not a stale line, not textarea-only)
+- `add` [[plan/expression-language/reports/run-commit-edit-before-exec.md]] — HITL: while Editing, change the line and Ctrl+Enter; the graph text commits, then Run uses that text (not a stale line, not textarea-only)

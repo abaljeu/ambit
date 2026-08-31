@@ -6,7 +6,7 @@
 
 **Blocked by:** [[05-novel-tail-and-state-fallback-matrix.md]]
 
-**See also:** [[.scratch/client-start-time/reports/cache-first-boot-via-poll.md]], [[src/Shared/ResidentProjection.fs]], [[.scratch/selective-client-loading/spec.md]] user story 11
+**See also:** [[plan/client-start-time/reports/cache-first-boot-via-poll.md]], [[src/Shared/ResidentProjection.fs]], [[plan/selective-client-loading/spec.md]] user story 11
 
 **Status:** ready-for-agent
 

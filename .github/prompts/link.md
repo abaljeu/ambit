@@ -5,9 +5,9 @@ Domain: Persona-centric workspace for “Eric Harris” with narrative/knowledge
 
 Key Entities: Overview; Data; Docs; Memory; Tensions (7); Storylines; Relationships.
 
-Available Tools/Systems: Universe viewer exposes sections for Data/Docs/Memory plus narrative structures (storylines/relationships).
+Available Tools/Systems: Universe viewer exposes sections for Data/doc/Memory plus narrative structures (storylines/relationships).
 
-Possible Agent Actions: Retrieve and synthesize information across stored “Data/Docs/Memory” to produce summaries/reports.
+Possible Agent Actions: Retrieve and synthesize information across stored “Data/doc/Memory” to produce summaries/reports.
 
 Constraints/Rules: None visible in the viewer.
 

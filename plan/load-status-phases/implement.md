@@ -13,7 +13,7 @@ Implemented `SyncState.Parsing` so Load shows three status phases: Uploading (de
 - [[src/Client/Update.fs]] — `PollDone` keeps Parsing the same way as Uploading
 - [[tests/Shared.Tests/SyncPlannerTests.fs]] — Parsing blocks poll, submit, load
 - [[tests/Shared.Tests/WorkspaceUploadTests.fs]] — `canStartWeb` false; queue detail for parse
-- [[.scratch/load-status-phases/]] — git.md, project.md, this report
+- [[plan/load-status-phases/]] — git.md, project.md, this report
 
 Desktop `keepUploading` paths in [[src/Client/UpdateWorkspaceSync.fs]] are unchanged. Directory reconcile complete/fail still call `clearUploading` (sets Idle).
 

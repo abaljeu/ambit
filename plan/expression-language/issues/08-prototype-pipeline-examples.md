@@ -10,7 +10,7 @@ Do the example Expressions, Answer kinds, and one-line meanings match the intend
 
 Recommended answer (HITL confirm): treat the page as a cheap reaction surface for the recommended answers on the grilling tickets, not as locked syntax.
 
-[[.scratch/expression-language/reports/pipeline-examples.md]]
+[[plan/expression-language/reports/pipeline-examples.md]]
 
 [[07-statements-in-this-spec.md]] locked `= Expression` and `Name=Expression`. Bare Expression is not a Run statement. The reaction page now has those statement rows.
 
@@ -32,4 +32,4 @@ HITL 2026-08-27, later the same day.
 - `3` is a type error. A number is only valid as the right operand of `:` or `!`.
 - Walk words: `child` finds Children (Owned and Ref). `descendant` is the closure of `child`. `tree` / `**` is acyclic and does not follow Ref; `// tree` is transitively Owned Nodes. No Directory/Workspace stop. This revises the earlier Owned-only / same-as-`**` line for `descendant`. Detail: [[12-owned-versus-ref-walk-for-descendant.md]].
 
-[[.scratch/expression-language/reports/pipeline-examples.md]]
+[[plan/expression-language/reports/pipeline-examples.md]]

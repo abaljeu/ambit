@@ -1,10 +1,10 @@
 # Expression language specification
 
-This document is the hand-off specification for the Gambol Expression language: lexical structure, grammar, type system, evaluation semantics, the first primitive catalog, and the consumers that run Expressions. It extends the implemented path-reference base ([[doc/roadmap/reference-expression-interpretation.md]]) with a left-to-right word pipeline. Implementation is a later effort. This spec supersedes [[.scratch/expression-language/spec-draft.md]]; every Locked section of that draft lands in a chapter below, amended only where a decision listed in chapter 1 says so.
+This document is the hand-off specification for the Gambol Expression language: lexical structure, grammar, type system, evaluation semantics, the first primitive catalog, and the consumers that run Expressions. It extends the implemented path-reference base ([[doc/roadmap/reference-expression-interpretation.md]]) with a left-to-right word pipeline. Implementation is a later effort. This spec supersedes [[plan/expression-language/spec-draft.md]]; every Locked section of that draft lands in a chapter below, amended only where a decision listed in chapter 1 says so.
 
 ## 1. Scope, hand-off, and reading guide
 
-The abstraction core comes from [[.scratch/expression-language/reports/spec-abstraction-core-and-barriers.md]]: every term denotes a function from one input Answer to an ordered sequence of Answers, and every word and path symbol is a row in one catalog table. The quality test for each detail is that it reads as a catalog row or a one-line definition against that core, not as a special case in the grammar or the semantics.
+The abstraction core comes from [[plan/expression-language/reports/spec-abstraction-core-and-barriers.md]]: every term denotes a function from one input Answer to an ordered sequence of Answers, and every word and path symbol is a row in one catalog table. The quality test for each detail is that it reads as a catalog row or a one-line definition against that core, not as a special case in the grammar or the semantics.
 
 User decisions of 2026-08-28, incorporated throughout:
 
@@ -149,7 +149,7 @@ E⟦OUTER e⟧ x     = Owned depth-first walk strictly below x in Children order
 - `IF` is the same-input pullback: it yields the input Answer when the operand is nonempty, otherwise miss. `NOT (NOT e)` denotes the same function under the `NOT` rule. `OUTER` pullbacks while walking Owned descendants; `IF` pullbacks in place.
 - `IS` is same-input, the shape of `AND`: both operands run on `x`, and the Answers are the matching Answers of the left operand. It is not juxtaposition, so `e2` does not run on each `y`. It is not the Run statement `=` (chapter 8). It differs from `AND` in one point only: `AND` yields each Answer at most once, and `IS` keeps repeats. An empty left operand, or an empty right operand, gives an empty result. Yielded Answers keep the type of the left operand, so a pullback to the input Node needs `IF`, as in `IF (text left 5 IS "rapid")`.
 - There is no implicit Node to Text coerce: `text` and `name` are the two Node extractors. A Text-domain term that gets a Node, or `text` that gets a Text, is a miss.
-- Unloaded rule: a walk step that needs the Children of an Unloaded Node yields no Answers from that Node. It is a miss, never an error, and it never Loads. All evaluation is local to the Browser Graph ([[.scratch/expression-language/issues/14-server-side-search.md]]).
+- Unloaded rule: a walk step that needs the Children of an Unloaded Node yields no Answers from that Node. It is a miss, never an error, and it never Loads. All evaluation is local to the Browser Graph ([[plan/expression-language/issues/14-server-side-search.md]]).
 
 ## 7. The catalog
 
@@ -227,11 +227,11 @@ Statement forms. Run accepts exactly two line forms: `= Expression` and `Name=Ex
 
 Gap note: the locks name zero Answers and type error for Run's blueletter Child; this spec merges the Expression parse error into the same display for uniformity with Search and Move. This is a completion of a gap, not a lock.
 
-All evaluation is local (Run, Search `=`, Move `=`); server-side Search is postponed ([[.scratch/expression-language/issues/14-server-side-search.md]]). There is no display consumer in this slice.
+All evaluation is local (Run, Search `=`, Move `=`); server-side Search is postponed ([[plan/expression-language/issues/14-server-side-search.md]]). There is no display consumer in this slice.
 
 ## 9. Divergences from the implemented RefExpr and Amble
 
-Revision list for the later implementation effort, against [[src/Shared/RefExprMatch.fs]], [[src/Shared/RefExprParse.fs]], [[src/Shared/AmbleParse.fs]], and their tests; grounded in [[.scratch/expression-language/reports/existing-language-survey.md]].
+Revision list for the later implementation effort, against [[src/Shared/RefExprMatch.fs]], [[src/Shared/RefExprParse.fs]], [[src/Shared/AmbleParse.fs]], and their tests; grounded in [[plan/expression-language/reports/existing-language-survey.md]].
 
 1. `**` today walks Owned Children, stops at Directory Node and Workspace Node, and includes the base Node; this spec's `**` is `tree`: transitively Owned, no stop, input excluded.
 2. `/` today is the anchor "nearest Workspace, else ROOT"; this spec's `/` is the infix structural-search operator with a required name argument, and the up-walk meaning moves to the word `wsroot`.
@@ -251,13 +251,13 @@ Revision list for the later implementation effort, against [[src/Shared/RefExprM
 
 ## 10. Deferred and not planned
 
-Deferred to later slices: `sort` as a catalog row; the Number type and Number-returning producers; shell `> …`; quoted arguments inside a space-free cluster (`//"a b"/x`); server-side Search ([[.scratch/expression-language/issues/14-server-side-search.md]]); sugar `OUTER "blue"` for `OUTER containing "blue"`; a Ref-following analog of `OUTER`.
+Deferred to later slices: `sort` as a catalog row; the Number type and Number-returning producers; shell `> …`; quoted arguments inside a space-free cluster (`//"a b"/x`); server-side Search ([[plan/expression-language/issues/14-server-side-search.md]]); sugar `OUTER "blue"` for `OUTER containing "blue"`; a Ref-following analog of `OUTER`.
 
-Not planned ([[.scratch/expression-language/issues/13-fog-of-the-first-spec.md]]): logical variables and unification; cut and if-then; a `findall`/`bagof` collection primitive (collection stays the consumer); a Boolean Answer type; a full Prolog system.
+Not planned ([[plan/expression-language/issues/13-fog-of-the-first-spec.md]]): logical variables and unification; cut and if-then; a `findall`/`bagof` collection primitive (collection stays the consumer); a Boolean Answer type; a full Prolog system.
 
 ## 11. Worked examples
 
-Extends [[.scratch/expression-language/reports/pipeline-examples.md]], re-checked against chapters 3 to 8. The current Node is the initial Answer except where a consumer row says zoomRoot. In the equivalence rows, `d` and `e` are literal names; for any left term `x`, `x /e` and `x / "e"` are the same application, and a leading bare name is its own implicit `/` argument.
+Extends [[plan/expression-language/reports/pipeline-examples.md]], re-checked against chapters 3 to 8. The current Node is the initial Answer except where a consumer row says zoomRoot. In the equivalence rows, `d` and `e` are literal names; for any left term `x`, `x /e` and `x / "e"` are the same application, and a leading bare name is its own implicit `/` argument.
 
 | Expression | Type or outcome | Meaning |
 | --- | --- | --- |

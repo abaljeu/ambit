@@ -14,7 +14,7 @@ Issues and specs for this repo live as Markdown files under `.scratch/`.
 
 **Chapter**: A named beat of a person-job Epic. Not a Stage. Checklist items belong to that beat and are not repeated on Required for done.
 
-**Triage role**: The next-action state assigned during triage, using the mapping in [[docs/agents/triage-labels.md]].
+**Triage role**: The next-action state assigned during triage, using the mapping in [[doc/agents/triage-labels.md]].
 
 An issue tracker holds issues. An issue carries one triage role at a time. A decision ticket is an issue, but its Wayfinder lifecycle is recorded separately from implementation triage.
 

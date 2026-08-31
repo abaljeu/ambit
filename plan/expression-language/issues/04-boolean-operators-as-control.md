@@ -10,7 +10,7 @@ What is the concrete `and` / `or` / `not` syntax, and how do fail and succeed wo
 
 Recommended answer (HITL confirm): conjunction is default pipeline composition (space). Explicit disjunction is the word `or` (optional `;`). Negation-as-failure is the word `not`. There is no Boolean Answer type in the first spec. Do not use `,` for conjunction; Amble already uses `,` to concatenate.
 
-[[.scratch/expression-language/issues/03-first-primitive-catalog.md|First primitive catalog]] locked composition versus `AND` versus comma/`OR` versus `not`. Remaining here: what that ticket did not settle — for example precedence, and letter-case of `AND` / `OR`.
+[[plan/expression-language/issues/03-first-primitive-catalog.md|First primitive catalog]] locked composition versus `AND` versus comma/`OR` versus `not`. Remaining here: what that ticket did not settle — for example precedence, and letter-case of `AND` / `OR`.
 
 ## Answer
 

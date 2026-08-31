@@ -42,4 +42,4 @@ Server DLLs are not on this path: Run plans ops in the Client; the Server only a
 
 ## WORK.md mutations (for the root)
 
-- `add` [[.scratch/expression-language/reports/run-changes-not-effective.md]] — HITL hard-reload `/ambit` or `/ambit?debug=1`; confirm Run error strings and unfold (not old red-echo)
+- `add` [[plan/expression-language/reports/run-changes-not-effective.md]] — HITL hard-reload `/ambit` or `/ambit?debug=1`; confirm Run error strings and unfold (not old red-echo)

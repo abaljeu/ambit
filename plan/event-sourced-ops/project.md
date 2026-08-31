@@ -21,10 +21,10 @@ Details, by topic:
 - [[details/actors-and-jobs.md]] — long-running Actors, Parse File, shell commands, launch and cancel
 - [[details/undo.md]] — what Undo inverts, and the retained open question
 - [[details/relation-to-relaxed-concurrency.md]] — build-upon layer on this project; what stays, what was superseded
-- [[.scratch/relaxed-concurrency/map.md]] — verified knowns, audit docs, shared rejections, frontier D–F
+- [[plan/relaxed-concurrency/map.md]] — verified knowns, audit docs, shared rejections, frontier D–F
 - [[details/permanent-history-and-genesis.md]] — permanent log, server-restart stale-client flaw, derivable genesis
 - [[details/as-implemented-facts.md]] — today's behavior, including behavior to beat
 - [[details/open-questions.md]] — accepted, proposed, open, parked
 - [[details/decision-log.md]] — how each point was reached, and what was superseded
 
-Build-upon layer: [[.scratch/relaxed-concurrency/]] — verified facts, shared rejections, frontier D–F on this foundation ([[.scratch/relaxed-concurrency/map.md]]). Implementation and standard live here.
+Build-upon layer: [[plan/relaxed-concurrency/]] — verified facts, shared rejections, frontier D–F on this foundation ([[plan/relaxed-concurrency/map.md]]). Implementation and standard live here.

@@ -18,5 +18,5 @@ Cite primary WebKit/Safari sources. State clearly which of today’s auth and UI
 
 ## Comments
 
-- Findings: [[.scratch/login-context-restore/research/02-what-storage-survives-safari-tab-discard.md]]
+- Findings: [[plan/login-context-restore/research/02-what-storage-survives-safari-tab-discard.md]]
 - Closed on `w/login-context-restore` (common project branch; no `research/*` checkout).

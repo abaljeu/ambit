@@ -129,4 +129,4 @@ dotnet test tests/Shared.Tests -c Debug --no-build --filter "FullyQualifiedName~
 
 ## WORK.md mutations (for parent)
 
-- `add` [[.scratch/load-status-phases/unloaded-node-after-workspace-load.md]] — investigated Unloaded node after workspace Load; PollDone/Loading race + patchDOM hardening (fixes in `Update.fs`, `View.fs`)
+- `add` [[plan/load-status-phases/unloaded-node-after-workspace-load.md]] — investigated Unloaded node after workspace Load; PollDone/Loading race + patchDOM hardening (fixes in `Update.fs`, `View.fs`)

@@ -18,7 +18,7 @@ Created on `dev` with a clean working tree after both commits.
 | SHA | `5db017c` |
 | Subject | Reconcile public README and doc with cPanel proxy; drop legacy deploy files. |
 
-**Included:** `README.md`, `doc/README.md`, `doc/reference/cpanel-transparent-proxy.md`, deletion of `dockerfile` and `.htaccess`, `.scratch/git-protocol/reports/public-face-merge.md`, `.scratch/git-protocol/reports/public-face-reconciliation.md`.
+**Included:** `README.md`, `doc/README.md`, `doc/reference/cpanel-transparent-proxy.md`, deletion of `dockerfile` and `.htaccess`, `plan/git-protocol/reports/public-face-merge.md`, `plan/git-protocol/reports/public-face-reconciliation.md`.
 
 `CONTEXT.md` and `WORK.md` were entirely git-protocol-related; both went in commit 1.
 

@@ -45,5 +45,5 @@ New Shared cases:
 
 ## WORK.md mutations (for parent)
 
-- `remove` [[.scratch/load-status-phases/slow-parsing.md]] — option 3 delivered ([[skip-current-parse.md]])
-- `add` [[.scratch/load-status-phases/slow-parsing.md]] — optional follow-ups: mtime gate / stop blanket-Added / inventory ledger (options 4–6), only if still desired
+- `remove` [[plan/load-status-phases/slow-parsing.md]] — option 3 delivered ([[skip-current-parse.md]])
+- `add` [[plan/load-status-phases/slow-parsing.md]] — optional follow-ups: mtime gate / stop blanket-Added / inventory ledger (options 4–6), only if still desired

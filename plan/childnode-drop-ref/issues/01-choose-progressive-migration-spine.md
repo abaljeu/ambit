@@ -26,6 +26,6 @@ Include at least:
 
 ## Answer
 
-Ordered slices + per-slice invariants: [[.scratch/childnode-drop-ref/spine-draft.md]] (accepted 2026-08-11).
+Ordered slices + per-slice invariants: [[plan/childnode-drop-ref/spine-draft.md]] (accepted 2026-08-11).
 
 Timing gist: dual-Owner detect = step 1; JSON node `owner` = step 2; `SetOwner` = step 3; index off `child.ref` = step 4; `childOwnership` drop fallback = step 5; Loaded-scope mandatory = steps 3/6; stop encode edge `ref` = step 7; drop decode compat + delete field = step 8. DB `node_children.ownership` read = bootstrap through 8; write follows classifier of that slice.

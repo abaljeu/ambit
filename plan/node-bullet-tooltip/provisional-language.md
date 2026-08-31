@@ -5,7 +5,7 @@ Round-2 revisions marked below.
 
 **Round-3 update**: "Node marker" is REJECTED in favour of **Bullet** (the glyph element every Node
 view shows). Bullet is now in [[CONTEXT.md]]. Time vocabulary (Update Time / Workspace file time /
-Server file time / Last sync) moved to [[.scratch/bullet-tip-times/time-requirements.md]].
+Server file time / Last sync) moved to [[plan/bullet-tip-times/time-requirements.md]].
 
 ## Candidate terms
 

@@ -23,7 +23,7 @@ step "Open Gambol Desktop (or local proxy browser) and sign in."
 
 capture FOCUS_KIND "What is focused before Load? (file|directory|workspace|other)"
 
-capture FILE_REL "Relative path of the file you edited (e.g. docs/a.md):"
+capture FILE_REL "Relative path of the file you edited (e.g. doc/a.md):"
 
 capture MARKER "Unique marker string you put in the local file (paste exact text):"
 

@@ -37,7 +37,7 @@ NameChar    ::= letter | digit | "@" | "." | "-" | "_" | "?" | "*"
 Function    ::= Name
 ```
 
-Juxtaposition is left-associative postfix (`#todo text`). The `FunCall` production above is the old prefix shape and does not match these examples. See [[.scratch/expression-language/spec-draft.md]].
+Juxtaposition is left-associative postfix (`#todo text`). The `FunCall` production above is the old prefix shape and does not match these examples. See [[plan/expression-language/spec-draft.md]].
 
 `Name` and `NameChar` match `RefExprParse.isNameChar` / `RefExpr.readName` (including `.`). Numbers are signed integers or floats with a single `.` fractional part; no `e` / `E` exponent notation.
 

@@ -1,6 +1,6 @@
 # Spec abstraction core and barriers
 
-Report for the comprehensive Expression language spec. Sources: [[.scratch/expression-language/spec-draft.md]] (all Locked sections), every ticket under [[.scratch/expression-language/issues/01-pipeline-versus-amble-juxtaposition.md|issues/]], the research and resolve reports, [[doc/roadmap/reference-expression-interpretation.md]], [[CONTEXT.md]], and the implemented parsers [[src/Shared/RefExprParse.fs]], [[src/Shared/RefExprMatch.fs]], [[src/Shared/AmbleParse.fs]]. This report proposes; it does not lock. Part 1 gives the smallest abstraction core. Part 2 lists each locked detail that resists that core, ordered by how much it distorts the core, each with a proposed resolution. Part 3 sketches the spec table of contents.
+Report for the comprehensive Expression language spec. Sources: [[plan/expression-language/spec-draft.md]] (all Locked sections), every ticket under [[plan/expression-language/issues/01-pipeline-versus-amble-juxtaposition.md|issues/]], the research and resolve reports, [[doc/roadmap/reference-expression-interpretation.md]], [[CONTEXT.md]], and the implemented parsers [[src/Shared/RefExprParse.fs]], [[src/Shared/RefExprMatch.fs]], [[src/Shared/AmbleParse.fs]]. This report proposes; it does not lock. Part 1 gives the smallest abstraction core. Part 2 lists each locked detail that resists that core, ordered by how much it distorts the core, each with a proposed resolution. Part 3 sketches the spec table of contents.
 
 ## Part 1 — Proposed abstraction core
 
@@ -8,7 +8,7 @@ The test for this core: each Locked detail becomes one catalog line or one consu
 
 ### The semantic domain
 
-One domain carries the whole language. Every Expression term denotes a function from one input Answer to an ordered, possibly empty, possibly repeating sequence of Answers. Write the domain as `τ1 ⇒ τ2`, a function from an Answer of type `τ1` to a sequence of Answers of type `τ2`. This is exactly a Prolog-style non-deterministic predicate: fail is the empty sequence, succeed is one or more Answers, and backtracking is the sequence. The Locked sections on Expressions, Multiple Answers, and Prolog control ([[.scratch/expression-language/reports/prolog-control-mapping.md]]) all name this domain already.
+One domain carries the whole language. Every Expression term denotes a function from one input Answer to an ordered, possibly empty, possibly repeating sequence of Answers. Write the domain as `τ1 ⇒ τ2`, a function from an Answer of type `τ1` to a sequence of Answers of type `τ2`. This is exactly a Prolog-style non-deterministic predicate: fail is the empty sequence, succeed is one or more Answers, and backtracking is the sequence. The Locked sections on Expressions, Multiple Answers, and Prolog control ([[plan/expression-language/reports/prolog-control-mapping.md]]) all name this domain already.
 
 Types are `τ ::= Node | Text` in this spec, with `Number` reserved for a later catalog producer. There is no Boolean type; succeed and fail are control. A number literal is not a term (see Barrier 3). A quoted string is the one Text literal.
 
@@ -137,7 +137,7 @@ Propose: absorb with one added definition on the entry: `descendant` enumerates 
 
 ### Barrier 7 — statements and the two-message error surface
 
-The draft locks: Run accepts only `= Expression` and `Name=Expression` and does nothing on any other line; `#ident =` is rejected; 0 Answers and a type error both produce the blueletter Child in Run, and both show no hits in Search and Move. None of this fights the core once statements are consumer syntax above the Expression grammar, but one conflation needs care: the semantics must keep three outcomes distinct — parse error, type error, empty Answer sequence — even though every consumer in this slice happens to render them alike. If the spec defined "error equals empty", the seams lock (empty miss is fail-to-answer, parse errors stay distinct, [[.scratch/expression-language/reports/amble-refexpr-seams.md]]) would break and a future consumer could not tell a typo from a true miss.
+The draft locks: Run accepts only `= Expression` and `Name=Expression` and does nothing on any other line; `#ident =` is rejected; 0 Answers and a type error both produce the blueletter Child in Run, and both show no hits in Search and Move. None of this fights the core once statements are consumer syntax above the Expression grammar, but one conflation needs care: the semantics must keep three outcomes distinct — parse error, type error, empty Answer sequence — even though every consumer in this slice happens to render them alike. If the spec defined "error equals empty", the seams lock (empty miss is fail-to-answer, parse errors stay distinct, [[plan/expression-language/reports/amble-refexpr-seams.md]]) would break and a future consumer could not tell a typo from a true miss.
 
 Propose: absorb — the spec defines the three outcomes in the semantics chapter, and each consumer row says which outcomes it merges in its display. No lock changes; this is a structural instruction for writing the spec, so the merge stays a consumer fact and never leaks into evaluation.
 
@@ -157,6 +157,6 @@ Proposed table of contents for the comprehensive spec, with the draft section ea
 6. Evaluation semantics — from draft: Multiple Answers; Boolean operators as control; Unloaded walks; Answer equality (Barrier 5).
 7. The catalog — from draft: First primitive catalog; Path operators; Owned-versus-Ref walk words; closure order (Barrier 6).
 8. Consumers: Run, Search, Move — from draft: Statements; Top-level context; error display (Barrier 7).
-9. Divergences from the implemented RefExpr and Amble — `**` stop, old anchors, dropped `of` and comma-as-FunCall, prefix `text`; grounded in [[.scratch/expression-language/reports/existing-language-survey.md]].
+9. Divergences from the implemented RefExpr and Amble — `**` stop, old anchors, dropped `of` and comma-as-FunCall, prefix `text`; grounded in [[plan/expression-language/reports/existing-language-survey.md]].
 10. Deferred and not planned — from draft: Unloaded walks (server), Fog; quoted path segments, numbers, shell, unification, cut, collection.
-11. Worked examples — from [[.scratch/expression-language/reports/pipeline-examples.md]], re-checked against chapters 3 to 8.
+11. Worked examples — from [[plan/expression-language/reports/pipeline-examples.md]], re-checked against chapters 3 to 8.

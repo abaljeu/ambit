@@ -6,7 +6,7 @@
 
 **Blocked by:** None — presentation only; click→Load is 28.
 
-**See also:** [[.scratch/selective-client-loading/spec.md]] (hollow-circle indicator; Unloaded vs Unparsed); [[.scratch/selective-client-loading/issues/14-simplify-selective-loading.md]] (Unloaded vs Unparsed share hollow-circle indicator); [[.scratch/selective-client-loading/issues/28-make-hollow-circle-clicks-invoke-load.md]] (click→Load).
+**See also:** [[plan/selective-client-loading/spec.md]] (hollow-circle indicator; Unloaded vs Unparsed); [[plan/selective-client-loading/issues/14-simplify-selective-loading.md]] (Unloaded vs Unparsed share hollow-circle indicator); [[plan/selective-client-loading/issues/28-make-hollow-circle-clicks-invoke-load.md]] (click→Load).
 
 **Status:** done
 

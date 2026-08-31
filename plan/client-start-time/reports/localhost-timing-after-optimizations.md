@@ -3,8 +3,8 @@
 Date: 2026-08-27  
 Branch: `w/relaxed-concurrency`  
 Environment: **localhost** (dev server, not production)  
-Prior baseline: [[.scratch/client-start-time/reports/client-start-time-research.md]]  
-Implementation: [[.scratch/client-start-time/reports/scope-before-encode.md]], [[.scratch/client-start-time/reports/server-state-compression.md]]
+Prior baseline: [[plan/client-start-time/reports/client-start-time-research.md]]  
+Implementation: [[plan/client-start-time/reports/scope-before-encode.md]], [[plan/client-start-time/reports/server-state-compression.md]]
 
 ## Important caveat — not apples to apples
 
@@ -74,7 +74,7 @@ Possible follow-up (not blocking deploy validation):
 
 After deploy, hard-reload `/ambit` in DevTools → Network and inspect **`/ambit/state`**:
 
-1. **Content-Encoding** — response headers should show `br` or `gzip` (see [[.scratch/client-start-time/reports/server-state-compression.md]]).
+1. **Content-Encoding** — response headers should show `br` or `gzip` (see [[plan/client-start-time/reports/server-state-compression.md]]).
 2. **TTFB / Waiting** — green segment should drop from ~3.5 s toward sub-second (exact value depends on graph size and Azure CPU).
 3. **Transferred size** — Size column should show hundreds of KB or less transferred vs ~3.7M decoded/resource size (DevTools shows both when compressed).
 4. **Boot UX** — phase B "Loading..." in [[src/Server/wwwroot/gambol.template.html]] should clear much sooner; if total span is still ~3 s, profile ledger XHRs next.

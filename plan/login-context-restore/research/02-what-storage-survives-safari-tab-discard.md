@@ -1,6 +1,6 @@
 # Findings: What storage survives Safari tab discard
 
-Ticket: [[.scratch/login-context-restore/issues/02-what-storage-survives-safari-tab-discard.md]]
+Ticket: [[plan/login-context-restore/issues/02-what-storage-survives-safari-tab-discard.md]]
 Date: 2026-08-11
 Branch: `w/login-context-restore`
 

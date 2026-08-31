@@ -10,4 +10,4 @@ From the survey and the language/interpretation docs, which existing parse and e
 
 ## Answer
 
-Empty miss is fail-to-answer, not silent success; parse errors stay distinct. Pipeline space must desugar into the same operators as Amble juxtaposition. Amble `,` stays concatenate. `text` already evaluates; Find AND is not the pipeline. `**` is Owned-only and stops at Directory/Workspace; other path steps follow Ref. Findings: [[.scratch/expression-language/reports/amble-refexpr-seams.md]].
+Empty miss is fail-to-answer, not silent success; parse errors stay distinct. Pipeline space must desugar into the same operators as Amble juxtaposition. Amble `,` stays concatenate. `text` already evaluates; Find AND is not the pipeline. `**` is Owned-only and stops at Directory/Workspace; other path steps follow Ref. Findings: [[plan/expression-language/reports/amble-refexpr-seams.md]].

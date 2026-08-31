@@ -71,7 +71,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 Include me in your work. Tell me what you're thinking about.
 OBLIGAGTORY: Before any tool call that is not a simple information query, build, or test, explain the goal of that call.
 Never output multiple pages of text to the user. That much content works much better as a file.
-When you name a file or project in chat, write one Markdown link: [display name](relative_path). The display name is the name you are talking about, for example [fast reboot](.scratch/client-start-time/reports/cache-first-boot-via-poll.md). Put the path in that same link. Never emit like `**fast reboot** ([client-start-time](.scratch/client-start-time/project.md))`. In files use [[relative_path]] wikilinks instead.
+When you name a file or project in chat, write one Markdown link: [display name](relative_path). The display name is the name you are talking about, for example [fast reboot](plan/client-start-time/reports/cache-first-boot-via-poll.md). Put the path in that same link. Never emit like `**fast reboot** ([client-start-time](plan/client-start-time/project.md))`. In files use [[relative_path]] wikilinks instead.
 
 Advise me if there is a better way to do something.
 If a request is unclear, just ask.
@@ -85,7 +85,7 @@ While in plan mode, any request for a change should be interpreted as a request 
 At startup, a subagent runs `bash ./status.sh` once instead of separate Git branch and working-tree status commands. Run extra Git commands only when the task requires them.
 Use subagents to carry out tasks.
 When a subagent completes, summarize its conclusion for the user.
-Subagent must report final results to `.scratch/<project-name>/reports/<subagent-title>.md`, not chat. Only the final report goes to reports/.  The reports directory exists to isolate transactional reporting from longterm project definition artifacts which go to the main <project-name> directory.  If a workflow specifies another report path, use that path instead.
+Subagent must report final results to `plan/<project-name>/reports/<subagent-title>.md`, not chat. Only the final report goes to reports/.  The reports directory exists to isolate transactional reporting from longterm project definition artifacts which go to the main <project-name> directory.  If a workflow specifies another report path, use that path instead.
 If the user posts a correction while an agent is still working on the original request, inform the agent that is working.  Don't start a second agent with overlapping work area.
 
 Subagents should only run focused tests, never all tests. The Client compile gate in [[.cursor/rules/testing-workflow.mdc]] is a compile gate, not all tests; do not skip it when Client dependencies were edited.

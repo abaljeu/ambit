@@ -119,7 +119,7 @@ Two symptoms, **split** Browser bugs (unload not proven):
 
 1. **Poll gated while hidden/idle** — enough for missed Changes without unload. Congruent with “refresh then matches.” Does not by itself explain F5#1 yellow / F5#2 green on a **new** document load.
 2. **`CodeOutdated` after process restart on an existing page** — confirmed test; blocks tail apply. Overlay is “New version available.” StatusView still shows `"Starting up…"` if `isServerReady` stayed false. Can co-occur with unload (not proven).
-3. **Sweep never completes** (`ready.TrySetResult` never runs) — every state/Poll stays `isReady=false`. F5#2 would stay yellow. Active work [[.scratch/owner-edge-db-repair/spec.md]] lengthens the sweep and can amplify yellow time if deployed.
+3. **Sweep never completes** (`ready.TrySetResult` never runs) — every state/Poll stays `isReady=false`. F5#2 would stay yellow. Active work [[plan/owner-edge-db-repair/spec.md]] lengthens the sweep and can amplify yellow time if deployed.
 4. **`DataOutdated` trap** — empty tail, `isAutoSyncBlocked`, or apply error; `tryStartPoll` stuck. Ack hides overlay only. Banner would already be past yellow if a Poll returned `ready: true`.
 5. **BootCache snapshot with stored `isReady=false`** — amplifier, not origin of the label (predates BootCache). F5#2 correct `/state` rules out cache-as-authority for the “refresh matches Server” fact.
 6. **Structural Changes under Unloaded parents skipped** — weaker; F5 `/state` installs the resident subgraph. Collapsed SiteMap is a view omission, not this idle pattern.

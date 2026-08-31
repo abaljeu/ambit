@@ -17,7 +17,7 @@ Phrase chosen: **delete-against-edit**. Where a sentence already said “delete 
 
 ## Leftover hits
 
-None in [[.scratch/event-sourced-ops/]], [[WORK.md]], or [[.scratch/index.md]].
+None in [[plan/event-sourced-ops/]], [[WORK.md]], or [[plan/index.md]].
 
 Out of scope: `withKind 4` in [[tests/Shared.Tests/SyncPlannerTests.fs]] is a PendingKind helper argument, not this taxonomy case.
 

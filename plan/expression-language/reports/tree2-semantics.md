@@ -1,6 +1,6 @@
 # tree2 semantics — ancestor-pruning selection
 
-Design only. No product code. Home is [[.scratch/expression-language/]] because Expression eval, `tree`, and after-filters live there. Written on project branch `w/tree2-semantics`, cut from `selective-client-sync`. See [[.scratch/expression-language/spec.md]], [[src/Shared/ExprWalk.fs]], [[src/Shared/ExprEval.fs]], [[src/Shared/ExprCompile.fs]], [[src/Shared/ExprPrimitive.fs]].
+Design only. No product code. Home is [[plan/expression-language/]] because Expression eval, `tree`, and after-filters live there. Written on project branch `w/tree2-semantics`, cut from `selective-client-sync`. See [[plan/expression-language/spec.md]], [[src/Shared/ExprWalk.fs]], [[src/Shared/ExprEval.fs]], [[src/Shared/ExprCompile.fs]], [[src/Shared/ExprPrimitive.fs]].
 
 Working name in this report: `tree2` (history only). Catalog spelling is locked: `OUTER` (capitals, same class as `NOT`). Do not replace the `tree` / `**` row.
 
@@ -22,13 +22,13 @@ Implications:
 - A Node that is not acceptable does not yield. Search continues in its Owned Children. A matching descendant under a non-matching ancestor is found.
 - A post-pass that first materializes `tree`, then filters, then drops descendants of remaining Answers is the wrong shape. It does extra work. It does not match this algorithm.
 
-`tree` starts strictly below the input (it does not yield the input). `OUTER` must do the same. The walk is Owned only. It does not follow Ref. An Unloaded Node is a miss and is never Loaded, same as [[.scratch/expression-language/spec.md]] chapter 6.
+`tree` starts strictly below the input (it does not yield the input). `OUTER` must do the same. The walk is Owned only. It does not follow Ref. An Unloaded Node is a miss and is never Loaded, same as [[plan/expression-language/spec.md]] chapter 6.
 
 ## Current semantics
 
 Live Run uses [[src/Shared/ExprRun.fs]], not the old `>` path in [[src/Shared/AmbleParse.fs]] / [[src/Shared/AmbleEval.fs]]. [[src/Shared/AmbleRun.fs]] calls `ExprRun.run` first.
 
-Every term is a function from one input Answer to a sequence of Answers ([[.scratch/expression-language/spec.md]] chapters 2 and 6). Juxtaposition is monadic bind:
+Every term is a function from one input Answer to a sequence of Answers ([[plan/expression-language/spec.md]] chapters 2 and 6). Juxtaposition is monadic bind:
 
 ```
 E⟦e1 e2⟧ x = concat [ E⟦e2⟧ y | y ← E⟦e1⟧ x ]
@@ -109,7 +109,7 @@ Prune then sits outside the Expression. Nested matches still exist as Answers. T
 
 ## Comparison
 
-The catalog core says every term is a function of one input Answer ([[.scratch/expression-language/spec.md]] chapter 1). Designs B and D operate on a finished sequence. They need ancestry after the fact. Design C is a shallow row that hides a walk but cannot take a general `acceptable` test. Design A is a combinator, like `NOT`: the operand is the predicate, and the walk is internal.
+The catalog core says every term is a function of one input Answer ([[plan/expression-language/spec.md]] chapter 1). Designs B and D operate on a finished sequence. They need ancestry after the fact. Design C is a shallow row that hides a walk but cannot take a general `acceptable` test. Design A is a combinator, like `NOT`: the operand is the predicate, and the walk is internal.
 
 Interface simplicity favors A: one reserved word, one operand, no new Answer type. Depth favors A: a small surface hides the prune-during-walk. Ease of correct use favors A if `OUTER` is reserved and bare `OUTER` is a missing-operand parse error, same idea as bare `NOT`. Ease of misuse: `OUTER child` treats “has a Child” as acceptable. That is defined (nonempty inner stream) and is a poor default; the spec examples must show pure filters.
 
@@ -152,7 +152,7 @@ Then `root OUTER containing "blue"` is `Seq[root]` then `OUTER` of `containing "
 
 ### Walk order and siblings
 
-Order is the `tree` order: depth-first, Owned Children order ([[.scratch/expression-language/spec.md]] chapter 7 `tree` row). Sibling matches are independent. Nested match under a match never runs because the parent already pruned.
+Order is the `tree` order: depth-first, Owned Children order ([[plan/expression-language/spec.md]] chapter 7 `tree` row). Sibling matches are independent. Nested match under a match never runs because the parent already pruned.
 
 ### Generalization beyond `containing`
 
@@ -164,15 +164,15 @@ The algorithm’s `acceptable` is any inner predicate, not a special case of `co
 
 ## Locked 2026-08-29
 
-User confirmed Design A ("plan A"). First spelling lock was lowercase `outer`; later the same day the catalog word became `OUTER` (capitals, same class as `NOT`). Spec lock: [[.scratch/expression-language/spec.md]] chapters 4, 6, 7, and 11; implementation issue [[.scratch/expression-language/issues/28-outer-prefix-combinator.md]]. Worker report: [[.scratch/expression-language/reports/outer-spec-lock.md]].
+User confirmed Design A ("plan A"). First spelling lock was lowercase `outer`; later the same day the catalog word became `OUTER` (capitals, same class as `NOT`). Spec lock: [[plan/expression-language/spec.md]] chapters 4, 6, 7, and 11; implementation issue [[plan/expression-language/issues/28-outer-prefix-combinator.md]]. Worker report: [[plan/expression-language/reports/outer-spec-lock.md]].
 
 - Spelling: catalog word `OUTER`, reserved so it is not bind. Not `cut`. Not `tree2` as a catalog name. Not lowercase `outer`.
 - Fusion: fuse the predicate into the Owned walk. Do not implement a post-pass prune.
-- Sugar `OUTER "blue"` for `OUTER containing "blue"` is out of this slice ([[.scratch/expression-language/spec.md]] chapter 10).
+- Sugar `OUTER "blue"` for `OUTER containing "blue"` is out of this slice ([[plan/expression-language/spec.md]] chapter 10).
 - Ref analog (descendant-shaped wall) is out of this slice. Owned only.
 
 ## Planning artifacts
 
-Spec lock is done. [[doc/]] is unchanged. Implementation is [[.scratch/expression-language/issues/28-outer-prefix-combinator.md]]. Tests belong next to existing Expr facts.
+Spec lock is done. [[doc/]] is unchanged. Implementation is [[plan/expression-language/issues/28-outer-prefix-combinator.md]]. Tests belong next to existing Expr facts.
 
-[[.scratch/expression-language/project.md]] stays `active`. This report does not change project stage.
+[[plan/expression-language/project.md]] stays `active`. This report does not change project stage.

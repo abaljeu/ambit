@@ -16,5 +16,5 @@ Pin down, with primary sources (WebKit/Safari docs, ITP notes, cookie lifetime r
 
 ## Comments
 
-- Findings: [[.scratch/login-context-restore/research/01-why-safari-harsh-restart-drops-auth.md]]
+- Findings: [[plan/login-context-restore/research/01-why-safari-harsh-restart-drops-auth.md]]
 - Closed on `w/login-context-restore` (common project branch; no `research/*` checkout).

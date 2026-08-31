@@ -1,6 +1,6 @@
 # Prolog control mapped to this language
 
-Research note for [[.scratch/expression-language/issues/09-research-prolog-control-mapped.md]]. Sources are established Prolog facts (ISO core: conjunction, disjunction, negation-as-failure, `findall`/`bagof`, backtracking). No websearch. Destination vocabulary: Expression, Answer, Graph, Node.
+Research note for [[plan/expression-language/issues/09-research-prolog-control-mapped.md]]. Sources are established Prolog facts (ISO core: conjunction, disjunction, negation-as-failure, `findall`/`bagof`, backtracking). No websearch. Destination vocabulary: Expression, Answer, Graph, Node.
 
 ## What maps cleanly
 

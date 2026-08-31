@@ -5,23 +5,23 @@ Branch: `selective-client-sync` (ahead 8); working tree clean per `status.sh`.
 
 ## Classification
 
-**General client–server view sync** (cache-first boot, Poll, selective residency) — not [[.scratch/expression-language/reports/pipeline-examples.md]]; that page documents Expression syntax only and does not touch Browser Graph residency or Sync.
+**General client–server view sync** (cache-first boot, Poll, selective residency) — not [[plan/expression-language/reports/pipeline-examples.md]]; that page documents Expression syntax only and does not touch Browser Graph residency or Sync.
 
 ## Possibilities
 
-1. **Warm F5 serves an IndexedDB bootstrap snapshot before the server confirms.** Cache hit folds snapshot F₀ plus Change log, paints, then boot Poll; truncation or novel-tail gaps can leave an older graph visible until Poll applies or falls back to `/state`. — **partial impl** ([[src/Shared/BootCache.fs]], [[.scratch/client-start-time/reports/implement-cache-first-boot-01-07.md]]).
+1. **Warm F5 serves an IndexedDB bootstrap snapshot before the server confirms.** Cache hit folds snapshot F₀ plus Change log, paints, then boot Poll; truncation or novel-tail gaps can leave an older graph visible until Poll applies or falls back to `/state`. — **partial impl** ([[src/Shared/BootCache.fs]], [[plan/client-start-time/reports/implement-cache-first-boot-01-07.md]]).
 
-2. **`bootstrapHash` mismatch refetches `/state` or skips confirm.** Fable vs .NET fingerprints diverged; fix uses empty cached hash after `/state`, HITL still open on Selection jumping to ROOT in a loop. — **wrong impl** (fix in tree, HITL pending) ([[.scratch/client-start-time/reports/poll-hash-fallback-loop.md]], [[src/Shared/BootCache.fs]] `cachedHashForBootPoll`).
+2. **`bootstrapHash` mismatch refetches `/state` or skips confirm.** Fable vs .NET fingerprints diverged; fix uses empty cached hash after `/state`, HITL still open on Selection jumping to ROOT in a loop. — **wrong impl** (fix in tree, HITL pending) ([[plan/client-start-time/reports/poll-hash-fallback-loop.md]], [[src/Shared/BootCache.fs]] `cachedHashForBootPoll`).
 
 3. **Poll tails are ignored while `syncState` is Loading.** `PollDone` returns early during Load so Revision is not advanced ahead of package apply; the UI can show pre-Load graph until Load finishes. — **known gap** ([[src/Client/Update.fs]] ~L220–225).
 
 4. **Auto-sync blocked by pending Changes or a dirty edit field.** `isAutoSyncBlocked` skips `applyServerTail` on `DataOutdated`; server-ahead Changes are not merged until the queue clears or the user commits the edit. — **known gap** ([[src/Client/UpdateHelpers.fs]] `isAutoSyncBlocked`, [[src/Client/Update.fs]] ~L294–296).
 
-5. **Selective loading: Browser holds a partial resident projection.** Unloaded Nodes are intentional hollow stubs; server has full Children. User may read this as “old” when content was never Fetched. — **partial impl** ([[.scratch/selective-client-loading/spec.md]], [[CONTEXT.md]] Loaded/Unloaded/Resident).
+5. **Selective loading: Browser holds a partial resident projection.** Unloaded Nodes are intentional hollow stubs; server has full Children. User may read this as “old” when content was never Fetched. — **partial impl** ([[plan/selective-client-loading/spec.md]], [[CONTEXT.md]] Loaded/Unloaded/Resident).
 
 6. **Server structural Changes under Unloaded parents do not apply on the client.** `applyServerTail` skips structural Replace when the parent’s Children are Unloaded until Load brings the list. — **known gap** ([[tests/Shared.Tests/SyncLogicTests.fs]] ``applyServerTail skips structural Replace on Unloaded parent``).
 
-7. **Load Workspace demotes rediscovered Added paths from Current to Unparsed.** Active fix: reconcile should keep Current when the server already parsed the file. — **wrong impl** ([[.scratch/parse-load-demote/issues/01-keep-current-on-rediscovered-added.md]], [[src/Shared/dotnet/LazyLoadReconciliationApply.fs]]).
+7. **Load Workspace demotes rediscovered Added paths from Current to Unparsed.** Active fix: reconcile should keep Current when the server already parsed the file. — **wrong impl** ([[plan/parse-load-demote/issues/01-keep-current-on-rediscovered-added.md]], [[src/Shared/dotnet/LazyLoadReconciliationApply.fs]]).
 
 8. **CodeOutdated / server restart via build stamps.** Poll compares `buildEpochSec` and `pageBuildEpochSec`; mismatch sets sync risk and does not auto-refresh (Ack does not reload code). — **partial impl** ([[src/Shared/SyncLogic.fs]] `getPollOutcome`, [[WORK.md]] page-stamp watch decision).
 
@@ -49,7 +49,7 @@ Branch: `selective-client-sync` (ahead 8); working tree clean per `status.sh`.
 
 ## Banner stuck on “Starting up…”
 
-**User facts:** yellow `#sync-status` label **predates BootCache**; UI (outline, edits) can work while the banner never leaves “Starting up…”. **Not** the static `#amb-document` “Loading…” placeholder ([[.scratch/client-start-time/research.md]]).
+**User facts:** yellow `#sync-status` label **predates BootCache**; UI (outline, edits) can work while the banner never leaves “Starting up…”. **Not** the static `#amb-document` “Loading…” placeholder ([[plan/client-start-time/research.md]]).
 
 **Label map:** `"Starting up…"` + class `amb-syncing` (yellow `#ff9`) when `not syncInfo.isServerReady` — **before** any `syncState` branch ([[src/Client/StatusView.fs]] L11–13; [[src/Server/wwwroot/style.css]] L296–298). After ready: `Idle` → `"synced"` / `"idle"` (green); `Polling` → `"Checking…"`; risk states → red stale copy. **No** `SyncState.Starting`; **Ack** only dismisses the blocking overlay, not this label ([[src/Client/Overlays.fs]] L168–205, [[src/Client/Update.fs]] L148–149).
 
@@ -59,7 +59,7 @@ Branch: `selective-client-sync` (ahead 8); working tree clean per `status.sh`.
 
 1. **`/state` returned `isReady = false` and no later Poll carried `isReady = true`.** Graph still installs; banner stays yellow. Boot poll failure is silent (`runBootPoll` empty `onPollFail` — [[src/Client/Program.fs]] L187–188); periodic poll failure sends `PollDone` with `readyOpt = None` ([[src/Client/App.fs]] L423–426), leaving `isServerReady` unchanged. — **known gap**
 
-2. **Server maintenance never completes.** DbAgent `ready.TrySetResult` never runs; every state/poll keeps `isReady = false` ([[.scratch/owner-edge-db-repair/user-report.md]]). UI reads work; banner stuck indefinitely. — **known gap**
+2. **Server maintenance never completes.** DbAgent `ready.TrySetResult` never runs; every state/poll keeps `isReady = false` ([[plan/owner-edge-db-repair/user-report.md]]). UI reads work; banner stuck indefinitely. — **known gap**
 
 3. **Same inactive-tab Poll gate as narrowed idle case.** `pollForRemoteChanges` skips ticks when hidden or idle >15 min ([[src/Client/App.fs]] L676–686) — if boot left `isServerReady = false`, the handshake Poll that would flip the banner may never run on a long-inactive tab. — **known gap** (orthogonal to BootCache)
 

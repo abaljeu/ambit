@@ -15,4 +15,4 @@ How does focusing on an Epic remind you of related Projects, and when is the Epi
 
 ## Answer
 
-Convention on [[.scratch/roadmap/map.md]] and each Epic file. Chapter vs Required for done, no overlap. Wiki portions about this Epic gate this Epic.
+Convention on [[plan/roadmap/map.md]] and each Epic file. Chapter vs Required for done, no overlap. Wiki portions about this Epic gate this Epic.

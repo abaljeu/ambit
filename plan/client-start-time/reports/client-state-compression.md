@@ -2,7 +2,7 @@
 
 Date: 2026-08-27  
 Branch: `w/relaxed-concurrency`  
-Parent: [[.scratch/client-start-time/research.md]]
+Parent: [[plan/client-start-time/research.md]]
 
 ## Verdict
 

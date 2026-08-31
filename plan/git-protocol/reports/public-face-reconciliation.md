@@ -57,7 +57,7 @@ Neither deploy path uses a container. [[scripts/_deploy.sh]] builds with Fable, 
 - [[doc/reference/cpanel-transparent-proxy.md]] lines 4, 25, 31, 33 and 36 — the file is the Apache side of the production custom-domain proxy; line 31 states "Upload repo-root [[.htaccess]] and [[proxy.php]] to the cPanel document root after changes"
 - [[doc/README.md]] line 45 — index entry for that reference document
 - [[.github/prompts/plan-workspaceGitRobustness.prompt.md]] line 35 — describes the `.htaccess` → `proxy.php` → Azure request path
-- [[.scratch/client-start-time/research.md]] lines 157, 182, 188 and 275 — same production path
+- [[plan/client-start-time/research.md]] lines 157, 182, 188 and 275 — same production path
 
 **Deleting [[.htaccess]] breaks no build, deploy or CI path.** The operational cost is different: the repository stops holding the versioned copy of the live Apache rewrite rules that [[doc/reference/cpanel-transparent-proxy.md]] tells the operator to upload. [[proxy.php]] stays at the repository root, so after the delete the documented pair is split — half tracked, half not. Two follow-up items therefore belong with the delete:
 

@@ -18,5 +18,5 @@ Record options and tradeoffs only — do not recommend a product decision here; 
 
 ## Comments
 
-- Findings: [[.scratch/login-context-restore/research/03-httponly-cookie-options-for-safari-durability.md]]
+- Findings: [[plan/login-context-restore/research/03-httponly-cookie-options-for-safari-durability.md]]
 - Closed on `w/login-context-restore` (common project branch; no `research/*` checkout).

@@ -10,15 +10,15 @@ Chart how existing Projects and Epics implement transport instances or dependenc
 
 | Leg | Role | Pointer |
 | --- | --- | --- |
-| **Parse/Persist primitive** | Shared text in ↔ Graph **Changes** / slice out | [[details/parse-persist.md]]; ESO [[.scratch/event-sourced-ops/details/actors-and-jobs.md]] |
-| **File channel (disk)** | Upload/Download, workspace mapping, auto sync | [[.scratch/roadmap/epics/work-with-text-files-from-anywhere.md]]; [[.scratch/auto-download-persisted-files/project.md]] |
-| **Document codecs** | Round-trip Parse/reconcile on File Node bodies | [[.scratch/document-formats/map.md]]; [[.scratch/roadmap/epics/build-or-explore-a-wiki.md]] (`.md` leg) |
-| **Web publish (outbound)** | Generate HTML and send attachments and CSS (Graph / HTML File content → visitor-facing site; not HTML File body only) | [[.scratch/roadmap/epics/create-and-publish-web-pages.md]] |
-| **Wiki publish (outbound)** | Public URL: Graph / `.md` File content → HTML for visitors; not HTML File pages | [[.scratch/roadmap/epics/build-or-explore-a-wiki.md]] (Public URL chapter) |
-| **Agent Actor** | Long-running inbound (LLM reply as Owned children) | [[.scratch/llm-connector/project.md]]; [[.scratch/roadmap/epics/agent-chat-managed-context.md]] |
-| **Load / residency** | Fetch subgraph, Unloaded/Loaded boundaries for inbound materialization | [[.scratch/selective-client-loading/project.md]] |
-| **ESO spine** | Actor produce path, merge, job identity, soft-lock | [[.scratch/event-sourced-ops/project.md]] |
-| **PKM consumer** | Find and navigate material already in the Graph | [[.scratch/roadmap/epics/operate-a-pkm.md]] — depends on transport-layer, does not implement it |
+| **Parse/Persist primitive** | Shared text in ↔ Graph **Changes** / slice out | [[details/parse-persist.md]]; ESO [[plan/event-sourced-ops/details/actors-and-jobs.md]] |
+| **File channel (disk)** | Upload/Download, workspace mapping, auto sync | [[plan/roadmap/epics/work-with-text-files-from-anywhere.md]]; [[plan/auto-download-persisted-files/project.md]] |
+| **Document codecs** | Round-trip Parse/reconcile on File Node bodies | [[plan/document-formats/map.md]]; [[plan/roadmap/epics/build-or-explore-a-wiki.md]] (`.md` leg) |
+| **Web publish (outbound)** | Generate HTML and send attachments and CSS (Graph / HTML File content → visitor-facing site; not HTML File body only) | [[plan/roadmap/epics/create-and-publish-web-pages.md]] |
+| **Wiki publish (outbound)** | Public URL: Graph / `.md` File content → HTML for visitors; not HTML File pages | [[plan/roadmap/epics/build-or-explore-a-wiki.md]] (Public URL chapter) |
+| **Agent Actor** | Long-running inbound (LLM reply as Owned children) | [[plan/llm-connector/project.md]]; [[plan/roadmap/epics/agent-chat-managed-context.md]] |
+| **Load / residency** | Fetch subgraph, Unloaded/Loaded boundaries for inbound materialization | [[plan/selective-client-loading/project.md]] |
+| **ESO spine** | Actor produce path, merge, job identity, soft-lock | [[plan/event-sourced-ops/project.md]] |
+| **PKM consumer** | Find and navigate material already in the Graph | [[plan/roadmap/epics/operate-a-pkm.md]] — depends on transport-layer, does not implement it |
 
 ```mermaid
 %%{init: {'themeVariables': {'fontSize': '20px'}}}%%
@@ -61,7 +61,7 @@ Chart a new feature-set Project per source or protocol when work appears. Each s
 
 Candidates not yet filed as Projects:
 
-- [ ] Google Drive/Docs (example) — inbound, likely later round-trip; Epic home [[.scratch/roadmap/epics/work-with-text-files-from-anywhere.md]].
+- [ ] Google Drive/Docs (example) — inbound, likely later round-trip; Epic home [[plan/roadmap/epics/work-with-text-files-from-anywhere.md]].
 - [ ] API / OAuth connector (generic SaaS inbound).
 - [ ] Paste / clipboard inbound (Browser channel).
 - [ ] CLI / MCP Actor (agent-chat Epic remainder).

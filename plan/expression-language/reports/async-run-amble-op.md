@@ -1,6 +1,6 @@
 # Can `runAmbleOp` easily be made async?
 
-Investigation only. No product code changed. Written from `selective-client-sync` (clean tree) into this project's reports folder; preferred home is [[.scratch/expression-language/]] because Run / Expr eval lives here. Related: [[expr-eval-pull-enumerator-impl.md]], [[expr-eval-pull-enumerator.md]], [[run-changes-not-effective.md]].
+Investigation only. No product code changed. Written from `selective-client-sync` (clean tree) into this project's reports folder; preferred home is [[plan/expression-language/]] because Run / Expr eval lives here. Related: [[expr-eval-pull-enumerator-impl.md]], [[expr-eval-pull-enumerator.md]], [[run-changes-not-effective.md]].
 
 ## Verdict
 
@@ -46,7 +46,7 @@ Not Elmish `Cmd.ofAsync` / `Cmd.ofPromise`. Pattern is:
 - Updater returns quickly with a deferred Effect (`ContinueWorkspacePush`, `ContinueParseFile`, …).
 - [[src/Client/App.fs]] `runEffect` uses `setTimeout` (often 50 ms) then `postJson` / fetch, then `dispatch (ApplyOp continuation)`.
 
-Comments in App explicitly say delay past the current frame so UI can paint (e.g. Uploading). Search dialog debounce uses `window.setTimeout` in view code. Clipboard uses promise interop. Boot / client-start-time work uses the same `setTimeout 0` defer idea ([[.scratch/client-start-time/reports/bucket-3-post-state-work.md]]).
+Comments in App explicitly say delay past the current frame so UI can paint (e.g. Uploading). Search dialog debounce uses `window.setTimeout` in view code. Clipboard uses promise interop. Boot / client-start-time work uses the same `setTimeout 0` defer idea ([[plan/client-start-time/reports/bucket-3-post-state-work.md]]).
 
 No `requestIdleCallback` / `requestAnimationFrame` Run scheduler today. Dom bindings expose `requestAnimationFrame` but Run does not use it.
 
@@ -98,11 +98,11 @@ That is the real responsiveness path; Stream already exists for step 1–2.
 - **applyAndPost / pending queue:** local apply must stay single-threaded and ordered with other Changes; only the **planning** phase should be sliced. Do not post partial Children mid-run unless that is an explicit product rule.
 - **AND / `toList`:** one pull can still do unbounded work; time-slicing at Stream boundaries is incomplete until expensive combinators cooperate.
 
-## 8. Existing .scratch / docs
+## 8. Existing plan / docs
 
-- No ticket titled "async amble run". Closest work is Expression Language Stream / Run cap ([[expr-eval-pull-enumerator-impl.md]]) and hang fix for self-Ref unfold ([[.scratch/expression-language/issues/27-run-star-containing-self-ref-hang.md]]).
-- Client responsiveness patterns live under [[.scratch/client-start-time/]] (defer post-paint work), not Run-specific.
-- [[.scratch/large-node-cursor-perf/]] is DOM/selection cost, not Expr eval.
+- No ticket titled "async amble run". Closest work is Expression Language Stream / Run cap ([[expr-eval-pull-enumerator-impl.md]]) and hang fix for self-Ref unfold ([[plan/expression-language/issues/27-run-star-containing-self-ref-hang.md]]).
+- Client responsiveness patterns live under [[plan/client-start-time/]] (defer post-paint work), not Run-specific.
+- [[plan/large-node-cursor-perf/]] is DOM/selection cost, not Expr eval.
 
 ## WORK.md mutations
 

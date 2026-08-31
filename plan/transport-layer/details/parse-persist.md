@@ -35,8 +35,8 @@ Inbound: outside text → Parse → **Changes** on the Actor path. Outbound: Gra
 | Bytes on disk | Upload / Download (not Parse/Persist themselves) |
 | Text → Graph | Load **Parse** stage; **Parse File** Server **Actor** |
 | Graph → text | Document codec **Persist** / reconcile on File Node |
-| Round-trip | Codec Parse/reconcile + workspace sync ([[.scratch/document-formats/map.md]]) |
-| Residency | **Fetch** after Parse ([[.scratch/selective-client-loading/project.md]]) |
+| Round-trip | Codec Parse/reconcile + workspace sync ([[plan/document-formats/map.md]]) |
+| Residency | **Fetch** after Parse ([[plan/selective-client-loading/project.md]]) |
 
 Parse File on disk is the reference **Actor** implementation; generalized produce path and job identity live in event-sourced-ops.
 
@@ -53,4 +53,4 @@ Codecs (document-formats) own format-specific Parse/Persist grammar. Transport-l
 
 ## Related vocabulary
 
-Locked terms: [[.scratch/event-sourced-ops/details/vocabulary.md]]. Gambol glossary: [[CONTEXT.md]] — **Parse**, **Load**, **Change**, **Actor**, **File Node**, **Sync**.
+Locked terms: [[plan/event-sourced-ops/details/vocabulary.md]]. Gambol glossary: [[CONTEXT.md]] — **Parse**, **Load**, **Change**, **Actor**, **File Node**, **Sync**.

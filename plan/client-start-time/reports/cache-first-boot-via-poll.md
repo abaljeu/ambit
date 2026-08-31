@@ -2,9 +2,9 @@
 
 Date: 2026-08-27
 Branch: `w/relaxed-concurrency`
-Parent: [[.scratch/client-start-time/reports/reload-state-reuse-investigation.md]], [[.scratch/client-start-time/project.md]]
-Explicitly **not**: two-phase visible-closure fetch ([[.scratch/selective-client-loading/reports/two-phase-state-loading-exploration.md]])
-Related: [[.scratch/event-sourced-ops/overview.md]]
+Parent: [[plan/client-start-time/reports/reload-state-reuse-investigation.md]], [[plan/client-start-time/project.md]]
+Explicitly **not**: two-phase visible-closure fetch ([[plan/selective-client-loading/reports/two-phase-state-loading-exploration.md]])
+Related: [[plan/event-sourced-ops/overview.md]]
 
 ## Executive answer
 
@@ -33,7 +33,7 @@ No new bootstrap API is required for the common warm-reload path.
 
 ## Event-sourced cache
 
-This is the resident model [[.scratch/event-sourced-ops/overview.md]] already uses: **F' = apply(F, Δ)**. The cache is a local replica of that fold, not a second kind of state.
+This is the resident model [[plan/event-sourced-ops/overview.md]] already uses: **F' = apply(F, Δ)**. The cache is a local replica of that fold, not a second kind of state.
 
 | Piece | In IndexedDB |
 | --- | --- |
@@ -318,7 +318,7 @@ Do **not** invalidate on revision match alone — that is the hit case.
 
 ## Relation to selective client loading
 
-This project is **fast reboot** ([[.scratch/client-start-time/project.md]]). It is out of scope of [[.scratch/selective-client-loading/spec.md]]. That specification lists IndexedDB startup caches as out of scope because they are this project's work, not because they are forbidden.
+This project is **fast reboot** ([[plan/client-start-time/project.md]]). It is out of scope of [[plan/selective-client-loading/spec.md]]. That specification lists IndexedDB startup caches as out of scope because they are this project's work, not because they are forbidden.
 
 User story 11 there is a **memory-footprint** story: the user must have a way to drop Workspaces that are no longer needed. Refresh remains that way for Load residency. A bootstrap-scoped snapshot is the same size as `/state`. It does not keep Workspaces added only by Load.
 
@@ -351,8 +351,8 @@ Slices 1–4 deliver the user-visible win with a current first paint. Slice 5 co
 | --- | --- |
 | Server revision-keyed encode cache | Complementary — speeds `/state` fallback and cold miss; does not replace client cache |
 | Bucket 3 defer fold restore | Orthogonal — improves post-paint work after Graph is available |
-| Two-phase visible-closure fetch | **Not chosen** — smaller `/state`, still a round trip; open questions remain ([[.scratch/selective-client-loading/reports/two-phase-state-loading-exploration.md]]). Complementary later for cold miss only |
-| [[.scratch/client-start-time/reports/reload-state-reuse-investigation.md]] | This doc is the concrete design for recommendation #4, revised to snapshot + events |
+| Two-phase visible-closure fetch | **Not chosen** — smaller `/state`, still a round trip; open questions remain ([[plan/selective-client-loading/reports/two-phase-state-loading-exploration.md]]). Complementary later for cold miss only |
+| [[plan/client-start-time/reports/reload-state-reuse-investigation.md]] | This doc is the concrete design for recommendation #4, revised to snapshot + events |
 
 ---
 
@@ -370,8 +370,8 @@ Slices 1–4 deliver the user-visible win with a current first paint. Slice 5 co
 | Bootstrap scope | [[src/Shared/ResidentProjection.fs]] |
 | Session hints | [[src/Client/SessionState.fs]] |
 | Change / History apply | [[src/Shared/History.fs]] |
-| Residency spec | [[.scratch/selective-client-loading/spec.md]] |
-| Event model | [[.scratch/event-sourced-ops/overview.md]] |
+| Residency spec | [[plan/selective-client-loading/spec.md]] |
+| Event model | [[plan/event-sourced-ops/overview.md]] |
 
 ## Status
 

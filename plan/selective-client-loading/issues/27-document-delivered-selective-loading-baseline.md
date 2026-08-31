@@ -6,7 +6,7 @@
 
 **Blocked by:** 20 — Restore saved zoom Workspace during bootstrap; 28 — Make hollow-circle clicks invoke Load; 24 — Keep navigation and Find resident-only; 26 — Forbid Unloaded destinations in the Move dialog.
 
-**See also:** [[.scratch/selective-client-loading/spec.md]] (Further Notes documentation promotion); [[.scratch/selective-client-loading/issues/14-simplify-selective-loading.md]] (Authority).
+**See also:** [[plan/selective-client-loading/spec.md]] (Further Notes documentation promotion); [[plan/selective-client-loading/issues/14-simplify-selective-loading.md]] (Authority).
 
 **Status:** ready-for-agent
 

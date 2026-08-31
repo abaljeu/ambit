@@ -36,4 +36,4 @@ The completed Change rides in that sequence. A Client must receive both the othe
 
 Delete plus promote in one Change is Move-shaped: the owner count stays at one. If a defective Change would raise it to two, the extra Owned edge becomes a Ref — the bug net in [[merge-invariant.md]].
 
-Repair of pre-existing defects at startup stays a separate, no-Change path — [[.scratch/owner-edge-db-repair/]].
+Repair of pre-existing defects at startup stays a separate, no-Change path — [[plan/owner-edge-db-repair/]].

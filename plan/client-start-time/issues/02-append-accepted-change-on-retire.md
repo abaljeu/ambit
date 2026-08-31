@@ -6,7 +6,7 @@
 
 **Blocked by:** [[01-persist-bootstrap-snapshot-after-state.md]]
 
-**See also:** [[.scratch/client-start-time/reports/cache-first-boot-via-poll.md]], [[src/Shared/SyncPlanner.fs]], [[src/Shared/SyncLogic.fs]], [[.scratch/event-sourced-ops/overview.md]]
+**See also:** [[plan/client-start-time/reports/cache-first-boot-via-poll.md]], [[src/Shared/SyncPlanner.fs]], [[src/Shared/SyncLogic.fs]], [[plan/event-sourced-ops/overview.md]]
 
 **Status:** ready-for-agent
 

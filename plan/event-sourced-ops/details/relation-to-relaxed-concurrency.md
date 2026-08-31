@@ -1,6 +1,6 @@
 # Relation to relaxed concurrency
 
-[[.scratch/relaxed-concurrency/]] is a **build-upon layer** on this project. Event-sourced-ops is the foundation: active concurrency standard, protocol, and implementation. Relaxed concurrency retains verified Graph/Ops facts, audit documents, shared rejections, and frontier open questions D–F — not slice specs, merge-sync protocol, or active implementation plans.
+[[plan/relaxed-concurrency/]] is a **build-upon layer** on this project. Event-sourced-ops is the foundation: active concurrency standard, protocol, and implementation. Relaxed concurrency retains verified Graph/Ops facts, audit documents, shared rejections, and frontier open questions D–F — not slice specs, merge-sync protocol, or active implementation plans.
 
 ## Roles
 
@@ -8,8 +8,8 @@
 
 **Relaxed concurrency** records upstream evidence that informed that work:
 
-- Verified knowns ([[.scratch/relaxed-concurrency/map.md]])
-- Audits: [[.scratch/relaxed-concurrency/replace-span-cas-feasibility.md]], [[.scratch/relaxed-concurrency/child-occurrence-uniqueness.md]]
+- Verified knowns ([[plan/relaxed-concurrency/map.md]])
+- Audits: [[plan/relaxed-concurrency/replace-span-cas-feasibility.md]], [[plan/relaxed-concurrency/child-occurrence-uniqueness.md]]
 - Shared rejections (genesis replay, id-anchored Replace, convergence without rejection)
 - Frontier questions D–F (hybrid authority, identity across reparse, undo under command/event split)
 

@@ -1,7 +1,7 @@
 # transport-layer
 
 Stage: charting
-Summary: Cross-cutting transport layer — inbound, outbound, and round-trip patterns for moving information between outside sources and the Graph while Graph stays authority; Parse/Persist as the shared text-processing unit; module contract for connector Actors; `.scratch` until promoted to `doc/`.
+Summary: Cross-cutting transport layer — inbound, outbound, and round-trip patterns for moving information between outside sources and the Graph while Graph stays authority; Parse/Persist as the shared text-processing unit; module contract for connector Actors; `plan` until promoted to `doc/`.
 Updated: 2026-08-31
 
 ## Objective
@@ -10,9 +10,9 @@ Chart how arbitrary outside sources connect to Gambol: materialize external data
 
 ## Dependencies
 
-- **Depends on:** [[.scratch/event-sourced-ops/project.md]] — Actor produce path, merge, job identity, soft-lock.
-- **Uses (legs):** [[.scratch/document-formats/map.md]] (codec Parse/Persist), [[.scratch/llm-connector/project.md]] (agent Actor), [[.scratch/selective-client-loading/project.md]] (Load/residency), workspace file sync Projects (file channel).
-- **Enables:** [[.scratch/roadmap/epics/operate-a-pkm.md]] — PKM consumes and navigates transported material; it does not implement the transport layer.
+- **Depends on:** [[plan/event-sourced-ops/project.md]] — Actor produce path, merge, job identity, soft-lock.
+- **Uses (legs):** [[plan/document-formats/map.md]] (codec Parse/Persist), [[plan/llm-connector/project.md]] (agent Actor), [[plan/selective-client-loading/project.md]] (Load/residency), workspace file sync Projects (file channel).
+- **Enables:** [[plan/roadmap/epics/operate-a-pkm.md]] — PKM consumes and navigates transported material; it does not implement the transport layer.
 
 ## Out of scope (this Project)
 
@@ -26,5 +26,5 @@ Chart how arbitrary outside sources connect to Gambol: materialize external data
 - Start at [[overview.md]] — what transport-layer is and the three flows.
 - Map of legs and future connectors: [[map.md]].
 - Parse/Persist primitive: [[details/parse-persist.md]].
-- Framing report: [[.scratch/roadmap/reports/hub-epic-framing.md]].
-- Scope vs product commitment: [[docs/agents/scope-vs-commitment.md]].
+- Framing report: [[plan/roadmap/reports/hub-epic-framing.md]].
+- Scope vs product commitment: [[doc/agents/scope-vs-commitment.md]].

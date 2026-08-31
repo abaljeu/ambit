@@ -42,13 +42,13 @@ Each issue: Context, What to build, Blocked by, See also, Status `ready-for-agen
 
 ## Verification
 
-- 12 issue files under `.scratch/event-sourced-ops/issues/`.
+- 12 issue files under `plan/event-sourced-ops/issues/`.
 - Numbers, titles, and Blocked-by edges match approved draft.
 - All Status lines `ready-for-agent`.
 - No software edits; WORK.md not edited; no commit.
 
 ## Recommended WORK.md mutations (parent)
 
-- **remove** Active [[.scratch/event-sourced-ops/to-tickets-draft.md]] quiz/publish entry (publish complete).
-- **add** Pending frontier: [[.scratch/event-sourced-ops/issues/01-shared-success-envelope-expand.md]] and [[.scratch/event-sourced-ops/issues/02-independent-concurrent-changes-succeed.md]] — start critical-flaw elimination (parent: [[.scratch/event-sourced-ops/project.md]]).
-- **note** [[.scratch/relaxed-concurrency/]] is a build-upon layer (Stage done); gate removal delivered in issue 02.
+- **remove** Active [[plan/event-sourced-ops/to-tickets-draft.md]] quiz/publish entry (publish complete).
+- **add** Pending frontier: [[plan/event-sourced-ops/issues/01-shared-success-envelope-expand.md]] and [[plan/event-sourced-ops/issues/02-independent-concurrent-changes-succeed.md]] — start critical-flaw elimination (parent: [[plan/event-sourced-ops/project.md]]).
+- **note** [[plan/relaxed-concurrency/]] is a build-upon layer (Stage done); gate removal delivered in issue 02.

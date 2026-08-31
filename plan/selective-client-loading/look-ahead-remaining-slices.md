@@ -93,4 +93,4 @@ None. Spec already requires sending ordinary Changes; the leftover adapter is a 
 
 ## Proposed WORK.md mutation
 
-- `add` [[.scratch/selective-client-loading/look-ahead-remaining-slices.md]] to Pending — remainder realignment note before Slice 3b.
+- `add` [[plan/selective-client-loading/look-ahead-remaining-slices.md]] to Pending — remainder realignment note before Slice 3b.

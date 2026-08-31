@@ -10,7 +10,7 @@ Not a parse error, type error, thrown exception, or `Error` from [[src/Shared/Am
 
 ## Root cause
 
-[[.scratch/expression-language/spec.md]] spells `//` as shorthand for `root /`. Structural search `/` does Owned recursive descent strictly below the input and does not enter the Children of a Directory Node or Workspace Node. Deeper names need a chain (`//ws/x`).
+[[plan/expression-language/spec.md]] spells `//` as shorthand for `root /`. Structural search `/` does Owned recursive descent strictly below the input and does not enter the Children of a Directory Node or Workspace Node. Deeper names need a chain (`//ws/x`).
 
 ROOT is a Workspace Node. The Workspaces container is not a Directory Node or Workspace Node, so `/` does enter it and can match a Workspace named Example. A Directory Node or File Node named Example that is Owned under some other Workspace is behind that wall, so `= //Example` is a miss.
 

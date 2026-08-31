@@ -313,6 +313,6 @@ and exact in-flight retry boundary remain independently useful.
 
 ## Proposed WORK.md mutation
 
-- `remove` [[.scratch/selective-client-loading/audit-optimistic-undo-safety.md]] from
+- `remove` [[plan/selective-client-loading/audit-optimistic-undo-safety.md]] from
   Active: the audit is complete. Add a new actionable plan item only if the root adopts
   submitted-only History semantics and needs the implementation plan revised.

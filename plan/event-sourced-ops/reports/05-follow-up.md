@@ -26,7 +26,7 @@ Prior failure `non-empty Poll tail clears ClientHistory before projection` was a
 ## Project stage
 
 - [[../project.md]] remains **active** (issues 06–12 and polish remain; issue 05 was one slice, not project completion).
-- `.scratch/index.md` unchanged.
+- `plan/index.md` unchanged.
 
 ## Commits
 
