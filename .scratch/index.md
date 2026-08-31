@@ -8,6 +8,7 @@
 | [Document formats](document-formats/) | charting | Remaining document formats (including XML read/write) after the workspace file model baseline. |
 | [Download no-parse fix](download-no-parse-fix/) | charting | Download stamp-align must not require Parse; SetUpdateTime is exempt from the unparsed-document gate. |
 | [End-user wiki](end-user-wiki/) | charting | A browsable wiki that describes the software for people who use it. |
+| [Graph view](graph-view/) | charting | Radial focus-centric tree view with Ref edges as annulus overlay; portals and optional satellite radials for off-subtree links. |
 | [llm-connector](llm-connector/) | charting | Run `?` with included context; LLM reply as Owned children; long-running Actor. |
 | [Marketing wiki](marketing-wiki/) | charting | A GitLab-level browsable wiki of uses; not a campaign. |
 | [Parse load demote](parse-load-demote/) | charting | Empty stub directory; stage unknown until contents land. |

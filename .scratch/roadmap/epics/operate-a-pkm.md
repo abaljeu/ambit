@@ -20,6 +20,7 @@ Not a Chapter. The Epic is not done until each item is done (or the named part).
 
 Live:
 
+- [ ] [[.scratch/graph-view/project.md]] — radial focus-centric graph view with Ref overlay ([[doc/roadmap/graph-view.md]])
 - [ ] [[.scratch/expression-language/project.md]] — remainder beyond Find
 - [ ] [[.scratch/selective-client-loading/project.md]]
 - [ ] [[.scratch/bullet-tip-times/project.md]]
